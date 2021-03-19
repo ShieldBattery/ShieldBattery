@@ -458,7 +458,7 @@ export class MatchmakingApi {
 
     // Clean up matchmaking queue size data older than 3 months
     const cleanupBefore = new Date()
-    cleanupBefore.setDate(cleanupBefore.getDate() - 60)
+    cleanupBefore.setDate(cleanupBefore.getDate() - 90)
     const pipeline = redis.pipeline()
     for (const type of Object.values(MatchmakingType)) {
       pipeline.zremrangebyscore(`matchmaking:${type}:queue`, 0, +cleanupBefore)
