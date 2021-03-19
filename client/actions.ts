@@ -337,6 +337,10 @@ export const SERVER_STATUS = 'SERVER_STATUS'
 export const SNACKBAR_OPEN = 'SNACKBAR_OPEN'
 export const SNACKBAR_CLOSE = 'SNACKBAR_CLOSE'
 
+// An updated validity status for each important ShieldBattery file, indicating whether they are
+// accessible and have the correct contents.
+export const SHIELDBATTERY_FILES_VALIDITY = 'SHIELDBATTERY_FILES_VALIDITY'
+
 // An updated StarCraft path validity status, stating whether or not the current path setting
 // contains an accessible starcraft.exe
 export const STARCRAFT_PATH_VALIDITY = 'STARCRAFT_PATH_VALIDITY'

@@ -7,6 +7,7 @@ import Portal from '../material/portal'
 import SimpleDialog from './simple-dialog'
 import Settings from '../settings/settings'
 import StarcraftHealthCheckupDialog from '../starcraft/starcraft-health'
+import { ShieldBatteryHealthDialog } from '../starcraft/shieldbattery-health'
 import StarcraftPathDialog from '../settings/starcraft-path-dialog'
 import JoinChannelDialog from '../chat/join-channel'
 import CreateWhisperSessionDialog from '../whispers/create-whisper'
@@ -55,6 +56,8 @@ class ConnectedDialogOverlay extends React.Component {
           : { component: StarcraftPathDialog, modal: false }
       case 'simple':
         return { component: SimpleDialog, modal: false }
+      case 'shieldBatteryHealth':
+        return { component: ShieldBatteryHealthDialog, modal: false }
       case 'starcraftHealth':
         return { component: StarcraftHealthCheckupDialog, modal: false }
       case 'starcraftPath':

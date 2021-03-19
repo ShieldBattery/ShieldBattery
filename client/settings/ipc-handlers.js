@@ -6,6 +6,7 @@ import {
   LOCAL_SETTINGS_SET,
   SCR_SETTINGS_UPDATE,
   SCR_SETTINGS_SET,
+  SHIELDBATTERY_FILES_VALIDITY,
 } from '../actions'
 import {
   CHECK_STARCRAFT_PATH,
@@ -17,6 +18,7 @@ import {
   SCR_SETTINGS_GET,
   SCR_SETTINGS_GET_ERROR,
   SCR_SETTINGS_MERGE_ERROR,
+  SHIELDBATTERY_FILES_CHECK,
 } from '../../common/ipc-constants'
 
 export default function registerModule({ ipcRenderer }) {
@@ -88,4 +90,11 @@ export default function registerModule({ ipcRenderer }) {
   // Trigger an initial update for the settings
   ipcRenderer.send(LOCAL_SETTINGS_GET)
   ipcRenderer.send(SCR_SETTINGS_GET)
+
+  ipcRenderer.invoke(SHIELDBATTERY_FILES_CHECK).then(fileResults => {
+    dispatch({
+      type: SHIELDBATTERY_FILES_VALIDITY,
+      payload: fileResults,
+    })
+  })
 }

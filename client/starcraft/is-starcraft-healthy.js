@@ -13,3 +13,7 @@ export function isStarcraftRemastered({ starcraft }) {
 export function isStarcraftHealthy({ starcraft }) {
   return hasValidStarcraftPath({ starcraft }) && hasValidStarcraftVersion({ starcraft })
 }
+
+export function isShieldBatteryHealthy({ starcraft }) {
+  return starcraft.shieldBattery.init && starcraft.shieldBattery.main
+}

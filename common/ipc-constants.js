@@ -62,6 +62,10 @@ export const SCR_SETTINGS_MERGE_ERROR = 'SCR_SETTINGS_MERGE_ERROR'
 // Cause the main process to overwrite SC:R settings
 export const SCR_SETTINGS_OVERWRITE = 'SCR_SETTINGS_OVERWRITE'
 
+// Invoked method that checks the validity of important ShieldBattery files (e.g. injected DLLs
+// that antiviruses like to delete)
+export const SHIELDBATTERY_FILES_CHECK = 'SHIELDBATTERY_FILES_CHECK'
+
 // Tells the main process that something has happened that requires a user's attention and to get it
 // somehow (by e.g. flashing the window)
 export const USER_ATTENTION_REQUIRED = 'USER_ATTENTION_REQUIRED'

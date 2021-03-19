@@ -36,12 +36,14 @@ import {
   SCR_SETTINGS_MERGE,
   SCR_SETTINGS_MERGE_ERROR,
   SCR_SETTINGS_OVERWRITE,
+  SHIELDBATTERY_FILES_CHECK,
   USER_ATTENTION_REQUIRED,
   WINDOW_CLOSE,
   WINDOW_MAXIMIZE,
   WINDOW_MAXIMIZED_STATE,
   WINDOW_MINIMIZE,
 } from '../common/ipc-constants'
+import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import currentSession from './current-session'
 import { ActiveGameManager } from './game/active-game-manager'
 import { checkStarcraftPath } from './game/check-starcraft-path'
@@ -276,6 +278,8 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
     (event, mapHash: string, mapFormat: string, mapUrl: string) =>
       mapStore.downloadMap(mapHash, mapFormat, mapUrl),
   )
+
+  ipcMain.handle(SHIELDBATTERY_FILES_CHECK, () => checkShieldBatteryFiles())
 }
 
 function setupCspProtocol(curSession: Session) {
@@ -502,7 +506,7 @@ app.on('ready', async () => {
     console.error(err)
     dialog.showErrorBox(
       'ShieldBattery Error',
-      'There was an error initializing ShieldBattery: ' + err.message,
+      `There was an error initializing ShieldBattery: ${err.message}\n${err.stack}`,
     )
     app.quit()
   }

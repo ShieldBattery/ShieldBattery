@@ -45,7 +45,7 @@ import { cancelFindMatch } from './matchmaking/action-creators'
 import { openDialog } from './dialogs/action-creators'
 import { openSnackbar } from './snackbars/action-creators'
 import { openOverlay } from './activities/action-creators'
-import { isStarcraftHealthy } from './starcraft/is-starcraft-healthy'
+import { isShieldBatteryHealthy, isStarcraftHealthy } from './starcraft/is-starcraft-healthy'
 import { openChangelogIfNecessary } from './changelog/action-creators'
 import { IsAdminFilter } from './admin/admin-route-filters'
 import { regenMapImage, removeMap } from './maps/action-creators'
@@ -373,7 +373,9 @@ class MainLayout extends React.Component {
     if (!MATCHMAKING) {
       this.props.dispatch(openSnackbar({ message: 'Not implemented yet. Coming soon!' }))
     } else {
-      if (!isStarcraftHealthy(this.props)) {
+      if (!isShieldBatteryHealthy(this.props)) {
+        this.props.dispatch(openDialog('shieldBatteryHealth'))
+      } else if (!isStarcraftHealthy(this.props)) {
         this.props.dispatch(openDialog('starcraftHealth'))
       } else {
         const matchmakingStatus = this.props.matchmakingStatus.types.get('1v1')
@@ -392,7 +394,9 @@ class MainLayout extends React.Component {
   }
 
   onCreateLobbyClick = () => {
-    if (!isStarcraftHealthy(this.props)) {
+    if (!isShieldBatteryHealthy(this.props)) {
+      this.props.dispatch(openDialog('shieldBatteryHealth'))
+    } else if (!isStarcraftHealthy(this.props)) {
       this.props.dispatch(openDialog('starcraftHealth'))
     } else {
       this.props.dispatch(openOverlay('createLobby'))
@@ -400,7 +404,9 @@ class MainLayout extends React.Component {
   }
 
   onJoinLobbyClick = () => {
-    if (!isStarcraftHealthy(this.props)) {
+    if (!isShieldBatteryHealthy(this.props)) {
+      this.props.dispatch(openDialog('shieldBatteryHealth'))
+    } else if (!isStarcraftHealthy(this.props)) {
       this.props.dispatch(openDialog('starcraftHealth'))
     } else {
       this.props.dispatch(openOverlay('joinLobby'))
@@ -434,7 +440,9 @@ class MainLayout extends React.Component {
   }
 
   onMapsClick = () => {
-    if (!isStarcraftHealthy(this.props)) {
+    if (!isShieldBatteryHealthy(this.props)) {
+      this.props.dispatch(openDialog('shieldBatteryHealth'))
+    } else if (!isStarcraftHealthy(this.props)) {
       this.props.dispatch(openDialog('starcraftHealth'))
     } else {
       this.props.dispatch(openOverlay('browseServerMaps', this.serverMapsProps))
@@ -442,7 +450,9 @@ class MainLayout extends React.Component {
   }
 
   onReplaysClick = () => {
-    if (!isStarcraftHealthy(this.props)) {
+    if (!isShieldBatteryHealthy(this.props)) {
+      this.props.dispatch(openDialog('shieldBatteryHealth'))
+    } else if (!isStarcraftHealthy(this.props)) {
       this.props.dispatch(openDialog('starcraftHealth'))
     } else {
       this.props.dispatch(openOverlay('watchReplay'))

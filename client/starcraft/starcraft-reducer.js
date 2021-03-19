@@ -1,15 +1,23 @@
 import { Record } from 'immutable'
 import keyedReducer from '../reducers/keyed-reducer'
 import {
+  SHIELDBATTERY_FILES_VALIDITY,
   STARCRAFT_PATH_VALIDITY,
   STARCRAFT_REMASTERED_STATUS,
   STARCRAFT_VERSION_VALIDITY,
 } from '../actions'
+import { ShieldBatteryFile } from '../../common/shieldbattery-file'
+
+export const ShieldBatteryFileStatus = new Record({
+  init: false,
+  main: false,
+})
 
 export const StarcraftStatus = new Record({
   pathValid: false,
   versionValid: false,
   isRemastered: false,
+  shieldBattery: ShieldBatteryFileStatus(),
 })
 
 export default keyedReducer(new StarcraftStatus(), {
@@ -23,5 +31,17 @@ export default keyedReducer(new StarcraftStatus(), {
 
   [STARCRAFT_REMASTERED_STATUS](state, action) {
     return state.set('isRemastered', action.payload)
+  },
+
+  [SHIELDBATTERY_FILES_VALIDITY](state, action) {
+    const resultsMap = new Map(action.payload)
+
+    return state.set(
+      'shieldBattery',
+      ShieldBatteryFileStatus({
+        init: resultsMap.get(ShieldBatteryFile.Init) ?? false,
+        main: resultsMap.get(ShieldBatteryFile.Main) ?? false,
+      }),
+    )
   },
 })
