@@ -119,7 +119,7 @@ export default class RacePicker extends React.Component {
   }
 
   static defaultProps = {
-    disableRace: null, 
+    disableRace: null,
     size: RACE_PICKER_SIZE_MEDIUM,
     allowRandom: true,
   }
@@ -129,13 +129,13 @@ export default class RacePicker extends React.Component {
     const activeRace = this.props.race
     const onClick = this.props.onSetRace ? () => this.props.onSetRace(race) : null
 
-    return (
-      race !== disableRace ?
+    return race !== disableRace ? (
       <RaceButton
         label={<StyledRaceIcon active={race === activeRace} race={race} size={size} />}
         size={size}
         onClick={onClick}
-      /> :
+      />
+    ) : (
       <Deselected />
     )
   }
