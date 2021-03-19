@@ -6,7 +6,7 @@ import { RaceButton, StyledRaceIcon } from './race-picker'
 
 import { colorDividers } from '../styles/colors'
 
-const Deselected = styled.span`
+export const Deselected = styled.span`
   position: relative;
   display: inline-block;
   vertical-align: middle;

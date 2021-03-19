@@ -4,9 +4,10 @@ import styled from 'styled-components'
 
 import Button from '../material/button'
 import RaceIcon from './race-icon'
+import { Deselected } from './selected-race'
 
 import { fastOutSlowIn } from '../material/curve-constants'
-import { colorTextFaint, colorDividers } from '../styles/colors'
+import { colorTextFaint } from '../styles/colors'
 
 export const RACE_PICKER_SIZE_MEDIUM = 'MEDIUM'
 export const RACE_PICKER_SIZE_LARGE = 'LARGE'
@@ -82,31 +83,6 @@ export const StyledRaceIcon = styled(RaceIcon)`
 
     return ''
   }};
-`
-
-const Deselected = styled.span`
-  position: relative;
-  display: inline-block;
-  vertical-align: middle;
-  width: 36px;
-  height: 36px;
-  min-height: 32px;
-  padding: 2px;
-
-  &:not(:first-child) {
-    margin-left: 4px;
-  }
-
-  &::after {
-    content: '';
-    position: absolute;
-    left: calc(50% - 6px);
-    top: calc(50% - 6px);
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background-color: ${colorDividers};
-  }
 `
 
 export default class RacePicker extends React.Component {
