@@ -4,7 +4,7 @@ import styled from 'styled-components'
 
 import Button from '../material/button'
 import RaceIcon from './race-icon'
-import { Deselected } from './selected-race'
+import { HiddenRaceIcon } from './selected-race'
 
 import { fastOutSlowIn } from '../material/curve-constants'
 import { colorTextFaint } from '../styles/colors'
@@ -66,9 +66,14 @@ export const StyledRaceIcon = styled(RaceIcon)`
     return `
       fill: ${props.active ? color : colorTextFaint};
 
-      &:hover,
-      &:active {
-        fill: ${color};
+      ${
+        props.interactive
+          ? `
+        &:hover,
+        &:active {
+          fill: ${color};
+        }`
+          : ''
       }
     `
   }}
@@ -88,31 +93,40 @@ export const StyledRaceIcon = styled(RaceIcon)`
 export default class RacePicker extends React.Component {
   static propTypes = {
     race: PropTypes.oneOf(['r', 'p', 't', 'z']).isRequired,
-    disableRace: PropTypes.oneOf(['r', 'p', 't', 'z']),
+    hiddenRaces: PropTypes.arrayOf(PropTypes.string),
     size: PropTypes.oneOf([RACE_PICKER_SIZE_MEDIUM, RACE_PICKER_SIZE_LARGE]),
     allowRandom: PropTypes.bool,
     onSetRace: PropTypes.func,
+    allowInteraction: PropTypes.bool,
   }
 
   static defaultProps = {
-    disableRace: null,
     size: RACE_PICKER_SIZE_MEDIUM,
     allowRandom: true,
+    allowInteraction: true,
   }
 
   renderIcon(race) {
-    const { size, disableRace } = this.props
+    const { size, hiddenRaces, allowInteraction } = this.props
     const activeRace = this.props.race
     const onClick = this.props.onSetRace ? () => this.props.onSetRace(race) : null
 
-    return race !== disableRace ? (
+    return hiddenRaces && hiddenRaces.includes(race) ? (
+      <HiddenRaceIcon />
+    ) : (
       <RaceButton
-        label={<StyledRaceIcon active={race === activeRace} race={race} size={size} />}
+        disabled={!allowInteraction}
+        label={
+          <StyledRaceIcon
+            interactive={allowInteraction}
+            active={race === activeRace}
+            race={race}
+            size={size}
+          />
+        }
         size={size}
         onClick={onClick}
       />
-    ) : (
-      <Deselected />
     )
   }
 

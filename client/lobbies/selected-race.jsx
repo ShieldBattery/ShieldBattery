@@ -2,11 +2,11 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
-import { RaceButton, StyledRaceIcon } from './race-picker'
+import RacePicker from './race-picker'
 
 import { colorDividers } from '../styles/colors'
 
-export const Deselected = styled.span`
+export const HiddenRaceIcon = styled.span`
   position: relative;
   display: inline-block;
   vertical-align: middle;
@@ -37,22 +37,9 @@ export default class SelectedRace extends React.Component {
     race: PropTypes.oneOf(['r', 'p', 't', 'z']).isRequired,
   }
 
-  renderIcon(race) {
-    if (this.props.race === race) {
-      return <RaceButton disabled={true} label={<StyledRaceIcon active={true} race={race} />} />
-    } else {
-      return <Deselected />
-    }
-  }
-
   render() {
-    return (
-      <div className={this.props.className}>
-        {this.renderIcon('z')}
-        {this.renderIcon('p')}
-        {this.renderIcon('t')}
-        {this.renderIcon('r')}
-      </div>
-    )
+    const hiddenRaces = ['r', 'p', 't', 'z'].filter(race => race !== this.props.race)
+
+    return <RacePicker race={this.props.race} hiddenRaces={hiddenRaces} allowInteraction={false} />
   }
 }

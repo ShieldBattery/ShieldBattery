@@ -224,7 +224,7 @@ class Find1vs1MatchForm extends React.Component {
             </DescriptionText>
             <RaceSelect
               {...bindCustom('alternateRace')}
-              disableRace={race}
+              hiddenRaces={[race]}
               size={RACE_PICKER_SIZE_LARGE}
               allowRandom={false}
             />
