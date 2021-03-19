@@ -6,7 +6,7 @@ import Button from '../material/button'
 import RaceIcon from './race-icon'
 
 import { fastOutSlowIn } from '../material/curve-constants'
-import { colorTextFaint } from '../styles/colors'
+import { colorTextFaint, colorDividers } from '../styles/colors'
 
 export const RACE_PICKER_SIZE_MEDIUM = 'MEDIUM'
 export const RACE_PICKER_SIZE_LARGE = 'LARGE'
@@ -65,9 +65,14 @@ export const StyledRaceIcon = styled(RaceIcon)`
     return `
       fill: ${props.active ? color : colorTextFaint};
 
-      &:hover,
-      &:active {
-        fill: ${color};
+      ${
+        props.interactive
+          ? `
+        &:hover,
+        &:active {
+          fill: ${color};
+        }`
+          : ''
       }
     `
   }}
@@ -84,27 +89,65 @@ export const StyledRaceIcon = styled(RaceIcon)`
   }};
 `
 
+const HiddenRaceIcon = styled.span`
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+  width: 36px;
+  height: 36px;
+  min-height: 32px;
+  padding: 2px;
+
+  &:not(:first-child) {
+    margin-left: 4px;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: calc(50% - 6px);
+    top: calc(50% - 6px);
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: ${colorDividers};
+  }
+`
+
 export default class RacePicker extends React.Component {
   static propTypes = {
     race: PropTypes.oneOf(['r', 'p', 't', 'z']).isRequired,
+    hiddenRaces: PropTypes.arrayOf(PropTypes.string),
     size: PropTypes.oneOf([RACE_PICKER_SIZE_MEDIUM, RACE_PICKER_SIZE_LARGE]),
     allowRandom: PropTypes.bool,
     onSetRace: PropTypes.func,
+    allowInteraction: PropTypes.bool,
   }
 
   static defaultProps = {
     size: RACE_PICKER_SIZE_MEDIUM,
     allowRandom: true,
+    allowInteraction: true,
   }
 
   renderIcon(race) {
-    const { size } = this.props
+    const { size, hiddenRaces, allowInteraction } = this.props
     const activeRace = this.props.race
     const onClick = this.props.onSetRace ? () => this.props.onSetRace(race) : null
 
-    return (
+    return hiddenRaces && hiddenRaces.includes(race) ? (
+      <HiddenRaceIcon />
+    ) : (
       <RaceButton
-        label={<StyledRaceIcon active={race === activeRace} race={race} size={size} />}
+        disabled={!allowInteraction}
+        label={
+          <StyledRaceIcon
+            interactive={allowInteraction}
+            active={race === activeRace}
+            race={race}
+            size={size}
+          />
+        }
         size={size}
         onClick={onClick}
       />
