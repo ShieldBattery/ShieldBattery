@@ -169,7 +169,6 @@ const textSizeHeadlineOld = '24px'
 const textSizeDisplay1Old = '34px'
 const textSizeDisplay3Old = '56px'
 const textSizeDisplay4Old = '112px'
-const textSizeCaptionOld = '12px'
 
 export const Display4Old = styled.h1`
   text-rendering: optimizeLegibility;
