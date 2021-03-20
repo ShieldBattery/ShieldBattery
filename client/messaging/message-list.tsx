@@ -134,6 +134,13 @@ export default class MessageList extends React.Component<
     return { wasAtBottom, lastScrollHeight }
   }
 
+  componentDidMount() {
+    const scrollable = this.scrollableRef.current
+    if (scrollable) {
+      scrollable.scrollTop = scrollable.scrollHeight
+    }
+  }
+
   componentDidUpdate(prevProps: MessageListProps, _: never, snapshot: MessageListSnapshot) {
     const scrollable = this.scrollableRef.current
     if (!scrollable || scrollable.scrollHeight === snapshot.lastScrollHeight) {
