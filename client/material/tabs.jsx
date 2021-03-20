@@ -4,7 +4,7 @@ import styled from 'styled-components'
 
 import WindowListener from '../dom/window-listener'
 
-import { amberA400, colorTextSecondary, colorTextFaint } from '../styles/colors'
+import { amberA400, colorTextSecondary, colorTextFaint, colorDividers } from '../styles/colors'
 import { buttonText } from '../styles/typography'
 import { fastOutSlowIn } from '../material/curve-constants'
 
@@ -16,6 +16,8 @@ const Container = styled.ul`
   margin: 0;
   padding: 0;
   list-style: none;
+
+  contain: content;
 `
 
 export const TabTitle = styled.span`
@@ -67,6 +69,16 @@ const ActiveIndicator = styled.div`
   transition: transform 250ms ${fastOutSlowIn};
 `
 
+const BottomDivider = styled.div`
+  position: absolute;
+  height: 1px;
+  bottom: 0;
+  left: 0;
+  right: 0;
+
+  background-color: ${colorDividers};
+`
+
 export class TabItem extends React.Component {
   static propTypes = {
     text: PropTypes.string.isRequired,
@@ -99,6 +111,7 @@ export default class Tabs extends React.Component {
   static propTypes = {
     activeTab: PropTypes.number.isRequired,
     onChange: PropTypes.func,
+    bottomDivider: PropTypes.bool,
   }
 
   state = {
@@ -149,6 +162,7 @@ export default class Tabs extends React.Component {
       <Container ref={this._setRoot} className={this.props.className}>
         <WindowListener event='resize' listener={this._calcIndicatorPosition} />
         {tabs}
+        {this.props.bottomDivider ? <BottomDivider /> : null}
         <ActiveIndicator indicatorWidth={indicatorWidth} indicatorPosition={indicatorPosition} />
       </Container>
     )

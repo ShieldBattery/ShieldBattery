@@ -12,7 +12,6 @@ import LoadingIndicator from '../progress/dots'
 import MapThumbnail from '../maps/map-thumbnail'
 import RacePicker, { RACE_PICKER_SIZE_LARGE } from '../lobbies/race-picker'
 import RaisedButton from '../material/raised-button'
-import { ScrollableContent } from '../material/scroll-bar'
 import Tabs, { TabItem } from '../material/tabs'
 
 import BrowseIcon from '../icons/material/ic_casino_black_24px.svg'
@@ -29,6 +28,7 @@ import { MatchmakingType } from '../../common/matchmaking'
 
 import { amberA400, colorDividers, colorTextSecondary, colorError } from '../styles/colors'
 import { Headline5, Subtitle1, Subtitle2, subtitle1, body1, body2 } from '../styles/typography'
+import { animationFrameHandler } from '../material/animation-frame-handler'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -60,6 +60,8 @@ const TitleBar = styled.div`
 
 const Contents = styled.div`
   flex-grow: 1;
+  overflow-y: auto;
+  contain: strict;
 `
 
 const ContentsBody = styled.div`
@@ -67,18 +69,23 @@ const ContentsBody = styled.div`
 `
 
 const ScrollDivider = styled.div`
-  width: 100%;
+  position: absolute;
   height: 1px;
-  margin-top: ${props => (props.position === 'top' ? '-1px' : '0')};
-  margin-bottom: ${props => (props.position === 'bottom' ? '-1px' : '0')};
-  background-color: ${colorDividers};
+  left: 0;
+  right: 0;
+  top: 0;
+
+  background-color: ${props => (props.show ? colorDividers : 'transparent')};
+  transition: background-color 150ms linear;
 `
 
 const Actions = styled.div`
+  position: relative;
   display: flex;
   flex-direction: row;
   align-items: center;
-  margin: 16px 24px;
+  padding: 16px 24px;
+  contain: content;
 `
 
 const SectionTitle = styled.div`
@@ -226,9 +233,7 @@ class Find1vs1MatchForm extends React.Component {
         <PreferredMapsContainer>
           <PreferredHeader>
             <SectionTitle>Preferred maps</SectionTitle>
-            {mapPoolOutdated || true ? (
-              <OutdatedIndicator>Map pool changed</OutdatedIndicator>
-            ) : null}
+            {mapPoolOutdated ? <OutdatedIndicator>Map pool changed</OutdatedIndicator> : null}
           </PreferredHeader>
           <DescriptionText>
             Select up to 2 maps to be used in the per-match map pool. Your selections will be
@@ -277,7 +282,6 @@ export default class FindMatch extends React.Component {
   state = {
     activeTab: TAB_1V1,
     scrolledUp: false,
-    scrolledDown: false,
   }
 
   _form = React.createRef()
@@ -335,6 +339,7 @@ export default class FindMatch extends React.Component {
   }
 
   componentWillUnmount() {
+    this.onScrollUpdate.cancel()
     // Saves the matchmaking preferences if the component had time to unmount. If it didn't, eg. the
     // page was refreshed, the 'beforeunload' event listener will handle it.
     this._savePreferences()
@@ -348,7 +353,7 @@ export default class FindMatch extends React.Component {
     if (activeTab === TAB_2V2 || activeTab === TAB_3V3) {
       return (
         <Subtitle1>
-          Team matchmaking is not implemented yet. It should become available really soon.
+          Team matchmaking is not yet enabled. It's in development and should be avalable soon.
         </Subtitle1>
       )
     }
@@ -397,20 +402,17 @@ export default class FindMatch extends React.Component {
         <TitleBar>
           <Headline5>Find match</Headline5>
         </TitleBar>
-        <Tabs activeTab={activeTab} onChange={this.onTabChange}>
+        <Tabs bottomDivider={true} activeTab={activeTab} onChange={this.onTabChange}>
           <TabItem text='1 vs 1' />
           <TabItem text='2 vs 2' />
           <TabItem text='3 vs 3' />
         </Tabs>
-        <Contents>
-          <ScrollDivider position='top' />
-          <ScrollableContent onUpdate={this.onScrollUpdate}>
-            <ContentsBody>{this.renderContents()}</ContentsBody>
-          </ScrollableContent>
-          {scrolledUp ? <ScrollDivider position='bottom' /> : null}
+        <Contents onScroll={this.onScrollUpdate.handler}>
+          <ContentsBody>{this.renderContents()}</ContentsBody>
         </Contents>
         {activeTab === TAB_1V1 ? (
           <Actions>
+            <ScrollDivider show={scrolledUp} />
             <RaisedButton
               label='Find match'
               disabled={isMatchmakingDisabled}
@@ -428,15 +430,16 @@ export default class FindMatch extends React.Component {
     this.setState({ activeTab: value })
   }
 
-  onScrollUpdate = values => {
-    const { scrollTop, scrollHeight, clientHeight } = values
-    const scrolledUp = scrollTop + clientHeight < scrollHeight
-    const scrolledDown = scrollTop > 0
-
-    if (scrolledUp !== this.state.scrolledUp || scrolledDown !== this.state.scrolledDown) {
-      this.setState({ scrolledUp, scrolledDown })
+  onScrollUpdate = animationFrameHandler(target => {
+    if (!target) {
+      return
     }
-  }
+    const scrolledUp = target.scrollTop + target.clientHeight < target.scrollHeight
+
+    if (scrolledUp !== this.state.scrolledUp) {
+      this.setState({ scrolledUp })
+    }
+  })
 
   onBrowsePreferred = () => {
     const { activeTab } = this.state
