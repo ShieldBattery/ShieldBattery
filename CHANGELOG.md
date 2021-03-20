@@ -1,3 +1,10 @@
+#### 7.0.3 (March 19th, 2021)
+
+- **We learned to count.** The lobby count should be a bit more accurate now and stop telling you
+  about lobbies that have already started.
+- **Emails, emails, emails.** Email verification should be working again (try your existing emails
+  again, but resending emails should also work).
+
 #### 7.0.2 (March 19th, 2021)
 
 - **Some random changes.** Or, well, changes for Random players. Players who have selected Random
