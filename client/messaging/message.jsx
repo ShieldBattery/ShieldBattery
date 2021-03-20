@@ -93,7 +93,7 @@ const Text = styled.span`
   overflow: hidden;
 `
 
-export class ChatMessage extends React.Component {
+export class TextMessageDisplay extends React.Component {
   static propTypes = {
     user: PropTypes.string.isRequired,
     time: PropTypes.number.isRequired,

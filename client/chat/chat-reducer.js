@@ -20,7 +20,7 @@ import {
   NETWORK_SITE_CONNECTED,
 } from '../actions'
 import {
-  ChatMessage,
+  TextMessage,
   JoinChannelMessage,
   LeaveChannelMessage,
   NewChannelOwnerMessage,
@@ -48,7 +48,7 @@ export const Users = new Record({
   offline: new List(),
 })
 
-const ChannelBase = new Record({
+export class Channel extends Record({
   name: null,
   // This list should contain *all* messages, including the client-side ones like notifications for
   // user coming online/offline, etc.
@@ -59,6 +59,7 @@ const ChannelBase = new Record({
   users: new Users(),
 
   loadingHistory: false,
+  hasLoadedHistory: false,
   hasHistory: true,
 
   hasLoadedUserList: false,
@@ -66,17 +67,7 @@ const ChannelBase = new Record({
 
   activated: false,
   hasUnread: false,
-})
-
-export class Channel extends ChannelBase {
-  get hasLoadedHistory() {
-    return (
-      this.loadingHistory ||
-      this.messages.size > 0 ||
-      (this.messages.size === 0 && !this.hasHistory)
-    )
-  }
-}
+}) {}
 
 export const ChatState = new Record({
   channels: new OrderedSet(),
@@ -208,7 +199,7 @@ export default keyedReducer(new ChatState(), {
   [CHAT_UPDATE_MESSAGE](state, action) {
     const { id, channel, time, user, message } = action.payload
     const lowerCaseChannel = channel.toLowerCase()
-    const newMessage = new ChatMessage({
+    const newMessage = new TextMessage({
       id,
       time,
       from: user,
@@ -287,7 +278,9 @@ export default keyedReducer(new ChatState(), {
 
   [CHAT_LOAD_CHANNEL_HISTORY_BEGIN](state, action) {
     const { channel } = action.payload
-    return state.setIn(['byName', channel.toLowerCase(), 'loadingHistory'], true)
+    return state.updateIn(['byName', channel.toLowerCase()], c =>
+      c.set('loadingHistory', true).set('hasLoadedHistory', true),
+    )
   },
 
   [CHAT_LOAD_CHANNEL_HISTORY](state, action) {
@@ -296,7 +289,7 @@ export default keyedReducer(new ChatState(), {
     const newMessages = new List(
       action.payload.map(
         msg =>
-          new ChatMessage({
+          new TextMessage({
             id: msg.id,
             time: msg.sent,
             from: msg.user,

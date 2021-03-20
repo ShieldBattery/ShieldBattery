@@ -18,7 +18,7 @@ import RaisedButton from '../material/raised-button'
 import MapImage from '../maps/map-image'
 import MessageInput from '../messaging/message-input'
 import { ScrollableContent } from '../material/scroll-bar'
-import { ChatMessageLayout, ChatMessage } from '../messaging/message'
+import { ChatMessageLayout, TextMessageDisplay } from '../messaging/message'
 import OpenSlot from './open-slot'
 import ClosedSlot from './closed-slot'
 import PlayerSlot from './player-slot'
@@ -256,7 +256,7 @@ class ChatList extends React.Component {
     const { id, type, time } = msg
     switch (type) {
       case 'message':
-        return <ChatMessage key={id} user={msg.from} time={time} text={msg.text} />
+        return <TextMessageDisplay key={id} user={msg.from} time={time} text={msg.text} />
       case 'join':
         return <JoinMessage key={id} time={time} name={msg.name} />
       case 'leave':

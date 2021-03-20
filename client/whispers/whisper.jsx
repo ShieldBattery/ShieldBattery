@@ -42,17 +42,30 @@ const MessagesAndInput = styled.div`
   flex-grow: 1;
 `
 
-const Messages = styled.div`
-  height: calc(100% - 56px - 16px); /* chat input height + margin */
-  margin: 0 0 -1px 0;
-  border-bottom: 1px solid
-    ${props => (props.isScrolledUp ? colorDividers : 'rgba(255, 255, 255, 0)')};
-  transition: border 250ms linear;
+const CHAT_INPUT_HEIGHT_PX = 56
+const CHAT_INPUT_PADDING_PX = 16
+
+const StyledMessageList = styled(MessageList)`
+  height: calc(100% - ${CHAT_INPUT_HEIGHT_PX}px - ${CHAT_INPUT_PADDING_PX}px);
+  contain: strict;
 `
 
 const ChatInput = styled(MessageInput)`
-  margin: 8px 0;
-  padding: 0 16px;
+  position: relative;
+  padding: ${CHAT_INPUT_PADDING_PX / 2}px 16px;
+  contain: content;
+
+  &::after {
+    position: absolute;
+    height: 1px;
+    left: 0px;
+    right: 0px;
+    top: 0;
+
+    content: '';
+    border-top: 1px solid ${props => (props.showDivider ? colorDividers : 'transparent')};
+    transition: border 250ms linear;
+  }
 `
 
 class Whisper extends React.Component {
@@ -62,22 +75,8 @@ class Whisper extends React.Component {
     onRequestMoreHistory: PropTypes.func,
   }
 
-  messageList = null
-  _setMessageListRef = elem => {
-    this.messageList = elem
-  }
   state = {
     isScrolledUp: false,
-  }
-
-  getSnapshotBeforeUpdate(prevProps) {
-    const insertingAtTop =
-      prevProps.session !== this.props.session &&
-      prevProps.session.chatMessages.size > 0 &&
-      this.props.session.chatMessages.size > prevProps.session.chatMessages.size &&
-      this.props.session.chatMessages.get(0) !== prevProps.session.chatMessages.get(0)
-    this.messageList.setInsertingAtTop(insertingAtTop)
-    return null
   }
 
   render() {
@@ -85,23 +84,20 @@ class Whisper extends React.Component {
     return (
       <Container>
         <MessagesAndInput>
-          <Messages isScrolledUp={this.state.isScrolledUp}>
-            <MessageList
-              ref={this._setMessageListRef}
-              loading={session.loadingHistory}
-              hasMoreHistory={session.hasHistory}
-              messages={session.messages}
-              onScrollUpdate={this.onScrollUpdate}
-            />
-          </Messages>
-          <ChatInput onSend={onSendChatMessage} />
+          <StyledMessageList
+            loading={session.loadingHistory}
+            hasMoreHistory={session.hasHistory}
+            messages={session.messages}
+            onScrollUpdate={this.onScrollUpdate}
+          />
+          <ChatInput onSend={onSendChatMessage} showDivider={this.state.isScrolledUp} />
         </MessagesAndInput>
       </Container>
     )
   }
 
-  onScrollUpdate = values => {
-    const { scrollTop, scrollHeight, clientHeight } = values
+  onScrollUpdate = target => {
+    const { scrollTop, scrollHeight, clientHeight } = target
 
     const isScrolledUp = scrollTop + clientHeight < scrollHeight
     if (isScrolledUp !== this.state.isScrolledUp) {
