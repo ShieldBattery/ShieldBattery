@@ -29,23 +29,17 @@ import PreviewIcon from '../icons/material/zoom_in-24px.svg'
 import UnfavoritedIcon from '../icons/material/baseline-star_border-24px.svg'
 
 import { blue100, blue200, colorTextSecondary } from '../styles/colors'
-import {
-  Body1Old,
-  Body2Old,
-  HeadlineOld,
-  SubheadingOld,
-  cabin,
-  Display1Old,
-} from '../styles/typography'
+import { body1, body2, headline6, headline4, subtitle1 } from '../styles/typography'
 import { shadow1dp } from '../material/shadows'
 
 const ChatSystemMessage = styled(ChatMessageLayout)`
-  color: ${blue100};
+  color: ${blue200};
 `
 
-const ChatImportant = styled(Body2Old)`
+const ChatImportant = styled.span`
+  ${body2};
   line-height: inherit;
-  color: ${blue200};
+  color: ${blue100};
 `
 
 class JoinMessage extends React.Component {
@@ -339,8 +333,9 @@ const Info = styled.div`
   flex-shrink: 0;
 `
 
-const MapName = styled(HeadlineOld)`
-  margin: 0;
+const MapName = styled.div`
+  ${headline6};
+  margin: 24px 0 0;
 `
 
 const MapImageContainer = styled.div`
@@ -378,22 +373,24 @@ const InfoItem = styled.div`
   align-items: center;
 `
 
-const InfoLabel = styled(Body1Old)`
+const InfoLabel = styled.div`
+  ${body1};
   color: ${colorTextSecondary};
 `
 
-const InfoValue = styled(SubheadingOld)`
+const InfoValue = styled.div`
+  ${subtitle1};
   margin-left: 16px;
   flex-grow: 1;
 `
 
 const StartButton = styled(RaisedButton)`
-  margin-top: 12px;
+  margin-top: 24px;
 `
 
-const Countdown = styled(Display1Old)`
-  ${cabin};
-  font-weight: 500;
+const Countdown = styled.div`
+  ${headline4};
+  margin: 16px 0;
 `
 
 export default class Lobby extends React.Component {

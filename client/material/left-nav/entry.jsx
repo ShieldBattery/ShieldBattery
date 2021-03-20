@@ -5,7 +5,7 @@ import styled from 'styled-components'
 
 import AttentionIndicator from './attention-indicator'
 import { amberA200 } from '../../styles/colors'
-import { singleLine } from '../../styles/typography'
+import { body2, singleLine } from '../../styles/typography'
 
 const Container = styled.li`
   position: relative;
@@ -35,10 +35,14 @@ const Container = styled.li`
 `
 
 const EntryLink = styled(Link)`
-  height: 100%;
-  padding: 0 16px;
-  flex-grow: 1;
+  ${body2};
   ${singleLine};
+
+  height: 100%;
+  line-height: 36px;
+
+  flex-grow: 1;
+  padding: 0 16px;
 `
 
 const EntryButton = styled.div`

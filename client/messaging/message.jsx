@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
 import { amberA100, colorTextFaint, colorDividers } from '../styles/colors'
-import { Body1Old, Body2Old, CaptionOld } from '../styles/typography'
+import { body1, body2, caption } from '../styles/typography'
 
 const localeTimeSupported = !!Date.prototype.toLocaleTimeString
 function getLocalTime(date) {
@@ -36,9 +36,9 @@ const longTimestamp = new Intl.DateTimeFormat(navigator.language, {
   minute: '2-digit',
 })
 
-const Timestamp = styled(CaptionOld)`
+const Timestamp = styled.div`
+  ${caption};
   flex-shrink: 0;
-  margin: 0;
   margin-right: 8px;
   line-height: inherit;
   color: ${colorTextFaint};
@@ -53,17 +53,18 @@ ChatTimestamp.propTypes = {
   time: PropTypes.number.isRequired,
 }
 
-const MessageContainer = styled(Body1Old)`
+const MessageContainer = styled.div`
+  ${body1};
   display: flex;
   align-items: flex-start;
   line-height: 20px;
   min-height: 20px;
-  padding: 0 8px 4px 8px;
+  padding: 4px 8px;
 `
 
 export const ChatMessageLayout = props => {
   return (
-    <MessageContainer as='div' className={props.className}>
+    <MessageContainer className={props.className}>
       <ChatTimestamp time={props.time} />
       {props.children}
     </MessageContainer>
@@ -74,7 +75,8 @@ ChatMessageLayout.propTypes = {
   className: PropTypes.string,
 }
 
-const Username = styled(Body2Old)`
+const Username = styled.div`
+  ${body2};
   flex-shrink: 0;
   color: ${amberA100};
   line-height: inherit;

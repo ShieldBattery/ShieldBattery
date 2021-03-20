@@ -9,6 +9,7 @@ import {
   grey700,
   grey800,
 } from './colors'
+import { body1 } from './typography'
 
 const GlobalStyle = createGlobalStyle`
   *, *::before, *::after {
@@ -22,6 +23,7 @@ const GlobalStyle = createGlobalStyle`
   }
 
   html {
+    ${body1};
     font-family: Inter, sans-serif;
     font-weight: normal;
     color: ${colorTextPrimary};

@@ -10,7 +10,7 @@ import { DEV_INDICATOR } from '../../common/flags'
 import { blue800, colorError } from '../styles/colors'
 import { shadow4dp } from '../material/shadows'
 import { standardIncrement } from '../material/units'
-import { TitleOld, singleLine, cabin } from '../styles/typography'
+import { body1, caption, headline6, singleLine } from '../styles/typography'
 import { zIndexAppBar } from '../material/zindex'
 
 const Container = styled.header`
@@ -34,17 +34,20 @@ const LeftSide = styled.div`
 `
 
 const Content = styled.div`
+  height: 100%;
   flex-grow: 1;
+
+  display: flex;
+  align-items: center;
 
   & > * {
     padding-left: 16px;
   }
 `
 
-export const AppBarTitle = styled(TitleOld)`
+export const AppBarTitle = styled.div`
+  ${headline6};
   ${singleLine};
-  line-height: ${standardIncrement};
-  margin: 0;
 `
 
 const RightSide = styled.div`
@@ -52,17 +55,18 @@ const RightSide = styled.div`
 `
 
 const UserCount = styled(ActiveUserCount)`
-  ${cabin};
+  ${body1};
+  ${singleLine};
+
   float: right;
   margin-top: ${windowControlsHeight};
   padding-right: 16px;
-  letter-spacing: 0.025em;
   line-height: calc(${standardIncrement} - ${windowControlsHeight});
   vertical-align: middle;
 `
 
 const DevIndicator = styled.div`
-  ${cabin};
+  ${caption};
 
   width: 100px;
   height: 20px;
@@ -72,7 +76,8 @@ const DevIndicator = styled.div`
 
   background-color: ${colorError};
   cursor: pointer;
-  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 2px;
   line-height: 20px;
   opacity: 0.84;
   text-align: center;

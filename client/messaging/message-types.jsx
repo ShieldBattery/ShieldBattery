@@ -5,20 +5,22 @@ import styled from 'styled-components'
 import { ChatMessageLayout, InfoMessageLayout } from './message'
 
 import { blue100, blue200, colorTextSecondary, colorTextFaint } from '../styles/colors'
-import { Body2Old } from '../styles/typography'
+import { body2 } from '../styles/typography'
 
 const SystemMessage = styled(ChatMessageLayout)`
-  color: ${blue100};
-`
-
-const SystemImportant = styled(Body2Old)`
-  line-height: inherit;
   color: ${blue200};
 `
 
-const InfoImportant = styled(Body2Old)`
+const SystemImportant = styled.span`
+  ${body2};
+  color: ${blue100};
   line-height: inherit;
+`
+
+const InfoImportant = styled.span`
+  ${body2};
   color: ${colorTextSecondary};
+  line-height: inherit;
 `
 
 const SeparatedInfoMessage = styled(InfoMessageLayout)`

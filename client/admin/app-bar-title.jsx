@@ -19,5 +19,5 @@ export default function AdminTitle() {
     appBarTitle = 'Map upload'
   }
 
-  return <AppBarTitle as='span'>{appBarTitle}</AppBarTitle>
+  return <AppBarTitle>{appBarTitle}</AppBarTitle>
 }

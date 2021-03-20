@@ -1,13 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import styled from 'styled-components'
 
 import { AppBarTitle } from '../app-bar/app-bar'
-
-const Container = styled.div`
-  max-width: 884px;
-  margin: 0 auto;
-`
 
 @connect(state => ({ whispers: state.whispers }))
 export default class WhispersTitle extends React.Component {
@@ -18,10 +12,6 @@ export default class WhispersTitle extends React.Component {
     const target = pathname.slice(pathname.lastIndexOf('/') + 1)
     const session = whispers.byName.get(target.toLowerCase())
 
-    return (
-      <Container>
-        <AppBarTitle as='span'>{`Whisper with ${session ? session.target : target}`}</AppBarTitle>
-      </Container>
-    )
+    return <AppBarTitle>{`Whisper with ${session ? session.target : target}`}</AppBarTitle>
   }
 }

@@ -91,7 +91,7 @@ export const Headline6 = styled.div`
 `
 
 export const subtitle1 = css`
-  font-size: 15px;
+  font-size: 16px;
   letter-spacing: 0.15px;
   line-height: 24px;
   text-rendering: optimizeLegibility;
@@ -103,7 +103,7 @@ export const Subtitle1 = styled.div`
 
 export const subtitle2 = css`
   ${cabin};
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 500;
   letter-spacing: 0.56px;
   line-height: 24px;

@@ -28,7 +28,7 @@ import { openOverlay, closeOverlay } from '../activities/action-creators'
 import { MatchmakingType } from '../../common/matchmaking'
 
 import { amberA400, colorDividers, colorTextSecondary, colorError } from '../styles/colors'
-import { Headline5, Subtitle1, Subtitle2, subtitle1, body1, cabin } from '../styles/typography'
+import { Headline5, Subtitle1, Subtitle2, subtitle1, body1, body2 } from '../styles/typography'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -94,16 +94,16 @@ const StyledRacePicker = styled(RacePicker)`
 const DescriptionText = styled.span`
   ${body1};
   color: ${colorTextSecondary};
-  font-size: 12px;
 `
 
 const PreferredHeader = styled.div`
   display: flex;
   align-items: center;
+  margin-bottom: 8px;
 `
 
 const OutdatedIndicator = styled.span`
-  ${cabin};
+  ${body2};
   margin-left: 16px;
   padding: 0 4px;
   color: ${amberA400};
@@ -118,7 +118,7 @@ const PreferredMapsContainer = styled.div`
 
 const PreferredMaps = styled.div`
   display: flex;
-  margin: 16px 0;
+  margin: 24px 0;
 `
 
 const PreferredMap = styled.div`
@@ -226,7 +226,9 @@ class Find1vs1MatchForm extends React.Component {
         <PreferredMapsContainer>
           <PreferredHeader>
             <SectionTitle>Preferred maps</SectionTitle>
-            {mapPoolOutdated ? <OutdatedIndicator>Map pool changed</OutdatedIndicator> : null}
+            {mapPoolOutdated || true ? (
+              <OutdatedIndicator>Map pool changed</OutdatedIndicator>
+            ) : null}
           </PreferredHeader>
           <DescriptionText>
             Select up to 2 maps to be used in the per-match map pool. Your selections will be
