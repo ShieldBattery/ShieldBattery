@@ -3,7 +3,7 @@
   "productName": "ShieldBattery-Local",
   "productFilename": "ShieldBattery-Local",
   "private": true,
-  "version": "7.0.3",
+  "version": "7.0.4",
   "description": "The standalone client for ShieldBattery",
   "main": "index.js",
   "scripts": {
