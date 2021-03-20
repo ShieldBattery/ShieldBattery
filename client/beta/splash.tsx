@@ -42,7 +42,6 @@ const BackgroundVideo = styled.video`
   width: 100%;
   height: 860px;
   object-fit: cover;
-  filter: blur(8px);
 `
 
 const BackgroundVideoScrim = styled.div`
