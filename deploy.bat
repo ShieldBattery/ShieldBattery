@@ -53,7 +53,7 @@ SET NPM_TAG=%NAME%:%version%
 SET LATEST_TAG=%NAME%:latest
 
 
-docker buildx build --platform linux/arm64/v8,linux/amd64 -t %IMG% -t %NPM_TAG% -t %LATEST_TAG% --push .
+docker buildx build --platform linux/amd64 -t %IMG% -t %NPM_TAG% -t %LATEST_TAG% --push .
 if errorlevel 1 (
   echo Error building the image
   goto exit
