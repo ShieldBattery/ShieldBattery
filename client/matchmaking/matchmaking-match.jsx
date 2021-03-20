@@ -7,7 +7,7 @@ import PlayerCard from '../lobbies/player-card'
 
 import { shadowDef2dp } from '../material/shadow-constants'
 import { colorTextSecondary } from '../styles/colors'
-import { Display1Old, Display3Old, Display4Old, robotoCondensed } from '../styles/typography'
+import { Display1Old, Display3Old, Display4Old, cabin } from '../styles/typography'
 
 const Container = styled.div`
   display: flex;
@@ -42,12 +42,12 @@ const StatusContainer = styled.div`
 `
 
 const CountdownText = styled(Display4Old)`
-  ${robotoCondensed};
-  font-weight: 700;
+  ${cabin};
+  font-weight: 500;
 `
 
 const StatusText = styled(Display1Old)`
-  ${robotoCondensed};
+  ${cabin};
   color: ${colorTextSecondary};
 `
 
@@ -86,8 +86,8 @@ const VsContainer = styled.div`
 `
 
 const VsText = styled(Display1Old)`
-  ${robotoCondensed};
-  font-weight: 700;
+  ${cabin};
+  font-weight: 500;
 `
 
 export default class MatchmakingMatch extends React.Component {

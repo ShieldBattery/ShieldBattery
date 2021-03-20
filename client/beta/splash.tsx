@@ -79,13 +79,9 @@ const StyledLogoText = styled(LogoText)`
   margin-top: 6px; /* correct for baseline alignment */
 `
 
-// TODO(2Pac): Use proper typography css for this from some common place
 const TagLine = styled.div`
+  ${headline3};
   position: relative;
-  font-family: Roboto Condensed, sans-serif;
-  font-size: 34px;
-  font-weight: 700;
-  line-height: 40px;
   margin: 16px 0px;
   padding: 0 16px;
   text-align: center;
@@ -112,7 +108,8 @@ const SplashButton = styled((RaisedButton as unknown) as React.ComponentType<Rai
 
   & ${Label} {
     font-size: 20px;
-    font-weight: 400;
+    font-weight: 500;
+    letter-spacing: 1.4px;
   }
 `
 

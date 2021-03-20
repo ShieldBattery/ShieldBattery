@@ -3,7 +3,6 @@ import React from 'react'
 import styled, { css, keyframes } from 'styled-components'
 import { ButtonCommon } from '../material/button'
 import { blue50, colorTextFaint, colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { buttonText, robotoCondensed } from '../styles/typography'
 
 const Container = styled(ButtonCommon)`
   width: 100%;
@@ -80,26 +79,23 @@ const IconContainer = styled.div<{ glowing?: boolean }>`
 `
 
 const Label = styled.span`
-  ${buttonText};
-  ${robotoCondensed};
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.42px;
-  line-height: 18px;
   margin-top: 8px;
+
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  line-height: 18px;
+  text-transform: uppercase;
 `
 
 const Count = styled.div`
-  ${buttonText};
-  ${robotoCondensed};
-
   position: absolute;
   top: 8px;
   right: 8px;
 
   font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.42px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
   line-height: 18px;
 `
 

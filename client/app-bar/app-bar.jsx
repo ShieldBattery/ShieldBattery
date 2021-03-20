@@ -10,7 +10,7 @@ import { DEV_INDICATOR } from '../../common/flags'
 import { blue800, colorError } from '../styles/colors'
 import { shadow4dp } from '../material/shadows'
 import { standardIncrement } from '../material/units'
-import { TitleOld, singleLine, robotoCondensed } from '../styles/typography'
+import { TitleOld, singleLine, cabin } from '../styles/typography'
 import { zIndexAppBar } from '../material/zindex'
 
 const Container = styled.header`
@@ -52,7 +52,7 @@ const RightSide = styled.div`
 `
 
 const UserCount = styled(ActiveUserCount)`
-  ${robotoCondensed};
+  ${cabin};
   float: right;
   margin-top: ${windowControlsHeight};
   padding-right: 16px;
@@ -62,7 +62,7 @@ const UserCount = styled(ActiveUserCount)`
 `
 
 const DevIndicator = styled.div`
-  ${robotoCondensed};
+  ${cabin};
 
   width: 100px;
   height: 20px;

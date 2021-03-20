@@ -4,7 +4,7 @@ import { Link } from 'wouter'
 import styled from 'styled-components'
 
 import { colorTextSecondary } from '../styles/colors'
-import { Body2Old, TitleOld, robotoCondensed, singleLine } from '../styles/typography'
+import { Body2Old, TitleOld, cabin, singleLine } from '../styles/typography'
 
 const Container = styled.li`
   height: 72px;
@@ -32,10 +32,10 @@ const StyledLink = styled(Link)`
 `
 
 const StyledTitle = styled(TitleOld)`
-  ${robotoCondensed};
+  ${cabin};
   ${singleLine};
   margin: 0;
-  font-weight: 700;
+  font-weight: 500;
 `
 
 const Subtitle = styled(Body2Old)`

@@ -229,7 +229,7 @@ class MainLayout extends React.Component {
         ref={this._searchingMatchButtonRef}
         icon={<FindMatchIcon />}
         glowing={true}
-        label='Searching...'
+        label='Finding…'
         onClick={this.onSearchingMatchOverlayOpen}
         keycode={KEY_F}
         altKey={true}

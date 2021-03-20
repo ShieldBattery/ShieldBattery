@@ -22,11 +22,11 @@ const GlobalStyle = createGlobalStyle`
   }
 
   html {
-    font-family: Roboto, sans-serif;
+    font-family: Inter, sans-serif;
     font-weight: normal;
     color: ${colorTextPrimary};
     font-size: 14px;
-    line-height: 1.5;
+    line-height: 20px;
     background-color: ${colorBackground};
   }
 

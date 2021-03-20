@@ -5,6 +5,7 @@ import styled from 'styled-components'
 import WindowListener from '../dom/window-listener'
 
 import { amberA400, colorTextSecondary, colorTextFaint } from '../styles/colors'
+import { buttonText } from '../styles/typography'
 import { fastOutSlowIn } from '../material/curve-constants'
 
 const Container = styled.ul`
@@ -18,9 +19,7 @@ const Container = styled.ul`
 `
 
 export const TabTitle = styled.span`
-  font-size: 14px;
-  font-weight: 500;
-  text-transform: uppercase;
+  ${buttonText};
 
   ${props => {
     let color = colorTextSecondary

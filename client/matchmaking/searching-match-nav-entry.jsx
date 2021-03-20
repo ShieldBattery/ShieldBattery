@@ -7,7 +7,7 @@ import SubheaderButton from '../material/left-nav/subheader-button'
 import CancelSearchIcon from '../icons/material/ic_close_black_24px.svg'
 
 import { colorTextSecondary } from '../styles/colors'
-import { body2, TitleOld, robotoCondensed } from '../styles/typography'
+import { body2, TitleOld, cabin } from '../styles/typography'
 import { ElapsedTime } from './elapsed-time'
 
 const SearchingContainer = styled.div`
@@ -19,8 +19,8 @@ const SearchingContainer = styled.div`
 `
 
 const SearchTitle = styled(TitleOld)`
-  ${robotoCondensed};
-  font-weight: 700;
+  ${cabin};
+  font-weight: 500;
   margin: 0 16px;
 `
 

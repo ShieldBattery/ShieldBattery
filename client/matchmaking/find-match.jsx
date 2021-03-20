@@ -28,14 +28,7 @@ import { openOverlay, closeOverlay } from '../activities/action-creators'
 import { MatchmakingType } from '../../common/matchmaking'
 
 import { amberA400, colorDividers, colorTextSecondary, colorError } from '../styles/colors'
-import {
-  Headline5,
-  Subtitle1,
-  Subtitle2,
-  subtitle1,
-  body1,
-  robotoCondensed,
-} from '../styles/typography'
+import { Headline5, Subtitle1, Subtitle2, subtitle1, body1, cabin } from '../styles/typography'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -110,7 +103,7 @@ const PreferredHeader = styled.div`
 `
 
 const OutdatedIndicator = styled.span`
-  ${robotoCondensed};
+  ${cabin};
   margin-left: 16px;
   padding: 0 4px;
   color: ${amberA400};

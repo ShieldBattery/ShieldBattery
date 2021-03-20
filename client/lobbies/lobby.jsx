@@ -34,7 +34,7 @@ import {
   Body2Old,
   HeadlineOld,
   SubheadingOld,
-  robotoCondensed,
+  cabin,
   Display1Old,
 } from '../styles/typography'
 import { shadow1dp } from '../material/shadows'
@@ -392,8 +392,8 @@ const StartButton = styled(RaisedButton)`
 `
 
 const Countdown = styled(Display1Old)`
-  ${robotoCondensed};
-  font-weight: 700;
+  ${cabin};
+  font-weight: 500;
 `
 
 export default class Lobby extends React.Component {

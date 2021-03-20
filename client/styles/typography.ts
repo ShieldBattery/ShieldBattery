@@ -8,14 +8,14 @@ export const singleLine = css`
   text-overflow: ellipsis;
 `
 
-export const robotoCondensed = css`
-  font-family: 'Roboto Condensed', Roboto, sans-serif;
+export const cabin = css`
+  font-family: Cabin, Inter, sans-serif;
 `
 
 export const buttonText = css`
   font-size: ${textSizeButton};
   font-weight: 500;
-  letter-spacing: 1.25px;
+  letter-spacing: 1.5px;
   line-height: 36px;
   text-transform: uppercase;
 `
@@ -45,9 +45,10 @@ export const Headline2 = styled.div`
 `
 
 export const headline3 = css`
-  ${robotoCondensed};
+  ${cabin};
   font-size: 48px;
   line-height: 56px;
+  letter-spacing: 0.75px;
   text-rendering: optimizeLegibility;
 `
 
@@ -77,9 +78,9 @@ export const Headline5 = styled.div`
 `
 
 export const headline6 = css`
-  ${robotoCondensed};
+  ${cabin};
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: 0.84px;
   line-height: 28px;
   text-rendering: optimizeLegibility;
@@ -90,7 +91,7 @@ export const Headline6 = styled.div`
 `
 
 export const subtitle1 = css`
-  font-size: 16px;
+  font-size: 15px;
   letter-spacing: 0.15px;
   line-height: 24px;
   text-rendering: optimizeLegibility;
@@ -101,9 +102,9 @@ export const Subtitle1 = styled.div`
 `
 
 export const subtitle2 = css`
-  ${robotoCondensed};
+  ${cabin};
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: 0.56px;
   line-height: 24px;
   text-rendering: optimizeLegibility;
@@ -114,7 +115,7 @@ export const Subtitle2 = styled.div`
 `
 
 export const body1 = css`
-  font-size: 15px;
+  font-size: 14px;
   letter-spacing: 0.5px;
   line-height: 20px;
 `
@@ -124,9 +125,9 @@ export const Body1 = styled.div`
 `
 
 export const body2 = css`
-  ${robotoCondensed};
+  ${cabin};
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: 0.84px;
   line-height: 20px;
 `
@@ -146,11 +147,11 @@ export const Caption = styled.div`
 `
 
 export const overline = css`
-  ${robotoCondensed};
+  ${cabin};
   font-feature-settings: 'liga' off;
   font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.48px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
   line-height: 36px;
 `
 

@@ -4,7 +4,7 @@ import styled, { css } from 'styled-components'
 
 import AvatarButton from '../avatars/avatar-button'
 
-import { singleLine, robotoCondensed } from '../styles/typography'
+import { singleLine, cabin } from '../styles/typography'
 
 const Container = styled.div`
   display: flex;
@@ -26,16 +26,16 @@ const avatarStyle = css`
 `
 
 const User = styled.div`
-  ${robotoCondensed}
+  ${cabin}
   ${singleLine};
 
   width: 140px;
   margin-left: 12px;
 
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 36px;
-  letter-spacing: 0.24px;
+  letter-spacing: 0.5px;
 `
 
 // TODO(tec27): Make this whole area clickable/hoverable

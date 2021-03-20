@@ -7,7 +7,7 @@ import PlayerCard from './player-card'
 
 import { shadowDef2dp } from '../material/shadow-constants'
 import { colorTextSecondary } from '../styles/colors'
-import { Display1Old, Display3Old, robotoCondensed } from '../styles/typography'
+import { Display1Old, Display3Old, cabin } from '../styles/typography'
 
 const Container = styled.div`
   display: flex;
@@ -42,7 +42,7 @@ const StatusContainer = styled.div`
 `
 
 const StatusText = styled(Display1Old)`
-  ${robotoCondensed};
+  ${cabin};
   color: ${colorTextSecondary};
 `
 
@@ -84,8 +84,8 @@ const VsContainer = styled.div`
 `
 
 const VsText = styled(Display1Old)`
-  ${robotoCondensed};
-  font-weight: 700;
+  ${cabin};
+  font-weight: 500;
 `
 
 const PlayersContainer = styled.div`

@@ -75,7 +75,7 @@ export class EmailVerification extends React.Component {
     if (!isLoggedIn(auth)) {
       contents = (
         <ErrorsContainer>
-          Error: You need to be logged-in inorder to perform the email verification. Please log in
+          Error: You need to be logged-in in order to perform the email verification. Please log in
           by clicking the button below and try again.
         </ErrorsContainer>
       )

@@ -380,6 +380,7 @@ async function createWindow() {
     acceptFirstMouse: true,
     backgroundColor: '#1B1E22',
     frame: false,
+    transparent: false,
     show: false,
     title: 'ShieldBattery',
     webPreferences: {
