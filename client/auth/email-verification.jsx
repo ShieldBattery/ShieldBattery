@@ -19,7 +19,6 @@ import LoadingIndicator from '../progress/dots'
 
 import { verifyEmail } from './action-creators'
 import { isLoggedIn, createNextPath } from './auth-utils'
-import { useLocation } from 'wouter'
 
 @connect(state => ({ auth: state.auth }))
 export class EmailVerification extends React.Component {
@@ -27,7 +26,6 @@ export class EmailVerification extends React.Component {
     title: PropTypes.string.isRequired,
     doSubmit: PropTypes.func.isRequired,
     successMessage: PropTypes.string,
-    location: PropTypes.object,
   }
 
   state = {
@@ -130,7 +128,6 @@ export class EmailVerification extends React.Component {
 
 const VERIFY_EMAIL_SUCCESS = 'Your email has been successfully verified.'
 export const VerifyEmail = () => {
-  const [location] = useLocation()
   const { token } = queryString.parse(location.search)
   return (
     <EmailVerification
