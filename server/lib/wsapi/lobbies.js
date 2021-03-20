@@ -71,7 +71,7 @@ export class LobbyApi {
 
     this.clientSockets.on('newClient', client => {
       if (client.clientType === 'electron') {
-        client.subscribe('/lobbiesCount', () => ({ count: this.lobbies.size }))
+        client.subscribe('/lobbiesCount', () => ({ count: this._getLobbiesCount() }))
       }
     })
   }
@@ -813,8 +813,6 @@ export class LobbyApi {
       })
     this.lobbies = this.lobbies.delete(lobby.name)
     this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
-
-    this.nydus.publish('/lobbiesCount', { count: this.lobbies.size })
   }
 
   // Cancels the countdown if one was occurring (no-op if it was not)
@@ -912,9 +910,18 @@ export class LobbyApi {
     }
   }
 
+  _getLobbiesCount() {
+    // TODO(tec27): Ideally this would remove full lobbies?
+    return Math.max(this.lobbies.size - (this.lobbyCountdowns.size + this.loadingLobbies.size), 0)
+  }
+
+  _publishLobbiesCount() {
+    this.nydus.publish('/lobbiesCount', { count: this._getLobbiesCount() })
+  }
+
   _publishListChange(action, summary) {
     this.nydus.publish(MOUNT_BASE, { action, payload: summary })
-    this.nydus.publish('/lobbiesCount', { count: this.lobbies.size })
+    this._publishLobbiesCount()
   }
 
   _publishTo(lobby, data) {
