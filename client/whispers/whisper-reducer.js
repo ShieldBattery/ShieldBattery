@@ -21,7 +21,7 @@ import { TextMessage, UserOnlineMessage, UserOfflineMessage } from '../messaging
 // How many messages should be kept for inactive channels
 const INACTIVE_CHANNEL_MAX_HISTORY = 150
 
-const SessionBase = new Record({
+export class Session extends (new Record({
   target: null,
   status: null,
   // This list should contain *all* messages, including the client-side ones like notifications for
@@ -32,21 +32,12 @@ const SessionBase = new Record({
   chatMessages: new List(),
 
   loadingHistory: false,
+  hasLoadedHistory: false,
   hasHistory: true,
 
   activated: false,
   hasUnread: false,
-})
-
-export class Session extends SessionBase {
-  get hasLoadedHistory() {
-    return (
-      this.loadingHistory ||
-      this.messages.size > 0 ||
-      (this.messages.size === 0 && !this.hasHistory)
-    )
-  }
-}
+})) {}
 
 export const WhisperState = new Record({
   sessions: new OrderedSet(),
@@ -187,7 +178,9 @@ export default keyedReducer(new WhisperState(), {
   [WHISPERS_LOAD_SESSION_HISTORY_BEGIN](state, action) {
     const { target } = action.payload
 
-    return state.setIn(['byName', target.toLowerCase(), 'loadingHistory'], true)
+    return state.updateIn(['byName', target.toLowerCase()], s =>
+      s.set('loadingHistory', true).set('hasLoadedHistory', true),
+    )
   },
 
   [WHISPERS_LOAD_SESSION_HISTORY](state, action) {
