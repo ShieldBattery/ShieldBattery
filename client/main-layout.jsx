@@ -49,7 +49,6 @@ import { isShieldBatteryHealthy, isStarcraftHealthy } from './starcraft/is-starc
 import { openChangelogIfNecessary } from './changelog/action-creators'
 import { IsAdminFilter } from './admin/admin-route-filters'
 import { regenMapImage, removeMap } from './maps/action-creators'
-import { sendVerificationEmail } from './auth/action-creators'
 
 import { MATCHMAKING } from '../common/flags'
 import { MatchmakingType } from '../common/matchmaking'
@@ -346,11 +345,6 @@ class MainLayout extends React.Component {
         </Layout>
       </Container>
     )
-  }
-
-  sendVerificationEmail = event => {
-    event.preventDefault()
-    this.props.dispatch(sendVerificationEmail())
   }
 
   onMatchmakingDisabledOverlayClose = () => {

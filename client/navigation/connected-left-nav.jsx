@@ -24,7 +24,7 @@ import ProfileNavEntry from '../profile/nav-entry'
 import SearchingMatchNavEntry from '../matchmaking/searching-match-nav-entry'
 import WhisperNavEntry from '../whispers/nav-entry'
 
-import { logOut } from '../auth/action-creators'
+import { logOut, sendVerificationEmail } from '../auth/action-creators'
 import { cancelFindMatch } from '../matchmaking/action-creators'
 import { openDialog } from '../dialogs/action-creators'
 import { leaveChannel } from '../chat/action-creators'
@@ -320,6 +320,11 @@ class ConnectedLeftNav extends React.Component {
   onAccountClick = () => {
     this.onCloseProfileOverlay()
     this.props.dispatch(openDialog('account'))
+  }
+
+  sendVerificationEmail = event => {
+    event.preventDefault()
+    this.props.dispatch(sendVerificationEmail())
   }
 }
 
