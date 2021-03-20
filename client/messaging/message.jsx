@@ -1,6 +1,6 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 
 import { amberA100, colorTextFaint, colorDividers } from '../styles/colors'
 import { body1, body2, caption } from '../styles/typography'
@@ -36,35 +36,64 @@ const longTimestamp = new Intl.DateTimeFormat(navigator.language, {
   minute: '2-digit',
 })
 
-const Timestamp = styled.div`
+/** Hidden separators that only show up in copy+paste. Should be aria-hidden as well. */
+const Separator = styled.i`
+  position: absolute;
+  display: inline-block;
+  opacity: 0;
+  width: 0;
+  line-height: inherit;
+  white-space: pre;
+`
+
+// NOTE(tec27): These styles are done a bit oddly to ensure that message contents wraps in a
+// pleasing way. We effectively pad everything and then push the timestamps into the padding. By
+// doing this we also ensure copy+paste looks decent (instead of on separate lines)
+const Timestamp = styled.span`
   ${caption};
-  flex-shrink: 0;
-  margin-right: 8px;
+  width: 72px;
+  display: inline-block;
+  padding-right: 8px;
   line-height: inherit;
   color: ${colorTextFaint};
+  text-align: right;
 `
 
 export const ChatTimestamp = props => (
   <Timestamp title={longTimestamp.format(props.time)}>
+    <Separator aria-hidden={true}>[</Separator>
     {getLocalTime(new Date(props.time))}
+    <Separator aria-hidden={true}>] </Separator>
   </Timestamp>
 )
 ChatTimestamp.propTypes = {
   time: PropTypes.number.isRequired,
 }
 
-const MessageContainer = styled.div`
+const messageContainerBase = css`
   ${body1};
-  display: flex;
-  align-items: flex-start;
-  line-height: 20px;
+
+  width: 100%;
+  position: relative;
   min-height: 20px;
   padding: 4px 8px;
+
+  line-height: 20px;
+`
+
+const MessageContainer = styled.div`
+  ${messageContainerBase};
+  ${body1};
+
+  padding: 4px 8px 4px 72px;
+
+  line-height: 20px;
+  text-indent: -72px;
 `
 
 export const ChatMessageLayout = props => {
   return (
-    <MessageContainer className={props.className}>
+    <MessageContainer className={props.className} role='document'>
       <ChatTimestamp time={props.time} />
       {props.children}
     </MessageContainer>
@@ -75,19 +104,17 @@ ChatMessageLayout.propTypes = {
   className: PropTypes.string,
 }
 
-const Username = styled.div`
+const Username = styled.span`
   ${body2};
-  flex-shrink: 0;
+
+  margin-right: 8px;
+
   color: ${amberA100};
   line-height: inherit;
-  padding-right: 8px;
 `
 
 const Text = styled.span`
-  flex-grow: 1;
   line-height: inherit;
-  padding-left: 8px;
-  min-width: 0;
   word-wrap: break-word;
   overflow-wrap: break-word;
   overflow: hidden;
@@ -114,11 +141,17 @@ export class TextMessageDisplay extends React.Component {
     return (
       <ChatMessageLayout time={time}>
         <Username>{user}</Username>
+        <Separator aria-hidden={true}>{': '}</Separator>
         <Text>{text}</Text>
       </ChatMessageLayout>
     )
   }
 }
+
+const InfoMessageContainer = styled.div`
+  ${messageContainerBase};
+  display: flex;
+`
 
 const InfoDivider = styled.hr`
   border: none;
@@ -138,11 +171,11 @@ const InfoDividerRight = styled(InfoDivider)`
 
 export const InfoMessageLayout = props => {
   return (
-    <MessageContainer className={props.className}>
+    <InfoMessageContainer className={props.className}>
       <InfoDividerLeft />
       {props.children}
       <InfoDividerRight />
-    </MessageContainer>
+    </InfoMessageContainer>
   )
 }
 InfoMessageLayout.propTypes = {

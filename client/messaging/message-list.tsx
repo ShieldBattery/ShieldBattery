@@ -118,15 +118,6 @@ export default class MessageList extends React.Component<
     }
   })
 
-  shouldComponentUpdate(nextProps: MessageListProps) {
-    return (
-      this.props.messages !== nextProps.messages ||
-      this.props.loading !== nextProps.loading ||
-      this.props.hasMoreHistory !== nextProps.hasMoreHistory ||
-      this.props.onScrollUpdate !== nextProps.onScrollUpdate
-    )
-  }
-
   componentWillUnmount() {
     this.onScroll.cancel()
   }
