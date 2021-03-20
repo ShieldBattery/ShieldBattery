@@ -216,12 +216,6 @@ export const SubheadingOld = styled.h5`
   line-height: 24px;
 `
 
-export const CaptionOld = styled.h6`
-  font-weight: 400;
-  font-size: ${textSizeCaptionOld};
-  letter-spacing: 0.02em;
-`
-
 export const Body2Old = styled.span`
   font-weight: 500;
   letter-spacing: 0.01em;

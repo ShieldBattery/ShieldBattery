@@ -32,7 +32,7 @@ import {
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors'
-import { HeadlineOld, TitleOld, SubheadingOld, CaptionOld } from '../styles/typography'
+import { HeadlineOld, TitleOld, SubheadingOld, Caption } from '../styles/typography'
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -161,7 +161,7 @@ class FileEntry extends React.PureComponent {
         <EntryIcon>{icon}</EntryIcon>
         <InfoContainer>
           <SubheadingOld as={'span'}>{file.name}</SubheadingOld>
-          <CaptionOld as={'span'}>{dateFormat.format(file.date)}</CaptionOld>
+          <Caption>{dateFormat.format(file.date)}</Caption>
         </InfoContainer>
       </FileEntryContainer>
     )

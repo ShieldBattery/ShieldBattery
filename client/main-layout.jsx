@@ -53,7 +53,7 @@ import { regenMapImage, removeMap } from './maps/action-creators'
 import { MATCHMAKING } from '../common/flags'
 import { MatchmakingType } from '../common/matchmaking'
 
-import { CaptionOld } from './styles/typography'
+import { caption } from './styles/typography'
 import { colorTextSecondary } from './styles/colors'
 
 const curVersion = __WEBPACK_ENV.VERSION
@@ -87,9 +87,11 @@ const StyledMapsIcon = styled(MapsIcon)`
   height: 36px;
 `
 
-const VersionText = styled(CaptionOld)`
+const VersionText = styled.div`
+  ${caption};
   margin: 8px 0px 0px 0px;
   color: ${colorTextSecondary};
+  letter-spacing: 1.25px;
 `
 
 let lobbyRoute = <></>

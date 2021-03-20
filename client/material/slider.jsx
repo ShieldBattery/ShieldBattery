@@ -5,7 +5,7 @@ import keycode from 'keycode'
 import styled from 'styled-components'
 import { darken, rgba } from 'polished'
 
-import { Body1Old, CaptionOld } from '../styles/typography'
+import { body1, caption } from '../styles/typography'
 import { colorTextFaint, amberA400, grey500 } from '../styles/colors'
 import { fastOutSlowIn } from './curve-constants'
 
@@ -150,7 +150,8 @@ const Root = styled.div`
   ${props => (props.focused || props.disabled ? 'outline: none;' : '')}
 `
 
-const SliderLabel = styled(Body1Old)`
+const SliderLabel = styled.div`
+  ${body1};
   position: absolute;
   top: 8px;
   left: 2px;
@@ -257,8 +258,9 @@ const Balloon = styled.div`
   }
 `
 
-const BalloonText = styled(CaptionOld)`
-  font-weight: 500;
+const BalloonText = styled.div`
+  ${caption};
+  font-weight: 600;
   line-height: ${BALLOON_HEIGHT_PX}px;
   z-index: 2;
 `
@@ -323,13 +325,13 @@ class Slider extends React.Component {
     this._removeWindowListeners()
   }
 
-  _renderBalloon(thumbPercent) {
+  _renderBalloon() {
     if (!(this.state.isFocused || this.state.isClicked)) return null
 
     return (
       <CSSTransition classNames={transitionNames} timeout={300}>
         <Balloon>
-          <BalloonText as='span'>{this.props.value}</BalloonText>
+          <BalloonText>{this.props.value}</BalloonText>
         </Balloon>
       </CSSTransition>
     )
@@ -391,7 +393,7 @@ class Slider extends React.Component {
         <OverflowClip>
           <ThumbContainer style={thumbContainerStyle}>
             <Thumb disabled={this.props.disabled} />
-            <TransitionGroup>{this._renderBalloon(thumbPosition)}</TransitionGroup>
+            <TransitionGroup>{this._renderBalloon()}</TransitionGroup>
           </ThumbContainer>
         </OverflowClip>
         <ClickableArea
