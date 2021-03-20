@@ -7,7 +7,7 @@ import PlayerCard from '../lobbies/player-card'
 
 import { shadowDef2dp } from '../material/shadow-constants'
 import { colorTextSecondary } from '../styles/colors'
-import { Display1Old, Display3Old, Display4Old, cabin } from '../styles/typography'
+import { Headline3, Headline1, Headline4, headline5 } from '../styles/typography'
 
 const Container = styled.div`
   display: flex;
@@ -23,7 +23,7 @@ const TopHalfContainer = styled.div`
   grid-template-columns: repeat(3, 1fr);
   grid-gap: 16px;
   max-width: calc(3 * 320px);
-  margin-top: 16px;
+  margin-top: 32px;
 `
 
 const Spacer = styled.div``
@@ -41,13 +41,8 @@ const StatusContainer = styled.div`
   align-items: center;
 `
 
-const CountdownText = styled(Display4Old)`
-  ${cabin};
-  font-weight: 500;
-`
-
-const StatusText = styled(Display1Old)`
-  ${cabin};
+const StatusText = styled.div`
+  ${headline5};
   color: ${colorTextSecondary};
 `
 
@@ -85,11 +80,6 @@ const VsContainer = styled.div`
   align-items: center;
 `
 
-const VsText = styled(Display1Old)`
-  ${cabin};
-  font-weight: 500;
-`
-
 export default class MatchmakingMatch extends React.Component {
   static propTypes = {
     isLaunching: PropTypes.bool,
@@ -106,7 +96,7 @@ export default class MatchmakingMatch extends React.Component {
     if (isLaunching) {
       return <StatusText>Game launching...</StatusText>
     } else if (isCountingDown) {
-      return <CountdownText>{countdownTimer}</CountdownText>
+      return <Headline1>{countdownTimer}</Headline1>
     } else if (isStarting) {
       return <StatusText>Game starting...</StatusText>
     } else {
@@ -126,7 +116,7 @@ export default class MatchmakingMatch extends React.Component {
 
     return (
       <Container>
-        <Display3Old>{map.name}</Display3Old>
+        <Headline3>{map.name}</Headline3>
         <TopHalfContainer>
           <Spacer />
           <MapContainer>
@@ -137,7 +127,7 @@ export default class MatchmakingMatch extends React.Component {
         <PlayersContainer>
           <TeamContainer>{team1}</TeamContainer>
           <VsContainer>
-            <VsText>vs</VsText>
+            <Headline4>vs</Headline4>
           </VsContainer>
           <TeamContainer>{team2}</TeamContainer>
         </PlayersContainer>

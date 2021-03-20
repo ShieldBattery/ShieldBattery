@@ -7,7 +7,7 @@ import PlayerCard from './player-card'
 
 import { shadowDef2dp } from '../material/shadow-constants'
 import { colorTextSecondary } from '../styles/colors'
-import { Display1Old, Display3Old, cabin } from '../styles/typography'
+import { Headline3, Headline4, headline5 } from '../styles/typography'
 
 const Container = styled.div`
   display: flex;
@@ -23,7 +23,7 @@ const TopHalfContainer = styled.div`
   grid-template-columns: repeat(3, 1fr);
   grid-gap: 16px;
   max-width: calc(3 * 320px);
-  margin-top: 16px;
+  margin-top: 32px;
 `
 
 const Spacer = styled.div``
@@ -41,8 +41,8 @@ const StatusContainer = styled.div`
   align-items: center;
 `
 
-const StatusText = styled(Display1Old)`
-  ${cabin};
+const StatusText = styled.div`
+  ${headline5};
   color: ${colorTextSecondary};
 `
 
@@ -83,11 +83,6 @@ const VsContainer = styled.div`
   align-items: center;
 `
 
-const VsText = styled(Display1Old)`
-  ${cabin};
-  font-weight: 500;
-`
-
 const PlayersContainer = styled.div`
   display: flex;
   flex-direction: row;
@@ -102,6 +97,9 @@ const PlayersContainer = styled.div`
     margin: 8px;
   }
 `
+
+// TODO(tec27): Merge all of this and the matchmaking ones, they're all basically the same
+// structure and they keep getting out of sync :(
 
 export default class ActiveLobby extends React.Component {
   static propTypes = {
@@ -124,7 +122,7 @@ export default class ActiveLobby extends React.Component {
 
     return (
       <Container>
-        <Display3Old>{lobby.map.name}</Display3Old>
+        <Headline3>{lobby.map.name}</Headline3>
         <TopHalfContainer>
           <Spacer />
           <MapContainer>
@@ -138,7 +136,7 @@ export default class ActiveLobby extends React.Component {
           <TeamsContainer>
             <TeamContainer>{teams.get(0)}</TeamContainer>
             <VsContainer>
-              <VsText>vs</VsText>
+              <Headline4>vs</Headline4>
             </VsContainer>
             <TeamContainer>{teams.get(1)}</TeamContainer>
           </TeamsContainer>

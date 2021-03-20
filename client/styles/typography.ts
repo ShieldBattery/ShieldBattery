@@ -167,25 +167,10 @@ const textSizeSubheadOld = '16px'
 const textSizeTitleOld = '20px'
 const textSizeHeadlineOld = '24px'
 const textSizeDisplay1Old = '34px'
-const textSizeDisplay3Old = '56px'
-const textSizeDisplay4Old = '112px'
 
-export const Display4Old = styled.h1`
-  text-rendering: optimizeLegibility;
-  font-size: ${textSizeDisplay4Old};
-  font-weight: 300;
-  letter-spacing: -0.01em;
-  line-height: ${textSizeDisplay4Old};
-`
-
-export const Display3Old = styled.h1`
-  text-rendering: optimizeLegibility;
-  font-size: ${textSizeDisplay3Old};
-  font-weight: 400;
-  letter-spacing: -0.005em;
-  line-height: ${textSizeDisplay3Old};
-`
-
+/**
+ * @deprecated
+ */
 export const Display1Old = styled.h2`
   text-rendering: optimizeLegibility;
   font-size: ${textSizeDisplay1Old};
@@ -193,6 +178,9 @@ export const Display1Old = styled.h2`
   line-height: 40px;
 `
 
+/**
+ * @deprecated
+ */
 export const HeadlineOld = styled.h3`
   text-rendering: optimizeLegibility;
   font-size: ${textSizeHeadlineOld};
@@ -200,6 +188,9 @@ export const HeadlineOld = styled.h3`
   line-height: 32px;
 `
 
+/**
+ * @deprecated
+ */
 export const TitleOld = styled.h4`
   text-rendering: optimizeLegibility;
   font-size: ${textSizeTitleOld};
@@ -207,6 +198,9 @@ export const TitleOld = styled.h4`
   letter-spacing: 0.005em;
 `
 
+/**
+ * @deprecated
+ */
 export const SubheadingOld = styled.h5`
   text-rendering: optimizeLegibility;
   font-size: ${textSizeSubheadOld};
@@ -215,12 +209,18 @@ export const SubheadingOld = styled.h5`
   line-height: 24px;
 `
 
+/**
+ * @deprecated
+ */
 export const Body2Old = styled.span`
   font-weight: 500;
   letter-spacing: 0.01em;
   line-height: 24px;
 `
 
+/**
+ * @deprecated
+ */
 export const Body1Old = styled.span`
   font-weight: 400;
   letter-spacing: 0.01em;
