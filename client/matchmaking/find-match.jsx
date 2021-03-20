@@ -8,7 +8,7 @@ import { BrowseButton } from '../maps/map-select'
 import CheckBox from '../material/check-box'
 import form from '../forms/form'
 import KeyListener from '../keyboard/key-listener'
-import LoadingIndicator from '../progress/dots'
+import { LoadingDotsArea } from '../progress/dots'
 import MapThumbnail from '../maps/map-thumbnail'
 import RacePicker, { RACE_PICKER_SIZE_LARGE } from '../lobbies/race-picker'
 import RaisedButton from '../material/raised-button'
@@ -33,12 +33,10 @@ import { animationFrameHandler } from '../material/animation-frame-handler'
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
 
-const LoadingArea = styled.div`
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
+const StyledLoadingArea = styled(LoadingDotsArea)`
   height: 100%;
+  display: flex;
+  align-items: center;
 `
 
 const Container = styled.div`
@@ -385,20 +383,13 @@ export default class FindMatch extends React.Component {
     const mapPool =
       activeTab === TAB_1V1 ? matchmaking.mapPoolTypes.get(tabToType(activeTab)) : null
 
-    if ((mapPool && mapPool.isRequesting) || matchmakingPreferences.isRequesting) {
-      return (
-        <LoadingArea>
-          <LoadingIndicator />
-        </LoadingArea>
-      )
-    }
+    const isLoading = (mapPool && mapPool.isRequesting) || matchmakingPreferences.isRequesting
 
     // TODO(2Pac): Remove this check once we add support for other tabs that we currently display
     const status = activeTab === TAB_1V1 ? matchmakingStatus.types.get(tabToType(activeTab)) : null
     const isMatchmakingDisabled = !status || !status.enabled
     return (
       <Container>
-        <KeyListener onKeyDown={this.onKeyDown} />
         <TitleBar>
           <Headline5>Find match</Headline5>
         </TitleBar>
@@ -407,20 +398,28 @@ export default class FindMatch extends React.Component {
           <TabItem text='2 vs 2' />
           <TabItem text='3 vs 3' />
         </Tabs>
-        <Contents onScroll={this.onScrollUpdate.handler}>
-          <ContentsBody>{this.renderContents()}</ContentsBody>
-        </Contents>
-        {activeTab === TAB_1V1 ? (
-          <Actions>
-            <ScrollDivider show={scrolledUp} />
-            <RaisedButton
-              label='Find match'
-              disabled={isMatchmakingDisabled}
-              onClick={this.onFindClick}
-            />
-            {isMatchmakingDisabled ? <ErrorText>Matchmaking is now disabled</ErrorText> : null}
-          </Actions>
-        ) : null}
+
+        {isLoading ? (
+          <StyledLoadingArea />
+        ) : (
+          <>
+            <KeyListener onKeyDown={this.onKeyDown} />
+            <Contents onScroll={this.onScrollUpdate.handler}>
+              <ContentsBody>{this.renderContents()}</ContentsBody>
+            </Contents>
+            {activeTab === TAB_1V1 ? (
+              <Actions>
+                <ScrollDivider show={scrolledUp} />
+                <RaisedButton
+                  label='Find match'
+                  disabled={isMatchmakingDisabled}
+                  onClick={this.onFindClick}
+                />
+                {isMatchmakingDisabled ? <ErrorText>Matchmaking is now disabled</ErrorText> : null}
+              </Actions>
+            ) : null}
+          </>
+        )}
       </Container>
     )
   }
