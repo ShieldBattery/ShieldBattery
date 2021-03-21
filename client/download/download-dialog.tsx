@@ -4,7 +4,7 @@ import Dialog from '../material/dialog'
 import Download from './download'
 
 const StyledDialog = styled(Dialog)`
-  width: 448px;
+  max-width: 480px;
 `
 
 interface DownloadDialogProps {

@@ -1,11 +1,10 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import keycode from 'keycode'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 
 import IconButton from '../material/icon-button'
 import KeyListener from '../keyboard/key-listener'
-import { ScrollableContent } from '../material/scroll-bar'
 
 import CloseDialogIcon from '../icons/material/ic_close_black_24px.svg'
 
@@ -14,43 +13,59 @@ import { shadowDef8dp } from './shadow-constants'
 import { zIndexDialog } from './zindex'
 import { colorDividers, CardLayer } from '../styles/colors'
 import { headline5 } from '../styles/typography'
+import { animationFrameHandler } from './animation-frame-handler'
 
 const ESCAPE = keycode('esc')
 
-const Contents = styled(CardLayer)`
+const Container = styled.div`
   position: fixed;
-  display: table;
-  top: 0;
   left: 0;
   right: 0;
+  top: 0;
   bottom: 0;
   width: 80%;
-  height: auto;
   max-width: 768px;
-  max-height: 80%;
   margin: auto;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  pointer-events: none;
   z-index: ${zIndexDialog};
+`
+
+const Surface = styled(CardLayer)`
+  width: 100%;
+  max-height: 80%;
+  flex-grow: 0;
+  flex-shrink: 0;
+
+  display: flex;
+  flex-direction: column;
+
   border-radius: 2px;
   box-shadow: ${shadowDef8dp};
+  contain: content;
+  pointer-events: auto;
 
-  &.enter {
+  .enter > & {
     transform: translate3d(0, -100%, 0) scale(0.6, 0.2);
     opacity: 0;
   }
 
-  &.enterActive {
+  .enterActive > & {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
     transition: transform 350ms ${linearOutSlowIn}, opacity 250ms ${fastOutSlowIn};
   }
 
-  &.exit {
+  .exit > & {
     pointer-events: none;
     transform: translate3d(0, 0, 0) scale(1);
     opacity: 1;
   }
 
-  &.exitActive {
+  .exitActive > & {
     transform: translate3d(0, -100%, 0) scale(0.6, 0.2);
     opacity: 0;
     transition: transform 250ms ${fastOutLinearIn}, opacity 200ms ${fastOutSlowIn} 50ms;
@@ -58,8 +73,13 @@ const Contents = styled(CardLayer)`
 `
 
 const TitleBar = styled.div`
+  flex-grow: 0;
+  flex-shrink: 0;
+
   display: flex;
   align-items: center;
+  border-bottom: 1px solid ${props => (props.showDivider ? colorDividers : 'transparent')};
+  transition: border-color 150ms linear;
 `
 
 const Title = styled.div`
@@ -73,22 +93,24 @@ const CloseButton = styled(IconButton)`
   margin-right: 12px;
 `
 
-const ScrollDivider = styled.div`
-  width: 100%;
-  height: 1px;
-  margin-top: ${props => (props.position === 'top' ? '-1px' : '0')};
-  margin-bottom: ${props => (props.position === 'bottom' ? '-1px' : '0')};
-  background-color: ${colorDividers};
-`
-
 const Body = styled.div`
+  width: 100%;
+  min-height: 100px;
+  flex-grow: 1;
+
+  contain: content;
   padding: 0 24px 24px;
+  overflow: auto;
 `
 
 const Actions = styled.div`
+  flex-grow: 0;
+  flex-shrink: 0;
+
   padding: 8px 4px 0;
   margin-bottom: 2px;
-  width: 100%;
+  border-top: 1px solid ${props => (props.showDivider ? colorDividers : 'transparent')};
+  transition: border-color 150ms linear;
   text-align: right;
 `
 
@@ -109,6 +131,10 @@ class Dialog extends React.Component {
     scrolledDown: false,
   }
 
+  componentWillUnmount() {
+    this.onScrollUpdate.cancel()
+  }
+
   render() {
     const { title, titleAction, showCloseButton, tabs, buttons, dialogRef } = this.props
     const { scrolledUp, scrolledDown } = this.state
@@ -122,25 +148,20 @@ class Dialog extends React.Component {
     ) : null
 
     return (
-      <Contents role='dialog' className={this.props.className} ref={dialogRef}>
-        <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
-        <TitleBar>
-          <Title>{title}</Title>
-          {titleAction}
-          {closeButton}
-        </TitleBar>
-        {tabs}
-        {scrolledDown || tabs ? <ScrollDivider position='top' /> : null}
-        <ScrollableContent
-          autoHeight={true}
-          autoHeightMin={'100px'}
-          autoHeightMax={'calc(80vh - 132px)'}
-          onUpdate={this.onScrollUpdate}>
-          <Body>{this.props.children}</Body>
-        </ScrollableContent>
-        {scrolledUp && buttons && buttons.length ? <ScrollDivider position='bottom' /> : null}
-        {buttons && buttons.length ? <Actions>{buttons}</Actions> : null}
-      </Contents>
+      <Container role='dialog' className={this.props.className} ref={dialogRef}>
+        <Surface>
+          <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
+          <TitleBar showDivider={scrolledDown && !tabs}>
+            <Title>{title}</Title>
+            {titleAction}
+            {closeButton}
+          </TitleBar>
+          {tabs}
+
+          <Body onScroll={this.onScrollUpdate.handler}>{this.props.children}</Body>
+          {buttons && buttons.length ? <Actions showDivider={scrolledUp}>{buttons}</Actions> : null}
+        </Surface>
+      </Container>
     )
   }
 
@@ -159,15 +180,15 @@ class Dialog extends React.Component {
     return false
   }
 
-  onScrollUpdate = values => {
-    const { scrollTop, scrollHeight, clientHeight } = values
+  onScrollUpdate = animationFrameHandler(target => {
+    const { scrollTop, scrollHeight, clientHeight } = target
     const scrolledUp = scrollTop + clientHeight < scrollHeight
     const scrolledDown = scrollTop > 0
 
     if (scrolledUp !== this.state.scrolledUp || scrolledDown !== this.state.scrolledDown) {
       this.setState({ scrolledUp, scrolledDown })
     }
-  }
+  })
 }
 
 export default Dialog
