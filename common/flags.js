@@ -19,3 +19,5 @@ export const MAP_UPLOADING = ON()
 export const MATCHMAKING = ON()
 // Allow launching with BW 1.16.1 installation
 export const BW_1161 = DEV()
+// Allow party related features (invite players, decline/accept an invite, etc.)
+export const PARTIES = DEV()

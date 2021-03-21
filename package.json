@@ -25,6 +25,7 @@
   "jest": {
     "setupFilesAfterEnv": [
       "./babel-register.js",
+      "core-js/proposals/reflect-metadata",
       "jest-extended"
     ],
     "testEnvironment": "node",
