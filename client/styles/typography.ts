@@ -15,7 +15,7 @@ export const cabin = css`
 export const buttonText = css`
   font-size: ${textSizeButton};
   font-weight: 500;
-  letter-spacing: 1.5px;
+  letter-spacing: 1.75px;
   line-height: 36px;
   text-transform: uppercase;
 `

@@ -23,9 +23,6 @@ const Container = styled.div`
   right: 0;
   top: 0;
   bottom: 0;
-  width: 80%;
-  max-width: 768px;
-  margin: auto;
 
   display: flex;
   align-items: center;
@@ -35,7 +32,8 @@ const Container = styled.div`
 `
 
 const Surface = styled(CardLayer)`
-  width: 100%;
+  width: 80%;
+  max-width: 768px;
   max-height: 80%;
   flex-grow: 0;
   flex-shrink: 0;
@@ -45,27 +43,26 @@ const Surface = styled(CardLayer)`
 
   border-radius: 2px;
   box-shadow: ${shadowDef8dp};
-  contain: content;
   pointer-events: auto;
 
-  .enter > & {
+  &.enter {
     transform: translate3d(0, -100%, 0) scale(0.6, 0.2);
     opacity: 0;
   }
 
-  .enterActive > & {
+  &.enterActive {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
     transition: transform 350ms ${linearOutSlowIn}, opacity 250ms ${fastOutSlowIn};
   }
 
-  .exit > & {
+  &.exit {
     pointer-events: none;
     transform: translate3d(0, 0, 0) scale(1);
     opacity: 1;
   }
 
-  .exitActive > & {
+  &.exitActive {
     transform: translate3d(0, -100%, 0) scale(0.6, 0.2);
     opacity: 0;
     transition: transform 250ms ${fastOutLinearIn}, opacity 200ms ${fastOutSlowIn} 50ms;
@@ -148,8 +145,8 @@ class Dialog extends React.Component {
     ) : null
 
     return (
-      <Container role='dialog' className={this.props.className} ref={dialogRef}>
-        <Surface>
+      <Container role='dialog' ref={dialogRef}>
+        <Surface className={this.props.className}>
           <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
           <TitleBar showDivider={scrolledDown && !tabs}>
             <Title>{title}</Title>
