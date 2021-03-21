@@ -63,7 +63,6 @@ function App() {
             filters={[HasBetaFilter, LoggedInFilter, SiteConnectedFilter, LoadingFilter]}>
             <MainLayout />
           </ConditionalRoute>
-          />
         </Switch>
       </React.Fragment>
     </StyleSheetManager>
