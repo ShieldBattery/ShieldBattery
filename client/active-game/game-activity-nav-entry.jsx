@@ -4,14 +4,19 @@ import { Link } from 'wouter'
 import styled from 'styled-components'
 
 import { colorTextSecondary } from '../styles/colors'
-import { Body2Old, TitleOld, cabin, singleLine } from '../styles/typography'
+import { subtitle1, headline6, singleLine } from '../styles/typography'
 
 const Container = styled.li`
   height: 72px;
-  margin: 0;
-  padding: 0 16px;
+  margin: 0 8px;
+  padding: 8px;
+
+  background-color: ${props => (props.isActive ? 'rgba(255, 255, 255, 0.08)' : 'transparent')};
+  border-radius: 2px;
 
   &:hover {
+    background-color: ${props =>
+      props.isActive ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.04)'};
     cursor: pointer;
   }
 `
@@ -31,18 +36,15 @@ const StyledLink = styled(Link)`
   }
 `
 
-const StyledTitle = styled(TitleOld)`
-  ${cabin};
+const StyledTitle = styled.div`
+  ${headline6};
   ${singleLine};
-  margin: 0;
-  font-weight: 500;
 `
 
-const Subtitle = styled(Body2Old)`
+const Subtitle = styled.div`
+  ${subtitle1};
   ${singleLine};
   color: ${colorTextSecondary};
-  margin-top: 8px;
-  font-size: 16px;
 `
 
 const GameActivityNavEntry = ({ link, currentPath, title, subtitle }) => {

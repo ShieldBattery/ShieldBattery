@@ -9,7 +9,7 @@ import { closeOverlay } from '../activities/action-creators'
 
 import MapThumbnail from '../maps/map-thumbnail'
 import { colorDividers } from '../styles/colors'
-import { HeadlineOld, SubheadingOld, Body2Old, TitleOld } from '../styles/typography'
+import { Headline3, headline5, Body1, Subtitle1, Subtitle2 } from '../styles/typography'
 
 const ListEntryRoot = styled.div`
   width: 100%;
@@ -70,10 +70,10 @@ class ListEntry extends React.Component {
     return (
       <ListEntryRoot onClick={() => onClick(lobby)}>
         <Info>
-          <HeadlineOld as='span'>{lobby.name}</HeadlineOld>
-          <SubheadingOld as='span'>{lobby.host.name}</SubheadingOld>
-          <Body2Old as='span'>{gameTypeToString(lobby.gameType)}</Body2Old>
-          <Body2Old as='span'>{lobby.openSlotCount} slots open</Body2Old>
+          <Headline3>{lobby.name}</Headline3>
+          <Subtitle2>{lobby.host.name}</Subtitle2>
+          <Body1>{gameTypeToString(lobby.gameType)}</Body1>
+          <Body1>{lobby.openSlotCount} slots open</Body1>
         </Info>
         <MapPreview>
           <MapThumbnail map={lobby.map} showMapName={true} canHover={false} />
@@ -87,8 +87,10 @@ const Root = styled.div`
   padding: 16px;
 `
 
-const Header = styled(TitleOld)`
+const Header = styled.div`
+  ${headline5};
   margin-top: 8px;
+  margin-left: 16px;
 `
 
 @connect(state => ({ lobbyList: state.lobbyList }))
@@ -111,7 +113,7 @@ export default class JoinLobby extends React.Component {
     if (!list.size) {
       return (
         <div>
-          <SubheadingOld as='p'>There are no active lobbies</SubheadingOld>
+          <Subtitle1>There are no active lobbies</Subtitle1>
         </div>
       )
     }
@@ -124,7 +126,7 @@ export default class JoinLobby extends React.Component {
             <ListEntry key={name} lobby={byName.get(name)} onClick={this._handleLobbyClick} />
           ))
         ) : (
-          <SubheadingOld as='p'>There are no open lobbies</SubheadingOld>
+          <Subtitle1>There are no open lobbies</Subtitle1>
         )}
       </div>
     )

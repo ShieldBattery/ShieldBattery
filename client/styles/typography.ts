@@ -212,15 +212,6 @@ export const SubheadingOld = styled.h5`
 /**
  * @deprecated
  */
-export const Body2Old = styled.span`
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  line-height: 24px;
-`
-
-/**
- * @deprecated
- */
 export const Body1Old = styled.span`
   font-weight: 400;
   letter-spacing: 0.01em;

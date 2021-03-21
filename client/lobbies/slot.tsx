@@ -1,6 +1,6 @@
 import styled from 'styled-components'
-import { Body2Old, singleLine, SubheadingOld } from '../styles/typography'
-import { colorTextSecondary, colorDividers, colorTextFaint } from '../styles/colors'
+import { colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
+import { overline, singleLine, subtitle2 } from '../styles/typography'
 
 export const RegularSlots = styled.div`
   width: 100%;
@@ -59,7 +59,8 @@ export const SlotRight = styled.div`
   }
 `
 
-export const TeamName = styled(Body2Old)`
+export const TeamName = styled.div`
+  ${overline};
   ${singleLine};
   line-height: 24px;
   height: 24px;
@@ -96,7 +97,8 @@ export const SlotEmptyAvatar = styled.span`
   color: ${colorTextSecondary};
 `
 
-export const SlotName = styled(SubheadingOld)`
+export const SlotName = styled.div`
+  ${subtitle2};
   ${singleLine};
   max-width: 256px;
   flex-grow: 1;
