@@ -685,16 +685,14 @@ static WindowsError TryHideDebugger(HANDLE process, HANDLE thread, bool *was_hid
   return WindowsError();
 }
 
-static WindowsError IsEipInRange(HANDLE thread, uintptr_t start, unsigned int len, bool *result) {
-  *result = false;
+static bool IsEipInRange(HANDLE thread, uintptr_t start, unsigned int len) {
   WOW64_CONTEXT context = { 0 };
   context.ContextFlags = WOW64_CONTEXT_INTEGER | WOW64_CONTEXT_CONTROL;
   auto ok = Wow64GetThreadContext(thread, &context);
   if (ok == 0) {
-    return WindowsError("IsEipInRange -> GetThreadContext", GetLastError());
+    return false;
   }
-  *result = context.Eip >= start && context.Eip < start + len;
-  return WindowsError();
+  return context.Eip >= start && context.Eip < start + len;
 }
 
 static uint32_t ReadU32(const vector<byte> &bytes, uintptr_t offset) {
@@ -803,7 +801,12 @@ WindowsError Process::DebugUntilTlsCallback(void **tls_callback_entry) {
   void *tls_callback_address = nullptr;
   vector<uint8_t> tls_callback_orig;
   WindowsError error;
+  int limit = 500;
   while (true) {
+    if (limit == 0) {
+      return WindowsError("Debug event limit reached", ERROR_CAN_NOT_COMPLETE);
+    }
+    limit -= 1;
     if (!debugger_hidden) {
       error = TryHideDebugger(process_handle_.get(), thread_handle_.get(), &debugger_hidden);
       if (error.is_error()) {
@@ -826,12 +829,8 @@ WindowsError Process::DebugUntilTlsCallback(void **tls_callback_entry) {
     }
     // Check if the thread has reached patch infloop
     if (exe_patch_region_len != 0) {
-      bool is_at_infloop = false;
-      error = IsEipInRange(thread_handle_.get(), exe_patch_region_start, exe_patch_region_len,
-          &is_at_infloop);
-      if (error.is_error()) {
-        return error;
-      }
+      bool is_at_infloop =
+          IsEipInRange(thread_handle_.get(), exe_patch_region_start, exe_patch_region_len);
       if (is_at_infloop) {
         // Break while(true) {}
         // If we got a debug event that wasn't for this thread, let that thread continue.
