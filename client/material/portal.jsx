@@ -5,9 +5,8 @@ import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import styled from 'styled-components'
 import { rgba } from 'polished'
 
-import { fastOutSlowIn } from './curve-constants'
 import { zIndexDialogScrim } from './zindex'
-import { grey900 } from '../styles/colors'
+import { dialogScrim } from '../styles/colors'
 
 const transitionNames = {
   appear: 'enter',
@@ -21,34 +20,34 @@ const transitionNames = {
 const Scrim = styled.div`
   position: fixed;
   left: 0;
-  top: 0;
+  top: var(--sb-system-bar-height, 0);
   right: 0;
   bottom: 0;
 
-  background-color: ${rgba(grey900, 0.42)};
+  background-color: ${rgba(dialogScrim, 0.42)};
   /*
     Even though we're using React's CSS Transition Group to animate the scrim with the classes below
     we also have a transition of "opacity" property here, because it is possible in some special
     case (Dialogs) for scrim to always be rendered.
   */
-  transition: opacity 250ms ${fastOutSlowIn};
+  transition: opacity 250ms linear;
   -webkit-app-region: no-drag;
 
   &.enter {
-    background-color: ${rgba(grey900, 0)};
+    background-color: ${rgba(dialogScrim, 0)};
   }
 
   &.enterActive {
-    background-color: ${rgba(grey900, 0.42)};
-    transition: background-color 250ms ${fastOutSlowIn};
+    background-color: ${rgba(dialogScrim, 0.42)};
+    transition: background-color 250ms linear;
   }
 
   &.exit {
   }
 
   &.exitActive {
-    transition: background-color 200ms ${fastOutSlowIn};
-    background-color: ${rgba(grey900, 0)};
+    transition: background-color 200ms linear;
+    background-color: ${rgba(dialogScrim, 0)};
   }
 `
 

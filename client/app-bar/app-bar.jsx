@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useLayoutEffect } from 'react'
 import styled from 'styled-components'
 import { push } from '../navigation/routing'
 
@@ -86,26 +86,27 @@ const DevIndicator = styled.div`
   -webkit-app-region: no-drag;
 `
 
-export default class AppBar extends React.Component {
-  render() {
-    return (
-      <Container>
-        <SizeTop />
-        <SizeLeft />
-        <SizeRight />
-        <LeftSide>
-          <Lockup />
-          {DEV_INDICATOR ? <DevIndicator onClick={this.goToDev}>Dev</DevIndicator> : null}
-        </LeftSide>
-        <Content>{this.props.children}</Content>
-        <RightSide>
-          <UserCount />
-        </RightSide>
-      </Container>
-    )
-  }
+export default function AppBar(props) {
+  useLayoutEffect(() => {
+    document.body.style.setProperty('--sb-system-bar-height', standardIncrement)
+    return () => {
+      document.body.style.removeProperty('--sb-system-bar-height')
+    }
+  }, [])
 
-  goToDev = () => {
-    push('/dev')
-  }
+  return (
+    <Container>
+      <SizeTop />
+      <SizeLeft />
+      <SizeRight />
+      <LeftSide>
+        <Lockup />
+        {DEV_INDICATOR ? <DevIndicator onClick={() => push('/dev')}>Dev</DevIndicator> : null}
+      </LeftSide>
+      <Content>{props.children}</Content>
+      <RightSide>
+        <UserCount />
+      </RightSide>
+    </Container>
+  )
 }

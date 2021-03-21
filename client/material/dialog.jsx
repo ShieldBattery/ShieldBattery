@@ -18,10 +18,10 @@ import { animationFrameHandler } from './animation-frame-handler'
 const ESCAPE = keycode('esc')
 
 const Container = styled.div`
-  position: fixed;
-  left: 0;
+  position: absolute;
+  left: var(--pixel-shove-x, 0);
   right: 0;
-  top: 0;
+  top: var(--pixel-shove-y, 0);
   bottom: 0;
 
   display: flex;
@@ -32,9 +32,9 @@ const Container = styled.div`
 `
 
 const Surface = styled(CardLayer)`
-  width: 80%;
+  width: calc(100% - 160px);
   max-width: 768px;
-  max-height: 80%;
+  max-height: calc(100% - 160px);
   flex-grow: 0;
   flex-shrink: 0;
 
@@ -145,8 +145,8 @@ class Dialog extends React.Component {
     ) : null
 
     return (
-      <Container role='dialog' ref={dialogRef}>
-        <Surface className={this.props.className}>
+      <Container role='dialog'>
+        <Surface className={this.props.className} ref={dialogRef}>
           <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
           <TitleBar showDivider={scrolledDown && !tabs}>
             <Title>{title}</Title>

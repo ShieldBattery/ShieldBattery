@@ -26,6 +26,7 @@ const Container = styled.div`
   height: 100%;
   margin: 0 auto;
   padding: 0;
+  padding-left: var(--pixel-shove-x, 0px) solid transparent;
   display: flex;
 `
 

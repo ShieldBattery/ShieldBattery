@@ -47,7 +47,7 @@ export const colorBackground = grey900
 export const colorError = '#ff6e6e'
 export const colorSuccess = '#66bb6a'
 
-export const dialogScrim = '#121212'
+export const dialogScrim = grey900
 
 export const CardLayer = styled.div`
   background-color: ${grey800};

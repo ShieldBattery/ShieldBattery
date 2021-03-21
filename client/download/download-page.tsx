@@ -9,6 +9,7 @@ const Wrapper = styled.div`
   #app & {
     width: ${640 + 16 * 2}px;
     margin: 0 auto;
+    padding-left: var(--pixel-shove-x, 0);
   }
 `
 

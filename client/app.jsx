@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useLayoutEffect } from 'react'
 import { Route, Switch } from 'wouter'
 import { StyleSheetManager } from 'styled-components'
 import loadable from '@loadable/component'
@@ -22,6 +22,7 @@ import LoadingIndicator from './progress/dots'
 
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
+import { usePixelShover } from './dom/pixel-shover'
 
 const IS_PRODUCTION = __WEBPACK_ENV.NODE_ENV === 'production'
 
@@ -33,35 +34,40 @@ const LoadableDev = IS_PRODUCTION
       fallback: <LoadingIndicator />,
     })
 
-class App extends React.Component {
-  render() {
-    return (
-      <StyleSheetManager disableVendorPrefixes={IS_ELECTRON}>
-        <React.Fragment>
-          <ResetStyle />
-          <GlobalStyle />
-          <WindowControlsStyle />
-          <WindowControls />
-          <Switch>
-            <Route path='/splash' component={Splash} />
-            <Route path='/faq' component={Faq} />
-            <Route path='/download' component={DownloadPage} />
-            <LoginRoute path='/forgot-password' component={ForgotPassword} />
-            <LoginRoute path='/forgot-user' component={ForgotUser} />
-            <LoginRoute path='/login' component={Login} />
-            <LoginRoute path='/reset-password' component={ResetPassword} />
-            <LoginRoute path='/signup' component={Signup} />
-            <LoginRoute path='/verify-email' component={VerifyEmail} />
-            {!IS_PRODUCTION ? <Route path='/dev/:rest*' component={LoadableDev} /> : <></>}
-            <ConditionalRoute
-              filters={[HasBetaFilter, LoggedInFilter, SiteConnectedFilter, LoadingFilter]}
-              component={MainLayout}
-            />
-          </Switch>
-        </React.Fragment>
-      </StyleSheetManager>
-    )
-  }
+function App() {
+  const [shoveX, shoveY] = usePixelShover()
+  useLayoutEffect(() => {
+    document.body.style.setProperty('--pixel-shove-x', `${shoveX}px`)
+    document.body.style.setProperty('--pixel-shove-y', `${shoveY}px`)
+  }, [shoveX, shoveY])
+
+  return (
+    <StyleSheetManager disableVendorPrefixes={IS_ELECTRON}>
+      <React.Fragment>
+        <ResetStyle />
+        <GlobalStyle />
+        <WindowControlsStyle />
+        <WindowControls />
+        <Switch>
+          <Route path='/splash' component={Splash} />
+          <Route path='/faq' component={Faq} />
+          <Route path='/download' component={DownloadPage} />
+          <LoginRoute path='/forgot-password' component={ForgotPassword} />
+          <LoginRoute path='/forgot-user' component={ForgotUser} />
+          <LoginRoute path='/login' component={Login} />
+          <LoginRoute path='/reset-password' component={ResetPassword} />
+          <LoginRoute path='/signup' component={Signup} />
+          <LoginRoute path='/verify-email' component={VerifyEmail} />
+          {!IS_PRODUCTION ? <Route path='/dev/:rest*' component={LoadableDev} /> : <></>}
+          <ConditionalRoute
+            filters={[HasBetaFilter, LoggedInFilter, SiteConnectedFilter, LoadingFilter]}>
+            <MainLayout />
+          </ConditionalRoute>
+          />
+        </Switch>
+      </React.Fragment>
+    </StyleSheetManager>
+  )
 }
 
 export default hot(App)

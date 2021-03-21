@@ -3,7 +3,7 @@ import { makeServerUrl } from '../network/server-url'
 import styled from 'styled-components'
 
 import { SizeTop, SizeLeft, SizeRight } from '../app-bar/window-controls'
-import { ScrollableContent } from '../material/scroll-bar'
+import { blue800 } from '../styles/colors'
 
 import LogoText from '../logos/logotext-640x100.svg'
 
@@ -16,6 +16,7 @@ const Background = styled.div`
 const Wrapper = styled.div`
   width: 100%;
   height: 100%;
+  padding-left: var(--pixel-shove-x, 0);
 
   .electron & {
     height: calc(100% - 32px);
@@ -26,6 +27,7 @@ const Wrapper = styled.div`
 const Draggable = styled.div`
   width: 100%;
   height: 32px;
+  background-color: ${blue800};
 
   -webkit-app-region: drag;
 `
@@ -36,10 +38,10 @@ const Contents = styled.div`
 `
 
 const Logo = styled.img`
-  display: block;
-  margin: 0 auto;
   width: 192px;
   height: 192px;
+  display: block;
+  margin: 0 auto;
 `
 
 const StyledLogoText = styled.div`
@@ -51,24 +53,22 @@ const StyledLogoText = styled.div`
 class MainLayout extends React.Component {
   render() {
     return (
-      <ScrollableContent>
-        <Background>
-          <Draggable>
-            <SizeTop />
-            <SizeLeft />
-            <SizeRight />
-          </Draggable>
-          <Wrapper>
-            <Contents>
-              <Logo src={makeServerUrl('/images/logo.svg')} />
-              <StyledLogoText>
-                <LogoText />
-              </StyledLogoText>
-              {this.props.children}
-            </Contents>
-          </Wrapper>
-        </Background>
-      </ScrollableContent>
+      <Background>
+        <Draggable>
+          <SizeTop />
+          <SizeLeft />
+          <SizeRight />
+        </Draggable>
+        <Wrapper>
+          <Contents>
+            <Logo src={makeServerUrl('/images/logo.svg')} />
+            <StyledLogoText>
+              <LogoText />
+            </StyledLogoText>
+            {this.props.children}
+          </Contents>
+        </Wrapper>
+      </Background>
     )
   }
 }

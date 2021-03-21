@@ -16,6 +16,7 @@ const Container = styled.div`
   max-width: 1140px;
   margin: 0 auto;
   padding: 24px 40px;
+  border-left: var(--pixel-shove-x, 0px) solid transparent;
 `
 
 const TopHalfContainer = styled.div`

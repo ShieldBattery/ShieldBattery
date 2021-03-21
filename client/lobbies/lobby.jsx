@@ -310,6 +310,7 @@ const ContentArea = styled.div`
   height: 100%;
   padding: 0 16px;
   margin: 0 auto;
+  border-left: var(--pixel-shove-x, 0px) solid transparent;
 
   display: flex;
   justify-content: space-between;

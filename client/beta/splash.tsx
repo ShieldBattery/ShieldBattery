@@ -27,6 +27,7 @@ const SplashContainer = styled.div`
   align-items: center;
   background-color: ${grey850};
   margin: 0px auto;
+  padding-right: var(--pixel-shove-x, 0);
   overflow: auto scroll;
 
   & * {

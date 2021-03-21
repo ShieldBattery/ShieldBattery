@@ -13,7 +13,6 @@ import { dialogScrim, grey850 } from '../styles/colors'
 import { zIndexBackdrop, zIndexSideNav } from '../material/zindex'
 import { shadow8dp } from '../material/shadows'
 import { fastOutLinearIn, linearOutSlowIn } from '../material/curve-constants'
-import { standardIncrement } from '../material/units'
 
 const {
   FindMatch,
@@ -45,7 +44,7 @@ const transitionNames = {
 const Scrim = styled.div`
   position: fixed;
   left: 0;
-  top: 0;
+  top: var(--sb-system-bar-height, 0);
   right: 0;
   bottom: 0;
   opacity: 0.42;
@@ -60,7 +59,7 @@ const Overlay = styled.div`
   ${shadow8dp};
   position: fixed;
   right: 0;
-  top: ${standardIncrement};
+  top: var(--sb-system-bar-height, 0);
   bottom: 0;
   width: 60%;
   min-width: 448px;
