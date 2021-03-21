@@ -167,7 +167,7 @@ export default class Settings extends React.Component {
   }
 
   render() {
-    const { onCancel } = this.props
+    const { onCancel, dialogRef } = this.props
     const { activeTab } = this.state
     const { scr, lastError } = this.props.settings
 
@@ -213,6 +213,7 @@ export default class Settings extends React.Component {
 
     return (
       <Dialog
+        dialogRef={dialogRef}
         title={'Settings'}
         titleAction={titleAction}
         tabs={tabs}

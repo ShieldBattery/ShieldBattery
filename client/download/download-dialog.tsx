@@ -8,12 +8,13 @@ const StyledDialog = styled(Dialog)`
 `
 
 interface DownloadDialogProps {
+  dialogRef: React.Ref<any>
   onCancel?: () => void
 }
 
 export default function DownloadDialog(props: DownloadDialogProps) {
   return (
-    <StyledDialog onCancel={props.onCancel} showCloseButton={true}>
+    <StyledDialog onCancel={props.onCancel} showCloseButton={true} dialogRef={props.dialogRef}>
       <Download />
     </StyledDialog>
   )

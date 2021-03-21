@@ -13,7 +13,7 @@ import { linearOutSlowIn, fastOutSlowIn, fastOutLinearIn } from './curve-constan
 import { shadowDef8dp } from './shadow-constants'
 import { zIndexDialog } from './zindex'
 import { colorDividers, CardLayer } from '../styles/colors'
-import { HeadlineOld } from '../styles/typography'
+import { headline5 } from '../styles/typography'
 
 const ESCAPE = keycode('esc')
 
@@ -62,9 +62,9 @@ const TitleBar = styled.div`
   align-items: center;
 `
 
-const Title = styled(HeadlineOld)`
+const Title = styled.div`
+  ${headline5};
   flex-grow: 1;
-  margin: 0;
   padding: 24px 24px 20px;
 `
 
@@ -100,6 +100,8 @@ class Dialog extends React.Component {
     showCloseButton: PropTypes.bool,
     tabs: PropTypes.element,
     buttons: PropTypes.arrayOf(PropTypes.element),
+    /** Ref that will be assigned to the root of the dialog contents (useful for CSSTransition) */
+    dialogRef: PropTypes.object,
   }
 
   state = {
@@ -108,7 +110,7 @@ class Dialog extends React.Component {
   }
 
   render() {
-    const { title, titleAction, showCloseButton, tabs, buttons } = this.props
+    const { title, titleAction, showCloseButton, tabs, buttons, dialogRef } = this.props
     const { scrolledUp, scrolledDown } = this.state
 
     const closeButton = showCloseButton ? (
@@ -120,7 +122,7 @@ class Dialog extends React.Component {
     ) : null
 
     return (
-      <Contents role='dialog' className={this.props.className}>
+      <Contents role='dialog' className={this.props.className} ref={dialogRef}>
         <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
         <TitleBar>
           <Title>{title}</Title>

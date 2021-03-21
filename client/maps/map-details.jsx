@@ -307,7 +307,11 @@ export default class MapDetails extends React.Component {
 
   render() {
     return (
-      <Dialog title={'Map details'} showCloseButton={true} onCancel={this.props.onCancel}>
+      <Dialog
+        title={'Map details'}
+        showCloseButton={true}
+        onCancel={this.props.onCancel}
+        dialogRef={this.props.dialogRef}>
         {this.renderContents()}
       </Dialog>
     )

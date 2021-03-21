@@ -72,7 +72,11 @@ export default class ChangelogDialog extends React.Component {
 
   render() {
     return (
-      <Dialog title={"What's new"} onCancel={this.onDismiss} showCloseButton={true}>
+      <Dialog
+        title={"What's new"}
+        onCancel={this.onDismiss}
+        showCloseButton={true}
+        dialogRef={this.props.dialogRef}>
         <Content dangerouslySetInnerHTML={changelogHtml} />
       </Dialog>
     )

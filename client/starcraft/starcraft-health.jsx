@@ -81,7 +81,8 @@ export default class StarcraftHealthCheckupDialog extends React.Component {
       <Dialog
         title={'Installation problems detected'}
         onCancel={this.props.onCancel}
-        showCloseButton={true}>
+        showCloseButton={true}
+        dialogRef={this.props.dialogRef}>
         <HeaderText as='p'>
           The following problems need to be corrected before you can play games on ShieldBattery:
         </HeaderText>

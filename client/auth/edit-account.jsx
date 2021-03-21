@@ -31,7 +31,7 @@ import {
 } from '../../common/constants'
 
 import { colorTextSecondary, colorError } from '../styles/colors'
-import { SubheadingOld } from '../styles/typography'
+import { subtitle1 } from '../styles/typography'
 
 function passwordRequired() {
   return (val, model, dirty) =>
@@ -146,13 +146,15 @@ const LoadingArea = styled.div`
   margin-bottom: 24px;
 `
 
-const ErrorText = styled(SubheadingOld)`
+const ErrorText = styled.div`
+  ${subtitle1};
   margin: 0;
   margin-bottom: 24px;
   color: ${colorError};
 `
 
 const AccountContainer = styled.div`
+  margin-top: 16px;
   display: flex;
   align-items: flex-start;
 `
@@ -210,7 +212,7 @@ export default class EditAccount extends React.Component {
   }
 
   render() {
-    const { auth, onCancel } = this.props
+    const { auth, onCancel, dialogRef } = this.props
     const { reqId } = this.state
     let loadingElem
     let errorElem
@@ -247,7 +249,12 @@ export default class EditAccount extends React.Component {
     ]
 
     return (
-      <Dialog title={'Edit account'} buttons={buttons} showCloseButton={true} onCancel={onCancel}>
+      <Dialog
+        title={'Edit account'}
+        buttons={buttons}
+        showCloseButton={true}
+        onCancel={onCancel}
+        dialogRef={dialogRef}>
         {loadingElem}
         {errorElem}
         {this.renderDialogContents(passwordError)}

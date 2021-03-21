@@ -77,7 +77,11 @@ export default class CreateWhisper extends React.Component {
     ]
 
     return (
-      <Dialog title={'Send a message'} buttons={buttons} onCancel={this.props.onCancel}>
+      <Dialog
+        title={'Send a message'}
+        buttons={buttons}
+        onCancel={this.props.onCancel}
+        dialogRef={this.props.dialogRef}>
         <CreateWhisperForm
           ref={this._setForm}
           inputRef={this._setInput}

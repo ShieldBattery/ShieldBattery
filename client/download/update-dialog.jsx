@@ -77,10 +77,11 @@ export default class UpdateDialog extends React.Component {
   render() {
     const {
       update: { hasDownloadError },
+      dialogRef,
     } = this.props
     const title = !hasDownloadError ? 'Update available' : 'Error downloading update'
     return (
-      <Dialog title={title} showCloseButton={false}>
+      <Dialog title={title} showCloseButton={false} dialogRef={dialogRef}>
         {this.renderInfo()}
       </Dialog>
     )

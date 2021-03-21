@@ -14,7 +14,7 @@ import { acceptMatch } from './action-creators'
 import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
 
 import { amberA400, grey700 } from '../styles/colors'
-import { Body1Old } from '../styles/typography'
+import { Body1 } from '../styles/typography'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -114,7 +114,7 @@ export default class AcceptMatch extends React.Component {
       return (
         <div>
           <KeyListener onKeyDown={this.onAcceptKeyDown} />
-          <Body1Old>All players must accept the match to begin.</Body1Old>
+          <Body1>All players must accept the match to begin.</Body1>
           <CenteredContainer>
             {hasAccepted ? (
               [...acceptedAvatars, ...unacceptedAvatars]
@@ -133,11 +133,12 @@ export default class AcceptMatch extends React.Component {
   render() {
     const {
       matchmaking: { isFinding, failedToAccept },
+      dialogRef,
     } = this.props
 
     const title = isFinding || failedToAccept ? 'Failed to accept' : 'Your game is ready'
     return (
-      <StyledDialog title={title} showCloseButton={false}>
+      <StyledDialog title={title} showCloseButton={false} dialogRef={dialogRef}>
         {this.renderDialogContents()}
       </StyledDialog>
     )

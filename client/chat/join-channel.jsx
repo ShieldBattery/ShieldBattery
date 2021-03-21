@@ -76,7 +76,11 @@ export default class JoinChannel extends React.Component {
     ]
 
     return (
-      <Dialog title={'Join channel'} buttons={buttons} onCancel={this.props.onCancel}>
+      <Dialog
+        title={'Join channel'}
+        buttons={buttons}
+        onCancel={this.props.onCancel}
+        dialogRef={this.props.dialogRef}>
         <JoinChannelForm
           ref={this._setForm}
           inputRef={this._setInput}

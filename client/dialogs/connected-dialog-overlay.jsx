@@ -31,10 +31,8 @@ const transitionNames = {
 
 @connect(state => ({ dialog: state.dialog, starcraft: state.starcraft }))
 class ConnectedDialogOverlay extends React.Component {
-  _focusable = null
-  _setFocusable = elem => {
-    this._focusable = elem
-  }
+  _focusableRef = React.createRef()
+  _dialogRef = React.createRef()
 
   getDialog(dialogType) {
     switch (dialogType) {
@@ -80,15 +78,23 @@ class ConnectedDialogOverlay extends React.Component {
     if (dialog.isDialogOpened) {
       const { component: DialogComponent } = this.getDialog(dialog.dialogType)
       dialogComponent = (
-        <CSSTransition classNames={transitionNames} timeout={{ enter: 350, exit: 250 }}>
-          <DialogComponent key='dialog' onCancel={this.onCancel} {...dialog.initData.toJS()} />
+        <CSSTransition
+          classNames={transitionNames}
+          timeout={{ enter: 350, exit: 250 }}
+          nodeRef={this._dialogRef}>
+          <DialogComponent
+            key='dialog'
+            dialogRef={this._dialogRef}
+            onCancel={this.onCancel}
+            {...dialog.initData.toJS()}
+          />
         </CSSTransition>
       )
     }
 
     return [
       <span key='topFocus' tabIndex={0} onFocus={this.onFocusTrap} />,
-      <span key='mainFocus' ref={this._setFocusable} tabIndex={-1}>
+      <span key='mainFocus' ref={this._focusableRef} tabIndex={-1}>
         <TransitionGroup>{dialogComponent}</TransitionGroup>
       </span>,
       <span key='bottomFocus' tabIndex={0} onFocus={this.onFocusTrap} />,
@@ -119,7 +125,7 @@ class ConnectedDialogOverlay extends React.Component {
 
   onFocusTrap = () => {
     // Focus was about to leave the dialog area, redirect it back to the dialog
-    this._focusable.focus()
+    this._focusableRef.current?.focus()
   }
 }
 

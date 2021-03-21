@@ -50,7 +50,8 @@ export class ShieldBatteryHealthDialog extends React.Component {
       <Dialog
         title={'Installation problems detected'}
         onCancel={this.props.onCancel}
-        showCloseButton={true}>
+        showCloseButton={true}
+        dialogRef={this.props.dialogRef}>
         <Text>
           We've detected that the following ShieldBattery files are missing or have been modified:
         </Text>

@@ -116,7 +116,7 @@ export default class StarcraftPath extends React.Component {
   }
 
   render() {
-    const { settings, onCancel } = this.props
+    const { settings, onCancel, dialogRef } = this.props
 
     const formModel = {
       path: settings.local.starcraftPath,
@@ -134,7 +134,7 @@ export default class StarcraftPath extends React.Component {
     ]
 
     return (
-      <Dialog title={'StarCraft Path'} buttons={buttons} onCancel={onCancel}>
+      <Dialog title={'StarCraft Path'} buttons={buttons} onCancel={onCancel} dialogRef={dialogRef}>
         <StarcraftPathForm ref={this._form} model={formModel} onSubmit={this.onSubmit} />
         {settings.lastError ? (
           <ErrorText>There was an issue saving the StarCraft path. Please try again.</ErrorText>

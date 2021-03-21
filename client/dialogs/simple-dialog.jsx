@@ -1,13 +1,7 @@
 import React from 'react'
-import styled from 'styled-components'
 import Dialog from '../material/dialog'
 import FlatButton from '../material/flat-button'
-import { SubheadingOld } from '../styles/typography'
-
-const BodyText = styled(SubheadingOld)`
-  margin-top: 0;
-  margin-bottom: 0;
-`
+import { Subtitle1 } from '../styles/typography'
 
 export default class SimpleDialog extends React.Component {
   render() {
@@ -16,14 +10,15 @@ export default class SimpleDialog extends React.Component {
       ? [<FlatButton label={'Okay'} key={'okay'} color={'accent'} onClick={onCancel} />]
       : []
     const content =
-      typeof simpleContent === 'string' ? (
-        <BodyText as='p'>{simpleContent}</BodyText>
-      ) : (
-        simpleContent
-      )
+      typeof simpleContent === 'string' ? <Subtitle1>{simpleContent}</Subtitle1> : simpleContent
 
     return (
-      <Dialog title={simpleTitle} onCancel={onCancel} showCloseButton={true} buttons={buttons}>
+      <Dialog
+        title={simpleTitle}
+        onCancel={onCancel}
+        showCloseButton={true}
+        buttons={buttons}
+        dialogRef={this.props.dialogRef}>
         {content}
       </Dialog>
     )
