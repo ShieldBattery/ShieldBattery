@@ -71,11 +71,11 @@ export const FieldRow = styled.div`
 `
 
 export const RowEdge = styled.div`
-  flex: 1 1 24%;
+  flex: 1 1 28%;
   align-self: flex-start;
   display: flex;
   justify-content: flex-end;
-  max-width: 24%;
+  max-width: 28%;
   height: 56px;
 `
 

@@ -1,7 +1,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import keycode from 'keycode'
-import styled, { css } from 'styled-components'
+import styled from 'styled-components'
 
 import IconButton from '../material/icon-button'
 import KeyListener from '../keyboard/key-listener'
