@@ -199,7 +199,7 @@
     "padded-blocks": [2, "never"],
     "prefer-const": 2,
     "quote-props": [2, "as-needed"],
-    "quotes": [2, "single", "avoid-escape"],
+    "quotes": [2, "single", { "avoidEscape": true, "allowTemplateLiterals": true }],
     "radix": 0,
     "semi": [2, "never"],
     "semi-spacing": 0,

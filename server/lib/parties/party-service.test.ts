@@ -82,9 +82,8 @@ describe('parties/party-service', () => {
     let party: PartyRecord
 
     test('should throw if inviting yourself', () => {
-      expect(
-        () => partyService.invite(user2, USER2_CLIENT_ID, [user2, user3]),
-        // eslint-disable-next-line quotes
+      expect(() =>
+        partyService.invite(user2, USER2_CLIENT_ID, [user2, user3]),
       ).toThrowErrorMatchingInlineSnapshot(`"Can't invite yourself to the party"`)
     })
 
@@ -96,9 +95,8 @@ describe('parties/party-service', () => {
       })
 
       test('should throw if invited by non-leader', () => {
-        expect(
-          () => partyService.invite(user2, USER2_CLIENT_ID, [user3]),
-          // eslint-disable-next-line quotes
+        expect(() =>
+          partyService.invite(user2, USER2_CLIENT_ID, [user3]),
         ).toThrowErrorMatchingInlineSnapshot(`"Only party leader can invite people"`)
       })
 
@@ -170,15 +168,13 @@ describe('parties/party-service', () => {
     })
 
     test('should throw if the party is not found', () => {
-      expect(
-        () => partyService.decline('INVALID_PARTY_ID', user2),
-        // eslint-disable-next-line quotes
+      expect(() =>
+        partyService.decline('INVALID_PARTY_ID', user2),
       ).toThrowErrorMatchingInlineSnapshot(`"Party not found"`)
     })
 
     test('should throw if not in party', () => {
       expect(() => partyService.decline(party.id, user4)).toThrowErrorMatchingInlineSnapshot(
-        // eslint-disable-next-line quotes
         `"Can't decline a party invitation without an invite"`,
       )
     })
@@ -221,9 +217,8 @@ describe('parties/party-service', () => {
     })
 
     test('should throw if the party is not found', () => {
-      expect(
-        () => partyService.removeInvite('INVALID_PARTY_ID', leader, user2),
-        // eslint-disable-next-line quotes
+      expect(() =>
+        partyService.removeInvite('INVALID_PARTY_ID', leader, user2),
       ).toThrowErrorMatchingInlineSnapshot(`"Party not found"`)
     })
 
@@ -231,15 +226,13 @@ describe('parties/party-service', () => {
       expect(() =>
         partyService.removeInvite(party.id, user2, user3),
       ).toThrowErrorMatchingInlineSnapshot(
-        // eslint-disable-next-line quotes
         `"Only party leaders can remove invites to other people"`,
       )
     })
 
     test('should throw if not in party', () => {
-      expect(
-        () => partyService.removeInvite(party.id, leader, user4),
-        // eslint-disable-next-line quotes
+      expect(() =>
+        partyService.removeInvite(party.id, leader, user4),
       ).toThrowErrorMatchingInlineSnapshot(`"Can't remove invite for a user that wasn't invited"`)
     })
 
@@ -272,9 +265,8 @@ describe('parties/party-service', () => {
     })
 
     test('should throw if the party is not found', () => {
-      expect(
-        () => partyService.acceptInvite('INVALID_PARTY_ID', user2, USER2_CLIENT_ID),
-        // eslint-disable-next-line quotes
+      expect(() =>
+        partyService.acceptInvite('INVALID_PARTY_ID', user2, USER2_CLIENT_ID),
       ).toThrowErrorMatchingInlineSnapshot(`"Party not found"`)
     })
 
@@ -290,16 +282,14 @@ describe('parties/party-service', () => {
 
       party = partyService.invite(leader, USER1_CLIENT_ID, [user9])
 
-      expect(
-        () => partyService.acceptInvite(party.id, user9, USER9_CLIENT_ID),
-        // eslint-disable-next-line quotes
+      expect(() =>
+        partyService.acceptInvite(party.id, user9, USER9_CLIENT_ID),
       ).toThrowErrorMatchingInlineSnapshot(`"Party is full"`)
     })
 
     test('should throw if the user is not invited', () => {
-      expect(
-        () => partyService.acceptInvite(party.id, user4, USER4_CLIENT_ID),
-        // eslint-disable-next-line quotes
+      expect(() =>
+        partyService.acceptInvite(party.id, user4, USER4_CLIENT_ID),
       ).toThrowErrorMatchingInlineSnapshot(`"Can't join party without an invite"`)
     })
 
