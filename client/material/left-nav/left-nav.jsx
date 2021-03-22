@@ -4,7 +4,11 @@ import styled from 'styled-components'
 
 import { colorBackground } from '../../styles/colors'
 
-const Footer = styled.div``
+const Footer = styled.div`
+  position: sticky;
+  align-self: flex-end;
+  bottom: 0;
+`
 
 const Container = styled.nav`
   width: 240px;
@@ -20,6 +24,7 @@ const Container = styled.nav`
 const Sections = styled.div`
   padding: 8px 0 0;
   flex-grow: 1;
+  overflow-y: auto;
 `
 
 function LeftNav(props) {
