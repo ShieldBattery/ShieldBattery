@@ -1,5 +1,5 @@
 import { rgba } from 'polished'
-import React, { ReactChild, ReactNode } from 'react'
+import React, { ReactChild, ReactNode, useEffect, useState } from 'react'
 import { connect, DispatchProp } from 'react-redux'
 import styled, { css } from 'styled-components'
 import { openDialog } from '../dialogs/action-creators'
@@ -12,9 +12,11 @@ import LockOpenIcon from '../icons/material/lock_open_black_48px.svg'
 import LogoText from '../logos/logotext-640x100.svg'
 import { Label } from '../material/button'
 import Card from '../material/card'
+import { linearOutSlowIn } from '../material/curve-constants'
 import RaisedButton from '../material/raised-button'
 import { push } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
+import { apiUrl } from '../network/urls'
 import { amberA400, colorTextPrimary, colorTextSecondary, grey850, grey900 } from '../styles/colors'
 import { headline3, headline4, headline5, subtitle1 } from '../styles/typography'
 import ChatImage from './chat.svg'
@@ -27,7 +29,7 @@ const SplashContainer = styled.div`
   align-items: center;
   background-color: ${grey850};
   margin: 0px auto;
-  padding-right: var(--pixel-shove-x, 0);
+  padding-right: var(--pixel-shove-x, 0) !important;
   overflow: auto scroll;
 
   & * {
@@ -378,6 +380,57 @@ const StyledTwitterIcon = styled(TwitterIcon)`
   height: 32px;
 `
 
+if ((window.CSS as any).registerProperty) {
+  try {
+    ;(window.CSS as any).registerProperty({
+      name: '--sb-game-count',
+      syntax: '<integer>',
+      initialValue: 0,
+      inherits: false,
+    })
+  } catch (err) {
+    // We don't really care about errors here, the count just won't animate and that's fine. Often
+    // this occurs just because of hot-reloading so it isn't even really an error
+  }
+}
+
+const GameCountNumber = styled.span`
+  transition: --sb-game-count 2s ${linearOutSlowIn};
+  counter-reset: game-count var(--sb-game-count, 0);
+
+  &::after {
+    content: counter(game-count);
+  }
+`
+
+function GameCount(props: { className?: string }) {
+  const [gameCount, setGameCount] = useState(0)
+
+  useEffect(() => {
+    const eventSource = new EventSource(apiUrl`games`)
+
+    eventSource.addEventListener('gameCount', event => {
+      setGameCount((event as any).data)
+    })
+
+    return () => eventSource.close()
+  }, [])
+
+  return (
+    <div className={props.className}>
+      <GameCountNumber style={{ '--sb-game-count': gameCount } as any} /> games played
+    </div>
+  )
+}
+
+const StyledGameCount = styled(GameCount)`
+  ${headline4};
+  font-weight: 300;
+  margin: 32px 0 16px;
+  text-align: right;
+  z-index: 1;
+`
+
 class Splash extends React.Component<DispatchProp> {
   render() {
     return (
@@ -401,6 +454,7 @@ class Splash extends React.Component<DispatchProp> {
           ) : (
             <SplashButton label='Sign Up' color='primary' onClick={this.onSignUpClick} />
           )}
+          <StyledGameCount />
           <BenefitContainer>
             {BENEFITS.map((f, i) => (
               <BenefitSection

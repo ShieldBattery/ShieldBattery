@@ -13,5 +13,12 @@ declare module 'koa' {
 
     // for koa-views
     render(viewPath: string, locals?: any): Promise<void>
+
+    /**
+     * Marks that this request as not needing session cookies. This should generally be used on
+     * things like EventSource routes where we need to flush headers prior to the session middleware
+     * getting to save.
+     */
+    dontSendSessionCookies: boolean | undefined
   }
 }

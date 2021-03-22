@@ -103,3 +103,18 @@ export async function setReconciledResult(
     WHERE id = ${gameId}
   `)
 }
+
+/**
+ * Returns the number of games that have been completed (that is, have non-null results).
+ */
+export async function countCompletedGames(): Promise<number> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ count: string }>(
+      sql`SELECT COUNT(*) as count FROM games WHERE results IS NOT NULL;`,
+    )
+    return Number(result.rows[0].count)
+  } finally {
+    done()
+  }
+}
