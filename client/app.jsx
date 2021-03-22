@@ -1,5 +1,5 @@
 import React, { useLayoutEffect } from 'react'
-import { Route, Switch } from 'wouter'
+import { Route, Switch, useRoute } from 'wouter'
 import { StyleSheetManager } from 'styled-components'
 import loadable from '@loadable/component'
 import { hot } from 'react-hot-loader/root'
@@ -7,11 +7,10 @@ import { hot } from 'react-hot-loader/root'
 import { VerifyEmail } from './auth/email-verification'
 import Faq from './landing/faq'
 import { ForgotUser, ForgotPassword, ResetPassword } from './auth/forgot'
-import HasBetaFilter from './landing/has-beta-filter'
 import DownloadPage from './download/download-page'
 import LoadingFilter from './loading/loading-filter'
 import LoggedInFilter from './auth/logged-in-filter'
-import { ConditionalRoute, LoginRoute } from './navigation/custom-routes'
+import { LoginRoute } from './navigation/custom-routes'
 import Login from './auth/login'
 import MainLayout from './main-layout'
 import Signup from './auth/signup'
@@ -23,6 +22,8 @@ import LoadingIndicator from './progress/dots'
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
 import { usePixelShover } from './dom/pixel-shover'
+import { isLoggedIn } from './auth/auth-utils'
+import { useSelector } from 'react-redux'
 
 const IS_PRODUCTION = __WEBPACK_ENV.NODE_ENV === 'production'
 
@@ -33,6 +34,29 @@ const LoadableDev = IS_PRODUCTION
       // place?)
       fallback: <LoadingIndicator />,
     })
+
+function MainContent() {
+  const [matchesRoot] = useRoute('/')
+  const user = useSelector(s => s.auth.user)
+
+  if (matchesRoot) {
+    // TODO(tec27): Make a function that lets us pass just the one value (or put this computed value
+    // on the state?)
+    if (!isLoggedIn({ user })) {
+      return <Splash />
+    }
+  }
+
+  return (
+    <LoggedInFilter>
+      <SiteConnectedFilter>
+        <LoadingFilter>
+          <MainLayout />
+        </LoadingFilter>
+      </SiteConnectedFilter>
+    </LoggedInFilter>
+  )
+}
 
 function App() {
   const [shoveX, shoveY] = usePixelShover()
@@ -59,10 +83,9 @@ function App() {
           <LoginRoute path='/signup' component={Signup} />
           <LoginRoute path='/verify-email' component={VerifyEmail} />
           {!IS_PRODUCTION ? <Route path='/dev/:rest*' component={LoadableDev} /> : <></>}
-          <ConditionalRoute
-            filters={[HasBetaFilter, LoggedInFilter, SiteConnectedFilter, LoadingFilter]}>
-            <MainLayout />
-          </ConditionalRoute>
+          <Route>
+            <MainContent />
+          </Route>
         </Switch>
       </React.Fragment>
     </StyleSheetManager>
