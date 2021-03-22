@@ -240,7 +240,6 @@ class ConnectedLeftNav extends React.Component {
         key='profileEntry'
         ref={this._profileEntryRef}
         user={auth.user.name}
-        avatarTitle={auth.user.name}
         onProfileEntryClick={this.onProfileEntryClick}
       />,
     ]

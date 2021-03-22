@@ -3,7 +3,6 @@ import React from 'react'
 import styled from 'styled-components'
 import Avatar from '../avatars/avatar'
 import ExpandIcon from '../icons/material/expand_less_black_24px.svg'
-import IconButton from '../material/icon-button'
 import { colorTextFaint } from '../styles/colors'
 import { cabin, singleLine } from '../styles/typography'
 
@@ -11,7 +10,7 @@ const Container = styled.div`
   width: 100%;
   height: 72px;
   margin-top: 16px;
-  padding: 0px 12px 0px 0px;
+  padding: 0px 12px 0px 16px;
 
   display: flex;
   flex-direction: row;
@@ -29,11 +28,6 @@ const Container = styled.div`
   }
 `
 
-const AvatarButton = styled(IconButton)`
-  width: 64px;
-  min-height: 64px;
-`
-
 const StyledAvatar = styled(Avatar)`
   width: 40px;
   height: 40px;
@@ -47,7 +41,7 @@ const User = styled.div`
   ${singleLine};
 
   width: 140px;
-  margin-left: 12px;
+  margin-left: 16px;
   flex-grow: 1;
 
   font-size: 24px;
@@ -62,17 +56,17 @@ const StyledExpandIcon = styled(ExpandIcon)`
 
 export interface ProfileNavEntryProps {
   user: string
-  avatarTitle: string
   onProfileEntryClick: () => void
 }
 
 const ProfileNavEntry = React.forwardRef(
-  (props: ProfileNavEntryProps, ref: React.ForwardedRef<HTMLButtonElement>) => {
-    const { user, avatarTitle, onProfileEntryClick } = props
-
+  (
+    { user, onProfileEntryClick }: ProfileNavEntryProps,
+    ref: React.ForwardedRef<HTMLDivElement>,
+  ) => {
     return (
-      <Container onClick={onProfileEntryClick}>
-        <AvatarButton buttonRef={ref} title={avatarTitle} icon={<StyledAvatar user={user} />} />
+      <Container ref={ref} onClick={onProfileEntryClick}>
+        <StyledAvatar user={user} />
         <User>{user}</User>
         <StyledExpandIcon />
       </Container>
@@ -82,7 +76,6 @@ const ProfileNavEntry = React.forwardRef(
 
 ProfileNavEntry.propTypes = {
   onProfileEntryClick: PropTypes.func.isRequired,
-  avatarTitle: PropTypes.string.isRequired,
   user: PropTypes.string.isRequired,
 }
 
