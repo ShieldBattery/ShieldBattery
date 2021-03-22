@@ -13,8 +13,6 @@ const ON = () => true
 export const DEV_INDICATOR = DEV()
 // Allow users to join multiple channels (and leave channels)
 export const MULTI_CHANNEL = DEV()
-// Allow hosting custom maps / let regular users upload maps
-export const MAP_UPLOADING = ON()
 // Allow matchmaking related features (find match, matchmaking map pools, preferences, etc.)
 export const MATCHMAKING = ON()
 // Allow launching with BW 1.16.1 installation
