@@ -47,6 +47,7 @@ export const Headline2 = styled.div`
 export const headline3 = css`
   ${cabin};
   font-size: 48px;
+  font-weight: 400;
   line-height: 56px;
   letter-spacing: 0.75px;
   text-rendering: optimizeLegibility;
@@ -58,6 +59,7 @@ export const Headline3 = styled.div`
 
 export const headline4 = css`
   font-size: 34px;
+  font-weight: 400;
   letter-spacing: 0.25px;
   line-height: 40px;
   text-rendering: optimizeLegibility;
@@ -69,6 +71,7 @@ export const Headline4 = styled.div`
 
 export const headline5 = css`
   font-size: 24px;
+  font-weight: 400;
   line-height: 32px;
   text-rendering: optimizeLegibility;
 `
@@ -92,6 +95,7 @@ export const Headline6 = styled.div`
 
 export const subtitle1 = css`
   font-size: 16px;
+  font-weight: 400;
   letter-spacing: 0.15px;
   line-height: 24px;
   text-rendering: optimizeLegibility;
@@ -116,6 +120,7 @@ export const Subtitle2 = styled.div`
 
 export const body1 = css`
   font-size: 14px;
+  font-weight: 400;
   letter-spacing: 0.5px;
   line-height: 20px;
 `
@@ -138,6 +143,7 @@ export const Body2 = styled.div`
 
 export const caption = css`
   font-size: 12px;
+  font-weight: 400;
   letter-spacing: 0.4px;
   line-height: 20px;
 `

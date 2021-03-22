@@ -153,7 +153,7 @@ export default class Login extends React.Component {
     return (
       <AuthContent>
         <AuthContentContainer isLoading={authChangeInProgress}>
-          <AuthTitle as='h3'>Log in</AuthTitle>
+          <AuthTitle>Log in</AuthTitle>
           <AuthBody>{errContents}</AuthBody>
           <LoginForm
             ref={this._setForm}

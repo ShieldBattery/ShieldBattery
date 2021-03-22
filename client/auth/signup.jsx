@@ -192,7 +192,7 @@ export default class Signup extends React.Component {
     return (
       <AuthContent>
         <AuthContentContainer isLoading={authChangeInProgress}>
-          <AuthTitle as='h3'>Create account</AuthTitle>
+          <AuthTitle>Create account</AuthTitle>
           <AuthBody>
             {errContents}
             <SignupForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />

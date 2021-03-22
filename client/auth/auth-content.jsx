@@ -8,16 +8,17 @@ import CheckBox from '../material/check-box'
 
 import { fastOutSlowIn } from '../material/curve-constants'
 import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
-import { Display1Old } from '../styles/typography'
+import { headline4 } from '../styles/typography'
 
 export const AuthContent = styled.div`
   position: relative;
   width: 100%;
 `
 
-export const AuthTitle = styled(Display1Old)`
+export const AuthTitle = styled.div`
+  ${headline4};
   text-align: center;
-  margin-top: 0;
+  margin: 0 0 32px;
 `
 
 export const AuthBody = styled.div`
