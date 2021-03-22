@@ -20,7 +20,7 @@ import ConnectedLeftNav from './navigation/connected-left-nav'
 import ConnectedSnackbar from './snackbars/connected-snackbar'
 import HotkeyedActivityButton from './activities/hotkeyed-activity-button'
 import Index from './navigation/index'
-import { replace, push } from './navigation/routing'
+import { replace } from './navigation/routing'
 import LoadingIndicator from './progress/dots'
 import LobbyView from './lobbies/view'
 import LobbyTitle from './lobbies/app-bar-title'
@@ -31,7 +31,6 @@ import MatchmakingTitle from './matchmaking/app-bar-title'
 import Whisper from './whispers/whisper'
 import WhispersTitle from './whispers/app-bar-title'
 
-import AdminIcon from './icons/material/ic_build_black_36px.svg'
 import CreateGameIcon from './icons/material/ic_gavel_black_36px.svg'
 import DownloadIcon from './icons/material/ic_get_app_black_36px.svg'
 import FindMatchIcon from './icons/shieldbattery/ic_satellite_dish_black_36px.svg'
@@ -40,7 +39,6 @@ import MapsIcon from './icons/material/ic_terrain_black_36px.svg'
 import ReplaysIcon from './icons/material/ic_movie_black_36px.svg'
 import SettingsIcon from './icons/material/ic_settings_black_36px.svg'
 
-import { isAdmin } from './admin/admin-permissions'
 import { cancelFindMatch } from './matchmaking/action-creators'
 import { openDialog } from './dialogs/action-creators'
 import { openSnackbar } from './snackbars/action-creators'
@@ -191,7 +189,7 @@ class MainLayout extends React.Component {
   }
 
   render() {
-    const { auth, inGameplayActivity, serverStatus } = this.props
+    const { inGameplayActivity, serverStatus } = this.props
     const { pathname } = location
 
     const lobbyCount = serverStatus.lobbyCount > 0 ? serverStatus.lobbyCount : undefined
@@ -276,14 +274,6 @@ class MainLayout extends React.Component {
             altKey={true}
           />,
           <ActivitySpacer key='spacer' />,
-          isAdmin(auth) ? (
-            <ActivityButton
-              key='admin'
-              icon={<AdminIcon />}
-              label='Admin'
-              onClick={this.onAdminClick}
-            />
-          ) : null,
           <HotkeyedActivityButton
             key='settings'
             icon={<SettingsIcon />}
@@ -301,14 +291,6 @@ class MainLayout extends React.Component {
             onClick={this.onDownloadClick}
           />,
           <ActivitySpacer key='spacer' />,
-          isAdmin(auth) ? (
-            <ActivityButton
-              key='admin'
-              icon={<AdminIcon />}
-              label='Admin'
-              onClick={this.onAdminClick}
-            />
-          ) : null,
         ]
 
     return (
@@ -457,10 +439,6 @@ class MainLayout extends React.Component {
 
   onDownloadClick = () => {
     this.props.dispatch(openDialog('download'))
-  }
-
-  onAdminClick = () => {
-    push('/admin')
   }
 }
 

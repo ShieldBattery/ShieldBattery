@@ -1,10 +1,8 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-
-import Button, { ButtonCommon } from './button'
-
 import { CardLayer } from '../styles/colors'
+import Button, { ButtonCommon } from './button'
 
 export const IconButtonContents = styled(ButtonCommon)`
   width: 48px;
@@ -27,11 +25,19 @@ export const IconButtonContents = styled(ButtonCommon)`
   }}
 `
 
-// A button that displays just an SVG icon
-const IconButton = React.forwardRef((props, ref) => {
+export interface IconButtonProps {
+  icon: React.ReactNode
+  title?: string
+  onClick?: () => void
+}
+
+/** A button that displays just an SVG icon. */
+const IconButton = React.forwardRef((props: IconButtonProps, ref) => {
   const { icon, ...otherProps } = props
 
-  return <Button ref={ref} {...otherProps} label={icon} contentComponent={IconButtonContents} />
+  // TODO(tec27): Remove once Button is TS-ified
+  const AnyButton = Button as any
+  return <AnyButton ref={ref} {...otherProps} label={icon} contentComponent={IconButtonContents} />
 })
 
 IconButton.propTypes = {

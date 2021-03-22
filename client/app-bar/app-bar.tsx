@@ -1,28 +1,31 @@
-import React, { useLayoutEffect } from 'react'
+import React, { useCallback, useLayoutEffect } from 'react'
 import styled from 'styled-components'
-import { push } from '../navigation/routing'
-
-import ActiveUserCount from '../serverstatus/active-users'
-import Lockup from './lockup'
-import { windowControlsHeight, SizeTop, SizeLeft, SizeRight } from './window-controls'
 import { DEV_INDICATOR } from '../../common/flags'
-
-import { blue800, colorError } from '../styles/colors'
+import { useIsAdmin } from '../admin/admin-permissions'
+import AdminIcon from '../icons/material/admin_panel_settings_black_24px.svg'
+import IconButton from '../material/icon-button'
 import { shadow4dp } from '../material/shadows'
 import { standardIncrement } from '../material/units'
-import { body1, caption, headline6, singleLine } from '../styles/typography'
 import { zIndexAppBar } from '../material/zindex'
+import { push } from '../navigation/routing'
+import { ActiveUserCount } from '../serverstatus/active-users'
+import { blue800, colorError } from '../styles/colors'
+import { body1, caption, headline6, singleLine } from '../styles/typography'
+import Lockup from './lockup'
+import { SizeLeft, SizeRight, SizeTop, windowControlsHeight } from './window-controls'
 
 const Container = styled.header`
   ${shadow4dp};
-  display: flex;
-  flex-direction: row;
   width: 100%;
   height: ${standardIncrement};
   margin: 0;
   padding: 0;
-  background-color: ${blue800};
   position: relative;
+
+  display: flex;
+  flex-direction: row;
+  background-color: ${blue800};
+  overflow: hidden;
   z-index: ${zIndexAppBar};
 
   -webkit-app-region: drag;
@@ -51,18 +54,31 @@ export const AppBarTitle = styled.div`
 `
 
 const RightSide = styled.div`
-  width: 96px;
+  width: 144px;
+  height: calc(${standardIncrement} - ${windowControlsHeight});
+  margin-top: ${windowControlsHeight};
+
+  display: flex;
+  align-items: center;
 `
 
 const UserCount = styled(ActiveUserCount)`
   ${body1};
   ${singleLine};
 
-  float: right;
-  margin-top: ${windowControlsHeight};
+  flex-shrink: 0;
+  flex-grow: 1;
   padding-right: 16px;
-  line-height: calc(${standardIncrement} - ${windowControlsHeight});
-  vertical-align: middle;
+  text-align: right;
+`
+
+const StyledIconButton = styled(IconButton)`
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  // NOTE(tec27): This icon is a bit weird and feels off-center when centered
+  margin-left: 10px;
+  -webkit-app-region: no-drag;
 `
 
 const DevIndicator = styled.div`
@@ -86,16 +102,25 @@ const DevIndicator = styled.div`
   -webkit-app-region: no-drag;
 `
 
-export default function AppBar(props) {
+export interface AppBarProps {
+  children?: React.ReactNode
+  className?: string
+}
+
+export default function AppBar(props: AppBarProps) {
   useLayoutEffect(() => {
     document.body.style.setProperty('--sb-system-bar-height', standardIncrement)
     return () => {
       document.body.style.removeProperty('--sb-system-bar-height')
     }
   }, [])
+  const isAdmin = useIsAdmin()
+  const onAdminClick = useCallback(() => {
+    push('/admin')
+  }, [])
 
   return (
-    <Container>
+    <Container className={props.className}>
       <SizeTop />
       <SizeLeft />
       <SizeRight />
@@ -105,6 +130,9 @@ export default function AppBar(props) {
       </LeftSide>
       <Content>{props.children}</Content>
       <RightSide>
+        {isAdmin ? (
+          <StyledIconButton title='Admin' icon={<AdminIcon />} onClick={onAdminClick} />
+        ) : null}
         <UserCount />
       </RightSide>
     </Container>
