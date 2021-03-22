@@ -29,6 +29,7 @@ export interface IconButtonProps {
   icon: React.ReactNode
   title?: string
   onClick?: () => void
+  buttonRef?: React.Ref<HTMLButtonElement>
 }
 
 /** A button that displays just an SVG icon. */
