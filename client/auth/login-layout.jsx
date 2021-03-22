@@ -27,9 +27,11 @@ const Wrapper = styled.div`
 const Draggable = styled.div`
   width: 100%;
   height: 32px;
-  background-color: ${blue800};
 
-  -webkit-app-region: drag;
+  .electron & {
+    background-color: ${blue800};
+    -webkit-app-region: drag;
+  }
 `
 
 const Contents = styled.div`
