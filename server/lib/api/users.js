@@ -7,7 +7,6 @@ import throttleMiddleware from '../throttle/middleware'
 import users from '../models/users'
 import initSession from '../session/init'
 import sendMail from '../mail/mailer'
-import setReturningCookie from '../session/set-returning-cookie'
 import { checkAnyPermission } from '../permissions/check-permissions'
 import { usePasswordResetCode } from '../models/password-resets'
 import {
@@ -115,7 +114,6 @@ async function createUser(ctx, next) {
   // share a session ID
   await ctx.regenerateSession()
   initSession(ctx, result.user, result.permissions)
-  setReturningCookie(ctx)
 
   const code = cuid()
   await addEmailVerificationCode(result.user.id, email, code, ctx.ip)

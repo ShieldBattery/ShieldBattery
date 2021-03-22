@@ -8,7 +8,6 @@ import { isUserBanned } from '../models/bans'
 import users from '../models/users'
 import { getPermissions } from '../models/permissions'
 import initSession from '../session/init'
-import setReturningCookie from '../session/set-returning-cookie'
 
 // TODO(tec27): Think about maybe a different mechanism for this. I could see this causing problems
 // when lots of people need to create sessions at once from the same place (e.g. LAN events)
@@ -108,7 +107,6 @@ async function startNewSession(ctx, next) {
       ctx.session.cookie.maxAge = undefined
       ctx.session.cookie.expires = undefined
     }
-    setReturningCookie(ctx)
 
     ctx.body = { user, permissions: perms }
   } catch (err) {
