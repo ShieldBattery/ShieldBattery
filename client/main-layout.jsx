@@ -193,8 +193,6 @@ class MainLayout extends React.Component {
     const { pathname } = location
 
     const lobbyCount = serverStatus.lobbyCount > 0 ? serverStatus.lobbyCount : undefined
-    const matchmakingCount =
-      serverStatus.matchmakingCount > 0 ? serverStatus.matchmakingCount : undefined
 
     let appBarTitle
     if (pathname.startsWith('/admin')) {
@@ -221,7 +219,6 @@ class MainLayout extends React.Component {
         disabled={inGameplayActivity}
         keycode={KEY_F}
         altKey={true}
-        count={matchmakingCount}
       />
     ) : (
       <HotkeyedActivityButton
@@ -233,7 +230,6 @@ class MainLayout extends React.Component {
         onClick={this.onSearchingMatchOverlayOpen}
         keycode={KEY_F}
         altKey={true}
-        count={matchmakingCount}
       />
     )
     const activityButtons = IS_ELECTRON

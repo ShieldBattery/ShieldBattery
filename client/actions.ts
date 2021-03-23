@@ -316,8 +316,6 @@ export const MATCHMAKING_UPDATE_MATCH_FOUND = 'MATCHMAKING_UPDATE_MATCH_FOUND'
 export const MATCHMAKING_UPDATE_MATCH_READY = 'MATCHMAKING_UPDATE_MATCH_READY'
 // Our status has changed, ie. one of our clients is searching for a game or has stopped searching
 export const MATCHMAKING_UPDATE_STATUS = 'MATCHMAKING_UPDATE_STATUS'
-// The server has updated us about how many users are in the matchmaking queue
-export const MATCHMAKING_USER_COUNT = 'MATCHMAKING_USER_COUNT'
 
 export const NETWORK_SITE_CONNECTED = 'NETWORK_SITE_CONNECTED'
 export const NETWORK_SITE_DISCONNECTED = 'NETWORK_SITE_DISCONNECTED'
