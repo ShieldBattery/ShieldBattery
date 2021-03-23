@@ -445,7 +445,7 @@ function isLeavingChannel(oldProps, newProps) {
 @connect(mapStateToProps)
 export default class ChatChannelView extends React.Component {
   componentDidMount() {
-    const routeChannel = this.props.params.channel
+    const routeChannel = decodeURIComponent(this.props.params.channel)
     if (this._isInChannel()) {
       this.props.dispatch(retrieveUserList(routeChannel))
       this.props.dispatch(retrieveInitialMessageHistory(routeChannel))
@@ -461,8 +461,8 @@ export default class ChatChannelView extends React.Component {
       return
     }
 
-    const prevChannel = prevProps.params.channel
-    const routeChannel = this.props.params.channel
+    const prevChannel = decodeURIComponent(prevProps.params.channel)
+    const routeChannel = decodeURIComponent(this.props.params.channel)
     if (this._isInChannel()) {
       this.props.dispatch(retrieveUserList(routeChannel))
       this.props.dispatch(retrieveInitialMessageHistory(routeChannel))
@@ -483,11 +483,11 @@ export default class ChatChannelView extends React.Component {
   }
 
   componentWillUnmount() {
-    this.props.dispatch(deactivateChannel(this.props.params.channel))
+    this.props.dispatch(deactivateChannel(decodeURIComponent(this.props.params.channel)))
   }
 
   render() {
-    const routeChannel = this.props.params.channel
+    const routeChannel = decodeURIComponent(this.props.params.channel)
     const channel = this.props.chat.byName.get(routeChannel.toLowerCase())
 
     if (!channel) {
@@ -509,11 +509,11 @@ export default class ChatChannelView extends React.Component {
   }
 
   onSendChatMessage = msg => {
-    this.props.dispatch(sendMessage(this.props.params.channel, msg))
+    this.props.dispatch(sendMessage(decodeURIComponent(this.props.params.channel), msg))
   }
 
   onRequestMoreHistory = () => {
-    this.props.dispatch(retrieveNextMessageHistory(this.props.params.channel))
+    this.props.dispatch(retrieveNextMessageHistory(decodeURIComponent(this.props.params.channel)))
   }
 
   onWhisperClick = user => {
@@ -521,7 +521,7 @@ export default class ChatChannelView extends React.Component {
   }
 
   _isInChannel() {
-    const routeChannel = this.props.params.channel
+    const routeChannel = decodeURIComponent(this.props.params.channel)
     return this.props.chat.byName.has(routeChannel.toLowerCase())
   }
 }

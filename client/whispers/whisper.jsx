@@ -138,7 +138,7 @@ export default class WhisperView extends React.Component {
   }
 
   componentDidMount() {
-    const target = this.props.params.target.toLowerCase()
+    const target = decodeURIComponent(this.props.params.target).toLowerCase()
     if (this.props.user.name.toLowerCase() === target) {
       push('/')
       this.props.dispatch(openSnackbar({ message: "Can't whisper with yourself." }))
@@ -159,7 +159,7 @@ export default class WhisperView extends React.Component {
       return
     }
 
-    const target = this.props.params.target.toLowerCase()
+    const target = decodeURIComponent(this.props.params.target).toLowerCase()
     // TODO(tec27): this really only handles one type of error (session creation failure), it needs
     // to handle (or ignore) other stuff too, like sending errors
     const error = this.props.whispers.errorsByName.get(target)
@@ -181,17 +181,24 @@ export default class WhisperView extends React.Component {
     } else if (!prevProps.whispers.byName.has(target)) {
       this.props.dispatch(startWhisperSession(target))
     }
-    if (prevProps.params.target && prevProps.params.target.toLowerCase() !== target) {
-      this.props.dispatch(deactivateWhisperSession(prevProps.params.target.toLowerCase()))
+    if (
+      prevProps.params.target &&
+      decodeURIComponent(prevProps.params.target).toLowerCase() !== target
+    ) {
+      this.props.dispatch(
+        deactivateWhisperSession(decodeURIComponent(prevProps.params.target).toLowerCase()),
+      )
     }
   }
 
   componentWillUnmount() {
-    this.props.dispatch(deactivateWhisperSession(this.props.params.target.toLowerCase()))
+    this.props.dispatch(
+      deactivateWhisperSession(decodeURIComponent(this.props.params.target).toLowerCase()),
+    )
   }
 
   render() {
-    const target = this.props.params.target
+    const target = decodeURIComponent(this.props.params.target)
     const session = this.props.whispers.byName.get(target.toLowerCase())
 
     if (!session) {
@@ -212,11 +219,11 @@ export default class WhisperView extends React.Component {
   }
 
   onSendChatMessage(msg) {
-    this.props.dispatch(sendMessage(this.props.params.target, msg))
+    this.props.dispatch(sendMessage(decodeURIComponent(this.props.params.target), msg))
   }
 
   onRequestMoreHistory() {
-    this.props.dispatch(retrieveNextMessageHistory(this.props.params.target))
+    this.props.dispatch(retrieveNextMessageHistory(decodeURIComponent(this.props.params.target)))
   }
 
   _hasWhisperSession(target) {
