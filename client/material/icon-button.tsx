@@ -28,7 +28,7 @@ export const IconButtonContents = styled(ButtonCommon)`
 export interface IconButtonProps {
   icon: React.ReactNode
   title?: string
-  onClick?: () => void
+  onClick?: (event: MouseEvent) => void
   buttonRef?: React.Ref<HTMLButtonElement>
 }
 

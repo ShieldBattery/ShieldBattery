@@ -47,7 +47,7 @@ export default function create(initialState, reduxDevTools) {
       : f => f,
   )(createStore)
 
-  const store = createMiddlewaredStore(createRootReducer(history), initialState)
+  const store = createMiddlewaredStore(createRootReducer(), initialState)
 
   return store
 }

@@ -163,6 +163,18 @@
         "message": "Do not use the built-in fetch, use client/network/fetch instead."
       }
     ],
+    "no-restricted-imports": [
+      2,
+      {
+        "paths": [
+          {
+            "name": "react-redux",
+            "importNames": ["useDispatch", "useSelector"],
+            "message": "Use useAppDispatch and useAppSelector from ./client/redux-hooks instead."
+          }
+        ]
+      }
+    ],
     "no-restricted-modules": 0,
     "no-return-assign": 2,
     "no-script-url": 0,

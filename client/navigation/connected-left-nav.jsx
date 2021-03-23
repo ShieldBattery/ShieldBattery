@@ -16,7 +16,6 @@ import EditIcon from '../icons/material/edit-24px.svg'
 import FeedbackIcon from '../icons/material/ic_feedback_black_24px.svg'
 import LogoutIcon from '../icons/material/ic_power_settings_new_black_24px.svg'
 
-import EmailVerificationNotification from '../auth/email-verification-notification'
 import ChatNavEntry from '../chat/nav-entry'
 import GameActivityNavEntry from '../active-game/game-activity-nav-entry'
 import LobbyNavEntry from '../lobbies/nav-entry'
@@ -24,7 +23,7 @@ import ProfileNavEntry from '../profile/nav-entry'
 import SearchingMatchNavEntry from '../matchmaking/searching-match-nav-entry'
 import WhisperNavEntry from '../whispers/nav-entry'
 
-import { logOut, sendVerificationEmail } from '../auth/action-creators'
+import { logOut } from '../auth/action-creators'
 import { cancelFindMatch } from '../matchmaking/action-creators'
 import { openDialog } from '../dialogs/action-creators'
 import { leaveChannel } from '../chat/action-creators'
@@ -244,15 +243,6 @@ class ConnectedLeftNav extends React.Component {
       />,
     ]
 
-    if (!auth.emailVerified) {
-      footer.unshift(
-        <EmailVerificationNotification
-          key='email'
-          sendVerificationEmail={this.sendVerificationEmail}
-        />,
-      )
-    }
-
     return (
       <LeftNav footer={footer}>
         {this.renderSearchingMatch()}
@@ -319,11 +309,6 @@ class ConnectedLeftNav extends React.Component {
   onAccountClick = () => {
     this.onCloseProfileOverlay()
     this.props.dispatch(openDialog('account'))
-  }
-
-  sendVerificationEmail = event => {
-    event.preventDefault()
-    this.props.dispatch(sendVerificationEmail())
   }
 }
 

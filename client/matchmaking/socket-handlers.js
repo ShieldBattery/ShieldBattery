@@ -16,7 +16,6 @@ import {
   MATCHMAKING_UPDATE_MATCH_FOUND,
   MATCHMAKING_UPDATE_MATCH_READY,
   MATCHMAKING_UPDATE_STATUS,
-  MATCHMAKING_USER_COUNT,
 } from '../actions'
 import { dispatch } from '../dispatch-registry'
 import { replace } from '../navigation/routing'
@@ -319,12 +318,6 @@ export default function registerModule({ siteSocket }) {
   siteSocket.registerRoute('/matchmakingStatus', (route, event) => {
     dispatch({
       type: MATCHMAKING_STATUS_UPDATE,
-      payload: event,
-    })
-  })
-  siteSocket.registerRoute('/matchmakingCount', (route, event) => {
-    dispatch({
-      type: MATCHMAKING_USER_COUNT,
       payload: event,
     })
   })

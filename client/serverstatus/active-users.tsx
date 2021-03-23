@@ -1,9 +1,8 @@
 import React from 'react'
-import { useSelector } from 'react-redux'
+import { useAppSelector } from '../redux-hooks'
 import { Body1 } from '../styles/typography'
 
 export function ActiveUserCount(props: { className?: string }) {
-  // TODO(tec27): Make a type for the root state
-  const activeUsers = useSelector(s => (s as any).serverStatus.activeUsers)
+  const activeUsers = useAppSelector(s => s.serverStatus.activeUsers)
   return <Body1 className={props.className}>{activeUsers} online</Body1>
 }

@@ -37,7 +37,7 @@ import FindMatchIcon from './icons/shieldbattery/ic_satellite_dish_black_36px.sv
 import JoinGameIcon from './icons/material/ic_call_merge_black_36px.svg'
 import MapsIcon from './icons/material/ic_terrain_black_36px.svg'
 import ReplaysIcon from './icons/material/ic_movie_black_36px.svg'
-import SettingsIcon from './icons/material/ic_settings_black_36px.svg'
+import SettingsIcon from './icons/material/settings_black_24px.svg'
 
 import { cancelFindMatch } from './matchmaking/action-creators'
 import { openDialog } from './dialogs/action-creators'
@@ -47,12 +47,16 @@ import { isShieldBatteryHealthy, isStarcraftHealthy } from './starcraft/is-starc
 import { openChangelogIfNecessary } from './changelog/action-creators'
 import { IsAdminFilter } from './admin/admin-route-filters'
 import { regenMapImage, removeMap } from './maps/action-creators'
+import { addNotification } from './notifications/action-creators'
 
 import { MATCHMAKING } from '../common/flags'
 import { MatchmakingType } from '../common/matchmaking'
+import { EMAIL_VERIFICATION_ID, NotificationType } from '../common/notifications'
 
 import { caption } from './styles/typography'
 import { colorTextSecondary } from './styles/colors'
+import IconButton from './material/icon-button'
+import { NotificationsButton } from './notifications/activity-bar-entry'
 
 const curVersion = __WEBPACK_ENV.VERSION
 
@@ -61,7 +65,6 @@ const KEY_F = keycode('f')
 const KEY_J = keycode('j')
 const KEY_M = keycode('m')
 const KEY_R = keycode('r')
-const KEY_S = keycode('s')
 
 const Container = styled.div`
   display: flex;
@@ -105,6 +108,21 @@ const LoadableAdminPanel = loadable(() => import('./admin/panel'), {
   fallback: <LoadingIndicator />,
 })
 
+const MiniActivityButtonsContainer = styled.div`
+  width: 100%;
+  display: flex;
+`
+
+const FadedSettingsIcon = styled(SettingsIcon)`
+  color: ${colorTextSecondary};
+`
+
+/**
+ * Tracks if this is the first time this user has logged in on this client. Pretty dumb, if we need
+ * more smarts we can add it as a Context var or put it in the store or something.
+ */
+let firstLoggedIn = true
+
 function stateToProps(state) {
   return {
     auth: state.auth,
@@ -129,6 +147,18 @@ class MainLayout extends React.Component {
 
   componentDidMount() {
     this.props.dispatch(openChangelogIfNecessary())
+    if (firstLoggedIn) {
+      firstLoggedIn = false
+      if (!this.props.auth.emailVerified) {
+        this.props.dispatch(
+          addNotification({
+            type: NotificationType.EmailVerification,
+            id: EMAIL_VERIFICATION_ID,
+            unread: true,
+          }),
+        )
+      }
+    }
   }
 
   componentDidUpdate(prevProps) {
@@ -270,14 +300,6 @@ class MainLayout extends React.Component {
             altKey={true}
           />,
           <ActivitySpacer key='spacer' />,
-          <HotkeyedActivityButton
-            key='settings'
-            icon={<SettingsIcon />}
-            label='Settings'
-            onClick={this.onSettingsClick}
-            keycode={KEY_S}
-            altKey={true}
-          />,
         ]
       : [
           <ActivityButton
@@ -315,7 +337,19 @@ class MainLayout extends React.Component {
           </Content>
           <ActivityBar>
             {activityButtons}
-            <VersionText>v{curVersion}</VersionText>
+
+            <MiniActivityButtonsContainer key='mini-buttons'>
+              <NotificationsButton />
+              {/* TODO(tec27): Hotkey this to Alt+S */}
+              <IconButton
+                key='settings'
+                icon={<FadedSettingsIcon />}
+                title='Settings'
+                onClick={this.onSettingsClick}
+              />
+            </MiniActivityButtonsContainer>
+
+            <VersionText key='version'>v{curVersion}</VersionText>
           </ActivityBar>
           {this.renderMatchmakingDisabledOverlay()}
           {this.renderSearchingMatchOverlay()}

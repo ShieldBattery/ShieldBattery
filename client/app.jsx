@@ -23,7 +23,7 @@ import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
 import { usePixelShover } from './dom/pixel-shover'
 import { isLoggedIn } from './auth/auth-utils'
-import { useSelector } from 'react-redux'
+import { useAppSelector } from './redux-hooks'
 
 const IS_PRODUCTION = __WEBPACK_ENV.NODE_ENV === 'production'
 
@@ -37,7 +37,7 @@ const LoadableDev = IS_PRODUCTION
 
 function MainContent() {
   const [matchesRoot] = useRoute('/')
-  const user = useSelector(s => s.auth.user)
+  const user = useAppSelector(s => s.auth.user)
 
   if (matchesRoot) {
     // TODO(tec27): Make a function that lets us pass just the one value (or put this computed value

@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react'
-import { useSelector } from 'react-redux'
 import styled from 'styled-components'
 import logger from '../logging/logger'
 import LoadingIndicator from '../progress/dots'
+import { useAppSelector } from '../redux-hooks'
 import { colorTextSecondary } from '../styles/colors'
 import { headline5 } from '../styles/typography'
 import siteSocket from './site-socket'
@@ -38,8 +38,7 @@ interface SiteConnectedFilterProps {
 }
 
 export default function SiteConnectedFilter(props: SiteConnectedFilterProps) {
-  // TODO(tec27): type the root state so we can remove this any
-  const { siteNetwork } = useSelector<any, any>(state => ({ siteNetwork: state.network.site }))
+  const { siteNetwork } = useAppSelector(state => ({ siteNetwork: state.network.site }))
 
   useEffect(() => {
     siteSocket.connect()
