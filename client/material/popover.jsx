@@ -228,23 +228,23 @@ export default class Popover extends React.Component {
     if (keepInWindow && this._ref.current) {
       const refRect = this._ref.current.getBoundingClientRect()
 
-      if (popoverPosition.bottom !== undefined && popoverPosition.bottom <= safeZoneVertical) {
-        popoverPosition.bottom = safeZoneVertical
-      } else if (popoverPosition.top !== undefined) {
-        if (popoverPosition.top + refRect.height >= clientHeight) {
-          popoverPosition.top = clientHeight - refRect.height - safeZoneVertical
-        } else if (popoverPosition.top <= safeZoneVertical) {
-          popoverPosition.top = safeZoneVertical
+      for (const pos of ['bottom', 'top']) {
+        if (popoverPosition[pos] !== undefined) {
+          if (popoverPosition[pos] <= safeZoneVertical) {
+            popoverPosition[pos] = safeZoneVertical
+          } else if (popoverPosition[pos] + refRect.height >= clientHeight) {
+            popoverPosition[pos] = clientHeight - refRect.height - safeZoneVertical
+          }
         }
       }
 
-      if (popoverPosition.right !== undefined && popoverPosition.right <= safeZoneHorizontal) {
-        popoverPosition.right = safeZoneHorizontal
-      } else if (popoverPosition.left !== undefined) {
-        if (popoverPosition.left + refRect.width >= clientWidth) {
-          popoverPosition.left = clientWidth - refRect.width - safeZoneHorizontal
-        } else if (popoverPosition.left <= safeZoneHorizontal) {
-          popoverPosition.left = safeZoneHorizontal
+      for (const pos of ['right', 'left']) {
+        if (popoverPosition[pos] !== undefined) {
+          if (popoverPosition[pos] <= safeZoneHorizontal) {
+            popoverPosition[pos] = safeZoneHorizontal
+          } else if (popoverPosition[pos] + refRect.width >= clientWidth) {
+            popoverPosition[pos] = clientWidth - refRect.width - safeZoneHorizontal
+          }
         }
       }
     }
