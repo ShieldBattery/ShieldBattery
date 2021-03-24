@@ -126,6 +126,7 @@ export default class Popover extends React.Component {
   animationId = null
   openTimer = null
   closeTimer = null
+  _ref = React.createRef()
 
   get opening() {
     return this.state.transitioning && this.props.open
@@ -224,24 +225,28 @@ export default class Popover extends React.Component {
       }
     }
 
-    if (keepInWindow) {
-      popoverPosition.left =
-        popoverPosition.left !== undefined
-          ? Math.max(popoverPosition.left, safeZoneHorizontal)
-          : undefined
-      popoverPosition.right =
-        popoverPosition.right !== undefined
-          ? Math.max(popoverPosition.right, safeZoneHorizontal)
-          : undefined
+    if (keepInWindow && this._ref.current) {
+      const refRect = this._ref.current.getBoundingClientRect()
 
-      popoverPosition.top =
-        popoverPosition.top !== undefined
-          ? Math.max(popoverPosition.top, safeZoneVertical)
-          : undefined
-      popoverPosition.bottom =
-        popoverPosition.bottom !== undefined
-          ? Math.max(popoverPosition.bottom, safeZoneVertical)
-          : undefined
+      if (popoverPosition.bottom !== undefined && popoverPosition.bottom <= safeZoneVertical) {
+        popoverPosition.bottom = safeZoneVertical
+      } else if (popoverPosition.top !== undefined) {
+        if (popoverPosition.top + refRect.height >= clientHeight) {
+          popoverPosition.top = clientHeight - refRect.height - safeZoneVertical
+        } else if (popoverPosition.top <= safeZoneVertical) {
+          popoverPosition.top = safeZoneVertical
+        }
+      }
+
+      if (popoverPosition.right !== undefined && popoverPosition.right <= safeZoneHorizontal) {
+        popoverPosition.right = safeZoneHorizontal
+      } else if (popoverPosition.left !== undefined) {
+        if (popoverPosition.left + refRect.width >= clientWidth) {
+          popoverPosition.left = clientWidth - refRect.width - safeZoneHorizontal
+        } else if (popoverPosition.left <= safeZoneHorizontal) {
+          popoverPosition.left = safeZoneHorizontal
+        }
+      }
     }
 
     return popoverPosition
@@ -321,12 +326,12 @@ export default class Popover extends React.Component {
       }
 
       return (
-        <span>
+        <span ref={this.recalcPopoverPosition}>
           <WindowListener event='resize' listener={this.recalcPopoverPosition} />
           <WindowListener event='scroll' listener={this.recalcPopoverPosition} />
           <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
           {open ? (
-            <Container key={'popover'} style={popoverStyle}>
+            <Container key={'popover'} style={popoverStyle} ref={this._ref}>
               {disableScaleTransition ? null : (
                 <ScaleHorizontal style={this.state.scaleHorizontalStyle}>
                   <ScaleVertical style={this.state.scaleVerticalStyle}>
