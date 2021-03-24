@@ -126,6 +126,7 @@ export default class Popover extends React.Component {
   animationId = null
   openTimer = null
   closeTimer = null
+  _ref = React.createRef()
 
   get opening() {
     return this.state.transitioning && this.props.open
@@ -224,24 +225,28 @@ export default class Popover extends React.Component {
       }
     }
 
-    if (keepInWindow) {
-      popoverPosition.left =
-        popoverPosition.left !== undefined
-          ? Math.max(popoverPosition.left, safeZoneHorizontal)
-          : undefined
-      popoverPosition.right =
-        popoverPosition.right !== undefined
-          ? Math.max(popoverPosition.right, safeZoneHorizontal)
-          : undefined
+    if (keepInWindow && this._ref.current) {
+      const refRect = this._ref.current.getBoundingClientRect()
 
-      popoverPosition.top =
-        popoverPosition.top !== undefined
-          ? Math.max(popoverPosition.top, safeZoneVertical)
-          : undefined
-      popoverPosition.bottom =
-        popoverPosition.bottom !== undefined
-          ? Math.max(popoverPosition.bottom, safeZoneVertical)
-          : undefined
+      for (const pos of ['bottom', 'top']) {
+        if (popoverPosition[pos] !== undefined) {
+          if (popoverPosition[pos] <= safeZoneVertical) {
+            popoverPosition[pos] = safeZoneVertical
+          } else if (popoverPosition[pos] + refRect.height >= clientHeight) {
+            popoverPosition[pos] = clientHeight - refRect.height - safeZoneVertical
+          }
+        }
+      }
+
+      for (const pos of ['right', 'left']) {
+        if (popoverPosition[pos] !== undefined) {
+          if (popoverPosition[pos] <= safeZoneHorizontal) {
+            popoverPosition[pos] = safeZoneHorizontal
+          } else if (popoverPosition[pos] + refRect.width >= clientWidth) {
+            popoverPosition[pos] = clientWidth - refRect.width - safeZoneHorizontal
+          }
+        }
+      }
     }
 
     return popoverPosition
@@ -321,12 +326,12 @@ export default class Popover extends React.Component {
       }
 
       return (
-        <span>
+        <span ref={this.recalcPopoverPosition}>
           <WindowListener event='resize' listener={this.recalcPopoverPosition} />
           <WindowListener event='scroll' listener={this.recalcPopoverPosition} />
           <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
           {open ? (
-            <Container key={'popover'} style={popoverStyle}>
+            <Container key={'popover'} style={popoverStyle} ref={this._ref}>
               {disableScaleTransition ? null : (
                 <ScaleHorizontal style={this.state.scaleHorizontalStyle}>
                   <ScaleVertical style={this.state.scaleVerticalStyle}>
