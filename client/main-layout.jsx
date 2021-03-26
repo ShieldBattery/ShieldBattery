@@ -242,11 +242,7 @@ class MainLayout extends React.Component {
 
   render() {
     const { inGameplayActivity, serverStatus } = this.props
-    const { pathname } = location
-
     const lobbyCount = serverStatus.lobbyCount > 0 ? serverStatus.lobbyCount : undefined
-
-    console.log('mainlayout render: ' + pathname)
 
     const findMatchButton = !this.props.matchmaking.isFinding ? (
       <HotkeyedActivityButton
