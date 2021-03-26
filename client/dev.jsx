@@ -26,6 +26,12 @@ const HomeLink = styled.div`
   padding-left: 16px;
   line-height: 32px;
   border-bottom: 1px solid ${colorDividers};
+
+  -webkit-app-region: drag;
+
+  & a {
+    -webkit-app-region: no-drag;
+  }
 `
 
 const Content = styled.div`
