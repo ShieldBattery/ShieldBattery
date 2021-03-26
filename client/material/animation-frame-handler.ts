@@ -3,7 +3,7 @@ import { UIEventHandler } from 'react'
 /**
  * A set of functions for managing and using an event handler that is debounced to animation frames.
  */
-interface AnimationFrameHandler<T> {
+export interface AnimationFrameHandler<T> {
   /** An event handler that can be passed to components that fire a lot of events rapidly. */
   handler: UIEventHandler<T>
   /** Cancels any outstanding frame requests (e.g. when a component unmounts). */

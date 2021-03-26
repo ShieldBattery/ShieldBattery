@@ -5,6 +5,7 @@ import styled from 'styled-components'
 
 import DevActivities from './activities/devonly/routes'
 import { DevGames } from './games/devonly/routes'
+import { DevLadder } from './ladder/devonly/routes'
 import DevLists from './lists/devonly/routes'
 import DevLobbies from './lobbies/devonly/routes'
 import DevMatchmaking from './matchmaking/devonly/routes'
@@ -34,6 +35,9 @@ class DevDashboard extends React.Component {
             <Link href='/dev/games'>Games components</Link>
           </li>
           <li>
+            <Link href='/dev/ladder'>Ladder components</Link>
+          </li>
+          <li>
             <Link href='/dev/lists'>List components</Link>
           </li>
           <li>
@@ -55,10 +59,13 @@ class Dev extends React.Component {
   render() {
     return (
       <Container>
-        <Link href='/'>Home</Link>
+        <div>
+          <Link href='/'>Home</Link>
+        </div>
         <Switch>
           <Route path='/dev/activities/:rest*' component={DevActivities} />
           <Route path='/dev/games/:rest*' component={DevGames} />
+          <Route path='/dev/ladder/:rest*' component={DevLadder} />
           <Route path='/dev/lists/:rest*' component={DevLists} />
           <Route path='/dev/lobbies/:rest*' component={DevLobbies} />
           <Route path='/dev/matchmaking/:rest*' component={DevMatchmaking} />
