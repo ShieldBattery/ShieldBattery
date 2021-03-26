@@ -65,9 +65,9 @@ import { NotificationsButton } from './notifications/activity-bar-entry'
 const curVersion = __WEBPACK_ENV.VERSION
 
 const KEY_C = keycode('c')
+const KEY_D = keycode('d')
 const KEY_F = keycode('f')
 const KEY_J = keycode('j')
-const KEY_L = keycode('l')
 const KEY_M = keycode('m')
 const KEY_R = keycode('r')
 
@@ -317,7 +317,7 @@ class MainLayout extends React.Component {
             icon={<LadderIcon />}
             label='Ladder'
             onClick={this.onLadderClick}
-            keycode={KEY_L}
+            keycode={KEY_D}
             altKey={true}
           />,
           <ActivitySpacer key='spacer' />,
