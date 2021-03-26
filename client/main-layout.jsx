@@ -22,6 +22,7 @@ import ConnectedSnackbar from './snackbars/connected-snackbar'
 import HotkeyedActivityButton from './activities/hotkeyed-activity-button'
 import Index from './navigation/index'
 import { push, replace } from './navigation/routing'
+import { LadderTitle } from './ladder/app-bar-title'
 import { Ladder } from './ladder/ladder'
 import LoadingIndicator from './progress/dots'
 import LobbyView from './lobbies/view'
@@ -131,12 +132,16 @@ function AppBarTitle() {
   // NOTE(tec27): Using this hook ensures this gets re-rendered if the location changes
   const [location] = useLocation()
 
+  // TODO(tec27): Just use the same routes from the layout for this? (need a way to split that into
+  // two fragments, one with the content components, one with the title components)
   if (location.startsWith('/admin')) {
     return <AdminTitle />
   } else if (location === '/chat') {
     return <ChatListTitle />
   } else if (location.startsWith('/chat/')) {
     return <ChatTitle />
+  } else if (/^\/ladder(\/|$)/.test(location)) {
+    return <LadderTitle />
   } else if (/^\/lobbies(\/|$)/.test(location)) {
     return <LobbyTitle />
   } else if (/^\/matchmaking(\/|$)/.test(location)) {
