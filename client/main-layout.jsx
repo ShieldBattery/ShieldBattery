@@ -334,7 +334,7 @@ class MainLayout extends React.Component {
             icon={<LadderIcon />}
             label='Ladder'
             onClick={this.onLadderClick}
-            keycode={KEY_L}
+            keycode={KEY_D}
             altKey={true}
           />,
           <ActivitySpacer key='spacer' />,
