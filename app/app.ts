@@ -374,7 +374,7 @@ async function createWindow() {
     height: winHeight && winHeight > 0 ? winHeight : 800,
     x: winX && winX !== -1 ? winX : undefined,
     y: winY && winY !== -1 ? winY : undefined,
-    minWidth: 800,
+    minWidth: 1024,
     minHeight: 600,
 
     acceptFirstMouse: true,
