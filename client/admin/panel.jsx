@@ -61,7 +61,7 @@ class Panel extends React.Component {
     return (
       <Switch>
         <ConditionalRoute
-          path='/admin/users'
+          path='/admin/users/:username?'
           filters={[CanViewUserProfileFilter]}
           component={UserFind}
         />

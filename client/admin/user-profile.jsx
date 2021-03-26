@@ -22,8 +22,10 @@ export class UserProfile extends React.Component {
   render() {
     const {
       auth: { permissions: perms },
-      params: { username },
+      params,
     } = this.props
+
+    const username = decodeURIComponent(params.username)
 
     const children = []
     if (perms.editPermissions) {
@@ -68,7 +70,6 @@ class SearchForm extends React.Component {
   }
 }
 
-@connect()
 export class UserFind extends React.Component {
   _form = null
   _setForm = elem => {
@@ -77,7 +78,7 @@ export class UserFind extends React.Component {
 
   render() {
     const model = {
-      username: this.props.params.username,
+      username: decodeURIComponent(this.props.params.username ?? ''),
     }
     return (
       <Container>
