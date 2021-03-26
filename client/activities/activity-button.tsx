@@ -6,10 +6,12 @@ import { blue50, colorTextFaint, colorTextPrimary, colorTextSecondary } from '..
 
 const Container = styled(ButtonCommon)`
   width: 100%;
-  min-height: 96px;
+  height: 96px;
+  min-height: 40px;
   padding: 8px;
   margin-top: 8px;
   position: relative;
+  flex-shrink: 1;
 
   display: flex;
   flex-direction: column;
