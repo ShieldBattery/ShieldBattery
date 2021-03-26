@@ -10,13 +10,26 @@ import DevLists from './lists/devonly/routes'
 import DevLobbies from './lobbies/devonly/routes'
 import DevMatchmaking from './matchmaking/devonly/routes'
 import DevMaterial from './material/devonly/routes'
+import { colorDividers } from './styles/colors'
 
 const Container = styled.div`
-  padding: 16px !important;
+  padding: 0 !important;
 `
 
 const DescriptionText = styled.div`
   margin: 8px 0;
+`
+
+const HomeLink = styled.div`
+  width: 100%;
+  height: 32px;
+  padding-left: 16px;
+  line-height: 32px;
+  border-bottom: 1px solid ${colorDividers};
+`
+
+const Content = styled.div`
+  height: calc(100% - 32px);
 `
 
 class DevDashboard extends React.Component {
@@ -59,19 +72,21 @@ class Dev extends React.Component {
   render() {
     return (
       <Container>
-        <div>
+        <HomeLink>
           <Link href='/'>Home</Link>
-        </div>
-        <Switch>
-          <Route path='/dev/activities/:rest*' component={DevActivities} />
-          <Route path='/dev/games/:rest*' component={DevGames} />
-          <Route path='/dev/ladder/:rest*' component={DevLadder} />
-          <Route path='/dev/lists/:rest*' component={DevLists} />
-          <Route path='/dev/lobbies/:rest*' component={DevLobbies} />
-          <Route path='/dev/matchmaking/:rest*' component={DevMatchmaking} />
-          <Route path='/dev/material/:rest*' component={DevMaterial} />
-          <Route component={DevDashboard} />
-        </Switch>
+        </HomeLink>
+        <Content>
+          <Switch>
+            <Route path='/dev/activities/:rest*' component={DevActivities} />
+            <Route path='/dev/games/:rest*' component={DevGames} />
+            <Route path='/dev/ladder/:rest*' component={DevLadder} />
+            <Route path='/dev/lists/:rest*' component={DevLists} />
+            <Route path='/dev/lobbies/:rest*' component={DevLobbies} />
+            <Route path='/dev/matchmaking/:rest*' component={DevMatchmaking} />
+            <Route path='/dev/material/:rest*' component={DevMaterial} />
+            <Route component={DevDashboard} />
+          </Switch>
+        </Content>
       </Container>
     )
   }

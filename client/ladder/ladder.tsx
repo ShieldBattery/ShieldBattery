@@ -5,7 +5,8 @@ import styled from 'styled-components'
 import Avatar from '../avatars/avatar'
 import { useHeight } from '../dom/use-dimensions'
 import { AnimationFrameHandler, animationFrameHandler } from '../material/animation-frame-handler'
-import { colorTextSecondary, grey850 } from '../styles/colors'
+import { shadow4dp } from '../material/shadows'
+import { colorTextSecondary, grey800, grey850, grey900 } from '../styles/colors'
 import { overline, subtitle1, subtitle2 } from '../styles/typography'
 
 /**
@@ -36,16 +37,16 @@ const TableContainer = styled.div`
   border-left: var(--pixel-shove-x, 0) transparent;
   padding-left: 16px;
 
-  display: flex;
-
   overflow-x: hidden;
   overflow-y: auto;
 `
 
 const StyledTable = styled(Table)`
-  flex-grow: 1;
+  position: relative;
+  width: 100%;
+  height: auto;
   max-width: 640px;
-  margin: 0 auto;
+  margin: 24px auto 24px;
 
   &:focus,
   & > div:focus {
@@ -56,7 +57,19 @@ const StyledTable = styled(Table)`
     height: 100%;
   }
 
+  .ReactVirtualized__Table__headerRow.odd {
+    ${shadow4dp};
+    position: sticky;
+    top: 0;
+    background-color: ${grey900};
+    contain: content;
+  }
+
   .even {
+    background-color: ${grey800};
+  }
+
+  .odd {
     background-color: ${grey850};
   }
 `
