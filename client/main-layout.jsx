@@ -21,7 +21,8 @@ import ConnectedLeftNav from './navigation/connected-left-nav'
 import ConnectedSnackbar from './snackbars/connected-snackbar'
 import HotkeyedActivityButton from './activities/hotkeyed-activity-button'
 import Index from './navigation/index'
-import { replace } from './navigation/routing'
+import { push, replace } from './navigation/routing'
+import { Ladder } from './ladder/ladder'
 import LoadingIndicator from './progress/dots'
 import LobbyView from './lobbies/view'
 import LobbyTitle from './lobbies/app-bar-title'
@@ -39,6 +40,7 @@ import JoinGameIcon from './icons/material/ic_call_merge_black_36px.svg'
 import MapsIcon from './icons/material/ic_terrain_black_36px.svg'
 import ReplaysIcon from './icons/material/ic_movie_black_36px.svg'
 import SettingsIcon from './icons/material/settings_black_24px.svg'
+import LadderIcon from './icons/material/emoji_events_black_36px.svg'
 
 import { cancelFindMatch } from './matchmaking/action-creators'
 import { openDialog } from './dialogs/action-creators'
@@ -64,6 +66,7 @@ const curVersion = __WEBPACK_ENV.VERSION
 const KEY_C = keycode('c')
 const KEY_F = keycode('f')
 const KEY_J = keycode('j')
+const KEY_L = keycode('l')
 const KEY_M = keycode('m')
 const KEY_R = keycode('r')
 
@@ -304,6 +307,14 @@ class MainLayout extends React.Component {
             keycode={KEY_R}
             altKey={true}
           />,
+          <HotkeyedActivityButton
+            key='ladder'
+            icon={<LadderIcon />}
+            label='Ladder'
+            onClick={this.onLadderClick}
+            keycode={KEY_L}
+            altKey={true}
+          />,
           <ActivitySpacer key='spacer' />,
         ]
       : [
@@ -312,6 +323,14 @@ class MainLayout extends React.Component {
             icon={<DownloadIcon />}
             label='Download'
             onClick={this.onDownloadClick}
+          />,
+          <HotkeyedActivityButton
+            key='ladder'
+            icon={<LadderIcon />}
+            label='Ladder'
+            onClick={this.onLadderClick}
+            keycode={KEY_L}
+            altKey={true}
           />,
           <ActivitySpacer key='spacer' />,
         ]
@@ -330,13 +349,13 @@ class MainLayout extends React.Component {
                 filters={[IsAdminFilter]}
                 component={LoadableAdminPanel}
               />
-              <Route path='/chat' exact={true} component={ChatList} />
+              <Route path='/chat' component={ChatList} />
               <Route path='/chat/:channel' component={ChatChannel} />
+              <Route path='/ladder/:rest*' component={Ladder} />
               {lobbyRoute}
               {matchmakingRoute}
               <Route path='/whispers/:target' component={Whisper} />
-              {/* If no paths match, redirect the page to the "index". Note: this means that we
-                  can't actually have a 404 page, but I don't think we really need one? */}
+              {/* If no paths match, redirect the page to the "index". */}
               <Route>
                 <Index transitionFn={replace} />
               </Route>
@@ -476,6 +495,10 @@ class MainLayout extends React.Component {
 
   onDownloadClick = () => {
     this.props.dispatch(openDialog('download'))
+  }
+
+  onLadderClick = () => {
+    push('/ladder')
   }
 }
 
