@@ -179,6 +179,8 @@ async function submitGameResults(ctx: RouterContext, next: Koa.Next) {
               unexpectedStreak: change.unexpectedStreak,
               numGamesPlayed: mmr.numGamesPlayed + 1,
               lastPlayedDate: reconcileDate,
+              wins: mmr.wins + (change.outcome === 'win' ? 1 : 0),
+              losses: mmr.losses + (change.outcome === 'win' ? 0 : 1),
             }
             matchmakingDbPromises.push(updateMatchmakingRating(client, updatedMmr))
           }

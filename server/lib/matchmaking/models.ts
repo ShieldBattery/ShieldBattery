@@ -34,6 +34,10 @@ export interface MatchmakingRating {
    * used to determine when users are inactive.
    */
   lastPlayedDate: Date
+  /** The number of games this user has won in this matchmaking type. */
+  wins: number
+  /** The number of games this user has lost in this matchmaking type. */
+  losses: number
 }
 
 export const DEFAULT_MATCHMAKING_RATING: Readonly<
@@ -45,6 +49,8 @@ export const DEFAULT_MATCHMAKING_RATING: Readonly<
   unexpectedStreak: 0,
   numGamesPlayed: 0,
   lastPlayedDate: new Date(0),
+  wins: 0,
+  losses: 0,
 }
 
 type DbMatchmakingRating = Dbify<MatchmakingRating>
@@ -59,6 +65,8 @@ function fromDbMatchmakingRating(result: Readonly<DbMatchmakingRating>): Matchma
     unexpectedStreak: result.unexpected_streak,
     numGamesPlayed: result.num_games_played,
     lastPlayedDate: result.last_played_date,
+    wins: result.wins,
+    losses: result.losses,
   }
 }
 
@@ -97,10 +105,11 @@ export async function createInitialMatchmakingRating(
     const result = await client.query<DbMatchmakingRating>(sql`
       INSERT INTO matchmaking_ratings
         (user_id, matchmaking_type, rating, k_factor, uncertainty, unexpected_streak,
-          num_games_played, last_played_date)
+          num_games_played, last_played_date, wins, losses)
       VALUES
         (${userId}, ${matchmakingType}, ${mmr.rating}, ${mmr.kFactor}, ${mmr.uncertainty},
-          ${mmr.unexpectedStreak}, ${mmr.numGamesPlayed}, ${mmr.lastPlayedDate})
+          ${mmr.unexpectedStreak}, ${mmr.numGamesPlayed}, ${mmr.lastPlayedDate}, ${mmr.wins},
+          ${mmr.losses})
       RETURNING *
     `)
 
@@ -145,7 +154,9 @@ export async function updateMatchmakingRating(
        uncertainty = ${mmr.uncertainty},
        unexpected_streak = ${mmr.unexpectedStreak},
        num_games_played = ${mmr.numGamesPlayed},
-       last_played_date = ${mmr.lastPlayedDate}
+       last_played_date = ${mmr.lastPlayedDate},
+       wins = ${mmr.wins},
+       losses = ${mmr.losses}
     WHERE user_id = ${mmr.userId} AND matchmaking_type = ${mmr.matchmakingType};
   `)
 }
