@@ -4,6 +4,7 @@ import { Route, Switch } from 'wouter'
 import keycode from 'keycode'
 import styled from 'styled-components'
 import loadable from '@loadable/component'
+import { useLocation } from 'wouter'
 
 import ActivityBar from './activities/activity-bar'
 import ActivityButton from './activities/activity-button'
@@ -123,6 +124,27 @@ const FadedSettingsIcon = styled(SettingsIcon)`
  */
 let firstLoggedIn = true
 
+function AppBarTitle() {
+  // NOTE(tec27): Using this hook ensures this gets re-rendered if the location changes
+  const [location] = useLocation()
+
+  if (location.startsWith('/admin')) {
+    return <AdminTitle />
+  } else if (location === '/chat') {
+    return <ChatListTitle />
+  } else if (location.startsWith('/chat/')) {
+    return <ChatTitle />
+  } else if (/^\/lobbies(\/|$)/.test(location)) {
+    return <LobbyTitle />
+  } else if (/^\/matchmaking(\/|$)/.test(location)) {
+    return <MatchmakingTitle />
+  } else if (/^\/whispers(\/|$)/.test(location)) {
+    return <WhispersTitle />
+  }
+
+  return null
+}
+
 function stateToProps(state) {
   return {
     auth: state.auth,
@@ -224,20 +246,7 @@ class MainLayout extends React.Component {
 
     const lobbyCount = serverStatus.lobbyCount > 0 ? serverStatus.lobbyCount : undefined
 
-    let appBarTitle
-    if (pathname.startsWith('/admin')) {
-      appBarTitle = <AdminTitle />
-    } else if (pathname === '/chat') {
-      appBarTitle = <ChatListTitle />
-    } else if (pathname.startsWith('/chat/')) {
-      appBarTitle = <ChatTitle />
-    } else if (pathname.startsWith('/lobbies')) {
-      appBarTitle = <LobbyTitle />
-    } else if (pathname.startsWith('/matchmaking')) {
-      appBarTitle = <MatchmakingTitle />
-    } else if (pathname.startsWith('/whispers')) {
-      appBarTitle = <WhispersTitle />
-    }
+    console.log('mainlayout render: ' + pathname)
 
     const findMatchButton = !this.props.matchmaking.isFinding ? (
       <HotkeyedActivityButton
@@ -313,7 +322,9 @@ class MainLayout extends React.Component {
 
     return (
       <Container>
-        <AppBar>{appBarTitle}</AppBar>
+        <AppBar>
+          <AppBarTitle />
+        </AppBar>
         <Layout>
           <ConnectedLeftNav />
           <Content>

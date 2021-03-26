@@ -9,7 +9,7 @@ export default class WhispersTitle extends React.Component {
     const { whispers } = this.props
     const { pathname } = location
 
-    const target = pathname.slice(pathname.lastIndexOf('/') + 1)
+    const target = decodeURIComponent(pathname.slice(pathname.lastIndexOf('/') + 1))
     const session = whispers.byName.get(target.toLowerCase())
 
     return <AppBarTitle>{`Whisper with ${session ? session.target : target}`}</AppBarTitle>

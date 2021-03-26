@@ -9,7 +9,7 @@ export class ChatTitle extends React.Component {
     const { chat } = this.props
 
     const { pathname } = location
-    const routeChannel = pathname.slice(pathname.lastIndexOf('/') + 1)
+    const routeChannel = decodeURIComponent(pathname.slice(pathname.lastIndexOf('/') + 1))
     const channel = chat.byName.get(routeChannel.toLowerCase())
 
     return <AppBarTitle>{`#${channel ? channel.name : routeChannel}`}</AppBarTitle>
