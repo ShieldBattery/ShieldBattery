@@ -179,8 +179,8 @@ export async function getHighRankedRating(matchmakingType: MatchmakingType): Pro
       return Number.MAX_SAFE_INTEGER
     }
 
-    // Players are "high ranked" if they are in the top 1% of ranked players
-    const highRankedCount = Math.ceil(Math.max(totalPlayers * 0.01, 1))
+    // Players are "high ranked" if they are in the top 2% of ranked players
+    const highRankedCount = Math.ceil(Math.max(totalPlayers * 0.02, 1))
     const result = await client.query<{ rating: number }>(sql`
       SELECT MIN(top.rating) as rating
       FROM (
