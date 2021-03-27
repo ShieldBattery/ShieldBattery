@@ -17,13 +17,21 @@ import RaisedButton from '../material/raised-button'
 import { push } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
 import { apiUrl } from '../network/urls'
-import { amberA400, colorTextPrimary, colorTextSecondary, grey850, grey900 } from '../styles/colors'
+import {
+  amberA400,
+  blue800,
+  colorTextPrimary,
+  colorTextSecondary,
+  grey850,
+  grey900,
+} from '../styles/colors'
 import { headline3, headline4, headline5, subtitle1 } from '../styles/typography'
 import ChatImage from './chat.svg'
 import TacticallyFaithfulImage from './tactically-faithful.svg'
 import TopLinks from './top-links'
 
 const SplashContainer = styled.div`
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -34,6 +42,22 @@ const SplashContainer = styled.div`
 
   & * {
     user-select: text;
+  }
+
+  .electron & {
+    /* move links below window controls */
+    padding-top: 32px !important;
+
+    &::after {
+      position: absolute;
+      height: 32px;
+      top: 0;
+      left: 0;
+      right: 0;
+      content: '';
+      background-color: ${blue800};
+      -webkit-app-region: drag;
+    }
   }
 `
 
@@ -50,6 +74,8 @@ const BackgroundVideo = styled.video`
 const BackgroundVideoScrim = styled.div`
   position: absolute;
   width: 100%;
+  top: 0;
+  left: 0;
   /*
     This should be at least BackgroundVideo's height + blur distance, I added a bit extra to be
     safe
