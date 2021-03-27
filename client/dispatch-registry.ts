@@ -1,9 +1,9 @@
 import type { PromisifiedAction, ReduxAction } from './action-types'
+import { RootState } from './root-reducer'
 
-// TODO(tec27): Use a type for our root Store instead of any
 export type ThunkAction<T extends ReduxAction = ReduxAction> = (
   dispatch: DispatchFunction<T>,
-  getState: () => any,
+  getState: () => RootState,
 ) => void
 export type Dispatchable<T extends ReduxAction = ReduxAction> =
   | T

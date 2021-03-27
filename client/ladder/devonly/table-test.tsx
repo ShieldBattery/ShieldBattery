@@ -1,6 +1,7 @@
 import { List } from 'immutable'
 import React from 'react'
-import { LadderPlayer, LadderTable } from '../ladder'
+import { LadderPlayer } from '../../../common/ladder'
+import { LadderTable } from '../ladder'
 
 const PLAYERS: LadderPlayer[] = []
 
@@ -33,5 +34,5 @@ for (let i = 0; i < 1000; i++) {
 }
 
 export function TableTest() {
-  return <LadderTable players={List(PLAYERS)} />
+  return <LadderTable players={List(PLAYERS)} totalCount={PLAYERS.length} isLoading={false} />
 }

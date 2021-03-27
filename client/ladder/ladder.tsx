@@ -1,32 +1,58 @@
 import { List } from 'immutable'
-import React, { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Column, Table, TableCellRenderer, TableHeaderProps } from 'react-virtualized'
 import styled from 'styled-components'
+import { LadderPlayer } from '../../common/ladder'
+import { MatchmakingType } from '../../common/matchmaking'
 import Avatar from '../avatars/avatar'
 import { useHeight } from '../dom/use-dimensions'
 import { AnimationFrameHandler, animationFrameHandler } from '../material/animation-frame-handler'
 import { shadow4dp } from '../material/shadows'
-import { colorTextSecondary, grey800, grey850, grey900 } from '../styles/colors'
+import { LoadingDotsArea } from '../progress/dots'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import {
+  colorError,
+  colorTextFaint,
+  colorTextSecondary,
+  grey800,
+  grey850,
+  grey900,
+} from '../styles/colors'
 import { overline, subtitle1, subtitle2 } from '../styles/typography'
+import { getRankings } from './action-creators'
+
+const LadderPage = styled.div`
+  width: 100%;
+  height: 100%;
+`
 
 /**
  * Displays a ranked table of players on the ladder(s).
  */
 export function Ladder() {
-  return <span>#1 - You</span>
-}
+  // TODO(tec27): Support more matchmaking types via the route and/or tabs or something?
+  const matchmakingType = MatchmakingType.Match1v1
+  const dispatch = useAppDispatch()
+  const rankings = useAppSelector(s => s.ladder.typeToRankings.get(matchmakingType))
 
-// TODO(tec27): Move this elsewhere
-export interface LadderPlayer {
-  rank: number
-  user: {
-    id: number
-    name: string
+  useEffect(() => {
+    dispatch(getRankings(matchmakingType))
+  }, [matchmakingType])
+
+  if (!rankings) {
+    return null
   }
-  rating: number
-  wins: number
-  losses: number
-  lastPlayedDate: number
+
+  return (
+    <LadderPage>
+      <LadderTable
+        totalCount={rankings.totalCount}
+        players={rankings.players}
+        isLoading={rankings.isLoading}
+        lastError={rankings.lastError}
+      />
+    </LadderPage>
+  )
 }
 
 const ROW_HEIGHT = 48
@@ -101,8 +127,27 @@ const PlayerName = styled.div`
   line-height: ${ROW_HEIGHT}px;
 `
 
+const ErrorText = styled.div`
+  ${subtitle1};
+  padding: 16px;
+
+  color: ${colorError};
+  text-align: center;
+`
+
+const EmptyText = styled.div`
+  ${subtitle1};
+  padding: 16px;
+
+  color: ${colorTextFaint};
+  text-align: center;
+`
+
 export interface LadderTableProps {
-  players: List<Readonly<LadderPlayer>>
+  totalCount: number
+  isLoading: boolean
+  players?: List<Readonly<LadderPlayer>>
+  lastError?: Error
 }
 
 export function LadderTable(props: LadderTableProps) {
@@ -122,9 +167,19 @@ export function LadderTable(props: LadderTableProps) {
     }
   }, [])
 
-  const rowGetter = useCallback(({ index }: { index: number }) => props.players.get(index), [
+  const rowGetter = useCallback(({ index }: { index: number }) => props.players?.get(index), [
     props.players,
   ])
+  const noRowsRenderer = useCallback(() => {
+    console.dir(props)
+    if (props.isLoading) {
+      return <LoadingDotsArea />
+    } else if (props.lastError) {
+      return <ErrorText>There was an error retrieving the current rankings.</ErrorText>
+    } else {
+      return <EmptyText>Nothing to see here</EmptyText>
+    }
+  }, [props.isLoading, props.lastError])
 
   const renderPlayer = useCallback<TableCellRenderer>(props => {
     const username = props.cellData.name
@@ -151,9 +206,10 @@ export function LadderTable(props: LadderTableProps) {
         scrollTop={scrollTop}
         headerHeight={ROW_HEIGHT}
         rowHeight={ROW_HEIGHT}
-        rowCount={props.players.size}
+        rowCount={props.totalCount}
         rowClassName={evenOddClassNames}
-        rowGetter={rowGetter}>
+        rowGetter={rowGetter}
+        noRowsRenderer={noRowsRenderer}>
         <Column
           label='Rank'
           dataKey='rank'

@@ -198,6 +198,44 @@ export async function getHighRankedRating(matchmakingType: MatchmakingType): Pro
   }
 }
 
+interface GetRankingsResult {
+  rank: number
+  userId: number
+  username: string
+  rating: number
+  wins: number
+  losses: number
+  lastPlayedDate: Date
+}
+
+/**
+ * Returns a list of players sorted by rank for a particular matchmaking type.
+ */
+export async function getRankings(matchmakingType: MatchmakingType): Promise<GetRankingsResult[]> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<Dbify<GetRankingsResult>>(sql`
+      SELECT RANK() OVER (ORDER BY r.rating DESC) as rank, u.name AS username, r.user_id, r.rating,
+          r.wins, r.losses, r.last_played_date
+      FROM matchmaking_ratings r JOIN users u
+      ON r.user_id = u.id;
+    `)
+
+    return result.rows.map(r => ({
+      // NOTE(tec27): RANK() is a bigint so this is actually a string
+      rank: Number(r.rank),
+      userId: r.user_id,
+      username: r.username,
+      rating: r.rating,
+      wins: r.wins,
+      losses: r.losses,
+      lastPlayedDate: r.last_played_date,
+    }))
+  } finally {
+    done()
+  }
+}
+
 export type MatchmakingResult = 'loss' | 'win'
 
 export interface MatchmakingRatingChange {
