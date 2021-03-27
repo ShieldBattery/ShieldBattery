@@ -1,3 +1,44 @@
+#### 7.0.5 (March 26th, 2021)
+
+- **You're bad.** Or maybe you're good, now you can find out on our new ranked leaderboard! Find
+  the Ladder button or hit Alt+D on your keyboard to bring it up and check out how you stack up
+  against the rest of the server. More information like main races, game history, and in depth
+  user profiles coming soon.
+- **More counting!** We now have a snazzy counter for the number of games played on our
+  <a href="https://shieldbattery.net/splash" target="_blank">home page</a>. If you've ever wanted the privilege of making a counter go up just from clicking a few buttons, come play a few games!
+- **But also less counting!** We've turned off the counter showing how many people are currently
+  queued for matchmaking. We found it made people less likely to queue and overall gave them
+  incorrect expectations for how long finding a match would take. We're working on some better ways
+  to give people realistic expectations here, and should have some more to share soon.
+- **Notifications.** We've added support for in-client notifications. At the moment there aren't
+  very many of these, but you'll notice a new button in the bottom right to access them. The
+  settings button is still there as well, just a little smaller than before (please don't talk
+  about it, wouldn't want to embarrass the button).
+- **Another round of UI polish.** Our client got another round of UI polish changing the look of...
+  just about everything really. Tweaks to text styles, larger click targets, adjustments to chat
+  layout and more!
+- **Rare launch bugs squashed.** We fixed some more issues that we saw happen to a few users on
+  game launch. If you were having trouble before, try again, it might be better now! If not, we'll
+  keep working at it.
+- **Like small windows?** Well, now you can use them, I guess? The client should behave more
+  reasonably at small sizes now, no more losing important buttons outside the visible area.
+- **Pesky high ranked players.** We've made some more tweaks to how our matchmaker finds potential
+  opponents for high ranked players to try and keep queue times a bit more reasonable.
+
+##### Known Issues
+
+- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
+  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
+  very least add a warning for this case in the future (or better yet, automate re-authing), but
+  for now, try to launch the game from the Blizzard launcher at least once a month.
+- **Observer mode missing.** We're still getting our lobby code to work with the newer ingame
+  observer things, this will return shortly!
+- **Off-center screen starting position.** For some users, generally in positions on the right side
+  of the screen, the starting screen position may be slightly off-center from where it usually is.
+- **Vibrating mineral patches.** You're not going crazy, I promise. Those mineral patches really are
+  vibrating. This is an unintentional side-effect of our fog of war change for some users, we're
+  working on it!
+
 #### 7.0.3 (March 19th, 2021)
 
 - **We learned to count.** The lobby count should be a bit more accurate now and stop telling you
