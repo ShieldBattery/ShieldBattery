@@ -171,7 +171,6 @@ export function LadderTable(props: LadderTableProps) {
     props.players,
   ])
   const noRowsRenderer = useCallback(() => {
-    console.dir(props)
     if (props.isLoading) {
       return <LoadingDotsArea />
     } else if (props.lastError) {
