@@ -218,7 +218,8 @@ export async function getRankings(matchmakingType: MatchmakingType): Promise<Get
       SELECT RANK() OVER (ORDER BY r.rating DESC) as rank, u.name AS username, r.user_id, r.rating,
           r.wins, r.losses, r.last_played_date
       FROM matchmaking_ratings r JOIN users u
-      ON r.user_id = u.id;
+      ON r.user_id = u.id
+      WHERE r.num_games_played > 0;
     `)
 
     return result.rows.map(r => ({
