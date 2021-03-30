@@ -413,7 +413,7 @@ async function doLaunch(
   if (isRemastered) {
     // Blizzard reinitializes their settings file everytime the SC:R is opened through their
     // launcher. So we must do the same thing with our own version of settings before each game.
-    await scrSettings.overwrite()
+    await scrSettings.overwriteBlizzardSettingsFile()
   }
 
   const userDataPath = app.getPath('userData')

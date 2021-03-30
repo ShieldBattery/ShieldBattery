@@ -115,7 +115,7 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
   })
 
   ipcMain.handle(SCR_SETTINGS_OVERWRITE, async () => {
-    await scrSettings.overwrite()
+    await scrSettings.overwriteBlizzardSettingsFile()
   })
 
   ipcMain
@@ -179,12 +179,12 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
       mainWindow.minimize()
     })
 
-  localSettings.on(LocalSettings.EVENT, settings => {
+  localSettings.on('change', settings => {
     if (mainWindow) {
       mainWindow.webContents.send(LOCAL_SETTINGS_CHANGED, settings)
     }
   })
-  scrSettings.on(ScrSettings.EVENT, settings => {
+  scrSettings.on('change', settings => {
     if (mainWindow) {
       mainWindow.webContents.send(SCR_SETTINGS_CHANGED, settings)
     }
