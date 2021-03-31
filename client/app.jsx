@@ -42,7 +42,7 @@ function MainContent() {
   if (matchesRoot) {
     // TODO(tec27): Make a function that lets us pass just the one value (or put this computed value
     // on the state?)
-    if (!isLoggedIn({ user })) {
+    if (!IS_ELECTRON && !isLoggedIn({ user })) {
       return <Splash />
     }
   }
