@@ -82,7 +82,7 @@ export const Headline5 = styled.div`
 
 export const headline6 = css`
   ${cabin};
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 500;
   letter-spacing: 0.84px;
   line-height: 28px;

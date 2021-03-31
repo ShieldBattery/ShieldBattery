@@ -9,7 +9,7 @@ import { closeOverlay } from '../activities/action-creators'
 
 import MapThumbnail from '../maps/map-thumbnail'
 import { colorDividers } from '../styles/colors'
-import { Headline3, headline5, Body1, Subtitle1, Subtitle2 } from '../styles/typography'
+import { Headline6, headline5, Body1, Subtitle1, Subtitle2 } from '../styles/typography'
 
 const ListEntryRoot = styled.div`
   width: 100%;
@@ -70,7 +70,7 @@ class ListEntry extends React.Component {
     return (
       <ListEntryRoot onClick={() => onClick(lobby)}>
         <Info>
-          <Headline3>{lobby.name}</Headline3>
+          <Headline6>{lobby.name}</Headline6>
           <Subtitle2>{lobby.host.name}</Subtitle2>
           <Body1>{gameTypeToString(lobby.gameType)}</Body1>
           <Body1>{lobby.openSlotCount} slots open</Body1>
