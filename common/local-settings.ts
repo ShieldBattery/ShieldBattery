@@ -1,13 +1,22 @@
 import { ConsoleSkin, IngameSkin } from './blizz-settings'
 
-export interface LocalSettingsData {
+/**
+ * Settings related to the ShieldBattery Electron app (that will not be exposed to users in the
+ * settings dialog).
+ */
+export interface ShieldBatteryAppSettingsData {
   version: number
-  starcraftPath: string
   winX: number
   winY: number
+  gameWinX: number
+  gameWinY: number
   winWidth: number
   winHeight: number
   winMaximized: boolean
+}
+
+export interface LocalSettingsData extends ShieldBatteryAppSettingsData {
+  starcraftPath: string
   masterVolume: number
   gameWinWidth: number
   gameWinHeight: number

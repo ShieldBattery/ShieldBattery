@@ -149,8 +149,11 @@ export class LocalSettings extends Settings<LocalSettingsData> {
       winHeight: -1,
       winMaximized: false,
       masterVolume: 50,
-      gameWinWidth: -1, // This setting is only used in v1.16.1 for now; use it in SC:R eventually
-      gameWinHeight: -1, // Ditto
+      // Game window pos/size settings are only used in v1.16.1 for now; use it in SC:R eventually
+      gameWinX: -1,
+      gameWinY: -1,
+      gameWinWidth: -1,
+      gameWinHeight: -1,
       v1161displayMode: 0,
       v1161mouseSensitivity: 0,
       v1161maintainAspectRatio: true,

@@ -1,17 +1,36 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
-import { LocalSettingsData, ScrSettingsData } from '../../common/local-settings'
+import {
+  ALL_CONSOLE_SKINS,
+  ALL_INGAME_SKINS,
+  ConsoleSkin,
+  getConsoleSkinName,
+  getIngameSkinName,
+  IngameSkin,
+} from '../../common/blizz-settings'
 import form, { FormChildProps, FormWrapper } from '../forms/form'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import CheckBox from '../material/check-box'
 import NumberTextField from '../material/number-text-field'
 import Option from '../material/select/option'
 import Select from '../material/select/select'
+import { colorTextSecondary } from '../styles/colors'
+import { overline } from '../styles/typography'
 import { FormContainer } from './settings-content'
+import { LocalSettings, ScrSettings } from './settings-records'
 
 const ApmAlertCheckbox = styled(CheckBox)`
   margin-top: 32px;
+`
+
+const SkinOverline = styled.div`
+  ${overline};
+  color: ${colorTextSecondary};
+`
+
+const BonusSkinsCheckBox = styled(CheckBox)`
+  margin-bottom: 8px;
 `
 
 interface GameplaySettingsModel {
@@ -21,8 +40,11 @@ interface GameplaySettingsModel {
   apmAlertValue: number
   apmDisplayOn: boolean
   colorCyclingOn: boolean
+  consoleSkin: ConsoleSkin
   gameTimerOn: boolean
   minimapPosition: boolean
+  showBonusSkins: boolean
+  selectedSkin: IngameSkin
   unitPortraits: number
 }
 
@@ -51,6 +73,26 @@ class GameplayRemasteredForm extends React.Component<FormChildProps<GameplaySett
             <Select {...bindCustom('minimapPosition')} label='Minimap position' tabIndex={0}>
               <Option value={true} text='Bottom-left corner' />
               <Option value={false} text='Standard' />
+            </Select>
+            <SkinOverline>Skins (must be purchased from Blizzard)</SkinOverline>
+            <BonusSkinsCheckBox
+              {...bindCheckable('showBonusSkins')}
+              label='Show bonus skins'
+              inputProps={{ tabIndex: 0 }}
+            />
+            <Select
+              {...bindCustom('selectedSkin')}
+              label='Ingame skin'
+              tabIndex={0}
+              disabled={!this.props.getInputValue('showBonusSkins')}>
+              {ALL_INGAME_SKINS.map(skin => (
+                <Option key={skin || 'default'} value={skin} text={getIngameSkinName(skin)} />
+              ))}
+            </Select>
+            <Select {...bindCustom('consoleSkin')} label='Console skin' tabIndex={0}>
+              {ALL_CONSOLE_SKINS.map(skin => (
+                <Option key={skin} value={skin} text={getConsoleSkinName(skin)} />
+              ))}
             </Select>
           </div>
           <div>
@@ -106,8 +148,8 @@ export const WrappedGameplayRemasteredForm = form<GameplaySettingsModel, Record<
 })(GameplayRemasteredForm)
 
 export interface GameplaySettingsProps {
-  localSettings: Partial<LocalSettingsData>
-  scrSettings: Partial<ScrSettingsData>
+  localSettings: LocalSettings
+  scrSettings: ScrSettings
   formRef: React.Ref<InstanceType<typeof WrappedGameplayRemasteredForm>>
   isRemastered?: boolean
   onChange: (values: GameplaySettingsModel) => void
@@ -131,8 +173,7 @@ export default class GameplaySettings extends React.Component<GameplaySettingsPr
       return null
     }
 
-    // TODO(tec27): Get proper types for the settings reducer so this cast is unnecessary
-    const formScrModel = { ...(scrSettings as any).toJS() }
+    const formScrModel: GameplaySettingsModel = { ...scrSettings.toJS() }
 
     return (
       <WrappedGameplayRemasteredForm

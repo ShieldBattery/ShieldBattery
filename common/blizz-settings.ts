@@ -14,6 +14,8 @@ export enum ConsoleSkin {
   War3Spoils = 'War3Spoils',
 }
 
+export const ALL_CONSOLE_SKINS = Object.values(ConsoleSkin)
+
 /**
  * Returns a displayable name for a `ConsoleSkin`.
  */
@@ -48,13 +50,15 @@ export enum IngameSkin {
   Carbot = 'carbot',
 }
 
+export const ALL_INGAME_SKINS = Object.values(IngameSkin)
+
 /**
  * Returns a displayable name for an `IngameSkin`.
  */
 export function getIngameSkinName(skin: IngameSkin): string {
   switch (skin) {
     case IngameSkin.Default:
-      return 'Default'
+      return 'None'
     case IngameSkin.Preorder:
       return 'Preorder'
     case IngameSkin.Carbot:

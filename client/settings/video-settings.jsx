@@ -29,6 +29,24 @@ function filterWindowSizes(width, height) {
 
 const compareResolutions = (a, b) => a.width === b.width && a.height === b.height
 
+// NOTE(tec27): Vsync is weird and is a number in the settings, but actually a boolean value. This
+// component just acts as a custom one and does the conversion
+function VsyncCheckBox(props) {
+  return (
+    <CheckBox
+      name={props.name}
+      checked={!!props.value}
+      errorText={props.errorText}
+      label={props.label}
+      inputProps={props.inputProps}
+      onChange={event => {
+        const { name, checked } = event.target
+        props.onChange(name, checked ? 1 : 0)
+      }}
+    />
+  )
+}
+
 @form()
 class VideoRemasteredForm extends React.Component {
   render() {
@@ -69,8 +87,8 @@ class VideoRemasteredForm extends React.Component {
             />
           </div>
           <div>
-            <CheckBox
-              {...bindCheckable('vsyncOn')}
+            <VsyncCheckBox
+              {...bindCustom('vsyncOn')}
               label='Enable vertical sync'
               inputProps={{ tabIndex: 0 }}
             />
