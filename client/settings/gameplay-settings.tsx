@@ -1,26 +1,40 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-
-import CheckBox from '../material/check-box'
-import form from '../forms/form'
-import Option from '../material/select/option'
+import { LocalSettingsData, ScrSettingsData } from '../../common/local-settings'
+import form, { FormChildProps, FormWrapper } from '../forms/form'
 import SubmitOnEnter from '../forms/submit-on-enter'
-import Select from '../material/select/select'
+import CheckBox from '../material/check-box'
 import NumberTextField from '../material/number-text-field'
+import Option from '../material/select/option'
+import Select from '../material/select/select'
 import { FormContainer } from './settings-content'
 
 const ApmAlertCheckbox = styled(CheckBox)`
   margin-top: 32px;
 `
 
-function validApmValue() {
-  return (val, model) =>
-    (model.apmAlertOn && !val) || val < 0 || val > 999 ? 'Enter a value between 0 and 999' : null
+interface GameplaySettingsModel {
+  apmAlertOn: boolean
+  apmAlertColorOn: boolean
+  apmAlertSoundOn: boolean
+  apmAlertValue: number
+  apmDisplayOn: boolean
+  colorCyclingOn: boolean
+  gameTimerOn: boolean
+  minimapPosition: boolean
+  unitPortraits: number
 }
 
-@form({ apmAlertValue: validApmValue() })
-class GameplayRemasteredForm extends React.Component {
+function validateApmValue(val: number, model: GameplaySettingsModel) {
+  if (!model.apmAlertOn) {
+    return null
+  }
+
+  return val <= 0 || val > 999 ? 'Enter a value between 1 and 999' : null
+}
+
+class GameplayRemasteredForm extends React.Component<FormChildProps<GameplaySettingsModel>> {
   render() {
     const { bindCheckable, bindCustom, onSubmit } = this.props
 
@@ -87,9 +101,21 @@ class GameplayRemasteredForm extends React.Component {
   }
 }
 
-export default class GameplaySettings extends React.Component {
+export const WrappedGameplayRemasteredForm = form<GameplaySettingsModel, Record<never, never>>({
+  apmAlertValue: validateApmValue,
+})(GameplayRemasteredForm)
+
+export interface GameplaySettingsProps {
+  localSettings: Partial<LocalSettingsData>
+  scrSettings: Partial<ScrSettingsData>
+  formRef: React.Ref<InstanceType<typeof WrappedGameplayRemasteredForm>>
+  isRemastered?: boolean
+  onChange: (values: GameplaySettingsModel) => void
+  onSubmit: () => void
+}
+
+export default class GameplaySettings extends React.Component<GameplaySettingsProps> {
   static propTypes = {
-    localSettings: PropTypes.object.isRequired,
     scrSettings: PropTypes.object.isRequired,
     formRef: PropTypes.object.isRequired,
     isRemastered: PropTypes.bool,
@@ -105,10 +131,11 @@ export default class GameplaySettings extends React.Component {
       return null
     }
 
-    const formScrModel = { ...scrSettings.toJS() }
+    // TODO(tec27): Get proper types for the settings reducer so this cast is unnecessary
+    const formScrModel = { ...(scrSettings as any).toJS() }
 
     return (
-      <GameplayRemasteredForm
+      <WrappedGameplayRemasteredForm
         ref={formRef}
         model={formScrModel}
         onChange={this.onChange}
@@ -117,8 +144,8 @@ export default class GameplaySettings extends React.Component {
     )
   }
 
-  onChange = () => {
-    const values = this.props.formRef.current.getModel()
+  onChange = (form: FormWrapper<GameplaySettingsModel>) => {
+    const values = form.getModel()
     this.props.onChange(values)
   }
 

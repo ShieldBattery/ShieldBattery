@@ -2,12 +2,13 @@ import deepEqual from 'deep-equal'
 import fs, { promises as fsPromises } from 'fs'
 import { Map } from 'immutable'
 import { ConditionalKeys } from 'type-fest'
+import { LocalSettingsData, ScrSettingsData } from '../common/local-settings'
 import { TypedEventEmitter } from '../common/typed-emitter'
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
 const VERSION = 6
-const SCR_VERSION = 2
+const SCR_VERSION = 3
 
 async function findStarcraftPath() {
   let starcraftPath = await findInstallPath()
@@ -108,22 +109,6 @@ function migrateV1MouseSensitivity(oldSens: number | undefined) {
   }
 }
 
-export interface LocalSettingsData {
-  version: number
-  starcraftPath: string
-  winX: number
-  winY: number
-  winWidth: number
-  winHeight: number
-  winMaximized: boolean
-  masterVolume: number
-  gameWinWidth: number
-  gameWinHeight: number
-  v1161displayMode: number
-  v1161mouseSensitivity: number
-  v1161maintainAspectRatio: boolean
-}
-
 export class LocalSettings extends Settings<LocalSettingsData> {
   protected settings!: Partial<LocalSettingsData>
 
@@ -222,9 +207,14 @@ export class LocalSettings extends Settings<LocalSettingsData> {
   }
 }
 
-// Mapping of setting names between SB and SC:R, where the names used in SB are the keys, and the
-// names used in SC:R are the values. Used for converting from SB -> SC:R settings (when saving). To
-// convert from SC:R -> SB settings (when fetching) use the inverse map below.
+/**
+ * Mapping of setting names between SB and SC:R, where the names used in SB are the keys, and the
+ * names used in SC:R are the values. Used for converting from SB -> SC:R settings (when saving). To
+ * convert from SC:R -> SB settings (when fetching) use the inverse map below.
+ *
+ * NOTE(tec27): The typing here does very little in current versions of TS, since it allows either
+ * side of the tuple to match to 'string' :/
+ */
 export const sbToScrMapping = Map<Omit<keyof ScrSettingsData, 'version'>, string>([
   ['keyboardScrollSpeed', 'm_kscroll'],
   ['mouseScrollSpeed', 'm_mscroll'],
@@ -264,6 +254,9 @@ export const sbToScrMapping = Map<Omit<keyof ScrSettingsData, 'version'>, string
   ['apmAlertValue', 'apm_AlertValue'],
   ['apmAlertColorOn', 'apm_AlertUseColor'],
   ['apmAlertSoundOn', 'apm_AlertUseSound'],
+  ['consoleSkin', 'selectedConsole'],
+  ['selectedSkin', 'selectedSkin'],
+  ['showBonusSkins', 'skinsEnabled'],
 ])
 
 export const scrToSbMapping = sbToScrMapping.mapEntries(([key, value]) => [value, key])
@@ -290,48 +283,6 @@ export function fromSbToBlizzard(sbSettings: Partial<ScrSettingsData>): Record<s
 
     return acc
   }, {} as Record<string, any>)
-}
-
-export interface ScrSettingsData {
-  version: number
-  keyboardScrollSpeed: number
-  mouseScrollSpeed: number
-  mouseSensitivityOn: boolean
-  mouseSensitivity: number
-  mouseScalingOn: boolean
-  hardwareCursorOn: boolean
-  mouseConfineOn: boolean
-  musicOn: boolean
-  musicVolume: number
-  soundOn: boolean
-  soundVolume: number
-  unitSpeechOn: boolean
-  unitAcknowledgementsOn: boolean
-  backgroundSoundsOn: boolean
-  buildingSoundsOn: boolean
-  gameSubtitlesOn: boolean
-  cinematicSubtitlesOn: boolean
-  originalVoiceOversOn: boolean
-  displayMode: number // TODO(tec27): type this more narrowly/use an enum
-  fpsLimitOn: boolean
-  fpsLimit: number
-  sdGraphicsFilter: number
-  vsyncOn: number
-  hdGraphicsOn: boolean
-  environmentEffectsOn: boolean
-  realTimeLightingOn: boolean
-  smoothUnitTurningOn: boolean
-  shadowStackingOn: boolean
-  pillarboxOn: boolean
-  gameTimerOn: boolean
-  colorCyclingOn: boolean
-  unitPortraits: number // TODO(tec27): type this more narrowly/use an enum
-  minimapPosition: boolean
-  apmDisplayOn: boolean
-  apmAlertOn: boolean
-  apmAlertValue: number
-  apmAlertColorOn: boolean
-  apmAlertSoundOn: boolean
 }
 
 export class ScrSettings extends Settings<ScrSettingsData> {
@@ -392,25 +343,41 @@ export class ScrSettings extends Settings<ScrSettingsData> {
 
   private migrateOldSettings(settings: Partial<ScrSettingsData>) {
     const newSettings = { ...settings }
-    // Fix integer settings to not be negative
-    const intSettings: Array<ConditionalKeys<ScrSettingsData, number>> = [
-      'keyboardScrollSpeed',
-      'mouseScrollSpeed',
-      'mouseSensitivity',
-      'musicVolume',
-      'soundVolume',
-      'displayMode',
-      'fpsLimit',
-      'sdGraphicsFilter',
-      'unitPortraits',
-      'apmAlertValue',
-    ]
-    for (const setting of intSettings) {
-      const oldSetting = newSettings[setting]
-      if (oldSetting !== undefined && oldSetting < 0) {
-        newSettings[setting] = 0
+    if (!newSettings.version || newSettings.version < 2) {
+      // Fix integer settings to not be negative
+      const intSettings: Array<ConditionalKeys<ScrSettingsData, number>> = [
+        'keyboardScrollSpeed',
+        'mouseScrollSpeed',
+        'mouseSensitivity',
+        'musicVolume',
+        'soundVolume',
+        'displayMode',
+        'fpsLimit',
+        'sdGraphicsFilter',
+        'unitPortraits',
+        'apmAlertValue',
+      ]
+      for (const setting of intSettings) {
+        const oldSetting = newSettings[setting]
+        if (oldSetting !== undefined && oldSetting < 0) {
+          newSettings[setting] = 0
+        }
       }
+      newSettings.version = 2
     }
+    if (newSettings.version < 3) {
+      // Add settings related to skins (console and ingame), defaulting to whatever people have in
+      // their Blizzard file
+
+      // NOTE(tec27): Like `createDefaults` above, this is always called *after* scrSettings has
+      // been loaded
+      const blizzSettings = fromBlizzardToSb(this.blizzardSettings)
+      newSettings.consoleSkin = blizzSettings.consoleSkin
+      newSettings.selectedSkin = blizzSettings.selectedSkin
+      newSettings.showBonusSkins = blizzSettings.showBonusSkins
+      newSettings.version = 3
+    }
+
     newSettings.version = SCR_VERSION
     return newSettings
   }
