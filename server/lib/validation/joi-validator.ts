@@ -3,33 +3,31 @@ import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
 
-type SchemaOrUndefined<T> = T extends never ? undefined : Joi.ObjectSchema<T>
+type ValidatedParamType<T> = T extends { params: Joi.ObjectSchema<infer U> } ? U : never
+type ValidatedQueryType<T> = T extends { query: Joi.ObjectSchema<infer U> } ? U : never
+type ValidatedBodyType<T> = T extends { body: Joi.ObjectSchema<infer U> } ? U : never
 
 /** A description of how to validate a request. */
-export interface JoiValidationDescriptor<P = never, Q = never, B = never> {
+export interface JoiValidationDescriptor {
   /**
    * A schema to use for validating a request's named route parameters. If undefined, the params
    * will not be validated.
    */
-  params?: SchemaOrUndefined<P>
+  params?: Joi.ObjectSchema
   /**
    * A schema to use for validating a request's query string data. If undefined, the query string
    * will not be validated.
    */
-  query?: SchemaOrUndefined<Q>
+  query?: Joi.ObjectSchema
   /**
    * A schema to use for validating a request's body data. If undefined, the body will not be
    * validated.
    */
-  body?: SchemaOrUndefined<B>
+  body?: Joi.ObjectSchema
 }
 
 /** Returns a function that validates that the parts of a Koa request pass validation with Joi. */
-export function joiValidator<P = never, Q = never, B = never>({
-  params,
-  query,
-  body,
-}: JoiValidationDescriptor<P, Q, B>) {
+export function joiValidator<T>({ params, query, body }: JoiValidationDescriptor) {
   return async (ctx: RouterContext, next: Koa.Next) => {
     if (params) {
       const { error } = params.validate(ctx.params)
@@ -55,13 +53,13 @@ export function joiValidator<P = never, Q = never, B = never>({
 }
 
 /** Validates a Koa request using Joi, returning typed values that have been normalized by Joi. */
-export function validateRequest<P = any, Q = any, B = any>(
+export function validateRequest<T extends JoiValidationDescriptor>(
   ctx: RouterContext,
-  { params, query, body }: JoiValidationDescriptor<P, Q, B>,
-): { params: P; query: Q; body: B } {
-  let paramsResult: P | undefined
-  let queryResult: Q | undefined
-  let bodyResult: B | undefined
+  { params, query, body }: T,
+): { params: ValidatedParamType<T>; query: ValidatedQueryType<T>; body: ValidatedBodyType<T> } {
+  let paramsResult: ValidatedParamType<T> | undefined
+  let queryResult: ValidatedQueryType<T> | undefined
+  let bodyResult: ValidatedBodyType<T> | undefined
 
   if (params) {
     const result = params.validate(ctx.params)

@@ -4,7 +4,7 @@ import { GetRankingsPayload } from '../../../common/ladder'
 import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
 import { getRankings as getRankingsFromDb } from '../matchmaking/models'
 import ensureLoggedIn from '../session/ensure-logged-in'
-import { JoiValidationDescriptor, validateRequest } from '../validation/joi-validator'
+import { validateRequest } from '../validation/joi-validator'
 
 export default function (router: Router) {
   router.use(ensureLoggedIn).get('/:matchmakingType', getRankings)
@@ -14,8 +14,8 @@ interface GetRankingsParams {
   matchmakingType: MatchmakingType
 }
 
-const GET_RANKINGS_SCHEMA: JoiValidationDescriptor<GetRankingsParams> = {
-  params: Joi.object({
+const GET_RANKINGS_SCHEMA = {
+  params: Joi.object<GetRankingsParams>({
     matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
   }),
 }
