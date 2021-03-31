@@ -27,7 +27,7 @@ export interface JoiValidationDescriptor {
 }
 
 /** Returns a function that validates that the parts of a Koa request pass validation with Joi. */
-export function joiValidator<T>({ params, query, body }: JoiValidationDescriptor) {
+export function joiValidator({ params, query, body }: JoiValidationDescriptor) {
   return async (ctx: RouterContext, next: Koa.Next) => {
     if (params) {
       const { error } = params.validate(ctx.params)
