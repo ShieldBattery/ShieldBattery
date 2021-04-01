@@ -127,6 +127,7 @@ export default class Popover extends React.Component {
   openTimer = null
   closeTimer = null
   _ref = React.createRef()
+  _lastAnchorRect = undefined
 
   get opening() {
     return this.state.transitioning && this.props.open
@@ -167,10 +168,6 @@ export default class Popover extends React.Component {
   }
 
   calculatePopoverPosition(props) {
-    if (!props.anchor) {
-      return null
-    }
-
     const {
       anchor,
       anchorOffsetVertical,
@@ -184,9 +181,15 @@ export default class Popover extends React.Component {
       safeZoneVertical,
     } = props
 
+    const anchorElement = anchor?.getBoundingClientRect() ?? this._lastAnchorRect
+    if (!anchorElement) {
+      return null
+    }
+
+    this._lastAnchorRect = anchorElement
+
     const clientWidth = document.body.clientWidth
     const clientHeight = document.body.clientHeight
-    const anchorElement = anchor.getBoundingClientRect()
     const rect = {
       top: anchorElement.top + anchorOffsetVertical,
       right: anchorElement.right + anchorOffsetHorizontal,
@@ -303,10 +306,8 @@ export default class Popover extends React.Component {
   }
 
   render() {
-    const { onDismiss, children, anchor, disableScaleTransition } = this.props
+    const { onDismiss, children, disableScaleTransition } = this.props
     const { open, popoverPosition: pos } = this.state
-
-    if (!anchor) return null
 
     const renderContents = () => {
       if (!open && !this.closing) return null
