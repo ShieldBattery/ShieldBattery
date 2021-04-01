@@ -108,12 +108,10 @@ Promise.all([rootElemPromise])
     return { elem, store }
   })
   .then(async ({ elem, store }) => {
-    const configPromise = fetch('/config', { method: 'get' })
     const { action, promise: sessionPromise } = getCurrentSession()
     store.dispatch(action)
     try {
-      const [config] = await Promise.all([configPromise, sessionPromise])
-      window._sbFeedbackUrl = config.feedbackUrl
+      await sessionPromise
     } catch (err) {
       // Ignored, usually just means we don't have a current session
     }

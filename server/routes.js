@@ -35,10 +35,10 @@ export default function applyRoutes(app, websocketServer) {
   // TODO(tec27): we should probably do something based on expected content type as well
   router.get('/robots.txt', send404).get('/favicon.ico', send404)
 
+  // NOTE(tec27): This used to send our feedback URL to clients. Leaving it in place for now to
+  // not break those clients on launch, can be deleted later on.
   router.get('/config', async (ctx, next) => {
-    ctx.body = {
-      feedbackUrl: process.env.SB_FEEDBACK_URL,
-    }
+    ctx.body = {}
     ctx.type = 'application/json'
   })
 
@@ -66,7 +66,6 @@ export default function applyRoutes(app, websocketServer) {
       }
       await ctx.render('index', {
         initData,
-        feedbackUrl: process.env.SB_FEEDBACK_URL,
         cspNonce: getCspNonce(ctx),
       })
     },

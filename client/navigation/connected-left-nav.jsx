@@ -13,7 +13,6 @@ import SelfProfileOverlay from '../profile/self-profile-overlay'
 import AddIcon from '../icons/material/ic_add_black_24px.svg'
 import ChangelogIcon from '../icons/material/ic_new_releases_black_24px.svg'
 import EditIcon from '../icons/material/edit-24px.svg'
-import FeedbackIcon from '../icons/material/ic_feedback_black_24px.svg'
 import LogoutIcon from '../icons/material/ic_power_settings_new_black_24px.svg'
 
 import ChatNavEntry from '../chat/nav-entry'
@@ -186,9 +185,6 @@ class ConnectedLeftNav extends React.Component {
         onDismiss={this.onCloseProfileOverlay}
         anchor={this._profileEntryRef.current}
         user={this.props.auth.user.name}>
-        {window._sbFeedbackUrl ? (
-          <MenuItem icon={<FeedbackIcon />} text='Send feedback' onClick={this.onFeedbackClick} />
-        ) : null}
         <MenuItem icon={<ChangelogIcon />} text='View changelog' onClick={this.onChangelogClick} />
         <MenuItem icon={<EditIcon />} text='Edit account' onClick={this.onAccountClick} />
         <MenuDivider />
@@ -295,11 +291,6 @@ class ConnectedLeftNav extends React.Component {
 
   onCancelFindMatchClick = () => {
     this.props.dispatch(cancelFindMatch())
-  }
-
-  onFeedbackClick = () => {
-    this.onCloseProfileOverlay()
-    window.open(window._sbFeedbackUrl, '_blank')
   }
 
   onChangelogClick = () => {
