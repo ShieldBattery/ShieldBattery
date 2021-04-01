@@ -1,16 +1,24 @@
-import React, { useCallback, useLayoutEffect } from 'react'
+import React, { useCallback, useLayoutEffect, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { DEV_INDICATOR } from '../../common/flags'
 import { useIsAdmin } from '../admin/admin-permissions'
+import DiscordIcon from '../icons/brands/discord.svg'
+import GitHubIcon from '../icons/brands/github.svg'
+import KofiColorIcon from '../icons/brands/kofi-color.svg'
+import PatreonIcon from '../icons/brands/patreon.svg'
+import TwitterIcon from '../icons/brands/twitter.svg'
 import AdminIcon from '../icons/material/admin_panel_settings_black_24px.svg'
 import IconButton from '../material/icon-button'
+import Divider from '../material/menu/divider'
+import MenuItem from '../material/menu/item'
+import Menu from '../material/menu/menu'
 import { shadow4dp } from '../material/shadows'
 import { standardIncrement } from '../material/units'
 import { zIndexAppBar } from '../material/zindex'
 import { push } from '../navigation/routing'
 import { ActiveUserCount } from '../serverstatus/active-users'
-import { blue800, colorError } from '../styles/colors'
-import { body1, caption, headline6, singleLine } from '../styles/typography'
+import { blue800, colorError, colorTextSecondary } from '../styles/colors'
+import { body1, caption, headline6, overline, singleLine } from '../styles/typography'
 import Lockup from './lockup'
 import { SizeLeft, SizeRight, SizeTop, windowControlsHeight } from './window-controls'
 
@@ -32,8 +40,20 @@ const Container = styled.header`
 `
 
 const LeftSide = styled.div`
-  width: 240px;
+  width: 264px;
   position: relative;
+`
+
+const AppMenu = styled(Menu)`
+  width: 224px;
+  max-height: 420px;
+`
+
+const AppMenuOverline = styled.div`
+  ${overline};
+  ${singleLine};
+  color: ${colorTextSecondary};
+  padding: 8px 12px 0;
 `
 
 const Content = styled.div`
@@ -102,10 +122,29 @@ const DevIndicator = styled.div`
   -webkit-app-region: no-drag;
 `
 
+const StyledTwitterIcon = styled(TwitterIcon)`
+  color: #1d9bf0;
+`
+
+const StyledPatreonIcon = styled(PatreonIcon)`
+  color: #ff424e;
+`
+
 export interface AppBarProps {
   children?: React.ReactNode
   className?: string
 }
+
+const APP_MENU_LINKS = [
+  ['Discord', <DiscordIcon />, 'https://discord.gg/S8dfMx94a4'],
+  ['Twitter', <StyledTwitterIcon />, 'https://twitter.com/ShieldBatteryBW'],
+  ['GitHub', <GitHubIcon />, 'https://github.com/ShieldBattery/ShieldBattery'],
+  [],
+  ['Support the project'],
+  ['Patreon', <StyledPatreonIcon />, 'https://patreon.com/tec27'],
+  ['GitHub Sponsors', <GitHubIcon />, 'https://github.com/sponsors/ShieldBattery'],
+  ['Ko-fi', <KofiColorIcon />, 'https://ko-fi.com/tec27'],
+]
 
 export default function AppBar(props: AppBarProps) {
   useLayoutEffect(() => {
@@ -119,13 +158,61 @@ export default function AppBar(props: AppBarProps) {
     push('/admin')
   }, [])
 
+  const [appMenuAnchor, setAppMenuAnchor] = useState<Element | null>(null)
+  const onLockupClick = useCallback((event: React.MouseEvent) => {
+    setAppMenuAnchor(event.currentTarget as Element)
+  }, [])
+  const onAppMenuDismiss = useCallback(() => {
+    setAppMenuAnchor(null)
+  }, [])
+  const appMenuItems = useMemo(
+    () =>
+      APP_MENU_LINKS.map(([text, icon, url], i) => {
+        if (text && url) {
+          return (
+            <MenuItem
+              key={i}
+              text={text}
+              icon={icon}
+              onClick={() => {
+                window.open(url as string, '_blank')
+                setAppMenuAnchor(null)
+              }}
+            />
+          )
+        } else if (text) {
+          return <AppMenuOverline key={i}>{text}</AppMenuOverline>
+        } else {
+          return <Divider key={i} />
+        }
+      }),
+    [APP_MENU_LINKS],
+  )
+
+  // TODO(tec27): Make menus (popovers?) support vertical-only transition, or at least grow
+  // from middle
   return (
     <Container className={props.className}>
       <SizeTop />
       <SizeLeft />
       <SizeRight />
       <LeftSide>
-        <Lockup />
+        <Lockup
+          onClick={appMenuAnchor ? onAppMenuDismiss : onLockupClick}
+          menuOpened={!!appMenuAnchor}
+        />
+        <AppMenu
+          open={!!appMenuAnchor}
+          onDismiss={onAppMenuDismiss}
+          anchor={appMenuAnchor}
+          anchorOriginVertical='bottom'
+          anchorOriginHorizontal='left'
+          popoverOriginVertical='top'
+          popoverOriginHorizontal='left'
+          anchorOffsetHorizontal={16}
+          anchorOffsetVertical={-8}>
+          {appMenuItems}
+        </AppMenu>
         {DEV_INDICATOR ? <DevIndicator onClick={() => push('/dev')}>Dev</DevIndicator> : null}
       </LeftSide>
       <Content>{props.children}</Content>

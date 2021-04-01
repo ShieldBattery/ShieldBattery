@@ -240,6 +240,7 @@ class ConnectedLeftNav extends React.Component {
         ref={this._profileEntryRef}
         user={auth.user.name}
         onProfileEntryClick={this.onProfileEntryClick}
+        profileMenuOpen={this.state.profileOverlayOpen}
       />,
     ]
 

@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import MenuItemSymbol from './menu-item-symbol'
 import { ITEM_HEIGHT, ITEM_HEIGHT_DENSE } from './menu'
 
-import { SubheadingOld, singleLine } from '../../styles/typography'
+import { subtitle1, singleLine } from '../../styles/typography'
 
 const Item = styled.div`
   display: flex;
@@ -28,9 +28,10 @@ const Item = styled.div`
   ${props => (props.focused ? 'background-color: rgba(255, 255, 255, 0.24)' : '')};
 `
 
-const ItemText = styled(SubheadingOld)`
-  flex-grow: 1;
+const ItemText = styled.div`
+  ${subtitle1};
   ${singleLine};
+  flex-grow: 1;
 `
 
 const ItemIcon = styled.span`

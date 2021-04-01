@@ -3,8 +3,15 @@ import React from 'react'
 import styled from 'styled-components'
 import Avatar from '../avatars/avatar'
 import ExpandIcon from '../icons/material/expand_less_black_24px.svg'
-import { colorTextFaint } from '../styles/colors'
+import { fastOutSlowIn } from '../material/curve-constants'
+import { colorTextFaint, colorTextPrimary } from '../styles/colors'
 import { cabin, singleLine } from '../styles/typography'
+
+const StyledExpandIcon = styled(ExpandIcon)`
+  transform: rotate(${props => (props.$flipped ? '180deg' : '0deg')});
+  transition: transform 125ms ${fastOutSlowIn};
+  will-change: transform;
+`
 
 const Container = styled.div`
   width: 100%;
@@ -18,6 +25,17 @@ const Container = styled.div`
 
   border-radius: 0 2px 0 0;
   cursor: pointer;
+
+  & ${StyledExpandIcon} {
+    color: ${colorTextFaint};
+  }
+
+  &:hover,
+  &:active {
+    & ${StyledExpandIcon} {
+      color: ${colorTextPrimary};
+    }
+  }
 
   &:hover {
     background-color: rgba(255, 255, 255, 0.04);
@@ -50,25 +68,22 @@ const User = styled.div`
   letter-spacing: 0.5px;
 `
 
-const StyledExpandIcon = styled(ExpandIcon)`
-  color: ${colorTextFaint};
-`
-
 export interface ProfileNavEntryProps {
   user: string
   onProfileEntryClick: () => void
+  profileMenuOpen: boolean
 }
 
 const ProfileNavEntry = React.forwardRef(
   (
-    { user, onProfileEntryClick }: ProfileNavEntryProps,
+    { user, onProfileEntryClick, profileMenuOpen }: ProfileNavEntryProps,
     ref: React.ForwardedRef<HTMLDivElement>,
   ) => {
     return (
       <Container ref={ref} onClick={onProfileEntryClick}>
         <StyledAvatar user={user} />
         <User>{user}</User>
-        <StyledExpandIcon />
+        <StyledExpandIcon $flipped={profileMenuOpen} />
       </Container>
     )
   },

@@ -39,11 +39,13 @@ export default class SelfProfileOverlay extends React.Component {
 
   render() {
     const { user, children, open, onDismiss, anchor } = this.props
+
+    // TODO(tec27): Update popover to allow transitioning vertically but not horizontally
     const popoverProps = {
       open,
       onDismiss,
       anchor,
-      anchorOriginVertical: 'bottom',
+      anchorOriginVertical: 'top',
       anchorOriginHorizontal: 'left',
       popoverOriginVertical: 'bottom',
       popoverOriginHorizontal: 'left',

@@ -6,7 +6,7 @@ import { colorDividers } from '../../styles/colors'
 const StyledDivider = styled.div`
   width: 100%;
   height: 1px;
-  margin: 8px 0;
+  margin: 7px 0 8px;
   background-color: ${colorDividers};
 `
 

@@ -5,7 +5,6 @@ import styled from 'styled-components'
 
 import KeyListener from '../../keyboard/key-listener'
 import Popover from '../popover'
-import { ScrollableContent } from '../scroll-bar'
 import MenuItemSymbol from './menu-item-symbol'
 
 import { fastOutSlowIn } from '../curve-constants'
@@ -50,6 +49,9 @@ export const Overlay = styled(CardLayer)`
   box-shadow: ${shadowDef6dp};
   z-index: ${zIndexMenu};
   border-radius: 2px;
+  contain: content;
+  overflow-x: hidden;
+  overflow-y: auto;
 
   &.enter {
     opacity: 0;
@@ -84,8 +86,7 @@ const Padding = styled.div`
 
 // A wrapper component around Popover that can be used to quickly write Menus
 // TODO(2Pac): Menus should probably have some default positioning instead of exposing the
-// lower-level API of the Popovers. But until that can be done, Popovers needs to add support for
-// dynamic positioning, i.e. adjust the positioning automatically if they go outside the viewport.
+// lower-level API of the Popovers.
 export default class Menu extends React.Component {
   static propTypes = {
     dense: PropTypes.bool,
@@ -113,7 +114,7 @@ export default class Menu extends React.Component {
     if (!prevProps.open && this._overlay.current) {
       // update the scroll position to the selected value
       const firstDisplayed = this._getFirstDisplayedItemIndex()
-      this._overlay.current.scrollTop(firstDisplayed * ITEM_HEIGHT)
+      this._overlay.current.scrollTop = firstDisplayed * ITEM_HEIGHT
     }
   }
 
@@ -174,15 +175,11 @@ export default class Menu extends React.Component {
           }
 
           const content = (
-            <ScrollableContent
-              ref={this._overlay}
-              autoHeight={true}
-              autoHeightMin={dense ? MENU_MIN_HEIGHT_DENSE : MENU_MIN_HEIGHT}
-              autoHeightMax={dense ? MENU_MAX_HEIGHT_DENSE : MENU_MAX_HEIGHT}>
+            <>
               <Padding />
               {items}
               <Padding />
-            </ScrollableContent>
+            </>
           )
 
           return (
@@ -198,6 +195,7 @@ export default class Menu extends React.Component {
                   timeout={{ appear: openDuration, enter: openDuration, exit: closeDuration }}>
                   <Overlay
                     key='menu'
+                    ref={this._overlay}
                     className={this.props.className}
                     dense={dense}
                     transitionDuration={transitionDuration}
@@ -239,7 +237,7 @@ export default class Menu extends React.Component {
 
     // Adjust scroll position to keep the item in view
     const curTopIndex = Math.ceil(
-      Math.max(0, this._overlay.current.getScrollTop() - VERT_PADDING) / itemHeight,
+      Math.max(0, this._overlay.current.scrollTop - VERT_PADDING) / itemHeight,
     )
     const curBottomIndex = curTopIndex + itemsShown - 1 // accounts for partially shown options
     if (newIndex >= curTopIndex && newIndex <= curBottomIndex) {
@@ -247,10 +245,10 @@ export default class Menu extends React.Component {
       return
     } else if (newIndex < curTopIndex) {
       // Make the new index the top item
-      this._overlay.current.scrollTop(itemHeight * newIndex)
+      this._overlay.current.scrollTop = itemHeight * newIndex
     } else {
       // Make the new index the bottom item
-      this._overlay.current.scrollTop(itemHeight * (newIndex + 1 - itemsShown))
+      this._overlay.current.scrollTop = itemHeight * (newIndex + 1 - itemsShown)
     }
   }
 
