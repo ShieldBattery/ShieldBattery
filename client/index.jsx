@@ -11,7 +11,6 @@ import { getCurrentSession } from './auth/action-creators'
 import registerSocketHandlers from './network/socket-handlers'
 import App from './app'
 import RedirectProvider from './navigation/redirect-provider'
-import fetch from './network/fetch'
 import audioManager from './audio/audio-manager-instance'
 import { AUDIO_MANAGER_INITIALIZED } from './actions'
 
