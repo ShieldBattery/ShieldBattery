@@ -7,7 +7,7 @@ function shadow(depth, uOff, uBlur, uSpread, pOff, pBlur, pSpread, aOff, aBlur, 
   return `
     0px ${uOff}px ${uBlur}px ${uSpread}px rgba(0, 0, 0, ${shadowKeyUmbraOpacity}),
     0px ${pOff}px ${pBlur}px ${pSpread}px rgba(0, 0, 0, ${shadowKeyPenumbraOpacity}),
-    0px ${aOff}px ${aBlur}px ${aSpread}px rgba(0, 0, 0, ${shadowAmbientOpacity});
+    0px ${aOff}px ${aBlur}px ${aSpread}px rgba(0, 0, 0, ${shadowAmbientOpacity})
   `
 }
 

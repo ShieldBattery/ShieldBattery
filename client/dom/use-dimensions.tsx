@@ -1,36 +1,16 @@
-import { useLayoutEffect, useState } from 'react'
-import { useWindowListener } from './window-listener'
+import { ObservedElement, useResizeObserver } from '@envato/react-resize-observer-hook'
+
+export type DimensionsHookResult = [
+  ref: (instance: ObservedElement | null) => void,
+  contentRect?: DOMRectReadOnly,
+]
 
 /**
- * A hook that returns the current width of a target element, and registers a window listener for
- * future changes. (Note that this won't re-render if the element changes dimensions without a
- * window resize occurring)
+ * A hook that returns the current width/height for an element. Included in the return value is a
+ * `ref` that must be attached to the element you wish to measure. A ResizeObserver will be attached
+ * to the `ref'd` element and return new dimension values when it changes.
  */
-export function useWidth(measuredElement: HTMLElement): number {
-  const [width, setWidth] = useState(0)
-  useLayoutEffect(() => {
-    setWidth(measuredElement.clientWidth)
-  }, [measuredElement])
-  useWindowListener('resize', () => {
-    setWidth(measuredElement.clientWidth)
-  })
-
-  return width
-}
-
-/**
- * A hook that returns the current height of a target element, and registers a window listener for
- * future changes. (Note that this won't re-render if the element changes dimensions without a
- * window resize occurring)
- */
-export function useHeight(measuredElement: HTMLElement): number {
-  const [height, setHeight] = useState(0)
-  useLayoutEffect(() => {
-    setHeight(measuredElement.clientHeight)
-  }, [measuredElement])
-  useWindowListener('resize', () => {
-    setHeight(measuredElement.clientHeight)
-  })
-
-  return height
+export function useDimensions(): DimensionsHookResult {
+  const [ref, observedEntry] = useResizeObserver()
+  return [ref, observedEntry?.contentRect]
 }

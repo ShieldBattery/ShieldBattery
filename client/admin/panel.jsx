@@ -10,8 +10,10 @@ import { UserFind } from './user-profile'
 import {
   CanManageMapPoolsFilter,
   CanManageMatchmakingTimesFilter,
+  CanSeeDebugFilter,
   CanViewUserProfileFilter,
 } from './admin-route-filters'
+import { DebugMatchmaking } from './debug-matchmaking'
 
 const AdminMapManager = IS_ELECTRON ? require('./map-manager').default : null
 
@@ -19,6 +21,13 @@ class AdminDashboard extends React.Component {
   render() {
     const perms = this.props.permissions
 
+    const debugLinks = perms.debug ? (
+      <>
+        <li>
+          <Link href='/admin/debug-matchmaking'>Debug matchmaking</Link>
+        </li>
+      </>
+    ) : null
     const usersLink =
       perms.editPermissions || perms.banUsers ? (
         <li>
@@ -44,6 +53,7 @@ class AdminDashboard extends React.Component {
 
     return (
       <ul>
+        {debugLinks}
         {usersLink}
         {mapsLink}
         {mapPoolsLink}
@@ -75,6 +85,11 @@ class Panel extends React.Component {
           path='/admin/matchmaking-times'
           filters={[CanManageMatchmakingTimesFilter]}
           component={AdminMatchmakingTimes}
+        />
+        <ConditionalRoute
+          path='/admin/debug-matchmaking/:rest*'
+          filters={[CanSeeDebugFilter]}
+          component={DebugMatchmaking}
         />
         <Route path='/admin'>
           <AdminDashboard permissions={perms} />

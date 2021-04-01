@@ -1,7 +1,8 @@
 import React from 'react'
 import { render } from 'react-dom'
-import { Provider } from 'react-redux'
+import { Provider as ReduxProvider } from 'react-redux'
 import { Router } from 'wouter'
+import { Provider as ResizeObserverProvider } from '@envato/react-resize-observer-hook'
 
 import log from './logging/logger'
 import createStore from './create-store'
@@ -19,6 +20,11 @@ const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 if (IS_ELECTRON) {
   process
     .on('uncaughtException', function (err) {
+      // NOTE(tec27): Electron seems to emit null errors sometimes? Not much we can do about logging
+      // them. (One I have definitely seen this for is 'ResizeObserver loop limit exceeded', which
+      // is an error that can be safely ignored anyway)
+      if (!err) return
+
       console.error(err.stack)
       log.error(err.stack)
       // TODO(tec27): We used to exit here, what's the right thing now? Close window? Show error
@@ -118,16 +124,18 @@ Promise.all([rootElemPromise])
   })
   .then(({ elem, store }) => {
     render(
-      <Provider store={store}>
-        <Router>
-          <RedirectProvider>
-            <>
-              <App />
-              {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
-            </>
-          </RedirectProvider>
-        </Router>
-      </Provider>,
+      <ReduxProvider store={store}>
+        <ResizeObserverProvider>
+          <Router>
+            <RedirectProvider>
+              <>
+                <App />
+                {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
+              </>
+            </RedirectProvider>
+          </Router>
+        </ResizeObserverProvider>
+      </ReduxProvider>,
       elem,
     )
   })

@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import { LadderPlayer } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
 import Avatar from '../avatars/avatar'
-import { useHeight } from '../dom/use-dimensions'
+import { useDimensions } from '../dom/use-dimensions'
 import { AnimationFrameHandler, animationFrameHandler } from '../material/animation-frame-handler'
 import { shadow4dp } from '../material/shadows'
 import { LoadingDotsArea } from '../progress/dots'
@@ -151,10 +151,17 @@ export interface LadderTableProps {
 }
 
 export function LadderTable(props: LadderTableProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  // TODO(tec27): I think if we put this one component deeper, this coalescing would be
-  // unnecessary
-  const containerHeight = useHeight(containerRef.current ?? document.body)
+  const [dimensionsRef, containerRect] = useDimensions()
+  const containerRef = useRef<HTMLElement | null>(null)
+  // multiplex the ref to the container to our own ref + the dimensions one
+  const containerCallback = useCallback(
+    (node: HTMLElement | null) => {
+      dimensionsRef(node)
+      containerRef.current = node
+    },
+    [dimensionsRef],
+  )
+
   const [scrollTop, setScrollTop] = useState(0)
   const containerScrollHandler = useRef<AnimationFrameHandler<HTMLDivElement>>()
   useLayoutEffect(() => {
@@ -197,11 +204,11 @@ export function LadderTable(props: LadderTableProps) {
   }, [])
 
   return (
-    <TableContainer ref={containerRef} onScroll={containerScrollHandler.current?.handler}>
+    <TableContainer ref={containerCallback} onScroll={containerScrollHandler.current?.handler}>
       <StyledTable
         autoHeight={true}
         width={640}
-        height={containerHeight}
+        height={containerRect?.height ?? 0}
         scrollTop={scrollTop}
         headerHeight={ROW_HEIGHT}
         rowHeight={ROW_HEIGHT}

@@ -32,3 +32,9 @@ export const CanManageMatchmakingTimesFilter = createConditionalRedirect(
   state => !hasAllPermissions(state.auth, 'manageMatchmakingTimes'),
   () => replace('/admin'),
 )
+
+export const CanSeeDebugFilter = createConditionalRedirect(
+  'CanSeeDebugFilter',
+  state => !hasAllPermissions(state.auth, 'debug'),
+  () => replace('/admin'),
+)
