@@ -16,7 +16,7 @@ import {
   WHISPERS_UPDATE_USER_OFFLINE,
   NETWORK_SITE_CONNECTED,
 } from '../actions'
-import { TextMessage, UserOnlineMessage, UserOfflineMessage } from '../messaging/message-records'
+import { TextMessage } from '../messaging/message-records'
 
 // How many messages should be kept for inactive channels
 const INACTIVE_CHANNEL_MAX_HISTORY = 150
@@ -129,22 +129,7 @@ export default keyedReducer(new WhisperState(), {
       return state
     }
 
-    const updated = state.setIn(['byName', name, 'status'], 'active')
-
-    if (!updated.byName.get(name).hasLoadedHistory) {
-      // TODO(tec27): remove this check once #139 is fixed
-      return updated
-    }
-
-    return updateMessages(updated, name, m => {
-      return m.push(
-        new UserOnlineMessage({
-          id: cuid(),
-          time: Date.now(),
-          user,
-        }),
-      )
-    })
+    return state.setIn(['byName', name, 'status'], 'active')
   },
 
   [WHISPERS_UPDATE_USER_IDLE](state, action) {
@@ -157,22 +142,7 @@ export default keyedReducer(new WhisperState(), {
     const { user } = action.payload
     const name = user.toLowerCase()
 
-    const updated = state.setIn(['byName', name, 'status'], 'offline')
-
-    if (!updated.byName.get(name).hasLoadedHistory) {
-      // TODO(tec27): remove this check once #139 is fixed
-      return updated
-    }
-
-    return updateMessages(updated, name, m => {
-      return m.push(
-        new UserOfflineMessage({
-          id: cuid(),
-          time: Date.now(),
-          user,
-        }),
-      )
-    })
+    return state.setIn(['byName', name, 'status'], 'offline')
   },
 
   [WHISPERS_LOAD_SESSION_HISTORY_BEGIN](state, action) {

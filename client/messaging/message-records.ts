@@ -67,29 +67,9 @@ export class SelfJoinChannelMessage
   })
   implements BaseChatMessage {}
 
-export class UserOnlineMessage
-  extends Record({
-    id: '',
-    type: ChatMessageType.UserOnline as typeof ChatMessageType.UserOnline,
-    time: 0,
-    user: '',
-  })
-  implements BaseChatMessage {}
-
-export class UserOfflineMessage
-  extends Record({
-    id: '',
-    type: ChatMessageType.UserOffline as typeof ChatMessageType.UserOffline,
-    time: 0,
-    user: '',
-  })
-  implements BaseChatMessage {}
-
 export type ChatMessage =
   | TextMessage
   | JoinChannelMessage
   | LeaveChannelMessage
   | NewChannelOwnerMessage
   | SelfJoinChannelMessage
-  | UserOnlineMessage
-  | UserOfflineMessage

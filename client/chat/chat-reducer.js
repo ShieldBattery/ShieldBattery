@@ -25,8 +25,6 @@ import {
   LeaveChannelMessage,
   NewChannelOwnerMessage,
   SelfJoinChannelMessage,
-  UserOnlineMessage,
-  UserOfflineMessage,
 } from '../messaging/message-records'
 
 // How many messages should be kept for inactive channels
@@ -214,32 +212,11 @@ export default keyedReducer(new ChatState(), {
   [CHAT_UPDATE_USER_ACTIVE](state, action) {
     const { channel, user } = action.payload
     const lowerCaseChannel = channel.toLowerCase()
-    let wasIdle = false
-    let updated = state.updateIn(['byName', lowerCaseChannel, 'users'], users => {
+    return state.updateIn(['byName', lowerCaseChannel, 'users'], users => {
       const [active, idle, offline] = updateUserState(user, users.active, users.idle, users.offline)
-      wasIdle = idle !== users.idle
 
       return users.set('active', active).set('idle', idle).set('offline', offline)
     })
-
-    if (!updated.byName.get(lowerCaseChannel).hasLoadedHistory) {
-      // TODO(tec27): remove this check once #139 is fixed
-      return updated
-    }
-
-    if (!wasIdle) {
-      updated = updateMessages(updated, channel, false, m => {
-        return m.push(
-          new UserOnlineMessage({
-            id: cuid(),
-            time: Date.now(),
-            user,
-          }),
-        )
-      })
-    }
-
-    return updated
   },
 
   [CHAT_UPDATE_USER_IDLE](state, action) {
@@ -254,25 +231,10 @@ export default keyedReducer(new ChatState(), {
   [CHAT_UPDATE_USER_OFFLINE](state, action) {
     const { channel, user } = action.payload
     const lowerCaseChannel = channel.toLowerCase()
-    const updated = state.updateIn(['byName', lowerCaseChannel, 'users'], users => {
+    return state.updateIn(['byName', lowerCaseChannel, 'users'], users => {
       const [offline, active, idle] = updateUserState(user, users.offline, users.active, users.idle)
 
       return users.set('active', active).set('idle', idle).set('offline', offline)
-    })
-
-    if (!updated.byName.get(lowerCaseChannel).hasLoadedHistory) {
-      // TODO(tec27): remove this check once #139 is fixed
-      return updated
-    }
-
-    return updateMessages(updated, channel, false, m => {
-      return m.push(
-        new UserOfflineMessage({
-          id: cuid(),
-          time: Date.now(),
-          user,
-        }),
-      )
     })
   },
 

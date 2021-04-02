@@ -11,8 +11,6 @@ import {
   LeaveChannelMessage,
   NewChannelOwnerMessage,
   SelfJoinChannelMessage,
-  UserOfflineMessage,
-  UserOnlineMessage,
 } from './message-types'
 
 /**
@@ -42,9 +40,6 @@ const Messages = styled.div`
   }
 `
 
-// TODO(tec27): make this a user setting
-const ONLINE_OFFLINE_DISABLED = true
-
 interface PureMessageListProps {
   messages: List<ChatMessage>
 }
@@ -61,10 +56,6 @@ function messageToElem(msg: ChatMessage) {
       return <NewChannelOwnerMessage key={msg.id} record={msg} />
     case ChatMessageType.SelfJoinChannel:
       return <SelfJoinChannelMessage key={msg.id} record={msg} />
-    case ChatMessageType.UserOnline:
-      return ONLINE_OFFLINE_DISABLED ? null : <UserOnlineMessage key={msg.id} record={msg} />
-    case ChatMessageType.UserOffline:
-      return ONLINE_OFFLINE_DISABLED ? null : <UserOfflineMessage key={msg.id} record={msg} />
     default:
       return null
   }
@@ -138,6 +129,10 @@ export default class MessageList extends React.Component<
     const scrollable = this.scrollableRef.current
     if (scrollable) {
       scrollable.scrollTop = scrollable.scrollHeight
+
+      if (this.props.onScrollUpdate) {
+        this.props.onScrollUpdate(scrollable)
+      }
     }
   }
 
