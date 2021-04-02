@@ -209,7 +209,7 @@ export default function AppBar(props: AppBarProps) {
           anchorOriginHorizontal='left'
           popoverOriginVertical='top'
           popoverOriginHorizontal='left'
-          anchorOffsetHorizontal={16}
+          anchorOffsetHorizontal={12}
           anchorOffsetVertical={-8}>
           {appMenuItems}
         </AppMenu>
