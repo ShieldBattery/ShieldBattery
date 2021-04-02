@@ -17,6 +17,9 @@ import { AUDIO_MANAGER_INITIALIZED } from './actions'
 
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 
+// eslint-disable-next-line camelcase
+window.__webpack_nonce__ = window.SB_CSP_NONCE
+
 if (IS_ELECTRON) {
   process
     .on('uncaughtException', function (err) {
@@ -67,7 +70,7 @@ if (module.hot) {
   // appropriate attribute before doing it.
   const appendChild = document.head.appendChild.bind(document.head)
   document.head.appendChild = elem => {
-    if (elem.tagName === 'SCRIPT' && new Error().stack.includes('at hotDownloadUpdateChunk')) {
+    if (elem.tagName === 'SCRIPT' && new Error().stack.includes('__webpack_require__')) {
       // eslint-disable-next-line no-undef,camelcase
       elem.setAttribute('nonce', __webpack_nonce__)
     }
