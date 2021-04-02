@@ -22,7 +22,6 @@ import InfiniteScrollList from '../lists/infinite-scroll-list'
 import LoadingIndicator from '../progress/dots'
 import MapPreview from './map-preview'
 import MapThumbnail from './map-thumbnail'
-import { ScrollableContent } from '../material/scroll-bar'
 import Tabs, { TabItem } from '../material/tabs'
 
 import {
@@ -64,6 +63,8 @@ const TitleBar = styled.div`
 
 const Contents = styled.div`
   flex-grow: 1;
+  contain: strict;
+  overflow-y: auto;
 `
 
 const ContentsBody = styled.div`
@@ -412,34 +413,31 @@ export default class Maps extends React.Component {
           <ActivityBackButton />
           <Headline5>{title}</Headline5>
         </TitleBar>
-        <Tabs activeTab={activeTab} onChange={this.onTabChange}>
+        <Tabs activeTab={activeTab} onChange={this.onTabChange} bottomDivider={true}>
           <TabItem text='Official' />
           <TabItem text='My maps' />
           <TabItem text='Community' />
         </Tabs>
         <Contents>
-          <ScrollDivider position='top' />
-          <ScrollableContent>
-            <ContentsBody>
-              {maps.lastError ? (
-                <ErrorText>Something went wrong: {maps.lastError.message}</ErrorText>
-              ) : (
-                <>
-                  {this.renderUploadedMap()}
-                  {this.renderFavoritedMaps()}
-                  <InfiniteScrollList
-                    ref={this._setInfiniteListRef}
-                    isLoading={maps.isRequesting}
-                    hasMoreData={hasMoreMaps}
-                    onLoadMoreData={this.onLoadMoreMaps}>
-                    {this.renderAllMaps()}
-                  </InfiniteScrollList>
-                </>
-              )}
-            </ContentsBody>
-          </ScrollableContent>
-          <ScrollDivider position='bottom' />
+          <ContentsBody>
+            {maps.lastError ? (
+              <ErrorText>Something went wrong: {maps.lastError.message}</ErrorText>
+            ) : (
+              <>
+                {this.renderUploadedMap()}
+                {this.renderFavoritedMaps()}
+                <InfiniteScrollList
+                  ref={this._setInfiniteListRef}
+                  isLoading={maps.isRequesting}
+                  hasMoreData={hasMoreMaps}
+                  onLoadMoreData={this.onLoadMoreMaps}>
+                  {this.renderAllMaps()}
+                </InfiniteScrollList>
+              </>
+            )}
+          </ContentsBody>
         </Contents>
+        <ScrollDivider position='bottom' />
         <Footer
           onBrowseLocalMaps={this.onBrowseLocalMaps}
           thumbnailSize={thumbnailSize}
