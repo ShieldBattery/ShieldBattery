@@ -14,7 +14,11 @@ interface DownloadDialogProps {
 
 export default function DownloadDialog(props: DownloadDialogProps) {
   return (
-    <StyledDialog onCancel={props.onCancel} showCloseButton={true} dialogRef={props.dialogRef}>
+    <StyledDialog
+      title=''
+      onCancel={props.onCancel}
+      showCloseButton={true}
+      dialogRef={props.dialogRef}>
       <Download />
     </StyledDialog>
   )
