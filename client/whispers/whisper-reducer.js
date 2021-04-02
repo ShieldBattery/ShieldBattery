@@ -1,5 +1,4 @@
 import { List, Map, OrderedSet, Record } from 'immutable'
-import cuid from 'cuid'
 import keyedReducer from '../reducers/keyed-reducer'
 import {
   WHISPERS_LOAD_SESSION_HISTORY_BEGIN,
