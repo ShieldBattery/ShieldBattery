@@ -23,7 +23,7 @@ import SortIcon from '../icons/material/baseline-sort_by_alpha-24px.svg'
 
 import { fastOutSlowInShort } from '../material/curves'
 import { colorTextSecondary } from '../styles/colors'
-import { SubheadingOld } from '../styles/typography'
+import { overline } from '../styles/typography'
 import { ALL_TILESETS, tilesetToName } from '../../common/maps'
 
 const transitionNames = {
@@ -104,8 +104,10 @@ const MainFocus = styled.span`
   }
 `
 
-const Overline = styled(SubheadingOld)`
+const SectionOverline = styled.div`
+  ${overline};
   color: ${colorTextSecondary};
+  margin-top: 8px;
 `
 
 const ColumnGroup = styled.div`
@@ -333,9 +335,9 @@ export default class BrowserFooter extends React.PureComponent {
           onDismiss={this.onDismiss}
           onApply={this.onFilterApply}
           anchor={this._filterButtonRef.current}>
-          <Overline>Number of players</Overline>
+          <SectionOverline>Number of players</SectionOverline>
           <ColumnGroup>{numPlayersItems}</ColumnGroup>
-          <Overline>Tileset</Overline>
+          <SectionOverline>Tileset</SectionOverline>
           <ColumnGroup>{tilesetItems}</ColumnGroup>
           <FilterActions>
             <FlatButton label='Cancel' color='accent' onClick={this.onFilterCancel} />

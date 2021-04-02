@@ -33,7 +33,7 @@ import {
 import { ALL_TILESETS, SORT_BY_NAME } from '../../common/maps'
 
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
-import { HeadlineOld, SubheadingOld } from '../styles/typography'
+import { Subtitle1, subtitle1, Headline5 } from '../styles/typography'
 
 const MAPS_LIMIT = 30
 
@@ -70,11 +70,15 @@ const ContentsBody = styled.div`
   padding: 0 24px;
 `
 
-const Underline = styled(SubheadingOld)`
+const SectionHeader = styled.div`
+  ${subtitle1};
   color: ${colorTextSecondary};
+  margin-top: 24px;
+  margin-bottom: 16px;
 `
 
-const ErrorText = styled(SubheadingOld)`
+const ErrorText = styled.div`
+  ${subtitle1};
   color: ${colorError};
 `
 
@@ -301,7 +305,7 @@ export default class Maps extends React.Component {
 
     return (
       <>
-        <Underline>{header}</Underline>
+        <SectionHeader>{header}</SectionHeader>
         <ImageList
           columnCount={THUMBNAIL_SIZES[thumbnailSize].columnCount}
           padding={THUMBNAIL_SIZES[thumbnailSize].padding}>
@@ -367,8 +371,8 @@ export default class Maps extends React.Component {
       }
       return (
         <>
-          <Underline>All maps</Underline>
-          <SubheadingOld>{text}</SubheadingOld>
+          <SectionHeader>All maps</SectionHeader>
+          <Subtitle1>{text}</Subtitle1>
         </>
       )
     }
@@ -406,12 +410,12 @@ export default class Maps extends React.Component {
       <Container>
         <TitleBar>
           <ActivityBackButton />
-          <HeadlineOld>{title}</HeadlineOld>
+          <Headline5>{title}</Headline5>
         </TitleBar>
         <Tabs activeTab={activeTab} onChange={this.onTabChange}>
-          <TabItem text='Official maps' />
+          <TabItem text='Official' />
           <TabItem text='My maps' />
-          <TabItem text='Community maps' />
+          <TabItem text='Community' />
         </Tabs>
         <Contents>
           <ScrollDivider position='top' />
