@@ -1,13 +1,10 @@
-import React from 'react'
-import PropTypes from 'prop-types'
-import styled from 'styled-components'
 import { darken } from 'polished'
-
-import Button, { ButtonContent, Label } from './button'
-
+import React from 'react'
+import styled from 'styled-components'
+import { amberA400, blue500, blue600, blue700, CardLayer } from '../styles/colors'
+import Button, { ButtonContent, ButtonProps, Label } from './button'
 import { shadowDef8dp } from './shadow-constants'
 import { shadow2dp } from './shadows'
-import { amberA400, blue500, blue600, blue700, CardLayer } from '../styles/colors'
 
 const RaisedButtonContent = styled(ButtonContent).attrs(props => ({
   primary: props.color !== 'accent',
@@ -64,14 +61,15 @@ const RaisedButtonContent = styled(ButtonContent).attrs(props => ({
   }
 `
 
-// A button that has elevation, and raises further when pressed
-const RaisedButton = React.forwardRef((props, ref) => {
-  return <Button ref={ref} {...props} contentComponent={RaisedButtonContent} />
-})
-
-RaisedButton.propTypes = {
-  ...Button.propTypes,
-  color: PropTypes.oneOf(['primary', 'accent']),
+interface RaisedButtonProps extends ButtonProps {
+  color?: 'primary' | 'accent'
 }
+
+/** A button that has elevation, and raises further when pressed. */
+const RaisedButton = React.forwardRef(
+  (props: RaisedButtonProps, ref: React.ForwardedRef<Button>) => {
+    return <Button ref={ref} {...props} contentComponent={RaisedButtonContent} />
+  },
+)
 
 export default RaisedButton

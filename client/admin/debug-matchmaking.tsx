@@ -10,9 +10,10 @@ import {
   XYChart,
 } from '@visx/xychart'
 import { timeFormat } from 'd3-time-format'
-import React, { useContext, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { useDimensions } from '../dom/use-dimensions'
+import RaisedButton from '../material/raised-button'
 import fetchJson from '../network/fetch'
 import { apiUrl } from '../network/urls'
 import { useAppDispatch } from '../redux-hooks'
@@ -107,13 +108,45 @@ const ChartHeadline = styled.div`
   margin-bottom: 8px;
 `
 
-export function DebugMatchmaking() {
-  const [containerRef, containerRect] = useDimensions()
-  const [data, setData] = useState<QueueSizeValue[]>([])
+const HeadlineAndButton = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  margin-bottom: 8px;
+`
+
+/**
+ * Returns an opaque value that can be triggered to change. Suitable for using as a dependency for
+ * React hooks to trigger them to re-run.
+ */
+function useRefreshToken(): [token: number, triggerRefresh: () => void] {
+  const [value, setValue] = useState<number>(0)
+  const triggerRefresh = useCallback(() => {
+    setValue(v => v + 1)
+  }, [])
+
+  return [value, triggerRefresh]
+}
+
+/**
+ * Retrieves the queue size history from the server. Can optionally pass a `refreshToken` to trigger
+ * a re-request of the data.
+ *
+ * @param weeksBeforeCurrent the number of weeks prior to the current one to retrieve data for (e.g.
+ *   0 for the current week, 1 for last week, etc.)
+ * @param refreshToken A value that changes if a data refresh is needed
+ */
+function useQueueSizeHistory(
+  weeksBeforeCurrent: number,
+  refreshToken?: unknown,
+): [data: QueueSizeValue[], startDate: Date, endDate: Date] {
   const dispatch = useAppDispatch()
 
+  const [data, setData] = useState<QueueSizeValue[]>([])
   const [startDate, endDate] = useMemo(() => {
     const startDate = new Date()
+    startDate.setUTCDate(startDate.getUTCDate() - 7 * weeksBeforeCurrent)
     const curDay = startDate.getUTCDay()
     if (curDay > 1) {
       // Past Monday, subtract days to get back there
@@ -129,14 +162,21 @@ export function DebugMatchmaking() {
     endDate.setUTCDate(endDate.getUTCDate() + 7)
 
     return [startDate, endDate]
-  }, [])
+  }, [refreshToken])
 
   useEffect(() => {
     fetchJson<QueueSizeHistoryResult>(
       apiUrl`matchmakingDebug/1v1/queueSize?startDate=${+startDate}&endDate=${+endDate}`,
     ).then(
       result => {
-        setData(result.history)
+        // Adjust this data to fall within the bounds of the current week so that all weeks can
+        // be graphed in the same domain
+        const timeAdjustment = weeksBeforeCurrent * 7 * 24 * 60 * 60 * 1000
+        const mappedHistory = result.history.map(d => ({
+          time: d.time + timeAdjustment,
+          size: d.size,
+        }))
+        setData(mappedHistory)
       },
       err => {
         dispatch(openSnackbar({ message: 'Error retrieving queue size history' }))
@@ -145,9 +185,22 @@ export function DebugMatchmaking() {
     )
   }, [startDate, endDate])
 
+  return [data, startDate, endDate]
+}
+
+export function DebugMatchmaking() {
+  const [containerRef, containerRect] = useDimensions()
+  const [refreshToken, triggerRefresh] = useRefreshToken()
+
+  const [currentWeekData, startDate, endDate] = useQueueSizeHistory(0, refreshToken)
+  const [lastWeekData] = useQueueSizeHistory(1, refreshToken)
+
   return (
     <Container ref={containerRef}>
-      <ChartHeadline>Queue Size</ChartHeadline>
+      <HeadlineAndButton>
+        <ChartHeadline>Queue Size</ChartHeadline>
+        <RaisedButton label='Refresh' color='primary' onClick={triggerRefresh} />
+      </HeadlineAndButton>
       <AspectRatio16x9>
         <XYChart
           width={containerRect?.width ?? 0}
@@ -158,7 +211,13 @@ export function DebugMatchmaking() {
           <Axis orientation='left' />
           <Axis orientation='bottom' tickFormat={(v, i) => (i % 4 === 0 ? TIME_FORMAT(v) : '')} />
           <Grid columns={false} numTicks={4} />
-          <LineSeries dataKey='Current week' curve={curveStep} data={data} {...accessors} />
+          <LineSeries
+            dataKey='Current week'
+            curve={curveStep}
+            data={currentWeekData}
+            {...accessors}
+          />
+          <LineSeries dataKey='Last week' curve={curveStep} data={lastWeekData} {...accessors} />
           <Tooltip
             snapTooltipToDatumX={true}
             snapTooltipToDatumY={true}

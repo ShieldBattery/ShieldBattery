@@ -1,13 +1,17 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React, { MutableRefObject } from 'react'
 import styled from 'styled-components'
-
+import { colorTextFaint, colorTextPrimary } from '../styles/colors'
+import { buttonText } from '../styles/typography'
 import { reset } from './button-reset'
 import { fastOutSlowInShort } from './curves'
-import { colorTextPrimary, colorTextFaint } from '../styles/colors'
-import { buttonText } from '../styles/typography'
 
-export const ButtonCommon = styled.button`
+export interface ButtonCommonProps {
+  disabled?: boolean
+  focused?: boolean
+}
+
+export const ButtonCommon = styled.button<ButtonCommonProps>`
   ${reset};
   display: inline-table;
   min-height: 36px;
@@ -33,7 +37,11 @@ export const ButtonContent = styled(ButtonCommon)`
   padding: 0 16px;
 `
 
-export const Label = styled.span`
+export interface ButtonLabelProps {
+  disabled?: boolean
+}
+
+export const Label = styled.span<ButtonLabelProps>`
   ${buttonText};
   display: flex;
   justify-content: center;
@@ -43,9 +51,24 @@ export const Label = styled.span`
   white-space: nowrap;
 `
 
+export interface ButtonProps {
+  label: string | React.ReactNode
+  disabled?: boolean
+  contentComponent?: React.ComponentType
+  onBlur?: React.FocusEventHandler
+  onFocus?: React.FocusEventHandler
+  onClick?: React.MouseEventHandler
+  onMouseDown?: React.MouseEventHandler
+  buttonRef?: React.Ref<HTMLButtonElement>
+}
+
+interface ButtonState {
+  isKeyboardFocused: boolean
+}
+
 // Button with Material Design goodness. You don't want to use this directly, see FlatButton or
 // RaisedButton instead
-export default class Button extends React.Component {
+export default class Button extends React.Component<ButtonProps, ButtonState> {
   static propTypes = {
     label: PropTypes.oneOfType([PropTypes.string, PropTypes.element]).isRequired,
     contentComponent: PropTypes.elementType,
@@ -56,21 +79,22 @@ export default class Button extends React.Component {
     buttonRef: PropTypes.oneOfType([PropTypes.func, PropTypes.object]),
   }
 
-  state = {
+  state: ButtonState = {
     isKeyboardFocused: false,
   }
 
-  mouseActive = false
-  clearMouseActive = null
-  _ref = React.createRef()
-  _setRef = elem => {
-    this._ref.current = elem
+  protected mouseActive = false
+  protected clearMouseActive: ReturnType<typeof setTimeout> | null = null
+  // TODO(tec27): Type this better
+  private ref: MutableRefObject<HTMLButtonElement | null> = React.createRef()
+  private setRef = (elem: HTMLButtonElement | null) => {
+    this.ref.current = elem
 
     if (this.props.buttonRef) {
       if (typeof this.props.buttonRef === 'function') {
         this.props.buttonRef(elem)
       } else {
-        this.props.buttonRef.current = elem
+        ;(this.props.buttonRef as MutableRefObject<HTMLButtonElement | null>).current = elem
       }
     }
   }
@@ -82,35 +106,31 @@ export default class Button extends React.Component {
       ...otherProps
     } = this.props
 
-    const buttonProps = {
-      onBlur: e => this._handleBlur(e),
-      onFocus: e => this._handleFocus(e),
-      onClick: e => this._handleClick(e),
-      onMouseDown: e => this._handleMouseDown(e),
-    }
-
     const Component = this.props.contentComponent || ButtonCommon
     return (
       <Component
-        ref={this._setRef}
+        ref={this.setRef}
         disabled={this.props.disabled}
         focused={this.state.isKeyboardFocused}
         {...otherProps}
-        {...buttonProps}>
+        onBlur={this.handleBlur}
+        onFocus={this.handleFocus}
+        onClick={this.handleClick}
+        onMouseDown={this.handleMouseDown}>
         <Label disabled={this.props.disabled}>{label}</Label>
       </Component>
     )
   }
 
   focus() {
-    this._ref.current.focus()
+    this.ref.current?.focus()
   }
 
   blur() {
-    this._ref.current.blur()
+    this.ref.current?.blur()
   }
 
-  _handleBlur(e) {
+  private handleBlur = (e: React.FocusEvent) => {
     if (this.state.isKeyboardFocused) {
       this.setState({ isKeyboardFocused: false })
     }
@@ -120,7 +140,7 @@ export default class Button extends React.Component {
     }
   }
 
-  _handleFocus(e) {
+  private handleFocus = (e: React.FocusEvent) => {
     if (!this.mouseActive) {
       this.setState({ isKeyboardFocused: true })
     }
@@ -130,14 +150,14 @@ export default class Button extends React.Component {
     }
   }
 
-  _handleClick(e) {
+  private handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
     if (!this.props.disabled && this.props.onClick) {
       this.props.onClick(e)
     }
   }
 
-  _handleMouseDown(e) {
+  private handleMouseDown = (e: React.MouseEvent) => {
     if (this.clearMouseActive) {
       clearTimeout(this.clearMouseActive)
     }
