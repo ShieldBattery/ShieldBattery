@@ -81,34 +81,34 @@ class Logger {
     this.system('Version: ' + app.getVersion())
   }
 
-  log(level: string, msg: string) {
+  log = (level: string, msg: string) => {
     if (!this.options.logLevels.includes(level)) {
       return
     }
     this.writeToLog(`[${new Date().toISOString()}]\t<${level}>\t${msg}\n`)
   }
 
-  verbose(msg: string) {
+  verbose = (msg: string) => {
     this.log('verbose', msg)
   }
 
-  info(msg: string) {
+  info = (msg: string) => {
     this.log('info', msg)
   }
 
-  debug(msg: string) {
+  debug = (msg: string) => {
     this.log('debug', msg)
   }
 
-  warning(msg: string) {
+  warning = (msg: string) => {
     this.log('warning', msg)
   }
 
-  warn(msg: string) {
+  warn = (msg: string) => {
     this.warning(msg)
   }
 
-  error(msg: string) {
+  error = (msg: string) => {
     this.log('error', msg)
   }
 
