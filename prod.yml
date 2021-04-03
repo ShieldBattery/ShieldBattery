@@ -25,11 +25,15 @@ nsis:
   artifactName: '${productName}-setup-${version}.${ext}'
 win:
   certificateSubjectName: Fast Expo Collective LLC
+  signDlls: true
+  rfc3161TimeStampServer: http://ts.ssl.com
   icon: icon.ico
-  target: nsis-web
+  target: nsis
 
 # These properties differ between configs
 productName: ShieldBattery
 publish:
-  provider: generic
-  url: 'https://shieldbattery.net/published_artifacts/${os}'
+  provider: spaces
+  name: shieldbattery-cdn
+  region: nyc3
+  path: /app/

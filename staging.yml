@@ -1,4 +1,4 @@
-# The electron-builder config for the staging site (https://dev.shieldbattery.net)
+# The electron-builder config for the staging site (https://staging.shieldbattery.net)
 # It should generally match the other build configs (except things that need to differ for this
 # "region")
 appId: net.shieldbattery.client.dev
@@ -27,11 +27,15 @@ nsis:
   oneClick: false
 win:
   certificateSubjectName: Fast Expo Collective LLC
+  signDlls: true
+  rfc3161TimeStampServer: http://ts.ssl.com
   icon: icon.ico
-  target: nsis-web
+  target: nsis
 
 # These properties differ between configs
 productName: ShieldBattery-Staging
 publish:
-  provider: generic
-  url: 'https://staging.shieldbattery.net/published_artifacts/${os}'
+  provider: spaces
+  name: shieldbattery-staging
+  region: nyc3
+  path: /app/

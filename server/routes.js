@@ -6,6 +6,9 @@ import path from 'path'
 import fs from 'fs'
 import logger from './lib/logging/logger'
 import { getCspNonce } from './lib/security/csp'
+import { getUrl, readFile } from './lib/file-upload'
+import yaml from 'js-yaml'
+import { monotonicNow } from './lib/time/monotonic-now'
 
 const router = KoaRouter()
 const jsOrTsFileMatcher = RegExp.prototype.test.bind(/\.(js|ts)$/)
@@ -44,6 +47,35 @@ export default function applyRoutes(app, websocketServer) {
 
   router.get('/installer.msi', async (ctx, next) => {
     ctx.set('Location', '/download')
+    ctx.status = 301
+  })
+
+  const MAX_INSTALLER_CACHE_TIME = 5 * 60 * 1000
+  let cachedInstallerUrl
+  let installerUrlTime = 0
+
+  // NOTE(tec27): This is where we redirect downloads to, since we don't know what the current
+  // exe path is. It maps to where we *used to* upload these files to manually.
+  router.get('/published_artifacts/win/ShieldBattery.latest.exe', async ctx => {
+    const curTime = monotonicNow()
+    if (!cachedInstallerUrl || curTime - installerUrlTime > MAX_INSTALLER_CACHE_TIME) {
+      const updateYaml = await readFile('app/latest.yml')
+      const parsed = yaml.load(updateYaml)
+
+      if (!parsed.path) {
+        throw new Error('Could not find file path on update YAML')
+      }
+      if (!parsed.releaseDate) {
+        throw new Error('Could not find release date on update YAML')
+      }
+
+      cachedInstallerUrl =
+        (await getUrl(`app/${parsed.path}`, false /* signUrl */)) +
+        `?${encodeURIComponent(parsed.releaseDate)}`
+      installerUrlTime = curTime
+    }
+
+    ctx.set('Location', cachedInstallerUrl)
     ctx.status = 301
   })
 
