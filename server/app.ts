@@ -1,3 +1,4 @@
+import { RouterContext } from '@koa/router'
 import childProcess from 'child_process'
 import 'core-js/proposals/reflect-metadata'
 import { LookupAddress, promises as dns } from 'dns'
@@ -173,10 +174,10 @@ interface PossibleHttpError extends Error {
   status?: number
 }
 
-app.on('error', (err: PossibleHttpError) => {
+app.on('error', (err: PossibleHttpError, ctx?: RouterContext) => {
   if (err.status && err.status < 500) return // likely an HTTP error (expected and fine)
 
-  log.error({ err }, 'server error')
+  log.error({ err, req: ctx?.req }, 'server error')
 })
 
 process.on('unhandledRejection', err => {
