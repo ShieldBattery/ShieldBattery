@@ -473,6 +473,7 @@ class MainLayout extends React.Component {
   serverMapsProps = {
     title: 'Maps',
     onLocalMapSelect: this.onLocalMapSelect,
+    onMapSelect: this.onMapDetails,
     onMapDetails: this.onMapDetails,
     onRemoveMap: this.onRemoveMap,
     onRegenMapImage: this.onRegenMapImage,
