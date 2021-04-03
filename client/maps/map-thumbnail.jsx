@@ -28,12 +28,7 @@ const Container = styled.div`
 `
 
 const StyledMapImage = styled(MapImage)`
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  padding-bottom: 100%; // Force 1:1 aspect ratio
 `
 
 const NoImageContainer = styled.div`

@@ -7,8 +7,21 @@ import ImageIcon from '../icons/material/baseline-image-24px.svg'
 import { grey800 } from '../styles/colors'
 import { SubheadingOld } from '../styles/typography'
 
+const ImgContainer = styled.div`
+  position: relative;
+  height: 0;
+  overflow: hidden;
+  padding-bottom: ${props => `${props.aspectRatio * 100}%`};
+`
+
 const ImgElement = styled.img`
   display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 `
 
 const NoImageContainer = styled.div`
@@ -57,19 +70,22 @@ export default class MapImage extends React.Component {
       ${map.image2048Url} 2048w
     `
 
+    const aspectRatio = map.mapData.height / map.mapData.width
+
     // TODO(2Pac): handle 404s
     return (
       <>
         {map.image256Url ? (
-          <ImgElement
-            className={this.props.className}
-            srcSet={srcSet}
-            sizes={`${size}px`}
-            src={map.image256Url}
-            alt={altText || map.name}
-            draggable={false}
-            decoding={'async'}
-          />
+          <ImgContainer className={this.props.className} aspectRatio={aspectRatio}>
+            <ImgElement
+              srcSet={srcSet}
+              sizes={`${size}px`}
+              src={map.image256Url}
+              alt={altText || map.name}
+              draggable={false}
+              decoding={'async'}
+            />
+          </ImgContainer>
         ) : (
           noImageElem
         )}
