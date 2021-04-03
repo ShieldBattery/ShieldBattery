@@ -32,7 +32,7 @@ import {
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors'
-import { HeadlineOld, TitleOld, SubheadingOld, Caption } from '../styles/typography'
+import { Caption, Headline5, headline6, Subtitle1 } from '../styles/typography'
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -104,7 +104,7 @@ class UpOneDir extends React.PureComponent {
         <EntryIcon>
           <UpDirectory />
         </EntryIcon>
-        <SubheadingOld as={'span'}>Up one directory</SubheadingOld>
+        <Subtitle1>Up one directory</Subtitle1>
       </EntryContainer>
     )
   }
@@ -132,7 +132,7 @@ class FolderEntry extends React.PureComponent {
           <Folder />
         </EntryIcon>
         <InfoContainer>
-          <SubheadingOld as={'span'}>{folder.name}</SubheadingOld>
+          <Subtitle1>{folder.name}</Subtitle1>
         </InfoContainer>
       </FolderEntryContainer>
     )
@@ -160,7 +160,7 @@ class FileEntry extends React.PureComponent {
       <FileEntryContainer style={style} focused={isFocused} onClick={() => onClick(file)}>
         <EntryIcon>{icon}</EntryIcon>
         <InfoContainer>
-          <SubheadingOld as={'span'}>{file.name}</SubheadingOld>
+          <Subtitle1>{file.name}</Subtitle1>
           <Caption>{dateFormat.format(file.date)}</Caption>
         </InfoContainer>
       </FileEntryContainer>
@@ -168,10 +168,8 @@ class FileEntry extends React.PureComponent {
   }
 }
 
-const BreadcrumbPiece = styled(TitleOld)`
-  height: 48px;
-  margin-top: 0;
-  margin-bottom: 0;
+const BreadcrumbPiece = styled.span`
+  ${headline6};
   padding: 8px;
   flex-grow: 0;
   flex-shrink: 0;
@@ -252,10 +250,6 @@ const TitleContainer = styled.div`
   padding: 0 16px;
   display: flex;
   align-items: center;
-`
-
-const ContentTitle = styled(HeadlineOld)`
-  margin: 0;
 `
 
 const RootFolderSelect = styled(Select)`
@@ -525,7 +519,7 @@ export default class Files extends React.Component {
         <TopBar>
           <TitleContainer>
             {titleButton ? titleButton : null}
-            <ContentTitle>{title}</ContentTitle>
+            <Headline5>{title}</Headline5>
           </TitleContainer>
           {Object.values(rootFolders).length > 1 ? (
             <RootFolderSelect
