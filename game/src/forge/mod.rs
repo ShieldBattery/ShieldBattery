@@ -1266,9 +1266,10 @@ fn change_display_settings_ex(
         let call_orig = scr_hooks_disabled();
 
         if call_orig {
-            debug!("Letting ChangeDisplaySettingsExW of window {:p} pass through", hwnd);
+            debug!("Letting ChangeDisplaySettingsExW pass through");
             orig(device_name, devmode, hwnd, flags, param)
         } else {
+            debug!("Ignoring ChangeDisplaySettingsExW call");
             DISP_CHANGE_SUCCESSFUL
         }
     }
