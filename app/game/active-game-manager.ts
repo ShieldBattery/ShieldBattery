@@ -9,7 +9,7 @@ import { GameClientPlayerResult } from '../../common/game-results'
 import { GameStatus, statusToString } from '../../common/game-status'
 import { TypedEventEmitter } from '../../common/typed-emitter'
 import log from '../logger'
-import { ScrSettings } from '../settings'
+import { LocalSettings, ScrSettings } from '../settings'
 import { checkStarcraftPath } from './check-starcraft-path'
 import { MapStore } from './map-store'
 
@@ -74,7 +74,11 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
   private activeGame: ActiveGameInfo | null = null
   private serverPort = 0
 
-  constructor(private mapStore: MapStore, private scrSettings: ScrSettings) {
+  constructor(
+    private mapStore: MapStore,
+    private localSettings: LocalSettings,
+    private scrSettings: ScrSettings,
+  ) {
     super()
   }
 
@@ -127,7 +131,12 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
     }
 
     const gameId = config.setup.gameId
-    const activeGamePromise = doLaunch(gameId, this.serverPort, config.settings, this.scrSettings)
+    const activeGamePromise = doLaunch(
+      gameId,
+      this.serverPort,
+      this.localSettings,
+      this.scrSettings,
+    )
       .then(
         proc => proc.waitForExit(),
         err => this.handleGameLaunchError(gameId, err),
@@ -217,7 +226,7 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
       id: config.localUser.id,
       name: config.localUser.name,
     })
-    this.emit('gameCommand', id, 'settings', config.settings)
+    this.emit('gameCommand', id, 'settings', { local: await this.localSettings.get() })
 
     if (game.routes) {
       this.emit('gameCommand', id, 'routes', game.routes)
@@ -392,7 +401,7 @@ async function removeIfOld(path: string, maxAge: number) {
 async function doLaunch(
   gameId: string,
   serverPort: number,
-  settings: GameConfig['settings'],
+  localSettings: LocalSettings,
   scrSettings: ScrSettings,
 ) {
   try {
@@ -401,7 +410,9 @@ async function doLaunch(
     throw new Error(`Could not access/find shieldbattery dll at ${injectPath}`)
   }
 
-  const { starcraftPath } = settings.local
+  const settings = await localSettings.get()
+
+  const { starcraftPath } = settings
   if (!starcraftPath) {
     throw new Error('No Starcraft path set')
   }

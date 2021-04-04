@@ -22,7 +22,7 @@ function getReplayHeader(filePath) {
   })
 }
 
-async function setGameConfig(replay, user, settings) {
+async function setGameConfig(replay, user) {
   const player = new Slot({
     type: 'human',
     name: user.name,
@@ -35,7 +35,6 @@ async function setGameConfig(replay, user, settings) {
   const header = await getReplayHeader(replay.path)
 
   return activeGameManagerIpc.setGameConfig({
-    settings,
     localUser: user,
     setup: {
       gameId: cuid(),
@@ -61,7 +60,6 @@ export function startReplay(replay) {
   return (dispatch, getState) => {
     const {
       auth: { user },
-      settings,
     } = getState()
 
     dispatch({
@@ -71,7 +69,7 @@ export function startReplay(replay) {
 
     // TODO(2Pac): Use the game loader on the server to register watching a replay, so we can show
     // to other people (like their friends) when a user is watching a replay.
-    setGameConfig(replay, user.toJS(), settings.toJS()).then(
+    setGameConfig(replay, user.toJS()).then(
       gameId => {
         setGameRoutes(gameId)
         push('/active-game')

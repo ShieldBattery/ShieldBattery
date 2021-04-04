@@ -156,7 +156,6 @@ const eventToAction = {
     replace('/matchmaking/countdown')
 
     const {
-      settings,
       auth: { user },
     } = getState()
 
@@ -177,7 +176,6 @@ const eventToAction = {
 
     const config = {
       localUser: user.toJS(),
-      settings: settings.toJS(),
       setup: {
         gameId: event.setup.gameId,
         name: 'Matchmaking game', // Does this even matter for anything?

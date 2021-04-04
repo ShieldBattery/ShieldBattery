@@ -3,6 +3,7 @@ import { Map } from 'immutable'
 import { AddressInfo } from 'net'
 import { container } from 'tsyringe'
 import WebSocket from 'ws'
+import { LocalSettingsData } from '../../common/local-settings'
 import log from '../logger'
 import { LocalSettings } from '../settings'
 import { ActiveGameManager } from './active-game-manager'
@@ -66,7 +67,9 @@ export class GameServer {
           log.error(`Game socket error ${e}`)
         })
         this.idToSocket = this.idToSocket.set(gameId, socket)
-        this.activeGameManager.handleGameConnected(gameId)
+        this.activeGameManager.handleGameConnected(gameId).catch(err => {
+          log.error(`error handling game connection: ${err.stack ?? err}`)
+        })
       }
     })
     this.server.on('error', e => {
@@ -105,8 +108,17 @@ export class GameServer {
         this.activeGameManager.handleReplaySave(gameId, payload.path)
         break
       case '/game/windowMove':
-        const { x, y } = payload
-        this.localSettings.merge({ gameWinX: x, gameWinY: y })
+        const { x, y, w, h } = payload
+
+        const toMerge: Partial<LocalSettingsData> = { gameWinX: x, gameWinY: y }
+        if (w !== -1) {
+          toMerge.gameWinWidth = w
+        }
+        if (h !== -1) {
+          toMerge.gameWinHeight = h
+        }
+
+        this.localSettings.merge(toMerge)
         break
       default:
         log.error(`Received an unknown command '${command}' from ${gameId}`)

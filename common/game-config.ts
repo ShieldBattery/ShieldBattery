@@ -51,8 +51,6 @@ export interface GameConfig {
     id: number
     name: string
   }
-  /** The current settings for the game. */
-  settings: Record<string, any> // TODO(tec27): this can definitely be typed as an interface
   /** Setup configuration for the game, such as the map, game type, etc. */
   setup: {
     /**

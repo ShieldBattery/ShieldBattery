@@ -79,7 +79,7 @@ pub enum GameThreadRequestType {
 
 // Game thread sends something to async tasks
 pub enum GameThreadMessage {
-    WindowMove(i32, i32),
+    WindowMove(i32, i32, i32, i32),
     Snp(snp::SnpMessage),
     /// Storm player id (which stays stable) -> game player id mapping.
     /// Once this message is sent, any game player ids used so far should be

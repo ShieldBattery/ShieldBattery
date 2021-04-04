@@ -221,7 +221,6 @@ const eventToAction = {
   setupGame: (name, event) => (dispatch, getState) => {
     const {
       lobby,
-      settings,
       auth: { user },
     } = getState()
     // We tack on `teamId` to each slot here so we don't have to send two different things to game
@@ -236,7 +235,6 @@ const eventToAction = {
     } = lobby
     const config = {
       localUser: user.toJS(),
-      settings: settings.toJS(),
       setup: {
         gameId: event.setup.gameId,
         name: lobbyName,

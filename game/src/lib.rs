@@ -362,8 +362,8 @@ async fn handle_messages_from_game_thread(
     *crate::game_thread::SEND_FROM_GAME_THREAD.lock().unwrap() = Some(send);
     while let Some(message) = recv.recv().await {
         let result = match message {
-            GameThreadMessage::WindowMove(x, y) => {
-                let msg = app_socket::encode_message("/game/windowMove", WindowMove { x, y });
+            GameThreadMessage::WindowMove(x, y, w, h) => {
+                let msg = app_socket::encode_message("/game/windowMove", WindowMove { x, y, w, h });
                 if let Some(msg) = msg {
                     ws_send.send(msg).await.map_err(|_| ())
                 } else {

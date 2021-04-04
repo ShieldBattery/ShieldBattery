@@ -171,7 +171,9 @@ unsafe extern "system" fn wnd_proc(window: HWND, msg: u32, wparam: usize, lparam
                 }
             });
             if let Some(pos) = pos {
-                send_game_msg_to_async(GameThreadMessage::WindowMove(pos.0, pos.1));
+                // NOTE(tec27): We don't currently allow resizing 1.16 windows, so w/h are just
+                // set to  value indicating "auto" here
+                send_game_msg_to_async(GameThreadMessage::WindowMove(pos.0, pos.1, -1, -1));
             }
         }
         WM_GETMINMAXINFO => {
@@ -312,6 +314,13 @@ unsafe extern "system" fn wnd_proc_scr(
                     "Window pos changed to {},{},{},{}, flags 0x{:x}",
                     (*new_pos).x, (*new_pos).y, (*new_pos).cx, (*new_pos).cy, (*new_pos).flags,
                 );
+
+                // Window uses -32000 positions to indicate 'minimized' since Windows 3.1 or so, and
+                // for some reason still does this? Anyway we ignore those when saving this state
+                if (*new_pos).x != -32000 && (*new_pos).y != -32000 {
+                    send_game_msg_to_async(GameThreadMessage::WindowMove(
+                        (*new_pos).x, (*new_pos).y, (*new_pos).cx, (*new_pos).cy));
+                }
             }
             _ => (),
         }
@@ -1023,7 +1032,7 @@ unsafe extern "system" fn direct_sound_create(
         use crate::windows;
 
         type DirectDrawCreatePtr =
-            unsafe extern "system" fn(*const GUID, *mut *mut IDirectSound, *mut IUnknown) -> i32;
+        unsafe extern "system" fn(*const GUID, *mut *mut IDirectSound, *mut IUnknown) -> i32;
 
         let dsound = windows::load_library("dsound.dll")?;
         let real_create = dsound.proc_address("DirectSoundCreate8")?;
@@ -1183,16 +1192,14 @@ fn show_window(window: HWND, show: i32, orig: unsafe extern fn(HWND, i32) -> u32
     // Never allow 1161's ShowWindow calls to get through.
     unsafe {
         let call_orig = if is_forge_window(window) && !scr_hooks_disabled() {
-            with_forge(|forge| {
-                forge.is_scr() &&
-                    forge.game_started &&
-                    // SC:R tells the window to minimize if in Fullscreen mode, but this is
-                    // unnecessary in modern Windows versions and actually pretty harmful to UX
-                    show != SW_MINIMIZE
-            })
+            with_forge(|forge| forge.is_scr() && forge.game_started) &&
+                // SC:R tells the window to minimize if in Fullscreen mode, but this is
+                // unnecessary in modern Windows versions and actually pretty harmful to UX
+                show != SW_MINIMIZE
         } else {
             true
         };
+
         if call_orig {
             debug!("ShowWindow {:p} {}", window, show);
             orig(window, show)
@@ -1217,7 +1224,7 @@ fn set_window_pos(
     // its window creation, which happens early enough in loading that
     // we don't want to show the window yet.
     unsafe {
-        debug!("SetWindowPos {:p} {},{} {},{} flags {:x}", hwnd, x, y, w, h, flags);
+        debug!("SetWindowPos {:p} {},{} {},{} flags 0x{:x}", hwnd, x, y, w, h, flags);
         let new_flags = if !scr_hooks_disabled() && is_forge_window(hwnd) {
             with_forge(|forge| {
                 if forge.game_started {
@@ -1230,6 +1237,7 @@ fn set_window_pos(
         } else {
             flags
         };
+
         orig(hwnd, hwnd_after, x, y, w, h, new_flags)
     }
 }
@@ -1265,6 +1273,8 @@ fn change_display_settings_ex(
 
         let call_orig = scr_hooks_disabled();
 
+        // TODO(tec27): Should we just ignore these always? Our calls to ShowWindow result in calls
+        // getting passed through, and not doing them there might make the launch more smooth
         if call_orig {
             debug!("Letting ChangeDisplaySettingsExW pass through");
             orig(device_name, devmode, hwnd, flags, param)
@@ -1483,8 +1493,7 @@ fn create_window_w(
                 if let Some(bw_class) = forge.scr_window_class {
                     if class_name as usize == bw_class as usize {
                         debug!("Created main window {:p}", window);
-                        // This maybe should do SetWindowPos like the 1161 hook does,
-                        // but trusting that the x/y/w/h are fine for now.
+
                         forge.set_window(Window::new(
                             window,
                             x,
