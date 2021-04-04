@@ -6,7 +6,7 @@ use std::cell::Cell;
 use std::ffi::CStr;
 use std::io;
 use std::mem;
-use std::ptr::{null, null_mut};
+use std::ptr::{null_mut};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Mutex};
 
@@ -25,7 +25,6 @@ use winapi::um::wingdi::{GetDeviceCaps, BITMAP, BITSPIXEL, DEVMODEW};
 use winapi::um::winuser::*;
 
 use crate::game_thread::{send_game_msg_to_async, GameThreadMessage};
-use crate::windows::os_string_from_winapi;
 
 use self::renderer::Renderer;
 
@@ -77,13 +76,6 @@ mod scr_hooks {
         !0 => SetCursorPos(i32, i32) -> i32;
         !0 => GetWindowLongW(HWND, i32) -> u32;
     );
-}
-
-struct ChangeDisplaySettingsParams {
-    /// With terminating 0
-    device_name: Option<Vec<u16>>,
-    devmode: DEVMODEW,
-    flags: u32,
 }
 
 unsafe fn c_str_opt<'a>(val: *const i8) -> Option<&'a CStr> {
@@ -339,42 +331,11 @@ unsafe extern "system" fn wnd_proc_scr(
 }
 
 unsafe fn msg_game_started(window: HWND) {
-    let mut display_change_request = None;
     debug!("Forge: Game started");
     with_forge(|forge| {
         forge.game_started = true;
-        // This request must be handled while forge is not being accessed,
-        // as ChangeDisplaySettingsExW will call WndProc before it returns.
-        display_change_request = forge.display_change_request.take();
     });
-    if let Some(ref mut params) = display_change_request {
-        debug!("Applying delayed display settings change");
-        let device_name = match params.device_name {
-            Some(ref x) => x.as_ptr(),
-            None => null(),
-        };
-        let result = ChangeDisplaySettingsExW(
-            device_name,
-            &mut params.devmode,
-            null_mut(),
-            params.flags,
-            null_mut(),
-        );
-        if result != DISP_CHANGE_SUCCESSFUL {
-            let os_string;
-            let device_name_string = match params.device_name {
-                Some(ref x) => {
-                    os_string = os_string_from_winapi(x);
-                    os_string.to_string_lossy()
-                }
-                None => "(Default device)".into(),
-            };
-            error!(
-                "Changing display mode for {} failed. Result {:x}",
-                device_name_string, result,
-            );
-        }
-    }
+
     // Windows Vista+ likes to prevent you from bringing yourself into the foreground,
     // but will allow you to do so if you're handling a global hotkey. So... we register
     // a global hotkey and then press it ourselves, then bring ourselves into the
@@ -630,8 +591,6 @@ struct Forge {
     /// SCR refers to the window class with ATOM returned by RegisterClassExW
     /// (And the class is named OsWindow instead of 1.16.1 SWarClass)
     scr_window_class: Option<ATOM>,
-    /// Delayed display change for SCR fullscreen switching.
-    display_change_request: Option<ChangeDisplaySettingsParams>,
 }
 
 // Since it stores HBITMAP
@@ -808,6 +767,7 @@ impl Window {
 }
 
 const MOUSE_SETTING_MAX: u8 = 10;
+
 pub struct Settings {
     mouse_sensitivity: u8,
     display_mode: DisplayMode,
@@ -1220,10 +1180,16 @@ unsafe fn release_capture() -> u32 {
 fn show_window(window: HWND, show: i32, orig: unsafe extern fn(HWND, i32) -> u32) -> u32 {
     // SCR May have reasons to hide/reshow window, so allow that once game has started.
     // (Though it seems to be calling SetWindowPos always instead)
-    // Never allow 1161's ShowWindow cals to get through.
+    // Never allow 1161's ShowWindow calls to get through.
     unsafe {
         let call_orig = if is_forge_window(window) && !scr_hooks_disabled() {
-            with_forge(|forge| forge.is_scr() && forge.game_started)
+            with_forge(|forge| {
+                forge.is_scr() &&
+                    forge.game_started &&
+                    // SC:R tells the window to minimize if in Fullscreen mode, but this is
+                    // unnecessary in modern Windows versions and actually pretty harmful to UX
+                    show != SW_MINIMIZE
+            })
         } else {
             true
         };
@@ -1277,10 +1243,11 @@ fn change_display_settings_ex(
     orig: unsafe extern fn(*const u16, *mut DEVMODEW, HWND, u32, *mut c_void) -> i32,
 ) -> i32 {
     unsafe {
-        // We want to block SCR from switching to fullscreen before game has completely started,
-        // buffer the change request if it occurs while we're loading.
-        // (Note: Exclusive fullscreen only; windowed fullscreen calls this without setting
-        // devmode)
+        // SC:R seems to call this setting despite not needing to in its current rendering APIs.
+        // DX11 and DX12 (the only options you can achieve without changing non-public settings)
+        // use DXGI with ResizeTarget + SetFullScreenState, which is more performant and enables
+        // better switching between applications. For whatever reason, Blizzard seems to have left
+        // these calls in, so we just ignore them.
         if !param.is_null() || !hwnd.is_null() {
             // Unexpected parameters, let windows do whatever
             warn!("Unexpected ChangeDisplaySettingsExW params");
@@ -1295,36 +1262,9 @@ fn change_display_settings_ex(
             );
             return orig(device_name, devmode, hwnd, flags, param);
         }
-        let call_orig = if !scr_hooks_disabled() {
-            with_forge(|forge| {
-                if forge.game_started {
-                    true
-                } else {
-                    if devmode.is_null() {
-                        // Resetting to default settings (out of fullscreen),
-                        // so clear any buffered fullscreen request we may have.
-                        forge.display_change_request = None;
-                    } else {
-                        debug!("Delaying ChangeDisplaySettingsExW");
-                        let device_name = if device_name.is_null() {
-                            None
-                        } else {
-                            let len = (0..).find(|&i| *device_name.add(i) == 0).unwrap();
-                            let slice = std::slice::from_raw_parts(device_name, len + 1);
-                            Some(slice.into())
-                        };
-                        forge.display_change_request = Some(ChangeDisplaySettingsParams {
-                            device_name,
-                            devmode: devmode.read(),
-                            flags,
-                        });
-                    }
-                    false
-                }
-            })
-        } else {
-            true
-        };
+
+        let call_orig = scr_hooks_disabled();
+
         if call_orig {
             debug!("Letting ChangeDisplaySettingsExW of window {:p} pass through", hwnd);
             orig(device_name, devmode, hwnd, flags, param)
@@ -1724,7 +1664,6 @@ pub fn init(settings: &serde_json::Map<String, serde_json::Value>) {
         active_bitmap: None,
         captured_window: None,
         scr_window_class: None,
-        display_change_request: None,
     });
     FORGE_INITED.store(true, Ordering::Release);
 }
