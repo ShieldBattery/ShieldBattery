@@ -8,6 +8,7 @@ import SubmitOnEnter from '../forms/submit-on-enter'
 import Select from '../material/select/select'
 import Slider from '../material/slider'
 import { FormContainer } from './settings-content'
+import { ALL_DISPLAY_MODES, getDisplayModeName } from '../../common/blizz-settings'
 
 const SUPPORTED_WINDOW_SIZES = [
   { width: 640, height: 480 },
@@ -58,9 +59,9 @@ class VideoRemasteredForm extends React.Component {
         <FormContainer>
           <div>
             <Select {...bindCustom('displayMode')} label='Display mode' tabIndex={0}>
-              <Option value={0} text='Windowed' />
-              <Option value={1} text='Windowed (Fullscreen)' />
-              <Option value={2} text='Fullscreen' />
+              {ALL_DISPLAY_MODES.map((dm, i) => (
+                <Option key={i} value={dm} text={getDisplayModeName(dm)} />
+              ))}
             </Select>
             <Slider
               {...bindCustom('sdGraphicsFilter')}

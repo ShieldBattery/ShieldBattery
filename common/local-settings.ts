@@ -1,4 +1,4 @@
-import { ConsoleSkin, IngameSkin } from './blizz-settings'
+import { ConsoleSkin, DisplayMode, IngameSkin } from './blizz-settings'
 
 /**
  * Settings related to the ShieldBattery Electron app (that will not be exposed to users in the
@@ -45,7 +45,7 @@ export interface ScrSettingsData {
   gameSubtitlesOn: boolean
   cinematicSubtitlesOn: boolean
   originalVoiceOversOn: boolean
-  displayMode: number // TODO(tec27): type this more narrowly/use an enum
+  displayMode: DisplayMode
   fpsLimitOn: boolean
   fpsLimit: number
   sdGraphicsFilter: number

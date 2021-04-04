@@ -14,7 +14,7 @@ export enum ConsoleSkin {
   War3Spoils = 'War3Spoils',
 }
 
-export const ALL_CONSOLE_SKINS = Object.values(ConsoleSkin)
+export const ALL_CONSOLE_SKINS: Readonly<ConsoleSkin[]> = Object.values(ConsoleSkin)
 
 /**
  * Returns a displayable name for a `ConsoleSkin`.
@@ -50,7 +50,7 @@ export enum IngameSkin {
   Carbot = 'carbot',
 }
 
-export const ALL_INGAME_SKINS = Object.values(IngameSkin)
+export const ALL_INGAME_SKINS: Readonly<IngameSkin[]> = Object.values(IngameSkin)
 
 /**
  * Returns a displayable name for an `IngameSkin`.
@@ -65,5 +65,38 @@ export function getIngameSkinName(skin: IngameSkin): string {
       return 'Carbot'
     default:
       return assertUnreachable(skin)
+  }
+}
+
+/**
+ * The type of rendering setup the game will use.
+ */
+export enum DisplayMode {
+  Windowed = 0,
+  WindowedFullscreen = 1,
+  Fullscreen = 2,
+}
+
+// NOTE(tec27): The Object.values() method doesn't work for number enums because TS adds mirror
+// values for the string names
+export const ALL_DISPLAY_MODES: Readonly<DisplayMode[]> = [
+  DisplayMode.Windowed,
+  DisplayMode.WindowedFullscreen,
+  DisplayMode.Fullscreen,
+]
+
+/**
+ * Returns a displayable name for a `DisplayMode`.
+ */
+export function getDisplayModeName(mode: DisplayMode): string {
+  switch (mode) {
+    case DisplayMode.Windowed:
+      return 'Windowed'
+    case DisplayMode.WindowedFullscreen:
+      return 'Windowed (Fullscreen)'
+    case DisplayMode.Fullscreen:
+      return 'Fullscreen'
+    default:
+      return assertUnreachable(mode)
   }
 }
