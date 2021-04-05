@@ -13,6 +13,7 @@ import {
   CanSeeDebugFilter,
   CanViewUserProfileFilter,
 } from './admin-route-filters'
+import { DebugLogs } from './debug-logs'
 import { DebugMatchmaking } from './debug-matchmaking'
 
 const AdminMapManager = IS_ELECTRON ? require('./map-manager').default : null
@@ -23,6 +24,9 @@ class AdminDashboard extends React.Component {
 
     const debugLinks = perms.debug ? (
       <>
+        <li>
+          <Link href='/admin/debug-logs'>Debug logs</Link>
+        </li>
         <li>
           <Link href='/admin/debug-matchmaking'>Debug matchmaking</Link>
         </li>
@@ -85,6 +89,11 @@ class Panel extends React.Component {
           path='/admin/matchmaking-times'
           filters={[CanManageMatchmakingTimesFilter]}
           component={AdminMatchmakingTimes}
+        />
+        <ConditionalRoute
+          path='/admin/debug-logs/:rest*'
+          filters={[CanSeeDebugFilter]}
+          component={DebugLogs}
         />
         <ConditionalRoute
           path='/admin/debug-matchmaking/:rest*'

@@ -10,11 +10,12 @@ import {
   XYChart,
 } from '@visx/xychart'
 import { timeFormat } from 'd3-time-format'
-import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import React, { useContext, useEffect, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { useDimensions } from '../dom/use-dimensions'
 import RaisedButton from '../material/raised-button'
 import fetchJson from '../network/fetch'
+import { useRefreshToken } from '../network/refresh-token'
 import { apiUrl } from '../network/urls'
 import { useAppDispatch } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
@@ -117,19 +118,6 @@ const HeadlineAndButton = styled.div`
 `
 
 /**
- * Returns an opaque value that can be triggered to change. Suitable for using as a dependency for
- * React hooks to trigger them to re-run.
- */
-function useRefreshToken(): [token: number, triggerRefresh: () => void] {
-  const [value, setValue] = useState<number>(0)
-  const triggerRefresh = useCallback(() => {
-    setValue(v => v + 1)
-  }, [])
-
-  return [value, triggerRefresh]
-}
-
-/**
  * Retrieves the queue size history from the server. Can optionally pass a `refreshToken` to trigger
  * a re-request of the data.
  *
@@ -183,7 +171,7 @@ function useQueueSizeHistory(
         console.error(err)
       },
     )
-  }, [startDate, endDate])
+  }, [refreshToken, startDate, endDate])
 
   return [data, startDate, endDate]
 }
