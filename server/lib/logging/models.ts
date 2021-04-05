@@ -11,6 +11,7 @@ export async function retrieveLogEntries({
   startDate,
   endDate,
   reqId,
+  level,
 }: {
   limit: number
   startDate?: Date
@@ -41,6 +42,14 @@ export async function retrieveLogEntries({
         hasWhere = true
       } else {
         query.append(sql`AND data->'req'->>'id' = ${reqId} `)
+      }
+    }
+    if (level !== undefined) {
+      if (!hasWhere) {
+        query.append(sql`WHERE (data->>'level')::int = ${level} `)
+        hasWhere = true
+      } else {
+        query.append(sql`AND (data->>'level')::int = ${level} `)
       }
     }
 

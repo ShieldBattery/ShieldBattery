@@ -22,6 +22,7 @@ interface GetLogsQuery {
   startDate?: Date
   endDate?: Date
   reqId?: string
+  level: number
 }
 
 async function getLogs(ctx: RouterContext) {
@@ -31,6 +32,7 @@ async function getLogs(ctx: RouterContext) {
       startDate: Joi.date().timestamp('javascript'),
       endDate: Joi.date().timestamp('javascript'),
       reqId: Joi.string(),
+      level: Joi.number().min(0).max(100),
     }),
   })
 

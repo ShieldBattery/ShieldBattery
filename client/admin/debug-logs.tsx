@@ -1,15 +1,17 @@
+import queryString from 'query-string'
 import React, { useEffect, useState } from 'react'
 import styled, { css } from 'styled-components'
+import { Link } from 'wouter'
 import { LogEntry } from '../../common/admin/server-logs'
 import Card from '../material/card'
 import RaisedButton from '../material/raised-button'
 import { fetchJson } from '../network/fetch'
 import { useRefreshToken } from '../network/refresh-token'
-import { apiUrl } from '../network/urls'
+import { apiUrl, urlPath } from '../network/urls'
 import { useAppDispatch } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { amberA200, blue200, colorError, colorTextSecondary, grey700 } from '../styles/colors'
-import { headline5, overline, singleLine } from '../styles/typography'
+import { headline5, overline, singleLine, subtitle1 } from '../styles/typography'
 
 const timestampFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -27,6 +29,20 @@ const Container = styled.div`
   overflow-x: hidden;
   overflow-y: auto;
 `
+
+const FilterLinks = styled.div`
+  display: flex;
+
+  span,
+  a {
+    ${subtitle1};
+  }
+
+  a {
+    margin-left: 16px;
+  }
+`
+
 const PageHeadline = styled.div`
   ${headline5};
   margin-top: 16px;
@@ -240,19 +256,31 @@ export function DebugLogs() {
   const [refreshToken, triggerRefresh] = useRefreshToken()
   const [logEntries, setLogEntries] = useState<LogEntry[]>([])
 
+  const { level } = queryString.parse(location.search)
+
   useEffect(() => {
-    fetchJson<{ entries: LogEntry[] }>(apiUrl`admin/logs/`)
+    const levelQuery = typeof level === 'string' ? urlPath`level=${level}` : ''
+    const query = [levelQuery].filter(s => !!s).join('&')
+
+    fetchJson<{ entries: LogEntry[] }>(apiUrl`admin/logs/?` + query)
       .then(data => setLogEntries(data.entries))
       .catch(err => {
         dispatch(openSnackbar({ message: 'Error retrieving logs' }))
         console.error(err)
       })
-  }, [refreshToken])
+  }, [refreshToken, level])
 
   return (
     <Container>
       <HeadlineAndButton>
         <PageHeadline>Server logs</PageHeadline>
+
+        <FilterLinks>
+          <span>Show: </span>
+          <Link href='?'>All</Link>
+          <Link href='?level=50'>Errors</Link>
+        </FilterLinks>
+
         <RaisedButton label='Refresh' color='primary' onClick={triggerRefresh} />
       </HeadlineAndButton>
       <LogEntriesCard>
