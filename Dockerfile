@@ -74,4 +74,7 @@ RUN mkdir ./server/logs && mkdir ./server/uploaded_files && mkdir ./server/bw_sp
 # http (generally reverse-proxied to)
 EXPOSE 5555/tcp
 
-CMD node ./server/index.js | ./node_modules/.bin/pino-tee warn ./server/logs/errors.log | tee ./server/logs/server.log
+CMD node ./server/index.js | \
+  ./node_modules/.bin/pino-tee warn ./server/logs/errors.log | \
+  node ./server/utils/pino-pg | \
+  tee ./server/logs/server.log
