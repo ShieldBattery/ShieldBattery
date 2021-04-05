@@ -17,6 +17,7 @@ export async function retrieveLogEntries({
   startDate?: Date
   endDate?: Date
   reqId?: string
+  level?: number
 }): Promise<LogEntry[]> {
   const { client, done } = await db()
   try {
