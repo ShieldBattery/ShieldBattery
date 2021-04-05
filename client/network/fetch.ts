@@ -16,12 +16,13 @@ function ensureSuccessStatus(res: Response): Response {
   }
 }
 
-const JSON_PREFIX = /^\)\]\}',?\n/
-function parsePrefixedJson(str: string) {
-  if (str === '') return null
-
-  const replaced = str.replace(JSON_PREFIX, '')
-  return JSON.parse(replaced)
+/**
+ * Parses the response JSON, allowing for an empty string (since these can be valid responses for
+ * e.g. a 204).
+ */
+function parseResponseJson(str: string) {
+  if (str === '') return undefined
+  return JSON.parse(str)
 }
 
 const DEFAULT_HEADERS: Record<string, string> = IS_ELECTRON
@@ -67,7 +68,7 @@ export async function fetchJson<T>(path: string, opts?: RequestInit): Promise<T>
   try {
     const res = ensureSuccessStatus(await fetchRaw(path, opts))
     const text = await res.text()
-    return parsePrefixedJson(text)
+    return parseResponseJson(text)
   } catch (err) {
     if (!err.res) throw err
 
@@ -75,7 +76,7 @@ export async function fetchJson<T>(path: string, opts?: RequestInit): Promise<T>
 
     try {
       const text = await res.text()
-      const parsed = parsePrefixedJson(text)
+      const parsed = parseResponseJson(text)
       err.body = parsed
     } catch (_) {
       err.body = { error: err.message }

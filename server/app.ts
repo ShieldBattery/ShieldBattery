@@ -24,7 +24,6 @@ import routeCreator from './lib/rally-point/route-creator'
 import checkOrigin from './lib/security/check-origin'
 import { cors } from './lib/security/cors'
 import secureHeaders from './lib/security/headers'
-import secureJson from './lib/security/json'
 import sessionMiddleware from './lib/session/middleware'
 import userSessionsMiddleware from './lib/session/user-sessions-middleware'
 import createRoutes from './routes'
@@ -206,7 +205,6 @@ app
   .use(sessionMiddleware)
   .use(cors())
   .use(secureHeaders())
-  .use(secureJson())
   .use(userIpsMiddleware())
   .use(userSessionsMiddleware())
 
