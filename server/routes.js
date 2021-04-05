@@ -9,8 +9,9 @@ import { getCspNonce } from './lib/security/csp'
 import { getUrl, readFile } from './lib/file-upload'
 import yaml from 'js-yaml'
 import { monotonicNow } from './lib/time/monotonic-now'
+import './http-apis'
+import { resolveAllHttpApis } from './lib/http/http-api'
 
-const router = KoaRouter()
 const jsOrTsFileMatcher = RegExp.prototype.test.bind(/\.(js|ts)$/)
 
 function send404(ctx, next) {
@@ -18,9 +19,17 @@ function send404(ctx, next) {
 }
 
 export default function applyRoutes(app, websocketServer) {
+  const router = KoaRouter()
   app.use(router.routes()).use(router.allowedMethods())
 
+  // injected API handlers
+  const httpApis = resolveAllHttpApis()
+  for (const httpApi of httpApis) {
+    httpApi.applyToRouter(router)
+  }
+
   // api methods (through HTTP)
+  // TODO(tec27): migrate these to injected HttpApis
   const apiFiles = fs.readdirSync(path.join(__dirname, 'lib', 'api'))
   const baseApiPath = '/api/1/'
   apiFiles.filter(jsOrTsFileMatcher).forEach(filename => {

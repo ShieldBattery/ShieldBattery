@@ -3,15 +3,23 @@ import { BadRequest } from 'http-errors'
 import Joi from 'joi'
 import { container } from 'tsyringe'
 import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
+import { httpApi, HttpApi } from '../http/http-api'
 import { MatchmakingDebugDataService } from '../matchmaking/debug-data'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
 
-export default function (router: Router) {
-  router
-    .use(ensureLoggedIn, checkAllPermissions('debug'))
-    .get('/:matchmakingType/queueSize', getQueueSizeHistory)
+@httpApi()
+export class MatchmakingDebugApi extends HttpApi {
+  constructor() {
+    super('/matchmakingDebug')
+  }
+
+  applyRoutes(router: Router): void {
+    router
+      .use(ensureLoggedIn, checkAllPermissions('debug'))
+      .get('/:matchmakingType/queueSize', getQueueSizeHistory)
+  }
 }
 
 interface MatchmakingTypeParams {
