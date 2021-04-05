@@ -27,6 +27,19 @@ import {
   MAPS_TOGGLE_FAVORITE,
   NETWORK_SITE_CONNECTED,
 } from '../actions'
+import {
+  BanLobbyPlayerMessageRecord,
+  JoinLobbyMessageRecord,
+  KickLobbyPlayerMessageRecord,
+  LeaveLobbyMessageRecord,
+  LobbyCountdownCanceledMessageRecord,
+  LobbyCountdownStartedMessageRecord,
+  LobbyCountdownTickMessageRecord,
+  LobbyHostChangeMessageRecord,
+  LobbyLoadingCanceledMessageRecord,
+  SelfJoinLobbyMessageRecord,
+} from './lobby-message-records'
+import { TextMessageRecord } from '../messaging/message-records'
 
 export const Slot = new Record({
   type: null,
@@ -167,73 +180,6 @@ const infoReducer = keyedReducer(undefined, {
   },
 })
 
-// id, type, and time need to be present for ALL message types
-export const ChatMessage = Record({
-  id: null,
-  type: 'message',
-  time: 0,
-  from: null,
-  text: null,
-})
-export const CountdownCanceledMessage = Record({
-  id: null,
-  type: 'countdownCanceled',
-  time: 0,
-})
-export const CountdownStartedMessage = Record({
-  id: null,
-  type: 'countdownStarted',
-  time: 0,
-})
-export const CountdownTickMessage = Record({
-  id: null,
-  type: 'countdownTick',
-  time: 0,
-  timeLeft: 0,
-})
-export const HostChangeMessage = Record({
-  id: null,
-  type: 'hostChange',
-  time: 0,
-  name: null,
-})
-export const JoinMessage = Record({
-  id: null,
-  type: 'join',
-  time: 0,
-  name: null,
-})
-export const LeaveMessage = Record({
-  id: null,
-  type: 'leave',
-  time: 0,
-  name: null,
-})
-export const KickMessage = Record({
-  id: null,
-  type: 'kick',
-  time: 0,
-  name: null,
-})
-export const BanMessage = Record({
-  id: null,
-  type: 'ban',
-  time: 0,
-  name: null,
-})
-export const LoadingCanceledMessage = Record({
-  id: null,
-  type: 'loadingCanceled',
-  time: 0,
-})
-export const SelfJoinMessage = Record({
-  id: null,
-  type: 'selfJoin',
-  time: 0,
-  lobby: null,
-  host: null,
-})
-
 function prune(chatList) {
   return chatList.size > 200 ? chatList.shift() : chatList
 }
@@ -242,7 +188,7 @@ const chatHandlers = {
   [LOBBY_UPDATE_CHAT_MESSAGE](lobbyInfo, lastLobbyInfo, state, action) {
     const event = action.payload
     return state.push(
-      new ChatMessage({
+      new TextMessageRecord({
         id: cuid(),
         time: event.time,
         from: event.from,
@@ -255,7 +201,7 @@ const chatHandlers = {
     const { slot } = action.payload
     if (slot.type === 'human') {
       return state.push(
-        new JoinMessage({
+        new JoinLobbyMessageRecord({
           id: cuid(),
           time: Date.now(),
           name: slot.name,
@@ -269,7 +215,7 @@ const chatHandlers = {
   [LOBBY_UPDATE_LEAVE](lobbyInfo, lastLobbyInfo, state, action) {
     const { player } = action.payload
     return state.push(
-      new LeaveMessage({
+      new LeaveLobbyMessageRecord({
         id: cuid(),
         time: Date.now(),
         name: player.name,
@@ -280,7 +226,7 @@ const chatHandlers = {
   [LOBBY_UPDATE_KICK](lobbyInfo, lastLobbyInfo, state, action) {
     const { player } = action.payload
     return state.push(
-      new KickMessage({
+      new KickLobbyPlayerMessageRecord({
         id: cuid(),
         time: Date.now(),
         name: player.name,
@@ -291,7 +237,7 @@ const chatHandlers = {
   [LOBBY_UPDATE_BAN](lobbyInfo, lastLobbyInfo, state, action) {
     const { player } = action.payload
     return state.push(
-      new BanMessage({
+      new BanLobbyPlayerMessageRecord({
         id: cuid(),
         time: Date.now(),
         name: player.name,
@@ -301,7 +247,7 @@ const chatHandlers = {
 
   [LOBBY_INIT_DATA](lobbyInfo, lastLobbyInfo, state, action) {
     return state.push(
-      new SelfJoinMessage({
+      new SelfJoinLobbyMessageRecord({
         id: cuid(),
         time: Date.now(),
         lobby: lobbyInfo.name,
@@ -312,7 +258,7 @@ const chatHandlers = {
 
   [LOBBY_UPDATE_HOST_CHANGE](lobbyInfo, lastLobbyInfo, state, action) {
     return state.push(
-      new HostChangeMessage({
+      new LobbyHostChangeMessageRecord({
         id: cuid(),
         time: Date.now(),
         name: lobbyInfo.host.name,
@@ -323,13 +269,13 @@ const chatHandlers = {
   [LOBBY_UPDATE_COUNTDOWN_START](lobbyInfo, lastLobbyInfo, state, action) {
     return state
       .push(
-        new CountdownStartedMessage({
+        new LobbyCountdownStartedMessageRecord({
           id: cuid(),
           time: Date.now(),
         }),
       )
       .push(
-        new CountdownTickMessage({
+        new LobbyCountdownTickMessageRecord({
           id: cuid(),
           time: Date.now(),
           timeLeft: lobbyInfo.countdownTimer,
@@ -339,7 +285,7 @@ const chatHandlers = {
 
   [LOBBY_UPDATE_COUNTDOWN_TICK](lobbyInfo, lastLobbyInfo, state, action) {
     return state.push(
-      new CountdownTickMessage({
+      new LobbyCountdownTickMessageRecord({
         id: cuid(),
         time: Date.now(),
         timeLeft: lobbyInfo.countdownTimer,
@@ -349,7 +295,7 @@ const chatHandlers = {
 
   [LOBBY_UPDATE_COUNTDOWN_CANCELED](lobbyInfo, lastLobbyInfo, state, action) {
     return state.push(
-      new CountdownCanceledMessage({
+      new LobbyCountdownCanceledMessageRecord({
         id: cuid(),
         time: Date.now(),
       }),
@@ -358,7 +304,7 @@ const chatHandlers = {
 
   [LOBBY_UPDATE_LOADING_CANCELED](lobbyInfo, lastLobbyInfo, state, action) {
     return state.push(
-      new LoadingCanceledMessage({
+      new LobbyLoadingCanceledMessageRecord({
         id: cuid(),
         time: Date.now(),
       }),

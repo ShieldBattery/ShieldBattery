@@ -1,19 +1,21 @@
 import { Record } from 'immutable'
+import { ChatMessage } from '../chat/chat-message-records'
+import { LobbyMessage } from '../lobbies/lobby-message-records'
 
-export enum ChatMessageType {
+/**
+ * NOTE(2Pac): A common message type that's used in all messaging-related services (e.g. chat,
+ * whispers, lobbies, parties, etc.). For now that's only a default text message, but there might be
+ * more in the future. All other message types that are specific to a particular service are defined
+ * in their respective folders.
+ */
+export enum CommonMessageType {
   TextMessage = 'message',
-  JoinChannel = 'joinChannel',
-  LeaveChannel = 'leaveChannel',
-  NewChannelOwner = 'newOwner',
-  SelfJoinChannel = 'selfJoinChannel',
-  UserOnline = 'userOnline',
-  UserOffline = 'userOffline',
 }
 
 /**
- * The base fields for all chat messages. Any added messages should implement this.
+ * The base fields for all messages. Any added messages should implement this.
  */
-interface BaseChatMessage {
+export interface BaseMessage {
   readonly id: string
   readonly type: string
   readonly time: number
@@ -21,55 +23,15 @@ interface BaseChatMessage {
 
 // TODO(tec27): Write a function or something to declare just the extra parts + do the correct
 // typing of the type field automatically.
-export class TextMessage
+export class TextMessageRecord
   extends Record({
     id: '',
-    type: ChatMessageType.TextMessage as typeof ChatMessageType.TextMessage,
+    type: CommonMessageType.TextMessage,
     time: 0,
     from: '',
     text: '',
   })
-  implements BaseChatMessage {}
+  implements BaseMessage {}
 
-export class JoinChannelMessage
-  extends Record({
-    id: '',
-    type: ChatMessageType.JoinChannel as typeof ChatMessageType.JoinChannel,
-    time: 0,
-    user: '',
-  })
-  implements BaseChatMessage {}
-
-export class LeaveChannelMessage
-  extends Record({
-    id: '',
-    type: ChatMessageType.LeaveChannel as typeof ChatMessageType.LeaveChannel,
-    time: 0,
-    user: '',
-  })
-  implements BaseChatMessage {}
-
-export class NewChannelOwnerMessage
-  extends Record({
-    id: '',
-    type: ChatMessageType.NewChannelOwner as typeof ChatMessageType.NewChannelOwner,
-    time: 0,
-    newOwner: '',
-  })
-  implements BaseChatMessage {}
-
-export class SelfJoinChannelMessage
-  extends Record({
-    id: '',
-    type: ChatMessageType.SelfJoinChannel as typeof ChatMessageType.SelfJoinChannel,
-    time: 0,
-    channel: '',
-  })
-  implements BaseChatMessage {}
-
-export type ChatMessage =
-  | TextMessage
-  | JoinChannelMessage
-  | LeaveChannelMessage
-  | NewChannelOwnerMessage
-  | SelfJoinChannelMessage
+export type CommonMessage = TextMessageRecord
+export type Message = CommonMessage | ChatMessage | LobbyMessage

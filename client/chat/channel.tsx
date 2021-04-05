@@ -1,31 +1,41 @@
-import React, { useCallback, useRef, useState } from 'react'
 import PropTypes from 'prop-types'
+import React, { useCallback, useRef, useState } from 'react'
 import { connect } from 'react-redux'
-import { push } from '../navigation/routing'
-import styled, { css } from 'styled-components'
 import { List as VirtualizedList } from 'react-virtualized'
+import styled, { css } from 'styled-components'
+import { MULTI_CHANNEL } from '../../common/flags'
+import { User } from '../auth/auth-records'
+import Avatar from '../avatars/avatar'
+import { DispatchFunction } from '../dispatch-registry'
+import WindowListener from '../dom/window-listener'
+import MenuItem from '../material/menu/item'
+import MessageInput from '../messaging/message-input'
+import MessageList from '../messaging/message-list'
+import { Message } from '../messaging/message-records'
+import { push } from '../navigation/routing'
+import UserProfileOverlay from '../profile/user-profile-overlay'
+import LoadingIndicator from '../progress/dots'
+import { RootState } from '../root-reducer'
+import { alphaDisabled, colorDividers, colorTextSecondary } from '../styles/colors'
+import { body2, overline, singleLine } from '../styles/typography'
+import { navigateToWhisper } from '../whispers/action-creators'
 import {
-  sendMessage,
-  retrieveInitialMessageHistory,
-  retrieveNextMessageHistory,
-  retrieveUserList,
   activateChannel,
   deactivateChannel,
   joinChannel,
+  retrieveInitialMessageHistory,
+  retrieveNextMessageHistory,
+  retrieveUserList,
+  sendMessage,
 } from './action-creators'
-import { navigateToWhisper } from '../whispers/action-creators'
-
-import Avatar from '../avatars/avatar'
-import WindowListener from '../dom/window-listener'
-import MessageInput from '../messaging/message-input'
-import LoadingIndicator from '../progress/dots'
-import MessageList from '../messaging/message-list'
-import MenuItem from '../material/menu/item'
-import UserProfileOverlay from '../profile/user-profile-overlay'
-import { colorDividers, colorTextSecondary, alphaDisabled } from '../styles/colors'
-import { body2, overline, singleLine } from '../styles/typography'
-
-import { MULTI_CHANNEL } from '../../common/flags'
+import {
+  JoinChannelMessage,
+  LeaveChannelMessage,
+  NewChannelOwnerMessage,
+  SelfJoinChannelMessage,
+} from './chat-message-layout'
+import { ChatMessageType } from './chat-message-records'
+import { Channel as ChannelRecord, ChatState, Users as UsersRecord } from './chat-reducer'
 
 // Height to the bottom of the loading area (the top of the messages)
 const LOADING_AREA_BOTTOM = 32 + 8
@@ -78,7 +88,12 @@ const fadedCss = css`
 
 const USER_ENTRY_HEIGHT = 44
 
-const UserListEntryItem = styled.div`
+interface UserListEntryItemProps {
+  isOverlayOpen?: boolean
+  faded?: boolean
+}
+
+const UserListEntryItem = styled.div<UserListEntryItemProps>`
   ${body2};
   ${userListRow};
   height: ${USER_ENTRY_HEIGHT}px;
@@ -118,7 +133,14 @@ const UserListName = styled.span`
   display: inline-block;
 `
 
-const UserListEntry = React.memo(props => {
+interface UserListEntryProps {
+  user: string
+  faded?: boolean
+  style?: any
+  onWhisperClick: (user: string) => void
+}
+
+const UserListEntry = React.memo<UserListEntryProps>(props => {
   const [overlayOpen, setOverlayOpen] = useState(false)
   const userEntryRef = useRef(null)
 
@@ -140,7 +162,7 @@ const UserListEntry = React.memo(props => {
         onDismiss={onCloseOverlay}
         anchor={userEntryRef.current}
         user={props.user}>
-        <MenuItem text='Whisper' onClick={onWhisperClick} />
+        <MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />
       </UserProfileOverlay>
 
       <UserListEntryItem
@@ -156,13 +178,6 @@ const UserListEntry = React.memo(props => {
   )
 })
 
-UserListEntry.propTypes = {
-  user: PropTypes.string.isRequired,
-  onWhisperClick: PropTypes.func.isRequired,
-  faded: PropTypes.bool,
-  style: PropTypes.any,
-}
-
 const UsersVirtualizedList = styled(VirtualizedList)`
   &:focus,
   & > div:focus {
@@ -170,7 +185,12 @@ const UsersVirtualizedList = styled(VirtualizedList)`
   }
 `
 
-class UserList extends React.Component {
+interface UserListProps {
+  users: typeof UsersRecord
+  onWhisperClick: (user: string) => void
+}
+
+class UserList extends React.Component<UserListProps> {
   static propTypes = {
     users: PropTypes.object.isRequired,
     onWhisperClick: PropTypes.func.isRequired,
@@ -180,20 +200,20 @@ class UserList extends React.Component {
     width: 0,
     height: 0,
   }
-  _contentRef = React.createRef()
-  _listRef = React.createRef()
+  _contentRef = React.createRef<HTMLDivElement>()
+  _listRef = React.createRef<VirtualizedList>()
 
   componentDidMount() {
     this.updateDimensions()
   }
 
-  componentDidUpdate(prevProps) {
+  componentDidUpdate(prevProps: UserListProps) {
     if (prevProps.users !== this.props.users) {
       this._listRef.current?.recomputeRowHeights()
     }
   }
 
-  getRowHeight = ({ index }) => {
+  getRowHeight = ({ index }: { index: number }) => {
     const { active, idle, offline } = this.props.users
     if (index === 0) {
       return FIRST_OVERLINE_HEIGHT
@@ -229,7 +249,7 @@ class UserList extends React.Component {
     throw new Error('Asked to size nonexistent user: ' + index)
   }
 
-  renderRow = ({ index, style }) => {
+  renderRow = ({ index, style }: { index: number; style: any }) => {
     const { active, idle, offline } = this.props.users
     if (index === 0) {
       // NOTE(tec27): We know the active header is always visible because this user is online
@@ -360,11 +380,16 @@ const StyledMessageList = styled(MessageList)`
   contain: strict;
 `
 
-const ChatInput = styled(MessageInput)`
+interface ChatInputProps {
+  showDivider?: boolean
+}
+
+const ChatInput = styled(MessageInput)<ChatInputProps>`
   position: relative;
   padding: ${CHAT_INPUT_PADDING_PX / 2}px 16px;
   contain: content;
 
+  // TODO(2Pac): Move this to the MessageInput component so it can be reused in other chat services.
   &::after {
     position: absolute;
     height: 1px;
@@ -378,7 +403,29 @@ const ChatInput = styled(MessageInput)`
   }
 `
 
-class Channel extends React.Component {
+function renderMessages(msg: Message) {
+  switch (msg.type) {
+    case ChatMessageType.JoinChannel:
+      return <JoinChannelMessage key={msg.id} record={msg} />
+    case ChatMessageType.LeaveChannel:
+      return <LeaveChannelMessage key={msg.id} record={msg} />
+    case ChatMessageType.NewChannelOwner:
+      return <NewChannelOwnerMessage key={msg.id} record={msg} />
+    case ChatMessageType.SelfJoinChannel:
+      return <SelfJoinChannelMessage key={msg.id} record={msg} />
+    default:
+      return null
+  }
+}
+
+interface ChannelProps {
+  channel: ChannelRecord
+  onSendChatMessage?: (msg: string) => void
+  onRequestMoreHistory?: () => void
+  onWhisperClick: (user: string) => void
+}
+
+class Channel extends React.Component<ChannelProps> {
   static propTypes = {
     channel: PropTypes.object.isRequired,
     onSendChatMessage: PropTypes.func,
@@ -396,9 +443,10 @@ class Channel extends React.Component {
       <Container>
         <MessagesAndInput>
           <StyledMessageList
+            messages={channel.messages}
+            renderMessages={renderMessages}
             loading={channel.loadingHistory}
             hasMoreHistory={channel.hasHistory}
-            messages={channel.messages}
             onScrollUpdate={this.onScrollUpdate}
           />
           <ChatInput onSend={onSendChatMessage} showDivider={this.state.isScrolledUp} />
@@ -408,8 +456,8 @@ class Channel extends React.Component {
     )
   }
 
-  onScrollUpdate = target => {
-    const { scrollTop, scrollHeight, clientHeight } = target
+  onScrollUpdate = (target: EventTarget) => {
+    const { scrollTop, scrollHeight, clientHeight } = target as HTMLDivElement
 
     const isScrolledUp = scrollTop + clientHeight < scrollHeight
     if (isScrolledUp !== this.state.isScrolledUp) {
@@ -427,14 +475,21 @@ class Channel extends React.Component {
   }
 }
 
-const mapStateToProps = state => {
+const mapStateToProps = (state: RootState) => {
   return {
     user: state.auth.user,
     chat: state.chat,
   }
 }
 
-function isLeavingChannel(oldProps, newProps) {
+interface ChatChannelViewProps {
+  user: typeof User
+  chat: typeof ChatState
+  dispatch: DispatchFunction<any> // TODO(2Pac): Type this better
+  params: any // TODO(2Pac): Type this better
+}
+
+function isLeavingChannel(oldProps: ChatChannelViewProps, newProps: ChatChannelViewProps) {
   return (
     oldProps.params.channel.toLowerCase() === newProps.params.channel.toLowerCase() &&
     oldProps.chat.byName.has(oldProps.params.channel.toLowerCase()) &&
@@ -442,8 +497,7 @@ function isLeavingChannel(oldProps, newProps) {
   )
 }
 
-@connect(mapStateToProps)
-export default class ChatChannelView extends React.Component {
+class ChatChannelView extends React.Component<ChatChannelViewProps> {
   componentDidMount() {
     const routeChannel = decodeURIComponent(this.props.params.channel)
     if (this._isInChannel()) {
@@ -455,7 +509,7 @@ export default class ChatChannelView extends React.Component {
     }
   }
 
-  componentDidUpdate(prevProps) {
+  componentDidUpdate(prevProps: ChatChannelViewProps) {
     if (isLeavingChannel(prevProps, this.props)) {
       push('/')
       return
@@ -508,7 +562,7 @@ export default class ChatChannelView extends React.Component {
     )
   }
 
-  onSendChatMessage = msg => {
+  onSendChatMessage = (msg: string) => {
     this.props.dispatch(sendMessage(decodeURIComponent(this.props.params.channel), msg))
   }
 
@@ -516,7 +570,7 @@ export default class ChatChannelView extends React.Component {
     this.props.dispatch(retrieveNextMessageHistory(decodeURIComponent(this.props.params.channel)))
   }
 
-  onWhisperClick = user => {
+  onWhisperClick = (user: string) => {
     navigateToWhisper(user)
   }
 
@@ -525,3 +579,5 @@ export default class ChatChannelView extends React.Component {
     return this.props.chat.byName.has(routeChannel.toLowerCase())
   }
 }
+
+export default connect(mapStateToProps)(ChatChannelView)

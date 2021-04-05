@@ -1,13 +1,18 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-
-import { ChatMessageLayout, InfoMessageLayout } from './message'
-
-import { blue100, blue200, colorTextSecondary, colorTextFaint } from '../styles/colors'
+import { InfoMessageLayout, TimestampMessageLayout } from '../messaging/message-layout'
+import { blue100, blue200, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { body2 } from '../styles/typography'
+import {
+  ChatMessage,
+  JoinChannelMessageRecord,
+  LeaveChannelMessageRecord,
+  NewChannelOwnerMessageRecord,
+  SelfJoinChannelMessageRecord,
+} from './chat-message-records'
 
-const SystemMessage = styled(ChatMessageLayout)`
+const SystemMessage = styled(TimestampMessageLayout)`
   color: ${blue200};
 `
 
@@ -31,19 +36,23 @@ const SeparatedInfoMessage = styled(InfoMessageLayout)`
   color: ${colorTextFaint};
 `
 
-class BaseMessage extends React.Component {
+interface BaseMessageProps {
+  record: ChatMessage
+}
+
+class BaseMessage extends React.Component<BaseMessageProps> {
   static propTypes = {
     record: PropTypes.object.isRequired,
   }
 
-  shouldComponentUpdate(nextProps) {
-    return this.record !== nextProps.record
+  shouldComponentUpdate(nextProps: BaseMessageProps) {
+    return this.props.record !== nextProps.record
   }
 }
 
 export class JoinChannelMessage extends BaseMessage {
   render() {
-    const { time, user } = this.props.record
+    const { time, user } = this.props.record as JoinChannelMessageRecord
     return (
       <SystemMessage time={time}>
         <span>
@@ -56,7 +65,7 @@ export class JoinChannelMessage extends BaseMessage {
 
 export class LeaveChannelMessage extends BaseMessage {
   render() {
-    const { time, user } = this.props.record
+    const { time, user } = this.props.record as LeaveChannelMessageRecord
     return (
       <SystemMessage time={time}>
         <span>
@@ -69,7 +78,7 @@ export class LeaveChannelMessage extends BaseMessage {
 
 export class NewChannelOwnerMessage extends BaseMessage {
   render() {
-    const { time, newOwner } = this.props.record
+    const { time, newOwner } = this.props.record as NewChannelOwnerMessageRecord
     return (
       <SystemMessage time={time}>
         <span>
@@ -82,39 +91,13 @@ export class NewChannelOwnerMessage extends BaseMessage {
 
 export class SelfJoinChannelMessage extends BaseMessage {
   render() {
-    const { channel } = this.props.record
+    const { channel } = this.props.record as SelfJoinChannelMessageRecord
     return (
       <SeparatedInfoMessage>
         <span>
           You joined <InfoImportant>#{channel}</InfoImportant>
         </span>
       </SeparatedInfoMessage>
-    )
-  }
-}
-
-export class UserOnlineMessage extends BaseMessage {
-  render() {
-    const { time, user } = this.props.record
-    return (
-      <SystemMessage time={time}>
-        <span>
-          &gt;&gt; <SystemImportant>{user}</SystemImportant> has come online
-        </span>
-      </SystemMessage>
-    )
-  }
-}
-
-export class UserOfflineMessage extends BaseMessage {
-  render() {
-    const { time, user } = this.props.record
-    return (
-      <SystemMessage time={time}>
-        <span>
-          &lt;&lt; <SystemImportant>{user}</SystemImportant> has gone offline
-        </span>
-      </SystemMessage>
     )
   }
 }

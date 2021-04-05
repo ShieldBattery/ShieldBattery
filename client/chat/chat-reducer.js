@@ -20,12 +20,12 @@ import {
   NETWORK_SITE_CONNECTED,
 } from '../actions'
 import {
-  TextMessage,
-  JoinChannelMessage,
-  LeaveChannelMessage,
-  NewChannelOwnerMessage,
-  SelfJoinChannelMessage,
-} from '../messaging/message-records'
+  JoinChannelMessageRecord,
+  LeaveChannelMessageRecord,
+  NewChannelOwnerMessageRecord,
+  SelfJoinChannelMessageRecord,
+} from '../chat/chat-message-records'
+import { TextMessageRecord } from '../messaging/message-records'
 
 // How many messages should be kept for inactive channels
 const INACTIVE_CHANNEL_MAX_HISTORY = 150
@@ -123,7 +123,7 @@ export default keyedReducer(new ChatState(), {
 
     return updateMessages(updated, channel, false, m => {
       return m.push(
-        new SelfJoinChannelMessage({
+        new SelfJoinChannelMessageRecord({
           id: cuid(),
           channel,
         }),
@@ -143,7 +143,7 @@ export default keyedReducer(new ChatState(), {
     // TODO(2Pac): make this configurable
     return updateMessages(updated, channel, true, m => {
       return m.push(
-        new JoinChannelMessage({
+        new JoinChannelMessageRecord({
           id: cuid(),
           time: Date.now(),
           user,
@@ -165,7 +165,7 @@ export default keyedReducer(new ChatState(), {
     // TODO(2Pac): make this configurable
     updated = updateMessages(updated, channel, true, m => {
       return m.push(
-        new LeaveChannelMessage({
+        new LeaveChannelMessageRecord({
           id: cuid(),
           time: Date.now(),
           user,
@@ -176,7 +176,7 @@ export default keyedReducer(new ChatState(), {
     return newOwner
       ? updateMessages(updated, channel, true, m => {
           return m.push(
-            new NewChannelOwnerMessage({
+            new NewChannelOwnerMessageRecord({
               id: cuid(),
               time: Date.now(),
               newOwner,
@@ -197,7 +197,7 @@ export default keyedReducer(new ChatState(), {
   [CHAT_UPDATE_MESSAGE](state, action) {
     const { id, channel, time, user, message } = action.payload
     const lowerCaseChannel = channel.toLowerCase()
-    const newMessage = new TextMessage({
+    const newMessage = new TextMessageRecord({
       id,
       time,
       from: user,
@@ -251,7 +251,7 @@ export default keyedReducer(new ChatState(), {
     const newMessages = new List(
       action.payload.map(
         msg =>
-          new TextMessage({
+          new TextMessageRecord({
             id: msg.id,
             time: msg.sent,
             from: msg.user,

@@ -1,295 +1,56 @@
-import React from 'react'
+import { List } from 'immutable'
 import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-import gameTypeToString from './game-type-to-string'
 import {
-  isUms,
+  canAddObservers,
+  canRemoveObservers,
   findSlotByName,
   hasOpposingSides,
   isTeamType,
-  canRemoveObservers,
-  canAddObservers,
+  isUms,
 } from '../../common/lobbies'
-
+import { RaceChar } from '../../common/races'
+import { User } from '../auth/auth-records'
+import FavoritedIcon from '../icons/material/baseline-star-24px.svg'
+import UnfavoritedIcon from '../icons/material/baseline-star_border-24px.svg'
+import PreviewIcon from '../icons/material/zoom_in-24px.svg'
+import MapImage from '../maps/map-image'
+import { Label } from '../material/button'
 import Card from '../material/card'
 import IconButton from '../material/icon-button'
-import { Label } from '../material/button'
 import RaisedButton from '../material/raised-button'
-import MapImage from '../maps/map-image'
+import { shadow1dp } from '../material/shadows'
 import MessageInput from '../messaging/message-input'
-import { ScrollableContent } from '../material/scroll-bar'
-import { ChatMessageLayout, TextMessageDisplay } from '../messaging/message'
-import OpenSlot from './open-slot'
+import MessageList from '../messaging/message-list'
+import { Message } from '../messaging/message-records'
+import { colorTextSecondary } from '../styles/colors'
+import { body1, headline4, headline6, subtitle1 } from '../styles/typography'
 import ClosedSlot from './closed-slot'
+import gameTypeToString from './game-type-to-string'
+import {
+  BanLobbyPlayerMessage,
+  JoinLobbyMessage,
+  KickLobbyPlayerMessage,
+  LeaveLobbyMessage,
+  LobbyCountdownCanceledMessage,
+  LobbyCountdownStartedMessage,
+  LobbyCountdownTickMessage,
+  LobbyHostChangeMessage,
+  LobbyLoadingCanceledMessage,
+  SelfJoinLobbyMessage,
+} from './lobby-message-layout'
+import { LobbyMessageType } from './lobby-message-records'
+import { LobbyInfo, Slot, Team } from './lobby-reducer'
+import OpenSlot from './open-slot'
 import PlayerSlot from './player-slot'
 import { ObserverSlots, RegularSlots, TeamName } from './slot'
 
-import FavoritedIcon from '../icons/material/baseline-star-24px.svg'
-import PreviewIcon from '../icons/material/zoom_in-24px.svg'
-import UnfavoritedIcon from '../icons/material/baseline-star_border-24px.svg'
-
-import { blue100, blue200, colorTextSecondary } from '../styles/colors'
-import { body1, body2, headline6, headline4, subtitle1 } from '../styles/typography'
-import { shadow1dp } from '../material/shadows'
-
-const ChatSystemMessage = styled(ChatMessageLayout)`
-  color: ${blue200};
-`
-
-const ChatImportant = styled.span`
-  ${body2};
-  line-height: inherit;
-  color: ${blue100};
-`
-
-class JoinMessage extends React.Component {
-  static propTypes = {
-    time: PropTypes.number.isRequired,
-    name: PropTypes.string.isRequired,
-  }
-
-  render() {
-    return (
-      <ChatSystemMessage time={this.props.time}>
-        <span>
-          &gt;&gt; <ChatImportant>{this.props.name}</ChatImportant> has joined the lobby
-        </span>
-      </ChatSystemMessage>
-    )
-  }
-}
-
-class LeaveMessage extends React.Component {
-  static propTypes = {
-    time: PropTypes.number.isRequired,
-    name: PropTypes.string.isRequired,
-  }
-
-  render() {
-    return (
-      <ChatSystemMessage time={this.props.time}>
-        <span>
-          &lt;&lt; <ChatImportant>{this.props.name}</ChatImportant> has left the lobby
-        </span>
-      </ChatSystemMessage>
-    )
-  }
-}
-
-class KickMessage extends React.Component {
-  static propTypes = {
-    time: PropTypes.number.isRequired,
-    name: PropTypes.string.isRequired,
-  }
-
-  render() {
-    return (
-      <ChatSystemMessage time={this.props.time}>
-        <span>
-          &lt;&lt; <ChatImportant>{this.props.name}</ChatImportant> has been kicked from the lobby
-        </span>
-      </ChatSystemMessage>
-    )
-  }
-}
-
-class BanMessage extends React.Component {
-  static propTypes = {
-    time: PropTypes.number.isRequired,
-    name: PropTypes.string.isRequired,
-  }
-
-  render() {
-    return (
-      <ChatSystemMessage time={this.props.time}>
-        <span>
-          &lt;&lt; <ChatImportant>{this.props.name}</ChatImportant> has been banned from the lobby
-        </span>
-      </ChatSystemMessage>
-    )
-  }
-}
-
-class SelfJoinMessage extends React.Component {
-  static propTypes = {
-    time: PropTypes.number.isRequired,
-    lobby: PropTypes.string.isRequired,
-    host: PropTypes.string.isRequired,
-  }
-
-  render() {
-    return (
-      <ChatSystemMessage time={this.props.time}>
-        <span>
-          You have joined <ChatImportant>{this.props.lobby}</ChatImportant>. The host is{' '}
-          <ChatImportant>{this.props.host}</ChatImportant>.
-        </span>
-      </ChatSystemMessage>
-    )
-  }
-}
-
-class HostChangeMessage extends React.Component {
-  static propTypes = {
-    time: PropTypes.number.isRequired,
-    name: PropTypes.string.isRequired,
-  }
-
-  render() {
-    return (
-      <ChatSystemMessage time={this.props.time}>
-        <span>
-          <ChatImportant>{this.props.name}</ChatImportant> is now the host
-        </span>
-      </ChatSystemMessage>
-    )
-  }
-}
-
-class CountdownStartedMessage extends React.Component {
-  static propTypes = {
-    time: PropTypes.number.isRequired,
-  }
-
-  render() {
-    return (
-      <ChatSystemMessage time={this.props.time}>
-        <span>The game countdown has begun</span>
-      </ChatSystemMessage>
-    )
-  }
-}
-
-class CountdownTickMessage extends React.Component {
-  static propTypes = {
-    time: PropTypes.number.isRequired,
-    timeLeft: PropTypes.number.isRequired,
-  }
-
-  render() {
-    return (
-      <ChatSystemMessage time={this.props.time}>
-        <span>{this.props.timeLeft}&hellip;</span>
-      </ChatSystemMessage>
-    )
-  }
-}
-
-class CountdownCanceledMessage extends React.Component {
-  static propTypes = {
-    time: PropTypes.number.isRequired,
-  }
-
-  render() {
-    return (
-      <ChatSystemMessage time={this.props.time}>
-        <span>The game countdown has been canceled</span>
-      </ChatSystemMessage>
-    )
-  }
-}
-
-class LoadingCanceledMessage extends React.Component {
-  static propTypes = {
-    time: PropTypes.number.isRequired,
-  }
-
-  // TODO(tec27): We really need to pass a reason back here
-  render() {
-    return (
-      <ChatSystemMessage time={this.props.time}>
-        <span>Game initialization has been canceled</span>
-      </ChatSystemMessage>
-    )
-  }
-}
-
-const StyledScrollableChat = styled(ScrollableContent)`
+const StyledMessageList = styled(MessageList)`
+  flex-grow: 1;
   margin-top: 8px;
-  user-select: contain;
-
-  & * {
-    user-select: text;
-  }
+  padding-top: 0;
 `
-
-const ChatView = styled.div`
-  padding: 8px 8px 0px;
-`
-
-class ChatList extends React.Component {
-  static propTypes = {
-    messages: PropTypes.object.isRequired,
-  }
-
-  _shouldAutoScroll = true
-  _scrollbar = null
-  _setScrollbarRef = elem => {
-    this._scrollbar = elem
-  }
-
-  maybeScrollToBottom() {
-    if (this._shouldAutoScroll) {
-      this._scrollbar.scrollTop(this._scrollbar.getScrollHeight())
-    }
-  }
-
-  componentDidMount() {
-    this.maybeScrollToBottom()
-  }
-
-  shouldComponentUpdate(nextProps) {
-    return nextProps.messages !== this.props.messages
-  }
-
-  getSnapshotBeforeUpdate() {
-    const node = this._scrollbar
-    this._shouldAutoScroll = node.getScrollTop() + node.getClientHeight() >= node.getScrollHeight()
-    return null
-  }
-
-  componentDidUpdate() {
-    this.maybeScrollToBottom()
-  }
-
-  renderMessage(msg) {
-    const { id, type, time } = msg
-    switch (type) {
-      case 'message':
-        return <TextMessageDisplay key={id} user={msg.from} time={time} text={msg.text} />
-      case 'join':
-        return <JoinMessage key={id} time={time} name={msg.name} />
-      case 'leave':
-        return <LeaveMessage key={id} time={time} name={msg.name} />
-      case 'kick':
-        return <KickMessage key={id} time={time} name={msg.name} />
-      case 'ban':
-        return <BanMessage key={id} time={time} name={msg.name} />
-      case 'selfJoin':
-        return <SelfJoinMessage key={id} time={time} lobby={msg.lobby} host={msg.host} />
-      case 'hostChange':
-        return <HostChangeMessage key={id} time={time} name={msg.name} />
-      case 'countdownStarted':
-        return <CountdownStartedMessage key={id} time={time} />
-      case 'countdownTick':
-        return <CountdownTickMessage key={id} time={time} timeLeft={msg.timeLeft} />
-      case 'countdownCanceled':
-        return <CountdownCanceledMessage key={id} time={time} />
-      case 'loadingCanceled':
-        return <LoadingCanceledMessage key={id} time={time} />
-      default:
-        return null
-    }
-  }
-
-  render() {
-    return (
-      <StyledScrollableChat ref={this._setScrollbarRef} viewElement={<ChatView />}>
-        {this.props.messages.map(msg => this.renderMessage(msg))}
-      </StyledScrollableChat>
-    )
-  }
-}
 
 const SlotsCard = styled(Card)`
   width: 100%;
@@ -394,7 +155,55 @@ const Countdown = styled.div`
   margin: 16px 0;
 `
 
-export default class Lobby extends React.Component {
+function renderChatMessages(msg: Message) {
+  switch (msg.type) {
+    case LobbyMessageType.JoinLobby:
+      return <JoinLobbyMessage key={msg.id} record={msg} />
+    case LobbyMessageType.LeaveLobby:
+      return <LeaveLobbyMessage key={msg.id} record={msg} />
+    case LobbyMessageType.KickLobbyPlayer:
+      return <KickLobbyPlayerMessage key={msg.id} record={msg} />
+    case LobbyMessageType.BanLobbyPlayer:
+      return <BanLobbyPlayerMessage key={msg.id} record={msg} />
+    case LobbyMessageType.SelfJoinLobby:
+      return <SelfJoinLobbyMessage key={msg.id} record={msg} />
+    case LobbyMessageType.LobbyHostChange:
+      return <LobbyHostChangeMessage key={msg.id} record={msg} />
+    case LobbyMessageType.LobbyCountdownStarted:
+      return <LobbyCountdownStartedMessage key={msg.id} record={msg} />
+    case LobbyMessageType.LobbyCountdownTick:
+      return <LobbyCountdownTickMessage key={msg.id} record={msg} />
+    case LobbyMessageType.LobbyCountdownCanceled:
+      return <LobbyCountdownCanceledMessage key={msg.id} record={msg} />
+    case LobbyMessageType.LobbyLoadingCanceled:
+      return <LobbyLoadingCanceledMessage key={msg.id} record={msg} />
+    default:
+      return null
+  }
+}
+
+interface LobbyProps {
+  lobby: typeof LobbyInfo
+  chat: List<Message>
+  user: typeof User
+  isFavoritingMap: boolean
+  onLeaveLobbyClick: () => void
+  onSetRace: (slotId: string, race: RaceChar) => void
+  onAddComputer: (slotId: string) => void
+  onSendChatMessage: (msg: string) => void
+  onSwitchSlot: (slotId: string) => void
+  onOpenSlot: (slotId: string) => void
+  onCloseSlot: (slotId: string) => void
+  onKickPlayer: (slotId: string) => void
+  onBanPlayer: (slotId: string) => void
+  onMakeObserver: (slotId: string) => void
+  onRemoveObserver: (slotId: string) => void
+  onMapPreview: () => void
+  onToggleFavoriteMap: () => void
+  onStartGame: () => void
+}
+
+export default class Lobby extends React.Component<LobbyProps> {
   static propTypes = {
     lobby: PropTypes.object.isRequired,
     chat: PropTypes.object.isRequired,
@@ -413,9 +222,10 @@ export default class Lobby extends React.Component {
     onRemoveObserver: PropTypes.func,
     onMapPreview: PropTypes.func,
     onToggleFavoriteMap: PropTypes.func,
+    onStartGame: PropTypes.func,
   }
 
-  getTeamSlots(team, isObserver, isLobbyUms) {
+  getTeamSlots(team: typeof Team, isObserver: boolean, isLobbyUms: boolean) {
     const {
       lobby,
       user,
@@ -436,7 +246,7 @@ export default class Lobby extends React.Component {
     const canRemoveObsSlots = canRemoveObservers(lobby)
 
     return team.slots
-      .map(slot => {
+      .map((slot: typeof Slot) => {
         const { type, name, race, id, controlledBy } = slot
         switch (type) {
           case 'open':
@@ -448,7 +258,7 @@ export default class Lobby extends React.Component {
                 isObserver={isObserver}
                 canMakeObserver={!isObserver && canAddObsSlots && team.slots.size > 1}
                 canRemoveObserver={isObserver && canRemoveObsSlots}
-                onAddComputer={onAddComputer && !isLobbyUms ? () => onAddComputer(id) : undefined}
+                onAddComputer={!isLobbyUms && onAddComputer ? () => onAddComputer(id) : undefined}
                 onSwitchClick={onSwitchSlot ? () => onSwitchSlot(id) : undefined}
                 onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
                 onMakeObserver={onMakeObserver ? () => onMakeObserver(id) : undefined}
@@ -464,7 +274,7 @@ export default class Lobby extends React.Component {
                 isObserver={isObserver}
                 canMakeObserver={!isObserver && canAddObsSlots && team.slots.size > 1}
                 canRemoveObserver={isObserver && canRemoveObsSlots}
-                onAddComputer={onAddComputer && !isLobbyUms ? () => onAddComputer(id) : undefined}
+                onAddComputer={!isLobbyUms && onAddComputer ? () => onAddComputer(id) : undefined}
                 onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
                 onMakeObserver={onMakeObserver ? () => onMakeObserver(id) : undefined}
                 onRemoveObserver={onRemoveObserver ? () => onRemoveObserver(id) : undefined}
@@ -480,7 +290,7 @@ export default class Lobby extends React.Component {
                 canSetRace={slot === mySlot && !slot.hasForcedRace}
                 canMakeObserver={canAddObsSlots && team.slots.size > 1}
                 hasSlotActions={slot !== mySlot}
-                onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
+                onSetRace={onSetRace ? (race: RaceChar) => onSetRace(id, race) : undefined}
                 onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
                 onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
                 onKickPlayer={onKickPlayer ? () => onKickPlayer(id) : undefined}
@@ -514,7 +324,7 @@ export default class Lobby extends React.Component {
                 canSetRace={isHost}
                 isHost={isHost}
                 hasSlotActions={true}
-                onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
+                onSetRace={onSetRace ? (race: RaceChar) => onSetRace(id, race) : undefined}
                 onOpenSlot={onOpenSlot ? () => onOpenSlot(id) : undefined}
                 onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
                 onKickPlayer={onKickPlayer ? () => onKickPlayer(id) : undefined}
@@ -530,7 +340,7 @@ export default class Lobby extends React.Component {
                 controlledOpen={true}
                 canSetRace={mySlot && controlledBy === mySlot.id}
                 isHost={isHost}
-                onSetRace={onSetRace ? race => onSetRace(id, race) : undefined}
+                onSetRace={onSetRace ? (race: RaceChar) => onSetRace(id, race) : undefined}
                 onSwitchClick={onSwitchSlot ? () => onSwitchSlot(id) : undefined}
                 onCloseSlot={onCloseSlot ? () => onCloseSlot(id) : undefined}
               />
@@ -590,7 +400,7 @@ export default class Lobby extends React.Component {
             <RegularSlots>{slots}</RegularSlots>
             <ObserverSlots>{obsSlots}</ObserverSlots>
           </SlotsCard>
-          <ChatList messages={this.props.chat} />
+          <StyledMessageList messages={this.props.chat} renderMessages={renderChatMessages} />
           <StyledMessageInput onSend={onSendChatMessage} />
         </Left>
         <Info>
