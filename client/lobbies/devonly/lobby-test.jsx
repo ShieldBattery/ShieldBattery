@@ -4,7 +4,7 @@ import Lobby from '../lobby'
 
 import { LobbyInfo, Slot, Team } from '../lobby-reducer.js'
 import { MapRecord } from '../../maps/maps-reducer'
-import { User } from '../../auth/auth-records'
+import { SelfUserRecord } from '../../auth/auth-records'
 import { Tileset } from '../../../common/maps'
 
 const SLOTS = new List([
@@ -44,7 +44,7 @@ const LOBBIES = Range(2, 9).map(numSlots => {
   })
 })
 
-const USER = new User({ id: 27, name: 'tec27' })
+const USER = new SelfUserRecord({ id: 27, name: 'tec27' })
 
 export default class LobbyTest extends React.Component {
   renderLobby(lobby) {

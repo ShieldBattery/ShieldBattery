@@ -1,5 +1,5 @@
 import { Session } from 'koa-generic-session'
-import { Permissions } from './common/permissions'
+import { Permissions } from '../common/users/permissions'
 
 declare module 'koa' {
   interface AppSession extends Session {

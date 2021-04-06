@@ -4,7 +4,7 @@ import LoadingScreen from '../loading'
 
 import { LobbyInfo, Slot, Team } from '../lobby-reducer'
 import { MapRecord } from '../../maps/maps-reducer'
-import { User } from '../../auth/auth-records'
+import { SelfUserRecord } from '../../auth/auth-records'
 import { GameStatus } from '../../active-game/game-client-reducer'
 import { Tileset } from '../../../common/maps'
 
@@ -75,7 +75,7 @@ export default class LoadingTest extends React.Component {
       host: 'a',
     })
     const gameStatus = STATUSES[this.state.statusIndex]
-    const user = new User({
+    const user = new SelfUserRecord({
       id: 1,
       name: 'tec27',
     })

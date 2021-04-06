@@ -21,7 +21,7 @@ export default function (router: Router) {
     .put(
       '/:gameId',
       ensureLoggedIn,
-      throttleMiddleware(throttle, ctx => ctx.session!.userId),
+      throttleMiddleware(throttle, ctx => String(ctx.session!.userId)),
       updateGameStatus,
     )
     .get('/', streamGameCount)

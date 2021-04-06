@@ -61,25 +61,25 @@ export default function (router: Router) {
     .use(featureEnabled(PARTIES), ensureLoggedIn)
     .post(
       '/invites',
-      throttleMiddleware(invitesThrottle, ctx => ctx.session!.userId),
+      throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)),
       joiValidator({ body: invitesPostSchema }),
       invite,
     )
     .delete(
       '/invites/:partyId',
-      throttleMiddleware(invitesThrottle, ctx => ctx.session!.userId),
+      throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)),
       joiValidator({ params: partyIdSchema }),
       decline,
     )
     .delete(
       '/invites/:partyId/:targetId',
-      throttleMiddleware(invitesThrottle, ctx => ctx.session!.userId),
+      throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)),
       joiValidator({ params: removeInviteParamsSchema }),
       removeInvite,
     )
     .post(
       '/:partyId',
-      throttleMiddleware(partyThrottle, ctx => ctx.session!.userId),
+      throttleMiddleware(partyThrottle, ctx => String(ctx.session!.userId)),
       joiValidator({ params: partyIdSchema, body: clientIdSchema }),
       accept,
     )
