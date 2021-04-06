@@ -84,7 +84,7 @@ export function NotificationsButton() {
   const hasUnread = useMemo(() => notifications.some(n => n.unread), [notifications])
 
   const [anchor, setAnchor] = useState<EventTarget | null>(null)
-  const onClick = useCallback((event: MouseEvent) => {
+  const onClick = useCallback((event: React.MouseEvent) => {
     setAnchor(event.currentTarget)
   }, [])
   const onDismiss = useCallback(() => {
