@@ -13,9 +13,9 @@ import {
   VerifyEmailFailure,
   VerifyEmailSuccess,
 } from './actions'
-import { Auth, Permissions, User } from './auth-records'
+import { AuthState, PermissionsRecord, SelfUserRecord } from './auth-records'
 
-type State = InstanceType<typeof Auth>
+type State = InstanceType<typeof AuthState>
 type AuthErrors = Extract<AuthActions, { error: true }>
 type AuthErrorable = Extract<AuthActions, { error: true } | { error?: false }>
 
@@ -25,15 +25,15 @@ function begin(state: State, action: AuthChangeBegin) {
 
 function logInSuccess(state: State, action: { payload: UserInfo }) {
   const { user, permissions } = action.payload
-  return new Auth({
-    user: new User(user),
-    permissions: new Permissions(permissions),
+  return new AuthState({
+    user: new SelfUserRecord(user),
+    permissions: new PermissionsRecord(permissions),
     emailVerified: user.emailVerified,
   })
 }
 
 function logOutSuccess(state: State, action: LogOutSuccess) {
-  return new Auth()
+  return new AuthState()
 }
 
 function handleError(state: State, action: AuthErrors) {
@@ -90,7 +90,7 @@ const logInSplitter = (
   action: LogInSuccess | LogInFailure | SignUpSuccess | SignUpFailure | LoadCurrentSessionSuccess,
 ) => (!action.error ? logInSuccess(state, action) : handleError(state, action))
 
-export default keyedReducer(new Auth(), {
+export default keyedReducer(new AuthState(), {
   ['@auth/accountUpdate']: (state, action) =>
     !action.error ? accountUpdate(state, action) : handleError(state, action),
   ['@auth/changeBegin']: begin,

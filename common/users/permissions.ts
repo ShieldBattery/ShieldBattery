@@ -7,5 +7,8 @@ export interface Permissions {
   manageMaps: boolean
   manageMapPools: boolean
   manageMatchmakingTimes: boolean
+  manageRallyPointServers: boolean
   massDeleteMaps: boolean
 }
+
+export type PermissionName = keyof Permissions

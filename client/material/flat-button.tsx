@@ -2,9 +2,9 @@ import PropTypes from 'prop-types'
 import React, { ForwardedRef } from 'react'
 import styled from 'styled-components'
 import { amberA400, blue400, CardLayer } from '../styles/colors'
-import Button, { ButtonContent, Label } from './button'
+import Button, { ButtonContent, ButtonProps, Label } from './button'
 
-export interface FlatButtonProps {
+export interface FlatButtonProps extends Omit<ButtonProps, 'contentComponent'> {
   color?: 'primary' | 'accent' | 'normal'
   disabled?: boolean
   label: string | React.ReactNode

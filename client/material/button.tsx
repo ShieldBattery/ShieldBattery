@@ -60,6 +60,8 @@ export interface ButtonProps {
   onClick?: React.MouseEventHandler
   onMouseDown?: React.MouseEventHandler
   buttonRef?: React.Ref<HTMLButtonElement>
+  // TODO(tec27): Probably this should come from the content component type?
+  tabIndex?: number
 }
 
 interface ButtonState {

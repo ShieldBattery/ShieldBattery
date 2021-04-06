@@ -1,36 +1,40 @@
 import { Record } from 'immutable'
+import { Permissions } from '../../common/users/permissions'
 import { UserInfo } from '../../common/users/user-info'
 
-export const User = Record({
+export class SelfUserRecord extends Record({
   id: null as number | null,
   name: null as string | null,
   email: null as string | null,
-})
+}) {}
 
-export const Permissions = Record({
-  editPermissions: false,
-  debug: false,
-  acceptInvites: false,
-  editAllChannels: false,
-  banUsers: false,
-  manageMaps: false,
-  manageMapPools: false,
-  massDeleteMaps: false,
-  manageMatchmakingTimes: false,
-})
+export class PermissionsRecord
+  extends Record({
+    editPermissions: false,
+    debug: false,
+    acceptInvites: false,
+    editAllChannels: false,
+    banUsers: false,
+    manageMaps: false,
+    manageMapPools: false,
+    manageMatchmakingTimes: false,
+    manageRallyPointServers: false,
+    massDeleteMaps: false,
+  })
+  implements Permissions {}
 
-export const Auth = Record({
+export class AuthState extends Record({
   authChangeInProgress: false,
   emailVerified: false,
   lastFailure: null as { reqId: string; err: string } | null,
-  user: new User(),
-  permissions: new Permissions(),
-})
+  user: new SelfUserRecord(),
+  permissions: new PermissionsRecord(),
+}) {}
 
 export function fromJs(jsObj: UserInfo) {
-  return new Auth({
-    user: new User(jsObj.user),
-    permissions: new Permissions(jsObj.permissions),
+  return new AuthState({
+    user: new SelfUserRecord(jsObj.user),
+    permissions: new PermissionsRecord(jsObj.permissions),
     emailVerified: !!jsObj.user.emailVerified,
   })
 }

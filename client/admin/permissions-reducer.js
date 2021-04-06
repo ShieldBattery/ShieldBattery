@@ -14,8 +14,9 @@ export const Permissions = new Record({
   banUsers: false,
   manageMaps: false,
   manageMapPools: false,
-  massDeleteMaps: false,
   manageMatchmakingTimes: false,
+  manageRallyPointServers: false,
+  massDeleteMaps: false,
 
   lastUpdated: 0,
   isRequesting: false,

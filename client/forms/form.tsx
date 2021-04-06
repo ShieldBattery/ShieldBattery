@@ -40,7 +40,7 @@ export interface FormWrapper<ModelType> {
 export interface FormWrapperProps<ModelType> {
   model: ModelType
   onSubmit: (formWrapper: FormWrapper<ModelType>) => void
-  onChange: (formWrapper: FormWrapper<ModelType>) => void
+  onChange?: (formWrapper: FormWrapper<ModelType>) => void
 }
 
 interface FormWrapperState<ModelType> {

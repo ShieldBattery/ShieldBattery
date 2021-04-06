@@ -13,7 +13,7 @@ function defPrivate(o: unknown, name: string, value: unknown) {
   })
 }
 
-class User {
+export class User {
   id: number | null | undefined
   name: string
   email: string
