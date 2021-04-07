@@ -96,6 +96,7 @@ struct PingState {
 struct Ping {
     retry_count: u8,
     waiters: Vec<oneshot::Sender<Result<RallyPointServer>>>,
+    #[allow(dead_code)]
     canceler: Canceler,
     input: app_messages::RallyPointServer,
 }

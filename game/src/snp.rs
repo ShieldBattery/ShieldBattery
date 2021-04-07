@@ -84,7 +84,6 @@ pub static CAPABILITIES: bw::SnpCapabilities = bw::SnpCapabilities {
 static mut STORM_VISIBLE_SPOOFED_GAME: Option<bw::SnpGameInfo> = None;
 
 struct State {
-    is_bound: bool,
     spoofed_game: Option<bw::SnpGameInfo>,
     spoofed_game_dirty: bool,
     current_client_info: Option<bw::ClientInfo>,
@@ -93,7 +92,6 @@ struct State {
 
 lazy_static! {
     static ref STATE: Mutex<State> = Mutex::new(State {
-        is_bound: false,
         spoofed_game: None,
         spoofed_game_dirty: false,
         current_client_info: None,
@@ -203,7 +201,6 @@ fn send_snp_message(message: SnpMessage) {
 
 extern "stdcall" fn unbind() -> i32 {
     with_state(|state| {
-        state.is_bound = false;
         send_snp_message(SnpMessage::Destroy);
         state.spoofed_game = None;
         state.current_client_info = None;
@@ -261,7 +258,6 @@ unsafe extern "stdcall" fn initialize_1161(
 pub unsafe fn initialize(client_info: &bw::ClientInfo, receive_event: Option<HANDLE>) {
     debug!("SNP initialize");
     with_state(|state| {
-        state.is_bound = true;
         state.spoofed_game = None;
         state.spoofed_game_dirty = false;
         state.current_client_info = Some(client_info.clone());

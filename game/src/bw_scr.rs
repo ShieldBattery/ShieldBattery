@@ -138,6 +138,7 @@ unsafe impl<T> Sync for SendPtr<T> {}
 
 /// Keeps track of pointers to renderer structures as they are collected
 struct RendererState {
+    #[allow(dead_code)] // Plan is to use this ~soon~
     renderer: Option<*mut c_void>,
     shader_inputs: Vec<ShaderState>,
 }

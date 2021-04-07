@@ -38,6 +38,7 @@ pub struct GameState {
     internal_send: self::SendMessages,
     init_main_thread: std::sync::mpsc::Sender<()>,
     send_main_thread_requests: std::sync::mpsc::Sender<GameThreadRequest>,
+    #[allow(dead_code)]
     running_game: Option<Canceler>,
     async_stop: SharedCanceler,
     can_start_game: CanStartGame,
