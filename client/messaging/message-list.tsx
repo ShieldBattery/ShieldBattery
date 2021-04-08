@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import { animationFrameHandler } from '../material/animation-frame-handler'
 import LoadingIndicator from '../progress/dots'
 import { TextMessageDisplay } from './message-layout'
-import { CommonMessage, CommonMessageType, Message } from './message-records'
+import { CommonMessageType, Message } from './message-records'
 
 /**
  * How many pixels a user can be away from the bottom of the scrollable area and still be
@@ -178,10 +178,7 @@ export default class MessageList extends React.Component<
         {needsLoadingArea ? (
           <LoadingArea>{this.props.loading ? <LoadingIndicator /> : null}</LoadingArea>
         ) : null}
-        <PureMessageList
-          messages={this.props.messages}
-          renderMessage={this.props.renderMessage}
-        />
+        <PureMessageList messages={this.props.messages} renderMessage={this.props.renderMessage} />
       </Scrollable>
     )
   }
