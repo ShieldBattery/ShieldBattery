@@ -1,9 +1,9 @@
-import PropTypes from 'prop-types'
 import React, { useCallback, useRef, useState } from 'react'
 import { connect } from 'react-redux'
 import { List as VirtualizedList } from 'react-virtualized'
 import styled, { css } from 'styled-components'
 import { MULTI_CHANNEL } from '../../common/flags'
+import { ReduxAction } from '../action-types'
 import { SelfUserRecord } from '../auth/auth-records'
 import Avatar from '../avatars/avatar'
 import { DispatchFunction } from '../dispatch-registry'
@@ -186,16 +186,11 @@ const UsersVirtualizedList = styled(VirtualizedList)`
 `
 
 interface UserListProps {
-  users: typeof UsersRecord
+  users: ReturnType<typeof UsersRecord>
   onWhisperClick: (user: string) => void
 }
 
 class UserList extends React.Component<UserListProps> {
-  static propTypes = {
-    users: PropTypes.object.isRequired,
-    onWhisperClick: PropTypes.func.isRequired,
-  }
-
   state = {
     width: 0,
     height: 0,
@@ -381,7 +376,8 @@ const StyledMessageList = styled(MessageList)`
 `
 
 interface ChatInputProps {
-  showDivider?: boolean
+  showDivider: boolean
+  onSend: (msg: string) => void
 }
 
 const ChatInput = styled(MessageInput)<ChatInputProps>`
@@ -420,25 +416,18 @@ function renderMessage(msg: Message) {
 
 interface ChannelProps {
   channel: ChannelRecord
-  onSendChatMessage?: (msg: string) => void
-  onRequestMoreHistory?: () => void
+  onSendChatMessage: (msg: string) => void
+  onRequestMoreHistory: () => void
   onWhisperClick: (user: string) => void
 }
 
 class Channel extends React.Component<ChannelProps> {
-  static propTypes = {
-    channel: PropTypes.object.isRequired,
-    onSendChatMessage: PropTypes.func,
-    onRequestMoreHistory: PropTypes.func,
-    onWhisperClick: PropTypes.func.isRequired,
-  }
-
   state = {
     isScrolledUp: false,
   }
 
   render() {
-    const { channel, onSendChatMessage } = this.props
+    const { channel, onSendChatMessage, onWhisperClick } = this.props
     return (
       <Container>
         <MessagesAndInput>
@@ -449,9 +438,9 @@ class Channel extends React.Component<ChannelProps> {
             hasMoreHistory={channel.hasHistory}
             onScrollUpdate={this.onScrollUpdate}
           />
-          <ChatInput onSend={onSendChatMessage} showDivider={this.state.isScrolledUp} />
+          <ChatInput showDivider={this.state.isScrolledUp} onSend={onSendChatMessage} />
         </MessagesAndInput>
-        <UserList users={this.props.channel.users} onWhisperClick={this.props.onWhisperClick} />
+        <UserList users={channel.users} onWhisperClick={onWhisperClick} />
       </Container>
     )
   }
@@ -465,7 +454,6 @@ class Channel extends React.Component<ChannelProps> {
     }
 
     if (
-      this.props.onRequestMoreHistory &&
       this.props.channel.hasHistory &&
       !this.props.channel.loadingHistory &&
       scrollTop < LOADING_AREA_BOTTOM
@@ -484,9 +472,9 @@ const mapStateToProps = (state: RootState) => {
 
 interface ChatChannelViewProps {
   user: SelfUserRecord
-  chat: typeof ChatState
-  dispatch: DispatchFunction<any> // TODO(2Pac): Type this better
-  params: any // TODO(2Pac): Type this better
+  chat: ReturnType<typeof ChatState>
+  dispatch: DispatchFunction<ReduxAction>
+  params: { channel: string }
 }
 
 function isLeavingChannel(oldProps: ChatChannelViewProps, newProps: ChatChannelViewProps) {
@@ -503,7 +491,7 @@ class ChatChannelView extends React.Component<ChatChannelViewProps> {
     if (this._isInChannel()) {
       this.props.dispatch(retrieveUserList(routeChannel))
       this.props.dispatch(retrieveInitialMessageHistory(routeChannel))
-      this.props.dispatch(activateChannel(routeChannel))
+      this.props.dispatch(activateChannel(routeChannel) as any)
     } else {
       this.props.dispatch(joinChannel(routeChannel))
     }
@@ -520,7 +508,7 @@ class ChatChannelView extends React.Component<ChatChannelViewProps> {
     if (this._isInChannel()) {
       this.props.dispatch(retrieveUserList(routeChannel))
       this.props.dispatch(retrieveInitialMessageHistory(routeChannel))
-      this.props.dispatch(activateChannel(routeChannel))
+      this.props.dispatch(activateChannel(routeChannel) as any)
     } else if (
       !prevProps.chat.byName.has(routeChannel) &&
       prevChannel.toLowerCase() !== routeChannel.toLowerCase()
@@ -532,12 +520,12 @@ class ChatChannelView extends React.Component<ChatChannelViewProps> {
       }
     }
     if (prevChannel && prevChannel.toLowerCase() !== routeChannel.toLowerCase()) {
-      this.props.dispatch(deactivateChannel(prevChannel))
+      this.props.dispatch(deactivateChannel(prevChannel) as any)
     }
   }
 
   componentWillUnmount() {
-    this.props.dispatch(deactivateChannel(decodeURIComponent(this.props.params.channel)))
+    this.props.dispatch(deactivateChannel(decodeURIComponent(this.props.params.channel)) as any)
   }
 
   render() {

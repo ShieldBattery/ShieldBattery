@@ -49,7 +49,7 @@ function renderCommonMessage(msg: Message) {
 }
 
 const handleUnknown = (msg: Message) => {
-  throw new Error('Trying to render unknown message type: ' + msg.type)
+  return null
 }
 
 // This contains just the messages, to avoid needing to re-render them all if e.g. loading state
