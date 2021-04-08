@@ -17,7 +17,7 @@ export enum LobbyMessageType {
 export class JoinLobbyMessageRecord
   extends Record({
     id: '',
-    type: LobbyMessageType.JoinLobby,
+    type: LobbyMessageType.JoinLobby as typeof LobbyMessageType.JoinLobby,
     time: 0,
     name: '',
   })
@@ -26,7 +26,7 @@ export class JoinLobbyMessageRecord
 export class LeaveLobbyMessageRecord
   extends Record({
     id: '',
-    type: LobbyMessageType.LeaveLobby,
+    type: LobbyMessageType.LeaveLobby as typeof LobbyMessageType.LeaveLobby,
     time: 0,
     name: '',
   })
@@ -35,7 +35,7 @@ export class LeaveLobbyMessageRecord
 export class KickLobbyPlayerMessageRecord
   extends Record({
     id: '',
-    type: LobbyMessageType.KickLobbyPlayer,
+    type: LobbyMessageType.KickLobbyPlayer as typeof LobbyMessageType.KickLobbyPlayer,
     time: 0,
     name: '',
   })
@@ -44,7 +44,7 @@ export class KickLobbyPlayerMessageRecord
 export class BanLobbyPlayerMessageRecord
   extends Record({
     id: '',
-    type: LobbyMessageType.BanLobbyPlayer,
+    type: LobbyMessageType.BanLobbyPlayer as typeof LobbyMessageType.BanLobbyPlayer,
     time: 0,
     name: '',
   })
@@ -53,7 +53,7 @@ export class BanLobbyPlayerMessageRecord
 export class SelfJoinLobbyMessageRecord
   extends Record({
     id: '',
-    type: LobbyMessageType.SelfJoinLobby,
+    type: LobbyMessageType.SelfJoinLobby as typeof LobbyMessageType.SelfJoinLobby,
     time: 0,
     lobby: '',
     host: '',
@@ -63,7 +63,7 @@ export class SelfJoinLobbyMessageRecord
 export class LobbyHostChangeMessageRecord
   extends Record({
     id: '',
-    type: LobbyMessageType.LobbyHostChange,
+    type: LobbyMessageType.LobbyHostChange as typeof LobbyMessageType.LobbyHostChange,
     time: 0,
     name: '',
   })
@@ -72,7 +72,7 @@ export class LobbyHostChangeMessageRecord
 export class LobbyCountdownStartedMessageRecord
   extends Record({
     id: '',
-    type: LobbyMessageType.LobbyCountdownStarted,
+    type: LobbyMessageType.LobbyCountdownStarted as typeof LobbyMessageType.LobbyCountdownStarted,
     time: 0,
   })
   implements BaseMessage {}
@@ -80,7 +80,7 @@ export class LobbyCountdownStartedMessageRecord
 export class LobbyCountdownTickMessageRecord
   extends Record({
     id: '',
-    type: LobbyMessageType.LobbyCountdownTick,
+    type: LobbyMessageType.LobbyCountdownTick as typeof LobbyMessageType.LobbyCountdownTick,
     time: 0,
     timeLeft: 0,
   })
@@ -89,7 +89,7 @@ export class LobbyCountdownTickMessageRecord
 export class LobbyCountdownCanceledMessageRecord
   extends Record({
     id: '',
-    type: LobbyMessageType.LobbyCountdownCanceled,
+    type: LobbyMessageType.LobbyCountdownCanceled as typeof LobbyMessageType.LobbyCountdownCanceled,
     time: 0,
   })
   implements BaseMessage {}
@@ -97,7 +97,7 @@ export class LobbyCountdownCanceledMessageRecord
 export class LobbyLoadingCanceledMessageRecord
   extends Record({
     id: '',
-    type: LobbyMessageType.LobbyLoadingCanceled,
+    type: LobbyMessageType.LobbyLoadingCanceled as typeof LobbyMessageType.LobbyLoadingCanceled,
     time: 0,
   })
   implements BaseMessage {}

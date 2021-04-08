@@ -11,7 +11,7 @@ export enum ChatMessageType {
 export class JoinChannelMessageRecord
   extends Record({
     id: '',
-    type: ChatMessageType.JoinChannel,
+    type: ChatMessageType.JoinChannel as typeof ChatMessageType.JoinChannel,
     time: 0,
     user: '',
   })
@@ -20,7 +20,7 @@ export class JoinChannelMessageRecord
 export class LeaveChannelMessageRecord
   extends Record({
     id: '',
-    type: ChatMessageType.LeaveChannel,
+    type: ChatMessageType.LeaveChannel as typeof ChatMessageType.LeaveChannel,
     time: 0,
     user: '',
   })
@@ -29,7 +29,7 @@ export class LeaveChannelMessageRecord
 export class NewChannelOwnerMessageRecord
   extends Record({
     id: '',
-    type: ChatMessageType.NewChannelOwner,
+    type: ChatMessageType.NewChannelOwner as typeof ChatMessageType.NewChannelOwner,
     time: 0,
     newOwner: '',
   })
@@ -38,7 +38,7 @@ export class NewChannelOwnerMessageRecord
 export class SelfJoinChannelMessageRecord
   extends Record({
     id: '',
-    type: ChatMessageType.SelfJoinChannel,
+    type: ChatMessageType.SelfJoinChannel as typeof ChatMessageType.SelfJoinChannel,
     time: 0,
     channel: '',
   })

@@ -11,7 +11,7 @@ import {
   isUms,
 } from '../../common/lobbies'
 import { RaceChar } from '../../common/races'
-import { User } from '../auth/auth-records'
+import { SelfUserRecord } from '../auth/auth-records'
 import FavoritedIcon from '../icons/material/baseline-star-24px.svg'
 import UnfavoritedIcon from '../icons/material/baseline-star_border-24px.svg'
 import PreviewIcon from '../icons/material/zoom_in-24px.svg'
@@ -158,25 +158,25 @@ const Countdown = styled.div`
 function renderChatMessages(msg: Message) {
   switch (msg.type) {
     case LobbyMessageType.JoinLobby:
-      return <JoinLobbyMessage key={msg.id} record={msg} />
+      return <JoinLobbyMessage key={msg.id} time={msg.time} name={msg.name} />
     case LobbyMessageType.LeaveLobby:
-      return <LeaveLobbyMessage key={msg.id} record={msg} />
+      return <LeaveLobbyMessage key={msg.id} time={msg.time} name={msg.name} />
     case LobbyMessageType.KickLobbyPlayer:
-      return <KickLobbyPlayerMessage key={msg.id} record={msg} />
+      return <KickLobbyPlayerMessage key={msg.id} time={msg.time} name={msg.name} />
     case LobbyMessageType.BanLobbyPlayer:
-      return <BanLobbyPlayerMessage key={msg.id} record={msg} />
+      return <BanLobbyPlayerMessage key={msg.id} time={msg.time} name={msg.name} />
     case LobbyMessageType.SelfJoinLobby:
-      return <SelfJoinLobbyMessage key={msg.id} record={msg} />
+      return <SelfJoinLobbyMessage key={msg.id} time={msg.time} lobby={msg.lobby} host={msg.host} />
     case LobbyMessageType.LobbyHostChange:
-      return <LobbyHostChangeMessage key={msg.id} record={msg} />
+      return <LobbyHostChangeMessage key={msg.id} time={msg.time} name={msg.name} />
     case LobbyMessageType.LobbyCountdownStarted:
-      return <LobbyCountdownStartedMessage key={msg.id} record={msg} />
+      return <LobbyCountdownStartedMessage key={msg.id} time={msg.time} />
     case LobbyMessageType.LobbyCountdownTick:
-      return <LobbyCountdownTickMessage key={msg.id} record={msg} />
+      return <LobbyCountdownTickMessage key={msg.id} time={msg.time} timeLeft={msg.timeLeft} />
     case LobbyMessageType.LobbyCountdownCanceled:
-      return <LobbyCountdownCanceledMessage key={msg.id} record={msg} />
+      return <LobbyCountdownCanceledMessage key={msg.id} time={msg.time} />
     case LobbyMessageType.LobbyLoadingCanceled:
-      return <LobbyLoadingCanceledMessage key={msg.id} record={msg} />
+      return <LobbyLoadingCanceledMessage key={msg.id} time={msg.time} />
     default:
       return null
   }
@@ -185,7 +185,7 @@ function renderChatMessages(msg: Message) {
 interface LobbyProps {
   lobby: typeof LobbyInfo
   chat: List<Message>
-  user: typeof User
+  user: SelfUserRecord
   isFavoritingMap: boolean
   onLeaveLobbyClick: () => void
   onSetRace: (slotId: string, race: RaceChar) => void
@@ -400,7 +400,7 @@ export default class Lobby extends React.Component<LobbyProps> {
             <RegularSlots>{slots}</RegularSlots>
             <ObserverSlots>{obsSlots}</ObserverSlots>
           </SlotsCard>
-          <StyledMessageList messages={this.props.chat} renderMessages={renderChatMessages} />
+          <StyledMessageList messages={this.props.chat} renderMessage={renderChatMessages} />
           <StyledMessageInput onSend={onSendChatMessage} />
         </Left>
         <Info>

@@ -4,7 +4,7 @@ import { connect } from 'react-redux'
 import { List as VirtualizedList } from 'react-virtualized'
 import styled, { css } from 'styled-components'
 import { MULTI_CHANNEL } from '../../common/flags'
-import { User } from '../auth/auth-records'
+import { SelfUserRecord } from '../auth/auth-records'
 import Avatar from '../avatars/avatar'
 import { DispatchFunction } from '../dispatch-registry'
 import WindowListener from '../dom/window-listener'
@@ -403,16 +403,16 @@ const ChatInput = styled(MessageInput)<ChatInputProps>`
   }
 `
 
-function renderMessages(msg: Message) {
+function renderMessage(msg: Message) {
   switch (msg.type) {
     case ChatMessageType.JoinChannel:
-      return <JoinChannelMessage key={msg.id} record={msg} />
+      return <JoinChannelMessage key={msg.id} time={msg.time} user={msg.user} />
     case ChatMessageType.LeaveChannel:
-      return <LeaveChannelMessage key={msg.id} record={msg} />
+      return <LeaveChannelMessage key={msg.id} time={msg.time} user={msg.user} />
     case ChatMessageType.NewChannelOwner:
-      return <NewChannelOwnerMessage key={msg.id} record={msg} />
+      return <NewChannelOwnerMessage key={msg.id} time={msg.time} newOwner={msg.newOwner} />
     case ChatMessageType.SelfJoinChannel:
-      return <SelfJoinChannelMessage key={msg.id} record={msg} />
+      return <SelfJoinChannelMessage key={msg.id} channel={msg.channel} />
     default:
       return null
   }
@@ -444,7 +444,7 @@ class Channel extends React.Component<ChannelProps> {
         <MessagesAndInput>
           <StyledMessageList
             messages={channel.messages}
-            renderMessages={renderMessages}
+            renderMessage={renderMessage}
             loading={channel.loadingHistory}
             hasMoreHistory={channel.hasHistory}
             onScrollUpdate={this.onScrollUpdate}
@@ -483,7 +483,7 @@ const mapStateToProps = (state: RootState) => {
 }
 
 interface ChatChannelViewProps {
-  user: typeof User
+  user: SelfUserRecord
   chat: typeof ChatState
   dispatch: DispatchFunction<any> // TODO(2Pac): Type this better
   params: any // TODO(2Pac): Type this better

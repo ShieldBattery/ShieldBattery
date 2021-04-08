@@ -3,10 +3,9 @@ import { ChatMessage } from '../chat/chat-message-records'
 import { LobbyMessage } from '../lobbies/lobby-message-records'
 
 /**
- * NOTE(2Pac): A common message type that's used in all messaging-related services (e.g. chat,
- * whispers, lobbies, parties, etc.). For now that's only a default text message, but there might be
- * more in the future. All other message types that are specific to a particular service are defined
- * in their respective folders.
+ * A common message type that's used in all messaging-related services (e.g. chat, whispers,
+ * lobbies, parties, etc.). All other message types that are specific to a particular service are
+ * defined in their respective folders.
  */
 export enum CommonMessageType {
   TextMessage = 'message',
@@ -26,7 +25,7 @@ export interface BaseMessage {
 export class TextMessageRecord
   extends Record({
     id: '',
-    type: CommonMessageType.TextMessage,
+    type: CommonMessageType.TextMessage as typeof CommonMessageType.TextMessage,
     time: 0,
     from: '',
     text: '',

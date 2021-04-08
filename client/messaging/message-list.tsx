@@ -36,10 +36,10 @@ const Messages = styled.div`
 
 interface PureMessageListProps {
   messages: List<Message>
-  renderMessages?: (msg: Message) => ReactNode
+  renderMessage?: (msg: Message) => ReactNode
 }
 
-function messageToElem(msg: CommonMessage) {
+function renderCommonMessage(msg: Message) {
   switch (msg.type) {
     case CommonMessageType.TextMessage:
       return <TextMessageDisplay key={msg.id} user={msg.from} time={msg.time} text={msg.text} />
@@ -48,23 +48,20 @@ function messageToElem(msg: CommonMessage) {
   }
 }
 
+const handleUnknown = (msg: Message) => {
+  throw new Error('Trying to render unknown message type: ' + msg.type)
+}
+
 // This contains just the messages, to avoid needing to re-render them all if e.g. loading state
 // changes on the actual message list
-const PureMessageList = React.memo<PureMessageListProps>(({ messages, renderMessages }) => {
+const PureMessageList = React.memo<PureMessageListProps>(({ messages, renderMessage }) => {
   return (
     <Messages>
       {messages.map(m => {
         // NOTE(2Pac): We only handle common messages here, e.g. text message. All other types of
-        // messages are handled by calling the `renderMessages` function below which should be
-        // supplied by each service if they have any special messages to handle.
-        if (Object.values(CommonMessageType).includes(m.type as CommonMessageType)) {
-          return messageToElem(m as CommonMessage)
-        }
-        if (renderMessages) {
-          return renderMessages(m)
-        }
-
-        return null
+        // messages are handled by calling the `renderMessage` function which should be supplied by
+        // each service if they have any special messages to handle.
+        return renderCommonMessage(m) ?? (renderMessage ?? handleUnknown)(m)
       })}
     </Messages>
   )
@@ -72,7 +69,11 @@ const PureMessageList = React.memo<PureMessageListProps>(({ messages, renderMess
 
 export interface MessageListProps {
   messages: List<Message>
-  renderMessages?: (msg: Message) => ReactNode
+  /**
+   * Function which will be called to render a particular message. If not provided, only common
+   * messages will be rendered.
+   */
+  renderMessage?: (msg: Message) => ReactNode
   className?: string
   /** Whether we are currently requesting more history for this message list. */
   loading?: boolean
@@ -100,7 +101,7 @@ export default class MessageList extends React.Component<
   static propTypes = {
     messages: PropTypes.object.isRequired,
     // A function which is used to render messages
-    renderMessages: PropTypes.func,
+    renderMessage: PropTypes.func,
     // Whether we are currently requesting more history for this message list
     loading: PropTypes.bool,
     // Whether this message list has more history available that could be requested
@@ -179,7 +180,7 @@ export default class MessageList extends React.Component<
         ) : null}
         <PureMessageList
           messages={this.props.messages}
-          renderMessages={this.props.renderMessages}
+          renderMessage={this.props.renderMessage}
         />
       </Scrollable>
     )

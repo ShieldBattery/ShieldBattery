@@ -1,16 +1,8 @@
-import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
 import { InfoMessageLayout, TimestampMessageLayout } from '../messaging/message-layout'
 import { blue100, blue200, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { body2 } from '../styles/typography'
-import {
-  ChatMessage,
-  JoinChannelMessageRecord,
-  LeaveChannelMessageRecord,
-  NewChannelOwnerMessageRecord,
-  SelfJoinChannelMessageRecord,
-} from './chat-message-records'
 
 const SystemMessage = styled(TimestampMessageLayout)`
   color: ${blue200};
@@ -36,68 +28,46 @@ const SeparatedInfoMessage = styled(InfoMessageLayout)`
   color: ${colorTextFaint};
 `
 
-interface BaseMessageProps {
-  record: ChatMessage
-}
+export const JoinChannelMessage = React.memo<{ time: number; user: string }>(props => {
+  const { time, user } = props
+  return (
+    <SystemMessage time={time}>
+      <span>
+        <SystemImportant>{user}</SystemImportant> has joined the channel
+      </span>
+    </SystemMessage>
+  )
+})
 
-class BaseMessage extends React.Component<BaseMessageProps> {
-  static propTypes = {
-    record: PropTypes.object.isRequired,
-  }
+export const LeaveChannelMessage = React.memo<{ time: number; user: string }>(props => {
+  const { time, user } = props
+  return (
+    <SystemMessage time={time}>
+      <span>
+        <SystemImportant>{user}</SystemImportant> has left the channel
+      </span>
+    </SystemMessage>
+  )
+})
 
-  shouldComponentUpdate(nextProps: BaseMessageProps) {
-    return this.props.record !== nextProps.record
-  }
-}
+export const NewChannelOwnerMessage = React.memo<{ time: number; newOwner: string }>(props => {
+  const { time, newOwner } = props
+  return (
+    <SystemMessage time={time}>
+      <span>
+        <SystemImportant>{newOwner}</SystemImportant> is the new owner of the channel
+      </span>
+    </SystemMessage>
+  )
+})
 
-export class JoinChannelMessage extends BaseMessage {
-  render() {
-    const { time, user } = this.props.record as JoinChannelMessageRecord
-    return (
-      <SystemMessage time={time}>
-        <span>
-          <SystemImportant>{user}</SystemImportant> has joined the channel
-        </span>
-      </SystemMessage>
-    )
-  }
-}
-
-export class LeaveChannelMessage extends BaseMessage {
-  render() {
-    const { time, user } = this.props.record as LeaveChannelMessageRecord
-    return (
-      <SystemMessage time={time}>
-        <span>
-          <SystemImportant>{user}</SystemImportant> has left the channel
-        </span>
-      </SystemMessage>
-    )
-  }
-}
-
-export class NewChannelOwnerMessage extends BaseMessage {
-  render() {
-    const { time, newOwner } = this.props.record as NewChannelOwnerMessageRecord
-    return (
-      <SystemMessage time={time}>
-        <span>
-          <SystemImportant>{newOwner}</SystemImportant> is the new owner of the channel
-        </span>
-      </SystemMessage>
-    )
-  }
-}
-
-export class SelfJoinChannelMessage extends BaseMessage {
-  render() {
-    const { channel } = this.props.record as SelfJoinChannelMessageRecord
-    return (
-      <SeparatedInfoMessage>
-        <span>
-          You joined <InfoImportant>#{channel}</InfoImportant>
-        </span>
-      </SeparatedInfoMessage>
-    )
-  }
-}
+export const SelfJoinChannelMessage = React.memo<{ channel: string }>(props => {
+  const { channel } = props
+  return (
+    <SeparatedInfoMessage>
+      <span>
+        You joined <InfoImportant>#{channel}</InfoImportant>
+      </span>
+    </SeparatedInfoMessage>
+  )
+})
