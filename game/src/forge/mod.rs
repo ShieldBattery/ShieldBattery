@@ -1255,7 +1255,8 @@ fn change_display_settings_ex(
         // DX11 and DX12 (the only options you can achieve without changing non-public settings)
         // use DXGI with ResizeTarget + SetFullScreenState, which is more performant and enables
         // better switching between applications. For whatever reason, Blizzard seems to have left
-        // these calls in, so we just ignore them.
+        // these calls in, so we just ignore them unless they're weirdly formatted.
+
         if !param.is_null() || !hwnd.is_null() {
             // Unexpected parameters, let windows do whatever
             warn!("Unexpected ChangeDisplaySettingsExW params");
@@ -1271,17 +1272,8 @@ fn change_display_settings_ex(
             return orig(device_name, devmode, hwnd, flags, param);
         }
 
-        let call_orig = scr_hooks_disabled();
-
-        // TODO(tec27): Should we just ignore these always? Our calls to ShowWindow result in calls
-        // getting passed through, and not doing them there might make the launch more smooth
-        if call_orig {
-            debug!("Letting ChangeDisplaySettingsExW pass through");
-            orig(device_name, devmode, hwnd, flags, param)
-        } else {
-            debug!("Ignoring ChangeDisplaySettingsExW call");
-            DISP_CHANGE_SUCCESSFUL
-        }
+        debug!("Ignoring ChangeDisplaySettingsExW call");
+        DISP_CHANGE_SUCCESSFUL
     }
 }
 
