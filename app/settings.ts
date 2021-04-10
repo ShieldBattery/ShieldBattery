@@ -36,7 +36,11 @@ abstract class Settings<T> extends TypedEventEmitter<SettingsEvents<T>> {
   protected abstract settings: Partial<T>
   protected initialized: Promise<void>
 
-  constructor(protected filepath: string, initializeFunc: () => Promise<void>) {
+  constructor(
+    private settingsName: string,
+    protected filepath: string,
+    initializeFunc: () => Promise<void>,
+  ) {
     super()
 
     this.initialized = initializeFunc.apply(this)
@@ -67,7 +71,9 @@ abstract class Settings<T> extends TypedEventEmitter<SettingsEvents<T>> {
   protected onFileChange(event: 'change' | 'rename'): void {
     if (event === 'change') {
       this.readFile().catch(err => {
-        log.error('Error reading/parsing the settings file: ' + err)
+        log.error(
+          `Error reading/parsing the ${this.settingsName} settings file: ${err.stack ?? err}`,
+        )
       })
     }
   }
@@ -79,7 +85,9 @@ abstract class Settings<T> extends TypedEventEmitter<SettingsEvents<T>> {
     if (!deepEqual(newData, this.settings)) {
       this.settings = newData
       this.emitChange()
-      log.verbose('Got new settings from file change: ' + JSON.stringify(this.settings))
+      log.verbose(
+        `Got new ${this.settingsName} settings from file change: ${JSON.stringify(this.settings)}`,
+      )
     }
   }
 
@@ -117,7 +125,7 @@ export class LocalSettings extends Settings<LocalSettingsData> {
       try {
         this.settings = JSON.parse(await fsPromises.readFile(this.filepath, { encoding: 'utf8' }))
       } catch (err) {
-        log.error('Error reading/parsing settings file: ' + err + ', creating')
+        log.error('Error reading/parsing local settings file: ' + err + ', creating')
         try {
           await fsPromises.unlink(this.filepath)
         } catch (err) {
@@ -136,7 +144,7 @@ export class LocalSettings extends Settings<LocalSettingsData> {
       fs.watch(this.filepath, event => this.onFileChange(event))
     }
 
-    super(filepath, initializeFunc)
+    super('local', filepath, initializeFunc)
   }
 
   private async createDefaults(): Promise<LocalSettingsData> {
@@ -164,7 +172,7 @@ export class LocalSettings extends Settings<LocalSettingsData> {
   private async migrateOldSettings(settings: Partial<LocalSettingsData>) {
     const newSettings = { ...settings }
     if (!settings.starcraftPath) {
-      log.verbose('Migrating old settings, finding starcraft path')
+      log.verbose('Migrating old local settings, finding starcraft path')
       newSettings.starcraftPath = await findStarcraftPath()
     }
     if (!settings.version || settings.version < 2) {
@@ -293,12 +301,12 @@ export class ScrSettings extends Settings<ScrSettingsData> {
   private blizzardFilepath: string
   private blizzardSettings!: Record<string, any>
 
-  constructor(filepath: string, scrFilepath: string) {
+  constructor(filepath: string, blizzardFilepath: string) {
     const initializeFunc = async function (this: ScrSettings) {
       try {
         this.settings = JSON.parse(await fsPromises.readFile(this.filepath, { encoding: 'utf8' }))
       } catch (err) {
-        log.error('Error reading/parsing settings file: ' + err + ', creating')
+        log.error('Error reading/parsing SCR settings file: ' + err + ', creating')
         try {
           await fsPromises.unlink(this.filepath)
         } catch (err) {
@@ -316,7 +324,7 @@ export class ScrSettings extends Settings<ScrSettingsData> {
         // might make to it if launched after SB runs
         fs.watch(this.blizzardFilepath, event => this.onBlizzardFileChange(event))
       } catch (err) {
-        log.error('Error reading/parsing the SC:R settings file: ' + err)
+        log.error('Error reading/parsing the Blizzard settings file: ' + (err.stack ?? err))
         this.blizzardSettings = {}
       }
 
@@ -331,8 +339,8 @@ export class ScrSettings extends Settings<ScrSettingsData> {
       fs.watch(this.filepath, event => this.onFileChange(event))
     }
 
-    super(filepath, initializeFunc)
-    this.blizzardFilepath = scrFilepath
+    super('SCR', filepath, initializeFunc)
+    this.blizzardFilepath = blizzardFilepath
   }
 
   private async createDefaults() {
@@ -388,7 +396,7 @@ export class ScrSettings extends Settings<ScrSettingsData> {
   private onBlizzardFileChange(event: 'change' | 'rename') {
     if (event === 'change') {
       this.readBlizzardFile().catch(err => {
-        log.error('Error reading/parsing the SC:R settings file: ' + err)
+        log.error('Error reading/parsing the Blizzard settings file: ' + (err.stack ?? err))
       })
     }
   }
