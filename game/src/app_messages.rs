@@ -180,5 +180,6 @@ pub struct RallyPointServer {
     pub address4: Option<String>,
     pub address6: Option<String>,
     pub port: u16,
-    pub desc: String,
+    pub description: String,
+    pub id: u32,
 }

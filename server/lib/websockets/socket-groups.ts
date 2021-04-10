@@ -2,6 +2,7 @@ import { EventEmitter } from 'events'
 import { Map, Set } from 'immutable'
 import { NydusClient, NydusServer } from 'nydus'
 import { container, inject, singleton } from 'tsyringe'
+import { TypedEventEmitter } from '../../../common/typed-emitter'
 import log from '../logging/logger'
 import { UpdateOrInsertUserIp } from '../network/user-ips-type'
 import getAddress from './get-address'
@@ -17,8 +18,12 @@ interface SubscriptionInfo<T> {
 
 const defaultDataGetter: DataGetter<any> = () => {}
 
-// TODO(tec27): type the events this emits
-abstract class SocketGroup extends EventEmitter {
+interface SocketGroupEvents<T> {
+  connection: (group: T, socket: NydusClient) => void
+  close: (group: T) => void
+}
+
+abstract class SocketGroup<T> extends TypedEventEmitter<SocketGroupEvents<T>> {
   readonly name: string
   readonly userId: number
   sockets = Set<NydusClient>()
@@ -47,7 +52,7 @@ abstract class SocketGroup extends EventEmitter {
       this.sockets = newSockets
       socket.once('close', () => this.delete(socket))
       this.applySubscriptions(socket)
-      this.emit('connection', this, socket)
+      this.emit('connection', this as any, socket)
     }
   }
 
@@ -55,7 +60,7 @@ abstract class SocketGroup extends EventEmitter {
     this.sockets = this.sockets.delete(socket)
     if (this.sockets.isEmpty()) {
       this.applyCleanups()
-      this.emit('close', this)
+      this.emit('close', this as any)
     }
   }
 
@@ -74,10 +79,7 @@ abstract class SocketGroup extends EventEmitter {
    */
   subscribe(
     path: string,
-    initialDataGetter: (
-      socketGroup: SocketGroup,
-      socket: NydusClient,
-    ) => unknown = defaultDataGetter,
+    initialDataGetter: (socketGroup: this, socket: NydusClient) => unknown = defaultDataGetter,
     cleanup?: (socketGroup: this) => void,
   ) {
     if (this.subscriptions.has(path)) {
@@ -123,7 +125,7 @@ abstract class SocketGroup extends EventEmitter {
   }
 }
 
-export class UserSocketsGroup extends SocketGroup {
+export class UserSocketsGroup extends SocketGroup<UserSocketsGroup> {
   getPath() {
     return `/users/${this.userId}`
   }
@@ -133,7 +135,7 @@ export class UserSocketsGroup extends SocketGroup {
   }
 }
 
-export class ClientSocketsGroup extends SocketGroup {
+export class ClientSocketsGroup extends SocketGroup<ClientSocketsGroup> {
   readonly clientId: string
   readonly clientType: 'electron' | 'web'
 
@@ -214,8 +216,13 @@ export class UserSocketsManager extends EventEmitter {
   }
 }
 
+interface ClientSocketsManagerEvents {
+  newClient: (client: ClientSocketsGroup) => void
+  clientQuit: (client: ClientSocketsGroup) => void
+}
+
 @singleton()
-export class ClientSocketsManager extends EventEmitter {
+export class ClientSocketsManager extends TypedEventEmitter<ClientSocketsManagerEvents> {
   clients = Map<string, ClientSocketsGroup>()
 
   constructor(private nydus: NydusServer, private sessionLookup: RequestSessionLookup) {
@@ -261,7 +268,7 @@ export class ClientSocketsManager extends EventEmitter {
 
   private removeClient(userClientId: string) {
     if (this.clients.has(userClientId)) {
-      const client = this.clients.get(userClientId)
+      const client = this.clients.get(userClientId)!
       this.clients = this.clients.delete(userClientId)
       this.emit('clientQuit', client)
     }

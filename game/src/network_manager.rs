@@ -156,7 +156,7 @@ impl State {
 
                     debug!(
                         "Connected to {} for id {} [{:?}]",
-                        route1.server.desc, route1.for_player, route_id,
+                        route1.server.description, route1.for_player, route_id,
                     );
                     let route = Arc::new(Route {
                         route_id: route_id,

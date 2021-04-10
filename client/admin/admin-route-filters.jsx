@@ -38,3 +38,9 @@ export const CanSeeDebugFilter = createConditionalRedirect(
   state => !hasAllPermissions(state.auth, 'debug'),
   () => replace('/admin'),
 )
+
+export const CanManageRallyPointFilter = createConditionalRedirect(
+  'CanManageRallyPointFilter',
+  state => !hasAllPermissions(state.auth, 'manageRallyPointServers'),
+  () => replace('/admin'),
+)

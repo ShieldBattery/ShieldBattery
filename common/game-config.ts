@@ -1,6 +1,7 @@
 import { GameType } from './constants'
 import { MapInfo } from './maps'
 import { RaceChar } from './races'
+import { ResolvedRallyPointServer } from './rally-point'
 
 // TODO(tec27): Pretty sure this is some lobby structure we could re-use/share? I built it from the
 // Rust version so I dunno
@@ -89,12 +90,7 @@ export interface GameRoute {
   /** The ID of the player who will be connected to over this network route. */
   for: string
   /** The rally-point server to connect to for this route. */
-  server: {
-    address4?: string
-    address6?: string
-    port: number
-    desc: string
-  }
+  server: ResolvedRallyPointServer
   /** The ID of the route, used to identify it to the rally-point server. */
   routeId: string
   /** The ID of the local player, used to identify themselves to the rally-point server. */

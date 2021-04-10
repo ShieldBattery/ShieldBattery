@@ -1,5 +1,4 @@
 import * as activeGameManagerIpc from '../active-game/active-game-manager-ipc'
-import rallyPointManager from '../network/rally-point-manager-instance'
 import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
 import {
   ACTIVE_GAME_LAUNCH,
@@ -24,6 +23,7 @@ import { openSnackbar } from '../snackbars/action-creators'
 import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
 import { MAP_STORE_DOWNLOAD_MAP, USER_ATTENTION_REQUIRED } from '../../common/ipc-constants'
 import { makeServerUrl } from '../network/server-url'
+import { refreshRallyPointPings } from '../network/rally-point-ipc'
 
 const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
@@ -89,7 +89,7 @@ const eventToAction = {
 
     clearRequeueTimer()
     clearAcceptMatchTimer()
-    rallyPointManager.refreshPings()
+    refreshRallyPointPings()
 
     let tick = MATCHMAKING_ACCEPT_MATCH_TIME / 1000
     dispatch({

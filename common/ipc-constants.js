@@ -49,6 +49,26 @@ export const LOCAL_SETTINGS_GET_ERROR = 'LOCAL_SETTINGS_GET_ERROR'
 export const LOCAL_SETTINGS_MERGE = 'LOCAL_SETTINGS_MERGE'
 // Tells a renderer process that there has been an error merging the local settings
 export const LOCAL_SETTINGS_MERGE_ERROR = 'LOCAL_SETTINGS_MERGE_ERROR'
+
+/**
+ * Tells the main process to remove a rally-point server from the list.
+ */
+export const RALLY_POINT_DELETE_SERVER = 'RALLY_POINT_DELETE_SERVER'
+/** Emitted by the main process to the renderer with per-server ping results. */
+export const RALLY_POINT_PING_RESULT = 'RALLY_POINT_PING_RESULT'
+/**
+ * Tells the main process to refresh the pings for the rally-point servers and emit
+ * RALLY_POINT_PING_RESULTs for any new ones.
+ */
+export const RALLY_POINT_REFRESH_PINGS = 'RALLY_POINT_REFRESH_PINGS'
+/** Tells the main process to fully replace its existing rally-point server list. */
+export const RALLY_POINT_SET_SERVERS = 'RALLY_POINT_SET_SERVERS'
+/**
+ * Tells the main process to update an existing rally-point server (or insert it if it doesn't
+ * exist).
+ */
+export const RALLY_POINT_UPSERT_SERVER = 'RALLY_POINT_UPSERT_SERVER'
+
 // The SC:R settings have changed (includes the new settings)
 export const SCR_SETTINGS_CHANGED = 'SCR_SETTINGS_CHANGED'
 // Cause the main process to immediately emit a SCR_SETTINGS_CHANGED event

@@ -17,6 +17,7 @@ import {
 } from '../actions'
 import { ThunkAction } from '../dispatch-registry'
 import fetch from '../network/fetch'
+import { refreshRallyPointPings } from '../network/rally-point-ipc'
 import siteSocket from '../network/site-socket'
 import { apiUrl } from '../network/urls'
 
@@ -27,6 +28,8 @@ export function findMatch(
   alternateRace: RaceChar,
   preferredMaps: string[],
 ): ThunkAction {
+  refreshRallyPointPings()
+
   const params = {
     type,
     race,

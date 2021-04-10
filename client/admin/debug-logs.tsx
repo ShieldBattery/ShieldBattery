@@ -10,6 +10,7 @@ import { useRefreshToken } from '../network/refresh-token'
 import { apiUrl, urlPath } from '../network/urls'
 import { useAppDispatch } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
+import { CenteredContentContainer } from '../styles/centered-container'
 import { amberA200, blue200, colorError, colorTextSecondary, grey700 } from '../styles/colors'
 import { headline5, overline, singleLine, subtitle1 } from '../styles/typography'
 
@@ -20,15 +21,6 @@ const timestampFormat = new Intl.DateTimeFormat(navigator.language, {
   hour: 'numeric',
   minute: '2-digit',
 })
-
-const Container = styled.div`
-  height: 100%;
-  padding: 0 16px;
-  border-left: var(--pixel-shove-x, 0) solid transparent;
-
-  overflow-x: hidden;
-  overflow-y: auto;
-`
 
 const FilterLinks = styled.div`
   display: flex;
@@ -271,7 +263,7 @@ export function DebugLogs() {
   }, [refreshToken, level])
 
   return (
-    <Container>
+    <CenteredContentContainer>
       <HeadlineAndButton>
         <PageHeadline>Server logs</PageHeadline>
 
@@ -299,6 +291,6 @@ export function DebugLogs() {
           </tbody>
         </LogEntriesTable>
       </LogEntriesCard>
-    </Container>
+    </CenteredContentContainer>
   )
 }

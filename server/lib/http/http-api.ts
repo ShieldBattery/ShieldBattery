@@ -28,7 +28,7 @@ export abstract class HttpApi {
     const subRouter = new Router()
     this.applyRoutes(subRouter)
 
-    const apiPath = `${HttpApi.BASE_API_PATH}/${stripLeadingSlash(this.basePath)}`
+    const apiPath = `${HttpApi.BASE_API_PATH}/${stripExtraSlashes(this.basePath)}`
     router.use(apiPath, subRouter.routes(), subRouter.allowedMethods())
     logger.info(`mounted ${this.constructor.name} at ${apiPath}`)
   }
@@ -54,6 +54,6 @@ export function resolveAllHttpApis(depContainer = container) {
   return depContainer.resolveAll<HttpApi>(API_INJECTION_TOKEN)
 }
 
-function stripLeadingSlash(str: string) {
-  return str.replace(/^\//, '')
+function stripExtraSlashes(str: string) {
+  return str.replace(/(^\/|\/$)/g, '')
 }

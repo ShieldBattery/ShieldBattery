@@ -1,7 +1,5 @@
 import { RouterContext } from '@koa/router'
-import childProcess from 'child_process'
 import 'core-js/proposals/reflect-metadata'
-import { LookupAddress, promises as dns } from 'dns'
 import http from 'http'
 import Koa from 'koa'
 import koaBody from 'koa-body'
@@ -9,7 +7,6 @@ import koaCompress from 'koa-compress'
 import koaConvert from 'koa-convert'
 import koaError from 'koa-error'
 import views from 'koa-views'
-import net from 'net'
 import path from 'path'
 import { container } from 'tsyringe'
 import isDev from './lib/env/is-dev'
@@ -19,8 +16,7 @@ import LocalFileStore from './lib/file-upload/local-filesystem'
 import logMiddleware from './lib/logging/log-middleware'
 import log from './lib/logging/logger'
 import userIpsMiddleware from './lib/network/user-ips-middleware'
-import pingRegistry from './lib/rally-point/ping-registry'
-import routeCreator from './lib/rally-point/route-creator'
+import { RallyPointService } from './lib/rally-point/rally-point-service'
 import checkOrigin from './lib/security/check-origin'
 import { cors } from './lib/security/cors'
 import secureHeaders from './lib/security/headers'
@@ -32,44 +28,8 @@ import { WebsocketServer } from './websockets'
 if (!process.env.SB_CANONICAL_HOST) {
   throw new Error('SB_CANONICAL_HOST must be specified')
 }
-if (!process.env.SB_RALLY_POINT_SECRET || !process.env.SB_RALLY_POINT_SERVERS) {
-  throw new Error('SB_RALLY_POINT_SECRET and SB_RALLY_POINT_SERVERS must be specified')
-}
-
-type RallyPointServerInfo = { desc: string; address: string; port: number }
-type RallyPointConfig = {
-  local?: RallyPointServerInfo
-  remote?: RallyPointServerInfo[]
-}
-
-const rallyPointSecret = process.env.SB_RALLY_POINT_SECRET
-const rallyPointServers = JSON.parse(process.env.SB_RALLY_POINT_SERVERS) as RallyPointConfig
-if (!(rallyPointServers.local || rallyPointServers.remote)) {
-  throw new Error('SB_RALLY_POINT_SERVERS is invalid')
-}
-if (rallyPointServers.local) {
-  if (!isDev) {
-    throw new Error('local rally-point is only available in development mode')
-  }
-
-  if (!net.isIPv6(rallyPointServers.local.address)) {
-    throw new Error('local rally-point address must be IPv6-formatted')
-  }
-  log.info('Creating local rally-point process')
-  const rallyPoint = childProcess.fork(
-    path.join(__dirname, 'lib', 'rally-point', 'run-local-server.js'),
-  )
-  rallyPoint
-    .on('error', err => {
-      log.error('rally-point process error: ' + err)
-      process.exit(1)
-    })
-    .on('exit', (code, signal) => {
-      log.error(
-        'rally-point process exited unexpectedly with code: ' + code + ', signal: ' + signal,
-      )
-      process.exit(1)
-    })
+if (!process.env.SB_RALLY_POINT_SECRET) {
+  throw new Error('SB_RALLY_POINT_SECRET must be specified')
 }
 
 if (!process.env.SB_FILE_STORE) {
@@ -100,54 +60,6 @@ if (fileStoreSettings.filesystem) {
 } else {
   throw new Error('no valid key could be found in SB_FILE_STORE')
 }
-
-const rallyPointServersArray = rallyPointServers.local
-  ? [rallyPointServers.local]
-  : rallyPointServers.remote!
-const resolvedRallyPointServers = Promise.all(
-  rallyPointServersArray.map(async s => {
-    let v6: LookupAddress | undefined
-    try {
-      v6 = await dns.lookup(s.address, { family: 6 })
-    } catch (err) {
-      log.warn('Warning: error looking up ' + s.address + ' for ipv6: ' + err)
-    }
-
-    let v4: LookupAddress | undefined
-    try {
-      v4 = await dns.lookup(s.address, { family: 4 })
-    } catch (err) {
-      log.warn('Warning: error looking up ' + s.address + ' for ipv4: ' + err)
-    }
-    if (v4 && v4?.family === 6 && v6 && v6.address.startsWith('::ffff:')) {
-      // v6 is an ipv6-mapped ipv4 address, so swap things around
-      v4.address = v6.address.slice('::ffff:'.length)
-      v4.family = 4
-      v6 = undefined
-    }
-
-    if (!v4 && !v6) {
-      throw new Error('Could not resolve ' + s.address)
-    }
-
-    return {
-      address4: v4 && v4.family === 4 ? `::ffff:${v4.address}` : undefined,
-      address6: v6 && v6.family === 6 ? v6.address : undefined,
-      port: s.port,
-      desc: s.desc,
-    }
-  }),
-)
-
-const routeCreatorConfig = {
-  host: process.env.SB_ROUTE_CREATOR_HOST || '::',
-  port: Number(process.env.SB_ROUTE_CREATOR_PORT || 0),
-}
-const initRouteCreatorPromise = routeCreator.initialize(
-  routeCreatorConfig.host,
-  routeCreatorConfig.port,
-  rallyPointSecret,
-)
 
 const app = new Koa()
 const port = process.env.SB_HTTP_PORT
@@ -214,6 +126,17 @@ container.register<http.Server>(http.Server, { useValue: mainServer })
 
 const websocketServer = container.resolve(WebsocketServer)
 
+const routeCreatorConfig = {
+  host: process.env.SB_ROUTE_CREATOR_HOST || '::',
+  port: Number(process.env.SB_ROUTE_CREATOR_PORT || 0),
+}
+const rallyPointService = container.resolve(RallyPointService)
+const rallyPointInitPromise = rallyPointService.initialize(
+  routeCreatorConfig.host,
+  routeCreatorConfig.port,
+  process.env.SB_RALLY_POINT_SECRET,
+)
+
 // Wrapping this in IIFE so we can use top-level `await` (until we move to ESM and can use it
 // natively)
 ;(async () => {
@@ -247,9 +170,7 @@ const websocketServer = container.resolve(WebsocketServer)
   }
 
   try {
-    const servers = await resolvedRallyPointServers
-    pingRegistry.setServers(servers)
-    await initRouteCreatorPromise
+    await rallyPointInitPromise
 
     const stats: any | undefined = await compilePromise
 

@@ -141,7 +141,7 @@ export class MatchmakingApi {
   private matchAcceptorDelegate: MatchAcceptorCallbacks<Match> = {
     onAcceptProgress: (matchInfo, total, accepted) => {
       for (const player of matchInfo.players) {
-        this.publishToActiveClient(player.name, {
+        this.publishToActiveClient(player.id, {
           type: 'playerAccepted',
           acceptedPlayers: accepted,
         })
@@ -233,7 +233,7 @@ export class MatchmakingApi {
       this.queueEntries = this.queueEntries.withMutations(map => {
         for (const client of kickClients) {
           map.delete(client.name)
-          this.publishToActiveClient(client.name, {
+          this.publishToActiveClient(client.userId, {
             type: 'acceptTimeout',
           })
           this.unregisterActivity(client)
@@ -243,7 +243,7 @@ export class MatchmakingApi {
       for (const client of requeueClients) {
         const player = matchInfo.players.find(p => p.name === client.name)!
         this.matchmakers.get(matchInfo.type)!.addToQueue(player)
-        this.publishToActiveClient(client.name, {
+        this.publishToActiveClient(client.userId, {
           type: 'requeue',
         })
       }
@@ -253,7 +253,7 @@ export class MatchmakingApi {
         if (this.clientTimers.has(client.name)) {
           // TODO(tec27): this event really needs a gameId and some better info about why we're
           // canceling
-          this.publishToActiveClient(client.name, {
+          this.publishToActiveClient(client.userId, {
             type: 'cancelLoading',
             // TODO(tec27): We probably shouldn't be blindly sending error messages to clients
             reason: err && err.message,
@@ -272,16 +272,16 @@ export class MatchmakingApi {
         players: List([player, opponent]),
       })
       this.acceptor.addMatch(matchInfo, [
-        activityRegistry.getClientForUser(player.name),
-        activityRegistry.getClientForUser(opponent.name),
+        activityRegistry.getClientForUser(player.id)!,
+        activityRegistry.getClientForUser(opponent.id)!,
       ])
 
-      this.publishToActiveClient(player.name, {
+      this.publishToActiveClient(player.id, {
         type: 'matchFound',
         matchmakingType: type,
         numPlayers: 2,
       })
-      this.publishToActiveClient(opponent.name, {
+      this.publishToActiveClient(opponent.id, {
         type: 'matchFound',
         matchmakingType: type,
         numPlayers: 2,
@@ -333,7 +333,7 @@ export class MatchmakingApi {
       // catches any of the errors inside.
       await Promise.all(
         clients.map(async client => {
-          let published = this.publishToActiveClient(client.name, {
+          let published = this.publishToActiveClient(client.userId, {
             type: 'matchReady',
             setup,
             resultCode: resultCodes.get(client.name),
@@ -363,7 +363,7 @@ export class MatchmakingApi {
             await mapSelectionTimer
             cancelToken.throwIfCancelling()
 
-            published = this.publishToActiveClient(client.name, { type: 'startCountdown' })
+            published = this.publishToActiveClient(client.userId, { type: 'startCountdown' })
             if (!published) {
               throw new Error(`match cancelled, ${client.name} disconnected`)
             }
@@ -380,7 +380,7 @@ export class MatchmakingApi {
             await countdownTimer
             cancelToken.throwIfCancelling()
 
-            published = this.publishToActiveClient(client.name, {
+            published = this.publishToActiveClient(client.userId, {
               type: 'startWhenReady',
               gameId: setup.gameId,
             })
@@ -407,16 +407,23 @@ export class MatchmakingApi {
       routes: GameRoute[],
       gameId: string,
     ) => {
-      this.publishToActiveClient(playerName, {
-        type: 'setRoutes',
-        routes,
-        gameId,
-      })
+      // TODO(tec27): It'd be a lot nicer if this just delivered us the user ID of this player
+      // instead of their name (or gave both).
+      for (const c of clients) {
+        if (c.name === playerName) {
+          this.publishToActiveClient(c.userId, {
+            type: 'setRoutes',
+            routes,
+            gameId,
+          })
+          break
+        }
+      }
     },
 
     onGameLoaded: (clients: List<ClientSocketsGroup>) => {
       for (const client of clients) {
-        this.publishToActiveClient(client.name, { type: 'gameStarted' })
+        this.publishToActiveClient(client.userId, { type: 'gameStarted' })
         // TODO(tec27): Should this be maintained until the client reports game exit instead?
         this.unregisterActivity(client)
       }
@@ -483,7 +490,7 @@ export class MatchmakingApi {
   }
 
   private unregisterActivity(client: ClientSocketsGroup) {
-    activityRegistry.unregisterClientForUser(client.name)
+    activityRegistry.unregisterClientForUser(client.userId)
     this.publishToUser(client.name, {
       type: 'status',
       matchmaking: null,
@@ -522,7 +529,7 @@ export class MatchmakingApi {
       throw new errors.Conflict('matchmaking is currently disabled')
     }
 
-    if (!activityRegistry.registerActiveClient(user.name, client)) {
+    if (!activityRegistry.registerActiveClient(user.userId, client)) {
       throw new errors.Conflict('user is already active in a gameplay activity')
     }
 
@@ -581,7 +588,7 @@ export class MatchmakingApi {
   @Api('/cancel')
   async cancel(data: Map<string, any>, next: NextFunc) {
     const user = this.getUser(data)
-    const client = activityRegistry.getClientForUser(user.name)
+    const client = activityRegistry.getClientForUser(user.userId)
     if (!client || !this.queueEntries.has(user.name)) {
       throw new errors.Conflict('user does not have an active matchmaking queue')
     }
@@ -613,8 +620,8 @@ export class MatchmakingApi {
     this.nydus.publish(MatchmakingApi.getUserPath(username), data)
   }
 
-  private publishToActiveClient(username: string, data?: any): boolean {
-    const client = activityRegistry.getClientForUser(username)
+  private publishToActiveClient(userId: number, data?: any): boolean {
+    const client = activityRegistry.getClientForUser(userId)
     if (client) {
       this.nydus.publish(MatchmakingApi.getClientPath(client), data)
       return true

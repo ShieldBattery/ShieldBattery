@@ -2,12 +2,13 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
 import { colorTextFaint, colorTextPrimary, grey700, grey800, grey900 } from '../styles/colors'
-import { SubheadingOld, singleLine } from '../styles/typography'
+import { subtitle1, singleLine } from '../styles/typography'
 
 export const TEXTAREA_BOTTOM_PADDING = 7
 export const TEXTAREA_BOTTOM_PADDING_DENSE = 1
 
-export const InputBase = styled(SubheadingOld)`
+export const InputBase = styled.div`
+  ${subtitle1};
   flex-grow: 1;
   order: 2;
   width: 100%;

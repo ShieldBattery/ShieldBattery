@@ -1,4 +1,5 @@
 import { List, Map as IMap, Record, Set } from 'immutable'
+import { container } from 'tsyringe'
 import CancelToken, { MultiCancelToken } from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import rejectOnTimeout from '../../../common/async/reject-on-timeout'
@@ -7,10 +8,9 @@ import { Slot } from '../lobbies/slot'
 import log from '../logging/logger'
 import { deleteRecordForGame } from '../models/games'
 import { deleteUserRecordsForGame } from '../models/games-users'
-import pickServer from '../rally-point/pick-server'
-import pingRegistry, { RallyPointServer } from '../rally-point/ping-registry'
-import routeCreator from '../rally-point/route-creator'
+import { RallyPointRouteInfo, RallyPointService } from '../rally-point/rally-point-service'
 import { GameConfigPlayerName, GameSource } from './configuration'
+import gameplayActivityRegistry from './gameplay-activity-registry'
 import { registerGame } from './registration'
 
 const GAME_LOAD_TIMEOUT = 60 * 1000
@@ -21,15 +21,9 @@ function generateSeed() {
   return (Date.now() / 1000) | 0
 }
 
-interface RouteResult {
-  p1: Slot
-  p2: Slot
-  server: RallyPointServer
-  result: {
-    p1Id: string
-    p2Id: string
-    routeId: string
-  }
+interface RouteResult extends RallyPointRouteInfo {
+  p1Slot: Slot
+  p2Slot: Slot
 }
 
 function createRoutes(players: Set<Slot>): Promise<RouteResult[]> {
@@ -47,26 +41,17 @@ function createRoutes(players: Set<Slot>): Promise<RouteResult[]> {
     players.forEach(p2 => result.push([p1, p2]))
     return result
   }, [] as Array<[Slot, Slot]>)
-  const pingsByPlayer = IMap(players.map(player => [player, pingRegistry.getPings(player.name!)]))
 
-  const routesToCreate = needRoutes.map(([p1, p2]) => ({
-    p1,
-    p2,
-    server: pickServer(pingsByPlayer.get(p1), pingsByPlayer.get(p2)),
-  }))
+  const rallyPointService = container.resolve(RallyPointService)
 
   return Promise.all(
-    routesToCreate.map(({ p1, p2, server }) =>
-      server === -1
-        ? Promise.reject(new Error('No server match found'))
-        : routeCreator
-            .createRoute(pingRegistry.servers[server])
-            .then((result: { p1Id: string; p2Id: string; routeId: string }) => ({
-              p1,
-              p2,
-              server: pingRegistry.servers[server],
-              result,
-            })),
+    needRoutes.map(([p1, p2]) =>
+      rallyPointService
+        .createBestRoute(
+          gameplayActivityRegistry.getClientForUser(p1.userId!)!,
+          gameplayActivityRegistry.getClientForUser(p2.userId!)!,
+        )
+        .then(result => ({ ...result, p1Slot: p1, p2Slot: p2 })),
     ),
   )
 }
@@ -276,10 +261,18 @@ export class GameLoader {
       ? onGameSetup({ gameId, seed: generateSeed() }, resultCodes)
       : Promise.resolve()
 
+    const rallyPointService = container.resolve(RallyPointService)
+
     const hasMultipleHumans = players.size > 1
     const pingPromise = !hasMultipleHumans
       ? Promise.resolve()
-      : Promise.all(players.map(p => pingRegistry.waitForPingResult(p.name!)))
+      : Promise.all(
+          players.map(p =>
+            rallyPointService.waitForPingResult(
+              gameplayActivityRegistry.getClientForUser(p.userId!)!,
+            ),
+          ),
+        )
 
     await pingPromise
     cancelToken.throwIfCancelling()
@@ -290,14 +283,18 @@ export class GameLoader {
     // get a list of routes + player IDs per player, broadcast that to each player
     const routesByPlayer = routes.reduce((result, route) => {
       const {
-        p1,
-        p2,
+        p1Slot,
+        p2Slot,
         server,
-        result: { routeId, p1Id, p2Id },
+        route: { routeId, p1Id, p2Id },
       } = route
       return result
-        .update(p1, List(), val => val.push({ for: p2.id, server, routeId, playerId: p1Id }))
-        .update(p2, List(), val => val.push({ for: p1.id, server, routeId, playerId: p2Id }))
+        .update(p1Slot, List(), val =>
+          val.push({ for: p2Slot.id, server, routeId, playerId: p1Id }),
+        )
+        .update(p2Slot, List(), val =>
+          val.push({ for: p1Slot.id, server, routeId, playerId: p2Id }),
+        )
     }, IMap<Slot, List<GameRoute>>())
 
     for (const [player, routes] of routesByPlayer.entries()) {

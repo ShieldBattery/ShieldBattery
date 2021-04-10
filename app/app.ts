@@ -30,6 +30,11 @@ import {
   NEW_VERSION_GET_STATE,
   NEW_VERSION_RESTART,
   NEW_VERSION_UP_TO_DATE,
+  RALLY_POINT_DELETE_SERVER,
+  RALLY_POINT_PING_RESULT,
+  RALLY_POINT_REFRESH_PINGS,
+  RALLY_POINT_SET_SERVERS,
+  RALLY_POINT_UPSERT_SERVER,
   SCR_SETTINGS_CHANGED,
   SCR_SETTINGS_GET,
   SCR_SETTINGS_GET_ERROR,
@@ -43,6 +48,7 @@ import {
   WINDOW_MAXIMIZED_STATE,
   WINDOW_MINIMIZE,
 } from '../common/ipc-constants'
+import { ResolvedRallyPointServer } from '../common/rally-point'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import currentSession from './current-session'
 import { ActiveGameManager } from './game/active-game-manager'
@@ -50,6 +56,7 @@ import { checkStarcraftPath } from './game/check-starcraft-path'
 import createGameServer, { GameServer } from './game/game-server'
 import { MapStore } from './game/map-store'
 import logger from './logger'
+import { RallyPointManager } from './rally-point/rally-point-manager'
 import { LocalSettings, ScrSettings } from './settings'
 import SystemTray from './system-tray'
 import { getUserDataPath } from './user-data-path'
@@ -280,6 +287,27 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
   )
 
   ipcMain.handle(SHIELDBATTERY_FILES_CHECK, () => checkShieldBatteryFiles())
+
+  const rallyPointManager = container.resolve(RallyPointManager)
+
+  ipcMain.on(
+    RALLY_POINT_SET_SERVERS,
+    (event, servers: [id: number, server: ResolvedRallyPointServer][]) => {
+      rallyPointManager.setServers(servers)
+    },
+  )
+  ipcMain.on(RALLY_POINT_UPSERT_SERVER, (event, server: ResolvedRallyPointServer) => {
+    rallyPointManager.upsertServer(server)
+  })
+  ipcMain.on(RALLY_POINT_DELETE_SERVER, (event, id: number) => {
+    rallyPointManager.deleteServer(id)
+  })
+  ipcMain.on(RALLY_POINT_REFRESH_PINGS, () => {
+    rallyPointManager.refreshPings()
+  })
+  rallyPointManager.on('ping', (server, ping) => {
+    mainWindow?.webContents.send(RALLY_POINT_PING_RESULT, server, ping)
+  })
 }
 
 function setupCspProtocol(curSession: Session) {

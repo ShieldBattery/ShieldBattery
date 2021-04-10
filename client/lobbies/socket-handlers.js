@@ -32,13 +32,13 @@ import {
 import { Slot } from './lobby-reducer'
 import { dispatch } from '../dispatch-registry'
 import { replace } from '../navigation/routing'
-import rallyPointManager from '../network/rally-point-manager-instance'
 import * as activeGameManagerIpc from '../active-game/active-game-manager-ipc'
 import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
 import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
 import { openSnackbar } from '../snackbars/action-creators'
 import { makeServerUrl } from '../network/server-url'
 import { urlPath } from '../network/urls'
+import { refreshRallyPointPings } from '../network/rally-point-ipc'
 
 const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 
@@ -83,7 +83,8 @@ const eventToAction = {
       // easy visibility during development
       console.error('Error downloading map: ' + err + '\n' + err.stack)
     })
-    rallyPointManager.refreshPings()
+
+    refreshRallyPointPings()
 
     return {
       type: LOBBY_INIT_DATA,
@@ -270,6 +271,15 @@ const eventToAction = {
   },
 
   cancelLoading: (name, event) => (dispatch, getState) => {
+    // NOTE(tec27): In very low latency environments things can interleave such that the server
+    // cancels loading before our client actually finishes the countdown/gets into the loading
+    // state. Clearing the countdown timer here ensures that our client doesn't try to take us to
+    // the loading screen anyway, even after it's been canceled.
+    clearCountdownTimer()
+    dispatch({
+      type: LOBBY_UPDATE_COUNTDOWN_CANCELED,
+    })
+
     fadeAtmosphere()
 
     const { lobby } = getState()

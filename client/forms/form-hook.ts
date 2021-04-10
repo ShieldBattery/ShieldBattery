@@ -127,7 +127,7 @@ export function useForm<ModelType>(
   callbacks: {
     onSubmit?: (model: Readonly<ModelType>) => void
     onChange?: (model: Readonly<ModelType>) => void
-  },
+  } = {},
 ): FormHook<ModelType> {
   const [modelValue, setModelValue] = useState(model)
   const stateModelRef = useRef(modelValue)
@@ -268,8 +268,7 @@ export function useForm<ModelType>(
 }
 
 type StateSetter<T> = React.Dispatch<React.SetStateAction<T>>
-type OptionalConditionalKeys<T, MatchType> = ConditionalKeys<T, MatchType> &
-  ConditionalKeys<T, MatchType | undefined>
+type OptionalConditionalKeys<T, MatchType> = ConditionalKeys<T, MatchType | undefined>
 type CustomChangeHandler = (newValue: any) => void
 
 function useFormGetterSetters<ModelType>({
