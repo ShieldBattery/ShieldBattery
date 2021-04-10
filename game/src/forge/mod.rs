@@ -318,8 +318,14 @@ unsafe extern "system" fn wnd_proc_scr(
                 // Window uses -32000 positions to indicate 'minimized' since Windows 3.1 or so, and
                 // for some reason still does this? Anyway we ignore those when saving this state
                 if (*new_pos).x != -32000 && (*new_pos).y != -32000 {
-                    send_game_msg_to_async(GameThreadMessage::WindowMove(
-                        (*new_pos).x, (*new_pos).y, (*new_pos).cx, (*new_pos).cy));
+                    with_forge(|forge| {
+                        // TODO(tec27): We should probably also ignore events if the game has
+                        // completed, as SC:R seems to send one during the quit process
+                        if forge.game_started {
+                            send_game_msg_to_async(GameThreadMessage::WindowMove(
+                                (*new_pos).x, (*new_pos).y, (*new_pos).cx, (*new_pos).cy));
+                        }
+                    });
                 }
             }
             _ => (),
