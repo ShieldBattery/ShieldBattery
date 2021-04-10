@@ -1,3 +1,33 @@
+#### 7.0.9 (April 9th, 2021)
+
+- **Faster auto-update.** Our updates are now served from our global CDN and support downloading
+  just the parts of the app that have actually been updated. Basically, these should download a lot
+  faster now.
+- **Smoother fullscreen.** We've tweaked how the game handles fullscreen mode to work better with
+  multiple monitors and removed some legacy code it was still using. If you're on Windows 10 and
+  have been using Fullscreen (Windowed) mode, we highly recommend checking out normal Fullscreen
+  now: it should work nearly the same as far as program switching goes, but with improved
+  performance and input latency. This change has some potential to cause problems for users on
+  older graphics card, so if you see any weirdness, please let us know!
+- **Browse maps in less clicks.** Our map browser now lets you view details about a particular map
+  by clicking on its tile, rather than needing to go through menus. In addition, there should be
+  less things jumping around as the map images load in (we'll try to work some click accuracy
+  training back into the client in some other way 😏).
+
+##### Known Issues
+
+- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
+  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
+  very least add a warning for this case in the future (or better yet, automate re-authing), but
+  for now, try to launch the game from the Blizzard launcher at least once a month.
+- **Observer mode missing.** We're still getting our lobby code to work with the newer ingame
+  observer things, this will return shortly!
+- **Off-center screen starting position.** For some users, generally in positions on the right side
+  of the screen, the starting screen position may be slightly off-center from where it usually is.
+- **Vibrating mineral patches.** You're not going crazy, I promise. Those mineral patches really are
+  vibrating. This is an unintentional side-effect of our fog of war change for some users, we're
+  working on it!
+
 #### 7.0.6 (April 2nd, 2021)
 
 - **Skins!** Our settings dialog now has options for selecting the various types of skins in the
