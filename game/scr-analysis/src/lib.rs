@@ -357,4 +357,8 @@ impl<'e> Analysis<'e> {
     pub fn replay_show_entire_map(&mut self) -> Option<Operand<'e>> {
         self.0.replay_show_entire_map()
     }
+
+    pub fn start_udp_server(&mut self) -> Option<VirtualAddress> {
+        self.0.start_udp_server()
+    }
 }

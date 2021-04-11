@@ -107,6 +107,7 @@ pub struct BwScr {
     process_game_commands: unsafe extern "C" fn(*const u8, usize, u32),
     mainmenu_entry_hook: scarf::VirtualAddress,
     load_snp_list: scarf::VirtualAddress,
+    start_udp_server: scarf::VirtualAddress,
     font_cache_render_ascii: scarf::VirtualAddress,
     ttf_render_sdf: scarf::VirtualAddress,
     step_io: scarf::VirtualAddress,
@@ -815,6 +816,7 @@ impl BwScr {
         let init_storm_networking = analysis.init_storm_networking()
             .ok_or("init_storm_networking")?;
         let load_snp_list = analysis.load_snp_list().ok_or("load_snp_list")?;
+        let start_udp_server = analysis.start_udp_server().ok_or("start_udp_server")?;
         let font_cache_render_ascii = analysis.font_cache_render_ascii()
             .ok_or("font_cache_render_ascii")?;
         let ttf_malloc = analysis.ttf_malloc().ok_or("ttf_malloc")?;
@@ -955,6 +957,7 @@ impl BwScr {
             ttf_malloc: unsafe { mem::transmute(ttf_malloc.0) },
             process_game_commands: unsafe { mem::transmute(process_game_commands.0) },
             load_snp_list,
+            start_udp_server,
             mainmenu_entry_hook,
             open_file,
             lobby_create_callback_offset,
@@ -1019,6 +1022,9 @@ impl BwScr {
 
         let address = self.load_snp_list.0 as usize - base;
         exe.hook_closure_address(LoadSnpList, load_snp_list_hook, address);
+        // The UDP server seems to be just Bonjour stuff, which we don't use.
+        let address = self.start_udp_server.0 as usize - base;
+        exe.hook_closure_address(StartUdpServer, |_, _| { 1 }, address);
 
         let address = self.process_game_commands as usize - base;
         exe.hook_closure_address(
@@ -2261,6 +2267,7 @@ mod hooks {
         !0 => InitUnitData();
         !0 => StepGame();
         !0 => StepReplayCommands();
+        !0 => StartUdpServer(@ecx *mut c_void) -> u32;
     );
 
     whack_hooks!(stdcall, 0,
