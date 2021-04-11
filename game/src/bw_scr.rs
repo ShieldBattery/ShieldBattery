@@ -7,7 +7,7 @@ mod thiscall;
 
 use std::marker::PhantomData;
 use std::mem;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -1149,6 +1149,7 @@ impl BwScr {
         hook_winapi_exports!(&mut active_patcher, "kernel32",
             "CreateEventW", CreateEventW, create_event_hook;
             "CreateFileW", CreateFileW, create_file_hook_closure;
+            "CopyFileW", CopyFileW, copy_file_hook;
             "CloseHandle", CloseHandle, close_handle_hook;
         );
 
@@ -2021,6 +2022,81 @@ fn create_file_hook(
     }
 }
 
+fn copy_file_hook(
+    src_name: *const u16,
+    dest_name: *const u16,
+    fail_if_exist: u32,
+    orig: unsafe extern fn(*const u16, *const u16, u32) -> u32,
+) -> u32 {
+    unsafe {
+        if src_name.is_null() || dest_name.is_null() {
+            return orig(src_name, dest_name, fail_if_exist);
+        }
+        let compare = b"lastreplay.rep";
+        let src_name_len = (0..).find(|&i| *src_name.add(i) == 0).unwrap();
+        let src_name_slice = std::slice::from_raw_parts(src_name, src_name_len);
+        let is_copying_lastreplay = src_name_slice.len().checked_sub(compare.len())
+            .and_then(|suffix_len| src_name_slice.get(suffix_len..))
+            .filter(|suffix| ascii_compare_u16_u8_casei(suffix, compare))
+            .is_some();
+        if !is_copying_lastreplay {
+            return orig(src_name, dest_name, fail_if_exist);
+        }
+
+        // Fix dest name to [SB]HHMMSS-maptitle.rep
+        // Limit filename to 50 chars -- SC:R doesn't really seem to have
+        // any limit anymore but if there's something silly with the map title
+        // keep it short anyway.
+        let dest_name_len = (0..).find(|&i| *dest_name.add(i) == 0).unwrap();
+        let dest_name_slice = std::slice::from_raw_parts(dest_name, dest_name_len);
+        let mut path = PathBuf::from(windows::os_string_from_winapi(dest_name_slice));
+        path.pop();
+
+        let mut filename_base = format!(
+            "[SB]{}-{}",
+            chrono::Local::now().format("%H%M%S"),
+            game_thread::map_name_for_filename(),
+        );
+        if filename_base.len() > 50 {
+            // Truncate position must be in UTF-8 char boundary for it to not panic.
+            // Not sure if the map title is UTF-8 in the first place though..
+            let truncate_pos = (50..)
+                .take_while(|&i| i < filename_base.len())
+                .find(|&i| filename_base.is_char_boundary(i));
+            if let Some(pos) = truncate_pos {
+                filename_base.truncate(pos);
+            }
+        }
+
+        let mut i = 2;
+        let mut filename = format!("{}.rep", filename_base);
+        // Add (2) (3) etc if filename already exists.
+        // Since the filename contains a timestamp, this should only happen on super-rare cases
+        // if two games are being ran at a same time in SB development, but losing one of
+        // those replays wouldn't be nice =)
+        loop {
+            path.push(&filename);
+            if !path.exists() {
+                break;
+            }
+            path.pop();
+            if i > 32 {
+                // ???
+                error!(
+                    "Couldn't find suitable filename for {} / {}",
+                    path.display(), filename_base,
+                );
+                // Return success anyway.
+                return 1;
+            }
+            filename = format!("{} ({}).rep", filename_base, i);
+            i += 1;
+        }
+
+        orig(src_name, windows::winapi_str(&path).as_ptr(), fail_if_exist)
+    }
+}
+
 fn ascii_compare_u16_u8_casei(a: &[u16], b: &[u8]) -> bool {
     if a.len() != b.len() {
         return false;
@@ -2186,6 +2262,7 @@ mod hooks {
             u32,
             *mut c_void,
         ) -> *mut c_void;
+        !0 => CopyFileW(*const u16, *const u16, u32) -> u32;
         !0 => StepIo(@ecx *mut c_void);
         !0 => Renderer_Render(@ecx *mut c_void, *mut scr::DrawCommands, u32, u32) -> u32;
         !0 => Renderer_CreateShader(

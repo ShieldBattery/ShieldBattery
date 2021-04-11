@@ -275,6 +275,22 @@ pub fn setup_info() -> &'static GameSetupInfo {
     &*SETUP_INFO.get().unwrap()
 }
 
+/// Returns map name (Title, or something else the uploader has renamed it to in SB),
+/// without any color chars (Even if the app also filters them out),
+/// or characters illegal in filenames on Windows.
+pub fn map_name_for_filename() -> String {
+    let mut name: String = SETUP_INFO.get()
+        .and_then(|x| x.map.name.as_deref())
+        .unwrap_or("(Unknown map name)")
+        .into();
+    name.retain(|c| match c {
+        '/' | '\\' | '"' | '*' | '?' | '<' | '>' | ':' | '|' => false,
+        x if x < (0x20 as char) => false,
+        _ => true,
+    });
+    name
+}
+
 /// Bw impl is expected to call this after step_game,
 /// the function that progresses game objects by a tick/frame/step.
 /// In other words, if the game isn't paused/lagging, this gets ran 24 times in second
