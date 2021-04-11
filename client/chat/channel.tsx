@@ -1,12 +1,9 @@
-import React, { useCallback, useRef, useState } from 'react'
-import { connect } from 'react-redux'
-import { List as VirtualizedList } from 'react-virtualized'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { List as VirtualizedList, ListRowRenderer } from 'react-virtualized'
 import styled, { css } from 'styled-components'
+import { useRoute } from 'wouter'
 import { MULTI_CHANNEL } from '../../common/flags'
-import { ReduxAction } from '../action-types'
-import { SelfUserRecord } from '../auth/auth-records'
 import Avatar from '../avatars/avatar'
-import { DispatchFunction } from '../dispatch-registry'
 import WindowListener from '../dom/window-listener'
 import MenuItem from '../material/menu/item'
 import MessageInput from '../messaging/message-input'
@@ -15,7 +12,8 @@ import { Message } from '../messaging/message-records'
 import { push } from '../navigation/routing'
 import UserProfileOverlay from '../profile/user-profile-overlay'
 import LoadingIndicator from '../progress/dots'
-import { RootState } from '../root-reducer'
+import { usePrevious } from '../react-extra-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { alphaDisabled, colorDividers, colorTextSecondary } from '../styles/colors'
 import { body2, overline, singleLine } from '../styles/typography'
 import { navigateToWhisper } from '../whispers/action-creators'
@@ -35,7 +33,7 @@ import {
   SelfJoinChannelMessage,
 } from './chat-message-layout'
 import { ChatMessageType } from './chat-message-records'
-import { Channel as ChannelRecord, ChatState, Users as UsersRecord } from './chat-reducer'
+import { Channel as ChannelRecord, Users as UsersRecord } from './chat-reducer'
 
 // Height to the bottom of the loading area (the top of the messages)
 const LOADING_AREA_BOTTOM = 32 + 8
@@ -244,7 +242,7 @@ class UserList extends React.Component<UserListProps> {
     throw new Error('Asked to size nonexistent user: ' + index)
   }
 
-  renderRow = ({ index, style }: { index: number; style: any }) => {
+  renderRow: ListRowRenderer = ({ index, style }) => {
     const { active, idle, offline } = this.props.users
     if (index === 0) {
       // NOTE(tec27): We know the active header is always visible because this user is online
@@ -463,109 +461,66 @@ class Channel extends React.Component<ChannelProps> {
   }
 }
 
-const mapStateToProps = (state: RootState) => {
-  return {
-    user: state.auth.user,
-    chat: state.chat,
-  }
-}
+export default function ChatChannelView() {
+  const [, params = {}] = useRoute('/chat/:channel')
+  const channelName = params ? decodeURIComponent(params.channel).toLowerCase() : null
+  const dispatch = useAppDispatch()
+  const channel = useAppSelector(s => s.chat.byName.get(channelName))
 
-interface ChatChannelViewProps {
-  user: SelfUserRecord
-  chat: ReturnType<typeof ChatState>
-  dispatch: DispatchFunction<ReduxAction>
-  params: { channel: string }
-}
+  const prevChannelName = usePrevious(channelName)
+  const prevChannel = usePrevious(channel)
 
-function isLeavingChannel(oldProps: ChatChannelViewProps, newProps: ChatChannelViewProps) {
-  return (
-    oldProps.params.channel.toLowerCase() === newProps.params.channel.toLowerCase() &&
-    oldProps.chat.byName.has(oldProps.params.channel.toLowerCase()) &&
-    !newProps.chat.byName.has(oldProps.params.channel.toLowerCase())
-  )
-}
-
-class ChatChannelView extends React.Component<ChatChannelViewProps> {
-  componentDidMount() {
-    const routeChannel = decodeURIComponent(this.props.params.channel)
-    if (this._isInChannel()) {
-      this.props.dispatch(retrieveUserList(routeChannel))
-      this.props.dispatch(retrieveInitialMessageHistory(routeChannel))
-      this.props.dispatch(activateChannel(routeChannel) as any)
-    } else {
-      this.props.dispatch(joinChannel(routeChannel))
-    }
-  }
-
-  componentDidUpdate(prevProps: ChatChannelViewProps) {
-    if (isLeavingChannel(prevProps, this.props)) {
+  // TODO(2Pac): Pull this out into some kind of "isLeaving" hook and share with whispers/lobby?
+  useEffect(() => {
+    if (prevChannelName === channelName && prevChannel && !channel) {
       push('/')
-      return
     }
+  })
 
-    const prevChannel = decodeURIComponent(prevProps.params.channel)
-    const routeChannel = decodeURIComponent(this.props.params.channel)
-    if (this._isInChannel()) {
-      this.props.dispatch(retrieveUserList(routeChannel))
-      this.props.dispatch(retrieveInitialMessageHistory(routeChannel))
-      this.props.dispatch(activateChannel(routeChannel) as any)
-    } else if (
-      !prevProps.chat.byName.has(routeChannel) &&
-      prevChannel.toLowerCase() !== routeChannel.toLowerCase()
-    ) {
+  // TODO(2Pac): Make this less spammy?
+  useEffect(() => {
+    dispatch(activateChannel(channelName) as any)
+  }, [channel])
+
+  useEffect(() => {
+    if (channel) {
+      dispatch(retrieveUserList(channelName))
+      dispatch(retrieveInitialMessageHistory(channelName))
+    } else {
       if (MULTI_CHANNEL) {
-        this.props.dispatch(joinChannel(routeChannel))
+        dispatch(joinChannel(channelName))
       } else {
         push('/')
       }
     }
-    if (prevChannel && prevChannel.toLowerCase() !== routeChannel.toLowerCase()) {
-      this.props.dispatch(deactivateChannel(prevChannel) as any)
-    }
-  }
 
-  componentWillUnmount() {
-    this.props.dispatch(deactivateChannel(decodeURIComponent(this.props.params.channel)) as any)
-  }
+    return () => dispatch(deactivateChannel(channelName) as any)
+  }, [channelName])
 
-  render() {
-    const routeChannel = decodeURIComponent(this.props.params.channel)
-    const channel = this.props.chat.byName.get(routeChannel.toLowerCase())
+  const onSendChatMessage = useCallback(msg => dispatch(sendMessage(channelName, msg)), [
+    dispatch,
+    channelName,
+  ])
+  const onRequestMoreHistory = useCallback(
+    () => dispatch(retrieveNextMessageHistory(channelName)),
+    [dispatch, channelName],
+  )
+  const onWhisperClick = useCallback(user => navigateToWhisper(user), [])
 
-    if (!channel) {
-      return (
-        <LoadingArea>
-          <LoadingIndicator />
-        </LoadingArea>
-      )
-    }
-
+  if (!channel) {
     return (
-      <Channel
-        channel={channel}
-        onSendChatMessage={this.onSendChatMessage}
-        onRequestMoreHistory={this.onRequestMoreHistory}
-        onWhisperClick={this.onWhisperClick}
-      />
+      <LoadingArea>
+        <LoadingIndicator />
+      </LoadingArea>
     )
   }
 
-  onSendChatMessage = (msg: string) => {
-    this.props.dispatch(sendMessage(decodeURIComponent(this.props.params.channel), msg))
-  }
-
-  onRequestMoreHistory = () => {
-    this.props.dispatch(retrieveNextMessageHistory(decodeURIComponent(this.props.params.channel)))
-  }
-
-  onWhisperClick = (user: string) => {
-    navigateToWhisper(user)
-  }
-
-  _isInChannel() {
-    const routeChannel = decodeURIComponent(this.props.params.channel)
-    return this.props.chat.byName.has(routeChannel.toLowerCase())
-  }
+  return (
+    <Channel
+      channel={channel}
+      onSendChatMessage={onSendChatMessage}
+      onRequestMoreHistory={onRequestMoreHistory}
+      onWhisperClick={onWhisperClick}
+    />
+  )
 }
-
-export default connect(mapStateToProps)(ChatChannelView)
