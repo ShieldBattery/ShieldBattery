@@ -196,7 +196,7 @@ export default class Settings extends React.Component {
       tabItems.push(<TabItem key='gameplay' text='Gameplay' disabled={isTabDisabled} />)
     }
     const tabs = (
-      <Tabs activeTab={activeTab} onChange={this.onTabChange}>
+      <Tabs activeTab={activeTab} onChange={this.onTabChange} bottomDivider={true}>
         {tabItems}
       </Tabs>
     )
