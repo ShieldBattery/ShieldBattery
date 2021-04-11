@@ -268,8 +268,8 @@ export default function formDecorator<ModelType, WrappedProps>(
           // validation promise
           for (const deferred of this.notifyValidation) {
             deferred.resolve()
-            this.notifyValidation.length = 0
           }
+          this.notifyValidation.length = 0
         }
       }
 

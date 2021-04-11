@@ -9,7 +9,7 @@ import {
   getIngameSkinName,
   IngameSkin,
 } from '../../common/blizz-settings'
-import form, { FormChildProps, FormWrapper } from '../forms/form'
+import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import CheckBox from '../material/check-box'
 import NumberTextField from '../material/number-text-field'
@@ -50,110 +50,115 @@ interface GameplaySettingsModel {
 
 function validateApmValue(val: number, model: GameplaySettingsModel) {
   if (!model.apmAlertOn) {
-    return null
+    return undefined
   }
 
-  return val <= 0 || val > 999 ? 'Enter a value between 1 and 999' : null
+  return val <= 0 || val > 999 ? 'Enter a value between 1 and 999' : undefined
 }
 
-class GameplayRemasteredForm extends React.Component<FormChildProps<GameplaySettingsModel>> {
-  render() {
-    const { bindCheckable, bindCustom, onSubmit } = this.props
+function GameplayRemasteredForm(props: {
+  model: GameplaySettingsModel
+  onChange: (model: GameplaySettingsModel) => void
+  onSubmit: (model: GameplaySettingsModel) => void
+  submitterRef: React.MutableRefObject<{ submit: () => void }>
+}) {
+  const { bindCheckable, bindCustom, onSubmit, getInputValue } = useForm(
+    props.model,
+    { apmAlertValue: validateApmValue },
+    { onChange: props.onChange, onSubmit: props.onSubmit },
+  )
+  props.submitterRef.current = { submit: onSubmit }
 
-    return (
-      <form noValidate={true} onSubmit={onSubmit}>
-        <SubmitOnEnter />
-        <FormContainer>
-          <div>
-            <Select {...bindCustom('unitPortraits')} label='Portraits' tabIndex={0}>
-              <Option value={2} text='Animated' />
-              <Option value={1} text='Still' />
-              <Option value={0} text='Disabled' />
-            </Select>
-            <Select {...bindCustom('minimapPosition')} label='Minimap position' tabIndex={0}>
-              <Option value={true} text='Bottom-left corner' />
-              <Option value={false} text='Standard' />
-            </Select>
-            <SkinOverline>Skins (must be purchased from Blizzard)</SkinOverline>
-            <BonusSkinsCheckBox
-              {...bindCheckable('showBonusSkins')}
-              label='Show bonus skins'
-              inputProps={{ tabIndex: 0 }}
-            />
-            <Select
-              {...bindCustom('selectedSkin')}
-              label='Ingame skin'
-              tabIndex={0}
-              disabled={!this.props.getInputValue('showBonusSkins')}>
-              {ALL_INGAME_SKINS.map(skin => (
-                <Option key={skin || 'default'} value={skin} text={getIngameSkinName(skin)} />
-              ))}
-            </Select>
-            <Select {...bindCustom('consoleSkin')} label='Console skin' tabIndex={0}>
-              {ALL_CONSOLE_SKINS.map(skin => (
-                <Option key={skin} value={skin} text={getConsoleSkinName(skin)} />
-              ))}
-            </Select>
-          </div>
-          <div>
-            <CheckBox
-              {...bindCheckable('gameTimerOn')}
-              label='Game timer'
-              inputProps={{ tabIndex: 0 }}
-            />
-            <CheckBox
-              {...bindCheckable('colorCyclingOn')}
-              label='Enable color cycling'
-              inputProps={{ tabIndex: 0 }}
-            />
-            <CheckBox
-              {...bindCheckable('apmDisplayOn')}
-              label='APM display'
-              inputProps={{ tabIndex: 0 }}
-            />
-            <ApmAlertCheckbox
-              {...bindCheckable('apmAlertOn')}
-              label='Alert when APM falls below'
-              inputProps={{ tabIndex: 0 }}
-            />
-            <NumberTextField
-              {...bindCustom('apmAlertValue')}
-              floatingLabel={false}
-              dense={true}
-              label='APM value'
-              inputProps={{ min: 0, max: 999 }}
-              disabled={!this.props.getInputValue('apmAlertOn')}
-            />
-            <CheckBox
-              {...bindCheckable('apmAlertColorOn')}
-              label='Color text'
-              inputProps={{ tabIndex: 0 }}
-              disabled={!this.props.getInputValue('apmAlertOn')}
-            />
-            <CheckBox
-              {...bindCheckable('apmAlertSoundOn')}
-              label='Play sound'
-              inputProps={{ tabIndex: 0 }}
-              disabled={!this.props.getInputValue('apmAlertOn')}
-            />
-          </div>
-        </FormContainer>
-      </form>
-    )
-  }
+  return (
+    <form noValidate={true} onSubmit={onSubmit}>
+      <SubmitOnEnter />
+      <FormContainer>
+        <div>
+          <Select {...bindCustom('unitPortraits')} label='Portraits' tabIndex={0}>
+            <Option value={2} text='Animated' />
+            <Option value={1} text='Still' />
+            <Option value={0} text='Disabled' />
+          </Select>
+          <Select {...bindCustom('minimapPosition')} label='Minimap position' tabIndex={0}>
+            <Option value={true} text='Bottom-left corner' />
+            <Option value={false} text='Standard' />
+          </Select>
+          <SkinOverline>Skins (must be purchased from Blizzard)</SkinOverline>
+          <BonusSkinsCheckBox
+            {...bindCheckable('showBonusSkins')}
+            label='Show bonus skins'
+            inputProps={{ tabIndex: 0 }}
+          />
+          <Select
+            {...bindCustom('selectedSkin')}
+            label='Ingame skin'
+            tabIndex={0}
+            disabled={!getInputValue('showBonusSkins')}>
+            {ALL_INGAME_SKINS.map(skin => (
+              <Option key={skin || 'default'} value={skin} text={getIngameSkinName(skin)} />
+            ))}
+          </Select>
+          <Select {...bindCustom('consoleSkin')} label='Console skin' tabIndex={0}>
+            {ALL_CONSOLE_SKINS.map(skin => (
+              <Option key={skin} value={skin} text={getConsoleSkinName(skin)} />
+            ))}
+          </Select>
+        </div>
+        <div>
+          <CheckBox
+            {...bindCheckable('gameTimerOn')}
+            label='Game timer'
+            inputProps={{ tabIndex: 0 }}
+          />
+          <CheckBox
+            {...bindCheckable('colorCyclingOn')}
+            label='Enable color cycling'
+            inputProps={{ tabIndex: 0 }}
+          />
+          <CheckBox
+            {...bindCheckable('apmDisplayOn')}
+            label='APM display'
+            inputProps={{ tabIndex: 0 }}
+          />
+          <ApmAlertCheckbox
+            {...bindCheckable('apmAlertOn')}
+            label='Alert when APM falls below'
+            inputProps={{ tabIndex: 0 }}
+          />
+          <NumberTextField
+            {...bindCustom('apmAlertValue')}
+            floatingLabel={false}
+            dense={true}
+            label='APM value'
+            inputProps={{ min: 0, max: 999 }}
+            disabled={!getInputValue('apmAlertOn')}
+          />
+          <CheckBox
+            {...bindCheckable('apmAlertColorOn')}
+            label='Color text'
+            inputProps={{ tabIndex: 0 }}
+            disabled={!getInputValue('apmAlertOn')}
+          />
+          <CheckBox
+            {...bindCheckable('apmAlertSoundOn')}
+            label='Play sound'
+            inputProps={{ tabIndex: 0 }}
+            disabled={!getInputValue('apmAlertOn')}
+          />
+        </div>
+      </FormContainer>
+    </form>
+  )
 }
-
-export const WrappedGameplayRemasteredForm = form<GameplaySettingsModel, Record<never, never>>({
-  apmAlertValue: validateApmValue,
-})(GameplayRemasteredForm)
 
 export interface GameplaySettingsProps {
   localSettings: LocalSettings
   scrSettings: ScrSettings
-  formRef: React.Ref<InstanceType<typeof WrappedGameplayRemasteredForm>>
+  // TODO(tec27): This is pretty hacky and we should find some better way to handle this
+  formRef: React.MutableRefObject<{ submit: () => void }>
   isRemastered?: boolean
   onChange: (values: GameplaySettingsModel) => void
-  onSubmit: () => void
+  onSubmit: (values: GameplaySettingsModel) => void
 }
 
 export default class GameplaySettings extends React.Component<GameplaySettingsProps> {
@@ -176,21 +181,12 @@ export default class GameplaySettings extends React.Component<GameplaySettingsPr
     const formScrModel: GameplaySettingsModel = { ...scrSettings.toJS() }
 
     return (
-      <WrappedGameplayRemasteredForm
-        ref={formRef}
+      <GameplayRemasteredForm
+        submitterRef={formRef}
         model={formScrModel}
-        onChange={this.onChange}
-        onSubmit={this.onSubmit}
+        onChange={this.props.onChange}
+        onSubmit={this.props.onSubmit}
       />
     )
-  }
-
-  onChange = (form: FormWrapper<GameplaySettingsModel>) => {
-    const values = form.getModel()
-    this.props.onChange(values)
-  }
-
-  onSubmit = () => {
-    this.props.onSubmit()
   }
 }

@@ -11,7 +11,9 @@ const PRIVATE_TOKEN = Symbol('DEFERRED_PRIVATE_TOKEN')
  * This explicitly doesn't extend Promise because it causes problems in browsers when using the
  * babel polyfill (Prototype doesn't end up with the Deferred-specific methods on it)
  */
-export class Deferred<T> {
+export class Deferred<T> implements Promise<T> {
+  [Symbol.toStringTag] = 'Deferred'
+
   /**
    * Constructs a new Deferred. Don't call this directly, use `createDeferred` instead.
    */
