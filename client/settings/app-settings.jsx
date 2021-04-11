@@ -28,6 +28,7 @@ const StyledSlider = styled(Slider)`
 const TestSoundButton = styled(FlatButton)`
   min-width: 104px;
   margin-left: 16px;
+  padding-left: 12px;
 
   & ${Label} {
     color: ${colorTextSecondary};
@@ -150,8 +151,7 @@ export default class AppSettings extends React.Component {
     }
 
     this.setState({ isPlayingTestSound: true })
-    // TODO(2Pac): Have some more appropriate sound to test here?
-    this._sound = audioManager.playSound(SOUNDS.COUNTDOWN)
+    this._sound = audioManager.playSound(SOUNDS.MATCH_FOUND)
     this._sound.onended = this._cleanup
   }
 

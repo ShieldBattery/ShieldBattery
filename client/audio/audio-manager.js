@@ -76,7 +76,7 @@ export default class AudioManager {
       throw new Error('Invalid volume value: ' + volume)
     }
 
-    this._nodes.masterGain.gain.value = volume / 100
+    this._nodes.masterGain.gain.value = (1.5 * volume) / 100
   }
 
   // soundId is a value from AudioManager.SOUNDS
