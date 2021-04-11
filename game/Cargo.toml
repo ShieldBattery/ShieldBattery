@@ -2,6 +2,7 @@
 name = "shieldbattery"
 version = "0.1.0"
 edition = "2018"
+resolver = "2"
 
 [lib]
 name = "shieldbattery"
@@ -13,7 +14,7 @@ panic = "abort"
 [profile.release]
 debug = 1
 panic = "abort"
-overflow-checks = true
+overflow-checks = true # Only our crates; gets reverted back to true for dependencies below
 lto = true
 
 [dependencies]
@@ -77,6 +78,12 @@ path = "./compile-shaders"
 [build-dependencies.compile-shaders]
 path = "./compile-shaders"
 
+# Applies to dependencies, not main / local workspace crates
+[profile.release.package."*"]
+# Enough dependencies have inline-heavy "fast" code that ends up being
+# somewhat unideal if overflow checks are enabled and bloat things
+overflow-checks = false
+
 [profile.dev.package.scr-analysis]
 # Optimize scr-analysis subcrate as its code takes quite a lot of time to run
 # if not optimized (That is also the main reason for it being a separate crate)
@@ -98,3 +105,21 @@ opt-level = 2
 # (Imo it either way chooses a poor tradeoff between size and performance but oh well)
 [profile.dev.package.http]
 opt-level = 2
+
+# Have build dependencies (most importantly serde) be built with opt-level 2.
+# In debug this should reduce time it takes to expand derive macros -- it's
+# done every time the compiler is ran. I don't have pc that can get super reliable
+# measurements, but it seems to shorten macro expansion phase by few seconds for me.
+# I'm betting on this being worth the bit longer initial compile time when working
+# on the game code a lot =)
+[profile.dev.build-override]
+opt-level = 2
+debug = 0
+overflow-checks = false
+
+# On release, use opt-level 0 to make the code executed at build time compile faster.
+# (Release doesn't need to save few seconds on rebuild after minor change)
+[profile.release.build-override]
+opt-level = 0
+debug = 0
+overflow-checks = false
