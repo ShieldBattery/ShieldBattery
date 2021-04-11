@@ -310,7 +310,6 @@ pub unsafe fn after_step_game() {
         // fog sprites as usual.
         // To get around this issue, check which neutral buildings don't have fog
         // sprites and add them back.
-        // (Adding fog sprites on visible area is fine, at least in replays)
 
         let mut fow_sprites = FxHashSet::with_capacity_and_hasher(256, Default::default());
         for fow in bw.fow_sprites() {
@@ -318,16 +317,22 @@ pub unsafe fn after_step_game() {
             let pos = bw.sprite_position(sprite);
             fow_sprites.insert((pos.x, pos.y, UnitId((*fow).unit_id)));
         }
+        let replay_visions = bw.replay_visions();
         for unit in bw.active_units() {
             if unit.player() == 11 && unit.is_landed_building() {
                 // This currently adds fow sprites even for buildings that became
                 // neutral after player left. It's probably fine, but if it wasn't
                 // desired, checking that `sprite.player == 11` should only include
                 // buildings that existed from map start
-                let sprite = (**unit).sprite;
-                let pos = bw.sprite_position(sprite as *mut c_void);
-                if fow_sprites.insert((pos.x, pos.y, unit.id())) {
-                    bw.create_fow_sprite(unit);
+                if let Some(sprite) = unit.sprite() {
+                    let is_visible = replay_visions.show_entire_map ||
+                        sprite.visibility_mask() & replay_visions.players != 0;
+                    if !is_visible {
+                        let pos = bw.sprite_position(*sprite as *mut c_void);
+                        if fow_sprites.insert((pos.x, pos.y, unit.id())) {
+                            bw.create_fow_sprite(unit);
+                        }
+                    }
                 }
             }
         }

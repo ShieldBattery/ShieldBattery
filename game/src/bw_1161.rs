@@ -188,6 +188,13 @@ impl bw::Bw for Bw1161 {
         *vars::enable_rng = 0;
     }
 
+    unsafe fn replay_visions(&self) -> bw::ReplayVisions {
+        bw::ReplayVisions {
+            show_entire_map: *vars::replay_show_entire_map != 0,
+            players: *vars::replay_visions as u8,
+        }
+    }
+
     unsafe fn set_player_name(&self, id: u8, name: &str) {
         let mut buffer = [0; 25];
         for (i, &byte) in name.as_bytes().iter().take(24).enumerate() {
@@ -339,6 +346,7 @@ mod vars {
 
         0x00596BBC => replay_data: *mut bw::ReplayData;
         0x006D0F18 => replay_visions: u32;
+        0x006D0F1C => replay_show_entire_map: u32;
         0x0057F0B0 => player_visions: u32;
         0x006CEB39 => resource_minimap_color: u8;
         0x006D5BC4 => timeout_bin: *mut bw::Dialog;

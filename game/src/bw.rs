@@ -67,6 +67,7 @@ pub trait Bw: Sync + Send {
     unsafe fn replay_data(&self) -> *mut ReplayData;
     fn game_command_lengths(&self) -> &[u32];
     unsafe fn process_replay_commands(&self, commands: &[u8], player: StormPlayerId);
+    unsafe fn replay_visions(&self) -> ReplayVisions;
 
     unsafe fn set_player_name(&self, id: u8, name: &str);
 
@@ -85,6 +86,11 @@ pub trait Bw: Sync + Send {
     unsafe fn storm_set_last_error(&self, error: u32);
 
     unsafe fn call_original_status_screen_fn(&self, unit_id: UnitId, dialog: *mut Dialog);
+}
+
+pub struct ReplayVisions {
+    pub show_entire_map: bool,
+    pub players: u8,
 }
 
 pub const MAX_STORM_PLAYERS: usize = 12;

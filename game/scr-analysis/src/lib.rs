@@ -58,11 +58,11 @@ impl<'e> Analysis<'e> {
     }
 
     pub fn storm_players(&mut self) -> Option<Operand<'e>> {
-        self.0.net_players().net_players.map(|x| x.0)
+        self.0.net_players().map(|x| x.0)
     }
 
     pub fn init_net_player(&mut self) -> Option<VirtualAddress> {
-        self.0.net_players().init_net_player
+        self.0.init_net_player()
     }
 
     pub fn net_player_flags(&mut self) -> Option<Operand<'e>> {
@@ -78,23 +78,23 @@ impl<'e> Analysis<'e> {
     }
 
     pub fn is_multiplayer(&mut self) -> Option<Operand<'e>> {
-        self.0.select_map_entry().is_multiplayer
+        self.0.is_multiplayer()
     }
 
     pub fn select_map_entry(&mut self) -> Option<VirtualAddress> {
-        self.0.select_map_entry().select_map_entry
+        self.0.select_map_entry()
     }
 
     pub fn game_state(&mut self) -> Option<Operand<'e>> {
-        self.0.game_init().scmain_state
+        self.0.scmain_state()
     }
 
     pub fn mainmenu_entry_hook(&mut self) -> Option<VirtualAddress> {
-        self.0.game_init().mainmenu_entry_hook
+        self.0.mainmenu_entry_hook()
     }
 
     pub fn game_loop(&mut self) -> Option<VirtualAddress> {
-        self.0.game_init().game_loop
+        self.0.game_loop()
     }
 
     pub fn init_map_from_path(&mut self) -> Option<VirtualAddress> {
@@ -130,19 +130,19 @@ impl<'e> Analysis<'e> {
     }
 
     pub fn local_storm_player_id(&mut self) -> Option<Operand<'e>> {
-        self.0.single_player_start().local_storm_player_id
+        self.0.local_storm_player_id()
     }
 
     pub fn local_unique_player_id(&mut self) -> Option<Operand<'e>> {
-        self.0.single_player_start().local_unique_player_id
+        self.0.local_unique_player_id()
     }
 
     pub fn net_player_to_game(&mut self) -> Option<Operand<'e>> {
-        self.0.single_player_start().net_player_to_game
+        self.0.net_player_to_game()
     }
 
     pub fn net_player_to_unique(&mut self) -> Option<Operand<'e>> {
-        self.0.single_player_start().net_player_to_unique
+        self.0.net_player_to_unique()
     }
 
     pub fn choose_snp(&mut self) -> Option<VirtualAddress> {
@@ -158,11 +158,11 @@ impl<'e> Analysis<'e> {
     }
 
     pub fn init_storm_networking(&mut self) -> Option<VirtualAddress> {
-        self.0.init_storm_networking().init_storm_networking
+        self.0.init_storm_networking()
     }
 
     pub fn load_snp_list(&mut self) -> Option<VirtualAddress> {
-        self.0.init_storm_networking().load_snp_list
+        self.0.load_snp_list()
     }
 
     pub fn font_cache_render_ascii(&mut self) -> Option<VirtualAddress> {
@@ -206,7 +206,7 @@ impl<'e> Analysis<'e> {
     }
 
     pub fn init_game(&mut self) -> Option<VirtualAddress> {
-        self.0.init_game().init_game
+        self.0.init_game()
     }
 
     pub fn init_units(&mut self) -> Option<VirtualAddress> {
@@ -243,43 +243,43 @@ impl<'e> Analysis<'e> {
     }
 
     pub fn first_active_unit(&mut self) -> Option<Operand<'e>> {
-        self.0.active_hidden_units().first_active_unit
+        self.0.first_active_unit()
     }
 
     pub fn client_selection(&mut self) -> Option<Operand<'e>> {
-        self.0.game_screen_rclick().client_selection
+        self.0.client_selection()
     }
 
     pub fn sprites_by_y_tile_start(&mut self) -> Option<Operand<'e>> {
-        self.0.sprites().sprite_hlines
+        self.0.sprite_hlines()
     }
 
     pub fn sprites_by_y_tile_end(&mut self) -> Option<Operand<'e>> {
-        self.0.sprites().sprite_hlines_end
+        self.0.sprite_hlines_end()
     }
 
     pub fn first_free_sprite(&mut self) -> Option<Operand<'e>> {
-        self.0.sprites().first_free_sprite
+        self.0.first_free_sprite()
     }
 
     pub fn last_free_sprite(&mut self) -> Option<Operand<'e>> {
-        self.0.sprites().last_free_sprite
+        self.0.last_free_sprite()
     }
 
     pub fn first_active_fow_sprite(&mut self) -> Option<Operand<'e>> {
-        self.0.fow_sprites().first_active
+        self.0.first_fow_sprite()
     }
 
     pub fn last_active_fow_sprite(&mut self) -> Option<Operand<'e>> {
-        self.0.fow_sprites().last_active
+        self.0.last_fow_sprite()
     }
 
     pub fn first_free_fow_sprite(&mut self) -> Option<Operand<'e>> {
-        self.0.fow_sprites().first_free
+        self.0.first_free_fow_sprite()
     }
 
     pub fn last_free_fow_sprite(&mut self) -> Option<Operand<'e>> {
-        self.0.fow_sprites().last_free
+        self.0.last_free_fow_sprite()
     }
 
     pub fn first_free_image(&mut self) -> Option<Operand<'e>> {
@@ -291,11 +291,11 @@ impl<'e> Analysis<'e> {
     }
 
     pub fn sprite_x(&mut self) -> Option<(Operand<'e>, u32, MemAccessSize)> {
-        self.0.sprites().sprite_x_position
+        self.0.sprite_x_position()
     }
 
     pub fn sprite_y(&mut self) -> Option<(Operand<'e>, u32, MemAccessSize)> {
-        self.0.sprites().sprite_y_position
+        self.0.sprite_y_position()
     }
 
     pub fn replay_minimap_unexplored_fog_patch(&mut self) -> Option<Patch> {
@@ -320,11 +320,11 @@ impl<'e> Analysis<'e> {
     }
 
     pub fn unique_command_user(&mut self) -> Option<Operand<'e>> {
-        self.0.selections().unique_command_user
+        self.0.unique_command_user()
     }
 
     pub fn enable_rng(&mut self) -> Option<Operand<'e>> {
-        self.0.rng().enable
+        self.0.rng_enable()
     }
 
     pub fn init_real_time_lighting(&mut self) -> Option<VirtualAddress> {
@@ -348,5 +348,13 @@ impl<'e> Analysis<'e> {
             .unit_status_funcs
             .get(0)
             .copied()
+    }
+
+    pub fn replay_visions(&mut self) -> Option<Operand<'e>> {
+        self.0.replay_visions()
+    }
+
+    pub fn replay_show_entire_map(&mut self) -> Option<Operand<'e>> {
+        self.0.replay_show_entire_map()
     }
 }

@@ -63,6 +63,8 @@ pub struct BwScr {
     sprite_y: (Value<*mut *mut scr::Sprite>, u32, scarf::MemAccessSize),
     replay_data: Value<*mut bw::ReplayData>,
     enable_rng: Value<u32>,
+    replay_visions: Value<u8>,
+    replay_show_entire_map: Value<u8>,
     free_sprites: LinkedList<scr::Sprite>,
     active_fow_sprites: LinkedList<bw::FowSprite>,
     free_fow_sprites: LinkedList<bw::FowSprite>,
@@ -867,6 +869,9 @@ impl BwScr {
 
         let replay_data = analysis.replay_data().ok_or("replay_data")?;
         let enable_rng = analysis.enable_rng().ok_or("Enable RNG")?;
+        let replay_visions = analysis.replay_visions().ok_or("replay_visions")?;
+        let replay_show_entire_map = analysis.replay_show_entire_map()
+            .ok_or("replay_show_entire_map")?;
 
         let starcraft_tls_index = analysis.get_tls_index().ok_or("TLS index")?;
 
@@ -923,6 +928,8 @@ impl BwScr {
             sprite_y: (Value::new(ctx, sprite_y.0), sprite_y.1, sprite_y.2),
             replay_data: Value::new(ctx, replay_data),
             enable_rng: Value::new(ctx, enable_rng),
+            replay_visions: Value::new(ctx, replay_visions),
+            replay_show_entire_map: Value::new(ctx, replay_show_entire_map),
             free_sprites,
             active_fow_sprites,
             free_fow_sprites,
@@ -1812,6 +1819,13 @@ impl bw::Bw for BwScr {
         self.command_user.write(self.local_player_id.resolve());
         self.unique_command_user.write(self.local_unique_player_id.resolve());
         self.enable_rng.write(1);
+    }
+
+    unsafe fn replay_visions(&self) -> bw::ReplayVisions {
+        bw::ReplayVisions {
+            show_entire_map: self.replay_show_entire_map.resolve() != 0,
+            players: self.replay_visions.resolve(),
+        }
     }
 
     unsafe fn set_player_name(&self, id: u8, name: &str) {
