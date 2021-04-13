@@ -12,8 +12,8 @@ import { Message } from '../messaging/message-records'
 import { push } from '../navigation/routing'
 import UserProfileOverlay from '../profile/user-profile-overlay'
 import LoadingIndicator from '../progress/dots'
-import { usePrevious } from '../react-extra-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { usePrevious } from '../state-hooks'
 import { alphaDisabled, colorDividers, colorTextSecondary } from '../styles/colors'
 import { body2, overline, singleLine } from '../styles/typography'
 import { navigateToWhisper } from '../whispers/action-creators'
@@ -469,24 +469,22 @@ export default function ChatChannelView() {
 
   const prevChannelName = usePrevious(channelName)
   const prevChannel = usePrevious(channel)
+  const isInChannel = !!channel
+  const isLeavingChannel = !isInChannel && prevChannel && prevChannelName === channelName
 
   // TODO(2Pac): Pull this out into some kind of "isLeaving" hook and share with whispers/lobby?
   useEffect(() => {
-    if (prevChannelName === channelName && prevChannel && !channel) {
+    if (isLeavingChannel) {
       push('/')
     }
-  })
-
-  // TODO(2Pac): Make this less spammy?
-  useEffect(() => {
-    dispatch(activateChannel(channelName) as any)
-  }, [channel])
+  }, [isLeavingChannel])
 
   useEffect(() => {
-    if (channel) {
+    if (isInChannel) {
       dispatch(retrieveUserList(channelName))
       dispatch(retrieveInitialMessageHistory(channelName))
-    } else {
+      dispatch(activateChannel(channelName) as any)
+    } else if (!isLeavingChannel) {
       if (MULTI_CHANNEL) {
         dispatch(joinChannel(channelName))
       } else {
@@ -495,9 +493,9 @@ export default function ChatChannelView() {
     }
 
     return () => dispatch(deactivateChannel(channelName) as any)
-  }, [channelName])
+  }, [isInChannel, isLeavingChannel, channelName])
 
-  const onSendChatMessage = useCallback(msg => dispatch(sendMessage(channelName, msg)), [
+  const onSendChatMessage = useCallback((msg: string) => dispatch(sendMessage(channelName, msg)), [
     dispatch,
     channelName,
   ])
@@ -505,7 +503,7 @@ export default function ChatChannelView() {
     () => dispatch(retrieveNextMessageHistory(channelName)),
     [dispatch, channelName],
   )
-  const onWhisperClick = useCallback(user => navigateToWhisper(user), [])
+  const onWhisperClick = useCallback((user: string) => navigateToWhisper(user), [])
 
   if (!channel) {
     return (
