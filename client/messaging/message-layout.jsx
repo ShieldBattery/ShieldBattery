@@ -59,14 +59,14 @@ const Timestamp = styled.span`
   text-align: right;
 `
 
-export const ChatTimestamp = props => (
+export const MessageTimestamp = props => (
   <Timestamp title={longTimestamp.format(props.time)}>
     <Separator aria-hidden={true}>[</Separator>
     {getLocalTime(new Date(props.time))}
     <Separator aria-hidden={true}>] </Separator>
   </Timestamp>
 )
-ChatTimestamp.propTypes = {
+MessageTimestamp.propTypes = {
   time: PropTypes.number.isRequired,
 }
 
@@ -91,15 +91,15 @@ const MessageContainer = styled.div`
   text-indent: -72px;
 `
 
-export const ChatMessageLayout = props => {
+export const TimestampMessageLayout = props => {
   return (
     <MessageContainer className={props.className} role='document'>
-      <ChatTimestamp time={props.time} />
+      <MessageTimestamp time={props.time} />
       {props.children}
     </MessageContainer>
   )
 }
-ChatMessageLayout.propTypes = {
+TimestampMessageLayout.propTypes = {
   time: PropTypes.number.isRequired,
   className: PropTypes.string,
 }
@@ -139,11 +139,11 @@ export class TextMessageDisplay extends React.Component {
     const { user, time, text } = this.props
 
     return (
-      <ChatMessageLayout time={time}>
+      <TimestampMessageLayout time={time}>
         <Username>{user}</Username>
         <Separator aria-hidden={true}>{': '}</Separator>
         <Text>{text}</Text>
-      </ChatMessageLayout>
+      </TimestampMessageLayout>
     )
   }
 }

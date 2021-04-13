@@ -15,7 +15,7 @@ import {
   WHISPERS_UPDATE_USER_OFFLINE,
   NETWORK_SITE_CONNECTED,
 } from '../actions'
-import { TextMessage } from '../messaging/message-records'
+import { TextMessageRecord } from '../messaging/message-records'
 
 // How many messages should be kept for inactive channels
 const INACTIVE_CHANNEL_MAX_HISTORY = 150
@@ -106,7 +106,7 @@ export default keyedReducer(new WhisperState(), {
   [WHISPERS_UPDATE_MESSAGE](state, action) {
     const { id, time, from, to, message } = action.payload
     const target = state.sessions.has(from) ? from : to
-    const newMessage = new TextMessage({
+    const newMessage = new TextMessageRecord({
       id,
       time,
       from,
@@ -158,7 +158,7 @@ export default keyedReducer(new WhisperState(), {
     const newMessages = new List(
       action.payload.map(
         msg =>
-          new TextMessage({
+          new TextMessageRecord({
             id: msg.id,
             time: msg.sent,
             from: msg.from,

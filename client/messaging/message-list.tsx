@@ -1,17 +1,11 @@
 import { List } from 'immutable'
 import PropTypes from 'prop-types'
-import React from 'react'
+import React, { ReactNode } from 'react'
 import styled from 'styled-components'
 import { animationFrameHandler } from '../material/animation-frame-handler'
 import LoadingIndicator from '../progress/dots'
-import { TextMessageDisplay } from './message'
-import { ChatMessage, ChatMessageType } from './message-records'
-import {
-  JoinChannelMessage,
-  LeaveChannelMessage,
-  NewChannelOwnerMessage,
-  SelfJoinChannelMessage,
-} from './message-types'
+import { TextMessageDisplay } from './message-layout'
+import { CommonMessageType, Message } from './message-records'
 
 /**
  * How many pixels a user can be away from the bottom of the scrollable area and still be
@@ -41,34 +35,45 @@ const Messages = styled.div`
 `
 
 interface PureMessageListProps {
-  messages: List<ChatMessage>
+  messages: List<Message>
+  renderMessage?: (msg: Message) => ReactNode
 }
 
-function messageToElem(msg: ChatMessage) {
+function renderCommonMessage(msg: Message) {
   switch (msg.type) {
-    case ChatMessageType.JoinChannel:
-      return <JoinChannelMessage key={msg.id} record={msg} />
-    case ChatMessageType.LeaveChannel:
-      return <LeaveChannelMessage key={msg.id} record={msg} />
-    case ChatMessageType.TextMessage:
+    case CommonMessageType.TextMessage:
       return <TextMessageDisplay key={msg.id} user={msg.from} time={msg.time} text={msg.text} />
-    case ChatMessageType.NewChannelOwner:
-      return <NewChannelOwnerMessage key={msg.id} record={msg} />
-    case ChatMessageType.SelfJoinChannel:
-      return <SelfJoinChannelMessage key={msg.id} record={msg} />
     default:
       return null
   }
 }
 
+const handleUnknown = (msg: Message) => {
+  return null
+}
+
 // This contains just the messages, to avoid needing to re-render them all if e.g. loading state
 // changes on the actual message list
-const PureMessageList = React.memo<PureMessageListProps>(({ messages }) => {
-  return <Messages>{messages.map(m => messageToElem(m))}</Messages>
+const PureMessageList = React.memo<PureMessageListProps>(({ messages, renderMessage }) => {
+  return (
+    <Messages>
+      {messages.map(m => {
+        // NOTE(2Pac): We only handle common messages here, e.g. text message. All other types of
+        // messages are handled by calling the `renderMessage` function which should be supplied by
+        // each service if they have any special messages to handle.
+        return renderCommonMessage(m) ?? (renderMessage ?? handleUnknown)(m)
+      })}
+    </Messages>
+  )
 })
 
 export interface MessageListProps {
-  messages: List<ChatMessage>
+  messages: List<Message>
+  /**
+   * Function which will be called to render a particular message. If not provided, only common
+   * messages will be rendered.
+   */
+  renderMessage?: (msg: Message) => ReactNode
   className?: string
   /** Whether we are currently requesting more history for this message list. */
   loading?: boolean
@@ -95,6 +100,8 @@ export default class MessageList extends React.Component<
 > {
   static propTypes = {
     messages: PropTypes.object.isRequired,
+    // A function which is used to render messages
+    renderMessage: PropTypes.func,
     // Whether we are currently requesting more history for this message list
     loading: PropTypes.bool,
     // Whether this message list has more history available that could be requested
@@ -171,7 +178,7 @@ export default class MessageList extends React.Component<
         {needsLoadingArea ? (
           <LoadingArea>{this.props.loading ? <LoadingIndicator /> : null}</LoadingArea>
         ) : null}
-        <PureMessageList messages={this.props.messages} />
+        <PureMessageList messages={this.props.messages} renderMessage={this.props.renderMessage} />
       </Scrollable>
     )
   }
