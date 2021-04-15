@@ -48,12 +48,7 @@ export const Users = new Record({
 
 export class Channel extends Record({
   name: null,
-  // This list should contain *all* messages, including the client-side ones like notifications for
-  // user coming online/offline, etc.
   messages: new List(),
-  // This list should contain only messages of the type `ChatMessage`, i.e. the messages that are
-  // written by users.
-  chatMessages: new List(),
   users: new Users(),
 
   loadingHistory: false,
@@ -196,17 +191,13 @@ export default keyedReducer(new ChatState(), {
 
   [CHAT_UPDATE_MESSAGE](state, action) {
     const { id, channel, time, user, message } = action.payload
-    const lowerCaseChannel = channel.toLowerCase()
     const newMessage = new TextMessageRecord({
       id,
       time,
       from: user,
       text: message,
     })
-    const updated = state.updateIn(['byName', lowerCaseChannel, 'chatMessages'], m =>
-      m.push(newMessage),
-    )
-    return updateMessages(updated, channel, true, m => m.push(newMessage))
+    return updateMessages(state, channel, true, m => m.push(newMessage))
   },
 
   [CHAT_UPDATE_USER_ACTIVE](state, action) {
@@ -259,14 +250,11 @@ export default keyedReducer(new ChatState(), {
           }),
       ),
     )
-    let updated = state.setIn(['byName', lowerCaseChannel, 'loadingHistory'], false)
+    const updated = state.setIn(['byName', lowerCaseChannel, 'loadingHistory'], false)
     if (!newMessages.size) {
       return updated.setIn(['byName', lowerCaseChannel, 'hasHistory'], false)
     }
 
-    updated = updated.updateIn(['byName', lowerCaseChannel, 'chatMessages'], messages =>
-      newMessages.concat(messages),
-    )
     return updateMessages(updated, channel, false, messages => newMessages.concat(messages))
   },
 

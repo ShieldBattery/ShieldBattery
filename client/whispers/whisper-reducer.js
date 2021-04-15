@@ -23,12 +23,7 @@ const INACTIVE_CHANNEL_MAX_HISTORY = 150
 export class Session extends (new Record({
   target: null,
   status: null,
-  // This list should contain *all* messages, including the client-side ones like notifications for
-  // user coming online/offline, etc.
   messages: new List(),
-  // This list should contain only messages of the type `ChatMessage`, i.e. the messages that are
-  // written by users.
-  chatMessages: new List(),
 
   loadingHistory: false,
   hasLoadedHistory: false,
@@ -113,10 +108,7 @@ export default keyedReducer(new WhisperState(), {
       text: message,
     })
 
-    const updated = state.updateIn(['byName', target.toLowerCase(), 'chatMessages'], m =>
-      m.push(newMessage),
-    )
-    return updateMessages(updated, target.toLowerCase(), m => m.push(newMessage))
+    return updateMessages(state, target.toLowerCase(), m => m.push(newMessage))
   },
 
   [WHISPERS_UPDATE_USER_ACTIVE](state, action) {
@@ -166,14 +158,11 @@ export default keyedReducer(new WhisperState(), {
           }),
       ),
     )
-    let updated = state.setIn(['byName', name, 'loadingHistory'], false)
+    const updated = state.setIn(['byName', name, 'loadingHistory'], false)
     if (!newMessages.size) {
       return updated.setIn(['byName', name, 'hasHistory'], false)
     }
 
-    updated = updated.updateIn(['byName', name, 'chatMessages'], messages =>
-      newMessages.concat(messages),
-    )
     return updateMessages(updated, name, messages => newMessages.concat(messages))
   },
 
