@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { List as VirtualizedList, ListRowRenderer } from 'react-virtualized'
 import styled, { css } from 'styled-components'
-import { useRoute } from 'wouter'
 import { MULTI_CHANNEL } from '../../common/flags'
 import Avatar from '../avatars/avatar'
 import WindowListener from '../dom/window-listener'
@@ -461,9 +460,12 @@ class Channel extends React.Component<ChannelProps> {
   }
 }
 
-export default function ChatChannelView() {
-  const [, params = {}] = useRoute('/chat/:channel')
-  const channelName = params ? decodeURIComponent(params.channel).toLowerCase() : null
+interface ChatChannelViewProps {
+  params: { channel: string }
+}
+
+export default function ChatChannelView(props: ChatChannelViewProps) {
+  const channelName = decodeURIComponent(props.params.channel).toLowerCase()
   const dispatch = useAppDispatch()
   const channel = useAppSelector(s => s.chat.byName.get(channelName))
 
