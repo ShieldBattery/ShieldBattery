@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react'
-import styled, { keyframes } from 'styled-components'
+import React from 'react'
+import styled, { css, keyframes } from 'styled-components'
 
 const bounce = keyframes`
   0%, 80%, 100% {
@@ -13,15 +13,30 @@ const bounce = keyframes`
   }
 `
 
-const Root = styled.div`
+const makeVisible = keyframes`
+  to {
+    visibility: visible;
+  }
+`
+
+const LOADING_SHOW_DELAY_MS = 750
+
+const delayedShowCss = css`
+  animation: 0s linear ${LOADING_SHOW_DELAY_MS}ms forwards ${makeVisible};
+  visibility: hidden;
+`
+
+const Root = styled.div<{ $showImmediately?: boolean }>`
   height: 24px;
   padding: 4px 8px;
   color: rgba(255, 255, 255, 0.5);
+
+  ${props => (!props.$showImmediately ? delayedShowCss : '')};
 `
 
 interface DotProps {
   /** How long to delay the animation for, as a CSS unit string. */
-  delay: string
+  $delay: string
 }
 
 const Dot = styled.div<DotProps>`
@@ -32,24 +47,12 @@ const Dot = styled.div<DotProps>`
   background-color: currentColor;
   border-radius: 50%;
   animation: ${bounce} 1.6s infinite cubic-bezier(0.7, 0, 0.3, 1);
-  animation-delay: ${props => props.delay};
+  animation-delay: ${props => props.$delay};
 
   & + & {
     margin-left: 6px;
   }
 `
-
-const LOADING_SHOW_DELAY_MS = 1000
-
-function useDelayedShow(dependentValues: any[] = []): boolean {
-  const [show, setShow] = useState(false)
-  useEffect(() => {
-    const timer = setTimeout(() => setShow(true), LOADING_SHOW_DELAY_MS)
-    return () => clearTimeout(timer)
-  }, dependentValues)
-
-  return show
-}
 
 interface DotsIndicatorProps {
   /**
@@ -64,33 +67,31 @@ interface DotsIndicatorProps {
 }
 
 export default function DotsIndicator({ showImmediately = false, className }: DotsIndicatorProps) {
-  const show = useDelayedShow([showImmediately])
-
-  return showImmediately || show ? (
-    <Root>
-      <Dot delay='-450ms' />
-      <Dot delay='-300ms' />
-      <Dot delay='-150ms' />
-      <Dot delay='0s' />
+  return (
+    <Root className={className} $showImmediately={showImmediately}>
+      <Dot $delay='-1200ms' />
+      <Dot $delay='-1050ms' />
+      <Dot $delay='-900ms' />
+      <Dot $delay='-750ms' />
     </Root>
-  ) : null
+  )
 }
 
-const LoadingArea = styled.div`
+const LoadingArea = styled.div<{ $showImmediately?: boolean }>`
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
   min-height: 56px;
   padding: 16px 0;
+
+  ${props => (!props.$showImmediately ? delayedShowCss : '')};
 `
 
 export function LoadingDotsArea({ showImmediately = false, className }: DotsIndicatorProps) {
-  const show = useDelayedShow([showImmediately])
-
-  return showImmediately || show ? (
-    <LoadingArea className={className}>
+  return (
+    <LoadingArea className={className} $showImmediately={showImmediately}>
       <DotsIndicator showImmediately={true} />
     </LoadingArea>
-  ) : null
+  )
 }
