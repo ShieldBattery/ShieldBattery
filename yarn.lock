@@ -10017,11 +10017,6 @@ reduce-function-call@^1.0.1:
   dependencies:
     balanced-match "^1.0.0"
 
-redux-batched-subscribe@^0.1.6:
-  version "0.1.6"
-  resolved "https://registry.yarnpkg.com/redux-batched-subscribe/-/redux-batched-subscribe-0.1.6.tgz#de928602708df7198b4d0c98c7119df993780d59"
-  integrity sha1-3pKGAnCN9xmLTQyYxxGd+ZN4DVk=
-
 redux-devtools-dock-monitor@^1.2.0:
   version "1.2.0"
   resolved "https://registry.yarnpkg.com/redux-devtools-dock-monitor/-/redux-devtools-dock-monitor-1.2.0.tgz#d7a99e9181dafff25e6869c6cc2bce9a9019eb04"
