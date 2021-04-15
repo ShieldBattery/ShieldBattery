@@ -23,7 +23,11 @@ import {
   LOBBY_UPDATE_SLOT_DELETED,
   LOBBY_UPDATE_STATUS,
 } from '../actions'
-import { MAP_STORE_DOWNLOAD_MAP, NEW_CHAT_MESSAGE } from '../../common/ipc-constants'
+import {
+  MAP_STORE_DOWNLOAD_MAP,
+  NEW_CHAT_MESSAGE,
+  USER_ATTENTION_REQUIRED,
+} from '../../common/ipc-constants'
 
 import { Slot } from './lobby-reducer'
 import { dispatch } from '../dispatch-registry'
@@ -97,6 +101,7 @@ const eventToAction = {
   slotCreate: (name, event) => {
     if (event.slot.type === 'human') {
       audioManager.playSound(SOUNDS.JOIN_ALERT)
+      ipcRenderer.send(USER_ATTENTION_REQUIRED)
     }
 
     return {
