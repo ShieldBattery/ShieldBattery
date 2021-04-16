@@ -1,3 +1,35 @@
+#### 7.0.10 (April 16, 2021)
+
+- **Can you hear me now?** Application sounds are now 150% louder, as they were a bit quiet relative
+  to other application's volumes. You may want to double-check your settings to ensure they sound
+  how you'd like.
+- **Replay filenames.** Auto-saved replays from ShieldBattery now contain the correct map name
+  instead of just 'map'.
+- **Calm down, minerals.** Minerals and gas geysers should no longer vibrate in replays. Sorry, they
+  were just a bit excited.
+- **Au revoir.** We made a change to ensure the game never tries to talk to the Bonjour service,
+  which may have been stalling some users' game initialization in rare cases.
+- **Blink. blink.** The application will now flash its taskbar entry when someone joins your lobby.
+- **Longer load times.** We've doubled the allowable game load times (to 60 seconds) since some
+  users were hitting this timeout when they would have loaded successfully. We have some plans to
+  improve this system to not require such long timeouts, but these players should no longer be
+  hindered by it for the time being.
+- **Ping pong.** We've revamped our system for dealing with game servers, allowing us to add and
+  remove servers on the fly, as well as improving the consistent and reliability of clients
+  calculating their ping to the various regions. This should improve ingame latency a bit (more
+  work on that front coming soon!).
+
+##### Known Issues
+
+- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
+  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
+  very least add a warning for this case in the future (or better yet, automate re-authing), but
+  for now, try to launch the game from the Blizzard launcher at least once a month.
+- **Observer mode missing.** We're still getting our lobby code to work with the newer ingame
+  observer things, this will return shortly!
+- **Off-center screen starting position.** For some users, generally in positions on the right side
+  of the screen, the starting screen position may be slightly off-center from where it usually is.
+
 #### 7.0.9 (April 9th, 2021)
 
 - **Faster auto-update.** Our updates are now served from our global CDN and support downloading
