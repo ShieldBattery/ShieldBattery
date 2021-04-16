@@ -20,8 +20,7 @@ import Card from '../material/card'
 import IconButton from '../material/icon-button'
 import RaisedButton from '../material/raised-button'
 import { shadow1dp } from '../material/shadows'
-import MessageInput from '../messaging/message-input'
-import MessageList from '../messaging/message-list'
+import Chat from '../messaging/chat'
 import { Message } from '../messaging/message-records'
 import { colorTextSecondary } from '../styles/colors'
 import { body1, headline4, headline6, subtitle1 } from '../styles/typography'
@@ -45,8 +44,9 @@ import OpenSlot from './open-slot'
 import PlayerSlot from './player-slot'
 import { ObserverSlots, RegularSlots, TeamName } from './slot'
 
-const StyledMessageList = styled(MessageList)`
+const StyledChat = styled(Chat)`
   flex-grow: 1;
+  overflow: hidden;
   margin-top: 8px;
   padding-top: 0;
 `
@@ -57,12 +57,6 @@ const SlotsCard = styled(Card)`
   flex-shrink: 0;
   padding-top: 8px;
   padding-bottom: 8px;
-`
-
-const StyledMessageInput = styled(MessageInput)`
-  flex-shrink: 0;
-  margin: 8px 0;
-  padding: 0 16px;
 `
 
 const ContentArea = styled.div`
@@ -378,8 +372,11 @@ export default class Lobby extends React.Component<LobbyProps> {
             <RegularSlots>{slots}</RegularSlots>
             <ObserverSlots>{obsSlots}</ObserverSlots>
           </SlotsCard>
-          <StyledMessageList messages={this.props.chat} renderMessage={renderChatMessage} />
-          <StyledMessageInput onSend={onSendChatMessage} />
+          <StyledChat
+            messages={this.props.chat}
+            renderMessage={renderChatMessage}
+            onSendChatMessage={onSendChatMessage}
+          />
         </Left>
         <Info>
           <RaisedButton label='Leave lobby' onClick={onLeaveLobbyClick} />

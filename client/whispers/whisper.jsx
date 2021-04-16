@@ -1,5 +1,4 @@
 import React from 'react'
-import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { push } from '../navigation/routing'
 import styled from 'styled-components'
@@ -13,10 +12,8 @@ import {
 } from './action-creators'
 
 import LoadingIndicator from '../progress/dots'
-import MessageInput from '../messaging/message-input'
-import MessageList from '../messaging/message-list'
+import Chat from '../messaging/chat'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
-import { colorDividers } from '../styles/colors'
 
 // Height to the bottom of the loading area (the top of the messages)
 const LOADING_AREA_BOTTOM = 32 + 8
@@ -37,84 +34,9 @@ const LoadingArea = styled.div`
   justify-content: center;
 `
 
-const MessagesAndInput = styled.div`
-  min-width: 320px;
-  height: 100%;
+const StyledChat = styled(Chat)`
   flex-grow: 1;
 `
-
-const CHAT_INPUT_HEIGHT_PX = 56
-const CHAT_INPUT_PADDING_PX = 16
-
-const StyledMessageList = styled(MessageList)`
-  height: calc(100% - ${CHAT_INPUT_HEIGHT_PX}px - ${CHAT_INPUT_PADDING_PX}px);
-  contain: strict;
-`
-
-const ChatInput = styled(MessageInput)`
-  position: relative;
-  padding: ${CHAT_INPUT_PADDING_PX / 2}px 16px;
-  contain: content;
-
-  &::after {
-    position: absolute;
-    height: 1px;
-    left: 0px;
-    right: 0px;
-    top: 0;
-
-    content: '';
-    border-top: 1px solid ${props => (props.showDivider ? colorDividers : 'transparent')};
-    transition: border 250ms linear;
-  }
-`
-
-class Whisper extends React.Component {
-  static propTypes = {
-    session: PropTypes.object.isRequired,
-    onSendChatMessage: PropTypes.func,
-    onRequestMoreHistory: PropTypes.func,
-  }
-
-  state = {
-    isScrolledUp: false,
-  }
-
-  render() {
-    const { session, onSendChatMessage } = this.props
-    return (
-      <Container>
-        <MessagesAndInput>
-          <StyledMessageList
-            loading={session.loadingHistory}
-            hasMoreHistory={session.hasHistory}
-            messages={session.messages}
-            onScrollUpdate={this.onScrollUpdate}
-          />
-          <ChatInput onSend={onSendChatMessage} showDivider={this.state.isScrolledUp} />
-        </MessagesAndInput>
-      </Container>
-    )
-  }
-
-  onScrollUpdate = target => {
-    const { scrollTop, scrollHeight, clientHeight } = target
-
-    const isScrolledUp = scrollTop + clientHeight < scrollHeight
-    if (isScrolledUp !== this.state.isScrolledUp) {
-      this.setState({ isScrolledUp })
-    }
-
-    if (
-      this.props.onRequestMoreHistory &&
-      this.props.session.hasHistory &&
-      !this.props.session.loadingHistory &&
-      scrollTop < LOADING_AREA_BOTTOM
-    ) {
-      this.props.onRequestMoreHistory()
-    }
-  }
-}
 
 // Returns true if the whispers store state shows that we have closed the whisper session while
 // having it opened
@@ -130,13 +52,7 @@ function isClosingCurrentWhisperSession(oldProps, newProps) {
 }
 
 @connect(state => ({ whispers: state.whispers, user: state.auth.user }))
-export default class WhisperView extends React.Component {
-  constructor(props) {
-    super(props)
-    this._handleSendChatMessage = this.onSendChatMessage.bind(this)
-    this._handleRequestMoreHistory = this.onRequestMoreHistory.bind(this)
-  }
-
+export default class Whisper extends React.Component {
   componentDidMount() {
     const target = decodeURIComponent(this.props.params.target).toLowerCase()
     if (this.props.user.name.toLowerCase() === target) {
@@ -210,20 +126,30 @@ export default class WhisperView extends React.Component {
     }
 
     return (
-      <Whisper
-        session={session}
-        onSendChatMessage={this._handleSendChatMessage}
-        onRequestMoreHistory={this._handleRequestMoreHistory}
-      />
+      <Container>
+        <StyledChat
+          messages={session.messages}
+          loading={session.loadingHistory}
+          hasMoreHistory={session.hasHistory}
+          onScrollUpdate={this.onScrollUpdate}
+          onSendChatMessage={this.onSendChatMessage}
+        />
+      </Container>
     )
   }
 
-  onSendChatMessage(msg) {
-    this.props.dispatch(sendMessage(decodeURIComponent(this.props.params.target), msg))
+  onScrollUpdate = element => {
+    const target = decodeURIComponent(this.props.params.target)
+    const session = this.props.whispers.byName.get(target.toLowerCase())
+    const { scrollTop } = element
+
+    if (session.hasHistory && !session.loadingHistory && scrollTop < LOADING_AREA_BOTTOM) {
+      this.props.dispatch(retrieveNextMessageHistory(target))
+    }
   }
 
-  onRequestMoreHistory() {
-    this.props.dispatch(retrieveNextMessageHistory(decodeURIComponent(this.props.params.target)))
+  onSendChatMessage = msg => {
+    this.props.dispatch(sendMessage(decodeURIComponent(this.props.params.target), msg))
   }
 
   _hasWhisperSession(target) {
