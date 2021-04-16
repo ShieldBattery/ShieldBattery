@@ -30,18 +30,12 @@ export interface MessageInputProps {
 }
 
 export default function MessageInput(props: MessageInputProps) {
-  const [message, setMessage] = useState<string>('')
-  const inputRef = useRef<TextField | null>(null)
+  const [message, setMessage] = useState('')
+  const inputRef = useRef<TextField>(null)
 
-  const onChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const { value } = event.target
-      if (value !== message) {
-        setMessage(value)
-      }
-    },
-    [message],
-  )
+  const onChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setMessage(event.target.value)
+  }, [])
 
   const onEnterKeyDown = useCallback(() => {
     if (message) {
@@ -50,34 +44,27 @@ export default function MessageInput(props: MessageInputProps) {
     }
   }, [message, props.onSendChatMessage])
 
-  const onKeyPress = useCallback(
-    (event: React.KeyboardEvent<TextField>) => {
-      const target = event.target as HTMLElement
+  const onKeyPress = useCallback((event: React.KeyboardEvent<TextField>) => {
+    const target = event.target as HTMLElement
 
-      if (
-        event.ctrlKey ||
-        event.altKey ||
-        ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)
-      ) {
+    if (event.ctrlKey || event.altKey || ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) {
+      return false
+    }
+
+    const key = event.key ? event.key : String.fromCharCode(event.charCode)
+    if (key && key.length === 1) {
+      if (key === ' ' && target.tagName === 'BUTTON') {
+        // Space bar should click the button, rather than doing any of this
         return false
       }
 
-      const key = event.key ? event.key : String.fromCharCode(event.charCode)
-      if (key && key.length === 1) {
-        if (key === ' ' && target.tagName === 'BUTTON') {
-          // Space bar should click the button, rather than doing any of this
-          return false
-        }
+      inputRef.current?.focus()
+      setMessage(message => message + key)
+      return true
+    }
 
-        inputRef.current?.focus()
-        setMessage(message + key)
-        return true
-      }
-
-      return false
-    },
-    [message, inputRef.current],
-  )
+    return false
+  }, [])
 
   return (
     <>

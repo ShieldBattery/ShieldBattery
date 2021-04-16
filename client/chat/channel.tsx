@@ -438,16 +438,20 @@ export default function Channel(props: ChatChannelProps) {
     )
   }
 
+  const listProps = {
+    messages: channel.messages,
+    loading: channel.loadingHistory,
+    hasMoreHistory: channel.hasHistory,
+    renderMessage,
+    onScrollUpdate,
+  }
+  const inputProps = {
+    onSendChatMessage,
+  }
+
   return (
     <Container>
-      <StyledChat
-        messages={channel.messages}
-        renderMessage={renderMessage}
-        loading={channel.loadingHistory}
-        hasMoreHistory={channel.hasHistory}
-        onScrollUpdate={onScrollUpdate}
-        onSendChatMessage={onSendChatMessage}
-      />
+      <StyledChat listProps={listProps} inputProps={inputProps} />
       <UserList users={channel.users} onWhisperClick={onWhisperClick} />
     </Container>
   )

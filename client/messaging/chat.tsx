@@ -15,8 +15,10 @@ const StyledMessageList = styled(MessageList)`
   flex-grow: 1;
 `
 
-interface ChatProps extends MessageListProps, MessageInputProps {
+interface ChatProps {
   className?: string
+  listProps: MessageListProps
+  inputProps: Omit<MessageInputProps, 'showDivider'>
 }
 
 /**
@@ -37,23 +39,17 @@ export default function Chat(props: ChatProps) {
         setIsScrolledUp(newIsScrolledUp)
       }
 
-      if (props.onScrollUpdate) {
-        props.onScrollUpdate(target)
+      if (props.listProps.onScrollUpdate) {
+        props.listProps.onScrollUpdate(target)
       }
     },
-    [isScrolledUp, props.onScrollUpdate],
+    [isScrolledUp, props.listProps.onScrollUpdate],
   )
 
   return (
     <MessagesAndInput className={props.className}>
-      <StyledMessageList
-        messages={props.messages}
-        renderMessage={props.renderMessage}
-        loading={props.loading}
-        hasMoreHistory={props.hasMoreHistory}
-        onScrollUpdate={onScrollUpdate}
-      />
-      <MessageInput showDivider={isScrolledUp} onSendChatMessage={props.onSendChatMessage} />
+      <StyledMessageList {...props.listProps} onScrollUpdate={onScrollUpdate} />
+      <MessageInput {...props.inputProps} showDivider={isScrolledUp} />
     </MessagesAndInput>
   )
 }

@@ -125,15 +125,19 @@ export default class Whisper extends React.Component {
       )
     }
 
+    const listProps = {
+      messages: session.messages,
+      loading: session.loadingHistory,
+      hasMoreHistory: session.hasHistory,
+      onScrollUpdate: this.onScrollUpdate,
+    }
+    const inputProps = {
+      onSendChatMessage: this.onSendChatMessage,
+    }
+
     return (
       <Container>
-        <StyledChat
-          messages={session.messages}
-          loading={session.loadingHistory}
-          hasMoreHistory={session.hasHistory}
-          onScrollUpdate={this.onScrollUpdate}
-          onSendChatMessage={this.onSendChatMessage}
-        />
+        <StyledChat listProps={listProps} inputProps={inputProps} />
       </Container>
     )
   }

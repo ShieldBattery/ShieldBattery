@@ -365,6 +365,9 @@ export default class Lobby extends React.Component<LobbyProps> {
       }
     }
 
+    const listProps = { messages: this.props.chat, renderMessage: renderChatMessage }
+    const inputProps = { onSendChatMessage }
+
     return (
       <ContentArea>
         <Left>
@@ -372,11 +375,7 @@ export default class Lobby extends React.Component<LobbyProps> {
             <RegularSlots>{slots}</RegularSlots>
             <ObserverSlots>{obsSlots}</ObserverSlots>
           </SlotsCard>
-          <StyledChat
-            messages={this.props.chat}
-            renderMessage={renderChatMessage}
-            onSendChatMessage={onSendChatMessage}
-          />
+          <StyledChat listProps={listProps} inputProps={inputProps} />
         </Left>
         <Info>
           <RaisedButton label='Leave lobby' onClick={onLeaveLobbyClick} />
