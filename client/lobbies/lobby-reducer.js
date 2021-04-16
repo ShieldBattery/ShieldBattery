@@ -138,7 +138,7 @@ const infoReducer = keyedReducer(undefined, {
   },
 
   [LOBBY_UPDATE_HOST_CHANGE](state, action) {
-    return state.set('host', action.payload)
+    return state.set('host', new Slot(action.payload))
   },
 
   [LOBBY_UPDATE_COUNTDOWN_START](state, action) {
