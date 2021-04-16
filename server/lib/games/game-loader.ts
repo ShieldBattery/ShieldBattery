@@ -13,7 +13,7 @@ import routeCreator from '../rally-point/route-creator'
 import { GameConfigPlayerName, GameSource } from './configuration'
 import { registerGame } from './registration'
 
-const GAME_LOAD_TIMEOUT = 30 * 1000
+const GAME_LOAD_TIMEOUT = 60 * 1000
 
 function generateSeed() {
   // BWChart and some other replay sites/libraries utilize the random seed as the date the game was
