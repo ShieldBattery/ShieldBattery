@@ -104,7 +104,7 @@ export class RallyPointService {
           servers: serializeServerMap(this.servers),
         })
       } else {
-        log.warning('no enabled rally-point servers, multiplayer games will not work')
+        log.warn('no enabled rally-point servers, multiplayer games will not work')
       }
 
       return
