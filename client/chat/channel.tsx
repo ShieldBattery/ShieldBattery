@@ -5,15 +5,14 @@ import { MULTI_CHANNEL } from '../../common/flags'
 import Avatar from '../avatars/avatar'
 import WindowListener from '../dom/window-listener'
 import MenuItem from '../material/menu/item'
-import MessageInput from '../messaging/message-input'
-import MessageList from '../messaging/message-list'
+import Chat from '../messaging/chat'
 import { Message } from '../messaging/message-records'
 import { push } from '../navigation/routing'
 import UserProfileOverlay from '../profile/user-profile-overlay'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious } from '../state-hooks'
-import { alphaDisabled, colorDividers, colorTextSecondary } from '../styles/colors'
+import { alphaDisabled, colorTextSecondary } from '../styles/colors'
 import { body2, overline, singleLine } from '../styles/typography'
 import { navigateToWhisper } from '../whispers/action-creators'
 import {
@@ -32,7 +31,7 @@ import {
   SelfJoinChannelMessage,
 } from './chat-message-layout'
 import { ChatMessageType } from './chat-message-records'
-import { Channel as ChannelRecord, Users as UsersRecord } from './chat-reducer'
+import { Users as UsersRecord } from './chat-reducer'
 
 // Height to the bottom of the loading area (the top of the messages)
 const LOADING_AREA_BOTTOM = 32 + 8
@@ -357,43 +356,8 @@ const LoadingArea = styled.div`
   justify-content: center;
 `
 
-const MessagesAndInput = styled.div`
-  min-width: 320px;
-  height: 100%;
+const StyledChat = styled(Chat)`
   flex-grow: 1;
-  contain: content;
-`
-
-const CHAT_INPUT_HEIGHT_PX = 56
-const CHAT_INPUT_PADDING_PX = 16
-
-const StyledMessageList = styled(MessageList)`
-  height: calc(100% - ${CHAT_INPUT_HEIGHT_PX}px - ${CHAT_INPUT_PADDING_PX}px);
-  contain: strict;
-`
-
-interface ChatInputProps {
-  showDivider: boolean
-  onSend: (msg: string) => void
-}
-
-const ChatInput = styled(MessageInput)<ChatInputProps>`
-  position: relative;
-  padding: ${CHAT_INPUT_PADDING_PX / 2}px 16px;
-  contain: content;
-
-  // TODO(2Pac): Move this to the MessageInput component so it can be reused in other chat services.
-  &::after {
-    position: absolute;
-    height: 1px;
-    left: 0px;
-    right: 0px;
-    top: 0;
-
-    content: '';
-    border-top: 1px solid ${props => (props.showDivider ? colorDividers : 'transparent')};
-    transition: border 250ms linear;
-  }
 `
 
 function renderMessage(msg: Message) {
@@ -411,60 +375,11 @@ function renderMessage(msg: Message) {
   }
 }
 
-interface ChannelProps {
-  channel: ChannelRecord
-  onSendChatMessage: (msg: string) => void
-  onRequestMoreHistory: () => void
-  onWhisperClick: (user: string) => void
-}
-
-class Channel extends React.Component<ChannelProps> {
-  state = {
-    isScrolledUp: false,
-  }
-
-  render() {
-    const { channel, onSendChatMessage, onWhisperClick } = this.props
-    return (
-      <Container>
-        <MessagesAndInput>
-          <StyledMessageList
-            messages={channel.messages}
-            renderMessage={renderMessage}
-            loading={channel.loadingHistory}
-            hasMoreHistory={channel.hasHistory}
-            onScrollUpdate={this.onScrollUpdate}
-          />
-          <ChatInput showDivider={this.state.isScrolledUp} onSend={onSendChatMessage} />
-        </MessagesAndInput>
-        <UserList users={channel.users} onWhisperClick={onWhisperClick} />
-      </Container>
-    )
-  }
-
-  onScrollUpdate = (target: EventTarget) => {
-    const { scrollTop, scrollHeight, clientHeight } = target as HTMLDivElement
-
-    const isScrolledUp = scrollTop + clientHeight < scrollHeight
-    if (isScrolledUp !== this.state.isScrolledUp) {
-      this.setState({ isScrolledUp })
-    }
-
-    if (
-      this.props.channel.hasHistory &&
-      !this.props.channel.loadingHistory &&
-      scrollTop < LOADING_AREA_BOTTOM
-    ) {
-      this.props.onRequestMoreHistory()
-    }
-  }
-}
-
-interface ChatChannelViewProps {
+interface ChatChannelProps {
   params: { channel: string }
 }
 
-export default function ChatChannelView(props: ChatChannelViewProps) {
+export default function Channel(props: ChatChannelProps) {
   const channelName = decodeURIComponent(props.params.channel).toLowerCase()
   const dispatch = useAppDispatch()
   const channel = useAppSelector(s => s.chat.byName.get(channelName))
@@ -497,14 +412,22 @@ export default function ChatChannelView(props: ChatChannelViewProps) {
     return () => dispatch(deactivateChannel(channelName) as any)
   }, [isInChannel, isLeavingChannel, channelName])
 
+  const onScrollUpdate = useCallback(
+    (target: EventTarget) => {
+      const { scrollTop } = target as HTMLDivElement
+
+      if (channel.hasHistory && !channel.loadingHistory && scrollTop < LOADING_AREA_BOTTOM) {
+        dispatch(retrieveNextMessageHistory(channelName))
+      }
+    },
+    [channel, dispatch],
+  )
+
   const onSendChatMessage = useCallback((msg: string) => dispatch(sendMessage(channelName, msg)), [
     dispatch,
     channelName,
   ])
-  const onRequestMoreHistory = useCallback(
-    () => dispatch(retrieveNextMessageHistory(channelName)),
-    [dispatch, channelName],
-  )
+
   const onWhisperClick = useCallback((user: string) => navigateToWhisper(user), [])
 
   if (!channel) {
@@ -515,12 +438,21 @@ export default function ChatChannelView(props: ChatChannelViewProps) {
     )
   }
 
+  const listProps = {
+    messages: channel.messages,
+    loading: channel.loadingHistory,
+    hasMoreHistory: channel.hasHistory,
+    renderMessage,
+    onScrollUpdate,
+  }
+  const inputProps = {
+    onSendChatMessage,
+  }
+
   return (
-    <Channel
-      channel={channel}
-      onSendChatMessage={onSendChatMessage}
-      onRequestMoreHistory={onRequestMoreHistory}
-      onWhisperClick={onWhisperClick}
-    />
+    <Container>
+      <StyledChat listProps={listProps} inputProps={inputProps} />
+      <UserList users={channel.users} onWhisperClick={onWhisperClick} />
+    </Container>
   )
 }
