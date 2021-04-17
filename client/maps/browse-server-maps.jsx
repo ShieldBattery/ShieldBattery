@@ -428,9 +428,10 @@ export default class Maps extends React.Component {
                 {this.renderFavoritedMaps()}
                 <InfiniteScrollList
                   ref={this._setInfiniteListRef}
-                  isLoading={maps.isRequesting}
-                  hasMoreData={hasMoreMaps}
-                  onLoadMoreData={this.onLoadMoreMaps}>
+                  nextLoadingEnabled={true}
+                  isLoadingNext={maps.isRequesting}
+                  hasMoreNextData={hasMoreMaps}
+                  onLoadMoreNextData={this.onLoadMoreMaps}>
                   {this.renderAllMaps()}
                 </InfiniteScrollList>
               </>

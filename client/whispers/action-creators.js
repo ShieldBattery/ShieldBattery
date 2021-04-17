@@ -58,51 +58,19 @@ export function sendMessage(target, message) {
   }
 }
 
-// Retrieves the "initial" message history for a whisper session, that is, what we retrieve whenever
-// a user views a whisper session at all. This will only retrieve one batch of history ever, if more
-// is desired, use `retrieveNextMessageHistory`.
-export function retrieveInitialMessageHistory(target) {
+export function getMessageHistory(target, limit) {
   return (dispatch, getStore) => {
     const {
       whispers: { byName },
     } = getStore()
-    if (!byName.has(target)) {
+    const lowerCaseTarget = target.toLowerCase()
+    if (!byName.has(lowerCaseTarget)) {
       return
     }
 
-    const sessionData = byName.get(target)
-    if (sessionData.hasLoadedHistory || sessionData.loadingHistory || !sessionData.hasHistory) {
-      return
-    }
-    const params = { target }
-
-    dispatch({
-      type: WHISPERS_LOAD_SESSION_HISTORY_BEGIN,
-      payload: params,
-    })
-    dispatch({
-      type: WHISPERS_LOAD_SESSION_HISTORY,
-      payload: siteSocket.invoke('/whispers/getHistory', params),
-      meta: params,
-    })
-  }
-}
-
-export function retrieveNextMessageHistory(target) {
-  return (dispatch, getStore) => {
-    const {
-      whispers: { byName },
-    } = getStore()
-    if (!byName.has(target)) {
-      return
-    }
-
-    const sessionData = byName.get(target)
-    if (sessionData.loadingHistory || !sessionData.hasHistory) {
-      return
-    }
-    const earliestMessageTime = sessionData.hasLoadedHistory ? sessionData.messages.get(0).time : -1
-    const params = { target, beforeTime: earliestMessageTime }
+    const sessionData = byName.get(lowerCaseTarget)
+    const earliestMessageTime = sessionData.messages.size ? sessionData.messages.first().time : -1
+    const params = { target, limit, beforeTime: earliestMessageTime }
 
     dispatch({
       type: WHISPERS_LOAD_SESSION_HISTORY_BEGIN,

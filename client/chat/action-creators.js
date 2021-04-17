@@ -60,10 +60,7 @@ export function sendMessage(channel, message) {
   }
 }
 
-// Retrieves the "initial" message history for a channel, that is, what we retrieve whenever a user
-// views a channel at all. This will only retrieve one batch of history ever, if more is desired,
-// use `retrieveNextMessageHistory`.
-export function retrieveInitialMessageHistory(channel) {
+export function getMessageHistory(channel, limit) {
   return (dispatch, getStore) => {
     const {
       chat: { byName },
@@ -74,39 +71,8 @@ export function retrieveInitialMessageHistory(channel) {
     }
 
     const chanData = byName.get(lowerCaseChannel)
-    if (chanData.hasLoadedHistory || chanData.loadingHistory || !chanData.hasHistory) {
-      return
-    }
-    const params = { channel }
-
-    dispatch({
-      type: CHAT_LOAD_CHANNEL_HISTORY_BEGIN,
-      payload: params,
-    })
-    dispatch({
-      type: CHAT_LOAD_CHANNEL_HISTORY,
-      payload: siteSocket.invoke('/chat/getHistory', params),
-      meta: params,
-    })
-  }
-}
-
-export function retrieveNextMessageHistory(channel) {
-  return (dispatch, getStore) => {
-    const {
-      chat: { byName },
-    } = getStore()
-    const lowerCaseChannel = channel.toLowerCase()
-    if (!byName.has(lowerCaseChannel)) {
-      return
-    }
-
-    const chanData = byName.get(lowerCaseChannel)
-    if (chanData.loadingHistory || !chanData.hasHistory) {
-      return
-    }
-    const earliestMessageTime = chanData.hasLoadedHistory ? chanData.messages.get(0).time : -1
-    const params = { channel, beforeTime: earliestMessageTime }
+    const earliestMessageTime = chanData.messages.size ? chanData.messages.first().time : -1
+    const params = { channel, limit, beforeTime: earliestMessageTime }
 
     dispatch({
       type: CHAT_LOAD_CHANNEL_HISTORY_BEGIN,

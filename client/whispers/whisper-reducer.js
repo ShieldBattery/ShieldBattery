@@ -26,7 +26,6 @@ export class Session extends (new Record({
   messages: new List(),
 
   loadingHistory: false,
-  hasLoadedHistory: false,
   hasHistory: true,
 
   activated: false,
@@ -139,13 +138,11 @@ export default keyedReducer(new WhisperState(), {
   [WHISPERS_LOAD_SESSION_HISTORY_BEGIN](state, action) {
     const { target } = action.payload
 
-    return state.updateIn(['byName', target.toLowerCase()], s =>
-      s.set('loadingHistory', true).set('hasLoadedHistory', true),
-    )
+    return state.updateIn(['byName', target.toLowerCase()], s => s.set('loadingHistory', true))
   },
 
   [WHISPERS_LOAD_SESSION_HISTORY](state, action) {
-    const { target } = action.meta
+    const { target, limit } = action.meta
     const name = target.toLowerCase()
     const newMessages = new List(
       action.payload.map(
@@ -158,9 +155,9 @@ export default keyedReducer(new WhisperState(), {
           }),
       ),
     )
-    const updated = state.setIn(['byName', name, 'loadingHistory'], false)
-    if (!newMessages.size) {
-      return updated.setIn(['byName', name, 'hasHistory'], false)
+    let updated = state.setIn(['byName', name, 'loadingHistory'], false)
+    if (newMessages.size < limit) {
+      updated = updated.setIn(['byName', name, 'hasHistory'], false)
     }
 
     return updateMessages(updated, name, messages => newMessages.concat(messages))

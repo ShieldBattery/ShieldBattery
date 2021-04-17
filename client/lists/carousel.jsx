@@ -147,10 +147,10 @@ export default class Carousel extends React.Component {
           <CarouselContent ref={this._contentRef} style={contentStyle}>
             <InfiniteScrollList
               ref={this._infiniteListRef}
-              isLoading={isLoading}
-              horizontal={true}
-              hasMoreData={hasMoreItems}
-              onLoadMoreData={onLoadMoreData}>
+              nextLoadingEnabled={true}
+              isLoadingNext={isLoading}
+              hasMoreNextData={hasMoreItems}
+              onLoadMoreNextData={onLoadMoreData}>
               {this.props.children}
             </InfiniteScrollList>
           </CarouselContent>
@@ -195,7 +195,7 @@ export default class Carousel extends React.Component {
     // whether we have more items to load (in which case the loader will be shown), or if we've
     // reached the last page, then nothing will be shown
     let adjustment = 0
-    if (this.props.hasMoreItems) {
+    if (this.props.hasMoreItems && !this.props.isLoading) {
       adjustment = BUTTON_WIDTH - LOADER_WIDTH
     } else if (hasPrevItems && hasNextItems) {
       adjustment = BUTTON_WIDTH

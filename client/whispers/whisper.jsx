@@ -5,8 +5,7 @@ import styled from 'styled-components'
 import {
   sendMessage,
   startWhisperSession,
-  retrieveInitialMessageHistory,
-  retrieveNextMessageHistory,
+  getMessageHistory,
   activateWhisperSession,
   deactivateWhisperSession,
 } from './action-creators'
@@ -15,8 +14,7 @@ import LoadingIndicator from '../progress/dots'
 import Chat from '../messaging/chat'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 
-// Height to the bottom of the loading area (the top of the messages)
-const LOADING_AREA_BOTTOM = 32 + 8
+const MESSAGES_LIMIT = 50
 
 const Container = styled.div`
   max-width: 884px;
@@ -62,7 +60,6 @@ export default class Whisper extends React.Component {
     }
 
     if (this._hasWhisperSession(target)) {
-      this.props.dispatch(retrieveInitialMessageHistory(target))
       this.props.dispatch(activateWhisperSession(target))
     } else {
       this.props.dispatch(startWhisperSession(target))
@@ -92,7 +89,6 @@ export default class Whisper extends React.Component {
     }
 
     if (this._hasWhisperSession(target)) {
-      this.props.dispatch(retrieveInitialMessageHistory(target))
       this.props.dispatch(activateWhisperSession(target))
     } else if (!prevProps.whispers.byName.has(target)) {
       this.props.dispatch(startWhisperSession(target))
@@ -129,7 +125,7 @@ export default class Whisper extends React.Component {
       messages: session.messages,
       loading: session.loadingHistory,
       hasMoreHistory: session.hasHistory,
-      onScrollUpdate: this.onScrollUpdate,
+      onLoadMoreMessages: this.onLoadMoreMessages,
     }
     const inputProps = {
       onSendChatMessage: this.onSendChatMessage,
@@ -142,14 +138,10 @@ export default class Whisper extends React.Component {
     )
   }
 
-  onScrollUpdate = element => {
+  onLoadMoreMessages = () => {
     const target = decodeURIComponent(this.props.params.target)
-    const session = this.props.whispers.byName.get(target.toLowerCase())
-    const { scrollTop } = element
 
-    if (session.hasHistory && !session.loadingHistory && scrollTop < LOADING_AREA_BOTTOM) {
-      this.props.dispatch(retrieveNextMessageHistory(target))
-    }
+    this.props.dispatch(getMessageHistory(target, MESSAGES_LIMIT))
   }
 
   onSendChatMessage = msg => {

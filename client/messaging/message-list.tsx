@@ -2,8 +2,8 @@ import { List } from 'immutable'
 import PropTypes from 'prop-types'
 import React, { ReactNode } from 'react'
 import styled from 'styled-components'
+import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { animationFrameHandler } from '../material/animation-frame-handler'
-import LoadingIndicator from '../progress/dots'
 import { TextMessageDisplay } from './message-layout'
 import { CommonMessageType, Message } from './message-records'
 
@@ -13,20 +13,12 @@ import { CommonMessageType, Message } from './message-records'
  */
 const AUTOSCROLL_LEEWAY_PX = 8
 
-const LoadingArea = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 32px;
-`
-
 const Scrollable = styled.div`
   padding: 8px 16px 0px 8px;
   overflow-y: auto;
 `
 
 const Messages = styled.div`
-  padding: 8px 0 0;
   user-select: contain;
 
   & * {
@@ -84,11 +76,14 @@ export interface MessageListProps {
    * animation frames).
    */
   onScrollUpdate?: (scrollTarget: EventTarget) => void
+  onLoadMoreMessages?: () => void
 }
 
 interface MessageListSnapshot {
   /** Whether the user was scrolled to the bottom of the content before the last update. */
   wasAtBottom: boolean
+  /** What the scroll offset from top of the content was before the last update. */
+  lastScrollTop: number
   /** What the scroll height of the content was before the last update. */
   lastScrollHeight: number
 }
@@ -122,14 +117,15 @@ export default class MessageList extends React.Component<
 
   getSnapshotBeforeUpdate() {
     if (!this.scrollableRef.current) {
-      return { wasAtBottom: true, lastScrollHeight: 0 }
+      return { wasAtBottom: true, lastScrollTop: 0, lastScrollHeight: 0 }
     }
 
     const scrollable = this.scrollableRef.current
+    const lastScrollTop = scrollable.scrollTop
     const lastScrollHeight = scrollable.scrollHeight
     const wasAtBottom =
-      scrollable.scrollTop + scrollable.clientHeight + AUTOSCROLL_LEEWAY_PX >= lastScrollHeight
-    return { wasAtBottom, lastScrollHeight }
+      lastScrollTop + scrollable.clientHeight + AUTOSCROLL_LEEWAY_PX >= lastScrollHeight
+    return { wasAtBottom, lastScrollTop, lastScrollHeight }
   }
 
   componentDidMount() {
@@ -158,7 +154,8 @@ export default class MessageList extends React.Component<
         prevProps.messages.first() !== this.props.messages.first()
       ) {
         // Inserted elements at the top, maintain scroll position relative to the last top element
-        scrollable.scrollTop += scrollable.scrollHeight - snapshot.lastScrollHeight
+        scrollable.scrollTop =
+          snapshot.lastScrollTop + scrollable.scrollHeight - snapshot.lastScrollHeight
       }
     }
 
@@ -168,17 +165,20 @@ export default class MessageList extends React.Component<
   }
 
   render() {
-    const needsLoadingArea = this.props.loading || this.props.hasMoreHistory
+    const { messages, loading, hasMoreHistory, renderMessage, onLoadMoreMessages } = this.props
 
     return (
       <Scrollable
         ref={this.scrollableRef}
         className={this.props.className}
         onScroll={this.props.onScrollUpdate ? this.onScroll.handler : undefined}>
-        {needsLoadingArea ? (
-          <LoadingArea>{this.props.loading ? <LoadingIndicator /> : null}</LoadingArea>
-        ) : null}
-        <PureMessageList messages={this.props.messages} renderMessage={this.props.renderMessage} />
+        <InfiniteScrollList
+          prevLoadingEnabled={true}
+          isLoadingPrev={loading}
+          hasMorePrevData={hasMoreHistory}
+          onLoadMorePrevData={onLoadMoreMessages}>
+          <PureMessageList messages={messages} renderMessage={renderMessage} />
+        </InfiniteScrollList>
       </Scrollable>
     )
   }

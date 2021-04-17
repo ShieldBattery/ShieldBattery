@@ -18,9 +18,8 @@ import { navigateToWhisper } from '../whispers/action-creators'
 import {
   activateChannel,
   deactivateChannel,
+  getMessageHistory,
   joinChannel,
-  retrieveInitialMessageHistory,
-  retrieveNextMessageHistory,
   retrieveUserList,
   sendMessage,
 } from './action-creators'
@@ -32,9 +31,6 @@ import {
 } from './chat-message-layout'
 import { ChatMessageType } from './chat-message-records'
 import { Users as UsersRecord } from './chat-reducer'
-
-// Height to the bottom of the loading area (the top of the messages)
-const LOADING_AREA_BOTTOM = 32 + 8
 
 const UserListContainer = styled.div`
   width: 256px;
@@ -342,6 +338,8 @@ class UserList extends React.Component<UserListProps> {
   }
 }
 
+const MESSAGES_LIMIT = 50
+
 const Container = styled.div`
   max-width: 1140px;
   height: 100%;
@@ -401,7 +399,6 @@ export default function Channel(props: ChatChannelProps) {
   useEffect(() => {
     if (isInChannel) {
       dispatch(retrieveUserList(channelName))
-      dispatch(retrieveInitialMessageHistory(channelName))
       dispatch(activateChannel(channelName) as any)
     } else if (!isLeavingChannel) {
       if (MULTI_CHANNEL) {
@@ -414,15 +411,9 @@ export default function Channel(props: ChatChannelProps) {
     return () => dispatch(deactivateChannel(channelName) as any)
   }, [isInChannel, isLeavingChannel, channelName, dispatch])
 
-  const onScrollUpdate = useCallback(
-    (target: EventTarget) => {
-      const { scrollTop } = target as HTMLDivElement
-
-      if (channel.hasHistory && !channel.loadingHistory && scrollTop < LOADING_AREA_BOTTOM) {
-        dispatch(retrieveNextMessageHistory(channelName))
-      }
-    },
-    [channel.hasHistory, channel.loadingHistory, channelName, dispatch],
+  const onLoadMoreMessages = useCallback(
+    () => dispatch(getMessageHistory(channelName, MESSAGES_LIMIT)),
+    [channelName, dispatch],
   )
 
   const onSendChatMessage = useCallback((msg: string) => dispatch(sendMessage(channelName, msg)), [
@@ -445,7 +436,7 @@ export default function Channel(props: ChatChannelProps) {
     loading: channel.loadingHistory,
     hasMoreHistory: channel.hasHistory,
     renderMessage,
-    onScrollUpdate,
+    onLoadMoreMessages,
   }
   const inputProps = {
     onSendChatMessage,

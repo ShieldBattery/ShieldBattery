@@ -355,11 +355,15 @@ class MainLayout extends React.Component {
                 component={LoadableAdminPanel}
               />
               <Route path='/chat' component={ChatList} />
-              <Route path='/chat/:channel' component={ChatChannel} />
+              <Route path='/chat/:channel'>
+                {params => <ChatChannel params={params} key={params.channel} />}
+              </Route>
               <Route path='/ladder/:rest*' component={Ladder} />
               {lobbyRoute}
               {matchmakingRoute}
-              <Route path='/whispers/:target' component={Whisper} />
+              <Route path='/whispers/:target'>
+                {params => <Whisper params={params} key={params.target} />}
+              </Route>
               {/* If no paths match, redirect the page to the "index". */}
               <Route>
                 <Index transitionFn={replace} />
