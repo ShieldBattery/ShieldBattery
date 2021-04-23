@@ -260,7 +260,7 @@ export function DebugLogs() {
         dispatch(openSnackbar({ message: 'Error retrieving logs' }))
         console.error(err)
       })
-  }, [refreshToken, level])
+  }, [refreshToken, level, dispatch])
 
   return (
     <CenteredContentContainer>

@@ -90,7 +90,7 @@ export function NotificationsButton() {
   const onDismiss = useCallback(() => {
     setAnchor(null)
     dispatch(markNotificationsRead())
-  }, [])
+  }, [dispatch])
   const popoverContentsRef = useRef(null)
 
   return (

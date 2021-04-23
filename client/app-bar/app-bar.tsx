@@ -186,7 +186,7 @@ export default function AppBar(props: AppBarProps) {
           return <Divider key={i} />
         }
       }),
-    [APP_MENU_LINKS],
+    [],
   )
 
   // TODO(tec27): Make menus (popovers?) support vertical-only transition, or at least grow

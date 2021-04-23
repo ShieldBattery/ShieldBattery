@@ -234,7 +234,7 @@ export function EditServerRow({
         id: serverState.id,
       })
     },
-    [onFormSubmit],
+    [onFormSubmit, serverState.id],
   )
 
   const { onSubmit, bindCheckable, bindInput, bindCustom } = useForm<EditServerModel>(
@@ -348,7 +348,7 @@ export function AdminRallyPoint() {
           console.error(err)
         })
     },
-    [triggerRefresh],
+    [dispatch, triggerRefresh],
   )
   const onAddCancel = useCallback(() => {
     setIsAdding(false)
@@ -379,7 +379,7 @@ export function AdminRallyPoint() {
           console.error(err)
         })
     },
-    [triggerRefresh],
+    [dispatch, triggerRefresh],
   )
   const onEditCancel = useCallback(() => {
     setEditing(undefined)
@@ -392,7 +392,7 @@ export function AdminRallyPoint() {
         dispatch(openSnackbar({ message: 'Error retrieving servers' }))
         console.error(err)
       })
-  }, [refreshToken])
+  }, [dispatch, refreshToken])
 
   return (
     <CenteredContentContainer>

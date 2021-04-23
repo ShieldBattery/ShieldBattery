@@ -37,12 +37,13 @@ export default function MessageInput(props: MessageInputProps) {
     setMessage(event.target.value)
   }, [])
 
+  const { onSendChatMessage } = props
   const onEnterKeyDown = useCallback(() => {
     if (message) {
-      props.onSendChatMessage(message)
+      onSendChatMessage(message)
       setMessage('')
     }
-  }, [message, props.onSendChatMessage])
+  }, [message, onSendChatMessage])
 
   const onKeyPress = useCallback((event: React.KeyboardEvent<TextField>) => {
     const target = event.target as HTMLElement

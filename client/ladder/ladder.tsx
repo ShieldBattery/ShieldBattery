@@ -37,7 +37,7 @@ export function Ladder() {
 
   useEffect(() => {
     dispatch(getRankings(matchmakingType))
-  }, [matchmakingType])
+  }, [dispatch, matchmakingType])
 
   if (!rankings) {
     return null

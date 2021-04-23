@@ -240,11 +240,13 @@ export function useForm<ModelType>(
         callbacksRef.current.onChange(modelValue)
       }
     }
-  }, [modelValue])
+  }, [lastModelValue, modelValue, validate])
 
   useEffect(() => {
     return () => {
       // Ensure that validations do nothing once unmounted
+      // Disabling lint because it's fine if the value of this ref has changed at this point
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       validationPromisesRef.current.clear()
       callbacksRef.current = {}
     }
@@ -288,48 +290,63 @@ function useFormGetterSetters<ModelType>({
 
   const getInputValue = useCallback(
     <K extends keyof ModelType>(name: K) => stateModelRef.current[name],
-    [],
+    [stateModelRef],
   )
-  const setInputValue = useCallback(<K extends keyof ModelType>(name: K, value: ModelType[K]) => {
-    dirtyFieldsRef.current.set(name, true)
-    setModelValue(model => ({
-      ...model,
-      [name]: value,
-    }))
-  }, [])
-  const setInputError = useCallback((name: keyof ModelType, errorMsg?: string) => {
-    setValidationErrors(validationErrors => ({
-      ...validationErrors,
-      [name]: errorMsg,
-    }))
-  }, [])
+  const setInputValue = useCallback(
+    <K extends keyof ModelType>(name: K, value: ModelType[K]) => {
+      dirtyFieldsRef.current.set(name, true)
+      setModelValue(model => ({
+        ...model,
+        [name]: value,
+      }))
+    },
+    [dirtyFieldsRef, setModelValue],
+  )
+  const setInputError = useCallback(
+    (name: keyof ModelType, errorMsg?: string) => {
+      setValidationErrors(validationErrors => ({
+        ...validationErrors,
+        [name]: errorMsg,
+      }))
+    },
+    [setValidationErrors],
+  )
 
-  const onInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = event.target
-    setInputValue(name as keyof ModelType, value as any)
-  }, [])
-  const onCheckableChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, checked } = event.target
-    setInputValue(name as keyof ModelType, checked as any)
-  }, [])
+  const onInputChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const { name, value } = event.target
+      setInputValue(name as keyof ModelType, value as any)
+    },
+    [setInputValue],
+  )
+  const onCheckableChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const { name, checked } = event.target
+      setInputValue(name as keyof ModelType, checked as any)
+    },
+    [setInputValue],
+  )
   const onCustomChange = useCallback(
     <K extends keyof ModelType>(name: K, newValue: ModelType[K]) => {
       setInputValue(name, newValue)
     },
-    [],
+    [setInputValue],
   )
 
-  const bindInput = useCallback(<K extends OptionalConditionalKeys<ModelType, string>>(name: K) => {
-    // NOTE(tec27): The K param here guarantees this will be a string but TS can't quite convince
-    // itself of that, so we have to help it along
-    const value = (stateModelRef.current[name] ?? '') as string
-    return {
-      name,
-      onChange: onInputChange,
-      value,
-      errorText: validationErrorsRef.current[name],
-    }
-  }, [])
+  const bindInput = useCallback(
+    <K extends OptionalConditionalKeys<ModelType, string>>(name: K) => {
+      // NOTE(tec27): The K param here guarantees this will be a string but TS can't quite convince
+      // itself of that, so we have to help it along
+      const value = (stateModelRef.current[name] ?? '') as string
+      return {
+        name,
+        onChange: onInputChange,
+        value,
+        errorText: validationErrorsRef.current[name],
+      }
+    },
+    [onInputChange, stateModelRef, validationErrorsRef],
+  )
   const bindCheckable = useCallback(
     <K extends OptionalConditionalKeys<ModelType, boolean>>(name: K) => {
       return {
@@ -339,22 +356,25 @@ function useFormGetterSetters<ModelType>({
         errorText: validationErrorsRef.current[name],
       }
     },
-    [],
+    [onCheckableChange, stateModelRef, validationErrorsRef],
   )
-  const bindCustom = useCallback(<K extends keyof ModelType>(name: K) => {
-    if (!customChangeHandlersRef.current.has(name)) {
-      customChangeHandlersRef.current.set(name, (newValue: ModelType[K]) =>
-        onCustomChange(name, newValue),
-      )
-    }
+  const bindCustom = useCallback(
+    <K extends keyof ModelType>(name: K) => {
+      if (!customChangeHandlersRef.current.has(name)) {
+        customChangeHandlersRef.current.set(name, (newValue: ModelType[K]) =>
+          onCustomChange(name, newValue),
+        )
+      }
 
-    return {
-      name,
-      onChange: customChangeHandlersRef.current.get(name)!,
-      value: stateModelRef.current[name],
-      errorText: validationErrorsRef.current[name],
-    }
-  }, [])
+      return {
+        name,
+        onChange: customChangeHandlersRef.current.get(name)!,
+        value: stateModelRef.current[name],
+        errorText: validationErrorsRef.current[name],
+      }
+    },
+    [onCustomChange, stateModelRef, validationErrorsRef],
+  )
 
   return {
     getInputValue,

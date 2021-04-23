@@ -146,9 +146,11 @@ const UserListEntry = React.memo<UserListEntryProps>(props => {
   const onCloseOverlay = useCallback(() => {
     setOverlayOpen(false)
   }, [])
+
+  const { onWhisperClick: onWhisperClickProp, user } = props
   const onWhisperClick = useCallback(() => {
-    props.onWhisperClick(props.user)
-  }, [props.onWhisperClick, props.user])
+    onWhisperClickProp(user)
+  }, [onWhisperClickProp, user])
 
   return (
     <div style={props.style}>
@@ -410,7 +412,7 @@ export default function Channel(props: ChatChannelProps) {
     }
 
     return () => dispatch(deactivateChannel(channelName) as any)
-  }, [isInChannel, isLeavingChannel, channelName])
+  }, [isInChannel, isLeavingChannel, channelName, dispatch])
 
   const onScrollUpdate = useCallback(
     (target: EventTarget) => {
@@ -420,7 +422,7 @@ export default function Channel(props: ChatChannelProps) {
         dispatch(retrieveNextMessageHistory(channelName))
       }
     },
-    [channel, dispatch],
+    [channel.hasHistory, channel.loadingHistory, channelName, dispatch],
   )
 
   const onSendChatMessage = useCallback((msg: string) => dispatch(sendMessage(channelName, msg)), [

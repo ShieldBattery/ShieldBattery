@@ -12,7 +12,7 @@ import { usePasswordResetCode } from '../models/password-resets'
 import {
   addEmailVerificationCode,
   getEmailVerificationsCount,
-  useEmailVerificationCode,
+  consumeEmailVerificationCode,
 } from '../models/email-verifications'
 import { isValidUsername, isValidEmail, isValidPassword } from '../../../common/constants'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
@@ -234,7 +234,7 @@ async function verifyEmail(ctx, next, nydus) {
     throw new httpErrors.BadRequest('User not found')
   }
 
-  const emailVerified = await useEmailVerificationCode(user.id, user.email, code)
+  const emailVerified = await consumeEmailVerificationCode(user.id, user.email, code)
   if (!emailVerified) {
     throw new httpErrors.BadRequest('Email verification code is invalid')
   }

@@ -150,7 +150,7 @@ function useQueueSizeHistory(
     endDate.setUTCDate(endDate.getUTCDate() + 7)
 
     return [startDate, endDate]
-  }, [refreshToken])
+  }, [weeksBeforeCurrent])
 
   useEffect(() => {
     fetchJson<QueueSizeHistoryResult>(
@@ -171,7 +171,7 @@ function useQueueSizeHistory(
         console.error(err)
       },
     )
-  }, [refreshToken, startDate, endDate])
+  }, [refreshToken, startDate, endDate, weeksBeforeCurrent, dispatch])
 
   return [data, startDate, endDate]
 }

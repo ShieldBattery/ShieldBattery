@@ -85,6 +85,7 @@
     "db-migrate": "^0.11.6",
     "db-migrate-pg": "^1.0.0",
     "dotenv": "^8.2.0",
+    "eslint-plugin-react-hooks": "^4.2.0",
     "got": "^11.8.2",
     "handlebars": "^4.5.3",
     "hoist-non-react-statics": "^3.3.1",

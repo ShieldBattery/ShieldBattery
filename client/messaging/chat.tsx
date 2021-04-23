@@ -30,20 +30,21 @@ interface ChatProps {
 export default function Chat(props: ChatProps) {
   const [isScrolledUp, setIsScrolledUp] = useState<boolean>(false)
 
+  const {
+    listProps: { onScrollUpdate: onScrollUpdateProp },
+  } = props
   const onScrollUpdate = useCallback(
     (target: EventTarget) => {
       const { scrollTop, scrollHeight, clientHeight } = target as HTMLDivElement
 
       const newIsScrolledUp = scrollTop + clientHeight < scrollHeight
-      if (newIsScrolledUp !== isScrolledUp) {
-        setIsScrolledUp(newIsScrolledUp)
-      }
+      setIsScrolledUp(newIsScrolledUp)
 
-      if (props.listProps.onScrollUpdate) {
-        props.listProps.onScrollUpdate(target)
+      if (onScrollUpdateProp) {
+        onScrollUpdateProp(target)
       }
     },
-    [isScrolledUp, props.listProps.onScrollUpdate],
+    [onScrollUpdateProp],
   )
 
   return (

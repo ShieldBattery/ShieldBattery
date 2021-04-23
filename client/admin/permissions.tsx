@@ -91,7 +91,7 @@ export default function PermissionsResult({ username }: PermissionsResultProps) 
 
   useEffect(() => {
     dispatch(getPermissionsIfNeeded(username))
-  }, [username])
+  }, [dispatch, username])
 
   const user = permissionsByUser.get(username)
 

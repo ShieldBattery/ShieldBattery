@@ -12,10 +12,11 @@
     "prettier",
     "plugin:@typescript-eslint/recommended",
     "plugin:jest/recommended",
-    "plugin:jest/style"
+    "plugin:jest/style",
+    "plugin:react-hooks/recommended"
   ],
 
-  "plugins": ["@typescript-eslint", "jest", "prettier", "react"],
+  "plugins": ["@typescript-eslint", "jest", "prettier", "react", "react-hooks"],
 
   "settings": {
     "react": {

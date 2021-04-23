@@ -33,7 +33,7 @@ export async function getEmailVerificationsCount(id, email) {
   }
 }
 
-export async function useEmailVerificationCode(id, email, code) {
+export async function consumeEmailVerificationCode(id, email, code) {
   const query = `
     UPDATE users u
     SET email_verified = TRUE
