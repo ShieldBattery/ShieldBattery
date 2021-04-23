@@ -99,7 +99,7 @@ export default function InfiniteList(props: InfiniteListProps) {
     if (nextLoadingEnabledRef.current && nextTarget) {
       observer.current.observe(nextTarget)
     }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const onIntersection = useCallback((entries: IntersectionObserverEntry[]) => {
     entries.forEach(entry => {
@@ -118,7 +118,7 @@ export default function InfiniteList(props: InfiniteListProps) {
         }
       }
     })
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     observer.current = new IntersectionObserver(onIntersection, {
@@ -130,12 +130,12 @@ export default function InfiniteList(props: InfiniteListProps) {
     startObserving()
 
     return () => observer.current?.disconnect()
-  }, [root, rootMargin, threshold])
+  }, [root, rootMargin, threshold, onIntersection, startObserving])
 
   useEffect(() => {
     observer.current?.disconnect()
     startObserving()
-  }, [refreshToken])
+  }, [refreshToken, startObserving])
 
   return (
     <>
