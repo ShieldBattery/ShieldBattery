@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useCallback, useEffect, useRef } from 'react'
 import styled from 'styled-components'
 import LoadingIndicator from '../progress/dots'
+import { usePropAsRef } from '../state-hooks'
 
 const LoadingArea = styled.div`
   display: flex;
@@ -12,18 +13,25 @@ const LoadingArea = styled.div`
 `
 
 interface InfiniteListProps {
-  /** Whether the functionality of loading more data at the beginning of the list is enabled. */
+  children: React.ReactNode
+  /** Whether the functionality of loading data at the beginning of the list is enabled. */
   prevLoadingEnabled?: boolean
-  /** Whether the functionality of loading more data at the ending of the list is enabled. */
+  /** Whether the functionality of loading data at the ending of the list is enabled. */
   nextLoadingEnabled?: boolean
-  /** Whether we are currently loading more data at the beginning of the list. */
+  /** Whether we are currently loading data at the beginning of the list. */
   isLoadingPrev?: boolean
-  /** Whether we are currently loading more data at the ending of the list. */
+  /** Whether we are currently loading data at the ending of the list. */
   isLoadingNext?: boolean
-  /** Whether this list has more data that could be loaded at the beginning of the list. */
-  hasMorePrevData?: boolean
-  /** Whether this list has more data that could be loaded at the ending of the list. */
-  hasMoreNextData?: boolean
+  /** Whether this list has data that could be loaded at the beginning of the list. */
+  hasPrevData?: boolean
+  /** Whether this list has data that could be loaded at the ending of the list. */
+  hasNextData?: boolean
+  /**
+   * A unique string value which will restart the intersection observer, i.e. disconnect and start
+   * observing again, when it changes. This is useful when the same instance of this component is
+   * used for lists with different content, e.g. in tabs, chat channels, and whisper sessions.
+   */
+  refreshToken?: string
   /**
    * The element that is used in the `IntersectionObserver` API as the viewport for checking
    * visibility of the target.
@@ -46,10 +54,10 @@ interface InfiniteListProps {
    * @default 0 Means as soon as one pixel is visible, the callback will be run.
    */
   threshold?: number | Array<number>
-  /** Callback whenever the list wants to load more data at the beginning of the list. */
-  onLoadMorePrevData?: () => void
-  /** Callback whenever the list wants to load more data at the ending of the list. */
-  onLoadMoreNextData?: () => void
+  /** Callback whenever the list wants to load data at the beginning of the list. */
+  onLoadPrevData?: () => void
+  /** Callback whenever the list wants to load data at the ending of the list. */
+  onLoadNextData?: () => void
 }
 
 /**
@@ -63,111 +71,87 @@ interface InfiniteListProps {
  *   2) If the newly loaded items don't increase the height of the list (by putting items in the
  *      same row for example), it won't be possible to load more items from that point on.
  */
-export default class InfiniteList extends React.Component<InfiniteListProps> {
-  private observer: IntersectionObserver | undefined
-  private prevTargetRef = React.createRef<HTMLDivElement>()
-  private nextTargetRef = React.createRef<HTMLDivElement>()
+export default function InfiniteList(props: InfiniteListProps) {
+  const { root, rootMargin, threshold, refreshToken } = props
+  const prevLoadingEnabledRef = usePropAsRef(props.prevLoadingEnabled)
+  const nextLoadingEnabledRef = usePropAsRef(props.nextLoadingEnabled)
+  const isLoadingPrevRef = usePropAsRef(props.isLoadingPrev)
+  const isLoadingNextRef = usePropAsRef(props.isLoadingNext)
+  const hasPrevDataRef = usePropAsRef(props.hasPrevData)
+  const hasNextDataRef = usePropAsRef(props.hasNextData)
+  const onLoadPrevDataRef = usePropAsRef(props.onLoadPrevData)
+  const onLoadNextDataRef = usePropAsRef(props.onLoadNextData)
+  const prevTargetRef = useRef(null)
+  const nextTargetRef = useRef(null)
+  const observer = useRef<IntersectionObserver | null>(null)
 
-  private startObserving() {
-    if (!this.observer) return
-
-    const prevTarget = this.prevTargetRef.current
-    if (this.props.prevLoadingEnabled && prevTarget) {
-      this.observer.observe(prevTarget)
+  const startObserving = useCallback(() => {
+    if (!observer.current) {
+      return
     }
 
-    const nextTarget = this.nextTargetRef.current
-    if (this.props.nextLoadingEnabled && nextTarget) {
-      this.observer.observe(nextTarget)
+    const prevTarget = prevTargetRef.current
+    if (prevLoadingEnabledRef.current && prevTarget) {
+      observer.current.observe(prevTarget)
     }
-  }
 
-  componentDidMount() {
-    const { root, rootMargin, threshold } = this.props
-
-    this.observer = new IntersectionObserver(this.onIntersection, {
-      root,
-      rootMargin,
-      threshold,
-    })
-
-    this.startObserving()
-  }
-
-  componentWillUnmount() {
-    if (this.observer) {
-      this.observer.disconnect()
-      this.observer = undefined
+    const nextTarget = nextTargetRef.current
+    if (nextLoadingEnabledRef.current && nextTarget) {
+      observer.current.observe(nextTarget)
     }
-  }
+  }, [])
 
-  /**
-   * This function allows the use case of using the same instance of the infinite scroll list
-   * multiple times inside another component; eg. common when using it with tabs.
-   */
-  reset() {
-    if (this.observer) {
-      this.observer.disconnect()
-      this.startObserving()
-    }
-  }
-
-  render() {
-    const {
-      prevLoadingEnabled,
-      nextLoadingEnabled,
-      isLoadingPrev,
-      isLoadingNext,
-      hasMorePrevData,
-      hasMoreNextData,
-    } = this.props
-
-    return (
-      <>
-        {prevLoadingEnabled && hasMorePrevData ? (
-          <LoadingArea ref={this.prevTargetRef}>
-            {isLoadingPrev ? <LoadingIndicator /> : null}
-          </LoadingArea>
-        ) : null}
-
-        {this.props.children}
-
-        {nextLoadingEnabled && hasMoreNextData ? (
-          <LoadingArea ref={this.nextTargetRef}>
-            {isLoadingNext ? <LoadingIndicator /> : null}
-          </LoadingArea>
-        ) : null}
-      </>
-    )
-  }
-
-  onIntersection = (entries: IntersectionObserverEntry[]) => {
-    const {
-      prevLoadingEnabled,
-      nextLoadingEnabled,
-      isLoadingPrev,
-      isLoadingNext,
-      hasMorePrevData,
-      hasMoreNextData,
-      onLoadMorePrevData,
-      onLoadMoreNextData,
-    } = this.props
-
+  const onIntersection = useCallback((entries: IntersectionObserverEntry[]) => {
     entries.forEach(entry => {
       if (!entry.isIntersecting) {
         return
       }
 
-      if (prevLoadingEnabled && entry.target === this.prevTargetRef.current) {
-        if (!isLoadingPrev && hasMorePrevData && onLoadMorePrevData) {
-          onLoadMorePrevData()
+      if (prevLoadingEnabledRef.current && entry.target === prevTargetRef.current) {
+        if (!isLoadingPrevRef.current && hasPrevDataRef.current && onLoadPrevDataRef.current) {
+          onLoadPrevDataRef.current()
         }
       }
-      if (nextLoadingEnabled && entry.target === this.nextTargetRef.current) {
-        if (!isLoadingNext && hasMoreNextData && onLoadMoreNextData) {
-          onLoadMoreNextData()
+      if (nextLoadingEnabledRef.current && entry.target === nextTargetRef.current) {
+        if (!isLoadingNextRef.current && hasNextDataRef.current && onLoadNextDataRef.current) {
+          onLoadNextDataRef.current()
         }
       }
     })
-  }
+  }, [])
+
+  useEffect(() => {
+    observer.current = new IntersectionObserver(onIntersection, {
+      root,
+      rootMargin,
+      threshold,
+    })
+
+    startObserving()
+
+    return () => observer.current?.disconnect()
+  }, [root, rootMargin, threshold])
+
+  useEffect(() => {
+    observer.current?.disconnect()
+    startObserving()
+  }, [refreshToken])
+
+  return (
+    <>
+      {prevLoadingEnabledRef.current && hasPrevDataRef.current ? (
+        <LoadingArea ref={prevTargetRef}>
+          {isLoadingPrevRef.current ? <LoadingIndicator /> : null}
+        </LoadingArea>
+      ) : null}
+
+      {props.children}
+
+      {nextLoadingEnabledRef.current && hasNextDataRef.current ? (
+        <LoadingArea ref={nextTargetRef}>
+          {isLoadingNextRef.current ? <LoadingIndicator /> : null}
+        </LoadingArea>
+      ) : null}
+    </>
+  )
 }

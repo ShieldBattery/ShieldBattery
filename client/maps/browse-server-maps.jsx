@@ -211,10 +211,7 @@ export default class Maps extends React.Component {
     hasInitializedState: false,
   }
 
-  infiniteList = null
-  _setInfiniteListRef = elem => {
-    this.infiniteList = elem
-  }
+  _refreshToken = 0
 
   _savePreferences = () => {
     const { activeTab, thumbnailSize, sortOption, numPlayersFilter, tilesetFilter } = this.state
@@ -285,12 +282,10 @@ export default class Maps extends React.Component {
     this.props.dispatch(clearMapsList())
     // Since we're using the same instance of the InfiniteList component to render maps, gotta
     // reset it each time we change tabs, or apply different filters. Also, make sure to do it
-    // after resetting the `currentPage` to 0, since the infinite list will start to load maps
-    // with whatever is currently saved in state.
-    this.setState(
-      () => ({ currentPage: 0 }),
-      () => this.infiniteList.reset(),
-    )
+    // before resetting the `currentPage` to 0, since the refresh token is a regular class field
+    // which doesn't cause a re-render.
+    this._refreshToken++
+    this.setState(() => ({ currentPage: 0 }))
   }
 
   _renderMaps(header, maps) {
@@ -427,11 +422,11 @@ export default class Maps extends React.Component {
                 {this.renderUploadedMap()}
                 {this.renderFavoritedMaps()}
                 <InfiniteScrollList
-                  ref={this._setInfiniteListRef}
                   nextLoadingEnabled={true}
                   isLoadingNext={maps.isRequesting}
-                  hasMoreNextData={hasMoreMaps}
-                  onLoadMoreNextData={this.onLoadMoreMaps}>
+                  hasNextData={hasMoreMaps}
+                  refreshToken={this._refreshToken}
+                  onLoadNextData={this.onLoadMoreMaps}>
                   {this.renderAllMaps()}
                 </InfiniteScrollList>
               </>

@@ -125,6 +125,7 @@ export default class Whisper extends React.Component {
       messages: session.messages,
       loading: session.loadingHistory,
       hasMoreHistory: session.hasHistory,
+      refreshToken: target,
       onLoadMoreMessages: this.onLoadMoreMessages,
     }
     const inputProps = {

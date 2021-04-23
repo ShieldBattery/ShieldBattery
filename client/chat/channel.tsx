@@ -435,6 +435,7 @@ export default function Channel(props: ChatChannelProps) {
     messages: channel.messages,
     loading: channel.loadingHistory,
     hasMoreHistory: channel.hasHistory,
+    refreshToken: channelName,
     renderMessage,
     onLoadMoreMessages,
   }

@@ -72,6 +72,11 @@ export interface MessageListProps {
   /** Whether this message list has more history available that could be requested. */
   hasMoreHistory?: boolean
   /**
+   * A unique string value that's used by the infinite scroll list to decide when to refresh the
+   * list.
+   */
+  refreshToken?: string
+  /**
    * Callback whenever the scroll position or scroll height has been updated (debounced to
    * animation frames).
    */
@@ -165,7 +170,14 @@ export default class MessageList extends React.Component<
   }
 
   render() {
-    const { messages, loading, hasMoreHistory, renderMessage, onLoadMoreMessages } = this.props
+    const {
+      messages,
+      loading,
+      hasMoreHistory,
+      refreshToken,
+      renderMessage,
+      onLoadMoreMessages,
+    } = this.props
 
     return (
       <Scrollable
@@ -175,8 +187,9 @@ export default class MessageList extends React.Component<
         <InfiniteScrollList
           prevLoadingEnabled={true}
           isLoadingPrev={loading}
-          hasMorePrevData={hasMoreHistory}
-          onLoadMorePrevData={onLoadMoreMessages}>
+          hasPrevData={hasMoreHistory}
+          refreshToken={refreshToken}
+          onLoadPrevData={onLoadMoreMessages}>
           <PureMessageList messages={messages} renderMessage={renderMessage} />
         </InfiniteScrollList>
       </Scrollable>
