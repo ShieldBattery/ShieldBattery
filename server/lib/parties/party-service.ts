@@ -5,7 +5,6 @@ import logger from '../logging/logger'
 import {
   ClientSocketsGroup,
   ClientSocketsManager,
-  UserSocketsGroup,
   UserSocketsManager,
 } from '../websockets/socket-groups'
 
@@ -118,9 +117,10 @@ export default class PartyService {
       this.subscribeToParty(leaderClientSockets, party)
     }
 
-    invites
-      .map(i => this.getUserSockets(i.name))
-      .forEach(userSockets => {
+    invites.forEach(i => {
+      // TODO(2Pac): Send the invite notification once the server-side notification system is in.
+      const userSockets = this.userSocketsManager.getByName(i.name)
+      if (userSockets) {
         userSockets.subscribe(
           getInvitesPath(party!.id, userSockets.userId),
           () => ({
@@ -131,7 +131,8 @@ export default class PartyService {
             // TODO(2Pac): Handle user quitting; need to keep a map of user -> invites?
           },
         )
-      })
+      }
+    })
 
     return party
   }
@@ -231,8 +232,11 @@ export default class PartyService {
 
   private unsubscribeFromInvites(party: PartyRecord, user: PartyUser) {
     this.nydus.publish(getInvitesPath(party.id, user.id), { type: 'removeInvite' })
-    const userSockets = this.getUserSockets(user.name)
-    userSockets.unsubscribe(getInvitesPath(party.id, user.id))
+    // TODO(2Pac): Remove the invite notification once the server-side notification system is in.
+    const userSockets = this.userSocketsManager.getByName(user.name)
+    if (userSockets) {
+      userSockets.unsubscribe(getInvitesPath(party.id, user.id))
+    }
   }
 
   private subscribeToParty(clientSockets: ClientSocketsGroup, party: PartyRecord) {
@@ -267,15 +271,6 @@ export default class PartyService {
 
   private publishToParty(partyId: string, data: any) {
     this.nydus.publish(getPartyPath(partyId), data)
-  }
-
-  private getUserSockets(username: string): UserSocketsGroup {
-    const userSockets = this.userSocketsManager.getByName(username)
-    if (!userSockets) {
-      throw new PartyServiceError(PartyServiceErrorCode.UserOffline, 'User is offline')
-    }
-
-    return userSockets
   }
 
   private getClientSockets(userId: number, clientId: string): ClientSocketsGroup {

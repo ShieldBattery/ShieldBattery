@@ -25,6 +25,7 @@ describe('parties/party-service', () => {
   const user7: PartyUser = { id: 7, name: 'royo' }
   const user8: PartyUser = { id: 8, name: 'riptide' }
   const user9: PartyUser = { id: 9, name: 'manifesto7' }
+  const offlineUser: PartyUser = { id: 10, name: 'tt1' }
 
   const USER1_CLIENT_ID = 'USER1_CLIENT_ID'
   const USER2_CLIENT_ID = 'USER2_CLIENT_ID'
@@ -157,6 +158,13 @@ describe('parties/party-service', () => {
         type: 'addInvite',
         from: leader,
       })
+    })
+
+    test('should invite an offline user', () => {
+      leader = user1
+      party = partyService.invite(leader, USER1_CLIENT_ID, [offlineUser])
+
+      expect(party.invites).toMatchObject(new Map([[offlineUser.id, offlineUser]]))
     })
   })
 
