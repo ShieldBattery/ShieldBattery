@@ -1,11 +1,20 @@
+import cuid from 'cuid'
 import { List } from 'immutable'
 import PropTypes from 'prop-types'
 import React, { ReactNode } from 'react'
 import styled from 'styled-components'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { animationFrameHandler } from '../material/animation-frame-handler'
-import { TextMessageDisplay } from './message-layout'
-import { CommonMessageType, Message } from './message-records'
+import { NewDayMessage, TextMessageDisplay } from './common-message-layout'
+import { CommonMessageType, Message, NewDayMessageRecord } from './message-records'
+
+function isSameDay(d1: Date, d2: Date) {
+  return (
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate()
+  )
+}
 
 /**
  * How many pixels a user can be away from the bottom of the scrollable area and still be
@@ -33,6 +42,8 @@ interface PureMessageListProps {
 
 function renderCommonMessage(msg: Message) {
   switch (msg.type) {
+    case CommonMessageType.NewDayMessage:
+      return <NewDayMessage key={msg.id} time={msg.time} />
     case CommonMessageType.TextMessage:
       return <TextMessageDisplay key={msg.id} user={msg.from} time={msg.time} text={msg.text} />
     default:
@@ -49,11 +60,25 @@ const handleUnknown = (msg: Message) => {
 const PureMessageList = React.memo<PureMessageListProps>(({ messages, renderMessage }) => {
   return (
     <Messages>
-      {messages.map(m => {
+      {messages.map((m, index, array) => {
         // NOTE(2Pac): We only handle common messages here, e.g. text message. All other types of
         // messages are handled by calling the `renderMessage` function which should be supplied by
         // each service if they have any special messages to handle.
-        return renderCommonMessage(m) ?? (renderMessage ?? handleUnknown)(m)
+        const messageLayout = renderCommonMessage(m) ?? (renderMessage ?? handleUnknown)(m)
+
+        const nextMessage = array.get(index + 1)
+        if (!nextMessage) {
+          return messageLayout
+        }
+
+        const newDayMessageRecord = new NewDayMessageRecord({
+          id: cuid(),
+          time: nextMessage.time,
+        })
+
+        return !isSameDay(new Date(m.time), new Date(nextMessage.time))
+          ? [messageLayout, renderCommonMessage(newDayMessageRecord)]
+          : [messageLayout]
       })}
     </Messages>
   )

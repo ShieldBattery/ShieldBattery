@@ -9,6 +9,7 @@ import { LobbyMessage } from '../lobbies/lobby-message-records'
  */
 export enum CommonMessageType {
   TextMessage = 'message',
+  NewDayMessage = 'newDayMessage',
 }
 
 /**
@@ -32,5 +33,13 @@ export class TextMessageRecord
   })
   implements BaseMessage {}
 
-export type CommonMessage = TextMessageRecord
+export class NewDayMessageRecord
+  extends Record({
+    id: '',
+    type: CommonMessageType.NewDayMessage as typeof CommonMessageType.NewDayMessage,
+    time: 0,
+  })
+  implements BaseMessage {}
+
+export type CommonMessage = TextMessageRecord | NewDayMessageRecord
 export type Message = CommonMessage | ChatMessage | LobbyMessage

@@ -1,8 +1,12 @@
 import React from 'react'
-import PropTypes from 'prop-types'
 import styled, { css } from 'styled-components'
-
-import { amberA100, colorTextFaint, colorDividers } from '../styles/colors'
+import {
+  blue100,
+  blue200,
+  colorDividers,
+  colorTextFaint,
+  colorTextSecondary,
+} from '../styles/colors'
 import { body1, body2, caption } from '../styles/typography'
 
 const localeTimeSupported = !!Date.prototype.toLocaleTimeString
@@ -37,7 +41,7 @@ const longTimestamp = new Intl.DateTimeFormat(navigator.language, {
 })
 
 /** Hidden separators that only show up in copy+paste. Should be aria-hidden as well. */
-const Separator = styled.i`
+export const Separator = styled.i`
   position: absolute;
   display: inline-block;
   opacity: 0;
@@ -59,16 +63,17 @@ const Timestamp = styled.span`
   text-align: right;
 `
 
-export const MessageTimestamp = props => (
+interface MessageTimestampProps {
+  className?: string
+}
+
+export const MessageTimestamp = (props: MessageTimestampProps) => (
   <Timestamp title={longTimestamp.format(props.time)}>
     <Separator aria-hidden={true}>[</Separator>
     {getLocalTime(new Date(props.time))}
     <Separator aria-hidden={true}>] </Separator>
   </Timestamp>
 )
-MessageTimestamp.propTypes = {
-  time: PropTypes.number.isRequired,
-}
 
 const messageContainerBase = css`
   ${body1};
@@ -91,7 +96,13 @@ const MessageContainer = styled.div`
   text-indent: -72px;
 `
 
-export const TimestampMessageLayout = props => {
+interface TimestampMessageLayoutProps {
+  time: number
+  className?: string
+  children: React.ReactNode
+}
+
+export const TimestampMessageLayout = (props: TimestampMessageLayoutProps) => {
   return (
     <MessageContainer className={props.className} role='document'>
       <MessageTimestamp time={props.time} />
@@ -99,54 +110,16 @@ export const TimestampMessageLayout = props => {
     </MessageContainer>
   )
 }
-TimestampMessageLayout.propTypes = {
-  time: PropTypes.number.isRequired,
-  className: PropTypes.string,
-}
 
-const Username = styled.span`
+export const SystemMessage = styled(TimestampMessageLayout)`
+  color: ${blue200};
+`
+
+export const SystemImportant = styled.span`
   ${body2};
-
-  margin-right: 8px;
-
-  color: ${amberA100};
+  color: ${blue100};
   line-height: inherit;
 `
-
-const Text = styled.span`
-  line-height: inherit;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  overflow: hidden;
-`
-
-export class TextMessageDisplay extends React.Component {
-  static propTypes = {
-    user: PropTypes.string.isRequired,
-    time: PropTypes.number.isRequired,
-    text: PropTypes.string.isRequired,
-  }
-
-  shouldComponentUpdate(nextProps) {
-    return (
-      nextProps.user !== this.props.user ||
-      nextProps.time !== this.props.time ||
-      nextProps.text !== this.props.text
-    )
-  }
-
-  render() {
-    const { user, time, text } = this.props
-
-    return (
-      <TimestampMessageLayout time={time}>
-        <Username>{user}</Username>
-        <Separator aria-hidden={true}>{': '}</Separator>
-        <Text>{text}</Text>
-      </TimestampMessageLayout>
-    )
-  }
-}
 
 const InfoMessageContainer = styled.div`
   ${messageContainerBase};
@@ -169,7 +142,12 @@ const InfoDividerRight = styled(InfoDivider)`
   margin-left: 8px;
 `
 
-export const InfoMessageLayout = props => {
+interface InfoMessageLayoutProps {
+  className?: string
+  children: React.ReactNode
+}
+
+export const InfoMessageLayout = (props: InfoMessageLayoutProps) => {
   return (
     <InfoMessageContainer className={props.className}>
       <InfoDividerLeft />
@@ -178,6 +156,17 @@ export const InfoMessageLayout = props => {
     </InfoMessageContainer>
   )
 }
-InfoMessageLayout.propTypes = {
-  className: PropTypes.string,
-}
+
+export const InfoImportant = styled.span`
+  ${body2};
+  color: ${colorTextSecondary};
+  line-height: inherit;
+`
+
+export const SeparatedInfoMessage = styled(InfoMessageLayout)`
+  display: flex;
+  align-items: center;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  color: ${colorTextFaint};
+`
