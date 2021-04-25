@@ -2,6 +2,7 @@ import { List } from 'immutable'
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Column, Table, TableCellRenderer, TableHeaderProps } from 'react-virtualized'
 import styled from 'styled-components'
+import TimeAgo from 'timeago-react'
 import { LadderPlayer } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
 import Avatar from '../avatars/avatar'
@@ -202,6 +203,20 @@ export function LadderTable(props: LadderTableProps) {
   const renderNumber = useCallback<TableCellRenderer>(props => {
     return <NumberText>{props.cellData}</NumberText>
   }, [])
+  const renderStats = useCallback<TableCellRenderer>(props => {
+    return (
+      <NumberText>
+        {props.cellData.wins} - {props.cellData.losses}
+      </NumberText>
+    )
+  }, [])
+  const renderLastPlayed = useCallback<TableCellRenderer>(props => {
+    return (
+      <NumberText>
+        <TimeAgo datetime={props.cellData} />
+      </NumberText>
+    )
+  }, [])
 
   return (
     <TableContainer ref={containerCallback} onScroll={containerScrollHandler.current?.handler}>
@@ -242,19 +257,20 @@ export function LadderTable(props: LadderTableProps) {
           headerRenderer={LadderTableHeader}
         />
         <Column
-          label='Wins'
-          dataKey='wins'
-          width={56}
+          label='Stats'
+          dataKey=''
+          width={112}
           columnData={{ rightAlignHeader: true }}
-          cellRenderer={renderRating}
+          cellDataGetter={({ rowData }) => rowData}
+          cellRenderer={renderStats}
           headerRenderer={LadderTableHeader}
         />
         <Column
-          label='Losses'
-          dataKey='losses'
-          width={56}
+          label='Last played'
+          dataKey='lastPlayedDate'
+          width={128}
           columnData={{ rightAlignHeader: true }}
-          cellRenderer={renderRating}
+          cellRenderer={renderLastPlayed}
           headerRenderer={LadderTableHeader}
         />
         <Column width={32} dataKey='' />
