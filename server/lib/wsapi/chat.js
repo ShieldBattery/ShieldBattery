@@ -43,6 +43,7 @@ const featureEnabled = async (data, next) => {
   return next(data)
 }
 const nonEmptyString = str => typeof str === 'string' && str.length > 0
+const limit = val => typeof val === 'undefined' || (typeof val === 'number' && val > 0 && val < 100)
 const beforeTime = val => typeof val === 'undefined' || (typeof val === 'number' && val >= -1)
 
 const MOUNT_BASE = '/chat'
@@ -155,6 +156,7 @@ export class ChatApi {
     '/getHistory',
     validateBody({
       channel: isValidChannelName,
+      limit,
       beforeTime,
     }),
     'getUser',
@@ -162,7 +164,7 @@ export class ChatApi {
     'getChannel',
   )
   async getHistory(data, next) {
-    const { beforeTime } = data.get('body')
+    const { limit, beforeTime } = data.get('body')
     const user = data.get('user')
     const channel = data.get('channel')
     // TODO(tec27): lookup channel keys case insensitively?
@@ -173,7 +175,7 @@ export class ChatApi {
     const messages = await getMessagesForChannel(
       channel,
       user.session.userId,
-      50,
+      limit,
       beforeTime && beforeTime > -1 ? new Date(beforeTime) : undefined,
     )
     return messages.map(m => ({

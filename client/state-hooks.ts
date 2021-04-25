@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import React, { useEffect, useRef } from 'react'
 
 /**
  * A hook to access the previous value of some variable inside a functional component. Can be used
@@ -18,4 +18,23 @@ export function usePrevious<T>(value: T): T | undefined {
     ref.current = value
   })
   return ref.current
+}
+
+/**
+ * A hook which allows the callbacks and effects to access the current value of the prop without
+ * needing to be re-run/re-created.
+ *
+ * @example
+ *
+ * export const CounterComponent = (props) => {
+ *   const countRef = usePropAsRef(props.count)
+ *   const onClick = useCallback(() => console.log('Count: ' + countRef.current), [])
+ *   return <button title='Count' onClick={onClick} />
+ * }
+ */
+export function usePropAsRef<T>(value: T): React.MutableRefObject<T> {
+  const ref = useRef(value)
+  ref.current = value
+
+  return ref
 }

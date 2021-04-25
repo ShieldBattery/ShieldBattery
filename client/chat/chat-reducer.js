@@ -52,7 +52,6 @@ export class Channel extends Record({
   users: new Users(),
 
   loadingHistory: false,
-  hasLoadedHistory: false,
   hasHistory: true,
 
   hasLoadedUserList: false,
@@ -231,13 +230,11 @@ export default keyedReducer(new ChatState(), {
 
   [CHAT_LOAD_CHANNEL_HISTORY_BEGIN](state, action) {
     const { channel } = action.payload
-    return state.updateIn(['byName', channel.toLowerCase()], c =>
-      c.set('loadingHistory', true).set('hasLoadedHistory', true),
-    )
+    return state.updateIn(['byName', channel.toLowerCase()], c => c.set('loadingHistory', true))
   },
 
   [CHAT_LOAD_CHANNEL_HISTORY](state, action) {
-    const { channel } = action.meta
+    const { channel, limit } = action.meta
     const lowerCaseChannel = channel.toLowerCase()
     const newMessages = new List(
       action.payload.map(
@@ -250,9 +247,9 @@ export default keyedReducer(new ChatState(), {
           }),
       ),
     )
-    const updated = state.setIn(['byName', lowerCaseChannel, 'loadingHistory'], false)
-    if (!newMessages.size) {
-      return updated.setIn(['byName', lowerCaseChannel, 'hasHistory'], false)
+    let updated = state.setIn(['byName', lowerCaseChannel, 'loadingHistory'], false)
+    if (newMessages.size < limit) {
+      updated = updated.setIn(['byName', lowerCaseChannel, 'hasHistory'], false)
     }
 
     return updateMessages(updated, channel, false, messages => newMessages.concat(messages))

@@ -17,7 +17,7 @@ const StyledMessageList = styled(MessageList)`
 
 interface ChatProps {
   className?: string
-  listProps: MessageListProps
+  listProps: Omit<MessageListProps, 'onScrollUpdate'>
   inputProps: Omit<MessageInputProps, 'showDivider'>
 }
 
@@ -30,22 +30,12 @@ interface ChatProps {
 export default function Chat(props: ChatProps) {
   const [isScrolledUp, setIsScrolledUp] = useState<boolean>(false)
 
-  const {
-    listProps: { onScrollUpdate: onScrollUpdateProp },
-  } = props
-  const onScrollUpdate = useCallback(
-    (target: EventTarget) => {
-      const { scrollTop, scrollHeight, clientHeight } = target as HTMLDivElement
+  const onScrollUpdate = useCallback((target: EventTarget) => {
+    const { scrollTop, scrollHeight, clientHeight } = target as HTMLDivElement
 
-      const newIsScrolledUp = scrollTop + clientHeight < scrollHeight
-      setIsScrolledUp(newIsScrolledUp)
-
-      if (onScrollUpdateProp) {
-        onScrollUpdateProp(target)
-      }
-    },
-    [onScrollUpdateProp],
-  )
+    const newIsScrolledUp = scrollTop + clientHeight < scrollHeight
+    setIsScrolledUp(newIsScrolledUp)
+  }, [])
 
   return (
     <MessagesAndInput className={props.className}>

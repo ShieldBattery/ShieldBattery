@@ -16,6 +16,7 @@ import {
 } from '../models/whispers'
 
 const nonEmptyString = str => typeof str === 'string' && str.length > 0
+const limit = val => typeof val === 'undefined' || (typeof val === 'number' && val > 0 && val < 100)
 const beforeTime = val => typeof val === 'undefined' || (typeof val === 'number' && val >= -1)
 
 const MOUNT_BASE = '/whispers'
@@ -114,6 +115,7 @@ export class WhispersApi {
     '/getHistory',
     validateBody({
       target: isValidUsername,
+      limit,
       beforeTime,
     }),
     'getUser',
@@ -121,7 +123,7 @@ export class WhispersApi {
     'getTarget',
   )
   async getHistory(data, next) {
-    const { beforeTime } = data.get('body')
+    const { limit, beforeTime } = data.get('body')
     const user = data.get('user')
     const target = data.get('target')
 
@@ -131,7 +133,7 @@ export class WhispersApi {
       )
     }
 
-    const messages = await getMessagesForWhisperSession(user.name, target.name, 50, beforeTime)
+    const messages = await getMessagesForWhisperSession(user.name, target.name, limit, beforeTime)
     return messages.map(m => ({
       id: m.msgId,
       from: m.from,
