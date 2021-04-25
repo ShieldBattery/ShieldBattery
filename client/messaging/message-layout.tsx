@@ -10,7 +10,7 @@ import {
 import { body1, body2, caption } from '../styles/typography'
 
 const localeTimeSupported = !!Date.prototype.toLocaleTimeString
-function getLocalTime(date) {
+function getLocalTime(date: Date) {
   if (localeTimeSupported) {
     return date.toLocaleTimeString(navigator.language, {
       hour: 'numeric',
