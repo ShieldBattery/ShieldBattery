@@ -72,10 +72,10 @@ export interface MessageListProps {
   /** Whether this message list has more history available that could be requested. */
   hasMoreHistory?: boolean
   /**
-   * A unique string value that's used by the infinite scroll list to decide when to refresh the
-   * list.
+   * A value that changes when the values the list is displaying change, e.g. if the list is now
+   * displaying a different chat channel.
    */
-  refreshToken?: string
+  refreshToken?: unknown
   /**
    * Callback whenever the scroll position or scroll height has been updated (debounced to
    * animation frames).

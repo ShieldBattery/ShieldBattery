@@ -285,7 +285,7 @@ export default class Maps extends React.Component {
     // before resetting the `currentPage` to 0, since the refresh token is a regular class field
     // which doesn't cause a re-render.
     this._refreshToken++
-    this.setState(() => ({ currentPage: 0 }))
+    this.setState({ currentPage: 0 })
   }
 
   _renderMaps(header, maps) {

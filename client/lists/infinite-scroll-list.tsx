@@ -27,11 +27,11 @@ interface InfiniteListProps {
   /** Whether this list has data that could be loaded at the ending of the list. */
   hasNextData?: boolean
   /**
-   * A unique string value which will restart the intersection observer, i.e. disconnect and start
+   * A value which will restart the intersection observer when it changes, i.e. disconnect and start
    * observing again, when it changes. This is useful when the same instance of this component is
    * used for lists with different content, e.g. in tabs, chat channels, and whisper sessions.
    */
-  refreshToken?: string
+  refreshToken?: unknown
   /**
    * The element that is used in the `IntersectionObserver` API as the viewport for checking
    * visibility of the target.
@@ -102,7 +102,7 @@ export default function InfiniteList(props: InfiniteListProps) {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const onIntersection = useCallback((entries: IntersectionObserverEntry[]) => {
-    entries.forEach(entry => {
+    for (const entry of entries) {
       if (!entry.isIntersecting) {
         return
       }
@@ -117,7 +117,7 @@ export default function InfiniteList(props: InfiniteListProps) {
           onLoadNextDataRef.current()
         }
       }
-    })
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
