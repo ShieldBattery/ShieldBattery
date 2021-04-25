@@ -64,7 +64,7 @@ const Timestamp = styled.span`
 `
 
 interface MessageTimestampProps {
-  className?: string
+  time: number
 }
 
 export const MessageTimestamp = (props: MessageTimestampProps) => (
