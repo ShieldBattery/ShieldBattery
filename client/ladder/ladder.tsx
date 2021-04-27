@@ -2,7 +2,6 @@ import { List } from 'immutable'
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Column, Table, TableCellRenderer, TableHeaderProps } from 'react-virtualized'
 import styled from 'styled-components'
-import TimeAgo from 'timeago-react'
 import { LadderPlayer } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
 import Avatar from '../avatars/avatar'
@@ -20,6 +19,7 @@ import {
   grey900,
 } from '../styles/colors'
 import { overline, subtitle1, subtitle2 } from '../styles/typography'
+import { timeAgo } from '../time/time-ago'
 import { getRankings } from './action-creators'
 
 const LadderPage = styled.div`
@@ -206,16 +206,12 @@ export function LadderTable(props: LadderTableProps) {
   const renderStats = useCallback<TableCellRenderer>(props => {
     return (
       <NumberText>
-        {props.cellData.wins} - {props.cellData.losses}
+        {props.cellData.wins} &ndash; {props.cellData.losses}
       </NumberText>
     )
   }, [])
   const renderLastPlayed = useCallback<TableCellRenderer>(props => {
-    return (
-      <NumberText>
-        <TimeAgo datetime={props.cellData} />
-      </NumberText>
-    )
+    return <NumberText>{timeAgo(props.cellData)}</NumberText>
   }, [])
 
   return (
@@ -268,7 +264,7 @@ export function LadderTable(props: LadderTableProps) {
         <Column
           label='Last played'
           dataKey='lastPlayedDate'
-          width={128}
+          width={96}
           columnData={{ rightAlignHeader: true }}
           cellRenderer={renderLastPlayed}
           headerRenderer={LadderTableHeader}

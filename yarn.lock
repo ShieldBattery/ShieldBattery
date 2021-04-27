@@ -11318,18 +11318,6 @@ ticky@1.0.1:
   resolved "https://registry.yarnpkg.com/ticky/-/ticky-1.0.1.tgz#b7cfa71e768f1c9000c497b9151b30947c50e46d"
   integrity sha1-t8+nHnaPHJAAxJe5FRswlHxQ5G0=
 
-timeago-react@^3.0.2:
-  version "3.0.2"
-  resolved "https://registry.yarnpkg.com/timeago-react/-/timeago-react-3.0.2.tgz#1bd8b86c37c93bcd6a4340fea340e6c9c2bdd4e0"
-  integrity sha512-K+NqoRcE13xv7lrmHtZmy7G+yXF8ZxmuwRK/EGKyT1chpI3zmV6YnB5o9+slnOCq1dXuQJknr/hWjINyP7C9LA==
-  dependencies:
-    timeago.js "^4.0.0"
-
-timeago.js@^4.0.0:
-  version "4.0.2"
-  resolved "https://registry.yarnpkg.com/timeago.js/-/timeago.js-4.0.2.tgz#724e8c8833e3490676c7bb0a75f5daf20e558028"
-  integrity sha512-a7wPxPdVlQL7lqvitHGGRsofhdwtkoSXPGATFuSOA2i1ZNQEPLrGnj68vOp2sOJTCFAQVXPeNMX/GctBaO9L2w==
-
 tiny-warning@^1.0.2:
   version "1.0.3"
   resolved "https://registry.yarnpkg.com/tiny-warning/-/tiny-warning-1.0.3.tgz#94a30db453df4c643d0fd566060d60a875d84754"
