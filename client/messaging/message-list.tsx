@@ -1,4 +1,3 @@
-import cuid from 'cuid'
 import { List } from 'immutable'
 import PropTypes from 'prop-types'
 import React, { ReactNode } from 'react'
@@ -60,25 +59,23 @@ const handleUnknown = (msg: Message) => {
 const PureMessageList = React.memo<PureMessageListProps>(({ messages, renderMessage }) => {
   return (
     <Messages>
-      {messages.map((m, index, array) => {
+      {messages.map((m, index) => {
         // NOTE(2Pac): We only handle common messages here, e.g. text message. All other types of
         // messages are handled by calling the `renderMessage` function which should be supplied by
         // each service if they have any special messages to handle.
         const messageLayout = renderCommonMessage(m) ?? (renderMessage ?? handleUnknown)(m)
 
-        const nextMessage = array.get(index + 1)
-        if (!nextMessage) {
+        const prevMessage = index > 0 ? messages.get(index - 1) : null
+        if (!prevMessage || isSameDay(new Date(prevMessage.time), new Date(m.time))) {
           return messageLayout
+        } else {
+          const newDayMessageRecord = new NewDayMessageRecord({
+            id: m.time + '-' + CommonMessageType.NewDayMessage,
+            time: m.time,
+          })
+
+          return [renderCommonMessage(newDayMessageRecord), messageLayout]
         }
-
-        const newDayMessageRecord = new NewDayMessageRecord({
-          id: cuid(),
-          time: nextMessage.time,
-        })
-
-        return !isSameDay(new Date(m.time), new Date(nextMessage.time))
-          ? [messageLayout, renderCommonMessage(newDayMessageRecord)]
-          : [messageLayout]
       })}
     </Messages>
   )
