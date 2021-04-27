@@ -7,9 +7,9 @@ import {
   WHISPERS_UPDATE_USER_IDLE,
   WHISPERS_UPDATE_USER_OFFLINE,
 } from '../actions'
-import { NEW_CHAT_MESSAGE } from '../../common/ipc-constants'
+import { TypedIpcRenderer } from '../../common/ipc'
 
-const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
+const ipcRenderer = new TypedIpcRenderer()
 
 const eventToAction = {
   initSession(event, siteSocket) {
@@ -32,10 +32,8 @@ const eventToAction = {
   },
 
   message(event) {
-    if (ipcRenderer) {
-      // Notify the main process of the new message, so it can display an appropriate notification
-      ipcRenderer.send(NEW_CHAT_MESSAGE, { user: event.from, message: event.data.text })
-    }
+    // Notify the main process of the new message, so it can display an appropriate notification
+    ipcRenderer.send('chatNewMessage', { user: event.from, message: event.data.text })
 
     return {
       type: WHISPERS_UPDATE_MESSAGE,

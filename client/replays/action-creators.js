@@ -7,7 +7,9 @@ import { openSimpleDialog } from '../dialogs/action-creators'
 import { Slot } from '../lobbies/lobby-reducer'
 import { makeServerUrl } from '../network/server-url'
 import { REPLAYS_START_REPLAY } from '../actions'
-import * as activeGameManagerIpc from '../active-game/active-game-manager-ipc'
+import { TypedIpcRenderer } from '../../common/ipc'
+
+const ipcRenderer = new TypedIpcRenderer()
 
 function getReplayHeader(filePath) {
   return new Promise((resolve, reject) => {
@@ -34,7 +36,7 @@ async function setGameConfig(replay, user) {
 
   const header = await getReplayHeader(replay.path)
 
-  return activeGameManagerIpc.setGameConfig({
+  return ipcRenderer.invoke('activeGameSetConfig', {
     localUser: user,
     setup: {
       gameId: cuid(),
@@ -52,8 +54,8 @@ async function setGameConfig(replay, user) {
 }
 
 function setGameRoutes(gameId) {
-  activeGameManagerIpc.setGameRoutes(gameId, [])
-  activeGameManagerIpc.startWhenReady(gameId)
+  ipcRenderer.invoke('activeGameSetRoutes', gameId, [])
+  ipcRenderer.invoke('activeGameStartWhenReady', gameId)
 }
 
 export function startReplay(replay) {

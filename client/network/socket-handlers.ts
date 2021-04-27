@@ -1,60 +1,60 @@
-import siteSocket from './site-socket'
-import { dispatch } from '../dispatch-registry'
+import { NydusClient } from 'nydus-client'
+import { TypedIpcRenderer } from '../../common/ipc'
 import { NETWORK_SITE_CONNECTED, NETWORK_SITE_DISCONNECTED } from '../actions'
-import {
-  NETWORK_SITE_CONNECTED as IPC_NETWORK_SITE_CONNNECTED,
-  RALLY_POINT_DELETE_SERVER,
-  RALLY_POINT_PING_RESULT,
-  RALLY_POINT_SET_SERVERS,
-  RALLY_POINT_UPSERT_SERVER,
-} from '../../common/ipc-constants'
-
 import auth from '../auth/socket-handlers'
 import chat from '../chat/socket-handlers'
+import { dispatch } from '../dispatch-registry'
 import loading from '../loading/socket-handlers'
+import logger from '../logging/logger'
 import serverStatus from '../serverstatus/server-status-checker'
 import whispers from '../whispers/socket-handlers'
-import logger from '../logging/logger'
-import fetchJson from './fetch'
-import { apiUrl } from './urls'
 import { clientId } from './client-id'
+import fetchJson from './fetch'
+import siteSocket from './site-socket'
+import { apiUrl } from './urls'
 
-const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
-
-function networkStatusHandler({ siteSocket }) {
+function networkStatusHandler({
+  siteSocket,
+  ipcRenderer,
+}: {
+  siteSocket: NydusClient
+  ipcRenderer: TypedIpcRenderer
+}) {
   // TODO(tec27): we could probably pass through reconnecting status as well
   siteSocket
     .on('connect', () => {
-      dispatch({ type: NETWORK_SITE_CONNECTED })
+      dispatch({ type: NETWORK_SITE_CONNECTED } as any)
       logger.verbose('site socket connected')
       if (ipcRenderer) {
-        ipcRenderer.send(IPC_NETWORK_SITE_CONNNECTED)
+        ipcRenderer.send('networkSiteConnected')
       }
     })
     .on('disconnect', () => {
-      dispatch({ type: NETWORK_SITE_DISCONNECTED })
+      dispatch({ type: NETWORK_SITE_DISCONNECTED } as any)
       logger.verbose('site socket disconnected')
     })
 }
 
-function rallyPointHandler({ siteSocket, ipcRenderer }) {
-  if (!ipcRenderer) {
-    return
-  }
-
+function rallyPointHandler({
+  siteSocket,
+  ipcRenderer,
+}: {
+  siteSocket: NydusClient
+  ipcRenderer: TypedIpcRenderer
+}) {
   siteSocket.registerRoute('/rallyPoint/serverList', (route, event) => {
     if (event.type === 'fullUpdate') {
-      ipcRenderer.send(RALLY_POINT_SET_SERVERS, event.servers)
+      ipcRenderer.send('rallyPointSetServers', event.servers)
     } else if (event.type === 'upsert') {
-      ipcRenderer.send(RALLY_POINT_UPSERT_SERVER, event.server)
+      ipcRenderer.send('rallyPointUpsertServer', event.server)
     } else if (event.type === 'delete') {
-      ipcRenderer.send(RALLY_POINT_DELETE_SERVER, event.id)
+      ipcRenderer.send('rallyPointDeleteServer', event.id)
     } else {
       logger.warning(`got unknown rally-point serverList event type: ${event.type}`)
     }
   })
 
-  ipcRenderer.on(RALLY_POINT_PING_RESULT, (event, server, ping) => {
+  ipcRenderer.on('rallyPointPingResult', (event, server, ping) => {
     dispatch((_, getState) => {
       const {
         auth: { user },
@@ -71,7 +71,7 @@ function rallyPointHandler({ siteSocket, ipcRenderer }) {
         body: JSON.stringify(reqBody),
       }).catch(err => {
         logger.error(
-          `error while reporting rally-point ping for [${server.id}, ${server.desc}]: ${
+          `error while reporting rally-point ping for [${server.id}, ${server.description}]: ${
             err.stack ?? err
           }`,
         )
@@ -97,6 +97,7 @@ const handlers = [auth, chat, loading, networkStatusHandler, serverStatus, whisp
 )
 
 export default function register() {
+  const ipcRenderer = new TypedIpcRenderer()
   for (const handler of handlers) {
     handler({ siteSocket, ipcRenderer })
   }

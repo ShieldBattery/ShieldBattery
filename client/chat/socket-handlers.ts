@@ -1,4 +1,5 @@
-import { dispatch } from '../dispatch-registry'
+import { NydusClient } from 'nydus-client'
+import { TypedIpcRenderer } from '../../common/ipc'
 import {
   CHAT_INIT_CHANNEL,
   CHAT_UPDATE_JOIN,
@@ -9,19 +10,77 @@ import {
   CHAT_UPDATE_USER_IDLE,
   CHAT_UPDATE_USER_OFFLINE,
 } from '../actions'
-import { NEW_CHAT_MESSAGE } from '../../common/ipc-constants'
+import { dispatch, Dispatchable } from '../dispatch-registry'
 
-const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
+const ipcRenderer = new TypedIpcRenderer()
 
-const eventToAction = {
-  init(channel, event, siteSocket) {
+// TODO(tec27): Put this in a common place and use it to restrict what the server can send as well
+type ChatEvent =
+  | ChatInitEvent
+  | ChatJoinEvent
+  | ChatLeaveEvent
+  | ChatMessageEvent
+  | ChatUserActiveEvent
+  | ChatUserIdleEvent
+  | ChatUserOfflineEvent
+
+interface ChatInitEvent {
+  action: 'init'
+  activeUsers: string[]
+}
+
+interface ChatJoinEvent {
+  action: 'join'
+  user: string
+}
+
+interface ChatLeaveEvent {
+  action: 'leave'
+  user: string
+  newOwner?: string
+}
+
+interface ChatMessageEvent {
+  action: 'message'
+  id: string
+  sent: number
+  user: string
+  data: {
+    text: string
+  }
+}
+
+interface ChatUserActiveEvent {
+  action: 'userActive'
+  user: string
+}
+
+interface ChatUserIdleEvent {
+  action: 'userIdle'
+  user: string
+}
+
+interface ChatUserOfflineEvent {
+  action: 'userOffline'
+  user: string
+}
+
+type EventToActionMap = {
+  [E in ChatEvent['action']]?: (
+    channel: string,
+    event: Extract<ChatEvent, { action: E }>,
+  ) => Dispatchable
+}
+
+const eventToAction: EventToActionMap = {
+  init(channel, event) {
     return {
       type: CHAT_INIT_CHANNEL,
       payload: {
         channel,
         activeUsers: event.activeUsers,
       },
-    }
+    } as any
   },
 
   join(channel, event) {
@@ -31,7 +90,7 @@ const eventToAction = {
         channel,
         user: event.user,
       },
-    }
+    } as any
   },
 
   leave: (channel, event) => (dispatch, getState) => {
@@ -44,7 +103,7 @@ const eventToAction = {
         payload: {
           channel,
         },
-      })
+      } as any)
     } else {
       dispatch({
         type: CHAT_UPDATE_LEAVE,
@@ -53,15 +112,13 @@ const eventToAction = {
           user: event.user,
           newOwner: event.newOwner,
         },
-      })
+      } as any)
     }
   },
 
   message(channel, event) {
-    if (ipcRenderer) {
-      // Notify the main process of the new message, so it can display an appropriate notification
-      ipcRenderer.send(NEW_CHAT_MESSAGE, { user: event.user, message: event.data.text })
-    }
+    // Notify the main process of the new message, so it can display an appropriate notification
+    ipcRenderer.send('chatNewMessage', { user: event.user, message: event.data.text })
 
     // TODO(tec27): handle different types of messages (event.data.type)
     return {
@@ -73,7 +130,7 @@ const eventToAction = {
         user: event.user,
         message: event.data.text,
       },
-    }
+    } as any
   },
 
   userActive(channel, event) {
@@ -83,7 +140,7 @@ const eventToAction = {
         channel,
         user: event.user,
       },
-    }
+    } as any
   },
 
   userIdle(channel, event) {
@@ -93,7 +150,7 @@ const eventToAction = {
         channel,
         user: event.user,
       },
-    }
+    } as any
   },
 
   userOffline(channel, event) {
@@ -103,15 +160,16 @@ const eventToAction = {
         channel,
         user: event.user,
       },
-    }
+    } as any
   },
 }
 
-export default function registerModule({ siteSocket }) {
+export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
   siteSocket.registerRoute('/chat/:channel', (route, event) => {
-    if (!eventToAction[event.action]) return
+    const actionName = event.action as ChatEvent['action']
+    if (!eventToAction[actionName]) return
 
-    const action = eventToAction[event.action](route.params.channel, event, siteSocket)
+    const action = eventToAction[actionName]!(route.params.channel, event)
     if (action) dispatch(action)
   })
 }

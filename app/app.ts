@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import { app, BrowserWindow, dialog, ipcMain, protocol, Session, shell } from 'electron'
+import { app, BrowserWindow, dialog, protocol, Session, shell } from 'electron'
 import isDev from 'electron-is-dev'
 import localShortcut from 'electron-localshortcut'
 import { autoUpdater } from 'electron-updater'
@@ -8,47 +8,7 @@ import path from 'path'
 import { Readable } from 'stream'
 import { container } from 'tsyringe'
 import { URL } from 'url'
-import { GameConfig, GameRoute } from '../common/game-config'
-import {
-  ACTIVE_GAME_SET_CONFIG,
-  ACTIVE_GAME_SET_ROUTES,
-  ACTIVE_GAME_START_WHEN_READY,
-  ACTIVE_GAME_STATUS,
-  CHECK_STARCRAFT_PATH,
-  LOCAL_SETTINGS_CHANGED,
-  LOCAL_SETTINGS_GET,
-  LOCAL_SETTINGS_GET_ERROR,
-  LOCAL_SETTINGS_MERGE,
-  LOCAL_SETTINGS_MERGE_ERROR,
-  LOG_MESSAGE,
-  MAP_STORE_DOWNLOAD_MAP,
-  NETWORK_SITE_CONNECTED,
-  NEW_CHAT_MESSAGE,
-  NEW_VERSION_DOWNLOADED,
-  NEW_VERSION_DOWNLOAD_ERROR,
-  NEW_VERSION_FOUND,
-  NEW_VERSION_GET_STATE,
-  NEW_VERSION_RESTART,
-  NEW_VERSION_UP_TO_DATE,
-  RALLY_POINT_DELETE_SERVER,
-  RALLY_POINT_PING_RESULT,
-  RALLY_POINT_REFRESH_PINGS,
-  RALLY_POINT_SET_SERVERS,
-  RALLY_POINT_UPSERT_SERVER,
-  SCR_SETTINGS_CHANGED,
-  SCR_SETTINGS_GET,
-  SCR_SETTINGS_GET_ERROR,
-  SCR_SETTINGS_MERGE,
-  SCR_SETTINGS_MERGE_ERROR,
-  SCR_SETTINGS_OVERWRITE,
-  SHIELDBATTERY_FILES_CHECK,
-  USER_ATTENTION_REQUIRED,
-  WINDOW_CLOSE,
-  WINDOW_MAXIMIZE,
-  WINDOW_MAXIMIZED_STATE,
-  WINDOW_MINIMIZE,
-} from '../common/ipc-constants'
-import { ResolvedRallyPointServer } from '../common/rally-point'
+import { TypedIpcMain, TypedIpcSender } from '../common/ipc'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import currentSession from './current-session'
 import { ActiveGameManager } from './game/active-game-manager'
@@ -60,6 +20,8 @@ import { RallyPointManager } from './rally-point/rally-point-manager'
 import { LocalSettings, ScrSettings } from './settings'
 import SystemTray from './system-tray'
 import { getUserDataPath } from './user-data-path'
+
+const ipcMain = new TypedIpcMain()
 
 getUserDataPath()
 app.setAppUserModelId('net.shieldbattery.client')
@@ -117,48 +79,50 @@ async function createScrSettings() {
 }
 
 function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
-  ipcMain.on(LOG_MESSAGE, (event, level, message) => {
+  ipcMain.handle('logMessage', (event, level, message) => {
     logger.log(level, message)
   })
 
-  ipcMain.handle(SCR_SETTINGS_OVERWRITE, async () => {
+  ipcMain.handle('settingsOverwriteBlizzardFile', async () => {
     await scrSettings.overwriteBlizzardSettingsFile()
   })
 
   ipcMain
-    .on(LOCAL_SETTINGS_GET, event => {
+    .on('settingsLocalGet', event => {
       localSettings.get().then(
-        settings => event.sender.send(LOCAL_SETTINGS_CHANGED, settings),
+        settings => TypedIpcSender.from(event.sender).send('settingsLocalChanged', settings),
         err => {
           logger.error('Error getting local settings: ' + err)
-          event.sender.send(LOCAL_SETTINGS_GET_ERROR, err)
+          TypedIpcSender.from(event.sender).send('settingsLocalGetError', err)
         },
       )
     })
-    .on(SCR_SETTINGS_GET, event => {
+    .on('settingsScrGet', event => {
       scrSettings.get().then(
-        settings => event.sender.send(SCR_SETTINGS_CHANGED, settings),
+        settings => TypedIpcSender.from(event.sender).send('settingsScrChanged', settings),
         err => {
           logger.error('Error getting SC:R settings: ' + err)
-          event.sender.send(SCR_SETTINGS_GET_ERROR, err)
+          TypedIpcSender.from(event.sender).send('settingsScrGetError', err)
         },
       )
     })
-    .on(LOCAL_SETTINGS_MERGE, (event, settings) => {
+    .on('settingsLocalMerge', (event, settings) => {
       // This will trigger a change if things changed, which will then emit a LOCAL_SETTINGS_CHANGED
       localSettings.merge(settings).catch(err => {
         logger.error('Error merging local settings: ' + err)
-        event.sender.send(LOCAL_SETTINGS_MERGE_ERROR, err)
+        TypedIpcSender.from(event.sender).send('settingsLocalMergeError', err)
       })
     })
-    .on(SCR_SETTINGS_MERGE, (event, settings) => {
+    .on('settingsScrMerge', (event, settings) => {
       // This will trigger a change if things changed, which will then emit a SCR_SETTINGS_CHANGED
       scrSettings.merge(settings).catch(err => {
         logger.error('Error merging SC:R settings: ' + err)
-        event.sender.send(SCR_SETTINGS_MERGE_ERROR, err)
+        TypedIpcSender.from(event.sender).send('settingsScrMergeError', err)
       })
     })
-    .on(WINDOW_CLOSE, (event, shouldDisplayCloseHint) => {
+
+  ipcMain
+    .on('windowClose', (_, shouldDisplayCloseHint) => {
       if (!mainWindow) {
         return
       }
@@ -169,7 +133,7 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
         mainWindow.close()
       }
     })
-    .on(WINDOW_MAXIMIZE, event => {
+    .on('windowMaximize', () => {
       if (!mainWindow) {
         return
       }
@@ -179,7 +143,7 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
         mainWindow.maximize()
       }
     })
-    .on(WINDOW_MINIMIZE, event => {
+    .on('windowMinimize', () => {
       if (!mainWindow) {
         return
       }
@@ -187,17 +151,17 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
     })
 
   localSettings.on('change', settings => {
-    if (mainWindow) {
-      mainWindow.webContents.send(LOCAL_SETTINGS_CHANGED, settings)
-    }
+    TypedIpcSender.from(mainWindow?.webContents).send('settingsLocalChanged', settings)
   })
   scrSettings.on('change', settings => {
-    if (mainWindow) {
-      mainWindow.webContents.send(SCR_SETTINGS_CHANGED, settings)
-    }
+    TypedIpcSender.from(mainWindow?.webContents).send('settingsScrChanged', settings)
   })
 
-  let updateState = NEW_VERSION_UP_TO_DATE
+  let updateState:
+    | 'updaterUpToDate'
+    | 'updaterNewVersionFound'
+    | 'updaterNewVersionDownloaded'
+    | 'updaterDownloadError' = 'updaterUpToDate'
   const sendUpdateState = () => {
     if (mainWindow) {
       mainWindow.webContents.send(updateState)
@@ -205,7 +169,7 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
   }
   autoUpdater
     .on('update-available', () => {
-      updateState = NEW_VERSION_FOUND
+      updateState = 'updaterNewVersionFound'
       if (!downloadingUpdate) {
         downloadingUpdate = true
         autoUpdater.downloadUpdate()
@@ -213,37 +177,37 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
       sendUpdateState()
     })
     .on('update-not-available', () => {
-      updateState = NEW_VERSION_UP_TO_DATE
+      updateState = 'updaterUpToDate'
       sendUpdateState()
     })
     .on('update-downloaded', () => {
-      updateState = NEW_VERSION_DOWNLOADED
+      updateState = 'updaterNewVersionDownloaded'
       downloadingUpdate = false
       sendUpdateState()
     })
     .on('error', () => {
-      if (updateState === NEW_VERSION_FOUND) {
-        updateState = NEW_VERSION_DOWNLOAD_ERROR
+      if (updateState === 'updaterNewVersionFound') {
+        updateState = 'updaterDownloadError'
         downloadingUpdate = false
         sendUpdateState()
       }
     })
 
   ipcMain
-    .on(NEW_VERSION_RESTART, () => {
+    .on('updaterQuitAndInstall', () => {
       autoUpdater.quitAndInstall()
     })
-    .on(NEW_VERSION_GET_STATE, event => {
-      event.sender.send(updateState)
+    .on('updaterGetState', event => {
+      TypedIpcSender.from(event.sender).send(updateState)
     })
 
   if (!isDev) {
-    ipcMain.on(NETWORK_SITE_CONNECTED, () => {
+    ipcMain.on('networkSiteConnected', () => {
       autoUpdater.checkForUpdates()
     })
   }
 
-  ipcMain.on(NEW_CHAT_MESSAGE, (event, data) => {
+  ipcMain.on('chatNewMessage', (event, data) => {
     if (mainWindow && !mainWindow.isFocused()) {
       if (systemTray) {
         systemTray.setUnreadIcon()
@@ -251,62 +215,55 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
     }
   })
 
-  ipcMain.on(USER_ATTENTION_REQUIRED, (event, data) => {
+  ipcMain.on('userAttentionRequired', event => {
     if (mainWindow && !mainWindow.isFocused()) {
       mainWindow.once('focus', () => mainWindow?.flashFrame(false))
       mainWindow.flashFrame(true)
     }
   })
 
-  ipcMain.handle(CHECK_STARCRAFT_PATH, async (event, path) => {
+  ipcMain.handle('settingsCheckStarcraftPath', async (event, path) => {
     return checkStarcraftPath(path)
   })
 
   const activeGameManager = container.resolve(ActiveGameManager)
 
   activeGameManager.on('gameStatus', status => {
-    mainWindow?.webContents.send(ACTIVE_GAME_STATUS, status)
+    TypedIpcSender.from(mainWindow?.webContents).send('activeGameStatus', status)
   })
 
-  ipcMain.handle(ACTIVE_GAME_START_WHEN_READY, (event, gameId: string) =>
+  ipcMain.handle('activeGameStartWhenReady', (event, gameId) =>
     activeGameManager.startWhenReady(gameId),
   )
-  ipcMain.handle(ACTIVE_GAME_SET_CONFIG, (event, config: GameConfig | Record<string, never>) =>
-    activeGameManager.setGameConfig(config),
-  )
-  ipcMain.handle(ACTIVE_GAME_SET_ROUTES, (event, gameId: string, routes: GameRoute[]) =>
+  ipcMain.handle('activeGameSetConfig', (event, config) => activeGameManager.setGameConfig(config))
+  ipcMain.handle('activeGameSetRoutes', (event, gameId, routes) =>
     activeGameManager.setGameRoutes(gameId, routes),
   )
 
   const mapStore = container.resolve(MapStore)
 
-  ipcMain.handle(
-    MAP_STORE_DOWNLOAD_MAP,
-    (event, mapHash: string, mapFormat: string, mapUrl: string) =>
-      mapStore.downloadMap(mapHash, mapFormat, mapUrl),
+  ipcMain.handle('mapStoreDownloadMap', (event, mapHash, mapFormat, mapUrl) =>
+    mapStore.downloadMap(mapHash, mapFormat, mapUrl),
   )
 
-  ipcMain.handle(SHIELDBATTERY_FILES_CHECK, () => checkShieldBatteryFiles())
+  ipcMain.handle('shieldbatteryCheckFiles', () => checkShieldBatteryFiles())
 
   const rallyPointManager = container.resolve(RallyPointManager)
 
-  ipcMain.on(
-    RALLY_POINT_SET_SERVERS,
-    (event, servers: [id: number, server: ResolvedRallyPointServer][]) => {
-      rallyPointManager.setServers(servers)
-    },
-  )
-  ipcMain.on(RALLY_POINT_UPSERT_SERVER, (event, server: ResolvedRallyPointServer) => {
+  ipcMain.on('rallyPointSetServers', (event, servers) => {
+    rallyPointManager.setServers(servers)
+  })
+  ipcMain.on('rallyPointUpsertServer', (event, server) => {
     rallyPointManager.upsertServer(server)
   })
-  ipcMain.on(RALLY_POINT_DELETE_SERVER, (event, id: number) => {
+  ipcMain.on('rallyPointDeleteServer', (event, id) => {
     rallyPointManager.deleteServer(id)
   })
-  ipcMain.on(RALLY_POINT_REFRESH_PINGS, () => {
+  ipcMain.on('rallyPointRefreshPings', () => {
     rallyPointManager.refreshPings()
   })
   rallyPointManager.on('ping', (server, ping) => {
-    mainWindow?.webContents.send(RALLY_POINT_PING_RESULT, server, ping)
+    TypedIpcSender.from(mainWindow?.webContents).send('rallyPointPingResult', server, ping)
   })
 }
 
@@ -446,13 +403,13 @@ async function createWindow() {
       localSettings.merge({ winMaximized: true }).catch(err => {
         logger.error('Error saving new window maximized state: ' + err)
       })
-      mainWindow?.webContents.send(WINDOW_MAXIMIZED_STATE, true)
+      TypedIpcSender.from(mainWindow?.webContents).send('windowMaximizedState', true)
     })
     .on('unmaximize', () => {
       localSettings.merge({ winMaximized: false }).catch(err => {
         logger.error('Error saving new window maximized state: ' + err)
       })
-      mainWindow?.webContents.send(WINDOW_MAXIMIZED_STATE, false)
+      TypedIpcSender.from(mainWindow?.webContents).send('windowMaximizedState', false)
     })
     .on('resize', () => {
       if (debounceTimer) {
@@ -528,7 +485,10 @@ app.on('ready', async () => {
     systemTray = new SystemTray(mainWindow, () => app.quit())
 
     mainWindow?.webContents.on('did-finish-load', () => {
-      mainWindow?.webContents.send(WINDOW_MAXIMIZED_STATE, mainWindow?.isMaximized() ?? false)
+      TypedIpcSender.from(mainWindow?.webContents).send(
+        'windowMaximizedState',
+        mainWindow?.isMaximized() ?? false,
+      )
     })
   } catch (err) {
     logger.error('Error initializing: ' + err)

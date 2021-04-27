@@ -1,18 +1,17 @@
-import fetch from '../network/fetch'
-import { dispatch } from '../dispatch-registry'
-
-import { ACTIVE_GAME_STATUS } from '../actions'
 import { stringToStatus } from '../../common/game-status'
-import { FetchError } from '../network/fetch-action-types'
+import { TypedIpcRenderer } from '../../common/ipc'
+import { ACTIVE_GAME_STATUS } from '../actions'
+import { dispatch } from '../dispatch-registry'
 import logger from '../logging/logger'
-import { setGameConfig } from './active-game-manager-ipc'
+import fetch from '../network/fetch'
+import { FetchError } from '../network/fetch-action-types'
 
-export default function ({ ipcRenderer }) {
-  ipcRenderer.on(ACTIVE_GAME_STATUS, (event, status) => {
+export default function ({ ipcRenderer }: { ipcRenderer: TypedIpcRenderer }) {
+  ipcRenderer.on('activeGameStatus', (event, status) => {
     dispatch({
       type: ACTIVE_GAME_STATUS,
       payload: status,
-    })
+    } as any)
 
     if (status.isReplay) {
       // Don't report replay status to the server (because it will error out and result in us
@@ -33,7 +32,7 @@ export default function ({ ipcRenderer }) {
             )
             // TODO(tec27): This feels kinda dangerous because this request might not have been
             // for the current game even... We should probably rework this API a bit.
-            setGameConfig({})
+            ipcRenderer.invoke('activeGameSetConfig', {})
           }
         }
       })

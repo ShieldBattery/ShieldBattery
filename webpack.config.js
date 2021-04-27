@@ -131,6 +131,9 @@ const electronMain = makeConfig({
   webpack: mainWebpackOpts,
   babel: mainBabelOpts,
   mainEntry: 'index',
+  globalDefines: {
+    IS_ELECTRON: true,
+  },
   extraRules: [
     {
       test: /\.node$/,

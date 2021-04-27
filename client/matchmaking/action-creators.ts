@@ -1,3 +1,4 @@
+import { TypedIpcRenderer } from '../../common/ipc'
 import {
   GetPreferencesPayload,
   MatchmakingPreferences,
@@ -17,9 +18,10 @@ import {
 } from '../actions'
 import { ThunkAction } from '../dispatch-registry'
 import fetch from '../network/fetch'
-import { refreshRallyPointPings } from '../network/rally-point-ipc'
 import siteSocket from '../network/site-socket'
 import { apiUrl } from '../network/urls'
+
+const ipcRenderer = new TypedIpcRenderer()
 
 export function findMatch(
   type: MatchmakingType,
@@ -28,7 +30,7 @@ export function findMatch(
   alternateRace: RaceChar,
   preferredMaps: string[],
 ): ThunkAction {
-  refreshRallyPointPings()
+  ipcRenderer.send('rallyPointRefreshPings')
 
   const params = {
     type,

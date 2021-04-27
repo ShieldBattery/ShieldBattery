@@ -1,34 +1,26 @@
+import { TypedIpcRenderer } from '../../common/ipc'
 import { LOCAL_SETTINGS_SET_BEGIN, SCR_SETTINGS_SET_BEGIN } from '../actions'
-import { LOCAL_SETTINGS_MERGE, SCR_SETTINGS_MERGE } from '../../common/ipc-constants'
 
-const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
+const ipcRenderer = new TypedIpcRenderer()
 
 export function mergeLocalSettings(settings) {
-  if (!ipcRenderer) {
-    throw new Error('This function should not be called outside of an Electron environment')
-  }
-
   return dispatch => {
     dispatch({
       type: LOCAL_SETTINGS_SET_BEGIN,
     })
 
     // the ipc-handler will dispatch the right UPDATE event (or SET, if there was an error)
-    ipcRenderer.send(LOCAL_SETTINGS_MERGE, settings)
+    ipcRenderer.send('settingsLocalMerge', settings)
   }
 }
 
 export function mergeScrSettings(settings) {
-  if (!ipcRenderer) {
-    throw new Error('This function should not be called outside of an Electron environment')
-  }
-
   return dispatch => {
     dispatch({
       type: SCR_SETTINGS_SET_BEGIN,
     })
 
     // the ipc-handler will dispatch the right UPDATE event (or SET, if there was an error)
-    ipcRenderer.send(SCR_SETTINGS_MERGE, settings)
+    ipcRenderer.send('settingsScrMerge', settings)
   }
 }

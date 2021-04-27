@@ -1,9 +1,12 @@
+import type AudioManager from './audio-manager'
+
 // TODO(tec27): There's not terribly much electron-specific about playing audio, we just need
 // an alternate way to load the sounds (XHR or something would be fine). We also probably don't want
 // to block on stuff like message notification sounds for the web version?
 
-let audioManager
-let SOUNDS
+let audioManager: AudioManager | undefined
+let SOUNDS: typeof AudioManager.SOUNDS | Record<string, never>
+
 if (IS_ELECTRON) {
   const AudioManager = require('./audio-manager').default
   audioManager = new AudioManager()

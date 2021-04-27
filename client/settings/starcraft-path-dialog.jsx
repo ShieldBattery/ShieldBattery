@@ -2,8 +2,6 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 
-import { CHECK_STARCRAFT_PATH } from '../../common/ipc-constants'
-
 import Dialog from '../material/dialog'
 import FlatButton from '../material/flat-button'
 import form from '../forms/form'
@@ -17,14 +15,16 @@ import { isStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 
 import { colorError } from '../styles/colors'
 import { SubheadingOld } from '../styles/typography'
+import { TypedIpcRenderer } from '../../common/ipc'
 
-const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
 const currentWindow = IS_ELECTRON ? require('electron').remote.getCurrentWindow() : null
 const dialog = IS_ELECTRON ? require('electron').remote.dialog : null
 
+const ipcRenderer = new TypedIpcRenderer()
+
 const starcraftPathValidator = () => {
   return async starcraftPath => {
-    const checkResult = await ipcRenderer.invoke(CHECK_STARCRAFT_PATH, starcraftPath)
+    const checkResult = await ipcRenderer.invoke('settingsCheckStarcraftPath', starcraftPath)
 
     if (!checkResult.path) {
       return 'Select a valid StarCraft path'
@@ -92,6 +92,7 @@ class StarcraftPathForm extends React.Component {
     const { getInputValue, setInputValue } = this.props
     const currentPath = getInputValue('path') || ''
 
+    // TODO(tec27): do this over IPC instead
     const selection = await dialog.showOpenDialog(currentWindow, {
       title: 'Select StarCraft folder',
       defaultPath: currentPath,

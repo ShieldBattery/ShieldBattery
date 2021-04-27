@@ -7,3 +7,5 @@ export enum ShieldBatteryFile {
   /** game/dist/shieldbattery.dll */
   Main,
 }
+
+export type ShieldBatteryFileResult = [file: ShieldBatteryFile, canAccess: boolean]

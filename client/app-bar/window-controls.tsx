@@ -1,17 +1,14 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
-import styled, { css, createGlobalStyle } from 'styled-components'
-
+import styled, { createGlobalStyle, css } from 'styled-components'
+import { TypedIpcRenderer } from '../../common/ipc'
 import CloseIcon from '../icons/material/ic_close_black_24px.svg'
 import MaximizeIcon from '../icons/material/ic_fullscreen_black_24px.svg'
 import MinimizeIcon from '../icons/material/ic_remove_black_24px.svg'
-
 import { reset } from '../material/button-reset'
 import { zIndexWindowControls } from '../material/zindex'
 
-import { WINDOW_CLOSE, WINDOW_MAXIMIZE, WINDOW_MINIMIZE } from '../../common/ipc-constants'
-
-const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
+const ipcRenderer = new TypedIpcRenderer()
 
 export const windowControlsHeight = IS_ELECTRON ? '32px' : '0px'
 
@@ -100,7 +97,7 @@ export const SizeRight = styled.div`
 `
 
 export class WindowControls extends React.Component {
-  controls = null
+  controls: HTMLDivElement | null = null
 
   componentWillUnmount() {
     this.removeWindowControls()
@@ -118,7 +115,7 @@ export class WindowControls extends React.Component {
     }
 
     const contents = (
-      <React.Fragment>
+      <>
         <CloseButton title={'Close'} onClick={this.onCloseClick}>
           <CloseIcon />
         </CloseButton>
@@ -128,7 +125,7 @@ export class WindowControls extends React.Component {
         <MinimizeButton title={'Minimize'} onClick={this.onMinimizeClick}>
           <MinimizeIcon />
         </MinimizeButton>
-      </React.Fragment>
+      </>
     )
 
     // The reason why we're using portals to render window controls is so we can ensure they always
@@ -149,18 +146,18 @@ export class WindowControls extends React.Component {
     const val = window.localStorage.getItem(KEY)
     if (!val) {
       shouldDisplayCloseHint = true
-      window.localStorage.setItem(KEY, true)
+      window.localStorage.setItem(KEY, 'true')
     } else {
       shouldDisplayCloseHint = false
     }
-    ipcRenderer.send(WINDOW_CLOSE, shouldDisplayCloseHint)
+    ipcRenderer.send('windowClose', shouldDisplayCloseHint)
   }
 
   onMaximizeClick = () => {
-    ipcRenderer.send(WINDOW_MAXIMIZE)
+    ipcRenderer.send('windowMaximize')
   }
 
   onMinimizeClick = () => {
-    ipcRenderer.send(WINDOW_MINIMIZE)
+    ipcRenderer.send('windowMinimize')
   }
 }

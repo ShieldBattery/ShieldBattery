@@ -1,4 +1,3 @@
-import * as activeGameManagerIpc from '../active-game/active-game-manager-ipc'
 import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
 import {
   ACTIVE_GAME_LAUNCH,
@@ -21,11 +20,10 @@ import { replace } from '../navigation/routing'
 import { openDialog, closeDialog } from '../dialogs/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
-import { MAP_STORE_DOWNLOAD_MAP, USER_ATTENTION_REQUIRED } from '../../common/ipc-constants'
 import { makeServerUrl } from '../network/server-url'
-import { refreshRallyPointPings } from '../network/rally-point-ipc'
+import { TypedIpcRenderer } from '../../common/ipc'
 
-const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
+const ipcRenderer = new TypedIpcRenderer()
 
 const acceptMatchState = {
   timer: null,
@@ -81,15 +79,13 @@ function clearCountdownTimer(leaveAtmosphere = false) {
 
 const eventToAction = {
   matchFound: (name, event) => {
-    if (ipcRenderer) {
-      ipcRenderer.send(USER_ATTENTION_REQUIRED)
-    }
+    ipcRenderer.send('userAttentionRequired')
 
     audioManager.playSound(SOUNDS.MATCH_FOUND)
 
     clearRequeueTimer()
     clearAcceptMatchTimer()
-    refreshRallyPointPings()
+    ipcRenderer.send('rallyPointRefreshPings')
 
     let tick = MATCHMAKING_ACCEPT_MATCH_TIME / 1000
     dispatch({
@@ -166,7 +162,7 @@ const eventToAction = {
     } = event.chosenMap
     // Even though we're downloading the whole map pool as soon as the player enters the queue,
     // we're still leaving this as a check to make sure the map exists before starting a game.
-    ipcRenderer.invoke(MAP_STORE_DOWNLOAD_MAP, hash, format, mapUrl).catch(err => {
+    ipcRenderer.invoke('mapStoreDownloadMap', hash, format, mapUrl).catch(err => {
       // TODO(tec27): Report this to the server so the loading is canceled immediately
 
       // This is already logged to our file by the map store, so we just log it to the console for
@@ -189,13 +185,16 @@ const eventToAction = {
       },
     }
 
-    dispatch({ type: ACTIVE_GAME_LAUNCH, payload: activeGameManagerIpc.setGameConfig(config) })
+    dispatch({
+      type: ACTIVE_GAME_LAUNCH,
+      payload: ipcRenderer.invoke('activeGameSetConfig', config),
+    })
   },
 
   setRoutes: (name, event) => dispatch => {
     const { routes, gameId } = event
 
-    activeGameManagerIpc.setGameRoutes(gameId, routes)
+    ipcRenderer.invoke('activeGameSetRoutes', gameId, routes)
   },
 
   // TODO(2Pac): Try to pull this out into a common place and reuse with lobbies
@@ -231,7 +230,7 @@ const eventToAction = {
     }
     dispatch({ type: MATCHMAKING_UPDATE_GAME_STARTING })
 
-    activeGameManagerIpc.startWhenReady(gameId)
+    ipcRenderer.invoke('activeGameStartWhenReady', gameId)
   },
 
   cancelLoading: (name, event) => (dispatch, getState) => {
@@ -243,7 +242,7 @@ const eventToAction = {
     }
     dispatch({
       type: ACTIVE_GAME_LAUNCH,
-      payload: activeGameManagerIpc.setGameConfig({}),
+      payload: ipcRenderer.invoke('activeGameSetConfig', {}),
     })
     dispatch({ type: MATCHMAKING_UPDATE_LOADING_CANCELED })
     dispatch(openSnackbar({ message: 'The game has failed to load.' }))
@@ -286,7 +285,7 @@ const eventToAction = {
       if (mapPool) {
         mapPool.byId.valueSeq().forEach(map =>
           ipcRenderer
-            .invoke(MAP_STORE_DOWNLOAD_MAP, map.hash, map.mapData.format, map.mapUrl)
+            .invoke('mapStoreDownloadMap', map.hash, map.mapData.format, map.mapUrl)
             .catch(err => {
               // This is already logged to our file by the map store, so we just log it to the
               // console for easy visibility during development

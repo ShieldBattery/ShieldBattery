@@ -1,15 +1,13 @@
 import { app } from 'electron'
 import { access } from 'fs/promises'
 import path from 'path'
-import { ShieldBatteryFile } from '../common/shieldbattery-file'
+import { ShieldBatteryFile, ShieldBatteryFileResult } from '../common/shieldbattery-file'
 import logger from './logger'
 
 const FILES_TO_CHECK: [ShieldBatteryFile, string][] = [
   [ShieldBatteryFile.Init, path.join('game', 'dist', 'sb_init.dll')],
   [ShieldBatteryFile.Main, path.join('game', 'dist', 'shieldbattery.dll')],
 ]
-
-type ShieldBatteryFileResult = [ShieldBatteryFile, boolean]
 
 export function checkShieldBatteryFiles(): Promise<ShieldBatteryFileResult[]> {
   const basePath = path.resolve(app.getAppPath(), '..')

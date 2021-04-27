@@ -6,12 +6,11 @@ import { closeDialog } from '../dialogs/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import { TitleOld } from '../styles/typography'
 
-import { NEW_VERSION_RESTART } from '../../common/ipc-constants'
-
 import LoadingIndicator from '../progress/dots'
 import RaisedButton from '../material/raised-button'
+import { TypedIpcRenderer } from '../../common/ipc'
 
-const ipcRenderer = IS_ELECTRON ? require('electron').ipcRenderer : null
+const ipcRenderer = new TypedIpcRenderer()
 
 const Text = styled(TitleOld)`
   margin-top: 0;
@@ -88,6 +87,6 @@ export default class UpdateDialog extends React.Component {
   }
 
   onRestartClick = () => {
-    ipcRenderer.send(NEW_VERSION_RESTART)
+    ipcRenderer.send('updaterQuitAndInstall')
   }
 }
