@@ -6,9 +6,9 @@ const MONTH = DAY * 30.42
 const YEAR = MONTH * 12
 
 /**
- * A function which takes the number representing a difference between two dates, and returns a
- * string representation of that difference, in "Xy ago" syntax. Where X equals amount of time, and
- * y specifies the time unit.
+ * A function which takes the number of seconds representing a difference between two dates, and
+ * returns a string representation of that difference, in "Xy ago" syntax. Where X equals amount of
+ * time, and y specifies the time unit.
  *
  * Note that this is not a *perfect* measurement of time. Some values are approximated, e.g. number
  * of days in a month, and leap days/seconds/whatever are not taken into account.
