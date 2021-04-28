@@ -6,43 +6,48 @@ const MONTH = DAY * 30.42
 const YEAR = MONTH * 12
 
 /**
- * A function which takes the number of seconds representing a difference between two dates, and
- * returns a string representation of that difference, in "Xy ago" syntax. Where X equals amount of
- * time, and y specifies the time unit.
+ * Returns a short string representing the difference between two dates.
  *
- * Note that this is not a *perfect* measurement of time. Some values are approximated, e.g. number
- * of days in a month, and leap days/seconds/whatever are not taken into account.
+ * @param {number} diffMs Number representing a difference between two dates, in milliseconds.
+ *
+ * @example
+ *
+ * const NOW = Date.now()
+ * const twoDaysAgo = NOW - 2 * 24 * 60 * 60 * 1000
+ * console.log(timeAgo(NOW - twoDaysAgo)) // -> '2d ago'
  */
-export function timeAgo(diff: number): string {
-  let interval = diff / YEAR
+export function timeAgo(diffMs: number): string {
+  const diffInSeconds = diffMs / 1000
+
+  let interval = diffInSeconds / YEAR
   if (interval >= 1) {
     return `${Math.floor(interval)}y ago`
   }
 
-  interval = diff / MONTH
+  interval = diffInSeconds / MONTH
   if (interval >= 1) {
     return `${Math.floor(interval)}mo ago`
   }
 
-  interval = diff / WEEK
+  interval = diffInSeconds / WEEK
   if (interval >= 1) {
     return `${Math.floor(interval)}w ago`
   }
 
-  interval = diff / DAY
+  interval = diffInSeconds / DAY
   if (interval >= 1) {
     return `${Math.floor(interval)}d ago`
   }
 
-  interval = diff / HOUR
+  interval = diffInSeconds / HOUR
   if (interval >= 1) {
     return `${Math.floor(interval)}h ago`
   }
 
-  interval = diff / MINUTE
+  interval = diffInSeconds / MINUTE
   if (interval >= 1) {
     return `${Math.floor(interval)}m ago`
   }
 
-  return `${Math.floor(diff)}s ago`
+  return `${Math.floor(diffInSeconds)}s ago`
 }

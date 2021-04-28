@@ -1,5 +1,5 @@
 import { List } from 'immutable'
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Column, Table, TableCellRenderer, TableHeaderProps } from 'react-virtualized'
 import styled from 'styled-components'
 import { LadderPlayer } from '../../common/ladder'
@@ -152,8 +152,9 @@ export interface LadderTableProps {
 }
 
 export function LadderTable(props: LadderTableProps) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const NOW = useMemo(() => Date.now(), [props.players])
   const [dimensionsRef, containerRect] = useDimensions()
-  const nowRef = useRef(Date.now())
   const containerRef = useRef<HTMLElement | null>(null)
   // multiplex the ref to the container to our own ref + the dimensions one
   const containerCallback = useCallback(
@@ -211,9 +212,12 @@ export function LadderTable(props: LadderTableProps) {
       </NumberText>
     )
   }, [])
-  const renderLastPlayed = useCallback<TableCellRenderer>(props => {
-    return <NumberText>{timeAgo(Math.floor((nowRef.current - props.cellData) / 1000))}</NumberText>
-  }, [])
+  const renderLastPlayed = useCallback<TableCellRenderer>(
+    props => {
+      return <NumberText>{timeAgo(NOW - props.cellData)}</NumberText>
+    },
+    [NOW],
+  )
 
   return (
     <TableContainer ref={containerCallback} onScroll={containerScrollHandler.current?.handler}>
