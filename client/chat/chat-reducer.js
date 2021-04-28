@@ -119,6 +119,7 @@ export default keyedReducer(new ChatState(), {
       return m.push(
         new SelfJoinChannelMessageRecord({
           id: cuid(),
+          time: Date.now(),
           channel,
         }),
       )
