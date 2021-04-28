@@ -153,6 +153,7 @@ export interface LadderTableProps {
 
 export function LadderTable(props: LadderTableProps) {
   const [dimensionsRef, containerRect] = useDimensions()
+  const nowRef = useRef(Date.now())
   const containerRef = useRef<HTMLElement | null>(null)
   // multiplex the ref to the container to our own ref + the dimensions one
   const containerCallback = useCallback(
@@ -211,7 +212,7 @@ export function LadderTable(props: LadderTableProps) {
     )
   }, [])
   const renderLastPlayed = useCallback<TableCellRenderer>(props => {
-    return <NumberText>{timeAgo(props.cellData)}</NumberText>
+    return <NumberText>{timeAgo(Math.floor((nowRef.current - props.cellData) / 1000))}</NumberText>
   }, [])
 
   return (
