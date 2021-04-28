@@ -8,7 +8,7 @@ const YEAR = MONTH * 12
 /**
  * Returns a short string representing the difference between two dates.
  *
- * @param {number} diffMs Number representing a difference between two dates, in milliseconds.
+ * @param diffMs Number representing a difference between two dates, in milliseconds.
  *
  * @example
  *
