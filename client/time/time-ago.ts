@@ -1,9 +1,10 @@
-const MINUTE = 60 // in seconds
-const HOUR = MINUTE * 60
-const DAY = HOUR * 24
-const WEEK = DAY * 7
-const MONTH = DAY * 30.42
-const YEAR = MONTH * 12
+const SECONDS = 1000
+const MINUTES = 60 * SECONDS
+const HOURS = 60 * MINUTES
+const DAYS = 24 * HOURS
+const WEEKS = 7 * DAYS
+const MONTHS = Math.round(30.42 * DAYS)
+const YEARS = Math.round(365.25 * DAYS)
 
 /**
  * Returns a short string representing the difference between two dates.
@@ -17,37 +18,19 @@ const YEAR = MONTH * 12
  * console.log(timeAgo(NOW - twoDaysAgo)) // -> '2d ago'
  */
 export function timeAgo(diffMs: number): string {
-  const diffInSeconds = diffMs / 1000
-
-  let interval = diffInSeconds / YEAR
-  if (interval >= 1) {
-    return `${Math.floor(interval)}y ago`
+  if (diffMs < MINUTES) {
+    return `${Math.floor(diffMs / SECONDS)}s ago`
+  } else if (diffMs < HOURS) {
+    return `${Math.floor(diffMs / MINUTES)}m ago`
+  } else if (diffMs < DAYS) {
+    return `${Math.floor(diffMs / HOURS)}h ago`
+  } else if (diffMs < WEEKS) {
+    return `${Math.floor(diffMs / DAYS)}d ago`
+  } else if (diffMs < MONTHS) {
+    return `${Math.floor(diffMs / WEEKS)}w ago`
+  } else if (diffMs < YEARS) {
+    return `${Math.floor(diffMs / MONTHS)}mo ago`
+  } else {
+    return `${Math.floor(diffMs / YEARS)}y ago`
   }
-
-  interval = diffInSeconds / MONTH
-  if (interval >= 1) {
-    return `${Math.floor(interval)}mo ago`
-  }
-
-  interval = diffInSeconds / WEEK
-  if (interval >= 1) {
-    return `${Math.floor(interval)}w ago`
-  }
-
-  interval = diffInSeconds / DAY
-  if (interval >= 1) {
-    return `${Math.floor(interval)}d ago`
-  }
-
-  interval = diffInSeconds / HOUR
-  if (interval >= 1) {
-    return `${Math.floor(interval)}h ago`
-  }
-
-  interval = diffInSeconds / MINUTE
-  if (interval >= 1) {
-    return `${Math.floor(interval)}m ago`
-  }
-
-  return `${Math.floor(diffInSeconds)}s ago`
 }
