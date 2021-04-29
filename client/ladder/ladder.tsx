@@ -1,5 +1,5 @@
 import { List } from 'immutable'
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Column, Table, TableCellRenderer, TableHeaderProps } from 'react-virtualized'
 import styled from 'styled-components'
 import { LadderPlayer } from '../../common/ladder'
@@ -10,6 +10,7 @@ import { AnimationFrameHandler, animationFrameHandler } from '../material/animat
 import { shadow4dp } from '../material/shadows'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { usePropAsRef } from '../state-hooks'
 import {
   colorError,
   colorTextFaint,
@@ -51,6 +52,7 @@ export function Ladder() {
         players={rankings.players}
         isLoading={rankings.isLoading}
         lastError={rankings.lastError}
+        curTime={Number(rankings.fetchTime)}
       />
     </LadderPage>
   )
@@ -109,6 +111,15 @@ const NumberText = styled.div`
   line-height: ${ROW_HEIGHT}px;
 `
 
+const LastPlayedText = styled.div`
+  ${subtitle1};
+  width: 100%;
+  padding: 0 8px 0 32px;
+  color: ${colorTextSecondary};
+  line-height: ${ROW_HEIGHT}px;
+  text-align: left;
+`
+
 const PlayerCell = styled.div`
   width: 100%;
   height: 100%;
@@ -145,6 +156,7 @@ const EmptyText = styled.div`
 `
 
 export interface LadderTableProps {
+  curTime: number
   totalCount: number
   isLoading: boolean
   players?: List<Readonly<LadderPlayer>>
@@ -152,8 +164,6 @@ export interface LadderTableProps {
 }
 
 export function LadderTable(props: LadderTableProps) {
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const NOW = useMemo(() => Date.now(), [props.players])
   const [dimensionsRef, containerRect] = useDimensions()
   const containerRef = useRef<HTMLElement | null>(null)
   // multiplex the ref to the container to our own ref + the dimensions one
@@ -205,18 +215,22 @@ export function LadderTable(props: LadderTableProps) {
   const renderNumber = useCallback<TableCellRenderer>(props => {
     return <NumberText>{props.cellData}</NumberText>
   }, [])
-  const renderStats = useCallback<TableCellRenderer>(props => {
+
+  const renderWinLoss = useCallback<TableCellRenderer>(props => {
     return (
       <NumberText>
         {props.cellData.wins} &ndash; {props.cellData.losses}
       </NumberText>
     )
   }, [])
+
+  const { curTime } = props
+  const curTimeRef = usePropAsRef(curTime)
   const renderLastPlayed = useCallback<TableCellRenderer>(
     props => {
-      return <NumberText>{timeAgo(NOW - props.cellData)}</NumberText>
+      return <LastPlayedText>{timeAgo(curTimeRef.current - props.cellData)}</LastPlayedText>
     },
-    [NOW],
+    [curTimeRef],
   )
 
   return (
@@ -258,23 +272,22 @@ export function LadderTable(props: LadderTableProps) {
           headerRenderer={LadderTableHeader}
         />
         <Column
-          label='Stats'
+          label='Win/loss'
           dataKey=''
           width={112}
           columnData={{ rightAlignHeader: true }}
           cellDataGetter={({ rowData }) => rowData}
-          cellRenderer={renderStats}
+          cellRenderer={renderWinLoss}
           headerRenderer={LadderTableHeader}
         />
         <Column
           label='Last played'
           dataKey='lastPlayedDate'
-          width={96}
-          columnData={{ rightAlignHeader: true }}
+          width={132}
+          columnData={{ horizontalPadding: 32 }}
           cellRenderer={renderLastPlayed}
           headerRenderer={LadderTableHeader}
         />
-        <Column width={32} dataKey='' />
       </StyledTable>
     </TableContainer>
   )
