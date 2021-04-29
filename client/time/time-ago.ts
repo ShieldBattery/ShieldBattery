@@ -18,7 +18,9 @@ const YEARS = Math.round(365.25 * DAYS)
  * console.log(timeAgo(NOW - twoDaysAgo)) // -> '2d ago'
  */
 export function timeAgo(diffMs: number): string {
-  if (diffMs < MINUTES) {
+  if (diffMs < 5 * SECONDS) {
+    return `just now`
+  } else if (diffMs < MINUTES) {
     return `${Math.floor(diffMs / SECONDS)}s ago`
   } else if (diffMs < HOURS) {
     return `${Math.floor(diffMs / MINUTES)}m ago`

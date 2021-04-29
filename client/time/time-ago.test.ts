@@ -8,9 +8,9 @@ const WEEKS = 7 * DAYS
 
 describe('client/time/time-ago/timeAgo', () => {
   test('seconds', () => {
-    expect(timeAgo(500)).toMatchInlineSnapshot(`"0s ago"`)
-    expect(timeAgo(1500)).toMatchInlineSnapshot(`"1s ago"`)
-    expect(timeAgo(2000)).toMatchInlineSnapshot(`"2s ago"`)
+    expect(timeAgo(500)).toMatchInlineSnapshot(`"just now"`)
+    expect(timeAgo(1500)).toMatchInlineSnapshot(`"just now"`)
+    expect(timeAgo(2000)).toMatchInlineSnapshot(`"just now"`)
     expect(timeAgo(55000)).toMatchInlineSnapshot(`"55s ago"`)
     expect(timeAgo(59000)).toMatchInlineSnapshot(`"59s ago"`)
   })
