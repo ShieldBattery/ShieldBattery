@@ -1,5 +1,5 @@
 import { List } from 'immutable'
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Column, Table, TableCellRenderer, TableHeaderProps } from 'react-virtualized'
 import styled from 'styled-components'
 import { LadderPlayer } from '../../common/ladder'
@@ -19,6 +19,7 @@ import {
   grey900,
 } from '../styles/colors'
 import { overline, subtitle1, subtitle2 } from '../styles/typography'
+import { timeAgo } from '../time/time-ago'
 import { getRankings } from './action-creators'
 
 const LadderPage = styled.div`
@@ -151,6 +152,8 @@ export interface LadderTableProps {
 }
 
 export function LadderTable(props: LadderTableProps) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const NOW = useMemo(() => Date.now(), [props.players])
   const [dimensionsRef, containerRect] = useDimensions()
   const containerRef = useRef<HTMLElement | null>(null)
   // multiplex the ref to the container to our own ref + the dimensions one
@@ -202,6 +205,19 @@ export function LadderTable(props: LadderTableProps) {
   const renderNumber = useCallback<TableCellRenderer>(props => {
     return <NumberText>{props.cellData}</NumberText>
   }, [])
+  const renderStats = useCallback<TableCellRenderer>(props => {
+    return (
+      <NumberText>
+        {props.cellData.wins} &ndash; {props.cellData.losses}
+      </NumberText>
+    )
+  }, [])
+  const renderLastPlayed = useCallback<TableCellRenderer>(
+    props => {
+      return <NumberText>{timeAgo(NOW - props.cellData)}</NumberText>
+    },
+    [NOW],
+  )
 
   return (
     <TableContainer ref={containerCallback} onScroll={containerScrollHandler.current?.handler}>
@@ -242,19 +258,20 @@ export function LadderTable(props: LadderTableProps) {
           headerRenderer={LadderTableHeader}
         />
         <Column
-          label='Wins'
-          dataKey='wins'
-          width={56}
+          label='Stats'
+          dataKey=''
+          width={112}
           columnData={{ rightAlignHeader: true }}
-          cellRenderer={renderRating}
+          cellDataGetter={({ rowData }) => rowData}
+          cellRenderer={renderStats}
           headerRenderer={LadderTableHeader}
         />
         <Column
-          label='Losses'
-          dataKey='losses'
-          width={56}
+          label='Last played'
+          dataKey='lastPlayedDate'
+          width={96}
           columnData={{ rightAlignHeader: true }}
-          cellRenderer={renderRating}
+          cellRenderer={renderLastPlayed}
           headerRenderer={LadderTableHeader}
         />
         <Column width={32} dataKey='' />
