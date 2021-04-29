@@ -34,5 +34,12 @@ for (let i = 0; i < 1000; i++) {
 }
 
 export function TableTest() {
-  return <LadderTable players={List(PLAYERS)} totalCount={PLAYERS.length} isLoading={false} />
+  return (
+    <LadderTable
+      players={List(PLAYERS)}
+      totalCount={PLAYERS.length}
+      isLoading={false}
+      curTime={Date.now()}
+    />
+  )
 }
