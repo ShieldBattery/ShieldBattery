@@ -274,7 +274,7 @@ export function LadderTable(props: LadderTableProps) {
         <Column
           label='Win/loss'
           dataKey=''
-          width={112}
+          width={128}
           columnData={{ rightAlignHeader: true }}
           cellDataGetter={({ rowData }) => rowData}
           cellRenderer={renderWinLoss}
