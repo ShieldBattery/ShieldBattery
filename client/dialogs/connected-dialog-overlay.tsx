@@ -1,24 +1,42 @@
+import { rgba } from 'polished'
 import React, { useCallback, useRef } from 'react'
+import ReactDOM from 'react-dom'
+import { animated, useTransition } from 'react-spring'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
+import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import EditAccount from '../auth/edit-account'
 import ChangelogDialog from '../changelog/changelog-dialog'
 import JoinChannelDialog from '../chat/join-channel'
+import { useExternalElementRef } from '../dom/use-external-element-ref'
 import DownloadDialog from '../download/download-dialog'
 import UpdateDialog from '../download/update-dialog'
 import MapDetailsDialog from '../maps/map-details'
 import AcceptMatch from '../matchmaking/accept-match'
-import { Portal } from '../material/portal'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import Settings from '../settings/settings'
 import StarcraftPathDialog from '../settings/starcraft-path-dialog'
 import { isStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 import { ShieldBatteryHealthDialog } from '../starcraft/shieldbattery-health'
 import StarcraftHealthCheckupDialog from '../starcraft/starcraft-health'
+import { dialogScrim } from '../styles/colors'
 import CreateWhisperSessionDialog from '../whispers/create-whisper'
 import { closeDialog } from './action-creators'
 import { DialogType } from './dialog-type'
 import { SimpleDialog } from './simple-dialog'
+
+const Scrim = styled(animated.div)`
+  position: fixed;
+  left: 0;
+  top: var(--sb-system-bar-height, 0);
+  right: 0;
+  bottom: 0;
+
+  -webkit-app-region: no-drag;
+`
+
+const INVISIBLE_SCRIM_COLOR = rgba(dialogScrim, 0)
+const VISIBLE_SCRIM_COLOR = rgba(dialogScrim, 0.42)
 
 const transitionNames = {
   appear: 'enter',
@@ -74,25 +92,36 @@ export function ConnectedDialogOverlay() {
 
   const focusableRef = useRef<HTMLSpanElement>(null)
   const dialogRef = useRef<HTMLElement>(null)
+  const portalRef = useExternalElementRef()
 
   const { dialogType } = dialogState
+  const { component: DialogComponent, modal } = dialogType
+    ? getDialog(dialogType, starcraft)
+    : { component: null, modal: false }
+
   const onCancel = useCallback(() => {
-    const { modal } = getDialog(dialogType!, starcraft)
-    if (!modal) {
+    if (dialogType && !modal) {
       dispatch(closeDialog())
     }
-  }, [dialogType, starcraft, dispatch])
+  }, [dialogType, modal, dispatch])
   const onFocusTrap = useCallback(() => {
     // Focus was about to leave the dialog area, redirect it back to the dialog
     focusableRef.current?.focus()
   }, [])
 
+  const scrimTransition = useTransition(dialogState.isDialogOpened, {
+    from: {
+      background: INVISIBLE_SCRIM_COLOR,
+    },
+    enter: { background: VISIBLE_SCRIM_COLOR },
+    leave: { background: INVISIBLE_SCRIM_COLOR },
+  })
+
   // Dialog content implementations should focus *something* when mounted, so that our focus traps
   // have the proper effect of keeping focus in the dialog
-  let dialogComponent
-  if (dialogState.isDialogOpened) {
-    const { component: DialogComponent } = getDialog(dialogType!, starcraft)
-    dialogComponent = (
+  let renderedDialog
+  if (dialogState.isDialogOpened && DialogComponent) {
+    renderedDialog = (
       <CSSTransition
         classNames={transitionNames}
         timeout={{ enter: 350, exit: 250 }}
@@ -107,20 +136,15 @@ export function ConnectedDialogOverlay() {
     )
   }
 
-  // We always render a dialog even if we don't have one, so that its always mounted (and
-  // thus usable for TransitionGroup animations)
-  return (
-    <Portal
-      onDismiss={onCancel}
-      open={true}
-      scrim={dialogState.isDialogOpened}
-      propagateClicks={true}>
-      <span tabIndex={0} onFocus={onFocusTrap} />,
-      <span ref={focusableRef} tabIndex={-1}>
-        <TransitionGroup>{dialogComponent}</TransitionGroup>
-      </span>
-      ,
+  return ReactDOM.createPortal(
+    <>
+      {scrimTransition((styles, open) => open && <Scrim style={styles} onClick={onCancel} />)}
       <span tabIndex={0} onFocus={onFocusTrap} />
-    </Portal>
+      <span ref={focusableRef} tabIndex={-1}>
+        <TransitionGroup>{renderedDialog}</TransitionGroup>
+      </span>
+      <span tabIndex={0} onFocus={onFocusTrap} />
+    </>,
+    portalRef.current,
   )
 }
