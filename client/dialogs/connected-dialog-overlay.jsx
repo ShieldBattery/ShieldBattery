@@ -111,7 +111,7 @@ class ConnectedDialogOverlay extends React.Component {
         open={true}
         scrim={dialog.isDialogOpened}
         propagateClicks={true}>
-        {this.renderDialog}
+        {this.renderDialog()}
       </Portal>
     )
   }
