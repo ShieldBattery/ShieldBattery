@@ -1,12 +1,11 @@
-import React from 'react'
+import { rgba } from 'polished'
 import PropTypes from 'prop-types'
+import React from 'react'
 import ReactDOM from 'react-dom'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import styled from 'styled-components'
-import { rgba } from 'polished'
-
-import { zIndexDialogScrim } from './zindex'
 import { dialogScrim } from '../styles/colors'
+import { zIndexDialogScrim } from './zindex'
 
 const transitionNames = {
   appear: 'enter',
@@ -51,13 +50,42 @@ const Scrim = styled.div`
   }
 `
 
-// A component for rendering component trees into 'portals', that is, roots that exist outside of
-// the React root. This is useful for things like modal dialogs, popovers, etc. Contains
-// functionality for being dismissed when a click-away occurs, and can optionally scrim the screen
-// behind the portal content. If a scrim is displayed, clicks will not propagate to the elements
-// behind it. If a scrim is not displayed though, the propagation of clicks to the elements behind
-// it can be configured with `propagateClicks` props.
-export default class Portal extends React.Component {
+export interface PortalProps {
+  /** Called to render the children inside the portal, will only be called if `open` is `true`. */
+  children: () => React.ReactNode
+  /** Whether or not the portal contents should be shown/rendered */
+  open: boolean
+
+  /**
+   * Whether or not to show the scrim (that is, darken the background behind the Portal). Defaults
+   * to false.
+   */
+  scrim?: boolean
+  /**
+   * The z-index to apply to the scrim layer. Defaults to dialog level.
+   */
+  scrimZIndex?: number
+  /**
+   * Whether clicks should be propagated to the content behind the Portal. Only usable when the
+   * scrim is not visible. Defaults to false.
+   */
+  propagateClicks?: boolean
+  /**
+   * Function called when the portal is being dismissed by clicking outside of its contents. This
+   * function should generally result in the `open` prop being set to `false`.
+   */
+  onDismiss?: () => void
+}
+
+/**
+ * Renders component trees into 'portals', that is, roots that exist outside of the React root. This
+ * is useful for things like modal dialogs, popovers, etc. Contains functionality for being
+ * dismissed when a click-away occurs, and can optionally scrim the screen behind the portal
+ * content. If a scrim is displayed, clicks will not propagate to the elements behind it. If a scrim
+ * is not displayed though, the propagation of clicks to the elements behind it can be configured
+ * with `propagateClicks` props.
+ */
+export default class Portal extends React.Component<PortalProps> {
   static propTypes = {
     children: PropTypes.func.isRequired,
     open: PropTypes.bool.isRequired,
@@ -81,7 +109,7 @@ export default class Portal extends React.Component {
     document.body.appendChild(this.portal)
   }
 
-  onClickAway = event => {
+  onClickAway = () => {
     if (!this.props.onDismiss || !this.props.open) return
     this.props.onDismiss()
   }
@@ -92,7 +120,10 @@ export default class Portal extends React.Component {
 
   render() {
     const { open, scrim, scrimZIndex, propagateClicks, children } = this.props
-    const scrimStyle = { opacity: scrim ? 1 : 0, zIndex: scrimZIndex || zIndexDialogScrim }
+    const scrimStyle: React.CSSProperties = {
+      opacity: scrim ? 1 : 0,
+      zIndex: scrimZIndex || zIndexDialogScrim,
+    }
     if (propagateClicks) {
       scrimStyle.visibility = scrim ? 'visible' : 'hidden'
     }
