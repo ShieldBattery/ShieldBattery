@@ -3,7 +3,7 @@ import { connect } from 'react-redux'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 
 import EditAccount from '../auth/edit-account'
-import Portal from '../material/portal'
+import { Portal } from '../material/portal'
 import SimpleDialog from './simple-dialog'
 import Settings from '../settings/settings'
 import StarcraftHealthCheckupDialog from '../starcraft/starcraft-health'

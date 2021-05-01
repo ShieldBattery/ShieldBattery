@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import styled from 'styled-components'
 
 import KeyListener from '../keyboard/key-listener'
-import Portal from './portal'
+import { Portal } from './portal'
 import WindowListener from '../dom/window-listener'
 
 import { fastOutSlowIn } from './curve-constants'

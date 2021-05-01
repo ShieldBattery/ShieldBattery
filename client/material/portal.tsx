@@ -1,6 +1,5 @@
 import { rgba } from 'polished'
-import PropTypes from 'prop-types'
-import React from 'react'
+import React, { useCallback, useEffect, useRef } from 'react'
 import ReactDOM from 'react-dom'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import styled from 'styled-components'
@@ -85,64 +84,48 @@ export interface PortalProps {
  * is not displayed though, the propagation of clicks to the elements behind it can be configured
  * with `propagateClicks` props.
  */
-export default class Portal extends React.Component<PortalProps> {
-  static propTypes = {
-    children: PropTypes.func.isRequired,
-    open: PropTypes.bool.isRequired,
-    onDismiss: PropTypes.func,
-    scrim: PropTypes.bool,
-    scrimZIndex: PropTypes.number,
-    propagateClicks: PropTypes.bool,
-  }
+export function Portal(props: PortalProps) {
+  const portalRef = useRef(document.createElement('div'))
 
-  portal = document.createElement('div')
+  const { onDismiss, open, scrim, scrimZIndex, propagateClicks, children } = props
 
-  componentDidMount() {
-    this.addPortal()
-  }
-
-  componentWillUnmount() {
-    this.removePortal()
-  }
-
-  addPortal() {
-    document.body.appendChild(this.portal)
-  }
-
-  onClickAway = () => {
-    if (!this.props.onDismiss || !this.props.open) return
-    this.props.onDismiss()
-  }
-
-  removePortal() {
-    document.body.removeChild(this.portal)
-  }
-
-  render() {
-    const { open, scrim, scrimZIndex, propagateClicks, children } = this.props
-    const scrimStyle: React.CSSProperties = {
-      opacity: scrim ? 1 : 0,
-      zIndex: scrimZIndex || zIndexDialogScrim,
+  const onClickAway = useCallback(() => {
+    if (onDismiss && open) {
+      onDismiss()
     }
-    if (propagateClicks) {
-      scrimStyle.visibility = scrim ? 'visible' : 'hidden'
-    }
-    const contents = (
-      <>
-        <TransitionGroup>
-          {open ? (
-            <CSSTransition
-              classNames={transitionNames}
-              appear={true}
-              timeout={{ appear: 250, enter: 250, exit: 200 }}>
-              <Scrim key={'scrim'} style={scrimStyle} onClick={this.onClickAway} />
-            </CSSTransition>
-          ) : null}
-        </TransitionGroup>
-        {open ? children() : null}
-      </>
-    )
+  }, [onDismiss, open])
 
-    return ReactDOM.createPortal(contents, this.portal)
+  useEffect(() => {
+    const portalElem = portalRef.current
+    document.body.appendChild(portalRef.current)
+
+    return () => {
+      document.body.removeChild(portalElem)
+    }
+  }, [])
+
+  const scrimStyle: React.CSSProperties = {
+    opacity: scrim ? 1 : 0,
+    zIndex: scrimZIndex || zIndexDialogScrim,
   }
+  if (propagateClicks) {
+    scrimStyle.visibility = scrim ? 'visible' : 'hidden'
+  }
+
+  return ReactDOM.createPortal(
+    <>
+      <TransitionGroup>
+        {open ? (
+          <CSSTransition
+            classNames={transitionNames}
+            appear={true}
+            timeout={{ appear: 250, enter: 250, exit: 200 }}>
+            <Scrim key={'scrim'} style={scrimStyle} onClick={onClickAway} />
+          </CSSTransition>
+        ) : null}
+      </TransitionGroup>
+      {open ? children() : null}
+    </>,
+    portalRef.current,
+  )
 }
