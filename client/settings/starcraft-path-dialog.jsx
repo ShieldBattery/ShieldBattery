@@ -16,6 +16,7 @@ import { isStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 import { colorError } from '../styles/colors'
 import { SubheadingOld } from '../styles/typography'
 import { TypedIpcRenderer } from '../../common/ipc'
+import { DialogType } from '../dialogs/dialog-type'
 
 const currentWindow = IS_ELECTRON ? require('electron').remote.getCurrentWindow() : null
 const dialog = IS_ELECTRON ? require('electron').remote.dialog : null
@@ -150,7 +151,7 @@ export default class StarcraftPath extends React.Component {
 
   onSettingsCancel = () => {
     if (isStarcraftHealthy(this.props)) {
-      this.props.dispatch(openDialog('settings'))
+      this.props.dispatch(openDialog(DialogType.Settings))
     } else {
       this.props.dispatch(closeDialog())
     }
@@ -164,7 +165,7 @@ export default class StarcraftPath extends React.Component {
     this.props.dispatch(mergeLocalSettings(newSettings))
 
     if (!this.props.settings.lastError) {
-      this.props.dispatch(openDialog('settings'))
+      this.props.dispatch(openDialog(DialogType.Settings))
     }
   }
 }

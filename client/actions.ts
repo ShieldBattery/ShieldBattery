@@ -92,9 +92,6 @@ export const CHAT_UPDATE_USER_IDLE = 'CHAT_UPDATE_USER_IDLE'
 // A user in one of our chat channels has gone offline
 export const CHAT_UPDATE_USER_OFFLINE = 'CHAT_UPDATE_USER_OFFLINE'
 
-export const DIALOG_OPEN = 'DIALOG_OPEN'
-export const DIALOG_CLOSE = 'DIALOG_CLOSE'
-
 // We have clicked on a folder inside the file browser
 export const FILE_BROWSER_CHANGE_PATH = 'FILE_BROWSER_CHANGE_PATH'
 // Clear the list of files from the client

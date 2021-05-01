@@ -5,6 +5,7 @@ import {
   UPDATER_UP_TO_DATE,
 } from '../actions'
 import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { dispatch } from '../dispatch-registry'
 
 export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcRenderer }) {
@@ -15,7 +16,7 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
   ipcRenderer
     .on('updaterNewVersionFound', () => {
       dispatch({ type: UPDATER_NEW_VERSION_FOUND } as any)
-      dispatch(openDialog('updateAvailable') as any)
+      dispatch(openDialog(DialogType.UpdateAvailable))
     })
     .on('updaterDownloadError', () => {
       dispatch({ type: UPDATER_NEW_VERSION_DOWNLOADED, error: true } as any)

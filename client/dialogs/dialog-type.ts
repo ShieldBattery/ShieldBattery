@@ -1,0 +1,15 @@
+export enum DialogType {
+  AcceptMatch = 'acceptMatch',
+  Account = 'account',
+  Changelog = 'changelog',
+  Channel = 'channel',
+  Download = 'download',
+  MapDetails = 'mapDetails',
+  Settings = 'settings',
+  Simple = 'simple',
+  ShieldBatteryHealth = 'shieldBatteryHealth',
+  StarcraftHealth = 'starcraftHealth',
+  StarcraftPath = 'starcraftPath',
+  UpdateAvailable = 'updateAvailable',
+  Whispers = 'whispers',
+}

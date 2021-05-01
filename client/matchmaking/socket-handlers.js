@@ -22,6 +22,7 @@ import { openSnackbar } from '../snackbars/action-creators'
 import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
 import { makeServerUrl } from '../network/server-url'
 import { TypedIpcRenderer } from '../../common/ipc'
+import { DialogType } from '../dialogs/dialog-type'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -92,7 +93,7 @@ const eventToAction = {
       type: MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME,
       payload: tick,
     })
-    dispatch(openDialog('acceptMatch'))
+    dispatch(openDialog(DialogType.AcceptMatch))
 
     acceptMatchState.timer = setInterval(() => {
       tick -= 1

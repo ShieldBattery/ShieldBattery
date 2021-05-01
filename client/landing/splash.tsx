@@ -3,7 +3,8 @@ import React, { ReactChild, ReactNode, useEffect, useState } from 'react'
 import { connect, DispatchProp } from 'react-redux'
 import styled, { css } from 'styled-components'
 import { openDialog } from '../dialogs/action-creators'
-import ConnectedDialogOverlay from '../dialogs/connected-dialog-overlay'
+import { ConnectedDialogOverlay } from '../dialogs/connected-dialog-overlay'
+import { DialogType } from '../dialogs/dialog-type'
 import DiscordIcon from '../icons/brands/discord-lockup.svg'
 import GithubIcon from '../icons/brands/github.svg'
 import PatreonIcon from '../icons/brands/patreon-lockup.svg'
@@ -682,7 +683,7 @@ class Splash extends React.Component<DispatchProp> {
   }
 
   onDownloadClick = () => {
-    this.props.dispatch(openDialog('download'))
+    this.props.dispatch(openDialog(DialogType.Download))
   }
 }
 

@@ -1,5 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
+import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import Dialog from '../material/dialog'
 import Download from './download'
 
@@ -7,12 +8,7 @@ const StyledDialog = styled(Dialog)`
   max-width: 480px;
 `
 
-interface DownloadDialogProps {
-  dialogRef: React.Ref<any>
-  onCancel?: () => void
-}
-
-export default function DownloadDialog(props: DownloadDialogProps) {
+export default function DownloadDialog(props: CommonDialogProps) {
   return (
     <StyledDialog
       title=''

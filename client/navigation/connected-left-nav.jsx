@@ -31,6 +31,7 @@ import { closeWhisperSession } from '../whispers/action-creators'
 import { openChangelog } from '../changelog/action-creators'
 
 import { MULTI_CHANNEL } from '../../common/flags'
+import { DialogType } from '../dialogs/dialog-type'
 
 function stateToProps(state) {
   return {
@@ -265,7 +266,7 @@ class ConnectedLeftNav extends React.Component {
   }
 
   onJoinChannelClick = () => {
-    this.props.dispatch(openDialog('channel'))
+    this.props.dispatch(openDialog(DialogType.Channel))
   }
 
   onChannelLeave = channel => {
@@ -273,7 +274,7 @@ class ConnectedLeftNav extends React.Component {
   }
 
   onAddWhisperClick = () => {
-    this.props.dispatch(openDialog('whispers'))
+    this.props.dispatch(openDialog(DialogType.Whispers))
   }
 
   onWhisperClose = user => {
@@ -300,7 +301,7 @@ class ConnectedLeftNav extends React.Component {
 
   onAccountClick = () => {
     this.onCloseProfileOverlay()
-    this.props.dispatch(openDialog('account'))
+    this.props.dispatch(openDialog(DialogType.Account))
   }
 }
 

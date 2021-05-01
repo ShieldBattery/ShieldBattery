@@ -16,7 +16,7 @@ import ChatChannel from './chat/channel'
 import ChatList from './chat/list'
 import { ChatListTitle, ChatTitle } from './chat/app-bar-title'
 import { ConditionalRoute } from './navigation/custom-routes'
-import ConnectedDialogOverlay from './dialogs/connected-dialog-overlay'
+import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay'
 import ConnectedLeftNav from './navigation/connected-left-nav'
 import ConnectedSnackbar from './snackbars/connected-snackbar'
 import HotkeyedActivityButton from './activities/hotkeyed-activity-button'
@@ -61,6 +61,7 @@ import { caption } from './styles/typography'
 import { colorTextSecondary } from './styles/colors'
 import IconButton from './material/icon-button'
 import { NotificationsButton } from './notifications/activity-bar-entry'
+import { DialogType } from './dialogs/dialog-type'
 
 const curVersion = __WEBPACK_ENV.VERSION
 
@@ -405,7 +406,7 @@ class MainLayout extends React.Component {
   }
 
   onSettingsClick = () => {
-    this.props.dispatch(openDialog('settings'))
+    this.props.dispatch(openDialog(DialogType.Settings))
   }
 
   onFindMatchClick = () => {
@@ -413,9 +414,9 @@ class MainLayout extends React.Component {
       this.props.dispatch(openSnackbar({ message: 'Not implemented yet. Coming soon!' }))
     } else {
       if (!isShieldBatteryHealthy(this.props)) {
-        this.props.dispatch(openDialog('shieldBatteryHealth'))
+        this.props.dispatch(openDialog(DialogType.ShieldBatteryHealth))
       } else if (!isStarcraftHealthy(this.props)) {
-        this.props.dispatch(openDialog('starcraftHealth'))
+        this.props.dispatch(openDialog(DialogType.StarcraftHealth))
       } else {
         const matchmakingStatus = this.props.matchmakingStatus.types.get('1v1')
 
@@ -434,9 +435,9 @@ class MainLayout extends React.Component {
 
   onCreateLobbyClick = () => {
     if (!isShieldBatteryHealthy(this.props)) {
-      this.props.dispatch(openDialog('shieldBatteryHealth'))
+      this.props.dispatch(openDialog(DialogType.ShieldBatteryHealth))
     } else if (!isStarcraftHealthy(this.props)) {
-      this.props.dispatch(openDialog('starcraftHealth'))
+      this.props.dispatch(openDialog(DialogType.StarcraftHealth))
     } else {
       this.props.dispatch(openOverlay('createLobby'))
     }
@@ -444,9 +445,9 @@ class MainLayout extends React.Component {
 
   onJoinLobbyClick = () => {
     if (!isShieldBatteryHealthy(this.props)) {
-      this.props.dispatch(openDialog('shieldBatteryHealth'))
+      this.props.dispatch(openDialog(DialogType.ShieldBatteryHealth))
     } else if (!isStarcraftHealthy(this.props)) {
-      this.props.dispatch(openDialog('starcraftHealth'))
+      this.props.dispatch(openDialog(DialogType.StarcraftHealth))
     } else {
       this.props.dispatch(openOverlay('joinLobby'))
     }
@@ -459,7 +460,7 @@ class MainLayout extends React.Component {
   }
 
   onMapDetails = map => {
-    this.props.dispatch(openDialog('mapDetails', { mapId: map.id }))
+    this.props.dispatch(openDialog(DialogType.MapDetails, { mapId: map.id }))
   }
 
   onRemoveMap = map => {
@@ -481,9 +482,9 @@ class MainLayout extends React.Component {
 
   onMapsClick = () => {
     if (!isShieldBatteryHealthy(this.props)) {
-      this.props.dispatch(openDialog('shieldBatteryHealth'))
+      this.props.dispatch(openDialog(DialogType.ShieldBatteryHealth))
     } else if (!isStarcraftHealthy(this.props)) {
-      this.props.dispatch(openDialog('starcraftHealth'))
+      this.props.dispatch(openDialog(DialogType.StarcraftHealth))
     } else {
       this.props.dispatch(openOverlay('browseServerMaps', this.serverMapsProps))
     }
@@ -491,9 +492,9 @@ class MainLayout extends React.Component {
 
   onReplaysClick = () => {
     if (!isShieldBatteryHealthy(this.props)) {
-      this.props.dispatch(openDialog('shieldBatteryHealth'))
+      this.props.dispatch(openDialog(DialogType.ShieldBatteryHealth))
     } else if (!isStarcraftHealthy(this.props)) {
-      this.props.dispatch(openDialog('starcraftHealth'))
+      this.props.dispatch(openDialog(DialogType.StarcraftHealth))
     } else {
       this.props.dispatch(openOverlay('watchReplay'))
     }

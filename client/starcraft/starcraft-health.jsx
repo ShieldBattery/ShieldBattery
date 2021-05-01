@@ -14,6 +14,7 @@ import {
 
 import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import { SubheadingOld } from '../styles/typography'
+import { DialogType } from '../dialogs/dialog-type'
 
 const HeaderText = styled(SubheadingOld)`
   margin-top: 0;
@@ -94,6 +95,6 @@ export default class StarcraftHealthCheckupDialog extends React.Component {
 
   onSettingsClicked(e) {
     e.preventDefault()
-    this.props.dispatch(openDialog('settings'))
+    this.props.dispatch(openDialog(DialogType.Settings))
   }
 }

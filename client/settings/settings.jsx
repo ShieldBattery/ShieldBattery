@@ -22,6 +22,7 @@ import { isStarcraftRemastered } from '../starcraft/is-starcraft-healthy'
 import { LocalSettings, ScrSettings } from './settings-records'
 import { colorTextSecondary, colorError } from '../styles/colors'
 import { Body1Old, SubheadingOld } from '../styles/typography'
+import { DialogType } from '../dialogs/dialog-type'
 
 const screen = IS_ELECTRON ? require('electron').remote.screen : null
 const getResolution = () => screen.getPrimaryDisplay().size
@@ -234,7 +235,7 @@ export default class Settings extends React.Component {
   }
 
   onSetPathClick = () => {
-    this.props.dispatch(openDialog('starcraftPath'))
+    this.props.dispatch(openDialog(DialogType.StarcraftPath))
   }
 
   onSettingsSave = () => {
