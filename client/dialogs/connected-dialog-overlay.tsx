@@ -13,6 +13,7 @@ import DownloadDialog from '../download/download-dialog'
 import UpdateDialog from '../download/update-dialog'
 import MapDetailsDialog from '../maps/map-details'
 import AcceptMatch from '../matchmaking/accept-match'
+import { defaultSpring } from '../material/springs'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import Settings from '../settings/settings'
 import StarcraftPathDialog from '../settings/starcraft-path-dialog'
@@ -115,6 +116,10 @@ export function ConnectedDialogOverlay() {
     },
     enter: { background: VISIBLE_SCRIM_COLOR },
     leave: { background: INVISIBLE_SCRIM_COLOR },
+    config: {
+      ...defaultSpring,
+      clamp: true,
+    },
   })
 
   // Dialog content implementations should focus *something* when mounted, so that our focus traps
