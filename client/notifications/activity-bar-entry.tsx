@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import NotificationsIcon from '../icons/material/notifications_black_24px.svg'
 import { fastOutSlowIn } from '../material/curve-constants'
 import IconButton from '../material/icon-button'
-import Popover from '../material/popover'
+import { LegacyPopover } from '../material/legacy-popover'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { amberA200, colorTextSecondary } from '../styles/colors'
 import { markNotificationsRead } from './action-creators'
@@ -103,7 +103,7 @@ export function NotificationsButton() {
         />
         {hasUnread ? <UnreadIndicator /> : null}
       </ButtonContainer>
-      <Popover
+      <LegacyPopover
         open={!!anchor}
         onDismiss={onDismiss}
         anchor={anchor}
@@ -148,7 +148,7 @@ export function NotificationsButton() {
             </CSSTransition>
           )
         }}
-      </Popover>
+      </LegacyPopover>
     </>
   )
 }

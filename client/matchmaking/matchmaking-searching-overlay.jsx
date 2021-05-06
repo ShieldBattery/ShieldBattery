@@ -4,7 +4,7 @@ import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
 
 import RaceIcon from '../lobbies/race-icon'
-import Popover from '../material/popover'
+import { LegacyPopover } from '../material/legacy-popover'
 import RaisedButton from '../material/raised-button'
 import { fastOutSlowIn } from '../material/curve-constants.js'
 import { headline3, Headline6 } from '../styles/typography'
@@ -116,7 +116,7 @@ export default class MatchmakingSearchingOverlay extends React.Component {
     } = this.props
 
     return (
-      <Popover
+      <LegacyPopover
         open={open}
         onDismiss={onDismiss}
         anchor={anchor}
@@ -165,7 +165,7 @@ export default class MatchmakingSearchingOverlay extends React.Component {
             </CSSTransition>
           )
         }}
-      </Popover>
+      </LegacyPopover>
     )
   }
 }

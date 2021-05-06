@@ -12,7 +12,7 @@ import {
 import { timeFormat } from 'd3-time-format'
 import React, { useContext, useEffect, useMemo, useState } from 'react'
 import styled from 'styled-components'
-import { useDimensions } from '../dom/use-dimensions'
+import { useObservedDimensions } from '../dom/dimension-hooks'
 import RaisedButton from '../material/raised-button'
 import fetchJson from '../network/fetch'
 import { useRefreshToken } from '../network/refresh-token'
@@ -177,7 +177,7 @@ function useQueueSizeHistory(
 }
 
 export function DebugMatchmaking() {
-  const [containerRef, containerRect] = useDimensions()
+  const [containerRef, containerRect] = useObservedDimensions()
   const [refreshToken, triggerRefresh] = useRefreshToken()
 
   const [currentWeekData, startDate, endDate] = useQueueSizeHistory(0, refreshToken)

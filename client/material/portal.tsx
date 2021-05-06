@@ -46,5 +46,5 @@ export function Portal(props: PortalProps) {
     return undefined
   }, [onClick, open])
 
-  return ReactDOM.createPortal(<>{open ? children : null}</>, portalRef.current)
+  return ReactDOM.createPortal(children, portalRef.current)
 }

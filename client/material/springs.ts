@@ -8,7 +8,7 @@ import { SpringConfig } from '@react-spring/core'
  * customize `clamp` and/or `velocity`.
  */
 export const defaultSpring: SpringConfig = {
-  mass: 2,
+  mass: 1.6,
   tension: 360,
   friction: 32,
 }

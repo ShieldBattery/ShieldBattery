@@ -11,7 +11,7 @@ import IconButton from '../material/icon-button'
 import KeyListener from '../keyboard/key-listener'
 import { Label } from '../material/button'
 import Menu from '../material/menu/menu'
-import Popover from '../material/popover'
+import { LegacyPopover } from '../material/legacy-popover'
 import SelectedMenuItem from '../material/menu/selected-item'
 import TextField from '../material/text-field'
 
@@ -141,7 +141,7 @@ class FilterOverlay extends React.Component {
     const { children, open, onDismiss, anchor } = this.props
 
     return (
-      <Popover
+      <LegacyPopover
         open={open}
         onDismiss={onDismiss}
         anchor={anchor}
@@ -182,7 +182,7 @@ class FilterOverlay extends React.Component {
             </>
           )
         }}
-      </Popover>
+      </LegacyPopover>
     )
   }
 

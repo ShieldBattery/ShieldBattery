@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
 
-import Popover from '../material/popover'
+import { LegacyPopover } from '../material/legacy-popover'
 import { fastOutSlowIn } from '../material/curve-constants.js'
 
 const transitionNames = {
@@ -55,7 +55,7 @@ export default class ProfileOverlay extends React.Component {
     const { children, popoverProps } = this.props
 
     return (
-      <Popover {...popoverProps}>
+      <LegacyPopover {...popoverProps}>
         {(state, timings) => {
           const { openDelay, openDuration, closeDuration } = timings
           let style
@@ -88,7 +88,7 @@ export default class ProfileOverlay extends React.Component {
             </CSSTransition>
           )
         }}
-      </Popover>
+      </LegacyPopover>
     )
   }
 }

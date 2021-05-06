@@ -1,8 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 
 /**
- * A hook to access the previous value of some variable inside a functional component. Can be used
- * for both props and state.
+ * A hook to access the previous value of some variable inside a functional component.
  *
  * @example
  *
@@ -17,6 +16,21 @@ export function usePrevious<T>(value: T): T | undefined {
   useEffect(() => {
     ref.current = value
   })
+  return ref.current
+}
+
+/**
+ * A hook that returns the last value for a variable that was not `undefined`. If no such value has
+ * been seen yet, `undefined` will be returned.
+ */
+export function usePreviousDefined<T>(value: T | undefined): T | undefined {
+  const ref = useRef<T>()
+  useEffect(() => {
+    if (value !== undefined) {
+      ref.current = value
+    }
+  })
+
   return ref.current
 }
 

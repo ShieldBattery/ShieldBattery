@@ -49,7 +49,10 @@ const Background = styled(CardLayer)`
   border-radius: 2px;
 `
 
-export default class Popover extends React.Component {
+/**
+ * @deprecated Use Popover instead
+ */
+export class LegacyPopover extends React.Component {
   static propTypes = {
     open: PropTypes.bool.isRequired,
     onDismiss: PropTypes.func.isRequired,

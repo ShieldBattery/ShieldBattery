@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import { LadderPlayer } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
 import Avatar from '../avatars/avatar'
-import { useDimensions } from '../dom/use-dimensions'
+import { useObservedDimensions } from '../dom/dimension-hooks'
 import { AnimationFrameHandler, animationFrameHandler } from '../material/animation-frame-handler'
 import { shadow4dp } from '../material/shadows'
 import { LoadingDotsArea } from '../progress/dots'
@@ -164,7 +164,7 @@ export interface LadderTableProps {
 }
 
 export function LadderTable(props: LadderTableProps) {
-  const [dimensionsRef, containerRect] = useDimensions()
+  const [dimensionsRef, containerRect] = useObservedDimensions()
   const containerRef = useRef<HTMLElement | null>(null)
   // multiplex the ref to the container to our own ref + the dimensions one
   const containerCallback = useCallback(

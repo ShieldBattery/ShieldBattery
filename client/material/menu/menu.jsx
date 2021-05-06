@@ -4,7 +4,7 @@ import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
 
 import KeyListener from '../../keyboard/key-listener'
-import Popover from '../popover'
+import { LegacyPopover } from '../legacy-popover'
 import MenuItemSymbol from './menu-item-symbol'
 
 import { fastOutSlowIn } from '../curve-constants'
@@ -162,7 +162,7 @@ export default class Menu extends React.Component {
     })
 
     return (
-      <Popover {...popoverProps}>
+      <LegacyPopover {...popoverProps}>
         {(state, timings) => {
           const { openDelay, openDuration, closeDuration } = timings
           let transitionDuration = 0
@@ -207,7 +207,7 @@ export default class Menu extends React.Component {
             </>
           )
         }}
-      </Popover>
+      </LegacyPopover>
     )
   }
 
