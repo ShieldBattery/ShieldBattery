@@ -20,7 +20,10 @@ export interface EmailVerificationNotificationUiProps {
   unread: boolean
 }
 
-export function EmailVerificationNotificationUi(props: EmailVerificationNotificationUiProps) {
+export const EmailVerificationNotificationUi = React.forwardRef<
+  HTMLDivElement,
+  EmailVerificationNotificationUiProps
+>((props, ref) => {
   const dispatch = useAppDispatch()
   const onClick = useCallback(
     (event: React.MouseEvent) => {
@@ -32,6 +35,7 @@ export function EmailVerificationNotificationUi(props: EmailVerificationNotifica
 
   return (
     <ActionlessNotification
+      ref={ref}
       showDivider={props.showDivider}
       unread={props.unread}
       icon={<ColoredWarningIcon />}
@@ -47,4 +51,4 @@ export function EmailVerificationNotificationUi(props: EmailVerificationNotifica
       }
     />
   )
-}
+})

@@ -13,6 +13,7 @@ import { NotificationRecord } from './notification-reducer'
 
 const ListContainer = styled.div`
   width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
 `
@@ -69,11 +70,14 @@ export function NotificationsList(props: NotificationsListProps) {
 }
 
 export function ConnectedNotificationsList() {
-  const list = useAppSelector(s => s.notifications.list)
+  const map = useAppSelector(s => s.notifications.map)
+  const ids = useAppSelector(s => s.notifications.ids)
   const dispatch = useAppDispatch()
   const onClear = useCallback(() => dispatch(clearNotifications()), [dispatch])
 
-  return <NotificationsList notifications={list} onClear={onClear} />
+  return (
+    <NotificationsList notifications={ids.map(id => map.get(id)!).toList()} onClear={onClear} />
+  )
 }
 
 function toUi(notification: NotificationRecord, key: string, showDivider: boolean) {
@@ -83,7 +87,7 @@ function toUi(notification: NotificationRecord, key: string, showDivider: boolea
         <EmailVerificationNotificationUi
           key={key}
           showDivider={showDivider}
-          unread={notification.unread}
+          unread={!notification.read}
         />
       )
     default:
