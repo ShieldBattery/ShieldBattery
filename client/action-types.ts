@@ -4,6 +4,7 @@ import { DialogActions } from './dialogs/actions'
 import { LadderActions } from './ladder/actions'
 import { MatchmakingActions } from './matchmaking/actions'
 import { NotificationActions } from './notifications/actions'
+import { PartiesActions } from './parties/actions'
 import { WhisperActions } from './whispers/actions'
 
 type AllActions =
@@ -13,6 +14,7 @@ type AllActions =
   | LadderActions
   | MatchmakingActions
   | NotificationActions
+  | PartiesActions
   | WhisperActions
 
 export type ReduxAction = Extract<AllActions, { type: string }>

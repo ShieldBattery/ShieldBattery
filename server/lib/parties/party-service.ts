@@ -1,24 +1,27 @@
 import cuid from 'cuid'
 import { NydusServer } from 'nydus'
 import { singleton } from 'tsyringe'
+import { NotificationType } from '../../../common/notifications'
+import {
+  MAX_PARTY_SIZE,
+  PartyAddInviteEvent,
+  PartyDeclineEvent,
+  PartyInitEvent,
+  PartyInviteEvent,
+  PartyJoinEvent,
+  PartyLeaveEvent,
+  PartyPayload,
+  PartyRemoveInviteEvent,
+  PartyUninviteEvent,
+  PartyUser,
+} from '../../../common/parties'
 import logger from '../logging/logger'
+import NotificationService from '../notifications/notification-service'
 import {
   ClientSocketsGroup,
   ClientSocketsManager,
   UserSocketsManager,
 } from '../websockets/socket-groups'
-
-/**
- * The maximum number of players allowed to be in the same party at once. Note that this only
- * restricts the amount of players *in* the party, it doesn't limit the number of invites to the
- * party.
- */
-const MAX_PARTY_SIZE = 8
-
-export interface PartyUser {
-  id: number
-  name: string
-}
 
 export interface PartyRecord {
   id: string
@@ -33,6 +36,7 @@ export enum PartyServiceErrorCode {
   PartyFull,
   UserOffline,
   InvalidAction,
+  NotificationFail,
 }
 
 export class PartyServiceError extends Error {
@@ -49,14 +53,7 @@ export function getPartyPath(partyId: string): string {
   return `/parties/${partyId}`
 }
 
-export interface PartyJson {
-  id: string
-  invites: Array<PartyUser>
-  members: Array<PartyUser>
-  leader: PartyUser
-}
-
-export function toPartyJson(party: PartyRecord): PartyJson {
+export function toPartyJson(party: PartyRecord): PartyPayload {
   return {
     id: party.id,
     invites: Array.from(party.invites.values()),
@@ -74,9 +71,14 @@ export default class PartyService {
     private nydus: NydusServer,
     private clientSocketsManager: ClientSocketsManager,
     private userSocketsManager: UserSocketsManager,
+    private notificationService: NotificationService,
   ) {}
 
-  invite(leader: PartyUser, leaderClientId: string, invitedUser: PartyUser): Readonly<PartyRecord> {
+  async invite(
+    leader: PartyUser,
+    leaderClientId: string,
+    invitedUser: PartyUser,
+  ): Promise<PartyRecord> {
     const leaderClientSockets = this.getClientSockets(leader.id, leaderClientId)
 
     if (invitedUser.id === leader.id) {
@@ -95,11 +97,26 @@ export default class PartyService {
         )
       }
 
+      if (party.invites.has(invitedUser.id)) {
+        throw new PartyServiceError(
+          PartyServiceErrorCode.InvalidAction,
+          'An invite already exists for this user',
+        )
+      }
+
+      if (party.members.has(invitedUser.id)) {
+        throw new PartyServiceError(
+          PartyServiceErrorCode.InvalidAction,
+          'This user is already a member of this party',
+        )
+      }
+
       party.invites.set(invitedUser.id, invitedUser)
-      this.publishToParty(party.id, {
+      const inviteEventData: PartyInviteEvent = {
         type: 'invite',
         invitedUser,
-      })
+      }
+      this.publishToParty(party.id, inviteEventData)
     } else {
       const partyId = cuid()
       party = {
@@ -114,18 +131,37 @@ export default class PartyService {
       this.subscribeToParty(leaderClientSockets, party)
     }
 
-    // TODO(2Pac): Send the invite notification once the server-side notification system is in.
-    const userSockets = this.userSocketsManager.getById(invitedUser.id)
-    if (userSockets) {
-      userSockets.subscribe(
-        getInvitesPath(party!.id, userSockets.userId),
-        () => ({
+    // The invite doesn't make much sense unless the notification has been successfully sent to
+    // the user, so we only create an invite if that happens.
+    try {
+      await this.notificationService.addNotification({
+        userId: invitedUser.id,
+        data: {
+          type: NotificationType.PartyInvite,
+          from: leader.name,
+          partyId: party.id,
+        },
+      })
+
+      const userSockets = this.userSocketsManager.getById(invitedUser.id)
+      if (userSockets) {
+        const addInviteEventData: PartyAddInviteEvent = {
           type: 'addInvite',
           from: leader,
-        }),
-        () => {
-          // TODO(2Pac): Handle user quitting; need to keep a map of user -> invites?
-        },
+        }
+        userSockets.subscribe(
+          getInvitesPath(party.id, invitedUser.id),
+          () => addInviteEventData,
+          () => {
+            // TODO(2Pac): Handle user quitting; need to keep a map of user -> invites?
+          },
+        )
+      }
+    } catch (err) {
+      party!.invites.delete(invitedUser.id)
+      throw new PartyServiceError(
+        PartyServiceErrorCode.NotificationFail,
+        'Error creating the notification',
       )
     }
 
@@ -133,6 +169,8 @@ export default class PartyService {
   }
 
   decline(partyId: string, target: PartyUser) {
+    this.unsubscribeFromInvites(partyId, target)
+
     const party = this.parties.get(partyId)
     if (!party) {
       throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found')
@@ -147,18 +185,16 @@ export default class PartyService {
 
     party.invites.delete(target.id)
 
-    this.publishToParty(partyId, {
+    const declineEventData: PartyDeclineEvent = {
       type: 'decline',
       target,
-    })
-
-    // TODO(2Pac): Do we want to remove the party record if there's only one member left in a party
-    // and no outstanding invites?
-
-    this.unsubscribeFromInvites(party, target)
+    }
+    this.publishToParty(partyId, declineEventData)
   }
 
   removeInvite(partyId: string, removingUser: PartyUser, target: PartyUser) {
+    this.unsubscribeFromInvites(partyId, target)
+
     const party = this.parties.get(partyId)
     if (!party) {
       throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found')
@@ -180,16 +216,15 @@ export default class PartyService {
 
     party.invites.delete(target.id)
 
-    // TODO(2Pac): Publish *something* to the party that an invite was removed?
-
-    // TODO(2Pac): Do we want to remove the party record if there's only one member left in a party
-    // and no outstanding invites?
-
-    this.unsubscribeFromInvites(party, target)
+    const uninviteEventData: PartyUninviteEvent = {
+      type: 'uninvite',
+      target,
+    }
+    this.publishToParty(partyId, uninviteEventData)
   }
 
   acceptInvite(partyId: string, user: PartyUser, clientId: string) {
-    const clientSockets = this.getClientSockets(user.id, clientId)
+    this.unsubscribeFromInvites(partyId, user)
 
     const party = this.parties.get(partyId)
     if (!party) {
@@ -207,6 +242,9 @@ export default class PartyService {
       )
     }
 
+    // TODO(2Pac): Only allow accepting an invite for electron clients?
+
+    const clientSockets = this.getClientSockets(user.id, clientId)
     const userParty = this.getClientParty(clientSockets)
     if (userParty) {
       // TODO(2Pac): Handle switching parties
@@ -216,31 +254,50 @@ export default class PartyService {
     party.members.set(user.id, user)
     this.clientSocketsToPartyId.set(clientSockets, partyId)
 
-    this.publishToParty(partyId, {
+    const joinEventData: PartyJoinEvent = {
       type: 'join',
       user,
-    })
-
-    this.unsubscribeFromInvites(party, user)
+    }
+    this.publishToParty(partyId, joinEventData)
     this.subscribeToParty(clientSockets, party)
   }
 
-  private unsubscribeFromInvites(party: PartyRecord, user: PartyUser) {
-    this.nydus.publish(getInvitesPath(party.id, user.id), { type: 'removeInvite' })
-    // TODO(2Pac): Remove the invite notification once the server-side notification system is in.
+  private async unsubscribeFromInvites(partyId: string, user: PartyUser) {
+    const removeInviteEventData: PartyRemoveInviteEvent = {
+      type: 'removeInvite',
+    }
+    this.nydus.publish(getInvitesPath(partyId, user.id), removeInviteEventData)
+
     const userSockets = this.userSocketsManager.getById(user.id)
     if (userSockets) {
-      userSockets.unsubscribe(getInvitesPath(party.id, user.id))
+      userSockets.unsubscribe(getInvitesPath(partyId, user.id))
     }
+
+    this.notificationService
+      .retrieveNotifications({ userId: user.id, type: NotificationType.PartyInvite })
+      .then(
+        userInviteNotifications => {
+          const notification = userInviteNotifications.filter(n => n.data.partyId === partyId)[0]
+          if (notification) {
+            this.notificationService.clearById(user.id, notification.id).catch(err => {
+              logger.error({ err }, 'error clearing notification')
+            })
+          }
+        },
+        err => {
+          logger.error({ err }, 'error retrieving user notifications')
+        },
+      )
   }
 
   private subscribeToParty(clientSockets: ClientSocketsGroup, party: PartyRecord) {
+    const initEventData: PartyInitEvent = {
+      type: 'init',
+      party: toPartyJson(party),
+    }
     clientSockets.subscribe(
       getPartyPath(party.id),
-      () => ({
-        type: 'init',
-        party: toPartyJson(party),
-      }),
+      () => initEventData,
       sockets => this.handleClientQuit(sockets),
     )
   }
@@ -252,16 +309,25 @@ export default class PartyService {
       return
     }
 
-    party.members.delete(clientSockets.userId)
     this.clientSocketsToPartyId.delete(clientSockets)
-    this.publishToParty(party.id, {
-      type: 'leave',
-      user: clientSockets.userId,
-    })
+
+    const user = party.members.get(clientSockets.userId)
+    if (user) {
+      party.members.delete(user.id)
+      const leaveEventData: PartyLeaveEvent = {
+        type: 'leave',
+        user,
+      }
+      this.publishToParty(party.id, leaveEventData)
+    }
 
     // TODO(2Pac): Handle party leader leaving
 
-    // TODO(2Pac): Handle last person in a party leaving
+    // If the last person in a party leaves, the party is removed. All outstanding invites to this,
+    // now non-existing party, should fail.
+    if (party.members.size < 1) {
+      this.parties.delete(party.id)
+    }
   }
 
   private publishToParty(partyId: string, data: any) {

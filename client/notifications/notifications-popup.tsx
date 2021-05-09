@@ -18,6 +18,7 @@ import { IconButton } from '../material/button'
 import { shadow6dp } from '../material/shadows'
 import { defaultSpring } from '../material/springs'
 import { zIndexMenu } from '../material/zindex'
+import { PartyInviteNotificationUi } from '../parties/party-notification-ui'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious } from '../state-hooks'
 import { background300, background400 } from '../styles/colors'
@@ -159,7 +160,17 @@ function toUi(notification: NotificationRecord, popupElems: Map<string, HTMLDivE
         />
       )
     case NotificationType.PartyInvite:
-      return <span />
+      return (
+        <PartyInviteNotificationUi
+          ref={elem => elem && popupElems.set(notification.id, elem)}
+          key={notification.id}
+          from={notification.from}
+          partyId={notification.partyId}
+          notificationId={notification.id}
+          showDivider={false}
+          read={notification.read}
+        />
+      )
     default:
       return assertUnreachable(notification)
   }
