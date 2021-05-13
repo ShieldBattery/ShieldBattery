@@ -1,6 +1,8 @@
 //! A macro that handles hooking an exported function that may have already
 //! been hooked in a way that GetProcAddress doesn't return the expected dll.
 
+use std::io;
+
 use libc::c_void;
 
 use crate::windows;
@@ -25,7 +27,7 @@ macro_rules! hook_winapi_exports {
         let mut unusual_hooks = [$(zero($name)),*];
         let mut i = 0;
         $(
-            let proc_address = lib.proc_address($name).map(|x| x as usize);
+            let proc_address = crate::hook_macro::hook_proc_address(&lib, $name);
             if let Ok(proc_address) = proc_address {
                 let actual_module =
                     crate::windows::module_from_address(proc_address as *mut c_void);
@@ -72,4 +74,29 @@ pub unsafe fn unprotect_memory_for_hook<'a>(
     let guard = windows::unprotect_memory(start, len).ok();
     let patcher = active_patcher.patch_memory(start, start, !0);
     (patcher, proc_address - start as usize, guard)
+}
+
+/// Determines address for hooking the function.
+///
+/// In addition to just GetProcAddress this follows any unconditional jumps at the
+/// address returned by GetProcAddress, in order to avoid placing a second hook
+/// at a address which was already hooked by some system DLL (Nvidia driver).
+/// This should end up being more stable than otherwise.
+pub unsafe fn hook_proc_address(lib: &windows::Library, proc: &str) -> Result<usize, io::Error> {
+    let mut address = lib.proc_address(proc)? as *const u8;
+    loop {
+        match *address {
+            // Long jump
+            0xe9 => {
+                let offset = (address.add(1) as *const i32).read_unaligned() as isize as usize;
+                address = address.wrapping_add(5).wrapping_add(offset);
+            }
+            // Short jump
+            0xeb => {
+                let offset = *address.add(1) as i8 as isize as usize;
+                address = address.wrapping_add(2).wrapping_add(offset);
+            }
+            _ => return Ok(address as usize),
+        }
+    }
 }
