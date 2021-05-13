@@ -15,7 +15,8 @@ use crate::game_state::{self, GameStateMessage};
 
 pub type SendMessages = mpsc::Sender<WsMessage>;
 
-type WebSocketStream = tokio_tungstenite::WebSocketStream<TcpStream>;
+type WebSocketStream =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>;
 
 async fn connect_to_app() -> Result<(WebSocketStream, HandshakeResponse), tungstenite::Error> {
     let args = crate::parse_args();

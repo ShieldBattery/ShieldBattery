@@ -80,7 +80,7 @@ fn check_dummied_out_hd(path: &[u8]) -> Option<&'static [u8]> {
 unsafe fn real_path<'a>(
     path: *const u8,
     params: *const scr::OpenParams,
-    buffer: &'a mut ArrayVec<[u8; 256]>,
+    buffer: &'a mut ArrayVec<u8, 256>,
 ) -> Option<&'a [u8]> {
     // Doing this 256-byte array lookup to normalize instead of a simpler match may be
     // an unnecessary micro-optimization, but the older code was quite excessively

@@ -18,7 +18,7 @@ overflow-checks = true # Only our crates; gets reverted back to true for depende
 lto = true
 
 [dependencies]
-arrayvec = "0.5.1"
+arrayvec = "0.7"
 backtrace = "0.3"
 byteorder = "1.3.1"
 bytes = "1.0"
@@ -41,7 +41,7 @@ serde_json = "1.0.39"
 smallvec = "1.4"
 tokio = { version = "1.2", features = ["fs", "net", "rt-multi-thread", "macros", "sync", "time"] }
 tokio-stream = "0.1"
-tokio-tungstenite = "0.13"
+tokio-tungstenite = "0.14"
 
 [dependencies.winapi]
 version = "0.3.9"
@@ -55,12 +55,12 @@ features = [
 # Function hooking
 [dependencies.whack]
 git = "https://github.com/neivv/whack.git"
-rev = "1adee081ac5ebc8362f92801e2083bbbadd79d57"
+rev = "ccd95f5cfa37622bc3ec3d4b0974ab9b631b59b2"
 
 # Struct declarations & convenience functions for ingame BW data
 [dependencies.bw_dat]
 git = "https://github.com/neivv/aise.git"
-rev = "4f9898f834a7a9bd75e9934feeb546791c57bdc1"
+rev = "97613e79987effa832afb9a74262b3b0cd5df4c2"
 
 [build-dependencies]
 anyhow = "1.0.33"

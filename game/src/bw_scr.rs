@@ -1150,8 +1150,6 @@ impl BwScr {
 
         sdf_cache::apply_sdf_cache_hooks(&self, &mut exe, base);
 
-        drop(exe);
-
         let create_file_hook_closure = move |a, b, c, d, e, f, g, o| {
             create_file_hook(&self, a, b, c, d, e, f, g, o)
         };

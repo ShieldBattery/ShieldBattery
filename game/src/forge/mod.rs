@@ -1557,7 +1557,6 @@ pub unsafe fn init_hooks_1161(patcher: &mut whack::Patcher) {
     starcraft.import_hook_opt(&b"gdi32"[..], GetObjectA, gdi_get_object);
     starcraft.import_hook_opt(&b"gdi32"[..], GetBitmapBits, get_bitmap_bits);
     starcraft.hook_opt(RenderScreen, render_screen);
-    starcraft.apply();
 
     let mut storm = patcher.patch_library("storm", 0x1500_0000);
     storm.import_hook_opt(&b"user32"[..], IsIconic, is_iconic);

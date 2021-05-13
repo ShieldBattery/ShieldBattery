@@ -43,18 +43,13 @@ macro_rules! hook_winapi_exports {
             }
             #[allow(unused_assignments)] { i += 1; }
         )*
-        drop(default_patcher);
         i = 0;
         $(
             if unusual_hooks[i] != 0 {
                 let proc_address = unusual_hooks[i];
-                let (mut patcher, offset, guard) =
+                let (mut patcher, offset, _guard) =
                     crate::hook_macro::unprotect_memory_for_hook($active, proc_address);
                 patcher.hook_closure_address($hook, $func, offset);
-                // Explicit drop order is needed here since dropping patcher applies
-                // the patches
-                drop(patcher);
-                drop(guard);
             }
             #[allow(unused_assignments)] { i += 1; }
         )*
