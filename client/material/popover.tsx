@@ -4,11 +4,14 @@ import React, { useCallback, useRef } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useElementRect, useObservedDimensions } from '../dom/dimension-hooks'
+import KeyListener from '../keyboard/key-listener'
 import { usePreviousDefined } from '../state-hooks'
 import { CardLayer } from '../styles/colors'
 import { Portal } from './portal'
 import { shadow6dp } from './shadows'
 import { defaultSpring } from './springs'
+
+const ESCAPE = 'Escape'
 
 const PositioningArea = styled.div`
   // TODO(tec27): Allow safe zone to be customized
@@ -112,6 +115,19 @@ export function Popover({
     },
     [maxSizeRectRef, maxSizeObserverRef],
   )
+  const onKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      if (event.code !== ESCAPE) return false
+
+      if (onDismiss) {
+        onDismiss()
+        return true
+      }
+
+      return false
+    },
+    [onDismiss],
+  )
 
   const transition = useTransition(open, {
     from: { opacity: 0, scale: 0.667 },
@@ -206,6 +222,7 @@ export function Popover({
         (styles, open) =>
           open && (
             <PositioningArea ref={maxSizeRef}>
+              <KeyListener onKeyDown={onKeyDown} exclusive={true} />
               <Container
                 ref={containerRef}
                 className={className}
