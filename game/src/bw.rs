@@ -443,16 +443,10 @@ unsafe impl Sync for ClientInfo {}
 fn struct_sizes() {
     use std::mem::size_of;
     assert_eq!(size_of::<SnpGameInfo>(), 0x13c);
-    assert_eq!(size_of::<Player>(), 0x24);
     assert_eq!(size_of::<StormPlayer>(), 0x22);
     assert_eq!(size_of::<JoinableGameInfo>(), 0x8d);
     assert_eq!(size_of::<GameTemplate>(), 0x20);
-    assert_eq!(size_of::<Control>(), 0x36);
-    assert_eq!(size_of::<Dialog>(), 0x46);
     assert_eq!(size_of::<UiEvent>(), 0x12);
-    assert_eq!(size_of::<Game>(), 0x17700);
-    assert_eq!(size_of::<Unit>(), 0x150);
-    assert_eq!(size_of::<Image>(), 0x40);
     assert_eq!(size_of::<FowSprite>(), 0x10);
     assert_eq!(size_of::<ReplayData>(), 0x20);
     assert_eq!(size_of::<UnitStatusFunc>(), 0xc);
