@@ -1,11 +1,9 @@
-import React from 'react'
 import { Range } from 'immutable'
+import React from 'react'
 import styled from 'styled-components'
-
 import Card from '../../material/card'
+import { colorTextSecondary, grey800, grey850 } from '../../styles/colors'
 import Carousel from '../carousel'
-
-import { grey850, grey800, colorTextSecondary } from '../../styles/colors'
 
 const Container = styled.div`
   display: flex;

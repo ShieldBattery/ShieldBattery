@@ -39,7 +39,7 @@ export function webpackMiddleware({
     const init = new Promise<void>(resolve => {
       middleware(
         ctx.req,
-        ({
+        {
           end: (content: unknown) => {
             ctx.body = content
             resolve()
@@ -47,7 +47,7 @@ export function webpackMiddleware({
           getHeader: ctx.get.bind(ctx),
           setHeader: ctx.set.bind(ctx),
           locals: ctx.state,
-        } as any) as ServerResponse,
+        } as any as ServerResponse,
         () => resolve(next()),
       )
     })

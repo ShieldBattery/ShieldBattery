@@ -1,5 +1,4 @@
 import { Record } from 'immutable'
-import keyedReducer from '../reducers/keyed-reducer'
 import {
   AUDIO_MANAGER_INITIALIZED,
   CHAT_LOADING_COMPLETE,
@@ -8,6 +7,7 @@ import {
   SUBSCRIPTIONS_USER_LOADING_COMPLETE,
   WHISPERS_LOADING_COMPLETE,
 } from '../actions'
+import keyedReducer from '../reducers/keyed-reducer'
 
 export const LoadingState = new Record({
   audio: true,

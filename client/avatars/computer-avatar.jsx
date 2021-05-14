@@ -1,8 +1,6 @@
 import React from 'react'
-
-import { IconContainer, IconAvatar } from './avatar'
-
 import ComputerIcon from '../icons/material/ic_memory_black_24px.svg'
+import { IconAvatar, IconContainer } from './avatar'
 
 export default props => (
   <IconContainer {...props}>

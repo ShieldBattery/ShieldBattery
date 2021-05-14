@@ -1,17 +1,14 @@
 import React from 'react'
 import styled from 'styled-components'
-
+import TrailingIcon from '../../icons/material/baseline-check_circle-24px.svg'
+import LeadingIcon from '../../icons/material/baseline-view_list-24px.svg'
+import { colorTextSecondary } from '../../styles/colors'
+import { Label } from '../button'
 import Card from '../card'
 import CheckBox from '../check-box'
 import IconButton from '../icon-button'
-import { Label } from '../button'
-import TextField from '../text-field'
 import PasswordTextField from '../password-text-field'
-
-import { colorTextSecondary } from '../../styles/colors'
-
-import LeadingIcon from '../../icons/material/baseline-view_list-24px.svg'
-import TrailingIcon from '../../icons/material/baseline-check_circle-24px.svg'
+import TextField from '../text-field'
 
 const Container = styled.div`
   display: flex;

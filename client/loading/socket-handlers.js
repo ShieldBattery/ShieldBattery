@@ -1,10 +1,10 @@
-import { dispatch } from '../dispatch-registry'
 import {
   CHAT_LOADING_COMPLETE,
   SUBSCRIPTIONS_CLIENT_LOADING_COMPLETE,
   SUBSCRIPTIONS_USER_LOADING_COMPLETE,
   WHISPERS_LOADING_COMPLETE,
 } from '../actions'
+import { dispatch } from '../dispatch-registry'
 
 const eventToAction = {
   chatReady() {

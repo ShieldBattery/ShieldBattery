@@ -1,8 +1,8 @@
 // Common webpack config settings, call with options specific to each environment to create a real
 // config
 
-import webpack from 'webpack'
 import TerserWebpackPlugin from 'terser-webpack-plugin'
+import webpack from 'webpack'
 import packageJson from './package.json'
 
 const VERSION = packageJson.version

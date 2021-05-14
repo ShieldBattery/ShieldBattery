@@ -1,26 +1,26 @@
-import httpErrors from 'http-errors'
 import { writeFile as fsWriteFile } from 'fs/promises'
+import httpErrors from 'http-errors'
 import { withFile as withTmpFile } from 'tmp-promise'
-import { storeMap, mapPath, storeRegeneratedImages } from '../maps/store'
-import {
-  getMaps,
-  getMapInfo,
-  getFavoritedMaps,
-  updateMap,
-  removeMap,
-  addMapToFavorites,
-  removeMapFromFavorites,
-  deleteAllMaps as dbDeleteAllMaps,
-} from '../models/maps'
-import { deleteFiles, readFile } from '../file-upload'
-import { checkAllPermissions } from '../permissions/check-permissions'
 import {
   MAP_VISIBILITY_OFFICIAL,
   MAP_VISIBILITY_PRIVATE,
   MAP_VISIBILITY_PUBLIC,
 } from '../../../common/constants'
-import { SORT_BY_NAME, SORT_BY_NUM_OF_PLAYERS, SORT_BY_DATE } from '../../../common/maps'
+import { SORT_BY_DATE, SORT_BY_NAME, SORT_BY_NUM_OF_PLAYERS } from '../../../common/maps'
+import { deleteFiles, readFile } from '../file-upload'
 import handleMultipartFiles from '../file-upload/handle-multipart-files'
+import { mapPath, storeMap, storeRegeneratedImages } from '../maps/store'
+import {
+  addMapToFavorites,
+  deleteAllMaps as dbDeleteAllMaps,
+  getFavoritedMaps,
+  getMapInfo,
+  getMaps,
+  removeMap,
+  removeMapFromFavorites,
+  updateMap,
+} from '../models/maps'
+import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'

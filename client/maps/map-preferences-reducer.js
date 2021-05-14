@@ -1,10 +1,10 @@
 import { Record, Set } from 'immutable'
-import keyedReducer from '../reducers/keyed-reducer'
 import {
-  MAPS_PREFERENCES_GET_BEGIN,
   MAPS_PREFERENCES_GET,
+  MAPS_PREFERENCES_GET_BEGIN,
   MAPS_PREFERENCES_UPDATE,
 } from '../actions'
+import keyedReducer from '../reducers/keyed-reducer'
 
 export const MapPreferences = new Record({
   visibility: null,

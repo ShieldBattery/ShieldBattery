@@ -1,37 +1,34 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-
-import Avatar from '../avatars/avatar'
-import Dialog from '../material/dialog'
-import FlatButton from '../material/flat-button'
-import form from '../forms/form'
-import { Label } from '../material/button'
-import LoadingIndicator from '../progress/dots'
-import PasswordTextField from '../material/password-text-field'
-import SubmitOnEnter from '../forms/submit-on-enter'
-import TextField from '../material/text-field'
-
-import { closeDialog } from '../dialogs/action-creators'
-import { updateAccount } from './action-creators'
 import {
-  composeValidators,
-  matchesOther,
-  minLength,
-  maxLength,
-  regex,
-  required,
-} from '../forms/validators'
-import {
-  EMAIL_MINLENGTH,
   EMAIL_MAXLENGTH,
+  EMAIL_MINLENGTH,
   EMAIL_PATTERN,
   PASSWORD_MINLENGTH,
 } from '../../common/constants'
-
-import { colorTextSecondary, colorError } from '../styles/colors'
+import Avatar from '../avatars/avatar'
+import { closeDialog } from '../dialogs/action-creators'
+import form from '../forms/form'
+import SubmitOnEnter from '../forms/submit-on-enter'
+import {
+  composeValidators,
+  matchesOther,
+  maxLength,
+  minLength,
+  regex,
+  required,
+} from '../forms/validators'
+import { Label } from '../material/button'
+import Dialog from '../material/dialog'
+import FlatButton from '../material/flat-button'
+import PasswordTextField from '../material/password-text-field'
+import TextField from '../material/text-field'
+import LoadingIndicator from '../progress/dots'
+import { colorError, colorTextSecondary } from '../styles/colors'
 import { subtitle1 } from '../styles/typography'
+import { updateAccount } from './action-creators'
 
 function passwordRequired() {
   return (val, model, dirty) =>

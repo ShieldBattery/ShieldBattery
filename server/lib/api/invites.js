@@ -1,10 +1,10 @@
-import httpErrors from 'http-errors'
 import cuid from 'cuid'
-import invites from '../models/invites'
-import { checkAllPermissions } from '../permissions/check-permissions'
+import httpErrors from 'http-errors'
 import { isValidEmail } from '../../../common/constants'
 import transact from '../db/transaction'
 import sendMail from '../mail/mailer'
+import invites from '../models/invites'
+import { checkAllPermissions } from '../permissions/check-permissions'
 
 export default function (router) {
   router

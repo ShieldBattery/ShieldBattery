@@ -1,17 +1,15 @@
-import React from 'react'
-import PropTypes from 'prop-types'
-import { connect } from 'react-redux'
-import path from 'path'
 import { remote } from 'electron'
+import path from 'path'
+import PropTypes from 'prop-types'
+import React from 'react'
+import { connect } from 'react-redux'
 import styled from 'styled-components'
-
 import ActivityBackButton from '../activities/activity-back-button'
 import BrowseFiles from '../file-browser/browse-files'
+import MapIcon from '../icons/material/ic_terrain_black_24px.svg'
 import LoadingIndicator from '../progress/dots'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { selectLocalMap } from './action-creators'
-
-import MapIcon from '../icons/material/ic_terrain_black_24px.svg'
 
 const LoadingArea = styled.div`
   display: flex;

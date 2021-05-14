@@ -1,6 +1,6 @@
 import { List, Map, Record } from 'immutable'
-import { MapRecord } from '../maps/maps-reducer'
 import { LOBBIES_LIST_UPDATE } from '../actions'
+import { MapRecord } from '../maps/maps-reducer'
 
 export const HostRecord = new Record({
   name: null,

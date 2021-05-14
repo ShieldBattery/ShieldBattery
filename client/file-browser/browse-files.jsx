@@ -1,38 +1,35 @@
-import React from 'react'
-import PropTypes from 'prop-types'
-import { connect } from 'react-redux'
-import memoize from 'memoize-one'
-import keycode from 'keycode'
-import pathApi from 'path'
 import { List } from 'immutable'
+import keycode from 'keycode'
+import memoize from 'memoize-one'
+import pathApi from 'path'
+import PropTypes from 'prop-types'
+import React from 'react'
+import { connect } from 'react-redux'
 import { List as VirtualizedList } from 'react-virtualized'
 import styled from 'styled-components'
-
-import { changePath, clearFiles, getFiles } from './action-creators'
-
 import ChevronRight from '../icons/material/ic_chevron_right_black_24px.svg'
 import Folder from '../icons/material/ic_folder_black_24px.svg'
 import Refresh from '../icons/material/ic_refresh_black_24px.svg'
 import UpDirectory from '../icons/material/ic_subdirectory_arrow_left_black_24px.svg'
-
 import KeyListener from '../keyboard/key-listener'
-import LoadingIndicator from '../progress/dots'
 import IconButton from '../material/icon-button'
+import { ScrollableContent } from '../material/scroll-bar'
 import { Option } from '../material/select/option'
 import { Select } from '../material/select/select'
-import { ScrollableContent } from '../material/scroll-bar'
 import { shadow4dp } from '../material/shadows'
+import LoadingIndicator from '../progress/dots'
 import {
   amberA400,
   blue700,
   blue800,
-  colorError,
   colorDividers,
+  colorError,
   colorTextFaint,
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors'
 import { Caption, Headline5, headline6, Subtitle1 } from '../styles/typography'
+import { changePath, clearFiles, getFiles } from './action-creators'
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -345,9 +342,11 @@ export default class Files extends React.Component {
       const { browseId, fileBrowser } = newArgs[0]
       const { path, folders, files } = fileBrowser[browseId]
       const { browseId: prevBrowseId, fileBrowser: prevFileBrowser } = prevArgs[0]
-      const { path: prevPath, folders: prevFolders, files: prevFiles } = prevFileBrowser[
-        prevBrowseId
-      ]
+      const {
+        path: prevPath,
+        folders: prevFolders,
+        files: prevFiles,
+      } = prevFileBrowser[prevBrowseId]
 
       return path === prevPath && folders.size === prevFolders.size && files.size === prevFiles.size
     },

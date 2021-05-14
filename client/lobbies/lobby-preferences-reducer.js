@@ -1,11 +1,11 @@
 import { List, Map, Record } from 'immutable'
-import keyedReducer from '../reducers/keyed-reducer'
-import { MapRecord } from '../maps/maps-reducer'
 import {
-  LOBBY_PREFERENCES_GET_BEGIN,
   LOBBY_PREFERENCES_GET,
+  LOBBY_PREFERENCES_GET_BEGIN,
   LOBBY_PREFERENCES_UPDATE,
 } from '../actions'
+import { MapRecord } from '../maps/maps-reducer'
+import keyedReducer from '../reducers/keyed-reducer'
 
 export const RecentMaps = new Record({
   list: new List(),

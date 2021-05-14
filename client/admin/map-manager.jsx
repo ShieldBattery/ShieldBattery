@@ -1,22 +1,19 @@
+import { List, Map } from 'immutable'
 import React from 'react'
 import { connect } from 'react-redux'
-import { List, Map } from 'immutable'
 import styled from 'styled-components'
-
-import fetch from '../network/fetch'
-import FlatButton from '../material/flat-button'
-import form from '../forms/form'
-import LoadingIndicator from '../progress/dots'
-import uploadMap from '../maps/upload'
-import RaisedButton from '../material/raised-button'
 import FileInput from '../forms/file-input'
-import { ScrollableContent } from '../material/scroll-bar'
-
-import ErrorIcon from '../icons/material/baseline-error-24px.svg'
+import form from '../forms/form'
 import SuccessIcon from '../icons/material/baseline-check_circle-24px.svg'
-
-import { colorError, colorSuccess, colorTextSecondary, amberA400, grey800 } from '../styles/colors'
-import { SubheadingOld, singleLine } from '../styles/typography'
+import ErrorIcon from '../icons/material/baseline-error-24px.svg'
+import uploadMap from '../maps/upload'
+import FlatButton from '../material/flat-button'
+import RaisedButton from '../material/raised-button'
+import { ScrollableContent } from '../material/scroll-bar'
+import fetch from '../network/fetch'
+import LoadingIndicator from '../progress/dots'
+import { amberA400, colorError, colorSuccess, colorTextSecondary, grey800 } from '../styles/colors'
+import { singleLine, SubheadingOld } from '../styles/typography'
 
 const Container = styled.div`
   max-width: 600px;

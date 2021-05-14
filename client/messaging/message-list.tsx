@@ -192,14 +192,8 @@ export default class MessageList extends React.Component<
   }
 
   render() {
-    const {
-      messages,
-      loading,
-      hasMoreHistory,
-      refreshToken,
-      renderMessage,
-      onLoadMoreMessages,
-    } = this.props
+    const { messages, loading, hasMoreHistory, refreshToken, renderMessage, onLoadMoreMessages } =
+      this.props
 
     return (
       <Scrollable

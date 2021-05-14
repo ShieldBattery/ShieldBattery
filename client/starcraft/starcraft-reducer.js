@@ -1,12 +1,12 @@
 import { Record } from 'immutable'
-import keyedReducer from '../reducers/keyed-reducer'
+import { ShieldBatteryFile } from '../../common/shieldbattery-file'
 import {
   SHIELDBATTERY_FILES_VALIDITY,
   STARCRAFT_PATH_VALIDITY,
   STARCRAFT_REMASTERED_STATUS,
   STARCRAFT_VERSION_VALIDITY,
 } from '../actions'
-import { ShieldBatteryFile } from '../../common/shieldbattery-file'
+import keyedReducer from '../reducers/keyed-reducer'
 
 export const ShieldBatteryFileStatus = new Record({
   init: false,

@@ -1,11 +1,10 @@
-import React from 'react'
 import PropTypes from 'prop-types'
-import { Link } from 'wouter'
+import React from 'react'
 import styled from 'styled-components'
-
-import AttentionIndicator from './attention-indicator'
+import { Link } from 'wouter'
 import { amberA200 } from '../../styles/colors'
 import { body2, singleLine } from '../../styles/typography'
+import AttentionIndicator from './attention-indicator'
 
 const Container = styled.li`
   position: relative;

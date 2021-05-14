@@ -1,9 +1,8 @@
 import React from 'react'
 import styled from 'styled-components'
-
 import Card from '../card'
-import { Select } from '../select/select'
 import { Option } from '../select/option'
+import { Select } from '../select/select'
 import TextField from '../text-field'
 
 const Container = styled.div`

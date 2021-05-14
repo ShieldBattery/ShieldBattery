@@ -1,6 +1,6 @@
 import { Record } from 'immutable'
-import keyedReducer from '../reducers/keyed-reducer'
 import { LOBBIES_COUNT_UPDATE, NETWORK_SITE_CONNECTED, SERVER_STATUS } from '../actions'
+import keyedReducer from '../reducers/keyed-reducer'
 
 const ServerStatus = Record({
   activeUsers: 0,

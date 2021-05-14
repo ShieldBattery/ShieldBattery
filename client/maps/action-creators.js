@@ -1,27 +1,27 @@
-import { apiUrl } from '../network/urls'
-import fetch from '../network/fetch'
-import { openSnackbar } from '../snackbars/action-creators'
 import {
-  LOCAL_MAPS_SELECT_BEGIN,
   LOCAL_MAPS_SELECT,
-  MAPS_DETAILS_GET_BEGIN,
+  LOCAL_MAPS_SELECT_BEGIN,
   MAPS_DETAILS_GET,
+  MAPS_DETAILS_GET_BEGIN,
   MAPS_LIST_CLEAR,
-  MAPS_LIST_GET_BEGIN,
   MAPS_LIST_GET,
-  MAPS_REMOVE_BEGIN,
-  MAPS_REMOVE,
-  MAPS_TOGGLE_FAVORITE_BEGIN,
-  MAPS_TOGGLE_FAVORITE,
-  MAPS_UPDATE_BEGIN,
-  MAPS_UPDATE,
-  MAPS_PREFERENCES_GET_BEGIN,
+  MAPS_LIST_GET_BEGIN,
   MAPS_PREFERENCES_GET,
-  MAPS_PREFERENCES_UPDATE_BEGIN,
+  MAPS_PREFERENCES_GET_BEGIN,
   MAPS_PREFERENCES_UPDATE,
-  MAPS_REGEN_IMAGE_BEGIN,
+  MAPS_PREFERENCES_UPDATE_BEGIN,
   MAPS_REGEN_IMAGE,
+  MAPS_REGEN_IMAGE_BEGIN,
+  MAPS_REMOVE,
+  MAPS_REMOVE_BEGIN,
+  MAPS_TOGGLE_FAVORITE,
+  MAPS_TOGGLE_FAVORITE_BEGIN,
+  MAPS_UPDATE,
+  MAPS_UPDATE_BEGIN,
 } from '../actions'
+import fetch from '../network/fetch'
+import { apiUrl } from '../network/urls'
+import { openSnackbar } from '../snackbars/action-creators'
 
 const upload = IS_ELECTRON ? require('./upload').default : null
 

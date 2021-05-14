@@ -1,7 +1,6 @@
 import React from 'react'
-
-import MatchmakingMatch from '../matchmaking-match'
 import { MapRecord } from '../../maps/maps-reducer'
+import MatchmakingMatch from '../matchmaking-match'
 import { Player } from '../matchmaking-reducer'
 
 export default class MapSelectionTest extends React.Component {

@@ -1,14 +1,13 @@
 import React from 'react'
 import { connect } from 'react-redux'
+import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../common/constants'
+import { closeDialog } from '../dialogs/action-creators'
+import form from '../forms/form'
+import { composeValidators, maxLength, regex, required } from '../forms/validators'
 import Dialog from '../material/dialog'
 import FlatButton from '../material/flat-button'
-import form from '../forms/form'
 import TextField from '../material/text-field'
-import { composeValidators, maxLength, regex, required } from '../forms/validators'
-
-import { closeDialog } from '../dialogs/action-creators'
 import { navigateToChannel } from './action-creators'
-import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../common/constants'
 
 const channelValidator = composeValidators(
   required('Enter a channel name'),

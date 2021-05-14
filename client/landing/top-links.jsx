@@ -1,11 +1,9 @@
 import React from 'react'
-import { Link } from 'wouter'
 import styled from 'styled-components'
-
+import { Link } from 'wouter'
+import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import GithubLogo from '../icons/brands/github.svg'
 import TwitterLogo from '../icons/brands/twitter.svg'
-
-import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import { amberA400 } from '../styles/colors'
 import { body2 } from '../styles/typography'
 

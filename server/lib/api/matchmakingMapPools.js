@@ -1,17 +1,17 @@
 import httpErrors from 'http-errors'
-import { checkAllPermissions } from '../permissions/check-permissions'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import { isValidMatchmakingType } from '../../../common/matchmaking'
 import { MATCHMAKING } from '../../../common/flags'
-import { getMapInfo } from '../models/maps'
+import { isValidMatchmakingType } from '../../../common/matchmaking'
 import { featureEnabled } from '../flags/feature-enabled'
+import { getMapInfo } from '../models/maps'
 import {
-  getMapPoolHistory,
   addMapPool,
   getCurrentMapPool,
   getMapPoolById,
+  getMapPoolHistory,
   removeMapPool as removeMapPoolDb,
 } from '../models/matchmaking-map-pools'
+import { checkAllPermissions } from '../permissions/check-permissions'
+import ensureLoggedIn from '../session/ensure-logged-in'
 
 export default function (router) {
   router

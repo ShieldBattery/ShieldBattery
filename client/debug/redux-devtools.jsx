@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
-import styled from 'styled-components'
 import { createDevTools } from 'redux-devtools'
 import DockMonitor from 'redux-devtools-dock-monitor'
 import InspectorMonitor from 'redux-devtools-inspector'
+import styled from 'styled-components'
 
 // NOTE(tec27): !importants here are to ensure our styling for our app's root div doesn't override
 // this stuff

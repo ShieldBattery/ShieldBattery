@@ -1,15 +1,14 @@
-import { List, Map, OrderedSet, Record, Set } from 'immutable'
 import cuid from 'cuid'
-import keyedReducer from '../reducers/keyed-reducer'
+import { List, Map, OrderedSet, Record, Set } from 'immutable'
 import * as SortedList from '../../common/sorted-list'
 import {
   CHAT_CHANNEL_ACTIVATE,
   CHAT_CHANNEL_DEACTIVATE,
   CHAT_INIT_CHANNEL,
-  CHAT_LOAD_CHANNEL_HISTORY_BEGIN,
   CHAT_LOAD_CHANNEL_HISTORY,
-  CHAT_LOAD_USER_LIST_BEGIN,
+  CHAT_LOAD_CHANNEL_HISTORY_BEGIN,
   CHAT_LOAD_USER_LIST,
+  CHAT_LOAD_USER_LIST_BEGIN,
   CHAT_UPDATE_JOIN,
   CHAT_UPDATE_LEAVE,
   CHAT_UPDATE_LEAVE_SELF,
@@ -26,6 +25,7 @@ import {
   SelfJoinChannelMessageRecord,
 } from '../chat/chat-message-records'
 import { TextMessageRecord } from '../messaging/message-records'
+import keyedReducer from '../reducers/keyed-reducer'
 
 // How many messages should be kept for inactive channels
 const INACTIVE_CHANNEL_MAX_HISTORY = 150

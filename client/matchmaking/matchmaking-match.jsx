@@ -1,13 +1,11 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-
-import { MapThumbnail } from '../maps/map-thumbnail'
 import PlayerCard from '../lobbies/player-card'
-
+import { MapThumbnail } from '../maps/map-thumbnail'
 import { shadowDef2dp } from '../material/shadow-constants'
 import { colorTextSecondary } from '../styles/colors'
-import { Headline3, Headline1, Headline4, headline5 } from '../styles/typography'
+import { Headline1, Headline3, Headline4, headline5 } from '../styles/typography'
 
 const Container = styled.div`
   display: flex;

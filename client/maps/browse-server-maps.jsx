@@ -1,38 +1,34 @@
-import React from 'react'
-import PropTypes from 'prop-types'
-import { connect } from 'react-redux'
 import { List, Map, Set } from 'immutable'
 import { debounce } from 'lodash-es'
+import PropTypes from 'prop-types'
+import React from 'react'
+import { connect } from 'react-redux'
 import styled from 'styled-components'
-
-import { openSimpleDialog } from '../dialogs/action-creators'
-import { openOverlay } from '../activities/action-creators'
-import {
-  clearMapsList,
-  getMapsList,
-  toggleFavoriteMap,
-  getMapPreferences,
-  updateMapPreferences,
-} from './action-creators'
-
-import ActivityBackButton from '../activities/activity-back-button'
-import { BrowserFooter as Footer } from './browser-footer'
-import ImageList from '../material/image-list'
-import InfiniteScrollList from '../lists/infinite-scroll-list'
-import LoadingIndicator from '../progress/dots'
-import MapPreview from './map-preview'
-import { MapThumbnail } from './map-thumbnail'
-import Tabs, { TabItem } from '../material/tabs'
-
 import {
   MAP_VISIBILITY_OFFICIAL,
   MAP_VISIBILITY_PRIVATE,
   MAP_VISIBILITY_PUBLIC,
 } from '../../common/constants'
 import { ALL_TILESETS, SORT_BY_NAME } from '../../common/maps'
-
+import { openOverlay } from '../activities/action-creators'
+import ActivityBackButton from '../activities/activity-back-button'
+import { openSimpleDialog } from '../dialogs/action-creators'
+import InfiniteScrollList from '../lists/infinite-scroll-list'
+import ImageList from '../material/image-list'
+import Tabs, { TabItem } from '../material/tabs'
+import LoadingIndicator from '../progress/dots'
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
-import { Subtitle1, subtitle1, Headline5 } from '../styles/typography'
+import { Headline5, Subtitle1, subtitle1 } from '../styles/typography'
+import {
+  clearMapsList,
+  getMapPreferences,
+  getMapsList,
+  toggleFavoriteMap,
+  updateMapPreferences,
+} from './action-creators'
+import { BrowserFooter as Footer } from './browser-footer'
+import MapPreview from './map-preview'
+import { MapThumbnail } from './map-thumbnail'
 
 const MAPS_LIMIT = 30
 
@@ -451,14 +447,8 @@ export default class Maps extends React.Component {
   }
 
   onLoadMoreMaps = () => {
-    const {
-      activeTab,
-      currentPage,
-      sortOption,
-      numPlayersFilter,
-      tilesetFilter,
-      searchQuery,
-    } = this.state
+    const { activeTab, currentPage, sortOption, numPlayersFilter, tilesetFilter, searchQuery } =
+      this.state
 
     this.props.dispatch(
       getMapsList(

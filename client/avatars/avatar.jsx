@@ -1,12 +1,9 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-
-import { randomColorForString } from './colors'
-
-import PlaceholderIcon from './avatar-placeholder.svg'
-
 import { amberA400 } from '../styles/colors'
+import PlaceholderIcon from './avatar-placeholder.svg'
+import { randomColorForString } from './colors'
 
 export const ImageAvatar = styled.img`
   width: 40px;

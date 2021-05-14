@@ -1,10 +1,9 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-
-import CheckBox from '../material/check-box'
 import form from '../forms/form'
 import SubmitOnEnter from '../forms/submit-on-enter'
+import CheckBox from '../material/check-box'
 import Slider from '../material/slider'
 import { FormContainer } from './settings-content'
 

@@ -1,13 +1,11 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-
-import FlatButton from './flat-button'
-
+import { grey800 } from '../styles/colors'
 import { fastOutLinearIn, fastOutSlowIn, linearOutSlowIn } from './curve-constants'
+import FlatButton from './flat-button'
 import { shadow6dp } from './shadows'
 import { zIndexSnackbar } from './zindex'
-import { grey800 } from '../styles/colors'
 
 const MessageContainer = styled.div`
   line-height: 20px;

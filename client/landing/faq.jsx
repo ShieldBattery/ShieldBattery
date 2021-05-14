@@ -1,16 +1,14 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import styled, { css } from 'styled-components'
-import { makeServerUrl } from '../network/server-url'
-
-import TopLinks from './top-links'
 import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
-
-import LogoText from '../logos/logotext-640x100.svg'
 import QuestionIcon from '../icons/material/ic_help_outline_black_48px.svg'
-import { colorDividers, colorTextSecondary, blue400, grey850, grey900 } from '../styles/colors'
-import { headline1, headline4, headline5 } from '../styles/typography'
+import LogoText from '../logos/logotext-640x100.svg'
 import { shadowDef4dp } from '../material/shadow-constants'
+import { makeServerUrl } from '../network/server-url'
+import { blue400, colorDividers, colorTextSecondary, grey850, grey900 } from '../styles/colors'
+import { headline1, headline4, headline5 } from '../styles/typography'
+import TopLinks from './top-links'
 
 const questions = [
   {

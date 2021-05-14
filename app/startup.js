@@ -3,11 +3,11 @@
 // even run (e.g. check if another instance is already running)
 
 import 'core-js/proposals/reflect-metadata'
-import path from 'path'
-import isDev from 'electron-is-dev'
 import { app } from 'electron'
-import { getUserDataPath } from './user-data-path'
+import isDev from 'electron-is-dev'
+import path from 'path'
 import ensureSingleInstance from './single-instance'
+import { getUserDataPath } from './user-data-path'
 
 // Set a proper app name, since our build setup makes the one in our package.json innaccurate
 app.name = path.basename(getUserDataPath())

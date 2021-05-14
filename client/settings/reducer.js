@@ -1,14 +1,14 @@
 import { Record } from 'immutable'
-import keyedReducer from '../reducers/keyed-reducer'
-import { LocalSettings, ScrSettings } from './settings-records'
 import {
-  LOCAL_SETTINGS_SET_BEGIN,
   LOCAL_SETTINGS_SET,
+  LOCAL_SETTINGS_SET_BEGIN,
   LOCAL_SETTINGS_UPDATE,
-  SCR_SETTINGS_SET_BEGIN,
   SCR_SETTINGS_SET,
+  SCR_SETTINGS_SET_BEGIN,
   SCR_SETTINGS_UPDATE,
 } from '../actions'
+import keyedReducer from '../reducers/keyed-reducer'
+import { LocalSettings, ScrSettings } from './settings-records'
 
 export const Settings = new Record({
   local: new LocalSettings(),

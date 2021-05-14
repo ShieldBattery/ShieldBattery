@@ -1,13 +1,13 @@
 import bcrypt from 'bcrypt'
-import thenify from 'thenify'
 import httpErrors from 'http-errors'
+import thenify from 'thenify'
+import { isUserBanned } from '../models/bans'
+import { getPermissions } from '../models/permissions'
+import users from '../models/users'
+import redis from '../redis'
+import initSession from '../session/init'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
-import redis from '../redis'
-import { isUserBanned } from '../models/bans'
-import users from '../models/users'
-import { getPermissions } from '../models/permissions'
-import initSession from '../session/init'
 
 // TODO(tec27): Think about maybe a different mechanism for this. I could see this causing problems
 // when lots of people need to create sessions at once from the same place (e.g. LAN events)

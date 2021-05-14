@@ -1,22 +1,19 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-
+import { TypedIpcRenderer } from '../../common/ipc'
+import { closeDialog, openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
+import form from '../forms/form'
+import SubmitOnEnter from '../forms/submit-on-enter'
 import Dialog from '../material/dialog'
 import FlatButton from '../material/flat-button'
-import form from '../forms/form'
 import RaisedButton from '../material/raised-button'
-import SubmitOnEnter from '../forms/submit-on-enter'
 import TextField from '../material/text-field'
-
-import { openDialog, closeDialog } from '../dialogs/action-creators'
-import { mergeLocalSettings } from './action-creators'
 import { isStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
-
 import { colorError } from '../styles/colors'
 import { SubheadingOld } from '../styles/typography'
-import { TypedIpcRenderer } from '../../common/ipc'
-import { DialogType } from '../dialogs/dialog-type'
+import { mergeLocalSettings } from './action-creators'
 
 const currentWindow = IS_ELECTRON ? require('electron').remote.getCurrentWindow() : null
 const dialog = IS_ELECTRON ? require('electron').remote.dialog : null

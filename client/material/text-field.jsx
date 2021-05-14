@@ -1,15 +1,13 @@
-import React from 'react'
 import PropTypes from 'prop-types'
-import uniqueId from '../dom/unique-id'
+import React from 'react'
 import styled, { css } from 'styled-components'
-
-import FloatingLabel from './input-floating-label'
+import uniqueId from '../dom/unique-id'
+import { colorTextSecondary } from '../styles/colors'
 import InputBase, { TEXTAREA_BOTTOM_PADDING, TEXTAREA_BOTTOM_PADDING_DENSE } from './input-base'
 import InputError from './input-error'
-import InputUnderline from './input-underline'
+import FloatingLabel from './input-floating-label'
 import Label from './input-label'
-
-import { colorTextSecondary } from '../styles/colors'
+import InputUnderline from './input-underline'
 
 // NOTE(2Pac): You might notice that this component (and others that are used here) might have some
 // weird values used for paddings and margins, like 1px, or 7px. This is fine. It's mostly caused by

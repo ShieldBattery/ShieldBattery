@@ -1,46 +1,44 @@
-import React from 'react'
 import PropTypes from 'prop-types'
-import { connect } from 'react-redux'
-import { push } from '../navigation/routing'
 import queryString from 'query-string'
-
-import LoadingIndicator from '../progress/dots'
-import RaisedButton from '../material/raised-button'
-import { recoverUsername, startPasswordReset, resetPassword } from './action-creators'
+import React from 'react'
+import { connect } from 'react-redux'
+import {
+  EMAIL_MAXLENGTH,
+  EMAIL_MINLENGTH,
+  EMAIL_PATTERN,
+  PASSWORD_MINLENGTH,
+  USERNAME_MAXLENGTH,
+  USERNAME_MINLENGTH,
+  USERNAME_PATTERN,
+} from '../../common/constants'
 import form from '../forms/form'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import {
-  AuthContentContainer,
-  AuthContent,
-  AuthTitle,
-  AuthBody,
-  LoadingArea,
-  ErrorsContainer,
-  SuccessContainer,
-  AuthBottomAction,
-  BottomActionButton,
-  FieldRow,
-  AuthTextField,
-  AuthPasswordTextField,
-} from './auth-content'
-
-import {
   composeValidators,
-  minLength,
-  maxLength,
   matchesOther,
+  maxLength,
+  minLength,
   regex,
   required,
 } from '../forms/validators'
+import RaisedButton from '../material/raised-button'
+import { push } from '../navigation/routing'
+import LoadingIndicator from '../progress/dots'
+import { recoverUsername, resetPassword, startPasswordReset } from './action-creators'
 import {
-  EMAIL_MINLENGTH,
-  EMAIL_MAXLENGTH,
-  EMAIL_PATTERN,
-  PASSWORD_MINLENGTH,
-  USERNAME_MINLENGTH,
-  USERNAME_MAXLENGTH,
-  USERNAME_PATTERN,
-} from '../../common/constants'
+  AuthBody,
+  AuthBottomAction,
+  AuthContent,
+  AuthContentContainer,
+  AuthPasswordTextField,
+  AuthTextField,
+  AuthTitle,
+  BottomActionButton,
+  ErrorsContainer,
+  FieldRow,
+  LoadingArea,
+  SuccessContainer,
+} from './auth-content'
 
 const emailValidator = composeValidators(
   required('Enter an email address'),

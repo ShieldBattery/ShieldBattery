@@ -1,7 +1,7 @@
 import fs from 'fs'
-import path from 'path'
-import createMailgun from 'mailgun-js'
 import handlebars from 'handlebars'
+import createMailgun from 'mailgun-js'
+import path from 'path'
 import thenify from 'thenify'
 import log from '../logging/logger'
 

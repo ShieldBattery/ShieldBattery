@@ -110,9 +110,9 @@ export class RallyPointService {
       return
     }
 
-    const resolvedServers = (
-      await Promise.all(servers.map(s => lookupHostOrDisable(s)))
-    ).filter(s => isResolved(s)) as ResolvedRallyPointServer[]
+    const resolvedServers = (await Promise.all(servers.map(s => lookupHostOrDisable(s)))).filter(
+      s => isResolved(s),
+    ) as ResolvedRallyPointServer[]
 
     this.servers.clear()
     for (const resolvedServer of resolvedServers) {

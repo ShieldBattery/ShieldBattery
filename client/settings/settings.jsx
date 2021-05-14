@@ -1,28 +1,24 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-
-import AppSettings from './app-settings'
+import { closeDialog, openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
+import SetPathIcon from '../icons/material/ic_settings_black_36px.svg'
+import { Label } from '../material/button'
 import Dialog from '../material/dialog'
 import FlatButton from '../material/flat-button'
-import GameplaySettings from './gameplay-settings'
 import IconButton from '../material/icon-button'
-import InputSettings from './input-settings'
-import { Label } from '../material/button'
-import SoundSettings from './sound-settings'
 import Tabs, { TabItem } from '../material/tabs'
-import VideoSettings from './video-settings'
-
-import SetPathIcon from '../icons/material/ic_settings_black_36px.svg'
-
-import { openDialog, closeDialog } from '../dialogs/action-creators'
-import { mergeLocalSettings, mergeScrSettings } from './action-creators'
 import { isStarcraftRemastered } from '../starcraft/is-starcraft-healthy'
-
-import { LocalSettings, ScrSettings } from './settings-records'
-import { colorTextSecondary, colorError } from '../styles/colors'
+import { colorError, colorTextSecondary } from '../styles/colors'
 import { Body1Old, SubheadingOld } from '../styles/typography'
-import { DialogType } from '../dialogs/dialog-type'
+import { mergeLocalSettings, mergeScrSettings } from './action-creators'
+import AppSettings from './app-settings'
+import GameplaySettings from './gameplay-settings'
+import InputSettings from './input-settings'
+import { LocalSettings, ScrSettings } from './settings-records'
+import SoundSettings from './sound-settings'
+import VideoSettings from './video-settings'
 
 const screen = IS_ELECTRON ? require('electron').remote.screen : null
 const getResolution = () => screen.getPrimaryDisplay().size

@@ -1,6 +1,5 @@
-import React from 'react'
 import PropTypes from 'prop-types'
-
+import React from 'react'
 import RacePicker from './race-picker'
 
 // Like a RacePicker, but for uncontrollable slots

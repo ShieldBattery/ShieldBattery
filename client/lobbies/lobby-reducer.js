@@ -1,32 +1,33 @@
-import { Record, List } from 'immutable'
 import cuid from 'cuid'
-import keyedReducer from '../reducers/keyed-reducer'
-import { MapRecord } from '../maps/maps-reducer'
+import { List, Record } from 'immutable'
 import {
   LOBBY_ACTIVATE,
   LOBBY_DEACTIVATE,
   LOBBY_INIT_DATA,
-  LOBBY_UPDATE_GAME_STARTED,
-  LOBBY_UPDATE_HOST_CHANGE,
-  LOBBY_UPDATE_LEAVE,
-  LOBBY_UPDATE_LEAVE_SELF,
-  LOBBY_UPDATE_KICK,
-  LOBBY_UPDATE_KICK_SELF,
   LOBBY_UPDATE_BAN,
   LOBBY_UPDATE_BAN_SELF,
+  LOBBY_UPDATE_CHAT_MESSAGE,
+  LOBBY_UPDATE_COUNTDOWN_CANCELED,
+  LOBBY_UPDATE_COUNTDOWN_START,
+  LOBBY_UPDATE_COUNTDOWN_TICK,
+  LOBBY_UPDATE_GAME_STARTED,
+  LOBBY_UPDATE_HOST_CHANGE,
+  LOBBY_UPDATE_KICK,
+  LOBBY_UPDATE_KICK_SELF,
+  LOBBY_UPDATE_LEAVE,
+  LOBBY_UPDATE_LEAVE_SELF,
+  LOBBY_UPDATE_LOADING_CANCELED,
+  LOBBY_UPDATE_LOADING_START,
   LOBBY_UPDATE_RACE_CHANGE,
   LOBBY_UPDATE_SLOT_CHANGE,
   LOBBY_UPDATE_SLOT_CREATE,
   LOBBY_UPDATE_SLOT_DELETED,
-  LOBBY_UPDATE_COUNTDOWN_START,
-  LOBBY_UPDATE_COUNTDOWN_TICK,
-  LOBBY_UPDATE_COUNTDOWN_CANCELED,
-  LOBBY_UPDATE_LOADING_START,
-  LOBBY_UPDATE_LOADING_CANCELED,
-  LOBBY_UPDATE_CHAT_MESSAGE,
   MAPS_TOGGLE_FAVORITE,
   NETWORK_SITE_CONNECTED,
 } from '../actions'
+import { MapRecord } from '../maps/maps-reducer'
+import { TextMessageRecord } from '../messaging/message-records'
+import keyedReducer from '../reducers/keyed-reducer'
 import {
   BanLobbyPlayerMessageRecord,
   JoinLobbyMessageRecord,
@@ -39,7 +40,6 @@ import {
   LobbyLoadingCanceledMessageRecord,
   SelfJoinLobbyMessageRecord,
 } from './lobby-message-records'
-import { TextMessageRecord } from '../messaging/message-records'
 
 export const Slot = new Record({
   type: null,

@@ -1,6 +1,6 @@
 import { List, Map, Record } from 'immutable'
+import { ADMIN_BAN_USER, ADMIN_GET_BAN_HISTORY, ADMIN_GET_BAN_HISTORY_BEGIN } from '../actions'
 import keyedReducer from '../reducers/keyed-reducer'
-import { ADMIN_BAN_USER, ADMIN_GET_BAN_HISTORY_BEGIN, ADMIN_GET_BAN_HISTORY } from '../actions'
 
 export const Ban = new Record({
   startTime: null,

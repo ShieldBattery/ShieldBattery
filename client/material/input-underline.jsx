@@ -1,9 +1,8 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-
+import { amberA400, colorDividers, colorError } from '../styles/colors'
 import { fastOutSlowInShort } from './curves'
-import { amberA400, colorError, colorDividers } from '../styles/colors'
 
 const UnderlineContainer = styled.div`
   order: 3;

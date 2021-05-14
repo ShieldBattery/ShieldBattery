@@ -1,6 +1,5 @@
-import React from 'react'
 import PropTypes from 'prop-types'
-
+import React from 'react'
 import TextField from './text-field'
 
 export default class NumberTextField extends React.Component {

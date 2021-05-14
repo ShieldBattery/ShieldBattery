@@ -1,17 +1,17 @@
-import siteSocket from '../network/site-socket'
-import { push } from '../navigation/routing'
 import {
-  WHISPERS_CLOSE_SESSION_BEGIN,
   WHISPERS_CLOSE_SESSION,
-  WHISPERS_LOAD_SESSION_HISTORY_BEGIN,
+  WHISPERS_CLOSE_SESSION_BEGIN,
   WHISPERS_LOAD_SESSION_HISTORY,
+  WHISPERS_LOAD_SESSION_HISTORY_BEGIN,
+  WHISPERS_SEND_MESSAGE,
+  WHISPERS_SEND_MESSAGE_BEGIN,
   WHISPERS_SESSION_ACTIVATE,
   WHISPERS_SESSION_DEACTIVATE,
-  WHISPERS_SEND_MESSAGE_BEGIN,
-  WHISPERS_SEND_MESSAGE,
-  WHISPERS_START_SESSION_BEGIN,
   WHISPERS_START_SESSION,
+  WHISPERS_START_SESSION_BEGIN,
 } from '../actions'
+import { push } from '../navigation/routing'
+import siteSocket from '../network/site-socket'
 
 export function startWhisperSession(target) {
   return dispatch => {

@@ -1,34 +1,30 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-
-import Dialog from '../material/dialog'
-import form from '../forms/form'
-import IconButton from '../material/icon-button'
-import KeyListener from '../keyboard/key-listener'
-import { Label } from '../material/button'
-import LoadingIndicator from '../progress/dots'
-import { MapThumbnail } from './map-thumbnail'
-import { ScrollableContent } from '../material/scroll-bar'
-import SubmitOnEnter from '../forms/submit-on-enter'
-import TextField from '../material/text-field'
-
-import { getMapDetails, updateMap } from './action-creators'
-
-import CancelIcon from '../icons/material/baseline-clear-24px.svg'
-import EditIcon from '../icons/material/edit-24px.svg'
-import SaveIcon from '../icons/material/check-24px.svg'
-
 import {
   MAP_VISIBILITY_OFFICIAL,
   MAP_VISIBILITY_PRIVATE,
   MAP_VISIBILITY_PUBLIC,
 } from '../../common/constants'
-import { required } from '../forms/validators'
-import { colorError, colorTextSecondary } from '../styles/colors'
-import { Display1Old, SubheadingOld, Body1Old, singleLine } from '../styles/typography'
 import { tilesetToName } from '../../common/maps'
+import form from '../forms/form'
+import SubmitOnEnter from '../forms/submit-on-enter'
+import { required } from '../forms/validators'
+import CancelIcon from '../icons/material/baseline-clear-24px.svg'
+import SaveIcon from '../icons/material/check-24px.svg'
+import EditIcon from '../icons/material/edit-24px.svg'
+import KeyListener from '../keyboard/key-listener'
+import { Label } from '../material/button'
+import Dialog from '../material/dialog'
+import IconButton from '../material/icon-button'
+import { ScrollableContent } from '../material/scroll-bar'
+import TextField from '../material/text-field'
+import LoadingIndicator from '../progress/dots'
+import { colorError, colorTextSecondary } from '../styles/colors'
+import { Body1Old, Display1Old, singleLine, SubheadingOld } from '../styles/typography'
+import { getMapDetails, updateMap } from './action-creators'
+import { MapThumbnail } from './map-thumbnail'
 
 const ESCAPE = 'Escape'
 

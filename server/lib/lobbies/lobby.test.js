@@ -1,11 +1,11 @@
+import {
+  findSlotById,
+  findSlotByName,
+  hasOpposingSides,
+  humanSlotCount,
+} from '../../../common/lobbies'
 import * as Lobbies from './lobby'
 import * as Slots from './slot'
-import {
-  findSlotByName,
-  findSlotById,
-  humanSlotCount,
-  hasOpposingSides,
-} from '../../../common/lobbies'
 
 const BigGameHunters = {
   name: 'Big Game Hunters.scm',

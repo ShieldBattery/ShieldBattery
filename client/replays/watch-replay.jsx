@@ -1,13 +1,11 @@
+import { remote } from 'electron'
+import path from 'path'
 import React from 'react'
 import { connect } from 'react-redux'
-import path from 'path'
-import { remote } from 'electron'
-
-import BrowseFiles from '../file-browser/browse-files'
-import { startReplay } from './action-creators'
 import { closeOverlay } from '../activities/action-creators'
-
+import BrowseFiles from '../file-browser/browse-files'
 import Replay from '../icons/material/ic_movie_black_24px.svg'
+import { startReplay } from './action-creators'
 
 function getReplayFolder() {
   return path.join(remote.app.getPath('documents'), 'Starcraft', 'maps', 'replays')

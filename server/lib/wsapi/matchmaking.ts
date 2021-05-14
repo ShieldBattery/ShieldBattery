@@ -117,8 +117,8 @@ async function pickMap(matchmakingType: MatchmakingType, players: List<Matchmaki
 
   // TODO(tec27): remove the need for these casts by TSifying the map info stuff
   const [preferredMaps, randomMaps] = await Promise.all([
-    (getMapInfo(preferredMapIds.toJS()) as any) as MapInfo[],
-    (getMapInfo(randomMapIds) as any) as MapInfo[],
+    getMapInfo(preferredMapIds.toJS()) as any as MapInfo[],
+    getMapInfo(randomMapIds) as any as MapInfo[],
   ])
   if (preferredMapIds.size + randomMapIds.length !== preferredMaps.length + randomMaps.length) {
     throw new Error('no maps found')

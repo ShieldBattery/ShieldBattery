@@ -1,11 +1,9 @@
 import React from 'react'
-import { makeServerUrl } from '../network/server-url'
 import styled from 'styled-components'
-
-import { SizeTop, SizeLeft, SizeRight } from '../app-bar/window-controls'
-import { blue800 } from '../styles/colors'
-
+import { SizeLeft, SizeRight, SizeTop } from '../app-bar/window-controls'
 import LogoText from '../logos/logotext-640x100.svg'
+import { makeServerUrl } from '../network/server-url'
+import { blue800 } from '../styles/colors'
 
 const Background = styled.div`
   .electron & {

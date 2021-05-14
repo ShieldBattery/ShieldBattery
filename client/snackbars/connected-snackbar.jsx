@@ -1,9 +1,8 @@
 import React from 'react'
-import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import { connect } from 'react-redux'
-import { closeSnackbar } from './action-creators'
-
+import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import Snackbar from '../material/snackbar'
+import { closeSnackbar } from './action-creators'
 
 const transitionNames = {
   enter: 'enter',

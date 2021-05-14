@@ -1,9 +1,9 @@
+import sql from 'sql-template-strings'
+import { SORT_BY_DATE, SORT_BY_NUM_OF_PLAYERS } from '../../../common/maps'
 import db from '../db'
 import transact from '../db/transaction'
-import sql from 'sql-template-strings'
-import { SORT_BY_NUM_OF_PLAYERS, SORT_BY_DATE } from '../../../common/maps'
 import { getUrl } from '../file-upload'
-import { mapPath, imagePath } from '../maps/store'
+import { imagePath, mapPath } from '../maps/store'
 
 // This model contains information from three separate tables (`maps`, `uploaded_maps` and `users`)
 // and should always be fully constructed, so pieces of code that use it don't have to be defensive

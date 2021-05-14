@@ -1,19 +1,16 @@
-import React from 'react'
-import PropTypes from 'prop-types'
 import keycode from 'keycode'
+import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-
-import IconButton from '../material/icon-button'
-import KeyListener from '../keyboard/key-listener'
-
 import CloseDialogIcon from '../icons/material/ic_close_black_24px.svg'
-
-import { linearOutSlowIn, fastOutSlowIn, fastOutLinearIn } from './curve-constants'
-import { shadowDef8dp } from './shadow-constants'
-import { zIndexDialog } from './zindex'
-import { colorDividers, CardLayer } from '../styles/colors'
+import KeyListener from '../keyboard/key-listener'
+import IconButton from '../material/icon-button'
+import { CardLayer, colorDividers } from '../styles/colors'
 import { headline5 } from '../styles/typography'
 import { animationFrameHandler } from './animation-frame-handler'
+import { fastOutLinearIn, fastOutSlowIn, linearOutSlowIn } from './curve-constants'
+import { shadowDef8dp } from './shadow-constants'
+import { zIndexDialog } from './zindex'
 
 const ESCAPE = keycode('esc')
 

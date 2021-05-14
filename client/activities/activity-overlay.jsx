@@ -1,18 +1,15 @@
-import React from 'react'
-import { CSSTransition, TransitionGroup } from 'react-transition-group'
-import { connect } from 'react-redux'
 import keycode from 'keycode'
+import React from 'react'
+import { connect } from 'react-redux'
+import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import styled from 'styled-components'
-
 import KeyListener from '../keyboard/key-listener'
 import JoinLobby from '../lobbies/join-lobby'
-
-import { closeOverlay } from './action-creators'
-
-import { dialogScrim, grey850 } from '../styles/colors'
-import { zIndexBackdrop, zIndexSideNav } from '../material/zindex'
-import { shadow8dp } from '../material/shadows'
 import { fastOutLinearIn, linearOutSlowIn } from '../material/curve-constants'
+import { shadow8dp } from '../material/shadows'
+import { zIndexBackdrop, zIndexSideNav } from '../material/zindex'
+import { dialogScrim, grey850 } from '../styles/colors'
+import { closeOverlay } from './action-creators'
 
 const {
   FindMatch,

@@ -1,10 +1,10 @@
 import { Record } from 'immutable'
-import keyedReducer from '../reducers/keyed-reducer'
 import {
-  UPDATER_NEW_VERSION_FOUND,
   UPDATER_NEW_VERSION_DOWNLOADED,
+  UPDATER_NEW_VERSION_FOUND,
   UPDATER_UP_TO_DATE,
 } from '../actions'
+import keyedReducer from '../reducers/keyed-reducer'
 
 export const UpdateStatus = new Record({
   hasUpdate: false,

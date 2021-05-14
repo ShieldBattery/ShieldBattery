@@ -1,14 +1,14 @@
 import httpErrors from 'http-errors'
-import ensureLoggedIn from '../session/ensure-logged-in'
-import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
 import {
   MAP_VISIBILITY_OFFICIAL,
   MAP_VISIBILITY_PRIVATE,
   MAP_VISIBILITY_PUBLIC,
 } from '../../../common/constants'
-import { SORT_BY_NAME, SORT_BY_NUM_OF_PLAYERS, SORT_BY_DATE } from '../../../common/maps'
-import { upsertMapPreferences, getMapPreferences } from '../models/map-preferences'
+import { SORT_BY_DATE, SORT_BY_NAME, SORT_BY_NUM_OF_PLAYERS } from '../../../common/maps'
+import { getMapPreferences, upsertMapPreferences } from '../models/map-preferences'
+import ensureLoggedIn from '../session/ensure-logged-in'
+import createThrottle from '../throttle/create-throttle'
+import throttleMiddleware from '../throttle/middleware'
 
 const throttle = createThrottle('mappreferences', {
   rate: 20,

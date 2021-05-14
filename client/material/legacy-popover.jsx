@@ -1,15 +1,13 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-
-import KeyListener from '../keyboard/key-listener'
-import { Portal } from './portal'
 import WindowListener from '../dom/window-listener'
-
+import KeyListener from '../keyboard/key-listener'
+import { CardLayer } from '../styles/colors'
 import { fastOutSlowIn } from './curve-constants'
+import { Portal } from './portal'
 import { shadow6dp } from './shadows'
 import { zIndexMenu } from './zindex'
-import { CardLayer } from '../styles/colors'
 
 const ESCAPE = 'Escape'
 

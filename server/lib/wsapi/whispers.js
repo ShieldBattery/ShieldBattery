@@ -1,11 +1,7 @@
-import { Map, OrderedSet, Set } from 'immutable'
 import errors from 'http-errors'
-import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
-import validateBody from '../websockets/validate-body'
-import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/websocket-middleware'
-import filterChatMessage from '../messaging/filter-chat-message'
+import { Map, OrderedSet, Set } from 'immutable'
 import { isValidUsername } from '../../../common/constants'
+import filterChatMessage from '../messaging/filter-chat-message'
 import users from '../models/users'
 import {
   addMessageToWhisper,
@@ -14,6 +10,10 @@ import {
   getWhisperSessionsForUser,
   startWhisperSession,
 } from '../models/whispers'
+import createThrottle from '../throttle/create-throttle'
+import throttleMiddleware from '../throttle/websocket-middleware'
+import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
+import validateBody from '../websockets/validate-body'
 
 const nonEmptyString = str => typeof str === 'string' && str.length > 0
 const limit = val => typeof val === 'undefined' || (typeof val === 'number' && val > 0 && val < 100)

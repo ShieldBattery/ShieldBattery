@@ -1,29 +1,24 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-
+import { MatchmakingType } from '../../common/matchmaking'
+import CheckIcon from '../icons/material/baseline-check_circle-24px.svg'
 import CheckBox from '../material/check-box'
 import FlatButton from '../material/flat-button'
-import LoadingIndicator from '../progress/dots'
 import RaisedButton from '../material/raised-button'
 import { ScrollableContent } from '../material/scroll-bar'
 import Tabs, { TabItem } from '../material/tabs'
-
-import { MatchmakingType } from '../../common/matchmaking'
-
-import CheckIcon from '../icons/material/baseline-check_circle-24px.svg'
-
+import LoadingIndicator from '../progress/dots'
+import { amberA400, colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
+import { Body1Old, SubheadingOld } from '../styles/typography'
 import {
-  getMatchmakingTimesHistory,
-  getMatchmakingTimesFuture,
-  getMatchmakingTimesPast,
   addMatchmakingTime,
   deleteMatchmakingTime,
+  getMatchmakingTimesFuture,
+  getMatchmakingTimesHistory,
+  getMatchmakingTimesPast,
 } from './action-creators'
-
-import { colorTextSecondary, colorError, colorSuccess, amberA400 } from '../styles/colors'
-import { Body1Old, SubheadingOld } from '../styles/typography'
 
 const MATCHMAKING_TIMES_LIMIT = 10
 
@@ -100,14 +95,8 @@ class MatchmakingTimesHistory extends React.PureComponent {
   }
 
   render() {
-    const {
-      history,
-      futureTimesPage,
-      pastTimesPage,
-      onLoadMoreFuture,
-      onLoadMorePast,
-      onDelete,
-    } = this.props
+    const { history, futureTimesPage, pastTimesPage, onLoadMoreFuture, onLoadMorePast, onDelete } =
+      this.props
 
     if (!history) return null
 
@@ -282,14 +271,8 @@ export default class MatchmakingTimes extends React.Component {
 
   render() {
     const { matchmakingTimes } = this.props
-    const {
-      activeTab,
-      startDate,
-      invalidDate,
-      enabled,
-      futureTimesPage,
-      pastTimesPage,
-    } = this.state
+    const { activeTab, startDate, invalidDate, enabled, futureTimesPage, pastTimesPage } =
+      this.state
     const matchmakingTimesHistory = matchmakingTimes.types.get(tabToType(activeTab))
 
     let dateValidationContents

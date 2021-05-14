@@ -1,13 +1,13 @@
-import fs from 'fs'
-import { push } from '../navigation/routing'
 import cuid from 'cuid'
+import fs from 'fs'
 import ReplayParser from 'jssuh'
-import logger from '../logging/logger'
+import { TypedIpcRenderer } from '../../common/ipc'
+import { REPLAYS_START_REPLAY } from '../actions'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { Slot } from '../lobbies/lobby-reducer'
+import logger from '../logging/logger'
+import { push } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
-import { REPLAYS_START_REPLAY } from '../actions'
-import { TypedIpcRenderer } from '../../common/ipc'
 
 const ipcRenderer = new TypedIpcRenderer()
 

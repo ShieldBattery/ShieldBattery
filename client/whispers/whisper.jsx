@@ -1,18 +1,17 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { push } from '../navigation/routing'
 import styled from 'styled-components'
+import Chat from '../messaging/chat'
+import { push } from '../navigation/routing'
+import LoadingIndicator from '../progress/dots'
+import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import {
-  sendMessage,
-  startWhisperSession,
-  getMessageHistory,
   activateWhisperSession,
   deactivateWhisperSession,
+  getMessageHistory,
+  sendMessage,
+  startWhisperSession,
 } from './action-creators'
-
-import LoadingIndicator from '../progress/dots'
-import Chat from '../messaging/chat'
-import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 
 const MESSAGES_LIMIT = 50
 

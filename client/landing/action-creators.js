@@ -1,5 +1,5 @@
+import { BETA_CREATE_INVITE, BETA_CREATE_INVITE_BEGIN } from '../actions'
 import fetch from '../network/fetch'
-import { BETA_CREATE_INVITE_BEGIN, BETA_CREATE_INVITE } from '../actions'
 
 export function createInvite(invite) {
   return dispatch => {

@@ -1,13 +1,10 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-
-import SubheaderButton from '../material/left-nav/subheader-button'
-
 import CancelSearchIcon from '../icons/material/ic_close_black_24px.svg'
-
+import SubheaderButton from '../material/left-nav/subheader-button'
 import { colorTextSecondary } from '../styles/colors'
-import { body2, TitleOld, cabin } from '../styles/typography'
+import { body2, cabin, TitleOld } from '../styles/typography'
 import { ElapsedTime } from './elapsed-time'
 
 const SearchingContainer = styled.div`

@@ -1,8 +1,8 @@
+import { app } from 'electron'
 import fs from 'fs'
 import net from 'net'
 import os from 'os'
 import path from 'path'
-import { app } from 'electron'
 import sanitize from 'sanitize-filename'
 
 export default function () {

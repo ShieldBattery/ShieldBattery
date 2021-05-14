@@ -1,14 +1,13 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-import Dialog from '../material/dialog'
+import { TypedIpcRenderer } from '../../common/ipc'
 import { closeDialog } from '../dialogs/action-creators'
+import Dialog from '../material/dialog'
+import RaisedButton from '../material/raised-button'
+import LoadingIndicator from '../progress/dots'
 import { openSnackbar } from '../snackbars/action-creators'
 import { TitleOld } from '../styles/typography'
-
-import LoadingIndicator from '../progress/dots'
-import RaisedButton from '../material/raised-button'
-import { TypedIpcRenderer } from '../../common/ipc'
 
 const ipcRenderer = new TypedIpcRenderer()
 

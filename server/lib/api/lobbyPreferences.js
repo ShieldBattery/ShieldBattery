@@ -1,10 +1,10 @@
 import httpErrors from 'http-errors'
+import { isValidGameSubType, isValidGameType, isValidLobbyName } from '../../../common/constants'
+import { getLobbyPreferences, upsertLobbyPreferences } from '../models/lobby-preferences'
+import { getMapInfo } from '../models/maps'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
-import { isValidLobbyName, isValidGameType, isValidGameSubType } from '../../../common/constants'
-import { upsertLobbyPreferences, getLobbyPreferences } from '../models/lobby-preferences'
-import { getMapInfo } from '../models/maps'
 
 const throttle = createThrottle('lobbypreferences', {
   rate: 20,

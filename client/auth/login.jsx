@@ -1,39 +1,37 @@
+import queryString from 'query-string'
 import React from 'react'
 import { connect } from 'react-redux'
-import { push } from '../navigation/routing'
-import queryString from 'query-string'
-import { redirectIfLoggedIn } from './auth-utils'
-
-import LoadingIndicator from '../progress/dots'
-import RaisedButton from '../material/raised-button'
-import { logIn } from './action-creators'
+import {
+  PASSWORD_MINLENGTH,
+  USERNAME_MAXLENGTH,
+  USERNAME_MINLENGTH,
+  USERNAME_PATTERN,
+} from '../../common/constants'
 import form from '../forms/form'
 import SubmitOnEnter from '../forms/submit-on-enter'
-import { composeValidators, minLength, maxLength, regex, required } from '../forms/validators'
+import { composeValidators, maxLength, minLength, regex, required } from '../forms/validators'
+import RaisedButton from '../material/raised-button'
+import { push } from '../navigation/routing'
+import LoadingIndicator from '../progress/dots'
+import { logIn } from './action-creators'
 import {
-  AuthContentContainer,
-  AuthContent,
-  AuthTitle,
   AuthBody,
-  LoadingArea,
-  ErrorsContainer,
   AuthBottomAction,
-  BottomActionButton,
-  FieldRow,
-  RowEdge,
-  ForgotActionButton,
-  Spacer,
-  AuthTextField,
-  AuthPasswordTextField,
   AuthCheckBox,
+  AuthContent,
+  AuthContentContainer,
+  AuthPasswordTextField,
+  AuthTextField,
+  AuthTitle,
+  BottomActionButton,
+  ErrorsContainer,
+  FieldRow,
+  ForgotActionButton,
+  LoadingArea,
+  RowEdge,
+  Spacer,
 } from './auth-content'
-
-import {
-  USERNAME_MINLENGTH,
-  USERNAME_MAXLENGTH,
-  USERNAME_PATTERN,
-  PASSWORD_MINLENGTH,
-} from '../../common/constants'
+import { redirectIfLoggedIn } from './auth-utils'
 
 const usernameValidator = composeValidators(
   required('Enter a username'),
@@ -52,13 +50,8 @@ const passwordValidator = composeValidators(
 })
 class LoginForm extends React.Component {
   render() {
-    const {
-      onSubmit,
-      bindInput,
-      bindCheckable,
-      onForgotUsernameClick,
-      onForgotPasswordClick,
-    } = this.props
+    const { onSubmit, bindInput, bindCheckable, onForgotUsernameClick, onForgotPasswordClick } =
+      this.props
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />

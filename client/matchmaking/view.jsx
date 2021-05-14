@@ -1,9 +1,8 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { Route, Switch } from 'wouter'
-import { replace } from '../navigation/routing'
-
 import Index from '../navigation/index'
+import { replace } from '../navigation/routing'
 import MatchmakingMatch from './matchmaking-match'
 
 @connect(state => ({ activeGame: state.activeGame, matchmaking: state.matchmaking }))

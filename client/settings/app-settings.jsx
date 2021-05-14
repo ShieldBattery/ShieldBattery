@@ -1,17 +1,14 @@
-import React from 'react'
 import PropTypes from 'prop-types'
-import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
+import React from 'react'
 import styled from 'styled-components'
-
-import FlatButton from '../material/flat-button'
+import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
 import form from '../forms/form'
-import { Label } from '../material/button'
-import Slider from '../material/slider'
 import SubmitOnEnter from '../forms/submit-on-enter'
-
 import PlayIcon from '../icons/material/play_arrow-24px.svg'
 import StopIcon from '../icons/material/stop-24px.svg'
-
+import { Label } from '../material/button'
+import FlatButton from '../material/flat-button'
+import Slider from '../material/slider'
 import { colorTextSecondary } from '../styles/colors'
 
 const VolumeSettings = styled.div`

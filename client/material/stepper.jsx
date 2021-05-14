@@ -1,18 +1,16 @@
-import React from 'react'
-import PropTypes from 'prop-types'
 import { Set } from 'immutable'
+import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-
-import EditIcon from '../icons/material/edit-24px.svg'
 import ErrorIcon from '../icons/material/baseline-error-24px.svg'
-
+import EditIcon from '../icons/material/edit-24px.svg'
 import {
   amberA400,
+  colorDividers,
+  colorError,
+  colorTextFaint,
   colorTextPrimary,
   colorTextSecondary,
-  colorDividers,
-  colorTextFaint,
-  colorError,
 } from '../styles/colors'
 
 const Container = styled.ul`
@@ -147,16 +145,8 @@ export class Step extends React.Component {
   }
 
   render() {
-    const {
-      value,
-      text,
-      alternativeLabel,
-      active,
-      completed,
-      disabled,
-      editable,
-      error,
-    } = this.props
+    const { value, text, alternativeLabel, active, completed, disabled, editable, error } =
+      this.props
     let icon
     if (editable && completed) {
       icon = EditIcon

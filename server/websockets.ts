@@ -20,10 +20,10 @@ const apiHandlers = fs
   .map(filename => require('./lib/wsapi/' + filename).default)
 
 // dummy response object, needed for session middleware's cookie setting stuff
-const dummyRes = ({
+const dummyRes = {
   getHeader: () => undefined,
   setHeader() {},
-} as any) as ServerResponse
+} as any as ServerResponse
 
 type AllowRequestFn = (
   req: IncomingMessage,
@@ -34,11 +34,11 @@ class AuthorizingNydusServer extends NydusServer {
   private allowRequest: AllowRequestFn | undefined
 
   constructor(options: Partial<NydusServerOptions> = {}) {
-    super(({
+    super({
       ...options,
       allowRequest: (req: IncomingMessage, cb: (err: Error | null, authorized?: boolean) => void) =>
         this.onAllowRequest(req, cb),
-    } as any) as Partial<NydusServerOptions>)
+    } as any as Partial<NydusServerOptions>)
   }
 
   setAllowRequestHandler(fn: AllowRequestFn) {
@@ -160,7 +160,7 @@ export class WebsocketServer {
 container.register<NydusServer>(NydusServer, {
   useFactory: instanceCachingFactory(c => {
     const httpServer = c.resolve(HttpServer)
-    const opts = ({
+    const opts = {
       cors: {
         origin: 'shieldbattery://app',
         credentials: true,
@@ -171,7 +171,7 @@ container.register<NydusServer>(NydusServer, {
       pingInterval: 25000,
       upgradeTimeout: 10000,
       // TODO(tec27): remove these casts once the engine.io typings actually include the CORS stuff
-    } as any) as Partial<NydusServerOptions>
+    } as any as Partial<NydusServerOptions>
     const nydus = new AuthorizingNydusServer(opts)
     nydus.attach(httpServer, opts)
     return nydus

@@ -1,6 +1,5 @@
 import { promises as fsPromises } from 'fs'
 import path from 'path'
-
 import fetch from '../network/fetch'
 
 export default async function upload(filePath, apiPath) {

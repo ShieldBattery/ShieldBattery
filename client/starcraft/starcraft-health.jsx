@@ -1,20 +1,17 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-
+import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
+import { closeDialog, openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import Dialog from '../material/dialog'
-
-import { openDialog, closeDialog } from '../dialogs/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
+import { SubheadingOld } from '../styles/typography'
 import {
-  isStarcraftHealthy,
   hasValidStarcraftPath,
   hasValidStarcraftVersion,
+  isStarcraftHealthy,
 } from './is-starcraft-healthy'
-
-import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
-import { SubheadingOld } from '../styles/typography'
-import { DialogType } from '../dialogs/dialog-type'
 
 const HeaderText = styled(SubheadingOld)`
   margin-top: 0;

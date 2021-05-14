@@ -89,7 +89,7 @@ export default function (router: Router) {
 }
 
 async function getHistory(ctx: RouterContext, next: Koa.Next) {
-  const { matchmakingType } = (ctx.params as any) as MatchmakingTypeParams
+  const { matchmakingType } = ctx.params as any as MatchmakingTypeParams
 
   const current = await getCurrentMatchmakingTime(matchmakingType)
   // NOTE(2Pac): `current` can be `null` in case all the times are in future (or there are none yet)
@@ -109,7 +109,7 @@ async function getHistory(ctx: RouterContext, next: Koa.Next) {
 }
 
 async function getFutureTimes(ctx: RouterContext, next: Koa.Next) {
-  const { matchmakingType } = (ctx.params as any) as MatchmakingTypeParams
+  const { matchmakingType } = ctx.params as any as MatchmakingTypeParams
 
   let limit = parseInt(getSingleQueryParam(ctx.query.limit) ?? '', 10)
   if (!limit || isNaN(limit) || limit < 1 || limit > 100) {
@@ -138,7 +138,7 @@ async function getFutureTimes(ctx: RouterContext, next: Koa.Next) {
 }
 
 async function getPastTimes(ctx: RouterContext, next: Koa.Next) {
-  const { matchmakingType } = (ctx.params as any) as MatchmakingTypeParams
+  const { matchmakingType } = ctx.params as any as MatchmakingTypeParams
 
   let limit = parseInt(getSingleQueryParam(ctx.query.limit) ?? '', 10)
   if (!limit || isNaN(limit) || limit < 0 || limit > 100) {
@@ -167,7 +167,7 @@ async function getPastTimes(ctx: RouterContext, next: Koa.Next) {
 }
 
 async function addNew(ctx: RouterContext, next: Koa.Next) {
-  const { matchmakingType } = (ctx.params as any) as MatchmakingTypeParams
+  const { matchmakingType } = ctx.params as any as MatchmakingTypeParams
   const { startDate, enabled } = ctx.request.body as AddMatchmakingTimeBody
 
   ctx.body = await addMatchmakingTime(matchmakingType, new Date(startDate), !!enabled)

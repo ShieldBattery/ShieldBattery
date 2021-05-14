@@ -1,15 +1,13 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
-
+import { MatchmakingType } from '../../common/matchmaking'
 import RaceIcon from '../lobbies/race-icon'
+import { fastOutSlowIn } from '../material/curve-constants.js'
 import { LegacyPopover } from '../material/legacy-popover'
 import RaisedButton from '../material/raised-button'
-import { fastOutSlowIn } from '../material/curve-constants.js'
 import { headline3, Headline6 } from '../styles/typography'
-
-import { MatchmakingType } from '../../common/matchmaking'
 import { ElapsedTime } from './elapsed-time'
 
 // TODO(2Pac): Move this to a common folder if we decide to use this text elsewhere
@@ -105,15 +103,8 @@ export default class MatchmakingSearchingOverlay extends React.Component {
   }
 
   render() {
-    const {
-      open,
-      anchor,
-      startTime,
-      matchmakingType,
-      selectedRace,
-      onCancelSearch,
-      onDismiss,
-    } = this.props
+    const { open, anchor, startTime, matchmakingType, selectedRace, onCancelSearch, onDismiss } =
+      this.props
 
     return (
       <LegacyPopover

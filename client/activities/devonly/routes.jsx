@@ -1,6 +1,5 @@
 import React from 'react'
 import { Link, Route, Switch } from 'wouter'
-
 import DevActivityButtons from './activity-button-test'
 
 const BASE_URL = '/dev/activities'

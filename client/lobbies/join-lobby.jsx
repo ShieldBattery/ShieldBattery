@@ -1,15 +1,14 @@
-import React from 'react'
 import PropTypes from 'prop-types'
-import styled from 'styled-components'
+import React from 'react'
 import { connect } from 'react-redux'
-import siteSocket from '../network/site-socket'
-import gameTypeToString from './game-type-to-string'
-import { joinLobby, navigateToLobby } from './action-creators'
+import styled from 'styled-components'
 import { closeOverlay } from '../activities/action-creators'
-
 import { MapThumbnail } from '../maps/map-thumbnail'
+import siteSocket from '../network/site-socket'
 import { colorDividers } from '../styles/colors'
-import { Headline6, headline5, Body1, Subtitle1, Subtitle2 } from '../styles/typography'
+import { Body1, headline5, Headline6, Subtitle1, Subtitle2 } from '../styles/typography'
+import { joinLobby, navigateToLobby } from './action-creators'
+import gameTypeToString from './game-type-to-string'
 
 const ListEntryRoot = styled.div`
   width: 100%;

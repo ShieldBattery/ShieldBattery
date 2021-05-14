@@ -1,18 +1,15 @@
-import React from 'react'
+import { List, Map, Set } from 'immutable'
 import PropTypes from 'prop-types'
-import { Map, List, Set } from 'immutable'
+import React from 'react'
 import styled from 'styled-components'
-
-import ImageList from '../material/image-list'
-import KeyListener from '../keyboard/key-listener'
-import { MapThumbnail } from './map-thumbnail'
-
 import SelectedIcon from '../icons/material/baseline-check_circle-24px.svg'
 import MapIcon from '../icons/material/ic_terrain_black_24px.svg'
-
+import KeyListener from '../keyboard/key-listener'
+import ImageList from '../material/image-list'
 import { shadow2dp, shadow8dp } from '../material/shadows'
-import { grey800, colorError, colorTextSecondary } from '../styles/colors'
+import { colorError, colorTextSecondary, grey800 } from '../styles/colors'
 import { SubheadingOld } from '../styles/typography'
+import { MapThumbnail } from './map-thumbnail'
 
 const SPACE = 'Space'
 const TAB = 'Tab'

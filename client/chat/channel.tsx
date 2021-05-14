@@ -416,10 +416,10 @@ export default function Channel(props: ChatChannelProps) {
     [channelName, dispatch],
   )
 
-  const onSendChatMessage = useCallback((msg: string) => dispatch(sendMessage(channelName, msg)), [
-    dispatch,
-    channelName,
-  ])
+  const onSendChatMessage = useCallback(
+    (msg: string) => dispatch(sendMessage(channelName, msg)),
+    [dispatch, channelName],
+  )
 
   const onWhisperClick = useCallback((user: string) => navigateToWhisper(user), [])
 

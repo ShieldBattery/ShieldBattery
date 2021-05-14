@@ -1,21 +1,21 @@
 import { fromJS, List, Range, Record } from 'immutable'
-import * as Slots from './slot'
 import {
-  isUms,
-  isTeamType,
-  getLobbySlots,
-  slotCount,
-  humanSlotCount,
-  takenSlotCount,
-  teamTakenSlotCount,
-  openSlotCount,
-  hasObservers,
-  getObserverTeam,
-  isInObserverTeam,
   canAddObservers,
   canRemoveObservers,
+  getLobbySlots,
   getLobbySlotsWithIndexes,
+  getObserverTeam,
+  hasObservers,
+  humanSlotCount,
+  isInObserverTeam,
+  isTeamType,
+  isUms,
+  openSlotCount,
+  slotCount,
+  takenSlotCount,
+  teamTakenSlotCount,
 } from '../../../common/lobbies'
+import * as Slots from './slot'
 
 const Team = new Record({
   name: null,

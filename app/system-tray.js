@@ -1,4 +1,4 @@
-import { app, Menu, Tray, shell } from 'electron'
+import { app, Menu, shell, Tray } from 'electron'
 import path from 'path'
 import { getUserDataPath } from './user-data-path'
 

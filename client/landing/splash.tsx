@@ -131,7 +131,7 @@ interface RaisedButtonProps {
   onClick?: (event: MouseEvent) => void
 }
 
-const SplashButton = styled((RaisedButton as unknown) as React.ComponentType<RaisedButtonProps>)`
+const SplashButton = styled(RaisedButton as unknown as React.ComponentType<RaisedButtonProps>)`
   width: 200px;
   height: 54px;
   margin: 16px 32px;

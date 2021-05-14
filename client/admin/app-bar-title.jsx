@@ -1,6 +1,5 @@
 import React from 'react'
 import { useLocation } from 'wouter'
-
 import { AppBarTitle } from '../app-bar/app-bar'
 
 export default function AdminTitle() {

@@ -70,9 +70,7 @@ export interface FormChildProps<ModelType> {
    * />
    * ```
    */
-  bindCheckable: (
-    name: NullableConditionalKeys<ModelType, boolean>,
-  ) => {
+  bindCheckable: (name: NullableConditionalKeys<ModelType, boolean>) => {
     name: NullableConditionalKeys<ModelType, boolean>
     onChange: (event: React.ChangeEvent<HTMLInputElement>) => void
     checked: boolean
@@ -115,9 +113,7 @@ export interface FormChildProps<ModelType> {
    * />
    * ```
    */
-  bindInput: (
-    name: NullableConditionalKeys<ModelType, string>,
-  ) => {
+  bindInput: (name: NullableConditionalKeys<ModelType, string>) => {
     name: NullableConditionalKeys<ModelType, string>
     onChange: (event: React.ChangeEvent<HTMLInputElement>) => void
     value: string
@@ -159,14 +155,14 @@ export default function formDecorator<ModelType, WrappedProps>(
         WrappedProps & FormWrapperProps<ModelType>,
         FormWrapperState<ModelType>
       >
-      implements FormWrapper<ModelType> {
+      implements FormWrapper<ModelType>
+    {
       static displayName = `Form(${getDisplayName(Wrapped)})`
 
       // Allows us to cache bound functions to avoid causing unnecessary prop changes. Only gets
       // cleaned up when this component unmounts, but that generally shouldn't be an issue.
-      private customChangeHandlers: Partial<
-        Record<keyof ModelType, (newValue: any) => void>
-      > = Object.create(null)
+      private customChangeHandlers: Partial<Record<keyof ModelType, (newValue: any) => void>> =
+        Object.create(null)
       private validationPromises: Partial<
         Record<keyof ModelType, Promise<string | false | null | undefined>>
       > = Object.create(null)

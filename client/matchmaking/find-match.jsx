@@ -1,34 +1,29 @@
-import React from 'react'
-import PropTypes from 'prop-types'
-import { connect } from 'react-redux'
 import { List, Range } from 'immutable'
+import PropTypes from 'prop-types'
+import React from 'react'
+import { connect } from 'react-redux'
 import styled from 'styled-components'
-
-import { BrowseButton } from '../maps/map-select'
-import CheckBox from '../material/check-box'
+import { MatchmakingType } from '../../common/matchmaking'
+import { closeOverlay, openOverlay } from '../activities/action-creators'
 import form from '../forms/form'
+import BrowseIcon from '../icons/material/ic_casino_black_24px.svg'
 import KeyListener from '../keyboard/key-listener'
-import { LoadingDotsArea } from '../progress/dots'
-import { MapThumbnail } from '../maps/map-thumbnail'
 import RacePicker, { RACE_PICKER_SIZE_LARGE } from '../lobbies/race-picker'
+import { BrowseButton } from '../maps/map-select'
+import { MapThumbnail } from '../maps/map-thumbnail'
+import { animationFrameHandler } from '../material/animation-frame-handler'
+import CheckBox from '../material/check-box'
 import RaisedButton from '../material/raised-button'
 import Tabs, { TabItem } from '../material/tabs'
-
-import BrowseIcon from '../icons/material/ic_casino_black_24px.svg'
-
+import { LoadingDotsArea } from '../progress/dots'
+import { amberA400, colorDividers, colorError, colorTextSecondary } from '../styles/colors'
+import { body1, body2, Headline5, Subtitle1, subtitle1, Subtitle2 } from '../styles/typography'
 import {
   findMatch,
   getCurrentMapPool,
   getMatchmakingPreferences,
   updateMatchmakingPreferences,
 } from './action-creators'
-import { openOverlay, closeOverlay } from '../activities/action-creators'
-
-import { MatchmakingType } from '../../common/matchmaking'
-
-import { amberA400, colorDividers, colorTextSecondary, colorError } from '../styles/colors'
-import { Headline5, Subtitle1, Subtitle2, subtitle1, body1, body2 } from '../styles/typography'
-import { animationFrameHandler } from '../material/animation-frame-handler'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'

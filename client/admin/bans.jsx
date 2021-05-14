@@ -1,16 +1,14 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-
-import { colorTextSecondary } from '../styles/colors'
-import FlatButton from '../material/flat-button'
-import LoadingIndicator from '../progress/dots'
 import form from '../forms/form'
+import FlatButton from '../material/flat-button'
 import { Option } from '../material/select/option'
 import { Select } from '../material/select/select'
 import TextField from '../material/text-field'
-
-import { getBanHistoryIfNeeded, banUser } from './action-creators'
+import LoadingIndicator from '../progress/dots'
+import { colorTextSecondary } from '../styles/colors'
+import { banUser, getBanHistoryIfNeeded } from './action-creators'
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',

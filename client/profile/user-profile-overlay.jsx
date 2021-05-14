@@ -1,10 +1,9 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-
-import ProfileOverlay from './profile-overlay'
 import Avatar from '../avatars/avatar'
 import { headline6, singleLine } from '../styles/typography'
+import ProfileOverlay from './profile-overlay'
 
 const Header = styled.div`
   display: flex;

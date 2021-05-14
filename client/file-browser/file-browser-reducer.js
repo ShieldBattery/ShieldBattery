@@ -1,11 +1,11 @@
 import { List, Record } from 'immutable'
-import keyedReducer from '../reducers/keyed-reducer'
 import {
   FILE_BROWSER_CHANGE_PATH,
   FILE_BROWSER_CLEAR_FILES,
-  FILE_BROWSER_GET_LIST_BEGIN,
   FILE_BROWSER_GET_LIST,
+  FILE_BROWSER_GET_LIST_BEGIN,
 } from '../actions'
+import keyedReducer from '../reducers/keyed-reducer'
 
 export const Folder = new Record({
   type: 'folder',

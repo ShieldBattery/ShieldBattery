@@ -1,5 +1,5 @@
-import koaBody from 'koa-body'
 import fs from 'fs'
+import koaBody from 'koa-body'
 
 const bodyMiddleware = koaBody({
   multipart: true,

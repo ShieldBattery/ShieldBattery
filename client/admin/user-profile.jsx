@@ -1,17 +1,15 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { Route } from 'wouter'
-import { push } from '../navigation/routing'
 import styled from 'styled-components'
-
-import FlatButton from '../material/flat-button'
+import { Route } from 'wouter'
+import { USERNAME_MAXLENGTH, USERNAME_MINLENGTH, USERNAME_PATTERN } from '../../common/constants'
 import form from '../forms/form'
+import { composeValidators, maxLength, minLength, regex, required } from '../forms/validators'
+import FlatButton from '../material/flat-button'
 import TextField from '../material/text-field'
+import { push } from '../navigation/routing'
 import BanUsers from './bans'
 import PermissionsResult from './permissions'
-
-import { composeValidators, minLength, maxLength, regex, required } from '../forms/validators'
-import { USERNAME_MINLENGTH, USERNAME_MAXLENGTH, USERNAME_PATTERN } from '../../common/constants'
 
 const Container = styled.div`
   padding: 0 20px;

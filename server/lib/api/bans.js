@@ -1,8 +1,8 @@
 import httpErrors from 'http-errors'
-import redis from '../redis'
-import { getBanHistory, banUser as dbBanUser } from '../models/bans'
+import { banUser as dbBanUser, getBanHistory } from '../models/bans'
 import users from '../models/users'
 import { checkAllPermissions } from '../permissions/check-permissions'
+import redis from '../redis'
 
 export default function (router, { userSockets }) {
   router

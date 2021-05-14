@@ -1,15 +1,13 @@
-import React from 'react'
 import PropTypes from 'prop-types'
-import { getPlayerSlots } from '../../common/lobbies'
-import gameTypeToString from './game-type-to-string'
+import React from 'react'
 import styled from 'styled-components'
-
+import { getPlayerSlots } from '../../common/lobbies'
 import MapImage from '../maps/map-image'
-import PlayerCard from './player-card'
-
-import { colorTextSecondary } from '../styles/colors'
-import { TitleOld, Display1Old } from '../styles/typography'
 import { shadow1dp } from '../material/shadows'
+import { colorTextSecondary } from '../styles/colors'
+import { Display1Old, TitleOld } from '../styles/typography'
+import gameTypeToString from './game-type-to-string'
+import PlayerCard from './player-card'
 
 const LOADING_MESSAGES = [
   'Refining dragoon pathing',

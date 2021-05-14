@@ -1,19 +1,19 @@
-import siteSocket from '../network/site-socket'
-import { push } from '../navigation/routing'
 import {
   CHAT_CHANNEL_ACTIVATE,
   CHAT_CHANNEL_DEACTIVATE,
-  CHAT_JOIN_CHANNEL_BEGIN,
   CHAT_JOIN_CHANNEL,
-  CHAT_LEAVE_CHANNEL_BEGIN,
+  CHAT_JOIN_CHANNEL_BEGIN,
   CHAT_LEAVE_CHANNEL,
-  CHAT_LOAD_CHANNEL_HISTORY_BEGIN,
+  CHAT_LEAVE_CHANNEL_BEGIN,
   CHAT_LOAD_CHANNEL_HISTORY,
-  CHAT_LOAD_USER_LIST_BEGIN,
+  CHAT_LOAD_CHANNEL_HISTORY_BEGIN,
   CHAT_LOAD_USER_LIST,
-  CHAT_SEND_MESSAGE_BEGIN,
+  CHAT_LOAD_USER_LIST_BEGIN,
   CHAT_SEND_MESSAGE,
+  CHAT_SEND_MESSAGE_BEGIN,
 } from '../actions'
+import { push } from '../navigation/routing'
+import siteSocket from '../network/site-socket'
 
 export function joinChannel(channel) {
   return dispatch => {

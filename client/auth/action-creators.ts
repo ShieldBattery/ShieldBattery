@@ -15,7 +15,7 @@ type IdRequestableTypes = IdRequestable['type']
 
 function idRequest<
   ActionTypeName extends IdRequestableTypes,
-  ActionType extends Extract<IdRequestable, { type: ActionTypeName }>
+  ActionType extends Extract<IdRequestable, { type: ActionTypeName }>,
 >(
   type: ActionTypeName,
   fetcher: () => Promise<ActionType['payload']>,
@@ -36,14 +36,14 @@ function idRequest<
       })
 
       const payload = fetcher()
-      const promisified: PromisifiedAction<ActionType> = ({
+      const promisified: PromisifiedAction<ActionType> = {
         type,
         payload,
         meta: { reqId },
         // NOTE(tec27): I think this cast is necessary because TS thinks this type *could* have
         // extra keys that need to be assigned, because we can't properly tell it what the valid
         // keys are?
-      } as any) as PromisifiedAction<ActionType>
+      } as any as PromisifiedAction<ActionType>
       dispatch(promisified)
       payload.then(resolve, reject)
     }

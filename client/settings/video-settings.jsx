@@ -1,14 +1,13 @@
-import React from 'react'
 import PropTypes from 'prop-types'
-
-import CheckBox from '../material/check-box'
+import React from 'react'
+import { ALL_DISPLAY_MODES, getDisplayModeName } from '../../common/blizz-settings'
 import form from '../forms/form'
-import { Option } from '../material/select/option'
 import SubmitOnEnter from '../forms/submit-on-enter'
+import CheckBox from '../material/check-box'
+import { Option } from '../material/select/option'
 import { Select } from '../material/select/select'
 import Slider from '../material/slider'
 import { FormContainer } from './settings-content'
-import { ALL_DISPLAY_MODES, getDisplayModeName } from '../../common/blizz-settings'
 
 const SUPPORTED_WINDOW_SIZES = [
   { width: 640, height: 480 },

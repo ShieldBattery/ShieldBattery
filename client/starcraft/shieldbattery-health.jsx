@@ -1,16 +1,13 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-
+import { closeDialog } from '../dialogs/action-creators'
 import Dialog from '../material/dialog'
 import RaisedButton from '../material/raised-button'
-
-import { closeDialog } from '../dialogs/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
-import { isShieldBatteryHealthy } from './is-starcraft-healthy'
-import { checkShieldBatteryFiles } from './check-shieldbattery-files-ipc'
-
 import { body1, subtitle1 } from '../styles/typography'
+import { checkShieldBatteryFiles } from './check-shieldbattery-files-ipc'
+import { isShieldBatteryHealthy } from './is-starcraft-healthy'
 
 const Text = styled.div`
   ${subtitle1};

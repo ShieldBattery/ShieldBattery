@@ -1,34 +1,31 @@
-import React from 'react'
-import PropTypes from 'prop-types'
 import { Range } from 'immutable'
+import PropTypes from 'prop-types'
+import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-
-import { openOverlay, closeOverlay } from '../activities/action-creators'
-import { composeValidators, maxLength, required } from '../forms/validators'
-import { LOBBY_NAME_MAXLENGTH, GAME_TYPES } from '../../common/constants'
-import gameTypeToString from './game-type-to-string'
+import { GAME_TYPES, LOBBY_NAME_MAXLENGTH } from '../../common/constants'
 import { isTeamType } from '../../common/lobbies'
-import {
-  createLobby,
-  navigateToLobby,
-  getLobbyPreferences,
-  updateLobbyPreferences,
-} from './action-creators'
-import { RecentMaps, recentMapsFromJs } from './lobby-preferences-reducer'
-
-import KeyListener from '../keyboard/key-listener'
-import LoadingIndicator from '../progress/dots'
-import MapSelect from '../maps/map-select'
-import { Option } from '../material/select/option'
-import RaisedButton from '../material/raised-button'
+import { closeOverlay, openOverlay } from '../activities/action-creators'
 import form from '../forms/form'
-import { Select } from '../material/select/select'
+import { composeValidators, maxLength, required } from '../forms/validators'
+import KeyListener from '../keyboard/key-listener'
+import MapSelect from '../maps/map-select'
+import RaisedButton from '../material/raised-button'
 import { ScrollableContent } from '../material/scroll-bar'
+import { Option } from '../material/select/option'
+import { Select } from '../material/select/select'
 import TextField from '../material/text-field'
-
+import LoadingIndicator from '../progress/dots'
 import { colorDividers, colorTextSecondary } from '../styles/colors'
 import { HeadlineOld, SubheadingOld } from '../styles/typography'
+import {
+  createLobby,
+  getLobbyPreferences,
+  navigateToLobby,
+  updateLobbyPreferences,
+} from './action-creators'
+import gameTypeToString from './game-type-to-string'
+import { RecentMaps, recentMapsFromJs } from './lobby-preferences-reducer'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'

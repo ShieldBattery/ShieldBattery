@@ -1,6 +1,5 @@
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
-
 import { colorTextFaint, colorTextSecondary } from '../styles/colors'
 
 const Label = styled.label`

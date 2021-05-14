@@ -2,23 +2,23 @@ import bcrypt from 'bcrypt'
 import cuid from 'cuid'
 import httpErrors from 'http-errors'
 import util from 'util'
-import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
-import users from '../models/users'
-import initSession from '../session/init'
-import sendMail from '../mail/mailer'
-import { checkAnyPermission } from '../permissions/check-permissions'
-import { usePasswordResetCode } from '../models/password-resets'
-import {
-  addEmailVerificationCode,
-  getEmailVerificationsCount,
-  consumeEmailVerificationCode,
-} from '../models/email-verifications'
-import { isValidUsername, isValidEmail, isValidPassword } from '../../../common/constants'
+import { isValidEmail, isValidPassword, isValidUsername } from '../../../common/constants'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
-import updateAllSessions from '../session/update-all-sessions'
+import sendMail from '../mail/mailer'
+import {
+  addEmailVerificationCode,
+  consumeEmailVerificationCode,
+  getEmailVerificationsCount,
+} from '../models/email-verifications'
+import { usePasswordResetCode } from '../models/password-resets'
+import users from '../models/users'
+import { checkAnyPermission } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
+import initSession from '../session/init'
+import updateAllSessions from '../session/update-all-sessions'
+import createThrottle from '../throttle/create-throttle'
+import throttleMiddleware from '../throttle/middleware'
 
 const accountCreationThrottle = createThrottle('accountcreation', {
   rate: 1,

@@ -1,12 +1,10 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-
 import WindowListener from '../dom/window-listener'
-
-import { amberA400, colorTextSecondary, colorTextFaint, colorDividers } from '../styles/colors'
-import { buttonText } from '../styles/typography'
 import { fastOutSlowIn } from '../material/curve-constants'
+import { amberA400, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
+import { buttonText } from '../styles/typography'
 
 const Container = styled.ul`
   position: relative;

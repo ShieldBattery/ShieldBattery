@@ -11,7 +11,8 @@ let clientIdCounter = 0
 
 export class FakeNydusServer
   extends EventEmitter
-  implements Omit<Pick<NydusServer, keyof NydusServer>, keyof EventEmitter> {
+  implements Omit<Pick<NydusServer, keyof NydusServer>, keyof EventEmitter>
+{
   clients: IMap<string, NydusClient> = IMap()
 
   fakeSubscriptions = new Map<string, Set<InspectableNydusClient>>()
@@ -88,7 +89,7 @@ export function createFakeNydusServer(): NydusServer {
   // NOTE(tec27): This is necessary because TS uses the private fields of a class when checking
   // whether something is assignable. This cast is "safe" because our implementation will never try
   // to use those private fields, and nobody else should be able to either due to the type system.
-  return (new FakeNydusServer() as any) as NydusServer
+  return new FakeNydusServer() as any as NydusServer
 }
 
 export class NydusConnector {
@@ -103,12 +104,12 @@ export class NydusConnector {
 
   connectClient(user: { id: number; name: string }, clientId: string): InspectableNydusClient {
     const id = String(clientIdCounter++)
-    const fakeRequest = ({
+    const fakeRequest = {
       headers: [],
       connection: {
         remoteAddress: '127.0.0.1',
       },
-    } as any) as IncomingMessage
+    } as any as IncomingMessage
     const fakeSession: SessionInfo = {
       sessionId: cuid(),
       userId: user.id,
@@ -120,13 +121,13 @@ export class NydusConnector {
     this.sessionLookup.set(fakeRequest, fakeSession)
     const client = new InspectableNydusClient(
       id,
-      ({
+      {
         id,
         request: fakeRequest,
         on() {
           return this
         },
-      } as any) as eio.Socket,
+      } as any as eio.Socket,
       () => {},
       () => {},
       () => {},

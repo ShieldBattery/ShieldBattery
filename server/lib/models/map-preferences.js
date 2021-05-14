@@ -1,5 +1,5 @@
-import db from '../db'
 import sql from 'sql-template-strings'
+import db from '../db'
 
 class MapPreferences {
   constructor(props) {

@@ -1,35 +1,32 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { Route, Switch } from 'wouter'
-import { push, replace } from '../navigation/routing'
 import styled from 'styled-components'
-
-import ActiveLobby from './active-lobby'
-import Lobby from './lobby'
-import LoadingScreen from './loading'
-import LoadingIndicator from '../progress/dots'
-import MapPreview from '../maps/map-preview'
-
+import { Route, Switch } from 'wouter'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { toggleFavoriteMap } from '../maps/action-creators'
-
+import MapPreview from '../maps/map-preview'
+import { push, replace } from '../navigation/routing'
+import LoadingIndicator from '../progress/dots'
 import {
+  activateLobby,
   addComputer,
-  changeSlot,
-  openSlot,
-  closeSlot,
-  kickPlayer,
   banPlayer,
-  makeObserver,
-  removeObserver,
+  changeSlot,
+  closeSlot,
+  deactivateLobby,
+  getLobbyState,
+  kickPlayer,
   leaveLobby,
+  makeObserver,
+  openSlot,
+  removeObserver,
+  sendChat,
   setRace,
   startCountdown,
-  sendChat,
-  getLobbyState,
-  activateLobby,
-  deactivateLobby,
 } from './action-creators'
+import ActiveLobby from './active-lobby'
+import LoadingScreen from './loading'
+import Lobby from './lobby'
 
 const mapStateToProps = state => {
   return {

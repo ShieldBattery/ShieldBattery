@@ -1,11 +1,10 @@
-import React from 'react'
 import { Set } from 'immutable'
+import React from 'react'
 import styled from 'styled-components'
-
-import FlatButton from '../flat-button'
-import RaisedButton from '../raised-button'
 import Card from '../card'
 import CheckBox from '../check-box'
+import FlatButton from '../flat-button'
+import RaisedButton from '../raised-button'
 import Stepper, { Step } from '../stepper'
 
 const Container = styled.div`

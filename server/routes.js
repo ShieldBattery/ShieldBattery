@@ -1,16 +1,16 @@
+import KoaRouter from '@koa/router'
+import fs from 'fs'
+import httpErrors from 'http-errors'
+import yaml from 'js-yaml'
 import koaConvert from 'koa-convert'
 import koaStatic from 'koa-static'
-import KoaRouter from '@koa/router'
-import httpErrors from 'http-errors'
 import path from 'path'
-import fs from 'fs'
+import './http-apis'
+import { getUrl, readFile } from './lib/file-upload'
+import { resolveAllHttpApis } from './lib/http/http-api'
 import logger from './lib/logging/logger'
 import { getCspNonce } from './lib/security/csp'
-import { getUrl, readFile } from './lib/file-upload'
-import yaml from 'js-yaml'
 import { monotonicNow } from './lib/time/monotonic-now'
-import './http-apis'
-import { resolveAllHttpApis } from './lib/http/http-api'
 
 const jsOrTsFileMatcher = RegExp.prototype.test.bind(/\.(js|ts)$/)
 

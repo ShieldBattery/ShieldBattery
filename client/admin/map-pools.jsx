@@ -1,6 +1,6 @@
 import { List, OrderedMap } from 'immutable'
 import PropTypes from 'prop-types'
-import React, { useState, useCallback } from 'react'
+import React, { useCallback, useState } from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { MAP_VISIBILITY_OFFICIAL } from '../../common/constants'

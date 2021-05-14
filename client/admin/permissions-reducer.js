@@ -1,10 +1,10 @@
 import { Map, Record } from 'immutable'
-import keyedReducer from '../reducers/keyed-reducer'
 import {
-  ADMIN_GET_PERMISSIONS_BEGIN,
   ADMIN_GET_PERMISSIONS,
+  ADMIN_GET_PERMISSIONS_BEGIN,
   ADMIN_SET_PERMISSIONS,
 } from '../actions'
+import keyedReducer from '../reducers/keyed-reducer'
 
 export const Permissions = new Record({
   editPermissions: false,

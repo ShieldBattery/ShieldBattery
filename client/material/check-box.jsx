@@ -1,17 +1,17 @@
-import React from 'react'
-import PropTypes from 'prop-types'
-import uniqueId from '../dom/unique-id'
-import styled from 'styled-components'
 import { rgba } from 'polished'
+import PropTypes from 'prop-types'
+import React from 'react'
+import styled from 'styled-components'
+import uniqueId from '../dom/unique-id'
 import {
-  colorDividers,
-  amberA400,
+  alphaDisabled,
   alphaDividers,
-  colorTextSecondary,
+  amberA400,
+  colorBackground,
+  colorDividers,
   colorTextFaint,
   colorTextPrimary,
-  alphaDisabled,
-  colorBackground,
+  colorTextSecondary,
 } from '../styles/colors'
 import { fastOutSlowIn } from './curve-constants'
 

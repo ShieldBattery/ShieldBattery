@@ -1,21 +1,21 @@
 import { List, Map, OrderedSet, Record } from 'immutable'
-import keyedReducer from '../reducers/keyed-reducer'
 import {
-  WHISPERS_LOAD_SESSION_HISTORY_BEGIN,
+  NETWORK_SITE_CONNECTED,
   WHISPERS_LOAD_SESSION_HISTORY,
+  WHISPERS_LOAD_SESSION_HISTORY_BEGIN,
   WHISPERS_SESSION_ACTIVATE,
   WHISPERS_SESSION_DEACTIVATE,
-  WHISPERS_START_SESSION_BEGIN,
   WHISPERS_START_SESSION,
-  WHISPERS_UPDATE_INIT_SESSION,
+  WHISPERS_START_SESSION_BEGIN,
   WHISPERS_UPDATE_CLOSE_SESSION,
+  WHISPERS_UPDATE_INIT_SESSION,
   WHISPERS_UPDATE_MESSAGE,
   WHISPERS_UPDATE_USER_ACTIVE,
   WHISPERS_UPDATE_USER_IDLE,
   WHISPERS_UPDATE_USER_OFFLINE,
-  NETWORK_SITE_CONNECTED,
 } from '../actions'
 import { TextMessageRecord } from '../messaging/message-records'
+import keyedReducer from '../reducers/keyed-reducer'
 
 // How many messages should be kept for inactive channels
 const INACTIVE_CHANNEL_MAX_HISTORY = 150

@@ -1,13 +1,11 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-
 import { MapThumbnail } from '../maps/map-thumbnail'
-import PlayerCard from './player-card'
-
 import { shadowDef2dp } from '../material/shadow-constants'
 import { colorTextSecondary } from '../styles/colors'
 import { Headline3, Headline4, headline5 } from '../styles/typography'
+import PlayerCard from './player-card'
 
 const Container = styled.div`
   display: flex;

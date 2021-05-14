@@ -156,9 +156,9 @@ export default class MatchAcceptor<MatchInfoType> {
     } else {
       // All players have accepted
       this.cleanupMatch(match)
-      Promise.resolve(
-        this.callbacks.onAccepted(match.info, List(match.clients.keys())),
-      ).catch(err => this.callbacks.onError(err, List(match.clients.keys())))
+      Promise.resolve(this.callbacks.onAccepted(match.info, List(match.clients.keys()))).catch(
+        err => this.callbacks.onError(err, List(match.clients.keys())),
+      )
     }
 
     return true

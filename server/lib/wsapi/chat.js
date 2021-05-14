@@ -1,11 +1,8 @@
-import { Map, Record, Set } from 'immutable'
 import errors from 'http-errors'
-import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
-import validateBody from '../websockets/validate-body'
-import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/websocket-middleware'
-import filterChatMessage from '../messaging/filter-chat-message'
+import { Map, Record, Set } from 'immutable'
 import { isValidChannelName } from '../../../common/constants'
+import { MULTI_CHANNEL } from '../../../common/flags'
+import filterChatMessage from '../messaging/filter-chat-message'
 import {
   addMessageToChannel,
   addUserToChannel,
@@ -15,7 +12,10 @@ import {
   getUsersForChannel,
   leaveChannel,
 } from '../models/chat-channels'
-import { MULTI_CHANNEL } from '../../../common/flags'
+import createThrottle from '../throttle/create-throttle'
+import throttleMiddleware from '../throttle/websocket-middleware'
+import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
+import validateBody from '../websockets/validate-body'
 
 const ChatState = new Record({
   channels: new Map(),

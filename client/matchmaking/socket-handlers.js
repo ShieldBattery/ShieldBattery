@@ -1,28 +1,28 @@
-import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
+import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
+import { TypedIpcRenderer } from '../../common/ipc'
 import {
   ACTIVE_GAME_LAUNCH,
   MATCHMAKING_FIND,
   MATCHMAKING_STATUS_UPDATE,
   MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED,
   MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME,
-  MATCHMAKING_UPDATE_GAME_STARTING,
-  MATCHMAKING_UPDATE_GAME_STARTED,
-  MATCHMAKING_UPDATE_LOADING_CANCELED,
-  MATCHMAKING_UPDATE_MATCH_ACCEPTED,
   MATCHMAKING_UPDATE_COUNTDOWN_START,
   MATCHMAKING_UPDATE_COUNTDOWN_TICK,
+  MATCHMAKING_UPDATE_GAME_STARTED,
+  MATCHMAKING_UPDATE_GAME_STARTING,
+  MATCHMAKING_UPDATE_LOADING_CANCELED,
+  MATCHMAKING_UPDATE_MATCH_ACCEPTED,
   MATCHMAKING_UPDATE_MATCH_FOUND,
   MATCHMAKING_UPDATE_MATCH_READY,
   MATCHMAKING_UPDATE_STATUS,
 } from '../actions'
+import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
+import { closeDialog, openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { dispatch } from '../dispatch-registry'
 import { replace } from '../navigation/routing'
-import { openDialog, closeDialog } from '../dialogs/action-creators'
-import { openSnackbar } from '../snackbars/action-creators'
-import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
 import { makeServerUrl } from '../network/server-url'
-import { TypedIpcRenderer } from '../../common/ipc'
-import { DialogType } from '../dialogs/dialog-type'
+import { openSnackbar } from '../snackbars/action-creators'
 
 const ipcRenderer = new TypedIpcRenderer()
 

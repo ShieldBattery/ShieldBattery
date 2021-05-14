@@ -1,5 +1,5 @@
-import { replace, makePathString } from '../navigation/routing'
 import queryString from 'query-string'
+import { makePathString, replace } from '../navigation/routing'
 
 export function isLoggedIn(authState) {
   return authState.user && authState.user.name

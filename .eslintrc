@@ -54,7 +54,7 @@
     "accessor-pairs": 2,
     "array-bracket-spacing": 0,
     "block-scoped-var": 0,
-    "brace-style": [2, "1tbs", { "allowSingleLine": true }],
+    "brace-style": 0,
     "camelcase": [2, { "properties": "always" }],
     "comma-dangle": 0,
     "comma-spacing": [2, { "before": false, "after": true }],

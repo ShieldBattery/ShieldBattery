@@ -1,14 +1,12 @@
 import React from 'react'
 import styled from 'styled-components'
-
+import Icon from '../../icons/material/baseline-check_circle-24px.svg'
 import Button from '../button'
 import Card from '../card'
 import FlatButton from '../flat-button'
 import { FloatingActionButton } from '../floating-action-button'
 import IconButton from '../icon-button'
 import RaisedButton from '../raised-button'
-
-import Icon from '../../icons/material/baseline-check_circle-24px.svg'
 
 const Container = styled.div`
   display: flex;

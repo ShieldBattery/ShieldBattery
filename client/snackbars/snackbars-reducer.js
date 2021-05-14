@@ -1,5 +1,5 @@
-import { SNACKBAR_OPEN, SNACKBAR_CLOSE } from '../actions'
-import { Record, List } from 'immutable'
+import { List, Record } from 'immutable'
+import { SNACKBAR_CLOSE, SNACKBAR_OPEN } from '../actions'
 
 export const Snackbar = new Record({
   id: null,

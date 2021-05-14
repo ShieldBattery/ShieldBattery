@@ -1,9 +1,9 @@
+import bl from 'bl'
 import childProcess from 'child_process'
 import fs from 'fs'
-import bl from 'bl'
-import { addMap } from '../models/maps'
-import { writeFile } from '../file-upload'
 import Queue from '../../../common/async/promise-queue'
+import { writeFile } from '../file-upload'
+import { addMap } from '../models/maps'
 
 const BW_DATA_PATH = process.env.SB_SPRITE_DATA || ''
 const MAX_CONCURRENT = Number(process.env.SB_MAP_PARSER_MAX_CONCURRENT)
@@ -16,13 +16,8 @@ const mapQueue = new Queue(MAX_CONCURRENT)
 // and the temppath of compressed mpq, which will be needed
 // when the map is actually stored somewhere.
 export async function storeMap(path, extension, uploadedBy, visibility) {
-  const {
-    mapData,
-    image256Stream,
-    image512Stream,
-    image1024Stream,
-    image2048Stream,
-  } = await mapQueue.addToQueue(() => mapParseWorker(path, extension))
+  const { mapData, image256Stream, image512Stream, image1024Stream, image2048Stream } =
+    await mapQueue.addToQueue(() => mapParseWorker(path, extension))
   const { hash } = mapData
 
   const mapParams = { mapData, extension, uploadedBy, visibility }
@@ -60,13 +55,8 @@ export async function storeMap(path, extension, uploadedBy, visibility) {
 }
 
 export async function storeRegeneratedImages(path, extension) {
-  const {
-    mapData,
-    image256Stream,
-    image512Stream,
-    image1024Stream,
-    image2048Stream,
-  } = await mapQueue.addToQueue(() => mapParseWorker(path, extension))
+  const { mapData, image256Stream, image512Stream, image1024Stream, image2048Stream } =
+    await mapQueue.addToQueue(() => mapParseWorker(path, extension))
   const { hash } = mapData
 
   const image256Promise = image256Stream
@@ -98,13 +88,8 @@ export function imagePath(hash, size) {
 }
 
 async function mapParseWorker(path, extension) {
-  const {
-    messages,
-    image256Stream,
-    image512Stream,
-    image1024Stream,
-    image2048Stream,
-  } = await runChildProcess(require.resolve('./map-parse-worker'), [path, extension, BW_DATA_PATH])
+  const { messages, image256Stream, image512Stream, image1024Stream, image2048Stream } =
+    await runChildProcess(require.resolve('./map-parse-worker'), [path, extension, BW_DATA_PATH])
   console.assert(messages.length === 1)
   return {
     mapData: messages[0],

@@ -1,14 +1,14 @@
 import { List, Map, Record, Set } from 'immutable'
-import keyedReducer from '../reducers/keyed-reducer'
 import {
   MAPS_LIST_CLEAR,
-  MAPS_LIST_GET_BEGIN,
   MAPS_LIST_GET,
-  MAPS_UPDATE,
+  MAPS_LIST_GET_BEGIN,
   MAPS_REMOVE,
-  MAPS_TOGGLE_FAVORITE_BEGIN,
   MAPS_TOGGLE_FAVORITE,
+  MAPS_TOGGLE_FAVORITE_BEGIN,
+  MAPS_UPDATE,
 } from '../actions'
+import keyedReducer from '../reducers/keyed-reducer'
 
 export const MapRecord = new Record({
   id: null,

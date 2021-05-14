@@ -1,31 +1,31 @@
-import { List, Map, Record, Set } from 'immutable'
 import errors from 'http-errors'
-import { Mount, Api, registerApiRoutes } from '../websockets/api-decorators'
-import validateBody from '../websockets/validate-body'
-import activityRegistry from '../games/gameplay-activity-registry'
-import gameLoader from '../games/game-loader'
-import * as Lobbies from '../lobbies/lobby'
-import * as Slots from '../lobbies/slot'
-import { getMapInfo } from '../models/maps'
+import { List, Map, Record, Set } from 'immutable'
+import CancelToken from '../../../common/async/cancel-token'
 import createDeferred from '../../../common/async/deferred'
+import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import {
-  isValidLobbyName,
-  isValidGameType,
   isValidGameSubType,
+  isValidGameType,
+  isValidLobbyName,
   validRace,
 } from '../../../common/constants'
 import {
-  isUms,
+  findSlotById,
+  findSlotByName,
+  getHumanSlots,
   getLobbySlots,
   getLobbySlotsWithIndexes,
-  getHumanSlots,
-  findSlotByName,
-  findSlotById,
-  hasOpposingSides,
   getObserverTeam,
+  hasOpposingSides,
+  isUms,
 } from '../../../common/lobbies'
-import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
-import CancelToken from '../../../common/async/cancel-token'
+import gameLoader from '../games/game-loader'
+import activityRegistry from '../games/gameplay-activity-registry'
+import * as Lobbies from '../lobbies/lobby'
+import * as Slots from '../lobbies/slot'
+import { getMapInfo } from '../models/maps'
+import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
+import validateBody from '../websockets/validate-body'
 
 const REMOVAL_TYPE_NORMAL = 0
 const REMOVAL_TYPE_KICK = 1

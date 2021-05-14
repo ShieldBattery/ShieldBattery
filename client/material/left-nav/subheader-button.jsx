@@ -1,9 +1,7 @@
 import styled from 'styled-components'
-
+import { colorTextSecondary } from '../../styles/colors'
 import { Label } from '../button'
 import IconButton from '../icon-button'
-
-import { colorTextSecondary } from '../../styles/colors'
 
 const SubheaderButton = styled(IconButton)`
   min-height: 32px;

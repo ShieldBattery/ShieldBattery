@@ -1,7 +1,7 @@
-import { replace } from '../navigation/routing'
-import createConditionalRedirect from '../navigation/conditional-redirect'
-import { isAdmin, hasAllPermissions, hasAnyPermission } from './admin-permissions'
 import { goToIndex } from '../navigation/action-creators'
+import createConditionalRedirect from '../navigation/conditional-redirect'
+import { replace } from '../navigation/routing'
+import { hasAllPermissions, hasAnyPermission, isAdmin } from './admin-permissions'
 
 export const IsAdminFilter = createConditionalRedirect(
   'IsAdminFilter',

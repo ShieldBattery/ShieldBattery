@@ -1,10 +1,10 @@
 import { Record } from 'immutable'
-import keyedReducer from '../reducers/keyed-reducer'
 import {
   ACTIVE_GAME_STATUS,
   LOBBY_UPDATE_GAME_STARTED,
   MATCHMAKING_UPDATE_GAME_STARTED,
 } from '../actions'
+import keyedReducer from '../reducers/keyed-reducer'
 
 export const GameInfo = new Record({
   type: null,

@@ -1,24 +1,22 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import queryString from 'query-string'
+import React from 'react'
 import { connect } from 'react-redux'
 import { push } from '../navigation/routing'
-import queryString from 'query-string'
-
-import {
-  AuthContentContainer,
-  AuthContent,
-  AuthTitle,
-  AuthBody,
-  LoadingArea,
-  ErrorsContainer,
-  SuccessContainer,
-  AuthBottomAction,
-  BottomActionButton,
-} from './auth-content'
 import LoadingIndicator from '../progress/dots'
-
 import { verifyEmail } from './action-creators'
-import { isLoggedIn, createNextPath } from './auth-utils'
+import {
+  AuthBody,
+  AuthBottomAction,
+  AuthContent,
+  AuthContentContainer,
+  AuthTitle,
+  BottomActionButton,
+  ErrorsContainer,
+  LoadingArea,
+  SuccessContainer,
+} from './auth-content'
+import { createNextPath, isLoggedIn } from './auth-utils'
 
 @connect(state => ({ auth: state.auth }))
 export class EmailVerification extends React.Component {

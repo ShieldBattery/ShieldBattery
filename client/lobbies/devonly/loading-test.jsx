@@ -1,12 +1,11 @@
-import React from 'react'
 import { List } from 'immutable'
-import LoadingScreen from '../loading'
-
-import { LobbyInfo, Slot, Team } from '../lobby-reducer'
-import { MapRecord } from '../../maps/maps-reducer'
-import { SelfUserRecord } from '../../auth/auth-records'
-import { GameStatus } from '../../active-game/game-client-reducer'
+import React from 'react'
 import { Tileset } from '../../../common/maps'
+import { GameStatus } from '../../active-game/game-client-reducer'
+import { SelfUserRecord } from '../../auth/auth-records'
+import { MapRecord } from '../../maps/maps-reducer'
+import LoadingScreen from '../loading'
+import { LobbyInfo, Slot, Team } from '../lobby-reducer'
 
 const make = (state, extra) => new GameStatus({ state, extra })
 const STATUSES = [

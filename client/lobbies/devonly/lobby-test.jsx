@@ -1,11 +1,10 @@
+import { List, Range } from 'immutable'
 import React from 'react'
-import { Range, List } from 'immutable'
-import Lobby from '../lobby'
-
-import { LobbyInfo, Slot, Team } from '../lobby-reducer.js'
-import { MapRecord } from '../../maps/maps-reducer'
-import { SelfUserRecord } from '../../auth/auth-records'
 import { Tileset } from '../../../common/maps'
+import { SelfUserRecord } from '../../auth/auth-records'
+import { MapRecord } from '../../maps/maps-reducer'
+import Lobby from '../lobby'
+import { LobbyInfo, Slot, Team } from '../lobby-reducer.js'
 
 const SLOTS = new List([
   new Slot({ type: 'human', name: 'tec27', id: 'a', race: 'p' }),

@@ -1,15 +1,15 @@
 import { List, Map, Record } from 'immutable'
-import keyedReducer from '../reducers/keyed-reducer'
 import {
   ADMIN_MAP_POOL_CLEAR_SEARCH,
   ADMIN_MAP_POOL_CREATE,
   ADMIN_MAP_POOL_DELETE,
-  ADMIN_MAP_POOL_SEARCH_MAPS_BEGIN,
-  ADMIN_MAP_POOL_SEARCH_MAPS,
-  ADMIN_MAP_POOL_GET_HISTORY_BEGIN,
   ADMIN_MAP_POOL_GET_HISTORY,
+  ADMIN_MAP_POOL_GET_HISTORY_BEGIN,
+  ADMIN_MAP_POOL_SEARCH_MAPS,
+  ADMIN_MAP_POOL_SEARCH_MAPS_BEGIN,
 } from '../actions'
 import { MapRecord } from '../maps/maps-reducer'
+import keyedReducer from '../reducers/keyed-reducer'
 
 export const MapPool = new Record({
   id: null,

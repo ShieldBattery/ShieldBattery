@@ -1,20 +1,16 @@
+import { Range } from 'immutable'
 import React from 'react'
 import { connect } from 'react-redux'
-import { Range } from 'immutable'
 import styled from 'styled-components'
-
-import Avatar from '../avatars/avatar'
-import Dialog from '../material/dialog'
-import KeyListener from '../keyboard/key-listener'
-import RaisedButton from '../material/raised-button'
-
-import { closeDialog } from '../dialogs/action-creators'
-import { acceptMatch } from './action-creators'
-
 import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
-
+import Avatar from '../avatars/avatar'
+import { closeDialog } from '../dialogs/action-creators'
+import KeyListener from '../keyboard/key-listener'
+import Dialog from '../material/dialog'
+import RaisedButton from '../material/raised-button'
 import { amberA400, grey700 } from '../styles/colors'
 import { Body1 } from '../styles/typography'
+import { acceptMatch } from './action-creators'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'

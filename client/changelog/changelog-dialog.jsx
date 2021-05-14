@@ -1,11 +1,11 @@
 import React from 'react'
 import styled from 'styled-components'
-import Dialog from '../material/dialog'
-import { VERSION, KEY, shouldShowChangelog } from './should-show-changelog'
-
 import changelogContent from '../../CHANGELOG.md'
-import { colorTextSecondary, colorTextPrimary } from '../styles/colors'
-import { subtitle1, headline5, headline6 } from '../styles/typography'
+import Dialog from '../material/dialog'
+import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
+import { headline5, headline6, subtitle1 } from '../styles/typography'
+import { KEY, shouldShowChangelog, VERSION } from './should-show-changelog'
+
 const changelogHtml = { __html: changelogContent }
 
 const Content = styled.div`

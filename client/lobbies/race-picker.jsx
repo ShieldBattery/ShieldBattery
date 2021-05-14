@@ -1,12 +1,10 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-
 import Button from '../material/button'
-import RaceIcon from './race-icon'
-
 import { fastOutSlowIn } from '../material/curve-constants'
-import { colorTextFaint, colorDividers } from '../styles/colors'
+import { colorDividers, colorTextFaint } from '../styles/colors'
+import RaceIcon from './race-icon'
 
 export const RACE_PICKER_SIZE_MEDIUM = 'MEDIUM'
 export const RACE_PICKER_SIZE_LARGE = 'LARGE'

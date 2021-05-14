@@ -18,7 +18,7 @@ export default async function transact<T>(next: (client: DbClient) => Promise<T>
     await rollbackFor(err, client, done)
   }
   // NOTE(tec27): This return is never actually hit, but makes the linter happy
-  return (undefined as any) as T
+  return undefined as any as T
 }
 
 async function rollbackFor(err: Error, client: DbClient, done: DbDone) {

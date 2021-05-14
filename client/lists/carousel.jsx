@@ -1,17 +1,14 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-
-import IconButton from '../material/icon-button'
-import InfiniteScrollList from './infinite-scroll-list'
-import { Label } from '../material/button'
 import WindowListener from '../dom/window-listener'
-
 import CarouselPrev from '../icons/material/chevron_left-24px.svg'
 import CarouselNext from '../icons/material/chevron_right-24px.svg'
-
+import { Label } from '../material/button'
 import { fastOutSlowIn } from '../material/curve-constants'
+import IconButton from '../material/icon-button'
 import { colorTextSecondary } from '../styles/colors'
+import InfiniteScrollList from './infinite-scroll-list'
 
 const BUTTON_WIDTH = 64
 const LOADER_WIDTH = 98
@@ -182,14 +179,8 @@ export default class Carousel extends React.Component {
   }
 
   onNext = () => {
-    const {
-      translateWidth,
-      carouselWidth,
-      contentWidth,
-      stepWidth,
-      hasPrevItems,
-      hasNextItems,
-    } = this.state
+    const { translateWidth, carouselWidth, contentWidth, stepWidth, hasPrevItems, hasNextItems } =
+      this.state
 
     // When we reach the end of the list, we need to adjust the translate width a bit, depending on
     // whether we have more items to load (in which case the loader will be shown), or if we've

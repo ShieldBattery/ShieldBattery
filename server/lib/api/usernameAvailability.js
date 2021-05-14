@@ -1,8 +1,8 @@
 import httpErrors from 'http-errors'
+import { isValidUsername } from '../../../common/constants'
+import users from '../models/users'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
-import users from '../models/users'
-import { isValidUsername } from '../../../common/constants'
 
 const throttle = createThrottle('usernameavailability', {
   rate: 10,

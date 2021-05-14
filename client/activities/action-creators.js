@@ -1,4 +1,4 @@
-import { ACTIVITY_OVERLAY_OPEN, ACTIVITY_OVERLAY_CLOSE, ACTIVITY_OVERLAY_GO_BACK } from '../actions'
+import { ACTIVITY_OVERLAY_CLOSE, ACTIVITY_OVERLAY_GO_BACK, ACTIVITY_OVERLAY_OPEN } from '../actions'
 
 export function openOverlay(overlayType, initData = {}) {
   return {

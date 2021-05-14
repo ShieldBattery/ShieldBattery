@@ -59,8 +59,8 @@ function createRoutes(players: Set<Slot>): Promise<RouteResult[]> {
 const createLoadingData = Record({
   players: Set<Slot>(),
   finishedPlayers: Set<string>(),
-  cancelToken: (null as unknown) as CancelToken,
-  deferred: (null as unknown) as Deferred<void>,
+  cancelToken: null as unknown as CancelToken,
+  deferred: null as unknown as Deferred<void>,
 })
 
 type LoadingData = ReturnType<typeof createLoadingData>

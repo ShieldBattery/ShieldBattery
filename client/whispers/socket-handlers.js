@@ -1,13 +1,13 @@
-import { dispatch } from '../dispatch-registry'
+import { TypedIpcRenderer } from '../../common/ipc'
 import {
-  WHISPERS_UPDATE_INIT_SESSION,
   WHISPERS_UPDATE_CLOSE_SESSION,
+  WHISPERS_UPDATE_INIT_SESSION,
   WHISPERS_UPDATE_MESSAGE,
   WHISPERS_UPDATE_USER_ACTIVE,
   WHISPERS_UPDATE_USER_IDLE,
   WHISPERS_UPDATE_USER_OFFLINE,
 } from '../actions'
-import { TypedIpcRenderer } from '../../common/ipc'
+import { dispatch } from '../dispatch-registry'
 
 const ipcRenderer = new TypedIpcRenderer()
 

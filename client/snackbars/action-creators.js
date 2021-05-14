@@ -1,5 +1,5 @@
 import cuid from 'cuid'
-import { SNACKBAR_OPEN, SNACKBAR_CLOSE } from '../actions'
+import { SNACKBAR_CLOSE, SNACKBAR_OPEN } from '../actions'
 
 export const TIMING_SHORT = 1500
 export const TIMING_LONG = 2750

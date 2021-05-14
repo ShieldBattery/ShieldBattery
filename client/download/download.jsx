@@ -1,12 +1,12 @@
 import React from 'react'
 import styled from 'styled-components'
+import GithubIcon from '../icons/brands/github.svg'
+import KofiIcon from '../icons/brands/kofi-lockup.svg'
+import PatreonIcon from '../icons/brands/patreon-lockup.svg'
 import GetApp from '../icons/material/ic_get_app_black_36px.svg'
 import RaisedButton from '../material/raised-button'
 import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { headline5, subtitle1 } from '../styles/typography'
-import GithubIcon from '../icons/brands/github.svg'
-import KofiIcon from '../icons/brands/kofi-lockup.svg'
-import PatreonIcon from '../icons/brands/patreon-lockup.svg'
 
 const Blurb = styled.div`
   ${headline5};

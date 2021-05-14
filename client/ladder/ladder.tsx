@@ -187,9 +187,10 @@ export function LadderTable(props: LadderTableProps) {
     }
   }, [])
 
-  const rowGetter = useCallback(({ index }: { index: number }) => props.players?.get(index), [
-    props.players,
-  ])
+  const rowGetter = useCallback(
+    ({ index }: { index: number }) => props.players?.get(index),
+    [props.players],
+  )
   const noRowsRenderer = useCallback(() => {
     if (props.isLoading) {
       return <LoadingDotsArea />

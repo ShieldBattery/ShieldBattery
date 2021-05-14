@@ -1,10 +1,9 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
-
-import { LegacyPopover } from '../material/legacy-popover'
 import { fastOutSlowIn } from '../material/curve-constants.js'
+import { LegacyPopover } from '../material/legacy-popover'
 
 const transitionNames = {
   appear: 'enter',

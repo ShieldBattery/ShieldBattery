@@ -1,48 +1,46 @@
+import queryString from 'query-string'
 import React from 'react'
 import { connect } from 'react-redux'
-import { push } from '../navigation/routing'
-import queryString from 'query-string'
 import styled from 'styled-components'
-import fetch from '../network/fetch'
-import { redirectIfLoggedIn } from './auth-utils'
-
-import LoadingIndicator from '../progress/dots'
-import RaisedButton from '../material/raised-button'
+import {
+  EMAIL_MAXLENGTH,
+  EMAIL_MINLENGTH,
+  EMAIL_PATTERN,
+  PASSWORD_MINLENGTH,
+  USERNAME_MAXLENGTH,
+  USERNAME_MINLENGTH,
+  USERNAME_PATTERN,
+} from '../../common/constants'
 import form from '../forms/form'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import {
-  AuthContentContainer,
-  AuthContent,
-  AuthTitle,
-  AuthBody,
-  LoadingArea,
-  ErrorsContainer,
-  AuthBottomAction,
-  BottomActionButton,
-  FieldRow,
-  AuthTextField,
-  AuthPasswordTextField,
-} from './auth-content'
-
-import {
   composeValidators,
   debounce,
-  minLength,
+  matchesOther,
   maxLength,
+  minLength,
   regex,
   required,
-  matchesOther,
 } from '../forms/validators'
-import {
-  USERNAME_MINLENGTH,
-  USERNAME_MAXLENGTH,
-  USERNAME_PATTERN,
-  EMAIL_MINLENGTH,
-  EMAIL_MAXLENGTH,
-  EMAIL_PATTERN,
-  PASSWORD_MINLENGTH,
-} from '../../common/constants'
+import RaisedButton from '../material/raised-button'
+import { push } from '../navigation/routing'
+import fetch from '../network/fetch'
+import LoadingIndicator from '../progress/dots'
 import { signUp } from './action-creators'
+import {
+  AuthBody,
+  AuthBottomAction,
+  AuthContent,
+  AuthContentContainer,
+  AuthPasswordTextField,
+  AuthTextField,
+  AuthTitle,
+  BottomActionButton,
+  ErrorsContainer,
+  FieldRow,
+  LoadingArea,
+} from './auth-content'
+import { redirectIfLoggedIn } from './auth-utils'
 
 const SignupBottomAction = styled(AuthBottomAction)`
   flex-direction: row;

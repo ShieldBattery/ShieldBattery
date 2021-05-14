@@ -1,15 +1,13 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-
 import Avatar from '../avatars/avatar'
-import Card from '../material/card'
 import ComputerAvatar from '../avatars/computer-avatar'
 import RaceIcon from '../lobbies/race-icon'
-
+import Card from '../material/card'
 import { fastOutSlowInShort } from '../material/curves'
 import { alphaDisabled, colorTextFaint, colorTextPrimary } from '../styles/colors'
-import { HeadlineOld, singleLine, cabin } from '../styles/typography'
+import { cabin, HeadlineOld, singleLine } from '../styles/typography'
 
 const Container = styled(Card)`
   display: flex;

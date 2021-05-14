@@ -1,8 +1,7 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import styled from 'styled-components'
-
 import { fastOutLinearIn, linearOutSlowIn } from '../material/curve-constants'
 import { colorError } from '../styles/colors'
 

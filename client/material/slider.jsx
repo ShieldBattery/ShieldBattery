@@ -1,12 +1,11 @@
-import React from 'react'
-import PropTypes from 'prop-types'
-import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import keycode from 'keycode'
-import styled from 'styled-components'
 import { darken, rgba } from 'polished'
-
+import PropTypes from 'prop-types'
+import React from 'react'
+import { CSSTransition, TransitionGroup } from 'react-transition-group'
+import styled from 'styled-components'
+import { amberA400, colorTextFaint, grey500 } from '../styles/colors'
 import { body1, caption } from '../styles/typography'
-import { colorTextFaint, amberA400, grey500 } from '../styles/colors'
 import { fastOutSlowIn } from './curve-constants'
 
 const transitionNames = {
