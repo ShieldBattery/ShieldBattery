@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types'
-import React from 'react'
+import React, { useImperativeHandle } from 'react'
 import styled from 'styled-components'
 import {
   ALL_CONSOLE_SKINS,
@@ -56,18 +56,26 @@ function validateApmValue(val: number, model: GameplaySettingsModel) {
   return val <= 0 || val > 999 ? 'Enter a value between 1 and 999' : undefined
 }
 
-function GameplayRemasteredForm(props: {
-  model: GameplaySettingsModel
-  onChange: (model: GameplaySettingsModel) => void
-  onSubmit: (model: GameplaySettingsModel) => void
-  submitterRef: React.MutableRefObject<{ submit: () => void }>
-}) {
+interface FormRef {
+  submit: () => void
+}
+
+const GameplayRemasteredForm = React.forwardRef<
+  FormRef,
+  {
+    model: GameplaySettingsModel
+    onChange: (model: GameplaySettingsModel) => void
+    onSubmit: (model: GameplaySettingsModel) => void
+  }
+>((props, ref) => {
   const { bindCheckable, bindCustom, onSubmit, getInputValue } = useForm(
     props.model,
     { apmAlertValue: validateApmValue },
     { onChange: props.onChange, onSubmit: props.onSubmit },
   )
-  props.submitterRef.current = { submit: onSubmit }
+  useImperativeHandle(ref, () => ({
+    submit: onSubmit,
+  }))
 
   return (
     <form noValidate={true} onSubmit={onSubmit}>
@@ -149,7 +157,7 @@ function GameplayRemasteredForm(props: {
       </FormContainer>
     </form>
   )
-}
+})
 
 export interface GameplaySettingsProps {
   localSettings: LocalSettings
@@ -182,7 +190,7 @@ export default class GameplaySettings extends React.Component<GameplaySettingsPr
 
     return (
       <GameplayRemasteredForm
-        submitterRef={formRef}
+        ref={formRef}
         model={formScrModel}
         onChange={this.props.onChange}
         onSubmit={this.props.onSubmit}
