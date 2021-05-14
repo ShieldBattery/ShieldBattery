@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect } from 'react'
 import ReactDOM from 'react-dom'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
+import { markEventAsHandledDismissal } from './dismissal-events'
 
 export interface PortalProps {
   /** Children rendered inside the Portal. */
@@ -28,6 +29,7 @@ export function Portal(props: PortalProps) {
       if (onDismiss) {
         if (!portalRef.current?.contains(event.target as Node)) {
           onDismiss()
+          markEventAsHandledDismissal(event)
         }
       }
     },

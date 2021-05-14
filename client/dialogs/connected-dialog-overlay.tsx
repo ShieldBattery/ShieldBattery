@@ -13,7 +13,9 @@ import DownloadDialog from '../download/download-dialog'
 import UpdateDialog from '../download/update-dialog'
 import MapDetailsDialog from '../maps/map-details'
 import AcceptMatch from '../matchmaking/accept-match'
+import { isHandledDismissalEvent } from '../material/dismissal-events'
 import { defaultSpring } from '../material/springs'
+import { zIndexDialogScrim } from '../material/zindex'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import Settings from '../settings/settings'
 import StarcraftPathDialog from '../settings/starcraft-path-dialog'
@@ -32,6 +34,8 @@ const Scrim = styled(animated.div)`
   top: var(--sb-system-bar-height, 0);
   right: 0;
   bottom: 0;
+
+  z-index: ${zIndexDialogScrim};
 
   -webkit-app-region: no-drag;
 `
@@ -100,11 +104,14 @@ export function ConnectedDialogOverlay() {
     ? getDialog(dialogType, starcraft)
     : { component: null, modal: false }
 
-  const onCancel = useCallback(() => {
-    if (dialogType && !modal) {
-      dispatch(closeDialog())
-    }
-  }, [dialogType, modal, dispatch])
+  const onCancel = useCallback(
+    (event: React.MouseEvent) => {
+      if (dialogType && !modal && !isHandledDismissalEvent(event.nativeEvent)) {
+        dispatch(closeDialog())
+      }
+    },
+    [dialogType, modal, dispatch],
+  )
   const onFocusTrap = useCallback(() => {
     // Focus was about to leave the dialog area, redirect it back to the dialog
     focusableRef.current?.focus()
