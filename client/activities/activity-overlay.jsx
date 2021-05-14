@@ -6,6 +6,7 @@ import styled from 'styled-components'
 import KeyListener from '../keyboard/key-listener'
 import JoinLobby from '../lobbies/join-lobby'
 import { fastOutLinearIn, linearOutSlowIn } from '../material/curve-constants'
+import { isHandledDismissalEvent } from '../material/dismissal-events'
 import { shadow8dp } from '../material/shadows'
 import { zIndexBackdrop, zIndexSideNav } from '../material/zindex'
 import { dialogScrim, grey850 } from '../styles/colors'
@@ -173,8 +174,10 @@ export default class ActivityOverlay extends React.Component {
     )
   }
 
-  onScrimClick = () => {
-    this.props.dispatch(closeOverlay())
+  onScrimClick = event => {
+    if (!isHandledDismissalEvent(event.nativeEvent)) {
+      this.props.dispatch(closeOverlay())
+    }
   }
 
   onKeyDown = event => {
