@@ -9,6 +9,7 @@ use crate::bw;
 #[derive(Deserialize)]
 pub struct Settings {
     pub local: serde_json::Map<String, serde_json::Value>,
+    pub scr: serde_json::Map<String, serde_json::Value>,
 }
 
 // app/common/game_status.js

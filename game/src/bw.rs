@@ -11,6 +11,8 @@ use winapi::shared::ntdef::HANDLE;
 
 use bw_dat::UnitId;
 
+use crate::app_messages::Settings;
+
 pub use bw_dat::structs::*;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -33,6 +35,8 @@ pub fn set_bw_impl(bw: &'static dyn Bw) {
 /// one point in code, but also some functions returning pointers to internal
 /// structures that are more versatile.
 pub trait Bw: Sync + Send {
+    /// Guaranteed to be called before any of BW's code is ran.
+    fn set_settings(&self, settings: &Settings);
     unsafe fn run_game_loop(&self);
     unsafe fn clean_up_for_exit(&self);
     unsafe fn init_sprites(&self);

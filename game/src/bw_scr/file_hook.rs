@@ -1,5 +1,6 @@
 use std::ffi::CStr;
 use std::ptr::null_mut;
+use std::sync::atomic::Ordering;
 
 use arrayvec::ArrayVec;
 use lazy_static::lazy_static;
@@ -33,6 +34,30 @@ pub fn open_file_hook(
             if path == b"rez/badnames.json" {
                 memory_buffer_to_bw_file_handle(DUMMY_BADNAMES, out);
                 return out;
+            } else if path == b"anim/skins.json" {
+                // Since we don't have a menu where the user can switch
+                // skins when game has launched, we shouldn't spend any time
+                // loading skins that cannot be switched to.
+                let skins = if bw.show_skins.load(Ordering::Relaxed) {
+                    if bw.is_carbot.load(Ordering::Relaxed) {
+                        CARBOT_SKINS
+                    } else {
+                        NONCARBOT_SKINS
+                    }
+                } else {
+                    EMPTY_SKINS
+                };
+                memory_buffer_to_bw_file_handle(skins, out);
+                return out;
+            } else {
+                if bw.is_carbot.load(Ordering::Relaxed) && bw.show_skins.load(Ordering::Relaxed) {
+                    // Similarly to skins.json check, don't load the regular HD sprites
+                    // if the user has selected carbot
+                    if path.starts_with(b"anim/main_") && path.ends_with(b".anim") {
+                        memory_buffer_to_bw_file_handle(DUMMY_ANIM, out);
+                        return out;
+                    }
+                }
             }
         }
         orig(out, path, params)
@@ -41,8 +66,10 @@ pub fn open_file_hook(
 
 static DUMMY_ANIM: &[u8] = include_bytes!("../../files/dummy.anim");
 static DUMMY_DDSGRP: &[u8] = &[0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x10];
-static DUMMY_SKINS: &[u8] = br#"{"skins":[]}"#;
 static DUMMY_BADNAMES: &[u8] = br#"[]"#;
+static EMPTY_SKINS: &[u8] = br#"{"skins":[]}"#;
+static NONCARBOT_SKINS: &[u8] = br#"{"skins":[{"id":1,"name":"PreSale"}]}"#;
+static CARBOT_SKINS: &[u8] = br#"{"skins":[{"id":2,"name":"Carbot"}]}"#;
 
 fn check_dummied_out_hd(path: &[u8]) -> Option<&'static [u8]> {
     if path.ends_with(b".anim") {
@@ -66,7 +93,7 @@ fn check_dummied_out_hd(path: &[u8]) -> Option<&'static [u8]> {
             return Some(DUMMY_DDSGRP);
         }
     } else if path == b"anim/skins.json" {
-        return Some(DUMMY_SKINS);
+        return Some(EMPTY_SKINS);
     }
     None
 }

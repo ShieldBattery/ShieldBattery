@@ -21,6 +21,7 @@ use winapi::um::libloaderapi::{GetModuleHandleW};
 
 use bw_dat::UnitId;
 
+use crate::app_messages::Settings;
 use crate::bw::{self, Bw, FowSpriteIterator, StormPlayerId};
 use crate::bw::commands;
 use crate::bw::unit::{Unit, UnitIterator};
@@ -133,6 +134,8 @@ pub struct BwScr {
     renderer_state: Mutex<RendererState>,
     open_replay_file_count: AtomicUsize,
     open_replay_files: Mutex<Vec<SendPtr<*mut c_void>>>,
+    is_carbot: AtomicBool,
+    show_skins: AtomicBool,
 }
 
 struct SendPtr<T>(T);
@@ -985,6 +988,8 @@ impl BwScr {
             }),
             open_replay_file_count: AtomicUsize::new(0),
             open_replay_files: Mutex::new(Vec::new()),
+            is_carbot: AtomicBool::new(false),
+            show_skins: AtomicBool::new(false),
         })
     }
 
@@ -1483,6 +1488,23 @@ impl BwScr {
 }
 
 impl bw::Bw for BwScr {
+    fn set_settings(&self, settings: &Settings) {
+        let is_carbot = settings.scr.get("selectedSkin")
+            .and_then(|x| x.as_str())
+            .unwrap_or_else(|| {
+                warn!("settings.scr.selectedSkin was not set");
+                ""
+            }) == "carbot";
+        let show_skins = settings.scr.get("showBonusSkins")
+            .and_then(|x| x.as_bool())
+            .unwrap_or_else(|| {
+                warn!("settings.scr.showBonusSkins was not set");
+                true
+            });
+        self.is_carbot.store(is_carbot, Ordering::Relaxed);
+        self.show_skins.store(show_skins, Ordering::Relaxed);
+    }
+
     unsafe fn run_game_loop(&self) {
         loop {
             self.game_state.write(3); // Playing

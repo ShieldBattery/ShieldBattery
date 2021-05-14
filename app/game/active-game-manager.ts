@@ -226,7 +226,10 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
       id: config.localUser.id,
       name: config.localUser.name,
     })
-    this.emit('gameCommand', id, 'settings', { local: await this.localSettings.get() })
+    this.emit('gameCommand', id, 'settings', {
+      local: await this.localSettings.get(),
+      scr: await this.scrSettings.get(),
+    })
 
     if (game.routes) {
       this.emit('gameCommand', id, 'routes', game.routes)

@@ -14,6 +14,7 @@ use winapi::um::winnt::HANDLE;
 
 use bw_dat::UnitId;
 
+use crate::app_messages::Settings;
 use crate::bw::{self, FowSpriteIterator, StormPlayerId};
 use crate::bw::unit::{Unit, UnitIterator};
 use crate::chat;
@@ -54,6 +55,9 @@ mod v1161 {
 }
 
 impl bw::Bw for Bw1161 {
+    fn set_settings(&self, _settings: &Settings) {
+    }
+
     unsafe fn run_game_loop(&self) {
         *vars::game_state = 3; // Playing
         game_loop();

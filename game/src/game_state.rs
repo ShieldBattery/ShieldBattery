@@ -173,6 +173,7 @@ impl GameState {
     fn set_settings(&mut self, settings: &Settings) {
         if let InitState::WaitingForInput(ref mut state) = self.init_state {
             crate::forge::init(&settings.local);
+            get_bw().set_settings(settings);
             state.settings_set = true;
         } else {
             error!("Received settings after game was started");
