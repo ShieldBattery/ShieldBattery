@@ -35,8 +35,8 @@ export function usePreviousDefined<T>(value: T | undefined): T | undefined {
 }
 
 /**
- * A hook which allows the callbacks and effects to access the current value of the prop without
- * needing to be re-run/re-created.
+ * A hook which allows the callbacks and effects to access the current value of a prop or state
+ * field without needing to be re-run/re-created.
  *
  * @example
  *
@@ -46,7 +46,7 @@ export function usePreviousDefined<T>(value: T | undefined): T | undefined {
  *   return <button title='Count' onClick={onClick} />
  * }
  */
-export function usePropAsRef<T>(value: T): React.MutableRefObject<T> {
+export function useValueAsRef<T>(value: T): React.MutableRefObject<T> {
   const ref = useRef(value)
   ref.current = value
 

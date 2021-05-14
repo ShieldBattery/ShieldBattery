@@ -3,8 +3,8 @@ import styled from 'styled-components'
 
 import Card from '../card'
 import Slider from '../slider'
-import Select from '../select/select'
-import Option from '../select/option'
+import { Select } from '../select/select'
+import { Option } from '../select/option'
 import TextField from '../text-field'
 
 const Container = styled.div`

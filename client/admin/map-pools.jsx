@@ -1,41 +1,38 @@
-import React from 'react'
-import PropTypes from 'prop-types'
-import { connect } from 'react-redux'
 import { List, OrderedMap } from 'immutable'
+import PropTypes from 'prop-types'
+import React, { useState, useCallback } from 'react'
+import { connect } from 'react-redux'
 import styled from 'styled-components'
-
-import Carousel from '../lists/carousel'
-import FlatButton from '../material/flat-button'
-import IconButton from '../material/icon-button'
-import KeyListener from '../keyboard/key-listener'
-import { Label } from '../material/button'
-import LoadingIndicator from '../progress/dots'
-import MapThumbnail from '../maps/map-thumbnail'
-import Menu from '../material/menu/menu'
-import MenuItem from '../material/menu/item'
-import RaisedButton from '../material/raised-button'
-import { ScrollableContent } from '../material/scroll-bar'
-import Tabs, { TabItem } from '../material/tabs'
-import TextField from '../material/text-field'
-
 import { MAP_VISIBILITY_OFFICIAL } from '../../common/constants'
 import { MatchmakingType } from '../../common/matchmaking'
-
-import CheckIcon from '../icons/material/baseline-check_circle-24px.svg'
-import MapPoolActionsIcon from '../icons/material/ic_more_vert_black_24px.svg'
-import SearchIcon from '../icons/material/baseline-search-24px.svg'
-import SelectedIcon from '../icons/material/baseline-check_circle-24px.svg'
-
 import {
-  searchMaps,
+  default as CheckIcon,
+  default as SelectedIcon,
+} from '../icons/material/baseline-check_circle-24px.svg'
+import SearchIcon from '../icons/material/baseline-search-24px.svg'
+import MapPoolActionsIcon from '../icons/material/ic_more_vert_black_24px.svg'
+import KeyListener from '../keyboard/key-listener'
+import Carousel from '../lists/carousel'
+import { MapThumbnail } from '../maps/map-thumbnail'
+import { Label } from '../material/button'
+import FlatButton from '../material/flat-button'
+import IconButton from '../material/icon-button'
+import MenuItem from '../material/menu/item'
+import Menu from '../material/menu/menu'
+import { useAnchorPosition } from '../material/popover'
+import RaisedButton from '../material/raised-button'
+import Tabs, { TabItem } from '../material/tabs'
+import TextField from '../material/text-field'
+import LoadingIndicator from '../progress/dots'
+import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
+import { body1, subtitle1 } from '../styles/typography'
+import {
   clearSearch,
-  getMapPoolHistory,
   createMapPool,
   deleteMapPool,
+  getMapPoolHistory,
+  searchMaps,
 } from './action-creators'
-
-import { colorTextSecondary, colorError, colorSuccess } from '../styles/colors'
-import { Body1Old, SubheadingOld } from '../styles/typography'
 
 const MAP_POOLS_LIMIT = 10
 const SEARCH_MAPS_LIMIT = 30
@@ -94,7 +91,8 @@ const StyledSelectedIcon = styled(SelectedIcon)`
   }
 `
 
-const SectionTitle = styled(SubheadingOld)`
+const SectionTitle = styled.div`
+  ${subtitle1};
   color: ${colorTextSecondary};
 `
 
@@ -107,7 +105,8 @@ const DateInput = styled.input`
   color: #000;
 `
 
-const InvalidDateInput = styled(Body1Old)`
+const InvalidDateInput = styled.div`
+  ${body1};
   margin-left: 16px;
   color: ${colorError};
 `
@@ -160,7 +159,8 @@ const LoadingArea = styled.div`
   margin: 16px 0;
 `
 
-const ErrorText = styled(SubheadingOld)`
+const ErrorText = styled.div`
+  ${subtitle1};
   color: ${colorError};
 `
 
@@ -360,89 +360,83 @@ export class MapPoolEditor extends React.Component {
   }
 }
 
-class MapPoolHistoryRow extends React.PureComponent {
-  static propTypes = {
-    mapPool: PropTypes.object.isRequired,
-    onUseAsTemplate: PropTypes.func.isRequired,
-    onDelete: PropTypes.func.isRequired,
+const MapPoolHistoryRow = React.memo(props => {
+  const [actionsOverlayOpen, setActionsOverlayOpen] = useState(false)
+  const [anchorRef, anchorX, anchorY] = useAnchorPosition('left', 'top')
+  const onActionsOverlayOpen = useCallback(() => {
+    setActionsOverlayOpen(true)
+  }, [])
+  const onActionsOverlayClose = useCallback(() => {
+    setActionsOverlayOpen(false)
+  }, [])
+
+  const onMapActionClick = useCallback(
+    handler => {
+      handler()
+      onActionsOverlayClose()
+    },
+    [onActionsOverlayClose],
+  )
+
+  const { id, startDate, maps } = props.mapPool
+
+  const mapThumbnails = maps.valueSeq().map(m => (
+    <MapContainer key={m.id}>
+      <MapThumbnail map={m} showMapName={true} />
+    </MapContainer>
+  ))
+
+  const mapPoolActions = [['Use as template', props.onUseAsTemplate]]
+  if (startDate > Date.now()) {
+    mapPoolActions.push(['Delete', props.onDelete])
   }
 
-  state = {
-    actionsOverlayOpen: false,
-  }
-
-  _actionsButtonRef = React.createRef()
-
-  renderActionsMenu(mapPoolActions) {
-    if (mapPoolActions.length < 1) {
-      return null
-    }
-
+  let actionsMenu
+  if (mapPoolActions.length < 1) {
+    actionsMenu = null
+  } else {
     const actions = mapPoolActions.map(([text, handler], i) => (
-      <MenuItem key={i} text={text} onClick={() => this.onMapActionClick(handler)} />
+      <MenuItem key={i} text={text} onClick={() => onMapActionClick(handler)} />
     ))
 
-    return (
+    actionsMenu = (
       <>
         <MapPoolActionButton
           icon={<MapPoolActionsIcon />}
           title='Map pool actions'
-          buttonRef={this._actionsButtonRef}
-          onClick={this.onActionsOverlayOpen}
+          buttonRef={anchorRef}
+          onClick={onActionsOverlayOpen}
         />
         <Menu
-          open={this.state.actionsOverlayOpen}
-          onDismiss={this.onActionsOverlayClose}
-          anchor={this._actionsButtonRef.current}
-          anchorOriginVertical='top'
-          anchorOriginHorizontal='left'
-          popoverOriginVertical='top'
-          popoverOriginHorizontal='left'>
+          open={actionsOverlayOpen}
+          onDismiss={onActionsOverlayClose}
+          anchorX={anchorX ?? 0}
+          anchorY={anchorY ?? 0}
+          originX='left'
+          originY='top'>
           {actions}
         </Menu>
       </>
     )
   }
 
-  render() {
-    const { id, startDate, maps } = this.props.mapPool
+  return (
+    <tr key={id}>
+      <td>
+        {dateFormat.format(startDate)}
+        {actionsMenu}
+      </td>
+      <td>
+        <Carousel>{mapThumbnails}</Carousel>
+      </td>
+    </tr>
+  )
+})
 
-    const mapThumbnails = maps.valueSeq().map(m => (
-      <MapContainer key={m.id}>
-        <MapThumbnail map={m} showMapName={true} />
-      </MapContainer>
-    ))
-
-    const mapPoolActions = [['Use as template', this.props.onUseAsTemplate]]
-    if (startDate > Date.now()) {
-      mapPoolActions.push(['Delete', this.props.onDelete])
-    }
-
-    return (
-      <tr key={id}>
-        <td>
-          {dateFormat.format(startDate)}
-          {this.renderActionsMenu(mapPoolActions)}
-        </td>
-        <td>
-          <Carousel>{mapThumbnails}</Carousel>
-        </td>
-      </tr>
-    )
-  }
-
-  onActionsOverlayOpen = () => {
-    this.setState({ actionsOverlayOpen: true })
-  }
-
-  onActionsOverlayClose = () => {
-    this.setState({ actionsOverlayOpen: false })
-  }
-
-  onMapActionClick = handler => {
-    handler()
-    this.onActionsOverlayClose()
-  }
+MapPoolHistoryRow.propTypes = {
+  mapPool: PropTypes.object.isRequired,
+  onUseAsTemplate: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
 }
 
 class MapPoolHistory extends React.PureComponent {
@@ -541,27 +535,25 @@ export default class MapPools extends React.Component {
     const mapPoolHistory = mapPools.types.get(tabToType(activeTab))
 
     return (
-      <ScrollableContent>
-        <Container>
-          <StyledTabs activeTab={activeTab} onChange={this.onTabChange}>
-            <TabItem text='1v1' />
-          </StyledTabs>
-          <h3>Create a new map pool</h3>
-          <MapPoolEditor
-            initialMaps={initialMaps}
-            searchResult={mapPools.searchResult}
-            onSearchClick={this.onSearchClick}
-            onLoadMoreMaps={this.onLoadMoreMaps}
-            onCreate={this.onCreateNewMapPool}
-          />
-          <h3>Map pool history</h3>
-          <MapPoolHistory
-            history={mapPoolHistory}
-            onUseAsTemplate={this.onUseAsTemplate}
-            onDelete={this.onDeleteMapPool}
-          />
-        </Container>
-      </ScrollableContent>
+      <Container>
+        <StyledTabs activeTab={activeTab} onChange={this.onTabChange}>
+          <TabItem text='1v1' />
+        </StyledTabs>
+        <h3>Create a new map pool</h3>
+        <MapPoolEditor
+          initialMaps={initialMaps}
+          searchResult={mapPools.searchResult}
+          onSearchClick={this.onSearchClick}
+          onLoadMoreMaps={this.onLoadMoreMaps}
+          onCreate={this.onCreateNewMapPool}
+        />
+        <h3>Map pool history</h3>
+        <MapPoolHistory
+          history={mapPoolHistory}
+          onUseAsTemplate={this.onUseAsTemplate}
+          onDelete={this.onDeleteMapPool}
+        />
+      </Container>
     )
   }
 

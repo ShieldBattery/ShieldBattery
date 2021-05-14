@@ -4,7 +4,7 @@ import PropTypes from 'prop-types'
 import RacePicker from './race-picker'
 import SelectedRace from './selected-race'
 import { Slot, SlotLeft, SlotRight, SlotProfile, SlotEmptyAvatar, SlotEmptyName } from './slot'
-import SlotActions from './slot-actions'
+import { SlotActions } from './slot-actions'
 
 export default class ClosedSlot extends React.Component {
   static propTypes = {

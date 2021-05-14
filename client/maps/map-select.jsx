@@ -5,7 +5,7 @@ import styled from 'styled-components'
 
 import ImageList from '../material/image-list'
 import KeyListener from '../keyboard/key-listener'
-import MapThumbnail from './map-thumbnail'
+import { MapThumbnail } from './map-thumbnail'
 
 import SelectedIcon from '../icons/material/baseline-check_circle-24px.svg'
 import MapIcon from '../icons/material/ic_terrain_black_24px.svg'

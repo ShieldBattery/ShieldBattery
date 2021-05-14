@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import Button from '../button'
 import Card from '../card'
 import FlatButton from '../flat-button'
-import FloatingActionButton from '../floating-action-button'
+import { FloatingActionButton } from '../floating-action-button'
 import IconButton from '../icon-button'
 import RaisedButton from '../raised-button'
 

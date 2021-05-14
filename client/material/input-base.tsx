@@ -1,13 +1,20 @@
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
-
 import { colorTextFaint, colorTextPrimary, grey700, grey800, grey900 } from '../styles/colors'
-import { subtitle1, singleLine } from '../styles/typography'
+import { singleLine, subtitle1 } from '../styles/typography'
 
 export const TEXTAREA_BOTTOM_PADDING = 7
 export const TEXTAREA_BOTTOM_PADDING_DENSE = 1
 
-export const InputBase = styled.div`
+export const InputBase = styled.div<{
+  floatingLabel?: boolean
+  dense?: boolean
+  disabled?: boolean
+  focused?: boolean
+  multiline?: boolean
+  leadingIconsLength?: number
+  trailingIconsLength?: number
+}>`
   ${subtitle1};
   flex-grow: 1;
   order: 2;
@@ -97,6 +104,7 @@ InputBase.propTypes = {
   floatingLabel: PropTypes.bool,
   dense: PropTypes.bool,
   disabled: PropTypes.bool,
+  focused: PropTypes.bool,
   multiline: PropTypes.bool,
   leadingIconsLength: PropTypes.number,
   trailingIconsLength: PropTypes.number,

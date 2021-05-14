@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef } from 'react'
 import styled from 'styled-components'
 import LoadingIndicator from '../progress/dots'
-import { usePropAsRef } from '../state-hooks'
+import { useValueAsRef } from '../state-hooks'
 
 const LoadingArea = styled.div`
   display: flex;
@@ -73,14 +73,14 @@ interface InfiniteListProps {
  */
 export default function InfiniteList(props: InfiniteListProps) {
   const { root, rootMargin, threshold, refreshToken } = props
-  const prevLoadingEnabledRef = usePropAsRef(props.prevLoadingEnabled)
-  const nextLoadingEnabledRef = usePropAsRef(props.nextLoadingEnabled)
-  const isLoadingPrevRef = usePropAsRef(props.isLoadingPrev)
-  const isLoadingNextRef = usePropAsRef(props.isLoadingNext)
-  const hasPrevDataRef = usePropAsRef(props.hasPrevData)
-  const hasNextDataRef = usePropAsRef(props.hasNextData)
-  const onLoadPrevDataRef = usePropAsRef(props.onLoadPrevData)
-  const onLoadNextDataRef = usePropAsRef(props.onLoadNextData)
+  const prevLoadingEnabledRef = useValueAsRef(props.prevLoadingEnabled)
+  const nextLoadingEnabledRef = useValueAsRef(props.nextLoadingEnabled)
+  const isLoadingPrevRef = useValueAsRef(props.isLoadingPrev)
+  const isLoadingNextRef = useValueAsRef(props.isLoadingNext)
+  const hasPrevDataRef = useValueAsRef(props.hasPrevData)
+  const hasNextDataRef = useValueAsRef(props.hasNextData)
+  const onLoadPrevDataRef = useValueAsRef(props.onLoadPrevData)
+  const onLoadNextDataRef = useValueAsRef(props.onLoadNextData)
   const prevTargetRef = useRef(null)
   const nextTargetRef = useRef(null)
   const observer = useRef<IntersectionObserver | null>(null)

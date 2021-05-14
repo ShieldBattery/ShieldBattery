@@ -1,6 +1,7 @@
 import { useTransition } from '@react-spring/core'
 import { animated } from '@react-spring/web'
 import React, { useCallback, useRef } from 'react'
+import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useElementRect, useObservedDimensions } from '../dom/dimension-hooks'
@@ -8,8 +9,9 @@ import KeyListener from '../keyboard/key-listener'
 import { usePreviousDefined } from '../state-hooks'
 import { CardLayer } from '../styles/colors'
 import { Portal } from './portal'
-import { shadow6dp } from './shadows'
+import { shadow10dp } from './shadows'
 import { defaultSpring } from './springs'
+import { zIndexMenu } from './zindex'
 
 const ESCAPE = 'Escape'
 
@@ -28,6 +30,7 @@ const PositioningArea = styled.div`
 
   contain: layout;
   pointer-events: none;
+  z-index: ${zIndexMenu};
 `
 
 const Container = styled(animated.div)`
@@ -48,7 +51,7 @@ const Container = styled(animated.div)`
 `
 
 const Card = styled(CardLayer)`
-  ${shadow6dp};
+  ${shadow10dp};
   contain: content;
 `
 
@@ -83,6 +86,20 @@ export interface PopoverProps {
 
   /** Class name applied to the root container of the Popover (that has the background, etc.). */
   className?: string
+
+  /**
+   * Custom configuration for the open/close transition. Optional, defaults to a uniform scale
+   * and opacity change.
+   */
+  transitionProps?: UseTransitionProps<boolean>
+}
+
+export const DEFAULT_TRANSITION: UseTransitionProps<boolean> = {
+  from: { opacity: 0, scale: 0.667 },
+  enter: { opacity: 1, scale: 1 },
+  leave: { opacity: 0, scale: 0.333 },
+  config: (item, index, phase) => key =>
+    phase === 'leave' || key === 'opacity' ? { ...defaultSpring, clamp: true } : defaultSpring,
 }
 
 /**
@@ -101,6 +118,7 @@ export function Popover({
   onDismiss,
   originX,
   originY,
+  transitionProps = DEFAULT_TRANSITION,
 }: PopoverProps) {
   const [maxSizeRectRef, maxSizeRect] = useElementRect()
   // NOTE(tec27): We need this so that the component re-renders if the window is resized
@@ -116,7 +134,7 @@ export function Popover({
     [maxSizeRectRef, maxSizeObserverRef],
   )
   const onKeyDown = useCallback(
-    (event: React.KeyboardEvent) => {
+    (event: KeyboardEvent) => {
       if (event.code !== ESCAPE) return false
 
       if (onDismiss) {
@@ -129,13 +147,7 @@ export function Popover({
     [onDismiss],
   )
 
-  const transition = useTransition(open, {
-    from: { opacity: 0, scale: 0.667 },
-    enter: { opacity: 1, scale: 1 },
-    leave: { opacity: 0, scale: 0.333 },
-    config: (item, index, phase) => key =>
-      phase === 'leave' || key === 'opacity' ? { ...defaultSpring, clamp: true } : defaultSpring,
-  })
+  const transition = useTransition<boolean, UseTransitionProps<boolean>>(open, transitionProps)
 
   // Calculate the X/Y position of the popover, based on the anchor position and what the origin is.
   // The Math.max calculates the desired position (taking into account safe zone offset), then the
@@ -226,7 +238,7 @@ export function Popover({
               <Container
                 ref={containerRef}
                 className={className}
-                style={{ ...styles, ...containerStyle }}>
+                style={{ ...styles, ...(containerStyle as any) }}>
                 <Card>{children}</Card>
               </Container>
             </PositioningArea>

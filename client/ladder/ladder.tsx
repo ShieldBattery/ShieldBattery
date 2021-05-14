@@ -10,7 +10,7 @@ import { AnimationFrameHandler, animationFrameHandler } from '../material/animat
 import { shadow4dp } from '../material/shadows'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { usePropAsRef } from '../state-hooks'
+import { useValueAsRef } from '../state-hooks'
 import {
   colorError,
   colorTextFaint,
@@ -225,7 +225,7 @@ export function LadderTable(props: LadderTableProps) {
   }, [])
 
   const { curTime } = props
-  const curTimeRef = usePropAsRef(curTime)
+  const curTimeRef = useValueAsRef(curTime)
   const renderLastPlayed = useCallback<TableCellRenderer>(
     props => {
       return <LastPlayedText>{timeAgo(curTimeRef.current - props.cellData)}</LastPlayedText>

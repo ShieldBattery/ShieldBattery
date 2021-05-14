@@ -4,8 +4,8 @@ import VertMenuIcon from '../../icons/material/ic_more_vert_black_24px.svg'
 import { OriginX, OriginY, Popover, useAnchorPosition } from '../../material/popover'
 import { Headline4, Headline5, Subtitle1 } from '../../styles/typography'
 import IconButton from '../icon-button'
-import Option from '../select/option'
-import Select from '../select/select'
+import { Option } from '../select/option'
+import { Select } from '../select/select'
 
 const Container = styled.div`
   width: 100%;

@@ -62,6 +62,7 @@ export interface ButtonProps {
   buttonRef?: React.Ref<HTMLButtonElement>
   // TODO(tec27): Probably this should come from the content component type?
   tabIndex?: number
+  title?: string
 }
 
 interface ButtonState {

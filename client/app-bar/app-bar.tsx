@@ -12,6 +12,7 @@ import IconButton from '../material/icon-button'
 import Divider from '../material/menu/divider'
 import MenuItem from '../material/menu/item'
 import Menu from '../material/menu/menu'
+import { useAnchorPosition } from '../material/popover'
 import { shadow4dp } from '../material/shadows'
 import { standardIncrement } from '../material/units'
 import { zIndexAppBar } from '../material/zindex'
@@ -135,7 +136,7 @@ export interface AppBarProps {
   className?: string
 }
 
-const APP_MENU_LINKS = [
+const APP_MENU_LINKS: Array<[text?: string, icon?: React.ReactNode, url?: string]> = [
   ['Discord', <DiscordIcon />, 'https://discord.gg/S8dfMx94a4'],
   ['Twitter', <StyledTwitterIcon />, 'https://twitter.com/ShieldBatteryBW'],
   ['GitHub', <GitHubIcon />, 'https://github.com/ShieldBattery/ShieldBattery'],
@@ -158,12 +159,13 @@ export default function AppBar(props: AppBarProps) {
     push('/admin')
   }, [])
 
-  const [appMenuAnchor, setAppMenuAnchor] = useState<Element | null>(null)
+  const [appMenuAnchor, setAppMenuAnchor] = useState<HTMLElement>()
+  const [, anchorX, anchorY] = useAnchorPosition('center', 'bottom', appMenuAnchor ?? null)
   const onLockupClick = useCallback((event: React.MouseEvent) => {
-    setAppMenuAnchor(event.currentTarget as Element)
+    setAppMenuAnchor(event.currentTarget as HTMLElement)
   }, [])
   const onAppMenuDismiss = useCallback(() => {
-    setAppMenuAnchor(null)
+    setAppMenuAnchor(undefined)
   }, [])
   const appMenuItems = useMemo(
     () =>
@@ -176,7 +178,7 @@ export default function AppBar(props: AppBarProps) {
               icon={icon}
               onClick={() => {
                 window.open(url as string, '_blank')
-                setAppMenuAnchor(null)
+                setAppMenuAnchor(undefined)
               }}
             />
           )
@@ -189,8 +191,7 @@ export default function AppBar(props: AppBarProps) {
     [],
   )
 
-  // TODO(tec27): Make menus (popovers?) support vertical-only transition, or at least grow
-  // from middle
+  // TODO(tec27): Allow this particular popover to leave the safe area (and overlap the app bar)
   return (
     <Container className={props.className}>
       <SizeTop />
@@ -204,13 +205,10 @@ export default function AppBar(props: AppBarProps) {
         <AppMenu
           open={!!appMenuAnchor}
           onDismiss={onAppMenuDismiss}
-          anchor={appMenuAnchor}
-          anchorOriginVertical='bottom'
-          anchorOriginHorizontal='left'
-          popoverOriginVertical='top'
-          popoverOriginHorizontal='left'
-          anchorOffsetHorizontal={12}
-          anchorOffsetVertical={-8}>
+          originX='center'
+          originY='top'
+          anchorX={(anchorX ?? 0) - 8}
+          anchorY={anchorY ?? 0}>
           {appMenuItems}
         </AppMenu>
         {DEV_INDICATOR ? <DevIndicator onClick={() => push('/dev')}>Dev</DevIndicator> : null}

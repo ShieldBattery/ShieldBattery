@@ -1,25 +1,11 @@
-import React from 'react'
 import PropTypes from 'prop-types'
-import { CSSTransition } from 'react-transition-group'
+import React from 'react'
 import styled from 'styled-components'
-
 import KeyListener from '../../keyboard/key-listener'
-import { LegacyPopover } from '../legacy-popover'
-import MenuItemSymbol from './menu-item-symbol'
-
-import { fastOutSlowIn } from '../curve-constants'
-import { shadowDef6dp } from '../shadow-constants'
-import { zIndexMenu } from '../zindex'
 import { CardLayer } from '../../styles/colors'
-
-const transitionNames = {
-  appear: 'enter',
-  appearActive: 'enterActive',
-  enter: 'enter',
-  enterActive: 'enterActive',
-  exit: 'exit',
-  exitActive: 'exitActive',
-}
+import { Popover, PopoverProps } from '../popover'
+import { zIndexMenu } from '../zindex'
+import { isMenuItem } from './menu-item-symbol'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -42,39 +28,15 @@ const ITEMS_SHOWN_DENSE = 8
 const MENU_MAX_HEIGHT = ITEM_HEIGHT * (ITEMS_SHOWN + 0.5) + VERT_PADDING
 const MENU_MAX_HEIGHT_DENSE = ITEM_HEIGHT_DENSE * (ITEMS_SHOWN_DENSE + 0.5) + VERT_PADDING
 
-export const Overlay = styled(CardLayer)`
+export const Overlay = styled(CardLayer)<{ $dense?: boolean }>`
   min-width: 160px;
-  min-height: ${props => (props.dense ? MENU_MIN_HEIGHT_DENSE : MENU_MIN_HEIGHT)}px;
-  max-height: ${props => (props.dense ? MENU_MAX_HEIGHT_DENSE : MENU_MAX_HEIGHT)}px;
-  box-shadow: ${shadowDef6dp};
+  min-height: ${props => (props.$dense ? MENU_MIN_HEIGHT_DENSE : MENU_MIN_HEIGHT)}px;
+  max-height: ${props => (props.$dense ? MENU_MAX_HEIGHT_DENSE : MENU_MAX_HEIGHT)}px;
   z-index: ${zIndexMenu};
   border-radius: 2px;
   contain: content;
   overflow-x: hidden;
   overflow-y: auto;
-
-  &.enter {
-    opacity: 0;
-  }
-
-  &.enterActive {
-    opacity: 1;
-    transition-property: opacity;
-    transition-duration: ${props => props.transitionDuration}ms;
-    transition-timing-function: ${fastOutSlowIn};
-    transition-delay: ${props => props.transitionDelay}ms;
-  }
-
-  &.exit {
-    opacity: 1;
-  }
-
-  &.exitActive {
-    opacity: 0;
-    transition-property: opacity;
-    transition-duration: ${props => props.transitionDuration}ms;
-    transition-timing-function: ${fastOutSlowIn};
-  }
 `
 
 // Create a component that serves as a padding before the first and after the last item in the menu,
@@ -84,10 +46,20 @@ const Padding = styled.div`
   height: 8px;
 `
 
+export interface MenuProps extends PopoverProps {
+  selectedIndex?: number
+  dense?: boolean
+  onItemSelected?: (index: number) => void
+}
+
+interface MenuState {
+  activeIndex: number
+}
+
 // A wrapper component around Popover that can be used to quickly write Menus
 // TODO(2Pac): Menus should probably have some default positioning instead of exposing the
 // lower-level API of the Popovers.
-export default class Menu extends React.Component {
+export default class Menu extends React.Component<MenuProps, MenuState> {
   static propTypes = {
     dense: PropTypes.bool,
     selectedIndex: PropTypes.number,
@@ -102,35 +74,35 @@ export default class Menu extends React.Component {
   }
 
   state = {
-    activeIndex: this.props.selectedIndex,
+    activeIndex: this.props.selectedIndex!,
   }
 
-  _overlay = React.createRef()
+  private overlay = React.createRef<HTMLDivElement>()
 
-  componentDidUpdate(prevProps) {
+  componentDidUpdate(prevProps: MenuProps) {
     if (prevProps.open && !this.props.open) {
-      this.setState({ activeIndex: this.props.selectedIndex })
+      this.setState({ activeIndex: this.props.selectedIndex! })
     }
-    if (!prevProps.open && this._overlay.current) {
+    if (!prevProps.open && this.overlay.current) {
       // update the scroll position to the selected value
-      const firstDisplayed = this._getFirstDisplayedItemIndex()
-      this._overlay.current.scrollTop = firstDisplayed * ITEM_HEIGHT
+      const firstDisplayed = this.getFirstDisplayedItemIndex()
+      this.overlay.current.scrollTop = firstDisplayed * ITEM_HEIGHT
     }
   }
 
-  _getMenuItems() {
-    return React.Children.toArray(this.props.children).filter(child => child.type[MenuItemSymbol])
+  private getMenuItems() {
+    return React.Children.toArray(this.props.children).filter(child => isMenuItem(child))
   }
 
-  _getFirstDisplayedItemIndex() {
+  private getFirstDisplayedItemIndex() {
     const { dense, selectedIndex } = this.props
-    const numItems = this._getMenuItems().length
+    const numItems = this.getMenuItems().length
     const itemsShown = dense ? ITEMS_SHOWN_DENSE : ITEMS_SHOWN
     const lastVisibleIndex = itemsShown - 1
-    if (selectedIndex <= lastVisibleIndex || numItems < itemsShown) {
+    if (selectedIndex! <= lastVisibleIndex || numItems < itemsShown) {
       return 0
     }
-    return Math.min(numItems - itemsShown, selectedIndex - lastVisibleIndex)
+    return Math.min(numItems - itemsShown, selectedIndex! - lastVisibleIndex)
   }
 
   render() {
@@ -138,7 +110,6 @@ export default class Menu extends React.Component {
       children,
       dense,
       selectedIndex,
-      renderTransition,
       onItemSelected, // eslint-disable-line @typescript-eslint/no-unused-vars
       ...popoverProps
     } = this.props
@@ -146,7 +117,7 @@ export default class Menu extends React.Component {
     let i = 0
     const items = React.Children.map(children, child => {
       // Leave the non-selectable elements (e.g. dividers, overlines, etc.) as they are
-      if (!child.type[MenuItemSymbol]) return child
+      if (!isMenuItem(child)) return child
 
       // Define a block-scoped variable which will bind to the `onItemSelected` closure below
       const index = i
@@ -162,64 +133,26 @@ export default class Menu extends React.Component {
     })
 
     return (
-      <LegacyPopover {...popoverProps}>
-        {(state, timings) => {
-          const { openDelay, openDuration, closeDuration } = timings
-          let transitionDuration = 0
-          let transitionDelay = 0
-          if (state === 'opening') {
-            transitionDuration = openDuration
-            transitionDelay = openDelay
-          } else if (state === 'opened') {
-            transitionDuration = closeDuration
-          }
-
-          const content = (
-            <>
-              <Padding />
-              {items}
-              <Padding />
-            </>
-          )
-
-          return (
-            <>
-              <KeyListener onKeyDown={this.onKeyDown} />
-              {renderTransition ? (
-                renderTransition(content)
-              ) : (
-                <CSSTransition
-                  in={state === 'opening' || state === 'opened'}
-                  classNames={transitionNames}
-                  appear={true}
-                  timeout={{ appear: openDuration, enter: openDuration, exit: closeDuration }}>
-                  <Overlay
-                    key='menu'
-                    ref={this._overlay}
-                    className={this.props.className}
-                    dense={dense}
-                    transitionDuration={transitionDuration}
-                    transitionDelay={transitionDelay}>
-                    {content}
-                  </Overlay>
-                </CSSTransition>
-              )}
-            </>
-          )
-        }}
-      </LegacyPopover>
+      <Popover {...popoverProps}>
+        <KeyListener onKeyDown={this.onKeyDown} />
+        <Overlay key='menu' ref={this.overlay} className={this.props.className} $dense={dense}>
+          <Padding />
+          {items}
+          <Padding />
+        </Overlay>
+      </Popover>
     )
   }
 
-  _moveActiveIndexBy(delta) {
+  private moveActiveIndexBy(delta: number) {
     const { dense } = this.props
 
     let newIndex = this.state.activeIndex
     if (newIndex === -1) {
-      newIndex = this.props.selectedIndex
+      newIndex = this.props.selectedIndex!
     }
 
-    const numItems = this._getMenuItems().length
+    const numItems = this.getMenuItems().length
     newIndex += delta
     while (newIndex < 0) {
       newIndex += numItems
@@ -237,7 +170,7 @@ export default class Menu extends React.Component {
 
     // Adjust scroll position to keep the item in view
     const curTopIndex = Math.ceil(
-      Math.max(0, this._overlay.current.scrollTop - VERT_PADDING) / itemHeight,
+      Math.max(0, this.overlay.current!.scrollTop - VERT_PADDING) / itemHeight,
     )
     const curBottomIndex = curTopIndex + itemsShown - 1 // accounts for partially shown options
     if (newIndex >= curTopIndex && newIndex <= curBottomIndex) {
@@ -245,22 +178,22 @@ export default class Menu extends React.Component {
       return
     } else if (newIndex < curTopIndex) {
       // Make the new index the top item
-      this._overlay.current.scrollTop = itemHeight * newIndex
+      this.overlay.current!.scrollTop = itemHeight * newIndex
     } else {
       // Make the new index the bottom item
-      this._overlay.current.scrollTop = itemHeight * (newIndex + 1 - itemsShown)
+      this.overlay.current!.scrollTop = itemHeight * (newIndex + 1 - itemsShown)
     }
   }
 
-  onKeyDown = event => {
+  onKeyDown = (event: KeyboardEvent) => {
     if (event.code === ESCAPE) {
       this.props.onDismiss()
       return true
     } else if (event.code === UP) {
-      this._moveActiveIndexBy(-1)
+      this.moveActiveIndexBy(-1)
       return true
     } else if (event.code === DOWN) {
-      this._moveActiveIndexBy(1)
+      this.moveActiveIndexBy(1)
       return true
     } else if (event.code === TAB) {
       if (this.state.activeIndex >= 0) {
@@ -277,7 +210,7 @@ export default class Menu extends React.Component {
     return false
   }
 
-  onItemSelected = index => {
+  onItemSelected = (index: number) => {
     if (this.props.onItemSelected) {
       this.props.onItemSelected(index)
     }

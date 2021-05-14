@@ -2,7 +2,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import RacePicker from './race-picker'
 import SelectedRace from './selected-race'
-import SlotActions from './slot-actions'
+import { SlotActions } from './slot-actions'
 import SwapSlotsIcon from '../icons/material/ic_swap_vert_black_24px.svg'
 import { Slot, SlotLeft, SlotProfileOpen, SlotEmptyAvatar, SlotEmptyName, SlotRight } from './slot'
 

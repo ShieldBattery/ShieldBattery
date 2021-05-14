@@ -1,6 +1,5 @@
 import React from 'react'
 import styled from 'styled-components'
-
 import { colorDividers } from '../../styles/colors'
 
 const StyledDivider = styled.div`
@@ -10,7 +9,7 @@ const StyledDivider = styled.div`
   background-color: ${colorDividers};
 `
 
-const Divider = props => {
+const Divider = () => {
   return <StyledDivider />
 }
 

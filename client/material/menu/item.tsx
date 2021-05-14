@@ -1,31 +1,29 @@
-import React from 'react'
 import PropTypes from 'prop-types'
+import React from 'react'
 import styled from 'styled-components'
-
-import MenuItemSymbol from './menu-item-symbol'
+import { singleLine, subtitle1 } from '../../styles/typography'
 import { ITEM_HEIGHT, ITEM_HEIGHT_DENSE } from './menu'
+import MenuItemSymbol from './menu-item-symbol'
 
-import { subtitle1, singleLine } from '../../styles/typography'
-
-const Item = styled.div`
+const Item = styled.div<{ $dense?: boolean; $focused?: boolean }>`
   display: flex;
   align-items: center;
   position: relative;
   width: auto;
-  height: ${props => (props.dense ? ITEM_HEIGHT_DENSE : ITEM_HEIGHT)}px;
+  height: ${props => (props.$dense ? ITEM_HEIGHT_DENSE : ITEM_HEIGHT)}px;
   padding: 0 12px;
   cursor: pointer;
 
   &:hover {
     background-color: ${props =>
-      props.focused ? 'rgba(255, 255, 255, 0.24)' : 'rgba(255, 255, 255, 0.08)'};
+      props.$focused ? 'rgba(255, 255, 255, 0.24)' : 'rgba(255, 255, 255, 0.08)'};
   }
 
   &:active {
     background-color: rgba(255, 255, 255, 0.24);
   }
 
-  ${props => (props.focused ? 'background-color: rgba(255, 255, 255, 0.24)' : '')};
+  ${props => (props.$focused ? 'background-color: rgba(255, 255, 255, 0.24)' : '')};
 `
 
 const ItemText = styled.div`
@@ -43,7 +41,16 @@ const ItemIcon = styled.span`
   overflow: hidden;
 `
 
-export default class MenuItem extends React.Component {
+export interface MenuItemProps {
+  text: string
+  className?: string
+  icon?: React.ReactNode
+  focused?: boolean
+  dense?: boolean
+  onClick?: (event: React.MouseEvent) => void
+}
+
+export default class MenuItem extends React.Component<MenuItemProps> {
   static propTypes = {
     text: PropTypes.string.isRequired,
     icon: PropTypes.node,
@@ -57,7 +64,7 @@ export default class MenuItem extends React.Component {
   render() {
     const { text, icon, focused, dense, onClick } = this.props
     return (
-      <Item className={this.props.className} focused={focused} dense={dense} onClick={onClick}>
+      <Item className={this.props.className} $focused={focused} $dense={dense} onClick={onClick}>
         {icon ? <ItemIcon>{icon}</ItemIcon> : null}
         <ItemText as='span'>{text}</ItemText>
       </Item>

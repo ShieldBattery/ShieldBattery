@@ -2,7 +2,7 @@ import React from 'react'
 import { Link, Route, Switch } from 'wouter'
 
 import DevButtons from './buttons-test'
-import DevMenu from './menu-test'
+import { MenuTest as DevMenu } from './menu-test'
 import DevPopover from './popover-test'
 import DevSelects from './selects-test'
 import DevSliders from './slider-test'

@@ -18,8 +18,8 @@ import UpDirectory from '../icons/material/ic_subdirectory_arrow_left_black_24px
 import KeyListener from '../keyboard/key-listener'
 import LoadingIndicator from '../progress/dots'
 import IconButton from '../material/icon-button'
-import Option from '../material/select/option'
-import Select from '../material/select/select'
+import { Option } from '../material/select/option'
+import { Select } from '../material/select/select'
 import { ScrollableContent } from '../material/scroll-bar'
 import { shadow4dp } from '../material/shadows'
 import {

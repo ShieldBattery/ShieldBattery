@@ -16,12 +16,12 @@ import {
 } from './action-creators'
 
 import ActivityBackButton from '../activities/activity-back-button'
-import Footer from './browser-footer'
+import { BrowserFooter as Footer } from './browser-footer'
 import ImageList from '../material/image-list'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import LoadingIndicator from '../progress/dots'
 import MapPreview from './map-preview'
-import MapThumbnail from './map-thumbnail'
+import { MapThumbnail } from './map-thumbnail'
 import Tabs, { TabItem } from '../material/tabs'
 
 import {

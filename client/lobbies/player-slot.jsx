@@ -6,7 +6,7 @@ import Avatar from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
 import RacePicker from './race-picker'
 import SelectedRace from './selected-race'
-import SlotActions from './slot-actions'
+import { SlotActions } from './slot-actions'
 import { Slot, SlotLeft, SlotRight, SlotName, SlotProfile } from './slot'
 
 const StyledAvatar = styled(Avatar)`

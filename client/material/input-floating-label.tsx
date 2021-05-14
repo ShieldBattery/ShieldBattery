@@ -1,10 +1,16 @@
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
-
+import { amberA400, colorError, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { fastOutSlowInShort } from './curves'
-import { amberA400, colorTextFaint, colorTextSecondary, colorError } from '../styles/colors'
 
-const FloatingLabel = styled.label`
+const FloatingLabel = styled.label<{
+  hasValue?: boolean
+  focused?: boolean
+  error?: boolean
+  disabled?: boolean
+  dense?: boolean
+  leadingIconsLength?: number
+}>`
   position: absolute;
   left: ${props => {
     if (!props.leadingIconsLength) return '12px'
@@ -60,6 +66,7 @@ FloatingLabel.propTypes = {
   focused: PropTypes.bool,
   error: PropTypes.bool,
   disabled: PropTypes.bool,
+  dense: PropTypes.bool,
   leadingIconsLength: PropTypes.number,
 }
 
