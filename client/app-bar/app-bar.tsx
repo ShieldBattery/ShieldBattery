@@ -1,4 +1,5 @@
 import React, { useCallback, useLayoutEffect, useMemo, useState } from 'react'
+import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
 import { DEV_INDICATOR } from '../../common/flags'
 import { useIsAdmin } from '../admin/admin-permissions'
@@ -14,6 +15,7 @@ import MenuItem from '../material/menu/item'
 import Menu from '../material/menu/menu'
 import { useAnchorPosition } from '../material/popover'
 import { shadow4dp } from '../material/shadows'
+import { defaultSpring } from '../material/springs'
 import { standardIncrement } from '../material/units'
 import { zIndexAppBar } from '../material/zindex'
 import { push } from '../navigation/routing'
@@ -147,6 +149,14 @@ const APP_MENU_LINKS: Array<[text?: string, icon?: React.ReactNode, url?: string
   ['Ko-fi', <KofiColorIcon />, 'https://ko-fi.com/tec27'],
 ]
 
+const MENU_TRANSITION: UseTransitionProps<boolean> = {
+  from: { opacity: 0, scaleY: 0.5 },
+  enter: { opacity: 1, scaleY: 1 },
+  leave: { opacity: 0, scaleY: 0 },
+  config: (item, index, phase) => key =>
+    phase === 'leave' || key === 'opacity' ? { ...defaultSpring, clamp: true } : defaultSpring,
+}
+
 export default function AppBar(props: AppBarProps) {
   useLayoutEffect(() => {
     document.body.style.setProperty('--sb-system-bar-height', standardIncrement)
@@ -208,7 +218,8 @@ export default function AppBar(props: AppBarProps) {
           originX='center'
           originY='top'
           anchorX={(anchorX ?? 0) - 8}
-          anchorY={anchorY ?? 0}>
+          anchorY={anchorY ?? 0}
+          transitionProps={MENU_TRANSITION}>
           {appMenuItems}
         </AppMenu>
         {DEV_INDICATOR ? <DevIndicator onClick={() => push('/dev')}>Dev</DevIndicator> : null}
