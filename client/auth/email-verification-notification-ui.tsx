@@ -17,7 +17,7 @@ const ColoredWarningIcon = styled(WarningIcon)`
 // SORRY(tec27): lol this is the biggest mouthful sorry
 export interface EmailVerificationNotificationUiProps {
   showDivider: boolean
-  unread: boolean
+  read: boolean
 }
 
 export const EmailVerificationNotificationUi = React.forwardRef<
@@ -37,7 +37,7 @@ export const EmailVerificationNotificationUi = React.forwardRef<
     <ActionlessNotification
       ref={ref}
       showDivider={props.showDivider}
-      unread={props.unread}
+      read={props.read}
       icon={<ColoredWarningIcon />}
       text={
         <span>

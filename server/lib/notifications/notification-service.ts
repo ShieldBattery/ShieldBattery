@@ -5,6 +5,7 @@ import {
   NotificationClearByIdEvent,
   NotificationServerInitEvent,
 } from '../../../common/notifications'
+import logger from '../logging/logger'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import {
   addNotification,
@@ -20,19 +21,24 @@ export function getNotificationsPath(userId: number): string {
 @singleton()
 export default class NotificationService {
   constructor(private nydus: NydusServer, private clientSocketsManager: ClientSocketsManager) {
-    this.clientSocketsManager.on('newClient', async c => {
-      const notifications = await retrieveNotifications({ userId: c.userId })
-
-      const serverInitEventData: NotificationServerInitEvent = {
-        type: 'serverInit',
-        notifications: notifications.map(n => ({
-          id: n.id,
-          read: n.read,
-          createdAt: Number(n.createdAt),
-          ...n.data,
-        })),
-      }
-      c.subscribe(getNotificationsPath(c.userId), () => serverInitEventData)
+    this.clientSocketsManager.on('newClient', c => {
+      retrieveNotifications({ userId: c.userId }).then(
+        notifications => {
+          const serverInitEventData: NotificationServerInitEvent = {
+            type: 'serverInit',
+            notifications: notifications.map(n => ({
+              id: n.id,
+              read: n.read,
+              createdAt: Number(n.createdAt),
+              ...n.data,
+            })),
+          }
+          c.subscribe(getNotificationsPath(c.userId), () => serverInitEventData)
+        },
+        err => {
+          logger.error({ err }, 'error retrieving user notifications')
+        },
+      )
     })
   }
 

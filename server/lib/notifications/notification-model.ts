@@ -7,7 +7,13 @@ export interface BaseNotificationData {
   readonly type: NotificationType
 }
 
-export type NotificationData = BaseNotificationData
+export interface PartyInviteNotificationData extends BaseNotificationData {
+  type: typeof NotificationType.PartyInvite
+  from: string
+  partyId: string
+}
+
+export type NotificationData = PartyInviteNotificationData
 
 export interface Notification {
   id: string

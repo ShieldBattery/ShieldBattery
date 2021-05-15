@@ -1,4 +1,4 @@
-import { Set } from 'immutable'
+import { OrderedSet } from 'immutable'
 import { lighten } from 'polished'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
@@ -15,6 +15,7 @@ import { NotificationType } from '../../common/notifications'
 import { EmailVerificationNotificationUi } from '../auth/email-verification-notification-ui'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
 import CheckIcon from '../icons/material/check-24px.svg'
+import IconButton from '../material/icon-button'
 import { shadow6dp } from '../material/shadows'
 import { defaultSpring } from '../material/springs'
 import { zIndexMenu } from '../material/zindex'
@@ -22,7 +23,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious } from '../state-hooks'
 import { blue900, grey800 } from '../styles/colors'
 import { markLocalNotificationsRead, markNotificationsRead } from './action-creators'
-import { NotificationRecord } from './notification-reducer'
+import { NotificationRecord, NotificationRecordBase } from './notification-reducer'
 
 const POPOVER_DURATION = 10000
 
@@ -57,14 +58,10 @@ const Popup = styled(animated.div)`
   }
 `
 
-const MarkAsReadContainer = styled.div`
+const MarkAsReadButton = styled(IconButton)`
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
   height: 100%;
-  cursor: pointer;
+  border-radius: 0;
   background-color: ${blue900};
 
   &:hover {
@@ -77,32 +74,30 @@ const MarkAsReadContainer = styled.div`
 
 export default function NotificationPopups() {
   const dispatch = useAppDispatch()
-  const map = useAppSelector(s => s.notifications.map)
-  const ids = useAppSelector(s => s.notifications.ids)
-  const unreadIds = ids.filter(id => !map.get(id)?.read)
-  const prevIds = usePrevious(unreadIds.toSet()) || Set()
-  const newIds = unreadIds.toSet().subtract(prevIds)
-  const removedIds = prevIds.subtract(unreadIds.toSet())
+  const idToNotification = useAppSelector(s => s.notifications.idToNotification)
+  const notificationIds = useAppSelector(s => s.notifications.reversedNotificationIds)
+  const unreadIds = notificationIds.filter(id => !idToNotification.get(id)?.read)
+  const prevIds = usePrevious(unreadIds) ?? OrderedSet()
+  const newIds = unreadIds.subtract(prevIds)
+  const removedIds = prevIds.subtract(unreadIds)
 
   const popupElems = useRef(new Map<string, HTMLDivElement>())
-  // TODO(2Pac): Replace this eslint rule with func-call-spacing as that one supports generics.
-  // eslint-disable-next-line no-spaced-func
   const cancelFuncs = useRef(new Map<string, () => Controller>())
   const portalRef = useExternalElementRef()
   const [notificationItems, setNotificationItems] = useState<NotificationRecord[]>([])
 
   useEffect(() => {
-    setNotificationItems(items => [...map.filter(n => newIds.includes(n.id)).values(), ...items])
-  }, [map, newIds])
+    setNotificationItems(items => [...newIds.map(id => idToNotification.get(id)!), ...items])
+  }, [idToNotification, newIds])
 
   useEffect(() => {
-    removedIds.forEach(id => {
+    for (const id of removedIds) {
       const cancelFunc = cancelFuncs.current.get(id)
       if (cancelFunc) {
         cancelFunc()
         cancelFuncs.current.delete(id)
       }
-    })
+    }
   }, [removedIds, cancelFuncs])
 
   const popupTransition = useTransition<NotificationRecord, UseTransitionProps<NotificationRecord>>(
@@ -118,6 +113,12 @@ export default function NotificationPopups() {
       onRest: (result: AnimationResult, ctrl: Controller, item: NotificationRecord) => {
         setNotificationItems(state => state.filter(i => i.id !== item.id))
       },
+      /**
+       * Force the react-spring to remove the notification element from the DOM as soon as its
+       * 'leave' animation has finished, so the popup's container scroll height can be recalculated
+       * and work as expected.
+       */
+      expires: 1,
       config: (item, index, phase) => key => {
         return {
           ...defaultSpring,
@@ -130,7 +131,7 @@ export default function NotificationPopups() {
 
   const onMarkAsRead = useCallback(
     (notification: NotificationRecord) => {
-      if (notification.local) {
+      if ((notification as NotificationRecordBase).local) {
         dispatch(markLocalNotificationsRead([notification.id]))
       } else {
         dispatch(markNotificationsRead([notification.id]))
@@ -144,9 +145,11 @@ export default function NotificationPopups() {
       {popupTransition((styles, item) => (
         <Popup style={styles}>
           {toUi(item, popupElems.current)}
-          <MarkAsReadContainer title='Mark as read' onClick={() => onMarkAsRead(item)}>
-            <CheckIcon />
-          </MarkAsReadContainer>
+          <MarkAsReadButton
+            icon={<CheckIcon />}
+            title='Mark as read'
+            onClick={() => onMarkAsRead(item)}
+          />
         </Popup>
       ))}
     </PopupsContainer>,
@@ -162,10 +165,12 @@ function toUi(notification: NotificationRecord, popupElems: Map<string, HTMLDivE
           ref={elem => elem && popupElems.set(notification.id, elem)}
           key={notification.id}
           showDivider={false}
-          unread={!notification.read}
+          read={notification.read}
         />
       )
+    case NotificationType.PartyInvite:
+      return <span />
     default:
-      return assertUnreachable(notification.type)
+      return assertUnreachable(notification)
   }
 }

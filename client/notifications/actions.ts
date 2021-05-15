@@ -1,5 +1,7 @@
+import { Map, OrderedSet } from 'immutable'
 import { Notification } from '../../common/notifications'
 import { BaseFetchFailure } from '../network/fetch-action-types'
+import { NotificationRecord } from './notification-reducer'
 
 export type NotificationActions =
   | ServerInitNotifications
@@ -7,22 +9,32 @@ export type NotificationActions =
   | ClearByIdNotification
   | ClearNotificationsBegin
   | ClearNotifications
-  | BaseFetchFailure<'@notifications/clear'>
-  | MarkLocalNotificationsRead
+  | ClearNotificationsFailure
   | MarkNotificationsReadBegin
   | MarkNotificationsRead
   | MarkNotificationsReadFailure
 
+/**
+ * Action which initializes the client's list of notifications with all the visible, server-side
+ * notifications they might have, merging them with all the existing, locally generated ones.
+ * Usually done whenever a new client connects to the server.
+ */
 export interface ServerInitNotifications {
   type: '@notifications/serverInit'
   payload: { notifications: Readonly<Notification[]> }
 }
 
+/**
+ * Adds a new notification to the top of the list of already existing ones.
+ */
 export interface AddNotification {
   type: '@notifications/add'
   payload: { notification: Readonly<Notification> }
 }
 
+/**
+ * Clears a specific notification from the list of notifications, i.e. makes it not visible anymore.
+ */
 export interface ClearByIdNotification {
   type: '@notifications/clearById'
   payload: { notificationId: Readonly<string> }
@@ -30,28 +42,39 @@ export interface ClearByIdNotification {
 
 export interface ClearNotificationsBegin {
   type: '@notifications/clearBegin'
+  payload: {
+    idToNotification: Map<string, NotificationRecord>
+    notificationIds: OrderedSet<string>
+  }
 }
 
+/**
+ * Clears *all* of the notifications from the list, both the ones generated locally and the ones
+ * generated on the server.
+ */
 export interface ClearNotifications {
   type: '@notifications/clear'
   payload: void
+  meta: { idToNotification: Map<string, NotificationRecord>; notificationIds: OrderedSet<string> }
   error?: false
 }
 
-export interface MarkLocalNotificationsRead {
-  type: '@notifications/markRead'
-  payload: { notificationIds: string[] }
-  meta: { notificationIds: string[] }
-  error?: false
+export interface ClearNotificationsFailure extends BaseFetchFailure<'@notifications/clear'> {
+  meta: { idToNotification: Map<string, NotificationRecord>; notificationIds: OrderedSet<string> }
 }
 
 export interface MarkNotificationsReadBegin {
   type: '@notifications/markReadBegin'
+  payload: { notificationIds: string[] }
 }
 
+/**
+ * Marks all the given notifications as read, both the ones generated locally and the ones generated
+ * on the server.
+ */
 export interface MarkNotificationsRead {
   type: '@notifications/markRead'
-  payload: void
+  payload?: void
   meta: { notificationIds: string[] }
   error?: false
 }

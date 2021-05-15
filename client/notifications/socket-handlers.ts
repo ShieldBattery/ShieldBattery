@@ -1,7 +1,6 @@
 import type { NydusClient, RouteHandler, RouteInfo } from 'nydus-client'
 import { NotificationEvent } from '../../common/notifications'
 import { dispatch, Dispatchable } from '../dispatch-registry'
-import { addNotification } from './action-creators'
 
 type EventToActionMap = {
   [E in NotificationEvent['type']]?: (
@@ -18,8 +17,12 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  add: event => dispatch => {
-    dispatch(addNotification(event.notification))
+  add: event => {
+    const { notification } = event
+    return {
+      type: '@notifications/add',
+      payload: { notification },
+    }
   },
 
   clearById: event => {

@@ -3,12 +3,15 @@ import { ThunkAction } from '../dispatch-registry'
 import fetch from '../network/fetch'
 import { apiUrl } from '../network/urls'
 import { openSnackbar } from '../snackbars/action-creators'
-import { AddNotification, MarkLocalNotificationsRead } from './actions'
+import { AddNotification, MarkNotificationsReadBegin } from './actions'
 
 export function clearNotifications(): ThunkAction {
-  return dispatch => {
+  return (dispatch, getState) => {
+    const { idToNotification, notificationIds } = getState().notifications
+
     dispatch({
       type: '@notifications/clearBegin',
+      payload: { idToNotification, notificationIds },
     })
 
     dispatch({
@@ -21,6 +24,7 @@ export function clearNotifications(): ThunkAction {
         )
         throw err
       }),
+      meta: { idToNotification, notificationIds },
     })
   }
 }
@@ -32,11 +36,10 @@ export function addNotification(notification: Readonly<Notification>): AddNotifi
   }
 }
 
-export function markLocalNotificationsRead(notificationIds: string[]): MarkLocalNotificationsRead {
+export function markLocalNotificationsRead(notificationIds: string[]): MarkNotificationsReadBegin {
   return {
-    type: '@notifications/markRead',
+    type: '@notifications/markReadBegin',
     payload: { notificationIds },
-    meta: { notificationIds },
   }
 }
 
@@ -44,6 +47,7 @@ export function markNotificationsRead(notificationIds: string[]): ThunkAction {
   return dispatch => {
     dispatch({
       type: '@notifications/markReadBegin',
+      payload: { notificationIds },
     })
 
     const requestBody: MarkNotificationsReadServerBody = { notificationIds }

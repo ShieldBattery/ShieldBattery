@@ -1,4 +1,4 @@
-import { List, Map, Record } from 'immutable'
+import { Map, OrderedSet, Record } from 'immutable'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { EMAIL_VERIFICATION_ID, Notification, NotificationType } from '../../common/notifications'
 import keyedReducer from '../reducers/keyed-reducer'
@@ -17,68 +17,109 @@ export class EmailVerificationNotificationRecord
     type: NotificationType.EmailVerification as typeof NotificationType.EmailVerification,
     read: false,
     createdAt: 0,
-    local: true,
+    local: true as const,
   })
   implements NotificationRecordBase {}
 
-export type NotificationRecord = EmailVerificationNotificationRecord
+export class PartyInviteNotificationRecord
+  extends Record({
+    id: '',
+    type: NotificationType.PartyInvite as typeof NotificationType.PartyInvite,
+    read: false,
+    createdAt: 0,
+    from: '',
+    partyId: '',
+  })
+  implements NotificationRecordBase {}
+
+export type NotificationRecord = EmailVerificationNotificationRecord | PartyInviteNotificationRecord
 
 function toNotificationRecord(notification: Readonly<Notification>): NotificationRecord {
   switch (notification.type) {
     case NotificationType.EmailVerification:
       return new EmailVerificationNotificationRecord(notification)
+    case NotificationType.PartyInvite:
+      return new PartyInviteNotificationRecord(notification)
     default:
-      return assertUnreachable(notification.type)
+      return assertUnreachable(notification)
   }
 }
 
-export class NotificationState extends Record({
-  map: Map<string, NotificationRecord>(),
-  ids: List<string>(),
+function updateReadStatus(
+  state: NotificationState,
+  notificationIds: string[],
+  read: boolean,
+): Map<string, NotificationRecord> {
+  return Map(
+    notificationIds
+      .filter(id => state.idToNotification.has(id))
+      .map(id => [id, toNotificationRecord({ ...state.idToNotification.get(id)!.toJS(), read })]),
+  )
+}
+
+class NotificationBaseState extends Record({
+  idToNotification: Map<string, NotificationRecord>(),
+  notificationIds: OrderedSet<string>(),
 }) {}
+
+export class NotificationState extends NotificationBaseState {
+  get reversedNotificationIds() {
+    return this.notificationIds.reverse()
+  }
+}
 
 export default keyedReducer(new NotificationState(), {
   ['@notifications/serverInit'](state, { payload: { notifications } }) {
     return state
-      .update('map', m => m.merge(notifications.map(n => [n.id, toNotificationRecord(n)])))
-      .update('ids', s => s.unshift(...notifications.map(n => n.id)))
+      .update('idToNotification', m =>
+        m.merge(notifications.map(n => [n.id, toNotificationRecord(n)])),
+      )
+      .update('notificationIds', s => s.union(notifications.map(n => n.id)))
   },
 
   ['@notifications/add'](state, { payload: { notification } }) {
-    if (state.map.has(notification.id)) {
+    if (state.idToNotification.has(notification.id)) {
       return state
     }
 
     return state
-      .update('map', m => m.set(notification.id, toNotificationRecord(notification)))
-      .update('ids', s => s.unshift(notification.id))
+      .update('idToNotification', m => m.set(notification.id, toNotificationRecord(notification)))
+      .update('notificationIds', s => s.add(notification.id))
   },
 
   ['@notifications/clearById'](state, { payload: { notificationId } }) {
-    const notificationIndex = state.ids.indexOf(notificationId)
-
-    if (notificationIndex < 0) {
-      return state
-    }
-
-    return state.deleteIn(['map', notificationId]).deleteIn(['ids', notificationIndex])
+    return state
+      .deleteIn(['idToNotification', notificationId])
+      .deleteIn(['notificationIds', notificationId])
   },
 
-  ['@notifications/clear'](state) {
-    return state.set('map', Map()).set('ids', List())
+  ['@notifications/clearBegin'](state) {
+    // Apply the clear changes optimistically
+    return state.set('idToNotification', Map()).set('notificationIds', OrderedSet())
+  },
+
+  ['@notifications/clear'](state, { meta: { idToNotification, notificationIds }, error }) {
+    // If an error happened, undo the mutations that were done optimistically
+    if (error) {
+      return state
+        .mergeIn(['idToNotification'], idToNotification)
+        .mergeIn(['notificationIds'], notificationIds)
+    }
+
+    return state
+  },
+
+  ['@notifications/markReadBegin'](state, { payload: { notificationIds } }) {
+    // Apply the mark read changes optimistically
+    return state.mergeIn(['idToNotification'], updateReadStatus(state, notificationIds, true))
   },
 
   ['@notifications/markRead'](state, { meta: { notificationIds }, error }) {
+    // If an error happened, undo the mutations that were done optimistically
     if (error) {
-      return state
+      return state.mergeIn(['idToNotification'], updateReadStatus(state, notificationIds, false))
     }
 
-    let map = state.map
-    for (const notificationId of notificationIds) {
-      if (map.has(notificationId)) {
-        map = map.setIn([notificationId, 'read'], true)
-      }
-    }
-    return state.set('map', map)
+    return state
   },
 })
