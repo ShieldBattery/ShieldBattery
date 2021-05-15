@@ -1,3 +1,21 @@
+#### 7.0.12 (May 14, 2021)
+
+- **No more idling.** The ladder rankings now display when a user last played a game, so you can
+  get a better idea of who you're likely to catch in the queue, and who's just sitting at the top
+  hoping not to lose their rank.
+- **Chat improvements.** We've fixed a bunch of bugs related to scrolling and loading more messages
+  in chat and whispers, and added a message when days change between messages (no more getting
+  confused replying to that whisper from a week ago!)
+- **Load time improvements.** The game now loads a bit less unnecessary data, which should bring
+  the game start time down on slower systems.
+- **Beefier fonts.** We've fixed some issues with font rendering, so a number of components should
+  have thicker fonts as intended.
+- **More efficient menus.** We know SC players love efficiency, so we've changed our small overlays
+  (menus, profile popups, etc.) to allow you to click things behind them while they're open. This
+  should make it a bit less annoying to navigate things with a lot of menus.
+- **Crash fix.** We've fixed a rare crash that could occur with some hardware/software
+  configurations on Nvidia graphics cards.
+
 #### 7.0.10 (April 16, 2021)
 
 - **Can you hear me now?** Application sounds are now 150% louder, as they were a bit quiet relative

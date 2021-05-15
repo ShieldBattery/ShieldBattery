@@ -105,8 +105,8 @@ export function ConnectedDialogOverlay() {
     : { component: null, modal: false }
 
   const onCancel = useCallback(
-    (event: React.MouseEvent) => {
-      if (dialogType && !modal && !isHandledDismissalEvent(event.nativeEvent)) {
+    (event?: React.MouseEvent) => {
+      if (dialogType && !modal && (!event || !isHandledDismissalEvent(event.nativeEvent))) {
         dispatch(closeDialog())
       }
     },
