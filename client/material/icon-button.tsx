@@ -7,7 +7,7 @@ import Button, { ButtonCommon, ButtonProps } from './button'
 export const IconButtonContents = styled(ButtonCommon)`
   width: 48px;
   min-height: 48px;
-  border-radius: 50%;
+  border-radius: 8px;
   vertical-align: middle;
 
   ${props => {
@@ -19,7 +19,7 @@ export const IconButtonContents = styled(ButtonCommon)`
       }
 
       ${CardLayer} &:active {
-        background-color: rgba(255, 255, 255, 0.1);
+        background-color: rgba(255, 255, 255, 0.12);
       }
     `
   }}
