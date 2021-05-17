@@ -22,8 +22,9 @@ export function getNotificationsPath(userId: number): string {
 export default class NotificationService {
   constructor(private nydus: NydusServer, private clientSocketsManager: ClientSocketsManager) {
     this.clientSocketsManager.on('newClient', c => {
-      retrieveNotifications({ userId: c.userId }).then(
-        notifications => {
+      c.subscribe(getNotificationsPath(c.userId), async () => {
+        try {
+          const notifications = await retrieveNotifications({ userId: c.userId })
           const serverInitEventData: NotificationServerInitEvent = {
             type: 'serverInit',
             notifications: notifications.map(n => ({
@@ -33,12 +34,13 @@ export default class NotificationService {
               ...n.data,
             })),
           }
-          c.subscribe(getNotificationsPath(c.userId), () => serverInitEventData)
-        },
-        err => {
+
+          return serverInitEventData
+        } catch (err) {
           logger.error({ err }, 'error retrieving user notifications')
-        },
-      )
+          return undefined
+        }
+      })
     })
   }
 
