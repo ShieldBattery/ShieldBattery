@@ -79,7 +79,10 @@ abstract class SocketGroup<T> extends TypedEventEmitter<SocketGroupEvents<T>> {
    */
   subscribe(
     path: string,
-    initialDataGetter: (socketGroup: this, socket: NydusClient) => unknown = defaultDataGetter,
+    initialDataGetter: (
+      socketGroup: this,
+      socket: NydusClient,
+    ) => unknown | Promise<unknown> = defaultDataGetter,
     cleanup?: (socketGroup: this) => void,
   ) {
     if (this.subscriptions.has(path)) {
