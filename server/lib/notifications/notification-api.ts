@@ -1,11 +1,13 @@
 import Router, { RouterContext } from '@koa/router'
 import Joi from 'joi'
 import { container } from 'tsyringe'
-import { MarkNotificationsReadServerBody } from '../../../common/notifications'
+import {
+  ClearNotificationsServerBody,
+  MarkNotificationsReadServerBody,
+} from '../../../common/notifications'
 import { httpApi, HttpApi } from '../http/http-api'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
-import { clear, markRead } from './notification-model'
 import NotificationService from './notification-service'
 
 @httpApi()
@@ -25,8 +27,14 @@ export class NotificationApi extends HttpApi {
 }
 
 async function clearNotifications(ctx: RouterContext) {
-  // FIXME: this needs to use the service and needs to notify all connected clients
-  await clear(ctx.session!.userId)
+  const { body } = validateRequest(ctx, {
+    body: Joi.object<ClearNotificationsServerBody>({
+      timestamp: Joi.number().required(),
+    }),
+  })
+
+  const notificationService = container.resolve(NotificationService)
+  notificationService.clear(ctx.session!.userId, body.timestamp)
 
   ctx.status = 204
 }
@@ -38,8 +46,8 @@ async function markNotificationsRead(ctx: RouterContext) {
     }),
   })
 
-  // FIXME: this needs to use the service and needs to notify all connected clients
-  await markRead(ctx.session!.userId, body.notificationIds)
+  const notificationService = container.resolve(NotificationService)
+  notificationService.markRead(ctx.session!.userId, body.notificationIds)
 
   ctx.status = 204
 }

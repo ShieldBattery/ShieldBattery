@@ -42,10 +42,7 @@ export interface ClearByIdNotification {
 
 export interface ClearNotificationsBegin {
   type: '@notifications/clearBegin'
-  payload: {
-    idToNotification: Map<string, NotificationRecord>
-    notificationIds: OrderedSet<string>
-  }
+  payload: { timestamp: number }
 }
 
 /**
@@ -55,7 +52,7 @@ export interface ClearNotificationsBegin {
 export interface ClearNotifications {
   type: '@notifications/clear'
   payload: void
-  meta: { idToNotification: Map<string, NotificationRecord>; notificationIds: OrderedSet<string> }
+  meta: { timestamp: number }
   error?: false
 }
 

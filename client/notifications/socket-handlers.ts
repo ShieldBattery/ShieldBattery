@@ -25,11 +25,27 @@ const eventToAction: EventToActionMap = {
     }
   },
 
+  clear: event => {
+    const { timestamp } = event
+    return {
+      type: '@notifications/clearBegin',
+      payload: { timestamp },
+    }
+  },
+
   clearById: event => {
     const { notificationId } = event
     return {
       type: '@notifications/clearById',
       payload: { notificationId },
+    }
+  },
+
+  markRead: event => {
+    const { notificationIds } = event
+    return {
+      type: '@notifications/markReadBegin',
+      payload: { notificationIds },
     }
   },
 }

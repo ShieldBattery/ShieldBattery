@@ -51,10 +51,26 @@ export interface NotificationClearByIdEvent {
   notificationId: string
 }
 
+export interface NotificationClearEvent {
+  type: 'clear'
+  timestamp: number
+}
+
+export interface NotificationMarkReadEvent {
+  type: 'markRead'
+  notificationIds: string[]
+}
+
 export type NotificationEvent =
   | NotificationServerInitEvent
   | NotificationAddEvent
+  | NotificationClearEvent
   | NotificationClearByIdEvent
+  | NotificationMarkReadEvent
+
+export interface ClearNotificationsServerBody {
+  timestamp: number
+}
 
 export interface MarkNotificationsReadServerBody {
   notificationIds: string[]

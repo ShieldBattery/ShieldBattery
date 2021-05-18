@@ -57,6 +57,11 @@ function updateReadStatus(
   )
 }
 
+// Cache the values of the cleared notifications so they can easily be restored if the server
+// returns an error.
+let clearedIdToNotification: Map<string, NotificationRecord>
+let clearedNotificationIds: OrderedSet<string>
+
 class NotificationBaseState extends Record({
   idToNotification: Map<string, NotificationRecord>(),
   notificationIds: OrderedSet<string>(),
@@ -93,17 +98,23 @@ export default keyedReducer(new NotificationState(), {
       .deleteIn(['notificationIds', notificationId])
   },
 
-  ['@notifications/clearBegin'](state) {
+  ['@notifications/clearBegin'](state, { payload: { timestamp } }) {
+    clearedIdToNotification = state.idToNotification.filter(n => n.createdAt <= timestamp)
+    // Preserve the order of the cleared notification IDs set
+    clearedNotificationIds = state.notificationIds.filter(id => clearedIdToNotification.has(id))
+
     // Apply the clear changes optimistically
-    return state.set('idToNotification', Map()).set('notificationIds', OrderedSet())
+    return state
+      .update('idToNotification', map => map.filter(n => !clearedIdToNotification.has(n.id)))
+      .update('notificationIds', ids => ids.subtract(clearedNotificationIds))
   },
 
-  ['@notifications/clear'](state, { meta: { idToNotification, notificationIds }, error }) {
+  ['@notifications/clear'](state, { error }) {
     // If an error happened, undo the mutations that were done optimistically
     if (error) {
       return state
-        .mergeIn(['idToNotification'], idToNotification)
-        .mergeIn(['notificationIds'], notificationIds)
+        .mergeIn(['idToNotification'], clearedIdToNotification)
+        .mergeIn(['notificationIds'], clearedNotificationIds)
     }
 
     return state

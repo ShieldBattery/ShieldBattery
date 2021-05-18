@@ -1,4 +1,8 @@
-import { MarkNotificationsReadServerBody, Notification } from '../../common/notifications'
+import {
+  ClearNotificationsServerBody,
+  MarkNotificationsReadServerBody,
+  Notification,
+} from '../../common/notifications'
 import { ThunkAction } from '../dispatch-registry'
 import fetch from '../network/fetch'
 import { apiUrl } from '../network/urls'
@@ -8,15 +12,21 @@ import { AddNotification, MarkNotificationsReadBegin } from './actions'
 export function clearNotifications(): ThunkAction {
   return (dispatch, getState) => {
     const { idToNotification, notificationIds } = getState().notifications
+    const newestNotification = idToNotification.get(notificationIds.last())
+    const timestamp = newestNotification?.createdAt ?? Date.now()
 
     dispatch({
       type: '@notifications/clearBegin',
-      payload: { idToNotification, notificationIds },
+      payload: { timestamp },
     })
 
+    const requestBody: ClearNotificationsServerBody = { timestamp }
     dispatch({
       type: '@notifications/clear',
-      payload: fetch<void>(apiUrl`notifications/clear`, { method: 'post' }).catch(err => {
+      payload: fetch<void>(apiUrl`notifications/clear`, {
+        method: 'post',
+        body: JSON.stringify(requestBody),
+      }).catch(err => {
         dispatch(
           openSnackbar({
             message: 'An error occurred while clearing notifications',
@@ -24,7 +34,7 @@ export function clearNotifications(): ThunkAction {
         )
         throw err
       }),
-      meta: { idToNotification, notificationIds },
+      meta: { timestamp },
     })
   }
 }
