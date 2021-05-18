@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useRef } from 'react'
 import styled from 'styled-components'
 import { Permissions } from '../../common/users/permissions'
 import form, { FormChildProps, FormWrapper } from '../forms/form'
+import { TextButton } from '../material/button'
 import CheckBox from '../material/check-box'
-import FlatButton from '../material/flat-button'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { getPermissionsIfNeeded, setPermissions } from './action-creators'
@@ -114,7 +114,7 @@ export default function PermissionsResult({ username }: PermissionsResultProps) 
         model={model}
         onSubmit={onSubmit}
       />
-      <FlatButton label='Save' color='accent' tabIndex={0} onClick={onSaveClick} />
+      <TextButton label='Save' color='accent' tabIndex={0} onClick={onSaveClick} />
     </Container>
   )
 }

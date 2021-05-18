@@ -15,9 +15,8 @@ import CancelIcon from '../icons/material/baseline-clear-24px.svg'
 import SaveIcon from '../icons/material/check-24px.svg'
 import EditIcon from '../icons/material/edit-24px.svg'
 import KeyListener from '../keyboard/key-listener'
-import { Label } from '../material/button'
+import { IconButton } from '../material/button'
 import Dialog from '../material/dialog'
-import IconButton from '../material/icon-button'
 import { ScrollableContent } from '../material/scroll-bar'
 import TextField from '../material/text-field'
 import LoadingIndicator from '../progress/dots'
@@ -83,10 +82,6 @@ const EditButton = styled(IconButton)`
   position: absolute;
   top: 0;
   right: 16px;
-
-  & ${Label} {
-    color: ${colorTextSecondary};
-  }
 `
 
 const MapData = styled.div`

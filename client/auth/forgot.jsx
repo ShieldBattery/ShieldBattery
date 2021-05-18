@@ -21,7 +21,7 @@ import {
   regex,
   required,
 } from '../forms/validators'
-import RaisedButton from '../material/raised-button'
+import { RaisedButton } from '../material/button'
 import { push } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
 import { recoverUsername, resetPassword, startPasswordReset } from './action-creators'

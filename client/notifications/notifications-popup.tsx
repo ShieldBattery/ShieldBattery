@@ -1,5 +1,4 @@
 import { OrderedSet } from 'immutable'
-import { lighten } from 'polished'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
 import {
@@ -15,7 +14,7 @@ import { NotificationType } from '../../common/notifications'
 import { EmailVerificationNotificationUi } from '../auth/email-verification-notification-ui'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
 import CheckIcon from '../icons/material/check-24px.svg'
-import IconButton from '../material/icon-button'
+import { IconButton } from '../material/button'
 import { shadow6dp } from '../material/shadows'
 import { defaultSpring } from '../material/springs'
 import { zIndexMenu } from '../material/zindex'
@@ -63,13 +62,6 @@ const MarkAsReadButton = styled(IconButton)`
   height: 100%;
   border-radius: 0;
   background-color: ${blue900};
-
-  &:hover {
-    background-color: ${lighten(0.08, blue900)};
-  }
-  &:active {
-    background-color: ${lighten(0.12, blue900)};
-  }
 `
 
 export default function NotificationPopups() {

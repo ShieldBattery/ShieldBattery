@@ -7,8 +7,7 @@ import form from '../forms/form'
 import SuccessIcon from '../icons/material/baseline-check_circle-24px.svg'
 import ErrorIcon from '../icons/material/baseline-error-24px.svg'
 import uploadMap from '../maps/upload'
-import FlatButton from '../material/flat-button'
-import RaisedButton from '../material/raised-button'
+import { RaisedButton, TextButton } from '../material/button'
 import { ScrollableContent } from '../material/scroll-bar'
 import fetch from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
@@ -208,12 +207,12 @@ export default class MapManager extends React.Component {
               This cannot be reversed.
             </WarningText>
             <p>Are you sure?</p>
-            <FlatButton
+            <TextButton
               label='No'
               color='accent'
               onClick={() => this.setState({ areYouSure: false })}
             />
-            <FlatButton label='Yes' color='accent' onClick={this.onDeleteMapsClick} />
+            <TextButton label='Yes' color='accent' onClick={this.onDeleteMapsClick} />
           </div>
         ) : null}
         {isDeleting ? <LoadingIndicator /> : null}

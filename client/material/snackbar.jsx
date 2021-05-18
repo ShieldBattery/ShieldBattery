@@ -2,8 +2,8 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
 import { grey800 } from '../styles/colors'
+import { TextButton } from './button'
 import { fastOutLinearIn, fastOutSlowIn, linearOutSlowIn } from './curve-constants'
-import FlatButton from './flat-button'
 import { shadow6dp } from './shadows'
 import { zIndexSnackbar } from './zindex'
 
@@ -14,7 +14,7 @@ const MessageContainer = styled.div`
   overflow: hidden;
 `
 
-const ActionButton = styled(FlatButton)`
+const ActionButton = styled(TextButton)`
   flex-shrink: 0;
   margin-left: 24px;
   margin-right: 16px;

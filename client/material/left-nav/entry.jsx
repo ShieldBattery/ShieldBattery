@@ -45,6 +45,7 @@ const EntryLink = styled(Link)`
 `
 
 const EntryButton = styled.div`
+  height: 100%;
   opacity: 0;
   transition: opacity 100ms linear;
 

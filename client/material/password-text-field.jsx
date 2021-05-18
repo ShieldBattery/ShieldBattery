@@ -1,27 +1,21 @@
 import React from 'react'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import ShowPasswordIcon from '../icons/material/visibility-24px.svg'
 import HidePasswordIcon from '../icons/material/visibility_off-24px.svg'
-import { colorTextSecondary } from '../styles/colors'
-import { Label } from './button'
-import IconButton from './icon-button'
+import { IconButton } from './button'
 import TextField from './text-field'
 
 const VisibilityButton = styled(IconButton)`
   ${props => {
     return props.dense
-      ? `
-        width: 32px;
-        height: 32px;
-        min-height: 32px;
-        padding: 0;
-      `
+      ? css`
+          width: 32px;
+          height: 32px;
+          min-height: 32px;
+          padding: 0;
+        `
       : ''
   }}
-
-  & ${Label} {
-    color: ${colorTextSecondary};
-  }
 `
 
 export default class PasswordTextField extends React.Component {

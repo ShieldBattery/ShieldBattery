@@ -109,8 +109,8 @@ const ResetStyle = createGlobalStyle`
     cursor: pointer;
   }
 
-  button[disabled],
-  html input[disabled] {
+  button:disabled,
+  html input:disabled {
     cursor: default;
   }
 

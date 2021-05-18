@@ -2,11 +2,9 @@ import React from 'react'
 import styled from 'styled-components'
 import TrailingIcon from '../../icons/material/baseline-check_circle-24px.svg'
 import LeadingIcon from '../../icons/material/baseline-view_list-24px.svg'
-import { colorTextSecondary } from '../../styles/colors'
-import { Label } from '../button'
+import { IconButton } from '../button'
 import Card from '../card'
 import CheckBox from '../check-box'
-import IconButton from '../icon-button'
 import PasswordTextField from '../password-text-field'
 import TextField from '../text-field'
 
@@ -22,21 +20,11 @@ const StyledCard = styled(Card)`
   max-width: 640px;
 `
 
-const SecondaryIconButton = styled(IconButton)`
-  & ${Label} {
-    color: ${colorTextSecondary};
-  }
-`
-
 const DenseIconButton = styled(IconButton)`
   width: 32px;
   height: 32px;
   min-height: 32px;
   padding: 0;
-
-  & ${Label} {
-    color: ${colorTextSecondary};
-  }
 `
 
 export default class TextFieldTest extends React.Component {
@@ -161,12 +149,12 @@ export default class TextFieldTest extends React.Component {
                     />,
                   ]
                 : [
-                    <SecondaryIconButton
+                    <IconButton
                       icon={<LeadingIcon />}
                       title='Leading action 1'
                       onClick={this.onActionClick}
                     />,
-                    <SecondaryIconButton
+                    <IconButton
                       icon={<LeadingIcon />}
                       title='Leading action 2'
                       onClick={this.onActionClick}
@@ -205,12 +193,12 @@ export default class TextFieldTest extends React.Component {
                     />,
                   ]
                 : [
-                    <SecondaryIconButton
+                    <IconButton
                       icon={<TrailingIcon />}
                       title='Trailing action 1'
                       onClick={this.onActionClick}
                     />,
-                    <SecondaryIconButton
+                    <IconButton
                       icon={<TrailingIcon />}
                       title='Trailing action 2'
                       onClick={this.onActionClick}

@@ -1,177 +1,445 @@
-import PropTypes from 'prop-types'
-import React, { MutableRefObject } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { colorTextFaint, colorTextPrimary } from '../styles/colors'
+import { assertUnreachable } from '../../common/assert-unreachable'
+import {
+  amberA400,
+  blue400,
+  blue500,
+  CardLayer,
+  colorTextFaint,
+  colorTextPrimary,
+  colorTextSecondary,
+} from '../styles/colors'
 import { buttonText } from '../styles/typography'
-import { reset } from './button-reset'
+import { buttonReset } from './button-reset'
 import { fastOutSlowInShort } from './curves'
+import { Ripple, RippleController } from './ripple'
+import { shadowDef4dp, shadowDef8dp } from './shadow-constants'
+import { shadow2dp } from './shadows'
 
-export interface ButtonCommonProps {
-  disabled?: boolean
-  focused?: boolean
-}
-
-export const ButtonCommon = styled.button<ButtonCommonProps>`
-  ${reset};
-  display: inline-table;
-  min-height: 36px;
-  border-radius: 4px;
-  text-align: center;
-  ${fastOutSlowInShort};
-
-  ${props => {
-    if (props.disabled) return ''
-
-    return `
-      &:hover {
-        background-color: rgba(255, 255, 255, 0.08);
-      }
-      ${props.focused ? 'background-color: rgba(255, 255, 255, 0.08)' : ''};
-    `
-  }}
-`
-
-export const ButtonContent = styled(ButtonCommon)`
-  min-width: 88px;
-  margin: 6px 0;
-  padding: 0 16px;
-`
-
-export interface ButtonLabelProps {
-  disabled?: boolean
-}
-
-export const Label = styled.span<ButtonLabelProps>`
+export const Label = styled.span`
   ${buttonText};
   display: flex;
   justify-content: center;
   align-items: center;
-  color: ${props => (props.disabled ? colorTextFaint : colorTextPrimary)};
+  color: currentColor;
   line-height: 36px;
   white-space: nowrap;
 `
 
-export interface ButtonProps {
-  label: string | React.ReactNode
+export interface ButtonStateProps {
   disabled?: boolean
-  contentComponent?: React.ComponentType
+  onBlur?: (event: React.FocusEvent) => void
+  onFocus?: (event: React.FocusEvent) => void
+  onClick?: (event: React.MouseEvent) => void
+  onMouseDown?: (event: React.MouseEvent) => void
+  onMouseEnter?: (event: React.MouseEvent) => void
+  onMouseLeave?: (event: React.MouseEvent) => void
+}
+
+/**
+ * Props that are included in the returned props of `useButtonState`. This can be used on a
+ * styled-component to modify the style based on passed props.
+ *
+ * @example
+ *
+ * const CoolButton = styled.button<ButtonStateStyleProps>`
+ *   background: ${props => props.$focused ? 'red' : 'blue'};
+ * `
+ */
+export interface ButtonStateStyleProps {
+  $focused: boolean
+}
+
+export interface ButtonStateAppliedProps extends ButtonStateStyleProps {
+  disabled: boolean
+  onBlur: (event: React.FocusEvent) => void
+  onFocus: (event: React.FocusEvent) => void
+  onClick: (event: React.MouseEvent) => void
+  onMouseDown: (event: React.MouseEvent) => void
+  onMouseEnter: (event: React.MouseEvent) => void
+  onMouseLeave: (event: React.MouseEvent) => void
+  // TODO(tec27): Add keyboard handling
+}
+
+type ButtonState = [
+  /**
+   * Props that should be set on the button being controlled. Includes a number of properties that
+   * are useful only for styled-components (prepended with `$`). See `ButtonStateStyleProps` for a
+   * type to reference.
+   */
+  buttonProps: ButtonStateAppliedProps,
+  /** A ref to attach to a `Ripple` component inside of the button. */
+  rippleRef: React.RefObject<RippleController>,
+]
+
+export function useButtonState({
+  disabled,
+  onBlur,
+  onFocus,
+  onClick,
+  onMouseDown,
+  onMouseEnter,
+  onMouseLeave,
+}: ButtonStateProps): ButtonState {
+  const [focused, setFocused] = useState(false)
+  const rippleRef = useRef<RippleController>(null)
+
+  const handleBlur = useCallback(
+    (event: React.FocusEvent) => {
+      setFocused(false)
+      rippleRef.current?.onBlur()
+      if (onBlur) {
+        onBlur(event)
+      }
+    },
+    [onBlur],
+  )
+  const handleFocus = useCallback(
+    (event: React.FocusEvent) => {
+      setFocused(true)
+      rippleRef.current?.onFocus()
+      if (onFocus) {
+        onFocus(event)
+      }
+    },
+    [onFocus],
+  )
+
+  const handleClick = useCallback(
+    (event: React.MouseEvent) => {
+      event.preventDefault()
+      if (!disabled && onClick) {
+        onClick(event)
+      }
+    },
+    [disabled, onClick],
+  )
+  const handleMouseUp = useCallback(() => {
+    window.removeEventListener('mouseup', handleMouseUp)
+    rippleRef.current?.onDeactivate()
+  }, [])
+  const handleMouseDown = useCallback(
+    (event: React.MouseEvent) => {
+      window.addEventListener('mouseup', handleMouseUp)
+
+      rippleRef.current?.onActivate(event)
+
+      if (!disabled && onMouseDown) {
+        onMouseDown(event)
+      }
+    },
+    [disabled, onMouseDown, handleMouseUp],
+  )
+
+  const handleMouseEnter = useCallback(
+    (event: React.MouseEvent) => {
+      rippleRef.current?.onMouseEnter()
+
+      if (!disabled && onMouseEnter) {
+        onMouseEnter(event)
+      }
+    },
+    [disabled, onMouseEnter],
+  )
+  const handleMouseLeave = useCallback(
+    (event: React.MouseEvent) => {
+      rippleRef.current?.onMouseLeave()
+
+      if (!disabled && onMouseLeave) {
+        onMouseLeave(event)
+      }
+    },
+    [disabled, onMouseLeave],
+  )
+
+  return [
+    {
+      disabled: disabled === true,
+      onBlur: handleBlur,
+      onFocus: handleFocus,
+      onClick: handleClick,
+      onMouseDown: handleMouseDown,
+      onMouseEnter: handleMouseEnter,
+      onMouseLeave: handleMouseLeave,
+      $focused: focused,
+    },
+    rippleRef,
+  ]
+}
+
+interface RaisedButtonStyleProps {
+  $color: 'primary' | 'accent'
+}
+
+const RaisedButtonRoot = styled.button<RaisedButtonStyleProps>`
+  ${buttonReset};
+  ${fastOutSlowInShort};
+  ${shadow2dp};
+
+  min-width: 88px;
+  min-height: 36px;
+  margin: 6px 0;
+  padding: 0 16px;
+  display: inline-table;
+
+  border-radius: 4px;
+  contain: content;
+  text-align: center;
+
+  background-color: ${props => (props.$color === 'accent' ? amberA400 : blue500)};
+  color: ${props => (props.$color === 'accent' ? 'rgba(0, 0, 0, 0.87)' : colorTextPrimary)};
+  --sb-ripple-color: ${props => (props.$color === 'accent' ? '#000000' : '#ffffff')};
+
+  &:hover,
+  &:focus {
+    box-shadow: ${shadowDef4dp};
+  }
+
+  &:active {
+    box-shadow: ${shadowDef8dp};
+  }
+
+  &:disabled {
+    background-color: rgba(255, 255, 255, 0.12);
+    box-shadow: none;
+    color: ${props => (props.$color === 'accent' ? 'rgba(0, 0, 0, 0.54)' : colorTextFaint)};
+  }
+
+  ${CardLayer} && {
+    &:disabled {
+      background-color: rgba(255, 255, 255, 0.08);
+    }
+  }
+`
+
+export interface RaisedButtonProps {
+  color?: 'primary' | 'accent'
+  label: string | React.ReactNode
+  className?: string
+  disabled?: boolean
   onBlur?: React.FocusEventHandler
   onFocus?: React.FocusEventHandler
   onClick?: React.MouseEventHandler
   onMouseDown?: React.MouseEventHandler
-  buttonRef?: React.Ref<HTMLButtonElement>
-  // TODO(tec27): Probably this should come from the content component type?
   tabIndex?: number
   title?: string
 }
 
-interface ButtonState {
-  isKeyboardFocused: boolean
-}
-
-// Button with Material Design goodness. You don't want to use this directly, see FlatButton or
-// RaisedButton instead
-export default class Button extends React.Component<ButtonProps, ButtonState> {
-  static propTypes = {
-    label: PropTypes.oneOfType([PropTypes.string, PropTypes.element]).isRequired,
-    contentComponent: PropTypes.elementType,
-    onBlur: PropTypes.func,
-    onFocus: PropTypes.func,
-    onClick: PropTypes.func,
-    onMouseDown: PropTypes.func,
-    buttonRef: PropTypes.oneOfType([PropTypes.func, PropTypes.object]),
-  }
-
-  state: ButtonState = {
-    isKeyboardFocused: false,
-  }
-
-  protected mouseActive = false
-  protected clearMouseActive: ReturnType<typeof setTimeout> | null = null
-  // TODO(tec27): Type this better
-  private ref: MutableRefObject<HTMLButtonElement | null> = React.createRef()
-  private setRef = (elem: HTMLButtonElement | null) => {
-    this.ref.current = elem
-
-    if (this.props.buttonRef) {
-      if (typeof this.props.buttonRef === 'function') {
-        this.props.buttonRef(elem)
-      } else {
-        ;(this.props.buttonRef as MutableRefObject<HTMLButtonElement | null>).current = elem
-      }
-    }
-  }
-
-  render() {
-    const {
+/**
+ * A button with a colored background that has elevation, used for high-emphasis actions.
+ * RaisedButton should generally be used for actions that are considered primary to the app.
+ */
+export const RaisedButton = React.forwardRef(
+  (
+    {
+      color = 'primary',
       label,
-      buttonRef, // eslint-disable-line @typescript-eslint/no-unused-vars
-      ...otherProps
-    } = this.props
+      className,
+      disabled,
+      onBlur,
+      onFocus,
+      onClick,
+      onMouseDown,
+      tabIndex,
+      title,
+    }: RaisedButtonProps,
+    ref: React.ForwardedRef<HTMLButtonElement>,
+  ) => {
+    const [buttonProps, rippleRef] = useButtonState({
+      disabled,
+      onBlur,
+      onFocus,
+      onClick,
+      onMouseDown,
+    })
 
-    const Component = this.props.contentComponent || ButtonCommon
     return (
-      <Component
-        ref={this.setRef}
-        disabled={this.props.disabled}
-        focused={this.state.isKeyboardFocused}
-        {...otherProps}
-        onBlur={this.handleBlur}
-        onFocus={this.handleFocus}
-        onClick={this.handleClick}
-        onMouseDown={this.handleMouseDown}>
-        <Label disabled={this.props.disabled}>{label}</Label>
-      </Component>
+      <RaisedButtonRoot
+        ref={ref}
+        className={className}
+        $color={color}
+        tabIndex={tabIndex}
+        title={title}
+        {...buttonProps}>
+        <Label>{label}</Label>
+        <Ripple ref={rippleRef} disabled={disabled} />
+      </RaisedButtonRoot>
     )
-  }
+  },
+)
 
-  focus() {
-    this.ref.current?.focus()
-  }
-
-  blur() {
-    this.ref.current?.blur()
-  }
-
-  private handleBlur = (e: React.FocusEvent) => {
-    if (this.state.isKeyboardFocused) {
-      this.setState({ isKeyboardFocused: false })
-    }
-
-    if (this.props.onBlur) {
-      this.props.onBlur(e)
-    }
-  }
-
-  private handleFocus = (e: React.FocusEvent) => {
-    if (!this.mouseActive) {
-      this.setState({ isKeyboardFocused: true })
-    }
-
-    if (this.props.onFocus) {
-      this.props.onFocus(e)
-    }
-  }
-
-  private handleClick = (e: React.MouseEvent) => {
-    e.preventDefault()
-    if (!this.props.disabled && this.props.onClick) {
-      this.props.onClick(e)
-    }
-  }
-
-  private handleMouseDown = (e: React.MouseEvent) => {
-    if (this.clearMouseActive) {
-      clearTimeout(this.clearMouseActive)
-    }
-    this.clearMouseActive = setTimeout(() => {
-      this.mouseActive = false
-      this.clearMouseActive = null
-    }, 100)
-    this.mouseActive = true
-
-    if (this.props.onMouseDown) {
-      this.props.onMouseDown(e)
-    }
-  }
+interface TextButtonStyleProps {
+  $color: 'normal' | 'primary' | 'accent'
 }
+
+const TextButtonRoot = styled.button<TextButtonStyleProps>`
+  ${buttonReset};
+  ${fastOutSlowInShort};
+
+  min-width: 64px;
+  min-height: 36px;
+  margin: 6px 0;
+  padding: 0 16px;
+  display: inline-table;
+
+  border-radius: 4px;
+  contain: content;
+  text-align: center;
+
+  background-color: transparent;
+  color: ${props => {
+    switch (props.$color) {
+      case 'normal':
+        return colorTextSecondary
+      case 'primary':
+        return blue400
+      case 'accent':
+        return amberA400
+      default:
+        return assertUnreachable(props.$color)
+    }
+  }};
+  --sb-ripple-color: ${props => {
+    switch (props.$color) {
+      case 'normal':
+        return '#ffffff'
+      case 'primary':
+      case 'accent':
+        return 'currentColor'
+      default:
+        return assertUnreachable(props.$color)
+    }
+  }};
+
+  &:disabled {
+    color: ${colorTextFaint};
+  }
+`
+
+export interface TextButtonProps {
+  color?: 'normal' | 'primary' | 'accent'
+  label: string | React.ReactNode
+  className?: string
+  disabled?: boolean
+  onBlur?: React.FocusEventHandler
+  onFocus?: React.FocusEventHandler
+  onClick?: React.MouseEventHandler
+  onMouseDown?: React.MouseEventHandler
+  tabIndex?: number
+  title?: string
+}
+
+/**
+ * A button with no background (only text), used for less-pronounced actions (such as in dialogs
+ * and cards).
+ */
+export const TextButton = React.forwardRef(
+  (
+    {
+      color = 'normal',
+      label,
+      className,
+      disabled,
+      onBlur,
+      onFocus,
+      onClick,
+      onMouseDown,
+      tabIndex,
+      title,
+    }: TextButtonProps,
+    ref: React.ForwardedRef<HTMLButtonElement>,
+  ) => {
+    const [buttonProps, rippleRef] = useButtonState({
+      disabled,
+      onBlur,
+      onFocus,
+      onClick,
+      onMouseDown,
+    })
+
+    return (
+      <TextButtonRoot
+        ref={ref}
+        className={className}
+        $color={color}
+        tabIndex={tabIndex}
+        title={title}
+        {...buttonProps}>
+        <Label>{label}</Label>
+        <Ripple ref={rippleRef} disabled={disabled} />
+      </TextButtonRoot>
+    )
+  },
+)
+
+const IconButtonRoot = styled.button`
+  ${buttonReset};
+  ${fastOutSlowInShort};
+
+  width: 48px;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  background-color: transparent;
+  border-radius: 8px;
+  color: ${colorTextSecondary};
+  contain: content;
+  --sb-ripple-color: #ffffff;
+
+  &:disabled {
+    color: ${colorTextFaint};
+  }
+`
+
+export interface IconButtonProps {
+  icon: React.ReactNode
+  title?: string
+  className?: string
+  disabled?: boolean
+  onBlur?: React.FocusEventHandler
+  onFocus?: React.FocusEventHandler
+  onClick?: React.MouseEventHandler
+  onMouseDown?: React.MouseEventHandler
+  tabIndex?: number
+}
+
+/** A button that displays just an icon (with no text, and no background or elevation). */
+export const IconButton = React.forwardRef(
+  (
+    {
+      icon,
+      title,
+      className,
+      disabled,
+      onBlur,
+      onFocus,
+      onClick,
+      onMouseDown,
+      tabIndex,
+    }: IconButtonProps,
+    ref: React.ForwardedRef<HTMLButtonElement>,
+  ) => {
+    const [buttonProps, rippleRef] = useButtonState({
+      disabled,
+      onBlur,
+      onFocus,
+      onClick,
+      onMouseDown,
+    })
+
+    return (
+      <IconButtonRoot
+        ref={ref}
+        className={className}
+        tabIndex={tabIndex}
+        title={title}
+        {...buttonProps}>
+        {icon}
+        <Ripple ref={rippleRef} disabled={disabled} />
+      </IconButtonRoot>
+    )
+  },
+)

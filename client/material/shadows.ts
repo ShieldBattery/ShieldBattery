@@ -1,13 +1,13 @@
 import { css } from 'styled-components'
-import * as shadowConstants from './shadow-constants'
+import { shadowsByDepth } from './shadow-constants'
 
 export const shadowKeyUmbraOpacity = 0.2
 export const shadowKeyPenumbraOpacity = 0.14
 export const shadowAmbientOpacity = 0.12
 
-const shadow = depth => {
+const shadow = (depth: number) => {
   return css`
-    box-shadow: ${shadowConstants[`shadowDef${depth}dp`]};
+    box-shadow: ${shadowsByDepth[depth]};
     z-index: ${depth};
   `
 }

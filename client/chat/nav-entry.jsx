@@ -2,19 +2,15 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
 import CloseIcon from '../icons/material/ic_close_black_24px.svg'
-import IconButton from '../material/icon-button'
+import { IconButton } from '../material/button'
 import Entry from '../material/left-nav/entry'
 
 const LeaveButton = styled(IconButton)`
-  width: 32px;
-  min-height: 32px;
-  padding: 0;
-  line-height: 32px;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 6px 4px;
   margin-right: 4px;
-
-  > span {
-    line-height: 32px;
-  }
 `
 
 export default class ChatNavEntry extends React.Component {

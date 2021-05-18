@@ -1,10 +1,13 @@
-import PropTypes from 'prop-types'
 import React from 'react'
 import styled, { css, keyframes } from 'styled-components'
-import { ButtonCommon } from '../material/button'
-import { blue50, colorTextFaint, colorTextPrimary, colorTextSecondary } from '../styles/colors'
+import { useButtonState } from '../material/button'
+import { buttonReset } from '../material/button-reset'
+import { Ripple } from '../material/ripple'
+import { blue50, colorTextFaint, colorTextSecondary } from '../styles/colors'
 
-const Container = styled(ButtonCommon)`
+const Container = styled.button`
+  ${buttonReset}
+
   width: 100%;
   height: 96px;
   min-height: 40px;
@@ -20,23 +23,11 @@ const Container = styled(ButtonCommon)`
 
   border-radius: 0;
   color: ${colorTextSecondary};
+  --sb-ripple-color: #ffffff;
 
-  ${props => {
-    if (props.disabled) {
-      return `color: ${colorTextFaint};`
-    }
-
-    return `
-      &:hover {
-        color: ${colorTextPrimary};
-        background-color: rgba(255, 255, 255, 0.05);
-      }
-
-      &:active {
-        background-color: rgba(255, 255, 255, 0.1);
-      }
-    `
-  }}
+  &:disabled {
+    color: ${colorTextFaint};
+  }
 `
 
 const glowScale = keyframes`
@@ -123,29 +114,27 @@ export interface ActivityButtonProps {
 }
 
 const ActivityButton = React.forwardRef(
-  (props: ActivityButtonProps, ref: React.ForwardedRef<HTMLButtonElement>) => {
-    const { label, icon, disabled, glowing, count, onClick } = props
+  (
+    { label, icon, disabled, glowing, count, onClick }: ActivityButtonProps,
+    ref: React.ForwardedRef<HTMLButtonElement>,
+  ) => {
+    const [buttonProps, rippleRef] = useButtonState({
+      disabled,
+      onClick,
+    })
 
     return (
-      <Container ref={ref} disabled={disabled} onClick={onClick}>
+      <Container ref={ref} {...buttonProps}>
         {count !== undefined ? <Count>{count}</Count> : null}
         <IconContainer glowing={glowing}>
           {glowing ? icon : null}
           {icon}
         </IconContainer>
         <Label>{label}</Label>
+        <Ripple ref={rippleRef} disabled={disabled} />
       </Container>
     )
   },
 )
-
-ActivityButton.propTypes = {
-  label: PropTypes.string.isRequired,
-  icon: PropTypes.element.isRequired,
-  disabled: PropTypes.bool,
-  glowing: PropTypes.bool,
-  count: PropTypes.number,
-  onClick: PropTypes.func,
-}
 
 export default ActivityButton

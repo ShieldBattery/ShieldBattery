@@ -3,7 +3,7 @@ import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { goBack } from '../activities/action-creators'
 import BackIcon from '../icons/material/baseline-arrow_back-24px.svg'
-import IconButton from '../material/icon-button'
+import { IconButton } from '../material/button'
 
 const BackButton = styled(IconButton)`
   margin-right: 16px;

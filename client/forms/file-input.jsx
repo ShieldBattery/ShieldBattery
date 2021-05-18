@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import ClearIcon from '../icons/material/baseline-clear-24px.svg'
-import IconButton from '../material/icon-button'
+import { IconButton } from '../material/button'
 
 // TODO(tec27): Make a Material file upload component and move this into the material/ folder
 

@@ -2,7 +2,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import form from '../forms/form'
-import FlatButton from '../material/flat-button'
+import { TextButton } from '../material/button'
 import { Option } from '../material/select/option'
 import { Select } from '../material/select/select'
 import TextField from '../material/text-field'
@@ -133,7 +133,7 @@ export default class BanUsers extends React.Component {
         model={{ banLength: 24 }}
         onSubmit={this.onSubmit}
       />,
-      <FlatButton
+      <TextButton
         key='banUser'
         label='Ban'
         color='accent'

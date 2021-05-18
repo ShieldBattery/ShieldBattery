@@ -4,8 +4,8 @@ import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../common/constants'
 import { closeDialog } from '../dialogs/action-creators'
 import form from '../forms/form'
 import { composeValidators, maxLength, regex, required } from '../forms/validators'
+import { TextButton } from '../material/button'
 import Dialog from '../material/dialog'
-import FlatButton from '../material/flat-button'
 import TextField from '../material/text-field'
 import { navigateToChannel } from './action-creators'
 
@@ -70,8 +70,8 @@ export default class JoinChannel extends React.Component {
 
   render() {
     const buttons = [
-      <FlatButton label='Cancel' key='cancel' color='accent' onClick={this.props.onCancel} />,
-      <FlatButton label='Join' key='join' color='accent' onClick={this.onJoinChannel} />,
+      <TextButton label='Cancel' key='cancel' color='accent' onClick={this.props.onCancel} />,
+      <TextButton label='Join' key='join' color='accent' onClick={this.onJoinChannel} />,
     ]
 
     return (

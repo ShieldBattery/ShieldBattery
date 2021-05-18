@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { NotificationType } from '../../common/notifications'
 import { EmailVerificationNotificationUi } from '../auth/email-verification-notification-ui'
-import FlatButton from '../material/flat-button'
+import { TextButton } from '../material/button'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { headline6, subtitle1 } from '../styles/typography'
@@ -55,7 +55,7 @@ export function NotificationsList(props: NotificationsListProps) {
     <ListContainer>
       <TitleArea>
         <TitleText>Notifications</TitleText>
-        <FlatButton label='Clear' color='accent' onClick={props.onClear} />
+        <TextButton label='Clear' color='accent' onClick={props.onClear} />
       </TitleArea>
       <ListArea>
         {props.notifications.size > 0 ? (

@@ -15,10 +15,8 @@ import FavoritedIcon from '../icons/material/baseline-star-24px.svg'
 import UnfavoritedIcon from '../icons/material/baseline-star_border-24px.svg'
 import PreviewIcon from '../icons/material/zoom_in-24px.svg'
 import MapImage from '../maps/map-image'
-import { Label } from '../material/button'
+import { IconButton, RaisedButton } from '../material/button'
 import Card from '../material/card'
-import IconButton from '../material/icon-button'
-import RaisedButton from '../material/raised-button'
 import { shadow1dp } from '../material/shadows'
 import Chat from '../messaging/chat'
 import { Message } from '../messaging/message-records'
@@ -106,20 +104,12 @@ const MapPreviewIcon = styled(IconButton)`
   position: absolute;
   top: 4px;
   left: 4px;
-
-  & ${Label} {
-    color: ${colorTextSecondary};
-  }
 `
 
 const FavoriteActionIcon = styled(IconButton)`
   position: absolute;
   top: 4px;
   right: 4px;
-
-  & ${Label} {
-    color: ${colorTextSecondary};
-  }
 `
 
 const InfoItem = styled.div`

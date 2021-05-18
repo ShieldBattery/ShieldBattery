@@ -2,13 +2,13 @@ import React, { useCallback, useState } from 'react'
 import styled from 'styled-components'
 import { colorTextSecondary } from '../../styles/colors'
 import { subtitle1 } from '../../styles/typography'
+import { RaisedButton } from '../button'
 import Card from '../card'
 import Divider from '../menu/divider'
 import MenuItem from '../menu/item'
 import Menu from '../menu/menu'
 import SelectedMenuItem from '../menu/selected-item'
 import { useAnchorPosition } from '../popover'
-import RaisedButton from '../raised-button'
 
 const Container = styled.div`
   display: flex;

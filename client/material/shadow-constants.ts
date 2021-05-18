@@ -3,7 +3,18 @@ export const shadowKeyPenumbraOpacity = 0.14
 export const shadowAmbientOpacity = 0.12
 
 // eslint-disable-next-line max-params
-function shadow(depth, uOff, uBlur, uSpread, pOff, pBlur, pSpread, aOff, aBlur, aSpread) {
+function shadow(
+  depth: number,
+  uOff: number,
+  uBlur: number,
+  uSpread: number,
+  pOff: number,
+  pBlur: number,
+  pSpread: number,
+  aOff: number,
+  aBlur: number,
+  aSpread: number,
+) {
   return `
     0px ${uOff}px ${uBlur}px ${uSpread}px rgba(0, 0, 0, ${shadowKeyUmbraOpacity}),
     0px ${pOff}px ${pBlur}px ${pSpread}px rgba(0, 0, 0, ${shadowKeyPenumbraOpacity}),
@@ -35,3 +46,31 @@ export const shadowDef21dp = shadow(21, 10, 13, -6, 21, 33, 3, 8, 40, 7)
 export const shadowDef22dp = shadow(22, 10, 14, -6, 22, 35, 3, 8, 40, 7)
 export const shadowDef23dp = shadow(23, 11, 14, -7, 23, 36, 3, 9, 44, 8)
 export const shadowDef24dp = shadow(24, 11, 15, -7, 24, 38, 3, 9, 46, 8)
+
+export const shadowsByDepth = [
+  'none',
+  shadowDef1dp,
+  shadowDef2dp,
+  shadowDef3dp,
+  shadowDef4dp,
+  shadowDef5dp,
+  shadowDef6dp,
+  shadowDef7dp,
+  shadowDef8dp,
+  shadowDef9dp,
+  shadowDef10dp,
+  shadowDef11dp,
+  shadowDef12dp,
+  shadowDef13dp,
+  shadowDef14dp,
+  shadowDef15dp,
+  shadowDef16dp,
+  shadowDef17dp,
+  shadowDef18dp,
+  shadowDef19dp,
+  shadowDef20dp,
+  shadowDef21dp,
+  shadowDef22dp,
+  shadowDef23dp,
+  shadowDef24dp,
+]

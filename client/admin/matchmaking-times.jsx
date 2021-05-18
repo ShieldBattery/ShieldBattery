@@ -4,9 +4,8 @@ import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { MatchmakingType } from '../../common/matchmaking'
 import CheckIcon from '../icons/material/baseline-check_circle-24px.svg'
+import { RaisedButton, TextButton } from '../material/button'
 import CheckBox from '../material/check-box'
-import FlatButton from '../material/flat-button'
-import RaisedButton from '../material/raised-button'
 import { ScrollableContent } from '../material/scroll-bar'
 import Tabs, { TabItem } from '../material/tabs'
 import LoadingIndicator from '../progress/dots'
@@ -147,7 +146,7 @@ class MatchmakingTimesHistory extends React.PureComponent {
               {history.isRequestingFutureTimes ? (
                 <LoadingIndicator />
               ) : (
-                <FlatButton
+                <TextButton
                   label='Load more future times'
                   color='accent'
                   disabled={futureTimesPage * MATCHMAKING_TIMES_LIMIT >= history.totalFutureTimes}
@@ -180,7 +179,7 @@ class MatchmakingTimesHistory extends React.PureComponent {
                 </td>
                 <td>
                   {isFuture ? (
-                    <FlatButton label='Delete' color='accent' onClick={() => onDelete(time.id)} />
+                    <TextButton label='Delete' color='accent' onClick={() => onDelete(time.id)} />
                   ) : null}
                 </td>
               </tr>
@@ -191,7 +190,7 @@ class MatchmakingTimesHistory extends React.PureComponent {
               {history.isRequestingPastTimes ? (
                 <LoadingIndicator />
               ) : (
-                <FlatButton
+                <TextButton
                   label='Load more past times'
                   color='accent'
                   disabled={pastTimesPage * MATCHMAKING_TIMES_LIMIT >= history.totalPastTimes}

@@ -6,10 +6,8 @@ import form from '../forms/form'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import PlayIcon from '../icons/material/play_arrow-24px.svg'
 import StopIcon from '../icons/material/stop-24px.svg'
-import { Label } from '../material/button'
-import FlatButton from '../material/flat-button'
+import { TextButton } from '../material/button'
 import Slider from '../material/slider'
-import { colorTextSecondary } from '../styles/colors'
 
 const VolumeSettings = styled.div`
   display: flex;
@@ -22,18 +20,13 @@ const StyledSlider = styled(Slider)`
   margin-bottom: 8px;
 `
 
-const TestSoundButton = styled(FlatButton)`
+const TestSoundButton = styled(TextButton)`
   min-width: 104px;
   margin-left: 16px;
   padding-left: 12px;
 
-  & ${Label} {
-    color: ${colorTextSecondary};
-    font-weight: 400;
-
-    svg {
-      margin-right: 8px;
-    }
+  svg {
+    margin-right: 8px;
   }
 `
 

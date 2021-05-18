@@ -6,7 +6,7 @@ import ArrowDropDownIcon from '../../icons/material/ic_arrow_drop_down_black_24p
 import KeyListener from '../../keyboard/key-listener'
 import { useValueAsRef } from '../../state-hooks'
 import { amberA400, colorTextFaint, colorTextPrimary } from '../../styles/colors'
-import { reset } from '../button-reset'
+import { buttonReset } from '../button-reset'
 import { fastOutSlowIn } from '../curve-constants'
 import InputBase from '../input-base'
 import InputError from '../input-error'
@@ -23,7 +23,7 @@ const ENTER_NUMPAD = 'NumpadEnter'
 const CONTAINER_HEIGHT = 56
 
 const SelectContainer = styled.button<{ disabled?: boolean; $focused?: boolean }>`
-  ${reset};
+  ${buttonReset};
   display: flex;
   flex-direction: column;
   align-items: flex-start;

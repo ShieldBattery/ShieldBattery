@@ -5,7 +5,7 @@ import { Route } from 'wouter'
 import { USERNAME_MAXLENGTH, USERNAME_MINLENGTH, USERNAME_PATTERN } from '../../common/constants'
 import form from '../forms/form'
 import { composeValidators, maxLength, minLength, regex, required } from '../forms/validators'
-import FlatButton from '../material/flat-button'
+import { TextButton } from '../material/button'
 import TextField from '../material/text-field'
 import { push } from '../navigation/routing'
 import BanUsers from './bans'
@@ -83,7 +83,7 @@ export class UserFind extends React.Component {
         <div>
           <h3>Find user</h3>
           <SearchForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
-          <FlatButton label='Find' color='accent' tabIndex={0} onClick={this.onFindClick} />
+          <TextButton label='Find' color='accent' tabIndex={0} onClick={this.onFindClick} />
         </div>
         <Route path='/admin/users/:username' component={UserProfile} />
       </Container>

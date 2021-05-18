@@ -20,13 +20,12 @@ import {
   regex,
   required,
 } from '../forms/validators'
-import { Label } from '../material/button'
+import { TextButton } from '../material/button'
 import Dialog from '../material/dialog'
-import FlatButton from '../material/flat-button'
 import PasswordTextField from '../material/password-text-field'
 import TextField from '../material/text-field'
 import LoadingIndicator from '../progress/dots'
-import { colorError, colorTextSecondary } from '../styles/colors'
+import { colorError } from '../styles/colors'
 import { subtitle1 } from '../styles/typography'
 import { updateAccount } from './action-creators'
 
@@ -51,13 +50,6 @@ const newPasswordValidator = composeValidators(
 const confirmNewPasswordValidator = composeValidators(
   matchesOther('newPassword', 'Enter a matching password'),
 )
-
-const ChangePasswordButton = styled(FlatButton)`
-  & ${Label} {
-    color: ${colorTextSecondary};
-    font-weight: 400;
-  }
-`
 
 @form({
   email: emailValidator,
@@ -106,11 +98,7 @@ class AccountForm extends React.Component {
           inputProps={textInputProps}
         />
         {!changePassword ? (
-          <ChangePasswordButton
-            label='Change password?'
-            onClick={this.onPasswordChangeClick}
-            tabIndex={0}
-          />
+          <TextButton label='Change password?' onClick={this.onPasswordChangeClick} tabIndex={0} />
         ) : (
           <>
             <PasswordTextField
@@ -235,8 +223,8 @@ export default class EditAccount extends React.Component {
     }
 
     const buttons = [
-      <FlatButton label='Cancel' key='cancel' color='accent' onClick={onCancel} />,
-      <FlatButton
+      <TextButton label='Cancel' key='cancel' color='accent' onClick={onCancel} />,
+      <TextButton
         ref={this._saveButton}
         label='Save'
         key='save'

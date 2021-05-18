@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types'
 import React from 'react'
-import RacePicker from './race-picker'
+import { RacePicker } from './race-picker'
 import SelectedRace from './selected-race'
 import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotLeft, SlotProfile, SlotRight } from './slot'
 import { SlotActions } from './slot-actions'

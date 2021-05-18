@@ -4,10 +4,8 @@ import styled from 'styled-components'
 import { closeDialog, openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import SetPathIcon from '../icons/material/ic_settings_black_36px.svg'
-import { Label } from '../material/button'
+import { IconButton, TextButton } from '../material/button'
 import Dialog from '../material/dialog'
-import FlatButton from '../material/flat-button'
-import IconButton from '../material/icon-button'
 import Tabs, { TabItem } from '../material/tabs'
 import { isStarcraftRemastered } from '../starcraft/is-starcraft-healthy'
 import { colorError, colorTextSecondary } from '../styles/colors'
@@ -43,10 +41,6 @@ const TitleActionButton = styled(IconButton)`
   min-height: 40px;
   width: 40px;
   line-height: 40px;
-
-  & ${Label} {
-    color: ${colorTextSecondary};
-  }
 `
 
 const ContentsBody = styled.div`
@@ -198,8 +192,8 @@ export default class Settings extends React.Component {
       </Tabs>
     )
     const buttons = [
-      <FlatButton label='Cancel' key='cancel' color='accent' onClick={this.onSettingsCancel} />,
-      <FlatButton
+      <TextButton label='Cancel' key='cancel' color='accent' onClick={this.onSettingsCancel} />,
+      <TextButton
         ref={this._saveButton}
         label='Save'
         key='save'

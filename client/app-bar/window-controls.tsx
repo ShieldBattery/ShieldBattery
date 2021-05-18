@@ -5,7 +5,7 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import CloseIcon from '../icons/material/ic_close_black_24px.svg'
 import MaximizeIcon from '../icons/material/ic_fullscreen_black_24px.svg'
 import MinimizeIcon from '../icons/material/ic_remove_black_24px.svg'
-import { reset } from '../material/button-reset'
+import { buttonReset } from '../material/button-reset'
 import { zIndexWindowControls } from '../material/zindex'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -22,7 +22,7 @@ export const WindowControlsStyle = createGlobalStyle`
 `
 
 const button = css`
-  ${reset};
+  ${buttonReset};
   width: 48px;
   height: ${windowControlsHeight};
   line-height: ${windowControlsHeight};

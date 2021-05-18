@@ -1,19 +1,12 @@
 import styled from 'styled-components'
-import { colorTextSecondary } from '../../styles/colors'
-import { Label } from '../button'
-import IconButton from '../icon-button'
+import { IconButton } from '../button'
 
-const SubheaderButton = styled(IconButton)`
-  min-height: 32px;
-  width: 32px;
-  padding: 0;
-  line-height: 32px;
+export const SubheaderButton = styled(IconButton)`
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 6px 4px;
   margin-right: 4px;
-
-  & ${Label} {
-    color: ${colorTextSecondary};
-    line-height: 32px;
-  }
 `
 
 export default SubheaderButton

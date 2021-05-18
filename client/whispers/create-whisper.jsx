@@ -4,8 +4,8 @@ import { USERNAME_MAXLENGTH, USERNAME_MINLENGTH, USERNAME_PATTERN } from '../../
 import { closeDialog } from '../dialogs/action-creators'
 import form from '../forms/form'
 import { composeValidators, maxLength, minLength, regex, required } from '../forms/validators'
+import { TextButton } from '../material/button'
 import Dialog from '../material/dialog'
-import FlatButton from '../material/flat-button'
 import TextField from '../material/text-field'
 import { navigateToWhisper } from './action-creators'
 
@@ -71,8 +71,8 @@ export default class CreateWhisper extends React.Component {
 
   render() {
     const buttons = [
-      <FlatButton label='Cancel' key='cancel' color='accent' onClick={this.props.onCancel} />,
-      <FlatButton label='Start' key='send' color='accent' onClick={this.onSendMessage} />,
+      <TextButton label='Cancel' key='cancel' color='accent' onClick={this.props.onCancel} />,
+      <TextButton label='Start' key='send' color='accent' onClick={this.onSendMessage} />,
     ]
 
     return (

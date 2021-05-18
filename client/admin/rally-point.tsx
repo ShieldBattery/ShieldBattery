@@ -13,12 +13,9 @@ import SubmitOnEnter from '../forms/submit-on-enter'
 import CheckIcon from '../icons/material/check-24px.svg'
 import EditIcon from '../icons/material/edit-24px.svg'
 import CloseIcon from '../icons/material/ic_close_black_24px.svg'
-import { Label } from '../material/button'
+import { IconButton, RaisedButton, TextButton } from '../material/button'
 import CheckBox from '../material/check-box'
-import FlatButton from '../material/flat-button'
-import IconButton from '../material/icon-button'
 import NumberTextField from '../material/number-text-field'
-import RaisedButton from '../material/raised-button'
 import TextField from '../material/text-field'
 import fetchJson from '../network/fetch'
 import { useRefreshToken } from '../network/refresh-token'
@@ -84,13 +81,11 @@ const PortContent = styled.div`
   flex-grow: 0;
 `
 
-const ButtonWithIcon = styled(FlatButton)`
+const ButtonWithIcon = styled(TextButton)`
   padding-left: 12px;
 
-  & ${Label} {
-    svg {
-      margin-right: 8px;
-    }
+  svg {
+    margin-right: 8px;
   }
 `
 

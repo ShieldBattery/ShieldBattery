@@ -8,12 +8,11 @@ import FavoritedIcon from '../icons/material/baseline-star-24px.svg'
 import UnfavoritedIcon from '../icons/material/baseline-star_border-24px.svg'
 import MapActionsIcon from '../icons/material/ic_more_vert_black_24px.svg'
 import ZoomInIcon from '../icons/material/zoom_in-24px.svg'
-import { Label } from '../material/button'
-import IconButton from '../material/icon-button'
+import { IconButton } from '../material/button'
 import MenuItem from '../material/menu/item'
 import Menu from '../material/menu/menu'
 import { useAnchorPosition } from '../material/popover'
-import { amberA100, colorTextPrimary, colorTextSecondary, grey800 } from '../styles/colors'
+import { amberA100, colorTextPrimary, grey800 } from '../styles/colors'
 import { singleLine, subtitle2 } from '../styles/typography'
 import MapImage from './map-image'
 
@@ -82,20 +81,12 @@ const MapPreviewIcon = styled(IconButton)`
   position: absolute;
   top: 4px;
   left: 4px;
-
-  & ${Label} {
-    color: ${colorTextSecondary};
-  }
 `
 
 const FavoriteActionIcon = styled(IconButton)`
   position: absolute;
   top: 4px;
   right: 4px;
-
-  & ${Label} {
-    color: ${colorTextSecondary};
-  }
 `
 
 const TextProtection = styled.div`
@@ -123,11 +114,6 @@ const MapActionButton = styled(IconButton)`
   padding: 0;
   line-height: 40px;
   margin-left: 4px;
-
-  & ${Label} {
-    color: ${colorTextSecondary};
-    line-height: 40px;
-  }
 `
 
 const NoImage = () => (
@@ -228,9 +214,9 @@ export function MapThumbnail({
           {actions.length ? (
             <>
               <MapActionButton
+                ref={anchorRef}
                 icon={<MapActionsIcon />}
                 title='Map actions'
-                buttonRef={anchorRef}
                 onClick={onOpenMenu}
               />
               <Menu

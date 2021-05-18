@@ -1,10 +1,9 @@
 import { Set } from 'immutable'
 import React from 'react'
 import styled from 'styled-components'
+import { RaisedButton, TextButton } from '../button'
 import Card from '../card'
 import CheckBox from '../check-box'
-import FlatButton from '../flat-button'
-import RaisedButton from '../raised-button'
 import Stepper, { Step } from '../stepper'
 
 const Container = styled.div`
@@ -65,7 +64,7 @@ export default class StepperTest extends React.Component {
             <Step text='Error step' />
             <Step text='Third step' />
           </Stepper>
-          <FlatButton
+          <TextButton
             label='Back'
             color='accent'
             disabled={this.state.activeStep === 0}

@@ -10,12 +10,10 @@ import SearchIcon from '../icons/material/baseline-search-24px.svg'
 import SortIcon from '../icons/material/baseline-sort_by_alpha-24px.svg'
 import SizeIcon from '../icons/material/baseline-view_list-24px.svg'
 import KeyListener from '../keyboard/key-listener'
-import { Label } from '../material/button'
+import { IconButton, TextButton } from '../material/button'
 import CheckBox from '../material/check-box'
 import { fastOutSlowInShort } from '../material/curves'
-import FlatButton from '../material/flat-button'
 import { FloatingActionButton } from '../material/floating-action-button'
-import IconButton from '../material/icon-button'
 import { LegacyPopover } from '../material/legacy-popover'
 import Menu from '../material/menu/menu'
 import SelectedMenuItem from '../material/menu/selected-item'
@@ -53,10 +51,6 @@ const LeftActions = styled.div`
 `
 
 const ActionButton = styled(IconButton)`
-  & ${Label} {
-    color: ${colorTextSecondary};
-  }
-
   ${LeftActions} > & {
     margin-right: 8px;
   }
@@ -372,19 +366,19 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
       />
       <LeftActions>
         <ActionButton
-          buttonRef={sizeRef}
+          ref={sizeRef}
           icon={<SizeIcon />}
           title='Thumbnail size'
           onClick={onSizeMenuOpen}
         />
         <ActionButton
-          buttonRef={filterButtonRef}
+          ref={filterButtonRef}
           icon={<FilterIcon />}
           title='Filter options'
           onClick={onFilterOverlayOpen}
         />
         <ActionButton
-          buttonRef={sortMenuRef}
+          ref={sortMenuRef}
           icon={<SortIcon />}
           title='Sort maps'
           onClick={onSortMenuOpen}
@@ -428,8 +422,8 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
         <SectionOverline>Tileset</SectionOverline>
         <ColumnGroup>{tilesetItems}</ColumnGroup>
         <FilterActions>
-          <FlatButton label='Cancel' color='accent' onClick={onFilterCancel} />
-          <FlatButton
+          <TextButton label='Cancel' color='accent' onClick={onFilterCancel} />
+          <TextButton
             ref={filterApplyButtonRef}
             label='Apply'
             color='accent'

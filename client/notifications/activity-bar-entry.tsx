@@ -1,17 +1,13 @@
 import React, { useCallback, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import NotificationsIcon from '../icons/material/notifications_black_24px.svg'
-import IconButton from '../material/icon-button'
+import { IconButton } from '../material/button'
 import { Popover, useAnchorPosition } from '../material/popover'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { amberA200, colorTextSecondary } from '../styles/colors'
+import { amberA200 } from '../styles/colors'
 import { markLocalNotificationsRead, markNotificationsRead } from './action-creators'
 import { NotificationRecordBase } from './notification-reducer'
 import { ConnectedNotificationsList } from './notifications-list'
-
-const FadedNotificationsIcon = styled(NotificationsIcon)`
-  color: ${colorTextSecondary};
-`
 
 const UnreadIndicator = styled.div`
   width: 8px;
@@ -73,7 +69,7 @@ export function NotificationsButton() {
     <>
       <ButtonContainer>
         <IconButton
-          icon={<FadedNotificationsIcon />}
+          icon={<NotificationsIcon />}
           title={hasUnread ? 'Notifications (unread)' : 'Notifications'}
           onClick={onClick}
         />

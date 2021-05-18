@@ -14,13 +14,10 @@ import MapPoolActionsIcon from '../icons/material/ic_more_vert_black_24px.svg'
 import KeyListener from '../keyboard/key-listener'
 import Carousel from '../lists/carousel'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { Label } from '../material/button'
-import FlatButton from '../material/flat-button'
-import IconButton from '../material/icon-button'
+import { IconButton, RaisedButton, TextButton } from '../material/button'
 import MenuItem from '../material/menu/item'
 import Menu from '../material/menu/menu'
 import { useAnchorPosition } from '../material/popover'
-import RaisedButton from '../material/raised-button'
 import Tabs, { TabItem } from '../material/tabs'
 import TextField from '../material/text-field'
 import LoadingIndicator from '../progress/dots'
@@ -71,7 +68,7 @@ const SearchInput = styled(TextField)`
   flex-grow: 1;
 `
 
-const SearchMapsButton = styled(FlatButton)`
+const SearchMapsButton = styled(TextButton)`
   margin-left: 8px;
 `
 
@@ -149,10 +146,6 @@ const HistoryContainer = styled.table`
 
 const MapPoolActionButton = styled(IconButton)`
   margin-left: 8px;
-
-  & ${Label} {
-    color: ${colorTextSecondary};
-  }
 `
 
 const LoadingArea = styled.div`
@@ -404,7 +397,7 @@ const MapPoolHistoryRow = React.memo(props => {
         <MapPoolActionButton
           icon={<MapPoolActionsIcon />}
           title='Map pool actions'
-          buttonRef={anchorRef}
+          ref={anchorRef}
           onClick={onActionsOverlayOpen}
         />
         <Menu

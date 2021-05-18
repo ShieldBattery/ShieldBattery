@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react'
 import SlotActionsIcon from '../icons/material/ic_more_vert_black_24px.svg'
-import IconButton from '../material/icon-button'
+import { IconButton } from '../material/button'
 import MenuItem from '../material/menu/item'
 import Menu from '../material/menu/menu'
 import { useAnchorPosition } from '../material/popover'
@@ -40,7 +40,7 @@ export function SlotActions({ slotActions }: SlotActionsProps) {
       <IconButton
         icon={<SlotActionsIcon />}
         title='Slot actions'
-        buttonRef={anchorRef}
+        ref={anchorRef}
         onClick={onOpenOverlay}
       />
       <Menu

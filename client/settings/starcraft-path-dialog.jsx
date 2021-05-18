@@ -6,9 +6,8 @@ import { closeDialog, openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import form from '../forms/form'
 import SubmitOnEnter from '../forms/submit-on-enter'
+import { RaisedButton, TextButton } from '../material/button'
 import Dialog from '../material/dialog'
-import FlatButton from '../material/flat-button'
-import RaisedButton from '../material/raised-button'
 import TextField from '../material/text-field'
 import { isStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 import { colorError } from '../styles/colors'
@@ -122,8 +121,8 @@ export default class StarcraftPath extends React.Component {
     }
 
     const buttons = [
-      <FlatButton label='Cancel' key='cancel' color='accent' onClick={this.onSettingsCancel} />,
-      <FlatButton
+      <TextButton label='Cancel' key='cancel' color='accent' onClick={this.onSettingsCancel} />,
+      <TextButton
         ref={this._saveButton}
         label='Save'
         key='save'

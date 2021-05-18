@@ -1,4 +1,6 @@
 import styled from 'styled-components'
+import { assertUnreachable } from '../../common/assert-unreachable'
+import { RaceChar } from '../../common/races'
 
 /* Primary color */
 export const blue50 = '#e3f2fd'
@@ -46,6 +48,26 @@ export const colorTextPrimary = `rgba(255, 255, 255, ${alphaPrimary})`
 export const colorBackground = grey900
 export const colorError = '#ff6e6e'
 export const colorSuccess = '#66bb6a'
+
+export const colorZerg = '#ff1744'
+export const colorProtoss = '#00e676'
+export const colorTerran = '#2979ff'
+export const colorRandom = '#ff9100'
+
+export function getRaceColor(race: RaceChar) {
+  switch (race) {
+    case 'z':
+      return colorZerg
+    case 'p':
+      return colorProtoss
+    case 't':
+      return colorTerran
+    case 'r':
+      return colorRandom
+    default:
+      return assertUnreachable(race)
+  }
+}
 
 export const dialogScrim = grey900
 
