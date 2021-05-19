@@ -3,11 +3,11 @@ import styled from 'styled-components'
 import { colorDividers } from '../styles/colors'
 import { body1 } from '../styles/typography'
 
-const Container = styled.div<{ read: boolean }>`
+const Container = styled.div<{ $read: boolean }>`
   position: relative;
   padding: 16px 0;
 
-  background-color: ${props => (props.read ? 'transparent' : 'rgba(255, 255, 255, 0.04)')};
+  background-color: ${props => (props.$read ? 'transparent' : 'rgba(255, 255, 255, 0.04)')};
 `
 
 const IconTextContainer = styled.div`
@@ -61,7 +61,7 @@ export interface NotificationProps {
 export const ActionlessNotification = React.forwardRef<HTMLDivElement, NotificationProps>(
   (props, ref) => {
     return (
-      <Container ref={ref} read={props.read}>
+      <Container ref={ref} $read={props.read}>
         <IconTextContainer>
           <IconContainer>{props.icon}</IconContainer>
           <TextContainer>{props.text}</TextContainer>
@@ -79,7 +79,7 @@ export interface ActionableNotificationProps extends NotificationProps {
 export const ActionableNotification = React.forwardRef<HTMLDivElement, ActionableNotificationProps>(
   (props, ref) => {
     return (
-      <Container ref={ref} read={props.read}>
+      <Container ref={ref} $read={props.read}>
         <IconTextContainer>
           <IconContainer>{props.icon}</IconContainer>
           <TextContainer>{props.text}</TextContainer>

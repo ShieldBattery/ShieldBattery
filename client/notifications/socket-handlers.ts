@@ -44,8 +44,8 @@ const eventToAction: EventToActionMap = {
   markRead: event => {
     const { notificationIds } = event
     return {
-      type: '@notifications/markReadBegin',
-      payload: { notificationIds },
+      type: '@notifications/markRead',
+      meta: { notificationIds },
     }
   },
 }

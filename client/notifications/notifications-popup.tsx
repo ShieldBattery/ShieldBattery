@@ -113,11 +113,9 @@ export default function NotificationPopups() {
       onRest: (result: AnimationResult, ctrl: Controller, item: NotificationRecord) => {
         setNotificationItems(state => state.filter(i => i.id !== item.id))
       },
-      /**
-       * Force the react-spring to remove the notification element from the DOM as soon as its
-       * 'leave' animation has finished, so the popup's container scroll height can be recalculated
-       * and work as expected.
-       */
+      // Force the react-spring to remove the notification element from the DOM as soon as its
+      // 'leave' animation has finished, so the popup's container scroll height can be recalculated
+      // and work as expected.
       expires: 1,
       config: (item, index, phase) => key => {
         return {

@@ -11,6 +11,11 @@ export interface NotificationRecordBase {
   local?: boolean
 }
 
+// NOTE(tec27): This is mainly useful if you need to set a field on multiple notifications at once
+// and aren't sure what type they actually are. Our type union doesn't produce a usable `set` method
+// on its own, but by casting to this type it will be usable.
+type CommonNotificationRecord = Record<{ read: boolean; createdAt: 0 }>
+
 export class EmailVerificationNotificationRecord
   extends Record({
     id: EMAIL_VERIFICATION_ID,
@@ -49,11 +54,17 @@ function updateReadStatus(
   state: NotificationState,
   notificationIds: string[],
   read: boolean,
-): Map<string, NotificationRecord> {
-  return Map(
-    notificationIds
-      .filter(id => state.idToNotification.has(id))
-      .map(id => [id, toNotificationRecord({ ...state.idToNotification.get(id)!.toJS(), read })]),
+): NotificationState {
+  return state.set(
+    'idToNotification',
+    state.idToNotification.withMutations(idToNotification => {
+      for (const id of notificationIds) {
+        idToNotification.update(
+          id,
+          n => (n as CommonNotificationRecord | undefined)?.set('read', read) as NotificationRecord,
+        )
+      }
+    }),
   )
 }
 
@@ -104,7 +115,7 @@ export default keyedReducer(new NotificationState(), {
 
   ['@notifications/clearBegin'](state, { payload: { reqId, timestamp } }) {
     const clearedIdToNotification = state.idToNotification.filter(
-      n => timestamp && n.createdAt <= timestamp,
+      (n: NotificationRecordBase) => n.local || (timestamp && n.createdAt <= timestamp),
     )
     // Preserve the order of the cleared notification IDs set
     const clearedNotificationIds = state.notificationIds.filter(id =>
@@ -113,9 +124,7 @@ export default keyedReducer(new NotificationState(), {
 
     // Apply the clear changes optimistically
     return state
-      .update('idToNotification', map =>
-        map.filter((n: NotificationRecordBase) => n.local || !clearedIdToNotification.has(n.id)),
-      )
+      .update('idToNotification', m => m.filter(n => !clearedIdToNotification.has(n.id)))
       .update('notificationIds', ids => ids.subtract(clearedNotificationIds))
       .setIn(
         ['clearRequests', reqId],
@@ -124,50 +133,53 @@ export default keyedReducer(new NotificationState(), {
   },
 
   ['@notifications/clear'](state, action) {
-    const reqId = action.meta && action.meta.reqId
     // If the `reqId` is not provided it means the action was dispatched on a client that didn't
     // issue the request.
-    if (!action.error && (!reqId || !state.clearRequests.has(reqId))) {
-      const timestamp = action.payload.timestamp
-      const clearedIdToNotification = state.idToNotification.filter(
-        n => timestamp && n.createdAt <= timestamp,
-      )
-      const clearedNotificationIds = state.notificationIds.filter(id =>
-        clearedIdToNotification.has(id),
-      )
+    const reqId = action.meta?.reqId
 
-      return state
-        .update('idToNotification', map =>
-          map.filter((n: NotificationRecordBase) => n.local || !clearedIdToNotification.has(n.id)),
+    if (action.error) {
+      if (reqId && state.clearRequests.has(reqId)) {
+        // Undo the optimistic mutation
+        const { clearedIdToNotification, clearedNotificationIds } = state.clearRequests.get(reqId)!
+
+        return state
+          .mergeIn(['idToNotification'], clearedIdToNotification)
+          .update('notificationIds', ids => clearedNotificationIds.union(ids))
+          .deleteIn(['clearRequests', reqId])
+      } else {
+        // This should never really happen, as this means the action was dispatched for some other
+        // client's request
+        return state
+      }
+    } else {
+      if (reqId && state.clearRequests.has(reqId)) {
+        // Request was succesful, so we can throw away the undo information for the optimistic
+        // mutation
+        return state.deleteIn(['clearRequests', reqId])
+      } else {
+        const { timestamp } = action.payload
+        const leftoverNotifications = state.idToNotification.filter(
+          (n: NotificationRecordBase) => !n.local && n.createdAt > timestamp,
         )
-        .update('notificationIds', ids => ids.subtract(clearedNotificationIds))
+
+        return state
+          .set('idToNotification', leftoverNotifications)
+          .update('notificationIds', ids => ids.intersect(leftoverNotifications.keys()))
+      }
     }
-
-    // If an error happened, undo the mutations that were done optimistically
-    if (action.error && reqId) {
-      const clearedIdToNotification = state.clearRequests.get(reqId)?.clearedIdToNotification
-      const clearedNotificationIds = state.clearRequests.get(reqId)?.clearedNotificationIds
-
-      return state
-        .mergeIn(['idToNotification'], clearedIdToNotification)
-        .mergeIn(['notificationIds'], clearedNotificationIds)
-        .deleteIn(['clearRequests', reqId])
-    }
-
-    return state.deleteIn(['clearRequests', reqId])
   },
 
   ['@notifications/markReadBegin'](state, { payload: { notificationIds } }) {
     // Apply the mark read changes optimistically
-    return state.mergeIn(['idToNotification'], updateReadStatus(state, notificationIds, true))
+    return updateReadStatus(state, notificationIds, true)
   },
 
   ['@notifications/markRead'](state, { meta: { notificationIds }, error }) {
     // If an error happened, undo the mutations that were done optimistically
     if (error) {
-      return state.mergeIn(['idToNotification'], updateReadStatus(state, notificationIds, false))
+      return updateReadStatus(state, notificationIds, false)
+    } else {
+      return updateReadStatus(state, notificationIds, true)
     }
-
-    return state
   },
 })

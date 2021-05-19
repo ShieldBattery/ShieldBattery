@@ -9,7 +9,7 @@ import { ThunkAction } from '../dispatch-registry'
 import fetch from '../network/fetch'
 import { apiUrl } from '../network/urls'
 import { openSnackbar } from '../snackbars/action-creators'
-import { AddNotification, MarkNotificationsReadBegin } from './actions'
+import { AddNotification, MarkNotificationsRead } from './actions'
 import { NotificationRecordBase } from './notification-reducer'
 
 export function clearNotifications(): ThunkAction {
@@ -19,10 +19,8 @@ export function clearNotifications(): ThunkAction {
       const notification = idToNotification.get(id) as NotificationRecordBase
       return notification && !notification.local
     })
-    let timestamp
-    if (newestServerId) {
-      timestamp = idToNotification.get(newestServerId)?.createdAt
-    }
+
+    const timestamp = newestServerId ? idToNotification.get(newestServerId)?.createdAt : undefined
     const reqId = cuid()
 
     dispatch({
@@ -56,10 +54,10 @@ export function addNotification(notification: Readonly<Notification>): AddNotifi
   }
 }
 
-export function markLocalNotificationsRead(notificationIds: string[]): MarkNotificationsReadBegin {
+export function markLocalNotificationsRead(notificationIds: string[]): MarkNotificationsRead {
   return {
-    type: '@notifications/markReadBegin',
-    payload: { notificationIds },
+    type: '@notifications/markRead',
+    meta: { notificationIds },
   }
 }
 
