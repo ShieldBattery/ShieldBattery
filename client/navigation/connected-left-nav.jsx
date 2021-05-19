@@ -24,7 +24,7 @@ import SubheaderButton from '../material/left-nav/subheader-button'
 import MenuDivider from '../material/menu/divider'
 import MenuItem from '../material/menu/item'
 import ProfileNavEntry from '../profile/nav-entry'
-import SelfProfileOverlay from '../profile/self-profile-overlay'
+import { SelfProfileOverlay } from '../profile/self-profile-overlay'
 import { closeWhisperSession } from '../whispers/action-creators'
 import WhisperNavEntry from '../whispers/nav-entry'
 
@@ -180,7 +180,7 @@ class ConnectedLeftNav extends React.Component {
         open={this.state.profileOverlayOpen}
         onDismiss={this.onCloseProfileOverlay}
         anchor={this._profileEntryRef.current}
-        user={this.props.auth.user.name}>
+        username={this.props.auth.user.name}>
         <MenuItem icon={<ChangelogIcon />} text='View changelog' onClick={this.onChangelogClick} />
         <MenuItem icon={<EditIcon />} text='Edit account' onClick={this.onAccountClick} />
         <MenuDivider />

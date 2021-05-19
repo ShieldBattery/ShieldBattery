@@ -4,17 +4,15 @@ import styled, { css } from 'styled-components'
 import { MULTI_CHANNEL } from '../../common/flags'
 import Avatar from '../avatars/avatar'
 import WindowListener from '../dom/window-listener'
-import MenuItem from '../material/menu/item'
 import Chat from '../messaging/chat'
 import { Message } from '../messaging/message-records'
 import { push } from '../navigation/routing'
-import UserProfileOverlay from '../profile/user-profile-overlay'
+import { ConnectedUserProfileOverlay } from '../profile/connected-user-profile-overlay'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious } from '../state-hooks'
 import { alphaDisabled, colorTextSecondary } from '../styles/colors'
 import { body2, overline, singleLine } from '../styles/typography'
-import { navigateToWhisper } from '../whispers/action-creators'
 import {
   activateChannel,
   deactivateChannel,
@@ -126,10 +124,9 @@ const UserListName = styled.span`
 `
 
 interface UserListEntryProps {
-  user: string
+  username: string
   faded?: boolean
   style?: any
-  onWhisperClick: (user: string) => void
 }
 
 const UserListEntry = React.memo<UserListEntryProps>(props => {
@@ -143,21 +140,15 @@ const UserListEntry = React.memo<UserListEntryProps>(props => {
     setOverlayOpen(false)
   }, [])
 
-  const { onWhisperClick: onWhisperClickProp, user } = props
-  const onWhisperClick = useCallback(() => {
-    onWhisperClickProp(user)
-  }, [onWhisperClickProp, user])
-
   return (
     <div style={props.style}>
-      <UserProfileOverlay
+      <ConnectedUserProfileOverlay
         key={'overlay'}
         open={overlayOpen}
         onDismiss={onCloseOverlay}
         anchor={userEntryRef.current}
-        user={props.user}>
-        <MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />
-      </UserProfileOverlay>
+        username={props.username}
+      />
 
       <UserListEntryItem
         ref={userEntryRef}
@@ -165,8 +156,8 @@ const UserListEntry = React.memo<UserListEntryProps>(props => {
         faded={!!props.faded}
         isOverlayOpen={overlayOpen}
         onClick={onOpenOverlay}>
-        <StyledAvatar user={props.user} />
-        <UserListName>{props.user}</UserListName>
+        <StyledAvatar user={props.username} />
+        <UserListName>{props.username}</UserListName>
       </UserListEntryItem>
     </div>
   )
@@ -181,7 +172,6 @@ const UsersVirtualizedList = styled(VirtualizedList)`
 
 interface UserListProps {
   users: ReturnType<typeof UsersRecord>
-  onWhisperClick: (user: string) => void
 }
 
 class UserList extends React.Component<UserListProps> {
@@ -248,14 +238,7 @@ class UserList extends React.Component<UserListProps> {
         </UserListOverline>
       )
     } else if (index < active.size + 1) {
-      return (
-        <UserListEntry
-          style={style}
-          user={active.get(index - 1)}
-          key={index}
-          onWhisperClick={this.props.onWhisperClick}
-        />
-      )
+      return <UserListEntry style={style} username={active.get(index - 1)} key={index} />
     }
 
     let i = index - (active.size + 1)
@@ -267,14 +250,7 @@ class UserList extends React.Component<UserListProps> {
           </UserListOverline>
         )
       } else if (i < idle.size + 1) {
-        return (
-          <UserListEntry
-            style={style}
-            user={idle.get(i - 1)}
-            key={index}
-            onWhisperClick={this.props.onWhisperClick}
-          />
-        )
+        return <UserListEntry style={style} username={idle.get(i - 1)} key={index} />
       }
 
       i -= idle.size + 1
@@ -289,13 +265,7 @@ class UserList extends React.Component<UserListProps> {
         )
       } else if (i < offline.size + 1) {
         return (
-          <UserListEntry
-            style={style}
-            user={offline.get(i - 1)}
-            key={index}
-            onWhisperClick={this.props.onWhisperClick}
-            faded={true}
-          />
+          <UserListEntry style={style} username={offline.get(i - 1)} key={index} faded={true} />
         )
       }
 
@@ -421,8 +391,6 @@ export default function Channel(props: ChatChannelProps) {
     [dispatch, channelName],
   )
 
-  const onWhisperClick = useCallback((user: string) => navigateToWhisper(user), [])
-
   if (!channel) {
     return (
       <LoadingArea>
@@ -446,7 +414,7 @@ export default function Channel(props: ChatChannelProps) {
   return (
     <Container>
       <StyledChat listProps={listProps} inputProps={inputProps} />
-      <UserList users={channel.users} onWhisperClick={onWhisperClick} />
+      <UserList users={channel.users} />
     </Container>
   )
 }
