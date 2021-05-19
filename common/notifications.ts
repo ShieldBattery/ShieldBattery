@@ -69,6 +69,10 @@ export type NotificationEvent =
   | NotificationMarkReadEvent
 
 export interface ClearNotificationsServerBody {
+  timestamp: number | undefined
+}
+
+export interface ClearNotificationsServerPayload {
   timestamp: number
 }
 

@@ -57,14 +57,18 @@ function updateReadStatus(
   )
 }
 
-// Cache the values of the cleared notifications so they can easily be restored if the server
-// returns an error.
-let clearedIdToNotification: Map<string, NotificationRecord>
-let clearedNotificationIds: OrderedSet<string>
+export class ClearRequestRecord extends Record({
+  clearedIdToNotification: Map<string, NotificationRecord>(),
+  clearedNotificationIds: OrderedSet<string>(),
+}) {}
 
 class NotificationBaseState extends Record({
   idToNotification: Map<string, NotificationRecord>(),
   notificationIds: OrderedSet<string>(),
+
+  // Cache the values of the clear requests so they can easily be restored if the server returns an
+  // error. Doesn't cache the local notifications.
+  clearRequests: Map<string, ClearRequestRecord>(),
 }) {}
 
 export class NotificationState extends NotificationBaseState {
@@ -98,26 +102,59 @@ export default keyedReducer(new NotificationState(), {
       .deleteIn(['notificationIds', notificationId])
   },
 
-  ['@notifications/clearBegin'](state, { payload: { timestamp } }) {
-    clearedIdToNotification = state.idToNotification.filter(n => n.createdAt <= timestamp)
+  ['@notifications/clearBegin'](state, { payload: { reqId, timestamp } }) {
+    const clearedIdToNotification = state.idToNotification.filter(
+      n => timestamp && n.createdAt <= timestamp,
+    )
     // Preserve the order of the cleared notification IDs set
-    clearedNotificationIds = state.notificationIds.filter(id => clearedIdToNotification.has(id))
+    const clearedNotificationIds = state.notificationIds.filter(id =>
+      clearedIdToNotification.has(id),
+    )
 
     // Apply the clear changes optimistically
     return state
-      .update('idToNotification', map => map.filter(n => !clearedIdToNotification.has(n.id)))
+      .update('idToNotification', map =>
+        map.filter((n: NotificationRecordBase) => n.local || !clearedIdToNotification.has(n.id)),
+      )
       .update('notificationIds', ids => ids.subtract(clearedNotificationIds))
+      .setIn(
+        ['clearRequests', reqId],
+        new ClearRequestRecord({ clearedIdToNotification, clearedNotificationIds }),
+      )
   },
 
-  ['@notifications/clear'](state, { error }) {
+  ['@notifications/clear'](state, action) {
+    const reqId = action.meta && action.meta.reqId
+    // If the `reqId` is not provided it means the action was dispatched on a client that didn't
+    // issue the request.
+    if (!action.error && (!reqId || !state.clearRequests.has(reqId))) {
+      const timestamp = action.payload.timestamp
+      const clearedIdToNotification = state.idToNotification.filter(
+        n => timestamp && n.createdAt <= timestamp,
+      )
+      const clearedNotificationIds = state.notificationIds.filter(id =>
+        clearedIdToNotification.has(id),
+      )
+
+      return state
+        .update('idToNotification', map =>
+          map.filter((n: NotificationRecordBase) => n.local || !clearedIdToNotification.has(n.id)),
+        )
+        .update('notificationIds', ids => ids.subtract(clearedNotificationIds))
+    }
+
     // If an error happened, undo the mutations that were done optimistically
-    if (error) {
+    if (action.error && reqId) {
+      const clearedIdToNotification = state.clearRequests.get(reqId)?.clearedIdToNotification
+      const clearedNotificationIds = state.clearRequests.get(reqId)?.clearedNotificationIds
+
       return state
         .mergeIn(['idToNotification'], clearedIdToNotification)
         .mergeIn(['notificationIds'], clearedNotificationIds)
+        .deleteIn(['clearRequests', reqId])
     }
 
-    return state
+    return state.deleteIn(['clearRequests', reqId])
   },
 
   ['@notifications/markReadBegin'](state, { payload: { notificationIds } }) {

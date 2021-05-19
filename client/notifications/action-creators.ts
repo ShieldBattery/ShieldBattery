@@ -1,5 +1,7 @@
+import cuid from 'cuid'
 import {
   ClearNotificationsServerBody,
+  ClearNotificationsServerPayload,
   MarkNotificationsReadServerBody,
   Notification,
 } from '../../common/notifications'
@@ -8,22 +10,30 @@ import fetch from '../network/fetch'
 import { apiUrl } from '../network/urls'
 import { openSnackbar } from '../snackbars/action-creators'
 import { AddNotification, MarkNotificationsReadBegin } from './actions'
+import { NotificationRecordBase } from './notification-reducer'
 
 export function clearNotifications(): ThunkAction {
   return (dispatch, getState) => {
     const { idToNotification, notificationIds } = getState().notifications
-    const newestNotification = idToNotification.get(notificationIds.last())
-    const timestamp = newestNotification?.createdAt ?? Date.now()
+    const newestServerId = notificationIds.findLast(id => {
+      const notification = idToNotification.get(id) as NotificationRecordBase
+      return notification && !notification.local
+    })
+    let timestamp
+    if (newestServerId) {
+      timestamp = idToNotification.get(newestServerId)?.createdAt
+    }
+    const reqId = cuid()
 
     dispatch({
       type: '@notifications/clearBegin',
-      payload: { timestamp },
+      payload: { reqId, timestamp },
     })
 
     const requestBody: ClearNotificationsServerBody = { timestamp }
     dispatch({
       type: '@notifications/clear',
-      payload: fetch<void>(apiUrl`notifications/clear`, {
+      payload: fetch<ClearNotificationsServerPayload>(apiUrl`notifications/clear`, {
         method: 'post',
         body: JSON.stringify(requestBody),
       }).catch(err => {
@@ -34,7 +44,7 @@ export function clearNotifications(): ThunkAction {
         )
         throw err
       }),
-      meta: { timestamp },
+      meta: { reqId },
     })
   }
 }

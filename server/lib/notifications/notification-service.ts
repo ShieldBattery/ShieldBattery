@@ -11,7 +11,7 @@ import logger from '../logging/logger'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import {
   addNotification,
-  clear,
+  clearBefore,
   clearById,
   markRead,
   NotificationData,
@@ -49,8 +49,8 @@ export default class NotificationService {
   }
 
   /**
-   * Creates a new notification for a particular user with the provided data to the DB and notifies
-   * all of user's connected clients.
+   * Creates a new notification for a particular user, saves it to the database, and notifies all of
+   * the user's connected clients.
    */
   async addNotification(notificationProps: {
     userId: number
@@ -72,15 +72,14 @@ export default class NotificationService {
   }
 
   /**
-   * Clears, i.e. makes not visible, all notifications before a given timestamp for a particular
-   * user and notifies all of user's connected clients.
+   * Clears all notifications before a given date for a particular user.
    */
-  async clear(userId: number, timestamp: number) {
-    await clear(userId, timestamp)
+  async clearBefore(userId: number, date: Date) {
+    await clearBefore(userId, date)
 
     const clearEventData: NotificationClearEvent = {
       type: 'clear',
-      timestamp,
+      timestamp: Number(date),
     }
     this.nydus.publish(getNotificationsPath(userId), clearEventData)
   }
@@ -100,8 +99,8 @@ export default class NotificationService {
   }
 
   /**
-   * Markes all of the given notifications as "read" for a particular user and notifies all of
-   * user's connected clients.
+   * Marks all of the given notifications as "read" for a particular user and notifies all of user's
+   * connected clients.
    */
   async markRead(userId: number, notificationIds: string[]) {
     await markRead(userId, notificationIds)

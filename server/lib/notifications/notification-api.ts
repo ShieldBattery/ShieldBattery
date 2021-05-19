@@ -3,6 +3,7 @@ import Joi from 'joi'
 import { container } from 'tsyringe'
 import {
   ClearNotificationsServerBody,
+  ClearNotificationsServerPayload,
   MarkNotificationsReadServerBody,
 } from '../../../common/notifications'
 import { httpApi, HttpApi } from '../http/http-api'
@@ -29,14 +30,17 @@ export class NotificationApi extends HttpApi {
 async function clearNotifications(ctx: RouterContext) {
   const { body } = validateRequest(ctx, {
     body: Joi.object<ClearNotificationsServerBody>({
-      timestamp: Joi.number().required(),
+      timestamp: Joi.number(),
     }),
   })
 
+  const timestamp = body.timestamp ?? Date.now()
   const notificationService = container.resolve(NotificationService)
-  notificationService.clear(ctx.session!.userId, body.timestamp)
+  notificationService.clearBefore(ctx.session!.userId, new Date(timestamp))
 
-  ctx.status = 204
+  ctx.body = {
+    timestamp,
+  } as ClearNotificationsServerPayload
 }
 
 async function markNotificationsRead(ctx: RouterContext) {

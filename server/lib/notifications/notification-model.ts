@@ -120,16 +120,15 @@ export async function markRead(userId: number, notificationIds: string[]): Promi
 }
 
 /**
- * Marks all notifications before a given timestamp for a particular user as not visible, i.e.
- * cleared.
+ * Marks all notifications before a given date for a particular user as not visible, i.e. cleared.
  */
-export async function clear(userId: number, timestamp: number): Promise<void> {
+export async function clearBefore(userId: number, date: Date): Promise<void> {
   const { client, done } = await db()
   try {
     await client.query(sql`
       UPDATE notifications
       SET visible = false
-      WHERE user_id = ${userId} AND created_at <= ${new Date(timestamp)};
+      WHERE user_id = ${userId} AND created_at <= ${date};
     `)
   } finally {
     done()

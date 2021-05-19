@@ -1,7 +1,5 @@
-import { Map, OrderedSet } from 'immutable'
-import { Notification } from '../../common/notifications'
+import { ClearNotificationsServerPayload, Notification } from '../../common/notifications'
 import { BaseFetchFailure } from '../network/fetch-action-types'
-import { NotificationRecord } from './notification-reducer'
 
 export type NotificationActions =
   | ServerInitNotifications
@@ -42,22 +40,26 @@ export interface ClearByIdNotification {
 
 export interface ClearNotificationsBegin {
   type: '@notifications/clearBegin'
-  payload: { timestamp: number }
+  payload: {
+    reqId: string
+    timestamp?: number
+  }
 }
 
 /**
- * Clears *all* of the notifications from the list, both the ones generated locally and the ones
- * generated on the server.
+ * Clears notifications from the list of notifications, and in such a way that local notifications
+ * are cleared unconditionally, while server notifications are cleared based on the timestamp
+ * provided through payload.
  */
 export interface ClearNotifications {
   type: '@notifications/clear'
-  payload: void
-  meta: { timestamp: number }
+  payload: ClearNotificationsServerPayload
+  meta?: { reqId?: string }
   error?: false
 }
 
 export interface ClearNotificationsFailure extends BaseFetchFailure<'@notifications/clear'> {
-  meta: { idToNotification: Map<string, NotificationRecord>; notificationIds: OrderedSet<string> }
+  meta?: { reqId?: string }
 }
 
 export interface MarkNotificationsReadBegin {

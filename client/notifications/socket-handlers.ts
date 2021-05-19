@@ -28,7 +28,7 @@ const eventToAction: EventToActionMap = {
   clear: event => {
     const { timestamp } = event
     return {
-      type: '@notifications/clearBegin',
+      type: '@notifications/clear',
       payload: { timestamp },
     }
   },
