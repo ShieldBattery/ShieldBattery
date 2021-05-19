@@ -1,13 +1,12 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react'
-import { CSSTransition } from 'react-transition-group'
+import React, { useCallback, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import NotificationsIcon from '../icons/material/notifications_black_24px.svg'
-import { fastOutSlowIn } from '../material/curve-constants'
 import IconButton from '../material/icon-button'
-import { LegacyPopover } from '../material/legacy-popover'
+import { Popover, useAnchorPosition } from '../material/popover'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { amberA200, colorTextSecondary } from '../styles/colors'
-import { markNotificationsRead } from './action-creators'
+import { markLocalNotificationsRead, markNotificationsRead } from './action-creators'
+import { NotificationRecordBase } from './notification-reducer'
 import { ConnectedNotificationsList } from './notifications-list'
 
 const FadedNotificationsIcon = styled(NotificationsIcon)`
@@ -34,64 +33,41 @@ const ButtonContainer = styled.div`
   contain: content;
 `
 
-const transitionNames = {
-  appear: 'enter',
-  appearActive: 'enterActive',
-  enter: 'enter',
-  enterActive: 'enterActive',
-  exit: 'exit',
-  exitActive: 'exitActive',
-}
+const PopoverScrollable = styled.div`
+  max-height: calc(var(--sb-popover-max-height) * 0.667);
+  overflow-y: auto;
+`
 
-interface PopoverContentsProps {
-  transitionDuration: number
-  transitionDelay: number
-}
-
-const PopoverContents = styled.div<PopoverContentsProps>`
+const PopoverContents = styled.div`
   width: 320px;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-
-  &.enter {
-    opacity: 0;
-    transform: translateY(-16px);
-  }
-
-  &.enterActive {
-    opacity: 1;
-    transform: translateY(0px);
-    transition: ${props => `
-      opacity ${props.transitionDuration}ms linear ${props.transitionDelay}ms,
-      transform ${props.transitionDuration}ms ${fastOutSlowIn} ${props.transitionDelay}ms
-    `};
-  }
-
-  &.exit {
-    opacity: 1;
-  }
-
-  &.exitActive {
-    opacity: 0;
-    transition: ${props => `opacity ${props.transitionDuration}ms linear`};
-  }
 `
 
 export function NotificationsButton() {
   const dispatch = useAppDispatch()
-  const notifications = useAppSelector(s => s.notifications.list)
-  const hasUnread = useMemo(() => notifications.some(n => n.unread), [notifications])
+  const idToNotification = useAppSelector(s => s.notifications.idToNotification)
+  const notificationIds = useAppSelector(s => s.notifications.reversedNotificationIds)
+  const [localUnreadNotifications, serverUnreadNotifications] = useMemo(() => {
+    const group = notificationIds
+      .filter(id => !idToNotification.get(id)?.read)
+      .groupBy(id => (idToNotification.get(id)! as NotificationRecordBase).local)
+    return [group.get(true), group.get(false)]
+  }, [notificationIds, idToNotification])
+  const hasUnread = useMemo(() => idToNotification.some(n => !n.read), [idToNotification])
 
-  const [anchor, setAnchor] = useState<EventTarget | null>(null)
+  const [anchor, setAnchor] = useState<HTMLElement>()
   const onClick = useCallback((event: React.MouseEvent) => {
-    setAnchor(event.currentTarget)
+    setAnchor(event.currentTarget as HTMLElement)
   }, [])
   const onDismiss = useCallback(() => {
-    setAnchor(null)
-    dispatch(markNotificationsRead())
-  }, [dispatch])
-  const popoverContentsRef = useRef(null)
+    setAnchor(undefined)
+    if (localUnreadNotifications?.count()) {
+      dispatch(markLocalNotificationsRead(localUnreadNotifications.valueSeq().toArray()))
+    }
+    if (serverUnreadNotifications?.count()) {
+      dispatch(markNotificationsRead(serverUnreadNotifications.valueSeq().toArray()))
+    }
+  }, [localUnreadNotifications, serverUnreadNotifications, dispatch])
+  const [, anchorX, anchorY] = useAnchorPosition('right', 'bottom', anchor ?? null)
 
   return (
     <>
@@ -103,52 +79,19 @@ export function NotificationsButton() {
         />
         {hasUnread ? <UnreadIndicator /> : null}
       </ButtonContainer>
-      <LegacyPopover
+      <Popover
         open={!!anchor}
         onDismiss={onDismiss}
-        anchor={anchor}
-        anchorOriginHorizontal='right'
-        anchorOriginVertical='bottom'
-        popoverOriginHorizontal='right'
-        popoverOriginVertical='bottom'
-        anchorOffsetHorizontal={-8}
-        anchorOffsetVertical={-8}>
-        {(
-          state: string,
-          timings: { openDelay: number; openDuration: number; closeDuration: number },
-        ) => {
-          const { openDelay, openDuration, closeDuration } = timings
-          let transitionDuration = 0
-          let transitionDelay = 0
-          if (state === 'opening') {
-            transitionDuration = openDuration
-            transitionDelay = openDelay
-          } else if (state === 'opened') {
-            transitionDuration = closeDuration
-          }
-
-          return (
-            <CSSTransition
-              nodeRef={popoverContentsRef}
-              in={state === 'opening' || state === 'opened'}
-              classNames={transitionNames}
-              appear={true}
-              timeout={{
-                appear: openDelay + openDuration,
-                enter: openDuration,
-                exit: closeDuration,
-              }}>
-              <PopoverContents
-                key='contents'
-                ref={popoverContentsRef}
-                transitionDuration={transitionDuration}
-                transitionDelay={transitionDelay}>
-                <ConnectedNotificationsList />
-              </PopoverContents>
-            </CSSTransition>
-          )
-        }}
-      </LegacyPopover>
+        anchorX={(anchorX ?? 0) - 8}
+        anchorY={(anchorY ?? 0) - 8}
+        originX='right'
+        originY='bottom'>
+        <PopoverScrollable>
+          <PopoverContents>
+            <ConnectedNotificationsList />
+          </PopoverContents>
+        </PopoverScrollable>
+      </Popover>
     </>
   )
 }

@@ -17,10 +17,13 @@ const ColoredWarningIcon = styled(WarningIcon)`
 // SORRY(tec27): lol this is the biggest mouthful sorry
 export interface EmailVerificationNotificationUiProps {
   showDivider: boolean
-  unread: boolean
+  read: boolean
 }
 
-export function EmailVerificationNotificationUi(props: EmailVerificationNotificationUiProps) {
+export const EmailVerificationNotificationUi = React.forwardRef<
+  HTMLDivElement,
+  EmailVerificationNotificationUiProps
+>((props, ref) => {
   const dispatch = useAppDispatch()
   const onClick = useCallback(
     (event: React.MouseEvent) => {
@@ -32,8 +35,9 @@ export function EmailVerificationNotificationUi(props: EmailVerificationNotifica
 
   return (
     <ActionlessNotification
+      ref={ref}
       showDivider={props.showDivider}
-      unread={props.unread}
+      read={props.read}
       icon={<ColoredWarningIcon />}
       text={
         <span>
@@ -47,4 +51,4 @@ export function EmailVerificationNotificationUi(props: EmailVerificationNotifica
       }
     />
   )
-}
+})

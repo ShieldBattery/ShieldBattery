@@ -48,6 +48,7 @@ import Index from './navigation/index'
 import { push, replace } from './navigation/routing'
 import { addNotification } from './notifications/action-creators'
 import { NotificationsButton } from './notifications/activity-bar-entry'
+import NotificationPopups from './notifications/notifications-popup'
 import LoadingIndicator from './progress/dots'
 import { openSnackbar } from './snackbars/action-creators'
 import ConnectedSnackbar from './snackbars/connected-snackbar'
@@ -177,9 +178,8 @@ class MainLayout extends React.Component {
       if (!this.props.auth.emailVerified) {
         this.props.dispatch(
           addNotification({
-            type: NotificationType.EmailVerification,
             id: EMAIL_VERIFICATION_ID,
-            unread: true,
+            type: NotificationType.EmailVerification,
           }),
         )
       }
@@ -382,6 +382,7 @@ class MainLayout extends React.Component {
           <ActivityOverlay />
           <ConnectedSnackbar />
           <ConnectedDialogOverlay />
+          <NotificationPopups />
         </Layout>
       </Container>
     )

@@ -6,6 +6,7 @@ import chat from '../chat/socket-handlers'
 import { dispatch } from '../dispatch-registry'
 import loading from '../loading/socket-handlers'
 import logger from '../logging/logger'
+import notifications from '../notifications/socket-handlers'
 import serverStatus from '../serverstatus/server-status-checker'
 import whispers from '../whispers/socket-handlers'
 import { clientId } from './client-id'
@@ -92,9 +93,15 @@ const envSpecificHandlers = IS_ELECTRON
     ]
   : []
 
-const handlers = [auth, chat, loading, networkStatusHandler, serverStatus, whispers].concat(
-  envSpecificHandlers,
-)
+const handlers = [
+  auth,
+  chat,
+  loading,
+  networkStatusHandler,
+  notifications,
+  serverStatus,
+  whispers,
+].concat(envSpecificHandlers)
 
 export default function register() {
   const ipcRenderer = new TypedIpcRenderer()

@@ -17,8 +17,6 @@ import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { joiValidator } from '../validation/joi-validator'
 
-const partyService = container.resolve(PartyService)
-
 const invitesThrottle = createThrottle('partyInvites', {
   rate: 40,
   burst: 60,
@@ -57,6 +55,9 @@ const removeInviteParamsSchema = partyIdSchema.keys({
 })
 
 export default function (router: Router) {
+  // NOTE(tec27): Just ensures the service gets initialized on app init
+  container.resolve(PartyService)
+
   router
     .use(featureEnabled(PARTIES), ensureLoggedIn)
     .post(
@@ -144,6 +145,7 @@ async function invite(ctx: RouterContext) {
       name: ctx.session!.userName,
     }
 
+    const partyService = container.resolve(PartyService)
     partyService.invite(leader, clientId, invites)
 
     ctx.status = 204
@@ -158,6 +160,7 @@ async function decline(ctx: RouterContext) {
   try {
     const target: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
 
+    const partyService = container.resolve(PartyService)
     partyService.decline(partyId, target)
 
     ctx.status = 204
@@ -178,6 +181,7 @@ async function removeInvite(ctx: RouterContext) {
     const removingUser: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
     const target: PartyUser = { id: foundTarget.id as number, name: foundTarget.name }
 
+    const partyService = container.resolve(PartyService)
     partyService.removeInvite(partyId, removingUser, target)
 
     ctx.status = 204
@@ -192,6 +196,8 @@ async function accept(ctx: RouterContext) {
 
   try {
     const user: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
+
+    const partyService = container.resolve(PartyService)
     partyService.acceptInvite(partyId, user, clientId)
 
     ctx.status = 204

@@ -1,5 +1,5 @@
 import { List } from 'immutable'
-import React, { useCallback } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { NotificationType } from '../../common/notifications'
@@ -69,11 +69,16 @@ export function NotificationsList(props: NotificationsListProps) {
 }
 
 export function ConnectedNotificationsList() {
-  const list = useAppSelector(s => s.notifications.list)
+  const idToNotification = useAppSelector(s => s.notifications.idToNotification)
+  const notificationIds = useAppSelector(s => s.notifications.reversedNotificationIds)
   const dispatch = useAppDispatch()
   const onClear = useCallback(() => dispatch(clearNotifications()), [dispatch])
+  const orderedNotifications = useMemo(
+    () => notificationIds.map(id => idToNotification.get(id)!).toList(),
+    [notificationIds, idToNotification],
+  )
 
-  return <NotificationsList notifications={list} onClear={onClear} />
+  return <NotificationsList notifications={orderedNotifications} onClear={onClear} />
 }
 
 function toUi(notification: NotificationRecord, key: string, showDivider: boolean) {
@@ -83,10 +88,12 @@ function toUi(notification: NotificationRecord, key: string, showDivider: boolea
         <EmailVerificationNotificationUi
           key={key}
           showDivider={showDivider}
-          unread={notification.unread}
+          read={notification.read}
         />
       )
+    case NotificationType.PartyInvite:
+      return <span />
     default:
-      return assertUnreachable(notification.type)
+      return assertUnreachable(notification)
   }
 }
