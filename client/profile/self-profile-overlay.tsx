@@ -22,7 +22,7 @@ const VERTICAL_TRANSITION: UseTransitionProps<boolean> = {
 
 export function SelfProfileOverlay(props: SelfProfileOverlayProps) {
   const { username, children, open, onDismiss, anchor } = props
-  const [, anchorX, anchorY] = useAnchorPosition('left', 'top', anchor ?? null)
+  const [, anchorX, anchorY] = useAnchorPosition('center', 'top', anchor ?? null)
 
   return (
     <Popover
@@ -30,7 +30,7 @@ export function SelfProfileOverlay(props: SelfProfileOverlayProps) {
       onDismiss={onDismiss}
       anchorX={anchorX ?? 0}
       anchorY={anchorY ?? 0}
-      originX='left'
+      originX='center'
       originY='bottom'
       transitionProps={VERTICAL_TRANSITION}>
       <PopoverContents>

@@ -3,7 +3,7 @@ import Avatar from '../avatars/avatar'
 import { headline6, singleLine } from '../styles/typography'
 
 export const PopoverContents = styled.div`
-  min-width: 256px;
+  min-width: 224px;
 `
 
 export const Header = styled.div`
