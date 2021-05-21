@@ -253,11 +253,15 @@ class ConnectedLeftNav extends React.Component {
   }
 
   onProfileEntryClick = () => {
+    if (this.state.profileOverlayOpen) {
+      return
+    }
+
     this.setState({ profileOverlayOpen: true })
   }
 
   onCloseProfileOverlay = () => {
-    this.setState({ profileOverlayOpen: false })
+    this.setState(() => ({ profileOverlayOpen: false }))
   }
 
   onJoinChannelClick = () => {

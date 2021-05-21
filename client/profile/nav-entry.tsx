@@ -3,7 +3,10 @@ import React from 'react'
 import styled from 'styled-components'
 import Avatar from '../avatars/avatar'
 import ExpandIcon from '../icons/material/expand_less_black_24px.svg'
+import { useButtonState } from '../material/button'
+import { buttonReset } from '../material/button-reset'
 import { fastOutSlowIn } from '../material/curve-constants'
+import { Ripple } from '../material/ripple'
 import { colorTextFaint, colorTextPrimary } from '../styles/colors'
 import { cabin, singleLine } from '../styles/typography'
 
@@ -13,7 +16,8 @@ const StyledExpandIcon = styled(ExpandIcon)`
   will-change: transform;
 `
 
-const Container = styled.div`
+const Container = styled.button`
+  ${buttonReset};
   width: 100%;
   height: 72px;
   margin-top: 16px;
@@ -25,6 +29,7 @@ const Container = styled.div`
 
   border-radius: 0 2px 0 0;
   cursor: pointer;
+  text-align: left;
 
   & ${StyledExpandIcon} {
     color: ${colorTextFaint};
@@ -35,14 +40,6 @@ const Container = styled.div`
     & ${StyledExpandIcon} {
       color: ${colorTextPrimary};
     }
-  }
-
-  &:hover {
-    background-color: rgba(255, 255, 255, 0.04);
-  }
-
-  &:active {
-    background-color: rgba(255, 255, 255, 0.08);
   }
 `
 
@@ -77,13 +74,16 @@ export interface ProfileNavEntryProps {
 const ProfileNavEntry = React.forwardRef(
   (
     { user, onProfileEntryClick, profileMenuOpen }: ProfileNavEntryProps,
-    ref: React.ForwardedRef<HTMLDivElement>,
+    ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
+    const [buttonProps, rippleRef] = useButtonState({ onClick: onProfileEntryClick })
+
     return (
-      <Container ref={ref} onClick={onProfileEntryClick}>
+      <Container ref={ref} {...buttonProps}>
         <StyledAvatar user={user} />
         <User>{user}</User>
         <StyledExpandIcon $flipped={profileMenuOpen} />
+        <Ripple ref={rippleRef} />
       </Container>
     )
   },

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect } from 'react'
 import ReactDOM from 'react-dom'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
-import { markEventAsHandledDismissal } from './dismissal-events'
+import { isHandledDismissalEvent, markEventAsHandledDismissal } from './dismissal-events'
 
 export interface PortalProps {
   /** Children rendered inside the Portal. */
@@ -24,29 +24,43 @@ export function Portal(props: PortalProps) {
   const { onDismiss, open, children } = props
 
   const portalRef = useExternalElementRef()
-  const onClick = useCallback(
+  // We capture the event and check if it will dismiss there, so that we can mark it as a
+  // dismissal for other scrim or scrim-like handlers to avoid dismissing their UIs when a popover
+  // is closed. We don't actually perform the dismissal until the event bubbles back up, however,
+  // so that it is easier to make things that trigger portals/popovers act more like toggles (that
+  // is, close if you click them again while open).
+  const onCaptureClick = useCallback(
     (event: MouseEvent) => {
       if (onDismiss) {
         if (!portalRef.current?.contains(event.target as Node)) {
-          onDismiss()
           markEventAsHandledDismissal(event)
         }
       }
     },
     [onDismiss, portalRef],
   )
+  const onBubbleClick = useCallback(
+    (event: MouseEvent) => {
+      if (onDismiss && isHandledDismissalEvent(event)) {
+        onDismiss()
+      }
+    },
+    [onDismiss],
+  )
 
   useEffect(() => {
     if (open) {
-      document.addEventListener('click', onClick, true /* useCapture */)
+      document.addEventListener('click', onCaptureClick, true /* useCapture */)
+      document.addEventListener('click', onBubbleClick)
       return () => {
-        document.removeEventListener('click', onClick, true /* useCapture */)
+        document.removeEventListener('click', onCaptureClick, true /* useCapture */)
+        document.removeEventListener('click', onBubbleClick)
       }
     }
 
     // makes the linter happy :)
     return undefined
-  }, [onClick, open])
+  }, [onCaptureClick, onBubbleClick, open])
 
   return ReactDOM.createPortal(children, portalRef.current)
 }

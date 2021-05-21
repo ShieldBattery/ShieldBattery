@@ -29,7 +29,7 @@ export function SelfProfileOverlay(props: SelfProfileOverlayProps) {
       open={open}
       onDismiss={onDismiss}
       anchorX={anchorX ?? 0}
-      anchorY={anchorY ?? 0}
+      anchorY={(anchorY ?? 0) - 8}
       originX='center'
       originY='bottom'
       transitionProps={VERTICAL_TRANSITION}>

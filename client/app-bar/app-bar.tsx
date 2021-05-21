@@ -20,6 +20,7 @@ import { standardIncrement } from '../material/units'
 import { zIndexAppBar } from '../material/zindex'
 import { push } from '../navigation/routing'
 import { ActiveUserCount } from '../serverstatus/active-users'
+import { useValueAsRef } from '../state-hooks'
 import { blue800, colorError, colorTextSecondary } from '../styles/colors'
 import { body1, caption, headline6, overline, singleLine } from '../styles/typography'
 import Lockup from './lockup'
@@ -48,7 +49,7 @@ const LeftSide = styled.div`
 `
 
 const AppMenu = styled(Menu)`
-  width: 224px;
+  width: 240px;
   max-height: 420px;
 `
 
@@ -170,10 +171,16 @@ export default function AppBar(props: AppBarProps) {
   }, [])
 
   const [appMenuAnchor, setAppMenuAnchor] = useState<HTMLElement>()
+  const appMenuAnchorRef = useValueAsRef(appMenuAnchor)
   const [, anchorX, anchorY] = useAnchorPosition('center', 'bottom', appMenuAnchor ?? null)
-  const onLockupClick = useCallback((event: React.MouseEvent) => {
-    setAppMenuAnchor(event.currentTarget as HTMLElement)
-  }, [])
+  const onLockupClick = useCallback(
+    (event: React.MouseEvent) => {
+      if (!appMenuAnchorRef.current) {
+        setAppMenuAnchor(event.currentTarget as HTMLElement)
+      }
+    },
+    [appMenuAnchorRef],
+  )
   const onAppMenuDismiss = useCallback(() => {
     setAppMenuAnchor(undefined)
   }, [])
