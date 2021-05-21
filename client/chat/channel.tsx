@@ -11,7 +11,7 @@ import { ConnectedUserProfileOverlay } from '../profile/connected-user-profile-o
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious } from '../state-hooks'
-import { alphaDisabled, background700, colorTextSecondary } from '../styles/colors'
+import { alphaDisabled, background700, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { body2, overline, singleLine } from '../styles/typography'
 import {
   activateChannel,
@@ -72,7 +72,7 @@ const StyledAvatar = styled(Avatar)`
 `
 
 const fadedCss = css`
-  color: ${colorTextSecondary};
+  color: ${colorTextFaint};
   ${StyledAvatar} {
     opacity: ${alphaDisabled};
   }
