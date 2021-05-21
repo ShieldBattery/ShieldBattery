@@ -281,6 +281,7 @@ export interface RaisedButtonProps {
   tabIndex?: number
   title?: string
   type?: 'button' | 'reset' | 'submit'
+  name?: string
 }
 
 /**
@@ -301,6 +302,7 @@ export const RaisedButton = React.forwardRef(
       tabIndex,
       title,
       type,
+      name,
     }: RaisedButtonProps,
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
@@ -320,6 +322,7 @@ export const RaisedButton = React.forwardRef(
         tabIndex={tabIndex}
         title={title}
         type={type ?? 'button'}
+        name={name}
         {...buttonProps}>
         <Label>{label}</Label>
         <Ripple ref={rippleRef} disabled={disabled} />
@@ -388,6 +391,7 @@ export interface TextButtonProps {
   tabIndex?: number
   title?: string
   type?: 'button' | 'reset' | 'submit'
+  name?: string
 }
 
 /**
@@ -408,6 +412,7 @@ export const TextButton = React.forwardRef(
       tabIndex,
       title,
       type,
+      name,
     }: TextButtonProps,
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
@@ -427,6 +432,7 @@ export const TextButton = React.forwardRef(
         tabIndex={tabIndex}
         title={title}
         type={type ?? 'button'}
+        name={name}
         {...buttonProps}>
         <Label>{label}</Label>
         <Ripple ref={rippleRef} disabled={disabled} />
@@ -467,6 +473,7 @@ export interface IconButtonProps {
   onMouseDown?: React.MouseEventHandler
   tabIndex?: number
   type?: 'button' | 'reset' | 'submit'
+  name?: string
 }
 
 /** A button that displays just an icon (with no text, and no background or elevation). */
@@ -483,6 +490,7 @@ export const IconButton = React.forwardRef(
       onMouseDown,
       tabIndex,
       type,
+      name,
     }: IconButtonProps,
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
@@ -501,6 +509,7 @@ export const IconButton = React.forwardRef(
         tabIndex={tabIndex}
         title={title}
         type={type ?? 'button'}
+        name={name}
         {...buttonProps}>
         {icon}
         <Ripple ref={rippleRef} disabled={disabled} />
