@@ -2,7 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import Icon from '../../icons/material/baseline-check_circle-24px.svg'
 import Card from '../../material/card'
-import { grey850 } from '../../styles/colors'
+import { background700 } from '../../styles/colors'
 import ActivityBar from '../activity-bar'
 import { ActivityButton } from '../activity-button'
 
@@ -20,7 +20,7 @@ const StyledCard = styled(Card)`
   width: 100%;
   max-width: 640px;
   margin-left: 16px;
-  background-color: ${grey850};
+  background-color: ${background700};
 `
 
 export default class ActivityButtonsTest extends React.Component {

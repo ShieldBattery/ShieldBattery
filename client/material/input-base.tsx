@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types'
-import styled from 'styled-components'
-import { colorTextFaint, colorTextPrimary, grey700, grey800, grey900 } from '../styles/colors'
+import styled, { css } from 'styled-components'
+import { colorTextFaint, colorTextPrimary } from '../styles/colors'
 import { singleLine, subtitle1 } from '../styles/typography'
 
 export const TEXTAREA_BOTTOM_PADDING = 7
@@ -40,10 +40,9 @@ export const InputBase = styled.div<{
 
   ${props => {
     if (props.multiline) {
-      const scrollbarColor = props.focused ? grey800 : grey700
       const paddingBottom = props.dense ? TEXTAREA_BOTTOM_PADDING_DENSE : TEXTAREA_BOTTOM_PADDING
 
-      return `
+      return css`
         padding: 0;
         padding-bottom: ${paddingBottom}px;
         overflow-y: auto;
@@ -54,27 +53,12 @@ export const InputBase = styled.div<{
           width: 12px;
         }
 
-        &::-webkit-scrollbar-track {
-          background-color: ${scrollbarColor};
-        }
-
         &::-webkit-scrollbar-thumb {
           width: 100%;
-          border-left: 2px solid ${scrollbarColor};
-          border-right: 2px solid ${scrollbarColor};
-          margin-left: auto;
-          margin-right: auto;
-          background-color: ${grey900};
-        }
-
-        ::-webkit-scrollbar-button:start:decrement,
-        ::-webkit-scrollbar-button:end:increment {
-          height: 2px;
-          background-color: ${scrollbarColor};
         }
       `
     } else {
-      return `
+      return css`
         height: 24px;
         ${singleLine};
       `

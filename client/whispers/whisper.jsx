@@ -18,10 +18,7 @@ const MESSAGES_LIMIT = 50
 const Container = styled.div`
   max-width: 884px;
   height: 100%;
-  margin: 0 auto;
   padding: 0;
-  padding-left: var(--pixel-shove-x, 0px) solid transparent;
-  display: flex;
 `
 
 const LoadingArea = styled.div`
@@ -29,10 +26,6 @@ const LoadingArea = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-`
-
-const StyledChat = styled(Chat)`
-  flex-grow: 1;
 `
 
 // Returns true if the whispers store state shows that we have closed the whisper session while
@@ -133,7 +126,7 @@ export default class Whisper extends React.Component {
 
     return (
       <Container>
-        <StyledChat listProps={listProps} inputProps={inputProps} />
+        <Chat listProps={listProps} inputProps={inputProps} />
       </Container>
     )
   }

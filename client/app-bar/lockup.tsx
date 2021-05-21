@@ -3,28 +3,30 @@ import styled from 'styled-components'
 import ExpandIcon from '../icons/material/expand_less_black_24px.svg'
 import Logo from '../logos/logo-no-bg.svg'
 import LogoText from '../logos/logotext-white-154x56.svg'
+import { useButtonState } from '../material/button'
+import { buttonReset } from '../material/button-reset'
 import { fastOutSlowIn } from '../material/curve-constants'
-import { colorTextFaint, colorTextPrimary } from '../styles/colors'
+import { Ripple } from '../material/ripple'
+import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
 
-const Container = styled.div`
+const Container = styled.button`
+  ${buttonReset};
+
   height: 100%;
   padding: 8px 0px 8px 8px;
 
   display: flex;
   align-items: center;
 
-  color: ${colorTextFaint};
+  color: ${colorTextSecondary};
   cursor: pointer;
   -webkit-app-region: no-drag;
 
+  --sb-ripple-color: ${colorTextPrimary};
+
   &:hover,
   &:active {
-    background-color: rgba(255, 255, 255, 0.04);
     color: ${colorTextPrimary};
-  }
-
-  &:active {
-    background-color: rgba(255, 255, 255, 0.08);
   }
 `
 
@@ -48,15 +50,20 @@ const AnimatedExpandIcon = styled(ExpandIcon)`
   will-change: transform;
 `
 
-export default function Lockup(props: {
+export interface LockupProps {
   onClick?: (event: React.MouseEvent) => void
   menuOpened?: boolean
-}) {
+}
+
+export default function Lockup({ onClick, menuOpened }: LockupProps) {
+  const [buttonProps, rippleRef] = useButtonState({ onClick })
+
   return (
-    <Container aria-label='ShieldBattery' onClick={props.onClick}>
+    <Container aria-label='ShieldBattery' {...buttonProps}>
       <SizedLogo />
       <SizedLogoText />
-      <AnimatedExpandIcon $flipped={!!props.menuOpened} />
+      <AnimatedExpandIcon $flipped={!!menuOpened} />
+      <Ripple ref={rippleRef} />
     </Container>
   )
 }

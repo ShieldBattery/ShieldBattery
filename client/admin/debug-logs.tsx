@@ -11,7 +11,7 @@ import { apiUrl, urlPath } from '../network/urls'
 import { useAppDispatch } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { CenteredContentContainer } from '../styles/centered-container'
-import { amberA200, blue200, colorError, colorTextSecondary, grey700 } from '../styles/colors'
+import { amberA200, background300, blue200, colorError, colorTextSecondary } from '../styles/colors'
 import { headline5, overline, singleLine, subtitle1 } from '../styles/typography'
 
 const timestampFormat = new Intl.DateTimeFormat(navigator.language, {
@@ -75,7 +75,7 @@ const LogEntryRow = styled.tr<{ $even?: boolean }>`
   ${props => {
     if (props.$even) {
       return css`
-        background-color: ${grey700};
+        background-color: ${background300};
       `
     }
 

@@ -4,7 +4,7 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import styled from 'styled-components'
-import { amberA400, colorTextFaint, grey500 } from '../styles/colors'
+import { amberA400, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { body1, caption } from '../styles/typography'
 import { fastOutSlowIn } from './curve-constants'
 
@@ -96,7 +96,7 @@ const TrackRoot = styled.div`
   left: 0px;
   top: 54px;
   border-radius: 2px;
-  background-color: ${props => (props.disabled ? rgba(grey500, 0.5) : rgba(amberA400, 0.3))};
+  background-color: ${props => (props.disabled ? rgba(colorTextFaint, 0.5) : rgba(amberA400, 0.3))};
 `
 
 // This wrapper is needed to make sure the border-radius doesn't get scaled with the filled track.
@@ -116,7 +116,7 @@ const FilledTrack = styled.div`
   top: 0;
   width: 100%;
   height: 100%;
-  background-color: ${props => (props.disabled ? grey500 : amberA400)};
+  background-color: ${props => (props.disabled ? colorTextFaint : amberA400)};
 
   transform: scaleX(1);
   transform-origin: 0% 50%;
@@ -155,7 +155,7 @@ const SliderLabel = styled.div`
   top: 8px;
   left: 2px;
 
-  color: ${colorTextFaint};
+  color: ${colorTextSecondary};
   pointer-events: none;
 `
 
@@ -188,7 +188,7 @@ const Thumb = styled.div`
   left: ${THUMB_WIDTH_PX / -2}px;
   top: 2px;
 
-  background-color: ${props => (props.disabled ? grey500 : amberA400)};
+  background-color: ${props => (props.disabled ? colorTextFaint : amberA400)};
   border-radius: 50%;
   pointer-events: none;
   transition: background-color 200ms linear;

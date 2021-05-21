@@ -11,7 +11,13 @@ import { RaisedButton, TextButton } from '../material/button'
 import { ScrollableContent } from '../material/scroll-bar'
 import fetch from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
-import { amberA400, colorError, colorSuccess, colorTextSecondary, grey800 } from '../styles/colors'
+import {
+  amberA400,
+  background600,
+  colorError,
+  colorSuccess,
+  colorTextSecondary,
+} from '../styles/colors'
 import { singleLine, SubheadingOld } from '../styles/typography'
 
 const Container = styled.div`
@@ -22,7 +28,7 @@ const Container = styled.div`
 const SelectedFiles = styled.ul`
   margin: 8px 0;
   padding: 8px 0;
-  background-color: ${grey800};
+  background-color: ${background600};
   border-radius: 8px;
 `
 

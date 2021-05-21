@@ -153,12 +153,12 @@ export const Caption = styled.div`
 `
 
 export const overline = css`
-  ${cabin};
   font-feature-settings: 'liga' off;
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0.5px;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.84px;
   line-height: 36px;
+  text-transform: uppercase;
 `
 
 export const Overline = styled.div`

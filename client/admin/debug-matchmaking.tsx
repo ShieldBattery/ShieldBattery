@@ -19,7 +19,7 @@ import { useRefreshToken } from '../network/refresh-token'
 import { apiUrl } from '../network/urls'
 import { useAppDispatch } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
-import { colorDividers, colorTextFaint, grey850 } from '../styles/colors'
+import { background800, colorDividers, colorTextFaint } from '../styles/colors'
 import { headline5 } from '../styles/typography'
 
 const Container = styled.div`
@@ -54,7 +54,7 @@ const accessors = {
 // TODO(tec27): Put this somewhere better/add it as a Context
 const theme = buildChartTheme({
   ...darkTheme,
-  backgroundColor: grey850,
+  backgroundColor: background800,
   htmlLabel: {
     color: '#ffffff',
     fontFamily: 'Inter, sans-serif',

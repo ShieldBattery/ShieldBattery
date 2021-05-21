@@ -6,7 +6,13 @@ import QuestionIcon from '../icons/material/ic_help_outline_black_48px.svg'
 import LogoText from '../logos/logotext-640x100.svg'
 import { shadowDef4dp } from '../material/shadow-constants'
 import { makeServerUrl } from '../network/server-url'
-import { blue400, colorDividers, colorTextSecondary, grey850, grey900 } from '../styles/colors'
+import {
+  background700,
+  background800,
+  blue400,
+  colorDividers,
+  colorTextSecondary,
+} from '../styles/colors'
 import { headline1, headline4, headline5 } from '../styles/typography'
 import TopLinks from './top-links'
 
@@ -247,7 +253,7 @@ const Splash = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  background-color: ${grey900};
+  background-color: ${background800};
 
   & * {
     user-select: text;
@@ -299,7 +305,7 @@ const Intro = styled.div`
   justify-content: center;
   width: 100%;
   margin-top: 142px;
-  background-color: ${grey850};
+  background-color: ${background700};
   box-shadow: ${shadowDef4dp};
 
   @media screen and (max-width: 980px) {

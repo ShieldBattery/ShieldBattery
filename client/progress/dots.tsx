@@ -1,5 +1,6 @@
 import React from 'react'
 import styled, { css, keyframes } from 'styled-components'
+import { colorTextSecondary } from '../styles/colors'
 
 const bounce = keyframes`
   0%, 80%, 100% {
@@ -29,7 +30,8 @@ const delayedShowCss = css`
 const Root = styled.div<{ $showImmediately?: boolean }>`
   height: 24px;
   padding: 4px 8px;
-  color: rgba(255, 255, 255, 0.5);
+  color: ${colorTextSecondary};
+  opacity: 0.7;
 
   ${props => (!props.$showImmediately ? delayedShowCss : '')};
 `

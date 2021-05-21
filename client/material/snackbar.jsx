@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
-import { grey800 } from '../styles/colors'
+import { background700 } from '../styles/colors'
 import { TextButton } from './button'
 import { fastOutLinearIn, fastOutSlowIn, linearOutSlowIn } from './curve-constants'
 import { shadow6dp } from './shadows'
@@ -70,7 +70,7 @@ const Content = styled.div`
   height: auto;
   text-align: left;
   border-radius: 2px;
-  background-color: ${grey800};
+  background-color: ${background700};
 `
 
 class Snackbar extends React.Component {

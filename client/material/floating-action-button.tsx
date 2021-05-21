@@ -1,6 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import { amberA400, grey500 } from '../styles/colors'
+import { amberA400, colorTextFaint } from '../styles/colors'
 import { useButtonState } from './button'
 import { buttonReset } from './button-reset'
 import { fastOutSlowInShort } from './curves'
@@ -35,7 +35,7 @@ const Root = styled.button`
   }
 
   &:disabled {
-    background-color: ${grey500};
+    background-color: ${colorTextFaint};
     box-shadow: none;
     color: rgba(0, 0, 0, 0.54);
   }

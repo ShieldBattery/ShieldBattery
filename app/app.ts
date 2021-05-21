@@ -363,7 +363,7 @@ async function createWindow() {
     minHeight: 600,
 
     acceptFirstMouse: true,
-    backgroundColor: '#1B1E22',
+    backgroundColor: '#0E1B2A',
     frame: false,
     transparent: false,
     show: false,

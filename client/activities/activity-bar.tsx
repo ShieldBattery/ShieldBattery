@@ -1,17 +1,19 @@
-import { rgba } from 'polished'
 import styled from 'styled-components'
 import { shadow3dp } from '../material/shadows'
-import { blue800 } from '../styles/colors'
+import { background500 } from '../styles/colors'
 
 export default styled.div`
+  ${shadow3dp};
+
+  width: 96px;
+  padding-bottom: 8px;
+
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   justify-content: flex-start;
   align-items: center;
-  width: 96px;
-  padding-bottom: 8px;
-  ${shadow3dp};
-  background-color: ${rgba(blue800, 0.3)};
+
+  background-color: ${background500};
   overflow: hidden;
 `

@@ -259,7 +259,7 @@ const RaisedButtonRoot = styled.button<RaisedButtonStyleProps>`
   &:disabled {
     background-color: rgba(255, 255, 255, 0.12);
     box-shadow: none;
-    color: ${props => (props.$color === 'accent' ? 'rgba(0, 0, 0, 0.54)' : colorTextFaint)};
+    color: ${colorTextFaint};
   }
 
   ${CardLayer} && {

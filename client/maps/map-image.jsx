@@ -2,8 +2,8 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
 import ImageIcon from '../icons/material/baseline-image-24px.svg'
-import { grey800 } from '../styles/colors'
-import { SubheadingOld } from '../styles/typography'
+import { background700 } from '../styles/colors'
+import { Subtitle1 } from '../styles/typography'
 
 const ImgContainer = styled.div`
   position: relative;
@@ -30,7 +30,7 @@ const NoImageContainer = styled.div`
   width: 100%;
   height: 100%;
   min-height: 220px;
-  background-color: ${grey800};
+  background-color: ${background700};
 
   & > svg {
     width: 90px;
@@ -42,7 +42,7 @@ const NoImageContainer = styled.div`
 const NoImage = () => (
   <NoImageContainer>
     <ImageIcon />
-    <SubheadingOld>Map preview not available</SubheadingOld>
+    <Subtitle1>Map preview not available</Subtitle1>
   </NoImageContainer>
 )
 

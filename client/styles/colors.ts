@@ -21,31 +21,42 @@ export const amberA400 = '#ffc400'
 export const amberA700 = '#ffab00'
 
 /* Greys (for backgrounds) */
-export const grey50 = '#F5FBFE'
-export const grey100 = '#EBF1FA'
-export const grey200 = '#E0E7F0'
-export const grey300 = '#D3DAE4'
-export const grey400 = '#B2BBC7'
-export const grey500 = '#9198A1'
-export const grey600 = '#68717C'
+/** @deprecated */
 export const grey700 = '#505762'
+/** @deprecated */
 export const grey800 = '#353D45'
+/** @deprecated */
 export const grey850 = '#252A31'
+/** @deprecated */
 export const grey900 = '#1B1E22'
+
+/** Colors used for backgrounds (a muted grey-blue palette) */
+export const background50 = '#7B97BA'
+export const background100 = '#6584AA'
+export const background200 = '#577598'
+export const background300 = '#466180'
+export const background400 = '#30455F'
+export const background500 = '#243951'
+export const background600 = '#1D2F44'
+export const background700 = '#142539'
+export const background800 = '#0E1B2A'
+export const background900 = '#091320'
+
+/** Background colors used for accenting particularly prominent UI. */
+export const backgroundSaturatedLight = '#02498C'
+export const backgroundSaturatedDark = '#034078'
 
 export const alphaDividers = '0.12'
 export const alphaDisabled = '0.5'
-export const alphaSecondary = '0.7'
-export const alphaPrimary = '1.0'
 
 export const colorText = '#ffffff'
 
 export const colorDividers = `rgba(255, 255, 255, ${alphaDividers})`
-export const colorTextFaint = `rgba(255, 255, 255, ${alphaDisabled})`
-export const colorTextSecondary = `rgba(255, 255, 255, ${alphaSecondary})`
-export const colorTextPrimary = `rgba(255, 255, 255, ${alphaPrimary})`
+export const colorTextFaint = '#8998a9'
+export const colorTextSecondary = '#cfdcec'
+export const colorTextPrimary = '#ffffff'
 
-export const colorBackground = grey900
+export const colorBackground = background800
 export const colorError = '#ff6e6e'
 export const colorSuccess = '#66bb6a'
 
@@ -69,8 +80,8 @@ export function getRaceColor(race: RaceChar) {
   }
 }
 
-export const dialogScrim = grey900
+export const dialogScrim = background900
 
 export const CardLayer = styled.div`
-  background-color: ${grey800};
+  background-color: ${background400};
 `

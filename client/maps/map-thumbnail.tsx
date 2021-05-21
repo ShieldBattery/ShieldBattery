@@ -12,7 +12,7 @@ import { IconButton } from '../material/button'
 import MenuItem from '../material/menu/item'
 import Menu from '../material/menu/menu'
 import { useAnchorPosition } from '../material/popover'
-import { amberA100, colorTextPrimary, grey800 } from '../styles/colors'
+import { amberA100, background700, background900, colorTextPrimary } from '../styles/colors'
 import { singleLine, subtitle2 } from '../styles/typography'
 import MapImage from './map-image'
 
@@ -36,7 +36,7 @@ const NoImageContainer = styled.div`
   justify-content: center;
   width: 100%;
   height: 100%;
-  background-color: ${grey800};
+  background-color: ${background700};
 
   & > svg {
     width: 90px;
@@ -98,7 +98,7 @@ const TextProtection = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: ${rgba(background900, 0.6)};
 `
 
 const MapName = styled.div`

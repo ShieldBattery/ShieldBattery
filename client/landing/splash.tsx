@@ -19,11 +19,12 @@ import { makeServerUrl } from '../network/server-url'
 import { apiUrl } from '../network/urls'
 import {
   amberA400,
+  background700,
+  background800,
+  background900,
   blue800,
   colorTextPrimary,
   colorTextSecondary,
-  grey850,
-  grey900,
 } from '../styles/colors'
 import { headline3, headline4, headline5, subtitle1 } from '../styles/typography'
 import ChatImage from './chat.svg'
@@ -35,7 +36,7 @@ const SplashContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  background-color: ${grey850};
+  background-color: ${background700};
   margin: 0px auto;
   padding-right: var(--pixel-shove-x, 0) !important;
   overflow: auto scroll;
@@ -81,7 +82,11 @@ const BackgroundVideoScrim = styled.div`
     safe
   */
   height: 880px;
-  background: linear-gradient(to bottom, ${rgba(grey850, 0.6)} 50%, ${rgba(grey850, 1)} 96%);
+  background: linear-gradient(
+    to bottom,
+    ${rgba(background700, 0.6)} 50%,
+    ${rgba(background700, 1)} 96%
+  );
 `
 
 const LogoLockup = styled.div`
@@ -234,7 +239,7 @@ const FeatureContainer = styled.div`
   width: 100%;
   padding-top: 40px;
   padding-bottom: 40px;
-  background-color: ${grey900};
+  background-color: ${background800};
 `
 
 const FeatureSection = styled.div`
@@ -343,7 +348,7 @@ const LinksSection = styled.div`
   width: 100%;
   max-width: 1000px;
   padding: 40px 24px;
-  background-color: ${grey850};
+  background-color: ${background700};
 `
 
 const LinksHeader = styled.div`
@@ -377,7 +382,7 @@ const LinkEntries = styled.div`
 
 const DisclaimerSection = styled.div`
   width: 100%;
-  background-color: ${grey900};
+  background-color: ${background900};
 `
 
 const DisclaimerText = styled.div`

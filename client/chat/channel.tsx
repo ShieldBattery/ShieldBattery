@@ -11,7 +11,7 @@ import { ConnectedUserProfileOverlay } from '../profile/connected-user-profile-o
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious } from '../state-hooks'
-import { alphaDisabled, colorTextSecondary } from '../styles/colors'
+import { alphaDisabled, background700, colorTextSecondary } from '../styles/colors'
 import { body2, overline, singleLine } from '../styles/typography'
 import {
   activateChannel,
@@ -34,6 +34,8 @@ const UserListContainer = styled.div`
   width: 256px;
   flex-grow: 0;
   flex-shrink: 0;
+
+  background-color: ${background700};
 `
 
 const userListRow = css`
@@ -313,9 +315,8 @@ const MESSAGES_LIMIT = 50
 const Container = styled.div`
   max-width: 1140px;
   height: 100%;
-  margin: 0 auto;
+  margin: 0;
   padding: 0;
-  padding-left: var(--pixel-shove-x, 0);
   display: flex;
 `
 

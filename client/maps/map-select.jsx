@@ -7,8 +7,8 @@ import MapIcon from '../icons/material/ic_terrain_black_24px.svg'
 import KeyListener from '../keyboard/key-listener'
 import ImageList from '../material/image-list'
 import { shadow2dp, shadow8dp } from '../material/shadows'
-import { colorError, colorTextSecondary, grey800 } from '../styles/colors'
-import { SubheadingOld } from '../styles/typography'
+import { background400, colorError, colorTextSecondary } from '../styles/colors'
+import { subtitle1 } from '../styles/typography'
 import { MapThumbnail } from './map-thumbnail'
 
 const SPACE = 'Space'
@@ -20,7 +20,8 @@ const Container = styled.div`
   }
 `
 
-const ErrorText = styled(SubheadingOld)`
+const ErrorText = styled.div`
+  ${subtitle1};
   color: ${colorError};
 `
 
@@ -38,7 +39,7 @@ export const BrowseButton = styled.div`
   justify-content: center;
   width: 100%;
   height: 100%;
-  background-color: ${grey800};
+  background-color: ${background400};
   border-radius: 2px;
   ${props => (props.isFocused ? shadow8dp : shadow2dp)};
 
@@ -72,7 +73,8 @@ const BrowseIcon = styled(MapIcon)`
   opacity: 0.5;
 `
 
-const BrowseText = styled(SubheadingOld)`
+const BrowseText = styled.div`
+  ${subtitle1};
   color: ${colorTextSecondary};
 `
 

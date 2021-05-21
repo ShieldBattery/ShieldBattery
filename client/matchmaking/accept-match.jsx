@@ -8,7 +8,7 @@ import { closeDialog } from '../dialogs/action-creators'
 import KeyListener from '../keyboard/key-listener'
 import { RaisedButton } from '../material/button'
 import Dialog from '../material/dialog'
-import { amberA400, grey700 } from '../styles/colors'
+import { amberA400 } from '../styles/colors'
 import { Body1 } from '../styles/typography'
 import { acceptMatch } from './action-creators'
 
@@ -41,7 +41,7 @@ const TimerBarContainer = styled.div`
   position: relative;
   width: 100%;
   height: 8px;
-  background-color: ${grey700};
+  background-color: rgba(255, 255, 255, 0.16);
 `
 
 const FilledTimerBar = styled.div`

@@ -12,12 +12,12 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useValueAsRef } from '../state-hooks'
 import {
+  background400,
+  background500,
+  background600,
   colorError,
   colorTextFaint,
   colorTextSecondary,
-  grey800,
-  grey850,
-  grey900,
 } from '../styles/colors'
 import { overline, subtitle1, subtitle2 } from '../styles/typography'
 import { timeAgo } from '../time/time-ago'
@@ -63,7 +63,6 @@ const ROW_HEIGHT = 48
 const TableContainer = styled.div`
   width: 100%;
   height: 100%;
-  border-left: var(--pixel-shove-x, 0) transparent;
   padding-left: 16px;
 
   overflow-x: hidden;
@@ -75,7 +74,7 @@ const StyledTable = styled(Table)`
   width: 100%;
   height: auto;
   max-width: 640px;
-  margin: 24px auto 24px;
+  margin: 24px 0;
 
   &:focus,
   & > div:focus {
@@ -90,16 +89,16 @@ const StyledTable = styled(Table)`
     ${shadow4dp};
     position: sticky;
     top: 0;
-    background-color: ${grey900};
+    background-color: ${background600};
     contain: content;
   }
 
   .even {
-    background-color: ${grey800};
+    background-color: ${background500};
   }
 
   .odd {
-    background-color: ${grey850};
+    background-color: ${background400};
   }
 `
 
@@ -284,7 +283,7 @@ export function LadderTable(props: LadderTableProps) {
         <Column
           label='Last played'
           dataKey='lastPlayedDate'
-          width={132}
+          width={156}
           columnData={{ horizontalPadding: 32 }}
           cellRenderer={renderLastPlayed}
           headerRenderer={LadderTableHeader}

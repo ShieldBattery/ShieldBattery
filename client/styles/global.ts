@@ -2,12 +2,12 @@ import { createGlobalStyle } from 'styled-components'
 import {
   amberA200,
   amberA400,
+  background300,
+  background700,
   CardLayer,
   colorBackground,
   colorTextFaint,
   colorTextPrimary,
-  grey700,
-  grey800,
 } from './colors'
 import { body1 } from './typography'
 
@@ -61,14 +61,14 @@ const GlobalStyle = createGlobalStyle`
   }
 
   input:-webkit-autofill {
-    -webkit-box-shadow: 0 0 0px 1000px ${grey800} inset !important;
-    box-shadow: 0 0 0px 1000px ${grey800} inset !important;
+    -webkit-box-shadow: 0 0 0px 1000px ${background700} inset !important;
+    box-shadow: 0 0 0px 1000px ${background700} inset !important;
     -webkit-text-fill-color: ${colorTextPrimary} !important;
     caret-color: #fff !important;
 
     ${CardLayer} & {
-      -webkit-box-shadow: 0 0 0px 1000px ${grey700} inset !important;
-      box-shadow: 0 0 0px 1000px ${grey700} inset !important;
+      -webkit-box-shadow: 0 0 0px 1000px ${background300} inset !important;
+      box-shadow: 0 0 0px 1000px ${background300} inset !important;
       -webkit-text-fill-color: ${colorTextPrimary} !important;
       caret-color: #fff !important;
     }

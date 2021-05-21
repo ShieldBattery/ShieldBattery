@@ -9,7 +9,7 @@ import { fastOutLinearIn, linearOutSlowIn } from '../material/curve-constants'
 import { isHandledDismissalEvent } from '../material/dismissal-events'
 import { shadow8dp } from '../material/shadows'
 import { zIndexBackdrop, zIndexSideNav } from '../material/zindex'
-import { dialogScrim, grey850 } from '../styles/colors'
+import { background700, dialogScrim } from '../styles/colors'
 import { closeOverlay } from './action-creators'
 
 const {
@@ -62,7 +62,7 @@ const Overlay = styled.div`
   width: 60%;
   min-width: 448px;
   max-width: 768px;
-  background-color: ${grey850};
+  background-color: ${background700};
   contain: strict;
   z-index: ${zIndexSideNav};
 
