@@ -9,9 +9,8 @@ import { MatchmakingType } from '../common/matchmaking'
 import { EMAIL_VERIFICATION_ID, NotificationType } from '../common/notifications'
 import { openOverlay } from './activities/action-creators'
 import ActivityBar from './activities/activity-bar'
-import ActivityButton from './activities/activity-button'
+import { ActivityButton } from './activities/activity-button'
 import ActivityOverlay from './activities/activity-overlay'
-import HotkeyedActivityButton from './activities/hotkeyed-activity-button'
 import ActivitySpacer from './activities/spacer'
 import { IsAdminFilter } from './admin/admin-route-filters'
 import AdminTitle from './admin/app-bar-title'
@@ -248,72 +247,65 @@ class MainLayout extends React.Component {
     const lobbyCount = serverStatus.lobbyCount > 0 ? serverStatus.lobbyCount : undefined
 
     const findMatchButton = !this.props.matchmaking.isFinding ? (
-      <HotkeyedActivityButton
+      <ActivityButton
         key='find-match'
         ref={this._findMatchButtonRef}
         icon={<FindMatchIcon />}
         label='Find match'
         onClick={this.onFindMatchClick}
         disabled={inGameplayActivity}
-        keycode={KEY_F}
-        altKey={true}
+        hotkey={{ keyCode: KEY_F, altKey: true }}
       />
     ) : (
-      <HotkeyedActivityButton
+      <ActivityButton
         key='searching-match'
         ref={this._searchingMatchButtonRef}
         icon={<FindMatchIcon />}
         glowing={true}
         label='Finding…'
         onClick={this.onSearchingMatchOverlayOpen}
-        keycode={KEY_F}
-        altKey={true}
+        hotkey={{ keyCode: KEY_F, altKey: true }}
       />
     )
     const activityButtons = IS_ELECTRON
       ? [
           findMatchButton,
-          <HotkeyedActivityButton
+          <ActivityButton
             key='create-game'
             icon={<CreateGameIcon />}
             label='Create'
             onClick={this.onCreateLobbyClick}
             disabled={inGameplayActivity}
-            keycode={KEY_C}
-            altKey={true}
+            hotkey={{ keyCode: KEY_C, altKey: true }}
           />,
-          <HotkeyedActivityButton
+          <ActivityButton
             key='join-game'
             icon={<JoinGameIcon />}
             label='Join'
             onClick={this.onJoinLobbyClick}
-            keycode={KEY_J}
-            altKey={true}
+            hotkey={{ keyCode: KEY_J, altKey: true }}
             count={lobbyCount}
           />,
-          <HotkeyedActivityButton
+          <ActivityButton
             key='maps'
             icon={<StyledMapsIcon />}
             label='Maps'
             onClick={this.onMapsClick}
-            keycode={KEY_M}
-            altKey={true}
+            hotkey={{ keyCode: KEY_M, altKey: true }}
           />,
-          <HotkeyedActivityButton
+          <ActivityButton
             key='replays'
             icon={<ReplaysIcon />}
             label='Replays'
             onClick={this.onReplaysClick}
-            keycode={KEY_R}
-            altKey={true}
+            hotkey={{ keyCode: KEY_R, altKey: true }}
           />,
-          <HotkeyedActivityButton
+          <ActivityButton
             key='ladder'
             icon={<LadderIcon />}
             label='Ladder'
             onClick={this.onLadderClick}
-            keycode={KEY_D}
-            altKey={true}
+            hotkey={{ keyCode: KEY_D, altKey: true }}
           />,
           <ActivitySpacer key='spacer' />,
         ]
@@ -324,13 +316,12 @@ class MainLayout extends React.Component {
             label='Download'
             onClick={this.onDownloadClick}
           />,
-          <HotkeyedActivityButton
+          <ActivityButton
             key='ladder'
             icon={<LadderIcon />}
             label='Ladder'
             onClick={this.onLadderClick}
-            keycode={KEY_D}
-            altKey={true}
+            hotkey={{ keyCode: KEY_D, altKey: true }}
           />,
           <ActivitySpacer key='spacer' />,
         ]
