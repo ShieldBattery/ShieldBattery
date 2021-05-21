@@ -240,7 +240,8 @@ class UserList extends React.Component<UserListProps> {
         </UserListOverline>
       )
     } else if (index < active.size + 1) {
-      return <UserListEntry style={style} username={active.get(index - 1)} key={index} />
+      const username = active.get(index - 1)
+      return <UserListEntry style={style} username={username} key={username} />
     }
 
     let i = index - (active.size + 1)
@@ -252,7 +253,8 @@ class UserList extends React.Component<UserListProps> {
           </UserListOverline>
         )
       } else if (i < idle.size + 1) {
-        return <UserListEntry style={style} username={idle.get(i - 1)} key={index} />
+        const username = idle.get(i - 1)
+        return <UserListEntry style={style} username={username} key={username} />
       }
 
       i -= idle.size + 1
@@ -266,9 +268,8 @@ class UserList extends React.Component<UserListProps> {
           </UserListOverline>
         )
       } else if (i < offline.size + 1) {
-        return (
-          <UserListEntry style={style} username={offline.get(i - 1)} key={index} faded={true} />
-        )
+        const username = offline.get(i - 1)
+        return <UserListEntry style={style} username={username} key={username} faded={true} />
       }
 
       i -= offline.size + 1
