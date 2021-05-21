@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useRef } from 'react'
 import ReactDOM from 'react-dom'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
-import { isHandledDismissalEvent, markEventAsHandledDismissal } from './dismissal-events'
+import { markEventAsHandledDismissal } from './dismissal-events'
 
 export interface PortalProps {
   /** Children rendered inside the Portal. */
@@ -24,6 +24,7 @@ export function Portal(props: PortalProps) {
   const { onDismiss, open, children } = props
 
   const portalRef = useExternalElementRef()
+  const capturedClickRef = useRef(false)
   // We capture the event and check if it will dismiss there, so that we can mark it as a
   // dismissal for other scrim or scrim-like handlers to avoid dismissing their UIs when a popover
   // is closed. We don't actually perform the dismissal until the event bubbles back up, however,
@@ -34,6 +35,7 @@ export function Portal(props: PortalProps) {
       if (onDismiss) {
         if (!portalRef.current?.contains(event.target as Node)) {
           markEventAsHandledDismissal(event)
+          capturedClickRef.current = true
         }
       }
     },
@@ -41,9 +43,11 @@ export function Portal(props: PortalProps) {
   )
   const onBubbleClick = useCallback(
     (event: MouseEvent) => {
-      if (onDismiss && isHandledDismissalEvent(event)) {
+      if (onDismiss && capturedClickRef.current) {
         onDismiss()
       }
+
+      capturedClickRef.current = false
     },
     [onDismiss],
   )
