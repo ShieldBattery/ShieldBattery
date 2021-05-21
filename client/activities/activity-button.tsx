@@ -147,9 +147,6 @@ export const ActivityButton = React.memo(
       )
       const onKeyDown = useCallback(
         (event: KeyboardEvent) => {
-          console.dir(event)
-          console.log(`vs ${JSON.stringify(hotkey)}`)
-
           if (disabled || !hotkey) {
             return false
           }
