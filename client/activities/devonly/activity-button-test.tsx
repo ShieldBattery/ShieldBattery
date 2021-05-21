@@ -4,7 +4,7 @@ import Icon from '../../icons/material/baseline-check_circle-24px.svg'
 import Card from '../../material/card'
 import { grey850 } from '../../styles/colors'
 import ActivityBar from '../activity-bar'
-import ActivityButton from '../activity-button'
+import { ActivityButton } from '../activity-button'
 
 const Container = styled.div`
   display: flex;
