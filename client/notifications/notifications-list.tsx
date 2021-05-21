@@ -45,6 +45,11 @@ const EmptyList = styled.div`
   text-align: center;
 `
 
+const ClearButton = styled(TextButton)`
+  min-width: 84px;
+  margin-right: 4px;
+`
+
 export interface NotificationsListProps {
   notifications: List<NotificationRecord>
   onClear: () => void
@@ -55,7 +60,7 @@ export function NotificationsList(props: NotificationsListProps) {
     <ListContainer>
       <TitleArea>
         <TitleText>Notifications</TitleText>
-        <TextButton label='Clear' color='accent' onClick={props.onClear} />
+        <ClearButton label='Clear' color='accent' onClick={props.onClear} />
       </TitleArea>
       <ListArea>
         {props.notifications.size > 0 ? (
