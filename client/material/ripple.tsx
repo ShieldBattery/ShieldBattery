@@ -7,7 +7,7 @@ import React, {
   useState,
 } from 'react'
 import styled, { css, keyframes } from 'styled-components'
-import { usePrevious, useValueAsRef } from '../state-hooks'
+import { useForceUpdate, usePrevious, useValueAsRef } from '../state-hooks'
 import { fastOutSlowIn } from './curve-constants'
 
 const RIPPLE_PADDING = 8
@@ -227,9 +227,7 @@ export const Ripple = React.memo(
     const [deactivating, setDeactivating] = useState(false)
     const wasActivating = usePrevious(activating)
     const wasDeactivating = usePrevious(deactivating)
-
-    // Call this with `{}` to force the component to re-render
-    const [, forceUpdater] = useState<Record<string, never>>()
+    const forceUpdate = useForceUpdate()
 
     const doLayout: () => [frame?: DOMRect, initialSize?: number, fgScale?: number] =
       useCallback(() => {
@@ -300,8 +298,8 @@ export const Ripple = React.memo(
       startActivationRef.current = true
       // In case we weren't deactivating previously, we need to force an update as well in order
       // to start the animations
-      forceUpdater({})
-    }, [doLayout])
+      forceUpdate()
+    }, [doLayout, forceUpdate])
 
     const maybeRunDeactivation = useCallback(() => {
       // Called only after both: the activation animation has completed, and the pointing device

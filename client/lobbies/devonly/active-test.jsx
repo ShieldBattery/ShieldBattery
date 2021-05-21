@@ -1,7 +1,7 @@
 import { List } from 'immutable'
 import React from 'react'
 import { MapRecord } from '../../maps/maps-reducer'
-import Tabs, { TabItem } from '../../material/tabs'
+import { TabItem, Tabs } from '../../material/tabs'
 import ActiveLobby from '../active-lobby'
 import { LobbyInfo, Slot, Team } from '../lobby-reducer'
 

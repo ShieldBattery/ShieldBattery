@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 /**
  * A hook to access the previous value of some variable inside a functional component.
@@ -51,4 +51,20 @@ export function useValueAsRef<T>(value: T): React.MutableRefObject<T> {
   ref.current = value
 
   return ref
+}
+
+/**
+ * Hook that returns a function which, when called, triggers a re-render of the current component.
+ *
+ * @example
+ * export const UpdatingComponent = () => {
+ *   const forceUpdate = useForceUpdate()
+ *   return <span onClick={() => forceUpdate()}>Date: {new Date().toString()}</span>
+ * }
+ */
+export function useForceUpdate(): () => void {
+  const [, forceUpdater] = useState<Record<string, never>>()
+  return useCallback(() => {
+    forceUpdater({})
+  }, [])
 }
