@@ -39,12 +39,9 @@ export const RaceButton = styled.button<{
   color: ${props => (props.$active ? 'var(--sb-race-color)' : colorTextFaint)};
 
   &:hover,
-  &:active {
-    color: var(--sb-race-color);
-  }
-
+  &:active,
   &:disabled {
-    color: ${colorTextFaint};
+    color: var(--sb-race-color);
   }
 `
 
