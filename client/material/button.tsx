@@ -35,6 +35,8 @@ export interface ButtonStateProps {
   onMouseDown?: (event: React.MouseEvent) => void
   onMouseEnter?: (event: React.MouseEvent) => void
   onMouseLeave?: (event: React.MouseEvent) => void
+  onKeyDown?: (event: React.KeyboardEvent) => void
+  onKeyUp?: (event: React.KeyboardEvent) => void
 }
 
 /**
@@ -59,7 +61,8 @@ export interface ButtonStateAppliedProps extends ButtonStateStyleProps {
   onMouseDown: (event: React.MouseEvent) => void
   onMouseEnter: (event: React.MouseEvent) => void
   onMouseLeave: (event: React.MouseEvent) => void
-  // TODO(tec27): Add keyboard handling
+  onKeyDown: (event: React.KeyboardEvent) => void
+  onKeyUp: (event: React.KeyboardEvent) => void
 }
 
 type ButtonState = [
@@ -81,6 +84,8 @@ export function useButtonState({
   onMouseDown,
   onMouseEnter,
   onMouseLeave,
+  onKeyDown,
+  onKeyUp,
 }: ButtonStateProps): ButtonState {
   const [focused, setFocused] = useState(false)
   const rippleRef = useRef<RippleController>(null)
@@ -109,6 +114,15 @@ export function useButtonState({
   const handleClick = useCallback(
     (event: React.MouseEvent) => {
       event.preventDefault()
+
+      if (!event.detail) {
+        // This was a programmatic click (detail = number of clicks)
+        rippleRef.current?.onActivate()
+        requestAnimationFrame(() => {
+          rippleRef.current?.onDeactivate()
+        })
+      }
+
       if (!disabled && onClick) {
         onClick(event)
       }
@@ -153,6 +167,46 @@ export function useButtonState({
     [disabled, onMouseLeave],
   )
 
+  const keyDownActivatedRef = useRef(false)
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      const activationTarget = event.currentTarget
+      if (activationTarget.matches(':active')) {
+        rippleRef.current?.onActivate(event)
+        keyDownActivatedRef.current = true
+      } else {
+        keyDownActivatedRef.current = false
+
+        requestAnimationFrame(() => {
+          // Sometimes browsers don't active the element until after the event has been processed,
+          // so we check again on the next frame
+          if (activationTarget.matches(':active')) {
+            rippleRef.current?.onActivate(event)
+            keyDownActivatedRef.current = true
+          }
+        })
+      }
+
+      if (onKeyDown) {
+        onKeyDown(event)
+      }
+    },
+    [onKeyDown],
+  )
+  const handleKeyUp = useCallback(
+    (event: React.KeyboardEvent) => {
+      if (keyDownActivatedRef.current) {
+        rippleRef.current?.onDeactivate()
+        keyDownActivatedRef.current = false
+      }
+
+      if (onKeyUp) {
+        onKeyUp(event)
+      }
+    },
+    [onKeyUp],
+  )
+
   return [
     {
       disabled: disabled === true,
@@ -162,6 +216,8 @@ export function useButtonState({
       onMouseDown: handleMouseDown,
       onMouseEnter: handleMouseEnter,
       onMouseLeave: handleMouseLeave,
+      onKeyDown: handleKeyDown,
+      onKeyUp: handleKeyUp,
       $focused: focused,
     },
     rippleRef,
@@ -224,6 +280,7 @@ export interface RaisedButtonProps {
   onMouseDown?: React.MouseEventHandler
   tabIndex?: number
   title?: string
+  type?: 'button' | 'reset' | 'submit'
 }
 
 /**
@@ -243,6 +300,7 @@ export const RaisedButton = React.forwardRef(
       onMouseDown,
       tabIndex,
       title,
+      type,
     }: RaisedButtonProps,
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
@@ -261,6 +319,7 @@ export const RaisedButton = React.forwardRef(
         $color={color}
         tabIndex={tabIndex}
         title={title}
+        type={type ?? 'button'}
         {...buttonProps}>
         <Label>{label}</Label>
         <Ripple ref={rippleRef} disabled={disabled} />
@@ -328,6 +387,7 @@ export interface TextButtonProps {
   onMouseDown?: React.MouseEventHandler
   tabIndex?: number
   title?: string
+  type?: 'button' | 'reset' | 'submit'
 }
 
 /**
@@ -347,6 +407,7 @@ export const TextButton = React.forwardRef(
       onMouseDown,
       tabIndex,
       title,
+      type,
     }: TextButtonProps,
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
@@ -365,6 +426,7 @@ export const TextButton = React.forwardRef(
         $color={color}
         tabIndex={tabIndex}
         title={title}
+        type={type ?? 'button'}
         {...buttonProps}>
         <Label>{label}</Label>
         <Ripple ref={rippleRef} disabled={disabled} />
@@ -404,6 +466,7 @@ export interface IconButtonProps {
   onClick?: React.MouseEventHandler
   onMouseDown?: React.MouseEventHandler
   tabIndex?: number
+  type?: 'button' | 'reset' | 'submit'
 }
 
 /** A button that displays just an icon (with no text, and no background or elevation). */
@@ -419,6 +482,7 @@ export const IconButton = React.forwardRef(
       onClick,
       onMouseDown,
       tabIndex,
+      type,
     }: IconButtonProps,
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
@@ -436,6 +500,7 @@ export const IconButton = React.forwardRef(
         className={className}
         tabIndex={tabIndex}
         title={title}
+        type={type ?? 'button'}
         {...buttonProps}>
         {icon}
         <Ripple ref={rippleRef} disabled={disabled} />
