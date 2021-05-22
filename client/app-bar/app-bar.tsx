@@ -215,10 +215,7 @@ export default function AppBar(props: AppBarProps) {
       <SizeLeft />
       <SizeRight />
       <LeftSide>
-        <Lockup
-          onClick={appMenuAnchor ? onAppMenuDismiss : onLockupClick}
-          menuOpened={!!appMenuAnchor}
-        />
+        <Lockup onClick={onLockupClick} menuOpened={!!appMenuAnchor} />
         <AppMenu
           open={!!appMenuAnchor}
           onDismiss={onAppMenuDismiss}
