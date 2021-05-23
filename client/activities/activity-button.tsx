@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react'
+import React, { useCallback, useMemo, useRef } from 'react'
 import styled, { css, keyframes } from 'styled-components'
 import KeyListener from '../keyboard/key-listener'
 import { useButtonState } from '../material/button'
@@ -169,6 +169,25 @@ export const ActivityButton = React.memo(
         },
         [disabled, hotkey, onClick],
       )
+      const getLabelJsx = useMemo(() => {
+        if (disabled || !hotkey) {
+          return label
+        }
+
+        const hotkeyString = String.fromCharCode(hotkey.keyCode).toLowerCase()
+        const labelJsx = []
+        let hasFoundHotkeyChar = false
+        for (const char of label) {
+          if (!hasFoundHotkeyChar && char.toLowerCase() === hotkeyString) {
+            labelJsx.push(<u key={char}>{char}</u>)
+            hasFoundHotkeyChar = true
+          } else {
+            labelJsx.push(char)
+          }
+        }
+
+        return labelJsx
+      }, [disabled, hotkey, label])
 
       return (
         <Container ref={setRefs} {...buttonProps}>
@@ -178,7 +197,7 @@ export const ActivityButton = React.memo(
             {glowing ? icon : null}
             {icon}
           </IconContainer>
-          <Label>{label}</Label>
+          <Label>{getLabelJsx}</Label>
           <Ripple ref={rippleRef} disabled={disabled} />
         </Container>
       )
