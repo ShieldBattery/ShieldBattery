@@ -169,24 +169,24 @@ export const ActivityButton = React.memo(
         },
         [disabled, hotkey, onClick],
       )
-      const getLabelJsx = useMemo(() => {
+      const labelElems = useMemo(() => {
         if (disabled || !hotkey) {
           return label
         }
 
         const hotkeyString = String.fromCharCode(hotkey.keyCode).toLowerCase()
-        const labelJsx = []
+        const result = []
         let hasFoundHotkeyChar = false
         for (const char of label) {
           if (!hasFoundHotkeyChar && char.toLowerCase() === hotkeyString) {
-            labelJsx.push(<u key={char}>{char}</u>)
+            result.push(<u key={char}>{char}</u>)
             hasFoundHotkeyChar = true
           } else {
-            labelJsx.push(char)
+            result.push(char)
           }
         }
 
-        return labelJsx
+        return result
       }, [disabled, hotkey, label])
 
       return (
@@ -197,7 +197,7 @@ export const ActivityButton = React.memo(
             {glowing ? icon : null}
             {icon}
           </IconContainer>
-          <Label>{getLabelJsx}</Label>
+          <Label>{labelElems}</Label>
           <Ripple ref={rippleRef} disabled={disabled} />
         </Container>
       )
