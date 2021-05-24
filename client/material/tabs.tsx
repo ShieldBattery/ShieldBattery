@@ -73,18 +73,29 @@ const BottomDivider = styled.div`
   background-color: ${colorDividers};
 `
 
-export interface TabItemProps {
+export interface TabItemProps<T> {
   text: string
-  value: number
-  active?: boolean
+  value: T
   disabled?: boolean
-  onSelected?: (value: number) => void
   className?: string
+  /**
+   * Whether or not the tab is the active one. This will be set by the containing Tabs component and
+   * should not be passed directly.
+   */
+  active?: boolean
+  /**
+   * Called whenever this tab is selected. This will be set by the containing Tabs component and
+   * should not be passed directly.
+   */
+  onSelected?: (value: T) => void
 }
 
 export const TabItem = React.memo(
-  React.forwardRef<HTMLButtonElement, TabItemProps>(
-    ({ text, value, active, disabled, onSelected, className }, ref) => {
+  React.forwardRef(
+    <T,>(
+      { text, value, active, disabled, onSelected, className }: TabItemProps<T>,
+      ref: React.ForwardedRef<HTMLButtonElement>,
+    ) => {
       const onClick = useCallback(() => {
         if (!disabled && onSelected) {
           onSelected(value)
@@ -110,21 +121,20 @@ export const TabItem = React.memo(
   ),
 )
 
-export interface TabsProps {
+export interface TabsProps<T> {
   children: ReturnType<typeof TabItem>[]
-  activeTab: number
-  onChange?: (value: number) => void
+  activeTab: T
+  onChange?: (value: T) => void
   bottomDivider?: boolean
   className?: string
 }
 
-export function Tabs({ children, activeTab, onChange, bottomDivider, className }: TabsProps) {
+export function Tabs<T>({ children, activeTab, onChange, bottomDivider, className }: TabsProps<T>) {
   const tabElems = useMemo(() => {
     const tabs = React.Children.map(children, (child, i) => {
-      const isActive = i === activeTab
+      const isActive = activeTab === (child!.props as TabItemProps<T>).value
       return React.cloneElement(child!, {
         key: `tab-${i}`,
-        value: i,
         active: isActive,
         onSelected: onChange,
       })

@@ -51,15 +51,11 @@ const ErrorText = styled(SubheadingOld)`
   color: ${colorError};
 `
 
-const TAB_APP = 0
-
-const SCR_TAB_INPUT = 1
-const SCR_TAB_SOUND = 2
-const SCR_TAB_VIDEO = 3
-const SCR_TAB_GAMEPLAY = 4
-
-const V1161_TAB_INPUT = 1
-const V1161_TAB_VIDEO = 2
+const TAB_APP = 'app'
+const TAB_INPUT = 'input'
+const TAB_VIDEO = 'video'
+const TAB_SOUND = 'sound'
+const TAB_GAMEPLAY = 'gameplay'
 
 @connect(state => ({ settings: state.settings, starcraft: state.starcraft }))
 export default class Settings extends React.Component {
@@ -107,7 +103,7 @@ export default class Settings extends React.Component {
             onSubmit={this.onSettingsSubmit}
           />
         )
-      case isRemastered ? SCR_TAB_INPUT : V1161_TAB_INPUT:
+      case TAB_INPUT:
         return (
           <InputSettings
             localSettings={local}
@@ -118,7 +114,7 @@ export default class Settings extends React.Component {
             onSubmit={this.onSettingsSubmit}
           />
         )
-      case isRemastered ? SCR_TAB_SOUND : -1:
+      case TAB_SOUND:
         return (
           <SoundSettings
             localSettings={local}
@@ -129,7 +125,7 @@ export default class Settings extends React.Component {
             onSubmit={this.onSettingsSubmit}
           />
         )
-      case isRemastered ? SCR_TAB_VIDEO : V1161_TAB_VIDEO:
+      case TAB_VIDEO:
         return (
           <VideoSettings
             localSettings={local}
@@ -141,7 +137,7 @@ export default class Settings extends React.Component {
             onSubmit={this.onSettingsSubmit}
           />
         )
-      case isRemastered ? SCR_TAB_GAMEPLAY : -1:
+      case TAB_GAMEPLAY:
         return (
           <GameplaySettings
             localSettings={local}
@@ -153,7 +149,7 @@ export default class Settings extends React.Component {
           />
         )
       default:
-        throw new Error('Invalid tab value')
+        throw new Error('Invalid tab value: ' + activeTab)
     }
   }
 
@@ -176,15 +172,17 @@ export default class Settings extends React.Component {
     )
     const isTabDisabled = isRemastered && !scr
     const tabItems = [
-      <TabItem key='app' text='App' />,
-      <TabItem key='input' text='Input' disabled={isTabDisabled} />,
+      <TabItem key='app' text='App' value={TAB_APP} />,
+      <TabItem key='input' text='Input' disabled={isTabDisabled} value={TAB_INPUT} />,
     ]
     if (isRemastered) {
-      tabItems.push(<TabItem key='sound' text='Sound' disabled={isTabDisabled} />)
+      tabItems.push(<TabItem key='sound' text='Sound' disabled={isTabDisabled} value={TAB_SOUND} />)
     }
-    tabItems.push(<TabItem key='video' text='Video' disabled={isTabDisabled} />)
+    tabItems.push(<TabItem key='video' text='Video' disabled={isTabDisabled} value={TAB_VIDEO} />)
     if (isRemastered) {
-      tabItems.push(<TabItem key='gameplay' text='Gameplay' disabled={isTabDisabled} />)
+      tabItems.push(
+        <TabItem key='gameplay' text='Gameplay' disabled={isTabDisabled} value={TAB_GAMEPLAY} />,
+      )
     }
     const tabs = (
       <Tabs activeTab={activeTab} onChange={this.onTabChange} bottomDivider={true}>
