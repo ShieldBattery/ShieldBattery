@@ -53,7 +53,7 @@ export const colorText = '#ffffff'
 
 export const colorDividers = `rgba(255, 255, 255, ${alphaDividers})`
 export const colorTextFaint = '#8998a9'
-export const colorTextSecondary = '#cfdcec'
+export const colorTextSecondary = '#cdddee'
 export const colorTextPrimary = '#ffffff'
 
 export const colorBackground = background800
