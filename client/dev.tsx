@@ -9,6 +9,7 @@ import DevLists from './lists/devonly/routes'
 import DevLobbies from './lobbies/devonly/routes'
 import DevMatchmaking from './matchmaking/devonly/routes'
 import DevMaterial from './material/devonly/routes'
+import { DevProfile } from './profile/devonly/routes'
 import { colorDividers } from './styles/colors'
 
 const Container = styled.div`
@@ -66,6 +67,9 @@ function DevDashboard() {
         <li>
           <Link href='/dev/material'>Material components</Link>
         </li>
+        <li>
+          <Link href='/dev/profile'>Profile components</Link>
+        </li>
       </ul>
     </div>
   )
@@ -93,6 +97,7 @@ function Dev() {
           <Route path='/dev/lobbies/:rest*' component={DevLobbies} />
           <Route path='/dev/matchmaking/:rest*' component={DevMatchmaking} />
           <Route path='/dev/material/:rest*' component={DevMaterial} />
+          <Route path='/dev/profile/:rest*' component={DevProfile} />
           <Route component={DevDashboard} />
         </Switch>
       </Content>
