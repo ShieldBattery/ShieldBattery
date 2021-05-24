@@ -12,7 +12,7 @@ export function DevSection(props: {
     <Switch>
       <>
         {props.routes.map(([label, path, component]) => (
-          <Route path={`${props.baseUrl}/${path}`} component={component} key={path} />
+          <Route path={`${props.baseUrl}/${path}/:rest*`} component={component} key={path} />
         ))}
       </>
       <Route key={'/'}>
