@@ -11,7 +11,13 @@ import { ConnectedUserProfileOverlay } from '../profile/connected-user-profile-o
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious } from '../state-hooks'
-import { alphaDisabled, background700, colorTextFaint, colorTextSecondary } from '../styles/colors'
+import {
+  alphaDisabled,
+  background700,
+  background800,
+  colorTextFaint,
+  colorTextSecondary,
+} from '../styles/colors'
 import { body2, overline, singleLine } from '../styles/typography'
 import {
   activateChannel,
@@ -314,11 +320,12 @@ class UserList extends React.Component<UserListProps> {
 const MESSAGES_LIMIT = 50
 
 const Container = styled.div`
-  max-width: 1140px;
+  width: 100%;
   height: 100%;
   margin: 0;
   padding: 0;
   display: flex;
+  background-color: ${background700};
 `
 
 const LoadingArea = styled.div`
@@ -329,7 +336,9 @@ const LoadingArea = styled.div`
 `
 
 const StyledChat = styled(Chat)`
+  max-width: 960px;
   flex-grow: 1;
+  background-color: ${background800};
 `
 
 function renderMessage(msg: Message) {
