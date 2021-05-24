@@ -1,57 +1,66 @@
-import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import styled from 'styled-components'
-import { useElementRect, useObservedDimensions } from '../dom/dimension-hooks'
-import { useForceUpdate } from '../state-hooks'
-import { amberA400, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
-import { buttonText } from '../styles/typography'
+import {
+  amberA400,
+  colorDividers,
+  colorTextFaint,
+  colorTextPrimary,
+  colorTextSecondary,
+} from '../styles/colors'
+import { buttonText, singleLine } from '../styles/typography'
 import { useButtonState } from './button'
 import { buttonReset } from './button-reset'
-import { fastOutSlowIn } from './curve-constants'
 import { Ripple } from './ripple'
 
 const Container = styled.div`
   position: relative;
-  display: flex;
-  flex-direction: row;
   height: 48px;
   margin: 0;
-  padding: 0;
-  list-style: none;
+  /* 36px + 12px = 48px total height */
+  padding: 6px 24px;
 
+  display: flex;
+  flex-direction: row;
   contain: content;
 `
 
 export const TabTitle = styled.span`
   ${buttonText};
+  ${singleLine};
 `
 
 export const TabItemContainer = styled.button<{ $isActiveTab: boolean }>`
   ${buttonReset};
 
-  flex: 1 1 0;
+  flex: 1 1 auto;
+  min-width: 64px;
+  height: 36px;
+
   display: flex;
   flex-direction: row;
   justify-content: center;
   align-items: center;
-  transition: background-color 15ms linear;
+
+  padding: 0 16px;
 
   color: ${props => (props.$isActiveTab ? amberA400 : colorTextSecondary)};
+  background-color: ${props => (props.$isActiveTab ? 'rgba(255, 255, 255, 0.08)' : 'transparent')};
+  border-radius: 4px;
+  transition: background-color 15ms linear, color 15ms linear;
+  --sb-ripple-color: ${colorTextPrimary};
 
   &:disabled {
     color: ${colorTextFaint};
+    background-color: transparent;
   }
 `
 
-const ActiveIndicator = styled.div`
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 1px;
-  height: 2px;
-  background-color: ${amberA400};
-  transform: translateX(var(--sb-tab-indicator-x, 0)) scaleX(var(--sb-tab-indicator-width, 0));
-  transform-origin: left;
-  transition: transform 175ms ${fastOutSlowIn};
+export const TabSpacer = styled.div`
+  height: 1px;
+  min-width: 0px;
+  max-width: 24px;
+
+  flex: 1 1 0;
 `
 
 const BottomDivider = styled.div`
@@ -91,6 +100,7 @@ export const TabItem = React.memo(
           ref={ref}
           className={className}
           $isActiveTab={active ?? false}
+          title={text}
           {...buttonProps}>
           <TabTitle>{text}</TabTitle>
           <Ripple ref={rippleRef} disabled={disabled} />
@@ -109,89 +119,31 @@ export interface TabsProps {
 }
 
 export function Tabs({ children, activeTab, onChange, bottomDivider, className }: TabsProps) {
-  const [indicatorWidth, setIndicatorWidth] = useState(0)
-  const [indicatorX, setIndicatorX] = useState(0)
-  const [dimensionsRef, dimensions] = useObservedDimensions()
-  const [positionRef, position] = useElementRect()
-  const containerRef = useRef<HTMLElement | undefined>()
-  const selectedRef = useRef<HTMLButtonElement>(null)
-  const forceUpdate = useForceUpdate()
-
-  const combinedRefs = useCallback(
-    (elem: HTMLElement | null) => {
-      dimensionsRef(elem)
-      positionRef(elem)
-      containerRef.current = elem || undefined
-    },
-    [dimensionsRef, positionRef],
-  )
-
-  useLayoutEffect(() => {
-    if (activeTab === undefined) {
-      setIndicatorWidth(0)
-      setIndicatorX(0)
-      return
-    }
-    if (!selectedRef.current) {
-      return
-    }
-
-    const selectedBounds = selectedRef.current.getBoundingClientRect()
-    const x = selectedBounds.left - (position?.left ?? 0)
-
-    setIndicatorWidth(selectedBounds.width)
-    setIndicatorX(x)
-  }, [activeTab, dimensions, position])
-
-  // Adjust the indicator position if a transform animation completes. This is a sort-of hacky way
-  // to handle the tabs inside dialogs properly, which otherwise leave the indicator in a bad spot.
-  // The expectation is that if we force an update, `useElementRect` will return a different rect
-  // at this point if our position changed.
-  useLayoutEffect(() => {
-    const listener = (event: TransitionEvent) => {
-      if (
-        event.propertyName === 'transform' &&
-        event.target &&
-        event.target !== containerRef.current &&
-        !containerRef.current?.contains(event.target as Node) &&
-        (event.target as HTMLElement).contains(containerRef.current!)
-      ) {
-        forceUpdate()
-      }
-    }
-
-    document.addEventListener('transitionend', listener)
-    // Do one forced update here to double-check the sizes, since even in LayoutEffect it seems to
-    // miss transitions occasionally? :(
-    forceUpdate()
-
-    return () => {
-      document.removeEventListener('transitionend', listener)
-    }
-  }, [forceUpdate])
-
-  const tabs = useMemo(() => {
-    return React.Children.map(children, (child, i) => {
+  const tabElems = useMemo(() => {
+    const tabs = React.Children.map(children, (child, i) => {
       const isActive = i === activeTab
       return React.cloneElement(child!, {
-        ref: isActive ? selectedRef : undefined,
+        key: `tab-${i}`,
         value: i,
         active: isActive,
         onSelected: onChange,
       })
     })
+
+    const tabElems: React.ReactNode[] = []
+    for (let i = 0; i < tabs!.length; i++) {
+      tabElems.push(tabs![i])
+      tabElems.push(<TabSpacer key={`spacer-${i}`} />)
+    }
+    // Remove the last spacer since we don't want spacers on the outside
+    tabElems.pop()
+    return tabElems
   }, [activeTab, children, onChange])
 
-  const style = {
-    '--sb-tab-indicator-x': `${indicatorX}px`,
-    '--sb-tab-indicator-width': indicatorWidth,
-  }
-
   return (
-    <Container ref={combinedRefs} className={className} style={style as any}>
-      {tabs}
+    <Container className={className}>
+      {tabElems}
       {bottomDivider ? <BottomDivider /> : null}
-      <ActiveIndicator />
     </Container>
   )
 }

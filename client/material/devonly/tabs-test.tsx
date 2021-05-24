@@ -24,7 +24,7 @@ const DemoCard = styled(Card)`
 
 const CardHeadline = styled.div`
   ${headline5};
-  margin: 8px 16px;
+  margin: 16px;
 `
 
 const DemoContent = styled.div<{ $scrollable?: boolean }>`
@@ -174,10 +174,10 @@ export function TabsTest() {
       <DemoCard>
         <CardHeadline>No scrolling</CardHeadline>
         <Tabs bottomDivider={true} activeTab={activeTab} onChange={setActiveTab}>
-          <TabItem text='First' value={0} />
-          <TabItem text='Second' value={1} />
-          <TabItem text='Third' value={2} />
-          <TabItem text='Fourth' value={3} />
+          <TabItem text='1st' value={0} />
+          <TabItem text='Second tab' value={1} />
+          <TabItem text='Third long tab' value={2} />
+          <TabItem text='Fourth p long tab' value={3} />
         </Tabs>
         <DemoContent>{tabContent}</DemoContent>
       </DemoCard>
