@@ -389,9 +389,9 @@ export default class FindMatch extends React.Component {
           <Headline5>Find match</Headline5>
         </TitleBar>
         <Tabs bottomDivider={true} activeTab={activeTab} onChange={this.onTabChange}>
-          <TabItem text='1 vs 1' />
-          <TabItem text='2 vs 2' />
-          <TabItem text='3 vs 3' />
+          <TabItem text='1 vs 1' value={TAB_1V1} />
+          <TabItem text='2 vs 2' value={TAB_2V2} />
+          <TabItem text='3 vs 3' value={TAB_3V3} />
         </Tabs>
 
         {isLoading ? (
