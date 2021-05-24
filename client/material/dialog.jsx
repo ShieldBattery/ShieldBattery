@@ -67,13 +67,23 @@ const Surface = styled(CardLayer)`
 `
 
 const TitleBar = styled.div`
+  position: relative;
   flex-grow: 0;
   flex-shrink: 0;
 
   display: flex;
   align-items: center;
-  border-bottom: 1px solid ${props => (props.showDivider ? colorDividers : 'transparent')};
-  transition: border-color 150ms linear;
+
+  &::after {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 1px;
+
+    background-color: ${props => (props.showDivider ? colorDividers : ' transparent')};
+    content: '';
+    transition: background-color 125ms linear;
+  }
 `
 
 const Title = styled.div`
