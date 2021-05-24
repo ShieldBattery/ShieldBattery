@@ -287,7 +287,7 @@ export default class MatchmakingTimes extends React.Component {
       <ScrollableContent>
         <Container>
           <Tabs activeTab={activeTab} onChange={this.onTabChange}>
-            <TabItem text='1v1' />
+            <TabItem text='1v1' value={TAB_1V1} />
           </Tabs>
           <h3>Add a new matchmaking time</h3>
           <p>Choose a date and time (in your local timezone) when the matchmaking will start</p>

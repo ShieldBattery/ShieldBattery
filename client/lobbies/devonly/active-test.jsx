@@ -72,8 +72,8 @@ export default class ActiveTest extends React.Component {
     return (
       <>
         <Tabs activeTab={activeTab} onChange={this.onTabChange}>
-          <TabItem text='Melee' />
-          <TabItem text='TvB' />
+          <TabItem text='Melee' value={0} />
+          <TabItem text='TvB' value={1} />
         </Tabs>
         <ActiveLobby lobby={lobby} />
       </>

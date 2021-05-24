@@ -530,7 +530,7 @@ export default class MapPools extends React.Component {
     return (
       <Container>
         <StyledTabs activeTab={activeTab} onChange={this.onTabChange}>
-          <TabItem text='1v1' />
+          <TabItem text='1v1' value={TAB_1V1} />
         </StyledTabs>
         <h3>Create a new map pool</h3>
         <MapPoolEditor

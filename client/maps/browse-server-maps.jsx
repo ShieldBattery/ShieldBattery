@@ -401,9 +401,9 @@ export default class Maps extends React.Component {
           <Headline5>{title}</Headline5>
         </TitleBar>
         <Tabs activeTab={activeTab} onChange={this.onTabChange} bottomDivider={true}>
-          <TabItem text='Official' />
-          <TabItem text='My maps' />
-          <TabItem text='Community' />
+          <TabItem text='Official' value={TAB_OFFICIAL_MAPS} />
+          <TabItem text='My maps' value={TAB_MY_MAPS} />
+          <TabItem text='Community' value={TAB_COMMUNITY_MAPS} />
         </Tabs>
         <Contents>
           <ContentsBody>
