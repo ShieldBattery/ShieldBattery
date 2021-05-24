@@ -80,7 +80,6 @@ const Actions = styled.div`
 const SectionTitle = styled.div`
   ${subtitle1};
   margin: 8px 0;
-  color: ${colorTextSecondary};
 `
 
 const StyledRacePicker = styled(RacePicker)`

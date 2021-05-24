@@ -16,8 +16,8 @@ import { Option } from '../material/select/option'
 import { Select } from '../material/select/select'
 import TextField from '../material/text-field'
 import LoadingIndicator from '../progress/dots'
-import { colorDividers, colorTextSecondary } from '../styles/colors'
-import { HeadlineOld, SubheadingOld } from '../styles/typography'
+import { colorDividers } from '../styles/colors'
+import { Headline5, subtitle1 } from '../styles/typography'
 import {
   createLobby,
   getLobbyPreferences,
@@ -82,8 +82,9 @@ const GameTypeAndSubType = styled.div`
   }
 `
 
-const Overline = styled(SubheadingOld)`
-  color: ${colorTextSecondary};
+const SectionHeader = styled.div`
+  ${subtitle1};
+  margin: 16px 0;
 `
 
 const lobbyNameValidator = composeValidators(
@@ -168,7 +169,7 @@ class CreateLobbyForm extends React.Component {
           </Select>
           {this.renderSubTypeSelection()}
         </GameTypeAndSubType>
-        <Overline>Select map</Overline>
+        <SectionHeader>Select map</SectionHeader>
         <MapSelect
           {...bindCustom('selectedMap')}
           list={recentMaps.list}
@@ -317,7 +318,7 @@ export default class CreateLobby extends React.Component {
       <Container>
         <KeyListener onKeyDown={this.onKeyDown} />
         <TitleBar>
-          <HeadlineOld>Create lobby</HeadlineOld>
+          <Headline5>Create lobby</Headline5>
         </TitleBar>
         <Contents>
           {scrolledDown ? <ScrollDivider position='top' /> : null}
