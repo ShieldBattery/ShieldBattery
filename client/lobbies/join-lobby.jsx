@@ -83,13 +83,13 @@ class ListEntry extends React.Component {
 }
 
 const Root = styled.div`
-  padding: 16px;
+  padding: 16px 24px;
 `
 
 const Header = styled.div`
   ${headline5};
   margin-top: 8px;
-  margin-left: 16px;
+  margin-bottom: 24px;
 `
 
 @connect(state => ({ lobbyList: state.lobbyList }))
@@ -134,7 +134,7 @@ export default class JoinLobby extends React.Component {
   render() {
     return (
       <Root>
-        <Header as='p'>Join Lobby</Header>
+        <Header>Join Lobby</Header>
         {this.renderList()}
       </Root>
     )

@@ -44,11 +44,7 @@ const TitleBar = styled.div`
   display: flex;
   flex-direction: row;
   align-items: center;
-  margin: 16px;
-
-  & > h3 {
-    margin: 0;
-  }
+  margin: 16px 24px;
 `
 
 const Contents = styled.div`
