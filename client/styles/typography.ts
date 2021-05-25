@@ -46,7 +46,7 @@ export const Headline2 = styled.div`
 
 export const headline3 = css`
   ${cabin};
-  font-size: 48px;
+  font-size: 44px;
   font-weight: 400;
   line-height: 56px;
   letter-spacing: 0.75px;
@@ -153,11 +153,10 @@ export const Caption = styled.div`
 `
 
 export const overline = css`
-  font-feature-settings: 'liga' off;
   font-size: 12px;
   font-weight: 400;
   letter-spacing: 0.84px;
-  line-height: 36px;
+  line-height: 20px;
   text-transform: uppercase;
 `
 

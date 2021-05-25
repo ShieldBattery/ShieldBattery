@@ -28,7 +28,7 @@ const GlobalStyle = createGlobalStyle`
     font-weight: normal;
     color: ${colorTextPrimary};
     font-size: 14px;
-    line-height: 20px;
+    line-height: 1.42857;
     background-color: ${colorBackground};
   }
 
