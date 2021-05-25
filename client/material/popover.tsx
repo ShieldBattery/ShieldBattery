@@ -52,6 +52,7 @@ const Container = styled(animated.div)`
 
 const Card = styled(CardLayer)`
   ${shadow10dp};
+  border-radius: 2px;
   contain: content;
 `
 
