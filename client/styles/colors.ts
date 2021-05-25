@@ -55,6 +55,8 @@ export const colorDividers = `rgba(255, 255, 255, ${alphaDividers})`
 export const colorTextFaint = '#8998a9'
 export const colorTextSecondary = '#cdddee'
 export const colorTextPrimary = '#ffffff'
+export const colorTextInvert = 'rgba(0, 0, 0, 0.87)'
+export const colorTextInvertSecondary = 'rgba(0, 0, 0, 0.6)'
 
 export const colorBackground = background800
 export const colorError = '#ff6e6e'
