@@ -1,12 +1,6 @@
 import React, { useCallback, useMemo } from 'react'
 import styled from 'styled-components'
-import {
-  amberA400,
-  colorDividers,
-  colorTextFaint,
-  colorTextPrimary,
-  colorTextSecondary,
-} from '../styles/colors'
+import { amberA400, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { buttonText, singleLine } from '../styles/typography'
 import { useButtonState } from './button'
 import { buttonReset } from './button-reset'
@@ -47,7 +41,6 @@ export const TabItemContainer = styled.button<{ $isActiveTab: boolean }>`
   background-color: ${props => (props.$isActiveTab ? 'rgba(255, 255, 255, 0.08)' : 'transparent')};
   border-radius: 4px;
   transition: background-color 15ms linear, color 15ms linear;
-  --sb-ripple-color: ${colorTextPrimary};
 
   &:disabled {
     color: ${colorTextFaint};
