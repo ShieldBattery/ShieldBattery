@@ -524,6 +524,12 @@ class Splash extends React.Component<DispatchProp> {
                   description='Less lag, drops, and packet loss!'
                 />
                 <FeatureEntry
+                  title='Ranked ladder'
+                  description={
+                    'Hone your skills in our Elo-based ranking system for all matchmaking modes.'
+                  }
+                />
+                <FeatureEntry
                   title='Web-based chat client'
                   description={
                     'Keep up with your friends (and enemies) without needing to install anything.'
@@ -540,12 +546,6 @@ class Splash extends React.Component<DispatchProp> {
                 In the pipe <ComingSoonText>(coming soon)</ComingSoonText>
               </FeatureSectionTitle>
               <FeatureSectionList>
-                <FeatureEntry
-                  title='Ranked ladder'
-                  description={
-                    'Hone your skills in our Elo-based ranking system for all matchmaking modes.'
-                  }
-                />
                 <FeatureEntry
                   title='Team matchmaking'
                   description='Easily find games for 2v2 and 3v3, with arranged or random teams.'
