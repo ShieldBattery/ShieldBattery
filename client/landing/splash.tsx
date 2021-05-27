@@ -121,6 +121,16 @@ const TagLine = styled.div`
   text-align: center;
 `
 
+const Blurb = styled.div`
+  ${headline5};
+  max-width: 860px;
+
+  color: ${colorTextSecondary};
+  position: relative;
+  margin: 0px 0px 16px;
+  padding: 0 16px;
+`
+
 const ButtonsContainer = styled.div`
   display: flex;
   flex-direction: row;
@@ -128,14 +138,7 @@ const ButtonsContainer = styled.div`
   justify-content: center;
 `
 
-// TODO(tec27): Convert button stuff to TS instead of doing this hacky stuff here
-interface RaisedButtonProps {
-  label: ReactChild
-  color?: 'primary' | 'accent'
-  onClick?: (event: MouseEvent) => void
-}
-
-const SplashButton = styled(RaisedButton as unknown as React.ComponentType<RaisedButtonProps>)`
+const SplashButton = styled(RaisedButton)`
   width: 200px;
   height: 54px;
   margin: 16px 32px;
@@ -477,6 +480,12 @@ class Splash extends React.Component<DispatchProp> {
             <StyledLogoText />
           </LogoLockup>
           <TagLine>Play StarCraft 1 on the premier community-run platform</TagLine>
+          <Blurb>
+            ShieldBattery is the first and only community server that supports StarCraft:{'\u00A0'}
+            Remastered. Using a custom launcher and real game clients, we're able to improve on the
+            StarCraft 1 experience while maintaining faithful, authentic gameplay. Download our
+            client and start playing in just a few clicks!
+          </Blurb>
           {!IS_ELECTRON ? (
             <ButtonsContainer>
               <SplashButton label='Sign Up' color='primary' onClick={this.onSignUpClick} />
