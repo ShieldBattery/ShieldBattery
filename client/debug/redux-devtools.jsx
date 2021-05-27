@@ -1,18 +1,28 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { createDevTools } from 'redux-devtools'
 import DockMonitor from 'redux-devtools-dock-monitor'
 import InspectorMonitor from 'redux-devtools-inspector'
 import styled from 'styled-components'
+import { useForceUpdate } from '../state-hooks'
 
-// NOTE(tec27): !importants here are to ensure our styling for our app's root div doesn't override
-// this stuff
 const Container = styled.div`
   position: fixed !important;
-  width: 0px !important;
-  height: 0px !important;
-  top: 0px !important;
-  left: 0px !important;
   z-index: 99999999 !important;
+  pointer-events: ${props => (props.$hidden ? 'none' : 'auto')};
+
+  /* Root of DockMonitor */
+  & > div {
+    top: var(--sb-system-bar-height, 0px) !important;
+    left: 0px !important;
+    right: 0px !important;
+    bottom: 0px !important;
+    width: unset !important;
+    height: unset !important;
+  }
+  /* Actual dock elements */
+  & > div > div {
+    position: absolute !important;
+  }
 
   div[class*='inspector-'] {
     contain: strict;
@@ -22,9 +32,13 @@ const Container = styled.div`
   }
 `
 
+let updateRoot = () => {}
+let updateInspectorMonitor = () => {}
 let isVisible = false
-let setIsVisible = val => {
+const setIsVisible = val => {
   isVisible = val
+  updateInspectorMonitor()
+  updateRoot()
 }
 
 // NOTE(tec27): This prevents a flash of white as the drawer closes
@@ -42,7 +56,7 @@ const EmptyComponent = styled.div`
  * annoying if the UI isn't even onscreen.
  */
 function PerformantInspectorMonitor(props) {
-  ;[isVisible, setIsVisible] = useState(false)
+  updateInspectorMonitor = useForceUpdate()
 
   return isVisible ? (
     <InspectorMonitor {...props} theme='nicinabox' invertTheme={false} supportImmutable={true} />
@@ -66,8 +80,10 @@ export const DevTools = createDevTools(
 )
 
 export default function DevToolsContainer() {
+  updateRoot = useForceUpdate()
+
   return (
-    <Container>
+    <Container $hidden={!isVisible}>
       <DevTools />
     </Container>
   )
