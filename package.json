@@ -114,7 +114,7 @@
     "pg": "^8.1.0",
     "pino": "^6.2.1",
     "pino-http": "^5.1.0",
-    "pino-pretty": "^5.0.0",
+    "pino-pretty": "^4.8.0",
     "pino-tee": "^0.3.0",
     "rally-point-creator": "^2.0.0",
     "rally-point-server": "^2.0.0",
