@@ -1,6 +1,12 @@
 # ShieldBattery
 
-A modern way to play StarCraft: Brood War.
+The modern way to play StarCraft: Brood War.
+
+ShieldBattery is a custom server and launcher client for StarCraft: Remastered, adding many features
+and improvements while utilizing the real game client for gameplay. It is a community-run project
+under active development, with new features added all the time!
+
+https://shieldbattery.net
 
 ## Discord
 
