@@ -3,7 +3,7 @@ require('@babel/register')({
     [
       '@babel/preset-env',
       {
-        targets: { electron: '12.0' },
+        targets: { electron: '13.0' },
         useBuiltIns: 'usage',
         corejs: 3,
       },
@@ -15,6 +15,7 @@ require('@babel/register')({
     'babel-plugin-transform-typescript-metadata',
     ['@babel/plugin-proposal-decorators', { legacy: true }],
     ['@babel/plugin-proposal-class-properties', { loose: true }],
+    ['@babel/plugin-proposal-private-methods', { loose: true }],
     ['babel-plugin-const-enum'],
   ],
 

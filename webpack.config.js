@@ -30,7 +30,7 @@ const webBabelOpts = {
     [
       '@babel/preset-env',
       {
-        targets: { electron: '12.0' },
+        targets: { electron: '13.0' },
         modules: false,
         useBuiltIns: 'usage',
         corejs: 3,
@@ -42,6 +42,7 @@ const webBabelOpts = {
     ['babel-plugin-styled-components'],
     ['@babel/plugin-proposal-decorators', { legacy: true }],
     ['@babel/plugin-proposal-class-properties', { loose: true }],
+    ['@babel/plugin-proposal-private-methods', { loose: true }],
     ['@babel/plugin-proposal-nullish-coalescing-operator'],
     ['@babel/plugin-proposal-optional-chaining'],
     ['babel-plugin-const-enum'],
@@ -111,7 +112,7 @@ const mainBabelOpts = {
     [
       '@babel/preset-env',
       {
-        targets: { electron: '12.0' },
+        targets: { electron: '13.0' },
         modules: false,
         useBuiltIns: 'usage',
         corejs: 3,
@@ -123,6 +124,7 @@ const mainBabelOpts = {
     'babel-plugin-transform-typescript-metadata',
     ['@babel/plugin-proposal-decorators', { legacy: true }],
     ['@babel/plugin-proposal-class-properties', { loose: true }],
+    ['@babel/plugin-proposal-private-methods', { loose: true }],
     ['babel-plugin-const-enum'],
   ],
 }
