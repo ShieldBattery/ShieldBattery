@@ -62,6 +62,11 @@ export const colorBackground = background800
 export const colorError = '#ff6e6e'
 export const colorSuccess = '#66bb6a'
 
+/** Color used to indicate something positive (e.g. winning). */
+export const colorPositive = '#69f0ae'
+/** Color used to indicate something negative (e.g. losing). */
+export const colorNegative = '#e66060'
+
 export const colorZerg = '#ff1744'
 export const colorProtoss = '#00e676'
 export const colorTerran = '#2979ff'
