@@ -1,5 +1,7 @@
 import errors from 'http-errors'
 import { Map, Record, Set } from 'immutable'
+import { NextFunc, NydusServer, RouteHandler } from 'nydus'
+import { container, singleton } from 'tsyringe'
 import { isValidChannelName } from '../../../common/constants'
 import { MULTI_CHANNEL } from '../../../common/flags'
 import filterChatMessage from '../messaging/filter-chat-message'
@@ -15,12 +17,15 @@ import {
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/websocket-middleware'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
+import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import validateBody from '../websockets/validate-body'
 
-const ChatState = new Record({
-  channels: new Map(),
-  users: new Map(),
-})
+class ChatState extends Record({
+  /** Maps channel name -> Set of users in that channel (as names). */
+  channels: Map<string, Set<string>>(),
+  /** Maps username -> Set of channels they're in (as names). */
+  users: Map<string, Set<string>>(),
+}) {}
 
 const joinThrottle = createThrottle('chatjoin', {
   rate: 3,
@@ -38,29 +43,31 @@ const sendThrottle = createThrottle('chatsend', {
   window: 60000,
 })
 
-const featureEnabled = async (data, next) => {
+const featureEnabled: RouteHandler = async (data, next) => {
   if (!MULTI_CHANNEL) throw new errors.NotFound()
   return next(data)
 }
-const nonEmptyString = str => typeof str === 'string' && str.length > 0
-const limit = val => typeof val === 'undefined' || (typeof val === 'number' && val > 0 && val < 100)
-const beforeTime = val => typeof val === 'undefined' || (typeof val === 'number' && val >= -1)
+const nonEmptyString = (str: unknown) => typeof str === 'string' && str.length > 0
+const limit = (val: unknown) =>
+  typeof val === 'undefined' || (typeof val === 'number' && val > 0 && val < 100)
+const beforeTime = (val: unknown) =>
+  typeof val === 'undefined' || (typeof val === 'number' && val >= -1)
 
 const MOUNT_BASE = '/chat'
 
-function getPath(channel) {
+function getPath(channel: string) {
   return `${MOUNT_BASE}/${encodeURIComponent(channel)}`
 }
 
+@singleton()
 @Mount(MOUNT_BASE)
 export class ChatApi {
-  constructor(nydus, userSockets) {
-    this.nydus = nydus
-    this.userSockets = userSockets
-    this.state = new ChatState()
+  private state = new ChatState()
+
+  constructor(private nydus: NydusServer, private userSockets: UserSocketsManager) {
     this.userSockets
-      .on('newUser', user => this._handleNewUser(user))
-      .on('userQuit', name => this._handleUserQuit(name))
+      .on('newUser', user => this.handleNewUser(user))
+      .on('userQuit', name => this.handleUserQuit(name))
   }
 
   @Api(
@@ -70,21 +77,21 @@ export class ChatApi {
       channel: isValidChannelName,
     }),
     'getUser',
-    throttleMiddleware(joinThrottle, data => data.get('user')),
+    throttleMiddleware(joinThrottle, (data: Map<string, any>) => data.get('user')),
     'getChannel',
   )
-  async join(data, next) {
+  async join(data: Map<string, any>) {
     const user = data.get('user')
     const channel = data.get('channel')
-    if (this.state.users.has(user.name) && this.state.users.get(user.name).has(channel)) {
+    if (this.state.users.has(user.name) && this.state.users.get(user.name)!.has(channel)) {
       throw new errors.BadRequest('already in this channel')
     }
 
     await addUserToChannel(user.session.userId, channel)
 
     this.state = this.state
-      .updateIn(['channels', channel], new Set(), s => s.add(user.name))
-      .updateIn(['users', user.name], new Set(), s => s.add(channel))
+      .updateIn(['channels', channel], (s = Set()) => s.add(user.name))
+      .updateIn(['users', user.name], (s = Set()) => s.add(channel))
     this._publishTo(channel, { action: 'join', user: user.name })
     this._subscribeUserToChannel(user, channel)
   }
@@ -98,18 +105,18 @@ export class ChatApi {
     'getUser',
     'getChannel',
   )
-  async leave(data, next) {
+  async leave(data: Map<string, any>) {
     const user = data.get('user')
     const channel = data.get('channel')
     if (channel === 'ShieldBattery') {
       throw new errors.Forbidden("can't leave ShieldBattery channel")
     }
-    if (!this.state.users.has(user.name) || !this.state.users.get(user.name).has(channel)) {
+    if (!this.state.users.has(user.name) || !this.state.users.get(user.name)!.has(channel)) {
       throw new errors.NotFound('not in this channel')
     }
 
     const result = await leaveChannel(user.session.userId, channel)
-    const updated = this.state.channels.get(channel).delete(user.name)
+    const updated = this.state.channels.get(channel)!.delete(user.name)
     this.state = updated.size
       ? this.state.setIn(['channels', channel], updated)
       : this.state.deleteIn(['channels', channel])
@@ -125,15 +132,15 @@ export class ChatApi {
       message: nonEmptyString,
     }),
     'getUser',
-    throttleMiddleware(sendThrottle, data => data.get('user')),
+    throttleMiddleware(sendThrottle, (data: Map<string, any>) => data.get('user')),
     'getChannel',
   )
-  async send(data, next) {
+  async send(data: Map<string, any>) {
     const { message } = data.get('body')
     const user = data.get('user')
     const channel = data.get('channel')
     // TODO(tec27): lookup channel keys case insensitively?
-    if (!this.state.users.has(user.name) || !this.state.users.get(user.name).has(channel)) {
+    if (!this.state.users.has(user.name) || !this.state.users.get(user.name)!.has(channel)) {
       throw new errors.Forbidden('must be in a channel to send a message to it')
     }
 
@@ -160,15 +167,15 @@ export class ChatApi {
       beforeTime,
     }),
     'getUser',
-    throttleMiddleware(retrievalThrottle, data => data.get('user')),
+    throttleMiddleware(retrievalThrottle, (data: Map<string, any>) => data.get('user')),
     'getChannel',
   )
-  async getHistory(data, next) {
+  async getHistory(data: Map<string, any>) {
     const { limit, beforeTime } = data.get('body')
     const user = data.get('user')
     const channel = data.get('channel')
     // TODO(tec27): lookup channel keys case insensitively?
-    if (!this.state.users.has(user.name) || !this.state.users.get(user.name).has(channel)) {
+    if (!this.state.users.has(user.name) || !this.state.users.get(user.name)!.has(channel)) {
       throw new errors.Forbidden('must be in a channel to retrieve message history')
     }
 
@@ -192,13 +199,13 @@ export class ChatApi {
       channel: isValidChannelName,
     }),
     'getUser',
-    throttleMiddleware(retrievalThrottle, data => data.get('user')),
+    throttleMiddleware(retrievalThrottle, (data: Map<string, any>) => data.get('user')),
     'getChannel',
   )
-  async getUsers(data, next) {
+  async getUsers(data: Map<string, any>) {
     const user = data.get('user')
     const channel = data.get('channel')
-    if (!this.state.users.has(user.name) || !this.state.users.get(user.name).has(channel)) {
+    if (!this.state.users.has(user.name) || !this.state.users.get(user.name)!.has(channel)) {
       throw new errors.Forbidden('must be in a channel to retrieve user list')
     }
 
@@ -206,7 +213,7 @@ export class ChatApi {
     return users.map(u => u.userName)
   }
 
-  async getUser(data, next) {
+  async getUser(data: Map<string, any>, next: NextFunc) {
     const user = this.userSockets.getBySocket(data.get('client'))
     if (!user) throw new errors.Unauthorized('authorization required')
     const newData = data.set('user', user)
@@ -214,7 +221,7 @@ export class ChatApi {
     return next(newData)
   }
 
-  async getChannel(data, next) {
+  async getChannel(data: Map<string, any>, next: NextFunc) {
     const { channel } = data.get('body')
     const foundChannel = await findChannel(channel)
 
@@ -224,11 +231,12 @@ export class ChatApi {
     return next(newData)
   }
 
-  _publishTo(channel, event) {
+  // TODO(tec27): type event properly
+  _publishTo(channel: string, event: any) {
     this.nydus.publish(getPath(channel), event)
   }
 
-  _subscribeUserToChannel(user, channel) {
+  _subscribeUserToChannel(user: UserSocketsGroup, channel: string) {
     user.subscribe(getPath(channel), () => {
       return {
         action: 'init',
@@ -237,20 +245,20 @@ export class ChatApi {
     })
   }
 
-  _unsubscribeUserFromChannel(user, channel) {
+  _unsubscribeUserFromChannel(user: UserSocketsGroup, channel: string) {
     user.unsubscribe(getPath(channel))
   }
 
-  async _handleNewUser(user) {
+  private async handleNewUser(user: UserSocketsGroup) {
     const channelsForUser = await getChannelsForUser(user.session.userId)
     if (!user.sockets.size) {
       // The user disconnected while we were waiting for their channel list
       return
     }
 
-    const channelSet = new Set(channelsForUser.map(c => c.channelName))
-    const userSet = new Set([user.name])
-    const inChannels = new Map(channelsForUser.map(c => [c.channelName, userSet]))
+    const channelSet = Set(channelsForUser.map(c => c.channelName))
+    const userSet = Set([user.name])
+    const inChannels = Map(channelsForUser.map(c => [c.channelName, userSet]))
 
     this.state = this.state
       .mergeDeepIn(['channels'], inChannels)
@@ -262,15 +270,15 @@ export class ChatApi {
     user.subscribe(`${user.getPath()}/chat`, () => ({ type: 'chatReady' }))
   }
 
-  async _handleUserQuit(userName) {
+  private async handleUserQuit(userName: string) {
     if (!this.state.users.has(userName)) {
       // This can happen if a user disconnects before we get their channel list back from the DB
       return
     }
-    const channels = this.state.users.get(userName)
+    const channels = this.state.users.get(userName)!
     for (const channel of channels.values()) {
-      const updated = this.state.channels.get(channel).delete(userName)
-      this.state = updated.size
+      const updated = this.state.channels.get(channel)?.delete(userName)
+      this.state = updated?.size
         ? this.state.setIn(['channels', channel], updated)
         : this.state.deleteIn(['channels', channel])
     }
@@ -282,8 +290,8 @@ export class ChatApi {
   }
 }
 
-export default function registerApi(nydus, userSockets) {
-  const api = new ChatApi(nydus, userSockets)
+export default function registerApi(nydus: NydusServer) {
+  const api = container.resolve(ChatApi)
   registerApiRoutes(api, nydus)
   return api
 }

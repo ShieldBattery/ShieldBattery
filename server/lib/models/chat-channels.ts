@@ -57,7 +57,7 @@ export interface DbChatMessage {
   data: Record<string, unknown>
 }
 
-export async function getChannelsForUser(userId: string): Promise<UserChannelsEntry[]> {
+export async function getChannelsForUser(userId: number): Promise<UserChannelsEntry[]> {
   const { client, done } = await db()
   try {
     const result = await client.query(sql`
