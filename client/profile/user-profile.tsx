@@ -3,6 +3,9 @@ import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { RaceChar } from '../../common/races'
 import Avatar from '../avatars/avatar'
+import GithubIcon from '../icons/brands/github.svg'
+import KofiIcon from '../icons/brands/kofi-lockup.svg'
+import PatreonIcon from '../icons/brands/patreon-lockup.svg'
 import { RaceIcon } from '../lobbies/race-icon'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
@@ -29,9 +32,11 @@ import {
   body2,
   caption,
   headline3,
+  Headline5,
   headline6,
   overline,
   singleLine,
+  Subtitle1,
   subtitle1,
   Subtitle2,
 } from '../styles/typography'
@@ -47,6 +52,67 @@ const TabArea = styled.div`
   width: 100%;
   max-width: 720px;
 `
+
+export enum UserProfileSubPage {
+  Summary = 'summary',
+  Stats = 'stats',
+  MatchHistory = 'match-history',
+  Seasons = 'seasons',
+}
+
+export interface UserProfilePageProps {
+  username: string
+  subPage?: UserProfileSubPage
+  onTabChange?: (tab: UserProfileSubPage) => void
+}
+
+export function UserProfilePage({
+  username,
+  subPage = UserProfileSubPage.Summary,
+  onTabChange,
+}: UserProfilePageProps) {
+  const handleTabChange = useCallback(
+    (tab: UserProfileSubPage) => {
+      if (onTabChange) {
+        onTabChange(tab)
+      } else {
+        push(urlPath`/users/${username}/${tab}`)
+      }
+    },
+    [onTabChange, username],
+  )
+
+  let content: React.ReactNode
+  switch (subPage) {
+    case UserProfileSubPage.Summary:
+      content = <SummaryPage username={username} />
+      break
+
+    case UserProfileSubPage.Stats:
+    case UserProfileSubPage.MatchHistory:
+    case UserProfileSubPage.Seasons:
+      content = <ComingSoonPage />
+      break
+
+    default:
+      content = assertUnreachable(subPage)
+  }
+
+  return (
+    <Container>
+      <TabArea>
+        <Tabs activeTab={subPage} onChange={handleTabChange}>
+          <TabItem value={UserProfileSubPage.Summary} text='Summary' />
+          <TabItem value={UserProfileSubPage.Stats} text='Stats' />
+          <TabItem value={UserProfileSubPage.MatchHistory} text='Match history' />
+          <TabItem value={UserProfileSubPage.Seasons} text='Seasons' />
+        </Tabs>
+      </TabArea>
+
+      {content}
+    </Container>
+  )
+}
 
 const TopSection = styled.div`
   height: 100px;
@@ -155,67 +221,6 @@ const EmptyListText = styled.div`
   color: ${colorTextFaint};
 `
 
-export enum UserProfileSubPage {
-  Summary = 'summary',
-  Stats = 'stats',
-  MatchHistory = 'match-history',
-  Seasons = 'seasons',
-}
-
-export interface UserProfilePageProps {
-  username: string
-  subPage?: UserProfileSubPage
-  onTabChange?: (tab: UserProfileSubPage) => void
-}
-
-export function UserProfilePage({
-  username,
-  subPage = UserProfileSubPage.Summary,
-  onTabChange,
-}: UserProfilePageProps) {
-  const handleTabChange = useCallback(
-    (tab: UserProfileSubPage) => {
-      if (onTabChange) {
-        onTabChange(tab)
-      } else {
-        push(urlPath`/users/${username}/${tab}`)
-      }
-    },
-    [onTabChange, username],
-  )
-
-  let content: React.ReactNode
-  switch (subPage) {
-    case UserProfileSubPage.Summary:
-      content = <SummaryPage username={username} />
-      break
-
-    case UserProfileSubPage.Stats:
-    case UserProfileSubPage.MatchHistory:
-    case UserProfileSubPage.Seasons:
-      content = <span>hi</span>
-      break
-
-    default:
-      content = assertUnreachable(subPage)
-  }
-
-  return (
-    <Container>
-      <TabArea>
-        <Tabs activeTab={subPage} onChange={handleTabChange}>
-          <TabItem value={UserProfileSubPage.Summary} text='Summary' />
-          <TabItem value={UserProfileSubPage.Stats} text='Stats' />
-          <TabItem value={UserProfileSubPage.MatchHistory} text='Match history' />
-          <TabItem value={UserProfileSubPage.Seasons} text='Seasons' />
-        </Tabs>
-      </TabArea>
-
-      {content}
-    </Container>
-  )
-}
-
 function SummaryPage({ username }: { username: string }) {
   const title = 'Biggus Fannius'
   const mmr = 1698
@@ -258,6 +263,80 @@ function SummaryPage({ username }: { username: string }) {
       <SectionOverline>Achievements</SectionOverline>
       <EmptyListText>Nothing to see here</EmptyListText>
     </>
+  )
+}
+
+const ComingSoonRoot = styled.div`
+  /* 34px + 6px from tab = 40px */
+  margin-top: 34px;
+  padding: 0 24px;
+`
+
+const FundingSection = styled.div`
+  margin-top: 48px;
+`
+
+const SupportLinks = styled.div`
+  display: flex;
+  align-items: flex-start;
+
+  margin-top: 8px;
+  /** Offset for the inner padding of the first item */
+  margin-left: -16px;
+
+  a,
+  a:link,
+  a:visited {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    color: ${colorTextSecondary};
+    padding-left: 16px;
+    padding-right: 16px;
+    overflow: hidden;
+
+    &:hover,
+    &:active {
+      color: ${colorTextPrimary};
+    }
+  }
+`
+const StyledGithubIcon = styled(GithubIcon)`
+  height: 40px;
+`
+
+const StyledKofiIcon = styled(KofiIcon)`
+  height: 40px;
+`
+
+const StyledPatreonIcon = styled(PatreonIcon)`
+  height: 24px;
+`
+
+function ComingSoonPage() {
+  return (
+    <ComingSoonRoot>
+      <Headline5>This feature is coming soon!</Headline5>
+
+      <FundingSection>
+        <Subtitle1>Help fund ShieldBattery's development:</Subtitle1>
+        <SupportLinks>
+          <a
+            href='https://github.com/sponsors/ShieldBattery'
+            target='_blank'
+            rel='noopener'
+            title='GitHub Sponsors'>
+            <StyledGithubIcon />
+          </a>
+          <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener' title='Ko-fi'>
+            <StyledKofiIcon />
+          </a>
+          <a href='https://patreon.com/tec27' target='_blank' rel='noopener' title='Patreon'>
+            <StyledPatreonIcon />
+          </a>
+        </SupportLinks>
+      </FundingSection>
+    </ComingSoonRoot>
   )
 }
 
