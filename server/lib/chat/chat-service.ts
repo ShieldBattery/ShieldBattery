@@ -2,6 +2,7 @@ import { Map, Record, Set } from 'immutable'
 import { NydusServer } from 'nydus'
 import { singleton } from 'tsyringe'
 import filterChatMessage from '../messaging/filter-chat-message'
+import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import {
   addMessageToChannel,
   addUserToChannel,
@@ -10,8 +11,7 @@ import {
   getMessagesForChannel,
   getUsersForChannel,
   leaveChannel,
-} from '../models/chat-channels'
-import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
+} from './chat-models'
 
 class ChatState extends Record({
   /** Maps channel name -> Set of users in that channel (as names). */
