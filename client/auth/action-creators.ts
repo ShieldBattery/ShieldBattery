@@ -8,7 +8,7 @@ import { AccountUpdateSuccess, AuthChangeBegin } from './actions'
 
 type IdRequestable = Extract<
   Exclude<ReduxAction, { error: true }>,
-  { type: string; meta: { reqId: string } }
+  { type: string; meta: { reqId: string; time: number } }
 >
 
 type IdRequestableTypes = IdRequestable['type']
@@ -39,7 +39,7 @@ function idRequest<
       const promisified: PromisifiedAction<ActionType> = {
         type,
         payload,
-        meta: { reqId },
+        meta: { reqId, time: window.performance.now() },
         // NOTE(tec27): I think this cast is necessary because TS thinks this type *could* have
         // extra keys that need to be assigned, because we can't properly tell it what the valid
         // keys are?

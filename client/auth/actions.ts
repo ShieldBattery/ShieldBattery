@@ -27,6 +27,8 @@ interface BaseAuthSuccess<T extends string, P = void> {
   type: T
   meta: {
     reqId: string
+    /** Should be set to the current value of `window.performance.now()`. */
+    time: number
   }
   // NOTE(tec27): This makes it possible to narrow types based on this field
   error?: false
@@ -36,6 +38,8 @@ interface BaseAuthSuccess<T extends string, P = void> {
 interface BaseAuthFailure<T extends string> extends BaseFetchFailure<T> {
   meta: {
     reqId: string
+    /** Should be set to the current value of `window.performance.now()`. */
+    time: number
   }
 }
 
