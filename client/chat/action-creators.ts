@@ -65,7 +65,7 @@ export function getMessageHistory(channel: string, limit: number): ThunkAction {
     }
 
     const chanData = byName.get(lowerCaseChannel)!
-    const earliestMessageTime = chanData.messages.size ? chanData.messages.first()!.time : -1
+    const earliestMessageTime = chanData.messages.first({ time: -1 }).time
     const params = { channel, limit, beforeTime: earliestMessageTime }
 
     dispatch({

@@ -179,7 +179,7 @@ const UsersVirtualizedList = styled(VirtualizedList)`
 `
 
 interface UserListProps {
-  users: ReturnType<typeof UsersRecord>
+  users: UsersRecord
 }
 
 class UserList extends React.Component<UserListProps> {
@@ -246,7 +246,7 @@ class UserList extends React.Component<UserListProps> {
         </UserListOverline>
       )
     } else if (index < active.size + 1) {
-      const username = active.get(index - 1)
+      const username = active.get(index - 1)!
       return <UserListEntry style={style} username={username} key={username} />
     }
 
@@ -259,7 +259,7 @@ class UserList extends React.Component<UserListProps> {
           </UserListOverline>
         )
       } else if (i < idle.size + 1) {
-        const username = idle.get(i - 1)
+        const username = idle.get(i - 1)!
         return <UserListEntry style={style} username={username} key={username} />
       }
 
@@ -274,7 +274,7 @@ class UserList extends React.Component<UserListProps> {
           </UserListOverline>
         )
       } else if (i < offline.size + 1) {
-        const username = offline.get(i - 1)
+        const username = offline.get(i - 1)!
         return <UserListEntry style={style} username={username} key={username} faded={true} />
       }
 

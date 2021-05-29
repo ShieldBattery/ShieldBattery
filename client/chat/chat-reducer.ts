@@ -47,7 +47,12 @@ export class ChatState extends Record({
   byName: Map<string, Channel>(),
 }) {}
 
-function updateUserState(user, addTo, removeFirst, removeSecond) {
+function updateUserState(
+  user: ChatUser,
+  addTo: List<ChatUser>,
+  removeFirst: List<ChatUser>,
+  removeSecond: List<ChatUser>,
+) {
   const addToUpdated = SortedUsers.insert(addTo, user)
 
   const firstIndex = SortedUsers.findIndex(removeFirst, user)
