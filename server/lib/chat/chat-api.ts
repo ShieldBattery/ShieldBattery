@@ -1,6 +1,7 @@
 import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
+import Koa from 'koa'
 import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
@@ -62,6 +63,26 @@ function convertChatServiceError(err: Error) {
   }
 }
 
+async function convertChatServiceErrors(ctx: RouterContext, next: Koa.Next) {
+  try {
+    await next()
+  } catch (err) {
+    convertChatServiceError(err)
+  }
+}
+
+function getValidatedChannelName(ctx: RouterContext) {
+  const {
+    params: { channelName },
+  } = validateRequest(ctx, {
+    params: Joi.object<{ channelName: string }>({
+      channelName: Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN).required(),
+    }),
+  })
+
+  return channelName
+}
+
 @httpApi()
 export class ChatApi extends HttpApi {
   constructor() {
@@ -71,24 +92,26 @@ export class ChatApi extends HttpApi {
 
   applyRoutes(router: Router): void {
     router
-      .use(featureEnabled(MULTI_CHANNEL), ensureLoggedIn)
+      .use(ensureLoggedIn, convertChatServiceErrors)
       .post(
         '/:channelName',
+        featureEnabled(MULTI_CHANNEL),
         throttleMiddleware(joinThrottle, ctx => String(ctx.session!.userId)),
         joinChannel,
       )
       .delete(
         '/:channelName',
+        featureEnabled(MULTI_CHANNEL),
         throttleMiddleware(leaveThrottle, ctx => String(ctx.session!.userId)),
         leaveChannel,
       )
-      .patch(
-        '/:channelName',
+      .post(
+        '/:channelName/messages',
         throttleMiddleware(sendThrottle, ctx => String(ctx.session!.userId)),
         sendChatMessage,
       )
       .get(
-        '/:channelName/chat',
+        '/:channelName/messages',
         throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)),
         getChannelHistory,
       )
@@ -101,106 +124,62 @@ export class ChatApi extends HttpApi {
 }
 
 function joinChannel(ctx: RouterContext) {
-  const {
-    params: { channelName },
-  } = validateRequest(ctx, {
-    params: Joi.object<{ channelName: string }>({
-      channelName: Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN).required(),
-    }),
-  })
+  const channelName = getValidatedChannelName(ctx)
 
-  try {
-    const chatService = container.resolve(ChatService)
-    chatService.joinChannel(channelName, ctx.session!.userName)
+  const chatService = container.resolve(ChatService)
+  chatService.joinChannel(channelName, ctx.session!.userName)
 
-    ctx.status = 204
-  } catch (err) {
-    convertChatServiceError(err)
-  }
+  ctx.status = 204
 }
 
 function leaveChannel(ctx: RouterContext) {
-  const {
-    params: { channelName },
-  } = validateRequest(ctx, {
-    params: Joi.object<{ channelName: string }>({
-      channelName: Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN).required(),
-    }),
-  })
+  const channelName = getValidatedChannelName(ctx)
 
-  try {
-    const chatService = container.resolve(ChatService)
-    chatService.leaveChannel(channelName, ctx.session!.userName)
+  const chatService = container.resolve(ChatService)
+  chatService.leaveChannel(channelName, ctx.session!.userName)
 
-    ctx.status = 204
-  } catch (err) {
-    convertChatServiceError(err)
-  }
+  ctx.status = 204
 }
 
 function sendChatMessage(ctx: RouterContext) {
+  const channelName = getValidatedChannelName(ctx)
   const {
-    params: { channelName },
     body: { message },
   } = validateRequest(ctx, {
-    params: Joi.object<{ channelName: string }>({
-      channelName: Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN).required(),
-    }),
     body: Joi.object<{ message: string }>({
       message: Joi.string().min(1).required(),
     }),
   })
 
-  try {
-    const chatService = container.resolve(ChatService)
-    chatService.sendChatMessage(channelName, ctx.session!.userName, message)
+  const chatService = container.resolve(ChatService)
+  chatService.sendChatMessage(channelName, ctx.session!.userName, message)
 
-    ctx.status = 204
-  } catch (err) {
-    convertChatServiceError(err)
-  }
+  ctx.status = 204
 }
 
 async function getChannelHistory(ctx: RouterContext) {
+  const channelName = getValidatedChannelName(ctx)
   const {
-    params: { channelName },
     query: { limit, beforeTime },
   } = validateRequest(ctx, {
-    params: Joi.object<{ channelName: string }>({
-      channelName: Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN).required(),
-    }),
     query: Joi.object<{ limit: number; beforeTime: number }>({
       limit: Joi.number().min(1).max(100),
       beforeTime: Joi.number().min(0),
     }),
   })
 
-  try {
-    const chatService = container.resolve(ChatService)
-    ctx.body = await chatService.getChannelHistory(
-      channelName,
-      ctx.session!.userName,
-      limit,
-      beforeTime,
-    )
-  } catch (err) {
-    convertChatServiceError(err)
-  }
+  const chatService = container.resolve(ChatService)
+  ctx.body = await chatService.getChannelHistory(
+    channelName,
+    ctx.session!.userName,
+    limit,
+    beforeTime,
+  )
 }
 
 async function getChannelUsers(ctx: RouterContext) {
-  const {
-    params: { channelName },
-  } = validateRequest(ctx, {
-    params: Joi.object<{ channelName: string }>({
-      channelName: Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN).required(),
-    }),
-  })
+  const channelName = getValidatedChannelName(ctx)
 
-  try {
-    const chatService = container.resolve(ChatService)
-    ctx.body = await chatService.getChannelUsers(channelName, ctx.session!.userName)
-  } catch (err) {
-    convertChatServiceError(err)
-  }
+  const chatService = container.resolve(ChatService)
+  ctx.body = await chatService.getChannelUsers(channelName, ctx.session!.userName)
 }
