@@ -1,8 +1,8 @@
 // User model, corresponding to a user account on the site (with a login, password, etc.)
 import sql from 'sql-template-strings'
+import { addUserToChannel } from '../chat/chat-models'
 import db from '../db'
 import transact from '../db/transaction'
-import { addUserToChannel } from './chat-channels'
 import { createPermissions } from './permissions'
 
 function defPrivate(o: unknown, name: string, value: unknown) {
