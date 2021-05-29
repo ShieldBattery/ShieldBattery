@@ -11,7 +11,7 @@ import users from '../models/users'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
-import { joiValidator } from '../validation/joi-validator'
+import { validateRequest } from '../validation/joi-validator'
 import PartyService, { PartyServiceError, PartyServiceErrorCode, PartyUser } from './party-service'
 
 const invitesThrottle = createThrottle('partyInvites', {
@@ -24,31 +24,6 @@ const partyThrottle = createThrottle('parties', {
   rate: 20,
   burst: 40,
   window: 60000,
-})
-
-const clientIdSchema = Joi.object().keys({
-  clientId: Joi.string().required(),
-})
-
-const invitesPostSchema = clientIdSchema.keys({
-  targets: Joi.array()
-    .items(
-      Joi.string()
-        .min(USERNAME_MINLENGTH)
-        .max(USERNAME_MAXLENGTH)
-        .pattern(USERNAME_PATTERN)
-        .required(),
-    )
-    .min(1)
-    .required(),
-})
-
-const partyIdSchema = Joi.object().keys({
-  partyId: Joi.string().required(),
-})
-
-const removeInviteParamsSchema = partyIdSchema.keys({
-  targetId: Joi.number().required(),
 })
 
 function isPartyServiceError(error: Error): error is PartyServiceError {
@@ -93,42 +68,54 @@ export default function (router: Router) {
     .post(
       '/invites',
       throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)),
-      joiValidator({ body: invitesPostSchema }),
       invite,
     )
     .delete(
       '/invites/:partyId',
       throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)),
-      joiValidator({ params: partyIdSchema }),
       decline,
     )
     .delete(
       '/invites/:partyId/:targetId',
       throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)),
-      joiValidator({ params: removeInviteParamsSchema }),
       removeInvite,
     )
     .post(
       '/:partyId',
       throttleMiddleware(partyThrottle, ctx => String(ctx.session!.userId)),
-      joiValidator({ params: partyIdSchema, body: clientIdSchema }),
       accept,
     )
 }
 
 // TODO(2Pac): Move this somewhere common and share with client
-export interface PartiesInviteBody {
+export interface InviteToPartyServerBody {
   clientId: string
   targets: string[]
 }
 
 // TODO(2Pac): Move this somewhere common and share with client
-export interface PartiesAcceptBody {
+export interface AcceptPartyInviteServerBody {
   clientId: string
 }
 
 async function invite(ctx: RouterContext) {
-  const { clientId, targets } = ctx.request.body as PartiesInviteBody
+  const {
+    body: { clientId, targets },
+  } = validateRequest(ctx, {
+    body: Joi.object<InviteToPartyServerBody>({
+      clientId: Joi.string().required(),
+      targets: Joi.array()
+        .items(
+          Joi.string()
+            .min(USERNAME_MINLENGTH)
+            .max(USERNAME_MAXLENGTH)
+            .pattern(USERNAME_PATTERN)
+            .required(),
+        )
+        .min(1)
+        .required(),
+    }),
+  })
 
   const invites = await Promise.all<PartyUser>(
     targets.map(async (target): Promise<PartyUser> => {
@@ -156,7 +143,13 @@ async function invite(ctx: RouterContext) {
 }
 
 async function decline(ctx: RouterContext) {
-  const { partyId } = ctx.params
+  const {
+    params: { partyId },
+  } = validateRequest(ctx, {
+    params: Joi.object<{ partyId: string }>({
+      partyId: Joi.string().required(),
+    }),
+  })
 
   const target: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
 
@@ -167,7 +160,14 @@ async function decline(ctx: RouterContext) {
 }
 
 async function removeInvite(ctx: RouterContext) {
-  const { partyId, targetId } = ctx.params
+  const {
+    params: { partyId, targetId },
+  } = validateRequest(ctx, {
+    params: Joi.object<{ partyId: string; targetId: number }>({
+      partyId: Joi.string().required(),
+      targetId: Joi.number().required(),
+    }),
+  })
 
   const foundTarget = await users.find(targetId)
   if (!foundTarget) {
@@ -184,8 +184,17 @@ async function removeInvite(ctx: RouterContext) {
 }
 
 async function accept(ctx: RouterContext) {
-  const { partyId } = ctx.params
-  const { clientId } = ctx.request.body as PartiesAcceptBody
+  const {
+    params: { partyId },
+    body: { clientId },
+  } = validateRequest(ctx, {
+    params: Joi.object<{ partyId: string }>({
+      partyId: Joi.string().required(),
+    }),
+    body: Joi.object<AcceptPartyInviteServerBody>({
+      clientId: Joi.string().required(),
+    }),
+  })
 
   const user: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
 
