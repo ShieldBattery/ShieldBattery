@@ -4,7 +4,6 @@ import Joi from 'joi'
 import Koa from 'koa'
 import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { USERNAME_MAXLENGTH, USERNAME_MINLENGTH, USERNAME_PATTERN } from '../../../common/constants'
 import { PARTIES } from '../../../common/flags'
 import { featureEnabled } from '../flags/feature-enabled'
 import users from '../models/users'
@@ -90,7 +89,7 @@ export default function (router: Router) {
 // TODO(2Pac): Move this somewhere common and share with client
 export interface InviteToPartyServerBody {
   clientId: string
-  targets: string[]
+  targetId: string
 }
 
 // TODO(2Pac): Move this somewhere common and share with client
@@ -100,44 +99,30 @@ export interface AcceptPartyInviteServerBody {
 
 async function invite(ctx: RouterContext) {
   const {
-    body: { clientId, targets },
+    body: { clientId, targetId },
   } = validateRequest(ctx, {
     body: Joi.object<InviteToPartyServerBody>({
       clientId: Joi.string().required(),
-      targets: Joi.array()
-        .items(
-          Joi.string()
-            .min(USERNAME_MINLENGTH)
-            .max(USERNAME_MAXLENGTH)
-            .pattern(USERNAME_PATTERN)
-            .required(),
-        )
-        .min(1)
-        .required(),
+      targetId: Joi.number().min(1).required(),
     }),
   })
 
-  const invites = await Promise.all<PartyUser>(
-    targets.map(async (target): Promise<PartyUser> => {
-      const foundTarget = await users.find(target)
-      if (!foundTarget) {
-        throw new httpErrors.NotFound('Target user not found')
-      }
+  const foundTarget = await users.find(targetId)
+  if (!foundTarget) {
+    throw new httpErrors.NotFound('Target user not found')
+  }
 
-      // TODO(2Pac): Check if the target user has blocked invitations from the user issuing
-      // the request. Or potentially use friends list when implemented.
+  // TODO(2Pac): Check if the target user has blocked invitations from the user issuing
+  // the request. Or potentially use friends list when implemented.
 
-      return { id: foundTarget.id as number, name: foundTarget.name }
-    }),
-  )
-
+  const invite: PartyUser = { id: foundTarget.id as number, name: foundTarget.name }
   const leader: PartyUser = {
     id: ctx.session!.userId,
     name: ctx.session!.userName,
   }
 
   const partyService = container.resolve(PartyService)
-  partyService.invite(leader, clientId, invites)
+  partyService.invite(leader, clientId, invite)
 
   ctx.status = 204
 }

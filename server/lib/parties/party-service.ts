@@ -76,10 +76,10 @@ export default class PartyService {
     private userSocketsManager: UserSocketsManager,
   ) {}
 
-  invite(leader: PartyUser, leaderClientId: string, invites: PartyUser[]): Readonly<PartyRecord> {
+  invite(leader: PartyUser, leaderClientId: string, invitedUser: PartyUser): Readonly<PartyRecord> {
     const leaderClientSockets = this.getClientSockets(leader.id, leaderClientId)
 
-    if (invites.some(i => i.id === leader.id)) {
+    if (invitedUser.id === leader.id) {
       throw new PartyServiceError(
         PartyServiceErrorCode.InvalidAction,
         "Can't invite yourself to the party",
@@ -95,19 +95,16 @@ export default class PartyService {
         )
       }
 
-      for (const invite of invites) {
-        party.invites.set(invite.id, invite)
-      }
-
+      party.invites.set(invitedUser.id, invitedUser)
       this.publishToParty(party.id, {
         type: 'invite',
-        invites,
+        invitedUser,
       })
     } else {
       const partyId = cuid()
       party = {
         id: partyId,
-        invites: new Map(invites.map(i => [i.id, i])),
+        invites: new Map([[invitedUser.id, invitedUser]]),
         members: new Map([[leader.id, leader]]),
         leader,
       }
@@ -117,22 +114,20 @@ export default class PartyService {
       this.subscribeToParty(leaderClientSockets, party)
     }
 
-    invites.forEach(i => {
-      // TODO(2Pac): Send the invite notification once the server-side notification system is in.
-      const userSockets = this.userSocketsManager.getByName(i.name)
-      if (userSockets) {
-        userSockets.subscribe(
-          getInvitesPath(party!.id, userSockets.userId),
-          () => ({
-            type: 'addInvite',
-            from: leader,
-          }),
-          () => {
-            // TODO(2Pac): Handle user quitting; need to keep a map of user -> invites?
-          },
-        )
-      }
-    })
+    // TODO(2Pac): Send the invite notification once the server-side notification system is in.
+    const userSockets = this.userSocketsManager.getByName(invitedUser.name)
+    if (userSockets) {
+      userSockets.subscribe(
+        getInvitesPath(party!.id, userSockets.userId),
+        () => ({
+          type: 'addInvite',
+          from: leader,
+        }),
+        () => {
+          // TODO(2Pac): Handle user quitting; need to keep a map of user -> invites?
+        },
+      )
+    }
 
     return party
   }
