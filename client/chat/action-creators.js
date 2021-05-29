@@ -55,8 +55,8 @@ export function sendMessage(channel, message) {
     })
     dispatch({
       type: CHAT_SEND_MESSAGE,
-      payload: fetch(apiUrl`chat/${channel}`, {
-        method: 'PATCH',
+      payload: fetch(apiUrl`chat/${channel}/messages`, {
+        method: 'POST',
         body: JSON.stringify({ message }),
       }),
       meta: params,
@@ -85,7 +85,7 @@ export function getMessageHistory(channel, limit) {
     dispatch({
       type: CHAT_LOAD_CHANNEL_HISTORY,
       payload: fetch(
-        apiUrl`chat/${channel}/chat?limit=${limit}&beforeTime=${earliestMessageTime}`,
+        apiUrl`chat/${channel}/messages?limit=${limit}&beforeTime=${earliestMessageTime}`,
         { method: 'GET' },
       ),
       meta: params,
