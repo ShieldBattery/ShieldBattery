@@ -1,7 +1,7 @@
 import cuid from 'cuid'
 import { List, Map, OrderedSet, Record, Set } from 'immutable'
 import { ChatUser } from '../../common/chat'
-import * as SortedList from '../../common/sorted-list'
+import { createSortedOps } from '../../common/sorted-list'
 import { NETWORK_SITE_CONNECTED } from '../actions'
 import {
   ChatMessage,
@@ -16,15 +16,9 @@ import { keyedReducer } from '../reducers/keyed-reducer'
 // How many messages should be kept for inactive channels
 const INACTIVE_CHANNEL_MAX_HISTORY = 150
 
-const sortUsers = (a, b) => a.localeCompare(b)
+const sortUsers = (a: string, b: string) => a.localeCompare(b)
 
-// Create partial evaluations all the SortedList functions with our sort function pre-applied
-const SortedUsers = Object.keys(SortedList)
-  .map(fnName => [fnName, (...args) => SortedList[fnName](sortUsers, ...args)])
-  .reduce((prev, cur) => {
-    prev[cur[0]] = cur[1]
-    return prev
-  }, {})
+const SortedUsers = createSortedOps(sortUsers)
 
 export class Users extends Record({
   active: List<ChatUser>(),
