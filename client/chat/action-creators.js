@@ -13,7 +13,8 @@ import {
   CHAT_SEND_MESSAGE_BEGIN,
 } from '../actions'
 import { push } from '../navigation/routing'
-import siteSocket from '../network/site-socket'
+import fetch from '../network/fetch'
+import { apiUrl } from '../network/urls'
 
 export function joinChannel(channel) {
   return dispatch => {
@@ -24,7 +25,7 @@ export function joinChannel(channel) {
     })
     dispatch({
       type: CHAT_JOIN_CHANNEL,
-      payload: siteSocket.invoke('/chat/join', params),
+      payload: fetch(apiUrl`chat/${channel}`, { method: 'POST' }),
       meta: params,
     })
   }
@@ -39,7 +40,7 @@ export function leaveChannel(channel) {
     })
     dispatch({
       type: CHAT_LEAVE_CHANNEL,
-      payload: siteSocket.invoke('/chat/leave', params),
+      payload: fetch(apiUrl`chat/${channel}`, { method: 'DELETE' }),
       meta: params,
     })
   }
@@ -54,7 +55,10 @@ export function sendMessage(channel, message) {
     })
     dispatch({
       type: CHAT_SEND_MESSAGE,
-      payload: siteSocket.invoke('/chat/send', params),
+      payload: fetch(apiUrl`chat/${channel}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ message }),
+      }),
       meta: params,
     })
   }
@@ -80,7 +84,10 @@ export function getMessageHistory(channel, limit) {
     })
     dispatch({
       type: CHAT_LOAD_CHANNEL_HISTORY,
-      payload: siteSocket.invoke('/chat/getHistory', params),
+      payload: fetch(
+        apiUrl`chat/${channel}/messages?limit=${limit}&beforeTime=${earliestMessageTime}`,
+        { method: 'GET' },
+      ),
       meta: params,
     })
   }
@@ -108,7 +115,7 @@ export function retrieveUserList(channel) {
     })
     dispatch({
       type: CHAT_LOAD_USER_LIST,
-      payload: siteSocket.invoke('/chat/getUsers', params),
+      payload: fetch(apiUrl`chat/${channel}/users`, { method: 'GET' }),
       meta: params,
     })
   }
