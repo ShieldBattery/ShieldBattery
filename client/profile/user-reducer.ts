@@ -3,12 +3,7 @@ import keyedReducer from '../reducers/keyed-reducer'
 
 export class UserRecord extends Record({
   id: 0,
-  username: '',
-  /**
-   * Should be set to the current value of `window.performance.now()` when the request to update
-   * the user was made.
-   */
-  lastUpdated: 0,
+  name: '',
 }) {}
 
 export class UserRequestInfo extends Record({
@@ -41,14 +36,10 @@ export default keyedReducer(new UserState(), {
 
     const {
       payload: { user },
-      meta: { time },
     } = action
 
     return state
-      .setIn(
-        ['byId', user.id],
-        new UserRecord({ id: user.id, username: user.name, lastUpdated: time }),
-      )
+      .setIn(['byId', user.id], new UserRecord({ id: user.id, name: user.name }))
       .setIn(['usernameToId', user.name], user.id)
   },
 
@@ -59,13 +50,38 @@ export default keyedReducer(new UserState(), {
 
     const {
       payload: { user },
-      meta: { time },
     } = action
     return state
-      .setIn(
-        ['byId', user.id],
-        new UserRecord({ id: user.id, username: user.name, lastUpdated: time }),
-      )
+      .setIn(['byId', user.id], new UserRecord({ id: user.id, name: user.name }))
       .setIn(['usernameToId', user.name], user.id)
+  },
+
+  ['@ladder/getRankings'](state, action) {
+    if (action.error) {
+      return state
+    }
+
+    const {
+      payload: { users },
+    } = action
+
+    const usernameToId = users.map<[name: string, id: number]>(u => [u.name, u.id])
+
+    return (
+      state
+        .set(
+          'byId',
+          state.byId.withMutations(byId => {
+            for (const user of users) {
+              byId.update(user.id, (u = new UserRecord(user)) => u.set('name', user.name))
+            }
+          }),
+        )
+        // NOTE(tec27): This leaves unmatched usernames in the map. I don't think this should be an
+        // issue because if we find another user with that name in the future, it'll overwrite to
+        // the new ID. (Also, likely, we'd prevent people from changing to that name for some time
+        // anyway)
+        .mergeIn(['usernameToId'], Map(usernameToId))
+    )
   },
 })

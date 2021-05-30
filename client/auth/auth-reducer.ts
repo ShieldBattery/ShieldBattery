@@ -1,4 +1,4 @@
-import type { UserInfo } from '../../common/users/user-info'
+import type { SelfUserInfo } from '../../common/users/user-info'
 import keyedReducer from '../reducers/keyed-reducer'
 import {
   AccountUpdateSuccess,
@@ -23,7 +23,7 @@ function begin(state: State, action: AuthChangeBegin) {
   return state.withMutations(s => s.set('authChangeInProgress', true).set('lastFailure', null))
 }
 
-function logInSuccess(state: State, action: { payload: UserInfo }) {
+function logInSuccess(state: State, action: { payload: SelfUserInfo }) {
   const { user, permissions } = action.payload
   return new AuthState({
     user: new SelfUserRecord(user),

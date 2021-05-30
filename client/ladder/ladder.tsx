@@ -1,4 +1,4 @@
-import { List } from 'immutable'
+import { List, Map } from 'immutable'
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Column, Table, TableCellRenderer, TableHeaderProps } from 'react-virtualized'
 import styled from 'styled-components'
@@ -8,6 +8,7 @@ import Avatar from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { AnimationFrameHandler, animationFrameHandler } from '../material/animation-frame-handler'
 import { shadow4dp } from '../material/shadows'
+import { UserRecord } from '../profile/user-reducer'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useValueAsRef } from '../state-hooks'
@@ -36,6 +37,7 @@ export function Ladder() {
   const matchmakingType = MatchmakingType.Match1v1
   const dispatch = useAppDispatch()
   const rankings = useAppSelector(s => s.ladder.typeToRankings.get(matchmakingType))
+  const usersById = useAppSelector(s => s.users.byId)
 
   useEffect(() => {
     dispatch(getRankings(matchmakingType))
@@ -50,6 +52,7 @@ export function Ladder() {
       <LadderTable
         totalCount={rankings.totalCount}
         players={rankings.players}
+        usersById={usersById}
         isLoading={rankings.isLoading}
         lastError={rankings.lastError}
         curTime={Number(rankings.fetchTime)}
@@ -159,6 +162,7 @@ export interface LadderTableProps {
   totalCount: number
   isLoading: boolean
   players?: List<Readonly<LadderPlayer>>
+  usersById: Map<number, UserRecord>
   lastError?: Error
 }
 
@@ -186,9 +190,23 @@ export function LadderTable(props: LadderTableProps) {
     }
   }, [])
 
+  const { players, usersById } = props
   const rowGetter = useCallback(
-    ({ index }: { index: number }) => props.players?.get(index),
-    [props.players],
+    ({ index }: { index: number }) => {
+      const player = players?.get(index)
+      return player
+        ? {
+            rank: player.rank,
+            userId: player.userId,
+            rating: player.rating,
+            wins: player.wins,
+            losses: player.losses,
+            lastPlayedDate: player.lastPlayedDate,
+            username: usersById.get(player.userId)?.name,
+          }
+        : undefined
+    },
+    [players, usersById],
   )
   const noRowsRenderer = useCallback(() => {
     if (props.isLoading) {
@@ -201,11 +219,10 @@ export function LadderTable(props: LadderTableProps) {
   }, [props.isLoading, props.lastError])
 
   const renderPlayer = useCallback<TableCellRenderer>(props => {
-    const username = props.cellData.name
     return (
       <PlayerCell>
-        <StyledAvatar user={username} />
-        <PlayerName>{username}</PlayerName>
+        <StyledAvatar user={props.cellData} />
+        <PlayerName>{props.cellData}</PlayerName>
       </PlayerCell>
     )
   }, [])
@@ -256,7 +273,7 @@ export function LadderTable(props: LadderTableProps) {
         />
         <Column
           label='Player'
-          dataKey='user'
+          dataKey='username'
           width={168}
           flexGrow={1}
           columnData={{ horizontalPadding: 16 }}

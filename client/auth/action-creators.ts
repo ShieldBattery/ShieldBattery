@@ -1,5 +1,5 @@
 import cuid from 'cuid'
-import { User, UserInfo } from '../../common/users/user-info'
+import { SelfUser, SelfUserInfo } from '../../common/users/user-info'
 import type { PromisifiedAction, ReduxAction } from '../action-types'
 import type { ThunkAction } from '../dispatch-registry'
 import fetch from '../network/fetch'
@@ -54,7 +54,7 @@ function idRequest<
 
 export function logIn(username: string, password: string, remember: boolean) {
   return idRequest('@auth/logIn', () =>
-    fetch<UserInfo>('/api/1/sessions', {
+    fetch<SelfUserInfo>('/api/1/sessions', {
       method: 'post',
       body: JSON.stringify({
         username,
@@ -76,7 +76,7 @@ export function logOut() {
 export function signUp(username: string, email: string, password: string) {
   const reqUrl = '/api/1/users'
   return idRequest('@auth/signUp', () =>
-    fetch<UserInfo>(reqUrl, {
+    fetch<SelfUserInfo>(reqUrl, {
       method: 'post',
       body: JSON.stringify({ username, email, password }),
     }),
@@ -85,7 +85,7 @@ export function signUp(username: string, email: string, password: string) {
 
 export function getCurrentSession() {
   return idRequest('@auth/loadCurrentSession', () =>
-    fetch<UserInfo>('/api/1/sessions?date=' + Date.now(), {
+    fetch<SelfUserInfo>('/api/1/sessions?date=' + Date.now(), {
       method: 'get',
     }),
   )
@@ -155,7 +155,7 @@ export function sendVerificationEmail(): ThunkAction {
     )
 }
 
-export function updateAccount(userId: number, userProps: Partial<User>) {
+export function updateAccount(userId: number, userProps: Partial<SelfUser>) {
   return idRequest('@auth/accountUpdate', () =>
     fetch<AccountUpdateSuccess['payload']>('/api/1/users/' + encodeURIComponent(userId), {
       method: 'PATCH',

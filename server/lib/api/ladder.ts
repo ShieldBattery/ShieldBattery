@@ -1,7 +1,8 @@
 import Router, { RouterContext } from '@koa/router'
 import Joi from 'joi'
-import { GetRankingsPayload } from '../../../common/ladder'
+import { GetRankingsPayload, LadderPlayer } from '../../../common/ladder'
 import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
+import { User } from '../../../common/users/user-info'
 import { getRankings as getRankingsFromDb } from '../matchmaking/models'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
@@ -24,19 +25,28 @@ async function getRankings(ctx: RouterContext) {
   const { params } = validateRequest(ctx, GET_RANKINGS_SCHEMA)
 
   const rankings = await getRankingsFromDb(params.matchmakingType)
-  const result: GetRankingsPayload = {
-    totalCount: rankings.length,
-    players: rankings.map(r => ({
+
+  const players: LadderPlayer[] = []
+  const users: User[] = []
+  for (const r of rankings) {
+    players.push({
       rank: r.rank,
-      user: {
-        id: r.userId,
-        name: r.username,
-      },
+      userId: r.userId,
       rating: r.rating,
       wins: r.wins,
       losses: r.losses,
       lastPlayedDate: Number(r.lastPlayedDate),
-    })),
+    })
+    users.push({
+      id: r.userId,
+      name: r.username,
+    })
+  }
+
+  const result: GetRankingsPayload = {
+    totalCount: rankings.length,
+    players,
+    users,
   }
 
   ctx.body = result

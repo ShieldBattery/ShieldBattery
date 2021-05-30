@@ -6,10 +6,7 @@ import keyedReducer from '../reducers/keyed-reducer'
 export class LadderPlayerRecord
   extends Record({
     rank: 0,
-    user: {
-      id: 0,
-      name: '',
-    },
+    userId: 0,
     rating: 0,
     wins: 0,
     losses: 0,
