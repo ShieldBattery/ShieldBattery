@@ -84,35 +84,35 @@ describe('parties/party-service', () => {
 
     test('should throw if inviting yourself', () => {
       expect(() =>
-        partyService.invite(user2, USER2_CLIENT_ID, [user2, user3]),
+        partyService.invite(user2, USER2_CLIENT_ID, user2),
       ).toThrowErrorMatchingInlineSnapshot(`"Can't invite yourself to the party"`)
     })
 
     describe('when party exists', () => {
       beforeEach(() => {
         leader = user1
-        party = partyService.invite(leader, USER1_CLIENT_ID, [user2])
+        party = partyService.invite(leader, USER1_CLIENT_ID, user2)
         partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
       })
 
       test('should throw if invited by non-leader', () => {
         expect(() =>
-          partyService.invite(user2, USER2_CLIENT_ID, [user3]),
+          partyService.invite(user2, USER2_CLIENT_ID, user3),
         ).toThrowErrorMatchingInlineSnapshot(`"Only party leader can invite people"`)
       })
 
       test('should update the party record', () => {
-        party = partyService.invite(leader, USER1_CLIENT_ID, [user3])
+        party = partyService.invite(leader, USER1_CLIENT_ID, user3)
 
         expect(party.invites).toMatchObject(new Map([[user3.id, user3]]))
       })
 
       test('should publish "invite" message to the party path', () => {
-        party = partyService.invite(leader, USER1_CLIENT_ID, [user3])
+        party = partyService.invite(leader, USER1_CLIENT_ID, user3)
 
         expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
           type: 'invite',
-          invites: [user3],
+          invitedUser: user3,
         })
       })
     })
@@ -123,7 +123,8 @@ describe('parties/party-service', () => {
       })
 
       test('should create a party record', () => {
-        party = partyService.invite(leader, USER1_CLIENT_ID, [user2, user3])
+        party = partyService.invite(leader, USER1_CLIENT_ID, user2)
+        party = partyService.invite(leader, USER1_CLIENT_ID, user3)
 
         expect(party).toMatchObject({
           id: party.id,
@@ -137,18 +138,27 @@ describe('parties/party-service', () => {
       })
 
       test('should subscribe leader to the party path', () => {
-        party = partyService.invite(leader, USER1_CLIENT_ID, [user2, user3])
+        party = partyService.invite(leader, USER1_CLIENT_ID, user2)
+        party = partyService.invite(leader, USER1_CLIENT_ID, user3)
 
         expect(client1.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
           type: 'init',
-          party: toPartyJson(party),
+          party: {
+            id: party.id,
+            // `init` event for the leader is only emitted when the party doesn't exist and the
+            // first user is being invited.
+            invites: [user2],
+            members: [leader],
+            leader,
+          },
         })
       })
     })
 
     test('should subscribe invited users to the invites path', () => {
       leader = user1
-      party = partyService.invite(leader, USER1_CLIENT_ID, [user2, user3])
+      party = partyService.invite(leader, USER1_CLIENT_ID, user2)
+      party = partyService.invite(leader, USER1_CLIENT_ID, user3)
 
       expect(client2.publish).toHaveBeenCalledWith(getInvitesPath(party.id, user2.id), {
         type: 'addInvite',
@@ -162,7 +172,7 @@ describe('parties/party-service', () => {
 
     test('should invite an offline user', () => {
       leader = user1
-      party = partyService.invite(leader, USER1_CLIENT_ID, [offlineUser])
+      party = partyService.invite(leader, USER1_CLIENT_ID, offlineUser)
 
       expect(party.invites).toMatchObject(new Map([[offlineUser.id, offlineUser]]))
     })
@@ -172,7 +182,8 @@ describe('parties/party-service', () => {
     let party: PartyRecord
 
     beforeEach(() => {
-      party = partyService.invite(user1, USER1_CLIENT_ID, [user2, user3])
+      party = partyService.invite(user1, USER1_CLIENT_ID, user2)
+      party = partyService.invite(user1, USER1_CLIENT_ID, user3)
     })
 
     test('should throw if the party is not found', () => {
@@ -221,7 +232,8 @@ describe('parties/party-service', () => {
 
     beforeEach(() => {
       leader = user1
-      party = partyService.invite(leader, USER1_CLIENT_ID, [user2, user3])
+      party = partyService.invite(leader, USER1_CLIENT_ID, user2)
+      party = partyService.invite(leader, USER1_CLIENT_ID, user3)
     })
 
     test('should throw if the party is not found', () => {
@@ -269,7 +281,8 @@ describe('parties/party-service', () => {
 
     beforeEach(() => {
       leader = user1
-      party = partyService.invite(leader, USER1_CLIENT_ID, [user2, user3])
+      party = partyService.invite(leader, USER1_CLIENT_ID, user2)
+      party = partyService.invite(leader, USER1_CLIENT_ID, user3)
     })
 
     test('should throw if the party is not found', () => {
@@ -279,7 +292,11 @@ describe('parties/party-service', () => {
     })
 
     test('should throw if the party is full', () => {
-      party = partyService.invite(leader, USER1_CLIENT_ID, [user4, user5, user6, user7, user8])
+      party = partyService.invite(leader, USER1_CLIENT_ID, user4)
+      party = partyService.invite(leader, USER1_CLIENT_ID, user5)
+      party = partyService.invite(leader, USER1_CLIENT_ID, user6)
+      party = partyService.invite(leader, USER1_CLIENT_ID, user7)
+      party = partyService.invite(leader, USER1_CLIENT_ID, user8)
       partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
       partyService.acceptInvite(party.id, user3, USER3_CLIENT_ID)
       partyService.acceptInvite(party.id, user4, USER4_CLIENT_ID)
@@ -288,7 +305,7 @@ describe('parties/party-service', () => {
       partyService.acceptInvite(party.id, user7, USER7_CLIENT_ID)
       partyService.acceptInvite(party.id, user8, USER8_CLIENT_ID)
 
-      party = partyService.invite(leader, USER1_CLIENT_ID, [user9])
+      party = partyService.invite(leader, USER1_CLIENT_ID, user9)
 
       expect(() =>
         partyService.acceptInvite(party.id, user9, USER9_CLIENT_ID),
@@ -337,7 +354,9 @@ describe('parties/party-service', () => {
     })
 
     test('should subscribe user to the party path', () => {
-      expect(client1.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
+      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
+
+      expect(client2.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'init',
         party: toPartyJson(party),
       })
