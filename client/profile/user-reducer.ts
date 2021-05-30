@@ -1,87 +1,83 @@
-import { Map, Record } from 'immutable'
-import { keyedReducer } from '../reducers/keyed-reducer'
+import { User } from '../../common/users/user-info'
+import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
-export class UserRecord extends Record({
-  id: 0,
-  name: '',
-}) {}
-
-export class UserRequestInfo extends Record({
+export interface UserRequestInfo {
   /** Should be set to the current value of `window.performance.now()` when the request is made. */
-  time: 0,
-}) {}
+  time: number
+}
 
-export class UserState extends Record({
+export interface UserState {
   /** A map of user ID -> user information. */
-  byId: Map<number, UserRecord>(),
+  byId: Map<number, User>
   /** A map of username -> user ID. */
-  usernameToId: Map<string, number>(),
+  usernameToId: Map<string, number>
   /**
    * The set of user IDs for which data is currently loading. This is intended to be used for
    * showing loading indicators and deduping requests.
    */
-  idLoadsInProgress: Map<number, UserRequestInfo>(),
+  idLoadsInProgress: Map<number, UserRequestInfo>
   /**
    * The set of usernames for which data is currently loading. This is intended to be used for
    * showing loading indicators and deduping requests.
    */
-  usernameLoadsInProgress: Map<string, UserRequestInfo>(),
-}) {}
+  usernameLoadsInProgress: Map<string, UserRequestInfo>
+}
 
-export default keyedReducer(new UserState(), {
+const DEFAULT_STATE: UserState = {
+  byId: new Map(),
+  usernameToId: new Map(),
+  idLoadsInProgress: new Map(),
+  usernameLoadsInProgress: new Map(),
+}
+
+export default immerKeyedReducer(DEFAULT_STATE, {
   ['@auth/logIn'](state, action) {
     if (action.error) {
-      return state
+      return
     }
 
     const {
       payload: { user },
     } = action
 
-    return state
-      .setIn(['byId', user.id], new UserRecord({ id: user.id, name: user.name }))
-      .setIn(['usernameToId', user.name], user.id)
+    state.byId.set(user.id, { id: user.id, name: user.name })
+    state.usernameToId.set(user.name, user.id)
   },
 
   ['@auth/loadCurrentSession'](state, action) {
     if (action.error) {
-      return state
+      return
     }
 
     const {
       payload: { user },
     } = action
-    return state
-      .setIn(['byId', user.id], new UserRecord({ id: user.id, name: user.name }))
-      .setIn(['usernameToId', user.name], user.id)
+
+    state.byId.set(user.id, { id: user.id, name: user.name })
+    state.usernameToId.set(user.name, user.id)
   },
 
   ['@ladder/getRankings'](state, action) {
     if (action.error) {
-      return state
+      return
     }
 
     const {
       payload: { users },
     } = action
 
-    const usernameToId = users.map<[name: string, id: number]>(u => [u.name, u.id])
+    for (const user of users) {
+      const userState = state.byId.get(user.id)
+      if (userState) {
+        if (userState.name !== user.name) {
+          state.usernameToId.delete(userState.name)
+          userState.name = user.name
+        }
+      } else {
+        state.byId.set(user.id, { id: user.id, name: user.name })
+      }
 
-    return (
-      state
-        .set(
-          'byId',
-          state.byId.withMutations(byId => {
-            for (const user of users) {
-              byId.update(user.id, (u = new UserRecord(user)) => u.set('name', user.name))
-            }
-          }),
-        )
-        // NOTE(tec27): This leaves unmatched usernames in the map. I don't think this should be an
-        // issue because if we find another user with that name in the future, it'll overwrite to
-        // the new ID. (Also, likely, we'd prevent people from changing to that name for some time
-        // anyway)
-        .mergeIn(['usernameToId'], Map(usernameToId))
-    )
+      state.usernameToId.set(user.name, user.id)
+    }
   },
 })

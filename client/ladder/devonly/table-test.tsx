@@ -1,11 +1,11 @@
-import { List, Map } from 'immutable'
+import { List } from 'immutable'
 import React from 'react'
 import { LadderPlayer } from '../../../common/ladder'
-import { UserRecord } from '../../profile/user-reducer'
+import { User } from '../../../common/users/user-info'
 import { LadderTable } from '../ladder'
 
 const PLAYERS: LadderPlayer[] = []
-let usersById: Map<number, UserRecord> = Map()
+const usersById: Map<number, User> = new Map()
 
 let curRating = 2200
 const NOW = Date.now()
@@ -30,7 +30,7 @@ for (let i = 0; i < 1000; i++) {
     losses,
     lastPlayedDate,
   })
-  usersById = usersById.set(i, new UserRecord({ id: i, name }))
+  usersById.set(i, { id: i, name })
 }
 
 export function TableTest() {

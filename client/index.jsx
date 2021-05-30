@@ -1,4 +1,5 @@
 import { Provider as ResizeObserverProvider } from '@envato/react-resize-observer-hook'
+import { enableMapSet, setAutoFreeze } from 'immer'
 import React from 'react'
 import { render } from 'react-dom'
 import { Provider as ReduxProvider } from 'react-redux'
@@ -18,6 +19,9 @@ const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 
 // eslint-disable-next-line camelcase
 window.__webpack_nonce__ = window.SB_CSP_NONCE
+
+enableMapSet()
+setAutoFreeze(isDev)
 
 if (IS_ELECTRON) {
   process

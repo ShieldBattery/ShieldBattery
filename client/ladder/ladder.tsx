@@ -1,14 +1,15 @@
-import { List, Map } from 'immutable'
+import { Immutable } from 'immer'
+import { List } from 'immutable'
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Column, Table, TableCellRenderer, TableHeaderProps } from 'react-virtualized'
 import styled from 'styled-components'
 import { LadderPlayer } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
+import { User } from '../../common/users/user-info'
 import Avatar from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { AnimationFrameHandler, animationFrameHandler } from '../material/animation-frame-handler'
 import { shadow4dp } from '../material/shadows'
-import { UserRecord } from '../profile/user-reducer'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useValueAsRef } from '../state-hooks'
@@ -162,7 +163,7 @@ export interface LadderTableProps {
   totalCount: number
   isLoading: boolean
   players?: List<Readonly<LadderPlayer>>
-  usersById: Map<number, UserRecord>
+  usersById: Immutable<Map<number, User>>
   lastError?: Error
 }
 
