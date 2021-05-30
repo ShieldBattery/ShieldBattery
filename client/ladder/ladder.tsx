@@ -1,7 +1,7 @@
 import { Immutable } from 'immer'
 import { List } from 'immutable'
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { FixedSizeList } from 'react-window'
+import { areEqual, FixedSizeList } from 'react-window'
 import styled from 'styled-components'
 import { LadderPlayer } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
@@ -9,6 +9,9 @@ import { User } from '../../common/users/user-info'
 import Avatar from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { animationFrameHandler, AnimationFrameHandler } from '../material/animation-frame-handler'
+import { useButtonState } from '../material/button'
+import { buttonReset } from '../material/button-reset'
+import { Ripple } from '../material/ripple'
 import { shadow4dp } from '../material/shadows'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -80,8 +83,12 @@ const Table = styled(FixedSizeList)`
   margin: 24px 16px;
 `
 
-const RowContainer = styled.div<{ $isEven: boolean }>`
+const RowContainer = styled.button<{ $isEven: boolean }>`
+  ${buttonReset};
+
   ${subtitle1};
+  width: 100%;
+  height: ${ROW_HEIGHT}px;
 
   display: flex;
   align-items: center;
@@ -89,7 +96,7 @@ const RowContainer = styled.div<{ $isEven: boolean }>`
   background-color: ${props => (props.$isEven ? background400 : background500)};
 `
 
-const HeaderRowContainer = styled(RowContainer)`
+const HeaderRowContainer = styled.div`
   ${shadow4dp};
   ${overline};
   width: 100%;
@@ -97,6 +104,9 @@ const HeaderRowContainer = styled(RowContainer)`
   max-width: 800px;
   position: sticky !important;
   top: 0;
+
+  display: flex;
+  align-items: center;
 
   background-color: ${background600};
   color: ${colorTextSecondary} !important;
@@ -238,18 +248,14 @@ export function LadderTable(props: LadderTableProps) {
       const username = usersByIdRef.current.get(player.userId)?.name ?? ''
 
       return (
-        <RowContainer key={player.userId} style={style} $isEven={index % 2 === 0}>
-          <RankCell>{player.rank}</RankCell>
-          <PlayerCell>
-            <StyledAvatar user={username} />
-            <PlayerName>{username}</PlayerName>
-          </PlayerCell>
-          <RatingCell>{Math.round(player.rating)}</RatingCell>
-          <WinLossCell>
-            {player.wins} &ndash; {player.losses}
-          </WinLossCell>
-          <LastPlayedCell>{timeAgo(curTimeRef.current - player.lastPlayedDate)}</LastPlayedCell>
-        </RowContainer>
+        <Row
+          key={player.userId}
+          style={style}
+          isEven={index % 2 === 0}
+          player={player}
+          username={username}
+          curTime={curTimeRef.current}
+        />
       )
     },
     [curTimeRef, playersRef, usersByIdRef],
@@ -279,7 +285,7 @@ export function LadderTable(props: LadderTableProps) {
 const innerElementWithHeader = React.forwardRef<HTMLDivElement, { children: React.ReactNode }>(
   ({ children, ...rest }, ref) => (
     <div ref={ref} {...rest}>
-      <HeaderRowContainer $isEven={false} key='header' style={{ top: 0, left: 0 }}>
+      <HeaderRowContainer key='header' style={{ top: 0, left: 0 }}>
         <RankCell>Rank</RankCell>
         <PlayerCell>Player</PlayerCell>
         <RatingCell>Rating</RatingCell>
@@ -291,3 +297,31 @@ const innerElementWithHeader = React.forwardRef<HTMLDivElement, { children: Reac
     </div>
   ),
 )
+
+interface RowProps {
+  style?: React.CSSProperties
+  isEven: boolean
+  player: LadderPlayer
+  username: string
+  curTime: number
+}
+
+const Row = React.memo(({ style, isEven, player, username, curTime }: RowProps) => {
+  const [buttonProps, rippleRef] = useButtonState({})
+
+  return (
+    <RowContainer style={style} $isEven={isEven} {...buttonProps}>
+      <RankCell>{player.rank}</RankCell>
+      <PlayerCell>
+        <StyledAvatar user={username} />
+        <PlayerName>{username}</PlayerName>
+      </PlayerCell>
+      <RatingCell>{Math.round(player.rating)}</RatingCell>
+      <WinLossCell>
+        {player.wins} &ndash; {player.losses}
+      </WinLossCell>
+      <LastPlayedCell>{timeAgo(curTime - player.lastPlayedDate)}</LastPlayedCell>
+      <Ripple ref={rippleRef} />
+    </RowContainer>
+  )
+}, areEqual)
