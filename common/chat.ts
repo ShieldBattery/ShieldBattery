@@ -1,11 +1,23 @@
+export enum ChatMessageType {
+  TextMessage = 'textMessage',
+}
+
+export interface BaseChatMessageData {
+  readonly type: ChatMessageType
+}
+
+export interface ChatTextMessageData extends BaseChatMessageData {
+  type: typeof ChatMessageType.TextMessage
+  text: string
+}
+
+export type ChatMessageData = ChatTextMessageData
+
 export interface ChatMessage {
   id: string
-  user: string
+  user: ChatUser
   sent: number
-  data: {
-    type: string
-    text: string
-  }
+  data: ChatMessageData
 }
 
 // TODO(2Pac): Make this into an interface and include more information here
@@ -13,18 +25,18 @@ export type ChatUser = string
 
 export interface ChatInitEvent {
   action: 'init'
-  activeUsers: string[]
+  activeUsers: ChatUser[]
 }
 
 export interface ChatJoinEvent {
   action: 'join'
-  user: string
+  user: ChatUser
 }
 
 export interface ChatLeaveEvent {
   action: 'leave'
-  user: string
-  newOwner: string | null
+  user: ChatUser
+  newOwner: ChatUser | null
 }
 
 export interface ChatMessageEvent extends ChatMessage {
@@ -33,17 +45,17 @@ export interface ChatMessageEvent extends ChatMessage {
 
 export interface ChatUserActiveEvent {
   action: 'userActive'
-  user: string
+  user: ChatUser
 }
 
 export interface ChatUserIdleEvent {
   action: 'userIdle'
-  user: string
+  user: ChatUser
 }
 
 export interface ChatUserOfflineEvent {
   action: 'userOffline'
-  user: string
+  user: ChatUser
 }
 
 export type ChatEvent =

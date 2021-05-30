@@ -42,7 +42,7 @@ export class Channel extends Record({
 }) {}
 
 export class ChatState extends Record({
-  channels: OrderedSet(),
+  channels: OrderedSet<string>(),
   // Note that the keys for this map are always lower-case
   byName: Map<string, Channel>(),
 }) {}
@@ -64,8 +64,11 @@ function updateUserState(
   return [addToUpdated, removeFirstUpdated, removeSecondUpdated]
 }
 
-// Update the messages field for a channel, keeping the hasUnread flag in proper sync.
-// updateFn is m => messages, and should perform the update operation on the messages field
+/**
+ * Update the messages field for a channel, keeping the `hasUnread` flag in proper sync.
+ *
+ * @param updateFn A function which should perform the update operation on the messages field.
+ */
 function updateMessages(
   state: ChatState,
   channelName: string,

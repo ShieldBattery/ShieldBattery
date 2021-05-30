@@ -3,6 +3,7 @@ import { ThunkAction } from '../dispatch-registry'
 import { push } from '../navigation/routing'
 import fetch from '../network/fetch'
 import { apiUrl } from '../network/urls'
+import { ActivateChannel, DeactivateChannel } from './actions'
 
 export function joinChannel(channel: string): ThunkAction {
   return dispatch => {
@@ -111,14 +112,14 @@ export function retrieveUserList(channel: string): ThunkAction {
   }
 }
 
-export function activateChannel(channel: string) {
+export function activateChannel(channel: string): ActivateChannel {
   return {
     type: '@chat/activateChannel',
     payload: { channel },
   }
 }
 
-export function deactivateChannel(channel: string) {
+export function deactivateChannel(channel: string): DeactivateChannel {
   return {
     type: '@chat/deactivateChannel',
     payload: { channel },
