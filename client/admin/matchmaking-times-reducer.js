@@ -9,7 +9,7 @@ import {
   ADMIN_MATCHMAKING_TIMES_GET_PAST,
   ADMIN_MATCHMAKING_TIMES_GET_PAST_BEGIN,
 } from '../actions'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 
 export const MatchmakingTime = new Record({
   id: null,

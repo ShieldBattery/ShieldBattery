@@ -1,7 +1,7 @@
 import { Map, OrderedSet, Record } from 'immutable'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { EMAIL_VERIFICATION_ID, Notification, NotificationType } from '../../common/notifications'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 
 export interface NotificationRecordBase {
   id: string

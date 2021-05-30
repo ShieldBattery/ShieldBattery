@@ -1,6 +1,6 @@
 import { List, Map, Record } from 'immutable'
 import { ACTIVITY_OVERLAY_CLOSE, ACTIVITY_OVERLAY_GO_BACK, ACTIVITY_OVERLAY_OPEN } from '../actions'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 
 const OverlayRecord = new Record({
   overlayType: null,

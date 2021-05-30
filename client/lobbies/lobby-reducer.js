@@ -27,7 +27,7 @@ import {
 } from '../actions'
 import { MapRecord } from '../maps/maps-reducer'
 import { TextMessageRecord } from '../messaging/message-records'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 import {
   BanLobbyPlayerMessageRecord,
   JoinLobbyMessageRecord,

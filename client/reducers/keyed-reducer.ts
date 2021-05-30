@@ -24,7 +24,7 @@ type ReducerMap<S> = {
  * })
  * ```
  */
-export default function keyedReducer<S>(defaultState: S, reducerObject: ReducerMap<S>) {
+export function keyedReducer<S>(defaultState: S, reducerObject: ReducerMap<S>) {
   return (state = defaultState, action: { type: string }) => {
     if (reducerObject.hasOwnProperty(action.type)) {
       const mapping = reducerObject as Record<string, ReducerFunc<ReduxAction, S>>

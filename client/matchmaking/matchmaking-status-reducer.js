@@ -1,6 +1,6 @@
 import { Map, Record } from 'immutable'
 import { MATCHMAKING_STATUS_UPDATE, NETWORK_SITE_CONNECTED } from '../actions'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 
 export const MatchmakingStatus = new Record({
   type: null,

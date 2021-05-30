@@ -4,7 +4,7 @@ import {
   MAPS_PREFERENCES_GET_BEGIN,
   MAPS_PREFERENCES_UPDATE,
 } from '../actions'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 
 export const MapPreferences = new Record({
   visibility: null,

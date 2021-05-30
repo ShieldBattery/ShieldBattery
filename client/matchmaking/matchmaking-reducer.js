@@ -19,7 +19,7 @@ import {
   NETWORK_SITE_CONNECTED,
 } from '../actions'
 import { MapRecord } from '../maps/maps-reducer'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 
 export const Player = new Record({
   id: null,

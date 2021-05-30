@@ -1,5 +1,5 @@
 import type { SelfUserInfo } from '../../common/users/user-info'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 import {
   AccountUpdateSuccess,
   AuthActions,

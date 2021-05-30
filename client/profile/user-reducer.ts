@@ -1,5 +1,5 @@
 import { Map, Record } from 'immutable'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 
 export class UserRecord extends Record({
   id: 0,

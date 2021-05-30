@@ -6,7 +6,7 @@ import {
   STARCRAFT_REMASTERED_STATUS,
   STARCRAFT_VERSION_VALIDITY,
 } from '../actions'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 
 export const ShieldBatteryFileStatus = new Record({
   init: false,

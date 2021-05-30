@@ -1,6 +1,6 @@
 import Immutable, { Record } from 'immutable'
 import { ACTIVE_GAME_LAUNCH, ACTIVE_GAME_STATUS } from '../actions'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 
 export const GameStatus = new Record({
   state: 'unknown',

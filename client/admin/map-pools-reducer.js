@@ -9,7 +9,7 @@ import {
   ADMIN_MAP_POOL_SEARCH_MAPS_BEGIN,
 } from '../actions'
 import { MapRecord } from '../maps/maps-reducer'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 
 export const MapPool = new Record({
   id: null,

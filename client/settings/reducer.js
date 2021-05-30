@@ -7,7 +7,7 @@ import {
   SCR_SETTINGS_SET_BEGIN,
   SCR_SETTINGS_UPDATE,
 } from '../actions'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 import { LocalSettings, ScrSettings } from './settings-records'
 
 export const Settings = new Record({

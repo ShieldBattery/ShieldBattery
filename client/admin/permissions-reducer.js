@@ -4,7 +4,7 @@ import {
   ADMIN_GET_PERMISSIONS_BEGIN,
   ADMIN_SET_PERMISSIONS,
 } from '../actions'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 
 export const Permissions = new Record({
   editPermissions: false,

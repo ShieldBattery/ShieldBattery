@@ -25,7 +25,7 @@ import {
   SelfJoinChannelMessageRecord,
 } from '../chat/chat-message-records'
 import { TextMessageRecord } from '../messaging/message-records'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 
 // How many messages should be kept for inactive channels
 const INACTIVE_CHANNEL_MAX_HISTORY = 150

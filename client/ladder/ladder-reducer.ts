@@ -1,7 +1,7 @@
 import { List, Map, Record } from 'immutable'
 import { LadderPlayer } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 
 export class LadderPlayerRecord
   extends Record({

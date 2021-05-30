@@ -1,6 +1,6 @@
 import { Record } from 'immutable'
 import { MAPS_DETAILS_GET, MAPS_DETAILS_GET_BEGIN, MAPS_UPDATE } from '../actions'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 
 export const MapDetails = new Record({
   map: null,

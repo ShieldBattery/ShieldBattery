@@ -5,7 +5,7 @@ import {
   FILE_BROWSER_GET_LIST,
   FILE_BROWSER_GET_LIST_BEGIN,
 } from '../actions'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 
 export const Folder = new Record({
   type: 'folder',

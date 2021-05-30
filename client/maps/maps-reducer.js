@@ -8,7 +8,7 @@ import {
   MAPS_TOGGLE_FAVORITE_BEGIN,
   MAPS_UPDATE,
 } from '../actions'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 
 export const MapRecord = new Record({
   id: null,

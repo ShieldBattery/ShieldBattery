@@ -5,7 +5,7 @@ import {
   LOBBY_PREFERENCES_UPDATE,
 } from '../actions'
 import { MapRecord } from '../maps/maps-reducer'
-import keyedReducer from '../reducers/keyed-reducer'
+import { keyedReducer } from '../reducers/keyed-reducer'
 
 export const RecentMaps = new Record({
   list: new List(),
