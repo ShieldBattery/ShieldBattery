@@ -1,14 +1,14 @@
 import { Immutable } from 'immer'
 import { List } from 'immutable'
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Column, Table, TableCellRenderer, TableHeaderProps } from 'react-virtualized'
+import { FixedSizeList } from 'react-window'
 import styled from 'styled-components'
 import { LadderPlayer } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
 import { User } from '../../common/users/user-info'
 import Avatar from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
-import { AnimationFrameHandler, animationFrameHandler } from '../material/animation-frame-handler'
+import { animationFrameHandler, AnimationFrameHandler } from '../material/animation-frame-handler'
 import { shadow4dp } from '../material/shadows'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -67,68 +67,75 @@ const ROW_HEIGHT = 48
 const TableContainer = styled.div`
   width: 100%;
   height: 100%;
-  padding-left: 16px;
+  position: relative;
 
   overflow-x: hidden;
   overflow-y: auto;
 `
 
-const StyledTable = styled(Table)`
-  position: relative;
+const Table = styled(FixedSizeList)`
   width: 100%;
   height: auto;
-  max-width: 640px;
-  margin: 24px 0;
-
-  &:focus,
-  & > div:focus {
-    outline: none;
-  }
-
-  .ReactVirtualized__Table__rowColumn {
-    height: 100%;
-  }
-
-  .ReactVirtualized__Table__headerRow.odd {
-    ${shadow4dp};
-    position: sticky;
-    top: 0;
-    background-color: ${background600};
-    contain: content;
-  }
-
-  .even {
-    background-color: ${background500};
-  }
-
-  .odd {
-    background-color: ${background400};
-  }
+  max-width: 800px;
+  margin: 24px 16px;
 `
 
-const NumberText = styled.div`
+const RowContainer = styled.div<{ $isEven: boolean }>`
   ${subtitle1};
-  width: 100%;
-  padding: 0 8px;
-  text-align: right;
-  line-height: ${ROW_HEIGHT}px;
+
+  display: flex;
+  align-items: center;
+
+  background-color: ${props => (props.$isEven ? background400 : background500)};
 `
 
-const LastPlayedText = styled.div`
-  ${subtitle1};
+const HeaderRowContainer = styled(RowContainer)`
+  ${shadow4dp};
+  ${overline};
   width: 100%;
-  padding: 0 8px 0 32px;
-  color: ${colorTextSecondary};
-  line-height: ${ROW_HEIGHT}px;
-  text-align: left;
+  height: ${ROW_HEIGHT}px;
+  max-width: 800px;
+  position: sticky !important;
+  top: 0;
+
+  background-color: ${background600};
+  color: ${colorTextSecondary} !important;
+  contain: content;
 `
 
-const PlayerCell = styled.div`
-  width: 100%;
+const BaseCell = styled.div`
   height: 100%;
+  flex: 1 1 auto;
+  padding: 0 8px;
+  line-height: ${ROW_HEIGHT}px;
+`
+
+const RankCell = styled(BaseCell)`
+  width: 64px;
+  text-align: right;
+`
+
+const PlayerCell = styled(BaseCell)`
+  width: 168px;
   padding: 0 16px;
   display: flex;
   align-items: center;
+`
+
+const RatingCell = styled(BaseCell)`
+  width: 64px;
+  text-align: right;
+`
+
+const WinLossCell = styled(BaseCell)`
+  width: 128px;
+  text-align: right;
+`
+
+const LastPlayedCell = styled(BaseCell)`
+  width: 156px;
+  padding: 0 8px 0 32px;
+  color: ${colorTextSecondary};
 `
 
 const StyledAvatar = styled(Avatar)`
@@ -179,167 +186,108 @@ export function LadderTable(props: LadderTableProps) {
     [dimensionsRef],
   )
 
+  const tableRef = useRef<FixedSizeList>(null)
+  const tableOuterRef = useRef<HTMLElement>(null)
+
   const [scrollTop, setScrollTop] = useState(0)
   const containerScrollHandler = useRef<AnimationFrameHandler<HTMLDivElement>>()
   useLayoutEffect(() => {
     containerScrollHandler.current = animationFrameHandler(() => {
       setScrollTop(containerRef.current?.scrollTop ?? 0)
     })
+
+    setScrollTop(containerRef.current?.scrollTop ?? 0)
+
     return () => {
       containerScrollHandler.current?.cancel()
       containerScrollHandler.current = undefined
     }
   }, [])
 
-  const { players, usersById } = props
-  const rowGetter = useCallback(
-    ({ index }: { index: number }) => {
-      const player = players?.get(index)
-      return player
-        ? {
-            rank: player.rank,
-            userId: player.userId,
-            rating: player.rating,
-            wins: player.wins,
-            losses: player.losses,
-            lastPlayedDate: player.lastPlayedDate,
-            username: usersById.get(player.userId)?.name,
-          }
-        : undefined
-    },
-    [players, usersById],
-  )
+  useEffect(() => {
+    if (!tableRef.current || !tableOuterRef.current) {
+      return
+    }
+
+    const outer = tableOuterRef.current
+    tableRef.current.scrollTo(scrollTop - outer.offsetTop)
+  }, [scrollTop])
+
+  const { players, usersById, isLoading, lastError, curTime } = props
   const noRowsRenderer = useCallback(() => {
-    if (props.isLoading) {
+    if (isLoading) {
       return <LoadingDotsArea />
-    } else if (props.lastError) {
+    } else if (lastError) {
       return <ErrorText>There was an error retrieving the current rankings.</ErrorText>
     } else {
       return <EmptyText>Nothing to see here</EmptyText>
     }
-  }, [props.isLoading, props.lastError])
+  }, [isLoading, lastError])
 
-  const renderPlayer = useCallback<TableCellRenderer>(props => {
-    return (
-      <PlayerCell>
-        <StyledAvatar user={props.cellData} />
-        <PlayerName>{props.cellData}</PlayerName>
-      </PlayerCell>
-    )
-  }, [])
-  const renderRating = useCallback<TableCellRenderer>(props => {
-    return <NumberText>{Math.round(props.cellData)}</NumberText>
-  }, [])
-  const renderNumber = useCallback<TableCellRenderer>(props => {
-    return <NumberText>{props.cellData}</NumberText>
-  }, [])
-
-  const renderWinLoss = useCallback<TableCellRenderer>(props => {
-    return (
-      <NumberText>
-        {props.cellData.wins} &ndash; {props.cellData.losses}
-      </NumberText>
-    )
-  }, [])
-
-  const { curTime } = props
   const curTimeRef = useValueAsRef(curTime)
-  const renderLastPlayed = useCallback<TableCellRenderer>(
-    props => {
-      return <LastPlayedText>{timeAgo(curTimeRef.current - props.cellData)}</LastPlayedText>
+  const playersRef = useValueAsRef(players)
+  const usersByIdRef = useValueAsRef(usersById)
+
+  const renderRow = useCallback(
+    ({ index, style }: { index: number; style: React.CSSProperties }) => {
+      const player = playersRef.current?.get(index - 1)
+      if (!player) {
+        return <span style={style}></span>
+      }
+
+      const username = usersByIdRef.current.get(player.userId)?.name ?? ''
+
+      return (
+        <RowContainer key={player.userId} style={style} $isEven={index % 2 === 0}>
+          <RankCell>{player.rank}</RankCell>
+          <PlayerCell>
+            <StyledAvatar user={username} />
+            <PlayerName>{username}</PlayerName>
+          </PlayerCell>
+          <RatingCell>{Math.round(player.rating)}</RatingCell>
+          <WinLossCell>
+            {player.wins} &ndash; {player.losses}
+          </WinLossCell>
+          <LastPlayedCell>{timeAgo(curTimeRef.current - player.lastPlayedDate)}</LastPlayedCell>
+        </RowContainer>
+      )
     },
-    [curTimeRef],
+    [curTimeRef, playersRef, usersByIdRef],
   )
 
   return (
     <TableContainer ref={containerCallback} onScroll={containerScrollHandler.current?.handler}>
-      <StyledTable
-        autoHeight={true}
-        width={640}
-        height={containerRect?.height ?? 0}
-        scrollTop={scrollTop}
-        headerHeight={ROW_HEIGHT}
-        rowHeight={ROW_HEIGHT}
-        rowCount={props.totalCount}
-        rowClassName={evenOddClassNames}
-        rowGetter={rowGetter}
-        noRowsRenderer={noRowsRenderer}>
-        <Column
-          label='Rank'
-          dataKey='rank'
-          width={64}
-          columnData={{ rightAlignHeader: true }}
-          cellRenderer={renderNumber}
-          headerRenderer={LadderTableHeader}
-        />
-        <Column
-          label='Player'
-          dataKey='username'
-          width={168}
-          flexGrow={1}
-          columnData={{ horizontalPadding: 16 }}
-          cellRenderer={renderPlayer}
-          headerRenderer={LadderTableHeader}
-        />
-        <Column
-          label='Rating'
-          dataKey='rating'
-          width={64}
-          columnData={{ rightAlignHeader: true }}
-          cellRenderer={renderRating}
-          headerRenderer={LadderTableHeader}
-        />
-        <Column
-          label='Win/loss'
-          dataKey=''
-          width={128}
-          columnData={{ rightAlignHeader: true }}
-          cellDataGetter={({ rowData }) => rowData}
-          cellRenderer={renderWinLoss}
-          headerRenderer={LadderTableHeader}
-        />
-        <Column
-          label='Last played'
-          dataKey='lastPlayedDate'
-          width={156}
-          columnData={{ horizontalPadding: 32 }}
-          cellRenderer={renderLastPlayed}
-          headerRenderer={LadderTableHeader}
-        />
-      </StyledTable>
+      {props.totalCount > 0 ? (
+        <Table
+          ref={tableRef}
+          outerRef={tableOuterRef}
+          style={{ height: 'auto', display: 'inline-block', overflow: 'unset' }}
+          width='100%'
+          height={containerRect?.height ?? 0}
+          itemCount={props.totalCount + 1}
+          itemSize={ROW_HEIGHT}
+          innerElementType={innerElementWithHeader}>
+          {renderRow}
+        </Table>
+      ) : (
+        noRowsRenderer()
+      )}
     </TableContainer>
   )
 }
 
-const LadderTableHeaderText = styled.div<{
-  rightAlignHeader?: boolean
-  horizontalPadding?: number
-}>`
-  ${overline};
-  width: 100%;
-  color: ${colorTextSecondary};
-  padding: 0 ${props => props.horizontalPadding ?? '8'}px;
-  line-height: ${ROW_HEIGHT}px;
+const innerElementWithHeader = React.forwardRef<HTMLDivElement, { children: React.ReactNode }>(
+  ({ children, ...rest }, ref) => (
+    <div ref={ref} {...rest}>
+      <HeaderRowContainer $isEven={false} key='header' style={{ top: 0, left: 0 }}>
+        <RankCell>Rank</RankCell>
+        <PlayerCell>Player</PlayerCell>
+        <RatingCell>Rating</RatingCell>
+        <WinLossCell>Win/loss</WinLossCell>
+        <LastPlayedCell>Last played</LastPlayedCell>
+      </HeaderRowContainer>
 
-  ${props => {
-    if (props.rightAlignHeader) {
-      return 'text-align: right;'
-    }
-
-    return ''
-  }};
-`
-
-function LadderTableHeader(props: TableHeaderProps) {
-  return (
-    <LadderTableHeaderText
-      rightAlignHeader={props.columnData?.rightAlignHeader}
-      horizontalPadding={props.columnData?.horizontalPadding}>
-      {props.label}
-    </LadderTableHeaderText>
-  )
-}
-
-function evenOddClassNames({ index }: { index: number }): string {
-  return index % 2 === 0 ? 'even' : 'odd'
-}
+      {children}
+    </div>
+  ),
+)
