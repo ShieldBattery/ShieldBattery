@@ -1,3 +1,4 @@
+import { Immutable } from 'immer'
 import { User } from '../../common/users/user-info'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
@@ -23,7 +24,7 @@ export interface UserState {
   usernameLoadsInProgress: Map<string, UserRequestInfo>
 }
 
-const DEFAULT_STATE: UserState = {
+const DEFAULT_STATE: Immutable<UserState> = {
   byId: new Map(),
   usernameToId: new Map(),
   idLoadsInProgress: new Map(),
