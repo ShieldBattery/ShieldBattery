@@ -5,8 +5,9 @@ import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useElementRect, useObservedDimensions } from '../dom/dimension-hooks'
+import { useWindowListener } from '../dom/window-listener'
 import KeyListener from '../keyboard/key-listener'
-import { usePreviousDefined } from '../state-hooks'
+import { useForceUpdate, usePreviousDefined } from '../state-hooks'
 import { CardLayer } from '../styles/colors'
 import { Portal } from './portal'
 import { shadow10dp } from './shadows'
@@ -271,6 +272,9 @@ export function useAnchorPosition(
   element?: HTMLElement | null,
 ): [ref: (instance: HTMLElement | null) => void, x: number | undefined, y: number | undefined] {
   const [ref, rect] = useElementRect()
+  const forceUpdate = useForceUpdate()
+  useWindowListener('resize', forceUpdate)
+
   // These let us use previous positions if the anchor gets removed
   const xRef = useRef<number>()
   const yRef = useRef<number>()
