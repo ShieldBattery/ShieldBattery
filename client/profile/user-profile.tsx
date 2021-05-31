@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useEffect } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { RaceChar } from '../../common/races'
@@ -8,8 +8,9 @@ import KofiIcon from '../icons/brands/kofi-lockup.svg'
 import PatreonIcon from '../icons/brands/patreon-lockup.svg'
 import { RaceIcon } from '../lobbies/race-icon'
 import { TabItem, Tabs } from '../material/tabs'
-import { push } from '../navigation/routing'
-import { urlPath } from '../network/urls'
+import { goToIndex } from '../navigation/action-creators'
+import { replace } from '../navigation/routing'
+import { useAppSelector } from '../redux-hooks'
 import {
   amberA400,
   backgroundSaturatedDark,
@@ -31,7 +32,9 @@ import {
   subtitle1,
   Subtitle2,
 } from '../styles/typography'
+import { correctUsernameForProfile, navigateToUserProfile } from './action-creators'
 import { MatchHistory } from './match-history'
+import { UserProfileSubPage } from './user-profile-sub-page'
 
 const Container = styled.div`
   max-width: 960px;
@@ -44,35 +47,65 @@ const TabArea = styled.div`
   max-width: 720px;
 `
 
-export enum UserProfileSubPage {
-  Summary = 'summary',
-  Stats = 'stats',
-  MatchHistory = 'match-history',
-  Seasons = 'seasons',
+export interface ConnectedUserProfilePageProps {
+  userId: number
+  username: string
+  subPage?: UserProfileSubPage
+}
+
+export function ConnectedUserProfilePage({
+  userId,
+  username: usernameFromRoute,
+  subPage = UserProfileSubPage.Summary,
+}: ConnectedUserProfilePageProps) {
+  if (isNaN(userId)) {
+    goToIndex(replace)
+  }
+
+  const user = useAppSelector(s => s.users.byId.get(userId))
+  const onTabChange = useCallback(
+    (tab: UserProfileSubPage) => {
+      navigateToUserProfile(user!.id, user!.name, tab)
+    },
+    [user],
+  )
+
+  console.dir({ userId, usernameFromRoute, subPage })
+
+  useEffect(() => {
+    if (user && usernameFromRoute !== user.name) {
+      correctUsernameForProfile(user.id, user.name, subPage)
+    }
+  }, [usernameFromRoute, user, subPage])
+
+  if (!user) {
+    // TODO(tec27): request the data
+    return <span>oh no! no user data!</span>
+  }
+
+  return (
+    <UserProfilePage
+      userId={user.id}
+      username={user.name}
+      subPage={subPage}
+      onTabChange={onTabChange}
+    />
+  )
 }
 
 export interface UserProfilePageProps {
+  userId: number
   username: string
   subPage?: UserProfileSubPage
-  onTabChange?: (tab: UserProfileSubPage) => void
+  onTabChange: (tab: UserProfileSubPage) => void
 }
 
 export function UserProfilePage({
+  userId,
   username,
   subPage = UserProfileSubPage.Summary,
   onTabChange,
 }: UserProfilePageProps) {
-  const handleTabChange = useCallback(
-    (tab: UserProfileSubPage) => {
-      if (onTabChange) {
-        onTabChange(tab)
-      } else {
-        push(urlPath`/users/${username}/${tab}`)
-      }
-    },
-    [onTabChange, username],
-  )
-
   let content: React.ReactNode
   switch (subPage) {
     case UserProfileSubPage.Summary:
@@ -92,7 +125,7 @@ export function UserProfilePage({
   return (
     <Container>
       <TabArea>
-        <Tabs activeTab={subPage} onChange={handleTabChange}>
+        <Tabs activeTab={subPage} onChange={onTabChange}>
           <TabItem value={UserProfileSubPage.Summary} text='Summary' />
           <TabItem value={UserProfileSubPage.Stats} text='Stats' />
           <TabItem value={UserProfileSubPage.MatchHistory} text='Match history' />

@@ -3,6 +3,7 @@ import { List } from 'immutable'
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { areEqual, FixedSizeList } from 'react-window'
 import styled from 'styled-components'
+import { USER_PROFILES } from '../../common/flags'
 import { LadderPlayer } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
 import { User } from '../../common/users/user-info'
@@ -13,6 +14,7 @@ import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
 import { shadow4dp } from '../material/shadows'
+import { navigateToUserProfile } from '../profile/action-creators'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useValueAsRef } from '../state-hooks'
@@ -234,6 +236,12 @@ export function LadderTable(props: LadderTableProps) {
     }
   }, [isLoading, lastError])
 
+  const onRowSelected = useCallback((userId: number, username: string) => {
+    if (USER_PROFILES) {
+      navigateToUserProfile(userId, username)
+    }
+  }, [])
+
   const curTimeRef = useValueAsRef(curTime)
   const playersRef = useValueAsRef(players)
   const usersByIdRef = useValueAsRef(usersById)
@@ -255,10 +263,11 @@ export function LadderTable(props: LadderTableProps) {
           player={player}
           username={username}
           curTime={curTimeRef.current}
+          onSelected={onRowSelected}
         />
       )
     },
-    [curTimeRef, playersRef, usersByIdRef],
+    [onRowSelected, curTimeRef, playersRef, usersByIdRef],
   )
 
   return (
@@ -304,10 +313,16 @@ interface RowProps {
   player: LadderPlayer
   username: string
   curTime: number
+  onSelected?: (userId: number, username: string) => void
 }
 
-const Row = React.memo(({ style, isEven, player, username, curTime }: RowProps) => {
-  const [buttonProps, rippleRef] = useButtonState({})
+const Row = React.memo(({ style, isEven, player, username, curTime, onSelected }: RowProps) => {
+  const onClick = useCallback(() => {
+    if (onSelected) {
+      onSelected(player.userId, username)
+    }
+  }, [onSelected, player, username])
+  const [buttonProps, rippleRef] = useButtonState({ onClick })
 
   return (
     <RowContainer style={style} $isEven={isEven} {...buttonProps}>

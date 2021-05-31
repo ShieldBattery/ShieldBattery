@@ -4,7 +4,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { Route, Switch, useLocation } from 'wouter'
-import { MATCHMAKING } from '../common/flags'
+import { MATCHMAKING, USER_PROFILES } from '../common/flags'
 import { MatchmakingType } from '../common/matchmaking'
 import { EMAIL_VERIFICATION_ID, NotificationType } from '../common/notifications'
 import { openOverlay } from './activities/action-creators'
@@ -48,6 +48,7 @@ import { push, replace } from './navigation/routing'
 import { addNotification } from './notifications/action-creators'
 import { NotificationsButton } from './notifications/activity-bar-entry'
 import NotificationPopups from './notifications/notifications-popup'
+import { ConnectedUserProfilePage } from './profile/user-profile'
 import LoadingIndicator from './progress/dots'
 import { openSnackbar } from './snackbars/action-creators'
 import ConnectedSnackbar from './snackbars/connected-snackbar'
@@ -345,6 +346,19 @@ class MainLayout extends React.Component {
               <Route path='/ladder/:rest*' component={Ladder} />
               {lobbyRoute}
               {matchmakingRoute}
+              {USER_PROFILES ? (
+                <Route path='/users/:userId/:username/:subPage?'>
+                  {params => (
+                    <ConnectedUserProfilePage
+                      userId={Number(params.userId)}
+                      username={params.username}
+                      subPage={params.subPage}
+                    />
+                  )}
+                </Route>
+              ) : (
+                <></>
+              )}
               <Route path='/whispers/:target' component={Whisper} />
               {/* If no paths match, redirect the page to the "index". */}
               <Route>

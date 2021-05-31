@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import styled from 'styled-components'
 import { background700 } from '../../styles/colors'
-import { UserProfilePage, UserProfileSubPage } from '../user-profile'
+import { UserProfilePage } from '../user-profile'
+import { UserProfileSubPage } from '../user-profile-sub-page'
 
 const Container = styled.div`
   width: 100%;
@@ -28,7 +29,12 @@ export function ProfilePageTest() {
     <Container>
       <FakeLeftNav />
       <TestContent>
-        <UserProfilePage username={username} subPage={subPage} onTabChange={setSubPage} />
+        <UserProfilePage
+          userId={1}
+          username={username}
+          subPage={subPage}
+          onTabChange={setSubPage}
+        />
       </TestContent>
     </Container>
   )
