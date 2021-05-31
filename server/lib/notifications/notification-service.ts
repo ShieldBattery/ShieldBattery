@@ -1,14 +1,8 @@
-import { NydusServer } from 'nydus'
 import { singleton } from 'tsyringe'
-import {
-  NotificationAddEvent,
-  NotificationClearByIdEvent,
-  NotificationClearEvent,
-  NotificationMarkReadEvent,
-  NotificationServerInitEvent,
-} from '../../../common/notifications'
+import { NotificationEvent, NotificationServerInitEvent } from '../../../common/notifications'
 import logger from '../logging/logger'
 import { ClientSocketsManager } from '../websockets/socket-groups'
+import { TypedPublisher } from '../websockets/typed-publisher'
 import {
   addNotification,
   clearBefore,
@@ -24,7 +18,10 @@ export function getNotificationsPath(userId: number): string {
 
 @singleton()
 export default class NotificationService {
-  constructor(private nydus: NydusServer, private clientSocketsManager: ClientSocketsManager) {
+  constructor(
+    private publisher: TypedPublisher<NotificationEvent>,
+    private clientSocketsManager: ClientSocketsManager,
+  ) {
     this.clientSocketsManager.on('newClient', c => {
       c.subscribe<NotificationServerInitEvent | undefined>(
         getNotificationsPath(c.userId),
@@ -61,7 +58,7 @@ export default class NotificationService {
   }) {
     const notification = await addNotification(notificationProps)
 
-    const addEventData: NotificationAddEvent = {
+    this.publisher.publish(getNotificationsPath(notificationProps.userId), {
       type: 'add',
       notification: {
         id: notification.id,
@@ -69,8 +66,7 @@ export default class NotificationService {
         createdAt: Number(notification.createdAt),
         ...notification.data,
       },
-    }
-    this.nydus.publish(getNotificationsPath(notificationProps.userId), addEventData)
+    })
   }
 
   /**
@@ -79,11 +75,10 @@ export default class NotificationService {
   async clearBefore(userId: number, date: Date) {
     await clearBefore(userId, date)
 
-    const clearEventData: NotificationClearEvent = {
+    this.publisher.publish(getNotificationsPath(userId), {
       type: 'clear',
       timestamp: Number(date),
-    }
-    this.nydus.publish(getNotificationsPath(userId), clearEventData)
+    })
   }
 
   /**
@@ -93,11 +88,10 @@ export default class NotificationService {
   async clearById(userId: number, notificationId: string) {
     await clearById(userId, notificationId)
 
-    const clearByIdEventData: NotificationClearByIdEvent = {
+    this.publisher.publish(getNotificationsPath(userId), {
       type: 'clearById',
       notificationId,
-    }
-    this.nydus.publish(getNotificationsPath(userId), clearByIdEventData)
+    })
   }
 
   /**
@@ -107,10 +101,9 @@ export default class NotificationService {
   async markRead(userId: number, notificationIds: string[]) {
     await markRead(userId, notificationIds)
 
-    const markReadEventData: NotificationMarkReadEvent = {
+    this.publisher.publish(getNotificationsPath(userId), {
       type: 'markRead',
       notificationIds,
-    }
-    this.nydus.publish(getNotificationsPath(userId), markReadEventData)
+    })
   }
 }
