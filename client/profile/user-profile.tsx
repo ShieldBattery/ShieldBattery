@@ -70,8 +70,6 @@ export function ConnectedUserProfilePage({
     [user],
   )
 
-  console.dir({ userId, usernameFromRoute, subPage })
-
   useEffect(() => {
     if (user && usernameFromRoute !== user.name) {
       correctUsernameForProfile(user.id, user.name, subPage)
