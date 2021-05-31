@@ -55,7 +55,7 @@ export default class WindowListener extends React.Component<WindowListenerProps>
  * A hook that attaches an animation-frame throttled event listener to the window, useful for things
  * like listening to resize events and adjusting state based on it (e.g. fixed position).
  */
-export function useWindowListener<E extends string, T extends Extract<Event, { type: E }>>(
+export function useWindowListener<E extends string, T extends Event>(
   event: E,
   listener: (event: T) => void,
 ): void {
