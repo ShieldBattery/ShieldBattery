@@ -8,15 +8,15 @@ import { UpdateOrInsertUserIp } from '../network/user-ips-type'
 import getAddress from './get-address'
 import { RequestSessionLookup, SessionInfo } from './session-lookup'
 
-type DataGetter<T> = (socketGroup: T, socket: NydusClient) => unknown
-type CleanupFunc<T> = (socketGroup: T) => void
+export type DataGetter<T, D> = (socketGroup: T, socket: NydusClient) => D | Promise<D>
+export type CleanupFunc<T> = (socketGroup: T) => void
 
 interface SubscriptionInfo<T> {
-  getter: DataGetter<T>
+  getter: DataGetter<T, any>
   cleanup: CleanupFunc<T> | undefined
 }
 
-const defaultDataGetter: DataGetter<any> = () => {}
+const defaultDataGetter: DataGetter<any, any> = () => {}
 
 interface SocketGroupEvents<T> {
   connection: (group: T, socket: NydusClient) => void
@@ -77,12 +77,9 @@ abstract class SocketGroup<T> extends TypedEventEmitter<SocketGroupEvents<T>> {
    * `cleanup` should either be null/undefined, or a function(socketGroup) that will be called when
    * every socket in the socket group has disconnected.
    */
-  subscribe(
+  subscribe<T = unknown>(
     path: string,
-    initialDataGetter: (
-      socketGroup: this,
-      socket: NydusClient,
-    ) => unknown | Promise<unknown> = defaultDataGetter,
+    initialDataGetter: DataGetter<this, T> = defaultDataGetter,
     cleanup?: (socketGroup: this) => void,
   ) {
     if (this.subscriptions.has(path)) {
