@@ -1,4 +1,5 @@
 import sql, { SQLStatement } from 'sql-template-strings'
+import { ChatMessageData } from '../../../common/chat'
 import db, { DbClient } from '../db'
 import transact from '../db/transaction'
 
@@ -53,8 +54,7 @@ export interface DbChatMessage {
   userName: string
   channelName: string
   sent: Date
-  // TODO(tec27): this can be more strongly typed
-  data: Record<string, unknown>
+  data: ChatMessageData
 }
 
 export async function getChannelsForUser(userId: number): Promise<UserChannelsEntry[]> {

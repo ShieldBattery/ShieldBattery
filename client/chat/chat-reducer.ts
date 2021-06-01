@@ -1,24 +1,10 @@
 import cuid from 'cuid'
 import { List, Map, OrderedSet, Record, Set } from 'immutable'
-import * as SortedList from '../../common/sorted-list'
+import { ChatUser } from '../../common/chat'
+import { createSortedOps } from '../../common/sorted-list'
+import { NETWORK_SITE_CONNECTED } from '../actions'
 import {
-  CHAT_CHANNEL_ACTIVATE,
-  CHAT_CHANNEL_DEACTIVATE,
-  CHAT_INIT_CHANNEL,
-  CHAT_LOAD_CHANNEL_HISTORY,
-  CHAT_LOAD_CHANNEL_HISTORY_BEGIN,
-  CHAT_LOAD_USER_LIST,
-  CHAT_LOAD_USER_LIST_BEGIN,
-  CHAT_UPDATE_JOIN,
-  CHAT_UPDATE_LEAVE,
-  CHAT_UPDATE_LEAVE_SELF,
-  CHAT_UPDATE_MESSAGE,
-  CHAT_UPDATE_USER_ACTIVE,
-  CHAT_UPDATE_USER_IDLE,
-  CHAT_UPDATE_USER_OFFLINE,
-  NETWORK_SITE_CONNECTED,
-} from '../actions'
-import {
+  ChatMessage,
   JoinChannelMessageRecord,
   LeaveChannelMessageRecord,
   NewChannelOwnerMessageRecord,
@@ -30,25 +16,19 @@ import { keyedReducer } from '../reducers/keyed-reducer'
 // How many messages should be kept for inactive channels
 const INACTIVE_CHANNEL_MAX_HISTORY = 150
 
-const sortUsers = (a, b) => a.localeCompare(b)
+const sortUsers = (a: string, b: string) => a.localeCompare(b)
 
-// Create partial evaluations all the SortedList functions with our sort function pre-applied
-const SortedUsers = Object.keys(SortedList)
-  .map(fnName => [fnName, (...args) => SortedList[fnName](sortUsers, ...args)])
-  .reduce((prev, cur) => {
-    prev[cur[0]] = cur[1]
-    return prev
-  }, {})
+const SortedUsers = createSortedOps(sortUsers)
 
-export const Users = new Record({
-  active: new List(),
-  idle: new List(),
-  offline: new List(),
-})
+export class Users extends Record({
+  active: List<ChatUser>(),
+  idle: List<ChatUser>(),
+  offline: List<ChatUser>(),
+}) {}
 
 export class Channel extends Record({
-  name: null,
-  messages: new List(),
+  name: '',
+  messages: List<ChatMessage | TextMessageRecord>(),
   users: new Users(),
 
   loadingHistory: false,
@@ -61,13 +41,18 @@ export class Channel extends Record({
   hasUnread: false,
 }) {}
 
-export const ChatState = new Record({
-  channels: new OrderedSet(),
+export class ChatState extends Record({
+  channels: OrderedSet<string>(),
   // Note that the keys for this map are always lower-case
-  byName: new Map(),
-})
+  byName: Map<string, Channel>(),
+}) {}
 
-function updateUserState(user, addTo, removeFirst, removeSecond) {
+function updateUserState(
+  user: ChatUser,
+  addTo: List<ChatUser>,
+  removeFirst: List<ChatUser>,
+  removeSecond: List<ChatUser>,
+) {
   const addToUpdated = SortedUsers.insert(addTo, user)
 
   const firstIndex = SortedUsers.findIndex(removeFirst, user)
@@ -79,9 +64,19 @@ function updateUserState(user, addTo, removeFirst, removeSecond) {
   return [addToUpdated, removeFirstUpdated, removeSecondUpdated]
 }
 
-// Update the messages field for a channel, keeping the hasUnread flag in proper sync.
-// updateFn is m => messages, and should perform the update operation on the messages field
-function updateMessages(state, channelName, makesUnread, updateFn) {
+/**
+ * Update the messages field for a channel, keeping the `hasUnread` flag in proper sync.
+ *
+ * @param updateFn A function which should perform the update operation on the messages field.
+ */
+function updateMessages(
+  state: ChatState,
+  channelName: string,
+  makesUnread: boolean,
+  updateFn: (
+    messages: List<ChatMessage | TextMessageRecord>,
+  ) => List<ChatMessage | TextMessageRecord>,
+) {
   return state.updateIn(['byName', channelName.toLowerCase()], c => {
     let updated = updateFn(c.messages)
     if (updated === c.messages) {
@@ -89,7 +84,7 @@ function updateMessages(state, channelName, makesUnread, updateFn) {
     }
 
     let sliced = false
-    if (!c.activated && updated.length > INACTIVE_CHANNEL_MAX_HISTORY) {
+    if (!c.activated && updated.size > INACTIVE_CHANNEL_MAX_HISTORY) {
       updated = updated.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
       sliced = true
     }
@@ -102,7 +97,7 @@ function updateMessages(state, channelName, makesUnread, updateFn) {
 }
 
 export default keyedReducer(new ChatState(), {
-  [CHAT_INIT_CHANNEL](state, action) {
+  ['@chat/initChannel'](state, action) {
     const { channel, activeUsers } = action.payload
     const sortedActiveUsers = SortedUsers.create(activeUsers)
     const record = new Channel({
@@ -126,7 +121,7 @@ export default keyedReducer(new ChatState(), {
     })
   },
 
-  [CHAT_UPDATE_JOIN](state, action) {
+  ['@chat/updateJoin'](state, action) {
     const { channel, user } = action.payload
 
     const updated = state.updateIn(['byName', channel.toLowerCase(), 'users'], users => {
@@ -147,7 +142,7 @@ export default keyedReducer(new ChatState(), {
     })
   },
 
-  [CHAT_UPDATE_LEAVE](state, action) {
+  ['@chat/updateLeave'](state, action) {
     const { channel, user, newOwner } = action.payload
 
     let updated = state.updateIn(['byName', channel.toLowerCase(), 'users'], users => {
@@ -181,7 +176,7 @@ export default keyedReducer(new ChatState(), {
       : updated
   },
 
-  [CHAT_UPDATE_LEAVE_SELF](state, action) {
+  ['@chat/updateLeaveSelf'](state, action) {
     const { channel } = action.payload
 
     return state
@@ -189,7 +184,7 @@ export default keyedReducer(new ChatState(), {
       .deleteIn(['byName', channel.toLowerCase()])
   },
 
-  [CHAT_UPDATE_MESSAGE](state, action) {
+  ['@chat/updateMessage'](state, action) {
     const { id, channel, time, user, message } = action.payload
     const newMessage = new TextMessageRecord({
       id,
@@ -200,7 +195,7 @@ export default keyedReducer(new ChatState(), {
     return updateMessages(state, channel, true, m => m.push(newMessage))
   },
 
-  [CHAT_UPDATE_USER_ACTIVE](state, action) {
+  ['@chat/updateUserActive'](state, action) {
     const { channel, user } = action.payload
     const lowerCaseChannel = channel.toLowerCase()
     return state.updateIn(['byName', lowerCaseChannel, 'users'], users => {
@@ -210,7 +205,7 @@ export default keyedReducer(new ChatState(), {
     })
   },
 
-  [CHAT_UPDATE_USER_IDLE](state, action) {
+  ['@chat/updateUserIdle'](state, action) {
     const { channel, user } = action.payload
     return state.updateIn(['byName', channel.toLowerCase(), 'users'], users => {
       const [idle, active, offline] = updateUserState(user, users.idle, users.active, users.offline)
@@ -219,7 +214,7 @@ export default keyedReducer(new ChatState(), {
     })
   },
 
-  [CHAT_UPDATE_USER_OFFLINE](state, action) {
+  ['@chat/updateUserOffline'](state, action) {
     const { channel, user } = action.payload
     const lowerCaseChannel = channel.toLowerCase()
     return state.updateIn(['byName', lowerCaseChannel, 'users'], users => {
@@ -229,15 +224,20 @@ export default keyedReducer(new ChatState(), {
     })
   },
 
-  [CHAT_LOAD_CHANNEL_HISTORY_BEGIN](state, action) {
+  ['@chat/loadMessageHistoryBegin'](state, action) {
     const { channel } = action.payload
     return state.updateIn(['byName', channel.toLowerCase()], c => c.set('loadingHistory', true))
   },
 
-  [CHAT_LOAD_CHANNEL_HISTORY](state, action) {
+  ['@chat/loadMessageHistory'](state, action) {
+    if (action.error) {
+      // TODO(2Pac): Handle errors
+      return state
+    }
+
     const { channel, limit } = action.meta
     const lowerCaseChannel = channel.toLowerCase()
-    const newMessages = new List(
+    const newMessages = List(
       action.payload.map(
         msg =>
           new TextMessageRecord({
@@ -256,7 +256,7 @@ export default keyedReducer(new ChatState(), {
     return updateMessages(updated, channel, false, messages => newMessages.concat(messages))
   },
 
-  [CHAT_LOAD_USER_LIST_BEGIN](state, action) {
+  ['@chat/retrieveUserListBegin'](state, action) {
     const { channel } = action.payload
     const lowerCaseChannel = channel.toLowerCase()
     return state
@@ -264,7 +264,12 @@ export default keyedReducer(new ChatState(), {
       .setIn(['byName', lowerCaseChannel, 'loadingUserList'], true)
   },
 
-  [CHAT_LOAD_USER_LIST](state, action) {
+  ['@chat/retrieveUserList'](state, action) {
+    if (action.error) {
+      // TODO(2Pac): Handle errors
+      return state
+    }
+
     const { channel } = action.meta
     const lowerCaseChannel = channel.toLowerCase()
     const userList = action.payload
@@ -272,13 +277,13 @@ export default keyedReducer(new ChatState(), {
       .setIn(['byName', lowerCaseChannel, 'loadingUserList'], false)
       .updateIn(['byName', lowerCaseChannel, 'users'], users => {
         const offline = SortedUsers.create(
-          new Set(userList).subtract(users.active).subtract(users.idle),
+          Set(userList).subtract(users.active).subtract(users.idle),
         )
         return users.set('offline', offline)
       })
   },
 
-  [CHAT_CHANNEL_ACTIVATE](state, action) {
+  ['@chat/activateChannel'](state, action) {
     const { channel } = action.payload
     const lowerCaseChannel = channel.toLowerCase()
     if (!state.byName.has(lowerCaseChannel)) {
@@ -289,14 +294,14 @@ export default keyedReducer(new ChatState(), {
     })
   },
 
-  [CHAT_CHANNEL_DEACTIVATE](state, action) {
+  ['@chat/deactivateChannel'](state, action) {
     const { channel } = action.payload
     const lowerCaseChannel = channel.toLowerCase()
     if (!state.byName.has(lowerCaseChannel)) {
       return state
     }
     const hasHistory =
-      state.byName.get(lowerCaseChannel).messages.size > INACTIVE_CHANNEL_MAX_HISTORY
+      state.byName.get(lowerCaseChannel)!.messages.size > INACTIVE_CHANNEL_MAX_HISTORY
 
     return state.updateIn(['byName', lowerCaseChannel], c => {
       return c
@@ -306,7 +311,7 @@ export default keyedReducer(new ChatState(), {
     })
   },
 
-  [NETWORK_SITE_CONNECTED](state, action) {
+  [NETWORK_SITE_CONNECTED as any]() {
     return new ChatState()
   },
 })
