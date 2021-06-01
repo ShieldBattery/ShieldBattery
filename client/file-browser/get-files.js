@@ -2,7 +2,16 @@ import { promises as fsPromises } from 'fs'
 import path from 'path'
 
 export default async function readFolder(folderPath) {
-  const names = await fsPromises.readdir(folderPath)
+  let names
+  try {
+    names = await fsPromises.readdir(folderPath)
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      throw new Error('Filepath ' + folderPath + " doesn't exist")
+    }
+    throw err
+  }
+
   const stats = await Promise.all(
     names.map(async name => {
       const targetPath = path.join(folderPath, name)
