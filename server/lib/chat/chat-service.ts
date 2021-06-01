@@ -4,6 +4,7 @@ import { singleton } from 'tsyringe'
 import { ChatEvent, ChatInitEvent, ChatMessage, ChatUser } from '../../../common/chat'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
+import { TypedPublisher } from '../websockets/typed-publisher'
 import {
   addMessageToChannel,
   addUserToChannel,
@@ -45,7 +46,11 @@ export function getChannelPath(channelName: string): string {
 export default class ChatService {
   private state = new ChatState()
 
-  constructor(private nydus: NydusServer, private userSocketsManager: UserSocketsManager) {
+  constructor(
+    private publisher: TypedPublisher<ChatEvent>,
+    private nydus: NydusServer,
+    private userSocketsManager: UserSocketsManager,
+  ) {
     userSocketsManager
       .on('newUser', (userSockets: UserSocketsGroup) => this.handleNewUser(userSockets))
       .on('userQuit', (userName: string) => this.handleUserQuit(userName))
@@ -67,7 +72,7 @@ export default class ChatService {
       .updateIn(['channels', originalChannelName], (s = Set()) => s.add(userName))
       .updateIn(['users', userName], (s = Set()) => s.add(originalChannelName))
 
-    this.publishToChannel(originalChannelName, {
+    this.publisher.publish(getChannelPath(originalChannelName), {
       action: 'join',
       user: userName,
     })
@@ -102,7 +107,7 @@ export default class ChatService {
       u.delete(originalChannelName),
     )
 
-    this.publishToChannel(originalChannelName, {
+    this.publisher.publish(getChannelPath(originalChannelName), {
       action: 'leave',
       user: userSockets.name,
       newOwner: result.newOwner,
@@ -130,7 +135,7 @@ export default class ChatService {
       text,
     })
 
-    this.publishToChannel(originalChannelName, {
+    this.publisher.publish(getChannelPath(originalChannelName), {
       action: 'message',
       id: result.msgId,
       user: result.userName,
@@ -144,7 +149,7 @@ export default class ChatService {
     userName: string,
     limit?: number,
     beforeTime?: number,
-  ) {
+  ): Promise<ChatMessage[]> {
     const userSockets = this.getUserSockets(userName)
     const originalChannelName = await this.getOriginalChannelName(channelName)
     // TODO(tec27): lookup channel keys case insensitively?
@@ -172,7 +177,7 @@ export default class ChatService {
     }))
   }
 
-  async getChannelUsers(channelName: string, userName: string) {
+  async getChannelUsers(channelName: string, userName: string): Promise<ChatUser[]> {
     const userSockets = this.getUserSockets(userName)
     const originalChannelName = await this.getOriginalChannelName(channelName)
     if (
@@ -186,7 +191,7 @@ export default class ChatService {
     }
 
     const users = await getUsersForChannel(originalChannelName)
-    return users.map<ChatUser>(u => u.userName)
+    return users.map(u => u.userName)
   }
 
   async getOriginalChannelName(channelName: string) {
@@ -206,16 +211,11 @@ export default class ChatService {
     return userSockets
   }
 
-  private publishToChannel<T extends ChatEvent>(channelName: string, data: T) {
-    this.nydus.publish(getChannelPath(channelName), data)
-  }
-
   private subscribeUserToChannel(userSockets: UserSocketsGroup, channelName: string) {
-    const initEventData: ChatInitEvent = {
+    userSockets.subscribe<ChatInitEvent>(getChannelPath(channelName), () => ({
       action: 'init',
       activeUsers: this.state.channels.get(channelName)!.toArray(),
-    }
-    userSockets.subscribe(getChannelPath(channelName), () => initEventData)
+    }))
   }
 
   unsubscribeUserFromChannel(user: UserSocketsGroup, channelName: string) {
@@ -237,7 +237,7 @@ export default class ChatService {
       .mergeDeepIn(['channels'], inChannels)
       .setIn(['users', userSockets.name], channelSet)
     for (const { channelName: chan } of channelsForUser) {
-      this.publishToChannel(chan, {
+      this.publisher.publish(getChannelPath(chan), {
         action: 'userActive',
         user: userSockets.name,
       })
@@ -261,7 +261,7 @@ export default class ChatService {
     this.state = this.state.deleteIn(['users', userName])
 
     for (const c of channels.values()) {
-      this.publishToChannel(c, {
+      this.publisher.publish(getChannelPath(c), {
         action: 'userOffline',
         user: userName,
       })
