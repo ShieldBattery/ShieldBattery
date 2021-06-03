@@ -17,6 +17,7 @@ import logMiddleware from './lib/logging/log-middleware'
 import log from './lib/logging/logger'
 import userIpsMiddleware from './lib/network/user-ips-middleware'
 import { RallyPointService } from './lib/rally-point/rally-point-service'
+import redis from './lib/redis'
 import checkOrigin from './lib/security/check-origin'
 import { cors } from './lib/security/cors'
 import secureHeaders from './lib/security/headers'
@@ -154,6 +155,21 @@ const rallyPointInitPromise = rallyPointService.initialize(
     )
     app.use(koaConvert(koaWebpackHot(getWebpackCompiler())))
   }
+
+  log.info('Testing connection to redis.')
+  try {
+    await redis.ping()
+  } catch (err) {
+    log.error(
+      { err },
+      'Could not connect to Redis instance, redis host/port configuration may be incorrect',
+    )
+    process.exit(1)
+  }
+
+  redis.on('error', err => {
+    log.error({ err }, 'redis error')
+  })
 
   fileStoreMiddleware(app)
 
