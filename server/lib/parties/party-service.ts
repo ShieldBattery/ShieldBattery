@@ -115,7 +115,7 @@ export default class PartyService {
     }
 
     // TODO(2Pac): Send the invite notification once the server-side notification system is in.
-    const userSockets = this.userSocketsManager.getByName(invitedUser.name)
+    const userSockets = this.userSocketsManager.getById(invitedUser.id)
     if (userSockets) {
       userSockets.subscribe(
         getInvitesPath(party!.id, userSockets.userId),
@@ -228,7 +228,7 @@ export default class PartyService {
   private unsubscribeFromInvites(party: PartyRecord, user: PartyUser) {
     this.nydus.publish(getInvitesPath(party.id, user.id), { type: 'removeInvite' })
     // TODO(2Pac): Remove the invite notification once the server-side notification system is in.
-    const userSockets = this.userSocketsManager.getByName(user.name)
+    const userSockets = this.userSocketsManager.getById(user.id)
     if (userSockets) {
       userSockets.unsubscribe(getInvitesPath(party.id, user.id))
     }
