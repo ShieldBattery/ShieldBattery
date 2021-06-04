@@ -65,7 +65,7 @@ async function banUser(ctx, next, userSockets) {
   await Promise.all(deletions)
   const keyDeletion = redis.del(userSessionsKey)
 
-  const sockets = userSockets.getByName(user.name)
+  const sockets = userSockets.getById(userId)
   if (sockets) {
     sockets.closeAll()
   }

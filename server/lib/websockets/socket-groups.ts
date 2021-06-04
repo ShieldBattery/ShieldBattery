@@ -157,7 +157,7 @@ export class ClientSocketsGroup extends SocketGroup<ClientSocketsGroup> {
 // TODO(tec27): type the events emitted
 @singleton()
 export class UserSocketsManager extends EventEmitter {
-  users = Map<string, UserSocketsGroup>()
+  users = Map<number, UserSocketsGroup>()
 
   constructor(
     private nydus: NydusServer,
@@ -178,25 +178,25 @@ export class UserSocketsManager extends EventEmitter {
         return
       }
 
-      const userName: string = session.userName
-      if (!this.users.has(userName)) {
+      const userId = session.userId
+      if (!this.users.has(userId)) {
         const user = new UserSocketsGroup(this.nydus, session!)
         user.add(socket)
-        this.users = this.users.set(userName, user)
-        user.once('close', () => this.removeUser(userName))
+        this.users = this.users.set(userId, user)
+        user.once('close', () => this.removeUser(userId))
         this.emit('newUser', user)
       } else {
-        this.users.get(userName)!.add(socket)
+        this.users.get(userId)!.add(socket)
       }
 
-      this.updateOrInsertUserIp(session.userId, getAddress(socket.conn.request)).catch(() => {
+      this.updateOrInsertUserIp(userId, getAddress(socket.conn.request)).catch(() => {
         log.error({ req: socket.conn.request }, 'failed to save user IP address')
       })
     })
   }
 
-  getByName(name: string) {
-    return this.users.get(name)
+  getById(userId: number) {
+    return this.users.get(userId)
   }
 
   getBySocket(socket: NydusClient) {
@@ -206,12 +206,12 @@ export class UserSocketsManager extends EventEmitter {
       return undefined
     }
 
-    return this.getByName(session.userName)
+    return this.getById(session.userId)
   }
 
-  private removeUser(userName: string) {
-    this.users = this.users.delete(userName)
-    this.emit('userQuit', userName)
+  private removeUser(userId: number) {
+    this.users = this.users.delete(userId)
+    this.emit('userQuit', userId)
     return this
   }
 }

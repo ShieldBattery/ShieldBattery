@@ -53,7 +53,7 @@ export class WhispersApi {
     this.sessionUsers = new Map()
     this.userSockets
       .on('newUser', user => this._handleNewUser(user))
-      .on('userQuit', name => this._handleUserQuit(name))
+      .on('userQuit', userId => this._handleUserQuit(userId))
   }
 
   @Api(
@@ -69,7 +69,7 @@ export class WhispersApi {
   async start(data, next) {
     const user = data.get('user')
     const target = data.get('target')
-    await this._ensureWhisperSession(user.name, target.name)
+    await this._ensureWhisperSession(user, target)
   }
 
   @Api(
@@ -97,8 +97,8 @@ export class WhispersApi {
     // TODO(tec27): This makes the start throttle rather useless, doesn't it? Think of a better way
     // to throttle people starting tons of tons of sessions with different people
     await Promise.all([
-      this._ensureWhisperSession(user.name, target.name),
-      this._ensureWhisperSession(target.name, user.name),
+      this._ensureWhisperSession(user, target),
+      this._ensureWhisperSession(target, user),
     ])
 
     this._publishTo(user.name, target.name, {
@@ -204,7 +204,7 @@ export class WhispersApi {
 
   _getUserStatus(user) {
     // TODO(2Pac): check if the user is idle as well
-    const isUserOnline = this.userSockets.getByName(user)
+    const isUserOnline = this.userSockets.getById(user.userId)
     return isUserOnline ? 'active' : 'offline'
   }
 
@@ -213,10 +213,10 @@ export class WhispersApi {
   }
 
   _subscribeUserToWhisperSession(user, target) {
-    user.subscribe(getPath(user.name, target), () => {
+    user.subscribe(getPath(user.name, target.name), () => {
       return {
         action: 'initSession',
-        target,
+        target: target.name,
         targetStatus: this._getUserStatus(target),
       }
     })
@@ -227,9 +227,9 @@ export class WhispersApi {
   }
 
   async _ensureWhisperSession(user, target) {
-    await startWhisperSession(user, target)
+    await startWhisperSession(user.name, target.name)
 
-    const userSockets = this.userSockets.getByName(user)
+    const userSockets = this.userSockets.getById(user.userId)
     // If the user is offline, the rest of the code will be done once they connect
     if (!userSockets) {
       return
@@ -237,10 +237,12 @@ export class WhispersApi {
 
     // Maintain a list of users for each whisper session, so we can publish events to everyone that
     // has a session opened with a particular user
-    this.sessionUsers = this.sessionUsers.update(target, new Set(), s => s.add(user))
+    this.sessionUsers = this.sessionUsers.update(target.name, new Set(), s => s.add(user.name))
 
-    if (!this.userSessions.get(user).has(target)) {
-      this.userSessions = this.userSessions.update(user, new OrderedSet(), s => s.add(target))
+    if (!this.userSessions.get(user.name).has(target.name)) {
+      this.userSessions = this.userSessions.update(user.name, new OrderedSet(), s =>
+        s.add(target.name),
+      )
       this._subscribeUserToWhisperSession(userSockets, target)
     }
   }
@@ -259,17 +261,32 @@ export class WhispersApi {
       return
     }
 
-    this.userSessions = this.userSessions.set(user.name, new OrderedSet(whisperSessions))
-    for (const target of whisperSessions) {
+    this.userSessions = this.userSessions.set(
+      user.name,
+      new OrderedSet(whisperSessions.map(s => s.targetUserName)),
+    )
+    for (const session of whisperSessions) {
       // Add the new user to all of the sessions they have opened
-      this.sessionUsers = this.sessionUsers.update(target, new Set(), s => s.add(user.name))
-      this._subscribeUserToWhisperSession(user, target)
+      this.sessionUsers = this.sessionUsers.update(session.targetUserName, new Set(), s =>
+        s.add(user.name),
+      )
+      this._subscribeUserToWhisperSession(user, {
+        userId: session.targetUserId,
+        name: session.targetUserName,
+      })
     }
 
     user.subscribe(`${user.getPath()}/whispers`, () => ({ type: 'whispersReady' }))
   }
 
-  async _handleUserQuit(userName) {
+  async _handleUserQuit(userId) {
+    // TODO(2Pac): Remove this once internal whisper structures have been moved to use `userId`.
+    const foundUser = await users.find(userId)
+    if (!foundUser) {
+      return
+    }
+    const { name: userName } = foundUser
+
     // Publish 'userOffline' event to all users that have a session opened with this user, if any
     if (this.sessionUsers.has(userName)) {
       for (const u of this.sessionUsers.get(userName).values()) {

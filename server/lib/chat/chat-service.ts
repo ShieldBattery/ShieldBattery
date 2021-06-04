@@ -1,8 +1,8 @@
 import { Map, Record, Set } from 'immutable'
-import { NydusServer } from 'nydus'
 import { singleton } from 'tsyringe'
 import { ChatEvent, ChatInitEvent, ChatMessage, ChatUser } from '../../../common/chat'
 import filterChatMessage from '../messaging/filter-chat-message'
+import users from '../models/users'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
@@ -48,16 +48,15 @@ export default class ChatService {
 
   constructor(
     private publisher: TypedPublisher<ChatEvent>,
-    private nydus: NydusServer,
     private userSocketsManager: UserSocketsManager,
   ) {
     userSocketsManager
-      .on('newUser', (userSockets: UserSocketsGroup) => this.handleNewUser(userSockets))
-      .on('userQuit', (userName: string) => this.handleUserQuit(userName))
+      .on('newUser', userSockets => this.handleNewUser(userSockets))
+      .on('userQuit', userId => this.handleUserQuit(userId))
   }
 
-  async joinChannel(channelName: string, userName: string) {
-    const userSockets = this.getUserSockets(userName)
+  async joinChannel(channelName: string, userId: number) {
+    const userSockets = this.getUserSockets(userId)
     const originalChannelName = await this.getOriginalChannelName(channelName)
     if (
       this.state.users.has(userSockets.name) &&
@@ -69,18 +68,18 @@ export default class ChatService {
     await addUserToChannel(userSockets.session.userId, originalChannelName)
 
     this.state = this.state
-      .updateIn(['channels', originalChannelName], (s = Set()) => s.add(userName))
-      .updateIn(['users', userName], (s = Set()) => s.add(originalChannelName))
+      .updateIn(['channels', originalChannelName], (s = Set()) => s.add(userSockets.name))
+      .updateIn(['users', userSockets.name], (s = Set()) => s.add(originalChannelName))
 
     this.publisher.publish(getChannelPath(originalChannelName), {
       action: 'join',
-      user: userName,
+      user: userSockets.name,
     })
     this.subscribeUserToChannel(userSockets, originalChannelName)
   }
 
-  async leaveChannel(channelName: string, userName: string) {
-    const userSockets = this.getUserSockets(userName)
+  async leaveChannel(channelName: string, userId: number) {
+    const userSockets = this.getUserSockets(userId)
     const originalChannelName = await this.getOriginalChannelName(channelName)
     if (originalChannelName === 'ShieldBattery') {
       throw new ChatServiceError(
@@ -115,8 +114,8 @@ export default class ChatService {
     this.unsubscribeUserFromChannel(userSockets, originalChannelName)
   }
 
-  async sendChatMessage(channelName: string, userName: string, message: string) {
-    const userSockets = this.getUserSockets(userName)
+  async sendChatMessage(channelName: string, userId: number, message: string) {
+    const userSockets = this.getUserSockets(userId)
     const originalChannelName = await this.getOriginalChannelName(channelName)
     // TODO(tec27): lookup channel keys case insensitively?
     if (
@@ -146,11 +145,11 @@ export default class ChatService {
 
   async getChannelHistory(
     channelName: string,
-    userName: string,
+    userId: number,
     limit?: number,
     beforeTime?: number,
   ): Promise<ChatMessage[]> {
-    const userSockets = this.getUserSockets(userName)
+    const userSockets = this.getUserSockets(userId)
     const originalChannelName = await this.getOriginalChannelName(channelName)
     // TODO(tec27): lookup channel keys case insensitively?
     if (
@@ -177,8 +176,8 @@ export default class ChatService {
     }))
   }
 
-  async getChannelUsers(channelName: string, userName: string): Promise<ChatUser[]> {
-    const userSockets = this.getUserSockets(userName)
+  async getChannelUsers(channelName: string, userId: number): Promise<ChatUser[]> {
+    const userSockets = this.getUserSockets(userId)
     const originalChannelName = await this.getOriginalChannelName(channelName)
     if (
       !this.state.users.has(userSockets.name) ||
@@ -202,8 +201,8 @@ export default class ChatService {
     return foundChannel ? foundChannel.name : channelName
   }
 
-  private getUserSockets(userName: string): UserSocketsGroup {
-    const userSockets = this.userSocketsManager.getByName(userName)
+  private getUserSockets(userId: number): UserSocketsGroup {
+    const userSockets = this.userSocketsManager.getById(userId)
     if (!userSockets) {
       throw new ChatServiceError(ChatServiceErrorCode.UserOffline, 'User is offline')
     }
@@ -246,7 +245,14 @@ export default class ChatService {
     userSockets.subscribe(`${userSockets.getPath()}/chat`, () => ({ type: 'chatReady' }))
   }
 
-  private async handleUserQuit(userName: string) {
+  private async handleUserQuit(userId: number) {
+    // TODO(2Pac): Remove this once internal chat structures have been moved to use `userId`.
+    const foundUser = await users.find(userId)
+    if (!foundUser) {
+      return
+    }
+    const { name: userName } = foundUser
+
     if (!this.state.users.has(userName)) {
       // This can happen if a user disconnects before we get their channel list back from the DB
       return

@@ -653,7 +653,7 @@ export class LobbyApi {
     }
 
     try {
-      const user = this.getUserByName(client.name)
+      const user = this.getUserById(client.userId)
       user.unsubscribe(LobbyApi._getUserPath(lobby, client.name))
     } catch {
       // Getting the user can fail if they've gone offline, but we don't need to unsubscribe
@@ -807,7 +807,7 @@ export class LobbyApi {
     getHumanSlots(lobby)
       .map(p => activityRegistry.getClientForUser(p.userId))
       .forEach(client => {
-        const user = this.getUserByName(client.name)
+        const user = this.getUserById(client.userId)
         this._publishToUser(lobby, user.name, {
           type: 'status',
           lobby: null,
@@ -868,8 +868,8 @@ export class LobbyApi {
     return user
   }
 
-  getUserByName(name) {
-    const user = this.userSockets.getByName(name)
+  getUserById(id) {
+    const user = this.userSockets.getById(id)
     if (!user) throw new errors.BadRequest('user not online')
     return user
   }

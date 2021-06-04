@@ -4,12 +4,15 @@ export async function getWhisperSessionsForUser(userId) {
   const { client, done } = await db()
   try {
     const result = await client.query(
-      `SELECT u.name AS target_user FROM whisper_sessions
+      `SELECT u.name AS target_name, u.id AS target_id FROM whisper_sessions
         INNER JOIN users AS u ON target_user_id = u.id
         WHERE user_id = $1 ORDER BY start_date`,
       [userId],
     )
-    return result.rows.map(row => row.target_user)
+    return result.rows.map(row => ({
+      targetUserId: row.target_id,
+      targetUserName: row.target_name,
+    }))
   } finally {
     done()
   }

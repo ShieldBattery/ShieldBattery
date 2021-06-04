@@ -496,7 +496,7 @@ export class MatchmakingApi {
       matchmaking: null,
     })
 
-    const user = this.userSockets.getByName(client.name)
+    const user = this.userSockets.getById(client.userId)
     if (user) {
       user.unsubscribe(MatchmakingApi.getUserPath(client.name))
     }

@@ -127,7 +127,7 @@ function joinChannel(ctx: RouterContext) {
   const channelName = getValidatedChannelName(ctx)
 
   const chatService = container.resolve(ChatService)
-  chatService.joinChannel(channelName, ctx.session!.userName)
+  chatService.joinChannel(channelName, ctx.session!.userId)
 
   ctx.status = 204
 }
@@ -136,7 +136,7 @@ function leaveChannel(ctx: RouterContext) {
   const channelName = getValidatedChannelName(ctx)
 
   const chatService = container.resolve(ChatService)
-  chatService.leaveChannel(channelName, ctx.session!.userName)
+  chatService.leaveChannel(channelName, ctx.session!.userId)
 
   ctx.status = 204
 }
@@ -152,7 +152,7 @@ function sendChatMessage(ctx: RouterContext) {
   })
 
   const chatService = container.resolve(ChatService)
-  chatService.sendChatMessage(channelName, ctx.session!.userName, message)
+  chatService.sendChatMessage(channelName, ctx.session!.userId, message)
 
   ctx.status = 204
 }
@@ -171,7 +171,7 @@ async function getChannelHistory(ctx: RouterContext) {
   const chatService = container.resolve(ChatService)
   ctx.body = await chatService.getChannelHistory(
     channelName,
-    ctx.session!.userName,
+    ctx.session!.userId,
     limit,
     beforeTime,
   )
@@ -181,5 +181,5 @@ async function getChannelUsers(ctx: RouterContext) {
   const channelName = getValidatedChannelName(ctx)
 
   const chatService = container.resolve(ChatService)
-  ctx.body = await chatService.getChannelUsers(channelName, ctx.session!.userName)
+  ctx.body = await chatService.getChannelUsers(channelName, ctx.session!.userId)
 }
