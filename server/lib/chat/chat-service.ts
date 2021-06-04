@@ -51,8 +51,8 @@ export default class ChatService {
     private userSocketsManager: UserSocketsManager,
   ) {
     userSocketsManager
-      .on('newUser', (userSockets: UserSocketsGroup) => this.handleNewUser(userSockets))
-      .on('userQuit', (userId: number) => this.handleUserQuit(userId))
+      .on('newUser', userSockets => this.handleNewUser(userSockets))
+      .on('userQuit', userId => this.handleUserQuit(userId))
   }
 
   async joinChannel(channelName: string, userId: number) {
