@@ -1,3 +1,5 @@
+import { User } from './users/user-info'
+
 export enum ChatMessageType {
   TextMessage = 'message',
 }
@@ -20,22 +22,33 @@ export interface ChatMessage {
   data: ChatMessageData
 }
 
-// TODO(2Pac): Make this into an interface and include more information here
-export type ChatUser = string
+// TODO(2Pac): Include more information here, e.g. channel permissions, join date, etc.
+export interface ChatUser {
+  id: number
+  name: string
+}
 
 export interface ChatInitEvent {
   action: 'init'
-  activeUsers: ChatUser[]
+  /** A list of active users that are in the chat channel. */
+  activeChannelUsers: ChatUser[]
+  /** A list of user infos for channel users that are in the returned `activeChannelUsers` list. */
+  users: User[]
 }
 
 export interface ChatJoinEvent {
   action: 'join'
-  user: ChatUser
+  /** A user that has joined the chat channel. */
+  channelUser: ChatUser
+  /** A user info for the channel user that was returned in the `channelUser` property. */
+  user: User
 }
 
 export interface ChatLeaveEvent {
   action: 'leave'
+  /** A user that has left the chat channel. */
   user: ChatUser
+  /** A user that was selected as a new owner of the channel, if any. */
   newOwner: ChatUser | null
 }
 
@@ -69,4 +82,14 @@ export type ChatEvent =
 
 export interface SendChatMessageServerBody {
   message: string
+}
+
+/**
+ * Payload returned for a request to retrieve the users in a chat channel.
+ */
+export interface GetChannelUsersServerPayload {
+  /** A list of the users that are in the chat channel. */
+  channelUsers: ChatUser[]
+  /** A list of user infos for channel users that are in the returned `channelUsers` list. */
+  users: User[]
 }

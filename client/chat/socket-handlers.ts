@@ -18,7 +18,8 @@ const eventToAction: EventToActionMap = {
       type: '@chat/initChannel',
       payload: {
         channel,
-        activeUsers: event.activeUsers,
+        activeChannelUsers: event.activeChannelUsers,
+        users: event.users,
       },
     }
   },
@@ -28,6 +29,7 @@ const eventToAction: EventToActionMap = {
       type: '@chat/updateJoin',
       payload: {
         channel,
+        channelUser: event.channelUser,
         user: event.user,
       },
     }
@@ -35,8 +37,7 @@ const eventToAction: EventToActionMap = {
 
   leave: (channel, event) => (dispatch, getState) => {
     const { auth } = getState()
-    const user = auth.user.name
-    if (user === event.user) {
+    if (auth.user.id === event.user.id) {
       // It was us who left the channel
       dispatch({
         type: '@chat/updateLeaveSelf',
@@ -58,7 +59,7 @@ const eventToAction: EventToActionMap = {
 
   message(channel, event) {
     // Notify the main process of the new message, so it can display an appropriate notification
-    ipcRenderer.send('chatNewMessage', { user: event.user, message: event.data.text })
+    ipcRenderer.send('chatNewMessage', { user: event.user.name, message: event.data.text })
 
     // TODO(tec27): handle different types of messages (event.data.type)
     return {
@@ -66,8 +67,8 @@ const eventToAction: EventToActionMap = {
       payload: {
         channel,
         id: event.id,
-        time: event.sent,
         user: event.user,
+        time: event.sent,
         message: event.data.text,
       },
     }

@@ -1,4 +1,5 @@
-import { ChatMessage, ChatUser } from '../../common/chat'
+import { ChatMessage, ChatUser, GetChannelUsersServerPayload } from '../../common/chat'
+import { User } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
 export type ChatActions =
@@ -151,7 +152,7 @@ export interface RetrieveUserListBegin {
  */
 export interface RetrieveUserList {
   type: '@chat/retrieveUserList'
-  payload: ChatUser[]
+  payload: GetChannelUsersServerPayload
   meta: {
     channel: string
   }
@@ -193,7 +194,8 @@ export interface InitChannel {
   type: '@chat/initChannel'
   payload: {
     channel: string
-    activeUsers: ChatUser[]
+    activeChannelUsers: ChatUser[]
+    users: User[]
   }
 }
 
@@ -204,7 +206,8 @@ export interface UpdateJoin {
   type: '@chat/updateJoin'
   payload: {
     channel: string
-    user: ChatUser
+    channelUser: ChatUser
+    user: User
   }
 }
 

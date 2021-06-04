@@ -1,4 +1,8 @@
-import { ChatMessage, ChatUser, SendChatMessageServerBody } from '../../common/chat'
+import {
+  ChatMessage,
+  GetChannelUsersServerPayload,
+  SendChatMessageServerBody,
+} from '../../common/chat'
 import { ThunkAction } from '../dispatch-registry'
 import { push } from '../navigation/routing'
 import fetch from '../network/fetch'
@@ -106,7 +110,9 @@ export function retrieveUserList(channel: string): ThunkAction {
     })
     dispatch({
       type: '@chat/retrieveUserList',
-      payload: fetch<ChatUser[]>(apiUrl`chat/${channel}/users`, { method: 'GET' }),
+      payload: fetch<GetChannelUsersServerPayload>(apiUrl`chat/${channel}/users`, {
+        method: 'GET',
+      }),
       meta: params,
     })
   }

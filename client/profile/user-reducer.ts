@@ -31,6 +31,22 @@ const DEFAULT_STATE: Immutable<UserState> = {
   usernameLoadsInProgress: new Map(),
 }
 
+function updateUsers(state: UserState, users: User[]) {
+  for (const user of users) {
+    const userState = state.byId.get(user.id)
+    if (userState) {
+      if (userState.name !== user.name) {
+        state.usernameToId.delete(userState.name)
+        userState.name = user.name
+      }
+    } else {
+      state.byId.set(user.id, { id: user.id, name: user.name })
+    }
+
+    state.usernameToId.set(user.name, user.id)
+  }
+}
+
 export default immerKeyedReducer(DEFAULT_STATE, {
   ['@auth/logIn'](state, action) {
     if (action.error) {
@@ -58,27 +74,27 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.usernameToId.set(user.name, user.id)
   },
 
+  ['@chat/initChannel'](state, action) {
+    updateUsers(state, action.payload.users)
+  },
+
+  ['@chat/updateJoin'](state, action) {
+    updateUsers(state, [action.payload.user])
+  },
+
+  ['@chat/retrieveUserList'](state, action) {
+    if (action.error) {
+      return
+    }
+
+    updateUsers(state, action.payload.users)
+  },
+
   ['@ladder/getRankings'](state, action) {
     if (action.error) {
       return
     }
 
-    const {
-      payload: { users },
-    } = action
-
-    for (const user of users) {
-      const userState = state.byId.get(user.id)
-      if (userState) {
-        if (userState.name !== user.name) {
-          state.usernameToId.delete(userState.name)
-          userState.name = user.name
-        }
-      } else {
-        state.byId.set(user.id, { id: user.id, name: user.name })
-      }
-
-      state.usernameToId.set(user.name, user.id)
-    }
+    updateUsers(state, action.payload.users)
   },
 })
