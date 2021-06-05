@@ -66,6 +66,7 @@ pub struct BwScr {
     enable_rng: Value<u32>,
     replay_visions: Value<u8>,
     replay_show_entire_map: Value<u8>,
+    allocator: Value<*mut scr::Allocator>,
     free_sprites: LinkedList<scr::Sprite>,
     active_fow_sprites: LinkedList<bw::FowSprite>,
     free_fow_sprites: LinkedList<bw::FowSprite>,
@@ -546,6 +547,20 @@ pub mod scr {
         pub last_image: *mut bw::Image,
     }
 
+    #[repr(C)]
+    pub struct Allocator {
+        pub vtable: *mut AllocatorVtable,
+    }
+
+    #[repr(C)]
+    pub struct AllocatorVtable {
+        pub delete: usize,
+        pub alloc: Thiscall<unsafe extern fn(*mut Allocator, usize, usize) -> *mut u8>,
+        pub fn2: usize,
+        pub fn3: usize,
+        pub free: Thiscall<unsafe extern fn(*mut Allocator, *mut u8)>,
+    }
+
     unsafe impl Sync for PrismShader {}
     unsafe impl Send for PrismShader {}
 
@@ -877,6 +892,7 @@ impl BwScr {
         let replay_visions = analysis.replay_visions().ok_or("replay_visions")?;
         let replay_show_entire_map = analysis.replay_show_entire_map()
             .ok_or("replay_show_entire_map")?;
+        let allocator = analysis.allocator().ok_or("allocator")?;
 
         let starcraft_tls_index = analysis.get_tls_index().ok_or("TLS index")?;
 
@@ -935,6 +951,7 @@ impl BwScr {
             enable_rng: Value::new(ctx, enable_rng),
             replay_visions: Value::new(ctx, replay_visions),
             replay_show_entire_map: Value::new(ctx, replay_show_entire_map),
+            allocator: Value::new(ctx, allocator),
             free_sprites,
             active_fow_sprites,
             free_fow_sprites,
@@ -1927,6 +1944,16 @@ impl bw::Bw for BwScr {
         *self.storm_last_error_ptr() = error;
     }
 
+    unsafe fn alloc(&self, size: usize) -> *mut u8 {
+        let allocator = self.allocator.resolve();
+        (*(*allocator).vtable).alloc.call3(allocator, size, 8)
+    }
+
+    unsafe fn free(&self, ptr: *mut u8) {
+        let allocator = self.allocator.resolve();
+        (*(*allocator).vtable).free.call2(allocator, ptr)
+    }
+
     unsafe fn call_original_status_screen_fn(&self, unit_id: UnitId, dialog: *mut bw::Dialog) {
         if let Some(&func) = self.original_status_screen_update.get(unit_id.0 as usize) {
             func(dialog);
@@ -1959,8 +1986,6 @@ fn init_bw_dat(analysis: &mut scr_analysis::Analysis<'_>) -> Result<(), &'static
     let techdata = analysis.dat_table(DatType::TechData).ok_or("techdata.dat")?;
     let orders = analysis.dat_table(DatType::Orders).ok_or("orders.dat")?;
     let mut out = Vec::with_capacity(0x36 + 0x18 + 0xc + 0xb + 0x13);
-    let malloc = analysis.smem_alloc().ok_or("SMemAlloc")?;
-    let free = analysis.smem_free().ok_or("SMemFree")?;
     unsafe {
         copy_dat_table(&units, &mut out, 0x36);
         copy_dat_table(&weapons, &mut out, 0x18);
@@ -1978,9 +2003,17 @@ fn init_bw_dat(analysis: &mut scr_analysis::Analysis<'_>) -> Result<(), &'static
         table = table.add(0xb);
         bw_dat::init_orders(table, 0x13);
         bw_dat::set_is_scr(true);
-        bw_dat::set_bw_malloc(mem::transmute(malloc.0), mem::transmute(free.0));
+        bw_dat::set_bw_malloc(bw_malloc, bw_free);
     }
     Ok(())
+}
+
+unsafe extern fn bw_malloc(size: usize) -> *mut u8 {
+    bw::get_bw().alloc(size)
+}
+
+unsafe extern fn bw_free(ptr: *mut u8) {
+    bw::get_bw().free(ptr)
 }
 
 fn get_exe_build() -> u32 {

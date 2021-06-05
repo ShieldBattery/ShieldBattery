@@ -40,6 +40,21 @@ lazy_static! {
             .expect("Couldn't find SErrSetLastError");
         mem::transmute(func)
     };
+    static ref SMEM_ALLOC:
+        unsafe extern "stdcall" fn(usize, *const u8, usize, usize) -> *mut u8 = unsafe {
+        let storm = windows::load_library("storm").expect("Couldn't load storm");
+        let func = storm
+            .proc_address_ordinal(401)
+            .expect("Couldn't find SMemAlloc");
+        mem::transmute(func)
+    };
+    static ref SMEM_FREE: unsafe extern "stdcall" fn(*mut u8, *const u8, usize, usize) = unsafe {
+        let storm = windows::load_library("storm").expect("Couldn't load storm");
+        let func = storm
+            .proc_address_ordinal(403)
+            .expect("Couldn't find SMemFree");
+        mem::transmute(func)
+    };
 }
 
 pub unsafe fn SErrGetLastError() -> u32 {
@@ -48,4 +63,12 @@ pub unsafe fn SErrGetLastError() -> u32 {
 
 pub unsafe fn SErrSetLastError(error: u32) {
     SERR_SET_LAST_ERROR(error);
+}
+
+pub unsafe fn SMemAlloc(size: usize, file: *const u8, line: usize, flags: usize) -> *mut u8 {
+    SMEM_ALLOC(size, file, line, flags)
+}
+
+pub unsafe fn SMemFree(ptr: *mut u8, file: *const u8, line: usize, flags: usize) {
+    SMEM_FREE(ptr, file, line, flags)
 }

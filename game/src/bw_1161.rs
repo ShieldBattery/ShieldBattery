@@ -247,6 +247,14 @@ impl bw::Bw for Bw1161 {
         storm::SErrSetLastError(error);
     }
 
+    unsafe fn alloc(&self, size: usize) -> *mut u8 {
+        storm::SMemAlloc(size, b"\0".as_ptr(), 0, 0)
+    }
+
+    unsafe fn free(&self, ptr: *mut u8) {
+        storm::SMemFree(ptr, b"\0".as_ptr(), 0, 0)
+    }
+
     unsafe fn call_original_status_screen_fn(&self, _: UnitId, _: *mut bw::Dialog) {
         // 1.16.1 doesn't hook status screen in the first place currently.
         // Will have to implement this when that is done.
