@@ -66,11 +66,11 @@ impl<'e> Analysis<'e> {
     }
 
     pub fn net_player_flags(&mut self) -> Option<Operand<'e>> {
-        self.0.step_network().net_player_flags
+        self.0.net_player_flags()
     }
 
     pub fn step_network(&mut self) -> Option<VirtualAddress> {
-        self.0.step_network().step_network
+        self.0.step_network()
     }
 
     pub fn lobby_state(&mut self) -> Option<Operand<'e>> {
@@ -214,7 +214,7 @@ impl<'e> Analysis<'e> {
     }
 
     pub fn file_hook(&mut self) -> Option<VirtualAddress> {
-        self.0.file_hook().get(0).copied()
+        self.0.open_file()
     }
 
     pub fn get_tls_index(&self) -> Option<*mut u32> {
@@ -335,12 +335,8 @@ impl<'e> Analysis<'e> {
         self.0.dat(dat)
     }
 
-    pub fn smem_alloc(&mut self) -> Option<VirtualAddress> {
-        self.0.smem_alloc()
-    }
-
-    pub fn smem_free(&mut self) -> Option<VirtualAddress> {
-        self.0.smem_free()
+    pub fn allocator(&mut self) -> Option<Operand<'e>> {
+        self.0.allocator()
     }
 
     pub fn status_screen_funcs(&mut self) -> Option<VirtualAddress> {

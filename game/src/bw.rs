@@ -88,6 +88,8 @@ pub trait Bw: Sync + Send {
     unsafe fn storm_player_flags(&self) -> Vec<u32>;
 
     unsafe fn storm_set_last_error(&self, error: u32);
+    unsafe fn alloc(&self, size: usize) -> *mut u8;
+    unsafe fn free(&self, ptr: *mut u8);
 
     unsafe fn call_original_status_screen_fn(&self, unit_id: UnitId, dialog: *mut Dialog);
 }
