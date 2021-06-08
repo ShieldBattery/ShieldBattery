@@ -136,15 +136,6 @@ export default class WhisperService {
     }))
   }
 
-  private getUserSockets(userId: number): UserSocketsGroup {
-    const userSockets = this.userSocketsManager.getById(userId)
-    if (!userSockets) {
-      throw new WhisperServiceError(WhisperServiceErrorCode.UserOffline, 'User is offline')
-    }
-
-    return userSockets
-  }
-
   private getUserStatus(userId: number) {
     // TODO(2Pac): check if the user is idle as well
     const isUserOnline = this.userSocketsManager.getById(userId)
@@ -166,7 +157,7 @@ export default class WhisperService {
   private async ensureWhisperSession(userId: number, targetId: number) {
     await startWhisperSession(userId, targetId)
 
-    const userSockets = this.getUserSockets(userId)
+    const userSockets = this.userSocketsManager.getById(userId)
     // If the user is offline, the rest of the code will be done once they connect
     if (!userSockets) {
       return
