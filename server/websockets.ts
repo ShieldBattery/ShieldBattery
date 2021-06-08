@@ -123,7 +123,7 @@ export class WebsocketServer {
     const logger = log.child({ reqId: cuid() })
     logger.info({ req }, 'websocket authorizing')
     if (!req.headers.cookie) {
-      logger.error({ err: new Error('request had no cookies') }, 'websocket error')
+      logger.error({ req, err: new Error('request had no cookies') }, 'websocket error')
       cb(null, false)
       return
     }
@@ -151,7 +151,7 @@ export class WebsocketServer {
       this.sessionLookup.set(req, handshakeData)
       cb(null, true)
     } catch (err) {
-      logger.error({ err }, 'websocket error')
+      logger.error({ req, err }, 'websocket error')
       cb(null, false)
     }
   }
