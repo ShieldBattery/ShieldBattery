@@ -1,4 +1,4 @@
-#### 7.0.13 (June 7, 2021)
+#### 7.0.15 (June 8, 2021)
 
 - **Support for new SC:R version.** We're now compatible with 1.23.8.9588. If you'd like to play on
   this version and actually have autoscrolling chat, we've got you covered!
