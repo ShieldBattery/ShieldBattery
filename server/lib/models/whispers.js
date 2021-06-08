@@ -25,7 +25,7 @@ export async function startWhisperSession(user, targetUser) {
       `WITH ut AS (
           SELECT u.id AS user_id, t.id AS target_user_id
           FROM users AS u, users AS t
-          WHERE u.name = $1 AND t.name = $2
+          WHERE u.id = $1 AND t.id = $2
         ) INSERT INTO whisper_sessions (user_id, target_user_id, start_date)
         SELECT ut.user_id, ut.target_user_id, CURRENT_TIMESTAMP AT TIME ZONE 'UTC' FROM ut
         WHERE NOT EXISTS (SELECT 1 FROM whisper_sessions
