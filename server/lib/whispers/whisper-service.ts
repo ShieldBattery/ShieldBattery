@@ -55,7 +55,7 @@ export default class WhisperService {
       )
     }
 
-    this.ensureWhisperSession(user.userId, target.id as number)
+    this.ensureWhisperSession(user.userId, target.id!)
   }
 
   async closeWhisperSession(user: UserSocketsGroup, target: User) {
