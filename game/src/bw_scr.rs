@@ -414,11 +414,18 @@ pub mod scr {
         pub safety_padding: [u8; 0x24],
     }
 
+    // 9411 and older
     #[repr(C)]
-    pub struct GameInfoValue {
+    pub struct GameInfoValueOld {
         pub variant: u32,
         pub padding: u32,
         pub data: GameInfoValueUnion,
+    }
+
+    #[repr(C)]
+    pub struct GameInfoValue {
+        pub data: GameInfoValueUnion,
+        pub variant: u32,
     }
 
     #[repr(C)]
@@ -771,6 +778,58 @@ impl<T> LinkedList<T> {
             start: self.start.resolve_as_ptr(),
             end: self.end.resolve_as_ptr(),
         }
+    }
+}
+
+/// For compatibility with two different struct layouts
+trait GameInfoValueTrait: bw_hash_table::BwMove {
+    unsafe fn from_u32(val: u32) -> Self;
+    unsafe fn from_string(val: &[u8]) -> Self;
+}
+
+impl GameInfoValueTrait for scr::GameInfoValueOld {
+    unsafe fn from_u32(val: u32) -> Self {
+        Self {
+            variant: 2,
+            padding: 0,
+            data: scr::GameInfoValueUnion {
+                var2_3: val as u64,
+            }
+        }
+    }
+
+    unsafe fn from_string(val: &[u8]) -> Self {
+        let mut value = Self {
+            variant: 1,
+            padding: 0,
+            data: scr::GameInfoValueUnion {
+                var1: mem::zeroed(),
+            }
+        };
+        init_bw_string(&mut *(value.data.var1.as_mut_ptr() as *mut scr::BwString), val);
+        value
+    }
+}
+
+impl GameInfoValueTrait for scr::GameInfoValue {
+    unsafe fn from_u32(val: u32) -> Self {
+        Self {
+            variant: 2,
+            data: scr::GameInfoValueUnion {
+                var2_3: val as u64,
+            }
+        }
+    }
+
+    unsafe fn from_string(val: &[u8]) -> Self {
+        let mut value = Self {
+            variant: 1,
+            data: scr::GameInfoValueUnion {
+                var1: mem::zeroed(),
+            }
+        };
+        init_bw_string(&mut *(value.data.var1.as_mut_ptr() as *mut scr::BwString), val);
+        value
     }
 }
 
@@ -1502,6 +1561,57 @@ impl BwScr {
             }
         }
     }
+
+    /// Generic over scr::GameInfoValue and scr::GameInfoValueOld to support different versions
+    /// in case blizzard is being indecisive.
+    unsafe fn build_join_game_params<T: GameInfoValueTrait>(
+        &self,
+        input_game_info: &mut bw::JoinableGameInfo,
+    ) -> bw_hash_table::HashTable<scr::BwString, T> {
+        let mut params = bw_hash_table::HashTable::<scr::BwString, T>::new(0x20, 0x8, 0x28);
+        let mut add_param = |key: &[u8], value: u32| {
+            let mut string: scr::BwString = mem::zeroed();
+            init_bw_string(&mut string, key);
+            let mut value = T::from_u32(value);
+            params.insert(&mut string, &mut value);
+        };
+        add_param(b"save_game_id", input_game_info.save_checksum as u32);
+        add_param(b"is_replay", input_game_info.is_replay as u32);
+        // Can lie for most of these player counts
+        add_param(b"players_current", 1);
+        add_param(b"players_max", input_game_info.max_player_count as u32);
+        add_param(b"observers_current", 0);
+        add_param(b"observers_max", 0);
+        add_param(b"players_ai", 0);
+        add_param(b"closed_slots", 0);
+        add_param(b"proxy", 0);
+        add_param(b"game_speed", input_game_info.game_speed as u32);
+        add_param(b"map_tile_set", input_game_info.tileset as u32);
+        add_param(b"map_width", input_game_info.map_width as u32);
+        add_param(b"map_height", input_game_info.map_height as u32);
+        // Not sure if we want to change this one day. I think 0 means dynamic,
+        // which is assumed by the host as well AFAIK.
+        add_param(b"net_turn_rate", 0);
+        // TODO: This is actually important for EUD maps. Host gets it set correctly
+        // automatically, but I think we need more code here to support EUD maps.
+        add_param(b"flags", 0);
+
+        let mut add_param_string = |key: &[u8], value_str: &[u8]| {
+            let mut string: scr::BwString = mem::zeroed();
+            init_bw_string(&mut string, key);
+            let mut value = T::from_string(value_str);
+            params.insert(&mut string, &mut value);
+        };
+        let host_name_length = input_game_info.game_creator
+            .iter().position(|&x| x == 0)
+            .unwrap_or(input_game_info.game_creator.len());
+        add_param_string(b"host_name", &input_game_info.game_creator[..host_name_length]);
+        let map_name_length = input_game_info.map_name
+            .iter().position(|&x| x == 0)
+            .unwrap_or(input_game_info.map_name.len());
+        add_param_string(b"map_name", &input_game_info.map_name[..map_name_length]);
+        params
+    }
 }
 
 impl bw::Bw for BwScr {
@@ -1697,62 +1807,21 @@ impl bw::Bw for BwScr {
         address: std::net::Ipv4Addr,
     ) -> Result<(), u32> {
         assert!(*map_path.last().unwrap() == 0, "Map path was not null-terminated");
-        let mut params =
-            bw_hash_table::HashTable::<scr::BwString, scr::GameInfoValue>::new(0x20, 0x8, 0x28);
-        let mut add_param = |key: &[u8], value: u32| {
-            let mut string: scr::BwString = mem::zeroed();
-            init_bw_string(&mut string, key);
-            let mut value = scr::GameInfoValue {
-                variant: 2,
-                padding: 0,
-                data: scr::GameInfoValueUnion {
-                    var2_3: value as u64,
-                }
-            };
-            params.insert(&mut string, &mut value);
-        };
-        add_param(b"save_game_id", input_game_info.save_checksum as u32);
-        add_param(b"is_replay", input_game_info.is_replay as u32);
-        // Can lie for most of these player counts
-        add_param(b"players_current", 1);
-        add_param(b"players_max", input_game_info.max_player_count as u32);
-        add_param(b"observers_current", 0);
-        add_param(b"observers_max", 0);
-        add_param(b"players_ai", 0);
-        add_param(b"closed_slots", 0);
-        add_param(b"proxy", 0);
-        add_param(b"game_speed", input_game_info.game_speed as u32);
-        add_param(b"map_tile_set", input_game_info.tileset as u32);
-        add_param(b"map_width", input_game_info.map_width as u32);
-        add_param(b"map_height", input_game_info.map_height as u32);
-        // Not sure if we want to change this one day. I think 0 means dynamic,
-        // which is assumed by the host as well AFAIK.
-        add_param(b"net_turn_rate", 0);
-        // TODO: This is actually important for EUD maps. Host gets it set correctly
-        // automatically, but I think we need more code here to support EUD maps.
-        add_param(b"flags", 0);
 
-        let mut add_param_string = |key: &[u8], value_str: &[u8]| {
-            let mut string: scr::BwString = mem::zeroed();
-            init_bw_string(&mut string, key);
-            let mut value = scr::GameInfoValue {
-                variant: 1,
-                padding: 0,
-                data: scr::GameInfoValueUnion {
-                    var1: mem::zeroed(),
-                }
-            };
-            init_bw_string(&mut *(value.data.var1.as_mut_ptr() as *mut scr::BwString), value_str);
-            params.insert(&mut string, &mut value);
+        // Extra code to support 9411 scr::GameInfoValue layout if it gets rolled back to.
+        let params = if self.exe_build > 9411 {
+            self.build_join_game_params::<scr::GameInfoValue>(input_game_info)
+        } else {
+            // HashTable itself has same layout regardless of which values it contains,
+            // so this kind of cast is fine. Only BW is going to read params after this,
+            // we can treat it as just bunch of bytes.
+            // Well.. mostly. Technically the destructor at the end of this function
+            // is dropping the HashTable, but scr::GameInfoValue doesn't have any destructors
+            // now so it is fine. We just leak the few strings that we have.
+            // Should remove this branch at some point anyway, once we're sure we don't need
+            // to support 9411.
+            mem::transmute(self.build_join_game_params::<scr::GameInfoValueOld>(input_game_info))
         };
-        let host_name_length = input_game_info.game_creator
-            .iter().position(|&x| x == 0)
-            .unwrap_or(input_game_info.game_creator.len());
-        add_param_string(b"host_name", &input_game_info.game_creator[..host_name_length]);
-        let map_name_length = input_game_info.map_name
-            .iter().position(|&x| x == 0)
-            .unwrap_or(input_game_info.map_name.len());
-        add_param_string(b"map_name", &input_game_info.map_name[..map_name_length]);
 
         let mut game_info = scr::JoinableGameInfo {
             params: params.bw_table(),

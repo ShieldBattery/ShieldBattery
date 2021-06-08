@@ -76,6 +76,19 @@ impl BwMove for scr::BwString {
     }
 }
 
+impl BwMove for scr::GameInfoValueOld {
+    unsafe fn move_construct(&mut self, dest: *mut Self) {
+        ptr::copy_nonoverlapping(self, dest, 1);
+        if self.variant == 1 {
+            // String
+            let self_string = self.data.var1.as_mut_ptr() as *mut scr::BwString;
+            let dest_string = (*dest).data.var1.as_mut_ptr() as *mut scr::BwString;
+            (&mut *self_string).move_construct(dest_string);
+            self.variant = 0;
+        }
+    }
+}
+
 impl BwMove for scr::GameInfoValue {
     unsafe fn move_construct(&mut self, dest: *mut Self) {
         ptr::copy_nonoverlapping(self, dest, 1);
