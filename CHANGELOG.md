@@ -1,3 +1,16 @@
+#### 7.0.13 (June 7, 2021)
+
+- **Support for new SC:R version.** We're now compatible with 1.23.8.9588. If you'd like to play on
+  this version and actually have autoscrolling chat, we've got you covered!
+- **More visible notifications.** Notifications now pop up in the client when they're first
+  delivered, so you can actually notice they've arrived. More notifications for useful things, as
+  well as OS-level notifications are coming soon!
+- **More interactive buttons.** Buttons should appear a bit more dynamic and fun in this release.
+- **Ya blue it.** We've moved to a blue-ier color scheme in this release, to bring out a more "cool
+  sci-fi" vibe and less "trendy office app". We're sure you'll feel right at home.
+- **More visible hotkeys.** Activity buttons on the main screen now underline the character that
+  matches their hotkey, for easier discoverability. Just add alt!
+
 #### 7.0.12 (May 14, 2021)
 
 - **No more idling.** The ladder rankings now display when a user last played a game, so you can
