@@ -164,7 +164,7 @@ async function getChannelHistory(ctx: RouterContext) {
   } = validateRequest(ctx, {
     query: Joi.object<{ limit: number; beforeTime: number }>({
       limit: Joi.number().min(1).max(100),
-      beforeTime: Joi.number().min(0),
+      beforeTime: Joi.number().min(-1),
     }),
   })
 
