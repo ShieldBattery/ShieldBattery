@@ -11,7 +11,8 @@ import {
   WHISPERS_START_SESSION_BEGIN,
 } from '../actions'
 import { push } from '../navigation/routing'
-import siteSocket from '../network/site-socket'
+import fetch from '../network/fetch'
+import { apiUrl } from '../network/urls'
 
 export function startWhisperSession(target) {
   return dispatch => {
@@ -22,7 +23,7 @@ export function startWhisperSession(target) {
     })
     dispatch({
       type: WHISPERS_START_SESSION,
-      payload: siteSocket.invoke('/whispers/start', params),
+      payload: fetch(apiUrl`whispers/${target}`, { method: 'POST' }),
       meta: params,
     })
   }
@@ -37,7 +38,7 @@ export function closeWhisperSession(target) {
     })
     dispatch({
       type: WHISPERS_CLOSE_SESSION,
-      payload: siteSocket.invoke('/whispers/close', params),
+      payload: fetch(apiUrl`whispers/${target}`, { method: 'DELETE' }),
       meta: params,
     })
   }
@@ -52,7 +53,10 @@ export function sendMessage(target, message) {
     })
     dispatch({
       type: WHISPERS_SEND_MESSAGE,
-      payload: siteSocket.invoke('/whispers/send', params),
+      payload: fetch(apiUrl`whispers/${target}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ message }),
+      }),
       meta: params,
     })
   }
@@ -78,7 +82,10 @@ export function getMessageHistory(target, limit) {
     })
     dispatch({
       type: WHISPERS_LOAD_SESSION_HISTORY,
-      payload: siteSocket.invoke('/whispers/getHistory', params),
+      payload: fetch(
+        apiUrl`whispers/${target}/messages?limit=${limit}&beforeTime=${earliestMessageTime}`,
+        { method: 'GET' },
+      ),
       meta: params,
     })
   }

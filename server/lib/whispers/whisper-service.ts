@@ -14,6 +14,7 @@ import { TypedPublisher } from '../websockets/typed-publisher'
 
 export enum WhisperServiceErrorCode {
   UserOffline,
+  UserNotFound,
   NoSelfMessaging,
   InvalidCloseAction,
   InvalidGetSessionHistoryAction,
@@ -47,42 +48,48 @@ export default class WhisperService {
       .on('userQuit', userId => this.handleUserQuit(userId))
   }
 
-  startWhisperSession(user: UserSocketsGroup, target: User) {
-    if (user.name.toLowerCase() === target.name.toLowerCase()) {
+  async startWhisperSession(userId: number, targetName: string) {
+    const target = await this.getUser(targetName)
+
+    if (userId === target.id) {
       throw new WhisperServiceError(
         WhisperServiceErrorCode.NoSelfMessaging,
         "Can't whisper with yourself",
       )
     }
 
-    this.ensureWhisperSession(user.userId, target.id!)
+    await this.ensureWhisperSession(userId, target.id!)
   }
 
-  async closeWhisperSession(user: UserSocketsGroup, target: User) {
-    if (!this.userSessions.get(user.name)?.has(target.name)) {
+  async closeWhisperSession(userId: number, targetName: string) {
+    const user = await this.getUser(userId)
+
+    if (!this.userSessions.get(user.name)?.has(targetName)) {
       throw new WhisperServiceError(
         WhisperServiceErrorCode.InvalidCloseAction,
         'No whisper session with this user',
       )
     }
 
-    await closeWhisperSession(user.session.userId, target.name)
-    this.userSessions = this.userSessions.update(user.name, s => s.delete(target.name))
+    await closeWhisperSession(userId, targetName)
+    this.userSessions = this.userSessions.update(user.name, s => s.delete(targetName))
 
-    const updated = this.sessionUsers.get(target.name)!.delete(user.name)
+    const updated = this.sessionUsers.get(targetName)!.delete(user.name)
     this.sessionUsers = updated.size
-      ? this.sessionUsers.set(target.name, updated)
-      : this.sessionUsers.delete(target.name)
+      ? this.sessionUsers.set(targetName, updated)
+      : this.sessionUsers.delete(targetName)
 
-    this.publisher.publish(getSessionPath(user.name, target.name), {
+    this.publisher.publish(getSessionPath(user.name, targetName), {
       action: 'closeSession',
-      target: target.name,
+      target: targetName,
     })
-    this.unsubscribeUserFromWhisperSession(user, target)
+    this.unsubscribeUserFromWhisperSession(userId, targetName)
   }
 
-  async sendWhisperMessage(user: UserSocketsGroup, target: User, message: string) {
-    if (user.name.toLowerCase() === target.name.toLowerCase()) {
+  async sendWhisperMessage(userId: number, targetName: string, message: string) {
+    const [user, target] = await Promise.all([this.getUser(userId), this.getUser(targetName)])
+
+    if (userId === target.id) {
       throw new WhisperServiceError(
         WhisperServiceErrorCode.NoSelfMessaging,
         "Can't whisper with yourself",
@@ -90,7 +97,7 @@ export default class WhisperService {
     }
 
     const text = filterChatMessage(message)
-    const result = await addMessageToWhisper(user.session.userId, target.name, {
+    const result = await addMessageToWhisper(userId, targetName, {
       type: 'message',
       text,
     })
@@ -98,35 +105,37 @@ export default class WhisperService {
     // TODO(tec27): This makes the start throttle rather useless, doesn't it? Think of a better way
     // to throttle people starting tons of tons of sessions with different people
     await Promise.all([
-      this.ensureWhisperSession(user.userId, target.id as number),
-      this.ensureWhisperSession(target.id as number, user.userId),
+      this.ensureWhisperSession(userId, target.id!),
+      this.ensureWhisperSession(target.id!, userId),
     ])
 
-    this.publisher.publish(getSessionPath(user.name, target.name), {
+    this.publisher.publish(getSessionPath(user.name, targetName), {
       id: result.msgId,
       action: 'message',
       from: result.from,
       to: result.to,
-      sent: +result.sent,
+      sent: Number(result.sent),
       data: result.data,
     })
   }
 
   async getSessionHistory(
-    user: UserSocketsGroup,
-    target: User,
+    userId: number,
+    targetName: string,
     limit?: number,
     beforeTime?: number,
     // TODO(2Pac): Type the return type of whisper message
   ): Promise<any[]> {
-    if (!this.userSessions.get(user.name)?.has(target.name)) {
+    const user = await this.getUser(userId)
+
+    if (!this.userSessions.get(user.name)?.has(targetName)) {
       throw new WhisperServiceError(
         WhisperServiceErrorCode.InvalidGetSessionHistoryAction,
         'Must have a whisper session with this user to retrieve message history',
       )
     }
 
-    const messages = await getMessagesForWhisperSession(user.name, target.name, limit, beforeTime)
+    const messages = await getMessagesForWhisperSession(user.name, targetName, limit, beforeTime)
     return messages.map(m => ({
       id: m.msgId,
       from: m.from,
@@ -134,6 +143,24 @@ export default class WhisperService {
       sent: Number(m.sent),
       data: m.data,
     }))
+  }
+
+  private getUserSockets(userId: number): UserSocketsGroup {
+    const userSockets = this.userSocketsManager.getById(userId)
+    if (!userSockets) {
+      throw new WhisperServiceError(WhisperServiceErrorCode.UserOffline, 'User is offline')
+    }
+
+    return userSockets
+  }
+
+  async getUser(criteria: string | number): Promise<User> {
+    const foundUser = await users.find(criteria)
+    if (!foundUser) {
+      throw new WhisperServiceError(WhisperServiceErrorCode.UserNotFound, 'User not found')
+    }
+
+    return foundUser
   }
 
   private getUserStatus(userId: number) {
@@ -146,12 +173,13 @@ export default class WhisperService {
     user.subscribe(getSessionPath(user.name, target.name), () => ({
       action: 'initSession',
       target: target.name,
-      targetStatus: this.getUserStatus(target.id as number),
+      targetStatus: this.getUserStatus(target.id!),
     }))
   }
 
-  unsubscribeUserFromWhisperSession(user: UserSocketsGroup, target: User) {
-    user.unsubscribe(getSessionPath(user.name, target.name))
+  unsubscribeUserFromWhisperSession(userId: number, targetName: string) {
+    const userSockets = this.getUserSockets(userId)
+    userSockets.unsubscribe(getSessionPath(userSockets.name, targetName))
   }
 
   private async ensureWhisperSession(userId: number, targetId: number) {
