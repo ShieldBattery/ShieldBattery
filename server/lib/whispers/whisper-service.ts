@@ -58,7 +58,7 @@ export default class WhisperService {
       )
     }
 
-    this.ensureWhisperSession(userId, target.id!)
+    await this.ensureWhisperSession(userId, target.id!)
   }
 
   async closeWhisperSession(userId: number, targetName: string) {
@@ -114,7 +114,7 @@ export default class WhisperService {
       action: 'message',
       from: result.from,
       to: result.to,
-      sent: +result.sent,
+      sent: Number(result.sent),
       data: result.data,
     })
   }
@@ -173,7 +173,7 @@ export default class WhisperService {
     user.subscribe(getSessionPath(user.name, target.name), () => ({
       action: 'initSession',
       target: target.name,
-      targetStatus: this.getUserStatus(target.id as number),
+      targetStatus: this.getUserStatus(target.id!),
     }))
   }
 

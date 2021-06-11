@@ -112,25 +112,25 @@ export class WhisperApi extends HttpApi {
   }
 }
 
-function startWhisperSession(ctx: RouterContext) {
+async function startWhisperSession(ctx: RouterContext) {
   const targetName = getValidatedTargetName(ctx)
 
   const whisperService = container.resolve(WhisperService)
-  whisperService.startWhisperSession(ctx.session!.userId, targetName)
+  await whisperService.startWhisperSession(ctx.session!.userId, targetName)
 
   ctx.status = 204
 }
 
-function closeWhisperSession(ctx: RouterContext) {
+async function closeWhisperSession(ctx: RouterContext) {
   const targetName = getValidatedTargetName(ctx)
 
   const whisperService = container.resolve(WhisperService)
-  whisperService.closeWhisperSession(ctx.session!.userId, targetName)
+  await whisperService.closeWhisperSession(ctx.session!.userId, targetName)
 
   ctx.status = 204
 }
 
-function sendWhisperMessage(ctx: RouterContext) {
+async function sendWhisperMessage(ctx: RouterContext) {
   const targetName = getValidatedTargetName(ctx)
   const {
     body: { message },
@@ -141,7 +141,7 @@ function sendWhisperMessage(ctx: RouterContext) {
   })
 
   const whisperService = container.resolve(WhisperService)
-  whisperService.sendWhisperMessage(ctx.session!.userId, targetName, message)
+  await whisperService.sendWhisperMessage(ctx.session!.userId, targetName, message)
 
   ctx.status = 204
 }
