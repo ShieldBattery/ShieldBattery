@@ -96,6 +96,8 @@ export default function applyRoutes(app, websocketServer) {
     async (ctx, next) => {
       const initData = {}
       if (ctx.session.userId) {
+        // TODO(tec27): This should either match what is returned from the sessions API, or we
+        // should also call that API on the web version
         initData.auth = {
           user: {
             id: ctx.session.userId,

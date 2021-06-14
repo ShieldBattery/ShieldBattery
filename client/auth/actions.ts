@@ -1,4 +1,4 @@
-import { SelfUserInfo } from '../../common/users/user-info'
+import { SelfUser, SelfUserInfo } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
 export type AuthActions =
@@ -57,10 +57,7 @@ export interface AuthChangeBegin {
 /**
  * The current user's account information was updated successfully.
  */
-export type AccountUpdateSuccess = BaseAuthSuccess<
-  '@auth/accountUpdate',
-  { email: string; emailVerified: boolean }
->
+export type AccountUpdateSuccess = BaseAuthSuccess<'@auth/accountUpdate', SelfUser>
 /**
  * The attempt to update the current user account's information failed.
  */

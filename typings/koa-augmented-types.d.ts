@@ -16,8 +16,9 @@ declare module 'koa' {
   interface ExtendableContext {
     // for koa-generic-session
     session: AppSession | null
+    sessionId: string | null
     sessionSave: boolean | null
-    regenerateSession(): () => Promise<void>
+    regenerateSession(): Promise<void>
 
     // for koa-views
     render(viewPath: string, locals?: any): Promise<void>

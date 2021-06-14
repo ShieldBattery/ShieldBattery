@@ -1,8 +1,9 @@
+import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import { isValidUsername } from '../../../common/constants'
-import users from '../models/users'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
+import { findUserByName } from '../users/user-model'
 
 const throttle = createThrottle('usernameavailability', {
   rate: 10,
@@ -10,7 +11,7 @@ const throttle = createThrottle('usernameavailability', {
   window: 60000,
 })
 
-export default function (router) {
+export default function (router: Router) {
   router.get(
     '/:username',
     throttleMiddleware(throttle, ctx => ctx.ip),
@@ -18,19 +19,13 @@ export default function (router) {
   )
 }
 
-async function checkAvailability(ctx, next) {
+async function checkAvailability(ctx: RouterContext) {
   const username = ctx.params.username
   if (!isValidUsername(username)) {
     throw new httpErrors.BadRequest('Invalid username')
   }
 
-  let user
-  try {
-    user = await users.find(username)
-  } catch (err) {
-    ctx.log.error({ err }, 'error finding user')
-    throw err
-  }
+  const user = await findUserByName(username)
 
   if (user) {
     throw new httpErrors.NotFound('Username not available')

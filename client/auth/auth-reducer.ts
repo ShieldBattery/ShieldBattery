@@ -28,6 +28,7 @@ function logInSuccess(state: State, action: { payload: SelfUserInfo }) {
   return new AuthState({
     user: new SelfUserRecord(user),
     permissions: new PermissionsRecord(permissions),
+    // TODO(tec27): Move references to this onto references to `user.emailVerified`
     emailVerified: user.emailVerified,
   })
 }
@@ -77,12 +78,12 @@ function handleVerifyEmailError(state: State, action: VerifyEmailFailure) {
 }
 
 function accountUpdate(state: State, action: AccountUpdateSuccess) {
-  const { email, emailVerified } = action.payload
+  const user = action.payload
   return state
     .set('authChangeInProgress', false)
     .set('lastFailure', null)
-    .set('emailVerified', emailVerified)
-    .setIn(['user', 'email'], email)
+    .set('emailVerified', user.emailVerified)
+    .set('user', new SelfUserRecord(user))
 }
 
 const logInSplitter = (

@@ -1,7 +1,7 @@
 import transact from '../db/transaction'
 import { createGameRecord } from '../models/games'
 import { createGameUserRecord } from '../models/games-users'
-import { findUserIdsForNames } from '../models/users'
+import { findUsersByName } from '../users/user-model'
 import { GameConfig, GameConfigPlayerName, GameSource } from './configuration'
 import { genResultCode } from './gen-result-code'
 
@@ -31,9 +31,9 @@ export async function registerGame(
     return r
   }, [])
   const humanNames = humanPlayers.map(p => p.name)
-  const userIdsMap = await findUserIdsForNames(humanNames)
+  const usersMap = await findUsersByName(humanNames)
   for (const name of humanNames) {
-    if (!userIdsMap.has(name)) {
+    if (!usersMap.has(name)) {
       throw new RangeError('Invalid human player: ' + name)
     }
   }
@@ -43,7 +43,7 @@ export async function registerGame(
     gameSubType: gameConfig.gameSubType,
     teams: gameConfig.teams.map(team =>
       team.map(p => ({
-        id: p.isComputer ? -1 : userIdsMap.get(p.name)!,
+        id: p.isComputer ? -1 : usersMap.get(p.name)!.id,
         race: p.race,
         isComputer: p.isComputer,
       })),
@@ -63,7 +63,7 @@ export async function registerGame(
     await Promise.all(
       humanPlayers.map(p =>
         createGameUserRecord(client, {
-          userId: userIdsMap.get(p.name)!,
+          userId: usersMap.get(p.name)!.id,
           gameId,
           startTime,
           selectedRace: p.race,

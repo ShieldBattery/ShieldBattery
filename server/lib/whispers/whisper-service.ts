@@ -1,7 +1,7 @@
 import { Map, OrderedSet, Set } from 'immutable'
 import { singleton } from 'tsyringe'
+import { User } from '../../../common/users/user-info'
 import filterChatMessage from '../messaging/filter-chat-message'
-import users, { User } from '../models/users'
 import {
   addMessageToWhisper,
   closeWhisperSession,
@@ -9,6 +9,7 @@ import {
   getWhisperSessionsForUser,
   startWhisperSession,
 } from '../models/whispers'
+import { findUserById, findUserByName } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 
@@ -49,7 +50,7 @@ export default class WhisperService {
   }
 
   async startWhisperSession(userId: number, targetName: string) {
-    const target = await this.getUser(targetName)
+    const target = await this.getUserByName(targetName)
 
     if (userId === target.id) {
       throw new WhisperServiceError(
@@ -62,7 +63,7 @@ export default class WhisperService {
   }
 
   async closeWhisperSession(userId: number, targetName: string) {
-    const user = await this.getUser(userId)
+    const user = await this.getUserById(userId)
 
     if (!this.userSessions.get(user.name)?.has(targetName)) {
       throw new WhisperServiceError(
@@ -87,7 +88,10 @@ export default class WhisperService {
   }
 
   async sendWhisperMessage(userId: number, targetName: string, message: string) {
-    const [user, target] = await Promise.all([this.getUser(userId), this.getUser(targetName)])
+    const [user, target] = await Promise.all([
+      this.getUserById(userId),
+      this.getUserByName(targetName),
+    ])
 
     if (userId === target.id) {
       throw new WhisperServiceError(
@@ -126,7 +130,7 @@ export default class WhisperService {
     beforeTime?: number,
     // TODO(2Pac): Type the return type of whisper message
   ): Promise<any[]> {
-    const user = await this.getUser(userId)
+    const user = await this.getUserById(userId)
 
     if (!this.userSessions.get(user.name)?.has(targetName)) {
       throw new WhisperServiceError(
@@ -154,8 +158,17 @@ export default class WhisperService {
     return userSockets
   }
 
-  async getUser(criteria: string | number): Promise<User> {
-    const foundUser = await users.find(criteria)
+  async getUserByName(name: string): Promise<User> {
+    const foundUser = await findUserByName(name)
+    if (!foundUser) {
+      throw new WhisperServiceError(WhisperServiceErrorCode.UserNotFound, 'User not found')
+    }
+
+    return foundUser
+  }
+
+  async getUserById(id: number): Promise<User> {
+    const foundUser = await findUserById(id)
     if (!foundUser) {
       throw new WhisperServiceError(WhisperServiceErrorCode.UserNotFound, 'User not found')
     }
@@ -191,7 +204,7 @@ export default class WhisperService {
       return
     }
 
-    const [user, target] = await Promise.all([users.find(userId), users.find(targetId)])
+    const [user, target] = await Promise.all([findUserById(userId), findUserById(targetId)])
     if (!user || !target) {
       return
     }
@@ -243,7 +256,7 @@ export default class WhisperService {
 
   private async handleUserQuit(userId: number) {
     // TODO(2Pac): Remove this once internal whisper structures have been moved to use `userId`.
-    const foundUser = await users.find(userId)
+    const foundUser = await findUserById(userId)
     if (!foundUser) {
       return
     }

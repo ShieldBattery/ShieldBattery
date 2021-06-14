@@ -6,10 +6,10 @@ import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { PARTIES } from '../../../common/flags'
 import { featureEnabled } from '../flags/feature-enabled'
-import users from '../models/users'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
+import { findUserById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
 import PartyService, { PartyServiceError, PartyServiceErrorCode, PartyUser } from './party-service'
 
@@ -89,7 +89,7 @@ export default function (router: Router) {
 // TODO(2Pac): Move this somewhere common and share with client
 export interface InviteToPartyServerBody {
   clientId: string
-  targetId: string
+  targetId: number
 }
 
 // TODO(2Pac): Move this somewhere common and share with client
@@ -107,7 +107,7 @@ async function invite(ctx: RouterContext) {
     }),
   })
 
-  const foundTarget = await users.find(targetId)
+  const foundTarget = await findUserById(targetId)
   if (!foundTarget) {
     throw new httpErrors.NotFound('Target user not found')
   }
@@ -115,7 +115,7 @@ async function invite(ctx: RouterContext) {
   // TODO(2Pac): Check if the target user has blocked invitations from the user issuing
   // the request. Or potentially use friends list when implemented.
 
-  const invite: PartyUser = { id: foundTarget.id as number, name: foundTarget.name }
+  const invite: PartyUser = { id: foundTarget.id, name: foundTarget.name }
   const leader: PartyUser = {
     id: ctx.session!.userId,
     name: ctx.session!.userName,
@@ -154,13 +154,13 @@ async function removeInvite(ctx: RouterContext) {
     }),
   })
 
-  const foundTarget = await users.find(targetId)
+  const foundTarget = await findUserById(targetId)
   if (!foundTarget) {
     throw new httpErrors.NotFound('Target user not found')
   }
 
   const removingUser: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
-  const target: PartyUser = { id: foundTarget.id as number, name: foundTarget.name }
+  const target: PartyUser = { id: foundTarget.id, name: foundTarget.name }
 
   const partyService = container.resolve(PartyService)
   partyService.removeInvite(partyId, removingUser, target)

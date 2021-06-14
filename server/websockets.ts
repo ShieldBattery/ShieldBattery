@@ -141,7 +141,7 @@ export class WebsocketServer {
 
       const clientId = getSingleQueryParam(ctx.query.clientId) ?? cuid()
       const handshakeData: SessionInfo = {
-        sessionId: ctx.sessionId,
+        sessionId: ctx.sessionId!,
         userId: ctx.session.userId,
         clientId,
         userName: ctx.session.userName,

@@ -1,13 +1,13 @@
-import bcrypt from 'bcrypt'
+import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
-import thenify from 'thenify'
+import { SelfUser, SelfUserInfo } from '../../../common/users/user-info'
 import { isUserBanned } from '../models/bans'
 import { getPermissions } from '../models/permissions'
-import users from '../models/users'
 import redis from '../redis'
 import initSession from '../session/init'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
+import { attemptLogin, findSelfById, maybeMigrateSignupIp } from '../users/user-model'
 
 // TODO(tec27): Think about maybe a different mechanism for this. I could see this causing problems
 // when lots of people need to create sessions at once from the same place (e.g. LAN events)
@@ -17,7 +17,7 @@ const loginThrottle = createThrottle('login', {
   window: 60000,
 })
 
-export default function (router) {
+export default function (router: Router) {
   router
     .get('/', getCurrentSession)
     .delete('/', endSession)
@@ -28,15 +28,15 @@ export default function (router) {
     )
 }
 
-async function getCurrentSession(ctx, next) {
-  if (!ctx.session.userId) throw new httpErrors.Gone('Session expired')
+async function getCurrentSession(ctx: RouterContext) {
+  if (!ctx.session?.userId) throw new httpErrors.Gone('Session expired')
   const userId = ctx.session.userId
 
-  let user
+  let user: SelfUser | undefined
   try {
-    user = await users.find(userId)
+    user = await findSelfById(userId)
   } catch (err) {
-    ctx.log.error({ err }, 'error finding user')
+    ctx.log.error({ err, req: ctx.req }, 'error finding user')
     throw err
   }
 
@@ -45,12 +45,12 @@ async function getCurrentSession(ctx, next) {
     throw new httpErrors.Gone('Session expired')
   }
 
-  ctx.body = { user, permissions: ctx.session.permissions }
+  const result: SelfUserInfo = { user, permissions: ctx.session.permissions }
+  ctx.body = result
 }
 
-const bcryptCompare = thenify(bcrypt.compare)
-async function startNewSession(ctx, next) {
-  if (ctx.session.userId) {
+async function startNewSession(ctx: RouterContext) {
+  if (ctx.session?.userId) {
     const { userId, userName, permissions, emailVerified } = ctx.session
     ctx.body = {
       user: { id: userId, name: userName, emailVerified },
@@ -64,35 +64,12 @@ async function startNewSession(ctx, next) {
     throw new httpErrors.BadRequest('Username and password required')
   }
 
-  let user
-  try {
-    user = await users.find(username)
-  } catch (err) {
-    ctx.log.error({ err }, 'error finding user')
-    throw err
-  }
+  const user = await attemptLogin(username, password)
   if (!user) {
     throw new httpErrors.Unauthorized('Incorrect username or password')
   }
 
-  let same
-  try {
-    same = await bcryptCompare(password, user.password)
-  } catch (err) {
-    ctx.log.error({ err }, 'error comparing passwords')
-    throw err
-  }
-  if (!same) {
-    throw new httpErrors.Unauthorized('Incorrect username or password')
-  }
-
-  let isBanned = false
-  try {
-    isBanned = await isUserBanned(user.id)
-  } catch (err) {
-    ctx.log.error({ err }, 'error checking if user is banned')
-    throw err
-  }
+  const isBanned = await isUserBanned(user.id)
   if (isBanned) {
     throw new httpErrors.Unauthorized('This account has been banned')
   }
@@ -100,27 +77,27 @@ async function startNewSession(ctx, next) {
   try {
     await ctx.regenerateSession()
     const perms = await getPermissions(user.id)
-    await users.maybeUpdateIp(user.id, ctx.ip)
+    await maybeMigrateSignupIp(user.id, ctx.ip)
     initSession(ctx, user, perms)
     if (!remember) {
       // Make the cookie a session-expiring cookie
-      ctx.session.cookie.maxAge = undefined
-      ctx.session.cookie.expires = undefined
+      ctx.session!.cookie.maxAge = undefined
+      ctx.session!.cookie.expires = undefined
     }
 
     ctx.body = { user, permissions: perms }
   } catch (err) {
-    ctx.log.error({ err }, 'error regenerating session')
+    ctx.log.error({ err, req: ctx.req }, 'error regenerating session')
     throw err
   }
 }
 
-async function endSession(ctx, next) {
-  if (!ctx.session.userId) {
+async function endSession(ctx: RouterContext) {
+  if (!ctx.session?.userId) {
     throw new httpErrors.Conflict('No session active')
   }
 
-  await redis.srem('user_sessions:' + ctx.session.userId, ctx.sessionId)
+  await redis.srem('user_sessions:' + ctx.session.userId, ctx.sessionId!)
   await ctx.regenerateSession()
   ctx.status = 204
 }

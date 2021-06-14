@@ -2,7 +2,7 @@ import { Map, Record, Set } from 'immutable'
 import { singleton } from 'tsyringe'
 import { ChatEvent, ChatInitEvent, ChatMessage, ChatUser } from '../../../common/chat'
 import filterChatMessage from '../messaging/filter-chat-message'
-import users from '../models/users'
+import { findUserById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
@@ -247,7 +247,7 @@ export default class ChatService {
 
   private async handleUserQuit(userId: number) {
     // TODO(2Pac): Remove this once internal chat structures have been moved to use `userId`.
-    const foundUser = await users.find(userId)
+    const foundUser = await findUserById(userId)
     if (!foundUser) {
       return
     }

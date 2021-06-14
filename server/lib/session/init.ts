@@ -1,8 +1,8 @@
 import { Context } from 'koa'
 import { Permissions } from '../../../common/users/permissions'
-import { User } from '../models/users'
+import { SelfUser } from '../../../common/users/user-info'
 
-export default function initSession(ctx: Context, user: User, permissions: Permissions) {
+export default function initSession(ctx: Context, user: SelfUser, permissions: Permissions) {
   if (!ctx.session) {
     throw new Error('Session must be created on context first')
   }

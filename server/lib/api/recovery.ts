@@ -1,11 +1,12 @@
+import Router, { RouterContext } from '@koa/router'
 import cuid from 'cuid'
 import httpErrors from 'http-errors'
 import { isValidEmail, isValidUsername } from '../../../common/constants'
 import sendMail from '../mail/mailer'
 import { addPasswordResetCode } from '../models/password-resets'
-import { findAllUsernamesWithEmail, findUser } from '../models/users'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
+import { findAllUsersWithEmail, findSelfById, findUserByName } from '../users/user-model'
 
 const forgotUserPassThrottle = createThrottle('forgotuserpass', {
   rate: 30,
@@ -25,7 +26,7 @@ const forgotPasswordSuccessThrottle = createThrottle('forgotpasssuccess', {
   window: 12 * 60 * 60 * 1000,
 })
 
-export default function (router) {
+export default function (router: Router) {
   router
     .post(
       '/user',
@@ -39,7 +40,7 @@ export default function (router) {
     )
 }
 
-async function recoverUsername(ctx, next) {
+async function recoverUsername(ctx: RouterContext) {
   let { email } = ctx.request.body
   if (!email) {
     throw new httpErrors.BadRequest('email must be specified')
@@ -50,7 +51,7 @@ async function recoverUsername(ctx, next) {
     throw new httpErrors.BadRequest('invalid parameters')
   }
 
-  const users = await findAllUsernamesWithEmail(email)
+  const users = await findAllUsersWithEmail(email)
   ctx.status = 204
 
   if (!users.length) {
@@ -68,12 +69,12 @@ async function recoverUsername(ctx, next) {
     subject: 'ShieldBattery Username Recovery',
     templateName: 'username-recovery',
     templateData: {
-      usernames: users.map(username => ({ username })),
+      usernames: users.map(user => ({ username: user.name })),
     },
   })
 }
 
-async function resetPassword(ctx, next) {
+async function resetPassword(ctx: RouterContext) {
   const { email, username } = ctx.request.body
   if (!username || !email) {
     throw new httpErrors.BadRequest('invalid parameters')
@@ -84,10 +85,14 @@ async function resetPassword(ctx, next) {
     throw new httpErrors.BadRequest('invalid parameters')
   }
 
-  const user = await findUser(username)
   ctx.status = 204
+  const user = await findUserByName(username)
+  if (!user) {
+    return
+  }
+  const selfUser = await findSelfById(user.id)
 
-  if (!user || user.email !== trimmedEmail) {
+  if (!selfUser || selfUser.email !== trimmedEmail) {
     return
   }
 
@@ -101,7 +106,7 @@ async function resetPassword(ctx, next) {
   await addPasswordResetCode(user.id, code, ctx.ip)
 
   await sendMail({
-    to: user.email,
+    to: selfUser.email,
     subject: 'ShieldBattery Password Reset',
     templateName: 'password-reset',
     templateData: {

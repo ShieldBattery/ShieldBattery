@@ -21,9 +21,9 @@ import {
   setReportedResults,
   setUserReconciledResult,
 } from '../models/games-users'
-import { findUserIdsForNames } from '../models/users'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
+import { findUsersByName } from '../users/user-model'
 import { joiValidator } from '../validation/joi-validator'
 
 const throttle = createThrottle('gamesResults', {
@@ -92,21 +92,21 @@ async function submitGameResults(ctx: RouterContext, next: Koa.Next) {
   }
 
   const namesInResults = playerResults.map(r => r[0])
-  const namesToIds = await findUserIdsForNames(namesInResults)
+  const namesToUsers = await findUsersByName(namesInResults)
 
   const gameRecord = (await getGameRecord(gameId))!
   const playerIdsInGame = new Set(
     gameRecord.config.teams.map(team => team.filter(p => !p.isComputer).map(p => p.id)).flat(),
   )
 
-  for (const [name, id] of namesToIds.entries()) {
-    if (!playerIdsInGame.has(id)) {
+  for (const [name, user] of namesToUsers.entries()) {
+    if (!playerIdsInGame.has(user.id)) {
       throw new httpErrors.BadRequest(`player '${name}' was not found in the game record`)
     }
   }
 
   const idResults: [number, GameClientPlayerResult][] = playerResults.map(([name, result]) => [
-    namesToIds.get(name)!,
+    namesToUsers.get(name)!.id,
     result,
   ])
 
