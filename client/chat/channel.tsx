@@ -182,10 +182,6 @@ const UserList = React.memo((props: UserListProps) => {
     [dimensionsRef],
   )
 
-  useEffect(() => {
-    listRef.current?.resetAfterIndex(0, false)
-  })
-
   const rowCount = useMemo(
     () => 1 + active.size + (idle.size ? 1 : 0) + idle.size + (offline.size ? 1 : 0) + offline.size,
     [active, idle, offline],
@@ -269,6 +265,8 @@ const UserList = React.memo((props: UserListProps) => {
     },
     [active, idle, offline, rowCount],
   )
+
+  listRef.current?.resetAfterIndex(0, false)
 
   return (
     <UserListContainer ref={containerCallback}>
