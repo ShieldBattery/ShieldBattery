@@ -42,7 +42,6 @@ const UserListContainer = styled.div`
   flex-shrink: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding-bottom: 8px;
 
   background-color: ${background700};
 `
@@ -175,12 +174,6 @@ const UserList = React.memo((props: UserListProps) => {
   const { active, idle, offline } = props.users
   const [dimensionsRef, containerRect] = useObservedDimensions()
   const listRef = useRef<VariableSizeList | null>(null)
-  const containerCallback = useCallback(
-    (node: HTMLElement | null) => {
-      dimensionsRef(node)
-    },
-    [dimensionsRef],
-  )
 
   const rowCount = useMemo(
     () => 1 + active.size + (idle.size ? 1 : 0) + idle.size + (offline.size ? 1 : 0) + offline.size,
@@ -189,7 +182,7 @@ const UserList = React.memo((props: UserListProps) => {
 
   const getRowHeight = useCallback(
     (index: number) => {
-      if (index > rowCount) {
+      if (index >= rowCount) {
         throw new Error('Asked to size nonexistent user: ' + index)
       }
 
@@ -215,7 +208,7 @@ const UserList = React.memo((props: UserListProps) => {
 
   const renderRow = useCallback(
     ({ index, style }: { index: number; style: React.CSSProperties }) => {
-      if (index > rowCount) {
+      if (index >= rowCount) {
         throw new Error('Asked to render nonexistent user: ' + index)
       }
 
@@ -266,13 +259,15 @@ const UserList = React.memo((props: UserListProps) => {
     [active, idle, offline, rowCount],
   )
 
-  listRef.current?.resetAfterIndex(0, false)
+  useMemo(() => {
+    listRef.current?.resetAfterIndex(0, false)
+  }, [getRowHeight])
 
   return (
-    <UserListContainer ref={containerCallback}>
+    <UserListContainer ref={dimensionsRef}>
       <VariableSizeList
         ref={listRef}
-        style={{ overflowX: 'hidden' }}
+        style={{ overflowX: 'hidden', paddingBottom: '8px' }}
         width='100%'
         height={containerRect?.height ?? 0}
         itemCount={rowCount}
