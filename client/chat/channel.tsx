@@ -167,13 +167,6 @@ const UserListEntry = React.memo<UserListEntryProps>(props => {
   )
 })
 
-const UsersVirtualizedList = styled(VariableSizeList)`
-  &:focus,
-  & > div:focus {
-    outline: none;
-  }
-`
-
 interface UserListProps {
   users: UsersRecord
 }
@@ -181,12 +174,10 @@ interface UserListProps {
 const UserList = React.memo((props: UserListProps) => {
   const { active, idle, offline } = props.users
   const [dimensionsRef, containerRect] = useObservedDimensions()
-  const containerRef = useRef<HTMLElement | null>(null)
   const listRef = useRef<VariableSizeList | null>(null)
   const containerCallback = useCallback(
     (node: HTMLElement | null) => {
       dimensionsRef(node)
-      containerRef.current = node
     },
     [dimensionsRef],
   )
@@ -281,15 +272,15 @@ const UserList = React.memo((props: UserListProps) => {
 
   return (
     <UserListContainer ref={containerCallback}>
-      <UsersVirtualizedList
+      <VariableSizeList
         ref={listRef}
-        style={{ height: 'auto', display: 'inline-block', overflow: 'unset' }}
+        style={{ overflowX: 'hidden' }}
         width='100%'
         height={containerRect?.height ?? 0}
         itemCount={rowCount}
         itemSize={getRowHeight}>
         {renderRow}
-      </UsersVirtualizedList>
+      </VariableSizeList>
     </UserListContainer>
   )
 })
