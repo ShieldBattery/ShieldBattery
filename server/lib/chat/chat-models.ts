@@ -154,11 +154,10 @@ export async function addUserToChannel(
   }
 }
 
-// TOOD(tec27): messageData can be more strongly typed
 export async function addMessageToChannel(
   userId: number,
   channelName: string,
-  messageData: Record<string, unknown>,
+  messageData: ChatMessageData,
 ): Promise<DbChatMessage> {
   const { client, done } = await db()
   try {

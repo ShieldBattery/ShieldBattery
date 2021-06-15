@@ -1,5 +1,5 @@
 export enum ChatMessageType {
-  TextMessage = 'textMessage',
+  TextMessage = 'message',
 }
 
 export interface BaseChatMessageData {
