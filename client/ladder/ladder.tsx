@@ -128,14 +128,14 @@ const RankCell = styled(BaseCell)`
 `
 
 const PlayerCell = styled(BaseCell)`
-  width: 168px;
+  width: 176px;
   padding: 0 16px;
   display: flex;
   align-items: center;
 `
 
 const RatingCell = styled(BaseCell)`
-  width: 64px;
+  width: 56px;
   text-align: right;
 `
 
@@ -153,6 +153,7 @@ const LastPlayedCell = styled(BaseCell)`
 const StyledAvatar = styled(Avatar)`
   width: 32px;
   height: 32px;
+  flex-shrink: 0;
   margin-right: 16px;
 `
 
