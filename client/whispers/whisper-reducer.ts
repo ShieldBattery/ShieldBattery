@@ -1,48 +1,42 @@
 import { List, Map, OrderedSet, Record } from 'immutable'
-import {
-  NETWORK_SITE_CONNECTED,
-  WHISPERS_LOAD_SESSION_HISTORY,
-  WHISPERS_LOAD_SESSION_HISTORY_BEGIN,
-  WHISPERS_SESSION_ACTIVATE,
-  WHISPERS_SESSION_DEACTIVATE,
-  WHISPERS_START_SESSION,
-  WHISPERS_START_SESSION_BEGIN,
-  WHISPERS_UPDATE_CLOSE_SESSION,
-  WHISPERS_UPDATE_INIT_SESSION,
-  WHISPERS_UPDATE_MESSAGE,
-  WHISPERS_UPDATE_USER_ACTIVE,
-  WHISPERS_UPDATE_USER_IDLE,
-  WHISPERS_UPDATE_USER_OFFLINE,
-} from '../actions'
+import { WhisperUserStatus } from '../../common/whispers'
+import { NETWORK_SITE_CONNECTED } from '../actions'
 import { TextMessageRecord } from '../messaging/message-records'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
 // How many messages should be kept for inactive channels
 const INACTIVE_CHANNEL_MAX_HISTORY = 150
 
-export class Session extends (new Record({
-  target: null,
-  status: null,
-  messages: new List(),
+export class Session extends Record({
+  target: '',
+  status: WhisperUserStatus.Offline,
+  messages: List<TextMessageRecord>(),
 
   loadingHistory: false,
   hasHistory: true,
 
   activated: false,
   hasUnread: false,
-})) {}
+}) {}
 
-export const WhisperState = new Record({
-  sessions: new OrderedSet(),
+export class WhisperState extends Record({
+  sessions: OrderedSet<string>(),
   // Note that the keys for this map are always lower-case
-  byName: new Map(),
-  errorsByName: new Map(),
-})
+  byName: Map<string, Session>(),
+  errorsByName: Map<string, string>(),
+}) {}
 
 // TODO(tec27): undo this copy-paste
-// Update the messages field for a whisper, keeping the hasUnread flag in proper sync.
-// updateFn is m => messages, and should perform the update operation on the messages field
-function updateMessages(state, targetName, updateFn) {
+/**
+ * Update the messages field for a whisper, keeping the `hasUnread` flag in proper sync.
+ *
+ * @param updateFn A function which should perform the update operation on the messages field.
+ */
+function updateMessages(
+  state: WhisperState,
+  targetName: string,
+  updateFn: (messages: List<TextMessageRecord>) => List<TextMessageRecord>,
+) {
   return state.updateIn(['byName', targetName], c => {
     let updated = updateFn(c.messages)
     if (updated === c.messages) {
@@ -50,7 +44,7 @@ function updateMessages(state, targetName, updateFn) {
     }
 
     let sliced = false
-    if (!c.activated && updated.length > INACTIVE_CHANNEL_MAX_HISTORY) {
+    if (!c.activated && updated.size > INACTIVE_CHANNEL_MAX_HISTORY) {
       updated = updated.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
       sliced = true
     }
@@ -63,7 +57,7 @@ function updateMessages(state, targetName, updateFn) {
 }
 
 export default keyedReducer(new WhisperState(), {
-  [WHISPERS_UPDATE_INIT_SESSION](state, action) {
+  ['@whispers/initSession'](state, action) {
     const { target, targetStatus: status } = action.payload
     const session = new Session({ target, status })
 
@@ -72,12 +66,12 @@ export default keyedReducer(new WhisperState(), {
       .setIn(['byName', target.toLowerCase()], session)
   },
 
-  [WHISPERS_START_SESSION_BEGIN](state, action) {
+  ['@whispers/startWhisperSessionBegin'](state, action) {
     const { target } = action.payload
     return state.deleteIn(['errorsByName', target.toLowerCase()])
   },
 
-  [WHISPERS_START_SESSION](state, action) {
+  ['@whispers/startWhisperSession'](state, action) {
     if (action.error) {
       const { target } = action.meta
       const message =
@@ -89,7 +83,7 @@ export default keyedReducer(new WhisperState(), {
     return state
   },
 
-  [WHISPERS_UPDATE_CLOSE_SESSION](state, action) {
+  ['@whispers/closeSession'](state, action) {
     const { target } = action.payload
 
     return state
@@ -97,7 +91,7 @@ export default keyedReducer(new WhisperState(), {
       .deleteIn(['byName', target.toLowerCase()])
   },
 
-  [WHISPERS_UPDATE_MESSAGE](state, action) {
+  ['@whispers/updateMessage'](state, action) {
     const { id, time, from, to, message } = action.payload
     const target = state.sessions.has(from) ? from : to
     const newMessage = new TextMessageRecord({
@@ -110,41 +104,46 @@ export default keyedReducer(new WhisperState(), {
     return updateMessages(state, target.toLowerCase(), m => m.push(newMessage))
   },
 
-  [WHISPERS_UPDATE_USER_ACTIVE](state, action) {
+  ['@whispers/updateUserActive'](state, action) {
     const { user } = action.payload
     const name = user.toLowerCase()
-    const wasIdle = state.byName.get(name).status === 'idle'
+    const wasIdle = state.byName.get(name)?.status === WhisperUserStatus.Idle
     if (wasIdle) {
       // Don't show online message if the user went from idle -> active
       return state
     }
 
-    return state.setIn(['byName', name, 'status'], 'active')
+    return state.setIn(['byName', name, 'status'], WhisperUserStatus.Active)
   },
 
-  [WHISPERS_UPDATE_USER_IDLE](state, action) {
+  ['@whispers/updateUserIdle'](state, action) {
     const { user } = action.payload
 
-    return state.setIn(['byName', user.toLowerCase(), 'status'], 'idle')
+    return state.setIn(['byName', user.toLowerCase(), 'status'], WhisperUserStatus.Idle)
   },
 
-  [WHISPERS_UPDATE_USER_OFFLINE](state, action) {
+  ['@whispers/updateUserOffline'](state, action) {
     const { user } = action.payload
     const name = user.toLowerCase()
 
-    return state.setIn(['byName', name, 'status'], 'offline')
+    return state.setIn(['byName', name, 'status'], WhisperUserStatus.Offline)
   },
 
-  [WHISPERS_LOAD_SESSION_HISTORY_BEGIN](state, action) {
+  ['@whispers/loadMessageHistoryBegin'](state, action) {
     const { target } = action.payload
 
     return state.updateIn(['byName', target.toLowerCase()], s => s.set('loadingHistory', true))
   },
 
-  [WHISPERS_LOAD_SESSION_HISTORY](state, action) {
+  ['@whispers/loadMessageHistory'](state, action) {
+    if (action.error) {
+      // TODO(2Pac): Handle errors
+      return state
+    }
+
     const { target, limit } = action.meta
     const name = target.toLowerCase()
-    const newMessages = new List(
+    const newMessages = List(
       action.payload.map(
         msg =>
           new TextMessageRecord({
@@ -163,7 +162,7 @@ export default keyedReducer(new WhisperState(), {
     return updateMessages(updated, name, messages => newMessages.concat(messages))
   },
 
-  [WHISPERS_SESSION_ACTIVATE](state, action) {
+  ['@whispers/activateWhisperSession'](state, action) {
     const { target } = action.payload
     const name = target.toLowerCase()
     if (!state.byName.has(name)) {
@@ -174,13 +173,13 @@ export default keyedReducer(new WhisperState(), {
     })
   },
 
-  [WHISPERS_SESSION_DEACTIVATE](state, action) {
+  ['@whispers/deactivateWhisperSession'](state, action) {
     const { target } = action.payload
     const name = target.toLowerCase()
     if (!state.byName.has(name)) {
       return state
     }
-    const hasHistory = state.byName.get(name).messages.size > INACTIVE_CHANNEL_MAX_HISTORY
+    const hasHistory = state.byName.get(name)!.messages.size > INACTIVE_CHANNEL_MAX_HISTORY
 
     return state.updateIn(['byName', name], s => {
       return s
@@ -190,7 +189,7 @@ export default keyedReducer(new WhisperState(), {
     })
   },
 
-  [NETWORK_SITE_CONNECTED](state, action) {
+  [NETWORK_SITE_CONNECTED as any]() {
     return new WhisperState()
   },
 })
