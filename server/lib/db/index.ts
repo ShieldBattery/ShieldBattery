@@ -1,6 +1,7 @@
 import pg from 'pg'
 import { isTestRun } from '../../../common/is-test-run'
 import log from '../logging/logger'
+import handlePgError from './pg-error-handler'
 
 /**
  * The amount of time queries are allowed to run for before they are considered "slow" and logged
@@ -63,7 +64,9 @@ export class DbClient {
     const queryText = isQueryConfig(queryTextOrConfig) ? queryTextOrConfig.text : queryTextOrConfig
     const startTime = Date.now()
     try {
-      return this.wrappedClient.query(queryTextOrConfig, values)
+      return await this.wrappedClient.query(queryTextOrConfig, values)
+    } catch (error) {
+      throw handlePgError(queryText, error)
     } finally {
       const totalTime = Date.now() - startTime
       if (totalTime > SLOW_QUERY_TIME_MS) {
