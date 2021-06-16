@@ -261,7 +261,7 @@ const UserList = React.memo((props: UserListProps) => {
 
   useMemo(() => {
     listRef.current?.resetAfterIndex(0, false)
-  }, [getRowHeight])
+  }, [getRowHeight]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <UserListContainer ref={dimensionsRef}>
