@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { List as VirtualizedList, ListRowRenderer } from 'react-virtualized'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { VariableSizeList } from 'react-window'
 import styled, { css } from 'styled-components'
 import { MULTI_CHANNEL } from '../../common/flags'
 import Avatar from '../avatars/avatar'
-import WindowListener from '../dom/window-listener'
+import { useObservedDimensions } from '../dom/dimension-hooks'
 import Chat from '../messaging/chat'
 import { Message } from '../messaging/message-records'
 import { push } from '../navigation/routing'
@@ -40,6 +40,8 @@ const UserListContainer = styled.div`
   width: 256px;
   flex-grow: 0;
   flex-shrink: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 
   background-color: ${background700};
 `
@@ -119,13 +121,6 @@ const UserListEntryItem = styled.div<UserListEntryItemProps>`
   }}
 `
 
-const USER_LIST_PADDING_HEIGHT = 8
-
-const UserListPadding = styled.div`
-  width: 100%;
-  height: ${USER_LIST_PADDING_HEIGHT}px;
-`
-
 const UserListName = styled.span`
   ${singleLine};
   display: inline-block;
@@ -171,151 +166,117 @@ const UserListEntry = React.memo<UserListEntryProps>(props => {
   )
 })
 
-const UsersVirtualizedList = styled(VirtualizedList)`
-  &:focus,
-  & > div:focus {
-    outline: none;
-  }
-`
-
 interface UserListProps {
   users: UsersRecord
 }
 
-class UserList extends React.Component<UserListProps> {
-  state = {
-    width: 0,
-    height: 0,
-  }
-  _contentRef = React.createRef<HTMLDivElement>()
-  _listRef = React.createRef<VirtualizedList>()
+const UserList = React.memo((props: UserListProps) => {
+  const { active, idle, offline } = props.users
+  const [dimensionsRef, containerRect] = useObservedDimensions()
+  const listRef = useRef<VariableSizeList | null>(null)
 
-  componentDidMount() {
-    this.updateDimensions()
-  }
+  const rowCount = useMemo(
+    () => 1 + active.size + (idle.size ? 1 : 0) + idle.size + (offline.size ? 1 : 0) + offline.size,
+    [active, idle, offline],
+  )
 
-  componentDidUpdate(prevProps: UserListProps) {
-    if (prevProps.users !== this.props.users) {
-      this._listRef.current?.recomputeRowHeights()
-    }
-  }
-
-  getRowHeight = ({ index }: { index: number }) => {
-    const { active, idle, offline } = this.props.users
-    if (index === 0) {
-      return FIRST_OVERLINE_HEIGHT
-    } else if (index < active.size + 1) {
-      return USER_ENTRY_HEIGHT
-    }
-
-    let i = index - (active.size + 1)
-    if (idle.size) {
-      if (i === 0) {
-        return OVERLINE_HEIGHT
-      } else if (i < idle.size + 1) {
-        return USER_ENTRY_HEIGHT
+  const getRowHeight = useCallback(
+    (index: number) => {
+      if (index >= rowCount) {
+        throw new Error('Asked to size nonexistent user: ' + index)
       }
 
-      i -= idle.size + 1
-    }
-
-    if (offline.size) {
-      if (i === 0) {
-        return OVERLINE_HEIGHT
-      } else if (i < offline.size + 1) {
-        return USER_ENTRY_HEIGHT
+      const idleHeaderIndex = idle.size ? active.size + 1 : null
+      let offlineHeaderIndex = null
+      if (offline.size) {
+        offlineHeaderIndex =
+          idleHeaderIndex != null ? idleHeaderIndex + idle.size + 1 : active.size + 1
       }
 
-      i -= offline.size + 1
-    }
+      switch (index) {
+        case 0:
+          return FIRST_OVERLINE_HEIGHT
+        case idleHeaderIndex:
+        case offlineHeaderIndex:
+          return OVERLINE_HEIGHT
+        default:
+          return USER_ENTRY_HEIGHT
+      }
+    },
+    [active, idle, offline, rowCount],
+  )
 
-    if (i === 0) {
-      return USER_LIST_PADDING_HEIGHT
-    }
-
-    throw new Error('Asked to size nonexistent user: ' + index)
-  }
-
-  renderRow: ListRowRenderer = ({ index, style }) => {
-    const { active, idle, offline } = this.props.users
-    if (index === 0) {
-      // NOTE(tec27): We know the active header is always visible because this user is online
-      return (
-        <UserListOverline style={style} key={index}>
-          Active ({active.size})
-        </UserListOverline>
-      )
-    } else if (index < active.size + 1) {
-      const username = active.get(index - 1)!
-      return <UserListEntry style={style} username={username} key={username} />
-    }
-
-    let i = index - (active.size + 1)
-    if (idle.size) {
-      if (i === 0) {
-        return (
-          <UserListOverline style={style} key={index}>
-            Idle ({idle.size})
-          </UserListOverline>
-        )
-      } else if (i < idle.size + 1) {
-        const username = idle.get(i - 1)!
-        return <UserListEntry style={style} username={username} key={username} />
+  const renderRow = useCallback(
+    ({ index, style }: { index: number; style: React.CSSProperties }) => {
+      if (index >= rowCount) {
+        throw new Error('Asked to render nonexistent user: ' + index)
       }
 
-      i -= idle.size + 1
-    }
-
-    if (offline.size) {
-      if (i === 0) {
-        return (
-          <UserListOverline style={style} key={index}>
-            Offline ({offline.size})
-          </UserListOverline>
-        )
-      } else if (i < offline.size + 1) {
-        const username = offline.get(i - 1)!
-        return <UserListEntry style={style} username={username} key={username} faded={true} />
+      const idleHeaderIndex = idle.size ? active.size + 1 : null
+      let offlineHeaderIndex = null
+      if (offline.size) {
+        offlineHeaderIndex =
+          idleHeaderIndex != null ? idleHeaderIndex + idle.size + 1 : active.size + 1
       }
 
-      i -= offline.size + 1
-    }
+      switch (index) {
+        case 0:
+          return (
+            <UserListOverline style={style} key={index}>
+              Active ({active.size})
+            </UserListOverline>
+          )
+        case idleHeaderIndex:
+          return (
+            <UserListOverline style={style} key={index}>
+              Idle ({idle.size})
+            </UserListOverline>
+          )
+        case offlineHeaderIndex:
+          return (
+            <UserListOverline style={style} key={index}>
+              Offline ({offline.size})
+            </UserListOverline>
+          )
+        default:
+          let username: string | undefined
+          let faded = false
+          if (index < active.size + 1) {
+            username = active.get(index - 1)!
+          } else if (offlineHeaderIndex && index > offlineHeaderIndex) {
+            faded = true
+            username = offline.get(index - offlineHeaderIndex - 1)!
+          } else {
+            username = idleHeaderIndex ? idle.get(index - idleHeaderIndex - 1)! : undefined
+          }
 
-    if (i === 0) {
-      return <UserListPadding style={style} key={index} />
-    }
+          if (username) {
+            return <UserListEntry style={style} username={username} key={username} faded={faded} />
+          }
+          throw new Error('Asked to render nonexistent user: ' + index)
+      }
+    },
+    [active, idle, offline, rowCount],
+  )
 
-    throw new Error('Asked to render nonexistent user: ' + index)
-  }
+  useMemo(() => {
+    listRef.current?.resetAfterIndex(0, false)
+  }, [getRowHeight]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  render() {
-    const { active, idle, offline } = this.props.users
-    const rowCount =
-      1 + active.size + (idle.size ? 1 : 0) + idle.size + (offline.size ? 1 : 0) + offline.size + 1
-
-    return (
-      <UserListContainer ref={this._contentRef}>
-        <WindowListener event='resize' listener={this.updateDimensions} />
-        <UsersVirtualizedList
-          ref={this._listRef}
-          width={this.state.width}
-          height={this.state.height}
-          rowCount={rowCount}
-          rowHeight={this.getRowHeight}
-          rowRenderer={this.renderRow}
-        />
-      </UserListContainer>
-    )
-  }
-
-  updateDimensions = () => {
-    const width = this._contentRef.current?.clientWidth ?? 0
-    const height = this._contentRef.current?.clientHeight ?? 0
-    if (this.state.width !== width || this.state.height !== height) {
-      this.setState({ width, height })
-    }
-  }
-}
+  return (
+    <UserListContainer ref={dimensionsRef}>
+      <VariableSizeList
+        ref={listRef}
+        style={{ overflowX: 'hidden', paddingBottom: '8px' }}
+        width='100%'
+        height={containerRect?.height ?? 0}
+        itemCount={rowCount}
+        itemSize={getRowHeight}>
+        {renderRow}
+      </VariableSizeList>
+    </UserListContainer>
+  )
+})
 
 const MESSAGES_LIMIT = 50
 
