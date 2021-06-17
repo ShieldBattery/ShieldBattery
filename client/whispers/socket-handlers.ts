@@ -1,20 +1,18 @@
+import { NydusClient } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
-import {
-  WHISPERS_UPDATE_CLOSE_SESSION,
-  WHISPERS_UPDATE_INIT_SESSION,
-  WHISPERS_UPDATE_MESSAGE,
-  WHISPERS_UPDATE_USER_ACTIVE,
-  WHISPERS_UPDATE_USER_IDLE,
-  WHISPERS_UPDATE_USER_OFFLINE,
-} from '../actions'
-import { dispatch } from '../dispatch-registry'
+import { WhisperEvent } from '../../common/whispers'
+import { dispatch, Dispatchable } from '../dispatch-registry'
 
 const ipcRenderer = new TypedIpcRenderer()
 
-const eventToAction = {
-  initSession(event, siteSocket) {
+type EventToActionMap = {
+  [E in WhisperEvent['action']]?: (event: Extract<WhisperEvent, { action: E }>) => Dispatchable
+}
+
+const eventToAction: EventToActionMap = {
+  initSession(event) {
     return {
-      type: WHISPERS_UPDATE_INIT_SESSION,
+      type: '@whispers/initSession',
       payload: {
         target: event.target,
         targetStatus: event.targetStatus,
@@ -22,9 +20,9 @@ const eventToAction = {
     }
   },
 
-  closeSession(event, siteSocket) {
+  closeSession(event) {
     return {
-      type: WHISPERS_UPDATE_CLOSE_SESSION,
+      type: '@whispers/closeSession',
       payload: {
         target: event.target,
       },
@@ -36,7 +34,7 @@ const eventToAction = {
     ipcRenderer.send('chatNewMessage', { user: event.from, message: event.data.text })
 
     return {
-      type: WHISPERS_UPDATE_MESSAGE,
+      type: '@whispers/updateMessage',
       payload: {
         id: event.id,
         time: event.sent,
@@ -49,7 +47,7 @@ const eventToAction = {
 
   userActive(event) {
     return {
-      type: WHISPERS_UPDATE_USER_ACTIVE,
+      type: '@whispers/updateUserActive',
       payload: {
         user: event.target,
       },
@@ -58,7 +56,7 @@ const eventToAction = {
 
   userIdle(event) {
     return {
-      type: WHISPERS_UPDATE_USER_IDLE,
+      type: '@whispers/updateUserIdle',
       payload: {
         user: event.target,
       },
@@ -67,7 +65,7 @@ const eventToAction = {
 
   userOffline(event) {
     return {
-      type: WHISPERS_UPDATE_USER_OFFLINE,
+      type: '@whispers/updateUserOffline',
       payload: {
         user: event.target,
       },
@@ -75,11 +73,12 @@ const eventToAction = {
   },
 }
 
-export default function registerModule({ siteSocket }) {
+export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
   siteSocket.registerRoute('/whispers/:userAndTarget', (route, event) => {
-    if (!eventToAction[event.action]) return
+    const actionName = event.action as WhisperEvent['action']
+    if (!eventToAction[actionName]) return
 
-    const action = eventToAction[event.action](event, siteSocket)
+    const action = eventToAction[actionName]!(event)
     if (action) dispatch(action)
   })
 }

@@ -4,6 +4,7 @@ import Joi from 'joi'
 import Koa from 'koa'
 import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+import { SendChatMessageServerBody } from '../../../common/chat'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
 import { MULTI_CHANNEL } from '../../../common/flags'
 import { featureEnabled } from '../flags/feature-enabled'
@@ -146,7 +147,7 @@ function sendChatMessage(ctx: RouterContext) {
   const {
     body: { message },
   } = validateRequest(ctx, {
-    body: Joi.object<{ message: string }>({
+    body: Joi.object<SendChatMessageServerBody>({
       message: Joi.string().min(1).required(),
     }),
   })

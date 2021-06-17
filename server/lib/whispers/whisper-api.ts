@@ -5,6 +5,7 @@ import Koa from 'koa'
 import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { USERNAME_MAXLENGTH, USERNAME_MINLENGTH, USERNAME_PATTERN } from '../../../common/constants'
+import { SendWhisperMessageServerBody } from '../../../common/whispers'
 import { httpApi, HttpApi } from '../http/http-api'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -135,7 +136,7 @@ async function sendWhisperMessage(ctx: RouterContext) {
   const {
     body: { message },
   } = validateRequest(ctx, {
-    body: Joi.object<{ message: string }>({
+    body: Joi.object<SendWhisperMessageServerBody>({
       message: Joi.string().min(1).required(),
     }),
   })

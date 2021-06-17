@@ -1,6 +1,7 @@
 import { Map, OrderedSet, Set } from 'immutable'
 import { singleton } from 'tsyringe'
 import { User } from '../../../common/users/user-info'
+import { WhisperEvent, WhisperUserStatus } from '../../../common/whispers'
 import filterChatMessage from '../messaging/filter-chat-message'
 import {
   addMessageToWhisper,
@@ -40,8 +41,7 @@ export default class WhisperService {
   private sessionUsers = Map<string, Set<string>>()
 
   constructor(
-    // TODO(2Pac): Type the whisper publish events
-    private publisher: TypedPublisher<any>,
+    private publisher: TypedPublisher<WhisperEvent>,
     private userSocketsManager: UserSocketsManager,
   ) {
     userSocketsManager
@@ -179,7 +179,7 @@ export default class WhisperService {
   private getUserStatus(userId: number) {
     // TODO(2Pac): check if the user is idle as well
     const isUserOnline = this.userSocketsManager.getById(userId)
-    return isUserOnline ? 'active' : 'offline'
+    return isUserOnline ? WhisperUserStatus.Active : WhisperUserStatus.Offline
   }
 
   private subscribeUserToWhisperSession(user: UserSocketsGroup, target: User) {
