@@ -1,24 +1,27 @@
 import sql from 'sql-template-strings'
 import { WhisperMessageData } from '../../../common/whispers'
 import db from '../db'
+import { Dbify } from '../db/types'
 
 export interface WhisperSessionEntry {
   targetUserId: number
   targetUserName: string
 }
 
+type DbWhisperSessionEntry = Dbify<WhisperSessionEntry>
+
 export async function getWhisperSessionsForUser(userId: number): Promise<WhisperSessionEntry[]> {
   const { client, done } = await db()
   try {
-    const result = await client.query(sql`
-      SELECT u.name AS target_name, u.id AS target_id FROM whisper_sessions
+    const result = await client.query<DbWhisperSessionEntry>(sql`
+      SELECT u.name AS target_user_name, u.id AS target_user_id FROM whisper_sessions
       INNER JOIN users AS u ON target_user_id = u.id
       WHERE user_id = ${userId}
       ORDER BY start_date;
     `)
     return result.rows.map(row => ({
-      targetUserId: row.target_id,
-      targetUserName: row.target_name,
+      targetUserId: row.target_user_id,
+      targetUserName: row.target_user_name,
     }))
   } finally {
     done()
@@ -67,22 +70,24 @@ export async function closeWhisperSession(userId: number, targetUserName: string
   }
 }
 
-export interface DbWhisperMessage {
-  msgId: string
+export interface WhisperMessage {
+  id: string
   from: string
   to: string
   sent: Date
   data: WhisperMessageData
 }
 
+type DbWhisperMessage = Dbify<WhisperMessage>
+
 export async function addMessageToWhisper(
   fromId: number,
   toName: string,
   messageData: WhisperMessageData,
-): Promise<DbWhisperMessage> {
+): Promise<WhisperMessage> {
   const { client, done } = await db()
   try {
-    const result = await client.query(sql`
+    const result = await client.query<DbWhisperMessage>(sql`
       WITH tid AS (
         SELECT t.id AS to_id
         FROM users AS t
@@ -104,7 +109,7 @@ export async function addMessageToWhisper(
 
     const row = result.rows[0]
     return {
-      msgId: row.id,
+      id: row.id,
       from: row.from,
       to: row.to,
       sent: row.sent,
@@ -120,7 +125,7 @@ export async function getMessagesForWhisperSession(
   userName2: string,
   limit = 50,
   beforeDate?: Date,
-): Promise<DbWhisperMessage[]> {
+): Promise<WhisperMessage[]> {
   const { client, done } = await db()
 
   const query = sql`
@@ -152,10 +157,10 @@ export async function getMessagesForWhisperSession(
   `)
 
   try {
-    const result = await client.query(query)
+    const result = await client.query<DbWhisperMessage>(query)
 
     return result.rows.map(row => ({
-      msgId: row.id,
+      id: row.id,
       from: row.from,
       to: row.to,
       sent: row.sent,

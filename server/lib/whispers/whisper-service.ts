@@ -119,8 +119,8 @@ export default class WhisperService {
     ])
 
     this.publisher.publish(getSessionPath(user.name, targetName), {
-      id: result.msgId,
       action: 'message',
+      id: result.id,
       from: result.from,
       to: result.to,
       sent: Number(result.sent),
@@ -150,7 +150,7 @@ export default class WhisperService {
       beforeTime && beforeTime > -1 ? new Date(beforeTime) : undefined,
     )
     return messages.map<WhisperMessage>(m => ({
-      id: m.msgId,
+      id: m.id,
       from: m.from,
       to: m.to,
       sent: Number(m.sent),
