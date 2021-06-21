@@ -8,7 +8,6 @@ import {
   ChatUser,
   GetChannelUsersServerPayload,
 } from '../../../common/chat'
-import { User } from '../../../common/users/user-info'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { findUserById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
