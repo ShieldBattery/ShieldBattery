@@ -31,16 +31,22 @@ const eventToAction: EventToActionMap = {
 
   message(event) {
     // Notify the main process of the new message, so it can display an appropriate notification
-    ipcRenderer.send('chatNewMessage', { user: event.from, message: event.data.text })
+    ipcRenderer.send('chatNewMessage', {
+      user: event.message.from.name,
+      message: event.message.data.text,
+    })
 
     return {
       type: '@whispers/updateMessage',
       payload: {
-        id: event.id,
-        time: event.sent,
-        from: event.from,
-        to: event.to,
-        message: event.data.text,
+        message: {
+          id: event.message.id,
+          time: event.message.sent,
+          from: event.message.from,
+          to: event.message.to,
+          text: event.message.data.text,
+        },
+        users: event.users,
       },
     }
   },

@@ -1,11 +1,12 @@
 import sql from 'sql-template-strings'
+import { User } from '../../../common/users/user-info'
 import { WhisperMessageData } from '../../../common/whispers'
 import db from '../db'
 import { Dbify } from '../db/types'
 
 export interface WhisperSessionEntry {
-  targetUserId: number
-  targetUserName: string
+  targetId: number
+  targetName: string
 }
 
 type DbWhisperSessionEntry = Dbify<WhisperSessionEntry>
@@ -14,14 +15,14 @@ export async function getWhisperSessionsForUser(userId: number): Promise<Whisper
   const { client, done } = await db()
   try {
     const result = await client.query<DbWhisperSessionEntry>(sql`
-      SELECT u.name AS target_user_name, u.id AS target_user_id FROM whisper_sessions
+      SELECT u.name AS target_name, u.id AS target_id FROM whisper_sessions
       INNER JOIN users AS u ON target_user_id = u.id
       WHERE user_id = ${userId}
       ORDER BY start_date;
     `)
     return result.rows.map(row => ({
-      targetUserId: row.target_user_id,
-      targetUserName: row.target_user_name,
+      targetId: row.target_id,
+      targetName: row.target_name,
     }))
   } finally {
     done()
@@ -50,14 +51,14 @@ export async function startWhisperSession(userId: number, targetUserId: number):
   }
 }
 
-export async function closeWhisperSession(userId: number, targetUserName: string): Promise<void> {
+export async function closeWhisperSession(userId: number, targetId: number): Promise<void> {
   const { client, done } = await db()
   try {
     const result = await client.query(sql`
       WITH tid AS (
         SELECT t.id AS target_user_id
         FROM users AS t
-        WHERE t.name = ${targetUserName}
+        WHERE t.id = ${targetId}
       )
       DELETE FROM whisper_sessions
       WHERE user_id = ${userId} AND target_user_id = (SELECT target_user_id FROM tid);
@@ -72,19 +73,35 @@ export async function closeWhisperSession(userId: number, targetUserName: string
 
 export interface WhisperMessage {
   id: string
-  from: string
-  to: string
+  from: User
+  to: User
   sent: Date
   data: WhisperMessageData
 }
 
-type DbWhisperMessage = Dbify<WhisperMessage>
+interface FromUser {
+  fromId: number
+  fromName: string
+}
+
+interface ToUser {
+  toId: number
+  toName: string
+}
+
+type DbWhisperMessage = Dbify<WhisperMessage & FromUser & ToUser>
 
 function convertMessageFromDb(dbMessage: DbWhisperMessage): WhisperMessage {
   return {
     id: dbMessage.id,
-    from: dbMessage.from,
-    to: dbMessage.to,
+    from: {
+      id: dbMessage.from_id,
+      name: dbMessage.from_name,
+    },
+    to: {
+      id: dbMessage.to_id,
+      name: dbMessage.to_name,
+    },
     sent: dbMessage.sent,
     data: dbMessage.data,
   }
@@ -92,7 +109,7 @@ function convertMessageFromDb(dbMessage: DbWhisperMessage): WhisperMessage {
 
 export async function addMessageToWhisper(
   fromId: number,
-  toName: string,
+  toId: number,
   messageData: WhisperMessageData,
 ): Promise<WhisperMessage> {
   const { client, done } = await db()
@@ -101,7 +118,7 @@ export async function addMessageToWhisper(
       WITH tid AS (
         SELECT t.id AS to_id
         FROM users AS t
-        WHERE t.name = ${toName}
+        WHERE t.id = ${toId}
       ), ins AS (
         INSERT INTO whisper_messages (id, from_id, to_id, sent, data)
         SELECT uuid_generate_v4(), ${fromId}, tid.to_id,
@@ -109,7 +126,8 @@ export async function addMessageToWhisper(
         FROM tid
         RETURNING id, from_id, to_id, sent, data
       )
-      SELECT ins.id, u_from.name AS from, u_to.name AS to, ins.sent, ins.data FROM ins
+      SELECT ins.id, u_from.id AS from_id, u_from.name AS from_name, u_to.id AS to_id,
+        u_to.name AS to_name, ins.sent, ins.data FROM ins
       INNER JOIN users AS u_from ON ins.from_id = u_from.id
       INNER JOIN users AS u_to ON ins.to_id = u_to.id;
     `)
@@ -124,8 +142,8 @@ export async function addMessageToWhisper(
 }
 
 export async function getMessagesForWhisperSession(
-  userName1: string,
-  userName2: string,
+  userId1: number,
+  userId2: number,
   limit = 50,
   beforeDate?: Date,
 ): Promise<WhisperMessage[]> {
@@ -135,9 +153,10 @@ export async function getMessagesForWhisperSession(
     WITH u AS (
       SELECT u1.id AS user1_id, u2.id AS user2_id
       FROM users AS u1, users AS u2
-      WHERE u1.name = ${userName1} AND u2.name = ${userName2}
+      WHERE u1.id = ${userId1} AND u2.id = ${userId2}
     ), messages AS (
-      SELECT m.id, u_from.name AS from, u_to.name AS to, m.sent, m.data
+      SELECT m.id, u_from.id AS from_id, u_from.name AS from_name, u_to.id AS to_id,
+        u_to.name AS to_name, m.sent, m.data
       FROM whisper_messages AS m
       INNER JOIN users AS u_from ON m.from_id = u_from.id
       INNER JOIN users AS u_to ON m.to_id = u_to.id, u

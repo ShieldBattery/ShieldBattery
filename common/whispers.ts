@@ -1,3 +1,5 @@
+import { User } from './users/user-info'
+
 export enum WhisperMessageType {
   TextMessage = 'message',
 }
@@ -15,14 +17,11 @@ export type WhisperMessageData = WhisperTextMessageData
 
 export interface WhisperMessage {
   id: string
-  from: WhisperUser
-  to: WhisperUser
+  from: User
+  to: User
   sent: number
   data: WhisperMessageData
 }
-
-// TODO(2Pac): Make this into an interface and include more information here
-export type WhisperUser = string
 
 export enum WhisperUserStatus {
   Active = 'active',
@@ -32,32 +31,36 @@ export enum WhisperUserStatus {
 
 export interface WhisperSessionInitEvent {
   action: 'initSession'
-  target: WhisperUser
+  target: User
   targetStatus: WhisperUserStatus
 }
 
 export interface WhisperSessionCloseEvent {
   action: 'closeSession'
-  target: WhisperUser
+  target: User
 }
 
-export interface WhisperMessageUpdateEvent extends WhisperMessage {
+export interface WhisperMessageUpdateEvent {
   action: 'message'
+  /** A whisper message that was received. */
+  message: WhisperMessage
+  /** A list of user infos participating in the received message. */
+  users: User[]
 }
 
 export interface WhisperUserActiveEvent {
   action: 'userActive'
-  target: WhisperUser
+  target: User
 }
 
 export interface WhisperUserIdleEvent {
   action: 'userIdle'
-  target: WhisperUser
+  target: User
 }
 
 export interface WhisperUserOfflineEvent {
   action: 'userOffline'
-  target: WhisperUser
+  target: User
 }
 
 export type WhisperEvent =
@@ -70,4 +73,17 @@ export type WhisperEvent =
 
 export interface SendWhisperMessageServerBody {
   message: string
+}
+
+/**
+ * Payload returned for a request to retrieve the session history.
+ */
+export interface GetSessionHistoryServerPayload {
+  /**
+   * A list of messages for a particular whisper session. Note that this payload is paginated so not
+   * all of the messages are returned at once.
+   */
+  messages: WhisperMessage[]
+  /** A list of user infos participating in this whisper session. */
+  users: User[]
 }

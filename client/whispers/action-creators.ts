@@ -1,4 +1,4 @@
-import { SendWhisperMessageServerBody, WhisperMessage } from '../../common/whispers'
+import { GetSessionHistoryServerPayload, SendWhisperMessageServerBody } from '../../common/whispers'
 import { ThunkAction } from '../dispatch-registry'
 import { push } from '../navigation/routing'
 import fetch from '../network/fetch'
@@ -75,7 +75,7 @@ export function getMessageHistory(target: string, limit: number): ThunkAction {
     })
     dispatch({
       type: '@whispers/loadMessageHistory',
-      payload: fetch<WhisperMessage[]>(
+      payload: fetch<GetSessionHistoryServerPayload>(
         apiUrl`whispers/${target}/messages?limit=${limit}&beforeTime=${earliestMessageTime}`,
         { method: 'GET' },
       ),
