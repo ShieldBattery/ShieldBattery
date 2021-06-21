@@ -44,7 +44,7 @@ function renderCommonMessage(msg: Message) {
     case CommonMessageType.NewDayMessage:
       return <NewDayMessage key={msg.id} time={msg.time} />
     case CommonMessageType.TextMessage:
-      return <TextMessageDisplay key={msg.id} user={msg.from} time={msg.time} text={msg.text} />
+      return <TextMessageDisplay key={msg.id} userId={msg.from} time={msg.time} text={msg.text} />
     default:
       return null
   }

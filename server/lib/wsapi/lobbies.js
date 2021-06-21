@@ -281,7 +281,7 @@ export class LobbyApi {
     this._publishTo(lobby, {
       type: 'chat',
       time,
-      from: client.name,
+      from: client.userId,
       text,
     })
   }

@@ -13,7 +13,7 @@ export class JoinChannelMessageRecord
     id: '',
     type: ChatMessageType.JoinChannel as typeof ChatMessageType.JoinChannel,
     time: 0,
-    user: '',
+    userId: 0,
   })
   implements BaseMessage {}
 
@@ -22,7 +22,7 @@ export class LeaveChannelMessageRecord
     id: '',
     type: ChatMessageType.LeaveChannel as typeof ChatMessageType.LeaveChannel,
     time: 0,
-    user: '',
+    userId: 0,
   })
   implements BaseMessage {}
 
@@ -31,7 +31,7 @@ export class NewChannelOwnerMessageRecord
     id: '',
     type: ChatMessageType.NewChannelOwner as typeof ChatMessageType.NewChannelOwner,
     time: 0,
-    newOwner: '',
+    newOwnerId: 0,
   })
   implements BaseMessage {}
 

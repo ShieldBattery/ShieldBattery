@@ -141,17 +141,19 @@ const Countdown = styled.div`
 function renderChatMessage(msg: Message) {
   switch (msg.type) {
     case LobbyMessageType.JoinLobby:
-      return <JoinLobbyMessage key={msg.id} time={msg.time} name={msg.name} />
+      return <JoinLobbyMessage key={msg.id} time={msg.time} userId={msg.userId} />
     case LobbyMessageType.LeaveLobby:
-      return <LeaveLobbyMessage key={msg.id} time={msg.time} name={msg.name} />
+      return <LeaveLobbyMessage key={msg.id} time={msg.time} userId={msg.userId} />
     case LobbyMessageType.KickLobbyPlayer:
-      return <KickLobbyPlayerMessage key={msg.id} time={msg.time} name={msg.name} />
+      return <KickLobbyPlayerMessage key={msg.id} time={msg.time} userId={msg.userId} />
     case LobbyMessageType.BanLobbyPlayer:
-      return <BanLobbyPlayerMessage key={msg.id} time={msg.time} name={msg.name} />
+      return <BanLobbyPlayerMessage key={msg.id} time={msg.time} userId={msg.userId} />
     case LobbyMessageType.SelfJoinLobby:
-      return <SelfJoinLobbyMessage key={msg.id} time={msg.time} lobby={msg.lobby} host={msg.host} />
+      return (
+        <SelfJoinLobbyMessage key={msg.id} time={msg.time} lobby={msg.lobby} hostId={msg.hostId} />
+      )
     case LobbyMessageType.LobbyHostChange:
-      return <LobbyHostChangeMessage key={msg.id} time={msg.time} name={msg.name} />
+      return <LobbyHostChangeMessage key={msg.id} time={msg.time} userId={msg.userId} />
     case LobbyMessageType.LobbyCountdownStarted:
       return <LobbyCountdownStartedMessage key={msg.id} time={msg.time} />
     case LobbyMessageType.LobbyCountdownTick:

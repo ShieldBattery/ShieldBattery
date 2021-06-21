@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react'
 import { User } from '../../common/users/user-info'
 import MenuItem from '../material/menu/item'
-import { Popover, useAnchorPosition } from '../material/popover'
+import { OriginX, OriginY, Popover, useAnchorPosition } from '../material/popover'
 import { useAppSelector } from '../redux-hooks'
 import { navigateToWhisper } from '../whispers/action-creators'
 import { Actions, Header, PopoverContents, StyledAvatar, Username } from './profile-overlay-content'
@@ -9,6 +9,12 @@ import { Actions, Header, PopoverContents, StyledAvatar, Username } from './prof
 export interface PopoverRelatedProps {
   open: boolean
   anchor: HTMLElement | null
+  anchorOriginX: OriginX
+  anchorOriginY: OriginY
+  anchorOffsetX?: number
+  anchorOffsetY?: number
+  originX: OriginX
+  originY: OriginY
   children: React.ReactNode
   onDismiss: () => void
 }
@@ -19,17 +25,29 @@ export interface UserProfileOverlayProps extends PopoverRelatedProps {
 
 // TODO(2Pac): Extend this so that popover position can be configured through props
 export function UserProfileOverlay(props: UserProfileOverlayProps) {
-  const { user, children, open, onDismiss, anchor } = props
-  const [, anchorX, anchorY] = useAnchorPosition('left', 'top', anchor ?? null)
+  const {
+    user,
+    children,
+    open,
+    onDismiss,
+    anchor,
+    anchorOriginX,
+    anchorOriginY,
+    anchorOffsetX,
+    anchorOffsetY,
+    originX,
+    originY,
+  } = props
+  const [, anchorX, anchorY] = useAnchorPosition(anchorOriginX, anchorOriginY, anchor ?? null)
 
   return (
     <Popover
       open={open}
       onDismiss={onDismiss}
-      anchorX={(anchorX ?? 0) - 4}
-      anchorY={anchorY ?? 0}
-      originX='right'
-      originY='top'>
+      anchorX={(anchorX ?? 0) + (anchorOffsetX ?? 0)}
+      anchorY={(anchorY ?? 0) + (anchorOffsetY ?? 0)}
+      originX={originX}
+      originY={originY}>
       <PopoverContents>
         <Header>
           <StyledAvatar user={user.name} />

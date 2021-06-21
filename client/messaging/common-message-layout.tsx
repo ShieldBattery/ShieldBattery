@@ -2,6 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import { amberA100 } from '../styles/colors'
 import { body2 } from '../styles/typography'
+import { ConnectedUsername } from './connected-username'
 import {
   InfoImportant,
   SeparatedInfoMessage,
@@ -31,12 +32,14 @@ const Text = styled.span`
   overflow: hidden;
 `
 
-export const TextMessageDisplay = React.memo<{ user: string; time: number; text: string }>(
+export const TextMessageDisplay = React.memo<{ userId: number; time: number; text: string }>(
   props => {
-    const { user, time, text } = props
+    const { userId, time, text } = props
     return (
       <TimestampMessageLayout time={time}>
-        <Username>{user}</Username>
+        <Username>
+          <ConnectedUsername userId={userId} />
+        </Username>
         <Separator aria-hidden={true}>{': '}</Separator>
         <Text>{text}</Text>
       </TimestampMessageLayout>

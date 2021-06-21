@@ -28,7 +28,7 @@ export class TextMessageRecord
     id: '',
     type: CommonMessageType.TextMessage as typeof CommonMessageType.TextMessage,
     time: 0,
-    from: '',
+    from: 0,
     text: '',
   })
   implements BaseMessage {}

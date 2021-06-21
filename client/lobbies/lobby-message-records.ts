@@ -19,7 +19,7 @@ export class JoinLobbyMessageRecord
     id: '',
     type: LobbyMessageType.JoinLobby as typeof LobbyMessageType.JoinLobby,
     time: 0,
-    name: '',
+    userId: 0,
   })
   implements BaseMessage {}
 
@@ -28,7 +28,7 @@ export class LeaveLobbyMessageRecord
     id: '',
     type: LobbyMessageType.LeaveLobby as typeof LobbyMessageType.LeaveLobby,
     time: 0,
-    name: '',
+    userId: 0,
   })
   implements BaseMessage {}
 
@@ -37,7 +37,7 @@ export class KickLobbyPlayerMessageRecord
     id: '',
     type: LobbyMessageType.KickLobbyPlayer as typeof LobbyMessageType.KickLobbyPlayer,
     time: 0,
-    name: '',
+    userId: 0,
   })
   implements BaseMessage {}
 
@@ -46,7 +46,7 @@ export class BanLobbyPlayerMessageRecord
     id: '',
     type: LobbyMessageType.BanLobbyPlayer as typeof LobbyMessageType.BanLobbyPlayer,
     time: 0,
-    name: '',
+    userId: 0,
   })
   implements BaseMessage {}
 
@@ -56,7 +56,7 @@ export class SelfJoinLobbyMessageRecord
     type: LobbyMessageType.SelfJoinLobby as typeof LobbyMessageType.SelfJoinLobby,
     time: 0,
     lobby: '',
-    host: '',
+    hostId: 0,
   })
   implements BaseMessage {}
 
@@ -65,7 +65,7 @@ export class LobbyHostChangeMessageRecord
     id: '',
     type: LobbyMessageType.LobbyHostChange as typeof LobbyMessageType.LobbyHostChange,
     time: 0,
-    name: '',
+    userId: 0,
   })
   implements BaseMessage {}
 

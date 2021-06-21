@@ -153,6 +153,11 @@ const UserListEntry = React.memo<UserListEntryProps>(props => {
           open: overlayOpen,
           onDismiss: onCloseOverlay,
           anchor: userEntryRef.current,
+          anchorOriginX: 'left',
+          anchorOriginY: 'top',
+          anchorOffsetX: -4,
+          originX: 'right',
+          originY: 'top',
         }}
       />
 
@@ -312,11 +317,11 @@ const StyledChat = styled(Chat)`
 function renderMessage(msg: Message) {
   switch (msg.type) {
     case ChatMessageType.JoinChannel:
-      return <JoinChannelMessage key={msg.id} time={msg.time} user={msg.user} />
+      return <JoinChannelMessage key={msg.id} time={msg.time} userId={msg.userId} />
     case ChatMessageType.LeaveChannel:
-      return <LeaveChannelMessage key={msg.id} time={msg.time} user={msg.user} />
+      return <LeaveChannelMessage key={msg.id} time={msg.time} userId={msg.userId} />
     case ChatMessageType.NewChannelOwner:
-      return <NewChannelOwnerMessage key={msg.id} time={msg.time} newOwner={msg.newOwner} />
+      return <NewChannelOwnerMessage key={msg.id} time={msg.time} newOwnerId={msg.newOwnerId} />
     case ChatMessageType.SelfJoinChannel:
       return <SelfJoinChannelMessage key={msg.id} channel={msg.channel} />
     default:
