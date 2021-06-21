@@ -194,8 +194,7 @@ export interface InitChannel {
   type: '@chat/initChannel'
   payload: {
     channel: string
-    activeChannelUsers: ChatUser[]
-    users: User[]
+    activeUsers: ChatUser[]
   }
 }
 

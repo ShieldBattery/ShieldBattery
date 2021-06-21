@@ -31,9 +31,7 @@ export interface ChatUser {
 export interface ChatInitEvent {
   action: 'init'
   /** A list of active users that are in the chat channel. */
-  activeChannelUsers: ChatUser[]
-  /** A list of user infos for channel users that are in the returned `activeChannelUsers` list. */
-  users: User[]
+  activeUsers: ChatUser[]
 }
 
 export interface ChatJoinEvent {

@@ -26,9 +26,9 @@ import {
 class ChatState extends Record({
   /**
    * Maps channel name -> Map of users in that channel. Map of users in the channel is mapped as
-   * user ID -> object containing channel user data and general user info.
+   * user ID -> object containing channel user data.
    */
-  channels: Map<string, Map<number, { channelUser: ChatUser; user: User }>>(),
+  channels: Map<string, Map<number, ChatUser>>(),
   /** Maps userId -> Set of channels they're in (as names). */
   users: Map<number, Set<string>>(),
 }) {}
@@ -77,24 +77,22 @@ export default class ChatService {
     }
 
     const result = await addUserToChannel(userSockets.userId, originalChannelName)
-    const joinedUser = {
-      channelUser: {
-        id: result.userId,
-        name: result.userName,
-      },
-      user: {
-        id: result.userId,
-        name: result.userName,
-      },
+    const channelUser = {
+      id: result.userId,
+      name: result.userName,
     }
 
     this.state = this.state
-      .setIn(['channels', originalChannelName, result.userId], joinedUser)
+      .setIn(['channels', originalChannelName, result.userId], channelUser)
       .updateIn(['users', result.userId], (s = Set()) => s.add(originalChannelName))
 
     this.publisher.publish(getChannelPath(originalChannelName), {
       action: 'join',
-      ...joinedUser,
+      channelUser,
+      user: {
+        id: result.userId,
+        name: result.userName,
+      },
     })
     this.subscribeUserToChannel(userSockets, originalChannelName)
   }
@@ -255,16 +253,7 @@ export default class ChatService {
   private subscribeUserToChannel(userSockets: UserSocketsGroup, channelName: string) {
     userSockets.subscribe<ChatInitEvent>(getChannelPath(channelName), () => ({
       action: 'init',
-      activeChannelUsers: this.state.channels
-        .get(channelName)!
-        .map(u => u.channelUser)
-        .valueSeq()
-        .toArray(),
-      users: this.state.channels
-        .get(channelName)!
-        .map(u => u.user)
-        .valueSeq()
-        .toArray(),
+      activeUsers: this.state.channels.get(channelName)!.valueSeq().toArray(),
     }))
   }
 
@@ -280,21 +269,7 @@ export default class ChatService {
     }
 
     const channelSet = Set(channelsForUser.map(c => c.channelName))
-    const userMap = Map([
-      [
-        userSockets.userId,
-        {
-          channelUser: {
-            id: userSockets.userId,
-            name: userSockets.name,
-          },
-          user: {
-            id: userSockets.userId,
-            name: userSockets.name,
-          },
-        },
-      ],
-    ])
+    const userMap = Map([[userSockets.userId, { id: userSockets.userId, name: userSockets.name }]])
     const inChannels = Map(channelsForUser.map(c => [c.channelName, userMap]))
 
     this.state = this.state

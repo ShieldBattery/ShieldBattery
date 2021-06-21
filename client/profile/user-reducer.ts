@@ -74,20 +74,16 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.usernameToId.set(user.name, user.id)
   },
 
-  ['@chat/initChannel'](state, action) {
-    updateUsers(state, action.payload.users)
-  },
-
-  ['@chat/updateJoin'](state, action) {
-    updateUsers(state, [action.payload.user])
-  },
-
   ['@chat/retrieveUserList'](state, action) {
     if (action.error) {
       return
     }
 
     updateUsers(state, action.payload.users)
+  },
+
+  ['@chat/updateJoin'](state, action) {
+    updateUsers(state, [action.payload.user])
   },
 
   ['@ladder/getRankings'](state, action) {

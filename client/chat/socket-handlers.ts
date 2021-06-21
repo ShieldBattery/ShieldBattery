@@ -18,8 +18,7 @@ const eventToAction: EventToActionMap = {
       type: '@chat/initChannel',
       payload: {
         channel,
-        activeChannelUsers: event.activeChannelUsers,
-        users: event.users,
+        activeUsers: event.activeUsers,
       },
     }
   },

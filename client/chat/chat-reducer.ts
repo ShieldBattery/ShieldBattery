@@ -89,11 +89,11 @@ function updateMessages(
 
 export default keyedReducer(new ChatState(), {
   ['@chat/initChannel'](state, action) {
-    const { channel, activeChannelUsers } = action.payload
+    const { channel, activeUsers } = action.payload
     const record = new Channel({
       name: channel,
       users: new Users({
-        active: Map(activeChannelUsers.map(u => [u.id, u])),
+        active: Map(activeUsers.map(u => [u.id, u])),
       }),
     })
     const updated = state

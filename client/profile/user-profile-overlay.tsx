@@ -54,7 +54,6 @@ export function ConnectedUserProfileOverlay(props: ConnectedUserProfileOverlayPr
     navigateToWhisper(user!.name)
   }, [user])
 
-  // TODO(2Pac): This should be a programming error, so maybe it makes more sense to let it crash?
   if (!user) {
     return null
   }
