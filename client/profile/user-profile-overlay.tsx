@@ -23,7 +23,6 @@ export interface UserProfileOverlayProps extends PopoverRelatedProps {
   user: User
 }
 
-// TODO(2Pac): Extend this so that popover position can be configured through props
 export function UserProfileOverlay(props: UserProfileOverlayProps) {
   const {
     user,
