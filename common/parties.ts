@@ -26,15 +26,6 @@ export interface PartyPayload {
   leader: PartyUser
 }
 
-export interface PartyAddInviteEvent {
-  type: 'addInvite'
-  from: PartyUser
-}
-
-export interface PartyRemoveInviteEvent {
-  type: 'removeInvite'
-}
-
 export interface PartyInitEvent {
   type: 'init'
   party: PartyPayload
@@ -66,8 +57,6 @@ export interface PartyLeaveEvent {
 }
 
 export type PartyEvent =
-  | PartyAddInviteEvent
-  | PartyRemoveInviteEvent
   | PartyInitEvent
   | PartyInviteEvent
   | PartyUninviteEvent

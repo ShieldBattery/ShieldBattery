@@ -7,8 +7,10 @@ import { openSnackbar } from '../snackbars/action-creators'
 
 export function inviteToParty(targetId: number): ThunkAction {
   return dispatch => {
+    const params = { clientId, targetId }
     dispatch({
       type: '@parties/inviteToPartyBegin',
+      payload: params,
     })
 
     const requestBody: InviteToPartyServerBody = { clientId, targetId }
@@ -25,14 +27,17 @@ export function inviteToParty(targetId: number): ThunkAction {
         )
         throw err
       }),
+      meta: params,
     })
   }
 }
 
 export function removePartyInvite(partyId: string, targetId: number): ThunkAction {
   return dispatch => {
+    const params = { partyId, targetId }
     dispatch({
       type: '@parties/removePartyInviteBegin',
+      payload: params,
     })
 
     dispatch({
@@ -47,14 +52,17 @@ export function removePartyInvite(partyId: string, targetId: number): ThunkActio
         )
         throw err
       }),
+      meta: params,
     })
   }
 }
 
 export function declinePartyInvite(partyId: string): ThunkAction {
   return dispatch => {
+    const params = { partyId }
     dispatch({
       type: '@parties/declinePartyInviteBegin',
+      payload: params,
     })
 
     dispatch({
@@ -70,14 +78,17 @@ export function declinePartyInvite(partyId: string): ThunkAction {
         )
         throw err
       }),
+      meta: params,
     })
   }
 }
 
 export function acceptPartyInvite(partyId: string): ThunkAction {
   return dispatch => {
+    const params = { partyId, clientId }
     dispatch({
       type: '@parties/acceptPartyInviteBegin',
+      payload: params,
     })
 
     const requestBody: AcceptPartyInviteServerBody = { clientId }
@@ -95,6 +106,7 @@ export function acceptPartyInvite(partyId: string): ThunkAction {
         )
         throw err
       }),
+      meta: params,
     })
   }
 }

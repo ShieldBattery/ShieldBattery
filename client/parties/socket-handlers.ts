@@ -10,26 +10,6 @@ type EventToActionMap = {
 }
 
 const eventToAction: EventToActionMap = {
-  addInvite: (partyId, event) => {
-    const { from } = event
-    return {
-      type: '@parties/addInvite',
-      payload: {
-        partyId,
-        from,
-      },
-    }
-  },
-
-  removeInvite: partyId => {
-    return {
-      type: '@parties/removeInvite',
-      payload: {
-        partyId,
-      },
-    }
-  },
-
   init: (partyId, event) => {
     const { party } = event
     return {
@@ -45,6 +25,7 @@ const eventToAction: EventToActionMap = {
     return {
       type: '@parties/invite',
       payload: {
+        partyId,
         invitedUser,
       },
     }
@@ -55,6 +36,7 @@ const eventToAction: EventToActionMap = {
     return {
       type: '@parties/uninvite',
       payload: {
+        partyId,
         target,
       },
     }
@@ -65,6 +47,7 @@ const eventToAction: EventToActionMap = {
     return {
       type: '@parties/decline',
       payload: {
+        partyId,
         target,
       },
     }
@@ -75,6 +58,7 @@ const eventToAction: EventToActionMap = {
     return {
       type: '@parties/join',
       payload: {
+        partyId,
         user,
       },
     }
@@ -85,6 +69,7 @@ const eventToAction: EventToActionMap = {
     return {
       type: '@parties/leave',
       payload: {
+        partyId,
         user,
       },
     }

@@ -51,7 +51,7 @@ function convertPartyServiceError(err: Error) {
       throw new httpErrors.NotFound(err.message)
     case PartyServiceErrorCode.InvalidAction:
       throw new httpErrors.BadRequest(err.message)
-    case PartyServiceErrorCode.NotificationFail:
+    case PartyServiceErrorCode.NotificationFailure:
       throw new httpErrors.InternalServerError(err.message)
     default:
       assertUnreachable(err.code)

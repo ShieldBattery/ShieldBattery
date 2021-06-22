@@ -4,118 +4,160 @@ import { BaseFetchFailure } from '../network/fetch-action-types'
 export type PartiesActions =
   | InviteToPartyBegin
   | InviteToPartySuccess
-  | BaseFetchFailure<'@parties/inviteToParty'>
+  | InviteToPartyFailure
   | RemovePartyInviteBegin
   | RemovePartyInviteSuccess
-  | BaseFetchFailure<'@parties/removePartyInvite'>
+  | RemovePartyInviteFailure
   | DeclinePartyInviteBegin
   | DeclinePartyInviteSuccess
-  | BaseFetchFailure<'@parties/declinePartyInvite'>
+  | DeclinePartyInviteFailure
   | AcceptPartyInviteBegin
   | AcceptPartyInviteSuccess
-  | BaseFetchFailure<'@parties/acceptPartyInvite'>
-  | AddInvite
-  | RemoveInvite
-  | Init
-  | Invite
-  | Uninvite
-  | Decline
-  | Join
-  | Leave
+  | AcceptPartyInviteFailure
+  | InitParty
+  | InviteToParty
+  | UninviteFromParty
+  | DeclinePartyInvite
+  | JoinParty
+  | LeaveParty
 
 export interface InviteToPartyBegin {
   type: '@parties/inviteToPartyBegin'
+  payload: {
+    clientId: string
+    targetId: number
+  }
 }
 
 export interface InviteToPartySuccess {
   type: '@parties/inviteToParty'
   payload: void
+  meta: {
+    clientId: string
+    targetId: number
+  }
   error?: false
+}
+
+export interface InviteToPartyFailure extends BaseFetchFailure<'@parties/inviteToParty'> {
+  meta: {
+    clientId: string
+    targetId: number
+  }
 }
 
 export interface RemovePartyInviteBegin {
   type: '@parties/removePartyInviteBegin'
+  payload: {
+    partyId: string
+    targetId: number
+  }
 }
 
 export interface RemovePartyInviteSuccess {
   type: '@parties/removePartyInvite'
   payload: void
+  meta: {
+    partyId: string
+    targetId: number
+  }
   error?: false
+}
+
+export interface RemovePartyInviteFailure extends BaseFetchFailure<'@parties/removePartyInvite'> {
+  meta: {
+    partyId: string
+    targetId: number
+  }
 }
 
 export interface DeclinePartyInviteBegin {
   type: '@parties/declinePartyInviteBegin'
+  payload: {
+    partyId: string
+  }
 }
 
 export interface DeclinePartyInviteSuccess {
   type: '@parties/declinePartyInvite'
   payload: void
+  meta: {
+    partyId: string
+  }
   error?: false
+}
+
+export interface DeclinePartyInviteFailure extends BaseFetchFailure<'@parties/declinePartyInvite'> {
+  meta: {
+    partyId: string
+  }
 }
 
 export interface AcceptPartyInviteBegin {
   type: '@parties/acceptPartyInviteBegin'
+  payload: {
+    partyId: string
+  }
 }
 
 export interface AcceptPartyInviteSuccess {
   type: '@parties/acceptPartyInvite'
   payload: void
+  meta: {
+    partyId: string
+  }
   error?: false
 }
 
-export interface AddInvite {
-  type: '@parties/addInvite'
-  payload: {
-    partyId: string
-    from: PartyUser
-  }
-}
-
-export interface RemoveInvite {
-  type: '@parties/removeInvite'
-  payload: {
+export interface AcceptPartyInviteFailure extends BaseFetchFailure<'@parties/acceptPartyInvite'> {
+  meta: {
     partyId: string
   }
 }
 
-export interface Init {
+export interface InitParty {
   type: '@parties/init'
   payload: {
     party: PartyPayload
   }
 }
 
-export interface Invite {
+export interface InviteToParty {
   type: '@parties/invite'
   payload: {
+    partyId: string
     invitedUser: PartyUser
   }
 }
 
-export interface Uninvite {
+export interface UninviteFromParty {
   type: '@parties/uninvite'
   payload: {
+    partyId: string
     target: PartyUser
   }
 }
 
-export interface Decline {
+export interface DeclinePartyInvite {
   type: '@parties/decline'
   payload: {
+    partyId: string
     target: PartyUser
   }
 }
 
-export interface Join {
+export interface JoinParty {
   type: '@parties/join'
   payload: {
+    partyId: string
     user: PartyUser
   }
 }
 
-export interface Leave {
+export interface LeaveParty {
   type: '@parties/leave'
   payload: {
+    partyId: string
     user: PartyUser
   }
 }

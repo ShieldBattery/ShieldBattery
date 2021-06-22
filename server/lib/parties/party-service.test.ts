@@ -2,22 +2,17 @@ import { NydusServer } from 'nydus'
 import { NotificationType } from '../../../common/notifications'
 import { PartyUser } from '../../../common/parties'
 import NotificationService from '../notifications/notification-service'
+import { createFakeNotificationService } from '../notifications/testing/notification-service'
 import { RequestSessionLookup } from '../websockets/session-lookup'
-import { ClientSocketsManager, UserSocketsManager } from '../websockets/socket-groups'
+import { ClientSocketsManager } from '../websockets/socket-groups'
 import {
   clearTestLogs,
   createFakeNydusServer,
   InspectableNydusClient,
   NydusConnector,
 } from '../websockets/testing/websockets'
-import PartyService, {
-  getInvitesPath,
-  getPartyPath,
-  PartyRecord,
-  toPartyJson,
-} from './party-service'
-
-jest.mock('../notifications/notification-service')
+import { TypedPublisher } from '../websockets/typed-publisher'
+import PartyService, { getPartyPath, PartyRecord, toPartyJson } from './party-service'
 
 describe('parties/party-service', () => {
   const user1: PartyUser = { id: 1, name: 'pachi' }
@@ -59,19 +54,15 @@ describe('parties/party-service', () => {
   beforeEach(() => {
     nydus = createFakeNydusServer()
     const sessionLookup = new RequestSessionLookup()
-    const userSocketsManager = new UserSocketsManager(nydus, sessionLookup, async () => {})
     const clientSocketsManager = new ClientSocketsManager(nydus, sessionLookup)
-    notificationService = new NotificationService(nydus, clientSocketsManager)
-    partyService = new PartyService(
-      nydus,
-      clientSocketsManager,
-      userSocketsManager,
-      notificationService,
-    )
+    const publisher = new TypedPublisher(nydus)
+    notificationService = createFakeNotificationService()
+    partyService = new PartyService(publisher, clientSocketsManager, notificationService)
     connector = new NydusConnector(nydus, sessionLookup)
 
     client1 = connector.connectClient(user1, USER1_CLIENT_ID)
     client2 = connector.connectClient(user2, USER2_CLIENT_ID)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     client3 = connector.connectClient(user3, USER3_CLIENT_ID)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     client4 = connector.connectClient(user4, USER4_CLIENT_ID)
@@ -94,7 +85,7 @@ describe('parties/party-service', () => {
     let party: PartyRecord
 
     test('should throw if inviting yourself', async () => {
-      await expect(() =>
+      await expect(
         partyService.invite(user2, USER2_CLIENT_ID, user2),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"Can't invite yourself to the party"`)
     })
@@ -107,7 +98,7 @@ describe('parties/party-service', () => {
       })
 
       test('should throw if invited by non-leader', async () => {
-        await expect(() =>
+        await expect(
           partyService.invite(user2, USER2_CLIENT_ID, user3),
         ).rejects.toThrowErrorMatchingInlineSnapshot(`"Only party leader can invite people"`)
       })
@@ -115,7 +106,7 @@ describe('parties/party-service', () => {
       test('should throw if invite already exists', async () => {
         await partyService.invite(leader, USER1_CLIENT_ID, user3)
 
-        await expect(() =>
+        await expect(
           partyService.invite(leader, USER1_CLIENT_ID, user3),
         ).rejects.toThrowErrorMatchingInlineSnapshot(`"An invite already exists for this user"`)
       })
@@ -124,7 +115,7 @@ describe('parties/party-service', () => {
         await partyService.invite(leader, USER1_CLIENT_ID, user3)
         partyService.acceptInvite(party.id, user3, USER3_CLIENT_ID)
 
-        await expect(() =>
+        await expect(
           partyService.invite(leader, USER1_CLIENT_ID, user3),
         ).rejects.toThrowErrorMatchingInlineSnapshot(
           `"This user is already a member of this party"`,
@@ -202,24 +193,9 @@ describe('parties/party-service', () => {
     test('should throw when notification creation fails', async () => {
       notificationService.addNotification = jest.fn().mockRejectedValue(undefined)
 
-      await expect(() =>
+      await expect(
         partyService.invite(user1, USER1_CLIENT_ID, user2),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"Error creating the notification"`)
-    })
-
-    test('should subscribe invited users to the invites path', async () => {
-      leader = user1
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user3)
-
-      expect(client2.publish).toHaveBeenCalledWith(getInvitesPath(party.id, user2.id), {
-        type: 'addInvite',
-        from: leader,
-      })
-      expect(client3.publish).toHaveBeenCalledWith(getInvitesPath(party.id, user3.id), {
-        type: 'addInvite',
-        from: leader,
-      })
     })
 
     test('should invite an offline user', async () => {
@@ -236,18 +212,6 @@ describe('parties/party-service', () => {
     beforeEach(async () => {
       party = await partyService.invite(user1, USER1_CLIENT_ID, user2)
       party = await partyService.invite(user1, USER1_CLIENT_ID, user3)
-    })
-
-    test('should unsubscribe user from the invites path', () => {
-      partyService.decline(party.id, user2)
-
-      expect(nydus.publish).toHaveBeenCalledWith(getInvitesPath(party.id, user2.id), {
-        type: 'removeInvite',
-      })
-      expect(nydus.unsubscribeClient).toHaveBeenCalledWith(
-        client2,
-        getInvitesPath(party.id, user2.id),
-      )
     })
 
     test('should clear the invite notification', async () => {
@@ -302,18 +266,6 @@ describe('parties/party-service', () => {
       leader = user1
       party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
       party = await partyService.invite(leader, USER1_CLIENT_ID, user3)
-    })
-
-    test('should unsubscribe user from the invites path', () => {
-      partyService.removeInvite(party.id, leader, user2)
-
-      expect(nydus.publish).toHaveBeenCalledWith(getInvitesPath(party.id, user2.id), {
-        type: 'removeInvite',
-      })
-      expect(nydus.unsubscribeClient).toHaveBeenCalledWith(
-        client2,
-        getInvitesPath(party.id, user2.id),
-      )
     })
 
     test('should clear the invite notification', async () => {
@@ -376,18 +328,6 @@ describe('parties/party-service', () => {
       leader = user1
       party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
       party = await partyService.invite(leader, USER1_CLIENT_ID, user3)
-    })
-
-    test('should unsubscribe user from the invites path', () => {
-      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
-
-      expect(nydus.publish).toHaveBeenCalledWith(getInvitesPath(party.id, user2.id), {
-        type: 'removeInvite',
-      })
-      expect(nydus.unsubscribeClient).toHaveBeenCalledWith(
-        client2,
-        getInvitesPath(party.id, user2.id),
-      )
     })
 
     test('should clear the invite notification', async () => {
