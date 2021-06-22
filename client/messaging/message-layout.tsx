@@ -44,6 +44,8 @@ const longTimestamp = new Intl.DateTimeFormat(navigator.language, {
 export const Separator = styled.i`
   position: absolute;
   display: inline-block;
+  top: -10000px;
+  left: -10000px;
   opacity: 0;
   width: 0;
   line-height: inherit;
