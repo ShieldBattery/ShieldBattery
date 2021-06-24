@@ -80,6 +80,16 @@ export interface WhisperMessage {
 
 type DbWhisperMessage = Dbify<WhisperMessage>
 
+function convertMessageFromDb(dbMessage: DbWhisperMessage): WhisperMessage {
+  return {
+    id: dbMessage.id,
+    from: dbMessage.from,
+    to: dbMessage.to,
+    sent: dbMessage.sent,
+    data: dbMessage.data,
+  }
+}
+
 export async function addMessageToWhisper(
   fromId: number,
   toName: string,
@@ -107,14 +117,7 @@ export async function addMessageToWhisper(
       throw new Error('No rows returned')
     }
 
-    const row = result.rows[0]
-    return {
-      id: row.id,
-      from: row.from,
-      to: row.to,
-      sent: row.sent,
-      data: row.data,
-    }
+    return convertMessageFromDb(result.rows[0])
   } finally {
     done()
   }
@@ -159,13 +162,7 @@ export async function getMessagesForWhisperSession(
   try {
     const result = await client.query<DbWhisperMessage>(query)
 
-    return result.rows.map(row => ({
-      id: row.id,
-      from: row.from,
-      to: row.to,
-      sent: row.sent,
-      data: row.data,
-    }))
+    return result.rows.map(row => convertMessageFromDb(row))
   } finally {
     done()
   }
