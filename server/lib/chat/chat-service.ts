@@ -1,6 +1,12 @@
 import { Map, Record, Set } from 'immutable'
 import { singleton } from 'tsyringe'
-import { ChatEvent, ChatInitEvent, ChatMessage, ChatUser } from '../../../common/chat'
+import {
+  ChatEvent,
+  ChatInitEvent,
+  ChatMessage,
+  ChatMessageType,
+  ChatUser,
+} from '../../../common/chat'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { findUserById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
@@ -130,7 +136,7 @@ export default class ChatService {
 
     const text = filterChatMessage(message)
     const result = await addMessageToChannel(userSockets.session.userId, originalChannelName, {
-      type: 'message',
+      type: ChatMessageType.TextMessage,
       text,
     })
 

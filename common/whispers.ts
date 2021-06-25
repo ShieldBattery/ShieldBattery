@@ -1,5 +1,5 @@
 export enum WhisperMessageType {
-  TextMessage = 'textMessage',
+  TextMessage = 'message',
 }
 
 export interface BaseWhisperMessageData {

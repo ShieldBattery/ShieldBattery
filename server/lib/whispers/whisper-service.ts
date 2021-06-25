@@ -1,18 +1,23 @@
 import { Map, OrderedSet, Set } from 'immutable'
 import { singleton } from 'tsyringe'
 import { User } from '../../../common/users/user-info'
-import { WhisperEvent, WhisperUserStatus } from '../../../common/whispers'
+import {
+  WhisperEvent,
+  WhisperMessage,
+  WhisperMessageType,
+  WhisperUserStatus,
+} from '../../../common/whispers'
 import filterChatMessage from '../messaging/filter-chat-message'
+import { findUserById, findUserByName } from '../users/user-model'
+import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
+import { TypedPublisher } from '../websockets/typed-publisher'
 import {
   addMessageToWhisper,
   closeWhisperSession,
   getMessagesForWhisperSession,
   getWhisperSessionsForUser,
   startWhisperSession,
-} from '../models/whispers'
-import { findUserById, findUserByName } from '../users/user-model'
-import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
-import { TypedPublisher } from '../websockets/typed-publisher'
+} from './whisper-models'
 
 export enum WhisperServiceErrorCode {
   UserOffline,
@@ -102,7 +107,7 @@ export default class WhisperService {
 
     const text = filterChatMessage(message)
     const result = await addMessageToWhisper(userId, targetName, {
-      type: 'message',
+      type: WhisperMessageType.TextMessage,
       text,
     })
 
@@ -114,8 +119,8 @@ export default class WhisperService {
     ])
 
     this.publisher.publish(getSessionPath(user.name, targetName), {
-      id: result.msgId,
       action: 'message',
+      id: result.id,
       from: result.from,
       to: result.to,
       sent: Number(result.sent),
@@ -128,8 +133,7 @@ export default class WhisperService {
     targetName: string,
     limit?: number,
     beforeTime?: number,
-    // TODO(2Pac): Type the return type of whisper message
-  ): Promise<any[]> {
+  ): Promise<WhisperMessage[]> {
     const user = await this.getUserById(userId)
 
     if (!this.userSessions.get(user.name)?.has(targetName)) {
@@ -139,9 +143,14 @@ export default class WhisperService {
       )
     }
 
-    const messages = await getMessagesForWhisperSession(user.name, targetName, limit, beforeTime)
-    return messages.map(m => ({
-      id: m.msgId,
+    const messages = await getMessagesForWhisperSession(
+      user.name,
+      targetName,
+      limit,
+      beforeTime && beforeTime > -1 ? new Date(beforeTime) : undefined,
+    )
+    return messages.map<WhisperMessage>(m => ({
+      id: m.id,
       from: m.from,
       to: m.to,
       sent: Number(m.sent),
