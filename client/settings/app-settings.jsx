@@ -7,7 +7,9 @@ import SubmitOnEnter from '../forms/submit-on-enter'
 import PlayIcon from '../icons/material/play_arrow-24px.svg'
 import StopIcon from '../icons/material/stop-24px.svg'
 import { TextButton } from '../material/button'
+import CheckBox from '../material/check-box'
 import Slider from '../material/slider'
+import { FormContainer } from './settings-content'
 
 const VolumeSettings = styled.div`
   display: flex;
@@ -39,7 +41,7 @@ class AppForm extends React.Component {
   }
 
   render() {
-    const { bindCustom, isPlayingTestSound, onTestSoundClick, onSubmit } = this.props
+    const { bindCustom, isPlayingTestSound, onTestSoundClick, onSubmit, bindCheckable } = this.props
     const testSoundLabel = isPlayingTestSound ? (
       <>
         <StopIcon />
@@ -55,19 +57,30 @@ class AppForm extends React.Component {
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
-        <VolumeSettings>
-          <StyledSlider
-            {...bindCustom('masterVolume')}
-            label='Master volume'
-            tabIndex={0}
-            min={0}
-            max={100}
-            step={1}
-            showTicks={false}
-            onChange={this.onMasterVolumeChange}
-          />
-          <TestSoundButton label={testSoundLabel} onClick={onTestSoundClick} />
-        </VolumeSettings>
+        <FormContainer>
+          <div>
+            <VolumeSettings>
+              <StyledSlider
+                {...bindCustom('masterVolume')}
+                label='Master volume'
+                tabIndex={0}
+                min={0}
+                max={100}
+                step={1}
+                showTicks={false}
+                onChange={this.onMasterVolumeChange}
+              />
+              <TestSoundButton label={testSoundLabel} onClick={onTestSoundClick} />
+            </VolumeSettings>
+          </div>
+          <div>
+            <CheckBox
+              {...bindCheckable('runAppAtSystemStart ')}
+              label='Run ShieldBattery on system startup'
+              inputProps={{ tabIndex: 0 }}
+            />
+          </div>
+        </FormContainer>
       </form>
     )
   }
@@ -115,6 +128,7 @@ export default class AppSettings extends React.Component {
     const { isPlayingTestSound } = this.state
     const formModel = {
       masterVolume: localSettings.masterVolume,
+      runAppAtSystemStart: localSettings.runAppAtSystemStart,
     }
 
     return (

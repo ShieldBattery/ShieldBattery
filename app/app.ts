@@ -25,7 +25,6 @@ const ipcMain = new TypedIpcMain()
 
 getUserDataPath()
 app.setAppUserModelId('net.shieldbattery.client')
-
 autoUpdater.logger = logger
 // We control the download ourselves to avoid problems with double-downloading that this library
 // sometimes has
@@ -151,6 +150,11 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
     })
 
   localSettings.on('change', settings => {
+    if (settings.runAppAtSystemStart !== app.getLoginItemSettings().openAtLogin) {
+      app.setLoginItemSettings({
+        openAtLogin: settings.runAppAtSystemStart,
+      })
+    }
     TypedIpcSender.from(mainWindow?.webContents).send('settingsLocalChanged', settings)
   })
   scrSettings.on('change', settings => {

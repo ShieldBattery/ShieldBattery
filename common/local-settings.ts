@@ -16,6 +16,7 @@ export interface ShieldBatteryAppSettingsData {
 }
 
 export interface LocalSettingsData extends ShieldBatteryAppSettingsData {
+  runAppAtSystemStart: boolean
   starcraftPath: string
   masterVolume: number
   gameWinWidth: number
