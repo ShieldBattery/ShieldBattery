@@ -59,11 +59,11 @@ function updateMessages(
 export default keyedReducer(new WhisperState(), {
   ['@whispers/initSession'](state, action) {
     const { target, targetStatus: status } = action.payload
-    const session = new Session({ target, status })
+    const session = new Session({ target: target.name, status })
 
     return state
-      .update('sessions', s => s.add(target))
-      .setIn(['byName', target.toLowerCase()], session)
+      .update('sessions', s => s.add(target.name))
+      .setIn(['byName', target.name.toLowerCase()], session)
   },
 
   ['@whispers/startWhisperSessionBegin'](state, action) {
@@ -87,18 +87,20 @@ export default keyedReducer(new WhisperState(), {
     const { target } = action.payload
 
     return state
-      .update('sessions', s => s.delete(target))
-      .deleteIn(['byName', target.toLowerCase()])
+      .update('sessions', s => s.delete(target.name))
+      .deleteIn(['byName', target.name.toLowerCase()])
   },
 
   ['@whispers/updateMessage'](state, action) {
-    const { id, time, from, to, message } = action.payload
-    const target = state.sessions.has(from) ? from : to
+    const {
+      message: { id, time, from, to, text },
+    } = action.payload
+    const target = state.sessions.has(from.name) ? from.name : to.name
     const newMessage = new TextMessageRecord({
       id,
       time,
-      from,
-      text: message,
+      from: from.name,
+      text,
     })
 
     return updateMessages(state, target.toLowerCase(), m => m.push(newMessage))
@@ -106,7 +108,7 @@ export default keyedReducer(new WhisperState(), {
 
   ['@whispers/updateUserActive'](state, action) {
     const { user } = action.payload
-    const name = user.toLowerCase()
+    const name = user.name.toLowerCase()
     const wasIdle = state.byName.get(name)?.status === WhisperUserStatus.Idle
     if (wasIdle) {
       // Don't show online message if the user went from idle -> active
@@ -119,12 +121,12 @@ export default keyedReducer(new WhisperState(), {
   ['@whispers/updateUserIdle'](state, action) {
     const { user } = action.payload
 
-    return state.setIn(['byName', user.toLowerCase(), 'status'], WhisperUserStatus.Idle)
+    return state.setIn(['byName', user.name.toLowerCase(), 'status'], WhisperUserStatus.Idle)
   },
 
   ['@whispers/updateUserOffline'](state, action) {
     const { user } = action.payload
-    const name = user.toLowerCase()
+    const name = user.name.toLowerCase()
 
     return state.setIn(['byName', name, 'status'], WhisperUserStatus.Offline)
   },
@@ -144,12 +146,12 @@ export default keyedReducer(new WhisperState(), {
     const { target, limit } = action.meta
     const name = target.toLowerCase()
     const newMessages = List(
-      action.payload.map(
+      action.payload.messages.map(
         msg =>
           new TextMessageRecord({
             id: msg.id,
             time: msg.sent,
-            from: msg.from,
+            from: msg.from.name,
             text: msg.data.text,
           }),
       ),

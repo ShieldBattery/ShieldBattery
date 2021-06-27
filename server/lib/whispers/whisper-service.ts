@@ -2,6 +2,7 @@ import { Map, OrderedSet, Set } from 'immutable'
 import { singleton } from 'tsyringe'
 import { User } from '../../../common/users/user-info'
 import {
+  GetSessionHistoryServerPayload,
   WhisperEvent,
   WhisperMessage,
   WhisperMessageType,
@@ -13,10 +14,10 @@ import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-group
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
   addMessageToWhisper,
-  closeWhisperSession,
+  closeWhisperSession as dbCloseWhisperSession,
   getMessagesForWhisperSession,
   getWhisperSessionsForUser,
-  startWhisperSession,
+  startWhisperSession as dbStartWhisperSession,
 } from './whisper-models'
 
 export enum WhisperServiceErrorCode {
@@ -40,10 +41,10 @@ export function getSessionPath(user: string, target: string) {
 
 @singleton()
 export default class WhisperService {
-  /** Maps user name -> OrderedSet of their whisper sessions (as names of target users) */
-  private userSessions = Map<string, OrderedSet<string>>()
-  /** Maps user name -> Set of users that have session open with them (as names) */
-  private sessionUsers = Map<string, Set<string>>()
+  /** Maps user ID -> OrderedSet of their whisper sessions (as IDs of target users) */
+  private userSessions = Map<number, OrderedSet<number>>()
+  /** Maps user ID -> Set of users that have session open with them (as IDs) */
+  private sessionUsers = Map<number, Set<number>>()
 
   constructor(
     private publisher: TypedPublisher<WhisperEvent>,
@@ -55,41 +56,47 @@ export default class WhisperService {
   }
 
   async startWhisperSession(userId: number, targetName: string) {
-    const target = await this.getUserByName(targetName)
+    const [user, target] = await Promise.all([
+      this.getUserById(userId),
+      this.getUserByName(targetName),
+    ])
 
-    if (userId === target.id) {
+    if (user.id === target.id) {
       throw new WhisperServiceError(
         WhisperServiceErrorCode.NoSelfMessaging,
         "Can't whisper with yourself",
       )
     }
 
-    await this.ensureWhisperSession(userId, target.id!)
+    await this.ensureWhisperSession(user, target)
   }
 
   async closeWhisperSession(userId: number, targetName: string) {
-    const user = await this.getUserById(userId)
+    const [user, target] = await Promise.all([
+      this.getUserById(userId),
+      this.getUserByName(targetName),
+    ])
 
-    if (!this.userSessions.get(user.name)?.has(targetName)) {
+    if (!this.userSessions.get(user.id)?.has(target.id)) {
       throw new WhisperServiceError(
         WhisperServiceErrorCode.InvalidCloseAction,
         'No whisper session with this user',
       )
     }
 
-    await closeWhisperSession(userId, targetName)
-    this.userSessions = this.userSessions.update(user.name, s => s.delete(targetName))
+    await dbCloseWhisperSession(user.id, target.id)
+    this.userSessions = this.userSessions.update(user.id, s => s.delete(target.id))
 
-    const updated = this.sessionUsers.get(targetName)!.delete(user.name)
+    const updated = this.sessionUsers.get(target.id)!.delete(user.id)
     this.sessionUsers = updated.size
-      ? this.sessionUsers.set(targetName, updated)
-      : this.sessionUsers.delete(targetName)
+      ? this.sessionUsers.set(target.id, updated)
+      : this.sessionUsers.delete(target.id)
 
-    this.publisher.publish(getSessionPath(user.name, targetName), {
+    this.publisher.publish(getSessionPath(user.name, target.name), {
       action: 'closeSession',
-      target: targetName,
+      target,
     })
-    this.unsubscribeUserFromWhisperSession(userId, targetName)
+    this.unsubscribeUserFromWhisperSession(user.id, target.name)
   }
 
   async sendWhisperMessage(userId: number, targetName: string, message: string) {
@@ -98,7 +105,7 @@ export default class WhisperService {
       this.getUserByName(targetName),
     ])
 
-    if (userId === target.id) {
+    if (user.id === target.id) {
       throw new WhisperServiceError(
         WhisperServiceErrorCode.NoSelfMessaging,
         "Can't whisper with yourself",
@@ -106,7 +113,7 @@ export default class WhisperService {
     }
 
     const text = filterChatMessage(message)
-    const result = await addMessageToWhisper(userId, targetName, {
+    const result = await addMessageToWhisper(user.id, target.id, {
       type: WhisperMessageType.TextMessage,
       text,
     })
@@ -114,17 +121,23 @@ export default class WhisperService {
     // TODO(tec27): This makes the start throttle rather useless, doesn't it? Think of a better way
     // to throttle people starting tons of tons of sessions with different people
     await Promise.all([
-      this.ensureWhisperSession(userId, target.id!),
-      this.ensureWhisperSession(target.id!, userId),
+      this.ensureWhisperSession(user, target),
+      this.ensureWhisperSession(target, user),
     ])
 
     this.publisher.publish(getSessionPath(user.name, targetName), {
       action: 'message',
-      id: result.id,
-      from: result.from,
-      to: result.to,
-      sent: Number(result.sent),
-      data: result.data,
+      message: {
+        id: result.id,
+        from: result.from,
+        to: result.to,
+        sent: Number(result.sent),
+        data: result.data,
+      },
+      users: [
+        { id: user.id, name: user.name },
+        { id: target.id, name: target.name },
+      ],
     })
   }
 
@@ -133,10 +146,13 @@ export default class WhisperService {
     targetName: string,
     limit?: number,
     beforeTime?: number,
-  ): Promise<WhisperMessage[]> {
-    const user = await this.getUserById(userId)
+  ): Promise<GetSessionHistoryServerPayload> {
+    const [user, target] = await Promise.all([
+      this.getUserById(userId),
+      this.getUserByName(targetName),
+    ])
 
-    if (!this.userSessions.get(user.name)?.has(targetName)) {
+    if (!this.userSessions.get(user.id)?.has(target.id)) {
       throw new WhisperServiceError(
         WhisperServiceErrorCode.InvalidGetSessionHistoryAction,
         'Must have a whisper session with this user to retrieve message history',
@@ -144,18 +160,24 @@ export default class WhisperService {
     }
 
     const messages = await getMessagesForWhisperSession(
-      user.name,
-      targetName,
+      user.id,
+      target.id,
       limit,
       beforeTime && beforeTime > -1 ? new Date(beforeTime) : undefined,
     )
-    return messages.map<WhisperMessage>(m => ({
-      id: m.id,
-      from: m.from,
-      to: m.to,
-      sent: Number(m.sent),
-      data: m.data,
-    }))
+    return {
+      messages: messages.map<WhisperMessage>(m => ({
+        id: m.id,
+        from: m.from,
+        to: m.to,
+        sent: Number(m.sent),
+        data: m.data,
+      })),
+      users: [
+        { id: user.id, name: user.name },
+        { id: target.id, name: target.name },
+      ],
+    }
   }
 
   private getUserSockets(userId: number): UserSocketsGroup {
@@ -191,11 +213,11 @@ export default class WhisperService {
     return isUserOnline ? WhisperUserStatus.Active : WhisperUserStatus.Offline
   }
 
-  private subscribeUserToWhisperSession(user: UserSocketsGroup, target: User) {
-    user.subscribe(getSessionPath(user.name, target.name), () => ({
+  private subscribeUserToWhisperSession(userSockets: UserSocketsGroup, target: User) {
+    userSockets.subscribe(getSessionPath(userSockets.name, target.name), () => ({
       action: 'initSession',
-      target: target.name,
-      targetStatus: this.getUserStatus(target.id!),
+      target,
+      targetStatus: this.getUserStatus(target.id),
     }))
   }
 
@@ -204,95 +226,90 @@ export default class WhisperService {
     userSockets.unsubscribe(getSessionPath(userSockets.name, targetName))
   }
 
-  private async ensureWhisperSession(userId: number, targetId: number) {
-    await startWhisperSession(userId, targetId)
+  private async ensureWhisperSession(user: User, target: User) {
+    await dbStartWhisperSession(user.id, target.id)
 
-    const userSockets = this.userSocketsManager.getById(userId)
+    const userSockets = this.userSocketsManager.getById(user.id)
     // If the user is offline, the rest of the code will be done once they connect
     if (!userSockets) {
       return
     }
 
-    const [user, target] = await Promise.all([findUserById(userId), findUserById(targetId)])
-    if (!user || !target) {
-      return
-    }
-
     // Maintain a list of users for each whisper session, so we can publish events to everyone that
     // has a session opened with a particular user
-    this.sessionUsers = this.sessionUsers.update(target.name, Set(), s => s.add(user.name))
+    this.sessionUsers = this.sessionUsers.update(target.id, Set(), s => s.add(user.id))
 
-    if (!this.userSessions.get(user.name)?.has(target.name)) {
-      this.userSessions = this.userSessions.update(user.name, OrderedSet(), s => s.add(target.name))
+    if (!this.userSessions.get(user.id)?.has(target.id)) {
+      this.userSessions = this.userSessions.update(user.id, OrderedSet(), s => s.add(target.id))
       this.subscribeUserToWhisperSession(userSockets, target)
     }
   }
 
-  private async handleNewUser(user: UserSocketsGroup) {
+  private async handleNewUser(userSockets: UserSocketsGroup) {
     // Publish 'userActive' event to all users that have a session opened with the new user, if any
-    if (this.sessionUsers.has(user.name)) {
-      for (const u of this.sessionUsers.get(user.name)!.values()) {
-        this.publisher.publish(getSessionPath(user.name, u), {
+    if (this.sessionUsers.has(userSockets.userId)) {
+      for (const u of this.sessionUsers.get(userSockets.userId)!.values()) {
+        const target = await this.getUserById(u)
+        this.publisher.publish(getSessionPath(userSockets.name, target.name), {
           action: 'userActive',
-          target: user.name,
+          target: {
+            id: userSockets.userId,
+            name: userSockets.name,
+          },
         })
       }
     }
 
-    const whisperSessions = await getWhisperSessionsForUser(user.session.userId)
-    if (!user.sockets.size) {
+    const whisperSessions = await getWhisperSessionsForUser(userSockets.userId)
+    if (!userSockets.sockets.size) {
       // The user disconnected while we were waiting for their whisper sessions
       return
     }
 
     this.userSessions = this.userSessions.set(
-      user.name,
-      OrderedSet(whisperSessions.map(s => s.targetUserName)),
+      userSockets.userId,
+      OrderedSet(whisperSessions.map(s => s.targetId)),
     )
     for (const session of whisperSessions) {
       // Add the new user to all of the sessions they have opened
-      this.sessionUsers = this.sessionUsers.update(session.targetUserName, Set(), s =>
-        s.add(user.name),
+      this.sessionUsers = this.sessionUsers.update(session.targetId, Set(), s =>
+        s.add(userSockets.userId),
       )
-      this.subscribeUserToWhisperSession(user, {
-        id: session.targetUserId,
-        name: session.targetUserName,
-      } as User)
+      this.subscribeUserToWhisperSession(userSockets, {
+        id: session.targetId,
+        name: session.targetName,
+      })
     }
 
-    user.subscribe(`${user.getPath()}/whispers`, () => ({ type: 'whispersReady' }))
+    userSockets.subscribe(`${userSockets.getPath()}/whispers`, () => ({ type: 'whispersReady' }))
   }
 
   private async handleUserQuit(userId: number) {
-    // TODO(2Pac): Remove this once internal whisper structures have been moved to use `userId`.
-    const foundUser = await findUserById(userId)
-    if (!foundUser) {
-      return
-    }
-    const { name: userName } = foundUser
+    const user = await this.getUserById(userId)
 
     // Publish 'userOffline' event to all users that have a session opened with this user, if any
-    if (this.sessionUsers.has(userName)) {
-      for (const u of this.sessionUsers.get(userName)!.values()) {
-        this.publisher.publish(getSessionPath(userName, u), {
+    if (this.sessionUsers.has(user.id)) {
+      for (const u of this.sessionUsers.get(user.id)!.values()) {
+        const target = await this.getUserById(u)
+        this.publisher.publish(getSessionPath(user.name, target.name), {
           action: 'userOffline',
-          target: userName,
+          target: user,
         })
       }
     }
 
-    if (!this.userSessions.has(userName)) {
+    if (!this.userSessions.has(user.id)) {
       // This can happen if a user disconnects before we get their whisper sessions back from the DB
       return
     }
 
     // Delete the user that quit from all of the sessions they had opened, if any
-    for (const target of this.userSessions.get(userName)!.values()) {
-      const updated = this.sessionUsers.get(target)?.delete(userName)
+    for (const target of this.userSessions.get(user.id)!.values()) {
+      const updated = this.sessionUsers.get(target)?.delete(user.id)
       this.sessionUsers = updated?.size
         ? this.sessionUsers.set(target, updated)
         : this.sessionUsers.delete(target)
     }
-    this.userSessions = this.userSessions.delete(userName)
+    this.userSessions = this.userSessions.delete(user.id)
   }
 }
