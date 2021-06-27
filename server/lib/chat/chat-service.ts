@@ -6,6 +6,7 @@ import {
   ChatMessage,
   ChatMessageType,
   ChatUser,
+  GetChannelUsersServerPayload,
 } from '../../../common/chat'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { findUserById } from '../users/user-model'
@@ -22,10 +23,13 @@ import {
 } from './chat-models'
 
 class ChatState extends Record({
-  /** Maps channel name -> Set of users in that channel (as names). */
-  channels: Map<string, Set<string>>(),
-  /** Maps username -> Set of channels they're in (as names). */
-  users: Map<string, Set<string>>(),
+  /**
+   * Maps channel name -> Map of users in that channel. Map of users in the channel is mapped as
+   * user ID -> object containing channel user data.
+   */
+  channels: Map<string, Map<number, ChatUser>>(),
+  /** Maps userId -> Set of channels they're in (as names). */
+  users: Map<number, Set<string>>(),
 }) {}
 
 export enum ChatServiceErrorCode {
@@ -65,21 +69,29 @@ export default class ChatService {
     const userSockets = this.getUserSockets(userId)
     const originalChannelName = await this.getOriginalChannelName(channelName)
     if (
-      this.state.users.has(userSockets.name) &&
-      this.state.users.get(userSockets.name)!.has(originalChannelName)
+      this.state.users.has(userSockets.userId) &&
+      this.state.users.get(userSockets.userId)!.has(originalChannelName)
     ) {
       throw new ChatServiceError(ChatServiceErrorCode.InvalidJoinAction, 'Already in this channel')
     }
 
-    await addUserToChannel(userSockets.session.userId, originalChannelName)
+    const result = await addUserToChannel(userSockets.userId, originalChannelName)
+    const channelUser = {
+      id: result.userId,
+      name: result.userName,
+    }
 
     this.state = this.state
-      .updateIn(['channels', originalChannelName], (s = Set()) => s.add(userSockets.name))
-      .updateIn(['users', userSockets.name], (s = Set()) => s.add(originalChannelName))
+      .setIn(['channels', originalChannelName, result.userId], channelUser)
+      .updateIn(['users', result.userId], (s = Set()) => s.add(originalChannelName))
 
     this.publisher.publish(getChannelPath(originalChannelName), {
       action: 'join',
-      user: userSockets.name,
+      channelUser,
+      user: {
+        id: result.userId,
+        name: result.userName,
+      },
     })
     this.subscribeUserToChannel(userSockets, originalChannelName)
   }
@@ -94,8 +106,8 @@ export default class ChatService {
       )
     }
     if (
-      !this.state.users.has(userSockets.name) ||
-      !this.state.users.get(userSockets.name)!.has(originalChannelName)
+      !this.state.users.has(userSockets.userId) ||
+      !this.state.users.get(userSockets.userId)!.has(originalChannelName)
     ) {
       throw new ChatServiceError(
         ChatServiceErrorCode.InvalidLeaveAction,
@@ -103,19 +115,22 @@ export default class ChatService {
       )
     }
 
-    const result = await leaveChannel(userSockets.session.userId, originalChannelName)
-    const updated = this.state.channels.get(originalChannelName)!.delete(userSockets.name)
+    const { newOwner } = await leaveChannel(userSockets.userId, originalChannelName)
+    const updated = this.state.channels.get(originalChannelName)!.delete(userSockets.userId)
     this.state = updated.size
       ? this.state.setIn(['channels', originalChannelName], updated)
       : this.state.deleteIn(['channels', originalChannelName])
-    this.state = this.state.updateIn(['users', userSockets.name], u =>
+    this.state = this.state.updateIn(['users', userSockets.userId], u =>
       u.delete(originalChannelName),
     )
 
     this.publisher.publish(getChannelPath(originalChannelName), {
       action: 'leave',
-      user: userSockets.name,
-      newOwner: result.newOwner,
+      user: {
+        id: userSockets.userId,
+        name: userSockets.name,
+      },
+      newOwner,
     })
     this.unsubscribeUserFromChannel(userSockets, originalChannelName)
   }
@@ -125,8 +140,8 @@ export default class ChatService {
     const originalChannelName = await this.getOriginalChannelName(channelName)
     // TODO(tec27): lookup channel keys case insensitively?
     if (
-      !this.state.users.has(userSockets.name) ||
-      !this.state.users.get(userSockets.name)!.has(originalChannelName)
+      !this.state.users.has(userSockets.userId) ||
+      !this.state.users.get(userSockets.userId)!.has(originalChannelName)
     ) {
       throw new ChatServiceError(
         ChatServiceErrorCode.InvalidSendAction,
@@ -135,7 +150,7 @@ export default class ChatService {
     }
 
     const text = filterChatMessage(message)
-    const result = await addMessageToChannel(userSockets.session.userId, originalChannelName, {
+    const result = await addMessageToChannel(userSockets.userId, originalChannelName, {
       type: ChatMessageType.TextMessage,
       text,
     })
@@ -143,7 +158,10 @@ export default class ChatService {
     this.publisher.publish(getChannelPath(originalChannelName), {
       action: 'message',
       id: result.msgId,
-      user: result.userName,
+      user: {
+        id: result.userId,
+        name: result.userName,
+      },
       sent: Number(result.sent),
       data: result.data,
     })
@@ -159,8 +177,8 @@ export default class ChatService {
     const originalChannelName = await this.getOriginalChannelName(channelName)
     // TODO(tec27): lookup channel keys case insensitively?
     if (
-      !this.state.users.has(userSockets.name) ||
-      !this.state.users.get(userSockets.name)!.has(originalChannelName)
+      !this.state.users.has(userSockets.userId) ||
+      !this.state.users.get(userSockets.userId)!.has(originalChannelName)
     ) {
       throw new ChatServiceError(
         ChatServiceErrorCode.InvalidGetHistoryAction,
@@ -170,24 +188,30 @@ export default class ChatService {
 
     const messages = await getMessagesForChannel(
       originalChannelName,
-      userSockets.session.userId,
+      userSockets.userId,
       limit,
       beforeTime && beforeTime > -1 ? new Date(beforeTime) : undefined,
     )
     return messages.map<ChatMessage>(m => ({
       id: m.msgId,
-      user: m.userName,
+      user: {
+        id: m.userId,
+        name: m.userName,
+      },
       sent: Number(m.sent),
       data: m.data,
     }))
   }
 
-  async getChannelUsers(channelName: string, userId: number): Promise<ChatUser[]> {
+  async getChannelUsers(
+    channelName: string,
+    userId: number,
+  ): Promise<GetChannelUsersServerPayload> {
     const userSockets = this.getUserSockets(userId)
     const originalChannelName = await this.getOriginalChannelName(channelName)
     if (
-      !this.state.users.has(userSockets.name) ||
-      !this.state.users.get(userSockets.name)!.has(originalChannelName)
+      !this.state.users.has(userSockets.userId) ||
+      !this.state.users.get(userSockets.userId)!.has(originalChannelName)
     ) {
       throw new ChatServiceError(
         ChatServiceErrorCode.InvalidGetUsersAction,
@@ -196,7 +220,16 @@ export default class ChatService {
     }
 
     const users = await getUsersForChannel(originalChannelName)
-    return users.map(u => u.userName)
+    return {
+      channelUsers: users.map(u => ({
+        id: u.userId,
+        name: u.userName,
+      })),
+      users: users.map(u => ({
+        id: u.userId,
+        name: u.userName,
+      })),
+    }
   }
 
   async getOriginalChannelName(channelName: string) {
@@ -219,7 +252,7 @@ export default class ChatService {
   private subscribeUserToChannel(userSockets: UserSocketsGroup, channelName: string) {
     userSockets.subscribe<ChatInitEvent>(getChannelPath(channelName), () => ({
       action: 'init',
-      activeUsers: this.state.channels.get(channelName)!.toArray(),
+      activeUsers: this.state.channels.get(channelName)!.valueSeq().toArray(),
     }))
   }
 
@@ -228,23 +261,26 @@ export default class ChatService {
   }
 
   private async handleNewUser(userSockets: UserSocketsGroup) {
-    const channelsForUser = await getChannelsForUser(userSockets.session.userId)
+    const channelsForUser = await getChannelsForUser(userSockets.userId)
     if (!userSockets.sockets.size) {
       // The user disconnected while we were waiting for their channel list
       return
     }
 
     const channelSet = Set(channelsForUser.map(c => c.channelName))
-    const userSet = Set([userSockets.name])
-    const inChannels = Map(channelsForUser.map(c => [c.channelName, userSet]))
+    const userMap = Map([[userSockets.userId, { id: userSockets.userId, name: userSockets.name }]])
+    const inChannels = Map(channelsForUser.map(c => [c.channelName, userMap]))
 
     this.state = this.state
       .mergeDeepIn(['channels'], inChannels)
-      .setIn(['users', userSockets.name], channelSet)
+      .setIn(['users', userSockets.userId], channelSet)
     for (const { channelName: chan } of channelsForUser) {
       this.publisher.publish(getChannelPath(chan), {
         action: 'userActive',
-        user: userSockets.name,
+        user: {
+          id: userSockets.userId,
+          name: userSockets.name,
+        },
       })
       this.subscribeUserToChannel(userSockets, chan)
     }
@@ -252,30 +288,31 @@ export default class ChatService {
   }
 
   private async handleUserQuit(userId: number) {
-    // TODO(2Pac): Remove this once internal chat structures have been moved to use `userId`.
-    const foundUser = await findUserById(userId)
-    if (!foundUser) {
+    const user = await findUserById(userId)
+    if (!user) {
       return
     }
-    const { name: userName } = foundUser
 
-    if (!this.state.users.has(userName)) {
+    if (!this.state.users.has(userId)) {
       // This can happen if a user disconnects before we get their channel list back from the DB
       return
     }
-    const channels = this.state.users.get(userName)!
+    const channels = this.state.users.get(userId)!
     for (const channel of channels.values()) {
-      const updated = this.state.channels.get(channel)?.delete(userName)
+      const updated = this.state.channels.get(channel)?.delete(userId)
       this.state = updated?.size
         ? this.state.setIn(['channels', channel], updated)
         : this.state.deleteIn(['channels', channel])
     }
-    this.state = this.state.deleteIn(['users', userName])
+    this.state = this.state.deleteIn(['users', userId])
 
     for (const c of channels.values()) {
       this.publisher.publish(getChannelPath(c), {
         action: 'userOffline',
-        user: userName,
+        user: {
+          id: userId,
+          name: user.name,
+        },
       })
     }
   }

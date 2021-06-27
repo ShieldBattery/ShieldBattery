@@ -1,66 +1,20 @@
 import sql, { SQLStatement } from 'sql-template-strings'
-import { ChatMessageData } from '../../../common/chat'
+import { ChatMessageData, ChatUser } from '../../../common/chat'
 import db, { DbClient } from '../db'
 import transact from '../db/transaction'
-
-export interface ChannelPermissions {
-  kick: boolean
-  ban: boolean
-  changeTopic: boolean
-  togglePrivate: boolean
-  editPermissions: boolean
-}
-
-export interface Channel {
-  name: string
-  private: boolean
-  highTraffic: boolean
-  topic: string
-  password: string
-}
-
-function convertChannelFromDb(props: {
-  /* eslint-disable camelcase */
-  name: string
-  private: boolean
-  high_traffic: boolean
-  topic: string
-  password: string
-  /* eslint-enable camelcase */
-}): Channel {
-  return {
-    name: props.name,
-    private: props.private,
-    highTraffic: props.high_traffic,
-    topic: props.topic,
-    password: props.password,
-  }
-}
-
-export interface JoinedChannel {
-  userId: number
-  channelName: string
-  joinDate: Date
-  channelPermissions: ChannelPermissions
-}
+import { Dbify } from '../db/types'
 
 export interface UserChannelsEntry {
   channelName: string
   joinDate: Date
 }
 
-export interface DbChatMessage {
-  msgId: string
-  userName: string
-  channelName: string
-  sent: Date
-  data: ChatMessageData
-}
+type DbUserChannelsEntry = Dbify<UserChannelsEntry>
 
 export async function getChannelsForUser(userId: number): Promise<UserChannelsEntry[]> {
   const { client, done } = await db()
   try {
-    const result = await client.query(sql`
+    const result = await client.query<DbUserChannelsEntry>(sql`
       SELECT channel_name, join_date
       FROM joined_channels
       WHERE user_id = ${userId}
@@ -72,23 +26,48 @@ export async function getChannelsForUser(userId: number): Promise<UserChannelsEn
 }
 
 export interface ChannelUsersEntry {
+  userId: number
   userName: string
   joinDate: Date
 }
 
+type DbChannelUsersEntry = Dbify<ChannelUsersEntry>
+
 export async function getUsersForChannel(channelName: string): Promise<ChannelUsersEntry[]> {
   const { client, done } = await db()
   try {
-    const result = await client.query(sql`
-      SELECT u.name, c.join_date
+    const result = await client.query<DbChannelUsersEntry>(sql`
+      SELECT u.id AS user_id, u.name AS user_name, c.join_date
       FROM joined_channels as c INNER JOIN users as u ON c.user_id = u.id
       WHERE c.channel_name = ${channelName}
       ORDER BY c.join_date`)
-    return result.rows.map(row => ({ userName: row.name, joinDate: row.join_date }))
+    return result.rows.map(row => ({
+      userId: row.user_id,
+      userName: row.user_name,
+      joinDate: row.join_date,
+    }))
   } finally {
     done()
   }
 }
+
+export interface ChannelPermissions {
+  kick: boolean
+  ban: boolean
+  changeTopic: boolean
+  togglePrivate: boolean
+  editPermissions: boolean
+}
+
+export interface JoinedChannel {
+  userId: number
+  userName: string
+  channelName: string
+  joinDate: Date
+  channelPermissions: ChannelPermissions
+}
+
+type DbJoinedChannel = Dbify<JoinedChannel & ChannelPermissions>
 
 export async function addUserToChannel(
   userId: number,
@@ -118,13 +97,21 @@ export async function addUserToChannel(
         RETURNING *`
     }
 
-    const result = await client.query(query)
+    const result = await client.query<DbJoinedChannel>(
+      sql`
+        WITH ins AS (`.append(query).append(sql`)
+        SELECT ins.*, u.name AS user_name
+        FROM ins INNER JOIN users as u ON ins.user_id = u.id;
+      `),
+    )
+
     if (result.rowCount < 1) {
       throw new Error('No rows returned')
     }
 
     const {
       user_id: userIdFromDb,
+      user_name: userName,
       channel_name: channelNameFromDb,
       join_date: joinDate,
       kick,
@@ -135,6 +122,7 @@ export async function addUserToChannel(
     } = result.rows[0]
     return {
       userId: userIdFromDb,
+      userName,
       channelName: channelNameFromDb,
       joinDate,
       channelPermissions: {
@@ -154,15 +142,25 @@ export async function addUserToChannel(
   }
 }
 
+export interface ChatMessage {
+  msgId: string
+  userId: number
+  userName: string
+  channelName: string
+  sent: Date
+  data: ChatMessageData
+}
+
+type DbChatMessage = Dbify<ChatMessage>
+
 export async function addMessageToChannel(
   userId: number,
   channelName: string,
   messageData: ChatMessageData,
-): Promise<DbChatMessage> {
+): Promise<ChatMessage> {
   const { client, done } = await db()
   try {
-    const result = await client.query(
-      sql`
+    const result = await client.query<DbChatMessage>(sql`
       WITH ins AS (
         INSERT INTO channel_messages (id, user_id, channel_name, sent, data)
         SELECT uuid_generate_v4(), ${userId}, ${channelName},
@@ -172,17 +170,19 @@ export async function addMessageToChannel(
         )
         RETURNING id, user_id, channel_name, sent, data
       )
-      SELECT ins.id, users.name, ins.channel_name, ins.sent, ins.data
-      FROM ins INNER JOIN users ON ins.user_id = users.id`,
-    )
+      SELECT ins.id AS msg_id, users.id AS user_id, users.name AS user_name, ins.channel_name,
+        ins.sent, ins.data
+      FROM ins INNER JOIN users ON ins.user_id = users.id;
+    `)
     if (result.rows.length < 1) {
       throw new Error('No rows returned')
     }
 
     const row = result.rows[0]
     return {
-      msgId: row.id,
-      userName: row.name,
+      msgId: row.msg_id,
+      userId: row.user_id,
+      userName: row.user_name,
       channelName: row.channel_name,
       sent: row.sent,
       data: row.data,
@@ -197,7 +197,7 @@ export async function getMessagesForChannel(
   userId: number,
   limit = 50,
   beforeDate?: Date,
-): Promise<DbChatMessage[]> {
+): Promise<ChatMessage[]> {
   const { client, done } = await db()
 
   const query = sql`WITH joined AS (
@@ -205,7 +205,7 @@ export async function getMessagesForChannel(
         FROM joined_channels
         WHERE user_id = ${userId} AND channel_name = ${channelName}
       ), messages AS (
-        SELECT m.id, u.name, m.channel_name, m.sent, m.data
+        SELECT m.id AS msg_id, u.id AS user_id, u.name AS user_name, m.channel_name, m.sent, m.data
         FROM channel_messages as m INNER JOIN users as u ON m.user_id = u.id, joined
         WHERE m.channel_name = ${channelName} AND m.sent >= joined.join_date `
 
@@ -219,11 +219,12 @@ export async function getMessagesForChannel(
       ) SELECT * FROM messages ORDER BY sent ASC`)
 
   try {
-    const result = await client.query(query)
+    const result = await client.query<DbChatMessage>(query)
 
     return result.rows.map(row => ({
-      msgId: row.id,
-      userName: row.name,
+      msgId: row.msg_id,
+      userId: row.user_id,
+      userName: row.user_name,
       channelName: row.channel_name,
       sent: row.sent,
       data: row.data,
@@ -237,7 +238,7 @@ export interface LeaveChannelResult {
   /**
    * The new owner of the channel, or null if the channel ownership has been left unchanged.
    */
-  newOwner: string | null
+  newOwner: ChatUser | null
 }
 
 export async function leaveChannel(
@@ -281,7 +282,7 @@ export async function leaveChannel(
     }
 
     result = await client.query(sql`
-      SELECT u.name, c.user_id, c.join_date
+      SELECT u.name AS user_name, c.user_id, c.join_date
       FROM joined_channels as c INNER JOIN users as u ON c.user_id = u.id
       WHERE c.channel_name = ${channelName} AND
         (c.kick = true OR c.ban = true OR c.change_topic = true OR toggle_private = true)
@@ -293,12 +294,12 @@ export async function leaveChannel(
         UPDATE joined_channels
         SET kick=true, ban=true, change_topic=true, toggle_private=true, edit_permissions=true
         WHERE user_id = ${result.rows[0].user_id} AND channel_name = ${channelName}`)
-      return { newOwner: result.rows[0].name }
+      return { newOwner: { id: result.rows[0].user_id, name: result.rows[0].user_name } }
     }
 
     // Transfer ownership to the user who has joined the channel earliest
     result = await client.query(sql`
-      SELECT u.name, c.user_id, c.join_date
+      SELECT u.name AS user_name, c.user_id, c.join_date
       FROM joined_channels as c INNER JOIN users as u ON c.user_id = u.id
       WHERE c.channel_name = ${channelName}
       ORDER BY c.join_date`)
@@ -307,14 +308,36 @@ export async function leaveChannel(
       UPDATE joined_channels
       SET kick=true, ban=true, change_topic=true, toggle_private=true, edit_permissions=true
       WHERE user_id = ${result.rows[0].user_id} AND channel_name = ${channelName}`)
-    return { newOwner: result.rows[0].name }
+    return { newOwner: { id: result.rows[0].user_id, name: result.rows[0].user_name } }
   })
+}
+
+export interface Channel {
+  name: string
+  private: boolean
+  highTraffic: boolean
+  topic: string
+  password: string
+}
+
+type DbChannel = Dbify<Channel>
+
+function convertChannelFromDb(props: DbChannel): Channel {
+  return {
+    name: props.name,
+    private: props.private,
+    highTraffic: props.high_traffic,
+    topic: props.topic,
+    password: props.password,
+  }
 }
 
 export async function findChannel(channelName: string): Promise<Channel | null> {
   const { client, done } = await db()
   try {
-    const result = await client.query(sql`SELECT * FROM channels WHERE name = ${channelName}`)
+    const result = await client.query<DbChannel>(sql`
+      SELECT * FROM channels WHERE name = ${channelName};
+    `)
     return result.rowCount < 1 ? null : convertChannelFromDb(result.rows[0])
   } finally {
     done()

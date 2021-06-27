@@ -1,13 +1,15 @@
+import { List } from 'immutable'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { VariableSizeList } from 'react-window'
 import styled, { css } from 'styled-components'
+import { ChatUser } from '../../common/chat'
 import { MULTI_CHANNEL } from '../../common/flags'
 import Avatar from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import Chat from '../messaging/chat'
 import { Message } from '../messaging/message-records'
 import { push } from '../navigation/routing'
-import { ConnectedUserProfileOverlay } from '../profile/connected-user-profile-overlay'
+import { ConnectedUserProfileOverlay } from '../profile/user-profile-overlay'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious } from '../state-hooks'
@@ -34,7 +36,6 @@ import {
   SelfJoinChannelMessage,
 } from './chat-message-layout'
 import { ChatMessageType } from './chat-message-records'
-import { Users as UsersRecord } from './chat-reducer'
 
 const UserListContainer = styled.div`
   width: 256px;
@@ -127,7 +128,7 @@ const UserListName = styled.span`
 `
 
 interface UserListEntryProps {
-  username: string
+  user: ChatUser
   faded?: boolean
   style?: any
 }
@@ -147,10 +148,12 @@ const UserListEntry = React.memo<UserListEntryProps>(props => {
     <div style={props.style}>
       <ConnectedUserProfileOverlay
         key={'overlay'}
-        open={overlayOpen}
-        onDismiss={onCloseOverlay}
-        anchor={userEntryRef.current}
-        username={props.username}
+        userId={props.user.id}
+        popoverProps={{
+          open: overlayOpen,
+          onDismiss: onCloseOverlay,
+          anchor: userEntryRef.current,
+        }}
       />
 
       <UserListEntryItem
@@ -159,15 +162,19 @@ const UserListEntry = React.memo<UserListEntryProps>(props => {
         faded={!!props.faded}
         isOverlayOpen={overlayOpen}
         onClick={onOpenOverlay}>
-        <StyledAvatar user={props.username} />
-        <UserListName>{props.username}</UserListName>
+        <StyledAvatar user={props.user.name} />
+        <UserListName>{props.user.name}</UserListName>
       </UserListEntryItem>
     </div>
   )
 })
 
 interface UserListProps {
-  users: UsersRecord
+  users: {
+    active: List<ChatUser>
+    idle: List<ChatUser>
+    offline: List<ChatUser>
+  }
 }
 
 const UserList = React.memo((props: UserListProps) => {
@@ -222,36 +229,36 @@ const UserList = React.memo((props: UserListProps) => {
       switch (index) {
         case 0:
           return (
-            <UserListOverline style={style} key={index}>
+            <UserListOverline style={style} key='active'>
               Active ({active.size})
             </UserListOverline>
           )
         case idleHeaderIndex:
           return (
-            <UserListOverline style={style} key={index}>
+            <UserListOverline style={style} key='idle'>
               Idle ({idle.size})
             </UserListOverline>
           )
         case offlineHeaderIndex:
           return (
-            <UserListOverline style={style} key={index}>
+            <UserListOverline style={style} key='offline'>
               Offline ({offline.size})
             </UserListOverline>
           )
         default:
-          let username: string | undefined
+          let user: ChatUser | undefined
           let faded = false
           if (index < active.size + 1) {
-            username = active.get(index - 1)!
+            user = active.get(index - 1)!
           } else if (offlineHeaderIndex && index > offlineHeaderIndex) {
             faded = true
-            username = offline.get(index - offlineHeaderIndex - 1)!
+            user = offline.get(index - offlineHeaderIndex - 1)!
           } else {
-            username = idleHeaderIndex ? idle.get(index - idleHeaderIndex - 1)! : undefined
+            user = idleHeaderIndex ? idle.get(index - idleHeaderIndex - 1)! : undefined
           }
 
-          if (username) {
-            return <UserListEntry style={style} username={username} key={username} faded={faded} />
+          if (user) {
+            return <UserListEntry style={style} user={user} key={user.id} faded={faded} />
           }
           throw new Error('Asked to render nonexistent user: ' + index)
       }
@@ -317,6 +324,8 @@ function renderMessage(msg: Message) {
   }
 }
 
+const sortUsers = (a: ChatUser, b: ChatUser) => a.name.localeCompare(b.name)
+
 interface ChatChannelProps {
   params: { channel: string }
 }
@@ -325,6 +334,7 @@ export default function Channel(props: ChatChannelProps) {
   const channelName = decodeURIComponent(props.params.channel).toLowerCase()
   const dispatch = useAppDispatch()
   const channel = useAppSelector(s => s.chat.byName.get(channelName))
+  const channelUsers = channel?.users
 
   const prevChannelName = usePrevious(channelName)
   const prevChannel = usePrevious(channel)
@@ -363,6 +373,22 @@ export default function Channel(props: ChatChannelProps) {
     [dispatch, channelName],
   )
 
+  const sortedUsers = useMemo(() => {
+    if (!channelUsers) {
+      return {
+        active: List<ChatUser>(),
+        idle: List<ChatUser>(),
+        offline: List<ChatUser>(),
+      }
+    }
+
+    return {
+      active: channelUsers.active.toList().sort(sortUsers),
+      idle: channelUsers.idle.toList().sort(sortUsers),
+      offline: channelUsers.offline.toList().sort(sortUsers),
+    }
+  }, [channelUsers])
+
   if (!channel) {
     return (
       <LoadingArea>
@@ -386,7 +412,7 @@ export default function Channel(props: ChatChannelProps) {
   return (
     <Container>
       <StyledChat listProps={listProps} inputProps={inputProps} />
-      <UserList users={channel.users} />
+      <UserList users={sortedUsers} />
     </Container>
   )
 }
