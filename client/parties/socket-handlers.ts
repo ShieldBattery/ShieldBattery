@@ -23,7 +23,7 @@ const eventToAction: EventToActionMap = {
   invite: (partyId, event) => {
     const { invitedUser } = event
     return {
-      type: '@parties/invite',
+      type: '@parties/updateInvite',
       payload: {
         partyId,
         invitedUser,
@@ -34,7 +34,7 @@ const eventToAction: EventToActionMap = {
   uninvite: (partyId, event) => {
     const { target } = event
     return {
-      type: '@parties/uninvite',
+      type: '@parties/updateUninvite',
       payload: {
         partyId,
         target,
@@ -45,7 +45,7 @@ const eventToAction: EventToActionMap = {
   decline: (partyId, event) => {
     const { target } = event
     return {
-      type: '@parties/decline',
+      type: '@parties/updateDecline',
       payload: {
         partyId,
         target,
@@ -56,7 +56,7 @@ const eventToAction: EventToActionMap = {
   join: (partyId, event) => {
     const { user } = event
     return {
-      type: '@parties/join',
+      type: '@parties/updateJoin',
       payload: {
         partyId,
         user,
@@ -64,14 +64,21 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  leave: (partyId, event) => {
-    const { user } = event
-    return {
-      type: '@parties/leave',
-      payload: {
-        partyId,
-        user,
-      },
+  leave: (partyId, event) => (dispatch, getState) => {
+    const { auth } = getState()
+    if (auth.user.id === event.user.id) {
+      // It was us who left the party
+      dispatch({
+        type: '@parties/updateLeaveSelf',
+      })
+    } else {
+      dispatch({
+        type: '@parties/updateLeave',
+        payload: {
+          partyId,
+          user: event.user,
+        },
+      })
     }
   },
 }

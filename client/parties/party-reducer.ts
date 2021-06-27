@@ -31,7 +31,7 @@ export default keyedReducer(new PartyRecord(), {
     })
   },
 
-  ['@parties/invite'](state, action) {
+  ['@parties/updateInvite'](state, action) {
     const { partyId, invitedUser } = action.payload
 
     if (partyId !== state.id) {
@@ -41,7 +41,7 @@ export default keyedReducer(new PartyRecord(), {
     return state.setIn(['invites', invitedUser.id], new PartyUserRecord(invitedUser))
   },
 
-  ['@parties/uninvite'](state, action) {
+  ['@parties/updateUninvite'](state, action) {
     const { partyId, target } = action.payload
 
     if (partyId !== state.id) {
@@ -51,7 +51,7 @@ export default keyedReducer(new PartyRecord(), {
     return state.deleteIn(['invites', target.id])
   },
 
-  ['@parties/decline'](state, action) {
+  ['@parties/updateDecline'](state, action) {
     const { partyId, target } = action.payload
 
     if (partyId !== state.id) {
@@ -61,7 +61,7 @@ export default keyedReducer(new PartyRecord(), {
     return state.deleteIn(['invites', target.id])
   },
 
-  ['@parties/join'](state, action) {
+  ['@parties/updateJoin'](state, action) {
     const { partyId, user } = action.payload
 
     if (partyId !== state.id) {
@@ -73,7 +73,7 @@ export default keyedReducer(new PartyRecord(), {
       .setIn(['members', user.id], new PartyUserRecord(user))
   },
 
-  ['@parties/leave'](state, action) {
+  ['@parties/updateLeave'](state, action) {
     const { partyId, user } = action.payload
 
     if (partyId !== state.id) {
@@ -81,5 +81,9 @@ export default keyedReducer(new PartyRecord(), {
     }
 
     return state.deleteIn(['members', user.id])
+  },
+
+  ['@parties/updateLeaveSelf'](state, action) {
+    return new PartyRecord()
   },
 })

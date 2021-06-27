@@ -1,7 +1,7 @@
 import { PartyPayload, PartyUser } from '../../common/parties'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
-export type PartiesActions =
+export type PartyActions =
   | InviteToPartyBegin
   | InviteToPartySuccess
   | InviteToPartyFailure
@@ -14,12 +14,16 @@ export type PartiesActions =
   | AcceptPartyInviteBegin
   | AcceptPartyInviteSuccess
   | AcceptPartyInviteFailure
+  | LeavePartyBegin
+  | LeavePartySuccess
+  | LeavePartyFailure
   | InitParty
-  | InviteToParty
-  | UninviteFromParty
-  | DeclinePartyInvite
-  | JoinParty
-  | LeaveParty
+  | UpdateInvite
+  | UpdateUninvite
+  | UpdateDecline
+  | UpdateJoin
+  | UpdateLeave
+  | UpdateLeaveSelf
 
 export interface InviteToPartyBegin {
   type: '@parties/inviteToPartyBegin'
@@ -115,6 +119,18 @@ export interface AcceptPartyInviteFailure extends BaseFetchFailure<'@parties/acc
   }
 }
 
+export interface LeavePartyBegin {
+  type: '@parties/leavePartyBegin'
+}
+
+export interface LeavePartySuccess {
+  type: '@parties/leaveParty'
+  payload: void
+  error?: false
+}
+
+export type LeavePartyFailure = BaseFetchFailure<'@parties/leaveParty'>
+
 export interface InitParty {
   type: '@parties/init'
   payload: {
@@ -122,42 +138,46 @@ export interface InitParty {
   }
 }
 
-export interface InviteToParty {
-  type: '@parties/invite'
+export interface UpdateInvite {
+  type: '@parties/updateInvite'
   payload: {
     partyId: string
     invitedUser: PartyUser
   }
 }
 
-export interface UninviteFromParty {
-  type: '@parties/uninvite'
+export interface UpdateUninvite {
+  type: '@parties/updateUninvite'
   payload: {
     partyId: string
     target: PartyUser
   }
 }
 
-export interface DeclinePartyInvite {
-  type: '@parties/decline'
+export interface UpdateDecline {
+  type: '@parties/updateDecline'
   payload: {
     partyId: string
     target: PartyUser
   }
 }
 
-export interface JoinParty {
-  type: '@parties/join'
+export interface UpdateJoin {
+  type: '@parties/updateJoin'
   payload: {
     partyId: string
     user: PartyUser
   }
 }
 
-export interface LeaveParty {
-  type: '@parties/leave'
+export interface UpdateLeave {
+  type: '@parties/updateLeave'
   payload: {
     partyId: string
     user: PartyUser
   }
+}
+
+export interface UpdateLeaveSelf {
+  type: '@parties/updateLeaveSelf'
 }

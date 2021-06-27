@@ -48,6 +48,7 @@ function convertPartyServiceError(err: Error) {
     case PartyServiceErrorCode.PartyFull:
       throw new httpErrors.Conflict(err.message)
     case PartyServiceErrorCode.UserOffline:
+    case PartyServiceErrorCode.ClientNotInParty:
       throw new httpErrors.NotFound(err.message)
     case PartyServiceErrorCode.InvalidAction:
       throw new httpErrors.BadRequest(err.message)
@@ -97,6 +98,11 @@ export class PartyApi extends HttpApi {
         throttleMiddleware(partyThrottle, ctx => String(ctx.session!.userId)),
         accept,
       )
+      .delete(
+        '/',
+        throttleMiddleware(partyThrottle, ctx => String(ctx.session!.userId)),
+        leave,
+      )
   }
 }
 
@@ -125,7 +131,7 @@ async function invite(ctx: RouterContext) {
   }
 
   const partyService = container.resolve(PartyService)
-  partyService.invite(leader, clientId, invite)
+  await partyService.invite(leader, clientId, invite)
 
   ctx.status = 204
 }
@@ -166,7 +172,7 @@ async function removeInvite(ctx: RouterContext) {
   const target: PartyUser = { id: foundTarget.id, name: foundTarget.name }
 
   const partyService = container.resolve(PartyService)
-  partyService.removeInvite(partyId, removingUser, target)
+  await partyService.removeInvite(partyId, removingUser, target)
 
   ctx.status = 204
 }
@@ -187,7 +193,14 @@ async function accept(ctx: RouterContext) {
   const user: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
 
   const partyService = container.resolve(PartyService)
-  partyService.acceptInvite(partyId, user, clientId)
+  await partyService.acceptInvite(partyId, user, clientId)
+
+  ctx.status = 204
+}
+
+async function leave(ctx: RouterContext) {
+  const partyService = container.resolve(PartyService)
+  await partyService.leaveParty(ctx.session!.userId)
 
   ctx.status = 204
 }

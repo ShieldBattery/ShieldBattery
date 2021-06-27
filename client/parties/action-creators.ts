@@ -110,3 +110,23 @@ export function acceptPartyInvite(partyId: string): ThunkAction {
     })
   }
 }
+
+export function leaveParty(): ThunkAction {
+  return dispatch => {
+    dispatch({
+      type: '@parties/leavePartyBegin',
+    })
+
+    dispatch({
+      type: '@parties/leaveParty',
+      payload: fetch<void>(apiUrl`parties`, { method: 'DELETE' }).catch(err => {
+        dispatch(
+          openSnackbar({
+            message: 'An error occurred while leaving the party',
+          }),
+        )
+        throw err
+      }),
+    })
+  }
+}

@@ -5,6 +5,7 @@ export enum DialogType {
   Channel = 'channel',
   Download = 'download',
   MapDetails = 'mapDetails',
+  PartyInvite='partyInvite',
   Settings = 'settings',
   Simple = 'simple',
   ShieldBatteryHealth = 'shieldBatteryHealth',

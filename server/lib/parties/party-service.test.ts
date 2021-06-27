@@ -411,4 +411,44 @@ describe('parties/party-service', () => {
       })
     })
   })
+
+  describe('leaveParty', () => {
+    let leader: PartyUser
+    let party: PartyRecord
+
+    beforeEach(async () => {
+      leader = user1
+      party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
+      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
+    })
+
+    test('should throw if the client is not in party', () => {
+      expect(() => partyService.leaveParty(-1)).toThrowErrorMatchingInlineSnapshot(
+        `"Client not in party"`,
+      )
+    })
+
+    test('should update the party record', () => {
+      partyService.leaveParty(user2.id)
+
+      expect(party.members).toMatchObject(new Map([[leader.id, leader]]))
+    })
+
+    test('should publish "leave" message to the party path', () => {
+      partyService.leaveParty(user2.id)
+
+      // TODO(2Pac): Test the order of this call? This should probably be ensured that it's called
+      // before unsubscribing the user from the party path.
+      expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
+        type: 'leave',
+        user: user2,
+      })
+    })
+
+    test('should unsubscribe user from the party path', () => {
+      partyService.leaveParty(user2.id)
+
+      expect(client2.unsubscribeClient).toHaveBeenCalledWith(client2, getPartyPath(party.id))
+    })
+  })
 })

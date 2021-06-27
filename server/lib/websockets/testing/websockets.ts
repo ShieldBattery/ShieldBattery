@@ -44,6 +44,9 @@ export class FakeNydusServer
     }
   })
   unsubscribeClient = jest.fn((client: NydusClient, path: string) => {
+    this.fakeSubscriptions.get(path)?.forEach(client => {
+      client.unsubscribeClient(client, path)
+    })
     return !!this.fakeSubscriptions.get(path)?.delete(client as InspectableNydusClient)
   })
   unsubscribeAll = jest.fn((path: string) => {
@@ -76,6 +79,7 @@ export class InspectableNydusClient extends NydusClient {
   // NOTE(tec27): We add an explicit type because it makes calling the method have better
   // documentation (the arguments are named, vs the arg_0, arg_1 stuff from Jest)
   publish: (path: string, data: any) => void = jest.fn()
+  unsubscribeClient: (client: NydusClient, path: string) => boolean = jest.fn()
 }
 
 export function clearTestLogs(nydus: NydusServer) {
