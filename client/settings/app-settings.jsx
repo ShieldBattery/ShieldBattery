@@ -75,7 +75,7 @@ class AppForm extends React.Component {
           </div>
           <div>
             <CheckBox
-              {...bindCheckable('runAppAtSystemStart ')}
+              {...bindCheckable('runAppAtSystemStart')}
               label='Run ShieldBattery on system startup'
               inputProps={{ tabIndex: 0 }}
             />
