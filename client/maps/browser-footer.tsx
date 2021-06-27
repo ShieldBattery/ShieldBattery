@@ -137,7 +137,7 @@ class FilterOverlay extends React.Component<FilterOverlayProps> {
 
   private focusable = React.createRef<HTMLSpanElement>()
 
-  render() {
+  override render() {
     const { children, open, onDismiss, anchor } = this.props
 
     return (

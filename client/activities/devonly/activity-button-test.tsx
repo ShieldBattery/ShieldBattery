@@ -24,7 +24,7 @@ const StyledCard = styled(Card)`
 `
 
 export default class ActivityButtonsTest extends React.Component {
-  render() {
+  override render() {
     return (
       <Container>
         <StyledCard>

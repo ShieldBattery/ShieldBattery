@@ -138,11 +138,11 @@ export default class MessageList extends React.Component<
     }
   })
 
-  componentWillUnmount() {
+  override componentWillUnmount() {
     this.onScroll.cancel()
   }
 
-  getSnapshotBeforeUpdate() {
+  override getSnapshotBeforeUpdate() {
     if (!this.scrollableRef.current) {
       return { wasAtBottom: true, lastScrollTop: 0, lastScrollHeight: 0 }
     }
@@ -155,7 +155,7 @@ export default class MessageList extends React.Component<
     return { wasAtBottom, lastScrollTop, lastScrollHeight }
   }
 
-  componentDidMount() {
+  override componentDidMount() {
     const scrollable = this.scrollableRef.current
     if (scrollable) {
       scrollable.scrollTop = scrollable.scrollHeight
@@ -166,7 +166,11 @@ export default class MessageList extends React.Component<
     }
   }
 
-  componentDidUpdate(prevProps: MessageListProps, _: never, snapshot: MessageListSnapshot) {
+  override componentDidUpdate(
+    prevProps: MessageListProps,
+    _: never,
+    snapshot: MessageListSnapshot,
+  ) {
     const scrollable = this.scrollableRef.current
     if (!scrollable || scrollable.scrollHeight === snapshot.lastScrollHeight) {
       return
@@ -191,7 +195,7 @@ export default class MessageList extends React.Component<
     }
   }
 
-  render() {
+  override render() {
     const { messages, loading, hasMoreHistory, refreshToken, renderMessage, onLoadMoreMessages } =
       this.props
 

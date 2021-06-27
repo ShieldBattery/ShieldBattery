@@ -21,11 +21,11 @@ export default class WindowListener extends React.Component<WindowListenerProps>
   private rafId: number | undefined
   private lastEvent: Event | undefined
 
-  componentDidMount() {
+  override componentDidMount() {
     window.addEventListener(this.props.event, this.eventHandler)
   }
 
-  componentWillUnmount() {
+  override componentWillUnmount() {
     window.removeEventListener(this.props.event, this.eventHandler)
     if (this.rafId) {
       cancelAnimationFrame(this.rafId)
@@ -33,7 +33,7 @@ export default class WindowListener extends React.Component<WindowListenerProps>
     }
   }
 
-  render() {
+  override render() {
     return null
   }
 

@@ -15,7 +15,7 @@ interface ExtraFormProps {
 }
 
 class UserPermissionsForm extends React.Component<FormChildProps<Permissions> & ExtraFormProps> {
-  render() {
+  override render() {
     const { isSelf, onSubmit, bindCheckable } = this.props
     const inputProps = {
       tabIndex: 0,

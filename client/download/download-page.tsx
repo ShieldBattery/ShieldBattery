@@ -27,7 +27,7 @@ const LogoTextContainer = styled.div`
 `
 
 export default class DownloadPage extends React.Component {
-  render() {
+  override render() {
     return (
       <div>
         <Wrapper>

@@ -268,7 +268,7 @@ export class TimedMatchmaker extends Matchmaker {
     super(onMatchFound, opponentChooser)
   }
 
-  addToQueue(player: MatchmakingPlayer): boolean {
+  override addToQueue(player: MatchmakingPlayer): boolean {
     const result = super.addToQueue(player)
     if (!this.timer) {
       this.timer = setInterval(() => {

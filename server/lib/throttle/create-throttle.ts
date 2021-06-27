@@ -32,7 +32,7 @@ class IoredisTable extends RedisTable {
     super(redisClient, options)
   }
 
-  get(key: string, cb: (err: Error | null | undefined, obj?: unknown) => void) {
+  override get(key: string, cb: (err: Error | null | undefined, obj?: unknown) => void) {
     super.get(key, (err, result) => {
       if (err) {
         cb(err)

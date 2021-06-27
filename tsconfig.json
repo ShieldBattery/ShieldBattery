@@ -2,6 +2,7 @@
   "compilerOptions": {
     "target": "esnext",
     "module": "commonjs",
+    "noImplicitOverride": true,
     "strict": true,
 
     "allowJs": true,

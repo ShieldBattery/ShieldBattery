@@ -24,7 +24,7 @@ class SelectedItem extends React.Component<SelectedItemProps> {
 
   static [MenuItemSymbol] = true
 
-  render() {
+  override render() {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { selected, onItemSelected, ...otherProps } = this.props
     const icon = selected ? <SelectedIcon /> : null

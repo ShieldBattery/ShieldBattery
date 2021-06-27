@@ -5,7 +5,7 @@ import { ResultsTest } from './results-test'
 const BASE_URL = '/dev/games'
 
 class DevGamesDashboard extends React.Component {
-  render() {
+  override render() {
     return (
       <ul>
         <li>

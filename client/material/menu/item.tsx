@@ -61,7 +61,7 @@ export default class MenuItem extends React.Component<MenuItemProps> {
 
   static [MenuItemSymbol] = true
 
-  render() {
+  override render() {
     const { text, icon, focused, dense, onClick } = this.props
     return (
       <Item className={this.props.className} $focused={focused} $dense={dense} onClick={onClick}>

@@ -178,7 +178,7 @@ export default class GameplaySettings extends React.Component<GameplaySettingsPr
     onSubmit: PropTypes.func.isRequired,
   }
 
-  render() {
+  override render() {
     const { scrSettings, formRef, isRemastered } = this.props
 
     if (!isRemastered) {

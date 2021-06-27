@@ -99,11 +99,11 @@ export const SizeRight = styled.div`
 export class WindowControls extends React.Component {
   controls: HTMLDivElement | null = null
 
-  componentWillUnmount() {
+  override componentWillUnmount() {
     this.removeWindowControls()
   }
 
-  render() {
+  override render() {
     if (!IS_ELECTRON) {
       return null
     }

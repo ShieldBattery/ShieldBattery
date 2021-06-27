@@ -73,13 +73,13 @@ export default class Menu extends React.Component<MenuProps, MenuState> {
     selectedIndex: -1,
   }
 
-  state = {
+  override state = {
     activeIndex: this.props.selectedIndex!,
   }
 
   private overlay = React.createRef<HTMLDivElement>()
 
-  componentDidUpdate(prevProps: MenuProps) {
+  override componentDidUpdate(prevProps: MenuProps) {
     if (prevProps.open && !this.props.open) {
       this.setState({ activeIndex: this.props.selectedIndex! })
     }
@@ -105,7 +105,7 @@ export default class Menu extends React.Component<MenuProps, MenuState> {
     return Math.min(numItems - itemsShown, selectedIndex! - lastVisibleIndex)
   }
 
-  render() {
+  override render() {
     const {
       children,
       dense,

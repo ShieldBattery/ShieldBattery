@@ -51,7 +51,7 @@ export class MultiCancelToken extends CancelToken {
     this.tokens.push(token)
   }
 
-  get isCancelling() {
+  override get isCancelling() {
     if (this.cancelling) {
       return true
     } else {

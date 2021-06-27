@@ -100,7 +100,7 @@ class BrowserReadableStreamWrapper extends Readable {
     fetchPromise.catch(this.emitError)
   }
 
-  _read() {
+  override _read() {
     if (this.reading) {
       return
     }

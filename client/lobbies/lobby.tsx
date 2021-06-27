@@ -325,7 +325,7 @@ export default class Lobby extends React.Component<LobbyProps> {
       .toArray()
   }
 
-  render() {
+  override render() {
     const {
       lobby,
       isFavoritingMap,

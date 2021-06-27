@@ -466,7 +466,7 @@ const StyledGameCount = styled(GameCount)`
 `
 
 class Splash extends React.Component<DispatchProp> {
-  render() {
+  override render() {
     return (
       <React.Fragment>
         <SplashContainer>

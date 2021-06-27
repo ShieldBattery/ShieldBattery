@@ -169,13 +169,13 @@ export default function formDecorator<ModelType, WrappedProps>(
       private notifyValidation: Array<Deferred<void>> = []
       private doOnSubmit: (() => void) | undefined = () => this.props.onSubmit(this)
 
-      state: FormWrapperState<ModelType> = {
+      override state: FormWrapperState<ModelType> = {
         model: this.props.model,
         dirty: Object.create(null),
         validationErrors: Object.create(null),
       }
 
-      componentDidUpdate(
+      override componentDidUpdate(
         oldProps: FormWrapperProps<ModelType>,
         oldState: FormWrapperState<ModelType>,
       ) {
@@ -190,7 +190,7 @@ export default function formDecorator<ModelType, WrappedProps>(
         }
       }
 
-      componentWillUnmount() {
+      override componentWillUnmount() {
         // Ensure that validations do nothing once unmounted
         this.validationPromises = Object.create(null)
         this.doOnSubmit = undefined
@@ -393,7 +393,7 @@ export default function formDecorator<ModelType, WrappedProps>(
         })
       }
 
-      render() {
+      override render() {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { model, onSubmit, onChange, ...propsToSpread } = this.props
 

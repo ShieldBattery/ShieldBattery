@@ -18,7 +18,7 @@ class PgTransport extends Transform {
     process.exit(0)
   }
 
-  _transform(chunk: any, encoding: string, callback: TransformCallback) {
+  override _transform(chunk: any, encoding: string, callback: TransformCallback) {
     const content = chunk.toString('utf-8')
     let log: any
     try {
