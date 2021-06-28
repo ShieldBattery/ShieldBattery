@@ -21,6 +21,7 @@ pub static SECTION_ID: u32 = 0x74616253; // Sbat
 pub struct SbatReplayData {
     pub team_game_main_players: [u8; 4],
     pub starting_races: [u8; 0xc],
+    pub game_logic_version: u16,
 }
 
 /// Checks if the start of file matches what SC:R currently writes to every replay
@@ -55,7 +56,7 @@ pub unsafe fn add_shieldbattery_data(
     // Current format: (The first two u32s are required by SC:R, after that we can have anything)
     // u32 section_id
     // u32 data_length (Not counting these first 8 bytes)
-    // 0x0      u16 format_version (0)
+    // 0x0      u16 format_version (1)
     // 0x2      u32 starcraft_exe_build
     //      This is somewhat redundant as GCFG section that SC:R writes by default has it too,
     //      but may as well have a copy we control.
@@ -69,11 +70,13 @@ pub unsafe fn add_shieldbattery_data(
     // 0x36     u32 user_ids[0x8]
     //      Shieldbattery ids; Same order as ingame players (Which are saved in BW's replay
     //      header, though there are 12 of them)
+    // --- Format version 1 ---
+    // 0x56     u16 game_logic_version (1)
     let game = bw.game();
     let mut buffer = Vec::with_capacity(128);
     buffer.write_u32::<LE>(SECTION_ID)?;
     buffer.write_u32::<LE>(0)?;
-    buffer.write_u16::<LE>(0)?;
+    buffer.write_u16::<LE>(1)?;
     buffer.write_u32::<LE>(exe_build)?;
     let version = env!("SHIELDBATTERY_VERSION").as_bytes();
     let mut version_buf = [0u8; 16];
@@ -95,6 +98,7 @@ pub unsafe fn add_shieldbattery_data(
             .unwrap_or_else(|| u32::MAX);
         buffer.write_u32::<LE>(user_id)?;
     }
+    buffer.write_u16::<LE>(1)?;
 
     let length = buffer.len() as u32 - 8;
     (&mut buffer[4..]).write_u32::<LE>(length)?;
@@ -152,13 +156,20 @@ fn test_write_uuid() {
 
 pub fn parse_shieldbattery_data(data: &[u8]) -> Option<SbatReplayData> {
     let format = (&data[0..]).read_u16::<LE>().ok()?;
-    if format != 0 {
+    if format > 1 {
         return None;
     }
     let team_game_main_players = data.get(0x16..)?.get(..4)?;
     let starting_races = data.get(0x1a..)?.get(..0xc)?;
+    let game_logic_version;
+    if format == 1 {
+        game_logic_version = data.get(0x56..)?.read_u16::<LE>().ok()?;
+    } else {
+        game_logic_version = 0;
+    }
     Some(SbatReplayData {
         team_game_main_players: team_game_main_players.try_into().ok()?,
         starting_races: starting_races.try_into().ok()?,
+        game_logic_version,
     })
 }

@@ -1,5 +1,6 @@
 mod bw_hash_table;
 mod file_hook;
+mod game;
 mod pe_image;
 mod sdf_cache;
 mod shader_replaces;
@@ -67,10 +68,15 @@ pub struct BwScr {
     replay_visions: Value<u8>,
     replay_show_entire_map: Value<u8>,
     allocator: Value<*mut scr::Allocator>,
+    allocated_order_count: Value<u32>,
+    order_limit: Value<u32>,
+    replay_bfix: Option<Value<*mut scr::ReplayBfix>>,
+    replay_gcfg: Option<Value<*mut scr::ReplayGcfg>>,
     free_sprites: LinkedList<scr::Sprite>,
     active_fow_sprites: LinkedList<bw::FowSprite>,
     free_fow_sprites: LinkedList<bw::FowSprite>,
     free_images: LinkedList<bw::Image>,
+    free_orders: LinkedList<bw::Order>,
 
     // Array of bw::UnitStatusFunc for each unit id,
     // called to update what controls on status screen are shown if the unit
@@ -122,6 +128,7 @@ pub struct BwScr {
     prism_renderer_vtable: scarf::VirtualAddress,
     replay_minimap_patch: Option<scr_analysis::Patch>,
     open_file: scarf::VirtualAddress,
+    prepare_issue_order: scarf::VirtualAddress,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
 
@@ -137,6 +144,7 @@ pub struct BwScr {
     open_replay_files: Mutex<Vec<SendPtr<*mut c_void>>>,
     is_carbot: AtomicBool,
     show_skins: AtomicBool,
+    is_processing_game_commands: AtomicBool,
 }
 
 struct SendPtr<T>(T);
@@ -568,6 +576,19 @@ pub mod scr {
         pub free: Thiscall<unsafe extern fn(*mut Allocator, *mut u8)>,
     }
 
+    #[repr(C)]
+    pub struct ReplayBfix {
+        pub flags: u32,
+    }
+
+    #[repr(C)]
+    pub struct ReplayGcfg {
+        pub unk0: [u8; 4],
+        pub build: u32,
+        pub unk8: [u8; 8],
+        pub unk10: u8,
+    }
+
     unsafe impl Sync for PrismShader {}
     unsafe impl Send for PrismShader {}
 
@@ -853,7 +874,7 @@ impl BwScr {
         let analysis_ctx = scarf::OperandContext::new();
         let mut analysis = scr_analysis::Analysis::new(&binary, &analysis_ctx);
 
-        let ctx = Box::leak(Box::new(scarf::OperandContext::new()));
+        let ctx: scarf::OperandCtx<'static> = Box::leak(Box::new(scarf::OperandContext::new()));
         let game = analysis.game().ok_or("Game")?;
         let players = analysis.players().ok_or("Players")?;
         let chk_players = analysis.chk_init_players().ok_or("CHK players")?;
@@ -945,6 +966,10 @@ impl BwScr {
             start: Value::new(ctx, analysis.first_free_image().ok_or("first_free_image")?),
             end: Value::new(ctx, analysis.last_free_image().ok_or("last_free_image")?),
         };
+        let free_orders = LinkedList {
+            start: Value::new(ctx, analysis.first_free_order().ok_or("first_free_order")?),
+            end: Value::new(ctx, analysis.last_free_order().ok_or("last_free_order")?),
+        };
 
         let replay_data = analysis.replay_data().ok_or("replay_data")?;
         let enable_rng = analysis.enable_rng().ok_or("Enable RNG")?;
@@ -952,6 +977,12 @@ impl BwScr {
         let replay_show_entire_map = analysis.replay_show_entire_map()
             .ok_or("replay_show_entire_map")?;
         let allocator = analysis.allocator().ok_or("allocator")?;
+        let allocated_order_count = analysis.allocated_order_count()
+            .ok_or("allocated_order_count")?;
+        let order_limit = analysis.order_limit().ok_or("order_limit")?;
+        let replay_bfix = analysis.replay_bfix();
+        let replay_gcfg = analysis.replay_gcfg();
+        let prepare_issue_order = analysis.prepare_issue_order().ok_or("prepare_issue_order")?;
 
         let starcraft_tls_index = analysis.get_tls_index().ok_or("TLS index")?;
 
@@ -1011,10 +1042,15 @@ impl BwScr {
             replay_visions: Value::new(ctx, replay_visions),
             replay_show_entire_map: Value::new(ctx, replay_show_entire_map),
             allocator: Value::new(ctx, allocator),
+            allocated_order_count: Value::new(ctx, allocated_order_count),
+            order_limit: Value::new(ctx, order_limit),
+            replay_bfix: replay_bfix.map(move |x| Value::new(ctx, x)),
+            replay_gcfg: replay_gcfg.map(move |x| Value::new(ctx, x)),
             free_sprites,
             active_fow_sprites,
             free_fow_sprites,
             free_images,
+            free_orders,
             status_screen_funcs,
             original_status_screen_update,
             init_network_player_info: unsafe { mem::transmute(init_network_player_info.0) },
@@ -1051,6 +1087,7 @@ impl BwScr {
             prism_pixel_shaders,
             prism_renderer_vtable,
             replay_minimap_patch,
+            prepare_issue_order,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
             exe_build,
             sdf_cache,
@@ -1066,6 +1103,7 @@ impl BwScr {
             open_replay_files: Mutex::new(Vec::new()),
             is_carbot: AtomicBool::new(false),
             show_skins: AtomicBool::new(false),
+            is_processing_game_commands: AtomicBool::new(false),
         })
     }
 
@@ -1131,7 +1169,12 @@ impl BwScr {
                         }
                     }
                 }
+                // There should be no way this is called recursively, but even still
+                // handle that case by keeping track of was_processing.
+                let was_processing = self.is_processing_game_commands.load(Ordering::Relaxed);
+                self.is_processing_game_commands.store(true, Ordering::Relaxed);
                 orig(slice.as_ptr(), slice.len(), are_recorded_replay_commands);
+                self.is_processing_game_commands.store(was_processing, Ordering::Relaxed);
             },
             address,
         );
@@ -1202,6 +1245,26 @@ impl BwScr {
         exe.hook_closure_address(OpenFile, move |a, b, c, orig| {
             file_hook::open_file_hook(self, a, b, c, orig)
         }, address);
+
+        let address = self.prepare_issue_order.0 as usize - base;
+        exe.hook_closure_address(
+            PrepareIssueOrder,
+            move |unit, order, xy, target, fow, clear_queue, _orig| {
+                let unit = match Unit::from_ptr(unit) {
+                    Some(s) => s,
+                    None => return,
+                };
+                let order = bw_dat::OrderId(order as u8);
+                let x = xy as i16;
+                let y = (xy >> 16) as i16;
+                let target = Unit::from_ptr(target);
+                let fow = fow as u16;
+                let clear_queue = clear_queue != 0;
+
+                game::prepare_issue_order(self, unit, order, x, y, target, fow, clear_queue);
+            },
+            address,
+        );
 
         if let Some(funcs) = self.status_screen_funcs {
             let funcs = std::slice::from_raw_parts_mut(funcs.0 as *mut bw::UnitStatusFunc, 228);
@@ -2362,6 +2425,7 @@ unsafe extern "stdcall" fn snp_load_bind(
 mod hooks {
     use libc::c_void;
 
+    use crate::bw;
     use super::scr;
 
     whack_hooks!(0, // cdecl
@@ -2417,6 +2481,7 @@ mod hooks {
             *mut c_void,
         ) -> usize;
         !0 => XInputGetState(u32, *mut c_void) -> u32;
+        !0 => PrepareIssueOrder(@ecx *mut bw::Unit, u32, u32, *mut bw::Unit, u32, u32);
     );
 }
 

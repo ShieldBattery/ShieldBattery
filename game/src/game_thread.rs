@@ -48,7 +48,7 @@ pub fn set_sbat_replay_data(data: replay::SbatReplayData) {
     }
 }
 
-fn sbat_replay_data() -> Option<&'static replay::SbatReplayData> {
+pub fn sbat_replay_data() -> Option<&'static replay::SbatReplayData> {
     SBAT_REPLAY_DATA.get()
 }
 
