@@ -86,7 +86,7 @@ checksum = "63396b8a4b9de3f4fdfb320ab6080762242f66a8ef174c49d8e19b674db4cdbe"
 [[package]]
 name = "bw_dat"
 version = "0.1.0"
-source = "git+https://github.com/neivv/aise.git?rev=97613e79987effa832afb9a74262b3b0cd5df4c2#97613e79987effa832afb9a74262b3b0cd5df4c2"
+source = "git+https://github.com/neivv/aise.git?rev=52414e142f77a1cf7c0242e8fce7b5ccfb196763#52414e142f77a1cf7c0242e8fce7b5ccfb196763"
 dependencies = [
  "bitflags",
  "byteorder",
@@ -954,7 +954,7 @@ checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
 [[package]]
 name = "samase_scarf"
 version = "0.1.0"
-source = "git+https://github.com/neivv/samase_scarf.git?rev=c83da4f1243443360ead494419700cfa2cd9be6e#c83da4f1243443360ead494419700cfa2cd9be6e"
+source = "git+https://github.com/neivv/samase_scarf.git?rev=a1998edd172cd0198c60dadf4367aad64af664df#a1998edd172cd0198c60dadf4367aad64af664df"
 dependencies = [
  "arrayvec",
  "bumpalo",
@@ -970,7 +970,7 @@ dependencies = [
 [[package]]
 name = "scarf"
 version = "0.3.0"
-source = "git+https://github.com/neivv/scarf?rev=8c1d3766ba7bde5283ac56c44d252602dcfca862#8c1d3766ba7bde5283ac56c44d252602dcfca862"
+source = "git+https://github.com/neivv/scarf?rev=7d7620aca26c7c252596008f05b8de4ea30f1ce8#7d7620aca26c7c252596008f05b8de4ea30f1ce8"
 dependencies = [
  "array-init",
  "arrayvec",

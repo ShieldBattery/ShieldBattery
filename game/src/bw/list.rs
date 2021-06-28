@@ -16,7 +16,8 @@ impl<T> Clone for LinkedList<T> {
 impl<T> Copy for LinkedList<T> { }
 
 impl<T: BwListEntry> LinkedList<T> {
-    unsafe fn add(&self, value: *mut T) {
+    /// Prepends `value` to start of `self`
+    pub unsafe fn add(&self, value: *mut T) {
         if (*self.start).is_null() {
             *self.start = value;
             *self.end = value;
@@ -31,7 +32,22 @@ impl<T: BwListEntry> LinkedList<T> {
         }
     }
 
-    unsafe fn remove(&self, value: *mut T) {
+    pub unsafe fn append(&self, value: *mut T) {
+        if (*self.start).is_null() {
+            *self.start = value;
+            *self.end = value;
+            *BwListEntry::next(value) = null_mut();
+            *BwListEntry::prev(value) = null_mut();
+        } else {
+            let prev = *self.end;
+            *self.end = value;
+            *BwListEntry::prev(value) = prev;
+            *BwListEntry::next(prev) = value;
+            *BwListEntry::next(value) = null_mut();
+        }
+    }
+
+    pub unsafe fn remove(&self, value: *mut T) {
         let prev = *BwListEntry::prev(value);
         let next = *BwListEntry::next(value);
         if prev.is_null() {
@@ -60,6 +76,25 @@ impl<T: BwListEntry> LinkedList<T> {
             })
         }
     }
+
+    pub unsafe fn last(&self) -> Option<*mut T> {
+        let value = *self.end;
+        if value.is_null() {
+            None
+        } else {
+            Some(value)
+        }
+    }
+
+    pub unsafe fn count_entries(&self) -> usize {
+        let mut count = 0usize;
+        let mut pos = *self.start;
+        while !pos.is_null() {
+            count = count.wrapping_add(1);
+            pos = *BwListEntry::next(pos);
+        }
+        count
+    }
 }
 
 /// An allocation that has been taken out of a linked list
@@ -80,6 +115,12 @@ impl<T: BwListEntry> Allocation<T> {
         let value = self.value;
         std::mem::forget(self);
         dest.add(value);
+    }
+
+    pub unsafe fn append_to(self, dest: &LinkedList<T>) {
+        let value = self.value;
+        std::mem::forget(self);
+        dest.append(value);
     }
 }
 
@@ -117,6 +158,16 @@ impl BwListEntry for bw::Image {
 }
 
 impl BwListEntry for bw::FowSprite {
+    unsafe fn next(this: *mut Self) -> *mut *mut Self {
+        &mut (*this).next
+    }
+
+    unsafe fn prev(this: *mut Self) -> *mut *mut Self {
+        &mut (*this).prev
+    }
+}
+
+impl BwListEntry for bw::Order {
     unsafe fn next(this: *mut Self) -> *mut *mut Self {
         &mut (*this).next
     }

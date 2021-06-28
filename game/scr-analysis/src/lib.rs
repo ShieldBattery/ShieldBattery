@@ -182,7 +182,7 @@ impl<'e> Analysis<'e> {
     }
 
     pub fn process_commands(&mut self) -> Option<VirtualAddress> {
-        self.0.process_commands().process_commands
+        self.0.process_commands()
     }
 
     pub fn command_lengths(&mut self) -> Vec<u32> {
@@ -356,5 +356,38 @@ impl<'e> Analysis<'e> {
 
     pub fn start_udp_server(&mut self) -> Option<VirtualAddress> {
         self.0.start_udp_server()
+    }
+
+    pub fn order_limit(&mut self) -> Option<Operand<'e>> {
+        let limits = self.0.limits();
+        limits.arrays.get(5)
+            .filter(|x| x.len() == 1)
+            .and_then(|x| x.get(0))
+            .filter(|x| x.1 == 0 && x.2 == 0)
+            .map(|x| self.2.mem32(self.2.add_const(x.0, VirtualAddress::SIZE as u64)))
+    }
+
+    pub fn first_free_order(&mut self) -> Option<Operand<'e>> {
+        self.0.first_free_order()
+    }
+
+    pub fn last_free_order(&mut self) -> Option<Operand<'e>> {
+        self.0.last_free_order()
+    }
+
+    pub fn allocated_order_count(&mut self) -> Option<Operand<'e>> {
+        self.0.allocated_order_count()
+    }
+
+    pub fn replay_bfix(&mut self) -> Option<Operand<'e>> {
+        self.0.replay_bfix()
+    }
+
+    pub fn replay_gcfg(&mut self) -> Option<Operand<'e>> {
+        self.0.replay_gcfg()
+    }
+
+    pub fn prepare_issue_order(&mut self) -> Option<VirtualAddress> {
+        self.0.prepare_issue_order()
     }
 }
