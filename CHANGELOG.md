@@ -1,3 +1,27 @@
+#### 7.0.16 (June 27, 2021)
+
+- **You're grounded.** Fixed an exploit that allowed SCVs and Drones to fly over obstacles if their
+  order queue size was exceeded in a specific way. This also fixes some existing mineral hack
+  exploits.
+- **Launch at startup.** Added an option to launch the ShieldBattery client at system startup
+  (defaults to on). You can change this in the 'App' tab of the settings.
+- **Ladder table fixes.** Fixed some issues with the ladder rankings table when users had
+  particularly long names.
+
+##### Known Issues
+
+- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
+  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
+  very least add a warning for this case in the future (or better yet, automate re-authing), but
+  for now, try to launch the game from the Blizzard launcher at least once a month.
+- **Observer mode missing.** We're still getting our lobby code to work with the newer ingame
+  observer things, this will return shortly!
+- **Off-center screen starting position.** For some users, generally in positions on the right side
+  of the screen, the starting screen position may be slightly off-center from where it usually is.
+- **Replays sometimes crash on startup.** With newer versions of SC:R (9651+), replays occasionally
+  crash as soon as they load. This is a transient issue, and not specific to any particular replay,
+  so relaunching the same replay should work.
+
 #### 7.0.15 (June 8, 2021)
 
 - **Support for new SC:R version.** We're now compatible with 1.23.8.9588. If you'd like to play on
