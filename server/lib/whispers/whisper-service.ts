@@ -6,6 +6,7 @@ import {
   WhisperEvent,
   WhisperMessage,
   WhisperMessageType,
+  WhisperSessionInitEvent,
   WhisperUserStatus,
 } from '../../../common/whispers'
 import filterChatMessage from '../messaging/filter-chat-message'
@@ -36,7 +37,7 @@ export class WhisperServiceError extends Error {
 
 export function getSessionPath(user: string, target: string) {
   const users = [user, target].sort()
-  return `/whispers/${encodeURIComponent(users[0] + '|' + users[1])}`
+  return `/whispers2/${encodeURIComponent(users[0] + '|' + users[1])}`
 }
 
 @singleton()
@@ -214,11 +215,14 @@ export default class WhisperService {
   }
 
   private subscribeUserToWhisperSession(userSockets: UserSocketsGroup, target: User) {
-    userSockets.subscribe(getSessionPath(userSockets.name, target.name), () => ({
-      action: 'initSession',
-      target,
-      targetStatus: this.getUserStatus(target.id),
-    }))
+    userSockets.subscribe<WhisperSessionInitEvent>(
+      getSessionPath(userSockets.name, target.name),
+      () => ({
+        action: 'initSession',
+        target,
+        targetStatus: this.getUserStatus(target.id),
+      }),
+    )
   }
 
   unsubscribeUserFromWhisperSession(userId: number, targetName: string) {

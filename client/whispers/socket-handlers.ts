@@ -80,7 +80,7 @@ const eventToAction: EventToActionMap = {
 }
 
 export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
-  siteSocket.registerRoute('/whispers/:userAndTarget', (route, event) => {
+  siteSocket.registerRoute('/whispers2/:userAndTarget', (route, event) => {
     const actionName = event.action as WhisperEvent['action']
     if (!eventToAction[actionName]) return
 

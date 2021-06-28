@@ -49,7 +49,7 @@ export class ChatServiceError extends Error {
 }
 
 export function getChannelPath(channelName: string): string {
-  return `/chat/${encodeURIComponent(channelName)}`
+  return `/chat2/${encodeURIComponent(channelName)}`
 }
 
 @singleton()
