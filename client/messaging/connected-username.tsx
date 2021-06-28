@@ -5,7 +5,10 @@ import { ConnectedUserProfileOverlay } from '../profile/user-profile-overlay'
 import { useAppSelector } from '../redux-hooks'
 
 const Username = styled.span`
-  cursor: pointer;
+  &:hover {
+    cursor: pointer;
+    text-decoration: underline;
+  }
 `
 
 /**
