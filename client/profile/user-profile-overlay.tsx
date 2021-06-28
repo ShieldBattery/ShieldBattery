@@ -1,52 +1,22 @@
 import React, { useCallback } from 'react'
 import { User } from '../../common/users/user-info'
 import MenuItem from '../material/menu/item'
-import { OriginX, OriginY, Popover, useAnchorPosition } from '../material/popover'
+import { Popover, PopoverProps } from '../material/popover'
 import { useAppSelector } from '../redux-hooks'
 import { navigateToWhisper } from '../whispers/action-creators'
 import { Actions, Header, PopoverContents, StyledAvatar, Username } from './profile-overlay-content'
 
-export interface PopoverRelatedProps {
-  open: boolean
-  anchor: HTMLElement | null
-  anchorOriginX: OriginX
-  anchorOriginY: OriginY
-  anchorOffsetX?: number
-  anchorOffsetY?: number
-  originX: OriginX
-  originY: OriginY
+export interface UserProfileOverlayProps {
   children: React.ReactNode
-  onDismiss: () => void
-}
-
-export interface UserProfileOverlayProps extends PopoverRelatedProps {
   user: User
+  popoverProps: Omit<PopoverProps, 'children'>
 }
 
 export function UserProfileOverlay(props: UserProfileOverlayProps) {
-  const {
-    user,
-    children,
-    open,
-    onDismiss,
-    anchor,
-    anchorOriginX,
-    anchorOriginY,
-    anchorOffsetX,
-    anchorOffsetY,
-    originX,
-    originY,
-  } = props
-  const [, anchorX, anchorY] = useAnchorPosition(anchorOriginX, anchorOriginY, anchor ?? null)
+  const { children, user, popoverProps } = props
 
   return (
-    <Popover
-      open={open}
-      onDismiss={onDismiss}
-      anchorX={(anchorX ?? 0) + (anchorOffsetX ?? 0)}
-      anchorY={(anchorY ?? 0) + (anchorOffsetY ?? 0)}
-      originX={originX}
-      originY={originY}>
+    <Popover {...popoverProps}>
       <PopoverContents>
         <Header>
           <StyledAvatar user={user.name} />
@@ -60,7 +30,7 @@ export function UserProfileOverlay(props: UserProfileOverlayProps) {
 
 export interface ConnectedUserProfileOverlayProps {
   userId: number
-  popoverProps: Omit<PopoverRelatedProps, 'children'>
+  popoverProps: Omit<PopoverProps, 'children'>
 }
 
 export function ConnectedUserProfileOverlay(props: ConnectedUserProfileOverlayProps) {
@@ -81,7 +51,7 @@ export function ConnectedUserProfileOverlay(props: ConnectedUserProfileOverlayPr
   }
 
   return (
-    <UserProfileOverlay {...props.popoverProps} user={user}>
+    <UserProfileOverlay user={user} popoverProps={props.popoverProps}>
       {actions}
     </UserProfileOverlay>
   )

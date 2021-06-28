@@ -6,6 +6,7 @@ import { ChatUser } from '../../common/chat'
 import { MULTI_CHANNEL } from '../../common/flags'
 import Avatar from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
+import { useAnchorPosition } from '../material/popover'
 import Chat from '../messaging/chat'
 import { Message } from '../messaging/message-records'
 import { push } from '../navigation/routing'
@@ -136,6 +137,7 @@ interface UserListEntryProps {
 const UserListEntry = React.memo<UserListEntryProps>(props => {
   const [overlayOpen, setOverlayOpen] = useState(false)
   const userEntryRef = useRef(null)
+  const [, anchorX, anchorY] = useAnchorPosition('left', 'top', userEntryRef.current ?? null)
 
   const onOpenOverlay = useCallback(() => {
     setOverlayOpen(true)
@@ -152,10 +154,8 @@ const UserListEntry = React.memo<UserListEntryProps>(props => {
         popoverProps={{
           open: overlayOpen,
           onDismiss: onCloseOverlay,
-          anchor: userEntryRef.current,
-          anchorOriginX: 'left',
-          anchorOriginY: 'top',
-          anchorOffsetX: -4,
+          anchorX: (anchorX ?? 0) - 4,
+          anchorY: anchorY ?? 0,
           originX: 'right',
           originY: 'top',
         }}

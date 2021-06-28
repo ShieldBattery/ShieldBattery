@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react'
 import styled from 'styled-components'
+import { useAnchorPosition } from '../material/popover'
 import { ConnectedUserProfileOverlay } from '../profile/user-profile-overlay'
 import { useAppSelector } from '../redux-hooks'
 
@@ -18,6 +19,7 @@ const Username = styled.span`
 export function ConnectedUsername(props: { userId: number }) {
   const [overlayOpen, setOverlayOpen] = useState(false)
   const usernameRef = useRef(null)
+  const [, anchorX, anchorY] = useAnchorPosition('right', 'top', usernameRef.current ?? null)
 
   const onOpenOverlay = useCallback(() => {
     setOverlayOpen(true)
@@ -39,10 +41,8 @@ export function ConnectedUsername(props: { userId: number }) {
         popoverProps={{
           open: overlayOpen,
           onDismiss: onCloseOverlay,
-          anchor: usernameRef.current,
-          anchorOriginX: 'right',
-          anchorOriginY: 'top',
-          anchorOffsetX: 4,
+          anchorX: (anchorX ?? 0) + 4,
+          anchorY: anchorY ?? 0,
           originX: 'left',
           originY: 'top',
         }}
