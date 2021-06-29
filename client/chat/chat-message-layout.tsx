@@ -1,4 +1,5 @@
 import React from 'react'
+import { ConnectedUsername } from '../messaging/connected-username'
 import {
   InfoImportant,
   SeparatedInfoMessage,
@@ -6,34 +7,43 @@ import {
   SystemMessage,
 } from '../messaging/message-layout'
 
-export const JoinChannelMessage = React.memo<{ time: number; user: string }>(props => {
-  const { time, user } = props
+export const JoinChannelMessage = React.memo<{ time: number; userId: number }>(props => {
+  const { time, userId } = props
   return (
     <SystemMessage time={time}>
       <span>
-        <SystemImportant>{user}</SystemImportant> has joined the channel
+        <SystemImportant>
+          <ConnectedUsername userId={userId} />
+        </SystemImportant>{' '}
+        has joined the channel
       </span>
     </SystemMessage>
   )
 })
 
-export const LeaveChannelMessage = React.memo<{ time: number; user: string }>(props => {
-  const { time, user } = props
+export const LeaveChannelMessage = React.memo<{ time: number; userId: number }>(props => {
+  const { time, userId } = props
   return (
     <SystemMessage time={time}>
       <span>
-        <SystemImportant>{user}</SystemImportant> has left the channel
+        <SystemImportant>
+          <ConnectedUsername userId={userId} />
+        </SystemImportant>{' '}
+        has left the channel
       </span>
     </SystemMessage>
   )
 })
 
-export const NewChannelOwnerMessage = React.memo<{ time: number; newOwner: string }>(props => {
-  const { time, newOwner } = props
+export const NewChannelOwnerMessage = React.memo<{ time: number; newOwnerId: number }>(props => {
+  const { time, newOwnerId } = props
   return (
     <SystemMessage time={time}>
       <span>
-        <SystemImportant>{newOwner}</SystemImportant> is the new owner of the channel
+        <SystemImportant>
+          <ConnectedUsername userId={newOwnerId} />
+        </SystemImportant>{' '}
+        is the new owner of the channel
       </span>
     </SystemMessage>
   )

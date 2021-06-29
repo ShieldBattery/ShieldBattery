@@ -121,7 +121,7 @@ export default keyedReducer(new ChatState(), {
         new JoinChannelMessageRecord({
           id: cuid(),
           time: Date.now(),
-          user: user.name,
+          userId: user.id,
         }),
       )
     })
@@ -140,7 +140,7 @@ export default keyedReducer(new ChatState(), {
         new LeaveChannelMessageRecord({
           id: cuid(),
           time: Date.now(),
-          user: user.name,
+          userId: user.id,
         }),
       )
     })
@@ -151,7 +151,7 @@ export default keyedReducer(new ChatState(), {
             new NewChannelOwnerMessageRecord({
               id: cuid(),
               time: Date.now(),
-              newOwner: newOwner.name,
+              newOwnerId: newOwner.id,
             }),
           )
         })
@@ -171,7 +171,7 @@ export default keyedReducer(new ChatState(), {
     const newMessage = new TextMessageRecord({
       id,
       time,
-      from: user.name,
+      from: user.id,
       text: message,
     })
     return updateMessages(state, channel, true, m => m.push(newMessage))
@@ -225,7 +225,7 @@ export default keyedReducer(new ChatState(), {
           new TextMessageRecord({
             id: msg.id,
             time: msg.sent,
-            from: msg.user.name,
+            from: msg.user.id,
             text: msg.data.text,
           }),
       ),

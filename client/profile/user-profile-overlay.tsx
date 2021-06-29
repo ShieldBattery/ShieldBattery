@@ -1,35 +1,22 @@
 import React, { useCallback } from 'react'
 import { User } from '../../common/users/user-info'
 import MenuItem from '../material/menu/item'
-import { Popover, useAnchorPosition } from '../material/popover'
+import { Popover, PopoverProps } from '../material/popover'
 import { useAppSelector } from '../redux-hooks'
 import { navigateToWhisper } from '../whispers/action-creators'
 import { Actions, Header, PopoverContents, StyledAvatar, Username } from './profile-overlay-content'
 
-export interface PopoverRelatedProps {
-  open: boolean
-  anchor: HTMLElement | null
+export interface UserProfileOverlayProps {
   children: React.ReactNode
-  onDismiss: () => void
-}
-
-export interface UserProfileOverlayProps extends PopoverRelatedProps {
   user: User
+  popoverProps: Omit<PopoverProps, 'children'>
 }
 
-// TODO(2Pac): Extend this so that popover position can be configured through props
 export function UserProfileOverlay(props: UserProfileOverlayProps) {
-  const { user, children, open, onDismiss, anchor } = props
-  const [, anchorX, anchorY] = useAnchorPosition('left', 'top', anchor ?? null)
+  const { children, user, popoverProps } = props
 
   return (
-    <Popover
-      open={open}
-      onDismiss={onDismiss}
-      anchorX={(anchorX ?? 0) - 4}
-      anchorY={anchorY ?? 0}
-      originX='right'
-      originY='top'>
+    <Popover {...popoverProps}>
       <PopoverContents>
         <Header>
           <StyledAvatar user={user.name} />
@@ -43,7 +30,7 @@ export function UserProfileOverlay(props: UserProfileOverlayProps) {
 
 export interface ConnectedUserProfileOverlayProps {
   userId: number
-  popoverProps: Omit<PopoverRelatedProps, 'children'>
+  popoverProps: Omit<PopoverProps, 'children'>
 }
 
 export function ConnectedUserProfileOverlay(props: ConnectedUserProfileOverlayProps) {
@@ -64,7 +51,7 @@ export function ConnectedUserProfileOverlay(props: ConnectedUserProfileOverlayPr
   }
 
   return (
-    <UserProfileOverlay {...props.popoverProps} user={user}>
+    <UserProfileOverlay user={user} popoverProps={props.popoverProps}>
       {actions}
     </UserProfileOverlay>
   )

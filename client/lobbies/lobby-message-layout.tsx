@@ -1,70 +1,93 @@
 import React from 'react'
+import { ConnectedUsername } from '../messaging/connected-username'
 import { SystemImportant, SystemMessage } from '../messaging/message-layout'
 
-export const JoinLobbyMessage = React.memo<{ time: number; name: string }>(props => {
-  const { time, name } = props
+export const JoinLobbyMessage = React.memo<{ time: number; userId: number }>(props => {
+  const { time, userId } = props
   return (
     <SystemMessage time={time}>
       <span>
-        &gt;&gt; <SystemImportant>{name}</SystemImportant> has joined the lobby
+        &gt;&gt;{' '}
+        <SystemImportant>
+          <ConnectedUsername userId={userId} />
+        </SystemImportant>{' '}
+        has joined the lobby
       </span>
     </SystemMessage>
   )
 })
 
-export const LeaveLobbyMessage = React.memo<{ time: number; name: string }>(props => {
-  const { time, name } = props
+export const LeaveLobbyMessage = React.memo<{ time: number; userId: number }>(props => {
+  const { time, userId } = props
   return (
     <SystemMessage time={time}>
       <span>
-        &lt;&lt; <SystemImportant>{name}</SystemImportant> has left the lobby
+        &lt;&lt;{' '}
+        <SystemImportant>
+          <ConnectedUsername userId={userId} />
+        </SystemImportant>{' '}
+        has left the lobby
       </span>
     </SystemMessage>
   )
 })
 
-export const KickLobbyPlayerMessage = React.memo<{ time: number; name: string }>(props => {
-  const { time, name } = props
+export const KickLobbyPlayerMessage = React.memo<{ time: number; userId: number }>(props => {
+  const { time, userId } = props
   return (
     <SystemMessage time={time}>
       <span>
-        &lt;&lt; <SystemImportant>{name}</SystemImportant> has been kicked from the lobby
+        &lt;&lt;{' '}
+        <SystemImportant>
+          <ConnectedUsername userId={userId} />
+        </SystemImportant>{' '}
+        has been kicked from the lobby
       </span>
     </SystemMessage>
   )
 })
 
-export const BanLobbyPlayerMessage = React.memo<{ time: number; name: string }>(props => {
-  const { time, name } = props
+export const BanLobbyPlayerMessage = React.memo<{ time: number; userId: number }>(props => {
+  const { time, userId } = props
   return (
     <SystemMessage time={time}>
       <span>
-        &lt;&lt; <SystemImportant>{name}</SystemImportant> has been banned from the lobby
+        &lt;&lt;{' '}
+        <SystemImportant>
+          <ConnectedUsername userId={userId} />
+        </SystemImportant>{' '}
+        has been banned from the lobby
       </span>
     </SystemMessage>
   )
 })
 
-export const SelfJoinLobbyMessage = React.memo<{ time: number; lobby: string; host: string }>(
+export const SelfJoinLobbyMessage = React.memo<{ time: number; lobby: string; hostId: number }>(
   props => {
-    const { time, lobby, host } = props
+    const { time, lobby, hostId } = props
     return (
       <SystemMessage time={time}>
         <span>
           You have joined <SystemImportant>{lobby}</SystemImportant>. The host is{' '}
-          <SystemImportant>{host}</SystemImportant>.
+          <SystemImportant>
+            <ConnectedUsername userId={hostId} />
+          </SystemImportant>
+          .
         </span>
       </SystemMessage>
     )
   },
 )
 
-export const LobbyHostChangeMessage = React.memo<{ time: number; name: string }>(props => {
-  const { time, name } = props
+export const LobbyHostChangeMessage = React.memo<{ time: number; userId: number }>(props => {
+  const { time, userId } = props
   return (
     <SystemMessage time={time}>
       <span>
-        <SystemImportant>{name}</SystemImportant> is now the host
+        <SystemImportant>
+          <ConnectedUsername userId={userId} />
+        </SystemImportant>{' '}
+        is now the host
       </span>
     </SystemMessage>
   )

@@ -204,7 +204,7 @@ const chatHandlers = {
         new JoinLobbyMessageRecord({
           id: cuid(),
           time: Date.now(),
-          name: slot.name,
+          userId: slot.userId,
         }),
       )
     }
@@ -218,7 +218,7 @@ const chatHandlers = {
       new LeaveLobbyMessageRecord({
         id: cuid(),
         time: Date.now(),
-        name: player.name,
+        userId: player.userId,
       }),
     )
   },
@@ -229,7 +229,7 @@ const chatHandlers = {
       new KickLobbyPlayerMessageRecord({
         id: cuid(),
         time: Date.now(),
-        name: player.name,
+        userId: player.userId,
       }),
     )
   },
@@ -240,7 +240,7 @@ const chatHandlers = {
       new BanLobbyPlayerMessageRecord({
         id: cuid(),
         time: Date.now(),
-        name: player.name,
+        userId: player.userId,
       }),
     )
   },
@@ -251,7 +251,7 @@ const chatHandlers = {
         id: cuid(),
         time: Date.now(),
         lobby: lobbyInfo.name,
-        host: lobbyInfo.host.name,
+        hostId: lobbyInfo.host.userId,
       }),
     )
   },
@@ -261,7 +261,7 @@ const chatHandlers = {
       new LobbyHostChangeMessageRecord({
         id: cuid(),
         time: Date.now(),
-        name: lobbyInfo.host.name,
+        userId: lobbyInfo.host.userId,
       }),
     )
   },

@@ -99,7 +99,7 @@ export default keyedReducer(new WhisperState(), {
     const newMessage = new TextMessageRecord({
       id,
       time,
-      from: from.name,
+      from: from.id,
       text,
     })
 
@@ -151,7 +151,7 @@ export default keyedReducer(new WhisperState(), {
           new TextMessageRecord({
             id: msg.id,
             time: msg.sent,
-            from: msg.from.name,
+            from: msg.from.id,
             text: msg.data.text,
           }),
       ),

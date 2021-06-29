@@ -6,6 +6,7 @@ import { ChatUser } from '../../common/chat'
 import { MULTI_CHANNEL } from '../../common/flags'
 import Avatar from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
+import { useAnchorPosition } from '../material/popover'
 import Chat from '../messaging/chat'
 import { Message } from '../messaging/message-records'
 import { push } from '../navigation/routing'
@@ -136,6 +137,7 @@ interface UserListEntryProps {
 const UserListEntry = React.memo<UserListEntryProps>(props => {
   const [overlayOpen, setOverlayOpen] = useState(false)
   const userEntryRef = useRef(null)
+  const [, anchorX, anchorY] = useAnchorPosition('left', 'top', userEntryRef.current ?? null)
 
   const onOpenOverlay = useCallback(() => {
     setOverlayOpen(true)
@@ -152,7 +154,10 @@ const UserListEntry = React.memo<UserListEntryProps>(props => {
         popoverProps={{
           open: overlayOpen,
           onDismiss: onCloseOverlay,
-          anchor: userEntryRef.current,
+          anchorX: (anchorX ?? 0) - 4,
+          anchorY: anchorY ?? 0,
+          originX: 'right',
+          originY: 'top',
         }}
       />
 
@@ -312,11 +317,11 @@ const StyledChat = styled(Chat)`
 function renderMessage(msg: Message) {
   switch (msg.type) {
     case ChatMessageType.JoinChannel:
-      return <JoinChannelMessage key={msg.id} time={msg.time} user={msg.user} />
+      return <JoinChannelMessage key={msg.id} time={msg.time} userId={msg.userId} />
     case ChatMessageType.LeaveChannel:
-      return <LeaveChannelMessage key={msg.id} time={msg.time} user={msg.user} />
+      return <LeaveChannelMessage key={msg.id} time={msg.time} userId={msg.userId} />
     case ChatMessageType.NewChannelOwner:
-      return <NewChannelOwnerMessage key={msg.id} time={msg.time} newOwner={msg.newOwner} />
+      return <NewChannelOwnerMessage key={msg.id} time={msg.time} newOwnerId={msg.newOwnerId} />
     case ChatMessageType.SelfJoinChannel:
       return <SelfJoinChannelMessage key={msg.id} channel={msg.channel} />
     default:

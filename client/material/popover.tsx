@@ -230,23 +230,21 @@ export function Popover({
     [propY]: posY + 'px',
   }
 
-  return (
-    <Portal onDismiss={onDismiss} open={open}>
-      {transition(
-        (styles, open) =>
-          open && (
-            <PositioningArea ref={maxSizeRef}>
-              <KeyListener onKeyDown={onKeyDown} exclusive={true} />
-              <Container
-                ref={containerRef}
-                className={className}
-                style={{ ...styles, ...(containerStyle as any) }}>
-                <Card>{children}</Card>
-              </Container>
-            </PositioningArea>
-          ),
-      )}
-    </Portal>
+  return transition(
+    (styles, open) =>
+      open && (
+        <Portal onDismiss={onDismiss} open={open}>
+          <PositioningArea ref={maxSizeRef}>
+            <KeyListener onKeyDown={onKeyDown} exclusive={true} />
+            <Container
+              ref={containerRef}
+              className={className}
+              style={{ ...styles, ...(containerStyle as any) }}>
+              <Card>{children}</Card>
+            </Container>
+          </PositioningArea>
+        </Portal>
+      ),
   )
 }
 
