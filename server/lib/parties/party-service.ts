@@ -227,22 +227,18 @@ export default class PartyService {
     this.subscribeToParty(clientSockets, party)
   }
 
-  private async clearInviteNotification(partyId: string, user: PartyUser) {
+  private clearInviteNotification(partyId: string, user: PartyUser) {
     this.notificationService
       .retrieveNotifications({ userId: user.id, type: NotificationType.PartyInvite })
-      .then(
-        userInviteNotifications => {
-          const notification = userInviteNotifications.filter(n => n.data.partyId === partyId)[0]
-          if (notification) {
-            this.notificationService.clearById(user.id, notification.id).catch(err => {
-              logger.error({ err }, 'error clearing notification')
-            })
-          }
-        },
-        err => {
-          logger.error({ err }, 'error retrieving user notifications')
-        },
-      )
+      .then(async userInviteNotifications => {
+        const notification = userInviteNotifications.filter(n => n.data.partyId === partyId)[0]
+        if (notification) {
+          await this.notificationService.clearById(user.id, notification.id)
+        }
+      })
+      .catch(err => {
+        logger.error({ err }, 'error clearing the invite notification')
+      })
   }
 
   private subscribeToParty(clientSockets: ClientSocketsGroup, party: PartyRecord) {
