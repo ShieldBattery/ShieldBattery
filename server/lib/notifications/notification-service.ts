@@ -48,6 +48,19 @@ export default class NotificationService {
   }
 
   /**
+   * Service method to retrieve user notifications. Should be used by other services instead of
+   * calling the DB method directly.
+   */
+  retrieveNotifications(props: {
+    userId: number
+    type?: string
+    visible?: boolean
+    limit?: number
+  }) {
+    return retrieveNotifications(props)
+  }
+
+  /**
    * Creates a new notification for a particular user, saves it to the database, and notifies all of
    * the user's connected clients.
    */

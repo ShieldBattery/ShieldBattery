@@ -5,13 +5,19 @@ import Koa from 'koa'
 import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { PARTIES } from '../../../common/flags'
+import {
+  AcceptPartyInviteServerBody,
+  InviteToPartyServerBody,
+  PartyUser,
+} from '../../../common/parties'
 import { featureEnabled } from '../flags/feature-enabled'
+import { httpApi, HttpApi } from '../http/http-api'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { findUserById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
-import PartyService, { PartyServiceError, PartyServiceErrorCode, PartyUser } from './party-service'
+import PartyService, { PartyServiceError, PartyServiceErrorCode } from './party-service'
 
 const invitesThrottle = createThrottle('partyInvites', {
   rate: 40,
@@ -45,6 +51,8 @@ function convertPartyServiceError(err: Error) {
       throw new httpErrors.NotFound(err.message)
     case PartyServiceErrorCode.InvalidAction:
       throw new httpErrors.BadRequest(err.message)
+    case PartyServiceErrorCode.NotificationFailure:
+      throw new httpErrors.InternalServerError(err.message)
     default:
       assertUnreachable(err.code)
   }
@@ -58,43 +66,38 @@ async function convertPartyServiceErrors(ctx: RouterContext, next: Koa.Next) {
   }
 }
 
-export default function (router: Router) {
-  // NOTE(tec27): Just ensures the service gets initialized on app init
-  container.resolve(PartyService)
+@httpApi()
+export class PartyApi extends HttpApi {
+  constructor() {
+    super('/parties')
+    // NOTE(tec27): Just ensures the service gets initialized on app init
+    container.resolve(PartyService)
+  }
 
-  router
-    .use(featureEnabled(PARTIES), ensureLoggedIn, convertPartyServiceErrors)
-    .post(
-      '/invites',
-      throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)),
-      invite,
-    )
-    .delete(
-      '/invites/:partyId',
-      throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)),
-      decline,
-    )
-    .delete(
-      '/invites/:partyId/:targetId',
-      throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)),
-      removeInvite,
-    )
-    .post(
-      '/:partyId',
-      throttleMiddleware(partyThrottle, ctx => String(ctx.session!.userId)),
-      accept,
-    )
-}
-
-// TODO(2Pac): Move this somewhere common and share with client
-export interface InviteToPartyServerBody {
-  clientId: string
-  targetId: number
-}
-
-// TODO(2Pac): Move this somewhere common and share with client
-export interface AcceptPartyInviteServerBody {
-  clientId: string
+  applyRoutes(router: Router): void {
+    router
+      .use(featureEnabled(PARTIES), ensureLoggedIn, convertPartyServiceErrors)
+      .post(
+        '/invites',
+        throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)),
+        invite,
+      )
+      .delete(
+        '/invites/:partyId',
+        throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)),
+        decline,
+      )
+      .delete(
+        '/invites/:partyId/:targetId',
+        throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)),
+        removeInvite,
+      )
+      .post(
+        '/:partyId',
+        throttleMiddleware(partyThrottle, ctx => String(ctx.session!.userId)),
+        accept,
+      )
+  }
 }
 
 async function invite(ctx: RouterContext) {

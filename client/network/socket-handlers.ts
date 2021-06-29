@@ -89,6 +89,7 @@ const envSpecificHandlers = IS_ELECTRON
       require('../download/ipc-handlers').default,
       require('../lobbies/socket-handlers').default,
       require('../matchmaking/socket-handlers').default,
+      require('../parties/socket-handlers').default,
       require('../settings/ipc-handlers').default,
     ]
   : []

@@ -5,6 +5,7 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { NotificationType } from '../../common/notifications'
 import { EmailVerificationNotificationUi } from '../auth/email-verification-notification-ui'
 import { TextButton } from '../material/button'
+import { PartyInviteNotificationUi } from '../parties/party-notification-ui'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { headline6, subtitle1 } from '../styles/typography'
@@ -97,7 +98,16 @@ function toUi(notification: NotificationRecord, key: string, showDivider: boolea
         />
       )
     case NotificationType.PartyInvite:
-      return <span />
+      return (
+        <PartyInviteNotificationUi
+          key={key}
+          from={notification.from}
+          partyId={notification.partyId}
+          notificationId={notification.id}
+          showDivider={showDivider}
+          read={notification.read}
+        />
+      )
     default:
       return assertUnreachable(notification)
   }
