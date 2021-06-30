@@ -13,7 +13,7 @@ yarn run migrate-up || exit 1
 echo "Running redis migrations"
 for f in server/redis-migrations/*.js; do
   echo "> $f"
-  node -r "@babel/register" -r "dotenv/config" "$f" || exit 1
+  node -r "./babel-register" -r "dotenv/config" "$f" || exit 1
 done
 
 echo "Updating completed successfully"
