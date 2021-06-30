@@ -4,12 +4,16 @@ export interface PathObject {
   hash?: string
 }
 
+function ensurePrefixed(str: string, prefix: string) {
+  return str.startsWith(prefix) ? str : prefix + str
+}
+
 /**
  * Converts a given object of the parts of a URL path into string form.
  */
 export function makePathString(obj: PathObject) {
-  const searchPart = obj.search !== undefined ? '?' + obj.search : ''
-  const hashPart = obj.hash !== undefined ? '#' + obj.hash : ''
+  const searchPart = obj.search !== undefined ? ensurePrefixed(obj.search, '?') : ''
+  const hashPart = obj.hash !== undefined ? ensurePrefixed(obj.hash, '#') : ''
   return obj.pathname + searchPart + hashPart
 }
 
