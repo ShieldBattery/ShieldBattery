@@ -357,7 +357,9 @@ async function createWindow() {
   const curSession = currentSession()
 
   // TODO(tec27): verify that window positioning is still valid on current monitor setup
-  const { winX, winY, winWidth, winHeight, winMaximized } = await localSettings.get()
+  const { winX, winY, winWidth, winHeight, winMaximized, startAppMinimized } =
+    await localSettings.get()
+
   mainWindow = new BrowserWindow({
     width: winWidth && winWidth > 0 ? winWidth : 1024,
     height: winHeight && winHeight > 0 ? winHeight : 800,
@@ -450,7 +452,7 @@ async function createWindow() {
   registerHotkeys()
 
   mainWindow.once('ready-to-show', () => {
-    mainWindow!.show()
+    if (!startAppMinimized) mainWindow!.show()
   })
 
   mainWindow.on('closed', () => {

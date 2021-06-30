@@ -79,6 +79,11 @@ class AppForm extends React.Component {
               label='Run ShieldBattery on system startup'
               inputProps={{ tabIndex: 0 }}
             />
+            <CheckBox
+              {...bindCheckable('startAppMinimized')}
+              label='Start ShieldBattery minimized'
+              inputProps={{ tabIndex: 0 }}
+            />
           </div>
         </FormContainer>
       </form>
@@ -129,6 +134,7 @@ export default class AppSettings extends React.Component {
     const formModel = {
       masterVolume: localSettings.masterVolume,
       runAppAtSystemStart: localSettings.runAppAtSystemStart,
+      startAppMinimized: localSettings.startAppMinimized,
     }
 
     return (

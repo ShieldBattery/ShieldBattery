@@ -151,6 +151,7 @@ export class LocalSettings extends Settings<LocalSettingsData> {
     return {
       version: VERSION,
       runAppAtSystemStart: true,
+      startAppMinimized: false,
       starcraftPath: await findStarcraftPath(),
       winX: -1,
       winY: -1,
@@ -217,6 +218,7 @@ export class LocalSettings extends Settings<LocalSettingsData> {
     if (!settings.version || settings.version < 7) {
       log.verbose('Found settings version 6, migrating to version 7')
       newSettings.runAppAtSystemStart = true
+      newSettings.startAppMinimized = false
     }
 
     newSettings.version = VERSION
