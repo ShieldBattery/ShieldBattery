@@ -74,8 +74,6 @@ export class UserApi extends HttpApi {
         throttleMiddleware(accountCreationThrottle, ctx => ctx.ip),
         this.createUser,
       )
-      // TODO(tec27): Make this a different path
-      .get('/:searchTerm', checkAnyPermission('banUsers', 'editPermissions'), this.findUser)
       .patch(
         '/:id',
         ensureLoggedIn,
@@ -133,19 +131,6 @@ export class UserApi extends HttpApi {
     }).catch(err => ctx.log.error({ err, req: ctx.req }, 'Error sending email verification email'))
 
     ctx.body = result
-  }
-
-  findUser = async (ctx: RouterContext) => {
-    const searchTerm = ctx.params.searchTerm
-
-    try {
-      // TODO(tec27): Admins might want more info than just this, maybe we should make a function to
-      // retrieve that specially?
-      const user = await findUserByName(searchTerm)
-      ctx.body = user ? [user] : []
-    } catch (err) {
-      throw err
-    }
   }
 
   updateUser = async (ctx: RouterContext) => {
@@ -315,5 +300,30 @@ export class UserApi extends HttpApi {
     }).catch(err => ctx.log.error({ err }, 'Error sending email verification email'))
 
     ctx.status = 204
+  }
+}
+
+@httpApi()
+@singleton()
+export class AdminUserApi extends HttpApi {
+  constructor() {
+    super('/admin/users')
+  }
+
+  protected applyRoutes(router: Router): void {
+    router.get('/:searchTerm', checkAnyPermission('banUsers', 'editPermissions'), this.findUser)
+  }
+
+  findUser = async (ctx: RouterContext) => {
+    const searchTerm = ctx.params.searchTerm
+
+    try {
+      // TODO(tec27): Admins probably want more info than just this, maybe we should merge some of
+      // this functionality with the profile page
+      const user = await findUserByName(searchTerm)
+      ctx.body = user ? [user] : []
+    } catch (err) {
+      throw err
+    }
   }
 }

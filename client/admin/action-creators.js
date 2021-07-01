@@ -28,6 +28,7 @@ import {
   ADMIN_SET_PERMISSIONS_BEGIN,
 } from '../actions'
 import fetch from '../network/fetch'
+import { apiUrl } from '../network/urls'
 import { openSnackbar } from '../snackbars/action-creators'
 
 const USER_PROFILE_STALE_TIME = 60 * 1000
@@ -43,12 +44,14 @@ function shouldGetUserProfile(state, username) {
   return !user.isRequesting && Date.now() - user.lastUpdated > USER_PROFILE_STALE_TIME
 }
 
-function fetchUserId(username) {
-  // TODO(tec27): this can be cached
-  return fetch('/api/1/users/' + encodeURIComponent(username)).then(value => {
-    if (!value.length) throw new Error('No user found with that name')
-    else return value[0].id
-  })
+async function fetchUserId(username) {
+  // TODO(tec27): Look in users reducer first?
+  const value = await fetch(apiUrl`admin/users/${username}`)
+  if (!value.length) {
+    throw new Error('No user found with that name')
+  } else {
+    return value[0].id
+  }
 }
 
 function getPermissions(username) {
