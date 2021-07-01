@@ -58,8 +58,6 @@ export default class PartyService {
   private parties = new Map<string, PartyRecord>()
   /** Maps client sockets group -> party ID. Only one client sockets group can be in a party. */
   private clientSocketsToPartyId = new Map<ClientSocketsGroup, string>()
-  /** Maps user ID -> client ID of their currently active session (the one that's in the party). */
-  private userClients = new Map<number, string>()
 
   constructor(
     private publisher: TypedPublisher<PartyEvent>,
@@ -235,12 +233,7 @@ export default class PartyService {
     this.subscribeToParty(clientSockets, party)
   }
 
-  leaveParty(userId: number) {
-    const clientId = this.userClients.get(userId)
-    if (!clientId) {
-      throw new PartyServiceError(PartyServiceErrorCode.ClientNotInParty, 'Client not in party')
-    }
-
+  leaveParty(partyId: string, userId: number, clientId: string) {
     const clientSockets = this.getClientSockets(userId, clientId)
     this.removeClientFromParty(clientSockets)
   }
@@ -260,8 +253,6 @@ export default class PartyService {
   }
 
   private subscribeToParty(clientSockets: ClientSocketsGroup, party: PartyRecord) {
-    this.userClients = this.userClients.set(clientSockets.userId, clientSockets.clientId)
-
     clientSockets.subscribe<PartyInitEvent>(
       getPartyPath(party.id),
       () => ({
@@ -275,7 +266,8 @@ export default class PartyService {
   private removeClientFromParty(clientSockets: ClientSocketsGroup) {
     const party = this.getClientParty(clientSockets)
     if (!party) {
-      logger.error('error while handling client quitting, party not found')
+      const err = new Error('Party not found')
+      logger.error({ err }, 'error while handling client quitting')
       return
     }
 
@@ -289,8 +281,6 @@ export default class PartyService {
     }
 
     this.clientSocketsToPartyId.delete(clientSockets)
-    this.userClients.delete(clientSockets.userId)
-
     clientSockets.unsubscribe(getPartyPath(party.id))
 
     // TODO(2Pac): Handle party leader leaving

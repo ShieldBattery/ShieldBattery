@@ -14,7 +14,7 @@ const userValidator = composeValidators(
   required('Enter a username'),
   minLength(USERNAME_MINLENGTH),
   maxLength(USERNAME_MAXLENGTH),
-  regex(USERNAME_PATTERN, 'User name contains invalid characters'),
+  regex(USERNAME_PATTERN, 'Username contains invalid characters'),
 )
 
 interface InviteUsersModel {

@@ -422,20 +422,20 @@ describe('parties/party-service', () => {
       partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
     })
 
-    test('should throw if the client is not in party', () => {
-      expect(() => partyService.leaveParty(-1)).toThrowErrorMatchingInlineSnapshot(
-        `"Client not in party"`,
-      )
+    test('should throw if the client could not be found', () => {
+      expect(() =>
+        partyService.leaveParty(party.id, user2.id, 'UNKNOWN_CLIENT_ID'),
+      ).toThrowErrorMatchingInlineSnapshot(`"Client could not be found"`)
     })
 
     test('should update the party record', () => {
-      partyService.leaveParty(user2.id)
+      partyService.leaveParty(party.id, user2.id, USER2_CLIENT_ID)
 
       expect(party.members).toMatchObject(new Map([[leader.id, leader]]))
     })
 
     test('should publish "leave" message to the party path', () => {
-      partyService.leaveParty(user2.id)
+      partyService.leaveParty(party.id, user2.id, USER2_CLIENT_ID)
 
       // TODO(2Pac): Test the order of this call? This should probably be ensured that it's called
       // before unsubscribing the user from the party path.
@@ -446,9 +446,9 @@ describe('parties/party-service', () => {
     })
 
     test('should unsubscribe user from the party path', () => {
-      partyService.leaveParty(user2.id)
+      partyService.leaveParty(party.id, user2.id, USER2_CLIENT_ID)
 
-      expect(client2.unsubscribeClient).toHaveBeenCalledWith(client2, getPartyPath(party.id))
+      expect(client2.unsubscribe).toHaveBeenCalledWith(getPartyPath(party.id))
     })
   })
 })

@@ -79,7 +79,7 @@ export interface PartyNavEntryProps {
   party: PartyRecord
   currentPath: string
   onInviteUserClick: () => void
-  onLeavePartyClick: () => void
+  onLeavePartyClick: (partyId: string) => void
 }
 
 export function PartyNavEntry({
@@ -88,7 +88,8 @@ export function PartyNavEntry({
   onInviteUserClick,
   onLeavePartyClick,
 }: PartyNavEntryProps) {
-  const link = `/parties/${encodeURIComponent(party.id)}`
+  const partyId = party.id
+  const link = `/parties/${encodeURIComponent(partyId)}`
   const isActive = link.toLowerCase() === currentPath.toLowerCase()
 
   const onInviteClick = useCallback(
@@ -102,9 +103,9 @@ export function PartyNavEntry({
   const onLeaveClick = useCallback(
     (event: React.MouseEvent) => {
       event.stopPropagation()
-      onLeavePartyClick()
+      onLeavePartyClick(partyId)
     },
-    [onLeavePartyClick],
+    [partyId, onLeavePartyClick],
   )
 
   return (

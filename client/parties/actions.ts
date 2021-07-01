@@ -101,6 +101,7 @@ export interface AcceptPartyInviteBegin {
   type: '@parties/acceptPartyInviteBegin'
   payload: {
     partyId: string
+    clientId: string
   }
 }
 
@@ -109,6 +110,7 @@ export interface AcceptPartyInviteSuccess {
   payload: void
   meta: {
     partyId: string
+    clientId: string
   }
   error?: false
 }
@@ -116,20 +118,34 @@ export interface AcceptPartyInviteSuccess {
 export interface AcceptPartyInviteFailure extends BaseFetchFailure<'@parties/acceptPartyInvite'> {
   meta: {
     partyId: string
+    clientId: string
   }
 }
 
 export interface LeavePartyBegin {
   type: '@parties/leavePartyBegin'
+  payload: {
+    partyId: string
+    clientId: string
+  }
 }
 
 export interface LeavePartySuccess {
   type: '@parties/leaveParty'
   payload: void
+  meta: {
+    partyId: string
+    clientId: string
+  }
   error?: false
 }
 
-export type LeavePartyFailure = BaseFetchFailure<'@parties/leaveParty'>
+export interface LeavePartyFailure extends BaseFetchFailure<'@parties/leaveParty'> {
+  meta: {
+    partyId: string
+    clientId: string
+  }
+}
 
 export interface InitParty {
   type: '@parties/init'

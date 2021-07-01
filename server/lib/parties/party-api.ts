@@ -99,7 +99,7 @@ export class PartyApi extends HttpApi {
         accept,
       )
       .delete(
-        '/',
+        '/:partyId/:clientId',
         throttleMiddleware(partyThrottle, ctx => String(ctx.session!.userId)),
         leave,
       )
@@ -199,8 +199,17 @@ async function accept(ctx: RouterContext) {
 }
 
 async function leave(ctx: RouterContext) {
+  const {
+    params: { partyId, clientId },
+  } = validateRequest(ctx, {
+    params: Joi.object<{ partyId: string; clientId: string }>({
+      partyId: Joi.string().required(),
+      clientId: Joi.string().required(),
+    }),
+  })
+
   const partyService = container.resolve(PartyService)
-  await partyService.leaveParty(ctx.session!.userId)
+  await partyService.leaveParty(partyId, ctx.session!.userId, clientId)
 
   ctx.status = 204
 }
