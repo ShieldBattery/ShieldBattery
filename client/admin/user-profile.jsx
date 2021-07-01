@@ -8,6 +8,7 @@ import { composeValidators, maxLength, minLength, regex, required } from '../for
 import { TextButton } from '../material/button'
 import TextField from '../material/text-field'
 import { push } from '../navigation/routing'
+import { urlPath } from '../network/urls'
 import BanUsers from './bans'
 import PermissionsResult from './permissions'
 
@@ -97,6 +98,6 @@ export class UserFind extends React.Component {
   onSubmit = () => {
     const values = this._form.getModel()
     const username = values.username
-    push(`/admin/users/${encodeURIComponent(username)}`)
+    push(urlPath`/admin/users/${username}`)
   }
 }
