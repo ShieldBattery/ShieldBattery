@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { RaceChar } from '../../common/races'
@@ -10,7 +10,8 @@ import { RaceIcon } from '../lobbies/race-icon'
 import { TabItem, Tabs } from '../material/tabs'
 import { goToIndex } from '../navigation/action-creators'
 import { replace } from '../navigation/routing'
-import { useAppSelector } from '../redux-hooks'
+import { LoadingDotsArea } from '../progress/dots'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import {
   amberA400,
   backgroundSaturatedDark,
@@ -32,7 +33,11 @@ import {
   subtitle1,
   Subtitle2,
 } from '../styles/typography'
-import { correctUsernameForProfile, navigateToUserProfile } from './action-creators'
+import {
+  correctUsernameForProfile,
+  navigateToUserProfile,
+  viewUserProfile,
+} from './action-creators'
 import { MatchHistory } from './match-history'
 import { UserProfileSubPage } from './user-profile-sub-page'
 
@@ -45,6 +50,14 @@ const Container = styled.div`
 const TabArea = styled.div`
   width: 100%;
   max-width: 720px;
+`
+
+const LoadingError = styled.div`
+  ${subtitle1};
+  width: 100%;
+  margin-top: 40px;
+  margin-bottom: 48px;
+  padding: 0 24px;
 `
 
 export interface ConnectedUserProfilePageProps {
@@ -62,6 +75,7 @@ export function ConnectedUserProfilePage({
     goToIndex(replace)
   }
 
+  const dispatch = useAppDispatch()
   const user = useAppSelector(s => s.users.byId.get(userId))
   const onTabChange = useCallback(
     (tab: UserProfileSubPage) => {
@@ -69,6 +83,26 @@ export function ConnectedUserProfilePage({
     },
     [user],
   )
+  const [loadingError, setLoadingError] = useState<Error>()
+  const cancelLoadRef = useRef(new AbortController())
+
+  useEffect(() => {
+    cancelLoadRef.current.abort()
+    const abortController = new AbortController()
+    cancelLoadRef.current = abortController
+
+    dispatch(
+      viewUserProfile(userId, {
+        signal: abortController.signal,
+        onSuccess: () => setLoadingError(undefined),
+        onError: err => setLoadingError(err),
+      }),
+    )
+
+    return () => {
+      abortController.abort()
+    }
+  }, [userId, user, dispatch])
 
   useEffect(() => {
     if (user && usernameFromRoute !== user.name) {
@@ -76,9 +110,12 @@ export function ConnectedUserProfilePage({
     }
   }, [usernameFromRoute, user, subPage])
 
+  if (loadingError) {
+    // TODO(tec27): Handle specific errors, e.g. not found vs server error
+    return <LoadingError>There was a problem loading this user.</LoadingError>
+  }
   if (!user) {
-    // TODO(tec27): request the data
-    return <span>oh no! no user data!</span>
+    return <LoadingDotsArea />
   }
 
   return (

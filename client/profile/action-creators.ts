@@ -1,5 +1,10 @@
+import { GetUserProfilePayload } from '../../common/users/user-info'
+import { ReduxAction } from '../action-types'
+import { DispatchFunction, ThunkAction } from '../dispatch-registry'
 import { push, replace } from '../navigation/routing'
-import { urlPath } from '../network/urls'
+import fetch from '../network/fetch'
+import { apiUrl, urlPath } from '../network/urls'
+import { RootState } from '../root-reducer'
 import { UserProfileSubPage } from './user-profile-sub-page'
 
 /**
@@ -20,4 +25,57 @@ export function correctUsernameForProfile(
   tab?: UserProfileSubPage,
 ) {
   replace(urlPath`/users/${userId}/${username}/${tab ?? ''}`)
+}
+
+export interface RequestHandlingSpec {
+  signal?: AbortSignal
+  onSuccess: () => void
+  onError: (err: Error) => void
+}
+
+function abortableThunk<T extends ReduxAction>(
+  { signal, onSuccess, onError }: RequestHandlingSpec,
+  thunkFn: (dispatch: DispatchFunction<T>, getState: () => RootState) => Promise<void>,
+): ThunkAction<T> {
+  return (dispatch, getState) => {
+    thunkFn(dispatch, getState)
+      .then(() => {
+        if (signal?.aborted) {
+          return
+        }
+
+        onSuccess()
+      })
+      .catch((err: Error) => {
+        if (signal?.aborted || (signal && err.name === 'AbortError')) {
+          return
+        }
+
+        onError(err)
+      })
+  }
+}
+
+/**
+ * Signals that a specific user's profile is being viewed. If we don't have a local copy of that
+ * user's profile data already, it will be retrieved from the server.
+ */
+export function viewUserProfile(userId: number, spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, async (dispatch, getState) => {
+    const {
+      users: { byId },
+    } = getState()
+
+    // TODO(tec27): Check if it has completed information here
+    if (byId.has(userId)) {
+      return
+    }
+
+    dispatch({
+      type: '@profile/getUserProfile',
+      payload: await fetch<GetUserProfilePayload>(apiUrl`users/${userId}/profile`, {
+        signal: spec.signal,
+      }),
+    })
+  })
 }

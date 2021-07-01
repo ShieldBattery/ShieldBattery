@@ -52,11 +52,17 @@ export function joiValidator({ params, query, body }: JoiValidationDescriptor) {
   }
 }
 
+export type ValidatedRequestData<T extends JoiValidationDescriptor> = {
+  params: ValidatedParamType<T>
+  query: ValidatedQueryType<T>
+  body: ValidatedBodyType<T>
+}
+
 /** Validates a Koa request using Joi, returning typed values that have been normalized by Joi. */
 export function validateRequest<T extends JoiValidationDescriptor>(
   ctx: RouterContext,
   { params, query, body }: T,
-): { params: ValidatedParamType<T>; query: ValidatedQueryType<T>; body: ValidatedBodyType<T> } {
+): ValidatedRequestData<T> {
   let paramsResult: ValidatedParamType<T> | undefined
   let queryResult: ValidatedQueryType<T> | undefined
   let bodyResult: ValidatedBodyType<T> | undefined

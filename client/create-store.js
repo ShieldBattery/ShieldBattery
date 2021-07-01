@@ -9,7 +9,11 @@ const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 function promiseMiddleware({ dispatch }) {
   return next => action => {
     if (isPromise(action)) {
-      action.then(dispatch)
+      action.then(value => {
+        if (value !== undefined && value !== null) {
+          dispatch(value)
+        }
+      })
     } else if (isPromise(action.payload)) {
       action.payload
         .then(result => dispatch({ ...action, payload: result }))

@@ -19,3 +19,9 @@ export interface User {
   id: number
   name: string
 }
+
+/** Information returned for /users/:id/profile, intended to be able to fill out a profile page. */
+export interface GetUserProfilePayload {
+  user: User
+  // TODO(tec27): Add more stuff
+}

@@ -2,13 +2,15 @@ import Router, { RouterContext } from '@koa/router'
 import bcrypt from 'bcrypt'
 import cuid from 'cuid'
 import httpErrors from 'http-errors'
+import Joi from 'joi'
 import { NydusServer } from 'nydus'
 import { singleton } from 'tsyringe'
 import { isValidEmail, isValidPassword, isValidUsername } from '../../../common/constants'
-import { SelfUserInfo } from '../../../common/users/user-info'
+import { GetUserProfilePayload, SelfUserInfo } from '../../../common/users/user-info'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { HttpApi, httpApi } from '../http/http-api'
+import { apiEndpoint } from '../http/http-api-endpoint'
 import sendMail from '../mail/mailer'
 import {
   addEmailVerificationCode,
@@ -31,6 +33,8 @@ import {
   updateUser,
   UserUpdatables,
 } from './user-model'
+
+const JOI_USER_ID = Joi.number().min(1)
 
 const accountCreationThrottle = createThrottle('accountcreation', {
   rate: 1,
@@ -74,6 +78,7 @@ export class UserApi extends HttpApi {
         throttleMiddleware(accountCreationThrottle, ctx => ctx.ip),
         this.createUser,
       )
+      .get('/:id/profile', this.getUserProfile)
       .patch(
         '/:id',
         ensureLoggedIn,
@@ -132,6 +137,22 @@ export class UserApi extends HttpApi {
 
     ctx.body = result
   }
+
+  getUserProfile = apiEndpoint(
+    {
+      params: Joi.object<{ id: number }>({
+        id: JOI_USER_ID.required(),
+      }),
+    },
+    async (ctx, { params }): Promise<GetUserProfilePayload> => {
+      const user = await findUserById(params.id)
+      if (!user) {
+        throw new httpErrors.NotFound('user not found')
+      }
+
+      return { user }
+    },
+  )
 
   updateUser = async (ctx: RouterContext) => {
     const { id: idString } = ctx.params
