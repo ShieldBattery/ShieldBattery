@@ -9,6 +9,7 @@ import { isValidEmail, isValidPassword, isValidUsername } from '../../../common/
 import { GetUserProfilePayload, SelfUserInfo } from '../../../common/users/user-info'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
+import { HttpErrorWithPayload } from '../errors/error-with-payload'
 import { HttpApi, httpApi } from '../http/http-api'
 import { apiEndpoint } from '../http/http-api-endpoint'
 import sendMail from '../mail/mailer'
@@ -147,7 +148,8 @@ export class UserApi extends HttpApi {
     async (ctx, { params }): Promise<GetUserProfilePayload> => {
       const user = await findUserById(params.id)
       if (!user) {
-        throw new httpErrors.NotFound('user not found')
+        // TODO(tec27): put the possible codes for this in common/
+        throw new HttpErrorWithPayload(404, 'user not found', { code: 'USER_NOT_FOUND' })
       }
 
       return { user }

@@ -5,11 +5,11 @@ import Koa from 'koa'
 import koaBody from 'koa-body'
 import koaCompress from 'koa-compress'
 import koaConvert from 'koa-convert'
-import koaError from 'koa-error'
 import views from 'koa-views'
 import path from 'path'
 import { container } from 'tsyringe'
 import isDev from './lib/env/is-dev'
+import { errorPayloadMiddleware } from './lib/errors/error-payload-middleware'
 import { addMiddleware as fileStoreMiddleware, setStore } from './lib/file-upload'
 import AwsStore from './lib/file-upload/aws'
 import LocalFileStore from './lib/file-upload/local-filesystem'
@@ -103,7 +103,7 @@ process.on('unhandledRejection', err => {
 
 app
   .use(logMiddleware())
-  .use(koaError()) // TODO(tec27): Customize error view
+  .use(errorPayloadMiddleware())
   .use(
     koaCompress({
       // NOTE(tec27): Brotli is cool and all, but if the asset hasn't been precompressed and saved
