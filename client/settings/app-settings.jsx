@@ -80,9 +80,10 @@ class AppForm extends React.Component {
               inputProps={{ tabIndex: 0 }}
             />
             <CheckBox
-              {...bindCheckable('startAppMinimized')}
+              {...bindCheckable('runAppAtSystemStartMinimized')}
               label='Start ShieldBattery minimized'
               inputProps={{ tabIndex: 0 }}
+              disabled={!this.props.getInputValue('runAppAtSystemStart')}
             />
           </div>
         </FormContainer>
@@ -134,7 +135,7 @@ export default class AppSettings extends React.Component {
     const formModel = {
       masterVolume: localSettings.masterVolume,
       runAppAtSystemStart: localSettings.runAppAtSystemStart,
-      startAppMinimized: localSettings.startAppMinimized,
+      runAppAtSystemStartMinimized: localSettings.runAppAtSystemStartMinimized,
     }
 
     return (

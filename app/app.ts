@@ -150,11 +150,11 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
     })
 
   localSettings.on('change', settings => {
-    if (settings.runAppAtSystemStart !== app.getLoginItemSettings().openAtLogin) {
-      app.setLoginItemSettings({
-        openAtLogin: settings.runAppAtSystemStart,
-      })
-    }
+    app.setLoginItemSettings({
+      openAtLogin: settings.runAppAtSystemStart,
+      args: [settings.runAppAtSystemStartMinimized ? '--hidden' : ''],
+    })
+
     TypedIpcSender.from(mainWindow?.webContents).send('settingsLocalChanged', settings)
   })
   scrSettings.on('change', settings => {
@@ -357,8 +357,7 @@ async function createWindow() {
   const curSession = currentSession()
 
   // TODO(tec27): verify that window positioning is still valid on current monitor setup
-  const { winX, winY, winWidth, winHeight, winMaximized, startAppMinimized } =
-    await localSettings.get()
+  const { winX, winY, winWidth, winHeight, winMaximized } = await localSettings.get()
 
   mainWindow = new BrowserWindow({
     width: winWidth && winWidth > 0 ? winWidth : 1024,
@@ -451,9 +450,11 @@ async function createWindow() {
 
   registerHotkeys()
 
-  mainWindow.once('ready-to-show', () => {
-    if (!startAppMinimized) mainWindow!.show()
-  })
+  if (!process.argv.includes('--hidden')) {
+    mainWindow.once('ready-to-show', () => {
+      mainWindow!.show()
+    })
+  }
 
   mainWindow.on('closed', () => {
     mainWindow = null
