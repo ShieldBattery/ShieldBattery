@@ -1,6 +1,17 @@
-import { List, Map, Record } from 'immutable'
+import cuid from 'cuid'
+import { List, OrderedMap, Record } from 'immutable'
 import { PartyUser } from '../../common/parties'
+import { TextMessageRecord } from '../messaging/message-records'
 import { keyedReducer } from '../reducers/keyed-reducer'
+import {
+  InviteToPartyMessageRecord,
+  JoinPartyMessageRecord,
+  LeavePartyMessageRecord,
+  SelfJoinPartyMessageRecord,
+} from './party-message-records'
+
+// How many messages should be kept when a party is inactive
+const INACTIVE_PARTY_MAX_HISTORY = 500
 
 export class PartyUserRecord
   extends Record({
@@ -11,10 +22,12 @@ export class PartyUserRecord
 
 export class PartyRecord extends Record({
   id: '',
-  invites: Map<number, PartyUser>(),
-  members: Map<number, PartyUser>(),
+  invites: OrderedMap<number, PartyUser>(),
+  members: OrderedMap<number, PartyUser>(),
   leader: new PartyUserRecord(),
   messages: List(),
+  hasUnread: false,
+  activated: false,
 }) {}
 
 export default keyedReducer(new PartyRecord(), {
@@ -25,9 +38,16 @@ export default keyedReducer(new PartyRecord(), {
 
     return new PartyRecord({
       id,
-      invites: Map(invites.map(i => [i.id, new PartyUserRecord(i)])),
-      members: Map(members.map(m => [m.id, new PartyUserRecord(m)])),
+      invites: OrderedMap(invites.map(i => [i.id, new PartyUserRecord(i)])),
+      members: OrderedMap(members.map(m => [m.id, new PartyUserRecord(m)])),
       leader: new PartyUserRecord(leader),
+      messages: List([
+        new SelfJoinPartyMessageRecord({
+          id: cuid(),
+          time: Date.now(),
+          leaderId: leader.id,
+        }),
+      ]),
     })
   },
 
@@ -38,7 +58,18 @@ export default keyedReducer(new PartyRecord(), {
       return state
     }
 
-    return state.setIn(['invites', invitedUser.id], new PartyUserRecord(invitedUser))
+    return state
+      .setIn(['invites', invitedUser.id], new PartyUserRecord(invitedUser))
+      .set('hasUnread', !state.activated)
+      .update('messages', messages =>
+        messages.push(
+          new InviteToPartyMessageRecord({
+            id: cuid(),
+            time: Date.now(),
+            userId: invitedUser.id,
+          }),
+        ),
+      )
   },
 
   ['@parties/updateUninvite'](state, action) {
@@ -71,6 +102,16 @@ export default keyedReducer(new PartyRecord(), {
     return state
       .deleteIn(['invites', user.id])
       .setIn(['members', user.id], new PartyUserRecord(user))
+      .set('hasUnread', !state.activated)
+      .update('messages', messages =>
+        messages.push(
+          new JoinPartyMessageRecord({
+            id: cuid(),
+            time: Date.now(),
+            userId: user.id,
+          }),
+        ),
+      )
   },
 
   ['@parties/updateLeave'](state, action) {
@@ -80,10 +121,62 @@ export default keyedReducer(new PartyRecord(), {
       return state
     }
 
-    return state.deleteIn(['members', user.id])
+    return state
+      .deleteIn(['members', user.id])
+      .set('hasUnread', !state.activated)
+      .update('messages', messages =>
+        messages.push(
+          new LeavePartyMessageRecord({
+            id: cuid(),
+            time: Date.now(),
+            userId: user.id,
+          }),
+        ),
+      )
+  },
+
+  ['@parties/updateChatMessage'](state, action) {
+    const { partyId, from, time, text } = action.payload
+
+    if (partyId !== state.id) {
+      return state
+    }
+
+    return state.set('hasUnread', !state.activated).update('messages', messages =>
+      messages.push(
+        new TextMessageRecord({
+          id: cuid(),
+          from: from.id,
+          time,
+          text,
+        }),
+      ),
+    )
   },
 
   ['@parties/updateLeaveSelf'](state, action) {
     return new PartyRecord()
+  },
+
+  ['@parties/activateParty'](state, action) {
+    const { partyId } = action.payload
+
+    if (partyId !== state.id) {
+      return state
+    }
+
+    return state.set('hasUnread', false).set('activated', true)
+  },
+
+  ['@parties/deactivateParty'](state, action) {
+    const { partyId } = action.payload
+
+    if (partyId !== state.id) {
+      return state
+    }
+
+    return state
+      .set('messages', state.messages.slice(-INACTIVE_PARTY_MAX_HISTORY))
+      .set('activated', false)
   },
 })

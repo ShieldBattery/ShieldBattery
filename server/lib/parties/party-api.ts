@@ -9,6 +9,7 @@ import {
   AcceptPartyInviteServerBody,
   InviteToPartyServerBody,
   PartyUser,
+  SendChatMessageServerBody,
 } from '../../../common/parties'
 import { featureEnabled } from '../flags/feature-enabled'
 import { httpApi, HttpApi } from '../http/http-api'
@@ -28,6 +29,12 @@ const invitesThrottle = createThrottle('partyInvites', {
 const partyThrottle = createThrottle('parties', {
   rate: 20,
   burst: 40,
+  window: 60000,
+})
+
+const sendChatMessageThrottle = createThrottle('sendChatMessage', {
+  rate: 30,
+  burst: 90,
   window: 60000,
 })
 
@@ -102,6 +109,11 @@ export class PartyApi extends HttpApi {
         '/:partyId/:clientId',
         throttleMiddleware(partyThrottle, ctx => String(ctx.session!.userId)),
         leave,
+      )
+      .post(
+        '/:partyId/messages',
+        throttleMiddleware(sendChatMessageThrottle, ctx => String(ctx.session!.userId)),
+        sendChatMessage,
       )
   }
 }
@@ -210,6 +222,25 @@ async function leave(ctx: RouterContext) {
 
   const partyService = container.resolve(PartyService)
   await partyService.leaveParty(partyId, ctx.session!.userId, clientId)
+
+  ctx.status = 204
+}
+
+async function sendChatMessage(ctx: RouterContext) {
+  const {
+    params: { partyId },
+    body: { message },
+  } = validateRequest(ctx, {
+    params: Joi.object<{ partyId: string; message: string }>({
+      partyId: Joi.string().required(),
+    }),
+    body: Joi.object<SendChatMessageServerBody>({
+      message: Joi.string().min(1).required(),
+    }),
+  })
+
+  const partyService = container.resolve(PartyService)
+  await partyService.sendChatMessage(partyId, ctx.session!.userId, message)
 
   ctx.status = 204
 }

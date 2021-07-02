@@ -1,6 +1,9 @@
 import type { NydusClient, RouteHandler, RouteInfo } from 'nydus-client'
+import { TypedIpcRenderer } from '../../common/ipc'
 import { PartyEvent } from '../../common/parties'
 import { dispatch, Dispatchable } from '../dispatch-registry'
+
+const ipcRenderer = new TypedIpcRenderer()
 
 type EventToActionMap = {
   [E in PartyEvent['type']]?: (
@@ -11,22 +14,24 @@ type EventToActionMap = {
 
 const eventToAction: EventToActionMap = {
   init: (partyId, event) => {
-    const { party } = event
+    const { party, userInfos } = event
     return {
       type: '@parties/init',
       payload: {
         party,
+        userInfos,
       },
     }
   },
 
   invite: (partyId, event) => {
-    const { invitedUser } = event
+    const { invitedUser, userInfo } = event
     return {
       type: '@parties/updateInvite',
       payload: {
         partyId,
         invitedUser,
+        userInfo,
       },
     }
   },
@@ -79,6 +84,23 @@ const eventToAction: EventToActionMap = {
           user: event.user,
         },
       })
+    }
+  },
+
+  chatMessage(partyId, event) {
+    const { from, time, text } = event
+
+    // Notify the main process of the new message, so it can display an appropriate notification
+    ipcRenderer.send('chatNewMessage', { user: event.from.name, message: event.text })
+
+    return {
+      type: '@parties/updateChatMessage',
+      payload: {
+        partyId,
+        from,
+        time,
+        text,
+      },
     }
   },
 }

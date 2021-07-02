@@ -9,6 +9,7 @@ import {
   PartyUser,
 } from '../../../common/parties'
 import logger from '../logging/logger'
+import filterChatMessage from '../messaging/filter-chat-message'
 import NotificationService from '../notifications/notification-service'
 import { ClientSocketsGroup, ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
@@ -106,6 +107,10 @@ export default class PartyService {
       this.publisher.publish(getPartyPath(party.id), {
         type: 'invite',
         invitedUser,
+        userInfo: {
+          id: invitedUser.id,
+          name: invitedUser.name,
+        },
       })
     } else {
       const partyId = cuid()
@@ -238,6 +243,27 @@ export default class PartyService {
     this.removeClientFromParty(clientSockets)
   }
 
+  sendChatMessage(partyId: string, userId: number, message: string) {
+    const party = this.parties.get(partyId)
+    if (!party) {
+      throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found')
+    }
+
+    const user = party.members.get(userId)
+    if (!user) {
+      throw new PartyServiceError(PartyServiceErrorCode.ClientNotInParty, 'Client not in party')
+    }
+
+    const text = filterChatMessage(message)
+
+    this.publisher.publish(getPartyPath(partyId), {
+      type: 'chatMessage',
+      from: user,
+      time: Date.now(),
+      text,
+    })
+  }
+
   private clearInviteNotification(partyId: string, user: PartyUser) {
     this.notificationService
       .retrieveNotifications({ userId: user.id, type: NotificationType.PartyInvite })
@@ -258,6 +284,13 @@ export default class PartyService {
       () => ({
         type: 'init',
         party: toPartyJson(party),
+        userInfos: [
+          ...Array.from(party.invites.values()),
+          ...Array.from(party.members.values()),
+        ].map(u => ({
+          id: u.id,
+          name: u.name,
+        })),
       }),
       sockets => this.removeClientFromParty(sockets),
     )

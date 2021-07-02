@@ -120,4 +120,12 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   ['@whispers/updateMessage'](state, action) {
     updateUsers(state, action.payload.users)
   },
+
+  ['@parties/init'](state, action) {
+    updateUsers(state, action.payload.userInfos)
+  },
+
+  ['@parties/updateInvite'](state, action) {
+    updateUsers(state, [action.payload.userInfo])
+  },
 })

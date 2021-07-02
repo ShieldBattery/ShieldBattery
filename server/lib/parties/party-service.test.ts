@@ -134,6 +134,10 @@ describe('parties/party-service', () => {
         expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
           type: 'invite',
           invitedUser: user3,
+          userInfo: {
+            id: user3.id,
+            name: user3.name,
+          },
         })
       })
     })
@@ -172,6 +176,10 @@ describe('parties/party-service', () => {
             members: [leader],
             leader,
           },
+          userInfos: [
+            { id: user2.id, name: user2.name },
+            { id: leader.id, name: leader.name },
+          ],
         })
       })
     })
@@ -408,6 +416,11 @@ describe('parties/party-service', () => {
       expect(client2.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'init',
         party: toPartyJson(party),
+        userInfos: [
+          { id: user3.id, name: user3.name },
+          { id: leader.id, name: leader.name },
+          { id: user2.id, name: user2.name },
+        ],
       })
     })
   })
@@ -449,6 +462,41 @@ describe('parties/party-service', () => {
       partyService.leaveParty(party.id, user2.id, USER2_CLIENT_ID)
 
       expect(client2.unsubscribe).toHaveBeenCalledWith(getPartyPath(party.id))
+    })
+  })
+
+  describe('sendChatMessage', () => {
+    let leader: PartyUser
+    let party: PartyRecord
+
+    beforeEach(async () => {
+      leader = user1
+      party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
+      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
+    })
+
+    test('should throw if the party is not found', () => {
+      expect(() =>
+        partyService.sendChatMessage('INVALID_PARTY_ID', user2.id, 'Hello World!'),
+      ).toThrowErrorMatchingInlineSnapshot(`"Party not found"`)
+    })
+
+    test('should throw if the client is not in party', () => {
+      expect(() =>
+        partyService.sendChatMessage(party.id, user3.id, 'Hello World!'),
+      ).toThrowErrorMatchingInlineSnapshot(`"Client not in party"`)
+    })
+
+    test('should publish "chatMessage" event to the party path', () => {
+      Date.now = jest.fn(() => 272727)
+      partyService.sendChatMessage(party.id, user2.id, 'Hello World!')
+
+      expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
+        type: 'chatMessage',
+        from: user2,
+        time: 272727,
+        text: 'Hello World!',
+      })
     })
   })
 })
