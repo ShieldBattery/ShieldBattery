@@ -55,7 +55,7 @@ function convertPartyServiceError(err: Error) {
     case PartyServiceErrorCode.PartyFull:
       throw new httpErrors.Conflict(err.message)
     case PartyServiceErrorCode.UserOffline:
-    case PartyServiceErrorCode.ClientNotInParty:
+    case PartyServiceErrorCode.UserNotInParty:
       throw new httpErrors.NotFound(err.message)
     case PartyServiceErrorCode.InvalidAction:
       throw new httpErrors.BadRequest(err.message)

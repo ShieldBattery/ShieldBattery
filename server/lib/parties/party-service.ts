@@ -28,7 +28,7 @@ export enum PartyServiceErrorCode {
   UserOffline,
   InvalidAction,
   NotificationFailure,
-  ClientNotInParty,
+  UserNotInParty,
 }
 
 export class PartyServiceError extends Error {
@@ -239,8 +239,17 @@ export default class PartyService {
   }
 
   leaveParty(partyId: string, userId: number, clientId: string) {
+    const party = this.parties.get(partyId)
+    if (!party) {
+      throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found')
+    }
+
+    if (!party.members.has(userId)) {
+      throw new PartyServiceError(PartyServiceErrorCode.UserNotInParty, 'User not in party')
+    }
+
     const clientSockets = this.getClientSockets(userId, clientId)
-    this.removeClientFromParty(clientSockets)
+    this.removeClientFromParty(clientSockets, party)
   }
 
   sendChatMessage(partyId: string, userId: number, message: string) {
@@ -251,7 +260,7 @@ export default class PartyService {
 
     const user = party.members.get(userId)
     if (!user) {
-      throw new PartyServiceError(PartyServiceErrorCode.ClientNotInParty, 'Client not in party')
+      throw new PartyServiceError(PartyServiceErrorCode.UserNotInParty, 'User not in party')
     }
 
     const text = filterChatMessage(message)
@@ -296,8 +305,10 @@ export default class PartyService {
     )
   }
 
-  private removeClientFromParty(clientSockets: ClientSocketsGroup) {
-    const party = this.getClientParty(clientSockets)
+  private removeClientFromParty(
+    clientSockets: ClientSocketsGroup,
+    party = this.getClientParty(clientSockets),
+  ) {
     if (!party) {
       const err = new Error('Party not found')
       logger.error({ err }, 'error while handling client quitting')

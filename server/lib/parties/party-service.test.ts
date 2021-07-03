@@ -435,6 +435,18 @@ describe('parties/party-service', () => {
       partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
     })
 
+    test('should throw if the party is not found', () => {
+      expect(() =>
+        partyService.leaveParty('INVALID_PARTY_ID', user2.id, USER2_CLIENT_ID),
+      ).toThrowErrorMatchingInlineSnapshot(`"Party not found"`)
+    })
+
+    test('should throw if the user is not in party', () => {
+      expect(() =>
+        partyService.leaveParty(party.id, user3.id, USER3_CLIENT_ID),
+      ).toThrowErrorMatchingInlineSnapshot(`"User not in party"`)
+    })
+
     test('should throw if the client could not be found', () => {
       expect(() =>
         partyService.leaveParty(party.id, user2.id, 'UNKNOWN_CLIENT_ID'),
@@ -481,10 +493,10 @@ describe('parties/party-service', () => {
       ).toThrowErrorMatchingInlineSnapshot(`"Party not found"`)
     })
 
-    test('should throw if the client is not in party', () => {
+    test('should throw if the user is not in party', () => {
       expect(() =>
         partyService.sendChatMessage(party.id, user3.id, 'Hello World!'),
-      ).toThrowErrorMatchingInlineSnapshot(`"Client not in party"`)
+      ).toThrowErrorMatchingInlineSnapshot(`"User not in party"`)
     })
 
     test('should publish "chatMessage" event to the party path', () => {
