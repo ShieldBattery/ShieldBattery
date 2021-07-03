@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import styled from 'styled-components'
+import { User, UserProfile } from '../../../common/users/user-info'
 import { background700 } from '../../styles/colors'
 import { UserProfilePage } from '../user-profile'
 import { UserProfileSubPage } from '../user-profile-sub-page'
@@ -22,19 +23,15 @@ const TestContent = styled.div`
 `
 
 export function ProfilePageTest() {
-  const [username] = useState('[TL] Bigfan')
+  const [user] = useState<User>({ id: 1, name: '[TL] BigFan' })
+  const [profile] = useState<UserProfile>({ userId: 1, ladder: {} })
   const [subPage, setSubPage] = useState<UserProfileSubPage>()
 
   return (
     <Container>
       <FakeLeftNav />
       <TestContent>
-        <UserProfilePage
-          userId={1}
-          username={username}
-          subPage={subPage}
-          onTabChange={setSubPage}
-        />
+        <UserProfilePage user={user} profile={profile} subPage={subPage} onTabChange={setSubPage} />
       </TestContent>
     </Container>
   )
