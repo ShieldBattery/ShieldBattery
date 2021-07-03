@@ -1,6 +1,7 @@
 import cuid from 'cuid'
 import { List, OrderedMap, Record } from 'immutable'
 import { PartyUser } from '../../common/parties'
+import { NETWORK_SITE_CONNECTED } from '../actions'
 import { TextMessageRecord } from '../messaging/message-records'
 import { keyedReducer } from '../reducers/keyed-reducer'
 import {
@@ -178,5 +179,9 @@ export default keyedReducer(new PartyRecord(), {
     return state
       .set('messages', state.messages.slice(-INACTIVE_PARTY_MAX_HISTORY))
       .set('activated', false)
+  },
+
+  [NETWORK_SITE_CONNECTED as any]() {
+    return new PartyRecord()
   },
 })
