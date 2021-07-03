@@ -1,10 +1,11 @@
 import React, { useCallback } from 'react'
 import styled from 'styled-components'
-import { Link } from 'wouter'
+import { Link, useRoute } from 'wouter'
 import InviteIcon from '../icons/material/group_add_black_24px.svg'
 import CloseIcon from '../icons/material/ic_close_black_24px.svg'
 import PartyIcon from '../icons/material/supervised_user_circle_black_24px.svg'
 import { IconButton } from '../material/button'
+import { urlPath } from '../network/urls'
 import { amberA200, colorTextFaint } from '../styles/colors'
 import { singleLine, subtitle2 } from '../styles/typography'
 import { PartyRecord } from './party-reducer'
@@ -89,8 +90,8 @@ export function PartyNavEntry({
   onLeavePartyClick,
 }: PartyNavEntryProps) {
   const partyId = party.id
-  const link = `/parties/${encodeURIComponent(partyId)}`
-  const isActive = link.toLowerCase() === currentPath.toLowerCase()
+  const link = urlPath`/parties/${partyId}`
+  const [isActive] = useRoute('/parties/:partyId/:rest*')
 
   const onInviteClick = useCallback(
     (event: React.MouseEvent) => {
