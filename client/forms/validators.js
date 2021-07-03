@@ -38,11 +38,17 @@ export function required(msg) {
   return val => (val !== undefined && val !== null && val !== '' ? null : msg)
 }
 
-export function minLength(length, msg) {
+export function minLength(
+  length,
+  msg = `Enter at least ${length} character${length > 1 ? 's' : ''}`,
+) {
   return val => (('' + val).length >= length ? null : msg)
 }
 
-export function maxLength(length, msg) {
+export function maxLength(
+  length,
+  msg = `Enter at most ${length} character${length > 1 ? 's' : ''}`,
+) {
   return val => (('' + val).length <= length ? null : msg)
 }
 

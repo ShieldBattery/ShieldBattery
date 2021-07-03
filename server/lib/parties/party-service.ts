@@ -27,6 +27,7 @@ export enum PartyServiceErrorCode {
   UserOffline,
   InvalidAction,
   NotificationFailure,
+  ClientNotInParty,
 }
 
 export class PartyServiceError extends Error {
@@ -50,7 +51,12 @@ export function toPartyJson(party: PartyRecord): PartyPayload {
 
 @singleton()
 export default class PartyService {
+  /**
+   * Maps party ID -> record representing that party. Party is created as soon as someone is invited
+   * and removed once the last person in a party leaves.
+   */
   private parties = new Map<string, PartyRecord>()
+  /** Maps client sockets group -> party ID. Only one client sockets group can be in a party. */
   private clientSocketsToPartyId = new Map<ClientSocketsGroup, string>()
 
   constructor(
@@ -227,6 +233,11 @@ export default class PartyService {
     this.subscribeToParty(clientSockets, party)
   }
 
+  leaveParty(partyId: string, userId: number, clientId: string) {
+    const clientSockets = this.getClientSockets(userId, clientId)
+    this.removeClientFromParty(clientSockets)
+  }
+
   private clearInviteNotification(partyId: string, user: PartyUser) {
     this.notificationService
       .retrieveNotifications({ userId: user.id, type: NotificationType.PartyInvite })
@@ -248,18 +259,17 @@ export default class PartyService {
         type: 'init',
         party: toPartyJson(party),
       }),
-      sockets => this.handleClientQuit(sockets),
+      sockets => this.removeClientFromParty(sockets),
     )
   }
 
-  private handleClientQuit(clientSockets: ClientSocketsGroup) {
+  private removeClientFromParty(clientSockets: ClientSocketsGroup) {
     const party = this.getClientParty(clientSockets)
     if (!party) {
-      logger.error('error while handling client quitting, party not found')
+      const err = new Error('Party not found')
+      logger.error({ err }, 'error while handling client quitting')
       return
     }
-
-    this.clientSocketsToPartyId.delete(clientSockets)
 
     const user = party.members.get(clientSockets.userId)
     if (user) {
@@ -269,6 +279,9 @@ export default class PartyService {
         user,
       })
     }
+
+    this.clientSocketsToPartyId.delete(clientSockets)
+    clientSockets.unsubscribe(getPartyPath(party.id))
 
     // TODO(2Pac): Handle party leader leaving
 

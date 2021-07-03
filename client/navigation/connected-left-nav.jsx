@@ -23,6 +23,8 @@ import Subheader from '../material/left-nav/subheader'
 import { SubheaderButton } from '../material/left-nav/subheader-button'
 import MenuDivider from '../material/menu/divider'
 import MenuItem from '../material/menu/item'
+import { leaveParty } from '../parties/action-creators'
+import { PartyNavEntry } from '../parties/party-nav-entry'
 import ProfileNavEntry from '../profile/nav-entry'
 import { SelfProfileOverlay } from '../profile/self-profile-overlay'
 import { closeWhisperSession } from '../whispers/action-creators'
@@ -38,6 +40,7 @@ function stateToProps(state) {
     })),
     lobby: state.lobby,
     matchmaking: state.matchmaking,
+    party: state.party,
     whispers: state.whispers.sessions.map(s => ({
       name: s,
       hasUnread: state.whispers.byName.get(s.toLowerCase()).hasUnread,
@@ -174,6 +177,24 @@ class ConnectedLeftNav extends React.Component {
     ]
   }
 
+  renderParty() {
+    const { party } = this.props
+    if (!party.id || !IS_ELECTRON) return null
+
+    return [
+      <Section key='party-section'>
+        <PartyNavEntry
+          key='party'
+          party={party}
+          currentPath={location.pathname}
+          onInviteUserClick={this.onInviteUserClick}
+          onLeavePartyClick={this.onLeavePartyClick}
+        />
+      </Section>,
+      <Divider key='party-divider' />,
+    ]
+  }
+
   renderProfileOverlay() {
     return (
       <SelfProfileOverlay
@@ -242,6 +263,7 @@ class ConnectedLeftNav extends React.Component {
         {this.renderLoadingGame()}
         {this.renderActiveGame()}
         {this.renderLobby()}
+        {this.renderParty()}
         <Subheader button={MULTI_CHANNEL ? joinChannelButton : null}>Chat channels</Subheader>
         <Section>{channelNav}</Section>
         <Divider />
@@ -291,6 +313,14 @@ class ConnectedLeftNav extends React.Component {
 
   onCancelFindMatchClick = () => {
     this.props.dispatch(cancelFindMatch())
+  }
+
+  onInviteUserClick = () => {
+    this.props.dispatch(openDialog(DialogType.PartyInvite))
+  }
+
+  onLeavePartyClick = partyId => {
+    this.props.dispatch(leaveParty(partyId))
   }
 
   onChangelogClick = () => {

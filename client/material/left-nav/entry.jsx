@@ -53,6 +53,11 @@ const EntryButton = styled.div`
   }
 `
 
+// TODO(2Pac): Try to rework this component to make it more customizable, so it could be used in all
+// nav-entries. Or, remove this component and instead only export smaller components that encompass
+// common functionality/design across all the nav-entries, and leave it to specific nav-entries to
+// use those smaller components to create a nav-entry to their liking.
+
 export default class Entry extends React.Component {
   static propTypes = {
     link: PropTypes.string.isRequired,

@@ -16,6 +16,7 @@ import AcceptMatch from '../matchmaking/accept-match'
 import { isHandledDismissalEvent } from '../material/dismissal-events'
 import { defaultSpring } from '../material/springs'
 import { zIndexDialogScrim } from '../material/zindex'
+import { PartyInviteDialog } from '../parties/party-invite-dialog'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import Settings from '../settings/settings'
 import StarcraftPathDialog from '../settings/starcraft-path-dialog'
@@ -69,6 +70,8 @@ function getDialog(
       return { component: DownloadDialog, modal: false }
     case DialogType.MapDetails:
       return { component: MapDetailsDialog, modal: false }
+    case DialogType.PartyInvite:
+      return { component: PartyInviteDialog, modal: false }
     case DialogType.Settings:
       return isStarcraftHealthy({ starcraft: starcraftState })
         ? { component: Settings, modal: false }

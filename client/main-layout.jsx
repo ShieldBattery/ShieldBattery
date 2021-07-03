@@ -48,6 +48,8 @@ import { push, replace } from './navigation/routing'
 import { addNotification } from './notifications/action-creators'
 import { NotificationsButton } from './notifications/activity-bar-entry'
 import NotificationPopups from './notifications/notifications-popup'
+import { PartyTitle } from './parties/app-bar-title'
+import { PartyView } from './parties/party-view'
 import { ConnectedUserProfilePage } from './profile/user-profile'
 import LoadingIndicator from './progress/dots'
 import { openSnackbar } from './snackbars/action-creators'
@@ -98,9 +100,11 @@ const VersionText = styled.div`
 
 let lobbyRoute = <></>
 let matchmakingRoute = <></>
+let partyRoute = <></>
 if (IS_ELECTRON) {
   lobbyRoute = <Route path='/lobbies/:lobby/:rest*' component={LobbyView} />
   matchmakingRoute = <Route path='/matchmaking/:rest*' component={MatchmakingView} />
+  partyRoute = <Route path='/parties/:partyId/:rest*' component={PartyView} />
 }
 
 const LoadableAdminPanel = loadable(() => import('./admin/panel'), {
@@ -142,6 +146,8 @@ function AppBarTitle() {
     return <LobbyTitle />
   } else if (/^\/matchmaking(\/|$)/.test(location)) {
     return <MatchmakingTitle />
+  } else if (/^\/parties(\/|$)/.test(location)) {
+    return <PartyTitle />
   } else if (/^\/whispers(\/|$)/.test(location)) {
     return <WhispersTitle />
   }
@@ -346,6 +352,7 @@ class MainLayout extends React.Component {
               <Route path='/ladder/:rest*' component={Ladder} />
               {lobbyRoute}
               {matchmakingRoute}
+              {partyRoute}
               {USER_PROFILES ? (
                 <Route path='/users/:userId/:username/:subPage?'>
                   {params => (
