@@ -18,7 +18,7 @@ import { usePrevious } from '../state-hooks'
 import { background700, background800 } from '../styles/colors'
 import { activateParty, deactivateParty, leaveParty, sendChatMessage } from './action-creators'
 import {
-  InviteTopartyMessage,
+  InviteToPartyMessage,
   JoinPartyMessage,
   LeavePartyMessage,
   SelfJoinPartyMessage,
@@ -119,7 +119,7 @@ function renderPartyMessage(msg: Message) {
     case PartyMessageType.SelfJoinParty:
       return <SelfJoinPartyMessage key={msg.id} time={msg.time} leaderId={msg.leaderId} />
     case PartyMessageType.InviteToParty:
-      return <InviteTopartyMessage key={msg.id} time={msg.time} userId={msg.userId} />
+      return <InviteToPartyMessage key={msg.id} time={msg.time} userId={msg.userId} />
     case PartyMessageType.JoinParty:
       return <JoinPartyMessage key={msg.id} time={msg.time} userId={msg.userId} />
     case PartyMessageType.LeaveParty:

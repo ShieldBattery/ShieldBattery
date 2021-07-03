@@ -17,7 +17,7 @@ export const SelfJoinPartyMessage = React.memo<{ time: number; leaderId: number 
   )
 })
 
-export const InviteTopartyMessage = React.memo<{ time: number; userId: number }>(props => {
+export const InviteToPartyMessage = React.memo<{ time: number; userId: number }>(props => {
   const { time, userId } = props
   return (
     <SystemMessage time={time}>

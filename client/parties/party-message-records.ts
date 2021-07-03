@@ -3,7 +3,7 @@ import { BaseMessage } from '../messaging/message-records'
 
 export enum PartyMessageType {
   SelfJoinParty = 'selfJoinParty',
-  InviteToParty = 'InviteToParty',
+  InviteToParty = 'inviteToParty',
   JoinParty = 'joinParty',
   LeaveParty = 'leaveParty',
 }
