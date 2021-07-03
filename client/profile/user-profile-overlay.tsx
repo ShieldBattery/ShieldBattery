@@ -1,11 +1,12 @@
 import React, { useCallback } from 'react'
-import { PARTIES } from '../../common/flags'
+import { PARTIES, USER_PROFILES } from '../../common/flags'
 import { User } from '../../common/users/user-info'
 import MenuItem from '../material/menu/item'
 import { Popover, PopoverProps } from '../material/popover'
 import { inviteToParty, removePartyInvite } from '../parties/action-creators'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { navigateToWhisper } from '../whispers/action-creators'
+import { navigateToUserProfile } from './action-creators'
 import { Actions, Header, PopoverContents, StyledAvatar, Username } from './profile-overlay-content'
 
 export interface UserProfileOverlayProps {
@@ -42,6 +43,10 @@ export function ConnectedUserProfileOverlay(props: ConnectedUserProfileOverlayPr
   const party = useAppSelector(s => s.party)
   const onPopoverDismiss = props.popoverProps.onDismiss
 
+  const onViewProfileClick = useCallback(() => {
+    navigateToUserProfile(user!.id, user!.name)
+  }, [user])
+
   const onWhisperClick = useCallback(() => {
     navigateToWhisper(user!.name)
   }, [user])
@@ -62,6 +67,10 @@ export function ConnectedUserProfileOverlay(props: ConnectedUserProfileOverlayPr
 
   const actions = []
   if (user.id !== selfUser.id) {
+    if (USER_PROFILES) {
+      actions.push(<MenuItem key='profile' text='View profile' onClick={onViewProfileClick} />)
+    }
+
     actions.push(<MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />)
 
     if (PARTIES) {
