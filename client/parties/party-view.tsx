@@ -13,6 +13,7 @@ import { TextButton } from '../material/button'
 import Chat from '../messaging/chat'
 import { Message } from '../messaging/message-records'
 import { push } from '../navigation/routing'
+import { urlPath } from '../network/urls'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious } from '../state-hooks'
 import { background700, background800 } from '../styles/colors'
@@ -129,35 +130,29 @@ function renderPartyMessage(msg: Message) {
   }
 }
 
-interface PartyViewProps {
-  params: { partyId: string }
-}
-
-export function PartyView(props: PartyViewProps) {
+export function PartyView() {
   const dispatch = useAppDispatch()
-  const partyId = decodeURIComponent(props.params.partyId).toLowerCase()
-  const prevPartyId = usePrevious(partyId)
   const party = useAppSelector(s => s.party)
-  const isInParty = !!party.id
-  const prevIsInParty = usePrevious(isInParty)
-  const isLeavingParty = prevIsInParty && !isInParty && prevPartyId === partyId
-
-  // TODO(2Pac): Pull this out into some kind of "isLeaving" hook and share with chat/whispers/lobby
-  useEffect(() => {
-    if (isLeavingParty) {
-      push('/')
-    }
-  }, [isLeavingParty])
+  const partyId = party.id
+  const prevPartyId = usePrevious(partyId)
+  // Party can change when a user accepts an invite to a new party while already being a member of a
+  // different party that is currently being rendered.
+  const partyChanged = !!prevPartyId && prevPartyId !== partyId
 
   useEffect(() => {
+    const isInParty = !!partyId
+
     if (isInParty) {
+      if (partyChanged) {
+        push(urlPath`/parties/${partyId}`)
+      }
       dispatch(activateParty(partyId))
-    } else if (!isLeavingParty) {
+    } else {
       push('/')
     }
 
     return () => dispatch(deactivateParty(partyId))
-  }, [isInParty, isLeavingParty, partyId, dispatch])
+  }, [partyId, partyChanged, dispatch])
 
   const onSendChatMessage = useCallback(
     (msg: string) => dispatch(sendChatMessage(partyId, msg)),

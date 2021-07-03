@@ -157,6 +157,12 @@ export default keyedReducer(new PartyRecord(), {
   },
 
   ['@parties/updateLeaveSelf'](state, action) {
+    const { partyId } = action.payload
+
+    if (partyId !== state.id) {
+      return state
+    }
+
     return new PartyRecord()
   },
 
