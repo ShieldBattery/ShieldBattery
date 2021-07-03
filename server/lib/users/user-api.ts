@@ -6,6 +6,8 @@ import Joi from 'joi'
 import { NydusServer } from 'nydus'
 import { singleton } from 'tsyringe'
 import { isValidEmail, isValidPassword, isValidUsername } from '../../../common/constants'
+import { LadderPlayer } from '../../../common/ladder'
+import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
 import { GetUserProfilePayload, SelfUserInfo } from '../../../common/users/user-info'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
@@ -13,6 +15,7 @@ import { HttpErrorWithPayload } from '../errors/error-with-payload'
 import { HttpApi, httpApi } from '../http/http-api'
 import { apiEndpoint } from '../http/http-api-endpoint'
 import sendMail from '../mail/mailer'
+import { getMatchmakingRating } from '../matchmaking/models'
 import {
   addEmailVerificationCode,
   consumeEmailVerificationCode,
@@ -152,7 +155,25 @@ export class UserApi extends HttpApi {
         throw new HttpErrorWithPayload(404, 'user not found', { code: 'USER_NOT_FOUND' })
       }
 
-      return { user }
+      const ladder: Partial<Record<MatchmakingType, LadderPlayer>> = {}
+      // TODO(tec27): Make a function to get multiple types in one DB call?
+      const matchmakingPromises = ALL_MATCHMAKING_TYPES.map(async m => {
+        const r = await getMatchmakingRating(user.id, m)
+        if (r) {
+          ladder[m] = {
+            // TODO(tec27): calculate the rank here
+            rank: -1,
+            userId: r.userId,
+            rating: r.rating,
+            wins: r.wins,
+            losses: r.losses,
+            lastPlayedDate: Number(r.lastPlayedDate),
+          }
+        }
+      })
+      await Promise.all(matchmakingPromises)
+
+      return { user, profile: { userId: user.id, ladder } }
     },
   )
 

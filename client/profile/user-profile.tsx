@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
+import { MatchmakingType } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
+import { User, UserProfile } from '../../common/users/user-info'
 import Avatar from '../avatars/avatar'
 import GithubIcon from '../icons/brands/github.svg'
 import KofiIcon from '../icons/brands/kofi-lockup.svg'
@@ -77,6 +79,7 @@ export function ConnectedUserProfilePage({
 
   const dispatch = useAppDispatch()
   const user = useAppSelector(s => s.users.byId.get(userId))
+  const profile = useAppSelector(s => s.users.idToProfile.get(userId))
   const onTabChange = useCallback(
     (tab: UserProfileSubPage) => {
       navigateToUserProfile(user!.id, user!.name, tab)
@@ -86,6 +89,7 @@ export function ConnectedUserProfilePage({
   const [loadingError, setLoadingError] = useState<Error>()
   const cancelLoadRef = useRef(new AbortController())
 
+  // TODO(tec27): Move this inside the summary tab instead?
   useEffect(() => {
     cancelLoadRef.current.abort()
     const abortController = new AbortController()
@@ -114,37 +118,32 @@ export function ConnectedUserProfilePage({
     // TODO(tec27): Handle specific errors, e.g. not found vs server error
     return <LoadingError>There was a problem loading this user.</LoadingError>
   }
-  if (!user) {
+  if (!user || !profile) {
     return <LoadingDotsArea />
   }
 
   return (
-    <UserProfilePage
-      userId={user.id}
-      username={user.name}
-      subPage={subPage}
-      onTabChange={onTabChange}
-    />
+    <UserProfilePage user={user} profile={profile} subPage={subPage} onTabChange={onTabChange} />
   )
 }
 
 export interface UserProfilePageProps {
-  userId: number
-  username: string
+  user: User
+  profile: UserProfile
   subPage?: UserProfileSubPage
   onTabChange: (tab: UserProfileSubPage) => void
 }
 
 export function UserProfilePage({
-  userId,
-  username,
+  user,
+  profile,
   subPage = UserProfileSubPage.Summary,
   onTabChange,
 }: UserProfilePageProps) {
   let content: React.ReactNode
   switch (subPage) {
     case UserProfileSubPage.Summary:
-      content = <SummaryPage username={username} />
+      content = <SummaryPage user={user} profile={profile} />
       break
 
     case UserProfileSubPage.Stats:
@@ -280,29 +279,30 @@ const EmptyListText = styled.div`
   color: ${colorTextFaint};
 `
 
-function SummaryPage({ username }: { username: string }) {
+function SummaryPage({ user, profile }: { user: User; profile: UserProfile }) {
   const title = 'Biggus Fannius'
-  const mmr = 1698
-  const rank = 1
+  const ladder1v1 = profile.ladder[MatchmakingType.Match1v1]
 
   return (
     <>
       <TopSection>
         <AvatarCircle>
-          <StyledAvatar username={username} />
+          <StyledAvatar username={user.name} />
         </AvatarCircle>
         <UsernameAndTitle>
-          <Username>{username}</Username>
+          <Username>{user.name}</Username>
           <Subtitle2>{title}</Subtitle2>
         </UsernameAndTitle>
         <RankInfo>
           <RankInfoEntry>
             <RankLabel>Current MMR</RankLabel>
-            <RankValue $background='accent'>{mmr}</RankValue>
+            <RankValue $background='accent'>
+              {ladder1v1 ? Math.round(ladder1v1.rating) : 'N/A'}
+            </RankValue>
           </RankInfoEntry>
           <RankInfoEntry>
             <RankLabel>Current Rank</RankLabel>
-            <RankValue $background='primary'>{rank}</RankValue>
+            <RankValue $background='primary'>{ladder1v1?.rank ?? 'N/A'}</RankValue>
           </RankInfoEntry>
         </RankInfo>
       </TopSection>

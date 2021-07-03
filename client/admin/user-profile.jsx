@@ -17,7 +17,7 @@ const Container = styled.div`
 `
 
 @connect(state => ({ auth: state.auth }))
-export class UserProfile extends React.Component {
+export class AdminUserProfileView extends React.Component {
   render() {
     const {
       auth: { permissions: perms },
@@ -86,7 +86,7 @@ export class UserFind extends React.Component {
           <SearchForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
           <TextButton label='Find' color='accent' tabIndex={0} onClick={this.onFindClick} />
         </div>
-        <Route path='/admin/users/:username' component={UserProfile} />
+        <Route path='/admin/users/:username' component={AdminUserProfileView} />
       </Container>
     )
   }

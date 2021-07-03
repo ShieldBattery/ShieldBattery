@@ -63,11 +63,10 @@ function abortableThunk<T extends ReduxAction>(
 export function viewUserProfile(userId: number, spec: RequestHandlingSpec): ThunkAction {
   return abortableThunk(spec, async (dispatch, getState) => {
     const {
-      users: { byId },
+      users: { byId, idToProfile },
     } = getState()
 
-    // TODO(tec27): Check if it has completed information here
-    if (byId.has(userId)) {
+    if (byId.has(userId) && idToProfile.has(userId)) {
       return
     }
 

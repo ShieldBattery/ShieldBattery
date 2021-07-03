@@ -8,7 +8,7 @@ export enum MatchmakingType {
   Match1v1 = '1v1',
 }
 
-export const ALL_MATCHMAKING_TYPES = Object.values(MatchmakingType)
+export const ALL_MATCHMAKING_TYPES: ReadonlyArray<MatchmakingType> = Object.values(MatchmakingType)
 
 export function isValidMatchmakingType(type: string) {
   return Object.values(MatchmakingType).includes(type as MatchmakingType)

@@ -1,5 +1,5 @@
 import { Immutable } from 'immer'
-import { User } from '../../common/users/user-info'
+import { User, UserProfile } from '../../common/users/user-info'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface UserRequestInfo {
@@ -12,6 +12,8 @@ export interface UserState {
   byId: Map<number, User>
   /** A map of username -> user ID. */
   usernameToId: Map<string, number>
+  /** A map of user ID -> user profile information. */
+  idToProfile: Map<number, UserProfile>
   /**
    * The set of user IDs for which data is currently loading. This is intended to be used for
    * showing loading indicators and deduping requests.
@@ -27,6 +29,7 @@ export interface UserState {
 const DEFAULT_STATE: Immutable<UserState> = {
   byId: new Map(),
   usernameToId: new Map(),
+  idToProfile: new Map(),
   idLoadsInProgress: new Map(),
   usernameLoadsInProgress: new Map(),
 }
@@ -94,8 +97,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, action.payload.users)
   },
 
-  ['@profile/getUserProfile'](state, action) {
-    updateUsers(state, [action.payload.user])
+  ['@profile/getUserProfile'](state, { payload: { user, profile } }) {
+    updateUsers(state, [user])
+    state.idToProfile.set(profile.userId, profile)
   },
 
   ['@whispers/loadMessageHistory'](state, action) {
