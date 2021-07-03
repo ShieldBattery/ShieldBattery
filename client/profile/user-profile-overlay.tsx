@@ -66,11 +66,11 @@ export function ConnectedUserProfileOverlay(props: ConnectedUserProfileOverlayPr
   }
 
   const actions = []
-  if (user.id !== selfUser.id) {
-    if (USER_PROFILES) {
-      actions.push(<MenuItem key='profile' text='View profile' onClick={onViewProfileClick} />)
-    }
+  if (USER_PROFILES) {
+    actions.push(<MenuItem key='profile' text='View profile' onClick={onViewProfileClick} />)
+  }
 
+  if (user.id !== selfUser.id) {
     actions.push(<MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />)
 
     if (PARTIES) {
