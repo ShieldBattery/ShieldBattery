@@ -81,7 +81,9 @@ const eventToAction: EventToActionMap = {
       // It was us who left the party
       dispatch({
         type: '@parties/updateLeaveSelf',
-        time,
+        payload: {
+          time,
+        },
       })
     } else {
       dispatch({

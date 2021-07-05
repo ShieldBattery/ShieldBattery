@@ -261,7 +261,9 @@ export interface UpdateLeave {
 
 export interface UpdateLeaveSelf {
   type: '@parties/updateLeaveSelf'
-  time: number
+  payload: {
+    time: number
+  }
 }
 
 export interface UpdateChatMessage {
