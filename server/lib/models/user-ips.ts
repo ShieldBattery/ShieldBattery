@@ -1,3 +1,4 @@
+import sql from 'sql-template-strings'
 import { container } from 'tsyringe'
 import db from '../db'
 import { UpdateOrInsertUserIp } from '../network/user-ips-type'
@@ -27,38 +28,35 @@ export async function updateOrInsertUserIp(userId: number, ipAddress: string): P
     // death thing)
     for (let i = 0; i < MAX_RETRIES; i++) {
       try {
-        const result = await client.query(
-          `SELECT * FROM user_ips
-            WHERE user_id = $1 AND ip_address = $2
-            ORDER BY user_ip_counter DESC`,
-          [userId, ipAddress],
-        )
+        const result = await client.query(sql`
+          SELECT * FROM user_ips
+          WHERE user_id = ${userId} AND ip_address = ${ipAddress}
+          ORDER BY user_ip_counter DESC
+          LIMIT 1
+        `)
 
         if (result.rows.length > 0 && result.rows[0].last_used > anHourAgo) {
           // This user has already made a request with this IP address within the last hour, update
           // the previous entry
-          await client.query(
-            `UPDATE user_ips SET last_used = $1
-            WHERE user_id = $2 AND ip_address = $3 AND user_ip_counter = $4 AND last_used < $5`,
-            [
-              curDate,
-              result.rows[0].user_id,
-              result.rows[0].ip_address,
-              result.rows[0].user_ip_counter,
-              curDate,
-            ],
-          )
+          const row = result.rows[0]
+          await client.query(sql`
+            UPDATE user_ips SET last_used = ${curDate}
+            WHERE
+              user_id = ${row.user_id} AND
+              ip_address = ${row.ip_address} AND
+              user_ip_counter = ${row.user_ip_counter} AND
+              last_used < ${curDate}
+          `)
           return
         } else {
           // We don't have a record of this user visiting with this IP address in the last hour,
           // insert a new row with an increased counter (if the IP previously existed for this
           // user), or with counter = 0 otherwise
           const counter = result.rows.length > 0 ? result.rows[0].user_ip_counter + 1 : 0
-          await client.query(
-            `INSERT INTO user_ips (user_id, ip_address, first_used, last_used, user_ip_counter)
-              VALUES ($1, $2, $3, $4, $5)`,
-            [userId, ipAddress, curDate, curDate, counter],
-          )
+          await client.query(sql`
+            INSERT INTO user_ips (user_id, ip_address, first_used, last_used, user_ip_counter)
+              VALUES (${userId}, ${ipAddress}, ${curDate}, ${curDate}, ${counter})
+          `)
           return
         }
       } catch (err) {
