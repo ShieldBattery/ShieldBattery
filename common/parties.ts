@@ -72,6 +72,12 @@ export interface PartyLeaveEvent {
   time: number
 }
 
+export interface PartyLeaderChangeEvent {
+  type: 'leaderChange'
+  leader: PartyUser
+  time: number
+}
+
 export interface PartyChatMessageEvent extends ChatMessage {
   type: 'chatMessage'
 }
@@ -83,6 +89,7 @@ export type PartyEvent =
   | PartyDeclineEvent
   | PartyJoinEvent
   | PartyLeaveEvent
+  | PartyLeaderChangeEvent
   | PartyChatMessageEvent
 
 export interface InviteToPartyServerBody {

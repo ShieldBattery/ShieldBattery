@@ -343,12 +343,22 @@ export default class PartyService {
 
     clientSockets.unsubscribe(getPartyPath(party.id))
 
-    // TODO(2Pac): Handle party leader leaving
-
     // If the last person in a party leaves, the party is removed. All outstanding invites to this,
     // now non-existing party, should fail.
     if (party.members.size < 1) {
       this.parties.delete(party.id)
+    } else if (clientSockets.userId === party.leader.id) {
+      // If the leader has left the party, we assign a new leader, generally the person who has
+      // joined the party the earliest. However, there is no robust solution implemented to ensure
+      // that the earliest member becomes a new leader, since the order in which the users accept
+      // their invites is pretty arbitrary already.
+      const newLeader = party.members.values().next().value
+      party.leader = newLeader
+      this.publisher.publish(getPartyPath(party.id), {
+        type: 'leaderChange',
+        leader: newLeader,
+        time,
+      })
     }
   }
 

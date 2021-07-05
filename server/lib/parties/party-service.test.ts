@@ -549,6 +549,22 @@ describe('parties/party-service', () => {
 
       expect(client2.unsubscribe).toHaveBeenCalledWith(getPartyPath(party.id))
     })
+
+    test('should assign new leader when old leader leaves', () => {
+      partyService.leaveParty(party.id, leader.id, USER1_CLIENT_ID)
+
+      expect(party.leader).toMatchObject(user2)
+    })
+
+    test('should publish "leaderChange" message to the party path when leader leaves', () => {
+      partyService.leaveParty(party.id, leader.id, USER1_CLIENT_ID, currentTime)
+
+      expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
+        type: 'leaderChange',
+        leader: user2,
+        time: currentTime,
+      })
+    })
   })
 
   describe('sendChatMessage', () => {
