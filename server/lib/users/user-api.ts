@@ -37,6 +37,7 @@ import {
   updateUser,
   UserUpdatables,
 } from './user-model'
+import { getUserStats } from './user-stats-model'
 
 const JOI_USER_ID = Joi.number().min(1)
 
@@ -171,9 +172,12 @@ export class UserApi extends HttpApi {
           }
         }
       })
-      await Promise.all(matchmakingPromises)
+      const userStatsPromise = getUserStats(user.id)
+      await Promise.all([...matchmakingPromises, userStatsPromise as Promise<any>])
 
-      return { user, profile: { userId: user.id, ladder } }
+      const userStats = await userStatsPromise
+
+      return { user, profile: { userId: user.id, ladder, userStats } }
     },
   )
 

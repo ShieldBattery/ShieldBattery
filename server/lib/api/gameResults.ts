@@ -5,6 +5,7 @@ import Koa from 'koa'
 import { GameClientPlayerResult, GameClientResult } from '../../../common/game-results'
 import { MatchmakingType } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
+import { UserStats } from '../../../common/users/user-stats'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { hasCompletedResults, reconcileResults } from '../games/results'
@@ -25,7 +26,7 @@ import {
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { findUsersByName } from '../users/user-model'
-import { incrementUserStatsCount, makeCountKeys, UserStats } from '../users/user-stats-model'
+import { incrementUserStatsCount, makeCountKeys } from '../users/user-stats-model'
 import { joiValidator } from '../validation/joi-validator'
 
 const throttle = createThrottle('gamesResults', {

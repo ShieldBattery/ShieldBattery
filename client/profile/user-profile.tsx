@@ -282,6 +282,8 @@ const EmptyListText = styled.div`
 function SummaryPage({ user, profile }: { user: User; profile: UserProfile }) {
   const title = 'Biggus Fannius'
   const ladder1v1 = profile.ladder[MatchmakingType.Match1v1]
+  // TODO(tec27): Sort races by total games, include random stats
+  const stats = profile.userStats
 
   return (
     <>
@@ -309,11 +311,11 @@ function SummaryPage({ user, profile }: { user: User; profile: UserProfile }) {
 
       <SectionOverline>Total games</SectionOverline>
       <TotalGamesSection>
-        <TotalGamesEntry race='t' wins={13925} losses={10664} />
+        <TotalGamesEntry race='t' wins={stats.tWins} losses={stats.tLosses} />
         <TotalGamesSpacer />
-        <TotalGamesEntry race='z' wins={2185} losses={3688} />
+        <TotalGamesEntry race='z' wins={stats.zWins} losses={stats.zLosses} />
         <TotalGamesSpacer />
-        <TotalGamesEntry race='p' wins={261} losses={83} />
+        <TotalGamesEntry race='p' wins={stats.pWins} losses={stats.pLosses} />
       </TotalGamesSection>
 
       <SectionOverline>Latest games</SectionOverline>

@@ -1,6 +1,7 @@
 import { LadderPlayer } from '../ladder'
 import { MatchmakingType } from '../matchmaking'
 import { Permissions } from './permissions'
+import { UserStats } from './user-stats'
 
 /** Information about the current user and their capabilities that is transmitted to the client. */
 export interface SelfUserInfo {
@@ -29,7 +30,7 @@ export interface User {
 export interface UserProfile {
   userId: number
   ladder: Partial<Record<MatchmakingType, LadderPlayer>>
-  // TODO(tec27): Add more stuff
+  userStats: UserStats
 }
 
 /** Information returned for /users/:id/profile, intended to be able to fill out a profile page. */
