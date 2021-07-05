@@ -280,7 +280,8 @@ const EmptyListText = styled.div`
 `
 
 function SummaryPage({ user, profile }: { user: User; profile: UserProfile }) {
-  const title = 'Biggus Fannius'
+  // TODO(tec27): Build the title feature :)
+  const title = 'Novice'
   const ladder1v1 = profile.ladder[MatchmakingType.Match1v1]
   // TODO(tec27): Sort races by total games, include random stats
   const stats = profile.userStats
