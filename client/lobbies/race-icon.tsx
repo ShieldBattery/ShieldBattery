@@ -21,9 +21,10 @@ const StyledIcon = styled.svg<{ $race: RaceChar }>`
 export interface RaceIconProps {
   race: RaceChar
   className?: string
+  ariaLabel?: string
 }
 
-export const RaceIcon = React.memo(({ race, className }: RaceIconProps) => {
+export const RaceIcon = React.memo(({ race, className, ariaLabel }: RaceIconProps) => {
   const icon = ICONS[race]
-  return <StyledIcon className={className} as={icon} $race={race} />
+  return <StyledIcon className={className} as={icon} $race={race} aria-label={ariaLabel} />
 })

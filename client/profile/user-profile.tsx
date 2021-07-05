@@ -444,10 +444,28 @@ const WinLossText = styled.div`
 function TotalGamesEntry({ race, wins, losses }: { race: RaceChar; wins: number; losses: number }) {
   const winrate = Math.round((wins * 100 * 10) / (wins + losses)) / 10
 
+  let raceText: string
+  switch (race) {
+    case 'p':
+      raceText = 'Protoss'
+      break
+    case 't':
+      raceText = 'Terran'
+      break
+    case 'z':
+      raceText = 'Zerg'
+      break
+    case 'r':
+      raceText = 'Random'
+      break
+    default:
+      raceText = assertUnreachable(race)
+  }
+
   return (
-    <TotalGamesEntryRoot>
+    <TotalGamesEntryRoot title={raceText}>
       <RaceCircle>
-        <RaceCircleIcon race={race} />
+        <RaceCircleIcon race={race} ariaLabel={raceText} />
       </RaceCircle>
       <div>
         <TotalGamesText>{wins + losses}</TotalGamesText>
