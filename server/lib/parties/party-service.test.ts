@@ -467,11 +467,12 @@ describe('parties/party-service', () => {
       })
 
       test('should publish "leave" message to the old party path', async () => {
-        await partyService.acceptInvite(newParty.id, user6, USER6_CLIENT_ID)
+        await partyService.acceptInvite(newParty.id, user6, USER6_CLIENT_ID, currentTime)
 
         expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(oldParty.id), {
           type: 'leave',
           user: user6,
+          time: currentTime,
         })
       })
     })
