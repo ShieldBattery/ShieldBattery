@@ -22,9 +22,32 @@ const TestContent = styled.div`
   flex-grow: 1;
 `
 
+const PROFILE: UserProfile = {
+  userId: 1,
+  ladder: {},
+  userStats: {
+    userId: 1,
+    pWins: 27,
+    pLosses: 17,
+    tWins: 10,
+    tLosses: 13,
+    zWins: 4,
+    zLosses: 4,
+    rWins: 25,
+    rLosses: 10,
+
+    rPWins: 7,
+    rPLosses: 3,
+    rTWins: 8,
+    rTLosses: 3,
+    rZWins: 10,
+    rZLosses: 4,
+  },
+}
+
 export function ProfilePageTest() {
-  const [user] = useState<User>({ id: 1, name: '[TL] BigFan' })
-  const [profile] = useState<UserProfile>({ userId: 1, ladder: {} })
+  const [user] = useState<User>({ id: PROFILE.userId, name: '[TL] BigFan' })
+  const [profile] = useState<UserProfile>(PROFILE)
   const [subPage, setSubPage] = useState<UserProfileSubPage>()
 
   return (
