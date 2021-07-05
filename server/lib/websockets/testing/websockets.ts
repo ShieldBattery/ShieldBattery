@@ -114,7 +114,11 @@ export class NydusConnector {
     this.fakeNydus = nydus
   }
 
-  connectClient(user: { id: number; name: string }, clientId: string): InspectableNydusClient {
+  connectClient(
+    user: { id: number; name: string },
+    clientId: string,
+    clientType: 'web' | 'electron' = 'electron',
+  ): InspectableNydusClient {
     const id = String(clientIdCounter++)
     const fakeRequest = {
       headers: [],
@@ -128,7 +132,7 @@ export class NydusConnector {
       userName: user.name,
       clientId,
       address: '127.0.0.1',
-      clientType: 'electron',
+      clientType,
     }
     this.sessionLookup.set(fakeRequest, fakeSession)
     const client = new InspectableNydusClient(

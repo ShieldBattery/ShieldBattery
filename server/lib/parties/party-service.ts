@@ -219,9 +219,11 @@ export default class PartyService {
       throw new PartyServiceError(PartyServiceErrorCode.PartyFull, 'Party is full')
     }
 
-    // TODO(2Pac): Only allow accepting an invite for electron clients?
-
     const clientSockets = this.getClientSockets(user.id, clientId)
+    if (clientSockets.clientType !== 'electron') {
+      throw new PartyServiceError(PartyServiceErrorCode.InvalidAction, 'Invalid client')
+    }
+
     const oldParty = this.getClientParty(clientSockets)
 
     // TODO(2Pac): Maybe display a confirmation dialog first to the user if they were already in an

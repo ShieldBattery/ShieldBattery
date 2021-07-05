@@ -26,6 +26,7 @@ describe('parties/party-service', () => {
   const user8: PartyUser = { id: 8, name: 'riptide' }
   const user9: PartyUser = { id: 9, name: 'manifesto7' }
   const offlineUser: PartyUser = { id: 10, name: 'tt1' }
+  const webUser: PartyUser = { id: 11, name: 'nyoken' }
 
   const USER1_CLIENT_ID = 'USER1_CLIENT_ID'
   const USER2_CLIENT_ID = 'USER2_CLIENT_ID'
@@ -36,6 +37,7 @@ describe('parties/party-service', () => {
   const USER7_CLIENT_ID = 'USER7_CLIENT_ID'
   const USER8_CLIENT_ID = 'USER8_CLIENT_ID'
   const USER9_CLIENT_ID = 'USER9_CLIENT_ID'
+  const WEB_USER_CLIENT_ID = 'WEB_USER_CLIENT_ID'
 
   let client1: InspectableNydusClient
   let client2: InspectableNydusClient
@@ -46,6 +48,7 @@ describe('parties/party-service', () => {
   let client7: InspectableNydusClient
   let client8: InspectableNydusClient
   let client9: InspectableNydusClient
+  let webClient: InspectableNydusClient
 
   let nydus: NydusServer
   let partyService: PartyService
@@ -83,6 +86,8 @@ describe('parties/party-service', () => {
     client8 = connector.connectClient(user8, USER8_CLIENT_ID)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     client9 = connector.connectClient(user9, USER9_CLIENT_ID)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    webClient = connector.connectClient(webUser, WEB_USER_CLIENT_ID, 'web')
 
     clearTestLogs(nydus)
   })
@@ -404,6 +409,14 @@ describe('parties/party-service', () => {
       expect(() =>
         partyService.acceptInvite(party.id, user9, USER9_CLIENT_ID),
       ).toThrowErrorMatchingInlineSnapshot(`"Party is full"`)
+    })
+
+    test('should throw if accepting on web client', async () => {
+      party = await partyService.invite(leader, USER1_CLIENT_ID, webUser)
+
+      expect(() =>
+        partyService.acceptInvite(party.id, webUser, WEB_USER_CLIENT_ID),
+      ).toThrowErrorMatchingInlineSnapshot(`"Invalid client"`)
     })
 
     test('should update the party record', () => {
