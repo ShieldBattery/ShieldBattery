@@ -7,7 +7,7 @@ export enum PartyMessageType {
   JoinParty = 'joinParty',
   LeaveParty = 'leaveParty',
   LeaderChange = 'leaderChange',
-  KickFromParty = 'kickFromParty'
+  KickFromParty = 'kickFromParty',
 }
 
 export class SelfJoinPartyMessageRecord
