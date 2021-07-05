@@ -8,6 +8,7 @@ import {
   ChatUser,
   GetChannelUsersServerPayload,
 } from '../../../common/chat'
+import { DbClient } from '../db'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { findUserById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
@@ -65,17 +66,13 @@ export default class ChatService {
       .on('userQuit', userId => this.handleUserQuit(userId))
   }
 
-  async joinChannel(channelName: string, userId: number) {
-    const userSockets = this.getUserSockets(userId)
+  async joinChannel(channelName: string, userId: number, client?: DbClient) {
     const originalChannelName = await this.getOriginalChannelName(channelName)
-    if (
-      this.state.users.has(userSockets.userId) &&
-      this.state.users.get(userSockets.userId)!.has(originalChannelName)
-    ) {
+    if (this.state.users.has(userId) && this.state.users.get(userId)!.has(originalChannelName)) {
       throw new ChatServiceError(ChatServiceErrorCode.InvalidJoinAction, 'Already in this channel')
     }
 
-    const result = await addUserToChannel(userSockets.userId, originalChannelName)
+    const result = await addUserToChannel(userId, originalChannelName, client)
     const channelUser = {
       id: result.userId,
       name: result.userName,
@@ -93,7 +90,13 @@ export default class ChatService {
         name: result.userName,
       },
     })
-    this.subscribeUserToChannel(userSockets, originalChannelName)
+
+    // NOTE(tec27): We don't use the helper method here because joining channels while offline
+    // is allowed in some cases (e.g. during account creation)
+    const userSockets = this.userSocketsManager.getById(userId)
+    if (userSockets) {
+      this.subscribeUserToChannel(userSockets, originalChannelName)
+    }
   }
 
   async leaveChannel(channelName: string, userId: number) {

@@ -1,8 +1,9 @@
 import bcrypt from 'bcrypt'
 import sql from 'sql-template-strings'
+import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { SelfUser, SelfUserInfo, User } from '../../../common/users/user-info'
-import { addUserToChannel } from '../chat/chat-models'
+import ChatService from '../chat/chat-service'
 import db from '../db'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
@@ -88,10 +89,12 @@ export async function createUser({
     }
 
     const userInternal = convertFromDb(result.rows[0])
+    const chatService = container.resolve(ChatService)
+
     const [permissions] = await Promise.all([
       createPermissions(client, userInternal.id),
-      addUserToChannel(userInternal.id, 'ShieldBattery', client),
-      createUserStats(userInternal.id),
+      chatService.joinChannel('ShieldBattery', userInternal.id, client),
+      createUserStats(client, userInternal.id),
     ])
 
     return { user: convertToExternalSelf(userInternal), permissions }

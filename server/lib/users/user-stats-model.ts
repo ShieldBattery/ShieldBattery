@@ -55,19 +55,14 @@ function convertFromDb(db: DbUserStats): UserStats {
  * Creates a new set of aggregated statistics for the specified user. Should generally only be used
  * when creating a new user account.
  */
-export async function createUserStats(userId: number): Promise<UserStats> {
-  const { client, done } = await db()
-  try {
-    const result = await client.query<DbUserStats>(sql`
-      INSERT INTO user_stats (user_id)
-      VALUES (${userId})
-      RETURNING *
-    `)
+export async function createUserStats(client: DbClient, userId: number): Promise<UserStats> {
+  const result = await client.query<DbUserStats>(sql`
+    INSERT INTO user_stats (user_id)
+    VALUES (${userId})
+    RETURNING *
+  `)
 
-    return convertFromDb(result.rows[0])
-  } finally {
-    done()
-  }
+  return convertFromDb(result.rows[0])
 }
 
 /**

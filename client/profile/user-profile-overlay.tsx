@@ -36,12 +36,15 @@ export interface ConnectedUserProfileOverlayProps {
   popoverProps: Omit<PopoverProps, 'children'>
 }
 
-export function ConnectedUserProfileOverlay(props: ConnectedUserProfileOverlayProps) {
+export function ConnectedUserProfileOverlay({
+  userId,
+  popoverProps,
+}: ConnectedUserProfileOverlayProps) {
   const dispatch = useAppDispatch()
   const selfUser = useAppSelector(s => s.auth.user)
-  const user = useAppSelector(s => s.users.byId.get(props.userId))
+  const user = useAppSelector(s => s.users.byId.get(userId))
   const party = useAppSelector(s => s.party)
-  const onPopoverDismiss = props.popoverProps.onDismiss
+  const onPopoverDismiss = popoverProps.onDismiss
 
   const onViewProfileClick = useCallback(() => {
     navigateToUserProfile(user!.id, user!.name)
@@ -91,7 +94,7 @@ export function ConnectedUserProfileOverlay(props: ConnectedUserProfileOverlayPr
   }
 
   return (
-    <UserProfileOverlay user={user} popoverProps={props.popoverProps}>
+    <UserProfileOverlay user={user} popoverProps={popoverProps}>
       {actions}
     </UserProfileOverlay>
   )
