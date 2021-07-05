@@ -66,40 +66,58 @@ export default class ChatService {
       .on('userQuit', userId => this.handleUserQuit(userId))
   }
 
-  async joinChannel(channelName: string, userId: number, client?: DbClient) {
+  /**
+   * Joins `channelName` with account `userId`, allowing them to receive and send messages in it.
+   *
+   * `client` can be specified to allow this action to happen with a DB transaction. If it is
+   * specified, `transactionCompleted` should be a Promise that resolves when the transaction has
+   * fully resolved.
+   */
+  async joinChannel(
+    channelName: string,
+    userId: number,
+    client?: DbClient,
+    transactionCompleted = Promise.resolve(),
+  ): Promise<void> {
     const originalChannelName = await this.getOriginalChannelName(channelName)
     if (this.state.users.has(userId) && this.state.users.get(userId)!.has(originalChannelName)) {
       throw new ChatServiceError(ChatServiceErrorCode.InvalidJoinAction, 'Already in this channel')
     }
 
     const result = await addUserToChannel(userId, originalChannelName, client)
-    const channelUser = {
-      id: result.userId,
-      name: result.userName,
-    }
 
-    this.state = this.state
-      .setIn(['channels', originalChannelName, result.userId], channelUser)
-      .updateIn(['users', result.userId], (s = Set()) => s.add(originalChannelName))
-
-    this.publisher.publish(getChannelPath(originalChannelName), {
-      action: 'join',
-      channelUser,
-      user: {
+    // NOTE(tec27): We don't/can't await this because it would be a recursive async dependency
+    // (this function's Promise is await'd for the transaction, and transactionCompleted is awaited
+    // by this function)
+    transactionCompleted.then(() => {
+      const channelUser = {
         id: result.userId,
         name: result.userName,
-      },
-    })
+      }
 
-    // NOTE(tec27): We don't use the helper method here because joining channels while offline
-    // is allowed in some cases (e.g. during account creation)
-    const userSockets = this.userSocketsManager.getById(userId)
-    if (userSockets) {
-      this.subscribeUserToChannel(userSockets, originalChannelName)
-    }
+      this.state = this.state
+        .setIn(['channels', originalChannelName, result.userId], channelUser)
+        .updateIn(['users', result.userId], (s = Set()) => s.add(originalChannelName))
+
+      this.publisher.publish(getChannelPath(originalChannelName), {
+        action: 'join',
+        channelUser,
+        user: {
+          id: result.userId,
+          name: result.userName,
+        },
+      })
+
+      // NOTE(tec27): We don't use the helper method here because joining channels while offline
+      // is allowed in some cases (e.g. during account creation)
+      const userSockets = this.userSocketsManager.getById(userId)
+      if (userSockets) {
+        this.subscribeUserToChannel(userSockets, originalChannelName)
+      }
+    })
   }
 
-  async leaveChannel(channelName: string, userId: number) {
+  async leaveChannel(channelName: string, userId: number): Promise<void> {
     const userSockets = this.getUserSockets(userId)
     const originalChannelName = await this.getOriginalChannelName(channelName)
     if (originalChannelName === 'ShieldBattery') {
@@ -138,7 +156,7 @@ export default class ChatService {
     this.unsubscribeUserFromChannel(userSockets, originalChannelName)
   }
 
-  async sendChatMessage(channelName: string, userId: number, message: string) {
+  async sendChatMessage(channelName: string, userId: number, message: string): Promise<void> {
     const userSockets = this.getUserSockets(userId)
     const originalChannelName = await this.getOriginalChannelName(channelName)
     // TODO(tec27): lookup channel keys case insensitively?
@@ -235,7 +253,7 @@ export default class ChatService {
     }
   }
 
-  async getOriginalChannelName(channelName: string) {
+  async getOriginalChannelName(channelName: string): Promise<string> {
     const foundChannel = await findChannel(channelName)
 
     // If the channel already exists in database, return its name with original casing; otherwise

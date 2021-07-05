@@ -2,6 +2,8 @@ import bcrypt from 'bcrypt'
 import sql from 'sql-template-strings'
 import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+import createDeferred from '../../../common/async/deferred'
+import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { SelfUser, SelfUserInfo, User } from '../../../common/users/user-info'
 import ChatService from '../chat/chat-service'
 import db from '../db'
@@ -77,7 +79,10 @@ export async function createUser({
   ipAddress: string
   createdDate?: Date
 }): Promise<SelfUserInfo> {
-  return transact(async client => {
+  const transactionCompleted = createDeferred<void>()
+  transactionCompleted.catch(swallowNonBuiltins)
+
+  const result = await transact(async client => {
     const result = await client.query<DbUser>(sql`
       INSERT INTO users (name, email, password, created, signup_ip_address, email_verified)
       VALUES (${name}, ${email}, ${hashedPassword}, ${createdDate}, ${ipAddress}, false)
@@ -93,12 +98,16 @@ export async function createUser({
 
     const [permissions] = await Promise.all([
       createPermissions(client, userInternal.id),
-      chatService.joinChannel('ShieldBattery', userInternal.id, client),
+      chatService.joinChannel('ShieldBattery', userInternal.id, client, transactionCompleted),
       createUserStats(client, userInternal.id),
     ])
 
     return { user: convertToExternalSelf(userInternal), permissions }
   })
+
+  transactionCompleted.resolve()
+
+  return result
 }
 
 /** Fields that can be updated for a user. */
