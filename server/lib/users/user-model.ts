@@ -7,6 +7,7 @@ import db from '../db'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { createPermissions } from '../models/permissions'
+import { createUserStats } from './user-stats-model'
 
 /**
  * A user in the database. This is meant to be used internally by functions in this file, and
@@ -87,8 +88,11 @@ export async function createUser({
     }
 
     const userInternal = convertFromDb(result.rows[0])
-    const permissions = await createPermissions(client, userInternal.id)
-    await addUserToChannel(userInternal.id, 'ShieldBattery', client)
+    const [permissions] = await Promise.all([
+      createPermissions(client, userInternal.id),
+      addUserToChannel(userInternal.id, 'ShieldBattery', client),
+      createUserStats(userInternal.id),
+    ])
 
     return { user: convertToExternalSelf(userInternal), permissions }
   })

@@ -4,6 +4,7 @@ import Joi from 'joi'
 import Koa from 'koa'
 import { GameClientPlayerResult, GameClientResult } from '../../../common/game-results'
 import { MatchmakingType } from '../../../common/matchmaking'
+import { RaceChar } from '../../../common/races'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { hasCompletedResults, reconcileResults } from '../games/results'
@@ -24,6 +25,7 @@ import {
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { findUsersByName } from '../users/user-model'
+import { incrementUserStatsCount, makeCountKeys, UserStats } from '../users/user-stats-model'
 import { joiValidator } from '../validation/joi-validator'
 
 const throttle = createThrottle('gamesResults', {
@@ -192,11 +194,37 @@ async function submitGameResults(ctx: RouterContext, next: Koa.Next) {
         // TODO(tec27): Perhaps we should auto-trigger a dispute request in particular cases, such
         // as when a user has an unknown result?
 
-        // TODO(tec27): update win/loss records, etc.
+        const statsUpdatePromises: Array<Promise<UserStats>> = []
+        if (gameRecord.config.gameType !== 'ums' && !reconciled.disputed) {
+          const idToSelectedRace = new Map(
+            gameRecord.config.teams
+              .map(team =>
+                team
+                  .filter(p => !p.isComputer)
+                  .map<[id: number, race: RaceChar]>(p => [p.id, p.race]),
+              )
+              .flat(),
+          )
+
+          for (const [userId, result] of reconciled.results.entries()) {
+            if (result.result !== 'win' && result.result !== 'loss') {
+              continue
+            }
+
+            const selectedRace = idToSelectedRace.get(userId)!
+            const assignedRace = result.race
+            const countKeys = makeCountKeys(selectedRace, assignedRace, result.result)
+
+            for (const key of countKeys) {
+              statsUpdatePromises.push(incrementUserStatsCount(client, userId, key))
+            }
+          }
+        }
 
         await Promise.all([
           ...userPromises,
           ...matchmakingDbPromises,
+          ...statsUpdatePromises,
           setReconciledResult(client, gameId, reconciled),
         ])
       })
