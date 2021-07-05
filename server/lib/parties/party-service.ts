@@ -332,7 +332,13 @@ export default class PartyService {
       })
     }
 
-    this.clientSocketsToPartyId.delete(clientSockets)
+    const clientPartyId = this.clientSocketsToPartyId.get(clientSockets)!
+    // Client's party can change when switching parties, so we must check if they're actually
+    // leaving the party, or have simply switched to a new one.
+    if (clientPartyId === party.id) {
+      this.clientSocketsToPartyId.delete(clientSockets)
+    }
+
     clientSockets.unsubscribe(getPartyPath(party.id))
 
     // TODO(2Pac): Handle party leader leaving

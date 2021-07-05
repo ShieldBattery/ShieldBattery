@@ -12,10 +12,9 @@ import { SlotActions } from '../lobbies/slot-actions'
 import { TextButton } from '../material/button'
 import Chat from '../messaging/chat'
 import { Message } from '../messaging/message-records'
-import { push } from '../navigation/routing'
+import { replace } from '../navigation/routing'
 import { urlPath } from '../network/urls'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { usePrevious } from '../state-hooks'
 import { background700, background800 } from '../styles/colors'
 import { activateParty, deactivateParty, leaveParty, sendChatMessage } from './action-creators'
 import {
@@ -130,25 +129,29 @@ function renderPartyMessage(msg: Message) {
   }
 }
 
-export function PartyView() {
+interface PartyViewProps {
+  params: { partyId: string }
+}
+
+export function PartyView(props: PartyViewProps) {
   const dispatch = useAppDispatch()
   const party = useAppSelector(s => s.party)
   const partyId = party.id
-  const prevPartyId = usePrevious(partyId)
+  const routePartyId = decodeURIComponent(props.params.partyId)
   // Party can change when a user accepts an invite to a new party while already being a member of a
   // different party that is currently being rendered.
-  const partyChanged = !!prevPartyId && prevPartyId !== partyId
+  const partyChanged = routePartyId !== partyId
 
   useEffect(() => {
     const isInParty = !!partyId
 
     if (isInParty) {
       if (partyChanged) {
-        push(urlPath`/parties/${partyId}`)
+        replace(urlPath`/parties/${partyId}`)
       }
       dispatch(activateParty(partyId))
     } else {
-      push('/')
+      replace('/')
     }
 
     return () => dispatch(deactivateParty(partyId))
