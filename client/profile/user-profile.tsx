@@ -279,12 +279,25 @@ const EmptyListText = styled.div`
   color: ${colorTextFaint};
 `
 
+interface RaceStats {
+  race: RaceChar
+  wins: number
+  losses: number
+}
+
 function SummaryPage({ user, profile }: { user: User; profile: UserProfile }) {
   // TODO(tec27): Build the title feature :)
   const title = 'Novice'
   const ladder1v1 = profile.ladder[MatchmakingType.Match1v1]
-  // TODO(tec27): Sort races by total games, include random stats
+
+  // TODO(tec27): Include random stats
   const stats = profile.userStats
+  const pStats: RaceStats = { race: 'p', wins: stats.pWins, losses: stats.pLosses }
+  const tStats: RaceStats = { race: 't', wins: stats.tWins, losses: stats.tLosses }
+  const zStats: RaceStats = { race: 'z', wins: stats.zWins, losses: stats.zLosses }
+  const sortedStats = [pStats, tStats, zStats].sort(
+    (a, b) => b.wins + b.losses - (a.wins + a.losses),
+  )
 
   return (
     <>
@@ -312,11 +325,17 @@ function SummaryPage({ user, profile }: { user: User; profile: UserProfile }) {
 
       <SectionOverline>Total games</SectionOverline>
       <TotalGamesSection>
-        <TotalGamesEntry race='t' wins={stats.tWins} losses={stats.tLosses} />
-        <TotalGamesSpacer />
-        <TotalGamesEntry race='z' wins={stats.zWins} losses={stats.zLosses} />
-        <TotalGamesSpacer />
-        <TotalGamesEntry race='p' wins={stats.pWins} losses={stats.pLosses} />
+        {sortedStats.map((s, i) => (
+          <>
+            {i > 0 ? <TotalGamesSpacer key={s.race + '-spacer'} /> : null}
+            <TotalGamesEntry
+              key={s.race + '-entry'}
+              race={s.race}
+              wins={s.wins}
+              losses={s.losses}
+            />
+          </>
+        ))}
       </TotalGamesSection>
 
       <SectionOverline>Latest games</SectionOverline>
@@ -442,7 +461,8 @@ const WinLossText = styled.div`
 `
 
 function TotalGamesEntry({ race, wins, losses }: { race: RaceChar; wins: number; losses: number }) {
-  const winrate = Math.round((wins * 100 * 10) / (wins + losses)) / 10
+  const total = wins + losses
+  const winrate = total > 0 ? Math.round((wins * 100 * 10) / total) / 10 : 0
 
   let raceText: string
   switch (race) {
