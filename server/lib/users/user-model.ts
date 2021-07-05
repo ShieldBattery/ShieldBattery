@@ -82,32 +82,36 @@ export async function createUser({
   const transactionCompleted = createDeferred<void>()
   transactionCompleted.catch(swallowNonBuiltins)
 
-  const result = await transact(async client => {
-    const result = await client.query<DbUser>(sql`
+  try {
+    const transactionResult = await transact(async client => {
+      const result = await client.query<DbUser>(sql`
       INSERT INTO users (name, email, password, created, signup_ip_address, email_verified)
       VALUES (${name}, ${email}, ${hashedPassword}, ${createdDate}, ${ipAddress}, false)
       RETURNING *
     `)
 
-    if (result.rows.length < 1) {
-      throw new Error('No rows returned')
-    }
+      if (result.rows.length < 1) {
+        throw new Error('No rows returned')
+      }
 
-    const userInternal = convertFromDb(result.rows[0])
-    const chatService = container.resolve(ChatService)
+      const userInternal = convertFromDb(result.rows[0])
+      const chatService = container.resolve(ChatService)
 
-    const [permissions] = await Promise.all([
-      createPermissions(client, userInternal.id),
-      chatService.joinChannel('ShieldBattery', userInternal.id, client, transactionCompleted),
-      createUserStats(client, userInternal.id),
-    ])
+      const [permissions] = await Promise.all([
+        createPermissions(client, userInternal.id),
+        chatService.joinChannel('ShieldBattery', userInternal.id, client, transactionCompleted),
+        createUserStats(client, userInternal.id),
+      ])
 
-    return { user: convertToExternalSelf(userInternal), permissions }
-  })
+      return { user: convertToExternalSelf(userInternal), permissions }
+    })
+    transactionCompleted.resolve()
 
-  transactionCompleted.resolve()
-
-  return result
+    return transactionResult
+  } catch (err) {
+    transactionCompleted.reject(err)
+    throw err
+  }
 }
 
 /** Fields that can be updated for a user. */
