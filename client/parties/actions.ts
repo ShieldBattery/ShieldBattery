@@ -208,6 +208,7 @@ export interface InitParty {
   type: '@parties/init'
   payload: {
     party: PartyPayload
+    time: number
     userInfos: User[]
   }
 }
@@ -217,6 +218,7 @@ export interface UpdateInvite {
   payload: {
     partyId: string
     invitedUser: PartyUser
+    time: number
     userInfo: User
   }
 }
@@ -226,6 +228,7 @@ export interface UpdateUninvite {
   payload: {
     partyId: string
     target: PartyUser
+    time: number
   }
 }
 
@@ -234,6 +237,7 @@ export interface UpdateDecline {
   payload: {
     partyId: string
     target: PartyUser
+    time: number
   }
 }
 
@@ -242,6 +246,7 @@ export interface UpdateJoin {
   payload: {
     partyId: string
     user: PartyUser
+    time: number
   }
 }
 
@@ -250,11 +255,13 @@ export interface UpdateLeave {
   payload: {
     partyId: string
     user: PartyUser
+    time: number
   }
 }
 
 export interface UpdateLeaveSelf {
   type: '@parties/updateLeaveSelf'
+  time: number
 }
 
 export interface UpdateChatMessage {

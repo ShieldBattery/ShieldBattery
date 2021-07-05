@@ -48,17 +48,16 @@ function convertPartyServiceError(err: Error) {
   }
 
   switch (err.code) {
-    case PartyServiceErrorCode.PartyNotFound:
-      throw new httpErrors.NotFound(err.message)
+    case PartyServiceErrorCode.NotFoundOrNotInvited:
+    case PartyServiceErrorCode.NotFoundOrNotInParty:
+    case PartyServiceErrorCode.InvalidAction:
+      throw new httpErrors.BadRequest(err.message)
     case PartyServiceErrorCode.InsufficientPermissions:
       throw new httpErrors.Forbidden(err.message)
     case PartyServiceErrorCode.PartyFull:
       throw new httpErrors.Conflict(err.message)
     case PartyServiceErrorCode.UserOffline:
-    case PartyServiceErrorCode.UserNotInParty:
       throw new httpErrors.NotFound(err.message)
-    case PartyServiceErrorCode.InvalidAction:
-      throw new httpErrors.BadRequest(err.message)
     case PartyServiceErrorCode.NotificationFailure:
       throw new httpErrors.InternalServerError(err.message)
     default:

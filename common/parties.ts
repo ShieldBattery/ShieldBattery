@@ -37,33 +37,39 @@ export interface PartyPayload {
 export interface PartyInitEvent {
   type: 'init'
   party: PartyPayload
+  time: number
   userInfos: User[]
 }
 
 export interface PartyInviteEvent {
   type: 'invite'
   invitedUser: PartyUser
+  time: number
   userInfo: User
 }
 
 export interface PartyUninviteEvent {
   type: 'uninvite'
   target: PartyUser
+  time: number
 }
 
 export interface PartyDeclineEvent {
   type: 'decline'
   target: PartyUser
+  time: number
 }
 
 export interface PartyJoinEvent {
   type: 'join'
   user: PartyUser
+  time: number
 }
 
 export interface PartyLeaveEvent {
   type: 'leave'
   user: PartyUser
+  time: number
 }
 
 export interface PartyChatMessageEvent extends ChatMessage {

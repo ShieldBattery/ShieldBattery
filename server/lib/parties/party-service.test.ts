@@ -51,6 +51,8 @@ describe('parties/party-service', () => {
   let connector: NydusConnector
   let notificationService: NotificationService
 
+  const currentTime = Date.now()
+
   beforeEach(() => {
     nydus = createFakeNydusServer()
     const sessionLookup = new RequestSessionLookup()
@@ -129,11 +131,12 @@ describe('parties/party-service', () => {
       })
 
       test('should publish "invite" message to the party path', async () => {
-        party = await partyService.invite(leader, USER1_CLIENT_ID, user3)
+        party = await partyService.invite(leader, USER1_CLIENT_ID, user3, currentTime)
 
         expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
           type: 'invite',
           invitedUser: user3,
+          time: currentTime,
           userInfo: {
             id: user3.id,
             name: user3.name,
@@ -163,8 +166,8 @@ describe('parties/party-service', () => {
       })
 
       test('should subscribe leader to the party path', async () => {
-        party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
-        party = await partyService.invite(leader, USER1_CLIENT_ID, user3)
+        party = await partyService.invite(leader, USER1_CLIENT_ID, user2, currentTime)
+        party = await partyService.invite(leader, USER1_CLIENT_ID, user3, currentTime)
 
         expect(client1.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
           type: 'init',
@@ -176,6 +179,7 @@ describe('parties/party-service', () => {
             members: [leader],
             leader,
           },
+          time: currentTime,
           userInfos: [
             { id: user2.id, name: user2.name },
             { id: leader.id, name: leader.name },
@@ -241,12 +245,12 @@ describe('parties/party-service', () => {
     test('should throw if the party is not found', () => {
       expect(() =>
         partyService.decline('INVALID_PARTY_ID', user2),
-      ).toThrowErrorMatchingInlineSnapshot(`"Party not found"`)
+      ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not invited to it"`)
     })
 
-    test('should throw if not in party', () => {
+    test('should throw if not invited to the party', () => {
       expect(() => partyService.decline(party.id, user4)).toThrowErrorMatchingInlineSnapshot(
-        `"Can't decline a party invitation without an invite"`,
+        `"Party not found or you're not invited to it"`,
       )
     })
 
@@ -257,11 +261,12 @@ describe('parties/party-service', () => {
     })
 
     test('should publish "decline" message to the party path', () => {
-      partyService.decline(party.id, user2)
+      partyService.decline(party.id, user2, currentTime)
 
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'decline',
         target: user2,
+        time: currentTime,
       })
     })
   })
@@ -295,10 +300,18 @@ describe('parties/party-service', () => {
     test('should throw if the party is not found', () => {
       expect(() =>
         partyService.removeInvite('INVALID_PARTY_ID', leader, user2),
-      ).toThrowErrorMatchingInlineSnapshot(`"Party not found"`)
+      ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
     })
 
-    test('should throw if removed by non-leader', () => {
+    test('should throw if not in party', () => {
+      expect(() =>
+        partyService.removeInvite(party.id, user2, user4),
+      ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
+    })
+
+    test('should throw if removed by non-leader', async () => {
+      await partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
+
       expect(() =>
         partyService.removeInvite(party.id, user2, user3),
       ).toThrowErrorMatchingInlineSnapshot(
@@ -306,7 +319,7 @@ describe('parties/party-service', () => {
       )
     })
 
-    test('should throw if not in party', () => {
+    test('should throw if the user is not invited', () => {
       expect(() =>
         partyService.removeInvite(party.id, leader, user4),
       ).toThrowErrorMatchingInlineSnapshot(`"Can't remove invite for a user that wasn't invited"`)
@@ -319,11 +332,12 @@ describe('parties/party-service', () => {
     })
 
     test('should publish "uninvite" message to the party path', () => {
-      partyService.removeInvite(party.id, leader, user2)
+      partyService.removeInvite(party.id, leader, user2, currentTime)
 
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'uninvite',
         target: user2,
+        time: currentTime,
       })
     })
   })
@@ -357,7 +371,13 @@ describe('parties/party-service', () => {
     test('should throw if the party is not found', () => {
       expect(() =>
         partyService.acceptInvite('INVALID_PARTY_ID', user2, USER2_CLIENT_ID),
-      ).toThrowErrorMatchingInlineSnapshot(`"Party not found"`)
+      ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not invited to it"`)
+    })
+
+    test('should throw if the user is not invited', () => {
+      expect(() =>
+        partyService.acceptInvite(party.id, user4, USER4_CLIENT_ID),
+      ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not invited to it"`)
     })
 
     test('should throw if the party is full', async () => {
@@ -381,12 +401,6 @@ describe('parties/party-service', () => {
       ).toThrowErrorMatchingInlineSnapshot(`"Party is full"`)
     })
 
-    test('should throw if the user is not invited', () => {
-      expect(() =>
-        partyService.acceptInvite(party.id, user4, USER4_CLIENT_ID),
-      ).toThrowErrorMatchingInlineSnapshot(`"Can't join party without an invite"`)
-    })
-
     test('should update the party record', () => {
       partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
 
@@ -400,22 +414,24 @@ describe('parties/party-service', () => {
     })
 
     test('should publish "join" message to the party path', () => {
-      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
+      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID, currentTime)
 
       // TODO(2Pac): Test the order of this call? This should probably be ensured that it's called
       // before subscribing the user to the party path.
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'join',
         user: user2,
+        time: currentTime,
       })
     })
 
     test('should subscribe user to the party path', () => {
-      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
+      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID, currentTime)
 
       expect(client2.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'init',
         party: toPartyJson(party),
+        time: currentTime,
         userInfos: [
           { id: user3.id, name: user3.name },
           { id: leader.id, name: leader.name },
@@ -438,13 +454,13 @@ describe('parties/party-service', () => {
     test('should throw if the party is not found', () => {
       expect(() =>
         partyService.leaveParty('INVALID_PARTY_ID', user2.id, USER2_CLIENT_ID),
-      ).toThrowErrorMatchingInlineSnapshot(`"Party not found"`)
+      ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
     })
 
     test('should throw if the user is not in party', () => {
       expect(() =>
         partyService.leaveParty(party.id, user3.id, USER3_CLIENT_ID),
-      ).toThrowErrorMatchingInlineSnapshot(`"User not in party"`)
+      ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
     })
 
     test('should throw if the client could not be found', () => {
@@ -460,13 +476,14 @@ describe('parties/party-service', () => {
     })
 
     test('should publish "leave" message to the party path', () => {
-      partyService.leaveParty(party.id, user2.id, USER2_CLIENT_ID)
+      partyService.leaveParty(party.id, user2.id, USER2_CLIENT_ID, currentTime)
 
       // TODO(2Pac): Test the order of this call? This should probably be ensured that it's called
       // before unsubscribing the user from the party path.
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'leave',
         user: user2,
+        time: currentTime,
       })
     })
 
@@ -490,23 +507,22 @@ describe('parties/party-service', () => {
     test('should throw if the party is not found', () => {
       expect(() =>
         partyService.sendChatMessage('INVALID_PARTY_ID', user2.id, 'Hello World!'),
-      ).toThrowErrorMatchingInlineSnapshot(`"Party not found"`)
+      ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
     })
 
     test('should throw if the user is not in party', () => {
       expect(() =>
         partyService.sendChatMessage(party.id, user3.id, 'Hello World!'),
-      ).toThrowErrorMatchingInlineSnapshot(`"User not in party"`)
+      ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
     })
 
     test('should publish "chatMessage" event to the party path', () => {
-      Date.now = jest.fn(() => 272727)
-      partyService.sendChatMessage(party.id, user2.id, 'Hello World!')
+      partyService.sendChatMessage(party.id, user2.id, 'Hello World!', currentTime)
 
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'chatMessage',
         from: user2,
-        time: 272727,
+        time: currentTime,
         text: 'Hello World!',
       })
     })

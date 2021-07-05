@@ -35,6 +35,7 @@ export default keyedReducer(new PartyRecord(), {
   ['@parties/init'](state, action) {
     const {
       party: { id, invites, members, leader },
+      time,
     } = action.payload
 
     return new PartyRecord({
@@ -45,7 +46,7 @@ export default keyedReducer(new PartyRecord(), {
       messages: List([
         new SelfJoinPartyMessageRecord({
           id: cuid(),
-          time: Date.now(),
+          time,
           leaderId: leader.id,
         }),
       ]),
@@ -53,7 +54,7 @@ export default keyedReducer(new PartyRecord(), {
   },
 
   ['@parties/updateInvite'](state, action) {
-    const { partyId, invitedUser } = action.payload
+    const { partyId, invitedUser, time } = action.payload
 
     if (partyId !== state.id) {
       return state
@@ -66,7 +67,7 @@ export default keyedReducer(new PartyRecord(), {
         messages.push(
           new InviteToPartyMessageRecord({
             id: cuid(),
-            time: Date.now(),
+            time,
             userId: invitedUser.id,
           }),
         ),
@@ -94,7 +95,7 @@ export default keyedReducer(new PartyRecord(), {
   },
 
   ['@parties/updateJoin'](state, action) {
-    const { partyId, user } = action.payload
+    const { partyId, user, time } = action.payload
 
     if (partyId !== state.id) {
       return state
@@ -108,7 +109,7 @@ export default keyedReducer(new PartyRecord(), {
         messages.push(
           new JoinPartyMessageRecord({
             id: cuid(),
-            time: Date.now(),
+            time,
             userId: user.id,
           }),
         ),
@@ -116,7 +117,7 @@ export default keyedReducer(new PartyRecord(), {
   },
 
   ['@parties/updateLeave'](state, action) {
-    const { partyId, user } = action.payload
+    const { partyId, user, time } = action.payload
 
     if (partyId !== state.id) {
       return state
@@ -129,7 +130,7 @@ export default keyedReducer(new PartyRecord(), {
         messages.push(
           new LeavePartyMessageRecord({
             id: cuid(),
-            time: Date.now(),
+            time,
             userId: user.id,
           }),
         ),
