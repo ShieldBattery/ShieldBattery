@@ -32,9 +32,15 @@ const partyThrottle = createThrottle('parties', {
   window: 60000,
 })
 
-const sendChatMessageThrottle = createThrottle('sendChatMessage', {
+const sendChatMessageThrottle = createThrottle('partyChatMessage', {
   rate: 30,
   burst: 90,
+  window: 60000,
+})
+
+const kickPlayerThrottle = createThrottle('partyKick', {
+  rate: 30,
+  burst: 50,
   window: 60000,
 })
 
@@ -113,6 +119,11 @@ export class PartyApi extends HttpApi {
         '/:partyId/messages',
         throttleMiddleware(sendChatMessageThrottle, ctx => String(ctx.session!.userId)),
         sendChatMessage,
+      )
+      .delete(
+        '/:partyId/:targetId/kick',
+        throttleMiddleware(kickPlayerThrottle, ctx => String(ctx.session!.userId)),
+        kick,
       )
   }
 }
@@ -240,6 +251,30 @@ async function sendChatMessage(ctx: RouterContext) {
 
   const partyService = container.resolve(PartyService)
   await partyService.sendChatMessage(partyId, ctx.session!.userId, message)
+
+  ctx.status = 204
+}
+
+async function kick(ctx: RouterContext) {
+  const {
+    params: { partyId, targetId },
+  } = validateRequest(ctx, {
+    params: Joi.object<{ partyId: string; targetId: number }>({
+      partyId: Joi.string().required(),
+      targetId: Joi.number().required(),
+    }),
+  })
+
+  const foundTarget = await findUserById(targetId)
+  if (!foundTarget) {
+    throw new httpErrors.NotFound('Target user not found')
+  }
+
+  const kickingUser: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
+  const target: PartyUser = { id: foundTarget.id, name: foundTarget.name }
+
+  const partyService = container.resolve(PartyService)
+  await partyService.kickPlayer(partyId, kickingUser, target)
 
   ctx.status = 204
 }

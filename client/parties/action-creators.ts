@@ -161,6 +161,31 @@ export function sendChatMessage(partyId: string, message: string): ThunkAction {
   }
 }
 
+export function kickPlayer(partyId: string, targetId: number): ThunkAction {
+  return dispatch => {
+    const params = { partyId, targetId }
+    dispatch({
+      type: '@parties/kickFromPartyBegin',
+      payload: params,
+    })
+
+    dispatch({
+      type: '@parties/kickFromParty',
+      payload: fetch<void>(apiUrl`parties/${partyId}/${targetId}/kick`, {
+        method: 'DELETE',
+      }).catch(err => {
+        dispatch(
+          openSnackbar({
+            message: 'An error occurred while kicking the player',
+          }),
+        )
+        throw err
+      }),
+      meta: params,
+    })
+  }
+}
+
 export function activateParty(partyId: string): ActivateParty {
   return {
     type: '@parties/activateParty',
