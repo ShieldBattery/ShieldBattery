@@ -39,13 +39,6 @@ const GamePreview = styled.div`
   border-radius: 4px;
 `
 
-interface DummyGameReplaceWithRealThing {
-  mapName: string
-  matchType: string
-  result: 'win' | 'loss' | 'unknown'
-  date: Date
-}
-
 export interface MiniMatchHistoryProps {
   games: Immutable<GameRecordJson[]>
 }
