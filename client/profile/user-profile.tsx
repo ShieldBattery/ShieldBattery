@@ -1,6 +1,8 @@
+import { Immutable } from 'immer'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
+import { GameRecordJson } from '../../common/games/games'
 import { MatchmakingType } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { User, UserProfile } from '../../common/users/user-info'
@@ -40,7 +42,7 @@ import {
   navigateToUserProfile,
   viewUserProfile,
 } from './action-creators'
-import { MatchHistory } from './match-history'
+import { MiniMatchHistory } from './mini-match-history'
 import { UserProfileSubPage } from './user-profile-sub-page'
 
 const Container = styled.div`
@@ -80,6 +82,8 @@ export function ConnectedUserProfilePage({
   const dispatch = useAppDispatch()
   const user = useAppSelector(s => s.users.byId.get(userId))
   const profile = useAppSelector(s => s.users.idToProfile.get(userId))
+  const matchHistory = useAppSelector(s => s.users.idToMatchHistory.get(userId)) ?? []
+
   const onTabChange = useCallback(
     (tab: UserProfileSubPage) => {
       navigateToUserProfile(user!.id, user!.name, tab)
@@ -123,13 +127,20 @@ export function ConnectedUserProfilePage({
   }
 
   return (
-    <UserProfilePage user={user} profile={profile} subPage={subPage} onTabChange={onTabChange} />
+    <UserProfilePage
+      user={user}
+      profile={profile}
+      matchHistory={matchHistory}
+      subPage={subPage}
+      onTabChange={onTabChange}
+    />
   )
 }
 
 export interface UserProfilePageProps {
   user: User
   profile: UserProfile
+  matchHistory: Immutable<GameRecordJson[]>
   subPage?: UserProfileSubPage
   onTabChange: (tab: UserProfileSubPage) => void
 }
@@ -137,13 +148,14 @@ export interface UserProfilePageProps {
 export function UserProfilePage({
   user,
   profile,
+  matchHistory,
   subPage = UserProfileSubPage.Summary,
   onTabChange,
 }: UserProfilePageProps) {
   let content: React.ReactNode
   switch (subPage) {
     case UserProfileSubPage.Summary:
-      content = <SummaryPage user={user} profile={profile} />
+      content = <SummaryPage user={user} profile={profile} matchHistory={matchHistory} />
       break
 
     case UserProfileSubPage.Stats:
@@ -285,7 +297,15 @@ interface RaceStats {
   losses: number
 }
 
-function SummaryPage({ user, profile }: { user: User; profile: UserProfile }) {
+function SummaryPage({
+  user,
+  profile,
+  matchHistory,
+}: {
+  user: User
+  profile: UserProfile
+  matchHistory: Immutable<GameRecordJson[]>
+}) {
   // TODO(tec27): Build the title feature :)
   const title = 'Novice'
   const ladder1v1 = profile.ladder[MatchmakingType.Match1v1]
@@ -326,20 +346,15 @@ function SummaryPage({ user, profile }: { user: User; profile: UserProfile }) {
       <SectionOverline>Total games</SectionOverline>
       <TotalGamesSection>
         {sortedStats.map((s, i) => (
-          <>
-            {i > 0 ? <TotalGamesSpacer key={s.race + '-spacer'} /> : null}
-            <TotalGamesEntry
-              key={s.race + '-entry'}
-              race={s.race}
-              wins={s.wins}
-              losses={s.losses}
-            />
-          </>
+          <React.Fragment key={s.race}>
+            {i > 0 ? <TotalGamesSpacer /> : null}
+            <TotalGamesEntry race={s.race} wins={s.wins} losses={s.losses} />
+          </React.Fragment>
         ))}
       </TotalGamesSection>
 
       <SectionOverline>Latest games</SectionOverline>
-      <MatchHistory />
+      <MiniMatchHistory games={matchHistory} />
 
       <SectionOverline>Achievements</SectionOverline>
       <EmptyListText>Nothing to see here</EmptyListText>

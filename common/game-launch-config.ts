@@ -37,7 +37,7 @@ export interface ReplayMapInfo {
   path: string
 }
 
-export function isReplayConfig(config: GameConfig) {
+export function isReplayLaunchConfig(config: GameLaunchConfig) {
   return isReplayMapInfo(config.setup.map)
 }
 
@@ -46,7 +46,7 @@ export function isReplayMapInfo(map: MapInfo | ReplayMapInfo): map is ReplayMapI
 }
 
 /** Configuration info for launching a local game client to play a specific game. */
-export interface GameConfig {
+export interface GameLaunchConfig {
   /** The user currently logged into the application and playing the game. */
   localUser: {
     id: number

@@ -1,8 +1,7 @@
-import { RaceChar } from '../../../common/races'
+import { RaceChar } from '../races'
 
 export type GameSource = 'MATCHMAKING' | 'LOBBY'
 
-// TODO(tec27): These game types should be in a more common place
 export interface GameConfigPlayerId {
   id: number
   race: RaceChar

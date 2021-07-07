@@ -1,3 +1,4 @@
+import { GameRecordJson } from '../games/games'
 import { LadderPlayer } from '../ladder'
 import { MatchmakingType } from '../matchmaking'
 import { Permissions } from './permissions'
@@ -37,4 +38,9 @@ export interface UserProfile {
 export interface GetUserProfilePayload {
   user: User
   profile: UserProfile
+  matchHistory: {
+    games: GameRecordJson[]
+    maps: unknown[]
+    users: User[]
+  }
 }

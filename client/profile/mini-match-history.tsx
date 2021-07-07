@@ -1,5 +1,9 @@
+import { Immutable } from 'immer'
 import React, { useMemo } from 'react'
 import styled from 'styled-components'
+import { GameRecordJson } from '../../common/games/games'
+import { ReconciledResult } from '../../common/games/results'
+import { useSelfUser } from '../auth/state-hooks'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
@@ -42,43 +46,16 @@ interface DummyGameReplaceWithRealThing {
   date: Date
 }
 
-export function MatchHistory() {
-  const games: DummyGameReplaceWithRealThing[] = useMemo(
-    () => [
-      { mapName: 'Bluebastic Demon', matchType: 'Ranked 1v1', result: 'win', date: new Date() },
-      {
-        mapName: 'Lost Temple',
-        matchType: 'Ranked 2v2',
-        result: 'loss',
-        date: new Date(Date.now() - 60 * 60 * 1000),
-      },
-      {
-        mapName: 'Micro Tournament 2.7',
-        matchType: 'Custom Lobby',
-        result: 'win',
-        date: new Date(Date.now() - 2 * 60 * 60 * 1000),
-      },
-      {
-        mapName: 'Fighting Spirit',
-        matchType: 'Ranked 1v1',
-        result: 'loss',
-        date: new Date(Date.now() - 27 * 60 * 60 * 1000),
-      },
-      {
-        mapName: 'Big Game Hunters',
-        matchType: 'Ranked 3v3',
-        result: 'unknown',
-        date: new Date(Date.now() - 48 * 60 * 60 * 1000),
-      },
-    ],
-    [],
-  )
+export interface MiniMatchHistoryProps {
+  games: Immutable<GameRecordJson[]>
+}
 
+export function MiniMatchHistory({ games }: MiniMatchHistoryProps) {
   return (
     <MatchHistoryRoot>
       <GameList>
         {games.map((g, i) => (
-          <GameListEntry key={i} {...g} />
+          <ConnectedGameListEntry key={i} game={g} />
         ))}
       </GameList>
       <GamePreview></GamePreview>
@@ -108,7 +85,7 @@ const GameListEntryTextRow = styled.div<{ $color?: 'primary' | 'secondary' }>`
   color: ${props => (props.$color === 'secondary' ? colorTextSecondary : colorTextPrimary)};
 `
 
-const GameListEntryResult = styled.div<{ $result: 'win' | 'loss' | 'unknown' }>`
+const GameListEntryResult = styled.div<{ $result: ReconciledResult }>`
   ${body2};
   color: ${props => {
     switch (props.$result) {
@@ -123,8 +100,28 @@ const GameListEntryResult = styled.div<{ $result: 'win' | 'loss' | 'unknown' }>`
   text-transform: capitalize;
 `
 
-export function GameListEntry({ mapName, matchType, result, date }: DummyGameReplaceWithRealThing) {
+export function ConnectedGameListEntry({ game }: { game: Immutable<GameRecordJson> }) {
+  const mapName = 'Fighting Spirit 1.3' // This should cover every match :)
+  const selfUser = useSelfUser()
   const [buttonProps, rippleRef] = useButtonState({})
+
+  const { results, startTime, config } = game
+  const result = useMemo(() => {
+    if (!results) {
+      return 'unknown'
+    }
+
+    for (const [userId, r] of results) {
+      if (userId === selfUser.id) {
+        return r.result
+      }
+    }
+
+    return 'unknown'
+  }, [results, selfUser])
+
+  // TODO(tec27): Handle more ranked types, show mode (UMS, Top v Bottom, etc.?)
+  const matchType = config.gameSource === 'MATCHMAKING' ? 'Ranked 1v1' : 'Custom game'
 
   return (
     <GameListEntryRoot {...buttonProps}>
@@ -135,7 +132,7 @@ export function GameListEntry({ mapName, matchType, result, date }: DummyGameRep
 
       <GameListEntryTextRow $color='secondary'>
         <Body1>{matchType}</Body1>
-        <Body1>{timeAgo(Date.now() - Number(date))}</Body1>
+        <Body1>{timeAgo(Date.now() - startTime)}</Body1>
       </GameListEntryTextRow>
 
       <Ripple ref={rippleRef} />

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import styled from 'styled-components'
+import { GameRecordJson } from '../../../common/games/games'
 import { User, UserProfile } from '../../../common/users/user-info'
 import { background700 } from '../../styles/colors'
 import { UserProfilePage } from '../user-profile'
@@ -45,6 +46,9 @@ const PROFILE: UserProfile = {
   },
 }
 
+// TODO(tec27): Make a test match history.
+const MATCH_HISTORY: GameRecordJson[] = []
+
 export function ProfilePageTest() {
   const [user] = useState<User>({ id: PROFILE.userId, name: '[TL] BigFan' })
   const [profile] = useState<UserProfile>(PROFILE)
@@ -54,7 +58,13 @@ export function ProfilePageTest() {
     <Container>
       <FakeLeftNav />
       <TestContent>
-        <UserProfilePage user={user} profile={profile} subPage={subPage} onTabChange={setSubPage} />
+        <UserProfilePage
+          user={user}
+          profile={profile}
+          matchHistory={MATCH_HISTORY}
+          subPage={subPage}
+          onTabChange={setSubPage}
+        />
       </TestContent>
     </Container>
   )

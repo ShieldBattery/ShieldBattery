@@ -1,5 +1,4 @@
-import { ReconciledResult } from '../../../common/game-results'
-import { ReconciledPlayerResult } from '../games/results'
+import { ReconciledPlayerResult, ReconciledResult } from '../../../common/games/results'
 import { NEW_PLAYER_GAME_COUNT } from './constants'
 import { MatchmakingRating, MatchmakingRatingChange } from './models'
 

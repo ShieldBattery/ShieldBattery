@@ -21,6 +21,7 @@ import {
   consumeEmailVerificationCode,
   getEmailVerificationsCount,
 } from '../models/email-verifications'
+import { getRecentGamesForUser } from '../models/games'
 import { usePasswordResetCode } from '../models/password-resets'
 import { checkAnyPermission } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -34,6 +35,7 @@ import {
   findSelfById,
   findUserById,
   findUserByName,
+  findUsersById,
   updateUser,
   UserUpdatables,
 } from './user-model'
@@ -173,11 +175,43 @@ export class UserApi extends HttpApi {
         }
       })
       const userStatsPromise = getUserStats(user.id)
-      await Promise.all([...matchmakingPromises, userStatsPromise as Promise<any>])
 
-      const userStats = await userStatsPromise
+      const NUM_RECENT_GAMES = 5
+      const matchHistoryPromise = (async () => {
+        const games = await getRecentGamesForUser(user.id, NUM_RECENT_GAMES)
+        const uniqueUsers = new Set<number>()
+        for (const g of games) {
+          for (const team of g.config.teams) {
+            for (const player of team) {
+              if (!player.isComputer) {
+                uniqueUsers.add(player.id)
+              }
+            }
+          }
+        }
+        const [users, maps] = await Promise.all([
+          findUsersById(Array.from(uniqueUsers.values())),
+          // TODO(tec27): look up maps
+          Promise.resolve<unknown[]>([]),
+        ])
 
-      return { user, profile: { userId: user.id, ladder, userStats } }
+        return {
+          games: games.map(g => ({ ...g, startTime: Number(g.startTime) })),
+          maps,
+          users: Array.from(users.values()),
+        }
+      })()
+
+      // TODO(tec27): I think these calls will be combine-able in later versions of TS, as of 4.3
+      // the inference doesn't work for destructuring the results
+      await Promise.all(matchmakingPromises)
+      const [userStats, matchHistory] = await Promise.all([userStatsPromise, matchHistoryPromise])
+
+      return {
+        user,
+        profile: { userId: user.id, ladder, userStats },
+        matchHistory,
+      }
     },
   )
 

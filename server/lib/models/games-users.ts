@@ -1,8 +1,12 @@
 import sql from 'sql-template-strings'
-import { GameClientPlayerResult, ReconciledResult } from '../../../common/game-results'
+import {
+  GameClientPlayerResult,
+  ReconciledPlayerResult,
+  ReconciledResult,
+} from '../../../common/games/results'
 import { AssignedRaceChar, RaceChar } from '../../../common/races'
 import db, { DbClient } from '../db'
-import { ReconciledPlayerResult, ResultSubmission } from '../games/results'
+import { ResultSubmission } from '../games/results'
 
 export interface ReportedResultsData {
   userId: number

@@ -1,5 +1,5 @@
+import { ReconciledPlayerResult } from '../../../common/games/results'
 import { MatchmakingType } from '../../../common/matchmaking'
-import { ReconciledPlayerResult } from '../games/results'
 import { DEFAULT_MATCHMAKING_RATING, MatchmakingRating } from './models'
 import { calculateChangedRatings } from './rating'
 

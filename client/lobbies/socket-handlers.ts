@@ -1,5 +1,5 @@
 import { NydusClient, RouteHandler } from 'nydus-client'
-import { GameRoute } from '../../common/game-config'
+import { GameRoute } from '../../common/game-launch-config'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
 import {

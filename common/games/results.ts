@@ -1,4 +1,4 @@
-import { AssignedRaceChar } from './races'
+import { AssignedRaceChar } from '../races'
 
 /**
  * The results of a game, as reported by the game client. These results have not yet been reconciled
@@ -24,3 +24,21 @@ export interface GameClientPlayerResult {
  * The final, reconciled results of a game, after all players' results have been combined.
  */
 export type ReconciledResult = 'win' | 'loss' | 'draw' | 'unknown'
+
+export interface ReconciledPlayerResult {
+  result: ReconciledResult
+  race: AssignedRaceChar
+  apm: number
+}
+
+export interface ReconciledResults {
+  /**
+   * Whether or not some of the players' results disagree on outcomes. Disputed results should
+   * be looked over by an administrator to ensure correctness and that no cheating is occurring.
+   */
+  disputed: boolean
+  /** The elapsed time for the game, in milliseconds. */
+  time: number
+  /** A map containing the final result info for each player in the game. */
+  results: Map<number, ReconciledPlayerResult>
+}

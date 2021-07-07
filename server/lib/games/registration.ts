@@ -1,8 +1,8 @@
+import { GameConfig, GameConfigPlayerName, GameSource } from '../../../common/games/configuration'
 import transact from '../db/transaction'
 import { createGameRecord } from '../models/games'
 import { createGameUserRecord } from '../models/games-users'
 import { findUsersByName } from '../users/user-model'
-import { GameConfig, GameConfigPlayerName, GameSource } from './configuration'
 import { genResultCode } from './gen-result-code'
 
 /**

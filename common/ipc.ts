@@ -1,6 +1,6 @@
 import type { IpcMainEvent, IpcMainInvokeEvent, IpcRendererEvent, WebContents } from 'electron'
 import { Promisable, PromiseValue } from 'type-fest'
-import { GameConfig, GameRoute } from './game-config'
+import { GameLaunchConfig, GameRoute } from './game-launch-config'
 import { LocalSettingsData, ScrSettingsData } from './local-settings'
 import { ResolvedRallyPointServer } from './rally-point'
 import { ShieldBatteryFileResult } from './shieldbattery-file'
@@ -12,7 +12,7 @@ const ipcMain = IS_ELECTRON && !IS_RENDERER ? require('electron').ipcMain : null
 /** RPCs that can be invoked by the renderer process to run code in the main process. */
 interface IpcInvokeables {
   activeGameStartWhenReady: (gameId: string) => void
-  activeGameSetConfig: (config: GameConfig | Record<string, never>) => string | null
+  activeGameSetConfig: (config: GameLaunchConfig | Record<string, never>) => string | null
   activeGameSetRoutes: (gameId: string, routes: GameRoute[]) => void
 
   logMessage: (level: string, message: string) => void

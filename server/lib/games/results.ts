@@ -1,8 +1,10 @@
 import {
   GameClientPlayerResult,
   GameClientResult,
+  ReconciledPlayerResult,
   ReconciledResult,
-} from '../../../common/game-results'
+  ReconciledResults,
+} from '../../../common/games/results'
 import { AssignedRaceChar } from '../../../common/races'
 
 export interface ResultSubmission {
@@ -53,24 +55,6 @@ export function hasCompletedResults(results: Array<ResultSubmission | null>) {
   }
 
   return maxTerminal === numPlayers
-}
-
-export interface ReconciledPlayerResult {
-  result: ReconciledResult
-  race: AssignedRaceChar
-  apm: number
-}
-
-export interface ReconciledResults {
-  /**
-   * Whether or not some of the players' results disagree on outcomes. Disputed results should
-   * be looked over by an administrator to ensure correctness and that no cheating is occurring.
-   */
-  disputed: boolean
-  /** The elapsed time for the game, in milliseconds. */
-  time: number
-  /** A map containing the final result info for each player in the game. */
-  results: Map<number, ReconciledPlayerResult>
 }
 
 /**

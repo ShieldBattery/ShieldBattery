@@ -4,9 +4,14 @@ import got from 'got'
 import { Set } from 'immutable'
 import path from 'path'
 import { singleton } from 'tsyringe'
-import { GameConfig, GameRoute, isReplayConfig, isReplayMapInfo } from '../../common/game-config'
-import { GameClientPlayerResult } from '../../common/game-results'
+import {
+  GameLaunchConfig,
+  GameRoute,
+  isReplayLaunchConfig,
+  isReplayMapInfo,
+} from '../../common/game-launch-config'
 import { GameStatus, statusToString } from '../../common/game-status'
+import { GameClientPlayerResult } from '../../common/games/results'
 import { TypedEventEmitter } from '../../common/typed-emitter'
 import log from '../logger'
 import { LocalSettings, ScrSettings } from '../settings'
@@ -30,7 +35,7 @@ interface ActiveGameInfo {
    * A promise for when the game process has been launched, returning an instance of the process.
    */
   promise?: Promise<any>
-  config?: GameConfig
+  config?: GameLaunchConfig
   routes?: GameRoute[]
   /**
    * Whether or not this game instance has been told it can start.
@@ -51,8 +56,8 @@ interface ActiveGameInfo {
 }
 
 function isGameConfig(
-  possibleConfig: GameConfig | Record<string, never>,
-): possibleConfig is GameConfig {
+  possibleConfig: GameLaunchConfig | Record<string, never>,
+): possibleConfig is GameLaunchConfig {
   return !!(possibleConfig as any).setup
 }
 
@@ -89,7 +94,7 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
         id: game.id,
         state: statusToString(game.status?.state ?? GameStatus.Unknown),
         extra: game.status?.extra,
-        isReplay: game.config ? isReplayConfig(game.config) : false,
+        isReplay: game.config ? isReplayLaunchConfig(game.config) : false,
       }
     } else {
       return null
@@ -106,7 +111,7 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
    *
    * @returns the ID of the active game client, or null if there isn't one
    */
-  setGameConfig(config: GameConfig | Record<string, never>): string | null {
+  setGameConfig(config: GameLaunchConfig | Record<string, never>): string | null {
     const current = this.activeGame
     if (current && current.id !== config.setup?.gameId) {
       // Means that a previous game left hanging somehow; quit it

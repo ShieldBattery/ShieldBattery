@@ -1,21 +1,26 @@
 import sql from 'sql-template-strings'
+import { GameRecord } from '../../../common/games/games'
+import { ReconciledResults } from '../../../common/games/results'
 import db, { DbClient } from '../db'
-import { GameConfig, GameConfigPlayerId } from '../games/configuration'
-import { ReconciledPlayerResult, ReconciledResults } from '../games/results'
+import { Dbify } from '../db/types'
 
-export interface DbGame {
-  id: string
-  startTime: Date
-  mapId: string
-  config: GameConfig<GameConfigPlayerId>
-  disputable: boolean
-  disputeRequested: boolean
-  disputeReviewed: boolean
-  gameLength: number | null
-  results: [number, ReconciledPlayerResult][] | null
+type DbGameRecord = Dbify<GameRecord>
+
+export type CreateGameRecordData = Pick<GameRecord, 'startTime' | 'mapId' | 'config'>
+
+function convertFromDb(row: DbGameRecord): GameRecord {
+  return {
+    id: row.id,
+    startTime: row.start_time,
+    mapId: row.map_id,
+    config: row.config,
+    disputable: row.disputable,
+    disputeRequested: row.dispute_requested,
+    disputeReviewed: row.dispute_reviewed,
+    gameLength: row.game_length,
+    results: row.results,
+  }
 }
-
-export type CreateGameRecordData = Pick<DbGame, 'startTime' | 'mapId' | 'config'>
 
 /**
  * Creates a new record in the `games` table using the specified client. This is intended to be used
@@ -27,7 +32,7 @@ export async function createGameRecord(
 ): Promise<string> {
   // TODO(tec27): We could make some type of TransactionClient transformation to enforce this is
   // done in a transaction
-  const result = await client.query(sql`
+  const result = await client.query<{ id: string }>(sql`
     INSERT INTO games (
       id, start_time, map_id, config, disputable, dispute_requested, dispute_reviewed, game_length
     ) VALUES (
@@ -39,32 +44,17 @@ export async function createGameRecord(
 }
 
 /**
- * Returns a `DbGame` for the specificied ID, or null if one could not be found.
+ * Returns a `GameRecord` for the specificied ID, or `undefined` if one could not be found.
  */
-export async function getGameRecord(gameId: string): Promise<DbGame | null> {
+export async function getGameRecord(gameId: string): Promise<GameRecord | undefined> {
   const { client, done } = await db()
   try {
-    const result = await client.query(sql`
+    const result = await client.query<DbGameRecord>(sql`
       SELECT id, start_time, map_id, config, disputable, dispute_requested, dispute_reviewed,
         game_length, results
       FROM games
       WHERE id = ${gameId}`)
-    if (!result.rowCount) {
-      return null
-    } else {
-      const row = result.rows[0]
-      return {
-        id: row.id,
-        startTime: row.start_time,
-        mapId: row.map_id,
-        config: row.config,
-        disputable: row.disputable,
-        disputeRequested: row.dispute_requested,
-        disputeReviewed: row.dispute_reviewed,
-        gameLength: row.game_length,
-        results: row.results,
-      }
-    }
+    return result.rowCount > 0 ? convertFromDb(result.rows[0]) : undefined
   } finally {
     done()
   }
@@ -91,8 +81,8 @@ export async function setReconciledResult(
   client: DbClient,
   gameId: string,
   results: ReconciledResults,
-) {
-  return client.query(sql`
+): Promise<void> {
+  await client.query(sql`
     UPDATE games
     SET
       results = ${JSON.stringify(Array.from(results.results.entries()))},
@@ -114,6 +104,32 @@ export async function countCompletedGames(): Promise<number> {
       sql`SELECT COUNT(*) as count FROM games WHERE results IS NOT NULL;`,
     )
     return Number(result.rows[0].count)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Retrieves game information for the last `numGames` games of a user. The resulting array may be
+ * empty or less than `numGames` in length if the user has not played that many games. This list
+ * will also include games that have incomplete results or are disputed.
+ */
+export async function getRecentGamesForUser(
+  userId: number,
+  numGames: number,
+): Promise<GameRecord[]> {
+  // TODO(tec27): Support pagination on this
+
+  const { client, done } = await db()
+  try {
+    const result = await client.query<DbGameRecord>(sql`
+      SELECT g.*
+      FROM games_users u JOIN games g ON u.game_id = g.id
+      WHERE u.user_id = ${userId}
+      ORDER BY u.start_time DESC
+      LIMIT ${numGames}
+    `)
+    return result.rows.map(row => convertFromDb(row))
   } finally {
     done()
   }

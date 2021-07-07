@@ -1,4 +1,5 @@
 import { Immutable } from 'immer'
+import { GameRecordJson } from '../../common/games/games'
 import { User, UserProfile } from '../../common/users/user-info'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
@@ -12,6 +13,9 @@ export interface UserState {
   byId: Map<number, User>
   /** A map of username -> user ID. */
   usernameToId: Map<string, number>
+  // TODO(tec27): Make a reducer specifically to handle match history
+  /** A map of user ID -> recent match history. */
+  idToMatchHistory: Map<number, GameRecordJson[]>
   /** A map of user ID -> user profile information. */
   idToProfile: Map<number, UserProfile>
   /**
@@ -29,6 +33,7 @@ export interface UserState {
 const DEFAULT_STATE: Immutable<UserState> = {
   byId: new Map(),
   usernameToId: new Map(),
+  idToMatchHistory: new Map(),
   idToProfile: new Map(),
   idLoadsInProgress: new Map(),
   usernameLoadsInProgress: new Map(),
@@ -97,9 +102,11 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, action.payload.users)
   },
 
-  ['@profile/getUserProfile'](state, { payload: { user, profile } }) {
+  ['@profile/getUserProfile'](state, { payload: { user, profile, matchHistory } }) {
     updateUsers(state, [user])
+    updateUsers(state, matchHistory.users)
     state.idToProfile.set(profile.userId, profile)
+    state.idToMatchHistory.set(user.id, matchHistory.games)
   },
 
   ['@whispers/loadMessageHistory'](state, action) {

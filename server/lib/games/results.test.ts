@@ -1,6 +1,10 @@
-import { GameClientPlayerResult, GameClientResult } from '../../../common/game-results'
+import {
+  GameClientPlayerResult,
+  GameClientResult,
+  ReconciledPlayerResult,
+} from '../../../common/games/results'
 import { AssignedRaceChar } from '../../../common/races'
-import { hasCompletedResults, ReconciledPlayerResult, reconcileResults } from './results'
+import { hasCompletedResults, reconcileResults } from './results'
 
 function makePlayerResult(
   userId: number,
