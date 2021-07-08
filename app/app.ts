@@ -149,11 +149,21 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
       mainWindow.minimize()
     })
 
+  let lastRunAppAtSystemStart: boolean | undefined
+  let lastRunAppAtSystemStartMinimized: boolean | undefined
+
   localSettings.on('change', settings => {
-    app.setLoginItemSettings({
-      openAtLogin: settings.runAppAtSystemStart,
-      args: [settings.runAppAtSystemStartMinimized ? '--hidden' : ''],
-    })
+    if (
+      lastRunAppAtSystemStart !== settings.runAppAtSystemStart ||
+      lastRunAppAtSystemStartMinimized !== settings.runAppAtSystemStartMinimized
+    ) {
+      app.setLoginItemSettings({
+        openAtLogin: settings.runAppAtSystemStart,
+        args: [settings.runAppAtSystemStartMinimized ? '--hidden' : ''],
+      })
+      lastRunAppAtSystemStart = settings.runAppAtSystemStart
+      lastRunAppAtSystemStartMinimized = settings.runAppAtSystemStartMinimized
+    }
 
     TypedIpcSender.from(mainWindow?.webContents).send('settingsLocalChanged', settings)
   })
