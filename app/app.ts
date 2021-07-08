@@ -24,7 +24,21 @@ import { getUserDataPath } from './user-data-path'
 const ipcMain = new TypedIpcMain()
 
 getUserDataPath()
-app.setAppUserModelId('net.shieldbattery.client')
+
+let modelId: string
+switch ((app.name.split('-')[1] ?? '').toLowerCase()) {
+  case 'local':
+    modelId = 'net.shieldbattery.client.local'
+    break
+  case 'staging':
+    modelId = 'net.shieldbattery.client.staging'
+    break
+  default:
+    modelId = 'net.shieldbattery.client'
+    break
+}
+app.setAppUserModelId(modelId)
+
 autoUpdater.logger = logger
 // We control the download ourselves to avoid problems with double-downloading that this library
 // sometimes has
