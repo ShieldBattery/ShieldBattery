@@ -1,5 +1,5 @@
 import cuid from 'cuid'
-import { singleton } from 'tsyringe'
+import { inject, singleton } from 'tsyringe'
 import { NotificationType } from '../../../common/notifications'
 import {
   MAX_PARTY_SIZE,
@@ -64,13 +64,13 @@ export default class PartyService {
     private publisher: TypedPublisher<PartyEvent>,
     private clientSocketsManager: ClientSocketsManager,
     private notificationService: NotificationService,
+    @inject('getCurrentTime') private getCurrentTime: () => number,
   ) {}
 
   async invite(
     leader: PartyUser,
     leaderClientId: string,
     invitedUser: PartyUser,
-    time = Date.now(),
   ): Promise<PartyRecord> {
     const leaderClientSockets = this.getClientSockets(leader.id, leaderClientId)
 
@@ -108,7 +108,7 @@ export default class PartyService {
       this.publisher.publish(getPartyPath(party.id), {
         type: 'invite',
         invitedUser,
-        time,
+        time: this.getCurrentTime(),
         userInfo: {
           id: invitedUser.id,
           name: invitedUser.name,
@@ -125,7 +125,7 @@ export default class PartyService {
 
       this.parties.set(partyId, party)
       this.clientSocketsToPartyId.set(leaderClientSockets, partyId)
-      this.subscribeToParty(leaderClientSockets, party, time)
+      this.subscribeToParty(leaderClientSockets, party)
     }
 
     try {
@@ -151,7 +151,7 @@ export default class PartyService {
     return party
   }
 
-  decline(partyId: string, target: PartyUser, time = Date.now()) {
+  decline(partyId: string, target: PartyUser) {
     this.clearInviteNotification(partyId, target)
 
     const party = this.parties.get(partyId)
@@ -166,11 +166,11 @@ export default class PartyService {
     this.publisher.publish(getPartyPath(party.id), {
       type: 'decline',
       target,
-      time,
+      time: this.getCurrentTime(),
     })
   }
 
-  removeInvite(partyId: string, removingUser: PartyUser, target: PartyUser, time = Date.now()) {
+  removeInvite(partyId: string, removingUser: PartyUser, target: PartyUser) {
     this.clearInviteNotification(partyId, target)
 
     const party = this.parties.get(partyId)
@@ -199,11 +199,11 @@ export default class PartyService {
     this.publisher.publish(getPartyPath(party.id), {
       type: 'uninvite',
       target,
-      time,
+      time: this.getCurrentTime(),
     })
   }
 
-  acceptInvite(partyId: string, user: PartyUser, clientId: string, time = Date.now()) {
+  acceptInvite(partyId: string, user: PartyUser, clientId: string) {
     this.clearInviteNotification(partyId, user)
 
     const party = this.parties.get(partyId)
@@ -233,12 +233,12 @@ export default class PartyService {
     this.publisher.publish(getPartyPath(party.id), {
       type: 'join',
       user,
-      time,
+      time: this.getCurrentTime(),
     })
-    this.subscribeToParty(clientSockets, party, time)
+    this.subscribeToParty(clientSockets, party)
   }
 
-  leaveParty(partyId: string, userId: number, clientId: string, time = Date.now()) {
+  leaveParty(partyId: string, userId: number, clientId: string) {
     const party = this.parties.get(partyId)
     if (!party || !party.members.has(userId)) {
       throw new PartyServiceError(
@@ -248,10 +248,10 @@ export default class PartyService {
     }
 
     const clientSockets = this.getClientSockets(userId, clientId)
-    this.removeClientFromParty(clientSockets, party, time)
+    this.removeClientFromParty(clientSockets, party)
   }
 
-  sendChatMessage(partyId: string, userId: number, message: string, time = Date.now()) {
+  sendChatMessage(partyId: string, userId: number, message: string) {
     const party = this.parties.get(partyId)
     if (!party || !party.members.has(userId)) {
       throw new PartyServiceError(
@@ -266,7 +266,7 @@ export default class PartyService {
     this.publisher.publish(getPartyPath(partyId), {
       type: 'chatMessage',
       from: user,
-      time,
+      time: this.getCurrentTime(),
       text,
     })
   }
@@ -285,13 +285,13 @@ export default class PartyService {
       })
   }
 
-  private subscribeToParty(clientSockets: ClientSocketsGroup, party: PartyRecord, time: number) {
+  private subscribeToParty(clientSockets: ClientSocketsGroup, party: PartyRecord) {
     clientSockets.subscribe<PartyInitEvent>(
       getPartyPath(party.id),
       () => ({
         type: 'init',
         party: toPartyJson(party),
-        time,
+        time: this.getCurrentTime(),
         userInfos: [
           ...Array.from(party.invites.values()),
           ...Array.from(party.members.values()),
@@ -307,7 +307,6 @@ export default class PartyService {
   private removeClientFromParty(
     clientSockets: ClientSocketsGroup,
     party = this.getClientParty(clientSockets),
-    time = Date.now(),
   ) {
     if (!party) {
       const err = new Error('Party not found')
@@ -321,7 +320,7 @@ export default class PartyService {
       this.publisher.publish(getPartyPath(party.id), {
         type: 'leave',
         user,
-        time,
+        time: this.getCurrentTime(),
       })
     }
 

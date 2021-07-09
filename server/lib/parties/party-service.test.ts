@@ -50,6 +50,7 @@ describe('parties/party-service', () => {
   let partyService: PartyService
   let connector: NydusConnector
   let notificationService: NotificationService
+  let getCurrentTime: () => number
 
   const currentTime = Date.now()
 
@@ -59,7 +60,13 @@ describe('parties/party-service', () => {
     const clientSocketsManager = new ClientSocketsManager(nydus, sessionLookup)
     const publisher = new TypedPublisher(nydus)
     notificationService = createFakeNotificationService()
-    partyService = new PartyService(publisher, clientSocketsManager, notificationService)
+    getCurrentTime = () => currentTime
+    partyService = new PartyService(
+      publisher,
+      clientSocketsManager,
+      notificationService,
+      getCurrentTime,
+    )
     connector = new NydusConnector(nydus, sessionLookup)
 
     client1 = connector.connectClient(user1, USER1_CLIENT_ID)
@@ -131,7 +138,7 @@ describe('parties/party-service', () => {
       })
 
       test('should publish "invite" message to the party path', async () => {
-        party = await partyService.invite(leader, USER1_CLIENT_ID, user3, currentTime)
+        party = await partyService.invite(leader, USER1_CLIENT_ID, user3)
 
         expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
           type: 'invite',
@@ -166,8 +173,8 @@ describe('parties/party-service', () => {
       })
 
       test('should subscribe leader to the party path', async () => {
-        party = await partyService.invite(leader, USER1_CLIENT_ID, user2, currentTime)
-        party = await partyService.invite(leader, USER1_CLIENT_ID, user3, currentTime)
+        party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
+        party = await partyService.invite(leader, USER1_CLIENT_ID, user3)
 
         expect(client1.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
           type: 'init',
@@ -261,7 +268,7 @@ describe('parties/party-service', () => {
     })
 
     test('should publish "decline" message to the party path', () => {
-      partyService.decline(party.id, user2, currentTime)
+      partyService.decline(party.id, user2)
 
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'decline',
@@ -332,7 +339,7 @@ describe('parties/party-service', () => {
     })
 
     test('should publish "uninvite" message to the party path', () => {
-      partyService.removeInvite(party.id, leader, user2, currentTime)
+      partyService.removeInvite(party.id, leader, user2)
 
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'uninvite',
@@ -414,7 +421,7 @@ describe('parties/party-service', () => {
     })
 
     test('should publish "join" message to the party path', () => {
-      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID, currentTime)
+      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
 
       // TODO(2Pac): Test the order of this call? This should probably be ensured that it's called
       // before subscribing the user to the party path.
@@ -426,7 +433,7 @@ describe('parties/party-service', () => {
     })
 
     test('should subscribe user to the party path', () => {
-      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID, currentTime)
+      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
 
       expect(client2.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'init',
@@ -476,7 +483,7 @@ describe('parties/party-service', () => {
     })
 
     test('should publish "leave" message to the party path', () => {
-      partyService.leaveParty(party.id, user2.id, USER2_CLIENT_ID, currentTime)
+      partyService.leaveParty(party.id, user2.id, USER2_CLIENT_ID)
 
       // TODO(2Pac): Test the order of this call? This should probably be ensured that it's called
       // before unsubscribing the user from the party path.
@@ -517,7 +524,7 @@ describe('parties/party-service', () => {
     })
 
     test('should publish "chatMessage" event to the party path', () => {
-      partyService.sendChatMessage(party.id, user2.id, 'Hello World!', currentTime)
+      partyService.sendChatMessage(party.id, user2.id, 'Hello World!')
 
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'chatMessage',
