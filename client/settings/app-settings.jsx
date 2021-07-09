@@ -32,6 +32,10 @@ const TestSoundButton = styled(TextButton)`
   }
 `
 
+const IndentedCheckbox = styled(CheckBox)`
+  margin-left: 16px;
+`
+
 @form()
 class AppForm extends React.Component {
   static propTypes = {
@@ -78,6 +82,12 @@ class AppForm extends React.Component {
               {...bindCheckable('runAppAtSystemStart')}
               label='Run ShieldBattery on system startup'
               inputProps={{ tabIndex: 0 }}
+            />
+            <IndentedCheckbox
+              {...bindCheckable('runAppAtSystemStartMinimized')}
+              label='Start minimized'
+              inputProps={{ tabIndex: 0 }}
+              disabled={!this.props.getInputValue('runAppAtSystemStart')}
             />
           </div>
         </FormContainer>
@@ -129,6 +139,7 @@ export default class AppSettings extends React.Component {
     const formModel = {
       masterVolume: localSettings.masterVolume,
       runAppAtSystemStart: localSettings.runAppAtSystemStart,
+      runAppAtSystemStartMinimized: localSettings.runAppAtSystemStartMinimized,
     }
 
     return (

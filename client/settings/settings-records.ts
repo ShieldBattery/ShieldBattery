@@ -13,6 +13,7 @@ import {
 export class LocalSettings
   extends Record({
     runAppAtSystemStart: true,
+    runAppAtSystemStartMinimized: false,
     starcraftPath: '',
     masterVolume: 0,
     gameWinWidth: -1,

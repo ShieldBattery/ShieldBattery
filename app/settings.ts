@@ -7,7 +7,7 @@ import { TypedEventEmitter } from '../common/typed-emitter'
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
-const VERSION = 7
+const VERSION = 8
 const SCR_VERSION = 3
 
 async function findStarcraftPath() {
@@ -151,6 +151,7 @@ export class LocalSettings extends Settings<LocalSettingsData> {
     return {
       version: VERSION,
       runAppAtSystemStart: true,
+      runAppAtSystemStartMinimized: false,
       starcraftPath: await findStarcraftPath(),
       winX: -1,
       winY: -1,
@@ -217,6 +218,11 @@ export class LocalSettings extends Settings<LocalSettingsData> {
     if (!settings.version || settings.version < 7) {
       log.verbose('Found settings version 6, migrating to version 7')
       newSettings.runAppAtSystemStart = true
+    }
+
+    if (!settings.version || settings.version < 8) {
+      log.verbose('Found settings version 7, migrating to version 8')
+      newSettings.runAppAtSystemStartMinimized = false
     }
 
     newSettings.version = VERSION
