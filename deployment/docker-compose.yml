@@ -148,6 +148,9 @@ services:
   db:
     image: postgres:12-alpine
     restart: always
+    # This matches the recommended value for this container
+    # (See 'Caveats' section here: https://hub.docker.com/_/postgres)
+    shm_size: 256M
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=${POSTGRES_SUPER_PASSWORD:?missing POSTGRES_SUPER_PASSWORD}
