@@ -6,9 +6,9 @@ ShieldBattery is a combination of C++, Rust and JavaScript, and split between mu
 pieces. Even if you only plan on developing JavaScript changes, you'll need to install the C++
 dependencies in order to properly test things.
 
-### General environment setup
+## General environment setup
 
-#### Python 2.7.x
+### Python 2.7.x
 
 Building some of the Javascript dependencies require a working [Python 2.7.x](http://www.python.org/download/) install. Install this before
 attempting to follow further steps.
@@ -19,7 +19,7 @@ All of the JavaScript will either run in, or be built by, [node.js](https://node
 to install a version of it, generally the current version is a good choice (14.15.3 at the time of
 writing).
 
-#### Yarn
+### Yarn
 
 The various JavaScript components use [Yarn](https://yarnpkg.com/) to manage their dependencies.
 Install the latest version of it from their [downloads page](https://yarnpkg.com/en/docs/install).
@@ -47,7 +47,7 @@ them to be. The build defaults to the quicker debug build, to build the optimize
 If the required minimum Rust version is changed (1.51 as of this writing), you can update the Rust
 toolchain by running `rustup update`.
 
-### Server software
+## Server software
 
 Along with nodejs, the server requires [PostgreSQL v9.5+](http://postgresql.org), and
 [redis](http://redis.io).
@@ -57,7 +57,7 @@ There are two ways to get these dependencies:
 - You can use our predefined Docker development setup. (**STRONGLY PREFERRED**)
 - You can install them on your system manually.
 
-#### Using the Docker setup
+### Using the Docker setup (recommended)
 
 If you don't already have `docker` and `docker-compose` installed, you'll need to follow the
 download/installation instructions [here](https://docs.docker.com/desktop/#download-and-install).
@@ -82,12 +82,12 @@ If everything worked correctly, this should set up all the server dependencies, 
 migrations and use them with our server. Be careful about pruning volumes while these containers
 aren't running, or you may accidentally remove your development data.
 
-#### Manually installing dependencies
+### Manually installing dependencies (not recommended)
 
 If for some reason you can't use the Docker setup, or would just prefer to manage your own
 servers, you can do that as well.
 
-##### PostgreSQL
+#### PostgreSQL
 
 On Windows, use the installer available [here](http://www.postgresql.org/download/windows/). On
 Linux, this can generally be installed through the package manager for your OS. On Mac, use
@@ -112,7 +112,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
 Note that these must be run on the database you've created for ShieldBattery (e.g. you should
 choose that DB first, with `\c <yourDBname>` or something similar).
 
-##### Redis
+#### Redis
 
 On Windows, use the installers provided by MSOpenTech; they can be found [here](https://github.com/MSOpenTech/redis/releases). Note that only 64-bit installers are provided.
 On Linux, this can generally be installed through the package manage for your OS. On Mac, use
@@ -127,12 +127,12 @@ redis-server
 
 For more documentation, check out the [redis docs](http://redis.io/documentation).
 
-### Configuring the ShieldBattery server
+## Configuring the ShieldBattery server
 
 Inside the `server` folder, copy `sample.env` to a file named `.env`. Edit this file sas you see fit
 to match your local configuration.
 
-### Installing dependencies
+## Installing dependencies
 
 Every directory with a `yarn.lock` needs to have it's dependencies installed with Yarn. You can do
 this manually, or simply run `yarnall` from the root directory:
@@ -143,7 +143,7 @@ yarn run yarnall
 
 This should be done every time a `yarn.lock` file changes in the repository.
 
-### Initialize the database structure
+## Initialize the database structure
 
 **NOTE**: PostgreSQL must be properly configured beforehand for the db-migrate scripts to work.
 
@@ -159,14 +159,14 @@ yarn run migrate-up
 You will need to run this command after pulling in commits that change the database structure as
 well.
 
-### Set up file storage
+## Set up file storage
 
 To make sure the uploading of various files (e.g. maps, replays) is possible, ensure that the
 `SB_FILE_STORE` environment variable is set correctly. Currently, files can be saved on the server's
 filesystem, or on the DigitalOcean Spaces. See `sample.env` for more information on how to configure
 each of those.
 
-### Set up map system
+## Set up map system
 
 **NOTE**: File storage must be properly configured beforehand for the map system to correctly work.
 
@@ -180,7 +180,7 @@ and `broodat.mpq` directly from Blizzard by downloading the final release of
 The necessary directories in .mpq files are `unit/` and `tileset/`. Extract those files to a directory (keeping the directory
 structure), and set `SB_SPRITE_DATA` in the `.env` file to that directory.
 
-### Run the server
+## Run the server
 
 The standard way to run the server is (assuming you are in the project root directory):
 
@@ -195,7 +195,7 @@ also use:
 node ./server/index.js
 ```
 
-#### Overriding the server URL (optional)
+### Overriding the server URL (optional)
 
 It is possible to override the server's URL with environment variables. Two levels of environment variables:
 
@@ -207,7 +207,7 @@ It is possible to override the server's URL with environment variables. Two leve
 
 Note: run time takes precedence over build time.
 
-### Developer settings for SC:R
+## Developer settings for SC:R
 
 If you need to run SC:R while developing, it is possible to disable HD graphics to shorten game
 launch times and to reduce system load by setting environment `SB_NO_HD` to `1`.
