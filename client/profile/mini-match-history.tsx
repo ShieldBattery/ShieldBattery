@@ -3,7 +3,6 @@ import React, { useMemo } from 'react'
 import styled from 'styled-components'
 import { GameRecordJson } from '../../common/games/games'
 import { ReconciledResult } from '../../common/games/results'
-import { useSelfUser } from '../auth/state-hooks'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
@@ -40,15 +39,16 @@ const GamePreview = styled.div`
 `
 
 export interface MiniMatchHistoryProps {
+  forUserId: number
   games: Immutable<GameRecordJson[]>
 }
 
-export function MiniMatchHistory({ games }: MiniMatchHistoryProps) {
+export function MiniMatchHistory({ forUserId, games }: MiniMatchHistoryProps) {
   return (
     <MatchHistoryRoot>
       <GameList>
         {games.map((g, i) => (
-          <ConnectedGameListEntry key={i} game={g} />
+          <ConnectedGameListEntry key={i} forUserId={forUserId} game={g} />
         ))}
       </GameList>
       <GamePreview></GamePreview>
@@ -93,9 +93,14 @@ const GameListEntryResult = styled.div<{ $result: ReconciledResult }>`
   text-transform: capitalize;
 `
 
-export function ConnectedGameListEntry({ game }: { game: Immutable<GameRecordJson> }) {
+export function ConnectedGameListEntry({
+  forUserId,
+  game,
+}: {
+  forUserId: number
+  game: Immutable<GameRecordJson>
+}) {
   const mapName = 'Fighting Spirit 1.3' // This should cover every match :)
-  const selfUser = useSelfUser()
   const [buttonProps, rippleRef] = useButtonState({})
 
   const { results, startTime, config } = game
@@ -105,13 +110,13 @@ export function ConnectedGameListEntry({ game }: { game: Immutable<GameRecordJso
     }
 
     for (const [userId, r] of results) {
-      if (userId === selfUser.id) {
+      if (userId === forUserId) {
         return r.result
       }
     }
 
     return 'unknown'
-  }, [results, selfUser])
+  }, [results, forUserId])
 
   // TODO(tec27): Handle more ranked types, show mode (UMS, Top v Bottom, etc.?)
   const matchType = config.gameSource === 'MATCHMAKING' ? 'Ranked 1v1' : 'Custom game'

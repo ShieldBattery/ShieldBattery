@@ -354,7 +354,7 @@ function SummaryPage({
       </TotalGamesSection>
 
       <SectionOverline>Latest games</SectionOverline>
-      <MiniMatchHistory games={matchHistory} />
+      <MiniMatchHistory forUserId={user.id} games={matchHistory} />
 
       <SectionOverline>Achievements</SectionOverline>
       <EmptyListText>Nothing to see here</EmptyListText>
