@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import React, { useCallback, useState } from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-import { MAP_VISIBILITY_OFFICIAL } from '../../common/constants'
+import { MapVisibility } from '../../common/maps'
 import { MatchmakingType } from '../../common/matchmaking'
 import {
   default as CheckIcon,
@@ -562,7 +562,7 @@ export default class MapPools extends React.Component {
 
   onLoadMoreMaps = (searchQuery, page) => {
     // Only official maps should be used in matchmaking map pools
-    this.props.dispatch(searchMaps(MAP_VISIBILITY_OFFICIAL, SEARCH_MAPS_LIMIT, page, searchQuery))
+    this.props.dispatch(searchMaps(MapVisibility.Official, SEARCH_MAPS_LIMIT, page, searchQuery))
   }
 
   onCreateNewMapPool = (maps, startDate) => {

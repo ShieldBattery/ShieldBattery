@@ -19,7 +19,7 @@ export const MapRecord = new Record({
     id: null,
     name: null,
   },
-  uploadDate: null,
+  uploadDate: -1,
   visibility: null,
   mapData: {
     format: null,

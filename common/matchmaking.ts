@@ -1,4 +1,4 @@
-import { MapInfo } from './maps'
+import { MapInfoJson } from './maps'
 import { RaceChar } from './races'
 
 /**
@@ -68,5 +68,5 @@ export type UpdateMatchmakingPreferencesBody = Omit<
 export interface GetPreferencesPayload {
   preferences: MatchmakingPreferences
   mapPoolOutdated: boolean
-  mapInfo: MapInfo[]
+  mapInfo: MapInfoJson[]
 }

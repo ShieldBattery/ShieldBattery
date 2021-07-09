@@ -8,11 +8,12 @@ import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { MATCHMAKING_ACCEPT_MATCH_TIME, validRace } from '../../../common/constants'
 import { MATCHMAKING } from '../../../common/flags'
 import { GameRoute } from '../../../common/game-launch-config'
-import { MapInfo } from '../../../common/maps'
+import { MapInfoJson, toMapInfoJson } from '../../../common/maps'
 import { isValidMatchmakingType, MatchmakingType } from '../../../common/matchmaking'
 import gameLoader from '../games/game-loader'
 import activityRegistry from '../games/gameplay-activity-registry'
 import { createHuman, Slot } from '../lobbies/slot'
+import { getMapInfo } from '../maps/map-models'
 import { MatchmakingDebugDataService } from '../matchmaking/debug-data'
 import MatchAcceptor, { MatchAcceptorCallbacks } from '../matchmaking/match-acceptor'
 import { TimedMatchmaker } from '../matchmaking/matchmaker'
@@ -24,7 +25,6 @@ import {
   getMatchmakingRating,
   MatchmakingRating,
 } from '../matchmaking/models'
-import { getMapInfo } from '../models/maps'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import { monotonicNow } from '../time/monotonic-now'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
@@ -117,8 +117,8 @@ async function pickMap(matchmakingType: MatchmakingType, players: List<Matchmaki
 
   // TODO(tec27): remove the need for these casts by TSifying the map info stuff
   const [preferredMaps, randomMaps] = await Promise.all([
-    getMapInfo(preferredMapIds.toJS()) as any as MapInfo[],
-    getMapInfo(randomMapIds) as any as MapInfo[],
+    getMapInfo(preferredMapIds.toJS()),
+    getMapInfo(randomMapIds),
   ])
   if (preferredMapIds.size + randomMapIds.length !== preferredMaps.length + randomMaps.length) {
     throw new Error('no maps found')
@@ -126,7 +126,7 @@ async function pickMap(matchmakingType: MatchmakingType, players: List<Matchmaki
 
   const mapsByPlayer = mapIdsByPlayer
     .map(mapIds => mapIds.map(id => preferredMaps.find(m => m.id === id)))
-    .toJS() as { [key: number]: MapInfo }
+    .toJS() as { [key: number]: MapInfoJson }
 
   const chosenMap = [...preferredMaps, ...randomMaps][
     getRandomInt(preferredMaps.length + randomMaps.length)
@@ -217,9 +217,9 @@ export class MatchmakingApi {
             setup,
             resultCodes,
             mapsByPlayer,
-            preferredMaps,
-            randomMaps,
-            chosenMap,
+            preferredMaps: preferredMaps.map(m => toMapInfoJson(m)),
+            randomMaps: randomMaps.map(m => toMapInfoJson(m)),
+            chosenMap: toMapInfoJson(chosenMap),
             cancelToken: loadCancelToken,
           }),
         onRoutesSet: (playerName, routes, gameId) =>
@@ -310,10 +310,10 @@ export class MatchmakingApi {
         seed: number
       }>
       resultCodes: Map<string, string>
-      mapsByPlayer: { [key: number]: MapInfo }
-      preferredMaps: MapInfo[]
-      randomMaps: MapInfo[]
-      chosenMap: MapInfo
+      mapsByPlayer: { [key: number]: MapInfoJson }
+      preferredMaps: MapInfoJson[]
+      randomMaps: MapInfoJson[]
+      chosenMap: MapInfoJson
       cancelToken: CancelToken
     }) => {
       cancelToken.throwIfCancelling()

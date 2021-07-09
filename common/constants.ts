@@ -30,10 +30,6 @@ export const GAME_TYPES = [
 ] as const
 export type GameType = typeof GAME_TYPES[number]
 
-export const MAP_VISIBILITY_OFFICIAL = 'OFFICIAL'
-export const MAP_VISIBILITY_PRIVATE = 'PRIVATE'
-export const MAP_VISIBILITY_PUBLIC = 'PUBLIC'
-
 export function isValidUsername(username: string): boolean {
   return !!(
     username &&

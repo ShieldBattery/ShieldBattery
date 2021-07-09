@@ -2,6 +2,7 @@ import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import { MATCHMAKING } from '../../../common/flags'
+import { toMapInfoJson } from '../../../common/maps'
 import {
   ALL_MATCHMAKING_TYPES,
   GetPreferencesPayload,
@@ -9,7 +10,7 @@ import {
   UpdateMatchmakingPreferencesBody,
 } from '../../../common/matchmaking'
 import { featureEnabled } from '../flags/feature-enabled'
-import { getMapInfo } from '../models/maps'
+import { getMapInfo } from '../maps/map-models'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import {
   getMatchmakingPreferences,
@@ -73,7 +74,7 @@ async function upsertPreferences(ctx: RouterContext) {
   const result: GetPreferencesPayload = {
     preferences,
     mapPoolOutdated: false,
-    mapInfo: await getMapInfo(preferences.preferredMaps),
+    mapInfo: (await getMapInfo(preferences.preferredMaps)).map(m => toMapInfoJson(m)),
   }
 
   ctx.body = result
@@ -98,7 +99,7 @@ async function getPreferences(ctx: RouterContext) {
   const result: GetPreferencesPayload = {
     preferences,
     mapPoolOutdated,
-    mapInfo: await getMapInfo(preferredMaps),
+    mapInfo: (await getMapInfo(preferredMaps)).map(m => toMapInfoJson(m)),
   }
   ctx.body = result
 }

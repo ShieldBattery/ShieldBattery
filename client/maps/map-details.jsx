@@ -2,12 +2,7 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-import {
-  MAP_VISIBILITY_OFFICIAL,
-  MAP_VISIBILITY_PRIVATE,
-  MAP_VISIBILITY_PUBLIC,
-} from '../../common/constants'
-import { tilesetToName } from '../../common/maps'
+import { MapVisibility, tilesetToName } from '../../common/maps'
 import form from '../forms/form'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { required } from '../forms/validators'
@@ -236,9 +231,9 @@ export default class MapDetails extends React.Component {
     }
 
     let canEdit = false
-    if (map.visibility === MAP_VISIBILITY_OFFICIAL || map.visibility === MAP_VISIBILITY_PUBLIC) {
+    if (map.visibility === MapVisibility.Official || map.visibility === MapVisibility.Public) {
       canEdit = auth.permissions.manageMaps
-    } else if (map.visibility === MAP_VISIBILITY_PRIVATE) {
+    } else if (map.visibility === MapVisibility.Private) {
       canEdit = map.uploadedBy.id === auth.user.id
     }
 

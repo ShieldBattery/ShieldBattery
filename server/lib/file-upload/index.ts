@@ -8,7 +8,7 @@ export function setStore(obj: FileStore) {
   store = obj
 }
 
-export function writeFile(filename: string, data: Buffer | Readable, options: any) {
+export function writeFile(filename: string, data: Buffer | Readable, options?: any) {
   const stream = Buffer.isBuffer(data)
     ? new Readable({
         read() {
@@ -21,15 +21,15 @@ export function writeFile(filename: string, data: Buffer | Readable, options: an
   return store!.write(filename, stream, options)
 }
 
-export async function readFile(filename: string, options: any) {
+export async function readFile(filename: string, options?: any) {
   return store!.read(filename, options)
 }
 
-export async function deleteFile(filename: string, options: any) {
+export async function deleteFile(filename: string, options?: any) {
   return store!.delete(filename, options)
 }
 
-export async function deleteFiles(prefix: string, options: any) {
+export async function deleteFiles(prefix: string, options?: any) {
   return store!.deleteFiles(prefix, options)
 }
 

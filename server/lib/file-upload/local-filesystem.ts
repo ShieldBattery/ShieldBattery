@@ -42,7 +42,7 @@ export default class LocalFsStore implements FileStore {
     })
   }
 
-  async read(filename: string, options: any): Promise<Buffer> {
+  async read(filename: string, options?: any): Promise<Buffer> {
     const full = this.getFullPath(filename)
     return readFile(full)
   }
@@ -66,7 +66,7 @@ export default class LocalFsStore implements FileStore {
       await access(full)
       return `${process.env.SB_CANONICAL_HOST}/files/${path.posix.normalize(filename)}${signature}`
     } catch (_) {
-      return null
+      return undefined
     }
   }
 

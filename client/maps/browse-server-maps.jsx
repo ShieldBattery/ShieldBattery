@@ -4,12 +4,7 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-import {
-  MAP_VISIBILITY_OFFICIAL,
-  MAP_VISIBILITY_PRIVATE,
-  MAP_VISIBILITY_PUBLIC,
-} from '../../common/constants'
-import { ALL_TILESETS, SORT_BY_NAME } from '../../common/maps'
+import { ALL_TILESETS, MapSortType, MapVisibility } from '../../common/maps'
 import { openOverlay } from '../activities/action-creators'
 import ActivityBackButton from '../activities/activity-back-button'
 import { openSimpleDialog } from '../dialogs/action-creators'
@@ -90,11 +85,11 @@ const TAB_COMMUNITY_MAPS = 2
 function tabToVisibility(tab) {
   switch (tab) {
     case TAB_OFFICIAL_MAPS:
-      return MAP_VISIBILITY_OFFICIAL
+      return MapVisibility.Official
     case TAB_MY_MAPS:
-      return MAP_VISIBILITY_PRIVATE
+      return MapVisibility.Private
     case TAB_COMMUNITY_MAPS:
-      return MAP_VISIBILITY_PUBLIC
+      return MapVisibility.Public
     default:
       throw new Error('Invalid tab value')
   }
@@ -102,13 +97,14 @@ function tabToVisibility(tab) {
 
 function visibilityToTab(visibility) {
   switch (visibility) {
-    case MAP_VISIBILITY_OFFICIAL:
+    case MapVisibility.Official:
       return TAB_OFFICIAL_MAPS
-    case MAP_VISIBILITY_PRIVATE:
+    case MapVisibility.Private:
       return TAB_MY_MAPS
-    case MAP_VISIBILITY_PUBLIC:
+    case MapVisibility.Public:
       return TAB_COMMUNITY_MAPS
     default:
+      // TODO(tec27): Make this an assertUnreachable when this is TypeScript
       throw new Error('Invalid tab value')
   }
 }
@@ -157,8 +153,8 @@ class MapList extends React.PureComponent {
       const map = byId.get(id)
       const canRemoveMap =
         onRemoveMap &&
-        ((map.visibility !== MAP_VISIBILITY_PRIVATE && canManageMaps) ||
-          (map.visibility === MAP_VISIBILITY_PRIVATE && map.uploadedBy.id === user.id))
+        ((map.visibility !== MapVisibility.Private && canManageMaps) ||
+          (map.visibility === MapVisibility.Private && map.uploadedBy.id === user.id))
       const canRegenMapImage = onRegenMapImage && canManageMaps
 
       return (
@@ -196,7 +192,7 @@ export default class Maps extends React.Component {
     activeTab: this.props.uploadedMap ? TAB_MY_MAPS : TAB_OFFICIAL_MAPS,
     currentPage: 0,
     thumbnailSize: 1,
-    sortOption: SORT_BY_NAME,
+    sortOption: MapSortType.Name,
     numPlayersFilter: new Set([2, 3, 4, 5, 6, 7, 8]),
     tilesetFilter: new Set(ALL_TILESETS),
     searchQuery: '',

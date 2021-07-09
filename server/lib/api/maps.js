@@ -2,24 +2,24 @@ import { writeFile as fsWriteFile } from 'fs/promises'
 import httpErrors from 'http-errors'
 import { withFile as withTmpFile } from 'tmp-promise'
 import {
-  MAP_VISIBILITY_OFFICIAL,
-  MAP_VISIBILITY_PRIVATE,
-  MAP_VISIBILITY_PUBLIC,
-} from '../../../common/constants'
-import { SORT_BY_DATE, SORT_BY_NAME, SORT_BY_NUM_OF_PLAYERS } from '../../../common/maps'
+  ALL_MAP_EXTENSIONS,
+  ALL_MAP_SORT_TYPES,
+  ALL_MAP_VISIBILITIES,
+  MapVisibility,
+} from '../../../common/maps'
 import { deleteFiles, readFile } from '../file-upload'
 import handleMultipartFiles from '../file-upload/handle-multipart-files'
-import { mapPath, storeMap, storeRegeneratedImages } from '../maps/store'
 import {
   addMapToFavorites,
-  deleteAllMaps as dbDeleteAllMaps,
   getFavoritedMaps,
   getMapInfo,
   getMaps,
   removeMap,
   removeMapFromFavorites,
   updateMap,
-} from '../models/maps'
+  veryDangerousDeleteAllMaps,
+} from '../maps/map-models'
+import { mapPath, storeMap, storeRegeneratedImages } from '../maps/store'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -101,16 +101,12 @@ export default function (router) {
     )
 }
 
-const SUPPORTED_EXTENSIONS = ['scx', 'scm']
-const VISIBILITIES = [MAP_VISIBILITY_OFFICIAL, MAP_VISIBILITY_PRIVATE, MAP_VISIBILITY_PUBLIC]
-const SORT_ORDERS = [SORT_BY_NAME, SORT_BY_NUM_OF_PLAYERS, SORT_BY_DATE]
-
 async function list(ctx, next) {
   const { q, visibility } = ctx.query
   let { sort, numPlayers, tileset, limit, page } = ctx.query
 
   sort = parseInt(sort, 10)
-  if (sort && !SORT_ORDERS.includes(sort)) {
+  if (sort && !ALL_MAP_SORT_TYPES.includes(sort)) {
     throw new httpErrors.BadRequest('Invalid sort order option: ' + sort)
   }
 
@@ -134,12 +130,12 @@ async function list(ctx, next) {
     page = 0
   }
 
-  if (!VISIBILITIES.includes(visibility)) {
+  if (!ALL_MAP_VISIBILITIES.includes(visibility)) {
     throw new httpErrors.BadRequest('Invalid map visibility: ' + visibility)
   }
 
   let uploadedBy = null
-  if (visibility === MAP_VISIBILITY_PRIVATE) {
+  if (visibility === MapVisibility.Private) {
     uploadedBy = ctx.session.userId
   }
 
@@ -183,13 +179,13 @@ async function upload(ctx, next) {
   }
 
   const lowerCaseExtension = extension.toLowerCase()
-  if (!SUPPORTED_EXTENSIONS.includes(lowerCaseExtension)) {
+  if (!ALL_MAP_EXTENSIONS.includes(lowerCaseExtension)) {
     throw new httpErrors.BadRequest('Unsupported extension: ' + lowerCaseExtension)
   }
 
   const visibility = ctx.request.path.endsWith('/official')
-    ? MAP_VISIBILITY_OFFICIAL
-    : MAP_VISIBILITY_PRIVATE
+    ? MapVisibility.Official
+    : MapVisibility.Private
   const map = await storeMap(path, lowerCaseExtension, ctx.session.userId, visibility)
   ctx.body = {
     map,
@@ -211,13 +207,15 @@ async function update(ctx, next) {
     throw new httpErrors.NotFound('Map not found')
   }
 
+  // TODO(tec27): These checks are bad and should be changed before we allow anyone to make maps
+  // public
   if (
-    [MAP_VISIBILITY_OFFICIAL, MAP_VISIBILITY_PUBLIC].includes(map.visibility) &&
+    [MapVisibility.Official, MapVisibility.Public].includes(map.visibility) &&
     !ctx.session.permissions.manageMaps
   ) {
     throw new httpErrors.Forbidden('Not enough permissions')
   }
-  if (map.visibility === MAP_VISIBILITY_PRIVATE && map.uploadedBy.id !== ctx.session.userId) {
+  if (map.visibility === MapVisibility.Private && map.uploadedBy.id !== ctx.session.userId) {
     throw new httpErrors.Forbidden("Can't update maps of other users")
   }
 
@@ -234,13 +232,15 @@ async function remove(ctx, next) {
   if (!map) {
     throw new httpErrors.NotFound('Map not found')
   }
+  // TODO(tec27): These checks are bad and should be changed before we allow anyone to make maps
+  // public
   if (
-    (map.visibility === MAP_VISIBILITY_OFFICIAL || map.visibility === MAP_VISIBILITY_PUBLIC) &&
+    (map.visibility === MapVisibility.Official || map.visibility === MapVisibility.Public) &&
     !ctx.session.permissions.manageMaps
   ) {
     throw new httpErrors.Forbidden('Not enough permissions')
   }
-  if (map.visibility === MAP_VISIBILITY_PRIVATE && map.uploadedBy.id !== ctx.session.userId) {
+  if (map.visibility === MapVisibility.Private && map.uploadedBy.id !== ctx.session.userId) {
     throw new httpErrors.Forbidden("Can't remove maps of other users")
   }
 
@@ -259,7 +259,9 @@ async function removeFromFavorites(ctx, next) {
 }
 
 async function deleteAllMaps(ctx, next) {
-  await dbDeleteAllMaps(() => Promise.all([deleteFiles('maps/'), deleteFiles('map_images/')]))
+  await veryDangerousDeleteAllMaps(() =>
+    Promise.all([deleteFiles('maps/'), deleteFiles('map_images/')]),
+  )
   ctx.status = 204
 }
 

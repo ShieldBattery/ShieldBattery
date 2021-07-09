@@ -1,10 +1,5 @@
 import httpErrors from 'http-errors'
-import {
-  MAP_VISIBILITY_OFFICIAL,
-  MAP_VISIBILITY_PRIVATE,
-  MAP_VISIBILITY_PUBLIC,
-} from '../../../common/constants'
-import { SORT_BY_DATE, SORT_BY_NAME, SORT_BY_NUM_OF_PLAYERS } from '../../../common/maps'
+import { ALL_MAP_SORT_TYPES, ALL_MAP_VISIBILITIES } from '../../../common/maps'
 import { getMapPreferences, upsertMapPreferences } from '../models/map-preferences'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -32,13 +27,10 @@ export default function (router) {
     )
 }
 
-const VISIBILITIES = [MAP_VISIBILITY_OFFICIAL, MAP_VISIBILITY_PRIVATE, MAP_VISIBILITY_PUBLIC]
-const SORT_ORDERS = [SORT_BY_NAME, SORT_BY_NUM_OF_PLAYERS, SORT_BY_DATE]
-
 async function upsertPreferences(ctx, next) {
   const { visibility, thumbnailSize, sortOption, numPlayers, tileset } = ctx.request.body
 
-  if (!VISIBILITIES.includes(visibility)) {
+  if (!ALL_MAP_VISIBILITIES.includes(visibility)) {
     throw new httpErrors.BadRequest('Invalid map visibility: ' + visibility)
   }
 
@@ -46,7 +38,7 @@ async function upsertPreferences(ctx, next) {
     throw new httpErrors.BadRequest('Invalid thumbnail size: ' + thumbnailSize)
   }
 
-  if (!SORT_ORDERS.includes(sortOption)) {
+  if (!ALL_MAP_SORT_TYPES.includes(sortOption)) {
     throw new httpErrors.BadRequest('Invalid sort order option: ' + sortOption)
   }
 

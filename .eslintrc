@@ -227,7 +227,7 @@
     "spaced-comment": [
       2,
       "always",
-      { "markers": ["global", "globals", "eslint", "eslint-disable", "*package", "!", ","] }
+      { "markers": ["global", "globals", "eslint", "eslint-disable", "*package", "!", ",", "/"] }
     ],
     "spaced-line-comment": 0,
     "strict": 0,

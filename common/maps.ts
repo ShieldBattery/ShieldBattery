@@ -1,4 +1,6 @@
 import { assertUnreachable } from './assert-unreachable'
+import { Jsonify } from './json'
+import { RaceChar } from './races'
 
 export enum Tileset {
   // NOTE(tec27): These are ordered to match their int values ingame
@@ -37,37 +39,83 @@ export function tilesetToName(tileset: Tileset) {
   }
 }
 
-export const SORT_BY_NAME = 0
-export const SORT_BY_NUM_OF_PLAYERS = 1
-export const SORT_BY_DATE = 2
+export enum MapSortType {
+  Name = 0,
+  NumberOfPlayers = 1,
+  Date = 2,
+}
+export const ALL_MAP_SORT_TYPES: Readonly<MapSortType[]> = [
+  MapSortType.Name,
+  MapSortType.NumberOfPlayers,
+  MapSortType.Date,
+]
+
+export enum MapVisibility {
+  Private = 'PRIVATE',
+  Public = 'PUBLIC',
+  Official = 'OFFICIAL',
+}
+export const ALL_MAP_VISIBILITIES: Readonly<MapVisibility[]> = Object.values(MapVisibility)
+
+export interface MapFilters {
+  numPlayers: Array<2 | 3 | 4 | 5 | 6 | 7 | 8>
+  tileset: Tileset[]
+}
+
+export type MapExtension = 'scx' | 'scm'
+export const ALL_MAP_EXTENSIONS: Readonly<MapExtension[]> = ['scx', 'scm']
+
+export interface MapForcesPlayer {
+  id: number
+  race: 'any' | RaceChar
+  // TODO(tec27): Make an enum for these types
+  typeId: number
+  computer: boolean
+}
+
+export interface MapForces {
+  name: string
+  teamId: number
+  players: MapForcesPlayer[]
+}
 
 export interface MapInfo {
   id: string
   hash: string
   name: string
   description: string
+  // TODO(tec27): Just pass back the user ID in here, let our typical user pattern handle converting
+  // that to a name and such
   uploadedBy: {
     id: number
     name: string
   }
-  uploadDate: string
-  visibility: string // TODO(tec27): this is an enum, need to determine values
+  uploadDate: Date
+  visibility: MapVisibility
   mapData: {
-    format: string // TODO(tec27): can probably treat this as a string enum
+    format: MapExtension
     tileset: Tileset
     originalName: string
     originalDescription: string
     slots: number
     umsSlots: number
-    // TODO(tec27): type the umsForces/players properly
-    umsForces: Array<{ teamId: number; name: string; players: unknown[] }>
+    umsForces: MapForces[]
     width: number
     height: number
   }
   isFavorited: boolean
-  mapUrl: string
-  image256Url: string
-  image512Url: string
-  image1024Url: string
-  image2048Url: string
+  mapUrl?: string
+  image256Url?: string
+  image512Url?: string
+  image1024Url?: string
+  image2048Url?: string
+}
+
+export type MapInfoJson = Jsonify<MapInfo>
+
+export function toMapInfoJson(mapInfo: MapInfo): MapInfoJson {
+  return {
+    ...mapInfo,
+    uploadDate: Number(mapInfo.uploadDate),
+  }
 }

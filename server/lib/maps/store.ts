@@ -1,21 +1,29 @@
-import bl from 'bl'
+import BufferList from 'bl'
 import childProcess from 'child_process'
 import fs from 'fs'
+import { Duplex, Readable, Writable } from 'stream'
 import Queue from '../../../common/async/promise-queue'
+import { MapExtension, MapVisibility } from '../../../common/maps'
 import { writeFile } from '../file-upload'
-import { addMap } from '../models/maps'
+import { addMap } from './map-models'
+import { MapParseData } from './parse-data'
 
 const BW_DATA_PATH = process.env.SB_SPRITE_DATA || ''
 const MAX_CONCURRENT = Number(process.env.SB_MAP_PARSER_MAX_CONCURRENT)
 if (Number.isNaN(MAX_CONCURRENT)) {
   throw new Error('SB_MAP_PARSER_MAX_CONCURRENT must be a number')
 }
-const mapQueue = new Queue(MAX_CONCURRENT)
+const mapQueue = new Queue<MapParseResult>(MAX_CONCURRENT)
 
 // Takes both a parsed chk which it pulls metadata from,
 // and the temppath of compressed mpq, which will be needed
 // when the map is actually stored somewhere.
-export async function storeMap(path, extension, uploadedBy, visibility) {
+export async function storeMap(
+  path: string,
+  extension: MapExtension,
+  uploadedBy: number,
+  visibility: MapVisibility,
+) {
   const { mapData, image256Stream, image512Stream, image1024Stream, image2048Stream } =
     await mapQueue.addToQueue(() => mapParseWorker(path, extension))
   const { hash } = mapData
@@ -54,7 +62,7 @@ export async function storeMap(path, extension, uploadedBy, visibility) {
   return map
 }
 
-export async function storeRegeneratedImages(path, extension) {
+export async function storeRegeneratedImages(path: string, extension: MapExtension) {
   const { mapData, image256Stream, image512Stream, image1024Stream, image2048Stream } =
     await mapQueue.addToQueue(() => mapParseWorker(path, extension))
   const { hash } = mapData
@@ -75,44 +83,74 @@ export async function storeRegeneratedImages(path, extension) {
   await Promise.all([image256Promise, image512Promise, image1024Promise, image2048Promise])
 }
 
-export function mapPath(hash, extension) {
+export function mapPath(hash: string, extension: MapExtension) {
   const firstByte = hash.substr(0, 2)
   const secondByte = hash.substr(2, 2)
   return `maps/${firstByte}/${secondByte}/${hash}.${extension}`
 }
 
-export function imagePath(hash, size) {
+export function imagePath(hash: string, size: 256 | 512 | 1024 | 2048) {
   const firstByte = hash.substr(0, 2)
   const secondByte = hash.substr(2, 2)
   return `map_images/${firstByte}/${secondByte}/${hash}-${size}.jpg`
 }
 
-async function mapParseWorker(path, extension) {
+interface MapParseResult {
+  mapData: MapParseData
+  image256Stream?: BufferList
+  image512Stream?: BufferList
+  image1024Stream?: BufferList
+  image2048Stream?: BufferList
+}
+
+async function mapParseWorker(path: string, extension: MapExtension): Promise<MapParseResult> {
   const { messages, image256Stream, image512Stream, image1024Stream, image2048Stream } =
     await runChildProcess(require.resolve('./map-parse-worker'), [path, extension, BW_DATA_PATH])
   console.assert(messages.length === 1)
   return {
     mapData: messages[0],
-    image256Stream: BW_DATA_PATH ? image256Stream : null,
-    image512Stream: BW_DATA_PATH ? image512Stream : null,
-    image1024Stream: BW_DATA_PATH ? image1024Stream : null,
-    image2048Stream: BW_DATA_PATH ? image2048Stream : null,
+    image256Stream: BW_DATA_PATH ? image256Stream : undefined,
+    image512Stream: BW_DATA_PATH ? image512Stream : undefined,
+    image1024Stream: BW_DATA_PATH ? image1024Stream : undefined,
+    image2048Stream: BW_DATA_PATH ? image2048Stream : undefined,
   }
 }
 
-function runChildProcess(path, args) {
-  let childTimeout
+interface ChildProcessResult {
+  // TODO(tec27): type this better
+  messages: any[]
+  image256Stream: BufferList
+  image512Stream: BufferList
+  image1024Stream: BufferList
+  image2048Stream: BufferList
+}
+
+function runChildProcess(path: string, args?: ReadonlyArray<string>): Promise<ChildProcessResult> {
+  let childTimeout: ReturnType<typeof setTimeout> | undefined
   const cleanup = () => {
     if (childTimeout) {
       clearTimeout(childTimeout)
     }
   }
-  const result = new Promise(async (resolve, reject) => {
-    const opts = { stdio: [0, 1, 2, 'pipe', 'pipe', 'pipe', 'pipe', 'ipc'] }
-    const child = childProcess.fork(path, args, opts)
+  const result = new Promise<ChildProcessResult>(async (resolve, reject) => {
+    const child = childProcess.fork(path, args, {
+      stdio: [0, 1, 2, 'pipe', 'pipe', 'pipe', 'pipe', 'ipc'],
+    })
+    const typedStdio = child.stdio as unknown as [
+      stdin: Writable,
+      stdout: Readable,
+      stderr: Readable,
+      img256: Readable,
+      img512: Readable,
+      img1024: Readable,
+      img2048: Readable,
+      ipc: Duplex,
+    ]
+
     let error = false
     let inited = false
-    const messages = []
+    // TODO(tec27): type this better
+    const messages: any[] = []
     const resetTimeout = () => {
       if (childTimeout) {
         clearTimeout(childTimeout)
@@ -131,13 +169,14 @@ function runChildProcess(path, args) {
       reject(e)
       error = true
     })
+
     // If the child process writes image data to the pipe before we are able to handle it, it
     // will get lost. Buffering the data with a PassThrough prevents that, without requiring
     // the pipe consumer to send any synchronization messages themselves.
-    const image256Stream = child.stdio[3].pipe(bl())
-    const image512Stream = child.stdio[4].pipe(bl())
-    const image1024Stream = child.stdio[5].pipe(bl())
-    const image2048Stream = child.stdio[6].pipe(bl())
+    const image256Stream = typedStdio[3]!.pipe(new BufferList())
+    const image512Stream = typedStdio[4]!.pipe(new BufferList())
+    const image1024Stream = typedStdio[5]!.pipe(new BufferList())
+    const image2048Stream = typedStdio[6]!.pipe(new BufferList())
     child.on('exit', () =>
       resolve({ messages, image256Stream, image512Stream, image1024Stream, image2048Stream }),
     )

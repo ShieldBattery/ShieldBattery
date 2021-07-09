@@ -2,7 +2,7 @@ import { rgba } from 'polished'
 import PropTypes from 'prop-types'
 import React, { useCallback, useMemo, useState } from 'react'
 import styled from 'styled-components'
-import { MapInfo } from '../../common/maps'
+import { MapInfoJson } from '../../common/maps'
 import ImageIcon from '../icons/material/baseline-image-24px.svg'
 import FavoritedIcon from '../icons/material/baseline-star-24px.svg'
 import UnfavoritedIcon from '../icons/material/baseline-star_border-24px.svg'
@@ -123,7 +123,7 @@ const NoImage = () => (
 )
 
 export interface MapThumbnailProps {
-  map: Readonly<MapInfo>
+  map: Readonly<MapInfoJson>
   className?: string
   size?: number
   showMapName?: boolean

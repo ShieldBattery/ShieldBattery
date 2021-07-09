@@ -2,7 +2,7 @@ import httpErrors from 'http-errors'
 import { MATCHMAKING } from '../../../common/flags'
 import { isValidMatchmakingType } from '../../../common/matchmaking'
 import { featureEnabled } from '../flags/feature-enabled'
-import { getMapInfo } from '../models/maps'
+import { getMapInfo } from '../maps/map-models'
 import {
   addMapPool,
   getCurrentMapPool,
