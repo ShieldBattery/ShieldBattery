@@ -5,12 +5,14 @@ import InviteIcon from '../icons/material/group_add_black_24px.svg'
 import CloseIcon from '../icons/material/ic_close_black_24px.svg'
 import PartyIcon from '../icons/material/supervised_user_circle_black_24px.svg'
 import { IconButton } from '../material/button'
+import AttentionIndicator from '../material/left-nav/attention-indicator'
 import { urlPath } from '../network/urls'
 import { amberA200, colorTextFaint } from '../styles/colors'
 import { singleLine, subtitle2 } from '../styles/typography'
 import { PartyRecord } from './party-reducer'
 
 const Container = styled.li<{ isActive: boolean }>`
+  position: relative;
   height: 48px;
   border-radius: 2px;
   background-color: ${props => (props.isActive ? 'rgba(255, 255, 255, 0.08)' : 'transparent')};
@@ -92,6 +94,7 @@ export function PartyNavEntry({
   const partyId = party.id
   const link = urlPath`/parties/${partyId}`
   const [isActive] = useRoute('/parties/:partyId/:rest*')
+  const needsAttention = party.hasUnread
 
   const onInviteClick = useCallback(
     (event: React.MouseEvent) => {
@@ -111,6 +114,7 @@ export function PartyNavEntry({
 
   return (
     <Container isActive={isActive}>
+      {needsAttention ? <AttentionIndicator /> : null}
       <StyledLink to={link}>
         <StyledPartyIcon />
         <Title isActive={isActive}>Party</Title>

@@ -1,6 +1,7 @@
 import { Record } from 'immutable'
 import { ChatMessage } from '../chat/chat-message-records'
 import { LobbyMessage } from '../lobbies/lobby-message-records'
+import { PartyMessage } from '../parties/party-message-records'
 
 /**
  * A common message type that's used in all messaging-related services (e.g. chat, whispers,
@@ -42,4 +43,4 @@ export class NewDayMessageRecord
   implements BaseMessage {}
 
 export type CommonMessage = TextMessageRecord | NewDayMessageRecord
-export type Message = CommonMessage | ChatMessage | LobbyMessage
+export type Message = CommonMessage | ChatMessage | LobbyMessage | PartyMessage

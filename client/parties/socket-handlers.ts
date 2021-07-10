@@ -1,6 +1,9 @@
 import type { NydusClient, RouteHandler, RouteInfo } from 'nydus-client'
+import { TypedIpcRenderer } from '../../common/ipc'
 import { PartyEvent } from '../../common/parties'
 import { dispatch, Dispatchable } from '../dispatch-registry'
+
+const ipcRenderer = new TypedIpcRenderer()
 
 type EventToActionMap = {
   [E in PartyEvent['type']]?: (
@@ -11,74 +14,103 @@ type EventToActionMap = {
 
 const eventToAction: EventToActionMap = {
   init: (partyId, event) => {
-    const { party } = event
+    const { party, time, userInfos } = event
     return {
       type: '@parties/init',
       payload: {
         party,
+        time,
+        userInfos,
       },
     }
   },
 
   invite: (partyId, event) => {
-    const { invitedUser } = event
+    const { invitedUser, time, userInfo } = event
     return {
       type: '@parties/updateInvite',
       payload: {
         partyId,
         invitedUser,
+        time,
+        userInfo,
       },
     }
   },
 
   uninvite: (partyId, event) => {
-    const { target } = event
+    const { target, time } = event
     return {
       type: '@parties/updateUninvite',
       payload: {
         partyId,
         target,
+        time,
       },
     }
   },
 
   decline: (partyId, event) => {
-    const { target } = event
+    const { target, time } = event
     return {
       type: '@parties/updateDecline',
       payload: {
         partyId,
         target,
+        time,
       },
     }
   },
 
   join: (partyId, event) => {
-    const { user } = event
+    const { user, time } = event
     return {
       type: '@parties/updateJoin',
       payload: {
         partyId,
         user,
+        time,
       },
     }
   },
 
   leave: (partyId, event) => (dispatch, getState) => {
-    const { auth } = getState()
-    if (auth.user.id === event.user.id) {
+    const { user, time } = event
+    const selfUser = getState().auth.user
+    if (selfUser.id === user.id) {
       // It was us who left the party
       dispatch({
         type: '@parties/updateLeaveSelf',
+        payload: {
+          time,
+        },
       })
     } else {
       dispatch({
         type: '@parties/updateLeave',
         payload: {
           partyId,
-          user: event.user,
+          user,
+          time,
         },
       })
+    }
+  },
+
+  chatMessage(partyId, event) {
+    const { from, time, text } = event
+
+    // Notify the main process of the new message, so it can display an appropriate notification
+    ipcRenderer.send('chatNewMessage', { user: event.from.name, message: event.text })
+
+    return {
+      type: '@parties/updateChatMessage',
+      payload: {
+        partyId,
+        from,
+        time,
+        text,
+      },
     }
   },
 }

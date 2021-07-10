@@ -9,7 +9,9 @@ import {
   PartyUser,
 } from '../../../common/parties'
 import logger from '../logging/logger'
+import filterChatMessage from '../messaging/filter-chat-message'
 import NotificationService from '../notifications/notification-service'
+import { Clock } from '../time/clock'
 import { ClientSocketsGroup, ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 
@@ -21,13 +23,13 @@ export interface PartyRecord {
 }
 
 export enum PartyServiceErrorCode {
-  PartyNotFound,
+  NotFoundOrNotInvited,
+  NotFoundOrNotInParty,
   InsufficientPermissions,
   PartyFull,
   UserOffline,
   InvalidAction,
   NotificationFailure,
-  ClientNotInParty,
 }
 
 export class PartyServiceError extends Error {
@@ -63,6 +65,7 @@ export default class PartyService {
     private publisher: TypedPublisher<PartyEvent>,
     private clientSocketsManager: ClientSocketsManager,
     private notificationService: NotificationService,
+    private clock: Clock,
   ) {}
 
   async invite(
@@ -106,6 +109,11 @@ export default class PartyService {
       this.publisher.publish(getPartyPath(party.id), {
         type: 'invite',
         invitedUser,
+        time: this.clock.now(),
+        userInfo: {
+          id: invitedUser.id,
+          name: invitedUser.name,
+        },
       })
     } else {
       const partyId = cuid()
@@ -148,14 +156,10 @@ export default class PartyService {
     this.clearInviteNotification(partyId, target)
 
     const party = this.parties.get(partyId)
-    if (!party) {
-      throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found')
-    }
-
-    if (!party.invites.has(target.id)) {
+    if (!party || !party.invites.has(target.id)) {
       throw new PartyServiceError(
-        PartyServiceErrorCode.InsufficientPermissions,
-        "Can't decline a party invitation without an invite",
+        PartyServiceErrorCode.NotFoundOrNotInvited,
+        "Party not found or you're not invited to it",
       )
     }
 
@@ -163,6 +167,7 @@ export default class PartyService {
     this.publisher.publish(getPartyPath(party.id), {
       type: 'decline',
       target,
+      time: this.clock.now(),
     })
   }
 
@@ -170,8 +175,11 @@ export default class PartyService {
     this.clearInviteNotification(partyId, target)
 
     const party = this.parties.get(partyId)
-    if (!party) {
-      throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found')
+    if (!party || !party.members.has(removingUser.id)) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.NotFoundOrNotInParty,
+        "Party not found or you're not in it",
+      )
     }
 
     if (removingUser.id !== party.leader.id) {
@@ -192,6 +200,7 @@ export default class PartyService {
     this.publisher.publish(getPartyPath(party.id), {
       type: 'uninvite',
       target,
+      time: this.clock.now(),
     })
   }
 
@@ -199,19 +208,15 @@ export default class PartyService {
     this.clearInviteNotification(partyId, user)
 
     const party = this.parties.get(partyId)
-    if (!party) {
-      throw new PartyServiceError(PartyServiceErrorCode.PartyNotFound, 'Party not found')
+    if (!party || !party.invites.has(user.id)) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.NotFoundOrNotInvited,
+        "Party not found or you're not invited to it",
+      )
     }
 
     if (party.members.size >= MAX_PARTY_SIZE) {
       throw new PartyServiceError(PartyServiceErrorCode.PartyFull, 'Party is full')
-    }
-
-    if (!party.invites.has(user.id)) {
-      throw new PartyServiceError(
-        PartyServiceErrorCode.InsufficientPermissions,
-        "Can't join party without an invite",
-      )
     }
 
     // TODO(2Pac): Only allow accepting an invite for electron clients?
@@ -229,13 +234,42 @@ export default class PartyService {
     this.publisher.publish(getPartyPath(party.id), {
       type: 'join',
       user,
+      time: this.clock.now(),
     })
     this.subscribeToParty(clientSockets, party)
   }
 
   leaveParty(partyId: string, userId: number, clientId: string) {
+    const party = this.parties.get(partyId)
+    if (!party || !party.members.has(userId)) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.NotFoundOrNotInParty,
+        "Party not found or you're not in it",
+      )
+    }
+
     const clientSockets = this.getClientSockets(userId, clientId)
-    this.removeClientFromParty(clientSockets)
+    this.removeClientFromParty(clientSockets, party)
+  }
+
+  sendChatMessage(partyId: string, userId: number, message: string) {
+    const party = this.parties.get(partyId)
+    if (!party || !party.members.has(userId)) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.NotFoundOrNotInParty,
+        "Party not found or you're not in it",
+      )
+    }
+
+    const user = party.members.get(userId)!
+    const text = filterChatMessage(message)
+
+    this.publisher.publish(getPartyPath(partyId), {
+      type: 'chatMessage',
+      from: user,
+      time: this.clock.now(),
+      text,
+    })
   }
 
   private clearInviteNotification(partyId: string, user: PartyUser) {
@@ -258,13 +292,23 @@ export default class PartyService {
       () => ({
         type: 'init',
         party: toPartyJson(party),
+        time: this.clock.now(),
+        userInfos: [
+          ...Array.from(party.invites.values()),
+          ...Array.from(party.members.values()),
+        ].map(u => ({
+          id: u.id,
+          name: u.name,
+        })),
       }),
       sockets => this.removeClientFromParty(sockets),
     )
   }
 
-  private removeClientFromParty(clientSockets: ClientSocketsGroup) {
-    const party = this.getClientParty(clientSockets)
+  private removeClientFromParty(
+    clientSockets: ClientSocketsGroup,
+    party = this.getClientParty(clientSockets),
+  ) {
     if (!party) {
       const err = new Error('Party not found')
       logger.error({ err }, 'error while handling client quitting')
@@ -277,6 +321,7 @@ export default class PartyService {
       this.publisher.publish(getPartyPath(party.id), {
         type: 'leave',
         user,
+        time: this.clock.now(),
       })
     }
 

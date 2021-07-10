@@ -124,25 +124,25 @@ export class ChatApi extends HttpApi {
   }
 }
 
-function joinChannel(ctx: RouterContext) {
+async function joinChannel(ctx: RouterContext) {
   const channelName = getValidatedChannelName(ctx)
 
   const chatService = container.resolve(ChatService)
-  chatService.joinChannel(channelName, ctx.session!.userId)
+  await chatService.joinChannel(channelName, ctx.session!.userId)
 
   ctx.status = 204
 }
 
-function leaveChannel(ctx: RouterContext) {
+async function leaveChannel(ctx: RouterContext) {
   const channelName = getValidatedChannelName(ctx)
 
   const chatService = container.resolve(ChatService)
-  chatService.leaveChannel(channelName, ctx.session!.userId)
+  await chatService.leaveChannel(channelName, ctx.session!.userId)
 
   ctx.status = 204
 }
 
-function sendChatMessage(ctx: RouterContext) {
+async function sendChatMessage(ctx: RouterContext) {
   const channelName = getValidatedChannelName(ctx)
   const {
     body: { message },
@@ -153,7 +153,7 @@ function sendChatMessage(ctx: RouterContext) {
   })
 
   const chatService = container.resolve(ChatService)
-  chatService.sendChatMessage(channelName, ctx.session!.userId, message)
+  await chatService.sendChatMessage(channelName, ctx.session!.userId, message)
 
   ctx.status = 204
 }

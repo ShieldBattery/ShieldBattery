@@ -76,7 +76,7 @@ export function ConnectedUserProfileOverlay({
   if (user.id !== selfUser.id) {
     actions.push(<MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />)
 
-    if (PARTIES) {
+    if (PARTIES && IS_ELECTRON) {
       const isAlreadyInParty = party.members.has(user.id)
       const hasInvite = party.invites.has(user.id)
       if (isAlreadyInParty) {

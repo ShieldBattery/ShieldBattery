@@ -1,4 +1,5 @@
 import { PartyPayload, PartyUser } from '../../common/parties'
+import { User } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
 export type PartyActions =
@@ -17,6 +18,11 @@ export type PartyActions =
   | LeavePartyBegin
   | LeavePartySuccess
   | LeavePartyFailure
+  | SendChatMessageBegin
+  | SendChatMessage
+  | SendChatMessageFailure
+  | ActivateParty
+  | DeactivateParty
   | InitParty
   | UpdateInvite
   | UpdateUninvite
@@ -24,6 +30,7 @@ export type PartyActions =
   | UpdateJoin
   | UpdateLeave
   | UpdateLeaveSelf
+  | UpdateChatMessage
 
 export interface InviteToPartyBegin {
   type: '@parties/inviteToPartyBegin'
@@ -147,10 +154,62 @@ export interface LeavePartyFailure extends BaseFetchFailure<'@parties/leaveParty
   }
 }
 
+export interface SendChatMessageBegin {
+  type: '@parties/sendChatMessageBegin'
+  payload: {
+    partyId: string
+    message: string
+  }
+}
+
+/**
+ * Send a chat message to the party.
+ */
+export interface SendChatMessage {
+  type: '@parties/sendChatMessage'
+  payload: void
+  meta: {
+    partyId: string
+    message: string
+  }
+  error?: false
+}
+
+export interface SendChatMessageFailure extends BaseFetchFailure<'@parties/sendChatMessage'> {
+  meta: {
+    partyId: string
+    message: string
+  }
+}
+
+/**
+ * Activate the party the user is in. This is a purely client-side action which marks the party as
+ * "active", and removes the unread indicator if there is one.
+ */
+export interface ActivateParty {
+  type: '@parties/activateParty'
+  payload: {
+    partyId: string
+  }
+}
+
+/**
+ * Deactivate the party the user is in. This is a purely client-side action which unloads the
+ * message history of a party chat and thus frees up some memory.
+ */
+export interface DeactivateParty {
+  type: '@parties/deactivateParty'
+  payload: {
+    partyId: string
+  }
+}
+
 export interface InitParty {
   type: '@parties/init'
   payload: {
     party: PartyPayload
+    time: number
+    userInfos: User[]
   }
 }
 
@@ -159,6 +218,8 @@ export interface UpdateInvite {
   payload: {
     partyId: string
     invitedUser: PartyUser
+    time: number
+    userInfo: User
   }
 }
 
@@ -167,6 +228,7 @@ export interface UpdateUninvite {
   payload: {
     partyId: string
     target: PartyUser
+    time: number
   }
 }
 
@@ -175,6 +237,7 @@ export interface UpdateDecline {
   payload: {
     partyId: string
     target: PartyUser
+    time: number
   }
 }
 
@@ -183,6 +246,7 @@ export interface UpdateJoin {
   payload: {
     partyId: string
     user: PartyUser
+    time: number
   }
 }
 
@@ -191,9 +255,23 @@ export interface UpdateLeave {
   payload: {
     partyId: string
     user: PartyUser
+    time: number
   }
 }
 
 export interface UpdateLeaveSelf {
   type: '@parties/updateLeaveSelf'
+  payload: {
+    time: number
+  }
+}
+
+export interface UpdateChatMessage {
+  type: '@parties/updateChatMessage'
+  payload: {
+    partyId: string
+    from: PartyUser
+    time: number
+    text: string
+  }
 }

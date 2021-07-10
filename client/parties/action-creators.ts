@@ -1,9 +1,14 @@
-import { AcceptPartyInviteServerBody, InviteToPartyServerBody } from '../../common/parties'
+import {
+  AcceptPartyInviteServerBody,
+  InviteToPartyServerBody,
+  SendChatMessageServerBody,
+} from '../../common/parties'
 import { ThunkAction } from '../dispatch-registry'
 import { clientId } from '../network/client-id'
 import fetch from '../network/fetch'
 import { apiUrl } from '../network/urls'
 import { openSnackbar } from '../snackbars/action-creators'
+import { ActivateParty, DeactivateParty } from './actions'
 
 export function inviteToParty(targetId: number): ThunkAction {
   return dispatch => {
@@ -133,5 +138,39 @@ export function leaveParty(partyId: string): ThunkAction {
       ),
       meta: params,
     })
+  }
+}
+
+export function sendChatMessage(partyId: string, message: string): ThunkAction {
+  return dispatch => {
+    const params = { partyId, message }
+    dispatch({
+      type: '@parties/sendChatMessageBegin',
+      payload: params,
+    })
+
+    const requestBody: SendChatMessageServerBody = { message }
+    dispatch({
+      type: '@parties/sendChatMessage',
+      payload: fetch<void>(apiUrl`parties/${partyId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify(requestBody),
+      }),
+      meta: params,
+    })
+  }
+}
+
+export function activateParty(partyId: string): ActivateParty {
+  return {
+    type: '@parties/activateParty',
+    payload: { partyId },
+  }
+}
+
+export function deactivateParty(partyId: string): DeactivateParty {
+  return {
+    type: '@parties/deactivateParty',
+    payload: { partyId },
   }
 }
