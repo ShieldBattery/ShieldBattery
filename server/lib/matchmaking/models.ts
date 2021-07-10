@@ -235,7 +235,8 @@ export async function getRankings(matchmakingType: MatchmakingType): Promise<Get
       SELECT r.rank, u.name AS username, r.user_id, r.rating,
           r.wins, r.losses, r.last_played_date
       FROM ranked_matchmaking_ratings_view r JOIN users u
-      ON r.user_id = u.id;
+      ON r.user_id = u.id
+      ORDER BY r.rank;
     `)
 
     return result.rows.map(r => fromDbGetRankingsResult(r))
@@ -255,7 +256,7 @@ export async function getRankForUser(
           r.wins, r.losses, r.last_played_date
       FROM ranked_matchmaking_ratings_view r JOIN users u
       ON r.user_id = u.id
-      WHERE user_id = ${userId};
+      WHERE r.user_id = ${userId};
     `)
 
     return result.rows.length > 0 ? fromDbGetRankingsResult(result.rows[0]) : undefined
