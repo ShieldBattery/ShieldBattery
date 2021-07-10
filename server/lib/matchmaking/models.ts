@@ -217,9 +217,8 @@ export async function getRankings(matchmakingType: MatchmakingType): Promise<Get
     const result = await client.query<Dbify<GetRankingsResult>>(sql`
       SELECT RANK() OVER (ORDER BY r.rating DESC) as rank, u.name AS username, r.user_id, r.rating,
           r.wins, r.losses, r.last_played_date
-      FROM matchmaking_ratings r JOIN users u
-      ON r.user_id = u.id
-      WHERE r.num_games_played > 0;
+      FROM ranked_matchmaking_ratings_view r JOIN users u
+      ON r.user_id = u.id;
     `)
 
     return result.rows.map(r => ({
@@ -232,6 +231,22 @@ export async function getRankings(matchmakingType: MatchmakingType): Promise<Get
       losses: r.losses,
       lastPlayedDate: r.last_played_date,
     }))
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Triggers an updated to the pre-ranked view of matchmaking ratings. This should be run
+ * periodically to make fresh data available to `getRankings` calls.
+ */
+export async function refreshRankings(matchmakingType: MatchmakingType): Promise<void> {
+  const { client, done } = await db()
+  try {
+    // TODO(tec27): Store the refresh time so we can display it to clients
+    await client.query(sql`
+      REFRESH MATERIALIZED VIEW CONCURRENTLY ranked_matchmaking_ratings_view
+    `)
   } finally {
     done()
   }

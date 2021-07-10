@@ -6,14 +6,29 @@ import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmak
 import { User } from '../../../common/users/user-info'
 import { HttpApi, httpApi } from '../http/http-api'
 import { apiEndpoint } from '../http/http-api-endpoint'
-import { getRankings } from '../matchmaking/models'
+import { JobScheduler } from '../jobs/job-scheduler'
+import { getRankings, refreshRankings } from '../matchmaking/models'
 import ensureLoggedIn from '../session/ensure-logged-in'
+
+const UPDATE_RANKS_MINUTES = 5
 
 @httpApi()
 @singleton()
 export class LadderApi extends HttpApi {
-  constructor() {
+  constructor(private jobScheduler: JobScheduler) {
     super('/ladder')
+
+    const startTime = new Date()
+    const timeRemainder = UPDATE_RANKS_MINUTES - (startTime.getMinutes() % UPDATE_RANKS_MINUTES)
+    startTime.setMinutes(startTime.getMinutes() + timeRemainder, 0, 0)
+    this.jobScheduler.scheduleJob(
+      'lib/ladder#updateRanks',
+      startTime,
+      UPDATE_RANKS_MINUTES * 60 * 1000,
+      async () => {
+        await refreshRankings(MatchmakingType.Match1v1)
+      },
+    )
   }
 
   protected applyRoutes(router: Router): void {

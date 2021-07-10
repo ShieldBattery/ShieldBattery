@@ -1,5 +1,5 @@
 import { GameType } from './constants'
-import { MapInfo } from './maps'
+import { MapInfoJson } from './maps'
 import { RaceChar } from './races'
 import { ResolvedRallyPointServer } from './rally-point'
 
@@ -41,7 +41,7 @@ export function isReplayLaunchConfig(config: GameLaunchConfig) {
   return isReplayMapInfo(config.setup.map)
 }
 
-export function isReplayMapInfo(map: MapInfo | ReplayMapInfo): map is ReplayMapInfo {
+export function isReplayMapInfo(map: MapInfoJson | ReplayMapInfo): map is ReplayMapInfo {
   return (map as ReplayMapInfo).isReplay
 }
 
@@ -64,7 +64,7 @@ export interface GameLaunchConfig {
      * to users.
      */
     name: string
-    map: MapInfo | ReplayMapInfo
+    map: MapInfoJson | ReplayMapInfo
     /**
      * The file path of the map file. Note that this gets set during the launch process, it's not
      * provided directly by the code that triggers the launch.
