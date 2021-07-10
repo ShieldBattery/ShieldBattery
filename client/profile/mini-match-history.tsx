@@ -279,8 +279,6 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
     )
   }
 
-  console.dir(game)
-
   const playerElems: React.ReactNode[] = []
   if (game.config.gameType === 'topVBottom') {
     playerElems.push(<GamePreviewTeamOverline key={'team-top'}>Top</GamePreviewTeamOverline>)
