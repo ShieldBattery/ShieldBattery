@@ -25,7 +25,7 @@ import { Body1, body2, overline, singleLine, subtitle1 } from '../styles/typogra
 import { timeAgo } from '../time/time-ago'
 
 const MatchHistoryRoot = styled.div`
-  min-height: 136px;
+  min-height: 256px;
   margin-bottom: 48px;
   /** 8 + 16px of internal padding in list = 24px */
   padding: 0 24px 0 8px;
