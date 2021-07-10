@@ -149,8 +149,9 @@ export function PartyView(props: PartyViewProps) {
       // party view while you're in a different party.
       if (routePartyId !== partyId) {
         replace(urlPath`/parties/${partyId}`)
+      } else {
+        dispatch(activateParty(partyId))
       }
-      dispatch(activateParty(partyId))
     } else {
       replace('/')
     }
