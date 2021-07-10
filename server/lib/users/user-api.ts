@@ -17,7 +17,7 @@ import { HttpApi, httpApi } from '../http/http-api'
 import { apiEndpoint } from '../http/http-api-endpoint'
 import sendMail from '../mail/mailer'
 import { getMapInfo } from '../maps/map-models'
-import { getMatchmakingRating } from '../matchmaking/models'
+import { getRankForUser } from '../matchmaking/models'
 import {
   addEmailVerificationCode,
   consumeEmailVerificationCode,
@@ -163,11 +163,10 @@ export class UserApi extends HttpApi {
       const ladder: Partial<Record<MatchmakingType, LadderPlayer>> = {}
       // TODO(tec27): Make a function to get multiple types in one DB call?
       const matchmakingPromises = ALL_MATCHMAKING_TYPES.map(async m => {
-        const r = await getMatchmakingRating(user.id, m)
+        const r = await getRankForUser(user.id, m)
         if (r) {
           ladder[m] = {
-            // TODO(tec27): calculate the rank here
-            rank: -1,
+            rank: r.rank,
             userId: r.userId,
             rating: r.rating,
             wins: r.wins,

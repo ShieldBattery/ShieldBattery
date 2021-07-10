@@ -71,7 +71,8 @@ function fromDbMatchmakingRating(result: Readonly<DbMatchmakingRating>): Matchma
 }
 
 /**
- * Retrieves the current `MatchmakingRating` for a user, or `undefined` if the user has no MMR.
+ * Retrieves the current `MatchmakingRating` for a user, or `undefined` if the user has no MMR. This
+ * information will be up-to-date as of currently submitted game results.
  */
 export async function getMatchmakingRating(
   userId: number,
@@ -198,7 +199,8 @@ export async function getHighRankedRating(matchmakingType: MatchmakingType): Pro
   }
 }
 
-interface GetRankingsResult {
+// TODO(tec27): Remove username from this on get user data in another query
+export interface GetRankingsResult {
   rank: number
   userId: number
   username: string
@@ -208,6 +210,21 @@ interface GetRankingsResult {
   lastPlayedDate: Date
 }
 
+type DbGetRankingsResult = Dbify<GetRankingsResult>
+
+function fromDbGetRankingsResult(r: DbGetRankingsResult) {
+  return {
+    // NOTE(tec27): RANK() is a bigint so this is actually a string
+    rank: Number(r.rank),
+    userId: r.user_id,
+    username: r.username,
+    rating: r.rating,
+    wins: r.wins,
+    losses: r.losses,
+    lastPlayedDate: r.last_played_date,
+  }
+}
+
 /**
  * Returns a list of players sorted by rank for a particular matchmaking type.
  */
@@ -215,22 +232,33 @@ export async function getRankings(matchmakingType: MatchmakingType): Promise<Get
   const { client, done } = await db()
   try {
     const result = await client.query<Dbify<GetRankingsResult>>(sql`
-      SELECT RANK() OVER (ORDER BY r.rating DESC) as rank, u.name AS username, r.user_id, r.rating,
+      SELECT r.rank, u.name AS username, r.user_id, r.rating,
           r.wins, r.losses, r.last_played_date
       FROM ranked_matchmaking_ratings_view r JOIN users u
       ON r.user_id = u.id;
     `)
 
-    return result.rows.map(r => ({
-      // NOTE(tec27): RANK() is a bigint so this is actually a string
-      rank: Number(r.rank),
-      userId: r.user_id,
-      username: r.username,
-      rating: r.rating,
-      wins: r.wins,
-      losses: r.losses,
-      lastPlayedDate: r.last_played_date,
-    }))
+    return result.rows.map(r => fromDbGetRankingsResult(r))
+  } finally {
+    done()
+  }
+}
+
+export async function getRankForUser(
+  userId: number,
+  matchmakingType: MatchmakingType,
+): Promise<GetRankingsResult | undefined> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<Dbify<GetRankingsResult>>(sql`
+      SELECT r.rank, u.name AS username, r.user_id, r.rating,
+          r.wins, r.losses, r.last_played_date
+      FROM ranked_matchmaking_ratings_view r JOIN users u
+      ON r.user_id = u.id
+      WHERE user_id = ${userId};
+    `)
+
+    return result.rows.length > 0 ? fromDbGetRankingsResult(result.rows[0]) : undefined
   } finally {
     done()
   }
