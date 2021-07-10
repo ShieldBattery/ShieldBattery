@@ -31,7 +31,7 @@ const UserListContainer = styled.div`
   flex-shrink: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 24px;
+  padding: 8px 16px;
   margin-bottom: 16px;
 
   background-color: ${background700};
@@ -86,24 +86,27 @@ export function UserList(props: { users: OrderedMap<number, PartyUser> }) {
 const Container = styled.div`
   width: 100%;
   height: 100%;
-  margin: 0;
-  padding: 40px 36px 32px;
   display: flex;
   align-items: flex-start;
 `
 
 const StyledChat = styled(Chat)`
   max-width: 960px;
+  margin-right: 16px;
   flex-grow: 1;
-  margin-right: 36px;
+
   background-color: ${background800};
 `
 
 const RightSide = styled.div`
+  width: 256px;
+  flex-shrink: 0;
+  margin-top: 8px;
+  margin-right: 16px;
+
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 278px;
 `
 
 const StyledInviteIcon = styled(InviteIcon)`
