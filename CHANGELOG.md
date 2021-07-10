@@ -1,3 +1,24 @@
+#### 7.0.18 (July 10, 2021)
+
+- **Profiles are here!** User profiles are now available, accessible from the user menu in chat
+  channels as well as the ladder rankings. Check out a user's recent match history, their stats
+  with various races, and more! More personalization and statistics coming soon!
+- **Start minimized.** When ShieldBattery is set to launch on system startup, you can now make it
+  start minimized as well.
+- **Clickable names.** Usernames in the various chat experiences (channels, whispers, lobbies) are
+  now clickable and will bring up a menu so that you can easily access extra functionality.
+
+##### Known Issues
+
+- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
+  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
+  very least add a warning for this case in the future (or better yet, automate re-authing), but
+  for now, try to launch the game from the Blizzard launcher at least once a month.
+- **Observer mode missing.** We're still getting our lobby code to work with the newer ingame
+  observer things, this will return shortly!
+- **Off-center screen starting position.** For some users, generally in positions on the right side
+  of the screen, the starting screen position may be slightly off-center from where it usually is.
+
 #### 7.0.16 (June 27, 2021)
 
 - **You're grounded.** Fixed an exploit that allowed SCVs and Drones to fly over obstacles if their
