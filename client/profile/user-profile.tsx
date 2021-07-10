@@ -323,7 +323,7 @@ function SummaryPage({
     <>
       <TopSection>
         <AvatarCircle>
-          <StyledAvatar username={user.name} />
+          <StyledAvatar user={user.name} />
         </AvatarCircle>
         <UsernameAndTitle>
           <Username>{user.name}</Username>
