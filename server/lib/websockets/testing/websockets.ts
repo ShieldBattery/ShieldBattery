@@ -87,6 +87,7 @@ export class InspectableNydusClient extends NydusClient {
   // documentation (the arguments are named, vs the arg_0, arg_1 stuff from Jest)
   publish: (path: string, data: any) => void = jest.fn()
   unsubscribe: (path: string) => boolean = jest.fn()
+  disconnect = jest.fn(() => this.emit('close', 'CLIENT_DISCONNECT'))
 }
 
 export function clearTestLogs(nydus: NydusServer) {

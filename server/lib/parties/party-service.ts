@@ -242,7 +242,7 @@ export default class PartyService {
       // NOTE(2Pac): We're removing the user from an old party *after* we subscribe them to a new
       // one, to better represent a party change. This way the client won't have a brief period of
       // being in no party, which can change the UI in unexpected ways.
-      this.removeClientFromParty(clientSockets, oldParty, time)
+      this.removeClientFromParty(clientSockets, oldParty)
     }
   }
 

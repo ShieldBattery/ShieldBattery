@@ -466,8 +466,15 @@ describe('parties/party-service', () => {
         expect(oldParty.members).toMatchObject(new Map([[oldLeader.id, oldLeader]]))
       })
 
+      test('should remove the user from the new party on disconnect', async () => {
+        await partyService.acceptInvite(newParty.id, user6, USER6_CLIENT_ID)
+        client6.disconnect()
+
+        expect(newParty.members).toMatchObject(new Map([[newLeader.id, newLeader]]))
+      })
+
       test('should publish "leave" message to the old party path', async () => {
-        await partyService.acceptInvite(newParty.id, user6, USER6_CLIENT_ID, currentTime)
+        await partyService.acceptInvite(newParty.id, user6, USER6_CLIENT_ID)
 
         expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(oldParty.id), {
           type: 'leave',

@@ -138,15 +138,16 @@ export function PartyView(props: PartyViewProps) {
   const party = useAppSelector(s => s.party)
   const partyId = party.id
   const routePartyId = decodeURIComponent(props.params.partyId)
-  // Party can change when a user accepts an invite to a new party while already being a member of a
-  // different party that is currently being rendered.
-  const partyChanged = routePartyId !== partyId
 
   useEffect(() => {
     const isInParty = !!partyId
 
     if (isInParty) {
-      if (partyChanged) {
+      // The mismatch between the current URL and the party state can occur in a couple of ways. One
+      // is when a user accepts an invite to a new party while already being a member of a different
+      // party that is currently being rendered. Another way is that someone links to their own
+      // party view while you're in a different party.
+      if (routePartyId !== partyId) {
         replace(urlPath`/parties/${partyId}`)
       }
       dispatch(activateParty(partyId))
@@ -155,7 +156,7 @@ export function PartyView(props: PartyViewProps) {
     }
 
     return () => dispatch(deactivateParty(partyId))
-  }, [partyId, partyChanged, dispatch])
+  }, [partyId, routePartyId, dispatch])
 
   const onSendChatMessage = useCallback(
     (msg: string) => dispatch(sendChatMessage(partyId, msg)),
