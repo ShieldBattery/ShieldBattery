@@ -1,5 +1,5 @@
 import cuid from 'cuid'
-import { inject, singleton } from 'tsyringe'
+import { singleton } from 'tsyringe'
 import { NotificationType } from '../../../common/notifications'
 import {
   MAX_PARTY_SIZE,
@@ -11,6 +11,7 @@ import {
 import logger from '../logging/logger'
 import filterChatMessage from '../messaging/filter-chat-message'
 import NotificationService from '../notifications/notification-service'
+import { Clock } from '../time/clock'
 import { ClientSocketsGroup, ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 
@@ -64,7 +65,7 @@ export default class PartyService {
     private publisher: TypedPublisher<PartyEvent>,
     private clientSocketsManager: ClientSocketsManager,
     private notificationService: NotificationService,
-    @inject('getCurrentTime') private getCurrentTime: () => number,
+    private clock: Clock,
   ) {}
 
   async invite(
@@ -108,7 +109,7 @@ export default class PartyService {
       this.publisher.publish(getPartyPath(party.id), {
         type: 'invite',
         invitedUser,
-        time: this.getCurrentTime(),
+        time: this.clock.now(),
         userInfo: {
           id: invitedUser.id,
           name: invitedUser.name,
@@ -166,7 +167,7 @@ export default class PartyService {
     this.publisher.publish(getPartyPath(party.id), {
       type: 'decline',
       target,
-      time: this.getCurrentTime(),
+      time: this.clock.now(),
     })
   }
 
@@ -199,7 +200,7 @@ export default class PartyService {
     this.publisher.publish(getPartyPath(party.id), {
       type: 'uninvite',
       target,
-      time: this.getCurrentTime(),
+      time: this.clock.now(),
     })
   }
 
@@ -233,7 +234,7 @@ export default class PartyService {
     this.publisher.publish(getPartyPath(party.id), {
       type: 'join',
       user,
-      time: this.getCurrentTime(),
+      time: this.clock.now(),
     })
     this.subscribeToParty(clientSockets, party)
   }
@@ -266,7 +267,7 @@ export default class PartyService {
     this.publisher.publish(getPartyPath(partyId), {
       type: 'chatMessage',
       from: user,
-      time: this.getCurrentTime(),
+      time: this.clock.now(),
       text,
     })
   }
@@ -291,7 +292,7 @@ export default class PartyService {
       () => ({
         type: 'init',
         party: toPartyJson(party),
-        time: this.getCurrentTime(),
+        time: this.clock.now(),
         userInfos: [
           ...Array.from(party.invites.values()),
           ...Array.from(party.members.values()),
@@ -320,7 +321,7 @@ export default class PartyService {
       this.publisher.publish(getPartyPath(party.id), {
         type: 'leave',
         user,
-        time: this.getCurrentTime(),
+        time: this.clock.now(),
       })
     }
 

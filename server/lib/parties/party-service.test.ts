@@ -3,6 +3,7 @@ import { NotificationType } from '../../../common/notifications'
 import { PartyUser } from '../../../common/parties'
 import NotificationService from '../notifications/notification-service'
 import { createFakeNotificationService } from '../notifications/testing/notification-service'
+import { FakeClock } from '../time/testing/fake-clock'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import {
@@ -50,7 +51,7 @@ describe('parties/party-service', () => {
   let partyService: PartyService
   let connector: NydusConnector
   let notificationService: NotificationService
-  let getCurrentTime: () => number
+  let clock: FakeClock
 
   const currentTime = Date.now()
 
@@ -60,13 +61,10 @@ describe('parties/party-service', () => {
     const clientSocketsManager = new ClientSocketsManager(nydus, sessionLookup)
     const publisher = new TypedPublisher(nydus)
     notificationService = createFakeNotificationService()
-    getCurrentTime = () => currentTime
-    partyService = new PartyService(
-      publisher,
-      clientSocketsManager,
-      notificationService,
-      getCurrentTime,
-    )
+    clock = new FakeClock()
+    clock.setCurrentTime(currentTime)
+
+    partyService = new PartyService(publisher, clientSocketsManager, notificationService, clock)
     connector = new NydusConnector(nydus, sessionLookup)
 
     client1 = connector.connectClient(user1, USER1_CLIENT_ID)

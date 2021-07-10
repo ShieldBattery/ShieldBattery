@@ -23,7 +23,6 @@ import { cors } from './lib/security/cors'
 import secureHeaders from './lib/security/headers'
 import sessionMiddleware from './lib/session/middleware'
 import userSessionsMiddleware from './lib/session/user-sessions-middleware'
-import { getCurrentTime } from './lib/time/get-current-time'
 import createRoutes from './routes'
 import { WebsocketServer } from './websockets'
 
@@ -125,7 +124,6 @@ app
 const mainServer = http.createServer(app.callback())
 container.register<Koa.Middleware>('sessionMiddleware', { useValue: sessionMiddleware })
 container.register<http.Server>(http.Server, { useValue: mainServer })
-container.register<() => number>('getCurrentTime', { useValue: getCurrentTime })
 
 const websocketServer = container.resolve(WebsocketServer)
 
