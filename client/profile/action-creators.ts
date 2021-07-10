@@ -56,25 +56,28 @@ function abortableThunk<T extends ReduxAction>(
   }
 }
 
+const userProfileLoadsInProgress = new Set<number>()
+
 /**
  * Signals that a specific user's profile is being viewed. If we don't have a local copy of that
  * user's profile data already, it will be retrieved from the server.
  */
 export function viewUserProfile(userId: number, spec: RequestHandlingSpec): ThunkAction {
-  return abortableThunk(spec, async (dispatch, getState) => {
-    const {
-      users: { byId, idToProfile },
-    } = getState()
-
-    if (byId.has(userId) && idToProfile.has(userId)) {
+  return abortableThunk(spec, async dispatch => {
+    if (userProfileLoadsInProgress.has(userId)) {
       return
     }
+    userProfileLoadsInProgress.add(userId)
 
-    dispatch({
-      type: '@profile/getUserProfile',
-      payload: await fetch<GetUserProfilePayload>(apiUrl`users/${userId}/profile`, {
-        signal: spec.signal,
-      }),
-    })
+    try {
+      dispatch({
+        type: '@profile/getUserProfile',
+        payload: await fetch<GetUserProfilePayload>(apiUrl`users/${userId}/profile`, {
+          signal: spec.signal,
+        }),
+      })
+    } finally {
+      userProfileLoadsInProgress.delete(userId)
+    }
   })
 }
