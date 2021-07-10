@@ -309,7 +309,7 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
       }),
     )
   } else {
-    // TODO(tec27): Handle UMS game types with 2 teams?
+    // TODO(tec27): Handle UMS game types with 2 teams? Always add team labels for 1v1?
     playerElems.push(
       ...game.config.teams.flatMap((t, i) =>
         t.map((p, j) => {
