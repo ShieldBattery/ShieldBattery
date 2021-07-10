@@ -1,5 +1,6 @@
 import { GameRecordJson } from '../games/games'
 import { LadderPlayer } from '../ladder'
+import { MapInfoJson } from '../maps'
 import { MatchmakingType } from '../matchmaking'
 import { Permissions } from './permissions'
 import { UserStats } from './user-stats'
@@ -40,7 +41,7 @@ export interface GetUserProfilePayload {
   profile: UserProfile
   matchHistory: {
     games: GameRecordJson[]
-    maps: unknown[]
+    maps: MapInfoJson[]
     users: User[]
   }
 }

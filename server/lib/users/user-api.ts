@@ -7,6 +7,7 @@ import { NydusServer } from 'nydus'
 import { singleton } from 'tsyringe'
 import { isValidEmail, isValidPassword, isValidUsername } from '../../../common/constants'
 import { LadderPlayer } from '../../../common/ladder'
+import { toMapInfoJson } from '../../../common/maps'
 import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
 import { GetUserProfilePayload, SelfUserInfo } from '../../../common/users/user-info'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
@@ -15,6 +16,7 @@ import { HttpErrorWithPayload } from '../errors/error-with-payload'
 import { HttpApi, httpApi } from '../http/http-api'
 import { apiEndpoint } from '../http/http-api-endpoint'
 import sendMail from '../mail/mailer'
+import { getMapInfo } from '../maps/map-models'
 import { getMatchmakingRating } from '../matchmaking/models'
 import {
   addEmailVerificationCode,
@@ -180,7 +182,10 @@ export class UserApi extends HttpApi {
       const matchHistoryPromise = (async () => {
         const games = await getRecentGamesForUser(user.id, NUM_RECENT_GAMES)
         const uniqueUsers = new Set<number>()
+        const uniqueMaps = new Set<string>()
         for (const g of games) {
+          uniqueMaps.add(g.mapId)
+
           for (const team of g.config.teams) {
             for (const player of team) {
               if (!player.isComputer) {
@@ -191,13 +196,12 @@ export class UserApi extends HttpApi {
         }
         const [users, maps] = await Promise.all([
           findUsersById(Array.from(uniqueUsers.values())),
-          // TODO(tec27): look up maps
-          Promise.resolve<unknown[]>([]),
+          getMapInfo(Array.from(uniqueMaps.values())),
         ])
 
         return {
           games: games.map(g => ({ ...g, startTime: Number(g.startTime) })),
-          maps,
+          maps: maps.map(m => toMapInfoJson(m)),
           users: Array.from(users.values()),
         }
       })()

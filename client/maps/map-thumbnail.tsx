@@ -1,3 +1,4 @@
+import { Immutable } from 'immer'
 import { rgba } from 'polished'
 import PropTypes from 'prop-types'
 import React, { useCallback, useMemo, useState } from 'react'
@@ -123,7 +124,7 @@ const NoImage = () => (
 )
 
 export interface MapThumbnailProps {
-  map: Readonly<MapInfoJson>
+  map: Immutable<MapInfoJson>
   className?: string
   size?: number
   showMapName?: boolean

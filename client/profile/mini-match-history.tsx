@@ -1,11 +1,18 @@
 import { Immutable } from 'immer'
-import React, { useMemo } from 'react'
+import { rgba } from 'polished'
+import React, { useCallback, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { GameRecordJson } from '../../common/games/games'
 import { ReconciledResult } from '../../common/games/results'
+import { User } from '../../common/users/user-info'
+import { openSimpleDialog } from '../dialogs/action-creators'
+import { RaceIcon } from '../lobbies/race-icon'
+import MapPreview from '../maps/map-preview'
+import { MapThumbnail } from '../maps/map-thumbnail'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import {
   background700,
   colorNegative,
@@ -14,10 +21,11 @@ import {
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors'
-import { Body1, Body2, body2 } from '../styles/typography'
+import { Body1, body2, overline, singleLine, subtitle1 } from '../styles/typography'
 import { timeAgo } from '../time/time-ago'
 
 const MatchHistoryRoot = styled.div`
+  min-height: 136px;
   margin-bottom: 48px;
   /** 8 + 16px of internal padding in list = 24px */
   padding: 0 24px 0 8px;
@@ -28,14 +36,13 @@ const MatchHistoryRoot = styled.div`
 const GameList = styled.div`
   margin-right: 8px;
   flex-grow: 1;
+  flex-shrink: 1;
 `
 
-const GamePreview = styled.div`
-  width: 276px;
-  flex-shrink: 0;
-
-  background-color: ${background700};
-  border-radius: 4px;
+const EmptyListText = styled.div`
+  ${subtitle1};
+  color: ${colorTextFaint};
+  margin-left: 16px;
 `
 
 export interface MiniMatchHistoryProps {
@@ -44,19 +51,35 @@ export interface MiniMatchHistoryProps {
 }
 
 export function MiniMatchHistory({ forUserId, games }: MiniMatchHistoryProps) {
+  const [activeGameId, setActiveGameId] = useState(games.length > 0 ? games[0].id : undefined)
+  const activeGame = useMemo(() => {
+    if (!activeGameId) {
+      return undefined
+    }
+
+    return games.find(g => g.id === activeGameId)
+  }, [activeGameId, games])
+
   return (
     <MatchHistoryRoot>
       <GameList>
         {games.map((g, i) => (
-          <ConnectedGameListEntry key={i} forUserId={forUserId} game={g} />
+          <ConnectedGameListEntry
+            key={i}
+            forUserId={forUserId}
+            game={g}
+            onSetActive={setActiveGameId}
+            active={g.id === activeGameId}
+          />
         ))}
+        {games.length === 0 ? <EmptyListText>Nothing to see here</EmptyListText> : null}
       </GameList>
-      <GamePreview></GamePreview>
+      <ConnectedGamePreview game={activeGame}></ConnectedGamePreview>
     </MatchHistoryRoot>
   )
 }
 
-const GameListEntryRoot = styled.button`
+const GameListEntryRoot = styled.button<{ $active: boolean }>`
   ${buttonReset};
 
   width: 100%;
@@ -65,6 +88,8 @@ const GameListEntryRoot = styled.button`
 
   border-radius: 4px;
   text-align: left;
+
+  background-color: ${props => (props.$active ? 'rgba(255, 255, 255, 0.04)' : 'transparent')};
 
   & + & {
     margin-top: 8px;
@@ -76,6 +101,12 @@ const GameListEntryTextRow = styled.div<{ $color?: 'primary' | 'secondary' }>`
   align-items: baseline;
   justify-content: space-between;
   color: ${props => (props.$color === 'secondary' ? colorTextSecondary : colorTextPrimary)};
+`
+
+const MapName = styled.div`
+  ${body2};
+  ${singleLine};
+  flex-shrink: 1;
 `
 
 const GameListEntryResult = styled.div<{ $result: ReconciledResult }>`
@@ -91,17 +122,30 @@ const GameListEntryResult = styled.div<{ $result: ReconciledResult }>`
     }
   }};
   text-transform: capitalize;
+  padding-left: 8px;
+  flex-shrink: 0;
 `
+
+export interface ConnectedGameListEntryProps {
+  forUserId: number
+  game: Immutable<GameRecordJson>
+  onSetActive: (gameId: string) => void
+  active: boolean
+}
 
 export function ConnectedGameListEntry({
   forUserId,
   game,
-}: {
-  forUserId: number
-  game: Immutable<GameRecordJson>
-}) {
-  const mapName = 'Fighting Spirit 1.3' // This should cover every match :)
-  const [buttonProps, rippleRef] = useButtonState({})
+  onSetActive,
+  active,
+}: ConnectedGameListEntryProps) {
+  const { id } = game
+  const onClick = useCallback(() => {
+    onSetActive(id)
+  }, [id, onSetActive])
+  const [buttonProps, rippleRef] = useButtonState({ onClick })
+
+  const map = useAppSelector(s => s.maps2.byId.get(game.mapId))
 
   const { results, startTime, config } = game
   const result = useMemo(() => {
@@ -120,11 +164,12 @@ export function ConnectedGameListEntry({
 
   // TODO(tec27): Handle more ranked types, show mode (UMS, Top v Bottom, etc.?)
   const matchType = config.gameSource === 'MATCHMAKING' ? 'Ranked 1v1' : 'Custom game'
+  const mapName = map?.name ?? 'Unknown map'
 
   return (
-    <GameListEntryRoot {...buttonProps}>
+    <GameListEntryRoot {...buttonProps} $active={active}>
       <GameListEntryTextRow $color='primary'>
-        <Body2>{mapName}</Body2>
+        <MapName title={mapName}>{mapName}</MapName>
         <GameListEntryResult $result={result}>{result}</GameListEntryResult>
       </GameListEntryTextRow>
 
@@ -135,5 +180,165 @@ export function ConnectedGameListEntry({
 
       <Ripple ref={rippleRef} />
     </GameListEntryRoot>
+  )
+}
+
+const GamePreviewRoot = styled.div`
+  position: relative;
+  width: 276px;
+  flex-shrink: 0;
+  padding: 16px 16px 20px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  background-color: ${background700};
+  border-radius: 4px;
+`
+
+const NoGameText = styled.div`
+  ${subtitle1};
+  color: ${colorTextFaint};
+  text-align: center;
+`
+
+const GamePreviewPlayers = styled.div`
+  position: absolute;
+  bottom: 12px; /* 12px + 8px from player bottom margin = 20px */
+  left: 16px;
+  right: 16px;
+
+  column-count: 2;
+  column-gap: 16px;
+  padding-top: 48px;
+
+  background: linear-gradient(to bottom, ${rgba(background700, 0)}, ${background700} 40%);
+`
+
+const GamePreviewTeamOverline = styled.div`
+  ${overline};
+  ${singleLine};
+
+  color: ${colorTextSecondary};
+  margin-bottom: 8px;
+`
+
+const GamePreviewPlayer = styled.div`
+  ${body2};
+  ${singleLine};
+
+  height: 20px;
+
+  display: flex;
+  align-items: center;
+
+  margin-bottom: 8px;
+`
+
+const GamePreviewPlayerRace = styled(RaceIcon)`
+  width: auto;
+  height: 20px;
+  margin-right: 4px;
+`
+
+export interface ConnectedGamePreviewProps {
+  game?: Immutable<GameRecordJson>
+}
+
+export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
+  const dispatch = useAppDispatch()
+
+  const map = useAppSelector(s => (game ? s.maps2.byId.get(game.mapId) : undefined))
+  const players = useAppSelector(s => {
+    if (!game) {
+      return []
+    }
+
+    const onlyHumans = game.config.teams.flat().filter(p => !p.isComputer)
+    return onlyHumans.map(p => s.users.byId.get(p.id)!)
+  })
+  const playersMapping = useMemo(
+    () => new Map<number, User>(players.map(p => [p.id, p])),
+    [players],
+  )
+
+  const onMapPreview = useCallback(() => {
+    if (!map) {
+      return
+    }
+
+    dispatch(openSimpleDialog(map.name, <MapPreview map={map} />, false /* hasButton */))
+  }, [map, dispatch])
+
+  if (!game) {
+    return (
+      <GamePreviewRoot>
+        <NoGameText>No game selected</NoGameText>
+      </GamePreviewRoot>
+    )
+  }
+
+  console.dir(game)
+
+  const playerElems: React.ReactNode[] = []
+  if (game.config.gameType === 'topVBottom') {
+    playerElems.push(<GamePreviewTeamOverline key={'team-top'}>Top</GamePreviewTeamOverline>)
+    playerElems.push(
+      ...game.config.teams[0].map((p, i) => {
+        return (
+          <GamePreviewPlayer key={`team-top-${i}`}>
+            <GamePreviewPlayerRace race={p.race} />
+            <span>
+              {p.isComputer ? 'Computer' : playersMapping.get(p.id)?.name ?? 'Unknown player'}
+            </span>
+          </GamePreviewPlayer>
+        )
+      }),
+    )
+
+    playerElems.push(<GamePreviewTeamOverline key={'team-bottom'}>Bottom</GamePreviewTeamOverline>)
+    playerElems.push(
+      ...game.config.teams[1].map((p, i) => {
+        return (
+          <GamePreviewPlayer key={`team-bottom-${i}`}>
+            <GamePreviewPlayerRace race={p.race} />
+            <span>
+              {p.isComputer ? 'Computer' : playersMapping.get(p.id)?.name ?? 'Unknown player'}
+            </span>
+          </GamePreviewPlayer>
+        )
+      }),
+    )
+  } else {
+    // TODO(tec27): Handle UMS game types with 2 teams?
+    playerElems.push(
+      ...game.config.teams.flatMap((t, i) =>
+        t.map((p, j) => {
+          return (
+            <GamePreviewPlayer key={`team-${i}-${j}`}>
+              <GamePreviewPlayerRace race={p.race} />
+              <span>
+                {p.isComputer ? 'Computer' : playersMapping.get(p.id)?.name ?? 'Unknown player'}
+              </span>
+            </GamePreviewPlayer>
+          )
+        }),
+      ),
+    )
+  }
+
+  // NOTE(tec27): If there are an uneven number of items, column-count does really weird stuff
+  // splitting the middle element across both columns, which we definitely don't want. Instead we
+  // just add a dummy entry at the end to balance the columns.
+  if (playerElems.length % 2 !== 0) {
+    playerElems.push(<GamePreviewPlayer key={`placeholder`} />)
+  }
+
+  return (
+    <GamePreviewRoot>
+      <MapThumbnail map={map!} size={256} onPreview={onMapPreview} />
+      <GamePreviewPlayers>{playerElems}</GamePreviewPlayers>
+    </GamePreviewRoot>
   )
 }
