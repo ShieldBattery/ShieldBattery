@@ -12,9 +12,9 @@ import { SlotActions } from '../lobbies/slot-actions'
 import { TextButton } from '../material/button'
 import Chat from '../messaging/chat'
 import { Message } from '../messaging/message-records'
-import { push } from '../navigation/routing'
+import { replace } from '../navigation/routing'
+import { urlPath } from '../network/urls'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { usePrevious } from '../state-hooks'
 import { background700, background800 } from '../styles/colors'
 import { activateParty, deactivateParty, leaveParty, sendChatMessage } from './action-creators'
 import {
@@ -138,29 +138,29 @@ interface PartyViewProps {
 
 export function PartyView(props: PartyViewProps) {
   const dispatch = useAppDispatch()
-  const partyId = decodeURIComponent(props.params.partyId).toLowerCase()
-  const prevPartyId = usePrevious(partyId)
   const party = useAppSelector(s => s.party)
-  const isInParty = !!party.id
-  const prevIsInParty = usePrevious(isInParty)
-  const isLeavingParty = prevIsInParty && !isInParty && prevPartyId === partyId
-
-  // TODO(2Pac): Pull this out into some kind of "isLeaving" hook and share with chat/whispers/lobby
-  useEffect(() => {
-    if (isLeavingParty) {
-      push('/')
-    }
-  }, [isLeavingParty])
+  const partyId = party.id
+  const routePartyId = decodeURIComponent(props.params.partyId)
 
   useEffect(() => {
+    const isInParty = !!partyId
+
     if (isInParty) {
-      dispatch(activateParty(partyId))
-    } else if (!isLeavingParty) {
-      push('/')
+      // The mismatch between the current URL and the party state can occur in a couple of ways. One
+      // is when a user accepts an invite to a new party while already being a member of a different
+      // party that is currently being rendered. Another way is that someone links to their own
+      // party view while you're in a different party.
+      if (routePartyId !== partyId) {
+        replace(urlPath`/parties/${partyId}`)
+      } else {
+        dispatch(activateParty(partyId))
+      }
+    } else {
+      replace('/')
     }
 
     return () => dispatch(deactivateParty(partyId))
-  }, [isInParty, isLeavingParty, partyId, dispatch])
+  }, [partyId, routePartyId, dispatch])
 
   const onSendChatMessage = useCallback(
     (msg: string) => dispatch(sendChatMessage(partyId, msg)),

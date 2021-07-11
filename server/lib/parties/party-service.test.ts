@@ -444,6 +444,45 @@ describe('parties/party-service', () => {
         ],
       })
     })
+
+    describe('when user was already in a party', () => {
+      let oldLeader: PartyUser
+      let oldParty: PartyRecord
+      let newLeader: PartyUser
+      let newParty: PartyRecord
+
+      beforeEach(async () => {
+        oldLeader = user4
+        oldParty = await partyService.invite(oldLeader, USER4_CLIENT_ID, user6)
+        await partyService.acceptInvite(oldParty.id, user6, USER6_CLIENT_ID)
+
+        newLeader = user5
+        newParty = await partyService.invite(newLeader, USER5_CLIENT_ID, user6)
+      })
+
+      test('should remove the user from the old party', async () => {
+        await partyService.acceptInvite(newParty.id, user6, USER6_CLIENT_ID)
+
+        expect(oldParty.members).toMatchObject(new Map([[oldLeader.id, oldLeader]]))
+      })
+
+      test('should remove the user from the new party on disconnect', async () => {
+        await partyService.acceptInvite(newParty.id, user6, USER6_CLIENT_ID)
+        client6.disconnect()
+
+        expect(newParty.members).toMatchObject(new Map([[newLeader.id, newLeader]]))
+      })
+
+      test('should publish "leave" message to the old party path', async () => {
+        await partyService.acceptInvite(newParty.id, user6, USER6_CLIENT_ID)
+
+        expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(oldParty.id), {
+          type: 'leave',
+          user: user6,
+          time: currentTime,
+        })
+      })
+    })
   })
 
   describe('leaveParty', () => {

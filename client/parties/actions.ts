@@ -262,6 +262,7 @@ export interface UpdateLeave {
 export interface UpdateLeaveSelf {
   type: '@parties/updateLeaveSelf'
   payload: {
+    partyId: string
     time: number
   }
 }

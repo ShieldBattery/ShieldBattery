@@ -222,10 +222,10 @@ export default class PartyService {
     // TODO(2Pac): Only allow accepting an invite for electron clients?
 
     const clientSockets = this.getClientSockets(user.id, clientId)
-    const userParty = this.getClientParty(clientSockets)
-    if (userParty) {
-      // TODO(2Pac): Handle switching parties
-    }
+    const oldParty = this.getClientParty(clientSockets)
+
+    // TODO(2Pac): Maybe display a confirmation dialog first to the user if they were already in an
+    // existing party, instead of uncoditionally moving them to a new party?
 
     party.invites.delete(user.id)
     party.members.set(user.id, user)
@@ -237,6 +237,13 @@ export default class PartyService {
       time: this.clock.now(),
     })
     this.subscribeToParty(clientSockets, party)
+
+    if (oldParty) {
+      // NOTE(2Pac): We're removing the user from an old party *after* we subscribe them to a new
+      // one, to better represent a party change. This way the client won't have a brief period of
+      // being in no party, which can change the UI in unexpected ways.
+      this.removeClientFromParty(clientSockets, oldParty)
+    }
   }
 
   leaveParty(partyId: string, userId: number, clientId: string) {
@@ -325,7 +332,13 @@ export default class PartyService {
       })
     }
 
-    this.clientSocketsToPartyId.delete(clientSockets)
+    const clientPartyId = this.clientSocketsToPartyId.get(clientSockets)!
+    // Client's party can change when switching parties, so we must check if they're actually
+    // leaving the party, or have simply switched to a new one.
+    if (clientPartyId === party.id) {
+      this.clientSocketsToPartyId.delete(clientSockets)
+    }
+
     clientSockets.unsubscribe(getPartyPath(party.id))
 
     // TODO(2Pac): Handle party leader leaving

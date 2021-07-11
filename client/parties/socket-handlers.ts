@@ -82,6 +82,7 @@ const eventToAction: EventToActionMap = {
       dispatch({
         type: '@parties/updateLeaveSelf',
         payload: {
+          partyId,
           time,
         },
       })
