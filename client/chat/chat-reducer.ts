@@ -68,7 +68,9 @@ function updateMessages(
     messages: List<ChatMessage | TextMessageRecord>,
   ) => List<ChatMessage | TextMessageRecord>,
 ) {
-  return state.updateIn(['byName', channelName.toLowerCase()], c => {
+  return state.updateIn(['byName', channelName.toLowerCase()], channel => {
+    // TODO(tec27): Remove cast once Immutable infers type properly
+    const c = channel as Channel
     let updated = updateFn(c.messages)
     if (updated === c.messages) {
       return c
@@ -180,7 +182,9 @@ export default keyedReducer(new ChatState(), {
   ['@chat/updateUserActive'](state, action) {
     const { channel, user } = action.payload
     const lowerCaseChannel = channel.toLowerCase()
-    return state.updateIn(['byName', lowerCaseChannel, 'users'], (users: Users) => {
+    return state.updateIn(['byName', lowerCaseChannel, 'users'], usersUncasted => {
+      // TODO(tec27): Remove cast once Immutable infers types properly
+      const users = usersUncasted as Users
       const [active, idle, offline] = updateUserState(user, users.active, users.idle, users.offline)
 
       return users.set('active', active).set('idle', idle).set('offline', offline)
@@ -189,7 +193,9 @@ export default keyedReducer(new ChatState(), {
 
   ['@chat/updateUserIdle'](state, action) {
     const { channel, user } = action.payload
-    return state.updateIn(['byName', channel.toLowerCase(), 'users'], (users: Users) => {
+    return state.updateIn(['byName', channel.toLowerCase(), 'users'], usersUncasted => {
+      // TODO(tec27): Remove cast once Immutable infers types properly
+      const users = usersUncasted as Users
       const [idle, active, offline] = updateUserState(user, users.idle, users.active, users.offline)
 
       return users.set('active', active).set('idle', idle).set('offline', offline)
@@ -199,7 +205,9 @@ export default keyedReducer(new ChatState(), {
   ['@chat/updateUserOffline'](state, action) {
     const { channel, user } = action.payload
     const lowerCaseChannel = channel.toLowerCase()
-    return state.updateIn(['byName', lowerCaseChannel, 'users'], (users: Users) => {
+    return state.updateIn(['byName', lowerCaseChannel, 'users'], usersUncasted => {
+      // TODO(tec27): Remove cast once Immutable infers types properly
+      const users = usersUncasted as Users
       const [offline, active, idle] = updateUserState(user, users.offline, users.active, users.idle)
 
       return users.set('active', active).set('idle', idle).set('offline', offline)
@@ -257,7 +265,9 @@ export default keyedReducer(new ChatState(), {
     const { channelUsers: userList } = action.payload
     return state
       .setIn(['byName', lowerCaseChannel, 'loadingUserList'], false)
-      .updateIn(['byName', lowerCaseChannel, 'users'], (users: Users) => {
+      .updateIn(['byName', lowerCaseChannel, 'users'], usersUncasted => {
+        // TODO(tec27): Remove cast once Immutable infers types properly
+        const users = usersUncasted as Users
         const offlineArray = userList.filter(u => !users.active.has(u.id) && !users.idle.has(u.id))
         return users.set('offline', Map(offlineArray.map(u => [u.id, u])))
       })
@@ -269,7 +279,9 @@ export default keyedReducer(new ChatState(), {
     if (!state.byName.has(lowerCaseChannel)) {
       return state
     }
-    return state.updateIn(['byName', lowerCaseChannel], (c: Channel) => {
+    return state.updateIn(['byName', lowerCaseChannel], channel => {
+      // TODO(tec27): Remove cast once Immutable infers types properly
+      const c = channel as Channel
       return c.set('hasUnread', false).set('activated', true)
     })
   },
@@ -283,7 +295,9 @@ export default keyedReducer(new ChatState(), {
     const hasHistory =
       state.byName.get(lowerCaseChannel)!.messages.size > INACTIVE_CHANNEL_MAX_HISTORY
 
-    return state.updateIn(['byName', lowerCaseChannel], (c: Channel) => {
+    return state.updateIn(['byName', lowerCaseChannel], channel => {
+      // TODO(tec27): Remove cast once Immutable infers types properly
+      const c = channel as Channel
       return c
         .set('messages', c.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY))
         .set('hasHistory', c.hasHistory || hasHistory)

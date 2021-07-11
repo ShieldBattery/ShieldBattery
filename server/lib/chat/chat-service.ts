@@ -97,7 +97,10 @@ export default class ChatService {
 
       this.state = this.state
         .setIn(['channels', originalChannelName, result.userId], channelUser)
-        .updateIn(['users', result.userId], (s = Set()) => s.add(originalChannelName))
+        // TODO(tec27): Remove `any` cast once Immutable properly types this call again
+        .updateIn(['users', result.userId], (s = Set<string>()) =>
+          (s as any).add(originalChannelName),
+        )
 
       this.publisher.publish(getChannelPath(originalChannelName), {
         action: 'join',
@@ -141,8 +144,10 @@ export default class ChatService {
     this.state = updated.size
       ? this.state.setIn(['channels', originalChannelName], updated)
       : this.state.deleteIn(['channels', originalChannelName])
+
+    // TODO(tec27): Remove `any` cast once Immutable properly types this call again
     this.state = this.state.updateIn(['users', userSockets.userId], u =>
-      u.delete(originalChannelName),
+      (u as any).delete(originalChannelName),
     )
 
     this.publisher.publish(getChannelPath(originalChannelName), {

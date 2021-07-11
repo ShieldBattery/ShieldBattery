@@ -1,5 +1,5 @@
 import { NydusClient, RouteHandler } from 'nydus-client'
-import { GameRoute } from '../../common/game-launch-config'
+import { GameLaunchConfig, GameRoute } from '../../common/game-launch-config'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
 import {
@@ -384,7 +384,8 @@ const eventToAction: EventToActionMap = {
     const {
       info: { name: lobbyName, map, gameType, gameSubType, host },
     } = lobby
-    const config = {
+    // TODO(tec27): Remove cast once Immutable infers types properly
+    const config: GameLaunchConfig = {
       localUser: user.toJS(),
       setup: {
         gameId: event.setup.gameId,
@@ -398,7 +399,7 @@ const eventToAction: EventToActionMap = {
         resultCode: event.resultCode,
         serverUrl: makeServerUrl(''),
       },
-    }
+    } as GameLaunchConfig
 
     dispatch({
       type: ACTIVE_GAME_LAUNCH,

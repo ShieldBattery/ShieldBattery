@@ -9,8 +9,8 @@ import { UserSocketsManager } from '../websockets/socket-groups'
 
 export default function (router: Router) {
   router
-    .get('/:userId', checkAllPermissions('banUsers'), getUserBanHistory)
-    .post('/:userId', checkAllPermissions('banUsers'), banUser)
+    .get<void, RouterContext>('/:userId', checkAllPermissions('banUsers'), getUserBanHistory)
+    .post<void, RouterContext>('/:userId', checkAllPermissions('banUsers'), banUser)
 }
 
 async function getUserBanHistory(ctx: RouterContext) {

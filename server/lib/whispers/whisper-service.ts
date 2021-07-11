@@ -86,7 +86,7 @@ export default class WhisperService {
     }
 
     await dbCloseWhisperSession(user.id, target.id)
-    this.userSessions = this.userSessions.update(user.id, s => s.delete(target.id))
+    this.userSessions = this.userSessions.update(user.id, s => s!.delete(target.id))
 
     const updated = this.sessionUsers.get(target.id)!.delete(user.id)
     this.sessionUsers = updated.size

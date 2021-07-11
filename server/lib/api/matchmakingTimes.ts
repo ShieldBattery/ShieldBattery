@@ -47,7 +47,7 @@ const addMatchmakingTimeSchema = Joi.object({
 
 export default function (router: Router) {
   router
-    .get(
+    .get<void, RouterContext>(
       '/:matchmakingType',
       featureEnabled(MATCHMAKING),
       ensureLoggedIn,
@@ -55,7 +55,7 @@ export default function (router: Router) {
       joiValidator({ params: matchmakingTypeSchema }),
       getHistory,
     )
-    .get(
+    .get<void, RouterContext>(
       '/:matchmakingType/future',
       featureEnabled(MATCHMAKING),
       ensureLoggedIn,
@@ -63,7 +63,7 @@ export default function (router: Router) {
       joiValidator({ params: matchmakingTypeSchema }),
       getFutureTimes,
     )
-    .get(
+    .get<void, RouterContext>(
       '/:matchmakingType/past',
       featureEnabled(MATCHMAKING),
       ensureLoggedIn,
@@ -71,7 +71,7 @@ export default function (router: Router) {
       joiValidator({ params: matchmakingTypeSchema }),
       getPastTimes,
     )
-    .post(
+    .post<void, RouterContext>(
       '/:matchmakingType',
       featureEnabled(MATCHMAKING),
       ensureLoggedIn,

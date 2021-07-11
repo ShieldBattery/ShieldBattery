@@ -2,7 +2,7 @@ import cuid from 'cuid'
 import { List, OrderedMap, Record } from 'immutable'
 import { PartyUser } from '../../common/parties'
 import { NETWORK_SITE_CONNECTED } from '../actions'
-import { TextMessageRecord } from '../messaging/message-records'
+import { Message, TextMessageRecord } from '../messaging/message-records'
 import { keyedReducer } from '../reducers/keyed-reducer'
 import {
   InviteToPartyMessageRecord,
@@ -26,7 +26,7 @@ export class PartyRecord extends Record({
   invites: OrderedMap<number, PartyUser>(),
   members: OrderedMap<number, PartyUser>(),
   leader: new PartyUserRecord(),
-  messages: List(),
+  messages: List<Message>(),
   hasUnread: false,
   activated: false,
 }) {}

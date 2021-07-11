@@ -37,7 +37,9 @@ function updateMessages(
   targetName: string,
   updateFn: (messages: List<TextMessageRecord>) => List<TextMessageRecord>,
 ) {
-  return state.updateIn(['byName', targetName], c => {
+  return state.updateIn(['byName', targetName], session => {
+    const c = session as Session
+
     let updated = updateFn(c.messages)
     if (updated === c.messages) {
       return c
@@ -134,7 +136,10 @@ export default keyedReducer(new WhisperState(), {
   ['@whispers/loadMessageHistoryBegin'](state, action) {
     const { target } = action.payload
 
-    return state.updateIn(['byName', target.toLowerCase()], s => s.set('loadingHistory', true))
+    // TODO(tec27): Remove cast once Immutable infers types properly
+    return state.updateIn(['byName', target.toLowerCase()], s =>
+      (s as Session).set('loadingHistory', true),
+    )
   },
 
   ['@whispers/loadMessageHistory'](state, action) {
@@ -171,7 +176,8 @@ export default keyedReducer(new WhisperState(), {
       return state
     }
     return state.updateIn(['byName', name], s => {
-      return s.set('hasUnread', false).set('activated', true)
+      // TODO(tec27): Remove cast once Immutable infers types properly
+      return (s as Session).set('hasUnread', false).set('activated', true)
     })
   },
 
@@ -183,7 +189,9 @@ export default keyedReducer(new WhisperState(), {
     }
     const hasHistory = state.byName.get(name)!.messages.size > INACTIVE_CHANNEL_MAX_HISTORY
 
-    return state.updateIn(['byName', name], s => {
+    return state.updateIn(['byName', name], session => {
+      // TODO(tec27): Remove cast once Immutable infers types properly
+      const s = session as Session
       return s
         .set('messages', s.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY))
         .set('hasHistory', s.hasHistory || hasHistory)

@@ -396,7 +396,11 @@ export class AdminUserApi extends HttpApi {
   }
 
   protected applyRoutes(router: Router): void {
-    router.get('/:searchTerm', checkAnyPermission('banUsers', 'editPermissions'), this.findUser)
+    router.get<void, RouterContext>(
+      '/:searchTerm',
+      checkAnyPermission('banUsers', 'editPermissions'),
+      this.findUser,
+    )
   }
 
   findUser = async (ctx: RouterContext) => {

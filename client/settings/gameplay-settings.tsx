@@ -186,7 +186,8 @@ export default class GameplaySettings extends React.Component<GameplaySettingsPr
       return null
     }
 
-    const formScrModel: GameplaySettingsModel = { ...scrSettings.toJS() }
+    // TODO(tec27): remove cast once Immutable infers types properly
+    const formScrModel: GameplaySettingsModel = { ...scrSettings.toJS() } as GameplaySettingsModel
 
     return (
       <GameplayRemasteredForm

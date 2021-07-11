@@ -13,7 +13,7 @@ export class FakeNydusServer
   extends EventEmitter
   implements Omit<Pick<NydusServer, keyof NydusServer>, keyof EventEmitter>
 {
-  clients: IMap<string, NydusClient> = IMap()
+  clients = IMap<string, NydusClient>()
 
   fakeSubscriptions = new Map<string, Set<InspectableNydusClient>>()
 

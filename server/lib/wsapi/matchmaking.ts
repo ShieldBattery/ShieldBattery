@@ -99,7 +99,7 @@ async function pickMap(matchmakingType: MatchmakingType, players: List<Matchmaki
   // not be replaced with a random one).
 
   const mapPool = ISet(currentMapPool.maps)
-  let preferredMapIds = ISet()
+  let preferredMapIds = ISet<string>()
   let mapIdsByPlayer = IMap<number, ISet<string>>()
 
   for (const p of players) {
@@ -117,7 +117,8 @@ async function pickMap(matchmakingType: MatchmakingType, players: List<Matchmaki
 
   // TODO(tec27): remove the need for these casts by TSifying the map info stuff
   const [preferredMaps, randomMaps] = await Promise.all([
-    getMapInfo(preferredMapIds.toJS()),
+    // TODO(tec27): Remove cast once immutable's types are fixed to the correct return here
+    getMapInfo(preferredMapIds.toJS() as string[]),
     getMapInfo(randomMapIds),
   ])
   if (preferredMapIds.size + randomMapIds.length !== preferredMaps.length + randomMaps.length) {
