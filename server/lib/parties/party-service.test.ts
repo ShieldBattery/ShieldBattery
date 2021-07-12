@@ -557,7 +557,7 @@ describe('parties/party-service', () => {
     })
 
     test('should publish "leaderChange" message to the party path when leader leaves', () => {
-      partyService.leaveParty(party.id, leader.id, USER1_CLIENT_ID, currentTime)
+      partyService.leaveParty(party.id, leader.id, USER1_CLIENT_ID)
 
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'leaderChange',

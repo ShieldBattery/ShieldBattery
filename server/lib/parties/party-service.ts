@@ -357,7 +357,7 @@ export default class PartyService {
       this.publisher.publish(getPartyPath(party.id), {
         type: 'leaderChange',
         leader: newLeader,
-        time,
+        time: this.clock.now(),
       })
     }
   }
