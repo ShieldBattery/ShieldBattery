@@ -335,7 +335,7 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
 
   return (
     <GamePreviewRoot>
-      {map ? <MapThumbnail map={map} size={256} onPreview={onMapPreview} /> : null}
+      {map ? <MapThumbnail key={map.hash} map={map} size={256} onPreview={onMapPreview} /> : null}
       <GamePreviewPlayers>{playerElems}</GamePreviewPlayers>
     </GamePreviewRoot>
   )
