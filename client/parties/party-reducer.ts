@@ -8,6 +8,7 @@ import {
   InviteToPartyMessageRecord,
   JoinPartyMessageRecord,
   LeavePartyMessageRecord,
+  PartyLeaderChangeMessageRecord,
   SelfJoinPartyMessageRecord,
 } from './party-message-records'
 
@@ -137,6 +138,37 @@ export default keyedReducer(new PartyRecord(), {
       )
   },
 
+  ['@parties/updateLeaveSelf'](state, action) {
+    const { partyId } = action.payload
+
+    if (partyId !== state.id) {
+      return state
+    }
+
+    return new PartyRecord()
+  },
+
+  ['@parties/updateLeaderChange'](state, action) {
+    const { partyId, leader, time } = action.payload
+
+    if (partyId !== state.id) {
+      return state
+    }
+
+    return state
+      .set('leader', new PartyUserRecord(leader))
+      .set('hasUnread', !state.activated)
+      .update('messages', messages =>
+        messages.push(
+          new PartyLeaderChangeMessageRecord({
+            id: cuid(),
+            time,
+            userId: leader.id,
+          }),
+        ),
+      )
+  },
+
   ['@parties/updateChatMessage'](state, action) {
     const { partyId, from, time, text } = action.payload
 
@@ -154,16 +186,6 @@ export default keyedReducer(new PartyRecord(), {
         }),
       ),
     )
-  },
-
-  ['@parties/updateLeaveSelf'](state, action) {
-    const { partyId } = action.payload
-
-    if (partyId !== state.id) {
-      return state
-    }
-
-    return new PartyRecord()
   },
 
   ['@parties/activateParty'](state, action) {

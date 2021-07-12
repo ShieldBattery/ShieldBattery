@@ -30,6 +30,7 @@ export type PartyActions =
   | UpdateJoin
   | UpdateLeave
   | UpdateLeaveSelf
+  | UpdateLeaderChange
   | UpdateChatMessage
 
 export interface InviteToPartyBegin {
@@ -263,6 +264,15 @@ export interface UpdateLeaveSelf {
   type: '@parties/updateLeaveSelf'
   payload: {
     partyId: string
+    time: number
+  }
+}
+
+export interface UpdateLeaderChange {
+  type: '@parties/updateLeaderChange'
+  payload: {
+    partyId: string
+    leader: PartyUser
     time: number
   }
 }

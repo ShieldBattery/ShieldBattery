@@ -98,6 +98,18 @@ const eventToAction: EventToActionMap = {
     }
   },
 
+  leaderChange: (partyId, event) => {
+    const { leader, time } = event
+    return {
+      type: '@parties/updateLeaderChange',
+      payload: {
+        partyId,
+        leader,
+        time,
+      },
+    }
+  },
+
   chatMessage(partyId, event) {
     const { from, time, text } = event
 

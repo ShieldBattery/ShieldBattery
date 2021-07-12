@@ -61,3 +61,17 @@ export const LeavePartyMessage = React.memo<{ time: number; userId: number }>(pr
     </SystemMessage>
   )
 })
+
+export const PartyLeaderChangeMessage = React.memo<{ time: number; userId: number }>(props => {
+  const { time, userId } = props
+  return (
+    <SystemMessage time={time}>
+      <span>
+        <SystemImportant>
+          <ConnectedUsername userId={userId} />
+        </SystemImportant>{' '}
+        is now the leader
+      </span>
+    </SystemMessage>
+  )
+})

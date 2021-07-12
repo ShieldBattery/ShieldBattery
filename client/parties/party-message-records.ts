@@ -6,6 +6,7 @@ export enum PartyMessageType {
   InviteToParty = 'inviteToParty',
   JoinParty = 'joinParty',
   LeaveParty = 'leaveParty',
+  LeaderChange = 'leaderChange',
 }
 
 export class SelfJoinPartyMessageRecord
@@ -44,8 +45,18 @@ export class LeavePartyMessageRecord
   })
   implements BaseMessage {}
 
+export class PartyLeaderChangeMessageRecord
+  extends Record({
+    id: '',
+    type: PartyMessageType.LeaderChange as typeof PartyMessageType.LeaderChange,
+    time: 0,
+    userId: 0,
+  })
+  implements BaseMessage {}
+
 export type PartyMessage =
   | SelfJoinPartyMessageRecord
   | InviteToPartyMessageRecord
   | JoinPartyMessageRecord
   | LeavePartyMessageRecord
+  | PartyLeaderChangeMessageRecord

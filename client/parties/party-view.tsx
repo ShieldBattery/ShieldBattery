@@ -21,6 +21,7 @@ import {
   InviteToPartyMessage,
   JoinPartyMessage,
   LeavePartyMessage,
+  PartyLeaderChangeMessage,
   SelfJoinPartyMessage,
 } from './party-message-layout'
 import { PartyMessageType } from './party-message-records'
@@ -127,6 +128,8 @@ function renderPartyMessage(msg: Message) {
       return <JoinPartyMessage key={msg.id} time={msg.time} userId={msg.userId} />
     case PartyMessageType.LeaveParty:
       return <LeavePartyMessage key={msg.id} time={msg.time} userId={msg.userId} />
+    case PartyMessageType.LeaderChange:
+      return <PartyLeaderChangeMessage key={msg.id} time={msg.time} userId={msg.userId} />
     default:
       return null
   }
