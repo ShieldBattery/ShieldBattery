@@ -1,6 +1,11 @@
+import { Set } from 'immutable'
 import type { NydusClient, RouteHandler, RouteInfo } from 'nydus-client'
-import { NotificationEvent } from '../../common/notifications'
+import { NotificationEvent, NotificationType } from '../../common/notifications'
 import { dispatch, Dispatchable } from '../dispatch-registry'
+
+const ELECTRON_ONLY_NOTIFICATION_TYPES = Set<Readonly<NotificationType>>([
+  NotificationType.PartyInvite,
+])
 
 type EventToActionMap = {
   [E in NotificationEvent['type']]?: (
@@ -10,19 +15,27 @@ type EventToActionMap = {
 
 const eventToAction: EventToActionMap = {
   serverInit: event => {
-    const { notifications } = event
+    const notifications = IS_ELECTRON
+      ? event.notifications
+      : event.notifications.filter(n => !ELECTRON_ONLY_NOTIFICATION_TYPES.has(n.type))
+
     return {
       type: '@notifications/serverInit',
       payload: { notifications },
     }
   },
 
-  add: event => {
+  add: event => dispatch => {
     const { notification } = event
-    return {
+
+    if (!IS_ELECTRON && ELECTRON_ONLY_NOTIFICATION_TYPES.has(notification.type)) {
+      return
+    }
+
+    dispatch({
       type: '@notifications/add',
       payload: { notification },
-    }
+    })
   },
 
   clear: event => {
