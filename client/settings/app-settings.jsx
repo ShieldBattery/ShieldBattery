@@ -33,7 +33,7 @@ const TestSoundButton = styled(TextButton)`
 `
 
 const IndentedCheckbox = styled(CheckBox)`
-  margin-left: 16px;
+  margin-left: 28px;
 `
 
 @form()
