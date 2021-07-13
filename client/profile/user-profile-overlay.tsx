@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react'
-import { PARTIES, USER_PROFILES } from '../../common/flags'
+import { PARTIES } from '../../common/flags'
 import { User } from '../../common/users/user-info'
 import MenuItem from '../material/menu/item'
 import { Popover, PopoverProps } from '../material/popover'
@@ -68,10 +68,8 @@ export function ConnectedUserProfileOverlay({
     return null
   }
 
-  const actions = []
-  if (USER_PROFILES) {
-    actions.push(<MenuItem key='profile' text='View profile' onClick={onViewProfileClick} />)
-  }
+  const actions: React.ReactNode[] = []
+  actions.push(<MenuItem key='profile' text='View profile' onClick={onViewProfileClick} />)
 
   if (user.id !== selfUser.id) {
     actions.push(<MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />)

@@ -4,7 +4,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { Route, Switch, useLocation } from 'wouter'
-import { MATCHMAKING, USER_PROFILES } from '../common/flags'
+import { MATCHMAKING } from '../common/flags'
 import { MatchmakingType } from '../common/matchmaking'
 import { EMAIL_VERIFICATION_ID, NotificationType } from '../common/notifications'
 import { openOverlay } from './activities/action-creators'
@@ -353,19 +353,15 @@ class MainLayout extends React.Component {
               {lobbyRoute}
               {matchmakingRoute}
               {partyRoute}
-              {USER_PROFILES ? (
-                <Route path='/users/:userId/:username/:subPage?'>
-                  {params => (
-                    <ConnectedUserProfilePage
-                      userId={Number(params.userId)}
-                      username={params.username}
-                      subPage={params.subPage}
-                    />
-                  )}
-                </Route>
-              ) : (
-                <></>
-              )}
+              <Route path='/users/:userId/:username/:subPage?'>
+                {params => (
+                  <ConnectedUserProfilePage
+                    userId={Number(params.userId)}
+                    username={params.username}
+                    subPage={params.subPage}
+                  />
+                )}
+              </Route>
               <Route path='/whispers/:target' component={Whisper} />
               {/* If no paths match, redirect the page to the "index". */}
               <Route>

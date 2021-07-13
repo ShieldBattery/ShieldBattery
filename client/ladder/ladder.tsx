@@ -3,7 +3,6 @@ import { List } from 'immutable'
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { areEqual, FixedSizeList } from 'react-window'
 import styled from 'styled-components'
-import { USER_PROFILES } from '../../common/flags'
 import { LadderPlayer } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
 import { User } from '../../common/users/user-info'
@@ -238,9 +237,7 @@ export function LadderTable(props: LadderTableProps) {
   }, [isLoading, lastError])
 
   const onRowSelected = useCallback((userId: number, username: string) => {
-    if (USER_PROFILES) {
-      navigateToUserProfile(userId, username)
-    }
+    navigateToUserProfile(userId, username)
   }, [])
 
   const curTimeRef = useValueAsRef(curTime)

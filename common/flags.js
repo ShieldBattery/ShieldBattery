@@ -19,5 +19,3 @@ export const MATCHMAKING = ON()
 export const BW_1161 = DEV()
 // Allow party related features (invite players, decline/accept an invite, etc.)
 export const PARTIES = DEV()
-/** Allow users to view profiles of other users and themselves. */
-export const USER_PROFILES = ON()
