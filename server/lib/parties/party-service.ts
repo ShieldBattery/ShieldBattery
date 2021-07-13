@@ -324,6 +324,45 @@ export default class PartyService {
     this.removeClientFromParty(clientSockets, party)
   }
 
+  /**
+   * Changes the party leader. Only the current party leader can initiate the change. This is the
+   * same action that happens automatically when a current party leader leaves the party.
+   */
+  changeLeader(partyId: string, oldLeader: PartyUser, newLeader: PartyUser) {
+    const party = this.parties.get(partyId)
+    if (!party || !party.members.has(oldLeader.id)) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.NotFoundOrNotInParty,
+        "Party not found or you're not in it",
+      )
+    }
+
+    if (oldLeader.id !== party.leader.id) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.InsufficientPermissions,
+        'Only party leaders can change leaders',
+      )
+    }
+
+    if (!party.members.has(newLeader.id)) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.InvalidAction,
+        "Can't make leader a player who is not in your party",
+      )
+    }
+
+    if (oldLeader.id === newLeader.id) {
+      throw new PartyServiceError(PartyServiceErrorCode.InvalidAction, "You're already a leader")
+    }
+
+    party.leader = newLeader
+    this.publisher.publish(getPartyPath(party.id), {
+      type: 'leaderChange',
+      leader: newLeader,
+      time: this.clock.now(),
+    })
+  }
+
   private async maybeSendInviteNotification(party: PartyRecord, user: PartyUser) {
     try {
       const notification = (
