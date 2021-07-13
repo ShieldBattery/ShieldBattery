@@ -2,14 +2,13 @@ import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
-import { MATCHMAKING } from '../../../common/flags'
+import { container } from 'tsyringe'
 import {
   AddMatchmakingTimeBody,
   ALL_MATCHMAKING_TYPES,
   MatchmakingType,
 } from '../../../common/matchmaking'
-import { featureEnabled } from '../flags/feature-enabled'
-import matchmakingStatusInstance from '../matchmaking/matchmaking-status-instance'
+import MatchmakingStatusService from '../matchmaking/matchmaking-status'
 import {
   addMatchmakingTime,
   getCurrentMatchmakingTime,
@@ -49,7 +48,6 @@ export default function (router: Router) {
   router
     .get<void, RouterContext>(
       '/:matchmakingType',
-      featureEnabled(MATCHMAKING),
       ensureLoggedIn,
       checkAllPermissions('manageMatchmakingTimes'),
       joiValidator({ params: matchmakingTypeSchema }),
@@ -57,7 +55,6 @@ export default function (router: Router) {
     )
     .get<void, RouterContext>(
       '/:matchmakingType/future',
-      featureEnabled(MATCHMAKING),
       ensureLoggedIn,
       checkAllPermissions('manageMatchmakingTimes'),
       joiValidator({ params: matchmakingTypeSchema }),
@@ -65,7 +62,6 @@ export default function (router: Router) {
     )
     .get<void, RouterContext>(
       '/:matchmakingType/past',
-      featureEnabled(MATCHMAKING),
       ensureLoggedIn,
       checkAllPermissions('manageMatchmakingTimes'),
       joiValidator({ params: matchmakingTypeSchema }),
@@ -73,7 +69,6 @@ export default function (router: Router) {
     )
     .post<void, RouterContext>(
       '/:matchmakingType',
-      featureEnabled(MATCHMAKING),
       ensureLoggedIn,
       checkAllPermissions('manageMatchmakingTimes'),
       joiValidator({ params: matchmakingTypeSchema, body: addMatchmakingTimeSchema }),
@@ -81,7 +76,6 @@ export default function (router: Router) {
     )
     .delete(
       '/:matchmakingTimeId',
-      featureEnabled(MATCHMAKING),
       ensureLoggedIn,
       checkAllPermissions('manageMatchmakingTimes'),
       deleteFutureTime,
@@ -172,7 +166,8 @@ async function addNew(ctx: RouterContext, next: Koa.Next) {
 
   ctx.body = await addMatchmakingTime(matchmakingType, new Date(startDate), !!enabled)
 
-  matchmakingStatusInstance?.maybePublish(matchmakingType)
+  const matchmakingStatus = container.resolve(MatchmakingStatusService)
+  matchmakingStatus.maybePublish(matchmakingType)
 }
 
 async function deleteFutureTime(ctx: Koa.Context, next: Koa.Next) {
@@ -187,7 +182,8 @@ async function deleteFutureTime(ctx: Koa.Context, next: Koa.Next) {
 
   await removeMatchmakingTime(matchmakingTimeId)
 
-  matchmakingStatusInstance?.maybePublish(matchmakingTime.type)
+  const matchmakingStatus = container.resolve(MatchmakingStatusService)
+  matchmakingStatus.maybePublish(matchmakingTime.type)
 
   ctx.status = 204
 }

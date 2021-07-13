@@ -1,7 +1,5 @@
 import httpErrors from 'http-errors'
-import { MATCHMAKING } from '../../../common/flags'
 import { isValidMatchmakingType } from '../../../common/matchmaking'
-import { featureEnabled } from '../flags/feature-enabled'
 import { getMapInfo } from '../maps/map-models'
 import {
   addMapPool,
@@ -15,28 +13,15 @@ import ensureLoggedIn from '../session/ensure-logged-in'
 
 export default function (router) {
   router
-    .get(
-      '/:matchmakingType',
-      featureEnabled(MATCHMAKING),
-      ensureLoggedIn,
-      checkAllPermissions('manageMapPools'),
-      getHistory,
-    )
-    .get('/:matchmakingType/current', featureEnabled(MATCHMAKING), ensureLoggedIn, getCurrent)
+    .get('/:matchmakingType', ensureLoggedIn, checkAllPermissions('manageMapPools'), getHistory)
+    .get('/:matchmakingType/current', ensureLoggedIn, getCurrent)
     .post(
       '/:matchmakingType',
-      featureEnabled(MATCHMAKING),
       ensureLoggedIn,
       checkAllPermissions('manageMapPools'),
       createNewMapPool,
     )
-    .delete(
-      '/:mapPoolId',
-      featureEnabled(MATCHMAKING),
-      ensureLoggedIn,
-      checkAllPermissions('manageMapPools'),
-      removeMapPool,
-    )
+    .delete('/:mapPoolId', ensureLoggedIn, checkAllPermissions('manageMapPools'), removeMapPool)
 }
 
 async function getHistory(ctx, next) {

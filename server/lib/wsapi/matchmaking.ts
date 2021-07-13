@@ -6,7 +6,6 @@ import CancelToken from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { MATCHMAKING_ACCEPT_MATCH_TIME, validRace } from '../../../common/constants'
-import { MATCHMAKING } from '../../../common/flags'
 import { GameRoute } from '../../../common/game-launch-config'
 import { MapInfoJson, toMapInfoJson } from '../../../common/maps'
 import { isValidMatchmakingType, MatchmakingType } from '../../../common/matchmaking'
@@ -18,7 +17,7 @@ import { MatchmakingDebugDataService } from '../matchmaking/debug-data'
 import MatchAcceptor, { MatchAcceptorCallbacks } from '../matchmaking/match-acceptor'
 import { TimedMatchmaker } from '../matchmaking/matchmaker'
 import { MatchmakingPlayer } from '../matchmaking/matchmaking-player'
-import matchmakingStatusInstance from '../matchmaking/matchmaking-status-instance'
+import MatchmakingStatusService from '../matchmaking/matchmaking-status'
 import {
   createInitialMatchmakingRating,
   getHighRankedRating,
@@ -447,6 +446,7 @@ export class MatchmakingApi {
     private nydus: NydusServer,
     private userSockets: UserSocketsManager,
     private clientSockets: ClientSocketsManager,
+    private matchmakingStatus: MatchmakingStatusService,
   ) {
     this.matchmakers = IMap(
       Object.values(MatchmakingType).map(type => [
@@ -526,7 +526,7 @@ export class MatchmakingApi {
     const user = this.getUser(data)
     const client = this.getClient(data)
 
-    if (matchmakingStatusInstance && !matchmakingStatusInstance.isEnabled(type)) {
+    if (!this.matchmakingStatus.isEnabled(type)) {
       throw new errors.Conflict('matchmaking is currently disabled')
     }
 
@@ -641,7 +641,6 @@ export class MatchmakingApi {
 }
 
 export default function registerApi(nydus: NydusServer) {
-  if (!MATCHMAKING) return null
   const api = container.resolve(MatchmakingApi)
   registerApiRoutes(api, nydus)
   return api

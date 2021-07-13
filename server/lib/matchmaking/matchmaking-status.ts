@@ -1,9 +1,10 @@
 import { is, Map, Record } from 'immutable'
 import { NydusServer } from 'nydus'
-import { injectable } from 'tsyringe'
+import { singleton } from 'tsyringe'
 import { MatchmakingType } from '../../../common/matchmaking'
 import log from '../logging/logger'
 import { getCurrentMatchmakingTime, getMatchmakingSchedule } from '../models/matchmaking-times'
+import { ClientSocketsManager } from '../websockets/socket-groups'
 
 class StatusRecord extends Record({
   type: null as MatchmakingType | null,
@@ -13,12 +14,27 @@ class StatusRecord extends Record({
   nextEndDate: null as Date | null,
 }) {}
 
-@injectable()
-export default class MatchmakingStatus {
+@singleton()
+export default class MatchmakingStatusService {
   private statusByType = Map<MatchmakingType, StatusRecord>()
   private timerByType = Map<MatchmakingType, ReturnType<typeof setTimeout>>()
 
-  constructor(private nydus: NydusServer) {
+  constructor(private nydus: NydusServer, private clientSockets: ClientSocketsManager) {
+    clientSockets.on('newClient', client => {
+      if (client.clientType === 'electron') {
+        client.subscribe('/matchmakingStatus', () => {
+          const statuses = []
+          for (const type of Object.values(MatchmakingType)) {
+            const status = this.statusByType.get(type)
+            if (status) {
+              statuses.push(status)
+            }
+          }
+          return statuses
+        })
+      }
+    })
+
     for (const type of Object.values(MatchmakingType)) {
       this.maybePublish(type)
     }
@@ -26,18 +42,6 @@ export default class MatchmakingStatus {
 
   isEnabled(type: MatchmakingType): boolean {
     return !!this.statusByType.get(type)?.enabled
-  }
-
-  subscribe(socket: any) {
-    const statuses = []
-    for (const type of Object.values(MatchmakingType)) {
-      const status = this.statusByType.get(type)
-      if (status) {
-        statuses.push(status)
-      }
-    }
-
-    this.nydus.subscribeClient(socket, '/matchmakingStatus', statuses)
   }
 
   private async getStatus(type: MatchmakingType) {

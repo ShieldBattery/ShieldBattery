@@ -4,7 +4,6 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { Route, Switch, useLocation } from 'wouter'
-import { MATCHMAKING } from '../common/flags'
 import { MatchmakingType } from '../common/matchmaking'
 import { EMAIL_VERIFICATION_ID, NotificationType } from '../common/notifications'
 import { openOverlay } from './activities/action-creators'
@@ -52,7 +51,6 @@ import { PartyTitle } from './parties/app-bar-title'
 import { PartyView } from './parties/party-view'
 import { ConnectedUserProfilePage } from './profile/user-profile'
 import LoadingIndicator from './progress/dots'
-import { openSnackbar } from './snackbars/action-creators'
 import ConnectedSnackbar from './snackbars/connected-snackbar'
 import { isShieldBatteryHealthy, isStarcraftHealthy } from './starcraft/is-starcraft-healthy'
 import { colorTextSecondary } from './styles/colors'
@@ -413,21 +411,17 @@ class MainLayout extends React.Component {
   }
 
   onFindMatchClick = () => {
-    if (!MATCHMAKING) {
-      this.props.dispatch(openSnackbar({ message: 'Not implemented yet. Coming soon!' }))
+    if (!isShieldBatteryHealthy(this.props)) {
+      this.props.dispatch(openDialog(DialogType.ShieldBatteryHealth))
+    } else if (!isStarcraftHealthy(this.props)) {
+      this.props.dispatch(openDialog(DialogType.StarcraftHealth))
     } else {
-      if (!isShieldBatteryHealthy(this.props)) {
-        this.props.dispatch(openDialog(DialogType.ShieldBatteryHealth))
-      } else if (!isStarcraftHealthy(this.props)) {
-        this.props.dispatch(openDialog(DialogType.StarcraftHealth))
-      } else {
-        const matchmakingStatus = this.props.matchmakingStatus.types.get('1v1')
+      const matchmakingStatus = this.props.matchmakingStatus.types.get('1v1')
 
-        if (matchmakingStatus && matchmakingStatus.enabled) {
-          this.props.dispatch(openOverlay('findMatch'))
-        } else {
-          this.setState({ matchmakingDisabledOverlayOpen: true })
-        }
+      if (matchmakingStatus && matchmakingStatus.enabled) {
+        this.props.dispatch(openOverlay('findMatch'))
+      } else {
+        this.setState({ matchmakingDisabledOverlayOpen: true })
       }
     }
   }
