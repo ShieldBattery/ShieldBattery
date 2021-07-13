@@ -310,7 +310,6 @@ export default class PartyService {
       throw new PartyServiceError(PartyServiceErrorCode.InvalidAction, "Can't kick yourself")
     }
 
-    party.members.delete(target.id)
     this.publisher.publish(getPartyPath(party.id), {
       type: 'kick',
       target,
@@ -319,10 +318,7 @@ export default class PartyService {
 
     const clientId = this.userIdToClientId.get(target.id)!
     const clientSockets = this.getClientSockets(target.id, clientId)
-    this.clientSocketsToPartyId.delete(clientSockets)
-    this.userIdToClientId.delete(target.id)
-
-    clientSockets.unsubscribe(getPartyPath(party.id))
+    this.removeClientFromParty(clientSockets, party)
   }
 
   private clearInviteNotification(partyId: string, user: PartyUser) {

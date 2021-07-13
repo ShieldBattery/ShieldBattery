@@ -132,7 +132,7 @@ const eventToAction: EventToActionMap = {
     const { target, time } = event
     const selfUser = getState().auth.user
     if (selfUser.id === target.id) {
-      // It was us who have been kicked from the party
+      // It was us who has been kicked from the party
       dispatch(openSnackbar({ message: 'You have been kicked from the party.' }))
       dispatch({
         type: '@parties/updateKickSelf',
