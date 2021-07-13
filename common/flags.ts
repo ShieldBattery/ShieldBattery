@@ -9,11 +9,11 @@ const DEV = () => process.env.NODE_ENV !== 'production'
 const ON = () => true
 /* eslint-enable @typescript-eslint/no-unused-vars */
 
-// Show the "dev mode" indicator on the site (don't move this past dev mode)
+/** Show the "dev mode" indicator on the site (don't move this past dev mode). */
 export const DEV_INDICATOR = DEV()
-// Allow users to join multiple channels (and leave channels)
+/** Allow users to join multiple channels (and leave channels). */
 export const MULTI_CHANNEL = DEV()
-// Allow launching with BW 1.16.1 installation
+/** Allow launching with BW 1.16.1 installation. */
 export const BW_1161 = DEV()
-// Allow party related features (invite players, decline/accept an invite, etc.)
+/** Allow party related features (invite players, decline/accept an invite, etc.). */
 export const PARTIES = DEV()
