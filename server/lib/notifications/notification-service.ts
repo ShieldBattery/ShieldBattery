@@ -10,6 +10,7 @@ import {
   markRead,
   NotificationData,
   retrieveNotifications,
+  SearchNotificationData,
 } from './notification-model'
 
 export function getNotificationsPath(userId: number): string {
@@ -53,7 +54,7 @@ export default class NotificationService {
    */
   retrieveNotifications(props: {
     userId: number
-    type?: string
+    data?: SearchNotificationData
     visible?: boolean
     limit?: number
   }) {

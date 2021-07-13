@@ -106,7 +106,7 @@ describe('parties/party-service', () => {
       beforeEach(async () => {
         leader = user1
         party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
-        partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
+        await partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
       })
 
       test('should throw if invited by non-leader', async () => {
@@ -115,17 +115,15 @@ describe('parties/party-service', () => {
         ).rejects.toThrowErrorMatchingInlineSnapshot(`"Only party leader can invite people"`)
       })
 
-      test('should throw if invite already exists', async () => {
+      test('should not throw if invite already exists', async () => {
         await partyService.invite(leader, USER1_CLIENT_ID, user3)
 
-        await expect(
-          partyService.invite(leader, USER1_CLIENT_ID, user3),
-        ).rejects.toThrowErrorMatchingInlineSnapshot(`"An invite already exists for this user"`)
+        await expect(partyService.invite(leader, USER1_CLIENT_ID, user3)).resolves.not.toThrow()
       })
 
       test('should throw if invited user is already in the party', async () => {
         await partyService.invite(leader, USER1_CLIENT_ID, user3)
-        partyService.acceptInvite(party.id, user3, USER3_CLIENT_ID)
+        await partyService.acceptInvite(party.id, user3, USER3_CLIENT_ID)
 
         await expect(
           partyService.invite(leader, USER1_CLIENT_ID, user3),
@@ -212,6 +210,14 @@ describe('parties/party-service', () => {
       })
     })
 
+    test('should not create the invite notification if visible one already exists', async () => {
+      notificationService.retrieveNotifications = jest.fn().mockResolvedValue([{ visible: true }])
+      leader = user1
+      party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
+
+      expect(notificationService.addNotification).not.toHaveBeenCalled()
+    })
+
     test('should throw when notification creation fails', async () => {
       notificationService.addNotification = jest.fn().mockRejectedValue(undefined)
 
@@ -251,34 +257,6 @@ describe('parties/party-service', () => {
 
       expect(notificationService.clearById).toHaveBeenCalledWith(user2.id, notificationId)
     })
-
-    test('should throw if the party is not found', () => {
-      expect(() =>
-        partyService.decline('INVALID_PARTY_ID', user2),
-      ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not invited to it"`)
-    })
-
-    test('should throw if not invited to the party', () => {
-      expect(() => partyService.decline(party.id, user4)).toThrowErrorMatchingInlineSnapshot(
-        `"Party not found or you're not invited to it"`,
-      )
-    })
-
-    test('should update the party record when declined', () => {
-      partyService.decline(party.id, user2)
-
-      expect(party.invites).toMatchObject(new Map([[user3.id, user3]]))
-    })
-
-    test('should publish "decline" message to the party path', () => {
-      partyService.decline(party.id, user2)
-
-      expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
-        type: 'decline',
-        target: user2,
-        time: currentTime,
-      })
-    })
   })
 
   describe('removeInvite', () => {
@@ -307,42 +285,44 @@ describe('parties/party-service', () => {
       expect(notificationService.clearById).toHaveBeenCalledWith(user2.id, notificationId)
     })
 
-    test('should throw if the party is not found', () => {
-      expect(() =>
+    test('should throw if the party is not found', async () => {
+      await expect(
         partyService.removeInvite('INVALID_PARTY_ID', leader, user2),
-      ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
     })
 
-    test('should throw if not in party', () => {
-      expect(() =>
+    test('should throw if not in party', async () => {
+      await expect(
         partyService.removeInvite(party.id, user2, user4),
-      ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
     })
 
     test('should throw if removed by non-leader', async () => {
       await partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
 
-      expect(() =>
+      await expect(
         partyService.removeInvite(party.id, user2, user3),
-      ).toThrowErrorMatchingInlineSnapshot(
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
         `"Only party leaders can remove invites to other people"`,
       )
     })
 
-    test('should throw if the user is not invited', () => {
-      expect(() =>
+    test('should throw if the user is not invited', async () => {
+      await expect(
         partyService.removeInvite(party.id, leader, user4),
-      ).toThrowErrorMatchingInlineSnapshot(`"Can't remove invite for a user that wasn't invited"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `"Can't remove invite for a user that wasn't invited"`,
+      )
     })
 
-    test('should update the party record when removed', () => {
-      partyService.removeInvite(party.id, leader, user2)
+    test('should update the party record when removed', async () => {
+      await partyService.removeInvite(party.id, leader, user2)
 
       expect(party.invites).toMatchObject(new Map([[user3.id, user3]]))
     })
 
-    test('should publish "uninvite" message to the party path', () => {
-      partyService.removeInvite(party.id, leader, user2)
+    test('should publish "uninvite" message to the party path', async () => {
+      await partyService.removeInvite(party.id, leader, user2)
 
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'uninvite',
@@ -378,16 +358,16 @@ describe('parties/party-service', () => {
       expect(notificationService.clearById).toHaveBeenCalledWith(user2.id, notificationId)
     })
 
-    test('should throw if the party is not found', () => {
-      expect(() =>
+    test('should throw if the party is not found', async () => {
+      await expect(
         partyService.acceptInvite('INVALID_PARTY_ID', user2, USER2_CLIENT_ID),
-      ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not invited to it"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not invited to it"`)
     })
 
-    test('should throw if the user is not invited', () => {
-      expect(() =>
+    test('should throw if the user is not invited', async () => {
+      await expect(
         partyService.acceptInvite(party.id, user4, USER4_CLIENT_ID),
-      ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not invited to it"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not invited to it"`)
     })
 
     test('should throw if the party is full', async () => {
@@ -396,31 +376,31 @@ describe('parties/party-service', () => {
       party = await partyService.invite(leader, USER1_CLIENT_ID, user6)
       party = await partyService.invite(leader, USER1_CLIENT_ID, user7)
       party = await partyService.invite(leader, USER1_CLIENT_ID, user8)
-      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
-      partyService.acceptInvite(party.id, user3, USER3_CLIENT_ID)
-      partyService.acceptInvite(party.id, user4, USER4_CLIENT_ID)
-      partyService.acceptInvite(party.id, user5, USER5_CLIENT_ID)
-      partyService.acceptInvite(party.id, user6, USER6_CLIENT_ID)
-      partyService.acceptInvite(party.id, user7, USER7_CLIENT_ID)
-      partyService.acceptInvite(party.id, user8, USER8_CLIENT_ID)
+      await partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
+      await partyService.acceptInvite(party.id, user3, USER3_CLIENT_ID)
+      await partyService.acceptInvite(party.id, user4, USER4_CLIENT_ID)
+      await partyService.acceptInvite(party.id, user5, USER5_CLIENT_ID)
+      await partyService.acceptInvite(party.id, user6, USER6_CLIENT_ID)
+      await partyService.acceptInvite(party.id, user7, USER7_CLIENT_ID)
+      await partyService.acceptInvite(party.id, user8, USER8_CLIENT_ID)
 
       party = await partyService.invite(leader, USER1_CLIENT_ID, user9)
 
-      expect(() =>
+      await expect(
         partyService.acceptInvite(party.id, user9, USER9_CLIENT_ID),
-      ).toThrowErrorMatchingInlineSnapshot(`"Party is full"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party is full"`)
     })
 
     test('should throw if accepting on web client', async () => {
       party = await partyService.invite(leader, USER1_CLIENT_ID, webUser)
 
-      expect(() =>
+      await expect(
         partyService.acceptInvite(party.id, webUser, WEB_USER_CLIENT_ID),
-      ).toThrowErrorMatchingInlineSnapshot(`"Invalid client"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Invalid client"`)
     })
 
-    test('should update the party record', () => {
-      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
+    test('should update the party record', async () => {
+      await partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
 
       expect(party.invites).toMatchObject(new Map([[user3.id, user3]]))
       expect(party.members).toMatchObject(
@@ -431,8 +411,8 @@ describe('parties/party-service', () => {
       )
     })
 
-    test('should publish "join" message to the party path', () => {
-      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
+    test('should publish "join" message to the party path', async () => {
+      await partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
 
       // TODO(2Pac): Test the order of this call? This should probably be ensured that it's called
       // before subscribing the user to the party path.
@@ -443,8 +423,8 @@ describe('parties/party-service', () => {
       })
     })
 
-    test('should subscribe user to the party path', () => {
-      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
+    test('should subscribe user to the party path', async () => {
+      await partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
 
       expect(client2.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'init',
