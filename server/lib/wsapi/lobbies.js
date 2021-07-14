@@ -122,7 +122,7 @@ export class LobbyApi {
     }),
   )
   async create(data, next) {
-    const { name, map, gameType, gameSubType } = data.get('body')
+    const { name, map, gameType, gameSubType, allowObservers } = data.get('body')
     const user = this.getUser(data)
     const client = this.getClient(data)
 
@@ -160,8 +160,7 @@ export class LobbyApi {
       client.name,
       client.userId,
       undefined /* hostRace */,
-      // TODO(#571): pass the allowObservers value from the request body instead
-      false /* allowObservers */,
+      allowObservers,
     )
     if (!activityRegistry.registerActiveClient(user.userId, client)) {
       throw new errors.Conflict('user is already active in a gameplay activity')
