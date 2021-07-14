@@ -60,10 +60,6 @@ services:
         source: ./bw_sprite_data
         target: /home/node/shieldbattery/server/bw_sprite_data
         read_only: true
-      - type: bind
-        source: ./published_artifacts
-        target: /home/node/shieldbattery/server/public/published_artifacts
-        read_only: true
 
     # NOTE: `depends_on` only waits for the services listed below to start; it doesn't wait for them
     # to actually be "ready" (whatever "ready" means for a particular service). If you need to

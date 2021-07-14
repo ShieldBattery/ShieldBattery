@@ -69,7 +69,7 @@ COPY --chown=node:node --from=builder /shieldbattery/wait-for-it/wait-for-it.sh 
 
 # Make the various volume locations as the right user (if we let Docker do it they end up owned by
 # root and not writeable)
-RUN mkdir ./server/logs && mkdir ./server/uploaded_files && mkdir ./server/bw_sprite_data && mkdir ./server/public/published_artifacts
+RUN mkdir ./server/logs && mkdir ./server/uploaded_files && mkdir ./server/bw_sprite_data
 
 # http (generally reverse-proxied to)
 EXPOSE 5555/tcp

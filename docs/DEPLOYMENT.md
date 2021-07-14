@@ -147,12 +147,6 @@ sudo docker cp uploaded_files/ shieldbattery_app_server_1:/home/node/shieldbatte
 The backed up content will now be present in the correct volume, and can be deleted from the
 location you uploaded it to.
 
-### Deploying new client versions
-
-Upload the packed content under `dist/nsis-web/` to the `published_artifacts/win/` folder on the
-target folder. Make sure to keep the `ShieldBattery.latest.exe` file as a copy of the latest
-installer so that all the relevant page links work.
-
 ## Further improvements
 
 ### Better startup control
