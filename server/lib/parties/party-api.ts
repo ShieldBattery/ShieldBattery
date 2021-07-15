@@ -13,7 +13,7 @@ import {
   PartyUser,
   SendChatMessageServerBody,
 } from '../../../common/parties'
-import { HttpErrorWithPayload } from '../errors/error-with-payload'
+import { asHttpError } from '../errors/error-with-payload'
 import { featureEnabled } from '../flags/feature-enabled'
 import { httpApi, HttpApi } from '../http/http-api'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -54,15 +54,17 @@ function convertPartyServiceError(err: Error) {
     case PartyServiceErrorCode.NotFoundOrNotInvited:
     case PartyServiceErrorCode.NotFoundOrNotInParty:
     case PartyServiceErrorCode.InvalidAction:
-      throw new HttpErrorWithPayload(400, err.message, { code: err.code })
+    case PartyServiceErrorCode.AlreadyMember:
+    case PartyServiceErrorCode.InvalidSelfAction:
+      throw asHttpError(400, err)
     case PartyServiceErrorCode.InsufficientPermissions:
-      throw new HttpErrorWithPayload(403, err.message, { code: err.code })
+      throw asHttpError(403, err)
     case PartyServiceErrorCode.PartyFull:
-      throw new HttpErrorWithPayload(409, err.message, { code: err.code })
+      throw asHttpError(409, err)
     case PartyServiceErrorCode.UserOffline:
-      throw new HttpErrorWithPayload(404, err.message, { code: err.code })
+      throw asHttpError(404, err)
     case PartyServiceErrorCode.NotificationFailure:
-      throw new HttpErrorWithPayload(500, err.message, { code: err.code })
+      throw asHttpError(500, err)
     default:
       assertUnreachable(err.code)
   }

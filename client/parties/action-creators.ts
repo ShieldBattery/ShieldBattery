@@ -27,11 +27,17 @@ export function inviteToParty(targetId: number): ThunkAction {
         method: 'POST',
         body: JSON.stringify(requestBody),
       }).catch(err => {
-        dispatch(
-          openSnackbar({
-            message: 'An error occurred while sending an invite',
-          }),
-        )
+        let message = 'An error occurred while sending an invite'
+        if (err.body.code === PartyServiceErrorCode.NotificationFailure) {
+          message = 'Failed to send an invite. Please try again'
+        } else if (err.body.code === PartyServiceErrorCode.AlreadyMember) {
+          const user = err.body.user?.name ?? 'The user'
+          message = `${user} is already in your party`
+        } else if (err.body.code === PartyServiceErrorCode.InvalidSelfAction) {
+          message = "Can't invite yourself to the party"
+        }
+
+        dispatch(openSnackbar({ message, time: TIMING_LONG }))
         throw err
       }),
       meta: params,

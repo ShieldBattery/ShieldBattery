@@ -15,6 +15,8 @@ export enum PartyServiceErrorCode {
   UserOffline = 'UserOffline',
   InvalidAction = 'InvalidAction',
   NotificationFailure = 'NotificationFailure',
+  AlreadyMember = 'AlreadyMember',
+  InvalidSelfAction = 'InvalidSelfAction',
 }
 
 export interface PartyUser {

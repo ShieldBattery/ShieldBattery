@@ -21,3 +21,14 @@ export class HttpErrorWithPayload<T = unknown> extends Error {
     })
   }
 }
+
+/**
+ * A helper function which makes throwing HTTP errors with error code a bit easier to use.
+ *
+ * @param {number} statusCode HTTP error code
+ * @param {string }} error The error to be thrown with a custom `code` that will be included in the
+ *  payload
+ */
+export function asHttpError(statusCode: number, error: Error & { code: string; data?: any }) {
+  return new HttpErrorWithPayload(statusCode, error.message, { code: error.code, ...error.data })
+}

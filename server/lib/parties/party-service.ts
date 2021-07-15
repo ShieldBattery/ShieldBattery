@@ -24,7 +24,7 @@ export interface PartyRecord {
 }
 
 export class PartyServiceError extends Error {
-  constructor(readonly code: PartyServiceErrorCode, message: string) {
+  constructor(readonly code: PartyServiceErrorCode, message: string, readonly data?: any) {
     super(message)
   }
 }
@@ -78,7 +78,7 @@ export default class PartyService {
 
     if (invitedUser.id === leader.id) {
       throw new PartyServiceError(
-        PartyServiceErrorCode.InvalidAction,
+        PartyServiceErrorCode.InvalidSelfAction,
         "Can't invite yourself to the party",
       )
     }
@@ -94,8 +94,9 @@ export default class PartyService {
 
       if (party.members.has(invitedUser.id)) {
         throw new PartyServiceError(
-          PartyServiceErrorCode.InvalidAction,
+          PartyServiceErrorCode.AlreadyMember,
           'This user is already a member of this party',
+          { user: invitedUser },
         )
       }
 
@@ -301,7 +302,7 @@ export default class PartyService {
     }
 
     if (kickingUser.id === target.id) {
-      throw new PartyServiceError(PartyServiceErrorCode.InvalidAction, "Can't kick yourself")
+      throw new PartyServiceError(PartyServiceErrorCode.InvalidSelfAction, "Can't kick yourself")
     }
 
     this.publisher.publish(getPartyPath(party.id), {
