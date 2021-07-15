@@ -39,12 +39,8 @@ const retrievalThrottle = createThrottle('chatretrieval', {
   window: 60000,
 })
 
-function isChatServiceError(error: Error): error is ChatServiceError {
-  return error.hasOwnProperty('code')
-}
-
 function convertChatServiceError(err: Error) {
-  if (!isChatServiceError(err)) {
+  if (!(err instanceof ChatServiceError)) {
     throw err
   }
 
