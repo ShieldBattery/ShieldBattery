@@ -12,6 +12,7 @@ import logger from '../logging/logger'
 import filterChatMessage from '../messaging/filter-chat-message'
 import NotificationService from '../notifications/notification-service'
 import { Clock } from '../time/clock'
+import { findUserById, findUsersById } from '../users/user-model'
 import { ClientSocketsGroup, ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 
@@ -113,14 +114,12 @@ export default class PartyService {
       // treated as private information.
 
       party.invites.set(invitedUser.id, invitedUser)
+      const userInfo = await findUserById(invitedUser.id)
       this.publisher.publish(getPartyPath(party.id), {
         type: 'invite',
         invitedUser,
         time: this.clock.now(),
-        userInfo: {
-          id: invitedUser.id,
-          name: invitedUser.name,
-        },
+        userInfo,
       })
     } else {
       const partyId = cuid()
@@ -133,7 +132,7 @@ export default class PartyService {
 
       this.parties.set(partyId, party)
       this.clientSocketsToPartyId.set(leaderClientSockets, partyId)
-      this.subscribeToParty(leaderClientSockets, party)
+      await this.subscribeToParty(leaderClientSockets, party)
     }
 
     await this.maybeSendInviteNotification(party, invitedUser)
@@ -230,7 +229,7 @@ export default class PartyService {
       user,
       time: this.clock.now(),
     })
-    this.subscribeToParty(clientSockets, party)
+    await this.subscribeToParty(clientSockets, party)
 
     if (oldParty) {
       // NOTE(2Pac): We're removing the user from an old party *after* we subscribe them to a new
@@ -373,23 +372,22 @@ export default class PartyService {
     }
   }
 
-  private subscribeToParty(clientSockets: ClientSocketsGroup, party: PartyRecord) {
+  private async subscribeToParty(clientSockets: ClientSocketsGroup, party: PartyRecord) {
     this.userIdToClientId.set(clientSockets.userId, clientSockets.clientId)
+
+    const uniqueUserIds = new Set<number>([
+      ...Array.from(party.invites.keys()),
+      ...Array.from(party.members.keys()),
+    ])
+    const userInfos = await findUsersById(Array.from(uniqueUserIds.values()))
+
     clientSockets.subscribe<PartyInitEvent>(
       getPartyPath(party.id),
       () => ({
         type: 'init',
         party: toPartyJson(party),
         time: this.clock.now(),
-        // TODO(2Pac): This will have to be done differently once we start sending more information
-        // for the users.
-        userInfos: [
-          ...Array.from(party.invites.values()),
-          ...Array.from(party.members.values()),
-        ].map(u => ({
-          id: u.id,
-          name: u.name,
-        })),
+        userInfos,
       }),
       sockets => this.removeClientFromParty(sockets),
     )
