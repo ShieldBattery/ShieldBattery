@@ -201,7 +201,7 @@ export class UserApi extends HttpApi {
         return {
           games: games.map(g => ({ ...g, startTime: Number(g.startTime) })),
           maps: maps.map(m => toMapInfoJson(m)),
-          users,
+          users: Array.from(users.values()),
         }
       })()
 

@@ -45,7 +45,7 @@ export interface PartyInviteEvent {
   type: 'invite'
   invitedUser: PartyUser
   time: number
-  userInfo?: User
+  userInfo: User
 }
 
 export interface PartyUninviteEvent {
