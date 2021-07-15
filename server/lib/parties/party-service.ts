@@ -347,7 +347,7 @@ export default class PartyService {
     if (!party.members.has(newLeader.id)) {
       throw new PartyServiceError(
         PartyServiceErrorCode.InvalidAction,
-        "Can't make leader a player who is not in your party",
+        'Only party members can be made leader',
       )
     }
 

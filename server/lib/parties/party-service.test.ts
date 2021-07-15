@@ -684,7 +684,7 @@ describe('parties/party-service', () => {
     test('should throw if the user is not in party', () => {
       expect(() =>
         partyService.changeLeader(party.id, leader, user4),
-      ).toThrowErrorMatchingInlineSnapshot(`"Can't make leader a player who is not in your party"`)
+      ).toThrowErrorMatchingInlineSnapshot(`"Only party members can be made leader"`)
     })
 
     test('should throw if trying to make yourself a leader', () => {
