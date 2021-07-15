@@ -38,12 +38,6 @@ const sendChatMessageThrottle = createThrottle('partyChatMessage', {
   window: 60000,
 })
 
-const kickPlayerThrottle = createThrottle('partyKick', {
-  rate: 30,
-  burst: 50,
-  window: 60000,
-})
-
 function isPartyServiceError(error: Error): error is PartyServiceError {
   return error.hasOwnProperty('code')
 }
@@ -112,23 +106,7 @@ export class PartyApi extends HttpApi {
       )
       .delete(
         '/:partyId/:clientId',
-        async (ctx, next) => {
-          let throttle
-          if (ctx.query.type === 'leave') {
-            throttle = partyThrottle
-          } else if (ctx.query.type === 'kick') {
-            throttle = kickPlayerThrottle
-          } else {
-            throw new httpErrors.BadRequest('Invalid leave type: ' + ctx.query.type)
-          }
-
-          const isLimited = await throttle.rateLimit(String(ctx.session!.userId))
-          if (isLimited) {
-            throw new httpErrors.TooManyRequests()
-          } else {
-            await next()
-          }
-        },
+        throttleMiddleware(partyThrottle, ctx => String(ctx.session!.userId)),
         leaveOrKick,
       )
       .post(
@@ -259,6 +237,8 @@ async function leaveOrKick(ctx: RouterContext) {
     const target: PartyUser = { id: foundTarget.id, name: foundTarget.name }
 
     await partyService.kickPlayer(partyId, kickingUser, target)
+  } else {
+    assertUnreachable(type)
   }
 
   ctx.status = 204
