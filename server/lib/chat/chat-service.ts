@@ -214,7 +214,6 @@ export default class ChatService {
 
     const messages = await getMessagesForChannel(
       originalChannelName,
-      userSockets.userId,
       limit,
       beforeTime && beforeTime > -1 ? new Date(beforeTime) : undefined,
     )

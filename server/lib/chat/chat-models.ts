@@ -194,20 +194,16 @@ export async function addMessageToChannel(
 
 export async function getMessagesForChannel(
   channelName: string,
-  userId: number,
   limit = 50,
   beforeDate?: Date,
 ): Promise<ChatMessage[]> {
   const { client, done } = await db()
 
-  const query = sql`WITH joined AS (
-        SELECT join_date
-        FROM joined_channels
-        WHERE user_id = ${userId} AND channel_name = ${channelName}
-      ), messages AS (
+  const query = sql`
+      WITH messages AS (
         SELECT m.id AS msg_id, u.id AS user_id, u.name AS user_name, m.channel_name, m.sent, m.data
-        FROM channel_messages as m INNER JOIN users as u ON m.user_id = u.id, joined
-        WHERE m.channel_name = ${channelName} AND m.sent >= joined.join_date `
+        FROM channel_messages as m INNER JOIN users as u ON m.user_id = u.id
+        WHERE m.channel_name = ${channelName} `
 
   if (beforeDate !== undefined) {
     query.append(sql`AND m.sent < ${beforeDate}`)
