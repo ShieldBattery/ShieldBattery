@@ -11,7 +11,7 @@ use std::mem;
 use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, AtomicU32, Ordering};
 
 use byteorder::{ByteOrder, LittleEndian};
 use libc::c_void;
@@ -53,6 +53,7 @@ pub struct BwScr {
     local_storm_id: Value<u32>,
     command_user: Value<u32>,
     unique_command_user: Value<u32>,
+    storm_command_user: Value<u32>,
     net_player_to_game: Value<*mut u32>,
     net_player_to_unique: Value<*mut u32>,
     local_player_name: Value<*mut u8>,
@@ -146,6 +147,9 @@ pub struct BwScr {
     is_carbot: AtomicBool,
     show_skins: AtomicBool,
     is_processing_game_commands: AtomicBool,
+    /// Avoid reporting the same player being dropped multiple times.
+    /// Bit 0x1 = Net id 0, 0x2 = net id 1, etc.
+    dropped_players: AtomicU32,
 }
 
 struct SendPtr<T>(T);
@@ -907,6 +911,7 @@ impl BwScr {
             .ok_or("Local unique player id")?;
         let command_user = analysis.command_user().ok_or("Command user")?;
         let unique_command_user = analysis.unique_command_user().ok_or("Unique command user")?;
+        let storm_command_user = analysis.storm_command_user().ok_or("Storm command user")?;
         let net_player_to_game = analysis.net_player_to_game().ok_or("Net player to game")?;
         let net_player_to_unique = analysis.net_player_to_unique().ok_or("Net player to unique")?;
         let choose_snp = analysis.choose_snp().ok_or("choose_snp")?;
@@ -1029,6 +1034,7 @@ impl BwScr {
             local_storm_id: Value::new(ctx, local_storm_id),
             command_user: Value::new(ctx, command_user),
             unique_command_user: Value::new(ctx, unique_command_user),
+            storm_command_user: Value::new(ctx, storm_command_user),
             net_player_to_game: Value::new(ctx, net_player_to_game),
             net_player_to_unique: Value::new(ctx, net_player_to_unique),
             local_player_name: Value::new(ctx, local_player_name),
@@ -1107,6 +1113,7 @@ impl BwScr {
             is_carbot: AtomicBool::new(false),
             show_skins: AtomicBool::new(false),
             is_processing_game_commands: AtomicBool::new(false),
+            dropped_players: AtomicU32::new(0),
         })
     }
 
@@ -1158,6 +1165,7 @@ impl BwScr {
                     are_recorded_replay_commands != 0,
                     &self.game_command_lengths,
                 );
+                let mut sync_seen = false;
                 if are_recorded_replay_commands == 0 {
                     for command in commands::iter_commands(&slice, &self.game_command_lengths) {
                         match command {
@@ -1167,6 +1175,9 @@ impl BwScr {
                                 if (*game).frame_count > frame {
                                     self.is_replay_seeking.store(true, Ordering::Relaxed);
                                 }
+                            }
+                            [commands::id::SYNC, ..] | [commands::id::NOP, ..] => {
+                                sync_seen = true;
                             }
                             _ => (),
                         }
@@ -1178,6 +1189,24 @@ impl BwScr {
                 self.is_processing_game_commands.store(true, Ordering::Relaxed);
                 orig(slice.as_ptr(), slice.len(), are_recorded_replay_commands);
                 self.is_processing_game_commands.store(was_processing, Ordering::Relaxed);
+                if !sync_seen {
+                    let storm_user = self.storm_command_user.resolve();
+                    self.dropped_players.store(
+                        self.dropped_players.load(Ordering::Relaxed) | (1 << storm_user),
+                        Ordering::Relaxed,
+                    );
+                    info!(
+                        "Didn't see sync command for game player {} net {}, {:02x?}, they will be dropped",
+                        self.command_user.resolve(), storm_user, slice,
+                    );
+                }
+                if let Some(players) = self.check_player_drops() {
+                    info!(
+                        "Dropped players {:?} while handling commands for game player {} net {}, {:02x?}",
+                        players, self.command_user.resolve(), self.storm_command_user.resolve(),
+                        slice,
+                    );
+                }
             },
             address,
         );
@@ -1683,6 +1712,19 @@ impl BwScr {
             .unwrap_or(input_game_info.map_name.len());
         add_param_string(b"map_name", &input_game_info.map_name[..map_name_length]);
         params
+    }
+
+    unsafe fn check_player_drops(&self) -> Option<Vec<u8>> {
+        let mut result = None;
+        let mut dropped_players = self.dropped_players.load(Ordering::Relaxed);
+        for (i, _) in self.storm_player_flags().iter().enumerate().filter(|x| *x.1 == 0x1_0000) {
+            if dropped_players & (1 << i) == 0 {
+                dropped_players |= 1 << i;
+                result.get_or_insert_with(|| Vec::new()).push(i as u8);
+                self.dropped_players.store(dropped_players, Ordering::Relaxed);
+            }
+        }
+        result
     }
 }
 

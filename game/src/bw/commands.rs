@@ -5,6 +5,8 @@ use std::borrow::Cow;
 use byteorder::{ByteOrder, LittleEndian};
 
 pub mod id {
+    pub const NOP: u8 = 0x5;
+    pub const SYNC: u8 = 0x37;
     pub const REPLAY_SPEED: u8 = 0x56;
     pub const REPLAY_SEEK: u8 = 0x5d;
 }

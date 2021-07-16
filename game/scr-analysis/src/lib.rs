@@ -323,6 +323,10 @@ impl<'e> Analysis<'e> {
         self.0.unique_command_user()
     }
 
+    pub fn storm_command_user(&mut self) -> Option<Operand<'e>> {
+        self.0.storm_command_user()
+    }
+
     pub fn enable_rng(&mut self) -> Option<Operand<'e>> {
         self.0.rng_enable()
     }
