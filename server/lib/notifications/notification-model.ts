@@ -13,7 +13,18 @@ export interface PartyInviteNotificationData extends BaseNotificationData {
   partyId: string
 }
 
+export interface PartyInviteSearchNotificationData extends BaseNotificationData {
+  type: typeof NotificationType.PartyInvite
+  from?: string
+  partyId?: string
+}
+
 export type NotificationData = PartyInviteNotificationData
+/**
+ * Notification data type that can be used to retrieve notifications by. Should match the actual
+ * notification data, except making some (all?) of the fields optional.
+ */
+export type SearchNotificationData = PartyInviteSearchNotificationData | Record<string, never>
 
 export interface Notification {
   id: string
@@ -39,16 +50,17 @@ function fromDbNotification(result: Readonly<DbNotification>): Notification {
 
 /**
  * Retrieves the list of 100 visible notifications for a particular user by default, ordered by the
- * time they were created.
+ * time they were created. Additionally, the notifications can be filtered by any of their data
+ * properties.
  */
 export async function retrieveNotifications({
   userId,
-  type,
+  data = {},
   visible = true,
   limit = 100,
 }: {
   userId: number
-  type?: string
+  data?: SearchNotificationData
   visible?: boolean
   limit?: number
 }): Promise<Notification[]> {
@@ -60,8 +72,8 @@ export async function retrieveNotifications({
       WHERE user_id = ${userId} AND visible = ${visible}
     `
 
-    if (type !== undefined) {
-      query.append(sql` AND data->>'type' = ${type}`)
+    for (const [dataKey, dataValue] of Object.entries(data)) {
+      query.append(sql` AND data->>${dataKey} = ${dataValue}`)
     }
 
     query.append(sql`

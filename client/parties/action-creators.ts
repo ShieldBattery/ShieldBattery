@@ -75,7 +75,6 @@ export function declinePartyInvite(partyId: string): ThunkAction {
       payload: fetch<void>(apiUrl`parties/invites/${partyId}`, {
         method: 'DELETE',
       }).catch(err => {
-        // TODO(2Pac): Show an actual reason why the this failed (e.g. party doesn't exist anymore)
         dispatch(
           openSnackbar({
             message: 'An error occurred while declining an invite',

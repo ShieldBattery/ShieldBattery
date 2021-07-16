@@ -70,6 +70,14 @@ export default class PartyService {
     private clock: Clock,
   ) {}
 
+  /**
+   * Invites a user to the party. If a person who is inviting someone else is not already in a
+   * party, a new party is created and they're made its leader. Note that this should be treated
+   * more as an "allow user to join a party" action, which means that we're not checking if someone
+   * is already invited. So inviting someone multiple times should work without a problem. The
+   * invite notification is only sent if there are no currently visible notifications for the
+   * invited user already though.
+   */
   async invite(
     leader: PartyUser,
     leaderClientId: string,
@@ -93,19 +101,16 @@ export default class PartyService {
         )
       }
 
-      if (party.invites.has(invitedUser.id)) {
-        throw new PartyServiceError(
-          PartyServiceErrorCode.InvalidAction,
-          'An invite already exists for this user',
-        )
-      }
-
       if (party.members.has(invitedUser.id)) {
         throw new PartyServiceError(
           PartyServiceErrorCode.InvalidAction,
           'This user is already a member of this party',
         )
       }
+
+      // An invite might already exist for a user, but we don't treat that as an error as that would
+      // reveal to the inviter that the person has declined their first invite, which should be
+      // treated as private information.
 
       party.invites.set(invitedUser.id, invitedUser)
       this.publisher.publish(getPartyPath(party.id), {
@@ -131,50 +136,29 @@ export default class PartyService {
       this.subscribeToParty(leaderClientSockets, party)
     }
 
-    try {
-      await this.notificationService.addNotification({
-        userId: invitedUser.id,
-        data: {
-          type: NotificationType.PartyInvite,
-          from: leader.name,
-          partyId: party.id,
-        },
-      })
-    } catch (err) {
-      // The invite doesn't make much sense unless the notification has been successfully sent to
-      // the user, so in case of an error, we remove the invited user from the party.
-      party!.invites.delete(invitedUser.id)
-
-      throw new PartyServiceError(
-        PartyServiceErrorCode.NotificationFailure,
-        'Error creating the notification',
-      )
-    }
+    await this.maybeSendInviteNotification(party, invitedUser)
 
     return party
   }
 
-  decline(partyId: string, target: PartyUser) {
-    this.clearInviteNotification(partyId, target)
-
-    const party = this.parties.get(partyId)
-    if (!party || !party.invites.has(target.id)) {
-      throw new PartyServiceError(
-        PartyServiceErrorCode.NotFoundOrNotInvited,
-        "Party not found or you're not invited to it",
-      )
-    }
-
-    party.invites.delete(target.id)
-    this.publisher.publish(getPartyPath(party.id), {
-      type: 'decline',
-      target,
-      time: this.clock.now(),
-    })
+  /**
+   * Declines a party invitation for a particular user. Declining a party invitation just clears the
+   * notification for the user and doesn't actually notify the party members that the user has
+   * declined. Furthermore, declining an invite doesn't prevent the user from joining the party at
+   * a later time, even if currently it's not possible to perform such action through UI.
+   */
+  async decline(partyId: string, target: PartyUser) {
+    await this.clearInviteNotification(partyId, target)
   }
 
-  removeInvite(partyId: string, removingUser: PartyUser, target: PartyUser) {
-    this.clearInviteNotification(partyId, target)
+  /**
+   * Removes a party invitation for a particular user. Removing a party invitation can only be done
+   * by a party leader, and basically removes the user from the "allowed to join" list. Also, the
+   * invite notification is cleared for the invited user, so if they got uninvited before they even
+   * saw the invite notification they'll be none the wiser!
+   */
+  async removeInvite(partyId: string, removingUser: PartyUser, target: PartyUser) {
+    await this.clearInviteNotification(partyId, target)
 
     const party = this.parties.get(partyId)
     if (!party || !party.members.has(removingUser.id)) {
@@ -206,8 +190,14 @@ export default class PartyService {
     })
   }
 
-  acceptInvite(partyId: string, user: PartyUser, clientId: string) {
-    this.clearInviteNotification(partyId, user)
+  /**
+   * Accepts a party invitation for a particular user. Accepting a party invite removes the user
+   * from the "allow to join" list, which means they will have to be reinvited if they leave the
+   * party. Also, it's possible to accept an invite to a party while already being in a different
+   * party. In that case, the user will leave the old party and be transferred to a new party.
+   */
+  async acceptInvite(partyId: string, user: PartyUser, clientId: string) {
+    await this.clearInviteNotification(partyId, user)
 
     const party = this.parties.get(partyId)
     if (!party || !party.invites.has(user.id)) {
@@ -250,6 +240,11 @@ export default class PartyService {
     }
   }
 
+  /**
+   * Leaves the party for a particular user. If the leaving player was a party leader, a new leader
+   * will be selected. And if the leaving player was the last member of the party, the party will be
+   * destroyed.
+   */
   leaveParty(partyId: string, userId: number, clientId: string) {
     const party = this.parties.get(partyId)
     if (!party || !party.members.has(userId)) {
@@ -263,6 +258,10 @@ export default class PartyService {
     this.removeClientFromParty(clientSockets, party)
   }
 
+  /**
+   * Sends a chat message in the party from a particular user. The chat messages are not persisted
+   * anywhere, and users will only be able to see the messages sent since they joined the party.
+   */
   sendChatMessage(partyId: string, userId: number, message: string) {
     const party = this.parties.get(partyId)
     if (!party || !party.members.has(userId)) {
@@ -283,6 +282,10 @@ export default class PartyService {
     })
   }
 
+  /**
+   * Kicks a particular user from a party. Only party leaders can kick other people. Kicked players
+   * must be invited again to the party if they wish to rejoin.
+   */
   kickPlayer(partyId: string, kickingUser: PartyUser, target: PartyUser) {
     const party = this.parties.get(partyId)
     if (!party || !party.members.has(kickingUser.id)) {
@@ -321,18 +324,53 @@ export default class PartyService {
     this.removeClientFromParty(clientSockets, party)
   }
 
-  private clearInviteNotification(partyId: string, user: PartyUser) {
-    this.notificationService
-      .retrieveNotifications({ userId: user.id, type: NotificationType.PartyInvite })
-      .then(async userInviteNotifications => {
-        const notification = userInviteNotifications.filter(n => n.data.partyId === partyId)[0]
-        if (notification) {
-          await this.notificationService.clearById(user.id, notification.id)
-        }
+  private async maybeSendInviteNotification(party: PartyRecord, user: PartyUser) {
+    try {
+      const notification = (
+        await this.notificationService.retrieveNotifications({
+          userId: user.id,
+          data: { type: NotificationType.PartyInvite, partyId: party.id },
+          visible: true,
+        })
+      )[0]
+
+      if (notification) {
+        return
+      }
+
+      await this.notificationService.addNotification({
+        userId: user.id,
+        data: {
+          type: NotificationType.PartyInvite,
+          from: party.leader.name,
+          partyId: party.id,
+        },
       })
-      .catch(err => {
-        logger.error({ err }, 'error clearing the invite notification')
-      })
+    } catch (err) {
+      logger.error({ err }, 'error creating the invite notification')
+      throw new PartyServiceError(
+        PartyServiceErrorCode.NotificationFailure,
+        'Error creating the notification',
+      )
+    }
+  }
+
+  private async clearInviteNotification(partyId: string, user: PartyUser) {
+    try {
+      const notification = (
+        await this.notificationService.retrieveNotifications({
+          userId: user.id,
+          data: { type: NotificationType.PartyInvite, partyId },
+          visible: true,
+        })
+      )[0]
+
+      if (notification) {
+        await this.notificationService.clearById(user.id, notification.id)
+      }
+    } catch (err) {
+      logger.error({ err }, 'error clearing the invite notification')
+    }
   }
 
   private subscribeToParty(clientSockets: ClientSocketsGroup, party: PartyRecord) {

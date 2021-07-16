@@ -80,14 +80,14 @@ const EntryButton = styled(IconButton)`
 
 export interface PartyNavEntryProps {
   party: PartyRecord
-  currentPath: string
+  canInvite: boolean
   onInviteUserClick: () => void
   onLeavePartyClick: (partyId: string) => void
 }
 
 export function PartyNavEntry({
   party,
-  currentPath,
+  canInvite,
   onInviteUserClick,
   onLeavePartyClick,
 }: PartyNavEntryProps) {
@@ -118,7 +118,9 @@ export function PartyNavEntry({
       <StyledLink to={link}>
         <StyledPartyIcon />
         <Title isActive={isActive}>Party</Title>
-        <EntryButton icon={<InviteIcon />} title='Invite players' onClick={onInviteClick} />
+        {canInvite ? (
+          <EntryButton icon={<InviteIcon />} title='Invite players' onClick={onInviteClick} />
+        ) : null}
         <EntryButton icon={<CloseIcon />} title='Leave party' onClick={onLeaveClick} />
       </StyledLink>
     </Container>
