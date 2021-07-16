@@ -174,7 +174,9 @@ interface LobbySetupGameEvent {
     gameId: string
     seed: number
   }
-  resultCode: string
+  // TODO(tec27): Right now this can be undefined if the local player is an observer, but perhaps
+  // that should be handled differently?
+  resultCode?: string
 }
 
 interface LobbySetRoutesEvent {

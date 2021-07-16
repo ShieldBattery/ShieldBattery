@@ -686,6 +686,8 @@ export class LobbyApi {
     const gameConfig = {
       gameType: lobby.gameType,
       gameSubType: lobby.gameSubType,
+      // TODO(tec27): Add observers into this config somewhere? Right now we store no record that
+      // they were there
       teams: lobby.teams
         .map(team =>
           team.slots

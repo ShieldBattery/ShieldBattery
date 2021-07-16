@@ -224,8 +224,12 @@ pub unsafe fn after_init_game_data() {
     let bw = get_bw();
     let mut mapping = [None; bw::MAX_STORM_PLAYERS];
     let players = bw.players();
-    for i in 0..8 {
-        let storm_id = (*players.add(i)).storm_id;
+    debug!("After randomization:");
+    for i in 0..16 {
+        let player = *players.add(i);
+        debug!("Slot {} has id {}, player_type {}, storm_id {}",
+                i, player.id, player.player_type, player.storm_id);
+        let storm_id = player.storm_id;
         if let Some(out) = mapping.get_mut(storm_id as usize) {
             *out = Some(i as u8);
         }

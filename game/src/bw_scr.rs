@@ -1425,11 +1425,13 @@ impl BwScr {
             *net_player_to_unique.add(i) = 8;
             *net_player_to_game.add(i) = 8;
         }
-        // BW also handles SCR observers 12..16
-        for game_id in 0..8 {
+        // 0..8 are normal player slots, 8..12 can be used by UMS, 12..16 are observers
+        for game_id in 0..16 {
             let player = players.add(game_id);
             let storm_id = (*player).storm_id;
-            // BW would also accept type 9 (observer?)
+
+            debug!("Slot {} has id {}, player_type {}, storm_id {}",
+                game_id, (*player).id, (*player).player_type, (*player).storm_id);
             if (*player).player_type == bw::PLAYER_TYPE_HUMAN {
                 *net_player_to_game.add(storm_id as usize) = game_id as u32;
                 *net_player_to_unique.add(storm_id as usize) = game_id as u32;

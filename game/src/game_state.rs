@@ -594,6 +594,11 @@ async fn send_game_result(
     // If the app is closed, ignore the error and try to still send results to server.
     let _ = app_socket::send_message(ws_send, "/game/result", &results).await;
 
+    if info.result_code.is_none() {
+        debug!("Had no result code, skipping sending results");
+        return
+    }
+
     // Attempt to send results to the server, if this fails, we expect
     // the app to retry in the future
     let client = reqwest::Client::new();
@@ -606,7 +611,7 @@ async fn send_game_result(
 
     let result_body = GameResultsReport {
         user_id: local_user.id,
-        result_code: info.result_code.clone(),
+        result_code: info.result_code.clone().unwrap(),
         time: results.time_ms,
         player_results: results
             .results
@@ -682,7 +687,8 @@ impl InitInProgress {
             .find(|x| x.name == self.local_user.name)
             .map(|slot| slot.is_observer())
             .unwrap_or(false);
-        if is_observer {
+        // FIXME
+        if false && is_observer {
             let observer_storm_ids = self
                 .setup_info
                 .slots
@@ -741,6 +747,7 @@ impl InitInProgress {
         let storm_names = storm_player_names(get_bw());
         self.update_bw_slots(&storm_names)?;
         if self.has_all_players() {
+            debug!("All players have joined: {:?}", self.joined_players);
             Ok(true)
         } else {
             Ok(false)
@@ -765,21 +772,18 @@ impl InitInProgress {
                 }
             } else {
                 if let Some(slot) = self.setup_info.slots.iter().find(|x| x.name == name) {
+                    // TODO(tec27): This isn't really a player id, more of a slot offset?
                     let player_id;
-                    if slot.is_observer() {
-                        player_id = None;
+                    let bw_slot = (0..16).find(|&i| {
+                        let player = players.add(i);
+                        let bw_name = CStr::from_ptr((*player).name.as_ptr() as *const i8);
+                        bw_name.to_str() == Ok(name)
+                    });
+                    if let Some(bw_slot) = bw_slot {
+                        (*players.add(bw_slot)).storm_id = storm_id.0 as u32;
+                        player_id = Some(bw_slot as u8);
                     } else {
-                        let bw_slot = (0..12).find(|&i| {
-                            let player = players.add(i);
-                            let bw_name = CStr::from_ptr((*player).name.as_ptr() as *const i8);
-                            bw_name.to_str() == Ok(name)
-                        });
-                        if let Some(bw_slot) = bw_slot {
-                            (*players.add(bw_slot)).storm_id = storm_id.0 as u32;
-                            player_id = Some(bw_slot as u8);
-                        } else {
-                            return Err(GameInitError::UnexpectedPlayer(name.into()));
-                        }
+                        return Err(GameInitError::UnexpectedPlayer(name.into()));
                     }
                     if self.joined_players.iter().any(|x| x.player_id == player_id) {
                         return Err(GameInitError::UnexpectedPlayer(name.into()));
@@ -853,6 +857,11 @@ impl InitInProgress {
 
         for player in &self.joined_players {
             if let Some(player_id) = player.player_id {
+                if player_id >= 8 {
+                    // This is an observer, skip
+                    continue;
+                }
+
                 let storm_id = player.storm_id.0 as usize;
                 results[storm_id] = match game_results.victory_state[player_id as usize] {
                     1 => GameResult::Disconnected,
@@ -894,6 +903,11 @@ impl InitInProgress {
             .iter()
             .filter_map(|player| {
                 if let Some(player_id) = player.player_id {
+                    if player_id >= 8 {
+                        // Observer, skip
+                        return None;
+                    }
+
                     Some((
                         player.name.clone(),
                         GamePlayerResult {
@@ -1042,30 +1056,48 @@ async unsafe fn try_join_lobby_once(
 
 unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType, ums_forces: &[MapForce]) {
     let bw = get_bw();
+    let is_ums = game_type.is_ums();
     let players = bw.players();
-    for i in 0..8 {
+    for i in 0..12 {
         *players.add(i) = bw::Player {
             id: i as u32,
-            storm_id: u32::max_value(),
+            storm_id: u32::MAX,
             player_type: match slots.len() < i {
                 true => bw::PLAYER_TYPE_OPEN,
-                false => bw::PLAYER_TYPE_NONE,
+                false => bw::PLAYER_TYPE_NONE
             },
             race: bw::RACE_RANDOM,
             team: 0,
             name: [0; 25],
         };
     }
-    let is_ums = game_type.is_ums();
+
+    for i in 12..16 {
+        *players.add(i) = bw::Player {
+            id: 128 + (i - 12) as u32,
+            storm_id: u32::MAX,
+            player_type: bw::PLAYER_TYPE_HUMAN,
+            race: bw::RACE_RANDOM,
+            team: 0,
+            name: [0; 25],
+        };
+    }
+
+    let mut num_observers = 0;
     for (i, slot) in slots.iter().enumerate() {
-        if slot.is_observer() {
-            continue;
-        }
         let slot_id = if is_ums {
             slot.player_id.unwrap_or(0) as usize
+        } else if slot.is_observer() {
+            num_observers += 1;
+            if num_observers > 4 {
+                panic!("Slots had more than 4 observers!");
+            }
+
+            11 + num_observers
         } else {
             i
         };
+
         // This player_type_id check is completely ridiculous and doesn't make sense, but that gives
         // the same behaviour as normal bw. Not that any maps use those slot types as Scmdraft
         // doesn't allow setting them anyways D:
@@ -1075,10 +1107,14 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType, ums_forces: &[M
             0
         };
         *players.add(slot_id) = bw::Player {
-            id: slot_id as u32,
-            storm_id: match slot.is_human() {
+            id: if slot.is_observer() {
+                128 + (slot_id - 12) as u32
+            } else {
+                slot_id as u32
+            },
+            storm_id: match slot.is_human() || slot.is_observer() {
                 true => 27,
-                false => u32::max_value(),
+                false => u32::MAX,
             },
             race: slot.bw_race(),
             player_type: if is_ums && !slot.is_human() {

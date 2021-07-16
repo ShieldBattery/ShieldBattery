@@ -98,7 +98,7 @@ pub struct GameSetupInfo {
     pub host: PlayerInfo,
     pub seed: u32,
     pub game_id: String,
-    pub result_code: String,
+    pub result_code: Option<String>,
     pub server_url: String,
 }
 
@@ -176,7 +176,8 @@ impl PlayerInfo {
 
     pub fn bw_player_type(&self) -> u8 {
         match &*self.player_type {
-            "human" | "observer" => bw::PLAYER_TYPE_HUMAN,
+            "human" => bw::PLAYER_TYPE_HUMAN,
+            "observer" => bw::PLAYER_TYPE_HUMAN,
             "computer" => bw::PLAYER_TYPE_LOBBY_COMPUTER,
             "controlledOpen" | "controlledClosed" | "open" | "closed" => bw::PLAYER_TYPE_OPEN,
             _ => bw::PLAYER_TYPE_NONE,
