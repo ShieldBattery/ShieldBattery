@@ -8,6 +8,7 @@ import { AssignedRaceChar, RaceChar } from './races'
  */
 export enum MatchmakingType {
   Match1v1 = '1v1',
+  Match2v2 = '2v2',
 }
 
 export const ALL_MATCHMAKING_TYPES: ReadonlyArray<MatchmakingType> = Object.values(MatchmakingType)
@@ -53,46 +54,58 @@ export interface MatchmakingMapPool {
   maps: MapInfoJson[]
 }
 
-/**
- * Describes a user's preferences for finding a match in matchmaking.
- *
- * TODO(tec27): The structure of this likely needs to differ based on matchmaking type?
- */
-export interface MatchmakingPreferences {
-  matchmakingType: MatchmakingType
-  race: RaceChar
-  useAlternateRace: boolean
-  alternateRace: AssignedRaceChar
+export interface MatchmakingPreferencesData1v1 {
   /**
-   * The ID of the map pool the preferred maps were set with. This can be used to determine if the
-   * user's selections might be outdated.
+   * A flag indicating whether the user has selected to use the alternate race in mirror matchups.
    */
-  mapPoolId: string
-  /** An array of map IDs that the user prefers to play on. */
-  preferredMaps: string[]
+  useAlternateRace?: boolean
+  /** The race the user has selected to use in mirror matchups. */
+  alternateRace?: AssignedRaceChar
 }
 
-/**
- * The version of `MatchmakingPreferences` that is actually stored in the database. This contains
- * information that is useful for queries/updates but not generally needed/desired by the client.
- */
-export interface StoredMatchmakingPreferences extends MatchmakingPreferences {
+interface BaseMatchmakingPreferences<T extends MatchmakingType, D> {
   userId: number
-  updatedAt: Date
+  matchmakingType: T
+  /** The main race the user has selected to play in the matchmaking with. */
+  race: RaceChar
+  /**
+   * The ID of the map pool that will be used in the matchmaking. The way in which this map pool
+   * will be used depends on the matchmaking type, as each matchmaking type can create its own rules
+   * in which to use it (e.g. preferred maps, map vetoes, etc.). This can also be used to determine
+   * if the map pool has changed.
+   */
+  mapPoolId: number
+  /**
+   * An array of map IDs that the user has selected through a map selection process. The meaning
+   * of this selection depends on the matchmaking type and the system it's using. E.g. 1v1/2v2 might
+   * use this list as maps the user has vetoed, while in 3v3 it might be used as as a list of maps
+   * that the user wants to queue on.
+   */
+  mapSelections: string[]
+  data: D
 }
 
-/**
- * The type expected by the API at `POST /matchmakingPreferences/:matchmakingType`.
- */
-export type UpdateMatchmakingPreferencesBody = Omit<
-  MatchmakingPreferences,
-  'matchmakingType' | 'mapPoolId'
+export type MatchmakingPreferences1v1 = BaseMatchmakingPreferences<
+  MatchmakingType.Match1v1,
+  MatchmakingPreferencesData1v1
 >
+
+export type MatchmakingPreferences2v2 = BaseMatchmakingPreferences<
+  MatchmakingType.Match2v2,
+  Record<string, never>
+>
+
+/**
+ * Describes a user's preferences for finding a match in matchmaking. Each matchmaking type can have
+ * its own custom data, with `race`, `mapPoolId`, and `mapSelections` being common among all
+ * matchmaking types.
+ */
+export type MatchmakingPreferences = MatchmakingPreferences1v1 | MatchmakingPreferences2v2
 
 export interface GetPreferencesPayload {
   preferences: MatchmakingPreferences
   mapPoolOutdated: boolean
-  mapInfo: MapInfoJson[]
+  mapInfos: MapInfoJson[]
 }
 
 export interface MatchFoundEvent {
@@ -122,7 +135,7 @@ export interface MatchReadyEvent {
   slots: Slot[]
   players: MatchmakingPlayer[]
   mapsByPlayer: { [key: number]: MapInfoJson }
-  preferredMaps: MapInfoJson[]
+  mapSelections: MapInfoJson[]
   randomMaps: MapInfoJson[]
   chosenMap: MapInfoJson
 }

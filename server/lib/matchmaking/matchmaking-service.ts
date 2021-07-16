@@ -1,5 +1,4 @@
 import { List, Map as IMap, Range, Record, Set as ISet } from 'immutable'
-import { NydusServer } from 'nydus'
 import { container, singleton } from 'tsyringe'
 import CancelToken from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
@@ -9,8 +8,11 @@ import { GameRoute } from '../../../common/game-launch-config'
 import { GameType } from '../../../common/games/configuration'
 import { createHuman, Slot } from '../../../common/lobbies/slot'
 import { MapInfoJson, toMapInfoJson } from '../../../common/maps'
-import { MatchmakingEvent, MatchmakingType } from '../../../common/matchmaking'
-import { AssignedRaceChar, RaceChar } from '../../../common/races'
+import {
+  MatchmakingEvent,
+  MatchmakingPreferences,
+  MatchmakingType,
+} from '../../../common/matchmaking'
 import gameLoader from '../games/game-loader'
 import activityRegistry from '../games/gameplay-activity-registry'
 import { getMapInfo } from '../maps/map-models'
@@ -50,7 +52,7 @@ interface GameLoaderCallbacks {
     }>
     resultCodes: Map<string, string>
     mapsByPlayer: { [key: number]: MapInfoJson }
-    preferredMaps: MapInfoJson[]
+    mapSelections: MapInfoJson[]
     randomMaps: MapInfoJson[]
     chosenMap: MapInfoJson
     cancelToken: CancelToken
@@ -121,7 +123,7 @@ export class MatchmakingServiceError extends Error {
  * Selects a map for the given players and matchmaking type, based on the players' stored
  * matchmaking preferences and the current map pool.
  *
- * @returns an object with `{ mapsByPlayer, preferredMaps, randomMaps, chosenMap }` describing the
+ * @returns an object with `{ mapsByPlayer, mapSelections, randomMaps, chosenMap }` describing the
  *   maps that were used to make the selection, as well as the actual selection.
  */
 async function pickMap(matchmakingType: MatchmakingType, players: List<MatchmakingPlayer>) {
@@ -147,29 +149,29 @@ async function pickMap(matchmakingType: MatchmakingType, players: List<Matchmaki
   // not be replaced with a random one).
 
   const mapPool = ISet(currentMapPool.maps)
-  let preferredMapIds = ISet<string>()
+  let mapSelectionIds = ISet<string>()
   let mapIdsByPlayer = IMap<number, ISet<string>>()
 
   for (const p of players) {
-    const available = ISet(p.preferredMaps).intersect(mapPool)
-    preferredMapIds = preferredMapIds.concat(available)
+    const available = ISet(p.mapSelections).intersect(mapPool)
+    mapSelectionIds = mapSelectionIds.concat(available)
     mapIdsByPlayer = mapIdsByPlayer.set(p.id, available)
   }
 
   const randomMapIds: string[] = []
-  Range(preferredMapIds.size, 4).forEach(() => {
-    const availableMaps = mapPool.subtract(preferredMapIds.concat(randomMapIds))
+  Range(mapSelectionIds.size, 4).forEach(() => {
+    const availableMaps = mapPool.subtract(mapSelectionIds.concat(randomMapIds))
     const randomMap = availableMaps.toList().get(getRandomInt(availableMaps.size))!
     randomMapIds.push(randomMap)
   })
 
   // TODO(tec27): remove the need for these casts by TSifying the map info stuff
-  const [preferredMaps, randomMaps] = await Promise.all([
+  const [mapSelections, randomMaps] = await Promise.all([
     // TODO(tec27): Remove cast once immutable's types are fixed to the correct return here
-    getMapInfo(preferredMapIds.toJS() as string[]),
+    getMapInfo(mapSelectionIds.toJS() as string[]),
     getMapInfo(randomMapIds),
   ])
-  if (preferredMapIds.size + randomMapIds.length !== preferredMaps.length + randomMaps.length) {
+  if (mapSelectionIds.size + randomMapIds.length !== mapSelections.length + randomMaps.length) {
     throw new MatchmakingServiceError(
       MatchmakingServiceErrorCode.InvalidMaps,
       'Some (or all) of the maps not found',
@@ -177,14 +179,14 @@ async function pickMap(matchmakingType: MatchmakingType, players: List<Matchmaki
   }
 
   const mapsByPlayer = mapIdsByPlayer
-    .map(mapIds => mapIds.map(id => preferredMaps.find(m => m.id === id)))
+    .map(mapIds => mapIds.map(id => mapSelections.find(m => m.id === id)))
     .toJS() as { [key: number]: MapInfoJson }
 
-  const chosenMap = [...preferredMaps, ...randomMaps][
-    getRandomInt(preferredMaps.length + randomMaps.length)
+  const chosenMap = [...mapSelections, ...randomMaps][
+    getRandomInt(mapSelections.length + randomMaps.length)
   ]
 
-  return { mapsByPlayer, preferredMaps, randomMaps, chosenMap }
+  return { mapsByPlayer, mapSelections, randomMaps, chosenMap }
 }
 
 @singleton()
@@ -232,7 +234,7 @@ export class MatchmakingService {
         slots = players.map(p => createHuman(p.name, p.id, p.race))
       }
 
-      const { mapsByPlayer, preferredMaps, randomMaps, chosenMap } = await pickMap(
+      const { mapsByPlayer, mapSelections, randomMaps, chosenMap } = await pickMap(
         matchInfo.type,
         matchInfo.players,
       )
@@ -268,7 +270,7 @@ export class MatchmakingService {
             setup,
             resultCodes,
             mapsByPlayer,
-            preferredMaps: preferredMaps.map(m => toMapInfoJson(m)),
+            mapSelections: mapSelections.map(m => toMapInfoJson(m)),
             randomMaps: randomMaps.map(m => toMapInfoJson(m)),
             chosenMap: toMapInfoJson(chosenMap),
             cancelToken: loadCancelToken,
@@ -348,7 +350,7 @@ export class MatchmakingService {
       setup = {},
       resultCodes,
       mapsByPlayer,
-      preferredMaps,
+      mapSelections,
       randomMaps,
       chosenMap,
       cancelToken,
@@ -379,7 +381,7 @@ export class MatchmakingService {
             slots: slots.toArray(),
             players: playersJson,
             mapsByPlayer,
-            preferredMaps,
+            mapSelections,
             randomMaps,
             chosenMap,
           })
@@ -491,7 +493,6 @@ export class MatchmakingService {
   private highRankedMmrs = IMap<MatchmakingType, { retrieved: number; rating: number }>()
 
   constructor(
-    private nydus: NydusServer,
     private publisher: TypedPublisher<MatchmakingEvent>,
     private userSocketsManager: UserSocketsManager,
     private clientSocketsManager: ClientSocketsManager,
@@ -524,15 +525,8 @@ export class MatchmakingService {
     client.unsubscribe(MatchmakingService.getClientPath(client))
   }
 
-  async find(
-    userId: number,
-    clientId: string,
-    type: MatchmakingType,
-    race: RaceChar,
-    useAlternateRace: boolean,
-    alternateRace: AssignedRaceChar,
-    preferredMaps: string[],
-  ) {
+  async find(userId: number, clientId: string, preferences: MatchmakingPreferences) {
+    const { matchmakingType: type, race, mapSelections, data } = preferences
     const userSockets = this.getUserSocketsOrFail(userId)
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
 
@@ -583,9 +577,9 @@ export class MatchmakingService {
       },
       searchIterations: 0,
       race,
-      useAlternateRace: !!useAlternateRace,
-      alternateRace,
-      preferredMaps: new Set(preferredMaps),
+      useAlternateRace: !!data?.useAlternateRace,
+      alternateRace: data?.alternateRace ?? 'z',
+      mapSelections: new Set(mapSelections),
     }
 
     this.matchmakers.get(type)!.addToQueue(player)

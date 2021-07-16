@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
+import { assertUnreachable } from '../../common/assert-unreachable'
 import { MatchmakingType } from '../../common/matchmaking'
 import { openOverlay } from '../activities/action-creators'
 import ActivityBackButton from '../activities/activity-back-button'
@@ -18,7 +19,8 @@ import { ScrollableContent } from '../material/scroll-bar'
 import LoadingIndicator from '../progress/dots'
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
 import { Body1Old, HeadlineOld, SubheadingOld } from '../styles/typography'
-import { getCurrentMapPool } from './action-creators'
+import { getCurrentMapPool, updateMatchmakingPreferences } from './action-creators'
+import { format1v1Preferences, format2v2Preferences } from './find-match'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -96,7 +98,7 @@ const SelectionsText = styled(SubheadingOld)`
 `
 
 @form()
-class PreferredMapsForm extends React.Component {
+class MapSelectionsForm extends React.Component {
   static propTypes = {
     mapPool: PropTypes.object.isRequired,
     favoriteStatusRequests: PropTypes.instanceOf(Set),
@@ -123,7 +125,7 @@ class PreferredMapsForm extends React.Component {
           random map choice for each match.
         </InfoText>
         <MapSelect
-          {...bindCustom('preferredMaps')}
+          {...bindCustom('mapSelections')}
           list={mapPool.maps}
           byId={mapPool.byId}
           maxSelections={2}
@@ -139,15 +141,20 @@ class PreferredMapsForm extends React.Component {
   }
 }
 
-@connect(state => ({ maps: state.maps, matchmaking: state.matchmaking }))
-export default class PreferredMaps extends React.Component {
+@connect(state => ({
+  auth: state.auth,
+  maps: state.maps,
+  matchmaking: state.matchmaking,
+  matchmakingPreferences: state.matchmakingPreferences,
+}))
+export default class MapSelections extends React.Component {
   static propTypes = {
     type: PropTypes.oneOf(Object.values(MatchmakingType)).isRequired,
-    preferredMaps: PropTypes.instanceOf(List),
+    mapSelections: PropTypes.instanceOf(List),
   }
 
   static defaultProps = {
-    preferredMaps: new List(),
+    mapSelections: new List(),
   }
 
   state = {
@@ -161,7 +168,7 @@ export default class PreferredMaps extends React.Component {
   }
 
   renderContents() {
-    const { maps, matchmaking, type, preferredMaps } = this.props
+    const { maps, matchmaking, type, mapSelections } = this.props
     const mapPool = matchmaking.mapPoolTypes.get(type)
 
     if (!mapPool) return null
@@ -179,11 +186,11 @@ export default class PreferredMaps extends React.Component {
     }
 
     const model = {
-      preferredMaps,
+      mapSelections,
     }
 
     return (
-      <PreferredMapsForm
+      <MapSelectionsForm
         ref={this._form}
         model={model}
         mapPool={mapPool}
@@ -197,10 +204,10 @@ export default class PreferredMaps extends React.Component {
   }
 
   render() {
-    const { preferredMaps } = this.props
+    const { mapSelections } = this.props
     const { selectionCount } = this.state
 
-    const selectCount = selectionCount === -1 ? preferredMaps.size : selectionCount
+    const selectCount = selectionCount === -1 ? mapSelections.size : selectionCount
     return (
       <Container>
         <KeyListener onKeyDown={this.onKeyDown} />
@@ -239,19 +246,33 @@ export default class PreferredMaps extends React.Component {
   }
 
   onChange = () => {
-    const { preferredMaps } = this._form.current.getModel()
+    const { mapSelections } = this._form.current.getModel()
 
-    this.setState({ selectionCount: preferredMaps.size })
+    this.setState({ selectionCount: mapSelections.size })
   }
 
   onSubmit = () => {
-    const { preferredMaps } = this._form.current.getModel()
-    const { matchmaking, type } = this.props
+    const { mapSelections } = this._form.current.getModel()
+    const { auth, matchmaking, matchmakingPreferences, type } = this.props
 
     const mapPool = matchmaking.mapPoolTypes.get(type)
-    const preferred = preferredMaps.map(mapId => mapPool.byId.get(mapId))
+    const preferencesRecord = matchmakingPreferences.typeToPreferences.get(type)
+    const selections = mapSelections.map(mapId => mapPool.byId.get(mapId))
+    let preferences
 
-    this.props.dispatch(openOverlay('findMatch', { preferredMaps: preferred }))
+    switch (type) {
+      case MatchmakingType.Match1v1:
+        preferences = format1v1Preferences(preferencesRecord, mapSelections, auth.user.id)
+        break
+      case MatchmakingType.Match2v2:
+        preferences = format2v2Preferences(preferencesRecord, mapSelections, auth.user.id)
+        break
+      default:
+        assertUnreachable(type)
+    }
+
+    this.props.dispatch(updateMatchmakingPreferences({ ...preferences, mapSelections }))
+    this.props.dispatch(openOverlay('findMatch', { type, mapSelections: selections }))
   }
 
   onKeyDown = event => {

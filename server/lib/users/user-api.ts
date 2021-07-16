@@ -149,6 +149,7 @@ export class UserApi extends HttpApi {
     const result: ClientSessionInfo = {
       user: createdUser.user,
       permissions: createdUser.permissions,
+      lastQueuedMatchmakingType: MatchmakingType.Match1v1,
     }
     ctx.body = result
   }

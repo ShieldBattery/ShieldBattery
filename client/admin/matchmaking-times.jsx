@@ -205,17 +205,6 @@ class MatchmakingTimesHistory extends React.PureComponent {
   }
 }
 
-const TAB_1V1 = 0
-
-function tabToType(tab) {
-  switch (tab) {
-    case TAB_1V1:
-      return MatchmakingType.Match1v1
-    default:
-      throw new Error('Invalid tab value')
-  }
-}
-
 const Container = styled.div`
   max-width: 800px;
   padding: 0 16px;
@@ -247,7 +236,7 @@ const AddNewButton = styled(RaisedButton)`
 @connect(state => ({ matchmakingTimes: state.matchmakingTimes }))
 export default class MatchmakingTimes extends React.Component {
   state = {
-    activeTab: TAB_1V1,
+    activeTab: MatchmakingType.Match1v1,
     startDate: '',
     invalidDate: false,
     enabled: false,
@@ -256,7 +245,7 @@ export default class MatchmakingTimes extends React.Component {
   }
 
   componentDidMount() {
-    this.props.dispatch(getMatchmakingTimesHistory(tabToType(this.state.activeTab)))
+    this.props.dispatch(getMatchmakingTimesHistory(this.state.activeTab))
   }
 
   componentDidUpdate(prevProps, prevState) {
@@ -264,7 +253,7 @@ export default class MatchmakingTimes extends React.Component {
     const { activeTab: newTab } = this.state
 
     if (oldTab !== newTab) {
-      this.props.dispatch(getMatchmakingTimesHistory(tabToType(this.state.activeTab)))
+      this.props.dispatch(getMatchmakingTimesHistory(this.state.activeTab))
     }
   }
 
@@ -272,7 +261,7 @@ export default class MatchmakingTimes extends React.Component {
     const { matchmakingTimes } = this.props
     const { activeTab, startDate, invalidDate, enabled, futureTimesPage, pastTimesPage } =
       this.state
-    const matchmakingTimesHistory = matchmakingTimes.types.get(tabToType(activeTab))
+    const matchmakingTimesHistory = matchmakingTimes.types.get(activeTab)
 
     let dateValidationContents
     if (invalidDate) {
@@ -287,7 +276,8 @@ export default class MatchmakingTimes extends React.Component {
       <ScrollableContent>
         <Container>
           <Tabs activeTab={activeTab} onChange={this.onTabChange}>
-            <TabItem text='1v1' value={TAB_1V1} />
+            <TabItem text='1v1' value={MatchmakingType.Match1v1} />
+            <TabItem text='2v2' value={MatchmakingType.Match2v2} />
           </Tabs>
           <h3>Add a new matchmaking time</h3>
           <p>Choose a date and time (in your local timezone) when the matchmaking will start</p>
@@ -345,14 +335,14 @@ export default class MatchmakingTimes extends React.Component {
     const { activeTab, startDate, enabled } = this.state
 
     this.setState({ startDate: '', enabled: false })
-    this.props.dispatch(addMatchmakingTime(tabToType(activeTab), Date.parse(startDate), enabled))
+    this.props.dispatch(addMatchmakingTime(activeTab, Date.parse(startDate), enabled))
   }
 
   onLoadMoreFutureTimes = () => {
     const { activeTab, futureTimesPage } = this.state
 
     this.props.dispatch(
-      getMatchmakingTimesFuture(tabToType(activeTab), MATCHMAKING_TIMES_LIMIT, futureTimesPage),
+      getMatchmakingTimesFuture(activeTab, MATCHMAKING_TIMES_LIMIT, futureTimesPage),
     )
     this.setState({ futureTimesPage: futureTimesPage + 1 })
   }
@@ -361,12 +351,12 @@ export default class MatchmakingTimes extends React.Component {
     const { activeTab, pastTimesPage } = this.state
 
     this.props.dispatch(
-      getMatchmakingTimesPast(tabToType(activeTab), MATCHMAKING_TIMES_LIMIT, pastTimesPage),
+      getMatchmakingTimesPast(activeTab, MATCHMAKING_TIMES_LIMIT, pastTimesPage),
     )
     this.setState({ pastTimesPage: pastTimesPage + 1 })
   }
 
   onDeleteMatchmakingTime = id => {
-    this.props.dispatch(deleteMatchmakingTime(tabToType(this.state.activeTab), id))
+    this.props.dispatch(deleteMatchmakingTime(this.state.activeTab, id))
   }
 }

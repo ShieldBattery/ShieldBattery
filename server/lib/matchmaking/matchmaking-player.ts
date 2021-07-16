@@ -32,10 +32,12 @@ export interface MatchmakingPlayer {
    */
   alternateRace: AssignedRaceChar
   /**
-   * A list of maps that this player prefers to play on, which will have their probability boosted
-   * versus the rest of the map pool.
+   * A list of maps that this player has selected when queueing for a match. Its meaning depends on
+   * the matchmaking type and the system it's using. E.g. 1v1/2v2 might use this list as maps the
+   * user has vetoed, while in 3v3 it might be used as as a list of maps that the user wants to
+   * queue on.
    */
-  preferredMaps: Set<string>
+  mapSelections: Set<string>
 }
 
 export function isNewPlayer(player: MatchmakingPlayer) {

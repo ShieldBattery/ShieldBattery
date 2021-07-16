@@ -17,7 +17,7 @@ export class MatchmakingMatchRecord extends Record({
   acceptedPlayers: 0,
   type: MatchmakingType.Match1v1,
   players: List<MatchmakingPlayerRecord>(),
-  preferredMaps: Set<typeof MapRecord>(),
+  mapSelections: Set<typeof MapRecord>(),
   randomMaps: Set<typeof MapRecord>(),
   chosenMap: undefined as typeof MapRecord | undefined,
 }) {}
@@ -125,11 +125,11 @@ export default keyedReducer(new MatchmakingState(), {
   },
 
   ['@matchmaking/matchReady'](state, action) {
-    const { players, preferredMaps, randomMaps, chosenMap } = action.payload
+    const { players, mapSelections, randomMaps, chosenMap } = action.payload
     const match = {
       acceptedPlayers: Object.keys(players).length,
       players: List(players.map(p => new MatchmakingPlayerRecord(p))),
-      preferredMaps: Set(preferredMaps.map(m => new MapRecord(m))),
+      mapSelections: Set(mapSelections.map(m => new MapRecord(m))),
       randomMaps: Set(randomMaps.map(m => new MapRecord(m))),
       chosenMap: new MapRecord(chosenMap),
     }
