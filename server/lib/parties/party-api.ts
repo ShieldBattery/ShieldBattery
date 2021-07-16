@@ -9,9 +9,11 @@ import {
   AcceptPartyInviteServerBody,
   ChangeLeaderServerBody,
   InviteToPartyServerBody,
+  PartyServiceErrorCode,
   PartyUser,
   SendChatMessageServerBody,
 } from '../../../common/parties'
+import { asHttpError } from '../errors/error-with-payload'
 import { featureEnabled } from '../flags/feature-enabled'
 import { httpApi, HttpApi } from '../http/http-api'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -19,7 +21,7 @@ import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { findUserById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
-import PartyService, { PartyServiceError, PartyServiceErrorCode } from './party-service'
+import PartyService, { PartyServiceError } from './party-service'
 
 const invitesThrottle = createThrottle('partyInvites', {
   rate: 40,
@@ -52,15 +54,17 @@ function convertPartyServiceError(err: Error) {
     case PartyServiceErrorCode.NotFoundOrNotInvited:
     case PartyServiceErrorCode.NotFoundOrNotInParty:
     case PartyServiceErrorCode.InvalidAction:
-      throw new httpErrors.BadRequest(err.message)
+    case PartyServiceErrorCode.AlreadyMember:
+    case PartyServiceErrorCode.InvalidSelfAction:
+      throw asHttpError(400, err)
     case PartyServiceErrorCode.InsufficientPermissions:
-      throw new httpErrors.Forbidden(err.message)
+      throw asHttpError(403, err)
     case PartyServiceErrorCode.PartyFull:
-      throw new httpErrors.Conflict(err.message)
+      throw asHttpError(409, err)
     case PartyServiceErrorCode.UserOffline:
-      throw new httpErrors.NotFound(err.message)
+      throw asHttpError(404, err)
     case PartyServiceErrorCode.NotificationFailure:
-      throw new httpErrors.InternalServerError(err.message)
+      throw asHttpError(500, err)
     default:
       assertUnreachable(err.code)
   }

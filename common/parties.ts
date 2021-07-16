@@ -7,6 +7,18 @@ import { User } from './users/user-info'
  */
 export const MAX_PARTY_SIZE = 8
 
+export enum PartyServiceErrorCode {
+  NotFoundOrNotInvited = 'NotFoundOrNotInvited',
+  NotFoundOrNotInParty = 'NotFoundOrNotInParty',
+  InsufficientPermissions = 'InsufficientPermissions',
+  PartyFull = 'PartyFull',
+  UserOffline = 'UserOffline',
+  InvalidAction = 'InvalidAction',
+  NotificationFailure = 'NotificationFailure',
+  AlreadyMember = 'AlreadyMember',
+  InvalidSelfAction = 'InvalidSelfAction',
+}
+
 export interface PartyUser {
   id: number
   name: string
