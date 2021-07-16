@@ -244,14 +244,16 @@ export function PartyView(props: PartyViewProps) {
           onKickPlayer={onKickPlayerClick}
           onChangeLeader={onChangeLeaderClick}
         />
-        <TextButton
-          label={
-            <>
-              <StyledInviteIcon /> Invite players
-            </>
-          }
-          onClick={onInviteClick}
-        />
+        {selfUser.id === party.leader.id ? (
+          <TextButton
+            label={
+              <>
+                <StyledInviteIcon /> Invite players
+              </>
+            }
+            onClick={onInviteClick}
+          />
+        ) : null}
         <TextButton
           label={
             <>
