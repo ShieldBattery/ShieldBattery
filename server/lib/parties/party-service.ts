@@ -347,6 +347,7 @@ export default class PartyService {
         },
       })
     } catch (err) {
+      logger.error({ err }, 'error creating the invite notification')
       throw new PartyServiceError(
         PartyServiceErrorCode.NotificationFailure,
         'Error creating the notification',

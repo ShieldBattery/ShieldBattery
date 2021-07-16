@@ -24,7 +24,7 @@ export type NotificationData = PartyInviteNotificationData
  * Notification data type that can be used to retrieve notifications by. Should match the actual
  * notification data, except making some (all?) of the fields optional.
  */
-export type SearchNotificationData = PartyInviteSearchNotificationData
+export type SearchNotificationData = PartyInviteSearchNotificationData | Record<string, never>
 
 export interface Notification {
   id: string
@@ -50,11 +50,12 @@ function fromDbNotification(result: Readonly<DbNotification>): Notification {
 
 /**
  * Retrieves the list of 100 visible notifications for a particular user by default, ordered by the
- * time they were created.
+ * time they were created. Additionally, the notifications can be filtered by any of their data
+ * properties.
  */
 export async function retrieveNotifications({
   userId,
-  data = {} as SearchNotificationData,
+  data = {},
   visible = true,
   limit = 100,
 }: {
