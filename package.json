@@ -205,7 +205,7 @@
     "native-addon-loader": "^2.0.1",
     "polished": "^4.0.5",
     "prettier": "^2.0.5",
-    "prettier-plugin-organize-imports": "^2.0.0",
+    "prettier-plugin-organize-imports": "2.2.x",
     "prop-types": "^15.7.2",
     "query-string": "^7.0.0",
     "rally-point-player": "^2.0.0",
