@@ -1159,10 +1159,13 @@ impl BwScr {
         exe.hook_closure_address(
             ProcessGameCommands,
             move |data, len, are_recorded_replay_commands, orig| {
+                let command_user = self.command_user.resolve();
+                let is_observer = command_user >= 128;
                 let slice = std::slice::from_raw_parts(data, len);
                 let slice = commands::filter_invalid_commands(
                     slice,
                     are_recorded_replay_commands != 0,
+                    is_observer,
                     &self.game_command_lengths,
                 );
                 let mut sync_seen = false;
@@ -1183,29 +1186,57 @@ impl BwScr {
                         }
                     }
                 }
+
+                let is_replay = game_thread::is_replay();
+                if !is_replay {
+                    if let Some(players) = self.check_player_drops() {
+                        info!(
+                            "Dropped players {:?} at some point between last check and before \
+                            handling commands for game player {} net {}",
+                            players, command_user, self.storm_command_user.resolve(),
+                        );
+                    }
+                }
                 // There should be no way this is called recursively, but even still
                 // handle that case by keeping track of was_processing.
                 let was_processing = self.is_processing_game_commands.load(Ordering::Relaxed);
                 self.is_processing_game_commands.store(true, Ordering::Relaxed);
                 orig(slice.as_ptr(), slice.len(), are_recorded_replay_commands);
                 self.is_processing_game_commands.store(was_processing, Ordering::Relaxed);
-                if !sync_seen {
-                    let storm_user = self.storm_command_user.resolve();
-                    self.dropped_players.store(
-                        self.dropped_players.load(Ordering::Relaxed) | (1 << storm_user),
-                        Ordering::Relaxed,
-                    );
-                    info!(
-                        "Didn't see sync command for game player {} net {}, {:02x?}, they will be dropped",
-                        self.command_user.resolve(), storm_user, slice,
-                    );
-                }
-                if let Some(players) = self.check_player_drops() {
-                    info!(
-                        "Dropped players {:?} while handling commands for game player {} net {}, {:02x?}",
-                        players, self.command_user.resolve(), self.storm_command_user.resolve(),
-                        slice,
-                    );
+                if !is_replay {
+                    if !sync_seen {
+                        if is_observer {
+                            // Observers don't send sync commands correctly.
+                            // Send no-op command 0x05 which counts as a correct sync to
+                            // prevent them from dropping.
+                            //
+                            // SC:R's setup has observers with storm id >= 128,
+                            // for which process_game_commands is not called at all.
+                            // Our setup uses "normal" storm ids for observers, as that
+                            // makes allocating storm ids during launch simpler, but will
+                            // require doing this (As well as filtering out almost all
+                            // commands the observer sends)
+                            orig(&5u8, 1, 0);
+                        } else {
+                            let storm_user = self.storm_command_user.resolve();
+                            self.dropped_players.store(
+                                self.dropped_players.load(Ordering::Relaxed) | (1 << storm_user),
+                                Ordering::Relaxed,
+                            );
+                            info!(
+                                "Didn't see sync command for game player {} net {}, {:02x?}, \
+                                they will be dropped",
+                                command_user, storm_user, slice,
+                            );
+                        }
+                    }
+                    if let Some(players) = self.check_player_drops() {
+                        info!(
+                            "Dropped players {:?} while handling commands for game player {} \
+                            net {}, {:02x?}",
+                            players, command_user, self.storm_command_user.resolve(), slice,
+                        );
+                    }
                 }
             },
             address,
