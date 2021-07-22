@@ -93,7 +93,7 @@ pub enum GameStateMessage {
     SetupGame(GameSetupInfo),
     StartWhenReady,
     InLobby,
-    PlayerJoined,
+    PlayersChanged,
     GameSetupDone,
     GameThread(GameThreadMessage),
     CleanupQuit,
@@ -335,17 +335,18 @@ impl GameState {
                         }
                     }
                     if someone_left {
-                        // No idea what to do here, launching is probably going to fail
-                        // but log the error so that investigation will be easier.
-                        error!(
-                            "A player that was joined has left??? Before: {:x?} After: {:x?}",
+                        // Somebody seemed to have joined but ended up deciding on their end
+                        // that they failed to join. We may be able to recover from
+                        // this by just letting them try joining again.
+                        warn!(
+                            "A player that was joined has left. Before: {:x?} After: {:x?}",
                             flags_before, flags_after,
                         );
                     }
 
-                    if new_players {
+                    if new_players || someone_left {
                         send_messages_to_state
-                            .send(GameStateMessage::PlayerJoined)
+                            .send(GameStateMessage::PlayersChanged)
                             .await
                             .map_err(|_| GameInitError::Closed)?;
                     }
@@ -476,9 +477,9 @@ impl GameState {
                     cancel_token.bind(task).await
                 });
             }
-            InLobby | PlayerJoined => {
+            InLobby | PlayersChanged => {
                 if let InitState::Started(ref mut state) = self.init_state {
-                    state.player_joined();
+                    state.players_changed();
                 } else {
                     warn!("Player joined before init was started");
                 }
@@ -671,7 +672,7 @@ impl InitInProgress {
         }
     }
 
-    fn player_joined(&mut self) {
+    fn players_changed(&mut self) {
         let result = match unsafe { self.update_joined_state() } {
             Ok(true) => Ok(()),
             Err(e) => Err(e),
@@ -719,7 +720,7 @@ impl InitInProgress {
     }
 
     // Waits until players have joined.
-    // self.player_joined gets called whenever game thread sends a join notification,
+    // self.players_changed gets called whenever game thread sends a join notification,
     // and once when the init task tells that a player is in lobby.
     fn wait_for_players(&mut self) -> impl Future<Output = Result<(), GameInitError>> {
         if self.all_players_joined {
@@ -759,6 +760,23 @@ impl InitInProgress {
         storm_names: &[Option<String>],
     ) -> Result<(), GameInitError> {
         let players = get_bw().players();
+        // Remove any players that may have left.
+        // Should be rare but something may end up making joining player not see themselves
+        // join, making them leave a bit later.
+        // This is still going to have issues if the last player to join ends up leaving,
+        // we probably should add some extra step (E.g. sending some network packet)
+        // to make sure the person is totally joined before we add them here at all.
+        self.joined_players.retain(|joined_player| {
+            let retain = storm_names.iter()
+                .any(|name| name.as_deref() == Some(&*joined_player.name));
+            if !retain {
+                warn!("Player {} has left", joined_player.name);
+                if let Some(bw_slot) = joined_player.player_id {
+                    (*players.add(bw_slot as usize)).storm_id = u32::MAX;
+                }
+            }
+            retain
+        });
         for (storm_id, name) in storm_names.iter().enumerate() {
             let storm_id = StormPlayerId(storm_id as u8);
             let name = match name {
