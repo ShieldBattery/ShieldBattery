@@ -1179,6 +1179,7 @@ pub async fn create_future(
             None => break,
         }
     }
+    debug!("Game state task ended");
 }
 
 /// Sends a request to game thread and waits for it to finish

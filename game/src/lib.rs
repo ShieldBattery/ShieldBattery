@@ -361,23 +361,21 @@ async fn handle_messages_from_game_thread(
     let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
     *crate::game_thread::SEND_FROM_GAME_THREAD.lock().unwrap() = Some(send);
     while let Some(message) = recv.recv().await {
-        let result = match message {
+        match message {
             GameThreadMessage::WindowMove(x, y, w, h) => {
                 let msg = app_socket::encode_message("/game/windowMove", WindowMove { x, y, w, h });
                 if let Some(msg) = msg {
-                    ws_send.send(msg).await.map_err(|_| ())
-                } else {
-                    Ok(())
+                    let _ = ws_send.send(msg).await;
                 }
             }
             other => {
-                game_send.send(GameStateMessage::GameThread(other)).await.map_err(|_| ())
+                let _ = game_send.send(GameStateMessage::GameThread(other)).await;
             }
-        };
-        if result.is_err() {
-            break;
         }
     }
+    // This should never be reached, this task should get combined to a future
+    // which eventually is cancelled (by game state task) to stop everything.
+    debug!("Stopping `game thread -> async` task");
 }
 
 fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
