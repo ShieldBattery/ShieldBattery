@@ -65,7 +65,7 @@ export interface MapFilters {
 export type MapExtension = 'scx' | 'scm'
 export const ALL_MAP_EXTENSIONS: Readonly<MapExtension[]> = ['scx', 'scm']
 
-export interface MapForcesPlayer {
+export interface MapForcePlayer {
   id: number
   race: 'any' | RaceChar
   // TODO(tec27): Make an enum for these types
@@ -73,10 +73,10 @@ export interface MapForcesPlayer {
   computer: boolean
 }
 
-export interface MapForces {
+export interface MapForce {
   name: string
   teamId: number
-  players: MapForcesPlayer[]
+  players: MapForcePlayer[]
 }
 
 export interface MapInfo {
@@ -99,7 +99,7 @@ export interface MapInfo {
     originalDescription: string
     slots: number
     umsSlots: number
-    umsForces: MapForces[]
+    umsForces: MapForce[]
     width: number
     height: number
   }

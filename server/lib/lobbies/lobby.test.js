@@ -4,8 +4,8 @@ import {
   hasOpposingSides,
   humanSlotCount,
 } from '../../../common/lobbies'
+import * as Slots from '../../../common/lobbies/slot'
 import * as Lobbies from './lobby'
-import * as Slots from './slot'
 
 const BigGameHunters = {
   name: 'Big Game Hunters.scm',
@@ -163,7 +163,7 @@ describe('Lobbies - melee', () => {
 
     const [t3, s3, host] = findSlotByName(lobby, lobby.host.name)
     lobby = Lobbies.removePlayer(lobby, t3, s3, host)
-    expect(lobby).toBeNull()
+    expect(lobby).toBeUndefined()
   })
 
   test('should support setting the race of a player', () => {
@@ -216,7 +216,7 @@ describe('Lobbies - melee', () => {
     const [t2, s2, p1] = findSlotById(lobby, lobby.host.id)
     lobby = Lobbies.removePlayer(lobby, t2, s2, p1)
 
-    expect(lobby).toBeNull()
+    expect(lobby).toBeUndefined()
   })
 
   test('should support transferring host status to the next oldest player on host removal', () => {
@@ -652,7 +652,7 @@ describe('Lobbies - Team melee', () => {
     expect(l.teams.get(1).slots.get(0).type).toBe('open')
     expect(l.teams.get(1).slots.get(1).type).toBe('open')
 
-    expect(Lobbies.removePlayer(l, 0, 0, l.host)).toBeNull()
+    expect(Lobbies.removePlayer(l, 0, 0, l.host)).toBeUndefined()
   })
 
   test('should remove all the computers in a team whenever one of the computers is removed', () => {

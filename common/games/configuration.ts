@@ -1,6 +1,43 @@
+import { assertUnreachable } from '../assert-unreachable'
 import { RaceChar } from '../races'
 
 export type GameSource = 'MATCHMAKING' | 'LOBBY'
+
+export enum GameType {
+  Melee = 'melee',
+  FreeForAll = 'ffa',
+  OneVsOne = 'oneVOne',
+  TopVsBottom = 'topVBottom',
+  TeamMelee = 'teamMelee',
+  TeamFreeForAll = 'teamFfa',
+  UseMapSettings = 'ums',
+}
+export const ALL_GAME_TYPES: ReadonlyArray<GameType> = Object.values(GameType)
+
+export function isValidGameType(type: string): boolean {
+  return ALL_GAME_TYPES.includes(type as GameType)
+}
+
+export function gameTypeToLabel(gameType: GameType): string {
+  switch (gameType) {
+    case GameType.Melee:
+      return 'Melee'
+    case GameType.FreeForAll:
+      return 'Free for all'
+    case GameType.TopVsBottom:
+      return 'Top vs bottom'
+    case GameType.TeamMelee:
+      return 'Team melee'
+    case GameType.TeamFreeForAll:
+      return 'Team free for all'
+    case GameType.UseMapSettings:
+      return 'Use map settings'
+    case GameType.OneVsOne:
+      return 'One on one'
+    default:
+      return assertUnreachable(gameType)
+  }
+}
 
 export interface GameConfigPlayerId {
   id: number
@@ -15,7 +52,7 @@ export interface GameConfigPlayerName {
 }
 
 export interface GameConfig<PlayerType> {
-  gameType: string // TODO(tec27): this could be more limiting/specific
+  gameType: GameType
   gameSubType: number
   gameSource: GameSource
   /** Extra information about the game source, e.g. the matchmaking type */

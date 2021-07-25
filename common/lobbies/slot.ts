@@ -1,28 +1,22 @@
 import cuid from 'cuid'
 import { Record } from 'immutable'
-import { RaceChar } from '../../../common/races'
+import { RaceChar } from '../races'
 
-const createSlot = Record({
+export class Slot extends Record({
   type: 'open',
-  userId: null as number | null,
-  name: null as string | null,
+  userId: -1,
+  name: '',
   race: 'r' as RaceChar,
   id: '',
-  joinedAt: null as number | null,
-  controlledBy: null as string | null,
+  joinedAt: -1,
+  controlledBy: undefined as string | undefined,
   hasForcedRace: false,
-  playerId: null as number | null,
+  playerId: -1,
   typeId: 0,
-})
+}) {}
 
-export type Slot = ReturnType<typeof createSlot>
-
-export function createOpen(
-  race: RaceChar = 'r',
-  hasForcedRace = false,
-  playerId: number | null = null,
-): Slot {
-  return createSlot({
+export function createOpen(race: RaceChar = 'r', hasForcedRace = false, playerId = -1): Slot {
+  return new Slot({
     type: 'open',
     name: 'Open',
     race,
@@ -34,12 +28,8 @@ export function createOpen(
   })
 }
 
-export function createClosed(
-  race: RaceChar = 'r',
-  hasForcedRace = false,
-  playerId: number | null = null,
-): Slot {
-  return createSlot({
+export function createClosed(race: RaceChar = 'r', hasForcedRace = false, playerId = -1): Slot {
+  return new Slot({
     type: 'closed',
     name: 'Closed',
     race,
@@ -56,9 +46,9 @@ export function createHuman(
   userId: number,
   race: RaceChar = 'r',
   hasForcedRace = false,
-  playerId: number | null = null,
+  playerId = -1,
 ): Slot {
-  return createSlot({
+  return new Slot({
     type: 'human',
     userId,
     name,
@@ -73,7 +63,7 @@ export function createHuman(
 }
 
 export function createComputer(race: RaceChar = 'r'): Slot {
-  return createSlot({
+  return new Slot({
     type: 'computer',
     name: 'Computer',
     race,
@@ -85,7 +75,7 @@ export function createComputer(race: RaceChar = 'r'): Slot {
 // particular player for as long as it is unoccupied. These are used for Team games (e.g.
 // Team Melee), where open slots still affect the composition of starting units.
 export function createControlledOpen(race: RaceChar, controllerId: string): Slot {
-  return createSlot({
+  return new Slot({
     type: 'controlledOpen',
     name: 'Open',
     race,
@@ -98,7 +88,7 @@ export function createControlledOpen(race: RaceChar, controllerId: string): Slot
 // player for as long as it is closed and unoccupied. These are used for Team games (e.g. Team
 // Melee), where closed slots can still have a race which affects the composition of starting units.
 export function createControlledClosed(race: RaceChar, controllerId: string): Slot {
-  return createSlot({
+  return new Slot({
     type: 'controlledClosed',
     name: 'Closed',
     race,
@@ -111,7 +101,7 @@ export function createControlledClosed(race: RaceChar, controllerId: string): Sl
 // from the lobby and their race can't be changed. TypeId is the exact type (regular computer,
 // rescueable, neutral, etc) which needs to be passed to bw but can otherwise be ignored.
 export function createUmsComputer(race: RaceChar, playerId: number, typeId: number): Slot {
-  return createSlot({
+  return new Slot({
     type: 'umsComputer',
     name: 'Computer',
     race,
@@ -125,7 +115,7 @@ export function createUmsComputer(race: RaceChar, playerId: number, typeId: numb
 // Creates an observer slot, which is a human in a lobby who is not playing, but rather watching
 // other people play.
 export function createObserver(name: string, userId: number) {
-  return createSlot({
+  return new Slot({
     type: 'observer',
     userId,
     name,

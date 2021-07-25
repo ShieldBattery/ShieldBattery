@@ -19,10 +19,10 @@ import {
   hasOpposingSides,
   isUms,
 } from '../../../common/lobbies'
+import * as Slots from '../../../common/lobbies/slot'
 import gameLoader from '../games/game-loader'
 import activityRegistry from '../games/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
-import * as Slots from '../lobbies/slot'
 import { getMapInfo } from '../maps/map-models'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
