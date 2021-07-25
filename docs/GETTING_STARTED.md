@@ -8,21 +8,19 @@ dependencies in order to properly test things.
 
 ## General environment setup
 
-### Python 2.7.x
-
-Building some of the Javascript dependencies require a working [Python 2.7.x](http://www.python.org/download/) install. Install this before
-attempting to follow further steps.
-
 ### JavaScript
 
 All of the JavaScript will either run in, or be built by, [node.js](https://nodejs.org). You'll need
-to install a version of it, generally the current version is a good choice (14.15.3 at the time of
-writing).
+to install a version of it, generally the current version is a good choice (14.17.3 at the time of
+writing). On Windows, you'll be given the option to install dependencies for building native modules
+(Visual Studio build tools + Python), you should take that option if you don't already have them
+installed separately.
 
 ### Yarn
 
 The various JavaScript components use [Yarn](https://yarnpkg.com/) to manage their dependencies.
 Install the latest version of it from their [downloads page](https://yarnpkg.com/en/docs/install).
+Note that we are currently using "Yarn Classic" (that is, 1.x).
 
 ### C++
 
