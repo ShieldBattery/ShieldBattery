@@ -231,6 +231,10 @@ export function useForm<ModelType>(
   useEffect(() => {
     if (!shallowEquals(lastModelValue, modelValue)) {
       for (const [name, dirty] of dirtyFieldsRef.current.entries()) {
+        // TODO(tec27): Ideally this would only re-validate things that changed in the model,
+        // but we can't really do that because the full understanding of dependencies aren't
+        // noted (e.g. if you validate that a field matches another one, you need to re-run
+        // that validation if *either* field changes).
         if (dirty) {
           validate(name)
         }
