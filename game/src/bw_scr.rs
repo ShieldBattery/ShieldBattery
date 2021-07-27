@@ -1871,8 +1871,12 @@ impl bw::Bw for BwScr {
     ) -> Result<(), u32> {
         assert!(*map_path.last().unwrap() == 0, "Map path was not null-terminated");
 
-        // Extra code to support 9411 scr::GameInfoValue layout if it gets rolled back to.
-        let params = if self.exe_build > 9411 {
+        // The GameInfoValue struct is being changed on the newer versions that keeps
+        // getting rolled back.. Keep support for both versions.
+        let params = if self.exe_build > 9411 && self.exe_build < 9713 {
+            // This is currently effectively dead code unless you play on one of rolled
+            // back patches, but it likely ends up being useful at some point on a later
+            // patch so going to keep this here.
             self.build_join_game_params::<scr::GameInfoValue>(input_game_info)
         } else {
             // HashTable itself has same layout regardless of which values it contains,
