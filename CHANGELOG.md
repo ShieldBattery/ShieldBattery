@@ -1,3 +1,27 @@
+#### 7.0.19 (July 27, 2021)
+
+- **Support for SC:R 1.23.8.9713.** We've fixed launching multiplayer games on the latest version
+  of StarCraft: Remastered. Our improved fix for flying SCVs will still be used in place of
+  Blizzard's during gameplay. We also have compatibility code for older replays, so replays
+  containing the SCV exploit will continue to play back correctly when viewed through our client.
+- **Time travel.** You'll now be able to see the history of chat channels from before you joined
+  them. Please only use this power for good, we take no responsibility for users preventing their
+  own conception.
+- **UI fixes for profiles.** User avatars should now display in the proper color, map thumbnails
+  will load a bit more smoothly, and the match history should look a bit nicer if you only have a
+  couple games played.
+
+##### Known Issues
+
+- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
+  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
+  very least add a warning for this case in the future (or better yet, automate re-authing), but
+  for now, try to launch the game from the Blizzard launcher at least once a month.
+- **Observer mode missing.** We're still getting our lobby code to work with the newer ingame
+  observer things, this will return shortly!
+- **Off-center screen starting position.** For some users, generally in positions on the right side
+  of the screen, the starting screen position may be slightly off-center from where it usually is.
+
 #### 7.0.18 (July 10, 2021)
 
 - **Profiles are here!** User profiles are now available, accessible from the user menu in chat
