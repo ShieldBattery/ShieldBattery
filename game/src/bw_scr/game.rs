@@ -91,6 +91,11 @@ unsafe fn can_allocate_order(
     //   (order supply is not low) AND (there are less than 8 orders with icon highlight).
     // Newer SC:R builds(*): If (the current order is DIE or RESET_COLLISION_HARVESTER) OR
     //   ((order supply is not low) AND (there are less than 8 orders with icon highlight)).
+    // Even newer SC:R builds (Flying SCV fix): Same as above, but if
+    //       the current order is CONSTRUCTING_BUILDING AND
+    //       the new order is RESET_COLLISION AND
+    //       there are 8 or more icon highlight orders
+    //   then skip all other checks and allow queuing
     // ShieldBattery: If (the new order is DIE) OR
     //   ((order queue length is less than 12) AND (order supply is not low) AND
     //      (this call is from process_game_commands)) OR
@@ -130,8 +135,16 @@ unsafe fn can_allocate_order(
         let newer_scr_rules = (*replay_bfix).flags & 0x4 != 0 ||
             (*replay_gcfg).unk10 != 5 ||
             (*replay_gcfg).build > 8153;
+        let blizz_flying_scv_fix  = (*replay_gcfg).build >= 9713;
 
         let highlight_orders = (**unit).highlight_order_count;
+        if blizz_flying_scv_fix &&
+            highlight_orders >= 8 &&
+            unit.order() == order::CONSTRUCTING_BUILDING &&
+            new_order == order::RESET_COLLISION
+        {
+            return true;
+        }
         if newer_scr_rules {
             return (!order_supply_low && highlight_orders < 8) ||
                 matches!(unit.order(), order::DIE | order::RESET_COLLISION_HARVESTER);
