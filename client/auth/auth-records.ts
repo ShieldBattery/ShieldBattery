@@ -3,9 +3,9 @@ import { Permissions } from '../../common/users/permissions'
 import { SelfUserInfo } from '../../common/users/user-info'
 
 export class SelfUserRecord extends Record({
-  id: null as number | null,
-  name: null as string | null,
-  email: null as string | null,
+  id: -1,
+  name: '',
+  email: '',
 }) {}
 
 export class PermissionsRecord

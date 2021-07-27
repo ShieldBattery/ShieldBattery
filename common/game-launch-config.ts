@@ -1,4 +1,4 @@
-import { GameType } from './constants'
+import { GameType } from './games/configuration'
 import { MapInfoJson } from './maps'
 import { RaceChar } from './races'
 import { ResolvedRallyPointServer } from './rally-point'

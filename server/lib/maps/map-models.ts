@@ -2,7 +2,7 @@ import sql, { SQLStatement } from 'sql-template-strings'
 import {
   MapExtension,
   MapFilters,
-  MapForces,
+  MapForce,
   MapInfo,
   MapSortType,
   MapVisibility,
@@ -32,7 +32,7 @@ type DbMapInfo = Dbify<{
   playersMelee: number
   playersUms: number
   lobbyInitData: {
-    forces: MapForces[]
+    forces: MapForce[]
   }
   width: number
   height: number

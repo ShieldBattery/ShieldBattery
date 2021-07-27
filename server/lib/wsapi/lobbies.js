@@ -3,12 +3,8 @@ import { List, Map, Record, Set } from 'immutable'
 import CancelToken from '../../../common/async/cancel-token'
 import createDeferred from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
-import {
-  isValidGameSubType,
-  isValidGameType,
-  isValidLobbyName,
-  validRace,
-} from '../../../common/constants'
+import { isValidLobbyName, validRace } from '../../../common/constants'
+import { isValidGameSubType, isValidGameType } from '../../../common/games/configuration'
 import {
   findSlotById,
   findSlotByName,
@@ -19,10 +15,10 @@ import {
   hasOpposingSides,
   isUms,
 } from '../../../common/lobbies'
+import * as Slots from '../../../common/lobbies/slot'
 import gameLoader from '../games/game-loader'
 import activityRegistry from '../games/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
-import * as Slots from '../lobbies/slot'
 import { getMapInfo } from '../maps/map-models'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
@@ -155,7 +151,7 @@ export class LobbyApi {
         numSlots = mapInfo.mapData.slots
     }
 
-    const lobby = Lobbies.create(
+    const lobby = Lobbies.createLobby(
       name,
       mapInfo,
       gameType,

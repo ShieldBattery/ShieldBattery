@@ -4,8 +4,8 @@ import CancelToken, { MultiCancelToken } from '../../../common/async/cancel-toke
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import rejectOnTimeout from '../../../common/async/reject-on-timeout'
 import { GameRoute } from '../../../common/game-launch-config'
-import { GameConfigPlayerName, GameSource } from '../../../common/games/configuration'
-import { Slot } from '../lobbies/slot'
+import { GameConfigPlayerName, GameSource, GameType } from '../../../common/games/configuration'
+import { Slot } from '../../../common/lobbies/slot'
 import log from '../logging/logger'
 import { deleteRecordForGame } from '../models/games'
 import { deleteUserRecordsForGame } from '../models/games-users'
@@ -105,9 +105,8 @@ export interface GameLoadRequest {
    * Configuration info for the game.
    */
   gameConfig: {
-    // TODO(tec27): this could be more limiting/specific
-    /** A string describing the game type. */
-    gameType: string
+    /** What type of game will be played. */
+    gameType: GameType
     /** A number describing the game sub-type (if necessary). */
     gameSubType: number
     /**

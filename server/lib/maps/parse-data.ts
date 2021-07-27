@@ -1,4 +1,4 @@
-import { MapForces } from '../../../common/maps'
+import { MapForce } from '../../../common/maps'
 
 export interface MapParseData {
   hash: string
@@ -10,6 +10,6 @@ export interface MapParseData {
   meleePlayers: number
   umsPlayers: number
   lobbyInitData: {
-    forces: MapForces[]
+    forces: MapForce[]
   }
 }

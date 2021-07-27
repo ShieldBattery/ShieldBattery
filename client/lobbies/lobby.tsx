@@ -1,6 +1,7 @@
 import { List } from 'immutable'
 import React from 'react'
 import styled from 'styled-components'
+import { gameTypeToLabel } from '../../common/games/configuration'
 import {
   canAddObservers,
   canRemoveObservers,
@@ -23,7 +24,6 @@ import { Message } from '../messaging/message-records'
 import { colorTextSecondary } from '../styles/colors'
 import { body1, headline4, headline6, subtitle1 } from '../styles/typography'
 import ClosedSlot from './closed-slot'
-import gameTypeToString from './game-type-to-string'
 import {
   BanLobbyPlayerMessage,
   JoinLobbyMessage,
@@ -388,7 +388,7 @@ export default class Lobby extends React.Component<LobbyProps> {
           </MapImageContainer>
           <InfoItem>
             <InfoLabel as='span'>Game type</InfoLabel>
-            <InfoValue as='span'>{gameTypeToString(lobby.gameType)}</InfoValue>
+            <InfoValue as='span'>{gameTypeToLabel(lobby.gameType)}</InfoValue>
           </InfoItem>
           {this.renderCountdown()}
           {this.renderStartButton()}

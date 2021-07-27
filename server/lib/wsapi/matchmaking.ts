@@ -7,11 +7,12 @@ import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { MATCHMAKING_ACCEPT_MATCH_TIME, validRace } from '../../../common/constants'
 import { GameRoute } from '../../../common/game-launch-config'
+import { GameType } from '../../../common/games/configuration'
+import { createHuman, Slot } from '../../../common/lobbies/slot'
 import { MapInfoJson, toMapInfoJson } from '../../../common/maps'
 import { isValidMatchmakingType, MatchmakingType } from '../../../common/matchmaking'
 import gameLoader from '../games/game-loader'
 import activityRegistry from '../games/gameplay-activity-registry'
-import { createHuman, Slot } from '../lobbies/slot'
 import { getMapInfo } from '../maps/map-models'
 import { MatchmakingDebugDataService } from '../matchmaking/debug-data'
 import MatchAcceptor, { MatchAcceptorCallbacks } from '../matchmaking/match-acceptor'
@@ -188,7 +189,7 @@ export class MatchmakingApi {
 
       const gameConfig = {
         // TODO(tec27): This will need to be adjusted for team matchmaking
-        gameType: 'oneVOne',
+        gameType: GameType.OneVsOne,
         gameSubType: 0,
         teams: [
           slots

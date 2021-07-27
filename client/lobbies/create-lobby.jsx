@@ -3,7 +3,8 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-import { GAME_TYPES, LOBBY_NAME_MAXLENGTH } from '../../common/constants'
+import { LOBBY_NAME_MAXLENGTH } from '../../common/constants'
+import { ALL_GAME_TYPES, GameType, gameTypeToLabel } from '../../common/games/configuration'
 import { isTeamType } from '../../common/lobbies'
 import { closeOverlay, openOverlay } from '../activities/action-creators'
 import form from '../forms/form'
@@ -24,7 +25,6 @@ import {
   navigateToLobby,
   updateLobbyPreferences,
 } from './action-creators'
-import gameTypeToString from './game-type-to-string'
 import { RecentMaps, recentMapsFromJs } from './lobby-preferences-reducer'
 
 const ENTER = 'Enter'
@@ -124,7 +124,7 @@ class CreateLobbyForm extends React.Component {
     const {
       mapData: { slots },
     } = selectedMap
-    if (gameType === 'topVBottom') {
+    if (gameType === GameType.TopVsBottom) {
       return (
         <Select {...bindCustom('gameSubType')} label='Teams' tabIndex={0}>
           {Range(slots - 1, 0).map(top => (
@@ -163,8 +163,8 @@ class CreateLobbyForm extends React.Component {
         />
         <GameTypeAndSubType>
           <Select {...bindCustom('gameType')} label='Game type' tabIndex={0}>
-            {GAME_TYPES.map(type => (
-              <Option key={type} value={type} text={gameTypeToString(type)} />
+            {ALL_GAME_TYPES.map(type => (
+              <Option key={type} value={type} text={gameTypeToLabel(type)} />
             ))}
           </Select>
           {this.renderSubTypeSelection()}
