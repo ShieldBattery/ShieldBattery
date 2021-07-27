@@ -3,12 +3,8 @@ import { List, Map, Record, Set } from 'immutable'
 import CancelToken from '../../../common/async/cancel-token'
 import createDeferred from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
-import {
-  isValidGameSubType,
-  isValidGameType,
-  isValidLobbyName,
-  validRace,
-} from '../../../common/constants'
+import { isValidLobbyName, validRace } from '../../../common/constants'
+import { isValidGameSubType, isValidGameType } from '../../../common/games/configuration'
 import {
   findSlotById,
   findSlotByName,
@@ -155,7 +151,7 @@ export class LobbyApi {
         numSlots = mapInfo.mapData.slots
     }
 
-    const lobby = Lobbies.create(
+    const lobby = Lobbies.createLobby(
       name,
       mapInfo,
       gameType,

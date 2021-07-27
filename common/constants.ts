@@ -49,10 +49,6 @@ export function isValidLobbyName(name: string): boolean {
   return typeof name === 'string' && name.length > 0 && name.length <= LOBBY_NAME_MAXLENGTH
 }
 
-export function isValidGameSubType(type?: number | null): boolean {
-  return type === null || type === undefined || (type >= 1 && type <= 7)
-}
-
 export function validRace(r: string): boolean {
   return r === 'r' || r === 't' || r === 'z' || r === 'p'
 }

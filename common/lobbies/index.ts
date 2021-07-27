@@ -6,7 +6,7 @@ import { Slot } from './slot'
 
 export class Team extends Record({
   name: '',
-  teamId: -1,
+  teamId: 0,
   isObserver: false,
   /** Slots that belong to a particular team. */
   slots: List<Slot>(),

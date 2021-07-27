@@ -4,18 +4,18 @@ import { RaceChar } from '../races'
 
 export class Slot extends Record({
   type: 'open',
-  userId: -1,
+  userId: 0,
   name: '',
   race: 'r' as RaceChar,
   id: '',
-  joinedAt: -1,
+  joinedAt: 0,
   controlledBy: undefined as string | undefined,
   hasForcedRace: false,
-  playerId: -1,
+  playerId: 0,
   typeId: 0,
 }) {}
 
-export function createOpen(race: RaceChar = 'r', hasForcedRace = false, playerId = -1): Slot {
+export function createOpen(race: RaceChar = 'r', hasForcedRace = false, playerId = 0): Slot {
   return new Slot({
     type: 'open',
     name: 'Open',
@@ -28,7 +28,7 @@ export function createOpen(race: RaceChar = 'r', hasForcedRace = false, playerId
   })
 }
 
-export function createClosed(race: RaceChar = 'r', hasForcedRace = false, playerId = -1): Slot {
+export function createClosed(race: RaceChar = 'r', hasForcedRace = false, playerId = 0): Slot {
   return new Slot({
     type: 'closed',
     name: 'Closed',
@@ -46,7 +46,7 @@ export function createHuman(
   userId: number,
   race: RaceChar = 'r',
   hasForcedRace = false,
-  playerId = -1,
+  playerId = 0,
 ): Slot {
   return new Slot({
     type: 'human',

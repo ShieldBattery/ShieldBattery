@@ -1,5 +1,6 @@
 import httpErrors from 'http-errors'
-import { isValidGameSubType, isValidGameType, isValidLobbyName } from '../../../common/constants'
+import { isValidLobbyName } from '../../../common/constants'
+import { isValidGameSubType, isValidGameType } from '../../../common/games/configuration'
 import { getMapInfo } from '../maps/map-models'
 import { getLobbyPreferences, upsertLobbyPreferences } from '../models/lobby-preferences'
 import ensureLoggedIn from '../session/ensure-logged-in'

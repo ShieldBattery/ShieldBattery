@@ -1,12 +1,12 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
+import { gameTypeToLabel } from '../../common/games/configuration'
 import { getPlayerSlots } from '../../common/lobbies'
 import MapImage from '../maps/map-image'
 import { shadow1dp } from '../material/shadows'
 import { colorTextSecondary } from '../styles/colors'
 import { Display1Old, TitleOld } from '../styles/typography'
-import gameTypeToString from './game-type-to-string'
 import PlayerCard from './player-card'
 
 const LOADING_MESSAGES = [
@@ -295,7 +295,7 @@ export default class LoadingScreen extends React.Component {
     return (
       <Content>
         <div>
-          <Display1Old as='span'>{gameTypeToString(lobby.gameType)}</Display1Old>
+          <Display1Old as='span'>{gameTypeToLabel(lobby.gameType)}</Display1Old>
           <GameTypeMapBridge as='span'> on </GameTypeMapBridge>
           <Display1Old as='span'>{lobby.map.name}</Display1Old>
         </div>

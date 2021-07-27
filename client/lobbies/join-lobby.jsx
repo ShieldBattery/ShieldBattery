@@ -2,13 +2,13 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
+import { gameTypeToLabel } from '../../common/games/configuration'
 import { closeOverlay } from '../activities/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import siteSocket from '../network/site-socket'
 import { colorDividers } from '../styles/colors'
 import { Body1, headline5, Headline6, Subtitle1, Subtitle2 } from '../styles/typography'
 import { joinLobby, navigateToLobby } from './action-creators'
-import gameTypeToString from './game-type-to-string'
 
 const ListEntryRoot = styled.div`
   width: 100%;
@@ -71,7 +71,7 @@ class ListEntry extends React.Component {
         <Info>
           <Headline6>{lobby.name}</Headline6>
           <Subtitle2>{lobby.host.name}</Subtitle2>
-          <Body1>{gameTypeToString(lobby.gameType)}</Body1>
+          <Body1>{gameTypeToLabel(lobby.gameType)}</Body1>
           <Body1>{lobby.openSlotCount} slots open</Body1>
         </Info>
         <MapPreview>

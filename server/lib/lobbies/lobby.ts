@@ -255,7 +255,7 @@ function createInitialTeams(
 // isn't in TS code
 /** Creates a new lobby, and an initial host player in the first slot. */
 // eslint-disable-next-line max-params
-export function create(
+export function createLobby(
   name: string,
   map: MapInfo,
   gameType: GameType,
