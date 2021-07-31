@@ -1,16 +1,17 @@
 import errors from 'http-errors'
 import { List, Map as IMap, Range, Record, Set as ISet } from 'immutable'
-import { NextFunc, NydusServer } from 'nydus'
+import { NydusServer } from 'nydus'
 import { container, singleton } from 'tsyringe'
 import CancelToken from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
-import { MATCHMAKING_ACCEPT_MATCH_TIME, validRace } from '../../../common/constants'
+import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../../common/constants'
 import { GameRoute } from '../../../common/game-launch-config'
 import { GameType } from '../../../common/games/configuration'
 import { createHuman, Slot } from '../../../common/lobbies/slot'
 import { MapInfoJson, toMapInfoJson } from '../../../common/maps'
-import { isValidMatchmakingType, MatchmakingType } from '../../../common/matchmaking'
+import { MatchmakingType } from '../../../common/matchmaking'
+import { AssignedRaceChar, RaceChar } from '../../../common/races'
 import gameLoader from '../games/game-loader'
 import activityRegistry from '../games/gameplay-activity-registry'
 import { getMapInfo } from '../maps/map-models'
@@ -27,13 +28,12 @@ import {
 } from '../matchmaking/models'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import { monotonicNow } from '../time/monotonic-now'
-import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
 import {
   ClientSocketsGroup,
   ClientSocketsManager,
+  UserSocketsGroup,
   UserSocketsManager,
 } from '../websockets/socket-groups'
-import validateBody from '../websockets/validate-body'
 
 const createMatch = Record({
   type: MatchmakingType.Match1v1 as MatchmakingType,
@@ -70,7 +70,22 @@ const ACCEPT_MATCH_LATENCY = 2000
  */
 const MAX_HIGH_RANKED_AGE_MS = 10 * 60 * 1000
 
-const MOUNT_BASE = '/matchmaking'
+export enum MatchmakingServiceErrorCode {
+  UserOffline,
+  InvalidMapPool,
+  InvalidMaps,
+  ClientDisconnected,
+  MatchmakingDisabled,
+  GameplayConflict,
+  NotInQueue,
+  NoActiveMatch,
+}
+
+export class MatchmakingServiceError extends Error {
+  constructor(readonly code: MatchmakingServiceErrorCode, message: string) {
+    super(message)
+  }
+}
 
 /**
  * Selects a map for the given players and matchmaking type, based on the players' stored
@@ -82,7 +97,10 @@ const MOUNT_BASE = '/matchmaking'
 async function pickMap(matchmakingType: MatchmakingType, players: List<MatchmakingPlayer>) {
   const currentMapPool = await getCurrentMapPool(matchmakingType)
   if (!currentMapPool) {
-    throw new Error('invalid map pool')
+    throw new MatchmakingServiceError(
+      MatchmakingServiceErrorCode.InvalidMapPool,
+      "Map pool doesn't exist",
+    )
   }
 
   // The algorithm for selecting maps is:
@@ -122,7 +140,10 @@ async function pickMap(matchmakingType: MatchmakingType, players: List<Matchmaki
     getMapInfo(randomMapIds),
   ])
   if (preferredMapIds.size + randomMapIds.length !== preferredMaps.length + randomMaps.length) {
-    throw new Error('no maps found')
+    throw new MatchmakingServiceError(
+      MatchmakingServiceErrorCode.InvalidMaps,
+      'Some (or all) of the maps not found',
+    )
   }
 
   const mapsByPlayer = mapIdsByPlayer
@@ -137,8 +158,7 @@ async function pickMap(matchmakingType: MatchmakingType, players: List<Matchmaki
 }
 
 @singleton()
-@Mount(MOUNT_BASE)
-export class MatchmakingApi {
+export class MatchmakingService {
   private matchAcceptorDelegate: MatchAcceptorCallbacks<Match> = {
     onAcceptProgress: (matchInfo, total, accepted) => {
       for (const player of matchInfo.players) {
@@ -259,13 +279,13 @@ export class MatchmakingApi {
             // TODO(tec27): We probably shouldn't be blindly sending error messages to clients
             reason: err && err.message,
           })
-          this.handleLeave(client)
+          this.removeClientFromMatchmaking(client)
         }
       }
     },
   }
 
-  matchmakerDelegate = {
+  private matchmakerDelegate = {
     onMatchFound: (player: Readonly<MatchmakingPlayer>, opponent: Readonly<MatchmakingPlayer>) => {
       const { type } = this.queueEntries.get(player.name)!
       const matchInfo = createMatch({
@@ -290,7 +310,7 @@ export class MatchmakingApi {
     },
   }
 
-  gameLoaderDelegate = {
+  private gameLoaderDelegate = {
     onGameSetup: async ({
       matchInfo,
       clients,
@@ -347,7 +367,10 @@ export class MatchmakingApi {
           })
 
           if (!published) {
-            throw new Error(`match cancelled, ${client.name} disconnected`)
+            throw new MatchmakingServiceError(
+              MatchmakingServiceErrorCode.ClientDisconnected,
+              `Match cancelled, ${client.name} disconnected`,
+            )
           }
 
           let mapSelectionTimerId
@@ -366,7 +389,10 @@ export class MatchmakingApi {
 
             published = this.publishToActiveClient(client.userId, { type: 'startCountdown' })
             if (!published) {
-              throw new Error(`match cancelled, ${client.name} disconnected`)
+              throw new MatchmakingServiceError(
+                MatchmakingServiceErrorCode.ClientDisconnected,
+                `Match cancelled, ${client.name} disconnected`,
+              )
             }
 
             const countdownTimer = createDeferred<void>()
@@ -386,7 +412,10 @@ export class MatchmakingApi {
               gameId: setup.gameId,
             })
             if (!published) {
-              throw new Error(`match cancelled, ${client.name} disconnected`)
+              throw new MatchmakingServiceError(
+                MatchmakingServiceErrorCode.ClientDisconnected,
+                `Match cancelled, ${client.name} disconnected`,
+              )
             }
           } finally {
             if (mapSelectionTimerId) {
@@ -445,8 +474,8 @@ export class MatchmakingApi {
 
   constructor(
     private nydus: NydusServer,
-    private userSockets: UserSocketsManager,
-    private clientSockets: ClientSocketsManager,
+    private userSocketsManager: UserSocketsManager,
+    private clientSocketsManager: ClientSocketsManager,
     private matchmakingStatus: MatchmakingStatusService,
   ) {
     this.matchmakers = IMap(
@@ -462,7 +491,127 @@ export class MatchmakingApi {
     }
   }
 
-  private handleLeave = (client: ClientSocketsGroup) => {
+  private unregisterActivity(client: ClientSocketsGroup) {
+    activityRegistry.unregisterClientForUser(client.userId)
+    this.publishToUser(client.name, {
+      type: 'status',
+      matchmaking: null,
+    })
+
+    const userSockets = this.getUserSockets(client.userId)
+    if (userSockets) {
+      userSockets.unsubscribe(MatchmakingService.getUserPath(client.name))
+    }
+    client.unsubscribe(MatchmakingService.getClientPath(client))
+  }
+
+  async find(
+    userId: number,
+    clientId: string,
+    type: MatchmakingType,
+    race: RaceChar,
+    useAlternateRace: boolean,
+    alternateRace: AssignedRaceChar,
+    preferredMaps: string[],
+  ) {
+    const userSockets = this.getUserSockets(userId)
+    const clientSockets = this.getClientSockets(userId, clientId)
+
+    if (!this.matchmakingStatus.isEnabled(type)) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.MatchmakingDisabled,
+        'Matchmaking is currently disabled',
+      )
+    }
+
+    if (!activityRegistry.registerActiveClient(userId, clientSockets)) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.GameplayConflict,
+        'User is already active in a gameplay activity',
+      )
+    }
+
+    const mmr: MatchmakingRating =
+      (await getMatchmakingRating(userId, type)) ??
+      (await createInitialMatchmakingRating(userId, type))
+
+    // TODO(tec27): Really this retrieval should be triggered by the matchmaking, since it knows
+    // when it's still running and for what matchmaking type
+    const currentTime = monotonicNow()
+    if (
+      !this.highRankedMmrs.has(type) ||
+      currentTime - this.highRankedMmrs.get(type)!.retrieved > MAX_HIGH_RANKED_AGE_MS
+    ) {
+      const highRankedRating = await getHighRankedRating(type)
+      this.highRankedMmrs.set(type, { retrieved: currentTime, rating: highRankedRating })
+      this.matchmakers.get(type)!.setHighRankedRating(highRankedRating)
+    }
+
+    // TODO(tec27): Bump up the uncertainty based on how long ago the last played date was:
+    // "After [14] days, the inactive player’s uncertainty (search range) increases by 24 per day,
+    // up to a maximum of 336 after 14 additional days."
+
+    const halfUncertainty = mmr.uncertainty / 2
+
+    const player: MatchmakingPlayer = {
+      id: userSockets.userId,
+      name: userSockets.name,
+      numGamesPlayed: mmr.numGamesPlayed,
+      rating: mmr.rating,
+      interval: {
+        low: mmr.rating - halfUncertainty,
+        high: mmr.rating + halfUncertainty,
+      },
+      searchIterations: 0,
+      race,
+      useAlternateRace: !!useAlternateRace,
+      alternateRace,
+      preferredMaps: new Set(preferredMaps),
+    }
+
+    this.matchmakers.get(type)!.addToQueue(player)
+
+    const queueEntry = createQueueEntry({ type, username: userSockets.name })
+    this.queueEntries = this.queueEntries.set(userSockets.name, queueEntry)
+
+    userSockets.subscribe(MatchmakingService.getUserPath(userSockets.name), () => {
+      return {
+        type: 'status',
+        matchmaking: { type },
+      }
+    })
+    clientSockets.subscribe(
+      MatchmakingService.getClientPath(clientSockets),
+      undefined,
+      this.removeClientFromMatchmaking,
+    )
+  }
+
+  async cancel(userId: number) {
+    const userSockets = this.getUserSockets(userId)
+    const clientSockets = activityRegistry.getClientForUser(userSockets.userId)
+    if (!clientSockets || !this.queueEntries.has(userSockets.name)) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.NotInQueue,
+        'User does not have an active matchmaking queue',
+      )
+    }
+
+    this.removeClientFromMatchmaking(clientSockets)
+  }
+
+  async accept(userId: number) {
+    const userSockets = this.getUserSockets(userId)
+    const clientSockets = activityRegistry.getClientForUser(userSockets.userId)
+    if (!clientSockets || !this.acceptor.registerAccept(clientSockets)) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.NoActiveMatch,
+        'No active match found',
+      )
+    }
+  }
+
+  private removeClientFromMatchmaking(client: ClientSocketsGroup) {
     // NOTE(2Pac): Client can leave, i.e. disconnect, during the queueing process, during the
     // loading process, or even during the game process.
     const entry = this.queueEntries.get(client.name)
@@ -491,141 +640,35 @@ export class MatchmakingApi {
     this.unregisterActivity(client)
   }
 
-  private unregisterActivity(client: ClientSocketsGroup) {
-    activityRegistry.unregisterClientForUser(client.userId)
-    this.publishToUser(client.name, {
-      type: 'status',
-      matchmaking: null,
-    })
-
-    const user = this.userSockets.getById(client.userId)
-    if (user) {
-      user.unsubscribe(MatchmakingApi.getUserPath(client.name))
+  private getUserSockets(userId: number): UserSocketsGroup {
+    const userSockets = this.userSocketsManager.getById(userId)
+    if (!userSockets) {
+      throw new MatchmakingServiceError(MatchmakingServiceErrorCode.UserOffline, 'User is offline')
     }
-    client.unsubscribe(MatchmakingApi.getClientPath(client))
+
+    return userSockets
   }
 
-  @Api(
-    '/find',
-    validateBody({
-      type: isValidMatchmakingType,
-      race: validRace,
-    }),
-  )
-  async find(data: Map<string, any>, next: NextFunc) {
-    const { type, race, useAlternateRace, alternateRace, preferredMaps } = data.get('body')
-
-    if (useAlternateRace) {
-      if (!validRace(alternateRace) || alternateRace === 'r') {
-        throw new errors.BadRequest('invalid alternate race')
-      }
-    }
-    if (!Array.isArray(preferredMaps) || preferredMaps.length > 2) {
-      throw new errors.BadRequest('invalid preferred maps, must be an array with length at most 2')
+  private getClientSockets(userId: number, clientId: string): ClientSocketsGroup {
+    const clientSockets = this.clientSocketsManager.getById(userId, clientId)
+    if (!clientSockets) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.UserOffline,
+        'Client could not be found',
+      )
     }
 
-    const user = this.getUser(data)
-    const client = this.getClient(data)
-
-    if (!this.matchmakingStatus.isEnabled(type)) {
-      throw new errors.Conflict('matchmaking is currently disabled')
-    }
-
-    if (!activityRegistry.registerActiveClient(user.userId, client)) {
-      throw new errors.Conflict('user is already active in a gameplay activity')
-    }
-
-    const mmr: MatchmakingRating =
-      (await getMatchmakingRating(user.userId, type)) ??
-      (await createInitialMatchmakingRating(user.userId, type))
-
-    // TODO(tec27): Really this retrieval should be triggered by the matchmaking, since it knows
-    // when it's still running and for what matchmaking type
-    const currentTime = monotonicNow()
-    if (
-      !this.highRankedMmrs.has(type) ||
-      currentTime - this.highRankedMmrs.get(type)!.retrieved > MAX_HIGH_RANKED_AGE_MS
-    ) {
-      const highRankedRating = await getHighRankedRating(type)
-      this.highRankedMmrs.set(type, { retrieved: currentTime, rating: highRankedRating })
-      this.matchmakers.get(type)!.setHighRankedRating(highRankedRating)
-    }
-
-    // TODO(tec27): Bump up the uncertainty based on how long ago the last played date was:
-    // "After [14] days, the inactive player’s uncertainty (search range) increases by 24 per day,
-    // up to a maximum of 336 after 14 additional days."
-
-    const halfUncertainty = mmr.uncertainty / 2
-
-    const player: MatchmakingPlayer = {
-      id: user.session.userId,
-      name: user.name,
-      numGamesPlayed: mmr.numGamesPlayed,
-      rating: mmr.rating,
-      interval: {
-        low: mmr.rating - halfUncertainty,
-        high: mmr.rating + halfUncertainty,
-      },
-      searchIterations: 0,
-      race,
-      useAlternateRace: !!useAlternateRace,
-      alternateRace,
-      preferredMaps: new Set(preferredMaps),
-    }
-
-    this.matchmakers.get(type)!.addToQueue(player)
-
-    const queueEntry = createQueueEntry({ type, username: user.name })
-    this.queueEntries = this.queueEntries.set(user.name, queueEntry)
-
-    user.subscribe(MatchmakingApi.getUserPath(user.name), () => {
-      return {
-        type: 'status',
-        matchmaking: { type },
-      }
-    })
-    client.subscribe(MatchmakingApi.getClientPath(client), undefined, this.handleLeave)
-  }
-
-  @Api('/cancel')
-  async cancel(data: Map<string, any>, next: NextFunc) {
-    const user = this.getUser(data)
-    const client = activityRegistry.getClientForUser(user.userId)
-    if (!client || !this.queueEntries.has(user.name)) {
-      throw new errors.Conflict('user does not have an active matchmaking queue')
-    }
-
-    this.handleLeave(client)
-  }
-
-  @Api('/accept')
-  async accept(data: Map<string, any>, next: NextFunc) {
-    const client = this.getClient(data)
-    if (!this.acceptor.registerAccept(client)) {
-      throw new errors.NotFound('no active match found')
-    }
-  }
-
-  getUser(data: Map<string, any>) {
-    const user = this.userSockets.getBySocket(data.get('client'))
-    if (!user) throw new errors.Unauthorized('authorization required')
-    return user
-  }
-
-  getClient(data: Map<string, any>) {
-    const client = this.clientSockets.getCurrentClient(data.get('client'))
-    if (!client) throw new errors.Unauthorized('authorization required')
-    return client
+    return clientSockets
   }
 
   private publishToUser(username: string, data?: any) {
-    this.nydus.publish(MatchmakingApi.getUserPath(username), data)
+    this.nydus.publish(MatchmakingService.getUserPath(username), data)
   }
 
   private publishToActiveClient(userId: number, data?: any): boolean {
     const client = activityRegistry.getClientForUser(userId)
     if (client) {
-      this.nydus.publish(MatchmakingApi.getClientPath(client), data)
+      this.nydus.publish(MatchmakingService.getClientPath(client), data)
       return true
     } else {
       return false
@@ -633,16 +676,10 @@ export class MatchmakingApi {
   }
 
   static getUserPath(username: string) {
-    return `${MOUNT_BASE}/${encodeURIComponent(username)}`
+    return `/matchmaking/${encodeURIComponent(username)}`
   }
 
   static getClientPath(client: ClientSocketsGroup) {
-    return `${MOUNT_BASE}/${client.userId}/${client.clientId}`
+    return `/matchmaking/${client.userId}/${client.clientId}`
   }
-}
-
-export default function registerApi(nydus: NydusServer) {
-  const api = container.resolve(MatchmakingApi)
-  registerApiRoutes(api, nydus)
-  return api
 }
