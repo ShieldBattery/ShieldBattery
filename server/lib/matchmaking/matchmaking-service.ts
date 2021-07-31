@@ -1,4 +1,3 @@
-import errors from 'http-errors'
 import { List, Map as IMap, Range, Record, Set as ISet } from 'immutable'
 import { NydusServer } from 'nydus'
 import { container, singleton } from 'tsyringe'
