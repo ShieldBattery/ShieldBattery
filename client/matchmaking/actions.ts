@@ -1,4 +1,3 @@
-import { List } from 'immutable'
 import { Slot } from '../../common/lobbies/slot'
 import { MapInfoJson } from '../../common/maps'
 import {

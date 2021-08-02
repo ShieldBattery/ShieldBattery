@@ -1,4 +1,3 @@
-import { List } from 'immutable'
 import { GameRoute } from './game-launch-config'
 import { Slot } from './lobbies/slot'
 import { MapInfoJson } from './maps'
