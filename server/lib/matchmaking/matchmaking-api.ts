@@ -6,10 +6,10 @@ import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { ALL_MATCHMAKING_TYPES } from '../../../common/matchmaking'
 import { httpApi, HttpApi } from '../http/http-api'
+import { apiEndpoint } from '../http/http-api-endpoint'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
-import { validateRequest } from '../validation/joi-validator'
 import {
   MatchmakingService,
   MatchmakingServiceError,
@@ -81,10 +81,8 @@ export class MatchmakingApi extends HttpApi {
       )
   }
 
-  async findMatch(ctx: RouterContext) {
-    const {
-      body: { clientId, type, race, useAlternateRace, alternateRace, preferredMaps },
-    } = validateRequest(ctx, {
+  findMatch = apiEndpoint(
+    {
       body: Joi.object({
         clientId: Joi.string().required(),
         type: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
@@ -93,30 +91,27 @@ export class MatchmakingApi extends HttpApi {
         alternateRace: Joi.string().valid('p', 't', 'z').required(),
         preferredMaps: Joi.array().items(Joi.string()).min(0).max(2).required(),
       }),
-    })
+    },
+    async (ctx, { body }) => {
+      const { clientId, type, race, useAlternateRace, alternateRace, preferredMaps } = body
 
-    await this.matchmakingService.find(
-      ctx.session!.userId,
-      clientId,
-      type,
-      race,
-      useAlternateRace,
-      alternateRace,
-      preferredMaps,
-    )
+      await this.matchmakingService.find(
+        ctx.session!.userId,
+        clientId,
+        type,
+        race,
+        useAlternateRace,
+        alternateRace,
+        preferredMaps,
+      )
+    },
+  )
 
-    ctx.status = 204
-  }
-
-  async cancelSearch(ctx: RouterContext) {
+  cancelSearch = apiEndpoint({}, async ctx => {
     await this.matchmakingService.cancel(ctx.session!.userId)
+  })
 
-    ctx.status = 204
-  }
-
-  async acceptMatch(ctx: RouterContext) {
+  acceptMatch = apiEndpoint({}, async ctx => {
     await this.matchmakingService.accept(ctx.session!.userId)
-
-    ctx.status = 204
-  }
+  })
 }
