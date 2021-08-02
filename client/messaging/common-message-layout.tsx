@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react'
 import styled from 'styled-components'
+import { matchLinks } from '../../common/text/links'
 import { amberA100 } from '../styles/colors'
 import { body2 } from '../styles/typography'
 import { ConnectedUsername } from './connected-username'
@@ -9,8 +10,6 @@ import {
   Separator,
   TimestampMessageLayout,
 } from './message-layout'
-
-const URL_REGEX = /(?<g1>https?:\/\/)(?:[^\s)"\].]|(?:\.(?=\S))|(?<=\k<g1>.*\([^)]*)\)){2,}/gi
 
 const newDayFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -36,7 +35,7 @@ const Text = styled.span`
 
 export function ParsedText({ text }: { text: string }) {
   const parsedText = useMemo(() => {
-    const matches = text.matchAll(URL_REGEX)
+    const matches = matchLinks(text)
     const elements = []
     let lastIndex = 0
 
