@@ -9,7 +9,7 @@ import { GameRoute } from '../../../common/game-launch-config'
 import { GameType } from '../../../common/games/configuration'
 import { createHuman, Slot } from '../../../common/lobbies/slot'
 import { MapInfoJson, toMapInfoJson } from '../../../common/maps'
-import { MatchmakingType } from '../../../common/matchmaking'
+import { MatchmakingEvent, MatchmakingType } from '../../../common/matchmaking'
 import { AssignedRaceChar, RaceChar } from '../../../common/races'
 import gameLoader from '../games/game-loader'
 import activityRegistry from '../games/gameplay-activity-registry'
@@ -33,6 +33,7 @@ import {
   UserSocketsGroup,
   UserSocketsManager,
 } from '../websockets/socket-groups'
+import { TypedPublisher } from '../websockets/typed-publisher'
 
 interface MatchmakerCallbacks {
   onMatchFound: OnMatchFoundFunc
@@ -43,10 +44,10 @@ interface GameLoaderCallbacks {
     matchInfo: Match
     clients: List<ClientSocketsGroup>
     slots: List<Slot>
-    setup?: Partial<{
+    setup?: {
       gameId: string
       seed: number
-    }>
+    }
     resultCodes: Map<string, string>
     mapsByPlayer: { [key: number]: MapInfoJson }
     preferredMaps: MapInfoJson[]
@@ -344,7 +345,7 @@ export class MatchmakingService {
       matchInfo,
       clients,
       slots,
-      setup = {},
+      setup = { gameId: '', seed: 0 },
       resultCodes,
       mapsByPlayer,
       preferredMaps,
@@ -489,6 +490,7 @@ export class MatchmakingService {
 
   constructor(
     private nydus: NydusServer,
+    private publisher: TypedPublisher<MatchmakingEvent>,
     private userSocketsManager: UserSocketsManager,
     private clientSocketsManager: ClientSocketsManager,
     private matchmakingStatus: MatchmakingStatusService,
@@ -510,7 +512,7 @@ export class MatchmakingService {
     activityRegistry.unregisterClientForUser(client.userId)
     this.publishToUser(client.name, {
       type: 'status',
-      matchmaking: null,
+      matchmaking: undefined,
     })
 
     const userSockets = this.userSocketsManager.getById(client.userId)
@@ -589,16 +591,19 @@ export class MatchmakingService {
     const queueEntry = createQueueEntry({ type, username: userSockets.name })
     this.queueEntries = this.queueEntries.set(userSockets.name, queueEntry)
 
-    userSockets.subscribe(MatchmakingService.getUserPath(userSockets.name), () => {
-      return {
-        type: 'status',
-        matchmaking: { type },
-      }
-    })
-    clientSockets.subscribe(
+    userSockets.subscribe<MatchmakingEvent>(
+      MatchmakingService.getUserPath(userSockets.name),
+      () => {
+        return {
+          type: 'status',
+          matchmaking: { type },
+        }
+      },
+    )
+    clientSockets.subscribe<MatchmakingEvent>(
       MatchmakingService.getClientPath(clientSockets),
       undefined,
-      this.removeClientFromMatchmaking,
+      sockets => this.removeClientFromMatchmaking(sockets),
     )
   }
 
@@ -679,14 +684,14 @@ export class MatchmakingService {
     return clientSockets
   }
 
-  private publishToUser(username: string, data?: any) {
-    this.nydus.publish(MatchmakingService.getUserPath(username), data)
+  private publishToUser(username: string, data?: MatchmakingEvent) {
+    this.publisher.publish(MatchmakingService.getUserPath(username), data)
   }
 
-  private publishToActiveClient(userId: number, data?: any): boolean {
+  private publishToActiveClient(userId: number, data?: MatchmakingEvent): boolean {
     const client = activityRegistry.getClientForUser(userId)
     if (client) {
-      this.nydus.publish(MatchmakingService.getClientPath(client), data)
+      this.publisher.publish(MatchmakingService.getClientPath(client), data)
       return true
     } else {
       return false

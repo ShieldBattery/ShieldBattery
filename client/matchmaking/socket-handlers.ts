@@ -1,88 +1,92 @@
+import { NydusClient, RouteHandler, RouteInfo } from 'nydus-client'
 import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
+import { GameLaunchConfig, PlayerInfo } from '../../common/game-launch-config'
+import { GameType } from '../../common/games/configuration'
 import { TypedIpcRenderer } from '../../common/ipc'
-import {
-  ACTIVE_GAME_LAUNCH,
-  MATCHMAKING_FIND,
-  MATCHMAKING_STATUS_UPDATE,
-  MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED,
-  MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME,
-  MATCHMAKING_UPDATE_COUNTDOWN_START,
-  MATCHMAKING_UPDATE_COUNTDOWN_TICK,
-  MATCHMAKING_UPDATE_GAME_STARTED,
-  MATCHMAKING_UPDATE_GAME_STARTING,
-  MATCHMAKING_UPDATE_LOADING_CANCELED,
-  MATCHMAKING_UPDATE_MATCH_ACCEPTED,
-  MATCHMAKING_UPDATE_MATCH_FOUND,
-  MATCHMAKING_UPDATE_MATCH_READY,
-  MATCHMAKING_UPDATE_STATUS,
-} from '../actions'
+import { MapInfoJson } from '../../common/maps'
+import { MatchmakingEvent } from '../../common/matchmaking'
+import { ACTIVE_GAME_LAUNCH, MATCHMAKING_STATUS_UPDATE } from '../actions'
+import AudioManager from '../audio/audio-manager'
 import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
 import { closeDialog, openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import { dispatch } from '../dispatch-registry'
+import { dispatch, Dispatchable } from '../dispatch-registry'
 import { replace } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
 import { openSnackbar } from '../snackbars/action-creators'
 
 const ipcRenderer = new TypedIpcRenderer()
 
-const acceptMatchState = {
-  timer: null,
+type EventToActionMap = {
+  [E in MatchmakingEvent['type']]?: (event: Extract<MatchmakingEvent, { type: E }>) => Dispatchable
+}
+
+interface TimerState {
+  timer: ReturnType<typeof setInterval> | undefined
+}
+
+interface CountdownState extends TimerState {
+  sound: ReturnType<AudioManager['playFadeableSound']> | undefined
+  atmosphere: ReturnType<AudioManager['playFadeableSound']> | undefined
+}
+
+const acceptMatchState: TimerState = {
+  timer: undefined,
 }
 function clearAcceptMatchTimer() {
   const { timer } = acceptMatchState
   if (timer) {
     clearInterval(timer)
-    acceptMatchState.timer = null
+    acceptMatchState.timer = undefined
   }
 }
 
-const requeueState = {
-  timer: null,
+const requeueState: TimerState = {
+  timer: undefined,
 }
 function clearRequeueTimer() {
   const { timer } = requeueState
   if (timer) {
     clearTimeout(timer)
-    requeueState.timer = null
+    requeueState.timer = undefined
   }
 }
 
-const countdownState = {
-  timer: null,
-  sound: null,
-  atmosphere: null,
+const countdownState: CountdownState = {
+  timer: undefined,
+  sound: undefined,
+  atmosphere: undefined,
 }
 function fadeAtmosphere(fast = true) {
   const { atmosphere } = countdownState
   if (atmosphere) {
     const timing = fast ? 1.5 : 3
-    atmosphere.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager.currentTime + timing)
-    atmosphere.source.stop(audioManager.currentTime + timing + 0.1)
-    countdownState.atmosphere = null
+    atmosphere.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager!.currentTime + timing)
+    atmosphere.source.stop(audioManager!.currentTime + timing + 0.1)
+    countdownState.atmosphere = undefined
   }
 }
 function clearCountdownTimer(leaveAtmosphere = false) {
   const { timer, sound, atmosphere } = countdownState
   if (timer) {
     clearInterval(timer)
-    countdownState.timer = null
+    countdownState.timer = undefined
   }
   if (sound) {
-    sound.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager.currentTime + 0.5)
-    sound.source.stop(audioManager.currentTime + 0.6)
-    countdownState.sound = null
+    sound.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager!.currentTime + 0.5)
+    sound.source.stop(audioManager!.currentTime + 0.6)
+    countdownState.sound = undefined
   }
   if (!leaveAtmosphere && atmosphere) {
     fadeAtmosphere()
   }
 }
 
-const eventToAction = {
-  matchFound: (name, event) => {
+const eventToAction: EventToActionMap = {
+  matchFound: event => {
     ipcRenderer.send('userAttentionRequired')
 
-    audioManager.playSound(SOUNDS.MATCH_FOUND)
+    audioManager?.playSound(SOUNDS.MATCH_FOUND)
 
     clearRequeueTimer()
     clearAcceptMatchTimer()
@@ -90,7 +94,7 @@ const eventToAction = {
 
     let tick = MATCHMAKING_ACCEPT_MATCH_TIME / 1000
     dispatch({
-      type: MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME,
+      type: '@matchmaking/acceptMatchTime',
       payload: tick,
     })
     dispatch(openDialog(DialogType.AcceptMatch))
@@ -98,7 +102,7 @@ const eventToAction = {
     acceptMatchState.timer = setInterval(() => {
       tick -= 1
       dispatch({
-        type: MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME,
+        type: '@matchmaking/acceptMatchTime',
         payload: tick,
       })
       if (tick <= 0) {
@@ -107,31 +111,31 @@ const eventToAction = {
     }, 1000)
 
     return {
-      type: MATCHMAKING_UPDATE_MATCH_FOUND,
+      type: '@matchmaking/matchFound',
       payload: event,
     }
   },
 
-  playerAccepted: (name, event) => {
+  playerAccepted: event => {
     return {
-      type: MATCHMAKING_UPDATE_MATCH_ACCEPTED,
+      type: '@matchmaking/playerAccepted',
       payload: event,
     }
   },
 
-  acceptTimeout: (name, event) => {
+  acceptTimeout: event => {
     return {
-      type: MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED,
+      type: '@matchmaking/playerFailedToAccept',
       payload: event,
     }
   },
 
-  requeue: (name, event) => (dispatch, getState) => {
+  requeue: event => (dispatch, getState) => {
     clearRequeueTimer()
     clearAcceptMatchTimer()
 
     dispatch({
-      type: MATCHMAKING_FIND,
+      type: '@matchmaking/findMatch',
       payload: { startTime: window.performance.now() },
     })
     requeueState.timer = setTimeout(() => {
@@ -141,13 +145,13 @@ const eventToAction = {
     }, 5000)
   },
 
-  matchReady: (name, event) => (dispatch, getState) => {
+  matchReady: event => (dispatch, getState) => {
     dispatch(closeDialog())
     clearAcceptMatchTimer()
 
     // All players are ready; feel free to move to the loading screen and start the game
     dispatch({
-      type: MATCHMAKING_UPDATE_MATCH_READY,
+      type: '@matchmaking/matchReady',
       payload: event,
     })
     replace('/matchmaking/countdown')
@@ -163,7 +167,7 @@ const eventToAction = {
     } = event.chosenMap
     // Even though we're downloading the whole map pool as soon as the player enters the queue,
     // we're still leaving this as a check to make sure the map exists before starting a game.
-    ipcRenderer.invoke('mapStoreDownloadMap', hash, format, mapUrl).catch(err => {
+    ipcRenderer.invoke('mapStoreDownloadMap', hash, format, mapUrl!)?.catch(err => {
       // TODO(tec27): Report this to the server so the loading is canceled immediately
 
       // This is already logged to our file by the map store, so we just log it to the console for
@@ -171,17 +175,32 @@ const eventToAction = {
       console.error('Error downloading map: ' + err + '\n' + err.stack)
     })
 
-    const config = {
-      localUser: user.toJS(),
+    const slots: PlayerInfo[] = event.slots
+      .map(slot => ({
+        id: slot.id,
+        name: slot.name,
+        race: slot.race,
+        playerId: slot.playerId,
+        type: slot.type!,
+        typeId: slot.typeId,
+        userId: slot.userId,
+      }))
+      .toArray()
+
+    const config: GameLaunchConfig = {
+      localUser: {
+        id: user.id,
+        name: user.name,
+      },
       setup: {
         gameId: event.setup.gameId,
         name: 'Matchmaking game', // Does this even matter for anything?
         map: event.chosenMap,
-        gameType: 'oneVOne',
-        slots: event.slots,
-        host: event.slots[0], // Arbitrarily set first player as host
+        gameType: GameType.OneVsOne,
+        slots,
+        host: slots[0], // Arbitrarily set first player as host
         seed: event.setup.seed,
-        resultCode: event.resultCode,
+        resultCode: event.resultCode!,
         serverUrl: makeServerUrl(''),
       },
     }
@@ -189,31 +208,31 @@ const eventToAction = {
     dispatch({
       type: ACTIVE_GAME_LAUNCH,
       payload: ipcRenderer.invoke('activeGameSetConfig', config),
-    })
+    } as any)
   },
 
-  setRoutes: (name, event) => dispatch => {
+  setRoutes: event => dispatch => {
     const { routes, gameId } = event
 
     ipcRenderer.invoke('activeGameSetRoutes', gameId, routes)
   },
 
   // TODO(2Pac): Try to pull this out into a common place and reuse with lobbies
-  startCountdown: (name, event) => dispatch => {
+  startCountdown: event => dispatch => {
     clearCountdownTimer()
     let tick = 5
     dispatch({
-      type: MATCHMAKING_UPDATE_COUNTDOWN_START,
+      type: '@matchmaking/countdownStarted',
       payload: tick,
     })
 
-    countdownState.sound = audioManager.playFadeableSound(SOUNDS.COUNTDOWN)
-    countdownState.atmosphere = audioManager.playFadeableSound(SOUNDS.ATMOSPHERE)
+    countdownState.sound = audioManager?.playFadeableSound(SOUNDS.COUNTDOWN)
+    countdownState.atmosphere = audioManager?.playFadeableSound(SOUNDS.ATMOSPHERE)
 
     countdownState.timer = setInterval(() => {
       tick -= 1
       dispatch({
-        type: MATCHMAKING_UPDATE_COUNTDOWN_TICK,
+        type: '@matchmaking/countdownTick',
         payload: tick,
       })
       if (!tick) {
@@ -222,19 +241,19 @@ const eventToAction = {
     }, 1000)
   },
 
-  startWhenReady: (name, event) => (dispatch, getState) => {
+  startWhenReady: event => (dispatch, getState) => {
     const { gameId } = event
 
     const currentPath = location.pathname
     if (currentPath === '/matchmaking/countdown') {
       replace('/matchmaking/game-starting')
     }
-    dispatch({ type: MATCHMAKING_UPDATE_GAME_STARTING })
+    dispatch({ type: '@matchmaking/gameStarting' })
 
     ipcRenderer.invoke('activeGameStartWhenReady', gameId)
   },
 
-  cancelLoading: (name, event) => (dispatch, getState) => {
+  cancelLoading: event => (dispatch, getState) => {
     clearCountdownTimer()
 
     const currentPath = location.pathname
@@ -244,12 +263,12 @@ const eventToAction = {
     dispatch({
       type: ACTIVE_GAME_LAUNCH,
       payload: ipcRenderer.invoke('activeGameSetConfig', {}),
-    })
-    dispatch({ type: MATCHMAKING_UPDATE_LOADING_CANCELED })
+    } as any)
+    dispatch({ type: '@matchmaking/loadingCanceled' })
     dispatch(openSnackbar({ message: 'The game has failed to load.' }))
   },
 
-  gameStarted: (name, event) => (dispatch, getState) => {
+  gameStarted: event => (dispatch, getState) => {
     fadeAtmosphere(false /* fast */)
 
     const {
@@ -261,7 +280,7 @@ const eventToAction = {
       replace('/matchmaking/active-game')
     }
     dispatch({
-      type: MATCHMAKING_UPDATE_GAME_STARTED,
+      type: '@matchmaking/gameStarted',
       payload: {
         match,
       },
@@ -272,7 +291,7 @@ const eventToAction = {
   // cancels finding a match? Maybe rename this event to better indicate that, or introduce a new
   // event that guarantees that better? Or perhaps do this logic in the action-creator after we
   // invoke the find-match action?
-  status: (name, event) => (dispatch, getState) => {
+  status: event => (dispatch, getState) => {
     const isFinding = event.matchmaking && event.matchmaking.type
     if (isFinding) {
       const {
@@ -282,12 +301,12 @@ const eventToAction = {
       // As a slight optimization, we download the whole map pool as soon as the player enters the
       // queue. This shouldn't be a prohibitively expensive operation, since our map store checks if
       // a map already exists before attempting to download it.
-      const mapPool = mapPoolTypes.get(event.matchmaking.type)
+      const mapPool = mapPoolTypes.get(event.matchmaking!.type)
       if (mapPool) {
-        mapPool.byId.valueSeq().forEach(map =>
+        mapPool.byId.valueSeq().forEach((map: MapInfoJson) =>
           ipcRenderer
-            .invoke('mapStoreDownloadMap', map.hash, map.mapData.format, map.mapUrl)
-            .catch(err => {
+            .invoke('mapStoreDownloadMap', map.hash, map.mapData.format, map.mapUrl!)
+            ?.catch(err => {
               // This is already logged to our file by the map store, so we just log it to the
               // console for easy visibility during development
               console.error('Error downloading map: ' + err + '\n' + err.stack)
@@ -297,26 +316,26 @@ const eventToAction = {
     }
 
     dispatch({
-      type: MATCHMAKING_UPDATE_STATUS,
+      type: '@matchmaking/status',
       payload: event,
     })
   },
 }
 
-export default function registerModule({ siteSocket }) {
-  const matchmakingHandler = (route, event) => {
+export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
+  const matchmakingHandler: RouteHandler = (route: RouteInfo, event: MatchmakingEvent) => {
     if (!eventToAction[event.type]) return
 
-    const action = eventToAction[event.type](route.params.userName, event)
+    const action = eventToAction[event.type]!(event as any)
     if (action) dispatch(action)
   }
   siteSocket.registerRoute('/matchmaking/:userName', matchmakingHandler)
   siteSocket.registerRoute('/matchmaking/:userId/:clientId', matchmakingHandler)
 
-  siteSocket.registerRoute('/matchmakingStatus', (route, event) => {
+  siteSocket.registerRoute('/matchmakingStatus', (route: RouteInfo, event: any) => {
     dispatch({
       type: MATCHMAKING_STATUS_UPDATE,
       payload: event,
-    })
+    } as any)
   })
 }

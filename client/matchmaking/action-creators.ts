@@ -1,20 +1,11 @@
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
   GetPreferencesPayload,
+  MatchmakingMapPool,
   MatchmakingPreferences,
   MatchmakingType,
 } from '../../common/matchmaking'
 import { AssignedRaceChar, RaceChar } from '../../common/races'
-import {
-  MATCHMAKING_ACCEPT,
-  MATCHMAKING_ACCEPT_BEGIN,
-  MATCHMAKING_CANCEL,
-  MATCHMAKING_CANCEL_BEGIN,
-  MATCHMAKING_FIND,
-  MATCHMAKING_FIND_BEGIN,
-  MATCHMAKING_GET_CURRENT_MAP_POOL,
-  MATCHMAKING_GET_CURRENT_MAP_POOL_BEGIN,
-} from '../actions'
 import { ThunkAction } from '../dispatch-registry'
 import { clientId } from '../network/client-id'
 import fetch from '../network/fetch'
@@ -42,40 +33,40 @@ export function findMatch(
 
   return dispatch => {
     dispatch({
-      type: MATCHMAKING_FIND_BEGIN,
+      type: '@matchmaking/findMatchBegin',
       payload: params,
-    } as any)
+    })
 
     dispatch({
-      type: MATCHMAKING_FIND,
+      type: '@matchmaking/findMatch',
       payload: fetch<void>(apiUrl`matchmaking/find`, {
         method: 'POST',
         body: JSON.stringify(params),
       }).then(() => ({ startTime: window.performance.now() })),
       meta: params,
-    } as any)
+    })
   }
 }
 
 export function cancelFindMatch(): ThunkAction {
   return dispatch => {
-    dispatch({ type: MATCHMAKING_CANCEL_BEGIN } as any)
+    dispatch({ type: '@matchmaking/cancelMatchBegin' })
 
     dispatch({
-      type: MATCHMAKING_CANCEL,
+      type: '@matchmaking/cancelMatch',
       payload: fetch<void>(apiUrl`matchmaking`, { method: 'DELETE' }),
-    } as any)
+    })
   }
 }
 
 export function acceptMatch(): ThunkAction {
   return dispatch => {
-    dispatch({ type: MATCHMAKING_ACCEPT_BEGIN } as any)
+    dispatch({ type: '@matchmaking/acceptMatchBegin' })
 
     dispatch({
-      type: MATCHMAKING_ACCEPT,
+      type: '@matchmaking/acceptMatch',
       payload: fetch<void>(apiUrl`matchmaking`, { method: 'POST' }),
-    } as any)
+    })
   }
 }
 
@@ -83,14 +74,14 @@ export function acceptMatch(): ThunkAction {
 export function getCurrentMapPool(type: MatchmakingType): ThunkAction {
   return dispatch => {
     dispatch({
-      type: MATCHMAKING_GET_CURRENT_MAP_POOL_BEGIN,
-      meta: { type },
-    } as any)
+      type: '@matchmaking/getCurrentMapPoolBegin',
+      payload: { type },
+    })
     dispatch({
-      type: MATCHMAKING_GET_CURRENT_MAP_POOL,
-      payload: fetch(apiUrl`matchmakingMapPools/${type}/current`),
+      type: '@matchmaking/getCurrentMapPool',
+      payload: fetch<MatchmakingMapPool>(apiUrl`matchmakingMapPools/${type}/current`),
       meta: { type },
-    } as any)
+    })
   }
 }
 
