@@ -2,7 +2,7 @@ import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
-import { container } from 'tsyringe'
+import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { ALL_MATCHMAKING_TYPES } from '../../../common/matchmaking'
 import { httpApi, HttpApi } from '../http/http-api'
@@ -35,6 +35,7 @@ function convertMatchmakingServiceError(err: Error) {
     case MatchmakingServiceErrorCode.ClientDisconnected:
     case MatchmakingServiceErrorCode.NotInQueue:
     case MatchmakingServiceErrorCode.NoActiveMatch:
+    case MatchmakingServiceErrorCode.InvalidClient:
       throw new httpErrors.BadRequest(err.message)
     case MatchmakingServiceErrorCode.MatchmakingDisabled:
       throw new httpErrors.Forbidden(err.message)
@@ -54,71 +55,68 @@ async function convertMatchmakingServiceErrors(ctx: RouterContext, next: Koa.Nex
 }
 
 @httpApi()
+@singleton()
 export class MatchmakingApi extends HttpApi {
-  constructor() {
+  constructor(private matchmakingService: MatchmakingService) {
     super('/matchmaking')
-    container.resolve(MatchmakingService)
   }
 
-  applyRoutes(router: Router): void {
+  protected applyRoutes(router: Router): void {
     router
       .use(ensureLoggedIn, convertMatchmakingServiceErrors)
       .post(
         '/find',
         throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.userId)),
-        findMatch,
+        this.findMatch,
       )
       .delete(
         '/',
         throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.userId)),
-        cancelSearch,
+        this.cancelSearch,
       )
       .post(
         '/',
         throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.userId)),
-        acceptMatch,
+        this.acceptMatch,
       )
   }
-}
 
-async function findMatch(ctx: RouterContext) {
-  const {
-    body: { clientId, type, race, useAlternateRace, alternateRace, preferredMaps },
-  } = validateRequest(ctx, {
-    body: Joi.object({
-      clientId: Joi.string().required(),
-      type: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
-      race: Joi.string().valid('p', 't', 'z', 'r').required(),
-      useAlternateRace: Joi.bool().required(),
-      alternateRace: Joi.string().valid('p', 't', 'z').required(),
-      preferredMaps: Joi.array().items(Joi.string()).min(0).max(2).required(),
-    }),
-  })
+  async findMatch(ctx: RouterContext) {
+    const {
+      body: { clientId, type, race, useAlternateRace, alternateRace, preferredMaps },
+    } = validateRequest(ctx, {
+      body: Joi.object({
+        clientId: Joi.string().required(),
+        type: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
+        race: Joi.string().valid('p', 't', 'z', 'r').required(),
+        useAlternateRace: Joi.bool().required(),
+        alternateRace: Joi.string().valid('p', 't', 'z').required(),
+        preferredMaps: Joi.array().items(Joi.string()).min(0).max(2).required(),
+      }),
+    })
 
-  const matchmakingService = container.resolve(MatchmakingService)
-  await matchmakingService.find(
-    ctx.session!.userId,
-    clientId,
-    type,
-    race,
-    useAlternateRace,
-    alternateRace,
-    preferredMaps,
-  )
+    await this.matchmakingService.find(
+      ctx.session!.userId,
+      clientId,
+      type,
+      race,
+      useAlternateRace,
+      alternateRace,
+      preferredMaps,
+    )
 
-  ctx.status = 204
-}
+    ctx.status = 204
+  }
 
-async function cancelSearch(ctx: RouterContext) {
-  const matchmakingService = container.resolve(MatchmakingService)
-  await matchmakingService.cancel(ctx.session!.userId)
+  async cancelSearch(ctx: RouterContext) {
+    await this.matchmakingService.cancel(ctx.session!.userId)
 
-  ctx.status = 204
-}
+    ctx.status = 204
+  }
 
-async function acceptMatch(ctx: RouterContext) {
-  const matchmakingService = container.resolve(MatchmakingService)
-  await matchmakingService.accept(ctx.session!.userId)
+  async acceptMatch(ctx: RouterContext) {
+    await this.matchmakingService.accept(ctx.session!.userId)
 
-  ctx.status = 204
+    ctx.status = 204
+  }
 }

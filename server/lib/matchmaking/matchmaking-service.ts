@@ -16,7 +16,7 @@ import activityRegistry from '../games/gameplay-activity-registry'
 import { getMapInfo } from '../maps/map-models'
 import { MatchmakingDebugDataService } from '../matchmaking/debug-data'
 import MatchAcceptor, { MatchAcceptorCallbacks } from '../matchmaking/match-acceptor'
-import { TimedMatchmaker } from '../matchmaking/matchmaker'
+import { OnMatchFoundFunc, TimedMatchmaker } from '../matchmaking/matchmaker'
 import { MatchmakingPlayer } from '../matchmaking/matchmaking-player'
 import MatchmakingStatusService from '../matchmaking/matchmaking-status'
 import {
@@ -33,6 +33,35 @@ import {
   UserSocketsGroup,
   UserSocketsManager,
 } from '../websockets/socket-groups'
+
+interface MatchmakerCallbacks {
+  onMatchFound: OnMatchFoundFunc
+}
+
+interface GameLoaderCallbacks {
+  onGameSetup: (props: {
+    matchInfo: Match
+    clients: List<ClientSocketsGroup>
+    slots: List<Slot>
+    setup?: Partial<{
+      gameId: string
+      seed: number
+    }>
+    resultCodes: Map<string, string>
+    mapsByPlayer: { [key: number]: MapInfoJson }
+    preferredMaps: MapInfoJson[]
+    randomMaps: MapInfoJson[]
+    chosenMap: MapInfoJson
+    cancelToken: CancelToken
+  }) => void
+  onRoutesSet: (
+    clients: List<ClientSocketsGroup>,
+    playerName: string,
+    routes: GameRoute[],
+    gameId: string,
+  ) => void
+  onGameLoaded: (clients: List<ClientSocketsGroup>) => void
+}
 
 const createMatch = Record({
   type: MatchmakingType.Match1v1 as MatchmakingType,
@@ -70,14 +99,15 @@ const ACCEPT_MATCH_LATENCY = 2000
 const MAX_HIGH_RANKED_AGE_MS = 10 * 60 * 1000
 
 export enum MatchmakingServiceErrorCode {
-  UserOffline,
-  InvalidMapPool,
-  InvalidMaps,
-  ClientDisconnected,
-  MatchmakingDisabled,
-  GameplayConflict,
-  NotInQueue,
-  NoActiveMatch,
+  UserOffline = 'userOffline',
+  InvalidMapPool = 'invalidMapPool',
+  InvalidMaps = 'invalidMaps',
+  ClientDisconnected = 'clientDisconnected',
+  MatchmakingDisabled = 'matchmakingDisabled',
+  GameplayConflict = 'gameplayConflict',
+  NotInQueue = 'notInQueue',
+  NoActiveMatch = 'noActiveMatch',
+  InvalidClient = 'invalidClient',
 }
 
 export class MatchmakingServiceError extends Error {
@@ -284,7 +314,7 @@ export class MatchmakingService {
     },
   }
 
-  private matchmakerDelegate = {
+  private matchmakerDelegate: MatchmakerCallbacks = {
     onMatchFound: (player: Readonly<MatchmakingPlayer>, opponent: Readonly<MatchmakingPlayer>) => {
       const { type } = this.queueEntries.get(player.name)!
       const matchInfo = createMatch({
@@ -309,7 +339,7 @@ export class MatchmakingService {
     },
   }
 
-  private gameLoaderDelegate = {
+  private gameLoaderDelegate: GameLoaderCallbacks = {
     onGameSetup: async ({
       matchInfo,
       clients,
@@ -321,20 +351,6 @@ export class MatchmakingService {
       randomMaps,
       chosenMap,
       cancelToken,
-    }: {
-      matchInfo: Match
-      clients: List<ClientSocketsGroup>
-      slots: List<Slot>
-      setup?: Partial<{
-        gameId: string
-        seed: number
-      }>
-      resultCodes: Map<string, string>
-      mapsByPlayer: { [key: number]: MapInfoJson }
-      preferredMaps: MapInfoJson[]
-      randomMaps: MapInfoJson[]
-      chosenMap: MapInfoJson
-      cancelToken: CancelToken
     }) => {
       cancelToken.throwIfCancelling()
 
@@ -497,7 +513,7 @@ export class MatchmakingService {
       matchmaking: null,
     })
 
-    const userSockets = this.getUserSockets(client.userId)
+    const userSockets = this.userSocketsManager.getById(client.userId)
     if (userSockets) {
       userSockets.unsubscribe(MatchmakingService.getUserPath(client.name))
     }
@@ -513,8 +529,8 @@ export class MatchmakingService {
     alternateRace: AssignedRaceChar,
     preferredMaps: string[],
   ) {
-    const userSockets = this.getUserSockets(userId)
-    const clientSockets = this.getClientSockets(userId, clientId)
+    const userSockets = this.getUserSocketsOrFail(userId)
+    const clientSockets = this.getClientSocketsOrFail(userId, clientId)
 
     if (!this.matchmakingStatus.isEnabled(type)) {
       throw new MatchmakingServiceError(
@@ -587,7 +603,7 @@ export class MatchmakingService {
   }
 
   async cancel(userId: number) {
-    const userSockets = this.getUserSockets(userId)
+    const userSockets = this.getUserSocketsOrFail(userId)
     const clientSockets = activityRegistry.getClientForUser(userSockets.userId)
     if (!clientSockets || !this.queueEntries.has(userSockets.name)) {
       throw new MatchmakingServiceError(
@@ -600,7 +616,7 @@ export class MatchmakingService {
   }
 
   async accept(userId: number) {
-    const userSockets = this.getUserSockets(userId)
+    const userSockets = this.getUserSocketsOrFail(userId)
     const clientSockets = activityRegistry.getClientForUser(userSockets.userId)
     if (!clientSockets || !this.acceptor.registerAccept(clientSockets)) {
       throw new MatchmakingServiceError(
@@ -639,7 +655,7 @@ export class MatchmakingService {
     this.unregisterActivity(client)
   }
 
-  private getUserSockets(userId: number): UserSocketsGroup {
+  private getUserSocketsOrFail(userId: number): UserSocketsGroup {
     const userSockets = this.userSocketsManager.getById(userId)
     if (!userSockets) {
       throw new MatchmakingServiceError(MatchmakingServiceErrorCode.UserOffline, 'User is offline')
@@ -648,13 +664,16 @@ export class MatchmakingService {
     return userSockets
   }
 
-  private getClientSockets(userId: number, clientId: string): ClientSocketsGroup {
+  private getClientSocketsOrFail(userId: number, clientId: string): ClientSocketsGroup {
     const clientSockets = this.clientSocketsManager.getById(userId, clientId)
     if (!clientSockets) {
       throw new MatchmakingServiceError(
         MatchmakingServiceErrorCode.UserOffline,
         'Client could not be found',
       )
+    }
+    if (clientSockets.clientType !== 'electron') {
+      throw new MatchmakingServiceError(MatchmakingServiceErrorCode.InvalidClient, 'Invalid client')
     }
 
     return clientSockets
