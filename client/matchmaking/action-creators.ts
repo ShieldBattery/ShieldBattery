@@ -42,7 +42,7 @@ export function findMatch(
       payload: fetch<void>(apiUrl`matchmaking/find`, {
         method: 'POST',
         body: JSON.stringify(params),
-      }).then(() => ({ startTime: window.performance.now() })),
+      }).then<{ startTime: number }>(() => ({ startTime: window.performance.now() })),
       meta: params,
     })
   }
