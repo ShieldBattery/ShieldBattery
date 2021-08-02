@@ -175,18 +175,6 @@ const eventToAction: EventToActionMap = {
       console.error('Error downloading map: ' + err + '\n' + err.stack)
     })
 
-    const slots: PlayerInfo[] = event.slots
-      .map(slot => ({
-        id: slot.id,
-        name: slot.name,
-        race: slot.race,
-        playerId: slot.playerId,
-        type: slot.type!,
-        typeId: slot.typeId,
-        userId: slot.userId,
-      }))
-      .toArray()
-
     const config: GameLaunchConfig = {
       localUser: {
         id: user.id,
@@ -197,8 +185,8 @@ const eventToAction: EventToActionMap = {
         name: 'Matchmaking game', // Does this even matter for anything?
         map: event.chosenMap,
         gameType: GameType.OneVsOne,
-        slots,
-        host: slots[0], // Arbitrarily set first player as host
+        slots: event.slots as PlayerInfo[],
+        host: event.slots[0] as PlayerInfo, // Arbitrarily set first player as host
         seed: event.setup.seed,
         resultCode: event.resultCode!,
         serverUrl: makeServerUrl(''),

@@ -120,8 +120,8 @@ export interface MatchReadyEvent {
   type: 'matchReady'
   setup: { gameId: string; seed: number }
   resultCode?: string
-  slots: List<Slot>
-  players: List<MatchmakingPlayer>
+  slots: Slot[]
+  players: MatchmakingPlayer[]
   mapsByPlayer: { [key: number]: MapInfoJson }
   preferredMaps: MapInfoJson[]
   randomMaps: MapInfoJson[]

@@ -46,7 +46,7 @@ export class BaseMatchmakingState extends Record({
   countdownTimer: -1,
   isStarting: false,
 
-  match: new MatchmakingMatchRecord(),
+  match: undefined as MatchmakingMatchRecord | undefined,
   mapPoolTypes: Map<MatchmakingType, MapPoolRecord>(),
 }) {}
 
@@ -135,7 +135,7 @@ export default keyedReducer(new MatchmakingState(), {
       chosenMap: new MapRecord(chosenMap),
     }
 
-    return state.set('isLaunching', true).update('match', m => m.merge(match))
+    return state.set('isLaunching', true).update('match', m => m!.merge(match))
   },
 
   ['@matchmaking/countdownStarted'](state, action) {

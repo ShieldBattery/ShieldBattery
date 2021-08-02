@@ -355,16 +355,18 @@ export class MatchmakingService {
     }) => {
       cancelToken.throwIfCancelling()
 
-      const playersJson = matchInfo.players.map(p => {
-        const slot = slots.find(s => s.name === p.name)!
+      const playersJson = matchInfo.players
+        .map(p => {
+          const slot = slots.find(s => s.name === p.name)!
 
-        return {
-          id: p.id,
-          name: p.name,
-          race: slot.race,
-          rating: p.rating,
-        }
-      })
+          return {
+            id: p.id,
+            name: p.name,
+            race: slot.race,
+            rating: p.rating,
+          }
+        })
+        .toArray()
 
       // Using `map` with `Promise.all` here instead of `forEach`, so our general error handler
       // catches any of the errors inside.
@@ -374,7 +376,7 @@ export class MatchmakingService {
             type: 'matchReady',
             setup,
             resultCode: resultCodes.get(client.name),
-            slots,
+            slots: slots.toArray(),
             players: playersJson,
             mapsByPlayer,
             preferredMaps,

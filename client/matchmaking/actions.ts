@@ -189,10 +189,10 @@ export interface PlayerFailedToAccept {
 export interface MatchReady {
   type: '@matchmaking/matchReady'
   payload: {
-    setup: Partial<{ gameId: string; seed: number }>
+    setup: { gameId: string; seed: number }
     resultCode?: string
-    slots: List<Slot>
-    players: List<MatchmakingPlayer>
+    slots: Slot[]
+    players: MatchmakingPlayer[]
     mapsByPlayer: { [key: number]: MapInfoJson }
     preferredMaps: MapInfoJson[]
     randomMaps: MapInfoJson[]
