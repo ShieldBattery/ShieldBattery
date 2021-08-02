@@ -46,8 +46,10 @@ export function ParsedText({ text }: { text: string }) {
       }
 
       elements.push(
+        // TODO(tec27): Handle links to our own host specially, redirecting to the correct route
+        // in-client instead
         // TODO(2Pac): Show a warning message about opening untrusted links
-        <a key={match.index} href={match[0]} target='_blank' rel='noopener'>
+        <a key={match.index} href={match[0]} target='_blank' rel='noopener nofollow'>
           {match[0]}
         </a>,
       )
