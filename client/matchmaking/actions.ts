@@ -224,7 +224,7 @@ export interface LoadingCanceled {
 export interface GameStarted {
   type: '@matchmaking/gameStarted'
   payload: {
-    match: MatchmakingMatchRecord
+    match?: MatchmakingMatchRecord
   }
 }
 
