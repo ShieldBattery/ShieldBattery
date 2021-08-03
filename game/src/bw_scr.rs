@@ -131,6 +131,7 @@ pub struct BwScr {
     replay_minimap_patch: Option<scr_analysis::Patch>,
     open_file: scarf::VirtualAddress,
     prepare_issue_order: scarf::VirtualAddress,
+    create_game_multiplayer: scarf::VirtualAddress,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
 
@@ -990,6 +991,8 @@ impl BwScr {
         let replay_bfix = analysis.replay_bfix();
         let replay_gcfg = analysis.replay_gcfg();
         let prepare_issue_order = analysis.prepare_issue_order().ok_or("prepare_issue_order")?;
+        let create_game_multiplayer = analysis.create_game_multiplayer()
+            .ok_or("create_game_multiplayer")?;
 
         let starcraft_tls_index = analysis.get_tls_index().ok_or("TLS index")?;
 
@@ -1097,6 +1100,7 @@ impl BwScr {
             prism_renderer_vtable,
             replay_minimap_patch,
             prepare_issue_order,
+            create_game_multiplayer,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
             exe_build,
             sdf_cache,
@@ -1325,6 +1329,33 @@ impl BwScr {
                 let clear_queue = clear_queue != 0;
 
                 game::prepare_issue_order(self, unit, order, x, y, target, fow, clear_queue);
+            },
+            address,
+        );
+
+        let address = self.create_game_multiplayer.0 as usize - base;
+        exe.hook_closure_address(
+            CreateGameMultiplayer,
+            move |info, name, password, map_path, a5, a6, a7, a8, orig| {
+                // Logging these params just to have some more context if ever needed.
+                // (This is a 16-byte struct passed by value)
+                let unk0 = a5;
+                let turn_rate = a6;
+                let is_bnet_matchmaking = a7 & 0xff;
+                let unk9 = (a7 >> 8) & 0xff;
+                let old_game_limits = (a7 >> 16) & 0xff;
+                let eud = (a7 >> 24) & 0xff;
+                let dynamic_turn_rate = a8;
+                info!(
+                    "Called create_game_multiplayer, game params {} {} {} {} {} {} {}",
+                    unk0, turn_rate, is_bnet_matchmaking, unk9, old_game_limits, eud,
+                    dynamic_turn_rate,
+                );
+                // This value is originally set to how many human player starting locations
+                // there are, but set it to match what we set for join side in
+                // game_state::join_lobby. Makes sure everybody can join if there are observers.
+                (*info).max_player_count = game_thread::setup_info().slots.len() as u8;
+                orig(info, name, password, map_path, a5, a6, a7, a8)
             },
             address,
         );
@@ -2544,6 +2575,13 @@ mod hooks {
         !0 => StepGame();
         !0 => StepReplayCommands();
         !0 => StartUdpServer(@ecx *mut c_void) -> u32;
+        !0 => CreateGameMultiplayer(
+            *mut bw::JoinableGameInfo, // Note: 1.16.1 struct, not scr::JoinableGameInfo
+            *const u8, // Game name
+            *const u8, // Password (null)
+            *const u8, // Map path?
+            usize, usize, usize, usize, // 0x10 byte struct passed by value
+        ) -> u32;
     );
 
     whack_hooks!(stdcall, 0,

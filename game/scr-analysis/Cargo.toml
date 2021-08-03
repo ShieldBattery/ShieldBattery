@@ -5,4 +5,4 @@ edition = "2018"
 
 [dependencies.samase_scarf]
 git = "https://github.com/neivv/samase_scarf.git"
-rev = "a1998edd172cd0198c60dadf4367aad64af664df"
+rev = "5a60bc75e4bf3b7153c21262357656482dd18a1e"
