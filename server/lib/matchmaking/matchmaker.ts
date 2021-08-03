@@ -82,7 +82,7 @@ export const DEFAULT_OPPONENT_CHOOSER = (
   }
 }
 
-type OnMatchFoundFunc = (
+export type OnMatchFoundFunc = (
   player: Readonly<MatchmakingPlayer>,
   opponent: Readonly<MatchmakingPlayer>,
 ) => void

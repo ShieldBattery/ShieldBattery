@@ -4,8 +4,7 @@ import {
   MatchmakingPreferences,
   MatchmakingType,
 } from '../../common/matchmaking'
-import { RaceChar } from '../../common/races'
-import createSiteSocketAction from '../action-creators/site-socket-action-creator'
+import { AssignedRaceChar, RaceChar } from '../../common/races'
 import {
   MATCHMAKING_ACCEPT,
   MATCHMAKING_ACCEPT_BEGIN,
@@ -17,8 +16,8 @@ import {
   MATCHMAKING_GET_CURRENT_MAP_POOL_BEGIN,
 } from '../actions'
 import { ThunkAction } from '../dispatch-registry'
+import { clientId } from '../network/client-id'
 import fetch from '../network/fetch'
-import siteSocket from '../network/site-socket'
 import { apiUrl } from '../network/urls'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -27,12 +26,13 @@ export function findMatch(
   type: MatchmakingType,
   race: RaceChar,
   useAlternateRace: boolean,
-  alternateRace: RaceChar,
+  alternateRace: AssignedRaceChar,
   preferredMaps: string[],
 ): ThunkAction {
   ipcRenderer.send('rallyPointRefreshPings')
 
   const params = {
+    clientId,
     type,
     race,
     useAlternateRace,
@@ -48,19 +48,36 @@ export function findMatch(
 
     dispatch({
       type: MATCHMAKING_FIND,
-      payload: siteSocket
-        .invoke('/matchmaking/find', params)
-        .then(() => ({ startTime: window.performance.now() })),
+      payload: fetch<void>(apiUrl`matchmaking/find`, {
+        method: 'POST',
+        body: JSON.stringify(params),
+      }).then(() => ({ startTime: window.performance.now() })),
       meta: params,
     } as any)
   }
 }
 
-export const cancelFindMatch = () =>
-  createSiteSocketAction(MATCHMAKING_CANCEL_BEGIN, MATCHMAKING_CANCEL, '/matchmaking/cancel')
+export function cancelFindMatch(): ThunkAction {
+  return dispatch => {
+    dispatch({ type: MATCHMAKING_CANCEL_BEGIN } as any)
 
-export const acceptMatch = () =>
-  createSiteSocketAction(MATCHMAKING_ACCEPT_BEGIN, MATCHMAKING_ACCEPT, '/matchmaking/accept')
+    dispatch({
+      type: MATCHMAKING_CANCEL,
+      payload: fetch<void>(apiUrl`matchmaking`, { method: 'DELETE' }),
+    } as any)
+  }
+}
+
+export function acceptMatch(): ThunkAction {
+  return dispatch => {
+    dispatch({ type: MATCHMAKING_ACCEPT_BEGIN } as any)
+
+    dispatch({
+      type: MATCHMAKING_ACCEPT,
+      payload: fetch<void>(apiUrl`matchmaking`, { method: 'POST' }),
+    } as any)
+  }
+}
 
 // TODO(2Pac): This can be cached
 export function getCurrentMapPool(type: MatchmakingType): ThunkAction {

@@ -1,5 +1,5 @@
 import { MapInfoJson } from './maps'
-import { RaceChar } from './races'
+import { AssignedRaceChar, RaceChar } from './races'
 
 /**
  * A string representation of each of the matchmaking types that we support.
@@ -38,7 +38,7 @@ export interface MatchmakingPreferences {
   matchmakingType: MatchmakingType
   race: RaceChar
   useAlternateRace: boolean
-  alternateRace: RaceChar
+  alternateRace: AssignedRaceChar
   /**
    * The ID of the map pool the preferred maps were set with. This can be used to determine if the
    * user's selections might be outdated.
