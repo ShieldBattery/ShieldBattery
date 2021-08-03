@@ -356,6 +356,9 @@ export class UserApi extends HttpApi {
 
     // Update all of the user's sessions to indicate that their email is now indeed verified.
     await updateAllSessions(ctx, { emailVerified: true })
+    // We update this session specifically as well, to ensure that any previous changes to the
+    // session during this request don't cause a stale value to be written
+    ctx.session!.emailVerified = true
 
     // Last thing to do is to notify all of the user's opened sockets that their email is now
     // verified
