@@ -28,8 +28,6 @@ function logInSuccess(state: State, action: { payload: ClientSessionInfo }) {
   return new AuthState({
     user: new SelfUserRecord(user),
     permissions: new PermissionsRecord(permissions),
-    // TODO(tec27): Move references to this onto references to `user.emailVerified`
-    emailVerified: user.emailVerified,
   })
 }
 
@@ -56,7 +54,10 @@ function noOpOrError(state: State, action: AuthErrorable) {
 
 function emailVerified(state: State, action: VerifyEmailSuccess) {
   return state.withMutations(s =>
-    s.set('authChangeInProgress', false).set('lastFailure', null).set('emailVerified', true),
+    s
+      .set('authChangeInProgress', false)
+      .set('lastFailure', null)
+      .setIn(['user', 'emailVerified'], true),
   )
 }
 
@@ -82,7 +83,6 @@ function accountUpdate(state: State, action: AccountUpdateSuccess) {
   return state
     .set('authChangeInProgress', false)
     .set('lastFailure', null)
-    .set('emailVerified', user.emailVerified)
     .set('user', new SelfUserRecord(user))
 }
 
@@ -104,7 +104,7 @@ export default keyedReducer(new AuthState(), {
   ['@auth/resetPassword']: noOpOrError,
   ['@auth/recoverUsername']: noOpOrError,
   ['@auth/startPasswordReset']: noOpOrError,
-  ['@auth/emailVerified']: state => state.set('emailVerified', true),
+  ['@auth/emailVerified']: state => state.setIn(['user', 'emailVerified'], true),
   ['@auth/verifyEmail']: (state, action) =>
     !action.error ? emailVerified(state, action) : handleVerifyEmailError(state, action),
 })

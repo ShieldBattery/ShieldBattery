@@ -89,6 +89,10 @@ export class NotificationState extends NotificationBaseState {
 }
 
 export default keyedReducer(new NotificationState(), {
+  ['@auth/logOut']() {
+    return new NotificationState()
+  },
+
   ['@notifications/serverInit'](state, { payload: { notifications } }) {
     return state
       .update('idToNotification', m =>

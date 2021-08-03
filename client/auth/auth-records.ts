@@ -5,6 +5,7 @@ export class SelfUserRecord extends Record({
   id: -1,
   name: '',
   email: '',
+  emailVerified: false,
 }) {}
 
 export class PermissionsRecord
@@ -24,7 +25,6 @@ export class PermissionsRecord
 
 export class AuthState extends Record({
   authChangeInProgress: false,
-  emailVerified: false,
   lastFailure: null as { reqId: string; err: string } | null,
   user: new SelfUserRecord(),
   permissions: new PermissionsRecord(),

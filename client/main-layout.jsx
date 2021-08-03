@@ -179,7 +179,7 @@ class MainLayout extends React.Component {
     this.props.dispatch(openChangelogIfNecessary())
     if (firstLoggedIn) {
       firstLoggedIn = false
-      if (!this.props.auth.emailVerified) {
+      if (!this.props.auth.user.emailVerified) {
         this.props.dispatch(
           addNotification({
             id: EMAIL_VERIFICATION_ID,
@@ -188,6 +188,10 @@ class MainLayout extends React.Component {
         )
       }
     }
+  }
+
+  componentWillUnmount() {
+    firstLoggedIn = true
   }
 
   componentDidUpdate(prevProps) {
