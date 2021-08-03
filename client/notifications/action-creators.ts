@@ -9,7 +9,7 @@ import { ThunkAction } from '../dispatch-registry'
 import fetch from '../network/fetch'
 import { apiUrl } from '../network/urls'
 import { openSnackbar } from '../snackbars/action-creators'
-import { AddNotification, MarkNotificationsRead } from './actions'
+import { AddNotification, ClearNotificationById, MarkNotificationsRead } from './actions'
 import { NotificationRecordBase } from './notification-reducer'
 
 export function clearNotifications(): ThunkAction {
@@ -51,6 +51,13 @@ export function addNotification(notification: Readonly<Notification>): AddNotifi
   return {
     type: '@notifications/add',
     payload: { notification },
+  }
+}
+
+export function clearNotificationById(id: string): ClearNotificationById {
+  return {
+    type: '@notifications/clearById',
+    payload: { notificationId: id },
   }
 }
 

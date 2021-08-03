@@ -4,7 +4,7 @@ import { BaseFetchFailure } from '../network/fetch-action-types'
 export type NotificationActions =
   | ServerInitNotifications
   | AddNotification
-  | ClearByIdNotification
+  | ClearNotificationById
   | ClearNotificationsBegin
   | ClearNotifications
   | ClearNotificationsFailure
@@ -33,7 +33,7 @@ export interface AddNotification {
 /**
  * Clears a specific notification from the list of notifications, i.e. makes it not visible anymore.
  */
-export interface ClearByIdNotification {
+export interface ClearNotificationById {
   type: '@notifications/clearById'
   payload: { notificationId: Readonly<string> }
 }
