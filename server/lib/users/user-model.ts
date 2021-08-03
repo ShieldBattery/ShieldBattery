@@ -4,7 +4,8 @@ import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import createDeferred from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
-import { SelfUser, SelfUserInfo, User } from '../../../common/users/user-info'
+import { Permissions } from '../../../common/users/permissions'
+import { SelfUser, User } from '../../../common/users/user-info'
 import ChatService from '../chat/chat-service'
 import db from '../db'
 import transact from '../db/transaction'
@@ -78,7 +79,7 @@ export async function createUser({
   hashedPassword: string
   ipAddress: string
   createdDate?: Date
-}): Promise<SelfUserInfo> {
+}): Promise<{ user: SelfUser; permissions: Permissions }> {
   const transactionCompleted = createDeferred<void>()
   transactionCompleted.catch(swallowNonBuiltins)
 

@@ -1,25 +1,33 @@
-import KoaRouter from '@koa/router'
+import KoaRouter, { RouterContext } from '@koa/router'
 import fs from 'fs'
 import httpErrors from 'http-errors'
 import yaml from 'js-yaml'
+import Koa from 'koa'
 import koaConvert from 'koa-convert'
 import koaStatic from 'koa-static'
 import path from 'path'
+import { ClientSessionInfo } from '../common/users/session'
 import './http-apis'
 import { getUrl, readFile } from './lib/file-upload'
 import { resolveAllHttpApis } from './lib/http/http-api'
 import logger from './lib/logging/logger'
 import { getCspNonce } from './lib/security/csp'
 import { monotonicNow } from './lib/time/monotonic-now'
+import { WebsocketServer } from './websockets'
 
 const jsOrTsFileMatcher = RegExp.prototype.test.bind(/\.(js|ts)$/)
 
-function send404(ctx, next) {
+function send404() {
   throw new httpErrors.NotFound()
 }
 
-export default function applyRoutes(app, websocketServer) {
-  const router = KoaRouter()
+interface LatestYaml {
+  path: string
+  releaseDate: string
+}
+
+export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) {
+  const router = new KoaRouter()
   app.use(router.routes()).use(router.allowedMethods())
 
   // injected API handlers
@@ -49,18 +57,18 @@ export default function applyRoutes(app, websocketServer) {
 
   // NOTE(tec27): This used to send our feedback URL to clients. Leaving it in place for now to
   // not break those clients on launch, can be deleted later on.
-  router.get('/config', async (ctx, next) => {
+  router.get('/config', async ctx => {
     ctx.body = {}
     ctx.type = 'application/json'
   })
 
-  router.get('/installer.msi', async (ctx, next) => {
+  router.get('/installer.msi', async ctx => {
     ctx.set('Location', '/download')
     ctx.status = 301
   })
 
   const MAX_INSTALLER_CACHE_TIME = 5 * 60 * 1000
-  let cachedInstallerUrl
+  let cachedInstallerUrl: string | undefined
   let installerUrlTime = 0
 
   // NOTE(tec27): This is where we redirect downloads to, since we don't know what the current
@@ -69,7 +77,7 @@ export default function applyRoutes(app, websocketServer) {
     const curTime = monotonicNow()
     if (!cachedInstallerUrl || curTime - installerUrlTime > MAX_INSTALLER_CACHE_TIME) {
       const updateYaml = await readFile('app/latest.yml')
-      const parsed = yaml.load(updateYaml)
+      const parsed = yaml.load(updateYaml.toString('utf8')) as Partial<LatestYaml>
 
       if (!parsed.path) {
         throw new Error('Could not find file path on update YAML')
@@ -93,18 +101,19 @@ export default function applyRoutes(app, websocketServer) {
   router.get(
     '/:param*',
     koaConvert(koaStatic(path.join(__dirname, 'public'))),
-    async (ctx, next) => {
-      const initData = {}
-      if (ctx.session.userId) {
-        // TODO(tec27): This should either match what is returned from the sessions API, or we
-        // should also call that API on the web version
-        initData.auth = {
-          user: {
-            id: ctx.session.userId,
-            name: ctx.session.userName,
-            emailVerified: ctx.session.emailVerified,
+    async (ctx: RouterContext) => {
+      let initData: { session: ClientSessionInfo } | Record<string, never> = {}
+      if (ctx.session?.userId) {
+        initData = {
+          session: {
+            user: {
+              id: ctx.session.userId,
+              name: ctx.session.userName,
+              email: ctx.session.email,
+              emailVerified: ctx.session.emailVerified,
+            },
+            permissions: ctx.session.permissions,
           },
-          permissions: ctx.session.permissions,
         }
       }
       await ctx.render('index', {

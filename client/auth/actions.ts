@@ -1,4 +1,5 @@
-import { SelfUser, SelfUserInfo } from '../../common/users/user-info'
+import { ClientSessionInfo } from '../../common/users/session'
+import { SelfUser } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
 export type AuthActions =
@@ -66,7 +67,7 @@ export type AccountUpdateFailure = BaseAuthFailure<'@auth/accountUpdate'>
 /**
  * Logging into the user account was successful.
  */
-export type LogInSuccess = BaseAuthSuccess<'@auth/logIn', SelfUserInfo>
+export type LogInSuccess = BaseAuthSuccess<'@auth/logIn', ClientSessionInfo>
 /**
  * Logging into the user account failed.
  */
@@ -93,7 +94,7 @@ export type StartPasswordResetSuccess = BaseAuthSuccess<'@auth/startPasswordRese
 export type StartPasswordResetFailure = BaseAuthFailure<'@auth/startPasswordReset'>
 
 /** Signing up for a new account succeeded and the user is now logged in. */
-export type SignUpSuccess = BaseAuthSuccess<'@auth/signUp', SelfUserInfo>
+export type SignUpSuccess = BaseAuthSuccess<'@auth/signUp', ClientSessionInfo>
 /** Signing up for a new account failed. */
 export type SignUpFailure = BaseAuthFailure<'@auth/signUp'>
 
@@ -101,7 +102,10 @@ export type SignUpFailure = BaseAuthFailure<'@auth/signUp'>
  * Loading the current active user session from the server succeeded and the returned user is now
  * active.
  */
-export type LoadCurrentSessionSuccess = BaseAuthSuccess<'@auth/loadCurrentSession', SelfUserInfo>
+export type LoadCurrentSessionSuccess = BaseAuthSuccess<
+  '@auth/loadCurrentSession',
+  ClientSessionInfo
+>
 /** Loading the current active user session from the server failed. */
 export type LoadCurrentSessionFailure = BaseAuthFailure<'@auth/loadCurrentSession'>
 

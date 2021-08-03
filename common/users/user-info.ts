@@ -2,14 +2,7 @@ import { GameRecordJson } from '../games/games'
 import { LadderPlayer } from '../ladder'
 import { MapInfoJson } from '../maps'
 import { MatchmakingType } from '../matchmaking'
-import { Permissions } from './permissions'
 import { UserStats } from './user-stats'
-
-/** Information about the current user and their capabilities that is transmitted to the client. */
-export interface SelfUserInfo {
-  user: SelfUser
-  permissions: Permissions
-}
 
 /** Information about the current user. */
 export interface SelfUser {

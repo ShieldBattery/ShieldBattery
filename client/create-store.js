@@ -34,7 +34,7 @@ function isPromise(obj) {
   )
 }
 
-export default function create(initialState, reduxDevTools) {
+export default function create(reduxDevTools) {
   const createMiddlewaredStore = compose(
     applyMiddleware(thunk, promiseMiddleware),
     // Support for https://github.com/zalmoxisus/redux-devtools-extension
@@ -46,7 +46,7 @@ export default function create(initialState, reduxDevTools) {
       : f => f,
   )(createStore)
 
-  const store = createMiddlewaredStore(createRootReducer(), initialState)
+  const store = createMiddlewaredStore(createRootReducer())
 
   return store
 }

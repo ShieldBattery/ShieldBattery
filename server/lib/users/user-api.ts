@@ -9,7 +9,9 @@ import { isValidEmail, isValidPassword, isValidUsername } from '../../../common/
 import { LadderPlayer } from '../../../common/ladder'
 import { toMapInfoJson } from '../../../common/maps'
 import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
-import { GetUserProfilePayload, SelfUserInfo } from '../../../common/users/user-info'
+import { Permissions } from '../../../common/users/permissions'
+import { ClientSessionInfo } from '../../../common/users/session'
+import { GetUserProfilePayload, SelfUser } from '../../../common/users/user-info'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { HttpErrorWithPayload } from '../errors/error-with-payload'
@@ -119,9 +121,9 @@ export class UserApi extends HttpApi {
 
     const hashedPassword = await hashPass(password)
 
-    let result: SelfUserInfo
+    let createdUser: { user: SelfUser; permissions: Permissions } | undefined
     try {
-      result = await createUser({ name: username, email, hashedPassword, ipAddress: ctx.ip })
+      createdUser = await createUser({ name: username, email, hashedPassword, ipAddress: ctx.ip })
     } catch (err) {
       if (err.code && err.code === UNIQUE_VIOLATION) {
         throw new httpErrors.Conflict('A user with that name already exists')
@@ -132,10 +134,10 @@ export class UserApi extends HttpApi {
     // regenerate the session to ensure that logged in sessions and anonymous sessions don't
     // share a session ID
     await ctx.regenerateSession()
-    initSession(ctx, result.user, result.permissions)
+    initSession(ctx, createdUser.user, createdUser.permissions)
 
     const code = cuid()
-    await addEmailVerificationCode(result.user.id, email, code, ctx.ip)
+    await addEmailVerificationCode(createdUser.user.id, email, code, ctx.ip)
     // No need to await for this
     sendMail({
       to: email,
@@ -144,6 +146,10 @@ export class UserApi extends HttpApi {
       templateData: { token: code },
     }).catch(err => ctx.log.error({ err, req: ctx.req }, 'Error sending email verification email'))
 
+    const result: ClientSessionInfo = {
+      user: createdUser.user,
+      permissions: createdUser.permissions,
+    }
     ctx.body = result
   }
 

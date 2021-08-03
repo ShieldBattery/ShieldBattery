@@ -1,6 +1,7 @@
 import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
-import { SelfUser, SelfUserInfo } from '../../../common/users/user-info'
+import { ClientSessionInfo } from '../../../common/users/session'
+import { SelfUser } from '../../../common/users/user-info'
 import { isUserBanned } from '../models/bans'
 import { getPermissions } from '../models/permissions'
 import redis from '../redis'
@@ -45,7 +46,7 @@ async function getCurrentSession(ctx: RouterContext) {
     throw new httpErrors.Gone('Session expired')
   }
 
-  const result: SelfUserInfo = { user, permissions: ctx.session.permissions }
+  const result: ClientSessionInfo = { user, permissions: ctx.session.permissions }
   ctx.body = result
 }
 
@@ -85,7 +86,8 @@ async function startNewSession(ctx: RouterContext) {
       ctx.session!.cookie.expires = undefined
     }
 
-    ctx.body = { user, permissions: perms }
+    const result: ClientSessionInfo = { user, permissions: perms }
+    ctx.body = result
   } catch (err) {
     ctx.log.error({ err, req: ctx.req }, 'error regenerating session')
     throw err

@@ -5,6 +5,7 @@ declare module 'koa' {
   interface AppSession extends Session {
     userId: number
     userName: string
+    email: string
     emailVerified: boolean
     permissions: Permissions
   }

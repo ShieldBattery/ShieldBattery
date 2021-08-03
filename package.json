@@ -148,6 +148,7 @@
     "@types/http-errors": "^1.8.0",
     "@types/ioredis": "^4.17.6",
     "@types/jest": "^26.0.20",
+    "@types/js-yaml": "^4.0.2",
     "@types/koa": "^2.11.6",
     "@types/koa-compress": "^4.0.1",
     "@types/koa-convert": "^1.2.3",

@@ -7,8 +7,7 @@ import { Router } from 'wouter'
 import { AUDIO_MANAGER_INITIALIZED } from './actions'
 import App from './app'
 import audioManager from './audio/audio-manager-instance'
-import { getCurrentSession } from './auth/action-creators'
-import { fromJs as authFromJs } from './auth/auth-records'
+import { bootstrapSession, getCurrentSession } from './auth/action-creators'
 import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
 import log from './logging/logger'
@@ -103,12 +102,7 @@ const initAudioPromise = audioManager ? audioManager.initialize() : Promise.reso
 
 Promise.all([rootElemPromise])
   .then(async ([elem]) => {
-    const initData = window._sbInitData
-    if (initData && initData.auth) {
-      initData.auth = authFromJs(initData.auth)
-    }
-
-    const store = createStore(initData, ReduxDevTools)
+    const store = createStore(ReduxDevTools)
     registerDispatch(store.dispatch)
     registerSocketHandlers()
 
@@ -119,7 +113,10 @@ Promise.all([rootElemPromise])
     return { elem, store }
   })
   .then(async ({ elem, store }) => {
-    const { action, promise: sessionPromise } = getCurrentSession()
+    const { action, promise: sessionPromise } =
+      IS_ELECTRON || !window._sbInitData
+        ? getCurrentSession()
+        : bootstrapSession(window._sbInitData.session)
     store.dispatch(action)
     try {
       await sessionPromise

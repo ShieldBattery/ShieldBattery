@@ -22,6 +22,7 @@ import checkOrigin from './lib/security/check-origin'
 import { cors } from './lib/security/cors'
 import secureHeaders from './lib/security/headers'
 import sessionMiddleware from './lib/session/middleware'
+import { migrateSessions } from './lib/session/migrate-sessions'
 import userSessionsMiddleware from './lib/session/user-sessions-middleware'
 import createRoutes from './routes'
 import { WebsocketServer } from './websockets'
@@ -116,6 +117,7 @@ app
   .use(checkOrigin(process.env.SB_CANONICAL_HOST))
   .use(koaBody())
   .use(sessionMiddleware)
+  .use(migrateSessions())
   .use(cors())
   .use(secureHeaders())
   .use(userIpsMiddleware())

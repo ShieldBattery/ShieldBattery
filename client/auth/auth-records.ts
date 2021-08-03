@@ -1,6 +1,5 @@
 import { Record } from 'immutable'
 import { Permissions } from '../../common/users/permissions'
-import { SelfUserInfo } from '../../common/users/user-info'
 
 export class SelfUserRecord extends Record({
   id: -1,
@@ -30,11 +29,3 @@ export class AuthState extends Record({
   user: new SelfUserRecord(),
   permissions: new PermissionsRecord(),
 }) {}
-
-export function fromJs(jsObj: SelfUserInfo) {
-  return new AuthState({
-    user: new SelfUserRecord(jsObj.user),
-    permissions: new PermissionsRecord(jsObj.permissions),
-    emailVerified: !!jsObj.user.emailVerified,
-  })
-}

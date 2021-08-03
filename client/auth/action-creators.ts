@@ -1,5 +1,6 @@
 import cuid from 'cuid'
-import { SelfUser, SelfUserInfo } from '../../common/users/user-info'
+import { ClientSessionInfo } from '../../common/users/session'
+import { SelfUser } from '../../common/users/user-info'
 import type { PromisifiedAction, ReduxAction } from '../action-types'
 import type { ThunkAction } from '../dispatch-registry'
 import fetch from '../network/fetch'
@@ -44,8 +45,8 @@ function idRequest<
         // extra keys that need to be assigned, because we can't properly tell it what the valid
         // keys are?
       } as any as PromisifiedAction<ActionType>
-      dispatch(promisified)
       payload.then(resolve, reject)
+      dispatch(promisified)
     }
   })
 
@@ -54,7 +55,7 @@ function idRequest<
 
 export function logIn(username: string, password: string, remember: boolean) {
   return idRequest('@auth/logIn', () =>
-    fetch<SelfUserInfo>('/api/1/sessions', {
+    fetch<ClientSessionInfo>('/api/1/sessions', {
       method: 'post',
       body: JSON.stringify({
         username,
@@ -76,7 +77,7 @@ export function logOut() {
 export function signUp(username: string, email: string, password: string) {
   const reqUrl = '/api/1/users'
   return idRequest('@auth/signUp', () =>
-    fetch<SelfUserInfo>(reqUrl, {
+    fetch<ClientSessionInfo>(reqUrl, {
       method: 'post',
       body: JSON.stringify({ username, email, password }),
     }),
@@ -85,9 +86,18 @@ export function signUp(username: string, email: string, password: string) {
 
 export function getCurrentSession() {
   return idRequest('@auth/loadCurrentSession', () =>
-    fetch<SelfUserInfo>('/api/1/sessions?date=' + Date.now(), {
+    fetch<ClientSessionInfo>('/api/1/sessions?date=' + Date.now(), {
       method: 'get',
     }),
+  )
+}
+
+/**
+ * "Loads" the session from what was sent on the page. This is only usable in web clients, since
+ * Electron clients load a static local page. */
+export function bootstrapSession(session?: ClientSessionInfo) {
+  return idRequest('@auth/loadCurrentSession', () =>
+    session ? Promise.resolve(session) : Promise.reject(new Error('Session expired')),
   )
 }
 
