@@ -288,10 +288,13 @@ export default class FindMatch extends React.Component {
     // TODO(2Pac): Remove this once we add support for other tabs that we currently display
     if (activeTab !== TAB_1V1) return
 
+    const { race, useAlternateRace, alternateRace } = this._form.current.getModel()
     this.props.dispatch(
       updateMatchmakingPreferences({
         matchmakingType: tabToType(activeTab),
-        ...this._form.current.getModel(),
+        race,
+        useAlternateRace: race !== 'r' ? useAlternateRace : false,
+        alternateRace,
         preferredMaps: this._getPreferredMaps().map(m => m.id),
       }),
     )
@@ -449,7 +452,13 @@ export default class FindMatch extends React.Component {
     const preferredMaps = this._getPreferredMaps().map(m => m.id)
 
     this.props.dispatch(
-      findMatch(matchmakingType, race, useAlternateRace, alternateRace, preferredMaps),
+      findMatch(
+        matchmakingType,
+        race,
+        race !== 'r' ? useAlternateRace : false,
+        alternateRace,
+        preferredMaps,
+      ),
     )
     this.props.dispatch(closeOverlay())
   }
