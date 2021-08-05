@@ -64,6 +64,7 @@ pub struct BwScr {
     sprite_x: (Value<*mut *mut scr::Sprite>, u32, scarf::MemAccessSize),
     sprite_y: (Value<*mut *mut scr::Sprite>, u32, scarf::MemAccessSize),
     replay_data: Value<*mut bw::ReplayData>,
+    replay_header: Value<*mut bw::ReplayHeader>,
     enable_rng: Value<u32>,
     replay_visions: Value<u8>,
     replay_show_entire_map: Value<u8>,
@@ -972,6 +973,7 @@ impl BwScr {
         };
 
         let replay_data = analysis.replay_data().ok_or("replay_data")?;
+        let replay_header = analysis.replay_header().ok_or("replay_header")?;
         let enable_rng = analysis.enable_rng().ok_or("Enable RNG")?;
         let replay_visions = analysis.replay_visions().ok_or("replay_visions")?;
         let replay_show_entire_map = analysis.replay_show_entire_map()
@@ -1038,6 +1040,7 @@ impl BwScr {
             sprite_x: (Value::new(ctx, sprite_x.0), sprite_x.1, sprite_x.2),
             sprite_y: (Value::new(ctx, sprite_y.0), sprite_y.1, sprite_y.2),
             replay_data: Value::new(ctx, replay_data),
+            replay_header: Value::new(ctx, replay_header),
             enable_rng: Value::new(ctx, enable_rng),
             replay_visions: Value::new(ctx, replay_visions),
             replay_show_entire_map: Value::new(ctx, replay_show_entire_map),
@@ -1969,6 +1972,10 @@ impl bw::Bw for BwScr {
 
     unsafe fn replay_data(&self) -> *mut bw::ReplayData {
         self.replay_data.resolve()
+    }
+
+    unsafe fn replay_header(&self) -> *mut bw::ReplayHeader {
+        self.replay_header.resolve()
     }
 
     fn game_command_lengths(&self) -> &[u32] {

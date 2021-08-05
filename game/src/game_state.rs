@@ -16,8 +16,8 @@ use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
-    GamePlayerResult, GameResults, GameResultsReport, GameSetupInfo, LocalUser, PlayerInfo, Race,
-    Route, Settings, SetupProgress, GAME_STATUS_ERROR,
+    GamePlayerResult, GameResults, GameResultsReport, GameSetupInfo, LocalUser, MapForce,
+    PlayerInfo, Race, UmsLobbyRace, Route, Settings, SetupProgress, GAME_STATUS_ERROR,
 };
 use crate::app_socket;
 use crate::bw::{self, get_bw, GameType, StormPlayerId};
@@ -306,7 +306,11 @@ impl GameState {
             }
             debug!("In lobby, setting up slots");
             unsafe {
-                setup_slots(&info.slots, game_type);
+                let ums_forces = info.map
+                    .map_data.as_ref()
+                    .map(|x| &x.ums_forces[..])
+                    .unwrap_or(&[]);
+                setup_slots(&info.slots, game_type, ums_forces);
             }
             send_messages_to_state
                 .send(GameStateMessage::InLobby)
@@ -1036,7 +1040,7 @@ async unsafe fn try_join_lobby_once(
     }
 }
 
-unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
+unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType, ums_forces: &[MapForce]) {
     let bw = get_bw();
     let players = bw.players();
     for i in 0..8 {
@@ -1088,6 +1092,19 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType) {
             name: [0; 25],
         };
         bw.set_player_name(slot_id as u8, &slot.name);
+    }
+    if game_type.is_ums() {
+        // BW would normally set UMS user selectable slots in replay header around the
+        // same part where it initializes lobby player data. As this function is pretty
+        // much replacement for that code, we'll have to set this replay header value here.
+        let replay_header = bw.replay_header();
+        for player in ums_forces.iter().flat_map(|x| x.players.iter()) {
+            if let Some(value) =
+                (*replay_header).ums_user_select_slots.get_mut(player.id as usize)
+            {
+                *value = if player.race == UmsLobbyRace::Any { 1 } else { 0 };
+            }
+        }
     }
     // Verify that computer team races in team melee are either all random or no random.
     // Otherwise the race randomization function will generate invalid races.

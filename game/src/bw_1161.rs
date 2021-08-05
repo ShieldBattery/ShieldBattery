@@ -151,6 +151,10 @@ impl bw::Bw for Bw1161 {
         *vars::replay_data
     }
 
+    unsafe fn replay_header(&self) -> *mut bw::ReplayHeader {
+        &mut *vars::replay_header
+    }
+
     fn game_command_lengths(&self) -> &[u32] {
         // Copypasted to contain also SCR commands as of 1.23.7,
         // doesn't hurt and would have to be done ever if 1.16.1 was
@@ -357,6 +361,7 @@ mod vars {
         0x0057F0B8 => storm_player_flags: [u32; 8];
 
         0x00596BBC => replay_data: *mut bw::ReplayData;
+        0x006D0F30 => replay_header: bw::ReplayHeader;
         0x006D0F18 => replay_visions: u32;
         0x006D0F1C => replay_show_entire_map: u32;
         0x0057F0B0 => player_visions: u32;

@@ -49,6 +49,20 @@ pub enum Race {
     Protoss,
 }
 
+#[derive(Deserialize, Copy, Clone, Eq, PartialEq)]
+pub enum UmsLobbyRace {
+    #[serde(rename = "z")]
+    Zerg,
+    #[serde(rename = "t")]
+    Terran,
+    #[serde(rename = "p")]
+    Protoss,
+    #[serde(rename = "r")]
+    Random,
+    #[serde(rename = "any")]
+    Any,
+}
+
 #[derive(Serialize, Clone)]
 pub struct GamePlayerResult {
     pub result: u8,
@@ -113,6 +127,20 @@ pub struct MapData {
     pub ums_slots: u8,
     pub slots: u8,
     pub tileset: u16,
+    pub ums_forces: Vec<MapForce>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MapForce {
+    pub players: Vec<MapForcePlayer>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MapForcePlayer {
+    pub id: u8,
+    pub race: UmsLobbyRace,
 }
 
 #[derive(Deserialize)]

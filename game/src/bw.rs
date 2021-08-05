@@ -69,6 +69,7 @@ pub trait Bw: Sync + Send {
     /// But since it is used for both recording and replaying it usually isn't.
     /// Should still check for null.
     unsafe fn replay_data(&self) -> *mut ReplayData;
+    unsafe fn replay_header(&self) -> *mut ReplayHeader;
     fn game_command_lengths(&self) -> &[u32];
     unsafe fn process_replay_commands(&self, commands: &[u8], player: StormPlayerId);
     unsafe fn replay_visions(&self) -> ReplayVisions;
@@ -429,6 +430,18 @@ pub struct ReplayData {
     pub data_pos: *mut u8,
 }
 
+#[repr(C, packed)]
+pub struct ReplayHeader {
+    pub is_bw: u8,
+    pub replay_end_frame: u32,
+    pub campaign_mission: u16,
+    pub save_data_command: [u8; 0xd],
+    pub game_info: JoinableGameInfo,
+    pub players: [Player; 0xc],
+    pub ai_player_names: [u32; 8],
+    pub ums_user_select_slots: [u8; 8],
+}
+
 #[repr(C)]
 pub struct UnitStatusFunc {
     pub index: u32,
@@ -455,6 +468,7 @@ fn struct_sizes() {
     assert_eq!(size_of::<UiEvent>(), 0x12);
     assert_eq!(size_of::<FowSprite>(), 0x10);
     assert_eq!(size_of::<ReplayData>(), 0x20);
+    assert_eq!(size_of::<ReplayHeader>(), 0x279);
     assert_eq!(size_of::<UnitStatusFunc>(), 0xc);
 }
 

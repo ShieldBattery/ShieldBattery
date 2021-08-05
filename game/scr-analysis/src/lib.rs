@@ -390,4 +390,8 @@ impl<'e> Analysis<'e> {
     pub fn prepare_issue_order(&mut self) -> Option<VirtualAddress> {
         self.0.prepare_issue_order()
     }
+
+    pub fn replay_header(&mut self) -> Option<Operand<'e>> {
+        self.eud(0x006D0F30)
+    }
 }

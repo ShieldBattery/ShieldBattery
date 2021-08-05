@@ -16,7 +16,13 @@ static REPLAY_MAGIC: &[u8] = &[
     0x04, 0x00, 0x00, 0x00, 0x73, 0x65, 0x52, 0x53,
 ];
 
-pub static SECTION_ID: u32 = 0x74616253; // Sbat
+pub const SECTION_ID: u32 = 0x74616253; // Sbat
+// Change added by each version
+// 1: Replay uses order queue limit fixes
+// 2: Replay has UMS user selectable slots saved correctly
+//      Was broken in SB replays before that; we don't currently do anything that
+//      would need to know this, but going to make it easy to tell if we do in future.
+pub const GAME_LOGIC_VERSION: u16 = 0x2;
 
 pub struct SbatReplayData {
     pub team_game_main_players: [u8; 4],
@@ -71,7 +77,7 @@ pub unsafe fn add_shieldbattery_data(
     //      Shieldbattery ids; Same order as ingame players (Which are saved in BW's replay
     //      header, though there are 12 of them)
     // --- Format version 1 ---
-    // 0x56     u16 game_logic_version (1)
+    // 0x56     u16 game_logic_version (2)
     let game = bw.game();
     let mut buffer = Vec::with_capacity(128);
     buffer.write_u32::<LE>(SECTION_ID)?;
@@ -98,7 +104,7 @@ pub unsafe fn add_shieldbattery_data(
             .unwrap_or_else(|| u32::MAX);
         buffer.write_u32::<LE>(user_id)?;
     }
-    buffer.write_u16::<LE>(1)?;
+    buffer.write_u16::<LE>(GAME_LOGIC_VERSION)?;
 
     let length = buffer.len() as u32 - 8;
     (&mut buffer[4..]).write_u32::<LE>(length)?;
