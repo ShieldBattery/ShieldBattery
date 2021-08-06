@@ -4,6 +4,12 @@ import { GameType } from '../games/configuration'
 import { MapInfo } from '../maps'
 import { Slot } from './slot'
 
+/**
+ * The maximum number of observers allowed in a game, regardless of how many slots can be
+ * converted.
+ */
+export const MAX_OBSERVERS = 4
+
 export class Team extends Record({
   name: '',
   teamId: 0,
@@ -238,7 +244,7 @@ export function isInObserverTeam(lobby: Lobby, slot: Slot): boolean {
 /** Checks if the lobby has any slots that can be made observers. */
 export function canAddObservers(lobby: Lobby): boolean {
   const [, observerTeam] = getObserverTeam(lobby)
-  return !!(observerTeam && observerTeam.slots.size < 6)
+  return !!(observerTeam && observerTeam.slots.size < MAX_OBSERVERS)
 }
 
 /** Checks if the lobby has space for moving observers to players. */
