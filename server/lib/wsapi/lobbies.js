@@ -205,7 +205,7 @@ export class LobbyApi {
     let player
     const [, observerTeam] = getObserverTeam(lobby)
     if (observerTeam && observerTeam.slots.find(s => s.id === availableSlot.id)) {
-      player = Slots.createObserver(client.name)
+      player = Slots.createObserver(client.name, client.userId)
     } else {
       player = isUms(lobby.gameType)
         ? Slots.createHuman(
