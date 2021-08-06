@@ -66,17 +66,17 @@ const BOXER_LOBBY_WITH_OBSERVERS = createLobby(
   BigGameHunters,
   GameType.Melee,
   0,
-  4,
+  6,
   'Slayers`Boxer',
   27,
   'r',
   true,
 )
 
-const evaluateMeleeLobby = (lobby: Lobby, teamSize: number) => {
+const evaluateMeleeLobby = (lobby: Lobby, teamSize: number, slotCount = 4) => {
   expect(lobby.teams).toHaveProperty('size', teamSize)
   const team = lobby.teams.get(0)!
-  expect(team.slots).toHaveProperty('size', 4)
+  expect(team.slots).toHaveProperty('size', slotCount)
   expect(humanSlotCount(lobby)).toBe(1)
   expect(hasOpposingSides(lobby)).toBeFalse()
   const player = team.slots.get(0)!
@@ -114,26 +114,22 @@ describe('Lobbies - melee', () => {
     evaluateMeleeLobby(BOXER_LOBBY, 1)
 
     let l = BOXER_LOBBY_WITH_OBSERVERS
-    evaluateMeleeLobby(l, 2)
+    evaluateMeleeLobby(l, 2, 6)
     let observers = l.teams.get(1)!
-    expect(observers.slots).toHaveProperty('size', 4)
+    expect(observers.slots).toHaveProperty('size', 2)
     expect(observers.slots.get(0)!.type).toBe('closed')
     expect(observers.slots.get(1)!.type).toBe('closed')
-    expect(observers.slots.get(2)!.type).toBe('closed')
-    expect(observers.slots.get(3)!.type).toBe('closed')
 
     l = openSlot(l, 1, 0)
     observers = l.teams.get(1)!
     expect(observers.slots.get(0)!.type).toBe('open')
     expect(observers.slots.get(1)!.type).toBe('closed')
-    expect(observers.slots.get(2)!.type).toBe('closed')
-    expect(observers.slots.get(3)!.type).toBe('closed')
   })
 
   test('should support summarized JSON serialization', () => {
     evaluateSummarizedJson(BOXER_LOBBY, 3)
-    evaluateSummarizedJson(BOXER_LOBBY_WITH_OBSERVERS, 3)
-    evaluateSummarizedJson(openSlot(BOXER_LOBBY_WITH_OBSERVERS, 1, 0), 4)
+    evaluateSummarizedJson(BOXER_LOBBY_WITH_OBSERVERS, 5)
+    evaluateSummarizedJson(openSlot(BOXER_LOBBY_WITH_OBSERVERS, 1, 0), 6)
   })
 
   test('should find available slot', () => {
@@ -345,18 +341,18 @@ describe('Lobbies - melee', () => {
     let lobby = BOXER_LOBBY_WITH_OBSERVERS
     let players = lobby.teams.get(0)!
     let observers = lobby.teams.get(1)!
-    expect(players.slots).toHaveProperty('size', 4)
-    expect(observers.slots).toHaveProperty('size', 4)
+    expect(players.slots).toHaveProperty('size', 6)
+    expect(observers.slots).toHaveProperty('size', 2)
 
     lobby = makeObserver(lobby, 0, 0)
     players = lobby.teams.get(0)!
     observers = lobby.teams.get(1)!
-    expect(players.slots).toHaveProperty('size', 3)
-    expect(observers.slots).toHaveProperty('size', 5)
+    expect(players.slots).toHaveProperty('size', 5)
+    expect(observers.slots).toHaveProperty('size', 3)
     expect(players.slots.get(0)!.type).toBe('open')
     expect(players.slots.get(1)!.type).toBe('open')
     expect(players.slots.get(2)!.type).toBe('open')
-    expect(observers.slots.get(4)!.id).toBe(lobby.host.id)
+    expect(observers.slots.get(2)!.id).toBe(lobby.host.id)
 
     const babo = createHuman('dronebabo', 1, 'z')
     const pachi = createHuman('pachi', 2, 'p')
@@ -370,17 +366,15 @@ describe('Lobbies - melee', () => {
 
     players = lobby.teams.get(0)!
     observers = lobby.teams.get(1)!
-    expect(players.slots).toHaveProperty('size', 2)
-    expect(observers.slots).toHaveProperty('size', 6)
+    expect(players.slots).toHaveProperty('size', 4)
+    expect(observers.slots).toHaveProperty('size', 4)
     expect(players.slots.get(0)!.type).toBe('human')
     expect(players.slots.get(0)!.name).toBe('dronebabo')
     expect(players.slots.get(1)!.type).toBe('computer')
     expect(observers.slots.get(0)!.type).toBe('closed')
     expect(observers.slots.get(1)!.type).toBe('closed')
-    expect(observers.slots.get(2)!.type).toBe('closed')
-    expect(observers.slots.get(3)!.type).toBe('closed')
-    expect(observers.slots.get(4)!.name).toBe('Slayers`Boxer')
-    expect(observers.slots.get(5)!.name).toBe('pachi')
+    expect(observers.slots.get(2)!.name).toBe('Slayers`Boxer')
+    expect(observers.slots.get(3)!.name).toBe('pachi')
 
     expect(() => makeObserver(lobby, 0, 0)).toThrow()
   })
@@ -393,32 +387,32 @@ describe('Lobbies - melee', () => {
 
     let players = lobby.teams.get(0)!
     let observers = lobby.teams.get(1)!
-    expect(players.slots).toHaveProperty('size', 4)
-    expect(observers.slots).toHaveProperty('size', 4)
+    expect(players.slots).toHaveProperty('size', 6)
+    expect(observers.slots).toHaveProperty('size', 2)
     expect(() => removeObserver(lobby, 0)).toThrow()
 
     // Move boxer and open slot to obs
     lobby = makeObserver(lobby, 0, 0)
     lobby = makeObserver(lobby, 0, 1)
     // Move closed and boxer back
+    lobby = removeObserver(lobby, 0)
     lobby = removeObserver(lobby, 1)
-    lobby = removeObserver(lobby, 3)
     players = lobby.teams.get(0)!
     observers = lobby.teams.get(1)!
 
-    expect(players.slots).toHaveProperty('size', 4)
-    expect(observers.slots).toHaveProperty('size', 4)
+    expect(players.slots).toHaveProperty('size', 6)
+    expect(observers.slots).toHaveProperty('size', 2)
     expect(() => removeObserver(lobby, 0)).toThrow()
     expect(players.slots.get(0)!.type).toBe('human')
     expect(players.slots.get(1)!.type).toBe('open')
-    expect(players.slots.get(2)!.type).toBe('closed')
-    expect(players.slots.get(3)!.type).toBe('human')
-    expect(players.slots.get(3)!.name).toBe('Slayers`Boxer')
+    expect(players.slots.get(2)!.type).toBe('open')
+    expect(players.slots.get(3)!.type).toBe('open')
+    expect(players.slots.get(4)!.type).toBe('closed')
+    expect(players.slots.get(5)!.type).toBe('human')
+    expect(players.slots.get(5)!.name).toBe('Slayers`Boxer')
 
     expect(observers.slots.get(0)!.type).toBe('closed')
-    expect(observers.slots.get(1)!.type).toBe('closed')
-    expect(observers.slots.get(2)!.type).toBe('closed')
-    expect(observers.slots.get(3)!.type).toBe('open')
+    expect(observers.slots.get(1)!.type).toBe('open')
   })
 })
 
