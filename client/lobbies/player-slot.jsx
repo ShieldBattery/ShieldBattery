@@ -30,8 +30,8 @@ export default class PlayerSlot extends React.Component {
     // Whether or not this slot can be set race to
     canSetRace: PropTypes.bool,
     isHost: PropTypes.bool,
-    // Whether or not this slot has slot actions
-    hasSlotActions: PropTypes.bool,
+    // Whether or not this slot is the current user's own slot
+    isSelf: PropTypes.bool,
     isObserver: PropTypes.bool,
     canMakeObserver: PropTypes.bool,
     canRemoveObserver: PropTypes.bool,
@@ -58,7 +58,7 @@ export default class PlayerSlot extends React.Component {
       isHost,
       canMakeObserver,
       canRemoveObserver,
-      hasSlotActions,
+      isSelf,
       onCloseSlot,
       onKickPlayer,
       onBanPlayer,
@@ -73,14 +73,17 @@ export default class PlayerSlot extends React.Component {
     const displayName = isComputer ? 'Computer' : name
 
     const slotActions = []
-    if (isHost && hasSlotActions) {
-      slotActions.push(['Close slot', onCloseSlot])
-      if (!isComputer) {
-        slotActions.push(['Kick player', onKickPlayer])
-        slotActions.push(['Ban player', onBanPlayer])
-      } else {
-        slotActions.push(['Remove computer', onKickPlayer])
+    if (isHost) {
+      if (!isSelf) {
+        slotActions.push(['Close slot', onCloseSlot])
+        if (!isComputer) {
+          slotActions.push(['Kick player', onKickPlayer])
+          slotActions.push(['Ban player', onBanPlayer])
+        } else {
+          slotActions.push(['Remove computer', onKickPlayer])
+        }
       }
+
       if (canMakeObserver) {
         slotActions.push(['Make observer', onMakeObserver])
       }

@@ -253,7 +253,7 @@ export default class Lobby extends React.Component<LobbyProps> {
                 isHost={isHost}
                 canSetRace={slot === mySlot && !slot.hasForcedRace}
                 canMakeObserver={canAddObsSlots && team.slots.size > 1}
-                hasSlotActions={slot !== mySlot}
+                isSelf={slot === mySlot}
                 onSetRace={(race: RaceChar) => onSetRace(id, race)}
                 onOpenSlot={() => onOpenSlot(id)}
                 onCloseSlot={() => onCloseSlot(id)}
@@ -270,7 +270,7 @@ export default class Lobby extends React.Component<LobbyProps> {
                 isHost={isHost}
                 isObserver={true}
                 canRemoveObserver={isObserver && canRemoveObsSlots}
-                hasSlotActions={slot !== mySlot}
+                isSelf={slot === mySlot}
                 onOpenSlot={() => onOpenSlot(id)}
                 onCloseSlot={() => onCloseSlot(id)}
                 onKickPlayer={() => onKickPlayer(id)}
@@ -287,7 +287,7 @@ export default class Lobby extends React.Component<LobbyProps> {
                 isComputer={true}
                 canSetRace={isHost}
                 isHost={isHost}
-                hasSlotActions={true}
+                isSelf={false}
                 onSetRace={(race: RaceChar) => onSetRace(id, race)}
                 onOpenSlot={() => onOpenSlot(id)}
                 onCloseSlot={() => onCloseSlot(id)}
