@@ -41,7 +41,7 @@ serde_json = "1.0.39"
 smallvec = "1.4"
 tokio = { version = "1.2", features = ["fs", "net", "rt-multi-thread", "macros", "sync", "time"] }
 tokio-stream = "0.1"
-tokio-tungstenite = "0.14"
+tokio-tungstenite = "0.15"
 
 [dependencies.winapi]
 version = "0.3.9"
