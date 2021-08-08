@@ -1,5 +1,4 @@
 import { List, Map, Record, Set } from 'immutable'
-import { MapInfoJson } from '../../common/maps'
 import { MatchmakingType } from '../../common/matchmaking'
 import { MAPS_TOGGLE_FAVORITE, NETWORK_SITE_CONNECTED } from '../actions'
 import { MapRecord } from '../maps/maps-reducer'
@@ -18,9 +17,9 @@ export class MatchmakingMatchRecord extends Record({
   acceptedPlayers: 0,
   type: MatchmakingType.Match1v1,
   players: List<MatchmakingPlayerRecord>(),
-  preferredMaps: Set<MapInfoJson>(),
-  randomMaps: Set<MapInfoJson>(),
-  chosenMap: undefined as MapInfoJson | undefined,
+  preferredMaps: Set<typeof MapRecord>(),
+  randomMaps: Set<typeof MapRecord>(),
+  chosenMap: undefined as typeof MapRecord | undefined,
 }) {}
 
 export class MapPoolRecord extends Record({
@@ -28,7 +27,7 @@ export class MapPoolRecord extends Record({
   type: MatchmakingType.Match1v1,
   startDate: new Date(),
   maps: List<string>(),
-  byId: Map<string, MapInfoJson>(),
+  byId: Map<string, typeof MapRecord>(),
 
   isRequesting: false,
   lastError: undefined as FetchError | undefined,
@@ -100,7 +99,7 @@ export default keyedReducer(new MatchmakingState(), {
     const mapPool = {
       ...payload,
       maps: List(payload.maps.map(m => m.id)),
-      byId: Map(payload.maps.map(m => [m.id, new MapRecord(m) as MapInfoJson])),
+      byId: Map(payload.maps.map(m => [m.id, new MapRecord(m)])),
     }
     return state.setIn(['mapPoolTypes', meta.type], new MapPoolRecord(mapPool))
   },

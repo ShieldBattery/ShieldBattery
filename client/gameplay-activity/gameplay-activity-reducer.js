@@ -18,7 +18,7 @@ export default keyedReducer(new GameplayActivity(), {
     return state.set('gameplayActivity', lobby ? 'lobby' : null)
   },
 
-  ['@matchmaking/status'](state, action) {
+  ['@matchmaking/matchmakingActivityStatus'](state, action) {
     const { matchmaking } = action.payload
 
     return state.set('gameplayActivity', matchmaking ? 'matchmaking' : null)

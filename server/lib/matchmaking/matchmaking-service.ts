@@ -44,10 +44,10 @@ interface GameLoaderCallbacks {
     matchInfo: Match
     clients: List<ClientSocketsGroup>
     slots: List<Slot>
-    setup?: {
+    setup?: Partial<{
       gameId: string
       seed: number
-    }
+    }>
     resultCodes: Map<string, string>
     mapsByPlayer: { [key: number]: MapInfoJson }
     preferredMaps: MapInfoJson[]
@@ -427,7 +427,7 @@ export class MatchmakingService {
 
             published = this.publishToActiveClient(client.userId, {
               type: 'startWhenReady',
-              gameId: setup.gameId,
+              gameId: setup.gameId!,
             })
             if (!published) {
               throw new MatchmakingServiceError(

@@ -40,7 +40,7 @@ export type MatchmakingActions =
   | GameStarting
   | LoadingCanceled
   | GameStarted
-  | Status
+  | MatchmakingActivityStatus
 
 export interface GetCurrentMapPoolBegin {
   type: '@matchmaking/getCurrentMapPoolBegin'
@@ -188,7 +188,7 @@ export interface PlayerFailedToAccept {
 export interface MatchReady {
   type: '@matchmaking/matchReady'
   payload: {
-    setup: { gameId: string; seed: number }
+    setup: Partial<{ gameId: string; seed: number }>
     resultCode?: string
     slots: Slot[]
     players: MatchmakingPlayer[]
@@ -227,8 +227,8 @@ export interface GameStarted {
   }
 }
 
-export interface Status {
-  type: '@matchmaking/status'
+export interface MatchmakingActivityStatus {
+  type: '@matchmaking/matchmakingActivityStatus'
   payload: {
     matchmaking?: { type: MatchmakingType }
   }

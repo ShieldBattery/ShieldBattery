@@ -175,19 +175,31 @@ const eventToAction: EventToActionMap = {
       console.error('Error downloading map: ' + err + '\n' + err.stack)
     })
 
+    // TODO(2Pac): This mapping should not be necessary. The game's `PlayerInfo` type and the
+    // lobby's `Slot` type should probably be one and the same if possible.
+    const slots: PlayerInfo[] = event.slots.map(slot => ({
+      id: slot.id,
+      name: slot.name,
+      race: slot.race,
+      playerId: slot.playerId,
+      type: slot.type,
+      typeId: slot.typeId,
+      userId: slot.userId,
+    }))
+
     const config: GameLaunchConfig = {
       localUser: {
         id: user.id,
         name: user.name,
       },
       setup: {
-        gameId: event.setup.gameId,
+        gameId: event.setup.gameId!,
         name: 'Matchmaking game', // Does this even matter for anything?
         map: event.chosenMap,
         gameType: GameType.OneVsOne,
-        slots: event.slots as PlayerInfo[],
-        host: event.slots[0] as PlayerInfo, // Arbitrarily set first player as host
-        seed: event.setup.seed,
+        slots,
+        host: slots[0], // Arbitrarily set first player as host
+        seed: event.setup.seed!,
         resultCode: event.resultCode!,
         serverUrl: makeServerUrl(''),
       },
@@ -304,7 +316,7 @@ const eventToAction: EventToActionMap = {
     }
 
     dispatch({
-      type: '@matchmaking/status',
+      type: '@matchmaking/matchmakingActivityStatus',
       payload: event,
     })
   },

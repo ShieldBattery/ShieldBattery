@@ -14,7 +14,7 @@ export enum SlotType {
 }
 
 export class Slot extends Record({
-  type: undefined as SlotType | undefined,
+  type: SlotType.Open,
   userId: 0,
   name: '',
   race: 'r' as RaceChar,
@@ -28,7 +28,7 @@ export class Slot extends Record({
 
 export function createOpen(race: RaceChar = 'r', hasForcedRace = false, playerId = 0): Slot {
   return new Slot({
-    type: SlotType.Open as typeof SlotType.Open,
+    type: SlotType.Open,
     name: 'Open',
     race,
     id: cuid(),
@@ -41,7 +41,7 @@ export function createOpen(race: RaceChar = 'r', hasForcedRace = false, playerId
 
 export function createClosed(race: RaceChar = 'r', hasForcedRace = false, playerId = 0): Slot {
   return new Slot({
-    type: SlotType.Closed as typeof SlotType.Closed,
+    type: SlotType.Closed,
     name: 'Closed',
     race,
     id: cuid(),
@@ -60,7 +60,7 @@ export function createHuman(
   playerId = 0,
 ): Slot {
   return new Slot({
-    type: SlotType.Human as typeof SlotType.Human,
+    type: SlotType.Human,
     userId,
     name,
     race,
@@ -75,7 +75,7 @@ export function createHuman(
 
 export function createComputer(race: RaceChar = 'r'): Slot {
   return new Slot({
-    type: SlotType.Computer as typeof SlotType.Computer,
+    type: SlotType.Computer,
     name: 'Computer',
     race,
     id: cuid(),
@@ -87,7 +87,7 @@ export function createComputer(race: RaceChar = 'r'): Slot {
 // Team Melee), where open slots still affect the composition of starting units.
 export function createControlledOpen(race: RaceChar, controllerId: string): Slot {
   return new Slot({
-    type: SlotType.ControlledOpen as typeof SlotType.ControlledOpen,
+    type: SlotType.ControlledOpen,
     name: 'Open',
     race,
     id: cuid(),
@@ -100,7 +100,7 @@ export function createControlledOpen(race: RaceChar, controllerId: string): Slot
 // Melee), where closed slots can still have a race which affects the composition of starting units.
 export function createControlledClosed(race: RaceChar, controllerId: string): Slot {
   return new Slot({
-    type: SlotType.ControlledClosed as typeof SlotType.ControlledClosed,
+    type: SlotType.ControlledClosed,
     name: 'Closed',
     race,
     id: cuid(),
@@ -113,7 +113,7 @@ export function createControlledClosed(race: RaceChar, controllerId: string): Sl
 // rescueable, neutral, etc) which needs to be passed to bw but can otherwise be ignored.
 export function createUmsComputer(race: RaceChar, playerId: number, typeId: number): Slot {
   return new Slot({
-    type: SlotType.UmsComputer as typeof SlotType.UmsComputer,
+    type: SlotType.UmsComputer,
     name: 'Computer',
     race,
     id: cuid(),
@@ -127,7 +127,7 @@ export function createUmsComputer(race: RaceChar, playerId: number, typeId: numb
 // other people play.
 export function createObserver(name: string, userId: number) {
   return new Slot({
-    type: SlotType.Observer as typeof SlotType.Observer,
+    type: SlotType.Observer,
     userId,
     name,
     id: cuid(),

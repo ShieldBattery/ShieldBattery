@@ -117,7 +117,7 @@ export interface RequeueEvent {
 
 export interface MatchReadyEvent {
   type: 'matchReady'
-  setup: { gameId: string; seed: number }
+  setup: Partial<{ gameId: string; seed: number }>
   resultCode?: string
   slots: Slot[]
   players: MatchmakingPlayer[]
