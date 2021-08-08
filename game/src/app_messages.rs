@@ -13,7 +13,7 @@ pub struct Settings {
 }
 
 // app/common/game_status.js
-pub const GAME_STATUS_ERROR: u8 = 7;
+pub const GAME_STATUS_ERROR: u32 = 666;
 #[derive(Serialize)]
 pub struct SetupProgress {
     pub status: SetupProgressInfo,
@@ -21,7 +21,7 @@ pub struct SetupProgress {
 
 #[derive(Serialize)]
 pub struct SetupProgressInfo {
-    pub state: u8,
+    pub state: u32,
     pub extra: Option<String>,
 }
 

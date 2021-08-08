@@ -17,6 +17,8 @@ export enum GameStatus {
   HasResult,
   ResultSent,
   Finished,
+  // This constant is being duplicated in game-side code game/src/app_messages.rs
+  // They should be kept in sync if this ever needs to changed.
   Error = 666,
 }
 
