@@ -11,7 +11,7 @@ use std::mem;
 use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, AtomicU32, Ordering};
 
 use byteorder::{ByteOrder, LittleEndian};
 use libc::c_void;
@@ -53,6 +53,7 @@ pub struct BwScr {
     local_storm_id: Value<u32>,
     command_user: Value<u32>,
     unique_command_user: Value<u32>,
+    storm_command_user: Value<u32>,
     net_player_to_game: Value<*mut u32>,
     net_player_to_unique: Value<*mut u32>,
     local_player_name: Value<*mut u8>,
@@ -130,6 +131,7 @@ pub struct BwScr {
     replay_minimap_patch: Option<scr_analysis::Patch>,
     open_file: scarf::VirtualAddress,
     prepare_issue_order: scarf::VirtualAddress,
+    create_game_multiplayer: scarf::VirtualAddress,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
 
@@ -146,6 +148,9 @@ pub struct BwScr {
     is_carbot: AtomicBool,
     show_skins: AtomicBool,
     is_processing_game_commands: AtomicBool,
+    /// Avoid reporting the same player being dropped multiple times.
+    /// Bit 0x1 = Net id 0, 0x2 = net id 1, etc.
+    dropped_players: AtomicU32,
 }
 
 struct SendPtr<T>(T);
@@ -907,6 +912,7 @@ impl BwScr {
             .ok_or("Local unique player id")?;
         let command_user = analysis.command_user().ok_or("Command user")?;
         let unique_command_user = analysis.unique_command_user().ok_or("Unique command user")?;
+        let storm_command_user = analysis.storm_command_user().ok_or("Storm command user")?;
         let net_player_to_game = analysis.net_player_to_game().ok_or("Net player to game")?;
         let net_player_to_unique = analysis.net_player_to_unique().ok_or("Net player to unique")?;
         let choose_snp = analysis.choose_snp().ok_or("choose_snp")?;
@@ -985,6 +991,8 @@ impl BwScr {
         let replay_bfix = analysis.replay_bfix();
         let replay_gcfg = analysis.replay_gcfg();
         let prepare_issue_order = analysis.prepare_issue_order().ok_or("prepare_issue_order")?;
+        let create_game_multiplayer = analysis.create_game_multiplayer()
+            .ok_or("create_game_multiplayer")?;
 
         let starcraft_tls_index = analysis.get_tls_index().ok_or("TLS index")?;
 
@@ -1029,6 +1037,7 @@ impl BwScr {
             local_storm_id: Value::new(ctx, local_storm_id),
             command_user: Value::new(ctx, command_user),
             unique_command_user: Value::new(ctx, unique_command_user),
+            storm_command_user: Value::new(ctx, storm_command_user),
             net_player_to_game: Value::new(ctx, net_player_to_game),
             net_player_to_unique: Value::new(ctx, net_player_to_unique),
             local_player_name: Value::new(ctx, local_player_name),
@@ -1091,6 +1100,7 @@ impl BwScr {
             prism_renderer_vtable,
             replay_minimap_patch,
             prepare_issue_order,
+            create_game_multiplayer,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
             exe_build,
             sdf_cache,
@@ -1107,6 +1117,7 @@ impl BwScr {
             is_carbot: AtomicBool::new(false),
             show_skins: AtomicBool::new(false),
             is_processing_game_commands: AtomicBool::new(false),
+            dropped_players: AtomicU32::new(0),
         })
     }
 
@@ -1152,12 +1163,16 @@ impl BwScr {
         exe.hook_closure_address(
             ProcessGameCommands,
             move |data, len, are_recorded_replay_commands, orig| {
+                let command_user = self.command_user.resolve();
+                let is_observer = command_user >= 128;
                 let slice = std::slice::from_raw_parts(data, len);
                 let slice = commands::filter_invalid_commands(
                     slice,
                     are_recorded_replay_commands != 0,
+                    is_observer,
                     &self.game_command_lengths,
                 );
+                let mut sync_seen = false;
                 if are_recorded_replay_commands == 0 {
                     for command in commands::iter_commands(&slice, &self.game_command_lengths) {
                         match command {
@@ -1168,8 +1183,22 @@ impl BwScr {
                                     self.is_replay_seeking.store(true, Ordering::Relaxed);
                                 }
                             }
+                            [commands::id::SYNC, ..] | [commands::id::NOP, ..] => {
+                                sync_seen = true;
+                            }
                             _ => (),
                         }
+                    }
+                }
+
+                let is_replay = game_thread::is_replay();
+                if !is_replay {
+                    if let Some(players) = self.check_player_drops() {
+                        info!(
+                            "Dropped players {:?} at some point between last check and before \
+                            handling commands for game player {} net {}",
+                            players, command_user, self.storm_command_user.resolve(),
+                        );
                     }
                 }
                 // There should be no way this is called recursively, but even still
@@ -1178,6 +1207,41 @@ impl BwScr {
                 self.is_processing_game_commands.store(true, Ordering::Relaxed);
                 orig(slice.as_ptr(), slice.len(), are_recorded_replay_commands);
                 self.is_processing_game_commands.store(was_processing, Ordering::Relaxed);
+                if !is_replay {
+                    if !sync_seen {
+                        if is_observer {
+                            // Observers don't send sync commands correctly.
+                            // Send no-op command 0x05 which counts as a correct sync to
+                            // prevent them from dropping.
+                            //
+                            // SC:R's setup has observers with storm id >= 128,
+                            // for which process_game_commands is not called at all.
+                            // Our setup uses "normal" storm ids for observers, as that
+                            // makes allocating storm ids during launch simpler, but will
+                            // require doing this (As well as filtering out almost all
+                            // commands the observer sends)
+                            orig(&5u8, 1, 0);
+                        } else {
+                            let storm_user = self.storm_command_user.resolve();
+                            self.dropped_players.store(
+                                self.dropped_players.load(Ordering::Relaxed) | (1 << storm_user),
+                                Ordering::Relaxed,
+                            );
+                            info!(
+                                "Didn't see sync command for game player {} net {}, {:02x?}, \
+                                they will be dropped",
+                                command_user, storm_user, slice,
+                            );
+                        }
+                    }
+                    if let Some(players) = self.check_player_drops() {
+                        info!(
+                            "Dropped players {:?} while handling commands for game player {} \
+                            net {}, {:02x?}",
+                            players, command_user, self.storm_command_user.resolve(), slice,
+                        );
+                    }
+                }
             },
             address,
         );
@@ -1265,6 +1329,33 @@ impl BwScr {
                 let clear_queue = clear_queue != 0;
 
                 game::prepare_issue_order(self, unit, order, x, y, target, fow, clear_queue);
+            },
+            address,
+        );
+
+        let address = self.create_game_multiplayer.0 as usize - base;
+        exe.hook_closure_address(
+            CreateGameMultiplayer,
+            move |info, name, password, map_path, a5, a6, a7, a8, orig| {
+                // Logging these params just to have some more context if ever needed.
+                // (This is a 16-byte struct passed by value)
+                let unk0 = a5;
+                let turn_rate = a6;
+                let is_bnet_matchmaking = a7 & 0xff;
+                let unk9 = (a7 >> 8) & 0xff;
+                let old_game_limits = (a7 >> 16) & 0xff;
+                let eud = (a7 >> 24) & 0xff;
+                let dynamic_turn_rate = a8;
+                info!(
+                    "Called create_game_multiplayer, game params {} {} {} {} {} {} {}",
+                    unk0, turn_rate, is_bnet_matchmaking, unk9, old_game_limits, eud,
+                    dynamic_turn_rate,
+                );
+                // This value is originally set to how many human player starting locations
+                // there are, but set it to match what we set for join side in
+                // game_state::join_lobby. Makes sure everybody can join if there are observers.
+                (*info).max_player_count = game_thread::setup_info().slots.len() as u8;
+                orig(info, name, password, map_path, a5, a6, a7, a8)
             },
             address,
         );
@@ -1425,12 +1516,18 @@ impl BwScr {
             *net_player_to_unique.add(i) = 8;
             *net_player_to_game.add(i) = 8;
         }
-        // BW also handles SCR observers 12..16
-        for game_id in 0..8 {
-            let player = players.add(game_id);
+        // 0..8 are normal player slots, 8..12 can be used by UMS, 12..16 are observers
+        for i in 0..16 {
+            let player = players.add(i);
             let storm_id = (*player).storm_id;
-            // BW would also accept type 9 (observer?)
+
+            debug!("Slot {} has id {}, player_type {}, storm_id {}",
+                i, (*player).id, (*player).player_type, (*player).storm_id);
             if (*player).player_type == bw::PLAYER_TYPE_HUMAN {
+                let game_id = match i < 12 {
+                    true => i,
+                    false => 128 + (i - 12),
+                };
                 *net_player_to_game.add(storm_id as usize) = game_id as u32;
                 *net_player_to_unique.add(storm_id as usize) = game_id as u32;
                 if storm_id == local_storm_id {
@@ -1677,6 +1774,19 @@ impl BwScr {
             .unwrap_or(input_game_info.map_name.len());
         add_param_string(b"map_name", &input_game_info.map_name[..map_name_length]);
         params
+    }
+
+    unsafe fn check_player_drops(&self) -> Option<Vec<u8>> {
+        let mut result = None;
+        let mut dropped_players = self.dropped_players.load(Ordering::Relaxed);
+        for (i, _) in self.storm_player_flags().iter().enumerate().filter(|x| *x.1 == 0x1_0000) {
+            if dropped_players & (1 << i) == 0 {
+                dropped_players |= 1 << i;
+                result.get_or_insert_with(|| Vec::new()).push(i as u8);
+                self.dropped_players.store(dropped_players, Ordering::Relaxed);
+            }
+        }
+        result
     }
 }
 
@@ -2465,6 +2575,13 @@ mod hooks {
         !0 => StepGame();
         !0 => StepReplayCommands();
         !0 => StartUdpServer(@ecx *mut c_void) -> u32;
+        !0 => CreateGameMultiplayer(
+            *mut bw::JoinableGameInfo, // Note: 1.16.1 struct, not scr::JoinableGameInfo
+            *const u8, // Game name
+            *const u8, // Password (null)
+            *const u8, // Map path?
+            usize, usize, usize, usize, // 0x10 byte struct passed by value
+        ) -> u32;
     );
 
     whack_hooks!(stdcall, 0,

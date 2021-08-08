@@ -5,8 +5,12 @@ use std::borrow::Cow;
 use byteorder::{ByteOrder, LittleEndian};
 
 pub mod id {
+    pub const NOP: u8 = 0x5;
+    pub const SYNC: u8 = 0x37;
     pub const REPLAY_SPEED: u8 = 0x56;
     pub const REPLAY_SEEK: u8 = 0x5d;
+    pub const SET_TURN_RATE: u8 = 0x5f;
+    pub const SET_NETWORK_SPEED: u8 = 0x66;
 }
 
 pub fn command_length(data: &[u8], command_lengths: &[u32]) -> Option<usize> {
@@ -74,6 +78,7 @@ impl<'a> Iterator for IterCommands<'a> {
 pub fn filter_invalid_commands<'a>(
     input: &'a [u8],
     from_replay: bool,
+    is_observer: bool,
     command_lengths: &[u32],
 ) -> Cow<'a, [u8]> {
     let mut first_valid = 0;
@@ -92,7 +97,20 @@ pub fn filter_invalid_commands<'a>(
                     pause < 2 && speed < 7 && matches!(multiplier, 1 | 2 | 4 | 8 | 16)
                 }
             }
-            _ => true,
+            _ => {
+                if is_observer {
+                    // Filter out almost all observer commands.
+                    // Network speed commands are allowed as storm player with id 0 (host)
+                    // is expected to send them.
+                    match command {
+                        [id::SET_NETWORK_SPEED, ..] | [id::SET_TURN_RATE, ..] |
+                            [id::NOP, ..] => true,
+                        _ => false,
+                    }
+                } else {
+                    true
+                }
+            }
         };
         if !ok {
             if first_valid == 0 {
@@ -120,7 +138,7 @@ mod test {
         !0, !0, !0, !0, !0, 1, 33, 33, 1, 26, 26, 26, 8, 3, 5, 2,
         1, 1, 5, 3, 10, 11, !0, !0, 1, 1, 2, 1, 1, 1, 2, 3,
         3, 2, 2, 3, 1, 2, 2, 1, 2, 3, 1, 2, 2, 2, 1, 5,
-        2, 1, 2, 1, 1, 3, 1, 1, !0, !0, !0, !0, !0, !0, !0, !0,
+        2, 1, 2, 1, 1, 3, 1, 7, !0, !0, !0, !0, !0, !0, !0, !0,
         !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0, !0,
         !0, !0, !0, !0, !0, 2, 10, 2, 5, !0, 1, !0, 82, 5, !0, 2,
         12, 13, 5, 50, 50, 50, 4, !0, !0, !0, !0, !0, !0, !0, !0, !0,
@@ -180,15 +198,15 @@ mod test {
             0x20, 0xff, 0xff,
             0x62, 0xff, 0xff, 0xff, 0xff,
         ];
-        assert_eq!(&*filter_invalid_commands(data, false, LENGTHS), expected_bad);
-        assert_eq!(&*filter_invalid_commands(data2, false, LENGTHS), expected_bad);
-        assert_eq!(&*filter_invalid_commands(data3, false, LENGTHS), expected_bad);
-        assert_eq!(&*filter_invalid_commands(data4, false, LENGTHS), data4);
-        assert_eq!(&*filter_invalid_commands(data4, true, LENGTHS), expected_bad);
-        assert_eq!(&*filter_invalid_commands(data5, false, LENGTHS), data5);
-        assert_eq!(&*filter_invalid_commands(data6, false, LENGTHS), expected_bad);
-        assert_eq!(&*filter_invalid_commands(data7, false, LENGTHS), data7);
-        assert_eq!(&*filter_invalid_commands(data8, false, LENGTHS), expected_bad);
+        assert_eq!(&*filter_invalid_commands(data, false, false, LENGTHS), expected_bad);
+        assert_eq!(&*filter_invalid_commands(data2, false, false, LENGTHS), expected_bad);
+        assert_eq!(&*filter_invalid_commands(data3, false, false, LENGTHS), expected_bad);
+        assert_eq!(&*filter_invalid_commands(data4, false, false, LENGTHS), data4);
+        assert_eq!(&*filter_invalid_commands(data4, true, false, LENGTHS), expected_bad);
+        assert_eq!(&*filter_invalid_commands(data5, false, false, LENGTHS), data5);
+        assert_eq!(&*filter_invalid_commands(data6, false, false, LENGTHS), expected_bad);
+        assert_eq!(&*filter_invalid_commands(data7, false, false, LENGTHS), data7);
+        assert_eq!(&*filter_invalid_commands(data8, false, false, LENGTHS), expected_bad);
     }
 
     #[test]
@@ -203,8 +221,8 @@ mod test {
             0x20, 0xff, 0xff,
             0x62, 0xff, 0xff, 0xff, 0xff,
         ];
-        assert_eq!(&*filter_invalid_commands(data, false, LENGTHS), data);
-        assert_eq!(&*filter_invalid_commands(data, true, LENGTHS), expected_bad);
+        assert_eq!(&*filter_invalid_commands(data, false, false, LENGTHS), data);
+        assert_eq!(&*filter_invalid_commands(data, true, false, LENGTHS), expected_bad);
     }
 
     #[test]
@@ -263,5 +281,28 @@ mod test {
         assert_eq!(iter.next().unwrap(), &[0x20, 0xff, 0xff]);
         assert_eq!(iter.next().unwrap(), &[0x32, 0xff]);
         assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn filter_observer_commands() {
+        let data = &[
+            0x20, 0xff, 0xff,
+            0x62, 0xff, 0xff, 0xff, 0xff,
+            0x32, 0xff,
+        ];
+        let empty: &[u8] = &[];
+        assert_eq!(&*filter_invalid_commands(data, false, true, LENGTHS), empty);
+
+        let data = &[
+            0x37, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x66, 0x00, 0x00, 0x00,
+            0x37, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x5f, 0x06,
+        ];
+        let filtered = &[
+            0x66, 0x00, 0x00, 0x00,
+            0x5f, 0x06,
+        ];
+        assert_eq!(&*filter_invalid_commands(data, false, true, LENGTHS), filtered);
     }
 }

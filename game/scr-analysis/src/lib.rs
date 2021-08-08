@@ -323,6 +323,10 @@ impl<'e> Analysis<'e> {
         self.0.unique_command_user()
     }
 
+    pub fn storm_command_user(&mut self) -> Option<Operand<'e>> {
+        self.0.storm_command_user()
+    }
+
     pub fn enable_rng(&mut self) -> Option<Operand<'e>> {
         self.0.rng_enable()
     }
@@ -393,5 +397,9 @@ impl<'e> Analysis<'e> {
 
     pub fn replay_header(&mut self) -> Option<Operand<'e>> {
         self.eud(0x006D0F30)
+    }
+
+    pub fn create_game_multiplayer(&mut self) -> Option<VirtualAddress> {
+        self.0.create_game_multiplayer()
     }
 }

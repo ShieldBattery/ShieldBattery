@@ -77,9 +77,10 @@ export interface GameLaunchConfig {
     seed: number
     /**
      * The code used to submit results for this game to the server. This is secret and unique per
-     * player in the game.
+     * player in the game. In certain cases (when observing, or when watching a replay), a result
+     * code may not be given, meaning no result is to be reported.
      */
-    resultCode: string
+    resultCode?: string
     /** The URL of the server, so that the game client can communicate with it as necessary. */
     serverUrl: string
   }

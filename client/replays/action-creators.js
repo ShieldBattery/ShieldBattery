@@ -47,7 +47,6 @@ async function setGameConfig(replay, user) {
       slots,
       host: player,
       seed: header.seed,
-      resultCode: '',
       serverUrl: makeServerUrl(''),
     },
   })

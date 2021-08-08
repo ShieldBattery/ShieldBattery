@@ -12,6 +12,7 @@ import {
   isTeamType,
   isUms,
   Lobby,
+  MAX_OBSERVERS,
   openSlotCount,
   slotCount,
   takenSlotCount,
@@ -268,7 +269,10 @@ export function createLobby(
 ) {
   let teams = createInitialTeams(map, gameType, gameSubType, numSlots)
   if (gameType === 'melee' && allowObservers) {
-    const observerCount = 8 - teams.reduce((sum, team) => sum + team.slots.size, 0)
+    const observerCount = Math.min(
+      8 - teams.reduce((sum, team) => sum + team.slots.size, 0),
+      MAX_OBSERVERS,
+    )
     const observerSlots = Range(0, observerCount)
       .map(() => createClosed())
       .toList()

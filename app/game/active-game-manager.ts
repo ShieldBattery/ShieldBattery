@@ -154,7 +154,6 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
       ...current,
       id: gameId,
       promise: activeGamePromise,
-      // NOTE(tec27): this
       config,
       status: { state: GameStatus.Unknown, extra: null },
     }
@@ -341,9 +340,9 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
     // game before exit
     if (
       status >= GameStatus.Playing &&
+      this.activeGame.config?.setup.resultCode &&
       !this.activeGame.resultSent &&
-      this.activeGame.result &&
-      !isReplayMapInfo(this.activeGame.config!.setup.map)
+      this.activeGame.result
     ) {
       // TODO(#542): Retry submission of these results more times/for longer to try and ensure
       // complete resutls on the server
@@ -351,7 +350,7 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
       const config = this.activeGame.config!
       const submission = {
         userId: config.localUser.id,
-        resultCode: config.setup.resultCode,
+        resultCode: config.setup.resultCode!,
         time: this.activeGame.result.time,
         playerResults: Array.from(Object.entries(this.activeGame.result.result)),
       }
