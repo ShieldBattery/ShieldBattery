@@ -345,7 +345,7 @@ export class MatchmakingService {
       matchInfo,
       clients,
       slots,
-      setup = { gameId: '', seed: 0 },
+      setup = {},
       resultCodes,
       mapsByPlayer,
       preferredMaps,
