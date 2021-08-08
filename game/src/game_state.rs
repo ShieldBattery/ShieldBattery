@@ -688,8 +688,8 @@ impl InitInProgress {
             .find(|x| x.name == self.local_user.name)
             .map(|slot| slot.is_observer())
             .unwrap_or(false);
-        // FIXME
-        if false && is_observer {
+        // TODO(tec27): Fix observer chat to work for SC:R, this doesn't really have an effect
+        if is_observer {
             let observer_storm_ids = self
                 .setup_info
                 .slots
