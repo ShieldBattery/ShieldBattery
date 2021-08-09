@@ -350,9 +350,7 @@ export default class MatchmakingTimes extends React.Component {
   onLoadMorePastTimes = () => {
     const { activeTab, pastTimesPage } = this.state
 
-    this.props.dispatch(
-      getMatchmakingTimesPast(activeTab, MATCHMAKING_TIMES_LIMIT, pastTimesPage),
-    )
+    this.props.dispatch(getMatchmakingTimesPast(activeTab, MATCHMAKING_TIMES_LIMIT, pastTimesPage))
     this.setState({ pastTimesPage: pastTimesPage + 1 })
   }
 
