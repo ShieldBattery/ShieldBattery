@@ -323,7 +323,7 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
       dispatch({
         type: '@matchmaking/initPreferences',
         payload: event,
-        meta: { type: route.params.matchmakingType },
+        meta: { type: route.params.matchmakingType as MatchmakingType },
       })
     },
   )
