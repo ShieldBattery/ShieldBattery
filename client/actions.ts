@@ -231,46 +231,8 @@ export const MAPS_PREFERENCES_UPDATE_BEGIN = 'MAPS_PREFERENCES_UPDATE_BEGIN'
 // The server has responded with success/failure to us updating the map preferences
 export const MAPS_PREFERENCES_UPDATE = 'MAPS_PREFERENCES_UPDATE'
 
-// We are starting the process of accepting the match
-export const MATCHMAKING_ACCEPT_BEGIN = 'MATCHMAKING_ACCEPT_BEGIN'
-// The server has responded with success/failure to us accepting the match
-export const MATCHMAKING_ACCEPT = 'MATCHMAKING_ACCEPT'
-// We are starting the process of canceling the match finding
-export const MATCHMAKING_CANCEL_BEGIN = 'MATCHMAKING_CANCEL_BEGIN'
-// The server has responded with success/failure to us canceling the match finding
-export const MATCHMAKING_CANCEL = 'MATCHMAKING_CANCEL'
-// We are starting the matchmaking process to find game
-export const MATCHMAKING_FIND_BEGIN = 'MATCHMAKING_FIND_BEGIN'
-// The server has responded with success/failure to us starting to find game
-export const MATCHMAKING_FIND = 'MATCHMAKING_FIND'
-// We are starting the process of getting the current matchmaking map pool
-export const MATCHMAKING_GET_CURRENT_MAP_POOL_BEGIN = 'MATCHMAKING_GET_CURRENT_MAP_POOL_BEGIN'
-// The server has responded with success/failure to our request of the current matchmaking map pool
-export const MATCHMAKING_GET_CURRENT_MAP_POOL = 'MATCHMAKING_GET_CURRENT_MAP_POOL'
 // The matchmaking status changed, ie. it either become enabled or disabled
 export const MATCHMAKING_STATUS_UPDATE = 'MATCHMAKING_STATUS_UPDATE'
-// Some (or all) of the players have failed to accept the match
-export const MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED = 'MATCHMAKING_UPDATE_ACCEPT_MATCH_FAILED'
-// The accept match time has changed
-export const MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME = 'MATCHMAKING_UPDATE_ACCEPT_MATCH_TIME'
-// A match we're in is starting the game countdown
-export const MATCHMAKING_UPDATE_COUNTDOWN_START = 'MATCHMAKING_UPDATE_COUNTDOWN_START'
-// A second has ticked off the countdown for a match we're in
-export const MATCHMAKING_UPDATE_COUNTDOWN_TICK = 'MATCHMAKING_UPDATE_COUNTDOWN_TICK'
-// The game is being started and is the final step before the loading process completes
-export const MATCHMAKING_UPDATE_GAME_STARTING = 'MATCHMAKING_UPDATE_GAME_STARTING'
-// The game has been started and the loading process is now complete
-export const MATCHMAKING_UPDATE_GAME_STARTED = 'MATCHMAKING_UPDATE_GAME_STARTED'
-// The matchmaking has canceled out of the loading phase (because of timeout or load failure)
-export const MATCHMAKING_UPDATE_LOADING_CANCELED = 'MATCHMAKING_UPDATE_LOADING_CANCELED'
-// The server has responded that a player has accepted the match
-export const MATCHMAKING_UPDATE_MATCH_ACCEPTED = 'MATCHMAKING_UPDATE_MATCH_ACCEPTED'
-// The server has responded with a found match
-export const MATCHMAKING_UPDATE_MATCH_FOUND = 'MATCHMAKING_UPDATE_MATCH_FOUND'
-// The server has responded that all players have accepted the match and game is ready to start
-export const MATCHMAKING_UPDATE_MATCH_READY = 'MATCHMAKING_UPDATE_MATCH_READY'
-// Our status has changed, ie. one of our clients is searching for a game or has stopped searching
-export const MATCHMAKING_UPDATE_STATUS = 'MATCHMAKING_UPDATE_STATUS'
 
 export const NETWORK_SITE_CONNECTED = 'NETWORK_SITE_CONNECTED'
 export const NETWORK_SITE_DISCONNECTED = 'NETWORK_SITE_DISCONNECTED'

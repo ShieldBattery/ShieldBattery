@@ -1,4 +1,5 @@
 import { GameType } from './games/configuration'
+import { SlotType } from './lobbies/slot'
 import { MapInfoJson } from './maps'
 import { RaceChar } from './races'
 import { ResolvedRallyPointServer } from './rally-point'
@@ -18,14 +19,7 @@ export interface PlayerInfo {
   /** The ID of the team this slot is a part of. */
   teamId?: number
   /** The type of this slot. */
-  type:
-    | 'human'
-    | 'observer'
-    | 'computer'
-    | 'controlledOpen'
-    | 'controlledClosed'
-    | 'open'
-    | 'closed'
+  type: SlotType
   /** The BW id of the type of this slot. */
   typeId: number
   /** Shieldbattery user ID of the player. Only set for 'human' and 'observer' */

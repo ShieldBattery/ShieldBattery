@@ -1,9 +1,5 @@
 import { Record } from 'immutable'
-import {
-  ACTIVE_GAME_STATUS,
-  LOBBY_UPDATE_GAME_STARTED,
-  MATCHMAKING_UPDATE_GAME_STARTED,
-} from '../actions'
+import { ACTIVE_GAME_STATUS, LOBBY_UPDATE_GAME_STARTED } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
 export const GameInfo = new Record({
@@ -22,7 +18,7 @@ export default keyedReducer(new ActiveGame(), {
       .set('info', new GameInfo({ type: 'lobby', extra: action.payload }))
   },
 
-  [MATCHMAKING_UPDATE_GAME_STARTED](state, action) {
+  ['@matchmaking/gameStarted'](state, action) {
     return state
       .set('isActive', true)
       .set('info', new GameInfo({ type: 'matchmaking', extra: action.payload }))

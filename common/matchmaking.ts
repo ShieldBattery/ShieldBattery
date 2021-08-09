@@ -1,3 +1,5 @@
+import { GameRoute } from './game-launch-config'
+import { Slot } from './lobbies/slot'
 import { MapInfoJson } from './maps'
 import { AssignedRaceChar, RaceChar } from './races'
 
@@ -15,6 +17,18 @@ export function isValidMatchmakingType(type: string) {
 }
 
 /**
+ * Describes a player in the matchmaking. This only includes information that are relevant and safe
+ * to send to other players in the matchmaking.
+ */
+export interface MatchmakingPlayer {
+  id: number
+  // TODO(2Pac): Don't send `name` and instead get it from the store
+  name: string
+  race: RaceChar
+  rating: number
+}
+
+/**
  * The body data of the API route for adding new matchmaking times.
  */
 export interface AddMatchmakingTimeBody {
@@ -27,6 +41,16 @@ export interface AddMatchmakingTimeBody {
   startDate: number
   /** A boolean flag indicating whether the matchmaking is enabled or not. */
   enabled: boolean
+}
+
+/**
+ * Describes a map pool that is used in a matchmaking.
+ */
+export interface MatchmakingMapPool {
+  id: string
+  type: MatchmakingType
+  startDate: Date
+  maps: MapInfoJson[]
 }
 
 /**
@@ -70,3 +94,77 @@ export interface GetPreferencesPayload {
   mapPoolOutdated: boolean
   mapInfo: MapInfoJson[]
 }
+
+export interface MatchFoundEvent {
+  type: 'matchFound'
+  matchmakingType: MatchmakingType
+  numPlayers: number
+}
+
+export interface PlayerAcceptedEvent {
+  type: 'playerAccepted'
+  /** A number of players that have currently accepted the match. */
+  acceptedPlayers: number
+}
+
+export interface AcceptTimeoutEvent {
+  type: 'acceptTimeout'
+}
+
+export interface RequeueEvent {
+  type: 'requeue'
+}
+
+export interface MatchReadyEvent {
+  type: 'matchReady'
+  setup: Partial<{ gameId: string; seed: number }>
+  resultCode?: string
+  slots: Slot[]
+  players: MatchmakingPlayer[]
+  mapsByPlayer: { [key: number]: MapInfoJson }
+  preferredMaps: MapInfoJson[]
+  randomMaps: MapInfoJson[]
+  chosenMap: MapInfoJson
+}
+
+export interface SetRoutesEvent {
+  type: 'setRoutes'
+  routes: GameRoute[]
+  gameId: string
+}
+
+export interface StartCountdownEvent {
+  type: 'startCountdown'
+}
+
+export interface StartWhenReadyEvent {
+  type: 'startWhenReady'
+  gameId: string
+}
+
+export interface CancelLoadingEvent {
+  type: 'cancelLoading'
+  reason: string
+}
+
+export interface GameStartedEvent {
+  type: 'gameStarted'
+}
+
+export interface StatusEvent {
+  type: 'status'
+  matchmaking?: { type: MatchmakingType }
+}
+
+export type MatchmakingEvent =
+  | MatchFoundEvent
+  | PlayerAcceptedEvent
+  | AcceptTimeoutEvent
+  | RequeueEvent
+  | MatchReadyEvent
+  | SetRoutesEvent
+  | StartCountdownEvent
+  | StartWhenReadyEvent
+  | CancelLoadingEvent
+  | GameStartedEvent
+  | StatusEvent

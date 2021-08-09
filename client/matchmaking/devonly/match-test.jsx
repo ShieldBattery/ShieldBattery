@@ -1,7 +1,7 @@
 import React from 'react'
 import { MapRecord } from '../../maps/maps-reducer'
 import MatchmakingMatch from '../matchmaking-match'
-import { Player } from '../matchmaking-reducer'
+import { MatchmakingPlayerRecord } from '../matchmaking-reducer'
 
 export default class MapSelectionTest extends React.Component {
   state = {
@@ -106,8 +106,8 @@ export default class MapSelectionTest extends React.Component {
         '09/24/0924d3cbab0061cdbcc1dc2e20586cf514df8c5391126dae71a280616afdc03c-2048.jpg',
     })
     const players = [
-      new Player({ id: 1, name: 'tec27', race: 'p' }),
-      new Player({ id: 2, name: 'Excalibur_Z', race: 'r' }),
+      new MatchmakingPlayerRecord({ id: 1, name: 'tec27', race: 'p' }),
+      new MatchmakingPlayerRecord({ id: 2, name: 'Excalibur_Z', race: 'r' }),
     ]
 
     return (
