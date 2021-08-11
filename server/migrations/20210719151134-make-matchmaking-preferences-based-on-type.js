@@ -5,32 +5,23 @@ exports.up = async function (db) {
   // This column is not used anymore so it's not necessary
   await db.runSql(`ALTER TABLE matchmaking_preferences DROP COLUMN updated_at;`)
 
-  // This should probably be batched, maybe? Shouldn't be an issue with our current amount of users,
-  // I think.
-  const { rows: preferences } = await db.runSql(`
-    SELECT user_id, matchmaking_type, use_alternate_race, alternate_race
-    FROM matchmaking_preferences;
+  await db.runSql(`
+    UPDATE matchmaking_preferences
+    SET data = jsonb_build_object(
+      'useAlternateRace', COALESCE(use_alternate_race, false),
+      'alternateRace', COALESCE(alternate_race, 'z')
+    );
   `)
-
-  await Promise.all(
-    preferences.map(p => {
-      const data = {
-        useAlternateRace: p.use_alternate_race,
-        alternateRace: p.alternate_race,
-      }
-
-      return db.runSql(sql`
-        UPDATE matchmaking_preferences
-        SET data = ${data}
-        WHERE user_id = ${p.user_id} AND matchmaking_type = ${p.matchmaking_type};
-      `)
-    }),
-  )
 
   await db.runSql(`
     ALTER TABLE matchmaking_preferences
     RENAME COLUMN preferred_maps
     TO map_selections;
+  `)
+  await db.runSql(sql`
+    UPDATE matchmaking_preferences
+    SET map_selections = ${[]}
+    WHERE map_selections IS NULL;
   `)
   await db.runSql(`ALTER TABLE matchmaking_preferences ALTER COLUMN map_selections SET NOT NULL;`)
   await db.runSql(`ALTER TABLE matchmaking_preferences ALTER COLUMN data SET NOT NULL;`)
@@ -48,22 +39,12 @@ exports.down = async function (db) {
   `)
   await db.runSql(`ALTER TABLE matchmaking_preferences ALTER COLUMN preferred_maps DROP NOT NULL;`)
 
-  const { rows: preferences } = await db.runSql(`
-    SELECT user_id, matchmaking_type, data
-    FROM matchmaking_preferences;
+  db.runSql(`
+    UPDATE matchmaking_preferences
+    SET
+      use_alternate_race = (data->>'useAlternateRace')::boolean,
+      alternate_race = (data->>'alternateRace')::race;
   `)
-
-  await Promise.all(
-    preferences.map(p =>
-      db.runSql(sql`
-        UPDATE matchmaking_preferences
-        SET
-          use_alternate_race = ${p.data.useAlternateRace},
-          alternate_race = ${p.data.alternateRace}
-        WHERE user_id = ${p.user_id} AND matchmaking_type = ${p.matchmaking_type};
-      `),
-    ),
-  )
 
   await db.runSql(`ALTER TABLE matchmaking_preferences DROP COLUMN data;`)
   await db.runSql(`

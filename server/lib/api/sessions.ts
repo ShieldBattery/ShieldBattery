@@ -85,19 +85,21 @@ async function startNewSession(ctx: RouterContext) {
     await ctx.regenerateSession()
     const perms = await getPermissions(user.id)
     await maybeMigrateSignupIp(user.id, ctx.ip)
-    initSession(ctx, user, perms)
+
+    const sessionInfo: ClientSessionInfo = {
+      user,
+      permissions: perms,
+      lastQueuedMatchmakingType: MatchmakingType.Match1v1,
+    }
+
+    initSession(ctx, sessionInfo)
     if (!remember) {
       // Make the cookie a session-expiring cookie
       ctx.session!.cookie.maxAge = undefined
       ctx.session!.cookie.expires = undefined
     }
 
-    const result: ClientSessionInfo = {
-      user,
-      permissions: perms,
-      lastQueuedMatchmakingType: MatchmakingType.Match1v1,
-    }
-    ctx.body = result
+    ctx.body = sessionInfo
   } catch (err) {
     ctx.log.error({ err, req: ctx.req }, 'error regenerating session')
     throw err

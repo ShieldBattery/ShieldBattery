@@ -3,12 +3,7 @@ import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } 
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { MapInfoJson } from '../../common/maps'
-import {
-  MatchmakingPreferences,
-  MatchmakingPreferences1v1,
-  MatchmakingPreferences2v2,
-  MatchmakingType,
-} from '../../common/matchmaking'
+import { MatchmakingType } from '../../common/matchmaking'
 import { AssignedRaceChar, RaceChar } from '../../common/races'
 import { closeOverlay, openOverlay } from '../activities/action-creators'
 import { useSelfUser } from '../auth/state-hooks'
@@ -26,10 +21,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { amberA400, colorDividers, colorError, colorTextSecondary } from '../styles/colors'
 import { body1, body2, Headline5, subtitle1, Subtitle2 } from '../styles/typography'
 import { findMatch, updateMatchmakingPreferences } from './action-creators'
-import {
-  MatchmakingPreferencesData1v1Record,
-  MatchmakingPreferencesRecord,
-} from './matchmaking-preferences-reducer'
+import { MatchmakingPreferencesData1v1Record } from './matchmaking-preferences-reducer'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -253,43 +245,6 @@ const FindMatch2v2Form = React.forwardRef<FormRef, Form2v2Props>((props, ref) =>
   )
 })
 
-export function format1v1Preferences(
-  prefs: MatchmakingPreferencesRecord,
-  mapSelections: List<MapInfoJson>,
-  userId: number,
-): MatchmakingPreferences1v1 {
-  const mapSelectionIds = mapSelections.map(m => m.id).toArray()
-
-  return {
-    userId,
-    matchmakingType: MatchmakingType.Match1v1,
-    race: prefs.race,
-    mapPoolId: prefs.mapPoolId,
-    mapSelections: mapSelectionIds,
-    data: {
-      useAlternateRace: prefs.race !== 'r' ? prefs.data.useAlternateRace : false,
-      alternateRace: prefs.data.alternateRace,
-    },
-  }
-}
-
-export function format2v2Preferences(
-  prefs: MatchmakingPreferencesRecord,
-  mapSelections: List<MapInfoJson>,
-  userId: number,
-): MatchmakingPreferences2v2 {
-  const mapSelectionIds = mapSelections.map(m => m.id).toArray()
-
-  return {
-    userId,
-    matchmakingType: MatchmakingType.Match2v2,
-    race: prefs.race,
-    mapPoolId: prefs.mapPoolId,
-    mapSelections: mapSelectionIds,
-    data: {},
-  }
-}
-
 interface FindMatchProps {
   type: MatchmakingType
   mapSelections: List<MapInfoJson>
@@ -347,9 +302,7 @@ export function FindMatch(props: FindMatchProps) {
 
           setTempPrefs(new1v1Prefs)
           dispatch(
-            updateMatchmakingPreferences(
-              format1v1Preferences(new1v1Prefs, mapSelections, selfUser.id!),
-            ),
+            updateMatchmakingPreferences(activeTab, new1v1Prefs, mapSelections, selfUser.id!),
           )
           break
         case MatchmakingType.Match2v2:
@@ -358,9 +311,7 @@ export function FindMatch(props: FindMatchProps) {
 
           setTempPrefs(new2v2Prefs)
           dispatch(
-            updateMatchmakingPreferences(
-              format2v2Preferences(new2v2Prefs, mapSelections, selfUser.id!),
-            ),
+            updateMatchmakingPreferences(activeTab, new2v2Prefs, mapSelections, selfUser.id!),
           )
           break
         default:
@@ -371,19 +322,7 @@ export function FindMatch(props: FindMatchProps) {
   )
 
   const onFindMatchSubmit = useCallback(() => {
-    let preferences: MatchmakingPreferences
-    switch (activeTab) {
-      case MatchmakingType.Match1v1:
-        preferences = format1v1Preferences(tempPrefs, mapSelections, selfUser.id!)
-        break
-      case MatchmakingType.Match2v2:
-        preferences = format2v2Preferences(tempPrefs, mapSelections, selfUser.id!)
-        break
-      default:
-        assertUnreachable(activeTab)
-    }
-
-    dispatch(findMatch(preferences))
+    dispatch(findMatch(activeTab, tempPrefs, mapSelections, selfUser.id!))
     dispatch(closeOverlay() as any)
   }, [activeTab, tempPrefs, mapSelections, selfUser, dispatch])
 

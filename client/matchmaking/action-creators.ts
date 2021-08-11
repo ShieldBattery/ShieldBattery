@@ -1,9 +1,13 @@
+import { List } from 'immutable'
+import { assertUnreachable } from '../../common/assert-unreachable'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { MapInfoJson } from '../../common/maps'
 import {
   GetPreferencesPayload,
   MatchmakingMapPool,
   MatchmakingPreferences,
+  MatchmakingPreferences1v1,
+  MatchmakingPreferences2v2,
   MatchmakingType,
 } from '../../common/matchmaking'
 import { ThunkAction } from '../dispatch-registry'
@@ -11,14 +15,69 @@ import { clientId } from '../network/client-id'
 import fetch from '../network/fetch'
 import { apiUrl } from '../network/urls'
 import { UpdateLastQueuedMatchmakingType } from './actions'
+import { MatchmakingPreferencesRecord } from './matchmaking-preferences-reducer'
 
 const ipcRenderer = new TypedIpcRenderer()
 
-export function findMatch(preferences: MatchmakingPreferences): ThunkAction {
-  ipcRenderer.send('rallyPointRefreshPings')
+function format1v1Preferences(
+  prefs: MatchmakingPreferencesRecord,
+  mapSelections: List<MapInfoJson>,
+  userId: number,
+): MatchmakingPreferences1v1 {
+  const mapSelectionIds = mapSelections.map(m => m.id).toArray()
 
-  const params = { clientId, preferences }
+  return {
+    userId,
+    matchmakingType: MatchmakingType.Match1v1,
+    race: prefs.race,
+    mapPoolId: prefs.mapPoolId,
+    mapSelections: mapSelectionIds,
+    data: {
+      useAlternateRace: prefs.race !== 'r' ? prefs.data.useAlternateRace : false,
+      alternateRace: prefs.data.alternateRace,
+    },
+  }
+}
+
+function format2v2Preferences(
+  prefs: MatchmakingPreferencesRecord,
+  mapSelections: List<MapInfoJson>,
+  userId: number,
+): MatchmakingPreferences2v2 {
+  const mapSelectionIds = mapSelections.map(m => m.id).toArray()
+
+  return {
+    userId,
+    matchmakingType: MatchmakingType.Match2v2,
+    race: prefs.race,
+    mapPoolId: prefs.mapPoolId,
+    mapSelections: mapSelectionIds,
+    data: {},
+  }
+}
+
+export function findMatch(
+  matchmakingType: MatchmakingType,
+  prefs: MatchmakingPreferencesRecord,
+  mapSelections: List<MapInfoJson>,
+  userId: number,
+): ThunkAction {
   return dispatch => {
+    ipcRenderer.send('rallyPointRefreshPings')
+
+    let preferences: MatchmakingPreferences
+    switch (matchmakingType) {
+      case MatchmakingType.Match1v1:
+        preferences = format1v1Preferences(prefs, mapSelections, userId)
+        break
+      case MatchmakingType.Match2v2:
+        preferences = format2v2Preferences(prefs, mapSelections, userId)
+        break
+      default:
+        assertUnreachable(matchmakingType)
+    }
+
+    const params = { clientId, preferences }
     dispatch({
       type: '@matchmaking/findMatchBegin',
       payload: params,
@@ -70,7 +129,7 @@ export function acceptMatch(): ThunkAction {
 
 // TODO(2Pac): This can be cached
 export function getCurrentMapPool(type: MatchmakingType): ThunkAction {
-  return (dispatch, getState) => {
+  return dispatch => {
     dispatch({
       type: '@matchmaking/getCurrentMapPoolBegin',
       payload: { type },
@@ -100,9 +159,25 @@ export function getCurrentMapPool(type: MatchmakingType): ThunkAction {
   }
 }
 
-export function updateMatchmakingPreferences(preferences: MatchmakingPreferences): ThunkAction {
+export function updateMatchmakingPreferences(
+  matchmakingType: MatchmakingType,
+  prefs: MatchmakingPreferencesRecord,
+  mapSelections: List<MapInfoJson>,
+  userId: number,
+): ThunkAction {
   return dispatch => {
-    const { matchmakingType } = preferences
+    let preferences: MatchmakingPreferences
+    switch (matchmakingType) {
+      case MatchmakingType.Match1v1:
+        preferences = format1v1Preferences(prefs, mapSelections, userId)
+        break
+      case MatchmakingType.Match2v2:
+        preferences = format2v2Preferences(prefs, mapSelections, userId)
+        break
+      default:
+        assertUnreachable(matchmakingType)
+    }
+
     dispatch({
       type: '@matchmaking/updatePreferencesBegin',
       payload: matchmakingType,

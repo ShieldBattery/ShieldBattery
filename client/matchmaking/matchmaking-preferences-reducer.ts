@@ -1,6 +1,5 @@
 import { List, Map, Record as ImmutableRecord } from 'immutable'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { MapInfoJson } from '../../common/maps'
 import { MatchmakingPreferences, MatchmakingType } from '../../common/matchmaking'
 import { AssignedRaceChar, RaceChar } from '../../common/races'
 import { MapRecord } from '../maps/maps-reducer'
@@ -21,7 +20,7 @@ export class MatchmakingPreferencesRecord extends ImmutableRecord({
   race: 'r' as RaceChar,
   mapPoolId: 1,
   mapPoolOutdated: false,
-  mapSelections: List<MapInfoJson>(),
+  mapSelections: List<typeof MapRecord>(),
   data: {} as MatchmakingPreferencesDataRecord,
 
   lastError: undefined as FetchError | undefined,

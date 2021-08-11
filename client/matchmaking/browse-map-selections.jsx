@@ -3,7 +3,6 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-import { assertUnreachable } from '../../common/assert-unreachable'
 import { MatchmakingType } from '../../common/matchmaking'
 import { openOverlay } from '../activities/action-creators'
 import ActivityBackButton from '../activities/activity-back-button'
@@ -20,7 +19,6 @@ import LoadingIndicator from '../progress/dots'
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
 import { Body1Old, HeadlineOld, SubheadingOld } from '../styles/typography'
 import { getCurrentMapPool, updateMatchmakingPreferences } from './action-creators'
-import { format1v1Preferences, format2v2Preferences } from './find-match'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -256,22 +254,10 @@ export default class MapSelections extends React.Component {
     const { auth, matchmaking, matchmakingPreferences, type } = this.props
 
     const mapPool = matchmaking.mapPoolTypes.get(type)
-    const preferencesRecord = matchmakingPreferences.typeToPreferences.get(type)
+    const prefs = matchmakingPreferences.typeToPreferences.get(type)
     const selections = mapSelections.map(mapId => mapPool.byId.get(mapId))
-    let preferences
 
-    switch (type) {
-      case MatchmakingType.Match1v1:
-        preferences = format1v1Preferences(preferencesRecord, mapSelections, auth.user.id)
-        break
-      case MatchmakingType.Match2v2:
-        preferences = format2v2Preferences(preferencesRecord, mapSelections, auth.user.id)
-        break
-      default:
-        assertUnreachable(type)
-    }
-
-    this.props.dispatch(updateMatchmakingPreferences({ ...preferences, mapSelections }))
+    this.props.dispatch(updateMatchmakingPreferences(type, prefs, selections, auth.user.id))
     this.props.dispatch(openOverlay('findMatch', { type, mapSelections: selections }))
   }
 
