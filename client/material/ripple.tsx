@@ -219,6 +219,8 @@ export const Ripple = React.memo(
     const styleRef = useRef<RippleStyle>({})
     const activationTimerRef = useRef<ReturnType<typeof setTimeout>>()
     const fgDeactivationRemovalTimerRef = useRef<ReturnType<typeof setTimeout>>()
+    const clearActivatedTargetsReqRef = useRef<number>()
+    const runDeactivationReqRef = useRef<number>()
 
     const [focused, setFocused] = useState(false)
     const [hovered, setHovered] = useState(false)
@@ -350,9 +352,12 @@ export const Ripple = React.memo(
 
           animateActivation()
 
-          requestAnimationFrame(() => {
-            activatedTargets.length = 0
-          })
+          if (!clearActivatedTargetsReqRef.current) {
+            clearActivatedTargetsReqRef.current = requestAnimationFrame(() => {
+              clearActivatedTargetsReqRef.current = undefined
+              activatedTargets.length = 0
+            })
+          }
         },
 
         onDeactivate() {
@@ -362,8 +367,10 @@ export const Ripple = React.memo(
             return
           }
 
-          if (!isProgrammatic) {
-            requestAnimationFrame(() => {
+          if (!isProgrammatic && !runDeactivationReqRef.current) {
+            runDeactivationReqRef.current = requestAnimationFrame(() => {
+              runDeactivationReqRef.current = undefined
+
               activationStateRef.current.hasDeactivationAnimRun = true
               maybeRunDeactivation()
             })
@@ -426,6 +433,14 @@ export const Ripple = React.memo(
         if (fgDeactivationRemovalTimerRef.current) {
           clearTimeout(fgDeactivationRemovalTimerRef.current)
           fgDeactivationRemovalTimerRef.current = undefined
+        }
+        if (clearActivatedTargetsReqRef.current) {
+          cancelAnimationFrame(clearActivatedTargetsReqRef.current)
+          clearActivatedTargetsReqRef.current = undefined
+        }
+        if (runDeactivationReqRef.current) {
+          cancelAnimationFrame(runDeactivationReqRef.current)
+          runDeactivationReqRef.current = undefined
         }
       }
     }, [])
