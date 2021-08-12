@@ -1,5 +1,6 @@
 import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
+import { MatchmakingType } from '../../../common/matchmaking'
 import { ClientSessionInfo } from '../../../common/users/session'
 import { SelfUser } from '../../../common/users/user-info'
 import { isUserBanned } from '../models/bans'
@@ -46,16 +47,21 @@ async function getCurrentSession(ctx: RouterContext) {
     throw new httpErrors.Gone('Session expired')
   }
 
-  const result: ClientSessionInfo = { user, permissions: ctx.session.permissions }
+  const result: ClientSessionInfo = {
+    user,
+    permissions: ctx.session.permissions,
+    lastQueuedMatchmakingType: ctx.session.lastQueuedMatchmakingType,
+  }
   ctx.body = result
 }
 
 async function startNewSession(ctx: RouterContext) {
   if (ctx.session?.userId) {
-    const { userId, userName, permissions, emailVerified } = ctx.session
+    const { userId, userName, permissions, emailVerified, lastQueuedMatchmakingType } = ctx.session
     ctx.body = {
       user: { id: userId, name: userName, emailVerified },
       permissions,
+      lastQueuedMatchmakingType,
     }
 
     return
@@ -79,15 +85,21 @@ async function startNewSession(ctx: RouterContext) {
     await ctx.regenerateSession()
     const perms = await getPermissions(user.id)
     await maybeMigrateSignupIp(user.id, ctx.ip)
-    initSession(ctx, user, perms)
+
+    const sessionInfo: ClientSessionInfo = {
+      user,
+      permissions: perms,
+      lastQueuedMatchmakingType: MatchmakingType.Match1v1,
+    }
+
+    initSession(ctx, sessionInfo)
     if (!remember) {
       // Make the cookie a session-expiring cookie
       ctx.session!.cookie.maxAge = undefined
       ctx.session!.cookie.expires = undefined
     }
 
-    const result: ClientSessionInfo = { user, permissions: perms }
-    ctx.body = result
+    ctx.body = sessionInfo
   } catch (err) {
     ctx.log.error({ err, req: ctx.req }, 'error regenerating session')
     throw err

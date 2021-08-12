@@ -131,10 +131,16 @@ export class UserApi extends HttpApi {
       throw err
     }
 
+    const sessionInfo: ClientSessionInfo = {
+      user: createdUser.user,
+      permissions: createdUser.permissions,
+      lastQueuedMatchmakingType: MatchmakingType.Match1v1,
+    }
+
     // regenerate the session to ensure that logged in sessions and anonymous sessions don't
     // share a session ID
     await ctx.regenerateSession()
-    initSession(ctx, createdUser.user, createdUser.permissions)
+    initSession(ctx, sessionInfo)
 
     const code = cuid()
     await addEmailVerificationCode(createdUser.user.id, email, code, ctx.ip)
@@ -146,11 +152,7 @@ export class UserApi extends HttpApi {
       templateData: { token: code },
     }).catch(err => ctx.log.error({ err, req: ctx.req }, 'Error sending email verification email'))
 
-    const result: ClientSessionInfo = {
-      user: createdUser.user,
-      permissions: createdUser.permissions,
-    }
-    ctx.body = result
+    ctx.body = sessionInfo
   }
 
   getUserProfile = apiEndpoint(

@@ -14,15 +14,15 @@ import { closeOverlay } from './action-creators'
 
 const {
   FindMatch,
-  BrowsePreferredMaps,
+  BrowseMapSelections,
   CreateLobby,
   WatchReplay,
   BrowseLocalMaps,
   BrowseServerMaps,
 } = IS_ELECTRON
   ? {
-      FindMatch: require('../matchmaking/find-match').default,
-      BrowsePreferredMaps: require('../matchmaking/browse-preferred-maps').default,
+      FindMatch: require('../matchmaking/find-match').FindMatch,
+      BrowseMapSelections: require('../matchmaking/browse-map-selections').default,
       CreateLobby: require('../lobbies/create-lobby').default,
       WatchReplay: require('../replays/watch-replay').default,
       BrowseLocalMaps: require('../maps/browse-local-maps').default,
@@ -126,8 +126,8 @@ export default class ActivityOverlay extends React.Component {
     switch (activityOverlay.current.overlayType) {
       case 'findMatch':
         return FindMatch
-      case 'browsePreferredMaps':
-        return BrowsePreferredMaps
+      case 'browseMapSelections':
+        return BrowseMapSelections
       case 'createLobby':
         return CreateLobby
       case 'joinLobby':

@@ -7,7 +7,6 @@ import {
   MatchmakingPreferences,
   MatchmakingType,
 } from '../../common/matchmaking'
-import { AssignedRaceChar, RaceChar } from '../../common/races'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 import { MatchmakingMatchRecord } from './matchmaking-reducer'
 
@@ -15,12 +14,11 @@ export type MatchmakingActions =
   | GetCurrentMapPoolBegin
   | GetCurrentMapPoolSuccess
   | GetCurrentMapPoolFailure
-  | GetPreferencesBegin
-  | GetPreferencesSuccess
-  | GetPreferencesFailure
+  | InitPreferences
   | UpdatePreferencesBegin
   | UpdatePreferencesSuccess
   | UpdatePreferencesFailure
+  | UpdateLastQueuedMatchmakingType
   | FindMatchBegin
   | FindMatchSuccess
   | FindMatchFailure
@@ -65,25 +63,19 @@ export interface GetCurrentMapPoolFailure
   }
 }
 
-export interface GetPreferencesBegin {
-  type: '@matchmaking/getPreferencesBegin'
-  payload: { type: MatchmakingType }
-}
-
-export interface GetPreferencesSuccess {
-  type: '@matchmaking/getPreferences'
-  payload: GetPreferencesPayload
-  error?: false
-  meta: { type: MatchmakingType }
-}
-
-export interface GetPreferencesFailure extends BaseFetchFailure<'@matchmaking/getPreferences'> {
+/**
+ * Initialize the user's matchmaking preferences when they connect to the application. If they don't
+ * have any preferences saved yet, the default values will be used.
+ */
+export interface InitPreferences {
+  type: '@matchmaking/initPreferences'
+  payload: GetPreferencesPayload | Record<string, undefined>
   meta: { type: MatchmakingType }
 }
 
 export interface UpdatePreferencesBegin {
   type: '@matchmaking/updatePreferencesBegin'
-  payload: MatchmakingPreferences
+  payload: MatchmakingType
 }
 
 export interface UpdatePreferencesSuccess {
@@ -98,15 +90,21 @@ export interface UpdatePreferencesFailure
   meta: { type: MatchmakingType }
 }
 
+/**
+ * Update the user's last queued matchmaking type. This matchmaking type will be used when user
+ * opens the find-match overlay again. This only does the update on the client; the server will do
+ * its own thing where it saves this value on the user's session.
+ */
+export interface UpdateLastQueuedMatchmakingType {
+  type: '@matchmaking/updateLastQueuedMatchmakingType'
+  payload: MatchmakingType
+}
+
 export interface FindMatchBegin {
   type: '@matchmaking/findMatchBegin'
   payload: {
     clientId: string
-    type: MatchmakingType
-    race: RaceChar
-    useAlternateRace: boolean
-    alternateRace: AssignedRaceChar
-    preferredMaps: string[]
+    preferences: MatchmakingPreferences
   }
 }
 
@@ -117,11 +115,7 @@ export interface FindMatchSuccess {
   }
   meta?: {
     clientId: string
-    type: MatchmakingType
-    race: RaceChar
-    useAlternateRace: boolean
-    alternateRace: AssignedRaceChar
-    preferredMaps: string[]
+    preferences: MatchmakingPreferences
   }
   error?: false
 }
@@ -129,11 +123,7 @@ export interface FindMatchSuccess {
 export interface FindMatchFailure extends BaseFetchFailure<'@matchmaking/findMatch'> {
   meta?: {
     clientId: string
-    type: MatchmakingType
-    race: RaceChar
-    useAlternateRace: boolean
-    alternateRace: AssignedRaceChar
-    preferredMaps: string[]
+    preferences: MatchmakingPreferences
   }
 }
 
@@ -193,7 +183,7 @@ export interface MatchReady {
     slots: Slot[]
     players: MatchmakingPlayer[]
     mapsByPlayer: { [key: number]: MapInfoJson }
-    preferredMaps: MapInfoJson[]
+    mapSelections: MapInfoJson[]
     randomMaps: MapInfoJson[]
     chosenMap: MapInfoJson
   }

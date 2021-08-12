@@ -2,6 +2,7 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
+import { assertUnreachable } from '../../common/assert-unreachable'
 import { MatchmakingType } from '../../common/matchmaking'
 import { RaceIcon } from '../lobbies/race-icon'
 import { RaisedButton } from '../material/button'
@@ -15,8 +16,10 @@ function matchmakingTypeToText(type) {
   switch (type) {
     case MatchmakingType.Match1v1:
       return 'Ranked 1v1'
+    case MatchmakingType.Match2v2:
+      return 'Ranked 2v2'
     default:
-      throw new Error('Invalid matchmaking type')
+      return assertUnreachable(type)
   }
 }
 

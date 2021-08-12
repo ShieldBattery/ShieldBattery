@@ -491,26 +491,15 @@ class MapPoolHistory extends React.PureComponent {
   }
 }
 
-const TAB_1V1 = 0
-
-function tabToType(tab) {
-  switch (tab) {
-    case TAB_1V1:
-      return MatchmakingType.Match1v1
-    default:
-      throw new Error('Invalid tab value')
-  }
-}
-
 @connect(state => ({ mapPools: state.mapPools }))
 export default class MapPools extends React.Component {
   state = {
-    activeTab: TAB_1V1,
+    activeTab: MatchmakingType.Match1v1,
     initialMaps: new List(),
   }
 
   componentDidMount() {
-    this.props.dispatch(getMapPoolHistory(tabToType(this.state.activeTab), MAP_POOLS_LIMIT, 0))
+    this.props.dispatch(getMapPoolHistory(this.state.activeTab, MAP_POOLS_LIMIT, 0))
   }
 
   componentDidUpdate(prevProps, prevState) {
@@ -518,19 +507,20 @@ export default class MapPools extends React.Component {
     const { activeTab: newTab } = this.state
 
     if (oldTab !== newTab) {
-      this.props.dispatch(getMapPoolHistory(tabToType(newTab), MAP_POOLS_LIMIT, 0))
+      this.props.dispatch(getMapPoolHistory(newTab, MAP_POOLS_LIMIT, 0))
     }
   }
 
   render() {
     const { mapPools } = this.props
     const { activeTab, initialMaps } = this.state
-    const mapPoolHistory = mapPools.types.get(tabToType(activeTab))
+    const mapPoolHistory = mapPools.types.get(activeTab)
 
     return (
       <Container>
         <StyledTabs activeTab={activeTab} onChange={this.onTabChange}>
-          <TabItem text='1v1' value={TAB_1V1} />
+          <TabItem text='1v1' value={MatchmakingType.Match1v1} />
+          <TabItem text='2v2' value={MatchmakingType.Match2v2} />
         </StyledTabs>
         <h3>Create a new map pool</h3>
         <MapPoolEditor
@@ -566,11 +556,11 @@ export default class MapPools extends React.Component {
   }
 
   onCreateNewMapPool = (maps, startDate) => {
-    this.props.dispatch(createMapPool(tabToType(this.state.activeTab), maps, startDate))
+    this.props.dispatch(createMapPool(this.state.activeTab, maps, startDate))
   }
 
   onUseAsTemplate = id => {
-    const mapPoolHistory = this.props.mapPools.types.get(tabToType(this.state.activeTab))
+    const mapPoolHistory = this.props.mapPools.types.get(this.state.activeTab)
     const mapPool = mapPoolHistory.byId.get(id)
 
     if (!mapPool) return
@@ -579,6 +569,6 @@ export default class MapPools extends React.Component {
   }
 
   onDeleteMapPool = id => {
-    this.props.dispatch(deleteMapPool(tabToType(this.state.activeTab), id))
+    this.props.dispatch(deleteMapPool(this.state.activeTab, id))
   }
 }

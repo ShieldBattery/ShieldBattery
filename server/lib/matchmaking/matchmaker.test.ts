@@ -13,7 +13,7 @@ function createPlayer(data: Partial<MatchmakingPlayer> = {}): MatchmakingPlayer 
     race: 'r',
     useAlternateRace: false,
     alternateRace: 'z',
-    preferredMaps: new Set([]),
+    mapSelections: new Set([]),
 
     ...data,
 

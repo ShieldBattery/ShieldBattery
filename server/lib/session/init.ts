@@ -1,8 +1,9 @@
 import { Context } from 'koa'
-import { Permissions } from '../../../common/users/permissions'
-import { SelfUser } from '../../../common/users/user-info'
+import { ClientSessionInfo } from '../../../common/users/session'
 
-export default function initSession(ctx: Context, user: SelfUser, permissions: Permissions) {
+export default function initSession(ctx: Context, data: ClientSessionInfo) {
+  const { user, permissions, lastQueuedMatchmakingType } = data
+
   if (!ctx.session) {
     throw new Error('Session must be created on context first')
   }
@@ -15,4 +16,5 @@ export default function initSession(ctx: Context, user: SelfUser, permissions: P
   ctx.session.email = user.email
   ctx.session.emailVerified = user.emailVerified
   ctx.session.permissions = permissions
+  ctx.session.lastQueuedMatchmakingType = lastQueuedMatchmakingType
 }

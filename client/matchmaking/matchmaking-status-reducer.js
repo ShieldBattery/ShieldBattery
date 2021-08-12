@@ -20,7 +20,7 @@ export default keyedReducer(new MatchmakingStatusState(), {
 
     for (const status of action.payload) {
       const { startDate, nextStartDate, nextEndDate } = status
-      nextState = state.setIn(
+      nextState = nextState.setIn(
         ['types', status.type],
         new MatchmakingStatus({
           ...status,

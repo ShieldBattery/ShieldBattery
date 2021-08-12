@@ -113,6 +113,7 @@ export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) 
               emailVerified: ctx.session.emailVerified,
             },
             permissions: ctx.session.permissions,
+            lastQueuedMatchmakingType: ctx.session.lastQueuedMatchmakingType,
           },
         }
       }

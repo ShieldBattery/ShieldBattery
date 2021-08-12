@@ -71,6 +71,9 @@ async function createNewMapPool(ctx, next) {
     throw new httpErrors.BadRequest('startDate must be a valid timestamp value in the future')
   }
 
+  // TODO(2Pac): Validate maps based on matchmaking type (e.g. so a 2-player map can't be used in a
+  // 2v2 map pool)
+
   const mapPool = await addMapPool(matchmakingType, maps, new Date(startDate))
   ctx.body = {
     ...mapPool,

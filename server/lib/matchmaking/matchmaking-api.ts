@@ -4,10 +4,15 @@ import Joi from 'joi'
 import Koa from 'koa'
 import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { ALL_MATCHMAKING_TYPES } from '../../../common/matchmaking'
+import {
+  ALL_MATCHMAKING_TYPES,
+  MatchmakingPreferences,
+  MatchmakingPreferencesData1v1,
+} from '../../../common/matchmaking'
 import { httpApi, HttpApi } from '../http/http-api'
 import { apiEndpoint } from '../http/http-api-endpoint'
 import ensureLoggedIn from '../session/ensure-logged-in'
+import updateAllSessions from '../session/update-all-sessions'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import {
@@ -85,25 +90,31 @@ export class MatchmakingApi extends HttpApi {
     {
       body: Joi.object({
         clientId: Joi.string().required(),
-        type: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
-        race: Joi.string().valid('p', 't', 'z', 'r').required(),
-        useAlternateRace: Joi.bool().required(),
-        alternateRace: Joi.string().valid('p', 't', 'z').required(),
-        preferredMaps: Joi.array().items(Joi.string()).min(0).max(2).required(),
+        preferences: Joi.object<MatchmakingPreferences>({
+          userId: Joi.number().min(1).required(),
+          matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
+          race: Joi.string().valid('p', 't', 'z', 'r').required(),
+          mapPoolId: Joi.number().min(1).required(),
+          // TODO(2Pac): min/max values most likely depend on the matchmaking type here
+          mapSelections: Joi.array().items(Joi.string()).min(0).max(2).required(),
+          data: Joi.alternatives()
+            .try(
+              Joi.object<MatchmakingPreferencesData1v1>({
+                useAlternateRace: Joi.bool(),
+                alternateRace: Joi.string().valid('p', 't', 'z'),
+              }),
+            )
+            .required(),
+        }),
       }),
     },
     async (ctx, { body }) => {
-      const { clientId, type, race, useAlternateRace, alternateRace, preferredMaps } = body
+      const { clientId, preferences } = body
 
-      await this.matchmakingService.find(
-        ctx.session!.userId,
-        clientId,
-        type,
-        race,
-        useAlternateRace,
-        alternateRace,
-        preferredMaps,
-      )
+      await this.matchmakingService.find(ctx.session!.userId, clientId, preferences)
+
+      // Save the last queued matchmaking type on the user's session
+      await updateAllSessions(ctx, { lastQueuedMatchmakingType: preferences.matchmakingType })
     },
   )
 

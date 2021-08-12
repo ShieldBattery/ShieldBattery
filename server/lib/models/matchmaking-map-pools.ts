@@ -4,7 +4,7 @@ import db from '../db'
 
 interface DbMapPool {
   /* eslint-disable camelcase */
-  id: string
+  id: number
   matchmaking_type: MatchmakingType
   start_date: Date
   maps: string[]
@@ -12,7 +12,7 @@ interface DbMapPool {
 }
 
 export interface MapPool {
-  id: string
+  id: number
   type: MatchmakingType
   startDate: Date
   maps: string[]

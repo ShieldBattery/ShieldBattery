@@ -1,37 +1,83 @@
+import { List } from 'immutable'
+import { assertUnreachable } from '../../common/assert-unreachable'
 import { TypedIpcRenderer } from '../../common/ipc'
+import { MapInfoJson } from '../../common/maps'
 import {
   GetPreferencesPayload,
   MatchmakingMapPool,
   MatchmakingPreferences,
+  MatchmakingPreferences1v1,
+  MatchmakingPreferences2v2,
   MatchmakingType,
 } from '../../common/matchmaking'
-import { AssignedRaceChar, RaceChar } from '../../common/races'
 import { ThunkAction } from '../dispatch-registry'
 import { clientId } from '../network/client-id'
 import fetch from '../network/fetch'
 import { apiUrl } from '../network/urls'
+import { UpdateLastQueuedMatchmakingType } from './actions'
+import { MatchmakingPreferencesRecord } from './matchmaking-preferences-reducer'
 
 const ipcRenderer = new TypedIpcRenderer()
 
-export function findMatch(
-  type: MatchmakingType,
-  race: RaceChar,
-  useAlternateRace: boolean,
-  alternateRace: AssignedRaceChar,
-  preferredMaps: string[],
-): ThunkAction {
-  ipcRenderer.send('rallyPointRefreshPings')
+function format1v1Preferences(
+  prefs: MatchmakingPreferencesRecord,
+  mapSelections: List<MapInfoJson>,
+  userId: number,
+): MatchmakingPreferences1v1 {
+  const mapSelectionIds = mapSelections.map(m => m.id).toArray()
 
-  const params = {
-    clientId,
-    type,
-    race,
-    useAlternateRace,
-    alternateRace,
-    preferredMaps,
+  return {
+    userId,
+    matchmakingType: MatchmakingType.Match1v1,
+    race: prefs.race,
+    mapPoolId: prefs.mapPoolId,
+    mapSelections: mapSelectionIds,
+    data: {
+      useAlternateRace: prefs.race !== 'r' ? prefs.data.useAlternateRace : false,
+      alternateRace: prefs.data.alternateRace,
+    },
   }
+}
 
+function format2v2Preferences(
+  prefs: MatchmakingPreferencesRecord,
+  mapSelections: List<MapInfoJson>,
+  userId: number,
+): MatchmakingPreferences2v2 {
+  const mapSelectionIds = mapSelections.map(m => m.id).toArray()
+
+  return {
+    userId,
+    matchmakingType: MatchmakingType.Match2v2,
+    race: prefs.race,
+    mapPoolId: prefs.mapPoolId,
+    mapSelections: mapSelectionIds,
+    data: {},
+  }
+}
+
+export function findMatch(
+  matchmakingType: MatchmakingType,
+  prefs: MatchmakingPreferencesRecord,
+  mapSelections: List<MapInfoJson>,
+  userId: number,
+): ThunkAction {
   return dispatch => {
+    ipcRenderer.send('rallyPointRefreshPings')
+
+    let preferences: MatchmakingPreferences
+    switch (matchmakingType) {
+      case MatchmakingType.Match1v1:
+        preferences = format1v1Preferences(prefs, mapSelections, userId)
+        break
+      case MatchmakingType.Match2v2:
+        preferences = format2v2Preferences(prefs, mapSelections, userId)
+        break
+      default:
+        assertUnreachable(matchmakingType)
+    }
+
+    const params = { clientId, preferences }
     dispatch({
       type: '@matchmaking/findMatchBegin',
       payload: params,
@@ -42,7 +88,18 @@ export function findMatch(
       payload: fetch<void>(apiUrl`matchmaking/find`, {
         method: 'POST',
         body: JSON.stringify(params),
-      }).then<{ startTime: number }>(() => ({ startTime: window.performance.now() })),
+      }).then<{ startTime: number }>(() => {
+        const { matchmakingType: type } = preferences
+
+        dispatch(updateLastQueuedMatchmakingType(type))
+        // Load the current map pool in the store so we can download all of the maps in it as soon
+        // as the player queues.
+        dispatch(getCurrentMapPool(type))
+
+        return {
+          startTime: window.performance.now(),
+        }
+      }),
       meta: params,
     })
   }
@@ -79,38 +136,68 @@ export function getCurrentMapPool(type: MatchmakingType): ThunkAction {
     })
     dispatch({
       type: '@matchmaking/getCurrentMapPool',
-      payload: fetch<MatchmakingMapPool>(apiUrl`matchmakingMapPools/${type}/current`),
+      payload: fetch<MatchmakingMapPool>(
+        apiUrl`matchmakingMapPools/${type}/current`,
+      ).then<MatchmakingMapPool>(mapPool => {
+        // As a slight optimization, we download the whole map pool as soon as we get it. This
+        // shouldn't be a prohibitively expensive operation, since our map store checks if a map
+        // already exists before attempting to download it.
+        mapPool.maps.forEach((map: MapInfoJson) =>
+          ipcRenderer
+            .invoke('mapStoreDownloadMap', map.hash, map.mapData.format, map.mapUrl!)
+            ?.catch(err => {
+              // This is already logged to our file by the map store, so we just log it to the
+              // console for easy visibility during development
+              console.error('Error downloading map: ' + err + '\n' + err.stack)
+            }),
+        )
+
+        return mapPool
+      }),
       meta: { type },
     })
   }
 }
 
-export function getMatchmakingPreferences(matchmakingType: MatchmakingType): ThunkAction {
+export function updateMatchmakingPreferences(
+  matchmakingType: MatchmakingType,
+  prefs: MatchmakingPreferencesRecord,
+  mapSelections: List<MapInfoJson>,
+  userId: number,
+): ThunkAction {
   return dispatch => {
-    dispatch({ type: '@matchmaking/getPreferencesBegin', payload: { type: matchmakingType } })
-    dispatch({
-      type: '@matchmaking/getPreferences',
-      payload: fetch<GetPreferencesPayload>(apiUrl`matchmakingPreferences/${matchmakingType}`),
-      meta: { type: matchmakingType },
-    })
-  }
-}
+    let preferences: MatchmakingPreferences
+    switch (matchmakingType) {
+      case MatchmakingType.Match1v1:
+        preferences = format1v1Preferences(prefs, mapSelections, userId)
+        break
+      case MatchmakingType.Match2v2:
+        preferences = format2v2Preferences(prefs, mapSelections, userId)
+        break
+      default:
+        assertUnreachable(matchmakingType)
+    }
 
-export function updateMatchmakingPreferences(preferences: MatchmakingPreferences): ThunkAction {
-  return dispatch => {
-    const { matchmakingType } = preferences
     dispatch({
       type: '@matchmaking/updatePreferencesBegin',
-      payload: preferences,
-      meta: { type: matchmakingType },
+      payload: matchmakingType,
     })
     dispatch({
       type: '@matchmaking/updatePreferences',
       payload: fetch<GetPreferencesPayload>(apiUrl`matchmakingPreferences/${matchmakingType}`, {
-        method: 'post',
+        method: 'POST',
         body: JSON.stringify(preferences),
       }),
       meta: { type: preferences.matchmakingType },
     })
+  }
+}
+
+export function updateLastQueuedMatchmakingType(
+  type: MatchmakingType,
+): UpdateLastQueuedMatchmakingType {
+  return {
+    type: '@matchmaking/updateLastQueuedMatchmakingType',
+    payload: type,
   }
 }

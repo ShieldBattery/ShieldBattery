@@ -3,8 +3,7 @@ import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
 import { GameLaunchConfig, PlayerInfo } from '../../common/game-launch-config'
 import { GameType } from '../../common/games/configuration'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { MapInfoJson } from '../../common/maps'
-import { MatchmakingEvent } from '../../common/matchmaking'
+import { GetPreferencesPayload, MatchmakingEvent, MatchmakingType } from '../../common/matchmaking'
 import { ACTIVE_GAME_LAUNCH, MATCHMAKING_STATUS_UPDATE } from '../actions'
 import AudioManager from '../audio/audio-manager'
 import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
@@ -18,7 +17,10 @@ import { openSnackbar } from '../snackbars/action-creators'
 const ipcRenderer = new TypedIpcRenderer()
 
 type EventToActionMap = {
-  [E in MatchmakingEvent['type']]?: (event: Extract<MatchmakingEvent, { type: E }>) => Dispatchable
+  [E in MatchmakingEvent['type']]?: (
+    matchmakingType: MatchmakingType,
+    event: Extract<MatchmakingEvent, { type: E }>,
+  ) => Dispatchable
 }
 
 interface TimerState {
@@ -83,7 +85,7 @@ function clearCountdownTimer(leaveAtmosphere = false) {
 }
 
 const eventToAction: EventToActionMap = {
-  matchFound: event => {
+  matchFound: (matchmakingType, event) => {
     ipcRenderer.send('userAttentionRequired')
 
     audioManager?.playSound(SOUNDS.MATCH_FOUND)
@@ -116,21 +118,21 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  playerAccepted: event => {
+  playerAccepted: (matchmakingType, event) => {
     return {
       type: '@matchmaking/playerAccepted',
       payload: event,
     }
   },
 
-  acceptTimeout: event => {
+  acceptTimeout: (matchmakingType, event) => {
     return {
       type: '@matchmaking/playerFailedToAccept',
       payload: event,
     }
   },
 
-  requeue: event => (dispatch, getState) => {
+  requeue: (matchmakingType, event) => (dispatch, getState) => {
     clearRequeueTimer()
     clearAcceptMatchTimer()
 
@@ -145,7 +147,7 @@ const eventToAction: EventToActionMap = {
     }, 5000)
   },
 
-  matchReady: event => (dispatch, getState) => {
+  matchReady: (matchmakingType, event) => (dispatch, getState) => {
     dispatch(closeDialog())
     clearAcceptMatchTimer()
 
@@ -211,14 +213,14 @@ const eventToAction: EventToActionMap = {
     } as any)
   },
 
-  setRoutes: event => dispatch => {
+  setRoutes: (matchmakingType, event) => dispatch => {
     const { routes, gameId } = event
 
     ipcRenderer.invoke('activeGameSetRoutes', gameId, routes)
   },
 
   // TODO(2Pac): Try to pull this out into a common place and reuse with lobbies
-  startCountdown: event => dispatch => {
+  startCountdown: (matchmakingType, event) => dispatch => {
     clearCountdownTimer()
     let tick = 5
     dispatch({
@@ -241,7 +243,7 @@ const eventToAction: EventToActionMap = {
     }, 1000)
   },
 
-  startWhenReady: event => (dispatch, getState) => {
+  startWhenReady: (matchmakingType, event) => (dispatch, getState) => {
     const { gameId } = event
 
     const currentPath = location.pathname
@@ -253,7 +255,7 @@ const eventToAction: EventToActionMap = {
     ipcRenderer.invoke('activeGameStartWhenReady', gameId)
   },
 
-  cancelLoading: event => (dispatch, getState) => {
+  cancelLoading: (matchmakingType, event) => (dispatch, getState) => {
     clearCountdownTimer()
 
     const currentPath = location.pathname
@@ -268,7 +270,7 @@ const eventToAction: EventToActionMap = {
     dispatch(openSnackbar({ message: 'The game has failed to load.' }))
   },
 
-  gameStarted: event => (dispatch, getState) => {
+  gameStarted: (matchmakingType, event) => (dispatch, getState) => {
     fadeAtmosphere(false /* fast */)
 
     const {
@@ -287,38 +289,11 @@ const eventToAction: EventToActionMap = {
     })
   },
 
-  // TODO(2Pac): Is it safe to assume that this event will only be emitted when a player starts or
-  // cancels finding a match? Maybe rename this event to better indicate that, or introduce a new
-  // event that guarantees that better? Or perhaps do this logic in the action-creator after we
-  // invoke the find-match action?
-  status: event => (dispatch, getState) => {
-    const isFinding = event.matchmaking && event.matchmaking.type
-    if (isFinding) {
-      const {
-        matchmaking: { mapPoolTypes },
-      } = getState()
-
-      // As a slight optimization, we download the whole map pool as soon as the player enters the
-      // queue. This shouldn't be a prohibitively expensive operation, since our map store checks if
-      // a map already exists before attempting to download it.
-      const mapPool = mapPoolTypes.get(event.matchmaking!.type)
-      if (mapPool) {
-        mapPool.byId.valueSeq().forEach((map: MapInfoJson) =>
-          ipcRenderer
-            .invoke('mapStoreDownloadMap', map.hash, map.mapData.format, map.mapUrl!)
-            ?.catch(err => {
-              // This is already logged to our file by the map store, so we just log it to the
-              // console for easy visibility during development
-              console.error('Error downloading map: ' + err + '\n' + err.stack)
-            }),
-        )
-      }
-    }
-
-    dispatch({
+  status: (matchmakingType, event) => {
+    return {
       type: '@matchmaking/matchmakingActivityStatus',
       payload: event,
-    })
+    }
   },
 }
 
@@ -326,7 +301,10 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
   const matchmakingHandler: RouteHandler = (route: RouteInfo, event: MatchmakingEvent) => {
     if (!eventToAction[event.type]) return
 
-    const action = eventToAction[event.type]!(event as any)
+    const action = eventToAction[event.type]!(
+      route.params.matchmakingType as MatchmakingType,
+      event as any,
+    )
     if (action) dispatch(action)
   }
   siteSocket.registerRoute('/matchmaking/:userName', matchmakingHandler)
@@ -338,4 +316,15 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
       payload: event,
     } as any)
   })
+
+  siteSocket.registerRoute(
+    '/matchmakingPreferences/:userId/:matchmakingType',
+    (route: RouteInfo, event: GetPreferencesPayload | Record<string, undefined>) => {
+      dispatch({
+        type: '@matchmaking/initPreferences',
+        payload: event,
+        meta: { type: route.params.matchmakingType as MatchmakingType },
+      })
+    },
+  )
 }
