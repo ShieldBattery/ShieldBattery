@@ -20,7 +20,7 @@ export class MatchmakingPreferencesRecord extends ImmutableRecord({
   race: 'r' as RaceChar,
   mapPoolId: 1,
   mapPoolOutdated: false,
-  mapSelections: List<typeof MapRecord>(),
+  mapSelections: List<ReturnType<typeof MapRecord>>(),
   data: {} as MatchmakingPreferencesDataRecord,
 
   lastError: undefined as FetchError | undefined,
