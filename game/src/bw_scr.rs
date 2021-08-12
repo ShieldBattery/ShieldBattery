@@ -1395,11 +1395,22 @@ impl BwScr {
             self.check_replay_file_finish(handle);
             orig(handle)
         };
+        let switch_to_thread_hook = move |_orig: unsafe extern fn() -> _| {
+            // Quick hackfix to work around tokio inefficiency where it
+            // seems to yield async thread unnecessarily, causing Windows
+            // to prioritize the main render thread instead. This can be
+            // problematic if running multiple copies of BW and the CPU
+            // doesn't have many cores.
+            // BW doesn't seem to call this to yield otherwise so just dummying
+            // this function out shouldn't cause any other scheduling priority issues.
+            0
+        };
         hook_winapi_exports!(&mut active_patcher, "kernel32",
             "CreateEventW", CreateEventW, create_event_hook;
             "CreateFileW", CreateFileW, create_file_hook_closure;
             "CopyFileW", CopyFileW, copy_file_hook;
             "CloseHandle", CloseHandle, close_handle_hook;
+            "SwitchToThread", SwitchToThread, switch_to_thread_hook;
         );
 
         // SCR wants to update gamepad state every frame, but in the end it
@@ -2588,6 +2599,7 @@ mod hooks {
         !0 => LoadSnpList(*mut scr::SnpLoadFuncs, u32) -> u32;
         !0 => CreateEventW(*mut c_void, u32, u32, *const u16) -> *mut c_void;
         !0 => CloseHandle(*mut c_void) -> u32;
+        !0 => SwitchToThread() -> u32;
         !0 => CreateFileW(
             *const u16,
             u32,
