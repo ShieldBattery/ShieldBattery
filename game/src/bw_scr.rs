@@ -1194,10 +1194,11 @@ impl BwScr {
                 let is_replay = game_thread::is_replay();
                 if !is_replay {
                     if let Some(players) = self.check_player_drops() {
+                        let frame = (*self.game()).frame_count;
                         info!(
                             "Dropped players {:?} at some point between last check and before \
-                            handling commands for game player {} net {}",
-                            players, command_user, self.storm_command_user.resolve(),
+                            handling commands for game player {} net {}. Game frame 0x{:x}",
+                            players, command_user, self.storm_command_user.resolve(), frame,
                         );
                     }
                 }
@@ -1235,10 +1236,12 @@ impl BwScr {
                         }
                     }
                     if let Some(players) = self.check_player_drops() {
+                        let frame = (*self.game()).frame_count;
                         info!(
                             "Dropped players {:?} while handling commands for game player {} \
-                            net {}, {:02x?}",
+                            net {}, {:02x?}. Game frame 0x{:x}",
                             players, command_user, self.storm_command_user.resolve(), slice,
+                            frame,
                         );
                     }
                 }
