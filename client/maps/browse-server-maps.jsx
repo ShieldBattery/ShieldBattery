@@ -1,4 +1,4 @@
-import { List, Map, Set } from 'immutable'
+import { Set } from 'immutable'
 import { debounce } from 'lodash-es'
 import PropTypes from 'prop-types'
 import React from 'react'
@@ -25,7 +25,7 @@ import { BrowserFooter as Footer } from './browser-footer'
 import MapPreview from './map-preview'
 import { MapThumbnail } from './map-thumbnail'
 
-const MAPS_LIMIT = 30
+const MAPS_LIMIT = 10
 
 const LoadingArea = styled.div`
   display: flex;
@@ -119,12 +119,11 @@ const THUMBNAIL_SIZES = [
 // other state (eg. `loading`) changes.
 class MapList extends React.PureComponent {
   static propTypes = {
-    list: PropTypes.instanceOf(List),
-    byId: PropTypes.instanceOf(Map),
+    maps: PropTypes.array.isRequired,
     user: PropTypes.object.isRequired,
     canManageMaps: PropTypes.bool.isRequired,
     thumbnailSize: PropTypes.number,
-    favoriteStatusRequests: PropTypes.instanceOf(Set),
+    favoriteStatusRequests: PropTypes.object,
     onMapSelect: PropTypes.func,
     onMapPreview: PropTypes.func,
     onToggleFavoriteMap: PropTypes.func,
@@ -135,8 +134,7 @@ class MapList extends React.PureComponent {
 
   render() {
     const {
-      list,
-      byId,
+      maps,
       user,
       canManageMaps,
       thumbnailSize,
@@ -149,8 +147,7 @@ class MapList extends React.PureComponent {
       onRegenMapImage,
     } = this.props
 
-    return list.map((id, i) => {
-      const map = byId.get(id)
+    return maps.map(map => {
       const canRemoveMap =
         onRemoveMap &&
         ((map.visibility !== MapVisibility.Private && canManageMaps) ||
@@ -159,7 +156,7 @@ class MapList extends React.PureComponent {
 
       return (
         <MapThumbnail
-          key={id}
+          key={map.id}
           map={map}
           size={THUMBNAIL_SIZES[thumbnailSize].columnCount === 2 ? 512 : 256}
           showMapName={true}
@@ -182,7 +179,7 @@ export default class Maps extends React.Component {
     title: PropTypes.string.isRequired,
     uploadedMap: PropTypes.object,
     onMapSelect: PropTypes.func,
-    onLocalMapSelect: PropTypes.func,
+    onMapUpload: PropTypes.func,
     onMapDetails: PropTypes.func,
     onRemoveMap: PropTypes.func,
     onRegenMapImage: PropTypes.func,
@@ -294,8 +291,7 @@ export default class Maps extends React.Component {
           columnCount={THUMBNAIL_SIZES[thumbnailSize].columnCount}
           padding={THUMBNAIL_SIZES[thumbnailSize].padding}>
           <MapList
-            list={maps.list}
-            byId={maps.byId}
+            maps={maps}
             user={auth.user}
             canManageMaps={auth.permissions.manageMaps}
             thumbnailSize={thumbnailSize}
@@ -313,26 +309,22 @@ export default class Maps extends React.Component {
   }
 
   renderUploadedMap() {
-    const { uploadedMap, maps } = this.props
+    const { uploadedMap } = this.props
     const { activeTab } = this.state
 
-    if (!uploadedMap || activeTab !== TAB_MY_MAPS || !maps.list.includes(uploadedMap.id)) {
+    if (!uploadedMap || activeTab !== TAB_MY_MAPS) {
       return null
     }
 
-    const uploadedMapRecord = {
-      list: new List([uploadedMap.id]),
-      byId: maps.byId.filter(m => m.id === uploadedMap.id),
-    }
-    return this._renderMaps('Uploaded map', uploadedMapRecord)
+    return this._renderMaps('Uploaded map', [uploadedMap])
   }
 
   renderFavoritedMaps() {
     const { maps } = this.props
 
-    if (maps.favoritedMaps.list.size < 1) return null
+    if (maps.favoritedById.size < 1) return null
 
-    return this._renderMaps('Favorited maps', maps.favoritedMaps)
+    return this._renderMaps('Favorited maps', Array.from(maps.favoritedById.values()))
   }
 
   renderAllMaps() {
@@ -361,7 +353,7 @@ export default class Maps extends React.Component {
       )
     }
 
-    return this._renderMaps('All maps', maps)
+    return this._renderMaps('All maps', Array.from(maps.byId.values()))
   }
 
   render() {
@@ -389,7 +381,7 @@ export default class Maps extends React.Component {
     // be necessary anymore once Suspense finally comes?
     if (!hasInitializedState) return null
 
-    const hasMoreMaps = maps.total === -1 || maps.total > maps.list.size
+    const hasMoreMaps = maps.total === -1 || maps.total > maps.byId.size
     return (
       <Container>
         <TitleBar>
@@ -470,7 +462,7 @@ export default class Maps extends React.Component {
 
   onBrowseLocalMaps = () => {
     const localMapsProps = {
-      onMapSelect: this.props.onLocalMapSelect,
+      onMapSelect: this.props.onMapUpload,
     }
     this.props.dispatch(openOverlay('browseLocalMaps', localMapsProps))
   }

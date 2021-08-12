@@ -8,7 +8,6 @@ import {
   ADMIN_MAP_POOL_SEARCH_MAPS,
   ADMIN_MAP_POOL_SEARCH_MAPS_BEGIN,
 } from '../actions'
-import { MapRecord } from '../maps/maps-reducer'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
 export const MapPool = new Record({
@@ -52,12 +51,7 @@ export default keyedReducer(new MapPoolsState(), {
 
     const history = new MapPoolHistory({
       mapPools: new List(payload.pools.map(p => p.id)),
-      byId: new Map(
-        payload.pools.map(p => [
-          p.id,
-          new MapPool({ ...p, maps: new List(p.maps.map(m => new MapRecord(m))) }),
-        ]),
-      ),
+      byId: new Map(payload.pools.map(p => [p.id, new MapPool({ ...p, maps: new List(p.maps) })])),
       total: payload.total,
     })
     return state.setIn(['types', meta.type], history)
@@ -78,7 +72,7 @@ export default keyedReducer(new MapPoolsState(), {
 
     const { maps, total } = action.payload
     const list = state.searchResult.list.concat(maps.map(m => m.id))
-    const byId = state.searchResult.byId.merge(maps.map(m => [m.id, new MapRecord(m)]))
+    const byId = state.searchResult.byId.merge(maps.map(m => [m.id, m]))
 
     return state.set('searchResult', new SearchRecord({ list, byId, total }))
   },

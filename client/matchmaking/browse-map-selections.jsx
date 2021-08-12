@@ -1,4 +1,4 @@
-import { List, Set } from 'immutable'
+import { List } from 'immutable'
 import PropTypes from 'prop-types'
 import React from 'react'
 import { connect } from 'react-redux'
@@ -99,7 +99,7 @@ const SelectionsText = styled(SubheadingOld)`
 class MapSelectionsForm extends React.Component {
   static propTypes = {
     mapPool: PropTypes.object.isRequired,
-    favoriteStatusRequests: PropTypes.instanceOf(Set),
+    favoriteStatusRequests: PropTypes.object,
     onMapPreview: PropTypes.func,
     onToggleFavoriteMap: PropTypes.func,
     onSubmit: PropTypes.func,

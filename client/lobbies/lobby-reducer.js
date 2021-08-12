@@ -22,10 +22,8 @@ import {
   LOBBY_UPDATE_SLOT_CHANGE,
   LOBBY_UPDATE_SLOT_CREATE,
   LOBBY_UPDATE_SLOT_DELETED,
-  MAPS_TOGGLE_FAVORITE,
   NETWORK_SITE_CONNECTED,
 } from '../actions'
-import { MapRecord } from '../maps/maps-reducer'
 import { TextMessageRecord } from '../messaging/message-records'
 import { keyedReducer } from '../reducers/keyed-reducer'
 import {
@@ -97,7 +95,6 @@ const infoReducer = keyedReducer(undefined, {
     })
     const lobbyInfo = new LobbyInfo({
       ...lobby,
-      map: new MapRecord(lobby.map),
       teams: new List(teams),
       host: new Slot(lobby.host),
     })
@@ -169,7 +166,7 @@ const infoReducer = keyedReducer(undefined, {
     return new LobbyInfo()
   },
 
-  [MAPS_TOGGLE_FAVORITE](state, action) {
+  ['@maps/toggleFavoriteMap'](state, action) {
     const { map } = action.meta
 
     if (state.map && state.map.id === map.id) {

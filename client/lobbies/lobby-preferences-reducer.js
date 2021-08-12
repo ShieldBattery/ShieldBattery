@@ -4,7 +4,6 @@ import {
   LOBBY_PREFERENCES_GET_BEGIN,
   LOBBY_PREFERENCES_UPDATE,
 } from '../actions'
-import { MapRecord } from '../maps/maps-reducer'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
 export const RecentMaps = new Record({
@@ -26,7 +25,7 @@ export const LobbyPreferences = new Record({
 export function recentMapsFromJs(recentMaps) {
   return new RecentMaps({
     list: new List(recentMaps.map(m => m.id)),
-    byId: new Map(recentMaps.map(m => [m.id, new MapRecord(m)])),
+    byId: new Map(recentMaps.map(m => [m.id, m])),
   })
 }
 

@@ -1,4 +1,4 @@
-import { List, Map, Set } from 'immutable'
+import { List, Map } from 'immutable'
 import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
@@ -98,7 +98,7 @@ export default class MapSelect extends React.Component {
     canBrowseMaps: PropTypes.bool,
     allowUnselect: PropTypes.bool,
     errorText: PropTypes.string,
-    favoriteStatusRequests: PropTypes.instanceOf(Set),
+    favoriteStatusRequests: PropTypes.object,
     onChange: PropTypes.func,
     onMapBrowse: PropTypes.func,
     onMapPreview: PropTypes.func,

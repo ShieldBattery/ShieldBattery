@@ -1,7 +1,7 @@
 import { List, Map, Record } from 'immutable'
+import { MapInfoJson } from '../../common/maps'
 import { MatchmakingType } from '../../common/matchmaking'
-import { MAPS_TOGGLE_FAVORITE, NETWORK_SITE_CONNECTED } from '../actions'
-import { MapRecord } from '../maps/maps-reducer'
+import { NETWORK_SITE_CONNECTED } from '../actions'
 import { FetchError } from '../network/fetch-action-types'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
@@ -17,7 +17,7 @@ export class MatchmakingMatchRecord extends Record({
   acceptedPlayers: 0,
   type: MatchmakingType.Match1v1,
   players: List<MatchmakingPlayerRecord>(),
-  chosenMap: undefined as ReturnType<typeof MapRecord> | undefined,
+  chosenMap: undefined as MapInfoJson | undefined,
 }) {}
 
 export class MapPoolRecord extends Record({
@@ -25,7 +25,7 @@ export class MapPoolRecord extends Record({
   type: MatchmakingType.Match1v1,
   startDate: new Date(),
   maps: List<string>(),
-  byId: Map<string, ReturnType<typeof MapRecord>>(),
+  byId: Map<string, MapInfoJson>(),
 
   isRequesting: false,
   lastError: undefined as FetchError | undefined,
@@ -97,7 +97,7 @@ export default keyedReducer(new MatchmakingState(), {
     const mapPool = {
       ...payload,
       maps: List(payload.maps.map(m => m.id)),
-      byId: Map(payload.maps.map(m => [m.id, new MapRecord(m)])),
+      byId: Map(payload.maps.map(m => [m.id, m])),
     }
     return state.setIn(['mapPoolTypes', meta.type], new MapPoolRecord(mapPool))
   },
@@ -127,7 +127,7 @@ export default keyedReducer(new MatchmakingState(), {
     const match = {
       acceptedPlayers: Object.keys(players).length,
       players: List(players.map(p => new MatchmakingPlayerRecord(p))),
-      chosenMap: new MapRecord(chosenMap),
+      chosenMap,
     }
 
     return state.set('isLaunching', true).update('match', m => m!.merge(match))
@@ -156,7 +156,7 @@ export default keyedReducer(new MatchmakingState(), {
     return new MatchmakingState()
   },
 
-  [MAPS_TOGGLE_FAVORITE as any](state: any, action: any) {
+  ['@maps/toggleFavoriteMap'](state, action) {
     const {
       map,
       context: { matchmakingType: type },
