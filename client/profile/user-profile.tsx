@@ -8,9 +8,6 @@ import { RaceChar } from '../../common/races'
 import { User, UserProfile } from '../../common/users/user-info'
 import Avatar from '../avatars/avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
-import GithubIcon from '../icons/brands/github.svg'
-import KofiIcon from '../icons/brands/kofi-lockup.svg'
-import PatreonIcon from '../icons/brands/patreon-lockup.svg'
 import { RaceIcon } from '../lobbies/race-icon'
 import { TabItem, Tabs } from '../material/tabs'
 import { goToIndex } from '../navigation/action-creators'
@@ -365,47 +362,6 @@ const ComingSoonRoot = styled.div`
   /* 34px + 6px from tab = 40px */
   margin-top: 34px;
   padding: 0 24px;
-`
-
-const FundingSection = styled.div`
-  margin-top: 48px;
-`
-
-const SupportLinks = styled.div`
-  display: flex;
-  align-items: flex-start;
-
-  margin-top: 8px;
-  /** Offset for the inner padding of the first item */
-  margin-left: -16px;
-
-  a,
-  a:link,
-  a:visited {
-    height: 48px;
-    display: flex;
-    align-items: center;
-    color: ${colorTextSecondary};
-    padding-left: 16px;
-    padding-right: 16px;
-    overflow: hidden;
-
-    &:hover,
-    &:active {
-      color: ${colorTextPrimary};
-    }
-  }
-`
-const StyledGithubIcon = styled(GithubIcon)`
-  height: 40px;
-`
-
-const StyledKofiIcon = styled(KofiIcon)`
-  height: 40px;
-`
-
-const StyledPatreonIcon = styled(PatreonIcon)`
-  height: 24px;
 `
 
 function ComingSoonPage() {
