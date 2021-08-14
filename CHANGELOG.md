@@ -1,3 +1,28 @@
+#### 7.0.20 (August 13, 2021)
+
+- **Observer mode has returned.** We now support in-game observers using SC:R's built-in feature
+  and UI. There is still a limit of 8 total players per game, so on larger maps you may have to
+  convert some of the player slots into observer slots if you need more (check the menu next to
+  the slot!). This feature is also available only on Melee mode for the time being, although this
+  restriction will likely be lifted in the future.
+- **Clickable links.** Links in chat (in the app, not ingame) are now clickable and will open a
+  new window. Support for embedding links to other ShieldBattery pages (like profiles and lobbies)
+  is coming soon.
+- **Bug fixes.** We've fixed an issue with some UMS maps (namely ones for observer mode) generating
+  replays that were unplayable. We've also fixed some issues with email verification, and made
+  the web version of the app load slightly faster.
+
+##### Known Issues
+
+- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
+  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
+  very least add a warning for this case in the future (or better yet, automate re-authing), but
+  for now, try to launch the game from the Blizzard launcher at least once a month.
+- **Off-center screen starting position.** For some users, generally in positions on the right side
+  of the screen, the starting screen position may be slightly off-center from where it usually is
+- **Observer chat is broken.** Observers are unable to send messages ingame currently. This will be
+  fixed in a future update.
+
 #### 7.0.19 (July 27, 2021)
 
 - **Support for SC:R 1.23.8.9713.** We've fixed launching multiplayer games on the latest version
