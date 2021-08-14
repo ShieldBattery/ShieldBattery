@@ -7,6 +7,7 @@ import { MatchmakingType } from '../../common/matchmaking'
 import { AssignedRaceChar, RaceChar } from '../../common/races'
 import { closeOverlay, openOverlay } from '../activities/action-creators'
 import { useSelfUser } from '../auth/state-hooks'
+import { ComingSoon } from '../coming-soon/coming-soon'
 import { useForm } from '../forms/form-hook'
 import BrowseIcon from '../icons/material/ic_casino_black_24px.svg'
 import KeyListener from '../keyboard/key-listener'
@@ -21,7 +22,10 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { amberA400, colorDividers, colorError, colorTextSecondary } from '../styles/colors'
 import { body1, body2, Headline5, subtitle1, Subtitle2 } from '../styles/typography'
 import { findMatch, updateMatchmakingPreferences } from './action-creators'
-import { MatchmakingPreferencesData1v1Record } from './matchmaking-preferences-reducer'
+import {
+  MatchmakingPreferencesData1v1Record,
+  MatchmakingPreferencesRecord,
+} from './matchmaking-preferences-reducer'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -246,7 +250,7 @@ const FindMatch2v2Form = React.forwardRef<FormRef, Form2v2Props>((props, ref) =>
 })
 
 interface FindMatchProps {
-  type: MatchmakingType
+  type: MatchmakingType | '3v3'
   mapSelections: List<MapInfoJson>
 }
 
@@ -263,16 +267,22 @@ export function FindMatch(props: FindMatchProps) {
   const form1v1Ref = useRef<FormRef>(null)
   const form2v2Ref = useRef<FormRef>(null)
 
-  const prefs = matchmakingPreferences.typeToPreferences.get(activeTab)!
+  const prefs =
+    activeTab !== '3v3'
+      ? matchmakingPreferences.typeToPreferences.get(activeTab)!
+      : new MatchmakingPreferencesRecord()
   const mapSelections = props.mapSelections || prefs.mapSelections
 
   const [tempPrefs, setTempPrefs] = useState(prefs)
 
   const onTabChange = useCallback(
-    (value: MatchmakingType) => {
+    (value: MatchmakingType | '3v3') => {
       setActiveTab(value)
 
-      const newTabPrefs = matchmakingPreferences.typeToPreferences.get(value)!
+      const newTabPrefs =
+        value !== '3v3'
+          ? matchmakingPreferences.typeToPreferences.get(value)!
+          : new MatchmakingPreferencesRecord()
       setTempPrefs(newTabPrefs)
     },
     [matchmakingPreferences],
@@ -314,6 +324,8 @@ export function FindMatch(props: FindMatchProps) {
             updateMatchmakingPreferences(activeTab, new2v2Prefs, mapSelections, selfUser.id!),
           )
           break
+        case '3v3':
+          break
         default:
           assertUnreachable(activeTab)
       }
@@ -322,6 +334,9 @@ export function FindMatch(props: FindMatchProps) {
   )
 
   const onFindMatchSubmit = useCallback(() => {
+    if (activeTab === '3v3') {
+      return
+    }
     dispatch(findMatch(activeTab, tempPrefs, mapSelections, selfUser.id!))
     dispatch(closeOverlay() as any)
   }, [activeTab, tempPrefs, mapSelections, selfUser, dispatch])
@@ -333,6 +348,8 @@ export function FindMatch(props: FindMatchProps) {
         break
       case MatchmakingType.Match2v2:
         form2v2Ref.current?.submit()
+        break
+      case '3v3':
         break
       default:
         assertUnreachable(activeTab)
@@ -408,6 +425,11 @@ export function FindMatch(props: FindMatchProps) {
       `
       break
 
+    case '3v3':
+      formContents = null
+      mapSelectionsText = ''
+      break
+
     default:
       assertUnreachable(activeTab)
   }
@@ -441,29 +463,46 @@ export function FindMatch(props: FindMatchProps) {
       <Tabs bottomDivider={true} activeTab={activeTab} onChange={onTabChange}>
         <TabItem text='1 vs 1' value={MatchmakingType.Match1v1} />
         <TabItem text='2 vs 2' value={MatchmakingType.Match2v2} />
+        <TabItem text='3 vs 3' value={'3v3'} />
       </Tabs>
 
-      <KeyListener onKeyDown={onKeyDown} />
-      <Contents onScroll={onScrollUpdate.handler}>
-        <ContentsBody>
-          {formContents}
-          <MapSelectionsContainer>
-            <MapSelectionsHeader>
-              <SectionTitle>Preferred maps</SectionTitle>
-              {tempPrefs.mapPoolOutdated ? (
-                <OutdatedIndicator>Map pool changed</OutdatedIndicator>
-              ) : null}
-            </MapSelectionsHeader>
-            <DescriptionText>{mapSelectionsText}</DescriptionText>
-            <MapSelections>{mapSelectionItems}</MapSelections>
-          </MapSelectionsContainer>
-        </ContentsBody>
-      </Contents>
-      <Actions>
-        <ScrollDivider show={isScrolledUp} />
-        <RaisedButton label='Find match' disabled={!isMatchmakingEnabled} onClick={onFindClick} />
-        {!isMatchmakingEnabled ? <ErrorText>Matchmaking is now disabled</ErrorText> : null}
-      </Actions>
+      {activeTab === MatchmakingType.Match1v1 ? (
+        <>
+          <KeyListener onKeyDown={onKeyDown} />
+          <Contents onScroll={onScrollUpdate.handler}>
+            <ContentsBody>
+              {formContents}
+              <MapSelectionsContainer>
+                <MapSelectionsHeader>
+                  <SectionTitle>Preferred maps</SectionTitle>
+                  {tempPrefs.mapPoolOutdated ? (
+                    <OutdatedIndicator>Map pool changed</OutdatedIndicator>
+                  ) : null}
+                </MapSelectionsHeader>
+                <DescriptionText>{mapSelectionsText}</DescriptionText>
+                <MapSelections>{mapSelectionItems}</MapSelections>
+              </MapSelectionsContainer>
+            </ContentsBody>
+          </Contents>
+          <Actions>
+            <ScrollDivider show={isScrolledUp} />
+            <RaisedButton
+              label='Find match'
+              disabled={!isMatchmakingEnabled}
+              onClick={onFindClick}
+            />
+            {!isMatchmakingEnabled ? (
+              <ErrorText>Matchmaking is currently disabled</ErrorText>
+            ) : null}
+          </Actions>
+        </>
+      ) : (
+        <Contents>
+          <ContentsBody>
+            <ComingSoon />
+          </ContentsBody>
+        </Contents>
+      )}
     </Container>
   )
 }

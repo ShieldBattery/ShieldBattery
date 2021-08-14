@@ -7,6 +7,7 @@ import { MatchmakingType } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { User, UserProfile } from '../../common/users/user-info'
 import Avatar from '../avatars/avatar'
+import { ComingSoon } from '../coming-soon/coming-soon'
 import GithubIcon from '../icons/brands/github.svg'
 import KofiIcon from '../icons/brands/kofi-lockup.svg'
 import PatreonIcon from '../icons/brands/patreon-lockup.svg'
@@ -29,11 +30,9 @@ import {
 import {
   caption,
   headline3,
-  Headline5,
   headline6,
   overline,
   singleLine,
-  Subtitle1,
   subtitle1,
   Subtitle2,
 } from '../styles/typography'
@@ -412,26 +411,7 @@ const StyledPatreonIcon = styled(PatreonIcon)`
 function ComingSoonPage() {
   return (
     <ComingSoonRoot>
-      <Headline5>This feature is coming soon!</Headline5>
-
-      <FundingSection>
-        <Subtitle1>Help fund ShieldBattery's development:</Subtitle1>
-        <SupportLinks>
-          <a
-            href='https://github.com/sponsors/ShieldBattery'
-            target='_blank'
-            rel='noopener'
-            title='GitHub Sponsors'>
-            <StyledGithubIcon />
-          </a>
-          <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener' title='Ko-fi'>
-            <StyledKofiIcon />
-          </a>
-          <a href='https://patreon.com/tec27' target='_blank' rel='noopener' title='Patreon'>
-            <StyledPatreonIcon />
-          </a>
-        </SupportLinks>
-      </FundingSection>
+      <ComingSoon />
     </ComingSoonRoot>
   )
 }
