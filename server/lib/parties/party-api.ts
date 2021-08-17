@@ -78,10 +78,9 @@ async function convertPartyServiceErrors(ctx: RouterContext, next: Koa.Next) {
   }
 }
 
-@httpApi()
-export class PartyApi extends HttpApi {
+@httpApi('/parties')
+export class PartyApi implements HttpApi {
   constructor() {
-    super('/parties')
     // NOTE(tec27): Just ensures the service gets initialized on app init
     container.resolve(PartyService)
   }

@@ -1,7 +1,7 @@
 import Router from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
-import { container, singleton } from 'tsyringe'
+import { singleton } from 'tsyringe'
 import { toMapInfoJson } from '../../../common/maps'
 import {
   ALL_MATCHMAKING_TYPES,
@@ -17,16 +17,12 @@ import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import MatchmakingPreferencesService from './matchmaking-preferences-service'
 
-@httpApi()
+@httpApi('/matchmakingPreferences')
 @singleton()
-export class MatchmakingPreferencesApi extends HttpApi {
-  constructor() {
-    super('/matchmakingPreferences')
-    // NOTE(2Pac): Ensure the service is initialized
-    container.resolve(MatchmakingPreferencesService)
-  }
+export class MatchmakingPreferencesApi implements HttpApi {
+  constructor(private matchmakingPreferencesService: MatchmakingPreferencesService) {}
 
-  protected applyRoutes(router: Router): void {
+  applyRoutes(router: Router): void {
     router.use(ensureLoggedIn).post('/:matchmakingType', this.upsertPreferences)
   }
 
@@ -70,8 +66,7 @@ export class MatchmakingPreferencesApi extends HttpApi {
         }
       }
 
-      const matchmakingPreferencesService = container.resolve(MatchmakingPreferencesService)
-      const preferences = await matchmakingPreferencesService.upsertPreferences({
+      const preferences = await this.matchmakingPreferencesService.upsertPreferences({
         userId: ctx.session!.userId,
         matchmakingType: params.matchmakingType,
         race: body.race,

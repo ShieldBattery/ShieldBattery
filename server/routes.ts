@@ -9,7 +9,7 @@ import path from 'path'
 import { ClientSessionInfo } from '../common/users/session'
 import './http-apis'
 import { getUrl, readFile } from './lib/file-upload'
-import { resolveAllHttpApis } from './lib/http/http-api'
+import { applyApiRoutes, resolveAllHttpApis } from './lib/http/http-api'
 import logger from './lib/logging/logger'
 import { getCspNonce } from './lib/security/csp'
 import { monotonicNow } from './lib/time/monotonic-now'
@@ -33,7 +33,7 @@ export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) 
   // injected API handlers
   const httpApis = resolveAllHttpApis()
   for (const httpApi of httpApis) {
-    httpApi.applyToRouter(router)
+    applyApiRoutes(router, httpApi)
   }
 
   // api methods (through HTTP)

@@ -59,14 +59,12 @@ async function convertMatchmakingServiceErrors(ctx: RouterContext, next: Koa.Nex
   }
 }
 
-@httpApi()
+@httpApi('/matchmaking')
 @singleton()
-export class MatchmakingApi extends HttpApi {
-  constructor(private matchmakingService: MatchmakingService) {
-    super('/matchmaking')
-  }
+export class MatchmakingApi implements HttpApi {
+  constructor(private matchmakingService: MatchmakingService) {}
 
-  protected applyRoutes(router: Router): void {
+  applyRoutes(router: Router): void {
     router
       .use(ensureLoggedIn, convertMatchmakingServiceErrors)
       .post(

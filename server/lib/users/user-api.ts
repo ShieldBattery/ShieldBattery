@@ -75,14 +75,12 @@ function hashPass(password: string): Promise<string> {
   return bcrypt.hash(password, 10 /* saltRounds */)
 }
 
-@httpApi()
+@httpApi('/users')
 @singleton()
-export class UserApi extends HttpApi {
-  constructor(private nydus: NydusServer) {
-    super('/users')
-  }
+export class UserApi implements HttpApi {
+  constructor(private nydus: NydusServer) {}
 
-  protected applyRoutes(router: Router): void {
+  applyRoutes(router: Router): void {
     router
       .post(
         '/',
@@ -399,14 +397,10 @@ export class UserApi extends HttpApi {
   }
 }
 
-@httpApi()
+@httpApi('/admin/users')
 @singleton()
-export class AdminUserApi extends HttpApi {
-  constructor() {
-    super('/admin/users')
-  }
-
-  protected applyRoutes(router: Router): void {
+export class AdminUserApi implements HttpApi {
+  applyRoutes(router: Router): void {
     router.get<void, RouterContext>(
       '/:searchTerm',
       checkAnyPermission('banUsers', 'editPermissions'),

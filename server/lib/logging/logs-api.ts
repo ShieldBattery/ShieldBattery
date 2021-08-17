@@ -6,12 +6,8 @@ import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
 import { retrieveLogEntries } from './models'
 
-@httpApi()
-export class LogsApi extends HttpApi {
-  constructor() {
-    super('/admin/logs/')
-  }
-
+@httpApi('/admin/logs')
+export class LogsApi implements HttpApi {
   applyRoutes(router: Router): void {
     router.use(ensureLoggedIn, checkAllPermissions('debug')).get('/', getLogs)
   }

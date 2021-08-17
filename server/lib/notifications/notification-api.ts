@@ -11,10 +11,9 @@ import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
 import NotificationService from './notification-service'
 
-@httpApi()
-export class NotificationApi extends HttpApi {
+@httpApi('/notifications')
+export class NotificationApi implements HttpApi {
   constructor() {
-    super('/notifications')
     // NOTE(tec27): Ensure the service is initialized
     container.resolve(NotificationService)
   }

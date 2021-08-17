@@ -80,10 +80,9 @@ function getValidatedChannelName(ctx: RouterContext) {
   return channelName
 }
 
-@httpApi()
-export class ChatApi extends HttpApi {
+@httpApi('/chat')
+export class ChatApi implements HttpApi {
   constructor() {
-    super('/chat')
     container.resolve(ChatService)
   }
 

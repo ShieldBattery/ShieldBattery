@@ -9,12 +9,8 @@ import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
 
-@httpApi()
-export class MatchmakingDebugApi extends HttpApi {
-  constructor() {
-    super('/matchmakingDebug')
-  }
-
+@httpApi('/matchmakingDebug')
+export class MatchmakingDebugApi implements HttpApi {
   applyRoutes(router: Router): void {
     router
       .use(ensureLoggedIn, checkAllPermissions('debug'))

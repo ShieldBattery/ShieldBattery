@@ -80,10 +80,9 @@ function getValidatedTargetName(ctx: RouterContext) {
   return targetName
 }
 
-@httpApi()
-export class WhisperApi extends HttpApi {
+@httpApi('/whispers')
+export class WhisperApi implements HttpApi {
   constructor() {
-    super('/whispers')
     container.resolve(WhisperService)
   }
 

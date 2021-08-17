@@ -12,12 +12,10 @@ import ensureLoggedIn from '../session/ensure-logged-in'
 
 const UPDATE_RANKS_MINUTES = 5
 
-@httpApi()
+@httpApi('/ladder')
 @singleton()
-export class LadderApi extends HttpApi {
+export class LadderApi implements HttpApi {
   constructor(private jobScheduler: JobScheduler) {
-    super('/ladder')
-
     const startTime = new Date()
     const timeRemainder = UPDATE_RANKS_MINUTES - (startTime.getMinutes() % UPDATE_RANKS_MINUTES)
     startTime.setMinutes(startTime.getMinutes() + timeRemainder, 0, 0)
@@ -31,7 +29,7 @@ export class LadderApi extends HttpApi {
     )
   }
 
-  protected applyRoutes(router: Router): void {
+  applyRoutes(router: Router): void {
     router.use(ensureLoggedIn).get('/:matchmakingType', this.getRankings)
   }
 

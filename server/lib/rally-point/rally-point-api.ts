@@ -18,12 +18,8 @@ import { ClientSocketsManager } from '../websockets/socket-groups'
 import { retrieveRallyPointServers } from './models'
 import { RallyPointService } from './rally-point-service'
 
-@httpApi()
-export class RallyPointPingApi extends HttpApi {
-  constructor() {
-    super('/rally-point/')
-  }
-
+@httpApi('/rally-point/')
+export class RallyPointPingApi implements HttpApi {
   applyRoutes(router: Router): void {
     router.use(ensureLoggedIn).put('/pings/:userId/:clientId/:serverId', updateClientPing)
   }
@@ -61,12 +57,8 @@ async function updateClientPing(ctx: RouterContext) {
   ctx.status = 204
 }
 
-@httpApi()
-export class RallyPointAdminApi extends HttpApi {
-  constructor() {
-    super('/admin/rally-point/')
-  }
-
+@httpApi('/admin/rally-point/')
+export class RallyPointAdminApi implements HttpApi {
   applyRoutes(router: Router): void {
     router
       .use(ensureLoggedIn, checkAllPermissions('manageRallyPointServers'))
