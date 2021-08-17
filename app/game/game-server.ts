@@ -58,8 +58,8 @@ export class GameServer {
           clearInterval(pingInterval)
           this.idToSocket = this.idToSocket.delete(gameId)
         })
-        socket.on('message', message => {
-          this.onMessage(gameId, message as string)
+        socket.on('message', data => {
+          this.onMessage(gameId, data.toString())
         })
         socket.on('error', e => {
           log.error(`Game socket error ${e}`)
