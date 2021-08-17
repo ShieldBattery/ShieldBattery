@@ -173,6 +173,11 @@
             "name": "react-redux",
             "importNames": ["useDispatch", "useSelector"],
             "message": "Use useAppDispatch and useAppSelector from ./client/redux-hooks instead."
+          },
+          {
+            "name": "type-fest",
+            "importNames": ["Jsonify"],
+            "message": "Use Jsonify from ./common/json instead."
           }
         ]
       }
