@@ -11,11 +11,11 @@ import { toMapInfoJson } from '../../../common/maps'
 import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
 import { Permissions } from '../../../common/users/permissions'
 import { ClientSessionInfo } from '../../../common/users/session'
-import { GetUserProfilePayload, SelfUser } from '../../../common/users/user-info'
+import { GetUserProfilePayload, SelfUser, User } from '../../../common/users/user-info'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { HttpErrorWithPayload } from '../errors/error-with-payload'
-import { HttpApi, httpApi } from '../http/http-api'
+import { HttpApi, httpApi, httpGet, withMiddleware } from '../http/http-api'
 import { apiEndpoint } from '../http/http-api-endpoint'
 import sendMail from '../mail/mailer'
 import { getMapInfo } from '../maps/map-models'
@@ -400,22 +400,24 @@ export class UserApi implements HttpApi {
 @httpApi('/admin/users')
 @singleton()
 export class AdminUserApi implements HttpApi {
-  applyRoutes(router: Router): void {
-    router.get<void, RouterContext>(
-      '/:searchTerm',
-      checkAnyPermission('banUsers', 'editPermissions'),
-      this.findUser,
-    )
+  test: number
+
+  constructor() {
+    this.test = Date.now()
   }
 
-  findUser = async (ctx: RouterContext) => {
+  applyRoutes(router: Router): void {}
+
+  @httpGet('/:searchTerm')
+  @withMiddleware(checkAnyPermission('banUsers', 'editPermissions'))
+  async findUser(ctx: RouterContext): Promise<User[]> {
     const searchTerm = ctx.params.searchTerm
 
     try {
       // TODO(tec27): Admins probably want more info than just this, maybe we should merge some of
       // this functionality with the profile page
       const user = await findUserByName(searchTerm)
-      ctx.body = user ? [user] : []
+      return user ? [user] : []
     } catch (err) {
       throw err
     }
