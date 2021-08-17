@@ -400,12 +400,6 @@ export class UserApi implements HttpApi {
 @httpApi('/admin/users')
 @singleton()
 export class AdminUserApi implements HttpApi {
-  test: number
-
-  constructor() {
-    this.test = Date.now()
-  }
-
   applyRoutes(router: Router): void {}
 
   @httpGet('/:searchTerm')
