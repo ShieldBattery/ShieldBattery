@@ -88,7 +88,7 @@ export class MatchmakingApi extends HttpApi {
 
   findMatch = apiEndpoint(
     {
-      body: Joi.object({
+      body: Joi.object<{ clientId: string; preferences: MatchmakingPreferences }>({
         clientId: Joi.string().required(),
         preferences: Joi.object<MatchmakingPreferences>({
           userId: Joi.number().min(1).required(),
@@ -105,7 +105,7 @@ export class MatchmakingApi extends HttpApi {
               }),
             )
             .required(),
-        }),
+        }).required(),
       }),
     },
     async (ctx, { body }) => {
