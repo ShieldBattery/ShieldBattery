@@ -30,3 +30,7 @@ export interface LogEntry {
   time: Date
   data: LogEntryData
 }
+
+export interface GetLogsPayload {
+  entries: LogEntry[]
+}

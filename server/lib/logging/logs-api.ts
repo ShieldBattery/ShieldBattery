@@ -1,17 +1,12 @@
 import Router, { RouterContext } from '@koa/router'
 import Joi from 'joi'
-import { httpApi, HttpApi } from '../http/http-api'
+import { GetLogsPayload } from '../../../common/admin/server-logs'
+import { httpApi, HttpApi, httpBeforeAll } from '../http/http-api'
+import { httpGet } from '../http/route-decorators'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
 import { retrieveLogEntries } from './models'
-
-@httpApi('/admin/logs')
-export class LogsApi implements HttpApi {
-  applyRoutes(router: Router): void {
-    router.use(ensureLoggedIn, checkAllPermissions('debug')).get('/', getLogs)
-  }
-}
 
 interface GetLogsQuery {
   limit: number
@@ -21,20 +16,24 @@ interface GetLogsQuery {
   level: number
 }
 
-async function getLogs(ctx: RouterContext) {
-  const { query } = validateRequest(ctx, {
-    query: Joi.object<GetLogsQuery>({
-      limit: Joi.number().default(100),
-      startDate: Joi.date().timestamp('javascript'),
-      endDate: Joi.date().timestamp('javascript'),
-      reqId: Joi.string(),
-      level: Joi.number().min(0).max(100),
-    }),
-  })
+@httpApi('/admin/logs')
+@httpBeforeAll(ensureLoggedIn, checkAllPermissions('debug'))
+export class LogsApi implements HttpApi {
+  applyRoutes(router: Router): void {}
 
-  const logEntries = await retrieveLogEntries(query)
+  @httpGet('/')
+  async getLogs(ctx: RouterContext): Promise<GetLogsPayload> {
+    const { query } = validateRequest(ctx, {
+      query: Joi.object<GetLogsQuery>({
+        limit: Joi.number().default(100),
+        startDate: Joi.date().timestamp('javascript'),
+        endDate: Joi.date().timestamp('javascript'),
+        reqId: Joi.string(),
+        level: Joi.number().min(0).max(100),
+      }),
+    })
 
-  ctx.body = {
-    entries: logEntries,
+    const logEntries = await retrieveLogEntries(query)
+    return { entries: logEntries }
   }
 }
