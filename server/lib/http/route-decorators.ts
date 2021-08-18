@@ -71,7 +71,7 @@ export const routeMiddlewareMetadata = new MetadataMapValue<PropKey, Router.Midd
  * Decorates a method to run the specified middleware functions before handling each request. This
  * should be used alongside one of the `http...` decorators, such as `httpGet` or `httpPost`.
  */
-export function before(
+export function httpBefore(
   ...middleware: Router.Middleware[]
 ): RestrictedMethodDecorator<HttpApiMethod> {
   return function (target, propertyKey) {

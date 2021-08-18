@@ -15,7 +15,7 @@ import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { HttpErrorWithPayload } from '../errors/error-with-payload'
 import { HttpApi, httpApi } from '../http/http-api'
-import { before, httpGet, httpPatch, httpPost } from '../http/route-decorators'
+import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import sendMail from '../mail/mailer'
 import { getMapInfo } from '../maps/map-models'
 import { getRankForUser } from '../matchmaking/models'
@@ -82,7 +82,7 @@ export class UserApi implements HttpApi {
   applyRoutes(router: Router): void {}
 
   @httpPost('/')
-  @before(throttleMiddleware(accountCreationThrottle, ctx => ctx.ip))
+  @httpBefore(throttleMiddleware(accountCreationThrottle, ctx => ctx.ip))
   async createUser(ctx: RouterContext): Promise<ClientSessionInfo> {
     const { username, password } = ctx.request.body
     const email = ctx.request.body.email.trim()
@@ -199,7 +199,7 @@ export class UserApi implements HttpApi {
   }
 
   @httpPatch('/:id')
-  @before(
+  @httpBefore(
     ensureLoggedIn,
     throttleMiddleware(accountUpdateThrottle, ctx => String(ctx.session!.userId)),
   )
@@ -319,7 +319,7 @@ export class UserApi implements HttpApi {
   }
 
   @httpPost('/emailVerification')
-  @before(
+  @httpBefore(
     ensureLoggedIn,
     throttleMiddleware(emailVerificationThrottle, ctx => String(ctx.session!.userId)),
   )
@@ -359,7 +359,7 @@ export class UserApi implements HttpApi {
   }
 
   @httpPost('/sendVerification')
-  @before(
+  @httpBefore(
     ensureLoggedIn,
     throttleMiddleware(sendVerificationThrottle, ctx => String(ctx.session!.userId)),
   )
@@ -393,7 +393,7 @@ export class AdminUserApi implements HttpApi {
   applyRoutes(router: Router): void {}
 
   @httpGet('/:searchTerm')
-  @before(checkAnyPermission('banUsers', 'editPermissions'))
+  @httpBefore(checkAnyPermission('banUsers', 'editPermissions'))
   async findUser(ctx: RouterContext): Promise<User[]> {
     const searchTerm = ctx.params.searchTerm
 

@@ -63,7 +63,7 @@ export const classMiddlewareMetadata = new MetadataValue<Router.Middleware[], Co
  * Class middleware will run *before* any route-specific middleware, similar to calling
  * `router.use(...)` before specifying routes.
  */
-export function beforeAll<T extends HttpApi>(...middleware: Router.Middleware[]) {
+export function httpBeforeAll<T extends HttpApi>(...middleware: Router.Middleware[]) {
   return function (target: Class<T>): void {
     classMiddlewareMetadata.set(target, middleware)
   }
