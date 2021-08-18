@@ -1,4 +1,4 @@
-import Router from '@koa/router'
+import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import { toMapInfoJson } from '../../../common/maps'
@@ -9,23 +9,24 @@ import {
   MatchmakingPreferencesData1v1,
   MatchmakingType,
 } from '../../../common/matchmaking'
-import { httpApi, HttpApi } from '../http/http-api'
-import { apiEndpoint } from '../http/http-api-endpoint'
+import { httpApi, HttpApi, httpBeforeAll } from '../http/http-api'
+import { httpPost } from '../http/route-decorators'
 import { getMapInfo } from '../maps/map-models'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import ensureLoggedIn from '../session/ensure-logged-in'
+import { validateRequest } from '../validation/joi-validator'
 import MatchmakingPreferencesService from './matchmaking-preferences-service'
 
 @httpApi('/matchmakingPreferences')
+@httpBeforeAll(ensureLoggedIn)
 export class MatchmakingPreferencesApi implements HttpApi {
   constructor(private matchmakingPreferencesService: MatchmakingPreferencesService) {}
 
-  applyRoutes(router: Router): void {
-    router.use(ensureLoggedIn).post('/:matchmakingType', this.upsertPreferences)
-  }
+  applyRoutes(router: Router): void {}
 
-  upsertPreferences = apiEndpoint(
-    {
+  @httpPost('/:matchmakingType')
+  async upsertPreferences(ctx: RouterContext): Promise<GetPreferencesPayload> {
+    const { params, body } = validateRequest(ctx, {
       params: Joi.object({
         matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
       }).required(),
@@ -47,41 +48,40 @@ export class MatchmakingPreferencesApi implements HttpApi {
         matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
         mapPoolId: Joi.number().min(1).required(),
       }).required(),
-    },
-    async (ctx, { params, body }): Promise<GetPreferencesPayload> => {
-      const currentMapPool = await getCurrentMapPool(params.matchmakingType)
-      if (!currentMapPool) {
-        throw new httpErrors.BadRequest('invalid matchmaking type')
+    })
+
+    const currentMapPool = await getCurrentMapPool(params.matchmakingType)
+    if (!currentMapPool) {
+      throw new httpErrors.BadRequest('invalid matchmaking type')
+    }
+
+    if (params.matchmakingType === MatchmakingType.Match1v1) {
+      const {
+        race,
+        data: { useAlternateRace },
+      } = body
+      if (race === 'r' && useAlternateRace === true) {
+        throw new httpErrors.BadRequest('cannot use alternate race as random')
       }
+    }
 
-      if (params.matchmakingType === MatchmakingType.Match1v1) {
-        const {
-          race,
-          data: { useAlternateRace },
-        } = body
-        if (race === 'r' && useAlternateRace === true) {
-          throw new httpErrors.BadRequest('cannot use alternate race as random')
-        }
-      }
+    const preferences = await this.matchmakingPreferencesService.upsertPreferences({
+      userId: ctx.session!.userId,
+      matchmakingType: params.matchmakingType,
+      race: body.race,
+      mapPoolId: currentMapPool.id,
+      mapSelections: body.mapSelections,
+      data: body.data,
+    } as MatchmakingPreferences)
 
-      const preferences = await this.matchmakingPreferencesService.upsertPreferences({
-        userId: ctx.session!.userId,
-        matchmakingType: params.matchmakingType,
-        race: body.race,
-        mapPoolId: currentMapPool.id,
-        mapSelections: body.mapSelections,
-        data: body.data,
-      } as MatchmakingPreferences)
+    const mapInfos = (
+      await getMapInfo(preferences.mapSelections.filter(m => currentMapPool.maps.includes(m)))
+    ).map(m => toMapInfoJson(m))
 
-      const mapInfos = (
-        await getMapInfo(preferences.mapSelections.filter(m => currentMapPool.maps.includes(m)))
-      ).map(m => toMapInfoJson(m))
-
-      return {
-        preferences,
-        mapPoolOutdated: false,
-        mapInfos,
-      }
-    },
-  )
+    return {
+      preferences,
+      mapPoolOutdated: false,
+      mapInfos,
+    }
+  }
 }
