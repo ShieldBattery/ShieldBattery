@@ -8,12 +8,13 @@ import {
   MatchmakingPreferences,
   MatchmakingPreferencesData1v1,
 } from '../../../common/matchmaking'
-import { httpApi, HttpApi } from '../http/http-api'
-import { apiEndpoint } from '../http/http-api-endpoint'
+import { httpApi, HttpApi, httpBeforeAll } from '../http/http-api'
+import { httpBefore, httpDelete, httpPost } from '../http/route-decorators'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import updateAllSessions from '../session/update-all-sessions'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
+import { validateRequest } from '../validation/joi-validator'
 import {
   MatchmakingService,
   MatchmakingServiceError,
@@ -59,31 +60,16 @@ async function convertMatchmakingServiceErrors(ctx: RouterContext, next: Koa.Nex
 }
 
 @httpApi('/matchmaking')
+@httpBeforeAll(ensureLoggedIn, convertMatchmakingServiceErrors)
 export class MatchmakingApi implements HttpApi {
   constructor(private matchmakingService: MatchmakingService) {}
 
-  applyRoutes(router: Router): void {
-    router
-      .use(ensureLoggedIn, convertMatchmakingServiceErrors)
-      .post(
-        '/find',
-        throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.userId)),
-        this.findMatch,
-      )
-      .delete(
-        '/',
-        throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.userId)),
-        this.cancelSearch,
-      )
-      .post(
-        '/',
-        throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.userId)),
-        this.acceptMatch,
-      )
-  }
+  applyRoutes(router: Router): void {}
 
-  findMatch = apiEndpoint(
-    {
+  @httpPost('/find')
+  @httpBefore(throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.userId)))
+  async findMatch(ctx: RouterContext): Promise<void> {
+    const { body } = validateRequest(ctx, {
       body: Joi.object<{ clientId: string; preferences: MatchmakingPreferences }>({
         clientId: Joi.string().required(),
         preferences: Joi.object<MatchmakingPreferences>({
@@ -103,22 +89,24 @@ export class MatchmakingApi implements HttpApi {
             .required(),
         }).required(),
       }),
-    },
-    async (ctx, { body }) => {
-      const { clientId, preferences } = body
+    })
+    const { clientId, preferences } = body
 
-      await this.matchmakingService.find(ctx.session!.userId, clientId, preferences)
+    await this.matchmakingService.find(ctx.session!.userId, clientId, preferences)
 
-      // Save the last queued matchmaking type on the user's session
-      await updateAllSessions(ctx, { lastQueuedMatchmakingType: preferences.matchmakingType })
-    },
-  )
+    // Save the last queued matchmaking type on the user's session
+    await updateAllSessions(ctx, { lastQueuedMatchmakingType: preferences.matchmakingType })
+  }
 
-  cancelSearch = apiEndpoint({}, async ctx => {
+  @httpDelete('/')
+  @httpBefore(throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.userId)))
+  async cancelSearch(ctx: RouterContext): Promise<void> {
     await this.matchmakingService.cancel(ctx.session!.userId)
-  })
+  }
 
-  acceptMatch = apiEndpoint({}, async ctx => {
+  @httpPost('/')
+  @httpBefore(throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.userId)))
+  async acceptMatch(ctx: RouterContext): Promise<void> {
     await this.matchmakingService.accept(ctx.session!.userId)
-  })
+  }
 }
