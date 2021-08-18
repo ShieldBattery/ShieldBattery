@@ -3,20 +3,12 @@ import { BadRequest } from 'http-errors'
 import Joi from 'joi'
 import { container } from 'tsyringe'
 import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
-import { httpApi, HttpApi } from '../http/http-api'
+import { httpApi, HttpApi, httpBeforeAll } from '../http/http-api'
+import { httpGet } from '../http/route-decorators'
 import { MatchmakingDebugDataService } from '../matchmaking/debug-data'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
-
-@httpApi('/matchmakingDebug')
-export class MatchmakingDebugApi implements HttpApi {
-  applyRoutes(router: Router): void {
-    router
-      .use(ensureLoggedIn, checkAllPermissions('debug'))
-      .get('/:matchmakingType/queueSize', getQueueSizeHistory)
-  }
-}
 
 interface MatchmakingTypeParams {
   matchmakingType: MatchmakingType
@@ -30,43 +22,52 @@ interface QueueSizeHistoryQuery {
 // NOTE(tec27): The extra minute is just a bit of leeway in case two dates are created a bit apart
 const MAX_HISTORY_REQUEST_MS = 7 * 24 * 60 * 60 * 1000 + 60 * 1000
 
-async function getQueueSizeHistory(ctx: RouterContext) {
-  const { params, query } = validateRequest(ctx, {
-    params: Joi.object<MatchmakingTypeParams>({
-      matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
-    }),
-    query: Joi.object<QueueSizeHistoryQuery>({
-      startDate: Joi.date().timestamp('javascript'),
-      endDate: Joi.date().timestamp('javascript'),
-    }),
-  })
+@httpApi('/matchmakingDebug')
+@httpBeforeAll(ensureLoggedIn, checkAllPermissions('debug'))
+export class MatchmakingDebugApi implements HttpApi {
+  applyRoutes(router: Router): void {}
 
-  const debugDataService = container.resolve(MatchmakingDebugDataService)
+  @httpGet('/:matchmakingType/queueSize')
+  async getQueueSizeHistory(
+    ctx: RouterContext,
+  ): Promise<{ startDate: Date; endDate: Date; history: Array<{ time: number; size: number }> }> {
+    const { params, query } = validateRequest(ctx, {
+      params: Joi.object<MatchmakingTypeParams>({
+        matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
+      }),
+      query: Joi.object<QueueSizeHistoryQuery>({
+        startDate: Joi.date().timestamp('javascript'),
+        endDate: Joi.date().timestamp('javascript'),
+      }),
+    })
 
-  let startDate: Date
-  if (query.startDate) {
-    startDate = query.startDate
-  } else {
-    startDate = new Date()
-    startDate.setDate(startDate.getDate() - 7)
-  }
-  const endDate = query.endDate ?? new Date()
+    const debugDataService = container.resolve(MatchmakingDebugDataService)
 
-  if (endDate < startDate) {
-    throw new BadRequest('endDate must be after startDate')
-  } else if (+endDate - +startDate > MAX_HISTORY_REQUEST_MS) {
-    throw new BadRequest(`requested history range must be less than ${MAX_HISTORY_REQUEST_MS}ms`)
-  }
+    let startDate: Date
+    if (query.startDate) {
+      startDate = query.startDate
+    } else {
+      startDate = new Date()
+      startDate.setDate(startDate.getDate() - 7)
+    }
+    const endDate = query.endDate ?? new Date()
 
-  const history = await debugDataService.retrieveQueueSizeHistory(
-    params.matchmakingType,
-    startDate,
-    endDate,
-  )
+    if (endDate < startDate) {
+      throw new BadRequest('endDate must be after startDate')
+    } else if (+endDate - +startDate > MAX_HISTORY_REQUEST_MS) {
+      throw new BadRequest(`requested history range must be less than ${MAX_HISTORY_REQUEST_MS}ms`)
+    }
 
-  ctx.body = {
-    startDate,
-    endDate,
-    history,
+    const history = await debugDataService.retrieveQueueSizeHistory(
+      params.matchmakingType,
+      startDate,
+      endDate,
+    )
+
+    return {
+      startDate,
+      endDate,
+      history,
+    }
   }
 }
