@@ -15,8 +15,7 @@ import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { HttpErrorWithPayload } from '../errors/error-with-payload'
 import { HttpApi, httpApi } from '../http/http-api'
-import { apiEndpoint } from '../http/http-api-endpoint'
-import { before, httpGet } from '../http/route-decorators'
+import { before, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import sendMail from '../mail/mailer'
 import { getMapInfo } from '../maps/map-models'
 import { getRankForUser } from '../matchmaking/models'
@@ -33,6 +32,7 @@ import initSession from '../session/init'
 import updateAllSessions from '../session/update-all-sessions'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
+import { validateRequest } from '../validation/joi-validator'
 import {
   attemptLogin,
   createUser,
@@ -79,36 +79,11 @@ function hashPass(password: string): Promise<string> {
 export class UserApi implements HttpApi {
   constructor(private nydus: NydusServer) {}
 
-  applyRoutes(router: Router): void {
-    router
-      .post(
-        '/',
-        throttleMiddleware(accountCreationThrottle, ctx => ctx.ip),
-        this.createUser,
-      )
-      .get('/:id/profile', this.getUserProfile)
-      .patch(
-        '/:id',
-        ensureLoggedIn,
-        throttleMiddleware(accountUpdateThrottle, ctx => String(ctx.session!.userId)),
-        this.updateUser,
-      )
-      .post('/:username/password', this.resetPassword)
-      .post(
-        '/emailVerification',
-        ensureLoggedIn,
-        throttleMiddleware(emailVerificationThrottle, ctx => String(ctx.session!.userId)),
-        this.verifyEmail,
-      )
-      .post(
-        '/sendVerification',
-        ensureLoggedIn,
-        throttleMiddleware(sendVerificationThrottle, ctx => String(ctx.session!.userId)),
-        this.sendVerificationEmail,
-      )
-  }
+  applyRoutes(router: Router): void {}
 
-  createUser = async (ctx: RouterContext) => {
+  @httpPost('/')
+  @before(throttleMiddleware(accountCreationThrottle, ctx => ctx.ip))
+  async createUser(ctx: RouterContext): Promise<ClientSessionInfo> {
     const { username, password } = ctx.request.body
     const email = ctx.request.body.email.trim()
 
@@ -149,81 +124,86 @@ export class UserApi implements HttpApi {
       templateData: { token: code },
     }).catch(err => ctx.log.error({ err, req: ctx.req }, 'Error sending email verification email'))
 
-    ctx.body = sessionInfo
+    return sessionInfo
   }
 
-  getUserProfile = apiEndpoint(
-    {
+  @httpGet('/:id/profile')
+  async getUserProfile(ctx: RouterContext): Promise<GetUserProfilePayload> {
+    const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: number }>({
         id: JOI_USER_ID.required(),
       }),
-    },
-    async (ctx, { params }): Promise<GetUserProfilePayload> => {
-      const user = await findUserById(params.id)
-      if (!user) {
-        // TODO(tec27): put the possible codes for this in common/
-        throw new HttpErrorWithPayload(404, 'user not found', { code: 'USER_NOT_FOUND' })
-      }
+    })
 
-      const ladder: Partial<Record<MatchmakingType, LadderPlayer>> = {}
-      // TODO(tec27): Make a function to get multiple types in one DB call?
-      const matchmakingPromises = ALL_MATCHMAKING_TYPES.map(async m => {
-        const r = await getRankForUser(user.id, m)
-        if (r) {
-          ladder[m] = {
-            rank: r.rank,
-            userId: r.userId,
-            rating: r.rating,
-            wins: r.wins,
-            losses: r.losses,
-            lastPlayedDate: Number(r.lastPlayedDate),
-          }
+    const user = await findUserById(params.id)
+    if (!user) {
+      // TODO(tec27): put the possible codes for this in common/
+      throw new HttpErrorWithPayload(404, 'user not found', { code: 'USER_NOT_FOUND' })
+    }
+
+    const ladder: Partial<Record<MatchmakingType, LadderPlayer>> = {}
+    // TODO(tec27): Make a function to get multiple types in one DB call?
+    const matchmakingPromises = ALL_MATCHMAKING_TYPES.map(async m => {
+      const r = await getRankForUser(user.id, m)
+      if (r) {
+        ladder[m] = {
+          rank: r.rank,
+          userId: r.userId,
+          rating: r.rating,
+          wins: r.wins,
+          losses: r.losses,
+          lastPlayedDate: Number(r.lastPlayedDate),
         }
-      })
-      const userStatsPromise = getUserStats(user.id)
+      }
+    })
+    const userStatsPromise = getUserStats(user.id)
 
-      const NUM_RECENT_GAMES = 5
-      const matchHistoryPromise = (async () => {
-        const games = await getRecentGamesForUser(user.id, NUM_RECENT_GAMES)
-        const uniqueUsers = new Set<number>()
-        const uniqueMaps = new Set<string>()
-        for (const g of games) {
-          uniqueMaps.add(g.mapId)
+    const NUM_RECENT_GAMES = 5
+    const matchHistoryPromise = (async () => {
+      const games = await getRecentGamesForUser(user.id, NUM_RECENT_GAMES)
+      const uniqueUsers = new Set<number>()
+      const uniqueMaps = new Set<string>()
+      for (const g of games) {
+        uniqueMaps.add(g.mapId)
 
-          for (const team of g.config.teams) {
-            for (const player of team) {
-              if (!player.isComputer) {
-                uniqueUsers.add(player.id)
-              }
+        for (const team of g.config.teams) {
+          for (const player of team) {
+            if (!player.isComputer) {
+              uniqueUsers.add(player.id)
             }
           }
         }
-        const [users, maps] = await Promise.all([
-          findUsersById(Array.from(uniqueUsers.values())),
-          getMapInfo(Array.from(uniqueMaps.values())),
-        ])
-
-        return {
-          games: games.map(g => ({ ...g, startTime: Number(g.startTime) })),
-          maps: maps.map(m => toMapInfoJson(m)),
-          users: Array.from(users.values()),
-        }
-      })()
-
-      // TODO(tec27): I think these calls will be combine-able in later versions of TS, as of 4.3
-      // the inference doesn't work for destructuring the results
-      await Promise.all(matchmakingPromises)
-      const [userStats, matchHistory] = await Promise.all([userStatsPromise, matchHistoryPromise])
+      }
+      const [users, maps] = await Promise.all([
+        findUsersById(Array.from(uniqueUsers.values())),
+        getMapInfo(Array.from(uniqueMaps.values())),
+      ])
 
       return {
-        user,
-        profile: { userId: user.id, ladder, userStats },
-        matchHistory,
+        games: games.map(g => ({ ...g, startTime: Number(g.startTime) })),
+        maps: maps.map(m => toMapInfoJson(m)),
+        users: Array.from(users.values()),
       }
-    },
-  )
+    })()
 
-  updateUser = async (ctx: RouterContext) => {
+    // TODO(tec27): I think these calls will be combine-able in later versions of TS, as of 4.3
+    // the inference doesn't work for destructuring the results
+    await Promise.all(matchmakingPromises)
+    const [userStats, matchHistory] = await Promise.all([userStatsPromise, matchHistoryPromise])
+
+    return {
+      user,
+      profile: { userId: user.id, ladder, userStats },
+      matchHistory,
+    }
+  }
+
+  @httpPatch('/:id')
+  @before(
+    ensureLoggedIn,
+    throttleMiddleware(accountUpdateThrottle, ctx => String(ctx.session!.userId)),
+  )
+  async updateUser(ctx: RouterContext): Promise<SelfUser | undefined> {
     const { id: idString } = ctx.params
     const { currentPassword, newPassword, newEmail } = ctx.request.body
 
@@ -242,7 +222,7 @@ export class UserApi implements HttpApi {
     // current password, but maybe that should just be a different API
     if (!newPassword && !newEmail) {
       ctx.status = 204
-      return
+      return undefined
     }
 
     if (!isValidPassword(currentPassword)) {
@@ -306,10 +286,11 @@ export class UserApi implements HttpApi {
       }).catch(err => ctx.log.error({ err }, 'Error sending email verification email'))
     }
 
-    ctx.body = user
+    return user
   }
 
-  resetPassword = async (ctx: RouterContext) => {
+  @httpPost('/:username/password')
+  async resetPassword(ctx: RouterContext): Promise<void> {
     // TODO(tec27): This request should probably be for a user ID
     const { username } = ctx.params
     const { code } = ctx.query
@@ -332,11 +313,17 @@ export class UserApi implements HttpApi {
       }
 
       await updateUser(user.id, { password: await hashPass(password) })
-      ctx.status = 204
     })
+
+    ctx.status = 204
   }
 
-  verifyEmail = async (ctx: RouterContext) => {
+  @httpPost('/emailVerification')
+  @before(
+    ensureLoggedIn,
+    throttleMiddleware(emailVerificationThrottle, ctx => String(ctx.session!.userId)),
+  )
+  async verifyEmail(ctx: RouterContext): Promise<void> {
     const { code } = ctx.query
 
     if (!code) {
@@ -371,7 +358,12 @@ export class UserApi implements HttpApi {
     ctx.status = 204
   }
 
-  sendVerificationEmail = async (ctx: RouterContext) => {
+  @httpPost('/sendVerification')
+  @before(
+    ensureLoggedIn,
+    throttleMiddleware(sendVerificationThrottle, ctx => String(ctx.session!.userId)),
+  )
+  async sendVerificationEmail(ctx: RouterContext): Promise<void> {
     const user = await findSelfById(ctx.session!.userId)
     if (!user) {
       throw new httpErrors.BadRequest('User not found')
