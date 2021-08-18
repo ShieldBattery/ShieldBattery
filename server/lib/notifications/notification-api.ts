@@ -1,56 +1,49 @@
 import Router, { RouterContext } from '@koa/router'
 import Joi from 'joi'
-import { container } from 'tsyringe'
 import {
   ClearNotificationsServerBody,
   ClearNotificationsServerPayload,
   MarkNotificationsReadServerBody,
 } from '../../../common/notifications'
-import { httpApi, HttpApi } from '../http/http-api'
+import { httpApi, HttpApi, httpBeforeAll } from '../http/http-api'
+import { httpPost } from '../http/route-decorators'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
 import NotificationService from './notification-service'
 
 @httpApi('/notifications')
+@httpBeforeAll(ensureLoggedIn)
 export class NotificationApi implements HttpApi {
-  constructor() {
-    // NOTE(tec27): Ensure the service is initialized
-    container.resolve(NotificationService)
+  constructor(private notificationService: NotificationService) {}
+
+  applyRoutes(router: Router): void {}
+
+  @httpPost('/clear')
+  async clearNotifications(ctx: RouterContext): Promise<ClearNotificationsServerPayload> {
+    const { body } = validateRequest(ctx, {
+      body: Joi.object<ClearNotificationsServerBody>({
+        timestamp: Joi.number(),
+      }),
+    })
+
+    const timestamp = body.timestamp ?? Date.now()
+    this.notificationService.clearBefore(ctx.session!.userId, new Date(timestamp))
+
+    return {
+      timestamp,
+    }
   }
 
-  applyRoutes(router: Router): void {
-    router
-      .use(ensureLoggedIn)
-      .post('/clear', clearNotifications)
-      .post('/read', markNotificationsRead)
+  @httpPost('/read')
+  async markNotificationsRead(ctx: RouterContext): Promise<void> {
+    const { body } = validateRequest(ctx, {
+      body: Joi.object<MarkNotificationsReadServerBody>({
+        notificationIds: Joi.array().items(Joi.string().required()).min(1).required(),
+      }),
+    })
+
+    this.notificationService.markRead(ctx.session!.userId, body.notificationIds)
+
+    ctx.status = 204
   }
-}
-
-async function clearNotifications(ctx: RouterContext) {
-  const { body } = validateRequest(ctx, {
-    body: Joi.object<ClearNotificationsServerBody>({
-      timestamp: Joi.number(),
-    }),
-  })
-
-  const timestamp = body.timestamp ?? Date.now()
-  const notificationService = container.resolve(NotificationService)
-  notificationService.clearBefore(ctx.session!.userId, new Date(timestamp))
-
-  ctx.body = {
-    timestamp,
-  } as ClearNotificationsServerPayload
-}
-
-async function markNotificationsRead(ctx: RouterContext) {
-  const { body } = validateRequest(ctx, {
-    body: Joi.object<MarkNotificationsReadServerBody>({
-      notificationIds: Joi.array().items(Joi.string().required()).min(1).required(),
-    }),
-  })
-
-  const notificationService = container.resolve(NotificationService)
-  notificationService.markRead(ctx.session!.userId, body.notificationIds)
-
-  ctx.status = 204
 }
