@@ -1,7 +1,6 @@
 import Router from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
-import { singleton } from 'tsyringe'
 import { toMapInfoJson } from '../../../common/maps'
 import {
   ALL_MATCHMAKING_TYPES,
@@ -18,7 +17,6 @@ import ensureLoggedIn from '../session/ensure-logged-in'
 import MatchmakingPreferencesService from './matchmaking-preferences-service'
 
 @httpApi('/matchmakingPreferences')
-@singleton()
 export class MatchmakingPreferencesApi implements HttpApi {
   constructor(private matchmakingPreferencesService: MatchmakingPreferencesService) {}
 

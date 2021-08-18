@@ -1,7 +1,8 @@
 import Router, { RouterContext } from '@koa/router'
-import { container } from 'tsyringe'
-import { Class } from 'type-fest'
+import { container, singleton } from 'tsyringe'
+import { Class, Constructor } from 'type-fest'
 import logger from '../logging/logger'
+import { MetadataMapValue, MetadataValue } from '../reflect/metadata'
 
 export const BASE_API_PATH = '/api/1'
 
@@ -23,16 +24,20 @@ export interface HttpApi {
 /** Token used for injecting a list of every registered HTTP API. */
 const API_INJECTION_TOKEN = Symbol('HttpApi')
 
-/** Key used to store metadata about the HTTP API, such as where it should be mounted. */
-const API_METADATA_KEY = Symbol('httpApiMeta')
-
 interface HttpApiMetadata {
   basePath: string
 }
 
+/** Utility for setting/retrieving httpApi metadata. */
+const httpApiMetadata = new MetadataValue<HttpApiMetadata, Constructor<HttpApi>>(
+  Symbol('httpApiMetadata'),
+)
+
 /**
  * A class decorator that registers an `HttpApi` subclass for automatic configuration by the
  * application.
+ *
+ * This also implies `@singleton()` for the API class.
  *
  * @param basePath The path under which all routes for this API will be mounted. Leading and
  *    trailing slashes will be automatically normalized.
@@ -43,11 +48,11 @@ export function httpApi<T extends HttpApi>(basePath: string) {
     const metadata: HttpApiMetadata = {
       basePath,
     }
-    Reflect.defineMetadata(API_METADATA_KEY, metadata, target)
+    httpApiMetadata.set(target, metadata)
+
+    singleton()(target)
   }
 }
-
-const ROUTES_METADATA_KEY = Symbol('httpApiRoutes')
 
 type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'patch'
 type PropKey = string | symbol
@@ -57,74 +62,70 @@ interface RouteDefinition {
   path: string
 }
 
-type HttpApiMethod = (ctx: RouterContext) => any
-// NOTE(tec27): We disable this because the Reflect types want Object, and the alternatives don't
-// suffice here
-// eslint-disable-next-line @typescript-eslint/ban-types
-type DecoratableHttpApi<K extends PropKey> = { [key in K]: HttpApiMethod } & Object
+const routesMetadata = new MetadataMapValue<PropKey, RouteDefinition, unknown>(
+  Symbol('httpApiRoutes'),
+)
 
-export function apiMethodDecorator(method: HttpMethod, path: string) {
+type HttpApiMethod = (ctx: RouterContext) => any
+type DecoratableHttpApi<K extends PropKey> = { [key in K]: HttpApiMethod }
+
+function apiMethodDecorator(method: HttpMethod, path: string) {
   return function <K extends PropKey, T extends DecoratableHttpApi<K>>(target: T, propertyKey: K) {
-    const routes: Map<PropKey, RouteDefinition> =
-      Reflect.getOwnMetadata(ROUTES_METADATA_KEY, target) ?? new Map()
-    routes.set(propertyKey, { method, path })
-    Reflect.defineMetadata(ROUTES_METADATA_KEY, routes, target)
+    routesMetadata.setEntry(target, propertyKey, { method, path })
   }
 }
 
 /**
- * A method decorator that binds a method to handle a GET request for a particular path. The path
- * will be appended to its class's `basePath`. The method will also be automatically bound to the
- * class instance.
+ * Decorates a method to handle a GET request for a particular path. The path will be appended to
+ * its class's `basePath`. The method will also be automatically bound to the class instance.
  */
 export function httpGet(path: string) {
   return apiMethodDecorator('get', path)
 }
 
 /**
- * A method decorator that binds a method to handle a POST request for a particular path. The path
- * will be appended to its class's `basePath`. The method will also be automatically bound to the
- * class instance.
+ * Decorates a method to handle a POST request for a particular path. The path will be appended to
+ * its class's `basePath`. The method will also be automatically bound to the class instance.
  */
 export function httpPost(path: string) {
   return apiMethodDecorator('post', path)
 }
 
 /**
- * A method decorator that binds a method to handle a PUT request for a particular path. The path
- * will be appended to its class's `basePath`. The method will also be automatically bound to the
- * class instance.
+ * Decorates a method to handle a PUT request for a particular path. The path will be appended to
+ * its class's `basePath`. The method will also be automatically bound to the class instance.
  */
 export function httpPut(path: string) {
   return apiMethodDecorator('put', path)
 }
 
 /**
- * A method decorator that binds a method to handle a DELETE request for a particular path. The path
- * will be appended to its class's `basePath`. The method will also be automatically bound to the
- * class instance.
+ * Decorates a method to handle a DELETE request for a particular path. The path will be appended to
+ * its class's `basePath`. The method will also be automatically bound to the class instance.
  */
 export function httpDelete(path: string) {
   return apiMethodDecorator('delete', path)
 }
 
 /**
- * A method decorator that binds a method to handle a PATCH request for a particular path. The path
- * will be appended to its class's `basePath`. The method will also be automatically bound to the
- * class instance.
+ * Decorates a method to handle a PATCH request for a particular path. The path will be appended to
+ * its class's `basePath`. The method will also be automatically bound to the class instance.
  */
 export function httpPatch(path: string) {
   return apiMethodDecorator('patch', path)
 }
 
-const MIDDLEWARE_METADATA_KEY = Symbol('httpApiMiddleware')
+const routeMiddlewareMetadata = new MetadataMapValue<PropKey, Router.Middleware[], unknown>(
+  Symbol('httpApiRouteMiddleware'),
+)
 
-export function withMiddleware(...middleware: Router.Middleware[]) {
+/**
+ * Decorates a method to run the specified middleware functions before handling each request. This
+ * should be used alongside one of the `http...` decorators, such as `httpGet` or `httpPost`.
+ */
+export function before(...middleware: Router.Middleware[]) {
   return function <K extends PropKey, T extends DecoratableHttpApi<K>>(target: T, propertyKey: K) {
-    const registrations: Map<PropKey, Router.Middleware[]> =
-      Reflect.getOwnMetadata(MIDDLEWARE_METADATA_KEY, target) ?? new Map()
-    registrations.set(propertyKey, middleware)
-    Reflect.defineMetadata(MIDDLEWARE_METADATA_KEY, registrations, target)
+    routeMiddlewareMetadata.setEntry(target, propertyKey, middleware)
   }
 }
 
@@ -138,21 +139,19 @@ export function resolveAllHttpApis(depContainer = container) {
  * initializing all the routes for the application.
  */
 export function applyApiRoutes(router: Router, apiClass: HttpApi) {
-  const metadata: HttpApiMetadata = Reflect.getOwnMetadata(API_METADATA_KEY, apiClass.constructor)
+  const metadata = httpApiMetadata.get(apiClass.constructor as Constructor<HttpApi>)
   if (!metadata) {
     throw new Error(`Cannot apply routes to ${apiClass.constructor.name}, it has no metadata!`)
   }
-  const routes: Map<PropKey, RouteDefinition> =
-    Reflect.getOwnMetadata(ROUTES_METADATA_KEY, apiClass.constructor.prototype) ?? new Map()
-  const middlewares: Map<PropKey, Router.Middleware[]> =
-    Reflect.getOwnMetadata(MIDDLEWARE_METADATA_KEY, apiClass.constructor.prototype) ?? new Map()
+  const routes = routesMetadata.get(apiClass.constructor.prototype)
+  const middlewares = routeMiddlewareMetadata.get(apiClass.constructor.prototype)
 
   if (!routes.size) {
     logger.warn(`${apiClass.constructor.name} was registered as an httpApi but has no routes`)
   }
   for (const k of middlewares.keys()) {
     if (!routes.has(k)) {
-      logger.warn(
+      throw new Error(
         `${apiClass.constructor.name}#${String(k)} has middleware but was not ` +
           `registered as an API method`,
       )

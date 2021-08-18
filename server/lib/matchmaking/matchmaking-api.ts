@@ -2,7 +2,6 @@ import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
-import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   ALL_MATCHMAKING_TYPES,
@@ -60,7 +59,6 @@ async function convertMatchmakingServiceErrors(ctx: RouterContext, next: Koa.Nex
 }
 
 @httpApi('/matchmaking')
-@singleton()
 export class MatchmakingApi implements HttpApi {
   constructor(private matchmakingService: MatchmakingService) {}
 

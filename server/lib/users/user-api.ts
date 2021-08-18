@@ -4,7 +4,6 @@ import cuid from 'cuid'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import { NydusServer } from 'nydus'
-import { singleton } from 'tsyringe'
 import { isValidEmail, isValidPassword, isValidUsername } from '../../../common/constants'
 import { LadderPlayer } from '../../../common/ladder'
 import { toMapInfoJson } from '../../../common/maps'
@@ -15,7 +14,7 @@ import { GetUserProfilePayload, SelfUser, User } from '../../../common/users/use
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { HttpErrorWithPayload } from '../errors/error-with-payload'
-import { HttpApi, httpApi, httpGet, withMiddleware } from '../http/http-api'
+import { before, HttpApi, httpApi, httpGet } from '../http/http-api'
 import { apiEndpoint } from '../http/http-api-endpoint'
 import sendMail from '../mail/mailer'
 import { getMapInfo } from '../maps/map-models'
@@ -76,7 +75,6 @@ function hashPass(password: string): Promise<string> {
 }
 
 @httpApi('/users')
-@singleton()
 export class UserApi implements HttpApi {
   constructor(private nydus: NydusServer) {}
 
@@ -398,12 +396,11 @@ export class UserApi implements HttpApi {
 }
 
 @httpApi('/admin/users')
-@singleton()
 export class AdminUserApi implements HttpApi {
   applyRoutes(router: Router): void {}
 
   @httpGet('/:searchTerm')
-  @withMiddleware(checkAnyPermission('banUsers', 'editPermissions'))
+  @before(checkAnyPermission('banUsers', 'editPermissions'))
   async findUser(ctx: RouterContext): Promise<User[]> {
     const searchTerm = ctx.params.searchTerm
 

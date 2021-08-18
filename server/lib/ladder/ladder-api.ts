@@ -1,6 +1,5 @@
 import Router from '@koa/router'
 import Joi from 'joi'
-import { singleton } from 'tsyringe'
 import { GetRankingsPayload, LadderPlayer } from '../../../common/ladder'
 import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
 import { User } from '../../../common/users/user-info'
@@ -13,7 +12,6 @@ import ensureLoggedIn from '../session/ensure-logged-in'
 const UPDATE_RANKS_MINUTES = 5
 
 @httpApi('/ladder')
-@singleton()
 export class LadderApi implements HttpApi {
   constructor(private jobScheduler: JobScheduler) {
     const startTime = new Date()
