@@ -1,9 +1,9 @@
-import Router, { RouterContext } from '@koa/router'
+import { RouterContext } from '@koa/router'
 import Joi from 'joi'
 import { GetRankingsPayload, LadderPlayer } from '../../../common/ladder'
 import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
 import { User } from '../../../common/users/user-info'
-import { HttpApi, httpApi, httpBeforeAll } from '../http/http-api'
+import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpGet } from '../http/route-decorators'
 import { JobScheduler } from '../jobs/job-scheduler'
 import { getRankings, refreshRankings } from '../matchmaking/models'
@@ -14,7 +14,7 @@ const UPDATE_RANKS_MINUTES = 5
 
 @httpApi('/ladder')
 @httpBeforeAll(ensureLoggedIn)
-export class LadderApi implements HttpApi {
+export class LadderApi {
   constructor(private jobScheduler: JobScheduler) {
     const startTime = new Date()
     const timeRemainder = UPDATE_RANKS_MINUTES - (startTime.getMinutes() % UPDATE_RANKS_MINUTES)
@@ -28,8 +28,6 @@ export class LadderApi implements HttpApi {
       },
     )
   }
-
-  applyRoutes(router: Router): void {}
 
   @httpGet('/:matchmakingType')
   async getRankings(ctx: RouterContext): Promise<GetRankingsPayload> {

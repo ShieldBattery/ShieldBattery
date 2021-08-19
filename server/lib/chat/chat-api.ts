@@ -1,4 +1,4 @@
-import Router, { RouterContext } from '@koa/router'
+import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
@@ -11,7 +11,7 @@ import {
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
 import { MULTI_CHANNEL } from '../../../common/flags'
 import { featureEnabled } from '../flags/feature-enabled'
-import { httpApi, HttpApi, httpBeforeAll } from '../http/http-api'
+import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -86,10 +86,8 @@ function getValidatedChannelName(ctx: RouterContext) {
 
 @httpApi('/chat')
 @httpBeforeAll(ensureLoggedIn, convertChatServiceErrors)
-export class ChatApi implements HttpApi {
+export class ChatApi {
   constructor(private chatService: ChatService) {}
-
-  applyRoutes(router: Router): void {}
 
   @httpPost('/:channelName')
   @httpBefore(

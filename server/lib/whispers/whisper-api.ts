@@ -1,4 +1,4 @@
-import Router, { RouterContext } from '@koa/router'
+import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
@@ -9,7 +9,7 @@ import {
   GetSessionHistoryServerPayload,
   SendWhisperMessageServerBody,
 } from '../../../common/whispers'
-import { httpApi, HttpApi, httpBeforeAll } from '../http/http-api'
+import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -86,12 +86,10 @@ function getValidatedTargetName(ctx: RouterContext) {
 
 @httpApi('/whispers')
 @httpBeforeAll(ensureLoggedIn, convertWhisperServiceErrors)
-export class WhisperApi implements HttpApi {
+export class WhisperApi {
   constructor(private whisperService: WhisperService) {
     container.resolve(WhisperService)
   }
-
-  applyRoutes(router: Router): void {}
 
   @httpPost('/:targetName')
   @httpBefore(throttleMiddleware(startThrottle, ctx => String(ctx.session!.userId)))

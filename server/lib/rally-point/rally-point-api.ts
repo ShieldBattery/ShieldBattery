@@ -1,4 +1,4 @@
-import Router, { RouterContext } from '@koa/router'
+import { RouterContext } from '@koa/router'
 import { BadRequest, NotFound } from 'http-errors'
 import Joi from 'joi'
 import { container } from 'tsyringe'
@@ -10,7 +10,7 @@ import {
   UpdateRallyPointServerBody,
   UpdateRallyPointServerPayload,
 } from '../../../common/rally-point'
-import { httpApi, HttpApi, httpBeforeAll } from '../http/http-api'
+import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpGet, httpPost, httpPut } from '../http/route-decorators'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -27,8 +27,8 @@ interface UpdateClientPingParams {
 
 @httpApi('/rally-point/')
 @httpBeforeAll(ensureLoggedIn)
-export class RallyPointPingApi implements HttpApi {
-  applyRoutes(router: Router): void {}
+export class RallyPointPingApi {
+  constructor(private rallyPointService: RallyPointService) {}
 
   @httpPut('/pings/:userId/:clientId/:serverId')
   async updateClientPing(ctx: RouterContext): Promise<void> {
@@ -51,8 +51,7 @@ export class RallyPointPingApi implements HttpApi {
       throw new NotFound(`could not find a client with id ${params.clientId}`)
     }
 
-    const rallyPointService = container.resolve(RallyPointService)
-    rallyPointService.updatePing(client, params.serverId, body.ping)
+    this.rallyPointService.updatePing(client, params.serverId, body.ping)
 
     ctx.status = 204
   }
@@ -60,8 +59,8 @@ export class RallyPointPingApi implements HttpApi {
 
 @httpApi('/admin/rally-point/')
 @httpBeforeAll(ensureLoggedIn, checkAllPermissions('manageRallyPointServers'))
-export class RallyPointAdminApi implements HttpApi {
-  applyRoutes(router: Router): void {}
+export class RallyPointAdminApi {
+  constructor(private rallyPointService: RallyPointService) {}
 
   @httpGet('/')
   async getServers(ctx: RouterContext): Promise<GetRallyPointServersPayload> {
@@ -79,9 +78,7 @@ export class RallyPointAdminApi implements HttpApi {
       }),
     })
 
-    const rallyPointService = container.resolve(RallyPointService)
-
-    const server = await rallyPointService.addServer({
+    const server = await this.rallyPointService.addServer({
       description: body.description,
       hostname: body.hostname,
       port: body.port,
@@ -92,7 +89,7 @@ export class RallyPointAdminApi implements HttpApi {
   }
 
   @httpPut('/:serverId')
-  async updateServer(ctx: RouterContext) {
+  async updateServer(ctx: RouterContext): Promise<UpdateRallyPointServerPayload> {
     const { params, body } = validateRequest(ctx, {
       params: Joi.object<{ serverId: number }>({
         serverId: Joi.number().integer().min(0).required(),
@@ -110,9 +107,7 @@ export class RallyPointAdminApi implements HttpApi {
       throw new BadRequest('url and body id must match')
     }
 
-    const rallyPointService = container.resolve(RallyPointService)
-
-    const server = await rallyPointService.updateServer({
+    const server = await this.rallyPointService.updateServer({
       id: body.id,
       enabled: body.enabled,
       description: body.description,
@@ -124,10 +119,6 @@ export class RallyPointAdminApi implements HttpApi {
       throw new NotFound('the specified server does not exist')
     }
 
-    const result: UpdateRallyPointServerPayload = {
-      server,
-    }
-
-    ctx.body = result
+    return { server }
   }
 }

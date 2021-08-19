@@ -1,4 +1,4 @@
-import Router, { RouterContext } from '@koa/router'
+import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
@@ -14,7 +14,7 @@ import {
 } from '../../../common/parties'
 import { asHttpError } from '../errors/error-with-payload'
 import { featureEnabled } from '../flags/feature-enabled'
-import { httpApi, HttpApi, httpBeforeAll } from '../http/http-api'
+import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpPost } from '../http/route-decorators'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -80,10 +80,8 @@ async function convertPartyServiceErrors(ctx: RouterContext, next: Koa.Next) {
 
 @httpApi('/parties')
 @httpBeforeAll(featureEnabled(PARTIES), ensureLoggedIn, convertPartyServiceErrors)
-export class PartyApi implements HttpApi {
+export class PartyApi {
   constructor(private partyService: PartyService) {}
-
-  applyRoutes(router: Router): void {}
 
   @httpPost('/invites')
   @httpBefore(throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)))

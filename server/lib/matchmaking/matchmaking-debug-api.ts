@@ -1,9 +1,9 @@
-import Router, { RouterContext } from '@koa/router'
+import { RouterContext } from '@koa/router'
 import { BadRequest } from 'http-errors'
 import Joi from 'joi'
 import { container } from 'tsyringe'
 import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
-import { httpApi, HttpApi, httpBeforeAll } from '../http/http-api'
+import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpGet } from '../http/route-decorators'
 import { MatchmakingDebugDataService } from '../matchmaking/debug-data'
 import { checkAllPermissions } from '../permissions/check-permissions'
@@ -24,9 +24,7 @@ const MAX_HISTORY_REQUEST_MS = 7 * 24 * 60 * 60 * 1000 + 60 * 1000
 
 @httpApi('/matchmakingDebug')
 @httpBeforeAll(ensureLoggedIn, checkAllPermissions('debug'))
-export class MatchmakingDebugApi implements HttpApi {
-  applyRoutes(router: Router): void {}
-
+export class MatchmakingDebugApi {
   @httpGet('/:matchmakingType/queueSize')
   async getQueueSizeHistory(
     ctx: RouterContext,

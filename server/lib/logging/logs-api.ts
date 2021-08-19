@@ -1,7 +1,7 @@
-import Router, { RouterContext } from '@koa/router'
+import { RouterContext } from '@koa/router'
 import Joi from 'joi'
 import { GetLogsPayload } from '../../../common/admin/server-logs'
-import { httpApi, HttpApi, httpBeforeAll } from '../http/http-api'
+import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpGet } from '../http/route-decorators'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -18,9 +18,7 @@ interface GetLogsQuery {
 
 @httpApi('/admin/logs')
 @httpBeforeAll(ensureLoggedIn, checkAllPermissions('debug'))
-export class LogsApi implements HttpApi {
-  applyRoutes(router: Router): void {}
-
+export class LogsApi {
   @httpGet('/')
   async getLogs(ctx: RouterContext): Promise<GetLogsPayload> {
     const { query } = validateRequest(ctx, {

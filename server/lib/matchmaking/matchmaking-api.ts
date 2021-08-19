@@ -1,4 +1,4 @@
-import Router, { RouterContext } from '@koa/router'
+import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
@@ -8,7 +8,7 @@ import {
   MatchmakingPreferences,
   MatchmakingPreferencesData1v1,
 } from '../../../common/matchmaking'
-import { httpApi, HttpApi, httpBeforeAll } from '../http/http-api'
+import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpPost } from '../http/route-decorators'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import updateAllSessions from '../session/update-all-sessions'
@@ -61,10 +61,8 @@ async function convertMatchmakingServiceErrors(ctx: RouterContext, next: Koa.Nex
 
 @httpApi('/matchmaking')
 @httpBeforeAll(ensureLoggedIn, convertMatchmakingServiceErrors)
-export class MatchmakingApi implements HttpApi {
+export class MatchmakingApi {
   constructor(private matchmakingService: MatchmakingService) {}
-
-  applyRoutes(router: Router): void {}
 
   @httpPost('/find')
   @httpBefore(throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.userId)))

@@ -1,11 +1,11 @@
-import Router, { RouterContext } from '@koa/router'
+import { RouterContext } from '@koa/router'
 import Joi from 'joi'
 import {
   ClearNotificationsServerBody,
   ClearNotificationsServerPayload,
   MarkNotificationsReadServerBody,
 } from '../../../common/notifications'
-import { httpApi, HttpApi, httpBeforeAll } from '../http/http-api'
+import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpPost } from '../http/route-decorators'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
@@ -13,10 +13,8 @@ import NotificationService from './notification-service'
 
 @httpApi('/notifications')
 @httpBeforeAll(ensureLoggedIn)
-export class NotificationApi implements HttpApi {
+export class NotificationApi {
   constructor(private notificationService: NotificationService) {}
-
-  applyRoutes(router: Router): void {}
 
   @httpPost('/clear')
   async clearNotifications(ctx: RouterContext): Promise<ClearNotificationsServerPayload> {

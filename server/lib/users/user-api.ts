@@ -1,4 +1,4 @@
-import Router, { RouterContext } from '@koa/router'
+import { RouterContext } from '@koa/router'
 import bcrypt from 'bcrypt'
 import cuid from 'cuid'
 import httpErrors from 'http-errors'
@@ -14,7 +14,7 @@ import { GetUserProfilePayload, SelfUser, User } from '../../../common/users/use
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { HttpErrorWithPayload } from '../errors/error-with-payload'
-import { HttpApi, httpApi } from '../http/http-api'
+import { httpApi } from '../http/http-api'
 import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import sendMail from '../mail/mailer'
 import { getMapInfo } from '../maps/map-models'
@@ -76,10 +76,8 @@ function hashPass(password: string): Promise<string> {
 }
 
 @httpApi('/users')
-export class UserApi implements HttpApi {
+export class UserApi {
   constructor(private nydus: NydusServer) {}
-
-  applyRoutes(router: Router): void {}
 
   @httpPost('/')
   @httpBefore(throttleMiddleware(accountCreationThrottle, ctx => ctx.ip))
@@ -389,9 +387,7 @@ export class UserApi implements HttpApi {
 }
 
 @httpApi('/admin/users')
-export class AdminUserApi implements HttpApi {
-  applyRoutes(router: Router): void {}
-
+export class AdminUserApi {
   @httpGet('/:searchTerm')
   @httpBefore(checkAnyPermission('banUsers', 'editPermissions'))
   async findUser(ctx: RouterContext): Promise<User[]> {

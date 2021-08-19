@@ -1,4 +1,4 @@
-import Router, { RouterContext } from '@koa/router'
+import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import { toMapInfoJson } from '../../../common/maps'
@@ -9,7 +9,7 @@ import {
   MatchmakingPreferencesData1v1,
   MatchmakingType,
 } from '../../../common/matchmaking'
-import { httpApi, HttpApi, httpBeforeAll } from '../http/http-api'
+import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpPost } from '../http/route-decorators'
 import { getMapInfo } from '../maps/map-models'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
@@ -19,10 +19,8 @@ import MatchmakingPreferencesService from './matchmaking-preferences-service'
 
 @httpApi('/matchmakingPreferences')
 @httpBeforeAll(ensureLoggedIn)
-export class MatchmakingPreferencesApi implements HttpApi {
+export class MatchmakingPreferencesApi {
   constructor(private matchmakingPreferencesService: MatchmakingPreferencesService) {}
-
-  applyRoutes(router: Router): void {}
 
   @httpPost('/:matchmakingType')
   async upsertPreferences(ctx: RouterContext): Promise<GetPreferencesPayload> {
