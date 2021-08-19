@@ -2,7 +2,6 @@ import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
-import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { PARTIES } from '../../../common/flags'
 import {
@@ -15,7 +14,8 @@ import {
 } from '../../../common/parties'
 import { asHttpError } from '../errors/error-with-payload'
 import { featureEnabled } from '../flags/feature-enabled'
-import { httpApi, HttpApi } from '../http/http-api'
+import { httpApi, HttpApi, httpBeforeAll } from '../http/http-api'
+import { httpBefore, httpDelete, httpPost } from '../http/route-decorators'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
@@ -79,222 +79,190 @@ async function convertPartyServiceErrors(ctx: RouterContext, next: Koa.Next) {
 }
 
 @httpApi('/parties')
+@httpBeforeAll(featureEnabled(PARTIES), ensureLoggedIn, convertPartyServiceErrors)
 export class PartyApi implements HttpApi {
-  constructor() {
-    // NOTE(tec27): Just ensures the service gets initialized on app init
-    container.resolve(PartyService)
-  }
+  constructor(private partyService: PartyService) {}
 
-  applyRoutes(router: Router): void {
-    router
-      .use(featureEnabled(PARTIES), ensureLoggedIn, convertPartyServiceErrors)
-      .post(
-        '/invites',
-        throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)),
-        invite,
-      )
-      .delete(
-        '/invites/:partyId',
-        throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)),
-        decline,
-      )
-      .delete(
-        '/invites/:partyId/:targetId',
-        throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)),
-        removeInvite,
-      )
-      .post(
-        '/:partyId',
-        throttleMiddleware(partyThrottle, ctx => String(ctx.session!.userId)),
-        accept,
-      )
-      .post(
-        '/:partyId/changeLeader',
-        throttleMiddleware(partyThrottle, ctx => String(ctx.session!.userId)),
-        changeLeader,
-      )
-      .delete(
-        '/:partyId/:clientId',
-        throttleMiddleware(partyThrottle, ctx => String(ctx.session!.userId)),
-        leaveOrKick,
-      )
-      .post(
-        '/:partyId/messages',
-        throttleMiddleware(sendChatMessageThrottle, ctx => String(ctx.session!.userId)),
-        sendChatMessage,
-      )
-  }
-}
+  applyRoutes(router: Router): void {}
 
-async function invite(ctx: RouterContext) {
-  const {
-    body: { clientId, targetId },
-  } = validateRequest(ctx, {
-    body: Joi.object<InviteToPartyServerBody>({
-      clientId: Joi.string().required(),
-      targetId: Joi.number().min(1).required(),
-    }),
-  })
+  @httpPost('/invites')
+  @httpBefore(throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)))
+  async invite(ctx: RouterContext): Promise<void> {
+    const {
+      body: { clientId, targetId },
+    } = validateRequest(ctx, {
+      body: Joi.object<InviteToPartyServerBody>({
+        clientId: Joi.string().required(),
+        targetId: Joi.number().min(1).required(),
+      }),
+    })
 
-  const foundTarget = await findUserById(targetId)
-  if (!foundTarget) {
-    throw new httpErrors.NotFound('Target user not found')
-  }
-
-  // TODO(2Pac): Check if the target user has blocked invitations from the user issuing
-  // the request. Or potentially use friends list when implemented.
-
-  const invite: PartyUser = { id: foundTarget.id, name: foundTarget.name }
-  const leader: PartyUser = {
-    id: ctx.session!.userId,
-    name: ctx.session!.userName,
-  }
-
-  const partyService = container.resolve(PartyService)
-  await partyService.invite(leader, clientId, invite)
-
-  ctx.status = 204
-}
-
-async function decline(ctx: RouterContext) {
-  const {
-    params: { partyId },
-  } = validateRequest(ctx, {
-    params: Joi.object<{ partyId: string }>({
-      partyId: Joi.string().required(),
-    }),
-  })
-
-  const target: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
-
-  const partyService = container.resolve(PartyService)
-  partyService.decline(partyId, target)
-
-  ctx.status = 204
-}
-
-async function removeInvite(ctx: RouterContext) {
-  const {
-    params: { partyId, targetId },
-  } = validateRequest(ctx, {
-    params: Joi.object<{ partyId: string; targetId: number }>({
-      partyId: Joi.string().required(),
-      targetId: Joi.number().required(),
-    }),
-  })
-
-  const foundTarget = await findUserById(targetId)
-  if (!foundTarget) {
-    throw new httpErrors.NotFound('Target user not found')
-  }
-
-  const removingUser: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
-  const target: PartyUser = { id: foundTarget.id, name: foundTarget.name }
-
-  const partyService = container.resolve(PartyService)
-  await partyService.removeInvite(partyId, removingUser, target)
-
-  ctx.status = 204
-}
-
-async function accept(ctx: RouterContext) {
-  const {
-    params: { partyId },
-    body: { clientId },
-  } = validateRequest(ctx, {
-    params: Joi.object<{ partyId: string }>({
-      partyId: Joi.string().required(),
-    }),
-    body: Joi.object<AcceptPartyInviteServerBody>({
-      clientId: Joi.string().required(),
-    }),
-  })
-
-  const user: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
-
-  const partyService = container.resolve(PartyService)
-  await partyService.acceptInvite(partyId, user, clientId)
-
-  ctx.status = 204
-}
-
-async function leaveOrKick(ctx: RouterContext) {
-  const {
-    params: { partyId, clientId },
-    query: { type },
-  } = validateRequest(ctx, {
-    params: Joi.object<{ partyId: string; clientId: string | number }>({
-      partyId: Joi.string().required(),
-      clientId: Joi.alternatives(Joi.string(), Joi.number()).required(),
-    }),
-    query: Joi.object<{ type: 'leave' | 'kick' }>({
-      type: Joi.string().valid('leave', 'kick').required(),
-    }),
-  })
-
-  const partyService = container.resolve(PartyService)
-
-  if (type === 'leave') {
-    await partyService.leaveParty(partyId, ctx.session!.userId, clientId as string)
-  } else if (type === 'kick') {
-    const foundTarget = await findUserById(clientId as number)
+    const foundTarget = await findUserById(targetId)
     if (!foundTarget) {
       throw new httpErrors.NotFound('Target user not found')
     }
 
-    const kickingUser: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
+    // TODO(2Pac): Check if the target user has blocked invitations from the user issuing
+    // the request. Or potentially use friends list when implemented.
+
+    const invite: PartyUser = { id: foundTarget.id, name: foundTarget.name }
+    const leader: PartyUser = {
+      id: ctx.session!.userId,
+      name: ctx.session!.userName,
+    }
+
+    await this.partyService.invite(leader, clientId, invite)
+
+    ctx.status = 204
+  }
+
+  @httpDelete('/invites/:partyId')
+  @httpBefore(throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)))
+  async decline(ctx: RouterContext): Promise<void> {
+    const {
+      params: { partyId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ partyId: string }>({
+        partyId: Joi.string().required(),
+      }),
+    })
+
+    const target: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
+    this.partyService.decline(partyId, target)
+
+    ctx.status = 204
+  }
+
+  @httpDelete('/invites/:partyId/:targetId')
+  @httpBefore(throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)))
+  async removeInvite(ctx: RouterContext): Promise<void> {
+    const {
+      params: { partyId, targetId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ partyId: string; targetId: number }>({
+        partyId: Joi.string().required(),
+        targetId: Joi.number().required(),
+      }),
+    })
+
+    const foundTarget = await findUserById(targetId)
+    if (!foundTarget) {
+      throw new httpErrors.NotFound('Target user not found')
+    }
+
+    const removingUser: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
     const target: PartyUser = { id: foundTarget.id, name: foundTarget.name }
 
-    await partyService.kickPlayer(partyId, kickingUser, target)
-  } else {
-    assertUnreachable(type)
+    await this.partyService.removeInvite(partyId, removingUser, target)
+
+    ctx.status = 204
   }
 
-  ctx.status = 204
-}
+  @httpPost('/:partyId')
+  @httpBefore(throttleMiddleware(partyThrottle, ctx => String(ctx.session!.userId)))
+  async accept(ctx: RouterContext): Promise<void> {
+    const {
+      params: { partyId },
+      body: { clientId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ partyId: string }>({
+        partyId: Joi.string().required(),
+      }),
+      body: Joi.object<AcceptPartyInviteServerBody>({
+        clientId: Joi.string().required(),
+      }),
+    })
 
-async function sendChatMessage(ctx: RouterContext) {
-  const {
-    params: { partyId },
-    body: { message },
-  } = validateRequest(ctx, {
-    params: Joi.object<{ partyId: string; message: string }>({
-      partyId: Joi.string().required(),
-    }),
-    body: Joi.object<SendChatMessageServerBody>({
-      message: Joi.string().min(1).required(),
-    }),
-  })
+    const user: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
+    await this.partyService.acceptInvite(partyId, user, clientId)
 
-  const partyService = container.resolve(PartyService)
-  await partyService.sendChatMessage(partyId, ctx.session!.userId, message)
-
-  ctx.status = 204
-}
-
-async function changeLeader(ctx: RouterContext) {
-  const {
-    params: { partyId },
-    body: { targetId },
-  } = validateRequest(ctx, {
-    params: Joi.object<{ partyId: string; message: string }>({
-      partyId: Joi.string().required(),
-    }),
-    body: Joi.object<ChangeLeaderServerBody>({
-      targetId: Joi.number().required(),
-    }),
-  })
-
-  const foundTarget = await findUserById(targetId)
-  if (!foundTarget) {
-    throw new httpErrors.NotFound('Target user not found')
+    ctx.status = 204
   }
 
-  const oldLeader: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
-  const newLeader: PartyUser = { id: foundTarget.id, name: foundTarget.name }
+  @httpDelete('/:partyId/:clientId')
+  @httpBefore(throttleMiddleware(partyThrottle, ctx => String(ctx.session!.userId)))
+  async leaveOrKick(ctx: RouterContext): Promise<void> {
+    const {
+      params: { partyId, clientId },
+      query: { type },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ partyId: string; clientId: string | number }>({
+        partyId: Joi.string().required(),
+        clientId: Joi.alternatives(Joi.number(), Joi.string()).required(),
+      }),
+      query: Joi.object<{ type: 'leave' | 'kick' }>({
+        type: Joi.string().valid('leave', 'kick').required(),
+      }),
+    })
 
-  const partyService = container.resolve(PartyService)
-  await partyService.changeLeader(partyId, oldLeader, newLeader)
+    if (type === 'leave') {
+      this.partyService.leaveParty(partyId, ctx.session!.userId, String(clientId))
+    } else if (type === 'kick') {
+      if (typeof clientId !== 'number') {
+        throw new httpErrors.BadRequest('clientId must be a number for kicking')
+      }
 
-  ctx.status = 204
+      const foundTarget = await findUserById(clientId)
+      if (!foundTarget) {
+        throw new httpErrors.NotFound('Target user not found')
+      }
+
+      const kickingUser: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
+      const target: PartyUser = { id: foundTarget.id, name: foundTarget.name }
+
+      this.partyService.kickPlayer(partyId, kickingUser, target)
+    } else {
+      assertUnreachable(type)
+    }
+
+    ctx.status = 204
+  }
+
+  @httpPost('/:partyId/messages')
+  @httpBefore(throttleMiddleware(sendChatMessageThrottle, ctx => String(ctx.session!.userId)))
+  async sendChatMessage(ctx: RouterContext): Promise<void> {
+    const {
+      params: { partyId },
+      body: { message },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ partyId: string; message: string }>({
+        partyId: Joi.string().required(),
+      }),
+      body: Joi.object<SendChatMessageServerBody>({
+        message: Joi.string().min(1).required(),
+      }),
+    })
+
+    this.partyService.sendChatMessage(partyId, ctx.session!.userId, message)
+
+    ctx.status = 204
+  }
+
+  @httpPost('/:partyId/changeLeader')
+  @httpBefore(throttleMiddleware(partyThrottle, ctx => String(ctx.session!.userId)))
+  async changeLeader(ctx: RouterContext): Promise<void> {
+    const {
+      params: { partyId },
+      body: { targetId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ partyId: string; message: string }>({
+        partyId: Joi.string().required(),
+      }),
+      body: Joi.object<ChangeLeaderServerBody>({
+        targetId: Joi.number().required(),
+      }),
+    })
+
+    const foundTarget = await findUserById(targetId)
+    if (!foundTarget) {
+      throw new httpErrors.NotFound('Target user not found')
+    }
+
+    const oldLeader: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
+    const newLeader: PartyUser = { id: foundTarget.id, name: foundTarget.name }
+
+    this.partyService.changeLeader(partyId, oldLeader, newLeader)
+
+    ctx.status = 204
+  }
 }
