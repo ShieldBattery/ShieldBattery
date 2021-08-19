@@ -5,8 +5,12 @@ import Koa from 'koa'
 import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { USERNAME_MAXLENGTH, USERNAME_MINLENGTH, USERNAME_PATTERN } from '../../../common/constants'
-import { SendWhisperMessageServerBody } from '../../../common/whispers'
-import { httpApi, HttpApi } from '../http/http-api'
+import {
+  GetSessionHistoryServerPayload,
+  SendWhisperMessageServerBody,
+} from '../../../common/whispers'
+import { httpApi, HttpApi, httpBeforeAll } from '../http/http-api'
+import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
@@ -81,87 +85,69 @@ function getValidatedTargetName(ctx: RouterContext) {
 }
 
 @httpApi('/whispers')
+@httpBeforeAll(ensureLoggedIn, convertWhisperServiceErrors)
 export class WhisperApi implements HttpApi {
-  constructor() {
+  constructor(private whisperService: WhisperService) {
     container.resolve(WhisperService)
   }
 
-  applyRoutes(router: Router): void {
-    router
-      .use(ensureLoggedIn, convertWhisperServiceErrors)
-      .post(
-        '/:targetName',
-        throttleMiddleware(startThrottle, ctx => String(ctx.session!.userId)),
-        startWhisperSession,
-      )
-      .delete(
-        '/:targetName',
-        throttleMiddleware(closeThrottle, ctx => String(ctx.session!.userId)),
-        closeWhisperSession,
-      )
-      .post(
-        '/:targetName/messages',
-        throttleMiddleware(sendThrottle, ctx => String(ctx.session!.userId)),
-        sendWhisperMessage,
-      )
-      .get(
-        '/:targetName/messages',
-        throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)),
-        getSessionHistory,
-      )
+  applyRoutes(router: Router): void {}
+
+  @httpPost('/:targetName')
+  @httpBefore(throttleMiddleware(startThrottle, ctx => String(ctx.session!.userId)))
+  async startWhisperSession(ctx: RouterContext): Promise<void> {
+    const targetName = getValidatedTargetName(ctx)
+
+    await this.whisperService.startWhisperSession(ctx.session!.userId, targetName)
+
+    ctx.status = 204
   }
-}
 
-async function startWhisperSession(ctx: RouterContext) {
-  const targetName = getValidatedTargetName(ctx)
+  @httpDelete('/:targetName')
+  @httpBefore(throttleMiddleware(closeThrottle, ctx => String(ctx.session!.userId)))
+  async closeWhisperSession(ctx: RouterContext): Promise<void> {
+    const targetName = getValidatedTargetName(ctx)
 
-  const whisperService = container.resolve(WhisperService)
-  await whisperService.startWhisperSession(ctx.session!.userId, targetName)
+    await this.whisperService.closeWhisperSession(ctx.session!.userId, targetName)
 
-  ctx.status = 204
-}
+    ctx.status = 204
+  }
 
-async function closeWhisperSession(ctx: RouterContext) {
-  const targetName = getValidatedTargetName(ctx)
+  @httpPost('/:targetName/messages')
+  @httpBefore(throttleMiddleware(sendThrottle, ctx => String(ctx.session!.userId)))
+  async sendWhisperMessage(ctx: RouterContext): Promise<void> {
+    const targetName = getValidatedTargetName(ctx)
+    const {
+      body: { message },
+    } = validateRequest(ctx, {
+      body: Joi.object<SendWhisperMessageServerBody>({
+        message: Joi.string().min(1).required(),
+      }),
+    })
 
-  const whisperService = container.resolve(WhisperService)
-  await whisperService.closeWhisperSession(ctx.session!.userId, targetName)
+    await this.whisperService.sendWhisperMessage(ctx.session!.userId, targetName, message)
 
-  ctx.status = 204
-}
+    ctx.status = 204
+  }
 
-async function sendWhisperMessage(ctx: RouterContext) {
-  const targetName = getValidatedTargetName(ctx)
-  const {
-    body: { message },
-  } = validateRequest(ctx, {
-    body: Joi.object<SendWhisperMessageServerBody>({
-      message: Joi.string().min(1).required(),
-    }),
-  })
+  @httpGet('/:targetName/messages')
+  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
+  async getSessionHistory(ctx: RouterContext): Promise<GetSessionHistoryServerPayload> {
+    const targetName = getValidatedTargetName(ctx)
+    const {
+      query: { limit, beforeTime },
+    } = validateRequest(ctx, {
+      query: Joi.object<{ limit: number; beforeTime: number }>({
+        limit: Joi.number().min(1).max(100),
+        beforeTime: Joi.number().min(-1),
+      }),
+    })
 
-  const whisperService = container.resolve(WhisperService)
-  await whisperService.sendWhisperMessage(ctx.session!.userId, targetName, message)
-
-  ctx.status = 204
-}
-
-async function getSessionHistory(ctx: RouterContext) {
-  const targetName = getValidatedTargetName(ctx)
-  const {
-    query: { limit, beforeTime },
-  } = validateRequest(ctx, {
-    query: Joi.object<{ limit: number; beforeTime: number }>({
-      limit: Joi.number().min(1).max(100),
-      beforeTime: Joi.number().min(-1),
-    }),
-  })
-
-  const whisperService = container.resolve(WhisperService)
-  ctx.body = await whisperService.getSessionHistory(
-    ctx.session!.userId,
-    targetName,
-    limit,
-    beforeTime,
-  )
+    return await this.whisperService.getSessionHistory(
+      ctx.session!.userId,
+      targetName,
+      limit,
+      beforeTime,
+    )
+  }
 }
