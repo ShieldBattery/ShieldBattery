@@ -1,4 +1,5 @@
 import { Session } from 'koa-generic-session'
+import { DependencyContainer } from 'tsyringe'
 import { Permissions } from '../common/users/permissions'
 
 declare module 'koa' {
@@ -15,6 +16,13 @@ declare module 'koa' {
   // extending the final `Context` type (and make TS complain about these properties missing on
   // `RouterContext`)
   interface ExtendableContext {
+    // created by ./server/lib/http/request-container
+    /**
+     * A tsyringe child container specific to this request. Can be used to inject any dependencies,
+     * including ones that need request-specific state (e.g. user ID, permissions, etc.)
+     */
+    container: DependencyContainer
+
     // for koa-generic-session
     session: AppSession | null
     sessionId: string | null

@@ -13,6 +13,7 @@ import { errorPayloadMiddleware } from './lib/errors/error-payload-middleware'
 import { addMiddleware as fileStoreMiddleware, setStore } from './lib/file-upload'
 import AwsStore from './lib/file-upload/aws'
 import LocalFileStore from './lib/file-upload/local-filesystem'
+import { requestContainerCreator } from './lib/http/request-container-middleware'
 import logMiddleware from './lib/logging/log-middleware'
 import log from './lib/logging/logger'
 import userIpsMiddleware from './lib/network/user-ips-middleware'
@@ -122,6 +123,7 @@ app
   .use(secureHeaders())
   .use(userIpsMiddleware())
   .use(userSessionsMiddleware())
+  .use(requestContainerCreator())
 
 const mainServer = http.createServer(app.callback())
 container.register<Koa.Middleware>('sessionMiddleware', { useValue: sessionMiddleware })
