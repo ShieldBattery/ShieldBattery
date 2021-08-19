@@ -1,5 +1,5 @@
 import Router, { RouterContext } from '@koa/router'
-import { PropKey, RestrictedMethodDecorator } from '../reflect/decorators'
+import { PropKey, TypedMethodDecorator } from '../reflect/decorators'
 import { MetadataMapValue } from '../reflect/metadata'
 import { HttpMethod } from './http-method'
 
@@ -14,10 +14,7 @@ export const routesMetadata = new MetadataMapValue<PropKey, RouteDefinition, unk
 
 type HttpApiMethod = (ctx: RouterContext) => any
 
-function apiMethodDecorator(
-  method: HttpMethod,
-  path: string,
-): RestrictedMethodDecorator<HttpApiMethod> {
+function apiMethodDecorator(method: HttpMethod, path: string): TypedMethodDecorator<HttpApiMethod> {
   return function (target, propertyKey) {
     routesMetadata.setEntry(target, propertyKey, { method, path })
   }
@@ -73,7 +70,7 @@ export const routeMiddlewareMetadata = new MetadataMapValue<PropKey, Router.Midd
  */
 export function httpBefore(
   ...middleware: Router.Middleware[]
-): RestrictedMethodDecorator<HttpApiMethod> {
+): TypedMethodDecorator<HttpApiMethod> {
   return function (target, propertyKey) {
     routeMiddlewareMetadata.setEntry(target, propertyKey, middleware)
   }
