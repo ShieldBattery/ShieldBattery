@@ -238,7 +238,7 @@ export class PartyApi implements HttpApi {
     ctx.status = 204
   }
 
-  @httpPost('/:partyId/changeLeader')
+  @httpPost('/:partyId/change-leader')
   @httpBefore(throttleMiddleware(partyThrottle, ctx => String(ctx.session!.userId)))
   async changeLeader(ctx: RouterContext): Promise<void> {
     const {

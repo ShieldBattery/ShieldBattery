@@ -205,7 +205,7 @@ export function changeLeader(partyId: string, targetId: number): ThunkAction {
 
     dispatch({
       type: '@parties/changePartyLeader',
-      payload: fetch<void>(apiUrl`parties/${partyId}/changeLeader`, {
+      payload: fetch<void>(apiUrl`parties/${partyId}/change-leader`, {
         method: 'POST',
         body: JSON.stringify({ targetId }),
       }).catch(err => {
