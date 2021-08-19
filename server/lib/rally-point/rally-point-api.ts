@@ -1,7 +1,6 @@
 import { RouterContext } from '@koa/router'
 import { BadRequest, NotFound } from 'http-errors'
 import Joi from 'joi'
-import { container } from 'tsyringe'
 import {
   AddRallyPointServerBody,
   AddRallyPointServerPayload,
@@ -28,7 +27,10 @@ interface UpdateClientPingParams {
 @httpApi('/rally-point/')
 @httpBeforeAll(ensureLoggedIn)
 export class RallyPointPingApi {
-  constructor(private rallyPointService: RallyPointService) {}
+  constructor(
+    private rallyPointService: RallyPointService,
+    private clientSocketsManager: ClientSocketsManager,
+  ) {}
 
   @httpPut('/pings/:userId/:clientId/:serverId')
   async updateClientPing(ctx: RouterContext): Promise<void> {
@@ -44,8 +46,7 @@ export class RallyPointPingApi {
       }),
     })
 
-    const clientSocketsManager = container.resolve(ClientSocketsManager)
-    const client = clientSocketsManager.getById(params.userId, params.clientId)
+    const client = this.clientSocketsManager.getById(params.userId, params.clientId)
 
     if (!client) {
       throw new NotFound(`could not find a client with id ${params.clientId}`)
