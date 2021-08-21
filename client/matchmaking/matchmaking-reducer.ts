@@ -1,4 +1,4 @@
-import { List, Map, Record, Set } from 'immutable'
+import { List, Map, Record } from 'immutable'
 import { MatchmakingType } from '../../common/matchmaking'
 import { MAPS_TOGGLE_FAVORITE, NETWORK_SITE_CONNECTED } from '../actions'
 import { MapRecord } from '../maps/maps-reducer'
@@ -17,8 +17,6 @@ export class MatchmakingMatchRecord extends Record({
   acceptedPlayers: 0,
   type: MatchmakingType.Match1v1,
   players: List<MatchmakingPlayerRecord>(),
-  mapSelections: Set<ReturnType<typeof MapRecord>>(),
-  randomMaps: Set<ReturnType<typeof MapRecord>>(),
   chosenMap: undefined as ReturnType<typeof MapRecord> | undefined,
 }) {}
 
@@ -125,12 +123,10 @@ export default keyedReducer(new MatchmakingState(), {
   },
 
   ['@matchmaking/matchReady'](state, action) {
-    const { players, mapSelections, randomMaps, chosenMap } = action.payload
+    const { players, chosenMap } = action.payload
     const match = {
       acceptedPlayers: Object.keys(players).length,
       players: List(players.map(p => new MatchmakingPlayerRecord(p))),
-      mapSelections: Set(mapSelections.map(m => new MapRecord(m))),
-      randomMaps: Set(randomMaps.map(m => new MapRecord(m))),
       chosenMap: new MapRecord(chosenMap),
     }
 

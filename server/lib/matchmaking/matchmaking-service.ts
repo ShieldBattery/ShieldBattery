@@ -1,5 +1,5 @@
-import { List, Map as IMap, Range, Record, Set as ISet } from 'immutable'
 import { container, singleton } from 'tsyringe'
+import { ReadonlyDeep } from 'type-fest'
 import CancelToken from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
@@ -9,10 +9,13 @@ import { GameType } from '../../../common/games/configuration'
 import { createHuman, Slot } from '../../../common/lobbies/slot'
 import { MapInfoJson, toMapInfoJson } from '../../../common/maps'
 import {
+  ALL_MATCHMAKING_TYPES,
   MatchmakingEvent,
   MatchmakingPreferences,
   MatchmakingType,
 } from '../../../common/matchmaking'
+import { range } from '../../../common/range'
+import { intersection, subtract } from '../../../common/sets'
 import gameLoader from '../games/game-loader'
 import activityRegistry from '../games/gameplay-activity-registry'
 import { getMapInfo } from '../maps/map-models'
@@ -43,50 +46,41 @@ interface MatchmakerCallbacks {
 
 interface GameLoaderCallbacks {
   onGameSetup: (props: {
-    matchInfo: Match
-    clients: List<ClientSocketsGroup>
-    slots: List<Slot>
+    matchInfo: Readonly<Match>
+    clients: ReadonlyArray<ClientSocketsGroup>
+    slots: ReadonlyArray<Slot>
     setup?: Partial<{
       gameId: string
       seed: number
     }>
-    resultCodes: Map<string, string>
-    mapsByPlayer: { [key: number]: MapInfoJson }
-    mapSelections: MapInfoJson[]
-    randomMaps: MapInfoJson[]
+    resultCodes: ReadonlyMap<string, string>
     chosenMap: MapInfoJson
     cancelToken: CancelToken
   }) => void
   onRoutesSet: (
-    clients: List<ClientSocketsGroup>,
+    clients: ReadonlyArray<ClientSocketsGroup>,
     playerName: string,
-    routes: GameRoute[],
+    routes: ReadonlyArray<GameRoute>,
     gameId: string,
   ) => void
-  onGameLoaded: (clients: List<ClientSocketsGroup>) => void
+  onGameLoaded: (clients: ReadonlyArray<ClientSocketsGroup>) => void
 }
 
-const createMatch = Record({
-  type: MatchmakingType.Match1v1 as MatchmakingType,
-  players: List<MatchmakingPlayer>(),
-})
+interface Match {
+  type: MatchmakingType
+  players: MatchmakingPlayer[]
+}
 
-type Match = ReturnType<typeof createMatch>
+interface QueueEntry {
+  username: string
+  type: MatchmakingType
+}
 
-const createQueueEntry = Record({
-  username: '',
-  type: MatchmakingType.Match1v1 as MatchmakingType,
-})
-
-type QueueEntry = ReturnType<typeof createQueueEntry>
-
-const createTimers = Record({
-  mapSelectionTimer: null as Deferred<void> | null,
-  countdownTimer: null as Deferred<void> | null,
-  cancelToken: new CancelToken(),
-})
-
-type Timers = ReturnType<typeof createTimers>
+interface Timers {
+  mapSelectionTimer?: Deferred<void>
+  countdownTimer?: Deferred<void>
+  cancelToken: CancelToken
+}
 
 const getRandomInt = (max: number) => Math.floor(Math.random() * Math.floor(max))
 
@@ -126,7 +120,10 @@ export class MatchmakingServiceError extends Error {
  * @returns an object with `{ mapsByPlayer, mapSelections, randomMaps, chosenMap }` describing the
  *   maps that were used to make the selection, as well as the actual selection.
  */
-async function pickMap(matchmakingType: MatchmakingType, players: List<MatchmakingPlayer>) {
+async function pickMap(
+  matchmakingType: MatchmakingType,
+  players: ReadonlyArray<MatchmakingPlayer>,
+) {
   const currentMapPool = await getCurrentMapPool(matchmakingType)
   if (!currentMapPool) {
     throw new MatchmakingServiceError(
@@ -148,27 +145,29 @@ async function pickMap(matchmakingType: MatchmakingType, players: List<Matchmaki
   // during this selection process (there is a higher chance their map will
   // not be replaced with a random one).
 
-  const mapPool = ISet(currentMapPool.maps)
-  let mapSelectionIds = ISet<string>()
-  let mapIdsByPlayer = IMap<number, ISet<string>>()
+  const mapPool = new Set(currentMapPool.maps)
+  const mapSelectionIds = new Set<string>()
+  const mapIdsByPlayer = new Map<number, Set<string>>()
 
   for (const p of players) {
-    const available = ISet(p.mapSelections).intersect(mapPool)
-    mapSelectionIds = mapSelectionIds.concat(available)
-    mapIdsByPlayer = mapIdsByPlayer.set(p.id, available)
+    const available = intersection(new Set(p.mapSelections), mapPool)
+    for (const m of available) {
+      mapSelectionIds.add(m)
+    }
+    mapIdsByPlayer.set(p.id, available)
   }
 
+  const allSelected = new Set(mapSelectionIds)
   const randomMapIds: string[] = []
-  Range(mapSelectionIds.size, 4).forEach(() => {
-    const availableMaps = mapPool.subtract(mapSelectionIds.concat(randomMapIds))
-    const randomMap = availableMaps.toList().get(getRandomInt(availableMaps.size))!
+  for (const _ of range(mapSelectionIds.size, 4)) {
+    const availableMaps = Array.from(subtract(mapPool, allSelected))
+    const randomMap = availableMaps[getRandomInt(availableMaps.length)]
     randomMapIds.push(randomMap)
-  })
+    allSelected.add(randomMap)
+  }
 
-  // TODO(tec27): remove the need for these casts by TSifying the map info stuff
   const [mapSelections, randomMaps] = await Promise.all([
-    // TODO(tec27): Remove cast once immutable's types are fixed to the correct return here
-    getMapInfo(mapSelectionIds.toJS() as string[]),
+    getMapInfo(Array.from(mapSelectionIds)),
     getMapInfo(randomMapIds),
   ])
   if (mapSelectionIds.size + randomMapIds.length !== mapSelections.length + randomMaps.length) {
@@ -178,15 +177,11 @@ async function pickMap(matchmakingType: MatchmakingType, players: List<Matchmaki
     )
   }
 
-  const mapsByPlayer = mapIdsByPlayer
-    .map(mapIds => mapIds.map(id => mapSelections.find(m => m.id === id)))
-    .toJS() as { [key: number]: MapInfoJson }
-
   const chosenMap = [...mapSelections, ...randomMaps][
     getRandomInt(mapSelections.length + randomMaps.length)
   ]
 
-  return { mapsByPlayer, mapSelections, randomMaps, chosenMap }
+  return { chosenMap }
 }
 
 @singleton()
@@ -201,17 +196,15 @@ export class MatchmakingService {
       }
     },
     onAccepted: async (matchInfo, clients) => {
-      this.queueEntries = this.queueEntries.withMutations(map => {
-        for (const client of clients) {
-          map.delete(client.name)
-        }
-      })
+      for (const client of clients) {
+        this.queueEntries.delete(client.name)
+      }
 
-      let slots: List<Slot>
+      let slots: Slot[]
       const players = matchInfo.players
 
       // TODO(tec27): ignore alternate race selection if there are more than 2 players
-      const firstPlayer = players.first<MatchmakingPlayer>()
+      const firstPlayer = players[0]
       // NOTE(tec27): alternate race selection is not available for random users. We block this
       // from being set elsewhere, but ignore it here just in case
       const playersHaveSameRace =
@@ -220,7 +213,7 @@ export class MatchmakingService {
         // All players have the same race and all of them want to use an alternate race: select
         // one of the players randomly to play their alternate race, leaving the other player to
         // play their main race.
-        const randomPlayerIndex = getRandomInt(players.size)
+        const randomPlayerIndex = getRandomInt(players.length)
         slots = players.map((p, i) =>
           createHuman(p.name, p.id, i === randomPlayerIndex ? p.alternateRace : p.race),
         )
@@ -234,23 +227,18 @@ export class MatchmakingService {
         slots = players.map(p => createHuman(p.name, p.id, p.race))
       }
 
-      const { mapsByPlayer, mapSelections, randomMaps, chosenMap } = await pickMap(
-        matchInfo.type,
-        matchInfo.players,
-      )
+      const { chosenMap } = await pickMap(matchInfo.type, matchInfo.players)
 
       const gameConfig = {
         // TODO(tec27): This will need to be adjusted for team matchmaking
         gameType: GameType.OneVsOne,
         gameSubType: 0,
         teams: [
-          slots
-            .map(s => ({
-              name: s.name!,
-              race: s.race,
-              isComputer: s.type === 'computer' || s.type === 'umsComputer',
-            }))
-            .toArray(),
+          slots.map(s => ({
+            name: s.name!,
+            race: s.race,
+            isComputer: s.type === 'computer' || s.type === 'umsComputer',
+          })),
         ],
       }
 
@@ -269,9 +257,6 @@ export class MatchmakingService {
             slots,
             setup,
             resultCodes,
-            mapsByPlayer,
-            mapSelections: mapSelections.map(m => toMapInfoJson(m)),
-            randomMaps: randomMaps.map(m => toMapInfoJson(m)),
             chosenMap: toMapInfoJson(chosenMap),
             cancelToken: loadCancelToken,
           }),
@@ -283,15 +268,13 @@ export class MatchmakingService {
       this.gameLoaderDelegate.onGameLoaded(clients)
     },
     onDeclined: (matchInfo, requeueClients, kickClients) => {
-      this.queueEntries = this.queueEntries.withMutations(map => {
-        for (const client of kickClients) {
-          map.delete(client.name)
-          this.publishToActiveClient(client.userId, {
-            type: 'acceptTimeout',
-          })
-          this.unregisterActivity(client)
-        }
-      })
+      for (const client of kickClients) {
+        this.queueEntries.delete(client.name)
+        this.publishToActiveClient(client.userId, {
+          type: 'acceptTimeout',
+        })
+        this.unregisterActivity(client)
+      }
 
       for (const client of requeueClients) {
         const player = matchInfo.players.find(p => p.name === client.name)!
@@ -320,10 +303,10 @@ export class MatchmakingService {
   private matchmakerDelegate: MatchmakerCallbacks = {
     onMatchFound: (player: Readonly<MatchmakingPlayer>, opponent: Readonly<MatchmakingPlayer>) => {
       const { type } = this.queueEntries.get(player.name)!
-      const matchInfo = createMatch({
+      const matchInfo: Match = {
         type,
-        players: List([player, opponent]),
-      })
+        players: [player, opponent],
+      }
       this.acceptor.addMatch(matchInfo, [
         activityRegistry.getClientForUser(player.id)!,
         activityRegistry.getClientForUser(opponent.id)!,
@@ -349,26 +332,21 @@ export class MatchmakingService {
       slots,
       setup = {},
       resultCodes,
-      mapsByPlayer,
-      mapSelections,
-      randomMaps,
       chosenMap,
       cancelToken,
     }) => {
       cancelToken.throwIfCancelling()
 
-      const playersJson = matchInfo.players
-        .map(p => {
-          const slot = slots.find(s => s.name === p.name)!
+      const playersJson = matchInfo.players.map(p => {
+        const slot = slots.find(s => s.name === p.name)!
 
-          return {
-            id: p.id,
-            name: p.name,
-            race: slot.race,
-            rating: p.rating,
-          }
-        })
-        .toArray()
+        return {
+          id: p.id,
+          name: p.name,
+          race: slot.race,
+          rating: p.rating,
+        }
+      })
 
       // Using `map` with `Promise.all` here instead of `forEach`, so our general error handler
       // catches any of the errors inside.
@@ -378,11 +356,8 @@ export class MatchmakingService {
             type: 'matchReady',
             setup,
             resultCode: resultCodes.get(client.name),
-            slots: slots.toArray(),
+            slots,
             players: playersJson,
-            mapsByPlayer,
-            mapSelections,
-            randomMaps,
             chosenMap,
           })
 
@@ -398,11 +373,9 @@ export class MatchmakingService {
           try {
             const mapSelectionTimer = createDeferred<void>()
             mapSelectionTimer.catch(swallowNonBuiltins)
-            this.clientTimers = this.clientTimers.update(
-              client.name,
-              createTimers({ cancelToken }),
-              timers => timers.merge({ mapSelectionTimer }),
-            )
+            let timers = this.clientTimers.get(client.name) ?? { cancelToken }
+            timers.mapSelectionTimer = mapSelectionTimer
+            this.clientTimers.set(client.name, timers)
             mapSelectionTimerId = setTimeout(() => mapSelectionTimer.resolve(), 5000)
             await mapSelectionTimer
             cancelToken.throwIfCancelling()
@@ -417,11 +390,9 @@ export class MatchmakingService {
 
             const countdownTimer = createDeferred<void>()
             countdownTimer.catch(swallowNonBuiltins)
-            this.clientTimers = this.clientTimers.update(
-              client.name,
-              createTimers({ cancelToken }),
-              timers => timers.merge({ countdownTimer }),
-            )
+            timers = this.clientTimers.get(client.name) ?? { cancelToken }
+            timers.countdownTimer = countdownTimer
+            this.clientTimers.set(client.name, timers)
             countdownTimerId = setTimeout(() => countdownTimer.resolve(), 5000)
 
             await countdownTimer
@@ -451,15 +422,10 @@ export class MatchmakingService {
       )
     },
 
-    onRoutesSet: (
-      clients: List<ClientSocketsGroup>,
-      playerName: string,
-      routes: GameRoute[],
-      gameId: string,
-    ) => {
-      // TODO(tec27): It'd be a lot nicer if this just delivered us the user ID of this player
-      // instead of their name (or gave both).
+    onRoutesSet: (clients, playerName, routes, gameId) => {
       for (const c of clients) {
+        // TODO(tec27): It'd be a lot nicer if this just delivered us the user ID of this player
+        // instead of their name (or gave both).
         if (c.name === playerName) {
           this.publishToActiveClient(c.userId, {
             type: 'setRoutes',
@@ -471,7 +437,7 @@ export class MatchmakingService {
       }
     },
 
-    onGameLoaded: (clients: List<ClientSocketsGroup>) => {
+    onGameLoaded: clients => {
       for (const client of clients) {
         this.publishToActiveClient(client.userId, { type: 'gameStarted' })
         // TODO(tec27): Should this be maintained until the client reports game exit instead?
@@ -480,26 +446,26 @@ export class MatchmakingService {
     },
   }
 
-  private matchmakers: IMap<MatchmakingType, TimedMatchmaker>
+  private matchmakers: Map<MatchmakingType, TimedMatchmaker>
   private acceptor = new MatchAcceptor(
     MATCHMAKING_ACCEPT_MATCH_TIME + ACCEPT_MATCH_LATENCY,
     this.matchAcceptorDelegate,
   )
   // Maps username -> QueueEntry
-  private queueEntries = IMap<string, QueueEntry>()
+  private queueEntries = new Map<string, QueueEntry>()
   // Maps username -> Timers
-  private clientTimers = IMap<string, Timers>()
+  private clientTimers = new Map<string, Timers>()
 
-  private highRankedMmrs = IMap<MatchmakingType, { retrieved: number; rating: number }>()
+  private highRankedMmrs = new Map<MatchmakingType, { retrieved: number; rating: number }>()
 
   constructor(
-    private publisher: TypedPublisher<MatchmakingEvent>,
+    private publisher: TypedPublisher<ReadonlyDeep<MatchmakingEvent>>,
     private userSocketsManager: UserSocketsManager,
     private clientSocketsManager: ClientSocketsManager,
     private matchmakingStatus: MatchmakingStatusService,
   ) {
-    this.matchmakers = IMap(
-      Object.values(MatchmakingType).map(type => [
+    this.matchmakers = new Map(
+      ALL_MATCHMAKING_TYPES.map(type => [
         type,
         new TimedMatchmaker(MATCHMAKING_INTERVAL, this.matchmakerDelegate.onMatchFound),
       ]),
@@ -584,8 +550,10 @@ export class MatchmakingService {
 
     this.matchmakers.get(type)!.addToQueue(player)
 
-    const queueEntry = createQueueEntry({ type, username: userSockets.name })
-    this.queueEntries = this.queueEntries.set(userSockets.name, queueEntry)
+    this.queueEntries = this.queueEntries.set(userSockets.name, {
+      type,
+      username: userSockets.name,
+    })
 
     userSockets.subscribe<MatchmakingEvent>(
       MatchmakingService.getUserPath(userSockets.name),
@@ -633,7 +601,7 @@ export class MatchmakingService {
     const entry = this.queueEntries.get(client.name)
     // Means the client disconnected during the queueing process
     if (entry) {
-      this.queueEntries = this.queueEntries.delete(client.name)
+      this.queueEntries.delete(client.name)
       this.matchmakers.get(entry.type)!.removeFromQueue(entry.username)
       this.acceptor.registerDisconnect(client)
     }
@@ -650,7 +618,7 @@ export class MatchmakingService {
 
       cancelToken.cancel()
 
-      this.clientTimers = this.clientTimers.delete(client.name)
+      this.clientTimers.delete(client.name)
     }
 
     this.unregisterActivity(client)
@@ -680,11 +648,11 @@ export class MatchmakingService {
     return clientSockets
   }
 
-  private publishToUser(username: string, data?: MatchmakingEvent) {
+  private publishToUser(username: string, data?: ReadonlyDeep<MatchmakingEvent>) {
     this.publisher.publish(MatchmakingService.getUserPath(username), data)
   }
 
-  private publishToActiveClient(userId: number, data?: MatchmakingEvent): boolean {
+  private publishToActiveClient(userId: number, data?: ReadonlyDeep<MatchmakingEvent>): boolean {
     const client = activityRegistry.getClientForUser(userId)
     if (client) {
       this.publisher.publish(MatchmakingService.getClientPath(client), data)

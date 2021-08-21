@@ -182,9 +182,6 @@ export interface MatchReady {
     resultCode?: string
     slots: Slot[]
     players: MatchmakingPlayer[]
-    mapsByPlayer: { [key: number]: MapInfoJson }
-    mapSelections: MapInfoJson[]
-    randomMaps: MapInfoJson[]
     chosenMap: MapInfoJson
   }
 }

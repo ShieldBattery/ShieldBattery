@@ -256,8 +256,7 @@
     "react/jsx-sort-props": 0,
     "react/jsx-uses-react": 2,
     "react/jsx-uses-vars": 2,
-    // TODO(tec27): make this an error again once we've fixed componentWillReceiveProps/etc.
-    "react/no-deprecated": 1,
+    "react/no-deprecated": 0,
     "react/no-did-mount-set-state": 0,
     "react/no-did-update-set-state": 0,
     "react/no-direct-mutation-state": 2,
@@ -277,7 +276,10 @@
     "@typescript-eslint/no-explicit-any": 0,
     "@typescript-eslint/no-extra-semi": 0,
     "@typescript-eslint/no-non-null-assertion": 0,
-    "@typescript-eslint/no-unused-vars": [2, { "vars": "all", "args": "none" }],
+    "@typescript-eslint/no-unused-vars": [
+      2,
+      { "vars": "all", "args": "none", "varsIgnorePattern": "^_" }
+    ],
     "@typescript-eslint/no-var-requires": 0
   }
 }
