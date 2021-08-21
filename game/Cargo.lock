@@ -942,7 +942,7 @@ checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
 [[package]]
 name = "samase_scarf"
 version = "0.1.0"
-source = "git+https://github.com/neivv/samase_scarf.git?rev=5a60bc75e4bf3b7153c21262357656482dd18a1e#5a60bc75e4bf3b7153c21262357656482dd18a1e"
+source = "git+https://github.com/neivv/samase_scarf.git?rev=fd30152e6def9aa594e7f4cc84f868f7eb88ea67#fd30152e6def9aa594e7f4cc84f868f7eb88ea67"
 dependencies = [
  "arrayvec",
  "bumpalo",

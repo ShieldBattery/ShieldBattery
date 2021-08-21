@@ -402,4 +402,8 @@ impl<'e> Analysis<'e> {
     pub fn create_game_multiplayer(&mut self) -> Option<VirtualAddress> {
         self.0.create_game_multiplayer()
     }
+
+    pub fn anti_troll(&mut self) -> Option<Operand<'e>> {
+        self.0.anti_troll()
+    }
 }

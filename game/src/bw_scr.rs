@@ -74,6 +74,7 @@ pub struct BwScr {
     order_limit: Value<u32>,
     replay_bfix: Option<Value<*mut scr::ReplayBfix>>,
     replay_gcfg: Option<Value<*mut scr::ReplayGcfg>>,
+    anti_troll: Option<Value<*mut scr::AntiTroll>>,
     free_sprites: LinkedList<scr::Sprite>,
     active_fow_sprites: LinkedList<bw::FowSprite>,
     free_fow_sprites: LinkedList<bw::FowSprite>,
@@ -595,6 +596,11 @@ pub mod scr {
         pub unk10: u8,
     }
 
+    #[repr(C)]
+    pub struct AntiTroll {
+        pub active: u8,
+    }
+
     unsafe impl Sync for PrismShader {}
     unsafe impl Send for PrismShader {}
 
@@ -993,6 +999,7 @@ impl BwScr {
         let prepare_issue_order = analysis.prepare_issue_order().ok_or("prepare_issue_order")?;
         let create_game_multiplayer = analysis.create_game_multiplayer()
             .ok_or("create_game_multiplayer")?;
+        let anti_troll = analysis.anti_troll();
 
         let starcraft_tls_index = analysis.get_tls_index().ok_or("TLS index")?;
 
@@ -1058,6 +1065,7 @@ impl BwScr {
             order_limit: Value::new(ctx, order_limit),
             replay_bfix: replay_bfix.map(move |x| Value::new(ctx, x)),
             replay_gcfg: replay_gcfg.map(move |x| Value::new(ctx, x)),
+            anti_troll: anti_troll.map(move |x| Value::new(ctx, x)),
             free_sprites,
             active_fow_sprites,
             free_fow_sprites,
@@ -1292,6 +1300,9 @@ impl BwScr {
             if ok == 0 {
                 error!("init_game_data failed");
                 return 0;
+            }
+            if let Some(anti_troll) = self.anti_troll {
+                (*anti_troll.resolve()).active = 0;
             }
             game_thread::after_init_game_data();
             1
