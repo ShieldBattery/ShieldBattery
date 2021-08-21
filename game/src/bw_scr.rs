@@ -81,6 +81,8 @@ pub struct BwScr {
     free_images: LinkedList<bw::Image>,
     free_orders: LinkedList<bw::Order>,
 
+    uses_new_join_param_variant: bool,
+
     // Array of bw::UnitStatusFunc for each unit id,
     // called to update what controls on status screen are shown if the unit
     // is single selected.
@@ -1001,6 +1003,15 @@ impl BwScr {
             .ok_or("create_game_multiplayer")?;
         let anti_troll = analysis.anti_troll();
 
+        let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
+            Some(0) => false,
+            #[cfg(target_arch = "x86")]
+            Some(0x20) => true,
+            #[cfg(target_arch = "x86_64")]
+            Some(0x28) => true,
+            _ => return Err("join_param_variant_layout"),
+        };
+
         let starcraft_tls_index = analysis.get_tls_index().ok_or("TLS index")?;
 
         let disable_hd = match std::env::var_os("SB_NO_HD") {
@@ -1071,6 +1082,7 @@ impl BwScr {
             free_fow_sprites,
             free_images,
             free_orders,
+            uses_new_join_param_variant,
             status_screen_funcs,
             original_status_screen_update,
             init_network_player_info: unsafe { mem::transmute(init_network_player_info.0) },
@@ -2011,10 +2023,7 @@ impl bw::Bw for BwScr {
 
         // The GameInfoValue struct is being changed on the newer versions that keeps
         // getting rolled back.. Keep support for both versions.
-        let params = if self.exe_build > 9411 && self.exe_build < 9713 {
-            // This is currently effectively dead code unless you play on one of rolled
-            // back patches, but it likely ends up being useful at some point on a later
-            // patch so going to keep this here.
+        let params = if self.uses_new_join_param_variant {
             self.build_join_game_params::<scr::GameInfoValue>(input_game_info)
         } else {
             // HashTable itself has same layout regardless of which values it contains,
