@@ -12,7 +12,7 @@ interface ScrollIndicatorStateProps {
    * instance, in a UI that shows multiple tabs that all use the same basic content layout, this
    * might be the tab ID.
    */
-  refreshToken: unknown
+  refreshToken?: unknown
 }
 
 /**
@@ -22,7 +22,7 @@ interface ScrollIndicatorStateProps {
  * @returns the current state, as well as elements that should be placed at the top and bottom of
  * the content (they will not be visible or add height).
  */
-export function useScrollIndicatorState({ refreshToken }: ScrollIndicatorStateProps): [
+export function useScrollIndicatorState({ refreshToken }: ScrollIndicatorStateProps = {}): [
   /** Whether the very top of the content is visible. */
   isAtTop: boolean,
   /** Whether the very bottom of the content is visible. */
