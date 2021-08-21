@@ -11,7 +11,7 @@ export interface LocalMapsState {
 
 const DEFAULT_STATE: Immutable<LocalMapsState> = {
   isUploading: false,
-  lastError: undefined as FetchError | undefined,
+  lastError: undefined,
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {

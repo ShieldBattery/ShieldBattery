@@ -156,7 +156,7 @@ export default keyedReducer(new MatchmakingState(), {
     return new MatchmakingState()
   },
 
-  ['@maps/toggleFavoriteMap'](state, action) {
+  ['@maps/toggleFavorite'](state, action) {
     const {
       map,
       context: { matchmakingType: type },

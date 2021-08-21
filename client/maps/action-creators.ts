@@ -8,6 +8,7 @@ import {
   Tileset,
   UpdateMapPayload,
   UpdateMapServerBody,
+  UploadMapPayload,
 } from '../../common/maps'
 import { ThunkAction } from '../dispatch-registry'
 import fetch from '../network/fetch'
@@ -15,13 +16,28 @@ import { apiUrl } from '../network/urls'
 import { openSnackbar } from '../snackbars/action-creators'
 import { ClearMaps } from './actions'
 
-const upload = IS_ELECTRON ? require('./upload').default : null
+const uploadModule = IS_ELECTRON ? import('./upload') : Promise.resolve()
 
 export function uploadLocalMap(path: string, onMapSelect: (map: MapInfoJson) => void): ThunkAction {
   return async dispatch => {
-    if (!upload) {
-      return
-    }
+    const uploadPromise = uploadModule.then(upload =>
+      upload && upload.default
+        ? upload.default<UploadMapPayload>(path, apiUrl`maps`)
+        : Promise.reject(),
+    )
+
+    uploadPromise.then(
+      ({ map }) => {
+        onMapSelect(map)
+      },
+      () => {
+        dispatch(
+          openSnackbar({
+            message: 'An error occurred while uploading the map',
+          }),
+        )
+      },
+    )
 
     dispatch({
       type: '@maps/uploadLocalMapBegin',
@@ -30,29 +46,25 @@ export function uploadLocalMap(path: string, onMapSelect: (map: MapInfoJson) => 
 
     dispatch({
       type: '@maps/uploadLocalMap',
-      payload: upload(path, apiUrl`maps`).then(({ map }: { map: MapInfoJson }) => {
-        if (onMapSelect) {
-          onMapSelect(map)
-        }
-
-        return map
-      }),
+      payload: uploadPromise,
       meta: { path },
     })
   }
 }
 
-export function getMapsList(
-  visibility: MapVisibility,
-  limit: number,
-  page: number,
-  sort: MapSortType,
-  numPlayers: number,
-  tileset: Tileset,
-  searchQuery: string,
-): ThunkAction {
+interface GetMapsListParams {
+  visibility: MapVisibility
+  limit: number
+  page: number
+  sort: MapSortType
+  numPlayers: number
+  tileset: Tileset
+  searchQuery: string
+}
+
+export function getMapsList(params: GetMapsListParams): ThunkAction {
   return dispatch => {
-    const params = { visibility, limit, page, sort, numPlayers, tileset, searchQuery }
+    const { visibility, limit, page, sort, numPlayers, tileset, searchQuery } = params
 
     dispatch({
       type: '@maps/getMapsBegin',
@@ -79,22 +91,37 @@ export function toggleFavoriteMap(
     const params = { map, context }
 
     dispatch({
-      type: '@maps/toggleFavoriteMapBegin',
+      type: '@maps/toggleFavoriteBegin',
       payload: params,
     })
 
-    const reqUrl = apiUrl`maps/favorites/${map.id}`
+    const reqPromise = fetch<void>(apiUrl`maps/favorites/${map.id}`, {
+      method: map.isFavorited ? 'DELETE' : 'POST',
+    })
+
+    reqPromise.then(
+      () => {
+        dispatch(
+          openSnackbar({
+            message: map.isFavorited ? 'Removed from favorites' : 'Saved to favorites',
+          }),
+        )
+      },
+      () => {
+        dispatch(
+          openSnackbar({
+            message:
+              'An error occurred while ' + map.isFavorited
+                ? 'removing from favorites'
+                : 'saving to favorites',
+          }),
+        )
+      },
+    )
+
     dispatch({
-      type: '@maps/toggleFavoriteMap',
-      payload: fetch<void>(reqUrl, { method: map.isFavorited ? 'DELETE' : 'POST' }).then<void>(
-        () => {
-          dispatch(
-            openSnackbar({
-              message: map.isFavorited ? 'Removed from favorites' : 'Saved to favorites',
-            }),
-          )
-        },
-      ),
+      type: '@maps/toggleFavorite',
+      payload: reqPromise,
       meta: params,
     })
   }

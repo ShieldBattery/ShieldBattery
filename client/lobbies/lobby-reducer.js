@@ -166,7 +166,7 @@ const infoReducer = keyedReducer(undefined, {
     return new LobbyInfo()
   },
 
-  ['@maps/toggleFavoriteMap'](state, action) {
+  ['@maps/toggleFavorite'](state, action) {
     const { map } = action.meta
 
     if (state.map && state.map.id === map.id) {

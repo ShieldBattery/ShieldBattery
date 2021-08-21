@@ -16,9 +16,9 @@ export interface MapDetailsState {
 }
 
 const DEFAULT_STATE: Immutable<MapDetailsState> = {
-  map: undefined as MapInfoJson | undefined,
+  map: undefined,
   isRequesting: false,
-  lastError: undefined as FetchError | undefined,
+  lastError: undefined,
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {

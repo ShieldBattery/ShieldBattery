@@ -21,10 +21,10 @@ export interface MapsState {
 const DEFAULT_STATE: Immutable<MapsState> = {
   byId: new Map(),
   favoritedById: new Map(),
-  total: -1,
+  total: 0,
   isRequesting: false,
   favoriteStatusRequests: new Set(),
-  lastError: undefined as FetchError | undefined,
+  lastError: undefined,
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {
@@ -53,11 +53,11 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.total = total
   },
 
-  ['@maps/toggleFavoriteMapBegin'](state, action) {
+  ['@maps/toggleFavoriteBegin'](state, action) {
     state.favoriteStatusRequests.add(action.payload.map.id)
   },
 
-  ['@maps/toggleFavoriteMap'](state, action) {
+  ['@maps/toggleFavorite'](state, action) {
     state.favoriteStatusRequests.delete(action.meta.map.id)
 
     if (action.error) {

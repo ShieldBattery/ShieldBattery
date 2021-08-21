@@ -127,7 +127,7 @@ export interface GetMapsFailure extends BaseFetchFailure<'@maps/getMaps'> {
  * A request is being made to the server to toggle the favorite status of a map.
  */
 export interface ToggleFavoriteMapBegin {
-  type: '@maps/toggleFavoriteMapBegin'
+  type: '@maps/toggleFavoriteBegin'
   payload: {
     map: MapInfoJson
     // TODO(2Pac): Do this differently.
@@ -141,7 +141,7 @@ export interface ToggleFavoriteMapBegin {
  * toggled.
  */
 export interface ToggleFavoriteMapSuccess {
-  type: '@maps/toggleFavoriteMap'
+  type: '@maps/toggleFavorite'
   payload: void
   error?: false
   meta: {
@@ -153,7 +153,7 @@ export interface ToggleFavoriteMapSuccess {
 /**
  * A request to toggle the favorite status of a map has failed.
  */
-export interface ToggleFavoriteMapFailure extends BaseFetchFailure<'@maps/toggleFavoriteMap'> {
+export interface ToggleFavoriteMapFailure extends BaseFetchFailure<'@maps/toggleFavorite'> {
   meta: {
     map: MapInfoJson
     context: Record<string, unknown>

@@ -28,10 +28,10 @@ const DEFAULT_STATE: Immutable<MapPreferencesState> = {
   numPlayersFilter: new Set(),
   tilesetFilter: new Set(),
   isRequesting: false,
-  lastError: undefined as FetchError | undefined,
+  lastError: undefined,
 }
 
-function createPreferences(state: MapPreferencesState, preferences: MapPreferences) {
+function updatePreferences(state: MapPreferencesState, preferences: MapPreferences) {
   state.visibility = preferences.visibility
   state.thumbnailSize = preferences.thumbnailSize
   state.sortOption = preferences.sortOption
@@ -54,7 +54,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       return
     }
 
-    createPreferences(state, action.payload)
+    updatePreferences(state, action.payload)
   },
 
   ['@maps/updateMapPreferences'](state, action) {
@@ -65,6 +65,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       return
     }
 
-    createPreferences(state, action.payload)
+    updatePreferences(state, action.payload)
   },
 })

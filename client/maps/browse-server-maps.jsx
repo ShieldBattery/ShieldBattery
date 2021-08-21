@@ -25,7 +25,7 @@ import { BrowserFooter as Footer } from './browser-footer'
 import MapPreview from './map-preview'
 import { MapThumbnail } from './map-thumbnail'
 
-const MAPS_LIMIT = 10
+const MAPS_LIMIT = 30
 
 const LoadingArea = styled.div`
   display: flex;
@@ -435,15 +435,15 @@ export default class Maps extends React.Component {
       this.state
 
     this.props.dispatch(
-      getMapsList(
-        tabToVisibility(activeTab),
-        MAPS_LIMIT,
-        currentPage,
-        sortOption,
-        numPlayersFilter.toArray(),
-        tilesetFilter.toArray(),
+      getMapsList({
+        visibility: tabToVisibility(activeTab),
+        limit: MAPS_LIMIT,
+        page: currentPage,
+        sort: sortOption,
+        numPlayers: numPlayersFilter.toArray(),
+        tileset: tilesetFilter.toArray(),
         searchQuery,
-      ),
+      }),
     )
     this.setState(state => ({ currentPage: state.currentPage + 1 }))
   }
