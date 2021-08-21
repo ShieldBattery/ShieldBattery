@@ -81,9 +81,9 @@ export default function InfiniteList(props: InfiniteListProps) {
   const hasNextDataRef = useValueAsRef(props.hasNextData)
   const onLoadPrevDataRef = useValueAsRef(props.onLoadPrevData)
   const onLoadNextDataRef = useValueAsRef(props.onLoadNextData)
-  const prevTargetRef = useRef(null)
-  const nextTargetRef = useRef(null)
-  const observer = useRef<IntersectionObserver | null>(null)
+  const prevTargetRef = useRef<HTMLDivElement>(null)
+  const nextTargetRef = useRef<HTMLDivElement>(null)
+  const observer = useRef<IntersectionObserver>()
 
   const startObserving = useCallback(() => {
     if (!observer.current) {
@@ -99,26 +99,38 @@ export default function InfiniteList(props: InfiniteListProps) {
     if (nextLoadingEnabledRef.current && nextTarget) {
       observer.current.observe(nextTarget)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [nextLoadingEnabledRef, prevLoadingEnabledRef])
 
-  const onIntersection = useCallback((entries: IntersectionObserverEntry[]) => {
-    for (const entry of entries) {
-      if (!entry.isIntersecting) {
-        return
-      }
+  const onIntersection = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) {
+          return
+        }
 
-      if (prevLoadingEnabledRef.current && entry.target === prevTargetRef.current) {
-        if (!isLoadingPrevRef.current && hasPrevDataRef.current && onLoadPrevDataRef.current) {
-          onLoadPrevDataRef.current()
+        if (prevLoadingEnabledRef.current && entry.target === prevTargetRef.current) {
+          if (!isLoadingPrevRef.current && hasPrevDataRef.current && onLoadPrevDataRef.current) {
+            onLoadPrevDataRef.current()
+          }
+        }
+        if (nextLoadingEnabledRef.current && entry.target === nextTargetRef.current) {
+          if (!isLoadingNextRef.current && hasNextDataRef.current && onLoadNextDataRef.current) {
+            onLoadNextDataRef.current()
+          }
         }
       }
-      if (nextLoadingEnabledRef.current && entry.target === nextTargetRef.current) {
-        if (!isLoadingNextRef.current && hasNextDataRef.current && onLoadNextDataRef.current) {
-          onLoadNextDataRef.current()
-        }
-      }
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    },
+    [
+      hasNextDataRef,
+      hasPrevDataRef,
+      isLoadingNextRef,
+      isLoadingPrevRef,
+      nextLoadingEnabledRef,
+      onLoadNextDataRef,
+      onLoadPrevDataRef,
+      prevLoadingEnabledRef,
+    ],
+  )
 
   useEffect(() => {
     observer.current = new IntersectionObserver(onIntersection, {
@@ -129,7 +141,10 @@ export default function InfiniteList(props: InfiniteListProps) {
 
     startObserving()
 
-    return () => observer.current?.disconnect()
+    return () => {
+      observer.current?.disconnect()
+      observer.current = undefined
+    }
   }, [root, rootMargin, threshold, onIntersection, startObserving])
 
   useEffect(() => {

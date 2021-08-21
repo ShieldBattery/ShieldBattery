@@ -1,5 +1,5 @@
 import { List, Range } from 'immutable'
-import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import React, { useCallback, useImperativeHandle, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { MapInfoJson } from '../../common/maps'
@@ -14,9 +14,9 @@ import KeyListener from '../keyboard/key-listener'
 import { RacePicker, RacePickerProps, RacePickerSize } from '../lobbies/race-picker'
 import { BrowseButton } from '../maps/map-select'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { animationFrameHandler } from '../material/animation-frame-handler'
 import { RaisedButton } from '../material/button'
 import CheckBox from '../material/check-box'
+import { useScrollIndicatorState } from '../material/scroll-indicator'
 import { TabItem, Tabs } from '../material/tabs'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { amberA400, colorDividers, colorError, colorTextSecondary } from '../styles/colors'
@@ -249,8 +249,11 @@ const FindMatch2v2Form = React.forwardRef<FormRef, Form2v2Props>((props, ref) =>
   )
 })
 
+// TODO(tec27): Remove this once 3v3 is added as a "real" matchmaking type
+type ExpandedMatchmakingType = MatchmakingType | '3v3'
+
 interface FindMatchProps {
-  type: MatchmakingType | '3v3'
+  type: ExpandedMatchmakingType
   mapSelections: List<MapInfoJson>
 }
 
@@ -263,7 +266,9 @@ export function FindMatch(props: FindMatchProps) {
   const [activeTab, setActiveTab] = useState(
     props.type || matchmakingPreferences.lastQueuedMatchmakingType,
   )
-  const [isScrolledUp, setIsScrolledUp] = useState(false)
+  const [, isAtBottom, topElem, bottomElem] = useScrollIndicatorState({
+    refreshToken: activeTab,
+  })
   const form1v1Ref = useRef<FormRef>(null)
   const form2v2Ref = useRef<FormRef>(null)
 
@@ -276,7 +281,7 @@ export function FindMatch(props: FindMatchProps) {
   const [tempPrefs, setTempPrefs] = useState(prefs)
 
   const onTabChange = useCallback(
-    (value: MatchmakingType | '3v3') => {
+    (value: ExpandedMatchmakingType) => {
       setActiveTab(value)
 
       const newTabPrefs =
@@ -368,23 +373,6 @@ export function FindMatch(props: FindMatchProps) {
     [onFindClick],
   )
 
-  const onScrollUpdate = animationFrameHandler(target => {
-    if (!target) {
-      return
-    }
-
-    const { scrollTop, scrollHeight, clientHeight } = target as HTMLDivElement
-    const newIsScrolledUp = scrollTop + clientHeight < scrollHeight
-
-    if (newIsScrolledUp !== isScrolledUp) {
-      setIsScrolledUp(newIsScrolledUp)
-    }
-  })
-
-  useEffect(() => {
-    return () => onScrollUpdate.cancel()
-  }, [onScrollUpdate])
-
   let formContents: React.ReactNode
   let mapSelectionsText: string
   switch (activeTab) {
@@ -469,7 +457,8 @@ export function FindMatch(props: FindMatchProps) {
       {activeTab === MatchmakingType.Match1v1 ? (
         <>
           <KeyListener onKeyDown={onKeyDown} />
-          <Contents onScroll={onScrollUpdate.handler}>
+          <Contents>
+            {topElem}
             <ContentsBody>
               {formContents}
               <MapSelectionsContainer>
@@ -483,9 +472,10 @@ export function FindMatch(props: FindMatchProps) {
                 <MapSelections>{mapSelectionItems}</MapSelections>
               </MapSelectionsContainer>
             </ContentsBody>
+            {bottomElem}
           </Contents>
           <Actions>
-            <ScrollDivider show={isScrolledUp} />
+            <ScrollDivider show={!isAtBottom} />
             <RaisedButton
               label='Find match'
               disabled={!isMatchmakingEnabled}
