@@ -111,7 +111,7 @@ export function cancelFindMatch(): ThunkAction {
 
     dispatch({
       type: '@matchmaking/cancelMatch',
-      payload: fetch<void>(apiUrl`matchmaking`, { method: 'DELETE' }),
+      payload: fetch<void>(apiUrl`matchmaking/find`, { method: 'DELETE' }),
     })
   }
 }
@@ -120,11 +120,9 @@ export function acceptMatch(): ThunkAction {
   return dispatch => {
     dispatch({ type: '@matchmaking/acceptMatchBegin' })
 
-    // TODO(tec27): This URL is a weird choice imo, should probably be like `/accept` at the very
-    // least to mirror the find action
     dispatch({
       type: '@matchmaking/acceptMatch',
-      payload: fetch<void>(apiUrl`matchmaking`, { method: 'POST' }),
+      payload: fetch<void>(apiUrl`matchmaking/accept`, { method: 'POST' }),
     })
   }
 }

@@ -96,13 +96,13 @@ export class MatchmakingApi {
     await updateAllSessions(ctx, { lastQueuedMatchmakingType: preferences.matchmakingType })
   }
 
-  @httpDelete('/')
+  @httpDelete('/find')
   @httpBefore(throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.userId)))
   async cancelSearch(ctx: RouterContext): Promise<void> {
     await this.matchmakingService.cancel(ctx.session!.userId)
   }
 
-  @httpPost('/')
+  @httpPost('/accept')
   @httpBefore(throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.userId)))
   async acceptMatch(ctx: RouterContext): Promise<void> {
     await this.matchmakingService.accept(ctx.session!.userId)
