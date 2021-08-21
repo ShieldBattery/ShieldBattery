@@ -1308,7 +1308,7 @@ impl BwScr {
         }, address);
         let address = self.init_game_data.0 as usize - base;
         exe.hook_closure_address(InitGameData, move |orig| {
-            let ok = orig();
+            let ok = log_time("init_game_data", || orig());
             if ok == 0 {
                 error!("init_game_data failed");
                 return 0;
@@ -1322,7 +1322,7 @@ impl BwScr {
         let address = self.init_unit_data.0 as usize - base;
         exe.hook_closure_address(InitUnitData, move |orig| {
             game_thread::before_init_unit_data(self);
-            orig();
+            log_time("init_unit_data", || orig());
         }, address);
         let address = self.step_replay_commands.0 as usize - base;
         exe.hook_closure_address(StepReplayCommands, |orig| {
@@ -1864,10 +1864,10 @@ impl bw::Bw for BwScr {
     }
 
     unsafe fn init_sprites(&self) {
-        (self.init_sprites)();
+        log_time("init_sprites", || (self.init_sprites)());
         self.sprites_inited.write(1);
         if let Some(init_rtl) = self.init_real_time_lighting {
-            init_rtl();
+            log_time("init_real_time_lighting", || init_rtl());
         }
     }
 
@@ -1998,7 +1998,9 @@ impl bw::Bw for BwScr {
             lobby_create_callback as usize;
 
         let mut object: *const scr::LobbyDialogVtable = &vtable;
-        let result = (self.select_map_entry)(&mut game_input, &mut object, &mut entry);
+        let result = log_time("select_map_entry", || {
+            (self.select_map_entry)(&mut game_input, &mut object, &mut entry)
+        });
         if entry.error != 0 {
             let error = std::ffi::CStr::from_ptr(entry.error_message.pointer as *const i8)
                 .to_string_lossy();
@@ -2009,7 +2011,7 @@ impl bw::Bw for BwScr {
             // as well, struct offsets may change and we may miss the error.
             return Err(bw::LobbyCreateError::from_error_code(result));
         }
-        (self.init_game_network)(0);
+        log_time("init_game_network", || (self.init_game_network)(0));
         Ok(())
     }
 
@@ -2063,7 +2065,7 @@ impl bw::Bw for BwScr {
         let mut password: scr::BwString = mem::zeroed();
         init_bw_string(&mut password, b"");
         self.storm_set_last_error(0);
-        let error = (self.join_game)(&mut game_info, &mut password, 0);
+        let error = log_time("join_game", || (self.join_game)(&mut game_info, &mut password, 0));
         if error != 0 {
             // Try storm error first, if it's 0 then use the returned error.
             let storm_error = self.storm_last_error();
@@ -2686,4 +2688,11 @@ unsafe fn init_bw_string(out: &mut scr::BwString, value: &[u8]) {
 unsafe fn pe_entry_point_offset(binary: *const u8) -> usize {
     let pe_header = binary.add(*(binary.add(0x3c) as *const u32) as usize);
     *(pe_header.add(0x28) as *const u32) as usize
+}
+
+fn log_time<F: FnOnce() -> R, R>(name: &str, func: F) -> R {
+    let time = std::time::Instant::now();
+    let ret = func();
+    debug!("{} took {:?}", name, time.elapsed());
+    ret
 }
