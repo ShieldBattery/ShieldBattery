@@ -7,15 +7,14 @@ import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../../common/constants'
 import { GameRoute } from '../../../common/game-launch-config'
 import { GameType } from '../../../common/games/configuration'
 import { createHuman, Slot } from '../../../common/lobbies/slot'
-import { MapInfoJson, toMapInfoJson } from '../../../common/maps'
+import { MapInfo, MapInfoJson, toMapInfoJson } from '../../../common/maps'
 import {
   ALL_MATCHMAKING_TYPES,
   MatchmakingEvent,
   MatchmakingPreferences,
   MatchmakingType,
 } from '../../../common/matchmaking'
-import { range } from '../../../common/range'
-import { intersection, subtract } from '../../../common/sets'
+import { subtract } from '../../../common/sets'
 import gameLoader from '../games/game-loader'
 import activityRegistry from '../games/gameplay-activity-registry'
 import { getMapInfo } from '../maps/map-models'
@@ -116,14 +115,11 @@ export class MatchmakingServiceError extends Error {
 /**
  * Selects a map for the given players and matchmaking type, based on the players' stored
  * matchmaking preferences and the current map pool.
- *
- * @returns an object with `{ mapsByPlayer, mapSelections, randomMaps, chosenMap }` describing the
- *   maps that were used to make the selection, as well as the actual selection.
  */
 async function pickMap(
   matchmakingType: MatchmakingType,
   players: ReadonlyArray<MatchmakingPlayer>,
-) {
+): Promise<{ chosenMap: MapInfo }> {
   const currentMapPool = await getCurrentMapPool(matchmakingType)
   if (!currentMapPool) {
     throw new MatchmakingServiceError(
@@ -132,54 +128,35 @@ async function pickMap(
     )
   }
 
+  // TODO(tec27): Handle parties in 2v2: only the leader's selections should be used
+
   // The algorithm for selecting maps is:
-  // 1) All player selections are collected and only unique ones are kept
-  // 2) If there are less than 4 maps after #1, we fill the rest of the list
-  //    with random map selections from the pool that are *also* unique
-  // 3) We pick 1 random map from this 4 map pool as the chosen one
-  //
-  // This means that we are guaranteed to have 4 unique maps to select from each
-  // time, and that even if 2 particular maps are extremely popular among
-  // players, they will still have to know how to play on the entire pool. It
-  // also means that players that learn "rare" maps will have an advantage
-  // during this selection process (there is a higher chance their map will
-  // not be replaced with a random one).
+  // 1) All players' map selections are treated as vetoes, and removed from the available map pool
+  // 2a) If any maps are remaining, select a random map from the remaining ones
+  // 2b) If no maps are remaining, select a random map from the entire pool
 
-  const mapPool = new Set(currentMapPool.maps)
-  const mapSelectionIds = new Set<string>()
-  const mapIdsByPlayer = new Map<number, Set<string>>()
-
+  const fullMapPool = new Set(currentMapPool.maps)
+  let mapPool = fullMapPool
   for (const p of players) {
-    const available = intersection(new Set(p.mapSelections), mapPool)
-    for (const m of available) {
-      mapSelectionIds.add(m)
-    }
-    mapIdsByPlayer.set(p.id, available)
+    mapPool = subtract(mapPool, p.mapSelections)
   }
 
-  const allSelected = new Set(mapSelectionIds)
-  const randomMapIds: string[] = []
-  for (const _ of range(mapSelectionIds.size, 4)) {
-    const availableMaps = Array.from(subtract(mapPool, allSelected))
-    const randomMap = availableMaps[getRandomInt(availableMaps.length)]
-    randomMapIds.push(randomMap)
-    allSelected.add(randomMap)
+  if (!mapPool.size) {
+    // All available maps were vetoed, select from the whole pool
+    mapPool = fullMapPool
   }
 
-  const [mapSelections, randomMaps] = await Promise.all([
-    getMapInfo(Array.from(mapSelectionIds)),
-    getMapInfo(randomMapIds),
-  ])
-  if (mapSelectionIds.size + randomMapIds.length !== mapSelections.length + randomMaps.length) {
+  const chosenMapId = [...mapPool][getRandomInt(mapPool.size)]
+  const mapInfo = await getMapInfo([chosenMapId])
+
+  if (!mapInfo.length) {
     throw new MatchmakingServiceError(
       MatchmakingServiceErrorCode.InvalidMaps,
       'Some (or all) of the maps not found',
     )
   }
 
-  const chosenMap = [...mapSelections, ...randomMaps][
-    getRandomInt(mapSelections.length + randomMaps.length)
-  ]
+  const chosenMap = mapInfo[0]
 
   return { chosenMap }
 }

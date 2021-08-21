@@ -76,7 +76,7 @@ export class MatchmakingApi {
           race: Joi.string().valid('p', 't', 'z', 'r').required(),
           mapPoolId: Joi.number().min(1).required(),
           // TODO(2Pac): min/max values most likely depend on the matchmaking type here
-          mapSelections: Joi.array().items(Joi.string()).min(0).max(2).required(),
+          mapSelections: Joi.array().items(Joi.string()).min(0).max(3).required(),
           data: Joi.alternatives()
             .try(
               Joi.object<MatchmakingPreferencesData1v1>({

@@ -30,8 +30,7 @@ export class MatchmakingPreferencesApi {
       }).required(),
       body: Joi.object<MatchmakingPreferences>({
         race: Joi.string().valid('p', 't', 'z', 'r').required(),
-        // TODO(2Pac): min/max values most likely depend on the matchmaking type here
-        mapSelections: Joi.array().items(Joi.string()).min(0).max(2).required(),
+        mapSelections: Joi.array().items(Joi.string()).min(0).max(3).required(),
         data: Joi.alternatives()
           .try(
             Joi.object<MatchmakingPreferencesData1v1>({
@@ -40,10 +39,8 @@ export class MatchmakingPreferencesApi {
             }),
           )
           .required(),
-        // NOTE(tec27): The stuff below just makes it easier to submit, these values shouldn't be
-        // used and should instead come from the URL/DB/session
-        userId: Joi.number().min(1).required(),
-        matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
+        userId: Joi.number().valid(ctx.session!.userId).required(),
+        matchmakingType: Joi.valid(ctx.params.matchmakingType).required(),
         mapPoolId: Joi.number().min(1).required(),
       }).required(),
     })

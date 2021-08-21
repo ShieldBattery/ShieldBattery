@@ -1,6 +1,5 @@
 import { Immutable } from 'immer'
 import { rgba } from 'polished'
-import PropTypes from 'prop-types'
 import React, { useCallback, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { MapInfoJson } from '../../common/maps'
@@ -40,14 +39,20 @@ const NoImageContainer = styled.div`
   background-color: ${background700};
 
   & > svg {
-    width: 90px;
-    height: 90px;
+    width: 96px;
+    height: 96px;
     opacity: 0.5;
     margin-bottom: 24px;
   }
 `
 
-const Overlay = styled.div<{ $isSelected?: boolean; $isFocused?: boolean }>`
+const TEXT_PROTECTION_HEIGHT_PX = 48
+
+const Overlay = styled.div<{
+  $isSelected?: boolean
+  $isFocused?: boolean
+  $textProtection?: boolean
+}>`
   position: absolute;
   top: 0;
   left: 0;
@@ -56,25 +61,61 @@ const Overlay = styled.div<{ $isSelected?: boolean; $isFocused?: boolean }>`
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: ${props => {
-    let opacity = 0
-    if (props.$isFocused) opacity = 0.12
-    if (props.$isSelected) opacity = 0.36
-    const style = rgba(amberA100, opacity)
-
-    return props.$isSelected || props.$isFocused ? style + ' !important' : style
-  }};
-  transition: background-color 150ms linear;
-
-  &:hover {
-    background-color: ${rgba(amberA100, 0.12)};
-    cursor: pointer;
-  }
 
   & > svg {
-    width: 64px;
-    height: 64px;
-    opacity: 0.5;
+    width: var(--sb-map-thumbnail-selected-icon-size, 64px);
+    height: var(--sb-map-thumbnail-selected-icon-size, 64px);
+    margin-bottom: ${props =>
+      props.$textProtection ? Math.floor(TEXT_PROTECTION_HEIGHT_PX / 2) : 0}px;
+    opacity: ${props => (props.$isSelected ? 0.5 : 0)};
+
+    transition: opacity 100ms linear;
+  }
+
+  &:hover {
+    cursor: pointer;
+
+    & > svg {
+      opacity: 0.25;
+    }
+  }
+
+  &::before {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    content: '';
+    pointer-events: none;
+
+    background-color: var(--sb-map-thumbnail-selected-color, ${amberA100});
+    opacity: ${props => {
+      // TODO(tec27): These seem backwards? Focused should generally be more prominent than
+      // selected.
+      if (props.$isSelected) {
+        return 0.36
+      } else if (props.$isFocused) {
+        return 0.16
+      } else {
+        return 0
+      }
+    }};
+    transition: opacity 100ms linear;
+  }
+
+  &:hover::before {
+    opacity: ${props => {
+      // TODO(tec27): These seem backwards? Focused should generally be more prominent than
+      // selected.
+      if (props.$isSelected) {
+        return 0.24
+      } else if (props.$isFocused) {
+        return 0.16
+      } else {
+        return 0.12
+      }
+    }};
   }
 `
 
@@ -94,7 +135,7 @@ const TextProtection = styled.div`
   position: absolute;
   bottom: 0;
   width: 100%;
-  height: 48px;
+  height: ${TEXT_PROTECTION_HEIGHT_PX}px;
   padding: 0 4px 0 12px;
   display: flex;
   align-items: center;
@@ -194,8 +235,12 @@ export function MapThumbnail({
     <Container className={className}>
       <StyledMapImage map={map} size={size} noImageElem={<NoImage />} />
       {onClick ? (
-        <Overlay $isSelected={isSelected} $isFocused={isFocused} onClick={onClick}>
-          {isSelected && selectedIcon ? selectedIcon : null}
+        <Overlay
+          $isSelected={isSelected}
+          $isFocused={isFocused}
+          $textProtection={showMapName}
+          onClick={onClick}>
+          {selectedIcon}
         </Overlay>
       ) : null}
       {onPreview ? (
@@ -235,20 +280,4 @@ export function MapThumbnail({
       ) : null}
     </Container>
   )
-}
-
-MapThumbnail.propTypes = {
-  map: PropTypes.object.isRequired,
-  size: PropTypes.number,
-  showMapName: PropTypes.bool,
-  isFavoriting: PropTypes.bool,
-  isSelected: PropTypes.bool,
-  isFocused: PropTypes.bool,
-  selectedIcon: PropTypes.element,
-  onClick: PropTypes.func,
-  onPreview: PropTypes.func,
-  onToggleFavorite: PropTypes.func,
-  onMapDetails: PropTypes.func,
-  onRemove: PropTypes.func,
-  onRegenMapImage: PropTypes.func,
 }

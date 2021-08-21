@@ -57,7 +57,7 @@ export class MatchmakingState extends BaseMatchmakingState {
 export default keyedReducer(new MatchmakingState(), {
   ['@matchmaking/acceptMatch'](state, action) {
     if (action.error) {
-      return new MatchmakingState()
+      return new MatchmakingState({ mapPoolTypes: state.mapPoolTypes })
     }
 
     return state.set('hasAccepted', true)
@@ -65,26 +65,25 @@ export default keyedReducer(new MatchmakingState(), {
 
   ['@matchmaking/cancelMatch'](state, action) {
     // TODO(tec27): handle errors, which might indicate you're currently still in the queue
-
-    return new MatchmakingState()
+    return new MatchmakingState({ mapPoolTypes: state.mapPoolTypes })
   },
 
   ['@matchmaking/findMatch'](state, action) {
     if (action.error) {
-      return new MatchmakingState()
+      return new MatchmakingState({ mapPoolTypes: state.mapPoolTypes })
     }
 
     return new MatchmakingState({
       isFinding: true,
       findingPreferences: action.meta?.preferences,
       searchStartTime: action.payload.startTime,
+      mapPoolTypes: state.mapPoolTypes,
     })
   },
 
   ['@matchmaking/getCurrentMapPoolBegin'](state, action) {
-    return state.setIn(
-      ['mapPoolTypes', action.payload.type],
-      new MapPoolRecord({ isRequesting: true }),
+    return state.updateIn(['mapPoolTypes', action.payload.type], (mapPool = new MapPoolRecord()) =>
+      (mapPool as MapPoolRecord).set('isRequesting', true),
     )
   },
 
@@ -151,24 +150,11 @@ export default keyedReducer(new MatchmakingState(), {
   },
 
   ['@matchmaking/gameStarted'](state, action) {
-    return new MatchmakingState()
+    return new MatchmakingState({ mapPoolTypes: state.mapPoolTypes })
   },
 
   ['@matchmaking/loadingCanceled'](state, action) {
-    return new MatchmakingState()
-  },
-
-  ['@maps/toggleFavorite'](state, action) {
-    const {
-      map,
-      context: { matchmakingType: type },
-    } = action.meta
-
-    if (!type) {
-      return state
-    }
-
-    return state.setIn(['mapPoolTypes', type, 'byId', map.id, 'isFavorited'], !map.isFavorited)
+    return new MatchmakingState({ mapPoolTypes: state.mapPoolTypes })
   },
 
   [NETWORK_SITE_CONNECTED as any]() {

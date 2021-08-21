@@ -30,7 +30,7 @@ export function intersection<T>(first: ReadonlySet<T>, second: ReadonlySet<T>): 
  * Subtracts all of the elements in the second Set from the elements in the first, returning the
  * result in a new Set.
  */
-export function subtract<T>(first: ReadonlySet<T>, second: ReadonlySet<T>): Set<T> {
+export function subtract<T>(first: ReadonlySet<T>, second: Iterable<T>): Set<T> {
   const result = new Set(first)
   for (const elem of second) {
     result.delete(elem)
