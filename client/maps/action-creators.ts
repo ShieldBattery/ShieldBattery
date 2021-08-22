@@ -16,17 +16,20 @@ import { apiUrl } from '../network/urls'
 import { openSnackbar } from '../snackbars/action-creators'
 import { ClearMaps } from './actions'
 
-const uploadModule = IS_ELECTRON ? import('./upload') : Promise.resolve()
+async function uploadMap(filePath: string) {
+  if (IS_ELECTRON) {
+    const module = await import('./upload')
+    return module?.default<UploadMapPayload>(filePath, apiUrl`maps`)
+  } else {
+    throw new Error('cannot upload maps on non-electron clients')
+  }
+}
 
 export function uploadLocalMap(path: string, onMapSelect: (map: MapInfoJson) => void): ThunkAction {
-  return async dispatch => {
-    const uploadPromise = uploadModule.then(upload =>
-      upload && upload.default
-        ? upload.default<UploadMapPayload>(path, apiUrl`maps`)
-        : Promise.reject(),
-    )
+  return dispatch => {
+    const promise = uploadMap(path)
 
-    uploadPromise.then(
+    promise.then(
       ({ map }) => {
         onMapSelect(map)
       },
@@ -46,7 +49,7 @@ export function uploadLocalMap(path: string, onMapSelect: (map: MapInfoJson) => 
 
     dispatch({
       type: '@maps/uploadLocalMap',
-      payload: uploadPromise,
+      payload: promise,
       meta: { path },
     })
   }
