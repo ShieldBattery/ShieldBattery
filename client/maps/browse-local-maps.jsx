@@ -9,7 +9,7 @@ import BrowseFiles from '../file-browser/browse-files'
 import MapIcon from '../icons/material/ic_terrain_black_24px.svg'
 import LoadingIndicator from '../progress/dots'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
-import { selectLocalMap } from './action-creators'
+import { uploadLocalMap } from './action-creators'
 
 const LoadingArea = styled.div`
   display: flex;
@@ -78,6 +78,6 @@ export default class LocalMaps extends React.Component {
   }
 
   onMapSelect = map => {
-    this.props.dispatch(selectLocalMap(map.path, this.props.onMapSelect))
+    this.props.dispatch(uploadLocalMap(map.path, this.props.onMapSelect))
   }
 }

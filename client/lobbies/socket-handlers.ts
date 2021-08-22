@@ -392,7 +392,7 @@ const eventToAction: EventToActionMap = {
       setup: {
         gameId: event.setup.gameId,
         name: lobbyName,
-        map: map.toJS(),
+        map,
         gameType,
         gameSubType,
         slots,

@@ -1,9 +1,8 @@
 import { List } from 'immutable'
 import React from 'react'
-import { Tileset } from '../../../common/maps'
 import { GameStatus } from '../../active-game/game-client-reducer'
 import { SelfUserRecord } from '../../auth/auth-records'
-import { MapRecord } from '../../maps/maps-reducer'
+import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
 import LoadingScreen from '../loading'
 import { LobbyInfo, Slot, Team } from '../lobby-reducer'
 
@@ -46,18 +45,7 @@ export default class LoadingTest extends React.Component {
     const host = new Slot({ type: 'human', name: 'tec27', id: 'a', race: 'p' })
     const lobby = new LobbyInfo({
       name: 'This is just a test',
-      map: new MapRecord({
-        name: 'Fighting Spirit',
-        hash: 'e364f0b60ea5f83c78afef5ec5a0c804d8480f1339e40ac0d8317d7a3968b5f3',
-        format: 'scx',
-        thumbFormat: 'jpg',
-        width: 128,
-        height: 128,
-        tileset: Tileset.Jungle,
-        description: 'sup',
-        slots: 5,
-        umsSlots: 5,
-      }),
+      map: FightingSpirit,
       gameType: 'melee',
       gameSubType: 0,
       teams: new List([

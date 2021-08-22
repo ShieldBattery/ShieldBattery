@@ -1,8 +1,7 @@
 import { List, Range } from 'immutable'
 import React from 'react'
-import { Tileset } from '../../../common/maps'
 import { SelfUserRecord } from '../../auth/auth-records'
-import { MapRecord } from '../../maps/maps-reducer'
+import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
 import Lobby from '../lobby'
 import { LobbyInfo, Slot, Team } from '../lobby-reducer.js'
 
@@ -20,18 +19,7 @@ const SLOTS = new List([
 const LOBBIES = Range(2, 9).map(numSlots => {
   return new LobbyInfo({
     name: `My ${numSlots}-slot Lobby`,
-    map: new MapRecord({
-      name: 'Fighting Spirit',
-      hash: 'e364f0b60ea5f83c78afef5ec5a0c804d8480f1339e40ac0d8317d7a3968b5f3',
-      format: 'scx',
-      thumbFormat: 'jpg',
-      width: 128,
-      height: 128,
-      tileset: Tileset.Jungle,
-      description: 'sup',
-      slots: 4,
-      umsSlots: 4,
-    }),
+    map: FightingSpirit,
     gameType: 'melee',
     gameSubType: 0,
     teams: new List([

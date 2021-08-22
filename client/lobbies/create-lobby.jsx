@@ -357,7 +357,7 @@ export default class CreateLobby extends React.Component {
     const serverMapsProps = {
       title: 'Select map',
       onMapSelect: this.onMapSelect,
-      onLocalMapSelect: this.onMapSelect,
+      onMapUpload: this.onMapSelect,
     }
     this.props.dispatch(openOverlay('browseServerMaps', serverMapsProps))
   }

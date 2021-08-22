@@ -145,7 +145,7 @@ export function ConnectedGameListEntry({
   }, [id, onSetActive])
   const [buttonProps, rippleRef] = useButtonState({ onClick })
 
-  const map = useAppSelector(s => s.maps2.byId.get(game.mapId))
+  const map = useAppSelector(s => s.maps.byId.get(game.mapId))
 
   const { results, startTime, config } = game
   const result = useMemo(() => {
@@ -249,7 +249,7 @@ export interface ConnectedGamePreviewProps {
 export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
   const dispatch = useAppDispatch()
 
-  const map = useAppSelector(s => (game ? s.maps2.byId.get(game.mapId) : undefined))
+  const map = useAppSelector(s => (game ? s.maps.byId.get(game.mapId) : undefined))
   const players = useAppSelector(s => {
     if (!game) {
       return []

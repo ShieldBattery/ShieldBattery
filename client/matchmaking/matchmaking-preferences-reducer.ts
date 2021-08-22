@@ -1,8 +1,8 @@
 import { List, Map, Record as ImmutableRecord } from 'immutable'
 import { assertUnreachable } from '../../common/assert-unreachable'
+import { MapInfoJson } from '../../common/maps'
 import { MatchmakingPreferences, MatchmakingType } from '../../common/matchmaking'
 import { AssignedRaceChar, RaceChar } from '../../common/races'
-import { MapRecord } from '../maps/maps-reducer'
 import { FetchError } from '../network/fetch-action-types'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
@@ -20,7 +20,7 @@ export class MatchmakingPreferencesRecord extends ImmutableRecord({
   race: 'r' as RaceChar,
   mapPoolId: 1,
   mapPoolOutdated: false,
-  mapSelections: List<ReturnType<typeof MapRecord>>(),
+  mapSelections: List<MapInfoJson>(),
   data: {} as MatchmakingPreferencesDataRecord,
 
   lastError: undefined as FetchError | undefined,
@@ -65,7 +65,7 @@ export default keyedReducer(new MatchmakingPreferencesState(), {
       new MatchmakingPreferencesRecord({
         ...preferences,
         mapPoolOutdated,
-        mapSelections: List(mapInfos.map(m => MapRecord(m))),
+        mapSelections: List(mapInfos),
         data: toMatchmakingPreferencesDataRecord(preferences),
       }),
     )
@@ -82,7 +82,7 @@ export default keyedReducer(new MatchmakingPreferencesState(), {
       new MatchmakingPreferencesRecord({
         ...preferences,
         mapPoolOutdated,
-        mapSelections: List(mapInfos.map(m => MapRecord(m))),
+        mapSelections: List(mapInfos),
         data: toMatchmakingPreferencesDataRecord(preferences),
       }),
     )

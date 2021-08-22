@@ -1,6 +1,6 @@
 import { List } from 'immutable'
 import React from 'react'
-import { MapRecord } from '../../maps/maps-reducer'
+import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
 import { TabItem, Tabs } from '../../material/tabs'
 import ActiveLobby from '../active-lobby'
 import { LobbyInfo, Slot, Team } from '../lobby-reducer'
@@ -15,12 +15,8 @@ export default class ActiveTest extends React.Component {
 
   render() {
     const { activeTab } = this.state
-    const map = new MapRecord({
-      id: 1,
-      name: 'Fighting Spirit',
-    })
     const meleeLobby = new LobbyInfo({
-      map,
+      map: FightingSpirit,
       gameType: 'melee',
       teams: new List([
         new Team({
@@ -36,7 +32,7 @@ export default class ActiveTest extends React.Component {
       host: 'a',
     })
     const tvbLobby = new LobbyInfo({
-      map,
+      map: FightingSpirit,
       gameType: 'topVBottom',
       teams: new List([
         new Team({

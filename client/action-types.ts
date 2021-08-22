@@ -2,6 +2,7 @@ import { AuthActions } from './auth/actions'
 import { ChatActions } from './chat/actions'
 import { DialogActions } from './dialogs/actions'
 import { LadderActions } from './ladder/actions'
+import { MapsActions } from './maps/actions'
 import { MatchmakingActions } from './matchmaking/actions'
 import { NotificationActions } from './notifications/actions'
 import { PartyActions } from './parties/actions'
@@ -13,6 +14,7 @@ type AllActions =
   | ChatActions
   | DialogActions
   | LadderActions
+  | MapsActions
   | MatchmakingActions
   | NotificationActions
   | PartyActions

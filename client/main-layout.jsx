@@ -455,7 +455,7 @@ class MainLayout extends React.Component {
     }
   }
 
-  onLocalMapSelect = map => {
+  onMapUpload = map => {
     this.props.dispatch(
       openOverlay('browseServerMaps', { ...this.serverMapsProps, uploadedMap: map }),
     )
@@ -475,7 +475,7 @@ class MainLayout extends React.Component {
 
   serverMapsProps = {
     title: 'Maps',
-    onLocalMapSelect: this.onLocalMapSelect,
+    onMapUpload: this.onMapUpload,
     onMapSelect: this.onMapDetails,
     onMapDetails: this.onMapDetails,
     onRemoveMap: this.onRemoveMap,

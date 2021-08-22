@@ -57,13 +57,26 @@ export enum MapVisibility {
 }
 export const ALL_MAP_VISIBILITIES: Readonly<MapVisibility[]> = Object.values(MapVisibility)
 
+export type NumPlayers = 2 | 3 | 4 | 5 | 6 | 7 | 8
+
 export interface MapFilters {
-  numPlayers: Array<2 | 3 | 4 | 5 | 6 | 7 | 8>
+  numPlayers: NumPlayers[]
   tileset: Tileset[]
 }
 
 export type MapExtension = 'scx' | 'scm'
 export const ALL_MAP_EXTENSIONS: Readonly<MapExtension[]> = ['scx', 'scm']
+
+export interface MapPreferences {
+  // TODO(2Pac): This should probably not be a part of map preferences, but instead should be a part
+  // of user's session, similar to the `lastQueuedMatchmakingType` used by the find-match overlay.
+  visibility: MapVisibility
+  // TODO(2Pac): This can probably be typed even further
+  thumbnailSize: number
+  sortOption: MapSortType
+  numPlayersFilter: NumPlayers[]
+  tilesetFilter: Tileset[]
+}
 
 export interface MapForcePlayer {
   id: number
@@ -118,4 +131,28 @@ export function toMapInfoJson(mapInfo: MapInfo): MapInfoJson {
     ...mapInfo,
     uploadDate: Number(mapInfo.uploadDate),
   }
+}
+
+export interface UploadMapPayload {
+  map: MapInfoJson
+}
+
+export interface GetMapsPayload {
+  maps: MapInfoJson[]
+  favoritedMaps: MapInfoJson[]
+  total: number
+}
+
+export interface GetMapDetailsPayload {
+  map: MapInfoJson
+}
+
+export interface UpdateMapServerBody {
+  mapId: string
+  name: string
+  description: string
+}
+
+export interface UpdateMapPayload {
+  map: MapInfoJson
 }
