@@ -159,7 +159,6 @@ function stateToProps(state) {
     inGameplayActivity: state.gameplayActivity.inGameplayActivity,
     starcraft: state.starcraft,
     matchmaking: state.matchmaking,
-    matchmakingPreferences: state.matchmakingPreferences,
     matchmakingStatus: state.matchmakingStatus,
     serverStatus: state.serverStatus,
   }
@@ -229,20 +228,20 @@ class MainLayout extends React.Component {
   }
 
   renderSearchingMatchOverlay() {
+    if (!IS_ELECTRON) return null
+
     const {
-      matchmaking: { isFinding, searchStartTime },
-      matchmakingPreferences: { lastQueuedMatchmakingType, typeToPreferences },
+      matchmaking: { isFinding, findingPreferences, searchStartTime },
     } = this.props
-    const preferences = typeToPreferences.get(lastQueuedMatchmakingType)
-    if (!isFinding || !preferences || !IS_ELECTRON) return null
+    if (!isFinding || !findingPreferences) return null
 
     return (
       <MatchmakingSearchingOverlay
         open={this.state.searchingMatchOverlayOpen}
         anchor={this._searchingMatchButtonRef.current}
         startTime={searchStartTime}
-        matchmakingType={preferences.matchmakingType}
-        selectedRace={preferences.race}
+        matchmakingType={findingPreferences.matchmakingType}
+        selectedRace={findingPreferences.race}
         onCancelSearch={() => {
           this.onCancelFindMatchClick()
           this.onSearchingMatchOverlayClose()

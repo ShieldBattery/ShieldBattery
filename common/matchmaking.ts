@@ -48,7 +48,7 @@ export interface AddMatchmakingTimeBody {
  * Describes a map pool that is used in a matchmaking.
  */
 export interface MatchmakingMapPool {
-  id: string
+  id: number
   type: MatchmakingType
   startDate: Date
   maps: MapInfoJson[]
@@ -105,6 +105,7 @@ export type MatchmakingPreferences = MatchmakingPreferences1v1 | MatchmakingPref
 export interface GetPreferencesPayload {
   preferences: MatchmakingPreferences
   mapPoolOutdated: boolean
+  currentMapPoolId: number
   mapInfos: MapInfoJson[]
 }
 

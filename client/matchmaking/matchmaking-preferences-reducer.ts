@@ -1,95 +1,54 @@
-import { List, Map, Record as ImmutableRecord } from 'immutable'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { MapInfoJson } from '../../common/maps'
+import { Immutable } from 'immer'
 import { MatchmakingPreferences, MatchmakingType } from '../../common/matchmaking'
-import { AssignedRaceChar, RaceChar } from '../../common/races'
 import { FetchError } from '../network/fetch-action-types'
-import { keyedReducer } from '../reducers/keyed-reducer'
+import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
-export class MatchmakingPreferencesData1v1Record extends ImmutableRecord({
-  useAlternateRace: false,
-  alternateRace: 'z' as AssignedRaceChar,
-}) {}
-
-export type MatchmakingPreferencesDataRecord =
-  | MatchmakingPreferencesData1v1Record
-  | Record<string, never>
-
-export class MatchmakingPreferencesRecord extends ImmutableRecord({
-  matchmakingType: MatchmakingType.Match1v1,
-  race: 'r' as RaceChar,
-  mapPoolId: 1,
-  mapPoolOutdated: false,
-  mapSelections: List<MapInfoJson>(),
-  data: {} as MatchmakingPreferencesDataRecord,
-
-  lastError: undefined as FetchError | undefined,
-}) {}
-
-export class MatchmakingPreferencesState extends ImmutableRecord({
-  typeToPreferences: Map<MatchmakingType, MatchmakingPreferencesRecord>(),
-  lastQueuedMatchmakingType: MatchmakingType.Match1v1,
-}) {}
-
-function toMatchmakingPreferencesDataRecord(
-  prefs: Readonly<MatchmakingPreferences>,
-): MatchmakingPreferencesDataRecord {
-  switch (prefs.matchmakingType) {
-    case MatchmakingType.Match1v1:
-      return new MatchmakingPreferencesData1v1Record({
-        useAlternateRace: prefs.data.useAlternateRace,
-        alternateRace: prefs.data.alternateRace,
-      })
-    case MatchmakingType.Match2v2:
-      return {}
-    default:
-      return assertUnreachable(prefs)
-  }
+export interface FetchedMatchmakingPreferences {
+  preferences?: MatchmakingPreferences
+  mapPoolOutdated?: boolean
+  lastError?: FetchError
 }
 
-export default keyedReducer(new MatchmakingPreferencesState(), {
-  ['@matchmaking/initPreferences'](state, action) {
-    const { preferences, mapPoolOutdated, mapInfos = [] } = action.payload
-    // The server has not sent us any preferences, most likely due to them not existing yet. We
-    // create the matchmaking preferences for this type with default values.
-    if (!preferences) {
-      const { type } = action.meta
-      return state.setIn(
-        ['typeToPreferences', type],
-        new MatchmakingPreferencesRecord({ matchmakingType: type }),
-      )
-    }
+export interface MatchmakingPreferencesState {
+  byType: Map<MatchmakingType, FetchedMatchmakingPreferences>
+  lastQueuedMatchmakingType: MatchmakingType
+}
 
-    return state.setIn(
-      ['typeToPreferences', preferences.matchmakingType],
-      new MatchmakingPreferencesRecord({
-        ...preferences,
-        mapPoolOutdated,
-        mapSelections: List(mapInfos),
-        data: toMatchmakingPreferencesDataRecord(preferences),
-      }),
-    )
+const DEFAULT_STATE: Immutable<MatchmakingPreferencesState> = {
+  byType: new Map(),
+  lastQueuedMatchmakingType: MatchmakingType.Match1v1,
+}
+
+export default immerKeyedReducer(DEFAULT_STATE, {
+  ['@matchmaking/initPreferences'](state, action) {
+    const { preferences, mapPoolOutdated } = action.payload
+    const { type } = action.meta
+
+    if (preferences) {
+      state.byType.set(type, { preferences, mapPoolOutdated, lastError: undefined })
+    } else {
+      state.byType.delete(type)
+    }
   },
 
   ['@matchmaking/updatePreferences'](state, action) {
+    const { type } = action.meta
+
     if (action.error) {
-      return state.setIn(['typeToPreferences', action.meta.type, 'lastError'], action.payload)
+      if (!state.byType.has(type)) {
+        state.byType.set(type, { lastError: action.payload })
+      } else {
+        state.byType.get(type)!.lastError = action.payload
+      }
+      return
     }
 
-    const { preferences, mapPoolOutdated, mapInfos } = action.payload
-    return state.setIn(
-      ['typeToPreferences', preferences.matchmakingType],
-      new MatchmakingPreferencesRecord({
-        ...preferences,
-        mapPoolOutdated,
-        mapSelections: List(mapInfos),
-        data: toMatchmakingPreferencesDataRecord(preferences),
-      }),
-    )
+    const { preferences, mapPoolOutdated } = action.payload
+    state.byType.set(type, { preferences, mapPoolOutdated })
   },
 
   ['@matchmaking/updateLastQueuedMatchmakingType'](state, action) {
-    return state.set('lastQueuedMatchmakingType', action.payload)
+    state.lastQueuedMatchmakingType = action.payload
   },
 
   ['@auth/loadCurrentSession'](state, action) {
@@ -99,7 +58,7 @@ export default keyedReducer(new MatchmakingPreferencesState(), {
 
     const { lastQueuedMatchmakingType } = action.payload
     if (lastQueuedMatchmakingType) {
-      return state.set('lastQueuedMatchmakingType', lastQueuedMatchmakingType)
+      state.lastQueuedMatchmakingType = lastQueuedMatchmakingType
     }
 
     return state

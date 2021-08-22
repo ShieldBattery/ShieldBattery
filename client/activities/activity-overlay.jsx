@@ -22,7 +22,6 @@ const {
 } = IS_ELECTRON
   ? {
       FindMatch: require('../matchmaking/find-match').FindMatch,
-      BrowseMapSelections: require('../matchmaking/browse-map-selections').default,
       CreateLobby: require('../lobbies/create-lobby').default,
       WatchReplay: require('../replays/watch-replay').default,
       BrowseLocalMaps: require('../maps/browse-local-maps').default,

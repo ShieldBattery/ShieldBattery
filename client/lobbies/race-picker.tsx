@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import styled from 'styled-components'
-import { RaceChar } from '../../common/races'
+import { AssignedRaceChar, RaceChar } from '../../common/races'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { fastOutSlowIn } from '../material/curve-constants'
@@ -83,20 +83,24 @@ const HiddenRaceIcon = styled.span`
   }
 `
 
-export interface RacePickerProps {
+export type RacePickerOnSetFunc<AllowRandom extends boolean | undefined> = AllowRandom extends false
+  ? (race: AssignedRaceChar) => void
+  : (race: RaceChar) => void
+
+export interface RacePickerProps<AllowRandom extends boolean | undefined> {
   /** The currently selected race. */
   race: RaceChar
   /** Races to hide in the picker (and make un-selectable). */
   hiddenRaces?: RaceChar[]
   size?: RacePickerSize
-  allowRandom?: boolean
-  onSetRace?: (race: RaceChar) => void
+  allowRandom?: AllowRandom
+  onSetRace?: RacePickerOnSetFunc<AllowRandom>
   allowInteraction?: boolean
   className?: string
 }
 
 export const RacePicker = React.forwardRef(
-  (
+  <AllowRandom extends boolean | undefined>(
     {
       race,
       hiddenRaces,
@@ -105,7 +109,7 @@ export const RacePicker = React.forwardRef(
       onSetRace,
       allowInteraction = true,
       className,
-    }: RacePickerProps,
+    }: RacePickerProps<AllowRandom>,
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
     const [onSetZ, onSetP, onSetT, onSetR] = useMemo(() => {
@@ -116,7 +120,7 @@ export const RacePicker = React.forwardRef(
           () => onSetRace('z'),
           () => onSetRace('p'),
           () => onSetRace('t'),
-          () => onSetRace('r'),
+          () => onSetRace('r' as any),
         ]
       }
     }, [onSetRace])

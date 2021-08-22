@@ -111,7 +111,28 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@maps/clearMaps'](state, action) {
+    // TODO(tec27): Yeah, don't ever do this :(
     return DEFAULT_STATE
+  },
+
+  ['@matchmaking/initPreferences'](state, action) {
+    if (!action.payload.mapInfos?.length) {
+      return
+    }
+
+    for (const map of action.payload.mapInfos) {
+      state.byId.set(map.id, map)
+    }
+  },
+
+  ['@matchmaking/updatePreferences'](state, action) {
+    if (action.error) {
+      return
+    }
+
+    for (const map of action.payload.mapInfos) {
+      state.byId.set(map.id, map)
+    }
   },
 
   ['@profile/getUserProfile'](state, action) {

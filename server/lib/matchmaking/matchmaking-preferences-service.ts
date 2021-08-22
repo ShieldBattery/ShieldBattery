@@ -29,7 +29,7 @@ export default class MatchmakingPreferencesService {
       for (const matchmakingType of ALL_MATCHMAKING_TYPES) {
         c.subscribe<GetPreferencesPayload | Record<string, undefined>>(
           getMatchmakingPreferencesPath(c.userId, matchmakingType),
-          async () => {
+          async (): Promise<GetPreferencesPayload | Record<string, undefined>> => {
             try {
               const preferences = await getMatchmakingPreferences(c.userId, matchmakingType)
               if (!preferences) {
@@ -55,6 +55,7 @@ export default class MatchmakingPreferencesService {
               return {
                 preferences,
                 mapPoolOutdated,
+                currentMapPoolId: currentMapPool.id,
                 mapInfos,
               }
             } catch (err) {

@@ -1,6 +1,7 @@
+import { Immutable } from 'immer'
 import { List, Map, Record } from 'immutable'
 import { MapInfoJson } from '../../common/maps'
-import { MatchmakingType } from '../../common/matchmaking'
+import { MatchmakingPreferences, MatchmakingType } from '../../common/matchmaking'
 import { NETWORK_SITE_CONNECTED } from '../actions'
 import { FetchError } from '../network/fetch-action-types'
 import { keyedReducer } from '../reducers/keyed-reducer'
@@ -15,14 +16,14 @@ export class MatchmakingPlayerRecord extends Record({
 export class MatchmakingMatchRecord extends Record({
   numPlayers: 0,
   acceptedPlayers: 0,
-  type: MatchmakingType.Match1v1,
+  type: MatchmakingType.Match1v1 as MatchmakingType,
   players: List<MatchmakingPlayerRecord>(),
   chosenMap: undefined as MapInfoJson | undefined,
 }) {}
 
 export class MapPoolRecord extends Record({
-  id: '',
-  type: MatchmakingType.Match1v1,
+  id: 0,
+  type: MatchmakingType.Match1v1 as MatchmakingType,
   startDate: new Date(),
   maps: List<string>(),
   byId: Map<string, MapInfoJson>(),
@@ -33,6 +34,7 @@ export class MapPoolRecord extends Record({
 
 export class BaseMatchmakingState extends Record({
   isFinding: false,
+  findingPreferences: undefined as Immutable<MatchmakingPreferences> | undefined,
   /** The time when the search was started (as returned by `window.performance.now()`) */
   searchStartTime: -1,
   hasAccepted: false,
@@ -75,6 +77,7 @@ export default keyedReducer(new MatchmakingState(), {
 
     return new MatchmakingState({
       isFinding: true,
+      findingPreferences: action.meta?.preferences,
       searchStartTime: action.payload.startTime,
     })
   },

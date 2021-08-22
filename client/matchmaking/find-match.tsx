@@ -1,11 +1,16 @@
+import { Immutable } from 'immer'
 import { List, Range } from 'immutable'
-import React, { useCallback, useImperativeHandle, useRef, useState } from 'react'
+import React, { useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { MapInfoJson } from '../../common/maps'
-import { MatchmakingType } from '../../common/matchmaking'
+import {
+  MatchmakingPreferences,
+  MatchmakingPreferences1v1,
+  MatchmakingType,
+} from '../../common/matchmaking'
 import { AssignedRaceChar, RaceChar } from '../../common/races'
-import { closeOverlay, openOverlay } from '../activities/action-creators'
+import { closeOverlay } from '../activities/action-creators'
 import { useSelfUser } from '../auth/state-hooks'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import { useForm } from '../forms/form-hook'
@@ -22,10 +27,6 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { amberA400, colorDividers, colorError, colorTextSecondary } from '../styles/colors'
 import { body1, body2, Headline5, subtitle1, Subtitle2 } from '../styles/typography'
 import { findMatch, updateMatchmakingPreferences } from './action-creators'
-import {
-  MatchmakingPreferencesData1v1Record,
-  MatchmakingPreferencesRecord,
-} from './matchmaking-preferences-reducer'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -144,13 +145,19 @@ const ErrorText = styled.div`
   color: ${colorError};
 `
 
-interface RaceSelectProps extends Omit<RacePickerProps, 'race'> {
+export type RaceSelectOnChangeFunc<AllowRandom extends boolean | undefined> =
+  AllowRandom extends false ? (race: AssignedRaceChar) => void : (race: RaceChar) => void
+
+interface RaceSelectProps<AllowRandom extends boolean | undefined>
+  extends Omit<RacePickerProps<AllowRandom>, 'race'> {
   value: RaceChar | null
-  onChange: (race: RaceChar) => void
+  onChange: RaceSelectOnChangeFunc<AllowRandom>
 }
 
 // A wrapper around <RacePicker /> so it can be used in forms
-const RaceSelect = (props: RaceSelectProps) => {
+const RaceSelect = <AllowRandom extends boolean | undefined>(
+  props: RaceSelectProps<AllowRandom>,
+) => {
   const { value, onChange, ...restProps } = props
 
   return <StyledRacePicker {...restProps} race={value!} onSetRace={onChange} />
@@ -163,13 +170,14 @@ interface FormRef {
 interface FindMatchContentsProps {
   mapSelections?: List<MapInfoJson>
   formRef: React.Ref<FormRef>
-  onSubmit: (prefs: MatchmakingPreferencesRecord, mapSelections: List<MapInfoJson>) => void
+  onSubmit: (prefs: Immutable<MatchmakingPreferences>) => void
 }
 
 interface Model1v1 {
   race: RaceChar
+  mapSelections: string[]
   useAlternateRace: boolean
-  alternateRace: RaceChar
+  alternateRace: AssignedRaceChar
 }
 
 interface Form1v1Props {
@@ -222,66 +230,76 @@ const Form1v1 = React.forwardRef<FormRef, Form1v1Props>((props, ref) => {
   )
 })
 
-function Contents1v1({
-  formRef,
-  onSubmit,
-  mapSelections: mapSelectionsProp,
-}: FindMatchContentsProps) {
+function model1v1ToPrefs(model: Model1v1, userId: number, mapPoolId: number) {
+  return {
+    userId,
+    matchmakingType: MatchmakingType.Match1v1 as const,
+    race: model.race,
+    mapPoolId,
+    mapSelections: model.mapSelections,
+    data: {
+      useAlternateRace: model.race !== 'r' ? model.useAlternateRace : false,
+      alternateRace: model.alternateRace,
+    },
+  }
+}
+
+function Contents1v1({ formRef, onSubmit }: FindMatchContentsProps) {
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
-  const prefs = useAppSelector(
-    s => s.matchmakingPreferences.typeToPreferences.get(MatchmakingType.Match1v1)!,
+  const prefs: Partial<Immutable<MatchmakingPreferences1v1>> = useAppSelector(
+    s => s.matchmakingPreferences.byType.get(MatchmakingType.Match1v1)?.preferences ?? {},
   )
-  const mapSelections = mapSelectionsProp ?? prefs.mapSelections
+  const mapPoolOutdated = useAppSelector(
+    s => s.matchmakingPreferences.byType.get(MatchmakingType.Match1v1)?.mapPoolOutdated ?? false,
+  )
+  const mapSelections = useMemo(() => [...(prefs.mapSelections ?? [])], [prefs.mapSelections])
+  const mapPool = useAppSelector(s => s.matchmaking.mapPoolTypes.get(MatchmakingType.Match1v1)!)
+  // TODO(tec27): Probably split the map previews into a separate component to prevent needing to
+  // build this map at this level
+  const mapsById = useAppSelector(s => {
+    const result = new Map<string, Immutable<MapInfoJson>>()
+    for (const mapId of mapSelections) {
+      result.set(mapId, s.maps.byId.get(mapId)!)
+    }
+    if (mapPool && mapPool.maps) {
+      for (const mapId of mapPool.maps.values()) {
+        result.set(mapId, s.maps.byId.get(mapId)!)
+      }
+    }
+    return result
+  })
 
   const selfId = selfUser.id!
+  const mapPoolId = mapPool?.id ?? 0
   const onPrefsChanged = useCallback(
     (model: Model1v1) => {
-      const newPrefs = prefs.merge({
-        race: model.race,
-        data: new MatchmakingPreferencesData1v1Record({
-          useAlternateRace: model.useAlternateRace,
-          alternateRace: model.alternateRace as AssignedRaceChar,
-        }),
-      })
-
       dispatch(
-        updateMatchmakingPreferences(MatchmakingType.Match1v1, newPrefs, mapSelections, selfId),
+        updateMatchmakingPreferences(
+          MatchmakingType.Match1v1,
+          model1v1ToPrefs(model, selfId, mapPoolId),
+        ),
       )
     },
-    [dispatch, mapSelections, prefs, selfId],
+    [dispatch, mapPoolId, selfId],
   )
   const onFormSubmit = useCallback(
     (model: Model1v1) => {
-      const newPrefs = prefs.merge({
-        race: model.race,
-        data: new MatchmakingPreferencesData1v1Record({
-          useAlternateRace: model.useAlternateRace,
-          alternateRace: model.alternateRace as AssignedRaceChar,
-        }),
-      })
-      onSubmit(newPrefs, mapSelections)
+      onSubmit(model1v1ToPrefs(model, selfId, mapPoolId))
     },
-    [prefs, onSubmit, mapSelections],
+    [mapPoolId, onSubmit, selfId],
   )
 
-  const onBrowseMapSelections = useCallback(() => {
-    dispatch(
-      openOverlay('browseMapSelections', {
-        type: MatchmakingType.Match1v1,
-        mapSelections: mapSelections.map(m => m.id),
-      }) as any,
-    )
-  }, [mapSelections, dispatch])
-
+  // TODO(tec27): Add a way to make map selections
   const mapSelectionItems = Range(0, 2).map(index => {
-    const map = mapSelections.get(index)
+    const mapId = mapSelections[index]
+    const map = mapId ? mapsById.get(mapId) : undefined
     return (
       <SelectedMap key={map?.id ?? `unselected-${index}`}>
         {map ? (
-          <MapThumbnail map={map} showMapName={true} onClick={onBrowseMapSelections} />
+          <MapThumbnail map={map} showMapName={true} />
         ) : (
-          <BrowseButton onClick={onBrowseMapSelections}>
+          <BrowseButton>
             <RandomContainer>
               <RandomIcon />
               <Subtitle2>Random map</Subtitle2>
@@ -297,9 +315,10 @@ function Contents1v1({
       <Form1v1
         ref={formRef}
         model={{
-          race: prefs.race,
-          useAlternateRace: prefs.data.useAlternateRace,
-          alternateRace: prefs.data.alternateRace,
+          race: prefs.race ?? 'r',
+          useAlternateRace: prefs.data?.useAlternateRace ?? false,
+          alternateRace: prefs.data?.alternateRace ?? 'z',
+          mapSelections,
         }}
         onChange={onPrefsChanged}
         onSubmit={onFormSubmit}
@@ -307,7 +326,7 @@ function Contents1v1({
       <MapSelectionsContainer>
         <MapSelectionsHeader>
           <SectionTitle>Preferred maps</SectionTitle>
-          {prefs.mapPoolOutdated ? <OutdatedIndicator>Map pool changed</OutdatedIndicator> : null}
+          {mapPoolOutdated ? <OutdatedIndicator>Map pool changed</OutdatedIndicator> : null}
         </MapSelectionsHeader>
         <DescriptionText>
           Select up to 2 maps to be used in the per-match map pool. Your selections will be combined
@@ -366,7 +385,6 @@ export function FindMatch(props: FindMatchProps) {
   const [activeTab, setActiveTab] = useState(props.type ?? lastQueuedMatchmakingType)
 
   const dispatch = useAppDispatch()
-  const selfUser = useSelfUser()
   const isMatchmakingEnabled = useAppSelector(
     s => s.matchmakingStatus.types.get(activeTab)?.enabled ?? false,
   )
@@ -377,14 +395,14 @@ export function FindMatch(props: FindMatchProps) {
   const formRef = useRef<FormRef>(null)
 
   const onSubmit = useCallback(
-    (prefs: MatchmakingPreferencesRecord, mapSelections: List<MapInfoJson>) => {
+    (prefs: Immutable<MatchmakingPreferences>) => {
       if (activeTab === '3v3') {
         return
       }
-      dispatch(findMatch(activeTab, prefs, mapSelections, selfUser.id!))
+      dispatch(findMatch(activeTab, prefs))
       dispatch(closeOverlay() as any)
     },
-    [activeTab, selfUser, dispatch],
+    [activeTab, dispatch],
   )
 
   const onFindClick = useCallback(() => {

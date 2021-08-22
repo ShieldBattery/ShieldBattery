@@ -1,13 +1,10 @@
-import { List } from 'immutable'
-import { assertUnreachable } from '../../common/assert-unreachable'
+import { Immutable } from 'immer'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { MapInfoJson } from '../../common/maps'
 import {
   GetPreferencesPayload,
   MatchmakingMapPool,
   MatchmakingPreferences,
-  MatchmakingPreferences1v1,
-  MatchmakingPreferences2v2,
   MatchmakingType,
 } from '../../common/matchmaking'
 import { ThunkAction } from '../dispatch-registry'
@@ -15,70 +12,15 @@ import { clientId } from '../network/client-id'
 import fetch from '../network/fetch'
 import { apiUrl } from '../network/urls'
 import { UpdateLastQueuedMatchmakingType } from './actions'
-import { MatchmakingPreferencesRecord } from './matchmaking-preferences-reducer'
 
 const ipcRenderer = new TypedIpcRenderer()
 
-// TODO(tec27): These functions don't really make much sense tbh, the thing creating the action
-// should probably just be creating a full preferences record (it is, after all, passing in a full
-// preferences record)
-function format1v1Preferences(
-  prefs: MatchmakingPreferencesRecord,
-  mapSelections: List<MapInfoJson>,
-  userId: number,
-): MatchmakingPreferences1v1 {
-  const mapSelectionIds = mapSelections.map(m => m.id).toArray()
-
-  return {
-    userId,
-    matchmakingType: MatchmakingType.Match1v1,
-    race: prefs.race,
-    mapPoolId: prefs.mapPoolId,
-    mapSelections: mapSelectionIds,
-    data: {
-      useAlternateRace: prefs.race !== 'r' ? prefs.data.useAlternateRace : false,
-      alternateRace: prefs.data.alternateRace,
-    },
-  }
-}
-
-function format2v2Preferences(
-  prefs: MatchmakingPreferencesRecord,
-  mapSelections: List<MapInfoJson>,
-  userId: number,
-): MatchmakingPreferences2v2 {
-  const mapSelectionIds = mapSelections.map(m => m.id).toArray()
-
-  return {
-    userId,
-    matchmakingType: MatchmakingType.Match2v2,
-    race: prefs.race,
-    mapPoolId: prefs.mapPoolId,
-    mapSelections: mapSelectionIds,
-    data: {},
-  }
-}
-
-export function findMatch(
-  matchmakingType: MatchmakingType,
-  prefs: MatchmakingPreferencesRecord,
-  mapSelections: List<MapInfoJson>,
-  userId: number,
+export function findMatch<M extends MatchmakingType>(
+  matchmakingType: M,
+  preferences: Immutable<MatchmakingPreferences & { matchmakingType: M }>,
 ): ThunkAction {
   return dispatch => {
     ipcRenderer.send('rallyPointRefreshPings')
-
-    let preferences: MatchmakingPreferences
-    switch (matchmakingType) {
-      case MatchmakingType.Match1v1:
-        preferences = format1v1Preferences(prefs, mapSelections, userId)
-        break
-      case MatchmakingType.Match2v2:
-        preferences = format2v2Preferences(prefs, mapSelections, userId)
-        break
-      default:
-        assertUnreachable(matchmakingType)
-    }
 
     const params = { clientId, preferences }
     dispatch({
@@ -92,12 +34,10 @@ export function findMatch(
         method: 'POST',
         body: JSON.stringify(params),
       }).then<{ startTime: number }>(() => {
-        const { matchmakingType: type } = preferences
-
-        dispatch(updateLastQueuedMatchmakingType(type))
+        dispatch(updateLastQueuedMatchmakingType(matchmakingType))
         // Load the current map pool in the store so we can download all of the maps in it as soon
         // as the player queues.
-        dispatch(getCurrentMapPool(type))
+        dispatch(getCurrentMapPool(matchmakingType))
 
         return {
           startTime: window.performance.now(),
@@ -162,36 +102,41 @@ export function getCurrentMapPool(type: MatchmakingType): ThunkAction {
   }
 }
 
-export function updateMatchmakingPreferences(
-  matchmakingType: MatchmakingType,
-  prefs: MatchmakingPreferencesRecord,
-  mapSelections: List<MapInfoJson>,
-  userId: number,
+export function updateMatchmakingPreferences<M extends MatchmakingType>(
+  matchmakingType: M,
+  prefs: Immutable<MatchmakingPreferences & { matchmakingType: M }>,
 ): ThunkAction {
-  return dispatch => {
-    let preferences: MatchmakingPreferences
-    switch (matchmakingType) {
-      case MatchmakingType.Match1v1:
-        preferences = format1v1Preferences(prefs, mapSelections, userId)
-        break
-      case MatchmakingType.Match2v2:
-        preferences = format2v2Preferences(prefs, mapSelections, userId)
-        break
-      default:
-        assertUnreachable(matchmakingType)
-    }
-
+  return (dispatch, getState) => {
     dispatch({
       type: '@matchmaking/updatePreferencesBegin',
       payload: matchmakingType,
     })
+
+    const promise = fetch<GetPreferencesPayload>(
+      apiUrl`matchmakingPreferences/${matchmakingType}`,
+      {
+        method: 'POST',
+        body: JSON.stringify(prefs),
+      },
+    )
+
     dispatch({
       type: '@matchmaking/updatePreferences',
-      payload: fetch<GetPreferencesPayload>(apiUrl`matchmakingPreferences/${matchmakingType}`, {
-        method: 'POST',
-        body: JSON.stringify(preferences),
-      }),
-      meta: { type: preferences.matchmakingType },
+      payload: promise,
+      meta: { type: matchmakingType },
+    })
+
+    promise.then(payload => {
+      const {
+        matchmaking: { mapPoolTypes },
+      } = getState()
+
+      if (
+        !mapPoolTypes.has(matchmakingType) ||
+        mapPoolTypes.get(matchmakingType)!.id !== payload.currentMapPoolId
+      ) {
+        dispatch(getCurrentMapPool(matchmakingType))
+      }
     })
   }
 }

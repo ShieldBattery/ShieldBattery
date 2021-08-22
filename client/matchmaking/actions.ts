@@ -1,3 +1,4 @@
+import { Immutable } from 'immer'
 import { Slot } from '../../common/lobbies/slot'
 import { MapInfoJson } from '../../common/maps'
 import {
@@ -104,7 +105,7 @@ export interface FindMatchBegin {
   type: '@matchmaking/findMatchBegin'
   payload: {
     clientId: string
-    preferences: MatchmakingPreferences
+    preferences: Immutable<MatchmakingPreferences>
   }
 }
 
@@ -115,7 +116,7 @@ export interface FindMatchSuccess {
   }
   meta?: {
     clientId: string
-    preferences: MatchmakingPreferences
+    preferences: Immutable<MatchmakingPreferences>
   }
   error?: false
 }
@@ -123,7 +124,7 @@ export interface FindMatchSuccess {
 export interface FindMatchFailure extends BaseFetchFailure<'@matchmaking/findMatch'> {
   meta?: {
     clientId: string
-    preferences: MatchmakingPreferences
+    preferences: Immutable<MatchmakingPreferences>
   }
 }
 

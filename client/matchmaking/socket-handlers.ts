@@ -13,6 +13,7 @@ import { dispatch, Dispatchable } from '../dispatch-registry'
 import { replace } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
 import { openSnackbar } from '../snackbars/action-creators'
+import { getCurrentMapPool } from './action-creators'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -320,10 +321,22 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
   siteSocket.registerRoute(
     '/matchmakingPreferences/:userId/:matchmakingType',
     (route: RouteInfo, event: GetPreferencesPayload | Record<string, undefined>) => {
-      dispatch({
-        type: '@matchmaking/initPreferences',
-        payload: event,
-        meta: { type: route.params.matchmakingType as MatchmakingType },
+      const type = route.params.matchmakingType as MatchmakingType
+
+      dispatch((_, getState) => {
+        const {
+          matchmaking: { mapPoolTypes },
+        } = getState()
+
+        if (!mapPoolTypes.has(type) || mapPoolTypes.get(type)!.id !== event.currentMapPoolId) {
+          dispatch(getCurrentMapPool(type))
+        }
+
+        dispatch({
+          type: '@matchmaking/initPreferences',
+          payload: event,
+          meta: { type },
+        })
       })
     },
   )
