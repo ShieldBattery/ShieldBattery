@@ -105,7 +105,7 @@ export default function InfiniteList(props: InfiniteListProps) {
     (entries: IntersectionObserverEntry[]) => {
       for (const entry of entries) {
         if (!entry.isIntersecting) {
-          return
+          continue
         }
 
         if (prevLoadingEnabledRef.current && entry.target === prevTargetRef.current) {

@@ -40,7 +40,7 @@ export interface MapsState {
 const DEFAULT_STATE: Immutable<MapsState> = {
   byId: new Map(),
   favoritedById: new Map(),
-  total: 0,
+  total: -1,
   isRequesting: false,
   favoriteStatusRequests: new Set(),
   lastError: undefined,
