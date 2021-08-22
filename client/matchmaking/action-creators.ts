@@ -19,6 +19,9 @@ import { MatchmakingPreferencesRecord } from './matchmaking-preferences-reducer'
 
 const ipcRenderer = new TypedIpcRenderer()
 
+// TODO(tec27): These functions don't really make much sense tbh, the thing creating the action
+// should probably just be creating a full preferences record (it is, after all, passing in a full
+// preferences record)
 function format1v1Preferences(
   prefs: MatchmakingPreferencesRecord,
   mapSelections: List<MapInfoJson>,

@@ -160,29 +160,31 @@ interface FormRef {
   submit: () => void
 }
 
-interface FindMatch1v1Model {
+interface FindMatchContentsProps {
+  mapSelections?: List<MapInfoJson>
+  formRef: React.Ref<FormRef>
+  onSubmit: (prefs: MatchmakingPreferencesRecord, mapSelections: List<MapInfoJson>) => void
+}
+
+interface Model1v1 {
   race: RaceChar
   useAlternateRace: boolean
   alternateRace: RaceChar
 }
 
 interface Form1v1Props {
-  model: FindMatch1v1Model
-  onChange: (model: FindMatch1v1Model) => void
-  onSubmit: (model: FindMatch1v1Model) => void
+  model: Model1v1
+  onChange: (model: Model1v1) => void
+  onSubmit: (model: Model1v1) => void
 }
 
-const FindMatch1v1Form = React.forwardRef<FormRef, Form1v1Props>((props, ref) => {
+const Form1v1 = React.forwardRef<FormRef, Form1v1Props>((props, ref) => {
   const {
     onSubmit: handleSubmit,
     bindCheckable,
     bindCustom,
     getInputValue,
-  } = useForm<FindMatch1v1Model>(
-    props.model,
-    {},
-    { onChange: props.onChange, onSubmit: props.onSubmit },
-  )
+  } = useForm<Model1v1>(props.model, {}, { onChange: props.onChange, onSubmit: props.onSubmit })
 
   useImperativeHandle(ref, () => ({
     submit: handleSubmit,
@@ -220,18 +222,118 @@ const FindMatch1v1Form = React.forwardRef<FormRef, Form1v1Props>((props, ref) =>
   )
 })
 
-interface FindMatch2v2Model {
+function Contents1v1({
+  formRef,
+  onSubmit,
+  mapSelections: mapSelectionsProp,
+}: FindMatchContentsProps) {
+  const dispatch = useAppDispatch()
+  const selfUser = useSelfUser()
+  const prefs = useAppSelector(
+    s => s.matchmakingPreferences.typeToPreferences.get(MatchmakingType.Match1v1)!,
+  )
+  const mapSelections = mapSelectionsProp ?? prefs.mapSelections
+
+  const selfId = selfUser.id!
+  const onPrefsChanged = useCallback(
+    (model: Model1v1) => {
+      const newPrefs = prefs.merge({
+        race: model.race,
+        data: new MatchmakingPreferencesData1v1Record({
+          useAlternateRace: model.useAlternateRace,
+          alternateRace: model.alternateRace as AssignedRaceChar,
+        }),
+      })
+
+      dispatch(
+        updateMatchmakingPreferences(MatchmakingType.Match1v1, newPrefs, mapSelections, selfId),
+      )
+    },
+    [dispatch, mapSelections, prefs, selfId],
+  )
+  const onFormSubmit = useCallback(
+    (model: Model1v1) => {
+      const newPrefs = prefs.merge({
+        race: model.race,
+        data: new MatchmakingPreferencesData1v1Record({
+          useAlternateRace: model.useAlternateRace,
+          alternateRace: model.alternateRace as AssignedRaceChar,
+        }),
+      })
+      onSubmit(newPrefs, mapSelections)
+    },
+    [prefs, onSubmit, mapSelections],
+  )
+
+  const onBrowseMapSelections = useCallback(() => {
+    dispatch(
+      openOverlay('browseMapSelections', {
+        type: MatchmakingType.Match1v1,
+        mapSelections: mapSelections.map(m => m.id),
+      }) as any,
+    )
+  }, [mapSelections, dispatch])
+
+  const mapSelectionItems = Range(0, 2).map(index => {
+    const map = mapSelections.get(index)
+    return (
+      <SelectedMap key={map?.id ?? `unselected-${index}`}>
+        {map ? (
+          <MapThumbnail map={map} showMapName={true} onClick={onBrowseMapSelections} />
+        ) : (
+          <BrowseButton onClick={onBrowseMapSelections}>
+            <RandomContainer>
+              <RandomIcon />
+              <Subtitle2>Random map</Subtitle2>
+            </RandomContainer>
+          </BrowseButton>
+        )}
+      </SelectedMap>
+    )
+  })
+
+  return (
+    <>
+      <Form1v1
+        ref={formRef}
+        model={{
+          race: prefs.race,
+          useAlternateRace: prefs.data.useAlternateRace,
+          alternateRace: prefs.data.alternateRace,
+        }}
+        onChange={onPrefsChanged}
+        onSubmit={onFormSubmit}
+      />
+      <MapSelectionsContainer>
+        <MapSelectionsHeader>
+          <SectionTitle>Preferred maps</SectionTitle>
+          {prefs.mapPoolOutdated ? <OutdatedIndicator>Map pool changed</OutdatedIndicator> : null}
+        </MapSelectionsHeader>
+        <DescriptionText>
+          Select up to 2 maps to be used in the per-match map pool. Your selections will be combined
+          with your opponent’s to form the 4 map pool. Any unused selections will be replaced with a
+          random map choice for each match.
+        </DescriptionText>
+        <MapSelections>{mapSelectionItems}</MapSelections>
+      </MapSelectionsContainer>
+    </>
+  )
+}
+
+interface Model2v2 {
   race: RaceChar
 }
 
 interface Form2v2Props {
-  model: FindMatch2v2Model
-  onChange: (model: FindMatch2v2Model) => void
-  onSubmit: (model: FindMatch2v2Model) => void
+  model: Model2v2
+  onChange: (model: Model2v2) => void
+  onSubmit: (model: Model2v2) => void
 }
 
+// TODO(tec27): Use this form
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const FindMatch2v2Form = React.forwardRef<FormRef, Form2v2Props>((props, ref) => {
-  const { onSubmit: handleSubmit, bindCustom } = useForm<FindMatch2v2Model>(
+  const { onSubmit: handleSubmit, bindCustom } = useForm<Model2v2>(
     props.model,
     {},
     { onChange: props.onChange, onSubmit: props.onSubmit },
@@ -258,108 +360,36 @@ interface FindMatchProps {
 }
 
 export function FindMatch(props: FindMatchProps) {
+  const lastQueuedMatchmakingType = useAppSelector(
+    s => s.matchmakingPreferences.lastQueuedMatchmakingType,
+  )
+  const [activeTab, setActiveTab] = useState(props.type ?? lastQueuedMatchmakingType)
+
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
-  const matchmakingPreferences = useAppSelector(s => s.matchmakingPreferences)
-  const matchmakingStatus = useAppSelector(s => s.matchmakingStatus)
-
-  const [activeTab, setActiveTab] = useState(
-    props.type || matchmakingPreferences.lastQueuedMatchmakingType,
+  const isMatchmakingEnabled = useAppSelector(
+    s => s.matchmakingStatus.types.get(activeTab)?.enabled ?? false,
   )
+
   const [, isAtBottom, topElem, bottomElem] = useScrollIndicatorState({
     refreshToken: activeTab,
   })
-  const form1v1Ref = useRef<FormRef>(null)
-  const form2v2Ref = useRef<FormRef>(null)
+  const formRef = useRef<FormRef>(null)
 
-  const prefs =
-    activeTab !== '3v3'
-      ? matchmakingPreferences.typeToPreferences.get(activeTab)!
-      : new MatchmakingPreferencesRecord()
-  const mapSelections = props.mapSelections || prefs.mapSelections
-
-  const [tempPrefs, setTempPrefs] = useState(prefs)
-
-  const onTabChange = useCallback(
-    (value: ExpandedMatchmakingType) => {
-      setActiveTab(value)
-
-      const newTabPrefs =
-        value !== '3v3'
-          ? matchmakingPreferences.typeToPreferences.get(value)!
-          : new MatchmakingPreferencesRecord()
-      setTempPrefs(newTabPrefs)
-    },
-    [matchmakingPreferences],
-  )
-
-  const onBrowseMapSelections = useCallback(() => {
-    dispatch(
-      openOverlay('browseMapSelections', {
-        type: activeTab,
-        mapSelections: mapSelections.map(m => m.id),
-      }) as any,
-    )
-  }, [activeTab, mapSelections, dispatch])
-
-  const onPreferencesChanged = useCallback(
-    model => {
-      switch (activeTab) {
-        case MatchmakingType.Match1v1:
-          const typed1v1Model = model as FindMatch1v1Model
-          const new1v1Prefs = tempPrefs.merge({
-            race: typed1v1Model.race,
-            data: new MatchmakingPreferencesData1v1Record({
-              useAlternateRace: typed1v1Model.useAlternateRace,
-              alternateRace: typed1v1Model.alternateRace as AssignedRaceChar,
-            }),
-          })
-
-          setTempPrefs(new1v1Prefs)
-          dispatch(
-            updateMatchmakingPreferences(activeTab, new1v1Prefs, mapSelections, selfUser.id!),
-          )
-          break
-        case MatchmakingType.Match2v2:
-          const typed2v2Model = model as FindMatch2v2Model
-          const new2v2Prefs = tempPrefs.merge({ race: typed2v2Model.race })
-
-          setTempPrefs(new2v2Prefs)
-          dispatch(
-            updateMatchmakingPreferences(activeTab, new2v2Prefs, mapSelections, selfUser.id!),
-          )
-          break
-        case '3v3':
-          break
-        default:
-          assertUnreachable(activeTab)
+  const onSubmit = useCallback(
+    (prefs: MatchmakingPreferencesRecord, mapSelections: List<MapInfoJson>) => {
+      if (activeTab === '3v3') {
+        return
       }
+      dispatch(findMatch(activeTab, prefs, mapSelections, selfUser.id!))
+      dispatch(closeOverlay() as any)
     },
-    [activeTab, tempPrefs, mapSelections, selfUser, dispatch],
+    [activeTab, selfUser, dispatch],
   )
-
-  const onFindMatchSubmit = useCallback(() => {
-    if (activeTab === '3v3') {
-      return
-    }
-    dispatch(findMatch(activeTab, tempPrefs, mapSelections, selfUser.id!))
-    dispatch(closeOverlay() as any)
-  }, [activeTab, tempPrefs, mapSelections, selfUser, dispatch])
 
   const onFindClick = useCallback(() => {
-    switch (activeTab) {
-      case MatchmakingType.Match1v1:
-        form1v1Ref.current?.submit()
-        break
-      case MatchmakingType.Match2v2:
-        form2v2Ref.current?.submit()
-        break
-      case '3v3':
-        break
-      default:
-        assertUnreachable(activeTab)
-    }
-  }, [activeTab])
+    formRef.current?.submit()
+  }, [])
 
   const onKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -373,105 +403,39 @@ export function FindMatch(props: FindMatchProps) {
     [onFindClick],
   )
 
-  let formContents: React.ReactNode
-  let mapSelectionsText: string
+  let contents: React.ReactNode | undefined
   switch (activeTab) {
     case MatchmakingType.Match1v1:
-      formContents = (
-        <FindMatch1v1Form
-          ref={form1v1Ref}
-          model={{
-            race: tempPrefs.race,
-            useAlternateRace: tempPrefs.data.useAlternateRace,
-            alternateRace: tempPrefs.data.alternateRace,
-          }}
-          onChange={onPreferencesChanged}
-          onSubmit={onFindMatchSubmit}
-        />
+      contents = (
+        <Contents1v1 formRef={formRef} onSubmit={onSubmit} mapSelections={props.mapSelections} />
       )
-      mapSelectionsText = `
-        Select up to 2 maps to be used in the per-match map pool. Your selections
-        will be combined with your opponent’s to form the 4 map pool. Any unused selections will be
-        replaced with a random map choice for each match.
-      `
       break
-
     case MatchmakingType.Match2v2:
-      formContents = (
-        <FindMatch2v2Form
-          ref={form2v2Ref}
-          model={{ race: tempPrefs.race }}
-          onChange={onPreferencesChanged}
-          onSubmit={onFindMatchSubmit}
-        />
-      )
-      // TODO(2Pac): Write an actual description of the map selections in the 2v2 matchmaking
-      mapSelectionsText = `
-        Select up to 2 maps to be used in the per-match map pool. Your selections
-        will be combined with your opponent’s to form the 4 map pool. Any unused selections will be
-        replaced with a random map choice for each match.
-      `
-      break
-
     case '3v3':
-      formContents = null
-      mapSelectionsText = ''
+      // TODO(tec27): Build UIs for these
+      contents = undefined
       break
-
     default:
-      assertUnreachable(activeTab)
+      contents = assertUnreachable(activeTab)
   }
-
-  const mapSelectionItems = Range(0, 2).map(index => {
-    const map = mapSelections.get(index)
-    return (
-      <SelectedMap key={index}>
-        {map ? (
-          <MapThumbnail map={map} showMapName={true} onClick={onBrowseMapSelections} />
-        ) : (
-          <BrowseButton onClick={onBrowseMapSelections}>
-            <RandomContainer>
-              <RandomIcon />
-              <Subtitle2>Random map</Subtitle2>
-            </RandomContainer>
-          </BrowseButton>
-        )}
-      </SelectedMap>
-    )
-  })
-
-  const status = matchmakingStatus.types.get(activeTab)
-  const isMatchmakingEnabled = status && status.enabled
 
   return (
     <Container>
       <TitleBar>
         <Headline5>Find match</Headline5>
       </TitleBar>
-      <Tabs bottomDivider={true} activeTab={activeTab} onChange={onTabChange}>
+      <Tabs bottomDivider={true} activeTab={activeTab} onChange={setActiveTab}>
         <TabItem text='1 vs 1' value={MatchmakingType.Match1v1} />
         <TabItem text='2 vs 2' value={MatchmakingType.Match2v2} />
         <TabItem text='3 vs 3' value={'3v3'} />
       </Tabs>
 
-      {activeTab === MatchmakingType.Match1v1 ? (
+      {contents ? (
         <>
           <KeyListener onKeyDown={onKeyDown} />
           <Contents>
             {topElem}
-            <ContentsBody>
-              {formContents}
-              <MapSelectionsContainer>
-                <MapSelectionsHeader>
-                  <SectionTitle>Preferred maps</SectionTitle>
-                  {tempPrefs.mapPoolOutdated ? (
-                    <OutdatedIndicator>Map pool changed</OutdatedIndicator>
-                  ) : null}
-                </MapSelectionsHeader>
-                <DescriptionText>{mapSelectionsText}</DescriptionText>
-                <MapSelections>{mapSelectionItems}</MapSelections>
-              </MapSelectionsContainer>
-            </ContentsBody>
+            <ContentsBody>{contents}</ContentsBody>
             {bottomElem}
           </Contents>
           <Actions>

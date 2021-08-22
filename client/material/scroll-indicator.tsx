@@ -44,8 +44,6 @@ export function useScrollIndicatorState({ refreshToken }: ScrollIndicatorStatePr
       return
     }
 
-    console.log('observing!')
-
     const observer = observerRef.current
     if (topElemRef.current) {
       observer.observe(topElemRef.current)
@@ -56,7 +54,6 @@ export function useScrollIndicatorState({ refreshToken }: ScrollIndicatorStatePr
   }, [])
 
   const onIntersection = useCallback((entries: IntersectionObserverEntry[]) => {
-    console.dir(entries)
     for (const entry of entries) {
       switch (entry.target) {
         case topElemRef.current:
