@@ -260,11 +260,11 @@ function Contents1v1({ formRef, onSubmit }: FindMatchContentsProps) {
   const mapsById = useAppSelector(s => {
     const result = new Map<string, Immutable<MapInfoJson>>()
     for (const mapId of mapSelections) {
-      result.set(mapId, s.maps.byId.get(mapId)!)
+      result.set(mapId, s.maps2.byId.get(mapId)!)
     }
     if (mapPool && mapPool.maps) {
       for (const mapId of mapPool.maps.values()) {
-        result.set(mapId, s.maps.byId.get(mapId)!)
+        result.set(mapId, s.maps2.byId.get(mapId)!)
       }
     }
     return result

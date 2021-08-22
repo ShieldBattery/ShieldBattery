@@ -3,18 +3,37 @@ import { MapInfoJson } from '../../common/maps'
 import { FetchError } from '../network/fetch-action-types'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
+/** @deprecated Do not add new things here, use maps2-reducer */
 export interface MapsState {
-  /** A map of map ID -> information about the map. */
+  /**
+   * A map of map ID -> information about the map.
+   * @deprecated
+   */
   byId: Map<string, MapInfoJson>
-  /** A map of the favorited map ID -> information about the favorited map. */
+  /**
+   * A map of the favorited map ID -> information about the favorited map.
+   * @deprecated
+   */
   favoritedById: Map<string, MapInfoJson>
-  /** Total number of maps currently saved in a store. */
+  /**
+   * Total number of maps currently saved in a store.
+   * @deprecated
+   */
   total: number
-  /** A flag indicating whether we're currently requesting maps. */
+  /**
+   * A flag indicating whether we're currently requesting maps.
+   * @deprecated
+   */
   isRequesting: boolean
-  /** A set of map IDs that the user is currently (un)favoriting. */
+  /**
+   * A set of map IDs that the user is currently (un)favoriting.
+   * @deprecated
+   */
   favoriteStatusRequests: Set<string>
-  /** A potential error of our request to get maps. */
+  /**
+   * A potential error of our request to get maps.
+   * @deprecated
+   */
   lastError?: FetchError
 }
 
@@ -27,6 +46,9 @@ const DEFAULT_STATE: Immutable<MapsState> = {
   lastError: undefined,
 }
 
+// TODO(tec27): Delete this reducer. This is all legacy code that doesn't work how things should
+// with normalized data. Move functionality/dependencies to maps2-reducer as it can be cleaned up
+// and then delete this reducer.
 export default immerKeyedReducer(DEFAULT_STATE, {
   ['@maps/getMapsBegin'](state, action) {
     state.isRequesting = true
@@ -111,37 +133,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@maps/clearMaps'](state, action) {
-    // TODO(tec27): Yeah, don't ever do this :(
     return DEFAULT_STATE
-  },
-
-  ['@matchmaking/initPreferences'](state, action) {
-    if (!action.payload.mapInfos?.length) {
-      return
-    }
-
-    for (const map of action.payload.mapInfos) {
-      state.byId.set(map.id, map)
-    }
-  },
-
-  ['@matchmaking/updatePreferences'](state, action) {
-    if (action.error) {
-      return
-    }
-
-    for (const map of action.payload.mapInfos) {
-      state.byId.set(map.id, map)
-    }
-  },
-
-  ['@profile/getUserProfile'](state, action) {
-    const {
-      matchHistory: { maps },
-    } = action.payload
-
-    for (const map of maps) {
-      state.byId.set(map.id, map)
-    }
   },
 })
