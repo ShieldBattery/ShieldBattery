@@ -1,9 +1,8 @@
 import { Immutable } from 'immer'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { MapInfoJson } from '../../common/maps'
 import {
+  GetMatchmakingMapPoolBody,
   GetPreferencesPayload,
-  MatchmakingMapPool,
   MatchmakingPreferences,
   MatchmakingType,
 } from '../../common/matchmaking'
@@ -70,33 +69,33 @@ export function acceptMatch(): ThunkAction {
   }
 }
 
-// TODO(2Pac): This can be cached
 export function getCurrentMapPool(type: MatchmakingType): ThunkAction {
   return dispatch => {
     dispatch({
       type: '@matchmaking/getCurrentMapPoolBegin',
       payload: { type },
     })
+
+    const promise = fetch<GetMatchmakingMapPoolBody>(apiUrl`matchmaking-map-pools/${type}/current`)
+
+    promise.then(body => {
+      // As a slight optimization, we download the whole map pool as soon as we get it. This
+      // shouldn't be a prohibitively expensive operation, since our map store checks if a map
+      // already exists before attempting to download it.
+      for (const map of body.mapInfos) {
+        ipcRenderer
+          .invoke('mapStoreDownloadMap', map.hash, map.mapData.format, map.mapUrl!)
+          ?.catch(err => {
+            // This is already logged to our file by the map store, so we just log it to the
+            // console for easy visibility during development
+            console.error('Error downloading map: ' + err + '\n' + err.stack)
+          })
+      }
+    })
+
     dispatch({
       type: '@matchmaking/getCurrentMapPool',
-      payload: fetch<MatchmakingMapPool>(
-        apiUrl`matchmakingMapPools/${type}/current`,
-      ).then<MatchmakingMapPool>(mapPool => {
-        // As a slight optimization, we download the whole map pool as soon as we get it. This
-        // shouldn't be a prohibitively expensive operation, since our map store checks if a map
-        // already exists before attempting to download it.
-        mapPool.maps.forEach((map: MapInfoJson) =>
-          ipcRenderer
-            .invoke('mapStoreDownloadMap', map.hash, map.mapData.format, map.mapUrl!)
-            ?.catch(err => {
-              // This is already logged to our file by the map store, so we just log it to the
-              // console for easy visibility during development
-              console.error('Error downloading map: ' + err + '\n' + err.stack)
-            }),
-        )
-
-        return mapPool
-      }),
+      payload: promise,
       meta: { type },
     })
   }

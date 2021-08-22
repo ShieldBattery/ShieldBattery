@@ -26,7 +26,6 @@ export class MapPoolRecord extends Record({
   type: MatchmakingType.Match1v1 as MatchmakingType,
   startDate: new Date(),
   maps: List<string>(),
-  byId: Map<string, MapInfoJson>(),
 
   isRequesting: false,
   lastError: undefined as FetchError | undefined,
@@ -98,9 +97,9 @@ export default keyedReducer(new MatchmakingState(), {
 
     const { meta, payload } = action
     const mapPool = {
-      ...payload,
-      maps: List(payload.maps.map(m => m.id)),
-      byId: Map(payload.maps.map(m => [m.id, m])),
+      ...payload.pool,
+      startDate: new Date(payload.pool.startDate),
+      maps: List(payload.pool.maps),
     }
     return state.setIn(['mapPoolTypes', meta.type], new MapPoolRecord(mapPool))
   },

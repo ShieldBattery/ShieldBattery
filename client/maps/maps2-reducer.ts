@@ -12,6 +12,20 @@ const DEFAULT_STATE: Immutable<MapsState> = {
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {
+  ['@matchmaking/getCurrentMapPool'](state, action) {
+    if (action.error) {
+      return
+    }
+
+    const {
+      payload: { mapInfos },
+    } = action
+
+    for (const map of mapInfos) {
+      state.byId.set(map.id, map)
+    }
+  },
+
   ['@matchmaking/initPreferences'](state, action) {
     if (!action.payload.mapInfos?.length) {
       return

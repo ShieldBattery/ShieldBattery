@@ -2,8 +2,8 @@ import { Immutable } from 'immer'
 import { Slot } from '../../common/lobbies/slot'
 import { MapInfoJson } from '../../common/maps'
 import {
+  GetMatchmakingMapPoolBody,
   GetPreferencesPayload,
-  MatchmakingMapPool,
   MatchmakingPlayer,
   MatchmakingPreferences,
   MatchmakingType,
@@ -50,7 +50,7 @@ export interface GetCurrentMapPoolBegin {
 
 export interface GetCurrentMapPoolSuccess {
   type: '@matchmaking/getCurrentMapPool'
-  payload: MatchmakingMapPool
+  payload: GetMatchmakingMapPoolBody
   meta: {
     type: MatchmakingType
   }

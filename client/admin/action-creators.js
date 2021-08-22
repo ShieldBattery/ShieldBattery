@@ -165,7 +165,7 @@ export function getMapPoolHistory(type, limit, page) {
     dispatch({
       type: ADMIN_MAP_POOL_GET_HISTORY,
       payload: fetch(
-        `/api/1/matchmakingMapPools/${encodeURIComponent(type)}?limit=${limit}&page=${page}`,
+        `/api/1/matchmaking-map-pools/${encodeURIComponent(type)}?limit=${limit}&page=${page}`,
       ),
       meta: { type },
     })
@@ -182,7 +182,7 @@ export function createMapPool(type, maps, startDate = Date.now()) {
     const params = { method: 'post', body: JSON.stringify({ maps, startDate }) }
     dispatch({
       type: ADMIN_MAP_POOL_CREATE,
-      payload: fetch(`/api/1/matchmakingMapPools/${encodeURIComponent(type)}`, params).then(
+      payload: fetch(`/api/1/matchmaking-map-pools/${encodeURIComponent(type)}`, params).then(
         mapPool => {
           dispatch(openSnackbar({ message: 'New map pool created' }))
           return mapPool
@@ -201,7 +201,7 @@ export function deleteMapPool(type, id) {
     })
     dispatch({
       type: ADMIN_MAP_POOL_DELETE,
-      payload: fetch(`/api/1/matchmakingMapPools/${encodeURIComponent(id)}`, {
+      payload: fetch(`/api/1/matchmaking-map-pools/${encodeURIComponent(id)}`, {
         method: 'delete',
       }).then(() => dispatch(openSnackbar({ message: 'Map pool deleted' }))),
       meta: { type, id },

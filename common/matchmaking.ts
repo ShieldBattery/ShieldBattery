@@ -1,4 +1,5 @@
 import { GameRoute } from './game-launch-config'
+import { Jsonify } from './json'
 import { Slot } from './lobbies/slot'
 import { MapInfoJson } from './maps'
 import { AssignedRaceChar, RaceChar } from './races'
@@ -51,7 +52,12 @@ export interface MatchmakingMapPool {
   id: number
   type: MatchmakingType
   startDate: Date
-  maps: MapInfoJson[]
+  maps: string[]
+}
+
+export interface GetMatchmakingMapPoolBody {
+  pool: Jsonify<MatchmakingMapPool>
+  mapInfos: MapInfoJson[]
 }
 
 export interface MatchmakingPreferencesData1v1 {

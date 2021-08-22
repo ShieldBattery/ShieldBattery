@@ -3,6 +3,7 @@
 import './lib/chat/chat-api'
 import './lib/ladder/ladder-api'
 import './lib/logging/logs-api'
+import './lib/matchmaking/map-pools-api'
 import './lib/matchmaking/matchmaking-api'
 import './lib/matchmaking/matchmaking-debug-api'
 import './lib/matchmaking/matchmaking-preferences-api'
