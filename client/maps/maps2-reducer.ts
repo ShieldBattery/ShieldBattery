@@ -15,6 +15,28 @@ const DEFAULT_STATE: Immutable<MapsState> = {
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {
+  ['@auth/logOut']() {
+    // TODO(tec27): Remove once MapInfo no longer contains information about it being favorited.
+    // That info makes the data user-specific even though it isn't otherwise
+    return DEFAULT_STATE
+  },
+
+  ['@maps/getMaps'](state, action) {
+    if (action.error) {
+      return
+    }
+
+    const {
+      payload: { maps },
+      system: { monotonicTime },
+    } = action
+
+    for (const map of maps) {
+      state.byId.set(map.id, map)
+      state.lastRetrieved.set(map.id, monotonicTime)
+    }
+  },
+
   ['@matchmaking/getCurrentMapPool'](state, action) {
     if (action.error) {
       return
