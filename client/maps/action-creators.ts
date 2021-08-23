@@ -301,10 +301,10 @@ export function batchGetMapInfo(mapId: string, maxCacheAgeMillis = 60000): Thunk
     } = getState()
 
     if (
-      !byId.has(mapId) ||
-      !lastRetrieved.has(mapId) ||
-      !mapRequestsInProgress.has(mapId) ||
-      window.performance.now() - lastRetrieved.get(mapId)! > maxCacheAgeMillis
+      !mapRequestsInProgress.has(mapId) &&
+      (!byId.has(mapId) ||
+        !lastRetrieved.has(mapId) ||
+        window.performance.now() - lastRetrieved.get(mapId)! > maxCacheAgeMillis)
     ) {
       mapRequestsInQueue.add(mapId)
       if (!mapRequestsQueued) {
