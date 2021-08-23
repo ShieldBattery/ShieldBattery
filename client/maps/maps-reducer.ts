@@ -116,7 +116,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     const { map } = action.payload
 
     state.byId.set(map.id, map)
-    state.favoritedById.set(map.id, map)
+    if (state.favoritedById.has(map.id)) {
+      state.favoritedById.set(map.id, map)
+    }
   },
 
   ['@maps/removeMap'](state, action) {
