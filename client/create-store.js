@@ -1,5 +1,6 @@
 import { applyMiddleware, compose, createStore } from 'redux'
 import thunk from 'redux-thunk'
+import { addSystemMiddleware } from './redux-system-info'
 import createRootReducer from './root-reducer'
 
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
@@ -36,7 +37,7 @@ function isPromise(obj) {
 
 export default function create(reduxDevTools) {
   const createMiddlewaredStore = compose(
-    applyMiddleware(thunk, promiseMiddleware),
+    applyMiddleware(thunk, promiseMiddleware, addSystemMiddleware),
     // Support for https://github.com/zalmoxisus/redux-devtools-extension
     // We support both the manual integration of Redux Dev Tools (for Electron clients) and using
     // the extension (for Web clients)

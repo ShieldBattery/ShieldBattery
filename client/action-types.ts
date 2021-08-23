@@ -7,6 +7,7 @@ import { MatchmakingActions } from './matchmaking/actions'
 import { NotificationActions } from './notifications/actions'
 import { PartyActions } from './parties/actions'
 import { ProfileActions } from './profile/actions'
+import { ActionWithSystemInfo } from './redux-system-info'
 import { WhisperActions } from './whispers/actions'
 
 type AllActions =
@@ -21,7 +22,7 @@ type AllActions =
   | ProfileActions
   | WhisperActions
 
-export type ReduxAction = Extract<AllActions, { type: string }>
+export type ReduxAction = Extract<AllActions, { type: string }> & ActionWithSystemInfo
 
 export type PromisifiedAction<T extends ReduxAction> = {
   [key in keyof T]: key extends 'payload' ? Promise<T[key]> : T[key]
