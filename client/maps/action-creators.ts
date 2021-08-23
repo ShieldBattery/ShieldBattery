@@ -98,7 +98,7 @@ export function toggleFavoriteMap(
       payload: params,
     })
 
-    const reqPromise = fetch<void>(apiUrl`maps/favorites/${map.id}`, {
+    const reqPromise = fetch<void>(apiUrl`maps/${map.id}/favorite`, {
       method: map.isFavorited ? 'DELETE' : 'POST',
     })
 

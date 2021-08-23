@@ -232,15 +232,14 @@ export class MapsApi {
     ctx.status = 204
   }
 
-  // TODO(tec27): Move these URLs, they're backwards
-  @httpPost('/favorites/:mapId')
+  @httpPost('/:mapId/favorite')
   @httpBefore(throttleMiddleware(mapFavoriteThrottle, ctx => String(ctx.session!.userId)))
   async addToFavorites(ctx: RouterContext): Promise<void> {
     await addMapToFavorites(ctx.params.mapId, ctx.session!.userId)
     ctx.status = 204
   }
 
-  @httpDelete('/favorites/:mapId')
+  @httpDelete('/:mapId/favorite')
   @httpBefore(throttleMiddleware(mapFavoriteThrottle, ctx => String(ctx.session!.userId)))
   async removeFromFavorites(ctx: RouterContext): Promise<void> {
     await removeMapFromFavorites(ctx.params.mapId, ctx.session!.userId)
