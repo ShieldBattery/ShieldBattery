@@ -1,12 +1,13 @@
 import { castDraft, Draft, Immutable, produce } from 'immer'
 import { ReduxAction } from '../action-types'
+import { ActionWithSystemInfo } from '../redux-system-info'
 
 type ReducerFunc<ActionType extends ReduxAction, S> = (state: S, action: ActionType) => S
 
 type AllActionTypes = ReduxAction['type']
 
 type ReducerMap<S> = {
-  [A in AllActionTypes]?: ReducerFunc<Extract<ReduxAction, { type: A }>, S>
+  [A in AllActionTypes]?: ReducerFunc<Extract<ReduxAction, { type: A }> & ActionWithSystemInfo, S>
 }
 
 /**
@@ -58,7 +59,10 @@ type ImmerReducerFunc<ActionType extends ReduxAction, S> = (
 ) => S | Immutable<S> | Draft<S> | void
 
 type ImmerReducerMap<S> = {
-  [A in AllActionTypes]?: ImmerReducerFunc<Extract<ReduxAction, { type: A }>, S>
+  [A in AllActionTypes]?: ImmerReducerFunc<
+    Extract<ReduxAction, { type: A }> & ActionWithSystemInfo,
+    S
+  >
 }
 
 /**
