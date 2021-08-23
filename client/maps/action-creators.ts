@@ -13,6 +13,7 @@ import {
 } from '../../common/maps'
 import { ReduxAction } from '../action-types'
 import { DispatchFunction, ThunkAction } from '../dispatch-registry'
+import logger from '../logging/logger'
 import fetch from '../network/fetch'
 import { apiUrl, urlPath } from '../network/urls'
 import { openSnackbar } from '../snackbars/action-creators'
@@ -252,19 +253,41 @@ export function updateMapPreferences(preferences: MapPreferences): ThunkAction {
   }
 }
 
-let mapRequestsInProgress: string[] = []
+// Things that will be requested
+let mapRequestsInQueue = new Set<string>()
+let mapRequestsInProgress = new Set<string>()
 let mapRequestsQueued = false
 
-function batchRequestMaps(dispatch: DispatchFunction<ReduxAction>) {
-  const toRequest = mapRequestsInProgress
-  mapRequestsInProgress = []
-  mapRequestsQueued = false
+const MAX_BATCH_MAP_REQUESTS = 50
 
-  const url = apiUrl`maps/batch-info` + '?' + toRequest.map(m => urlPath`m=${m}`).join('&')
-  dispatch({
-    type: '@maps/getBatchMapInfo',
-    payload: fetch<GetBatchMapInfoPayload>(url),
-  })
+async function batchRequestMaps(dispatch: DispatchFunction<ReduxAction>) {
+  try {
+    while (mapRequestsInQueue.size > 0) {
+      mapRequestsInProgress = mapRequestsInQueue
+      mapRequestsInQueue = new Set()
+
+      let requestParams = Array.from(mapRequestsInProgress, m => urlPath`m=${m}`)
+      const promises: Array<Promise<any>> = []
+      do {
+        const params = requestParams.slice(0, MAX_BATCH_MAP_REQUESTS)
+        requestParams = requestParams.slice(MAX_BATCH_MAP_REQUESTS)
+        const promise = fetch<GetBatchMapInfoPayload>(
+          apiUrl`maps/batch-info` + '?' + params.join('&'),
+        )
+        promises.push(promise)
+
+        dispatch({
+          type: '@maps/getBatchMapInfo',
+          payload: promise,
+        })
+      } while (requestParams.length > 0)
+
+      await Promise.allSettled(promises)
+    }
+  } finally {
+    mapRequestsInProgress.clear()
+    mapRequestsQueued = false
+  }
 }
 
 /**
@@ -280,12 +303,17 @@ export function batchGetMapInfo(mapId: string, maxCacheAgeMillis = 60000): Thunk
     if (
       !byId.has(mapId) ||
       !lastRetrieved.has(mapId) ||
+      !mapRequestsInProgress.has(mapId) ||
       window.performance.now() - lastRetrieved.get(mapId)! > maxCacheAgeMillis
     ) {
-      mapRequestsInProgress.push(mapId)
+      mapRequestsInQueue.add(mapId)
       if (!mapRequestsQueued) {
         mapRequestsQueued = true
-        queueMicrotask(() => batchRequestMaps(dispatch))
+        Promise.resolve()
+          .then(() => batchRequestMaps(dispatch))
+          .catch(err => {
+            logger.error('error while batch requesting maps: ' + (err?.stack ?? err))
+          })
       }
     }
   }
