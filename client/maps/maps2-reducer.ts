@@ -5,10 +5,13 @@ import { immerKeyedReducer } from '../reducers/keyed-reducer'
 export interface MapsState {
   /** A map of map ID -> information about the map. */
   byId: Map<string, MapInfoJson>
+  /** A map of map ID -> the time it was last retrieved. */
+  lastRetrieved: Map<string, number>
 }
 
 const DEFAULT_STATE: Immutable<MapsState> = {
   byId: new Map(),
+  lastRetrieved: new Map(),
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {
@@ -19,10 +22,12 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
     const {
       payload: { mapInfos },
+      system: { monotonicTime },
     } = action
 
     for (const map of mapInfos) {
       state.byId.set(map.id, map)
+      state.lastRetrieved.set(map.id, monotonicTime)
     }
   },
 
@@ -31,8 +36,14 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       return
     }
 
-    for (const map of action.payload.mapInfos) {
+    const {
+      payload: { mapInfos },
+      system: { monotonicTime },
+    } = action
+
+    for (const map of mapInfos) {
       state.byId.set(map.id, map)
+      state.lastRetrieved.set(map.id, monotonicTime)
     }
   },
 
@@ -41,18 +52,28 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       return
     }
 
-    for (const map of action.payload.mapInfos) {
+    const {
+      payload: { mapInfos },
+      system: { monotonicTime },
+    } = action
+
+    for (const map of mapInfos) {
       state.byId.set(map.id, map)
+      state.lastRetrieved.set(map.id, monotonicTime)
     }
   },
 
   ['@profile/getUserProfile'](state, action) {
     const {
-      matchHistory: { maps },
-    } = action.payload
+      payload: {
+        matchHistory: { maps },
+      },
+      system: { monotonicTime },
+    } = action
 
     for (const map of maps) {
       state.byId.set(map.id, map)
+      state.lastRetrieved.set(map.id, monotonicTime)
     }
   },
 })
