@@ -112,11 +112,14 @@ export function Contents1v1({ formRef, onSubmit }: FindMatchContentsProps) {
   const mapPoolOutdated = useAppSelector(
     s => s.matchmakingPreferences.byType.get(MatchmakingType.Match1v1)?.mapPoolOutdated ?? false,
   )
-  const mapSelections = useMemo(() => [...(prefs.mapSelections ?? [])], [prefs.mapSelections])
   const mapPool = useAppSelector(s => s.matchmaking.mapPoolTypes.get(MatchmakingType.Match1v1)!)
+  const mapSelections = useMemo(
+    () => (prefs.mapSelections ?? []).filter(id => mapPool.maps.includes(id)),
+    [prefs.mapSelections, mapPool],
+  )
 
   const selfId = selfUser.id!
-  const mapPoolId = mapPool?.id ?? 0
+  const mapPoolId = mapPool.id ?? 0
   const onPrefsChanged = useCallback(
     (model: Model1v1) => {
       dispatch(
