@@ -37,6 +37,22 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
+  ['@maps/getBatchMapInfo'](state, action) {
+    if (action.error) {
+      return
+    }
+
+    const {
+      payload: { maps },
+      system: { monotonicTime },
+    } = action
+
+    for (const map of maps) {
+      state.byId.set(map.id, map)
+      state.lastRetrieved.set(map.id, monotonicTime)
+    }
+  },
+
   ['@matchmaking/getCurrentMapPool'](state, action) {
     if (action.error) {
       return

@@ -1,12 +1,13 @@
 import { Immutable } from 'immer'
-import React, { useCallback } from 'react'
+import React, { useCallback, useEffect } from 'react'
 import styled from 'styled-components'
 import { MapInfoJson } from '../../common/maps'
 import { MatchmakingPreferences } from '../../common/matchmaking'
 import ThumbDownIcon from '../icons/material/thumb-down-48px.svg'
+import { batchGetMapInfo } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { shadow4dp } from '../material/shadows'
-import { useAppSelector } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useValueAsRef } from '../state-hooks'
 import {
   amberA400,
@@ -121,11 +122,15 @@ interface ConnectedSelectableMapProps {
 }
 
 function ConnectedSelectableMap({ mapId, isVetoed, onClick }: ConnectedSelectableMapProps) {
-  // TODO(tec27): Batch up requests for maps we don't have info for (or if info is outdated?)
+  const dispatch = useAppDispatch()
   const map = useAppSelector(s => s.maps2.byId.get(mapId))
   const handleClick = useCallback(() => {
     onClick(mapId)
   }, [mapId, onClick])
+
+  useEffect(() => {
+    dispatch(batchGetMapInfo(mapId))
+  }, [dispatch, mapId])
 
   return (
     <SelectableMap $vetoed={isVetoed}>

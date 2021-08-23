@@ -1,4 +1,5 @@
 import {
+  GetBatchMapInfoPayload,
   GetMapDetailsPayload,
   GetMapsPayload,
   MapInfoJson,
@@ -41,6 +42,8 @@ export type MapsActions =
   | UpdateMapPreferencesBegin
   | UpdateMapPreferencesSuccess
   | UpdateMapPreferencesFailure
+  | GetBatchMapInfoSuccess
+  | GetBatchMapInfoFailure
 
 /**
  * A request is being made to the server to upload a local map.
@@ -122,6 +125,17 @@ export interface GetMapsFailure extends BaseFetchFailure<'@maps/getMaps'> {
     searchQuery: string
   }
 }
+
+/**
+ * The server returned a response to our request for map info about one or more maps.
+ */
+export interface GetBatchMapInfoSuccess {
+  type: '@maps/getBatchMapInfo'
+  payload: GetBatchMapInfoPayload
+  error?: false
+}
+
+export type GetBatchMapInfoFailure = BaseFetchFailure<'@maps/getBatchMapInfo'>
 
 /**
  * A request is being made to the server to toggle the favorite status of a map.

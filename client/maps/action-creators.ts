@@ -1,4 +1,5 @@
 import {
+  GetBatchMapInfoPayload,
   GetMapDetailsPayload,
   GetMapsPayload,
   MapInfoJson,
@@ -10,9 +11,10 @@ import {
   UpdateMapServerBody,
   UploadMapPayload,
 } from '../../common/maps'
-import { ThunkAction } from '../dispatch-registry'
+import { ReduxAction } from '../action-types'
+import { DispatchFunction, ThunkAction } from '../dispatch-registry'
 import fetch from '../network/fetch'
-import { apiUrl } from '../network/urls'
+import { apiUrl, urlPath } from '../network/urls'
 import { openSnackbar } from '../snackbars/action-creators'
 import { ClearMaps } from './actions'
 
@@ -247,5 +249,44 @@ export function updateMapPreferences(preferences: MapPreferences): ThunkAction {
       }),
       meta: preferences,
     })
+  }
+}
+
+let mapRequestsInProgress: string[] = []
+let mapRequestsQueued = false
+
+function batchRequestMaps(dispatch: DispatchFunction<ReduxAction>) {
+  const toRequest = mapRequestsInProgress
+  mapRequestsInProgress = []
+  mapRequestsQueued = false
+
+  const url = apiUrl`maps/batch-info` + '?' + toRequest.map(m => urlPath`m=${m}`).join('&')
+  dispatch({
+    type: '@maps/getBatchMapInfo',
+    payload: fetch<GetBatchMapInfoPayload>(url),
+  })
+}
+
+/**
+ * Queues a request to the server for map information, if necessary. This will batch multiple
+ * requests that happen close together into one request to the server.
+ */
+export function batchGetMapInfo(mapId: string, maxCacheAgeMillis = 60000): ThunkAction {
+  return (dispatch, getState) => {
+    const {
+      maps2: { byId, lastRetrieved },
+    } = getState()
+
+    if (
+      !byId.has(mapId) ||
+      !lastRetrieved.has(mapId) ||
+      window.performance.now() - lastRetrieved.get(mapId)! > maxCacheAgeMillis
+    ) {
+      mapRequestsInProgress.push(mapId)
+      if (!mapRequestsQueued) {
+        mapRequestsQueued = true
+        queueMicrotask(() => batchRequestMaps(dispatch))
+      }
+    }
   }
 }

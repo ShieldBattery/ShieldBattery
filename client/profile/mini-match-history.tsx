@@ -1,12 +1,13 @@
 import { Immutable } from 'immer'
 import { rgba } from 'polished'
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { GameRecordJson } from '../../common/games/games'
 import { ReconciledResult } from '../../common/games/results'
 import { User } from '../../common/users/user-info'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { RaceIcon } from '../lobbies/race-icon'
+import { batchGetMapInfo } from '../maps/action-creators'
 import MapPreview from '../maps/map-preview'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { useButtonState } from '../material/button'
@@ -249,7 +250,8 @@ export interface ConnectedGamePreviewProps {
 export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
   const dispatch = useAppDispatch()
 
-  const map = useAppSelector(s => (game ? s.maps2.byId.get(game.mapId) : undefined))
+  const mapId = game?.mapId
+  const map = useAppSelector(s => (mapId ? s.maps2.byId.get(mapId) : undefined))
   const players = useAppSelector(s => {
     if (!game) {
       return []
@@ -270,6 +272,12 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
 
     dispatch(openSimpleDialog(map.name, <MapPreview map={map} />, false /* hasButton */))
   }, [map, dispatch])
+
+  useEffect(() => {
+    if (mapId) {
+      dispatch(batchGetMapInfo(mapId))
+    }
+  }, [dispatch, mapId])
 
   if (!game) {
     return (

@@ -147,6 +147,10 @@ export interface GetMapDetailsPayload {
   map: MapInfoJson
 }
 
+export interface GetBatchMapInfoPayload {
+  maps: MapInfoJson[]
+}
+
 export interface UpdateMapServerBody {
   mapId: string
   name: string

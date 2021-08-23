@@ -2,12 +2,15 @@ import { RouterContext } from '@koa/router'
 import { File } from 'formidable'
 import { writeFile as fsWriteFile } from 'fs/promises'
 import httpErrors from 'http-errors'
+import Joi from 'joi'
 import { withFile as withTmpFile } from 'tmp-promise'
 import {
   ALL_MAP_EXTENSIONS,
   ALL_MAP_SORT_TYPES,
   ALL_MAP_VISIBILITIES,
+  GetBatchMapInfoPayload,
   MapVisibility,
+  toMapInfoJson,
 } from '../../../common/maps'
 import { deleteFiles, readFile } from '../file-upload'
 import handleMultipartFiles from '../file-upload/handle-multipart-files'
@@ -28,6 +31,7 @@ import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
+import { validateRequest } from '../validation/joi-validator'
 
 const mapsListThrottle = createThrottle('mapslist', {
   rate: 30,
@@ -125,16 +129,48 @@ export class MapsApi {
     }
   }
 
-  @httpGet('/:mapId')
+  @httpGet('/batch-info')
   @httpBefore(throttleMiddleware(mapsListThrottle, ctx => String(ctx.session!.userId)))
-  async getDetails(ctx: RouterContext): Promise<any> {
-    const { mapId } = ctx.params
+  async getInfo(ctx: RouterContext): Promise<GetBatchMapInfoPayload> {
+    const { query } = validateRequest(ctx, {
+      query: Joi.object<{ m: string[] }>({
+        m: Joi.array().items(Joi.string()).single().min(1).max(40),
+      }),
+    })
 
-    const map = (await getMapInfo([mapId], ctx.session!.userId))[0]
-    if (!map) {
-      throw new httpErrors.NotFound('Map not found')
+    const mapIds = query.m
+
+    const maps = await getMapInfo(mapIds, ctx.session!.userId)
+
+    return {
+      maps: maps.map(m => toMapInfoJson(m)),
+    }
+  }
+
+  @httpPost('/official')
+  @httpBefore(checkAllPermissions('manageMaps'), handleMultipartFiles)
+  async upload2(ctx: RouterContext): Promise<any> {
+    // TODO(tec27): This was originally handled by the same method as the non-official path, and
+    // thus has logic for both. That logic can be stripped out now
+
+    const { path } = ctx.request.files!.file as File
+    const { extension } = ctx.request.body
+
+    if (!path) {
+      throw new httpErrors.BadRequest('map file must be specified')
+    } else if (!extension) {
+      throw new httpErrors.BadRequest('extension must be specified')
     }
 
+    const lowerCaseExtension = extension.toLowerCase()
+    if (!ALL_MAP_EXTENSIONS.includes(lowerCaseExtension)) {
+      throw new httpErrors.BadRequest('Unsupported extension: ' + lowerCaseExtension)
+    }
+
+    const visibility = ctx.request.path.endsWith('/official')
+      ? MapVisibility.Official
+      : MapVisibility.Private
+    const map = await storeMap(path, lowerCaseExtension, ctx.session!.userId, visibility)
     return {
       map,
     }
@@ -167,6 +203,21 @@ export class MapsApi {
       ? MapVisibility.Official
       : MapVisibility.Private
     const map = await storeMap(path, lowerCaseExtension, ctx.session!.userId, visibility)
+    return {
+      map,
+    }
+  }
+
+  @httpGet('/:mapId')
+  @httpBefore(throttleMiddleware(mapsListThrottle, ctx => String(ctx.session!.userId)))
+  async getDetails(ctx: RouterContext): Promise<any> {
+    const { mapId } = ctx.params
+
+    const map = toMapInfoJson((await getMapInfo([mapId], ctx.session!.userId))[0])
+    if (!map) {
+      throw new httpErrors.NotFound('Map not found')
+    }
+
     return {
       map,
     }
@@ -244,35 +295,6 @@ export class MapsApi {
   async removeFromFavorites(ctx: RouterContext): Promise<void> {
     await removeMapFromFavorites(ctx.params.mapId, ctx.session!.userId)
     ctx.status = 204
-  }
-
-  @httpPost('/official')
-  @httpBefore(checkAllPermissions('manageMaps'), handleMultipartFiles)
-  async upload2(ctx: RouterContext): Promise<any> {
-    // TODO(tec27): This was originally handled by the same method as the non-official path, and
-    // thus has logic for both. That logic can be stripped out now
-
-    const { path } = ctx.request.files!.file as File
-    const { extension } = ctx.request.body
-
-    if (!path) {
-      throw new httpErrors.BadRequest('map file must be specified')
-    } else if (!extension) {
-      throw new httpErrors.BadRequest('extension must be specified')
-    }
-
-    const lowerCaseExtension = extension.toLowerCase()
-    if (!ALL_MAP_EXTENSIONS.includes(lowerCaseExtension)) {
-      throw new httpErrors.BadRequest('Unsupported extension: ' + lowerCaseExtension)
-    }
-
-    const visibility = ctx.request.path.endsWith('/official')
-      ? MapVisibility.Official
-      : MapVisibility.Private
-    const map = await storeMap(path, lowerCaseExtension, ctx.session!.userId, visibility)
-    return {
-      map,
-    }
   }
 
   @httpPost('/:mapId/regenerate')
