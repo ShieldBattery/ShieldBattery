@@ -457,7 +457,7 @@ export class MatchmakingService {
   private unregisterActivity(client: ClientSocketsGroup) {
     activityRegistry.unregisterClientForUser(client.userId)
     this.publishToUser(client.name, {
-      type: 'status',
+      type: 'queueStatus',
       matchmaking: undefined,
     })
 
@@ -536,7 +536,7 @@ export class MatchmakingService {
       MatchmakingService.getUserPath(userSockets.name),
       () => {
         return {
-          type: 'status',
+          type: 'queueStatus',
           matchmaking: { type },
         }
       },

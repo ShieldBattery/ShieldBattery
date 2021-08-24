@@ -39,7 +39,7 @@ export type MatchmakingActions =
   | GameStarting
   | LoadingCanceled
   | GameStarted
-  | MatchmakingActivityStatus
+  | QueueStatus
 
 export interface GetCurrentMapPoolBegin {
   type: '@matchmaking/getCurrentMapPoolBegin'
@@ -215,8 +215,8 @@ export interface GameStarted {
   }
 }
 
-export interface MatchmakingActivityStatus {
-  type: '@matchmaking/matchmakingActivityStatus'
+export interface QueueStatus {
+  type: '@matchmaking/queueStatus'
   payload: {
     matchmaking?: { type: MatchmakingType }
   }

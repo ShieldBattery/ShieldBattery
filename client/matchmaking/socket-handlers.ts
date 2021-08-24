@@ -290,9 +290,9 @@ const eventToAction: EventToActionMap = {
     })
   },
 
-  status: (matchmakingType, event) => {
+  queueStatus: (matchmakingType, event) => {
     return {
-      type: '@matchmaking/matchmakingActivityStatus',
+      type: '@matchmaking/queueStatus',
       payload: event,
     }
   },

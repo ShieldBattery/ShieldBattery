@@ -168,8 +168,12 @@ export interface GameStartedEvent {
   type: 'gameStarted'
 }
 
-export interface StatusEvent {
-  type: 'status'
+export interface QueueStatusEvent {
+  type: 'queueStatus'
+  /**
+   * Indicates what type of matchmaking this user is currently queued for, or `undefined` if they
+   * are not queued for anything.
+   */
   matchmaking?: { type: MatchmakingType }
 }
 
@@ -184,4 +188,4 @@ export type MatchmakingEvent =
   | StartWhenReadyEvent
   | CancelLoadingEvent
   | GameStartedEvent
-  | StatusEvent
+  | QueueStatusEvent
