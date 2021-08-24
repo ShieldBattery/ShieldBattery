@@ -19,14 +19,14 @@ cbuffer constants
     float useNewMask;
 };
 
-#define MAX_FOG_MASK 0.81
+#define MAX_FOG_MASK 0.84
 #define MIN_FOG_MASK 0.67
 
 PS_OUTPUT main(VS_OUTPUT v)
 {
     PS_OUTPUT o;
     float maskValue = mask.Sample(maskSampler, v.texCoord).x;
-    if (useNewMask == 0.0) 
+    if (useNewMask == 0.0)
     {
         o.frag_color = float4(0.0, 0.0, 0.0, maskValue);
     }
@@ -38,14 +38,13 @@ PS_OUTPUT main(VS_OUTPUT v)
         //  - For high parts (above MIN_FOG_MASK), we compress the range into
         //    (MIN_FOG_MASK, MAX_FOG_MASK) and increase the contrast in the transition (to better
         //    separate unexplored from explored fog areas)
-        float highMaskValue = tanh(max(maskValue - MIN_FOG_MASK, 0.0) / (1.0 - MIN_FOG_MASK) * 6) *
+        float highMaskValue = tanh(max(maskValue - MIN_FOG_MASK, 0.0) / (1.0 - MIN_FOG_MASK) * 4) *
             (MAX_FOG_MASK - MIN_FOG_MASK);
         maskValue = lowMaskValue + highMaskValue;
         o.frag_color = float4(
             0.0,
             0.0,
-            // We add a slight amount of blue to unexplored areas to further increase the contrast
-            smoothstep(MIN_FOG_MASK, MAX_FOG_MASK, maskValue) * 0.03,
+            0.0,
             maskValue);
     }
     return o;
