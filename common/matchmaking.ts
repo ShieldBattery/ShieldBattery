@@ -189,3 +189,49 @@ export type MatchmakingEvent =
   | CancelLoadingEvent
   | GameStartedEvent
   | QueueStatusEvent
+
+/**
+ * Describes the current status (enabled/disabled) of a particular MatchmakingType on the server.
+ */
+export interface MatchmakingStatus {
+  type: MatchmakingType
+  enabled: boolean
+  startDate?: Date
+  nextStartDate?: Date
+  nextEndDate?: Date
+}
+
+/** Compares two MatchmakingStatus objects for equality. */
+export function statusesEqual(a?: MatchmakingStatus, b?: MatchmakingStatus): boolean {
+  if (a === b) {
+    return true
+  } else if (a === undefined || b === undefined) {
+    return false
+  } else {
+    return (
+      a.type === b.type &&
+      a.enabled === b.enabled &&
+      a.startDate === b.startDate &&
+      a.nextStartDate === b.nextStartDate &&
+      a.nextEndDate === b.nextEndDate
+    )
+  }
+}
+
+export type MatchmakingStatusJson = Jsonify<MatchmakingStatus>
+
+export function toMatchmakingStatusJson(status: MatchmakingStatus) {
+  return {
+    type: status.type,
+    enabled: status.enabled,
+    startDate: status.startDate ? Number(status.startDate) : undefined,
+    nextStartDate: status.nextStartDate ? Number(status.nextStartDate) : undefined,
+    nextEndDate: status.nextEndDate ? Number(status.nextEndDate) : undefined,
+  }
+}
+
+/**
+ * An event sent by the MatchmakingStatusService to describe the status of MatchmakingTypes on
+ * the server. Sent both to initialize all the statuses, as well as for updates to particular types.
+ */
+export type MatchmakingStatusUpdateEvent = MatchmakingStatusJson[]

@@ -1,28 +1,25 @@
-import { is, Map, Record } from 'immutable'
 import { NydusServer } from 'nydus'
 import { singleton } from 'tsyringe'
-import { MatchmakingType } from '../../../common/matchmaking'
+import {
+  MatchmakingStatus,
+  MatchmakingStatusUpdateEvent,
+  MatchmakingType,
+  statusesEqual,
+  toMatchmakingStatusJson,
+} from '../../../common/matchmaking'
 import log from '../logging/logger'
 import { getCurrentMatchmakingTime, getMatchmakingSchedule } from '../models/matchmaking-times'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 
-class StatusRecord extends Record({
-  type: null as MatchmakingType | null,
-  enabled: false,
-  startDate: null as Date | null,
-  nextStartDate: null as Date | null,
-  nextEndDate: null as Date | null,
-}) {}
-
 @singleton()
 export default class MatchmakingStatusService {
-  private statusByType = Map<MatchmakingType, StatusRecord>()
-  private timerByType = Map<MatchmakingType, ReturnType<typeof setTimeout>>()
+  private statusByType = new Map<MatchmakingType, MatchmakingStatus>()
+  private timerByType = new Map<MatchmakingType, ReturnType<typeof setTimeout>>()
 
   constructor(private nydus: NydusServer, private clientSockets: ClientSocketsManager) {
     clientSockets.on('newClient', client => {
       if (client.clientType === 'electron') {
-        client.subscribe('/matchmakingStatus', () => {
+        client.subscribe<MatchmakingStatusUpdateEvent>('/matchmakingStatus', () => {
           const statuses = []
           for (const type of Object.values(MatchmakingType)) {
             const status = this.statusByType.get(type)
@@ -30,7 +27,7 @@ export default class MatchmakingStatusService {
               statuses.push(status)
             }
           }
-          return statuses
+          return statuses.map(s => toMatchmakingStatusJson(s))
         })
       }
     })
@@ -44,17 +41,17 @@ export default class MatchmakingStatusService {
     return !!this.statusByType.get(type)?.enabled
   }
 
-  private async getStatus(type: MatchmakingType) {
+  private async getStatus(type: MatchmakingType): Promise<MatchmakingStatus> {
     const current = await getCurrentMatchmakingTime(type)
     const schedule = await getMatchmakingSchedule(type, current?.startDate, !current?.enabled)
 
-    return new StatusRecord({
+    return {
       type,
       enabled: !!current?.enabled,
       startDate: current?.startDate,
       nextStartDate: schedule[0]?.startDate,
       nextEndDate: schedule[1]?.startDate,
-    })
+    }
   }
 
   /**
@@ -69,10 +66,12 @@ export default class MatchmakingStatusService {
       .then(status => {
         const oldStatus = this.statusByType.get(type)
         // If the status hasn't changed, no need to notify the users
-        if (is(oldStatus, status)) return
+        if (statusesEqual(oldStatus, status)) return
 
-        this.statusByType = this.statusByType.set(type, status)
-        this.nydus.publish('/matchmakingStatus', [status])
+        this.statusByType.set(type, status)
+        this.nydus.publish<MatchmakingStatusUpdateEvent>('/matchmakingStatus', [
+          toMatchmakingStatusJson(status),
+        ])
 
         // If the `nextStartDate` hasn't changed, no need to update the timer
         if (oldStatus?.nextStartDate === status.nextStartDate) return
@@ -87,9 +86,9 @@ export default class MatchmakingStatusService {
             () => this.maybePublish(type),
             +status.nextStartDate - Date.now(),
           )
-          this.timerByType = this.timerByType.set(type, timer)
+          this.timerByType.set(type, timer)
         } else {
-          this.timerByType = this.timerByType.delete(type)
+          this.timerByType.delete(type)
         }
       })
       .catch(err => log.error({ err }, 'error getting matchmaking status'))
