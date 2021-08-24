@@ -155,7 +155,7 @@ export function Contents1v1({ formRef, onSubmit, disabled }: FindMatchContentsPr
 
       onSubmit(model1v1ToPrefs(model, selfId, mapPoolId))
     },
-    [mapPoolId, onSubmit, selfId],
+    [disabled, mapPoolId, onSubmit, selfId],
   )
 
   return (
