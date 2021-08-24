@@ -28,6 +28,7 @@ interface Model1v1 {
 }
 
 interface Form1v1Props {
+  disabled: boolean
   model: Model1v1
   mapPool: MapPoolRecord
   mapPoolOutdated: boolean
@@ -36,7 +37,7 @@ interface Form1v1Props {
 }
 
 const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
-  ({ model, mapPoolOutdated, mapPool, onChange, onSubmit }, ref) => {
+  ({ disabled, model, mapPoolOutdated, mapPool, onChange, onSubmit }, ref) => {
     const {
       onSubmit: handleSubmit,
       bindCheckable,
@@ -55,11 +56,16 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
     return (
       <form noValidate={true} onSubmit={handleSubmit}>
         <SectionTitle>Race</SectionTitle>
-        <StyledRaceSelect {...bindCustom('race')} size={RacePickerSize.Large} />
+        <StyledRaceSelect
+          {...bindCustom('race')}
+          size={RacePickerSize.Large}
+          allowInteraction={!disabled}
+        />
         {race !== 'r' ? (
           <CheckBox
             {...bindCheckable('useAlternateRace')}
             label='Use alternate race to avoid mirror matchups'
+            disabled={disabled}
           />
         ) : null}
         {useAlternateRace ? (
@@ -73,6 +79,7 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
               hiddenRaces={hiddenAlternateRaces}
               size={RacePickerSize.Large}
               allowRandom={false}
+              allowInteraction={!disabled}
             />
           </>
         ) : null}
@@ -83,7 +90,12 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
         <DescriptionText>
           Veto up to 3 maps. Vetoed maps will never be selected for play.
         </DescriptionText>
-        <MapVetoesControl {...bindCustom('mapSelections')} mapPool={mapPool} maxVetoes={3} />
+        <MapVetoesControl
+          {...bindCustom('mapSelections')}
+          mapPool={mapPool}
+          maxVetoes={3}
+          disabled={disabled}
+        />
       </form>
     )
   },
@@ -103,7 +115,7 @@ function model1v1ToPrefs(model: Model1v1, userId: number, mapPoolId: number) {
   }
 }
 
-export function Contents1v1({ formRef, onSubmit }: FindMatchContentsProps) {
+export function Contents1v1({ formRef, onSubmit, disabled }: FindMatchContentsProps) {
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
   const prefs: Partial<Immutable<MatchmakingPreferences1v1>> = useAppSelector(
@@ -122,6 +134,10 @@ export function Contents1v1({ formRef, onSubmit }: FindMatchContentsProps) {
   const mapPoolId = mapPool.id ?? 0
   const onPrefsChanged = useCallback(
     (model: Model1v1) => {
+      if (disabled) {
+        return
+      }
+
       dispatch(
         updateMatchmakingPreferences(
           MatchmakingType.Match1v1,
@@ -129,10 +145,14 @@ export function Contents1v1({ formRef, onSubmit }: FindMatchContentsProps) {
         ),
       )
     },
-    [dispatch, mapPoolId, selfId],
+    [dispatch, mapPoolId, selfId, disabled],
   )
   const onFormSubmit = useCallback(
     (model: Model1v1) => {
+      if (disabled) {
+        return
+      }
+
       onSubmit(model1v1ToPrefs(model, selfId, mapPoolId))
     },
     [mapPoolId, onSubmit, selfId],
@@ -141,6 +161,7 @@ export function Contents1v1({ formRef, onSubmit }: FindMatchContentsProps) {
   return (
     <Form1v1
       ref={formRef}
+      disabled={disabled}
       model={{
         race: prefs.race ?? 'r',
         useAlternateRace: prefs.data?.useAlternateRace ?? false,

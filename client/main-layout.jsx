@@ -4,7 +4,6 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { Route, Switch, useLocation } from 'wouter'
-import { MatchmakingType } from '../common/matchmaking'
 import { EMAIL_VERIFICATION_ID, NotificationType } from '../common/notifications'
 import { openOverlay } from './activities/action-creators'
 import ActivityBar from './activities/activity-bar'
@@ -36,7 +35,6 @@ import LobbyView from './lobbies/view'
 import { regenMapImage, removeMap } from './maps/action-creators'
 import { cancelFindMatch } from './matchmaking/action-creators'
 import MatchmakingTitle from './matchmaking/app-bar-title'
-import MatchmakingDisabledOverlay from './matchmaking/matchmaking-disabled-overlay'
 import MatchmakingSearchingOverlay from './matchmaking/matchmaking-searching-overlay'
 import MatchmakingView from './matchmaking/view'
 import { IconButton } from './material/button'
@@ -159,7 +157,6 @@ function stateToProps(state) {
     inGameplayActivity: state.gameplayActivity.inGameplayActivity,
     starcraft: state.starcraft,
     matchmaking: state.matchmaking,
-    matchmakingStatus: state.matchmakingStatus,
     serverStatus: state.serverStatus,
   }
 }
@@ -167,7 +164,6 @@ function stateToProps(state) {
 @connect(stateToProps)
 class MainLayout extends React.Component {
   state = {
-    matchmakingDisabledOverlayOpen: false,
     searchingMatchOverlayOpen: false,
   }
 
@@ -191,40 +187,6 @@ class MainLayout extends React.Component {
 
   componentWillUnmount() {
     firstLoggedIn = true
-  }
-
-  componentDidUpdate(prevProps) {
-    // TODO(2Pac): Rethink  this UI for partially disabled matchmaking
-    if (!IS_ELECTRON) return
-    const { matchmakingDisabledOverlayOpen } = this.state
-    const prevMatchmakingStatus = prevProps.matchmakingStatus.byType.get(MatchmakingType.Match1v1)
-    const currMatchmakingStatus = this.props.matchmakingStatus.byType.get(MatchmakingType.Match1v1)
-
-    if (
-      prevMatchmakingStatus &&
-      !prevMatchmakingStatus.enabled &&
-      currMatchmakingStatus &&
-      currMatchmakingStatus.enabled &&
-      matchmakingDisabledOverlayOpen
-    ) {
-      this.onMatchmakingDisabledOverlayClose()
-      this.props.dispatch(openOverlay('findMatch'))
-    }
-  }
-
-  // TODO(2Pac): Rethink this UI for partially disabled matchmaking
-  renderMatchmakingDisabledOverlay() {
-    if (!IS_ELECTRON) return null
-
-    const matchmakingStatus = this.props.matchmakingStatus.byType.get(MatchmakingType.Match1v1)
-    return (
-      <MatchmakingDisabledOverlay
-        open={this.state.matchmakingDisabledOverlayOpen}
-        anchor={this._findMatchButtonRef.current}
-        matchmakingStatus={matchmakingStatus}
-        onDismiss={this.onMatchmakingDisabledOverlayClose}
-      />
-    )
   }
 
   renderSearchingMatchOverlay() {
@@ -387,7 +349,6 @@ class MainLayout extends React.Component {
 
             <VersionText key='version'>v{curVersion}</VersionText>
           </ActivityBar>
-          {this.renderMatchmakingDisabledOverlay()}
           {this.renderSearchingMatchOverlay()}
           <ActivityOverlay />
           <ConnectedSnackbar />
@@ -396,10 +357,6 @@ class MainLayout extends React.Component {
         </Layout>
       </Container>
     )
-  }
-
-  onMatchmakingDisabledOverlayClose = () => {
-    this.setState({ matchmakingDisabledOverlayOpen: false })
   }
 
   onSearchingMatchOverlayOpen = () => {
@@ -420,13 +377,7 @@ class MainLayout extends React.Component {
     } else if (!isStarcraftHealthy(this.props)) {
       this.props.dispatch(openDialog(DialogType.StarcraftHealth))
     } else {
-      const matchmakingStatus = this.props.matchmakingStatus.byType.get(MatchmakingType.Match1v1)
-
-      if (matchmakingStatus && matchmakingStatus.enabled) {
-        this.props.dispatch(openOverlay('findMatch'))
-      } else {
-        this.setState({ matchmakingDisabledOverlayOpen: true })
-      }
+      this.props.dispatch(openOverlay('findMatch'))
     }
   }
 

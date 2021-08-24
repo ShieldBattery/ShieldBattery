@@ -26,6 +26,7 @@ export interface FindMatchFormRef {
 }
 
 export interface FindMatchContentsProps {
+  disabled: boolean
   mapSelections?: Array<Immutable<MapInfoJson>>
   formRef: React.Ref<FindMatchFormRef>
   onSubmit: (prefs: Immutable<MatchmakingPreferences>) => void
@@ -74,7 +75,7 @@ export const MapSelections = styled.div`
   grid-template-columns: repeat(auto-fill, ${MAP_THUMB_SIZE_PX}px);
 `
 
-export const SelectableMap = styled.div<{ $vetoed?: boolean }>`
+export const SelectableMap = styled.div<{ $vetoed?: boolean; $disabled?: boolean }>`
   ${shadow4dp};
 
   --sb-selectable-map-border: ${props => (props.$vetoed ? colorNegative : colorDividers)};
@@ -86,6 +87,7 @@ export const SelectableMap = styled.div<{ $vetoed?: boolean }>`
   position: relative;
   border-radius: 2px;
   contain: strict;
+  pointer-events: ${props => (props.$disabled ? 'none' : 'auto')};
 
   /** Add a border that is over top of the map image */
   &::after {
@@ -119,21 +121,31 @@ interface ConnectedSelectableMapProps {
   mapId: string
   isVetoed: boolean
   onClick: (mapId: string) => void
+  disabled?: boolean
 }
 
-function ConnectedSelectableMap({ mapId, isVetoed, onClick }: ConnectedSelectableMapProps) {
+function ConnectedSelectableMap({
+  mapId,
+  isVetoed,
+  onClick,
+  disabled,
+}: ConnectedSelectableMapProps) {
   const dispatch = useAppDispatch()
   const map = useAppSelector(s => s.maps2.byId.get(mapId))
   const handleClick = useCallback(() => {
-    onClick(mapId)
-  }, [mapId, onClick])
+    if (!disabled) {
+      onClick(mapId)
+    }
+  }, [mapId, onClick, disabled])
 
   useEffect(() => {
     dispatch(batchGetMapInfo(mapId))
   }, [dispatch, mapId])
 
+  // TODO(tec27): allow these to be keyboard focused and vetoed via keypress
+
   return (
-    <SelectableMap $vetoed={isVetoed}>
+    <SelectableMap $vetoed={isVetoed} $disabled={disabled}>
       {map ? (
         <MapThumbnail
           map={map}
@@ -153,6 +165,7 @@ export interface MapVetoesControlProps {
   value: string[] | null
   mapPool: MapPoolRecord
   maxVetoes: number
+  disabled: boolean
   className?: string
 }
 
@@ -161,6 +174,7 @@ export function MapVetoesControl({
   value,
   mapPool,
   maxVetoes,
+  disabled,
   className,
 }: MapVetoesControlProps) {
   const onChangeRef = useValueAsRef(onChange)
@@ -195,6 +209,7 @@ export function MapVetoesControl({
             mapId={id}
             isVetoed={value?.includes(id) ?? false}
             onClick={onClick}
+            disabled={disabled}
           />
         ))}
       </MapSelections>

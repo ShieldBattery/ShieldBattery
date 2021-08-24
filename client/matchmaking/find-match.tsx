@@ -1,4 +1,5 @@
 import { Immutable } from 'immer'
+import { rgba } from 'polished'
 import React, { useCallback, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
@@ -10,11 +11,12 @@ import { RaisedButton } from '../material/button'
 import { useScrollIndicatorState } from '../material/scroll-indicator'
 import { TabItem, Tabs } from '../material/tabs'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { colorDividers, colorError } from '../styles/colors'
-import { Headline5, subtitle1 } from '../styles/typography'
+import { colorDividers, dialogScrim } from '../styles/colors'
+import { Headline5 } from '../styles/typography'
 import { findMatch } from './action-creators'
 import { Contents1v1 } from './find-1v1'
 import { FindMatchFormRef } from './find-match-forms'
+import { ConnectedMatchmakingDisabledCard } from './matchmaking-disabled-card'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -32,9 +34,10 @@ const TitleBar = styled.div`
   margin: 16px 24px;
 `
 
-const Contents = styled.div`
+const Contents = styled.div<{ $disabled: boolean }>`
+  position: relative;
   flex-grow: 1;
-  overflow-y: auto;
+  overflow-y: ${props => (props.$disabled ? 'hidden' : 'auto')};
   contain: strict;
 `
 
@@ -62,10 +65,23 @@ const Actions = styled.div`
   contain: content;
 `
 
-const ErrorText = styled.div`
-  ${subtitle1};
-  margin-left: 16px;
-  color: ${colorError};
+const DisabledOverlay = styled.div`
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+
+  padding-bottom: 48px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  background-color: ${rgba(dialogScrim, 0.5)};
+  contain: strict;
+  z-index: 100;
 `
 
 // TODO(tec27): Remove this once 3v3 is added as a "real" matchmaking type
@@ -78,7 +94,7 @@ export function FindMatch() {
   const [activeTab, setActiveTab] = useState(lastQueuedMatchmakingType as ExpandedMatchmakingType)
 
   const dispatch = useAppDispatch()
-  const isMatchmakingEnabled = useAppSelector(
+  const isMatchmakingDisabled = !useAppSelector(
     s => s.matchmakingStatus.byType.get(activeTab as MatchmakingType)?.enabled ?? false,
   )
 
@@ -117,7 +133,9 @@ export function FindMatch() {
   let contents: React.ReactNode | undefined
   switch (activeTab) {
     case MatchmakingType.Match1v1:
-      contents = <Contents1v1 formRef={formRef} onSubmit={onSubmit} />
+      contents = (
+        <Contents1v1 formRef={formRef} onSubmit={onSubmit} disabled={isMatchmakingDisabled} />
+      )
       break
     case MatchmakingType.Match2v2:
     case '3v3':
@@ -142,25 +160,27 @@ export function FindMatch() {
       {contents ? (
         <>
           <KeyListener onKeyDown={onKeyDown} />
-          <Contents>
+          <Contents $disabled={isMatchmakingDisabled}>
             {topElem}
             <ContentsBody>{contents}</ContentsBody>
             {bottomElem}
+            {isMatchmakingDisabled ? (
+              <DisabledOverlay>
+                <ConnectedMatchmakingDisabledCard type={activeTab as MatchmakingType} />
+              </DisabledOverlay>
+            ) : null}
           </Contents>
           <Actions>
             <ScrollDivider show={!isAtBottom} />
             <RaisedButton
               label='Find match'
-              disabled={!isMatchmakingEnabled}
+              disabled={isMatchmakingDisabled}
               onClick={onFindClick}
             />
-            {!isMatchmakingEnabled ? (
-              <ErrorText>Matchmaking is currently disabled</ErrorText>
-            ) : null}
           </Actions>
         </>
       ) : (
-        <Contents>
+        <Contents $disabled={false}>
           <ContentsBody>
             <ComingSoon />
           </ContentsBody>
