@@ -15,6 +15,7 @@ import { colorDividers, dialogScrim } from '../styles/colors'
 import { Headline5 } from '../styles/typography'
 import { findMatch } from './action-creators'
 import { Contents1v1 } from './find-1v1'
+import { Contents2v2 } from './find-2v2'
 import { FindMatchFormRef } from './find-match-forms'
 import { ConnectedMatchmakingDisabledCard } from './matchmaking-disabled-card'
 
@@ -71,8 +72,6 @@ const DisabledOverlay = styled.div`
   top: 0;
   right: 0;
   bottom: 0;
-
-  padding-bottom: 48px;
 
   display: flex;
   flex-direction: column;
@@ -138,6 +137,10 @@ export function FindMatch() {
       )
       break
     case MatchmakingType.Match2v2:
+      contents = (
+        <Contents2v2 formRef={formRef} onSubmit={onSubmit} disabled={isMatchmakingDisabled} />
+      )
+      break
     case '3v3':
       // TODO(tec27): Build UIs for these
       contents = undefined
