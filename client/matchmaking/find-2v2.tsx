@@ -58,7 +58,7 @@ const Form2v2 = React.forwardRef<FindMatchFormRef, Form2v2Props>(
           {mapPoolOutdated ? <OutdatedIndicator>Updated</OutdatedIndicator> : null}
         </MapSelectionsHeader>
         <DescriptionText>
-          Veto up to 3 maps. Vetoed maps will never be selected for play.
+          Veto up to 3 maps. Vetoed maps will be chosen significantly less often than other maps.
         </DescriptionText>
         <MapVetoesControl
           {...bindCustom('mapSelections')}

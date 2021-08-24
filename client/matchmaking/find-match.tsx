@@ -13,7 +13,7 @@ import { TabItem, Tabs } from '../material/tabs'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorDividers, dialogScrim } from '../styles/colors'
 import { Headline5 } from '../styles/typography'
-import { findMatch } from './action-creators'
+import { findMatch, updateLastQueuedMatchmakingType } from './action-creators'
 import { Contents1v1 } from './find-1v1'
 import { Contents2v2 } from './find-2v2'
 import { FindMatchFormRef } from './find-match-forms'
@@ -102,6 +102,17 @@ export function FindMatch() {
   })
   const formRef = useRef<FindMatchFormRef>(null)
 
+  const onTabChange = useCallback(
+    (tab: ExpandedMatchmakingType) => {
+      if (tab !== '3v3') {
+        dispatch(updateLastQueuedMatchmakingType(tab))
+      }
+
+      setActiveTab(tab)
+    },
+    [dispatch],
+  )
+
   const onSubmit = useCallback(
     (prefs: Immutable<MatchmakingPreferences>) => {
       if (activeTab === '3v3') {
@@ -154,7 +165,7 @@ export function FindMatch() {
       <TitleBar>
         <Headline5>Find match</Headline5>
       </TitleBar>
-      <Tabs bottomDivider={true} activeTab={activeTab} onChange={setActiveTab}>
+      <Tabs bottomDivider={true} activeTab={activeTab} onChange={onTabChange}>
         <TabItem text='1 vs 1' value={MatchmakingType.Match1v1} />
         <TabItem text='2 vs 2' value={MatchmakingType.Match2v2} />
         <TabItem text='3 vs 3' value={'3v3'} />
