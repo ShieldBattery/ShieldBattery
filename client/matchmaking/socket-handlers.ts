@@ -3,8 +3,13 @@ import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
 import { GameLaunchConfig, PlayerInfo } from '../../common/game-launch-config'
 import { GameType } from '../../common/games/configuration'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { GetPreferencesPayload, MatchmakingEvent, MatchmakingType } from '../../common/matchmaking'
-import { ACTIVE_GAME_LAUNCH, MATCHMAKING_STATUS_UPDATE } from '../actions'
+import {
+  GetPreferencesPayload,
+  MatchmakingEvent,
+  MatchmakingStatusJson,
+  MatchmakingType,
+} from '../../common/matchmaking'
+import { ACTIVE_GAME_LAUNCH } from '../actions'
 import AudioManager from '../audio/audio-manager'
 import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
 import { closeDialog, openDialog } from '../dialogs/action-creators'
@@ -311,12 +316,15 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
   siteSocket.registerRoute('/matchmaking/:userName', matchmakingHandler)
   siteSocket.registerRoute('/matchmaking/:userId/:clientId', matchmakingHandler)
 
-  siteSocket.registerRoute('/matchmakingStatus', (route: RouteInfo, event: any) => {
-    dispatch({
-      type: MATCHMAKING_STATUS_UPDATE,
-      payload: event,
-    } as any)
-  })
+  siteSocket.registerRoute(
+    '/matchmakingStatus',
+    (route: RouteInfo, event: MatchmakingStatusJson[]) => {
+      dispatch({
+        type: '@matchmaking/statusUpdate',
+        payload: event,
+      })
+    },
+  )
 
   siteSocket.registerRoute(
     '/matchmakingPreferences/:userId/:matchmakingType',

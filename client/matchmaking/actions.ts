@@ -6,6 +6,7 @@ import {
   GetPreferencesPayload,
   MatchmakingPlayer,
   MatchmakingPreferences,
+  MatchmakingStatusJson,
   MatchmakingType,
 } from '../../common/matchmaking'
 import { BaseFetchFailure } from '../network/fetch-action-types'
@@ -40,6 +41,7 @@ export type MatchmakingActions =
   | LoadingCanceled
   | GameStarted
   | QueueStatus
+  | MatchmakingStatusUpdate
 
 export interface GetCurrentMapPoolBegin {
   type: '@matchmaking/getCurrentMapPoolBegin'
@@ -220,4 +222,10 @@ export interface QueueStatus {
   payload: {
     matchmaking?: { type: MatchmakingType }
   }
+}
+
+/** The status (enabled/disabled) of one or more types of matchmaking has changed. */
+export interface MatchmakingStatusUpdate {
+  type: '@matchmaking/statusUpdate'
+  payload: MatchmakingStatusJson[]
 }

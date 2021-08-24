@@ -197,8 +197,8 @@ class MainLayout extends React.Component {
     // TODO(2Pac): Rethink  this UI for partially disabled matchmaking
     if (!IS_ELECTRON) return
     const { matchmakingDisabledOverlayOpen } = this.state
-    const prevMatchmakingStatus = prevProps.matchmakingStatus.types.get(MatchmakingType.Match1v1)
-    const currMatchmakingStatus = this.props.matchmakingStatus.types.get(MatchmakingType.Match1v1)
+    const prevMatchmakingStatus = prevProps.matchmakingStatus.byType.get(MatchmakingType.Match1v1)
+    const currMatchmakingStatus = this.props.matchmakingStatus.byType.get(MatchmakingType.Match1v1)
 
     if (
       prevMatchmakingStatus &&
@@ -216,7 +216,7 @@ class MainLayout extends React.Component {
   renderMatchmakingDisabledOverlay() {
     if (!IS_ELECTRON) return null
 
-    const matchmakingStatus = this.props.matchmakingStatus.types.get(MatchmakingType.Match1v1)
+    const matchmakingStatus = this.props.matchmakingStatus.byType.get(MatchmakingType.Match1v1)
     return (
       <MatchmakingDisabledOverlay
         open={this.state.matchmakingDisabledOverlayOpen}
@@ -420,7 +420,7 @@ class MainLayout extends React.Component {
     } else if (!isStarcraftHealthy(this.props)) {
       this.props.dispatch(openDialog(DialogType.StarcraftHealth))
     } else {
-      const matchmakingStatus = this.props.matchmakingStatus.types.get('1v1')
+      const matchmakingStatus = this.props.matchmakingStatus.byType.get(MatchmakingType.Match1v1)
 
       if (matchmakingStatus && matchmakingStatus.enabled) {
         this.props.dispatch(openOverlay('findMatch'))

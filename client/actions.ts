@@ -189,9 +189,6 @@ export const LOCAL_SETTINGS_SET = 'LOCAL_SETTINGS_SET'
 // The local settings pertaining to this computer only have changed
 export const LOCAL_SETTINGS_UPDATE = 'LOCAL_SETTINGS_UPDATE'
 
-// The matchmaking status changed, ie. it either become enabled or disabled
-export const MATCHMAKING_STATUS_UPDATE = 'MATCHMAKING_STATUS_UPDATE'
-
 export const NETWORK_SITE_CONNECTED = 'NETWORK_SITE_CONNECTED'
 export const NETWORK_SITE_DISCONNECTED = 'NETWORK_SITE_DISCONNECTED'
 

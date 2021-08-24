@@ -79,7 +79,7 @@ export function FindMatch() {
 
   const dispatch = useAppDispatch()
   const isMatchmakingEnabled = useAppSelector(
-    s => s.matchmakingStatus.types.get(activeTab)?.enabled ?? false,
+    s => s.matchmakingStatus.byType.get(activeTab as MatchmakingType)?.enabled ?? false,
   )
 
   const [, isAtBottom, topElem, bottomElem] = useScrollIndicatorState({

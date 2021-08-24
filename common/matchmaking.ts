@@ -220,13 +220,23 @@ export function statusesEqual(a?: MatchmakingStatus, b?: MatchmakingStatus): boo
 
 export type MatchmakingStatusJson = Jsonify<MatchmakingStatus>
 
-export function toMatchmakingStatusJson(status: MatchmakingStatus) {
+export function toMatchmakingStatusJson(status: MatchmakingStatus): MatchmakingStatusJson {
   return {
     type: status.type,
     enabled: status.enabled,
     startDate: status.startDate ? Number(status.startDate) : undefined,
     nextStartDate: status.nextStartDate ? Number(status.nextStartDate) : undefined,
     nextEndDate: status.nextEndDate ? Number(status.nextEndDate) : undefined,
+  }
+}
+
+export function fromMatchmakingStatusJson(status: MatchmakingStatusJson): MatchmakingStatus {
+  return {
+    type: status.type,
+    enabled: status.enabled,
+    startDate: status.startDate ? new Date(status.startDate) : undefined,
+    nextStartDate: status.nextStartDate ? new Date(status.nextStartDate) : undefined,
+    nextEndDate: status.nextEndDate ? new Date(status.nextEndDate) : undefined,
   }
 }
 
