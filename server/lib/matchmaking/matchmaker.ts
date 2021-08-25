@@ -1,8 +1,12 @@
 import { OrderedMap } from 'immutable'
 import IntervalTree from 'node-interval-tree'
+import { injectable } from 'tsyringe'
 import logger from '../logging/logger'
+import { LazyScheduler } from './lazy-scheduler'
 import { isNewPlayer, MatchmakingPlayer } from './matchmaking-player'
 
+/** How often to run the matchmaker 'find match' process. */
+const MATCHMAKING_INTERVAL = 7500
 /**
  * How many iterations to search for a player's "ideal match" only, i.e. a player directly within
  * rating +/- (uncertainty / 2). After this many iterations, we start to widen the search range.
@@ -101,23 +105,40 @@ type OpponentChooser = (
   isHighRanked: boolean,
 ) => Readonly<MatchmakingPlayer> | undefined
 
+@injectable()
 export class Matchmaker {
   protected tree = new IntervalTree<MatchmakingPlayer>()
   protected players = OrderedMap<string, MatchmakingPlayer>()
   protected highRankedRating = Number.MAX_SAFE_INTEGER
 
-  /**
-   * Constructs a new Matchmaker.
-   *
-   * @param onMatchFound Called when a match has been found
-   * @param opponentChooser A function called to narrow potential matches down to a single one.
-   *     Optional, if not provided, the default implementation finds the player with the nearest
-   *     rating.
-   */
-  constructor(
-    private onMatchFound: OnMatchFoundFunc,
-    private opponentChooser: OpponentChooser = DEFAULT_OPPONENT_CHOOSER,
-  ) {}
+  private onMatchFound: OnMatchFoundFunc = () => {
+    throw new Error('onMatchFound function must be set before use!')
+  }
+
+  private opponentChooser: OpponentChooser = DEFAULT_OPPONENT_CHOOSER
+
+  constructor(private scheduler: LazyScheduler) {
+    scheduler.setDelay(MATCHMAKING_INTERVAL)
+    scheduler.setErrorHandler(err => {
+      logger.error({ err }, 'error in scheduled matchmaking handler')
+      return true
+    })
+    scheduler.setMethod(timeSinceLastRunMillis => {
+      let keepGoing = true
+      try {
+        keepGoing = this.matchPlayers()
+      } catch (err) {
+        logger.error({ err }, 'error while matching players')
+      }
+
+      return keepGoing
+    })
+  }
+
+  setOnMatchFound(onMatchFound: OnMatchFoundFunc): this {
+    this.onMatchFound = onMatchFound
+    return this
+  }
 
   get queueSize(): number {
     return this.players.size
@@ -128,19 +149,20 @@ export class Matchmaker {
    *
    * @returns `true` if the player was not already in the queue, `false` otherwise
    */
-  addToQueue(player: MatchmakingPlayer) {
+  addToQueue(player: MatchmakingPlayer): boolean {
     if (this.players.has(player.name)) {
       return false
     }
     const isAdded = this.insertInTree(player)
     if (isAdded) {
       this.players = this.players.set(player.name, player)
+      this.scheduler.scheduleIfNeeded()
     }
     return isAdded
   }
 
   /** Removes a player from the matchmaking queue. */
-  removeFromQueue(playerName: string) {
+  removeFromQueue(playerName: string): boolean {
     if (!this.players.has(playerName)) {
       return false
     }
@@ -170,7 +192,7 @@ export class Matchmaker {
    * @returns `true` if there are enough players to potentially find more matches in the future,
    *     `false` if no matches could ever be found (e.g. if there is only 1 player left in queue)
    */
-  matchPlayers(): boolean {
+  private matchPlayers(): boolean {
     let matchedPlayers = new Set<MatchmakingPlayer>()
 
     for (const player of this.players.values()) {
@@ -253,43 +275,5 @@ export class Matchmaker {
       Math.round(player.interval.high),
       player,
     )
-  }
-}
-
-/** A `Matchmaker` that looks for matches at a set time interval. */
-export class TimedMatchmaker extends Matchmaker {
-  private timer: ReturnType<typeof setInterval> | null = null
-
-  constructor(
-    private searchIntervalMs: number,
-    onMatchFound: OnMatchFoundFunc,
-    opponentChooser?: OpponentChooser,
-  ) {
-    super(onMatchFound, opponentChooser)
-  }
-
-  override addToQueue(player: MatchmakingPlayer): boolean {
-    const result = super.addToQueue(player)
-    if (!this.timer) {
-      this.timer = setInterval(() => {
-        try {
-          const hasMoreMatches = this.matchPlayers()
-          if (!hasMoreMatches) {
-            this.clearTimer()
-          }
-        } catch (err) {
-          logger.error({ err }, 'error while matching players')
-        }
-      }, this.searchIntervalMs)
-    }
-
-    return result
-  }
-
-  private clearTimer() {
-    if (this.timer) {
-      clearInterval(this.timer)
-      this.timer = null
-    }
   }
 }

@@ -20,7 +20,7 @@ import activityRegistry from '../games/gameplay-activity-registry'
 import { getMapInfo } from '../maps/map-models'
 import { MatchmakingDebugDataService } from '../matchmaking/debug-data'
 import MatchAcceptor, { MatchAcceptorCallbacks } from '../matchmaking/match-acceptor'
-import { OnMatchFoundFunc, TimedMatchmaker } from '../matchmaking/matchmaker'
+import { Matchmaker, OnMatchFoundFunc } from '../matchmaking/matchmaker'
 import { MatchmakingPlayer } from '../matchmaking/matchmaking-player'
 import MatchmakingStatusService from '../matchmaking/matchmaking-status'
 import {
@@ -83,8 +83,6 @@ interface Timers {
 
 const getRandomInt = (max: number) => Math.floor(Math.random() * Math.floor(max))
 
-// How often to run the matchmaker 'find match' process
-const MATCHMAKING_INTERVAL = 7500
 // Extra time that is added to the matchmaking accept time to account for latency in getting
 // messages back and forth from clients
 const ACCEPT_MATCH_LATENCY = 2000
@@ -423,7 +421,7 @@ export class MatchmakingService {
     },
   }
 
-  private matchmakers: Map<MatchmakingType, TimedMatchmaker>
+  private matchmakers: Map<MatchmakingType, Matchmaker>
   private acceptor = new MatchAcceptor(
     MATCHMAKING_ACCEPT_MATCH_TIME + ACCEPT_MATCH_LATENCY,
     this.matchAcceptorDelegate,
@@ -444,7 +442,7 @@ export class MatchmakingService {
     this.matchmakers = new Map(
       ALL_MATCHMAKING_TYPES.map(type => [
         type,
-        new TimedMatchmaker(MATCHMAKING_INTERVAL, this.matchmakerDelegate.onMatchFound),
+        container.resolve(Matchmaker).setOnMatchFound(this.matchmakerDelegate.onMatchFound),
       ]),
     )
 
