@@ -93,6 +93,7 @@ export default class MapSelect extends React.Component {
     list: PropTypes.instanceOf(List),
     byId: PropTypes.instanceOf(Map),
     value: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(List)]),
+    disabled: PropTypes.bool,
     maxSelections: PropTypes.number,
     selectedIcon: PropTypes.element,
     canBrowseMaps: PropTypes.bool,
@@ -190,9 +191,9 @@ export default class MapSelect extends React.Component {
   }
 
   onMapSelect = mapId => {
-    const { value, maxSelections, allowUnselect, onChange } = this.props
+    const { value, disabled, maxSelections, allowUnselect, onChange } = this.props
 
-    if (!onChange) return
+    if (disabled || !onChange) return
 
     if (typeof value === 'string') {
       if (allowUnselect && value === mapId) {
@@ -220,6 +221,9 @@ export default class MapSelect extends React.Component {
   }
 
   onMapBrowse = event => {
+    if (this.props.disabled) {
+      return
+    }
     if (this.props.onMapBrowse) {
       this.props.onMapBrowse(event)
     }
@@ -232,6 +236,9 @@ export default class MapSelect extends React.Component {
   }
 
   onFocus = () => {
+    if (this.props.disabled) {
+      return
+    }
     this.setState({ isFocused: true, focusedIndex: 0 })
   }
 
@@ -240,10 +247,10 @@ export default class MapSelect extends React.Component {
   }
 
   onKeyDown = event => {
-    const { list } = this.props
+    const { list, disabled } = this.props
     const { isFocused, focusedIndex } = this.state
 
-    if (!isFocused) return false
+    if (!isFocused || disabled) return false
 
     if (event.code === SPACE && focusedIndex > -1 && focusedIndex <= list.size) {
       if (focusedIndex === list.size) this.onMapBrowse(event)
