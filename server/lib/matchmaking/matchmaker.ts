@@ -33,7 +33,6 @@ function findClosestRating(rating: number, overlappingPlayers: MatchmakingPlayer
 export const DEFAULT_OPPONENT_CHOOSER = (
   player: MatchmakingPlayer,
   opponents: MatchmakingPlayer[],
-  isHighRanked: boolean,
 ) => {
   let filtered = opponents.filter(
     o => o.interval.low <= player.rating && player.rating <= o.interval.high,
@@ -96,20 +95,16 @@ export type OnMatchFoundFunc = (
  *
  * @param player the player to find an opponent for
  * @param opponents the possible opponents to choose from
- * @param isHighRanked whether or not the player is high ranked (and may need special logic applied
- *   to them to ensure they find matches)
  */
 type OpponentChooser = (
   player: Readonly<MatchmakingPlayer>,
   opponents: Readonly<MatchmakingPlayer>[],
-  isHighRanked: boolean,
 ) => Readonly<MatchmakingPlayer> | undefined
 
 @injectable()
 export class Matchmaker {
   protected tree = new IntervalTree<MatchmakingPlayer>()
   protected players = OrderedMap<string, MatchmakingPlayer>()
-  protected highRankedRating = Number.MAX_SAFE_INTEGER
 
   private onMatchFound: OnMatchFoundFunc = () => {
     throw new Error('onMatchFound function must be set before use!')
@@ -175,17 +170,6 @@ export class Matchmaker {
   }
 
   /**
-   * Sets the minimum MMR above which players are considered "high ranked" and have special
-   * matchmaking behavior applied to them to ensure that can still find matches.
-   */
-  setHighRankedRating(rating: number) {
-    this.highRankedRating = rating
-    // TODO(tec27): matchmaker may need to know what type of matchmaking it deals with to log
-    // useful messages here (and elsewhere)
-    logger.info('high ranked is now ' + rating + ' rating')
-  }
-
-  /**
    * Finds the best match for each player and removes them from a queue. If a match is not found,
    * the player stays in the queue, with their interval bounds increased as needed.
    *
@@ -206,12 +190,8 @@ export class Matchmaker {
       this.removeFromTree(player)
       player.searchIterations += 1
 
-      const isHighRanked = player.rating >= this.highRankedRating
       if (player.searchIterations > IDEAL_MATCH_ITERATIONS) {
-        if (
-          isHighRanked ||
-          player.searchIterations <= IDEAL_MATCH_ITERATIONS + MAX_SEARCH_BOUND_INCREASES
-        ) {
+        if (player.searchIterations <= IDEAL_MATCH_ITERATIONS + MAX_SEARCH_BOUND_INCREASES) {
           // Player has been in the queue long enough to have their search bound increased (but not
           // so long that they're at the max bounds). If they are considered a "high ranked" player,
           // (that is, one at the top X% of the ladder), their search bound will increase
@@ -231,7 +211,7 @@ export class Matchmaker {
 
       let opponent: Readonly<MatchmakingPlayer> | undefined
       if (results.length > 0) {
-        opponent = this.opponentChooser(player, results, isHighRanked)
+        opponent = this.opponentChooser(player, results)
       }
 
       if (opponent) {
