@@ -155,7 +155,11 @@ export default class JoinLobby extends React.Component {
           {this.props.party.id ? (
             <DisabledOverlay>
               <DisabledCard>
-                <DisabledText>Joining lobbies is currently disabled while in a party.</DisabledText>
+                <Headline5>Lobbies Disabled</Headline5>
+                <DisabledText>
+                  At the moment it's not possible to join lobbies while in a party. This feature is
+                  coming soon.
+                </DisabledText>
               </DisabledCard>
             </DisabledOverlay>
           ) : null}

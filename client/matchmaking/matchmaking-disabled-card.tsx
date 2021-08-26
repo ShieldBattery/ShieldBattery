@@ -155,7 +155,7 @@ export function ConnectedPartyDisabledCard({ className, type }: ConnectedPartyDi
     (type === MatchmakingType.Match1v1 && partySize > 1) ||
     (type === MatchmakingType.Match2v2 && partySize > 2)
   ) {
-    disabledText = `There's too many people in the party to queue for a match.`
+    disabledText = `Your current party is too large to queue for this matchmaking type.`
   }
 
   return (
