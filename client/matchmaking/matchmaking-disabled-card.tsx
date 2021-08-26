@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { MatchmakingType } from '../../common/matchmaking'
 import { DisabledCard, DisabledText } from '../activities/disabled-content'
+import { useSelfUser } from '../auth/state-hooks'
 import { useAppSelector } from '../redux-hooks'
 import { colorTextSecondary } from '../styles/colors'
 import { Headline3, Headline5, Headline6, headline6, overline } from '../styles/typography'
@@ -43,12 +44,15 @@ const CountdownItemText = styled.span`
   color: ${colorTextSecondary};
 `
 
-export interface DisabledCardProps {
+export interface ConnectedMatchmakingDisabledCardProps {
   className?: string
   type: MatchmakingType
 }
 
-export function ConnectedMatchmakingDisabledCard({ className, type }: DisabledCardProps) {
+export function ConnectedMatchmakingDisabledCard({
+  className,
+  type,
+}: ConnectedMatchmakingDisabledCardProps) {
   const status = useAppSelector(s => s.matchmakingStatus.byType.get(type))
 
   const [days, setDays] = useState('00')
@@ -134,17 +138,16 @@ export function ConnectedMatchmakingDisabledCard({ className, type }: DisabledCa
   )
 }
 
-export interface PartyDisabledCardProps extends DisabledCardProps {
-  isPartyLeader: boolean
-  partySize: number
+export interface ConnectedPartyDisabledCardProps {
+  className?: string
+  type: MatchmakingType
 }
 
-export function PartyDisabledCard({
-  className,
-  type,
-  isPartyLeader,
-  partySize,
-}: PartyDisabledCardProps) {
+export function ConnectedPartyDisabledCard({ className, type }: ConnectedPartyDisabledCardProps) {
+  const selfUser = useSelfUser()
+  const isPartyLeader = useAppSelector(s => s.party.leader.id === selfUser.id)
+  const partySize = useAppSelector(s => s.party.members.size)
+
   let disabledText: string | undefined
   if (!isPartyLeader) {
     disabledText = `Only party leader can queue for a match.`

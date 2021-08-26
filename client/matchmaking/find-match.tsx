@@ -18,7 +18,10 @@ import { findMatch, updateLastQueuedMatchmakingType } from './action-creators'
 import { Contents1v1 } from './find-1v1'
 import { Contents2v2 } from './find-2v2'
 import { FindMatchFormRef } from './find-match-forms'
-import { ConnectedMatchmakingDisabledCard, PartyDisabledCard } from './matchmaking-disabled-card'
+import {
+  ConnectedMatchmakingDisabledCard,
+  ConnectedPartyDisabledCard,
+} from './matchmaking-disabled-card'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -66,6 +69,32 @@ const Actions = styled.div`
   padding: 16px 24px;
   contain: content;
 `
+
+interface DisabledContentsProps {
+  matchmakingType: MatchmakingType
+  isMatchmakingStatusDisabled: boolean
+  isMatchmakingPartyDisabled: boolean
+}
+
+function DisabledContents(props: DisabledContentsProps) {
+  const { matchmakingType, isMatchmakingStatusDisabled, isMatchmakingPartyDisabled } = props
+
+  if (isMatchmakingStatusDisabled) {
+    return (
+      <DisabledOverlay>
+        <ConnectedMatchmakingDisabledCard type={matchmakingType} />
+      </DisabledOverlay>
+    )
+  } else if (isMatchmakingPartyDisabled) {
+    return (
+      <DisabledOverlay>
+        <ConnectedPartyDisabledCard type={matchmakingType} />
+      </DisabledOverlay>
+    )
+  }
+
+  return null
+}
 
 // TODO(tec27): Remove this once 3v3 is added as a "real" matchmaking type
 type ExpandedMatchmakingType = MatchmakingType | '3v3'
@@ -155,25 +184,6 @@ export function FindMatch() {
       contents = assertUnreachable(activeTab)
   }
 
-  let disabledContents: React.ReactNode | undefined
-  if (isMatchmakingStatusDisabled) {
-    disabledContents = (
-      <DisabledOverlay>
-        <ConnectedMatchmakingDisabledCard type={activeTab as MatchmakingType} />
-      </DisabledOverlay>
-    )
-  } else if (isMatchmakingPartyDisabled) {
-    disabledContents = (
-      <DisabledOverlay>
-        <PartyDisabledCard
-          type={activeTab as MatchmakingType}
-          isPartyLeader={isPartyLeader}
-          partySize={partySize}
-        />
-      </DisabledOverlay>
-    )
-  }
-
   return (
     <Container>
       <TitleBar>
@@ -192,7 +202,11 @@ export function FindMatch() {
             {topElem}
             <ContentsBody>{contents}</ContentsBody>
             {bottomElem}
-            {disabledContents}
+            <DisabledContents
+              matchmakingType={activeTab as MatchmakingType}
+              isMatchmakingStatusDisabled={isMatchmakingStatusDisabled}
+              isMatchmakingPartyDisabled={isMatchmakingPartyDisabled}
+            />
           </Contents>
           <Actions>
             <ScrollDivider show={!isAtBottom} />
