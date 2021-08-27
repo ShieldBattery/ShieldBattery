@@ -4,10 +4,11 @@ import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { gameTypeToLabel } from '../../common/games/configuration'
 import { closeOverlay } from '../activities/action-creators'
+import { DisabledCard, DisabledOverlay, DisabledText } from '../activities/disabled-content'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import siteSocket from '../network/site-socket'
 import { colorDividers } from '../styles/colors'
-import { Body1, headline5, Headline6, Subtitle1, Subtitle2 } from '../styles/typography'
+import { Body1, Headline5, Headline6, Subtitle1, Subtitle2 } from '../styles/typography'
 import { joinLobby, navigateToLobby } from './action-creators'
 
 const ListEntryRoot = styled.div`
@@ -82,17 +83,29 @@ class ListEntry extends React.Component {
   }
 }
 
-const Root = styled.div`
-  padding: 16px 24px;
+const Container = styled.div`
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 `
 
-const Header = styled.div`
-  ${headline5};
-  margin-top: 8px;
-  margin-bottom: 24px;
+const TitleBar = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin: 16px 24px;
 `
 
-@connect(state => ({ lobbyList: state.lobbyList }))
+const Contents = styled.div`
+  position: relative;
+  flex-grow: 1;
+`
+
+const ContentsBody = styled.div`
+  padding: 12px 24px;
+`
+
+@connect(state => ({ lobbyList: state.lobbyList, party: state.party }))
 export default class JoinLobby extends React.Component {
   constructor(props) {
     super(props)
@@ -133,10 +146,25 @@ export default class JoinLobby extends React.Component {
 
   render() {
     return (
-      <Root>
-        <Header>Join Lobby</Header>
-        {this.renderList()}
-      </Root>
+      <Container>
+        <TitleBar>
+          <Headline5>Join Lobby</Headline5>
+        </TitleBar>
+        <Contents>
+          <ContentsBody>{this.renderList()}</ContentsBody>
+          {this.props.party.id ? (
+            <DisabledOverlay>
+              <DisabledCard>
+                <Headline5>Lobbies Disabled</Headline5>
+                <DisabledText>
+                  At the moment it's not possible to join lobbies while in a party. This feature is
+                  coming soon.
+                </DisabledText>
+              </DisabledCard>
+            </DisabledOverlay>
+          ) : null}
+        </Contents>
+      </Container>
     )
   }
 

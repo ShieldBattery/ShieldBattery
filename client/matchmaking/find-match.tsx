@@ -1,23 +1,27 @@
 import { Immutable } from 'immer'
-import { rgba } from 'polished'
 import React, { useCallback, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { MatchmakingPreferences, MatchmakingType } from '../../common/matchmaking'
 import { closeOverlay } from '../activities/action-creators'
+import { DisabledOverlay } from '../activities/disabled-content'
+import { useSelfUser } from '../auth/state-hooks'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import KeyListener from '../keyboard/key-listener'
 import { RaisedButton } from '../material/button'
 import { useScrollIndicatorState } from '../material/scroll-indicator'
 import { TabItem, Tabs } from '../material/tabs'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { colorDividers, dialogScrim } from '../styles/colors'
+import { colorDividers } from '../styles/colors'
 import { Headline5 } from '../styles/typography'
 import { findMatch, updateLastQueuedMatchmakingType } from './action-creators'
 import { Contents1v1 } from './find-1v1'
 import { Contents2v2 } from './find-2v2'
 import { FindMatchFormRef } from './find-match-forms'
-import { ConnectedMatchmakingDisabledCard } from './matchmaking-disabled-card'
+import {
+  ConnectedMatchmakingDisabledCard,
+  ConnectedPartyDisabledCard,
+} from './matchmaking-disabled-card'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -66,22 +70,31 @@ const Actions = styled.div`
   contain: content;
 `
 
-const DisabledOverlay = styled.div`
-  position: absolute;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
+interface DisabledContentsProps {
+  matchmakingType: MatchmakingType
+  isMatchmakingStatusDisabled: boolean
+  isMatchmakingPartyDisabled: boolean
+}
 
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+function DisabledContents(props: DisabledContentsProps) {
+  const { matchmakingType, isMatchmakingStatusDisabled, isMatchmakingPartyDisabled } = props
 
-  background-color: ${rgba(dialogScrim, 0.5)};
-  contain: strict;
-  z-index: 100;
-`
+  if (isMatchmakingStatusDisabled) {
+    return (
+      <DisabledOverlay>
+        <ConnectedMatchmakingDisabledCard type={matchmakingType} />
+      </DisabledOverlay>
+    )
+  } else if (isMatchmakingPartyDisabled) {
+    return (
+      <DisabledOverlay>
+        <ConnectedPartyDisabledCard type={matchmakingType} />
+      </DisabledOverlay>
+    )
+  }
+
+  return null
+}
 
 // TODO(tec27): Remove this once 3v3 is added as a "real" matchmaking type
 type ExpandedMatchmakingType = MatchmakingType | '3v3'
@@ -93,9 +106,20 @@ export function FindMatch() {
   const [activeTab, setActiveTab] = useState(lastQueuedMatchmakingType as ExpandedMatchmakingType)
 
   const dispatch = useAppDispatch()
-  const isMatchmakingDisabled = !useAppSelector(
+  const isMatchmakingStatusDisabled = !useAppSelector(
     s => s.matchmakingStatus.byType.get(activeTab as MatchmakingType)?.enabled ?? false,
   )
+  const selfUser = useSelfUser()
+  const isInParty = useAppSelector(s => !!s.party.id)
+  const partySize = useAppSelector(s => s.party.members.size)
+  const isPartyLeader = useAppSelector(s => s.party.leader.id === selfUser.id)
+  const isMatchmakingPartyDisabled =
+    isInParty &&
+    (!isPartyLeader ||
+      (activeTab === MatchmakingType.Match1v1 && partySize > 1) ||
+      (activeTab === MatchmakingType.Match2v2 && partySize > 2))
+
+  const isMatchmakingDisabled = isMatchmakingStatusDisabled || isMatchmakingPartyDisabled
 
   const [, isAtBottom, topElem, bottomElem] = useScrollIndicatorState({
     refreshToken: activeTab,
@@ -178,11 +202,11 @@ export function FindMatch() {
             {topElem}
             <ContentsBody>{contents}</ContentsBody>
             {bottomElem}
-            {isMatchmakingDisabled ? (
-              <DisabledOverlay>
-                <ConnectedMatchmakingDisabledCard type={activeTab as MatchmakingType} />
-              </DisabledOverlay>
-            ) : null}
+            <DisabledContents
+              matchmakingType={activeTab as MatchmakingType}
+              isMatchmakingStatusDisabled={isMatchmakingStatusDisabled}
+              isMatchmakingPartyDisabled={isMatchmakingPartyDisabled}
+            />
           </Contents>
           <Actions>
             <ScrollDivider show={!isAtBottom} />

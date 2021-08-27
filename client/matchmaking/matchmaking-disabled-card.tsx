@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { MatchmakingType } from '../../common/matchmaking'
-import Card from '../material/card'
-import { shadow8dp } from '../material/shadows'
+import { DisabledCard, DisabledText } from '../activities/disabled-content'
+import { useSelfUser } from '../auth/state-hooks'
 import { useAppSelector } from '../redux-hooks'
 import { colorTextSecondary } from '../styles/colors'
-import { body1, Headline3, Headline5, Headline6, headline6, overline } from '../styles/typography'
+import { Headline3, Headline5, Headline6, headline6, overline } from '../styles/typography'
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -15,24 +15,6 @@ const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   minute: '2-digit',
   timeZoneName: 'short',
 })
-
-const Contents = styled(Card)`
-  ${shadow8dp};
-
-  position: relative;
-  width: 384px;
-  padding: 16px;
-
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-`
-
-const DisabledText = styled.span`
-  ${body1};
-  margin: 24px 0 32px 0;
-  overflow-wrap: break-word;
-`
 
 const ToText = styled.span`
   ${headline6};
@@ -115,7 +97,7 @@ export function ConnectedMatchmakingDisabledCard({
   }, [nextStartDate])
 
   return (
-    <Contents className={className}>
+    <DisabledCard className={className}>
       <Headline5>Matchmaking Disabled</Headline5>
       <DisabledText>
         Matchmaking is sometimes shut down for maintenance and development, and is currently
@@ -152,6 +134,34 @@ export function ConnectedMatchmakingDisabledCard({
       ) : (
         <Headline6>Soon™</Headline6>
       )}
-    </Contents>
+    </DisabledCard>
+  )
+}
+
+export interface ConnectedPartyDisabledCardProps {
+  className?: string
+  type: MatchmakingType
+}
+
+export function ConnectedPartyDisabledCard({ className, type }: ConnectedPartyDisabledCardProps) {
+  const selfUser = useSelfUser()
+  const isPartyLeader = useAppSelector(s => s.party.leader.id === selfUser.id)
+  const partySize = useAppSelector(s => s.party.members.size)
+
+  let disabledText: string | undefined
+  if (!isPartyLeader) {
+    disabledText = `Only party leader can queue for a match.`
+  } else if (
+    (type === MatchmakingType.Match1v1 && partySize > 1) ||
+    (type === MatchmakingType.Match2v2 && partySize > 2)
+  ) {
+    disabledText = `Your current party is too large to queue for this matchmaking type.`
+  }
+
+  return (
+    <DisabledCard className={className}>
+      <Headline5>Matchmaking Disabled</Headline5>
+      <DisabledText>{disabledText}</DisabledText>
+    </DisabledCard>
   )
 }

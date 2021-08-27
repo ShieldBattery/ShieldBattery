@@ -7,6 +7,7 @@ import { LOBBY_NAME_MAXLENGTH } from '../../common/constants'
 import { ALL_GAME_TYPES, GameType, gameTypeToLabel } from '../../common/games/configuration'
 import { isTeamType } from '../../common/lobbies'
 import { closeOverlay, openOverlay } from '../activities/action-creators'
+import { DisabledCard, DisabledOverlay, DisabledText } from '../activities/disabled-content'
 import form from '../forms/form'
 import { composeValidators, maxLength, required } from '../forms/validators'
 import KeyListener from '../keyboard/key-listener'
@@ -53,6 +54,7 @@ const TitleBar = styled.div`
 `
 
 const Contents = styled.div`
+  position: relative;
   flex-grow: 1;
 `
 
@@ -110,7 +112,7 @@ class CreateLobbyForm extends React.Component {
   }
 
   renderSubTypeSelection() {
-    const { bindCustom, getInputValue, recentMaps } = this.props
+    const { bindCustom, getInputValue, recentMaps, disabled } = this.props
 
     const gameType = getInputValue('gameType')
     if (!isTeamType(gameType)) {
@@ -126,7 +128,7 @@ class CreateLobbyForm extends React.Component {
     } = selectedMap
     if (gameType === GameType.TopVsBottom) {
       return (
-        <Select {...bindCustom('gameSubType')} label='Teams' tabIndex={0}>
+        <Select {...bindCustom('gameSubType')} label='Teams' disabled={disabled} tabIndex={0}>
           {Range(slots - 1, 0).map(top => (
             <Option key={top} value={top} text={`${top} vs ${slots - top}`} />
           ))}
@@ -134,7 +136,7 @@ class CreateLobbyForm extends React.Component {
       )
     } else {
       return (
-        <Select {...bindCustom('gameSubType')} label='Teams' tabIndex={0}>
+        <Select {...bindCustom('gameSubType')} label='Teams' disabled={disabled} tabIndex={0}>
           {Range(2, Math.min(slots, 4) + 1).map(numTeams => (
             <Option key={numTeams} value={numTeams} text={`${numTeams} teams`} />
           ))}
@@ -144,7 +146,8 @@ class CreateLobbyForm extends React.Component {
   }
 
   render() {
-    const { onSubmit, bindInput, bindCustom, inputRef, recentMaps, onMapBrowse } = this.props
+    const { onSubmit, bindInput, bindCustom, inputRef, recentMaps, disabled, onMapBrowse } =
+      this.props
 
     return (
       <form noValidate={true} onSubmit={onSubmit}>
@@ -152,6 +155,7 @@ class CreateLobbyForm extends React.Component {
           {...bindInput('name')}
           ref={inputRef}
           label='Lobby name'
+          disabled={disabled}
           floatingLabel={true}
           inputProps={{
             autoCapitalize: 'off',
@@ -162,7 +166,7 @@ class CreateLobbyForm extends React.Component {
           }}
         />
         <GameTypeAndSubType>
-          <Select {...bindCustom('gameType')} label='Game type' tabIndex={0}>
+          <Select {...bindCustom('gameType')} label='Game type' disabled={disabled} tabIndex={0}>
             {ALL_GAME_TYPES.map(type => (
               <Option key={type} value={type} text={gameTypeToLabel(type)} />
             ))}
@@ -174,6 +178,7 @@ class CreateLobbyForm extends React.Component {
           {...bindCustom('selectedMap')}
           list={recentMaps.list}
           byId={recentMaps.byId}
+          disabled={disabled}
           maxSelections={1}
           thumbnailSize='large'
           canBrowseMaps={true}
@@ -208,7 +213,7 @@ class CreateLobbyForm extends React.Component {
   }
 }
 
-@connect(state => ({ lobbyPreferences: state.lobbyPreferences }))
+@connect(state => ({ lobbyPreferences: state.lobbyPreferences, party: state.party }))
 export default class CreateLobby extends React.Component {
   static propTypes = {
     map: PropTypes.object,
@@ -294,7 +299,7 @@ export default class CreateLobby extends React.Component {
   }
 
   render() {
-    const { map: initialMap, lobbyPreferences } = this.props
+    const { map: initialMap, lobbyPreferences, party } = this.props
     const { scrolledUp, scrolledDown, recentMaps } = this.state
 
     if (lobbyPreferences.isRequesting) {
@@ -304,6 +309,8 @@ export default class CreateLobby extends React.Component {
         </LoadingArea>
       )
     }
+
+    const isDisabled = !!party.id
 
     const { name, gameType, gameSubType } = lobbyPreferences
     const selectedMap = (initialMap && initialMap.id) || lobbyPreferences.selectedMap
@@ -327,6 +334,7 @@ export default class CreateLobby extends React.Component {
               <CreateLobbyForm
                 ref={this._form}
                 inputRef={this._input}
+                disabled={isDisabled}
                 model={model}
                 onSubmit={this.onSubmit}
                 recentMaps={recentMaps}
@@ -335,9 +343,20 @@ export default class CreateLobby extends React.Component {
             </ContentsBody>
           </ScrollableContent>
           {scrolledUp ? <ScrollDivider position='bottom' /> : null}
+          {isDisabled ? (
+            <DisabledOverlay>
+              <DisabledCard>
+                <Headline5>Lobbies Disabled</Headline5>
+                <DisabledText>
+                  At the moment it's not possible to create lobbies while in a party. This feature
+                  is coming soon.
+                </DisabledText>
+              </DisabledCard>
+            </DisabledOverlay>
+          ) : null}
         </Contents>
         <Actions>
-          <RaisedButton label='Create lobby' onClick={this.onCreateClick} />
+          <RaisedButton label='Create lobby' disabled={isDisabled} onClick={this.onCreateClick} />
         </Actions>
       </Container>
     )
@@ -354,6 +373,10 @@ export default class CreateLobby extends React.Component {
   }
 
   onMapBrowse = () => {
+    if (this.props.party.id) {
+      return
+    }
+
     const serverMapsProps = {
       title: 'Select map',
       onMapSelect: this.onMapSelect,
@@ -371,6 +394,10 @@ export default class CreateLobby extends React.Component {
   }
 
   onSubmit = () => {
+    if (this.props.party.id) {
+      return
+    }
+
     this.isHosted = true
 
     const { name, gameType, gameSubType, selectedMap } = this._form.current.getModel()
@@ -382,6 +409,10 @@ export default class CreateLobby extends React.Component {
   }
 
   onKeyDown = event => {
+    if (this.props.party.id) {
+      return false
+    }
+
     if (event.code === ENTER || event.code === ENTER_NUMPAD) {
       this.onCreateClick()
       return true
