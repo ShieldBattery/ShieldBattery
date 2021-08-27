@@ -36,6 +36,6 @@ export const DisabledCard = styled(Card)`
 
 export const DisabledText = styled.span`
   ${body1};
-  margin: 24px 0 32px 0;
+  margin: 24px 0 16px 0;
   overflow-wrap: break-word;
 `

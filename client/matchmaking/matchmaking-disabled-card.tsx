@@ -98,7 +98,7 @@ export function ConnectedMatchmakingDisabledCard({
 
   return (
     <DisabledCard className={className}>
-      <Headline5>Matchmaking Disabled</Headline5>
+      <Headline5>Matchmaking disabled</Headline5>
       <DisabledText>
         Matchmaking is sometimes shut down for maintenance and development, and is currently
         disabled. The next matchmaking period is:
@@ -148,19 +148,21 @@ export function ConnectedPartyDisabledCard({ className, type }: ConnectedPartyDi
   const isPartyLeader = useAppSelector(s => s.party.leader.id === selfUser.id)
   const partySize = useAppSelector(s => s.party.members.size)
 
+  let disabledTitle = 'Disabled while in party'
   let disabledText: string | undefined
   if (!isPartyLeader) {
-    disabledText = `Only party leader can queue for a match.`
+    disabledText = 'Only the party leader can queue for matches.'
   } else if (
     (type === MatchmakingType.Match1v1 && partySize > 1) ||
     (type === MatchmakingType.Match2v2 && partySize > 2)
   ) {
-    disabledText = `Your current party is too large to queue for this matchmaking type.`
+    disabledTitle = 'Party too large'
+    disabledText = 'Your current party is too large to queue for this matchmaking type.'
   }
 
   return (
     <DisabledCard className={className}>
-      <Headline5>Matchmaking Disabled</Headline5>
+      <Headline5>{disabledTitle}</Headline5>
       <DisabledText>{disabledText}</DisabledText>
     </DisabledCard>
   )

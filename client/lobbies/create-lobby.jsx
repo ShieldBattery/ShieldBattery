@@ -346,10 +346,10 @@ export default class CreateLobby extends React.Component {
           {isDisabled ? (
             <DisabledOverlay>
               <DisabledCard>
-                <Headline5>Lobbies Disabled</Headline5>
+                <Headline5>Disabled while in party</Headline5>
                 <DisabledText>
-                  It's not currently possible to create a lobby while in a party. This feature is
-                  coming soon. Leave your party to continue.
+                  Creating a lobby as a party is currently under development. Leave your party to
+                  continue.
                 </DisabledText>
               </DisabledCard>
             </DisabledOverlay>
