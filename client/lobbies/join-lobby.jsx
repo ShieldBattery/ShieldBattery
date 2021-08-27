@@ -157,8 +157,8 @@ export default class JoinLobby extends React.Component {
               <DisabledCard>
                 <Headline5>Lobbies Disabled</Headline5>
                 <DisabledText>
-                  At the moment it's not possible to join lobbies while in a party. This feature is
-                  coming soon.
+                  It's not currently possible to join a lobby while in a party. This feature is
+                  coming soon. Leave your party to continue.
                 </DisabledText>
               </DisabledCard>
             </DisabledOverlay>
