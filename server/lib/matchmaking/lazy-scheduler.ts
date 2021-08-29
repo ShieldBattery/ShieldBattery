@@ -50,6 +50,10 @@ export class LazyScheduler {
    *    the start of the next
    */
   setDelay(delayMillis: number): this {
+    if (delayMillis < 20) {
+      throw new Error('Delays less than 20ms are not supported')
+    }
+
     this.#delayMillis = delayMillis
     if (!this.timeoutId) {
       this.lastRunTime = this.clock.monotonicNow()
@@ -93,7 +97,10 @@ export class LazyScheduler {
   private getNextDelay(): number {
     const now = this.clock.monotonicNow()
     const nextDelay = (now - this.lastRunTime) % this.#delayMillis
-    return nextDelay < 1 ? this.#delayMillis : nextDelay
+    // This has a bit of a fudge factor because the way timings of things work out means we
+    // sometimes hit a bit early, and we don't want to rerun e.g. 4ms later if we just ran and the
+    // delay is much larger
+    return nextDelay < 20 ? this.#delayMillis : nextDelay
   }
 
   private onTimeout = () => {
