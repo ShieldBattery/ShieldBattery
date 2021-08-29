@@ -1,11 +1,10 @@
 /* eslint-disable jest/no-commented-out-tests */
-import { DEFAULT_OPPONENT_CHOOSER } from './matchmaker'
-import { MatchmakingPlayer } from './matchmaking-player'
+import { DEFAULT_OPPONENT_CHOOSER, initializePlayer, QueuedMatchmakingPlayer } from './matchmaker'
 
-function createPlayer(data: Partial<MatchmakingPlayer> = {}): MatchmakingPlayer {
+function createPlayer(data: Partial<QueuedMatchmakingPlayer> = {}): QueuedMatchmakingPlayer {
   const rating = data.rating ?? 1500
 
-  return {
+  return initializePlayer({
     id: 1,
     name: 'tec27',
     numGamesPlayed: 0,
@@ -23,7 +22,7 @@ function createPlayer(data: Partial<MatchmakingPlayer> = {}): MatchmakingPlayer 
       high: rating + 120,
       ...(data.interval ?? {}),
     },
-  }
+  })
 }
 
 describe('matchmaking/matchmaker/DEFAULT_OPPONENT_CHOOSER', () => {

@@ -5,17 +5,20 @@ import { range } from '../../../common/range'
 import { ExponentialSmoothValue } from '../../../common/statistics/exponential-smoothing'
 import logger from '../logging/logger'
 import { LazyScheduler } from './lazy-scheduler'
-import { isNewPlayer, MatchmakingPlayer } from './matchmaking-player'
+import { isNewPlayer, MatchmakingInterval, MatchmakingPlayer } from './matchmaking-player'
 
 /** How often to run the matchmaker 'find match' process. */
-const MATCHMAKING_INTERVAL_MS = 6000
+const MATCHMAKING_INTERVAL_MS = 6 * 1000
 /**
  * How many iterations to search for a player's "ideal match" only, i.e. a player directly within
  * rating +/- (uncertainty / 2). After this many iterations, we start to widen the search range.
  */
-const IDEAL_MATCH_ITERATIONS = Math.floor(60000 / MATCHMAKING_INTERVAL_MS)
+const IDEAL_MATCH_ITERATIONS = Math.floor((60 * 1000) / MATCHMAKING_INTERVAL_MS)
 const SEARCH_BOUND_INCREASE =
   (12 / 10) * (MATCHMAKING_INTERVAL_MS / 1000) /* Value from the doc, adjusted for our timing */
+/**
+ * How many times the search bound will be increased before we stop.
+ */
 const MAX_SEARCH_BOUND_INCREASES = Math.round((100 * 1000) / MATCHMAKING_INTERVAL_MS)
 
 // Below are constants related to population estimation. A basic run-down of how that works:
@@ -57,8 +60,8 @@ const POPULATION_ESTIMATE_UPDATE_INTERVAL = 10
  */
 const MAX_MISSED_POPULATION_UPDATES = 20
 
-function getPopulationBucket(player: MatchmakingPlayer): number {
-  return Math.min(Math.floor(player.rating / POPULATION_BUCKET_RATING), POPULATION_NUM_BUCKETS - 1)
+function getPopulationBucket(rating: number): number {
+  return Math.min(Math.floor(rating / POPULATION_BUCKET_RATING), POPULATION_NUM_BUCKETS - 1)
 }
 
 function findClosestRating(rating: number, overlappingPlayers: MatchmakingPlayer[]) {
@@ -76,9 +79,32 @@ function findClosestRating(rating: number, overlappingPlayers: MatchmakingPlayer
   return current
 }
 
+/**
+ * Initializes a player (in-place) with their starting and max interval, if it is not already
+ * present.
+ *
+ * This should only be used by the Matchmaker or in tests, you probably don't want to call this!
+ */
+export function initializePlayer(player: MatchmakingPlayer): QueuedMatchmakingPlayer {
+  if (!player.startingInterval) {
+    player.startingInterval = {
+      low: player.interval.low,
+      high: player.interval.high,
+    }
+  }
+  if (!player.maxInterval) {
+    player.maxInterval = {
+      low: Math.max(0, player.interval.low - MAX_SEARCH_BOUND_INCREASES * SEARCH_BOUND_INCREASE),
+      high: player.interval.high + MAX_SEARCH_BOUND_INCREASES * SEARCH_BOUND_INCREASE,
+    }
+  }
+
+  return player as QueuedMatchmakingPlayer
+}
+
 export const DEFAULT_OPPONENT_CHOOSER = (
-  player: MatchmakingPlayer,
-  opponents: MatchmakingPlayer[],
+  player: QueuedMatchmakingPlayer,
+  opponents: QueuedMatchmakingPlayer[],
 ) => {
   let filtered = opponents.filter(
     o => o.interval.low <= player.rating && player.rating <= o.interval.high,
@@ -137,20 +163,28 @@ export type OnMatchFoundFunc = (
 ) => void
 
 /**
+ * A MatchmakingPlayer that has had its matchmaking data filled out by the Matchmaker.
+ */
+export interface QueuedMatchmakingPlayer extends MatchmakingPlayer {
+  startingInterval: MatchmakingInterval
+  maxInterval: MatchmakingInterval
+}
+
+/**
  * A function that chooses an opponent for `player` among a pool of potential opponents.
  *
  * @param player the player to find an opponent for
  * @param opponents the possible opponents to choose from
  */
 type OpponentChooser = (
-  player: Readonly<MatchmakingPlayer>,
-  opponents: Readonly<MatchmakingPlayer>[],
-) => Readonly<MatchmakingPlayer> | undefined
+  player: Readonly<QueuedMatchmakingPlayer>,
+  opponents: Readonly<QueuedMatchmakingPlayer>[],
+) => Readonly<QueuedMatchmakingPlayer> | undefined
 
 @injectable()
 export class Matchmaker {
-  protected tree = new IntervalTree<MatchmakingPlayer>()
-  protected players = OrderedMap<string, MatchmakingPlayer>()
+  protected tree = new IntervalTree<QueuedMatchmakingPlayer>()
+  protected players = OrderedMap<string, QueuedMatchmakingPlayer>()
 
   readonly populationCurrent = Array.from(range(0, POPULATION_NUM_BUCKETS), () => 0)
   readonly populationPeak = Array.from(range(0, POPULATION_NUM_BUCKETS), () => 0)
@@ -217,11 +251,15 @@ export class Matchmaker {
     if (this.players.has(player.name)) {
       return false
     }
-    const isAdded = this.insertInTree(player)
-    if (isAdded) {
-      this.players = this.players.set(player.name, player)
 
-      const popBucket = getPopulationBucket(player)
+    const queuedPlayer = initializePlayer(player)
+    queuedPlayer.maxInterval = this.calculateGoodMaxInterval(queuedPlayer)
+
+    const isAdded = this.insertInTree(queuedPlayer)
+    if (isAdded) {
+      this.players = this.players.set(queuedPlayer.name, queuedPlayer)
+
+      const popBucket = getPopulationBucket(queuedPlayer.rating)
       const newPop = this.populationCurrent[popBucket] + 1
       this.populationCurrent[popBucket] = newPop
       if (newPop > this.populationPeak[popBucket]) {
@@ -247,12 +285,31 @@ export class Matchmaker {
     return isRemoved
   }
 
+  // NOTE(tec27): These just make it easier to do the "right" thing as far as rounding intervals.
+  // We don't want to store them pre-rounded because we're adjusting the interval after searches
+  // and this would introduce a lot of potential floating point error.
+  private insertInTree(player: QueuedMatchmakingPlayer): boolean {
+    return this.tree.insert(
+      Math.round(player.interval.low),
+      Math.round(player.interval.high),
+      player,
+    )
+  }
+
+  private removeFromTree(player: QueuedMatchmakingPlayer): boolean {
+    return this.tree.remove(
+      Math.round(player.interval.low),
+      Math.round(player.interval.high),
+      player,
+    )
+  }
+
   /**
    * Deals with updating population estimates to remove a player. Should be called whenever players
    * are removed (whether because they canceled, because they found a match, etc.).
    */
-  private onPlayerRemoved(player: MatchmakingPlayer) {
-    const popBucket = getPopulationBucket(player)
+  private onPlayerRemoved(player: QueuedMatchmakingPlayer) {
+    const popBucket = getPopulationBucket(player.rating)
     this.populationCurrent[popBucket] -= 1
     // This can never produce a new peak, so no need to update that
   }
@@ -308,16 +365,26 @@ export class Matchmaker {
       player.searchIterations += 1
 
       if (player.searchIterations > IDEAL_MATCH_ITERATIONS) {
-        if (player.searchIterations <= IDEAL_MATCH_ITERATIONS + MAX_SEARCH_BOUND_INCREASES) {
-          // Player has been in the queue long enough to have their search bound increased (but not
-          // so long that they're at the max bounds). If they are considered a "high ranked" player,
-          // (that is, one at the top X% of the ladder), their search bound will increase
-          // infinitely to ensure they can find matches
-          player.interval.low = Math.max(player.interval.low - SEARCH_BOUND_INCREASE, 0)
+        const atMaxBounds =
+          player.interval.low <= player.maxInterval.low &&
+          player.interval.high >= player.maxInterval.high
+        if (!atMaxBounds) {
+          player.interval.low = Math.max(
+            player.interval.low - SEARCH_BOUND_INCREASE,
+            player.maxInterval.low,
+          )
           player.interval.high = Math.min(
             player.interval.high + SEARCH_BOUND_INCREASE,
-            Number.MAX_SAFE_INTEGER,
+            player.maxInterval.high,
           )
+        } else {
+          if (player.searchIterations % POPULATION_ESTIMATE_UPDATE_INTERVAL === 0) {
+            // If the player is at their max bounds, every so often we'll recalculate what
+            // good bounds are for them, to ensure we're using the latest population estimates to
+            // find them a good match. This should mean that if 2 people are in the queue, they
+            // will always (eventually) find each other
+            player.maxInterval = this.calculateGoodMaxInterval(player)
+          }
         }
       }
 
@@ -326,7 +393,7 @@ export class Matchmaker {
         Math.round(player.interval.high),
       )
 
-      let opponent: Readonly<MatchmakingPlayer> | undefined
+      let opponent: Readonly<QueuedMatchmakingPlayer> | undefined
       if (results.length > 0) {
         opponent = this.opponentChooser(player, results)
       }
@@ -360,22 +427,68 @@ export class Matchmaker {
     return this.players.size > 0
   }
 
-  // NOTE(tec27): These just make it easier to do the "right" thing as far as rounding intervals.
-  // We don't want to store them pre-rounded because we're adjusting the interval after searches
-  // and this would introduce a lot of potential floating point error.
-  private insertInTree(player: MatchmakingPlayer): boolean {
-    return this.tree.insert(
-      Math.round(player.interval.low),
-      Math.round(player.interval.high),
-      player,
+  /**
+   * Calculates a max interval that is estimated to have at least N players in it, so that this
+   * player will (hopefully) actually find a match, even in times of low population. If the current
+   * max interval already contains enough estimated players, it will be returned directly.
+   */
+  private calculateGoodMaxInterval(player: QueuedMatchmakingPlayer): MatchmakingInterval {
+    const curMaxInterval = player.maxInterval
+    // NOTE(tec27): These differ from getPopulationBucket slightly, since we want to round
+    // differently to better estimate population (if you have 75% of a bucket in your range it
+    // should probably have it's population estimate included, but not 25% of a bucket)
+    let lowBucket = Math.min(
+      Math.round(curMaxInterval.low / POPULATION_BUCKET_RATING),
+      POPULATION_NUM_BUCKETS - 1,
     )
-  }
+    // NOTE(tec27): This bucket is non-inclusive, as it makes the range calculations easier to do
+    // correctly later
+    let highBucket = Math.min(
+      Math.ceil(curMaxInterval.high / POPULATION_BUCKET_RATING),
+      POPULATION_NUM_BUCKETS,
+    )
 
-  private removeFromTree(player: MatchmakingPlayer): boolean {
-    return this.tree.remove(
-      Math.round(player.interval.low),
-      Math.round(player.interval.high),
-      player,
-    )
+    let estimatedPlayers = 0
+    for (let i = lowBucket; i < highBucket; i++) {
+      estimatedPlayers += this.populationEstimate[i].value
+    }
+
+    // TODO(tec27): Use the right value for non-1v1 matchmaking
+    if (estimatedPlayers >= 2) {
+      return curMaxInterval
+    }
+
+    while (estimatedPlayers < 2 && (lowBucket > 0 || highBucket < this.populationEstimate.length)) {
+      if (lowBucket > 0) {
+        lowBucket -= 1
+        estimatedPlayers += this.populationEstimate[lowBucket].value
+      }
+      if (highBucket < this.populationEstimate.length) {
+        highBucket += 1
+        estimatedPlayers += this.populationEstimate[highBucket - 1].value
+      }
+    }
+
+    const result = {
+      low: lowBucket * POPULATION_BUCKET_RATING,
+      // NOTE(tec27): Since this value is exlcusive, this correctly gets assigned the rating of the
+      // next bucket up (thereby including all of the ratings of the top bucket in our range)
+      high: highBucket * POPULATION_BUCKET_RATING,
+    }
+
+    if (result.low <= 0 || result.high >= POPULATION_TRACKING_MAX_RATING) {
+      return result
+    } else {
+      // Attempt to rebalance the range so it places the player's rating at the center
+      const lowDistance = player.rating - result.low
+      const highDistance = result.high - player.rating
+      if (highDistance > lowDistance) {
+        result.low = Math.max(0, result.low - (highDistance - lowDistance))
+      } else {
+        result.high = result.high + (lowDistance - highDistance)
+      }
+
+      return result
+    }
   }
 }

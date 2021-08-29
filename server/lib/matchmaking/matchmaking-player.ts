@@ -1,6 +1,11 @@
 import { AssignedRaceChar, RaceChar } from '../../../common/races'
 import { NEW_PLAYER_GAME_COUNT } from './constants'
 
+export interface MatchmakingInterval {
+  low: number
+  high: number
+}
+
 export interface MatchmakingPlayer {
   /** The user's ID number (from the `users` table). */
   id: number
@@ -14,10 +19,7 @@ export interface MatchmakingPlayer {
    * The current search interval for matchmaking, i.e. the lowest and highest rating that would be
    * considered a valid match.
    */
-  interval: {
-    low: number
-    high: number
-  }
+  interval: MatchmakingInterval
   /**
    * The number of search iterations this user has gone through (should be initialized to 0, will
    * be updated by the matchmaker).
@@ -38,6 +40,17 @@ export interface MatchmakingPlayer {
    * queue on.
    */
   mapSelections: Set<string>
+
+  /**
+   * The values the search interval was started with. This should be `undefined` initially, the
+   * matchmaker will initialize the correct values.
+   */
+  startingInterval?: MatchmakingInterval
+  /**
+   * The maximum values the search interval will be increased to. This should be `undefined`
+   * initially, the matchmaker will initialize the correct values.
+   */
+  maxInterval?: MatchmakingInterval
 }
 
 export function isNewPlayer(player: MatchmakingPlayer) {
