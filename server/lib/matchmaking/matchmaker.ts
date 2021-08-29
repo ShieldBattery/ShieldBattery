@@ -14,12 +14,14 @@ const MATCHMAKING_INTERVAL_MS = 6 * 1000
  * rating +/- (uncertainty / 2). After this many iterations, we start to widen the search range.
  */
 const IDEAL_MATCH_ITERATIONS = 3
-const SEARCH_BOUND_INCREASE =
-  (24 / 10) * (MATCHMAKING_INTERVAL_MS / 1000) /* Value from the doc, adjusted for our timing */
+/**
+ * How much we changes the search bound each iteration (on both sides).
+ */
+const SEARCH_BOUND_INCREASE = 15
 /**
  * How many times the search bound will be increased before we stop.
  */
-const MAX_SEARCH_BOUND_INCREASES = Math.round((50 * 1000) / MATCHMAKING_INTERVAL_MS)
+const MAX_SEARCH_BOUND_INCREASES = Math.ceil(120 / SEARCH_BOUND_INCREASE)
 
 // Below are constants related to population estimation. A basic run-down of how that works:
 // 1) Split the ratings into N evenly sized buckets
