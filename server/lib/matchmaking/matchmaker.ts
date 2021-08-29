@@ -13,7 +13,7 @@ const MATCHMAKING_INTERVAL_MS = 6 * 1000
  * How many iterations to search for a player's "ideal match" only, i.e. a player directly within
  * rating +/- (uncertainty / 2). After this many iterations, we start to widen the search range.
  */
-const IDEAL_MATCH_ITERATIONS = Math.floor((60 * 1000) / MATCHMAKING_INTERVAL_MS)
+const IDEAL_MATCH_ITERATIONS = 3
 const SEARCH_BOUND_INCREASE =
   (12 / 10) * (MATCHMAKING_INTERVAL_MS / 1000) /* Value from the doc, adjusted for our timing */
 /**
