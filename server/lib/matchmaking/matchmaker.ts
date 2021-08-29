@@ -15,11 +15,11 @@ const MATCHMAKING_INTERVAL_MS = 6 * 1000
  */
 const IDEAL_MATCH_ITERATIONS = 3
 const SEARCH_BOUND_INCREASE =
-  (12 / 10) * (MATCHMAKING_INTERVAL_MS / 1000) /* Value from the doc, adjusted for our timing */
+  (24 / 10) * (MATCHMAKING_INTERVAL_MS / 1000) /* Value from the doc, adjusted for our timing */
 /**
  * How many times the search bound will be increased before we stop.
  */
-const MAX_SEARCH_BOUND_INCREASES = Math.round((100 * 1000) / MATCHMAKING_INTERVAL_MS)
+const MAX_SEARCH_BOUND_INCREASES = Math.round((50 * 1000) / MATCHMAKING_INTERVAL_MS)
 
 // Below are constants related to population estimation. A basic run-down of how that works:
 // 1) Split the ratings into N evenly sized buckets
