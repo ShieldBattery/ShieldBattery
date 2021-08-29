@@ -124,9 +124,11 @@ export function Contents1v1({ formRef, onSubmit, disabled }: FindMatchContentsPr
   const mapPoolOutdated = useAppSelector(
     s => s.matchmakingPreferences.byType.get(MatchmakingType.Match1v1)?.mapPoolOutdated ?? false,
   )
-  const mapPool = useAppSelector(s => s.matchmaking.mapPoolTypes.get(MatchmakingType.Match1v1)!)
+  const mapPool = useAppSelector(
+    s => s.matchmaking.mapPoolTypes.get(MatchmakingType.Match1v1) ?? new MapPoolRecord(),
+  )
   const mapSelections = useMemo(
-    () => (prefs.mapSelections ?? []).filter(id => mapPool.maps.includes(id)),
+    () => (prefs.mapSelections ?? []).filter(id => mapPool.id === 0 || mapPool.maps.includes(id)),
     [prefs.mapSelections, mapPool],
   )
 

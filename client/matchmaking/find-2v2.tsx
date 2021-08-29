@@ -91,14 +91,16 @@ export function Contents2v2({ formRef, onSubmit, disabled }: FindMatchContentsPr
   const mapPoolOutdated = useAppSelector(
     s => s.matchmakingPreferences.byType.get(MatchmakingType.Match2v2)?.mapPoolOutdated ?? false,
   )
-  const mapPool = useAppSelector(s => s.matchmaking.mapPoolTypes.get(MatchmakingType.Match2v2)!)
+  const mapPool = useAppSelector(
+    s => s.matchmaking.mapPoolTypes.get(MatchmakingType.Match2v2) ?? new MapPoolRecord(),
+  )
   const mapSelections = useMemo(
-    () => (prefs.mapSelections ?? []).filter(id => mapPool.maps.includes(id)),
+    () => (prefs.mapSelections ?? []).filter(id => mapPool.id === 0 || mapPool.maps.includes(id)),
     [prefs.mapSelections, mapPool],
   )
 
   const selfId = selfUser.id!
-  const mapPoolId = mapPool.id ?? 0
+  const mapPoolId = mapPool.id
   const onPrefsChanged = useCallback(
     (model: Model2v2) => {
       if (disabled) {
