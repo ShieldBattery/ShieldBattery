@@ -291,8 +291,7 @@ export class Matchmaker {
    * Finds the best match for each player and removes them from a queue. If a match is not found,
    * the player stays in the queue, with their interval bounds increased as needed.
    *
-   * @returns `true` if there are enough players to potentially find more matches in the future,
-   *     `false` if no matches could ever be found (e.g. if there is only 1 player left in queue)
+   * @returns `true` if there are still players in the queue, `false` otherwise
    */
   private matchPlayers(): boolean {
     let matchedPlayers = new Set<MatchmakingPlayer>()
