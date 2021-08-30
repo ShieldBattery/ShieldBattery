@@ -2,11 +2,17 @@ import http from 'http'
 import { Map } from 'immutable'
 import { AddressInfo } from 'net'
 import { container } from 'tsyringe'
-import WebSocket from 'ws'
+import { Constructor } from 'type-fest'
+import WebSocket, * as ws from 'ws'
 import { LocalSettingsData } from '../../common/local-settings'
 import log from '../logger'
 import { LocalSettings } from '../settings'
 import { ActiveGameManager } from './active-game-manager'
+
+// TODO(tec27): Remove this and just import { WebSocket, WebSocketServer } once ws types have been
+// updated for 8.x
+const WebSocketServer: Constructor<ws.Server> =
+  ws.Server === undefined ? (ws as any).WebSocketServer : ws.Server
 
 interface AuthorizeInfo {
   origin: string
@@ -136,7 +142,7 @@ export default function createGameServer(localSettings: LocalSettings) {
     })
     .listen(0, '127.0.0.1')
 
-  const wsServer = new WebSocket.Server({
+  const wsServer = new WebSocketServer({
     server: httpServer,
     verifyClient: authorize,
   })
