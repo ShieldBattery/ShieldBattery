@@ -1,3 +1,43 @@
+#### 7.1.0 (August 30, 2021)
+
+- **Map haters welcome.** We've rolled out a new map selection system to completely replace our
+  existing one. The last one was based on selecting maps you preferred to see, and increasing the
+  chance that you would see them (but all maps were still in play). This turned out to be a pretty
+  convoluted thing to explain and understand, leading people to often think it was bugged, or just
+  be unhappy with the results. We've moved to a more standard 3 veto system. So long as the entire
+  pool hasn't been vetoed by the players in the game, you'll be guaranteed to not see any of the
+  maps you've vetoed. As part of this change, your existing map selections have been wiped clean,
+  and you'll find a new UI for performing selections in the matchmaking overlay.
+- **Faster matchmaking.** We've increased the rate at which matchmaking ranges expand, and added
+  basic population estimation into the algorithm to let you always find a match in a reasonable
+  time. The previous versions of matchmaking greatly prioritized accurate matches, and didn't make
+  many concessions during low population times. This often resulted in cases where two players were
+  queued and had ratings that weren't extremely far off, but were still outside each other's max
+  ranges. In the interest of delivering games more often, the system will relax these range
+  restrictions if the population around your rating is unlikely to produce a match in a short time.
+- **No more unintentional GGs.** Very few people probably realize this, but SC:R added a system that
+  watches for various behavior it considers problematic (dragging the window for more than 10
+  seconds straight being the prime example), and forces anyone found doing it to send a 'GG'
+  message and quit the game. Presumably this caused problems with lag at the time this code was
+  written, but it doesn't any more, and so in the interest of not having people quit the game
+  accidentally, we've turned that "feature" off on ShieldBattery.
+- **Fog of War, now with less blue.** We've made some visual tweaks to the unexplored Fog of War.
+  The previous version had a slight amount of blue added to it, to try and increase contrast with
+  the explored fog. This had the side effect of making some colors in the game appear warmer than
+  intended (and was especially prominent on some displays), so we've removed that extra color.
+  Unexplored fog will now be a flat gray color (just a darker version of the explored fog).
+
+##### Known Issues
+
+- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
+  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
+  very least add a warning for this case in the future (or better yet, automate re-authing), but
+  for now, try to launch the game from the Blizzard launcher at least once a month.
+- **Off-center screen starting position.** For some users, generally in positions on the right side
+  of the screen, the starting screen position may be slightly off-center from where it usually is
+- **Observer chat is broken.** Observers are unable to send messages ingame currently. This will be
+  fixed in a future update.
+
 #### 7.0.20 (August 13, 2021)
 
 - **Observer mode has returned.** We now support in-game observers using SC:R's built-in feature
@@ -336,112 +376,3 @@
 - **Vibrating mineral patches.** You're not going crazy, I promise. Those mineral patches really are
   vibrating. This is an unintentional side-effect of our fog of war change for some users, we're
   working on it!
-
-#### 7.0.0 (March 11th, 2021)
-
-- **Wow, it's been a while.** Sorry about that. The hurdles involved in supporting a game that was
-  actively being worked on were unexpected and large. But we figured it out! And we're here again!
-  And we're ready to bring you the best gosh darn StarCrafting Experience you've ever seen!
-- **StarCraft: Resupported.** We now support StarCraft: Remastered installs. In fact, that's all we
-  support. RIP 1.16, we'll miss you a bit. As a result, you'll notice that our Settings dialog has
-  changed quite a bit, and we directly map to settings you'd find inside SC:R now. The big missing
-  feature there is hotkey configuration. For now, you can launch SC:R through Blizzard's launcher
-  and any hotkeys you change there will be maintained for ShieldBattery.
-- **We're open for business!** No more invite process, this is now an open beta. Tell your friends,
-  children, parents, pets... Get em all in here.
-- **Matchmaking making matches.** Matchmaking is finally here! For 1v1. Without visible ranks yet.
-  More modes (teams!) and visible ranks are coming real soon, but we wanted to roll out a simpler
-  version first to work out all the kinks. It'll be available on weekends only for the first
-  couple weeks, and we'll play it by ear after that. The client will let you know if it's down (and
-  also let you know when it'll be back if it's currently disabled)! We look forward to your feedback on our unique race and map selection systems, so let us have it!
-- **DeMapcracy.** Remember that cool new maps backend we mentioned 3 years ago? Honestly I wouldn't
-  blame you if you didn't, although I mean, it's like, two versions below this one and you could
-  just go look... Okay you don't have to, really it's fine! The important thing is, you can now
-  upload all those maps you have sitting in your BW directory. And you can make lobbies for them
-  too! Currently these will be in your _private collection_, usable only by you. Features for
-  publishing and managing publicly available maps are _Coming Soon™_.
-- **Fog of War: Now With Slightly Less Fog.** The starting fog color is now slightly transparent in
-  non-UMS settings, so you can see the location of terrain and resources without exploring. We
-  believe this will make playing new and unfamiliar maps slightly less intimidating, and just feels _right_. It may be 2021, but we can still teach Brood War some new tricks 😎
-- **WHAT'S THAT? I CAN'T HEAR YOU OVER THE COUNTDOWN BEEPS!** We added a volume slider for our
-  in-app sounds, just in case you didn't want to blast your whole neighborhood with incessant
-  beeping every time you start a game. Weirdo.
-- **Donation station.** Much requested: we now have some ways you can contribute to the maintenance
-  and hosting costs of all of this. Check out our
-  <a href="https://shieldbattery.net/faq" target="_blank">FAQ page</a> for the links.
-- **More server locations.** Speaking of donations, thanks to some generous contributors we've
-  already been able to expand our game server locations. In addition to the already existing
-  EU Central, US East, and US West servers, we now have servers in Korea (Seoul),
-  Australia (Sydney), Brazil (São Paulo), and Sweden (Stockholm). Hopefully that brings a few more
-  of you into a nice, low-latency experience.
-
-##### Known Issues
-
-- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
-  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
-  very least add a warning for this case in the future (or better yet, automate re-authing), but
-  for now, try to launch the game from the Blizzard launcher at least once a month.
-- **Observer mode missing.** We're still getting our lobby code to work with the newer ingame
-  observer things, this will return shortly!
-
-#### 6.1.0 (April 24th, 2017)
-
-- **Support for newer game installs.** We can now handle installs of newer versions of StarCraft
-  than 1.16.1! We're of the opinion that 1.18 would be a downgrade for existing ShieldBattery users,
-  so we won't actually be using that yet, but we do support transparently converting newer
-  installations back to a pristine 1.16.1 copy automatically (without affecting your installation in
-  any way). Feel free to point things to your updated copy in the settings, and/or stop having to
-  maintain two separate installations just to use our service.
-- **When did you join this channel?** Now you can easily see! There is now a line in chat that
-  indicates when you connected to the channel, so you can easily see how people change their demeanor
-  when you're around.
-- **In your face, user.** If you try to launch the app when it's already running the background, the
-  original app will actually be brought to the front now.
-- **B̈étte̋r character support.** Users with non-latin characters in their Windows usernames should
-  have a 1000x better time launching games now. As in they'll actually work again. Whoops.
-- **FAQ accuracy.** The FAQ has been updated to be more accurate towards our actual requirements,
-  as well as to provide a link to the (Now free! Now working with ShieldBattery!) Brood War download.
-
-#### 6.0.0 (April 3rd, 2017)
-
-- **Maps. Again. But better.** We've been hard at work implementing a new maps backend that can be
-  used to upload and play any maps during lobby creation. It's not quite ready for use by everyone,
-  but it now backs all of our official maps (you'll probably notice that map thumbnails look nicer
-  and are more consistent, and that some maps have different titles between the selection and lobby
-  screen). Expect this upload ability to come in a near-future update! Along with this, we've added a
-  few more requested maps: Camelot (from ASL), Judgment Day, and Mizu de Chaud.
-- **Lobby actions.** Adding computers just wasn't enough, so we finally threw in some more options
-  for all you lobby enthusiasts out there. Try not to get _too_ into it as you close slots, or kick
-  or ban players from your lobbies, you do need _some_ opposing players to start the game.
-- **UMS.** If you've ever wanted to trade freedom of controlling your own settings for the thrill
-  of playing a completely different game inside of Brood War, do we have exciting news for you! Use
-  Map Settings maps are now supported on ShieldBattery! The maps we provide for now are: BGH 3.0 (a
-  version of BGH that randomly assigns teams), Micro Tournament, Mini-Game Party, Monopoly, Poker D
-  NovaX2, Random Micro Arena, SoG - Random, TMA Legends, i S k U Bound, Dhoom 2 Bound, and TriX Bound.
-  This is all backed by our new maps backend, as well, so you'll soon be able to play whatever UMS
-  maps you want. These won't currently display the pre-game briefing screen, but we're working on that
-  as well.
-- **System tray icon.** Our standalone client has one now, and will go there when you hit the close
-  button. If that weren't enough, its icon will also change when you've received a new message (it's
-  still pretty unintelligent though, better notifications with nickname highlighting and sounds and
-  other such niceties are coming very soon!).
-- **Saved window position.** We installed some additional memory modules in our windowed mode
-  mainframe, meaning it can now save and restore your Brood War window's position between games!
-- **Username and password recovery.** No longer will you have to PM an admin to recover your lost
-  or forgotten account info! It's 2017, so we've built this functionality right into the login form.
-  Please don't PM admins any more. Please. I mean, unless it's about something more interesting than
-  resetting TamponZerg's password for the 15th time.
-- **Window titles.** We made our window titles differ from stock Brood War, so that it's easier to
-  configure streaming programs to work specifically for ShieldBattery. You may have to adjust your
-  streaming configuration, depending on how you had it set up. The window title will also change
-  between game initialization and actual gameplay, to help avoid switching scenes before things are
-  ready.
-- **OpenGL full screen fixes.** Some previous updates introduced a bug that caused the task bar to
-  never get hidden in OpenGL full screen mode. It seems some people actually like using the bottom
-  part of their screen or something, so we fixed that. We still recommend DirectX for everyone who can
-  use it, but if you need to use OpenGL for compatibility reasons, it should work a bit better now.
-- **Chat scrolling fixes.** Our auto-scrolling code used to be a bit picky about who it would work
-  for, but we gave it a nice, stern talking to. It should be cool with everyone now.
-- **Enhanced game launch failures.** If your game is failing to launch (should be incredibly rare!),
-  we've implemented some additional logging. If this is happening to you, please reach out to an admin
-  so we can collect this data and get some proper fixes in.
