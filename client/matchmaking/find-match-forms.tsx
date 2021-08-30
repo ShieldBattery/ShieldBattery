@@ -63,7 +63,7 @@ export const OutdatedIndicator = styled.span`
   border-radius: 4px;
 `
 
-export const MAP_THUMB_SIZE_PX = 160
+export const MAP_THUMB_SIZE_PX = 164
 
 export const MapSelections = styled.div`
   margin: 16px 0;
@@ -82,8 +82,8 @@ export const SelectableMap = styled.div<{ $vetoed?: boolean; $disabled?: boolean
   --sb-map-thumbnail-selected-color: ${colorNegative};
   --sb-map-thumbnail-selected-icon-size: 48px;
 
-  width: ${MAP_THUMB_SIZE_PX + 2}px;
-  height: ${MAP_THUMB_SIZE_PX + 2}px;
+  width: ${MAP_THUMB_SIZE_PX}px;
+  height: ${MAP_THUMB_SIZE_PX}px;
   position: relative;
   border-radius: 2px;
   contain: strict;
