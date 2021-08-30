@@ -8,7 +8,7 @@ import { LazyScheduler } from './lazy-scheduler'
 import { isNewPlayer, MatchmakingInterval, MatchmakingPlayer } from './matchmaking-player'
 
 /** How often to run the matchmaker 'find match' process. */
-const MATCHMAKING_INTERVAL_MS = 6 * 1000
+export const MATCHMAKING_INTERVAL_MS = 6 * 1000
 /**
  * How many iterations to search for a player's "ideal match" only, i.e. a player directly within
  * rating +/- (uncertainty / 2). After this many iterations, we start to widen the search range.
@@ -273,10 +273,14 @@ export class Matchmaker {
     return isAdded
   }
 
-  /** Removes a player from the matchmaking queue. */
-  removeFromQueue(playerName: string): boolean {
+  /**
+   * Removes a player from the matchmaking queue.
+   *
+   * @returns the player's `MatchmakingPlayer` structure if they were queued, otherwise `undefined`
+   */
+  removeFromQueue(playerName: string): MatchmakingPlayer | undefined {
     if (!this.players.has(playerName)) {
-      return false
+      return undefined
     }
     const player = this.players.get(playerName)!
     const isRemoved = this.removeFromTree(player)
@@ -284,7 +288,7 @@ export class Matchmaker {
       this.players = this.players.delete(player.name)
       this.onPlayerRemoved(player)
     }
-    return isRemoved
+    return player
   }
 
   // NOTE(tec27): These just make it easier to do the "right" thing as far as rounding intervals.

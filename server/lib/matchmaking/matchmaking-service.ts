@@ -10,6 +10,7 @@ import { createHuman, Slot } from '../../../common/lobbies/slot'
 import { MapInfo, MapInfoJson, toMapInfoJson } from '../../../common/maps'
 import {
   ALL_MATCHMAKING_TYPES,
+  MatchmakingCompletionType,
   MatchmakingEvent,
   MatchmakingPreferences,
   MatchmakingType,
@@ -17,15 +18,17 @@ import {
 import { subtract } from '../../../common/sets'
 import gameLoader from '../games/game-loader'
 import activityRegistry from '../games/gameplay-activity-registry'
+import logger from '../logging/logger'
 import { getMapInfo } from '../maps/map-models'
 import { MatchmakingDebugDataService } from '../matchmaking/debug-data'
 import MatchAcceptor, { MatchAcceptorCallbacks } from '../matchmaking/match-acceptor'
-import { Matchmaker, OnMatchFoundFunc } from '../matchmaking/matchmaker'
+import { Matchmaker, MATCHMAKING_INTERVAL_MS, OnMatchFoundFunc } from '../matchmaking/matchmaker'
 import { MatchmakingPlayer } from '../matchmaking/matchmaking-player'
 import MatchmakingStatusService from '../matchmaking/matchmaking-status'
 import {
   createInitialMatchmakingRating,
   getMatchmakingRating,
+  insertMatchmakingCompletion,
   MatchmakingRating,
 } from '../matchmaking/models'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
@@ -262,7 +265,7 @@ export class MatchmakingService {
             // TODO(tec27): We probably shouldn't be blindly sending error messages to clients
             reason: err && err.message,
           })
-          this.removeClientFromMatchmaking(client)
+          this.removeClientFromMatchmaking(client, true)
         }
       }
     },
@@ -290,6 +293,17 @@ export class MatchmakingService {
         matchmakingType: type,
         numPlayers: 2,
       })
+
+      const completionTime = new Date()
+      for (const p of [player, opponent]) {
+        insertMatchmakingCompletion({
+          userId: p.id,
+          matchmakingType: type,
+          completionType: MatchmakingCompletionType.Found,
+          searchTimeMillis: p.searchIterations * MATCHMAKING_INTERVAL_MS,
+          completionTime,
+        }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
+      }
     },
   }
 
@@ -521,7 +535,7 @@ export class MatchmakingService {
     clientSockets.subscribe<MatchmakingEvent>(
       MatchmakingService.getClientPath(clientSockets),
       undefined,
-      sockets => this.removeClientFromMatchmaking(sockets),
+      sockets => this.removeClientFromMatchmaking(sockets, true),
     )
   }
 
@@ -535,7 +549,7 @@ export class MatchmakingService {
       )
     }
 
-    this.removeClientFromMatchmaking(clientSockets)
+    this.removeClientFromMatchmaking(clientSockets, false)
   }
 
   async accept(userId: number) {
@@ -549,15 +563,27 @@ export class MatchmakingService {
     }
   }
 
-  private removeClientFromMatchmaking(client: ClientSocketsGroup) {
+  private removeClientFromMatchmaking(client: ClientSocketsGroup, isDisconnect = true) {
     // NOTE(2Pac): Client can leave, i.e. disconnect, during the queueing process, during the
     // loading process, or even during the game process.
     const entry = this.queueEntries.get(client.name)
     // Means the client disconnected during the queueing process
     if (entry) {
       this.queueEntries.delete(client.name)
-      this.matchmakers.get(entry.type)!.removeFromQueue(entry.username)
+      const player = this.matchmakers.get(entry.type)!.removeFromQueue(entry.username)
       this.acceptor.registerDisconnect(client)
+
+      if (player) {
+        insertMatchmakingCompletion({
+          userId: player.id,
+          matchmakingType: entry.type,
+          completionType: isDisconnect
+            ? MatchmakingCompletionType.Disconnect
+            : MatchmakingCompletionType.Cancel,
+          searchTimeMillis: player.searchIterations * MATCHMAKING_INTERVAL_MS,
+          completionTime: new Date(),
+        }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
+      }
     }
 
     // Means the client disconnected during the loading process

@@ -1,5 +1,5 @@
 import sql from 'sql-template-strings'
-import { MatchmakingType } from '../../../common/matchmaking'
+import { MatchmakingCompletion, MatchmakingType } from '../../../common/matchmaking'
 import db, { DbClient } from '../db'
 import { Dbify } from '../db/types'
 
@@ -318,4 +318,40 @@ export async function insertMatchmakingRatingChange(
         ${c.ratingChange}, ${c.kFactor}, ${c.kFactorChange}, ${c.uncertainty},
         ${c.uncertaintyChange}, ${c.probability}, ${c.unexpectedStreak});
   `)
+}
+
+type DbMatchmakingCompletion = Dbify<MatchmakingCompletion>
+
+function fromDbMatchmakingCompletion(
+  result: Readonly<DbMatchmakingCompletion>,
+): MatchmakingCompletion {
+  return {
+    id: result.id,
+    userId: result.user_id,
+    matchmakingType: result.matchmaking_type,
+    completionType: result.completion_type,
+    searchTimeMillis: result.search_time_millis,
+    completionTime: result.completion_time,
+  }
+}
+
+export async function insertMatchmakingCompletion(
+  completion: Omit<MatchmakingCompletion, 'id'>,
+): Promise<MatchmakingCompletion> {
+  const { userId, matchmakingType, completionType, searchTimeMillis, completionTime } = completion
+
+  const { client, done } = await db()
+  try {
+    const result = await client.query<DbMatchmakingCompletion>(sql`
+      INSERT INTO matchmaking_completions
+        (user_id, matchmaking_type, completion_type, search_time_millis, completion_time)
+      VALUES
+        (${userId}, ${matchmakingType}, ${completionType}, ${searchTimeMillis}, ${completionTime})
+      RETURNING *
+    `)
+
+    return fromDbMatchmakingCompletion(result.rows[0])
+  } finally {
+    done()
+  }
 }

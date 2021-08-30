@@ -245,3 +245,23 @@ export function fromMatchmakingStatusJson(status: MatchmakingStatusJson): Matchm
  * the server. Sent both to initialize all the statuses, as well as for updates to particular types.
  */
 export type MatchmakingStatusUpdateEvent = MatchmakingStatusJson[]
+
+/** Describes how a user completed matchmaking (i.e. how their search process was terminated). */
+export enum MatchmakingCompletionType {
+  /** The user completed matchmaking by finding a match. */
+  Found = 'found',
+  /** The user completed matchmaking by canceling out of the search process. */
+  Cancel = 'cancel',
+  /** The user completed matchmaking by disconnecting from the server. */
+  Disconnect = 'disconnect',
+}
+
+/** A record of a terminated matchmaking search. */
+export interface MatchmakingCompletion {
+  id: string
+  userId: number
+  matchmakingType: MatchmakingType
+  completionType: MatchmakingCompletionType
+  searchTimeMillis: number
+  completionTime: Date
+}
