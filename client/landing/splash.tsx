@@ -2,6 +2,7 @@ import { rgba } from 'polished'
 import React, { ReactChild, ReactNode, useEffect, useState } from 'react'
 import { connect, DispatchProp } from 'react-redux'
 import styled, { css } from 'styled-components'
+import { DISCORD_URL } from '../../common/url-constants'
 import { openDialog } from '../dialogs/action-creators'
 import { ConnectedDialogOverlay } from '../dialogs/connected-dialog-overlay'
 import { DialogType } from '../dialogs/dialog-type'
@@ -666,11 +667,7 @@ class Splash extends React.Component<DispatchProp> {
                 rel='noopener'>
                 <StyledGithubIcon />
               </a>
-              <a
-                href='https://discord.gg/S8dfMx94a4'
-                title='Discord'
-                target='_blank'
-                rel='noopener'>
+              <a href={DISCORD_URL} title='Discord' target='_blank' rel='noopener'>
                 <StyledDiscordIcon />
               </a>
               <a href='https://patreon.com/tec27' title='Patreon' target='_blank' rel='noopener'>

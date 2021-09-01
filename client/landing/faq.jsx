@@ -2,6 +2,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled, { css } from 'styled-components'
 import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
+import { DISCORD_URL } from '../../common/url-constants'
 import QuestionIcon from '../icons/material/ic_help_outline_black_48px.svg'
 import LogoText from '../logos/logotext-640x100.svg'
 import { shadowDef4dp } from '../material/shadow-constants'
@@ -73,7 +74,7 @@ const questions = [
     answer: [
       <p key='p1'>
         The easiest way to report bugs or issues is through our{' '}
-        <a href='https://discord.gg/S8dfMx94a4' target='_blank' rel='noopener'>
+        <a href={DISCORD_URL} target='_blank' rel='noopener'>
           Discord
         </a>
         . If you are comfortable with doing so, you can also file issues on our{' '}

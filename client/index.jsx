@@ -13,6 +13,7 @@ import { registerDispatch } from './dispatch-registry'
 import log from './logging/logger'
 import RedirectProvider from './navigation/redirect-provider'
 import registerSocketHandlers from './network/socket-handlers'
+import { RootErrorBoundary } from './root-error-boundary'
 
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 
@@ -46,9 +47,13 @@ if (IS_ELECTRON) {
 }
 
 window.addEventListener('error', event => {
-  log.error(
-    `JavaScript error in Renderer: ${event.error?.message}\n${event.error?.stack ?? event.error}`,
-  )
+  const messageText = event.error?.message ?? event.message
+  if (messageText === 'ResizeObserver loop limit exceeded') {
+    // NOTE(tec27): This error is not really an error and is something that unavoidably happens
+    // with ResizeObservers in Chromium sometimes, *shrug*
+    return
+  }
+  log.error(`JavaScript error in Renderer: ${messageText}\nStack: ${event.error?.stack}`)
 })
 window.addEventListener('unhandledrejection', event => {
   log.warning(
@@ -127,18 +132,20 @@ Promise.all([rootElemPromise])
   })
   .then(({ elem, store }) => {
     render(
-      <ReduxProvider store={store}>
-        <ResizeObserverProvider>
-          <Router>
-            <RedirectProvider>
-              <>
-                <App />
-                {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
-              </>
-            </RedirectProvider>
-          </Router>
-        </ResizeObserverProvider>
-      </ReduxProvider>,
+      <RootErrorBoundary>
+        <ReduxProvider store={store}>
+          <ResizeObserverProvider>
+            <Router>
+              <RedirectProvider>
+                <>
+                  <App />
+                  {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
+                </>
+              </RedirectProvider>
+            </Router>
+          </ResizeObserverProvider>
+        </ReduxProvider>
+      </RootErrorBoundary>,
       elem,
     )
   })

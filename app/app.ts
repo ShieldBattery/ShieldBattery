@@ -468,8 +468,10 @@ async function createWindow() {
       event.preventDefault()
       shell.openExternal(url)
     })
-    .on('will-navigate', event => {
-      event.preventDefault()
+    .on('will-navigate', (event, url) => {
+      if (!url.startsWith('shieldbattery://app/')) {
+        event.preventDefault()
+      }
     })
 
   registerHotkeys()
