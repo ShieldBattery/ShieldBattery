@@ -463,16 +463,16 @@ async function createWindow() {
       }
     })
 
-  mainWindow.webContents
-    .on('new-window', (event, url) => {
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (url !== 'shieldbattery://app' && !url.startsWith('shieldbattery://app/')) {
       event.preventDefault()
-      shell.openExternal(url)
-    })
-    .on('will-navigate', (event, url) => {
-      if (!url.startsWith('shieldbattery://app/')) {
-        event.preventDefault()
-      }
-    })
+    }
+  })
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url)
+    return { action: 'deny' }
+  })
 
   registerHotkeys()
 
