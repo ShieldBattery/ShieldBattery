@@ -333,10 +333,10 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
 
       dispatch((_, getState) => {
         const {
-          matchmaking: { mapPoolTypes },
+          mapPools: { byType },
         } = getState()
 
-        if (!mapPoolTypes.has(type) || mapPoolTypes.get(type)!.id !== event.currentMapPoolId) {
+        if (!byType.has(type) || byType.get(type)!.id !== event.currentMapPoolId) {
           dispatch(getCurrentMapPool(type))
         }
 

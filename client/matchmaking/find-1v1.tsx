@@ -1,6 +1,10 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useImperativeHandle, useMemo } from 'react'
-import { MatchmakingPreferences1v1, MatchmakingType } from '../../common/matchmaking'
+import {
+  MatchmakingMapPool,
+  MatchmakingPreferences1v1,
+  MatchmakingType,
+} from '../../common/matchmaking'
 import { AssignedRaceChar, RaceChar } from '../../common/races'
 import { useSelfUser } from '../auth/state-hooks'
 import { useForm } from '../forms/form-hook'
@@ -18,7 +22,6 @@ import {
   SectionTitle,
   StyledRaceSelect,
 } from './find-match-forms'
-import { MapPoolRecord } from './matchmaking-reducer'
 
 interface Model1v1 {
   race: RaceChar
@@ -30,7 +33,7 @@ interface Model1v1 {
 interface Form1v1Props {
   disabled: boolean
   model: Model1v1
-  mapPool: MapPoolRecord
+  mapPool?: Immutable<MatchmakingMapPool>
   mapPoolOutdated: boolean
   onChange: (model: Model1v1) => void
   onSubmit: (model: Model1v1) => void
@@ -124,16 +127,14 @@ export function Contents1v1({ formRef, onSubmit, disabled }: FindMatchContentsPr
   const mapPoolOutdated = useAppSelector(
     s => s.matchmakingPreferences.byType.get(MatchmakingType.Match1v1)?.mapPoolOutdated ?? false,
   )
-  const mapPool = useAppSelector(
-    s => s.matchmaking.mapPoolTypes.get(MatchmakingType.Match1v1) ?? new MapPoolRecord(),
-  )
+  const mapPool = useAppSelector(s => s.mapPools.byType.get(MatchmakingType.Match1v1))
   const mapSelections = useMemo(
-    () => (prefs.mapSelections ?? []).filter(id => mapPool.id === 0 || mapPool.maps.includes(id)),
+    () => (prefs.mapSelections ?? []).filter(id => !mapPool || mapPool.maps.includes(id)),
     [prefs.mapSelections, mapPool],
   )
 
   const selfId = selfUser.id!
-  const mapPoolId = mapPool.id ?? 0
+  const mapPoolId = mapPool?.id ?? 0
   const onPrefsChanged = useCallback(
     (model: Model1v1) => {
       if (disabled) {

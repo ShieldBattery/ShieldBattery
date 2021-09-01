@@ -78,7 +78,7 @@ export default class AcceptMatch extends React.Component {
 
   renderDialogContents() {
     const {
-      matchmaking: { isFinding, hasAccepted, acceptTime, failedToAccept, match },
+      matchmaking: { isFinding, isAccepting, hasAccepted, acceptTime, failedToAccept, match },
     } = this.props
 
     if (isFinding) {
@@ -115,7 +115,11 @@ export default class AcceptMatch extends React.Component {
             {hasAccepted ? (
               [...acceptedAvatars, ...unacceptedAvatars]
             ) : (
-              <AcceptMatchButton label='Accept match' onClick={this.onAcceptClick} />
+              <AcceptMatchButton
+                label='Accept match'
+                onClick={this.onAcceptClick}
+                disabled={isAccepting}
+              />
             )}
           </CenteredContainer>
           <TimerBarContainer>
@@ -141,7 +145,9 @@ export default class AcceptMatch extends React.Component {
   }
 
   onAcceptClick = () => {
-    this.props.dispatch(acceptMatch())
+    if (!this.props.isAccepting) {
+      this.props.dispatch(acceptMatch())
+    }
   }
 
   onFailedClick = () => {

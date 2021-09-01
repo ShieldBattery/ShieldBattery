@@ -336,6 +336,7 @@ export class MatchmakingService {
         clients.map(async client => {
           let published = this.publishToActiveClient(client.userId, {
             type: 'matchReady',
+            matchmakingType: matchInfo.type,
             setup,
             resultCode: resultCodes.get(client.name),
             slots,

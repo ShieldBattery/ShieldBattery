@@ -55,8 +55,19 @@ export interface MatchmakingMapPool {
   maps: string[]
 }
 
+export type MatchmakingMapPoolJson = Jsonify<MatchmakingMapPool>
+
+export function fromMatchmakingMapPoolJson(pool: MatchmakingMapPoolJson): MatchmakingMapPool {
+  return {
+    id: pool.id,
+    type: pool.type,
+    startDate: new Date(pool.startDate),
+    maps: pool.maps,
+  }
+}
+
 export interface GetMatchmakingMapPoolBody {
-  pool: Jsonify<MatchmakingMapPool>
+  pool: MatchmakingMapPoolJson
   mapInfos: MapInfoJson[]
 }
 
@@ -137,6 +148,7 @@ export interface RequeueEvent {
 
 export interface MatchReadyEvent {
   type: 'matchReady'
+  matchmakingType: MatchmakingType
   setup: Partial<{ gameId: string; seed: number }>
   resultCode?: string
   slots: Slot[]

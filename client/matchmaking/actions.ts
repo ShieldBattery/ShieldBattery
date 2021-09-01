@@ -1,13 +1,11 @@
 import { Immutable } from 'immer'
-import { Slot } from '../../common/lobbies/slot'
-import { MapInfoJson } from '../../common/maps'
 import {
   GetMatchmakingMapPoolBody,
   GetPreferencesPayload,
-  MatchmakingPlayer,
   MatchmakingPreferences,
   MatchmakingStatusJson,
   MatchmakingType,
+  MatchReadyEvent,
 } from '../../common/matchmaking'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 import { MatchmakingMatchRecord } from './matchmaking-reducer'
@@ -180,13 +178,7 @@ export interface PlayerFailedToAccept {
 
 export interface MatchReady {
   type: '@matchmaking/matchReady'
-  payload: {
-    setup: Partial<{ gameId: string; seed: number }>
-    resultCode?: string
-    slots: Slot[]
-    players: MatchmakingPlayer[]
-    chosenMap: MapInfoJson
-  }
+  payload: MatchReadyEvent
 }
 
 export interface CountdownStarted {

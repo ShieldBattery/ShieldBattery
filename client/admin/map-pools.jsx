@@ -491,7 +491,7 @@ class MapPoolHistory extends React.PureComponent {
   }
 }
 
-@connect(state => ({ mapPools: state.mapPools }))
+@connect(state => ({ mapPools: state.adminMapPools }))
 export default class MapPools extends React.Component {
   state = {
     activeTab: MatchmakingType.Match1v1,

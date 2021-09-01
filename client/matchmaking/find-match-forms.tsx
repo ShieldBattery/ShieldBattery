@@ -2,7 +2,7 @@ import { Immutable } from 'immer'
 import React, { useCallback, useEffect } from 'react'
 import styled from 'styled-components'
 import { MapInfoJson } from '../../common/maps'
-import { MatchmakingPreferences } from '../../common/matchmaking'
+import { MatchmakingMapPool, MatchmakingPreferences } from '../../common/matchmaking'
 import ThumbDownIcon from '../icons/material/thumb-down-48px.svg'
 import { batchGetMapInfo } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
@@ -18,7 +18,6 @@ import {
   colorTextSecondary,
 } from '../styles/colors'
 import { body1, body2, subtitle1 } from '../styles/typography'
-import { MapPoolRecord } from './matchmaking-reducer'
 import { RaceSelect } from './race-select'
 
 export interface FindMatchFormRef {
@@ -163,7 +162,7 @@ function ConnectedSelectableMap({
 export interface MapVetoesControlProps {
   onChange: (vetoedMaps: string[]) => void
   value: string[] | null
-  mapPool: MapPoolRecord
+  mapPool?: Immutable<MatchmakingMapPool>
   maxVetoes: number
   disabled: boolean
   className?: string
@@ -203,7 +202,7 @@ export function MapVetoesControl({
   return (
     <div className={className}>
       <MapSelections>
-        {mapPool.maps.map(id => (
+        {mapPool?.maps.map(id => (
           <ConnectedSelectableMap
             key={id}
             mapId={id}

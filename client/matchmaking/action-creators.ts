@@ -127,12 +127,12 @@ export function updateMatchmakingPreferences<M extends MatchmakingType>(
 
     promise.then(payload => {
       const {
-        matchmaking: { mapPoolTypes },
+        mapPools: { byType },
       } = getState()
 
       if (
-        !mapPoolTypes.has(matchmakingType) ||
-        mapPoolTypes.get(matchmakingType)!.id !== payload.currentMapPoolId
+        !byType.has(matchmakingType) ||
+        byType.get(matchmakingType)!.id !== payload.currentMapPoolId
       ) {
         dispatch(getCurrentMapPool(matchmakingType))
       }

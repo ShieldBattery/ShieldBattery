@@ -1,9 +1,8 @@
 import { Immutable } from 'immer'
-import { List, Map, Record } from 'immutable'
+import { List, Record } from 'immutable'
 import { MapInfoJson } from '../../common/maps'
 import { MatchmakingPreferences, MatchmakingType } from '../../common/matchmaking'
 import { NETWORK_SITE_CONNECTED } from '../actions'
-import { FetchError } from '../network/fetch-action-types'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
 export class MatchmakingPlayerRecord extends Record({
@@ -21,21 +20,12 @@ export class MatchmakingMatchRecord extends Record({
   chosenMap: undefined as MapInfoJson | undefined,
 }) {}
 
-export class MapPoolRecord extends Record({
-  id: 0,
-  type: MatchmakingType.Match1v1 as MatchmakingType,
-  startDate: new Date(),
-  maps: List<string>(),
-
-  isRequesting: false,
-  lastError: undefined as FetchError | undefined,
-}) {}
-
 export class BaseMatchmakingState extends Record({
   isFinding: false,
   findingPreferences: undefined as Immutable<MatchmakingPreferences> | undefined,
   /** The time when the search was started (as returned by `window.performance.now()`) */
   searchStartTime: -1,
+  isAccepting: false,
   hasAccepted: false,
   acceptTime: -1,
   failedToAccept: false,
@@ -45,7 +35,6 @@ export class BaseMatchmakingState extends Record({
   isStarting: false,
 
   match: undefined as MatchmakingMatchRecord | undefined,
-  mapPoolTypes: Map<MatchmakingType, MapPoolRecord>(),
 }) {}
 
 export class MatchmakingState extends BaseMatchmakingState {
@@ -55,52 +44,33 @@ export class MatchmakingState extends BaseMatchmakingState {
 }
 
 export default keyedReducer(new MatchmakingState(), {
+  ['@matchmaking/acceptMatchBegin'](state, action) {
+    return state.set('isAccepting', true)
+  },
+
   ['@matchmaking/acceptMatch'](state, action) {
     if (action.error) {
-      return new MatchmakingState({ mapPoolTypes: state.mapPoolTypes })
+      return new MatchmakingState()
     }
 
-    return state.set('hasAccepted', true)
+    return state.set('hasAccepted', true).set('isAccepting', false)
   },
 
   ['@matchmaking/cancelMatch'](state, action) {
     // TODO(tec27): handle errors, which might indicate you're currently still in the queue
-    return new MatchmakingState({ mapPoolTypes: state.mapPoolTypes })
+    return new MatchmakingState()
   },
 
   ['@matchmaking/findMatch'](state, action) {
     if (action.error) {
-      return new MatchmakingState({ mapPoolTypes: state.mapPoolTypes })
+      return new MatchmakingState()
     }
 
     return new MatchmakingState({
       isFinding: true,
       findingPreferences: action.meta?.preferences,
       searchStartTime: action.payload.startTime,
-      mapPoolTypes: state.mapPoolTypes,
     })
-  },
-
-  ['@matchmaking/getCurrentMapPoolBegin'](state, action) {
-    return state.updateIn(['mapPoolTypes', action.payload.type], (mapPool = new MapPoolRecord()) =>
-      (mapPool as MapPoolRecord).set('isRequesting', true),
-    )
-  },
-
-  ['@matchmaking/getCurrentMapPool'](state, action) {
-    if (action.error) {
-      const { meta, payload } = action
-
-      return state.setIn(['mapPoolTypes', meta.type], new MapPoolRecord({ lastError: payload }))
-    }
-
-    const { meta, payload } = action
-    const mapPool = {
-      ...payload.pool,
-      startDate: new Date(payload.pool.startDate),
-      maps: List(payload.pool.maps),
-    }
-    return state.setIn(['mapPoolTypes', meta.type], new MapPoolRecord(mapPool))
   },
 
   ['@matchmaking/playerFailedToAccept'](state, action) {
@@ -124,14 +94,18 @@ export default keyedReducer(new MatchmakingState(), {
   },
 
   ['@matchmaking/matchReady'](state, action) {
-    const { players, chosenMap } = action.payload
-    const match = {
-      acceptedPlayers: Object.keys(players).length,
-      players: List(players.map(p => new MatchmakingPlayerRecord(p))),
-      chosenMap,
-    }
+    const { matchmakingType, players, chosenMap } = action.payload
 
-    return state.set('isLaunching', true).update('match', m => m!.merge(match))
+    return state.set('isLaunching', true).set(
+      'match',
+      new MatchmakingMatchRecord({
+        type: matchmakingType,
+        acceptedPlayers: players.length,
+        numPlayers: players.length,
+        players: List(players.map(p => new MatchmakingPlayerRecord(p))),
+        chosenMap,
+      }),
+    )
   },
 
   ['@matchmaking/countdownStarted'](state, action) {
@@ -150,11 +124,11 @@ export default keyedReducer(new MatchmakingState(), {
   },
 
   ['@matchmaking/gameStarted'](state, action) {
-    return new MatchmakingState({ mapPoolTypes: state.mapPoolTypes })
+    return new MatchmakingState()
   },
 
   ['@matchmaking/loadingCanceled'](state, action) {
-    return new MatchmakingState({ mapPoolTypes: state.mapPoolTypes })
+    return new MatchmakingState()
   },
 
   [NETWORK_SITE_CONNECTED as any]() {
