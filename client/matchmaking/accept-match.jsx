@@ -145,9 +145,7 @@ export default class AcceptMatch extends React.Component {
   }
 
   onAcceptClick = () => {
-    if (!this.props.isAccepting) {
-      this.props.dispatch(acceptMatch())
-    }
+    this.props.dispatch(acceptMatch())
   }
 
   onFailedClick = () => {

@@ -59,7 +59,15 @@ export function cancelFindMatch(): ThunkAction {
 }
 
 export function acceptMatch(): ThunkAction {
-  return dispatch => {
+  return (dispatch, getState) => {
+    const {
+      matchmaking: { isAccepting },
+    } = getState()
+
+    if (isAccepting) {
+      return
+    }
+
     dispatch({ type: '@matchmaking/acceptMatchBegin' })
 
     dispatch({
