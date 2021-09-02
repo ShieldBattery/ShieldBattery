@@ -38,12 +38,12 @@ function convertMatchmakingServiceError(err: Error) {
     case MatchmakingServiceErrorCode.InvalidMapPool:
     case MatchmakingServiceErrorCode.InvalidMaps:
     case MatchmakingServiceErrorCode.ClientDisconnected:
-    case MatchmakingServiceErrorCode.NotInQueue:
-    case MatchmakingServiceErrorCode.NoActiveMatch:
     case MatchmakingServiceErrorCode.InvalidClient:
       throw new httpErrors.BadRequest(err.message)
     case MatchmakingServiceErrorCode.MatchmakingDisabled:
       throw new httpErrors.Forbidden(err.message)
+    case MatchmakingServiceErrorCode.NotInQueue:
+    case MatchmakingServiceErrorCode.NoActiveMatch:
     case MatchmakingServiceErrorCode.GameplayConflict:
       throw new httpErrors.Conflict(err.message)
     default:
