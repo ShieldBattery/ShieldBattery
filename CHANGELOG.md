@@ -1,3 +1,21 @@
+#### 7.1.2 (September 2, 2021)
+
+- **Matchmaking fixes.** Fixed a bug that allowed clients to potentially accept matches multiple
+  times, leading to a crash.
+- **New error screen.** Added a new screen for local errors and crashes to make them easier to
+  report.
+
+##### Known Issues
+
+- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
+  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
+  very least add a warning for this case in the future (or better yet, automate re-authing), but
+  for now, try to launch the game from the Blizzard launcher at least once a month.
+- **Off-center screen starting position.** For some users, generally in positions on the right side
+  of the screen, the starting screen position may be slightly off-center from where it usually is
+- **Observer chat is broken.** Observers are unable to send messages ingame currently. This will be
+  fixed in a future update.
+
 #### 7.1.0 (August 30, 2021)
 
 - **Map haters welcome.** We've rolled out a new map selection system to completely replace our
