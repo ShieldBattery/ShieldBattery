@@ -6,6 +6,7 @@ import {
   ReconciledResults,
 } from '../../../common/games/results'
 import { AssignedRaceChar } from '../../../common/races'
+import { SbUserId } from '../../../common/users/user-info'
 
 export interface ResultSubmission {
   /** The user ID of the player who reported these results. */
@@ -13,7 +14,7 @@ export interface ResultSubmission {
   /** The elapsed time of the game, in milliseconds. */
   time: number
   /** A tuple of (user id, result info). */
-  playerResults: Array<[number, GameClientPlayerResult]>
+  playerResults: Array<[SbUserId, GameClientPlayerResult]>
 }
 
 function isTerminal(resultCode: GameClientResult) {
@@ -84,8 +85,8 @@ export function reconcileResults(results: Array<ResultSubmission | null>): Recon
   // control over the displayed time which is *slightly* unsafe, I suppose.
   const elapsedTime = sortedResults[sortedResults.length - 1].time
 
-  const combined = new Map<number, GameClientPlayerResult[]>()
-  const apm = new Map<number, number>()
+  const combined = new Map<SbUserId, GameClientPlayerResult[]>()
+  const apm = new Map<SbUserId, number>()
   for (const { reporter, playerResults } of sortedResults) {
     for (const [id, result] of playerResults) {
       if (!combined.has(id)) {
@@ -102,7 +103,7 @@ export function reconcileResults(results: Array<ResultSubmission | null>): Recon
     }
   }
 
-  const playerRaces = new Map<number, AssignedRaceChar>()
+  const playerRaces = new Map<SbUserId, AssignedRaceChar>()
   for (const [playerId, playerResults] of combined) {
     const raceSet = new Set(playerResults.map(r => r.race))
     if (raceSet.size > 1) {
@@ -111,7 +112,7 @@ export function reconcileResults(results: Array<ResultSubmission | null>): Recon
     playerRaces.set(playerId, playerResults[0].race)
   }
 
-  const reconciled = new Map<number, ReconciledPlayerResult>()
+  const reconciled = new Map<SbUserId, ReconciledPlayerResult>()
 
   for (const [playerId, playerResults] of combined.entries()) {
     let victories = 0

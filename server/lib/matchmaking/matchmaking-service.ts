@@ -16,6 +16,7 @@ import {
   MatchmakingType,
 } from '../../../common/matchmaking'
 import { subtract } from '../../../common/sets'
+import { SbUserId } from '../../../common/users/user-info'
 import gameLoader from '../games/game-loader'
 import activityRegistry from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
@@ -472,7 +473,7 @@ export class MatchmakingService {
     client.unsubscribe(MatchmakingService.getClientPath(client))
   }
 
-  async find(userId: number, clientId: string, preferences: MatchmakingPreferences) {
+  async find(userId: SbUserId, clientId: string, preferences: MatchmakingPreferences) {
     const { matchmakingType: type, race, mapSelections, data } = preferences
     const userSockets = this.getUserSocketsOrFail(userId)
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
@@ -540,7 +541,7 @@ export class MatchmakingService {
     )
   }
 
-  async cancel(userId: number) {
+  async cancel(userId: SbUserId) {
     const userSockets = this.getUserSocketsOrFail(userId)
     const clientSockets = activityRegistry.getClientForUser(userSockets.userId)
     if (!clientSockets || !this.queueEntries.has(userSockets.name)) {
@@ -553,7 +554,7 @@ export class MatchmakingService {
     this.removeClientFromMatchmaking(clientSockets, false)
   }
 
-  async accept(userId: number) {
+  async accept(userId: SbUserId) {
     const userSockets = this.getUserSocketsOrFail(userId)
     const clientSockets = activityRegistry.getClientForUser(userSockets.userId)
     if (!clientSockets || !this.acceptor.registerAccept(clientSockets)) {
@@ -605,7 +606,7 @@ export class MatchmakingService {
     this.unregisterActivity(client)
   }
 
-  private getUserSocketsOrFail(userId: number): UserSocketsGroup {
+  private getUserSocketsOrFail(userId: SbUserId): UserSocketsGroup {
     const userSockets = this.userSocketsManager.getById(userId)
     if (!userSockets) {
       throw new MatchmakingServiceError(MatchmakingServiceErrorCode.UserOffline, 'User is offline')
@@ -614,7 +615,7 @@ export class MatchmakingService {
     return userSockets
   }
 
-  private getClientSocketsOrFail(userId: number, clientId: string): ClientSocketsGroup {
+  private getClientSocketsOrFail(userId: SbUserId, clientId: string): ClientSocketsGroup {
     const clientSockets = this.clientSocketsManager.getById(userId, clientId)
     if (!clientSockets) {
       throw new MatchmakingServiceError(
@@ -633,7 +634,7 @@ export class MatchmakingService {
     this.publisher.publish(MatchmakingService.getUserPath(username), data)
   }
 
-  private publishToActiveClient(userId: number, data?: ReadonlyDeep<MatchmakingEvent>): boolean {
+  private publishToActiveClient(userId: SbUserId, data?: ReadonlyDeep<MatchmakingEvent>): boolean {
     const client = activityRegistry.getClientForUser(userId)
     if (client) {
       this.publisher.publish(MatchmakingService.getClientPath(client), data)

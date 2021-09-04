@@ -32,6 +32,7 @@ import {
 } from '../../../common/lobbies/slot'
 import { MapForce, MapInfo } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
+import { SbUserId } from '../../../common/users/user-info'
 
 export function hasControlledOpens(gameType: GameType) {
   return gameType === GameType.TeamMelee || gameType === GameType.TeamFreeForAll
@@ -264,7 +265,7 @@ export function createLobby(
   gameSubType = 0,
   numSlots: number,
   hostName: string,
-  hostUserId: number,
+  hostUserId: SbUserId,
   hostRace: RaceChar = 'r',
   allowObservers: boolean,
 ) {

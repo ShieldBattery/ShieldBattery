@@ -9,6 +9,7 @@ import {
   PartyServiceErrorCode,
   PartyUser,
 } from '../../../common/parties'
+import { SbUserId } from '../../../common/users/user-info'
 import logger from '../logging/logger'
 import filterChatMessage from '../messaging/filter-chat-message'
 import NotificationService from '../notifications/notification-service'
@@ -237,7 +238,7 @@ export default class PartyService {
    * will be selected. And if the leaving player was the last member of the party, the party will be
    * destroyed.
    */
-  leaveParty(partyId: string, userId: number, clientId: string) {
+  leaveParty(partyId: string, userId: SbUserId, clientId: string) {
     const party = this.parties.get(partyId)
     if (!party || !party.members.has(userId)) {
       throw new PartyServiceError(
@@ -254,7 +255,7 @@ export default class PartyService {
    * Sends a chat message in the party from a particular user. The chat messages are not persisted
    * anywhere, and users will only be able to see the messages sent since they joined the party.
    */
-  sendChatMessage(partyId: string, userId: number, message: string) {
+  sendChatMessage(partyId: string, userId: SbUserId, message: string) {
     const party = this.parties.get(partyId)
     if (!party || !party.members.has(userId)) {
       throw new PartyServiceError(
@@ -475,7 +476,7 @@ export default class PartyService {
     }
   }
 
-  private getClientSockets(userId: number, clientId: string): ClientSocketsGroup {
+  private getClientSockets(userId: SbUserId, clientId: string): ClientSocketsGroup {
     const clientSockets = this.clientSocketsManager.getById(userId, clientId)
     if (!clientSockets) {
       throw new PartyServiceError(PartyServiceErrorCode.UserOffline, 'Client could not be found')

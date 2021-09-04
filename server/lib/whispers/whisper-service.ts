@@ -1,6 +1,6 @@
 import { Map, OrderedSet, Set } from 'immutable'
 import { singleton } from 'tsyringe'
-import { SbUser } from '../../../common/users/user-info'
+import { SbUser, SbUserId } from '../../../common/users/user-info'
 import {
   GetSessionHistoryServerPayload,
   WhisperEvent,
@@ -43,9 +43,9 @@ export function getSessionPath(user: string, target: string) {
 @singleton()
 export default class WhisperService {
   /** Maps user ID -> OrderedSet of their whisper sessions (as IDs of target users) */
-  private userSessions = Map<number, OrderedSet<number>>()
+  private userSessions = Map<SbUserId, OrderedSet<SbUserId>>()
   /** Maps user ID -> Set of users that have session open with them (as IDs) */
-  private sessionUsers = Map<number, Set<number>>()
+  private sessionUsers = Map<SbUserId, Set<SbUserId>>()
 
   constructor(
     private publisher: TypedPublisher<WhisperEvent>,
@@ -56,7 +56,7 @@ export default class WhisperService {
       .on('userQuit', userId => this.handleUserQuit(userId))
   }
 
-  async startWhisperSession(userId: number, targetName: string) {
+  async startWhisperSession(userId: SbUserId, targetName: string) {
     const [user, target] = await Promise.all([
       this.getUserById(userId),
       this.getUserByName(targetName),
@@ -72,7 +72,7 @@ export default class WhisperService {
     await this.ensureWhisperSession(user, target)
   }
 
-  async closeWhisperSession(userId: number, targetName: string) {
+  async closeWhisperSession(userId: SbUserId, targetName: string) {
     const [user, target] = await Promise.all([
       this.getUserById(userId),
       this.getUserByName(targetName),
@@ -100,7 +100,7 @@ export default class WhisperService {
     this.unsubscribeUserFromWhisperSession(user.id, target.name)
   }
 
-  async sendWhisperMessage(userId: number, targetName: string, message: string) {
+  async sendWhisperMessage(userId: SbUserId, targetName: string, message: string) {
     const [user, target] = await Promise.all([
       this.getUserById(userId),
       this.getUserByName(targetName),
@@ -143,7 +143,7 @@ export default class WhisperService {
   }
 
   async getSessionHistory(
-    userId: number,
+    userId: SbUserId,
     targetName: string,
     limit?: number,
     beforeTime?: number,
@@ -181,7 +181,7 @@ export default class WhisperService {
     }
   }
 
-  private getUserSockets(userId: number): UserSocketsGroup {
+  private getUserSockets(userId: SbUserId): UserSocketsGroup {
     const userSockets = this.userSocketsManager.getById(userId)
     if (!userSockets) {
       throw new WhisperServiceError(WhisperServiceErrorCode.UserOffline, 'User is offline')
@@ -199,7 +199,7 @@ export default class WhisperService {
     return foundUser
   }
 
-  async getUserById(id: number): Promise<SbUser> {
+  async getUserById(id: SbUserId): Promise<SbUser> {
     const foundUser = await findUserById(id)
     if (!foundUser) {
       throw new WhisperServiceError(WhisperServiceErrorCode.UserNotFound, 'User not found')
@@ -208,7 +208,7 @@ export default class WhisperService {
     return foundUser
   }
 
-  private getUserStatus(userId: number) {
+  private getUserStatus(userId: SbUserId) {
     // TODO(2Pac): check if the user is idle as well
     const isUserOnline = this.userSocketsManager.getById(userId)
     return isUserOnline ? WhisperUserStatus.Active : WhisperUserStatus.Offline
@@ -225,7 +225,7 @@ export default class WhisperService {
     )
   }
 
-  unsubscribeUserFromWhisperSession(userId: number, targetName: string) {
+  unsubscribeUserFromWhisperSession(userId: SbUserId, targetName: string) {
     const userSockets = this.getUserSockets(userId)
     userSockets.unsubscribe(getSessionPath(userSockets.name, targetName))
   }
@@ -288,7 +288,7 @@ export default class WhisperService {
     userSockets.subscribe(`${userSockets.getPath()}/whispers`, () => ({ type: 'whispersReady' }))
   }
 
-  private async handleUserQuit(userId: number) {
+  private async handleUserQuit(userId: SbUserId) {
     const user = await this.getUserById(userId)
 
     // Publish 'userOffline' event to all users that have a session opened with this user, if any

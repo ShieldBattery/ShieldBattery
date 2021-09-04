@@ -4,6 +4,7 @@ import { EventEmitter } from 'events'
 import { IncomingMessage } from 'http'
 import { Map as IMap } from 'immutable'
 import { NydusClient, NydusServer, RouteHandler } from 'nydus'
+import { SbUser } from '../../../../common/users/user-info'
 import { RequestSessionLookup, SessionInfo } from '../session-lookup'
 
 // Used to auto-increment for easy value comparison in tests
@@ -115,7 +116,7 @@ export class NydusConnector {
   }
 
   connectClient(
-    user: { id: number; name: string },
+    user: SbUser,
     clientId: string,
     clientType: 'web' | 'electron' = 'electron',
   ): InspectableNydusClient {

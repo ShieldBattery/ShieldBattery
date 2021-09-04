@@ -3,6 +3,7 @@ import { Map, Set } from 'immutable'
 import { NydusClient, NydusServer } from 'nydus'
 import { container, inject, singleton } from 'tsyringe'
 import { TypedEventEmitter } from '../../../common/typed-emitter'
+import { SbUserId } from '../../../common/users/user-info'
 import log from '../logging/logger'
 import { UpdateOrInsertUserIp } from '../network/user-ips-type'
 import getAddress from './get-address'
@@ -25,7 +26,7 @@ interface SocketGroupEvents<T> {
 
 abstract class SocketGroup<T> extends TypedEventEmitter<SocketGroupEvents<T>> {
   readonly name: string
-  readonly userId: number
+  readonly userId: SbUserId
   sockets = Set<NydusClient>()
   subscriptions = Map<string, Readonly<SubscriptionInfo<this>>>()
 
@@ -195,7 +196,7 @@ export class UserSocketsManager extends EventEmitter {
     })
   }
 
-  getById(userId: number) {
+  getById(userId: SbUserId) {
     return this.users.get(userId)
   }
 
@@ -209,7 +210,7 @@ export class UserSocketsManager extends EventEmitter {
     return this.getById(session.userId)
   }
 
-  private removeUser(userId: number) {
+  private removeUser(userId: SbUserId) {
     this.users = this.users.delete(userId)
     this.emit('userQuit', userId)
     return this
@@ -258,11 +259,11 @@ export class ClientSocketsManager extends TypedEventEmitter<ClientSocketsManager
     return this.clients.get(userClientId)
   }
 
-  getById(userId: number, clientId: string): ClientSocketsGroup | undefined {
+  getById(userId: SbUserId, clientId: string): ClientSocketsGroup | undefined {
     return this.clients.get(this.keyFor(userId, clientId))
   }
 
-  private keyFor(userId: number, clientId: string) {
+  private keyFor(userId: SbUserId, clientId: string) {
     return `${userId}|${clientId}`
   }
 

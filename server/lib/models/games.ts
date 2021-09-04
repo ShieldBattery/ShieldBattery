@@ -1,6 +1,7 @@
 import sql from 'sql-template-strings'
 import { GameRecord } from '../../../common/games/games'
 import { ReconciledResults } from '../../../common/games/results'
+import { SbUserId } from '../../../common/users/user-info'
 import db, { DbClient } from '../db'
 import { Dbify } from '../db/types'
 
@@ -115,7 +116,7 @@ export async function countCompletedGames(): Promise<number> {
  * will also include games that have incomplete results or are disputed.
  */
 export async function getRecentGamesForUser(
-  userId: number,
+  userId: SbUserId,
   numGames: number,
 ): Promise<GameRecord[]> {
   // TODO(tec27): Support pagination on this

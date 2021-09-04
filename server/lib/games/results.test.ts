@@ -4,6 +4,7 @@ import {
   ReconciledPlayerResult,
 } from '../../../common/games/results'
 import { AssignedRaceChar } from '../../../common/races'
+import { makeSbUserId, SbUserId } from '../../../common/users/user-info'
 import { hasCompletedResults, reconcileResults } from './results'
 
 function makePlayerResult(
@@ -11,8 +12,8 @@ function makePlayerResult(
   result: GameClientResult,
   race: AssignedRaceChar,
   apm: number,
-): [number, GameClientPlayerResult] {
-  return [userId, { result, race, apm }]
+): [SbUserId, GameClientPlayerResult] {
+  return [makeSbUserId(userId), { result, race, apm }]
 }
 
 describe('games/results/hasCompletedResults', () => {

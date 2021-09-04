@@ -5,11 +5,12 @@ import {
   ReconciledResult,
 } from '../../../common/games/results'
 import { AssignedRaceChar, RaceChar } from '../../../common/races'
+import { SbUserId } from '../../../common/users/user-info'
 import db, { DbClient } from '../db'
 import { ResultSubmission } from '../games/results'
 
 export interface ReportedResultsData {
-  userId: number
+  userId: SbUserId
   gameId: string
   reportedAt: Date
   reportedResults: {
@@ -21,7 +22,7 @@ export interface ReportedResultsData {
 }
 
 export interface DbGameUser {
-  userId: number
+  userId: SbUserId
   gameId: string
   startTime: Date
   selectedRace: RaceChar
@@ -77,7 +78,7 @@ export async function deleteUserRecordsForGame(gameId: string): Promise<void> {
  * @returns an object containing the information about the game, or null if there is no such game
  */
 export async function getUserGameRecord(
-  userId: number,
+  userId: SbUserId,
   gameId: string,
 ): Promise<DbGameUser | null> {
   const { client, done } = await db()
@@ -169,7 +170,7 @@ export async function getCurrentReportedResults(
  */
 export async function setUserReconciledResult(
   client: DbClient,
-  userId: number,
+  userId: SbUserId,
   gameId: string,
   result: ReconciledPlayerResult,
 ) {

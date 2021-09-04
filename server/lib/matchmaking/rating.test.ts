@@ -1,5 +1,6 @@
 import { ReconciledPlayerResult } from '../../../common/games/results'
 import { MatchmakingType } from '../../../common/matchmaking'
+import { SbUserId } from '../../../common/users/user-info'
 import { DEFAULT_MATCHMAKING_RATING, MatchmakingRating } from './models'
 import { calculateChangedRatings } from './rating'
 
@@ -18,12 +19,14 @@ const LOSS: ReconciledPlayerResult = {
   apm: 400,
 }
 
-function createMatchmakingRating(data: Partial<MatchmakingRating> = {}): MatchmakingRating {
+function createMatchmakingRating(
+  data: Partial<Omit<MatchmakingRating, 'userId'>> & Partial<{ userId: number }> = {},
+): MatchmakingRating {
   return {
     ...DEFAULT_MATCHMAKING_RATING,
-    userId: 1,
     matchmakingType: MatchmakingType.Match1v1,
     ...data,
+    userId: (data.userId ?? 1) as SbUserId,
   }
 }
 

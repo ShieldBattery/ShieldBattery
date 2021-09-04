@@ -1,5 +1,6 @@
 import sql from 'sql-template-strings'
 import { container } from 'tsyringe'
+import { SbUserId } from '../../../common/users/user-info'
 import db from '../db'
 import { UpdateOrInsertUserIp } from '../network/user-ips-type'
 
@@ -12,7 +13,7 @@ const MAX_RETRIES = 5
  * (which can happen if e.g. the user makes a lot of requests at the same time), only throwing an
  * error if we cannot manage to succeed after all the retries are exhausted.
  */
-export async function updateOrInsertUserIp(userId: number, ipAddress: string): Promise<void> {
+export async function updateOrInsertUserIp(userId: SbUserId, ipAddress: string): Promise<void> {
   const { client, done } = await db()
   const curDate = new Date()
   const anHourAgo = new Date()

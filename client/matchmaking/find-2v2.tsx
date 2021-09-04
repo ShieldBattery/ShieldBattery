@@ -6,6 +6,7 @@ import {
   MatchmakingType,
 } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
+import { SbUserId } from '../../common/users/user-info'
 import { useSelfUser } from '../auth/state-hooks'
 import { useForm } from '../forms/form-hook'
 import { RacePickerSize } from '../lobbies/race-picker'
@@ -74,7 +75,7 @@ const Form2v2 = React.forwardRef<FindMatchFormRef, Form2v2Props>(
   },
 )
 
-function model2v2ToPrefs(model: Model2v2, userId: number, mapPoolId: number) {
+function model2v2ToPrefs(model: Model2v2, userId: SbUserId, mapPoolId: number) {
   return {
     userId,
     matchmakingType: MatchmakingType.Match2v2 as const,

@@ -5,6 +5,7 @@ import Koa from 'koa'
 import { GameClientPlayerResult, GameClientResult } from '../../../common/games/results'
 import { MatchmakingType } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
+import { SbUserId } from '../../../common/users/user-info'
 import { UserStats } from '../../../common/users/user-stats'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
@@ -72,7 +73,7 @@ const submitGameResultsSchema = Joi.object({
 // when making the request
 interface SubmitGameResultsBody {
   /** The ID of the user submitting results. */
-  userId: number
+  userId: SbUserId
   /** The secret code the user was given to submit results with. */
   resultCode: string
   /** The elapsed time of the game, in milliseconds. */

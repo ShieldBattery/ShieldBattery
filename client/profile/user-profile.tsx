@@ -5,7 +5,7 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameRecordJson } from '../../common/games/games'
 import { MatchmakingType } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
-import { SbUser, UserProfile } from '../../common/users/user-info'
+import { SbUser, SbUserId, UserProfile } from '../../common/users/user-info'
 import Avatar from '../avatars/avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import { RaceIcon } from '../lobbies/race-icon'
@@ -61,7 +61,7 @@ const LoadingError = styled.div`
 `
 
 export interface ConnectedUserProfilePageProps {
-  userId: number
+  userId: SbUserId
   username: string
   subPage?: UserProfileSubPage
 }

@@ -8,6 +8,7 @@ import {
   ChatUser,
   GetChannelUsersServerPayload,
 } from '../../../common/chat'
+import { SbUserId } from '../../../common/users/user-info'
 import { DbClient } from '../db'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { findUserById } from '../users/user-model'
@@ -75,7 +76,7 @@ export default class ChatService {
    */
   async joinChannel(
     channelName: string,
-    userId: number,
+    userId: SbUserId,
     client?: DbClient,
     transactionCompleted = Promise.resolve(),
   ): Promise<void> {
@@ -120,7 +121,7 @@ export default class ChatService {
     })
   }
 
-  async leaveChannel(channelName: string, userId: number): Promise<void> {
+  async leaveChannel(channelName: string, userId: SbUserId): Promise<void> {
     const userSockets = this.getUserSockets(userId)
     const originalChannelName = await this.getOriginalChannelName(channelName)
     if (originalChannelName === 'ShieldBattery') {
@@ -161,7 +162,7 @@ export default class ChatService {
     this.unsubscribeUserFromChannel(userSockets, originalChannelName)
   }
 
-  async sendChatMessage(channelName: string, userId: number, message: string): Promise<void> {
+  async sendChatMessage(channelName: string, userId: SbUserId, message: string): Promise<void> {
     const userSockets = this.getUserSockets(userId)
     const originalChannelName = await this.getOriginalChannelName(channelName)
     // TODO(tec27): lookup channel keys case insensitively?
@@ -195,7 +196,7 @@ export default class ChatService {
 
   async getChannelHistory(
     channelName: string,
-    userId: number,
+    userId: SbUserId,
     limit?: number,
     beforeTime?: number,
   ): Promise<ChatMessage[]> {
@@ -230,7 +231,7 @@ export default class ChatService {
 
   async getChannelUsers(
     channelName: string,
-    userId: number,
+    userId: SbUserId,
   ): Promise<GetChannelUsersServerPayload> {
     const userSockets = this.getUserSockets(userId)
     const originalChannelName = await this.getOriginalChannelName(channelName)
@@ -265,7 +266,7 @@ export default class ChatService {
     return foundChannel ? foundChannel.name : channelName
   }
 
-  private getUserSockets(userId: number): UserSocketsGroup {
+  private getUserSockets(userId: SbUserId): UserSocketsGroup {
     const userSockets = this.userSocketsManager.getById(userId)
     if (!userSockets) {
       throw new ChatServiceError(ChatServiceErrorCode.UserOffline, 'User is offline')
@@ -312,7 +313,7 @@ export default class ChatService {
     userSockets.subscribe(`${userSockets.getPath()}/chat`, () => ({ type: 'chatReady' }))
   }
 
-  private async handleUserQuit(userId: number) {
+  private async handleUserQuit(userId: SbUserId) {
     const user = await findUserById(userId)
     if (!user) {
       return

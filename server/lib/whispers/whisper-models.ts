@@ -1,17 +1,17 @@
 import sql from 'sql-template-strings'
-import { SbUser } from '../../../common/users/user-info'
+import { SbUser, SbUserId } from '../../../common/users/user-info'
 import { WhisperMessageData } from '../../../common/whispers'
 import db from '../db'
 import { Dbify } from '../db/types'
 
 export interface WhisperSessionEntry {
-  targetId: number
+  targetId: SbUserId
   targetName: string
 }
 
 type DbWhisperSessionEntry = Dbify<WhisperSessionEntry>
 
-export async function getWhisperSessionsForUser(userId: number): Promise<WhisperSessionEntry[]> {
+export async function getWhisperSessionsForUser(userId: SbUserId): Promise<WhisperSessionEntry[]> {
   const { client, done } = await db()
   try {
     const result = await client.query<DbWhisperSessionEntry>(sql`
@@ -29,7 +29,7 @@ export async function getWhisperSessionsForUser(userId: number): Promise<Whisper
   }
 }
 
-export async function startWhisperSession(userId: number, targetUserId: number): Promise<void> {
+export async function startWhisperSession(userId: SbUserId, targetUserId: SbUserId): Promise<void> {
   const { client, done } = await db()
   try {
     await client.query(sql`
@@ -51,7 +51,7 @@ export async function startWhisperSession(userId: number, targetUserId: number):
   }
 }
 
-export async function closeWhisperSession(userId: number, targetId: number): Promise<void> {
+export async function closeWhisperSession(userId: SbUserId, targetId: SbUserId): Promise<void> {
   const { client, done } = await db()
   try {
     const result = await client.query(sql`
@@ -80,12 +80,12 @@ export interface WhisperMessage {
 }
 
 interface FromUser {
-  fromId: number
+  fromId: SbUserId
   fromName: string
 }
 
 interface ToUser {
-  toId: number
+  toId: SbUserId
   toName: string
 }
 

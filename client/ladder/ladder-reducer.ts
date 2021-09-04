@@ -1,12 +1,13 @@
 import { List, Map, Record } from 'immutable'
 import { LadderPlayer } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
+import { SbUserId } from '../../common/users/user-info'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
 export class LadderPlayerRecord
   extends Record({
     rank: 0,
-    userId: 0,
+    userId: 0 as SbUserId,
     rating: 0,
     wins: 0,
     losses: 0,

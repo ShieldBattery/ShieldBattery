@@ -3,6 +3,7 @@ import { Jsonify } from './json'
 import { Slot } from './lobbies/slot'
 import { MapInfoJson } from './maps'
 import { AssignedRaceChar, RaceChar } from './races'
+import { SbUserId } from './users/user-info'
 
 /**
  * A string representation of each of the matchmaking types that we support.
@@ -81,7 +82,7 @@ export interface MatchmakingPreferencesData1v1 {
 }
 
 interface BaseMatchmakingPreferences<T extends MatchmakingType, D> {
-  userId: number
+  userId: SbUserId
   matchmakingType: T
   /** The main race the user has selected to play in the matchmaking with. */
   race: RaceChar
@@ -271,7 +272,7 @@ export enum MatchmakingCompletionType {
 /** A record of a terminated matchmaking search. */
 export interface MatchmakingCompletion {
   id: string
-  userId: number
+  userId: SbUserId
   matchmakingType: MatchmakingType
   completionType: MatchmakingCompletionType
   searchTimeMillis: number

@@ -5,7 +5,7 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import createDeferred from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { SbPermissions } from '../../../common/users/permissions'
-import { SbUser, SelfUser } from '../../../common/users/user-info'
+import { SbUser, SbUserId, SelfUser } from '../../../common/users/user-info'
 import ChatService from '../chat/chat-service'
 import db from '../db'
 import transact from '../db/transaction'
@@ -19,7 +19,7 @@ import { createUserStats } from './user-stats-model'
  * want to leak to API callers).
  */
 interface UserInternal {
-  id: number
+  id: SbUserId
   name: string
   email: string
   password: string
@@ -279,7 +279,7 @@ export async function findUsersById(ids: number[]): Promise<Map<number, SbUser>>
  * Adds a (guesstimated) signup IP address for the specified user if they were created before we
  * started storing that data.
  */
-export async function maybeMigrateSignupIp(userId: number, ipAddress: string): Promise<void> {
+export async function maybeMigrateSignupIp(userId: SbUserId, ipAddress: string): Promise<void> {
   const { client, done } = await db()
   try {
     await client.query(sql`

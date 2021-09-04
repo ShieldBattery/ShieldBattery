@@ -1,6 +1,7 @@
 import { NydusServer } from 'nydus'
 import { NotificationType } from '../../../common/notifications'
 import { PartyUser } from '../../../common/parties'
+import { makeSbUserId } from '../../../common/users/user-info'
 import NotificationService from '../notifications/notification-service'
 import { createFakeNotificationService } from '../notifications/testing/notification-service'
 import { FakeClock } from '../time/testing/fake-clock'
@@ -16,17 +17,17 @@ import { TypedPublisher } from '../websockets/typed-publisher'
 import PartyService, { getPartyPath, PartyRecord, toPartyJson } from './party-service'
 
 describe('parties/party-service', () => {
-  const user1: PartyUser = { id: 1, name: 'pachi' }
-  const user2: PartyUser = { id: 2, name: 'harem' }
-  const user3: PartyUser = { id: 3, name: 'intrigue' }
-  const user4: PartyUser = { id: 4, name: 'tec27' }
-  const user5: PartyUser = { id: 5, name: 'heyoka' }
-  const user6: PartyUser = { id: 6, name: 'hot_bid' }
-  const user7: PartyUser = { id: 7, name: 'royo' }
-  const user8: PartyUser = { id: 8, name: 'riptide' }
-  const user9: PartyUser = { id: 9, name: 'manifesto7' }
-  const offlineUser: PartyUser = { id: 10, name: 'tt1' }
-  const webUser: PartyUser = { id: 11, name: 'nyoken' }
+  const user1: PartyUser = { id: makeSbUserId(1), name: 'pachi' }
+  const user2: PartyUser = { id: makeSbUserId(2), name: 'harem' }
+  const user3: PartyUser = { id: makeSbUserId(3), name: 'intrigue' }
+  const user4: PartyUser = { id: makeSbUserId(4), name: 'tec27' }
+  const user5: PartyUser = { id: makeSbUserId(5), name: 'heyoka' }
+  const user6: PartyUser = { id: makeSbUserId(6), name: 'hot_bid' }
+  const user7: PartyUser = { id: makeSbUserId(7), name: 'royo' }
+  const user8: PartyUser = { id: makeSbUserId(8), name: 'riptide' }
+  const user9: PartyUser = { id: makeSbUserId(9), name: 'manifesto7' }
+  const offlineUser: PartyUser = { id: makeSbUserId(10), name: 'tt1' }
+  const webUser: PartyUser = { id: makeSbUserId(11), name: 'nyoken' }
 
   const USER1_CLIENT_ID = 'USER1_CLIENT_ID'
   const USER2_CLIENT_ID = 'USER2_CLIENT_ID'

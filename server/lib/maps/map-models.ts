@@ -8,6 +8,7 @@ import {
   MapVisibility,
   Tileset,
 } from '../../../common/maps'
+import { SbUserId } from '../../../common/users/user-info'
 import db from '../db'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
@@ -524,7 +525,7 @@ export async function removeMap(mapId: string): Promise<void> {
   }
 }
 
-export async function addMapToFavorites(mapId: string, userId: number): Promise<void> {
+export async function addMapToFavorites(mapId: string, userId: SbUserId): Promise<void> {
   const query = sql`
     INSERT INTO favorited_maps (map_id, favorited_by, favorited_date)
     VALUES (${mapId}, ${userId}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
@@ -540,7 +541,7 @@ export async function addMapToFavorites(mapId: string, userId: number): Promise<
   }
 }
 
-export async function removeMapFromFavorites(mapId: string, userId: number) {
+export async function removeMapFromFavorites(mapId: string, userId: SbUserId) {
   const query = sql`
     DELETE FROM favorited_maps
     WHERE map_id = ${mapId} AND favorited_by = ${userId};

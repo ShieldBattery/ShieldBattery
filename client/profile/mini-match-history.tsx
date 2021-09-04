@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { GameRecordJson } from '../../common/games/games'
 import { ReconciledResult } from '../../common/games/results'
-import { SbUser } from '../../common/users/user-info'
+import { SbUser, SbUserId } from '../../common/users/user-info'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { RaceIcon } from '../lobbies/race-icon'
 import { batchGetMapInfo } from '../maps/action-creators'
@@ -47,7 +47,7 @@ const EmptyListText = styled.div`
 `
 
 export interface MiniMatchHistoryProps {
-  forUserId: number
+  forUserId: SbUserId
   games: Immutable<GameRecordJson[]>
 }
 
@@ -128,7 +128,7 @@ const GameListEntryResult = styled.div<{ $result: ReconciledResult }>`
 `
 
 export interface ConnectedGameListEntryProps {
-  forUserId: number
+  forUserId: SbUserId
   game: Immutable<GameRecordJson>
   onSetActive: (gameId: string) => void
   active: boolean

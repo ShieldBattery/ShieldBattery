@@ -1,5 +1,6 @@
 import sql from 'sql-template-strings'
 import { MatchmakingPreferences, MatchmakingType } from '../../../common/matchmaking'
+import { SbUserId } from '../../../common/users/user-info'
 import db from '../db'
 import { Dbify } from '../db/types'
 
@@ -53,7 +54,7 @@ export async function upsertMatchmakingPreferences({
  * `null` if they haven't set any yet.
  */
 export async function getMatchmakingPreferences(
-  userId: number,
+  userId: SbUserId,
   matchmakingType: MatchmakingType,
 ): Promise<MatchmakingPreferences | null> {
   const { client, done } = await db()

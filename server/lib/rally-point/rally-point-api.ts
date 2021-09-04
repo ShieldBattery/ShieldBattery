@@ -9,6 +9,7 @@ import {
   UpdateRallyPointServerBody,
   UpdateRallyPointServerPayload,
 } from '../../../common/rally-point'
+import { SbUserId } from '../../../common/users/user-info'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpGet, httpPost, httpPut } from '../http/route-decorators'
 import { checkAllPermissions } from '../permissions/check-permissions'
@@ -19,7 +20,7 @@ import { retrieveRallyPointServers } from './models'
 import { RallyPointService } from './rally-point-service'
 
 interface UpdateClientPingParams {
-  userId: number
+  userId: SbUserId
   clientId: string
   serverId: number
 }

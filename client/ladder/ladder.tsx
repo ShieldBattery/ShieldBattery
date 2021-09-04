@@ -5,7 +5,7 @@ import { areEqual, FixedSizeList } from 'react-window'
 import styled from 'styled-components'
 import { LadderPlayer } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
-import { SbUser } from '../../common/users/user-info'
+import { SbUser, SbUserId } from '../../common/users/user-info'
 import Avatar from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { animationFrameHandler, AnimationFrameHandler } from '../material/animation-frame-handler'
@@ -182,7 +182,7 @@ export interface LadderTableProps {
   totalCount: number
   isLoading: boolean
   players?: List<Readonly<LadderPlayer>>
-  usersById: Immutable<Map<number, SbUser>>
+  usersById: Immutable<Map<SbUserId, SbUser>>
   lastError?: Error
 }
 
@@ -236,7 +236,7 @@ export function LadderTable(props: LadderTableProps) {
     }
   }, [isLoading, lastError])
 
-  const onRowSelected = useCallback((userId: number, username: string) => {
+  const onRowSelected = useCallback((userId: SbUserId, username: string) => {
     navigateToUserProfile(userId, username)
   }, [])
 
@@ -311,7 +311,7 @@ interface RowProps {
   player: LadderPlayer
   username: string
   curTime: number
-  onSelected?: (userId: number, username: string) => void
+  onSelected?: (userId: SbUserId, username: string) => void
 }
 
 const Row = React.memo(({ style, isEven, player, username, curTime, onSelected }: RowProps) => {

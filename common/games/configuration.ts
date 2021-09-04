@@ -1,5 +1,6 @@
 import { assertUnreachable } from '../assert-unreachable'
 import { RaceChar } from '../races'
+import { SbUserId } from '../users/user-info'
 
 export type GameSource = 'MATCHMAKING' | 'LOBBY'
 
@@ -44,7 +45,7 @@ export function gameTypeToLabel(gameType: GameType): string {
 }
 
 export interface GameConfigPlayerId {
-  id: number
+  id: SbUserId
   race: RaceChar
   isComputer: boolean
 }

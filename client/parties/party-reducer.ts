@@ -1,6 +1,7 @@
 import cuid from 'cuid'
 import { List, OrderedMap, Record } from 'immutable'
 import { PartyUser } from '../../common/parties'
+import { SbUserId } from '../../common/users/user-info'
 import { NETWORK_SITE_CONNECTED } from '../actions'
 import { Message, TextMessageRecord } from '../messaging/message-records'
 import { keyedReducer } from '../reducers/keyed-reducer'
@@ -18,15 +19,15 @@ const INACTIVE_PARTY_MAX_HISTORY = 500
 
 export class PartyUserRecord
   extends Record({
-    id: 0,
+    id: 0 as SbUserId,
     name: '',
   })
   implements PartyUser {}
 
 export class PartyRecord extends Record({
   id: '',
-  invites: OrderedMap<number, PartyUser>(),
-  members: OrderedMap<number, PartyUser>(),
+  invites: OrderedMap<SbUserId, PartyUser>(),
+  members: OrderedMap<SbUserId, PartyUser>(),
   leader: new PartyUserRecord(),
   messages: List<Message>(),
   hasUnread: false,

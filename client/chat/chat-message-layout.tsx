@@ -1,4 +1,5 @@
 import React from 'react'
+import { SbUserId } from '../../common/users/user-info'
 import { ConnectedUsername } from '../messaging/connected-username'
 import {
   InfoImportant,
@@ -7,7 +8,7 @@ import {
   SystemMessage,
 } from '../messaging/message-layout'
 
-export const JoinChannelMessage = React.memo<{ time: number; userId: number }>(props => {
+export const JoinChannelMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   return (
     <SystemMessage time={time}>
@@ -21,7 +22,7 @@ export const JoinChannelMessage = React.memo<{ time: number; userId: number }>(p
   )
 })
 
-export const LeaveChannelMessage = React.memo<{ time: number; userId: number }>(props => {
+export const LeaveChannelMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   return (
     <SystemMessage time={time}>
@@ -35,7 +36,7 @@ export const LeaveChannelMessage = React.memo<{ time: number; userId: number }>(
   )
 })
 
-export const NewChannelOwnerMessage = React.memo<{ time: number; newOwnerId: number }>(props => {
+export const NewChannelOwnerMessage = React.memo<{ time: number; newOwnerId: SbUserId }>(props => {
   const { time, newOwnerId } = props
   return (
     <SystemMessage time={time}>

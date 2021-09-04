@@ -1,10 +1,11 @@
 import sql from 'sql-template-strings'
 import { MatchmakingCompletion, MatchmakingType } from '../../../common/matchmaking'
+import { SbUserId } from '../../../common/users/user-info'
 import db, { DbClient } from '../db'
 import { Dbify } from '../db/types'
 
 export interface MatchmakingRating {
-  userId: number
+  userId: SbUserId
   matchmakingType: MatchmakingType
   /** The user's current MMR. */
   rating: number
@@ -75,7 +76,7 @@ function fromDbMatchmakingRating(result: Readonly<DbMatchmakingRating>): Matchma
  * information will be up-to-date as of currently submitted game results.
  */
 export async function getMatchmakingRating(
-  userId: number,
+  userId: SbUserId,
   matchmakingType: MatchmakingType,
 ): Promise<MatchmakingRating | undefined> {
   const { client, done } = await db()
@@ -97,7 +98,7 @@ export async function getMatchmakingRating(
  * matchmaking type (for instance, they have been put in the game activity registry).
  */
 export async function createInitialMatchmakingRating(
-  userId: number,
+  userId: SbUserId,
   matchmakingType: MatchmakingType,
   mmr = DEFAULT_MATCHMAKING_RATING,
 ): Promise<MatchmakingRating> {
@@ -126,7 +127,7 @@ export async function createInitialMatchmakingRating(
  */
 export async function getMatchmakingRatingsWithLock(
   client: DbClient,
-  userIds: number[],
+  userIds: SbUserId[],
   matchmakingType: MatchmakingType,
 ): Promise<MatchmakingRating[]> {
   const result = await client.query<DbMatchmakingRating>(sql`
@@ -165,7 +166,7 @@ export async function updateMatchmakingRating(
 // TODO(tec27): Remove username from this and get user data in another query
 export interface GetRankingsResult {
   rank: number
-  userId: number
+  userId: SbUserId
   username: string
   rating: number
   wins: number
@@ -209,7 +210,7 @@ export async function getRankings(matchmakingType: MatchmakingType): Promise<Get
 }
 
 export async function getRankForUser(
-  userId: number,
+  userId: SbUserId,
   matchmakingType: MatchmakingType,
 ): Promise<GetRankingsResult | undefined> {
   const { client, done } = await db()
@@ -247,7 +248,7 @@ export async function refreshRankings(matchmakingType: MatchmakingType): Promise
 export type MatchmakingResult = 'loss' | 'win'
 
 export interface MatchmakingRatingChange {
-  userId: number
+  userId: SbUserId
   matchmakingType: MatchmakingType
   gameId: string
   /** The date when the change took place. This is used for sorting the changes. */

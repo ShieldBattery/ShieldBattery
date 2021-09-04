@@ -1,8 +1,9 @@
 import { Record } from 'immutable'
 import { SbPermissions } from '../../common/users/permissions'
+import { SbUserId } from '../../common/users/user-info'
 
 export class SelfUserRecord extends Record({
-  id: -1,
+  id: -1 as SbUserId,
   name: '',
   email: '',
   emailVerified: false,

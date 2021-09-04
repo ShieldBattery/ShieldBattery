@@ -6,6 +6,7 @@ import {
   MatchmakingPreferences,
   MatchmakingType,
 } from '../../../common/matchmaking'
+import { SbUserId } from '../../../common/users/user-info'
 import logger from '../logging/logger'
 import { getMapInfo } from '../maps/map-models'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
@@ -16,7 +17,7 @@ import {
 } from './matchmaking-preferences-model'
 
 export function getMatchmakingPreferencesPath(
-  userId: number,
+  userId: SbUserId,
   matchmakingType: MatchmakingType,
 ): string {
   return `/matchmakingPreferences/${userId}/${matchmakingType}`

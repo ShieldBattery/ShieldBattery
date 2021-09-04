@@ -1,5 +1,6 @@
 import sql, { SQLStatement } from 'sql-template-strings'
 import { ChatMessageData, ChatUser } from '../../../common/chat'
+import { SbUserId } from '../../../common/users/user-info'
 import db, { DbClient } from '../db'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
@@ -11,7 +12,7 @@ export interface UserChannelsEntry {
 
 type DbUserChannelsEntry = Dbify<UserChannelsEntry>
 
-export async function getChannelsForUser(userId: number): Promise<UserChannelsEntry[]> {
+export async function getChannelsForUser(userId: SbUserId): Promise<UserChannelsEntry[]> {
   const { client, done } = await db()
   try {
     const result = await client.query<DbUserChannelsEntry>(sql`
@@ -26,7 +27,7 @@ export async function getChannelsForUser(userId: number): Promise<UserChannelsEn
 }
 
 export interface ChannelUsersEntry {
-  userId: number
+  userId: SbUserId
   userName: string
   joinDate: Date
 }
@@ -60,7 +61,7 @@ export interface ChannelPermissions {
 }
 
 export interface JoinedChannel {
-  userId: number
+  userId: SbUserId
   userName: string
   channelName: string
   joinDate: Date
@@ -70,7 +71,7 @@ export interface JoinedChannel {
 type DbJoinedChannel = Dbify<JoinedChannel & ChannelPermissions>
 
 export async function addUserToChannel(
-  userId: number,
+  userId: SbUserId,
   channelName: string,
   client?: DbClient,
 ): Promise<JoinedChannel> {
@@ -144,7 +145,7 @@ export async function addUserToChannel(
 
 export interface ChatMessage {
   msgId: string
-  userId: number
+  userId: SbUserId
   userName: string
   channelName: string
   sent: Date
@@ -154,7 +155,7 @@ export interface ChatMessage {
 type DbChatMessage = Dbify<ChatMessage>
 
 export async function addMessageToChannel(
-  userId: number,
+  userId: SbUserId,
   channelName: string,
   messageData: ChatMessageData,
 ): Promise<ChatMessage> {
@@ -238,7 +239,7 @@ export interface LeaveChannelResult {
 }
 
 export async function leaveChannel(
-  userId: number,
+  userId: SbUserId,
   channelName: string,
 ): Promise<LeaveChannelResult> {
   return transact(async function (client) {

@@ -1,5 +1,6 @@
 import sql from 'sql-template-strings'
 import { AssignedRaceChar, RaceChar } from '../../../common/races'
+import { SbUserId } from '../../../common/users/user-info'
 import { UserStats } from '../../../common/users/user-stats'
 import db, { DbClient } from '../db'
 import { Dbify } from '../db/types'
@@ -32,7 +33,7 @@ function convertFromDb(db: DbUserStats): UserStats {
  * Creates a new set of aggregated statistics for the specified user. Should generally only be used
  * when creating a new user account.
  */
-export async function createUserStats(client: DbClient, userId: number): Promise<UserStats> {
+export async function createUserStats(client: DbClient, userId: SbUserId): Promise<UserStats> {
   const result = await client.query<DbUserStats>(sql`
     INSERT INTO user_stats (user_id)
     VALUES (${userId})
@@ -45,7 +46,7 @@ export async function createUserStats(client: DbClient, userId: number): Promise
 /**
  * Retrieves the aggregated statistics for a particular user.
  */
-export async function getUserStats(userId: number): Promise<UserStats> {
+export async function getUserStats(userId: SbUserId): Promise<UserStats> {
   const { client, done } = await db()
   try {
     const result = await client.query<DbUserStats>(sql`
@@ -75,7 +76,7 @@ export type UserStatsCountKey = keyof Omit<DbUserStats, 'user_id'>
  */
 export async function incrementUserStatsCount(
   client: DbClient,
-  userId: number,
+  userId: SbUserId,
   countKey: UserStatsCountKey,
 ): Promise<UserStats> {
   const result = await client.query<DbUserStats>(

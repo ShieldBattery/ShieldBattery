@@ -1,4 +1,4 @@
-import { SbUser } from './users/user-info'
+import { SbUser, SbUserId } from './users/user-info'
 
 /**
  * The maximum number of players allowed to be in the same party at once. Note that this only
@@ -20,7 +20,7 @@ export enum PartyServiceErrorCode {
 }
 
 export interface PartyUser {
-  id: number
+  id: SbUserId
   name: string
 }
 

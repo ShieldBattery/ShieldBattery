@@ -2,6 +2,7 @@ import { Range } from 'immutable'
 import React, { useCallback, useEffect } from 'react'
 import styled from 'styled-components'
 import { MAX_PARTY_SIZE } from '../../common/parties'
+import { SbUserId } from '../../common/users/user-info'
 import { SelfUserRecord } from '../auth/auth-records'
 import Avatar from '../avatars/avatar'
 import { openDialog } from '../dialogs/action-creators'
@@ -103,8 +104,8 @@ export function UserList({
 }: {
   party: PartyRecord
   selfUser: SelfUserRecord
-  onKickPlayer: (userId: number) => void
-  onChangeLeader: (userId: number) => void
+  onKickPlayer: (userId: SbUserId) => void
+  onChangeLeader: (userId: SbUserId) => void
 }) {
   const playerSlots = party.members.map(u => (
     <PlayerSlot

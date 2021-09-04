@@ -1,4 +1,4 @@
-import { GetUserProfilePayload } from '../../common/users/user-info'
+import { GetUserProfilePayload, SbUserId } from '../../common/users/user-info'
 import { ReduxAction } from '../action-types'
 import { DispatchFunction, ThunkAction } from '../dispatch-registry'
 import { push, replace } from '../navigation/routing'
@@ -10,7 +10,11 @@ import { UserProfileSubPage } from './user-profile-sub-page'
 /**
  * Navigates to a specific user's profile (and optionally, a specific tab within that).
  */
-export function navigateToUserProfile(userId: number, username: string, tab?: UserProfileSubPage) {
+export function navigateToUserProfile(
+  userId: SbUserId,
+  username: string,
+  tab?: UserProfileSubPage,
+) {
   push(urlPath`/users/${userId}/${username}/${tab ?? ''}`)
 }
 
@@ -20,7 +24,7 @@ export function navigateToUserProfile(userId: number, username: string, tab?: Us
  * their user ID.
  */
 export function correctUsernameForProfile(
-  userId: number,
+  userId: SbUserId,
   username: string,
   tab?: UserProfileSubPage,
 ) {
@@ -62,7 +66,7 @@ const userProfileLoadsInProgress = new Set<number>()
  * Signals that a specific user's profile is being viewed. If we don't have a local copy of that
  * user's profile data already, it will be retrieved from the server.
  */
-export function viewUserProfile(userId: number, spec: RequestHandlingSpec): ThunkAction {
+export function viewUserProfile(userId: SbUserId, spec: RequestHandlingSpec): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     if (userProfileLoadsInProgress.has(userId)) {
       return

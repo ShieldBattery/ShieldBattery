@@ -1,9 +1,11 @@
+import { SbUserId } from './user-info'
+
 /**
  * Aggregate statistics for a particular user. Contains wins and losses for particular race
  * selections in non-UMS games.
  */
 export interface UserStats {
-  userId: number
+  userId: SbUserId
 
   pWins: number
   pLosses: number

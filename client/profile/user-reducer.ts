@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
 import { GameRecordJson } from '../../common/games/games'
-import { SbUser, UserProfile } from '../../common/users/user-info'
+import { SbUser, SbUserId, UserProfile } from '../../common/users/user-info'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface UserRequestInfo {
@@ -10,19 +10,19 @@ export interface UserRequestInfo {
 
 export interface UserState {
   /** A map of user ID -> user information. */
-  byId: Map<number, SbUser>
+  byId: Map<SbUserId, SbUser>
   /** A map of username -> user ID. */
   usernameToId: Map<string, number>
   // TODO(tec27): Make a reducer specifically to handle match history
   /** A map of user ID -> recent match history. */
-  idToMatchHistory: Map<number, GameRecordJson[]>
+  idToMatchHistory: Map<SbUserId, GameRecordJson[]>
   /** A map of user ID -> user profile information. */
-  idToProfile: Map<number, UserProfile>
+  idToProfile: Map<SbUserId, UserProfile>
   /**
    * The set of user IDs for which data is currently loading. This is intended to be used for
    * showing loading indicators and deduping requests.
    */
-  idLoadsInProgress: Map<number, UserRequestInfo>
+  idLoadsInProgress: Map<SbUserId, UserRequestInfo>
   /**
    * The set of usernames for which data is currently loading. This is intended to be used for
    * showing loading indicators and deduping requests.

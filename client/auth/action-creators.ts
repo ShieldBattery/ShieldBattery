@@ -1,6 +1,6 @@
 import cuid from 'cuid'
 import { ClientSessionInfo } from '../../common/users/session'
-import { SelfUser } from '../../common/users/user-info'
+import { SbUserId, SelfUser } from '../../common/users/user-info'
 import type { PromisifiedAction, ReduxAction } from '../action-types'
 import type { ThunkAction } from '../dispatch-registry'
 import fetch from '../network/fetch'
@@ -165,7 +165,7 @@ export function sendVerificationEmail(): ThunkAction {
     )
 }
 
-export function updateAccount(userId: number, userProps: Partial<SelfUser>) {
+export function updateAccount(userId: SbUserId, userProps: Partial<SelfUser>) {
   return idRequest('@auth/accountUpdate', () =>
     fetch<AccountUpdateSuccess['payload']>('/api/1/users/' + encodeURIComponent(userId), {
       method: 'PATCH',

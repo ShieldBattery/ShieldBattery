@@ -1,5 +1,6 @@
 import sql from 'sql-template-strings'
 import { SbPermissions } from '../../../common/users/permissions'
+import { SbUserId } from '../../../common/users/user-info'
 import db, { DbClient } from '../db'
 import { Dbify } from '../db/types'
 
@@ -22,7 +23,7 @@ function convertFromDb(props: DbPermissions): SbPermissions {
 
 export async function createPermissions(
   dbClient: DbClient,
-  userId: number,
+  userId: SbUserId,
 ): Promise<SbPermissions> {
   const query = sql`
     INSERT INTO permissions (user_id) VALUES (${userId}) RETURNING *;
@@ -33,7 +34,7 @@ export async function createPermissions(
   return convertFromDb(result.rows[0])
 }
 
-export async function getPermissions(userId: number) {
+export async function getPermissions(userId: SbUserId) {
   const query = sql`
     SELECT user_id, edit_permissions, debug, accept_invites, edit_all_channels, ban_users,
         manage_maps, manage_map_pools, mass_delete_maps, manage_matchmaking_times,
@@ -51,7 +52,7 @@ export async function getPermissions(userId: number) {
   }
 }
 
-export async function updatePermissions(userId: number, perms: SbPermissions) {
+export async function updatePermissions(userId: SbUserId, perms: SbPermissions) {
   const query = sql`
     UPDATE permissions
     SET

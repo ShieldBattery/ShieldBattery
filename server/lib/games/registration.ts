@@ -1,4 +1,5 @@
 import { GameConfig, GameConfigPlayerName, GameSource } from '../../../common/games/configuration'
+import { makeSbUserId } from '../../../common/users/user-info'
 import transact from '../db/transaction'
 import { createGameRecord } from '../models/games'
 import { createGameUserRecord } from '../models/games-users'
@@ -43,7 +44,7 @@ export async function registerGame(
     gameSubType: gameConfig.gameSubType,
     teams: gameConfig.teams.map(team =>
       team.map(p => ({
-        id: p.isComputer ? -1 : usersMap.get(p.name)!.id,
+        id: p.isComputer ? makeSbUserId(-1) : usersMap.get(p.name)!.id,
         race: p.race,
         isComputer: p.isComputer,
       })),

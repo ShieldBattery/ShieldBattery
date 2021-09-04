@@ -1,4 +1,4 @@
-import { SbUser } from './users/user-info'
+import { SbUser, SbUserId } from './users/user-info'
 
 export enum ChatMessageType {
   TextMessage = 'message',
@@ -24,7 +24,7 @@ export interface ChatMessage {
 
 // TODO(2Pac): Include more information here, e.g. channel permissions, join date, etc.
 export interface ChatUser {
-  id: number
+  id: SbUserId
   name: string
 }
 

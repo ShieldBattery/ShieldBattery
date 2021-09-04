@@ -1,6 +1,7 @@
 import cuid from 'cuid'
 import { Record } from 'immutable'
 import { RaceChar } from '../races'
+import { SbUserId } from '../users/user-info'
 
 export enum SlotType {
   Human = 'human',
@@ -15,7 +16,7 @@ export enum SlotType {
 
 export class Slot extends Record({
   type: SlotType.Open,
-  userId: 0,
+  userId: 0 as SbUserId,
   name: '',
   race: 'r' as RaceChar,
   id: '',
@@ -54,7 +55,7 @@ export function createClosed(race: RaceChar = 'r', hasForcedRace = false, player
 
 export function createHuman(
   name: string,
-  userId: number,
+  userId: SbUserId,
   race: RaceChar = 'r',
   hasForcedRace = false,
   playerId = 0,
@@ -125,7 +126,7 @@ export function createUmsComputer(race: RaceChar, playerId: number, typeId: numb
 
 // Creates an observer slot, which is a human in a lobby who is not playing, but rather watching
 // other people play.
-export function createObserver(name: string, userId: number) {
+export function createObserver(name: string, userId: SbUserId) {
   return new Slot({
     type: SlotType.Observer,
     userId,

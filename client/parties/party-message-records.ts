@@ -1,4 +1,5 @@
 import { Record } from 'immutable'
+import { SbUserId } from '../../common/users/user-info'
 import { BaseMessage } from '../messaging/message-records'
 
 export enum PartyMessageType {
@@ -15,7 +16,7 @@ export class SelfJoinPartyMessageRecord
     id: '',
     type: PartyMessageType.SelfJoinParty as typeof PartyMessageType.SelfJoinParty,
     time: 0,
-    leaderId: 0,
+    leaderId: 0 as SbUserId,
   })
   implements BaseMessage {}
 
@@ -24,7 +25,7 @@ export class InviteToPartyMessageRecord
     id: '',
     type: PartyMessageType.InviteToParty as typeof PartyMessageType.InviteToParty,
     time: 0,
-    userId: 0,
+    userId: 0 as SbUserId,
   })
   implements BaseMessage {}
 
@@ -33,7 +34,7 @@ export class JoinPartyMessageRecord
     id: '',
     type: PartyMessageType.JoinParty as typeof PartyMessageType.JoinParty,
     time: 0,
-    userId: 0,
+    userId: 0 as SbUserId,
   })
   implements BaseMessage {}
 
@@ -42,7 +43,7 @@ export class LeavePartyMessageRecord
     id: '',
     type: PartyMessageType.LeaveParty as typeof PartyMessageType.LeaveParty,
     time: 0,
-    userId: 0,
+    userId: 0 as SbUserId,
   })
   implements BaseMessage {}
 
@@ -51,7 +52,7 @@ export class PartyLeaderChangeMessageRecord
     id: '',
     type: PartyMessageType.LeaderChange as typeof PartyMessageType.LeaderChange,
     time: 0,
-    userId: 0,
+    userId: 0 as SbUserId,
   })
   implements BaseMessage {}
 
@@ -60,7 +61,7 @@ export class KickFromPartyMessageRecord
     id: '',
     type: PartyMessageType.KickFromParty as typeof PartyMessageType.KickFromParty,
     time: 0,
-    userId: 0,
+    userId: 0 as SbUserId,
   })
   implements BaseMessage {}
 

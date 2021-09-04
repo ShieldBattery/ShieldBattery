@@ -1,8 +1,9 @@
 import React from 'react'
+import { SbUserId } from '../../common/users/user-info'
 import { ConnectedUsername } from '../messaging/connected-username'
 import { SystemImportant, SystemMessage } from '../messaging/message-layout'
 
-export const JoinLobbyMessage = React.memo<{ time: number; userId: number }>(props => {
+export const JoinLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   return (
     <SystemMessage time={time}>
@@ -17,7 +18,7 @@ export const JoinLobbyMessage = React.memo<{ time: number; userId: number }>(pro
   )
 })
 
-export const LeaveLobbyMessage = React.memo<{ time: number; userId: number }>(props => {
+export const LeaveLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   return (
     <SystemMessage time={time}>
@@ -32,7 +33,7 @@ export const LeaveLobbyMessage = React.memo<{ time: number; userId: number }>(pr
   )
 })
 
-export const KickLobbyPlayerMessage = React.memo<{ time: number; userId: number }>(props => {
+export const KickLobbyPlayerMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   return (
     <SystemMessage time={time}>
@@ -47,7 +48,7 @@ export const KickLobbyPlayerMessage = React.memo<{ time: number; userId: number 
   )
 })
 
-export const BanLobbyPlayerMessage = React.memo<{ time: number; userId: number }>(props => {
+export const BanLobbyPlayerMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   return (
     <SystemMessage time={time}>
@@ -62,7 +63,7 @@ export const BanLobbyPlayerMessage = React.memo<{ time: number; userId: number }
   )
 })
 
-export const SelfJoinLobbyMessage = React.memo<{ time: number; lobby: string; hostId: number }>(
+export const SelfJoinLobbyMessage = React.memo<{ time: number; lobby: string; hostId: SbUserId }>(
   props => {
     const { time, lobby, hostId } = props
     return (
@@ -79,7 +80,7 @@ export const SelfJoinLobbyMessage = React.memo<{ time: number; lobby: string; ho
   },
 )
 
-export const LobbyHostChangeMessage = React.memo<{ time: number; userId: number }>(props => {
+export const LobbyHostChangeMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   return (
     <SystemMessage time={time}>

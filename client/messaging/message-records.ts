@@ -1,4 +1,5 @@
 import { Record } from 'immutable'
+import { SbUserId } from '../../common/users/user-info'
 import { ChatMessage } from '../chat/chat-message-records'
 import { LobbyMessage } from '../lobbies/lobby-message-records'
 import { PartyMessage } from '../parties/party-message-records'
@@ -29,7 +30,7 @@ export class TextMessageRecord
     id: '',
     type: CommonMessageType.TextMessage as typeof CommonMessageType.TextMessage,
     time: 0,
-    from: 0,
+    from: 0 as SbUserId,
     text: '',
   })
   implements BaseMessage {}

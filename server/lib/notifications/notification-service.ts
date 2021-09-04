@@ -1,5 +1,6 @@
 import { singleton } from 'tsyringe'
 import { NotificationEvent, NotificationServerInitEvent } from '../../../common/notifications'
+import { SbUserId } from '../../../common/users/user-info'
 import logger from '../logging/logger'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
@@ -13,7 +14,7 @@ import {
   SearchNotificationData,
 } from './notification-model'
 
-export function getNotificationsPath(userId: number): string {
+export function getNotificationsPath(userId: SbUserId): string {
   return `/notifications/${userId}`
 }
 
@@ -53,7 +54,7 @@ export default class NotificationService {
    * calling the DB method directly.
    */
   retrieveNotifications(props: {
-    userId: number
+    userId: SbUserId
     data?: SearchNotificationData
     visible?: boolean
     limit?: number
@@ -66,7 +67,7 @@ export default class NotificationService {
    * the user's connected clients.
    */
   async addNotification(notificationProps: {
-    userId: number
+    userId: SbUserId
     data: NotificationData
     createdAt?: Date
   }) {
@@ -86,7 +87,7 @@ export default class NotificationService {
   /**
    * Clears all notifications before a given date for a particular user.
    */
-  async clearBefore(userId: number, date: Date) {
+  async clearBefore(userId: SbUserId, date: Date) {
     await clearBefore(userId, date)
 
     this.publisher.publish(getNotificationsPath(userId), {
@@ -99,7 +100,7 @@ export default class NotificationService {
    * Clears, i.e. makes not visible, a specific notification for a particular user and notifies all
    * of user's connected clients.
    */
-  async clearById(userId: number, notificationId: string) {
+  async clearById(userId: SbUserId, notificationId: string) {
     await clearById(userId, notificationId)
 
     this.publisher.publish(getNotificationsPath(userId), {
@@ -112,7 +113,7 @@ export default class NotificationService {
    * Marks all of the given notifications as "read" for a particular user and notifies all of user's
    * connected clients.
    */
-  async markRead(userId: number, notificationIds: string[]) {
+  async markRead(userId: SbUserId, notificationIds: string[]) {
     await markRead(userId, notificationIds)
 
     this.publisher.publish(getNotificationsPath(userId), {

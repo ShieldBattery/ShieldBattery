@@ -1,6 +1,7 @@
 import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import { container } from 'tsyringe'
+import { makeSbUserId } from '../../../common/users/user-info'
 import { banUser as dbBanUser, getBanHistory } from '../models/bans'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import redis from '../redis'
@@ -26,7 +27,7 @@ async function getUserBanHistory(ctx: RouterContext) {
 }
 
 async function banUser(ctx: RouterContext) {
-  const userId = Number(ctx.params.userId)
+  const userId = makeSbUserId(Number(ctx.params.userId))
   const { banLengthHours, reason } = ctx.request.body
 
   if (isNaN(userId)) {

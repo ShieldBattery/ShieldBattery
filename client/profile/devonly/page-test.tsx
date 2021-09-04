@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import styled from 'styled-components'
 import { GameRecordJson } from '../../../common/games/games'
-import { SbUser, UserProfile } from '../../../common/users/user-info'
+import { makeSbUserId, SbUser, UserProfile } from '../../../common/users/user-info'
 import { background700 } from '../../styles/colors'
 import { UserProfilePage } from '../user-profile'
 import { UserProfileSubPage } from '../user-profile-sub-page'
@@ -24,10 +24,10 @@ const TestContent = styled.div`
 `
 
 const PROFILE: UserProfile = {
-  userId: 1,
+  userId: makeSbUserId(1),
   ladder: {},
   userStats: {
-    userId: 1,
+    userId: makeSbUserId(1),
     pWins: 27,
     pLosses: 17,
     tWins: 10,

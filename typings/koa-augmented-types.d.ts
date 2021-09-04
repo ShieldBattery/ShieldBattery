@@ -1,9 +1,10 @@
 import { Session } from 'koa-generic-session'
 import { SbPermissions } from '../common/users/permissions'
+import { SbUserId } from '../common/users/user-info'
 
 declare module 'koa' {
   interface AppSession extends Session {
-    userId: number
+    userId: SbUserId
     userName: string
     email: string
     emailVerified: boolean

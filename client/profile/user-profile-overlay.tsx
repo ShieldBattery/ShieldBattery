@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react'
 import { PARTIES } from '../../common/flags'
-import { SbUser } from '../../common/users/user-info'
+import { SbUser, SbUserId } from '../../common/users/user-info'
 import MenuItem from '../material/menu/item'
 import { Popover, PopoverProps } from '../material/popover'
 import { inviteToParty, kickPlayer, removePartyInvite } from '../parties/action-creators'
@@ -32,7 +32,7 @@ export function UserProfileOverlay(props: UserProfileOverlayProps) {
 }
 
 export interface ConnectedUserProfileOverlayProps {
-  userId: number
+  userId: SbUserId
   popoverProps: Omit<PopoverProps, 'children'>
 }
 

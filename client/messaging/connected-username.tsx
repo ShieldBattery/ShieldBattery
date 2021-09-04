@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react'
 import styled from 'styled-components'
+import { SbUserId } from '../../common/users/user-info'
 import { useAnchorPosition } from '../material/popover'
 import { ConnectedUserProfileOverlay } from '../profile/user-profile-overlay'
 import { useAppSelector } from '../redux-hooks'
@@ -19,7 +20,7 @@ const Username = styled.span`
  * This component is connected to the store where it tries to find the user. All the services using
  * it should ensure that the user is loaded in the store properly.
  */
-export function ConnectedUsername(props: { userId: number }) {
+export function ConnectedUsername(props: { userId: SbUserId }) {
   const [overlayOpen, setOverlayOpen] = useState(false)
   const usernameRef = useRef(null)
   const [, anchorX, anchorY] = useAnchorPosition('right', 'top', usernameRef.current ?? null)

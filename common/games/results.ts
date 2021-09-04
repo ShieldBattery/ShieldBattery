@@ -1,4 +1,5 @@
 import { AssignedRaceChar } from '../races'
+import { SbUserId } from '../users/user-info'
 
 /**
  * The results of a game, as reported by the game client. These results have not yet been reconciled
@@ -40,5 +41,5 @@ export interface ReconciledResults {
   /** The elapsed time for the game, in milliseconds. */
   time: number
   /** A map containing the final result info for each player in the game. */
-  results: Map<number, ReconciledPlayerResult>
+  results: Map<SbUserId, ReconciledPlayerResult>
 }

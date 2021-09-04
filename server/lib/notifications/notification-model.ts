@@ -1,5 +1,6 @@
 import sql from 'sql-template-strings'
 import { NotificationType } from '../../../common/notifications'
+import { SbUserId } from '../../../common/users/user-info'
 import db from '../db/index'
 import { Dbify } from '../db/types'
 
@@ -28,7 +29,7 @@ export type SearchNotificationData = PartyInviteSearchNotificationData | Record<
 
 export interface Notification {
   id: string
-  userId: number
+  userId: SbUserId
   read: boolean
   visible: boolean
   createdAt: Date
@@ -59,7 +60,7 @@ export async function retrieveNotifications({
   visible = true,
   limit = 100,
 }: {
-  userId: number
+  userId: SbUserId
   data?: SearchNotificationData
   visible?: boolean
   limit?: number
@@ -97,7 +98,7 @@ export async function addNotification({
   data,
   createdAt = new Date(),
 }: {
-  userId: number
+  userId: SbUserId
   data: NotificationData
   createdAt?: Date
 }): Promise<Notification> {
@@ -118,7 +119,7 @@ export async function addNotification({
 /**
  * Marks the given notification(s) for a particular user as read.
  */
-export async function markRead(userId: number, notificationIds: string[]): Promise<void> {
+export async function markRead(userId: SbUserId, notificationIds: string[]): Promise<void> {
   const { client, done } = await db()
   try {
     await client.query(sql`
@@ -134,7 +135,7 @@ export async function markRead(userId: number, notificationIds: string[]): Promi
 /**
  * Marks all notifications before a given date for a particular user as not visible, i.e. cleared.
  */
-export async function clearBefore(userId: number, date: Date): Promise<void> {
+export async function clearBefore(userId: SbUserId, date: Date): Promise<void> {
   const { client, done } = await db()
   try {
     await client.query(sql`
@@ -150,7 +151,7 @@ export async function clearBefore(userId: number, date: Date): Promise<void> {
 /**
  * Marks the given notification for a particular user as not visible, i.e. cleared.
  */
-export async function clearById(userId: number, notificationId: string): Promise<void> {
+export async function clearById(userId: SbUserId, notificationId: string): Promise<void> {
   const { client, done } = await db()
   try {
     await client.query(sql`

@@ -1,8 +1,9 @@
 import React from 'react'
+import { SbUserId } from '../../common/users/user-info'
 import { ConnectedUsername } from '../messaging/connected-username'
 import { SystemImportant, SystemMessage } from '../messaging/message-layout'
 
-export const SelfJoinPartyMessage = React.memo<{ time: number; leaderId: number }>(props => {
+export const SelfJoinPartyMessage = React.memo<{ time: number; leaderId: SbUserId }>(props => {
   const { time, leaderId } = props
   return (
     <SystemMessage time={time}>
@@ -17,7 +18,7 @@ export const SelfJoinPartyMessage = React.memo<{ time: number; leaderId: number 
   )
 })
 
-export const InviteToPartyMessage = React.memo<{ time: number; userId: number }>(props => {
+export const InviteToPartyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   return (
     <SystemMessage time={time}>
@@ -32,7 +33,7 @@ export const InviteToPartyMessage = React.memo<{ time: number; userId: number }>
   )
 })
 
-export const JoinPartyMessage = React.memo<{ time: number; userId: number }>(props => {
+export const JoinPartyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   return (
     <SystemMessage time={time}>
@@ -47,7 +48,7 @@ export const JoinPartyMessage = React.memo<{ time: number; userId: number }>(pro
   )
 })
 
-export const LeavePartyMessage = React.memo<{ time: number; userId: number }>(props => {
+export const LeavePartyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   return (
     <SystemMessage time={time}>
@@ -62,7 +63,7 @@ export const LeavePartyMessage = React.memo<{ time: number; userId: number }>(pr
   )
 })
 
-export const PartyLeaderChangeMessage = React.memo<{ time: number; userId: number }>(props => {
+export const PartyLeaderChangeMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   return (
     <SystemMessage time={time}>
@@ -76,7 +77,7 @@ export const PartyLeaderChangeMessage = React.memo<{ time: number; userId: numbe
   )
 })
 
-export const KickFromPartyMessage = React.memo<{ time: number; userId: number }>(props => {
+export const KickFromPartyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   return (
     <SystemMessage time={time}>

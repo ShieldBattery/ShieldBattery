@@ -1,4 +1,4 @@
-import { SbUser } from '../users/user-info'
+import { SbUser, SbUserId } from '../users/user-info'
 
 /**
  * A ranked player for a particular matchmaking ladder. Contains information about their play
@@ -6,7 +6,7 @@ import { SbUser } from '../users/user-info'
  */
 export interface LadderPlayer {
   rank: number
-  userId: number
+  userId: SbUserId
   rating: number
   wins: number
   losses: number

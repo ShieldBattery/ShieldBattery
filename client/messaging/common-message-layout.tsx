@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
 import styled from 'styled-components'
 import { matchLinks } from '../../common/text/links'
+import { SbUserId } from '../../common/users/user-info'
 import { amberA100 } from '../styles/colors'
 import { body2 } from '../styles/typography'
 import { ConnectedUsername } from './connected-username'
@@ -68,7 +69,7 @@ export function ParsedText({ text }: { text: string }) {
   return <Text>{parsedText}</Text>
 }
 
-export const TextMessageDisplay = React.memo<{ userId: number; time: number; text: string }>(
+export const TextMessageDisplay = React.memo<{ userId: SbUserId; time: number; text: string }>(
   props => {
     const { userId, time, text } = props
     return (

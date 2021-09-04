@@ -1,11 +1,11 @@
 import { List } from 'immutable'
 import React from 'react'
 import { LadderPlayer } from '../../../common/ladder'
-import { SbUser } from '../../../common/users/user-info'
+import { makeSbUserId, SbUser, SbUserId } from '../../../common/users/user-info'
 import { LadderTable } from '../ladder'
 
 const PLAYERS: LadderPlayer[] = []
-const usersById: Map<number, SbUser> = new Map()
+const usersById: Map<SbUserId, SbUser> = new Map()
 
 let curRating = 2200
 const NOW = Date.now()
@@ -24,13 +24,13 @@ for (let i = 0; i < 1000; i++) {
 
   PLAYERS.push({
     rank: i + 1,
-    userId: i,
+    userId: makeSbUserId(i),
     rating,
     wins,
     losses,
     lastPlayedDate,
   })
-  usersById.set(i, { id: i, name })
+  usersById.set(makeSbUserId(i), { id: makeSbUserId(i), name })
 }
 
 export function TableTest() {

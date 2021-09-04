@@ -1,11 +1,12 @@
 /* eslint-disable jest/no-commented-out-tests */
+import { makeSbUserId } from '../../../common/users/user-info'
 import { DEFAULT_OPPONENT_CHOOSER, initializePlayer, QueuedMatchmakingPlayer } from './matchmaker'
 
 function createPlayer(data: Partial<QueuedMatchmakingPlayer> = {}): QueuedMatchmakingPlayer {
   const rating = data.rating ?? 1500
 
   return initializePlayer({
-    id: 1,
+    id: makeSbUserId(1),
     name: 'tec27',
     numGamesPlayed: 0,
     rating,

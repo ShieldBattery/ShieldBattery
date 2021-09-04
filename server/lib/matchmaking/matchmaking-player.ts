@@ -1,4 +1,5 @@
 import { AssignedRaceChar, RaceChar } from '../../../common/races'
+import { SbUserId } from '../../../common/users/user-info'
 import { NEW_PLAYER_GAME_COUNT } from './constants'
 
 export interface MatchmakingInterval {
@@ -8,7 +9,7 @@ export interface MatchmakingInterval {
 
 export interface MatchmakingPlayer {
   /** The user's ID number (from the `users` table). */
-  id: number
+  id: SbUserId
   /** The user's name. */
   name: string
   /** How many games this user has played (in the current MMR section). */
