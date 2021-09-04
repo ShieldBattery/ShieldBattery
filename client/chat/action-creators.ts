@@ -3,10 +3,10 @@ import {
   GetChannelUsersServerPayload,
   SendChatMessageServerBody,
 } from '../../common/chat'
+import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import { push } from '../navigation/routing'
 import fetch from '../network/fetch'
-import { apiUrl } from '../network/urls'
 import { ActivateChannel, DeactivateChannel } from './actions'
 
 export function joinChannel(channel: string): ThunkAction {

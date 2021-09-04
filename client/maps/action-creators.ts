@@ -11,11 +11,11 @@ import {
   UpdateMapServerBody,
   UploadMapPayload,
 } from '../../common/maps'
+import { apiUrl, urlPath } from '../../common/urls'
 import { ReduxAction } from '../action-types'
 import { DispatchFunction, ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
 import fetch from '../network/fetch'
-import { apiUrl, urlPath } from '../network/urls'
 import { openSnackbar } from '../snackbars/action-creators'
 import { ClearMaps } from './actions'
 

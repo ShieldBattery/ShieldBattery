@@ -8,6 +8,7 @@ import {
   UpdateRallyPointServerBody,
   UpdateRallyPointServerPayload,
 } from '../../common/rally-point'
+import { apiUrl } from '../../common/urls'
 import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import CheckIcon from '../icons/material/check-24px.svg'
@@ -19,7 +20,6 @@ import NumberTextField from '../material/number-text-field'
 import TextField from '../material/text-field'
 import fetchJson from '../network/fetch'
 import { useRefreshToken } from '../network/refresh-token'
-import { apiUrl } from '../network/urls'
 import { useAppDispatch } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { CenteredContentContainer } from '../styles/centered-container'

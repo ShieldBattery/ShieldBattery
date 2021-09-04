@@ -5,9 +5,9 @@ import {
   MarkNotificationsReadServerBody,
   Notification,
 } from '../../common/notifications'
+import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import fetch from '../network/fetch'
-import { apiUrl } from '../network/urls'
 import { openSnackbar } from '../snackbars/action-creators'
 import { AddNotification, ClearNotificationById, MarkNotificationsRead } from './actions'
 import { NotificationRecordBase } from './notification-reducer'

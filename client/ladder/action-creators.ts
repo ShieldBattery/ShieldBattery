@@ -1,8 +1,8 @@
 import { GetRankingsPayload } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
+import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import fetch from '../network/fetch'
-import { apiUrl } from '../network/urls'
 import { RootState } from '../root-reducer'
 
 const LADDER_RANKINGS_CACHE_TIME_MS = 60 * 1000

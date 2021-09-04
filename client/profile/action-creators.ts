@@ -1,9 +1,9 @@
+import { apiUrl, urlPath } from '../../common/urls'
 import { GetUserProfilePayload, SbUserId } from '../../common/users/user-info'
 import { ReduxAction } from '../action-types'
 import { DispatchFunction, ThunkAction } from '../dispatch-registry'
 import { push, replace } from '../navigation/routing'
 import fetch from '../network/fetch'
-import { apiUrl, urlPath } from '../network/urls'
 import { RootState } from '../root-reducer'
 import { UserProfileSubPage } from './user-profile-sub-page'
 

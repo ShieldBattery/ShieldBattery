@@ -1,5 +1,6 @@
 import { NydusClient } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
+import { apiUrl } from '../../common/urls'
 import { NETWORK_SITE_CONNECTED, NETWORK_SITE_DISCONNECTED } from '../actions'
 import auth from '../auth/socket-handlers'
 import chat from '../chat/socket-handlers'
@@ -12,7 +13,6 @@ import whispers from '../whispers/socket-handlers'
 import { clientId } from './client-id'
 import fetchJson from './fetch'
 import siteSocket from './site-socket'
-import { apiUrl } from './urls'
 
 function networkStatusHandler({
   siteSocket,

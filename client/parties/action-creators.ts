@@ -4,11 +4,11 @@ import {
   PartyServiceErrorCode,
   SendChatMessageServerBody,
 } from '../../common/parties'
+import { apiUrl, urlPath } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import { push } from '../navigation/routing'
 import { clientId } from '../network/client-id'
 import fetch from '../network/fetch'
-import { apiUrl, urlPath } from '../network/urls'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { ActivateParty, DeactivateParty } from './actions'
 

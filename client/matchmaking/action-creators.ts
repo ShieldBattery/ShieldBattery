@@ -6,10 +6,10 @@ import {
   MatchmakingPreferences,
   MatchmakingType,
 } from '../../common/matchmaking'
+import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import { clientId } from '../network/client-id'
 import fetch from '../network/fetch'
-import { apiUrl } from '../network/urls'
 import { UpdateLastQueuedMatchmakingType } from './actions'
 
 const ipcRenderer = new TypedIpcRenderer()

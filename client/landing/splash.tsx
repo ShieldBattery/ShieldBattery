@@ -3,6 +3,7 @@ import React, { ReactChild, ReactNode, useEffect, useState } from 'react'
 import { connect, DispatchProp } from 'react-redux'
 import styled, { css } from 'styled-components'
 import { DISCORD_URL } from '../../common/url-constants'
+import { apiUrl } from '../../common/urls'
 import { openDialog } from '../dialogs/action-creators'
 import { ConnectedDialogOverlay } from '../dialogs/connected-dialog-overlay'
 import { DialogType } from '../dialogs/dialog-type'
@@ -17,7 +18,6 @@ import Card from '../material/card'
 import { linearOutSlowIn } from '../material/curve-constants'
 import { push } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
-import { apiUrl } from '../network/urls'
 import {
   amberA400,
   background700,

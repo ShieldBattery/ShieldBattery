@@ -1,3 +1,4 @@
+import { apiUrl } from '../../common/urls'
 import {
   ADMIN_BAN_USER,
   ADMIN_BAN_USER_BEGIN,
@@ -28,7 +29,6 @@ import {
   ADMIN_SET_PERMISSIONS_BEGIN,
 } from '../actions'
 import fetch from '../network/fetch'
-import { apiUrl } from '../network/urls'
 import { openSnackbar } from '../snackbars/action-creators'
 
 const USER_PROFILE_STALE_TIME = 60 * 1000

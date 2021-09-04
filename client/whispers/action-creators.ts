@@ -1,8 +1,8 @@
+import { apiUrl } from '../../common/urls'
 import { GetSessionHistoryServerPayload, SendWhisperMessageServerBody } from '../../common/whispers'
 import { ThunkAction } from '../dispatch-registry'
 import { push } from '../navigation/routing'
 import fetch from '../network/fetch'
-import { apiUrl } from '../network/urls'
 import { ActivateWhisperSession, DeactivateWhisperSession } from './actions'
 
 export function startWhisperSession(target: string): ThunkAction {

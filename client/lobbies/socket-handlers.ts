@@ -2,6 +2,7 @@ import { NydusClient, RouteHandler } from 'nydus-client'
 import { GameLaunchConfig, GameRoute } from '../../common/game-launch-config'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
+import { urlPath } from '../../common/urls'
 import {
   ACTIVE_GAME_LAUNCH,
   LOBBIES_COUNT_UPDATE,
@@ -32,7 +33,6 @@ import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
 import { dispatch, Dispatchable } from '../dispatch-registry'
 import { replace } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
-import { urlPath } from '../network/urls'
 import { openSnackbar } from '../snackbars/action-creators'
 import { Slot } from './lobby-reducer'
 

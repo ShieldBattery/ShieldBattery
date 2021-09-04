@@ -16,6 +16,7 @@ import {
   MatchmakingType,
 } from '../../../common/matchmaking'
 import { subtract } from '../../../common/sets'
+import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/user-info'
 import gameLoader from '../games/game-loader'
 import activityRegistry from '../games/gameplay-activity-registry'
@@ -648,10 +649,10 @@ export class MatchmakingService {
   }
 
   static getUserPath(userId: SbUserId) {
-    return `/matchmaking/${userId}`
+    return urlPath`/matchmaking/${userId}`
   }
 
   static getClientPath(client: ClientSocketsGroup) {
-    return `/matchmaking/${client.userId}/${encodeURIComponent(client.clientId)}`
+    return urlPath`/matchmaking/${client.userId}/${client.clientId}`
   }
 }
