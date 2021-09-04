@@ -2,11 +2,13 @@
 import { makeSbUserId } from '../../../common/users/user-info'
 import { DEFAULT_OPPONENT_CHOOSER, initializePlayer, QueuedMatchmakingPlayer } from './matchmaker'
 
+let curUserId = 1
+
 function createPlayer(data: Partial<QueuedMatchmakingPlayer> = {}): QueuedMatchmakingPlayer {
   const rating = data.rating ?? 1500
 
   return initializePlayer({
-    id: makeSbUserId(1),
+    id: makeSbUserId(curUserId++),
     name: 'tec27',
     numGamesPlayed: 0,
     rating,
@@ -27,6 +29,10 @@ function createPlayer(data: Partial<QueuedMatchmakingPlayer> = {}): QueuedMatchm
 }
 
 describe('matchmaking/matchmaker/DEFAULT_OPPONENT_CHOOSER', () => {
+  beforeEach(() => {
+    curUserId = 1
+  })
+
   test('should return the only opponent option if there is only 1', () => {
     const player = createPlayer()
     const opponent = createPlayer({ name: 'ReallyBadDude' })
