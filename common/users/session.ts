@@ -1,5 +1,5 @@
 import { MatchmakingType } from '../matchmaking'
-import { Permissions } from './permissions'
+import { SbPermissions } from './permissions'
 import { SelfUser } from './user-info'
 
 /**
@@ -8,6 +8,6 @@ import { SelfUser } from './user-info'
  */
 export interface ClientSessionInfo {
   user: SelfUser
-  permissions: Permissions
+  permissions: SbPermissions
   lastQueuedMatchmakingType: MatchmakingType
 }

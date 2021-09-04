@@ -1,4 +1,4 @@
-export interface Permissions {
+export interface SbPermissions {
   editPermissions: boolean
   debug: boolean
   acceptInvites: boolean
@@ -11,4 +11,4 @@ export interface Permissions {
   massDeleteMaps: boolean
 }
 
-export type PermissionName = keyof Permissions
+export type PermissionName = keyof SbPermissions

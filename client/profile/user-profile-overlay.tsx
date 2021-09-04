@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react'
 import { PARTIES } from '../../common/flags'
-import { User } from '../../common/users/user-info'
+import { SbUser } from '../../common/users/user-info'
 import MenuItem from '../material/menu/item'
 import { Popover, PopoverProps } from '../material/popover'
 import { inviteToParty, kickPlayer, removePartyInvite } from '../parties/action-creators'
@@ -11,7 +11,7 @@ import { Actions, Header, PopoverContents, StyledAvatar, Username } from './prof
 
 export interface UserProfileOverlayProps {
   children: React.ReactNode
-  user: User
+  user: SbUser
   popoverProps: Omit<PopoverProps, 'children'>
 }
 

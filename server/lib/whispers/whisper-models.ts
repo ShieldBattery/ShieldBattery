@@ -1,5 +1,5 @@
 import sql from 'sql-template-strings'
-import { User } from '../../../common/users/user-info'
+import { SbUser } from '../../../common/users/user-info'
 import { WhisperMessageData } from '../../../common/whispers'
 import db from '../db'
 import { Dbify } from '../db/types'
@@ -73,8 +73,8 @@ export async function closeWhisperSession(userId: number, targetId: number): Pro
 
 export interface WhisperMessage {
   id: string
-  from: User
-  to: User
+  from: SbUser
+  to: SbUser
   sent: Date
   data: WhisperMessageData
 }

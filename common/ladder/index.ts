@@ -1,4 +1,4 @@
-import { User } from '../users/user-info'
+import { SbUser } from '../users/user-info'
 
 /**
  * A ranked player for a particular matchmaking ladder. Contains information about their play
@@ -23,5 +23,5 @@ export interface GetRankingsPayload {
   /** A list of the players that are currently ranked (in order of rank). */
   players: LadderPlayer[]
   /** A list of user info for players that are in the returned `players` list. */
-  users: User[]
+  users: SbUser[]
 }

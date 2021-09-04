@@ -1,5 +1,5 @@
 import { ChatMessage, ChatUser, GetChannelUsersServerPayload } from '../../common/chat'
-import { User } from '../../common/users/user-info'
+import { SbUser } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
 export type ChatActions =
@@ -206,7 +206,7 @@ export interface UpdateJoin {
   payload: {
     channel: string
     channelUser: ChatUser
-    user: User
+    user: SbUser
   }
 }
 

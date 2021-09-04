@@ -1,4 +1,4 @@
-import { User } from './users/user-info'
+import { SbUser } from './users/user-info'
 
 /**
  * The maximum number of players allowed to be in the same party at once. Note that this only
@@ -50,14 +50,14 @@ export interface PartyInitEvent {
   type: 'init'
   party: PartyPayload
   time: number
-  userInfos: User[]
+  userInfos: SbUser[]
 }
 
 export interface PartyInviteEvent {
   type: 'invite'
   invitedUser: PartyUser
   time: number
-  userInfo: User
+  userInfo: SbUser
 }
 
 export interface PartyUninviteEvent {

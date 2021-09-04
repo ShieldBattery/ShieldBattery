@@ -1,5 +1,5 @@
 import { Record } from 'immutable'
-import { Permissions } from '../../common/users/permissions'
+import { SbPermissions } from '../../common/users/permissions'
 
 export class SelfUserRecord extends Record({
   id: -1,
@@ -21,7 +21,7 @@ export class PermissionsRecord
     manageRallyPointServers: false,
     massDeleteMaps: false,
   })
-  implements Permissions {}
+  implements SbPermissions {}
 
 export class AuthState extends Record({
   authChangeInProgress: false,

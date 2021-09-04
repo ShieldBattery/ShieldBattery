@@ -1,4 +1,4 @@
-import { User } from '../../common/users/user-info'
+import { SbUser } from '../../common/users/user-info'
 import { GetSessionHistoryServerPayload, WhisperUserStatus } from '../../common/whispers'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
@@ -172,7 +172,7 @@ export interface DeactivateWhisperSession {
 export interface WhisperSessionInit {
   type: '@whispers/initSession'
   payload: {
-    target: User
+    target: SbUser
     targetStatus: WhisperUserStatus
   }
 }
@@ -183,7 +183,7 @@ export interface WhisperSessionInit {
 export interface WhisperSessionClose {
   type: '@whispers/closeSession'
   payload: {
-    target: User
+    target: SbUser
   }
 }
 
@@ -196,11 +196,11 @@ export interface WhisperMessageUpdate {
     message: {
       id: string
       time: number
-      from: User
-      to: User
+      from: SbUser
+      to: SbUser
       text: string
     }
-    users: User[]
+    users: SbUser[]
   }
 }
 
@@ -210,7 +210,7 @@ export interface WhisperMessageUpdate {
 export interface WhisperUserActive {
   type: '@whispers/updateUserActive'
   payload: {
-    user: User
+    user: SbUser
   }
 }
 
@@ -220,7 +220,7 @@ export interface WhisperUserActive {
 export interface WhisperUserIdle {
   type: '@whispers/updateUserIdle'
   payload: {
-    user: User
+    user: SbUser
   }
 }
 
@@ -230,6 +230,6 @@ export interface WhisperUserIdle {
 export interface WhisperUserOffline {
   type: '@whispers/updateUserOffline'
   payload: {
-    user: User
+    user: SbUser
   }
 }

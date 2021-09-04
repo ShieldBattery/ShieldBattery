@@ -4,19 +4,19 @@ import { MapInfoJson } from '../maps'
 import { MatchmakingType } from '../matchmaking'
 import { UserStats } from './user-stats'
 
-/** Information about the current user. */
-export interface SelfUser {
+/**
+ * Information about any user in the system, mainly things that represent the "identity" of the
+ * user.
+ */
+export interface SbUser {
   id: number
   name: string
-  email: string
-  emailVerified: boolean
 }
 
-/** Information about any user in the system, mainly things that represent the "identity" of the
- * user. */
-export interface User {
-  id: number
-  name: string
+/** Information about the current user. */
+export interface SelfUser extends SbUser {
+  email: string
+  emailVerified: boolean
 }
 
 /**
@@ -30,11 +30,11 @@ export interface UserProfile {
 
 /** Information returned for /users/:id/profile, intended to be able to fill out a profile page. */
 export interface GetUserProfilePayload {
-  user: User
+  user: SbUser
   profile: UserProfile
   matchHistory: {
     games: GameRecordJson[]
     maps: MapInfoJson[]
-    users: User[]
+    users: SbUser[]
   }
 }

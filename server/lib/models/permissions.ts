@@ -1,11 +1,11 @@
 import sql from 'sql-template-strings'
-import { Permissions } from '../../../common/users/permissions'
+import { SbPermissions } from '../../../common/users/permissions'
 import db, { DbClient } from '../db'
 import { Dbify } from '../db/types'
 
-type DbPermissions = Dbify<Permissions>
+type DbPermissions = Dbify<SbPermissions>
 
-function convertFromDb(props: DbPermissions): Permissions {
+function convertFromDb(props: DbPermissions): SbPermissions {
   return {
     editPermissions: props.edit_permissions,
     debug: props.debug,
@@ -20,7 +20,10 @@ function convertFromDb(props: DbPermissions): Permissions {
   }
 }
 
-export async function createPermissions(dbClient: DbClient, userId: number): Promise<Permissions> {
+export async function createPermissions(
+  dbClient: DbClient,
+  userId: number,
+): Promise<SbPermissions> {
   const query = sql`
     INSERT INTO permissions (user_id) VALUES (${userId}) RETURNING *;
   `
@@ -48,7 +51,7 @@ export async function getPermissions(userId: number) {
   }
 }
 
-export async function updatePermissions(userId: number, perms: Permissions) {
+export async function updatePermissions(userId: number, perms: SbPermissions) {
   const query = sql`
     UPDATE permissions
     SET

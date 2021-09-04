@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef } from 'react'
 import styled from 'styled-components'
-import { Permissions } from '../../common/users/permissions'
+import { SbPermissions } from '../../common/users/permissions'
 import form, { FormChildProps, FormWrapper } from '../forms/form'
 import { TextButton } from '../material/button'
 import CheckBox from '../material/check-box'
@@ -14,7 +14,7 @@ interface ExtraFormProps {
   isSelf: boolean
 }
 
-class UserPermissionsForm extends React.Component<FormChildProps<Permissions> & ExtraFormProps> {
+class UserPermissionsForm extends React.Component<FormChildProps<SbPermissions> & ExtraFormProps> {
   override render() {
     const { isSelf, onSubmit, bindCheckable } = this.props
     const inputProps = {
@@ -66,7 +66,7 @@ class UserPermissionsForm extends React.Component<FormChildProps<Permissions> & 
   }
 }
 
-const WrappedUserPermissionsForm = form<Permissions, ExtraFormProps>()(UserPermissionsForm)
+const WrappedUserPermissionsForm = form<SbPermissions, ExtraFormProps>()(UserPermissionsForm)
 
 export interface PermissionsResultProps {
   username: string
@@ -79,7 +79,7 @@ export default function PermissionsResult({ username }: PermissionsResultProps) 
   const formRef = useRef<typeof WrappedUserPermissionsForm>(null)
 
   const onSubmit = useCallback(
-    (form: FormWrapper<Permissions>) => {
+    (form: FormWrapper<SbPermissions>) => {
       const values = form.getModel()
       dispatch(setPermissions(username, values))
     },

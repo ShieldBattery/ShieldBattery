@@ -2,7 +2,7 @@ import { RouterContext } from '@koa/router'
 import Joi from 'joi'
 import { GetRankingsPayload, LadderPlayer } from '../../../common/ladder'
 import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
-import { User } from '../../../common/users/user-info'
+import { SbUser } from '../../../common/users/user-info'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpGet } from '../http/route-decorators'
 import { JobScheduler } from '../jobs/job-scheduler'
@@ -40,7 +40,7 @@ export class LadderApi {
     const rankings = await getRankings(params.matchmakingType)
 
     const players: LadderPlayer[] = []
-    const users: User[] = []
+    const users: SbUser[] = []
     for (const r of rankings) {
       players.push({
         rank: r.rank,

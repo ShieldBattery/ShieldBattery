@@ -1,5 +1,5 @@
 import { Session } from 'koa-generic-session'
-import { Permissions } from '../common/users/permissions'
+import { SbPermissions } from '../common/users/permissions'
 
 declare module 'koa' {
   interface AppSession extends Session {
@@ -7,7 +7,7 @@ declare module 'koa' {
     userName: string
     email: string
     emailVerified: boolean
-    permissions: Permissions
+    permissions: SbPermissions
   }
 
   // NOTE(tec27): We add a bunch of things to ExtendedContext so that koa-router's more generic

@@ -1,5 +1,5 @@
 import { PartyPayload, PartyUser } from '../../common/parties'
-import { User } from '../../common/users/user-info'
+import { SbUser } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
 export type PartyActions =
@@ -267,7 +267,7 @@ export interface InitParty {
   payload: {
     party: PartyPayload
     time: number
-    userInfos: User[]
+    userInfos: SbUser[]
   }
 }
 
@@ -277,7 +277,7 @@ export interface UpdateInvite {
     partyId: string
     invitedUser: PartyUser
     time: number
-    userInfo: User
+    userInfo: SbUser
   }
 }
 

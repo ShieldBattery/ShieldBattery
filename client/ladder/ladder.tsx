@@ -5,7 +5,7 @@ import { areEqual, FixedSizeList } from 'react-window'
 import styled from 'styled-components'
 import { LadderPlayer } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
-import { User } from '../../common/users/user-info'
+import { SbUser } from '../../common/users/user-info'
 import Avatar from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { animationFrameHandler, AnimationFrameHandler } from '../material/animation-frame-handler'
@@ -182,7 +182,7 @@ export interface LadderTableProps {
   totalCount: number
   isLoading: boolean
   players?: List<Readonly<LadderPlayer>>
-  usersById: Immutable<Map<number, User>>
+  usersById: Immutable<Map<number, SbUser>>
   lastError?: Error
 }
 

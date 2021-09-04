@@ -4,8 +4,8 @@ import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import createDeferred from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
-import { Permissions } from '../../../common/users/permissions'
-import { SelfUser, User } from '../../../common/users/user-info'
+import { SbPermissions } from '../../../common/users/permissions'
+import { SbUser, SelfUser } from '../../../common/users/user-info'
 import ChatService from '../chat/chat-service'
 import db from '../db'
 import transact from '../db/transaction'
@@ -59,7 +59,7 @@ function convertToExternalSelf(userInternal: UserInternal): SelfUser {
  * Converts a UserInternal into the relevant information for external APIs, when the specified user
  * is *not* the currently logged in user for this request.
  */
-function convertToExternal(userInternal: UserInternal): User {
+function convertToExternal(userInternal: UserInternal): SbUser {
   return {
     id: userInternal.id,
     name: userInternal.name,
@@ -79,7 +79,7 @@ export async function createUser({
   hashedPassword: string
   ipAddress: string
   createdDate?: Date
-}): Promise<{ user: SelfUser; permissions: Permissions }> {
+}): Promise<{ user: SelfUser; permissions: SbPermissions }> {
   const transactionCompleted = createDeferred<void>()
   transactionCompleted.catch(swallowNonBuiltins)
 
@@ -207,7 +207,7 @@ async function internalFindUserById(id: number): Promise<UserInternal | undefine
 }
 
 /** Returns the `User` with the specified `id`, or `undefined` if they don't exist. */
-export async function findUserById(id: number): Promise<User | undefined> {
+export async function findUserById(id: number): Promise<SbUser | undefined> {
   const result = await internalFindUserById(id)
   return result ? convertToExternal(result) : undefined
 }
@@ -236,7 +236,7 @@ async function internalFindUserByName(name: string): Promise<UserInternal | unde
 }
 
 /** Returns the `User` with the specified `name`, or `undefined` if they don't exist. */
-export async function findUserByName(name: string): Promise<User | undefined> {
+export async function findUserByName(name: string): Promise<SbUser | undefined> {
   const user = await internalFindUserByName(name)
   return user ? convertToExternal(user) : undefined
 }
@@ -245,12 +245,12 @@ export async function findUserByName(name: string): Promise<User | undefined> {
  * Returns a `Map` of name -> `User` for a given list of names. Any names that can't be found won't
  * be present in the resulting `Map`.
  */
-export async function findUsersByName(names: string[]): Promise<Map<string, User>> {
+export async function findUsersByName(names: string[]): Promise<Map<string, SbUser>> {
   // TODO(tec27): Should this just return an array and let callers make the Map if they want?
   const { client, done } = await db()
   try {
     const result = await client.query<DbUser>(sql`SELECT * FROM users WHERE name = ANY (${names})`)
-    return new Map<string, User>(
+    return new Map<string, SbUser>(
       result.rows.map(row => [row.name, convertToExternal(convertFromDb(row))]),
     )
   } finally {
@@ -262,12 +262,12 @@ export async function findUsersByName(names: string[]): Promise<Map<string, User
  * Returns a `Map` of id -> `User` for a given list of IDs. Any IDs that can't be found won't
  * be present in the resulting `Map`.
  */
-export async function findUsersById(ids: number[]): Promise<Map<number, User>> {
+export async function findUsersById(ids: number[]): Promise<Map<number, SbUser>> {
   // TODO(tec27): Should this just return an array and let callers make the Map if they want?
   const { client, done } = await db()
   try {
     const result = await client.query<DbUser>(sql`SELECT * FROM users WHERE id = ANY (${ids})`)
-    return new Map<number, User>(
+    return new Map<number, SbUser>(
       result.rows.map(row => [row.id, convertToExternal(convertFromDb(row))]),
     )
   } finally {
@@ -294,7 +294,7 @@ export async function maybeMigrateSignupIp(userId: number, ipAddress: string): P
 /**
  * Returns all the `User`s that have a matching email address.
  */
-export async function findAllUsersWithEmail(email: string): Promise<User[]> {
+export async function findAllUsersWithEmail(email: string): Promise<SbUser[]> {
   const { client, done } = await db()
   try {
     const result = await client.query<DbUser>(sql`SELECT name FROM users WHERE email = ${email}`)

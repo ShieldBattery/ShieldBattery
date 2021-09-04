@@ -1,6 +1,6 @@
 import { Map, OrderedSet, Set } from 'immutable'
 import { singleton } from 'tsyringe'
-import { User } from '../../../common/users/user-info'
+import { SbUser } from '../../../common/users/user-info'
 import {
   GetSessionHistoryServerPayload,
   WhisperEvent,
@@ -190,7 +190,7 @@ export default class WhisperService {
     return userSockets
   }
 
-  async getUserByName(name: string): Promise<User> {
+  async getUserByName(name: string): Promise<SbUser> {
     const foundUser = await findUserByName(name)
     if (!foundUser) {
       throw new WhisperServiceError(WhisperServiceErrorCode.UserNotFound, 'User not found')
@@ -199,7 +199,7 @@ export default class WhisperService {
     return foundUser
   }
 
-  async getUserById(id: number): Promise<User> {
+  async getUserById(id: number): Promise<SbUser> {
     const foundUser = await findUserById(id)
     if (!foundUser) {
       throw new WhisperServiceError(WhisperServiceErrorCode.UserNotFound, 'User not found')
@@ -214,7 +214,7 @@ export default class WhisperService {
     return isUserOnline ? WhisperUserStatus.Active : WhisperUserStatus.Offline
   }
 
-  private subscribeUserToWhisperSession(userSockets: UserSocketsGroup, target: User) {
+  private subscribeUserToWhisperSession(userSockets: UserSocketsGroup, target: SbUser) {
     userSockets.subscribe<WhisperSessionInitEvent>(
       getSessionPath(userSockets.name, target.name),
       () => ({
@@ -230,7 +230,7 @@ export default class WhisperService {
     userSockets.unsubscribe(getSessionPath(userSockets.name, targetName))
   }
 
-  private async ensureWhisperSession(user: User, target: User) {
+  private async ensureWhisperSession(user: SbUser, target: SbUser) {
     await dbStartWhisperSession(user.id, target.id)
 
     const userSockets = this.userSocketsManager.getById(user.id)

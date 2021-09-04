@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { GameRecordJson } from '../../common/games/games'
 import { ReconciledResult } from '../../common/games/results'
-import { User } from '../../common/users/user-info'
+import { SbUser } from '../../common/users/user-info'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { RaceIcon } from '../lobbies/race-icon'
 import { batchGetMapInfo } from '../maps/action-creators'
@@ -261,7 +261,7 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
     return onlyHumans.map(p => s.users.byId.get(p.id)!)
   })
   const playersMapping = useMemo(
-    () => new Map<number, User>(players.map(p => [p.id, p])),
+    () => new Map<number, SbUser>(players.map(p => [p.id, p])),
     [players],
   )
 

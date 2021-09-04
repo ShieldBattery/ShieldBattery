@@ -8,9 +8,9 @@ import { isValidEmail, isValidPassword, isValidUsername } from '../../../common/
 import { LadderPlayer } from '../../../common/ladder'
 import { toMapInfoJson } from '../../../common/maps'
 import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
-import { Permissions } from '../../../common/users/permissions'
+import { SbPermissions } from '../../../common/users/permissions'
 import { ClientSessionInfo } from '../../../common/users/session'
-import { GetUserProfilePayload, SelfUser, User } from '../../../common/users/user-info'
+import { GetUserProfilePayload, SbUser, SelfUser } from '../../../common/users/user-info'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { HttpErrorWithPayload } from '../errors/error-with-payload'
@@ -91,7 +91,7 @@ export class UserApi {
 
     const hashedPassword = await hashPass(password)
 
-    let createdUser: { user: SelfUser; permissions: Permissions } | undefined
+    let createdUser: { user: SelfUser; permissions: SbPermissions } | undefined
     try {
       createdUser = await createUser({ name: username, email, hashedPassword, ipAddress: ctx.ip })
     } catch (err) {
@@ -390,7 +390,7 @@ export class UserApi {
 export class AdminUserApi {
   @httpGet('/:searchTerm')
   @httpBefore(checkAnyPermission('banUsers', 'editPermissions'))
-  async findUser(ctx: RouterContext): Promise<User[]> {
+  async findUser(ctx: RouterContext): Promise<SbUser[]> {
     const searchTerm = ctx.params.searchTerm
 
     try {

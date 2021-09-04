@@ -1,11 +1,11 @@
 import { List } from 'immutable'
 import React from 'react'
 import { LadderPlayer } from '../../../common/ladder'
-import { User } from '../../../common/users/user-info'
+import { SbUser } from '../../../common/users/user-info'
 import { LadderTable } from '../ladder'
 
 const PLAYERS: LadderPlayer[] = []
-const usersById: Map<number, User> = new Map()
+const usersById: Map<number, SbUser> = new Map()
 
 let curRating = 2200
 const NOW = Date.now()

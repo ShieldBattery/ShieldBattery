@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import styled from 'styled-components'
 import { GameRecordJson } from '../../../common/games/games'
-import { User, UserProfile } from '../../../common/users/user-info'
+import { SbUser, UserProfile } from '../../../common/users/user-info'
 import { background700 } from '../../styles/colors'
 import { UserProfilePage } from '../user-profile'
 import { UserProfileSubPage } from '../user-profile-sub-page'
@@ -50,7 +50,7 @@ const PROFILE: UserProfile = {
 const MATCH_HISTORY: GameRecordJson[] = []
 
 export function ProfilePageTest() {
-  const [user] = useState<User>({ id: PROFILE.userId, name: '[TL] BigFan' })
+  const [user] = useState<SbUser>({ id: PROFILE.userId, name: '[TL] BigFan' })
   const [profile] = useState<UserProfile>(PROFILE)
   const [subPage, setSubPage] = useState<UserProfileSubPage>()
 

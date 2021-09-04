@@ -1,4 +1,4 @@
-import { User } from './users/user-info'
+import { SbUser } from './users/user-info'
 
 export enum ChatMessageType {
   TextMessage = 'message',
@@ -39,7 +39,7 @@ export interface ChatJoinEvent {
   /** A user that has joined the chat channel. */
   channelUser: ChatUser
   /** A user info for the channel user that was returned in the `channelUser` property. */
-  user: User
+  user: SbUser
 }
 
 export interface ChatLeaveEvent {
@@ -89,5 +89,5 @@ export interface GetChannelUsersServerPayload {
   /** A list of the users that are in the chat channel. */
   channelUsers: ChatUser[]
   /** A list of user infos for channel users that are in the returned `channelUsers` list. */
-  users: User[]
+  users: SbUser[]
 }

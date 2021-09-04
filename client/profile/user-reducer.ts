@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
 import { GameRecordJson } from '../../common/games/games'
-import { User, UserProfile } from '../../common/users/user-info'
+import { SbUser, UserProfile } from '../../common/users/user-info'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface UserRequestInfo {
@@ -10,7 +10,7 @@ export interface UserRequestInfo {
 
 export interface UserState {
   /** A map of user ID -> user information. */
-  byId: Map<number, User>
+  byId: Map<number, SbUser>
   /** A map of username -> user ID. */
   usernameToId: Map<string, number>
   // TODO(tec27): Make a reducer specifically to handle match history
@@ -39,7 +39,7 @@ const DEFAULT_STATE: Immutable<UserState> = {
   usernameLoadsInProgress: new Map(),
 }
 
-function updateUsers(state: UserState, users: User[]) {
+function updateUsers(state: UserState, users: SbUser[]) {
   for (const user of users) {
     const userState = state.byId.get(user.id)
     if (userState) {
