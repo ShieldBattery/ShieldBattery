@@ -73,7 +73,7 @@ interface Match {
 }
 
 interface QueueEntry {
-  username: string
+  userId: SbUserId
   type: MatchmakingType
 }
 
@@ -169,7 +169,7 @@ export class MatchmakingService {
     },
     onAccepted: async (matchInfo, clients) => {
       for (const client of clients) {
-        this.queueEntries.delete(client.name)
+        this.queueEntries.delete(client.userId)
       }
 
       let slots: Slot[]
@@ -241,7 +241,7 @@ export class MatchmakingService {
     },
     onDeclined: (matchInfo, requeueClients, kickClients) => {
       for (const client of kickClients) {
-        this.queueEntries.delete(client.name)
+        this.queueEntries.delete(client.userId)
         this.publishToActiveClient(client.userId, {
           type: 'acceptTimeout',
         })
@@ -258,7 +258,7 @@ export class MatchmakingService {
     },
     onError: (err, clients) => {
       for (const client of clients) {
-        if (this.clientTimers.has(client.name)) {
+        if (this.clientTimers.has(client.userId)) {
           // TODO(tec27): this event really needs a gameId and some better info about why we're
           // canceling
           this.publishToActiveClient(client.userId, {
@@ -274,7 +274,7 @@ export class MatchmakingService {
 
   private matchmakerDelegate: MatchmakerCallbacks = {
     onMatchFound: (player: Readonly<MatchmakingPlayer>, opponent: Readonly<MatchmakingPlayer>) => {
-      const { type } = this.queueEntries.get(player.name)!
+      const { type } = this.queueEntries.get(player.id)!
       const matchInfo: Match = {
         type,
         players: [player, opponent],
@@ -357,9 +357,9 @@ export class MatchmakingService {
           try {
             const mapSelectionTimer = createDeferred<void>()
             mapSelectionTimer.catch(swallowNonBuiltins)
-            let timers = this.clientTimers.get(client.name) ?? { cancelToken }
+            let timers = this.clientTimers.get(client.userId) ?? { cancelToken }
             timers.mapSelectionTimer = mapSelectionTimer
-            this.clientTimers.set(client.name, timers)
+            this.clientTimers.set(client.userId, timers)
             mapSelectionTimerId = setTimeout(() => mapSelectionTimer.resolve(), 5000)
             await mapSelectionTimer
             cancelToken.throwIfCancelling()
@@ -374,9 +374,9 @@ export class MatchmakingService {
 
             const countdownTimer = createDeferred<void>()
             countdownTimer.catch(swallowNonBuiltins)
-            timers = this.clientTimers.get(client.name) ?? { cancelToken }
+            timers = this.clientTimers.get(client.userId) ?? { cancelToken }
             timers.countdownTimer = countdownTimer
-            this.clientTimers.set(client.name, timers)
+            this.clientTimers.set(client.userId, timers)
             countdownTimerId = setTimeout(() => countdownTimer.resolve(), 5000)
 
             await countdownTimer
@@ -435,10 +435,10 @@ export class MatchmakingService {
     MATCHMAKING_ACCEPT_MATCH_TIME + ACCEPT_MATCH_LATENCY,
     this.matchAcceptorDelegate,
   )
-  // Maps username -> QueueEntry
-  private queueEntries = new Map<string, QueueEntry>()
-  // Maps username -> Timers
-  private clientTimers = new Map<string, Timers>()
+  // Maps user ID -> QueueEntry
+  private queueEntries = new Map<SbUserId, QueueEntry>()
+  // Maps user ID -> Timers
+  private clientTimers = new Map<SbUserId, Timers>()
 
   constructor(
     private publisher: TypedPublisher<ReadonlyDeep<MatchmakingEvent>>,
@@ -460,15 +460,16 @@ export class MatchmakingService {
   }
 
   private unregisterActivity(client: ClientSocketsGroup) {
-    activityRegistry.unregisterClientForUser(client.userId)
-    this.publishToUser(client.name, {
+    const { userId } = client
+    activityRegistry.unregisterClientForUser(userId)
+    this.publishToUser(userId, {
       type: 'queueStatus',
       matchmaking: undefined,
     })
 
-    const userSockets = this.userSocketsManager.getById(client.userId)
+    const userSockets = this.userSocketsManager.getById(userId)
     if (userSockets) {
-      userSockets.unsubscribe(MatchmakingService.getUserPath(client.name))
+      userSockets.unsubscribe(MatchmakingService.getUserPath(userId))
     }
     client.unsubscribe(MatchmakingService.getClientPath(client))
   }
@@ -520,13 +521,13 @@ export class MatchmakingService {
 
     this.matchmakers.get(type)!.addToQueue(player)
 
-    this.queueEntries = this.queueEntries.set(userSockets.name, {
+    this.queueEntries = this.queueEntries.set(userSockets.userId, {
       type,
-      username: userSockets.name,
+      userId: userSockets.userId,
     })
 
     userSockets.subscribe<MatchmakingEvent>(
-      MatchmakingService.getUserPath(userSockets.name),
+      MatchmakingService.getUserPath(userSockets.userId),
       () => {
         return {
           type: 'queueStatus',
@@ -544,7 +545,7 @@ export class MatchmakingService {
   async cancel(userId: SbUserId) {
     const userSockets = this.getUserSocketsOrFail(userId)
     const clientSockets = activityRegistry.getClientForUser(userSockets.userId)
-    if (!clientSockets || !this.queueEntries.has(userSockets.name)) {
+    if (!clientSockets || !this.queueEntries.has(userSockets.userId)) {
       throw new MatchmakingServiceError(
         MatchmakingServiceErrorCode.NotInQueue,
         'User does not have an active matchmaking queue',
@@ -568,11 +569,11 @@ export class MatchmakingService {
   private removeClientFromMatchmaking(client: ClientSocketsGroup, isDisconnect = true) {
     // NOTE(2Pac): Client can leave, i.e. disconnect, during the queueing process, during the
     // loading process, or even during the game process.
-    const entry = this.queueEntries.get(client.name)
+    const entry = this.queueEntries.get(client.userId)
     // Means the client disconnected during the queueing process
     if (entry) {
-      this.queueEntries.delete(client.name)
-      const player = this.matchmakers.get(entry.type)!.removeFromQueue(entry.username)
+      this.queueEntries.delete(client.userId)
+      const player = this.matchmakers.get(entry.type)!.removeFromQueue(entry.userId)
       this.acceptor.registerDisconnect(client)
 
       if (player) {
@@ -589,8 +590,10 @@ export class MatchmakingService {
     }
 
     // Means the client disconnected during the loading process
-    if (this.clientTimers.has(client.name)) {
-      const { mapSelectionTimer, countdownTimer, cancelToken } = this.clientTimers.get(client.name)!
+    if (this.clientTimers.has(client.userId)) {
+      const { mapSelectionTimer, countdownTimer, cancelToken } = this.clientTimers.get(
+        client.userId,
+      )!
       if (countdownTimer) {
         countdownTimer.reject(new Error('Countdown cancelled'))
       }
@@ -600,7 +603,7 @@ export class MatchmakingService {
 
       cancelToken.cancel()
 
-      this.clientTimers.delete(client.name)
+      this.clientTimers.delete(client.userId)
     }
 
     this.unregisterActivity(client)
@@ -630,8 +633,8 @@ export class MatchmakingService {
     return clientSockets
   }
 
-  private publishToUser(username: string, data?: ReadonlyDeep<MatchmakingEvent>) {
-    this.publisher.publish(MatchmakingService.getUserPath(username), data)
+  private publishToUser(userId: SbUserId, data?: ReadonlyDeep<MatchmakingEvent>) {
+    this.publisher.publish(MatchmakingService.getUserPath(userId), data)
   }
 
   private publishToActiveClient(userId: SbUserId, data?: ReadonlyDeep<MatchmakingEvent>): boolean {
@@ -644,11 +647,11 @@ export class MatchmakingService {
     }
   }
 
-  static getUserPath(username: string) {
-    return `/matchmaking/${encodeURIComponent(username)}`
+  static getUserPath(userId: SbUserId) {
+    return `/matchmaking/${userId}`
   }
 
   static getClientPath(client: ClientSocketsGroup) {
-    return `/matchmaking/${client.userId}/${client.clientId}`
+    return `/matchmaking/${client.userId}/${encodeURIComponent(client.clientId)}`
   }
 }

@@ -3,6 +3,7 @@ import IntervalTree from 'node-interval-tree'
 import { injectable } from 'tsyringe'
 import { range } from '../../../common/range'
 import { ExponentialSmoothValue } from '../../../common/statistics/exponential-smoothing'
+import { SbUserId } from '../../../common/users/user-info'
 import logger from '../logging/logger'
 import { LazyScheduler } from './lazy-scheduler'
 import { isNewPlayer, MatchmakingInterval, MatchmakingPlayer } from './matchmaking-player'
@@ -186,7 +187,7 @@ type OpponentChooser = (
 @injectable()
 export class Matchmaker {
   protected tree = new IntervalTree<QueuedMatchmakingPlayer>()
-  protected players = OrderedMap<string, QueuedMatchmakingPlayer>()
+  protected players = OrderedMap<SbUserId, QueuedMatchmakingPlayer>()
 
   readonly populationCurrent = Array.from(range(0, POPULATION_NUM_BUCKETS), () => 0)
   readonly populationPeak = Array.from(range(0, POPULATION_NUM_BUCKETS), () => 0)
@@ -250,7 +251,7 @@ export class Matchmaker {
    * @returns `true` if the player was not already in the queue, `false` otherwise
    */
   addToQueue(player: MatchmakingPlayer): boolean {
-    if (this.players.has(player.name)) {
+    if (this.players.has(player.id)) {
       return false
     }
 
@@ -259,7 +260,7 @@ export class Matchmaker {
 
     const isAdded = this.insertInTree(queuedPlayer)
     if (isAdded) {
-      this.players = this.players.set(queuedPlayer.name, queuedPlayer)
+      this.players = this.players.set(queuedPlayer.id, queuedPlayer)
 
       const popBucket = getPopulationBucket(queuedPlayer.rating)
       const newPop = this.populationCurrent[popBucket] + 1
@@ -278,14 +279,14 @@ export class Matchmaker {
    *
    * @returns the player's `MatchmakingPlayer` structure if they were queued, otherwise `undefined`
    */
-  removeFromQueue(playerName: string): MatchmakingPlayer | undefined {
-    if (!this.players.has(playerName)) {
+  removeFromQueue(playerId: SbUserId): MatchmakingPlayer | undefined {
+    if (!this.players.has(playerId)) {
       return undefined
     }
-    const player = this.players.get(playerName)!
+    const player = this.players.get(playerId)!
     const isRemoved = this.removeFromTree(player)
     if (isRemoved) {
-      this.players = this.players.delete(player.name)
+      this.players = this.players.delete(playerId)
       this.onPlayerRemoved(player)
     }
     return player
@@ -408,8 +409,8 @@ export class Matchmaker {
         this.removeFromTree(opponent)
 
         // Remove the matched players from the queue we use for iteration
-        this.players = this.players.delete(player.name)
-        this.players = this.players.delete(opponent.name)
+        this.players = this.players.delete(player.id)
+        this.players = this.players.delete(opponent.id)
 
         // Since our iteration method returns the whole queue at once, the opponent will still be
         // iterated over, even though we removed them from the queue; To stop that from happening,
@@ -424,7 +425,7 @@ export class Matchmaker {
         // No matches for this player. Increase their search interval and re-add them to the tree
 
         this.insertInTree(player)
-        this.players = this.players.set(player.name, player)
+        this.players = this.players.set(player.id, player)
       }
     }
 
