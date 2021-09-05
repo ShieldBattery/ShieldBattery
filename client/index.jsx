@@ -6,7 +6,7 @@ import { Provider as ReduxProvider } from 'react-redux'
 import { Router } from 'wouter'
 import { AUDIO_MANAGER_INITIALIZED } from './actions'
 import App from './app'
-import audioManager from './audio/audio-manager-instance'
+import audioManager from './audio/audio-manager'
 import { bootstrapSession, getCurrentSession } from './auth/action-creators'
 import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
@@ -103,7 +103,7 @@ const rootElemPromise = new Promise((resolve, reject) => {
   })
 })
 
-const initAudioPromise = audioManager ? audioManager.initialize() : Promise.resolve()
+const initAudioPromise = audioManager.initialize()
 
 Promise.all([rootElemPromise])
   .then(async ([elem]) => {

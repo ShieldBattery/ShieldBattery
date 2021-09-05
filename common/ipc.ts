@@ -19,9 +19,15 @@ interface IpcInvokeables {
 
   mapStoreDownloadMap: (hash: string, format: string, mapUrl: string) => Promise<boolean>
 
+  pathsGetDocumentsPath: () => Promise<string>
+
   settingsCheckStarcraftPath: (
     path: string,
   ) => Promise<{ path: boolean; version: boolean; remastered: boolean }>
+  settingsBrowseForStarcraft: (
+    defaultPath: string,
+  ) => Promise<{ canceled: boolean; filePaths: string[] }>
+  settingsGetPrimaryResolution: () => Promise<{ width: number; height: number }>
   settingsOverwriteBlizzardFile: () => void
 
   shieldbatteryCheckFiles: () => Promise<ShieldBatteryFileResult[]>

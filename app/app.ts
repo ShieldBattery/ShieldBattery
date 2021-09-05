@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import { app, BrowserWindow, dialog, protocol, Session, shell } from 'electron'
+import { app, BrowserWindow, dialog, protocol, screen, Session, shell } from 'electron'
 import isDev from 'electron-is-dev'
 import localShortcut from 'electron-localshortcut'
 import { autoUpdater } from 'electron-updater'
@@ -61,9 +61,6 @@ protocol.registerSchemesAsPrivileged([
     },
   },
 ])
-
-// TODO(tec27): Make process/native context-aware and then set this to true
-app.allowRendererProcessReuse = false
 
 // Keep a reference to the window and system tray objects so they don't get GC'd and closed
 let mainWindow: BrowserWindow | null
@@ -250,8 +247,27 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
     }
   })
 
+  ipcMain.handle('pathsGetDocumentsPath', async event => {
+    return app.getPath('documents')
+  })
+
   ipcMain.handle('settingsCheckStarcraftPath', async (event, path) => {
     return checkStarcraftPath(path)
+  })
+
+  ipcMain.handle('settingsBrowseForStarcraft', async (event, defaultPath) => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow!, {
+      title: 'Select StarCraft folder',
+      defaultPath,
+      properties: ['openDirectory'],
+    })
+
+    return { canceled, filePaths }
+  })
+
+  ipcMain.handle('settingsGetPrimaryResolution', async event => {
+    const primaryDisplay = screen.getPrimaryDisplay()
+    return primaryDisplay.size
   })
 
   const activeGameManager = container.resolve(ActiveGameManager)
@@ -399,9 +415,6 @@ async function createWindow() {
     title: 'ShieldBattery',
     webPreferences: {
       session: curSession,
-      // TODO(tec27): Implement other ways to IPC than using the remote module, it's slow, and a
-      // potential security risk
-      enableRemoteModule: true,
       // TODO(tec27): Figure out a path to turning this off as it's a security risk
       nodeIntegration: true,
       // TODO(tec27): Ideally we'd turn these options on as well (note that these get turned on
@@ -523,7 +536,7 @@ app.on('ready', async () => {
         mainWindow?.isMaximized() ?? false,
       )
     })
-  } catch (err) {
+  } catch (err: any) {
     logger.error('Error initializing: ' + err)
     console.error(err)
     dialog.showErrorBox(

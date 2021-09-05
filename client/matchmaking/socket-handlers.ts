@@ -10,8 +10,7 @@ import {
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
 } from '../../common/matchmaking'
 import { ACTIVE_GAME_LAUNCH } from '../actions'
-import AudioManager from '../audio/audio-manager'
-import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
+import audioManager, { AudioManager, AvailableSound } from '../audio/audio-manager'
 import { closeDialog, openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { dispatch, Dispatchable } from '../dispatch-registry'
@@ -69,8 +68,8 @@ function fadeAtmosphere(fast = true) {
   const { atmosphere } = countdownState
   if (atmosphere) {
     const timing = fast ? 1.5 : 3
-    atmosphere.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager!.currentTime + timing)
-    atmosphere.source.stop(audioManager!.currentTime + timing + 0.1)
+    atmosphere.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager.currentTime + timing)
+    atmosphere.source.stop(audioManager.currentTime + timing + 0.1)
     countdownState.atmosphere = undefined
   }
 }
@@ -81,8 +80,8 @@ function clearCountdownTimer(leaveAtmosphere = false) {
     countdownState.timer = undefined
   }
   if (sound) {
-    sound.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager!.currentTime + 0.5)
-    sound.source.stop(audioManager!.currentTime + 0.6)
+    sound.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager.currentTime + 0.5)
+    sound.source.stop(audioManager.currentTime + 0.6)
     countdownState.sound = undefined
   }
   if (!leaveAtmosphere && atmosphere) {
@@ -94,7 +93,7 @@ const eventToAction: EventToActionMap = {
   matchFound: (matchmakingType, event) => {
     ipcRenderer.send('userAttentionRequired')
 
-    audioManager?.playSound(SOUNDS.MATCH_FOUND)
+    audioManager.playSound(AvailableSound.MatchFound)
 
     clearRequeueTimer()
     clearAcceptMatchTimer()
@@ -234,8 +233,8 @@ const eventToAction: EventToActionMap = {
       payload: tick,
     })
 
-    countdownState.sound = audioManager?.playFadeableSound(SOUNDS.COUNTDOWN)
-    countdownState.atmosphere = audioManager?.playFadeableSound(SOUNDS.ATMOSPHERE)
+    countdownState.sound = audioManager.playFadeableSound(AvailableSound.Countdown)
+    countdownState.atmosphere = audioManager.playFadeableSound(AvailableSound.Atmosphere)
 
     countdownState.timer = setInterval(() => {
       tick -= 1

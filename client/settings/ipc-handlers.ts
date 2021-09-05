@@ -6,7 +6,7 @@ import {
   SCR_SETTINGS_UPDATE,
   SHIELDBATTERY_FILES_VALIDITY,
 } from '../actions'
-import audioManager from '../audio/audio-manager-instance'
+import audioManager from '../audio/audio-manager'
 import { dispatch } from '../dispatch-registry'
 import { handleCheckStarcraftPathResult } from '../starcraft/action-creators'
 
@@ -22,7 +22,7 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
       } as any)
 
       if (settings.masterVolume !== lastMasterVolume) {
-        audioManager?.setMasterVolume(settings.masterVolume)
+        audioManager.setMasterVolume(settings.masterVolume!)
       }
       lastMasterVolume = settings.masterVolume
 

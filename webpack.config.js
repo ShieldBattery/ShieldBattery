@@ -30,7 +30,7 @@ const webBabelOpts = {
     [
       '@babel/preset-env',
       {
-        targets: { electron: '13.0' },
+        targets: { electron: '14.0' },
         modules: false,
         useBuiltIns: 'usage',
         corejs: 3,

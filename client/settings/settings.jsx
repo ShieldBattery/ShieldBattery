@@ -1,6 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
+import { TypedIpcRenderer } from '../../common/ipc'
 import { closeDialog, openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import SetPathIcon from '../icons/material/ic_settings_black_36px.svg'
@@ -18,8 +19,7 @@ import { LocalSettings, ScrSettings } from './settings-records'
 import SoundSettings from './sound-settings'
 import VideoSettings from './video-settings'
 
-const screen = IS_ELECTRON ? require('electron').remote.screen : null
-const getResolution = () => screen.getPrimaryDisplay().size
+const ipcRenderer = new TypedIpcRenderer()
 
 const TitleActionContainer = styled.div`
   display: flex;
@@ -63,14 +63,11 @@ export default class Settings extends React.Component {
     activeTab: TAB_APP,
     tempLocalSettings: new LocalSettings(this.props.settings.local),
     tempScrSettings: new ScrSettings(this.props.settings.scr),
+    resolution: { width: 640, height: 480 },
   }
 
   _form = React.createRef()
   _saveButton = React.createRef()
-  // NOTE(tec27): Slight optimizaton, since getting the resolution is IPC'd. We assume it will
-  // never change while this form is up. I think this is mostly true (and at worst, you just close
-  // Settings and re-open it and you're fine)
-  _resolution = getResolution()
 
   static getDerivedStateFromProps(props, state) {
     // This is needed due to us opening the Settings dialog at the same time as saving the new
@@ -86,6 +83,9 @@ export default class Settings extends React.Component {
   }
 
   componentDidMount() {
+    ipcRenderer.invoke('settingsGetPrimaryResolution').then(size => {
+      this.setState({ resolution: size })
+    })
     this._saveButton.current.focus()
   }
 
@@ -130,7 +130,7 @@ export default class Settings extends React.Component {
           <VideoSettings
             localSettings={local}
             scrSettings={scr}
-            resolution={this._resolution}
+            resolution={this.state.resolution}
             formRef={this._form}
             isRemastered={isRemastered}
             onChange={this.onSettingsChange}

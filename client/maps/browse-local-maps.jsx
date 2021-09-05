@@ -1,9 +1,9 @@
-import { remote } from 'electron'
 import path from 'path'
 import PropTypes from 'prop-types'
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
+import { TypedIpcRenderer } from '../../common/ipc'
 import ActivityBackButton from '../activities/activity-back-button'
 import BrowseFiles from '../file-browser/browse-files'
 import MapIcon from '../icons/material/ic_terrain_black_24px.svg'
@@ -19,10 +19,22 @@ const LoadingArea = styled.div`
   height: 100%;
 `
 
+const ipcRenderer = new TypedIpcRenderer()
+
 @connect(state => ({ localMaps: state.localMaps, settings: state.settings }))
 export default class LocalMaps extends React.Component {
+  state = {
+    documentsPath: undefined,
+  }
+
   static propTypes = {
     onMapSelect: PropTypes.func,
+  }
+
+  componentDidMount() {
+    ipcRenderer.invoke('pathsGetDocumentsPath').then(documentsPath => {
+      this.setState({ documentsPath: path.join(documentsPath, 'Starcraft', 'maps') })
+    })
   }
 
   componentDidUpdate(prevProps) {
@@ -37,7 +49,7 @@ export default class LocalMaps extends React.Component {
   }
 
   render() {
-    if (!this.props.settings.local.starcraftPath) {
+    if (!this.props.settings.local.starcraftPath || !this.state.documentsPath) {
       return null
     }
 
@@ -61,7 +73,7 @@ export default class LocalMaps extends React.Component {
     const downloadsFolder = {
       id: 'documents',
       name: 'Documents folder',
-      path: path.join(remote.app.getPath('documents'), 'Starcraft', 'maps'),
+      path: this.state.documentsPath,
     }
     const props = {
       browseId: 'maps',

@@ -14,9 +14,6 @@ import { colorError } from '../styles/colors'
 import { SubheadingOld } from '../styles/typography'
 import { mergeLocalSettings } from './action-creators'
 
-const currentWindow = IS_ELECTRON ? require('electron').remote.getCurrentWindow() : null
-const dialog = IS_ELECTRON ? require('electron').remote.dialog : null
-
 const ipcRenderer = new TypedIpcRenderer()
 
 const starcraftPathValidator = () => {
@@ -89,12 +86,7 @@ class StarcraftPathForm extends React.Component {
     const { getInputValue, setInputValue } = this.props
     const currentPath = getInputValue('path') || ''
 
-    // TODO(tec27): do this over IPC instead
-    const selection = await dialog.showOpenDialog(currentWindow, {
-      title: 'Select StarCraft folder',
-      defaultPath: currentPath,
-      properties: ['openDirectory'],
-    })
+    const selection = await ipcRenderer.invoke('settingsBrowseForStarcraft', currentPath)
     const selectedPath = selection.filePaths[0]
     this._browseButtonRef.current.blur()
 

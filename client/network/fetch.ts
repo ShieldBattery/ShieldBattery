@@ -41,7 +41,10 @@ const defaults: RequestInit = {
   credentials: 'include',
 }
 export function fetchRaw(path: string, opts?: RequestInit): Promise<Response> {
-  const serverUrl = path.startsWith('http') ? path : makeServerUrl(path)
+  const serverUrl =
+    path.startsWith('http:') || path.startsWith('https:') || path.startsWith('shieldbattery:')
+      ? path
+      : makeServerUrl(path)
   if (!opts) {
     return fetch(serverUrl, defaults)
   }

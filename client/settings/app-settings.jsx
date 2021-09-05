@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
-import audioManager, { SOUNDS } from '../audio/audio-manager-instance'
+import audioManager, { AvailableSound } from '../audio/audio-manager'
 import form from '../forms/form'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import PlayIcon from '../icons/material/play_arrow-24px.svg'
@@ -166,7 +166,7 @@ export default class AppSettings extends React.Component {
     }
 
     this.setState({ isPlayingTestSound: true })
-    this._sound = audioManager.playSound(SOUNDS.MATCH_FOUND)
+    this._sound = audioManager.playSound(AvailableSound.MatchFound)
     this._sound.onended = this._cleanup
   }
 
