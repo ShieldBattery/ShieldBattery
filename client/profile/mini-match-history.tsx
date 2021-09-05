@@ -5,10 +5,8 @@ import styled from 'styled-components'
 import { GameRecordJson } from '../../common/games/games'
 import { ReconciledResult } from '../../common/games/results'
 import { SbUser, SbUserId } from '../../common/users/user-info'
-import { openSimpleDialog } from '../dialogs/action-creators'
 import { RaceIcon } from '../lobbies/race-icon'
-import { batchGetMapInfo } from '../maps/action-creators'
-import MapPreview from '../maps/map-preview'
+import { batchGetMapInfo, openMapPreviewDialog } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
@@ -270,7 +268,7 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
       return
     }
 
-    dispatch(openSimpleDialog(map.name, <MapPreview map={map} />, false /* hasButton */))
+    dispatch(openMapPreviewDialog(map.id))
   }, [map, dispatch])
 
   useEffect(() => {

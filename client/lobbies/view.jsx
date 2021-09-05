@@ -2,9 +2,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { Route, Switch } from 'wouter'
-import { openSimpleDialog } from '../dialogs/action-creators'
-import { toggleFavoriteMap } from '../maps/action-creators'
-import MapPreview from '../maps/map-preview'
+import { openMapPreviewDialog, toggleFavoriteMap } from '../maps/action-creators'
 import { push, replace } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
 import {
@@ -280,7 +278,7 @@ export default class LobbyView extends React.Component {
       },
     } = this.props
 
-    this.props.dispatch(openSimpleDialog(map.name, <MapPreview map={map} />, false /* hasButton */))
+    this.props.dispatch(openMapPreviewDialog(map.id))
   }
 
   onToggleFavoriteMap = () => {

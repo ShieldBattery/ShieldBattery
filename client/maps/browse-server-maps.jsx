@@ -7,7 +7,6 @@ import styled from 'styled-components'
 import { ALL_TILESETS, MapSortType, MapVisibility } from '../../common/maps'
 import { openOverlay } from '../activities/action-creators'
 import ActivityBackButton from '../activities/activity-back-button'
-import { openSimpleDialog } from '../dialogs/action-creators'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import ImageList from '../material/image-list'
 import { TabItem, Tabs } from '../material/tabs'
@@ -18,11 +17,11 @@ import {
   clearMapsList,
   getMapPreferences,
   getMapsList,
+  openMapPreviewDialog,
   toggleFavoriteMap,
   updateMapPreferences,
 } from './action-creators'
 import { BrowserFooter as Footer } from './browser-footer'
-import MapPreview from './map-preview'
 import { MapThumbnail } from './map-thumbnail'
 
 const MAPS_LIMIT = 30
@@ -453,7 +452,7 @@ export default class Maps extends React.Component {
   }
 
   onMapPreview = map => {
-    this.props.dispatch(openSimpleDialog(map.name, <MapPreview map={map} />, false /* hasButton */))
+    this.props.dispatch(openMapPreviewDialog(map.id))
   }
 
   onToggleFavoriteMap = map => {

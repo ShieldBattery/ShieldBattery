@@ -12,6 +12,7 @@ import { useExternalElementRef } from '../dom/use-external-element-ref'
 import DownloadDialog from '../download/download-dialog'
 import UpdateDialog from '../download/update-dialog'
 import MapDetailsDialog from '../maps/map-details'
+import { MapPreviewDialog } from '../maps/map-preview'
 import AcceptMatch from '../matchmaking/accept-match'
 import { isHandledDismissalEvent } from '../material/dismissal-events'
 import { defaultSpring } from '../material/springs'
@@ -70,6 +71,8 @@ function getDialog(
       return { component: DownloadDialog, modal: false }
     case DialogType.MapDetails:
       return { component: MapDetailsDialog, modal: false }
+    case DialogType.MapPreview:
+      return { component: MapPreviewDialog, modal: false }
     case DialogType.PartyInvite:
       return { component: PartyInviteDialog, modal: false }
     case DialogType.Settings:

@@ -13,6 +13,8 @@ import {
 } from '../../common/maps'
 import { apiUrl, urlPath } from '../../common/urls'
 import { ReduxAction } from '../action-types'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { DispatchFunction, ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
 import fetch from '../network/fetch'
@@ -317,4 +319,8 @@ export function batchGetMapInfo(mapId: string, maxCacheAgeMillis = 60000): Thunk
       }
     }
   }
+}
+
+export function openMapPreviewDialog(mapId: string) {
+  return openDialog(DialogType.MapPreview, { mapId })
 }
