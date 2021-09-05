@@ -27,7 +27,7 @@ const matchmakingThrottle = createThrottle('matchmaking', {
   window: 60000,
 })
 
-function convertMatchmakingServiceError(err: Error) {
+function convertMatchmakingServiceError(err: unknown) {
   if (!(err instanceof MatchmakingServiceError)) {
     throw err
   }

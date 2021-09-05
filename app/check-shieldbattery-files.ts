@@ -21,7 +21,7 @@ export function checkShieldBatteryFiles(): Promise<ShieldBatteryFileResult[]> {
         await access(path.resolve(basePath, filePath))
         canAccess = true
       } catch (err) {
-        logger.error(`Error accessing ${filePath}: ${err.message}\n${err.stack}`)
+        logger.error(`Error accessing ${filePath}: ${(err as any).stack ?? err}`)
       }
 
       const result: ShieldBatteryFileResult = [sbFile, canAccess]

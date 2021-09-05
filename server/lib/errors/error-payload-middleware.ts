@@ -12,7 +12,7 @@ export function errorPayloadMiddleware() {
     try {
       await next()
       if (ctx.response.status === 404 && !ctx.response.body) ctx.throw(404)
-    } catch (err) {
+    } catch (err: any) {
       ctx.status = typeof err.status === 'number' ? err.status : 500
 
       ctx.app.emit('error', err, ctx)

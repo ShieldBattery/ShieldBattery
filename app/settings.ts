@@ -336,7 +336,9 @@ export class ScrSettings extends Settings<ScrSettingsData> {
         // might make to it if launched after SB runs
         fs.watch(this.blizzardFilepath, event => this.onBlizzardFileChange(event))
       } catch (err) {
-        log.error('Error reading/parsing the Blizzard settings file: ' + (err.stack ?? err))
+        log.error(
+          'Error reading/parsing the Blizzard settings file: ' + ((err as any).stack ?? err),
+        )
         this.blizzardSettings = {}
       }
 

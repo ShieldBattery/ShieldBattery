@@ -21,7 +21,7 @@ export default async function transact<T>(next: (client: DbClient) => Promise<T>
   return undefined as any as T
 }
 
-async function rollbackFor(err: Error, client: DbClient, done: DbDone) {
+async function rollbackFor(err: unknown, client: DbClient, done: DbDone) {
   try {
     await client.query('ROLLBACK')
   } catch (rollbackErr) {

@@ -464,7 +464,7 @@ async function doLaunch(
       '__COMPAT_LAYER=!GameUX !256Color !640x480 !Win95 !Win98 !Win2000 !NT4SP5',
     ],
     debuggerLaunch: isRemastered,
-    logCallback: (msg: string) => log.verbose(`[Inject] ${msg}`),
+    logCallback: ((msg: string) => log.verbose(`[Inject] ${msg}`)) as any,
   })
   log.verbose('Process launched')
 

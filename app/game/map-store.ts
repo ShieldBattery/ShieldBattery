@@ -79,7 +79,7 @@ export class MapStore {
       await pipelinePromise(got.stream(mapUrl), fs.createWriteStream(mapPath))
       return true
     } catch (err) {
-      log.error(`Error checking/downloading map: ${err.message}\n${err.stack}`)
+      log.error(`Error checking/downloading map: ${(err as any).stack ?? err}`)
       throw err
     } finally {
       this.activeDownloads = this.activeDownloads.delete(mapHash)

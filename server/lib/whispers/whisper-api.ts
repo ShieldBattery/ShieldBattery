@@ -41,7 +41,7 @@ const retrievalThrottle = createThrottle('whisperretrieval', {
   window: 60000,
 })
 
-function convertWhisperServiceError(err: Error) {
+function convertWhisperServiceError(err: unknown) {
   if (!(err instanceof WhisperServiceError)) {
     throw err
   }

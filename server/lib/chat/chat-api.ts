@@ -43,7 +43,7 @@ const retrievalThrottle = createThrottle('chatretrieval', {
   window: 60000,
 })
 
-function convertChatServiceError(err: Error) {
+function convertChatServiceError(err: unknown) {
   if (!(err instanceof ChatServiceError)) {
     throw err
   }

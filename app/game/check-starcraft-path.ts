@@ -19,7 +19,7 @@ async function checkHash(path: string, validHashes: string[]) {
   try {
     hash = await getFileHash(path)
   } catch (err) {
-    if (err.code !== 'ENOENT') {
+    if ((err as any).code !== 'ENOENT') {
       logger.error(`Error hashing ${path}: ${err}`)
     }
     return false

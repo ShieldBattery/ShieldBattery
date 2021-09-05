@@ -1,7 +1,7 @@
 import { DatabaseError } from 'pg'
 import { SYNTAX_ERROR_OR_ACCESS_RULE_VIOLATION } from './pg-error-codes'
 
-export default function handlePgError(query: string, error: Error): Error {
+export default function handlePgError(query: string, error: unknown): unknown {
   if (
     isDatabaseError(error) &&
     error.code &&
@@ -19,8 +19,8 @@ function getErrorClass(code: string): string {
   return code.substring(0, 2)
 }
 
-function isDatabaseError(error: Error): error is DatabaseError {
-  return error.hasOwnProperty('code') && error.hasOwnProperty('position')
+function isDatabaseError(error: unknown): error is DatabaseError {
+  return error instanceof Error && error.hasOwnProperty('code') && error.hasOwnProperty('position')
 }
 
 function handlePgSyntaxError(queryText: string, error: DatabaseError): Error {

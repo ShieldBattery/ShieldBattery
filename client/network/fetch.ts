@@ -72,7 +72,7 @@ export async function fetchJson<T>(path: string, opts?: RequestInit): Promise<T>
     const res = ensureSuccessStatus(await fetchRaw(path, opts))
     const text = await res.text()
     return parseResponseJson(text)
-  } catch (err) {
+  } catch (err: any) {
     if (!err.res) throw err
 
     const res: Response = err.res

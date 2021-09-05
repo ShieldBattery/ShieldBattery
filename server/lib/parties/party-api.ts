@@ -41,12 +41,8 @@ const sendChatMessageThrottle = createThrottle('partyChatMessage', {
   window: 60000,
 })
 
-function isPartyServiceError(error: Error): error is PartyServiceError {
-  return error.hasOwnProperty('code')
-}
-
-function convertPartyServiceError(err: Error) {
-  if (!isPartyServiceError(err)) {
+function convertPartyServiceError(err: unknown) {
+  if (!(err instanceof PartyServiceError)) {
     throw err
   }
 

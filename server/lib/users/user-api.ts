@@ -94,7 +94,7 @@ export class UserApi {
     let createdUser: { user: SelfUser; permissions: SbPermissions } | undefined
     try {
       createdUser = await createUser({ name: username, email, hashedPassword, ipAddress: ctx.ip })
-    } catch (err) {
+    } catch (err: any) {
       if (err.code && err.code === UNIQUE_VIOLATION) {
         throw new httpErrors.Conflict('A user with that name already exists')
       }
