@@ -19,7 +19,7 @@ import { subtract } from '../../../common/sets'
 import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/user-info'
 import gameLoader from '../games/game-loader'
-import activityRegistry from '../games/gameplay-activity-registry'
+import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
 import { getMapInfo } from '../maps/map-models'
 import { MatchmakingDebugDataService } from '../matchmaking/debug-data'
@@ -281,8 +281,8 @@ export class MatchmakingService {
         players: [player, opponent],
       }
       this.acceptor.addMatch(matchInfo, [
-        activityRegistry.getClientForUser(player.id)!,
-        activityRegistry.getClientForUser(opponent.id)!,
+        this.activityRegistry.getClientForUser(player.id)!,
+        this.activityRegistry.getClientForUser(opponent.id)!,
       ])
 
       this.publishToActiveClient(player.id, {
@@ -446,6 +446,7 @@ export class MatchmakingService {
     private userSocketsManager: UserSocketsManager,
     private clientSocketsManager: ClientSocketsManager,
     private matchmakingStatus: MatchmakingStatusService,
+    private activityRegistry: GameplayActivityRegistry,
   ) {
     this.matchmakers = new Map(
       ALL_MATCHMAKING_TYPES.map(type => [
@@ -462,7 +463,7 @@ export class MatchmakingService {
 
   private unregisterActivity(client: ClientSocketsGroup) {
     const { userId } = client
-    activityRegistry.unregisterClientForUser(userId)
+    this.activityRegistry.unregisterClientForUser(userId)
     this.publishToUser(userId, {
       type: 'queueStatus',
       matchmaking: undefined,
@@ -487,7 +488,7 @@ export class MatchmakingService {
       )
     }
 
-    if (!activityRegistry.registerActiveClient(userId, clientSockets)) {
+    if (!this.activityRegistry.registerActiveClient(userId, clientSockets)) {
       throw new MatchmakingServiceError(
         MatchmakingServiceErrorCode.GameplayConflict,
         'User is already active in a gameplay activity',
@@ -522,7 +523,7 @@ export class MatchmakingService {
 
     this.matchmakers.get(type)!.addToQueue(player)
 
-    this.queueEntries = this.queueEntries.set(userSockets.userId, {
+    this.queueEntries.set(userSockets.userId, {
       type,
       userId: userSockets.userId,
     })
@@ -545,7 +546,7 @@ export class MatchmakingService {
 
   async cancel(userId: SbUserId) {
     const userSockets = this.getUserSocketsOrFail(userId)
-    const clientSockets = activityRegistry.getClientForUser(userSockets.userId)
+    const clientSockets = this.activityRegistry.getClientForUser(userSockets.userId)
     if (!clientSockets || !this.queueEntries.has(userSockets.userId)) {
       throw new MatchmakingServiceError(
         MatchmakingServiceErrorCode.NotInQueue,
@@ -558,7 +559,7 @@ export class MatchmakingService {
 
   async accept(userId: SbUserId) {
     const userSockets = this.getUserSocketsOrFail(userId)
-    const clientSockets = activityRegistry.getClientForUser(userSockets.userId)
+    const clientSockets = this.activityRegistry.getClientForUser(userSockets.userId)
     if (!clientSockets || !this.acceptor.registerAccept(clientSockets)) {
       throw new MatchmakingServiceError(
         MatchmakingServiceErrorCode.NoActiveMatch,
@@ -639,7 +640,7 @@ export class MatchmakingService {
   }
 
   private publishToActiveClient(userId: SbUserId, data?: ReadonlyDeep<MatchmakingEvent>): boolean {
-    const client = activityRegistry.getClientForUser(userId)
+    const client = this.activityRegistry.getClientForUser(userId)
     if (client) {
       this.publisher.publish(MatchmakingService.getClientPath(client), data)
       return true

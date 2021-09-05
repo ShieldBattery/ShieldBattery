@@ -1,10 +1,10 @@
-import { Map } from 'immutable'
+import { singleton } from 'tsyringe'
 import { SbUserId } from '../../../common/users/user-info'
 import { ClientSocketsGroup } from '../websockets/socket-groups'
 
-// TODO(tec27): Make this @singleton() and inject it once lobbies are converted to TypeScript
+@singleton()
 export class GameplayActivityRegistry {
-  private userClients = Map<SbUserId, ClientSocketsGroup>()
+  private userClients = new Map<SbUserId, ClientSocketsGroup>()
 
   /**
    * Attempts to register a client as owning the active gameplay activity for a user.
@@ -16,7 +16,7 @@ export class GameplayActivityRegistry {
       return false
     }
 
-    this.userClients = this.userClients.set(userId, client)
+    this.userClients.set(userId, client)
     return true
   }
 
@@ -26,10 +26,7 @@ export class GameplayActivityRegistry {
    * @returns true if a client was registered for that user, false otherwise.
    */
   unregisterClientForUser(userId: SbUserId): boolean {
-    const updated = this.userClients.delete(userId)
-    const result = updated !== this.userClients
-    this.userClients = updated
-    return result
+    return this.userClients.delete(userId)
   }
 
   /**
@@ -39,5 +36,3 @@ export class GameplayActivityRegistry {
     return this.userClients.get(userId)
   }
 }
-
-export default new GameplayActivityRegistry()

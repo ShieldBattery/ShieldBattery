@@ -10,7 +10,7 @@ import log from '../logging/logger'
 import { deleteRecordForGame } from '../models/games'
 import { deleteUserRecordsForGame } from '../models/games-users'
 import { RallyPointRouteInfo, RallyPointService } from '../rally-point/rally-point-service'
-import gameplayActivityRegistry from './gameplay-activity-registry'
+import { GameplayActivityRegistry } from './gameplay-activity-registry'
 import { registerGame } from './registration'
 
 const GAME_LOAD_TIMEOUT = 60 * 1000
@@ -43,13 +43,14 @@ function createRoutes(players: Set<Slot>): Promise<RouteResult[]> {
   }, [] as Array<[Slot, Slot]>)
 
   const rallyPointService = container.resolve(RallyPointService)
+  const activityRegistry = container.resolve(GameplayActivityRegistry)
 
   return Promise.all(
     needRoutes.map(([p1, p2]) =>
       rallyPointService
         .createBestRoute(
-          gameplayActivityRegistry.getClientForUser(p1.userId!)!,
-          gameplayActivityRegistry.getClientForUser(p2.userId!)!,
+          activityRegistry.getClientForUser(p1.userId!)!,
+          activityRegistry.getClientForUser(p2.userId!)!,
         )
         .then(result => ({ ...result, p1Slot: p1, p2Slot: p2 })),
     ),
@@ -261,15 +262,14 @@ export class GameLoader {
       : Promise.resolve()
 
     const rallyPointService = container.resolve(RallyPointService)
+    const activityRegistry = container.resolve(GameplayActivityRegistry)
 
     const hasMultipleHumans = players.size > 1
     const pingPromise = !hasMultipleHumans
       ? Promise.resolve()
       : Promise.all(
           players.map(p =>
-            rallyPointService.waitForPingResult(
-              gameplayActivityRegistry.getClientForUser(p.userId!)!,
-            ),
+            rallyPointService.waitForPingResult(activityRegistry.getClientForUser(p.userId)!),
           ),
         )
 

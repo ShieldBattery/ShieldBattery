@@ -1,5 +1,6 @@
 import errors from 'http-errors'
 import { List, Map, Record, Set } from 'immutable'
+import { container } from 'tsyringe'
 import CancelToken from '../../../common/async/cancel-token'
 import createDeferred from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
@@ -17,7 +18,7 @@ import {
 } from '../../../common/lobbies'
 import * as Slots from '../../../common/lobbies/slot'
 import gameLoader from '../games/game-loader'
-import activityRegistry from '../games/gameplay-activity-registry'
+import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
 import { getMapInfo } from '../maps/map-models'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
@@ -58,6 +59,7 @@ export class LobbyApi {
     this.nydus = nydus
     this.userSockets = userSockets
     this.clientSockets = clientSockets
+    this.activityRegistry = container.resolve(GameplayActivityRegistry)
     this.lobbies = new Map()
     this.lobbyClients = new Map()
     this.lobbyBannedUsers = new Map()
@@ -162,7 +164,7 @@ export class LobbyApi {
       undefined /* hostRace */,
       allowObservers,
     )
-    if (!activityRegistry.registerActiveClient(user.userId, client)) {
+    if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
       throw new errors.Conflict('user is already active in a gameplay activity')
     }
 
@@ -220,7 +222,7 @@ export class LobbyApi {
 
     let updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
 
-    if (!activityRegistry.registerActiveClient(user.userId, client)) {
+    if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
       throw new errors.Conflict('user is already active in a gameplay activity')
     }
 
@@ -512,7 +514,7 @@ export class LobbyApi {
       this.lobbies = this.lobbies.set(lobby.name, updated)
       this._publishLobbyDiff(lobby, updated)
     } else if (playerToKick.type === 'human' || playerToKick.type === 'observer') {
-      const client = activityRegistry.getClientForUser(playerToKick.userId)
+      const client = this.activityRegistry.getClientForUser(playerToKick.userId)
       this._removeClientFromLobby(lobby, client, REMOVAL_TYPE_KICK)
     }
   }
@@ -538,7 +540,7 @@ export class LobbyApi {
       val.push(playerToBan.name),
     )
 
-    const clientToBan = activityRegistry.getClientForUser(playerToBan.userId)
+    const clientToBan = this.activityRegistry.getClientForUser(playerToBan.userId)
     this._removeClientFromLobby(lobby, clientToBan, REMOVAL_TYPE_BAN)
   }
 
@@ -626,7 +628,7 @@ export class LobbyApi {
       )
     }
     this.lobbyClients = this.lobbyClients.delete(client)
-    activityRegistry.unregisterClientForUser(client.userId)
+    this.activityRegistry.unregisterClientForUser(client.userId)
 
     this._publishToUser(lobby, client.name, {
       type: 'status',
@@ -802,7 +804,7 @@ export class LobbyApi {
     this._publishTo(lobby, { type: 'gameStarted' })
 
     getHumanSlots(lobby)
-      .map(p => activityRegistry.getClientForUser(p.userId))
+      .map(p => this.activityRegistry.getClientForUser(p.userId))
       .forEach(client => {
         const user = this.getUserById(client.userId)
         this._publishToUser(lobby, user.name, {
@@ -813,7 +815,7 @@ export class LobbyApi {
         client.unsubscribe(LobbyApi._getPath(lobby))
         client.unsubscribe(LobbyApi._getClientPath(lobby, client))
         this.lobbyClients = this.lobbyClients.delete(client)
-        activityRegistry.unregisterClientForUser(user.userId)
+        this.activityRegistry.unregisterClientForUser(user.userId)
       })
     this.lobbies = this.lobbies.delete(lobby.name)
     this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
@@ -872,7 +874,7 @@ export class LobbyApi {
   }
 
   getActiveClientForUser(userId) {
-    const client = activityRegistry.getClientForUser(userId)
+    const client = this.activityRegistry.getClientForUser(userId)
     if (!client) throw new errors.BadRequest('no active client for user')
     return client
   }
@@ -937,7 +939,7 @@ export class LobbyApi {
   }
 
   _publishToClient(lobby, userId, data) {
-    const client = activityRegistry.getClientForUser(userId)
+    const client = this.activityRegistry.getClientForUser(userId)
     if (!client) {
       return
     }
