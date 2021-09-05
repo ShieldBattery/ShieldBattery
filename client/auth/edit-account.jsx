@@ -21,7 +21,7 @@ import {
   required,
 } from '../forms/validators'
 import { TextButton } from '../material/button'
-import Dialog from '../material/dialog'
+import { Dialog } from '../material/dialog'
 import PasswordTextField from '../material/password-text-field'
 import TextField from '../material/text-field'
 import LoadingIndicator from '../progress/dots'

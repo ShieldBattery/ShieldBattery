@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import changelogContent from '../../CHANGELOG.md'
-import Dialog from '../material/dialog'
+import { Dialog } from '../material/dialog'
 import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { headline5, headline6, subtitle1 } from '../styles/typography'
 import { KEY, shouldShowChangelog, VERSION } from './should-show-changelog'

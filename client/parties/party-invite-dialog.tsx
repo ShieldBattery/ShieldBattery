@@ -4,7 +4,7 @@ import { closeDialog } from '../dialogs/action-creators'
 import { useForm } from '../forms/form-hook'
 import { composeValidators, maxLength, minLength, regex, required } from '../forms/validators'
 import { TextButton } from '../material/button'
-import Dialog from '../material/dialog'
+import { Dialog } from '../material/dialog'
 import TextField from '../material/text-field'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
@@ -25,7 +25,7 @@ export function PartyInviteDialog({
   dialogRef,
   onCancel,
 }: {
-  dialogRef: HTMLElement
+  dialogRef: React.Ref<HTMLDivElement>
   onCancel: () => void
 }) {
   const dispatch = useAppDispatch()

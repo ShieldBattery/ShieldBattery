@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import { closeDialog, openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import Dialog from '../material/dialog'
+import { Dialog } from '../material/dialog'
 import { openSnackbar } from '../snackbars/action-creators'
 import { SubheadingOld } from '../styles/typography'
 import {

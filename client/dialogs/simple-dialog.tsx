@@ -1,6 +1,6 @@
 import React from 'react'
 import { TextButton } from '../material/button'
-import Dialog from '../material/dialog'
+import { Dialog } from '../material/dialog'
 import { Subtitle1 } from '../styles/typography'
 import { CommonDialogProps } from './common-dialog-props'
 

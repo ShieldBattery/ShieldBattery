@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
-import Dialog from '../material/dialog'
+import { Dialog } from '../material/dialog'
 import Download from './download'
 
 const StyledDialog = styled(Dialog)`
