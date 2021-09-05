@@ -1,4 +1,5 @@
 import { RouterContext } from '@koa/router'
+import 'abort-controller/polyfill' // TODO(tec27): Remove when min node version is >= 15.x
 import 'core-js/proposals/reflect-metadata'
 import http from 'http'
 import Koa from 'koa'

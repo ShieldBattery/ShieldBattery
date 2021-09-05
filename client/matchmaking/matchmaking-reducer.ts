@@ -68,7 +68,7 @@ export default keyedReducer(new MatchmakingState(), {
 
     return new MatchmakingState({
       isFinding: true,
-      findingPreferences: action.meta?.preferences,
+      findingPreferences: action.meta?.preferences ?? state.findingPreferences,
       searchStartTime: action.payload.startTime,
     })
   },

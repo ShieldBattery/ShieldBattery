@@ -2,7 +2,7 @@ import { Range } from 'immutable'
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
+import { MATCHMAKING_ACCEPT_MATCH_TIME_MS } from '../../common/matchmaking'
 import Avatar from '../avatars/avatar'
 import { closeDialog } from '../dialogs/action-creators'
 import KeyListener from '../keyboard/key-listener'
@@ -83,7 +83,10 @@ export default class AcceptMatch extends React.Component {
 
     if (isFinding) {
       return (
-        <p>Some players failed to accept the match. Returning to the matchmaking queue&hellip;</p>
+        <p>
+          Some players failed to accept the match or failed to load. Returning to the matchmaking
+          queue&hellip;
+        </p>
       )
     } else if (failedToAccept) {
       return (
@@ -123,7 +126,7 @@ export default class AcceptMatch extends React.Component {
             )}
           </CenteredContainer>
           <TimerBarContainer>
-            <FilledTimerBar filledScale={(acceptTime / MATCHMAKING_ACCEPT_MATCH_TIME) * 1000} />
+            <FilledTimerBar filledScale={(acceptTime / MATCHMAKING_ACCEPT_MATCH_TIME_MS) * 1000} />
           </TimerBarContainer>
         </div>
       )

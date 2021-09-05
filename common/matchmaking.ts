@@ -19,6 +19,9 @@ export function isValidMatchmakingType(type: string) {
   return Object.values(MatchmakingType).includes(type as MatchmakingType)
 }
 
+/** How long users have to accept a match, in milliseconds. */
+export const MATCHMAKING_ACCEPT_MATCH_TIME_MS = 15000
+
 /**
  * Describes a player in the matchmaking. This only includes information that are relevant and safe
  * to send to other players in the matchmaking.

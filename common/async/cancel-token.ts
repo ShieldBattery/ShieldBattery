@@ -12,6 +12,9 @@ export class CancelError extends Error {
   }
 }
 
+/**
+ * @deprecated Prefer AbortController/AbortSignal
+ */
 export default class CancelToken {
   static isCancelError(err: Error): err is CancelError {
     return !!(err as any)[CANCEL_ERROR]

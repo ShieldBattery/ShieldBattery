@@ -1,5 +1,4 @@
 import { NydusClient, RouteHandler, RouteInfo } from 'nydus-client'
-import { MATCHMAKING_ACCEPT_MATCH_TIME } from '../../common/constants'
 import { GameLaunchConfig, PlayerInfo } from '../../common/game-launch-config'
 import { GameType } from '../../common/games/configuration'
 import { TypedIpcRenderer } from '../../common/ipc'
@@ -8,6 +7,7 @@ import {
   MatchmakingEvent,
   MatchmakingStatusJson,
   MatchmakingType,
+  MATCHMAKING_ACCEPT_MATCH_TIME_MS,
 } from '../../common/matchmaking'
 import { ACTIVE_GAME_LAUNCH } from '../actions'
 import AudioManager from '../audio/audio-manager'
@@ -100,7 +100,7 @@ const eventToAction: EventToActionMap = {
     clearAcceptMatchTimer()
     ipcRenderer.send('rallyPointRefreshPings')
 
-    let tick = MATCHMAKING_ACCEPT_MATCH_TIME / 1000
+    let tick = MATCHMAKING_ACCEPT_MATCH_TIME_MS / 1000
     dispatch({
       type: '@matchmaking/acceptMatchTime',
       payload: tick,
