@@ -41,6 +41,7 @@ const Surface = styled(CardLayer)`
 
   border-radius: 2px;
   box-shadow: ${shadowDef8dp};
+  contain: paint;
   pointer-events: auto;
 
   &.enter {
@@ -162,6 +163,7 @@ export interface DialogProps {
    */
   fullBleed?: boolean
   showCloseButton?: boolean
+  style?: React.CSSProperties
   tabs?: React.ReactNode
   title: string
   titleAction?: React.ReactNode
@@ -175,6 +177,7 @@ export function Dialog({
   dialogRef,
   fullBleed = false,
   showCloseButton = false,
+  style,
   tabs,
   title,
   titleAction,
@@ -199,7 +202,7 @@ export function Dialog({
 
   return (
     <Container role='dialog'>
-      <Surface className={className} ref={dialogRef}>
+      <Surface className={className} style={style} ref={dialogRef}>
         <KeyListener onKeyDown={onKeyDown} exclusive={true} />
         <TitleBar $fullBleed={fullBleed} $showDivider={!isAtTop && !tabs}>
           <Title>{title}</Title>

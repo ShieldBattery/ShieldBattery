@@ -69,6 +69,8 @@ export default class MapImage extends React.Component {
     `
 
     const aspectRatio = map.mapData.height / map.mapData.width
+    const width = size
+    const height = size * aspectRatio
 
     // TODO(2Pac): handle 404s
     return (
@@ -76,6 +78,8 @@ export default class MapImage extends React.Component {
         {map.image256Url ? (
           <ImgContainer className={this.props.className} aspectRatio={aspectRatio}>
             <ImgElement
+              width={width}
+              height={height}
               srcSet={srcSet}
               sizes={`${size}px`}
               src={map.image256Url}
