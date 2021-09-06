@@ -308,9 +308,21 @@ function SummaryPage({
 
   // TODO(tec27): Include random stats
   const stats = profile.userStats
-  const pStats: RaceStats = { race: 'p', wins: stats.pWins, losses: stats.pLosses }
-  const tStats: RaceStats = { race: 't', wins: stats.tWins, losses: stats.tLosses }
-  const zStats: RaceStats = { race: 'z', wins: stats.zWins, losses: stats.zLosses }
+  const pStats: RaceStats = {
+    race: 'p',
+    wins: stats.pWins + stats.rPWins,
+    losses: stats.pLosses + stats.rPLosses,
+  }
+  const tStats: RaceStats = {
+    race: 't',
+    wins: stats.tWins + stats.rTWins,
+    losses: stats.tLosses + stats.rTLosses,
+  }
+  const zStats: RaceStats = {
+    race: 'z',
+    wins: stats.zWins + stats.rZWins,
+    losses: stats.zLosses + stats.rZLosses,
+  }
   const sortedStats = [pStats, tStats, zStats].sort(
     (a, b) => b.wins + b.losses - (a.wins + a.losses),
   )

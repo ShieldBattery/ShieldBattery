@@ -1,4 +1,5 @@
 import { Jsonify } from '../json'
+import { SbUserId } from '../users/user-info'
 import { GameConfig, GameConfigPlayerId } from './configuration'
 import { ReconciledPlayerResult } from './results'
 
@@ -11,7 +12,7 @@ export interface GameRecord {
   disputeRequested: boolean
   disputeReviewed: boolean
   gameLength: number | null
-  results: [number, ReconciledPlayerResult][] | null
+  results: [SbUserId, ReconciledPlayerResult][] | null
 }
 
 export type GameRecordJson = Jsonify<GameRecord>

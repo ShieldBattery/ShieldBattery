@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { GameRecordJson } from '../../common/games/games'
 import { ReconciledResult } from '../../common/games/results'
+import { RaceChar } from '../../common/races'
 import { SbUser, SbUserId } from '../../common/users/user-info'
 import { RaceIcon } from '../lobbies/race-icon'
 import { batchGetMapInfo, openMapPreviewDialog } from '../maps/action-creators'
@@ -235,11 +236,39 @@ const GamePreviewPlayer = styled.div`
   margin-bottom: 8px;
 `
 
-const GamePreviewPlayerRace = styled(RaceIcon)`
+const GamePreviewPlayerRaceRoot = styled.div`
+  position: relative;
   width: auto;
   height: 20px;
   margin-right: 4px;
 `
+
+const GamePreviewPlayerAssignedRace = styled(RaceIcon)`
+  width: auto;
+  height: 100%;
+`
+
+const GamePreviewPlayerRandomIcon = styled(RaceIcon)`
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: auto;
+  height: 12px;
+`
+
+interface GamePreviewPlayerRaceProps {
+  race: RaceChar
+  isRandom: boolean
+}
+
+function GamePreviewPlayerRace({ race, isRandom }: GamePreviewPlayerRaceProps) {
+  return (
+    <GamePreviewPlayerRaceRoot>
+      <GamePreviewPlayerAssignedRace race={race} />
+      {isRandom && race !== 'r' ? <GamePreviewPlayerRandomIcon race={'r'} /> : null}
+    </GamePreviewPlayerRaceRoot>
+  )
+}
 
 export interface ConnectedGamePreviewProps {
   game?: Immutable<GameRecordJson>
@@ -277,6 +306,10 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
     }
   }, [dispatch, mapId])
 
+  const resultsById = useMemo(() => {
+    return new Map(game?.results ?? [])
+  }, [game?.results])
+
   if (!game) {
     return (
       <GamePreviewRoot>
@@ -290,9 +323,10 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
     playerElems.push(<GamePreviewTeamOverline key={'team-top'}>Top</GamePreviewTeamOverline>)
     playerElems.push(
       ...game.config.teams[0].map((p, i) => {
+        const result = p.isComputer ? undefined : resultsById.get(p.id)
         return (
           <GamePreviewPlayer key={`team-top-${i}`}>
-            <GamePreviewPlayerRace race={p.race} />
+            <GamePreviewPlayerRace race={result?.race ?? p.race} isRandom={p.race === 'r'} />
             <span>
               {p.isComputer ? 'Computer' : playersMapping.get(p.id)?.name ?? 'Unknown player'}
             </span>
@@ -304,9 +338,10 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
     playerElems.push(<GamePreviewTeamOverline key={'team-bottom'}>Bottom</GamePreviewTeamOverline>)
     playerElems.push(
       ...game.config.teams[1].map((p, i) => {
+        const result = p.isComputer ? undefined : resultsById.get(p.id)
         return (
           <GamePreviewPlayer key={`team-bottom-${i}`}>
-            <GamePreviewPlayerRace race={p.race} />
+            <GamePreviewPlayerRace race={result?.race ?? p.race} isRandom={p.race === 'r'} />
             <span>
               {p.isComputer ? 'Computer' : playersMapping.get(p.id)?.name ?? 'Unknown player'}
             </span>
@@ -319,9 +354,10 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
     playerElems.push(
       ...game.config.teams.flatMap((t, i) =>
         t.map((p, j) => {
+          const result = p.isComputer ? undefined : resultsById.get(p.id)
           return (
             <GamePreviewPlayer key={`team-${i}-${j}`}>
-              <GamePreviewPlayerRace race={p.race} />
+              <GamePreviewPlayerRace race={result?.race ?? p.race} isRandom={p.race === 'r'} />
               <span>
                 {p.isComputer ? 'Computer' : playersMapping.get(p.id)?.name ?? 'Unknown player'}
               </span>
