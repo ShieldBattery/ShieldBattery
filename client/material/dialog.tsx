@@ -1,9 +1,10 @@
 import keycode from 'keycode'
+import { rgba } from 'polished'
 import React, { useCallback } from 'react'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import CloseDialogIcon from '../icons/material/ic_close_black_24px.svg'
 import KeyListener from '../keyboard/key-listener'
-import { CardLayer, colorDividers } from '../styles/colors'
+import { background900, CardLayer, colorDividers } from '../styles/colors'
 import { headline5 } from '../styles/typography'
 import { IconButton } from './button'
 import { fastOutLinearIn, fastOutSlowIn, linearOutSlowIn } from './curve-constants'
@@ -33,6 +34,7 @@ const Surface = styled(CardLayer)`
   max-height: calc(100% - 160px);
   flex-grow: 0;
   flex-shrink: 0;
+  position: relative;
 
   display: flex;
   flex-direction: column;
@@ -65,8 +67,28 @@ const Surface = styled(CardLayer)`
   }
 `
 
-const TitleBar = styled.div<{ $showDivider?: boolean }>`
+const TitleBar = styled.div<{ $fullBleed?: boolean; $showDivider?: boolean }>`
   position: relative;
+
+  ${props =>
+    props.$fullBleed
+      ? css`
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+
+          background-color: ${rgba(background900, 0.6)};
+          opacity: 0;
+          transition: opacity 75ms linear;
+          z-index: 1;
+
+          ${Surface}:hover & {
+            opacity: 1;
+          }
+        `
+      : ''};
+
   flex-grow: 0;
   flex-shrink: 0;
 
@@ -75,6 +97,7 @@ const TitleBar = styled.div<{ $showDivider?: boolean }>`
 
   &::after {
     position: absolute;
+    left: 0;
     bottom: 0;
     width: 100%;
     height: 1px;
@@ -96,26 +119,36 @@ const CloseButton = styled(IconButton)`
   margin-right: 12px;
 `
 
-const Body = styled.div`
+const Body = styled.div<{ $fullBleed?: boolean }>`
   width: 100%;
   min-height: 100px;
   flex-grow: 1;
 
   contain: content;
-  padding: 0 24px 24px;
-  overflow: auto;
+  padding: ${props => (props.$fullBleed ? '0' : '0 24px 24px')};
+  overflow: ${props => (props.$fullBleed ? 'hidden' : 'auto')};
 `
 
 const Actions = styled.div<{ $showDivider?: boolean }>`
+  position: relative;
   flex-grow: 0;
   flex-shrink: 0;
 
-  /** NOTE(tec27): This will become 8px with the border. */
-  padding: 7px 4px 0;
+  padding: 8px 4px 0;
   margin-bottom: 2px;
-  border-top: 1px solid ${props => (props.$showDivider ? colorDividers : 'transparent')};
-  transition: border-color 150ms linear;
   text-align: right;
+
+  &::after {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 1px;
+
+    background-color: ${props => (props.$showDivider ? colorDividers : ' transparent')};
+    content: '';
+    transition: background-color 125ms linear;
+  }
 `
 
 export interface DialogProps {
@@ -123,6 +156,11 @@ export interface DialogProps {
   children: React.ReactNode
   className?: string
   dialogRef?: React.Ref<HTMLDivElement>
+  /**
+   * Whether the content of this dialog extends to all edges (e.g. has no padding). If `true`, the
+   * content must handle scrolling itself.
+   */
+  fullBleed?: boolean
   showCloseButton?: boolean
   tabs?: React.ReactNode
   title: string
@@ -135,6 +173,7 @@ export function Dialog({
   children,
   className,
   dialogRef,
+  fullBleed = false,
   showCloseButton = false,
   tabs,
   title,
@@ -162,14 +201,14 @@ export function Dialog({
     <Container role='dialog'>
       <Surface className={className} ref={dialogRef}>
         <KeyListener onKeyDown={onKeyDown} exclusive={true} />
-        <TitleBar $showDivider={!isAtTop && !tabs}>
+        <TitleBar $fullBleed={fullBleed} $showDivider={!isAtTop && !tabs}>
           <Title>{title}</Title>
           {titleAction}
           {closeButton}
         </TitleBar>
         {tabs}
 
-        <Body>
+        <Body $fullBleed={fullBleed}>
           {topNode}
           {children}
           {bottomNode}

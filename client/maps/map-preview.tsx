@@ -25,6 +25,7 @@ export function MapPreviewDialog({ mapId, onCancel, dialogRef }: MapPreviewDialo
     <Dialog
       onCancel={onCancel}
       dialogRef={dialogRef}
+      fullBleed={true}
       showCloseButton={true}
       title={map?.name ?? ''}>
       {map ? <StyledMapImage map={map} size={1024} /> : null}
