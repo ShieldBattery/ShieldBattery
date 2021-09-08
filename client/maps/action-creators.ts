@@ -12,11 +12,11 @@ import {
   UploadMapPayload,
 } from '../../common/maps'
 import { apiUrl, urlPath } from '../../common/urls'
-import { ReduxAction } from '../action-types'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import { DispatchFunction, ThunkAction } from '../dispatch-registry'
+import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
+import { MicrotaskBatchRequester } from '../network/batch-requests'
 import fetch from '../network/fetch'
 import { openSnackbar } from '../snackbars/action-creators'
 import { ClearMaps } from './actions'
@@ -255,42 +255,24 @@ export function updateMapPreferences(preferences: MapPreferences): ThunkAction {
   }
 }
 
-// Things that will be requested
-let mapRequestsInQueue = new Set<string>()
-let mapRequestsInProgress = new Set<string>()
-let mapRequestsQueued = false
-
 const MAX_BATCH_MAP_REQUESTS = 50
 
-async function batchRequestMaps(dispatch: DispatchFunction<ReduxAction>) {
-  try {
-    while (mapRequestsInQueue.size > 0) {
-      mapRequestsInProgress = mapRequestsInQueue
-      mapRequestsInQueue = new Set()
+const mapsBatchRequester = new MicrotaskBatchRequester<string>(
+  MAX_BATCH_MAP_REQUESTS,
+  (dispatch, items) => {
+    const params = items.map(m => urlPath`m=${m}`).join('&')
+    const promise = fetch<GetBatchMapInfoPayload>(apiUrl`maps/batch-info` + '?' + params)
+    dispatch({
+      type: '@maps/getBatchMapInfo',
+      payload: promise,
+    })
 
-      let requestParams = Array.from(mapRequestsInProgress, m => urlPath`m=${m}`)
-      const promises: Array<Promise<any>> = []
-      do {
-        const params = requestParams.slice(0, MAX_BATCH_MAP_REQUESTS)
-        requestParams = requestParams.slice(MAX_BATCH_MAP_REQUESTS)
-        const promise = fetch<GetBatchMapInfoPayload>(
-          apiUrl`maps/batch-info` + '?' + params.join('&'),
-        )
-        promises.push(promise)
-
-        dispatch({
-          type: '@maps/getBatchMapInfo',
-          payload: promise,
-        })
-      } while (requestParams.length > 0)
-
-      await Promise.allSettled(promises)
-    }
-  } finally {
-    mapRequestsInProgress.clear()
-    mapRequestsQueued = false
-  }
-}
+    return promise
+  },
+  err => {
+    logger.error('error while batch requesting maps: ' + (err as Error)?.stack ?? err)
+  },
+)
 
 /**
  * Queues a request to the server for map information, if necessary. This will batch multiple
@@ -303,20 +285,11 @@ export function batchGetMapInfo(mapId: string, maxCacheAgeMillis = 60000): Thunk
     } = getState()
 
     if (
-      !mapRequestsInProgress.has(mapId) &&
-      (!byId.has(mapId) ||
-        !lastRetrieved.has(mapId) ||
-        window.performance.now() - lastRetrieved.get(mapId)! > maxCacheAgeMillis)
+      !byId.has(mapId) ||
+      !lastRetrieved.has(mapId) ||
+      window.performance.now() - lastRetrieved.get(mapId)! > maxCacheAgeMillis
     ) {
-      mapRequestsInQueue.add(mapId)
-      if (!mapRequestsQueued) {
-        mapRequestsQueued = true
-        Promise.resolve()
-          .then(() => batchRequestMaps(dispatch))
-          .catch(err => {
-            logger.error('error while batch requesting maps: ' + (err?.stack ?? err))
-          })
-      }
+      mapsBatchRequester.request(dispatch, mapId)
     }
   }
 }
