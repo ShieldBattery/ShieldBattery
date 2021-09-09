@@ -36,6 +36,7 @@ const throttle = createThrottle('gamesResults', {
   window: 60000,
 })
 
+// TODO(tec27): Move this into game-api under a sub-route, e.g. /:gameId/results
 export default function (router: Router) {
   router.post(
     '/:gameId',
