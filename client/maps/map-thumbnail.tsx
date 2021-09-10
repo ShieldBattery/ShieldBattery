@@ -19,14 +19,9 @@ import MapImage from './map-image'
 const Container = styled.div`
   position: relative;
   width: 100%;
-  height: 100%;
+  height: auto;
   border-radius: 2px;
-  overflow: hidden;
-  contain: strict;
-`
-
-const StyledMapImage = styled(MapImage)`
-  padding-bottom: 100%; // Force 1:1 aspect ratio
+  contain: content;
 `
 
 const NoImageContainer = styled.div`
@@ -167,6 +162,7 @@ const NoImage = () => (
 export interface MapThumbnailProps {
   map: Immutable<MapInfoJson>
   className?: string
+  forceAspectRatio?: number
   size?: number
   showMapName?: boolean
   isFavoriting?: boolean
@@ -184,6 +180,7 @@ export interface MapThumbnailProps {
 export function MapThumbnail({
   map,
   className,
+  forceAspectRatio,
   size,
   showMapName,
   isFavoriting,
@@ -233,7 +230,12 @@ export function MapThumbnail({
 
   return (
     <Container className={className}>
-      <StyledMapImage map={map} size={size} noImageElem={<NoImage />} />
+      <MapImage
+        map={map}
+        size={size}
+        noImageElem={<NoImage />}
+        forceAspectRatio={forceAspectRatio}
+      />
       {onClick ? (
         <Overlay
           $isSelected={isSelected}

@@ -7,16 +7,13 @@ import { Subtitle1 } from '../styles/typography'
 
 const ImgContainer = styled.div`
   position: relative;
-  height: 0;
-  overflow: hidden;
-  padding-bottom: ${props => `${props.aspectRatio * 100}%`};
+  width: 100%;
+  height: 100%;
 `
 
 const ImgElement = styled.img`
   display: block;
-  position: absolute;
-  top: 0;
-  left: 0;
+  aspect-ratio: var(--sb-map-image-aspect-ratio, 1);
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -52,6 +49,7 @@ export default class MapImage extends React.Component {
     size: PropTypes.number,
     altText: PropTypes.string,
     noImageElem: PropTypes.element,
+    forceAspectRatio: PropTypes.number,
   }
 
   static defaultProps = {
@@ -60,7 +58,7 @@ export default class MapImage extends React.Component {
   }
 
   render() {
-    const { map, size, altText, noImageElem } = this.props
+    const { map, size, altText, noImageElem, forceAspectRatio } = this.props
     const srcSet = `
       ${map.image256Url} 256w,
       ${map.image512Url} 512w,
@@ -68,15 +66,20 @@ export default class MapImage extends React.Component {
       ${map.image2048Url} 2048w
     `
 
-    const aspectRatio = map.mapData.height / map.mapData.width
+    const aspectRatio = map.mapData.width / map.mapData.height
     const width = size
-    const height = size * aspectRatio
+    const height = size / aspectRatio
+
+    const style = {
+      '--sb-map-image-aspect-ratio':
+        forceAspectRatio !== undefined ? forceAspectRatio : aspectRatio,
+    }
 
     // TODO(2Pac): handle 404s
     return (
       <>
         {map.image256Url ? (
-          <ImgContainer className={this.props.className} aspectRatio={aspectRatio}>
+          <ImgContainer className={this.props.className} style={style}>
             <ImgElement
               width={width}
               height={height}

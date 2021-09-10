@@ -27,9 +27,8 @@ const TopHalfContainer = styled.div`
 
 const Spacer = styled.div``
 
-const MapContainer = styled.div`
+const StyledMapThumbnail = styled(MapThumbnail)`
   width: 320px;
-  height: 320px;
   border-radius: 2px;
   box-shadow: ${shadowDef2dp};
 `
@@ -124,9 +123,7 @@ export default class ActiveLobby extends React.Component {
         <Headline3>{lobby.map.name}</Headline3>
         <TopHalfContainer>
           <Spacer />
-          <MapContainer>
-            <MapThumbnail map={lobby.map} size={512} />
-          </MapContainer>
+          <StyledMapThumbnail map={lobby.map} size={320} />
           <StatusContainer>
             <StatusText>Game in progress...</StatusText>
           </StatusContainer>

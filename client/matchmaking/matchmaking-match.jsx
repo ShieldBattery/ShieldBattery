@@ -27,10 +27,8 @@ const TopHalfContainer = styled.div`
 
 const Spacer = styled.div``
 
-const MapContainer = styled.div`
+const StyledMapThumbnail = styled(MapThumbnail)`
   width: 320px;
-  height: 320px;
-  border-radius: 2px;
   box-shadow: ${shadowDef2dp};
 `
 
@@ -118,9 +116,7 @@ export default class MatchmakingMatch extends React.Component {
         <Headline3>{map.name}</Headline3>
         <TopHalfContainer>
           <Spacer />
-          <MapContainer>
-            <MapThumbnail map={map} size={512} />
-          </MapContainer>
+          <StyledMapThumbnail map={map} size={512} />
           <StatusContainer>{this.renderStatus()}</StatusContainer>
         </TopHalfContainer>
         <PlayersContainer>

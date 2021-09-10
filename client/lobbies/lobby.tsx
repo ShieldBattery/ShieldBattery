@@ -12,13 +12,10 @@ import {
 } from '../../common/lobbies'
 import { RaceChar } from '../../common/races'
 import { SelfUserRecord } from '../auth/auth-records'
-import FavoritedIcon from '../icons/material/baseline-star-24px.svg'
-import UnfavoritedIcon from '../icons/material/baseline-star_border-24px.svg'
-import PreviewIcon from '../icons/material/zoom_in-24px.svg'
-import MapImage from '../maps/map-image'
-import { IconButton, RaisedButton } from '../material/button'
+import { MapThumbnail } from '../maps/map-thumbnail'
+import { RaisedButton } from '../material/button'
 import Card from '../material/card'
-import { shadow1dp } from '../material/shadows'
+import { shadow2dp } from '../material/shadows'
 import Chat from '../messaging/chat'
 import { Message } from '../messaging/message-records'
 import { colorTextSecondary } from '../styles/colors'
@@ -91,25 +88,10 @@ const MapName = styled.div`
   margin: 24px 0 0;
 `
 
-const MapImageContainer = styled.div`
-  ${shadow1dp};
-  position: relative;
+const StyledMapThumbnail = styled(MapThumbnail)`
+  ${shadow2dp};
   width: 256px;
-  border-radius: 2px;
   margin-top: 8px;
-  overflow: hidden;
-`
-
-const MapPreviewIcon = styled(IconButton)`
-  position: absolute;
-  top: 4px;
-  left: 4px;
-`
-
-const FavoriteActionIcon = styled(IconButton)`
-  position: absolute;
-  top: 4px;
-  right: 4px;
 `
 
 const InfoItem = styled.div`
@@ -372,20 +354,12 @@ export default class Lobby extends React.Component<LobbyProps> {
         <Info>
           <RaisedButton label='Leave lobby' onClick={onLeaveLobbyClick} />
           <MapName>{lobby.map.name}</MapName>
-          <MapImageContainer>
-            <MapImage map={lobby.map} />
-            <MapPreviewIcon
-              icon={<PreviewIcon />}
-              title={'Show map preview'}
-              onClick={onMapPreview}
-            />
-            <FavoriteActionIcon
-              disabled={isFavoritingMap}
-              icon={lobby.map.isFavorited ? <FavoritedIcon /> : <UnfavoritedIcon />}
-              title={lobby.map.isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-              onClick={onToggleFavoriteMap}
-            />
-          </MapImageContainer>
+          <StyledMapThumbnail
+            map={lobby.map}
+            onPreview={onMapPreview}
+            onToggleFavorite={onToggleFavoriteMap}
+            isFavoriting={isFavoritingMap}
+          />
           <InfoItem>
             <InfoLabel as='span'>Game type</InfoLabel>
             <InfoValue as='span'>{gameTypeToLabel(lobby.gameType)}</InfoValue>

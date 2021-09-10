@@ -8,7 +8,10 @@ import { batchGetMapInfo } from './action-creators'
 import MapImage from './map-image'
 
 const StyledDialog = styled(Dialog)`
-  --sb-map-aspect-ratio: calc(var(--sb-map-width, 1) / var(--sb-map-height, 1));
+  --sb-map-preview-aspect-ratio: calc(var(--sb-map-width, 1) / var(--sb-map-height, 1));
+
+  --sb-map-preview-height-restricted: calc((100vh - 160px) * var(--sb-map-preview-aspect-ratio));
+  --sb-map-preview-width-restricted: calc(100% - 160px);
 
   /**
     We remove the background here and put it on the image instead, because sometimes rounding leads
@@ -16,12 +19,10 @@ const StyledDialog = styled(Dialog)`
     start several pixels after the image), but this is less noticeable than the background color.
   */
   background-color: transparent;
-  aspect-ratio: var(--sb-map-aspect-ratio);
-  max-width: min(calc((100vh - 160px) * var(--sb-map-aspect-ratio)), calc(100% - 160px));
+  max-width: min(var(--sb-map-preview-height-restricted), var(--sb-map-preview-width-restricted));
 `
 
 const StyledMapImage = styled(MapImage)`
-  width: 100%;
   background-color: ${background400};
   border-radius: 2px;
 `

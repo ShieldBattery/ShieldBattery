@@ -149,6 +149,7 @@ function ConnectedSelectableMap({
         <MapThumbnail
           map={map}
           showMapName={true}
+          forceAspectRatio={1}
           size={MAP_THUMB_SIZE_PX}
           isSelected={isVetoed}
           onClick={handleClick}

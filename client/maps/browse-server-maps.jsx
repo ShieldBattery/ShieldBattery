@@ -157,6 +157,7 @@ class MapList extends React.PureComponent {
         <MapThumbnail
           key={map.id}
           map={map}
+          forceAspectRatio={1}
           size={THUMBNAIL_SIZES[thumbnailSize].columnCount === 2 ? 512 : 256}
           showMapName={true}
           isFavoriting={favoriteStatusRequests.has(map.id)}

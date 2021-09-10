@@ -151,6 +151,7 @@ export default class MapSelect extends React.Component {
         <MapThumbnail
           key={id}
           map={map}
+          forceAspectRatio={1}
           size={thumbnailSize === 'xlarge' ? 512 : 256}
           showMapName={true}
           canHover={true}
