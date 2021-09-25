@@ -34,7 +34,7 @@ function stateToProps(state) {
   return {
     activeGame: state.activeGame,
     auth: state.auth,
-    chatChannels: state.chat.channels.map(c => ({
+    chatChannels: Array.from(state.chat.channels.values()).map(c => ({
       name: c,
       hasUnread: state.chat.byName.get(c.toLowerCase()).hasUnread,
     })),

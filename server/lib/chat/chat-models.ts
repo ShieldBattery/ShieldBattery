@@ -1,5 +1,5 @@
 import sql, { SQLStatement } from 'sql-template-strings'
-import { ChatMessageData, ChatUser } from '../../../common/chat'
+import { ChatUser, ServerChatMessageType } from '../../../common/chat'
 import { SbUserId } from '../../../common/users/user-info'
 import db, { DbClient } from '../db'
 import transact from '../db/transaction'
@@ -143,13 +143,24 @@ export async function addUserToChannel(
   }
 }
 
+export interface BaseMessageData {
+  readonly type: ServerChatMessageType
+}
+
+export interface TextMessageData extends BaseMessageData {
+  type: typeof ServerChatMessageType.TextMessage
+  text: string
+}
+
+export type MessageData = TextMessageData
+
 export interface ChatMessage {
   msgId: string
   userId: SbUserId
   userName: string
   channelName: string
   sent: Date
-  data: ChatMessageData
+  data: MessageData
 }
 
 type DbChatMessage = Dbify<ChatMessage>
@@ -157,7 +168,7 @@ type DbChatMessage = Dbify<ChatMessage>
 export async function addMessageToChannel(
   userId: SbUserId,
   channelName: string,
-  messageData: ChatMessageData,
+  messageData: MessageData,
 ): Promise<ChatMessage> {
   const { client, done } = await db()
   try {

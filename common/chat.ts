@@ -1,32 +1,79 @@
 import { SbUser, SbUserId } from './users/user-info'
 
-export enum ChatMessageType {
+/** Chat messages which are persisted in the DB and shown each time the user opens the app. */
+export enum ServerChatMessageType {
   TextMessage = 'message',
 }
 
-export interface BaseChatMessageData {
-  readonly type: ChatMessageType
+/** Chat messages which are only displayed on the client and are cleared when the app reloads. */
+export enum ClientChatMessageType {
+  JoinChannel = 'joinChannel',
+  LeaveChannel = 'leaveChannel',
+  NewChannelOwner = 'newOwner',
+  SelfJoinChannel = 'selfJoinChannel',
 }
 
-export interface ChatTextMessageData extends BaseChatMessageData {
-  type: typeof ChatMessageType.TextMessage
-  text: string
-}
-
-export type ChatMessageData = ChatTextMessageData
-
-export interface ChatMessage {
-  id: string
-  user: ChatUser
-  sent: number
-  data: ChatMessageData
-}
+export type ChatMessageType = ServerChatMessageType | ClientChatMessageType
 
 // TODO(2Pac): Include more information here, e.g. channel permissions, join date, etc.
 export interface ChatUser {
   id: SbUserId
   name: string
 }
+
+export interface BaseChatMessage {
+  id: string
+  type: ChatMessageType
+  channel: string
+  time: number
+}
+
+/** A common text message that the user types in a channel. */
+export interface TextMessage extends BaseChatMessage {
+  type: typeof ServerChatMessageType.TextMessage
+  from: SbUserId
+  user: ChatUser
+  text: string
+}
+
+/** A message that is displayed in the chat when someone joins the channel. */
+export interface JoinChannelMessage extends BaseChatMessage {
+  type: typeof ClientChatMessageType.JoinChannel
+  userId: SbUserId
+}
+
+/** A message that is displayed in the chat when someone leaves the channel. */
+export interface LeaveChannelMessage extends BaseChatMessage {
+  type: typeof ClientChatMessageType.LeaveChannel
+  userId: SbUserId
+}
+
+/**
+ * A message that is displayed in the chat when a current owner of the channel leaves and a new
+ * owner is selected.
+ */
+export interface NewChannelOwnerMessage extends BaseChatMessage {
+  type: typeof ClientChatMessageType.NewChannelOwner
+  newOwnerId: SbUserId
+}
+
+/**
+ * A message that is displayed in the chat to the particular user when they join the channel. Only
+ * they can see this message.
+ */
+export interface SelfJoinChannelMessage extends BaseChatMessage {
+  type: typeof ClientChatMessageType.SelfJoinChannel
+}
+
+export type ServerChatMessage = TextMessage
+
+export type ClientChatMessage =
+  | JoinChannelMessage
+  | LeaveChannelMessage
+  | NewChannelOwnerMessage
+  | SelfJoinChannelMessage
+
+export type ChatMessage = ServerChatMessage | ClientChatMessage
 
 export interface ChatInitEvent {
   action: 'init'
@@ -50,7 +97,7 @@ export interface ChatLeaveEvent {
   newOwner: ChatUser | null
 }
 
-export interface ChatMessageEvent extends ChatMessage {
+export interface ChatMessageEvent extends TextMessage {
   action: 'message'
 }
 

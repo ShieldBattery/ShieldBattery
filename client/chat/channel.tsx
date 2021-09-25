@@ -1,8 +1,7 @@
-import { List } from 'immutable'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { VariableSizeList } from 'react-window'
 import styled, { css } from 'styled-components'
-import { ChatUser } from '../../common/chat'
+import { ChatUser, ClientChatMessageType } from '../../common/chat'
 import { MULTI_CHANNEL } from '../../common/flags'
 import Avatar from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
@@ -36,7 +35,6 @@ import {
   NewChannelOwnerMessage,
   SelfJoinChannelMessage,
 } from './chat-message-layout'
-import { ChatMessageType } from './chat-message-records'
 
 const UserListContainer = styled.div`
   width: 256px;
@@ -176,9 +174,9 @@ const UserListEntry = React.memo<UserListEntryProps>(props => {
 
 interface UserListProps {
   users: {
-    active: List<ChatUser>
-    idle: List<ChatUser>
-    offline: List<ChatUser>
+    active: ChatUser[]
+    idle: ChatUser[]
+    offline: ChatUser[]
   }
 }
 
@@ -188,7 +186,13 @@ const UserList = React.memo((props: UserListProps) => {
   const listRef = useRef<VariableSizeList | null>(null)
 
   const rowCount = useMemo(
-    () => 1 + active.size + (idle.size ? 1 : 0) + idle.size + (offline.size ? 1 : 0) + offline.size,
+    () =>
+      1 +
+      active.length +
+      (idle.length ? 1 : 0) +
+      idle.length +
+      (offline.length ? 1 : 0) +
+      offline.length,
     [active, idle, offline],
   )
 
@@ -198,11 +202,11 @@ const UserList = React.memo((props: UserListProps) => {
         throw new Error('Asked to size nonexistent user: ' + index)
       }
 
-      const idleHeaderIndex = idle.size ? active.size + 1 : null
+      const idleHeaderIndex = idle.length ? active.length + 1 : null
       let offlineHeaderIndex = null
-      if (offline.size) {
+      if (offline.length) {
         offlineHeaderIndex =
-          idleHeaderIndex != null ? idleHeaderIndex + idle.size + 1 : active.size + 1
+          idleHeaderIndex != null ? idleHeaderIndex + idle.length + 1 : active.length + 1
       }
 
       switch (index) {
@@ -224,42 +228,42 @@ const UserList = React.memo((props: UserListProps) => {
         throw new Error('Asked to render nonexistent user: ' + index)
       }
 
-      const idleHeaderIndex = idle.size ? active.size + 1 : null
+      const idleHeaderIndex = idle.length ? active.length + 1 : null
       let offlineHeaderIndex = null
-      if (offline.size) {
+      if (offline.length) {
         offlineHeaderIndex =
-          idleHeaderIndex != null ? idleHeaderIndex + idle.size + 1 : active.size + 1
+          idleHeaderIndex != null ? idleHeaderIndex + idle.length + 1 : active.length + 1
       }
 
       switch (index) {
         case 0:
           return (
             <UserListOverline style={style} key='active'>
-              Active ({active.size})
+              Active ({active.length})
             </UserListOverline>
           )
         case idleHeaderIndex:
           return (
             <UserListOverline style={style} key='idle'>
-              Idle ({idle.size})
+              Idle ({idle.length})
             </UserListOverline>
           )
         case offlineHeaderIndex:
           return (
             <UserListOverline style={style} key='offline'>
-              Offline ({offline.size})
+              Offline ({offline.length})
             </UserListOverline>
           )
         default:
           let user: ChatUser | undefined
           let faded = false
-          if (index < active.size + 1) {
-            user = active.get(index - 1)!
+          if (index < active.length + 1) {
+            user = active[index - 1]!
           } else if (offlineHeaderIndex && index > offlineHeaderIndex) {
             faded = true
-            user = offline.get(index - offlineHeaderIndex - 1)!
+            user = offline[index - offlineHeaderIndex - 1]!
           } else {
-            user = idleHeaderIndex ? idle.get(index - idleHeaderIndex - 1)! : undefined
+            user = idleHeaderIndex ? idle[index - idleHeaderIndex - 1]! : undefined
           }
 
           if (user) {
@@ -316,13 +320,13 @@ const StyledChat = styled(Chat)`
 
 function renderMessage(msg: Message) {
   switch (msg.type) {
-    case ChatMessageType.JoinChannel:
+    case ClientChatMessageType.JoinChannel:
       return <JoinChannelMessage key={msg.id} time={msg.time} userId={msg.userId} />
-    case ChatMessageType.LeaveChannel:
+    case ClientChatMessageType.LeaveChannel:
       return <LeaveChannelMessage key={msg.id} time={msg.time} userId={msg.userId} />
-    case ChatMessageType.NewChannelOwner:
+    case ClientChatMessageType.NewChannelOwner:
       return <NewChannelOwnerMessage key={msg.id} time={msg.time} newOwnerId={msg.newOwnerId} />
-    case ChatMessageType.SelfJoinChannel:
+    case ClientChatMessageType.SelfJoinChannel:
       return <SelfJoinChannelMessage key={msg.id} channel={msg.channel} />
     default:
       return null
@@ -381,16 +385,16 @@ export default function Channel(props: ChatChannelProps) {
   const sortedUsers = useMemo(() => {
     if (!channelUsers) {
       return {
-        active: List<ChatUser>(),
-        idle: List<ChatUser>(),
-        offline: List<ChatUser>(),
+        active: [],
+        idle: [],
+        offline: [],
       }
     }
 
     return {
-      active: channelUsers.active.toList().sort(sortUsers),
-      idle: channelUsers.idle.toList().sort(sortUsers),
-      offline: channelUsers.offline.toList().sort(sortUsers),
+      active: Array.from(channelUsers.active.values()).sort(sortUsers),
+      idle: Array.from(channelUsers.idle.values()).sort(sortUsers),
+      offline: Array.from(channelUsers.offline.values()).sort(sortUsers),
     }
   }, [channelUsers])
 

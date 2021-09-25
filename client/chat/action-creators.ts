@@ -1,7 +1,7 @@
 import {
-  ChatMessage,
   GetChannelUsersServerPayload,
   SendChatMessageServerBody,
+  ServerChatMessage,
 } from '../../common/chat'
 import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
@@ -70,7 +70,7 @@ export function getMessageHistory(channel: string, limit: number): ThunkAction {
     }
 
     const chanData = byName.get(lowerCaseChannel)!
-    const earliestMessageTime = chanData.messages.first({ time: -1 }).time
+    const earliestMessageTime = chanData.messages[0]?.time ?? -1
     const params = { channel, limit, beforeTime: earliestMessageTime }
 
     dispatch({
@@ -79,7 +79,7 @@ export function getMessageHistory(channel: string, limit: number): ThunkAction {
     })
     dispatch({
       type: '@chat/loadMessageHistory',
-      payload: fetch<ChatMessage[]>(
+      payload: fetch<ServerChatMessage[]>(
         apiUrl`chat/${channel}/messages?limit=${limit}&beforeTime=${earliestMessageTime}`,
         { method: 'GET' },
       ),
