@@ -1,4 +1,9 @@
-import { ChatMessage, ChatUser, GetChannelUsersServerPayload, ServerChatMessage, TextMessage } from '../../common/chat'
+import {
+  ChatUser,
+  GetChannelUsersServerPayload,
+  ServerChatMessage,
+  TextMessage,
+} from '../../common/chat'
 import { SbUser } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
