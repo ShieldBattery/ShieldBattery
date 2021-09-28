@@ -3,11 +3,11 @@ import { SbUser, SbUserId } from './users/user-info'
 /** Chat messages which are persisted in the DB and shown each time the user opens the app. */
 export enum ServerChatMessageType {
   TextMessage = 'message',
+  JoinChannel = 'joinChannel',
 }
 
 /** Chat messages which are only displayed on the client and are cleared when the app reloads. */
 export enum ClientChatMessageType {
-  JoinChannel = 'joinChannel',
   LeaveChannel = 'leaveChannel',
   NewChannelOwner = 'newOwner',
   SelfJoinChannel = 'selfJoinChannel',
@@ -38,7 +38,7 @@ export interface TextMessage extends BaseChatMessage {
 
 /** A message that is displayed in the chat when someone joins the channel. */
 export interface JoinChannelMessage extends BaseChatMessage {
-  type: typeof ClientChatMessageType.JoinChannel
+  type: typeof ServerChatMessageType.JoinChannel
   userId: SbUserId
 }
 
@@ -65,10 +65,9 @@ export interface SelfJoinChannelMessage extends BaseChatMessage {
   type: typeof ClientChatMessageType.SelfJoinChannel
 }
 
-export type ServerChatMessage = TextMessage
+export type ServerChatMessage = TextMessage | JoinChannelMessage
 
 export type ClientChatMessage =
-  | JoinChannelMessage
   | LeaveChannelMessage
   | NewChannelOwnerMessage
   | SelfJoinChannelMessage
@@ -87,6 +86,8 @@ export interface ChatJoinEvent {
   channelUser: ChatUser
   /** A user info for the channel user that was returned in the `channelUser` property. */
   user: SbUser
+  /** A message info for the user joining a channel that is saved in the DB. */
+  message: JoinChannelMessage
 }
 
 export interface ChatLeaveEvent {

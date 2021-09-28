@@ -107,7 +107,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/updateJoin'](state, action) {
-    const { channel: channelName, channelUser: user } = action.payload
+    const { channel: channelName, channelUser: user, message } = action.payload
     const lowerCaseChannelName = channelName.toLowerCase()
 
     const channel = state.byName.get(lowerCaseChannelName)
@@ -118,15 +118,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     channel.users.active.set(user.id, user)
 
     // TODO(2Pac): make this configurable
-    updateMessages(state, lowerCaseChannelName, true, m =>
-      m.concat({
-        id: cuid(),
-        type: ClientChatMessageType.JoinChannel,
-        channel: lowerCaseChannelName,
-        time: Date.now(),
-        userId: user.id,
-      }),
-    )
+    updateMessages(state, lowerCaseChannelName, true, m => m.concat(message))
   },
 
   ['@chat/updateLeave'](state, action) {

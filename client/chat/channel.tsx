@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { VariableSizeList } from 'react-window'
 import styled, { css } from 'styled-components'
-import { ChatUser, ClientChatMessageType } from '../../common/chat'
+import { ChatUser, ClientChatMessageType, ServerChatMessageType } from '../../common/chat'
 import { MULTI_CHANNEL } from '../../common/flags'
 import Avatar from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
@@ -320,7 +320,7 @@ const StyledChat = styled(Chat)`
 
 function renderMessage(msg: Message) {
   switch (msg.type) {
-    case ClientChatMessageType.JoinChannel:
+    case ServerChatMessageType.JoinChannel:
       return <JoinChannelMessage key={msg.id} time={msg.time} userId={msg.userId} />
     case ClientChatMessageType.LeaveChannel:
       return <LeaveChannelMessage key={msg.id} time={msg.time} userId={msg.userId} />

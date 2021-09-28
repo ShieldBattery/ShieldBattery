@@ -152,7 +152,11 @@ export interface TextMessageData extends BaseMessageData {
   text: string
 }
 
-export type MessageData = TextMessageData
+export interface JoinChannelData extends BaseMessageData {
+  type: typeof ServerChatMessageType.JoinChannel
+}
+
+export type MessageData = TextMessageData | JoinChannelData
 
 export interface ChatMessage {
   msgId: string

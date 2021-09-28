@@ -30,6 +30,7 @@ const eventToAction: EventToActionMap = {
         channel,
         channelUser: event.channelUser,
         user: event.user,
+        message: event.message
       },
     }
   },

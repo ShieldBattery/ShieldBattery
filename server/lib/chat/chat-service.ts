@@ -23,6 +23,7 @@ import {
   getMessagesForChannel,
   getUsersForChannel,
   leaveChannel,
+  TextMessageData,
 } from './chat-models'
 
 class ChatState extends Record({
@@ -87,6 +88,9 @@ export default class ChatService {
     }
 
     const result = await addUserToChannel(userId, originalChannelName, client)
+    const message = await addMessageToChannel(userId, originalChannelName, {
+      type: ServerChatMessageType.JoinChannel,
+    })
 
     // NOTE(tec27): We don't/can't await this because it would be a recursive async dependency
     // (this function's Promise is await'd for the transaction, and transactionCompleted is awaited
@@ -110,6 +114,13 @@ export default class ChatService {
         user: {
           id: result.userId,
           name: result.userName,
+        },
+        message: {
+          id: message.msgId,
+          type: ServerChatMessageType.JoinChannel,
+          channel: message.channelName,
+          userId: message.userId,
+          time: Number(message.sent),
         },
       })
 
@@ -182,11 +193,12 @@ export default class ChatService {
       type: ServerChatMessageType.TextMessage,
       text,
     })
+    const data = result.data as TextMessageData
 
     this.publisher.publish(getChannelPath(originalChannelName), {
       action: 'message',
       id: result.msgId,
-      type: ServerChatMessageType.TextMessage,
+      type: data.type,
       channel: result.channelName,
       from: result.userId,
       user: {
@@ -194,7 +206,7 @@ export default class ChatService {
         name: result.userName,
       },
       time: Number(result.sent),
-      text: result.data.text,
+      text: data.text,
     })
   }
 
@@ -228,7 +240,7 @@ export default class ChatService {
         case ServerChatMessageType.TextMessage:
           return {
             id: m.msgId,
-            type: ServerChatMessageType.TextMessage,
+            type: m.data.type,
             channel: m.channelName,
             from: m.userId,
             user: {
@@ -238,8 +250,16 @@ export default class ChatService {
             time: Number(m.sent),
             text: m.data.text,
           }
+        case ServerChatMessageType.JoinChannel:
+          return {
+            id: m.msgId,
+            type: m.data.type,
+            channel: m.channelName,
+            userId: m.userId,
+            time: Number(m.sent),
+          }
         default:
-          return assertUnreachable(m.data.type)
+          return assertUnreachable(m.data)
       }
     })
   }

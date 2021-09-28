@@ -1,6 +1,7 @@
 import {
   ChatUser,
   GetChannelUsersServerPayload,
+  JoinChannelMessage,
   ServerChatMessage,
   TextMessage,
 } from '../../common/chat'
@@ -212,6 +213,7 @@ export interface UpdateJoin {
     channel: string
     channelUser: ChatUser
     user: SbUser
+    message: JoinChannelMessage
   }
 }
 
