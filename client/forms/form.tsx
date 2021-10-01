@@ -23,11 +23,9 @@ export type Validator<ValueType, ModelType> =
   | SyncValidator<ValueType, ModelType>
   | AsyncValidator<ValueType, ModelType>
 
-export type ValidatorMap<ModelType> = Partial<
-  {
-    [K in keyof ModelType]: Validator<ModelType[K], ModelType>
-  }
->
+export type ValidatorMap<ModelType> = Partial<{
+  [K in keyof ModelType]: Validator<ModelType[K], ModelType>
+}>
 
 export interface FormWrapper<ModelType> {
   getModel(): ModelType
