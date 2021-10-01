@@ -25,6 +25,7 @@ export default session({
       // Can't set SameSite: lax cookies on cross-origin requests, which is all requests for the
       // Electron client
       session.cookie.sameSite = 'none'
+      session.cookie.secure = true
     }
   },
   // This is the default session store except we don't try to set cookies if a handler says not
@@ -36,12 +37,24 @@ export default session({
 
     set(this: Context, sid, session) {
       if (!this.dontSendSessionCookies) {
+        if (isElectronClient(this)) {
+          // Force the cookies module to allow secure cookies even on unsecure hosts
+          // (e.g. localhost). Chrome will accept/return these fine anyway. This is needed for using
+          // same-site = none
+          this.cookies.secure = true
+        }
         this.cookies.set(SESSION_KEY, sid, session.cookie)
       }
     },
 
     reset(this: Context) {
       if (!this.dontSendSessionCookies) {
+        if (isElectronClient(this)) {
+          // Force the cookies module to allow secure cookies even on unsecure hosts
+          // (e.g. localhost). Chrome will accept/return these fine anyway. This is needed for using
+          // same-site = none
+          this.cookies.secure = true
+        }
         this.cookies.set(SESSION_KEY, null, { expires: new Date(0) })
       }
     },

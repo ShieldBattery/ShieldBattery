@@ -2,17 +2,11 @@ import http from 'http'
 import { Map } from 'immutable'
 import { AddressInfo } from 'net'
 import { container } from 'tsyringe'
-import { Constructor } from 'type-fest'
-import WebSocket, * as ws from 'ws'
+import { WebSocket, WebSocketServer } from 'ws'
 import { LocalSettingsData } from '../../common/local-settings'
 import log from '../logger'
 import { LocalSettings } from '../settings'
 import { ActiveGameManager } from './active-game-manager'
-
-// TODO(tec27): Remove this and just import { WebSocket, WebSocketServer } once ws types have been
-// updated for 8.x
-const WebSocketServer: Constructor<ws.Server> =
-  ws.Server === undefined ? (ws as any).WebSocketServer : ws.Server
 
 interface AuthorizeInfo {
   origin: string
@@ -40,7 +34,7 @@ export class GameServer {
   private idToSocket = Map<string, WebSocket>()
   private activeGameManager = container.resolve(ActiveGameManager)
 
-  constructor(private server: WebSocket.Server, private localSettings: LocalSettings) {
+  constructor(private server: WebSocketServer, private localSettings: LocalSettings) {
     this.activeGameManager.on('gameCommand', (id, command, payload) => {
       log.verbose(`Sending game command to ${id}: ${command}`)
       const socket = this.idToSocket.get(id)
