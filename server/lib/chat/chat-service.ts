@@ -193,12 +193,11 @@ export default class ChatService {
       type: ServerChatMessageType.TextMessage,
       text,
     })
-    const data = result.data as TextMessageData
 
     this.publisher.publish(getChannelPath(originalChannelName), {
       action: 'message',
       id: result.msgId,
-      type: data.type,
+      type: result.data.type,
       channel: result.channelName,
       from: result.userId,
       user: {
@@ -206,7 +205,7 @@ export default class ChatService {
         name: result.userName,
       },
       time: Number(result.sent),
-      text: data.text,
+      text: result.data.text,
     })
   }
 
