@@ -13,6 +13,7 @@ exports.up = async function (db) {
 
       PRIMARY KEY (channel_name, user_id),
       FOREIGN KEY (user_id) REFERENCES users (id),
+      FOREIGN KEY (banned_by) REFERENCES users (id),
       FOREIGN KEY (channel_name) REFERENCES channels (name)
     );
   `)
