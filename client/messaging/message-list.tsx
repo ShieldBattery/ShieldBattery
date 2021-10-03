@@ -2,6 +2,7 @@ import { List } from 'immutable'
 import PropTypes from 'prop-types'
 import React, { ReactNode } from 'react'
 import styled from 'styled-components'
+import { ServerChatMessageType } from '../../common/chat'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { animationFrameHandler } from '../material/animation-frame-handler'
 import { NewDayMessage, TextMessageDisplay } from './common-message-layout'
@@ -34,16 +35,13 @@ const Messages = styled.div`
   }
 `
 
-interface PureMessageListProps {
-  messages: List<Message>
-  renderMessage?: (msg: Message) => ReactNode
-}
-
 function renderCommonMessage(msg: Message) {
   switch (msg.type) {
     case CommonMessageType.NewDayMessage:
       return <NewDayMessage key={msg.id} time={msg.time} />
+    // TODO(2Pac): Reconcile these types into one when everything is moved to immer
     case CommonMessageType.TextMessage:
+    case ServerChatMessageType.TextMessage:
       return <TextMessageDisplay key={msg.id} userId={msg.from} time={msg.time} text={msg.text} />
     default:
       return null
@@ -52,6 +50,32 @@ function renderCommonMessage(msg: Message) {
 
 const handleUnknown = (msg: Message) => {
   return null
+}
+
+// TODO(2Pac): Inline this when all messaging related components have been moved to immer
+function getMessagesLength(messages: List<Message> | ReadonlyArray<Message>): number {
+  if (Array.isArray(messages)) {
+    return messages.length
+  } else {
+    return (messages as List<Message>).size
+  }
+}
+
+// TODO(2Pac): Inline this when all messaging related components have been moved to immer
+function getMessageAtIndex(
+  messages: List<Message> | ReadonlyArray<Message>,
+  index: number,
+): Message | undefined {
+  if (Array.isArray(messages)) {
+    return messages[index]
+  } else {
+    return (messages as List<Message>).get(index)
+  }
+}
+
+interface PureMessageListProps {
+  messages: List<Message> | ReadonlyArray<Message>
+  renderMessage?: (msg: Message) => ReactNode
 }
 
 // This contains just the messages, to avoid needing to re-render them all if e.g. loading state
@@ -65,7 +89,7 @@ const PureMessageList = React.memo<PureMessageListProps>(({ messages, renderMess
         // each service if they have any special messages to handle.
         const messageLayout = renderCommonMessage(m) ?? (renderMessage ?? handleUnknown)(m)
 
-        const prevMessage = index > 0 ? messages.get(index - 1) : null
+        const prevMessage = index > 0 ? getMessageAtIndex(messages, index - 1) : null
         if (!prevMessage || isSameDay(new Date(prevMessage.time), new Date(m.time))) {
           return messageLayout
         } else {
@@ -82,7 +106,7 @@ const PureMessageList = React.memo<PureMessageListProps>(({ messages, renderMess
 })
 
 export interface MessageListProps {
-  messages: List<Message>
+  messages: List<Message> | ReadonlyArray<Message>
   /**
    * Function which will be called to render a particular message. If not provided, only common
    * messages will be rendered.
@@ -121,7 +145,7 @@ export default class MessageList extends React.Component<
   MessageListSnapshot
 > {
   static propTypes = {
-    messages: PropTypes.object.isRequired,
+    messages: PropTypes.oneOfType([PropTypes.object.isRequired, PropTypes.array.isRequired]),
     // A function which is used to render messages
     renderMessage: PropTypes.func,
     // Whether we are currently requesting more history for this message list
@@ -181,8 +205,8 @@ export default class MessageList extends React.Component<
       scrollable.scrollTop = scrollable.scrollHeight
     } else if (prevProps.messages !== this.props.messages) {
       if (
-        prevProps.messages.size < this.props.messages.size &&
-        prevProps.messages.first() !== this.props.messages.first()
+        getMessagesLength(prevProps.messages) < getMessagesLength(this.props.messages) &&
+        getMessageAtIndex(prevProps.messages, 0) !== getMessageAtIndex(this.props.messages, 0)
       ) {
         // Inserted elements at the top, maintain scroll position relative to the last top element
         scrollable.scrollTop =

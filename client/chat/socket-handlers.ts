@@ -58,18 +58,12 @@ const eventToAction: EventToActionMap = {
 
   message(channel, event) {
     // Notify the main process of the new message, so it can display an appropriate notification
-    ipcRenderer.send('chatNewMessage', { user: event.user.name, message: event.data.text })
+    ipcRenderer.send('chatNewMessage', { user: event.user.name, message: event.text })
 
     // TODO(tec27): handle different types of messages (event.data.type)
     return {
       type: '@chat/updateMessage',
-      payload: {
-        channel,
-        id: event.id,
-        user: event.user,
-        time: event.sent,
-        message: event.data.text,
-      },
+      payload: event,
     }
   },
 

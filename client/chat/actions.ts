@@ -1,4 +1,9 @@
-import { ChatMessage, ChatUser, GetChannelUsersServerPayload } from '../../common/chat'
+import {
+  ChatUser,
+  GetChannelUsersServerPayload,
+  ServerChatMessage,
+  TextMessage,
+} from '../../common/chat'
 import { SbUser } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
@@ -123,7 +128,7 @@ export interface LoadMessageHistoryBegin {
  */
 export interface LoadMessageHistory {
   type: '@chat/loadMessageHistory'
-  payload: ChatMessage[]
+  payload: ServerChatMessage[]
   meta: {
     channel: string
     limit: number
@@ -233,17 +238,11 @@ export interface UpdateLeaveSelf {
 }
 
 /**
- * A channel we're in has receieved a new message.
+ * A channel we're in has receieved a new text message.
  */
 export interface UpdateMessage {
   type: '@chat/updateMessage'
-  payload: {
-    channel: string
-    id: string
-    time: number
-    user: ChatUser
-    message: string
-  }
+  payload: TextMessage
 }
 
 /**

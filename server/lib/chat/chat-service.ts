@@ -1,12 +1,13 @@
 import { Map, Record, Set } from 'immutable'
 import { singleton } from 'tsyringe'
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   ChatEvent,
   ChatInitEvent,
-  ChatMessage,
-  ChatMessageType,
   ChatUser,
   GetChannelUsersServerPayload,
+  ServerChatMessage,
+  ServerChatMessageType,
 } from '../../../common/chat'
 import { SbUserId } from '../../../common/users/user-info'
 import { DbClient } from '../db'
@@ -178,19 +179,22 @@ export default class ChatService {
 
     const text = filterChatMessage(message)
     const result = await addMessageToChannel(userSockets.userId, originalChannelName, {
-      type: ChatMessageType.TextMessage,
+      type: ServerChatMessageType.TextMessage,
       text,
     })
 
     this.publisher.publish(getChannelPath(originalChannelName), {
       action: 'message',
       id: result.msgId,
+      type: ServerChatMessageType.TextMessage,
+      channel: result.channelName,
+      from: result.userId,
       user: {
         id: result.userId,
         name: result.userName,
       },
-      sent: Number(result.sent),
-      data: result.data,
+      time: Number(result.sent),
+      text: result.data.text,
     })
   }
 
@@ -199,7 +203,7 @@ export default class ChatService {
     userId: SbUserId,
     limit?: number,
     beforeTime?: number,
-  ): Promise<ChatMessage[]> {
+  ): Promise<ServerChatMessage[]> {
     const userSockets = this.getUserSockets(userId)
     const originalChannelName = await this.getOriginalChannelName(channelName)
     // TODO(tec27): lookup channel keys case insensitively?
@@ -218,15 +222,26 @@ export default class ChatService {
       limit,
       beforeTime && beforeTime > -1 ? new Date(beforeTime) : undefined,
     )
-    return messages.map<ChatMessage>(m => ({
-      id: m.msgId,
-      user: {
-        id: m.userId,
-        name: m.userName,
-      },
-      sent: Number(m.sent),
-      data: m.data,
-    }))
+
+    return messages.map(m => {
+      switch (m.data.type) {
+        case ServerChatMessageType.TextMessage:
+          return {
+            id: m.msgId,
+            type: ServerChatMessageType.TextMessage,
+            channel: m.channelName,
+            from: m.userId,
+            user: {
+              id: m.userId,
+              name: m.userName,
+            },
+            time: Number(m.sent),
+            text: m.data.text,
+          }
+        default:
+          return assertUnreachable(m.data.type)
+      }
+    })
   }
 
   async getChannelUsers(
