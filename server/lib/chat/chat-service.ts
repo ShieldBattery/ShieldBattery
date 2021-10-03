@@ -23,7 +23,6 @@ import {
   getMessagesForChannel,
   getUsersForChannel,
   leaveChannel,
-  TextMessageData,
 } from './chat-models'
 
 class ChatState extends Record({
