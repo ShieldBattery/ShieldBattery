@@ -4,7 +4,6 @@ import Joi from 'joi'
 import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
-  ChannelModerationAction,
   GetChannelUsersServerPayload,
   ModerateChannelUserServerBody,
   SendChatMessageServerBody,
@@ -19,7 +18,6 @@ import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
-import { getJoinedChannelForUser } from './chat-models'
 import ChatService, { ChatServiceError, ChatServiceErrorCode } from './chat-service'
 
 const joinThrottle = createThrottle('chatjoin', {
