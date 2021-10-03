@@ -12,7 +12,7 @@ export function goToIndex(transitionFn = push) {
     if (lobby.inLobby && IS_ELECTRON) {
       transitionFn(`/lobbies/${encodeURIComponent(lobby.info.name)}`)
     } else if (channels.size) {
-      transitionFn(`/chat/${encodeURIComponent([...channels][0])}`)
+      transitionFn(`/chat/${encodeURIComponent(channels.values().next().value)}`)
     } else if (sessions.size) {
       transitionFn(`/whispers/${encodeURIComponent(sessions.get(0).from)}`)
     } else {

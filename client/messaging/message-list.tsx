@@ -40,7 +40,8 @@ function renderCommonMessage(msg: Message) {
     case CommonMessageType.NewDayMessage:
       return <NewDayMessage key={msg.id} time={msg.time} />
     // TODO(2Pac): Reconcile these types into one when everything is moved to immer
-    case CommonMessageType.TextMessage || ServerChatMessageType.TextMessage:
+    case CommonMessageType.TextMessage:
+    case ServerChatMessageType.TextMessage:
       return <TextMessageDisplay key={msg.id} userId={msg.from} time={msg.time} text={msg.text} />
     default:
       return null
@@ -63,7 +64,7 @@ function getMessagesLength(messages: List<Message> | ReadonlyArray<Message>): nu
 // TODO(2Pac): Inline this when all messaging related components have been moved to immer
 function getMessageAtIndex(
   messages: List<Message> | ReadonlyArray<Message>,
-  index = 0,
+  index: number,
 ): Message | undefined {
   if (Array.isArray(messages)) {
     return messages[index]
@@ -205,7 +206,7 @@ export default class MessageList extends React.Component<
     } else if (prevProps.messages !== this.props.messages) {
       if (
         getMessagesLength(prevProps.messages) < getMessagesLength(this.props.messages) &&
-        getMessageAtIndex(prevProps.messages) !== getMessageAtIndex(this.props.messages)
+        getMessageAtIndex(prevProps.messages, 0) !== getMessageAtIndex(this.props.messages, 0)
       ) {
         // Inserted elements at the top, maintain scroll position relative to the last top element
         scrollable.scrollTop =
