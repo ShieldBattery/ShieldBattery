@@ -4,7 +4,9 @@ import Joi from 'joi'
 import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
+  ChannelModerationAction,
   GetChannelUsersServerPayload,
+  ModerateChannelUserServerBody,
   SendChatMessageServerBody,
   ServerChatMessage,
 } from '../../../common/chat'
@@ -17,6 +19,7 @@ import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
+import { getJoinedChannelForUser } from './chat-models'
 import ChatService, { ChatServiceError, ChatServiceErrorCode } from './chat-service'
 
 const joinThrottle = createThrottle('chatjoin', {
@@ -43,6 +46,12 @@ const retrievalThrottle = createThrottle('chatretrieval', {
   window: 60000,
 })
 
+const kickBanThrottle = createThrottle('chatkickban', {
+  rate: 50,
+  burst: 90,
+  window: 60000,
+})
+
 function convertChatServiceError(err: unknown) {
   if (!(err instanceof ChatServiceError)) {
     throw err
@@ -56,9 +65,13 @@ function convertChatServiceError(err: unknown) {
     case ChatServiceErrorCode.InvalidSendAction:
     case ChatServiceErrorCode.InvalidGetHistoryAction:
     case ChatServiceErrorCode.InvalidGetUsersAction:
+    case ChatServiceErrorCode.InvalidModerationAction:
       throw new httpErrors.BadRequest(err.message)
     case ChatServiceErrorCode.LeaveShieldBattery:
+    case ChatServiceErrorCode.ModeratorAccess:
       throw new httpErrors.Forbidden(err.message)
+    case ChatServiceErrorCode.UserBanned:
+      throw new httpErrors.Unauthorized(err.message)
     default:
       assertUnreachable(err.code)
   }
@@ -157,5 +170,33 @@ export class ChatApi {
   async getChannelUsers(ctx: RouterContext): Promise<GetChannelUsersServerPayload> {
     const channelName = getValidatedChannelName(ctx)
     return await this.chatService.getChannelUsers(channelName, ctx.session!.userId)
+  }
+
+  @httpDelete('/:channelName/:targetId')
+  @httpBefore(
+    featureEnabled(MULTI_CHANNEL),
+    throttleMiddleware(kickBanThrottle, ctx => String(ctx.session!.userId)),
+  )
+  async moderateChannelUser(ctx: RouterContext): Promise<void> {
+    const channelName = getValidatedChannelName(ctx)
+    const {
+      params: { targetId, moderationAction, moderationReason },
+    } = validateRequest(ctx, {
+      params: Joi.object<ModerateChannelUserServerBody>({
+        targetId: Joi.number().min(1).required(),
+        moderationAction: Joi.string().valid('kick', 'ban').required(),
+        moderationReason: Joi.string(),
+      }),
+    })
+
+    await this.chatService.moderateUser(
+      channelName,
+      ctx.session!.userId,
+      targetId,
+      moderationAction,
+      moderationReason,
+    )
+
+    ctx.status = 204
   }
 }

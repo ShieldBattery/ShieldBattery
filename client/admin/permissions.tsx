@@ -61,6 +61,11 @@ class UserPermissionsForm extends React.Component<FormChildProps<SbPermissions> 
           label='Mass delete maps'
           inputProps={inputProps}
         />
+        <CheckBox
+          {...bindCheckable('moderateChatChannels')}
+          label='Moderate chat channels'
+          inputProps={inputProps}
+        />
       </form>
     )
   }

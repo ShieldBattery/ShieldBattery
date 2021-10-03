@@ -9,6 +9,7 @@ export interface SbPermissions {
   manageMatchmakingTimes: boolean
   manageRallyPointServers: boolean
   massDeleteMaps: boolean
+  moderateChatChannels: boolean
 }
 
 export type PermissionName = keyof SbPermissions

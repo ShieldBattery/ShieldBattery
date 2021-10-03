@@ -2,6 +2,7 @@ import { Map, Record, Set } from 'immutable'
 import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
+  ChannelModerationAction,
   ChatEvent,
   ChatInitEvent,
   ChatUser,
@@ -12,16 +13,20 @@ import {
 import { SbUserId } from '../../../common/users/user-info'
 import { DbClient } from '../db'
 import filterChatMessage from '../messaging/filter-chat-message'
+import { getPermissions } from '../models/permissions'
 import { findUserById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
   addMessageToChannel,
   addUserToChannel,
+  banUserFromChannel,
   findChannel,
   getChannelsForUser,
+  getJoinedChannelForUser,
   getMessagesForChannel,
   getUsersForChannel,
+  isUserBannedFromChannel,
   leaveChannel,
 } from './chat-models'
 
@@ -30,9 +35,9 @@ class ChatState extends Record({
    * Maps channel name -> Map of users in that channel. Map of users in the channel is mapped as
    * user ID -> object containing channel user data.
    */
-  channels: Map<string, Map<number, ChatUser>>(),
+  channels: Map<string, Map<SbUserId, ChatUser>>(),
   /** Maps userId -> Set of channels they're in (as names). */
-  users: Map<number, Set<string>>(),
+  users: Map<SbUserId, Set<string>>(),
 }) {}
 
 export enum ChatServiceErrorCode {
@@ -40,6 +45,9 @@ export enum ChatServiceErrorCode {
   InvalidJoinAction,
   LeaveShieldBattery,
   InvalidLeaveAction,
+  InvalidModerationAction,
+  ModeratorAccess,
+  UserBanned,
   InvalidSendAction,
   InvalidGetHistoryAction,
   InvalidGetUsersAction,
@@ -84,6 +92,14 @@ export default class ChatService {
     const originalChannelName = await this.getOriginalChannelName(channelName)
     if (this.state.users.has(userId) && this.state.users.get(userId)!.has(originalChannelName)) {
       throw new ChatServiceError(ChatServiceErrorCode.InvalidJoinAction, 'Already in this channel')
+    }
+
+    const isBanned = await isUserBannedFromChannel(originalChannelName, userId)
+    if (isBanned) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.UserBanned,
+        'This user has been banned from this chat channel',
+      )
     }
 
     const result = await addUserToChannel(userId, originalChannelName, client)
@@ -151,16 +167,7 @@ export default class ChatService {
       )
     }
 
-    const { newOwner } = await leaveChannel(userSockets.userId, originalChannelName)
-    const updated = this.state.channels.get(originalChannelName)!.delete(userSockets.userId)
-    this.state = updated.size
-      ? this.state.setIn(['channels', originalChannelName], updated)
-      : this.state.deleteIn(['channels', originalChannelName])
-
-    // TODO(tec27): Remove `any` cast once Immutable properly types this call again
-    this.state = this.state.updateIn(['users', userSockets.userId], u =>
-      (u as any).delete(originalChannelName),
-    )
+    const newOwner = await this.removeUserFromChannel(originalChannelName, userSockets)
 
     this.publisher.publish(getChannelPath(originalChannelName), {
       action: 'leave',
@@ -171,6 +178,90 @@ export default class ChatService {
       newOwner,
     })
     this.unsubscribeUserFromChannel(userSockets, originalChannelName)
+  }
+
+  async moderateUser(
+    channelName: string,
+    moderatorId: SbUserId,
+    targetId: SbUserId,
+    moderationAction: ChannelModerationAction,
+    moderationReason?: string,
+  ): Promise<void> {
+    const [moderatorPermissions, moderatorUserChannel, targetUserChannel] = await Promise.all([
+      getPermissions(moderatorId),
+      getJoinedChannelForUser(moderatorId, channelName),
+      getJoinedChannelForUser(targetId, channelName),
+    ])
+    if (!moderatorUserChannel) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.InvalidModerationAction,
+        'Must be in channel to moderate users',
+      )
+    }
+    if (!targetUserChannel) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.InvalidModerationAction,
+        'User must be in channel to moderate them',
+      )
+    }
+    // TODO(2Pac): Introduce a concept of channel "owner" who can't be moderated
+    if (
+      !moderatorPermissions.moderateChatChannels &&
+      !moderatorUserChannel.channelPermissions.editPermissions
+    ) {
+      if (!moderatorUserChannel.channelPermissions[moderationAction]) {
+        throw new ChatServiceError(
+          ChatServiceErrorCode.ModeratorAccess,
+          'Not enough permissions to moderate the user',
+        )
+      }
+      if (
+        targetUserChannel.channelPermissions.editPermissions ||
+        targetUserChannel.channelPermissions.ban ||
+        targetUserChannel.channelPermissions.kick
+      ) {
+        throw new ChatServiceError(
+          ChatServiceErrorCode.ModeratorAccess,
+          "Can't moderate users with moderator access",
+        )
+      }
+    }
+
+    const originalChannelName = await this.getOriginalChannelName(channelName)
+    if (originalChannelName === 'ShieldBattery') {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.LeaveShieldBattery,
+        "Can't moderate users in the ShieldBattery channel",
+      )
+    }
+    if (
+      !this.state.users.has(targetId) ||
+      !this.state.users.get(targetId)!.has(originalChannelName)
+    ) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.InvalidModerationAction,
+        'User must be in channel to moderate them',
+      )
+    }
+
+    const targetSockets = this.getUserSockets(targetId)
+    // NOTE(2Pac): New owner can technically be selected if a global moderator removes all users
+    // with channel permissions.
+    const newOwner = await this.removeUserFromChannel(originalChannelName, targetSockets)
+
+    if (moderationAction === ChannelModerationAction.Ban) {
+      await banUserFromChannel(originalChannelName, moderatorId, targetId, moderationReason)
+    }
+
+    this.publisher.publish(getChannelPath(originalChannelName), {
+      action: moderationAction,
+      target: {
+        id: targetSockets.userId,
+        name: targetSockets.name,
+      },
+      newOwner,
+    })
+    this.unsubscribeUserFromChannel(targetSockets, originalChannelName)
   }
 
   async sendChatMessage(channelName: string, userId: SbUserId, message: string): Promise<void> {
@@ -317,6 +408,24 @@ export default class ChatService {
 
   unsubscribeUserFromChannel(user: UserSocketsGroup, channelName: string) {
     user.unsubscribe(getChannelPath(channelName))
+  }
+
+  private async removeUserFromChannel(
+    channelName: string,
+    userSockets: UserSocketsGroup,
+  ): Promise<ChatUser | null> {
+    const { newOwner } = await leaveChannel(userSockets.userId, channelName)
+    const updated = this.state.channels.get(channelName)!.delete(userSockets.userId)
+    this.state = updated.size
+      ? this.state.setIn(['channels', channelName], updated)
+      : this.state.deleteIn(['channels', channelName])
+
+    // TODO(tec27): Remove `any` cast once Immutable properly types this call again
+    this.state = this.state.updateIn(['users', userSockets.userId], u =>
+      (u as any).delete(channelName),
+    )
+
+    return newOwner
   }
 
   private async handleNewUser(userSockets: UserSocketsGroup) {
