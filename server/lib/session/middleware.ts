@@ -37,24 +37,20 @@ export default session({
 
     set(this: Context, sid, session) {
       if (!this.dontSendSessionCookies) {
-        if (isElectronClient(this)) {
-          // Force the cookies module to allow secure cookies even on unsecure hosts
-          // (e.g. localhost). Chrome will accept/return these fine anyway. This is needed for using
-          // same-site = none
-          this.cookies.secure = true
-        }
+        // Force the cookies module to allow secure cookies even on unsecure hosts
+        // (e.g. localhost). Browsers will accept/return these fine anyway. This is needed for using
+        // same-site = none
+        this.cookies.secure = true
         this.cookies.set(SESSION_KEY, sid, session.cookie)
       }
     },
 
     reset(this: Context) {
       if (!this.dontSendSessionCookies) {
-        if (isElectronClient(this)) {
-          // Force the cookies module to allow secure cookies even on unsecure hosts
-          // (e.g. localhost). Chrome will accept/return these fine anyway. This is needed for using
-          // same-site = none
-          this.cookies.secure = true
-        }
+        // Force the cookies module to allow secure cookies even on unsecure hosts
+        // (e.g. localhost). Browsers will accept/return these fine anyway. This is needed for using
+        // same-site = none
+        this.cookies.secure = true
         this.cookies.set(SESSION_KEY, null, { expires: new Date(0) })
       }
     },
