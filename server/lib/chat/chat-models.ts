@@ -152,7 +152,11 @@ export interface TextMessageData extends BaseMessageData {
   text: string
 }
 
-export type MessageData = TextMessageData
+export interface JoinChannelData extends BaseMessageData {
+  type: typeof ServerChatMessageType.JoinChannel
+}
+
+export type ChatMessageData = TextMessageData | JoinChannelData
 
 export interface ChatMessage {
   msgId: string
@@ -160,16 +164,16 @@ export interface ChatMessage {
   userName: string
   channelName: string
   sent: Date
-  data: MessageData
+  data: ChatMessageData
 }
 
 type DbChatMessage = Dbify<ChatMessage>
 
-export async function addMessageToChannel(
+export async function addMessageToChannel<T extends ChatMessageData>(
   userId: SbUserId,
   channelName: string,
-  messageData: MessageData,
-): Promise<ChatMessage> {
+  messageData: T,
+): Promise<ChatMessage & { data: T }> {
   const { client, done } = await db()
   try {
     const result = await client.query<DbChatMessage>(sql`
@@ -197,7 +201,7 @@ export async function addMessageToChannel(
       userName: row.user_name,
       channelName: row.channel_name,
       sent: row.sent,
-      data: row.data,
+      data: row.data as T,
     }
   } finally {
     done()
