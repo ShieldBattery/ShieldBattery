@@ -167,7 +167,7 @@ export default class ChatService {
       )
     }
 
-    const newOwner = await this.removeUserFromChannel(originalChannelName, userSockets)
+    const newOwner = await this.removeUserFromChannel(originalChannelName, userId)
 
     this.publisher.publish(getChannelPath(originalChannelName), {
       action: 'leave',
@@ -222,7 +222,7 @@ export default class ChatService {
       ) {
         throw new ChatServiceError(
           ChatServiceErrorCode.ModeratorAccess,
-          "Can't moderate users with moderator access",
+          "Can't moderate users that have moderator access",
         )
       }
     }
@@ -244,24 +244,28 @@ export default class ChatService {
       )
     }
 
-    const targetSockets = this.getUserSockets(targetId)
-    // NOTE(2Pac): New owner can technically be selected if a global moderator removes all users
-    // with channel permissions.
-    const newOwner = await this.removeUserFromChannel(originalChannelName, targetSockets)
-
     if (moderationAction === ChannelModerationAction.Ban) {
       await banUserFromChannel(originalChannelName, moderatorId, targetId, moderationReason)
     }
 
-    this.publisher.publish(getChannelPath(originalChannelName), {
-      action: moderationAction,
-      target: {
-        id: targetSockets.userId,
-        name: targetSockets.name,
-      },
-      newOwner,
-    })
-    this.unsubscribeUserFromChannel(targetSockets, originalChannelName)
+    // NOTE(2Pac): New owner can technically be selected if a global moderator removes all users
+    // with channel permissions.
+    const newOwner = await this.removeUserFromChannel(originalChannelName, targetId)
+
+    // NOTE(2Pac): We don't use the helper method here because moderating people while they're
+    // offline is allowed.
+    const targetSockets = this.userSocketsManager.getById(targetId)
+    if (targetSockets) {
+      this.publisher.publish(getChannelPath(originalChannelName), {
+        action: moderationAction,
+        target: {
+          id: targetSockets.userId,
+          name: targetSockets.name,
+        },
+        newOwner,
+      })
+      this.unsubscribeUserFromChannel(targetSockets, originalChannelName)
+    }
   }
 
   async sendChatMessage(channelName: string, userId: SbUserId, message: string): Promise<void> {
@@ -412,18 +416,16 @@ export default class ChatService {
 
   private async removeUserFromChannel(
     channelName: string,
-    userSockets: UserSocketsGroup,
+    userId: SbUserId,
   ): Promise<ChatUser | null> {
-    const { newOwner } = await leaveChannel(userSockets.userId, channelName)
-    const updated = this.state.channels.get(channelName)!.delete(userSockets.userId)
+    const { newOwner } = await leaveChannel(userId, channelName)
+    const updated = this.state.channels.get(channelName)!.delete(userId)
     this.state = updated.size
       ? this.state.setIn(['channels', channelName], updated)
       : this.state.deleteIn(['channels', channelName])
 
     // TODO(tec27): Remove `any` cast once Immutable properly types this call again
-    this.state = this.state.updateIn(['users', userSockets.userId], u =>
-      (u as any).delete(channelName),
-    )
+    this.state = this.state.updateIn(['users', userId], u => (u as any).delete(channelName))
 
     return newOwner
   }
