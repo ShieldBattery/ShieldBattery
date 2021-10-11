@@ -21,6 +21,7 @@ export class PermissionsRecord
     manageMatchmakingTimes: false,
     manageRallyPointServers: false,
     massDeleteMaps: false,
+    moderateChatChannels: false,
   })
   implements SbPermissions {}
 

@@ -17,6 +17,7 @@ export const Permissions = new Record({
   manageMatchmakingTimes: false,
   manageRallyPointServers: false,
   massDeleteMaps: false,
+  moderateChatChannels: false,
 
   lastUpdated: 0,
   isRequesting: false,

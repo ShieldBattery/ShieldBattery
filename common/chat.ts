@@ -98,6 +98,22 @@ export interface ChatLeaveEvent {
   newOwner: ChatUser | null
 }
 
+export interface ChatKickEvent {
+  action: 'kick'
+  /** A user that was kicked from the chat channel. */
+  target: ChatUser
+  /** A user that was selected as a new owner of the channel, if any. */
+  newOwner: ChatUser | null
+}
+
+export interface ChatBanEvent {
+  action: 'ban'
+  /** A user that was banned from the chat channel. */
+  target: ChatUser
+  /** A user that was selected as a new owner of the channel, if any. */
+  newOwner: ChatUser | null
+}
+
 export interface ChatMessageEvent extends TextMessage {
   action: 'message'
 }
@@ -121,6 +137,8 @@ export type ChatEvent =
   | ChatInitEvent
   | ChatJoinEvent
   | ChatLeaveEvent
+  | ChatKickEvent
+  | ChatBanEvent
   | ChatMessageEvent
   | ChatUserActiveEvent
   | ChatUserIdleEvent
@@ -138,4 +156,29 @@ export interface GetChannelUsersServerPayload {
   channelUsers: ChatUser[]
   /** A list of user infos for channel users that are in the returned `channelUsers` list. */
   users: SbUser[]
+}
+
+/**
+ * Available moderation actions in a chat channel. Only users with specific permissions should be
+ * able to perform them.
+ */
+export enum ChannelModerationAction {
+  Kick = 'kick',
+  Ban = 'ban',
+}
+
+/**
+ * The body data of the API route for moderating users in a chat channel, e.g. kicking or banning
+ * them.
+ */
+export interface ModerateChannelUserServerBody {
+  /** User that is about to get moderated, e.g. kicked or banned. */
+  targetId: SbUserId
+  /** Precise moderation action that will be performed on the user, e.g. kicked or banned. */
+  moderationAction: ChannelModerationAction
+  /**
+   * Optional reason for the moderation action. Mostly useful for more permanent moderation actions,
+   * e.g. banning.
+   */
+  moderationReason?: string
 }

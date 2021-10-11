@@ -70,6 +70,40 @@ export interface JoinedChannel {
 
 type DbJoinedChannel = Dbify<JoinedChannel & ChannelPermissions>
 
+function convertJoinedChannelFromDb(props: DbJoinedChannel): JoinedChannel {
+  return {
+    userId: props.user_id,
+    userName: props.user_name,
+    channelName: props.channel_name,
+    joinDate: props.join_date,
+    channelPermissions: {
+      kick: props.kick,
+      ban: props.ban,
+      changeTopic: props.change_topic,
+      togglePrivate: props.toggle_private,
+      editPermissions: props.edit_permissions,
+    },
+  }
+}
+
+export async function getJoinedChannelForUser(
+  userId: SbUserId,
+  channelName: string,
+): Promise<JoinedChannel | null> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<DbJoinedChannel>(sql`
+      SELECT *
+      FROM joined_channels
+      WHERE user_id = ${userId} AND channel_name = ${channelName};
+    `)
+
+    return result.rowCount < 1 ? null : convertJoinedChannelFromDb(result.rows[0])
+  } finally {
+    done()
+  }
+}
+
 export async function addUserToChannel(
   userId: SbUserId,
   channelName: string,
@@ -110,30 +144,7 @@ export async function addUserToChannel(
       throw new Error('No rows returned')
     }
 
-    const {
-      user_id: userIdFromDb,
-      user_name: userName,
-      channel_name: channelNameFromDb,
-      join_date: joinDate,
-      kick,
-      ban,
-      change_topic: changeTopic,
-      toggle_private: togglePrivate,
-      edit_permissions: editPermissions,
-    } = result.rows[0]
-    return {
-      userId: userIdFromDb,
-      userName,
-      channelName: channelNameFromDb,
-      joinDate,
-      channelPermissions: {
-        kick,
-        ban,
-        changeTopic,
-        togglePrivate,
-        editPermissions,
-      },
-    }
+    return convertJoinedChannelFromDb(result.rows[0])
   }
 
   if (client) {
@@ -322,6 +333,39 @@ export async function leaveChannel(
       WHERE user_id = ${result.rows[0].user_id} AND channel_name = ${channelName}`)
     return { newOwner: { id: result.rows[0].user_id, name: result.rows[0].user_name } }
   })
+}
+
+export async function banUserFromChannel(
+  channelName: string,
+  moderatorId: SbUserId,
+  targetId: SbUserId,
+  reason?: string,
+): Promise<void> {
+  const { client, done } = await db()
+  try {
+    await client.query(sql`
+      INSERT INTO channel_bans (user_id, channel_name, ban_time, banned_by, reason)
+      VALUES (${targetId}, ${channelName}, ${new Date()}, ${moderatorId}, ${reason});
+    `)
+  } finally {
+    done()
+  }
+}
+
+export async function isUserBannedFromChannel(
+  channelName: string,
+  userId: SbUserId,
+): Promise<boolean> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query(sql`
+      SELECT 1 FROM channel_bans
+      WHERE user_id = ${userId} AND channel_name = ${channelName};
+    `)
+    return !!result.rows.length
+  } finally {
+    done()
+  }
 }
 
 export interface Channel {
