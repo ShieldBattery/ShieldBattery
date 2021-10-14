@@ -184,9 +184,9 @@ export async function addMessageToChannel<T extends ChatMessageData>(
   userId: SbUserId,
   channelName: string,
   messageData: T,
+  client?: DbClient,
 ): Promise<ChatMessage & { data: T }> {
-  const { client, done } = await db()
-  try {
+  const doIt = async (client: DbClient) => {
     const result = await client.query<DbChatMessage>(sql`
       WITH ins AS (
         INSERT INTO channel_messages (id, user_id, channel_name, sent, data)
@@ -214,8 +214,12 @@ export async function addMessageToChannel<T extends ChatMessageData>(
       sent: row.sent,
       data: row.data as T,
     }
-  } finally {
-    done()
+  }
+
+  if (client) {
+    return doIt(client)
+  } else {
+    return transact(doIt)
   }
 }
 

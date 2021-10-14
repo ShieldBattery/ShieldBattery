@@ -103,9 +103,14 @@ export default class ChatService {
     }
 
     const result = await addUserToChannel(userId, originalChannelName, client)
-    const message = await addMessageToChannel(userId, originalChannelName, {
-      type: ServerChatMessageType.JoinChannel,
-    })
+    const message = await addMessageToChannel(
+      userId,
+      originalChannelName,
+      {
+        type: ServerChatMessageType.JoinChannel,
+      },
+      client,
+    )
 
     // NOTE(tec27): We don't/can't await this because it would be a recursive async dependency
     // (this function's Promise is await'd for the transaction, and transactionCompleted is awaited
