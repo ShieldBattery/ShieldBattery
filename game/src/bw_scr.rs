@@ -550,7 +550,7 @@ pub mod scr {
         pub rest: [u8; 0x74],
     }
 
-    #[repr(C, packed)]
+    #[repr(C)]
     pub struct Sprite {
         pub prev: *mut Sprite,
         pub next: *mut Sprite,
@@ -564,8 +564,8 @@ pub mod scr {
         pub index: u16,
         pub width: u8,
         pub height: u8,
-        pub pos_x: u32,
-        pub pos_y: u32,
+        pub pos_x: usize,
+        pub pos_y: usize,
         pub main_image: *mut bw::Image,
         pub first_image: *mut bw::Image,
         pub last_image: *mut bw::Image,

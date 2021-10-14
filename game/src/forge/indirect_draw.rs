@@ -221,8 +221,8 @@ impl_ddraw! {
             debug!(
                 "CreateSurface, flags: {:x}, height: {}, width: {}, pitch {}, \
                 backBufferCount: {}, caps1: {:x}, caps2: {:x}",
-                (*desc).dwFlags, (*desc).dwHeight, (*desc).dwWidth, (*desc).lPitch,
-                (*desc).dwBackBufferCount, (*desc).ddsCaps.dwCaps, (*desc).ddsCaps.dwCaps2,
+                { (*desc).dwFlags }, { (*desc).dwHeight }, { (*desc).dwWidth }, { (*desc).lPitch },
+                { (*desc).dwBackBufferCount }, { (*desc).ddsCaps.dwCaps }, { (*desc).ddsCaps.dwCaps2 },
             );
         }
         let surface = IndirectDrawSurface::new(this, desc);
@@ -550,7 +550,7 @@ impl_ddraw! {
         // Ensure our assumptions are correct across all lock calls, if this ever fails,
         // please fix or file a bug :)
         assert_eq!(flags, DDLOCK_WAIT);
-        assert_eq!((*surface_desc).dwSize, (*this).surface_desc.dwSize);
+        assert_eq!({ (*surface_desc).dwSize }, { (*this).surface_desc.dwSize });
         std::ptr::copy_nonoverlapping(
             &(*this).surface_desc as *const DDSURFACEDESC2 as *const u8,
             surface_desc as *mut u8,
