@@ -13,6 +13,8 @@
 
 pub use bw_dat::Unit;
 
+use crate::bw;
+
 /// There are three main lists,
 /// one for active units (Anything selectable or something that is drawn),
 /// one for hidden units (Inside building, transport, or similarly not interacting with map),
@@ -30,7 +32,7 @@ impl Iterator for UnitIterator {
     fn next(&mut self) -> Option<Unit> {
         let unit = self.0?;
         unsafe {
-            self.0 = Unit::from_ptr((**unit).next);
+            self.0 = Unit::from_ptr((**unit).flingy.next as *mut bw::Unit);
         }
         Some(unit)
     }

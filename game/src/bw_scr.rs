@@ -713,8 +713,9 @@ impl<T: BwValue> Value<T> {
                 if mem.size != expected_size {
                     panic!("Cannot form pointer to {}", self.op);
                 }
-                let addr = resolve_operand(mem.address, &[]);
-                addr as *mut T
+                let (base, offset) = mem.address();
+                let base = resolve_operand(base, &[]);
+                base.wrapping_add(offset as usize) as *mut T
             }
             _ => panic!("Cannot form pointer to {}", self.op),
         }
@@ -735,7 +736,8 @@ impl<T: BwValue> Value<T> {
         let value = T::to_usize(value);
         match self.op.ty() {
             OperandType::Memory(ref mem) => {
-                let addr = resolve_operand(mem.address, &[]);
+                let (base, offset) = mem.address();
+                let addr = resolve_operand(base, &[]).wrapping_add(offset as usize);
                 match mem.size {
                     MemAccessSize::Mem8 => *(addr as *mut u8) = value as u8,
                     MemAccessSize::Mem16 => *(addr as *mut u16) = value as u16,
@@ -756,7 +758,8 @@ unsafe fn resolve_operand(op: scarf::Operand<'_>, custom: &[usize]) -> usize {
     match *op.ty() {
         OperandType::Constant(c) => c as usize,
         OperandType::Memory(ref mem) => {
-            let addr = resolve_operand(mem.address, custom);
+            let (base, offset) = mem.address();
+            let addr = resolve_operand(base, custom).wrapping_add(offset as usize);
             if addr < 0x80 {
                 let val = read_fs(addr as usize);
                 match mem.size {
@@ -1624,7 +1627,7 @@ impl BwScr {
         let fow = free_fow_sprites.alloc()?;
         let sprite = free_sprites.alloc()?;
         let mut images: SmallVec<[bw::list::Allocation<bw::Image>; 8]> = SmallVec::new();
-        let in_sprite = (**unit).sprite as *mut scr::Sprite;
+        let in_sprite = (**unit).flingy.sprite as *mut scr::Sprite;
         *sprite.value() = scr::Sprite {
             prev: null_mut(),
             next: null_mut(),

@@ -220,7 +220,7 @@ impl bw::Bw for Bw1161 {
     }
 
     unsafe fn create_fow_sprite(&self, unit: Unit) {
-        create_fow_sprite((**unit).unit_id as u32, (**unit).sprite);
+        create_fow_sprite((**unit).unit_id as u32, (**unit).flingy.sprite);
     }
 
     unsafe fn sprite_position(&self, sprite: *mut c_void) -> bw::Point {
