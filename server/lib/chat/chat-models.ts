@@ -219,7 +219,12 @@ export async function addMessageToChannel<T extends ChatMessageData>(
   if (client) {
     return doIt(client)
   } else {
-    return transact(doIt)
+    const { client, done } = await db()
+    try {
+      return doIt(client)
+    } finally {
+      done()
+    }
   }
 }
 
