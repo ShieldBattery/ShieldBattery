@@ -238,6 +238,10 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
       if (systemTray) {
         const isMentioned = isUserMentioned(data.selfUser, data.message)
         systemTray.setUnreadIcon(isMentioned)
+
+        if (isMentioned) {
+          systemTray.displayChatMessage(data.user, data.message)
+        }
       }
     }
   })

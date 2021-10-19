@@ -14,12 +14,12 @@ export default class SystemTray {
     this.systemTray = new Tray(NORMAL_ICON)
     this.systemTray.setToolTip(app.name)
     this.systemTray.setContextMenu(this.buildContextMenu())
-    this.systemTray.on('click', this.onTrayClick)
+    this.systemTray.on('click', this.restoreWindow)
   }
 
   buildContextMenu = () => {
     return Menu.buildFromTemplate([
-      { label: 'Restore', type: 'normal', click: this.onTrayClick },
+      { label: 'Restore', type: 'normal', click: this.restoreWindow },
       { label: 'Open Logs Folder', type: 'normal', click: this.onOpenLogs },
       { label: `Quit ${app.name}`, type: 'normal', click: this.onQuitClick },
     ])
@@ -29,7 +29,7 @@ export default class SystemTray {
     shell.openPath(path.join(getUserDataPath(), 'logs'))
   }
 
-  onTrayClick = () => {
+  restoreWindow = () => {
     if (this.mainWindow.isVisible()) {
       if (this.mainWindow.isMinimized()) {
         this.mainWindow.restore()
@@ -48,6 +48,16 @@ export default class SystemTray {
       title: 'ShieldBattery',
       content: message,
     })
+  }
+
+  displayChatMessage = (user, message) => {
+    this.systemTray.displayBalloon({
+      icon: BALLOON_ICON,
+      title: user,
+      content: message,
+    })
+
+    this.systemTray.once('balloon-click', this.restoreWindow)
   }
 
   setUnreadIcon = (urgent = false) => {
