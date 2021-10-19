@@ -3,6 +3,7 @@ import { GameLaunchConfig, GameRoute } from '../../common/game-launch-config'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
 import { urlPath } from '../../common/urls'
+import { SbUserId } from '../../common/users/user-info'
 import {
   ACTIVE_GAME_LAUNCH,
   LOBBIES_COUNT_UPDATE,
@@ -94,6 +95,11 @@ type LobbyEvent =
   | LobbyChatEvent
   | LobbyStatusEvent
 
+interface LobbyUser {
+  id: SbUserId
+  name: string
+}
+
 interface LobbyInitEvent {
   type: 'init'
   // TODO(tec27): actually type this
@@ -106,6 +112,8 @@ interface LobbyInitEvent {
       mapUrl: string
     }
   }
+  /** An array of infos for all users that were in the lobby at this point. */
+  userInfos: LobbyUser[]
 }
 
 interface LobbyDiffEvent {
@@ -119,6 +127,8 @@ interface LobbySlotCreateEvent {
   slot: {
     type: 'human' | 'computer'
   }
+  /** In case a human slot was created, this field will contain their properties, e.g. name. */
+  userInfo?: LobbyUser
 }
 
 interface LobbyRaceChangeEvent {
