@@ -29,14 +29,16 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  message(event) {
+  message: event => (dispatch, getState) => {
+    const { auth } = getState()
     // Notify the main process of the new message, so it can display an appropriate notification
     ipcRenderer.send('chatNewMessage', {
       user: event.message.from.name,
+      selfUser: auth.user.name,
       message: event.message.data.text,
     })
 
-    return {
+    dispatch({
       type: '@whispers/updateMessage',
       payload: {
         message: {
@@ -48,7 +50,7 @@ const eventToAction: EventToActionMap = {
         },
         users: event.users,
       },
-    }
+    })
   },
 
   userActive(event) {

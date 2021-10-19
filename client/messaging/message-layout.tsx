@@ -1,6 +1,7 @@
 import React from 'react'
 import styled, { css } from 'styled-components'
 import {
+  amberA100,
   blue100,
   blue200,
   colorDividers,
@@ -88,7 +89,7 @@ const messageContainerBase = css`
   line-height: 20px;
 `
 
-const MessageContainer = styled.div`
+const MessageContainer = styled.div<{ $highlighted?: boolean }>`
   ${messageContainerBase};
   ${body1};
 
@@ -96,17 +97,38 @@ const MessageContainer = styled.div`
 
   line-height: 20px;
   text-indent: -72px;
+
+  ${props => {
+    if (!props.$highlighted) {
+      return ''
+    }
+
+    return `
+      background-color: rgba(255, 255, 255, 0.16);
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 2px;
+        background-color: ${amberA100};
+      }
+    `
+  }}
 `
 
 interface TimestampMessageLayoutProps {
   time: number
+  $highlighted?: boolean
   className?: string
   children: React.ReactNode
 }
 
 export const TimestampMessageLayout = (props: TimestampMessageLayoutProps) => {
   return (
-    <MessageContainer className={props.className} role='document'>
+    <MessageContainer $highlighted={props.$highlighted} className={props.className} role='document'>
       <MessageTimestamp time={props.time} />
       {props.children}
     </MessageContainer>
