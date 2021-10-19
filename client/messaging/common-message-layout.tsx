@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react'
 import styled from 'styled-components'
 import { matchLinks } from '../../common/text/links'
+import { isUserMentioned } from '../../common/text/mentions'
 import { SbUserId } from '../../common/users/user-info'
+import { useSelfUser } from '../auth/state-hooks'
 import { amberA100 } from '../styles/colors'
 import { body2 } from '../styles/typography'
 import { ConnectedUsername } from './connected-username'
@@ -69,20 +71,29 @@ export function ParsedText({ text }: { text: string }) {
   return <Text>{parsedText}</Text>
 }
 
-export const TextMessageDisplay = React.memo<{ userId: SbUserId; time: number; text: string }>(
-  props => {
-    const { userId, time, text } = props
-    return (
-      <TimestampMessageLayout time={time}>
-        <Username>
-          <ConnectedUsername userId={userId} />
-        </Username>
-        <Separator aria-hidden={true}>{': '}</Separator>
-        <ParsedText text={text} />
-      </TimestampMessageLayout>
-    )
-  },
-)
+export const TextMessage = React.memo<{
+  userId: SbUserId
+  time: number
+  text: string
+}>(props => {
+  const { userId, time, text } = props
+  // NOTE(2Pac): I have no idea if it's considered a good practice to connect "presentational"
+  // components like these to the store now that we're using hooks. I don't particularly see much
+  // downsides, and treading stuff that we're gonna need here through multiple layers of components
+  // seem very cumbersome to me.
+  const selfUser = useSelfUser()
+  const shouldHighlightMessage = isUserMentioned(selfUser.name, text)
+
+  return (
+    <TimestampMessageLayout time={time} $highlighted={shouldHighlightMessage}>
+      <Username>
+        <ConnectedUsername userId={userId} />
+      </Username>
+      <Separator aria-hidden={true}>{': '}</Separator>
+      <ParsedText text={text} />
+    </TimestampMessageLayout>
+  )
+})
 
 export const NewDayMessage = React.memo<{ time: number }>(props => {
   const { time } = props

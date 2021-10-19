@@ -57,15 +57,20 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  message(channel, event) {
+  message: (channel, event) => (dispatch, getState) => {
+    const { auth } = getState()
     // Notify the main process of the new message, so it can display an appropriate notification
-    ipcRenderer.send('chatNewMessage', { user: event.user.name, message: event.text })
+    ipcRenderer.send('chatNewMessage', {
+      user: event.user.name,
+      selfUser: auth.user.name,
+      message: event.text,
+    })
 
     // TODO(tec27): handle different types of messages (event.data.type)
-    return {
+    dispatch({
       type: '@chat/updateMessage',
       payload: event,
-    }
+    })
   },
 
   userActive(channel, event) {

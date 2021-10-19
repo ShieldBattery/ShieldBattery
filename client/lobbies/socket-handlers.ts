@@ -472,14 +472,19 @@ const eventToAction: EventToActionMap = {
     } as any)
   },
 
-  chat: (name, event) => {
+  chat: (name, event) => (dispatch, getState) => {
+    const { auth } = getState()
     // Notify the main process of the new message, so it can display an appropriate notification
-    ipcRenderer.send('chatNewMessage', { user: event.from, message: event.text })
+    ipcRenderer.send('chatNewMessage', {
+      user: event.from,
+      selfUser: auth.user.name,
+      message: event.text,
+    })
 
-    return {
+    dispatch({
       type: LOBBY_UPDATE_CHAT_MESSAGE,
       payload: event,
-    } as any
+    } as any)
   },
 
   status: (name, event) =>

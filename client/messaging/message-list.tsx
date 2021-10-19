@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import { ServerChatMessageType } from '../../common/chat'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { animationFrameHandler } from '../material/animation-frame-handler'
-import { NewDayMessage, TextMessageDisplay } from './common-message-layout'
+import { NewDayMessage, TextMessage } from './common-message-layout'
 import { CommonMessageType, Message, NewDayMessageRecord } from './message-records'
 
 function isSameDay(d1: Date, d2: Date) {
@@ -42,7 +42,7 @@ function renderCommonMessage(msg: Message) {
     // TODO(2Pac): Reconcile these types into one when everything is moved to immer
     case CommonMessageType.TextMessage:
     case ServerChatMessageType.TextMessage:
-      return <TextMessageDisplay key={msg.id} userId={msg.from} time={msg.time} text={msg.text} />
+      return <TextMessage key={msg.id} userId={msg.from} time={msg.time} text={msg.text} />
     default:
       return null
   }
