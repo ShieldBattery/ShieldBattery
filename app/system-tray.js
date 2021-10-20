@@ -50,9 +50,9 @@ export default class SystemTray {
     })
   }
 
-  setUnreadIcon = (urgent = false) => {
-    // TODO(2Pac): Use a different icon for urgent messages, once we make one
-    this.systemTray.setImage(urgent ? UNREAD_ICON : UNREAD_ICON)
+  setUnreadIcon = (isHighlighted = false) => {
+    // TODO(2Pac): Use a different icon for highlighted messages, once we make one
+    this.systemTray.setImage(isHighlighted ? UNREAD_ICON : UNREAD_ICON)
   }
 
   clearUnreadIcon = () => {

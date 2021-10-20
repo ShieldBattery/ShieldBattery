@@ -95,7 +95,7 @@ export default keyedReducer(new WhisperState(), {
 
   ['@whispers/updateMessage'](state, action) {
     const {
-      message: { id, time, from, to, text },
+      message: { id, time, from, to, text, isHighlighted },
     } = action.payload
     const target = state.sessions.has(from.name) ? from.name : to.name
     const newMessage = new TextMessageRecord({
@@ -103,6 +103,7 @@ export default keyedReducer(new WhisperState(), {
       time,
       from: from.id,
       text,
+      isHighlighted,
     })
 
     return updateMessages(state, target.toLowerCase(), m => m.push(newMessage))
@@ -158,6 +159,7 @@ export default keyedReducer(new WhisperState(), {
             time: msg.sent,
             from: msg.from.id,
             text: msg.data.text,
+            isHighlighted: msg.isHighlighted,
           }),
       ),
     )

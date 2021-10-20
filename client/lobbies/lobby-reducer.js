@@ -190,6 +190,7 @@ const chatHandlers = {
         time: event.time,
         from: event.from,
         text: event.text,
+        isHighlighted: event.isHighlighted,
       }),
     )
   },

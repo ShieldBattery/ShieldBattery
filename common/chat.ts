@@ -34,6 +34,7 @@ export interface TextMessage extends BaseChatMessage {
   from: SbUserId
   user: ChatUser
   text: string
+  isHighlighted?: boolean
 }
 
 /** A message that is displayed in the chat when someone joins the channel. */

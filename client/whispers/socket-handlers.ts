@@ -1,6 +1,7 @@
 import { NydusClient } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { WhisperEvent } from '../../common/whispers'
+import { isUserMentioned } from '../../common/text/mentions'
+import { WhisperEvent, WhisperMessageType } from '../../common/whispers'
 import { dispatch, Dispatchable } from '../dispatch-registry'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -29,28 +30,35 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  message: event => (dispatch, getState) => {
-    const { auth } = getState()
-    // Notify the main process of the new message, so it can display an appropriate notification
-    ipcRenderer.send('chatNewMessage', {
-      user: event.message.from.name,
-      selfUser: auth.user.name,
-      message: event.message.data.text,
-    })
+  message(event) {
+    return (dispatch, getState) => {
+      const { auth } = getState()
+      const isHighlighted =
+        event.message.data.type === WhisperMessageType.TextMessage &&
+        isUserMentioned(auth.user.name, event.message.data.text)
 
-    dispatch({
-      type: '@whispers/updateMessage',
-      payload: {
-        message: {
-          id: event.message.id,
-          time: event.message.sent,
-          from: event.message.from,
-          to: event.message.to,
-          text: event.message.data.text,
+      // Notify the main process of the new message, so it can display an appropriate notification
+      ipcRenderer.send('chatNewMessage', {
+        user: event.message.from.name,
+        message: event.message.data.text,
+        isHighlighted,
+      })
+
+      dispatch({
+        type: '@whispers/updateMessage',
+        payload: {
+          message: {
+            id: event.message.id,
+            time: event.message.sent,
+            from: event.message.from,
+            to: event.message.to,
+            text: event.message.data.text,
+            isHighlighted,
+          },
+          users: event.users,
         },
-        users: event.users,
-      },
-    })
+      })
+    }
   },
 
   userActive(event) {

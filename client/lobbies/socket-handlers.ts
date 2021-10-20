@@ -2,6 +2,7 @@ import { NydusClient, RouteHandler } from 'nydus-client'
 import { GameLaunchConfig, GameRoute } from '../../common/game-launch-config'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
+import { isUserMentioned } from '../../common/text/mentions'
 import { urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/user-info'
 import {
@@ -472,19 +473,26 @@ const eventToAction: EventToActionMap = {
     } as any)
   },
 
-  chat: (name, event) => (dispatch, getState) => {
-    const { auth } = getState()
-    // Notify the main process of the new message, so it can display an appropriate notification
-    ipcRenderer.send('chatNewMessage', {
-      user: event.from,
-      selfUser: auth.user.name,
-      message: event.text,
-    })
+  chat(name, event) {
+    return (dispatch, getState) => {
+      const { auth } = getState()
+      const isHighlighted = isUserMentioned(auth.user.name, event.text)
 
-    dispatch({
-      type: LOBBY_UPDATE_CHAT_MESSAGE,
-      payload: event,
-    } as any)
+      // Notify the main process of the new message, so it can display an appropriate notification
+      ipcRenderer.send('chatNewMessage', {
+        user: event.from,
+        message: event.text,
+        isHighlighted,
+      })
+
+      dispatch({
+        type: LOBBY_UPDATE_CHAT_MESSAGE,
+        payload: {
+          ...event,
+          isHighlighted,
+        },
+      } as any)
+    }
   },
 
   status: (name, event) =>

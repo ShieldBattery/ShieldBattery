@@ -199,6 +199,7 @@ export interface WhisperMessageUpdate {
       from: SbUser
       to: SbUser
       text: string
+      isHighlighted: boolean
     }
     users: SbUser[]
   }

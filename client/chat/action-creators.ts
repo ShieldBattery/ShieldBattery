@@ -2,7 +2,9 @@ import {
   GetChannelUsersServerPayload,
   SendChatMessageServerBody,
   ServerChatMessage,
+  ServerChatMessageType,
 } from '../../common/chat'
+import { isUserMentioned } from '../../common/text/mentions'
 import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import { push } from '../navigation/routing'
@@ -62,6 +64,7 @@ export function sendMessage(channel: string, message: string): ThunkAction {
 export function getMessageHistory(channel: string, limit: number): ThunkAction {
   return (dispatch, getStore) => {
     const {
+      auth,
       chat: { byName },
     } = getStore()
     const lowerCaseChannel = channel.toLowerCase()
@@ -82,6 +85,13 @@ export function getMessageHistory(channel: string, limit: number): ThunkAction {
       payload: fetch<ServerChatMessage[]>(
         apiUrl`chat/${channel}/messages?limit=${limit}&beforeTime=${earliestMessageTime}`,
         { method: 'GET' },
+      ).then<ServerChatMessage[]>(messages =>
+        messages.map(m => {
+          const isHighlighted =
+            m.type === ServerChatMessageType.TextMessage && isUserMentioned(auth.user.name, m.text)
+
+          return { ...m, isHighlighted }
+        }),
       ),
       meta: params,
     })

@@ -36,7 +36,7 @@ interface IpcInvokeables {
 
 /** Events that can be sent from the renderer process to the main process. */
 interface IpcRendererSendables {
-  chatNewMessage: (data: { user: string; selfUser: string; message: string }) => void
+  chatNewMessage: (data: { user: string; message: string; isHighlighted: boolean }) => void
 
   networkSiteConnected: () => void
 

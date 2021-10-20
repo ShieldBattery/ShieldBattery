@@ -75,17 +75,12 @@ export const TextMessage = React.memo<{
   userId: SbUserId
   time: number
   text: string
+  isHighlighted?: boolean
 }>(props => {
-  const { userId, time, text } = props
-  // NOTE(2Pac): I have no idea if it's considered a good practice to connect "presentational"
-  // components like these to the store now that we're using hooks. I don't particularly see much
-  // downsides, and treading stuff that we're gonna need here through multiple layers of components
-  // seem very cumbersome to me.
-  const selfUser = useSelfUser()
-  const shouldHighlightMessage = isUserMentioned(selfUser.name, text)
+  const { userId, time, text, isHighlighted } = props
 
   return (
-    <TimestampMessageLayout time={time} $highlighted={shouldHighlightMessage}>
+    <TimestampMessageLayout time={time} highlighted={isHighlighted}>
       <Username>
         <ConnectedUsername userId={userId} />
       </Username>

@@ -1,6 +1,7 @@
 import { NydusClient } from 'nydus-client'
-import { ChatEvent } from '../../common/chat'
+import { ChatEvent, ServerChatMessageType } from '../../common/chat'
 import { TypedIpcRenderer } from '../../common/ipc'
+import { isUserMentioned } from '../../common/text/mentions'
 import { dispatch, Dispatchable } from '../dispatch-registry'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -57,20 +58,28 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  message: (channel, event) => (dispatch, getState) => {
-    const { auth } = getState()
-    // Notify the main process of the new message, so it can display an appropriate notification
-    ipcRenderer.send('chatNewMessage', {
-      user: event.user.name,
-      selfUser: auth.user.name,
-      message: event.text,
-    })
+  message(channel, event) {
+    return (dispatch, getState) => {
+      const { auth } = getState()
+      const isHighlighted =
+        event.type === ServerChatMessageType.TextMessage &&
+        isUserMentioned(auth.user.name, event.text)
 
-    // TODO(tec27): handle different types of messages (event.data.type)
-    dispatch({
-      type: '@chat/updateMessage',
-      payload: event,
-    })
+      // Notify the main process of the new message, so it can display an appropriate notification
+      ipcRenderer.send('chatNewMessage', {
+        user: event.user.name,
+        message: event.text,
+        isHighlighted,
+      })
+
+      dispatch({
+        type: '@chat/updateMessage',
+        payload: {
+          ...event,
+          isHighlighted,
+        },
+      })
+    }
   },
 
   userActive(channel, event) {

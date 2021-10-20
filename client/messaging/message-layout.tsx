@@ -121,14 +121,14 @@ const MessageContainer = styled.div<{ $highlighted?: boolean }>`
 
 interface TimestampMessageLayoutProps {
   time: number
-  $highlighted?: boolean
+  highlighted?: boolean
   className?: string
   children: React.ReactNode
 }
 
 export const TimestampMessageLayout = (props: TimestampMessageLayoutProps) => {
   return (
-    <MessageContainer $highlighted={props.$highlighted} className={props.className} role='document'>
+    <MessageContainer $highlighted={props.highlighted} className={props.className} role='document'>
       <MessageTimestamp time={props.time} />
       {props.children}
     </MessageContainer>

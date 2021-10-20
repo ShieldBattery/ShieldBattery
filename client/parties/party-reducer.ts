@@ -168,7 +168,7 @@ export default keyedReducer(new PartyRecord(), {
   },
 
   ['@parties/updateChatMessage'](state, action) {
-    const { partyId, from, time, text } = action.payload
+    const { partyId, from, time, text, isHighlighted } = action.payload
 
     if (partyId !== state.id) {
       return state
@@ -181,6 +181,7 @@ export default keyedReducer(new PartyRecord(), {
           from: from.id,
           time,
           text,
+          isHighlighted,
         }),
       ),
     )

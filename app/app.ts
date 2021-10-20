@@ -9,7 +9,6 @@ import { Readable } from 'stream'
 import { container } from 'tsyringe'
 import { URL } from 'url'
 import { TypedIpcMain, TypedIpcSender } from '../common/ipc'
-import { isUserMentioned } from '../common/text/mentions'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import currentSession from './current-session'
 import { ActiveGameManager } from './game/active-game-manager'
@@ -236,8 +235,7 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
   ipcMain.on('chatNewMessage', (event, data) => {
     if (mainWindow && !mainWindow.isFocused()) {
       if (systemTray) {
-        const isMentioned = isUserMentioned(data.selfUser, data.message)
-        systemTray.setUnreadIcon(isMentioned)
+        systemTray.setUnreadIcon(data.isHighlighted)
       }
     }
   })

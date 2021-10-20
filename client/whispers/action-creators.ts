@@ -1,5 +1,10 @@
+import { isUserMentioned } from '../../common/text/mentions'
 import { apiUrl } from '../../common/urls'
-import { GetSessionHistoryServerPayload, SendWhisperMessageServerBody } from '../../common/whispers'
+import {
+  GetSessionHistoryServerPayload,
+  SendWhisperMessageServerBody,
+  WhisperMessageType,
+} from '../../common/whispers'
 import { ThunkAction } from '../dispatch-registry'
 import { push } from '../navigation/routing'
 import fetch from '../network/fetch'
@@ -58,6 +63,7 @@ export function sendMessage(target: string, message: string): ThunkAction {
 export function getMessageHistory(target: string, limit: number): ThunkAction {
   return (dispatch, getStore) => {
     const {
+      auth,
       whispers: { byName },
     } = getStore()
     const lowerCaseTarget = target.toLowerCase()
@@ -78,7 +84,17 @@ export function getMessageHistory(target: string, limit: number): ThunkAction {
       payload: fetch<GetSessionHistoryServerPayload>(
         apiUrl`whispers/${target}/messages?limit=${limit}&beforeTime=${earliestMessageTime}`,
         { method: 'GET' },
-      ),
+      ).then<GetSessionHistoryServerPayload>(payload => {
+        const messages = payload.messages.map(m => {
+          const isHighlighted =
+            m.data.type === WhisperMessageType.TextMessage &&
+            isUserMentioned(auth.user.name, m.data.text)
+
+          return { ...m, isHighlighted }
+        })
+
+        return { ...payload, messages }
+      }),
       meta: params,
     })
   }

@@ -332,6 +332,7 @@ export interface UpdateChatMessage {
     from: PartyUser
     time: number
     text: string
+    isHighlighted: boolean
   }
 }
 

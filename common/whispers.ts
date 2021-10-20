@@ -21,6 +21,7 @@ export interface WhisperMessage {
   to: SbUser
   sent: number
   data: WhisperMessageData
+  isHighlighted?: boolean
 }
 
 export enum WhisperUserStatus {
