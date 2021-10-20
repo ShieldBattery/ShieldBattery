@@ -246,6 +246,10 @@ export class LobbyApi {
         return {
           type: 'init',
           lobby,
+          userInfos: getHumanSlots(lobby).map(s => ({
+            id: s.userId,
+            name: s.name,
+          })),
         }
       },
       client => this._removeClientFromLobby(this.lobbies.get(lobbyName), client),
@@ -1024,12 +1028,25 @@ export class LobbyApi {
       // includes the slots that were created as a result of players leaving the lobby, moving to a
       // different slot, open/closing a slot, etc.
       const [teamIndex, slotIndex, slot] = newIdSlots.get(id)
-      diffEvents.push({
+      const slotCreatedEvent = {
         type: 'slotCreate',
         teamIndex,
         slotIndex,
         slot,
-      })
+      }
+
+      if (slot.type === Slots.SlotType.Human || slot.type === Slots.SlotType.Observer) {
+        // At the moment, this seems unnecessary since this info already exists on the `slot` which
+        // we send to the client, but we might want to add additional data here in the future and
+        // also, this separation makes it a bit clearer that the purpose of this field is to just
+        // send user info.
+        slotCreatedEvent.userInfo = {
+          id: slot.userId,
+          name: slot.name,
+        }
+      }
+
+      diffEvents.push(slotCreatedEvent)
     }
 
     for (const id of same.values()) {

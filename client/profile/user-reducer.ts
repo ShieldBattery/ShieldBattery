@@ -1,6 +1,7 @@
 import { Immutable } from 'immer'
 import { GameRecordJson } from '../../common/games/games'
 import { SbUser, SbUserId, UserProfile } from '../../common/users/user-info'
+import { LOBBY_INIT_DATA, LOBBY_UPDATE_SLOT_CREATE } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface UserRequestInfo {
@@ -127,5 +128,15 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
   ['@parties/updateInvite'](state, action) {
     updateUsers(state, [action.payload.userInfo])
+  },
+
+  [LOBBY_INIT_DATA as any](state: any, action: any) {
+    updateUsers(state, action.payload.userInfos)
+  },
+
+  [LOBBY_UPDATE_SLOT_CREATE as any](state: any, action: any) {
+    if (action.payload.userInfo) {
+      updateUsers(state, [action.payload.userInfo])
+    }
   },
 })
