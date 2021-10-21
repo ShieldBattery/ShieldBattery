@@ -235,15 +235,13 @@ export default class MessageList extends React.Component<
       <Scrollable
         ref={this.scrollableRef}
         className={this.props.className}
-        onScroll={this.props.onScrollUpdate ? this.onScroll.handler : undefined}
-      >
+        onScroll={this.props.onScrollUpdate ? this.onScroll.handler : undefined}>
         <InfiniteScrollList
           prevLoadingEnabled={true}
           isLoadingPrev={loading}
           hasPrevData={hasMoreHistory}
           refreshToken={refreshToken}
-          onLoadPrevData={onLoadMoreMessages}
-        >
+          onLoadPrevData={onLoadMoreMessages}>
           <PureMessageList messages={messages} renderMessage={renderMessage} />
         </InfiniteScrollList>
       </Scrollable>
