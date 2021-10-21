@@ -8,5 +8,5 @@ and usage.
 
 Any updates to these policies should add an entry to the changelog at the
 beginning (or add a changelog if one is not yet there) and update the effective
-date. \*_Make sure to increment the version number in `versions.ts` as well_, as
+date. **Make sure to increment the version number in `versions.ts` as well**, as
 this is how users get notified of the changes.
