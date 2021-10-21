@@ -67,6 +67,10 @@ export default function ({
           use: [{ loader: 'html-loader' }, { loader: 'markdown-loader' }],
         },
         {
+          test: /\.html?$/,
+          use: [{ loader: 'html-loader' }],
+        },
+        {
           // Dumb workaround for `iconv-lite` not fixing their bugs. See this issue for more info:
           // https://github.com/ashtuchkin/iconv-lite/issues/204
           test: /node_modules[\/\\](iconv-lite)[\/\\].+/,

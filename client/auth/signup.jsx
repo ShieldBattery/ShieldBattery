@@ -11,6 +11,8 @@ import {
   USERNAME_MINLENGTH,
   USERNAME_PATTERN,
 } from '../../common/constants'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import form from '../forms/form'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import {
@@ -23,9 +25,11 @@ import {
   required,
 } from '../forms/validators'
 import { RaisedButton } from '../material/button'
+import CheckBox from '../material/check-box'
 import { push } from '../navigation/routing'
 import fetch from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
+import { useAppDispatch } from '../redux-hooks'
 import { signUp } from './action-creators'
 import {
   AuthBody,
@@ -86,15 +90,49 @@ const confirmPasswordValidator = composeValidators(
   matchesOther('password', 'Enter a matching password'),
 )
 
+const checked = msg => val => val === true ? null : msg
+
+const SignupCheckBox = styled(CheckBox)`
+  flex-grow: 1;
+`
+
+const MultiCheckBoxFieldRow = styled(FieldRow)`
+  margin-top: 0;
+`
+
+const DialogLinkElem = styled.a`
+  position: relative;
+  pointer-events: auto;
+  z-index: 1;
+`
+
+function DialogLink({ dialogType, text }) {
+  const dispatch = useAppDispatch()
+
+  const onClick = event => {
+    event.preventDefault()
+    event.stopPropagation()
+    dispatch(openDialog(dialogType))
+  }
+
+  return (
+    <DialogLinkElem href='#' onClick={onClick} tabIndex={1}>
+      {text}
+    </DialogLinkElem>
+  )
+}
+
 @form({
   username: usernameValidator,
   email: emailValidator,
   password: passwordValidator,
   confirmPassword: confirmPasswordValidator,
+  ageConfirmation: checked('Required'),
+  policyAgreement: checked('Required'),
 })
 class SignupForm extends React.Component {
   render() {
-    const { onSubmit, bindInput } = this.props
+    const { onSubmit, bindCheckable, bindInput } = this.props
     const textInputProps = {
       autoCapitalize: 'off',
       autoCorrect: 'off',
@@ -140,6 +178,30 @@ class SignupForm extends React.Component {
             floatingLabel={true}
           />
         </FieldRow>
+
+        <MultiCheckBoxFieldRow>
+          <SignupCheckBox
+            {...bindCheckable('ageConfirmation')}
+            label='I certify that I am 13 years of age or older'
+            inputProps={{ tabIndex: 1 }}
+          />
+        </MultiCheckBoxFieldRow>
+
+        <MultiCheckBoxFieldRow>
+          {/** FIXME: make these links open a dialog */}
+          <SignupCheckBox
+            {...bindCheckable('policyAgreement')}
+            label={
+              <span>
+                I have read and agree to the{' '}
+                <DialogLink dialogType={DialogType.TermsOfService} text='Terms of Service' />,{' '}
+                <DialogLink dialogType={DialogType.AcceptableUse} text='Acceptable Use' />, and{' '}
+                <DialogLink dialogType={DialogType.PrivacyPolicy} text='Privacy' /> policies
+              </span>
+            }
+            inputProps={{ tabIndex: 1 }}
+          />
+        </MultiCheckBoxFieldRow>
 
         <FieldRow>
           <RaisedButton label='Create account' onClick={onSubmit} tabIndex={1} />

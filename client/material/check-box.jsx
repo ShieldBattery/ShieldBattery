@@ -14,6 +14,7 @@ import {
   colorTextSecondary,
 } from '../styles/colors'
 import { fastOutSlowIn } from './curve-constants'
+import InputError from './input-error'
 
 const BOX_WIDTH = 18
 const BOX_HEIGHT = 18
@@ -66,6 +67,7 @@ const IconContainer = styled.div`
     if (props.focused && !props.disabled && !props.checked) return colorDividers
     else return 'transparent'
   }};
+  flex-shrink: 0;
 
   &::before {
     position: absolute;
@@ -149,8 +151,9 @@ export default class CheckBox extends React.Component {
   static propTypes = {
     name: PropTypes.string,
     checked: PropTypes.bool,
-    label: PropTypes.string,
+    label: PropTypes.oneOfType([PropTypes.string, PropTypes.element]),
     value: PropTypes.string,
+    errorText: PropTypes.string,
     onChange: PropTypes.func,
     disabled: PropTypes.bool,
     className: PropTypes.string,
@@ -164,7 +167,8 @@ export default class CheckBox extends React.Component {
   clearMouseActive = null
 
   render() {
-    const { className, label, checked, name, value, onChange, disabled, inputProps } = this.props
+    const { className, label, checked, name, value, errorText, onChange, disabled, inputProps } =
+      this.props
     const focused = this.state.isKeyboardFocused
 
     const labelElem = label ? <label htmlFor={this.id}>{this.props.label}</label> : null
@@ -190,6 +194,7 @@ export default class CheckBox extends React.Component {
           <CheckIcon checked={checked} focused={focused} disabled={disabled} />
         </IconContainer>
         {labelElem}
+        {errorText ? <InputError error={errorText} /> : null}
       </Root>
     )
   }

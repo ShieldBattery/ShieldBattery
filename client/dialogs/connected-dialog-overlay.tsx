@@ -18,6 +18,11 @@ import { isHandledDismissalEvent } from '../material/dismissal-events'
 import { defaultSpring } from '../material/springs'
 import { zIndexDialogScrim } from '../material/zindex'
 import { PartyInviteDialog } from '../parties/party-invite-dialog'
+import {
+  AcceptableUseDialog,
+  PrivacyPolicyDialog,
+  TermsOfServiceDialog,
+} from '../policies/policy-dialogs'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import Settings from '../settings/settings'
 import StarcraftPathDialog from '../settings/starcraft-path-dialog'
@@ -61,6 +66,8 @@ function getDialog(
   switch (dialogType) {
     case DialogType.AcceptMatch:
       return { component: AcceptMatch, modal: true }
+    case DialogType.AcceptableUse:
+      return { component: AcceptableUseDialog, modal: false }
     case DialogType.Account:
       return { component: EditAccount, modal: false }
     case DialogType.Changelog:
@@ -75,6 +82,8 @@ function getDialog(
       return { component: MapPreviewDialog, modal: false }
     case DialogType.PartyInvite:
       return { component: PartyInviteDialog, modal: false }
+    case DialogType.PrivacyPolicy:
+      return { component: PrivacyPolicyDialog, modal: false }
     case DialogType.Settings:
       return isStarcraftHealthy({ starcraft: starcraftState })
         ? { component: Settings, modal: false }
@@ -87,6 +96,8 @@ function getDialog(
       return { component: StarcraftHealthCheckupDialog, modal: false }
     case DialogType.StarcraftPath:
       return { component: StarcraftPathDialog, modal: false }
+    case DialogType.TermsOfService:
+      return { component: TermsOfServiceDialog, modal: false }
     case DialogType.UpdateAvailable:
       return { component: UpdateDialog, modal: true }
     case DialogType.Whispers:
