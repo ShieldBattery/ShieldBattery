@@ -26,6 +26,7 @@ import {
 } from '../forms/validators'
 import { RaisedButton } from '../material/button'
 import CheckBox from '../material/check-box'
+import InputError from '../material/input-error'
 import { push } from '../navigation/routing'
 import fetch from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
@@ -122,6 +123,22 @@ function DialogLink({ dialogType, text }) {
   )
 }
 
+const CheckBoxError = styled(InputError)`
+  padding-left: 30px;
+  padding-bottom: 4px;
+`
+
+function CheckBoxRowWithError({ errorText, ...checkboxProps }) {
+  return (
+    <>
+      <MultiCheckBoxFieldRow>
+        <SignupCheckBox {...checkboxProps} />
+      </MultiCheckBoxFieldRow>
+      {errorText ? <CheckBoxError error={errorText} /> : null}
+    </>
+  )
+}
+
 @form({
   username: usernameValidator,
   email: emailValidator,
@@ -179,29 +196,24 @@ class SignupForm extends React.Component {
           />
         </FieldRow>
 
-        <MultiCheckBoxFieldRow>
-          <SignupCheckBox
-            {...bindCheckable('ageConfirmation')}
-            label='I certify that I am 13 years of age or older'
-            inputProps={{ tabIndex: 1 }}
-          />
-        </MultiCheckBoxFieldRow>
+        <CheckBoxRowWithError
+          {...bindCheckable('ageConfirmation')}
+          label='I certify that I am 13 years of age or older'
+          inputProps={{ tabIndex: 1 }}
+        />
 
-        <MultiCheckBoxFieldRow>
-          {/** FIXME: make these links open a dialog */}
-          <SignupCheckBox
-            {...bindCheckable('policyAgreement')}
-            label={
-              <span>
-                I have read and agree to the{' '}
-                <DialogLink dialogType={DialogType.TermsOfService} text='Terms of Service' />,{' '}
-                <DialogLink dialogType={DialogType.AcceptableUse} text='Acceptable Use' />, and{' '}
-                <DialogLink dialogType={DialogType.PrivacyPolicy} text='Privacy' /> policies
-              </span>
-            }
-            inputProps={{ tabIndex: 1 }}
-          />
-        </MultiCheckBoxFieldRow>
+        <CheckBoxRowWithError
+          {...bindCheckable('policyAgreement')}
+          label={
+            <span>
+              I have read and agree to the{' '}
+              <DialogLink dialogType={DialogType.TermsOfService} text='Terms of Service' />,{' '}
+              <DialogLink dialogType={DialogType.AcceptableUse} text='Acceptable Use' />, and{' '}
+              <DialogLink dialogType={DialogType.PrivacyPolicy} text='Privacy' /> policies
+            </span>
+          }
+          inputProps={{ tabIndex: 1 }}
+        />
 
         <FieldRow>
           <RaisedButton label='Create account' onClick={onSubmit} tabIndex={1} />

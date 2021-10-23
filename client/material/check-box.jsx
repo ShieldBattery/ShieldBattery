@@ -14,7 +14,6 @@ import {
   colorTextSecondary,
 } from '../styles/colors'
 import { fastOutSlowIn } from './curve-constants'
-import InputError from './input-error'
 
 const BOX_WIDTH = 18
 const BOX_HEIGHT = 18
@@ -153,7 +152,6 @@ export default class CheckBox extends React.Component {
     checked: PropTypes.bool,
     label: PropTypes.oneOfType([PropTypes.string, PropTypes.element]),
     value: PropTypes.string,
-    errorText: PropTypes.string,
     onChange: PropTypes.func,
     disabled: PropTypes.bool,
     className: PropTypes.string,
@@ -167,8 +165,7 @@ export default class CheckBox extends React.Component {
   clearMouseActive = null
 
   render() {
-    const { className, label, checked, name, value, errorText, onChange, disabled, inputProps } =
-      this.props
+    const { className, label, checked, name, value, onChange, disabled, inputProps } = this.props
     const focused = this.state.isKeyboardFocused
 
     const labelElem = label ? <label htmlFor={this.id}>{this.props.label}</label> : null
@@ -194,7 +191,6 @@ export default class CheckBox extends React.Component {
           <CheckIcon checked={checked} focused={focused} disabled={disabled} />
         </IconContainer>
         {labelElem}
-        {errorText ? <InputError error={errorText} /> : null}
       </Root>
     )
   }

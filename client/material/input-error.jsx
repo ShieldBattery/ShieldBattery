@@ -62,7 +62,7 @@ const InputError = props => {
   // and it keeps the text content in the DOM until the exit transition finishes, animating the text
   // just as we want (`CSSTransition` can't have `null` as its children).
   return (
-    <StyledTransitionGroup>
+    <StyledTransitionGroup className={props.className}>
       {props.error ? (
         <CSSTransition key='error' classNames={transitionNames} timeout={250}>
           <ErrorText>{props.error}</ErrorText>
@@ -74,6 +74,7 @@ const InputError = props => {
 
 InputError.propTypes = {
   error: PropTypes.string,
+  className: PropTypes.string,
 }
 
 export default InputError
