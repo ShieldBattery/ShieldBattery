@@ -38,7 +38,7 @@ async function getCurrentSession(ctx: RouterContext) {
   try {
     user = await findSelfById(userId)
   } catch (err) {
-    ctx.log.error({ err, req: ctx.req }, 'error finding user')
+    ctx.log.error({ err }, 'error finding user')
     throw err
   }
 
@@ -57,12 +57,20 @@ async function getCurrentSession(ctx: RouterContext) {
 
 async function startNewSession(ctx: RouterContext) {
   if (ctx.session?.userId) {
-    const { userId, userName, permissions, emailVerified, lastQueuedMatchmakingType } = ctx.session
-    ctx.body = {
-      user: { id: userId, name: userName, emailVerified },
+    let user: SelfUser | undefined
+    try {
+      user = await findSelfById(ctx.session.userId)
+    } catch (err) {
+      ctx.log.error({ err }, 'error finding user')
+      throw err
+    }
+    const { permissions, lastQueuedMatchmakingType } = ctx.session
+    const result: ClientSessionInfo = {
+      user: user!,
       permissions,
       lastQueuedMatchmakingType,
     }
+    ctx.body = result
 
     return
   }
@@ -101,7 +109,7 @@ async function startNewSession(ctx: RouterContext) {
 
     ctx.body = sessionInfo
   } catch (err) {
-    ctx.log.error({ err, req: ctx.req }, 'error regenerating session')
+    ctx.log.error({ err }, 'error regenerating session')
     throw err
   }
 }

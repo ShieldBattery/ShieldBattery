@@ -26,6 +26,9 @@ interface UserInternal {
   created: Date
   signupIpAddress?: string
   emailVerified: boolean
+  acceptedUsePolicyVersion: number
+  acceptedTermsVersion: number
+  acceptedPrivacyVersion: number
 }
 
 type DbUser = Dbify<UserInternal>
@@ -39,6 +42,9 @@ function convertFromDb(dbUser: DbUser): UserInternal {
     created: dbUser.created,
     signupIpAddress: dbUser.signup_ip_address,
     emailVerified: dbUser.email_verified,
+    acceptedPrivacyVersion: dbUser.accepted_privacy_version,
+    acceptedTermsVersion: dbUser.accepted_terms_version,
+    acceptedUsePolicyVersion: dbUser.accepted_use_policy_version,
   }
 }
 
@@ -52,6 +58,9 @@ function convertToExternalSelf(userInternal: UserInternal): SelfUser {
     name: userInternal.name,
     email: userInternal.email,
     emailVerified: userInternal.emailVerified,
+    acceptedPrivacyVersion: userInternal.acceptedPrivacyVersion,
+    acceptedTermsVersion: userInternal.acceptedTermsVersion,
+    acceptedUsePolicyVersion: userInternal.acceptedUsePolicyVersion,
   }
 }
 
@@ -152,6 +161,21 @@ export async function updateUser(
       case 'password':
         query.append(sql`
           password = ${value}
+        `)
+        break
+      case 'acceptedPrivacyVersion':
+        query.append(sql`
+          accepted_privacy_version = ${value}
+        `)
+        break
+      case 'acceptedTermsVersion':
+        query.append(sql`
+          accepted_terms_version = ${value}
+        `)
+        break
+      case 'acceptedUsePolicyVersion':
+        query.append(sql`
+          accepted_use_policy_version = ${value}
         `)
         break
       default:

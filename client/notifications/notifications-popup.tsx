@@ -9,21 +9,19 @@ import {
   UseTransitionProps,
 } from 'react-spring'
 import styled from 'styled-components'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { Notification, NotificationType } from '../../common/notifications'
+import { Notification } from '../../common/notifications'
 import { subtract, union } from '../../common/sets'
-import { EmailVerificationNotificationUi } from '../auth/email-verification-notification-ui'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
 import CheckIcon from '../icons/material/check-24px.svg'
 import { IconButton } from '../material/button'
 import { shadow6dp } from '../material/shadows'
 import { defaultSpring } from '../material/springs'
 import { zIndexMenu } from '../material/zindex'
-import { PartyInviteNotificationUi } from '../parties/party-notification-ui'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious } from '../state-hooks'
 import { background300, background400 } from '../styles/colors'
 import { markLocalNotificationsRead, markNotificationsRead } from './action-creators'
+import { notificationToUi } from './notification-to-ui'
 
 const POPOVER_DURATION = 10000
 
@@ -152,7 +150,18 @@ export default function NotificationPopups() {
     <PopupsContainer>
       {popupTransition((styles, item) => (
         <Popup style={styles}>
-          {toUi(item, popupElems.current)}
+          {notificationToUi(
+            item,
+            item.id /* key */,
+            false /* showDivider */,
+            (elem: HTMLDivElement | null) => {
+              if (elem) {
+                popupElems.current.set(item.id, elem)
+              } else {
+                popupElems.current.delete(item.id)
+              }
+            },
+          )}
           <MarkAsReadButton
             icon={<CheckIcon />}
             title='Mark as read'
@@ -163,32 +172,4 @@ export default function NotificationPopups() {
     </PopupsContainer>,
     portalRef.current,
   )
-}
-
-function toUi(notification: Notification, popupElems: Map<string, HTMLDivElement>) {
-  switch (notification.type) {
-    case NotificationType.EmailVerification:
-      return (
-        <EmailVerificationNotificationUi
-          ref={elem => elem && popupElems.set(notification.id, elem)}
-          key={notification.id}
-          showDivider={false}
-          read={notification.read}
-        />
-      )
-    case NotificationType.PartyInvite:
-      return (
-        <PartyInviteNotificationUi
-          ref={elem => elem && popupElems.set(notification.id, elem)}
-          key={notification.id}
-          from={notification.from}
-          partyId={notification.partyId}
-          notificationId={notification.id}
-          showDivider={false}
-          read={notification.read}
-        />
-      )
-    default:
-      return assertUnreachable(notification)
-  }
 }

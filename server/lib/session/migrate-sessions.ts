@@ -1,6 +1,7 @@
 import { RouterContext } from '@koa/router'
 import { Next } from 'koa'
 import { MatchmakingType } from '../../../common/matchmaking'
+import { SelfUser } from '../../../common/users/user-info'
 import { findSelfById } from '../users/user-model'
 
 /**
@@ -10,12 +11,20 @@ import { findSelfById } from '../users/user-model'
 export function migrateSessions() {
   return async (ctx: RouterContext, next: Next) => {
     if (ctx.session) {
+      let user: SelfUser | undefined
+
       if (ctx.session.userId && !ctx.session.email) {
-        const user = await findSelfById(ctx.session.userId)
-        ctx.session.email = user!.email
+        const retrievedUser = user ?? (await findSelfById(ctx.session.userId))
+        ctx.session.email = retrievedUser!.email
       }
       if (!ctx.session.lastQueuedMatchmakingType) {
         ctx.session.lastQueuedMatchmakingType = MatchmakingType.Match1v1
+      }
+      if (ctx.session.userId && !ctx.session.acceptedPrivacyVersion) {
+        const retrievedUser = user ?? (await findSelfById(ctx.session.userId))
+        ctx.session.acceptedPrivacyVersion = retrievedUser!.acceptedPrivacyVersion
+        ctx.session.acceptedTermsVersion = retrievedUser!.acceptedTermsVersion
+        ctx.session.acceptedUsePolicyVersion = retrievedUser!.acceptedUsePolicyVersion
       }
     }
 

@@ -36,9 +36,13 @@ function logOutSuccess(state: State, action: LogOutSuccess) {
 }
 
 function handleError(state: State, action: AuthErrors) {
+  const { meta } = action
+  if (!meta.reqId) {
+    return state
+  }
   return state.withMutations(s =>
     s.set('authChangeInProgress', false).set('lastFailure', {
-      ...action.meta,
+      reqId: meta.reqId,
       err: action.payload.body ? action.payload.body.error : 'Connection error',
     }),
   )
@@ -107,4 +111,11 @@ export default keyedReducer(new AuthState(), {
   ['@auth/emailVerified']: state => state.setIn(['user', 'emailVerified'], true),
   ['@auth/verifyEmail']: (state, action) =>
     !action.error ? emailVerified(state, action) : handleVerifyEmailError(state, action),
+  ['@auth/acceptPolicies'](state, action) {
+    if (action.error) {
+      return state
+    } else {
+      return state.set('user', new SelfUserRecord(action.payload.user))
+    }
+  },
 })

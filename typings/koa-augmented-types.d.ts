@@ -4,10 +4,15 @@ import { SbUserId } from '../common/users/user-info'
 
 declare module 'koa' {
   interface AppSession extends Session {
+    // TODO(tec27): Maybe just move these user fields into a SelfUser to keep things synced up?
     userId: SbUserId
     userName: string
     email: string
     emailVerified: boolean
+    acceptedPrivacyVersion: number
+    acceptedTermsVersion: number
+    acceptedUsePolicyVersion: number
+
     permissions: SbPermissions
   }
 

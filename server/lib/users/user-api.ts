@@ -4,13 +4,21 @@ import cuid from 'cuid'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import { NydusServer } from 'nydus'
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isValidEmail, isValidPassword, isValidUsername } from '../../../common/constants'
 import { LadderPlayer } from '../../../common/ladder'
 import { toMapInfoJson } from '../../../common/maps'
 import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
+import { ALL_POLICY_TYPES, SbPolicyType } from '../../../common/policies/policy-type'
 import { SbPermissions } from '../../../common/users/permissions'
 import { ClientSessionInfo } from '../../../common/users/session'
-import { GetUserProfilePayload, SbUser, SelfUser } from '../../../common/users/user-info'
+import {
+  AcceptPoliciesBody,
+  AcceptPoliciesPayload,
+  GetUserProfilePayload,
+  SbUser,
+  SelfUser,
+} from '../../../common/users/user-info'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { HttpErrorWithPayload } from '../errors/error-with-payload'
@@ -285,6 +293,58 @@ export class UserApi {
     }
 
     return user
+  }
+
+  @httpPost('/:id/policies')
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(accountUpdateThrottle, ctx => String(ctx.session!.userId)),
+  )
+  async acceptPolicies(ctx: RouterContext): Promise<AcceptPoliciesPayload> {
+    const { params, body } = validateRequest(ctx, {
+      params: Joi.object<{ id: number }>({
+        id: JOI_USER_ID.required(),
+      }),
+      body: Joi.object<AcceptPoliciesBody>({
+        policies: Joi.array()
+          .items(
+            Joi.array()
+              .ordered(Joi.valid(...ALL_POLICY_TYPES).required(), Joi.number().required())
+              .required(),
+          )
+          .min(1)
+          .required(),
+      }),
+    })
+
+    if (params.id !== ctx.session!.userId) {
+      throw new httpErrors.Unauthorized("Can't change another user's account")
+    }
+
+    const updates: Partial<UserUpdatables> = {}
+    for (const [policyType, version] of body.policies) {
+      switch (policyType) {
+        case SbPolicyType.Privacy:
+          updates.acceptedPrivacyVersion = version
+          break
+        case SbPolicyType.TermsOfService:
+          updates.acceptedTermsVersion = version
+          break
+        case SbPolicyType.AcceptableUse:
+          updates.acceptedUsePolicyVersion = version
+          break
+        default:
+          // TODO(tec27): Perhaps we should just skip this policy instead of 500ing?
+          assertUnreachable(policyType)
+      }
+    }
+
+    const user = await updateUser(params.id, updates)
+    if (!user) {
+      throw new Error("Current user couldn't be found for updating")
+    }
+
+    return { user }
   }
 
   @httpPost('/:username/password')

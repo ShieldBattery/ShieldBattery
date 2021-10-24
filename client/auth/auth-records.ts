@@ -7,6 +7,9 @@ export class SelfUserRecord extends Record({
   name: '',
   email: '',
   emailVerified: false,
+  acceptedPrivacyVersion: 0,
+  acceptedTermsVersion: 0,
+  acceptedUsePolicyVersion: 0,
 }) {}
 
 export class PermissionsRecord

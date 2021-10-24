@@ -53,6 +53,19 @@ export function addNotification(notification: Readonly<Notification>): AddNotifi
   }
 }
 
+export function addLocalNotification<T extends Notification>(
+  notification: Readonly<Omit<T, 'local' | 'read' | 'createdAt'>>,
+): AddNotification {
+  return addNotification({
+    ...notification,
+    local: true,
+    read: false,
+    createdAt: Date.now(),
+    // NOTE(tec27): Not quite sure why this cast is necessary, this should be a verifiably complete
+    // type. Readonly may be messing with it?
+  } as unknown as T)
+}
+
 export function clearNotificationById(id: string): ClearNotificationById {
   return {
     type: '@notifications/clearById',
