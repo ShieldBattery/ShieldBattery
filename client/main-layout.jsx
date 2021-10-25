@@ -179,6 +179,7 @@ class MainLayout extends React.Component {
           addNotification({
             id: EMAIL_VERIFICATION_ID,
             type: NotificationType.EmailVerification,
+            local: true,
           }),
         )
       }

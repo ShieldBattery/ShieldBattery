@@ -58,7 +58,7 @@ export interface NotificationClearEvent {
 
 export interface NotificationMarkReadEvent {
   type: 'markRead'
-  notificationIds: string[]
+  notificationIds: ReadonlyArray<string>
 }
 
 export type NotificationEvent =
@@ -77,5 +77,5 @@ export interface ClearNotificationsServerPayload {
 }
 
 export interface MarkNotificationsReadServerBody {
-  notificationIds: string[]
+  notificationIds: ReadonlyArray<string>
 }

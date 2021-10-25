@@ -1,5 +1,5 @@
-import { OrderedSet } from 'immutable'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { Immutable } from 'immer'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
 import {
   animated,
@@ -10,7 +10,8 @@ import {
 } from 'react-spring'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { NotificationType } from '../../common/notifications'
+import { Notification, NotificationType } from '../../common/notifications'
+import { subtract, union } from '../../common/sets'
 import { EmailVerificationNotificationUi } from '../auth/email-verification-notification-ui'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
 import CheckIcon from '../icons/material/check-24px.svg'
@@ -23,7 +24,6 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious } from '../state-hooks'
 import { background300, background400 } from '../styles/colors'
 import { markLocalNotificationsRead, markNotificationsRead } from './action-creators'
-import { NotificationRecord, NotificationRecordBase } from './notification-reducer'
 
 const POPOVER_DURATION = 10000
 
@@ -67,20 +67,37 @@ const MarkAsReadButton = styled(IconButton)`
 
 export default function NotificationPopups() {
   const dispatch = useAppDispatch()
-  const idToNotification = useAppSelector(s => s.notifications.idToNotification)
-  const notificationIds = useAppSelector(s => s.notifications.reversedNotificationIds)
-  const unreadIds = notificationIds.filter(id => !idToNotification.get(id)?.read)
-  const prevIds = usePrevious(unreadIds) ?? OrderedSet()
-  const newIds = unreadIds.subtract(prevIds)
-  const removedIds = prevIds.subtract(unreadIds)
+  const idToNotification = useAppSelector(s => s.notifications.byId)
+  const notificationIds = useAppSelector(s => s.notifications.orderedIds)
+  const unreadIds = useRef(new Set<string>())
+  const prevIds = usePrevious(unreadIds.current)
+  const [newIds, removedIds] = useMemo(() => {
+    const filtered = new Set(notificationIds.filter(id => !idToNotification.get(id)?.read))
+    if (
+      filtered.size !== unreadIds.current.size ||
+      union(filtered, unreadIds.current).size > filtered.size
+    ) {
+      unreadIds.current = filtered
+      const newIds = subtract(unreadIds.current, prevIds ?? [])
+      const removedIds = subtract(prevIds ?? new Set<string>(), unreadIds.current)
+
+      return [newIds, removedIds]
+    } else {
+      // unread IDs didn't change
+      return [new Set<string>(), new Set<string>()]
+    }
+  }, [notificationIds, prevIds, idToNotification])
 
   const popupElems = useRef(new Map<string, HTMLDivElement>())
   const cancelFuncs = useRef(new Map<string, () => Controller>())
   const portalRef = useExternalElementRef()
-  const [notificationItems, setNotificationItems] = useState<NotificationRecord[]>([])
+  const [notificationItems, setNotificationItems] = useState<Immutable<Notification[]>>([])
 
   useEffect(() => {
-    setNotificationItems(items => [...newIds.map(id => idToNotification.get(id)!), ...items])
+    setNotificationItems(items => [
+      ...Array.from(newIds, id => idToNotification.get(id)!),
+      ...items,
+    ])
   }, [idToNotification, newIds])
 
   useEffect(() => {
@@ -93,7 +110,7 @@ export default function NotificationPopups() {
     }
   }, [removedIds, cancelFuncs])
 
-  const popupTransition = useTransition<NotificationRecord, UseTransitionProps<NotificationRecord>>(
+  const popupTransition = useTransition<Notification, UseTransitionProps<Notification>>(
     notificationItems,
     {
       from: { opacity: 0, height: 0, duration: '100%' },
@@ -103,7 +120,7 @@ export default function NotificationPopups() {
         await next({ duration: '0%' })
       },
       leave: { opacity: 0, height: 0 },
-      onRest: (result: AnimationResult, ctrl: Controller, item: NotificationRecord) => {
+      onRest: (result: AnimationResult, ctrl: Controller, item: Notification) => {
         setNotificationItems(state => state.filter(i => i.id !== item.id))
       },
       // Force the react-spring to remove the notification element from the DOM as soon as its
@@ -121,8 +138,8 @@ export default function NotificationPopups() {
   )
 
   const onMarkAsRead = useCallback(
-    (notification: NotificationRecord) => {
-      if ((notification as NotificationRecordBase).local) {
+    (notification: Notification) => {
+      if (notification.local) {
         dispatch(markLocalNotificationsRead([notification.id]))
       } else {
         dispatch(markNotificationsRead([notification.id]))
@@ -148,7 +165,7 @@ export default function NotificationPopups() {
   )
 }
 
-function toUi(notification: NotificationRecord, popupElems: Map<string, HTMLDivElement>) {
+function toUi(notification: Notification, popupElems: Map<string, HTMLDivElement>) {
   switch (notification.type) {
     case NotificationType.EmailVerification:
       return (

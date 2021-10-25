@@ -6,7 +6,6 @@ import { Popover, useAnchorPosition } from '../material/popover'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { amberA200 } from '../styles/colors'
 import { markLocalNotificationsRead, markNotificationsRead } from './action-creators'
-import { NotificationRecordBase } from './notification-reducer'
 import { ConnectedNotificationsList } from './notifications-list'
 
 const UnreadIndicator = styled.div`
@@ -40,15 +39,28 @@ const PopoverContents = styled.div`
 
 export function NotificationsButton() {
   const dispatch = useAppDispatch()
-  const idToNotification = useAppSelector(s => s.notifications.idToNotification)
-  const notificationIds = useAppSelector(s => s.notifications.reversedNotificationIds)
+  const idToNotification = useAppSelector(s => s.notifications.byId)
+  const notificationIds = useAppSelector(s => s.notifications.orderedIds)
   const [localUnreadNotifications, serverUnreadNotifications] = useMemo(() => {
-    const group = notificationIds
-      .filter(id => !idToNotification.get(id)?.read)
-      .groupBy(id => (idToNotification.get(id)! as NotificationRecordBase).local)
-    return [group.get(true), group.get(false)]
+    const local: string[] = []
+    const server: string[] = []
+    for (const id of notificationIds) {
+      const notification = idToNotification.get(id)
+      if (!notification || notification.read) {
+        continue
+      }
+
+      if (notification.local) {
+        local.push(id)
+      } else {
+        server.push(id)
+      }
+    }
+
+    return [local, server]
   }, [notificationIds, idToNotification])
-  const hasUnread = useMemo(() => idToNotification.some(n => !n.read), [idToNotification])
+
+  const hasUnread = localUnreadNotifications.length + serverUnreadNotifications.length > 0
 
   const [anchor, setAnchor] = useState<HTMLElement>()
   const onClick = useCallback((event: React.MouseEvent) => {
@@ -56,11 +68,11 @@ export function NotificationsButton() {
   }, [])
   const onDismiss = useCallback(() => {
     setAnchor(undefined)
-    if (localUnreadNotifications?.count()) {
-      dispatch(markLocalNotificationsRead(localUnreadNotifications.valueSeq().toArray()))
+    if (localUnreadNotifications.length) {
+      dispatch(markLocalNotificationsRead(localUnreadNotifications))
     }
-    if (serverUnreadNotifications?.count()) {
-      dispatch(markNotificationsRead(serverUnreadNotifications.valueSeq().toArray()))
+    if (serverUnreadNotifications.length) {
+      dispatch(markNotificationsRead(serverUnreadNotifications))
     }
   }, [localUnreadNotifications, serverUnreadNotifications, dispatch])
   const [, anchorX, anchorY] = useAnchorPosition('right', 'bottom', anchor ?? null)

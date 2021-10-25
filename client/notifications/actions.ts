@@ -64,7 +64,7 @@ export interface ClearNotificationsFailure extends BaseFetchFailure<'@notificati
 
 export interface MarkNotificationsReadBegin {
   type: '@notifications/markReadBegin'
-  payload: { notificationIds: string[] }
+  payload: { notificationIds: ReadonlyArray<string> }
 }
 
 /**
@@ -74,10 +74,10 @@ export interface MarkNotificationsReadBegin {
 export interface MarkNotificationsRead {
   type: '@notifications/markRead'
   payload?: void
-  meta: { notificationIds: string[] }
+  meta: { notificationIds: ReadonlyArray<string> }
   error?: false
 }
 
 export interface MarkNotificationsReadFailure extends BaseFetchFailure<'@notifications/markRead'> {
-  meta: { notificationIds: string[] }
+  meta: { notificationIds: ReadonlyArray<string> }
 }

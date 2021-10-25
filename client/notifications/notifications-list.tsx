@@ -1,8 +1,8 @@
-import { List } from 'immutable'
+import { Immutable } from 'immer'
 import React, { useCallback, useMemo } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { NotificationType } from '../../common/notifications'
+import { Notification, NotificationType } from '../../common/notifications'
 import { EmailVerificationNotificationUi } from '../auth/email-verification-notification-ui'
 import { TextButton } from '../material/button'
 import { PartyInviteNotificationUi } from '../parties/party-notification-ui'
@@ -10,7 +10,6 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { headline6, subtitle1 } from '../styles/typography'
 import { clearNotifications } from './action-creators'
-import { NotificationRecord } from './notification-reducer'
 
 const ListContainer = styled.div`
   width: 100%;
@@ -52,7 +51,7 @@ const ClearButton = styled(TextButton)`
 `
 
 export interface NotificationsListProps {
-  notifications: List<NotificationRecord>
+  notifications: Immutable<Notification[]>
   onClear: () => void
 }
 
@@ -64,8 +63,10 @@ export function NotificationsList(props: NotificationsListProps) {
         <ClearButton label='Clear' color='accent' onClick={props.onClear} />
       </TitleArea>
       <ListArea>
-        {props.notifications.size > 0 ? (
-          props.notifications.map((n, i) => toUi(n, `notif-${i}`, i < props.notifications.size - 1))
+        {props.notifications.length > 0 ? (
+          props.notifications.map((n, i) =>
+            toUi(n, `notif-${i}`, i < props.notifications.length - 1),
+          )
         ) : (
           <EmptyList>Nothing to see here</EmptyList>
         )}
@@ -75,19 +76,19 @@ export function NotificationsList(props: NotificationsListProps) {
 }
 
 export function ConnectedNotificationsList() {
-  const idToNotification = useAppSelector(s => s.notifications.idToNotification)
-  const notificationIds = useAppSelector(s => s.notifications.reversedNotificationIds)
+  const idToNotification = useAppSelector(s => s.notifications.byId)
+  const notificationIds = useAppSelector(s => s.notifications.orderedIds)
   const dispatch = useAppDispatch()
   const onClear = useCallback(() => dispatch(clearNotifications()), [dispatch])
   const orderedNotifications = useMemo(
-    () => notificationIds.map(id => idToNotification.get(id)!).toList(),
+    () => notificationIds.map(id => idToNotification.get(id)!),
     [notificationIds, idToNotification],
   )
 
   return <NotificationsList notifications={orderedNotifications} onClear={onClear} />
 }
 
-function toUi(notification: NotificationRecord, key: string, showDivider: boolean) {
+function toUi(notification: Notification, key: string, showDivider: boolean) {
   switch (notification.type) {
     case NotificationType.EmailVerification:
       return (

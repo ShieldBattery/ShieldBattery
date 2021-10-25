@@ -113,7 +113,7 @@ export default class NotificationService {
    * Marks all of the given notifications as "read" for a particular user and notifies all of user's
    * connected clients.
    */
-  async markRead(userId: SbUserId, notificationIds: string[]) {
+  async markRead(userId: SbUserId, notificationIds: ReadonlyArray<string>) {
     await markRead(userId, notificationIds)
 
     this.publisher.publish(getNotificationsPath(userId), {

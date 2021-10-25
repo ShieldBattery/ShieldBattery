@@ -10,17 +10,16 @@ import { ThunkAction } from '../dispatch-registry'
 import fetch from '../network/fetch'
 import { openSnackbar } from '../snackbars/action-creators'
 import { AddNotification, ClearNotificationById, MarkNotificationsRead } from './actions'
-import { NotificationRecordBase } from './notification-reducer'
 
 export function clearNotifications(): ThunkAction {
   return (dispatch, getState) => {
-    const { idToNotification, notificationIds } = getState().notifications
-    const newestServerId = notificationIds.findLast(id => {
-      const notification = idToNotification.get(id) as NotificationRecordBase
+    const { byId, orderedIds } = getState().notifications
+    const newestServerId = orderedIds.find(id => {
+      const notification = byId.get(id)
       return notification && !notification.local
     })
 
-    const timestamp = newestServerId ? idToNotification.get(newestServerId)?.createdAt : undefined
+    const timestamp = newestServerId ? byId.get(newestServerId)?.createdAt : undefined
     const reqId = cuid()
 
     dispatch({
@@ -61,14 +60,16 @@ export function clearNotificationById(id: string): ClearNotificationById {
   }
 }
 
-export function markLocalNotificationsRead(notificationIds: string[]): MarkNotificationsRead {
+export function markLocalNotificationsRead(
+  notificationIds: ReadonlyArray<string>,
+): MarkNotificationsRead {
   return {
     type: '@notifications/markRead',
     meta: { notificationIds },
   }
 }
 
-export function markNotificationsRead(notificationIds: string[]): ThunkAction {
+export function markNotificationsRead(notificationIds: ReadonlyArray<string>): ThunkAction {
   return dispatch => {
     dispatch({
       type: '@notifications/markReadBegin',

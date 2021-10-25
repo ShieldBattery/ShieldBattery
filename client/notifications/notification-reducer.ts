@@ -1,139 +1,107 @@
-import { Map, OrderedSet, Record } from 'immutable'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { EMAIL_VERIFICATION_ID, Notification, NotificationType } from '../../common/notifications'
-import { keyedReducer } from '../reducers/keyed-reducer'
+import { Immutable } from 'immer'
+import { Notification } from '../../common/notifications'
+import { intersection, union } from '../../common/sets'
+import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
-export interface NotificationRecordBase {
-  id: string
-  type: NotificationType
-  read: boolean
-  createdAt: number
-  local?: boolean
+export interface ClearRequest {
+  byId: Map<string, Notification>
+  idSet: Set<string>
+  orderedIds: string[]
 }
 
-// NOTE(tec27): This is mainly useful if you need to set a field on multiple notifications at once
-// and aren't sure what type they actually are. Our type union doesn't produce a usable `set` method
-// on its own, but by casting to this type it will be usable.
-type CommonNotificationRecord = Record<{ read: boolean; createdAt: 0 }>
+export interface NotificationState {
+  /** A map of notification id -> Notification. */
+  byId: Map<string, Notification>
+  /**
+   * A Set of all displayed notifications, ordered by insertion (earliest notification comes first).
+   */
+  idSet: Set<string>
+  /**
+   * An array of all displayed notifications, ordered by the typical display order (chronological,
+   * newest notification first). This will be kept in sync with `idSet`.
+   */
+  orderedIds: string[]
 
-export class EmailVerificationNotificationRecord
-  extends Record({
-    id: EMAIL_VERIFICATION_ID,
-    type: NotificationType.EmailVerification as typeof NotificationType.EmailVerification,
-    read: false,
-    createdAt: 0,
-    local: true as const,
-  })
-  implements NotificationRecordBase {}
+  /**
+   * Internal bookkeeping for notifications that have been cleared, but the request to do so on
+   * the server is still in flight. This generally shouldn't be necessary to use in UIs.
+   */
+  clearRequests: Map<string, ClearRequest>
+}
 
-export class PartyInviteNotificationRecord
-  extends Record({
-    id: '',
-    type: NotificationType.PartyInvite as typeof NotificationType.PartyInvite,
-    read: false,
-    createdAt: 0,
-    from: '',
-    partyId: '',
-  })
-  implements NotificationRecordBase {}
+const DEFAULT_STATE: Immutable<NotificationState> = {
+  byId: new Map(),
+  idSet: new Set(),
+  orderedIds: [],
 
-export type NotificationRecord = EmailVerificationNotificationRecord | PartyInviteNotificationRecord
+  clearRequests: new Map(),
+}
 
-function toNotificationRecord(notification: Readonly<Notification>): NotificationRecord {
-  switch (notification.type) {
-    case NotificationType.EmailVerification:
-      return new EmailVerificationNotificationRecord(notification)
-    case NotificationType.PartyInvite:
-      return new PartyInviteNotificationRecord(notification)
-    default:
-      return assertUnreachable(notification)
+function removeNotification(state: NotificationState, id: string): void {
+  state.byId.delete(id)
+  if (state.idSet.has(id)) {
+    state.idSet.delete(id)
+    const index = state.orderedIds.indexOf(id)
+    if (index >= 0) {
+      state.orderedIds.splice(index, 1)
+    }
   }
 }
 
-function updateReadStatus(
-  state: NotificationState,
-  notificationIds: string[],
-  read: boolean,
-): NotificationState {
-  return state.set(
-    'idToNotification',
-    state.idToNotification.withMutations(idToNotification => {
-      for (const id of notificationIds) {
-        idToNotification.update(
-          id,
-          n => (n as CommonNotificationRecord | undefined)?.set('read', read) as NotificationRecord,
-        )
-      }
-    }),
-  )
-}
-
-export class ClearRequestRecord extends Record({
-  clearedIdToNotification: Map<string, NotificationRecord>(),
-  clearedNotificationIds: OrderedSet<string>(),
-}) {}
-
-class NotificationBaseState extends Record({
-  idToNotification: Map<string, NotificationRecord>(),
-  notificationIds: OrderedSet<string>(),
-
-  // Cache the values of the clear requests so they can easily be restored if the server returns an
-  // error. Doesn't cache the local notifications.
-  clearRequests: Map<string, ClearRequestRecord>(),
-}) {}
-
-export class NotificationState extends NotificationBaseState {
-  get reversedNotificationIds() {
-    return this.notificationIds.reverse()
-  }
-}
-
-export default keyedReducer(new NotificationState(), {
+export default immerKeyedReducer(DEFAULT_STATE, {
   ['@auth/logOut']() {
-    return new NotificationState()
+    return DEFAULT_STATE
   },
 
   ['@notifications/serverInit'](state, { payload: { notifications } }) {
-    return state
-      .update('idToNotification', m =>
-        m.merge(notifications.map(n => [n.id, toNotificationRecord(n)])),
-      )
-      .update('notificationIds', s => s.union(notifications.map(n => n.id)))
+    // TODO(tec27): There's potentially a race here wherein sending a clear request and then
+    // reconnecting to the server delivers notifications that are in the process of being cleared?
+    // Could probably be "fixed" by also re-clearing notifications from the main state upon the
+    // clear response
+    for (const n of notifications) {
+      state.byId.set(n.id, n)
+      if (!state.idSet.has(n.id)) {
+        state.idSet.add(n.id)
+        state.orderedIds.unshift(n.id)
+      }
+    }
   },
 
   ['@notifications/add'](state, { payload: { notification } }) {
-    if (state.idToNotification.has(notification.id)) {
-      return state
+    state.byId.set(notification.id, notification)
+    if (!state.idSet.has(notification.id)) {
+      state.idSet.add(notification.id)
+      state.orderedIds.unshift(notification.id)
     }
-
-    return state
-      .update('idToNotification', m => m.set(notification.id, toNotificationRecord(notification)))
-      .update('notificationIds', s => s.add(notification.id))
   },
 
   ['@notifications/clearById'](state, { payload: { notificationId } }) {
-    return state
-      .deleteIn(['idToNotification', notificationId])
-      .deleteIn(['notificationIds', notificationId])
+    removeNotification(state, notificationId)
   },
 
   ['@notifications/clearBegin'](state, { payload: { reqId, timestamp } }) {
-    const clearedIdToNotification = state.idToNotification.filter(
-      (n: NotificationRecordBase) => n.local || (timestamp && n.createdAt <= timestamp),
-    )
-    // Preserve the order of the cleared notification IDs set
-    const clearedNotificationIds = state.notificationIds.filter(id =>
-      clearedIdToNotification.has(id),
-    )
+    const clearedIdMap = new Map<string, Notification>()
+    for (const n of state.byId.values()) {
+      if (n.local || (timestamp && n.createdAt <= timestamp)) {
+        clearedIdMap.set(n.id, n)
+      }
+    }
 
-    // Apply the clear changes optimistically
-    return state
-      .update('idToNotification', m => m.filter(n => !clearedIdToNotification.has(n.id)))
-      .update('notificationIds', ids => ids.subtract(clearedNotificationIds))
-      .setIn(
-        ['clearRequests', reqId],
-        new ClearRequestRecord({ clearedIdToNotification, clearedNotificationIds }),
-      )
+    // Preserve order from the current state
+    const clearedIdSet = intersection(state.idSet, new Set(clearedIdMap.keys()))
+    // Note that this assumes that the idSet is in fact ordered (just in reverse from the order
+    // we typically want to iterate these things)
+    const clearedOrderedIds = Array.from(clearedIdSet.values()).reverse()
+
+    for (const id of clearedOrderedIds) {
+      removeNotification(state, id)
+    }
+
+    state.clearRequests.set(reqId, {
+      byId: clearedIdMap,
+      idSet: clearedIdSet,
+      orderedIds: clearedOrderedIds,
+    })
   },
 
   ['@notifications/clear'](state, action) {
@@ -144,46 +112,64 @@ export default keyedReducer(new NotificationState(), {
     if (action.error) {
       if (reqId && state.clearRequests.has(reqId)) {
         // Undo the optimistic mutation
-        const { clearedIdToNotification, clearedNotificationIds } = state.clearRequests.get(reqId)!
+        const req = state.clearRequests.get(reqId)!
+        state.clearRequests.delete(reqId)
 
-        return state
-          .mergeIn(['idToNotification'], clearedIdToNotification)
-          .update('notificationIds', ids => clearedNotificationIds.union(ids))
-          .deleteIn(['clearRequests', reqId])
+        for (const n of req.byId.values()) {
+          state.byId.set(n.id, n)
+        }
+
+        state.idSet = union(req.idSet, state.idSet)
+        state.orderedIds = state.orderedIds.concat(req.orderedIds)
       } else {
-        // This should never really happen, as this means the action was dispatched for some other
-        // client's request
-        return state
+        // This should never really happen, as it would mean a request error was dispatched for some
+        // other client's request
+        return
       }
     } else {
       if (reqId && state.clearRequests.has(reqId)) {
-        // Request was succesful, so we can throw away the undo information for the optimistic
-        // mutation
-        return state.deleteIn(['clearRequests', reqId])
+        // This client initiated the request and it was successful, so we have already done all the
+        // necessary work optimistically. Clean up the request tracking.
+        state.clearRequests.delete(reqId)
       } else {
         const { timestamp } = action.payload
-        const leftoverNotifications = state.idToNotification.filter(
-          (n: NotificationRecordBase) => !n.local && n.createdAt > timestamp,
-        )
-
-        return state
-          .set('idToNotification', leftoverNotifications)
-          .update('notificationIds', ids => ids.intersect(leftoverNotifications.keys()))
+        for (const n of state.byId.values()) {
+          if (n.local || (timestamp && n.createdAt <= timestamp)) {
+            removeNotification(state, n.id)
+          }
+        }
       }
     }
   },
 
   ['@notifications/markReadBegin'](state, { payload: { notificationIds } }) {
     // Apply the mark read changes optimistically
-    return updateReadStatus(state, notificationIds, true)
+    for (const id of notificationIds) {
+      const n = state.byId.get(id)
+      if (n) {
+        n.read = true
+      }
+    }
   },
 
   ['@notifications/markRead'](state, { meta: { notificationIds }, error }) {
     // If an error happened, undo the mutations that were done optimistically
     if (error) {
-      return updateReadStatus(state, notificationIds, false)
+      for (const id of notificationIds) {
+        const n = state.byId.get(id)
+        if (n) {
+          n.read = false
+        }
+      }
     } else {
-      return updateReadStatus(state, notificationIds, true)
+      // Otherwise, mark the notifications as read (we potentially redo the optimistic changes here
+      // in case this request was initiated by another client)
+      for (const id of notificationIds) {
+        const n = state.byId.get(id)
+        if (n) {
+          n.read = true
+        }
+      }
     }
   },
 })

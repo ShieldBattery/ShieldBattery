@@ -119,7 +119,10 @@ export async function addNotification({
 /**
  * Marks the given notification(s) for a particular user as read.
  */
-export async function markRead(userId: SbUserId, notificationIds: string[]): Promise<void> {
+export async function markRead(
+  userId: SbUserId,
+  notificationIds: ReadonlyArray<string>,
+): Promise<void> {
   const { client, done } = await db()
   try {
     await client.query(sql`
