@@ -1,7 +1,6 @@
 import { NydusClient } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { isUserMentioned } from '../../common/text/mentions'
-import { WhisperEvent, WhisperMessageType } from '../../common/whispers'
+import { WhisperEvent } from '../../common/whispers'
 import { dispatch, Dispatchable } from '../dispatch-registry'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -33,15 +32,12 @@ const eventToAction: EventToActionMap = {
   message(event) {
     return (dispatch, getState) => {
       const { auth } = getState()
-      const isHighlighted =
-        event.message.data.type === WhisperMessageType.TextMessage &&
-        isUserMentioned(auth.user.name, event.message.data.text)
 
       // Notify the main process of the new message, so it can display an appropriate notification
       ipcRenderer.send('chatNewMessage', {
         user: event.message.from.name,
         message: event.message.data.text,
-        isHighlighted,
+        urgent: !!event.mentions.find(m => m.id === auth.user.id),
       })
 
       dispatch({
@@ -53,9 +49,9 @@ const eventToAction: EventToActionMap = {
             from: event.message.from,
             to: event.message.to,
             text: event.message.data.text,
-            isHighlighted,
           },
           users: event.users,
+          mentions: event.mentions,
         },
       })
     }

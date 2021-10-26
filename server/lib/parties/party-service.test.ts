@@ -1,10 +1,12 @@
 import { NydusServer } from 'nydus'
 import { NotificationType } from '../../../common/notifications'
 import { PartyUser } from '../../../common/parties'
-import { makeSbUserId } from '../../../common/users/user-info'
+import { asMockedFunction } from '../../../common/testing/as-mocked-function'
+import { makeSbUserId, SbUserId } from '../../../common/users/user-info'
 import NotificationService from '../notifications/notification-service'
 import { createFakeNotificationService } from '../notifications/testing/notification-service'
 import { FakeClock } from '../time/testing/fake-clock'
+import { findUsersByName } from '../users/user-model'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import {
@@ -15,6 +17,12 @@ import {
 } from '../websockets/testing/websockets'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import PartyService, { getPartyPath, PartyRecord, toPartyJson } from './party-service'
+
+jest.mock('../users/user-model', () => ({
+  findUsersByName: jest.fn(),
+}))
+
+const findUsersByNameMock = asMockedFunction(findUsersByName)
 
 describe('parties/party-service', () => {
   const user1: PartyUser = { id: makeSbUserId(1), name: 'pachi' }
@@ -91,6 +99,7 @@ describe('parties/party-service', () => {
     webClient = connector.connectClient(webUser, WEB_USER_CLIENT_ID, 'web')
 
     clearTestLogs(nydus)
+    findUsersByNameMock.mockClear()
   })
 
   describe('invite', () => {
@@ -558,26 +567,51 @@ describe('parties/party-service', () => {
       partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
     })
 
-    test('should throw if the party is not found', () => {
-      expect(() =>
+    test('should throw if the party is not found', async () => {
+      await expect(() =>
         partyService.sendChatMessage('INVALID_PARTY_ID', user2.id, 'Hello World!'),
-      ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
     })
 
-    test('should throw if the user is not in party', () => {
-      expect(() =>
+    test('should throw if the user is not in party', async () => {
+      await expect(() =>
         partyService.sendChatMessage(party.id, user3.id, 'Hello World!'),
-      ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
     })
 
-    test('should publish "chatMessage" event to the party path', () => {
-      partyService.sendChatMessage(party.id, user2.id, 'Hello World!')
+    test('should publish "chatMessage" event to the party path', async () => {
+      findUsersByNameMock.mockResolvedValue(new Map())
+
+      await partyService.sendChatMessage(party.id, user2.id, 'Hello World!')
 
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'chatMessage',
-        from: user2,
-        time: currentTime,
-        text: 'Hello World!',
+        message: {
+          partyId: party.id,
+          from: user2,
+          time: currentTime,
+          text: 'Hello World!',
+        },
+        mentions: [],
+      })
+    })
+
+    test('should parse the user mentions in chat message', async () => {
+      findUsersByNameMock.mockResolvedValue(
+        new Map([['test', { id: 123 as SbUserId, name: 'test' }]]),
+      )
+
+      await partyService.sendChatMessage(party.id, user2.id, 'Hello @test and @non-existing')
+
+      expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
+        type: 'chatMessage',
+        message: {
+          partyId: party.id,
+          from: user2,
+          time: currentTime,
+          text: 'Hello <@123> and @non-existing',
+        },
+        mentions: [{ id: 123, name: 'test' }],
       })
     })
   })

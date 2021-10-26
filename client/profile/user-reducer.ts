@@ -1,7 +1,7 @@
 import { Immutable } from 'immer'
 import { GameRecordJson } from '../../common/games/games'
 import { SbUser, SbUserId, UserProfile } from '../../common/users/user-info'
-import { LOBBY_INIT_DATA, LOBBY_UPDATE_SLOT_CREATE } from '../actions'
+import { LOBBY_INIT_DATA, LOBBY_UPDATE_CHAT_MESSAGE, LOBBY_UPDATE_SLOT_CREATE } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface UserRequestInfo {
@@ -83,6 +83,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.usernameToId.set(user.name, user.id)
   },
 
+  ['@chat/updateMessage'](state, action) {
+    updateUsers(state, [action.payload.user, ...action.payload.mentions])
+  },
+
   ['@chat/retrieveUserList'](state, action) {
     if (action.error) {
       return
@@ -123,7 +127,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@whispers/updateMessage'](state, action) {
-    updateUsers(state, action.payload.users)
+    updateUsers(state, [...action.payload.users, ...action.payload.mentions])
   },
 
   ['@parties/init'](state, action) {
@@ -134,6 +138,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, [action.payload.userInfo])
   },
 
+  ['@parties/updateChatMessage'](state, action) {
+    updateUsers(state, action.payload.mentions)
+  },
+
   [LOBBY_INIT_DATA as any](state: any, action: any) {
     updateUsers(state, action.payload.userInfos)
   },
@@ -142,5 +150,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     if (action.payload.userInfo) {
       updateUsers(state, [action.payload.userInfo])
     }
+  },
+
+  [LOBBY_UPDATE_CHAT_MESSAGE as any](state: any, action: any) {
+    updateUsers(state, action.payload.mentions)
   },
 })

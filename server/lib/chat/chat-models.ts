@@ -161,6 +161,7 @@ export interface BaseMessageData {
 export interface TextMessageData extends BaseMessageData {
   type: typeof ServerChatMessageType.TextMessage
   text: string
+  mentions: SbUserId[]
 }
 
 export interface JoinChannelData extends BaseMessageData {

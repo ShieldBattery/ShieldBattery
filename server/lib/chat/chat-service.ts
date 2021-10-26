@@ -6,15 +6,16 @@ import {
   ChatEvent,
   ChatInitEvent,
   ChatUser,
+  GetChannelHistoryServerPayload,
   GetChannelUsersServerPayload,
-  ServerChatMessage,
   ServerChatMessageType,
 } from '../../../common/chat'
 import { SbUserId } from '../../../common/users/user-info'
 import { DbClient } from '../db'
 import filterChatMessage from '../messaging/filter-chat-message'
+import { parseChatMessage } from '../messaging/parse-chat-message'
 import { getPermissions } from '../models/permissions'
-import { findUserById } from '../users/user-model'
+import { findUserById, findUsersById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
@@ -288,23 +289,29 @@ export default class ChatService {
     }
 
     const text = filterChatMessage(message)
+    const [parsedText, mentionedUsers] = await parseChatMessage(text)
+    const mentions = Array.from(mentionedUsers.values())
     const result = await addMessageToChannel(userSockets.userId, originalChannelName, {
       type: ServerChatMessageType.TextMessage,
-      text,
+      text: parsedText,
+      mentions: mentions.map(m => m.id),
     })
 
     this.publisher.publish(getChannelPath(originalChannelName), {
       action: 'message',
-      id: result.msgId,
-      type: result.data.type,
-      channel: result.channelName,
-      from: result.userId,
+      message: {
+        id: result.msgId,
+        type: result.data.type,
+        channel: result.channelName,
+        from: result.userId,
+        time: Number(result.sent),
+        text: result.data.text,
+      },
       user: {
         id: result.userId,
         name: result.userName,
       },
-      time: Number(result.sent),
-      text: result.data.text,
+      mentions,
     })
   }
 
@@ -313,7 +320,7 @@ export default class ChatService {
     userId: SbUserId,
     limit?: number,
     beforeTime?: number,
-  ): Promise<ServerChatMessage[]> {
+  ): Promise<GetChannelHistoryServerPayload> {
     const userSockets = this.getUserSockets(userId)
     const originalChannelName = await this.getOriginalChannelName(channelName)
     // TODO(tec27): lookup channel keys case insensitively?
@@ -327,13 +334,13 @@ export default class ChatService {
       )
     }
 
-    const messages = await getMessagesForChannel(
+    const dbMessages = await getMessagesForChannel(
       originalChannelName,
       limit,
       beforeTime && beforeTime > -1 ? new Date(beforeTime) : undefined,
     )
 
-    return messages.map(m => {
+    const messages = dbMessages.map(m => {
       switch (m.data.type) {
         case ServerChatMessageType.TextMessage:
           return {
@@ -360,6 +367,20 @@ export default class ChatService {
           return assertUnreachable(m.data)
       }
     })
+    const mentionIds = dbMessages.reduce((mentions, msg) => {
+      if (msg.data.type === ServerChatMessageType.TextMessage) {
+        return [...mentions, ...(msg.data.mentions ?? [])]
+      }
+
+      return mentions
+    }, [] as SbUserId[])
+
+    const mentions = await findUsersById(mentionIds)
+
+    return {
+      messages,
+      mentions: Array.from(mentions.values()),
+    }
   }
 
   async getChannelUsers(

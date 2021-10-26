@@ -1,7 +1,6 @@
 import type { NydusClient, RouteHandler, RouteInfo } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { PartyEvent } from '../../common/parties'
-import { isUserMentioned } from '../../common/text/mentions'
 import { dispatch, Dispatchable } from '../dispatch-registry'
 import { openSnackbar } from '../snackbars/action-creators'
 import { navigateToParty } from './action-creators'
@@ -111,26 +110,18 @@ const eventToAction: EventToActionMap = {
 
   chatMessage(partyId, event) {
     return (dispatch, getState) => {
-      const { from, time, text } = event
       const { auth } = getState()
-      const isHighlighted = isUserMentioned(auth.user.name, event.text)
 
       // Notify the main process of the new message, so it can display an appropriate notification
       ipcRenderer.send('chatNewMessage', {
-        user: event.from.name,
-        message: event.text,
-        isHighlighted,
+        user: event.message.from.name,
+        message: event.message.text,
+        urgent: !!event.mentions.find(m => m.id === auth.user.id),
       })
 
       dispatch({
         type: '@parties/updateChatMessage',
-        payload: {
-          partyId,
-          from,
-          time,
-          text,
-          isHighlighted,
-        },
+        payload: event,
       })
     }
   },

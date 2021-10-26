@@ -4,10 +4,10 @@ import Joi from 'joi'
 import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
+  GetChannelHistoryServerPayload,
   GetChannelUsersServerPayload,
   ModerateChannelUserServerBody,
   SendChatMessageServerBody,
-  ServerChatMessage,
 } from '../../../common/chat'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
 import { MULTI_CHANNEL } from '../../../common/flags'
@@ -144,7 +144,7 @@ export class ChatApi {
 
   @httpGet('/:channelName/messages')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
-  async getChannelHistory(ctx: RouterContext): Promise<ServerChatMessage[]> {
+  async getChannelHistory(ctx: RouterContext): Promise<GetChannelHistoryServerPayload> {
     const channelName = getValidatedChannelName(ctx)
     const {
       query: { limit, beforeTime },

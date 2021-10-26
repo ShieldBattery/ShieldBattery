@@ -42,15 +42,7 @@ function renderCommonMessage(msg: Message) {
     // TODO(2Pac): Reconcile these types into one when everything is moved to immer
     case CommonMessageType.TextMessage:
     case ServerChatMessageType.TextMessage:
-      return (
-        <TextMessage
-          key={msg.id}
-          userId={msg.from}
-          time={msg.time}
-          text={msg.text}
-          isHighlighted={msg.isHighlighted}
-        />
-      )
+      return <TextMessage key={msg.id} userId={msg.from} time={msg.time} text={msg.text} />
     default:
       return null
   }

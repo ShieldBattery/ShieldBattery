@@ -1,7 +1,6 @@
 import { NydusClient } from 'nydus-client'
-import { ChatEvent, ServerChatMessageType } from '../../common/chat'
+import { ChatEvent } from '../../common/chat'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { isUserMentioned } from '../../common/text/mentions'
 import { dispatch, Dispatchable } from '../dispatch-registry'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -61,23 +60,17 @@ const eventToAction: EventToActionMap = {
   message(channel, event) {
     return (dispatch, getState) => {
       const { auth } = getState()
-      const isHighlighted =
-        event.type === ServerChatMessageType.TextMessage &&
-        isUserMentioned(auth.user.name, event.text)
 
       // Notify the main process of the new message, so it can display an appropriate notification
       ipcRenderer.send('chatNewMessage', {
         user: event.user.name,
-        message: event.text,
-        isHighlighted,
+        message: event.message.text,
+        urgent: !!event.mentions.find(m => m.id === auth.user.id),
       })
 
       dispatch({
         type: '@chat/updateMessage',
-        payload: {
-          ...event,
-          isHighlighted,
-        },
+        payload: event,
       })
     }
   },

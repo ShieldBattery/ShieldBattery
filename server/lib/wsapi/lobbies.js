@@ -25,6 +25,8 @@ import gameLoader from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
 import { getMapInfo } from '../maps/map-models'
+import filterChatMessage from '../messaging/filter-chat-message'
+import { parseChatMessage } from '../messaging/parse-chat-message'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
 
@@ -279,15 +281,17 @@ export class LobbyApi {
     const time = Date.now()
     let { text } = data.get('body')
 
-    if (text.length > 500) {
-      text = text.slice(0, 500)
-    }
-
+    text = filterChatMessage(text)
+    const [parsedText, mentionedUsers] = await parseChatMessage(text)
     this._publishTo(lobby, {
       type: 'chat',
-      time,
-      from: client.userId,
-      text,
+      message: {
+        lobbyName: lobby.name,
+        time,
+        from: client.userId,
+        text: parsedText,
+      },
+      mentions: Array.from(mentionedUsers.values()),
     })
   }
 

@@ -10,7 +10,8 @@ import {
   WhisperUserStatus,
 } from '../../../common/whispers'
 import filterChatMessage from '../messaging/filter-chat-message'
-import { findUserById, findUserByName } from '../users/user-model'
+import { parseChatMessage } from '../messaging/parse-chat-message'
+import { findUserById, findUserByName, findUsersById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
@@ -114,9 +115,12 @@ export default class WhisperService {
     }
 
     const text = filterChatMessage(message)
+    const [parsedText, mentionedUsers] = await parseChatMessage(text)
+    const mentions = Array.from(mentionedUsers.values())
     const result = await addMessageToWhisper(user.id, target.id, {
       type: WhisperMessageType.TextMessage,
-      text,
+      text: parsedText,
+      mentions: mentions.map(m => m.id),
     })
 
     // TODO(tec27): This makes the start throttle rather useless, doesn't it? Think of a better way
@@ -139,6 +143,7 @@ export default class WhisperService {
         { id: user.id, name: user.name },
         { id: target.id, name: target.name },
       ],
+      mentions,
     })
   }
 
@@ -166,6 +171,13 @@ export default class WhisperService {
       limit,
       beforeTime && beforeTime > -1 ? new Date(beforeTime) : undefined,
     )
+    const mentionIds = messages.reduce(
+      (mentions, msg) => [...mentions, ...(msg.data.mentions ?? [])],
+      [] as SbUserId[],
+    )
+
+    const mentions = await findUsersById(mentionIds)
+
     return {
       messages: messages.map<WhisperMessage>(m => ({
         id: m.id,
@@ -178,6 +190,7 @@ export default class WhisperService {
         { id: user.id, name: user.name },
         { id: target.id, name: target.name },
       ],
+      mentions: Array.from(mentions.values()),
     }
   }
 

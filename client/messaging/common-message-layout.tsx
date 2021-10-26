@@ -1,8 +1,12 @@
-import React, { useMemo } from 'react'
+import { rgba } from 'polished'
+import React, { useMemo, useState } from 'react'
 import styled from 'styled-components'
+import { replaceMatchesInText } from '../../common/regex/replace-matches'
 import { matchLinks } from '../../common/text/links'
+import { matchMentionsMarkup } from '../../common/text/mentions'
 import { SbUserId } from '../../common/users/user-info'
-import { amberA100 } from '../styles/colors'
+import { useSelfUser } from '../auth/state-hooks'
+import { amberA100, blue400 } from '../styles/colors'
 import { body2 } from '../styles/typography'
 import { ConnectedUsername } from './connected-username'
 import {
@@ -34,48 +38,48 @@ const Text = styled.span`
   overflow: hidden;
 `
 
-export function ParsedText({ text }: { text: string }) {
+const UserMention = styled.span`
+  background-color: ${rgba(blue400, 0.48)};
+
+  &:hover {
+    background-color: ${rgba(blue400, 0.87)};
+  }
+`
+
+export const TextMessage = React.memo<{ userId: SbUserId; time: number; text: string }>(props => {
+  const { userId, time, text } = props
+  const selfUserId = useSelfUser().id
+  const [isHighlighted, setIsHighlighted] = useState(false)
   const parsedText = useMemo(() => {
-    const matches = matchLinks(text)
-    const elements = []
-    let lastIndex = 0
+    const matchedMentions = matchMentionsMarkup(text)
+    const matchedLinks = matchLinks(text)
 
-    for (const match of matches) {
-      // Insert preceding text, if any
-      if (match.index! > lastIndex) {
-        elements.push(text.substring(lastIndex, match.index))
-      }
+    return replaceMatchesInText([...matchedMentions, ...matchedLinks], text, match => {
+      if (match.groups?.mention !== undefined) {
+        const userId = Number(match.groups!.userId) as SbUserId
+        if (userId === selfUserId) {
+          setIsHighlighted(true)
+        }
 
-      elements.push(
+        return (
+          <UserMention key={match.index}>
+            <ConnectedUsername userId={userId} isMention={true} />
+          </UserMention>
+        )
+      } else if (match.groups?.link !== undefined) {
         // TODO(tec27): Handle links to our own host specially, redirecting to the correct route
         // in-client instead
         // TODO(2Pac): Show a warning message about opening untrusted links
-        <a key={match.index} href={match[0]} target='_blank' rel='noopener nofollow'>
-          {match[0]}
-        </a>,
-      )
-
-      lastIndex = match.index! + match[0].length
-    }
-
-    // Insert remaining text, if any
-    if (text.length > lastIndex) {
-      elements.push(text.substring(lastIndex))
-    }
-
-    return elements
-  }, [text])
-
-  return <Text>{parsedText}</Text>
-}
-
-export const TextMessage = React.memo<{
-  userId: SbUserId
-  time: number
-  text: string
-  isHighlighted?: boolean
-}>(props => {
-  const { userId, time, text, isHighlighted } = props
+        return (
+          <a key={match.index} href={match[0]} target='_blank' rel='noopener nofollow'>
+            {match[0]}
+          </a>
+        )
+      } else {
+        return match[0]
+      }
+    })
+  }, [text, selfUserId])
 
   return (
     <TimestampMessageLayout time={time} highlighted={isHighlighted}>
@@ -83,7 +87,7 @@ export const TextMessage = React.memo<{
         <ConnectedUsername userId={userId} />
       </Username>
       <Separator aria-hidden={true}>{': '}</Separator>
-      <ParsedText text={text} />
+      <Text>{parsedText}</Text>
     </TimestampMessageLayout>
   )
 })

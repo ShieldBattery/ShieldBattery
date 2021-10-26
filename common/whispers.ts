@@ -1,4 +1,4 @@
-import { SbUser } from './users/user-info'
+import { SbUser, SbUserId } from './users/user-info'
 
 export enum WhisperMessageType {
   TextMessage = 'message',
@@ -11,6 +11,7 @@ export interface BaseWhisperMessageData {
 export interface WhisperTextMessageData extends BaseWhisperMessageData {
   type: typeof WhisperMessageType.TextMessage
   text: string
+  mentions: SbUserId[]
 }
 
 export type WhisperMessageData = WhisperTextMessageData
@@ -21,7 +22,6 @@ export interface WhisperMessage {
   to: SbUser
   sent: number
   data: WhisperMessageData
-  isHighlighted?: boolean
 }
 
 export enum WhisperUserStatus {
@@ -47,6 +47,8 @@ export interface WhisperMessageUpdateEvent {
   message: WhisperMessage
   /** A list of user infos participating in the received message. */
   users: SbUser[]
+  /** User infos for all whisper users that were mentioned in the message, if any. */
+  mentions: SbUser[]
 }
 
 export interface WhisperUserActiveEvent {
@@ -87,4 +89,6 @@ export interface GetSessionHistoryServerPayload {
   messages: WhisperMessage[]
   /** A list of user infos participating in this whisper session. */
   users: SbUser[]
+  /** A list of user infos for all whisper users that were mentioned in the messagess, if any. */
+  mentions: SbUser[]
 }

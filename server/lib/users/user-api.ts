@@ -18,6 +18,7 @@ import {
   AcceptPoliciesPayload,
   GetUserProfilePayload,
   SbUser,
+  SbUserId,
   SelfUser,
 } from '../../../common/users/user-info'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
@@ -168,7 +169,7 @@ export class UserApi {
     const NUM_RECENT_GAMES = 5
     const matchHistoryPromise = (async () => {
       const games = await getRecentGamesForUser(user.id, NUM_RECENT_GAMES)
-      const uniqueUsers = new Set<number>()
+      const uniqueUsers = new Set<SbUserId>()
       const uniqueMaps = new Set<string>()
       for (const g of games) {
         uniqueMaps.add(g.mapId)

@@ -32,7 +32,6 @@ export class TextMessageRecord
     time: 0,
     from: 0 as SbUserId,
     text: '',
-    isHighlighted: false,
   })
   implements BaseMessage {}
 

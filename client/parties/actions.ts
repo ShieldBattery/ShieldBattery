@@ -1,4 +1,4 @@
-import { PartyPayload, PartyUser } from '../../common/parties'
+import { PartyChatMessage, PartyPayload, PartyUser } from '../../common/parties'
 import { SbUser } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
@@ -328,11 +328,8 @@ export interface UpdateLeaderChange {
 export interface UpdateChatMessage {
   type: '@parties/updateChatMessage'
   payload: {
-    partyId: string
-    from: PartyUser
-    time: number
-    text: string
-    isHighlighted: boolean
+    message: PartyChatMessage
+    mentions: SbUser[]
   }
 }
 

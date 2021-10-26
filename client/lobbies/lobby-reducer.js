@@ -183,14 +183,13 @@ function prune(chatList) {
 
 const chatHandlers = {
   [LOBBY_UPDATE_CHAT_MESSAGE](lobbyInfo, lastLobbyInfo, state, action) {
-    const event = action.payload
+    const newMessage = action.payload.message
     return state.push(
       new TextMessageRecord({
         id: cuid(),
-        time: event.time,
-        from: event.from,
-        text: event.text,
-        isHighlighted: event.isHighlighted,
+        time: newMessage.time,
+        from: newMessage.from,
+        text: newMessage.text,
       }),
     )
   },

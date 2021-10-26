@@ -12,6 +12,7 @@ import {
 import { SbUserId } from '../../../common/users/user-info'
 import logger from '../logging/logger'
 import filterChatMessage from '../messaging/filter-chat-message'
+import { parseChatMessage } from '../messaging/parse-chat-message'
 import NotificationService from '../notifications/notification-service'
 import { Clock } from '../time/clock'
 import { ClientSocketsGroup, ClientSocketsManager } from '../websockets/socket-groups'
@@ -255,7 +256,7 @@ export default class PartyService {
    * Sends a chat message in the party from a particular user. The chat messages are not persisted
    * anywhere, and users will only be able to see the messages sent since they joined the party.
    */
-  sendChatMessage(partyId: string, userId: SbUserId, message: string) {
+  async sendChatMessage(partyId: string, userId: SbUserId, message: string) {
     const party = this.parties.get(partyId)
     if (!party || !party.members.has(userId)) {
       throw new PartyServiceError(
@@ -266,12 +267,17 @@ export default class PartyService {
 
     const user = party.members.get(userId)!
     const text = filterChatMessage(message)
+    const [parsedText, mentionedUsers] = await parseChatMessage(text)
 
     this.publisher.publish(getPartyPath(partyId), {
       type: 'chatMessage',
-      from: user,
-      time: this.clock.now(),
-      text,
+      message: {
+        partyId,
+        from: user,
+        time: this.clock.now(),
+        text: parsedText,
+      },
+      mentions: Array.from(mentionedUsers.values()),
     })
   }
 

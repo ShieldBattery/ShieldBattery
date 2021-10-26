@@ -166,7 +166,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/updateMessage'](state, action) {
-    const newMessage = action.payload
+    const newMessage = action.payload.message
     const lowerCaseChannelName = newMessage.channel.toLowerCase()
 
     updateMessages(state, lowerCaseChannelName, true, m => m.concat(newMessage))
@@ -242,7 +242,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
     // Even though the payload here is `ServerChatMessage`, we expand its type so it can be
     // concatenated with the existing messages which could also contain client chat messages.
-    const newMessages = action.payload as ChatMessage[]
+    const newMessages = action.payload.messages as ChatMessage[]
 
     channel.loadingHistory = false
     if (newMessages.length < limit) {
