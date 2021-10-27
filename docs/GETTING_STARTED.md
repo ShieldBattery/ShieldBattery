@@ -148,7 +148,7 @@ This should be done every time a `yarn.lock` file changes in the repository.
 **NOTE**: an existing `DATABASE_URL` environment variable will take precedence over `database.json`
 and should be removed or updated to match your desired database configuration.
 
-Change into the `server` directory, then migrate the database to the latest structure with:
+From the root of this repository execute this to migrate the database to the latest structure:
 
 ```
 yarn run migrate-up
