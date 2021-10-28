@@ -1,9 +1,9 @@
 import {
+  ChatMessageEvent,
   ChatUser,
   GetChannelHistoryServerPayload,
   GetChannelUsersServerPayload,
   JoinChannelMessage,
-  TextMessage,
 } from '../../common/chat'
 import { SbUser } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-action-types'
@@ -244,11 +244,7 @@ export interface UpdateLeaveSelf {
  */
 export interface UpdateMessage {
   type: '@chat/updateMessage'
-  payload: {
-    message: TextMessage
-    user: ChatUser
-    mentions: SbUser[]
-  }
+  payload: ChatMessageEvent
 }
 
 /**

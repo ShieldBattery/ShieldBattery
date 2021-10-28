@@ -89,6 +89,6 @@ export interface GetSessionHistoryServerPayload {
   messages: WhisperMessage[]
   /** A list of user infos participating in this whisper session. */
   users: SbUser[]
-  /** A list of user infos for all whisper users that were mentioned in the messagess, if any. */
+  /** A list of user infos for all whisper users that were mentioned in the messages, if any. */
   mentions: SbUser[]
 }

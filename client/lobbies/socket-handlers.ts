@@ -487,7 +487,7 @@ const eventToAction: EventToActionMap = {
       ipcRenderer.send('chatNewMessage', {
         user: event.message.from,
         message: event.message.text,
-        urgent: !!event.mentions.find(m => m.id === auth.user.id),
+        urgent: event.mentions.some(m => m.id === auth.user.id),
       })
 
       dispatch({

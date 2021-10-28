@@ -76,7 +76,7 @@ export function getMessageHistory(target: string, limit: number): ThunkAction {
     dispatch({
       type: '@whispers/loadMessageHistory',
       payload: fetch<GetSessionHistoryServerPayload>(
-        apiUrl`whispers/${target}/messages?limit=${limit}&beforeTime=${earliestMessageTime}`,
+        apiUrl`whispers/${target}/messages2?limit=${limit}&beforeTime=${earliestMessageTime}`,
         { method: 'GET' },
       ),
       meta: params,

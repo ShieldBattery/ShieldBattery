@@ -125,6 +125,7 @@ export class ChatApi {
 
     ctx.status = 204
   }
+
   @httpPost('/:channelName/messages')
   @httpBefore(throttleMiddleware(sendThrottle, ctx => String(ctx.session!.userId)))
   async sendChatMessage(ctx: RouterContext): Promise<void> {
@@ -143,6 +144,12 @@ export class ChatApi {
   }
 
   @httpGet('/:channelName/messages')
+  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
+  getChannelHistoryOld(ctx: RouterContext) {
+    return []
+  }
+
+  @httpGet('/:channelName/messages2')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
   async getChannelHistory(ctx: RouterContext): Promise<GetChannelHistoryServerPayload> {
     const channelName = getValidatedChannelName(ctx)

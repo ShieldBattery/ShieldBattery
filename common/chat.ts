@@ -114,7 +114,7 @@ export interface ChatBanEvent {
 }
 
 export interface ChatMessageEvent {
-  action: 'message'
+  action: 'message2'
   /** A text message that was sent in a chat channel. */
   message: TextMessage
   /** User info for the channel user that sent the message. */

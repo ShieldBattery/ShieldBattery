@@ -1,7 +1,7 @@
 import { matchLinks } from './links'
 
 function doMatch(text: string): string[] {
-  return Array.from(matchLinks(text), match => match[0])
+  return Array.from(matchLinks(text), match => match.text)
 }
 
 describe('common/text/links/matchLinks', () => {

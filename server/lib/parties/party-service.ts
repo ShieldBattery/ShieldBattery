@@ -12,7 +12,7 @@ import {
 import { SbUserId } from '../../../common/users/user-info'
 import logger from '../logging/logger'
 import filterChatMessage from '../messaging/filter-chat-message'
-import { parseChatMessage } from '../messaging/parse-chat-message'
+import { processMessageContents } from '../messaging/process-chat-message'
 import NotificationService from '../notifications/notification-service'
 import { Clock } from '../time/clock'
 import { ClientSocketsGroup, ClientSocketsManager } from '../websockets/socket-groups'
@@ -267,7 +267,10 @@ export default class PartyService {
 
     const user = party.members.get(userId)!
     const text = filterChatMessage(message)
-    const [parsedText, mentionedUsers] = await parseChatMessage(text)
+    const allowedMentionUsers = new Set(
+      Array.from(party.members.values(), user => user.name.toLowerCase()),
+    )
+    const [processedText, mentionedUsers] = await processMessageContents(text, allowedMentionUsers)
 
     this.publisher.publish(getPartyPath(partyId), {
       type: 'chatMessage',
@@ -275,7 +278,7 @@ export default class PartyService {
         partyId,
         from: user,
         time: this.clock.now(),
-        text: parsedText,
+        text: processedText,
       },
       mentions: Array.from(mentionedUsers.values()),
     })

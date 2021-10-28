@@ -10,7 +10,7 @@ import {
   WhisperUserStatus,
 } from '../../../common/whispers'
 import filterChatMessage from '../messaging/filter-chat-message'
-import { parseChatMessage } from '../messaging/parse-chat-message'
+import { processMessageContents } from '../messaging/process-chat-message'
 import { findUserById, findUserByName, findUsersById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
@@ -115,11 +115,15 @@ export default class WhisperService {
     }
 
     const text = filterChatMessage(message)
-    const [parsedText, mentionedUsers] = await parseChatMessage(text)
+    const allowedMentionUsers = [user.name.toLowerCase(), target.name.toLowerCase()]
+    const [processedText, mentionedUsers] = await processMessageContents(
+      text,
+      new global.Set(allowedMentionUsers),
+    )
     const mentions = Array.from(mentionedUsers.values())
     const result = await addMessageToWhisper(user.id, target.id, {
       type: WhisperMessageType.TextMessage,
-      text: parsedText,
+      text: processedText,
       mentions: mentions.map(m => m.id),
     })
 
@@ -171,12 +175,13 @@ export default class WhisperService {
       limit,
       beforeTime && beforeTime > -1 ? new Date(beforeTime) : undefined,
     )
-    const mentionIds = messages.reduce(
-      (mentions, msg) => [...mentions, ...(msg.data.mentions ?? [])],
-      [] as SbUserId[],
-    )
 
-    const mentions = await findUsersById(mentionIds)
+    let mentionIds = Set<SbUserId>()
+    for (const msg of messages) {
+      mentionIds = mentionIds.union(msg.data.mentions || [])
+    }
+
+    const mentions = await findUsersById(mentionIds.toArray())
 
     return {
       messages: messages.map<WhisperMessage>(m => ({

@@ -1,7 +1,6 @@
 import { rgba } from 'polished'
-import React, { useMemo, useState } from 'react'
+import React, { useMemo } from 'react'
 import styled from 'styled-components'
-import { replaceMatchesInText } from '../../common/regex/replace-matches'
 import { matchLinks } from '../../common/text/links'
 import { matchMentionsMarkup } from '../../common/text/mentions'
 import { SbUserId } from '../../common/users/user-info'
@@ -46,39 +45,58 @@ const UserMention = styled.span`
   }
 `
 
+function* getAllMatches(text: string) {
+  yield* matchMentionsMarkup(text)
+  yield* matchLinks(text)
+}
+
 export const TextMessage = React.memo<{ userId: SbUserId; time: number; text: string }>(props => {
   const { userId, time, text } = props
   const selfUserId = useSelfUser().id
-  const [isHighlighted, setIsHighlighted] = useState(false)
-  const parsedText = useMemo(() => {
-    const matchedMentions = matchMentionsMarkup(text)
-    const matchedLinks = matchLinks(text)
+  const [parsedText, isHighlighted] = useMemo(() => {
+    const matches = getAllMatches(text)
+    const sortedMatches = Array.from(matches).sort((a, b) => a.index - b.index)
+    const elements = []
+    let lastIndex = 0
+    let isHighlighted = false
 
-    return replaceMatchesInText([...matchedMentions, ...matchedLinks], text, match => {
-      if (match.groups?.mention !== undefined) {
-        const userId = Number(match.groups!.userId) as SbUserId
+    for (const match of sortedMatches) {
+      // Insert preceding text, if any
+      if (match.index! > lastIndex) {
+        elements.push(text.substring(lastIndex, match.index))
+      }
+
+      if (match.type === 'mentionMarkup') {
+        const userId = Number(match.groups.userId) as SbUserId
         if (userId === selfUserId) {
-          setIsHighlighted(true)
+          isHighlighted = true
         }
 
-        return (
+        elements.push(
           <UserMention key={match.index}>
             <ConnectedUsername userId={userId} isMention={true} />
-          </UserMention>
+          </UserMention>,
         )
-      } else if (match.groups?.link !== undefined) {
+      } else if (match.type === 'link') {
         // TODO(tec27): Handle links to our own host specially, redirecting to the correct route
         // in-client instead
         // TODO(2Pac): Show a warning message about opening untrusted links
-        return (
-          <a key={match.index} href={match[0]} target='_blank' rel='noopener nofollow'>
-            {match[0]}
-          </a>
+        elements.push(
+          <a key={match.index} href={match.text} target='_blank' rel='noopener nofollow'>
+            {match.text}
+          </a>,
         )
-      } else {
-        return match[0]
       }
-    })
+
+      lastIndex = match.index! + match.text.length
+    }
+
+    // Insert remaining text, if any
+    if (text.length > lastIndex) {
+      elements.push(text.substring(lastIndex))
+    }
+
+    return [elements, isHighlighted]
   }, [text, selfUserId])
 
   return (

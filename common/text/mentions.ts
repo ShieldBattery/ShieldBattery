@@ -1,4 +1,5 @@
 import { USERNAME_ALLOWED_CHARACTERS } from '../constants'
+import { TypedGroupRegExpMatchArray } from '../regex'
 
 /**
  * Regex for detecting and parsing user mentions. User mentions are a piece of text that start with
@@ -11,7 +12,7 @@ import { USERNAME_ALLOWED_CHARACTERS } from '../constants'
  * before/after the username.
  */
 export const MENTION_REGEX = new RegExp(
-  String.raw`(?<prefix>\s|^)@(?<user>${USERNAME_ALLOWED_CHARACTERS})(?<postfix>\s|$|[,;:?])`,
+  String.raw`(?<prefix>\s|^)@(?<username>${USERNAME_ALLOWED_CHARACTERS})(?<postfix>\s|$|[,;:?])`,
   'gi',
 )
 
@@ -30,20 +31,51 @@ export const MENTION_MARKUP_REGEX = /(?<mention><@(?<userId>\d+)>)/gi
  * their name, preceded by the @ sign. Note that this function only matches things that fit the
  * mentions pattern, it doesn't also verify that the mentioned users actually exist in the system.
  *
- * @returns An iterator of matches for mentions, where each match includes a named capture group
- *   called "user" which contains just the matched username of the user.
+ * @returns A generator of matches for mentions, where each match includes a named capture group
+ *   called "username" which contains just the matched username of the user.
  */
-export function matchUserMentions(text: string): IterableIterator<RegExpMatchArray> {
-  return text.matchAll(MENTION_REGEX)
+export function* matchUserMentions(text: string): Generator<{
+  type: 'mention'
+  text: string
+  index: number
+  groups: Record<'prefix' | 'username' | 'postfix', string>
+}> {
+  const matches: IterableIterator<TypedGroupRegExpMatchArray<'prefix' | 'username' | 'postfix'>> =
+    text.matchAll(MENTION_REGEX) as IterableIterator<any>
+
+  for (const match of matches) {
+    yield {
+      type: 'mention',
+      text: match[0],
+      index: match.index!,
+      groups: match.groups,
+    }
+  }
 }
 
 /**
  * Matches all mention markups in a given text. The mention markup contains the user ID, which can
  * then be used to get the full user's info.
  *
- * @returns An iterator of matches for mention markups, where each match includes a named capture
+ * @returns A generator of matches for mention markups, where each match includes a named capture
  *   group called "userId" which contains just the matched user ID of the user.
  */
-export function matchMentionsMarkup(text: string): IterableIterator<RegExpMatchArray> {
-  return text.matchAll(MENTION_MARKUP_REGEX)
+export function* matchMentionsMarkup(text: string): Generator<{
+  type: 'mentionMarkup'
+  text: string
+  index: number
+  groups: Record<'mention' | 'userId', string>
+}> {
+  const matches: IterableIterator<TypedGroupRegExpMatchArray<'mention' | 'userId'>> = text.matchAll(
+    MENTION_MARKUP_REGEX,
+  ) as IterableIterator<any>
+
+  for (const match of matches) {
+    yield {
+      type: 'mentionMarkup',
+      text: match[0],
+      index: match.index!,
+      groups: match.groups,
+    }
+  }
 }

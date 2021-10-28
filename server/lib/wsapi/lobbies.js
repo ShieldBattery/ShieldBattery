@@ -26,7 +26,7 @@ import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
 import { getMapInfo } from '../maps/map-models'
 import filterChatMessage from '../messaging/filter-chat-message'
-import { parseChatMessage } from '../messaging/parse-chat-message'
+import { processMessageContents } from '../messaging/process-chat-message'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
 
@@ -282,14 +282,15 @@ export class LobbyApi {
     let { text } = data.get('body')
 
     text = filterChatMessage(text)
-    const [parsedText, mentionedUsers] = await parseChatMessage(text)
+    const allowedMentionUsers = new global.Set(getHumanSlots(lobby).map(s => s.name.toLowerCase()))
+    const [processedText, mentionedUsers] = await processMessageContents(text, allowedMentionUsers)
     this._publishTo(lobby, {
       type: 'chat',
       message: {
         lobbyName: lobby.name,
         time,
         from: client.userId,
-        text: parsedText,
+        text: processedText,
       },
       mentions: Array.from(mentionedUsers.values()),
     })

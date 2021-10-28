@@ -130,6 +130,15 @@ export class WhisperApi {
 
   @httpGet('/:targetName/messages')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
+  getSessionHistoryOld(ctx: RouterContext): Omit<GetSessionHistoryServerPayload, 'mentions'> {
+    return {
+      messages: [],
+      users: [],
+    }
+  }
+
+  @httpGet('/:targetName/messages2')
+  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
   async getSessionHistory(ctx: RouterContext): Promise<GetSessionHistoryServerPayload> {
     const targetName = getValidatedTargetName(ctx)
     const {

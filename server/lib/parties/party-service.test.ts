@@ -1,7 +1,7 @@
 import { NydusServer } from 'nydus'
 import { NotificationType } from '../../../common/notifications'
 import { PartyUser } from '../../../common/parties'
-import { asMockedFunction } from '../../../common/testing/as-mocked-function'
+import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId, SbUserId } from '../../../common/users/user-info'
 import NotificationService from '../notifications/notification-service'
 import { createFakeNotificationService } from '../notifications/testing/notification-service'
@@ -596,7 +596,7 @@ describe('parties/party-service', () => {
       })
     })
 
-    test('should parse the user mentions in chat message', async () => {
+    test('should process the user mentions in chat message', async () => {
       findUsersByNameMock.mockResolvedValue(
         new Map([['test', { id: 123 as SbUserId, name: 'test' }]]),
       )
@@ -610,6 +610,25 @@ describe('parties/party-service', () => {
           from: user2,
           time: currentTime,
           text: 'Hello <@123> and @non-existing',
+        },
+        mentions: [{ id: 123, name: 'test' }],
+      })
+    })
+
+    test('should process the user mentions with non-matching casing in chat message', async () => {
+      findUsersByNameMock.mockResolvedValue(
+        new Map([['test', { id: 123 as SbUserId, name: 'test' }]]),
+      )
+
+      await partyService.sendChatMessage(party.id, user2.id, 'Hello @TEST and @TeSt')
+
+      expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
+        type: 'chatMessage',
+        message: {
+          partyId: party.id,
+          from: user2,
+          time: currentTime,
+          text: 'Hello <@123> and <@123>',
         },
         mentions: [{ id: 123, name: 'test' }],
       })

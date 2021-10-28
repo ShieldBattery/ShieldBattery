@@ -57,7 +57,7 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  message(channel, event) {
+  message2(channel, event) {
     return (dispatch, getState) => {
       const { auth } = getState()
 
@@ -65,7 +65,7 @@ const eventToAction: EventToActionMap = {
       ipcRenderer.send('chatNewMessage', {
         user: event.user.name,
         message: event.message.text,
-        urgent: !!event.mentions.find(m => m.id === auth.user.id),
+        urgent: event.mentions.some(m => m.id === auth.user.id),
       })
 
       dispatch({

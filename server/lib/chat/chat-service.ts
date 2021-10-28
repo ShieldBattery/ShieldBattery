@@ -13,7 +13,7 @@ import {
 import { SbUserId } from '../../../common/users/user-info'
 import { DbClient } from '../db'
 import filterChatMessage from '../messaging/filter-chat-message'
-import { parseChatMessage } from '../messaging/parse-chat-message'
+import { processMessageContents } from '../messaging/process-chat-message'
 import { getPermissions } from '../models/permissions'
 import { findUserById, findUsersById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
@@ -289,16 +289,25 @@ export default class ChatService {
     }
 
     const text = filterChatMessage(message)
-    const [parsedText, mentionedUsers] = await parseChatMessage(text)
+    const allowedMentionUsers =
+      this.state.channels
+        .get(originalChannelName)
+        ?.valueSeq()
+        .toArray()
+        .map(user => user.name.toLowerCase()) || ([] as string[])
+    const [processedText, mentionedUsers] = await processMessageContents(
+      text,
+      new global.Set(allowedMentionUsers),
+    )
     const mentions = Array.from(mentionedUsers.values())
     const result = await addMessageToChannel(userSockets.userId, originalChannelName, {
       type: ServerChatMessageType.TextMessage,
-      text: parsedText,
+      text: processedText,
       mentions: mentions.map(m => m.id),
     })
 
     this.publisher.publish(getChannelPath(originalChannelName), {
-      action: 'message',
+      action: 'message2',
       message: {
         id: result.msgId,
         type: result.data.type,
@@ -367,15 +376,15 @@ export default class ChatService {
           return assertUnreachable(m.data)
       }
     })
-    const mentionIds = dbMessages.reduce((mentions, msg) => {
+
+    let mentionIds = Set<SbUserId>()
+    for (const msg of dbMessages) {
       if (msg.data.type === ServerChatMessageType.TextMessage) {
-        return [...mentions, ...(msg.data.mentions ?? [])]
+        mentionIds = mentionIds.union(msg.data.mentions || [])
       }
+    }
 
-      return mentions
-    }, [] as SbUserId[])
-
-    const mentions = await findUsersById(mentionIds)
+    const mentions = await findUsersById(mentionIds.toArray())
 
     return {
       messages,

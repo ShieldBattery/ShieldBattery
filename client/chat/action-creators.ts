@@ -80,7 +80,7 @@ export function getMessageHistory(channel: string, limit: number): ThunkAction {
     dispatch({
       type: '@chat/loadMessageHistory',
       payload: fetch<GetChannelHistoryServerPayload>(
-        apiUrl`chat/${channel}/messages?limit=${limit}&beforeTime=${earliestMessageTime}`,
+        apiUrl`chat/${channel}/messages2?limit=${limit}&beforeTime=${earliestMessageTime}`,
         { method: 'GET' },
       ),
       meta: params,
