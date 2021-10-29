@@ -21,6 +21,8 @@ export class LocalSettings
     v1161displayMode: -1,
     v1161mouseSensitivity: -1,
     v1161maintainAspectRatio: false,
+    trustAllLinks: false,
+    trustedHosts: [],
   })
   implements Readonly<Omit<LocalSettingsData, keyof ShieldBatteryAppSettingsData>> {}
 

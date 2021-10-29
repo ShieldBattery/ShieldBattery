@@ -90,6 +90,16 @@ class AppForm extends React.Component {
               disabled={!this.props.getInputValue('runAppAtSystemStart')}
             />
           </div>
+          <div>
+            <CheckBox
+              {...bindCheckable('trustAllLinks')}
+              label='Trust all chat links'
+              inputProps={{
+                tabIndex: 0,
+                title: 'Checking this removes confirmation dialog for all external links in chat',
+              }}
+            />
+          </div>
         </FormContainer>
       </form>
     )
@@ -140,6 +150,8 @@ export default class AppSettings extends React.Component {
       masterVolume: localSettings.masterVolume,
       runAppAtSystemStart: localSettings.runAppAtSystemStart,
       runAppAtSystemStartMinimized: localSettings.runAppAtSystemStartMinimized,
+      trustAllLinks: localSettings.trustAllLinks,
+      trustedHosts: localSettings.trustedHosts,
     }
 
     return (

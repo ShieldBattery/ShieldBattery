@@ -6,6 +6,7 @@ import { closeDialog } from '../dialogs/action-creators'
 import { RaisedButton, TextButton } from '../material/button'
 import { Radio } from '../material/checkable-input'
 import { Actions as DialogActions, Dialog } from '../material/dialog'
+import { mergeLocalSettings } from '../settings/action-creators'
 import { amberA100, amberA400 } from '../styles/colors'
 
 const CompactDialog = styled(Dialog)`
@@ -28,22 +29,55 @@ const OpenLinkButton = styled(RaisedButton)`
   width: 46%;
 `
 
-@connect(state => ({ settings: state.settings }))
+const trustAllLinksLabel = (
+  <>
+    trust <span style={{ color: amberA100, fontWeight: 'bold' }}>all</span> links
+  </>
+)
+
+@connect(state => ({ localSettings: state.settings.local }))
 export default class UntrustedLinkDialog extends React.Component {
   state = {
-    'trust-host': false,
-    'trust-all-links': false,
+    trust: false,
+  }
+
+  trustOptionChange = e => {
+    if (e.target.checked) {
+      this.setState({ trust: e.target.value })
+    }
   }
 
   radioClick = e => {
+    // this is for unchecking radio's
     if (e.target.checked) {
-      this.setState({ [e.target.name]: e.target.value })
+      this.setState({ trust: false })
     }
   }
 
   openLinkClick = e => {
+    this.mergeSettings()
     this.props.dispatch(closeDialog())
     shell.openExternal(this.props.href)
+  }
+
+  mergeSettings = () => {
+    const { trust } = this.state
+
+    // trust options wasn't changed, no need to update settings
+    if (trust === false) return
+
+    const settings = {}
+
+    if (trust === 'trust-all-links') {
+      settings.trustAllLinks = true
+    }
+
+    if (trust === 'trust-host') {
+      const { host, localSettings } = this.props
+      settings.trustedHosts = [host, ...localSettings.trustedHosts]
+    }
+
+    this.props.dispatch(mergeLocalSettings(settings))
   }
 
   render() {
@@ -59,17 +93,9 @@ export default class UntrustedLinkDialog extends React.Component {
       />,
     ]
 
-    const boldLabelStyle = { color: amberA100, fontWeight: 'bold' }
-
     const trustHostLabel = (
       <>
         trust <span style={{ color: amberA100 }}>{host}</span> links
-      </>
-    )
-
-    const trustAllLinksLabel = (
-      <>
-        trust <span style={boldLabelStyle}>all</span> links
       </>
     )
 
@@ -88,16 +114,18 @@ export default class UntrustedLinkDialog extends React.Component {
           disabled={false}
           name='trust-host'
           value='trust-host'
-          checked={this.state['trust-host'] === 'trust-host'}
-          onChange={this.radioClick}
+          checked={this.state.trust === 'trust-host'}
+          onChange={this.trustOptionChange}
+          inputProps={{ onClick: this.radioClick }}
         />
         <Radio
           label={trustAllLinksLabel}
           disabled={false}
           name='trust-host'
           value='trust-all-links'
-          checked={this.state['trust-host'] === 'trust-all-links'}
-          onChange={this.radioClick}
+          checked={this.state.trust === 'trust-all-links'}
+          onChange={this.trustOptionChange}
+          inputProps={{ onClick: this.radioClick }}
         />
       </CompactDialog>
     )

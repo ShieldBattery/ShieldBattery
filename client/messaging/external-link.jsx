@@ -3,19 +3,19 @@ import { connect } from 'react-redux'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 
-function ExternalLink({ href, innerText, dispatch }) {
-  const trustedHosts = ['localhost:3000', 'example.org']
-  // assume here `href` will always be a valid url
-  const url = new URL(href)
-  const host = url.host
-  const isHostTrusted = trustedHosts.some(h => h === host)
-
+function ExternalLink({ href, innerText, dispatch, localSettings }) {
   return (
     <a
       href={href}
       target='_blank'
       rel='noopener nofollow'
       onClick={e => {
+        // assume here `href` will always be a valid url
+        const url = new URL(href)
+        const host = url.host
+        const { trustAllLinks, trustedHosts } = localSettings
+        const isHostTrusted = trustAllLinks || trustedHosts.some(h => h === host)
+
         if (!isHostTrusted) {
           e.preventDefault()
           dispatch(openDialog(DialogType.UntrustedLink, { href, host }))
@@ -26,4 +26,4 @@ function ExternalLink({ href, innerText, dispatch }) {
   )
 }
 
-export default connect()(ExternalLink)
+export default connect(state => ({ localSettings: state.settings.local }))(ExternalLink)
