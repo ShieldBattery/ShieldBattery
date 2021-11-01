@@ -20,7 +20,7 @@ interface ChekableInputProps {
   checked?: boolean
   label?: React.ReactNode
   value?: string
-  onChange?: (e: any) => void
+  onChange?: React.ChangeEventHandler
   disabled?: boolean
   className?: string
   inputProps?: Record<string, any>

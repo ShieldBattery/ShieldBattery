@@ -7,7 +7,7 @@ import { RaisedButton, TextButton } from '../material/button'
 import { Radio } from '../material/checkable-input'
 import { Actions as DialogActions, Dialog } from '../material/dialog'
 import { mergeLocalSettings } from '../settings/action-creators'
-import { amberA100, amberA400 } from '../styles/colors'
+import { amberA100 } from '../styles/colors'
 
 const CompactDialog = styled(Dialog)`
   width: auto;
@@ -15,8 +15,6 @@ const CompactDialog = styled(Dialog)`
 
   & ${DialogActions} {
     display: flex;
-    justify-content: space-around;
-    justify-content: center;
     justify-content: space-evenly;
   }
 `
@@ -29,11 +27,14 @@ const OpenLinkButton = styled(RaisedButton)`
   width: 46%;
 `
 
-const trustAllLinksLabel = (
-  <>
-    trust <span style={{ color: amberA100, fontWeight: 'bold' }}>all</span> links
-  </>
-)
+const LinkAsText = styled.span.attrs(props => ({
+  fontWeight: props.fontWeight || 'normal',
+}))`
+  color: ${amberA100};
+  overflow-wrap: anywhere;
+  user-select: text;
+  font-weight: ${props => props.fontWeight};
+`
 
 @connect(state => ({ localSettings: state.settings.local }))
 export default class UntrustedLinkDialog extends React.Component {
@@ -63,7 +64,7 @@ export default class UntrustedLinkDialog extends React.Component {
   mergeSettings = () => {
     const { trust } = this.state
 
-    // trust options wasn't changed, no need to update settings
+    // trust options wasn't changed, no need to merge settings
     if (trust === false) return
 
     const settings = {}
@@ -95,7 +96,13 @@ export default class UntrustedLinkDialog extends React.Component {
 
     const trustHostLabel = (
       <>
-        trust <span style={{ color: amberA100 }}>{host}</span> links
+        trust <LinkAsText>{host}</LinkAsText> links
+      </>
+    )
+
+    const trustAllLinksLabel = (
+      <>
+        trust <LinkAsText fontWeight='bold'>all</LinkAsText> links
       </>
     )
 
@@ -104,10 +111,10 @@ export default class UntrustedLinkDialog extends React.Component {
         title='Untrusted link'
         showCloseButton={true}
         onCancel={onCancel}
-        buttons={buttons}>
+        buttons={buttons}
+        dialogRef={this.props.dialogRef}>
         <p>
-          You are going to visit <span style={{ color: amberA400 }}>{href}</span> which is outside
-          of ShieldBattery.
+          You are going to visit <LinkAsText>{href}</LinkAsText> which is outside of ShieldBattery.
         </p>
         <Radio
           label={trustHostLabel}
