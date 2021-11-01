@@ -10,6 +10,7 @@ import { TextButton } from '../material/button'
 import CheckBox from '../material/check-box'
 import Slider from '../material/slider'
 import { FormContainer } from './settings-content'
+import TrustedLinksSettings from './trusted-links-settings'
 
 const VolumeSettings = styled.div`
   display: flex;
@@ -90,16 +91,7 @@ class AppForm extends React.Component {
               disabled={!this.props.getInputValue('runAppAtSystemStart')}
             />
           </div>
-          <div>
-            <CheckBox
-              {...bindCheckable('trustAllLinks')}
-              label='Trust all chat links'
-              inputProps={{
-                tabIndex: 0,
-                title: 'Checking this removes confirmation dialog for all external links in chat',
-              }}
-            />
-          </div>
+          <TrustedLinksSettings bindCustom={bindCustom} bindCheckable={bindCheckable} />
         </FormContainer>
       </form>
     )
