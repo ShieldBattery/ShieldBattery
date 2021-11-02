@@ -130,7 +130,7 @@ const Body = styled.div<{ $fullBleed?: boolean }>`
   overflow: ${props => (props.$fullBleed ? 'hidden' : 'auto')};
 `
 
-export const Actions = styled.div<{ $showDivider?: boolean }>`
+const Actions = styled.div<{ $showDivider?: boolean }>`
   position: relative;
   flex-grow: 0;
   flex-shrink: 0;
