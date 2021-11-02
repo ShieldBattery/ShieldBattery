@@ -22,7 +22,7 @@ import {
   AcceptableUseDialog,
   PrivacyPolicyDialog,
   TermsOfServiceDialog,
-} from '../policies/policy-dialogs'
+} from '../policies/policy-displays'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import Settings from '../settings/settings'
 import StarcraftPathDialog from '../settings/starcraft-path-dialog'

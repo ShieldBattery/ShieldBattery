@@ -28,6 +28,7 @@ import {
   colorTextSecondary,
 } from '../styles/colors'
 import { headline3, headline4, headline5, subtitle1 } from '../styles/typography'
+import { BottomLinks } from './bottom-links'
 import ChatImage from './chat.svg'
 import TacticallyFaithfulImage from './tactically-faithful.svg'
 import TopLinks from './top-links'
@@ -682,6 +683,7 @@ class Splash extends React.Component<DispatchProp> {
               officially endorsed or supported by Blizzard.
             </DisclaimerText>
           </DisclaimerSection>
+          <BottomLinks />
         </SplashContainer>
         <ConnectedDialogOverlay />
       </React.Fragment>
