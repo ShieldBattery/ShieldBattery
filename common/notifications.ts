@@ -43,19 +43,19 @@ export interface PartyInviteNotification extends BaseNotification {
   partyId: string
 }
 
-export type Notification =
+export type SbNotification =
   | EmailVerificationNotification
   | PartyInviteNotification
   | PolicyUpdatedNotification
 
 export interface NotificationServerInitEvent {
   type: 'serverInit'
-  notifications: Notification[]
+  notifications: SbNotification[]
 }
 
 export interface NotificationAddEvent {
   type: 'add'
-  notification: Notification
+  notification: SbNotification
 }
 
 export interface NotificationClearByIdEvent {

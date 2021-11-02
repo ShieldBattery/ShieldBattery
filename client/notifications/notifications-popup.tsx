@@ -9,7 +9,7 @@ import {
   UseTransitionProps,
 } from 'react-spring'
 import styled from 'styled-components'
-import { Notification } from '../../common/notifications'
+import { SbNotification } from '../../common/notifications'
 import { subtract, union } from '../../common/sets'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
 import CheckIcon from '../icons/material/check-24px.svg'
@@ -89,7 +89,7 @@ export default function NotificationPopups() {
   const popupElems = useRef(new Map<string, HTMLDivElement>())
   const cancelFuncs = useRef(new Map<string, () => Controller>())
   const portalRef = useExternalElementRef()
-  const [notificationItems, setNotificationItems] = useState<Immutable<Notification[]>>([])
+  const [notificationItems, setNotificationItems] = useState<Immutable<SbNotification[]>>([])
 
   useEffect(() => {
     setNotificationItems(items => [
@@ -108,7 +108,7 @@ export default function NotificationPopups() {
     }
   }, [removedIds, cancelFuncs])
 
-  const popupTransition = useTransition<Notification, UseTransitionProps<Notification>>(
+  const popupTransition = useTransition<SbNotification, UseTransitionProps<SbNotification>>(
     notificationItems,
     {
       from: { opacity: 0, height: 0, duration: '100%' },
@@ -118,7 +118,7 @@ export default function NotificationPopups() {
         await next({ duration: '0%' })
       },
       leave: { opacity: 0, height: 0 },
-      onRest: (result: AnimationResult, ctrl: Controller, item: Notification) => {
+      onRest: (result: AnimationResult, ctrl: Controller, item: SbNotification) => {
         setNotificationItems(state => state.filter(i => i.id !== item.id))
       },
       // Force the react-spring to remove the notification element from the DOM as soon as its
@@ -136,7 +136,7 @@ export default function NotificationPopups() {
   )
 
   const onMarkAsRead = useCallback(
-    (notification: Notification) => {
+    (notification: SbNotification) => {
       if (notification.local) {
         dispatch(markLocalNotificationsRead([notification.id]))
       } else {

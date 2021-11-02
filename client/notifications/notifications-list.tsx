@@ -1,7 +1,7 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useMemo } from 'react'
 import styled from 'styled-components'
-import { Notification } from '../../common/notifications'
+import { SbNotification } from '../../common/notifications'
 import { TextButton } from '../material/button'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorTextFaint, colorTextSecondary } from '../styles/colors'
@@ -49,7 +49,7 @@ const ClearButton = styled(TextButton)`
 `
 
 export interface NotificationsListProps {
-  notifications: Immutable<Notification[]>
+  notifications: Immutable<SbNotification[]>
   onClear: () => void
 }
 

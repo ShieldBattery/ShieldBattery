@@ -1,4 +1,4 @@
-import { ClearNotificationsServerPayload, Notification } from '../../common/notifications'
+import { ClearNotificationsServerPayload, SbNotification } from '../../common/notifications'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
 export type NotificationActions =
@@ -19,7 +19,7 @@ export type NotificationActions =
  */
 export interface ServerInitNotifications {
   type: '@notifications/serverInit'
-  payload: { notifications: Readonly<Notification[]> }
+  payload: { notifications: Readonly<SbNotification[]> }
 }
 
 /**
@@ -27,7 +27,7 @@ export interface ServerInitNotifications {
  */
 export interface AddNotification {
   type: '@notifications/add'
-  payload: { notification: Readonly<Notification> }
+  payload: { notification: Readonly<SbNotification> }
 }
 
 /**

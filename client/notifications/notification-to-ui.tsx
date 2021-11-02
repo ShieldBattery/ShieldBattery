@@ -1,6 +1,6 @@
 import React from 'react'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { Notification, NotificationType } from '../../common/notifications'
+import { NotificationType, SbNotification } from '../../common/notifications'
 import { EmailVerificationNotificationUi } from '../auth/email-verification-notification-ui'
 import { PartyInviteNotificationUi } from '../parties/party-notification-ui'
 import { PolicyUpdateNotificationUi } from '../policies/policy-update-notification-ui'
@@ -10,7 +10,7 @@ import { PolicyUpdateNotificationUi } from '../policies/policy-update-notificati
  * popup.
  */
 export function notificationToUi(
-  notification: Notification,
+  notification: SbNotification,
   key: string,
   showDivider: boolean,
   ref?: React.Ref<HTMLDivElement>,
