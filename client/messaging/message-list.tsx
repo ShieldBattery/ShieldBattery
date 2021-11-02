@@ -3,6 +3,8 @@ import PropTypes from 'prop-types'
 import React, { ReactNode } from 'react'
 import styled from 'styled-components'
 import { ServerChatMessageType } from '../../common/chat'
+import { SbUserId } from '../../common/users/user-info'
+import { useSelfUser } from '../auth/state-hooks'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { animationFrameHandler } from '../material/animation-frame-handler'
 import { NewDayMessage, TextMessage } from './common-message-layout'
@@ -35,14 +37,22 @@ const Messages = styled.div`
   }
 `
 
-function renderCommonMessage(msg: Message) {
+function renderCommonMessage(msg: Message, selfUserId: SbUserId) {
   switch (msg.type) {
     case CommonMessageType.NewDayMessage:
       return <NewDayMessage key={msg.id} time={msg.time} />
     // TODO(2Pac): Reconcile these types into one when everything is moved to immer
     case CommonMessageType.TextMessage:
     case ServerChatMessageType.TextMessage:
-      return <TextMessage key={msg.id} userId={msg.from} time={msg.time} text={msg.text} />
+      return (
+        <TextMessage
+          key={msg.id}
+          userId={msg.from}
+          selfUserId={selfUserId}
+          time={msg.time}
+          text={msg.text}
+        />
+      )
     default:
       return null
   }
@@ -81,13 +91,16 @@ interface PureMessageListProps {
 // This contains just the messages, to avoid needing to re-render them all if e.g. loading state
 // changes on the actual message list
 const PureMessageList = React.memo<PureMessageListProps>(({ messages, renderMessage }) => {
+  const selfUserId = useSelfUser().id
+
   return (
     <Messages>
       {messages.map((m, index) => {
         // NOTE(2Pac): We only handle common messages here, e.g. text message. All other types of
         // messages are handled by calling the `renderMessage` function which should be supplied by
         // each service if they have any special messages to handle.
-        const messageLayout = renderCommonMessage(m) ?? (renderMessage ?? handleUnknown)(m)
+        const messageLayout =
+          renderCommonMessage(m, selfUserId) ?? (renderMessage ?? handleUnknown)(m)
 
         const prevMessage = index > 0 ? getMessageAtIndex(messages, index - 1) : null
         if (!prevMessage || isSameDay(new Date(prevMessage.time), new Date(m.time))) {
@@ -98,7 +111,7 @@ const PureMessageList = React.memo<PureMessageListProps>(({ messages, renderMess
             time: m.time,
           })
 
-          return [renderCommonMessage(newDayMessageRecord), messageLayout]
+          return [renderCommonMessage(newDayMessageRecord, selfUserId), messageLayout]
         }
       })}
     </Messages>

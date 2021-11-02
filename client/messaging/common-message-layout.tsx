@@ -4,7 +4,6 @@ import styled from 'styled-components'
 import { matchLinks } from '../../common/text/links'
 import { matchMentionsMarkup } from '../../common/text/mentions'
 import { SbUserId } from '../../common/users/user-info'
-import { useSelfUser } from '../auth/state-hooks'
 import { amberA100, blue400 } from '../styles/colors'
 import { body2 } from '../styles/typography'
 import { ConnectedUsername } from './connected-username'
@@ -50,9 +49,13 @@ function* getAllMatches(text: string) {
   yield* matchLinks(text)
 }
 
-export const TextMessage = React.memo<{ userId: SbUserId; time: number; text: string }>(props => {
-  const { userId, time, text } = props
-  const selfUserId = useSelfUser().id
+export const TextMessage = React.memo<{
+  userId: SbUserId
+  selfUserId: SbUserId
+  time: number
+  text: string
+}>(props => {
+  const { userId, selfUserId, time, text } = props
   const [parsedText, isHighlighted] = useMemo(() => {
     const matches = getAllMatches(text)
     const sortedMatches = Array.from(matches).sort((a, b) => a.index - b.index)
