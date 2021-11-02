@@ -4,6 +4,11 @@ import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import createDeferred from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
+import {
+  ACCEPTABLE_USE_VERSION,
+  PRIVACY_POLICY_VERSION,
+  TERMS_OF_SERVICE_VERSION,
+} from '../../../common/policies/versions'
 import { SbPermissions } from '../../../common/users/permissions'
 import { SbUser, SbUserId, SelfUser } from '../../../common/users/user-info'
 import ChatService from '../chat/chat-service'
@@ -95,8 +100,10 @@ export async function createUser({
   try {
     const transactionResult = await transact(async client => {
       const result = await client.query<DbUser>(sql`
-      INSERT INTO users (name, email, password, created, signup_ip_address, email_verified)
-      VALUES (${name}, ${email}, ${hashedPassword}, ${createdDate}, ${ipAddress}, false)
+      INSERT INTO users (name, email, password, created, signup_ip_address, email_verified,
+        accepted_privacy_version, accepted_terms_version, accepted_use_policy_version)
+      VALUES (${name}, ${email}, ${hashedPassword}, ${createdDate}, ${ipAddress}, false,
+        ${PRIVACY_POLICY_VERSION}, ${TERMS_OF_SERVICE_VERSION}, ${ACCEPTABLE_USE_VERSION})
       RETURNING *
     `)
 
