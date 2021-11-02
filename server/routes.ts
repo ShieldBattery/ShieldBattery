@@ -123,6 +123,7 @@ export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) 
       await ctx.render('index', {
         initData,
         cspNonce: getCspNonce(ctx),
+        analyticsId: process.env.SB_ANALYTICS_ID,
       })
     },
   )

@@ -340,12 +340,14 @@ function setupCspProtocol(curSession: Session) {
         const nonce = crypto.randomBytes(16).toString('base64')
         const isHot = !!process.env.SB_HOT
         const hasReactDevTools = !!process.env.SB_REACT_DEV
+        const analyticsId = process.env.SB_ANALYTICS_ID || ''
         const result = data
           .replace(
             /%SCRIPT_URL%/g,
             isHot ? 'http://localhost:5566/dist/bundle.js' : '/dist/bundle.js',
           )
           .replace(/%CSP_NONCE%/g, nonce)
+          .replace(/%ANALYTICS_ID%/g, analyticsId)
           .replace(
             /%REACT_DEV%/g,
             hasReactDevTools ? '<script src="http://localhost:8097"></script>' : '',
