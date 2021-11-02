@@ -155,8 +155,8 @@ describe('games/results/reconcileResults', () => {
 
     const reconciled = reconcileResults(results)
 
-    expect(reconciled.disputed).toEqual(false)
-    expect(reconciled.time).toEqual(33)
+    expect(reconciled.disputed).toBe(false)
+    expect(reconciled.time).toBe(33)
     evaluateResults(reconciled.results, {
       1: { result: 'win', race: 't', apm: 25 },
       2: { result: 'loss', race: 'z', apm: 60 },
@@ -185,7 +185,7 @@ describe('games/results/reconcileResults', () => {
 
     const reconciled = reconcileResults(results)
 
-    expect(reconciled.disputed).toEqual(true)
+    expect(reconciled.disputed).toBe(true)
     evaluateResults(reconciled.results, {
       1: { result: 'unknown', race: 't', apm: 25 },
       2: { result: 'unknown', race: 'z', apm: 60 },
@@ -229,8 +229,8 @@ describe('games/results/reconcileResults', () => {
 
     const reconciled = reconcileResults(results)
 
-    expect(reconciled.disputed).toEqual(false)
-    expect(reconciled.time).toEqual(50)
+    expect(reconciled.disputed).toBe(false)
+    expect(reconciled.time).toBe(50)
     evaluateResults(reconciled.results, {
       1: { result: 'loss', race: 't', apm: 40 },
       2: { result: 'win', race: 'z', apm: 20 },
@@ -267,8 +267,8 @@ describe('games/results/reconcileResults', () => {
 
     const reconciled = reconcileResults(results)
 
-    expect(reconciled.disputed).toEqual(true)
-    expect(reconciled.time).toEqual(9)
+    expect(reconciled.disputed).toBe(true)
+    expect(reconciled.time).toBe(9)
     evaluateResults(reconciled.results, {
       1: { result: 'unknown', race: 't', apm: 40 },
       2: { result: 'unknown', race: 'z', apm: 20 },
@@ -323,7 +323,7 @@ describe('games/results/reconcileResults', () => {
 
     const reconciled = reconcileResults(results)
 
-    expect(reconciled.disputed).toEqual(true)
+    expect(reconciled.disputed).toBe(true)
     evaluateResults(reconciled.results, {
       1: { result: 'loss', race: 't', apm: 40 },
       2: { result: 'win', race: 'z', apm: 20 },
@@ -354,7 +354,7 @@ describe('games/results/reconcileResults', () => {
 
     const reconciled = reconcileResults(results)
 
-    expect(reconciled.disputed).toEqual(true)
+    expect(reconciled.disputed).toBe(true)
     evaluateResults(reconciled.results, {
       1: { result: 'win', race: 'p', apm: 20 },
       2: { result: 'loss', race: 'z', apm: 30 },

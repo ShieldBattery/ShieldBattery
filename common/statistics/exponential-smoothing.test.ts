@@ -113,6 +113,6 @@ describe('common/statistics/exponential-smoothing', () => {
     const v = new ExponentialSmoothValue(0.25, 0)
 
     v.add(4096).add(4096).add(4096)
-    expect(v.reset(7).value).toEqual(7)
+    expect(v.reset(7).value).toBe(7)
   })
 })
