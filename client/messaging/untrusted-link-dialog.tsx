@@ -1,12 +1,14 @@
 import { shell } from 'electron'
 import React from 'react'
 import { connect } from 'react-redux'
+import { Dispatch } from 'redux'
 import styled from 'styled-components'
 import { closeDialog } from '../dialogs/action-creators'
 import { RaisedButton, TextButton } from '../material/button'
 import { Radio } from '../material/checkable-input'
 import { Actions as DialogActions, Dialog } from '../material/dialog'
 import { mergeLocalSettings } from '../settings/action-creators'
+import { LocalSettings } from '../settings/settings-records'
 import { amberA100 } from '../styles/colors'
 
 const CompactDialog = styled(Dialog)`
@@ -27,7 +29,7 @@ const OpenLinkButton = styled(RaisedButton)`
   width: 46%;
 `
 
-const LinkAsText = styled.span.attrs(props => ({
+const LinkAsText = styled.span.attrs((props: { fontWeight?: string }) => ({
   fontWeight: props.fontWeight || 'normal',
 }))`
   color: ${amberA100};
@@ -36,26 +38,44 @@ const LinkAsText = styled.span.attrs(props => ({
   font-weight: ${props => props.fontWeight};
 `
 
-@connect(state => ({ localSettings: state.settings.local }))
-export default class UntrustedLinkDialog extends React.Component {
-  state = {
-    trust: false,
+interface UntrustedLinkDialogProps {
+  host: string
+  href: string
+  localSettings: LocalSettings
+  onCancel: () => void
+  dialogRef: React.Ref<HTMLDivElement>
+}
+
+interface UntrustedLinkDialogState {
+  trust: string | null
+}
+
+type TDispatchProp = {
+  dispatch: Dispatch | ((d: Dispatch | any) => void)
+}
+
+class UntrustedLinkDialog extends React.Component<
+  UntrustedLinkDialogProps & TDispatchProp,
+  UntrustedLinkDialogState
+> {
+  override state = {
+    trust: null,
   }
 
-  trustOptionChange = e => {
+  trustOptionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
       this.setState({ trust: e.target.value })
     }
   }
 
-  radioClick = e => {
+  radioClick = (e: React.ChangeEvent<HTMLInputElement>) => {
     // this is for unchecking radio's
     if (e.target.checked) {
-      this.setState({ trust: false })
+      this.setState({ trust: null })
     }
   }
 
-  openLinkClick = e => {
+  openLinkClick = () => {
     this.mergeSettings()
     this.props.dispatch(closeDialog())
     shell.openExternal(this.props.href)
@@ -65,9 +85,9 @@ export default class UntrustedLinkDialog extends React.Component {
     const { trust } = this.state
 
     // trust options wasn't changed, no need to merge settings
-    if (trust === false) return
+    if (trust === null) return
 
-    const settings = {}
+    const settings: { trustAllLinks?: boolean; trustedHosts?: string[] } = {}
 
     if (trust === 'trust-all-links') {
       settings.trustAllLinks = true
@@ -81,7 +101,7 @@ export default class UntrustedLinkDialog extends React.Component {
     this.props.dispatch(mergeLocalSettings(settings))
   }
 
-  render() {
+  override render() {
     const { href, onCancel, host } = this.props
 
     const buttons = [
@@ -138,3 +158,11 @@ export default class UntrustedLinkDialog extends React.Component {
     )
   }
 }
+
+interface WithLocalSettings {
+  settings: { local: LocalSettings }
+}
+
+export default connect((state: WithLocalSettings) => ({ localSettings: state.settings.local }))(
+  UntrustedLinkDialog,
+)

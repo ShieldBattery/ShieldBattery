@@ -1,9 +1,21 @@
 import React from 'react'
-import { connect } from 'react-redux'
+import { connect, DispatchProp } from 'react-redux'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
+import { LocalSettings } from '../settings/settings-records'
 
-function ExternalLink({ href, innerText, dispatch, localSettings }) {
+interface ExternalLinkProps {
+  href: string
+  innerText: string
+  localSettings: LocalSettings
+}
+
+function ExternalLink({
+  href,
+  innerText,
+  dispatch,
+  localSettings,
+}: ExternalLinkProps & DispatchProp) {
   return (
     <a
       href={href}
@@ -14,7 +26,7 @@ function ExternalLink({ href, innerText, dispatch, localSettings }) {
         const url = new URL(href)
         const host = url.host
         const { trustAllLinks, trustedHosts } = localSettings
-        const isHostTrusted = trustAllLinks || trustedHosts.some(h => h === host)
+        const isHostTrusted = trustAllLinks || trustedHosts.some((h: string) => h === host)
 
         if (!isHostTrusted) {
           e.preventDefault()
@@ -26,4 +38,10 @@ function ExternalLink({ href, innerText, dispatch, localSettings }) {
   )
 }
 
-export default connect(state => ({ localSettings: state.settings.local }))(ExternalLink)
+type WithLocalSettings = {
+  settings: { local: LocalSettings }
+}
+
+export default connect((state: WithLocalSettings) => ({
+  localSettings: state.settings.local,
+}))(ExternalLink)
