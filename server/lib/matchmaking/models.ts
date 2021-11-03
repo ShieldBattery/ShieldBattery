@@ -165,6 +165,7 @@ export async function updateMatchmakingRating(
 
 // TODO(tec27): Remove username from this and get user data in another query
 export interface GetRankingsResult {
+  matchmakingType: MatchmakingType
   rank: number
   userId: SbUserId
   username: string
@@ -178,6 +179,7 @@ type DbGetRankingsResult = Dbify<GetRankingsResult>
 
 function fromDbGetRankingsResult(r: DbGetRankingsResult) {
   return {
+    matchmakingType: r.matchmaking_type,
     // NOTE(tec27): RANK() is a bigint so this is actually a string
     rank: Number(r.rank),
     userId: r.user_id,
@@ -196,10 +198,11 @@ export async function getRankings(matchmakingType: MatchmakingType): Promise<Get
   const { client, done } = await db()
   try {
     const result = await client.query<Dbify<GetRankingsResult>>(sql`
-      SELECT r.rank, u.name AS username, r.user_id, r.rating,
+      SELECT r.matchmaking_type, r.rank, u.name AS username, r.user_id, r.rating,
           r.wins, r.losses, r.last_played_date
       FROM ranked_matchmaking_ratings_view r JOIN users u
-      ON r.user_id = u.id
+        ON r.user_id = u.id
+      WHERE r.matchmaking_type = ${matchmakingType}
       ORDER BY r.rank;
     `)
 
@@ -209,6 +212,7 @@ export async function getRankings(matchmakingType: MatchmakingType): Promise<Get
   }
 }
 
+// TODO(tec27): Just return all the ranks for a user instead?
 export async function getRankForUser(
   userId: SbUserId,
   matchmakingType: MatchmakingType,
@@ -216,11 +220,11 @@ export async function getRankForUser(
   const { client, done } = await db()
   try {
     const result = await client.query<Dbify<GetRankingsResult>>(sql`
-      SELECT r.rank, u.name AS username, r.user_id, r.rating,
+      SELECT r.matchmaking_type, r.rank, u.name AS username, r.user_id, r.rating,
           r.wins, r.losses, r.last_played_date
       FROM ranked_matchmaking_ratings_view r JOIN users u
-      ON r.user_id = u.id
-      WHERE r.user_id = ${userId};
+        ON r.user_id = u.id
+      WHERE r.matchmaking_type = ${matchmakingType} AND r.user_id = ${userId};
     `)
 
     return result.rows.length > 0 ? fromDbGetRankingsResult(result.rows[0]) : undefined
@@ -233,7 +237,7 @@ export async function getRankForUser(
  * Triggers an updated to the pre-ranked view of matchmaking ratings. This should be run
  * periodically to make fresh data available to `getRankings` calls.
  */
-export async function refreshRankings(matchmakingType: MatchmakingType): Promise<void> {
+export async function refreshRankings(): Promise<void> {
   const { client, done } = await db()
   try {
     // TODO(tec27): Store the refresh time so we can display it to clients
