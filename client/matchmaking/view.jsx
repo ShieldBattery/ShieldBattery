@@ -1,11 +1,16 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { Route, Switch } from 'wouter'
+import { navigateToGameResults } from '../games/action-creators'
 import Index from '../navigation/index'
 import { replace } from '../navigation/routing'
 import MatchmakingMatch from './matchmaking-match'
 
-@connect(state => ({ activeGame: state.activeGame, matchmaking: state.matchmaking }))
+@connect(state => ({
+  activeGame: state.activeGame,
+  gameClient: state.gameClient,
+  matchmaking: state.matchmaking,
+}))
 export default class MatchmakingView extends React.Component {
   componentDidMount() {
     if (!this.props.matchmaking.isLoading && !this.props.activeGame.isActive) {
@@ -16,7 +21,11 @@ export default class MatchmakingView extends React.Component {
   componentDidUpdate(prevProps) {
     if (prevProps.activeGame.isActive && !this.props.activeGame.isActive) {
       // TODO(2Pac): handle this in socket-handlers once we start tracking game ending on the server
-      replace('/')
+      if (prevProps.gameClient.gameId) {
+        navigateToGameResults(prevProps.gameClient.gameId)
+      } else {
+        replace('/')
+      }
     }
   }
 
