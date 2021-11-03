@@ -2,6 +2,7 @@ import React from 'react'
 import { connect, DispatchProp } from 'react-redux'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
+import { RootState } from '../root-reducer'
 import { LocalSettings } from '../settings/settings-records'
 
 interface ExternalLinkProps {
@@ -38,10 +39,6 @@ function ExternalLink({
   )
 }
 
-type WithLocalSettings = {
-  settings: { local: LocalSettings }
-}
-
-export default connect((state: WithLocalSettings) => ({
+export default connect((state: RootState) => ({
   localSettings: state.settings.local,
 }))(ExternalLink)

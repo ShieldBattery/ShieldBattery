@@ -7,6 +7,7 @@ import { closeDialog } from '../dialogs/action-creators'
 import { RaisedButton, TextButton } from '../material/button'
 import { Radio } from '../material/checkable-input'
 import { Dialog } from '../material/dialog'
+import { RootState } from '../root-reducer'
 import { mergeLocalSettings } from '../settings/action-creators'
 import { LocalSettings } from '../settings/settings-records'
 import { amberA100 } from '../styles/colors'
@@ -141,10 +142,6 @@ class UntrustedLinkDialog extends React.Component<
   }
 }
 
-interface WithLocalSettings {
-  settings: { local: LocalSettings }
-}
-
-export default connect((state: WithLocalSettings) => ({ localSettings: state.settings.local }))(
+export default connect((state: RootState) => ({ localSettings: state.settings.local }))(
   UntrustedLinkDialog,
 )
