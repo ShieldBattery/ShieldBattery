@@ -344,6 +344,10 @@ export class UserApi {
       throw new Error("Current user couldn't be found for updating")
     }
 
+    ctx.session!.acceptedPrivacyVersion = user.acceptedPrivacyVersion
+    ctx.session!.acceptedTermsVersion = user.acceptedTermsVersion
+    ctx.session!.acceptedUsePolicyVersion = user.acceptedUsePolicyVersion
+
     return { user }
   }
 
