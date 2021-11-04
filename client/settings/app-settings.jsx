@@ -10,7 +10,6 @@ import { TextButton } from '../material/button'
 import CheckBox from '../material/check-box'
 import Slider from '../material/slider'
 import { FormContainer } from './settings-content'
-import TrustedLinksSettings from './trusted-links-settings'
 
 const VolumeSettings = styled.div`
   display: flex;
@@ -91,7 +90,6 @@ class AppForm extends React.Component {
               disabled={!this.props.getInputValue('runAppAtSystemStart')}
             />
           </div>
-          <TrustedLinksSettings bindCustom={bindCustom} bindCheckable={bindCheckable} />
         </FormContainer>
       </form>
     )
@@ -142,7 +140,6 @@ export default class AppSettings extends React.Component {
       masterVolume: localSettings.masterVolume,
       runAppAtSystemStart: localSettings.runAppAtSystemStart,
       runAppAtSystemStartMinimized: localSettings.runAppAtSystemStartMinimized,
-      trustedHosts: localSettings.trustedHosts,
     }
 
     return (
