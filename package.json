@@ -23,18 +23,48 @@
     "node": ">= 14.0.0"
   },
   "jest": {
-    "setupFilesAfterEnv": [
-      "./babel-register.js",
-      "core-js/proposals/reflect-metadata",
-      "jest-extended/all"
+    "projects": [
+      {
+        "displayName": "node",
+        "setupFilesAfterEnv": [
+          "./babel-register.js",
+          "core-js/proposals/reflect-metadata",
+          "jest-extended/all"
+        ],
+        "testEnvironment": "node",
+        "testMatch": [
+          "<rootDir>/app/**/*.test.[jt]s?(x)",
+          "<rootDir>/common/**/*.test.[jt]s?(x)",
+          "<rootDir>/server/**/*.test.[jt]s?(x)"
+        ]
+      },
+      {
+        "displayName": "browser",
+        "setupFilesAfterEnv": [
+          "./babel-register.js",
+          "core-js/proposals/reflect-metadata",
+          "jest-extended/all",
+          "./jest-client-setup.ts"
+        ],
+        "testEnvironment": "jsdom",
+        "testMatch": [
+          "<rootDir>/client/**/*.test.[jt]s?(x)"
+        ]
+      }
     ],
-    "testEnvironment": "node",
+    "testPathIgnorePatterns": [
+      "<rootDir>/app/dist",
+      "<rootDir>/app/node_modules",
+      "<rootDir>/dist",
+      "<rootDir>/node_modules",
+      "<rootDir>/server/public"
+    ],
     "watchPathIgnorePatterns": [
-      "app/dist",
-      "app/node_modules",
-      "dist",
-      "node_modules",
-      "server/public"
+      "<rootDir>/app/dist",
+      "<rootDir>/app/node_modules",
+      "<rootDir>/dist",
+      "<rootDir>/node_modules",
+      "<rootDir>/server/public"
     ]
   },
   "scripts": {
