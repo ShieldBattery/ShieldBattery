@@ -289,15 +289,10 @@ export default class ChatService {
     }
 
     const text = filterChatMessage(message)
-    const allowedMentionUsers =
-      this.state.channels
-        .get(originalChannelName)
-        ?.valueSeq()
-        .toArray()
-        .map(user => user.name.toLowerCase()) || ([] as string[])
+    const users = await getUsersForChannel(originalChannelName)
     const [processedText, mentionedUsers] = await processMessageContents(
       text,
-      new global.Set(allowedMentionUsers),
+      new global.Set(users.map(u => u.userName.toLowerCase())),
     )
     const mentions = Array.from(mentionedUsers.values())
     const result = await addMessageToChannel(userSockets.userId, originalChannelName, {

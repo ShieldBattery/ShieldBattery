@@ -1,6 +1,9 @@
 import { USERNAME_ALLOWED_CHARACTERS } from '../constants'
 import { TypedGroupRegExpMatchArray } from '../regex'
 
+const MENTION_PREFIX = String.raw`(?<prefix>\s|^)`
+const MENTION_POSTFIX = String.raw`(?<postfix>\s|$|[,;:?])`
+
 /**
  * Regex for detecting and parsing user mentions. User mentions are a piece of text that start with
  * the @ sign, followed up by the username. Some punctuation is allowed after the username. Notably
@@ -12,7 +15,7 @@ import { TypedGroupRegExpMatchArray } from '../regex'
  * before/after the username.
  */
 export const MENTION_REGEX = new RegExp(
-  String.raw`(?<prefix>\s|^)@(?<username>${USERNAME_ALLOWED_CHARACTERS})(?<postfix>\s|$|[,;:?])`,
+  String.raw`${MENTION_PREFIX}@(?<username>${USERNAME_ALLOWED_CHARACTERS})${MENTION_POSTFIX}`,
   'gi',
 )
 
@@ -20,11 +23,11 @@ export const MENTION_REGEX = new RegExp(
  * Regex for detecting an already parsed user mention. When a user mention is parsed, it is saved
  * with a custom markup syntax in the database. This regex parses the markup and extracts user IDs
  * to a "userId" capture group.
- *
- * Also, the whole regex is encapsulated in a "mention" capture group, so it can be grouped with
- * other markup regexes.
  */
-export const MENTION_MARKUP_REGEX = /(?<mention><@(?<userId>\d+)>)/gi
+export const MENTION_MARKUP_REGEX = new RegExp(
+  String.raw`${MENTION_PREFIX}<@(?<userId>\d+)>${MENTION_POSTFIX}`,
+  'gi',
+)
 
 /**
  * Matches all user mentions in a given text. The user is considered mentioned if the text contains
@@ -64,11 +67,10 @@ export function* matchMentionsMarkup(text: string): Generator<{
   type: 'mentionMarkup'
   text: string
   index: number
-  groups: Record<'mention' | 'userId', string>
+  groups: Record<'prefix' | 'userId' | 'postfix', string>
 }> {
-  const matches: IterableIterator<TypedGroupRegExpMatchArray<'mention' | 'userId'>> = text.matchAll(
-    MENTION_MARKUP_REGEX,
-  ) as IterableIterator<any>
+  const matches: IterableIterator<TypedGroupRegExpMatchArray<'prefix' | 'userId' | 'postfix'>> =
+    text.matchAll(MENTION_MARKUP_REGEX) as IterableIterator<any>
 
   for (const match of matches) {
     yield {

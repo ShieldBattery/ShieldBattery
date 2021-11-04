@@ -76,9 +76,11 @@ export const TextMessage = React.memo<{
         }
 
         elements.push(
+          match.groups.prefix,
           <UserMention key={match.index}>
             <ConnectedUsername userId={userId} isMention={true} />
           </UserMention>,
+          match.groups.postfix,
         )
       } else if (match.type === 'link') {
         // TODO(tec27): Handle links to our own host specially, redirecting to the correct route
