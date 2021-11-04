@@ -4,7 +4,12 @@ import CancelToken, { MultiCancelToken } from '../../../common/async/cancel-toke
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import rejectOnTimeout from '../../../common/async/reject-on-timeout'
 import { GameRoute } from '../../../common/game-launch-config'
-import { GameConfigPlayerName, GameSource, GameType } from '../../../common/games/configuration'
+import {
+  GameConfigPlayerName,
+  GameSource,
+  GameSourceExtraType,
+  GameType,
+} from '../../../common/games/configuration'
 import { Slot } from '../../../common/lobbies/slot'
 import log from '../logging/logger'
 import { deleteUserRecordsForGame } from '../models/games-users'
@@ -83,7 +88,7 @@ export type OnRoutesSetFunc = (playerName: string, routes: GameRoute[], gameId: 
 /**
  * Parameters to `GameLoader.loadGame`.
  */
-export interface GameLoadRequest {
+export interface GameLoadRequest<Source extends GameSource> {
   /**
    * A list of players that should be created as human (or observer) type slots. At least one player
    * should be present for things to work properly.
@@ -96,12 +101,11 @@ export interface GameLoadRequest {
   /**
    * The source of the game's creation/launch, e.g. Matchmaking
    */
-  gameSource: GameSource
-  // TODO(tec27): Probably this should be some type of structured data instead of a string tbh
+  gameSource: Source
   /**
    * An optional string of extra information about the source of the game.
    */
-  gameSourceExtra?: string
+  gameSourceExtra: GameSourceExtraType<Source>
   /**
    * Configuration info for the game.
    */
@@ -139,7 +143,7 @@ export class GameLoader {
    * @returns A promise which will resolve with the list of players if the game successfully loaded,
    *   or be rejected if the load failed.
    */
-  loadGame({
+  loadGame<Source extends GameSource>({
     players,
     mapId,
     gameSource,
@@ -148,7 +152,7 @@ export class GameLoader {
     cancelToken,
     onGameSetup,
     onRoutesSet,
-  }: GameLoadRequest) {
+  }: GameLoadRequest<Source>) {
     const gameLoaded = createDeferred<void>()
 
     registerGame(mapId, gameSource, gameSourceExtra, gameConfig)

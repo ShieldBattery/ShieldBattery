@@ -42,7 +42,7 @@ export function getGameTypeLabel(game: Immutable<GameRecordJson>): string {
     return 'Ranked 1v1'
   }
 
-  return assertUnreachable(game.config.gameSource)
+  return assertUnreachable(game.config)
 }
 
 export interface GetGamePayload {

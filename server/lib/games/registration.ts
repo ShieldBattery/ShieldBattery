@@ -1,4 +1,10 @@
-import { GameConfig, GameConfigPlayerName, GameSource } from '../../../common/games/configuration'
+import {
+  GameConfig,
+  GameConfigPlayerId,
+  GameConfigPlayerName,
+  GameSource,
+  GameSourceExtraType,
+} from '../../../common/games/configuration'
 import { makeSbUserId } from '../../../common/users/user-info'
 import transact from '../db/transaction'
 import { createGameUserRecord } from '../models/games-users'
@@ -19,10 +25,10 @@ import { genResultCode } from './gen-result-code'
  * @returns an object containing the generated `gameId` and a map of `resultCodes` indexed by
  *   player name
  */
-export async function registerGame(
+export async function registerGame<Source extends GameSource>(
   mapId: string,
-  gameSource: GameSource,
-  gameSourceExtra: string | undefined,
+  gameSource: Source,
+  gameSourceExtra: GameSourceExtraType<Source>,
   gameConfig: Omit<GameConfig<GameConfigPlayerName>, 'gameSource' | 'gameSourceExtra'>,
   startTime = new Date(),
 ) {
@@ -39,7 +45,7 @@ export async function registerGame(
     }
   }
 
-  const configToStore = {
+  const configToStore: GameConfig<GameConfigPlayerId> = {
     gameType: gameConfig.gameType,
     gameSubType: gameConfig.gameSubType,
     teams: gameConfig.teams.map(team =>
@@ -49,8 +55,10 @@ export async function registerGame(
         isComputer: p.isComputer,
       })),
     ),
-    gameSource,
-    gameSourceExtra,
+    // NOTE(tec27): These casts are necessary because we can't convince TS that these are a
+    // narrowed, matching set (even though the parameter typings above should mostly guarantee that)
+    gameSource: gameSource as any,
+    gameSourceExtra: gameSourceExtra as any,
   }
 
   const resultCodes = new Map(humanNames.map(name => [name, genResultCode()]))

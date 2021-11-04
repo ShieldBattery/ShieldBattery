@@ -1,4 +1,5 @@
 import { assertUnreachable } from '../assert-unreachable'
+import { MatchmakingType } from '../matchmaking'
 import { RaceChar } from '../races'
 import { SbUserId } from '../users/user-info'
 
@@ -55,17 +56,34 @@ export interface GameConfigPlayerId {
   isComputer: boolean
 }
 
+// TODO(tec27): Remove usages of this (use IDs instead), so we can reduce the amount of indirection
+// and type explosion here
 export interface GameConfigPlayerName {
   name: string
   race: RaceChar
   isComputer: boolean
 }
 
-export interface GameConfig<PlayerType> {
+interface BaseGameConfig<PlayerType, Source extends GameSource, SourceExtra> {
+  gameSource: Source
+  gameSourceExtra: SourceExtra
   gameType: GameType
   gameSubType: number
-  gameSource: GameSource
-  /** Extra information about the game source, e.g. the matchmaking type */
-  gameSourceExtra?: string
   teams: PlayerType[][]
 }
+
+export type LobbyGameConfig<PlayerType> = BaseGameConfig<PlayerType, GameSource.Lobby, undefined>
+
+// TODO(tec27): Make SourceExtra an object with information about matchmaking type + arranged teams
+export type MatchmakingGameConfig<PlayerType> = BaseGameConfig<
+  PlayerType,
+  GameSource.Matchmaking,
+  MatchmakingType
+>
+
+export type GameConfig<PlayerType> = LobbyGameConfig<PlayerType> | MatchmakingGameConfig<PlayerType>
+
+/** Returns the type of the `gameSourceExtra` param for a given `GameSource` type. */
+export type GameSourceExtraType<Source extends GameSource> = (GameConfig<any> & {
+  gameSource: Source
+})['gameSourceExtra']
