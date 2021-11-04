@@ -5,7 +5,7 @@ import { Dispatch } from 'redux'
 import styled from 'styled-components'
 import { closeDialog } from '../dialogs/action-creators'
 import { RaisedButton, TextButton } from '../material/button'
-import { Radio } from '../material/checkable-input'
+import { CheckBox } from '../material/checkable-input'
 import { Dialog } from '../material/dialog'
 import { RootState } from '../root-reducer'
 import { mergeLocalSettings } from '../settings/action-creators'
@@ -30,7 +30,7 @@ interface UntrustedLinkDialogProps {
 }
 
 interface UntrustedLinkDialogState {
-  trust: string | null
+  trustHost: boolean
 }
 
 type TDispatchProp = {
@@ -42,40 +42,29 @@ class UntrustedLinkDialog extends React.Component<
   UntrustedLinkDialogState
 > {
   override state = {
-    trust: null,
+    trustHost: false,
   }
 
-  trustOptionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked) {
-      this.setState({ trust: e.target.value })
-    }
+  onTrustHostChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    this.setState({ trustHost: e.target.checked })
   }
 
-  radioClick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // this is for unchecking radio's
-    if (e.target.checked) {
-      this.setState({ trust: null })
-    }
-  }
-
-  openLinkClick = () => {
+  onOpenLinkClick = () => {
     this.mergeSettings()
     this.props.dispatch(closeDialog())
     shell.openExternal(this.props.href)
   }
 
   mergeSettings = () => {
-    const { trust } = this.state
+    const { trustHost } = this.state
 
-    // trust options wasn't changed, no need to merge settings
-    if (trust === null) return
+    // trust option wasn't changed, no need to merge settings
+    if (!trustHost) return
 
     const settings: { trustedHosts?: string[] } = {}
 
-    if (trust === 'trust-host') {
-      const { host, localSettings } = this.props
-      settings.trustedHosts = [host, ...localSettings.trustedHosts]
-    }
+    const { host, localSettings } = this.props
+    settings.trustedHosts = [host, ...localSettings.trustedHosts]
 
     this.props.dispatch(mergeLocalSettings(settings))
   }
@@ -89,7 +78,7 @@ class UntrustedLinkDialog extends React.Component<
         label='Open Link'
         key='open-link'
         color='primary'
-        onClick={this.openLinkClick}
+        onClick={this.onOpenLinkClick}
       />,
     ]
 
@@ -109,14 +98,13 @@ class UntrustedLinkDialog extends React.Component<
         <p>
           You are going to visit <LinkAsText>{href}</LinkAsText> which is outside of ShieldBattery.
         </p>
-        <Radio
+        <CheckBox
           label={trustHostLabel}
           disabled={false}
           name='trust-host'
           value='trust-host'
-          checked={this.state.trust === 'trust-host'}
-          onChange={this.trustOptionChange}
-          inputProps={{ onClick: this.radioClick }}
+          checked={this.state.trustHost}
+          onChange={this.onTrustHostChange}
         />
       </Dialog>
     )

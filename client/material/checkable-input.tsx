@@ -232,11 +232,11 @@ const CheckIcon = styled.div<CheckableControlProps>`
   }
 `
 
-// TODO(T1mL3arn) replace initial Checkbox (from `client/material/check-box.jsx`) with this one ?
-export function Checkbox(props: Record<string, any>) {
+// TODO(T1mL3arn) replace initial CheckBox (from `client/material/check-box.jsx`) with this one ?
+export function CheckBox(props: ChekableInputProps) {
   return <CheckableInput {...props} type='checkbox' />
 }
 
-export function Radio(props: Record<string, any>) {
+export function Radio(props: ChekableInputProps) {
   return <CheckableInput {...props} type='radio' />
 }
