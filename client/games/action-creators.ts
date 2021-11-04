@@ -7,8 +7,8 @@ import fetch from '../network/fetch'
 import { ResultsSubPage } from './results-sub-page'
 
 /** Navigates to a game's result page (and optionally, a specific tab within that). */
-export function navigateToGameResults(gameId: string, tab?: ResultsSubPage) {
-  push(urlPath`/games/${gameId}/${tab ?? ''}`)
+export function navigateToGameResults(gameId: string, tab?: ResultsSubPage, transitionFn = push) {
+  transitionFn(urlPath`/games/${gameId}/${tab ?? ''}`)
 }
 
 const gameLoadsInProgress = new Set<string>()

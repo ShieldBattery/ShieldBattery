@@ -3,6 +3,7 @@ import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { Route, Switch } from 'wouter'
 import { navigateToGameResults } from '../games/action-creators'
+import { ResultsSubPage } from '../games/results-sub-page'
 import { openMapPreviewDialog, toggleFavoriteMap } from '../maps/action-creators'
 import { push, replace } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
@@ -81,7 +82,7 @@ export default class LobbyView extends React.Component {
     if (prevProps.activeGame.isActive && !this.props.activeGame.isActive) {
       // TODO(2Pac): handle this in socket-handlers once we start tracking game ending on the server
       if (prevProps.gameClient.gameId) {
-        navigateToGameResults(prevProps.gameClient.gameId)
+        navigateToGameResults(prevProps.gameClient.gameId, ResultsSubPage.Summary, replace)
       } else {
         replace('/')
       }
