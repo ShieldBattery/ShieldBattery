@@ -5,7 +5,11 @@ import CancelToken from '../../../common/async/cancel-token'
 import createDeferred from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { isValidLobbyName, validRace } from '../../../common/constants'
-import { isValidGameSubType, isValidGameType } from '../../../common/games/configuration'
+import {
+  GameSource,
+  isValidGameSubType,
+  isValidGameType,
+} from '../../../common/games/configuration'
 import {
   findSlotById,
   findSlotByName,
@@ -716,7 +720,7 @@ export class LobbyApi {
       const gameLoaded = gameLoader.loadGame({
         players: getHumanSlots(lobby),
         mapId: lobby.map.id,
-        gameSource: 'LOBBY',
+        gameSource: GameSource.Lobby,
         gameConfig,
         cancelToken,
         onGameSetup: (setup, resultCodes) => {

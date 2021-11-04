@@ -2,7 +2,12 @@ import { assertUnreachable } from '../assert-unreachable'
 import { RaceChar } from '../races'
 import { SbUserId } from '../users/user-info'
 
-export type GameSource = 'MATCHMAKING' | 'LOBBY'
+export enum GameSource {
+  Lobby = 'LOBBY',
+  Matchmaking = 'MATCHMAKING',
+}
+
+export const ALL_GAME_SOURCES: ReadonlyArray<GameSource> = Object.values(GameSource)
 
 export enum GameType {
   Melee = 'melee',

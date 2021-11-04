@@ -2,6 +2,7 @@ import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
+import { GameSource } from '../../../common/games/configuration'
 import { GameClientPlayerResult, GameClientResult } from '../../../common/games/results'
 import { MatchmakingType } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
@@ -145,7 +146,7 @@ async function submitGameResults(ctx: RouterContext, next: Koa.Next) {
         const resultEntries = Array.from(reconciled.results.entries())
 
         const matchmakingDbPromises: Array<Promise<unknown>> = []
-        if (gameRecord.config.gameSource === 'MATCHMAKING' && !reconciled.disputed) {
+        if (gameRecord.config.gameSource === GameSource.Matchmaking && !reconciled.disputed) {
           // Calculate and update the matchmaking ranks
 
           // NOTE(tec27): We sort these so we always lock them in the same order and avoid deadlocks

@@ -94,7 +94,7 @@ export interface GameLoadRequest {
    */
   mapId: string
   /**
-   * The source of the game's creation/launch, e.g. 'MATCHMAKING'
+   * The source of the game's creation/launch, e.g. Matchmaking
    */
   gameSource: GameSource
   // TODO(tec27): Probably this should be some type of structured data instead of a string tbh

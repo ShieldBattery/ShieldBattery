@@ -7,7 +7,7 @@ import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
 import { GameRoute } from '../../../common/game-launch-config'
-import { GameType } from '../../../common/games/configuration'
+import { GameSource, GameType } from '../../../common/games/configuration'
 import { createHuman, Slot } from '../../../common/lobbies/slot'
 import { MapInfo, MapInfoJson, toMapInfoJson } from '../../../common/maps'
 import {
@@ -608,7 +608,7 @@ export class MatchmakingService {
     const gameLoaded = gameLoader.loadGame({
       players: slots,
       mapId: chosenMap.id,
-      gameSource: 'MATCHMAKING',
+      gameSource: GameSource.Matchmaking,
       gameSourceExtra: match.type,
       gameConfig,
       cancelToken: loadCancelToken,

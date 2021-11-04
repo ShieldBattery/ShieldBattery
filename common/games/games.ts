@@ -3,7 +3,7 @@ import { assertUnreachable } from '../assert-unreachable'
 import { Jsonify } from '../json'
 import { MapInfoJson } from '../maps'
 import { SbUser, SbUserId } from '../users/user-info'
-import { GameConfig, GameConfigPlayerId } from './configuration'
+import { GameConfig, GameConfigPlayerId, GameSource } from './configuration'
 import { ReconciledPlayerResult } from './results'
 
 export interface GameRecord {
@@ -36,9 +36,9 @@ export function toGameRecordJson(game: GameRecord): GameRecordJson {
 
 export function getGameTypeLabel(game: Immutable<GameRecordJson>): string {
   // TODO(tec27): Handle more ranked types, show mode (UMS, Top v Bottom, etc.?)
-  if (game.config.gameSource === 'LOBBY') {
+  if (game.config.gameSource === GameSource.Lobby) {
     return 'Custom game'
-  } else if (game.config.gameSource === 'MATCHMAKING') {
+  } else if (game.config.gameSource === GameSource.Matchmaking) {
     return 'Ranked 1v1'
   }
 
