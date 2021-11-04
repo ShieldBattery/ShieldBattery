@@ -16,6 +16,25 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
     )
     const result = renderer.getRenderOutput()
 
-    expect(result).toMatchInlineSnapshot()
+    expect(result).toMatchInlineSnapshot(`
+      <TimestampMessageLayout
+        highlighted={false}
+        time={0}
+      >
+        <common-message-layout__Username>
+          <ConnectedUsername
+            userId={2}
+          />
+        </common-message-layout__Username>
+        <message-layout__Separator
+          aria-hidden={true}
+        >
+          : 
+        </message-layout__Separator>
+        <common-message-layout__Text>
+          This is test message
+        </common-message-layout__Text>
+      </TimestampMessageLayout>
+    `)
   })
 })

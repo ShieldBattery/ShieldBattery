@@ -40,6 +40,10 @@
       },
       {
         "displayName": "browser",
+        "moduleNameMapper": {
+          "\\.svg$": "<rootDir>/client/__mocks__/svg-mock.tsx",
+          "\\.(html|htm|md)$": "<rootDir>/client/__mocks__/static-file-mock.ts"
+        },
         "setupFilesAfterEnv": [
           "./babel-register.js",
           "core-js/proposals/reflect-metadata",
