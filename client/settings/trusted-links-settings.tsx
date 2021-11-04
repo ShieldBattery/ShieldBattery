@@ -2,7 +2,6 @@ import React from 'react'
 import styled, { css } from 'styled-components'
 import CloseIcon from '../icons/material/ic_close_black_24px.svg'
 import { IconButton, TextButton } from '../material/button'
-import { Checkbox } from '../material/checkable-input'
 import { background600, colorTextSecondary } from '../styles/colors'
 
 const LIST_ITEM_HEIGHT = 36
@@ -151,14 +150,6 @@ interface TrustedLinksSettingsProps {
 export default function TrustedLinksSettings(props: TrustedLinksSettingsProps) {
   return (
     <SettingsContainer>
-      <Checkbox
-        {...props.bindCheckable('trustAllLinks')}
-        label='Trust all chat links'
-        inputProps={{
-          tabIndex: 0,
-          title: 'Checking this removes confirmation dialog for all external links in chat',
-        }}
-      />
       <TrustedHostsList {...props.bindCustom('trustedHosts')} />
     </SettingsContainer>
   )

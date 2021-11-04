@@ -26,8 +26,8 @@ function ExternalLink({
         // assume here `href` will always be a valid url
         const url = new URL(href)
         const host = url.host
-        const { trustAllLinks, trustedHosts } = localSettings
-        const isHostTrusted = trustAllLinks || trustedHosts.some((h: string) => h === host)
+        const { trustedHosts } = localSettings
+        const isHostTrusted = trustedHosts.some((h: string) => h === host)
 
         if (!isHostTrusted) {
           e.preventDefault()

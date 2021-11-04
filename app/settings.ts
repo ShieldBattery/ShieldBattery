@@ -167,7 +167,6 @@ export class LocalSettings extends Settings<LocalSettingsData> {
       v1161displayMode: 0,
       v1161mouseSensitivity: 0,
       v1161maintainAspectRatio: true,
-      trustAllLinks: false,
       trustedHosts: [],
     }
   }
@@ -229,7 +228,6 @@ export class LocalSettings extends Settings<LocalSettingsData> {
 
     if (!settings.version || settings.version < 9) {
       log.verbose('Found settings version 8, migrating to version 9')
-      newSettings.trustAllLinks = false
       newSettings.trustedHosts = []
     }
 

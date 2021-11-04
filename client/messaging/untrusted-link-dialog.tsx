@@ -70,11 +70,7 @@ class UntrustedLinkDialog extends React.Component<
     // trust options wasn't changed, no need to merge settings
     if (trust === null) return
 
-    const settings: { trustAllLinks?: boolean; trustedHosts?: string[] } = {}
-
-    if (trust === 'trust-all-links') {
-      settings.trustAllLinks = true
-    }
+    const settings: { trustedHosts?: string[] } = {}
 
     if (trust === 'trust-host') {
       const { host, localSettings } = this.props
@@ -99,13 +95,7 @@ class UntrustedLinkDialog extends React.Component<
 
     const trustHostLabel = (
       <>
-        trust <LinkAsText>{host}</LinkAsText> links
-      </>
-    )
-
-    const trustAllLinksLabel = (
-      <>
-        trust <LinkAsText fontWeight='bold'>all</LinkAsText> links
+        Always trust <LinkAsText>{host}</LinkAsText> links
       </>
     )
 
@@ -125,15 +115,6 @@ class UntrustedLinkDialog extends React.Component<
           name='trust-host'
           value='trust-host'
           checked={this.state.trust === 'trust-host'}
-          onChange={this.trustOptionChange}
-          inputProps={{ onClick: this.radioClick }}
-        />
-        <Radio
-          label={trustAllLinksLabel}
-          disabled={false}
-          name='trust-host'
-          value='trust-all-links'
-          checked={this.state.trust === 'trust-all-links'}
           onChange={this.trustOptionChange}
           inputProps={{ onClick: this.radioClick }}
         />

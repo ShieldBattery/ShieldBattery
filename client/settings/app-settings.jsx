@@ -142,7 +142,6 @@ export default class AppSettings extends React.Component {
       masterVolume: localSettings.masterVolume,
       runAppAtSystemStart: localSettings.runAppAtSystemStart,
       runAppAtSystemStartMinimized: localSettings.runAppAtSystemStartMinimized,
-      trustAllLinks: localSettings.trustAllLinks,
       trustedHosts: localSettings.trustedHosts,
     }
 
