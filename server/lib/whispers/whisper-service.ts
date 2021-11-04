@@ -115,11 +115,7 @@ export default class WhisperService {
     }
 
     const text = filterChatMessage(message)
-    const allowedMentionUsers = [user.name.toLowerCase(), target.name.toLowerCase()]
-    const [processedText, mentionedUsers] = await processMessageContents(
-      text,
-      new global.Set(allowedMentionUsers),
-    )
+    const [processedText, mentionedUsers] = await processMessageContents(text)
     const mentions = Array.from(mentionedUsers.values())
     const result = await addMessageToWhisper(user.id, target.id, {
       type: WhisperMessageType.TextMessage,

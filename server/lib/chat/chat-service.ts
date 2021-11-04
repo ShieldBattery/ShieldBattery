@@ -289,11 +289,7 @@ export default class ChatService {
     }
 
     const text = filterChatMessage(message)
-    const users = await getUsersForChannel(originalChannelName)
-    const [processedText, mentionedUsers] = await processMessageContents(
-      text,
-      new global.Set(users.map(u => u.userName.toLowerCase())),
-    )
+    const [processedText, mentionedUsers] = await processMessageContents(text)
     const mentions = Array.from(mentionedUsers.values())
     const result = await addMessageToChannel(userSockets.userId, originalChannelName, {
       type: ServerChatMessageType.TextMessage,

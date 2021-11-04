@@ -282,8 +282,7 @@ export class LobbyApi {
     let { text } = data.get('body')
 
     text = filterChatMessage(text)
-    const allowedMentionUsers = new global.Set(getHumanSlots(lobby).map(s => s.name.toLowerCase()))
-    const [processedText, mentionedUsers] = await processMessageContents(text, allowedMentionUsers)
+    const [processedText, mentionedUsers] = await processMessageContents(text)
     this._publishTo(lobby, {
       type: 'chat',
       message: {

@@ -14,12 +14,8 @@ import { findUsersByName } from '../users/user-model'
  */
 export async function processMessageContents(
   text: string,
-  allowedMentionUsers: Set<string>,
 ): Promise<[processedText: string, mentions: Map<string, SbUser>]> {
-  const mentionedUsernames = Array.from(
-    matchUserMentions(text),
-    match => match.groups.username,
-  ).filter(username => allowedMentionUsers.has(username.toLowerCase()))
+  const mentionedUsernames = Array.from(matchUserMentions(text), match => match.groups.username)
   const mentionedUsers = await findUsersByName(mentionedUsernames)
   const usernamesLowercase = new Map(
     Array.from(mentionedUsers.entries(), ([k, v]) => [k.toLowerCase(), v]),

@@ -267,10 +267,7 @@ export default class PartyService {
 
     const user = party.members.get(userId)!
     const text = filterChatMessage(message)
-    const allowedMentionUsers = new Set(
-      Array.from(party.members.values(), user => user.name.toLowerCase()),
-    )
-    const [processedText, mentionedUsers] = await processMessageContents(text, allowedMentionUsers)
+    const [processedText, mentionedUsers] = await processMessageContents(text)
 
     this.publisher.publish(getPartyPath(partyId), {
       type: 'chatMessage',
