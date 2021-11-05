@@ -1,15 +1,13 @@
 import { shell } from 'electron'
-import React from 'react'
-import { connect } from 'react-redux'
-import { Dispatch } from 'redux'
+import React, { useCallback, useState } from 'react'
 import styled from 'styled-components'
 import { closeDialog } from '../dialogs/action-creators'
+import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { RaisedButton, TextButton } from '../material/button'
 import CheckBox from '../material/check-box'
 import { Dialog } from '../material/dialog'
-import { RootState } from '../root-reducer'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { mergeLocalSettings } from '../settings/action-creators'
-import { LocalSettings } from '../settings/settings-records'
 import { amberA100 } from '../styles/colors'
 
 const LinkAsText = styled.span.attrs((props: { fontWeight?: string }) => ({
@@ -22,96 +20,63 @@ const LinkAsText = styled.span.attrs((props: { fontWeight?: string }) => ({
   font-weight: ${props => props.fontWeight};
 `
 
-interface ExternalLinkDialogProps {
+interface ExternalLinkDialogProps extends CommonDialogProps {
   host: string
   href: string
-  localSettings: LocalSettings
-  onCancel: () => void
-  dialogRef: React.Ref<HTMLDivElement>
 }
 
-interface ExternalLinkDialogState {
-  trustHost: boolean
+export default function ExternalLinkDialog(props: ExternalLinkDialogProps) {
+  const { host, href, onCancel } = props
+  const [trustHost, setTrustHost] = useState(false)
+  const trustedHosts: string[] = useAppSelector(s => s.settings.local.trustedHosts)
+  const dispatch = useAppDispatch()
+
+  const onOpenLinkClick = useCallback(() => {
+    if (trustHost) {
+      const settings: { trustedHosts?: string[] } = {}
+
+      settings.trustedHosts = [host, ...trustedHosts]
+
+      dispatch(mergeLocalSettings(settings))
+    }
+
+    dispatch(closeDialog())
+    shell.openExternal(href)
+  }, [dispatch, trustHost, host, trustedHosts, href])
+
+  const onTrustHostChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setTrustHost(e.target.checked)
+  }, [])
+
+  const buttons = [
+    <TextButton label='Cancel' key='cancel' onClick={onCancel} />,
+    <RaisedButton label='Open Link' key='open-link' color='primary' onClick={onOpenLinkClick} />,
+  ]
+
+  const trustHostLabel = (
+    <>
+      Always trust <LinkAsText>{host}</LinkAsText> links
+    </>
+  )
+
+  return (
+    <Dialog
+      title='External link'
+      showCloseButton={true}
+      onCancel={onCancel}
+      buttons={buttons}
+      dialogRef={props.dialogRef}>
+      <p>
+        You are going to visit <LinkAsText>{href}</LinkAsText> which is outside of ShieldBattery.
+      </p>
+      <CheckBox
+        label={trustHostLabel}
+        disabled={false}
+        name='trust-host'
+        value='trust-host'
+        checked={trustHost}
+        onChange={onTrustHostChange}
+      />
+    </Dialog>
+  )
 }
-
-type TDispatchProp = {
-  dispatch: Dispatch | ((d: Dispatch | any) => void)
-}
-
-class ExternalLinkDialog extends React.Component<
-  ExternalLinkDialogProps & TDispatchProp,
-  ExternalLinkDialogState
-> {
-  override state = {
-    trustHost: false,
-  }
-
-  onTrustHostChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    this.setState({ trustHost: e.target.checked })
-  }
-
-  onOpenLinkClick = () => {
-    this.mergeSettings()
-    this.props.dispatch(closeDialog())
-    shell.openExternal(this.props.href)
-  }
-
-  mergeSettings = () => {
-    const { trustHost } = this.state
-
-    // trust option wasn't changed, no need to merge settings
-    if (!trustHost) return
-
-    const settings: { trustedHosts?: string[] } = {}
-
-    const { host, localSettings } = this.props
-    settings.trustedHosts = [host, ...localSettings.trustedHosts]
-
-    this.props.dispatch(mergeLocalSettings(settings))
-  }
-
-  override render() {
-    const { href, onCancel, host } = this.props
-
-    const buttons = [
-      <TextButton label='Cancel' key='cancel' onClick={onCancel} />,
-      <RaisedButton
-        label='Open Link'
-        key='open-link'
-        color='primary'
-        onClick={this.onOpenLinkClick}
-      />,
-    ]
-
-    const trustHostLabel = (
-      <>
-        Always trust <LinkAsText>{host}</LinkAsText> links
-      </>
-    )
-
-    return (
-      <Dialog
-        title='External link'
-        showCloseButton={true}
-        onCancel={onCancel}
-        buttons={buttons}
-        dialogRef={this.props.dialogRef}>
-        <p>
-          You are going to visit <LinkAsText>{href}</LinkAsText> which is outside of ShieldBattery.
-        </p>
-        <CheckBox
-          label={trustHostLabel}
-          disabled={false}
-          name='trust-host'
-          value='trust-host'
-          checked={this.state.trustHost}
-          onChange={this.onTrustHostChange}
-        />
-      </Dialog>
-    )
-  }
-}
-
-export default connect((state: RootState) => ({ localSettings: state.settings.local }))(
-  ExternalLinkDialog,
-)
