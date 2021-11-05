@@ -17,7 +17,7 @@ import AcceptMatch from '../matchmaking/accept-match'
 import { isHandledDismissalEvent } from '../material/dismissal-events'
 import { defaultSpring } from '../material/springs'
 import { zIndexDialogScrim } from '../material/zindex'
-import UntrustedLinkDialog from '../messaging/untrusted-link-dialog'
+import ExternalLinkDialog from '../messaging/external-link-dialog'
 import { PartyInviteDialog } from '../parties/party-invite-dialog'
 import {
   AcceptableUseDialog,
@@ -103,8 +103,8 @@ function getDialog(
       return { component: UpdateDialog, modal: true }
     case DialogType.Whispers:
       return { component: CreateWhisperSessionDialog, modal: false }
-    case DialogType.UntrustedLink:
-      return { component: UntrustedLinkDialog, modal: false }
+    case DialogType.ExternalLink:
+      return { component: ExternalLinkDialog, modal: false }
     default:
       return assertUnreachable(dialogType)
   }

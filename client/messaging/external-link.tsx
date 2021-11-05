@@ -31,7 +31,7 @@ function ExternalLink({
 
         if (!isHostTrusted) {
           e.preventDefault()
-          dispatch(openDialog(DialogType.UntrustedLink, { href, host }))
+          dispatch(openDialog(DialogType.ExternalLink, { href, host }))
         }
       }}>
       {innerText}

@@ -13,6 +13,7 @@ import { LocalSettings } from '../settings/settings-records'
 import { amberA100 } from '../styles/colors'
 
 const LinkAsText = styled.span.attrs((props: { fontWeight?: string }) => ({
+  // TODO(T1mL3arn) make this component handle very very long links ?
   fontWeight: props.fontWeight || 'normal',
 }))`
   color: ${amberA100};
@@ -21,7 +22,7 @@ const LinkAsText = styled.span.attrs((props: { fontWeight?: string }) => ({
   font-weight: ${props => props.fontWeight};
 `
 
-interface UntrustedLinkDialogProps {
+interface ExternalLinkDialogProps {
   host: string
   href: string
   localSettings: LocalSettings
@@ -29,7 +30,7 @@ interface UntrustedLinkDialogProps {
   dialogRef: React.Ref<HTMLDivElement>
 }
 
-interface UntrustedLinkDialogState {
+interface ExternalLinkDialogState {
   trustHost: boolean
 }
 
@@ -37,9 +38,9 @@ type TDispatchProp = {
   dispatch: Dispatch | ((d: Dispatch | any) => void)
 }
 
-class UntrustedLinkDialog extends React.Component<
-  UntrustedLinkDialogProps & TDispatchProp,
-  UntrustedLinkDialogState
+class ExternalLinkDialog extends React.Component<
+  ExternalLinkDialogProps & TDispatchProp,
+  ExternalLinkDialogState
 > {
   override state = {
     trustHost: false,
@@ -90,7 +91,7 @@ class UntrustedLinkDialog extends React.Component<
 
     return (
       <Dialog
-        title='Untrusted link'
+        title='External link'
         showCloseButton={true}
         onCancel={onCancel}
         buttons={buttons}
@@ -112,5 +113,5 @@ class UntrustedLinkDialog extends React.Component<
 }
 
 export default connect((state: RootState) => ({ localSettings: state.settings.local }))(
-  UntrustedLinkDialog,
+  ExternalLinkDialog,
 )
