@@ -1,22 +1,21 @@
 import React from 'react'
-import { connect, DispatchProp } from 'react-redux'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { RootState } from '../root-reducer'
 import { LocalSettings } from '../settings/settings-records'
 
 interface ExternalLinkProps {
   href: string
   innerText: string
-  localSettings: LocalSettings
 }
 
-function ExternalLink({
-  href,
-  innerText,
-  dispatch,
-  localSettings,
-}: ExternalLinkProps & DispatchProp) {
+const localSettingsSelector = (s: RootState) => s.settings.local
+
+export default function ExternalLink({ href, innerText }: ExternalLinkProps) {
+  const dispatch = useAppDispatch()
+  const localSettings: LocalSettings = useAppSelector(localSettingsSelector)
+
   return (
     <a
       href={href}
@@ -27,7 +26,7 @@ function ExternalLink({
         const url = new URL(href)
         const host = url.host
         const { trustedHosts } = localSettings
-        const isHostTrusted = trustedHosts.some((h: string) => h === host)
+        const isHostTrusted = trustedHosts.some(h => h === host)
 
         if (!isHostTrusted) {
           e.preventDefault()
@@ -38,7 +37,3 @@ function ExternalLink({
     </a>
   )
 }
-
-export default connect((state: RootState) => ({
-  localSettings: state.settings.local,
-}))(ExternalLink)
