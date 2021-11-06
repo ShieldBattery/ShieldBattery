@@ -1,14 +1,6 @@
-import {
-  GameConfig,
-  GameConfigPlayerId,
-  GameConfigPlayerName,
-  GameSource,
-  GameSourceExtraType,
-} from '../../../common/games/configuration'
-import { makeSbUserId } from '../../../common/users/user-info'
+import { GameConfig } from '../../../common/games/configuration'
 import transact from '../db/transaction'
 import { createGameUserRecord } from '../models/games-users'
-import { findUsersByName } from '../users/user-model'
 import { createGameRecord } from './game-models'
 import { genResultCode } from './gen-result-code'
 
@@ -25,58 +17,29 @@ import { genResultCode } from './gen-result-code'
  * @returns an object containing the generated `gameId` and a map of `resultCodes` indexed by
  *   player name
  */
-export async function registerGame<Source extends GameSource>(
-  mapId: string,
-  gameSource: Source,
-  gameSourceExtra: GameSourceExtraType<Source>,
-  gameConfig: Omit<GameConfig<GameConfigPlayerName>, 'gameSource' | 'gameSourceExtra'>,
-  startTime = new Date(),
-) {
+export async function registerGame(mapId: string, gameConfig: GameConfig, startTime = new Date()) {
   const humanPlayers = gameConfig.teams.reduce((r, team) => {
     const humans = team.filter(p => !p.isComputer)
     r.push(...humans)
     return r
   }, [])
-  const humanNames = humanPlayers.map(p => p.name)
-  const usersMap = await findUsersByName(humanNames)
-  for (const name of humanNames) {
-    if (!usersMap.has(name)) {
-      throw new RangeError('Invalid human player: ' + name)
-    }
-  }
 
-  const configToStore: GameConfig<GameConfigPlayerId> = {
-    gameType: gameConfig.gameType,
-    gameSubType: gameConfig.gameSubType,
-    teams: gameConfig.teams.map(team =>
-      team.map(p => ({
-        id: p.isComputer ? makeSbUserId(-1) : usersMap.get(p.name)!.id,
-        race: p.race,
-        isComputer: p.isComputer,
-      })),
-    ),
-    // NOTE(tec27): These casts are necessary because we can't convince TS that these are a
-    // narrowed, matching set (even though the parameter typings above should mostly guarantee that)
-    gameSource: gameSource as any,
-    gameSourceExtra: gameSourceExtra as any,
-  }
-
-  const resultCodes = new Map(humanNames.map(name => [name, genResultCode()]))
+  const resultCodes = new Map(humanPlayers.map(p => [p.id, genResultCode()]))
 
   // NOTE(tec27): the value here makes the linter happy, but this will actually be set in the
   // transaction below
   let gameId = ''
 
   await transact(async client => {
-    gameId = await createGameRecord(client, { startTime, mapId, config: configToStore })
+    gameId = await createGameRecord(client, { startTime, mapId, config: gameConfig })
     await Promise.all(
       humanPlayers.map(p =>
         createGameUserRecord(client, {
-          userId: usersMap.get(p.name)!.id,
+          userId: p.id,
           gameId,
           startTime,
           selectedRace: p.race,
-          resultCode: resultCodes.get(p.name)!,
+          resultCode: resultCodes.get(p.id)!,
         }),
       ),
     )

@@ -3,14 +3,14 @@ import { assertUnreachable } from '../assert-unreachable'
 import { Jsonify } from '../json'
 import { MapInfoJson } from '../maps'
 import { SbUser, SbUserId } from '../users/user-info'
-import { GameConfig, GameConfigPlayerId, GameSource } from './configuration'
+import { GameConfig, GameSource } from './configuration'
 import { ReconciledPlayerResult } from './results'
 
 export interface GameRecord {
   id: string
   startTime: Date
   mapId: string
-  config: GameConfig<GameConfigPlayerId>
+  config: GameConfig
   disputable: boolean
   disputeRequested: boolean
   disputeReviewed: boolean

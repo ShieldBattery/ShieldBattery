@@ -2,7 +2,7 @@ import { Immutable } from 'immer'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { GameConfigPlayerId } from '../../common/games/configuration'
+import { GameConfigPlayer } from '../../common/games/configuration'
 import { GameRecordJson, getGameTypeLabel } from '../../common/games/games'
 import { ReconciledPlayerResult, ReconciledResult } from '../../common/games/results'
 import { SbUserId } from '../../common/users/user-info'
@@ -371,7 +371,7 @@ function SummaryPage({
   const configAndResults = useMemo(() => {
     const result = new Map<
       SbUserId,
-      [config: GameConfigPlayerId, result: ReconciledPlayerResult | undefined]
+      [config: GameConfigPlayer, result: ReconciledPlayerResult | undefined]
     >()
 
     if (!game) {
@@ -469,7 +469,7 @@ const StyledGameResultText = styled(GameResultText)`
 
 export interface PlayerResultProps {
   className?: string
-  config: GameConfigPlayerId
+  config: GameConfigPlayer
   result?: ReconciledPlayerResult
 }
 

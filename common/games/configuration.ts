@@ -1,3 +1,4 @@
+import { SetOptional } from 'type-fest'
 import { assertUnreachable } from '../assert-unreachable'
 import { MatchmakingType } from '../matchmaking'
 import { RaceChar } from '../races'
@@ -50,40 +51,31 @@ export function gameTypeToLabel(gameType: GameType): string {
   }
 }
 
-export interface GameConfigPlayerId {
+export interface GameConfigPlayer {
   id: SbUserId
   race: RaceChar
   isComputer: boolean
 }
 
-// TODO(tec27): Remove usages of this (use IDs instead), so we can reduce the amount of indirection
-// and type explosion here
-export interface GameConfigPlayerName {
-  name: string
-  race: RaceChar
-  isComputer: boolean
-}
-
-interface BaseGameConfig<PlayerType, Source extends GameSource, SourceExtra> {
+interface BaseGameConfig<Source extends GameSource, SourceExtra> {
   gameSource: Source
   gameSourceExtra: SourceExtra
   gameType: GameType
   gameSubType: number
-  teams: PlayerType[][]
+  teams: GameConfigPlayer[][]
 }
 
-export type LobbyGameConfig<PlayerType> = BaseGameConfig<PlayerType, GameSource.Lobby, undefined>
-
-// TODO(tec27): Make SourceExtra an object with information about matchmaking type + arranged teams
-export type MatchmakingGameConfig<PlayerType> = BaseGameConfig<
-  PlayerType,
-  GameSource.Matchmaking,
-  MatchmakingType
+export type LobbyGameConfig = SetOptional<
+  BaseGameConfig<GameSource.Lobby, undefined>,
+  'gameSourceExtra'
 >
 
-export type GameConfig<PlayerType> = LobbyGameConfig<PlayerType> | MatchmakingGameConfig<PlayerType>
+// TODO(tec27): Make SourceExtra an object with information about matchmaking type + arranged teams
+export type MatchmakingGameConfig = BaseGameConfig<GameSource.Matchmaking, MatchmakingType>
+
+export type GameConfig = LobbyGameConfig | MatchmakingGameConfig
 
 /** Returns the type of the `gameSourceExtra` param for a given `GameSource` type. */
-export type GameSourceExtraType<Source extends GameSource> = (GameConfig<any> & {
+export type GameSourceExtraType<Source extends GameSource> = (GameConfig & {
   gameSource: Source
 })['gameSourceExtra']

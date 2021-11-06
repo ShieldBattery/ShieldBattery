@@ -696,6 +696,7 @@ export class LobbyApi {
     const gameConfig = {
       gameType: lobby.gameType,
       gameSubType: lobby.gameSubType,
+      gameSource: GameSource.Lobby,
       // TODO(tec27): Add observers into this config somewhere? Right now we store no record that
       // they were there
       teams: lobby.teams
@@ -703,7 +704,7 @@ export class LobbyApi {
           team.slots
             .filter(s => s.type === 'human' || s.type === 'computer' || s.type === 'umsComputer')
             .map(s => ({
-              name: s.name,
+              id: s.userId,
               race: s.race,
               isComputer: s.type === 'computer' || s.type === 'umsComputer',
             }))
@@ -720,7 +721,6 @@ export class LobbyApi {
       const gameLoaded = gameLoader.loadGame({
         players: getHumanSlots(lobby),
         mapId: lobby.map.id,
-        gameSource: GameSource.Lobby,
         gameConfig,
         cancelToken,
         onGameSetup: (setup, resultCodes) => {
@@ -779,7 +779,7 @@ export class LobbyApi {
       this._publishToClient(lobby, player.userId, {
         type: 'setupGame',
         setup,
-        resultCode: resultCodes.get(player.name),
+        resultCode: resultCodes.get(player.userId),
       })
     }
   }
