@@ -159,6 +159,12 @@ export interface SendChatMessageServerBody {
 export interface GetChannelHistoryServerPayload {
   /** A list of messages that were retrieved for the chat channel. */
   messages: ServerChatMessage[]
+  /**
+   * A list of user infos for all channel users that were the main "subject" in the messages, if
+   * any. The "subject" is defined based on the message type, i.e. for `TextMessage` it's the author
+   * of the message, for `JoinedChannelMessage` it's the user that has joined, etc.
+   */
+  users: SbUser[]
   /** A list of user infos for all channel users that were mentioned in the messages, if any. */
   mentions: SbUser[]
 }

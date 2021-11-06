@@ -83,8 +83,18 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.usernameToId.set(user.name, user.id)
   },
 
+  ['@chat/loadMessageHistory'](state, action) {
+    if (action.error) {
+      return
+    }
+
+    updateUsers(state, action.payload.users)
+    updateUsers(state, action.payload.mentions)
+  },
+
   ['@chat/updateMessage'](state, action) {
-    updateUsers(state, [action.payload.user, ...action.payload.mentions])
+    updateUsers(state, [action.payload.user])
+    updateUsers(state, action.payload.mentions)
   },
 
   ['@chat/retrieveUserList'](state, action) {
@@ -124,10 +134,12 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
 
     updateUsers(state, action.payload.users)
+    updateUsers(state, action.payload.mentions)
   },
 
   ['@whispers/updateMessage'](state, action) {
-    updateUsers(state, [...action.payload.users, ...action.payload.mentions])
+    updateUsers(state, action.payload.users)
+    updateUsers(state, action.payload.mentions)
   },
 
   ['@parties/init'](state, action) {

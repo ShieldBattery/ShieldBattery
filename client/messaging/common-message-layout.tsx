@@ -1,10 +1,10 @@
-import { rgba } from 'polished'
 import React, { useMemo } from 'react'
 import styled from 'styled-components'
+import { assertUnreachable } from '../../common/assert-unreachable'
 import { matchLinks } from '../../common/text/links'
 import { matchMentionsMarkup } from '../../common/text/mentions'
-import { SbUserId } from '../../common/users/user-info'
-import { amberA100, blue400 } from '../styles/colors'
+import { makeSbUserId, SbUserId } from '../../common/users/user-info'
+import { amberA100 } from '../styles/colors'
 import { body2 } from '../styles/typography'
 import { ConnectedUsername } from './connected-username'
 import {
@@ -36,14 +36,6 @@ const Text = styled.span`
   overflow: hidden;
 `
 
-const UserMention = styled.span`
-  background-color: ${rgba(blue400, 0.48)};
-
-  &:hover {
-    background-color: ${rgba(blue400, 0.87)};
-  }
-`
-
 function* getAllMatches(text: string) {
   yield* matchMentionsMarkup(text)
   yield* matchLinks(text)
@@ -64,22 +56,27 @@ export const TextMessage = React.memo<{
     let isHighlighted = false
 
     for (const match of sortedMatches) {
+      // This probably can't happen at this moment, but to ensure we don't get tripped by it in the
+      // future, if this happens we skip the match entirely as it means it overlaps with a previous
+      // match.
+      if (match.index < lastIndex) {
+        continue
+      }
+
       // Insert preceding text, if any
-      if (match.index! > lastIndex) {
+      if (match.index > lastIndex) {
         elements.push(text.substring(lastIndex, match.index))
       }
 
       if (match.type === 'mentionMarkup') {
-        const userId = Number(match.groups.userId) as SbUserId
+        const userId = makeSbUserId(Number(match.groups.userId))
         if (userId === selfUserId) {
           isHighlighted = true
         }
 
         elements.push(
           match.groups.prefix,
-          <UserMention key={match.index}>
-            <ConnectedUsername userId={userId} isMention={true} />
-          </UserMention>,
+          <ConnectedUsername key={match.index} userId={userId} isMention={true} />,
           match.groups.postfix,
         )
       } else if (match.type === 'link') {
@@ -91,9 +88,11 @@ export const TextMessage = React.memo<{
             {match.text}
           </a>,
         )
+      } else {
+        assertUnreachable(match)
       }
 
-      lastIndex = match.index! + match.text.length
+      lastIndex = match.index + match.text.length
     }
 
     // Insert remaining text, if any

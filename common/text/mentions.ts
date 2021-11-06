@@ -29,6 +29,19 @@ export const MENTION_MARKUP_REGEX = new RegExp(
   'gi',
 )
 
+export interface UserMentionGroups {
+  prefix: string
+  username: string
+  postfix: string
+}
+
+export interface UserMentionMatch {
+  type: 'mention'
+  text: string
+  index: number
+  groups: UserMentionGroups
+}
+
 /**
  * Matches all user mentions in a given text. The user is considered mentioned if the text contains
  * their name, preceded by the @ sign. Note that this function only matches things that fit the
@@ -37,13 +50,8 @@ export const MENTION_MARKUP_REGEX = new RegExp(
  * @returns A generator of matches for mentions, where each match includes a named capture group
  *   called "username" which contains just the matched username of the user.
  */
-export function* matchUserMentions(text: string): Generator<{
-  type: 'mention'
-  text: string
-  index: number
-  groups: Record<'prefix' | 'username' | 'postfix', string>
-}> {
-  const matches: IterableIterator<TypedGroupRegExpMatchArray<'prefix' | 'username' | 'postfix'>> =
+export function* matchUserMentions(text: string): Generator<UserMentionMatch> {
+  const matches: IterableIterator<TypedGroupRegExpMatchArray<keyof UserMentionGroups>> =
     text.matchAll(MENTION_REGEX) as IterableIterator<any>
 
   for (const match of matches) {
@@ -56,6 +64,19 @@ export function* matchUserMentions(text: string): Generator<{
   }
 }
 
+export interface MentionMarkupGroups {
+  prefix: string
+  userId: string
+  postfix: string
+}
+
+export interface MentionMarkupMatch {
+  type: 'mentionMarkup'
+  text: string
+  index: number
+  groups: MentionMarkupGroups
+}
+
 /**
  * Matches all mention markups in a given text. The mention markup contains the user ID, which can
  * then be used to get the full user's info.
@@ -63,13 +84,8 @@ export function* matchUserMentions(text: string): Generator<{
  * @returns A generator of matches for mention markups, where each match includes a named capture
  *   group called "userId" which contains just the matched user ID of the user.
  */
-export function* matchMentionsMarkup(text: string): Generator<{
-  type: 'mentionMarkup'
-  text: string
-  index: number
-  groups: Record<'prefix' | 'userId' | 'postfix', string>
-}> {
-  const matches: IterableIterator<TypedGroupRegExpMatchArray<'prefix' | 'userId' | 'postfix'>> =
+export function* matchMentionsMarkup(text: string): Generator<MentionMarkupMatch> {
+  const matches: IterableIterator<TypedGroupRegExpMatchArray<keyof MentionMarkupGroups>> =
     text.matchAll(MENTION_MARKUP_REGEX) as IterableIterator<any>
 
   for (const match of matches) {

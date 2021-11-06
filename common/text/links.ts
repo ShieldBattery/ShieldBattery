@@ -4,12 +4,14 @@
  */
 const URL_REGEX = /(?<g1>https?:\/\/)(?:[^\s)"\].]|(?:\.(?=\S))|(?<=\k<g1>.*\([^)]*)\)){2,}/gi
 
-/** Returns a generator of matches for links within the specified `text`. */
-export function* matchLinks(text: string): Generator<{
+export interface LinkMatch {
   type: 'link'
   text: string
   index: number
-}> {
+}
+
+/** Returns a generator of matches for links within the specified `text`. */
+export function* matchLinks(text: string): Generator<LinkMatch> {
   const matches: IterableIterator<RegExpMatchArray> = text.matchAll(URL_REGEX)
 
   for (const match of matches) {

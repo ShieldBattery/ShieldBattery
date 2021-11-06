@@ -165,28 +165,31 @@ export default class WhisperService {
       )
     }
 
-    const messages = await getMessagesForWhisperSession(
+    const dbMessages = await getMessagesForWhisperSession(
       user.id,
       target.id,
       limit,
       beforeTime && beforeTime > -1 ? new Date(beforeTime) : undefined,
     )
 
-    let mentionIds = Set<SbUserId>()
-    for (const msg of messages) {
-      mentionIds = mentionIds.union(msg.data.mentions || [])
+    const messages: WhisperMessage[] = []
+    let mentionIds = new global.Set<SbUserId>()
+
+    for (const msg of dbMessages) {
+      messages.push({
+        id: msg.id,
+        from: msg.from,
+        to: msg.to,
+        sent: Number(msg.sent),
+        data: msg.data,
+      })
+      mentionIds = new global.Set<SbUserId>([...mentionIds, ...(msg.data.mentions || [])])
     }
 
-    const mentions = await findUsersById(mentionIds.toArray())
+    const mentions = await findUsersById(Array.from(mentionIds))
 
     return {
-      messages: messages.map<WhisperMessage>(m => ({
-        id: m.id,
-        from: m.from,
-        to: m.to,
-        sent: Number(m.sent),
-        data: m.data,
-      })),
+      messages,
       users: [
         { id: user.id, name: user.name },
         { id: target.id, name: target.name },

@@ -8,9 +8,10 @@ import {
   ChatUser,
   GetChannelHistoryServerPayload,
   GetChannelUsersServerPayload,
+  ServerChatMessage,
   ServerChatMessageType,
 } from '../../../common/chat'
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUser, SbUserId } from '../../../common/users/user-info'
 import { DbClient } from '../db'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
@@ -340,45 +341,46 @@ export default class ChatService {
       beforeTime && beforeTime > -1 ? new Date(beforeTime) : undefined,
     )
 
-    const messages = dbMessages.map(m => {
-      switch (m.data.type) {
-        case ServerChatMessageType.TextMessage:
-          return {
-            id: m.msgId,
-            type: m.data.type,
-            channel: m.channelName,
-            from: m.userId,
-            user: {
-              id: m.userId,
-              name: m.userName,
-            },
-            time: Number(m.sent),
-            text: m.data.text,
-          }
-        case ServerChatMessageType.JoinChannel:
-          return {
-            id: m.msgId,
-            type: m.data.type,
-            channel: m.channelName,
-            userId: m.userId,
-            time: Number(m.sent),
-          }
-        default:
-          return assertUnreachable(m.data)
-      }
-    })
+    const messages: ServerChatMessage[] = []
+    const users: SbUser[] = []
+    let mentionIds = new global.Set<SbUserId>()
 
-    let mentionIds = Set<SbUserId>()
     for (const msg of dbMessages) {
-      if (msg.data.type === ServerChatMessageType.TextMessage) {
-        mentionIds = mentionIds.union(msg.data.mentions || [])
+      switch (msg.data.type) {
+        case ServerChatMessageType.TextMessage:
+          messages.push({
+            id: msg.msgId,
+            type: msg.data.type,
+            channel: msg.channelName,
+            from: msg.userId,
+            time: Number(msg.sent),
+            text: msg.data.text,
+          })
+          users.push({ id: msg.userId, name: msg.userName })
+          mentionIds = new global.Set<SbUserId>([...mentionIds, ...(msg.data.mentions || [])])
+          break
+
+        case ServerChatMessageType.JoinChannel:
+          messages.push({
+            id: msg.msgId,
+            type: msg.data.type,
+            channel: msg.channelName,
+            userId: msg.userId,
+            time: Number(msg.sent),
+          })
+          users.push({ id: msg.userId, name: msg.userName })
+          break
+
+        default:
+          return assertUnreachable(msg.data)
       }
     }
 
-    const mentions = await findUsersById(mentionIds.toArray())
+    const mentions = await findUsersById(Array.from(mentionIds))
 
     return {
       messages,
+      users,
       mentions: Array.from(mentions.values()),
     }
   }
