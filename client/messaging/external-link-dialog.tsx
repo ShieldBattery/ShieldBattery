@@ -1,23 +1,17 @@
-import { shell } from 'electron'
-import React, { useCallback, useState } from 'react'
+import React, { MouseEvent, useCallback } from 'react'
 import styled from 'styled-components'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { RaisedButton, TextButton } from '../material/button'
-import CheckBox from '../material/check-box'
 import { Dialog } from '../material/dialog'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { mergeLocalSettings } from '../settings/action-creators'
-import { amberA100 } from '../styles/colors'
+import { body2 } from '../styles/typography'
 
-const LinkAsText = styled.span.attrs((props: { fontWeight?: string }) => ({
-  // TODO(T1mL3arn) make this component handle very very long links ?
-  fontWeight: props.fontWeight || 'normal',
-}))`
-  color: ${amberA100};
+const LinkAsText = styled.span`
+  ${body2};
   overflow-wrap: anywhere;
   user-select: text;
-  font-weight: ${props => props.fontWeight};
 `
 
 interface ExternalLinkDialogProps extends CommonDialogProps {
@@ -27,37 +21,26 @@ interface ExternalLinkDialogProps extends CommonDialogProps {
 
 export default function ExternalLinkDialog(props: ExternalLinkDialogProps) {
   const { host, href, onCancel } = props
-  const [trustHost, setTrustHost] = useState(false)
   const trustedHosts: string[] = useAppSelector(s => s.settings.local.trustedHosts)
   const dispatch = useAppDispatch()
 
-  const onOpenLinkClick = useCallback(() => {
-    if (trustHost) {
-      const settings: { trustedHosts?: string[] } = {}
+  const onOpenLinkClick = useCallback(
+    (e: MouseEvent) => {
+      dispatch(closeDialog())
 
-      settings.trustedHosts = [host, ...trustedHosts]
-
-      dispatch(mergeLocalSettings(settings))
-    }
-
-    dispatch(closeDialog())
-    shell.openExternal(href)
-  }, [dispatch, trustHost, host, trustedHosts, href])
-
-  const onTrustHostChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setTrustHost(e.target.checked)
-  }, [])
+      if (e.currentTarget.id === 'trust-host-link') {
+        dispatch(mergeLocalSettings({ trustedHosts: [host, ...trustedHosts] }))
+      } else {
+        window.open(href, '_blank')
+      }
+    },
+    [dispatch, host, trustedHosts, href],
+  )
 
   const buttons = [
     <TextButton label='Cancel' key='cancel' onClick={onCancel} />,
     <RaisedButton label='Open Link' key='open-link' color='primary' onClick={onOpenLinkClick} />,
   ]
-
-  const trustHostLabel = (
-    <>
-      Always trust <LinkAsText>{host}</LinkAsText> links
-    </>
-  )
 
   return (
     <Dialog
@@ -67,16 +50,23 @@ export default function ExternalLinkDialog(props: ExternalLinkDialogProps) {
       buttons={buttons}
       dialogRef={props.dialogRef}>
       <p>
-        You are going to visit <LinkAsText>{href}</LinkAsText> which is outside of ShieldBattery.
+        You are going to visit <LinkAsText title={href}>{clampString(href, 192)}</LinkAsText> which
+        is outside of ShieldBattery.
       </p>
-      <CheckBox
-        label={trustHostLabel}
-        disabled={false}
-        name='trust-host'
-        value='trust-host'
-        checked={trustHost}
-        onChange={onTrustHostChange}
-      />
+      <br />
+      <a
+        href={href}
+        target='_blank'
+        rel='noopener nofollow'
+        id='trust-host-link'
+        onClick={onOpenLinkClick}
+        title={`Mark host as trusted and open ${href}`}>
+        Always trust <LinkAsText>{clampString(host, 64)}</LinkAsText> links
+      </a>
     </Dialog>
   )
+}
+
+function clampString(str: string, length: number, postfix = '...') {
+  return str.length > length ? str.slice(0, length - postfix.length) + postfix : str
 }
