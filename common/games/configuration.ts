@@ -70,8 +70,13 @@ export type LobbyGameConfig = SetOptional<
   'gameSourceExtra'
 >
 
-// TODO(tec27): Make SourceExtra an object with information about matchmaking type + arranged teams
-export type MatchmakingGameConfig = BaseGameConfig<GameSource.Matchmaking, MatchmakingType>
+export interface MatchmakingExtra1v1 {
+  type: MatchmakingType
+}
+
+export type MatchmakingExtra = MatchmakingExtra1v1
+
+export type MatchmakingGameConfig = BaseGameConfig<GameSource.Matchmaking, MatchmakingExtra>
 
 export type GameConfig = LobbyGameConfig | MatchmakingGameConfig
 

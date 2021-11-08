@@ -594,7 +594,7 @@ export class MatchmakingService {
       gameType: GameType.OneVsOne,
       gameSubType: 0,
       gameSource: GameSource.Matchmaking,
-      gameSourceExtra: match.type,
+      gameSourceExtra: { type: match.type },
       teams: [
         slots.map(s => ({
           id: s.userId,

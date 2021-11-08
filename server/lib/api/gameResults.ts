@@ -4,7 +4,6 @@ import Joi from 'joi'
 import Koa from 'koa'
 import { GameSource } from '../../../common/games/configuration'
 import { GameClientPlayerResult, GameClientResult } from '../../../common/games/results'
-import { MatchmakingType } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/user-info'
 import { UserStats } from '../../../common/users/user-stats'
@@ -159,7 +158,7 @@ async function submitGameResults(ctx: RouterContext, next: Koa.Next) {
           const mmrs = await getMatchmakingRatingsWithLock(
             client,
             userIds,
-            gameRecord.config.gameSourceExtra as MatchmakingType,
+            gameRecord.config.gameSourceExtra.type,
           )
           if (mmrs.length !== userIds.length) {
             throw new Error('missing MMR for some users')
