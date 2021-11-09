@@ -166,7 +166,7 @@ export class UserApi {
     })
     const userStatsPromise = getUserStats(user.id)
 
-    const NUM_RECENT_GAMES = 5
+    const NUM_RECENT_GAMES = 6
     const matchHistoryPromise = (async () => {
       const games = await getRecentGamesForUser(user.id, NUM_RECENT_GAMES)
       const uniqueUsers = new Set<SbUserId>()
