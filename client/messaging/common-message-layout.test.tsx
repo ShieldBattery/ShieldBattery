@@ -85,7 +85,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
         <common-message-layout__Text>
           hey
            
-          <ConnectedUsername
+          <common-message-layout__MentionedUsername
             isMention={true}
             userId={123}
           />
@@ -121,7 +121,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
           </a>
            go here
            
-          <ConnectedUsername
+          <common-message-layout__MentionedUsername
             isMention={true}
             userId={123}
           />
@@ -150,7 +150,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
         <common-message-layout__Text>
           hey
            
-          <ConnectedUsername
+          <common-message-layout__MentionedUsername
             isMention={true}
             userId={123}
           />
@@ -165,7 +165,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
           </a>
            go here
            
-          <ConnectedUsername
+          <common-message-layout__MentionedUsername
             isMention={true}
             userId={123}
           />
@@ -193,7 +193,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
         </message-layout__Separator>
         <common-message-layout__Text>
           
-          <ConnectedUsername
+          <common-message-layout__MentionedUsername
             isMention={true}
             userId={123}
           />
@@ -238,7 +238,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
           </a>
            go here
            
-          <ConnectedUsername
+          <common-message-layout__MentionedUsername
             isMention={true}
             userId={123}
           />
@@ -275,7 +275,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
         <common-message-layout__Text>
           Hey
            
-          <ConnectedUsername
+          <common-message-layout__MentionedUsername
             isMention={true}
             userId={1}
           />
