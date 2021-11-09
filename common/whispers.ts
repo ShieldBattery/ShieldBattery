@@ -11,7 +11,10 @@ export interface BaseWhisperMessageData {
 export interface WhisperTextMessageData extends BaseWhisperMessageData {
   type: typeof WhisperMessageType.TextMessage
   text: string
-  mentions: SbUserId[]
+  // TODO(tec27): This should probably only be optional at the DB level, clients should see this
+  // as always present (since we deal with old messages at the API layer). Need to keep separate
+  // model types vs API types like in chat, though.
+  mentions?: SbUserId[]
 }
 
 export type WhisperMessageData = WhisperTextMessageData

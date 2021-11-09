@@ -183,7 +183,7 @@ export default class WhisperService {
         sent: Number(msg.sent),
         data: msg.data,
       })
-      for (const mention of msg.data.mentions || []) {
+      for (const mention of msg.data.mentions ?? []) {
         mentionIds.add(mention)
       }
     }

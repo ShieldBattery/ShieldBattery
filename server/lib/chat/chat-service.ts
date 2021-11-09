@@ -357,7 +357,7 @@ export default class ChatService {
             text: msg.data.text,
           })
           users.push({ id: msg.userId, name: msg.userName })
-          for (const mention of msg.data.mentions || []) {
+          for (const mention of msg.data.mentions ?? []) {
             mentionIds.add(mention)
           }
           break
