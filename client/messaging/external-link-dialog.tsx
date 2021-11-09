@@ -15,26 +15,26 @@ const LinkAsText = styled.span`
 `
 
 interface ExternalLinkDialogProps extends CommonDialogProps {
-  host: string
+  domain: string
   href: string
 }
 
 export default function ExternalLinkDialog(props: ExternalLinkDialogProps) {
-  const { host, href, onCancel } = props
-  const trustedHosts: string[] = useAppSelector(s => s.settings.local.trustedHosts)
+  const { href, domain, onCancel } = props
+  const trustedDomains: string[] = useAppSelector(s => s.settings.local.trustedDomains)
   const dispatch = useAppDispatch()
 
   const onOpenLinkClick = useCallback(
     (e: MouseEvent) => {
       dispatch(closeDialog())
 
-      if (e.currentTarget.id === 'trust-host-link') {
-        dispatch(mergeLocalSettings({ trustedHosts: [host, ...trustedHosts] }))
+      if (e.currentTarget.id === 'trust-domain-link') {
+        dispatch(mergeLocalSettings({ trustedDomains: [domain, ...trustedDomains] }))
       } else {
         window.open(href, '_blank', 'noopener,noreferrer')
       }
     },
-    [dispatch, host, trustedHosts, href],
+    [dispatch, trustedDomains, href, domain],
   )
 
   const buttons = [
@@ -50,7 +50,7 @@ export default function ExternalLinkDialog(props: ExternalLinkDialogProps) {
       buttons={buttons}
       dialogRef={props.dialogRef}>
       <p>
-        You are going to visit <LinkAsText title={href}>{clampString(href, 192)}</LinkAsText> which
+        You are going to visit <LinkAsText title={href}>{clampString(href, 256)}</LinkAsText> which
         is outside of ShieldBattery.
       </p>
       <br />
@@ -58,10 +58,10 @@ export default function ExternalLinkDialog(props: ExternalLinkDialogProps) {
         href={href}
         target='_blank'
         rel='noopener nofollow noreferrer'
-        id='trust-host-link'
+        id='trust-domain-link'
         onClick={onOpenLinkClick}
-        title={`Mark host as trusted and open ${href}`}>
-        Always trust <LinkAsText>{clampString(host, 64)}</LinkAsText> links
+        title={`Mark ${domain} as trusted domain and open the link`}>
+        Trust this domain
       </a>
     </Dialog>
   )

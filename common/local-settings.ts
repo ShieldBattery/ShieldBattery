@@ -25,7 +25,7 @@ export interface LocalSettingsData extends ShieldBatteryAppSettingsData {
   v1161displayMode: number
   v1161mouseSensitivity: number
   v1161maintainAspectRatio: boolean
-  trustedHosts: Array<string>
+  trustedDomains: Array<string>
 }
 
 export interface ScrSettingsData {

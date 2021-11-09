@@ -5,16 +5,17 @@ import { ThunkAction } from '../dispatch-registry'
 
 export function maybeOpenExternalLinkDialog(e: MouseEvent<HTMLAnchorElement>): ThunkAction {
   return (dispatch, getState) => {
-    const trustedHosts: string[] = getState().settings.local.trustedHosts
-    const { href, host } = e.currentTarget
+    const trustedDomains: string[] = getState().settings.local.trustedDomains
+    const { href, host, protocol } = e.currentTarget
 
-    if (!href || !host) return
+    if (!href || !host || !protocol) return
 
-    const isHostTrusted = trustedHosts.some(h => h === host)
+    const domain = `${protocol}//${host}`
+    const isHostTrusted = trustedDomains.some(d => d === domain)
 
     if (!isHostTrusted) {
       e.preventDefault()
-      dispatch(openDialog(DialogType.ExternalLink, { href, host }))
+      dispatch(openDialog(DialogType.ExternalLink, { href, domain }))
     }
   }
 }
