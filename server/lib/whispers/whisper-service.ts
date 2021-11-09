@@ -173,7 +173,7 @@ export default class WhisperService {
     )
 
     const messages: WhisperMessage[] = []
-    let mentionIds = new global.Set<SbUserId>()
+    const mentionIds = new global.Set<SbUserId>()
 
     for (const msg of dbMessages) {
       messages.push({
@@ -183,7 +183,9 @@ export default class WhisperService {
         sent: Number(msg.sent),
         data: msg.data,
       })
-      mentionIds = new global.Set<SbUserId>([...mentionIds, ...(msg.data.mentions || [])])
+      for (const mention of msg.data.mentions || []) {
+        mentionIds.add(mention)
+      }
     }
 
     const mentions = await findUsersById(Array.from(mentionIds))

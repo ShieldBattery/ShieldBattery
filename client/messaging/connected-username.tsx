@@ -4,15 +4,12 @@ import { SbUserId } from '../../common/users/user-info'
 import { useAnchorPosition } from '../material/popover'
 import { ConnectedUserProfileOverlay } from '../profile/user-profile-overlay'
 import { useAppSelector } from '../redux-hooks'
-import { blue100 } from '../styles/colors'
 
-const Username = styled.span<{ $isMention: boolean }>`
+const Username = styled.span`
   &:hover {
     cursor: pointer;
     text-decoration: underline;
   }
-
-  ${props => (props.$isMention ? `color: ${blue100}` : '')}
 `
 
 /**
@@ -24,9 +21,11 @@ const Username = styled.span<{ $isMention: boolean }>`
  * it should ensure that the user is loaded in the store properly.
  */
 export function ConnectedUsername({
+  className,
   userId,
   isMention = false,
 }: {
+  className: string
   userId: SbUserId
   isMention?: boolean
 }) {
@@ -60,7 +59,7 @@ export function ConnectedUsername({
           originY: 'top',
         }}
       />
-      <Username ref={usernameRef} $isMention={isMention} onClick={onOpenOverlay}>
+      <Username ref={usernameRef} className={className} onClick={onOpenOverlay}>
         {isMention ? `@${user.name}` : user.name}
       </Username>
     </>

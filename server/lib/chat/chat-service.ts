@@ -343,7 +343,7 @@ export default class ChatService {
 
     const messages: ServerChatMessage[] = []
     const users: SbUser[] = []
-    let mentionIds = new global.Set<SbUserId>()
+    const mentionIds = new global.Set<SbUserId>()
 
     for (const msg of dbMessages) {
       switch (msg.data.type) {
@@ -357,7 +357,9 @@ export default class ChatService {
             text: msg.data.text,
           })
           users.push({ id: msg.userId, name: msg.userName })
-          mentionIds = new global.Set<SbUserId>([...mentionIds, ...(msg.data.mentions || [])])
+          for (const mention of msg.data.mentions || []) {
+            mentionIds.add(mention)
+          }
           break
 
         case ServerChatMessageType.JoinChannel:

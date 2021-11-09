@@ -4,7 +4,7 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { matchLinks } from '../../common/text/links'
 import { matchMentionsMarkup } from '../../common/text/mentions'
 import { makeSbUserId, SbUserId } from '../../common/users/user-info'
-import { amberA100 } from '../styles/colors'
+import { amberA100, blue100 } from '../styles/colors'
 import { body2 } from '../styles/typography'
 import { ConnectedUsername } from './connected-username'
 import {
@@ -34,6 +34,10 @@ const Text = styled.span`
   word-wrap: break-word;
   overflow-wrap: break-word;
   overflow: hidden;
+`
+
+const MentionedUsername = styled(ConnectedUsername)`
+  color: ${blue100};
 `
 
 function* getAllMatches(text: string) {
@@ -76,7 +80,7 @@ export const TextMessage = React.memo<{
 
         elements.push(
           match.groups.prefix,
-          <ConnectedUsername key={match.index} userId={userId} isMention={true} />,
+          <MentionedUsername key={match.index} userId={userId} isMention={true} />,
           match.groups.postfix,
         )
       } else if (match.type === 'link') {
