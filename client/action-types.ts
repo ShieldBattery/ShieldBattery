@@ -4,6 +4,7 @@ import { DialogActions } from './dialogs/actions'
 import { LadderActions } from './ladder/actions'
 import { MapsActions } from './maps/actions'
 import { MatchmakingActions } from './matchmaking/actions'
+import { MessagingActions } from './messaging/actions'
 import { NotificationActions } from './notifications/actions'
 import { PartyActions } from './parties/actions'
 import { ProfileActions } from './profile/actions'
@@ -16,6 +17,7 @@ type AllActions =
   | LadderActions
   | MapsActions
   | MatchmakingActions
+  | MessagingActions
   | NotificationActions
   | PartyActions
   | ProfileActions
