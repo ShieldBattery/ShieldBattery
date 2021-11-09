@@ -4,10 +4,10 @@ import Joi from 'joi'
 import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
+  GetChannelHistoryServerPayload,
   GetChannelUsersServerPayload,
   ModerateChannelUserServerBody,
   SendChatMessageServerBody,
-  ServerChatMessage,
 } from '../../../common/chat'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
 import { MULTI_CHANNEL } from '../../../common/flags'
@@ -125,6 +125,7 @@ export class ChatApi {
 
     ctx.status = 204
   }
+
   @httpPost('/:channelName/messages')
   @httpBefore(throttleMiddleware(sendThrottle, ctx => String(ctx.session!.userId)))
   async sendChatMessage(ctx: RouterContext): Promise<void> {
@@ -142,9 +143,17 @@ export class ChatApi {
     ctx.status = 204
   }
 
+  // Leaving the old API with a dummy payload in order to not break the auto-update functionality
+  // for old clients.
   @httpGet('/:channelName/messages')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
-  async getChannelHistory(ctx: RouterContext): Promise<ServerChatMessage[]> {
+  getChannelHistoryOld(ctx: RouterContext) {
+    return []
+  }
+
+  @httpGet('/:channelName/messages2')
+  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
+  async getChannelHistory(ctx: RouterContext): Promise<GetChannelHistoryServerPayload> {
     const channelName = getValidatedChannelName(ctx)
     const {
       query: { limit, beforeTime },

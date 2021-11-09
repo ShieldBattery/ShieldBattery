@@ -109,19 +109,20 @@ const eventToAction: EventToActionMap = {
   },
 
   chatMessage(partyId, event) {
-    const { from, time, text } = event
+    return (dispatch, getState) => {
+      const { auth } = getState()
 
-    // Notify the main process of the new message, so it can display an appropriate notification
-    ipcRenderer.send('chatNewMessage', { user: event.from.name, message: event.text })
+      // Notify the main process of the new message, so it can display an appropriate notification
+      ipcRenderer.send('chatNewMessage', {
+        user: event.message.from.name,
+        message: event.message.text,
+        urgent: event.mentions.some(m => m.id === auth.user.id),
+      })
 
-    return {
-      type: '@parties/updateChatMessage',
-      payload: {
-        partyId,
-        from,
-        time,
-        text,
-      },
+      dispatch({
+        type: '@parties/updateChatMessage',
+        payload: event,
+      })
     }
   },
 

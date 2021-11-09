@@ -32,7 +32,6 @@ export interface BaseChatMessage {
 export interface TextMessage extends BaseChatMessage {
   type: typeof ServerChatMessageType.TextMessage
   from: SbUserId
-  user: ChatUser
   text: string
 }
 
@@ -114,8 +113,14 @@ export interface ChatBanEvent {
   newOwner: ChatUser | null
 }
 
-export interface ChatMessageEvent extends TextMessage {
-  action: 'message'
+export interface ChatMessageEvent {
+  action: 'message2'
+  /** A text message that was sent in a chat channel. */
+  message: TextMessage
+  /** User info for the channel user that sent the message. */
+  user: ChatUser
+  /** User infos for all channel users that were mentioned in the message, if any. */
+  mentions: SbUser[]
 }
 
 export interface ChatUserActiveEvent {
@@ -146,6 +151,22 @@ export type ChatEvent =
 
 export interface SendChatMessageServerBody {
   message: string
+}
+
+/**
+ * Payload returned for a request to retrieve the channel message history.
+ */
+export interface GetChannelHistoryServerPayload {
+  /** A list of messages that were retrieved for the chat channel. */
+  messages: ServerChatMessage[]
+  /**
+   * A list of user infos for all channel users that were the main "subject" in the messages, if
+   * any. The "subject" is defined based on the message type, i.e. for `TextMessage` it's the author
+   * of the message, for `JoinedChannelMessage` it's the user that has joined, etc.
+   */
+  users: SbUser[]
+  /** A list of user infos for all channel users that were mentioned in the messages, if any. */
+  mentions: SbUser[]
 }
 
 /**

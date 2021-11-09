@@ -235,7 +235,7 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
   ipcMain.on('chatNewMessage', (event, data) => {
     if (mainWindow && !mainWindow.isFocused()) {
       if (systemTray) {
-        systemTray.setUnreadIcon()
+        systemTray.showUnreadIcon(data.urgent)
       }
     }
   })

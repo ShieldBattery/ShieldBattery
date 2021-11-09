@@ -6,15 +6,17 @@ import {
   ChatEvent,
   ChatInitEvent,
   ChatUser,
+  GetChannelHistoryServerPayload,
   GetChannelUsersServerPayload,
   ServerChatMessage,
   ServerChatMessageType,
 } from '../../../common/chat'
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUser, SbUserId } from '../../../common/users/user-info'
 import { DbClient } from '../db'
 import filterChatMessage from '../messaging/filter-chat-message'
+import { processMessageContents } from '../messaging/process-chat-message'
 import { getPermissions } from '../models/permissions'
-import { findUserById } from '../users/user-model'
+import { findUserById, findUsersById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
@@ -288,23 +290,29 @@ export default class ChatService {
     }
 
     const text = filterChatMessage(message)
+    const [processedText, mentionedUsers] = await processMessageContents(text)
+    const mentions = Array.from(mentionedUsers.values())
     const result = await addMessageToChannel(userSockets.userId, originalChannelName, {
       type: ServerChatMessageType.TextMessage,
-      text,
+      text: processedText,
+      mentions: mentions.map(m => m.id),
     })
 
     this.publisher.publish(getChannelPath(originalChannelName), {
-      action: 'message',
-      id: result.msgId,
-      type: result.data.type,
-      channel: result.channelName,
-      from: result.userId,
+      action: 'message2',
+      message: {
+        id: result.msgId,
+        type: result.data.type,
+        channel: result.channelName,
+        from: result.userId,
+        time: Number(result.sent),
+        text: result.data.text,
+      },
       user: {
         id: result.userId,
         name: result.userName,
       },
-      time: Number(result.sent),
-      text: result.data.text,
+      mentions,
     })
   }
 
@@ -313,7 +321,7 @@ export default class ChatService {
     userId: SbUserId,
     limit?: number,
     beforeTime?: number,
-  ): Promise<ServerChatMessage[]> {
+  ): Promise<GetChannelHistoryServerPayload> {
     const userSockets = this.getUserSockets(userId)
     const originalChannelName = await this.getOriginalChannelName(channelName)
     // TODO(tec27): lookup channel keys case insensitively?
@@ -327,39 +335,56 @@ export default class ChatService {
       )
     }
 
-    const messages = await getMessagesForChannel(
+    const dbMessages = await getMessagesForChannel(
       originalChannelName,
       limit,
       beforeTime && beforeTime > -1 ? new Date(beforeTime) : undefined,
     )
 
-    return messages.map(m => {
-      switch (m.data.type) {
+    const messages: ServerChatMessage[] = []
+    const users: SbUser[] = []
+    const mentionIds = new global.Set<SbUserId>()
+
+    for (const msg of dbMessages) {
+      switch (msg.data.type) {
         case ServerChatMessageType.TextMessage:
-          return {
-            id: m.msgId,
-            type: m.data.type,
-            channel: m.channelName,
-            from: m.userId,
-            user: {
-              id: m.userId,
-              name: m.userName,
-            },
-            time: Number(m.sent),
-            text: m.data.text,
+          messages.push({
+            id: msg.msgId,
+            type: msg.data.type,
+            channel: msg.channelName,
+            from: msg.userId,
+            time: Number(msg.sent),
+            text: msg.data.text,
+          })
+          users.push({ id: msg.userId, name: msg.userName })
+          for (const mention of msg.data.mentions ?? []) {
+            mentionIds.add(mention)
           }
+          break
+
         case ServerChatMessageType.JoinChannel:
-          return {
-            id: m.msgId,
-            type: m.data.type,
-            channel: m.channelName,
-            userId: m.userId,
-            time: Number(m.sent),
-          }
+          messages.push({
+            id: msg.msgId,
+            type: msg.data.type,
+            channel: msg.channelName,
+            userId: msg.userId,
+            time: Number(msg.sent),
+          })
+          users.push({ id: msg.userId, name: msg.userName })
+          break
+
         default:
-          return assertUnreachable(m.data)
+          return assertUnreachable(msg.data)
       }
-    })
+    }
+
+    const mentions = await findUsersById(Array.from(mentionIds))
+
+    return {
+      messages,
+      users,
+      mentions: Array.from(mentions.values()),
+    }
   }
 
   async getChannelUsers(

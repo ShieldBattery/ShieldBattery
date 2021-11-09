@@ -201,6 +201,7 @@ export interface WhisperMessageUpdate {
       text: string
     }
     users: SbUser[]
+    mentions: SbUser[]
   }
 }
 

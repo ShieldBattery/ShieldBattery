@@ -293,12 +293,12 @@ export async function findUsersByName(names: string[]): Promise<Map<string, SbUs
  * Returns a `Map` of id -> `User` for a given list of IDs. Any IDs that can't be found won't
  * be present in the resulting `Map`.
  */
-export async function findUsersById(ids: number[]): Promise<Map<number, SbUser>> {
+export async function findUsersById(ids: SbUserId[]): Promise<Map<SbUserId, SbUser>> {
   // TODO(tec27): Should this just return an array and let callers make the Map if they want?
   const { client, done } = await db()
   try {
     const result = await client.query<DbUser>(sql`SELECT * FROM users WHERE id = ANY (${ids})`)
-    return new Map<number, SbUser>(
+    return new Map<SbUserId, SbUser>(
       result.rows.map(row => [row.id, convertToExternal(convertFromDb(row))]),
     )
   } finally {

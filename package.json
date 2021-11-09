@@ -23,18 +23,52 @@
     "node": ">= 14.0.0"
   },
   "jest": {
-    "setupFilesAfterEnv": [
-      "./babel-register.js",
-      "core-js/proposals/reflect-metadata",
-      "jest-extended/all"
+    "projects": [
+      {
+        "displayName": "node",
+        "setupFilesAfterEnv": [
+          "./babel-register.js",
+          "core-js/proposals/reflect-metadata",
+          "jest-extended/all"
+        ],
+        "testEnvironment": "node",
+        "testMatch": [
+          "<rootDir>/app/**/*.test.[jt]s?(x)",
+          "<rootDir>/common/**/*.test.[jt]s?(x)",
+          "<rootDir>/server/**/*.test.[jt]s?(x)"
+        ]
+      },
+      {
+        "displayName": "browser",
+        "moduleNameMapper": {
+          "\\.svg$": "<rootDir>/client/__mocks__/svg-mock.tsx",
+          "\\.(html|htm|md)$": "<rootDir>/client/__mocks__/static-file-mock.ts"
+        },
+        "setupFilesAfterEnv": [
+          "./babel-register.js",
+          "core-js/proposals/reflect-metadata",
+          "jest-extended/all",
+          "./jest-client-setup.ts"
+        ],
+        "testEnvironment": "jsdom",
+        "testMatch": [
+          "<rootDir>/client/**/*.test.[jt]s?(x)"
+        ]
+      }
     ],
-    "testEnvironment": "node",
+    "testPathIgnorePatterns": [
+      "<rootDir>/app/dist",
+      "<rootDir>/app/node_modules",
+      "<rootDir>/dist",
+      "<rootDir>/node_modules",
+      "<rootDir>/server/public"
+    ],
     "watchPathIgnorePatterns": [
-      "app/dist",
-      "app/node_modules",
-      "dist",
-      "node_modules",
-      "server/public"
+      "<rootDir>/app/dist",
+      "<rootDir>/app/node_modules",
+      "<rootDir>/dist",
+      "<rootDir>/node_modules",
+      "<rootDir>/server/public"
     ]
   },
   "scripts": {
@@ -163,6 +197,7 @@
     "@types/pg": "^8.6.0",
     "@types/react": "^17.0.0",
     "@types/react-redux": "^7.1.9",
+    "@types/react-test-renderer": "^17.0.1",
     "@types/react-transition-group": "^4.4.1",
     "@types/react-virtualized": "^9.21.11",
     "@types/react-window": "^1.8.3",
@@ -220,6 +255,7 @@
     "react-redux": "^7.2.6",
     "react-spring": "^9.3.0",
     "react-svg-loader": "3.0.3",
+    "react-test-renderer": "^17.0.2",
     "react-transition-group": "^4.3.0",
     "react-virtualized": "^9.21.2",
     "react-window": "^1.8.6",
