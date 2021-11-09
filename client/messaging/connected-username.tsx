@@ -25,7 +25,7 @@ export function ConnectedUsername({
   userId,
   isMention = false,
 }: {
-  className: string
+  className?: string
   userId: SbUserId
   isMention?: boolean
 }) {
