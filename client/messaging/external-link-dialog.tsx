@@ -31,7 +31,7 @@ export default function ExternalLinkDialog(props: ExternalLinkDialogProps) {
       if (e.currentTarget.id === 'trust-host-link') {
         dispatch(mergeLocalSettings({ trustedHosts: [host, ...trustedHosts] }))
       } else {
-        window.open(href, '_blank')
+        window.open(href, '_blank', 'noopener,noreferrer')
       }
     },
     [dispatch, host, trustedHosts, href],
@@ -57,7 +57,7 @@ export default function ExternalLinkDialog(props: ExternalLinkDialogProps) {
       <a
         href={href}
         target='_blank'
-        rel='noopener nofollow'
+        rel='noopener nofollow noreferrer'
         id='trust-host-link'
         onClick={onOpenLinkClick}
         title={`Mark host as trusted and open ${href}`}>

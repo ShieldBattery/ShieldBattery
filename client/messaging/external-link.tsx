@@ -14,7 +14,7 @@ export default function ExternalLink({ href, innerText }: ExternalLinkProps) {
     <a
       href={href}
       target='_blank'
-      rel='noopener nofollow'
+      rel='nofollow noreferrer noopener'
       onClick={e => dispatch(maybeOpenExternalLinkDialog(e))}>
       {innerText}
     </a>
