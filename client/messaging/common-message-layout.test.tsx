@@ -89,7 +89,6 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             isMention={true}
             userId={123}
           />
-          
         </common-message-layout__Text>
       </TimestampMessageLayout>
     `)
@@ -125,7 +124,6 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             isMention={true}
             userId={123}
           />
-          
         </common-message-layout__Text>
       </TimestampMessageLayout>
     `)
@@ -154,8 +152,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             isMention={true}
             userId={123}
           />
-           
-          see 
+           see 
           <a
             href="http://www.example.com"
             rel="noopener nofollow"
@@ -169,7 +166,6 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             isMention={true}
             userId={123}
           />
-          
         </common-message-layout__Text>
       </TimestampMessageLayout>
     `)
@@ -197,8 +193,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             isMention={true}
             userId={123}
           />
-           
-          go to 
+           go to 
           <a
             href="http://www.example.com"
             rel="noopener nofollow"
@@ -242,8 +237,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             isMention={true}
             userId={123}
           />
-           
-          or here 
+           or here 
           <a
             href="http://www.example.com"
             rel="noopener nofollow"
@@ -279,7 +273,6 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             isMention={true}
             userId={1}
           />
-          
         </common-message-layout__Text>
       </TimestampMessageLayout>
     `)

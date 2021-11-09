@@ -2,7 +2,7 @@ import { USERNAME_ALLOWED_CHARACTERS } from '../constants'
 import { TypedGroupRegExpMatchArray } from '../regex'
 
 const MENTION_PREFIX = String.raw`(?<prefix>\s|^)`
-const MENTION_POSTFIX = String.raw`(?<postfix>\s|$|[,;:?])`
+const MENTION_POSTFIX = String.raw`(?=\s|$|[,;:?])`
 
 /**
  * Regex for detecting and parsing user mentions. User mentions are a piece of text that start with
@@ -10,9 +10,11 @@ const MENTION_POSTFIX = String.raw`(?<postfix>\s|$|[,;:?])`
  * missing from the allowed punctuation list are . and ! since they are allowed username characters
  * as well.
  *
- * The matched user's name is available in the "user" capture group. There's also two additional
- * capture groups, namely "prefix" and "postfix", that contain all the matched characters
- * before/after the username.
+ * The matched user's name is available in the "user" capture group. There's also one additional
+ * named capture group, namely "prefix", that contains all the matched characters before the
+ * username. For characters that are allowed to come after the username, a positive lookahead group
+ * is used. Those character won't end up in a matched string, which could potentially interfer with
+ * prefix characters of the next match.
  */
 export const MENTION_REGEX = new RegExp(
   String.raw`${MENTION_PREFIX}@(?<username>${USERNAME_ALLOWED_CHARACTERS})${MENTION_POSTFIX}`,
@@ -32,7 +34,6 @@ export const MENTION_MARKUP_REGEX = new RegExp(
 export interface UserMentionGroups {
   prefix: string
   username: string
-  postfix: string
 }
 
 export interface UserMentionMatch {
@@ -67,7 +68,6 @@ export function* matchUserMentions(text: string): Generator<UserMentionMatch> {
 export interface MentionMarkupGroups {
   prefix: string
   userId: string
-  postfix: string
 }
 
 export interface MentionMarkupMatch {
