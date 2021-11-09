@@ -10,7 +10,8 @@ import {
   WhisperUserStatus,
 } from '../../../common/whispers'
 import filterChatMessage from '../messaging/filter-chat-message'
-import { findUserById, findUserByName } from '../users/user-model'
+import { processMessageContents } from '../messaging/process-chat-message'
+import { findUserById, findUserByName, findUsersById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
@@ -114,9 +115,12 @@ export default class WhisperService {
     }
 
     const text = filterChatMessage(message)
+    const [processedText, mentionedUsers] = await processMessageContents(text)
+    const mentions = Array.from(mentionedUsers.values())
     const result = await addMessageToWhisper(user.id, target.id, {
       type: WhisperMessageType.TextMessage,
-      text,
+      text: processedText,
+      mentions: mentions.map(m => m.id),
     })
 
     // TODO(tec27): This makes the start throttle rather useless, doesn't it? Think of a better way
@@ -139,6 +143,7 @@ export default class WhisperService {
         { id: user.id, name: user.name },
         { id: target.id, name: target.name },
       ],
+      mentions,
     })
   }
 
@@ -160,24 +165,38 @@ export default class WhisperService {
       )
     }
 
-    const messages = await getMessagesForWhisperSession(
+    const dbMessages = await getMessagesForWhisperSession(
       user.id,
       target.id,
       limit,
       beforeTime && beforeTime > -1 ? new Date(beforeTime) : undefined,
     )
+
+    const messages: WhisperMessage[] = []
+    const mentionIds = new global.Set<SbUserId>()
+
+    for (const msg of dbMessages) {
+      messages.push({
+        id: msg.id,
+        from: msg.from,
+        to: msg.to,
+        sent: Number(msg.sent),
+        data: msg.data,
+      })
+      for (const mention of msg.data.mentions ?? []) {
+        mentionIds.add(mention)
+      }
+    }
+
+    const mentions = await findUsersById(Array.from(mentionIds))
+
     return {
-      messages: messages.map<WhisperMessage>(m => ({
-        id: m.id,
-        from: m.from,
-        to: m.to,
-        sent: Number(m.sent),
-        data: m.data,
-      })),
+      messages,
       users: [
         { id: user.id, name: user.name },
         { id: target.id, name: target.name },
       ],
+      mentions: Array.from(mentions.values()),
     }
   }
 

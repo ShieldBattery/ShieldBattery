@@ -4,16 +4,27 @@ import cuid from 'cuid'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import { NydusServer } from 'nydus'
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isValidEmail, isValidPassword, isValidUsername } from '../../../common/constants'
+import { toGameRecordJson } from '../../../common/games/games'
 import { LadderPlayer } from '../../../common/ladder'
 import { toMapInfoJson } from '../../../common/maps'
 import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
+import { ALL_POLICY_TYPES, SbPolicyType } from '../../../common/policies/policy-type'
 import { SbPermissions } from '../../../common/users/permissions'
 import { ClientSessionInfo } from '../../../common/users/session'
-import { GetUserProfilePayload, SbUser, SelfUser } from '../../../common/users/user-info'
+import {
+  AcceptPoliciesBody,
+  AcceptPoliciesPayload,
+  GetUserProfilePayload,
+  SbUser,
+  SbUserId,
+  SelfUser,
+} from '../../../common/users/user-info'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { HttpErrorWithPayload } from '../errors/error-with-payload'
+import { getRecentGamesForUser } from '../games/game-models'
 import { httpApi } from '../http/http-api'
 import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import sendMail from '../mail/mailer'
@@ -24,7 +35,6 @@ import {
   consumeEmailVerificationCode,
   getEmailVerificationsCount,
 } from '../models/email-verifications'
-import { getRecentGamesForUser } from '../models/games'
 import { usePasswordResetCode } from '../models/password-resets'
 import { checkAnyPermission } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -156,10 +166,10 @@ export class UserApi {
     })
     const userStatsPromise = getUserStats(user.id)
 
-    const NUM_RECENT_GAMES = 5
+    const NUM_RECENT_GAMES = 6
     const matchHistoryPromise = (async () => {
       const games = await getRecentGamesForUser(user.id, NUM_RECENT_GAMES)
-      const uniqueUsers = new Set<number>()
+      const uniqueUsers = new Set<SbUserId>()
       const uniqueMaps = new Set<string>()
       for (const g of games) {
         uniqueMaps.add(g.mapId)
@@ -178,7 +188,7 @@ export class UserApi {
       ])
 
       return {
-        games: games.map(g => ({ ...g, startTime: Number(g.startTime) })),
+        games: games.map(g => toGameRecordJson(g)),
         maps: maps.map(m => toMapInfoJson(m)),
         users: Array.from(users.values()),
       }
@@ -285,6 +295,62 @@ export class UserApi {
     }
 
     return user
+  }
+
+  @httpPost('/:id/policies')
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(accountUpdateThrottle, ctx => String(ctx.session!.userId)),
+  )
+  async acceptPolicies(ctx: RouterContext): Promise<AcceptPoliciesPayload> {
+    const { params, body } = validateRequest(ctx, {
+      params: Joi.object<{ id: number }>({
+        id: JOI_USER_ID.required(),
+      }),
+      body: Joi.object<AcceptPoliciesBody>({
+        policies: Joi.array()
+          .items(
+            Joi.array()
+              .ordered(Joi.valid(...ALL_POLICY_TYPES).required(), Joi.number().required())
+              .required(),
+          )
+          .min(1)
+          .required(),
+      }),
+    })
+
+    if (params.id !== ctx.session!.userId) {
+      throw new httpErrors.Unauthorized("Can't change another user's account")
+    }
+
+    const updates: Partial<UserUpdatables> = {}
+    for (const [policyType, version] of body.policies) {
+      switch (policyType) {
+        case SbPolicyType.Privacy:
+          updates.acceptedPrivacyVersion = version
+          break
+        case SbPolicyType.TermsOfService:
+          updates.acceptedTermsVersion = version
+          break
+        case SbPolicyType.AcceptableUse:
+          updates.acceptedUsePolicyVersion = version
+          break
+        default:
+          // TODO(tec27): Perhaps we should just skip this policy instead of 500ing?
+          assertUnreachable(policyType)
+      }
+    }
+
+    const user = await updateUser(params.id, updates)
+    if (!user) {
+      throw new Error("Current user couldn't be found for updating")
+    }
+
+    ctx.session!.acceptedPrivacyVersion = user.acceptedPrivacyVersion
+    ctx.session!.acceptedTermsVersion = user.acceptedTermsVersion
+    ctx.session!.acceptedUsePolicyVersion = user.acceptedUsePolicyVersion
+
+    return { user }
   }
 
   @httpPost('/:username/password')

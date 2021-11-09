@@ -20,7 +20,15 @@ const Username = styled.span`
  * This component is connected to the store where it tries to find the user. All the services using
  * it should ensure that the user is loaded in the store properly.
  */
-export function ConnectedUsername(props: { userId: SbUserId }) {
+export function ConnectedUsername({
+  className,
+  userId,
+  isMention = false,
+}: {
+  className?: string
+  userId: SbUserId
+  isMention?: boolean
+}) {
   const [overlayOpen, setOverlayOpen] = useState(false)
   const usernameRef = useRef(null)
   const [, anchorX, anchorY] = useAnchorPosition('right', 'top', usernameRef.current ?? null)
@@ -32,9 +40,9 @@ export function ConnectedUsername(props: { userId: SbUserId }) {
     setOverlayOpen(false)
   }, [])
 
-  const user = useAppSelector(s => s.users.byId.get(props.userId))
+  const user = useAppSelector(s => s.users.byId.get(userId))
   if (!user) {
-    return <span>Unknown user</span>
+    return <span>[Unknown user]</span>
   }
 
   return (
@@ -51,8 +59,8 @@ export function ConnectedUsername(props: { userId: SbUserId }) {
           originY: 'top',
         }}
       />
-      <Username ref={usernameRef} onClick={onOpenOverlay}>
-        {user.name}
+      <Username ref={usernameRef} className={className} onClick={onOpenOverlay}>
+        {isMention ? `@${user.name}` : user.name}
       </Username>
     </>
   )

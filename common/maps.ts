@@ -92,6 +92,18 @@ export interface MapForce {
   players: MapForcePlayer[]
 }
 
+export interface MapData {
+  format: MapExtension
+  tileset: Tileset
+  originalName: string
+  originalDescription: string
+  slots: number
+  umsSlots: number
+  umsForces: MapForce[]
+  width: number
+  height: number
+}
+
 export interface MapInfo {
   id: string
   hash: string
@@ -105,17 +117,7 @@ export interface MapInfo {
   }
   uploadDate: Date
   visibility: MapVisibility
-  mapData: {
-    format: MapExtension
-    tileset: Tileset
-    originalName: string
-    originalDescription: string
-    slots: number
-    umsSlots: number
-    umsForces: MapForce[]
-    width: number
-    height: number
-  }
+  mapData: MapData
   isFavorited: boolean
   mapUrl?: string
   image256Url?: string

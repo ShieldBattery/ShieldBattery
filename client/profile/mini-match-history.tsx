@@ -6,10 +6,11 @@ import { GameRecordJson } from '../../common/games/games'
 import { ReconciledResult } from '../../common/games/results'
 import { RaceChar } from '../../common/races'
 import { SbUser, SbUserId } from '../../common/users/user-info'
+import { navigateToGameResults } from '../games/action-creators'
 import { RaceIcon } from '../lobbies/race-icon'
 import { batchGetMapInfo, openMapPreviewDialog } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { useButtonState } from '../material/button'
+import { TextButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -25,7 +26,7 @@ import { Body1, body2, overline, singleLine, subtitle1 } from '../styles/typogra
 import { timeAgo } from '../time/time-ago'
 
 const MatchHistoryRoot = styled.div`
-  min-height: 256px;
+  min-height: 304px;
   margin-bottom: 48px;
   /** 8 + 16px of internal padding in list = 24px */
   padding: 0 24px 0 8px;
@@ -143,7 +144,10 @@ export function ConnectedGameListEntry({
   const onClick = useCallback(() => {
     onSetActive(id)
   }, [id, onSetActive])
-  const [buttonProps, rippleRef] = useButtonState({ onClick })
+  const onDoubleClick = useCallback(() => {
+    navigateToGameResults(id)
+  }, [id])
+  const [buttonProps, rippleRef] = useButtonState({ onClick, onDoubleClick })
 
   const map = useAppSelector(s => s.maps2.byId.get(game.mapId))
 
@@ -184,9 +188,17 @@ export function ConnectedGameListEntry({
 }
 
 const GamePreviewRoot = styled.div`
-  position: relative;
   width: 276px;
   flex-shrink: 0;
+
+  display: flex;
+  flex-direction: column;
+`
+
+const GamePreviewDetails = styled.div`
+  position: relative;
+  width: 100%;
+  flex-grow: 1;
   padding: 16px 16px 20px;
 
   display: flex;
@@ -276,6 +288,7 @@ export interface ConnectedGamePreviewProps {
 export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
   const dispatch = useAppDispatch()
 
+  const gameId = game?.id
   const mapId = game?.mapId
   const map = useAppSelector(s => (mapId ? s.maps2.byId.get(mapId) : undefined))
   const players = useAppSelector(s => {
@@ -299,6 +312,12 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
     dispatch(openMapPreviewDialog(map.id))
   }, [map, dispatch])
 
+  const onViewDetails = useCallback(() => {
+    if (gameId) {
+      navigateToGameResults(gameId)
+    }
+  }, [gameId])
+
   useEffect(() => {
     if (mapId) {
       dispatch(batchGetMapInfo(mapId))
@@ -311,9 +330,9 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
 
   if (!game) {
     return (
-      <GamePreviewRoot>
+      <GamePreviewDetails>
         <NoGameText>No game selected</NoGameText>
-      </GamePreviewRoot>
+      </GamePreviewDetails>
     )
   }
 
@@ -376,8 +395,11 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
 
   return (
     <GamePreviewRoot>
-      {map ? <MapThumbnail key={map.hash} map={map} size={256} onPreview={onMapPreview} /> : null}
-      <GamePreviewPlayers>{playerElems}</GamePreviewPlayers>
+      <GamePreviewDetails>
+        {map ? <MapThumbnail key={map.hash} map={map} size={256} onPreview={onMapPreview} /> : null}
+        <GamePreviewPlayers>{playerElems}</GamePreviewPlayers>
+      </GamePreviewDetails>
+      <TextButton label='View details' onClick={onViewDetails} />
     </GamePreviewRoot>
   )
 }

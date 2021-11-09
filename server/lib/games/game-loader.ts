@@ -4,12 +4,13 @@ import CancelToken, { MultiCancelToken } from '../../../common/async/cancel-toke
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import rejectOnTimeout from '../../../common/async/reject-on-timeout'
 import { GameRoute } from '../../../common/game-launch-config'
-import { GameConfigPlayerName, GameSource, GameType } from '../../../common/games/configuration'
+import { GameConfig } from '../../../common/games/configuration'
 import { Slot } from '../../../common/lobbies/slot'
+import { SbUserId } from '../../../common/users/user-info'
 import log from '../logging/logger'
-import { deleteRecordForGame } from '../models/games'
 import { deleteUserRecordsForGame } from '../models/games-users'
 import { RallyPointRouteInfo, RallyPointService } from '../rally-point/rally-point-service'
+import { deleteRecordForGame } from './game-models'
 import { GameplayActivityRegistry } from './gameplay-activity-registry'
 import { registerGame } from './registration'
 
@@ -74,8 +75,8 @@ const LoadingDatas = {
 
 export type OnGameSetupFunc = (
   gameInfo: { gameId: string; seed: number },
-  /** Map of username -> code for submitting the game results */
-  resultCodes: Map<string, string>,
+  /** Map of user ID -> code for submitting the game results */
+  resultCodes: Map<SbUserId, string>,
 ) => void
 
 export type OnRoutesSetFunc = (playerName: string, routes: GameRoute[], gameId: string) => void
@@ -94,28 +95,9 @@ export interface GameLoadRequest {
    */
   mapId: string
   /**
-   * The source of the game's creation/launch, e.g. 'MATCHMAKING'
-   */
-  gameSource: GameSource
-  // TODO(tec27): Probably this should be some type of structured data instead of a string tbh
-  /**
-   * An optional string of extra information about the source of the game.
-   */
-  gameSourceExtra?: string
-  /**
    * Configuration info for the game.
    */
-  gameConfig: {
-    /** What type of game will be played. */
-    gameType: GameType
-    /** A number describing the game sub-type (if necessary). */
-    gameSubType: number
-    /**
-     * An array with one entry per team, each entry being an array of players on that team. If the
-     * game has no teams, this will be an array containing a single array of players.
-     */
-    teams: GameConfigPlayerName[][]
-  }
+  gameConfig: GameConfig
   /** A `CancelToken` that can be used to cancel the loading process midway through. */
   cancelToken: CancelToken
   /**
@@ -139,19 +121,10 @@ export class GameLoader {
    * @returns A promise which will resolve with the list of players if the game successfully loaded,
    *   or be rejected if the load failed.
    */
-  loadGame({
-    players,
-    mapId,
-    gameSource,
-    gameSourceExtra,
-    gameConfig,
-    cancelToken,
-    onGameSetup,
-    onRoutesSet,
-  }: GameLoadRequest) {
+  loadGame({ players, mapId, gameConfig, cancelToken, onGameSetup, onRoutesSet }: GameLoadRequest) {
     const gameLoaded = createDeferred<void>()
 
-    registerGame(mapId, gameSource, gameSourceExtra, gameConfig)
+    registerGame(mapId, gameConfig)
       .then(({ gameId, resultCodes }) => {
         const loadingCancelToken = new MultiCancelToken(cancelToken)
         this.loadingGames = this.loadingGames.set(
@@ -246,7 +219,7 @@ export class GameLoader {
 
   private async doGameLoad(
     gameId: string,
-    resultCodes: Map<string, string>,
+    resultCodes: Map<SbUserId, string>,
     onGameSetup?: OnGameSetupFunc,
     onRoutesSet?: OnRoutesSetFunc,
   ) {

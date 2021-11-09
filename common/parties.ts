@@ -24,7 +24,8 @@ export interface PartyUser {
   name: string
 }
 
-export interface ChatMessage {
+export interface PartyChatMessage {
+  partyId: string
   from: PartyUser
   time: number
   text: string
@@ -84,8 +85,10 @@ export interface PartyLeaderChangeEvent {
   time: number
 }
 
-export interface PartyChatMessageEvent extends ChatMessage {
+export interface PartyChatMessageEvent {
   type: 'chatMessage'
+  message: PartyChatMessage
+  mentions: SbUser[]
 }
 
 export interface PartyKickEvent {

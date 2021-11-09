@@ -18,7 +18,7 @@ exports.up = async function (db) {
 }
 
 exports.down = async function (db) {
-  await db.runSql(`DROP MATERIAIZED VIEW ranked_matchmaking_ratings_view`)
+  await db.runSql(`DROP MATERIALIZED VIEW ranked_matchmaking_ratings_view`)
 }
 
 exports._meta = {

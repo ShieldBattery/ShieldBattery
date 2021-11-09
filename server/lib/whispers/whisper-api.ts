@@ -128,7 +128,18 @@ export class WhisperApi {
     ctx.status = 204
   }
 
+  // Leaving the old API with a dummy payload in order to not break the auto-update functionality
+  // for old clients.
   @httpGet('/:targetName/messages')
+  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
+  getSessionHistoryOld(ctx: RouterContext): Omit<GetSessionHistoryServerPayload, 'mentions'> {
+    return {
+      messages: [],
+      users: [],
+    }
+  }
+
+  @httpGet('/:targetName/messages2')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
   async getSessionHistory(ctx: RouterContext): Promise<GetSessionHistoryServerPayload> {
     const targetName = getValidatedTargetName(ctx)

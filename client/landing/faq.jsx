@@ -15,6 +15,7 @@ import {
   colorTextSecondary,
 } from '../styles/colors'
 import { headline1, headline4, headline5 } from '../styles/typography'
+import { BottomLinks } from './bottom-links'
 import TopLinks from './top-links'
 
 const questions = [
@@ -417,6 +418,7 @@ export default class Faq extends React.Component {
         {questions.map((q, i) => (
           <QuestionSection question={q.question} answer={q.answer} key={`question-${i}`} />
         ))}
+        <BottomLinks />
       </Splash>
     )
   }

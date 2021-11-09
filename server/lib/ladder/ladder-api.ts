@@ -24,7 +24,7 @@ export class LadderApi {
       startTime,
       UPDATE_RANKS_MINUTES * 60 * 1000,
       async () => {
-        await refreshRankings(MatchmakingType.Match1v1)
+        await refreshRankings()
       },
     )
   }

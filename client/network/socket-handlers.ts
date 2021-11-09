@@ -5,6 +5,7 @@ import { NETWORK_SITE_CONNECTED, NETWORK_SITE_DISCONNECTED } from '../actions'
 import auth from '../auth/socket-handlers'
 import chat from '../chat/socket-handlers'
 import { dispatch } from '../dispatch-registry'
+import games from '../games/socket-handlers'
 import loading from '../loading/socket-handlers'
 import logger from '../logging/logger'
 import notifications from '../notifications/socket-handlers'
@@ -97,6 +98,7 @@ const envSpecificHandlers = IS_ELECTRON
 const handlers = [
   auth,
   chat,
+  games,
   loading,
   networkStatusHandler,
   notifications,

@@ -1,6 +1,7 @@
 import type { IpcMainEvent, IpcMainInvokeEvent, IpcRendererEvent, WebContents } from 'electron'
 import { Promisable, PromiseValue } from 'type-fest'
 import { GameLaunchConfig, GameRoute } from './game-launch-config'
+import { GameClientPlayerResult } from './games/results'
 import { LocalSettingsData, ScrSettingsData } from './local-settings'
 import { ResolvedRallyPointServer } from './rally-point'
 import { ShieldBatteryFileResult } from './shieldbattery-file'
@@ -35,7 +36,7 @@ interface IpcInvokeables {
 
 /** Events that can be sent from the renderer process to the main process. */
 interface IpcRendererSendables {
-  chatNewMessage: (data: { user: string; message: string }) => void
+  chatNewMessage: (data: { user: string; message: string; urgent: boolean }) => void
 
   networkSiteConnected: () => void
 
@@ -63,6 +64,11 @@ interface IpcRendererSendables {
 
 /** Events that can be sent from the main process to a renderer process. */
 interface IpcMainSendables {
+  activeGameResult: (data: {
+    gameId: string
+    result: Record<string, GameClientPlayerResult>
+    time: number
+  }) => void
   activeGameStatus: (status: { id: string; state: string; extra?: any; isReplay: boolean }) => void
 
   rallyPointPingResult: (server: ResolvedRallyPointServer, ping: number) => void

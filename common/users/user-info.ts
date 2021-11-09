@@ -3,6 +3,7 @@ import { GameRecordJson } from '../games/games'
 import { LadderPlayer } from '../ladder'
 import { MapInfoJson } from '../maps'
 import { MatchmakingType } from '../matchmaking'
+import { SbPolicyType } from '../policies/policy-type'
 import { UserStats } from './user-stats'
 
 export type SbUserId = Opaque<number, 'SbUser'>
@@ -29,6 +30,12 @@ export function makeSbUserId(id: number): SbUserId {
 export interface SelfUser extends SbUser {
   email: string
   emailVerified: boolean
+  /** The last version of the privacy policy this user has seen/accepted. */
+  acceptedPrivacyVersion: number
+  /** The last version of the terms of service this user has seen/accepted. */
+  acceptedTermsVersion: number
+  /** The last version of the acceptable use policy this user has seen/accepted. */
+  acceptedUsePolicyVersion: number
 }
 
 /**
@@ -49,4 +56,12 @@ export interface GetUserProfilePayload {
     maps: MapInfoJson[]
     users: SbUser[]
   }
+}
+
+export interface AcceptPoliciesBody {
+  policies: Array<[policyType: SbPolicyType, version: number]>
+}
+
+export interface AcceptPoliciesPayload {
+  user: SelfUser
 }

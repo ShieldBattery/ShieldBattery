@@ -111,6 +111,9 @@ export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) 
               name: ctx.session.userName,
               email: ctx.session.email,
               emailVerified: ctx.session.emailVerified,
+              acceptedPrivacyVersion: ctx.session.acceptedPrivacyVersion,
+              acceptedTermsVersion: ctx.session.acceptedTermsVersion,
+              acceptedUsePolicyVersion: ctx.session.acceptedUsePolicyVersion,
             },
             permissions: ctx.session.permissions,
             lastQueuedMatchmakingType: ctx.session.lastQueuedMatchmakingType,
@@ -120,6 +123,7 @@ export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) 
       await ctx.render('index', {
         initData,
         cspNonce: getCspNonce(ctx),
+        analyticsId: process.env.SB_ANALYTICS_ID,
       })
     },
   )

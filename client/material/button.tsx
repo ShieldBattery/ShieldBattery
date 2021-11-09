@@ -32,6 +32,7 @@ export interface ButtonStateProps {
   onBlur?: (event: React.FocusEvent) => void
   onFocus?: (event: React.FocusEvent) => void
   onClick?: (event: React.MouseEvent) => void
+  onDoubleClick?: (event: React.MouseEvent) => void
   onMouseDown?: (event: React.MouseEvent) => void
   onMouseEnter?: (event: React.MouseEvent) => void
   onMouseLeave?: (event: React.MouseEvent) => void
@@ -58,6 +59,7 @@ export interface ButtonStateAppliedProps extends ButtonStateStyleProps {
   onBlur: (event: React.FocusEvent) => void
   onFocus: (event: React.FocusEvent) => void
   onClick: (event: React.MouseEvent) => void
+  onDoubleClick?: (event: React.MouseEvent) => void
   onMouseDown: (event: React.MouseEvent) => void
   onMouseEnter: (event: React.MouseEvent) => void
   onMouseLeave: (event: React.MouseEvent) => void
@@ -81,6 +83,7 @@ export function useButtonState({
   onBlur,
   onFocus,
   onClick,
+  onDoubleClick,
   onMouseDown,
   onMouseEnter,
   onMouseLeave,
@@ -213,6 +216,7 @@ export function useButtonState({
       onBlur: handleBlur,
       onFocus: handleFocus,
       onClick: handleClick,
+      onDoubleClick,
       onMouseDown: handleMouseDown,
       onMouseEnter: handleMouseEnter,
       onMouseLeave: handleMouseLeave,
@@ -277,6 +281,7 @@ export interface RaisedButtonProps {
   onBlur?: React.FocusEventHandler
   onFocus?: React.FocusEventHandler
   onClick?: React.MouseEventHandler
+  onDoubleClick?: React.MouseEventHandler
   onMouseDown?: React.MouseEventHandler
   tabIndex?: number
   title?: string
@@ -298,6 +303,7 @@ export const RaisedButton = React.forwardRef(
       onBlur,
       onFocus,
       onClick,
+      onDoubleClick,
       onMouseDown,
       tabIndex,
       title,
@@ -311,6 +317,7 @@ export const RaisedButton = React.forwardRef(
       onBlur,
       onFocus,
       onClick,
+      onDoubleClick,
       onMouseDown,
     })
 
@@ -379,14 +386,26 @@ const TextButtonRoot = styled.button<TextButtonStyleProps>`
   }
 `
 
+const IconContainer = styled.div`
+  width: auto;
+  height: 100%;
+  display: flex;
+  align-items: center;
+
+  margin-right: 8px;
+`
+
 export interface TextButtonProps {
   color?: 'normal' | 'primary' | 'accent'
   label: string | React.ReactNode
+  /** An optional icon to place at the starting edge of the button. */
+  iconStart?: React.ReactNode
   className?: string
   disabled?: boolean
   onBlur?: React.FocusEventHandler
   onFocus?: React.FocusEventHandler
   onClick?: React.MouseEventHandler
+  onDoubleClick?: React.MouseEventHandler
   onMouseDown?: React.MouseEventHandler
   tabIndex?: number
   title?: string
@@ -405,9 +424,11 @@ export const TextButton = React.forwardRef(
       label,
       className,
       disabled,
+      iconStart,
       onBlur,
       onFocus,
       onClick,
+      onDoubleClick,
       onMouseDown,
       tabIndex,
       title,
@@ -421,6 +442,7 @@ export const TextButton = React.forwardRef(
       onBlur,
       onFocus,
       onClick,
+      onDoubleClick,
       onMouseDown,
     })
 
@@ -434,7 +456,10 @@ export const TextButton = React.forwardRef(
         type={type ?? 'button'}
         name={name}
         {...buttonProps}>
-        <Label>{label}</Label>
+        <Label>
+          {iconStart ? <IconContainer>{iconStart}</IconContainer> : null}
+          {label}
+        </Label>
         <Ripple ref={rippleRef} disabled={disabled} />
       </TextButtonRoot>
     )
@@ -470,6 +495,7 @@ export interface IconButtonProps {
   onBlur?: React.FocusEventHandler
   onFocus?: React.FocusEventHandler
   onClick?: React.MouseEventHandler
+  onDoubleClick?: React.MouseEventHandler
   onMouseDown?: React.MouseEventHandler
   tabIndex?: number
   type?: 'button' | 'reset' | 'submit'
@@ -487,6 +513,7 @@ export const IconButton = React.forwardRef(
       onBlur,
       onFocus,
       onClick,
+      onDoubleClick,
       onMouseDown,
       tabIndex,
       type,
@@ -499,6 +526,7 @@ export const IconButton = React.forwardRef(
       onBlur,
       onFocus,
       onClick,
+      onDoubleClick,
       onMouseDown,
     })
 

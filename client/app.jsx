@@ -18,6 +18,11 @@ import LoadingFilter from './loading/loading-filter'
 import MainLayout from './main-layout'
 import { LoginRoute } from './navigation/custom-routes'
 import SiteConnectedFilter from './network/site-connected-filter'
+import {
+  AcceptableUsePage,
+  PrivacyPolicyPage,
+  TermsOfServicePage,
+} from './policies/policy-displays'
 import LoadingIndicator from './progress/dots'
 import { useAppSelector } from './redux-hooks'
 import GlobalStyle from './styles/global'
@@ -74,6 +79,9 @@ function App() {
           <Route path='/splash' component={Splash} />
           <Route path='/faq' component={Faq} />
           <Route path='/download' component={DownloadPage} />
+          <Route path='/acceptable-use' component={AcceptableUsePage} />
+          <Route path='/privacy' component={PrivacyPolicyPage} />
+          <Route path='/terms-of-service' component={TermsOfServicePage} />
           <LoginRoute path='/forgot-password' component={ForgotPassword} />
           <LoginRoute path='/forgot-user' component={ForgotUser} />
           <LoginRoute path='/login' component={Login} />

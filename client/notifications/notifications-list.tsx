@@ -1,15 +1,13 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useMemo } from 'react'
 import styled from 'styled-components'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { Notification, NotificationType } from '../../common/notifications'
-import { EmailVerificationNotificationUi } from '../auth/email-verification-notification-ui'
+import { SbNotification } from '../../common/notifications'
 import { TextButton } from '../material/button'
-import { PartyInviteNotificationUi } from '../parties/party-notification-ui'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { headline6, subtitle1 } from '../styles/typography'
 import { clearNotifications } from './action-creators'
+import { notificationToUi } from './notification-to-ui'
 
 const ListContainer = styled.div`
   width: 100%;
@@ -51,7 +49,7 @@ const ClearButton = styled(TextButton)`
 `
 
 export interface NotificationsListProps {
-  notifications: Immutable<Notification[]>
+  notifications: Immutable<SbNotification[]>
   onClear: () => void
 }
 
@@ -65,7 +63,7 @@ export function NotificationsList(props: NotificationsListProps) {
       <ListArea>
         {props.notifications.length > 0 ? (
           props.notifications.map((n, i) =>
-            toUi(n, `notif-${i}`, i < props.notifications.length - 1),
+            notificationToUi(n, `notif-${i}`, i < props.notifications.length - 1),
           )
         ) : (
           <EmptyList>Nothing to see here</EmptyList>
@@ -86,30 +84,4 @@ export function ConnectedNotificationsList() {
   )
 
   return <NotificationsList notifications={orderedNotifications} onClear={onClear} />
-}
-
-function toUi(notification: Notification, key: string, showDivider: boolean) {
-  switch (notification.type) {
-    case NotificationType.EmailVerification:
-      return (
-        <EmailVerificationNotificationUi
-          key={key}
-          showDivider={showDivider}
-          read={notification.read}
-        />
-      )
-    case NotificationType.PartyInvite:
-      return (
-        <PartyInviteNotificationUi
-          key={key}
-          from={notification.from}
-          partyId={notification.partyId}
-          notificationId={notification.id}
-          showDivider={showDivider}
-          read={notification.read}
-        />
-      )
-    default:
-      return assertUnreachable(notification)
-  }
 }

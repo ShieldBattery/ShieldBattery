@@ -1,4 +1,4 @@
-import { SbUser } from './users/user-info'
+import { SbUser, SbUserId } from './users/user-info'
 
 export enum WhisperMessageType {
   TextMessage = 'message',
@@ -11,6 +11,10 @@ export interface BaseWhisperMessageData {
 export interface WhisperTextMessageData extends BaseWhisperMessageData {
   type: typeof WhisperMessageType.TextMessage
   text: string
+  // TODO(tec27): This should probably only be optional at the DB level, clients should see this
+  // as always present (since we deal with old messages at the API layer). Need to keep separate
+  // model types vs API types like in chat, though.
+  mentions?: SbUserId[]
 }
 
 export type WhisperMessageData = WhisperTextMessageData
@@ -46,6 +50,8 @@ export interface WhisperMessageUpdateEvent {
   message: WhisperMessage
   /** A list of user infos participating in the received message. */
   users: SbUser[]
+  /** User infos for all whisper users that were mentioned in the message, if any. */
+  mentions: SbUser[]
 }
 
 export interface WhisperUserActiveEvent {
@@ -86,4 +92,6 @@ export interface GetSessionHistoryServerPayload {
   messages: WhisperMessage[]
   /** A list of user infos participating in this whisper session. */
   users: SbUser[]
+  /** A list of user infos for all whisper users that were mentioned in the messages, if any. */
+  mentions: SbUser[]
 }

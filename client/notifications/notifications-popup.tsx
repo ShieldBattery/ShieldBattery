@@ -9,21 +9,19 @@ import {
   UseTransitionProps,
 } from 'react-spring'
 import styled from 'styled-components'
-import { assertUnreachable } from '../../common/assert-unreachable'
-import { Notification, NotificationType } from '../../common/notifications'
+import { SbNotification } from '../../common/notifications'
 import { subtract, union } from '../../common/sets'
-import { EmailVerificationNotificationUi } from '../auth/email-verification-notification-ui'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
 import CheckIcon from '../icons/material/check-24px.svg'
 import { IconButton } from '../material/button'
 import { shadow6dp } from '../material/shadows'
 import { defaultSpring } from '../material/springs'
 import { zIndexMenu } from '../material/zindex'
-import { PartyInviteNotificationUi } from '../parties/party-notification-ui'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious } from '../state-hooks'
 import { background300, background400 } from '../styles/colors'
 import { markLocalNotificationsRead, markNotificationsRead } from './action-creators'
+import { notificationToUi } from './notification-to-ui'
 
 const POPOVER_DURATION = 10000
 
@@ -91,7 +89,7 @@ export default function NotificationPopups() {
   const popupElems = useRef(new Map<string, HTMLDivElement>())
   const cancelFuncs = useRef(new Map<string, () => Controller>())
   const portalRef = useExternalElementRef()
-  const [notificationItems, setNotificationItems] = useState<Immutable<Notification[]>>([])
+  const [notificationItems, setNotificationItems] = useState<Immutable<SbNotification[]>>([])
 
   useEffect(() => {
     setNotificationItems(items => [
@@ -110,7 +108,7 @@ export default function NotificationPopups() {
     }
   }, [removedIds, cancelFuncs])
 
-  const popupTransition = useTransition<Notification, UseTransitionProps<Notification>>(
+  const popupTransition = useTransition<SbNotification, UseTransitionProps<SbNotification>>(
     notificationItems,
     {
       from: { opacity: 0, height: 0, duration: '100%' },
@@ -120,7 +118,7 @@ export default function NotificationPopups() {
         await next({ duration: '0%' })
       },
       leave: { opacity: 0, height: 0 },
-      onRest: (result: AnimationResult, ctrl: Controller, item: Notification) => {
+      onRest: (result: AnimationResult, ctrl: Controller, item: SbNotification) => {
         setNotificationItems(state => state.filter(i => i.id !== item.id))
       },
       // Force the react-spring to remove the notification element from the DOM as soon as its
@@ -138,7 +136,7 @@ export default function NotificationPopups() {
   )
 
   const onMarkAsRead = useCallback(
-    (notification: Notification) => {
+    (notification: SbNotification) => {
       if (notification.local) {
         dispatch(markLocalNotificationsRead([notification.id]))
       } else {
@@ -152,7 +150,18 @@ export default function NotificationPopups() {
     <PopupsContainer>
       {popupTransition((styles, item) => (
         <Popup style={styles}>
-          {toUi(item, popupElems.current)}
+          {notificationToUi(
+            item,
+            item.id /* key */,
+            false /* showDivider */,
+            (elem: HTMLDivElement | null) => {
+              if (elem) {
+                popupElems.current.set(item.id, elem)
+              } else {
+                popupElems.current.delete(item.id)
+              }
+            },
+          )}
           <MarkAsReadButton
             icon={<CheckIcon />}
             title='Mark as read'
@@ -163,32 +172,4 @@ export default function NotificationPopups() {
     </PopupsContainer>,
     portalRef.current,
   )
-}
-
-function toUi(notification: Notification, popupElems: Map<string, HTMLDivElement>) {
-  switch (notification.type) {
-    case NotificationType.EmailVerification:
-      return (
-        <EmailVerificationNotificationUi
-          ref={elem => elem && popupElems.set(notification.id, elem)}
-          key={notification.id}
-          showDivider={false}
-          read={notification.read}
-        />
-      )
-    case NotificationType.PartyInvite:
-      return (
-        <PartyInviteNotificationUi
-          ref={elem => elem && popupElems.set(notification.id, elem)}
-          key={notification.id}
-          from={notification.from}
-          partyId={notification.partyId}
-          notificationId={notification.id}
-          showDivider={false}
-          read={notification.read}
-        />
-      )
-    default:
-      return assertUnreachable(notification)
-  }
 }

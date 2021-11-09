@@ -2,13 +2,14 @@ import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
+import { GameSource } from '../../../common/games/configuration'
 import { GameClientPlayerResult, GameClientResult } from '../../../common/games/results'
-import { MatchmakingType } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/user-info'
 import { UserStats } from '../../../common/users/user-stats'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
+import { getGameRecord, setReconciledResult } from '../games/game-models'
 import { hasCompletedResults, reconcileResults } from '../games/results'
 import {
   getMatchmakingRatingsWithLock,
@@ -17,7 +18,6 @@ import {
   updateMatchmakingRating,
 } from '../matchmaking/models'
 import { calculateChangedRatings } from '../matchmaking/rating'
-import { getGameRecord, setReconciledResult } from '../models/games'
 import {
   getCurrentReportedResults,
   getUserGameRecord,
@@ -145,7 +145,7 @@ async function submitGameResults(ctx: RouterContext, next: Koa.Next) {
         const resultEntries = Array.from(reconciled.results.entries())
 
         const matchmakingDbPromises: Array<Promise<unknown>> = []
-        if (gameRecord.config.gameSource === 'MATCHMAKING' && !reconciled.disputed) {
+        if (gameRecord.config.gameSource === GameSource.Matchmaking && !reconciled.disputed) {
           // Calculate and update the matchmaking ranks
 
           // NOTE(tec27): We sort these so we always lock them in the same order and avoid deadlocks
@@ -158,7 +158,7 @@ async function submitGameResults(ctx: RouterContext, next: Koa.Next) {
           const mmrs = await getMatchmakingRatingsWithLock(
             client,
             userIds,
-            gameRecord.config.gameSourceExtra as MatchmakingType,
+            gameRecord.config.gameSourceExtra.type,
           )
           if (mmrs.length !== userIds.length) {
             throw new Error('missing MMR for some users')

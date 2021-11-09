@@ -1,6 +1,9 @@
+import { SbPolicyType } from './policies/policy-type'
+
 export enum NotificationType {
   EmailVerification = 'emailVerification',
   PartyInvite = 'partyInvite',
+  PolicyUpdated = 'policyUpdated',
 }
 
 export interface BaseNotification {
@@ -28,22 +31,31 @@ export interface EmailVerificationNotification extends BaseNotification {
 
 export const EMAIL_VERIFICATION_ID = 'local-emailVerification'
 
+export interface PolicyUpdatedNotification extends BaseNotification {
+  type: typeof NotificationType.PolicyUpdated
+  local: true
+  policyType: SbPolicyType
+}
+
 export interface PartyInviteNotification extends BaseNotification {
   type: typeof NotificationType.PartyInvite
   from: string
   partyId: string
 }
 
-export type Notification = EmailVerificationNotification | PartyInviteNotification
+export type SbNotification =
+  | EmailVerificationNotification
+  | PartyInviteNotification
+  | PolicyUpdatedNotification
 
 export interface NotificationServerInitEvent {
   type: 'serverInit'
-  notifications: Notification[]
+  notifications: SbNotification[]
 }
 
 export interface NotificationAddEvent {
   type: 'add'
-  notification: Notification
+  notification: SbNotification
 }
 
 export interface NotificationClearByIdEvent {

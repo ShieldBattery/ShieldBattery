@@ -8,7 +8,8 @@ export const LOBBY_NAME_MAXLENGTH = 50
 
 export const PASSWORD_MINLENGTH = 6
 
-export const USERNAME_PATTERN = /^[A-Za-z0-9`~!$^&*()[\]\-_+=.{}]+$/
+export const USERNAME_ALLOWED_CHARACTERS = String.raw`[A-Za-z0-9\`~!$^&*()[\]\-_+=.{}]+`
+export const USERNAME_PATTERN = new RegExp(String.raw`^${USERNAME_ALLOWED_CHARACTERS}$`)
 export const USERNAME_MINLENGTH = 1
 export const USERNAME_MAXLENGTH = 16
 

@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react'
 import styled from 'styled-components'
+import { assertUnreachable } from '../../common/assert-unreachable'
 import { matchLinks } from '../../common/text/links'
-import { SbUserId } from '../../common/users/user-info'
-import { amberA100 } from '../styles/colors'
+import { matchMentionsMarkup } from '../../common/text/mentions'
+import { makeSbUserId, SbUserId } from '../../common/users/user-info'
+import { amberA100, blue100 } from '../styles/colors'
 import { body2 } from '../styles/typography'
 import { ConnectedUsername } from './connected-username'
 import ExternalLink from './external-link'
@@ -35,25 +37,62 @@ const Text = styled.span`
   overflow: hidden;
 `
 
-export function ParsedText({ text }: { text: string }) {
-  const parsedText = useMemo(() => {
-    const matches = matchLinks(text)
+const MentionedUsername = styled(ConnectedUsername)`
+  color: ${blue100};
+`
+
+function* getAllMatches(text: string) {
+  yield* matchMentionsMarkup(text)
+  yield* matchLinks(text)
+}
+
+export const TextMessage = React.memo<{
+  userId: SbUserId
+  selfUserId: SbUserId
+  time: number
+  text: string
+}>(props => {
+  const { userId, selfUserId, time, text } = props
+  const [parsedText, isHighlighted] = useMemo(() => {
+    const matches = getAllMatches(text)
+    const sortedMatches = Array.from(matches).sort((a, b) => a.index - b.index)
     const elements = []
     let lastIndex = 0
+    let isHighlighted = false
 
-    for (const match of matches) {
+    for (const match of sortedMatches) {
+      // This probably can't happen at this moment, but to ensure we don't get tripped by it in the
+      // future, if this happens we skip the match entirely as it means it overlaps with a previous
+      // match.
+      if (match.index < lastIndex) {
+        continue
+      }
+
       // Insert preceding text, if any
-      if (match.index! > lastIndex) {
+      if (match.index > lastIndex) {
         elements.push(text.substring(lastIndex, match.index))
       }
 
-      elements.push(
+      if (match.type === 'mentionMarkup') {
+        const userId = makeSbUserId(Number(match.groups.userId))
+        if (userId === selfUserId) {
+          isHighlighted = true
+        }
+
+        elements.push(
+          match.groups.prefix,
+          <MentionedUsername key={match.index} userId={userId} isMention={true} />,
+          match.groups.postfix,
+        )
+      } else if (match.type === 'link') {
         // TODO(tec27): Handle links to our own host specially, redirecting to the correct route
         // in-client instead
-        <ExternalLink key={match.index} href={match[0]} innerText={match[0]} />,
-      )
+        elements.push(<ExternalLink key={match.index} href={match.text} innerText={match.text} />)
+      } else {
+        assertUnreachable(match)
+      }
 
-      lastIndex = match.index! + match[0].length
+      lastIndex = match.index + match.text.length
     }
 
     // Insert remaining text, if any
@@ -61,26 +100,19 @@ export function ParsedText({ text }: { text: string }) {
       elements.push(text.substring(lastIndex))
     }
 
-    return elements
-  }, [text])
+    return [elements, isHighlighted]
+  }, [text, selfUserId])
 
-  return <Text>{parsedText}</Text>
-}
-
-export const TextMessageDisplay = React.memo<{ userId: SbUserId; time: number; text: string }>(
-  props => {
-    const { userId, time, text } = props
-    return (
-      <TimestampMessageLayout time={time}>
-        <Username>
-          <ConnectedUsername userId={userId} />
-        </Username>
-        <Separator aria-hidden={true}>{': '}</Separator>
-        <ParsedText text={text} />
-      </TimestampMessageLayout>
-    )
-  },
-)
+  return (
+    <TimestampMessageLayout time={time} highlighted={isHighlighted}>
+      <Username>
+        <ConnectedUsername userId={userId} />
+      </Username>
+      <Separator aria-hidden={true}>{': '}</Separator>
+      <Text>{parsedText}</Text>
+    </TimestampMessageLayout>
+  )
+})
 
 export const NewDayMessage = React.memo<{ time: number }>(props => {
   const { time } = props

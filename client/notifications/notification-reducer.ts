@@ -1,17 +1,17 @@
 import { Immutable } from 'immer'
-import { Notification } from '../../common/notifications'
+import { SbNotification } from '../../common/notifications'
 import { intersection, union } from '../../common/sets'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface ClearRequest {
-  byId: Map<string, Notification>
+  byId: Map<string, SbNotification>
   idSet: Set<string>
   orderedIds: string[]
 }
 
 export interface NotificationState {
   /** A map of notification id -> Notification. */
-  byId: Map<string, Notification>
+  byId: Map<string, SbNotification>
   /**
    * A Set of all displayed notifications, ordered by insertion (earliest notification comes first).
    */
@@ -80,7 +80,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@notifications/clearBegin'](state, { payload: { reqId, timestamp } }) {
-    const clearedIdMap = new Map<string, Notification>()
+    const clearedIdMap = new Map<string, SbNotification>()
     for (const n of state.byId.values()) {
       if (n.local || (timestamp && n.createdAt <= timestamp)) {
         clearedIdMap.set(n.id, n)

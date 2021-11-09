@@ -3,7 +3,7 @@ import {
   ClearNotificationsServerBody,
   ClearNotificationsServerPayload,
   MarkNotificationsReadServerBody,
-  Notification,
+  SbNotification,
 } from '../../common/notifications'
 import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
@@ -46,11 +46,24 @@ export function clearNotifications(): ThunkAction {
   }
 }
 
-export function addNotification(notification: Readonly<Notification>): AddNotification {
+export function addNotification(notification: Readonly<SbNotification>): AddNotification {
   return {
     type: '@notifications/add',
     payload: { notification },
   }
+}
+
+export function addLocalNotification<T extends SbNotification>(
+  notification: Readonly<Omit<T, 'local' | 'read' | 'createdAt'>>,
+): AddNotification {
+  return addNotification({
+    ...notification,
+    local: true,
+    read: false,
+    createdAt: Date.now(),
+    // NOTE(tec27): Not quite sure why this cast is necessary, this should be a verifiably complete
+    // type. Readonly may be messing with it?
+  } as unknown as T)
 }
 
 export function clearNotificationById(id: string): ClearNotificationById {

@@ -162,6 +162,7 @@ const NoImage = () => (
 export interface MapThumbnailProps {
   map: Immutable<MapInfoJson>
   className?: string
+  style?: React.CSSProperties
   forceAspectRatio?: number
   size?: number
   showMapName?: boolean
@@ -180,6 +181,7 @@ export interface MapThumbnailProps {
 export function MapThumbnail({
   map,
   className,
+  style,
   forceAspectRatio,
   size,
   showMapName,
@@ -229,7 +231,7 @@ export function MapThumbnail({
   }, [onMapDetails, onRegenMapImage, onRemove, onActionClick])
 
   return (
-    <Container className={className}>
+    <Container className={className} style={style}>
       <MapImage
         map={map}
         size={size}

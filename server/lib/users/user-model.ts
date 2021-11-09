@@ -4,6 +4,11 @@ import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import createDeferred from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
+import {
+  ACCEPTABLE_USE_VERSION,
+  PRIVACY_POLICY_VERSION,
+  TERMS_OF_SERVICE_VERSION,
+} from '../../../common/policies/versions'
 import { SbPermissions } from '../../../common/users/permissions'
 import { SbUser, SbUserId, SelfUser } from '../../../common/users/user-info'
 import ChatService from '../chat/chat-service'
@@ -26,6 +31,9 @@ interface UserInternal {
   created: Date
   signupIpAddress?: string
   emailVerified: boolean
+  acceptedUsePolicyVersion: number
+  acceptedTermsVersion: number
+  acceptedPrivacyVersion: number
 }
 
 type DbUser = Dbify<UserInternal>
@@ -39,6 +47,9 @@ function convertFromDb(dbUser: DbUser): UserInternal {
     created: dbUser.created,
     signupIpAddress: dbUser.signup_ip_address,
     emailVerified: dbUser.email_verified,
+    acceptedPrivacyVersion: dbUser.accepted_privacy_version,
+    acceptedTermsVersion: dbUser.accepted_terms_version,
+    acceptedUsePolicyVersion: dbUser.accepted_use_policy_version,
   }
 }
 
@@ -52,6 +63,9 @@ function convertToExternalSelf(userInternal: UserInternal): SelfUser {
     name: userInternal.name,
     email: userInternal.email,
     emailVerified: userInternal.emailVerified,
+    acceptedPrivacyVersion: userInternal.acceptedPrivacyVersion,
+    acceptedTermsVersion: userInternal.acceptedTermsVersion,
+    acceptedUsePolicyVersion: userInternal.acceptedUsePolicyVersion,
   }
 }
 
@@ -86,8 +100,10 @@ export async function createUser({
   try {
     const transactionResult = await transact(async client => {
       const result = await client.query<DbUser>(sql`
-      INSERT INTO users (name, email, password, created, signup_ip_address, email_verified)
-      VALUES (${name}, ${email}, ${hashedPassword}, ${createdDate}, ${ipAddress}, false)
+      INSERT INTO users (name, email, password, created, signup_ip_address, email_verified,
+        accepted_privacy_version, accepted_terms_version, accepted_use_policy_version)
+      VALUES (${name}, ${email}, ${hashedPassword}, ${createdDate}, ${ipAddress}, false,
+        ${PRIVACY_POLICY_VERSION}, ${TERMS_OF_SERVICE_VERSION}, ${ACCEPTABLE_USE_VERSION})
       RETURNING *
     `)
 
@@ -152,6 +168,21 @@ export async function updateUser(
       case 'password':
         query.append(sql`
           password = ${value}
+        `)
+        break
+      case 'acceptedPrivacyVersion':
+        query.append(sql`
+          accepted_privacy_version = ${value}
+        `)
+        break
+      case 'acceptedTermsVersion':
+        query.append(sql`
+          accepted_terms_version = ${value}
+        `)
+        break
+      case 'acceptedUsePolicyVersion':
+        query.append(sql`
+          accepted_use_policy_version = ${value}
         `)
         break
       default:
@@ -262,12 +293,12 @@ export async function findUsersByName(names: string[]): Promise<Map<string, SbUs
  * Returns a `Map` of id -> `User` for a given list of IDs. Any IDs that can't be found won't
  * be present in the resulting `Map`.
  */
-export async function findUsersById(ids: number[]): Promise<Map<number, SbUser>> {
+export async function findUsersById(ids: SbUserId[]): Promise<Map<SbUserId, SbUser>> {
   // TODO(tec27): Should this just return an array and let callers make the Map if they want?
   const { client, done } = await db()
   try {
     const result = await client.query<DbUser>(sql`SELECT * FROM users WHERE id = ANY (${ids})`)
-    return new Map<number, SbUser>(
+    return new Map<SbUserId, SbUser>(
       result.rows.map(row => [row.id, convertToExternal(convertFromDb(row))]),
     )
   } finally {

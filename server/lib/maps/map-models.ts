@@ -217,7 +217,7 @@ export async function mapExists(hash: string) {
  * @returns a Promise for an array of `MapInfo`s, ordered in the way they were passed. If a
  *   specified map ID could not be found, it will not be included in the result
  */
-export async function getMapInfo(mapIds: string[], favoritedBy?: number): Promise<MapInfo[]> {
+export async function getMapInfo(mapIds: string[], favoritedBy?: SbUserId): Promise<MapInfo[]> {
   const favoritedJoin = favoritedBy
     ? sql`
       SELECT maps.*, fav.map_id AS favorited

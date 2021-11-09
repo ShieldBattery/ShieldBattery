@@ -1,8 +1,15 @@
+import { SetOptional } from 'type-fest'
 import { assertUnreachable } from '../assert-unreachable'
+import { MatchmakingType } from '../matchmaking'
 import { RaceChar } from '../races'
 import { SbUserId } from '../users/user-info'
 
-export type GameSource = 'MATCHMAKING' | 'LOBBY'
+export enum GameSource {
+  Lobby = 'LOBBY',
+  Matchmaking = 'MATCHMAKING',
+}
+
+export const ALL_GAME_SOURCES: ReadonlyArray<GameSource> = Object.values(GameSource)
 
 export enum GameType {
   Melee = 'melee',
@@ -44,23 +51,36 @@ export function gameTypeToLabel(gameType: GameType): string {
   }
 }
 
-export interface GameConfigPlayerId {
+export interface GameConfigPlayer {
   id: SbUserId
   race: RaceChar
   isComputer: boolean
 }
 
-export interface GameConfigPlayerName {
-  name: string
-  race: RaceChar
-  isComputer: boolean
-}
-
-export interface GameConfig<PlayerType> {
+interface BaseGameConfig<Source extends GameSource, SourceExtra> {
+  gameSource: Source
+  gameSourceExtra: SourceExtra
   gameType: GameType
   gameSubType: number
-  gameSource: GameSource
-  /** Extra information about the game source, e.g. the matchmaking type */
-  gameSourceExtra?: string
-  teams: PlayerType[][]
+  teams: GameConfigPlayer[][]
 }
+
+export type LobbyGameConfig = SetOptional<
+  BaseGameConfig<GameSource.Lobby, undefined>,
+  'gameSourceExtra'
+>
+
+export interface MatchmakingExtra1v1 {
+  type: MatchmakingType
+}
+
+export type MatchmakingExtra = MatchmakingExtra1v1
+
+export type MatchmakingGameConfig = BaseGameConfig<GameSource.Matchmaking, MatchmakingExtra>
+
+export type GameConfig = LobbyGameConfig | MatchmakingGameConfig
+
+/** Returns the type of the `gameSourceExtra` param for a given `GameSource` type. */
+export type GameSourceExtraType<Source extends GameSource> = (GameConfig & {
+  gameSource: Source
+})['gameSourceExtra']

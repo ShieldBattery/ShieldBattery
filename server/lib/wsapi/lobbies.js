@@ -5,7 +5,11 @@ import CancelToken from '../../../common/async/cancel-token'
 import createDeferred from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { isValidLobbyName, validRace } from '../../../common/constants'
-import { isValidGameSubType, isValidGameType } from '../../../common/games/configuration'
+import {
+  GameSource,
+  isValidGameSubType,
+  isValidGameType,
+} from '../../../common/games/configuration'
 import {
   findSlotById,
   findSlotByName,
@@ -21,6 +25,8 @@ import gameLoader from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
 import { getMapInfo } from '../maps/map-models'
+import filterChatMessage from '../messaging/filter-chat-message'
+import { processMessageContents } from '../messaging/process-chat-message'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
 import validateBody from '../websockets/validate-body'
 
@@ -275,15 +281,17 @@ export class LobbyApi {
     const time = Date.now()
     let { text } = data.get('body')
 
-    if (text.length > 500) {
-      text = text.slice(0, 500)
-    }
-
+    text = filterChatMessage(text)
+    const [processedText, mentionedUsers] = await processMessageContents(text)
     this._publishTo(lobby, {
       type: 'chat',
-      time,
-      from: client.userId,
-      text,
+      message: {
+        lobbyName: lobby.name,
+        time,
+        from: client.userId,
+        text: processedText,
+      },
+      mentions: Array.from(mentionedUsers.values()),
     })
   }
 
@@ -692,6 +700,7 @@ export class LobbyApi {
     const gameConfig = {
       gameType: lobby.gameType,
       gameSubType: lobby.gameSubType,
+      gameSource: GameSource.Lobby,
       // TODO(tec27): Add observers into this config somewhere? Right now we store no record that
       // they were there
       teams: lobby.teams
@@ -699,7 +708,7 @@ export class LobbyApi {
           team.slots
             .filter(s => s.type === 'human' || s.type === 'computer' || s.type === 'umsComputer')
             .map(s => ({
-              name: s.name,
+              id: s.userId,
               race: s.race,
               isComputer: s.type === 'computer' || s.type === 'umsComputer',
             }))
@@ -716,7 +725,6 @@ export class LobbyApi {
       const gameLoaded = gameLoader.loadGame({
         players: getHumanSlots(lobby),
         mapId: lobby.map.id,
-        gameSource: 'LOBBY',
         gameConfig,
         cancelToken,
         onGameSetup: (setup, resultCodes) => {
@@ -775,7 +783,7 @@ export class LobbyApi {
       this._publishToClient(lobby, player.userId, {
         type: 'setupGame',
         setup,
-        resultCode: resultCodes.get(player.name),
+        resultCode: resultCodes.get(player.userId),
       })
     }
   }

@@ -3,7 +3,6 @@ import { hot } from 'react-hot-loader/root'
 import styled from 'styled-components'
 import { Link, Route, Switch } from 'wouter'
 import DevActivities from './activities/devonly/routes'
-import { DevGames } from './games/devonly/routes'
 import { DevLadder } from './ladder/devonly/routes'
 import DevLists from './lists/devonly/routes'
 import DevLobbies from './lobbies/devonly/routes'
@@ -50,9 +49,6 @@ function DevDashboard() {
           <Link href='/dev/activities'>Activity components</Link>
         </li>
         <li>
-          <Link href='/dev/games'>Games components</Link>
-        </li>
-        <li>
           <Link href='/dev/ladder'>Ladder components</Link>
         </li>
         <li>
@@ -91,7 +87,6 @@ function Dev() {
       <Content>
         <Switch>
           <Route path='/dev/activities/:rest*' component={DevActivities} />
-          <Route path='/dev/games/:rest*' component={DevGames} />
           <Route path='/dev/ladder/:rest*' component={DevLadder} />
           <Route path='/dev/lists/:rest*' component={DevLists} />
           <Route path='/dev/lobbies/:rest*' component={DevLobbies} />

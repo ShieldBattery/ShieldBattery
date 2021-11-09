@@ -218,14 +218,14 @@ const eventToAction: EventToActionMap = {
     } as any)
   },
 
-  setRoutes: (matchmakingType, event) => dispatch => {
+  setRoutes: (matchmakingType, event) => () => {
     const { routes, gameId } = event
 
     ipcRenderer.invoke('activeGameSetRoutes', gameId, routes)
   },
 
   // TODO(2Pac): Try to pull this out into a common place and reuse with lobbies
-  startCountdown: (matchmakingType, event) => dispatch => {
+  startCountdown: (matchmakingType, event) => () => {
     clearCountdownTimer()
     let tick = 5
     dispatch({

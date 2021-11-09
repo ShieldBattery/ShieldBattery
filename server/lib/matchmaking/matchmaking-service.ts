@@ -7,7 +7,7 @@ import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
 import { GameRoute } from '../../../common/game-launch-config'
-import { GameType } from '../../../common/games/configuration'
+import { GameConfig, GameSource, GameType } from '../../../common/games/configuration'
 import { createHuman, Slot } from '../../../common/lobbies/slot'
 import { MapInfo, MapInfoJson, toMapInfoJson } from '../../../common/maps'
 import {
@@ -57,7 +57,7 @@ interface GameLoaderCallbacks {
       gameId: string
       seed: number
     }>
-    resultCodes: ReadonlyMap<string, string>
+    resultCodes: ReadonlyMap<SbUserId, string>
     chosenMap: MapInfoJson
     cancelToken: CancelToken
   }) => void
@@ -289,7 +289,7 @@ export class MatchmakingService {
             type: 'matchReady',
             matchmakingType: matchInfo.type,
             setup,
-            resultCode: resultCodes.get(client.name),
+            resultCode: resultCodes.get(client.userId),
             slots,
             players: playersJson,
             chosenMap,
@@ -589,13 +589,15 @@ export class MatchmakingService {
 
     const chosenMap = await pickMap(match.type, match.players)
 
-    const gameConfig = {
+    const gameConfig: GameConfig = {
       // TODO(tec27): This will need to be adjusted for team matchmaking
       gameType: GameType.OneVsOne,
       gameSubType: 0,
+      gameSource: GameSource.Matchmaking,
+      gameSourceExtra: { type: match.type },
       teams: [
         slots.map(s => ({
-          name: s.name!,
+          id: s.userId,
           race: s.race,
           isComputer: s.type === 'computer' || s.type === 'umsComputer',
         })),
@@ -608,8 +610,6 @@ export class MatchmakingService {
     const gameLoaded = gameLoader.loadGame({
       players: slots,
       mapId: chosenMap.id,
-      gameSource: 'MATCHMAKING',
-      gameSourceExtra: match.type,
       gameConfig,
       cancelToken: loadCancelToken,
       onGameSetup: (setup, resultCodes) =>
