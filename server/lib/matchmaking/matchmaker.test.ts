@@ -1,6 +1,6 @@
 /* eslint-disable jest/no-commented-out-tests */
 import { makeSbUserId } from '../../../common/users/user-info'
-import { DEFAULT_OPPONENT_CHOOSER, initializePlayer, QueuedMatchmakingPlayer } from './matchmaker'
+import { DEFAULT_MATCH_CHOOSER, initializePlayer, QueuedMatchmakingPlayer } from './matchmaker'
 
 let curUserId = 1
 
@@ -28,19 +28,19 @@ function createPlayer(data: Partial<QueuedMatchmakingPlayer> = {}): QueuedMatchm
   })
 }
 
-describe('matchmaking/matchmaker/DEFAULT_OPPONENT_CHOOSER', () => {
+describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
   beforeEach(() => {
     curUserId = 1
   })
 
-  test('should return the only opponent option if there is only 1', () => {
+  test('1v1 - should return the only opponent option if there is only 1', () => {
     const player = createPlayer()
     const opponent = createPlayer({ name: 'ReallyBadDude' })
 
-    expect(DEFAULT_OPPONENT_CHOOSER(player, [opponent])).toBe(opponent)
+    expect(DEFAULT_MATCH_CHOOSER(1, player, [opponent])).toEqual([[player], [opponent]])
   })
 
-  test("shouldn't return any opponents if they don't have the player in their range", () => {
+  test("1v1 - shouldn't return any opponents if they don't have the player in their range", () => {
     const player = createPlayer()
     const opponent = createPlayer({
       name: 'ReallyBadDude',
@@ -48,26 +48,32 @@ describe('matchmaking/matchmaker/DEFAULT_OPPONENT_CHOOSER', () => {
       interval: { low: 1310, high: 1490 },
     })
 
-    expect(DEFAULT_OPPONENT_CHOOSER(player, [opponent])).toBeUndefined()
+    expect(DEFAULT_MATCH_CHOOSER(1, player, [opponent])).toEqual([])
   })
 
-  test('should pick the only new opponent if player is new', () => {
+  test('1v1 - should pick the only new opponent if player is new', () => {
     const player = createPlayer()
     const newOpponent = createPlayer({ name: 'SuperChoboNewbie' })
     const oldOpponent = createPlayer({ name: 'GrizzledVet', numGamesPlayed: 9001 })
 
-    expect(DEFAULT_OPPONENT_CHOOSER(player, [oldOpponent, newOpponent])).toBe(newOpponent)
+    expect(DEFAULT_MATCH_CHOOSER(1, player, [oldOpponent, newOpponent])).toEqual([
+      [player],
+      [newOpponent],
+    ])
   })
 
-  test('should pick the only old player if player is not new', () => {
+  test('1v1 - should pick the only old player if player is not new', () => {
     const player = createPlayer({ numGamesPlayed: 5000 })
     const newOpponent = createPlayer({ name: 'SuperChoboNewbie' })
     const oldOpponent = createPlayer({ name: 'GrizzledVet', numGamesPlayed: 9001 })
 
-    expect(DEFAULT_OPPONENT_CHOOSER(player, [oldOpponent, newOpponent])).toBe(oldOpponent)
+    expect(DEFAULT_MATCH_CHOOSER(1, player, [oldOpponent, newOpponent])).toEqual([
+      [player],
+      [oldOpponent],
+    ])
   })
 
-  test("should pick the opponent that's been in queue the longest", () => {
+  test("1v1 - should pick the opponent that's been in queue the longest", () => {
     const player = createPlayer()
     const justJoinedOpponent = createPlayer({ name: 'HiJustGotHere' })
     const waitingABitOpponent = createPlayer({ name: 'ComeOnWheresMyMatch', searchIterations: 8 })
@@ -77,39 +83,44 @@ describe('matchmaking/matchmaker/DEFAULT_OPPONENT_CHOOSER', () => {
     })
 
     expect(
-      DEFAULT_OPPONENT_CHOOSER(player, [
+      DEFAULT_MATCH_CHOOSER(1, player, [
         waitingABitOpponent,
         justJoinedOpponent,
         dyingOfOldAgeOpponent,
       ]),
-    ).toBe(dyingOfOldAgeOpponent)
+    ).toEqual([[player], [dyingOfOldAgeOpponent]])
   })
 
-  test('should pick the opponent with the closest rating', () => {
+  test('1v1 - should pick the opponent with the closest rating', () => {
     const player = createPlayer({ rating: 1700 })
     const kindaFar = createPlayer({ name: 'ThirteenHundred', rating: 1300 })
     const gettingWarmer = createPlayer({ name: 'WarmPerson', rating: 1600 })
     const pickThis = createPlayer({ name: 'PickMePickMe', rating: 1730 })
 
-    expect(DEFAULT_OPPONENT_CHOOSER(player, [kindaFar, gettingWarmer, pickThis])).toBe(pickThis)
+    expect(DEFAULT_MATCH_CHOOSER(1, player, [kindaFar, gettingWarmer, pickThis])).toEqual([
+      [player],
+      [pickThis],
+    ])
   })
 
-  test('should pick randomly among the remaining opponents', () => {
+  test('1v1 - should pick randomly among the remaining opponents', () => {
     const player = createPlayer({ rating: 1700 })
     const kindaFar = createPlayer({ name: 'ThirteenHundred', rating: 1300 })
     const pickThis = createPlayer({ name: 'PickMe', rating: 1670 })
     const orThis = createPlayer({ name: 'OrMe', rating: 1730 })
 
-    const result = DEFAULT_OPPONENT_CHOOSER(player, [kindaFar, pickThis, orThis])
+    const result = DEFAULT_MATCH_CHOOSER(1, player, [kindaFar, pickThis, orThis])
 
-    expect(result).not.toBe(kindaFar)
+    expect(result).not.toEqual([[player], [kindaFar]])
+
+    const [, teamB] = result
     // NOTE(tec27): The selection is random so we can't easily check for a specific value here, at
     // least without mocking out random in some way. If this test flakes out, it likely means the
     // logic in the function is wrong.
-    expect([pickThis, orThis]).toContain(result)
+    expect([pickThis, orThis]).toContain(teamB![0])
   })
 
-  test('should return asymmetric range matches if player is highly ranked', () => {
+  test('1v1 - should return asymmetric range matches if player is highly ranked', () => {
     const player = createPlayer()
     const opponent = createPlayer({
       name: 'ReallyBadDude',
@@ -117,6 +128,6 @@ describe('matchmaking/matchmaker/DEFAULT_OPPONENT_CHOOSER', () => {
       interval: { low: 1310, high: 1490 },
     })
 
-    expect(DEFAULT_OPPONENT_CHOOSER(player, [opponent])).toBeUndefined()
+    expect(DEFAULT_MATCH_CHOOSER(1, player, [opponent])).toEqual([])
   })
 })
