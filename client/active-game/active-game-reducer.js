@@ -2,11 +2,11 @@ import { Record } from 'immutable'
 import { ACTIVE_GAME_STATUS, LOBBY_UPDATE_GAME_STARTED } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
-export const GameInfo = new Record({
+export const GameInfo = Record({
   type: null,
   extra: null,
 })
-export const ActiveGame = new Record({
+export const ActiveGame = Record({
   isActive: false,
   info: new GameInfo(),
 })

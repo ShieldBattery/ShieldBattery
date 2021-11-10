@@ -3,14 +3,11 @@ import { MatchmakingType } from '../../common/matchmaking'
 import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import fetch from '../network/fetch'
-import { RootState } from '../root-reducer'
 
 const LADDER_RANKINGS_CACHE_TIME_MS = 60 * 1000
 
 export function getRankings(matchmakingType: MatchmakingType): ThunkAction {
-  // NOTE(tec27): Not sure why, but getState here is sometimes typed as () => any unless we are
-  // explicit about its typing
-  return (dispatch, getState: () => RootState) => {
+  return (dispatch, getState) => {
     const fetchTime = new Date()
     const {
       ladder: { typeToRankings },

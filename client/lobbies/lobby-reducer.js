@@ -1,5 +1,8 @@
 import cuid from 'cuid'
 import { List, Record } from 'immutable'
+import { GameType } from '../../common/games/configuration'
+import { Team } from '../../common/lobbies/index'
+import { Slot } from '../../common/lobbies/slot'
 import {
   LOBBY_ACTIVATE,
   LOBBY_DEACTIVATE,
@@ -39,47 +42,26 @@ import {
   SelfJoinLobbyMessageRecord,
 } from './lobby-message-records'
 
-export const Slot = new Record({
-  type: null,
-  name: null,
-  race: null,
-  id: null,
-  joinedAt: null,
-  controlledBy: null,
-  teamId: null,
-  hasForcedRace: false,
-  playerId: null,
-  typeId: 0,
-  userId: null,
-})
-export const Team = new Record({
-  name: null,
-  teamId: null,
-  isObserver: false,
-  slots: new List(),
-  originalSize: null,
-  hiddenSlots: new List(),
-})
-export const LobbyInfo = new Record({
-  name: null,
-  map: null,
-  gameType: null,
-  gameSubType: null,
-  teams: new List(),
-  host: null,
+export class LobbyInfo extends Record({
+  name: '',
+  map: undefined,
+  gameType: GameType.Melee,
+  gameSubType: 0,
+  teams: List(),
+  host: new Slot(),
 
   isCountingDown: false,
   countdownTimer: -1,
   isLoading: false,
-})
-const BaseLobbyRecord = new Record({
+}) {}
+
+export class LobbyRecord extends Record({
   info: new LobbyInfo(),
-  chat: new List(),
+  chat: List(),
 
   activated: false,
   hasUnread: false,
-})
-export class LobbyRecord extends BaseLobbyRecord {
+}) {
   get inLobby() {
     return !!(this.info && this.info.name)
   }
@@ -91,11 +73,11 @@ const infoReducer = keyedReducer(undefined, {
     const teams = lobby.teams.map(team => {
       const slots = team.slots.map(slot => new Slot(slot))
       const hiddenSlots = team.hiddenSlots.map(slot => new Slot(slot))
-      return new Team({ ...team, slots: new List(slots), hiddenSlots })
+      return new Team({ ...team, slots: List(slots), hiddenSlots })
     })
     const lobbyInfo = new LobbyInfo({
       ...lobby,
-      teams: new List(teams),
+      teams: List(teams),
       host: new Slot(lobby.host),
     })
 
@@ -309,7 +291,7 @@ const chatHandlers = {
   },
 }
 
-const EMPTY_CHAT = new List()
+const EMPTY_CHAT = List()
 function chatReducer(lobbyInfo, lastLobbyInfo, state, action) {
   if (!lobbyInfo.name) {
     return EMPTY_CHAT

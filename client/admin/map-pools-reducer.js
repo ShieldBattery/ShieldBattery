@@ -10,29 +10,29 @@ import {
 } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
-export const MapPool = new Record({
+export const MapPool = Record({
   id: null,
   type: '',
   startDate: null,
-  maps: new List(),
+  maps: List(),
 })
-export const MapPoolHistory = new Record({
-  mapPools: new List(),
+export const MapPoolHistory = Record({
+  mapPools: List(),
   byId: new Map(),
   total: -1,
 
   isRequesting: false,
   lastError: null,
 })
-export const SearchRecord = new Record({
-  list: new List(),
+export const SearchRecord = Record({
+  list: List(),
   byId: new Map(),
   total: -1,
 
   isRequesting: false,
   lastError: null,
 })
-export const MapPoolsState = new Record({
+export const MapPoolsState = Record({
   types: new Map(),
   searchResult: new SearchRecord(),
 })
@@ -50,8 +50,8 @@ export default keyedReducer(new MapPoolsState(), {
     }
 
     const history = new MapPoolHistory({
-      mapPools: new List(payload.pools.map(p => p.id)),
-      byId: new Map(payload.pools.map(p => [p.id, new MapPool({ ...p, maps: new List(p.maps) })])),
+      mapPools: List(payload.pools.map(p => p.id)),
+      byId: new Map(payload.pools.map(p => [p.id, new MapPool({ ...p, maps: List(p.maps) })])),
       total: payload.total,
     })
     return state.setIn(['types', meta.type], history)
@@ -92,7 +92,7 @@ export default keyedReducer(new MapPoolsState(), {
     const history = state.types.get(meta.type)
     const updatedHistory = new MapPoolHistory({
       mapPools: history.mapPools.unshift(pool.id),
-      byId: history.byId.set(pool.id, new MapPool({ ...pool, maps: new List(pool.maps) })),
+      byId: history.byId.set(pool.id, new MapPool({ ...pool, maps: List(pool.maps) })),
       total: history.total + 1,
     })
     return state.setIn(['types', meta.type], updatedHistory)

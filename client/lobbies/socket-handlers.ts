@@ -1,7 +1,9 @@
 import { NydusClient, RouteHandler } from 'nydus-client'
-import { GameLaunchConfig, GameRoute } from '../../common/game-launch-config'
+import { GameLaunchConfig, GameRoute, PlayerInfo } from '../../common/game-launch-config'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
+import { Slot } from '../../common/lobbies/slot'
+import { MapInfoJson } from '../../common/maps'
 import { urlPath } from '../../common/urls'
 import { SbUser, SbUserId } from '../../common/users/user-info'
 import {
@@ -34,7 +36,6 @@ import { dispatch, Dispatchable } from '../dispatch-registry'
 import { replace } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
 import { openSnackbar } from '../snackbars/action-creators'
-import { Slot } from './lobby-reducer'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -393,31 +394,30 @@ const eventToAction: EventToActionMap = {
       auth: { user },
     } = getState()
     // We tack on `teamId` to each slot here so we don't have to send two different things to game
-    const slots = getIngameLobbySlotsWithIndexes(lobby.info)
+    const slots = getIngameLobbySlotsWithIndexes(lobby.info as any)
       .map(
         ([teamIndex, , slot]: [number, any, any]) =>
           new Slot({ ...slot.toJS(), teamId: lobby.info.teams.get(teamIndex).teamId }),
       )
-      .toJS()
+      .toJS() as PlayerInfo[]
     const {
       info: { name: lobbyName, map, gameType, gameSubType, host },
     } = lobby
-    // TODO(tec27): Remove cast once Immutable infers types properly
     const config: GameLaunchConfig = {
-      localUser: user.toJS(),
+      localUser: { id: user.id, name: user.name },
       setup: {
         gameId: event.setup.gameId,
         name: lobbyName,
-        map,
+        map: map as unknown as MapInfoJson,
         gameType,
         gameSubType,
         slots,
-        host: host.toJS(),
+        host: host.toJS() as PlayerInfo,
         seed: event.setup.seed,
         resultCode: event.resultCode,
         serverUrl: makeServerUrl(''),
       },
-    } as GameLaunchConfig
+    }
 
     dispatch({
       type: ACTIVE_GAME_LAUNCH,

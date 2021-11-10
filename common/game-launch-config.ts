@@ -3,6 +3,7 @@ import { SlotType } from './lobbies/slot'
 import { MapInfoJson } from './maps'
 import { RaceChar } from './races'
 import { ResolvedRallyPointServer } from './rally-point'
+import { SbUserId } from './users/user-info'
 
 // TODO(tec27): Pretty sure this is some lobby structure we could re-use/share? I built it from the
 // Rust version so I dunno
@@ -43,7 +44,7 @@ export function isReplayMapInfo(map: MapInfoJson | ReplayMapInfo): map is Replay
 export interface GameLaunchConfig {
   /** The user currently logged into the application and playing the game. */
   localUser: {
-    id: number
+    id: SbUserId
     name: string
   }
   /** Setup configuration for the game, such as the map, game type, etc. */
@@ -66,6 +67,7 @@ export interface GameLaunchConfig {
      */
     mapPath?: string
     gameType: GameType
+    gameSubType: number
     slots: PlayerInfo[]
     host: PlayerInfo
     seed: number

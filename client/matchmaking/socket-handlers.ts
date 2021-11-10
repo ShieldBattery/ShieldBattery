@@ -204,6 +204,7 @@ const eventToAction: EventToActionMap = {
         name: 'Matchmaking game', // Does this even matter for anything?
         map: event.chosenMap,
         gameType: GameType.OneVsOne,
+        gameSubType: 0,
         slots,
         host: slots[0], // Arbitrarily set first player as host
         seed: event.setup.seed!,
