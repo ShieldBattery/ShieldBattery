@@ -13,7 +13,7 @@ const MENTION_POSTFIX = String.raw`(?=\s|$|[,;:?])`
  * The matched user's name is available in the "user" capture group. There's also one additional
  * named capture group, namely "prefix", that contains all the matched characters before the
  * username. For characters that are allowed to come after the username, a positive lookahead group
- * is used. Those character won't end up in a matched string, which could potentially interfer with
+ * is used. Those character won't end up in a matched string, which could potentially interfere with
  * prefix characters of the next match.
  */
 export const MENTION_REGEX = new RegExp(
