@@ -21,7 +21,7 @@ interface ExternalLinkDialogProps extends CommonDialogProps {
 
 export default function ExternalLinkDialog(props: ExternalLinkDialogProps) {
   const { href, domain, onCancel } = props
-  const trustedDomains: string[] = useAppSelector(s => s.settings.local.trustedDomains)
+  const trustedDomains = useAppSelector(s => s.settings.local.trustedDomains)
   const dispatch = useAppDispatch()
 
   const onOpenLinkClick = useCallback(
@@ -53,7 +53,6 @@ export default function ExternalLinkDialog(props: ExternalLinkDialogProps) {
         You are going to visit <LinkAsText title={href}>{clampString(href, 256)}</LinkAsText> which
         is outside of ShieldBattery.
       </p>
-      <br />
       <a
         href={href}
         target='_blank'

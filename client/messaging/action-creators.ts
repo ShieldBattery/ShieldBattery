@@ -5,7 +5,7 @@ import { ThunkAction } from '../dispatch-registry'
 
 export function maybeOpenExternalLinkDialog(e: MouseEvent<HTMLAnchorElement>): ThunkAction {
   return (dispatch, getState) => {
-    const trustedDomains: string[] = getState().settings.local.trustedDomains
+    const trustedDomains = getState().settings.local.trustedDomains
     const { href, host, protocol } = e.currentTarget
 
     if (!href || !host || !protocol) return
