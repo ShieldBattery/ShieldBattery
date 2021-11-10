@@ -10,7 +10,7 @@ import {
 import { keyedReducer } from '../reducers/keyed-reducer'
 import { LocalSettings, ScrSettings } from './settings-records'
 
-export const Settings = new Record({
+export const Settings = Record({
   local: new LocalSettings(),
   scr: new ScrSettings(),
   global: null,
