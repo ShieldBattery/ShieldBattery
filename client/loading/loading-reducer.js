@@ -9,7 +9,7 @@ import {
 } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
-export const LoadingState = new Record({
+export const LoadingState = Record({
   audio: true,
   chat: true,
   clientSubscriptions: true,

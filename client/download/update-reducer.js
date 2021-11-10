@@ -6,7 +6,7 @@ import {
 } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
-export const UpdateStatus = new Record({
+export const UpdateStatus = Record({
   hasUpdate: false,
   hasDownloadError: false,
   readyToInstall: false,

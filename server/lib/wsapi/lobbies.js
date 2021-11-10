@@ -36,11 +36,11 @@ const REMOVAL_TYPE_BAN = 2
 
 const nonEmptyString = str => typeof str === 'string' && str.length > 0
 
-const Countdown = new Record({
+const Countdown = Record({
   timer: null,
 })
 
-const ListSubscription = new Record({
+const ListSubscription = Record({
   onUnsubscribe: null,
   count: 0,
 })

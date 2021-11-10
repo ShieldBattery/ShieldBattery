@@ -2,11 +2,11 @@ import { List, Map, Record } from 'immutable'
 import { ACTIVITY_OVERLAY_CLOSE, ACTIVITY_OVERLAY_GO_BACK, ACTIVITY_OVERLAY_OPEN } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
-const OverlayRecord = new Record({
+const OverlayRecord = Record({
   overlayType: null,
   initData: new Map(),
 })
-const OverlayStateBase = new Record({
+const OverlayStateBase = Record({
   history: new List(),
 })
 export class OverlayState extends OverlayStateBase {

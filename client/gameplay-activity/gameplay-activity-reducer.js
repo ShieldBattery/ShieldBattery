@@ -2,7 +2,7 @@ import { Record } from 'immutable'
 import { LOBBY_UPDATE_STATUS, NETWORK_SITE_CONNECTED } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
-const BaseGameplayActivity = new Record({
+const BaseGameplayActivity = Record({
   gameplayActivity: null,
 })
 export class GameplayActivity extends BaseGameplayActivity {

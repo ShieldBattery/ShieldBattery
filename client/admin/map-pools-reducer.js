@@ -10,13 +10,13 @@ import {
 } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
-export const MapPool = new Record({
+export const MapPool = Record({
   id: null,
   type: '',
   startDate: null,
   maps: new List(),
 })
-export const MapPoolHistory = new Record({
+export const MapPoolHistory = Record({
   mapPools: new List(),
   byId: new Map(),
   total: -1,
@@ -24,7 +24,7 @@ export const MapPoolHistory = new Record({
   isRequesting: false,
   lastError: null,
 })
-export const SearchRecord = new Record({
+export const SearchRecord = Record({
   list: new List(),
   byId: new Map(),
   total: -1,
@@ -32,7 +32,7 @@ export const SearchRecord = new Record({
   isRequesting: false,
   lastError: null,
 })
-export const MapPoolsState = new Record({
+export const MapPoolsState = Record({
   types: new Map(),
   searchResult: new SearchRecord(),
 })

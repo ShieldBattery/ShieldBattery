@@ -2,20 +2,20 @@ import { List, Map, Record } from 'immutable'
 import { ADMIN_BAN_USER, ADMIN_GET_BAN_HISTORY, ADMIN_GET_BAN_HISTORY_BEGIN } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
-export const Ban = new Record({
+export const Ban = Record({
   startTime: null,
   endTime: null,
   bannedBy: null,
   reason: null,
 })
-export const BanHistory = new Record({
+export const BanHistory = Record({
   bans: new List(),
 
   lastUpdated: 0,
   isRequesting: false,
   lastError: null,
 })
-export const BanState = new Record({
+export const BanState = Record({
   users: new Map(),
 })
 

@@ -11,13 +11,13 @@ import {
 } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
-export const MatchmakingTime = new Record({
+export const MatchmakingTime = Record({
   id: null,
   type: null,
   startDate: null,
   enabled: false,
 })
-export const MatchmakingTimesHistory = new Record({
+export const MatchmakingTimesHistory = Record({
   currentTime: null,
   futureTimes: new List(),
   totalFutureTimes: -1,
@@ -29,7 +29,7 @@ export const MatchmakingTimesHistory = new Record({
   isRequestingPastTimes: false,
   lastError: null,
 })
-export const MatchmakingTimesState = new Record({
+export const MatchmakingTimesState = Record({
   types: new Map(),
 })
 
