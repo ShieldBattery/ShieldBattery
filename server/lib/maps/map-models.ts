@@ -571,7 +571,7 @@ export async function veryDangerousDeleteAllMaps(deleteFromStoreFn: () => Promis
     const query = sql`
       BEGIN;
         UPDATE lobby_preferences SET recent_maps = NULL, selected_map = NULL;
-        UPDATE matchmaking_preferences SET map_selections = NULL;
+        UPDATE matchmaking_preferences SET map_selections = '{}';
         TRUNCATE matchmaking_map_pools, favorited_maps, uploaded_maps, maps;
       COMMIT;
     `
