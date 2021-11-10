@@ -32,6 +32,7 @@ type DbMapInfo = Dbify<{
   originalDescription: string
   playersMelee: number
   playersUms: number
+  isEud: boolean
   lobbyInitData: {
     forces: MapForce[]
   }
@@ -70,6 +71,7 @@ function convertFromDb(props: DbMapInfo, urls: MapUrlProps): MapInfo {
       umsForces: props.lobby_init_data.forces,
       width: props.width,
       height: props.height,
+      isEud: props.is_eud,
     },
     isFavorited: !!props.favorited,
     ...urls,
@@ -126,6 +128,7 @@ export async function addMap(
       tileset,
       meleePlayers,
       umsPlayers,
+      isEud,
       lobbyInitData,
     } = mapData
 
@@ -134,9 +137,10 @@ export async function addMap(
     if (!exists) {
       const query = sql`
         INSERT INTO maps (hash, extension, title, description,
-          width, height, tileset, players_melee, players_ums, lobby_init_data)
+          width, height, tileset, players_melee, players_ums, lobby_init_data, is_eud)
         VALUES (${hashBuffer}, ${extension}, ${title}, ${description},
-          ${width}, ${height}, ${tileset}, ${meleePlayers}, ${umsPlayers}, ${lobbyInitData});
+          ${width}, ${height}, ${tileset}, ${meleePlayers}, ${umsPlayers}, ${lobbyInitData},
+          ${isEud});
       `
       await client.query(query)
       // Run the `transactionFn` only if a new map is added
@@ -173,6 +177,7 @@ export async function addMap(
         m.tileset,
         m.players_melee,
         m.players_ums,
+        m.is_eud,
         m.lobby_init_data,
         u.name AS uploaded_by_name
       FROM ins
@@ -240,6 +245,7 @@ export async function getMapInfo(mapIds: string[], favoritedBy?: SbUserId): Prom
         m.tileset,
         m.players_melee,
         m.players_ums,
+        m.is_eud,
         m.lobby_init_data,
         u.name AS uploaded_by_name
       FROM uploaded_maps AS um
@@ -351,6 +357,7 @@ export async function getMaps(
         m.tileset,
         m.players_melee,
         m.players_ums,
+        m.is_eud,
         m.lobby_init_data,
         u.name AS uploaded_by_name
       FROM uploaded_maps AS um
@@ -421,6 +428,7 @@ export async function getFavoritedMaps(
       m.tileset,
       m.players_melee,
       m.players_ums,
+      m.is_eud,
       m.lobby_init_data,
       u.name AS uploaded_by_name,
       true AS favorited
@@ -489,6 +497,7 @@ export async function updateMap(
       m.tileset,
       m.players_melee,
       m.players_ums,
+      m.is_eud,
       m.lobby_init_data,
       u.name AS uploaded_by_name,
       fav.map_id AS favorited

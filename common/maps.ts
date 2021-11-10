@@ -102,6 +102,7 @@ export interface MapData {
   umsForces: MapForce[]
   width: number
   height: number
+  isEud: boolean
 }
 
 export interface MapInfo {

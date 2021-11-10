@@ -22,7 +22,7 @@ use winapi::um::libloaderapi::{GetModuleHandleW};
 
 use bw_dat::UnitId;
 
-use crate::app_messages::Settings;
+use crate::app_messages::{MapInfo, Settings};
 use crate::bw::{self, Bw, FowSpriteIterator, StormPlayerId};
 use crate::bw::commands;
 use crate::bw::unit::{Unit, UnitIterator};
@@ -1770,6 +1770,7 @@ impl BwScr {
     unsafe fn build_join_game_params<T: GameInfoValueTrait>(
         &self,
         input_game_info: &mut bw::JoinableGameInfo,
+        is_eud: bool,
     ) -> bw_hash_table::HashTable<scr::BwString, T> {
         let mut params = bw_hash_table::HashTable::<scr::BwString, T>::new(0x20, 0x8, 0x28);
         let mut add_param = |key: &[u8], value: u32| {
@@ -1795,9 +1796,9 @@ impl BwScr {
         // Not sure if we want to change this one day. I think 0 means dynamic,
         // which is assumed by the host as well AFAIK.
         add_param(b"net_turn_rate", 0);
-        // TODO: This is actually important for EUD maps. Host gets it set correctly
-        // automatically, but I think we need more code here to support EUD maps.
-        add_param(b"flags", 0);
+        // Flag 0x4 = Old limits, 0x10 = EUD
+        let flags = if is_eud { 0x14 } else { 0x0 };
+        add_param(b"flags", flags);
 
         let mut add_param_string = |key: &[u8], value_str: &[u8]| {
             let mut string: scr::BwString = mem::zeroed();
@@ -1934,6 +1935,7 @@ impl bw::Bw for BwScr {
     unsafe fn create_lobby(
         &self,
         map_path: &Path,
+        map_info: &MapInfo,
         lobby_name: &str,
         game_type: bw::GameType,
     ) -> Result<(), bw::LobbyCreateError> {
@@ -1942,6 +1944,15 @@ impl bw::Bw for BwScr {
         init_bw_string(&mut game_input.password, b"");
         game_input.speed = 6;
         game_input.game_type_subtype = game_type.as_u32();
+
+        let is_eud = match map_info.map_data {
+            Some(ref s) => s.is_eud,
+            None => false,
+        };
+        if is_eud {
+            game_input.old_limits = 1;
+            game_input.eud = 1;
+        }
 
         let map_dir = match map_path.parent() {
             Some(s) => s.into(),
@@ -2021,6 +2032,7 @@ impl bw::Bw for BwScr {
     unsafe fn join_lobby(
         &self,
         input_game_info: &mut bw::JoinableGameInfo,
+        is_eud: bool,
         map_path: &[u8],
         address: std::net::Ipv4Addr,
     ) -> Result<(), u32> {
@@ -2029,7 +2041,7 @@ impl bw::Bw for BwScr {
         // The GameInfoValue struct is being changed on the newer versions that keeps
         // getting rolled back.. Keep support for both versions.
         let params = if self.uses_new_join_param_variant {
-            self.build_join_game_params::<scr::GameInfoValue>(input_game_info)
+            self.build_join_game_params::<scr::GameInfoValue>(input_game_info, is_eud)
         } else {
             // HashTable itself has same layout regardless of which values it contains,
             // so this kind of cast is fine. Only BW is going to read params after this,
@@ -2039,7 +2051,9 @@ impl bw::Bw for BwScr {
             // now so it is fine. We just leak the few strings that we have.
             // Should remove this branch at some point anyway, once we're sure we don't need
             // to support 9411.
-            mem::transmute(self.build_join_game_params::<scr::GameInfoValueOld>(input_game_info))
+            mem::transmute(
+                self.build_join_game_params::<scr::GameInfoValueOld>(input_game_info, is_eud)
+            )
         };
 
         let mut game_info = scr::JoinableGameInfo {

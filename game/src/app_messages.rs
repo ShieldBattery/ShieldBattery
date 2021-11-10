@@ -128,6 +128,7 @@ pub struct MapData {
     pub slots: u8,
     pub tileset: u16,
     pub ums_forces: Vec<MapForce>,
+    pub is_eud: bool,
 }
 
 #[derive(Deserialize)]
