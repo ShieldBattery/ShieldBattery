@@ -487,11 +487,16 @@ export class Matchmaker {
       estimatedPlayers += this.populationEstimate[i].value
     }
 
-    if (estimatedPlayers >= this.teamSize * 2) {
+    const neededPlayers = this.teamSize * 2
+
+    if (estimatedPlayers >= neededPlayers) {
       return curMaxInterval
     }
 
-    while (estimatedPlayers < 2 && (lowBucket > 0 || highBucket < this.populationEstimate.length)) {
+    while (
+      estimatedPlayers < neededPlayers &&
+      (lowBucket > 0 || highBucket < this.populationEstimate.length)
+    ) {
       if (lowBucket > 0) {
         lowBucket -= 1
         estimatedPlayers += this.populationEstimate[lowBucket].value
