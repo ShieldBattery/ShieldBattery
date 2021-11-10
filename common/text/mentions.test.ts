@@ -46,6 +46,16 @@ describe('common/text/mentions/matchUserMentions', () => {
     `)
   })
 
+  test('user with multiple mentions separated by space', () => {
+    expect(doMatch('Hi @test @test @test')).toMatchInlineSnapshot(`
+      Array [
+        "test",
+        "test",
+        "test",
+      ]
+    `)
+  })
+
   test('user with comma after it', () => {
     expect(doMatch('Hi @test, and everyone else.')).toMatchInlineSnapshot(`
       Array [
@@ -118,7 +128,7 @@ describe('common/text/mentions/matchUserMentions', () => {
     `)
   })
 
-  test('user with varios other special characters in name', () => {
+  test('user with various other special characters in name', () => {
     expect(doMatch('Hi @test`$^&*+=_-')).toMatchInlineSnapshot(`
       Array [
         "test\`$^&*+=_-",
