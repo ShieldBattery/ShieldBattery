@@ -1,5 +1,5 @@
 import React, { MouseEvent, useCallback } from 'react'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { RaisedButton, TextButton } from '../material/button'
@@ -8,10 +8,19 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { mergeLocalSettings } from '../settings/action-creators'
 import { body2 } from '../styles/typography'
 
-const LinkAsText = styled.span`
+const veryLongLinkStyles = css`
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`
+
+const LinkAsText = styled.span<{ isLong?: boolean }>`
   ${body2};
   overflow-wrap: anywhere;
-  user-select: text;
+  user-select: all;
+  ${props => (props.isLong ? veryLongLinkStyles : '')}
 `
 
 interface ExternalLinkDialogProps extends CommonDialogProps {
@@ -50,8 +59,11 @@ export default function ExternalLinkDialog(props: ExternalLinkDialogProps) {
       buttons={buttons}
       dialogRef={props.dialogRef}>
       <p>
-        You are going to visit <LinkAsText title={href}>{clampString(href, 256)}</LinkAsText> which
-        is outside of ShieldBattery.
+        You are going to visit{' '}
+        <LinkAsText title={`(click to select) ${href}`} isLong={href.length > 256}>
+          {href}
+        </LinkAsText>{' '}
+        which is outside of ShieldBattery.
       </p>
       <a
         href={href}
@@ -64,8 +76,4 @@ export default function ExternalLinkDialog(props: ExternalLinkDialogProps) {
       </a>
     </Dialog>
   )
-}
-
-function clampString(str: string, length: number, postfix = '...') {
-  return str.length > length ? str.slice(0, length - postfix.length) + postfix : str
 }
