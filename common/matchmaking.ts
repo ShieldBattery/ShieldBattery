@@ -15,6 +15,14 @@ export enum MatchmakingType {
 
 export const ALL_MATCHMAKING_TYPES: ReadonlyArray<MatchmakingType> = Object.values(MatchmakingType)
 
+/**
+ * A Record of MatchmakingType -> the size of a team within a match.
+ */
+export const TEAM_SIZES: Readonly<Record<MatchmakingType, number>> = {
+  [MatchmakingType.Match1v1]: 1,
+  [MatchmakingType.Match2v2]: 2,
+}
+
 export function isValidMatchmakingType(type: string) {
   return Object.values(MatchmakingType).includes(type as MatchmakingType)
 }

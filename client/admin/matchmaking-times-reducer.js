@@ -11,17 +11,17 @@ import {
 } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
-export const MatchmakingTime = new Record({
+export const MatchmakingTime = Record({
   id: null,
   type: null,
   startDate: null,
   enabled: false,
 })
-export const MatchmakingTimesHistory = new Record({
+export const MatchmakingTimesHistory = Record({
   currentTime: null,
-  futureTimes: new List(),
+  futureTimes: List(),
   totalFutureTimes: -1,
-  pastTimes: new List(),
+  pastTimes: List(),
   totalPastTimes: -1,
 
   isRequesting: false,
@@ -29,7 +29,7 @@ export const MatchmakingTimesHistory = new Record({
   isRequestingPastTimes: false,
   lastError: null,
 })
-export const MatchmakingTimesState = new Record({
+export const MatchmakingTimesState = Record({
   types: new Map(),
 })
 
@@ -59,9 +59,9 @@ export default keyedReducer(new MatchmakingTimesState(), {
     const { current, futureTimes, totalFutureTimes, pastTimes, totalPastTimes } = payload
     const history = new MatchmakingTimesHistory({
       currentTime: createMatchmakingTime(current),
-      futureTimes: new List(futureTimes.map(t => createMatchmakingTime(t))),
+      futureTimes: List(futureTimes.map(t => createMatchmakingTime(t))),
       totalFutureTimes,
-      pastTimes: new List(pastTimes.map(t => createMatchmakingTime(t))),
+      pastTimes: List(pastTimes.map(t => createMatchmakingTime(t))),
       totalPastTimes,
     })
     return state.setIn(['types', meta.type], history)
@@ -80,7 +80,7 @@ export default keyedReducer(new MatchmakingTimesState(), {
         .setIn(['types', meta.type, 'isRequestingFutureTimes'], false)
     }
 
-    const futureTimes = new List(payload.futureTimes.map(t => createMatchmakingTime(t)))
+    const futureTimes = List(payload.futureTimes.map(t => createMatchmakingTime(t)))
     return state
       .setIn(['types', meta.type, 'lastError'], null)
       .setIn(['types', meta.type, 'isRequestingFutureTimes'], false)
@@ -109,7 +109,7 @@ export default keyedReducer(new MatchmakingTimesState(), {
         .setIn(['types', meta.type, 'isRequestingPastTimes'], false)
     }
 
-    const pastTimes = new List(payload.pastTimes.map(t => createMatchmakingTime(t)))
+    const pastTimes = List(payload.pastTimes.map(t => createMatchmakingTime(t)))
     return state
       .setIn(['types', meta.type, 'lastError'], null)
       .setIn(['types', meta.type, 'isRequestingPastTimes'], false)

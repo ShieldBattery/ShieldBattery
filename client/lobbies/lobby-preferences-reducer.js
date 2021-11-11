@@ -6,11 +6,11 @@ import {
 } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
-export const RecentMaps = new Record({
-  list: new List(),
+export const RecentMaps = Record({
+  list: List(),
   byId: new Map(),
 })
-export const LobbyPreferences = new Record({
+export const LobbyPreferences = Record({
   name: null,
   gameType: null,
   gameSubType: null,
@@ -24,7 +24,7 @@ export const LobbyPreferences = new Record({
 
 export function recentMapsFromJs(recentMaps) {
   return new RecentMaps({
-    list: new List(recentMaps.map(m => m.id)),
+    list: List(recentMaps.map(m => m.id)),
     byId: new Map(recentMaps.map(m => [m.id, m])),
   })
 }

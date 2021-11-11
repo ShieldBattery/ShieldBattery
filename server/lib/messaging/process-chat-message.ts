@@ -20,12 +20,12 @@ export async function processMessageContents(
   const usernamesLowercase = new Map(
     Array.from(mentionedUsers.entries(), ([k, v]) => [k.toLowerCase(), v]),
   )
-  const processedText = text.replaceAll(MENTION_REGEX, (_, prefix, username, postfix) => {
+  const processedText = text.replaceAll(MENTION_REGEX, (_, prefix, username) => {
     const lowerCaseUser = username.toLowerCase()
 
     return usernamesLowercase.has(lowerCaseUser)
-      ? `${prefix}<@${usernamesLowercase.get(lowerCaseUser)!.id}>${postfix}`
-      : `${prefix}@${username}${postfix}`
+      ? `${prefix}<@${usernamesLowercase.get(lowerCaseUser)!.id}>`
+      : `${prefix}@${username}`
   })
 
   return [processedText, mentionedUsers]

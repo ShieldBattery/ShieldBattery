@@ -1,10 +1,10 @@
 import { Record } from 'immutable'
 import { NETWORK_SITE_CONNECTED, NETWORK_SITE_DISCONNECTED } from '../actions'
 
-export const SiteSocketStatus = new Record({
+export const SiteSocketStatus = Record({
   isConnected: false,
 })
-export const NetworkStatus = new Record({
+export const NetworkStatus = Record({
   site: new SiteSocketStatus(),
 })
 

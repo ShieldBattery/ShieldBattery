@@ -105,64 +105,64 @@ export function initializePlayer(player: MatchmakingPlayer): QueuedMatchmakingPl
   return player as QueuedMatchmakingPlayer
 }
 
-export const DEFAULT_OPPONENT_CHOOSER = (
-  player: QueuedMatchmakingPlayer,
-  opponents: QueuedMatchmakingPlayer[],
-) => {
-  let filtered = opponents.filter(
+// TODO(tec27): Handle teamSize > 1
+export const DEFAULT_MATCH_CHOOSER: MatchChooser = (teamSize, player, potentialPlayers) => {
+  const neededPlayers = teamSize * 2 - 1
+
+  let filtered = potentialPlayers.filter(
     o => o.interval.low <= player.rating && player.rating <= o.interval.high,
   )
 
-  if (!filtered.length) {
-    return undefined
+  if (filtered.length < neededPlayers) {
+    return []
   } else if (filtered.length === 1) {
-    return filtered[0]
+    return [[player], [filtered[0]]]
   }
 
-  // 1) If you are a new player (<25 games), choose the opponent that also is a new player, else:
-  // 2) If you are not a new player, choose the opponent that also is not a new player, else:
+  // 1) If you are a new player (<25 games), choose the player that also is a new player, else:
+  // 2) If you are not a new player, choose the player that also is not a new player, else:
   const isNew = isNewPlayer(player)
   const sameNewness = filtered.filter(o => isNewPlayer(o) === isNew)
   if (sameNewness.length) {
     filtered = sameNewness
   }
 
-  if (!filtered.length) {
-    return undefined
+  if (filtered.length < neededPlayers) {
+    return []
   } else if (filtered.length === 1) {
-    return filtered[0]
+    return [[player], [filtered[0]]]
   }
 
-  // TODO(tec27): 3) If applicable, choose the opponent in “Inactive” status.
-  // TODO(tec27): 4) Choose the opponent with the lowest ping (in 50ms buckets).
+  // TODO(tec27): 3) If applicable, choose the player in “Inactive” status.
+  // TODO(tec27): 4) Choose the player with the lowest ping (in 50ms buckets).
 
-  // 5) Choose the opponent that has been waiting in queue the longest.
+  // 5) Choose the player that has been waiting in queue the longest.
   filtered.sort((a, b) => b.searchIterations - a.searchIterations)
   const mostSearchIterations = filtered[0].searchIterations
   filtered = filtered.filter(o => o.searchIterations === mostSearchIterations)
 
-  if (!filtered.length) {
-    return undefined
+  if (filtered.length < neededPlayers) {
+    return []
   } else if (filtered.length === 1) {
-    return filtered[0]
+    return [[player], [filtered[0]]]
   }
 
-  // 6) Choose the opponent with the closest rating.
+  // 6) Choose the player with the closest rating.
   const opponentRating = findClosestRating(player.rating, filtered)
   const ratingDiff = Math.abs(opponentRating - player.rating)
   filtered = filtered.filter(o => Math.abs(o.rating - player.rating) === ratingDiff)
 
-  if (!filtered.length) {
-    return undefined
+  if (filtered.length < neededPlayers) {
+    return []
   } else {
     // 7) Randomize among remaining candidates.
-    return filtered[Math.floor(Math.random() * filtered.length)]
+    return [[player], [filtered[Math.floor(Math.random() * filtered.length)]]]
   }
 }
 
 export type OnMatchFoundFunc = (
-  player: Readonly<MatchmakingPlayer>,
-  opponent: Readonly<MatchmakingPlayer>,
+  teamA: ReadonlyArray<Readonly<MatchmakingPlayer>>,
+  teamB: ReadonlyArray<Readonly<MatchmakingPlayer>>,
 ) => void
 
 /**
@@ -174,15 +174,25 @@ export interface QueuedMatchmakingPlayer extends MatchmakingPlayer {
 }
 
 /**
- * A function that chooses an opponent for `player` among a pool of potential opponents.
+ * A function that chooses a teammates/opponents for `player` among a pool of potential players.
  *
- * @param player the player to find an opponent for
- * @param opponents the possible opponents to choose from
+ * @param teamSize The number of players in each team
+ * @param player the player to find a match for
+ * @param potentialPlayers the possible players to choose from
+ *
+ * @returns A tuple of `[teamA, teamB]` with the players in each team, or an empty array if no match
+ *     could be found from the given pool.
  */
-type OpponentChooser = (
+type MatchChooser = (
+  teamSize: number,
   player: Readonly<QueuedMatchmakingPlayer>,
-  opponents: Readonly<QueuedMatchmakingPlayer>[],
-) => Readonly<QueuedMatchmakingPlayer> | undefined
+  potentialPlayers: Readonly<QueuedMatchmakingPlayer>[],
+) =>
+  | [
+      teamA: Array<Readonly<QueuedMatchmakingPlayer>>,
+      teamB: Array<Readonly<QueuedMatchmakingPlayer>>,
+    ]
+  | []
 
 @injectable()
 export class Matchmaker {
@@ -198,10 +208,15 @@ export class Matchmaker {
   )
   private populationInterval = 0
 
+  /**
+   * How many players will be on each team for a complete match. Note that this assumes we only
+   * have modes with 2 teams total, and would need to be adjusted for more.
+   */
+  private teamSize = 1
   private onMatchFound: OnMatchFoundFunc = () => {
     throw new Error('onMatchFound function must be set before use!')
   }
-  private opponentChooser: OpponentChooser = DEFAULT_OPPONENT_CHOOSER
+  private matchChooser: MatchChooser = DEFAULT_MATCH_CHOOSER
 
   constructor(private scheduler: LazyScheduler) {
     scheduler.setDelay(MATCHMAKING_INTERVAL_MS)
@@ -234,6 +249,11 @@ export class Matchmaker {
       // updates accurately.
       return keepGoing || this.populationInterval > 0
     })
+  }
+
+  setTeamSize(teamSize: number): this {
+    this.teamSize = teamSize
+    return this
   }
 
   setOnMatchFound(onMatchFound: OnMatchFoundFunc): this {
@@ -400,27 +420,34 @@ export class Matchmaker {
         Math.round(player.interval.high),
       )
 
-      let opponent: Readonly<QueuedMatchmakingPlayer> | undefined
+      let teamA, teamB: Array<Readonly<QueuedMatchmakingPlayer>> | undefined
       if (results.length > 0) {
-        opponent = this.opponentChooser(player, results)
+        ;[teamA, teamB] = this.matchChooser(this.teamSize, player, results)
       }
 
-      if (opponent) {
-        this.removeFromTree(opponent)
-
+      if (teamA && teamB) {
         // Remove the matched players from the queue we use for iteration
         this.players = this.players.delete(player.id)
-        this.players = this.players.delete(opponent.id)
-
-        // Since our iteration method returns the whole queue at once, the opponent will still be
-        // iterated over, even though we removed them from the queue; To stop that from happening,
-        // mark the opponent as 'matched' so it can be skipped later on in the iteration
-        matchedPlayers = matchedPlayers.add(opponent)
-
         this.onPlayerRemoved(player)
-        this.onPlayerRemoved(opponent)
 
-        this.onMatchFound(player, opponent)
+        for (const players of [teamA, teamB]) {
+          for (const p of players) {
+            if (p !== player) {
+              this.removeFromTree(p)
+              this.players = this.players.delete(p.id)
+
+              // Since our iteration method returns the whole queue at once, the opponent will still
+              // be iterated over, even though we removed them from the queue; To stop that from
+              // happening, mark the opponent as 'matched' so it can be skipped later on in the
+              // iteration
+              matchedPlayers = matchedPlayers.add(p)
+
+              this.onPlayerRemoved(p)
+            }
+          }
+        }
+
+        this.onMatchFound(teamA, teamB)
       } else {
         // No matches for this player. Increase their search interval and re-add them to the tree
 
@@ -460,12 +487,16 @@ export class Matchmaker {
       estimatedPlayers += this.populationEstimate[i].value
     }
 
-    // TODO(tec27): Use the right value for non-1v1 matchmaking
-    if (estimatedPlayers >= 2) {
+    const neededPlayers = this.teamSize * 2
+
+    if (estimatedPlayers >= neededPlayers) {
       return curMaxInterval
     }
 
-    while (estimatedPlayers < 2 && (lowBucket > 0 || highBucket < this.populationEstimate.length)) {
+    while (
+      estimatedPlayers < neededPlayers &&
+      (lowBucket > 0 || highBucket < this.populationEstimate.length)
+    ) {
       if (lowBucket > 0) {
         lowBucket -= 1
         estimatedPlayers += this.populationEstimate[lowBucket].value
@@ -478,7 +509,7 @@ export class Matchmaker {
 
     const result = {
       low: lowBucket * POPULATION_BUCKET_RATING,
-      // NOTE(tec27): Since this value is exlcusive, this correctly gets assigned the rating of the
+      // NOTE(tec27): Since this value is exclusive, this correctly gets assigned the rating of the
       // next bucket up (thereby including all of the ratings of the top bucket in our range)
       high: highBucket * POPULATION_BUCKET_RATING,
     }

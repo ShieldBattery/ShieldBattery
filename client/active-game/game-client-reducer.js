@@ -2,11 +2,11 @@ import Immutable, { Record } from 'immutable'
 import { ACTIVE_GAME_LAUNCH, ACTIVE_GAME_STATUS } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
-export const GameStatus = new Record({
+export const GameStatus = Record({
   state: 'unknown',
   extra: null,
 })
-export const GameClient = new Record({
+export const GameClient = Record({
   gameId: null,
   status: new GameStatus(),
 })

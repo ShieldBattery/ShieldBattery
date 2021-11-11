@@ -36,11 +36,11 @@ const REMOVAL_TYPE_BAN = 2
 
 const nonEmptyString = str => typeof str === 'string' && str.length > 0
 
-const Countdown = new Record({
+const Countdown = Record({
   timer: null,
 })
 
-const ListSubscription = new Record({
+const ListSubscription = Record({
   onUnsubscribe: null,
   count: 0,
 })
@@ -548,7 +548,7 @@ export class LobbyApi {
       throw new errors.BadRequest('invalid slot type')
     }
 
-    this.lobbyBannedUsers = this.lobbyBannedUsers.update(lobby.name, new List(), val =>
+    this.lobbyBannedUsers = this.lobbyBannedUsers.update(lobby.name, List(), val =>
       val.push(playerToBan.name),
     )
 

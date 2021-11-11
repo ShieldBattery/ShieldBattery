@@ -1,4 +1,5 @@
 import cuid from 'cuid'
+import { Immutable } from 'immer'
 import { container, singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
 import { isAbortError, raceAbort } from '../../../common/async/abort-signals'
@@ -17,6 +18,7 @@ import {
   MatchmakingPreferences,
   MatchmakingType,
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
+  TEAM_SIZES,
 } from '../../../common/matchmaking'
 import { subtract } from '../../../common/sets'
 import { urlPath } from '../../../common/urls'
@@ -81,10 +83,12 @@ class Match {
   constructor(
     readonly id: string,
     readonly type: MatchmakingType,
-    readonly players: MatchmakingPlayer[],
+    readonly teams: Immutable<MatchmakingPlayer[][]>,
   ) {
-    for (const p of players) {
-      this.acceptPromises.set(p.id, createDeferred())
+    for (const players of teams) {
+      for (const p of players) {
+        this.acceptPromises.set(p.id, createDeferred())
+      }
     }
 
     ;[this.acceptTimeout, this.clearAcceptTimeout] = timeoutPromise(
@@ -110,12 +114,20 @@ class Match {
     )
   }
 
+  *players() {
+    for (const players of this.teams) {
+      for (const p of players) {
+        yield p
+      }
+    }
+  }
+
   get totalPlayers(): number {
-    return this.players.length
+    return TEAM_SIZES[this.type] * this.teams.length
   }
 
   get numAccepted(): number {
-    return this.players.length - this.acceptPromises.size
+    return this.totalPlayers - this.acceptPromises.size
   }
 
   registerAccept(userId: SbUserId) {
@@ -134,7 +146,7 @@ class Match {
   }
 
   getKicksAndRequeues(): [toKick: Set<SbUserId>, toRequeue: Set<SbUserId>] {
-    const toRequeue = subtract(new Set(this.players.map(p => p.id)), this.toKick)
+    const toRequeue = subtract(new Set(this.teams.flatMap(t => t.map(p => p.id))), this.toKick)
     return [new Set(this.toKick), toRequeue]
   }
 }
@@ -181,7 +193,7 @@ export class MatchmakingServiceError extends Error {
  */
 async function pickMap(
   matchmakingType: MatchmakingType,
-  players: ReadonlyArray<MatchmakingPlayer>,
+  players: Immutable<MatchmakingPlayer[]>,
 ): Promise<MapInfo> {
   const currentMapPool = await getCurrentMapPool(matchmakingType)
   if (!currentMapPool) {
@@ -227,31 +239,35 @@ async function pickMap(
 @singleton()
 export class MatchmakingService {
   private matchmakerDelegate: MatchmakerCallbacks = {
-    onMatchFound: (player: Readonly<MatchmakingPlayer>, opponent: Readonly<MatchmakingPlayer>) => {
-      const playerEntry = this.queueEntries.get(player.id)!
+    onMatchFound: (teamA, teamB) => {
+      const playerEntry = this.queueEntries.get(teamA[0].id)!
 
-      const matchInfo = new Match(cuid(), playerEntry.type, [player, opponent])
+      const matchInfo = new Match(cuid(), playerEntry.type, [teamA, teamB])
       this.matches.set(matchInfo.id, matchInfo)
 
-      for (const p of [player, opponent]) {
-        const queueEntry = this.queueEntries.get(p.id)!
-        queueEntry.matchId = matchInfo.id
-        this.publishToActiveClient(p.id, {
-          type: 'matchFound',
-          matchmakingType: matchInfo.type,
-          numPlayers: 2,
-        })
+      for (const players of [teamA, teamB]) {
+        for (const p of players) {
+          const queueEntry = this.queueEntries.get(p.id)!
+          queueEntry.matchId = matchInfo.id
+          this.publishToActiveClient(p.id, {
+            type: 'matchFound',
+            matchmakingType: matchInfo.type,
+            numPlayers: matchInfo.totalPlayers,
+          })
+        }
       }
 
       const completionTime = new Date()
-      for (const p of [player, opponent]) {
-        insertMatchmakingCompletion({
-          userId: p.id,
-          matchmakingType: matchInfo.type,
-          completionType: MatchmakingCompletionType.Found,
-          searchTimeMillis: p.searchIterations * MATCHMAKING_INTERVAL_MS,
-          completionTime,
-        }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
+      for (const players of [teamA, teamB]) {
+        for (const p of players) {
+          insertMatchmakingCompletion({
+            userId: p.id,
+            matchmakingType: matchInfo.type,
+            completionType: MatchmakingCompletionType.Found,
+            searchTimeMillis: p.searchIterations * MATCHMAKING_INTERVAL_MS,
+            completionTime,
+          }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
+        }
       }
 
       this.runMatch(matchInfo.id).catch(swallowNonBuiltins)
@@ -270,16 +286,18 @@ export class MatchmakingService {
     }) => {
       cancelToken.throwIfCancelling()
 
-      const playersJson = matchInfo.players.map(p => {
-        const slot = slots.find(s => s.name === p.name)!
+      const playersJson = matchInfo.teams.flatMap(team =>
+        team.map(p => {
+          const slot = slots.find(s => s.name === p.name)!
 
-        return {
-          id: p.id,
-          name: p.name,
-          race: slot.race,
-          rating: p.rating,
-        }
-      })
+          return {
+            id: p.id,
+            name: p.name,
+            race: slot.race,
+            rating: p.rating,
+          }
+        }),
+      )
 
       // Using `map` with `Promise.all` here instead of `forEach`, so our general error handler
       // catches any of the errors inside.
@@ -398,7 +416,10 @@ export class MatchmakingService {
     this.matchmakers = new Map(
       ALL_MATCHMAKING_TYPES.map(type => [
         type,
-        container.resolve(Matchmaker).setOnMatchFound(this.matchmakerDelegate.onMatchFound),
+        container
+          .resolve(Matchmaker)
+          .setTeamSize(TEAM_SIZES[type])
+          .setOnMatchFound(this.matchmakerDelegate.onMatchFound),
       ]),
     )
 
@@ -508,7 +529,7 @@ export class MatchmakingService {
       while (match.numAccepted < match.totalPlayers) {
         await match.acceptStateChanged
 
-        for (const p of match.players) {
+        for (const p of match.players()) {
           this.publishToActiveClient(p.id, {
             type: 'playerAccepted',
             acceptedPlayers: match.numAccepted,
@@ -533,10 +554,17 @@ export class MatchmakingService {
         this.unregisterActivity(id)
       }
 
+      const players = Array.from(match.players())
+
       for (const id of toRequeue) {
         this.queueEntries.get(id)!.matchId = undefined
-        const player = match.players.find(p => p.id === id)!
-        this.matchmakers.get(match.type)!.addToQueue(player)
+        const player = players.find(p => p.id === id)!
+        // Generate a writable version of the MatchmakingPlayer
+        const newQueueEntry: MatchmakingPlayer = {
+          ...player,
+          mapSelections: new Set(player.mapSelections),
+        }
+        this.matchmakers.get(match.type)!.addToQueue(newQueueEntry)
 
         if (phase === 'loading') {
           // TODO(tec27): Give a better reason here, and ideally derive who to kick from the load
@@ -561,7 +589,7 @@ export class MatchmakingService {
 
   private async doGameLoad(match: Match) {
     let slots: Slot[]
-    const players = match.players
+    const players = Array.from(match.players())
 
     // TODO(tec27): ignore alternate race selection if there are more than 2 players
     const firstPlayer = players[0]
@@ -587,7 +615,7 @@ export class MatchmakingService {
       slots = players.map(p => createHuman(p.name, p.id, p.race))
     }
 
-    const chosenMap = await pickMap(match.type, match.players)
+    const chosenMap = await pickMap(match.type, players)
 
     const gameConfig: GameConfig = {
       // TODO(tec27): This will need to be adjusted for team matchmaking
@@ -628,7 +656,7 @@ export class MatchmakingService {
 
     await gameLoaded
 
-    for (const player of match.players) {
+    for (const player of match.players()) {
       this.queueEntries.delete(player.id)
     }
 

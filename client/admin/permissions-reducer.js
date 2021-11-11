@@ -6,7 +6,7 @@ import {
 } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
-export const Permissions = new Record({
+export const Permissions = Record({
   editPermissions: false,
   debug: false,
   acceptInvites: false,
@@ -24,7 +24,7 @@ export const Permissions = new Record({
   lastError: null,
 })
 
-export const PermissionState = new Record({
+export const PermissionState = Record({
   users: new Map(),
 })
 

@@ -7,27 +7,27 @@ import {
 } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
-export const Folder = new Record({
+export const Folder = Record({
   type: 'folder',
   name: '',
   path: '',
 })
-export const File = new Record({
+export const File = Record({
   type: 'file',
   name: '',
   path: '',
   extension: '',
   date: null,
 })
-export const FileBrowseState = new Record({
-  folders: new List(),
-  files: new List(),
+export const FileBrowseState = Record({
+  folders: List(),
+  files: List(),
   path: '',
 
   isRequesting: false,
   lastError: null,
 })
-export const FileStates = new Record({
+export const FileStates = Record({
   replays: new FileBrowseState(),
   maps: new FileBrowseState(),
 })
@@ -66,8 +66,8 @@ export default keyedReducer(new FileStates(), {
       prev
         .set('isRequesting', false)
         .set('lastError', null)
-        .set('folders', new List(folders))
-        .set('files', new List(files)),
+        .set('folders', List(folders))
+        .set('files', List(files)),
     )
   },
 

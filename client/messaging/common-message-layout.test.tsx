@@ -86,7 +86,6 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             isMention={true}
             userId={123}
           />
-          
         </common-message-layout__Text>
       </TimestampMessageLayout>
     `)
@@ -119,7 +118,6 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             isMention={true}
             userId={123}
           />
-          
         </common-message-layout__Text>
       </TimestampMessageLayout>
     `)
@@ -148,8 +146,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             isMention={true}
             userId={123}
           />
-           
-          see 
+           see 
           <ExternalLink
             href="http://www.example.com"
             innerText="http://www.example.com"
@@ -160,7 +157,6 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             isMention={true}
             userId={123}
           />
-          
         </common-message-layout__Text>
       </TimestampMessageLayout>
     `)
@@ -188,8 +184,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             isMention={true}
             userId={123}
           />
-           
-          go to 
+           go to 
           <ExternalLink
             href="http://www.example.com"
             innerText="http://www.example.com"
@@ -227,8 +222,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             isMention={true}
             userId={123}
           />
-           
-          or here 
+           or here 
           <ExternalLink
             href="http://www.example.com"
             innerText="http://www.example.com"
@@ -261,7 +255,6 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             isMention={true}
             userId={1}
           />
-          
         </common-message-layout__Text>
       </TimestampMessageLayout>
     `)

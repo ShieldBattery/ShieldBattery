@@ -1,11 +1,11 @@
 import { List, Map, Record } from 'immutable'
 import { LOBBIES_LIST_UPDATE } from '../actions'
 
-export const HostRecord = new Record({
+export const HostRecord = Record({
   name: null,
   id: null,
 })
-export const LobbySummary = new Record({
+export const LobbySummary = Record({
   name: null,
   map: null,
   gameType: null,
@@ -13,8 +13,8 @@ export const LobbySummary = new Record({
   host: null,
   openSlotCount: -1,
 })
-export const LobbyList = new Record({
-  list: new List(),
+export const LobbyList = Record({
+  list: List(),
   byName: new Map(),
 })
 

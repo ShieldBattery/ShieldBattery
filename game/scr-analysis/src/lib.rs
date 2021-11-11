@@ -38,7 +38,7 @@ impl<'e> Analysis<'e> {
 
     #[cfg(target_arch = "x86")]
     fn mem_word(&self, op: Operand<'e>) -> Operand<'e> {
-        self.2.mem32(op)
+        self.2.mem32(op, 0)
     }
 
     pub fn game(&mut self) -> Option<Operand<'e>> {
@@ -368,7 +368,7 @@ impl<'e> Analysis<'e> {
             .filter(|x| x.len() == 1)
             .and_then(|x| x.get(0))
             .filter(|x| x.1 == 0 && x.2 == 0)
-            .map(|x| self.2.mem32(self.2.add_const(x.0, VirtualAddress::SIZE as u64)))
+            .map(|x| self.2.mem32(x.0, u64::from(VirtualAddress::SIZE)))
     }
 
     pub fn first_free_order(&mut self) -> Option<Operand<'e>> {

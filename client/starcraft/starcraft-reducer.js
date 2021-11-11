@@ -8,12 +8,12 @@ import {
 } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
-export const ShieldBatteryFileStatus = new Record({
+export const ShieldBatteryFileStatus = Record({
   init: false,
   main: false,
 })
 
-export const StarcraftStatus = new Record({
+export const StarcraftStatus = Record({
   pathValid: false,
   versionValid: false,
   isRemastered: false,

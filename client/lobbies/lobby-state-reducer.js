@@ -2,7 +2,7 @@ import { Map, Record } from 'immutable'
 import { LOBBIES_GET_STATE, LOBBIES_GET_STATE_BEGIN, NETWORK_SITE_CONNECTED } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
-export const LobbyState = new Record({
+export const LobbyState = Record({
   state: null,
   error: null,
   time: -1,

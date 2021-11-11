@@ -1,6 +1,8 @@
+import { Immutable } from 'immer'
 import { List } from 'immutable'
 import React from 'react'
 import styled from 'styled-components'
+import { assertUnreachable } from '../../common/assert-unreachable'
 import { gameTypeToLabel } from '../../common/games/configuration'
 import {
   canAddObservers,
@@ -9,7 +11,10 @@ import {
   hasOpposingSides,
   isTeamType,
   isUms,
+  Team,
 } from '../../common/lobbies'
+import { Slot, SlotType } from '../../common/lobbies/slot'
+import { MapInfoJson } from '../../common/maps'
 import { RaceChar } from '../../common/races'
 import { SelfUserRecord } from '../auth/auth-records'
 import { MapThumbnail } from '../maps/map-thumbnail'
@@ -34,7 +39,7 @@ import {
   SelfJoinLobbyMessage,
 } from './lobby-message-layout'
 import { LobbyMessageType } from './lobby-message-records'
-import { LobbyInfo, Slot, Team } from './lobby-reducer'
+import { LobbyInfo } from './lobby-reducer'
 import OpenSlot from './open-slot'
 import PlayerSlot from './player-slot'
 import { ObserverSlots, RegularSlots, TeamName } from './slot'
@@ -150,7 +155,7 @@ function renderChatMessage(msg: Message) {
 }
 
 interface LobbyProps {
-  lobby: ReturnType<typeof LobbyInfo>
+  lobby: LobbyInfo
   chat: List<Message>
   user: SelfUserRecord
   isFavoritingMap: boolean
@@ -171,7 +176,7 @@ interface LobbyProps {
 }
 
 export default class Lobby extends React.Component<LobbyProps> {
-  getTeamSlots(team: ReturnType<typeof Team>, isObserver: boolean, isLobbyUms: boolean) {
+  getTeamSlots(team: Team, isObserver: boolean, isLobbyUms: boolean) {
     const {
       lobby,
       user,
@@ -186,16 +191,16 @@ export default class Lobby extends React.Component<LobbyProps> {
       onRemoveObserver,
     } = this.props
 
-    const [, , mySlot] = findSlotByName(lobby, user.name)
+    const [, , mySlot] = findSlotByName(lobby as any, user.name)
     const isHost = mySlot && lobby.host.id === mySlot.id
-    const canAddObsSlots = canAddObservers(lobby)
-    const canRemoveObsSlots = canRemoveObservers(lobby)
+    const canAddObsSlots = canAddObservers(lobby as any)
+    const canRemoveObsSlots = canRemoveObservers(lobby as any)
 
     return team.slots
-      .map((slot: ReturnType<typeof Slot>) => {
+      .map((slot: Slot) => {
         const { type, name, race, id, controlledBy } = slot
         switch (type) {
-          case 'open':
+          case SlotType.Open:
             return (
               <OpenSlot
                 key={id}
@@ -211,7 +216,7 @@ export default class Lobby extends React.Component<LobbyProps> {
                 onRemoveObserver={() => onRemoveObserver(id)}
               />
             )
-          case 'closed':
+          case SlotType.Closed:
             return (
               <ClosedSlot
                 key={id}
@@ -226,7 +231,7 @@ export default class Lobby extends React.Component<LobbyProps> {
                 onRemoveObserver={() => onRemoveObserver(id)}
               />
             )
-          case 'human':
+          case SlotType.Human:
             return (
               <PlayerSlot
                 key={id}
@@ -244,7 +249,7 @@ export default class Lobby extends React.Component<LobbyProps> {
                 onMakeObserver={() => onMakeObserver(id)}
               />
             )
-          case 'observer':
+          case SlotType.Observer:
             return (
               <PlayerSlot
                 key={id}
@@ -260,7 +265,7 @@ export default class Lobby extends React.Component<LobbyProps> {
                 onRemoveObserver={() => onRemoveObserver(id)}
               />
             )
-          case 'computer':
+          case SlotType.Computer:
             return (
               <PlayerSlot
                 key={id}
@@ -276,9 +281,9 @@ export default class Lobby extends React.Component<LobbyProps> {
                 onKickPlayer={() => onKickPlayer(id)}
               />
             )
-          case 'umsComputer':
+          case SlotType.UmsComputer:
             return <PlayerSlot key={id} name={name} race={race} isComputer={true} />
-          case 'controlledOpen':
+          case SlotType.ControlledOpen:
             return (
               <OpenSlot
                 key={id}
@@ -291,7 +296,7 @@ export default class Lobby extends React.Component<LobbyProps> {
                 onCloseSlot={() => onCloseSlot(id)}
               />
             )
-          case 'controlledClosed':
+          case SlotType.ControlledClosed:
             return (
               <ClosedSlot
                 key={id}
@@ -303,7 +308,7 @@ export default class Lobby extends React.Component<LobbyProps> {
               />
             )
           default:
-            throw new Error('Unknown slot type: ' + type)
+            return assertUnreachable(type)
         }
       })
       .toArray()
@@ -353,9 +358,9 @@ export default class Lobby extends React.Component<LobbyProps> {
         </Left>
         <Info>
           <RaisedButton label='Leave lobby' onClick={onLeaveLobbyClick} />
-          <MapName>{lobby.map.name}</MapName>
+          <MapName>{(lobby.map as unknown as Immutable<MapInfoJson>).name}</MapName>
           <StyledMapThumbnail
-            map={lobby.map}
+            map={lobby.map as unknown as Immutable<MapInfoJson>}
             onPreview={onMapPreview}
             onToggleFavorite={onToggleFavoriteMap}
             isFavoriting={isFavoritingMap}
@@ -386,7 +391,7 @@ export default class Lobby extends React.Component<LobbyProps> {
       return null
     }
 
-    const isDisabled = lobby.isCountingDown || !hasOpposingSides(lobby)
+    const isDisabled = lobby.isCountingDown || !hasOpposingSides(lobby as any)
     return (
       <StartButton color='primary' label='Start game' disabled={isDisabled} onClick={onStartGame} />
     )
