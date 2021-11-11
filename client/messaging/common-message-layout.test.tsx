@@ -54,13 +54,10 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
         </message-layout__Separator>
         <common-message-layout__Text>
           here is a link 
-          <a
+          <ExternalLink
             href="http://www.example.com"
-            rel="noopener nofollow"
-            target="_blank"
-          >
-            http://www.example.com
-          </a>
+            innerText="http://www.example.com"
+          />
         </common-message-layout__Text>
       </TimestampMessageLayout>
     `)
@@ -111,13 +108,10 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
           : 
         </message-layout__Separator>
         <common-message-layout__Text>
-          <a
+          <ExternalLink
             href="http://www.example.com"
-            rel="noopener nofollow"
-            target="_blank"
-          >
-            http://www.example.com
-          </a>
+            innerText="http://www.example.com"
+          />
            go here
            
           <common-message-layout__MentionedUsername
@@ -153,13 +147,10 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             userId={123}
           />
            see 
-          <a
+          <ExternalLink
             href="http://www.example.com"
-            rel="noopener nofollow"
-            target="_blank"
-          >
-            http://www.example.com
-          </a>
+            innerText="http://www.example.com"
+          />
            go here
            
           <common-message-layout__MentionedUsername
@@ -194,13 +185,10 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             userId={123}
           />
            go to 
-          <a
+          <ExternalLink
             href="http://www.example.com"
-            rel="noopener nofollow"
-            target="_blank"
-          >
-            http://www.example.com
-          </a>
+            innerText="http://www.example.com"
+          />
         </common-message-layout__Text>
       </TimestampMessageLayout>
     `)
@@ -224,13 +212,10 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
           : 
         </message-layout__Separator>
         <common-message-layout__Text>
-          <a
+          <ExternalLink
             href="http://www.example.com"
-            rel="noopener nofollow"
-            target="_blank"
-          >
-            http://www.example.com
-          </a>
+            innerText="http://www.example.com"
+          />
            go here
            
           <common-message-layout__MentionedUsername
@@ -238,13 +223,10 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             userId={123}
           />
            or here 
-          <a
+          <ExternalLink
             href="http://www.example.com"
-            rel="noopener nofollow"
-            target="_blank"
-          >
-            http://www.example.com
-          </a>
+            innerText="http://www.example.com"
+          />
         </common-message-layout__Text>
       </TimestampMessageLayout>
     `)

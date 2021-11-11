@@ -7,6 +7,7 @@ import { makeSbUserId, SbUserId } from '../../common/users/user-info'
 import { amberA100, blue100 } from '../styles/colors'
 import { body2 } from '../styles/typography'
 import { ConnectedUsername } from './connected-username'
+import ExternalLink from './external-link'
 import {
   InfoImportant,
   SeparatedInfoMessage,
@@ -85,12 +86,7 @@ export const TextMessage = React.memo<{
       } else if (match.type === 'link') {
         // TODO(tec27): Handle links to our own host specially, redirecting to the correct route
         // in-client instead
-        // TODO(2Pac): Show a warning message about opening untrusted links
-        elements.push(
-          <a key={match.index} href={match.text} target='_blank' rel='noopener nofollow'>
-            {match.text}
-          </a>,
-        )
+        elements.push(<ExternalLink key={match.index} href={match.text} innerText={match.text} />)
       } else {
         assertUnreachable(match)
       }

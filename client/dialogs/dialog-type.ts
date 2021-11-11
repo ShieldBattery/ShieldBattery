@@ -17,4 +17,5 @@ export enum DialogType {
   TermsOfService = 'termsOfService',
   UpdateAvailable = 'updateAvailable',
   Whispers = 'whispers',
+  ExternalLink = 'externalLink',
 }
