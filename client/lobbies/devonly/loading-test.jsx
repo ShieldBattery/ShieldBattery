@@ -1,10 +1,12 @@
 import { List } from 'immutable'
 import React from 'react'
+import { Team } from '../../../common/lobbies'
+import { Slot } from '../../../common/lobbies/slot'
 import { GameStatus } from '../../active-game/game-client-reducer'
 import { SelfUserRecord } from '../../auth/auth-records'
 import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
 import LoadingScreen from '../loading'
-import { LobbyInfo, Slot, Team } from '../lobby-reducer'
+import { LobbyInfo } from '../lobby-reducer'
 
 const make = (state, extra) => new GameStatus({ state, extra })
 const STATUSES = [

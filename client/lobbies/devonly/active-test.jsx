@@ -1,9 +1,11 @@
 import { List } from 'immutable'
 import React from 'react'
+import { Team } from '../../../common/lobbies'
+import { Slot } from '../../../common/lobbies/slot'
 import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
 import { TabItem, Tabs } from '../../material/tabs'
 import ActiveLobby from '../active-lobby'
-import { LobbyInfo, Slot, Team } from '../lobby-reducer'
+import { LobbyInfo } from '../lobby-reducer'
 
 const TAB_MELEE = 0
 const TAB_TVB = 1
