@@ -56,8 +56,9 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
           here is a link 
           <ExternalLink
             href="http://www.example.com"
-            innerText="http://www.example.com"
-          />
+          >
+            http://www.example.com
+          </ExternalLink>
         </common-message-layout__Text>
       </TimestampMessageLayout>
     `)
@@ -110,8 +111,9 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
         <common-message-layout__Text>
           <ExternalLink
             href="http://www.example.com"
-            innerText="http://www.example.com"
-          />
+          >
+            http://www.example.com
+          </ExternalLink>
            go here
            
           <common-message-layout__MentionedUsername
@@ -149,8 +151,9 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
            see 
           <ExternalLink
             href="http://www.example.com"
-            innerText="http://www.example.com"
-          />
+          >
+            http://www.example.com
+          </ExternalLink>
            go here
            
           <common-message-layout__MentionedUsername
@@ -187,8 +190,9 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
            go to 
           <ExternalLink
             href="http://www.example.com"
-            innerText="http://www.example.com"
-          />
+          >
+            http://www.example.com
+          </ExternalLink>
         </common-message-layout__Text>
       </TimestampMessageLayout>
     `)
@@ -214,8 +218,9 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
         <common-message-layout__Text>
           <ExternalLink
             href="http://www.example.com"
-            innerText="http://www.example.com"
-          />
+          >
+            http://www.example.com
+          </ExternalLink>
            go here
            
           <common-message-layout__MentionedUsername
@@ -225,8 +230,9 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
            or here 
           <ExternalLink
             href="http://www.example.com"
-            innerText="http://www.example.com"
-          />
+          >
+            http://www.example.com
+          </ExternalLink>
         </common-message-layout__Text>
       </TimestampMessageLayout>
     `)
