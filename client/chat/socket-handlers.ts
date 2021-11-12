@@ -51,7 +51,7 @@ const eventToAction: EventToActionMap = {
         payload: {
           channel,
           user: event.user,
-          newOwner: event.newOwner,
+          newOwnerId: event.newOwnerId,
         },
       })
     }

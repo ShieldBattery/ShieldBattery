@@ -93,24 +93,24 @@ export interface ChatLeaveEvent {
   action: 'leave'
   /** A user that has left the chat channel. */
   user: ChatUser
-  /** A user that was selected as a new owner of the channel, if any. */
-  newOwner: ChatUser | null
+  /** The ID of a user that was selected as a new owner of the channel, if any. */
+  newOwnerId: SbUserId | null
 }
 
 export interface ChatKickEvent {
   action: 'kick'
   /** A user that was kicked from the chat channel. */
   target: ChatUser
-  /** A user that was selected as a new owner of the channel, if any. */
-  newOwner: ChatUser | null
+  /** The ID of a user that was selected as a new owner of the channel, if any. */
+  newOwnerId: SbUserId | null
 }
 
 export interface ChatBanEvent {
   action: 'ban'
   /** A user that was banned from the chat channel. */
   target: ChatUser
-  /** A user that was selected as a new owner of the channel, if any. */
-  newOwner: ChatUser | null
+  /** The ID of a user that was selected as a new owner of the channel, if any. */
+  newOwnerId: SbUserId | null
 }
 
 export interface ChatMessageEvent {

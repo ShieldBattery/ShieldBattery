@@ -122,7 +122,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/updateLeave'](state, action) {
-    const { channel: channelName, user, newOwner } = action.payload
+    const { channel: channelName, user, newOwnerId } = action.payload
     const lowerCaseChannelName = channelName.toLowerCase()
 
     const channel = state.byName.get(lowerCaseChannelName)
@@ -144,14 +144,14 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       }),
     )
 
-    if (newOwner) {
+    if (newOwnerId) {
       updateMessages(state, lowerCaseChannelName, true, m =>
         m.concat({
           id: cuid(),
           type: ClientChatMessageType.NewChannelOwner,
           channel: lowerCaseChannelName,
           time: Date.now(),
-          newOwnerId: newOwner.id,
+          newOwnerId,
         }),
       )
     }

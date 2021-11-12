@@ -1,5 +1,5 @@
 import sql, { SQLStatement } from 'sql-template-strings'
-import { ChatUser, ServerChatMessageType } from '../../../common/chat'
+import { ServerChatMessageType } from '../../../common/chat'
 import { SbUserId } from '../../../common/users/user-info'
 import db, { DbClient } from '../db'
 import transact from '../db/transaction'
@@ -58,6 +58,7 @@ export interface ChannelPermissions {
   changeTopic: boolean
   togglePrivate: boolean
   editPermissions: boolean
+  owner: boolean
 }
 
 export interface JoinedChannel {
@@ -82,6 +83,7 @@ function convertJoinedChannelFromDb(props: DbJoinedChannel): JoinedChannel {
       changeTopic: props.change_topic,
       togglePrivate: props.toggle_private,
       editPermissions: props.edit_permissions,
+      owner: props.owner,
     },
   }
 }
@@ -126,9 +128,9 @@ export async function addUserToChannel(
       query = sql`
         INSERT INTO joined_channels
         (user_id, channel_name, join_date, kick, ban, change_topic, toggle_private,
-          edit_permissions)
+          edit_permissions, owner)
         VALUES (${userId}, ${channelName}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', true, true, true,
-          true, true)
+          true, true, true)
         RETURNING *`
     }
 
@@ -269,9 +271,9 @@ export async function getMessagesForChannel(
 
 export interface LeaveChannelResult {
   /**
-   * The new owner of the channel, or null if the channel ownership has been left unchanged.
+   * The ID of a new owner of the channel, or null if the channel ownership has been left unchanged.
    */
-  newOwner: ChatUser | null
+  newOwnerId: SbUserId | null
 }
 
 export async function leaveChannel(
@@ -279,12 +281,17 @@ export async function leaveChannel(
   channelName: string,
 ): Promise<LeaveChannelResult> {
   return transact(async function (client) {
-    let result = await client.query(sql`
+    let result = await client.query<DbJoinedChannel>(sql`
       DELETE FROM joined_channels
       WHERE user_id = ${userId} AND channel_name = ${channelName}
       RETURNING *`)
     if (result.rowCount < 1) {
       throw new Error('No rows returned')
+    }
+
+    if (!result.rows[0].owner) {
+      // The leaving user was not the owner, so there's no reason to transfer ownership to anyone
+      return { newOwnerId: null }
     }
 
     result = await client.query(sql`
@@ -295,15 +302,7 @@ export async function leaveChannel(
     if (result.rowCount > 0) {
       // Channel was deleted; meaning there is no one left in it so there is no one to transfer the
       // ownership to
-      return { newOwner: null }
-    }
-
-    result = await client.query(sql`
-      SELECT user_id FROM joined_channels
-      WHERE channel_name = ${channelName} AND edit_permissions = true`)
-    if (result.rowCount > 0) {
-      // The channel still has someone who can edit permissions; no transfer of ownership necessary
-      return { newOwner: null }
+      return { newOwnerId: null }
     }
 
     result = await client.query(sql`
@@ -311,37 +310,41 @@ export async function leaveChannel(
       WHERE name = ${channelName} AND high_traffic = true`)
     if (result.rowCount > 0) {
       // Don't transfer ownership in "high traffic" channels
-      return { newOwner: null }
+      return { newOwnerId: null }
     }
 
-    result = await client.query(sql`
-      SELECT u.name AS user_name, c.user_id, c.join_date
-      FROM joined_channels as c INNER JOIN users as u ON c.user_id = u.id
-      WHERE c.channel_name = ${channelName} AND
-        (c.kick = true OR c.ban = true OR c.change_topic = true OR toggle_private = true)
-      ORDER BY c.join_date`)
+    result = await client.query<DbJoinedChannel>(sql`
+      SELECT *
+      FROM joined_channels
+      WHERE channel_name = ${channelName} AND (kick = true OR ban = true OR
+        change_topic = true OR toggle_private = true OR edit_permissions = true)
+      ORDER BY join_date`)
     if (result.rowCount > 0) {
-      // Transfer ownership to the user who has joined the channel earliest and has at least some
-      // kind of a permission
+      // Transfer ownership to the user who has joined the channel earliest and has an
+      // `edit_permissions` permission, or if there's no such user, then choose the first user with
+      // any kind of permission
+      const newOwner = result.rows.find(u => u.edit_permissions) || result.rows[0]
       await client.query(sql`
         UPDATE joined_channels
-        SET kick=true, ban=true, change_topic=true, toggle_private=true, edit_permissions=true
-        WHERE user_id = ${result.rows[0].user_id} AND channel_name = ${channelName}`)
-      return { newOwner: { id: result.rows[0].user_id, name: result.rows[0].user_name } }
+        SET kick = true, ban = true, change_topic = true, toggle_private = true,
+          edit_permissions = true, owner = true
+        WHERE user_id = ${newOwner.user_id} AND channel_name = ${channelName}`)
+      return { newOwnerId: newOwner.user_id }
     }
 
     // Transfer ownership to the user who has joined the channel earliest
     result = await client.query(sql`
-      SELECT u.name AS user_name, c.user_id, c.join_date
-      FROM joined_channels as c INNER JOIN users as u ON c.user_id = u.id
-      WHERE c.channel_name = ${channelName}
-      ORDER BY c.join_date`)
+      SELECT user_id, join_date
+      FROM joined_channels
+      WHERE channel_name = ${channelName}
+      ORDER BY join_date`)
 
     await client.query(sql`
       UPDATE joined_channels
-      SET kick=true, ban=true, change_topic=true, toggle_private=true, edit_permissions=true
+      SET kick = true, ban = true, change_topic = true, toggle_private = true,
+        edit_permissions = true, owner = true
       WHERE user_id = ${result.rows[0].user_id} AND channel_name = ${channelName}`)
-    return { newOwner: { id: result.rows[0].user_id, name: result.rows[0].user_name } }
+    return { newOwnerId: result.rows[0].user_id }
   })
 }
 
