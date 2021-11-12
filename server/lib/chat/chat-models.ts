@@ -281,20 +281,15 @@ export async function leaveChannel(
   channelName: string,
 ): Promise<LeaveChannelResult> {
   return transact(async function (client) {
-    let result = await client.query<DbJoinedChannel>(sql`
+    const joinedChannelResult = await client.query<DbJoinedChannel>(sql`
       DELETE FROM joined_channels
       WHERE user_id = ${userId} AND channel_name = ${channelName}
       RETURNING *`)
-    if (result.rowCount < 1) {
+    if (joinedChannelResult.rowCount < 1) {
       throw new Error('No rows returned')
     }
 
-    if (!result.rows[0].owner) {
-      // The leaving user was not the owner, so there's no reason to transfer ownership to anyone
-      return { newOwnerId: null }
-    }
-
-    result = await client.query(sql`
+    let result = await client.query(sql`
       DELETE FROM channels
       WHERE name = ${channelName} AND
         NOT EXISTS (SELECT 1 FROM joined_channels WHERE channel_name = ${channelName})
@@ -302,6 +297,11 @@ export async function leaveChannel(
     if (result.rowCount > 0) {
       // Channel was deleted; meaning there is no one left in it so there is no one to transfer the
       // ownership to
+      return { newOwnerId: null }
+    }
+
+    if (!joinedChannelResult.rows[0].owner) {
+      // The leaving user was not the owner, so there's no reason to transfer ownership to anyone
       return { newOwnerId: null }
     }
 
