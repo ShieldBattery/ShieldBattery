@@ -1,5 +1,4 @@
 import { RouterContext } from '@koa/router'
-import { File } from 'formidable'
 import { writeFile as fsWriteFile } from 'fs/promises'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
@@ -152,8 +151,11 @@ export class MapsApi {
   async upload2(ctx: RouterContext): Promise<any> {
     // TODO(tec27): This was originally handled by the same method as the non-official path, and
     // thus has logic for both. That logic can be stripped out now
+    if (!ctx.request.files?.file || Array.isArray(ctx.request.files.file)) {
+      throw new httpErrors.BadRequest('A single map file must be provided')
+    }
 
-    const { path } = ctx.request.files!.file as File
+    const { path } = ctx.request.files!.file
     const { extension } = ctx.request.body
 
     if (!path) {
@@ -184,8 +186,11 @@ export class MapsApi {
   async upload(ctx: RouterContext): Promise<any> {
     // TODO(tec27): This was originally handled by the same method as the official path, and
     // thus has logic for both. That logic can be stripped out now
+    if (!ctx.request.files?.file || Array.isArray(ctx.request.files.file)) {
+      throw new httpErrors.BadRequest('A single map file must be provided')
+    }
 
-    const { path } = ctx.request.files!.file as File
+    const { path } = ctx.request.files!.file
     const { extension } = ctx.request.body
 
     if (!path) {
