@@ -2,21 +2,23 @@ import React from 'react'
 import { useAppDispatch } from '../redux-hooks'
 import { maybeOpenExternalLinkDialog } from './action-creators'
 
-interface ExternalLinkProps {
+export interface ExternalLinkProps {
   href: string
-  innerText: string
+  children: React.ReactNode
+  className?: string
 }
 
-export default function ExternalLink({ href, innerText }: ExternalLinkProps) {
+export function ExternalLink({ href, children, className }: ExternalLinkProps) {
   const dispatch = useAppDispatch()
 
   return (
     <a
+      className={className}
       href={href}
       target='_blank'
       rel='nofollow noreferrer noopener'
       onClick={e => dispatch(maybeOpenExternalLinkDialog(e))}>
-      {innerText}
+      {children}
     </a>
   )
 }

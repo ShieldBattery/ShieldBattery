@@ -17,7 +17,7 @@ import AcceptMatch from '../matchmaking/accept-match'
 import { isHandledDismissalEvent } from '../material/dismissal-events'
 import { defaultSpring } from '../material/springs'
 import { zIndexDialogScrim } from '../material/zindex'
-import ExternalLinkDialog from '../messaging/external-link-dialog'
+import { ExternalLinkDialog } from '../messaging/external-link-dialog'
 import { PartyInviteDialog } from '../parties/party-invite-dialog'
 import {
   AcceptableUseDialog,

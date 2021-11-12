@@ -485,7 +485,19 @@ async function createWindow() {
   })
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
+    try {
+      const parsedUrl = new URL(url)
+      const protocol = parsedUrl.protocol.toLowerCase()
+
+      // Whitelist safe protocols to prevent someone from e.g. linking to a local file and causing
+      // users to launch it
+      if (protocol === 'http:' || protocol === 'https:') {
+        shell.openExternal(url)
+      }
+    } catch (err) {
+      logger.error('Error while parsing window.open URL: ' + err)
+    }
+
     return { action: 'deny' }
   })
 
