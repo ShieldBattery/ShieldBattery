@@ -11,7 +11,7 @@ use winapi::shared::ntdef::HANDLE;
 
 use bw_dat::UnitId;
 
-use crate::app_messages::Settings;
+use crate::app_messages::{MapInfo, Settings};
 
 pub use bw_dat::structs::*;
 
@@ -52,6 +52,7 @@ pub trait Bw: Sync + Send {
     unsafe fn create_lobby(
         &self,
         map_path: &Path,
+        map_info: &MapInfo,
         lobby_name: &str,
         game_type: GameType,
     ) -> Result<(), LobbyCreateError>;
@@ -60,6 +61,7 @@ pub trait Bw: Sync + Send {
     unsafe fn join_lobby(
         &self,
         game_info: &mut JoinableGameInfo,
+        is_eud_map: bool,
         map_path: &[u8],
         address: std::net::Ipv4Addr,
     ) -> Result<(), u32>;

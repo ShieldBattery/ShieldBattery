@@ -144,6 +144,7 @@ process.once('message', async msg => {
           tileset: map.tileset,
           meleePlayers: map.maxPlayers(false),
           umsPlayers: map.maxPlayers(true),
+          isEud: map.isEudMap(),
           lobbyInitData: createLobbyInitData(map),
         },
         resolve,

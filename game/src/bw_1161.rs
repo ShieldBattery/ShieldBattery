@@ -14,7 +14,7 @@ use winapi::um::winnt::HANDLE;
 
 use bw_dat::UnitId;
 
-use crate::app_messages::Settings;
+use crate::app_messages::{MapInfo, Settings};
 use crate::bw::{self, FowSpriteIterator, StormPlayerId};
 use crate::bw::unit::{Unit, UnitIterator};
 use crate::chat;
@@ -104,6 +104,7 @@ impl bw::Bw for Bw1161 {
     unsafe fn create_lobby(
         &self,
         map_path: &Path,
+        _map_info: &MapInfo,
         lobby_name: &str,
         game_type: bw::GameType,
     ) -> Result<(), bw::LobbyCreateError> {
@@ -113,6 +114,7 @@ impl bw::Bw for Bw1161 {
     unsafe fn join_lobby(
         &self,
         game_info: &mut bw::JoinableGameInfo,
+        _is_eud: bool,
         map_path: &[u8],
         _address: std::net::Ipv4Addr,
     ) -> Result<(), u32> {

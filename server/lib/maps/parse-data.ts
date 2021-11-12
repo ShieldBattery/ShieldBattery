@@ -9,6 +9,7 @@ export interface MapParseData {
   tileset: number
   meleePlayers: number
   umsPlayers: number
+  isEud: boolean
   lobbyInitData: {
     forces: MapForce[]
   }

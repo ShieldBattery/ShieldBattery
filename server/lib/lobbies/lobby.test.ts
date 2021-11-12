@@ -46,6 +46,7 @@ const BigGameHunters: MapInfo = {
     umsForces: [{ name: 'team', teamId: 0, players: [] }],
     width: 256,
     height: 256,
+    isEud: false,
   },
   isFavorited: false,
 }
@@ -885,6 +886,7 @@ const UMS_MAP_1: MapInfo = {
     ],
     width: 256,
     height: 256,
+    isEud: false,
   },
   isFavorited: false,
 }
@@ -929,6 +931,7 @@ const UMS_MAP_2: MapInfo = {
     ],
     width: 128,
     height: 128,
+    isEud: false,
   },
   isFavorited: false,
 }
@@ -967,6 +970,7 @@ const UMS_MAP_3: MapInfo = {
     ],
     width: 128,
     height: 128,
+    isEud: false,
   },
   isFavorited: false,
 }
@@ -1017,6 +1021,7 @@ const UMS_MAP_4: MapInfo = {
     ],
     width: 256,
     height: 256,
+    isEud: false,
   },
   isFavorited: false,
 }
