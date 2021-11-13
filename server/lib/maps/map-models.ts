@@ -38,6 +38,8 @@ type DbMapInfo = Dbify<{
   }
   width: number
   height: number
+  parserVersion: number
+  imageVersion: number
   favorited?: boolean
 }>
 
@@ -72,13 +74,25 @@ function convertFromDb(props: DbMapInfo, urls: MapUrlProps): MapInfo {
       width: props.width,
       height: props.height,
       isEud: props.is_eud,
+      parserVersion: props.parser_version,
     },
+    imageVersion: props.image_version,
     isFavorited: !!props.favorited,
     ...urls,
   }
 }
 
-const createMapInfo = async (info: DbMapInfo) => {
+function addImageVersion(url: string | undefined, imageVersion: number): string | undefined {
+  if (!url) {
+    return url
+  } else if (url.includes('?')) {
+    return `${url}&v=${imageVersion}`
+  } else {
+    return `${url}?v=${imageVersion}`
+  }
+}
+
+async function createMapInfo(info: DbMapInfo): Promise<MapInfo> {
   const hashString = info.map_hash.toString('hex')
 
   const [mapUrl, image256Url, image512Url, image1024Url, image2048Url] = await Promise.all([
@@ -89,12 +103,14 @@ const createMapInfo = async (info: DbMapInfo) => {
     getUrl(imagePath(hashString, 2048)),
   ])
 
+  const imageVersion = info.image_version
+
   return convertFromDb(info, {
     mapUrl,
-    image256Url,
-    image512Url,
-    image1024Url,
-    image2048Url,
+    image256Url: addImageVersion(image256Url, imageVersion),
+    image512Url: addImageVersion(image512Url, imageVersion),
+    image1024Url: addImageVersion(image1024Url, imageVersion),
+    image2048Url: addImageVersion(image2048Url, imageVersion),
   })
 }
 
@@ -103,6 +119,7 @@ export interface MapParams {
   extension: MapExtension
   uploadedBy: number
   visibility: MapVisibility
+  parserVersion: number
 }
 
 /**
@@ -118,7 +135,7 @@ export async function addMap(
   storeNewMapFn: () => Promise<void>,
 ): Promise<MapInfo> {
   return transact(async client => {
-    const { mapData, extension, uploadedBy, visibility } = mapParams
+    const { mapData, extension, uploadedBy, visibility, parserVersion } = mapParams
     const {
       hash,
       title,
@@ -137,10 +154,11 @@ export async function addMap(
     if (!exists) {
       const query = sql`
         INSERT INTO maps (hash, extension, title, description,
-          width, height, tileset, players_melee, players_ums, lobby_init_data, is_eud)
+          width, height, tileset, players_melee, players_ums, lobby_init_data,
+          is_eud, parser_version, image_version)
         VALUES (${hashBuffer}, ${extension}, ${title}, ${description},
           ${width}, ${height}, ${tileset}, ${meleePlayers}, ${umsPlayers}, ${lobbyInitData},
-          ${isEud});
+          ${isEud}, ${parserVersion}, 1);
       `
       await client.query(query)
       // Run the `transactionFn` only if a new map is added
@@ -178,6 +196,8 @@ export async function addMap(
         m.players_melee,
         m.players_ums,
         m.is_eud,
+        m.parser_version,
+        m.image_version,
         m.lobby_init_data,
         u.name AS uploaded_by_name
       FROM ins
@@ -189,6 +209,64 @@ export async function addMap(
 
     const result = await client.query<DbMapInfo>(query)
     return createMapInfo(result.rows[0])
+  })
+}
+
+/**
+ * Updates a maps' parsed data in the database, calling `parseFn` to retreieve the new data.
+ *
+ * @param oldMapInfos An array of maps to update (note that this will be their OLD info, before
+ *   reparsing).
+ * @param parseFn A function called once per map, returning a Promise with the parsed data.
+ */
+export async function updateParseData(
+  oldMapInfos: MapInfo[],
+  parseFn: (mapInfo: MapInfo) => Promise<[data: MapParseData, parserVersion: number]>,
+): Promise<void> {
+  const { client, done } = await db()
+  try {
+    await Promise.allSettled(
+      oldMapInfos.map(async mapInfo => {
+        const [newData, parserVersion] = await parseFn(mapInfo)
+        const hashBuffer = Buffer.from(mapInfo.hash, 'hex')
+        await client.query<never>(sql`
+          UPDATE maps
+          SET
+            title = ${newData.title},
+            description = ${newData.description},
+            width = ${newData.width},
+            height = ${newData.height},
+            tileset = ${newData.tileset},
+            players_melee = ${newData.meleePlayers},
+            players_ums = ${newData.umsPlayers},
+            lobby_init_data = ${newData.lobbyInitData},
+            is_eud = ${newData.isEud},
+            parser_version = ${parserVersion}
+          WHERE hash = ${hashBuffer}
+        `)
+      }),
+    )
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Updates the map's generated images in the database, calling `storeImagesFn` to store them for
+ * serving to clients.
+ */
+export async function updateMapImages(
+  mapHash: string,
+  storeImagesFn: () => Promise<void>,
+): Promise<void> {
+  return transact(async client => {
+    const hashBuffer = Buffer.from(mapHash, 'hex')
+    const queryPromise = client.query<never>(sql`
+      UPDATE maps
+      SET image_version = image_version + 1
+      WHERE hash = ${hashBuffer}
+    `)
+    await Promise.all([queryPromise, storeImagesFn()])
   })
 }
 
@@ -246,6 +324,8 @@ export async function getMapInfo(mapIds: string[], favoritedBy?: SbUserId): Prom
         m.players_melee,
         m.players_ums,
         m.is_eud,
+        m.parser_version,
+        m.image_version,
         m.lobby_init_data,
         u.name AS uploaded_by_name
       FROM uploaded_maps AS um
@@ -358,6 +438,8 @@ export async function getMaps(
         m.players_melee,
         m.players_ums,
         m.is_eud,
+        m.parser_version,
+        m.image_version,
         m.lobby_init_data,
         u.name AS uploaded_by_name
       FROM uploaded_maps AS um
@@ -429,6 +511,8 @@ export async function getFavoritedMaps(
       m.players_melee,
       m.players_ums,
       m.is_eud,
+      m.parser_version,
+      m.image_version,
       m.lobby_init_data,
       u.name AS uploaded_by_name,
       true AS favorited
@@ -460,7 +544,7 @@ export async function getFavoritedMaps(
 /** Updates the name or description of an existing map. */
 export async function updateMap(
   mapId: string,
-  favoritedBy: number,
+  favoritedBy: SbUserId,
   name?: string,
   description?: string,
 ): Promise<MapInfo> {
@@ -498,6 +582,8 @@ export async function updateMap(
       m.players_melee,
       m.players_ums,
       m.is_eud,
+      m.parser_version,
+      m.image_version,
       m.lobby_init_data,
       u.name AS uploaded_by_name,
       fav.map_id AS favorited

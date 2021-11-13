@@ -37,9 +37,11 @@ export const FightingSpirit: MapInfoJson = {
     width: 128,
     height: 128,
     isEud: false,
+    parserVersion: 1,
   },
   isFavorited: false,
   mapUrl: 'https://example.org/map.scx',
+  imageVersion: 1,
   image256Url:
     'https://staging-cdn.shieldbattery.net/map_images/' +
     '09/24/0924d3cbab0061cdbcc1dc2e20586cf514df8c5391126dae71a280616afdc03c-256.jpg',

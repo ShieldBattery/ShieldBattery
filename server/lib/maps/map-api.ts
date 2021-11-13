@@ -1,8 +1,6 @@
 import { RouterContext } from '@koa/router'
-import { writeFile as fsWriteFile } from 'fs/promises'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
-import { withFile as withTmpFile } from 'tmp-promise'
 import {
   ALL_MAP_EXTENSIONS,
   ALL_MAP_SORT_TYPES,
@@ -11,7 +9,7 @@ import {
   MapVisibility,
   toMapInfoJson,
 } from '../../../common/maps'
-import { deleteFiles, readFile } from '../file-upload'
+import { deleteFiles } from '../file-upload'
 import handleMultipartFiles from '../file-upload/handle-multipart-files'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
@@ -23,14 +21,16 @@ import {
   removeMap,
   removeMapFromFavorites,
   updateMap,
+  updateMapImages,
   veryDangerousDeleteAllMaps,
 } from '../maps/map-models'
-import { mapPath, storeMap, storeRegeneratedImages } from '../maps/store'
+import { storeMap, storeRegeneratedImages } from '../maps/store'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
+import { processStoredMapFile, reparseMapsAsNeeded } from './map-operations'
 
 const mapsListThrottle = createThrottle('mapslist', {
   rate: 30,
@@ -139,7 +139,8 @@ export class MapsApi {
 
     const mapIds = query.m
 
-    const maps = await getMapInfo(mapIds, ctx.session!.userId)
+    let maps = await getMapInfo(mapIds, ctx.session!.userId)
+    maps = await reparseMapsAsNeeded(maps, ctx.session!.userId)
 
     return {
       maps: maps.map(m => toMapInfoJson(m)),
@@ -169,10 +170,12 @@ export class MapsApi {
       throw new httpErrors.BadRequest('Unsupported extension: ' + lowerCaseExtension)
     }
 
-    const visibility = ctx.request.path.endsWith('/official')
-      ? MapVisibility.Official
-      : MapVisibility.Private
-    const map = await storeMap(path, lowerCaseExtension, ctx.session!.userId, visibility)
+    const map = await storeMap(
+      path,
+      lowerCaseExtension,
+      ctx.session!.userId,
+      MapVisibility.Official,
+    )
     return {
       map,
     }
@@ -204,10 +207,7 @@ export class MapsApi {
       throw new httpErrors.BadRequest('Unsupported extension: ' + lowerCaseExtension)
     }
 
-    const visibility = ctx.request.path.endsWith('/official')
-      ? MapVisibility.Official
-      : MapVisibility.Private
-    const map = await storeMap(path, lowerCaseExtension, ctx.session!.userId, visibility)
+    const map = await storeMap(path, lowerCaseExtension, ctx.session!.userId, MapVisibility.Private)
     return {
       map,
     }
@@ -218,13 +218,15 @@ export class MapsApi {
   async getDetails(ctx: RouterContext): Promise<any> {
     const { mapId } = ctx.params
 
-    const map = toMapInfoJson((await getMapInfo([mapId], ctx.session!.userId))[0])
-    if (!map) {
+    const mapResult = await getMapInfo([mapId], ctx.session!.userId)
+    if (!mapResult.length) {
       throw new httpErrors.NotFound('Map not found')
     }
 
+    const [map] = await reparseMapsAsNeeded(mapResult, ctx.session!.userId)
+
     return {
-      map,
+      map: toMapInfoJson(map),
     }
   }
 
@@ -244,6 +246,8 @@ export class MapsApi {
     if (!map) {
       throw new httpErrors.NotFound('Map not found')
     }
+
+    ;[map] = await reparseMapsAsNeeded([map], ctx.session!.userId)
 
     // TODO(tec27): These checks are bad and should be changed before we allow anyone to make maps
     // public
@@ -312,12 +316,14 @@ export class MapsApi {
       throw new httpErrors.NotFound('Map not found')
     }
 
-    const mapBufferPromise = readFile(mapPath(map.hash, map.mapData.format))
-    await withTmpFile(async ({ path }) => {
-      await fsWriteFile(path, await mapBufferPromise)
-      await storeRegeneratedImages(path, map.mapData.format)
+    await updateMapImages(map.hash, async () => {
+      await processStoredMapFile(
+        map,
+        async ({ path }) => await storeRegeneratedImages(path, map.mapData.format),
+      )
     })
 
+    // TODO(tec27): Should probably return the updated map info here, since the URLs will change
     ctx.status = 204
   }
 

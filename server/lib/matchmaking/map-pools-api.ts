@@ -10,6 +10,7 @@ import {
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import { getMapInfo } from '../maps/map-models'
+import { reparseMapsAsNeeded } from '../maps/map-operations'
 import {
   addMapPool,
   getCurrentMapPool,
@@ -59,7 +60,12 @@ export class MatchmakingMapPoolsApi {
       mapPools.map(async m => ({
         ...m,
         startDate: Number(m.startDate),
-        maps: (await getMapInfo(m.maps, ctx.session!.userId)).map(m => toMapInfoJson(m)),
+        maps: (
+          await reparseMapsAsNeeded(
+            await getMapInfo(m.maps, ctx.session!.userId),
+            ctx.session!.userId,
+          )
+        ).map(m => toMapInfoJson(m)),
       })),
     )
 

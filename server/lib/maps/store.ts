@@ -7,6 +7,7 @@ import { MapExtension, MapVisibility } from '../../../common/maps'
 import { writeFile } from '../file-upload'
 import { addMap } from './map-models'
 import { MapParseData } from './parse-data'
+import { MAP_PARSER_VERSION } from './parser-version'
 
 const BW_DATA_PATH = process.env.SB_SPRITE_DATA || ''
 const MAX_CONCURRENT = Number(process.env.SB_MAP_PARSER_MAX_CONCURRENT)
@@ -15,9 +16,24 @@ if (Number.isNaN(MAX_CONCURRENT)) {
 }
 const mapQueue = new Queue<MapParseResult>(MAX_CONCURRENT)
 
-// Takes both a parsed chk which it pulls metadata from,
-// and the temppath of compressed mpq, which will be needed
-// when the map is actually stored somewhere.
+/**
+ * Parses a map file, returning the results.
+ *
+ * This should generally only be used when re-parsing a map that was previously uploaded, otherwise
+ * `storeMap` is the right option.
+ */
+export async function parseMap(
+  path: string,
+  extension: MapExtension,
+  generateImages = true,
+): Promise<MapParseResult> {
+  return mapQueue.addToQueue(() => mapParseWorker(path, extension))
+}
+
+/**
+ * Parses information in a map, generates images for it, and stores the resulting files in our
+ * remote filestore. Parsed information is recorded in the database.
+ */
 export async function storeMap(
   path: string,
   extension: MapExtension,
@@ -25,39 +41,47 @@ export async function storeMap(
   visibility: MapVisibility,
 ) {
   const { mapData, image256Stream, image512Stream, image1024Stream, image2048Stream } =
-    await mapQueue.addToQueue(() => mapParseWorker(path, extension))
+    await parseMap(path, extension)
   const { hash } = mapData
 
-  const mapParams = { mapData, extension, uploadedBy, visibility }
-  const map = await addMap(mapParams, async () => {
-    const image256Promise = image256Stream
-      ? writeFile(imagePath(hash, 256), image256Stream, { acl: 'public-read', type: 'image/jpeg' })
-      : Promise.resolve()
-    const image512Promise = image512Stream
-      ? writeFile(imagePath(hash, 512), image512Stream, { acl: 'public-read', type: 'image/jpeg' })
-      : Promise.resolve()
-    const image1024Promise = image1024Stream
-      ? writeFile(imagePath(hash, 1024), image1024Stream, {
-          acl: 'public-read',
-          type: 'image/jpeg',
-        })
-      : Promise.resolve()
-    const image2048Promise = image2048Stream
-      ? writeFile(imagePath(hash, 2048), image2048Stream, {
-          acl: 'public-read',
-          type: 'image/jpeg',
-        })
-      : Promise.resolve()
-    const mapPromise = writeFile(mapPath(hash, extension), fs.createReadStream(path))
+  const map = await addMap(
+    { mapData, extension, uploadedBy, visibility, parserVersion: MAP_PARSER_VERSION },
+    async () => {
+      const image256Promise = image256Stream
+        ? writeFile(imagePath(hash, 256), image256Stream, {
+            acl: 'public-read',
+            type: 'image/jpeg',
+          })
+        : Promise.resolve()
+      const image512Promise = image512Stream
+        ? writeFile(imagePath(hash, 512), image512Stream, {
+            acl: 'public-read',
+            type: 'image/jpeg',
+          })
+        : Promise.resolve()
+      const image1024Promise = image1024Stream
+        ? writeFile(imagePath(hash, 1024), image1024Stream, {
+            acl: 'public-read',
+            type: 'image/jpeg',
+          })
+        : Promise.resolve()
+      const image2048Promise = image2048Stream
+        ? writeFile(imagePath(hash, 2048), image2048Stream, {
+            acl: 'public-read',
+            type: 'image/jpeg',
+          })
+        : Promise.resolve()
+      const mapPromise = writeFile(mapPath(hash, extension), fs.createReadStream(path))
 
-    await Promise.all([
-      image256Promise,
-      image512Promise,
-      image1024Promise,
-      image2048Promise,
-      mapPromise,
-    ])
-  })
+      await Promise.all([
+        image256Promise,
+        image512Promise,
+        image1024Promise,
+        image2048Promise,
+        mapPromise,
+      ])
+    },
+  )
 
   return map
 }
@@ -95,7 +119,7 @@ export function imagePath(hash: string, size: 256 | 512 | 1024 | 2048) {
   return `map_images/${firstByte}/${secondByte}/${hash}-${size}.jpg`
 }
 
-interface MapParseResult {
+export interface MapParseResult {
   mapData: MapParseData
   image256Stream?: BufferList
   image512Stream?: BufferList
@@ -103,9 +127,17 @@ interface MapParseResult {
   image2048Stream?: BufferList
 }
 
-async function mapParseWorker(path: string, extension: MapExtension): Promise<MapParseResult> {
+async function mapParseWorker(
+  path: string,
+  extension: MapExtension,
+  generateImages = true,
+): Promise<MapParseResult> {
   const { messages, image256Stream, image512Stream, image1024Stream, image2048Stream } =
-    await runChildProcess(require.resolve('./map-parse-worker'), [path, extension, BW_DATA_PATH])
+    await runChildProcess(require.resolve('./map-parse-worker'), [
+      path,
+      extension,
+      generateImages ? BW_DATA_PATH : '',
+    ])
   console.assert(messages.length === 1)
   return {
     mapData: messages[0],

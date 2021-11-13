@@ -25,6 +25,7 @@ import gameLoader from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
 import { getMapInfo } from '../maps/map-models'
+import { reparseMapsAsNeeded } from '../maps/map-operations'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
@@ -138,10 +139,11 @@ export class LobbyApi {
       throw new errors.Conflict('already another lobby with that name')
     }
 
-    const mapInfo = (await getMapInfo([map], user.session.userId))[0]
+    let mapInfo = (await getMapInfo([map]))[0]
     if (!mapInfo) {
       throw new errors.BadRequest('invalid map')
     }
+    ;[mapInfo] = await reparseMapsAsNeeded([mapInfo])
     checkSubTypeValidity(gameType, gameSubType, mapInfo.mapData.slots)
 
     let numSlots

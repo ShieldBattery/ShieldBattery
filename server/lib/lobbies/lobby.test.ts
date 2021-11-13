@@ -47,7 +47,9 @@ const BigGameHunters: MapInfo = {
     width: 256,
     height: 256,
     isEud: false,
+    parserVersion: 1,
   },
+  imageVersion: 1,
   isFavorited: false,
 }
 
@@ -887,7 +889,9 @@ const UMS_MAP_1: MapInfo = {
     width: 256,
     height: 256,
     isEud: false,
+    parserVersion: 1,
   },
+  imageVersion: 1,
   isFavorited: false,
 }
 const UMS_MAP_2: MapInfo = {
@@ -932,7 +936,9 @@ const UMS_MAP_2: MapInfo = {
     width: 128,
     height: 128,
     isEud: false,
+    parserVersion: 1,
   },
+  imageVersion: 1,
   isFavorited: false,
 }
 const UMS_MAP_3: MapInfo = {
@@ -971,7 +977,9 @@ const UMS_MAP_3: MapInfo = {
     width: 128,
     height: 128,
     isEud: false,
+    parserVersion: 1,
   },
+  imageVersion: 1,
   isFavorited: false,
 }
 const UMS_MAP_4: MapInfo = {
@@ -1022,7 +1030,9 @@ const UMS_MAP_4: MapInfo = {
     width: 256,
     height: 256,
     isEud: false,
+    parserVersion: 1,
   },
+  imageVersion: 1,
   isFavorited: false,
 }
 const UMS_LOBBY_1 = createLobby(

@@ -103,6 +103,7 @@ export interface MapData {
   width: number
   height: number
   isEud: boolean
+  parserVersion: number
 }
 
 export interface MapInfo {
@@ -119,12 +120,16 @@ export interface MapInfo {
   uploadDate: Date
   visibility: MapVisibility
   mapData: MapData
-  isFavorited: boolean
   mapUrl?: string
   image256Url?: string
   image512Url?: string
   image1024Url?: string
   image2048Url?: string
+  imageVersion: number
+
+  // TODO(tec27): Remove this from this structure, as it makes query responses user-specific in a
+  // bad way
+  isFavorited: boolean
 }
 
 export type MapInfoJson = Jsonify<MapInfo>
