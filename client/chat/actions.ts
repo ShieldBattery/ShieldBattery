@@ -5,7 +5,7 @@ import {
   GetChannelUsersServerPayload,
   JoinChannelMessage,
 } from '../../common/chat'
-import { SbUser } from '../../common/users/user-info'
+import { SbUser, SbUserId } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
 export type ChatActions =
@@ -225,7 +225,7 @@ export interface UpdateLeave {
   payload: {
     channel: string
     user: ChatUser
-    newOwner: ChatUser | null
+    newOwnerId: SbUserId | null
   }
 }
 
