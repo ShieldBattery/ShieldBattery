@@ -2,8 +2,9 @@ import { app, Menu, shell, Tray } from 'electron'
 import path from 'path'
 import { getUserDataPath } from './user-data-path'
 
-const NORMAL_ICON = path.join(__dirname, 'assets', 'shieldbattery-16.png')
-const UNREAD_ICON = path.join(__dirname, 'assets', 'shieldbattery-16-notification.png')
+const NORMAL_ICON = path.join(__dirname, 'assets', 'shieldbattery-tray.png')
+const UNREAD_ICON = path.join(__dirname, 'assets', 'shieldbattery-tray-unread.png')
+const URGENT_ICON = path.join(__dirname, 'assets', 'shieldbattery-tray-urgent.png')
 const BALLOON_ICON = path.join(__dirname, 'assets', 'shieldbattery-64.png')
 
 export default class SystemTray {
@@ -51,8 +52,7 @@ export default class SystemTray {
   }
 
   showUnreadIcon = (urgent = false) => {
-    // TODO(#768): Use a different icon for highlighted messages, once we make one
-    this.systemTray.setImage(urgent ? UNREAD_ICON : UNREAD_ICON)
+    this.systemTray.setImage(urgent ? URGENT_ICON : UNREAD_ICON)
   }
 
   clearUnreadIcon = () => {
