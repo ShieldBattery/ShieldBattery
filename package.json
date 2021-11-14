@@ -20,7 +20,7 @@
   "author": "Travis Collins <travis@tec27.com> (http://tec27.com/)",
   "main": "index.js",
   "engines": {
-    "node": ">= 14.0.0"
+    "node": ">= 16.0.0"
   },
   "jest": {
     "projects": [
