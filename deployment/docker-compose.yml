@@ -134,7 +134,7 @@ services:
       - proxy_gen
 
   redis:
-    image: redis:5.0.5-alpine
+    image: redis:6.2.6-alpine
     restart: always
     command: ['redis-server', '--appendonly', 'yes']
     networks:
