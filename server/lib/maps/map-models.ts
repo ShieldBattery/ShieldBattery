@@ -217,33 +217,37 @@ export async function addMap(
  *
  * @param oldMapInfos An array of maps to update (note that this will be their OLD info, before
  *   reparsing).
- * @param parseFn A function called once per map, returning a Promise with the parsed data.
+ * @param parseFn A function called once per map, returning a Promise with the parsed data. If the
+ *   map couldn't be parsed (or doesn't need to be any more), returning an empty tuple will no-op
+ *   the update.
  */
 export async function updateParseData(
   oldMapInfos: MapInfo[],
-  parseFn: (mapInfo: MapInfo) => Promise<[data: MapParseData, parserVersion: number]>,
+  parseFn: (mapInfo: MapInfo) => Promise<[data: MapParseData, parserVersion: number] | []>,
 ): Promise<void> {
   const { client, done } = await db()
   try {
     await Promise.allSettled(
       oldMapInfos.map(async mapInfo => {
         const [newData, parserVersion] = await parseFn(mapInfo)
-        const hashBuffer = Buffer.from(mapInfo.hash, 'hex')
-        await client.query<never>(sql`
-          UPDATE maps
-          SET
-            title = ${newData.title},
-            description = ${newData.description},
-            width = ${newData.width},
-            height = ${newData.height},
-            tileset = ${newData.tileset},
-            players_melee = ${newData.meleePlayers},
-            players_ums = ${newData.umsPlayers},
-            lobby_init_data = ${newData.lobbyInitData},
-            is_eud = ${newData.isEud},
-            parser_version = ${parserVersion}
-          WHERE hash = ${hashBuffer}
-        `)
+        if (newData && parserVersion !== undefined) {
+          const hashBuffer = Buffer.from(mapInfo.hash, 'hex')
+          await client.query<never>(sql`
+            UPDATE maps
+            SET
+              title = ${newData.title},
+              description = ${newData.description},
+              width = ${newData.width},
+              height = ${newData.height},
+              tileset = ${newData.tileset},
+              players_melee = ${newData.meleePlayers},
+              players_ums = ${newData.umsPlayers},
+              lobby_init_data = ${newData.lobbyInitData},
+              is_eud = ${newData.isEud},
+              parser_version = ${parserVersion}
+            WHERE hash = ${hashBuffer}
+          `)
+        }
       }),
     )
   } finally {
