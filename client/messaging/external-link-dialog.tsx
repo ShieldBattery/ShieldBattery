@@ -4,9 +4,9 @@ import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { mergeLocalSettings } from '../settings/action-creators'
+import { useAppDispatch } from '../redux-hooks'
 import { singleLine, Subtitle1, subtitle2 } from '../styles/typography'
+import { addTrustedDomain } from './action-creators'
 
 const StyledDialog = styled(Dialog)`
   max-width: 640px;
@@ -46,7 +46,6 @@ interface ExternalLinkDialogProps extends CommonDialogProps {
 }
 
 export function ExternalLinkDialog({ href, domain, onCancel, dialogRef }: ExternalLinkDialogProps) {
-  const trustedDomains = useAppSelector(s => s.settings.local.trustedDomains)
   const dispatch = useAppDispatch()
 
   const onOpenLinkClick = useCallback(() => {
@@ -57,10 +56,10 @@ export function ExternalLinkDialog({ href, domain, onCancel, dialogRef }: Extern
   const onTrustDomainClick = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault()
-      dispatch(mergeLocalSettings({ trustedDomains: [domain, ...trustedDomains] }))
+      dispatch(addTrustedDomain(domain))
       onOpenLinkClick()
     },
-    [dispatch, domain, onOpenLinkClick, trustedDomains],
+    [dispatch, domain, onOpenLinkClick],
   )
 
   const buttons = [
