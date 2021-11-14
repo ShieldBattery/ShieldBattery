@@ -27,7 +27,6 @@ interface UserInternal {
   id: SbUserId
   name: string
   email: string
-  password: string
   created: Date
   signupIpAddress?: string
   emailVerified: boolean
@@ -38,18 +37,35 @@ interface UserInternal {
 
 type DbUser = Dbify<UserInternal>
 
-function convertFromDb(dbUser: DbUser): UserInternal {
+/**
+ * A row stored in the users_private table. This table is for data that needs some added security
+ * around querying it (e.g. passwords).
+ */
+interface UserPrivate {
+  userId: SbUserId
+  password: string
+}
+
+type DbUserPrivate = Dbify<UserPrivate>
+
+function convertUserFromDb(dbUser: DbUser): UserInternal {
   return {
     id: dbUser.id,
     name: dbUser.name,
     email: dbUser.email,
-    password: dbUser.password,
     created: dbUser.created,
     signupIpAddress: dbUser.signup_ip_address,
     emailVerified: dbUser.email_verified,
     acceptedPrivacyVersion: dbUser.accepted_privacy_version,
     acceptedTermsVersion: dbUser.accepted_terms_version,
     acceptedUsePolicyVersion: dbUser.accepted_use_policy_version,
+  }
+}
+
+function convertPrivateFromDb(dbUserPrivate: DbUserPrivate): UserPrivate {
+  return {
+    userId: dbUserPrivate.user_id,
+    password: dbUserPrivate.password,
   }
 }
 
@@ -100,9 +116,9 @@ export async function createUser({
   try {
     const transactionResult = await transact(async client => {
       const result = await client.query<DbUser>(sql`
-      INSERT INTO users (name, email, password, created, signup_ip_address, email_verified,
+      INSERT INTO users (name, email, created, signup_ip_address, email_verified,
         accepted_privacy_version, accepted_terms_version, accepted_use_policy_version)
-      VALUES (${name}, ${email}, ${hashedPassword}, ${createdDate}, ${ipAddress}, false,
+      VALUES (${name}, ${email}, ${createdDate}, ${ipAddress}, false,
         ${PRIVACY_POLICY_VERSION}, ${TERMS_OF_SERVICE_VERSION}, ${ACCEPTABLE_USE_VERSION})
       RETURNING *
     `)
@@ -111,7 +127,13 @@ export async function createUser({
         throw new Error('No rows returned')
       }
 
-      const userInternal = convertFromDb(result.rows[0])
+      const userInternal = convertUserFromDb(result.rows[0])
+
+      await client.query<never>(sql`
+        INSERT INTO users_private (user_id, password)
+        VALUES (${userInternal.id}, ${hashedPassword});
+      `)
+
       const chatService = container.resolve(ChatService)
 
       const [permissions] = await Promise.all([
@@ -132,7 +154,10 @@ export async function createUser({
 }
 
 /** Fields that can be updated for a user. */
-export type UserUpdatables = Omit<UserInternal, 'id' | 'name' | 'created' | 'signupIpAddress'>
+export type UserUpdatables = Omit<
+  UserInternal & UserPrivate,
+  'id' | 'name' | 'created' | 'signupIpAddress' | 'userId'
+>
 
 /**
  * Updates an existing user. Returns the user's info or undefined if the user could not be found.
@@ -142,18 +167,25 @@ export async function updateUser(
   id: number,
   updates: Partial<UserUpdatables>,
 ): Promise<SelfUser | undefined> {
-  const query = sql`
+  let updatedPassword: string | undefined
+
+  let query = sql`
     UPDATE users
     SET
   `
 
   let appended = false
   for (const [key, value] of Object.entries(updates)) {
+    const castedKey = key as keyof UserUpdatables
+    if (castedKey === 'password') {
+      updatedPassword = String(value)
+      continue
+    }
+
     if (appended) {
       query.append(sql`,`)
     }
 
-    const castedKey = key as keyof UserUpdatables
     switch (castedKey) {
       case 'email':
         query.append(sql`
@@ -163,11 +195,6 @@ export async function updateUser(
       case 'emailVerified':
         query.append(sql`
           email_verified = ${value}
-        `)
-        break
-      case 'password':
-        query.append(sql`
-          password = ${value}
         `)
         break
       case 'acceptedPrivacyVersion':
@@ -197,10 +224,25 @@ export async function updateUser(
     RETURNING *;
   `)
 
+  if (!appended) {
+    // Only updating user_private stuff, so we just need to query the current row
+    query = sql`SELECT * FROM users WHERE id = ${id}`
+  }
+
   const { client, done } = await db()
   try {
+    if (updatedPassword) {
+      await client.query(sql`
+        UPDATE users_private
+        SET password = ${updatedPassword}
+        WHERE user_id = ${id};
+      `)
+    }
+
     const result = await client.query<DbUser>(query)
-    return result.rows.length > 0 ? convertToExternalSelf(convertFromDb(result.rows[0])) : undefined
+    return result.rows.length > 0
+      ? convertToExternalSelf(convertUserFromDb(result.rows[0]))
+      : undefined
   } finally {
     done()
   }
@@ -218,8 +260,12 @@ export async function attemptLogin(
   if (!user) {
     return undefined
   }
+  const userPrivate = await internalGetUserPrivateById(user.id)
+  if (!userPrivate) {
+    throw new Error("Didn't find a user_private entry for this user")
+  }
 
-  const passwordMatches = await bcrypt.compare(password, user.password)
+  const passwordMatches = await bcrypt.compare(password, userPrivate.password)
   return passwordMatches ? convertToExternalSelf(user) : undefined
 }
 
@@ -231,7 +277,7 @@ async function internalFindUserById(id: number): Promise<UserInternal | undefine
       WHERE id = ${id}
     `)
 
-    return result.rows.length > 0 ? convertFromDb(result.rows[0]) : undefined
+    return result.rows.length > 0 ? convertUserFromDb(result.rows[0]) : undefined
   } finally {
     done()
   }
@@ -260,7 +306,21 @@ async function internalFindUserByName(name: string): Promise<UserInternal | unde
       WHERE name = ${name}
     `)
 
-    return result.rows.length > 0 ? convertFromDb(result.rows[0]) : undefined
+    return result.rows.length > 0 ? convertUserFromDb(result.rows[0]) : undefined
+  } finally {
+    done()
+  }
+}
+
+async function internalGetUserPrivateById(id: number): Promise<UserPrivate | undefined> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<DbUserPrivate>(sql`
+      SELECT * FROM users_private
+      WHERE user_id = ${id}
+    `)
+
+    return result.rows.length > 0 ? convertPrivateFromDb(result.rows[0]) : undefined
   } finally {
     done()
   }
@@ -282,7 +342,7 @@ export async function findUsersByName(names: string[]): Promise<Map<string, SbUs
   try {
     const result = await client.query<DbUser>(sql`SELECT * FROM users WHERE name = ANY (${names})`)
     return new Map<string, SbUser>(
-      result.rows.map(row => [row.name, convertToExternal(convertFromDb(row))]),
+      result.rows.map(row => [row.name, convertToExternal(convertUserFromDb(row))]),
     )
   } finally {
     done()
@@ -299,7 +359,7 @@ export async function findUsersById(ids: SbUserId[]): Promise<Map<SbUserId, SbUs
   try {
     const result = await client.query<DbUser>(sql`SELECT * FROM users WHERE id = ANY (${ids})`)
     return new Map<SbUserId, SbUser>(
-      result.rows.map(row => [row.id, convertToExternal(convertFromDb(row))]),
+      result.rows.map(row => [row.id, convertToExternal(convertUserFromDb(row))]),
     )
   } finally {
     done()
@@ -329,7 +389,7 @@ export async function findAllUsersWithEmail(email: string): Promise<SbUser[]> {
   const { client, done } = await db()
   try {
     const result = await client.query<DbUser>(sql`SELECT name FROM users WHERE email = ${email}`)
-    return result.rows.map(row => convertToExternal(convertFromDb(row)))
+    return result.rows.map(row => convertToExternal(convertUserFromDb(row)))
   } finally {
     done()
   }
