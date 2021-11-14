@@ -1,12 +1,11 @@
+import loadable from '@loadable/component'
 import React from 'react'
 import styled from 'styled-components'
-import changelogContent from '../../CHANGELOG.md'
 import { Dialog } from '../material/dialog'
+import { LoadingDotsArea } from '../progress/dots'
 import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { headline5, headline6, subtitle1 } from '../styles/typography'
 import { KEY, shouldShowChangelog, VERSION } from './should-show-changelog'
-
-const changelogHtml = { __html: changelogContent }
 
 const Content = styled.div`
   user-select: contain;
@@ -59,6 +58,16 @@ const Content = styled.div`
   }
 `
 
+const ChangelogLoadable = loadable(
+  async () => {
+    const { default: html } = await import('../../CHANGELOG.md')
+    return () => <Content dangerouslySetInnerHTML={{ __html: html }} />
+  },
+  {
+    fallback: <LoadingDotsArea />,
+  },
+)
+
 export default class ChangelogDialog extends React.Component {
   _setting = false
 
@@ -77,7 +86,7 @@ export default class ChangelogDialog extends React.Component {
         onCancel={this.onDismiss}
         showCloseButton={true}
         dialogRef={this.props.dialogRef}>
-        <Content dangerouslySetInnerHTML={changelogHtml} />
+        <ChangelogLoadable />
       </Dialog>
     )
   }
