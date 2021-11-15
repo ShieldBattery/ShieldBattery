@@ -1,3 +1,38 @@
+#### 7.1.4 (November 14, 2021)
+
+- **Game results.** We've added the first version of a game results page, viewable after you
+  complete a game and from a user's profile page. We plan to add a lot more features to these, but
+  for now you can at least check out who won and lost.
+- **Improved chat.** There's a number of new features in our messaging system (affecting chat,
+  whispers, and lobbies). You can now mention users by throwing an _@_ in front of their username
+  (autocompletion for this coming soon!). Any messages which mention you will be highlighted for
+  optimal noticeability. In addition, links to external sites will now show a warning, and channel
+  join messages will be persisted to the permanent history so you can always tell when someone
+  joined.
+- **Fixes for EUD maps.** A number of EUD maps should load properly now, instead of crashing
+  immediately. There's still a few that cause issues, but we're working on it and will release an
+  update once they are fixed as well!
+- **New system tray icons.** We've recolored and reworked our system tray icons for better
+  visibility. We also added a snazzy new icon specific for "urgent" messages, so you can know when
+  someone has mentioned you in a channel or lobby.
+- **Codified policies.** We've documented our privacy policy, terms of service, and acceptable use
+  policy, and linked these on the site. These don't represent a real change to the things we were
+  doing, but should give you a more concrete idea of how you can expect your data to be collected
+  and treated.
+
+##### Known Issues
+
+- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
+  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
+  very least add a warning for this case in the future (or better yet, automate re-authing), but
+  for now, try to launch the game from the Blizzard launcher at least once a month.
+- **Off-center screen starting position.** For some users, generally in positions on the right side
+  of the screen, the starting screen position may be slightly off-center from where it usually is
+- **Observer chat is broken.** Observers are unable to send messages ingame currently. This will be
+  fixed in a future update.
+- **Some EUD maps behave incorrectly.** EUD maps load into the game properly, but then do not follow
+  their "normal" behavior. This will be fixed in a future update.
+
 #### 7.1.3 (September 30, 2021)
 
 - **Map downloads fixed.** We've fixed an issue with downloading maps from our CDN that was
