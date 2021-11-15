@@ -1122,7 +1122,7 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType, ums_forces: &[M
         // the same behaviour as normal bw. Not that any maps use those slot types as Scmdraft
         // doesn't allow setting them anyways D:
         let team = if !is_ums || (slot.player_type_id != 1 && slot.player_type_id != 2) {
-            slot.team_id.unwrap_or(0)
+            slot.team_id
         } else {
             0
         };

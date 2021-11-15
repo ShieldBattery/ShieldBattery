@@ -182,13 +182,14 @@ const eventToAction: EventToActionMap = {
       console.error('Error downloading map: ' + err + '\n' + err.stack)
     })
 
-    // TODO(2Pac): This mapping should not be necessary. The game's `PlayerInfo` type and the
-    // lobby's `Slot` type should probably be one and the same if possible.
     const slots: PlayerInfo[] = event.slots.map(slot => ({
       id: slot.id,
       name: slot.name,
       race: slot.race,
       playerId: slot.playerId,
+      // NOTE(tec27): team ID is only used for UMS, so as long as we don't use that for matchmaking
+      // this can always be 0
+      teamId: 0,
       type: slot.type,
       typeId: slot.typeId,
       userId: slot.userId,

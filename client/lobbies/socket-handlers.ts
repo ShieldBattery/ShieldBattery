@@ -2,7 +2,6 @@ import { NydusClient, RouteHandler } from 'nydus-client'
 import { GameLaunchConfig, GameRoute, PlayerInfo } from '../../common/game-launch-config'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
-import { Slot } from '../../common/lobbies/slot'
 import { MapInfoJson } from '../../common/maps'
 import { urlPath } from '../../common/urls'
 import { SbUser, SbUserId } from '../../common/users/user-info'
@@ -393,16 +392,25 @@ const eventToAction: EventToActionMap = {
       lobby,
       auth: { user },
     } = getState()
-    // We tack on `teamId` to each slot here so we don't have to send two different things to game
-    const slots = getIngameLobbySlotsWithIndexes(lobby.info as any)
-      .map(
-        ([teamIndex, , slot]: [number, any, any]) =>
-          new Slot({ ...slot.toJS(), teamId: lobby.info.teams.get(teamIndex).teamId }),
-      )
-      .toJS() as PlayerInfo[]
+
     const {
       info: { name: lobbyName, map, gameType, gameSubType, host },
     } = lobby
+
+    const playerInfos = getIngameLobbySlotsWithIndexes(lobby.info as any)
+      .map<PlayerInfo>(([teamIndex, , slot]: [number, any, any]) => ({
+        id: slot.id,
+        name: slot.name,
+        race: slot.race,
+        playerId: slot.playerId,
+        type: slot.type,
+        typeId: slot.typeId,
+        userId: slot.userId,
+        teamId: lobby.info.teams.get(teamIndex).teamId,
+      }))
+      .toArray()
+    const hostInfo = playerInfos.find(s => s.id === host.id)!
+
     const config: GameLaunchConfig = {
       localUser: { id: user.id, name: user.name },
       setup: {
@@ -411,8 +419,8 @@ const eventToAction: EventToActionMap = {
         map: map as unknown as MapInfoJson,
         gameType,
         gameSubType,
-        slots,
-        host: host.toJS() as PlayerInfo,
+        slots: playerInfos,
+        host: hostInfo,
         seed: event.setup.seed,
         resultCode: event.resultCode,
         serverUrl: makeServerUrl(''),

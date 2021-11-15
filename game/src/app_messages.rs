@@ -156,7 +156,7 @@ pub struct PlayerInfo {
     /// And either way this value becomes useless after BW randomizes the slots during
     /// game initialization.
     pub player_id: Option<u8>,
-    pub team_id: Option<u8>,
+    pub team_id: u8,
     /// Player type can have shieldbattery-specific players (e.g. "observer"),
     /// player type id is the id in BW structures.
     #[serde(rename = "type")]

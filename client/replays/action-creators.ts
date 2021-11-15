@@ -1,17 +1,23 @@
 import cuid from 'cuid'
 import fs from 'fs'
 import ReplayParser from 'jssuh'
+import { PlayerInfo } from '../../common/game-launch-config'
+import { GameType } from '../../common/games/configuration'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { Slot } from '../../common/lobbies/slot'
+import { SlotType } from '../../common/lobbies/slot'
 import { REPLAYS_START_REPLAY } from '../actions'
+import { SelfUserRecord } from '../auth/auth-records'
 import { openSimpleDialog } from '../dialogs/action-creators'
+import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
 import { push } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
 
 const ipcRenderer = new TypedIpcRenderer()
 
-function getReplayHeader(filePath) {
+// TODO(tec27): Tighten up the types in here once the dependencies and actions have been migrated
+// to TS
+function getReplayHeader(filePath: string): Promise<any> {
   return new Promise((resolve, reject) => {
     const fileStream = fs.createReadStream(filePath)
     fileStream.on('error', reject)
@@ -24,26 +30,30 @@ function getReplayHeader(filePath) {
   })
 }
 
-async function setGameConfig(replay, user) {
-  const player = new Slot({
-    type: 'human',
+async function setGameConfig(replay: any, user: SelfUserRecord) {
+  const player: PlayerInfo = {
+    type: SlotType.Human,
+    typeId: 6,
     name: user.name,
     id: cuid(),
     teamId: 0,
     userId: user.id,
-  }).toJS()
+  }
   const slots = [player]
 
   const header = await getReplayHeader(replay.path)
 
   return ipcRenderer.invoke('activeGameSetConfig', {
-    localUser: user,
+    localUser: {
+      id: user.id,
+      name: user.name,
+    },
     setup: {
       gameId: cuid(),
       name: replay.name,
       map: { isReplay: true, path: replay.path },
-      gameType: 'melee',
-      numSlots: 4,
+      gameType: GameType.Melee,
+      gameSubType: 0,
       slots,
       host: player,
       seed: header.seed,
@@ -52,12 +62,12 @@ async function setGameConfig(replay, user) {
   })
 }
 
-function setGameRoutes(gameId) {
+function setGameRoutes(gameId: string) {
   ipcRenderer.invoke('activeGameSetRoutes', gameId, [])
   ipcRenderer.invoke('activeGameStartWhenReady', gameId)
 }
 
-export function startReplay(replay) {
+export function startReplay(replay: any): ThunkAction {
   return (dispatch, getState) => {
     const {
       auth: { user },
@@ -66,14 +76,16 @@ export function startReplay(replay) {
     dispatch({
       type: REPLAYS_START_REPLAY,
       payload: replay,
-    })
+    } as any)
 
     // TODO(2Pac): Use the game loader on the server to register watching a replay, so we can show
     // to other people (like their friends) when a user is watching a replay.
-    setGameConfig(replay, user.toJS()).then(
+    setGameConfig(replay, user).then(
       gameId => {
-        setGameRoutes(gameId)
-        push('/active-game')
+        if (gameId) {
+          setGameRoutes(gameId)
+          push('/active-game')
+        }
       },
       err => {
         logger.error(`Error starting replay file [${replay.path}]: ${err}`)

@@ -5,9 +5,10 @@ import { RaceChar } from './races'
 import { ResolvedRallyPointServer } from './rally-point'
 import { SbUserId } from './users/user-info'
 
-// TODO(tec27): Pretty sure this is some lobby structure we could re-use/share? I built it from the
-// Rust version so I dunno
-/** Configuration for a particular player in a game. */
+/**
+ * Configuration for a particular player in a game. This is similar to Lobby's `Slot` structure,
+ * but has been flattened slightly to remove the need to send info about teams.
+ */
 export interface PlayerInfo {
   /** The ID of the player slot, an opaque string. */
   id: string
@@ -18,7 +19,7 @@ export interface PlayerInfo {
   /** The BW player ID for this slot (a number between 0 and 7). */
   playerId?: number
   /** The ID of the team this slot is a part of. */
-  teamId?: number
+  teamId: number
   /** The type of this slot. */
   type: SlotType
   /** The BW id of the type of this slot. */
