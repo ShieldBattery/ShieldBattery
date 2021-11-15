@@ -62,3 +62,16 @@ export async function retrieveLogEntries({
     done()
   }
 }
+
+/**
+ * Deletes logs older than 60 days. This should be run periodically to keep the table small and
+ * remove potentially sensitive data.
+ */
+export async function deleteOldLogs(): Promise<void> {
+  const { client, done } = await db()
+  try {
+    await client.query(sql`DELETE FROM server_logs WHERE time < NOW() - INTERVAL '60 days';`)
+  } finally {
+    done()
+  }
+}
