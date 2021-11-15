@@ -7,7 +7,7 @@ FROM node:16-alpine as builder
 # multistage build to install the necessary tools, and build the dependencies which will then be
 # copied over to the next stage (this stage will be discarded, along with the installed tools, to
 # make the image lighter).
-RUN apk add --no-cache python make g++ git
+RUN apk add --no-cache python3 make g++ git
 
 # Ensure that we don't spend time installing dependencies that are only needed for the client
 # application.
