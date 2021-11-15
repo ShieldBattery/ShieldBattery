@@ -73,8 +73,8 @@
   },
   "scripts": {
     "app": "cross-env SB_HOT=1 electron app",
-    "build-app-client": "cross-env NODE_ENV=production webpack",
-    "build-app-client-stats": "cross-env NODE_ENV=production webpack --profile --json > stats.json",
+    "build-app-client": "cross-env NODE_ENV=production SB_ANALYTICS_ID=JXKEZMYN webpack",
+    "build-app-client-stats": "cross-env NODE_ENV=production SB_ANALYTICS_ID=JXKEZMYN webpack --profile --json > stats.json",
     "build-game": "game/build.bat release sign",
     "build-web-client": "cross-env NODE_ENV=production webpack --config ./server/webpack.config.js",
     "build-web-client-stats": "cross-env NODE_ENV=production webpack --profile --json --config ./server/webpack.config.js > stats.json",
