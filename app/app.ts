@@ -381,6 +381,19 @@ function setupCspProtocol(curSession: Session) {
   })
 }
 
+function setupAnalytics(curSession: Session) {
+  // The analytics script will 403 unless it's requested with a referer (and since we're on a weird
+  // scheme, Chromium acts as if we're insecure and refuses to send the origin). So, we add in the
+  // referrer manually on this request.
+  const filter = {
+    urls: ['https://obs.shieldbattery.net/*'],
+  }
+  curSession.webRequest.onBeforeSendHeaders(filter, (details, cb) => {
+    details.requestHeaders.referer = 'shieldbattery://app'
+    cb({ requestHeaders: details.requestHeaders })
+  })
+}
+
 function registerHotkeys() {
   const isMac = process.platform === 'darwin'
   localShortcut.register(mainWindow!, isMac ? 'Cmd+Alt+I' : 'Ctrl+Shift+I', () =>
@@ -539,6 +552,7 @@ app.on('ready', async () => {
 
     setupIpc(localSettings, scrSettings)
     setupCspProtocol(currentSession())
+    setupAnalytics(currentSession())
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     gameServer = createGameServer(localSettings)
     await createWindow()
