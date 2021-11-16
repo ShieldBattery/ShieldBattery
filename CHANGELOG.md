@@ -1,3 +1,19 @@
+#### 7.1.5 (November 15, 2021)
+
+- **EUD maps fixed.** We've fixed the last of the non-working EUD maps (and found and fixed a bug
+  that was breaking some other Use Map Settings bugs as well).
+
+##### Known Issues
+
+- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
+  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
+  very least add a warning for this case in the future (or better yet, automate re-authing), but
+  for now, try to launch the game from the Blizzard launcher at least once a month.
+- **Off-center screen starting position.** For some users, generally in positions on the right side
+  of the screen, the starting screen position may be slightly off-center from where it usually is
+- **Observer chat is broken.** Observers are unable to send messages ingame currently. This will be
+  fixed in a future update.
+
 #### 7.1.4 (November 14, 2021)
 
 - **Game results.** We've added the first version of a game results page, viewable after you
