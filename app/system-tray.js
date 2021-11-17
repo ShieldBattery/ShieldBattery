@@ -11,6 +11,7 @@ export default class SystemTray {
   constructor(mainWindow, quitAppFn) {
     this.mainWindow = mainWindow
     this.onQuitClick = quitAppFn
+    this.isShowingUrgentIcon = false
 
     this.systemTray = new Tray(NORMAL_ICON)
     this.systemTray.setToolTip(app.name)
@@ -52,10 +53,16 @@ export default class SystemTray {
   }
 
   showUnreadIcon = (urgent = false) => {
-    this.systemTray.setImage(urgent ? URGENT_ICON : UNREAD_ICON)
+    if (!this.isShowingUrgentIcon) {
+      this.systemTray.setImage(urgent ? URGENT_ICON : UNREAD_ICON)
+    }
+    if (urgent) {
+      this.isShowingUrgentIcon = true
+    }
   }
 
   clearUnreadIcon = () => {
+    this.isShowingUrgentIcon = false
     this.systemTray.setImage(NORMAL_ICON)
   }
 }
