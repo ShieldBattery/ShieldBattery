@@ -119,15 +119,4 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
     // logic in the function is wrong.
     expect([pickThis, orThis]).toContain(teamB![0])
   })
-
-  test('1v1 - should return asymmetric range matches if player is highly ranked', () => {
-    const player = createPlayer()
-    const opponent = createPlayer({
-      name: 'ReallyBadDude',
-      rating: 1400,
-      interval: { low: 1310, high: 1490 },
-    })
-
-    expect(DEFAULT_MATCH_CHOOSER(1, player, [opponent])).toEqual([])
-  })
 })

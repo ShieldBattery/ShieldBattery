@@ -67,21 +67,6 @@ function getPopulationBucket(rating: number): number {
   return Math.min(Math.floor(rating / POPULATION_BUCKET_RATING), POPULATION_NUM_BUCKETS - 1)
 }
 
-function findClosestRating(rating: number, overlappingPlayers: MatchmakingPlayer[]) {
-  let current = overlappingPlayers[0].rating
-  let diff = Math.abs(rating - current)
-
-  for (let i = 0; i < overlappingPlayers.length; i++) {
-    const newDiff = Math.abs(rating - overlappingPlayers[i].rating)
-    if (newDiff < diff) {
-      diff = newDiff
-      current = overlappingPlayers[i].rating
-    }
-  }
-
-  return current
-}
-
 /**
  * Initializes a player (in-place) with their starting and max interval, if it is not already
  * present.
@@ -105,58 +90,89 @@ export function initializePlayer(player: MatchmakingPlayer): QueuedMatchmakingPl
   return player as QueuedMatchmakingPlayer
 }
 
+/**
+ * A function that filters down the potential players by some specific criteria, returning a
+ * list of potential players that meet it.
+ */
+type PlayerFilter = (
+  player: QueuedMatchmakingPlayer,
+  potentials: ReadonlyArray<QueuedMatchmakingPlayer>,
+  neededPlayers: number,
+) => QueuedMatchmakingPlayer[]
+
+// Filters that will be executed in order until we run under the needed number of players or all
+// filters have been run. Once we reach that point, players will be selected at random from the
+// remaining list, and teams will be optimized from that set.
+const FILTERS: ReadonlyArray<PlayerFilter> = [
+  // 1) If you are a new player (<25 games), choose the player that also is a new player
+  // 2) If you are not a new player, choose the player that also is not a new player
+  (player, potentials) => {
+    const isNew = isNewPlayer(player)
+    return potentials.filter(p => isNewPlayer(p) === isNew)
+  },
+  // TODO(tec27): 3) If applicable, choose the player in “Inactive” status.
+  // TODO(tec27): 4) Choose the player with the lowest ping (in 50ms buckets).
+
+  // 5) Choose the players that have been waiting in queue the longest.
+  (_, potentials, neededPlayers) => {
+    const sorted = potentials.slice().sort((a, b) => b.searchIterations - a.searchIterations)
+    // Pick an iteration number that would still give us enough players
+    const iterations = sorted[neededPlayers - 1].searchIterations
+    return sorted.filter(p => p.searchIterations <= iterations)
+  },
+
+  // 6) Choose the players with the closest rating.
+  (player, potentials, neededPlayers) => {
+    // Sort by rating difference (lowest difference first)
+    const sorted = potentials
+      .map<[potential: QueuedMatchmakingPlayer, ratingDiff: number]>(p => [
+        p,
+        Math.abs(p.rating - player.rating),
+      ])
+      .sort((a, b) => a[1] - b[1])
+    // Pick a rating difference that would still give us enough players
+    const ratingDiff = sorted[neededPlayers - 1][1]
+    return sorted.filter(p => p[1] <= ratingDiff).map(p => p[0])
+  },
+]
+
 // TODO(tec27): Handle teamSize > 1
 export const DEFAULT_MATCH_CHOOSER: MatchChooser = (teamSize, player, potentialPlayers) => {
   const neededPlayers = teamSize * 2 - 1
 
   let filtered = potentialPlayers.filter(
-    o => o.interval.low <= player.rating && player.rating <= o.interval.high,
+    p => p.interval.low <= player.rating && player.rating <= p.interval.high,
   )
+  if (filtered.length < neededPlayers) {
+    // Not enough players in this player's search range
+    return []
+  }
+
+  for (const filterFn of FILTERS) {
+    if (filtered.length === neededPlayers) {
+      break
+    }
+
+    const nextFiltered = filterFn(player, filtered, neededPlayers)
+    if (nextFiltered.length < neededPlayers) {
+      break
+    }
+
+    filtered = nextFiltered
+  }
 
   if (filtered.length < neededPlayers) {
+    // There weren't enough applicable players to fill both teams. Note that this really shouldn't
+    // happen at this point (it would be handled by the first filter at the start of the function),
+    // but having this here makes me feel safer :)
     return []
-  } else if (filtered.length === 1) {
+  } else if (filtered.length === neededPlayers) {
+    // TODO(tec27): Handle teamSize > 1 and optimize resulting teams
     return [[player], [filtered[0]]]
-  }
-
-  // 1) If you are a new player (<25 games), choose the player that also is a new player, else:
-  // 2) If you are not a new player, choose the player that also is not a new player, else:
-  const isNew = isNewPlayer(player)
-  const sameNewness = filtered.filter(o => isNewPlayer(o) === isNew)
-  if (sameNewness.length) {
-    filtered = sameNewness
-  }
-
-  if (filtered.length < neededPlayers) {
-    return []
-  } else if (filtered.length === 1) {
-    return [[player], [filtered[0]]]
-  }
-
-  // TODO(tec27): 3) If applicable, choose the player in “Inactive” status.
-  // TODO(tec27): 4) Choose the player with the lowest ping (in 50ms buckets).
-
-  // 5) Choose the player that has been waiting in queue the longest.
-  filtered.sort((a, b) => b.searchIterations - a.searchIterations)
-  const mostSearchIterations = filtered[0].searchIterations
-  filtered = filtered.filter(o => o.searchIterations === mostSearchIterations)
-
-  if (filtered.length < neededPlayers) {
-    return []
-  } else if (filtered.length === 1) {
-    return [[player], [filtered[0]]]
-  }
-
-  // 6) Choose the player with the closest rating.
-  const opponentRating = findClosestRating(player.rating, filtered)
-  const ratingDiff = Math.abs(opponentRating - player.rating)
-  filtered = filtered.filter(o => Math.abs(o.rating - player.rating) === ratingDiff)
-
-  if (filtered.length < neededPlayers) {
-    return []
   } else {
     // 7) Randomize among remaining candidates.
-    return [[player], [filtered[Math.floor(Math.random() * filtered.length)]]]
+    // TODO(tec27): Handle teamSize > 1 and optimize resulting teams
+    return [[player], [filtered[0]]]
   }
 }
 
