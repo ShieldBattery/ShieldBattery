@@ -1,4 +1,5 @@
 /* eslint-disable jest/no-commented-out-tests */
+import { mockRandomForEach } from 'jest-mock-random'
 import { makeSbUserId } from '../../../common/users/user-info'
 import { DEFAULT_MATCH_CHOOSER, initializePlayer, QueuedMatchmakingPlayer } from './matchmaker'
 
@@ -7,7 +8,7 @@ let curUserId = 1
 function createPlayer(data: Partial<QueuedMatchmakingPlayer> = {}): QueuedMatchmakingPlayer {
   const rating = data.rating ?? 1500
 
-  return initializePlayer({
+  const player = initializePlayer({
     id: makeSbUserId(curUserId++),
     name: 'tec27',
     numGamesPlayed: 0,
@@ -26,9 +27,20 @@ function createPlayer(data: Partial<QueuedMatchmakingPlayer> = {}): QueuedMatchm
       ...(data.interval ?? {}),
     },
   })
+
+  // Simplify the JSON output of this structure for easy comparison in inline snapshots
+  ;(player as any).toJSON = function () {
+    return `PLAYER ${this.id} '${this.name}' @ ${rating} mmr`
+  }
+
+  return player
 }
 
 describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
+  // NOTE(tec27): These values are mostly meaningless, just want to avoid return some combination
+  // of the same value + different ones to ferret out bugs
+  mockRandomForEach([0.4, 0.1, 0.4, 0.7, 0.5])
+
   beforeEach(() => {
     curUserId = 1
   })
@@ -109,14 +121,122 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
     const pickThis = createPlayer({ name: 'PickMe', rating: 1670 })
     const orThis = createPlayer({ name: 'OrMe', rating: 1730 })
 
-    const result = DEFAULT_MATCH_CHOOSER(1, player, [kindaFar, pickThis, orThis])
+    expect(DEFAULT_MATCH_CHOOSER(1, player, [kindaFar, pickThis, orThis])).toMatchInlineSnapshot(`
+      Array [
+        Array [
+          "PLAYER 1 'tec27' @ 1700 mmr",
+        ],
+        Array [
+          "PLAYER 3 'PickMe' @ 1670 mmr",
+        ],
+      ]
+    `)
+  })
 
-    expect(result).not.toEqual([[player], [kindaFar]])
+  test('2v2 - should return the only opponents option if there are just enough', () => {
+    const player = createPlayer()
+    const p1 = createPlayer({ name: 'ReallyBadDude' })
+    const p2 = createPlayer({ name: 'ReallyBadDude2' })
+    const p3 = createPlayer({ name: 'ReallyBadDude3' })
 
-    const [, teamB] = result
-    // NOTE(tec27): The selection is random so we can't easily check for a specific value here, at
-    // least without mocking out random in some way. If this test flakes out, it likely means the
-    // logic in the function is wrong.
-    expect([pickThis, orThis]).toContain(teamB![0])
+    expect(DEFAULT_MATCH_CHOOSER(2, player, [p1, p2, p3])).toMatchInlineSnapshot(`
+      Array [
+        Array [
+          "PLAYER 1 'tec27' @ 1500 mmr",
+          "PLAYER 2 'ReallyBadDude' @ 1500 mmr",
+        ],
+        Array [
+          "PLAYER 4 'ReallyBadDude3' @ 1500 mmr",
+          "PLAYER 3 'ReallyBadDude2' @ 1500 mmr",
+        ],
+      ]
+    `)
+  })
+
+  test('2v2 - should return a random set of players if there are a lot that match', () => {
+    const player = createPlayer()
+    const p1 = createPlayer({ name: 'ReallyBadDude' })
+    const p2 = createPlayer({ name: 'ReallyBadDude2' })
+    const p3 = createPlayer({ name: 'ReallyBadDude3' })
+    const p4 = createPlayer({ name: 'ReallyBadDude4' })
+    const p5 = createPlayer({ name: 'ReallyBadDude5' })
+    const p6 = createPlayer({ name: 'ReallyBadDude6' })
+    const p7 = createPlayer({ name: 'ReallyBadDude7' })
+    const p8 = createPlayer({ name: 'ReallyBadDude8' })
+
+    expect(DEFAULT_MATCH_CHOOSER(2, player, [p1, p2, p3, p4, p5, p6, p7, p8]))
+      .toMatchInlineSnapshot(`
+      Array [
+        Array [
+          "PLAYER 1 'tec27' @ 1500 mmr",
+          "PLAYER 5 'ReallyBadDude4' @ 1500 mmr",
+        ],
+        Array [
+          "PLAYER 4 'ReallyBadDude3' @ 1500 mmr",
+          "PLAYER 2 'ReallyBadDude' @ 1500 mmr",
+        ],
+      ]
+    `)
+  })
+
+  test('2v2 - should find the optimal team arrangement for a set of players', () => {
+    const player = createPlayer({ rating: 2000, interval: { low: 1000, high: 3000 } })
+    const lowSkill = createPlayer({
+      name: 'LowSkill',
+      rating: 1000,
+      interval: { low: 0, high: 2000 },
+    })
+    const midSkill = createPlayer({
+      name: 'MidSkill',
+      rating: 1600,
+      interval: { low: 600, high: 2600 },
+    })
+    const midSkill2 = createPlayer({
+      name: 'MidSkill2',
+      rating: 1400,
+      interval: { low: 400, high: 2400 },
+    })
+
+    expect(DEFAULT_MATCH_CHOOSER(2, player, [midSkill, lowSkill, midSkill2]))
+      .toMatchInlineSnapshot(`
+      Array [
+        Array [
+          "PLAYER 1 'tec27' @ 2000 mmr",
+          "PLAYER 2 'LowSkill' @ 1000 mmr",
+        ],
+        Array [
+          "PLAYER 3 'MidSkill' @ 1600 mmr",
+          "PLAYER 4 'MidSkill2' @ 1400 mmr",
+        ],
+      ]
+    `)
+    // NOTE(tec27): We throw some different orderings in here just to make sure it's picking based
+    // on optimal rating difference, not order
+    expect(DEFAULT_MATCH_CHOOSER(2, player, [lowSkill, midSkill, midSkill2]))
+      .toMatchInlineSnapshot(`
+      Array [
+        Array [
+          "PLAYER 1 'tec27' @ 2000 mmr",
+          "PLAYER 2 'LowSkill' @ 1000 mmr",
+        ],
+        Array [
+          "PLAYER 4 'MidSkill2' @ 1400 mmr",
+          "PLAYER 3 'MidSkill' @ 1600 mmr",
+        ],
+      ]
+    `)
+    expect(DEFAULT_MATCH_CHOOSER(2, player, [midSkill, midSkill2, lowSkill]))
+      .toMatchInlineSnapshot(`
+      Array [
+        Array [
+          "PLAYER 1 'tec27' @ 2000 mmr",
+          "PLAYER 2 'LowSkill' @ 1000 mmr",
+        ],
+        Array [
+          "PLAYER 4 'MidSkill2' @ 1400 mmr",
+          "PLAYER 3 'MidSkill' @ 1600 mmr",
+        ],
+      ]
+    `)
   })
 })

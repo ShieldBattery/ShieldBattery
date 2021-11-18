@@ -1,6 +1,7 @@
 import { OrderedMap } from 'immutable'
 import IntervalTree from 'node-interval-tree'
 import { injectable } from 'tsyringe'
+import { multipleRandomItems } from '../../../common/random'
 import { range } from '../../../common/range'
 import { ExponentialSmoothValue } from '../../../common/statistics/exponential-smoothing'
 import { SbUserId } from '../../../common/users/user-info'
@@ -90,12 +91,58 @@ export function initializePlayer(player: MatchmakingPlayer): QueuedMatchmakingPl
   return player as QueuedMatchmakingPlayer
 }
 
+type MatchedTeams = [
+  teamA: Array<Readonly<QueuedMatchmakingPlayer>>,
+  teamB: Array<Readonly<QueuedMatchmakingPlayer>>,
+]
+
+// TODO: Share this code with rating change calculation code?
+function calcEffectiveRating(team: ReadonlyArray<Readonly<QueuedMatchmakingPlayer>>): number {
+  // Calculate the root mean square of the team's ratings. Using this formula means that players
+  // with higher rating effectively count for more in the output, so a [2500 + 500] team has a
+  // higher effective rating than a [1500 + 1500] team.
+  const sum = team.reduce((sum, player) => sum + player.rating * player.rating, 0)
+  // TODO(tec27): Determine what the proper exponent is for this from win/loss data
+  return Math.pow(sum / team.length, 1 / 2)
+}
+
+function findOptimalTeams(
+  teamSize: number,
+  player: Readonly<QueuedMatchmakingPlayer>,
+  // TODO(tec27): Make this a ReadonlyArray once we're on TS 4.5+ (prior to that, Array.at is only
+  // available on non-readonly arrays)
+  selections: Array<Readonly<QueuedMatchmakingPlayer>>,
+): MatchedTeams {
+  if (!selections.length) {
+    throw new Error('selections must not be empty')
+  }
+
+  // Find all the different permutations of teams, select the one that minimizes the difference
+  // between the two teams' effective ratings.
+  // TODO(tec27): Rework for 3v3. This is incredibly simple for 2v2 (it's simply the matching
+  // player + each of the other players vs whatever is leftover), not so much with more players on
+  // each team.
+  let bestTeams: MatchedTeams
+  let lowestRatingDiff = Infinity
+  for (let i = 0; i < selections.length; i++) {
+    const teamA = [player, selections[i]]
+    const teamB = [selections.at(i - 1)!, selections.at((i + 1) % selections.length)!]
+    const ratingDiff = Math.abs(calcEffectiveRating(teamA) - calcEffectiveRating(teamB))
+    if (ratingDiff < lowestRatingDiff) {
+      lowestRatingDiff = ratingDiff
+      bestTeams = [teamA, teamB]
+    }
+  }
+
+  return bestTeams!
+}
+
 /**
  * A function that filters down the potential players by some specific criteria, returning a
  * list of potential players that meet it.
  */
 type PlayerFilter = (
-  player: QueuedMatchmakingPlayer,
+  player: Readonly<QueuedMatchmakingPlayer>,
   potentials: ReadonlyArray<QueuedMatchmakingPlayer>,
   neededPlayers: number,
 ) => QueuedMatchmakingPlayer[]
@@ -118,7 +165,7 @@ const FILTERS: ReadonlyArray<PlayerFilter> = [
     const sorted = potentials.slice().sort((a, b) => b.searchIterations - a.searchIterations)
     // Pick an iteration number that would still give us enough players
     const iterations = sorted[neededPlayers - 1].searchIterations
-    return sorted.filter(p => p.searchIterations <= iterations)
+    return sorted.filter(p => p.searchIterations >= iterations)
   },
 
   // 6) Choose the players with the closest rating.
@@ -166,13 +213,14 @@ export const DEFAULT_MATCH_CHOOSER: MatchChooser = (teamSize, player, potentialP
     // happen at this point (it would be handled by the first filter at the start of the function),
     // but having this here makes me feel safer :)
     return []
-  } else if (filtered.length === neededPlayers) {
-    // TODO(tec27): Handle teamSize > 1 and optimize resulting teams
-    return [[player], [filtered[0]]]
   } else {
     // 7) Randomize among remaining candidates.
-    // TODO(tec27): Handle teamSize > 1 and optimize resulting teams
-    return [[player], [filtered[0]]]
+    const selections = multipleRandomItems(neededPlayers, filtered)
+    if (teamSize === 1) {
+      return [[player], [selections[0]]]
+    } else {
+      return findOptimalTeams(teamSize, player, selections)
+    }
   }
 }
 
@@ -203,12 +251,7 @@ type MatchChooser = (
   teamSize: number,
   player: Readonly<QueuedMatchmakingPlayer>,
   potentialPlayers: Readonly<QueuedMatchmakingPlayer>[],
-) =>
-  | [
-      teamA: Array<Readonly<QueuedMatchmakingPlayer>>,
-      teamB: Array<Readonly<QueuedMatchmakingPlayer>>,
-    ]
-  | []
+) => MatchedTeams | []
 
 @injectable()
 export class Matchmaker {

@@ -20,6 +20,7 @@ import {
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
   TEAM_SIZES,
 } from '../../../common/matchmaking'
+import { randomInt, randomItem } from '../../../common/random'
 import { subtract } from '../../../common/sets'
 import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/user-info'
@@ -163,8 +164,6 @@ interface Timers {
   cancelToken: CancelToken
 }
 
-const getRandomInt = (max: number) => Math.floor(Math.random() * Math.floor(max))
-
 // Extra time that is added to the matchmaking accept time to account for latency in getting
 // messages back and forth from clients
 const ACCEPT_MATCH_LATENCY = 2000
@@ -221,7 +220,7 @@ async function pickMap(
     mapPool = fullMapPool
   }
 
-  const chosenMapId = [...mapPool][getRandomInt(mapPool.size)]
+  const chosenMapId = randomItem(Array.from(mapPool))
   const mapInfo = await getMapInfo([chosenMapId])
 
   if (!mapInfo.length) {
@@ -601,7 +600,7 @@ export class MatchmakingService {
       // All players have the same race and all of them want to use an alternate race: select
       // one of the players randomly to play their alternate race, leaving the other player to
       // play their main race.
-      const randomPlayerIndex = getRandomInt(players.length)
+      const randomPlayerIndex = randomInt(0, players.length)
       slots = players.map((p, i) =>
         createHuman(p.name, p.id, i === randomPlayerIndex ? p.alternateRace : p.race),
       )

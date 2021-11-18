@@ -233,6 +233,7 @@
     "jest": "^27.0.1",
     "jest-extended": "^1.1.0",
     "jest-mock": "^27.0.1",
+    "jest-mock-random": "^1.1.1",
     "jssuh": "^1.4.0",
     "keycode": "^2.2.0",
     "koa-webpack-hot-middleware": "^1.0.3",
