@@ -1,11 +1,14 @@
 import {
+  ChatInitEvent,
+  ChatJoinEvent,
+  ChatLeaveEvent,
   ChatMessageEvent,
-  ChatUser,
+  ChatUserActiveEvent,
+  ChatUserIdleEvent,
+  ChatUserOfflineEvent,
   GetChannelHistoryServerPayload,
   GetChannelUsersServerPayload,
-  JoinChannelMessage,
 } from '../../common/chat'
-import { SbUser, SbUserId } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
 export type ChatActions =
@@ -194,14 +197,18 @@ export interface DeactivateChannel {
 }
 
 /**
+ * A type that allows using the socket events directly as payload for dispatch actions, by including
+ * the channel in the payload, since the channel is not included in the event itself (it is part of
+ * the websocket URL).
+ */
+type PayloadWithChannel<T = void> = { channel: string } & Omit<T, 'action'>
+
+/**
  * We have joined a channel and the server has sent us some initial data.
  */
 export interface InitChannel {
   type: '@chat/initChannel'
-  payload: {
-    channel: string
-    activeUsers: ChatUser[]
-  }
+  payload: PayloadWithChannel<ChatInitEvent>
 }
 
 /**
@@ -209,12 +216,7 @@ export interface InitChannel {
  */
 export interface UpdateJoin {
   type: '@chat/updateJoin'
-  payload: {
-    channel: string
-    channelUser: ChatUser
-    user: SbUser
-    message: JoinChannelMessage
-  }
+  payload: PayloadWithChannel<ChatJoinEvent>
 }
 
 /**
@@ -222,11 +224,7 @@ export interface UpdateJoin {
  */
 export interface UpdateLeave {
   type: '@chat/updateLeave'
-  payload: {
-    channel: string
-    user: ChatUser
-    newOwnerId: SbUserId | null
-  }
+  payload: PayloadWithChannel<ChatLeaveEvent>
 }
 
 /**
@@ -234,9 +232,7 @@ export interface UpdateLeave {
  */
 export interface UpdateLeaveSelf {
   type: '@chat/updateLeaveSelf'
-  payload: {
-    channel: string
-  }
+  payload: PayloadWithChannel
 }
 
 /**
@@ -244,7 +240,7 @@ export interface UpdateLeaveSelf {
  */
 export interface UpdateMessage {
   type: '@chat/updateMessage'
-  payload: ChatMessageEvent
+  payload: PayloadWithChannel<ChatMessageEvent>
 }
 
 /**
@@ -252,10 +248,7 @@ export interface UpdateMessage {
  */
 export interface UpdateUserActive {
   type: '@chat/updateUserActive'
-  payload: {
-    channel: string
-    user: ChatUser
-  }
+  payload: PayloadWithChannel<ChatUserActiveEvent>
 }
 
 /**
@@ -263,10 +256,7 @@ export interface UpdateUserActive {
  */
 export interface UpdateUserIdle {
   type: '@chat/updateUserIdle'
-  payload: {
-    channel: string
-    user: ChatUser
-  }
+  payload: PayloadWithChannel<ChatUserIdleEvent>
 }
 
 /**
@@ -274,8 +264,5 @@ export interface UpdateUserIdle {
  */
 export interface UpdateUserOffline {
   type: '@chat/updateUserOffline'
-  payload: {
-    channel: string
-    user: ChatUser
-  }
+  payload: PayloadWithChannel<ChatUserOfflineEvent>
 }

@@ -15,10 +15,20 @@ export enum ClientChatMessageType {
 
 export type ChatMessageType = ServerChatMessageType | ClientChatMessageType
 
-// TODO(2Pac): Include more information here, e.g. channel permissions, join date, etc.
+export interface ChannelPermissions {
+  kick: boolean
+  ban: boolean
+  changeTopic: boolean
+  togglePrivate: boolean
+  editPermissions: boolean
+  owner: boolean
+}
+
 export interface ChatUser {
   id: SbUserId
   name: string
+  joinDate: number
+  permissions: ChannelPermissions
 }
 
 export interface BaseChatMessage {
@@ -91,24 +101,24 @@ export interface ChatJoinEvent {
 
 export interface ChatLeaveEvent {
   action: 'leave'
-  /** A user that has left the chat channel. */
-  user: ChatUser
+  /** The ID of a user that has left the chat channel. */
+  userId: SbUserId
   /** The ID of a user that was selected as a new owner of the channel, if any. */
   newOwnerId: SbUserId | null
 }
 
 export interface ChatKickEvent {
   action: 'kick'
-  /** A user that was kicked from the chat channel. */
-  target: ChatUser
+  /** The ID of a user that was kicked from the chat channel. */
+  targetId: SbUserId
   /** The ID of a user that was selected as a new owner of the channel, if any. */
   newOwnerId: SbUserId | null
 }
 
 export interface ChatBanEvent {
   action: 'ban'
-  /** A user that was banned from the chat channel. */
-  target: ChatUser
+  /** The ID of a user that was banned from the chat channel. */
+  targetId: SbUserId
   /** The ID of a user that was selected as a new owner of the channel, if any. */
   newOwnerId: SbUserId | null
 }
@@ -118,24 +128,24 @@ export interface ChatMessageEvent {
   /** A text message that was sent in a chat channel. */
   message: TextMessage
   /** User info for the channel user that sent the message. */
-  user: ChatUser
+  user: SbUser
   /** User infos for all channel users that were mentioned in the message, if any. */
   mentions: SbUser[]
 }
 
 export interface ChatUserActiveEvent {
   action: 'userActive'
-  user: ChatUser
+  userId: SbUserId
 }
 
 export interface ChatUserIdleEvent {
   action: 'userIdle'
-  user: ChatUser
+  userId: SbUserId
 }
 
 export interface ChatUserOfflineEvent {
   action: 'userOffline'
-  user: ChatUser
+  userId: SbUserId
 }
 
 export type ChatEvent =

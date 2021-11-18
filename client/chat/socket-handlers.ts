@@ -37,7 +37,7 @@ const eventToAction: EventToActionMap = {
 
   leave: (channel, event) => (dispatch, getState) => {
     const { auth } = getState()
-    if (auth.user.id === event.user.id) {
+    if (auth.user.id === event.userId) {
       // It was us who left the channel
       dispatch({
         type: '@chat/updateLeaveSelf',
@@ -50,7 +50,7 @@ const eventToAction: EventToActionMap = {
         type: '@chat/updateLeave',
         payload: {
           channel,
-          user: event.user,
+          userId: event.userId,
           newOwnerId: event.newOwnerId,
         },
       })
@@ -70,7 +70,10 @@ const eventToAction: EventToActionMap = {
 
       dispatch({
         type: '@chat/updateMessage',
-        payload: event,
+        payload: {
+          channel,
+          ...event,
+        },
       })
     }
   },
@@ -80,7 +83,7 @@ const eventToAction: EventToActionMap = {
       type: '@chat/updateUserActive',
       payload: {
         channel,
-        user: event.user,
+        userId: event.userId,
       },
     }
   },
@@ -90,7 +93,7 @@ const eventToAction: EventToActionMap = {
       type: '@chat/updateUserIdle',
       payload: {
         channel,
-        user: event.user,
+        userId: event.userId,
       },
     }
   },
@@ -100,7 +103,7 @@ const eventToAction: EventToActionMap = {
       type: '@chat/updateUserOffline',
       payload: {
         channel,
-        user: event.user,
+        userId: event.userId,
       },
     }
   },
