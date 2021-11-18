@@ -163,6 +163,7 @@ export interface MatchReadyEvent {
   matchmakingType: MatchmakingType
   setup: Partial<{ gameId: string; seed: number }>
   resultCode?: string
+  // TODO(tec27): This is not a correct type, this cannot be a Record, it's deserialized from JSON
   slots: Slot[]
   players: MatchmakingPlayer[]
   chosenMap: MapInfoJson

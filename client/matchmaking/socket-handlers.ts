@@ -182,14 +182,14 @@ const eventToAction: EventToActionMap = {
       console.error('Error downloading map: ' + err + '\n' + err.stack)
     })
 
-    const slots: PlayerInfo[] = event.slots.map(slot => ({
+    const totalPlayers = event.slots.length
+    const teamSize = totalPlayers / 2
+    const slots: PlayerInfo[] = event.slots.map((slot, i) => ({
       id: slot.id,
       name: slot.name,
       race: slot.race,
       playerId: slot.playerId,
-      // NOTE(tec27): team ID is only used for UMS, so as long as we don't use that for matchmaking
-      // this can always be 0
-      teamId: 0,
+      teamId: event.matchmakingType === MatchmakingType.Match1v1 || i < teamSize ? 0 : 1,
       type: slot.type,
       typeId: slot.typeId,
       userId: slot.userId,
@@ -204,8 +204,11 @@ const eventToAction: EventToActionMap = {
         gameId: event.setup.gameId!,
         name: 'Matchmaking game', // Does this even matter for anything?
         map: event.chosenMap,
-        gameType: GameType.OneVsOne,
-        gameSubType: 0,
+        gameType:
+          event.matchmakingType === MatchmakingType.Match1v1
+            ? GameType.OneVsOne
+            : GameType.TopVsBottom,
+        gameSubType: event.matchmakingType === MatchmakingType.Match1v1 ? 0 : teamSize,
         slots,
         host: slots[0], // Arbitrarily set first player as host
         seed: event.setup.seed!,

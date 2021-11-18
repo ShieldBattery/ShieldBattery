@@ -71,10 +71,19 @@ export type LobbyGameConfig = SetOptional<
 >
 
 export interface MatchmakingExtra1v1 {
-  type: MatchmakingType
+  type: MatchmakingType.Match1v1
 }
 
-export type MatchmakingExtra = MatchmakingExtra1v1
+export interface MatchmakingExtra2v2 {
+  type: MatchmakingType.Match2v2
+  /**
+   * The user IDs of players in the match, grouped into lists by party. Players not in a party
+   * will be in a list by themselves.
+   */
+  parties: SbUserId[][]
+}
+
+export type MatchmakingExtra = MatchmakingExtra1v1 | MatchmakingExtra2v2
 
 export type MatchmakingGameConfig = BaseGameConfig<GameSource.Matchmaking, MatchmakingExtra>
 

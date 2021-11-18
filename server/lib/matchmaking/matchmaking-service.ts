@@ -2,13 +2,20 @@ import cuid from 'cuid'
 import { Immutable } from 'immer'
 import { container, singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isAbortError, raceAbort } from '../../../common/async/abort-signals'
 import CancelToken from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
 import { GameRoute } from '../../../common/game-launch-config'
-import { GameConfig, GameSource, GameType } from '../../../common/games/configuration'
+import {
+  GameConfig,
+  GameConfigPlayer,
+  GameSource,
+  GameType,
+  MatchmakingExtra,
+} from '../../../common/games/configuration'
 import { createHuman, Slot } from '../../../common/lobbies/slot'
 import { MapInfo, MapInfoJson, toMapInfoJson } from '../../../common/maps'
 import {
@@ -213,8 +220,14 @@ async function pickMap(
   let mapPool = fullMapPool
   for (const p of players) {
     mapPool = subtract(mapPool, p.mapSelections)
+    if (!mapPool.size) {
+      break
+    }
   }
 
+  // TODO(tec27): For really small map pools, it might be nice to track how many times each map
+  // was vetoed, and if the whole pool is vetoed, randomly select the maps that were least vetoed
+  // overall
   if (!mapPool.size) {
     // All available maps were vetoed, select from the whole pool
     mapPool = fullMapPool
@@ -447,38 +460,44 @@ export class MatchmakingService {
       )
     }
 
-    const mmr: MatchmakingRating =
-      (await getMatchmakingRating(userId, type)) ??
-      (await createInitialMatchmakingRating(userId, type))
+    try {
+      const mmr: MatchmakingRating =
+        (await getMatchmakingRating(userId, type)) ??
+        (await createInitialMatchmakingRating(userId, type))
 
-    // TODO(tec27): Bump up the uncertainty based on how long ago the last played date was:
-    // "After [14] days, the inactive player’s uncertainty (search range) increases by 24 per day,
-    // up to a maximum of 336 after 14 additional days."
+      // TODO(tec27): Bump up the uncertainty based on how long ago the last played date was:
+      // "After [14] days, the inactive player’s uncertainty (search range) increases by 24 per day,
+      // up to a maximum of 336 after 14 additional days."
 
-    const halfUncertainty = mmr.uncertainty / 2
+      const halfUncertainty = mmr.uncertainty / 2
 
-    const player: MatchmakingPlayer = {
-      id: clientSockets.userId,
-      name: clientSockets.name,
-      numGamesPlayed: mmr.numGamesPlayed,
-      rating: mmr.rating,
-      interval: {
-        low: mmr.rating - halfUncertainty,
-        high: mmr.rating + halfUncertainty,
-      },
-      searchIterations: 0,
-      race,
-      useAlternateRace: !!data?.useAlternateRace,
-      alternateRace: data?.alternateRace ?? 'z',
-      mapSelections: new Set(mapSelections),
+      const player: MatchmakingPlayer = {
+        id: clientSockets.userId,
+        name: clientSockets.name,
+        numGamesPlayed: mmr.numGamesPlayed,
+        rating: mmr.rating,
+        interval: {
+          low: mmr.rating - halfUncertainty,
+          high: mmr.rating + halfUncertainty,
+        },
+        searchIterations: 0,
+        race,
+        useAlternateRace: !!data?.useAlternateRace,
+        alternateRace: data?.alternateRace ?? 'z',
+        mapSelections: new Set(mapSelections),
+      }
+
+      this.matchmakers.get(type)!.addToQueue(player)
+      this.queueEntries.set(userId, {
+        type,
+        userId,
+      })
+    } catch (err) {
+      // Clear out the activity registry for this user, since they didn't actually make it into the
+      // queue
+      this.activityRegistry.unregisterClientForUser(userId)
+      throw err
     }
-
-    this.matchmakers.get(type)!.addToQueue(player)
-
-    this.queueEntries.set(userId, {
-      type,
-      userId,
-    })
 
     userSockets.subscribe<MatchmakingEvent>(
       MatchmakingService.getUserPath(userSockets.userId),
@@ -588,47 +607,79 @@ export class MatchmakingService {
 
   private async doGameLoad(match: Match) {
     let slots: Slot[]
+    let teams: GameConfigPlayer[][]
     const players = Array.from(match.players())
 
-    // TODO(tec27): ignore alternate race selection if there are more than 2 players
-    const firstPlayer = players[0]
-    // NOTE(tec27): alternate race selection is not available for random users. We block this
-    // from being set elsewhere, but ignore it here just in case
-    const playersHaveSameRace =
-      firstPlayer.race !== 'r' && players.every(p => p.race === firstPlayer.race)
-    if (playersHaveSameRace && players.every(p => p.useAlternateRace === true)) {
-      // All players have the same race and all of them want to use an alternate race: select
-      // one of the players randomly to play their alternate race, leaving the other player to
-      // play their main race.
-      const randomPlayerIndex = randomInt(0, players.length)
-      slots = players.map((p, i) =>
-        createHuman(p.name, p.id, i === randomPlayerIndex ? p.alternateRace : p.race),
-      )
-    } else if (playersHaveSameRace && players.some(p => p.useAlternateRace === true)) {
-      // All players have the same main race and one of them wants to use an alternate race
-      slots = players.map(p =>
-        createHuman(p.name, p.id, p.useAlternateRace ? p.alternateRace : p.race),
-      )
-    } else {
-      // No alternate race selection, so everyone gets their selected race
-      slots = players.map(p => createHuman(p.name, p.id, p.race))
-    }
+    if (match.type === MatchmakingType.Match1v1) {
+      const firstPlayer = players[0]
+      // NOTE(tec27): alternate race selection is not available for random users. We block this
+      // from being set elsewhere, but ignore it here just in case
+      const playersHaveSameRace =
+        firstPlayer.race !== 'r' && players.every(p => p.race === firstPlayer.race)
+      if (playersHaveSameRace && players.every(p => p.useAlternateRace === true)) {
+        // All players have the same race and all of them want to use an alternate race: select
+        // one of the players randomly to play their alternate race, leaving the other player to
+        // play their main race.
+        const randomPlayerIndex = randomInt(0, players.length)
+        slots = players.map((p, i) =>
+          createHuman(p.name, p.id, i === randomPlayerIndex ? p.alternateRace : p.race),
+        )
+      } else if (playersHaveSameRace && players.some(p => p.useAlternateRace === true)) {
+        // All players have the same main race and one of them wants to use an alternate race
+        slots = players.map(p =>
+          createHuman(p.name, p.id, p.useAlternateRace ? p.alternateRace : p.race),
+        )
+      } else {
+        // No alternate race selection, so everyone gets their selected race
+        slots = players.map(p => createHuman(p.name, p.id, p.race))
+      }
 
-    const chosenMap = await pickMap(match.type, players)
-
-    const gameConfig: GameConfig = {
-      // TODO(tec27): This will need to be adjusted for team matchmaking
-      gameType: GameType.OneVsOne,
-      gameSubType: 0,
-      gameSource: GameSource.Matchmaking,
-      gameSourceExtra: { type: match.type },
-      teams: [
+      teams = [
         slots.map(s => ({
           id: s.userId,
           race: s.race,
           isComputer: s.type === 'computer' || s.type === 'umsComputer',
         })),
-      ],
+      ]
+    } else {
+      // Alternate race is not allowed for non-1v1 matchmaking types, so this is very simple!
+      const slotsInTeams = match.teams.map(t => t.map(p => createHuman(p.name, p.id, p.race)))
+      slots = slotsInTeams.flat()
+      teams = slotsInTeams.map(t =>
+        t.map(s => ({
+          id: s.userId,
+          race: s.race,
+          isComputer: s.type === 'computer' || s.type === 'umsComputer',
+        })),
+      )
+    }
+
+    const chosenMap = await pickMap(match.type, players)
+
+    let gameSourceExtra: MatchmakingExtra
+    switch (match.type) {
+      case MatchmakingType.Match1v1:
+        gameSourceExtra = {
+          type: match.type,
+        }
+        break
+      case MatchmakingType.Match2v2:
+        gameSourceExtra = {
+          type: match.type,
+          // TODO(tec27): When parties support is added, use the real groupings here
+          parties: players.map(p => [p.id]),
+        }
+        break
+      default:
+        gameSourceExtra = assertUnreachable(match.type)
+    }
+
+    const gameConfig: GameConfig = {
+      gameType: match.type === MatchmakingType.Match1v1 ? GameType.OneVsOne : GameType.TopVsBottom,
+      gameSubType: match.type === MatchmakingType.Match1v1 ? 0 : TEAM_SIZES[match.type],
+      gameSource: GameSource.Matchmaking,
+      gameSourceExtra,
+      teams,
     }
 
     const clients = players.map(({ id }) => this.activityRegistry.getClientForUser(id)!)
