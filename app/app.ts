@@ -21,6 +21,11 @@ import { LocalSettings, ScrSettings } from './settings'
 import SystemTray from './system-tray'
 import { getUserDataPath } from './user-data-path'
 
+// Allow accessing __WEBPACK_ENV in development, since webpack adds it in production
+if (!(global as any).__WEBPACK_ENV) {
+  ;(global as any).__WEBPACK_ENV = {}
+}
+
 const ipcMain = new TypedIpcMain()
 
 getUserDataPath()
@@ -340,7 +345,7 @@ function setupCspProtocol(curSession: Session) {
         const nonce = crypto.randomBytes(16).toString('base64')
         const isHot = !!process.env.SB_HOT
         const hasReactDevTools = !!process.env.SB_REACT_DEV
-        const analyticsId = process.env.SB_ANALYTICS_ID || ''
+        const analyticsId = process.env.SB_ANALYTICS_ID ?? __WEBPACK_ENV?.SB_ANALYTICS_ID ?? ''
         const result = data
           .replace(
             /%SCRIPT_URL%/g,

@@ -141,6 +141,12 @@ const electronMain = makeConfig({
   globalDefines: {
     IS_ELECTRON: true,
   },
+  envDefines: {
+    SB_ANALYTICS_ID: process.env.SB_ANALYTICS_ID
+      ? JSON.stringify(process.env.SB_ANALYTICS_ID)
+      : undefined,
+    SB_SERVER: SB_SERVER ? JSON.stringify(SB_SERVER) : undefined,
+  },
   extraRules: [
     {
       test: /\.node$/,
