@@ -1,5 +1,6 @@
 import { stringToStatus } from '../../common/game-status'
 import { TypedIpcRenderer } from '../../common/ipc'
+import { apiUrl } from '../../common/urls'
 import { ACTIVE_GAME_STATUS } from '../actions'
 import { dispatch } from '../dispatch-registry'
 import logger from '../logging/logger'
@@ -21,7 +22,7 @@ export default function ({ ipcRenderer }: { ipcRenderer: TypedIpcRenderer }) {
     }
 
     if (status.state === 'playing' || status.state === 'error') {
-      fetch('/api/1/games/' + encodeURIComponent(status.id), {
+      fetch(apiUrl`games/${status.id}/status`, {
         method: 'put',
         body: JSON.stringify({ status: stringToStatus(status.state), extra: status.extra }),
       }).catch(err => {

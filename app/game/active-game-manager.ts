@@ -13,6 +13,7 @@ import {
 import { GameStatus, statusToString } from '../../common/game-status'
 import { GameClientPlayerResult } from '../../common/games/results'
 import { TypedEventEmitter } from '../../common/typed-emitter'
+import { apiUrl } from '../../common/urls'
 import log from '../logger'
 import { LocalSettings, ScrSettings } from '../settings'
 import { checkStarcraftPath } from './check-starcraft-path'
@@ -355,7 +356,7 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
         playerResults: Array.from(Object.entries(this.activeGame.result.result)),
       }
 
-      got(`/api/1/gameResults/${encodeURIComponent(this.activeGame.id)}`, {
+      got(config.setup.serverUrl + apiUrl`games/${this.activeGame.id}/results`, {
         method: 'post',
         body: JSON.stringify(submission),
       })

@@ -603,7 +603,7 @@ async fn send_game_result(
     // Attempt to send results to the server, if this fails, we expect
     // the app to retry in the future
     let client = reqwest::Client::new();
-    let result_url = format!("{}/api/1/gameResults/{}", info.server_url, info.game_id);
+    let result_url = format!("{}/api/1/games/{}/results", info.server_url, info.game_id);
 
     let sbat_header: &'static str = "x-shield-battery-client";
     let mut result_headers = HeaderMap::new();
