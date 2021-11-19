@@ -66,6 +66,7 @@ pub trait Bw: Sync + Send {
         address: std::net::Ipv4Addr,
     ) -> Result<(), u32>;
     unsafe fn game(&self) -> *mut Game;
+    unsafe fn game_data(&self) -> *mut JoinableGameInfo;
     unsafe fn players(&self) -> *mut Player;
     /// May be null in some edge case?
     /// But since it is used for both recording and replaying it usually isn't.

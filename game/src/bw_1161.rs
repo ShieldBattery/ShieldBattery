@@ -145,6 +145,11 @@ impl bw::Bw for Bw1161 {
         &mut *vars::game
     }
 
+    unsafe fn game_data(&self) -> *mut bw::JoinableGameInfo {
+        // TODO(tec27): Find the offset for this if we ever care
+        panic!("game_data not implemented for 1.16 :(");
+    }
+
     unsafe fn players(&self) -> *mut bw::Player {
         (*vars::players).as_mut_ptr()
     }

@@ -377,6 +377,7 @@ impl GameState {
                     }
                 }
             }
+
             allow_start.await;
             unsafe {
                 do_lobby_game_init(&info).await;

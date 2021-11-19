@@ -96,6 +96,7 @@ pub struct GameSetupInfo {
     pub game_sub_type: Option<u8>,
     pub slots: Vec<PlayerInfo>,
     pub host: PlayerInfo,
+    pub disable_alliance_changes: Option<bool>,
     pub seed: u32,
     pub game_id: String,
     pub result_code: Option<String>,

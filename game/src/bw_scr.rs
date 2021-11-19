@@ -39,6 +39,7 @@ const SHADER_ID_MASK: u32 = 0x1c;
 
 pub struct BwScr {
     game: Value<*mut bw::Game>,
+    game_data: Value<*mut bw::JoinableGameInfo>,
     players: Value<*mut bw::Player>,
     chk_players: Value<*mut bw::Player>,
     init_chk_player_types: Value<*mut u8>,
@@ -893,6 +894,7 @@ impl BwScr {
 
         let ctx: scarf::OperandCtx<'static> = Box::leak(Box::new(scarf::OperandContext::new()));
         let game = analysis.game().ok_or("Game")?;
+        let game_data = analysis.game_data().ok_or("Game Data")?;
         let players = analysis.players().ok_or("Players")?;
         let chk_players = analysis.chk_init_players().ok_or("CHK players")?;
         let init_chk_player_types =
@@ -1044,6 +1046,7 @@ impl BwScr {
         let exe_build = get_exe_build();
         Ok(BwScr {
             game: Value::new(ctx, game),
+            game_data: Value::new(ctx, game_data),
             players: Value::new(ctx, players),
             chk_players: Value::new(ctx, chk_players),
             init_chk_player_types: Value::new(ctx, init_chk_player_types),
@@ -2128,6 +2131,8 @@ impl bw::Bw for BwScr {
     unsafe fn game(&self) -> *mut bw::Game {
         self.game.resolve()
     }
+
+    unsafe fn game_data(&self) -> *mut bw::JoinableGameInfo { self.game_data.resolve() }
 
     unsafe fn players(&self) -> *mut bw::Player {
         self.players.resolve()

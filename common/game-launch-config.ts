@@ -71,6 +71,10 @@ export interface GameLaunchConfig {
     gameSubType: number
     slots: PlayerInfo[]
     host: PlayerInfo
+    /**
+     * Whether changing allies during the game is disabled. Optional, defaults to false (i.e. use
+     * the default for the game mode). */
+    disableAllianceChanges?: boolean
     seed: number
     /**
      * The code used to submit results for this game to the server. This is secret and unique per

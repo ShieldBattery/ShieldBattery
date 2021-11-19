@@ -410,4 +410,8 @@ impl<'e> Analysis<'e> {
     pub fn join_param_variant_type_offset(&mut self) -> Option<usize> {
         self.0.join_param_variant_type_offset()
     }
+
+    pub fn game_data(&mut self) -> Option<Operand<'e>> {
+        self.0.game_data()
+    }
 }

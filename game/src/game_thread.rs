@@ -253,6 +253,11 @@ pub unsafe fn after_init_game_data() {
             *out = Some(i as u8);
         }
     }
+
+    if setup_info().disable_alliance_changes.unwrap_or(false) {
+        (*bw.game_data()).game_template.allies_enabled = 0;
+    }
+
     send_game_msg_to_async(GameThreadMessage::PlayersRandomized(mapping));
     // Create fog-of-war sprites for any neutral buildings
     if !is_ums() {

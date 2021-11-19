@@ -220,6 +220,7 @@ const eventToAction: EventToActionMap = {
         gameSubType: event.matchmakingType === MatchmakingType.Match1v1 ? 0 : teamSize,
         slots,
         host: slots[0], // Arbitrarily set first player as host
+        disableAllianceChanges: true,
         seed: event.setup.seed!,
         resultCode: event.resultCode!,
         serverUrl: makeServerUrl(''),
