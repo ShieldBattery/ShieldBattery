@@ -10,6 +10,7 @@ import {
   PartyUser,
 } from '../../../common/parties'
 import { SbUserId } from '../../../common/users/user-info'
+import { CodedError } from '../errors/coded-error'
 import logger from '../logging/logger'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
@@ -25,11 +26,7 @@ export interface PartyRecord {
   leader: PartyUser
 }
 
-export class PartyServiceError extends Error {
-  constructor(readonly code: PartyServiceErrorCode, message: string, readonly data?: any) {
-    super(message)
-  }
-}
+export class PartyServiceError extends CodedError<PartyServiceErrorCode> {}
 
 export function getPartyPath(partyId: string): string {
   return `/parties/${partyId}`

@@ -12,6 +12,13 @@ export enum GameClientResult {
   Victory = 3,
 }
 
+export const ALL_GAME_CLIENT_RESULTS: ReadonlyArray<GameClientResult> = [
+  GameClientResult.Playing,
+  GameClientResult.Disconnected,
+  GameClientResult.Defeat,
+  GameClientResult.Victory,
+]
+
 /**
  * The results of a game for a particular player.
  */
@@ -42,4 +49,26 @@ export interface ReconciledResults {
   time: number
   /** A map containing the final result info for each player in the game. */
   results: Map<SbUserId, ReconciledPlayerResult>
+}
+
+/** Error codes that can result from submitting or accessing game results. */
+export enum GameResultErrorCode {
+  /** The specified game record could not be found. */
+  NotFound = 'NotFound',
+  /** Results have already been reported for this game. */
+  AlreadyReported = 'AlreadyReported',
+  /** The reported results contain one or more invalid players. */
+  InvalidPlayers = 'InvalidPlayers',
+}
+
+/** The payload format for submitting game results to the server. */
+export interface SubmitGameResultsPayload {
+  /** The ID of the user submitting results. */
+  userId: SbUserId
+  /** The secret code the user was given to submit results with. */
+  resultCode: string
+  /** The elapsed time of the game, in milliseconds. */
+  time: number
+  /** A tuple of (player name, result). */
+  playerResults: [playerName: string, result: GameClientPlayerResult][]
 }
