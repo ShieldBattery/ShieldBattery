@@ -31,15 +31,22 @@ const ipcMain = new TypedIpcMain()
 getUserDataPath()
 
 let modelId: string
+// We override the default auto-updater URL so that we can use our Spaces CDN instead, should be
+// faster for people not in US East
+let updateUrl: string
 switch ((app.name.split('-')[1] ?? '').toLowerCase()) {
   case 'local':
     modelId = 'net.shieldbattery.client.local'
+    // We don't auto-update on this client so this doesn't really matter
+    updateUrl = 'https://example.org/'
     break
   case 'staging':
     modelId = 'net.shieldbattery.client.staging'
+    updateUrl = 'https://staging-cdn.shieldbattery.net/app/'
     break
   default:
     modelId = 'net.shieldbattery.client'
+    updateUrl = 'https://cdn.shieldbattery.net/app/'
     break
 }
 app.setAppUserModelId(modelId)
@@ -49,6 +56,14 @@ autoUpdater.logger = logger
 // sometimes has
 autoUpdater.autoDownload = false
 let downloadingUpdate = false
+
+logger.info('Setting auto-updater url to: ' + updateUrl)
+autoUpdater.setFeedURL({
+  provider: 'generic',
+  url: updateUrl,
+  // NOTE(tec27): This is false for S3 because it doesn't support it, but I think Spaces will?
+  useMultipleRangeRequest: true,
+})
 
 // Set up our main file's protocol to enable the necessary features
 protocol.registerSchemesAsPrivileged([
