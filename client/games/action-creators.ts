@@ -3,7 +3,7 @@ import { apiUrl, urlPath } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import { push } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
-import fetch from '../network/fetch'
+import { fetchJson } from '../network/fetch'
 import { ResultsSubPage } from './results-sub-page'
 
 /** Navigates to a game's result page (and optionally, a specific tab within that). */
@@ -23,7 +23,7 @@ export function viewGame(gameId: string, spec: RequestHandlingSpec): ThunkAction
     try {
       dispatch({
         type: '@games/getGameRecord',
-        payload: await fetch<GetGamePayload>(apiUrl`games/${gameId}`, {
+        payload: await fetchJson<GetGamePayload>(apiUrl`games/${gameId}`, {
           signal: spec.signal,
         }),
       })

@@ -9,7 +9,7 @@ import {
 import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import { clientId } from '../network/client-id'
-import fetch from '../network/fetch'
+import { fetchJson } from '../network/fetch'
 import { UpdateLastQueuedMatchmakingType } from './actions'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -29,7 +29,7 @@ export function findMatch<M extends MatchmakingType>(
 
     dispatch({
       type: '@matchmaking/findMatch',
-      payload: fetch<void>(apiUrl`matchmaking/find`, {
+      payload: fetchJson<void>(apiUrl`matchmaking/find`, {
         method: 'POST',
         body: JSON.stringify(params),
       }).then<{ startTime: number }>(() => {
@@ -53,7 +53,7 @@ export function cancelFindMatch(): ThunkAction {
 
     dispatch({
       type: '@matchmaking/cancelMatch',
-      payload: fetch<void>(apiUrl`matchmaking/find`, { method: 'DELETE' }),
+      payload: fetchJson<void>(apiUrl`matchmaking/find`, { method: 'DELETE' }),
     })
   }
 }
@@ -72,7 +72,7 @@ export function acceptMatch(): ThunkAction {
 
     dispatch({
       type: '@matchmaking/acceptMatch',
-      payload: fetch<void>(apiUrl`matchmaking/accept`, { method: 'POST' }),
+      payload: fetchJson<void>(apiUrl`matchmaking/accept`, { method: 'POST' }),
     })
   }
 }
@@ -84,7 +84,9 @@ export function getCurrentMapPool(type: MatchmakingType): ThunkAction {
       payload: { type },
     })
 
-    const promise = fetch<GetMatchmakingMapPoolBody>(apiUrl`matchmaking-map-pools/${type}/current`)
+    const promise = fetchJson<GetMatchmakingMapPoolBody>(
+      apiUrl`matchmaking-map-pools/${type}/current`,
+    )
 
     promise.then(body => {
       // As a slight optimization, we download the whole map pool as soon as we get it. This
@@ -119,7 +121,7 @@ export function updateMatchmakingPreferences<M extends MatchmakingType>(
       payload: matchmakingType,
     })
 
-    const promise = fetch<GetPreferencesPayload>(
+    const promise = fetchJson<GetPreferencesPayload>(
       apiUrl`matchmakingPreferences/${matchmakingType}`,
       {
         method: 'POST',

@@ -152,5 +152,3 @@ export function fetchReadableStream(path: string, opts?: RequestInit) {
   const fetchPromise = fetchRaw(path, opts).then(ensureSuccessStatus)
   return new BrowserReadableStreamWrapper(fetchPromise)
 }
-
-export default fetchJson

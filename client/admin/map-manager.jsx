@@ -9,7 +9,7 @@ import ErrorIcon from '../icons/material/baseline-error-24px.svg'
 import uploadMap from '../maps/upload'
 import { RaisedButton, TextButton } from '../material/button'
 import { ScrollableContent } from '../material/scroll-bar'
-import fetch from '../network/fetch'
+import { fetchJson } from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
 import {
   amberA400,
@@ -283,7 +283,7 @@ export default class MapManager extends React.Component {
     this.setState({ areYouSure: false, isDeleting: true, deleteError: null })
 
     try {
-      await fetch('/api/1/maps/', { method: 'DELETE' })
+      await fetchJson('/api/1/maps/', { method: 'DELETE' })
       this.setState({ isDeleting: false })
     } catch (err) {
       this.setState({ isDeleting: false, deleteError: err })

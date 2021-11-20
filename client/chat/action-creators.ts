@@ -6,7 +6,7 @@ import {
 import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import { push } from '../navigation/routing'
-import fetch from '../network/fetch'
+import { fetchJson } from '../network/fetch'
 import { ActivateChannel, DeactivateChannel } from './actions'
 
 export function joinChannel(channel: string): ThunkAction {
@@ -18,7 +18,7 @@ export function joinChannel(channel: string): ThunkAction {
     })
     dispatch({
       type: '@chat/joinChannel',
-      payload: fetch<void>(apiUrl`chat/${channel}`, { method: 'POST' }),
+      payload: fetchJson<void>(apiUrl`chat/${channel}`, { method: 'POST' }),
       meta: params,
     })
   }
@@ -33,7 +33,7 @@ export function leaveChannel(channel: string): ThunkAction {
     })
     dispatch({
       type: '@chat/leaveChannel',
-      payload: fetch<void>(apiUrl`chat/${channel}`, { method: 'DELETE' }),
+      payload: fetchJson<void>(apiUrl`chat/${channel}`, { method: 'DELETE' }),
       meta: params,
     })
   }
@@ -50,7 +50,7 @@ export function sendMessage(channel: string, message: string): ThunkAction {
     const requestBody: SendChatMessageServerBody = { message }
     dispatch({
       type: '@chat/sendMessage',
-      payload: fetch<void>(apiUrl`chat/${channel}/messages`, {
+      payload: fetchJson<void>(apiUrl`chat/${channel}/messages`, {
         method: 'POST',
         body: JSON.stringify(requestBody),
       }),
@@ -79,7 +79,7 @@ export function getMessageHistory(channel: string, limit: number): ThunkAction {
     })
     dispatch({
       type: '@chat/loadMessageHistory',
-      payload: fetch<GetChannelHistoryServerPayload>(
+      payload: fetchJson<GetChannelHistoryServerPayload>(
         apiUrl`chat/${channel}/messages2?limit=${limit}&beforeTime=${earliestMessageTime}`,
         { method: 'GET' },
       ),
@@ -110,7 +110,7 @@ export function retrieveUserList(channel: string): ThunkAction {
     })
     dispatch({
       type: '@chat/retrieveUserList',
-      payload: fetch<GetChannelUsersServerPayload>(apiUrl`chat/${channel}/users`, {
+      payload: fetchJson<GetChannelUsersServerPayload>(apiUrl`chat/${channel}/users`, {
         method: 'GET',
       }),
       meta: params,

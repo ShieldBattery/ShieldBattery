@@ -10,7 +10,7 @@ import { AcceptPoliciesBody, AcceptPoliciesPayload, SbUserId } from '../../commo
 import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
-import fetch from '../network/fetch'
+import { fetchJson } from '../network/fetch'
 import { addLocalNotification } from '../notifications/action-creators'
 
 const policyBatchRequester = new MicrotaskBatchRequester<
@@ -22,7 +22,7 @@ const policyBatchRequester = new MicrotaskBatchRequester<
       policies: items.map(([_, policyType, version]) => [policyType, version]),
     }
     const userId = items[0][0]
-    const promise = fetch<AcceptPoliciesPayload>(apiUrl`users/${userId}/policies`, {
+    const promise = fetchJson<AcceptPoliciesPayload>(apiUrl`users/${userId}/policies`, {
       method: 'post',
       body: JSON.stringify(body),
     })

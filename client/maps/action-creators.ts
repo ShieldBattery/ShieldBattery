@@ -17,7 +17,7 @@ import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
-import fetch from '../network/fetch'
+import { fetchJson } from '../network/fetch'
 import { openSnackbar } from '../snackbars/action-creators'
 import { ClearMaps } from './actions'
 
@@ -85,7 +85,7 @@ export function getMapsList(params: GetMapsListParams): ThunkAction {
 
     dispatch({
       type: '@maps/getMaps',
-      payload: fetch<GetMapsPayload>(reqUrl),
+      payload: fetchJson<GetMapsPayload>(reqUrl),
       meta: params,
     })
   }
@@ -103,7 +103,7 @@ export function toggleFavoriteMap(
       payload: params,
     })
 
-    const reqPromise = fetch<void>(apiUrl`maps/${map.id}/favorite`, {
+    const reqPromise = fetchJson<void>(apiUrl`maps/${map.id}/favorite`, {
       method: map.isFavorited ? 'DELETE' : 'POST',
     })
 
@@ -144,7 +144,7 @@ export function removeMap(map: MapInfoJson): ThunkAction {
 
     dispatch({
       type: '@maps/removeMap',
-      payload: fetch<void>(apiUrl`maps/${map.id}`, { method: 'DELETE' }),
+      payload: fetchJson<void>(apiUrl`maps/${map.id}`, { method: 'DELETE' }),
       meta: { map },
     })
   }
@@ -157,7 +157,7 @@ export function regenMapImage(map: MapInfoJson): ThunkAction {
       payload: { map },
     })
 
-    const reqPromise = fetch<void>(apiUrl`maps/${map.id}/regenerate`, { method: 'POST' })
+    const reqPromise = fetchJson<void>(apiUrl`maps/${map.id}/regenerate`, { method: 'POST' })
 
     reqPromise.then(
       () => {
@@ -198,7 +198,7 @@ export function getMapDetails(mapId: string): ThunkAction {
     })
     dispatch({
       type: '@maps/getMapDetails',
-      payload: fetch<GetMapDetailsPayload>(apiUrl`maps/${mapId}`),
+      payload: fetchJson<GetMapDetailsPayload>(apiUrl`maps/${mapId}`),
       meta: { mapId },
     })
   }
@@ -215,7 +215,7 @@ export function updateMap(mapId: string, name: string, description: string): Thu
 
     dispatch({
       type: '@maps/updateMap',
-      payload: fetch<UpdateMapPayload>(apiUrl`maps/${mapId}`, {
+      payload: fetchJson<UpdateMapPayload>(apiUrl`maps/${mapId}`, {
         method: 'PATCH',
         body: JSON.stringify(params),
       }),
@@ -232,7 +232,7 @@ export function getMapPreferences(): ThunkAction {
 
     dispatch({
       type: '@maps/getMapPreferences',
-      payload: fetch<MapPreferences>(apiUrl`mapPreferences`),
+      payload: fetchJson<MapPreferences>(apiUrl`mapPreferences`),
     })
   }
 }
@@ -246,7 +246,7 @@ export function updateMapPreferences(preferences: MapPreferences): ThunkAction {
 
     dispatch({
       type: '@maps/updateMapPreferences',
-      payload: fetch<MapPreferences>(apiUrl`mapPreferences`, {
+      payload: fetchJson<MapPreferences>(apiUrl`mapPreferences`, {
         method: 'post',
         body: JSON.stringify(preferences),
       }),
@@ -261,7 +261,7 @@ const mapsBatchRequester = new MicrotaskBatchRequester<string>(
   MAX_BATCH_MAP_REQUESTS,
   (dispatch, items) => {
     const params = items.map(m => urlPath`m=${m}`).join('&')
-    const promise = fetch<GetBatchMapInfoPayload>(apiUrl`maps/batch-info` + '?' + params)
+    const promise = fetchJson<GetBatchMapInfoPayload>(apiUrl`maps/batch-info` + '?' + params)
     dispatch({
       type: '@maps/getBatchMapInfo',
       payload: promise,

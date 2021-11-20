@@ -28,7 +28,7 @@ import { RaisedButton } from '../material/button'
 import CheckBox from '../material/check-box'
 import InputError from '../material/input-error'
 import { push } from '../navigation/routing'
-import fetch from '../network/fetch'
+import { fetchJson } from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { signUp } from './action-creators'
@@ -58,7 +58,7 @@ const SignupBottomAction = styled(AuthBottomAction)`
 
 async function usernameAvailable(val) {
   try {
-    const result = await fetch(`/api/1/usernameAvailability/${encodeURIComponent(val)}`)
+    const result = await fetchJson(`/api/1/usernameAvailability/${encodeURIComponent(val)}`)
     if (result.available) {
       return null
     }

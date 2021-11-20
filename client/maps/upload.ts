@@ -1,6 +1,6 @@
 import { promises as fsPromises } from 'fs'
 import path from 'path'
-import fetch from '../network/fetch'
+import { fetchJson } from '../network/fetch'
 
 export default async function upload<T>(filePath: string, apiPath: string): Promise<T> {
   const extension = path.extname(filePath).slice(1).toLowerCase()
@@ -14,5 +14,5 @@ export default async function upload<T>(filePath: string, apiPath: string): Prom
     method: 'post',
     body: formData,
   }
-  return fetch<T>(apiPath, fetchParams)
+  return fetchJson<T>(apiPath, fetchParams)
 }

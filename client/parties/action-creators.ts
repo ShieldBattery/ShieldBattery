@@ -8,7 +8,7 @@ import { apiUrl, urlPath } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import { push } from '../navigation/routing'
 import { clientId } from '../network/client-id'
-import fetch from '../network/fetch'
+import { fetchJson } from '../network/fetch'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { ActivateParty, DeactivateParty } from './actions'
 
@@ -23,7 +23,7 @@ export function inviteToParty(targetId: number): ThunkAction {
     const requestBody: InviteToPartyServerBody = { clientId, targetId }
     dispatch({
       type: '@parties/inviteToParty',
-      payload: fetch<void>(apiUrl`parties/invites`, {
+      payload: fetchJson<void>(apiUrl`parties/invites`, {
         method: 'POST',
         body: JSON.stringify(requestBody),
       }).catch(err => {
@@ -55,7 +55,7 @@ export function removePartyInvite(partyId: string, targetId: number): ThunkActio
 
     dispatch({
       type: '@parties/removePartyInvite',
-      payload: fetch<void>(apiUrl`parties/invites/${partyId}/${targetId}`, {
+      payload: fetchJson<void>(apiUrl`parties/invites/${partyId}/${targetId}`, {
         method: 'DELETE',
       }).catch(err => {
         dispatch(
@@ -80,7 +80,7 @@ export function declinePartyInvite(partyId: string): ThunkAction {
 
     dispatch({
       type: '@parties/declinePartyInvite',
-      payload: fetch<void>(apiUrl`parties/invites/${partyId}`, {
+      payload: fetchJson<void>(apiUrl`parties/invites/${partyId}`, {
         method: 'DELETE',
       }).catch(err => {
         dispatch(
@@ -106,7 +106,7 @@ export function acceptPartyInvite(partyId: string): ThunkAction {
     const requestBody: AcceptPartyInviteServerBody = { clientId }
     dispatch({
       type: '@parties/acceptPartyInvite',
-      payload: fetch<void>(apiUrl`parties/${partyId}`, {
+      payload: fetchJson<void>(apiUrl`parties/${partyId}`, {
         method: 'POST',
         body: JSON.stringify(requestBody),
       }).catch(err => {
@@ -135,7 +135,7 @@ export function leaveParty(partyId: string): ThunkAction {
 
     dispatch({
       type: '@parties/leaveParty',
-      payload: fetch<void>(apiUrl`parties/${partyId}/${clientId}?type=leave`, {
+      payload: fetchJson<void>(apiUrl`parties/${partyId}/${clientId}?type=leave`, {
         method: 'DELETE',
       }).catch(err => {
         dispatch(
@@ -161,7 +161,7 @@ export function sendChatMessage(partyId: string, message: string): ThunkAction {
     const requestBody: SendChatMessageServerBody = { message }
     dispatch({
       type: '@parties/sendChatMessage',
-      payload: fetch<void>(apiUrl`parties/${partyId}/messages`, {
+      payload: fetchJson<void>(apiUrl`parties/${partyId}/messages`, {
         method: 'POST',
         body: JSON.stringify(requestBody),
       }),
@@ -180,7 +180,7 @@ export function kickPlayer(partyId: string, targetId: number): ThunkAction {
 
     dispatch({
       type: '@parties/kickFromParty',
-      payload: fetch<void>(apiUrl`parties/${partyId}/${targetId}?type=kick`, {
+      payload: fetchJson<void>(apiUrl`parties/${partyId}/${targetId}?type=kick`, {
         method: 'DELETE',
       }).catch(err => {
         dispatch(
@@ -205,7 +205,7 @@ export function changeLeader(partyId: string, targetId: number): ThunkAction {
 
     dispatch({
       type: '@parties/changePartyLeader',
-      payload: fetch<void>(apiUrl`parties/${partyId}/change-leader`, {
+      payload: fetchJson<void>(apiUrl`parties/${partyId}/change-leader`, {
         method: 'POST',
         body: JSON.stringify({ targetId }),
       }).catch(err => {

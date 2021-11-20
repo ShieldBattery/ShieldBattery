@@ -28,7 +28,7 @@ import {
   ADMIN_SET_PERMISSIONS,
   ADMIN_SET_PERMISSIONS_BEGIN,
 } from '../actions'
-import fetch from '../network/fetch'
+import { fetchJson } from '../network/fetch'
 import { openSnackbar } from '../snackbars/action-creators'
 
 const USER_PROFILE_STALE_TIME = 60 * 1000
@@ -46,7 +46,7 @@ function shouldGetUserProfile(state, username) {
 
 async function fetchUserId(username) {
   // TODO(tec27): Look in users reducer first?
-  const value = await fetch(apiUrl`admin/users/${username}`)
+  const value = await fetchJson(apiUrl`admin/users/${username}`)
   if (!value.length) {
     throw new Error('No user found with that name')
   } else {
@@ -63,7 +63,7 @@ function getPermissions(username) {
     dispatch({
       type: ADMIN_GET_PERMISSIONS,
       payload: fetchUserId(username).then(id =>
-        fetch('/api/1/permissions/' + encodeURIComponent(id)),
+        fetchJson('/api/1/permissions/' + encodeURIComponent(id)),
       ),
       meta: { username },
     })
@@ -88,7 +88,7 @@ export function setPermissions(username, permissions) {
     dispatch({
       type: ADMIN_SET_PERMISSIONS,
       payload: fetchUserId(username)
-        .then(id => fetch('/api/1/permissions/' + encodeURIComponent(id), params))
+        .then(id => fetchJson('/api/1/permissions/' + encodeURIComponent(id), params))
         .then(permissions => {
           dispatch(openSnackbar({ message: 'Saved!' }))
           return permissions
@@ -106,7 +106,7 @@ function getBanHistory(username) {
     })
     dispatch({
       type: ADMIN_GET_BAN_HISTORY,
-      payload: fetchUserId(username).then(id => fetch('/api/1/bans/' + encodeURIComponent(id))),
+      payload: fetchUserId(username).then(id => fetchJson('/api/1/bans/' + encodeURIComponent(id))),
       meta: { username },
     })
   }
@@ -130,7 +130,7 @@ export function banUser(username, length, reason) {
     dispatch({
       type: ADMIN_BAN_USER,
       payload: fetchUserId(username)
-        .then(id => fetch('/api/1/bans/' + encodeURIComponent(id), params))
+        .then(id => fetchJson('/api/1/bans/' + encodeURIComponent(id), params))
         .then(bans => {
           dispatch(openSnackbar({ message: 'Banned!' }))
           return bans
@@ -145,7 +145,7 @@ export function searchMaps(visibility, limit, page, query = '') {
     dispatch({ type: ADMIN_MAP_POOL_SEARCH_MAPS_BEGIN })
 
     const reqUrl = `/api/1/maps?visibility=${visibility}&q=${query}&limit=${limit}&page=${page}`
-    dispatch({ type: ADMIN_MAP_POOL_SEARCH_MAPS, payload: fetch(reqUrl) })
+    dispatch({ type: ADMIN_MAP_POOL_SEARCH_MAPS, payload: fetchJson(reqUrl) })
   }
 }
 
@@ -164,7 +164,7 @@ export function getMapPoolHistory(type, limit, page) {
     })
     dispatch({
       type: ADMIN_MAP_POOL_GET_HISTORY,
-      payload: fetch(
+      payload: fetchJson(
         `/api/1/matchmaking-map-pools/${encodeURIComponent(type)}?limit=${limit}&page=${page}`,
       ),
       meta: { type },
@@ -182,7 +182,7 @@ export function createMapPool(type, maps, startDate = Date.now()) {
     const params = { method: 'post', body: JSON.stringify({ maps, startDate }) }
     dispatch({
       type: ADMIN_MAP_POOL_CREATE,
-      payload: fetch(`/api/1/matchmaking-map-pools/${encodeURIComponent(type)}`, params).then(
+      payload: fetchJson(`/api/1/matchmaking-map-pools/${encodeURIComponent(type)}`, params).then(
         mapPool => {
           dispatch(openSnackbar({ message: 'New map pool created' }))
           return mapPool
@@ -201,7 +201,7 @@ export function deleteMapPool(type, id) {
     })
     dispatch({
       type: ADMIN_MAP_POOL_DELETE,
-      payload: fetch(`/api/1/matchmaking-map-pools/${encodeURIComponent(id)}`, {
+      payload: fetchJson(`/api/1/matchmaking-map-pools/${encodeURIComponent(id)}`, {
         method: 'delete',
       }).then(() => dispatch(openSnackbar({ message: 'Map pool deleted' }))),
       meta: { type, id },
@@ -218,7 +218,7 @@ export function getMatchmakingTimesHistory(type) {
     })
     dispatch({
       type: ADMIN_MATCHMAKING_TIMES_GET_HISTORY,
-      payload: fetch(`/api/1/matchmakingTimes/${encodeURIComponent(type)}`),
+      payload: fetchJson(`/api/1/matchmakingTimes/${encodeURIComponent(type)}`),
       meta: { type },
     })
   }
@@ -232,7 +232,7 @@ export function getMatchmakingTimesFuture(type, limit, page) {
     })
     dispatch({
       type: ADMIN_MATCHMAKING_TIMES_GET_FUTURE,
-      payload: fetch(
+      payload: fetchJson(
         `/api/1/matchmakingTimes/${encodeURIComponent(type)}/future?limit=${limit}&page=${page}`,
       ),
       meta: { type },
@@ -248,7 +248,7 @@ export function getMatchmakingTimesPast(type, limit, page) {
     })
     dispatch({
       type: ADMIN_MATCHMAKING_TIMES_GET_PAST,
-      payload: fetch(
+      payload: fetchJson(
         `/api/1/matchmakingTimes/${encodeURIComponent(type)}/past?limit=${limit}&page=${page}`,
       ),
       meta: { type },
@@ -266,7 +266,7 @@ export function addMatchmakingTime(type, startDate = Date.now(), enabled = false
     const params = { method: 'post', body: JSON.stringify({ startDate, enabled }) }
     dispatch({
       type: ADMIN_MATCHMAKING_TIMES_ADD,
-      payload: fetch(`/api/1/matchmakingTimes/${encodeURIComponent(type)}`, params).then(
+      payload: fetchJson(`/api/1/matchmakingTimes/${encodeURIComponent(type)}`, params).then(
         matchmakingTime => {
           dispatch(openSnackbar({ message: 'New matchmaking time created' }))
           return matchmakingTime
@@ -285,7 +285,7 @@ export function deleteMatchmakingTime(type, id) {
     })
     dispatch({
       type: ADMIN_MATCHMAKING_TIMES_DELETE,
-      payload: fetch(`/api/1/matchmakingTimes/${encodeURIComponent(id)}`, {
+      payload: fetchJson(`/api/1/matchmakingTimes/${encodeURIComponent(id)}`, {
         method: 'delete',
       }).then(() => dispatch(openSnackbar({ message: 'Matchmaking time deleted' }))),
       meta: { type, id },

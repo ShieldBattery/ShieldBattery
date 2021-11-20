@@ -3,7 +3,7 @@ import { ClientSessionInfo } from '../../common/users/session'
 import { SbUserId, SelfUser } from '../../common/users/user-info'
 import type { PromisifiedAction, ReduxAction } from '../action-types'
 import type { ThunkAction } from '../dispatch-registry'
-import fetch from '../network/fetch'
+import { fetchJson } from '../network/fetch'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { AccountUpdateSuccess, AuthChangeBegin } from './actions'
 
@@ -55,7 +55,7 @@ function idRequest<
 
 export function logIn(username: string, password: string, remember: boolean) {
   return idRequest('@auth/logIn', () =>
-    fetch<ClientSessionInfo>('/api/1/sessions', {
+    fetchJson<ClientSessionInfo>('/api/1/sessions', {
       method: 'post',
       body: JSON.stringify({
         username,
@@ -68,7 +68,7 @@ export function logIn(username: string, password: string, remember: boolean) {
 
 export function logOut() {
   return idRequest('@auth/logOut', () =>
-    fetch<void>('/api/1/sessions', {
+    fetchJson<void>('/api/1/sessions', {
       method: 'delete',
     }),
   )
@@ -77,7 +77,7 @@ export function logOut() {
 export function signUp(username: string, email: string, password: string) {
   const reqUrl = '/api/1/users'
   return idRequest('@auth/signUp', () =>
-    fetch<ClientSessionInfo>(reqUrl, {
+    fetchJson<ClientSessionInfo>(reqUrl, {
       method: 'post',
       body: JSON.stringify({ username, email, password }),
     }),
@@ -86,7 +86,7 @@ export function signUp(username: string, email: string, password: string) {
 
 export function getCurrentSession() {
   return idRequest('@auth/loadCurrentSession', () =>
-    fetch<ClientSessionInfo>('/api/1/sessions?date=' + Date.now(), {
+    fetchJson<ClientSessionInfo>('/api/1/sessions?date=' + Date.now(), {
       method: 'get',
     }),
   )
@@ -103,7 +103,7 @@ export function bootstrapSession(session?: ClientSessionInfo) {
 
 export function recoverUsername(email: string) {
   return idRequest('@auth/recoverUsername', () =>
-    fetch<void>('/api/1/recovery/user', {
+    fetchJson<void>('/api/1/recovery/user', {
       method: 'post',
       body: JSON.stringify({
         email,
@@ -114,7 +114,7 @@ export function recoverUsername(email: string) {
 
 export function startPasswordReset(username: string, email: string) {
   return idRequest('@auth/startPasswordReset', () =>
-    fetch<void>('/api/1/recovery/password', {
+    fetchJson<void>('/api/1/recovery/password', {
       method: 'post',
       body: JSON.stringify({
         username,
@@ -128,7 +128,7 @@ export function resetPassword(username: string, code: string, password: string) 
   const url =
     '/api/1/users/' + encodeURIComponent(username) + '/password?code=' + encodeURIComponent(code)
   return idRequest('@auth/resetPassword', () =>
-    fetch<void>(url, {
+    fetchJson<void>(url, {
       method: 'post',
       body: JSON.stringify({
         password,
@@ -140,12 +140,12 @@ export function resetPassword(username: string, code: string, password: string) 
 export function verifyEmail(token: string) {
   const url = `/api/1/users/emailVerification?code=${encodeURIComponent(token)}`
 
-  return idRequest('@auth/verifyEmail', () => fetch<void>(url, { method: 'post' }))
+  return idRequest('@auth/verifyEmail', () => fetchJson<void>(url, { method: 'post' }))
 }
 
 export function sendVerificationEmail(): ThunkAction {
   return dispatch =>
-    fetch<void>('/api/1/users/sendVerification', { method: 'post' }).then(
+    fetchJson<void>('/api/1/users/sendVerification', { method: 'post' }).then(
       () =>
         dispatch(
           openSnackbar({
@@ -167,7 +167,7 @@ export function sendVerificationEmail(): ThunkAction {
 
 export function updateAccount(userId: SbUserId, userProps: Partial<SelfUser>) {
   return idRequest('@auth/accountUpdate', () =>
-    fetch<AccountUpdateSuccess['payload']>('/api/1/users/' + encodeURIComponent(userId), {
+    fetchJson<AccountUpdateSuccess['payload']>('/api/1/users/' + encodeURIComponent(userId), {
       method: 'PATCH',
       body: JSON.stringify(userProps),
     }),

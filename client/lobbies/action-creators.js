@@ -38,7 +38,7 @@ import {
   LOBBY_START_COUNTDOWN_BEGIN,
 } from '../actions'
 import { push } from '../navigation/routing'
-import fetch from '../network/fetch'
+import { fetchJson } from '../network/fetch'
 import siteSocket from '../network/site-socket'
 
 export const createLobby = (name, map, gameType, gameSubType, allowObservers = true) =>
@@ -135,7 +135,7 @@ export function getLobbyPreferences() {
     dispatch({ type: LOBBY_PREFERENCES_GET_BEGIN })
     dispatch({
       type: LOBBY_PREFERENCES_GET,
-      payload: fetch('/api/1/lobbyPreferences'),
+      payload: fetchJson('/api/1/lobbyPreferences'),
     })
   }
 }
@@ -145,7 +145,7 @@ export function updateLobbyPreferences(preferences) {
     dispatch({ type: LOBBY_PREFERENCES_UPDATE_BEGIN })
     dispatch({
       type: LOBBY_PREFERENCES_UPDATE,
-      payload: fetch('/api/1/lobbyPreferences', {
+      payload: fetchJson('/api/1/lobbyPreferences', {
         method: 'post',
         body: JSON.stringify(preferences),
       }),

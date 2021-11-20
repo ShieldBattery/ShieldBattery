@@ -7,7 +7,7 @@ import {
 } from '../../common/notifications'
 import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
-import fetch from '../network/fetch'
+import { fetchJson } from '../network/fetch'
 import { openSnackbar } from '../snackbars/action-creators'
 import { AddNotification, ClearNotificationById, MarkNotificationsRead } from './actions'
 
@@ -30,7 +30,7 @@ export function clearNotifications(): ThunkAction {
     const requestBody: ClearNotificationsServerBody = { timestamp }
     dispatch({
       type: '@notifications/clear',
-      payload: fetch<ClearNotificationsServerPayload>(apiUrl`notifications/clear`, {
+      payload: fetchJson<ClearNotificationsServerPayload>(apiUrl`notifications/clear`, {
         method: 'post',
         body: JSON.stringify(requestBody),
       }).catch(err => {
@@ -92,7 +92,7 @@ export function markNotificationsRead(notificationIds: ReadonlyArray<string>): T
     const requestBody: MarkNotificationsReadServerBody = { notificationIds }
     dispatch({
       type: '@notifications/markRead',
-      payload: fetch<void>(apiUrl`notifications/read`, {
+      payload: fetchJson<void>(apiUrl`notifications/read`, {
         method: 'post',
         body: JSON.stringify(requestBody),
       }).catch(err => {

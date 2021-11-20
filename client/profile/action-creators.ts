@@ -3,7 +3,7 @@ import { GetUserProfilePayload, SbUserId } from '../../common/users/user-info'
 import { ThunkAction } from '../dispatch-registry'
 import { push, replace } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
-import fetch from '../network/fetch'
+import { fetchJson } from '../network/fetch'
 import { UserProfileSubPage } from './user-profile-sub-page'
 
 /**
@@ -46,7 +46,7 @@ export function viewUserProfile(userId: SbUserId, spec: RequestHandlingSpec): Th
     try {
       dispatch({
         type: '@profile/getUserProfile',
-        payload: await fetch<GetUserProfilePayload>(apiUrl`users/${userId}/profile`, {
+        payload: await fetchJson<GetUserProfilePayload>(apiUrl`users/${userId}/profile`, {
           signal: spec.signal,
         }),
       })

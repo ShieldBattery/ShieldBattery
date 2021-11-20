@@ -12,7 +12,7 @@ import notifications from '../notifications/socket-handlers'
 import serverStatus from '../serverstatus/server-status-checker'
 import whispers from '../whispers/socket-handlers'
 import { clientId } from './client-id'
-import fetchJson from './fetch'
+import { fetchJson } from './fetch'
 import siteSocket from './site-socket'
 
 function networkStatusHandler({
