@@ -27,21 +27,9 @@ function parseResponseJson(str: string) {
 
 type HeadersInit = NonNullable<Parameters<typeof fetch>[1]>['headers']
 
-// NOTE(tec27): We set different headers for GETs and everything else because we want GET requests
-// to be considered "simple" with CORS handling, so they don't need to be preflighted
-const DEFAULT_GET_HEADERS: HeadersInit = {
+const DEFAULT_HEADERS: HeadersInit = {
   Accept: 'application/json',
 }
-
-const DEFAULT_HEADERS: HeadersInit = IS_ELECTRON
-  ? {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    }
-  : {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    }
 
 export function fetchRaw(path: string, opts?: RequestInit): Promise<Response> {
   const serverUrl =
@@ -49,19 +37,20 @@ export function fetchRaw(path: string, opts?: RequestInit): Promise<Response> {
       ? path
       : makeServerUrl(path)
   if (!opts) {
-    return fetch(serverUrl, { credentials: 'include', headers: DEFAULT_GET_HEADERS })
+    return fetch(serverUrl, { credentials: 'include', headers: DEFAULT_HEADERS })
   }
 
-  const isGet = (opts?.method ?? 'GET').toUpperCase() === 'GET'
   // We generally want to merge headers with our defaults, so we have to do this explicitly
-  const headers = {
-    ...(isGet ? DEFAULT_GET_HEADERS : DEFAULT_HEADERS),
+  const headers: HeadersInit = {
+    ...DEFAULT_HEADERS,
     ...opts.headers,
   }
-  // If we're wanting to send content-type: multipart/form-data, let the fetch set content-type
-  // by itself, so the form-data boundary gets set correctly.
-  if (opts.body && FormData.prototype.isPrototypeOf(opts.body)) {
-    delete (headers as Record<string, string>)['Content-Type']
+  if (opts.body && !FormData.prototype.isPrototypeOf(opts.body)) {
+    // If we're sending a body, set the Content-Type header to be JSON unless it's a form (this
+    // will set the Content-Type itself and also set the form-data boundary correctly). We don't set
+    // this otherwise because a Content-Type of `application/json` will trigger a preflight request
+    // even if the body is empty.
+    ;(headers as Record<string, string>)['Content-Type'] = 'application/json'
   }
 
   return fetch(serverUrl, {
