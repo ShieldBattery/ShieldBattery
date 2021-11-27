@@ -37,7 +37,6 @@ const DEFAULT_HEADERS: HeadersInit = IS_ELECTRON
   ? {
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      'X-Shield-Battery-Client': 'true',
     }
   : {
       Accept: 'application/json',

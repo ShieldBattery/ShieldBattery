@@ -605,10 +605,8 @@ async fn send_game_result(
     let client = reqwest::Client::new();
     let result_url = format!("{}/api/1/games/{}/results", info.server_url, info.game_id);
 
-    let sbat_header: &'static str = "x-shield-battery-client";
     let mut result_headers = HeaderMap::new();
     result_headers.insert(ORIGIN, "shieldbattery://game".parse().unwrap());
-    result_headers.insert(sbat_header, "true".parse().unwrap());
 
     let result_body = GameResultsReport {
         user_id: local_user.id,

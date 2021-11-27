@@ -13,6 +13,5 @@ export default function (forWebClients, forElectronClients) {
 
 export function isElectronClient(ctx) {
   const origin = ctx.get('Origin') || ''
-  const hasClientHeader = !!ctx.get('X-Shield-Battery-Client')
-  return origin.startsWith('shieldbattery://') && hasClientHeader
+  return origin.startsWith('shieldbattery://')
 }

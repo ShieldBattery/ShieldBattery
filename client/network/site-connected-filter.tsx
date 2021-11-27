@@ -7,16 +7,6 @@ import { colorTextSecondary } from '../styles/colors'
 import { headline5 } from '../styles/typography'
 import siteSocket from './site-socket'
 
-if (IS_ELECTRON) {
-  siteSocket.opts.transportOptions = {
-    polling: {
-      extraHeaders: {
-        'x-shield-battery-client': 'true',
-      },
-    },
-  }
-}
-
 const LoadingArea = styled.div`
   display: flex;
   flex-direction: column;
