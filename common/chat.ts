@@ -77,7 +77,7 @@ export interface ChannelPermissions {
 }
 
 export interface ChatInitEvent {
-  action: 'init'
+  action: 'init2'
   /** A list of IDs of active user that are in the chat channel. */
   activeUserIds: SbUserId[]
   /** The channel permissions for the user that is initializing the channel. */
@@ -85,7 +85,7 @@ export interface ChatInitEvent {
 }
 
 export interface ChatJoinEvent {
-  action: 'join'
+  action: 'join2'
   /** A user info for the channel user that has joined the chat channel. */
   user: SbUser
   /** A message info for the user joining a channel that is saved in the DB. */
@@ -93,7 +93,7 @@ export interface ChatJoinEvent {
 }
 
 export interface ChatLeaveEvent {
-  action: 'leave'
+  action: 'leave2'
   /** The ID of a user that has left the chat channel. */
   userId: SbUserId
   /** The ID of a user that was selected as a new owner of the channel, if any. */
@@ -127,19 +127,19 @@ export interface ChatMessageEvent {
 }
 
 export interface ChatUserActiveEvent {
-  action: 'userActive'
+  action: 'userActive2'
   /** The ID of a user that has become active in a chat channel. */
   userId: SbUserId
 }
 
 export interface ChatUserIdleEvent {
-  action: 'userIdle'
+  action: 'userIdle2'
   /** The ID of a user that has become idle in a chat channel. */
   userId: SbUserId
 }
 
 export interface ChatUserOfflineEvent {
-  action: 'userOffline'
+  action: 'userOffline2'
   /** The ID of a user that went offline in a chat channel. */
   userId: SbUserId
 }

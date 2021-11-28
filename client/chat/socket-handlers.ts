@@ -13,7 +13,7 @@ type EventToActionMap = {
 }
 
 const eventToAction: EventToActionMap = {
-  init(channel, event) {
+  init2(channel, event) {
     return {
       type: '@chat/initChannel',
       payload: {
@@ -24,7 +24,7 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  join(channel, event) {
+  join2(channel, event) {
     return {
       type: '@chat/updateJoin',
       payload: {
@@ -35,7 +35,7 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  leave: (channel, event) => (dispatch, getState) => {
+  leave2: (channel, event) => (dispatch, getState) => {
     const { auth } = getState()
     if (auth.user.id === event.userId) {
       // It was us who left the channel
@@ -78,7 +78,7 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  userActive(channel, event) {
+  userActive2(channel, event) {
     return {
       type: '@chat/updateUserActive',
       payload: {
@@ -88,7 +88,7 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  userIdle(channel, event) {
+  userIdle2(channel, event) {
     return {
       type: '@chat/updateUserIdle',
       payload: {
@@ -98,7 +98,7 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  userOffline(channel, event) {
+  userOffline2(channel, event) {
     return {
       type: '@chat/updateUserOffline',
       payload: {

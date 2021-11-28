@@ -172,7 +172,15 @@ export class ChatApi {
     )
   }
 
+  // Leaving the old API with a dummy payload in order to not break the auto-update functionality
+  // for old clients.
   @httpGet('/:channelName/users')
+  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
+  async getChannelUsersOld(ctx: RouterContext) {
+    return []
+  }
+
+  @httpGet('/:channelName/users2')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
   async getChannelUsers(ctx: RouterContext): Promise<SbUser[]> {
     const channelName = getValidatedChannelName(ctx)

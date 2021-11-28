@@ -125,7 +125,7 @@ export default class ChatService {
         )
 
       this.publisher.publish(getChannelPath(originalChannelName), {
-        action: 'join',
+        action: 'join2',
         user: {
           id: result.userId,
           name: result.userName,
@@ -170,7 +170,7 @@ export default class ChatService {
     const newOwnerId = await this.removeUserFromChannel(originalChannelName, userId)
 
     this.publisher.publish(getChannelPath(originalChannelName), {
-      action: 'leave',
+      action: 'leave2',
       userId: userSockets.userId,
       newOwnerId,
     })
@@ -416,7 +416,7 @@ export default class ChatService {
 
   private subscribeUserToChannel(userSockets: UserSocketsGroup, userChannel: UserChannelEntry) {
     userSockets.subscribe<ChatInitEvent>(getChannelPath(userChannel.channelName), () => ({
-      action: 'init',
+      action: 'init2',
       activeUserIds: this.state.channels.get(userChannel.channelName)!.toArray(),
       permissions: userChannel.channelPermissions,
     }))
@@ -458,7 +458,7 @@ export default class ChatService {
       .setIn(['users', userSockets.userId], channelSet)
     for (const userChannel of userChannels) {
       this.publisher.publish(getChannelPath(userChannel.channelName), {
-        action: 'userActive',
+        action: 'userActive2',
         userId: userSockets.userId,
       })
       this.subscribeUserToChannel(userSockets, userChannel)
@@ -482,7 +482,7 @@ export default class ChatService {
 
     for (const c of channels.values()) {
       this.publisher.publish(getChannelPath(c), {
-        action: 'userOffline',
+        action: 'userOffline2',
         userId,
       })
     }

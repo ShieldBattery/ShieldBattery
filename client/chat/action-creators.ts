@@ -107,7 +107,7 @@ export function retrieveUserList(channel: string): ThunkAction {
     })
     dispatch({
       type: '@chat/retrieveUserList',
-      payload: fetch<SbUser[]>(apiUrl`chat/${channel}/users`, {
+      payload: fetch<SbUser[]>(apiUrl`chat/${channel}/users2`, {
         method: 'GET',
       }),
       meta: params,
