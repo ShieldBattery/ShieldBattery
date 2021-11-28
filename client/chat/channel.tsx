@@ -371,7 +371,7 @@ export default function Channel(props: ChatChannelProps) {
   const prevChannelName = usePrevious(channelName)
   const prevChannel = usePrevious(channel)
   const isInChannel = !!channel
-  const isLeavingChannel = !isInChannel && prevChannel && prevChannelName === channelName
+  const isLeavingChannel = !isInChannel && !!prevChannel && prevChannelName === channelName
 
   // TODO(2Pac): Pull this out into some kind of "isLeaving" hook and share with whispers/lobby?
   useEffect(() => {
