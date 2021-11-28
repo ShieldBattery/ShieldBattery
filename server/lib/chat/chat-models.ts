@@ -265,7 +265,7 @@ export async function leaveChannel(
   channelName: string,
 ): Promise<LeaveChannelResult> {
   return transact(async function (client) {
-    const joinedChannelResult = await client.query<DbChannelUserEntry>(sql`
+    const joinedChannelResult = await client.query<DbUserChannelEntry>(sql`
       DELETE FROM channel_users
       WHERE user_id = ${userId} AND channel_name = ${channelName}
       RETURNING *`)
@@ -297,7 +297,7 @@ export async function leaveChannel(
       return { newOwnerId: null }
     }
 
-    result = await client.query<DbChannelUserEntry>(sql`
+    result = await client.query<DbUserChannelEntry>(sql`
       SELECT *
       FROM channel_users
       WHERE channel_name = ${channelName} AND (kick = true OR ban = true OR
