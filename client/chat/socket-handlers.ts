@@ -18,7 +18,8 @@ const eventToAction: EventToActionMap = {
       type: '@chat/initChannel',
       payload: {
         channel,
-        activeUsers: event.activeUsers,
+        activeUserIds: event.activeUserIds,
+        permissions: event.permissions,
       },
     }
   },
@@ -28,7 +29,6 @@ const eventToAction: EventToActionMap = {
       type: '@chat/updateJoin',
       payload: {
         channel,
-        channelUser: event.channelUser,
         user: event.user,
         message: event.message,
       },

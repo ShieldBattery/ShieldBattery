@@ -15,22 +15,6 @@ export enum ClientChatMessageType {
 
 export type ChatMessageType = ServerChatMessageType | ClientChatMessageType
 
-export interface ChannelPermissions {
-  kick: boolean
-  ban: boolean
-  changeTopic: boolean
-  togglePrivate: boolean
-  editPermissions: boolean
-  owner: boolean
-}
-
-export interface ChatUser {
-  id: SbUserId
-  name: string
-  joinDate: number
-  permissions: ChannelPermissions
-}
-
 export interface BaseChatMessage {
   id: string
   type: ChatMessageType
@@ -83,17 +67,26 @@ export type ClientChatMessage =
 
 export type ChatMessage = ServerChatMessage | ClientChatMessage
 
+export interface ChannelPermissions {
+  kick: boolean
+  ban: boolean
+  changeTopic: boolean
+  togglePrivate: boolean
+  editPermissions: boolean
+  owner: boolean
+}
+
 export interface ChatInitEvent {
   action: 'init'
-  /** A list of active users that are in the chat channel. */
-  activeUsers: ChatUser[]
+  /** A list of IDs of active user that are in the chat channel. */
+  activeUserIds: SbUserId[]
+  /** The channel permissions for the user that is initializing the channel. */
+  permissions: ChannelPermissions
 }
 
 export interface ChatJoinEvent {
   action: 'join'
-  /** A user that has joined the chat channel. */
-  channelUser: ChatUser
-  /** A user info for the channel user that was returned in the `channelUser` property. */
+  /** A user info for the channel user that has joined the chat channel. */
   user: SbUser
   /** A message info for the user joining a channel that is saved in the DB. */
   message: JoinChannelMessage
@@ -135,16 +128,19 @@ export interface ChatMessageEvent {
 
 export interface ChatUserActiveEvent {
   action: 'userActive'
+  /** The ID of a user that has become active in a chat channel. */
   userId: SbUserId
 }
 
 export interface ChatUserIdleEvent {
   action: 'userIdle'
+  /** The ID of a user that has become idle in a chat channel. */
   userId: SbUserId
 }
 
 export interface ChatUserOfflineEvent {
   action: 'userOffline'
+  /** The ID of a user that went offline in a chat channel. */
   userId: SbUserId
 }
 
@@ -177,16 +173,6 @@ export interface GetChannelHistoryServerPayload {
   users: SbUser[]
   /** A list of user infos for all channel users that were mentioned in the messages, if any. */
   mentions: SbUser[]
-}
-
-/**
- * Payload returned for a request to retrieve the users in a chat channel.
- */
-export interface GetChannelUsersServerPayload {
-  /** A list of the users that are in the chat channel. */
-  channelUsers: ChatUser[]
-  /** A list of user infos for channel users that are in the returned `channelUsers` list. */
-  users: SbUser[]
 }
 
 /**

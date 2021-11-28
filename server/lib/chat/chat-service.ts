@@ -5,9 +5,7 @@ import {
   ChannelModerationAction,
   ChatEvent,
   ChatInitEvent,
-  ChatUser,
   GetChannelHistoryServerPayload,
-  GetChannelUsersServerPayload,
   ServerChatMessage,
   ServerChatMessageType,
 } from '../../../common/chat'
@@ -30,14 +28,12 @@ import {
   getUserChannels,
   isUserBannedFromChannel,
   leaveChannel,
+  UserChannelEntry,
 } from './chat-models'
 
 class ChatState extends Record({
-  /**
-   * Maps channel name -> Map of users in that channel. Map of users in the channel is mapped as
-   * user ID -> object containing channel user data.
-   */
-  channels: Map<string, Map<SbUserId, ChatUser>>(),
+  /** Maps channel name -> Set of IDs of users in that channel. */
+  channels: Map<string, Set<SbUserId>>(),
   /** Maps userId -> Set of channels they're in (as names). */
   users: Map<SbUserId, Set<string>>(),
 }) {}
@@ -118,15 +114,11 @@ export default class ChatService {
     // (this function's Promise is await'd for the transaction, and transactionCompleted is awaited
     // by this function)
     transactionCompleted.then(() => {
-      const channelUser = {
-        id: result.userId,
-        name: result.userName,
-        joinDate: Number(result.joinDate),
-        permissions: result.channelPermissions,
-      }
-
       this.state = this.state
-        .setIn(['channels', originalChannelName, result.userId], channelUser)
+        // TODO(tec27): Remove `any` cast once Immutable properly types this call again
+        .updateIn(['channels', originalChannelName], (s = Set<SbUserId>()) =>
+          (s as any).add(result.userId),
+        )
         // TODO(tec27): Remove `any` cast once Immutable properly types this call again
         .updateIn(['users', result.userId], (s = Set<string>()) =>
           (s as any).add(originalChannelName),
@@ -134,7 +126,6 @@ export default class ChatService {
 
       this.publisher.publish(getChannelPath(originalChannelName), {
         action: 'join',
-        channelUser,
         user: {
           id: result.userId,
           name: result.userName,
@@ -152,7 +143,7 @@ export default class ChatService {
       // is allowed in some cases (e.g. during account creation)
       const userSockets = this.userSocketsManager.getById(userId)
       if (userSockets) {
-        this.subscribeUserToChannel(userSockets, originalChannelName)
+        this.subscribeUserToChannel(userSockets, result)
       }
     })
   }
@@ -390,10 +381,7 @@ export default class ChatService {
     }
   }
 
-  async getChannelUsers(
-    channelName: string,
-    userId: SbUserId,
-  ): Promise<GetChannelUsersServerPayload> {
+  async getChannelUsers(channelName: string, userId: SbUserId): Promise<SbUser[]> {
     const userSockets = this.getUserSockets(userId)
     const originalChannelName = await this.getOriginalChannelName(channelName)
     if (
@@ -406,19 +394,7 @@ export default class ChatService {
       )
     }
 
-    const users = await getChannelUsers(originalChannelName)
-    return {
-      channelUsers: users.map(u => ({
-        id: u.userId,
-        name: u.userName,
-        joinDate: Number(u.joinDate),
-        permissions: u.channelPermissions,
-      })),
-      users: users.map(u => ({
-        id: u.userId,
-        name: u.userName,
-      })),
-    }
+    return getChannelUsers(originalChannelName)
   }
 
   async getOriginalChannelName(channelName: string): Promise<string> {
@@ -438,10 +414,11 @@ export default class ChatService {
     return userSockets
   }
 
-  private subscribeUserToChannel(userSockets: UserSocketsGroup, channelName: string) {
-    userSockets.subscribe<ChatInitEvent>(getChannelPath(channelName), () => ({
+  private subscribeUserToChannel(userSockets: UserSocketsGroup, userChannel: UserChannelEntry) {
+    userSockets.subscribe<ChatInitEvent>(getChannelPath(userChannel.channelName), () => ({
       action: 'init',
-      activeUsers: this.state.channels.get(channelName)!.valueSeq().toArray(),
+      activeUserIds: this.state.channels.get(userChannel.channelName)!.toArray(),
+      permissions: userChannel.channelPermissions,
     }))
   }
 
@@ -473,28 +450,18 @@ export default class ChatService {
     }
 
     const channelSet = Set(userChannels.map(c => c.channelName))
-    const userMap = Map<SbUserId, ChatUser>(
-      userChannels.map(u => [
-        u.userId,
-        {
-          id: u.userId,
-          name: u.userName,
-          joinDate: Number(u.joinDate),
-          permissions: u.channelPermissions,
-        },
-      ]),
-    )
-    const inChannels = Map(userChannels.map(c => [c.channelName, userMap]))
+    const userSet = Set<SbUserId>(userChannels.map(u => u.userId))
+    const inChannels = Map(userChannels.map(c => [c.channelName, userSet]))
 
     this.state = this.state
       .mergeDeepIn(['channels'], inChannels)
       .setIn(['users', userSockets.userId], channelSet)
-    for (const { channelName: chan } of userChannels) {
-      this.publisher.publish(getChannelPath(chan), {
+    for (const userChannel of userChannels) {
+      this.publisher.publish(getChannelPath(userChannel.channelName), {
         action: 'userActive',
         userId: userSockets.userId,
       })
-      this.subscribeUserToChannel(userSockets, chan)
+      this.subscribeUserToChannel(userSockets, userChannel)
     }
     userSockets.subscribe(`${userSockets.getPath()}/chat`, () => ({ type: 'chatReady' }))
   }

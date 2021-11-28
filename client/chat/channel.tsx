@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { VariableSizeList } from 'react-window'
 import styled, { css } from 'styled-components'
-import { ChatUser, ClientChatMessageType, ServerChatMessageType } from '../../common/chat'
+import { ClientChatMessageType, ServerChatMessageType } from '../../common/chat'
 import { MULTI_CHANNEL } from '../../common/flags'
+import { SbUserId } from '../../common/users/user-info'
 import Avatar from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { useAnchorPosition } from '../material/popover'
@@ -127,12 +128,12 @@ const UserListName = styled.span`
 `
 
 interface UserListEntryProps {
-  user: ChatUser
+  userId: SbUserId
   faded?: boolean
   style?: any
 }
 
-const UserListEntry = React.memo<UserListEntryProps>(props => {
+const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
   const [overlayOpen, setOverlayOpen] = useState(false)
   const userEntryRef = useRef(null)
   const [, anchorX, anchorY] = useAnchorPosition('left', 'top', userEntryRef.current ?? null)
@@ -144,11 +145,16 @@ const UserListEntry = React.memo<UserListEntryProps>(props => {
     setOverlayOpen(false)
   }, [])
 
+  const user = useAppSelector(s => s.users.byId.get(props.userId))
+  if (!user) {
+    return <span>[Unknown user]</span>
+  }
+
   return (
     <div style={props.style}>
       <ConnectedUserProfileOverlay
         key={'overlay'}
-        userId={props.user.id}
+        userId={props.userId}
         popoverProps={{
           open: overlayOpen,
           onDismiss: onCloseOverlay,
@@ -165,8 +171,8 @@ const UserListEntry = React.memo<UserListEntryProps>(props => {
         faded={!!props.faded}
         isOverlayOpen={overlayOpen}
         onClick={onOpenOverlay}>
-        <StyledAvatar user={props.user.name} />
-        <UserListName>{props.user.name}</UserListName>
+        <StyledAvatar user={user.name} />
+        <UserListName>{user.name}</UserListName>
       </UserListEntryItem>
     </div>
   )
@@ -174,9 +180,9 @@ const UserListEntry = React.memo<UserListEntryProps>(props => {
 
 interface UserListProps {
   users: {
-    active: ChatUser[]
-    idle: ChatUser[]
-    offline: ChatUser[]
+    active: SbUserId[]
+    idle: SbUserId[]
+    offline: SbUserId[]
   }
 }
 
@@ -255,19 +261,21 @@ const UserList = React.memo((props: UserListProps) => {
             </UserListOverline>
           )
         default:
-          let user: ChatUser | undefined
+          let userId: SbUserId | undefined
           let faded = false
           if (index < active.length + 1) {
-            user = active[index - 1]!
+            userId = active[index - 1]!
           } else if (offlineHeaderIndex && index > offlineHeaderIndex) {
             faded = true
-            user = offline[index - offlineHeaderIndex - 1]!
+            userId = offline[index - offlineHeaderIndex - 1]!
           } else {
-            user = idleHeaderIndex ? idle[index - idleHeaderIndex - 1]! : undefined
+            userId = idleHeaderIndex ? idle[index - idleHeaderIndex - 1]! : undefined
           }
 
-          if (user) {
-            return <UserListEntry style={style} user={user} key={user.id} faded={faded} />
+          if (userId) {
+            return (
+              <ConnectedUserListEntry style={style} userId={userId} key={userId} faded={faded} />
+            )
           }
           throw new Error('Asked to render nonexistent user: ' + index)
       }
@@ -333,8 +341,6 @@ function renderMessage(msg: Message) {
   }
 }
 
-const sortUsers = (a: ChatUser, b: ChatUser) => a.name.localeCompare(b.name)
-
 interface ChatChannelProps {
   params: { channel: string }
 }
@@ -344,6 +350,23 @@ export default function Channel(props: ChatChannelProps) {
   const dispatch = useAppDispatch()
   const channel = useAppSelector(s => s.chat.byName.get(channelName))
   const channelUsers = channel?.users
+  // We map the user IDs to their usernames so we can sort them by their name without pulling all of
+  // the users from the store and depending on any of their changes.
+  const userIdToUsername = useAppSelector(s => {
+    const idToUsername: Map<SbUserId, string> = new Map()
+    const userIds: Set<SbUserId> = channelUsers
+      ? new Set([...channelUsers.active, ...channelUsers.idle, ...channelUsers.offline])
+      : new Set()
+
+    for (const userId of userIds) {
+      const username = s.users.byId.get(userId)?.name
+      if (username) {
+        idToUsername.set(userId, username)
+      }
+    }
+
+    return idToUsername
+  })
 
   const prevChannelName = usePrevious(channelName)
   const prevChannel = usePrevious(channel)
@@ -391,12 +414,24 @@ export default function Channel(props: ChatChannelProps) {
       }
     }
 
+    const sortUsers = (a: SbUserId, b: SbUserId) => {
+      const usernameA = userIdToUsername.get(a)
+      const usernameB = userIdToUsername.get(b)
+
+      if (!usernameA || !usernameB) {
+        // We put any user that still hasn't loaded at the bottom of the list
+        return 1
+      }
+
+      return usernameA.localeCompare(usernameB)
+    }
+
     return {
       active: Array.from(channelUsers.active.values()).sort(sortUsers),
       idle: Array.from(channelUsers.idle.values()).sort(sortUsers),
       offline: Array.from(channelUsers.offline.values()).sort(sortUsers),
     }
-  }, [channelUsers])
+  }, [channelUsers, userIdToUsername])
 
   if (!channel) {
     return (

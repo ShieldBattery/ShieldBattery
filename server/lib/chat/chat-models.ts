@@ -1,11 +1,11 @@
 import sql, { SQLStatement } from 'sql-template-strings'
 import { ChannelPermissions, ServerChatMessageType } from '../../../common/chat'
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUser, SbUserId } from '../../../common/users/user-info'
 import db, { DbClient } from '../db'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 
-export interface ChannelUserEntry {
+export interface UserChannelEntry {
   userId: SbUserId
   userName: string
   channelName: string
@@ -13,9 +13,9 @@ export interface ChannelUserEntry {
   channelPermissions: ChannelPermissions
 }
 
-type DbChannelUserEntry = Dbify<ChannelUserEntry & ChannelPermissions>
+type DbUserChannelEntry = Dbify<UserChannelEntry & ChannelPermissions>
 
-function convertChannelUserEntryFromDb(props: DbChannelUserEntry): ChannelUserEntry {
+function convertUserChannelEntryFromDb(props: DbUserChannelEntry): UserChannelEntry {
   return {
     userId: props.user_id,
     userName: props.user_name,
@@ -33,56 +33,58 @@ function convertChannelUserEntryFromDb(props: DbChannelUserEntry): ChannelUserEn
 }
 
 /**
- * Gets a channel user entry for each channel that a particular user is in.
+ * Gets a user channel entry for each channel that a particular user is in, ordered by their channel
+ * join date.
  */
-export async function getUserChannels(userId: SbUserId): Promise<ChannelUserEntry[]> {
+export async function getUserChannels(userId: SbUserId): Promise<UserChannelEntry[]> {
   const { client, done } = await db()
   try {
-    const result = await client.query<DbChannelUserEntry>(sql`
+    const result = await client.query<DbUserChannelEntry>(sql`
       SELECT u.name AS user_name, c.*
       FROM channel_users as c INNER JOIN users as u ON c.user_id = u.id
       WHERE c.user_id = ${userId}
       ORDER BY c.join_date;
     `)
-    return result.rows.map(row => convertChannelUserEntryFromDb(row))
+    return result.rows.map(row => convertUserChannelEntryFromDb(row))
   } finally {
     done()
   }
 }
 
 /**
- * Gets a channel user entry for each user in a particular channel.
+ * Gets a user channel entry for each user in a particular channel, ordered by their channel join
+ * date.
  */
-export async function getChannelUsers(channelName: string): Promise<ChannelUserEntry[]> {
+export async function getChannelUsers(channelName: string): Promise<SbUser[]> {
   const { client, done } = await db()
   try {
-    const result = await client.query<DbChannelUserEntry>(sql`
-      SELECT u.name AS user_name, c.*
+    const result = await client.query<Dbify<SbUser>>(sql`
+      SELECT u.id, u.name
       FROM channel_users as c INNER JOIN users as u ON c.user_id = u.id
       WHERE c.channel_name = ${channelName}
       ORDER BY c.join_date;
     `)
-    return result.rows.map(row => convertChannelUserEntryFromDb(row))
+    return result.rows
   } finally {
     done()
   }
 }
 
 /**
- * Gets a channel user entry for a particular user in a particular channel.
+ * Gets a user channel entry for a particular user in a particular channel.
  */
 export async function getJoinedChannelForUser(
   userId: SbUserId,
   channelName: string,
-): Promise<ChannelUserEntry | null> {
+): Promise<UserChannelEntry | null> {
   const { client, done } = await db()
   try {
-    const result = await client.query<DbChannelUserEntry>(sql`
+    const result = await client.query<DbUserChannelEntry>(sql`
       SELECT u.name AS user_name, c.*
       FROM channel_users as c INNER JOIN users as u ON c.user_id = u.id
       WHERE c.channel_name = ${channelName} AND c.user_id = ${userId};
     `)
-    return result.rowCount < 1 ? null : convertChannelUserEntryFromDb(result.rows[0])
+    return result.rowCount < 1 ? null : convertUserChannelEntryFromDb(result.rows[0])
   } finally {
     done()
   }
@@ -92,7 +94,7 @@ export async function addUserToChannel(
   userId: SbUserId,
   channelName: string,
   client?: DbClient,
-): Promise<ChannelUserEntry> {
+): Promise<UserChannelEntry> {
   const doIt = async (client: DbClient) => {
     const channelExists = await findChannel(channelName)
     await client.query(sql`INSERT INTO channels (name) SELECT ${channelName}
@@ -116,7 +118,7 @@ export async function addUserToChannel(
         RETURNING *`
     }
 
-    const result = await client.query<DbChannelUserEntry>(
+    const result = await client.query<DbUserChannelEntry>(
       sql`
         WITH ins AS (`.append(query).append(sql`)
         SELECT ins.*, u.name AS user_name
@@ -128,7 +130,7 @@ export async function addUserToChannel(
       throw new Error('No rows returned')
     }
 
-    return convertChannelUserEntryFromDb(result.rows[0])
+    return convertUserChannelEntryFromDb(result.rows[0])
   }
 
   if (client) {

@@ -1,4 +1,5 @@
 import {
+  ChatEvent,
   ChatInitEvent,
   ChatJoinEvent,
   ChatLeaveEvent,
@@ -7,8 +8,8 @@ import {
   ChatUserIdleEvent,
   ChatUserOfflineEvent,
   GetChannelHistoryServerPayload,
-  GetChannelUsersServerPayload,
 } from '../../common/chat'
+import { SbUser } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
 export type ChatActions =
@@ -161,7 +162,7 @@ export interface RetrieveUserListBegin {
  */
 export interface RetrieveUserList {
   type: '@chat/retrieveUserList'
-  payload: GetChannelUsersServerPayload
+  payload: SbUser[]
   meta: {
     channel: string
   }
@@ -201,7 +202,7 @@ export interface DeactivateChannel {
  * the channel in the payload, since the channel is not included in the event itself (it is part of
  * the websocket URL).
  */
-type PayloadWithChannel<T = void> = { channel: string } & Omit<T, 'action'>
+type PayloadWithChannel<T extends ChatEvent> = { channel: string } & Omit<T, 'action'>
 
 /**
  * We have joined a channel and the server has sent us some initial data.
@@ -232,7 +233,7 @@ export interface UpdateLeave {
  */
 export interface UpdateLeaveSelf {
   type: '@chat/updateLeaveSelf'
-  payload: PayloadWithChannel
+  payload: { channel: string }
 }
 
 /**

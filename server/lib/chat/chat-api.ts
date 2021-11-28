@@ -5,12 +5,12 @@ import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   GetChannelHistoryServerPayload,
-  GetChannelUsersServerPayload,
   ModerateChannelUserServerBody,
   SendChatMessageServerBody,
 } from '../../../common/chat'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
 import { MULTI_CHANNEL } from '../../../common/flags'
+import { SbUser } from '../../../common/users/user-info'
 import { featureEnabled } from '../flags/feature-enabled'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
@@ -174,7 +174,7 @@ export class ChatApi {
 
   @httpGet('/:channelName/users')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
-  async getChannelUsers(ctx: RouterContext): Promise<GetChannelUsersServerPayload> {
+  async getChannelUsers(ctx: RouterContext): Promise<SbUser[]> {
     const channelName = getValidatedChannelName(ctx)
     return await this.chatService.getChannelUsers(channelName, ctx.session!.userId)
   }
