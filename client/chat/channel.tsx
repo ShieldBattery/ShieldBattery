@@ -418,9 +418,12 @@ export default function Channel(props: ChatChannelProps) {
       const usernameA = userIdToUsername.get(a)
       const usernameB = userIdToUsername.get(b)
 
-      if (!usernameA || !usernameB) {
-        // We put any user that still hasn't loaded at the bottom of the list
+      // We put any user that still hasn't loaded at the bottom of the list
+      if (!usernameA) {
         return 1
+      }
+      if (!usernameB) {
+        return -1
       }
 
       return usernameA.localeCompare(usernameB)
