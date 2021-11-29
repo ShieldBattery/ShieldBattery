@@ -189,7 +189,7 @@ export function ConnectedGameListEntry({
 
 const GamePreviewRoot = styled.div`
   width: 276px;
-  flex-shrink: 0;
+  flex-grow: 0;
 
   display: flex;
   flex-direction: column;
@@ -330,9 +330,11 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
 
   if (!game) {
     return (
-      <GamePreviewDetails>
-        <NoGameText>No game selected</NoGameText>
-      </GamePreviewDetails>
+      <GamePreviewRoot>
+        <GamePreviewDetails>
+          <NoGameText>No game selected</NoGameText>
+        </GamePreviewDetails>
+      </GamePreviewRoot>
     )
   }
 
