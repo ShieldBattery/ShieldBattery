@@ -2,7 +2,7 @@ import { Immutable } from 'immer'
 import { rgba } from 'polished'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import styled from 'styled-components'
-import { GameRecordJson } from '../../common/games/games'
+import { GameRecordJson, getGameTypeLabel } from '../../common/games/games'
 import { ReconciledResult } from '../../common/games/results'
 import { RaceChar } from '../../common/races'
 import { SbUser, SbUserId } from '../../common/users/user-info'
@@ -151,7 +151,7 @@ export function ConnectedGameListEntry({
 
   const map = useAppSelector(s => s.maps2.byId.get(game.mapId))
 
-  const { results, startTime, config } = game
+  const { results, startTime } = game
   const result = useMemo(() => {
     if (!results) {
       return 'unknown'
@@ -166,8 +166,7 @@ export function ConnectedGameListEntry({
     return 'unknown'
   }, [results, forUserId])
 
-  // TODO(tec27): Handle more ranked types, show mode (UMS, Top v Bottom, etc.?)
-  const matchType = config.gameSource === 'MATCHMAKING' ? 'Ranked 1v1' : 'Custom game'
+  const matchType = getGameTypeLabel(game)
   const mapName = map?.name ?? 'Unknown map'
 
   return (
