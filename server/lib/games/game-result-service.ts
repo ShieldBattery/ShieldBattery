@@ -1,8 +1,15 @@
 import { Logger } from 'pino'
 import { singleton } from 'tsyringe'
 import { GameSource } from '../../../common/games/configuration'
+import {
+  GameRecord,
+  GameRecordUpdate,
+  GameSubscriptionEvent,
+  toGameRecordJson,
+} from '../../../common/games/games'
 import { GameClientPlayerResult, GameResultErrorCode } from '../../../common/games/results'
 import { RaceChar } from '../../../common/races'
+import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/user-info'
 import { UserStats } from '../../../common/users/user-stats'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
@@ -25,12 +32,71 @@ import {
 } from '../models/games-users'
 import { findUsersByName } from '../users/user-model'
 import { incrementUserStatsCount, makeCountKeys } from '../users/user-stats-model'
+import { ClientSocketsManager } from '../websockets/socket-groups'
+import { TypedPublisher } from '../websockets/typed-publisher'
 import { getGameRecord } from './game-models'
 
 export class GameResultServiceError extends CodedError<GameResultErrorCode> {}
 
 @singleton()
 export default class GameResultService {
+  constructor(
+    readonly clientSocketsManager: ClientSocketsManager,
+    readonly typedPublisher: TypedPublisher<GameSubscriptionEvent>,
+  ) {}
+
+  async retrieveGame(gameId: string): Promise<GameRecord> {
+    const game = await getGameRecord(gameId)
+    if (!game) {
+      throw new GameResultServiceError(GameResultErrorCode.NotFound, 'no matching game found')
+    }
+
+    return game
+  }
+
+  async subscribeToGame(userId: SbUserId, clientId: string, gameId: string): Promise<void> {
+    const clientSockets = this.clientSocketsManager.getById(userId, clientId)
+    if (!clientSockets) {
+      throw new GameResultServiceError(
+        GameResultErrorCode.InvalidClient,
+        'no matching client found, may be offline',
+      )
+    }
+
+    const game = await this.retrieveGame(gameId)
+    if (!game) {
+      throw new GameResultServiceError(GameResultErrorCode.NotFound, 'no matching game found')
+    }
+
+    clientSockets.subscribe<GameRecordUpdate | undefined>(
+      GameResultService.getGameSubPath(gameId),
+      async () => {
+        const game = await this.retrieveGame(gameId)
+        if (game) {
+          return { type: 'update', game: toGameRecordJson(game) }
+        } else {
+          return undefined
+        }
+      },
+    )
+  }
+
+  async unsubscribeFromGame(userId: SbUserId, clientId: string, gameId: string): Promise<void> {
+    const clientSockets = this.clientSocketsManager.getById(userId, clientId)
+    if (!clientSockets) {
+      throw new GameResultServiceError(
+        GameResultErrorCode.InvalidClient,
+        'no matching client found, may be offline',
+      )
+    }
+
+    // NOTE(tec27): We don't check if the game exists because it's theoretically possible to
+    // subscribe to a game that then fails to load and has its record deleted, so we don't want to
+    // leave clients with orphaned subscriptions that can't be removed. (Possibly we should avoid
+    // deleting game records in this case and just mark them as never loaded?)
+    clientSockets.unsubscribe(GameResultService.getGameSubPath(gameId))
+  }
+
   async submitGameResults({
     gameId,
     userId,
@@ -196,6 +262,13 @@ export default class GameResultService {
           ])
         })
       })
+      .then(async () => {
+        const game = await this.retrieveGame(gameId)
+        this.typedPublisher.publish(GameResultService.getGameSubPath(gameId), {
+          type: 'update',
+          game: toGameRecordJson(game),
+        })
+      })
       .catch(err => {
         if (err.code === UNIQUE_VIOLATION && err.constraint === 'matchmaking_rating_changes_pkey') {
           logger.info({ err }, 'another request already updated rating information')
@@ -206,5 +279,9 @@ export default class GameResultService {
           )
         }
       })
+  }
+
+  static getGameSubPath(gameId: string) {
+    return urlPath`/games/${gameId}`
   }
 }

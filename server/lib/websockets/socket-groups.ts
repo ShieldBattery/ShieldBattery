@@ -73,10 +73,14 @@ abstract class SocketGroup<T> extends TypedEventEmitter<SocketGroupEvents<T>> {
 
   /**
    * Adds a subscription to all sockets for this socket group, including any sockets that may
-   * connect after this. `initialDataGetter` should either be undefined, or a
-   * function(socketGroup, socket) that returns the initialData to use for a subscribe call.
-   * `cleanup` should either be null/undefined, or a function(socketGroup) that will be called when
-   * every socket in the socket group has disconnected.
+   * connect after this.
+   *
+   * @param path The path to subscribe to (updates sent to this exact path will be sent to this
+   *   client as long as they are subscribed).
+   * @param initialDataGetter Optional, a function that will be called to retrieve initial data for
+   *   the subscribe call (and any subsequently connected sockets in this group).
+   * @param cleanup Optional, a function that will be called when every socket in the group has
+   *   disconnected.
    */
   subscribe<T = unknown>(
     path: string,
@@ -84,7 +88,8 @@ abstract class SocketGroup<T> extends TypedEventEmitter<SocketGroupEvents<T>> {
     cleanup?: (socketGroup: this) => void,
   ) {
     if (this.subscriptions.has(path)) {
-      throw new Error('duplicate persistent subscription: ' + path)
+      // The group was already subscribed to the path, so no further effort is needed
+      return
     }
 
     this.subscriptions = this.subscriptions.set(path, {
@@ -115,14 +120,22 @@ abstract class SocketGroup<T> extends TypedEventEmitter<SocketGroupEvents<T>> {
     }
   }
 
-  unsubscribe(path: string) {
+  /**
+   * Unsubscribes the group from `path`, returning a `boolean` indicating whether the group was
+   * previously subscribed.
+   *
+   * @returns `true` if the group was previously subscribed, `false` otherwise
+   */
+  unsubscribe(path: string): boolean {
     const updated = this.subscriptions.delete(path)
-    if (updated === this.subscriptions) return
+    if (updated === this.subscriptions) return false
 
     for (const socket of this.sockets) {
       this.nydus.unsubscribeClient(socket, path)
     }
     this.subscriptions = updated
+
+    return true
   }
 }
 

@@ -1,8 +1,10 @@
 import { GetGamePayload } from '../../common/games/games'
 import { apiUrl, urlPath } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
+import logger from '../logging/logger'
 import { push } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
+import { clientId } from '../network/client-id'
 import { fetchJson } from '../network/fetch'
 import { ResultsSubPage } from './results-sub-page'
 
@@ -31,4 +33,28 @@ export function viewGame(gameId: string, spec: RequestHandlingSpec): ThunkAction
       gameLoadsInProgress.delete(gameId)
     }
   })
+}
+
+export function subscribeToGame(gameId: string): ThunkAction {
+  return () => {
+    fetchJson(apiUrl`games/${gameId}/subscribe?clientId=${clientId}`, { method: 'post' }).catch(
+      err => {
+        // TODO(tec27): Handle this error in some way? Doesn't actually seem that important for the
+        // user to know about
+        logger.error(`Error subscribing to game ${gameId}: ${(err as any)?.stack ?? err}`)
+      },
+    )
+  }
+}
+
+export function unsubscribeFromGame(gameId: string): ThunkAction {
+  return () => {
+    fetchJson(apiUrl`games/${gameId}/unsubscribe?clientId=${clientId}`, { method: 'post' }).catch(
+      err => {
+        // TODO(tec27): Handle this error in some way? Doesn't actually seem that important for the
+        // user to know about
+        logger.error(`Error unsubscribing from game ${gameId}: ${(err as any)?.stack ?? err}`)
+      },
+    )
+  }
 }

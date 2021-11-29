@@ -6,7 +6,7 @@ function log(level: string, msg: string) {
   ipcRenderer.invoke('logMessage', level, msg)
 }
 
-const logger = {
+export const logger = {
   verbose: log.bind(undefined, 'verbose'),
   debug: log.bind(undefined, 'debug'),
   warning: log.bind(undefined, 'warning'),

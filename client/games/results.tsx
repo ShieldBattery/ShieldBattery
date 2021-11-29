@@ -33,7 +33,12 @@ import {
   subtitle1,
   subtitle2,
 } from '../styles/typography'
-import { navigateToGameResults, viewGame } from './action-creators'
+import {
+  navigateToGameResults,
+  subscribeToGame,
+  unsubscribeFromGame,
+  viewGame,
+} from './action-creators'
 import { ResultsSubPage } from './results-sub-page'
 
 const Container = styled.div`
@@ -167,6 +172,8 @@ export function ConnectedGameResultsPage({
   const cancelLoadRef = useRef(new AbortController())
   const [refreshToken, triggerRefresh] = useRefreshToken()
 
+  const results = game?.results
+
   useEffect(() => {
     cancelLoadRef.current.abort()
     const abortController = new AbortController()
@@ -193,6 +200,20 @@ export function ConnectedGameResultsPage({
       setIsLoading(false)
     }
   }, [gameId, refreshToken, dispatch])
+
+  useEffect(() => {
+    // At the moment the only time a game will really change is when it doesn't have results yet, so
+    // we only subscribe in that case. If we start updating game records more often, we may want to
+    // subscribe all the time
+    if (!results) {
+      dispatch(subscribeToGame(gameId))
+      return () => {
+        dispatch(unsubscribeFromGame(gameId))
+      }
+    }
+
+    return () => {}
+  }, [gameId, results, dispatch])
 
   let content: React.ReactNode
   switch (subPage) {

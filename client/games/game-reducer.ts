@@ -21,4 +21,8 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   ['@games/getGameRecord'](state, { payload: { game } }) {
     state.byId.set(game.id, game)
   },
+
+  ['@games/gameUpdate'](state, { payload: { game } }) {
+    state.byId.set(game.id, game)
+  },
 })

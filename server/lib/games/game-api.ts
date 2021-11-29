@@ -24,7 +24,7 @@ import throttleMiddleware from '../throttle/middleware'
 import { findUsersById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
 import gameLoader from './game-loader'
-import { countCompletedGames, getGameRecord } from './game-models'
+import { countCompletedGames } from './game-models'
 import GameResultService, { GameResultServiceError } from './game-result-service'
 
 const throttle = createThrottle('games', {
@@ -107,6 +107,8 @@ function convertGameResultServiceErrors(err: unknown) {
       throw asHttpError(409, err)
     case GameResultErrorCode.InvalidPlayers:
       throw asHttpError(400, err)
+    case GameResultErrorCode.InvalidClient:
+      throw asHttpError(400, err)
     default:
       assertUnreachable(err.code)
   }
@@ -134,10 +136,7 @@ export class GameApi {
       params: GAME_ID_PARAM,
     })
 
-    const game = await getGameRecord(gameId)
-    if (!game) {
-      throw new httpErrors.NotFound('game not found')
-    }
+    const game = await this.gameResultService.retrieveGame(gameId)
 
     const mapPromise = getMapInfo([game.mapId], ctx.session!.userId)
     const usersPromise = findUsersById(
@@ -145,15 +144,42 @@ export class GameApi {
     )
 
     const mapArray = await mapPromise
-    if (!mapArray.length) {
-      throw new Error("map wasn't found")
-    }
 
     return {
       game: toGameRecordJson(game),
-      map: toMapInfoJson(mapArray[0]),
+      map: mapArray.length ? toMapInfoJson(mapArray[0]) : undefined,
       users: Array.from((await usersPromise).values()),
     }
+  }
+
+  @httpPost('/:gameId/subscribe')
+  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.userId)))
+  async subscribeToGame(ctx: RouterContext): Promise<void> {
+    const {
+      params: { gameId },
+      query: { clientId },
+    } = validateRequest(ctx, {
+      params: GAME_ID_PARAM,
+      query: Joi.object<{ clientId: string }>({ clientId: Joi.string().required() }).required(),
+    })
+
+    await this.gameResultService.subscribeToGame(ctx.session!.userId, clientId, gameId)
+    ctx.status = 204
+  }
+
+  @httpPost('/:gameId/unsubscribe')
+  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.userId)))
+  async unsubscribeFromGame(ctx: RouterContext): Promise<void> {
+    const {
+      params: { gameId },
+      query: { clientId },
+    } = validateRequest(ctx, {
+      params: GAME_ID_PARAM,
+      query: Joi.object<{ clientId: string }>({ clientId: Joi.string().required() }).required(),
+    })
+
+    await this.gameResultService.unsubscribeFromGame(ctx.session!.userId, clientId, gameId)
+    ctx.status = 204
   }
 
   @httpPut('/:gameId/status')
@@ -188,6 +214,8 @@ export class GameApi {
     ctx.status = 204
   }
 
+  // NOTE(tec27): This doesn't require being logged in because the game client sends these requests,
+  // the body is intended to be secret per user and authenticate that they are the one who sent it.
   @httpPost('/:gameId/results')
   @httpBefore(throttleMiddleware(gameResultsThrottle, ctx => String(ctx.ip)))
   async submitGameResults(ctx: RouterContext): Promise<void> {

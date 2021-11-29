@@ -59,6 +59,8 @@ export enum GameResultErrorCode {
   AlreadyReported = 'AlreadyReported',
   /** The reported results contain one or more invalid players. */
   InvalidPlayers = 'InvalidPlayers',
+  /** The specified client could not be found or wasn't valid for this request. */
+  InvalidClient = 'InvalidClient',
 }
 
 /** The payload format for submitting game results to the server. */
