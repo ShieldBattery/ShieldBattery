@@ -1,5 +1,6 @@
 import { Logger } from 'pino'
 import { singleton } from 'tsyringe'
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import { GameSource } from '../../../common/games/configuration'
 import {
   GameRecord,
@@ -8,6 +9,7 @@ import {
   toGameRecordJson,
 } from '../../../common/games/games'
 import { GameClientPlayerResult, GameResultErrorCode } from '../../../common/games/results'
+import { MatchmakingType } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
 import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/user-info'
@@ -158,110 +160,7 @@ export default class GameResultService {
 
     // We don't need to hold up the response while we check for reconciling
     Promise.resolve()
-      .then(async () => {
-        // TODO(tec27): This should probably be moved to games/registration (and that file renamed)
-        // since this will be used to check periodically for reconcilable games as well
-        const currentResults = await getCurrentReportedResults(gameId)
-        if (!hasCompletedResults(currentResults)) {
-          return
-        }
-
-        const reconciled = reconcileResults(currentResults)
-        const reconcileDate = new Date()
-        await transact(async client => {
-          // TODO(tec27): in some cases, we'll be re-reconciling results, and we may need to go back
-          // and "fixup" rank changes and win/loss counters
-          const resultEntries = Array.from(reconciled.results.entries())
-
-          const matchmakingDbPromises: Array<Promise<unknown>> = []
-          if (gameRecord.config.gameSource === GameSource.Matchmaking && !reconciled.disputed) {
-            // Calculate and update the matchmaking ranks
-
-            // NOTE(tec27): We sort these so we always lock them in the same order and avoid
-            // deadlocks
-            const userIds = Array.from(reconciled.results.keys()).sort()
-
-            // TODO(tec27): I think there are still cases, if 2+ users are involved in multiple
-            // games that resolve at the same time, that this could deadlock. Won't be a problem for
-            // 1v1 but we should handle it when implementing team games
-
-            const mmrs = await getMatchmakingRatingsWithLock(
-              client,
-              userIds,
-              gameRecord.config.gameSourceExtra.type,
-            )
-            if (mmrs.length !== userIds.length) {
-              throw new Error('missing MMR for some users')
-            }
-
-            const ratingChanges = calculateChangedRatings(
-              gameId,
-              reconcileDate,
-              reconciled.results,
-              mmrs,
-            )
-
-            for (const mmr of mmrs) {
-              const change = ratingChanges.get(mmr.userId)!
-              matchmakingDbPromises.push(insertMatchmakingRatingChange(client, change))
-
-              const updatedMmr: MatchmakingRating = {
-                userId: mmr.userId,
-                matchmakingType: mmr.matchmakingType,
-                rating: change.rating,
-                kFactor: change.kFactor,
-                uncertainty: change.uncertainty,
-                unexpectedStreak: change.unexpectedStreak,
-                numGamesPlayed: mmr.numGamesPlayed + 1,
-                lastPlayedDate: reconcileDate,
-                wins: mmr.wins + (change.outcome === 'win' ? 1 : 0),
-                losses: mmr.losses + (change.outcome === 'win' ? 0 : 1),
-              }
-              matchmakingDbPromises.push(updateMatchmakingRating(client, updatedMmr))
-            }
-          }
-          const userPromises = resultEntries.map(([userId, result]) =>
-            setUserReconciledResult(client, userId, gameId, result),
-          )
-
-          // TODO(tec27): Perhaps we should auto-trigger a dispute request in particular cases, such
-          // as when a user has an unknown result?
-
-          const statsUpdatePromises: Array<Promise<UserStats>> = []
-          if (gameRecord.config.gameType !== 'ums' && !reconciled.disputed) {
-            const idToSelectedRace = new Map(
-              gameRecord.config.teams
-                .map(team =>
-                  team
-                    .filter(p => !p.isComputer)
-                    .map<[id: number, race: RaceChar]>(p => [p.id, p.race]),
-                )
-                .flat(),
-            )
-
-            for (const [userId, result] of reconciled.results.entries()) {
-              if (result.result !== 'win' && result.result !== 'loss') {
-                continue
-              }
-
-              const selectedRace = idToSelectedRace.get(userId)!
-              const assignedRace = result.race
-              const countKeys = makeCountKeys(selectedRace, assignedRace, result.result)
-
-              for (const key of countKeys) {
-                statsUpdatePromises.push(incrementUserStatsCount(client, userId, key))
-              }
-            }
-          }
-
-          await Promise.all([
-            ...userPromises,
-            ...matchmakingDbPromises,
-            ...statsUpdatePromises,
-            setReconciledResult(client, gameId, reconciled),
-          ])
-        })
-      })
+      .then(() => this.maybeReconcileResults(gameRecord))
       .then(async () => {
         const game = await this.retrieveGame(gameId)
         this.typedPublisher.publish(GameResultService.getGameSubPath(gameId), {
@@ -279,6 +178,126 @@ export default class GameResultService {
           )
         }
       })
+  }
+
+  // TODO(tec27): Periodically check for games that have not been reconciled that are older than X
+  // time, and force a result (or mark them permanently unknown/unfinished)
+  private async maybeReconcileResults(gameRecord: GameRecord): Promise<void> {
+    const gameId = gameRecord.id
+    const currentResults = await getCurrentReportedResults(gameId)
+    if (!hasCompletedResults(currentResults)) {
+      return
+    }
+
+    const reconciled = reconcileResults(currentResults)
+    const reconcileDate = new Date()
+    await transact(async client => {
+      // TODO(tec27): in some cases, we'll be re-reconciling results, and we may need to go back
+      // and "fixup" rank changes and win/loss counters
+      const resultEntries = Array.from(reconciled.results.entries())
+
+      const matchmakingDbPromises: Array<Promise<unknown>> = []
+      if (gameRecord.config.gameSource === GameSource.Matchmaking && !reconciled.disputed) {
+        // Calculate and update the matchmaking ranks
+
+        // NOTE(tec27): We sort these so we always lock them in the same order and avoid
+        // deadlocks
+        const userIds = Array.from(reconciled.results.keys()).sort()
+
+        const mmrs = await getMatchmakingRatingsWithLock(
+          client,
+          userIds,
+          gameRecord.config.gameSourceExtra.type,
+        )
+        if (mmrs.length !== userIds.length) {
+          throw new Error('missing MMR for some users')
+        }
+
+        const {
+          config: { gameSourceExtra },
+        } = gameRecord
+
+        let teams: [teamA: SbUserId[], teamB: SbUserId[]]
+        if (gameSourceExtra.type === MatchmakingType.Match1v1) {
+          teams = [[userIds[0]], [userIds[1]]]
+        } else if (gameSourceExtra.type === MatchmakingType.Match2v2) {
+          // TODO(tec27): Pass gameSourceExtra.parties info to rating change calculation
+          teams = gameRecord.config.teams.map(t => t.map(p => p.id)) as [
+            teamA: SbUserId[],
+            teamB: SbUserId[],
+          ]
+        } else {
+          teams = assertUnreachable(gameSourceExtra)
+        }
+
+        const ratingChanges = calculateChangedRatings({
+          gameId,
+          gameDate: reconcileDate,
+          results: reconciled.results,
+          mmrs,
+          teams,
+        })
+
+        for (const mmr of mmrs) {
+          const change = ratingChanges.get(mmr.userId)!
+          matchmakingDbPromises.push(insertMatchmakingRatingChange(client, change))
+
+          const updatedMmr: MatchmakingRating = {
+            userId: mmr.userId,
+            matchmakingType: mmr.matchmakingType,
+            rating: change.rating,
+            kFactor: change.kFactor,
+            uncertainty: change.uncertainty,
+            unexpectedStreak: change.unexpectedStreak,
+            numGamesPlayed: mmr.numGamesPlayed + 1,
+            lastPlayedDate: reconcileDate,
+            wins: mmr.wins + (change.outcome === 'win' ? 1 : 0),
+            losses: mmr.losses + (change.outcome === 'win' ? 0 : 1),
+          }
+          matchmakingDbPromises.push(updateMatchmakingRating(client, updatedMmr))
+        }
+      }
+      const userPromises = resultEntries.map(([userId, result]) =>
+        setUserReconciledResult(client, userId, gameId, result),
+      )
+
+      // TODO(tec27): Perhaps we should auto-trigger a dispute request in particular cases, such
+      // as when a user has an unknown result?
+
+      const statsUpdatePromises: Array<Promise<UserStats>> = []
+      if (gameRecord.config.gameType !== 'ums' && !reconciled.disputed) {
+        const idToSelectedRace = new Map(
+          gameRecord.config.teams
+            .map(team =>
+              team
+                .filter(p => !p.isComputer)
+                .map<[id: number, race: RaceChar]>(p => [p.id, p.race]),
+            )
+            .flat(),
+        )
+
+        for (const [userId, result] of reconciled.results.entries()) {
+          if (result.result !== 'win' && result.result !== 'loss') {
+            continue
+          }
+
+          const selectedRace = idToSelectedRace.get(userId)!
+          const assignedRace = result.race
+          const countKeys = makeCountKeys(selectedRace, assignedRace, result.result)
+
+          for (const key of countKeys) {
+            statsUpdatePromises.push(incrementUserStatsCount(client, userId, key))
+          }
+        }
+      }
+
+      await Promise.all([
+        ...userPromises,
+        ...matchmakingDbPromises,
+        ...statsUpdatePromises,
+        setReconciledResult(client, gameId, reconciled),
+      ])
+    })
   }
 
   static getGameSubPath(gameId: string) {

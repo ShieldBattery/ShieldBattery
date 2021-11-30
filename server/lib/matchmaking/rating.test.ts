@@ -31,7 +31,7 @@ function createMatchmakingRating(
 }
 
 describe('matchmaking/rating/calculateChangedRatings', () => {
-  test('evenly matched new players', () => {
+  test('1v1 - evenly matched new players', () => {
     const player = createMatchmakingRating({ userId: 1 })
     const opponent = createMatchmakingRating({ userId: 2 })
     const results = new Map([
@@ -39,7 +39,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings(GAME_ID, GAME_DATE, results, [player, opponent])
+    const changes = calculateChangedRatings({
+      gameId: GAME_ID,
+      gameDate: GAME_DATE,
+      results,
+      mmrs: [player, opponent],
+      teams: [[player.userId], [opponent.userId]],
+    })
     const playerChange = changes.get(player.userId)
     const opponentChange = changes.get(opponent.userId)
 
@@ -79,7 +85,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
   })
 
-  test('better new player wins', () => {
+  test('1v1 - better new player wins', () => {
     const player = createMatchmakingRating({ userId: 1, rating: 1800 })
     const opponent = createMatchmakingRating({ userId: 2, rating: 1400 })
     const results = new Map([
@@ -87,7 +93,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings(GAME_ID, GAME_DATE, results, [player, opponent])
+    const changes = calculateChangedRatings({
+      gameId: GAME_ID,
+      gameDate: GAME_DATE,
+      results,
+      mmrs: [player, opponent],
+      teams: [[player.userId], [opponent.userId]],
+    })
     const playerChange = changes.get(player.userId)
     const opponentChange = changes.get(opponent.userId)
 
@@ -127,7 +139,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
   })
 
-  test('better new player loses', () => {
+  test('1v1 - better new player loses', () => {
     const player = createMatchmakingRating({ userId: 1, rating: 1800 })
     const opponent = createMatchmakingRating({ userId: 2, rating: 1400 })
     const results = new Map([
@@ -135,7 +147,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, WIN],
     ])
 
-    const changes = calculateChangedRatings(GAME_ID, GAME_DATE, results, [player, opponent])
+    const changes = calculateChangedRatings({
+      gameId: GAME_ID,
+      gameDate: GAME_DATE,
+      results,
+      mmrs: [player, opponent],
+      teams: [[player.userId], [opponent.userId]],
+    })
     const playerChange = changes.get(player.userId)
     const opponentChange = changes.get(opponent.userId)
 
@@ -175,7 +193,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
   })
 
-  test('wildly better new player wins', () => {
+  test('1v1 - wildly better new player wins', () => {
     const player = createMatchmakingRating({ userId: 1, rating: 1800 })
     const opponent = createMatchmakingRating({ userId: 2, rating: 10 })
     const results = new Map([
@@ -183,7 +201,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings(GAME_ID, GAME_DATE, results, [player, opponent])
+    const changes = calculateChangedRatings({
+      gameId: GAME_ID,
+      gameDate: GAME_DATE,
+      results,
+      mmrs: [player, opponent],
+      teams: [[player.userId], [opponent.userId]],
+    })
     const playerChange = changes.get(player.userId)
     const opponentChange = changes.get(opponent.userId)
 
@@ -223,7 +247,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
   })
 
-  test("really bad players can't go below 0", () => {
+  test("1v1 - really bad players can't go below 0", () => {
     const player = createMatchmakingRating({ userId: 1, rating: 1 })
     const opponent = createMatchmakingRating({ userId: 2, rating: 1 })
     const results = new Map([
@@ -231,7 +255,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings(GAME_ID, GAME_DATE, results, [player, opponent])
+    const changes = calculateChangedRatings({
+      gameId: GAME_ID,
+      gameDate: GAME_DATE,
+      results,
+      mmrs: [player, opponent],
+      teams: [[player.userId], [opponent.userId]],
+    })
     const playerChange = changes.get(player.userId)
     const opponentChange = changes.get(opponent.userId)
 
@@ -271,7 +301,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
   })
 
-  test('evenly matched veteran players', () => {
+  test('1v1 - evenly matched veteran players', () => {
     const player = createMatchmakingRating({ userId: 1, numGamesPlayed: 25 })
     const opponent = createMatchmakingRating({ userId: 2, numGamesPlayed: 25 })
     const results = new Map([
@@ -279,7 +309,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings(GAME_ID, GAME_DATE, results, [player, opponent])
+    const changes = calculateChangedRatings({
+      gameId: GAME_ID,
+      gameDate: GAME_DATE,
+      results,
+      mmrs: [player, opponent],
+      teams: [[player.userId], [opponent.userId]],
+    })
     const playerChange = changes.get(player.userId)
     const opponentChange = changes.get(opponent.userId)
 
@@ -319,7 +355,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
   })
 
-  test('better veteran player wins', () => {
+  test('1v1 - better veteran player wins', () => {
     const player = createMatchmakingRating({ userId: 1, rating: 1800, numGamesPlayed: 25 })
     const opponent = createMatchmakingRating({ userId: 2, rating: 1400, numGamesPlayed: 25 })
     const results = new Map([
@@ -327,7 +363,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings(GAME_ID, GAME_DATE, results, [player, opponent])
+    const changes = calculateChangedRatings({
+      gameId: GAME_ID,
+      gameDate: GAME_DATE,
+      results,
+      mmrs: [player, opponent],
+      teams: [[player.userId], [opponent.userId]],
+    })
     const playerChange = changes.get(player.userId)
     const opponentChange = changes.get(opponent.userId)
 
@@ -367,7 +409,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
   })
 
-  test('better veteran player loses', () => {
+  test('1v1 - better veteran player loses', () => {
     const player = createMatchmakingRating({ userId: 1, rating: 1800, numGamesPlayed: 25 })
     const opponent = createMatchmakingRating({ userId: 2, rating: 1400, numGamesPlayed: 25 })
     const results = new Map([
@@ -375,7 +417,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, WIN],
     ])
 
-    const changes = calculateChangedRatings(GAME_ID, GAME_DATE, results, [player, opponent])
+    const changes = calculateChangedRatings({
+      gameId: GAME_ID,
+      gameDate: GAME_DATE,
+      results,
+      mmrs: [player, opponent],
+      teams: [[player.userId], [opponent.userId]],
+    })
     const playerChange = changes.get(player.userId)
     const opponentChange = changes.get(opponent.userId)
 
@@ -415,7 +463,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
   })
 
-  test('well-defined veteran player wins versus new player', () => {
+  test('1v1 - well-defined veteran player wins versus new player', () => {
     const player = createMatchmakingRating({
       userId: 1,
       rating: 1800,
@@ -429,7 +477,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings(GAME_ID, GAME_DATE, results, [player, opponent])
+    const changes = calculateChangedRatings({
+      gameId: GAME_ID,
+      gameDate: GAME_DATE,
+      results,
+      mmrs: [player, opponent],
+      teams: [[player.userId], [opponent.userId]],
+    })
     const playerChange = changes.get(player.userId)
     const opponentChange = changes.get(opponent.userId)
 
@@ -469,7 +523,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
   })
 
-  test('well-defined veteran player loses versus new player', () => {
+  test('1v1 - well-defined veteran player loses versus new player', () => {
     const player = createMatchmakingRating({
       userId: 1,
       rating: 1800,
@@ -483,7 +537,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, WIN],
     ])
 
-    const changes = calculateChangedRatings(GAME_ID, GAME_DATE, results, [player, opponent])
+    const changes = calculateChangedRatings({
+      gameId: GAME_ID,
+      gameDate: GAME_DATE,
+      results,
+      mmrs: [player, opponent],
+      teams: [[player.userId], [opponent.userId]],
+    })
     const playerChange = changes.get(player.userId)
     const opponentChange = changes.get(opponent.userId)
 
@@ -523,7 +583,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
   })
 
-  test('well-defined veteran player continues a loss streak versus new player', () => {
+  test('1v1 - well-defined veteran player continues a loss streak versus new player', () => {
     const player = createMatchmakingRating({
       userId: 1,
       rating: 1800,
@@ -538,7 +598,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, WIN],
     ])
 
-    const changes = calculateChangedRatings(GAME_ID, GAME_DATE, results, [player, opponent])
+    const changes = calculateChangedRatings({
+      gameId: GAME_ID,
+      gameDate: GAME_DATE,
+      results,
+      mmrs: [player, opponent],
+      teams: [[player.userId], [opponent.userId]],
+    })
     const playerChange = changes.get(player.userId)
     const opponentChange = changes.get(opponent.userId)
 
@@ -578,7 +644,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
   })
 
-  test('well-defined veteran player ends a loss streak versus new player', () => {
+  test('1v1 - well-defined veteran player ends a loss streak versus new player', () => {
     const player = createMatchmakingRating({
       userId: 1,
       rating: 1800,
@@ -593,7 +659,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings(GAME_ID, GAME_DATE, results, [player, opponent])
+    const changes = calculateChangedRatings({
+      gameId: GAME_ID,
+      gameDate: GAME_DATE,
+      results,
+      mmrs: [player, opponent],
+      teams: [[player.userId], [opponent.userId]],
+    })
     const playerChange = changes.get(player.userId)
     const opponentChange = changes.get(opponent.userId)
 
@@ -629,6 +701,588 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "uncertaintyChange": -6.039182288452935,
         "unexpectedStreak": 0,
         "userId": 2,
+      }
+    `)
+  })
+
+  test('2v2 - evenly matched new players', () => {
+    const player1 = createMatchmakingRating({ userId: 1 })
+    const player2 = createMatchmakingRating({ userId: 2 })
+    const opponent1 = createMatchmakingRating({ userId: 3 })
+    const opponent2 = createMatchmakingRating({ userId: 4 })
+    const results = new Map([
+      [player1.userId, WIN],
+      [player2.userId, WIN],
+      [opponent1.userId, LOSS],
+      [opponent2.userId, LOSS],
+    ])
+
+    const changes = calculateChangedRatings({
+      gameId: GAME_ID,
+      gameDate: GAME_DATE,
+      results,
+      mmrs: [player1, player2, opponent1, opponent2],
+      teams: [
+        [player1.userId, player2.userId],
+        [opponent1.userId, opponent2.userId],
+      ],
+    })
+    const player1Change = changes.get(player1.userId)
+    const player2Change = changes.get(player2.userId)
+    const opponent1Change = changes.get(opponent1.userId)
+    const opponent2Change = changes.get(opponent2.userId)
+
+    expect(player1Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "win",
+        "probability": 0.5,
+        "rating": 1520,
+        "ratingChange": 20,
+        "uncertainty": 180,
+        "uncertaintyChange": -20,
+        "unexpectedStreak": 0,
+        "userId": 1,
+      }
+    `)
+    expect(player2Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "win",
+        "probability": 0.5,
+        "rating": 1520,
+        "ratingChange": 20,
+        "uncertainty": 180,
+        "uncertaintyChange": -20,
+        "unexpectedStreak": 0,
+        "userId": 2,
+      }
+    `)
+    expect(opponent1Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "loss",
+        "probability": 0.5,
+        "rating": 1480,
+        "ratingChange": -20,
+        "uncertainty": 220,
+        "uncertaintyChange": 20,
+        "unexpectedStreak": 1,
+        "userId": 3,
+      }
+    `)
+    expect(opponent2Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "loss",
+        "probability": 0.5,
+        "rating": 1480,
+        "ratingChange": -20,
+        "uncertainty": 220,
+        "uncertaintyChange": 20,
+        "unexpectedStreak": 1,
+        "userId": 4,
+      }
+    `)
+  })
+
+  test('2v2 - better new players win', () => {
+    const player1 = createMatchmakingRating({ userId: 1, rating: 1800 })
+    const player2 = createMatchmakingRating({ userId: 2, rating: 1600 })
+    const opponent1 = createMatchmakingRating({ userId: 3, rating: 1400 })
+    const opponent2 = createMatchmakingRating({ userId: 4, rating: 1300 })
+    const results = new Map([
+      [player1.userId, WIN],
+      [player2.userId, WIN],
+      [opponent1.userId, LOSS],
+      [opponent2.userId, LOSS],
+    ])
+
+    const changes = calculateChangedRatings({
+      gameId: GAME_ID,
+      gameDate: GAME_DATE,
+      results,
+      mmrs: [player1, player2, opponent1, opponent2],
+      teams: [
+        [player1.userId, player2.userId],
+        [opponent1.userId, opponent2.userId],
+      ],
+    })
+    const player1Change = changes.get(player1.userId)
+    const player2Change = changes.get(player2.userId)
+    const opponent1Change = changes.get(opponent1.userId)
+    const opponent2Change = changes.get(opponent2.userId)
+
+    expect(player1Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "win",
+        "probability": 0.9298951590492744,
+        "rating": 1802.8041936380291,
+        "ratingChange": 2.804193638029119,
+        "uncertainty": 197.19580636197097,
+        "uncertaintyChange": -2.8041936380290338,
+        "unexpectedStreak": 0,
+        "userId": 1,
+      }
+    `)
+    expect(player2Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "win",
+        "probability": 0.8074907587437063,
+        "rating": 1607.7003696502518,
+        "ratingChange": 7.700369650251787,
+        "uncertainty": 192.29963034974824,
+        "uncertaintyChange": -7.7003696502517585,
+        "unexpectedStreak": 0,
+        "userId": 2,
+      }
+    `)
+    expect(opponent1Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "loss",
+        "probability": 0.14882394314935965,
+        "rating": 1394.0470422740257,
+        "ratingChange": -5.952957725974329,
+        "uncertainty": 194.0470422740256,
+        "uncertaintyChange": -5.952957725974386,
+        "unexpectedStreak": 0,
+        "userId": 3,
+      }
+    `)
+    expect(opponent2Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "loss",
+        "probability": 0.08952070290729923,
+        "rating": 1296.419171883708,
+        "ratingChange": -3.5808281162919684,
+        "uncertainty": 196.41917188370803,
+        "uncertaintyChange": -3.5808281162919684,
+        "unexpectedStreak": 0,
+        "userId": 4,
+      }
+    `)
+  })
+
+  test('2v2 - better new players lose', () => {
+    const player1 = createMatchmakingRating({ userId: 1, rating: 1800 })
+    const player2 = createMatchmakingRating({ userId: 2, rating: 1600 })
+    const opponent1 = createMatchmakingRating({ userId: 3, rating: 1400 })
+    const opponent2 = createMatchmakingRating({ userId: 4, rating: 1300 })
+    const results = new Map([
+      [player1.userId, LOSS],
+      [player2.userId, LOSS],
+      [opponent1.userId, WIN],
+      [opponent2.userId, WIN],
+    ])
+
+    const changes = calculateChangedRatings({
+      gameId: GAME_ID,
+      gameDate: GAME_DATE,
+      results,
+      mmrs: [player1, player2, opponent1, opponent2],
+      teams: [
+        [player1.userId, player2.userId],
+        [opponent1.userId, opponent2.userId],
+      ],
+    })
+    const player1Change = changes.get(player1.userId)
+    const player2Change = changes.get(player2.userId)
+    const opponent1Change = changes.get(opponent1.userId)
+    const opponent2Change = changes.get(opponent2.userId)
+
+    expect(player1Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "loss",
+        "probability": 0.9298951590492744,
+        "rating": 1762.8041936380291,
+        "ratingChange": -37.19580636197088,
+        "uncertainty": 237.195806361971,
+        "uncertaintyChange": 37.195806361970995,
+        "unexpectedStreak": 1,
+        "userId": 1,
+      }
+    `)
+    expect(player2Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "loss",
+        "probability": 0.8074907587437063,
+        "rating": 1567.7003696502518,
+        "ratingChange": -32.29963034974821,
+        "uncertainty": 232.29963034974827,
+        "uncertaintyChange": 32.29963034974827,
+        "unexpectedStreak": 1,
+        "userId": 2,
+      }
+    `)
+    expect(opponent1Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "win",
+        "probability": 0.14882394314935965,
+        "rating": 1434.0470422740257,
+        "ratingChange": 34.04704227402567,
+        "uncertainty": 234.0470422740256,
+        "uncertaintyChange": 34.047042274025614,
+        "unexpectedStreak": 1,
+        "userId": 3,
+      }
+    `)
+    expect(opponent2Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "win",
+        "probability": 0.08952070290729923,
+        "rating": 1336.419171883708,
+        "ratingChange": 36.41917188370803,
+        "uncertainty": 236.41917188370803,
+        "uncertaintyChange": 36.41917188370803,
+        "unexpectedStreak": 1,
+        "userId": 4,
+      }
+    `)
+  })
+
+  test('2v2 - evenly matched veteran players', () => {
+    const player1 = createMatchmakingRating({ userId: 1, numGamesPlayed: 30 })
+    const player2 = createMatchmakingRating({ userId: 2, numGamesPlayed: 35 })
+    const opponent1 = createMatchmakingRating({ userId: 3, numGamesPlayed: 25 })
+    const opponent2 = createMatchmakingRating({ userId: 4, numGamesPlayed: 40 })
+    const results = new Map([
+      [player1.userId, WIN],
+      [player2.userId, WIN],
+      [opponent1.userId, LOSS],
+      [opponent2.userId, LOSS],
+    ])
+
+    const changes = calculateChangedRatings({
+      gameId: GAME_ID,
+      gameDate: GAME_DATE,
+      results,
+      mmrs: [player1, player2, opponent1, opponent2],
+      teams: [
+        [player1.userId, player2.userId],
+        [opponent1.userId, opponent2.userId],
+      ],
+    })
+    const player1Change = changes.get(player1.userId)
+    const player2Change = changes.get(player2.userId)
+    const opponent1Change = changes.get(opponent1.userId)
+    const opponent2Change = changes.get(opponent2.userId)
+
+    expect(player1Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 39.5,
+        "kFactorChange": -0.5,
+        "matchmakingType": "1v1",
+        "outcome": "win",
+        "probability": 0.5,
+        "rating": 1520,
+        "ratingChange": 20,
+        "uncertainty": 180,
+        "uncertaintyChange": -20,
+        "unexpectedStreak": 0,
+        "userId": 1,
+      }
+    `)
+    expect(player2Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 39.5,
+        "kFactorChange": -0.5,
+        "matchmakingType": "1v1",
+        "outcome": "win",
+        "probability": 0.5,
+        "rating": 1520,
+        "ratingChange": 20,
+        "uncertainty": 180,
+        "uncertaintyChange": -20,
+        "unexpectedStreak": 0,
+        "userId": 2,
+      }
+    `)
+    expect(opponent1Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "loss",
+        "probability": 0.5,
+        "rating": 1480,
+        "ratingChange": -20,
+        "uncertainty": 220,
+        "uncertaintyChange": 20,
+        "unexpectedStreak": 1,
+        "userId": 3,
+      }
+    `)
+    expect(opponent2Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "loss",
+        "probability": 0.5,
+        "rating": 1480,
+        "ratingChange": -20,
+        "uncertainty": 220,
+        "uncertaintyChange": 20,
+        "unexpectedStreak": 1,
+        "userId": 4,
+      }
+    `)
+  })
+
+  test('2v2 - mixed upper/lower ratings', () => {
+    const player1 = createMatchmakingRating({ userId: 1, rating: 1800 })
+    const player2 = createMatchmakingRating({ userId: 2, rating: 1300 })
+    const opponent1 = createMatchmakingRating({ userId: 3, rating: 1450 })
+    const opponent2 = createMatchmakingRating({ userId: 4, rating: 1550 })
+    const results = new Map([
+      [player1.userId, WIN],
+      [player2.userId, WIN],
+      [opponent1.userId, LOSS],
+      [opponent2.userId, LOSS],
+    ])
+
+    const changes = calculateChangedRatings({
+      gameId: GAME_ID,
+      gameDate: GAME_DATE,
+      results,
+      mmrs: [player1, player2, opponent1, opponent2],
+      teams: [
+        [player1.userId, player2.userId],
+        [opponent1.userId, opponent2.userId],
+      ],
+    })
+    const player1Change = changes.get(player1.userId)
+    const player2Change = changes.get(player2.userId)
+    const opponent1Change = changes.get(opponent1.userId)
+    const opponent2Change = changes.get(opponent2.userId)
+
+    expect(player1Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "win",
+        "probability": 0.8484046751539909,
+        "rating": 1806.0638129938404,
+        "ratingChange": 6.063812993840429,
+        "uncertainty": 193.93618700615963,
+        "uncertaintyChange": -6.063812993840372,
+        "unexpectedStreak": 0,
+        "userId": 1,
+      }
+    `)
+    expect(player2Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "win",
+        "probability": 0.23937879387419578,
+        "rating": 1330.424848245032,
+        "ratingChange": 30.42484824503208,
+        "uncertainty": 230.42484824503217,
+        "uncertaintyChange": 30.424848245032166,
+        "unexpectedStreak": 1,
+        "userId": 2,
+      }
+    `)
+    expect(opponent1Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "loss",
+        "probability": 0.33381980560653496,
+        "rating": 1436.6472077757387,
+        "ratingChange": -13.352792224261293,
+        "uncertainty": 186.6472077757386,
+        "uncertaintyChange": -13.352792224261407,
+        "unexpectedStreak": 0,
+        "userId": 3,
+      }
+    `)
+    expect(opponent2Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "loss",
+        "probability": 0.4712037566392997,
+        "rating": 1531.151849734428,
+        "ratingChange": -18.84815026557203,
+        "uncertainty": 181.15184973442803,
+        "uncertaintyChange": -18.848150265571974,
+        "unexpectedStreak": 0,
+        "userId": 4,
+      }
+    `)
+  })
+
+  test('2v2 - mixed upper/lower ratings, highest loses', () => {
+    const player1 = createMatchmakingRating({ userId: 1, rating: 1800 })
+    const player2 = createMatchmakingRating({ userId: 2, rating: 1300 })
+    const opponent1 = createMatchmakingRating({ userId: 3, rating: 1450 })
+    const opponent2 = createMatchmakingRating({ userId: 4, rating: 1550 })
+    const results = new Map([
+      [player1.userId, LOSS],
+      [player2.userId, LOSS],
+      [opponent1.userId, WIN],
+      [opponent2.userId, WIN],
+    ])
+
+    const changes = calculateChangedRatings({
+      gameId: GAME_ID,
+      gameDate: GAME_DATE,
+      results,
+      mmrs: [player1, player2, opponent1, opponent2],
+      teams: [
+        [player1.userId, player2.userId],
+        [opponent1.userId, opponent2.userId],
+      ],
+    })
+    const player1Change = changes.get(player1.userId)
+    const player2Change = changes.get(player2.userId)
+    const opponent1Change = changes.get(opponent1.userId)
+    const opponent2Change = changes.get(opponent2.userId)
+
+    expect(player1Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "loss",
+        "probability": 0.8484046751539909,
+        "rating": 1766.0638129938404,
+        "ratingChange": -33.93618700615957,
+        "uncertainty": 233.93618700615963,
+        "uncertaintyChange": 33.93618700615963,
+        "unexpectedStreak": 1,
+        "userId": 1,
+      }
+    `)
+    expect(player2Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "loss",
+        "probability": 0.23937879387419578,
+        "rating": 1290.424848245032,
+        "ratingChange": -9.57515175496792,
+        "uncertainty": 190.42484824503217,
+        "uncertaintyChange": -9.575151754967834,
+        "unexpectedStreak": 0,
+        "userId": 2,
+      }
+    `)
+    expect(opponent1Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "win",
+        "probability": 0.33381980560653496,
+        "rating": 1476.6472077757387,
+        "ratingChange": 26.647207775738707,
+        "uncertainty": 226.6472077757386,
+        "uncertaintyChange": 26.647207775738593,
+        "unexpectedStreak": 1,
+        "userId": 3,
+      }
+    `)
+    expect(opponent2Change).toMatchInlineSnapshot(`
+      Object {
+        "changeDate": 1970-01-01T00:00:00.027Z,
+        "gameId": "asdfzxcv",
+        "kFactor": 40,
+        "kFactorChange": 0,
+        "matchmakingType": "1v1",
+        "outcome": "win",
+        "probability": 0.4712037566392997,
+        "rating": 1571.151849734428,
+        "ratingChange": 21.15184973442797,
+        "uncertainty": 221.15184973442803,
+        "uncertaintyChange": 21.151849734428026,
+        "unexpectedStreak": 1,
+        "userId": 4,
       }
     `)
   })

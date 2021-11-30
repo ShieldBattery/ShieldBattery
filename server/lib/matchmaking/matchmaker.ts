@@ -7,7 +7,9 @@ import { ExponentialSmoothValue } from '../../../common/statistics/exponential-s
 import { SbUserId } from '../../../common/users/user-info'
 import logger from '../logging/logger'
 import { LazyScheduler } from './lazy-scheduler'
+import { QueuedMatchmakingPlayer } from './matchmaker-queue'
 import { isNewPlayer, MatchmakingInterval, MatchmakingPlayer } from './matchmaking-player'
+import { calcEffectiveRating } from './team-rating'
 
 /** How often to run the matchmaker 'find match' process. */
 export const MATCHMAKING_INTERVAL_MS = 6 * 1000
@@ -96,16 +98,6 @@ type MatchedTeams = [
   teamB: Array<Readonly<QueuedMatchmakingPlayer>>,
 ]
 
-// TODO: Share this code with rating change calculation code?
-function calcEffectiveRating(team: ReadonlyArray<Readonly<QueuedMatchmakingPlayer>>): number {
-  // Calculate the root mean square of the team's ratings. Using this formula means that players
-  // with higher rating effectively count for more in the output, so a [2500 + 500] team has a
-  // higher effective rating than a [1500 + 1500] team.
-  const sum = team.reduce((sum, player) => sum + player.rating * player.rating, 0)
-  // TODO(tec27): Determine what the proper exponent is for this from win/loss data
-  return Math.pow(sum / team.length, 1 / 2)
-}
-
 function findOptimalTeams(
   teamSize: number,
   player: Readonly<QueuedMatchmakingPlayer>,
@@ -113,15 +105,19 @@ function findOptimalTeams(
   // available on non-readonly arrays)
   selections: Array<Readonly<QueuedMatchmakingPlayer>>,
 ): MatchedTeams {
+  if (teamSize !== 2) {
+    // TODO(tec27): Rework for 3v3. This is incredibly simple for 2v2 (it's simply the matching
+    // player + each of the other players vs whatever is leftover), not so much with more players on
+    // each team.
+    throw new Error('Team optimization is not yet implemented for team sizes > 2')
+  }
+
   if (!selections.length) {
     throw new Error('selections must not be empty')
   }
 
   // Find all the different permutations of teams, select the one that minimizes the difference
   // between the two teams' effective ratings.
-  // TODO(tec27): Rework for 3v3. This is incredibly simple for 2v2 (it's simply the matching
-  // player + each of the other players vs whatever is leftover), not so much with more players on
-  // each team.
   let bestTeams: MatchedTeams
   let lowestRatingDiff = Infinity
   for (let i = 0; i < selections.length; i++) {
@@ -228,14 +224,6 @@ export type OnMatchFoundFunc = (
   teamA: ReadonlyArray<Readonly<MatchmakingPlayer>>,
   teamB: ReadonlyArray<Readonly<MatchmakingPlayer>>,
 ) => void
-
-/**
- * A MatchmakingPlayer that has had its matchmaking data filled out by the Matchmaker.
- */
-export interface QueuedMatchmakingPlayer extends MatchmakingPlayer {
-  startingInterval: MatchmakingInterval
-  maxInterval: MatchmakingInterval
-}
 
 /**
  * A function that chooses a teammates/opponents for `player` among a pool of potential players.

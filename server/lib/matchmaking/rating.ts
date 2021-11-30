@@ -1,6 +1,8 @@
 import { ReconciledPlayerResult, ReconciledResult } from '../../../common/games/results'
+import { SbUserId } from '../../../common/users/user-info'
 import { NEW_PLAYER_GAME_COUNT } from './constants'
 import { MatchmakingRating, MatchmakingRatingChange } from './models'
+import { calcEffectiveRating } from './team-rating'
 
 /**
  * Calculates a `MatchmakingRatingChange` for each user in a game. This function expects that every
@@ -12,37 +14,104 @@ import { MatchmakingRating, MatchmakingRatingChange } from './models'
  *   not disputed results)
  * @param mmrs the current matchmaking rating info for the user, prior to playing the game
  */
-export function calculateChangedRatings(
-  gameId: string,
-  gameDate: Date,
-  results: Map<number, ReconciledPlayerResult>,
-  mmrs: MatchmakingRating[],
-): Map<number, MatchmakingRatingChange> {
-  if (results.size !== 2) {
-    throw new Error('Team MMR not implemented yet')
-  }
+export function calculateChangedRatings({
+  gameId,
+  gameDate,
+  results,
+  mmrs,
+  teams,
+}: {
+  gameId: string
+  gameDate: Date
+  results: Map<SbUserId, ReconciledPlayerResult>
+  mmrs: MatchmakingRating[]
+  teams: [teamA: SbUserId[], teamB: SbUserId[]]
+  // TODO(tec27): Pass in party information as well
+}): Map<SbUserId, MatchmakingRatingChange> {
+  const result = new Map<SbUserId, MatchmakingRatingChange>()
 
-  const result = new Map<number, MatchmakingRatingChange>()
-  result.set(
-    mmrs[0].userId,
-    makeRatingChange(gameId, gameDate, mmrs[0], mmrs[1], results.get(mmrs[0].userId)!.result),
-  )
-  result.set(
-    mmrs[1].userId,
-    makeRatingChange(gameId, gameDate, mmrs[1], mmrs[0], results.get(mmrs[1].userId)!.result),
-  )
+  if (results.size === 2) {
+    // 1v1
+    result.set(
+      mmrs[0].userId,
+      makeRatingChange({
+        gameId,
+        gameDate,
+        player: mmrs[0],
+        opponentRating: mmrs[1].rating,
+        result: results.get(mmrs[0].userId)!.result,
+      }),
+    )
+    result.set(
+      mmrs[1].userId,
+      makeRatingChange({
+        gameId,
+        gameDate,
+        player: mmrs[1],
+        opponentRating: mmrs[0].rating,
+        result: results.get(mmrs[1].userId)!.result,
+      }),
+    )
+  } else {
+    // Teams
+    const [teamA, teamB] = teams
+    const mmrById = mmrs.reduce((result, mmr) => {
+      result.set(mmr.userId, mmr)
+      return result
+    }, new Map<SbUserId, MatchmakingRating>())
+
+    const teamARatings = teamA.map(userId => mmrById.get(userId)!)
+    const teamAEffective = calcEffectiveRating(teamARatings)
+
+    const teamBRatings = teamB.map(userId => mmrById.get(userId)!)
+    const teamBEffective = calcEffectiveRating(teamBRatings)
+
+    // All players on team A get their rating adjusted based on the effective rating of team B
+    for (const player of teamARatings) {
+      result.set(
+        player.userId,
+        makeRatingChange({
+          gameId,
+          gameDate,
+          player,
+          opponentRating: teamBEffective,
+          result: results.get(player.userId)!.result,
+        }),
+      )
+    }
+
+    // All players on team B get their rating adjusted based on the effective rating of team A
+    for (const player of teamBRatings) {
+      result.set(
+        player.userId,
+        makeRatingChange({
+          gameId,
+          gameDate,
+          player,
+          opponentRating: teamAEffective,
+          result: results.get(player.userId)!.result,
+        }),
+      )
+    }
+  }
 
   return result
 }
 
-function makeRatingChange(
-  gameId: string,
-  gameDate: Date,
-  player: MatchmakingRating,
-  opponent: MatchmakingRating,
-  result: ReconciledResult,
-): MatchmakingRatingChange {
-  const ratingDiff = opponent.rating - player.rating
+function makeRatingChange({
+  gameId,
+  gameDate,
+  player,
+  opponentRating,
+  result,
+}: {
+  gameId: string
+  gameDate: Date
+  player: MatchmakingRating
+  opponentRating: number
+  result: ReconciledResult
+}): MatchmakingRatingChange {
+  const ratingDiff = opponentRating - player.rating
   const p = 1 / (1 + Math.pow(10, ratingDiff / 400))
   const outcome = result === 'win' ? 1 : 0
 

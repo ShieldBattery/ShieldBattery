@@ -1,7 +1,8 @@
 /* eslint-disable jest/no-commented-out-tests */
 import { mockRandomForEach } from 'jest-mock-random'
 import { makeSbUserId } from '../../../common/users/user-info'
-import { DEFAULT_MATCH_CHOOSER, initializePlayer, QueuedMatchmakingPlayer } from './matchmaker'
+import { DEFAULT_MATCH_CHOOSER, initializePlayer } from './matchmaker'
+import { QueuedMatchmakingPlayer } from './matchmaker-queue'
 
 let curUserId = 1
 
