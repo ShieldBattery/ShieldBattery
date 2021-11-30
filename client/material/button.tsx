@@ -228,6 +228,15 @@ export function useButtonState({
   ]
 }
 
+const IconContainer = styled.div`
+  width: auto;
+  height: 100%;
+  display: flex;
+  align-items: center;
+
+  margin-right: 8px;
+`
+
 interface RaisedButtonStyleProps {
   $color: 'primary' | 'accent'
 }
@@ -271,11 +280,17 @@ const RaisedButtonRoot = styled.button<RaisedButtonStyleProps>`
       background-color: rgba(255, 255, 255, 0.08);
     }
   }
+
+  & ${IconContainer} {
+    margin-left: -4px;
+  }
 `
 
 export interface RaisedButtonProps {
   color?: 'primary' | 'accent'
   label: string | React.ReactNode
+  /** An optional icon to place at the starting edge of the button. */
+  iconStart?: React.ReactNode
   className?: string
   disabled?: boolean
   onBlur?: React.FocusEventHandler
@@ -298,6 +313,7 @@ export const RaisedButton = React.forwardRef(
     {
       color = 'primary',
       label,
+      iconStart,
       className,
       disabled,
       onBlur,
@@ -331,7 +347,10 @@ export const RaisedButton = React.forwardRef(
         type={type ?? 'button'}
         name={name}
         {...buttonProps}>
-        <Label>{label}</Label>
+        <Label>
+          {iconStart ? <IconContainer>{iconStart}</IconContainer> : null}
+          {label}
+        </Label>
         <Ripple ref={rippleRef} disabled={disabled} />
       </RaisedButtonRoot>
     )
@@ -384,15 +403,6 @@ const TextButtonRoot = styled.button<TextButtonStyleProps>`
   &:disabled {
     color: ${colorTextFaint};
   }
-`
-
-const IconContainer = styled.div`
-  width: auto;
-  height: 100%;
-  display: flex;
-  align-items: center;
-
-  margin-right: 8px;
 `
 
 export interface TextButtonProps {

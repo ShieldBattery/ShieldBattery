@@ -12,7 +12,7 @@ import RefreshIcon from '../icons/material/ic_refresh_black_24px.svg'
 import { RaceIcon } from '../lobbies/race-icon'
 import { batchGetMapInfo } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { TextButton, useButtonState } from '../material/button'
+import { RaisedButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import Card from '../material/card'
 import { Ripple } from '../material/ripple'
@@ -54,8 +54,8 @@ const TabArea = styled.div`
 
 const ButtonBar = styled.div`
   width: 100%;
+  margin: 8px 0;
   padding: 0 24px;
-  margin-bottom: 24px;
 
   display: flex;
 
@@ -269,7 +269,7 @@ export function ConnectedGameResultsPage({
       <ButtonBar>
         {/* TODO(tec27): Search again, watch replay, etc. */}
         <ButtonSpacer />
-        <TextButton label='Refresh' iconStart={<RefreshIcon />} onClick={triggerRefresh} />
+        <RaisedButton label='Refresh' iconStart={<RefreshIcon />} onClick={triggerRefresh} />
       </ButtonBar>
       <HeaderArea>
         <Headline3>{headline}</Headline3>
