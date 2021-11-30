@@ -189,6 +189,7 @@ export function ConnectedGameListEntry({
 const GamePreviewRoot = styled.div`
   width: 276px;
   flex-grow: 0;
+  flex-shrink: 0;
 
   display: flex;
   flex-direction: column;
