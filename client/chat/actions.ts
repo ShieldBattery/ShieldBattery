@@ -1,5 +1,4 @@
 import {
-  ChatEvent,
   ChatInitEvent,
   ChatJoinEvent,
   ChatLeaveEvent,
