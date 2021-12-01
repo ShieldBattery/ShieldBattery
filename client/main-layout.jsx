@@ -29,6 +29,7 @@ import ReplaysIcon from './icons/material/ic_movie_black_36px.svg'
 import MapsIcon from './icons/material/ic_terrain_black_36px.svg'
 import SettingsIcon from './icons/material/settings_black_24px.svg'
 import FindMatchIcon from './icons/shieldbattery/ic_satellite_dish_black_36px.svg'
+import { navigateToLadder } from './ladder/action-creators'
 import { LadderTitle } from './ladder/app-bar-title'
 import { Ladder } from './ladder/ladder'
 import LobbyTitle from './lobbies/app-bar-title'
@@ -42,7 +43,7 @@ import { IconButton } from './material/button'
 import ConnectedLeftNav from './navigation/connected-left-nav'
 import { ConditionalRoute } from './navigation/custom-routes'
 import Index from './navigation/index'
-import { push, replace } from './navigation/routing'
+import { replace } from './navigation/routing'
 import { addLocalNotification } from './notifications/action-creators'
 import { NotificationsButton } from './notifications/activity-bar-entry'
 import NotificationPopups from './notifications/notifications-popup'
@@ -323,7 +324,9 @@ class MainLayout extends React.Component {
               />
               <Route path='/chat' component={ChatList} />
               <Route path='/chat/:channel' component={ChatChannel} />
-              <Route path='/ladder/:rest*' component={Ladder} />
+              <Route path='/ladder/:matchmakingType?'>
+                {params => <Ladder matchmakingType={params.matchmakingType} />}
+              </Route>
               <Route path='/games/:gameId/:subPage?'>
                 {params => (
                   <ConnectedGameResultsPage gameId={params.gameId} subPage={params.subPage} />
@@ -472,7 +475,7 @@ class MainLayout extends React.Component {
   }
 
   onLadderClick = () => {
-    push('/ladder')
+    navigateToLadder()
   }
 }
 

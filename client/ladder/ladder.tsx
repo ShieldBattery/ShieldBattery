@@ -13,6 +13,7 @@ import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
 import { shadow4dp } from '../material/shadows'
+import { TabItem, Tabs } from '../material/tabs'
 import { navigateToUserProfile } from '../profile/action-creators'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -27,22 +28,47 @@ import {
 } from '../styles/colors'
 import { overline, subtitle1, subtitle2 } from '../styles/typography'
 import { timeAgo } from '../time/time-ago'
-import { getRankings } from './action-creators'
+import { getRankings, navigateToLadder } from './action-creators'
 
 const LadderPage = styled.div`
   width: 100%;
   height: 100%;
+
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 `
+
+// NOTE(tec27): Using a container here instead of styling directly because styling it results in
+// TS not being able to figure out the generic param, so it doesn't like our tab change handler
+const TabsContainer = styled.div`
+  width: 100%;
+  max-width: 832px;
+  flex-shrink: 0;
+`
+
+const Content = styled.div`
+  width: 100%;
+  flex-grow: 1;
+  flex-shrink: 1;
+  overflow: hidden;
+`
+
+export interface LadderProps {
+  matchmakingType?: MatchmakingType
+}
 
 /**
  * Displays a ranked table of players on the ladder(s).
  */
-export function Ladder() {
-  // TODO(tec27): Support more matchmaking types via the route and/or tabs or something?
-  const matchmakingType = MatchmakingType.Match1v1
+export function Ladder({ matchmakingType = MatchmakingType.Match1v1 }: LadderProps) {
   const dispatch = useAppDispatch()
   const rankings = useAppSelector(s => s.ladder.typeToRankings.get(matchmakingType))
   const usersById = useAppSelector(s => s.users.byId)
+
+  const onTabChange = useCallback((tab: MatchmakingType) => {
+    navigateToLadder(tab)
+  }, [])
 
   useEffect(() => {
     dispatch(getRankings(matchmakingType))
@@ -54,14 +80,22 @@ export function Ladder() {
 
   return (
     <LadderPage>
-      <LadderTable
-        totalCount={rankings.totalCount}
-        players={rankings.players}
-        usersById={usersById}
-        isLoading={rankings.isLoading}
-        lastError={rankings.lastError}
-        curTime={Number(rankings.fetchTime)}
-      />
+      <TabsContainer>
+        <Tabs bottomDivider={true} activeTab={matchmakingType} onChange={onTabChange}>
+          <TabItem text='1 vs 1' value={MatchmakingType.Match1v1} />
+          <TabItem text='2 vs 2' value={MatchmakingType.Match2v2} />
+        </Tabs>
+      </TabsContainer>
+      <Content>
+        <LadderTable
+          totalCount={rankings.totalCount}
+          players={rankings.players}
+          usersById={usersById}
+          isLoading={rankings.isLoading}
+          lastError={rankings.lastError}
+          curTime={Number(rankings.fetchTime)}
+        />
+      </Content>
     </LadderPage>
   )
 }
@@ -81,7 +115,7 @@ const Table = styled(FixedSizeList)`
   width: 100%;
   height: auto;
   max-width: 800px;
-  margin: 24px 16px;
+  margin: 16px 16px;
 `
 
 const RowContainer = styled.button<{ $isEven: boolean }>`
