@@ -80,7 +80,7 @@ export interface ChatInitEvent {
   action: 'init2'
   /** A list of IDs of active user that are in the chat channel. */
   activeUserIds: SbUserId[]
-  /** The channel permissions for the user that is initializing the channel. */
+  /** The channel permissions for the current user that is initializing the channel. */
   permissions: ChannelPermissions
 }
 

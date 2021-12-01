@@ -172,8 +172,9 @@ export class ChatApi {
     )
   }
 
-  // Leaving the old API with a dummy payload in order to not break the auto-update functionality
-  // for old clients.
+  /**
+   * @deprecated This API was last used in version 7.1.5. Use `/:channelName/users2` instead.
+   */
   @httpGet('/:channelName/users')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
   async getChannelUsersOld(ctx: RouterContext) {

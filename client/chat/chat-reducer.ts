@@ -75,7 +75,8 @@ function updateMessages(
 
 export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   ['@chat/initChannel'](state, action) {
-    const { channel: channelName, activeUserIds, permissions } = action.payload
+    const { activeUserIds, permissions } = action.payload
+    const { channel: channelName } = action.meta
     const lowerCaseChannelName = channelName.toLowerCase()
 
     const channelUsers: UsersState = {
@@ -109,7 +110,8 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/updateJoin'](state, action) {
-    const { channel: channelName, user, message } = action.payload
+    const { user, message } = action.payload
+    const { channel: channelName } = action.meta
     const lowerCaseChannelName = channelName.toLowerCase()
 
     const channel = state.byName.get(lowerCaseChannelName)
@@ -124,7 +126,8 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/updateLeave'](state, action) {
-    const { channel: channelName, userId, newOwnerId } = action.payload
+    const { userId, newOwnerId } = action.payload
+    const { channel: channelName } = action.meta
     const lowerCaseChannelName = channelName.toLowerCase()
 
     const channel = state.byName.get(lowerCaseChannelName)
@@ -160,7 +163,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/updateLeaveSelf'](state, action) {
-    const { channel: channelName } = action.payload
+    const { channel: channelName } = action.meta
     const lowerCaseChannelName = channelName.toLowerCase()
 
     state.channels.delete(channelName)
@@ -168,14 +171,16 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/updateMessage'](state, action) {
-    const newMessage = action.payload.message
-    const lowerCaseChannelName = newMessage.channel.toLowerCase()
+    const { message: newMessage } = action.payload
+    const { channel: channelName } = action.meta
+    const lowerCaseChannelName = channelName.toLowerCase()
 
     updateMessages(state, lowerCaseChannelName, true, m => m.concat(newMessage))
   },
 
   ['@chat/updateUserActive'](state, action) {
-    const { channel: channelName, userId } = action.payload
+    const { userId } = action.payload
+    const { channel: channelName } = action.meta
     const lowerCaseChannelName = channelName.toLowerCase()
 
     const channel = state.byName.get(lowerCaseChannelName)
@@ -189,7 +194,8 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/updateUserIdle'](state, action) {
-    const { channel: channelName, userId } = action.payload
+    const { userId } = action.payload
+    const { channel: channelName } = action.meta
     const lowerCaseChannelName = channelName.toLowerCase()
 
     const channel = state.byName.get(lowerCaseChannelName)
@@ -203,7 +209,8 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/updateUserOffline'](state, action) {
-    const { channel: channelName, userId } = action.payload
+    const { userId } = action.payload
+    const { channel: channelName } = action.meta
     const lowerCaseChannelName = channelName.toLowerCase()
 
     const channel = state.byName.get(lowerCaseChannelName)

@@ -13,6 +13,7 @@ import { push } from '../navigation/routing'
 import { ConnectedUserProfileOverlay } from '../profile/user-profile-overlay'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { RootState } from '../root-reducer'
 import { usePrevious } from '../state-hooks'
 import {
   alphaDisabled,
@@ -127,6 +128,26 @@ const UserListName = styled.span`
   display: inline-block;
 `
 
+const LoadingUserListEntryItem = styled(UserListEntryItem)`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+`
+
+const LoadingAvatar = styled.div`
+  width: 32px;
+  height: 32px;
+  margin-right: 16px;
+  border: 1px solid ${colorTextFaint};
+  border-radius: 50%;
+`
+
+const LoadingName = styled.div`
+  width: 64px;
+  height: 24px;
+  background-color: ${colorTextFaint};
+`
+
 interface UserListEntryProps {
   userId: SbUserId
   faded?: boolean
@@ -147,7 +168,14 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
 
   const user = useAppSelector(s => s.users.byId.get(props.userId))
   if (!user) {
-    return <span>[Unknown user]</span>
+    return (
+      <div style={props.style}>
+        <LoadingUserListEntryItem key={'entry'}>
+          <LoadingAvatar />
+          <LoadingName />
+        </LoadingUserListEntryItem>
+      </div>
+    )
   }
 
   return (
@@ -179,15 +207,13 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
 })
 
 interface UserListProps {
-  users: {
-    active: SbUserId[]
-    idle: SbUserId[]
-    offline: SbUserId[]
-  }
+  active: SbUserId[]
+  idle: SbUserId[]
+  offline: SbUserId[]
 }
 
 const UserList = React.memo((props: UserListProps) => {
-  const { active, idle, offline } = props.users
+  const { active, idle, offline } = props
   const [dimensionsRef, containerRect] = useObservedDimensions()
   const listRef = useRef<VariableSizeList | null>(null)
 
@@ -341,6 +367,59 @@ function renderMessage(msg: Message) {
   }
 }
 
+type UserEntries = [userId: SbUserId, username: string | undefined][]
+
+function userEntriesSelector(userIds: ReadonlySet<SbUserId> | undefined) {
+  return (state: RootState) => {
+    const userEntries: UserEntries = []
+    if (!userIds) {
+      return []
+    }
+
+    for (const userId of Array.from(userIds.values()).sort((a, b) => a - b)) {
+      const username = state.users.byId.get(userId)?.name
+      if (username) {
+        userEntries.push([userId, username])
+      }
+    }
+
+    return userEntries
+  }
+}
+
+function didUserEntryChange(a: UserEntries, b: UserEntries) {
+  if (a.length !== b.length) {
+    return false
+  }
+
+  for (let i = 0; i < a.length; i++) {
+    const [aId, aName] = a[i]
+    const [bId, bName] = b[i]
+    if (aId !== bId || aName !== bName) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function sortUsers(userEntries: UserEntries) {
+  return userEntries
+    .sort(([aId, aName], [bId, bName]) => {
+      // We put any user that still hasn't loaded at the bottom of the list
+      if (!aName && !bName) {
+        return 0
+      } else if (!aName) {
+        return 1
+      } else if (!bName) {
+        return -1
+      }
+
+      return aName.localeCompare(bName)
+    })
+    .map(([userId]) => userId)
+}
+
 interface ChatChannelProps {
   params: { channel: string }
 }
@@ -349,24 +428,14 @@ export default function Channel(props: ChatChannelProps) {
   const channelName = decodeURIComponent(props.params.channel).toLowerCase()
   const dispatch = useAppDispatch()
   const channel = useAppSelector(s => s.chat.byName.get(channelName))
-  const channelUsers = channel?.users
+  const activeUserIds = channel?.users.active
+  const idleUserIds = channel?.users.idle
+  const offlineUserIds = channel?.users.offline
   // We map the user IDs to their usernames so we can sort them by their name without pulling all of
   // the users from the store and depending on any of their changes.
-  const userIdToUsername = useAppSelector(s => {
-    const idToUsername: Map<SbUserId, string> = new Map()
-    const userIds: Set<SbUserId> = channelUsers
-      ? new Set([...channelUsers.active, ...channelUsers.idle, ...channelUsers.offline])
-      : new Set()
-
-    for (const userId of userIds) {
-      const username = s.users.byId.get(userId)?.name
-      if (username) {
-        idToUsername.set(userId, username)
-      }
-    }
-
-    return idToUsername
-  })
+  const activeUserEntries = useAppSelector(userEntriesSelector(activeUserIds), didUserEntryChange)
+  const idleUserEntries = useAppSelector(userEntriesSelector(idleUserIds), didUserEntryChange)
+  const offlineUserEntries = useAppSelector(userEntriesSelector(offlineUserIds), didUserEntryChange)
 
   const prevChannelName = usePrevious(channelName)
   const prevChannel = usePrevious(channel)
@@ -405,36 +474,9 @@ export default function Channel(props: ChatChannelProps) {
     [dispatch, channelName],
   )
 
-  const sortedUsers = useMemo(() => {
-    if (!channelUsers) {
-      return {
-        active: [],
-        idle: [],
-        offline: [],
-      }
-    }
-
-    const sortUsers = (a: SbUserId, b: SbUserId) => {
-      const usernameA = userIdToUsername.get(a)
-      const usernameB = userIdToUsername.get(b)
-
-      // We put any user that still hasn't loaded at the bottom of the list
-      if (!usernameA) {
-        return 1
-      }
-      if (!usernameB) {
-        return -1
-      }
-
-      return usernameA.localeCompare(usernameB)
-    }
-
-    return {
-      active: Array.from(channelUsers.active.values()).sort(sortUsers),
-      idle: Array.from(channelUsers.idle.values()).sort(sortUsers),
-      offline: Array.from(channelUsers.offline.values()).sort(sortUsers),
-    }
-  }, [channelUsers, userIdToUsername])
+  const sortedActiveUsers = useMemo(() => sortUsers(activeUserEntries), [activeUserEntries])
+  const sortedIdleUsers = useMemo(() => sortUsers(idleUserEntries), [idleUserEntries])
+  const sortedOfflineUsers = useMemo(() => sortUsers(offlineUserEntries), [offlineUserEntries])
 
   if (!channel) {
     return (
@@ -459,7 +501,7 @@ export default function Channel(props: ChatChannelProps) {
   return (
     <Container>
       <StyledChat listProps={listProps} inputProps={inputProps} />
-      <UserList users={sortedUsers} />
+      <UserList active={sortedActiveUsers} idle={sortedIdleUsers} offline={sortedOfflineUsers} />
     </Container>
   )
 }

@@ -36,7 +36,7 @@ function convertUserChannelEntryFromDb(props: DbUserChannelEntry): UserChannelEn
  * Gets a user channel entry for each channel that a particular user is in, ordered by their channel
  * join date.
  */
-export async function getUserChannels(userId: SbUserId): Promise<UserChannelEntry[]> {
+export async function getChannelsForUser(userId: SbUserId): Promise<UserChannelEntry[]> {
   const { client, done } = await db()
   try {
     const result = await client.query<DbUserChannelEntry>(sql`
@@ -52,17 +52,16 @@ export async function getUserChannels(userId: SbUserId): Promise<UserChannelEntr
 }
 
 /**
- * Gets a user channel entry for each user in a particular channel, ordered by their channel join
- * date.
+ * Gets a user info for each user in a particular channel. We don't order the users here since
+ * they're re-sorted alphabetically on the client anyway.
  */
-export async function getChannelUsers(channelName: string): Promise<SbUser[]> {
+export async function getUsersForChannel(channelName: string): Promise<SbUser[]> {
   const { client, done } = await db()
   try {
     const result = await client.query<Dbify<SbUser>>(sql`
       SELECT u.id, u.name
       FROM channel_users as c INNER JOIN users as u ON c.user_id = u.id
-      WHERE c.channel_name = ${channelName}
-      ORDER BY c.join_date;
+      WHERE c.channel_name = ${channelName};
     `)
     return result.rows
   } finally {
@@ -73,7 +72,7 @@ export async function getChannelUsers(channelName: string): Promise<SbUser[]> {
 /**
  * Gets a user channel entry for a particular user in a particular channel.
  */
-export async function getJoinedChannelForUser(
+export async function getChannelUserEntryForUser(
   userId: SbUserId,
   channelName: string,
 ): Promise<UserChannelEntry | null> {
@@ -265,11 +264,11 @@ export async function leaveChannel(
   channelName: string,
 ): Promise<LeaveChannelResult> {
   return transact(async function (client) {
-    const joinedChannelResult = await client.query<DbUserChannelEntry>(sql`
+    const channelUserResult = await client.query<DbUserChannelEntry>(sql`
       DELETE FROM channel_users
       WHERE user_id = ${userId} AND channel_name = ${channelName}
       RETURNING *`)
-    if (joinedChannelResult.rowCount < 1) {
+    if (channelUserResult.rowCount < 1) {
       throw new Error('No rows returned')
     }
 
@@ -284,7 +283,7 @@ export async function leaveChannel(
       return { newOwnerId: null }
     }
 
-    if (!joinedChannelResult.rows[0].owner) {
+    if (!channelUserResult.rows[0].owner) {
       // The leaving user was not the owner, so there's no reason to transfer ownership to anyone
       return { newOwnerId: null }
     }

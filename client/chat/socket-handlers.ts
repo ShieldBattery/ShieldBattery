@@ -16,22 +16,16 @@ const eventToAction: EventToActionMap = {
   init2(channel, event) {
     return {
       type: '@chat/initChannel',
-      payload: {
-        channel,
-        activeUserIds: event.activeUserIds,
-        permissions: event.permissions,
-      },
+      payload: event,
+      meta: { channel },
     }
   },
 
   join2(channel, event) {
     return {
       type: '@chat/updateJoin',
-      payload: {
-        channel,
-        user: event.user,
-        message: event.message,
-      },
+      payload: event,
+      meta: { channel },
     }
   },
 
@@ -41,18 +35,13 @@ const eventToAction: EventToActionMap = {
       // It was us who left the channel
       dispatch({
         type: '@chat/updateLeaveSelf',
-        payload: {
-          channel,
-        },
+        meta: { channel },
       })
     } else {
       dispatch({
         type: '@chat/updateLeave',
-        payload: {
-          channel,
-          userId: event.userId,
-          newOwnerId: event.newOwnerId,
-        },
+        payload: event,
+        meta: { channel },
       })
     }
   },
@@ -70,10 +59,8 @@ const eventToAction: EventToActionMap = {
 
       dispatch({
         type: '@chat/updateMessage',
-        payload: {
-          channel,
-          ...event,
-        },
+        payload: event,
+        meta: { channel },
       })
     }
   },
@@ -81,30 +68,24 @@ const eventToAction: EventToActionMap = {
   userActive2(channel, event) {
     return {
       type: '@chat/updateUserActive',
-      payload: {
-        channel,
-        userId: event.userId,
-      },
+      payload: event,
+      meta: { channel },
     }
   },
 
   userIdle2(channel, event) {
     return {
       type: '@chat/updateUserIdle',
-      payload: {
-        channel,
-        userId: event.userId,
-      },
+      payload: event,
+      meta: { channel },
     }
   },
 
   userOffline2(channel, event) {
     return {
       type: '@chat/updateUserOffline',
-      payload: {
-        channel,
-        userId: event.userId,
-      },
+      payload: event,
+      meta: { channel },
     }
   },
 }

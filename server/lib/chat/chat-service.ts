@@ -3,6 +3,7 @@ import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   ChannelModerationAction,
+  ChannelPermissions,
   ChatEvent,
   ChatInitEvent,
   GetChannelHistoryServerPayload,
@@ -22,13 +23,12 @@ import {
   addUserToChannel,
   banUserFromChannel,
   findChannel,
-  getChannelUsers,
-  getJoinedChannelForUser,
+  getChannelsForUser,
+  getChannelUserEntryForUser,
   getMessagesForChannel,
-  getUserChannels,
+  getUsersForChannel,
   isUserBannedFromChannel,
   leaveChannel,
-  UserChannelEntry,
 } from './chat-models'
 
 class ChatState extends Record({
@@ -143,7 +143,7 @@ export default class ChatService {
       // is allowed in some cases (e.g. during account creation)
       const userSockets = this.userSocketsManager.getById(userId)
       if (userSockets) {
-        this.subscribeUserToChannel(userSockets, result)
+        this.subscribeUserToChannel(userSockets, result.channelName, result.channelPermissions)
       }
     })
   }
@@ -186,8 +186,8 @@ export default class ChatService {
   ): Promise<void> {
     const [moderatorPermissions, moderatorUserChannel, targetUserChannel] = await Promise.all([
       getPermissions(moderatorId),
-      getJoinedChannelForUser(moderatorId, channelName),
-      getJoinedChannelForUser(targetId, channelName),
+      getChannelUserEntryForUser(moderatorId, channelName),
+      getChannelUserEntryForUser(targetId, channelName),
     ])
 
     if (!moderatorUserChannel) {
@@ -394,7 +394,7 @@ export default class ChatService {
       )
     }
 
-    return getChannelUsers(originalChannelName)
+    return getUsersForChannel(originalChannelName)
   }
 
   async getOriginalChannelName(channelName: string): Promise<string> {
@@ -414,11 +414,15 @@ export default class ChatService {
     return userSockets
   }
 
-  private subscribeUserToChannel(userSockets: UserSocketsGroup, userChannel: UserChannelEntry) {
-    userSockets.subscribe<ChatInitEvent>(getChannelPath(userChannel.channelName), () => ({
+  private subscribeUserToChannel(
+    userSockets: UserSocketsGroup,
+    channelName: string,
+    channelPermissions: ChannelPermissions,
+  ) {
+    userSockets.subscribe<ChatInitEvent>(getChannelPath(channelName), () => ({
       action: 'init2',
-      activeUserIds: this.state.channels.get(userChannel.channelName)!.toArray(),
-      permissions: userChannel.channelPermissions,
+      activeUserIds: this.state.channels.get(channelName)!.toArray(),
+      permissions: channelPermissions,
     }))
   }
 
@@ -443,7 +447,7 @@ export default class ChatService {
   }
 
   private async handleNewUser(userSockets: UserSocketsGroup) {
-    const userChannels = await getUserChannels(userSockets.userId)
+    const userChannels = await getChannelsForUser(userSockets.userId)
     if (!userSockets.sockets.size) {
       // The user disconnected while we were waiting for their channel list
       return
@@ -461,7 +465,11 @@ export default class ChatService {
         action: 'userActive2',
         userId: userSockets.userId,
       })
-      this.subscribeUserToChannel(userSockets, userChannel)
+      this.subscribeUserToChannel(
+        userSockets,
+        userChannel.channelName,
+        userChannel.channelPermissions,
+      )
     }
     userSockets.subscribe(`${userSockets.getPath()}/chat`, () => ({ type: 'chatReady' }))
   }
