@@ -2,7 +2,6 @@ import { ReconciledPlayerResult, ReconciledResult } from '../../../common/games/
 import { SbUserId } from '../../../common/users/user-info'
 import { NEW_PLAYER_GAME_COUNT } from './constants'
 import { MatchmakingRating, MatchmakingRatingChange } from './models'
-import { calcEffectiveRating } from './team-rating'
 
 /**
  * Calculates a `MatchmakingRatingChange` for each user in a game. This function expects that every
@@ -61,10 +60,10 @@ export function calculateChangedRatings({
     }, new Map<SbUserId, MatchmakingRating>())
 
     const teamARatings = teamA.map(userId => mmrById.get(userId)!)
-    const teamAEffective = calcEffectiveRating(teamARatings)
+    const teamAEffective = calcTeamRating(teamARatings)
 
     const teamBRatings = teamB.map(userId => mmrById.get(userId)!)
-    const teamBEffective = calcEffectiveRating(teamBRatings)
+    const teamBEffective = calcTeamRating(teamBRatings)
 
     // All players on team A get their rating adjusted based on the effective rating of team B
     for (const player of teamARatings) {
@@ -96,6 +95,16 @@ export function calculateChangedRatings({
   }
 
   return result
+}
+
+/**
+ * Calculates the rating for a team as a whole, to be used as the "opponent" in team matches. Note
+ * that this differs from the effective rating using during matchmaking because we want to ensure
+ * that rating inflation doesn't occur.
+ */
+function calcTeamRating(ratings: ReadonlyArray<MatchmakingRating>): number {
+  const sum = ratings.reduce((sum, rating) => sum + rating.rating, 0)
+  return sum / ratings.length
 }
 
 function makeRatingChange({

@@ -706,10 +706,22 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
   })
 
   test('2v2 - evenly matched new players', () => {
-    const player1 = createMatchmakingRating({ userId: 1 })
-    const player2 = createMatchmakingRating({ userId: 2 })
-    const opponent1 = createMatchmakingRating({ userId: 3 })
-    const opponent2 = createMatchmakingRating({ userId: 4 })
+    const player1 = createMatchmakingRating({
+      userId: 1,
+      matchmakingType: MatchmakingType.Match2v2,
+    })
+    const player2 = createMatchmakingRating({
+      userId: 2,
+      matchmakingType: MatchmakingType.Match2v2,
+    })
+    const opponent1 = createMatchmakingRating({
+      userId: 3,
+      matchmakingType: MatchmakingType.Match2v2,
+    })
+    const opponent2 = createMatchmakingRating({
+      userId: 4,
+      matchmakingType: MatchmakingType.Match2v2,
+    })
     const results = new Map([
       [player1.userId, WIN],
       [player2.userId, WIN],
@@ -738,7 +750,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "win",
         "probability": 0.5,
         "rating": 1520,
@@ -755,7 +767,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "win",
         "probability": 0.5,
         "rating": 1520,
@@ -772,7 +784,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "loss",
         "probability": 0.5,
         "rating": 1480,
@@ -789,7 +801,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "loss",
         "probability": 0.5,
         "rating": 1480,
@@ -803,10 +815,26 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
   })
 
   test('2v2 - better new players win', () => {
-    const player1 = createMatchmakingRating({ userId: 1, rating: 1800 })
-    const player2 = createMatchmakingRating({ userId: 2, rating: 1600 })
-    const opponent1 = createMatchmakingRating({ userId: 3, rating: 1400 })
-    const opponent2 = createMatchmakingRating({ userId: 4, rating: 1300 })
+    const player1 = createMatchmakingRating({
+      userId: 1,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1800,
+    })
+    const player2 = createMatchmakingRating({
+      userId: 2,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1600,
+    })
+    const opponent1 = createMatchmakingRating({
+      userId: 3,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1400,
+    })
+    const opponent2 = createMatchmakingRating({
+      userId: 4,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1300,
+    })
     const results = new Map([
       [player1.userId, WIN],
       [player2.userId, WIN],
@@ -835,13 +863,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "win",
-        "probability": 0.9298951590492744,
-        "rating": 1802.8041936380291,
-        "ratingChange": 2.804193638029119,
-        "uncertainty": 197.19580636197097,
-        "uncertaintyChange": -2.8041936380290338,
+        "probability": 0.9302417126410938,
+        "rating": 1802.7903314943562,
+        "ratingChange": 2.7903314943562236,
+        "uncertainty": 197.20966850564375,
+        "uncertaintyChange": -2.790331494356252,
         "unexpectedStreak": 0,
         "userId": 1,
       }
@@ -852,13 +880,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "win",
-        "probability": 0.8074907587437063,
-        "rating": 1607.7003696502518,
-        "ratingChange": 7.700369650251787,
-        "uncertainty": 192.29963034974824,
-        "uncertaintyChange": -7.7003696502517585,
+        "probability": 0.8083176725494586,
+        "rating": 1607.6672930980217,
+        "ratingChange": 7.667293098021673,
+        "uncertainty": 192.33270690197836,
+        "uncertaintyChange": -7.667293098021645,
         "unexpectedStreak": 0,
         "userId": 2,
       }
@@ -869,13 +897,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "loss",
-        "probability": 0.14882394314935965,
-        "rating": 1394.0470422740257,
-        "ratingChange": -5.952957725974329,
-        "uncertainty": 194.0470422740256,
-        "uncertaintyChange": -5.952957725974386,
+        "probability": 0.15097955721132328,
+        "rating": 1393.9608177115472,
+        "ratingChange": -6.039182288452821,
+        "uncertainty": 193.96081771154707,
+        "uncertaintyChange": -6.039182288452935,
         "unexpectedStreak": 0,
         "userId": 3,
       }
@@ -886,13 +914,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "loss",
-        "probability": 0.08952070290729923,
-        "rating": 1296.419171883708,
-        "ratingChange": -3.5808281162919684,
-        "uncertainty": 196.41917188370803,
-        "uncertaintyChange": -3.5808281162919684,
+        "probability": 0.09090909090909091,
+        "rating": 1296.3636363636363,
+        "ratingChange": -3.6363636363637397,
+        "uncertainty": 196.36363636363637,
+        "uncertaintyChange": -3.636363636363626,
         "unexpectedStreak": 0,
         "userId": 4,
       }
@@ -900,10 +928,26 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
   })
 
   test('2v2 - better new players lose', () => {
-    const player1 = createMatchmakingRating({ userId: 1, rating: 1800 })
-    const player2 = createMatchmakingRating({ userId: 2, rating: 1600 })
-    const opponent1 = createMatchmakingRating({ userId: 3, rating: 1400 })
-    const opponent2 = createMatchmakingRating({ userId: 4, rating: 1300 })
+    const player1 = createMatchmakingRating({
+      userId: 1,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1800,
+    })
+    const player2 = createMatchmakingRating({
+      userId: 2,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1600,
+    })
+    const opponent1 = createMatchmakingRating({
+      userId: 3,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1400,
+    })
+    const opponent2 = createMatchmakingRating({
+      userId: 4,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1300,
+    })
     const results = new Map([
       [player1.userId, LOSS],
       [player2.userId, LOSS],
@@ -932,13 +976,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "loss",
-        "probability": 0.9298951590492744,
-        "rating": 1762.8041936380291,
-        "ratingChange": -37.19580636197088,
-        "uncertainty": 237.195806361971,
-        "uncertaintyChange": 37.195806361970995,
+        "probability": 0.9302417126410938,
+        "rating": 1762.7903314943562,
+        "ratingChange": -37.209668505643776,
+        "uncertainty": 237.20966850564375,
+        "uncertaintyChange": 37.20966850564375,
         "unexpectedStreak": 1,
         "userId": 1,
       }
@@ -949,13 +993,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "loss",
-        "probability": 0.8074907587437063,
-        "rating": 1567.7003696502518,
-        "ratingChange": -32.29963034974821,
-        "uncertainty": 232.29963034974827,
-        "uncertaintyChange": 32.29963034974827,
+        "probability": 0.8083176725494586,
+        "rating": 1567.6672930980217,
+        "ratingChange": -32.33270690197833,
+        "uncertainty": 232.33270690197836,
+        "uncertaintyChange": 32.332706901978355,
         "unexpectedStreak": 1,
         "userId": 2,
       }
@@ -966,13 +1010,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "win",
-        "probability": 0.14882394314935965,
-        "rating": 1434.0470422740257,
-        "ratingChange": 34.04704227402567,
-        "uncertainty": 234.0470422740256,
-        "uncertaintyChange": 34.047042274025614,
+        "probability": 0.15097955721132328,
+        "rating": 1433.960817711547,
+        "ratingChange": 33.96081771154695,
+        "uncertainty": 233.96081771154707,
+        "uncertaintyChange": 33.960817711547065,
         "unexpectedStreak": 1,
         "userId": 3,
       }
@@ -983,13 +1027,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "win",
-        "probability": 0.08952070290729923,
-        "rating": 1336.419171883708,
-        "ratingChange": 36.41917188370803,
-        "uncertainty": 236.41917188370803,
-        "uncertaintyChange": 36.41917188370803,
+        "probability": 0.09090909090909091,
+        "rating": 1336.3636363636363,
+        "ratingChange": 36.36363636363626,
+        "uncertainty": 236.36363636363637,
+        "uncertaintyChange": 36.363636363636374,
         "unexpectedStreak": 1,
         "userId": 4,
       }
@@ -997,10 +1041,26 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
   })
 
   test('2v2 - evenly matched veteran players', () => {
-    const player1 = createMatchmakingRating({ userId: 1, numGamesPlayed: 30 })
-    const player2 = createMatchmakingRating({ userId: 2, numGamesPlayed: 35 })
-    const opponent1 = createMatchmakingRating({ userId: 3, numGamesPlayed: 25 })
-    const opponent2 = createMatchmakingRating({ userId: 4, numGamesPlayed: 40 })
+    const player1 = createMatchmakingRating({
+      userId: 1,
+      matchmakingType: MatchmakingType.Match2v2,
+      numGamesPlayed: 30,
+    })
+    const player2 = createMatchmakingRating({
+      userId: 2,
+      matchmakingType: MatchmakingType.Match2v2,
+      numGamesPlayed: 35,
+    })
+    const opponent1 = createMatchmakingRating({
+      userId: 3,
+      matchmakingType: MatchmakingType.Match2v2,
+      numGamesPlayed: 25,
+    })
+    const opponent2 = createMatchmakingRating({
+      userId: 4,
+      matchmakingType: MatchmakingType.Match2v2,
+      numGamesPlayed: 40,
+    })
     const results = new Map([
       [player1.userId, WIN],
       [player2.userId, WIN],
@@ -1029,7 +1089,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 39.5,
         "kFactorChange": -0.5,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "win",
         "probability": 0.5,
         "rating": 1520,
@@ -1046,7 +1106,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 39.5,
         "kFactorChange": -0.5,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "win",
         "probability": 0.5,
         "rating": 1520,
@@ -1063,7 +1123,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "loss",
         "probability": 0.5,
         "rating": 1480,
@@ -1080,7 +1140,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "loss",
         "probability": 0.5,
         "rating": 1480,
@@ -1094,10 +1154,26 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
   })
 
   test('2v2 - mixed upper/lower ratings', () => {
-    const player1 = createMatchmakingRating({ userId: 1, rating: 1800 })
-    const player2 = createMatchmakingRating({ userId: 2, rating: 1300 })
-    const opponent1 = createMatchmakingRating({ userId: 3, rating: 1450 })
-    const opponent2 = createMatchmakingRating({ userId: 4, rating: 1550 })
+    const player1 = createMatchmakingRating({
+      userId: 1,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1800,
+    })
+    const player2 = createMatchmakingRating({
+      userId: 2,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1300,
+    })
+    const opponent1 = createMatchmakingRating({
+      userId: 3,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1450,
+    })
+    const opponent2 = createMatchmakingRating({
+      userId: 4,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1550,
+    })
     const results = new Map([
       [player1.userId, WIN],
       [player2.userId, WIN],
@@ -1126,13 +1202,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "win",
-        "probability": 0.8484046751539909,
-        "rating": 1806.0638129938404,
-        "ratingChange": 6.063812993840429,
-        "uncertainty": 193.93618700615963,
-        "uncertaintyChange": -6.063812993840372,
+        "probability": 0.8490204427886767,
+        "rating": 1806.0391822884528,
+        "ratingChange": 6.039182288452821,
+        "uncertainty": 193.96081771154707,
+        "uncertaintyChange": -6.039182288452935,
         "unexpectedStreak": 0,
         "userId": 1,
       }
@@ -1143,13 +1219,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "win",
-        "probability": 0.23937879387419578,
-        "rating": 1330.424848245032,
-        "ratingChange": 30.42484824503208,
-        "uncertainty": 230.42484824503217,
-        "uncertaintyChange": 30.424848245032166,
+        "probability": 0.2402530733520421,
+        "rating": 1330.3898770659184,
+        "ratingChange": 30.389877065918427,
+        "uncertainty": 230.3898770659183,
+        "uncertaintyChange": 30.389877065918313,
         "unexpectedStreak": 1,
         "userId": 2,
       }
@@ -1160,13 +1236,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "loss",
-        "probability": 0.33381980560653496,
-        "rating": 1436.6472077757387,
-        "ratingChange": -13.352792224261293,
-        "uncertainty": 186.6472077757386,
-        "uncertaintyChange": -13.352792224261407,
+        "probability": 0.35993500019711494,
+        "rating": 1435.6025999921153,
+        "ratingChange": -14.397400007884698,
+        "uncertainty": 185.60259999211542,
+        "uncertaintyChange": -14.397400007884585,
         "unexpectedStreak": 0,
         "userId": 3,
       }
@@ -1177,24 +1253,40 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "loss",
-        "probability": 0.4712037566392997,
-        "rating": 1531.151849734428,
-        "ratingChange": -18.84815026557203,
-        "uncertainty": 181.15184973442803,
-        "uncertaintyChange": -18.848150265571974,
-        "unexpectedStreak": 0,
+        "probability": 0.5,
+        "rating": 1530,
+        "ratingChange": -20,
+        "uncertainty": 220,
+        "uncertaintyChange": 20,
+        "unexpectedStreak": 1,
         "userId": 4,
       }
     `)
   })
 
   test('2v2 - mixed upper/lower ratings, highest loses', () => {
-    const player1 = createMatchmakingRating({ userId: 1, rating: 1800 })
-    const player2 = createMatchmakingRating({ userId: 2, rating: 1300 })
-    const opponent1 = createMatchmakingRating({ userId: 3, rating: 1450 })
-    const opponent2 = createMatchmakingRating({ userId: 4, rating: 1550 })
+    const player1 = createMatchmakingRating({
+      userId: 1,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1800,
+    })
+    const player2 = createMatchmakingRating({
+      userId: 2,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1300,
+    })
+    const opponent1 = createMatchmakingRating({
+      userId: 3,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1450,
+    })
+    const opponent2 = createMatchmakingRating({
+      userId: 4,
+      matchmakingType: MatchmakingType.Match2v2,
+      rating: 1550,
+    })
     const results = new Map([
       [player1.userId, LOSS],
       [player2.userId, LOSS],
@@ -1223,13 +1315,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "loss",
-        "probability": 0.8484046751539909,
-        "rating": 1766.0638129938404,
-        "ratingChange": -33.93618700615957,
-        "uncertainty": 233.93618700615963,
-        "uncertaintyChange": 33.93618700615963,
+        "probability": 0.8490204427886767,
+        "rating": 1766.039182288453,
+        "ratingChange": -33.96081771154695,
+        "uncertainty": 233.96081771154707,
+        "uncertaintyChange": 33.960817711547065,
         "unexpectedStreak": 1,
         "userId": 1,
       }
@@ -1240,13 +1332,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "loss",
-        "probability": 0.23937879387419578,
-        "rating": 1290.424848245032,
-        "ratingChange": -9.57515175496792,
-        "uncertainty": 190.42484824503217,
-        "uncertaintyChange": -9.575151754967834,
+        "probability": 0.2402530733520421,
+        "rating": 1290.3898770659184,
+        "ratingChange": -9.610122934081573,
+        "uncertainty": 190.3898770659183,
+        "uncertaintyChange": -9.610122934081687,
         "unexpectedStreak": 0,
         "userId": 2,
       }
@@ -1257,13 +1349,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "win",
-        "probability": 0.33381980560653496,
-        "rating": 1476.6472077757387,
-        "ratingChange": 26.647207775738707,
-        "uncertainty": 226.6472077757386,
-        "uncertaintyChange": 26.647207775738593,
+        "probability": 0.35993500019711494,
+        "rating": 1475.6025999921153,
+        "ratingChange": 25.6025999921153,
+        "uncertainty": 225.60259999211542,
+        "uncertaintyChange": 25.602599992115415,
         "unexpectedStreak": 1,
         "userId": 3,
       }
@@ -1274,14 +1366,14 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
-        "matchmakingType": "1v1",
+        "matchmakingType": "2v2",
         "outcome": "win",
-        "probability": 0.4712037566392997,
-        "rating": 1571.151849734428,
-        "ratingChange": 21.15184973442797,
-        "uncertainty": 221.15184973442803,
-        "uncertaintyChange": 21.151849734428026,
-        "unexpectedStreak": 1,
+        "probability": 0.5,
+        "rating": 1570,
+        "ratingChange": 20,
+        "uncertainty": 180,
+        "uncertaintyChange": -20,
+        "unexpectedStreak": 0,
         "userId": 4,
       }
     `)
