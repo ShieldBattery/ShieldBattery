@@ -212,25 +212,36 @@ async function pickMap(
   // TODO(tec27): Handle parties in 2v2: only the leader's selections should be used
 
   // The algorithm for selecting maps is:
-  // 1) All players' map selections are treated as vetoes, and removed from the available map pool
+  // 1) All players' map selections are treated as vetoes, and removed from the available map pool.
+  //    We also track how many times each map was vetoed.
   // 2a) If any maps are remaining, select a random map from the remaining ones
-  // 2b) If no maps are remaining, select a random map from the entire pool
+  // 2b) If no maps are remaining, select a random map from the least vetoed maps
 
   const fullMapPool = new Set(currentMapPool.maps)
+  const vetoCount = new Map<string, number>()
   let mapPool = fullMapPool
   for (const p of players) {
     mapPool = subtract(mapPool, p.mapSelections)
-    if (!mapPool.size) {
-      break
+    for (const map of p.mapSelections) {
+      vetoCount.set(map, (vetoCount.get(map) ?? 0) + 1)
     }
   }
 
-  // TODO(tec27): For really small map pools, it might be nice to track how many times each map
-  // was vetoed, and if the whole pool is vetoed, randomly select the maps that were least vetoed
-  // overall
   if (!mapPool.size) {
-    // All available maps were vetoed, select from the whole pool
-    mapPool = fullMapPool
+    // All available maps were vetoed, create a final pool from the least vetoed maps
+    // NOTE(tec27): We know since the whole pool was vetoed, each map in the pool will have an entry
+    // here, even though we didn't initialize the Map directly
+    const sortedByVetoCount = Array.from(vetoCount.entries()).sort((a, b) => a[1] - b[1])
+    const leastVetoCount = sortedByVetoCount[0][1]
+    let lastElem = 1
+    while (
+      lastElem < sortedByVetoCount.length &&
+      sortedByVetoCount[lastElem][1] <= leastVetoCount
+    ) {
+      lastElem += 1
+    }
+
+    mapPool = new Set(sortedByVetoCount.slice(0, lastElem).map(e => e[0]))
   }
 
   const chosenMapId = randomItem(Array.from(mapPool))
