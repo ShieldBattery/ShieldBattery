@@ -518,9 +518,23 @@ const PlayerResultContainer = styled.button`
   }
 `
 
-const StyledRaceIcon = styled(RaceIcon)`
-  width: 24px;
+const RaceRoot = styled.div`
+  position: relative;
+  width: auto;
   height: 24px;
+`
+
+const StyledRaceIcon = styled(RaceIcon)`
+  width: auto;
+  height: 100%;
+`
+
+const SelectedRandomIcon = styled(RaceIcon)`
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: auto;
+  height: 12px;
 `
 
 const PlayerName = styled.div`
@@ -560,7 +574,10 @@ export function PlayerResult({ className, config, result }: PlayerResultProps) {
 
   return (
     <PlayerResultContainer className={className} {...buttonProps}>
-      <StyledRaceIcon race={result?.race ?? config.race} />
+      <RaceRoot>
+        <StyledRaceIcon race={result?.race ?? config.race} />
+        {result?.race && config.race === 'r' ? <SelectedRandomIcon race='r' /> : null}
+      </RaceRoot>
       <PlayerName>{config.isComputer ? 'Computer' : user?.name ?? ''}</PlayerName>
       <PlayerApm>{result?.apm ?? 0} APM</PlayerApm>
       <StyledGameResultText result={result?.result ?? 'unknown'} />
