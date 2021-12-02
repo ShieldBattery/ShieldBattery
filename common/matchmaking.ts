@@ -1,3 +1,4 @@
+import { assertUnreachable } from './assert-unreachable'
 import { GameRoute } from './game-launch-config'
 import { Jsonify } from './json'
 import { Slot } from './lobbies/slot'
@@ -14,6 +15,17 @@ export enum MatchmakingType {
 }
 
 export const ALL_MATCHMAKING_TYPES: ReadonlyArray<MatchmakingType> = Object.values(MatchmakingType)
+
+export function matchmakingTypeToLabel(type: MatchmakingType): string {
+  switch (type) {
+    case MatchmakingType.Match1v1:
+      return '1 vs 1'
+    case MatchmakingType.Match2v2:
+      return '2 vs 2'
+    default:
+      return assertUnreachable(type)
+  }
+}
 
 /**
  * A Record of MatchmakingType -> the size of a team within a match.

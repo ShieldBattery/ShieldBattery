@@ -3,12 +3,18 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameRecordJson } from '../../common/games/games'
-import { MatchmakingType } from '../../common/matchmaking'
+import { LadderPlayer } from '../../common/ladder'
+import {
+  ALL_MATCHMAKING_TYPES,
+  MatchmakingType,
+  matchmakingTypeToLabel,
+} from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { SbUser, SbUserId, UserProfile } from '../../common/users/user-info'
 import Avatar from '../avatars/avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import { RaceIcon } from '../lobbies/race-icon'
+import { shadow2dp } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { goToIndex } from '../navigation/action-creators'
 import { replace } from '../navigation/routing'
@@ -18,19 +24,20 @@ import {
   amberA400,
   backgroundSaturatedDark,
   backgroundSaturatedLight,
-  blue400,
+  colorDividers,
   colorTextFaint,
-  colorTextInvert,
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors'
 import {
   caption,
   headline3,
+  headline4,
   headline6,
   overline,
   singleLine,
   subtitle1,
+  subtitle2,
   Subtitle2,
 } from '../styles/typography'
 import {
@@ -221,50 +228,19 @@ const Username = styled.div`
   color: ${amberA400};
 `
 
-const RankInfo = styled.div`
-  display: flex;
-  flex-direction: column;
-`
-
-const RankInfoEntry = styled.div`
-  display: flex;
-  align-items: center;
-
-  & + & {
-    margin-top: 12px;
-  }
-`
-
-const RankLabel = styled.div`
-  ${overline};
-  ${singleLine};
-
-  width: 112px;
-  margin-right: 12px;
-  display: inline-block;
-
-  color: ${colorTextSecondary};
-  line-height: 28px;
-  text-align: right;
-`
-
-const RankValue = styled.div<{ $background: 'accent' | 'primary' }>`
-  ${subtitle1};
-  height: 28px;
-  padding: 0 12px;
-  display: inline-block;
-
-  background-color: ${props => (props.$background === 'accent' ? amberA400 : blue400)};
-  border-radius: 4px;
-  color: ${props => (props.$background === 'accent' ? colorTextInvert : colorTextPrimary)};
-  line-height: 28px;
-`
-
 const SectionOverline = styled.div`
   ${overline};
   ${singleLine};
   color: ${colorTextFaint};
   margin: 12px 24px;
+`
+
+const RankedSection = styled.div`
+  padding: 0 24px;
+  margin-bottom: 48px;
+
+  display: flex;
+  align-items: center;
 `
 
 const TotalGamesSection = styled.div`
@@ -304,9 +280,7 @@ function SummaryPage({
 }) {
   // TODO(tec27): Build the title feature :)
   const title = 'Novice'
-  const ladder1v1 = profile.ladder[MatchmakingType.Match1v1]
 
-  // TODO(tec27): Include random stats
   const stats = profile.userStats
   const pStats: RaceStats = {
     race: 'p',
@@ -327,6 +301,8 @@ function SummaryPage({
     (a, b) => b.wins + b.losses - (a.wins + a.losses),
   )
 
+  const hasAnyRanks = !!Object.keys(profile.ladder).length
+
   return (
     <>
       <TopSection>
@@ -337,19 +313,22 @@ function SummaryPage({
           <Username>{user.name}</Username>
           <Subtitle2>{title}</Subtitle2>
         </UsernameAndTitle>
-        <RankInfo>
-          <RankInfoEntry>
-            <RankLabel>Current MMR</RankLabel>
-            <RankValue $background='accent'>
-              {ladder1v1 ? Math.round(ladder1v1.rating) : 'N/A'}
-            </RankValue>
-          </RankInfoEntry>
-          <RankInfoEntry>
-            <RankLabel>Current Rank</RankLabel>
-            <RankValue $background='primary'>{ladder1v1?.rank ?? 'N/A'}</RankValue>
-          </RankInfoEntry>
-        </RankInfo>
       </TopSection>
+
+      {hasAnyRanks && (
+        <>
+          <RankedSection>
+            {ALL_MATCHMAKING_TYPES.map(matchmakingType =>
+              profile.ladder[matchmakingType] ? (
+                <RankDisplay
+                  matchmakingType={matchmakingType}
+                  ladderPlayer={profile.ladder[matchmakingType]!}
+                />
+              ) : null,
+            )}
+          </RankedSection>
+        </>
+      )}
 
       <SectionOverline>Total games</SectionOverline>
       <TotalGamesSection>
@@ -381,6 +360,103 @@ function ComingSoonPage() {
     <ComingSoonRoot>
       <ComingSoon />
     </ComingSoonRoot>
+  )
+}
+
+const RankDisplayRoot = styled.div`
+  position: relative;
+  width: 172px;
+
+  text-align: center;
+
+  & + & {
+    margin-left: 24px;
+  }
+`
+
+const RankDisplayTypePositioner = styled.div`
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+`
+
+const RankDisplayType = styled.div`
+  ${subtitle2};
+  ${singleLine};
+  ${shadow2dp};
+  display: inline-block;
+  padding: 0 16px;
+
+  background-color: ${backgroundSaturatedLight};
+  border: 2px solid ${colorDividers};
+  border-radius: 12px;
+  color: ${colorTextSecondary};
+`
+
+const RankDisplayInfo = styled.div`
+  width: 100%;
+  margin-top: 14px;
+  padding: 24px 8px 8px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  background-color: ${backgroundSaturatedDark};
+  border: 2px solid ${colorDividers};
+  border-radius: 2px;
+`
+
+const RankDisplayRank = styled.div`
+  ${headline4};
+  ${singleLine};
+`
+
+const RankDisplayPrefix = styled.span`
+  ${subtitle1};
+`
+
+const RankDisplayRating = styled.div`
+  ${subtitle1};
+  ${singleLine};
+  margin-top: 4px;
+
+  color: ${colorTextSecondary};
+`
+
+const RankWinLoss = styled.div`
+  ${subtitle1};
+  ${singleLine};
+  margin-top: 4px;
+
+  color: ${colorTextSecondary};
+`
+
+function RankDisplay({
+  matchmakingType,
+  ladderPlayer,
+}: {
+  matchmakingType: MatchmakingType
+  ladderPlayer: LadderPlayer
+}) {
+  return (
+    <RankDisplayRoot>
+      <RankDisplayTypePositioner>
+        <RankDisplayType>{matchmakingTypeToLabel(matchmakingType)}</RankDisplayType>
+      </RankDisplayTypePositioner>
+      <RankDisplayInfo>
+        <RankDisplayRank>
+          <RankDisplayPrefix>#</RankDisplayPrefix>
+          {ladderPlayer.rank}
+        </RankDisplayRank>
+        <RankDisplayRating>{Math.round(ladderPlayer.rating)} MMR</RankDisplayRating>
+        <RankWinLoss>
+          {ladderPlayer.wins} &ndash; {ladderPlayer.losses}
+        </RankWinLoss>
+      </RankDisplayInfo>
+    </RankDisplayRoot>
   )
 }
 

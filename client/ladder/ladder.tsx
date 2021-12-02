@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { areEqual, FixedSizeList } from 'react-window'
 import styled from 'styled-components'
 import { LadderPlayer } from '../../common/ladder'
-import { MatchmakingType } from '../../common/matchmaking'
+import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmaking'
 import { SbUser, SbUserId } from '../../common/users/user-info'
 import Avatar from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
@@ -82,8 +82,14 @@ export function Ladder({ matchmakingType = MatchmakingType.Match1v1 }: LadderPro
     <LadderPage>
       <TabsContainer>
         <Tabs bottomDivider={true} activeTab={matchmakingType} onChange={onTabChange}>
-          <TabItem text='1 vs 1' value={MatchmakingType.Match1v1} />
-          <TabItem text='2 vs 2' value={MatchmakingType.Match2v2} />
+          <TabItem
+            text={matchmakingTypeToLabel(MatchmakingType.Match1v1)}
+            value={MatchmakingType.Match1v1}
+          />
+          <TabItem
+            text={matchmakingTypeToLabel(MatchmakingType.Match2v2)}
+            value={MatchmakingType.Match2v2}
+          />
         </Tabs>
       </TabsContainer>
       <Content>
