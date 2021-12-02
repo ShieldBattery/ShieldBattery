@@ -164,8 +164,13 @@ pub struct GameThreadResults {
     // Index by ingame player id
     pub victory_state: [u8; 8],
     pub race: [u8; 8],
-    // Index by storm id
-    pub player_has_left: [bool; 8],
+    /// player id -> alliance state for other player id
+    /// 0 = unallied, 1 = allied, 2 = allied with allied victory
+    pub alliances: [[u8; 8]; 8],
+    /// Index by storm id, says whether a player was dropped (booted for checksum mismatch, lag)
+    pub player_was_dropped: [bool; 8],
+    /// Index by storm id, says whether a player left voluntarily
+    pub player_has_quit: [bool; 8],
     pub player_lose_type: Option<PlayerLoseType>,
     pub time_ms: u32,
 }
@@ -184,10 +189,17 @@ unsafe fn game_results() -> GameThreadResults {
             }
             arr
         },
-        player_has_left: {
+        player_was_dropped: {
             let mut arr = [false; 8];
             for i in 0..8 {
                 arr[i] = (*game).player_has_left[i] != 0;
+            }
+            arr
+        },
+        player_has_quit: {
+            let mut arr = [false; 8];
+            for (i, flag) in bw.storm_player_flags().iter().enumerate().take(8) {
+                arr[i] = *flag == 0
             }
             arr
         },
@@ -195,6 +207,13 @@ unsafe fn game_results() -> GameThreadResults {
             1 => Some(PlayerLoseType::UnknownChecksumMismatch),
             2 => Some(PlayerLoseType::UnknownDisconnect),
             _ => None,
+        },
+        alliances: {
+            let mut arr = [[0; 8]; 8];
+            for i in 0..8 {
+                arr[i].clone_from_slice(&(*game).alliances[i][0..8]);
+            }
+            arr
         },
         // Assuming fastest speed
         time_ms: (*game).frame_count.saturating_mul(42),

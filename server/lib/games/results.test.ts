@@ -360,4 +360,61 @@ describe('games/results/reconcileResults', () => {
       2: { result: 'loss', race: 'z', apm: 30 },
     })
   })
+
+  // NOTE(tec27): I dunno that this is actually different from other test cases here but it directly
+  // maps to real results from a game played locally
+  test('2v2 with allied victory, player leaving earlier still gets a win', () => {
+    const results = [
+      {
+        reporter: 7,
+        time: 7,
+        playerResults: [
+          makePlayerResult(7, GameClientResult.Disconnected, 't', 20),
+          makePlayerResult(8, GameClientResult.Playing, 'z', 20),
+          makePlayerResult(5, GameClientResult.Playing, 'z', 20),
+          makePlayerResult(1, GameClientResult.Playing, 'p', 20),
+        ],
+      },
+      {
+        reporter: 8,
+        time: 50,
+        playerResults: [
+          makePlayerResult(5, GameClientResult.Playing, 'z', 30),
+          makePlayerResult(1, GameClientResult.Playing, 'p', 30),
+          makePlayerResult(8, GameClientResult.Disconnected, 'z', 30),
+          makePlayerResult(7, GameClientResult.Disconnected, 't', 30),
+        ],
+      },
+      {
+        reporter: 5,
+        time: 60,
+        playerResults: [
+          makePlayerResult(7, GameClientResult.Disconnected, 't', 40),
+          makePlayerResult(1, GameClientResult.Playing, 'p', 40),
+          makePlayerResult(8, GameClientResult.Disconnected, 'z', 40),
+          makePlayerResult(5, GameClientResult.Disconnected, 'z', 40),
+        ],
+      },
+      {
+        reporter: 1,
+        time: 70,
+        playerResults: [
+          makePlayerResult(7, GameClientResult.Defeat, 't', 50),
+          makePlayerResult(1, GameClientResult.Victory, 'p', 50),
+          makePlayerResult(8, GameClientResult.Victory, 'z', 50),
+          makePlayerResult(5, GameClientResult.Defeat, 'z', 50),
+        ],
+      },
+    ]
+
+    const reconciled = reconcileResults(results)
+
+    expect(reconciled.disputed).toBe(false)
+    evaluateResults(reconciled.results, {
+      1: { result: 'win', race: 'p', apm: 50 },
+      5: { result: 'loss', race: 'z', apm: 40 },
+      7: { result: 'loss', race: 't', apm: 20 },
+      8: { result: 'win', race: 'z', apm: 30 },
+    })
+  })
 })

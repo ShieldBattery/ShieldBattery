@@ -863,13 +863,13 @@ impl InitInProgress {
             .joined_players
             .iter()
             .find(|x| x.name == self.local_user.name)
-            .map(|x| x.storm_id.0)
+            .map(|x| x.storm_id.0 as usize)
             .unwrap_or_else(|| {
                 panic!(
                     "Local user ({}) was not in joined players? ({:?})",
                     self.local_user.name, self.joined_players,
                 );
-            }) as usize;
+            });
 
         for player in &self.joined_players {
             if let Some(player_id) = player.player_id {
@@ -879,13 +879,14 @@ impl InitInProgress {
                 }
 
                 let storm_id = player.storm_id.0 as usize;
+                debug!("{} has victory_state {}", storm_id, game_results.victory_state[player_id as usize]);
                 results[storm_id] = match game_results.victory_state[player_id as usize] {
                     1 => GameResult::Disconnected,
                     2 => GameResult::Defeat,
                     3 => GameResult::Victory,
                     _ => {
                         if storm_id == local_storm_id {
-                            GameResult::Defeat
+                            GameResult::Disconnected
                         } else {
                             GameResult::Playing
                         }
@@ -895,13 +896,27 @@ impl InitInProgress {
         }
 
         let lose_type = game_results.player_lose_type;
+        let is_ums = self.setup_info.game_type == "ums";
+        let has_victory = results.contains(&GameResult::Victory);
         for storm_id in 0..8 {
-            if game_results.player_has_left[storm_id] {
+            let dropped = game_results.player_was_dropped[storm_id];
+            let quit = game_results.player_has_quit[storm_id];
+
+            debug!("{} has player_was_dropped {}, player_has_quit {}", storm_id, dropped, quit);
+
+            if dropped {
                 results[storm_id] = if lose_type == Some(PlayerLoseType::UnknownDisconnect) {
+                    // Player was dropped because our client was in the wrong, so they're probably
+                    // still playing in the parallel universe game
                     GameResult::Playing
                 } else {
+                    // Player was actually dropped, so change their defeat -> disconnect
                     GameResult::Disconnected
                 };
+            } else if quit && !is_ums && !has_victory && results[storm_id] == GameResult::Defeat {
+                // Change Defeats -> Disconnects because we can't know the terminal result yet,
+                // allied victory could allow early leavers to have one
+                results[storm_id] = GameResult::Disconnected
             }
         }
         match lose_type {
@@ -912,6 +927,57 @@ impl InitInProgress {
                 results[local_storm_id] = GameResult::Playing;
             }
             None => (),
+        }
+
+        if !is_ums && has_victory {
+            // If someone has won and has the "allied victory" box checked, bring their allies along
+            // for the victory even if they disconnected. (Note that we don't do this for UMS games
+            // because it's assumed the UMS triggers manage their own victory state as they wish)
+            let mut to_process: Vec<usize> = vec![];
+
+            for player in &self.joined_players {
+                if let Some(player_id) = player.player_id {
+                    if player_id >= 8 {
+                        // This is an observer, skip
+                        continue;
+                    }
+                    let storm_id = player.storm_id.0 as usize;
+                    if results[storm_id] == GameResult::Victory {
+                        to_process.push(player_id as usize);
+                    }
+                }
+            }
+
+            while let Some(winner_player_id) = to_process.pop() {
+                let winner_alliances = game_results.alliances[winner_player_id];
+                debug!("processing player {}, alliances: {:?}", winner_player_id, winner_alliances);
+
+                for player in &self.joined_players {
+                    if let Some(player_id) = player.player_id {
+                        if player_id >= 8 {
+                            // This is an observer, skip
+                            continue;
+                        }
+
+                        let player_id = player_id as usize;
+                        if player_id == winner_player_id {
+                            // Don't need to worry about the player themselves
+                            continue;
+                        }
+
+                        let storm_id = player.storm_id.0 as usize;
+                        let allied_with_winner =
+                            game_results.alliances[player_id][winner_player_id] == 2;
+                        if allied_with_winner && winner_alliances[player_id] == 2
+                            && !matches!(results[storm_id], GameResult::Playing | GameResult::Victory) {
+                            results[storm_id] = GameResult::Victory;
+                            // Changing this player's result can mean that their allies now win, so
+                            // we need to process them as well
+                            to_process.push(player_id);
+                        }
+                    }
+                }
+            }
         }
 
         let results = self
