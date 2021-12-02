@@ -14,7 +14,7 @@ import audioManager, { AudioManager, AvailableSound } from '../audio/audio-manag
 import { closeDialog, openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { dispatch, Dispatchable } from '../dispatch-registry'
-import { replace } from '../navigation/routing'
+import { push, replace } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
 import { openSnackbar } from '../snackbars/action-creators'
 import { getCurrentMapPool } from './action-creators'
@@ -161,7 +161,7 @@ const eventToAction: EventToActionMap = {
       type: '@matchmaking/matchReady',
       payload: event,
     })
-    replace('/matchmaking/countdown')
+    push('/matchmaking/countdown')
 
     const {
       auth: { user },
