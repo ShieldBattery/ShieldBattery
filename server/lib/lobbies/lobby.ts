@@ -1,5 +1,5 @@
 import { List, Range } from 'immutable'
-import { GameType } from '../../../common/games/configuration'
+import { GameType, isTeamType } from '../../../common/games/configuration'
 import {
   canAddObservers,
   canRemoveObservers,
@@ -9,7 +9,6 @@ import {
   hasObservers,
   humanSlotCount,
   isInObserverTeam,
-  isTeamType,
   isUms,
   Lobby,
   MAX_OBSERVERS,
@@ -30,7 +29,7 @@ import {
   Slot,
   SlotType,
 } from '../../../common/lobbies/slot'
-import { MapForce, MapInfo } from '../../../common/maps'
+import { getTeamNames, MapForce, MapInfo, numTeams } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/user-info'
 
@@ -80,46 +79,6 @@ export function getSlotsPerTeam(
       return umsForces.map(f => f.players.length)
     default:
       throw new Error('Unknown game type: ' + gameType)
-  }
-}
-
-export function numTeams(gameType: GameType, gameSubType: number, umsForces: MapForce[]) {
-  switch (gameType) {
-    case 'melee':
-    case 'ffa':
-    case 'oneVOne':
-      return 1
-    case 'topVBottom':
-      return 2
-    case 'teamMelee':
-    case 'teamFfa':
-      return gameSubType
-    case 'ums':
-      return umsForces.length
-    default:
-      throw new Error('Unknown game type: ' + gameType)
-  }
-}
-
-export function getTeamNames(gameType: GameType, gameSubType: number, umsForces: MapForce[]) {
-  switch (gameType) {
-    case 'melee':
-    case 'ffa':
-    case 'oneVOne':
-      return []
-    case 'topVBottom':
-      return ['Top', 'Bottom']
-    case 'teamMelee':
-    case 'teamFfa':
-      const teamNames = []
-      for (let i = 1; i <= numTeams(gameType, gameSubType, umsForces); i++) {
-        teamNames.push('Team ' + i)
-      }
-      return teamNames
-    case 'ums':
-      return umsForces.map(f => f.name)
-    default:
-      throw new Error('Invalid game type: ' + gameType)
   }
 }
 

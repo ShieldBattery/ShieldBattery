@@ -3,13 +3,12 @@ import { List } from 'immutable'
 import React from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { gameTypeToLabel } from '../../common/games/configuration'
+import { gameTypeToLabel, isTeamType } from '../../common/games/configuration'
 import {
   canAddObservers,
   canRemoveObservers,
   findSlotByName,
   hasOpposingSides,
-  isTeamType,
   isUms,
   Team,
 } from '../../common/lobbies'

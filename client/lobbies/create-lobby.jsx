@@ -4,8 +4,12 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { LOBBY_NAME_MAXLENGTH } from '../../common/constants'
-import { ALL_GAME_TYPES, GameType, gameTypeToLabel } from '../../common/games/configuration'
-import { isTeamType } from '../../common/lobbies'
+import {
+  ALL_GAME_TYPES,
+  GameType,
+  gameTypeToLabel,
+  isTeamType,
+} from '../../common/games/configuration'
 import { closeOverlay, openOverlay } from '../activities/action-creators'
 import { DisabledCard, DisabledOverlay, DisabledText } from '../activities/disabled-content'
 import form from '../forms/form'

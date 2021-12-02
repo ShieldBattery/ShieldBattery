@@ -51,6 +51,32 @@ export function gameTypeToLabel(gameType: GameType): string {
   }
 }
 
+/**
+ * Checks if the given `gameType` is a "team" type, meaning that a user can select the configuration
+ * of the slots when creating a lobby, and the slots will be divided into different teams with
+ * labels.
+ */
+export function isTeamType(gameType: GameType): boolean {
+  switch (gameType) {
+    case GameType.Melee:
+      return false
+    case GameType.FreeForAll:
+      return false
+    case GameType.OneVsOne:
+      return false
+    case GameType.UseMapSettings:
+      return false
+    case GameType.TeamMelee:
+      return true
+    case GameType.TeamFreeForAll:
+      return true
+    case GameType.TopVsBottom:
+      return true
+    default:
+      return assertUnreachable(gameType)
+  }
+}
+
 export interface GameConfigPlayer {
   id: SbUserId
   race: RaceChar

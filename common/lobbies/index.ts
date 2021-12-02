@@ -1,6 +1,5 @@
 import { List, Record } from 'immutable'
-import { assertUnreachable } from '../assert-unreachable'
-import { GameType } from '../games/configuration'
+import { GameType, isTeamType } from '../games/configuration'
 import { MapInfo } from '../maps'
 import { Slot } from './slot'
 
@@ -176,33 +175,6 @@ export function openSlotCount(lobby: Lobby): number {
       openSlots + team.slots.count(slot => slot.type === 'open' || slot.type === 'controlledOpen'),
     0,
   )
-}
-
-/**
- * Checks if the given `gameType` is a "team" type, meaning that a user can select the configuration
- * of the slots when creating a lobby. It's also used to determine the `teamId` property of each
- * team/slot, as well as calculating if the lobby has opposing sides ("team" types have different
- * logic to do this compared to "non-team" types).
- */
-export function isTeamType(gameType: GameType): boolean {
-  switch (gameType) {
-    case GameType.Melee:
-      return false
-    case GameType.FreeForAll:
-      return false
-    case GameType.OneVsOne:
-      return false
-    case GameType.UseMapSettings:
-      return false
-    case GameType.TeamMelee:
-      return true
-    case GameType.TeamFreeForAll:
-      return true
-    case GameType.TopVsBottom:
-      return true
-    default:
-      return assertUnreachable(gameType)
-  }
 }
 
 /**

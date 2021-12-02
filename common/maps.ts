@@ -1,4 +1,6 @@
+import { Immutable } from 'immer'
 import { assertUnreachable } from './assert-unreachable'
+import { GameType } from './games/configuration'
 import { Jsonify } from './json'
 import { RaceChar } from './races'
 
@@ -138,6 +140,60 @@ export function toMapInfoJson(mapInfo: MapInfo): MapInfoJson {
   return {
     ...mapInfo,
     uploadDate: Number(mapInfo.uploadDate),
+  }
+}
+
+/** Returns the number of teams for a map/game type. */
+export function numTeams(
+  gameType: GameType,
+  gameSubType: number,
+  umsForces: Immutable<MapForce[]>,
+): number {
+  switch (gameType) {
+    case GameType.Melee:
+    case GameType.FreeForAll:
+    case GameType.OneVsOne:
+      return 1
+    case GameType.TopVsBottom:
+      return 2
+    case GameType.TeamMelee:
+    case GameType.TeamFreeForAll:
+      return gameSubType
+    case GameType.UseMapSettings:
+      return umsForces.length
+    default:
+      return assertUnreachable(gameType)
+  }
+}
+
+/**
+ * Returns a list of labels for each of the teams for a map/game type. List will be empty if there
+ * aren't any teams.
+ */
+export function getTeamNames(
+  gameType: GameType,
+  gameSubType: number,
+  umsForces: Immutable<MapForce[]>,
+): string[] {
+  switch (gameType) {
+    case GameType.Melee:
+    case GameType.FreeForAll:
+    case GameType.OneVsOne:
+      return []
+    case GameType.TopVsBottom:
+      return ['Top', 'Bottom']
+    case GameType.TeamMelee:
+    case GameType.TeamFreeForAll:
+      const teamNames = []
+      const amount = numTeams(gameType, gameSubType, umsForces)
+      for (let i = 1; i <= amount; i++) {
+        teamNames.push('Team ' + i)
+      }
+      return teamNames
+    case GameType.UseMapSettings:
+      return umsForces.map(f => f.name)
+    default:
+      return assertUnreachable(gameType)
   }
 }
 

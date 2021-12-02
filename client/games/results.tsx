@@ -2,9 +2,10 @@ import { Immutable } from 'immer'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { GameConfigPlayer } from '../../common/games/configuration'
+import { GameConfigPlayer, isTeamType } from '../../common/games/configuration'
 import { GameRecordJson, getGameTypeLabel } from '../../common/games/games'
 import { ReconciledPlayerResult, ReconciledResult } from '../../common/games/results'
+import { getTeamNames } from '../../common/maps'
 import { SbUserId } from '../../common/users/user-info'
 import { useSelfUser } from '../auth/state-hooks'
 import { ComingSoon } from '../coming-soon/coming-soon'
@@ -390,6 +391,19 @@ const PlayerListCard = styled(Card)`
   padding: 8px;
 `
 
+const TeamLabel = styled.div`
+  ${overline};
+  ${singleLine};
+
+  height: 24px;
+  line-height: 24px;
+  margin: 0 8px;
+
+  color: ${colorTextSecondary};
+`
+
+type ConfigAndResult = [config: GameConfigPlayer, result: ReconciledPlayerResult | undefined]
+
 function SummaryPage({
   gameId,
   game,
@@ -406,19 +420,28 @@ function SummaryPage({
   const mapId = game?.mapId
   const map = useAppSelector(s => (mapId ? s.maps2.byId.get(mapId) : undefined))
 
-  const configAndResults = useMemo(() => {
-    const result = new Map<
-      SbUserId,
-      [config: GameConfigPlayer, result: ReconciledPlayerResult | undefined]
-    >()
+  const [configAndResults, teamLabels] = useMemo((): [
+    Map<SbUserId | string, ConfigAndResult>,
+    string[],
+  ] => {
+    const result = new Map<SbUserId | string, ConfigAndResult>()
 
     if (!game) {
-      return result
+      return [result, []]
     }
 
-    for (const team of game.config.teams) {
-      for (const p of team) {
-        result.set(p.id, [p, undefined])
+    const teamLabels =
+      isTeamType(game.config.gameType) && map
+        ? getTeamNames(game.config.gameType, game.config.gameSubType, map.mapData.umsForces)
+        : []
+
+    for (let i = 0; i < game.config.teams.length; i++) {
+      const team = game.config.teams[i]
+      for (let j = 0; j < team.length; j++) {
+        const p = team[j]
+        // Computers annoyingly have no unique ID, so we create one here :(
+        const key = p.isComputer ? `${i}-${j}` : p.id
+        result.set(key, [p, undefined])
       }
     }
 
@@ -428,8 +451,8 @@ function SummaryPage({
       }
     }
 
-    return result
-  }, [game])
+    return [result, teamLabels]
+  }, [game, map])
 
   useEffect(() => {
     if (mapId) {
@@ -445,15 +468,29 @@ function SummaryPage({
     return <LoadingDotsArea />
   }
 
-  // TODO(tec27): Organize results by team and show team headers
+  const showTeams = isTeamType(game.config.gameType)
+  const playerListItems = game.config.teams.flatMap((team, i) => {
+    const elems = team.map((p, j) => {
+      const key = p.isComputer ? `${i}-${j}` : p.id
+      const [config, result] = configAndResults.get(key)!
+      return <PlayerResult key={String(key)} config={config} result={result} />
+    })
+
+    if (showTeams) {
+      elems.unshift(
+        <TeamLabel key={`team-${i}`}>
+          {teamLabels.length > i ? teamLabels[i] : 'Team ' + (i + 1)}
+        </TeamLabel>,
+      )
+    }
+
+    return elems
+  })
+
   return (
     <SummaryRoot $isLoading={isLoading}>
       <PlayerListContainer>
-        <PlayerListCard>
-          {Array.from(configAndResults.entries(), ([id, [config, result]]) => (
-            <PlayerResult key={String(id)} config={config} result={result} />
-          ))}
-        </PlayerListCard>
+        <PlayerListCard>{playerListItems}</PlayerListCard>
       </PlayerListContainer>
       <MapContainer>
         {map ? <StyledMapThumbnail map={map} size={MAP_SIZE} /> : null}
@@ -475,6 +512,10 @@ const PlayerResultContainer = styled.button`
   align-items: center;
   cursor: pointer;
   text-align: left;
+
+  & + ${TeamLabel} {
+    margin-top: 16px;
+  }
 `
 
 const StyledRaceIcon = styled(RaceIcon)`
