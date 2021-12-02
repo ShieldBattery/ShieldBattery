@@ -22,7 +22,13 @@ import { useRefreshToken } from '../network/refresh-token'
 import { navigateToUserProfile } from '../profile/action-creators'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { amberA200, colorNegative, colorPositive, colorTextSecondary } from '../styles/colors'
+import {
+  amberA200,
+  colorNegative,
+  colorPositive,
+  colorTextFaint,
+  colorTextSecondary,
+} from '../styles/colors'
 import {
   body1,
   body2,
@@ -54,7 +60,7 @@ const TabArea = styled.div`
 
 const ButtonBar = styled.div`
   width: 100%;
-  margin: 8px 0;
+  margin: 0 0 8px;
   padding: 0 24px;
 
   display: flex;
@@ -70,7 +76,7 @@ const ButtonSpacer = styled.div`
 
 const HeaderArea = styled.div`
   height: 72px;
-  margin: 0 0 48px;
+  margin: 8px 0;
   padding: 0 24px;
 
   display: flex;
@@ -99,7 +105,7 @@ const HeaderInfoItem = styled.div`
 const HeaderInfoLabel = styled.div`
   ${overline};
   ${singleLine};
-  width: 96px;
+  width: 88px;
   margin-right: 16px;
 
   // The all-caps variation used for overlines doesn't really align vertically between these fonts
@@ -120,6 +126,13 @@ const LiveIndicator = styled.div`
   ${singleLine};
 
   color: ${amberA200};
+`
+
+const FinalIndicator = styled.div`
+  ${body2};
+  ${singleLine};
+
+  color: ${colorTextFaint};
 `
 
 const gameDateFormat = new Intl.DateTimeFormat(navigator.language, {
@@ -266,11 +279,6 @@ export function ConnectedGameResultsPage({
 
   return (
     <Container>
-      <ButtonBar>
-        {/* TODO(tec27): Search again, watch replay, etc. */}
-        <ButtonSpacer />
-        <RaisedButton label='Refresh' iconStart={<RefreshIcon />} onClick={triggerRefresh} />
-      </ButtonBar>
       <HeaderArea>
         <Headline3>{headline}</Headline3>
         <HeaderInfo>
@@ -295,8 +303,17 @@ export function ConnectedGameResultsPage({
             </>
           ) : null}
         </HeaderInfo>
-        {!game?.results ? <LiveIndicator>Live</LiveIndicator> : <div></div>}
+        {!game?.results ? (
+          <LiveIndicator>Live</LiveIndicator>
+        ) : (
+          <FinalIndicator>Final</FinalIndicator>
+        )}
       </HeaderArea>
+      <ButtonBar>
+        {/* TODO(tec27): Search again, watch replay, etc. */}
+        <ButtonSpacer />
+        <RaisedButton label='Refresh' iconStart={<RefreshIcon />} onClick={triggerRefresh} />
+      </ButtonBar>
       <TabArea>
         <Tabs activeTab={subPage} onChange={onTabChange}>
           <TabItem value={ResultsSubPage.Summary} text='Summary' />
