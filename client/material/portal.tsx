@@ -52,19 +52,35 @@ export function Portal(props: PortalProps) {
     [onDismiss],
   )
 
+  // We don't use the capture/bubble trick for right-clicks since we want to show the context menu
+  // every time they happen, even if it's on the same element.
+  const onContextMenu = useCallback(
+    (event: MouseEvent) => {
+      if (onDismiss) {
+        if (!portalRef.current?.contains(event.target as Node)) {
+          markEventAsHandledDismissal(event)
+          onDismiss()
+        }
+      }
+    },
+    [onDismiss, portalRef],
+  )
+
   useEffect(() => {
     if (open) {
       document.addEventListener('click', onCaptureClick, true /* useCapture */)
       document.addEventListener('click', onBubbleClick)
+      document.addEventListener('contextmenu', onContextMenu, true /* useCapture */)
       return () => {
         document.removeEventListener('click', onCaptureClick, true /* useCapture */)
         document.removeEventListener('click', onBubbleClick)
+        document.removeEventListener('contextmenu', onContextMenu, true /* useCapture */)
       }
     }
 
     // makes the linter happy :)
     return undefined
-  }, [onCaptureClick, onBubbleClick, open])
+  }, [onCaptureClick, onBubbleClick, onContextMenu, open])
 
   return ReactDOM.createPortal(children, portalRef.current)
 }
