@@ -871,6 +871,8 @@ impl InitInProgress {
                 );
             });
 
+        let mut storm_to_player_id = [255 as usize; 8];
+        let mut player_to_storm_id = [255 as usize; 8];
         for player in &self.joined_players {
             if let Some(player_id) = player.player_id {
                 if player_id >= 8 {
@@ -879,14 +881,23 @@ impl InitInProgress {
                 }
 
                 let storm_id = player.storm_id.0 as usize;
-                debug!("{} has victory_state {}", storm_id, game_results.victory_state[player_id as usize]);
-                results[storm_id] = match game_results.victory_state[player_id as usize] {
+                let player_id = player_id as usize;
+                // This should generally always be true (or other stuff is broken) but just in case
+                if storm_id < 8 {
+                    storm_to_player_id[storm_id] = player_id;
+                    player_to_storm_id[player_id] = storm_id;
+                }
+
+                debug!("{} has victory_state {}", storm_id, game_results.victory_state[player_id]);
+                results[storm_id] = match game_results.victory_state[player_id] {
                     1 => GameResult::Disconnected,
                     2 => GameResult::Defeat,
                     3 => GameResult::Victory,
                     _ => {
                         if storm_id == local_storm_id {
-                            GameResult::Disconnected
+                            // NOTE(tec27): This will possibly get mapped to a disconnect later, if
+                            // allied victory is still possible
+                            GameResult::Defeat
                         } else {
                             GameResult::Playing
                         }
@@ -894,13 +905,16 @@ impl InitInProgress {
                 };
             }
         }
+        let storm_to_player_id = storm_to_player_id;
+        let player_to_storm_id = player_to_storm_id;
 
         let lose_type = game_results.player_lose_type;
         let is_ums = self.setup_info.game_type == "ums";
         let has_victory = results.contains(&GameResult::Victory);
         for storm_id in 0..8 {
             let dropped = game_results.player_was_dropped[storm_id];
-            let quit = game_results.player_has_quit[storm_id];
+            let quit = game_results.player_has_quit[storm_id] ||
+                (!dropped && storm_id == local_storm_id);
 
             debug!("{} has player_was_dropped {}, player_has_quit {}", storm_id, dropped, quit);
 
@@ -914,9 +928,21 @@ impl InitInProgress {
                     GameResult::Disconnected
                 };
             } else if quit && !is_ums && !has_victory && results[storm_id] == GameResult::Defeat {
-                // Change Defeats -> Disconnects because we can't know the terminal result yet,
-                // allied victory could allow early leavers to have one
-                results[storm_id] = GameResult::Disconnected
+                let player_id = storm_to_player_id[storm_id];
+                if player_id < 8 {
+                    let alliances = game_results.alliances[player_id];
+                    for (p, _) in alliances.iter().enumerate().filter(|&(_, a)| *a == 2) {
+                        let s = player_to_storm_id[p];
+                        if s < 8
+                            && !game_results.player_was_dropped[s]
+                            && !game_results.player_has_quit[s] {
+                            // Change Defeat -> Disconnect because we can't know the terminal result yet,
+                            // and this alliance could allow this player to win still
+                            results[storm_id] = GameResult::Disconnected;
+                            break;
+                        }
+                    }
+                }
             }
         }
         match lose_type {
