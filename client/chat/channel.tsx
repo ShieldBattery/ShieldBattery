@@ -369,7 +369,7 @@ function renderMessage(msg: Message) {
 
 type UserEntries = [userId: SbUserId, username: string | undefined][]
 
-function userEntriesSelector(userIds: ReadonlySet<SbUserId> | undefined) {
+function makeUserEntriesSelector(userIds: ReadonlySet<SbUserId> | undefined) {
   return (state: RootState) => {
     const userEntries: UserEntries = []
     if (!userIds) {
@@ -387,7 +387,7 @@ function userEntriesSelector(userIds: ReadonlySet<SbUserId> | undefined) {
   }
 }
 
-function didUserEntryChange(a: UserEntries, b: UserEntries) {
+function areUserEntriesEqual(a: UserEntries, b: UserEntries): boolean {
   if (a.length !== b.length) {
     return false
   }
@@ -433,9 +433,15 @@ export default function Channel(props: ChatChannelProps) {
   const offlineUserIds = channel?.users.offline
   // We map the user IDs to their usernames so we can sort them by their name without pulling all of
   // the users from the store and depending on any of their changes.
-  const activeUserEntries = useAppSelector(userEntriesSelector(activeUserIds), didUserEntryChange)
-  const idleUserEntries = useAppSelector(userEntriesSelector(idleUserIds), didUserEntryChange)
-  const offlineUserEntries = useAppSelector(userEntriesSelector(offlineUserIds), didUserEntryChange)
+  const activeUserEntries = useAppSelector(
+    makeUserEntriesSelector(activeUserIds),
+    areUserEntriesEqual,
+  )
+  const idleUserEntries = useAppSelector(makeUserEntriesSelector(idleUserIds), areUserEntriesEqual)
+  const offlineUserEntries = useAppSelector(
+    makeUserEntriesSelector(offlineUserIds),
+    areUserEntriesEqual,
+  )
 
   const prevChannelName = usePrevious(channelName)
   const prevChannel = usePrevious(channel)

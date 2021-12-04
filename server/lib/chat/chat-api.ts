@@ -57,6 +57,7 @@ function convertChatServiceError(err: unknown) {
 
   switch (err.code) {
     case ChatServiceErrorCode.UserOffline:
+    case ChatServiceErrorCode.UserNotFound:
       throw new httpErrors.NotFound(err.message)
     case ChatServiceErrorCode.InvalidJoinAction:
     case ChatServiceErrorCode.InvalidLeaveAction:
@@ -143,8 +144,9 @@ export class ChatApi {
     ctx.status = 204
   }
 
-  // Leaving the old API with a dummy payload in order to not break the auto-update functionality
-  // for old clients.
+  /**
+   * @deprecated This API was last used in version 7.1.4. Use `/:channelName/messages2` instead.
+   */
   @httpGet('/:channelName/messages')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
   getChannelHistoryOld(ctx: RouterContext) {
@@ -173,7 +175,7 @@ export class ChatApi {
   }
 
   /**
-   * @deprecated This API was last used in version 7.1.5. Use `/:channelName/users2` instead.
+   * @deprecated This API was last used in version 7.1.7. Use `/:channelName/users2` instead.
    */
   @httpGet('/:channelName/users')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))

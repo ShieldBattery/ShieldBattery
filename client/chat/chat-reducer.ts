@@ -18,7 +18,7 @@ export interface ChannelState {
   name: string
   messages: ChatMessage[]
   users: UsersState
-  permissions: ChannelPermissions
+  selfPermissions: ChannelPermissions
 
   loadingHistory: boolean
   hasHistory: boolean
@@ -75,7 +75,7 @@ function updateMessages(
 
 export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   ['@chat/initChannel'](state, action) {
-    const { activeUserIds, permissions } = action.payload
+    const { activeUserIds, selfPermissions } = action.payload
     const { channel: channelName } = action.meta
     const lowerCaseChannelName = channelName.toLowerCase()
 
@@ -88,7 +88,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       name: channelName,
       messages: [],
       users: channelUsers,
-      permissions,
+      selfPermissions,
       loadingHistory: false,
       hasHistory: true,
       hasLoadedUserList: false,

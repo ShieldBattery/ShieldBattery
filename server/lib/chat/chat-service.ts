@@ -15,7 +15,7 @@ import { DbClient } from '../db'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
 import { getPermissions } from '../models/permissions'
-import { findUsersById } from '../users/user-model'
+import { findUserById, findUsersById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
@@ -24,8 +24,8 @@ import {
   banUserFromChannel,
   findChannel,
   getChannelsForUser,
-  getChannelUserEntryForUser,
   getMessagesForChannel,
+  getUserChannelEntryForUser,
   getUsersForChannel,
   isUserBannedFromChannel,
   leaveChannel,
@@ -40,6 +40,7 @@ class ChatState extends Record({
 
 export enum ChatServiceErrorCode {
   UserOffline,
+  UserNotFound,
   InvalidJoinAction,
   LeaveShieldBattery,
   InvalidLeaveAction,
@@ -92,6 +93,10 @@ export default class ChatService {
       throw new ChatServiceError(ChatServiceErrorCode.InvalidJoinAction, 'Already in this channel')
     }
 
+    const userInfo = await findUserById(userId)
+    if (!userInfo) {
+      throw new ChatServiceError(ChatServiceErrorCode.UserNotFound, "User doesn't exist")
+    }
     const isBanned = await isUserBannedFromChannel(originalChannelName, userId)
     if (isBanned) {
       throw new ChatServiceError(
@@ -127,8 +132,8 @@ export default class ChatService {
       this.publisher.publish(getChannelPath(originalChannelName), {
         action: 'join2',
         user: {
-          id: result.userId,
-          name: result.userName,
+          id: userInfo.id,
+          name: userInfo.name,
         },
         message: {
           id: message.msgId,
@@ -186,8 +191,8 @@ export default class ChatService {
   ): Promise<void> {
     const [moderatorPermissions, moderatorUserChannel, targetUserChannel] = await Promise.all([
       getPermissions(moderatorId),
-      getChannelUserEntryForUser(moderatorId, channelName),
-      getChannelUserEntryForUser(targetId, channelName),
+      getUserChannelEntryForUser(moderatorId, channelName),
+      getUserChannelEntryForUser(targetId, channelName),
     ])
 
     if (!moderatorUserChannel) {
@@ -422,7 +427,7 @@ export default class ChatService {
     userSockets.subscribe<ChatInitEvent>(getChannelPath(channelName), () => ({
       action: 'init2',
       activeUserIds: this.state.channels.get(channelName)!.toArray(),
-      permissions: channelPermissions,
+      selfPermissions: channelPermissions,
     }))
   }
 
