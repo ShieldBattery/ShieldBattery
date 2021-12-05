@@ -93,11 +93,13 @@ export default class ChatService {
       throw new ChatServiceError(ChatServiceErrorCode.InvalidJoinAction, 'Already in this channel')
     }
 
-    const userInfo = await findUserById(userId)
+    const [userInfo, isBanned] = await Promise.all([
+      findUserById(userId),
+      isUserBannedFromChannel(originalChannelName, userId),
+    ])
     if (!userInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.UserNotFound, "User doesn't exist")
     }
-    const isBanned = await isUserBannedFromChannel(originalChannelName, userId)
     if (isBanned) {
       throw new ChatServiceError(
         ChatServiceErrorCode.UserBanned,
@@ -131,10 +133,7 @@ export default class ChatService {
 
       this.publisher.publish(getChannelPath(originalChannelName), {
         action: 'join2',
-        user: {
-          id: userInfo.id,
-          name: userInfo.name,
-        },
+        user: userInfo,
         message: {
           id: message.msgId,
           type: ServerChatMessageType.JoinChannel,
