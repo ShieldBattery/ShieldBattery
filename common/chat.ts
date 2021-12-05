@@ -15,12 +15,6 @@ export enum ClientChatMessageType {
 
 export type ChatMessageType = ServerChatMessageType | ClientChatMessageType
 
-// TODO(2Pac): Include more information here, e.g. channel permissions, join date, etc.
-export interface ChatUser {
-  id: SbUserId
-  name: string
-}
-
 export interface BaseChatMessage {
   id: string
   type: ChatMessageType
@@ -73,42 +67,51 @@ export type ClientChatMessage =
 
 export type ChatMessage = ServerChatMessage | ClientChatMessage
 
+export interface ChannelPermissions {
+  kick: boolean
+  ban: boolean
+  changeTopic: boolean
+  togglePrivate: boolean
+  editPermissions: boolean
+  owner: boolean
+}
+
 export interface ChatInitEvent {
-  action: 'init'
-  /** A list of active users that are in the chat channel. */
-  activeUsers: ChatUser[]
+  action: 'init2'
+  /** A list of IDs of active users that are in the chat channel. */
+  activeUserIds: SbUserId[]
+  /** The channel permissions for the current user that is initializing the channel. */
+  selfPermissions: ChannelPermissions
 }
 
 export interface ChatJoinEvent {
-  action: 'join'
-  /** A user that has joined the chat channel. */
-  channelUser: ChatUser
-  /** A user info for the channel user that was returned in the `channelUser` property. */
+  action: 'join2'
+  /** A user info for the channel user that has joined the chat channel. */
   user: SbUser
   /** A message info for the user joining a channel that is saved in the DB. */
   message: JoinChannelMessage
 }
 
 export interface ChatLeaveEvent {
-  action: 'leave'
-  /** A user that has left the chat channel. */
-  user: ChatUser
+  action: 'leave2'
+  /** The ID of a user that has left the chat channel. */
+  userId: SbUserId
   /** The ID of a user that was selected as a new owner of the channel, if any. */
   newOwnerId: SbUserId | null
 }
 
 export interface ChatKickEvent {
   action: 'kick'
-  /** A user that was kicked from the chat channel. */
-  target: ChatUser
+  /** The ID of a user that was kicked from the chat channel. */
+  targetId: SbUserId
   /** The ID of a user that was selected as a new owner of the channel, if any. */
   newOwnerId: SbUserId | null
 }
 
 export interface ChatBanEvent {
   action: 'ban'
-  /** A user that was banned from the chat channel. */
-  target: ChatUser
+  /** The ID of a user that was banned from the chat channel. */
+  targetId: SbUserId
   /** The ID of a user that was selected as a new owner of the channel, if any. */
   newOwnerId: SbUserId | null
 }
@@ -118,24 +121,27 @@ export interface ChatMessageEvent {
   /** A text message that was sent in a chat channel. */
   message: TextMessage
   /** User info for the channel user that sent the message. */
-  user: ChatUser
+  user: SbUser
   /** User infos for all channel users that were mentioned in the message, if any. */
   mentions: SbUser[]
 }
 
 export interface ChatUserActiveEvent {
-  action: 'userActive'
-  user: ChatUser
+  action: 'userActive2'
+  /** The ID of a user that has become active in a chat channel. */
+  userId: SbUserId
 }
 
 export interface ChatUserIdleEvent {
-  action: 'userIdle'
-  user: ChatUser
+  action: 'userIdle2'
+  /** The ID of a user that has become idle in a chat channel. */
+  userId: SbUserId
 }
 
 export interface ChatUserOfflineEvent {
-  action: 'userOffline'
-  user: ChatUser
+  action: 'userOffline2'
+  /** The ID of a user that went offline in a chat channel. */
+  userId: SbUserId
 }
 
 export type ChatEvent =
@@ -167,16 +173,6 @@ export interface GetChannelHistoryServerPayload {
   users: SbUser[]
   /** A list of user infos for all channel users that were mentioned in the messages, if any. */
   mentions: SbUser[]
-}
-
-/**
- * Payload returned for a request to retrieve the users in a chat channel.
- */
-export interface GetChannelUsersServerPayload {
-  /** A list of the users that are in the chat channel. */
-  channelUsers: ChatUser[]
-  /** A list of user infos for channel users that are in the returned `channelUsers` list. */
-  users: SbUser[]
 }
 
 /**

@@ -1,6 +1,6 @@
 import cuid from 'cuid'
 import { Immutable } from 'immer'
-import { ChatMessage, ChatUser, ClientChatMessageType } from '../../common/chat'
+import { ChannelPermissions, ChatMessage, ClientChatMessageType } from '../../common/chat'
 import { SbUserId } from '../../common/users/user-info'
 import { NETWORK_SITE_CONNECTED } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
@@ -9,15 +9,16 @@ import { immerKeyedReducer } from '../reducers/keyed-reducer'
 const INACTIVE_CHANNEL_MAX_HISTORY = 150
 
 export interface UsersState {
-  active: Map<SbUserId, ChatUser>
-  idle: Map<SbUserId, ChatUser>
-  offline: Map<SbUserId, ChatUser>
+  active: Set<SbUserId>
+  idle: Set<SbUserId>
+  offline: Set<SbUserId>
 }
 
 export interface ChannelState {
   name: string
   messages: ChatMessage[]
   users: UsersState
+  selfPermissions: ChannelPermissions
 
   loadingHistory: boolean
   hasHistory: boolean
@@ -74,18 +75,20 @@ function updateMessages(
 
 export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   ['@chat/initChannel'](state, action) {
-    const { channel: channelName, activeUsers } = action.payload
+    const { activeUserIds, selfPermissions } = action.payload
+    const { channel: channelName } = action.meta
     const lowerCaseChannelName = channelName.toLowerCase()
 
     const channelUsers: UsersState = {
-      active: new Map(activeUsers.map(u => [u.id, u])),
-      idle: new Map(),
-      offline: new Map(),
+      active: new Set(activeUserIds),
+      idle: new Set(),
+      offline: new Set(),
     }
     const channelState: ChannelState = {
       name: channelName,
       messages: [],
       users: channelUsers,
+      selfPermissions,
       loadingHistory: false,
       hasHistory: true,
       hasLoadedUserList: false,
@@ -107,7 +110,8 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/updateJoin'](state, action) {
-    const { channel: channelName, channelUser: user, message } = action.payload
+    const { user, message } = action.payload
+    const { channel: channelName } = action.meta
     const lowerCaseChannelName = channelName.toLowerCase()
 
     const channel = state.byName.get(lowerCaseChannelName)
@@ -115,14 +119,15 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       return
     }
 
-    channel.users.active.set(user.id, user)
+    channel.users.active.add(user.id)
 
     // TODO(2Pac): make this configurable
     updateMessages(state, lowerCaseChannelName, true, m => m.concat(message))
   },
 
   ['@chat/updateLeave'](state, action) {
-    const { channel: channelName, user, newOwnerId } = action.payload
+    const { userId, newOwnerId } = action.payload
+    const { channel: channelName } = action.meta
     const lowerCaseChannelName = channelName.toLowerCase()
 
     const channel = state.byName.get(lowerCaseChannelName)
@@ -130,8 +135,8 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       return
     }
 
-    channel.users.active.delete(user.id)
-    channel.users.idle.delete(user.id)
+    channel.users.active.delete(userId)
+    channel.users.idle.delete(userId)
 
     // TODO(2Pac): make this configurable
     updateMessages(state, lowerCaseChannelName, true, m =>
@@ -140,7 +145,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
         type: ClientChatMessageType.LeaveChannel,
         channel: lowerCaseChannelName,
         time: Date.now(),
-        userId: user.id,
+        userId,
       }),
     )
 
@@ -158,7 +163,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/updateLeaveSelf'](state, action) {
-    const { channel: channelName } = action.payload
+    const { channel: channelName } = action.meta
     const lowerCaseChannelName = channelName.toLowerCase()
 
     state.channels.delete(channelName)
@@ -166,14 +171,16 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/updateMessage'](state, action) {
-    const newMessage = action.payload.message
-    const lowerCaseChannelName = newMessage.channel.toLowerCase()
+    const { message: newMessage } = action.payload
+    const { channel: channelName } = action.meta
+    const lowerCaseChannelName = channelName.toLowerCase()
 
     updateMessages(state, lowerCaseChannelName, true, m => m.concat(newMessage))
   },
 
   ['@chat/updateUserActive'](state, action) {
-    const { channel: channelName, user } = action.payload
+    const { userId } = action.payload
+    const { channel: channelName } = action.meta
     const lowerCaseChannelName = channelName.toLowerCase()
 
     const channel = state.byName.get(lowerCaseChannelName)
@@ -181,13 +188,14 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       return
     }
 
-    channel.users.active.set(user.id, user)
-    channel.users.idle.delete(user.id)
-    channel.users.offline.delete(user.id)
+    channel.users.active.add(userId)
+    channel.users.idle.delete(userId)
+    channel.users.offline.delete(userId)
   },
 
   ['@chat/updateUserIdle'](state, action) {
-    const { channel: channelName, user } = action.payload
+    const { userId } = action.payload
+    const { channel: channelName } = action.meta
     const lowerCaseChannelName = channelName.toLowerCase()
 
     const channel = state.byName.get(lowerCaseChannelName)
@@ -195,13 +203,14 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       return
     }
 
-    channel.users.idle.set(user.id, user)
-    channel.users.active.delete(user.id)
-    channel.users.offline.delete(user.id)
+    channel.users.idle.add(userId)
+    channel.users.active.delete(userId)
+    channel.users.offline.delete(userId)
   },
 
   ['@chat/updateUserOffline'](state, action) {
-    const { channel: channelName, user } = action.payload
+    const { userId } = action.payload
+    const { channel: channelName } = action.meta
     const lowerCaseChannelName = channelName.toLowerCase()
 
     const channel = state.byName.get(lowerCaseChannelName)
@@ -209,9 +218,9 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       return
     }
 
-    channel.users.offline.set(user.id, user)
-    channel.users.active.delete(user.id)
-    channel.users.idle.delete(user.id)
+    channel.users.offline.add(userId)
+    channel.users.active.delete(userId)
+    channel.users.idle.delete(userId)
   },
 
   ['@chat/loadMessageHistoryBegin'](state, action) {
@@ -273,7 +282,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
     const { channel: channelName } = action.meta
     const lowerCaseChannelName = channelName.toLowerCase()
-    const { channelUsers: userList } = action.payload
+    const userList = action.payload
 
     const channel = state.byName.get(lowerCaseChannelName)
     if (!channel) {
@@ -284,7 +293,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     const offlineArray = userList.filter(u => !users.active.has(u.id) && !users.idle.has(u.id))
 
     channel.loadingUserList = false
-    channel.users.offline = new Map(offlineArray.map(u => [u.id, u]))
+    channel.users.offline = new Set(offlineArray.map(u => u.id))
   },
 
   ['@chat/activateChannel'](state, action) {

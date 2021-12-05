@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { VariableSizeList } from 'react-window'
 import styled, { css } from 'styled-components'
-import { ChatUser, ClientChatMessageType, ServerChatMessageType } from '../../common/chat'
+import { ClientChatMessageType, ServerChatMessageType } from '../../common/chat'
 import { MULTI_CHANNEL } from '../../common/flags'
+import { SbUserId } from '../../common/users/user-info'
 import Avatar from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { useAnchorPosition } from '../material/popover'
@@ -12,6 +13,7 @@ import { push } from '../navigation/routing'
 import { ConnectedUserProfileOverlay } from '../profile/user-profile-overlay'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { RootState } from '../root-reducer'
 import { usePrevious } from '../state-hooks'
 import {
   alphaDisabled,
@@ -126,13 +128,33 @@ const UserListName = styled.span`
   display: inline-block;
 `
 
+const LoadingUserListEntryItem = styled(UserListEntryItem)`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+`
+
+const LoadingAvatar = styled.div`
+  width: 32px;
+  height: 32px;
+  margin-right: 16px;
+  border: 1px solid ${colorTextFaint};
+  border-radius: 50%;
+`
+
+const LoadingName = styled.div`
+  width: 64px;
+  height: 24px;
+  background-color: ${colorTextFaint};
+`
+
 interface UserListEntryProps {
-  user: ChatUser
+  userId: SbUserId
   faded?: boolean
   style?: any
 }
 
-const UserListEntry = React.memo<UserListEntryProps>(props => {
+const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
   const [overlayOpen, setOverlayOpen] = useState(false)
   const userEntryRef = useRef(null)
   const [, anchorX, anchorY] = useAnchorPosition('left', 'top', userEntryRef.current ?? null)
@@ -144,11 +166,23 @@ const UserListEntry = React.memo<UserListEntryProps>(props => {
     setOverlayOpen(false)
   }, [])
 
+  const user = useAppSelector(s => s.users.byId.get(props.userId))
+  if (!user) {
+    return (
+      <div style={props.style}>
+        <LoadingUserListEntryItem key={'entry'}>
+          <LoadingAvatar />
+          <LoadingName />
+        </LoadingUserListEntryItem>
+      </div>
+    )
+  }
+
   return (
     <div style={props.style}>
       <ConnectedUserProfileOverlay
         key={'overlay'}
-        userId={props.user.id}
+        userId={props.userId}
         popoverProps={{
           open: overlayOpen,
           onDismiss: onCloseOverlay,
@@ -165,23 +199,21 @@ const UserListEntry = React.memo<UserListEntryProps>(props => {
         faded={!!props.faded}
         isOverlayOpen={overlayOpen}
         onClick={onOpenOverlay}>
-        <StyledAvatar user={props.user.name} />
-        <UserListName>{props.user.name}</UserListName>
+        <StyledAvatar user={user.name} />
+        <UserListName>{user.name}</UserListName>
       </UserListEntryItem>
     </div>
   )
 })
 
 interface UserListProps {
-  users: {
-    active: ChatUser[]
-    idle: ChatUser[]
-    offline: ChatUser[]
-  }
+  active: SbUserId[]
+  idle: SbUserId[]
+  offline: SbUserId[]
 }
 
 const UserList = React.memo((props: UserListProps) => {
-  const { active, idle, offline } = props.users
+  const { active, idle, offline } = props
   const [dimensionsRef, containerRect] = useObservedDimensions()
   const listRef = useRef<VariableSizeList | null>(null)
 
@@ -255,19 +287,21 @@ const UserList = React.memo((props: UserListProps) => {
             </UserListOverline>
           )
         default:
-          let user: ChatUser | undefined
+          let userId: SbUserId | undefined
           let faded = false
           if (index < active.length + 1) {
-            user = active[index - 1]!
+            userId = active[index - 1]!
           } else if (offlineHeaderIndex && index > offlineHeaderIndex) {
             faded = true
-            user = offline[index - offlineHeaderIndex - 1]!
+            userId = offline[index - offlineHeaderIndex - 1]!
           } else {
-            user = idleHeaderIndex ? idle[index - idleHeaderIndex - 1]! : undefined
+            userId = idleHeaderIndex ? idle[index - idleHeaderIndex - 1]! : undefined
           }
 
-          if (user) {
-            return <UserListEntry style={style} user={user} key={user.id} faded={faded} />
+          if (userId) {
+            return (
+              <ConnectedUserListEntry style={style} userId={userId} key={userId} faded={faded} />
+            )
           }
           throw new Error('Asked to render nonexistent user: ' + index)
       }
@@ -333,7 +367,58 @@ function renderMessage(msg: Message) {
   }
 }
 
-const sortUsers = (a: ChatUser, b: ChatUser) => a.name.localeCompare(b.name)
+type UserEntries = [userId: SbUserId, username: string | undefined][]
+
+function makeUserEntriesSelector(userIds: ReadonlySet<SbUserId> | undefined) {
+  return (state: RootState) => {
+    const userEntries: UserEntries = []
+    if (!userIds) {
+      return []
+    }
+
+    for (const userId of Array.from(userIds.values()).sort((a, b) => a - b)) {
+      const username = state.users.byId.get(userId)?.name
+      if (username) {
+        userEntries.push([userId, username])
+      }
+    }
+
+    return userEntries
+  }
+}
+
+function areUserEntriesEqual(a: UserEntries, b: UserEntries): boolean {
+  if (a.length !== b.length) {
+    return false
+  }
+
+  for (let i = 0; i < a.length; i++) {
+    const [aId, aName] = a[i]
+    const [bId, bName] = b[i]
+    if (aId !== bId || aName !== bName) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function sortUsers(userEntries: UserEntries) {
+  return userEntries
+    .sort(([aId, aName], [bId, bName]) => {
+      // We put any user that still hasn't loaded at the bottom of the list
+      if (!aName && !bName) {
+        return 0
+      } else if (!aName) {
+        return 1
+      } else if (!bName) {
+        return -1
+      }
+
+      return aName.localeCompare(bName)
+    })
+    .map(([userId]) => userId)
+}
 
 interface ChatChannelProps {
   params: { channel: string }
@@ -343,12 +428,25 @@ export default function Channel(props: ChatChannelProps) {
   const channelName = decodeURIComponent(props.params.channel).toLowerCase()
   const dispatch = useAppDispatch()
   const channel = useAppSelector(s => s.chat.byName.get(channelName))
-  const channelUsers = channel?.users
+  const activeUserIds = channel?.users.active
+  const idleUserIds = channel?.users.idle
+  const offlineUserIds = channel?.users.offline
+  // We map the user IDs to their usernames so we can sort them by their name without pulling all of
+  // the users from the store and depending on any of their changes.
+  const activeUserEntries = useAppSelector(
+    makeUserEntriesSelector(activeUserIds),
+    areUserEntriesEqual,
+  )
+  const idleUserEntries = useAppSelector(makeUserEntriesSelector(idleUserIds), areUserEntriesEqual)
+  const offlineUserEntries = useAppSelector(
+    makeUserEntriesSelector(offlineUserIds),
+    areUserEntriesEqual,
+  )
 
   const prevChannelName = usePrevious(channelName)
   const prevChannel = usePrevious(channel)
   const isInChannel = !!channel
-  const isLeavingChannel = !isInChannel && prevChannel && prevChannelName === channelName
+  const isLeavingChannel = !isInChannel && !!prevChannel && prevChannelName === channelName
 
   // TODO(2Pac): Pull this out into some kind of "isLeaving" hook and share with whispers/lobby?
   useEffect(() => {
@@ -382,21 +480,9 @@ export default function Channel(props: ChatChannelProps) {
     [dispatch, channelName],
   )
 
-  const sortedUsers = useMemo(() => {
-    if (!channelUsers) {
-      return {
-        active: [],
-        idle: [],
-        offline: [],
-      }
-    }
-
-    return {
-      active: Array.from(channelUsers.active.values()).sort(sortUsers),
-      idle: Array.from(channelUsers.idle.values()).sort(sortUsers),
-      offline: Array.from(channelUsers.offline.values()).sort(sortUsers),
-    }
-  }, [channelUsers])
+  const sortedActiveUsers = useMemo(() => sortUsers(activeUserEntries), [activeUserEntries])
+  const sortedIdleUsers = useMemo(() => sortUsers(idleUserEntries), [idleUserEntries])
+  const sortedOfflineUsers = useMemo(() => sortUsers(offlineUserEntries), [offlineUserEntries])
 
   if (!channel) {
     return (
@@ -421,7 +507,7 @@ export default function Channel(props: ChatChannelProps) {
   return (
     <Container>
       <StyledChat listProps={listProps} inputProps={inputProps} />
-      <UserList users={sortedUsers} />
+      <UserList active={sortedActiveUsers} idle={sortedIdleUsers} offline={sortedOfflineUsers} />
     </Container>
   )
 }

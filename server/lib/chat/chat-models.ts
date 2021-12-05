@@ -1,80 +1,22 @@
 import sql, { SQLStatement } from 'sql-template-strings'
-import { ServerChatMessageType } from '../../../common/chat'
-import { SbUserId } from '../../../common/users/user-info'
+import { ChannelPermissions, ServerChatMessageType } from '../../../common/chat'
+import { SbUser, SbUserId } from '../../../common/users/user-info'
 import db, { DbClient } from '../db'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 
-export interface UserChannelsEntry {
-  channelName: string
-  joinDate: Date
-}
-
-type DbUserChannelsEntry = Dbify<UserChannelsEntry>
-
-export async function getChannelsForUser(userId: SbUserId): Promise<UserChannelsEntry[]> {
-  const { client, done } = await db()
-  try {
-    const result = await client.query<DbUserChannelsEntry>(sql`
-      SELECT channel_name, join_date
-      FROM joined_channels
-      WHERE user_id = ${userId}
-      ORDER BY join_date`)
-    return result.rows.map(row => ({ channelName: row.channel_name, joinDate: row.join_date }))
-  } finally {
-    done()
-  }
-}
-
-export interface ChannelUsersEntry {
+export interface UserChannelEntry {
   userId: SbUserId
-  userName: string
-  joinDate: Date
-}
-
-type DbChannelUsersEntry = Dbify<ChannelUsersEntry>
-
-export async function getUsersForChannel(channelName: string): Promise<ChannelUsersEntry[]> {
-  const { client, done } = await db()
-  try {
-    const result = await client.query<DbChannelUsersEntry>(sql`
-      SELECT u.id AS user_id, u.name AS user_name, c.join_date
-      FROM joined_channels as c INNER JOIN users as u ON c.user_id = u.id
-      WHERE c.channel_name = ${channelName}
-      ORDER BY c.join_date`)
-    return result.rows.map(row => ({
-      userId: row.user_id,
-      userName: row.user_name,
-      joinDate: row.join_date,
-    }))
-  } finally {
-    done()
-  }
-}
-
-export interface ChannelPermissions {
-  kick: boolean
-  ban: boolean
-  changeTopic: boolean
-  togglePrivate: boolean
-  editPermissions: boolean
-  owner: boolean
-}
-
-export interface JoinedChannel {
-  userId: SbUserId
-  userName: string
   channelName: string
   joinDate: Date
   channelPermissions: ChannelPermissions
 }
 
-type DbJoinedChannel = Dbify<JoinedChannel & ChannelPermissions>
+type DbUserChannelEntry = Dbify<UserChannelEntry & ChannelPermissions>
 
-function convertJoinedChannelFromDb(props: DbJoinedChannel): JoinedChannel {
+function convertUserChannelEntryFromDb(props: DbUserChannelEntry): UserChannelEntry {
   return {
     userId: props.user_id,
-    userName: props.user_name,
     channelName: props.channel_name,
     joinDate: props.join_date,
     channelPermissions: {
@@ -88,19 +30,58 @@ function convertJoinedChannelFromDb(props: DbJoinedChannel): JoinedChannel {
   }
 }
 
-export async function getJoinedChannelForUser(
-  userId: SbUserId,
-  channelName: string,
-): Promise<JoinedChannel | null> {
+/**
+ * Gets a user channel entry for each channel that a particular user is in, ordered by their channel
+ * join date.
+ */
+export async function getChannelsForUser(userId: SbUserId): Promise<UserChannelEntry[]> {
   const { client, done } = await db()
   try {
-    const result = await client.query<DbJoinedChannel>(sql`
+    const result = await client.query<DbUserChannelEntry>(sql`
       SELECT *
-      FROM joined_channels
-      WHERE user_id = ${userId} AND channel_name = ${channelName};
+      FROM channel_users
+      WHERE user_id = ${userId}
+      ORDER BY join_date;
     `)
+    return result.rows.map(row => convertUserChannelEntryFromDb(row))
+  } finally {
+    done()
+  }
+}
 
-    return result.rowCount < 1 ? null : convertJoinedChannelFromDb(result.rows[0])
+/**
+ * Gets a user info for each user in a particular channel. We don't order the users here since
+ * they're re-sorted alphabetically on the client anyway.
+ */
+export async function getUsersForChannel(channelName: string): Promise<SbUser[]> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<Dbify<SbUser>>(sql`
+      SELECT u.id, u.name
+      FROM channel_users as c INNER JOIN users as u ON c.user_id = u.id
+      WHERE c.channel_name = ${channelName};
+    `)
+    return result.rows
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Gets a user channel entry for a particular user in a particular channel.
+ */
+export async function getUserChannelEntryForUser(
+  userId: SbUserId,
+  channelName: string,
+): Promise<UserChannelEntry | null> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<DbUserChannelEntry>(sql`
+      SELECT *
+      FROM channel_users
+      WHERE channel_name = ${channelName} AND user_id = ${userId};
+    `)
+    return result.rowCount < 1 ? null : convertUserChannelEntryFromDb(result.rows[0])
   } finally {
     done()
   }
@@ -110,43 +91,38 @@ export async function addUserToChannel(
   userId: SbUserId,
   channelName: string,
   client?: DbClient,
-): Promise<JoinedChannel> {
+): Promise<UserChannelEntry> {
   const doIt = async (client: DbClient) => {
     const channelExists = await findChannel(channelName)
-    await client.query(sql`INSERT INTO channels (name) SELECT ${channelName}
-        WHERE NOT EXISTS (SELECT 1 FROM channels WHERE name=${channelName})`)
+    await client.query(sql`
+      INSERT INTO channels (name) SELECT ${channelName} WHERE NOT EXISTS (
+        SELECT 1 FROM channels WHERE name=${channelName}
+      );
+    `)
 
     let query: SQLStatement
     if (channelExists) {
       query = sql`
-        INSERT INTO joined_channels
-        (user_id, channel_name, join_date)
+        INSERT INTO channel_users (user_id, channel_name, join_date)
         VALUES (${userId}, ${channelName}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
-        RETURNING *`
+        RETURNING *;`
     } else {
       // Users joining a new channel get full permissions
       query = sql`
-        INSERT INTO joined_channels
-        (user_id, channel_name, join_date, kick, ban, change_topic, toggle_private,
-          edit_permissions, owner)
+        INSERT INTO channel_users (user_id, channel_name, join_date, kick, ban, change_topic,
+          toggle_private, edit_permissions, owner)
         VALUES (${userId}, ${channelName}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC', true, true, true,
           true, true, true)
-        RETURNING *`
+        RETURNING *;`
     }
 
-    const result = await client.query<DbJoinedChannel>(
-      sql`
-        WITH ins AS (`.append(query).append(sql`)
-        SELECT ins.*, u.name AS user_name
-        FROM ins INNER JOIN users as u ON ins.user_id = u.id;
-      `),
-    )
+    const result = await client.query<DbUserChannelEntry>(query)
 
     if (result.rowCount < 1) {
       throw new Error('No rows returned')
     }
 
-    return convertJoinedChannelFromDb(result.rows[0])
+    return convertUserChannelEntryFromDb(result.rows[0])
   }
 
   if (client) {
@@ -196,7 +172,7 @@ export async function addMessageToChannel<T extends ChatMessageData>(
         SELECT uuid_generate_v4(), ${userId}, ${channelName},
           CURRENT_TIMESTAMP AT TIME ZONE 'UTC', ${messageData}
         WHERE EXISTS (
-          SELECT 1 FROM joined_channels WHERE user_id = ${userId} AND channel_name = ${channelName}
+          SELECT 1 FROM channel_users WHERE user_id = ${userId} AND channel_name = ${channelName}
         )
         RETURNING id, user_id, channel_name, sent, data
       )
@@ -281,18 +257,18 @@ export async function leaveChannel(
   channelName: string,
 ): Promise<LeaveChannelResult> {
   return transact(async function (client) {
-    const joinedChannelResult = await client.query<DbJoinedChannel>(sql`
-      DELETE FROM joined_channels
+    const channelUserResult = await client.query<DbUserChannelEntry>(sql`
+      DELETE FROM channel_users
       WHERE user_id = ${userId} AND channel_name = ${channelName}
       RETURNING *`)
-    if (joinedChannelResult.rowCount < 1) {
+    if (channelUserResult.rowCount < 1) {
       throw new Error('No rows returned')
     }
 
     let result = await client.query(sql`
       DELETE FROM channels
       WHERE name = ${channelName} AND
-        NOT EXISTS (SELECT 1 FROM joined_channels WHERE channel_name = ${channelName})
+        NOT EXISTS (SELECT 1 FROM channel_users WHERE channel_name = ${channelName})
       RETURNING name`)
     if (result.rowCount > 0) {
       // Channel was deleted; meaning there is no one left in it so there is no one to transfer the
@@ -300,7 +276,7 @@ export async function leaveChannel(
       return { newOwnerId: null }
     }
 
-    if (!joinedChannelResult.rows[0].owner) {
+    if (!channelUserResult.rows[0].owner) {
       // The leaving user was not the owner, so there's no reason to transfer ownership to anyone
       return { newOwnerId: null }
     }
@@ -313,9 +289,9 @@ export async function leaveChannel(
       return { newOwnerId: null }
     }
 
-    result = await client.query<DbJoinedChannel>(sql`
+    result = await client.query<DbUserChannelEntry>(sql`
       SELECT *
-      FROM joined_channels
+      FROM channel_users
       WHERE channel_name = ${channelName} AND (kick = true OR ban = true OR
         change_topic = true OR toggle_private = true OR edit_permissions = true)
       ORDER BY join_date`)
@@ -325,7 +301,7 @@ export async function leaveChannel(
       // any kind of permission
       const newOwner = result.rows.find(u => u.edit_permissions) || result.rows[0]
       await client.query(sql`
-        UPDATE joined_channels
+        UPDATE channel_users
         SET kick = true, ban = true, change_topic = true, toggle_private = true,
           edit_permissions = true, owner = true
         WHERE user_id = ${newOwner.user_id} AND channel_name = ${channelName}`)
@@ -335,12 +311,12 @@ export async function leaveChannel(
     // Transfer ownership to the user who has joined the channel earliest
     result = await client.query(sql`
       SELECT user_id, join_date
-      FROM joined_channels
+      FROM channel_users
       WHERE channel_name = ${channelName}
       ORDER BY join_date`)
 
     await client.query(sql`
-      UPDATE joined_channels
+      UPDATE channel_users
       SET kick = true, ban = true, change_topic = true, toggle_private = true,
         edit_permissions = true, owner = true
       WHERE user_id = ${result.rows[0].user_id} AND channel_name = ${channelName}`)

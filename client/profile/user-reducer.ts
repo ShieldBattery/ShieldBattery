@@ -102,7 +102,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       return
     }
 
-    updateUsers(state, action.payload.users)
+    updateUsers(state, action.payload)
   },
 
   ['@chat/updateJoin'](state, action) {

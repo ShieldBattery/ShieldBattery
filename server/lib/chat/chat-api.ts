@@ -5,12 +5,12 @@ import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   GetChannelHistoryServerPayload,
-  GetChannelUsersServerPayload,
   ModerateChannelUserServerBody,
   SendChatMessageServerBody,
 } from '../../../common/chat'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
 import { MULTI_CHANNEL } from '../../../common/flags'
+import { SbUser } from '../../../common/users/user-info'
 import { featureEnabled } from '../flags/feature-enabled'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
@@ -57,6 +57,7 @@ function convertChatServiceError(err: unknown) {
 
   switch (err.code) {
     case ChatServiceErrorCode.UserOffline:
+    case ChatServiceErrorCode.UserNotFound:
       throw new httpErrors.NotFound(err.message)
     case ChatServiceErrorCode.InvalidJoinAction:
     case ChatServiceErrorCode.InvalidLeaveAction:
@@ -143,8 +144,9 @@ export class ChatApi {
     ctx.status = 204
   }
 
-  // Leaving the old API with a dummy payload in order to not break the auto-update functionality
-  // for old clients.
+  /**
+   * @deprecated This API was last used in version 7.1.4. Use `/:channelName/messages2` instead.
+   */
   @httpGet('/:channelName/messages')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
   getChannelHistoryOld(ctx: RouterContext) {
@@ -172,9 +174,18 @@ export class ChatApi {
     )
   }
 
+  /**
+   * @deprecated This API was last used in version 7.1.7. Use `/:channelName/users2` instead.
+   */
   @httpGet('/:channelName/users')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
-  async getChannelUsers(ctx: RouterContext): Promise<GetChannelUsersServerPayload> {
+  async getChannelUsersOld(ctx: RouterContext) {
+    return []
+  }
+
+  @httpGet('/:channelName/users2')
+  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
+  async getChannelUsers(ctx: RouterContext): Promise<SbUser[]> {
     const channelName = getValidatedChannelName(ctx)
     return await this.chatService.getChannelUsers(channelName, ctx.session!.userId)
   }

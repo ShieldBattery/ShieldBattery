@@ -13,46 +13,35 @@ type EventToActionMap = {
 }
 
 const eventToAction: EventToActionMap = {
-  init(channel, event) {
+  init2(channel, event) {
     return {
       type: '@chat/initChannel',
-      payload: {
-        channel,
-        activeUsers: event.activeUsers,
-      },
+      payload: event,
+      meta: { channel },
     }
   },
 
-  join(channel, event) {
+  join2(channel, event) {
     return {
       type: '@chat/updateJoin',
-      payload: {
-        channel,
-        channelUser: event.channelUser,
-        user: event.user,
-        message: event.message,
-      },
+      payload: event,
+      meta: { channel },
     }
   },
 
-  leave: (channel, event) => (dispatch, getState) => {
+  leave2: (channel, event) => (dispatch, getState) => {
     const { auth } = getState()
-    if (auth.user.id === event.user.id) {
+    if (auth.user.id === event.userId) {
       // It was us who left the channel
       dispatch({
         type: '@chat/updateLeaveSelf',
-        payload: {
-          channel,
-        },
+        meta: { channel },
       })
     } else {
       dispatch({
         type: '@chat/updateLeave',
-        payload: {
-          channel,
-          user: event.user,
-          newOwnerId: event.newOwnerId,
-        },
+        payload: event,
+        meta: { channel },
       })
     }
   },
@@ -71,37 +60,32 @@ const eventToAction: EventToActionMap = {
       dispatch({
         type: '@chat/updateMessage',
         payload: event,
+        meta: { channel },
       })
     }
   },
 
-  userActive(channel, event) {
+  userActive2(channel, event) {
     return {
       type: '@chat/updateUserActive',
-      payload: {
-        channel,
-        user: event.user,
-      },
+      payload: event,
+      meta: { channel },
     }
   },
 
-  userIdle(channel, event) {
+  userIdle2(channel, event) {
     return {
       type: '@chat/updateUserIdle',
-      payload: {
-        channel,
-        user: event.user,
-      },
+      payload: event,
+      meta: { channel },
     }
   },
 
-  userOffline(channel, event) {
+  userOffline2(channel, event) {
     return {
       type: '@chat/updateUserOffline',
-      payload: {
-        channel,
-        user: event.user,
-      },
+      payload: event,
+      meta: { channel },
     }
   },
 }

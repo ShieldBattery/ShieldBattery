@@ -3,11 +3,10 @@ import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   ChannelModerationAction,
+  ChannelPermissions,
   ChatEvent,
   ChatInitEvent,
-  ChatUser,
   GetChannelHistoryServerPayload,
-  GetChannelUsersServerPayload,
   ServerChatMessage,
   ServerChatMessageType,
 } from '../../../common/chat'
@@ -25,25 +24,23 @@ import {
   banUserFromChannel,
   findChannel,
   getChannelsForUser,
-  getJoinedChannelForUser,
   getMessagesForChannel,
+  getUserChannelEntryForUser,
   getUsersForChannel,
   isUserBannedFromChannel,
   leaveChannel,
 } from './chat-models'
 
 class ChatState extends Record({
-  /**
-   * Maps channel name -> Map of users in that channel. Map of users in the channel is mapped as
-   * user ID -> object containing channel user data.
-   */
-  channels: Map<string, Map<SbUserId, ChatUser>>(),
+  /** Maps channel name -> Set of IDs of users in that channel. */
+  channels: Map<string, Set<SbUserId>>(),
   /** Maps userId -> Set of channels they're in (as names). */
   users: Map<SbUserId, Set<string>>(),
 }) {}
 
 export enum ChatServiceErrorCode {
   UserOffline,
+  UserNotFound,
   InvalidJoinAction,
   LeaveShieldBattery,
   InvalidLeaveAction,
@@ -96,7 +93,13 @@ export default class ChatService {
       throw new ChatServiceError(ChatServiceErrorCode.InvalidJoinAction, 'Already in this channel')
     }
 
-    const isBanned = await isUserBannedFromChannel(originalChannelName, userId)
+    const [userInfo, isBanned] = await Promise.all([
+      findUserById(userId),
+      isUserBannedFromChannel(originalChannelName, userId),
+    ])
+    if (!userInfo) {
+      throw new ChatServiceError(ChatServiceErrorCode.UserNotFound, "User doesn't exist")
+    }
     if (isBanned) {
       throw new ChatServiceError(
         ChatServiceErrorCode.UserBanned,
@@ -118,25 +121,19 @@ export default class ChatService {
     // (this function's Promise is await'd for the transaction, and transactionCompleted is awaited
     // by this function)
     transactionCompleted.then(() => {
-      const channelUser = {
-        id: result.userId,
-        name: result.userName,
-      }
-
       this.state = this.state
-        .setIn(['channels', originalChannelName, result.userId], channelUser)
+        // TODO(tec27): Remove `any` cast once Immutable properly types this call again
+        .updateIn(['channels', originalChannelName], (s = Set<SbUserId>()) =>
+          (s as any).add(result.userId),
+        )
         // TODO(tec27): Remove `any` cast once Immutable properly types this call again
         .updateIn(['users', result.userId], (s = Set<string>()) =>
           (s as any).add(originalChannelName),
         )
 
       this.publisher.publish(getChannelPath(originalChannelName), {
-        action: 'join',
-        channelUser,
-        user: {
-          id: result.userId,
-          name: result.userName,
-        },
+        action: 'join2',
+        user: userInfo,
         message: {
           id: message.msgId,
           type: ServerChatMessageType.JoinChannel,
@@ -150,7 +147,7 @@ export default class ChatService {
       // is allowed in some cases (e.g. during account creation)
       const userSockets = this.userSocketsManager.getById(userId)
       if (userSockets) {
-        this.subscribeUserToChannel(userSockets, originalChannelName)
+        this.subscribeUserToChannel(userSockets, result.channelName, result.channelPermissions)
       }
     })
   }
@@ -177,11 +174,8 @@ export default class ChatService {
     const newOwnerId = await this.removeUserFromChannel(originalChannelName, userId)
 
     this.publisher.publish(getChannelPath(originalChannelName), {
-      action: 'leave',
-      user: {
-        id: userSockets.userId,
-        name: userSockets.name,
-      },
+      action: 'leave2',
+      userId: userSockets.userId,
       newOwnerId,
     })
     this.unsubscribeUserFromChannel(userSockets, originalChannelName)
@@ -196,9 +190,10 @@ export default class ChatService {
   ): Promise<void> {
     const [moderatorPermissions, moderatorUserChannel, targetUserChannel] = await Promise.all([
       getPermissions(moderatorId),
-      getJoinedChannelForUser(moderatorId, channelName),
-      getJoinedChannelForUser(targetId, channelName),
+      getUserChannelEntryForUser(moderatorId, channelName),
+      getUserChannelEntryForUser(targetId, channelName),
     ])
+
     if (!moderatorUserChannel) {
       throw new ChatServiceError(
         ChatServiceErrorCode.InvalidModerationAction,
@@ -271,10 +266,7 @@ export default class ChatService {
     if (targetSockets) {
       this.publisher.publish(getChannelPath(originalChannelName), {
         action: moderationAction,
-        target: {
-          id: targetSockets.userId,
-          name: targetSockets.name,
-        },
+        targetId: targetSockets.userId,
         newOwnerId,
       })
       this.unsubscribeUserFromChannel(targetSockets, originalChannelName)
@@ -393,10 +385,7 @@ export default class ChatService {
     }
   }
 
-  async getChannelUsers(
-    channelName: string,
-    userId: SbUserId,
-  ): Promise<GetChannelUsersServerPayload> {
+  async getChannelUsers(channelName: string, userId: SbUserId): Promise<SbUser[]> {
     const userSockets = this.getUserSockets(userId)
     const originalChannelName = await this.getOriginalChannelName(channelName)
     if (
@@ -409,17 +398,7 @@ export default class ChatService {
       )
     }
 
-    const users = await getUsersForChannel(originalChannelName)
-    return {
-      channelUsers: users.map(u => ({
-        id: u.userId,
-        name: u.userName,
-      })),
-      users: users.map(u => ({
-        id: u.userId,
-        name: u.userName,
-      })),
-    }
+    return getUsersForChannel(originalChannelName)
   }
 
   async getOriginalChannelName(channelName: string): Promise<string> {
@@ -439,10 +418,15 @@ export default class ChatService {
     return userSockets
   }
 
-  private subscribeUserToChannel(userSockets: UserSocketsGroup, channelName: string) {
+  private subscribeUserToChannel(
+    userSockets: UserSocketsGroup,
+    channelName: string,
+    channelPermissions: ChannelPermissions,
+  ) {
     userSockets.subscribe<ChatInitEvent>(getChannelPath(channelName), () => ({
-      action: 'init',
-      activeUsers: this.state.channels.get(channelName)!.valueSeq().toArray(),
+      action: 'init2',
+      activeUserIds: this.state.channels.get(channelName)!.toArray(),
+      selfPermissions: channelPermissions,
     }))
   }
 
@@ -467,38 +451,34 @@ export default class ChatService {
   }
 
   private async handleNewUser(userSockets: UserSocketsGroup) {
-    const channelsForUser = await getChannelsForUser(userSockets.userId)
+    const userChannels = await getChannelsForUser(userSockets.userId)
     if (!userSockets.sockets.size) {
       // The user disconnected while we were waiting for their channel list
       return
     }
 
-    const channelSet = Set(channelsForUser.map(c => c.channelName))
-    const userMap = Map([[userSockets.userId, { id: userSockets.userId, name: userSockets.name }]])
-    const inChannels = Map(channelsForUser.map(c => [c.channelName, userMap]))
+    const channelSet = Set(userChannels.map(c => c.channelName))
+    const userSet = Set<SbUserId>(userChannels.map(u => u.userId))
+    const inChannels = Map(userChannels.map(c => [c.channelName, userSet]))
 
     this.state = this.state
       .mergeDeepIn(['channels'], inChannels)
       .setIn(['users', userSockets.userId], channelSet)
-    for (const { channelName: chan } of channelsForUser) {
-      this.publisher.publish(getChannelPath(chan), {
-        action: 'userActive',
-        user: {
-          id: userSockets.userId,
-          name: userSockets.name,
-        },
+    for (const userChannel of userChannels) {
+      this.publisher.publish(getChannelPath(userChannel.channelName), {
+        action: 'userActive2',
+        userId: userSockets.userId,
       })
-      this.subscribeUserToChannel(userSockets, chan)
+      this.subscribeUserToChannel(
+        userSockets,
+        userChannel.channelName,
+        userChannel.channelPermissions,
+      )
     }
     userSockets.subscribe(`${userSockets.getPath()}/chat`, () => ({ type: 'chatReady' }))
   }
 
-  private async handleUserQuit(userId: SbUserId) {
-    const user = await findUserById(userId)
-    if (!user) {
-      return
-    }
-
+  private handleUserQuit(userId: SbUserId) {
     if (!this.state.users.has(userId)) {
       // This can happen if a user disconnects before we get their channel list back from the DB
       return
@@ -514,11 +494,8 @@ export default class ChatService {
 
     for (const c of channels.values()) {
       this.publisher.publish(getChannelPath(c), {
-        action: 'userOffline',
-        user: {
-          id: userId,
-          name: user.name,
-        },
+        action: 'userOffline2',
+        userId,
       })
     }
   }

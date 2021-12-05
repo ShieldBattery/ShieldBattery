@@ -1,9 +1,6 @@
-import {
-  GetChannelHistoryServerPayload,
-  GetChannelUsersServerPayload,
-  SendChatMessageServerBody,
-} from '../../common/chat'
+import { GetChannelHistoryServerPayload, SendChatMessageServerBody } from '../../common/chat'
 import { apiUrl } from '../../common/urls'
+import { SbUser } from '../../common/users/user-info'
 import { ThunkAction } from '../dispatch-registry'
 import { push } from '../navigation/routing'
 import { fetchJson } from '../network/fetch'
@@ -110,7 +107,7 @@ export function retrieveUserList(channel: string): ThunkAction {
     })
     dispatch({
       type: '@chat/retrieveUserList',
-      payload: fetchJson<GetChannelUsersServerPayload>(apiUrl`chat/${channel}/users`, {
+      payload: fetchJson<SbUser[]>(apiUrl`chat/${channel}/users2`, {
         method: 'GET',
       }),
       meta: params,
