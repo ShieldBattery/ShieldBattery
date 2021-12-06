@@ -7,6 +7,7 @@ import {
   MatchmakingType,
 } from '../../common/matchmaking'
 import { apiUrl } from '../../common/urls'
+import audioManager, { AvailableSound } from '../audio/audio-manager'
 import { ThunkAction } from '../dispatch-registry'
 import { clientId } from '../network/client-id'
 import { fetchJson } from '../network/fetch'
@@ -37,6 +38,8 @@ export function findMatch<M extends MatchmakingType>(
         // Load the current map pool in the store so we can download all of the maps in it as soon
         // as the player queues.
         dispatch(getCurrentMapPool(matchmakingType))
+
+        audioManager.playSound(AvailableSound.EnteredQueue)
 
         return {
           startTime: window.performance.now(),

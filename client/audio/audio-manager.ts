@@ -2,10 +2,13 @@ import { urlPath } from '../../common/urls'
 import { fetchRaw } from '../network/fetch'
 
 export enum AvailableSound {
-  JoinAlert = 'join-alert.opus',
-  Countdown = 'countdown.opus',
   Atmosphere = 'atmosphere.opus',
+  Countdown = 'countdown.opus',
+  EnteredQueue = 'entered-queue.opus',
+  JoinAlert = 'join-alert.opus',
   MatchFound = 'match-found.opus',
+  PartyInvite = 'party-invite.opus',
+  PartyQueue = 'party-queue.opus',
 }
 
 const ALL_SOUNDS: ReadonlyArray<AvailableSound> = Object.values(AvailableSound)
@@ -34,6 +37,8 @@ export class AudioManager {
       return
     }
 
+    // TODO(tec27): Make a way to avoid loading all of these upfront, and instead do it only
+    // when we need them (maybe with a way to preload when we think we'll need something?)
     const promises = ALL_SOUNDS.map(async sound => {
       const response = await fetchRaw(location.origin + urlPath`/assets/sounds/${sound}`)
       this.loadedSounds.set(sound, await this.context.decodeAudioData(await response.arrayBuffer()))
