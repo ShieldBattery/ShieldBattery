@@ -11,6 +11,7 @@ import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import InviteIcon from '../icons/material/group_add_black_24px.svg'
 import CloseIcon from '../icons/material/ic_close_black_24px.svg'
+import SearchOffIcon from '../icons/material/search_off_24px.svg'
 import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotName, SlotProfile } from '../lobbies/slot'
 import { SlotActions } from '../lobbies/slot-actions'
 import { TextButton } from '../material/button'
@@ -18,9 +19,11 @@ import Chat from '../messaging/chat'
 import { Message } from '../messaging/message-records'
 import { replace } from '../navigation/routing'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { openSnackbar } from '../snackbars/action-creators'
 import { background700, background800 } from '../styles/colors'
 import {
   activateParty,
+  cancelFindMatchAsParty,
   changeLeader,
   deactivateParty,
   kickPlayer,
@@ -33,6 +36,9 @@ import {
   KickFromPartyMessage,
   LeavePartyMessage,
   PartyLeaderChangeMessage,
+  PartyQueueCancelMessage,
+  PartyQueueReadyMessage,
+  PartyQueueStartMessage,
   SelfJoinPartyMessage,
 } from './party-message-layout'
 import { PartyMessageType } from './party-message-records'
@@ -181,11 +187,11 @@ const RightSide = styled.div`
 `
 
 const StyledInviteIcon = styled(InviteIcon)`
-  margin-right: calc(8px + 4px) /* 4px to account for lack of internal padding */;
+  margin-right: 4px /* account for lack of internal padding, so it lines up with others */;
 `
 
-const StyledCloseIcon = styled(CloseIcon)`
-  margin-right: 8px;
+const CancelQueueButton = styled(TextButton)`
+  margin-bottom: 24px;
 `
 
 function renderPartyMessage(msg: Message) {
@@ -202,6 +208,19 @@ function renderPartyMessage(msg: Message) {
       return <PartyLeaderChangeMessage key={msg.id} time={msg.time} userId={msg.userId} />
     case PartyMessageType.KickFromParty:
       return <KickFromPartyMessage key={msg.id} time={msg.time} userId={msg.userId} />
+    case PartyMessageType.QueueStart:
+      return (
+        <PartyQueueStartMessage
+          key={msg.id}
+          time={msg.time}
+          leaderId={msg.leaderId}
+          matchmakingType={msg.matchmakingType}
+        />
+      )
+    case PartyMessageType.QueueCancel:
+      return <PartyQueueCancelMessage key={msg.id} time={msg.time} reason={msg.reason} />
+    case PartyMessageType.QueueReady:
+      return <PartyQueueReadyMessage key={msg.id} time={msg.time} />
     default:
       return null
   }
@@ -217,12 +236,27 @@ export function PartyView(props: PartyViewProps) {
   const party = useAppSelector(s => s.party.current)
   const partyId = party?.id
   const routePartyId = decodeURIComponent(props.params.partyId)
+  const queueId = useAppSelector(s => s.party.current?.queueState?.id)
 
   const onSendChatMessage = useCallback(
     (msg: string) => dispatch(sendChatMessage(partyId!, msg)),
     [partyId, dispatch],
   )
 
+  const onCancelQueueClick = useCallback(() => {
+    if (partyId && queueId) {
+      dispatch(
+        cancelFindMatchAsParty(partyId, queueId, {
+          onSuccess: () => {},
+          onError: err => {
+            // TODO(tec27): Handle codes
+            const message = (err as any).body?.message ?? 'unknown error occurred'
+            dispatch(openSnackbar({ message: `Error canceling matchmaking: ${message}` }))
+          },
+        }),
+      )
+    }
+  }, [partyId, queueId, dispatch])
   const onInviteClick = useCallback(() => dispatch(openDialog(DialogType.PartyInvite)), [dispatch])
   const onLeaveClick = useCallback(() => dispatch(leaveParty(partyId!)), [partyId, dispatch])
   const onKickPlayerClick = useCallback(
@@ -276,24 +310,21 @@ export function PartyView(props: PartyViewProps) {
           onKickPlayer={onKickPlayerClick}
           onChangeLeader={onChangeLeaderClick}
         />
+        {queueId ? (
+          <CancelQueueButton
+            iconStart={<SearchOffIcon />}
+            label='Cancel search'
+            onClick={onCancelQueueClick}
+          />
+        ) : null}
         {selfUser.id === party.leader ? (
           <TextButton
-            label={
-              <>
-                <StyledInviteIcon /> Invite players
-              </>
-            }
+            iconStart={<StyledInviteIcon />}
+            label='Invite players'
             onClick={onInviteClick}
           />
         ) : null}
-        <TextButton
-          label={
-            <>
-              <StyledCloseIcon /> Leave party
-            </>
-          }
-          onClick={onLeaveClick}
-        />
+        <TextButton iconStart={<CloseIcon />} label='Leave party' onClick={onLeaveClick} />
       </RightSide>
     </Container>
   )

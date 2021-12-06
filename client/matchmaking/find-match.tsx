@@ -11,6 +11,7 @@ import KeyListener from '../keyboard/key-listener'
 import { RaisedButton } from '../material/button'
 import { useScrollIndicatorState } from '../material/scroll-indicator'
 import { TabItem, Tabs } from '../material/tabs'
+import { findMatchAsParty } from '../parties/action-creators'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorDividers } from '../styles/colors'
 import { Headline5 } from '../styles/typography'
@@ -110,7 +111,8 @@ export function FindMatch() {
     s => s.matchmakingStatus.byType.get(activeTab as MatchmakingType)?.enabled ?? false,
   )
   const selfUser = useSelfUser()
-  const isInParty = useAppSelector(s => !!s.party.current)
+  const partyId = useAppSelector(s => s.party.current?.id)
+  const isInParty = !!partyId
   const partySize = useAppSelector(s => s.party.current?.members.length ?? 0)
   const isPartyLeader = useAppSelector(s => s.party.current?.leader === selfUser.id)
   const isMatchmakingPartyDisabled =
@@ -142,10 +144,15 @@ export function FindMatch() {
       if (activeTab === '3v3') {
         return
       }
-      dispatch(findMatch(activeTab, prefs))
+
+      if (isInParty) {
+        dispatch(findMatchAsParty(prefs, partyId))
+      } else {
+        dispatch(findMatch(activeTab, prefs))
+      }
       dispatch(closeOverlay() as any)
     },
-    [activeTab, dispatch],
+    [activeTab, dispatch, isInParty, partyId],
   )
 
   const onFindClick = useCallback(() => {

@@ -73,7 +73,7 @@ export class Deferred<T> implements Promise<T> {
 
 const noop = () => {}
 
-export default function createDeferred<T>() {
+export function createDeferred<T>() {
   // NOTE(tec27): The value here is just to make the compiler happy, these will always be assigned
   // before use
   let _resolve: ResolveFn<T> = noop
@@ -85,3 +85,5 @@ export default function createDeferred<T>() {
   })
   return new Deferred(promise, _resolve, _reject, PRIVATE_TOKEN)
 }
+
+export default createDeferred

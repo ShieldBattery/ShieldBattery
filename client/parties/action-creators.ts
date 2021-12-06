@@ -1,13 +1,21 @@
+import { Immutable } from 'immer'
+import { MatchmakingPreferences } from '../../common/matchmaking'
 import {
+  AcceptFindMatchAsPartyRequest,
   AcceptPartyInviteRequest,
+  FindMatchAsPartyRequest,
   InviteToPartyRequest,
   PartyServiceErrorCode,
   SendPartyChatMessageRequest,
 } from '../../common/parties'
+import { RaceChar } from '../../common/races'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/user-info'
 import { ThunkAction } from '../dispatch-registry'
+import logger from '../logging/logger'
+import { updateLastQueuedMatchmakingType } from '../matchmaking/action-creators'
 import { push } from '../navigation/routing'
+import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { fetchJson } from '../network/fetch'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
@@ -234,6 +242,66 @@ export function deactivateParty(partyId: string): DeactivateParty {
     type: '@parties/deactivateParty',
     payload: { partyId },
   }
+}
+
+export function findMatchAsParty(
+  preferences: Immutable<MatchmakingPreferences>,
+  partyId: string,
+): ThunkAction {
+  return dispatch => {
+    const body: FindMatchAsPartyRequest = {
+      preferences,
+    }
+    const promise = fetchJson<void>(apiUrl`parties/${partyId}/find-match`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+    promise.catch(err => {
+      logger.error(`Error while queuing for matchmaking as a party: ${err?.stack ?? err}`)
+      dispatch(
+        openSnackbar({
+          message: 'An error occurred while queueing for matchmaking',
+        }),
+      )
+    })
+
+    dispatch(updateLastQueuedMatchmakingType(preferences.matchmakingType))
+    dispatch({
+      type: '@parties/findMatchAsParty',
+      payload: promise,
+      meta: { partyId, preferences },
+    })
+  }
+}
+
+export function acceptFindMatchAsParty(
+  partyId: string,
+  queueId: string,
+  race: RaceChar,
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    const body: AcceptFindMatchAsPartyRequest = { race }
+
+    await fetchJson<void>(apiUrl`parties/${partyId}/find-match/${queueId}`, {
+      signal: spec.signal,
+      method: 'post',
+      body: JSON.stringify(body),
+    })
+  })
+}
+
+export function cancelFindMatchAsParty(
+  partyId: string,
+  queueId: string,
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    await fetchJson<void>(apiUrl`parties/${partyId}/find-match/${queueId}`, {
+      signal: spec.signal,
+      method: 'delete',
+    })
+  })
 }
 
 export function navigateToParty(partyId: string) {

@@ -5,8 +5,10 @@ import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { PARTIES } from '../../../common/flags'
 import {
+  AcceptFindMatchAsPartyRequest,
   AcceptPartyInviteRequest,
   ChangePartyLeaderRequest,
+  FindMatchAsPartyRequest,
   InviteToPartyRequest,
   PartyServiceErrorCode,
   SendPartyChatMessageRequest,
@@ -15,6 +17,7 @@ import { asHttpError } from '../errors/error-with-payload'
 import { featureEnabled } from '../flags/feature-enabled'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpPost } from '../http/route-decorators'
+import { matchmakingPreferencesValidator } from '../matchmaking/matchmaking-validators'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
@@ -250,5 +253,57 @@ export class PartyApi {
     this.partyService.changeLeader(partyId, ctx.session!.userId, foundTarget.id)
 
     ctx.status = 204
+  }
+
+  @httpPost('/:partyId/find-match')
+  @httpBefore(throttleMiddleware(partyThrottle, ctx => String(ctx.session!.userId)))
+  async findMatch(ctx: RouterContext): Promise<void> {
+    const {
+      params: { partyId },
+      body: { preferences },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ partyId: string }>({
+        partyId: Joi.string().required(),
+      }),
+      body: Joi.object<FindMatchAsPartyRequest>({
+        preferences: matchmakingPreferencesValidator(ctx.session!.userId).required(),
+      }),
+    })
+
+    await this.partyService.findMatch(partyId, ctx.session!.userId, preferences)
+  }
+
+  @httpPost('/:partyId/find-match/:queueId')
+  @httpBefore(throttleMiddleware(partyThrottle, ctx => String(ctx.session!.userId)))
+  async acceptFindMatch(ctx: RouterContext): Promise<void> {
+    const {
+      params: { partyId, queueId },
+      body: { race },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ partyId: string; queueId: string }>({
+        partyId: Joi.string().required(),
+        queueId: Joi.string().required(),
+      }),
+      body: Joi.object<AcceptFindMatchAsPartyRequest>({
+        race: Joi.string().valid('p', 'r', 't', 'z').required(),
+      }),
+    })
+
+    this.partyService.acceptFindMatch(partyId, queueId, ctx.session!.userId, race)
+  }
+
+  @httpDelete('/:partyId/find-match/:queueId')
+  @httpBefore(throttleMiddleware(partyThrottle, ctx => String(ctx.session!.userId)))
+  async rejectFindMatch(ctx: RouterContext): Promise<void> {
+    const {
+      params: { partyId, queueId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ partyId: string; queueId: string }>({
+        partyId: Joi.string().required(),
+        queueId: Joi.string().required(),
+      }),
+    })
+
+    this.partyService.rejectFindMatch(partyId, queueId, ctx.session!.userId)
   }
 }

@@ -1,4 +1,6 @@
 import { Record } from 'immutable'
+import { MatchmakingType } from '../../common/matchmaking'
+import { PartyQueueCancelReason } from '../../common/parties'
 import { SbUserId } from '../../common/users/user-info'
 import { BaseMessage } from '../messaging/message-records'
 
@@ -9,12 +11,15 @@ export enum PartyMessageType {
   LeaveParty = 'leaveParty',
   LeaderChange = 'leaderChange',
   KickFromParty = 'kickFromParty',
+  QueueStart = 'queueStart',
+  QueueCancel = 'queueCancel',
+  QueueReady = 'queueReady',
 }
 
 export class SelfJoinPartyMessageRecord
   extends Record({
     id: '',
-    type: PartyMessageType.SelfJoinParty as typeof PartyMessageType.SelfJoinParty,
+    type: PartyMessageType.SelfJoinParty as const,
     time: 0,
     leaderId: 0 as SbUserId,
   })
@@ -23,7 +28,7 @@ export class SelfJoinPartyMessageRecord
 export class InviteToPartyMessageRecord
   extends Record({
     id: '',
-    type: PartyMessageType.InviteToParty as typeof PartyMessageType.InviteToParty,
+    type: PartyMessageType.InviteToParty as const,
     time: 0,
     userId: 0 as SbUserId,
   })
@@ -32,7 +37,7 @@ export class InviteToPartyMessageRecord
 export class JoinPartyMessageRecord
   extends Record({
     id: '',
-    type: PartyMessageType.JoinParty as typeof PartyMessageType.JoinParty,
+    type: PartyMessageType.JoinParty as const,
     time: 0,
     userId: 0 as SbUserId,
   })
@@ -41,7 +46,7 @@ export class JoinPartyMessageRecord
 export class LeavePartyMessageRecord
   extends Record({
     id: '',
-    type: PartyMessageType.LeaveParty as typeof PartyMessageType.LeaveParty,
+    type: PartyMessageType.LeaveParty as const,
     time: 0,
     userId: 0 as SbUserId,
   })
@@ -50,7 +55,7 @@ export class LeavePartyMessageRecord
 export class PartyLeaderChangeMessageRecord
   extends Record({
     id: '',
-    type: PartyMessageType.LeaderChange as typeof PartyMessageType.LeaderChange,
+    type: PartyMessageType.LeaderChange as const,
     time: 0,
     userId: 0 as SbUserId,
   })
@@ -59,9 +64,36 @@ export class PartyLeaderChangeMessageRecord
 export class KickFromPartyMessageRecord
   extends Record({
     id: '',
-    type: PartyMessageType.KickFromParty as typeof PartyMessageType.KickFromParty,
+    type: PartyMessageType.KickFromParty as const,
     time: 0,
     userId: 0 as SbUserId,
+  })
+  implements BaseMessage {}
+
+export class PartyQueueStartMessageRecord
+  extends Record({
+    id: '',
+    type: PartyMessageType.QueueStart as const,
+    time: 0,
+    leaderId: 0 as SbUserId,
+    matchmakingType: MatchmakingType.Match1v1,
+  })
+  implements BaseMessage {}
+
+export class PartyQueueCancelMessageRecord
+  extends Record({
+    id: '',
+    type: PartyMessageType.QueueCancel as const,
+    time: 0,
+    reason: { type: 'error' } as PartyQueueCancelReason,
+  })
+  implements BaseMessage {}
+
+export class PartyQueueReadyMessageRecord
+  extends Record({
+    id: '',
+    type: PartyMessageType.QueueReady as const,
+    time: 0,
   })
   implements BaseMessage {}
 
@@ -72,3 +104,6 @@ export type PartyMessage =
   | LeavePartyMessageRecord
   | PartyLeaderChangeMessageRecord
   | KickFromPartyMessageRecord
+  | PartyQueueStartMessageRecord
+  | PartyQueueCancelMessageRecord
+  | PartyQueueReadyMessageRecord

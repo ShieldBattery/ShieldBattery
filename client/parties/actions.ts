@@ -1,4 +1,7 @@
-import { PartyChatMessage, PartyJson } from '../../common/parties'
+import { Immutable } from 'immer'
+import { MatchmakingPreferences, MatchmakingType } from '../../common/matchmaking'
+import { PartyChatMessage, PartyJson, PartyQueueCancelReason } from '../../common/parties'
+import { RaceChar } from '../../common/races'
 import { SbUser, SbUserId } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
@@ -27,6 +30,7 @@ export type PartyActions =
   | ChangePartyLeaderBegin
   | ChangePartyLeaderSuccess
   | ChangePartyLeaderFailure
+  | FindMatchAsParty
   | ActivateParty
   | DeactivateParty
   | InitParty
@@ -39,6 +43,9 @@ export type PartyActions =
   | UpdateChatMessage
   | UpdateKick
   | UpdateKickSelf
+  | UpdateQueue
+  | UpdateQueueCancel
+  | UpdateQueueReady
 
 export interface InviteToPartyBegin {
   type: '@parties/inviteToPartyBegin'
@@ -240,6 +247,16 @@ export interface ChangePartyLeaderFailure extends BaseFetchFailure<'@parties/cha
   }
 }
 
+export interface FindMatchAsParty {
+  type: '@parties/findMatchAsParty'
+  payload: void
+  meta: {
+    partyId: string
+    preferences: Immutable<MatchmakingPreferences>
+  }
+  error?: false
+}
+
 /**
  * Activate the party the user is in. This is a purely client-side action which marks the party as
  * "active", and removes the unread indicator if there is one.
@@ -347,6 +364,38 @@ export interface UpdateKickSelf {
   type: '@parties/updateKickSelf'
   payload: {
     partyId: string
+    time: number
+  }
+}
+
+export interface UpdateQueue {
+  type: '@parties/updateQueue'
+  payload: {
+    partyId: string
+    queueId: string
+    matchmakingType: MatchmakingType
+    accepted: Array<[userId: SbUserId, race: RaceChar]>
+    unaccepted: SbUserId[]
+    time: number
+  }
+}
+
+export interface UpdateQueueCancel {
+  type: '@parties/updateQueueCancel'
+  payload: {
+    partyId: string
+    queueId: string
+    reason: PartyQueueCancelReason
+    time: number
+  }
+}
+
+export interface UpdateQueueReady {
+  type: '@parties/updateQueueReady'
+  payload: {
+    partyId: string
+    queueId: string
+    queuedMembers: Array<[userId: SbUserId, race: RaceChar]>
     time: number
   }
 }

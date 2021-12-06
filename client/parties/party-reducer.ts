@@ -1,5 +1,7 @@
 import cuid from 'cuid'
 import { Immutable } from 'immer'
+import { MatchmakingType } from '../../common/matchmaking'
+import { RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/user-info'
 import { NETWORK_SITE_CONNECTED } from '../actions'
 import { Message, TextMessageRecord } from '../messaging/message-records'
@@ -10,11 +12,21 @@ import {
   KickFromPartyMessageRecord,
   LeavePartyMessageRecord,
   PartyLeaderChangeMessageRecord,
+  PartyQueueCancelMessageRecord,
+  PartyQueueReadyMessageRecord,
+  PartyQueueStartMessageRecord,
   SelfJoinPartyMessageRecord,
 } from './party-message-records'
 
 // How many messages should be kept when a party is inactive
 const INACTIVE_PARTY_MAX_HISTORY = 500
+
+export interface PartyQueueState {
+  id: string
+  matchmakingType: MatchmakingType
+  accepted: Map<SbUserId, RaceChar>
+  unaccepted: Set<SbUserId>
+}
 
 export interface CurrentPartyState {
   id: string
@@ -25,6 +37,8 @@ export interface CurrentPartyState {
   messages: Message[]
   hasUnread: boolean
   activated: boolean
+
+  queueState?: PartyQueueState
 }
 
 export interface PartiesState {
@@ -246,6 +260,77 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
     state.current.messages = state.current.messages.slice(-INACTIVE_PARTY_MAX_HISTORY)
     state.current.activated = false
+  },
+
+  ['@parties/updateQueue'](
+    state,
+    { payload: { partyId, queueId, matchmakingType, accepted, unaccepted, time } },
+  ) {
+    if (partyId !== state.current?.id) {
+      return
+    }
+
+    if (!state.current.queueState || state.current.queueState.id !== queueId) {
+      state.current.queueState = {
+        id: queueId,
+        matchmakingType,
+        accepted: new Map(accepted),
+        unaccepted: new Set(unaccepted),
+      }
+      addMessage(
+        state.current,
+        new PartyQueueStartMessageRecord({
+          id: cuid(),
+          time,
+          leaderId: state.current.leader,
+          matchmakingType,
+        }),
+      )
+    } else {
+      const { queueState } = state.current
+      queueState.matchmakingType = matchmakingType
+
+      for (const [userId, race] of accepted) {
+        queueState.accepted.set(userId, race)
+        queueState.unaccepted.delete(userId)
+      }
+
+      for (const userId of unaccepted) {
+        queueState.unaccepted.add(userId)
+        queueState.accepted.delete(userId)
+      }
+    }
+  },
+
+  ['@parties/updateQueueCancel'](state, { payload: { partyId, queueId, reason, time } }) {
+    if (partyId !== state.current?.id || queueId !== state.current.queueState?.id) {
+      return
+    }
+
+    state.current.queueState = undefined
+    addMessage(
+      state.current,
+      new PartyQueueCancelMessageRecord({
+        id: cuid(),
+        time,
+        reason,
+      }),
+    )
+  },
+
+  ['@parties/updateQueueReady'](state, { payload: { partyId, queueId, time } }) {
+    if (partyId !== state.current?.id || queueId !== state.current.queueState?.id) {
+      return
+    }
+
+    state.current.queueState = undefined
+    addMessage(
+      state.current,
+      new PartyQueueReadyMessageRecord({
+        id: cuid(),
+        time,
+      }),
+    )
   },
 
   [NETWORK_SITE_CONNECTED as any]() {

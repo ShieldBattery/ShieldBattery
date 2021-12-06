@@ -1,3 +1,6 @@
+import { Immutable } from 'immer'
+import { MatchmakingPreferences, MatchmakingType } from './matchmaking'
+import { RaceChar } from './races'
 import { SbUser, SbUserId } from './users/user-info'
 
 /**
@@ -84,6 +87,29 @@ export interface PartyKickEvent {
   time: number
 }
 
+export interface PartyQueueEvent {
+  type: 'queue'
+  id: string
+  matchmakingType: MatchmakingType
+  accepted: Array<[userId: SbUserId, race: RaceChar]>
+  unaccepted: SbUserId[]
+  time: number
+}
+
+export interface PartyQueueCancelEvent {
+  type: 'queueCancel'
+  id: string
+  reason: PartyQueueCancelReason
+  time: number
+}
+
+export interface PartyQueueReadyEvent {
+  type: 'queueReady'
+  id: string
+  queuedMembers: Array<[userId: SbUserId, race: RaceChar]>
+  time: number
+}
+
 export type PartyEvent =
   | PartyInitEvent
   | PartyInviteEvent
@@ -93,6 +119,9 @@ export type PartyEvent =
   | PartyLeaderChangeEvent
   | PartyChatMessageEvent
   | PartyKickEvent
+  | PartyQueueEvent
+  | PartyQueueCancelEvent
+  | PartyQueueReadyEvent
 
 export interface InviteToPartyRequest {
   clientId: string
@@ -109,4 +138,29 @@ export interface SendPartyChatMessageRequest {
 
 export interface ChangePartyLeaderRequest {
   targetId: number
+}
+
+export interface FindMatchAsPartyRequest {
+  preferences: Immutable<MatchmakingPreferences>
+}
+
+export interface AcceptFindMatchAsPartyRequest {
+  race: RaceChar
+}
+
+export type PartyQueueCancelReason = PartyQueueRejected | PartyQueueUserLeft | PartyQueueError
+
+export interface PartyQueueRejected {
+  type: 'rejected'
+  user: SbUserId
+}
+
+export interface PartyQueueUserLeft {
+  type: 'userLeft'
+  user: SbUserId
+}
+
+export interface PartyQueueError {
+  type: 'error'
+  // TODO(tec27): should we pass more details? I think this will often just be some server error...
 }

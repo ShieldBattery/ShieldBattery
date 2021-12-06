@@ -1,13 +1,20 @@
 import cuid from 'cuid'
+import { Immutable } from 'immer'
 import { singleton } from 'tsyringe'
+import { isAbortError, raceAbort } from '../../../common/async/abort-signals'
+import { createDeferred, Deferred } from '../../../common/async/deferred'
+import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
+import { MatchmakingPreferences, MatchmakingType, TEAM_SIZES } from '../../../common/matchmaking'
 import { NotificationType } from '../../../common/notifications'
 import {
   MAX_PARTY_SIZE,
   PartyEvent,
   PartyInitEvent,
   PartyJson,
+  PartyQueueCancelReason,
   PartyServiceErrorCode,
 } from '../../../common/parties'
+import { RaceChar } from '../../../common/races'
 import { SbUser, SbUserId } from '../../../common/users/user-info'
 import { CodedError } from '../errors/coded-error'
 import logger from '../logging/logger'
@@ -24,6 +31,8 @@ export interface PartyRecord {
   invites: Set<SbUserId>
   members: Set<SbUserId>
   leader: SbUserId
+
+  partyQueueRequest?: PartyQueueRequest
 }
 
 export class PartyServiceError extends CodedError<PartyServiceErrorCode> {}
@@ -41,6 +50,59 @@ export function toPartyJson(party: PartyRecord): PartyJson {
   }
 }
 
+/**
+ * Tracks the current state of a party matchmaking queue request and exposes a way to wait for
+ * any changes to that state.
+ */
+export class PartyQueueRequest {
+  readonly id = cuid()
+  private acceptPromises = new Map<SbUserId, Deferred<void>>()
+  private selectedRaces = new Map<SbUserId, RaceChar>()
+  private abortController = new AbortController()
+  private cancelReason?: PartyQueueCancelReason
+
+  constructor(
+    readonly matchmakingType: MatchmakingType,
+    readonly members: ReadonlyArray<SbUserId>,
+  ) {
+    for (const member of members) {
+      this.acceptPromises.set(member, createDeferred())
+    }
+  }
+
+  untilAcceptStateChanged(): Promise<void> {
+    return raceAbort(
+      this.abortController.signal,
+      Promise.race(Array.from(this.acceptPromises.values())),
+    )
+  }
+
+  getUnacceptedMembers(): SbUserId[] {
+    return Array.from(this.acceptPromises.keys())
+  }
+
+  registerAccept(userId: SbUserId, race: RaceChar) {
+    this.acceptPromises.get(userId)?.resolve()
+    this.acceptPromises.delete(userId)
+    this.selectedRaces.set(userId, race)
+  }
+
+  abort(reason: PartyQueueCancelReason) {
+    this.abortController.abort()
+    if (!this.cancelReason) {
+      this.cancelReason = reason
+    }
+  }
+
+  getSelectedRaces(): Readonly<Map<SbUserId, RaceChar>> {
+    return this.selectedRaces
+  }
+
+  getCancelReason(): PartyQueueCancelReason | undefined {
+    return this.cancelReason
+  }
+}
+
 @singleton()
 export default class PartyService {
   /**
@@ -51,7 +113,7 @@ export default class PartyService {
   /** Maps client sockets group -> party ID. Only one client sockets group can be in a party. */
   private clientSocketsToPartyId = new Map<ClientSocketsGroup, string>()
   /** Maps user ID -> client ID. The client ID is the one that user used to join the party. */
-  private userIdToClientId = new Map<number, string>()
+  private userIdToClientId = new Map<SbUserId, string>()
 
   constructor(
     private publisher: TypedPublisher<PartyEvent>,
@@ -135,7 +197,7 @@ export default class PartyService {
    * declined. Furthermore, declining an invite doesn't prevent the user from joining the party at
    * a later time, even if currently it's not possible to perform such action through UI.
    */
-  async decline(partyId: string, target: SbUserId) {
+  async decline(partyId: string, target: SbUserId): Promise<void> {
     await this.clearInviteNotification(partyId, target)
   }
 
@@ -145,7 +207,7 @@ export default class PartyService {
    * invite notification is cleared for the invited user, so if they got uninvited before they even
    * saw the invite notification they'll be none the wiser!
    */
-  async removeInvite(partyId: string, removingUser: SbUserId, target: SbUserId) {
+  async removeInvite(partyId: string, removingUser: SbUserId, target: SbUserId): Promise<void> {
     await this.clearInviteNotification(partyId, target)
 
     const party = this.parties.get(partyId)
@@ -184,7 +246,7 @@ export default class PartyService {
    * party. Also, it's possible to accept an invite to a party while already being in a different
    * party. In that case, the user will leave the old party and be transferred to a new party.
    */
-  async acceptInvite(partyId: string, user: SbUser, clientId: string) {
+  async acceptInvite(partyId: string, user: SbUser, clientId: string): Promise<void> {
     await this.clearInviteNotification(partyId, user.id)
 
     const party = this.parties.get(partyId)
@@ -234,7 +296,7 @@ export default class PartyService {
    * will be selected. And if the leaving player was the last member of the party, the party will be
    * destroyed.
    */
-  leaveParty(partyId: string, userId: SbUserId, clientId: string) {
+  leaveParty(partyId: string, userId: SbUserId, clientId: string): void {
     const party = this.parties.get(partyId)
     if (!party || !party.members.has(userId)) {
       throw new PartyServiceError(
@@ -251,7 +313,7 @@ export default class PartyService {
    * Sends a chat message in the party from a particular user. The chat messages are not persisted
    * anywhere, and users will only be able to see the messages sent since they joined the party.
    */
-  async sendChatMessage(partyId: string, user: SbUser, message: string) {
+  async sendChatMessage(partyId: string, user: SbUser, message: string): Promise<void> {
     const party = this.parties.get(partyId)
     if (!party || !party.members.has(user.id)) {
       throw new PartyServiceError(
@@ -279,7 +341,7 @@ export default class PartyService {
    * Kicks a particular user from a party. Only party leaders can kick other people. Kicked players
    * must be invited again to the party if they wish to rejoin.
    */
-  kickPlayer(partyId: string, kickingUser: SbUserId, target: SbUserId) {
+  kickPlayer(partyId: string, kickingUser: SbUserId, target: SbUserId): void {
     const party = this.parties.get(partyId)
     if (!party || !party.members.has(kickingUser)) {
       throw new PartyServiceError(
@@ -321,7 +383,7 @@ export default class PartyService {
    * Changes the party leader. Only the current party leader can initiate the change. This is the
    * same action that happens automatically when a current party leader leaves the party.
    */
-  changeLeader(partyId: string, oldLeader: SbUserId, newLeader: SbUserId) {
+  changeLeader(partyId: string, oldLeader: SbUserId, newLeader: SbUserId): void {
     const party = this.parties.get(partyId)
     if (!party || !party.members.has(oldLeader)) {
       throw new PartyServiceError(
@@ -354,6 +416,147 @@ export default class PartyService {
       leader: newLeader,
       time: this.clock.now(),
     })
+  }
+
+  async findMatch(
+    partyId: string,
+    fromUser: SbUserId,
+    preferences: Immutable<MatchmakingPreferences>,
+  ): Promise<void> {
+    const party = this.parties.get(partyId)
+    if (!party || !party.members.has(fromUser)) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.NotFoundOrNotInParty,
+        "Party not found or you're not in it",
+      )
+    }
+
+    if (fromUser !== party.leader) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.InsufficientPermissions,
+        'Only party leaders can queue for matchmaking',
+      )
+    }
+
+    if (
+      party.partyQueueRequest &&
+      party.partyQueueRequest.matchmakingType !== preferences.matchmakingType
+    ) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.InvalidAction,
+        'Party is already in the process of queueing for a different matchmaking type',
+      )
+    } else if (party.partyQueueRequest) {
+      // Party is already queuing, just no-op this request
+      return
+    }
+
+    if (party.members.size > TEAM_SIZES[preferences.matchmakingType]) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.InvalidAction,
+        'Party is too large for that matchmaking type',
+      )
+    }
+
+    // Copy these values out in case the caller changes the preferences object afterwards for
+    // some reason
+    const { race: leaderRace, matchmakingType } = preferences
+
+    party.partyQueueRequest = new PartyQueueRequest(
+      matchmakingType,
+      Array.from(party.members.values()),
+    )
+
+    Promise.resolve()
+      .then(async () => {
+        const { partyQueueRequest } = party
+        if (!partyQueueRequest) {
+          // This shouldn't generally happen, but if they canceled the matchmaking request
+          // immediately then maybe?
+          return
+        }
+
+        partyQueueRequest.registerAccept(fromUser, leaderRace)
+
+        try {
+          while (partyQueueRequest.getUnacceptedMembers().length) {
+            this.publisher.publish(getPartyPath(party.id), {
+              type: 'queue',
+              id: partyQueueRequest.id,
+              matchmakingType: partyQueueRequest.matchmakingType,
+              accepted: Array.from(partyQueueRequest.getSelectedRaces().entries()),
+              unaccepted: partyQueueRequest.getUnacceptedMembers(),
+              time: this.clock.now(),
+            })
+
+            await partyQueueRequest.untilAcceptStateChanged()
+          }
+
+          this.publisher.publish(getPartyPath(party.id), {
+            type: 'queueReady',
+            id: partyQueueRequest.id,
+            queuedMembers: Array.from(partyQueueRequest.getSelectedRaces().entries()),
+            time: this.clock.now(),
+          })
+          // TODO(tec27): queue into matchmaking
+        } catch (err: any) {
+          if (!isAbortError(err)) {
+            logger.error({ err }, 'error while processing party queue request')
+          }
+
+          this.publisher.publish(getPartyPath(party.id), {
+            type: 'queueCancel',
+            id: partyQueueRequest.id,
+            reason: partyQueueRequest.getCancelReason() ?? { type: 'error' },
+            time: this.clock.now(),
+          })
+        } finally {
+          party.partyQueueRequest = undefined
+        }
+      })
+      .catch(swallowNonBuiltins)
+  }
+
+  acceptFindMatch(partyId: string, queueId: string, fromUser: SbUserId, race: RaceChar): void {
+    const party = this.parties.get(partyId)
+    if (!party || !party.members.has(fromUser)) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.NotFoundOrNotInParty,
+        "Party not found or you're not in it",
+      )
+    }
+    if (
+      party.partyQueueRequest?.id !== queueId ||
+      !party.partyQueueRequest.members.includes(fromUser)
+    ) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.InvalidAction,
+        'Party is not currently queueing for a match',
+      )
+    }
+
+    party.partyQueueRequest.registerAccept(fromUser, race)
+  }
+
+  rejectFindMatch(partyId: string, queueId: string, fromUser: SbUserId): void {
+    const party = this.parties.get(partyId)
+    if (!party || !party.members.has(fromUser)) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.NotFoundOrNotInParty,
+        "Party not found or you're not in it",
+      )
+    }
+    if (
+      party.partyQueueRequest?.id !== queueId ||
+      !party.partyQueueRequest.members.includes(fromUser)
+    ) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.InvalidAction,
+        'Party is not currently queueing for a match',
+      )
+    }
+
+    party.partyQueueRequest.abort({ type: 'rejected', user: fromUser })
   }
 
   private async maybeSendInviteNotification(party: PartyRecord, user: SbUserId) {
@@ -455,6 +658,10 @@ export default class PartyService {
     }
 
     clientSockets.unsubscribe(getPartyPath(party.id))
+
+    if (party.partyQueueRequest?.members.includes(userId)) {
+      party.partyQueueRequest.abort({ type: 'userLeft', user: userId })
+    }
 
     // If the last person in a party leaves, the party is removed. All outstanding invites to this,
     // now non-existing party, should fail.

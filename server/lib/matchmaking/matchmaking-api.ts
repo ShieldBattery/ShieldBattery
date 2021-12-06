@@ -3,11 +3,7 @@ import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import {
-  ALL_MATCHMAKING_TYPES,
-  MatchmakingPreferences,
-  MatchmakingPreferencesData1v1,
-} from '../../../common/matchmaking'
+import { MatchmakingPreferences } from '../../../common/matchmaking'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpPost } from '../http/route-decorators'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -20,6 +16,7 @@ import {
   MatchmakingServiceError,
   MatchmakingServiceErrorCode,
 } from './matchmaking-service'
+import { matchmakingPreferencesValidator } from './matchmaking-validators'
 
 const matchmakingThrottle = createThrottle('matchmaking', {
   rate: 20,
@@ -70,22 +67,7 @@ export class MatchmakingApi {
     const { body } = validateRequest(ctx, {
       body: Joi.object<{ clientId: string; preferences: MatchmakingPreferences }>({
         clientId: Joi.string().required(),
-        preferences: Joi.object<MatchmakingPreferences>({
-          userId: Joi.number().min(1).required(),
-          matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
-          race: Joi.string().valid('p', 't', 'z', 'r').required(),
-          mapPoolId: Joi.number().min(1).required(),
-          // TODO(2Pac): min/max values most likely depend on the matchmaking type here
-          mapSelections: Joi.array().items(Joi.string()).min(0).max(3).required(),
-          data: Joi.alternatives()
-            .try(
-              Joi.object<MatchmakingPreferencesData1v1>({
-                useAlternateRace: Joi.bool(),
-                alternateRace: Joi.string().valid('p', 't', 'z'),
-              }),
-            )
-            .required(),
-        }).required(),
+        preferences: matchmakingPreferencesValidator(ctx.session!.userId).required(),
       }),
     })
     const { clientId, preferences } = body

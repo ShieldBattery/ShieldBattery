@@ -1,4 +1,5 @@
 import { NydusServer } from 'nydus'
+import { MatchmakingPreferences, MatchmakingType } from '../../../common/matchmaking'
 import { NotificationType } from '../../../common/notifications'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId, SbUser, SbUserId } from '../../../common/users/user-info'
@@ -770,6 +771,199 @@ describe('parties/party-service', () => {
         leader: user2.id,
         time: currentTime,
       })
+    })
+  })
+
+  describe('matchmaking', () => {
+    let leader: SbUser
+    let party: PartyRecord
+    let preferences: MatchmakingPreferences
+
+    beforeEach(async () => {
+      leader = user1
+      preferences = {
+        userId: leader.id,
+        matchmakingType: MatchmakingType.Match2v2,
+        mapPoolId: 1,
+        mapSelections: [],
+        data: {},
+        race: 'p',
+      }
+
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, user2)
+      await partyService.invite(leader.id, USER1_CLIENT_ID, user3)
+      partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
+    })
+
+    test('should throw if the party is not found', async () => {
+      await expect(
+        partyService.findMatch('INVALID_PARTY_ID', leader.id, preferences),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
+    })
+
+    test('should throw if not in party', async () => {
+      await expect(() =>
+        partyService.findMatch(party.id, user4.id, preferences),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
+    })
+
+    test('should throw if non-leader tries to find match', async () => {
+      await expect(() =>
+        partyService.findMatch(party.id, user2.id, preferences),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Only party leaders can queue for matchmaking"`)
+    })
+
+    test('should throw if queueing for a smaller matchmaking type', async () => {
+      preferences.matchmakingType = MatchmakingType.Match1v1
+      await expect(() =>
+        partyService.findMatch(party.id, leader.id, preferences),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party is too large for that matchmaking type"`)
+    })
+
+    // eslint-disable-next-line jest/no-commented-out-tests
+    /*
+
+    TODO(tec27): Uncomment this when we add 3v3, can't build this test with only 1v1/2v2
+
+    test('should throw if queueing for a different matchmaking type', async () => {
+      await partyService.findMatch(party.id, leader.id, preferences)
+
+      preferences.matchmakingType = MatchmakingType.Match3v3
+      await expect(() =>
+        partyService.findMatch(party.id, leader.id, preferences),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `"Party is already in the process of queueing for a different matchmaking type"`
+      )
+    })
+    */
+
+    test('should send out queue updates as players accept', async () => {
+      await partyService.findMatch(party.id, leader.id, preferences)
+
+      expect(nydus.publish).toHaveBeenCalledWith(
+        getPartyPath(party.id),
+        expect.objectContaining({
+          type: 'queue',
+          id: expect.toBeString(),
+          matchmakingType: preferences.matchmakingType,
+          accepted: [[leader.id, preferences.race]],
+          unaccepted: [user2.id],
+          time: currentTime,
+        }),
+      )
+
+      const queueId = party.partyQueueRequest!.id
+
+      // TODO(tec27): Extend this test a bit when 3v3 is available
+      partyService.acceptFindMatch(party.id, queueId, user2.id, 'z')
+      await new Promise<void>(resolve => setTimeout(resolve, 20))
+
+      expect(nydus.publish).toHaveBeenCalledWith(
+        getPartyPath(party.id),
+        expect.objectContaining({
+          type: 'queueReady',
+          id: queueId,
+          queuedMembers: [
+            [leader.id, preferences.race],
+            [user2.id, 'z'],
+          ],
+          time: currentTime,
+        }),
+      )
+    })
+
+    test('should cancel the queue if a player rejects the match', async () => {
+      await partyService.findMatch(party.id, leader.id, preferences)
+      const queueId = party.partyQueueRequest!.id
+
+      partyService.rejectFindMatch(party.id, queueId, user2.id)
+      await new Promise<void>(resolve => setTimeout(resolve, 20))
+
+      expect(nydus.publish).toHaveBeenCalledWith(
+        getPartyPath(party.id),
+        expect.objectContaining({
+          type: 'queueCancel',
+          id: queueId,
+          reason: { type: 'rejected', user: user2.id },
+          time: currentTime,
+        }),
+      )
+    })
+
+    test('should cancel the queue if a player leaves the party', async () => {
+      await partyService.findMatch(party.id, leader.id, preferences)
+      const queueId = party.partyQueueRequest!.id
+
+      partyService.leaveParty(party.id, user2.id, USER2_CLIENT_ID)
+      await new Promise<void>(resolve => setTimeout(resolve, 20))
+
+      expect(nydus.publish).toHaveBeenCalledWith(
+        getPartyPath(party.id),
+        expect.objectContaining({
+          type: 'queueCancel',
+          id: queueId,
+          reason: { type: 'userLeft', user: user2.id },
+          time: currentTime,
+        }),
+      )
+    })
+
+    test('should cancel the queue if a player is kicked from the party', async () => {
+      await partyService.findMatch(party.id, leader.id, preferences)
+      const queueId = party.partyQueueRequest!.id
+
+      partyService.kickPlayer(party.id, leader.id, user2.id)
+      await new Promise<void>(resolve => setTimeout(resolve, 20))
+
+      expect(nydus.publish).toHaveBeenCalledWith(
+        getPartyPath(party.id),
+        expect.objectContaining({
+          type: 'queueCancel',
+          id: queueId,
+          reason: { type: 'userLeft', user: user2.id },
+          time: currentTime,
+        }),
+      )
+    })
+
+    test('should cancel the queue if a player disconnects', async () => {
+      await partyService.findMatch(party.id, leader.id, preferences)
+      const queueId = party.partyQueueRequest!.id
+
+      client1.disconnect()
+      await new Promise<void>(resolve => setTimeout(resolve, 20))
+
+      expect(nydus.publish).toHaveBeenCalledWith(
+        getPartyPath(party.id),
+        expect.objectContaining({
+          type: 'queueCancel',
+          id: queueId,
+          reason: { type: 'userLeft', user: leader.id },
+          time: currentTime,
+        }),
+      )
+    })
+
+    test("shouldn't add newly joining players to the matchmaking process", async () => {
+      await partyService.findMatch(party.id, leader.id, preferences)
+      const queueId = party.partyQueueRequest!.id
+
+      await partyService.acceptInvite(party.id, user3, USER3_CLIENT_ID)
+      partyService.acceptFindMatch(party.id, queueId, user2.id, 'z')
+      await new Promise<void>(resolve => setTimeout(resolve, 20))
+
+      expect(nydus.publish).toHaveBeenCalledWith(
+        getPartyPath(party.id),
+        expect.objectContaining({
+          type: 'queueReady',
+          id: queueId,
+          queuedMembers: [
+            [leader.id, preferences.race],
+            [user2.id, 'z'],
+          ],
+          time: currentTime,
+        }),
+      )
     })
   })
 })

@@ -19,6 +19,7 @@ import { defaultSpring } from '../material/springs'
 import { zIndexDialogScrim } from '../material/zindex'
 import { ExternalLinkDialog } from '../messaging/external-link-dialog'
 import { PartyInviteDialog } from '../parties/party-invite-dialog'
+import { PartyQueueAcceptDialog } from '../parties/party-queue-accept-dialog'
 import {
   AcceptableUseDialog,
   PrivacyPolicyDialog,
@@ -77,12 +78,16 @@ function getDialog(
       return { component: JoinChannelDialog, modal: false }
     case DialogType.Download:
       return { component: DownloadDialog, modal: false }
+    case DialogType.ExternalLink:
+      return { component: ExternalLinkDialog, modal: false }
     case DialogType.MapDetails:
       return { component: MapDetailsDialog, modal: false }
     case DialogType.MapPreview:
       return { component: MapPreviewDialog, modal: false }
     case DialogType.PartyInvite:
       return { component: PartyInviteDialog, modal: false }
+    case DialogType.PartyQueueAccept:
+      return { component: PartyQueueAcceptDialog, modal: true }
     case DialogType.PrivacyPolicy:
       return { component: PrivacyPolicyDialog, modal: false }
     case DialogType.Settings:
@@ -103,8 +108,6 @@ function getDialog(
       return { component: UpdateDialog, modal: true }
     case DialogType.Whispers:
       return { component: CreateWhisperSessionDialog, modal: false }
-    case DialogType.ExternalLink:
-      return { component: ExternalLinkDialog, modal: false }
     default:
       return assertUnreachable(dialogType)
   }

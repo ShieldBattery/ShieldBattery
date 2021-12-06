@@ -5,8 +5,10 @@ export enum DialogType {
   Changelog = 'changelog',
   Channel = 'channel',
   Download = 'download',
+  ExternalLink = 'externalLink',
   MapDetails = 'mapDetails',
   MapPreview = 'mapPreview',
+  PartyQueueAccept = 'partyQueueAccept',
   PartyInvite = 'partyInvite',
   PrivacyPolicy = 'privacyPolicy',
   Settings = 'settings',
@@ -17,5 +19,4 @@ export enum DialogType {
   TermsOfService = 'termsOfService',
   UpdateAvailable = 'updateAvailable',
   Whispers = 'whispers',
-  ExternalLink = 'externalLink',
 }

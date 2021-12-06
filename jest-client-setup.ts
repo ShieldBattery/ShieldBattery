@@ -7,3 +7,10 @@
 ;(global as any).__WEBPACK_ENV = {
   SB_SERVER: 'https://shieldbattery.net',
 }
+// I dunno why these aren't available in the browser env :(
+;(global as any).AudioContext = jest.fn(() => ({
+  createGain: jest.fn(() => ({
+    connect: jest.fn(),
+  })),
+  destination: {},
+}))

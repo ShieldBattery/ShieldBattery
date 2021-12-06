@@ -2,6 +2,8 @@ import type { NydusClient, RouteHandler, RouteInfo } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { PartyEvent } from '../../common/parties'
 import audioManager, { AvailableSound } from '../audio/audio-manager'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { dispatch, Dispatchable } from '../dispatch-registry'
 import { openSnackbar } from '../snackbars/action-creators'
 import { navigateToParty } from './action-creators'
@@ -9,7 +11,7 @@ import { navigateToParty } from './action-creators'
 const ipcRenderer = new TypedIpcRenderer()
 
 type EventToActionMap = {
-  [E in PartyEvent['type']]?: (
+  [E in PartyEvent['type']]: (
     partyId: string,
     event: Extract<PartyEvent, { type: E }>,
   ) => Dispatchable
@@ -158,6 +160,57 @@ const eventToAction: EventToActionMap = {
         },
       })
     }
+  },
+
+  queue: (partyId, event) => (dispatch, getState) => {
+    const {
+      auth: { user },
+      party,
+    } = getState()
+    const showRaceDialog =
+      party.current?.id === partyId &&
+      event.unaccepted.includes(user.id) &&
+      event.id !== party.current.queueState?.id
+
+    dispatch({
+      type: '@parties/updateQueue',
+      payload: {
+        partyId,
+        queueId: event.id,
+        matchmakingType: event.matchmakingType,
+        accepted: event.accepted,
+        unaccepted: event.unaccepted,
+        time: event.time,
+      },
+    })
+
+    if (showRaceDialog) {
+      audioManager.playSound(AvailableSound.PartyQueue)
+      dispatch(openDialog(DialogType.PartyQueueAccept))
+    }
+  },
+
+  queueCancel: (partyId, event) => ({
+    type: '@parties/updateQueueCancel',
+    payload: {
+      partyId,
+      queueId: event.id,
+      reason: event.reason,
+      time: event.time,
+    },
+  }),
+
+  queueReady: (partyId, event) => dispatch => {
+    ipcRenderer.send('rallyPointRefreshPings')
+    dispatch({
+      type: '@parties/updateQueueReady',
+      payload: {
+        partyId,
+        queueId: event.id,
+        queuedMembers: event.queuedMembers,
+        time: event.time,
+      },
+    })
   },
 }
 
