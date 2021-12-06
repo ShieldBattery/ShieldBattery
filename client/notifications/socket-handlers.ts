@@ -1,7 +1,16 @@
 import { Set } from 'immutable'
 import type { NydusClient, RouteHandler, RouteInfo } from 'nydus-client'
 import { NotificationEvent, NotificationType } from '../../common/notifications'
+import audioManager, { AvailableSound } from '../audio/audio-manager'
 import { dispatch, Dispatchable } from '../dispatch-registry'
+
+/**
+ * Sounds to play when receiving an `add` for a notification of a particular type. If a type is not
+ * present in this mapping, no sound will be played.
+ */
+const NOTIFICATION_SOUNDS: Partial<Record<NotificationType, AvailableSound>> = {
+  [NotificationType.PartyInvite]: AvailableSound.PartyInvite,
+}
 
 const ELECTRON_ONLY_NOTIFICATION_TYPES = Set<Readonly<NotificationType>>([
   NotificationType.PartyInvite,
@@ -30,6 +39,9 @@ const eventToAction: EventToActionMap = {
 
     if (!IS_ELECTRON && ELECTRON_ONLY_NOTIFICATION_TYPES.has(notification.type)) {
       return
+    }
+    if (NOTIFICATION_SOUNDS.hasOwnProperty(notification.type)) {
+      audioManager.playSound(NOTIFICATION_SOUNDS[notification.type]!)
     }
 
     dispatch({

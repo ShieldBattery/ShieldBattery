@@ -1,6 +1,7 @@
 import type { NydusClient, RouteHandler, RouteInfo } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { PartyEvent } from '../../common/parties'
+import audioManager, { AvailableSound } from '../audio/audio-manager'
 import { dispatch, Dispatchable } from '../dispatch-registry'
 import { openSnackbar } from '../snackbars/action-creators'
 import { navigateToParty } from './action-creators'
@@ -110,7 +111,10 @@ const eventToAction: EventToActionMap = {
 
   chatMessage(partyId, event) {
     return (dispatch, getState) => {
-      const { auth } = getState()
+      const {
+        auth,
+        party: { activated },
+      } = getState()
 
       // Notify the main process of the new message, so it can display an appropriate notification
       ipcRenderer.send('chatNewMessage', {
@@ -123,6 +127,10 @@ const eventToAction: EventToActionMap = {
         type: '@parties/updateChatMessage',
         payload: event,
       })
+
+      if (!activated) {
+        audioManager.playSound(AvailableSound.MessageAlert)
+      }
     }
   },
 

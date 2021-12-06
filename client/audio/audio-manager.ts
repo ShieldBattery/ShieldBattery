@@ -7,6 +7,7 @@ export enum AvailableSound {
   EnteredQueue = 'entered-queue.opus',
   JoinAlert = 'join-alert.opus',
   MatchFound = 'match-found.opus',
+  MessageAlert = 'message-alert.opus',
   PartyInvite = 'party-invite.opus',
   PartyQueue = 'party-queue.opus',
 }
