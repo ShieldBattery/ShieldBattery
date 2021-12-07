@@ -12,7 +12,7 @@ import {
 import { SbPermissions } from '../../../common/users/permissions'
 import { SbUser, SbUserId, SelfUser } from '../../../common/users/user-info'
 import ChatService from '../chat/chat-service'
-import db from '../db'
+import db, { DbClient } from '../db'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { createPermissions } from '../models/permissions'
@@ -269,10 +269,13 @@ export async function attemptLogin(
   return passwordMatches ? convertToExternalSelf(user) : undefined
 }
 
-async function internalFindUserById(id: number): Promise<UserInternal | undefined> {
-  const { client, done } = await db()
+async function internalFindUserById(
+  id: number,
+  client?: DbClient,
+): Promise<UserInternal | undefined> {
+  const { client: dbClient, done } = client ? { client, done: () => {} } : await db()
   try {
-    const result = await client.query<DbUser>(sql`
+    const result = await dbClient.query<DbUser>(sql`
       SELECT * FROM users
       WHERE id = ${id}
     `)
@@ -284,8 +287,8 @@ async function internalFindUserById(id: number): Promise<UserInternal | undefine
 }
 
 /** Returns the `User` with the specified `id`, or `undefined` if they don't exist. */
-export async function findUserById(id: number): Promise<SbUser | undefined> {
-  const result = await internalFindUserById(id)
+export async function findUserById(id: number, client?: DbClient): Promise<SbUser | undefined> {
+  const result = await internalFindUserById(id, client)
   return result ? convertToExternal(result) : undefined
 }
 

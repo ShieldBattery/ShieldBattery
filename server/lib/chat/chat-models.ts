@@ -344,10 +344,11 @@ export async function banUserFromChannel(
 export async function isUserBannedFromChannel(
   channelName: string,
   userId: SbUserId,
+  client?: DbClient,
 ): Promise<boolean> {
-  const { client, done } = await db()
+  const { client: dbClient, done } = client ? { client, done: () => {} } : await db()
   try {
-    const result = await client.query(sql`
+    const result = await dbClient.query(sql`
       SELECT 1 FROM channel_bans
       WHERE user_id = ${userId} AND channel_name = ${channelName};
     `)

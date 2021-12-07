@@ -88,14 +88,19 @@ export default class ChatService {
     client?: DbClient,
     transactionCompleted = Promise.resolve(),
   ): Promise<void> {
+    // NOTE(tec27): VERY IMPORTANT. This method is used during user creation. You *cannot* assume
+    // that any query involving the user will work unless it is done using the provided client (or
+    // is done after `transactionCompleted` resolves). If you do not follow this rule, you *will*
+    // break user creation and I *will* be sad :(
+
     const originalChannelName = await this.getOriginalChannelName(channelName)
     if (this.state.users.has(userId) && this.state.users.get(userId)!.has(originalChannelName)) {
       throw new ChatServiceError(ChatServiceErrorCode.InvalidJoinAction, 'Already in this channel')
     }
 
     const [userInfo, isBanned] = await Promise.all([
-      findUserById(userId),
-      isUserBannedFromChannel(originalChannelName, userId),
+      findUserById(userId, client),
+      isUserBannedFromChannel(originalChannelName, userId, client),
     ])
     if (!userInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.UserNotFound, "User doesn't exist")
