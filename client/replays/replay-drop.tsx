@@ -11,7 +11,7 @@ export default function ReplayDrop() {
       e.stopPropagation()
 
       const [file] = e.dataTransfer?.files || []
-      if (file?.path.slice(-4) === '.rep') {
+      if (file?.path.endsWith('.rep')) {
         dispatch(openReplay(file.path))
       }
     },
