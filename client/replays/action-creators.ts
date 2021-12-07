@@ -1,10 +1,12 @@
 import cuid from 'cuid'
 import fs from 'fs'
 import ReplayParser from 'jssuh'
+import pathApi from 'path'
 import { PlayerInfo } from '../../common/game-launch-config'
 import { GameType } from '../../common/games/configuration'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
+import { makeSbUserId } from '../../common/users/user-info'
 import { REPLAYS_START_REPLAY } from '../actions'
 import { SelfUserRecord } from '../auth/auth-records'
 import { openSimpleDialog } from '../dialogs/action-creators'
@@ -14,6 +16,23 @@ import { push } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
 
 const ipcRenderer = new TypedIpcRenderer()
+
+class ReplayFile {
+  static fromPath(path: string): ReplayFile {
+    return {
+      path,
+      name: pathApi.basename(path, 'rep'),
+    }
+  }
+
+  path = ''
+  name = ''
+
+  constructor(path = '', name = '') {
+    this.name = name
+    this.path = path
+  }
+}
 
 // TODO(tec27): Tighten up the types in here once the dependencies and actions have been migrated
 // to TS
@@ -30,7 +49,7 @@ function getReplayHeader(filePath: string): Promise<any> {
   })
 }
 
-async function setGameConfig(replay: any, user: SelfUserRecord) {
+async function setGameConfig(replay: ReplayFile, user: SelfUserRecord) {
   const player: PlayerInfo = {
     type: SlotType.Human,
     typeId: 6,
@@ -67,11 +86,17 @@ function setGameRoutes(gameId: string) {
   ipcRenderer.invoke('activeGameStartWhenReady', gameId)
 }
 
-export function startReplay(replay: any): ThunkAction {
+export function startReplay(replay: ReplayFile): ThunkAction {
   return (dispatch, getState) => {
-    const {
+    let {
       auth: { user },
     } = getState()
+
+    // NOTE(T1mL3arn): This action might be dispatched when a user is not logged in,
+    // so we have to construct a "dummy" user to start the replay
+    if (user.id === -1) {
+      user = new SelfUserRecord({ id: makeSbUserId(0), name: '-- offline user --' })
+    }
 
     dispatch({
       type: REPLAYS_START_REPLAY,
@@ -99,4 +124,8 @@ export function startReplay(replay: any): ThunkAction {
       },
     )
   }
+}
+
+export function openReplay(path: string): ThunkAction {
+  return startReplay(ReplayFile.fromPath(path))
 }
