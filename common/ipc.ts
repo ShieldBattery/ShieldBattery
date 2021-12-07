@@ -71,6 +71,8 @@ interface IpcMainSendables {
   }) => void
   activeGameStatus: (status: { id: string; state: string; extra?: any; isReplay: boolean }) => void
 
+  openReplay: (path: string) => void
+
   rallyPointPingResult: (server: ResolvedRallyPointServer, ping: number) => void
 
   settingsLocalChanged: (settings: Readonly<Partial<LocalSettingsData>>) => void
