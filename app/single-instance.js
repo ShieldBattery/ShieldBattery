@@ -23,19 +23,15 @@ export default function () {
       // successfully connect to the running server). Just send some data to the server, which is
       // running on the first instance, so the main window can be focused there and quit this
       // instance.
-      const event = {
-        type: 'focus first instance',
-      }
+
+      let event = 'focus first instance'
+
       if (process.argv.length > 1) {
-        const replayFile = process.argv[1]
+        const file = process.argv[1]
 
-        if (replayFile.endsWith('.rep')) {
-          event.type = 'openReplay'
-          event.replay = replayFile
-        }
+        if (file.endsWith('.rep')) event = file
       }
-
-      client.write(JSON.stringify(event), () => app.quit())
+      client.write(event, () => app.quit())
     })
     .on('error', err => {
       if (err.code !== 'ENOENT') throw err
@@ -57,12 +53,10 @@ export default function () {
           connection.on('data', data => {
             const mainWindow = getMainWindow()
             if (mainWindow) {
-              try {
-                const event = JSON.parse(data)
-                if (event.type === 'openReplay') {
-                  mainWindow.webContents.send('openReplay', event.replay)
-                }
-              } catch (e) {}
+              const file = data.toString()
+              if (file.endsWith('.rep')) {
+                mainWindow.webContents.send('openReplay', file)
+              }
 
               if (!mainWindow.isVisible()) {
                 mainWindow.show()
