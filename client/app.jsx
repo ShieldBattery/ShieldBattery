@@ -30,6 +30,8 @@ import ResetStyle from './styles/reset'
 
 const IS_PRODUCTION = __WEBPACK_ENV.NODE_ENV === 'production'
 
+const ReplayDrop = IS_ELECTRON ? require('./replays/replay-drop').default : () => null
+
 const LoadableDev = IS_PRODUCTION
   ? () => null
   : loadable(() => import('./dev'), {
@@ -75,6 +77,7 @@ function App() {
         <GlobalStyle />
         <WindowControlsStyle />
         <WindowControls />
+        <ReplayDrop />
         <Switch>
           <Route path='/splash' component={Splash} />
           <Route path='/faq' component={Faq} />
