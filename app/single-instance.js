@@ -23,8 +23,19 @@ export default function () {
       // successfully connect to the running server). Just send some data to the server, which is
       // running on the first instance, so the main window can be focused there and quit this
       // instance.
-      client.write('focus first instance')
-      app.quit()
+      const event = {
+        type: 'focus first instance',
+      }
+      if (process.argv.length > 1) {
+        const replayFile = process.argv[1]
+
+        if (replayFile.endsWith('.rep')) {
+          event.type = 'openReplay'
+          event.replay = replayFile
+        }
+      }
+
+      client.write(JSON.stringify(event), () => app.quit())
     })
     .on('error', err => {
       if (err.code !== 'ENOENT') throw err
@@ -43,9 +54,16 @@ export default function () {
       getMainWindow = require('./app').getMainWindow
       net
         .createServer(connection => {
-          connection.on('data', () => {
+          connection.on('data', data => {
             const mainWindow = getMainWindow()
             if (mainWindow) {
+              try {
+                const event = JSON.parse(data)
+                if (event.type === 'openReplay') {
+                  mainWindow.webContents.send('openReplay', event.replay)
+                }
+              } catch (e) {}
+
               if (!mainWindow.isVisible()) {
                 mainWindow.show()
                 return

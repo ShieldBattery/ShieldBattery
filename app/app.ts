@@ -578,6 +578,14 @@ app.on('ready', async () => {
     await createWindow()
     systemTray = new SystemTray(mainWindow, () => app.quit())
 
+    // looking to start replay file
+    if (process.argv.length > 0) {
+      const file = process.argv[1]
+      if (file.endsWith('.rep')) {
+        TypedIpcSender.from(mainWindow?.webContents).send('openReplay', file)
+      }
+    }
+
     mainWindow?.webContents.on('did-finish-load', () => {
       TypedIpcSender.from(mainWindow?.webContents).send(
         'windowMaximizedState',
