@@ -21,6 +21,11 @@ files:
     filter:
       - '**/*.js'
       - '**/*.node'
+fileAssociations:
+  ext: 'rep'
+  name: 'Starcraft Broodwar Replay'
+  description: 'Starcraft (Broodwar and Remastered) replay file'
+  role: 'Viewer'
 nsis:
   artifactName: '${productName}-setup-${version}.${ext}'
 win:
