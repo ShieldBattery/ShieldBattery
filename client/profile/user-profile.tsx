@@ -321,6 +321,7 @@ function SummaryPage({
             {ALL_MATCHMAKING_TYPES.map(matchmakingType =>
               profile.ladder[matchmakingType] ? (
                 <RankDisplay
+                  key={matchmakingType}
                   matchmakingType={matchmakingType}
                   ladderPlayer={profile.ladder[matchmakingType]!}
                 />
