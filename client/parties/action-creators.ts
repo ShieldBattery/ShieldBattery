@@ -1,8 +1,8 @@
 import {
-  AcceptPartyInviteServerBody,
-  InviteToPartyServerBody,
+  AcceptPartyInviteRequest,
+  InviteToPartyRequest,
   PartyServiceErrorCode,
-  SendChatMessageServerBody,
+  SendPartyChatMessageRequest,
 } from '../../common/parties'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/user-info'
@@ -21,7 +21,7 @@ export function inviteToParty(targetId: SbUserId): ThunkAction {
       payload: params,
     })
 
-    const requestBody: InviteToPartyServerBody = { clientId, targetId }
+    const requestBody: InviteToPartyRequest = { clientId, targetId }
     dispatch({
       type: '@parties/inviteToParty',
       payload: fetchJson<void>(apiUrl`parties/invites`, {
@@ -104,7 +104,7 @@ export function acceptPartyInvite(partyId: string): ThunkAction {
       payload: params,
     })
 
-    const requestBody: AcceptPartyInviteServerBody = { clientId }
+    const requestBody: AcceptPartyInviteRequest = { clientId }
     dispatch({
       type: '@parties/acceptPartyInvite',
       payload: fetchJson<void>(apiUrl`parties/${partyId}`, {
@@ -159,7 +159,7 @@ export function sendChatMessage(partyId: string, message: string): ThunkAction {
       payload: params,
     })
 
-    const requestBody: SendChatMessageServerBody = { message }
+    const requestBody: SendPartyChatMessageRequest = { message }
     dispatch({
       type: '@parties/sendChatMessage',
       payload: fetchJson<void>(apiUrl`parties/${partyId}/messages`, {

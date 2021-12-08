@@ -1,7 +1,7 @@
 import { Immutable } from 'immer'
 import {
   GetMatchmakingMapPoolBody,
-  GetPreferencesPayload,
+  GetPreferencesResponse,
   MatchmakingPreferences,
   MatchmakingStatusJson,
   MatchmakingType,
@@ -70,7 +70,7 @@ export interface GetCurrentMapPoolFailure
  */
 export interface InitPreferences {
   type: '@matchmaking/initPreferences'
-  payload: GetPreferencesPayload | Record<string, undefined>
+  payload: GetPreferencesResponse | Record<string, undefined>
   meta: { type: MatchmakingType }
 }
 
@@ -81,7 +81,7 @@ export interface UpdatePreferencesBegin {
 
 export interface UpdatePreferencesSuccess {
   type: '@matchmaking/updatePreferences'
-  payload: GetPreferencesPayload
+  payload: GetPreferencesResponse
   error?: false
   meta: { type: MatchmakingType }
 }

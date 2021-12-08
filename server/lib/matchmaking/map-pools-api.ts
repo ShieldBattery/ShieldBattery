@@ -22,7 +22,7 @@ import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
 
-interface GetMapPoolsHistoryPayload {
+interface GetMapPoolsHistoryResponse {
   pools: Array<{
     id: number
     type: MatchmakingType
@@ -43,7 +43,7 @@ const MATCHMAKING_TYPE_PARAMS = Joi.object<{ matchmakingType: MatchmakingType }>
 export class MatchmakingMapPoolsApi {
   @httpGet('/:matchmakingType')
   @httpBefore(checkAllPermissions('manageMapPools'))
-  async getHistory(ctx: RouterContext): Promise<GetMapPoolsHistoryPayload> {
+  async getHistory(ctx: RouterContext): Promise<GetMapPoolsHistoryResponse> {
     const { params, query } = validateRequest(ctx, {
       params: MATCHMAKING_TYPE_PARAMS,
       query: Joi.object<{ limit: number; page: number }>({

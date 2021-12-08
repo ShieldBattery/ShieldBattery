@@ -2,12 +2,12 @@ import { RouterContext } from '@koa/router'
 import { BadRequest, NotFound } from 'http-errors'
 import Joi from 'joi'
 import {
-  AddRallyPointServerBody,
-  AddRallyPointServerPayload,
-  GetRallyPointServersPayload,
-  UpdateRallyPointClientPingBody,
-  UpdateRallyPointServerBody,
-  UpdateRallyPointServerPayload,
+  AddRallyPointServerRequest,
+  AddRallyPointServerResponse,
+  GetRallyPointServersResponse,
+  UpdateRallyPointClientPingRequest,
+  UpdateRallyPointServerRequest,
+  UpdateRallyPointServerResponse,
 } from '../../../common/rally-point'
 import { SbUserId } from '../../../common/users/user-info'
 import { httpApi, httpBeforeAll } from '../http/http-api'
@@ -42,7 +42,7 @@ export class RallyPointPingApi {
         serverId: Joi.number().integer().min(0).required(),
       }),
 
-      body: Joi.object<UpdateRallyPointClientPingBody>({
+      body: Joi.object<UpdateRallyPointClientPingRequest>({
         ping: Joi.number().min(0).unsafe().required(),
       }),
     })
@@ -65,15 +65,15 @@ export class RallyPointAdminApi {
   constructor(private rallyPointService: RallyPointService) {}
 
   @httpGet('/')
-  async getServers(ctx: RouterContext): Promise<GetRallyPointServersPayload> {
+  async getServers(ctx: RouterContext): Promise<GetRallyPointServersResponse> {
     const servers = await retrieveRallyPointServers()
     return { servers }
   }
 
   @httpPost('/')
-  async addServer(ctx: RouterContext): Promise<AddRallyPointServerPayload> {
+  async addServer(ctx: RouterContext): Promise<AddRallyPointServerResponse> {
     const { body } = validateRequest(ctx, {
-      body: Joi.object<AddRallyPointServerBody>({
+      body: Joi.object<AddRallyPointServerRequest>({
         description: Joi.string().max(64).required(),
         hostname: Joi.string().max(64).hostname().required(),
         port: Joi.number().integer().min(1).max(65535).required(),
@@ -91,12 +91,12 @@ export class RallyPointAdminApi {
   }
 
   @httpPut('/:serverId')
-  async updateServer(ctx: RouterContext): Promise<UpdateRallyPointServerPayload> {
+  async updateServer(ctx: RouterContext): Promise<UpdateRallyPointServerResponse> {
     const { params, body } = validateRequest(ctx, {
       params: Joi.object<{ serverId: number }>({
         serverId: Joi.number().integer().min(0).required(),
       }),
-      body: Joi.object<UpdateRallyPointServerBody>({
+      body: Joi.object<UpdateRallyPointServerRequest>({
         id: Joi.number().integer().min(0).required(),
         enabled: Joi.boolean().required(),
         description: Joi.string().max(64).required(),

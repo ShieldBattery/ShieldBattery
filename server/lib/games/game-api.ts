@@ -6,11 +6,11 @@ import { Readable } from 'stream'
 import { container, singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { GameStatus } from '../../../common/game-status'
-import { GetGamePayload, toGameRecordJson } from '../../../common/games/games'
+import { GetGameResponse, toGameRecordJson } from '../../../common/games/games'
 import {
   ALL_GAME_CLIENT_RESULTS,
   GameResultErrorCode,
-  SubmitGameResultsPayload,
+  SubmitGameResultsRequest,
 } from '../../../common/games/results'
 import { toMapInfoJson } from '../../../common/maps'
 import { asHttpError } from '../errors/error-with-payload'
@@ -129,7 +129,7 @@ export class GameApi {
 
   @httpGet('/:gameId')
   @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.userId)))
-  async getGame(ctx: RouterContext): Promise<GetGamePayload> {
+  async getGame(ctx: RouterContext): Promise<GetGameResponse> {
     const {
       params: { gameId },
     } = validateRequest(ctx, {
@@ -224,7 +224,7 @@ export class GameApi {
       body: { userId, resultCode, time, playerResults },
     } = validateRequest(ctx, {
       params: GAME_ID_PARAM,
-      body: Joi.object<SubmitGameResultsPayload>({
+      body: Joi.object<SubmitGameResultsRequest>({
         userId: Joi.number().min(0).required(),
         resultCode: Joi.string().required(),
         time: Joi.number().min(0).required(),

@@ -1,15 +1,15 @@
 import {
-  GetBatchMapInfoPayload,
-  GetMapDetailsPayload,
-  GetMapsPayload,
+  GetBatchMapInfoResponse,
+  GetMapDetailsResponse,
+  GetMapsResponse,
   MapInfoJson,
   MapPreferences,
   MapSortType,
   MapVisibility,
   Tileset,
-  UpdateMapPayload,
-  UpdateMapServerBody,
-  UploadMapPayload,
+  UpdateMapResponse,
+  UpdateMapServerRequest,
+  UploadMapResponse,
 } from '../../common/maps'
 import { apiUrl, urlPath } from '../../common/urls'
 import { openDialog } from '../dialogs/action-creators'
@@ -24,7 +24,7 @@ import { ClearMaps } from './actions'
 async function uploadMap(filePath: string) {
   if (IS_ELECTRON) {
     const module = await import('./upload')
-    return module?.default<UploadMapPayload>(filePath, apiUrl`maps`)
+    return module?.default<UploadMapResponse>(filePath, apiUrl`maps`)
   } else {
     throw new Error('cannot upload maps on non-electron clients')
   }
@@ -85,7 +85,7 @@ export function getMapsList(params: GetMapsListParams): ThunkAction {
 
     dispatch({
       type: '@maps/getMaps',
-      payload: fetchJson<GetMapsPayload>(reqUrl),
+      payload: fetchJson<GetMapsResponse>(reqUrl),
       meta: params,
     })
   }
@@ -198,7 +198,7 @@ export function getMapDetails(mapId: string): ThunkAction {
     })
     dispatch({
       type: '@maps/getMapDetails',
-      payload: fetchJson<GetMapDetailsPayload>(apiUrl`maps/${mapId}`),
+      payload: fetchJson<GetMapDetailsResponse>(apiUrl`maps/${mapId}`),
       meta: { mapId },
     })
   }
@@ -206,7 +206,7 @@ export function getMapDetails(mapId: string): ThunkAction {
 
 export function updateMap(mapId: string, name: string, description: string): ThunkAction {
   return dispatch => {
-    const params: UpdateMapServerBody = { mapId, name, description }
+    const params: UpdateMapServerRequest = { mapId, name, description }
 
     dispatch({
       type: '@maps/updateMapBegin',
@@ -215,7 +215,7 @@ export function updateMap(mapId: string, name: string, description: string): Thu
 
     dispatch({
       type: '@maps/updateMap',
-      payload: fetchJson<UpdateMapPayload>(apiUrl`maps/${mapId}`, {
+      payload: fetchJson<UpdateMapResponse>(apiUrl`maps/${mapId}`, {
         method: 'PATCH',
         body: JSON.stringify(params),
       }),
@@ -261,7 +261,7 @@ const mapsBatchRequester = new MicrotaskBatchRequester<string>(
   MAX_BATCH_MAP_REQUESTS,
   (dispatch, items) => {
     const params = items.map(m => urlPath`m=${m}`).join('&')
-    const promise = fetchJson<GetBatchMapInfoPayload>(apiUrl`maps/batch-info` + '?' + params)
+    const promise = fetchJson<GetBatchMapInfoResponse>(apiUrl`maps/batch-info` + '?' + params)
     dispatch({
       type: '@maps/getBatchMapInfo',
       payload: promise,

@@ -1,9 +1,9 @@
 import { RouterContext } from '@koa/router'
 import Joi from 'joi'
 import {
-  ClearNotificationsServerBody,
-  ClearNotificationsServerPayload,
-  MarkNotificationsReadServerBody,
+  ClearNotificationsServerRequest,
+  ClearNotificationsServerResponse,
+  MarkNotificationsReadServerRequest,
 } from '../../../common/notifications'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpPost } from '../http/route-decorators'
@@ -17,9 +17,9 @@ export class NotificationApi {
   constructor(private notificationService: NotificationService) {}
 
   @httpPost('/clear')
-  async clearNotifications(ctx: RouterContext): Promise<ClearNotificationsServerPayload> {
+  async clearNotifications(ctx: RouterContext): Promise<ClearNotificationsServerResponse> {
     const { body } = validateRequest(ctx, {
-      body: Joi.object<ClearNotificationsServerBody>({
+      body: Joi.object<ClearNotificationsServerRequest>({
         timestamp: Joi.number(),
       }),
     })
@@ -35,7 +35,7 @@ export class NotificationApi {
   @httpPost('/read')
   async markNotificationsRead(ctx: RouterContext): Promise<void> {
     const { body } = validateRequest(ctx, {
-      body: Joi.object<MarkNotificationsReadServerBody>({
+      body: Joi.object<MarkNotificationsReadServerRequest>({
         notificationIds: Joi.array().items(Joi.string().required()).min(1).required(),
       }),
     })

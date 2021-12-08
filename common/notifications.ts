@@ -81,14 +81,14 @@ export type NotificationEvent =
   | NotificationClearByIdEvent
   | NotificationMarkReadEvent
 
-export interface ClearNotificationsServerBody {
+export interface ClearNotificationsServerRequest {
   timestamp: number | undefined
 }
 
-export interface ClearNotificationsServerPayload {
+export interface ClearNotificationsServerResponse {
   timestamp: number
 }
 
-export interface MarkNotificationsReadServerBody {
+export interface MarkNotificationsReadServerRequest {
   notificationIds: ReadonlyArray<string>
 }

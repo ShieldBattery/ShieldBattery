@@ -1,4 +1,4 @@
-import { GameRecordUpdate, GetGamePayload } from '../../common/games/games'
+import { GameRecordUpdate, GetGameResponse } from '../../common/games/games'
 import { GameClientPlayerResult } from '../../common/games/results'
 
 export type GamesActions = DeliverLocalResults | GetGameRecord | GameUpdate
@@ -15,7 +15,7 @@ export interface DeliverLocalResults {
 
 export interface GetGameRecord {
   type: '@games/getGameRecord'
-  payload: GetGamePayload
+  payload: GetGameResponse
 }
 
 export interface GameUpdate {

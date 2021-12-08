@@ -1,6 +1,6 @@
 import { RouterContext } from '@koa/router'
 import Joi from 'joi'
-import { GetRankingsPayload, LadderPlayer } from '../../../common/ladder'
+import { GetRankingsResponse, LadderPlayer } from '../../../common/ladder'
 import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
 import { SbUser } from '../../../common/users/user-info'
 import { httpApi, httpBeforeAll } from '../http/http-api'
@@ -30,7 +30,7 @@ export class LadderApi {
   }
 
   @httpGet('/:matchmakingType')
-  async getRankings(ctx: RouterContext): Promise<GetRankingsPayload> {
+  async getRankings(ctx: RouterContext): Promise<GetRankingsResponse> {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ matchmakingType: MatchmakingType }>({
         matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),

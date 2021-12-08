@@ -4,9 +4,9 @@ import Joi from 'joi'
 import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
-  GetChannelHistoryServerPayload,
-  ModerateChannelUserServerBody,
-  SendChatMessageServerBody,
+  GetChannelHistoryServerResponse,
+  ModerateChannelUserServerRequest,
+  SendChatMessageServerRequest,
 } from '../../../common/chat'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
 import { MULTI_CHANNEL } from '../../../common/flags'
@@ -134,7 +134,7 @@ export class ChatApi {
     const {
       body: { message },
     } = validateRequest(ctx, {
-      body: Joi.object<SendChatMessageServerBody>({
+      body: Joi.object<SendChatMessageServerRequest>({
         message: Joi.string().min(1).required(),
       }),
     })
@@ -155,7 +155,7 @@ export class ChatApi {
 
   @httpGet('/:channelName/messages2')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
-  async getChannelHistory(ctx: RouterContext): Promise<GetChannelHistoryServerPayload> {
+  async getChannelHistory(ctx: RouterContext): Promise<GetChannelHistoryServerResponse> {
     const channelName = getValidatedChannelName(ctx)
     const {
       query: { limit, beforeTime },
@@ -200,7 +200,7 @@ export class ChatApi {
     const {
       params: { targetId, moderationAction, moderationReason },
     } = validateRequest(ctx, {
-      params: Joi.object<ModerateChannelUserServerBody>({
+      params: Joi.object<ModerateChannelUserServerRequest>({
         targetId: Joi.number().min(1).required(),
         moderationAction: Joi.string().valid('kick', 'ban').required(),
         moderationReason: Joi.string(),

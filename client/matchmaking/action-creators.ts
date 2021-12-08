@@ -2,7 +2,7 @@ import { Immutable } from 'immer'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
   GetMatchmakingMapPoolBody,
-  GetPreferencesPayload,
+  GetPreferencesResponse,
   MatchmakingPreferences,
   MatchmakingType,
 } from '../../common/matchmaking'
@@ -124,7 +124,7 @@ export function updateMatchmakingPreferences<M extends MatchmakingType>(
       payload: matchmakingType,
     })
 
-    const promise = fetchJson<GetPreferencesPayload>(
+    const promise = fetchJson<GetPreferencesResponse>(
       apiUrl`matchmakingPreferences/${matchmakingType}`,
       {
         method: 'POST',

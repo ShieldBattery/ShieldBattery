@@ -1,4 +1,4 @@
-import { GetRankingsPayload } from '../../common/ladder'
+import { GetRankingsResponse } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
@@ -21,7 +21,7 @@ export interface GetRankingsBegin {
  */
 export interface GetRankingsSuccess {
   type: '@ladder/getRankings'
-  payload: GetRankingsPayload
+  payload: GetRankingsResponse
   error?: false
   meta: {
     matchmakingType: MatchmakingType

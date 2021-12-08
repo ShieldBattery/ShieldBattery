@@ -26,16 +26,7 @@ export interface PartyChatMessage {
   user: SbUser
 }
 
-export interface AddInvitePayload {
-  partyId: string
-  from: SbUserId
-}
-
-export interface RemoveInvitePayload {
-  partyId: string
-}
-
-export interface PartyPayload {
+export interface PartyJson {
   id: string
   invites: SbUserId[]
   members: SbUserId[]
@@ -44,7 +35,7 @@ export interface PartyPayload {
 
 export interface PartyInitEvent {
   type: 'init'
-  party: PartyPayload
+  party: PartyJson
   time: number
   userInfos: SbUser[]
 }
@@ -103,19 +94,19 @@ export type PartyEvent =
   | PartyChatMessageEvent
   | PartyKickEvent
 
-export interface InviteToPartyServerBody {
+export interface InviteToPartyRequest {
   clientId: string
   targetId: number
 }
 
-export interface AcceptPartyInviteServerBody {
+export interface AcceptPartyInviteRequest {
   clientId: string
 }
 
-export interface SendChatMessageServerBody {
+export interface SendPartyChatMessageRequest {
   message: string
 }
 
-export interface ChangeLeaderServerBody {
+export interface ChangePartyLeaderRequest {
   targetId: number
 }

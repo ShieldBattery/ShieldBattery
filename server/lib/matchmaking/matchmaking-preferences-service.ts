@@ -2,7 +2,7 @@ import { singleton } from 'tsyringe'
 import { toMapInfoJson } from '../../../common/maps'
 import {
   ALL_MATCHMAKING_TYPES,
-  GetPreferencesPayload,
+  GetPreferencesResponse,
   MatchmakingPreferences,
   MatchmakingType,
 } from '../../../common/matchmaking'
@@ -28,9 +28,9 @@ export default class MatchmakingPreferencesService {
   constructor(private clientSocketsManager: ClientSocketsManager) {
     this.clientSocketsManager.on('newClient', c => {
       for (const matchmakingType of ALL_MATCHMAKING_TYPES) {
-        c.subscribe<GetPreferencesPayload | Record<string, undefined>>(
+        c.subscribe<GetPreferencesResponse | Record<string, undefined>>(
           getMatchmakingPreferencesPath(c.userId, matchmakingType),
-          async (): Promise<GetPreferencesPayload | Record<string, undefined>> => {
+          async (): Promise<GetPreferencesResponse | Record<string, undefined>> => {
             try {
               const preferences = await getMatchmakingPreferences(c.userId, matchmakingType)
               if (!preferences) {

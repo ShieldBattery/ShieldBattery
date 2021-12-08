@@ -1,4 +1,4 @@
-import { PartyChatMessage, PartyPayload } from '../../common/parties'
+import { PartyChatMessage, PartyJson } from '../../common/parties'
 import { SbUser, SbUserId } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
@@ -265,7 +265,7 @@ export interface DeactivateParty {
 export interface InitParty {
   type: '@parties/init'
   payload: {
-    party: PartyPayload
+    party: PartyJson
     time: number
     userInfos: SbUser[]
   }

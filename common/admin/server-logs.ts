@@ -31,6 +31,6 @@ export interface LogEntry {
   data: LogEntryData
 }
 
-export interface GetLogsPayload {
+export interface GetLogsResponse {
   entries: LogEntry[]
 }

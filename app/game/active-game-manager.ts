@@ -11,7 +11,7 @@ import {
   isReplayMapInfo,
 } from '../../common/game-launch-config'
 import { GameStatus, statusToString } from '../../common/game-status'
-import { GameClientPlayerResult, SubmitGameResultsPayload } from '../../common/games/results'
+import { GameClientPlayerResult, SubmitGameResultsRequest } from '../../common/games/results'
 import { TypedEventEmitter } from '../../common/typed-emitter'
 import { apiUrl } from '../../common/urls'
 import log from '../logger'
@@ -349,7 +349,7 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
       // complete resutls on the server
       log.verbose('Game failed to send result, retrying once from the app')
       const config = this.activeGame.config!
-      const submission: SubmitGameResultsPayload = {
+      const submission: SubmitGameResultsRequest = {
         userId: config.localUser.id,
         resultCode: config.setup.resultCode!,
         time: this.activeGame.result.time,

@@ -1,15 +1,15 @@
 import {
-  GetBatchMapInfoPayload,
-  GetMapDetailsPayload,
-  GetMapsPayload,
+  GetBatchMapInfoResponse,
+  GetMapDetailsResponse,
+  GetMapsResponse,
   MapInfoJson,
   MapPreferences,
   MapSortType,
   MapVisibility,
   Tileset,
-  UpdateMapPayload,
-  UpdateMapServerBody,
-  UploadMapPayload,
+  UpdateMapResponse,
+  UpdateMapServerRequest,
+  UploadMapResponse,
 } from '../../common/maps'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
@@ -60,7 +60,7 @@ export interface UploadLocalMapBegin {
  */
 export interface UploadLocalMapSuccess {
   type: '@maps/uploadLocalMap'
-  payload: UploadMapPayload
+  payload: UploadMapResponse
   error?: false
   meta: {
     path: string
@@ -98,7 +98,7 @@ export interface GetMapsBegin {
  */
 export interface GetMapsSuccess {
   type: '@maps/getMaps'
-  payload: GetMapsPayload
+  payload: GetMapsResponse
   error?: false
   meta: {
     visibility: MapVisibility
@@ -131,7 +131,7 @@ export interface GetMapsFailure extends BaseFetchFailure<'@maps/getMaps'> {
  */
 export interface GetBatchMapInfoSuccess {
   type: '@maps/getBatchMapInfo'
-  payload: GetBatchMapInfoPayload
+  payload: GetBatchMapInfoResponse
   error?: false
 }
 
@@ -264,7 +264,7 @@ export interface GetMapDetailsBegin {
  */
 export interface GetMapDetailsSuccess {
   type: '@maps/getMapDetails'
-  payload: GetMapDetailsPayload
+  payload: GetMapDetailsResponse
   error?: false
   meta: {
     mapId: string
@@ -286,7 +286,7 @@ export interface GetMapDetailsFailure extends BaseFetchFailure<'@maps/getMapDeta
  */
 export interface UpdateMapBegin {
   type: '@maps/updateMapBegin'
-  payload: UpdateMapServerBody
+  payload: UpdateMapServerRequest
 }
 
 /**
@@ -294,16 +294,16 @@ export interface UpdateMapBegin {
  */
 export interface UpdateMapSuccess {
   type: '@maps/updateMap'
-  payload: UpdateMapPayload
+  payload: UpdateMapResponse
   error?: false
-  meta: UpdateMapServerBody
+  meta: UpdateMapServerRequest
 }
 
 /**
  * A request to update the map has failed.
  */
 export interface UpdateMapFailure extends BaseFetchFailure<'@maps/updateMap'> {
-  meta: UpdateMapServerBody
+  meta: UpdateMapServerRequest
 }
 
 /**

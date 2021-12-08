@@ -4,7 +4,7 @@ import Joi from 'joi'
 import { toMapInfoJson } from '../../../common/maps'
 import {
   ALL_MATCHMAKING_TYPES,
-  GetPreferencesPayload,
+  GetPreferencesResponse,
   MatchmakingPreferences,
   MatchmakingPreferencesData1v1,
   MatchmakingType,
@@ -23,7 +23,7 @@ export class MatchmakingPreferencesApi {
   constructor(private matchmakingPreferencesService: MatchmakingPreferencesService) {}
 
   @httpPost('/:matchmakingType')
-  async upsertPreferences(ctx: RouterContext): Promise<GetPreferencesPayload> {
+  async upsertPreferences(ctx: RouterContext): Promise<GetPreferencesResponse> {
     const { params, body } = validateRequest(ctx, {
       params: Joi.object({
         matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),

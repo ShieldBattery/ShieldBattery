@@ -6,7 +6,7 @@ import {
   ChatUserActiveEvent,
   ChatUserIdleEvent,
   ChatUserOfflineEvent,
-  GetChannelHistoryServerPayload,
+  GetChannelHistoryServerResponse,
 } from '../../common/chat'
 import { SbUser } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-action-types'
@@ -132,7 +132,7 @@ export interface LoadMessageHistoryBegin {
  */
 export interface LoadMessageHistory {
   type: '@chat/loadMessageHistory'
-  payload: GetChannelHistoryServerPayload
+  payload: GetChannelHistoryServerResponse
   meta: {
     channel: string
     limit: number

@@ -3,7 +3,7 @@ import { GameLaunchConfig, PlayerInfo } from '../../common/game-launch-config'
 import { GameType } from '../../common/games/configuration'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
-  GetPreferencesPayload,
+  GetPreferencesResponse,
   MatchmakingEvent,
   MatchmakingStatusJson,
   MatchmakingType,
@@ -332,7 +332,7 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
 
   siteSocket.registerRoute(
     '/matchmakingPreferences/:userId/:matchmakingType',
-    (route: RouteInfo, event: GetPreferencesPayload | Record<string, undefined>) => {
+    (route: RouteInfo, event: GetPreferencesResponse | Record<string, undefined>) => {
       const type = route.params.matchmakingType as MatchmakingType
 
       dispatch((_, getState) => {

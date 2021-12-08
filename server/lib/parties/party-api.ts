@@ -5,11 +5,11 @@ import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { PARTIES } from '../../../common/flags'
 import {
-  AcceptPartyInviteServerBody,
-  ChangeLeaderServerBody,
-  InviteToPartyServerBody,
+  AcceptPartyInviteRequest,
+  ChangePartyLeaderRequest,
+  InviteToPartyRequest,
   PartyServiceErrorCode,
-  SendChatMessageServerBody,
+  SendPartyChatMessageRequest,
 } from '../../../common/parties'
 import { asHttpError } from '../errors/error-with-payload'
 import { featureEnabled } from '../flags/feature-enabled'
@@ -84,7 +84,7 @@ export class PartyApi {
     const {
       body: { clientId, targetId },
     } = validateRequest(ctx, {
-      body: Joi.object<InviteToPartyServerBody>({
+      body: Joi.object<InviteToPartyRequest>({
         clientId: Joi.string().required(),
         targetId: Joi.number().min(1).required(),
       }),
@@ -151,7 +151,7 @@ export class PartyApi {
       params: Joi.object<{ partyId: string }>({
         partyId: Joi.string().required(),
       }),
-      body: Joi.object<AcceptPartyInviteServerBody>({
+      body: Joi.object<AcceptPartyInviteRequest>({
         clientId: Joi.string().required(),
       }),
     })
@@ -212,7 +212,7 @@ export class PartyApi {
       params: Joi.object<{ partyId: string; message: string }>({
         partyId: Joi.string().required(),
       }),
-      body: Joi.object<SendChatMessageServerBody>({
+      body: Joi.object<SendPartyChatMessageRequest>({
         message: Joi.string().min(1).required(),
       }),
     })
@@ -237,7 +237,7 @@ export class PartyApi {
       params: Joi.object<{ partyId: string; message: string }>({
         partyId: Joi.string().required(),
       }),
-      body: Joi.object<ChangeLeaderServerBody>({
+      body: Joi.object<ChangePartyLeaderRequest>({
         targetId: Joi.number().required(),
       }),
     })

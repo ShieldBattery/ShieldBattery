@@ -6,7 +6,7 @@ import {
   ChannelPermissions,
   ChatEvent,
   ChatInitEvent,
-  GetChannelHistoryServerPayload,
+  GetChannelHistoryServerResponse,
   ServerChatMessage,
   ServerChatMessageType,
 } from '../../../common/chat'
@@ -324,7 +324,7 @@ export default class ChatService {
     userId: SbUserId,
     limit?: number,
     beforeTime?: number,
-  ): Promise<GetChannelHistoryServerPayload> {
+  ): Promise<GetChannelHistoryServerResponse> {
     const userSockets = this.getUserSockets(userId)
     const originalChannelName = await this.getOriginalChannelName(channelName)
     // TODO(tec27): lookup channel keys case insensitively?

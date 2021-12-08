@@ -37,7 +37,7 @@ export interface RequestHandlingSpec {
  *      type: '@data/request',
  *      // NOTE(tec27): The `await` here is important, it means only successful
  *      // responses will be dispatched
- *      payload: await fetchJson<RequestPayload>(apiUrl`data/${dataId}`, {
+ *      payload: await fetchJson<ResponseType>(apiUrl`data/${dataId}`, {
  *        signal: spec.signal,
  *      }),
  *    })

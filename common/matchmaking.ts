@@ -143,7 +143,7 @@ export type MatchmakingPreferences2v2 = BaseMatchmakingPreferences<
  */
 export type MatchmakingPreferences = MatchmakingPreferences1v1 | MatchmakingPreferences2v2
 
-export interface GetPreferencesPayload {
+export interface GetPreferencesResponse {
   preferences: MatchmakingPreferences
   mapPoolOutdated: boolean
   currentMapPoolId: number

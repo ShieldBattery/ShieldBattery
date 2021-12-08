@@ -1,4 +1,4 @@
-import { ClearNotificationsServerPayload, SbNotification } from '../../common/notifications'
+import { ClearNotificationsServerResponse, SbNotification } from '../../common/notifications'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
 export type NotificationActions =
@@ -53,7 +53,7 @@ export interface ClearNotificationsBegin {
  */
 export interface ClearNotifications {
   type: '@notifications/clear'
-  payload: ClearNotificationsServerPayload
+  payload: ClearNotificationsServerResponse
   meta?: { reqId?: string }
   error?: false
 }

@@ -1,6 +1,6 @@
 import { RouterContext } from '@koa/router'
 import Joi from 'joi'
-import { GetLogsPayload } from '../../../common/admin/server-logs'
+import { GetLogsResponse } from '../../../common/admin/server-logs'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpGet } from '../http/route-decorators'
 import { JobScheduler } from '../jobs/job-scheduler'
@@ -40,7 +40,7 @@ export class LogsApi {
   }
 
   @httpGet('/')
-  async getLogs(ctx: RouterContext): Promise<GetLogsPayload> {
+  async getLogs(ctx: RouterContext): Promise<GetLogsResponse> {
     const { query } = validateRequest(ctx, {
       query: Joi.object<GetLogsQuery>({
         limit: Joi.number().default(100),

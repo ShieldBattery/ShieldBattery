@@ -64,7 +64,7 @@ export enum GameResultErrorCode {
 }
 
 /** The payload format for submitting game results to the server. */
-export interface SubmitGameResultsPayload {
+export interface SubmitGameResultsRequest {
   /** The ID of the user submitting results. */
   userId: SbUserId
   /** The secret code the user was given to submit results with. */

@@ -51,7 +51,7 @@ export function getGameTypeLabel(game: Immutable<GameRecordJson>): string {
   return assertUnreachable(game.config)
 }
 
-export interface GetGamePayload {
+export interface GetGameResponse {
   game: GameRecordJson
   /** Can be undefined if the map could not be found (e.g. if it has been deleted). */
   map: MapInfoJson | undefined

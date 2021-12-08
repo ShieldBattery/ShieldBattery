@@ -197,30 +197,30 @@ export function getTeamNames(
   }
 }
 
-export interface UploadMapPayload {
+export interface UploadMapResponse {
   map: MapInfoJson
 }
 
-export interface GetMapsPayload {
+export interface GetMapsResponse {
   maps: MapInfoJson[]
   favoritedMaps: MapInfoJson[]
   total: number
 }
 
-export interface GetMapDetailsPayload {
+export interface GetMapDetailsResponse {
   map: MapInfoJson
 }
 
-export interface GetBatchMapInfoPayload {
+export interface GetBatchMapInfoResponse {
   maps: MapInfoJson[]
 }
 
-export interface UpdateMapServerBody {
+export interface UpdateMapServerRequest {
   mapId: string
   name: string
   description: string
 }
 
-export interface UpdateMapPayload {
+export interface UpdateMapResponse {
   map: MapInfoJson
 }

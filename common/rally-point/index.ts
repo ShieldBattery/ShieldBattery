@@ -11,26 +11,26 @@ export interface ResolvedRallyPointServer extends RallyPointServer {
   address6?: string
 }
 
-export interface GetRallyPointServersPayload {
+export interface GetRallyPointServersResponse {
   servers: RallyPointServer[]
 }
 
-export interface AddRallyPointServerBody {
+export interface AddRallyPointServerRequest {
   description: string
   hostname: string
   port: number
 }
 
-export interface AddRallyPointServerPayload {
+export interface AddRallyPointServerResponse {
   server: RallyPointServer
 }
 
-export type UpdateRallyPointServerBody = RallyPointServer
+export type UpdateRallyPointServerRequest = RallyPointServer
 
-export interface UpdateRallyPointServerPayload {
+export interface UpdateRallyPointServerResponse {
   server: RallyPointServer
 }
 
-export interface UpdateRallyPointClientPingBody {
+export interface UpdateRallyPointClientPingRequest {
   ping: number
 }

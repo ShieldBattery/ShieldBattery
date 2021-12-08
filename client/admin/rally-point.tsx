@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import styled from 'styled-components'
 import {
-  AddRallyPointServerBody,
-  AddRallyPointServerPayload,
-  GetRallyPointServersPayload,
+  AddRallyPointServerRequest,
+  AddRallyPointServerResponse,
+  GetRallyPointServersResponse,
   RallyPointServer,
-  UpdateRallyPointServerBody,
-  UpdateRallyPointServerPayload,
+  UpdateRallyPointServerRequest,
+  UpdateRallyPointServerResponse,
 } from '../../common/rally-point'
 import { apiUrl } from '../../common/urls'
 import { useForm } from '../forms/form-hook'
@@ -325,12 +325,12 @@ export function AdminRallyPoint() {
   }, [])
   const onAddSubmit = useCallback(
     (model: AddServerModel) => {
-      const requestBody: AddRallyPointServerBody = {
+      const requestBody: AddRallyPointServerRequest = {
         description: model.description!,
         hostname: model.hostname!,
         port: model.port,
       }
-      fetchJson<AddRallyPointServerPayload>(apiUrl`admin/rally-point/`, {
+      fetchJson<AddRallyPointServerResponse>(apiUrl`admin/rally-point/`, {
         method: 'post',
         body: JSON.stringify(requestBody),
       })
@@ -354,14 +354,14 @@ export function AdminRallyPoint() {
   }, [])
   const onEditSubmit = useCallback(
     (server: RallyPointServer) => {
-      const requestBody: UpdateRallyPointServerBody = {
+      const requestBody: UpdateRallyPointServerRequest = {
         id: server.id,
         enabled: server.enabled,
         description: server.description,
         hostname: server.hostname,
         port: server.port,
       }
-      fetchJson<UpdateRallyPointServerPayload>(apiUrl`admin/rally-point/${server.id}`, {
+      fetchJson<UpdateRallyPointServerResponse>(apiUrl`admin/rally-point/${server.id}`, {
         method: 'put',
         body: JSON.stringify(requestBody),
       })
@@ -381,7 +381,7 @@ export function AdminRallyPoint() {
   }, [])
 
   useEffect(() => {
-    fetchJson<GetRallyPointServersPayload>(apiUrl`admin/rally-point/`)
+    fetchJson<GetRallyPointServersResponse>(apiUrl`admin/rally-point/`)
       .then(data => setServers(data.servers))
       .catch(err => {
         dispatch(openSnackbar({ message: 'Error retrieving servers' }))

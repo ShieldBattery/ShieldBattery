@@ -1,4 +1,4 @@
-import { GetRankingsPayload } from '../../common/ladder'
+import { GetRankingsResponse } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
 import { apiUrl, urlPath } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
@@ -26,7 +26,7 @@ export function getRankings(matchmakingType: MatchmakingType): ThunkAction {
     dispatch({ type: '@ladder/getRankingsBegin', payload: { matchmakingType, fetchTime } })
     dispatch({
       type: '@ladder/getRankings',
-      payload: fetchJson<GetRankingsPayload>(apiUrl`ladder/${matchmakingType}`),
+      payload: fetchJson<GetRankingsResponse>(apiUrl`ladder/${matchmakingType}`),
       meta: { matchmakingType, fetchTime },
     })
   }

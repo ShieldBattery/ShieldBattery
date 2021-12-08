@@ -1,8 +1,8 @@
 import cuid from 'cuid'
 import {
-  ClearNotificationsServerBody,
-  ClearNotificationsServerPayload,
-  MarkNotificationsReadServerBody,
+  ClearNotificationsServerRequest,
+  ClearNotificationsServerResponse,
+  MarkNotificationsReadServerRequest,
   SbNotification,
 } from '../../common/notifications'
 import { apiUrl } from '../../common/urls'
@@ -27,10 +27,10 @@ export function clearNotifications(): ThunkAction {
       payload: { reqId, timestamp },
     })
 
-    const requestBody: ClearNotificationsServerBody = { timestamp }
+    const requestBody: ClearNotificationsServerRequest = { timestamp }
     dispatch({
       type: '@notifications/clear',
-      payload: fetchJson<ClearNotificationsServerPayload>(apiUrl`notifications/clear`, {
+      payload: fetchJson<ClearNotificationsServerResponse>(apiUrl`notifications/clear`, {
         method: 'post',
         body: JSON.stringify(requestBody),
       }).catch(err => {
@@ -89,7 +89,7 @@ export function markNotificationsRead(notificationIds: ReadonlyArray<string>): T
       payload: { notificationIds },
     })
 
-    const requestBody: MarkNotificationsReadServerBody = { notificationIds }
+    const requestBody: MarkNotificationsReadServerRequest = { notificationIds }
     dispatch({
       type: '@notifications/markRead',
       payload: fetchJson<void>(apiUrl`notifications/read`, {

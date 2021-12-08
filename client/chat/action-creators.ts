@@ -1,4 +1,4 @@
-import { GetChannelHistoryServerPayload, SendChatMessageServerBody } from '../../common/chat'
+import { GetChannelHistoryServerResponse, SendChatMessageServerRequest } from '../../common/chat'
 import { apiUrl } from '../../common/urls'
 import { SbUser } from '../../common/users/user-info'
 import { ThunkAction } from '../dispatch-registry'
@@ -44,7 +44,7 @@ export function sendMessage(channel: string, message: string): ThunkAction {
       payload: params,
     })
 
-    const requestBody: SendChatMessageServerBody = { message }
+    const requestBody: SendChatMessageServerRequest = { message }
     dispatch({
       type: '@chat/sendMessage',
       payload: fetchJson<void>(apiUrl`chat/${channel}/messages`, {
@@ -76,7 +76,7 @@ export function getMessageHistory(channel: string, limit: number): ThunkAction {
     })
     dispatch({
       type: '@chat/loadMessageHistory',
-      payload: fetchJson<GetChannelHistoryServerPayload>(
+      payload: fetchJson<GetChannelHistoryServerResponse>(
         apiUrl`chat/${channel}/messages2?limit=${limit}&beforeTime=${earliestMessageTime}`,
         { method: 'GET' },
       ),

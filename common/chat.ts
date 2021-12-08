@@ -155,14 +155,14 @@ export type ChatEvent =
   | ChatUserIdleEvent
   | ChatUserOfflineEvent
 
-export interface SendChatMessageServerBody {
+export interface SendChatMessageServerRequest {
   message: string
 }
 
 /**
  * Payload returned for a request to retrieve the channel message history.
  */
-export interface GetChannelHistoryServerPayload {
+export interface GetChannelHistoryServerResponse {
   /** A list of messages that were retrieved for the chat channel. */
   messages: ServerChatMessage[]
   /**
@@ -188,7 +188,7 @@ export enum ChannelModerationAction {
  * The body data of the API route for moderating users in a chat channel, e.g. kicking or banning
  * them.
  */
-export interface ModerateChannelUserServerBody {
+export interface ModerateChannelUserServerRequest {
   /** User that is about to get moderated, e.g. kicked or banned. */
   targetId: SbUserId
   /** Precise moderation action that will be performed on the user, e.g. kicked or banned. */

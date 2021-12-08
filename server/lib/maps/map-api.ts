@@ -5,7 +5,7 @@ import {
   ALL_MAP_EXTENSIONS,
   ALL_MAP_SORT_TYPES,
   ALL_MAP_VISIBILITIES,
-  GetBatchMapInfoPayload,
+  GetBatchMapInfoResponse,
   MapVisibility,
   toMapInfoJson,
 } from '../../../common/maps'
@@ -130,7 +130,7 @@ export class MapsApi {
 
   @httpGet('/batch-info')
   @httpBefore(throttleMiddleware(mapsListThrottle, ctx => String(ctx.session!.userId)))
-  async getInfo(ctx: RouterContext): Promise<GetBatchMapInfoPayload> {
+  async getInfo(ctx: RouterContext): Promise<GetBatchMapInfoResponse> {
     const { query } = validateRequest(ctx, {
       query: Joi.object<{ m: string[] }>({
         m: Joi.array().items(Joi.string()).single().min(1).max(40),

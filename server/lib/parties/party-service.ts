@@ -5,7 +5,7 @@ import {
   MAX_PARTY_SIZE,
   PartyEvent,
   PartyInitEvent,
-  PartyPayload,
+  PartyJson,
   PartyServiceErrorCode,
 } from '../../../common/parties'
 import { SbUser, SbUserId } from '../../../common/users/user-info'
@@ -32,7 +32,7 @@ export function getPartyPath(partyId: string): string {
   return `/parties/${partyId}`
 }
 
-export function toPartyJson(party: PartyRecord): PartyPayload {
+export function toPartyJson(party: PartyRecord): PartyJson {
   return {
     id: party.id,
     invites: Array.from(party.invites.values()),
