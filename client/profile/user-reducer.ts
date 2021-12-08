@@ -13,7 +13,7 @@ export interface UserState {
   /** A map of user ID -> user information. */
   byId: Map<SbUserId, SbUser>
   /** A map of username -> user ID. */
-  usernameToId: Map<string, number>
+  usernameToId: Map<string, SbUserId>
   // TODO(tec27): Make a reducer specifically to handle match history
   /** A map of user ID -> recent match history. */
   idToMatchHistory: Map<SbUserId, GameRecordJson[]>
@@ -121,6 +121,14 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, action.payload.users)
   },
 
+  ['@profile/getBatchUserInfo'](state, action) {
+    if (action.error) {
+      return
+    }
+
+    updateUsers(state, action.payload.userInfos)
+  },
+
   ['@profile/getUserProfile'](state, { payload: { user, profile, matchHistory } }) {
     updateUsers(state, [user])
     updateUsers(state, matchHistory.users)
@@ -150,7 +158,12 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, [action.payload.userInfo])
   },
 
+  ['@parties/updateJoin'](state, action) {
+    updateUsers(state, [action.payload.userInfo])
+  },
+
   ['@parties/updateChatMessage'](state, action) {
+    updateUsers(state, [action.payload.message.user])
     updateUsers(state, action.payload.mentions)
   },
 

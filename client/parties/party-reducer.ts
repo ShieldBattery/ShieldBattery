@@ -1,6 +1,5 @@
 import cuid from 'cuid'
-import { List, OrderedMap, Record } from 'immutable'
-import { PartyUser } from '../../common/parties'
+import { List, OrderedSet, Record } from 'immutable'
 import { SbUserId } from '../../common/users/user-info'
 import { NETWORK_SITE_CONNECTED } from '../actions'
 import { Message, TextMessageRecord } from '../messaging/message-records'
@@ -17,40 +16,33 @@ import {
 // How many messages should be kept when a party is inactive
 const INACTIVE_PARTY_MAX_HISTORY = 500
 
-export class PartyUserRecord
-  extends Record({
-    id: 0 as SbUserId,
-    name: '',
-  })
-  implements PartyUser {}
-
-export class PartyRecord extends Record({
+export class PartyState extends Record({
   id: '',
-  invites: OrderedMap<SbUserId, PartyUser>(),
-  members: OrderedMap<SbUserId, PartyUser>(),
-  leader: new PartyUserRecord(),
+  invites: OrderedSet<SbUserId>(),
+  members: OrderedSet<SbUserId>(),
+  leader: 0 as SbUserId,
   messages: List<Message>(),
   hasUnread: false,
   activated: false,
 }) {}
 
-export default keyedReducer(new PartyRecord(), {
+export default keyedReducer(new PartyState(), {
   ['@parties/init'](state, action) {
     const {
       party: { id, invites, members, leader },
       time,
     } = action.payload
 
-    return new PartyRecord({
+    return new PartyState({
       id,
-      invites: OrderedMap(invites.map(i => [i.id, new PartyUserRecord(i)])),
-      members: OrderedMap(members.map(m => [m.id, new PartyUserRecord(m)])),
-      leader: new PartyUserRecord(leader),
+      invites: OrderedSet(invites),
+      members: OrderedSet(members),
+      leader,
       messages: List([
         new SelfJoinPartyMessageRecord({
           id: cuid(),
           time,
-          leaderId: leader.id,
+          leaderId: leader,
         }),
       ]),
     })
@@ -64,14 +56,14 @@ export default keyedReducer(new PartyRecord(), {
     }
 
     return state
-      .setIn(['invites', invitedUser.id], new PartyUserRecord(invitedUser))
+      .set('invites', state.invites.add(invitedUser))
       .set('hasUnread', !state.activated)
       .update('messages', messages =>
         messages.push(
           new InviteToPartyMessageRecord({
             id: cuid(),
             time,
-            userId: invitedUser.id,
+            userId: invitedUser,
           }),
         ),
       )
@@ -84,7 +76,7 @@ export default keyedReducer(new PartyRecord(), {
       return state
     }
 
-    return state.deleteIn(['invites', target.id])
+    return state.set('invites', state.invites.delete(target))
   },
 
   ['@parties/updateJoin'](state, action) {
@@ -95,15 +87,15 @@ export default keyedReducer(new PartyRecord(), {
     }
 
     return state
-      .deleteIn(['invites', user.id])
-      .setIn(['members', user.id], new PartyUserRecord(user))
+      .set('invites', state.invites.delete(user))
+      .set('members', state.members.add(user))
       .set('hasUnread', !state.activated)
       .update('messages', messages =>
         messages.push(
           new JoinPartyMessageRecord({
             id: cuid(),
             time,
-            userId: user.id,
+            userId: user,
           }),
         ),
       )
@@ -118,16 +110,16 @@ export default keyedReducer(new PartyRecord(), {
 
     // This action can be dispatched *after* a player gets kicked as well, in which case there's no
     // need to do any cleanup, nor display a "leave" message.
-    if (state.get('members').has(user.id)) {
+    if (state.members.has(user)) {
       return state
-        .deleteIn(['members', user.id])
+        .set('members', state.members.delete(user))
         .set('hasUnread', !state.activated)
         .update('messages', messages =>
           messages.push(
             new LeavePartyMessageRecord({
               id: cuid(),
               time,
-              userId: user.id,
+              userId: user,
             }),
           ),
         )
@@ -143,7 +135,7 @@ export default keyedReducer(new PartyRecord(), {
       return state
     }
 
-    return new PartyRecord()
+    return new PartyState()
   },
 
   ['@parties/updateLeaderChange'](state, action) {
@@ -154,14 +146,14 @@ export default keyedReducer(new PartyRecord(), {
     }
 
     return state
-      .set('leader', new PartyUserRecord(leader))
+      .set('leader', leader)
       .set('hasUnread', !state.activated)
       .update('messages', messages =>
         messages.push(
           new PartyLeaderChangeMessageRecord({
             id: cuid(),
             time,
-            userId: leader.id,
+            userId: leader,
           }),
         ),
       )
@@ -178,7 +170,7 @@ export default keyedReducer(new PartyRecord(), {
       messages.push(
         new TextMessageRecord({
           id: cuid(),
-          from: message.from.id,
+          from: message.user.id,
           time: message.time,
           text: message.text,
         }),
@@ -194,14 +186,14 @@ export default keyedReducer(new PartyRecord(), {
     }
 
     return state
-      .deleteIn(['members', target.id])
+      .set('members', state.members.delete(target))
       .set('hasUnread', !state.activated)
       .update('messages', messages =>
         messages.push(
           new KickFromPartyMessageRecord({
             id: cuid(),
             time,
-            userId: target.id,
+            userId: target,
           }),
         ),
       )
@@ -214,7 +206,7 @@ export default keyedReducer(new PartyRecord(), {
       return state
     }
 
-    return new PartyRecord()
+    return new PartyState()
   },
 
   ['@parties/activateParty'](state, action) {
@@ -240,6 +232,6 @@ export default keyedReducer(new PartyRecord(), {
   },
 
   [NETWORK_SITE_CONNECTED as any]() {
-    return new PartyRecord()
+    return new PartyState()
   },
 })

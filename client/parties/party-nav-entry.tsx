@@ -9,7 +9,7 @@ import { IconButton } from '../material/button'
 import AttentionIndicator from '../material/left-nav/attention-indicator'
 import { amberA200, colorTextFaint } from '../styles/colors'
 import { singleLine, subtitle2 } from '../styles/typography'
-import { PartyRecord } from './party-reducer'
+import { PartyState } from './party-reducer'
 
 const Container = styled.li<{ isActive: boolean }>`
   position: relative;
@@ -79,7 +79,7 @@ const EntryButton = styled(IconButton)`
 `
 
 export interface PartyNavEntryProps {
-  party: PartyRecord
+  party: PartyState
   canInvite: boolean
   onInviteUserClick: () => void
   onLeavePartyClick: (partyId: string) => void

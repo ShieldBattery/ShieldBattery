@@ -1,4 +1,5 @@
 import sql from 'sql-template-strings'
+import { SetRequired } from 'type-fest'
 import { NotificationType } from '../../../common/notifications'
 import { SbUserId } from '../../../common/users/user-info'
 import db from '../db/index'
@@ -8,22 +9,22 @@ export interface BaseNotificationData {
   readonly type: NotificationType
 }
 
+type MakeSearchable<T extends BaseNotificationData> = SetRequired<
+  Partial<T>,
+  keyof BaseNotificationData
+>
+
 export interface PartyInviteNotificationData extends BaseNotificationData {
   type: typeof NotificationType.PartyInvite
-  from: string
+  from: SbUserId
   partyId: string
 }
 
-export interface PartyInviteSearchNotificationData extends BaseNotificationData {
-  type: typeof NotificationType.PartyInvite
-  from?: string
-  partyId?: string
-}
+type PartyInviteSearchNotificationData = MakeSearchable<PartyInviteNotificationData>
 
 export type NotificationData = PartyInviteNotificationData
 /**
- * Notification data type that can be used to retrieve notifications by. Should match the actual
- * notification data, except making some (all?) of the fields optional.
+ * Notification data type that can be used to retrieve notifications by.
  */
 export type SearchNotificationData = PartyInviteSearchNotificationData | Record<string, never>
 

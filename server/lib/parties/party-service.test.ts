@@ -1,12 +1,11 @@
 import { NydusServer } from 'nydus'
 import { NotificationType } from '../../../common/notifications'
-import { PartyUser } from '../../../common/parties'
 import { asMockedFunction } from '../../../common/testing/mocks'
-import { makeSbUserId, SbUserId } from '../../../common/users/user-info'
+import { makeSbUserId, SbUser, SbUserId } from '../../../common/users/user-info'
 import NotificationService from '../notifications/notification-service'
 import { createFakeNotificationService } from '../notifications/testing/notification-service'
 import { FakeClock } from '../time/testing/fake-clock'
-import { findUsersByName } from '../users/user-model'
+import { findUsersById, findUsersByName } from '../users/user-model'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import {
@@ -20,22 +19,24 @@ import PartyService, { getPartyPath, PartyRecord, toPartyJson } from './party-se
 
 jest.mock('../users/user-model', () => ({
   findUsersByName: jest.fn(),
+  findUsersById: jest.fn(),
 }))
 
 const findUsersByNameMock = asMockedFunction(findUsersByName)
+const findUsersByIdMock = asMockedFunction(findUsersById)
 
 describe('parties/party-service', () => {
-  const user1: PartyUser = { id: makeSbUserId(1), name: 'pachi' }
-  const user2: PartyUser = { id: makeSbUserId(2), name: 'harem' }
-  const user3: PartyUser = { id: makeSbUserId(3), name: 'intrigue' }
-  const user4: PartyUser = { id: makeSbUserId(4), name: 'tec27' }
-  const user5: PartyUser = { id: makeSbUserId(5), name: 'heyoka' }
-  const user6: PartyUser = { id: makeSbUserId(6), name: 'hot_bid' }
-  const user7: PartyUser = { id: makeSbUserId(7), name: 'royo' }
-  const user8: PartyUser = { id: makeSbUserId(8), name: 'riptide' }
-  const user9: PartyUser = { id: makeSbUserId(9), name: 'manifesto7' }
-  const offlineUser: PartyUser = { id: makeSbUserId(10), name: 'tt1' }
-  const webUser: PartyUser = { id: makeSbUserId(11), name: 'nyoken' }
+  const user1: SbUser = { id: makeSbUserId(1), name: 'pachi' }
+  const user2: SbUser = { id: makeSbUserId(2), name: 'harem' }
+  const user3: SbUser = { id: makeSbUserId(3), name: 'intrigue' }
+  const user4: SbUser = { id: makeSbUserId(4), name: 'tec27' }
+  const user5: SbUser = { id: makeSbUserId(5), name: 'heyoka' }
+  const user6: SbUser = { id: makeSbUserId(6), name: 'hot_bid' }
+  const user7: SbUser = { id: makeSbUserId(7), name: 'royo' }
+  const user8: SbUser = { id: makeSbUserId(8), name: 'riptide' }
+  const user9: SbUser = { id: makeSbUserId(9), name: 'manifesto7' }
+  const offlineUser: SbUser = { id: makeSbUserId(10), name: 'tt1' }
+  const webUser: SbUser = { id: makeSbUserId(11), name: 'nyoken' }
 
   const USER1_CLIENT_ID = 'USER1_CLIENT_ID'
   const USER2_CLIENT_ID = 'USER2_CLIENT_ID'
@@ -100,60 +101,62 @@ describe('parties/party-service', () => {
 
     clearTestLogs(nydus)
     findUsersByNameMock.mockClear()
+    findUsersByIdMock.mockClear()
+    findUsersByIdMock.mockResolvedValue(new Map())
   })
 
   describe('invite', () => {
-    let leader: PartyUser
+    let leader: SbUser
     let party: PartyRecord
 
     test('should throw if inviting yourself', async () => {
       await expect(
-        partyService.invite(user2, USER2_CLIENT_ID, user2),
+        partyService.invite(user2.id, USER2_CLIENT_ID, user2),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"Can't invite yourself to the party"`)
     })
 
     describe('when party exists', () => {
       beforeEach(async () => {
         leader = user1
-        party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
+        party = await partyService.invite(leader.id, USER1_CLIENT_ID, user2)
         await partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
       })
 
       test('should throw if invited by non-leader', async () => {
         await expect(
-          partyService.invite(user2, USER2_CLIENT_ID, user3),
+          partyService.invite(user2.id, USER2_CLIENT_ID, user3),
         ).rejects.toThrowErrorMatchingInlineSnapshot(`"Only party leader can invite people"`)
       })
 
       test('should not throw if invite already exists', async () => {
-        await partyService.invite(leader, USER1_CLIENT_ID, user3)
+        await partyService.invite(leader.id, USER1_CLIENT_ID, user3)
 
-        await expect(partyService.invite(leader, USER1_CLIENT_ID, user3)).resolves.not.toThrow()
+        await expect(partyService.invite(leader.id, USER1_CLIENT_ID, user3)).resolves.not.toThrow()
       })
 
       test('should throw if invited user is already in the party', async () => {
-        await partyService.invite(leader, USER1_CLIENT_ID, user3)
+        await partyService.invite(leader.id, USER1_CLIENT_ID, user3)
         await partyService.acceptInvite(party.id, user3, USER3_CLIENT_ID)
 
         await expect(
-          partyService.invite(leader, USER1_CLIENT_ID, user3),
+          partyService.invite(leader.id, USER1_CLIENT_ID, user3),
         ).rejects.toThrowErrorMatchingInlineSnapshot(
           `"This user is already a member of this party"`,
         )
       })
 
       test('should update the party record', async () => {
-        party = await partyService.invite(leader, USER1_CLIENT_ID, user3)
+        party = await partyService.invite(leader.id, USER1_CLIENT_ID, user3)
 
-        expect(party.invites).toMatchObject(new Map([[user3.id, user3]]))
+        expect(party.invites).toMatchObject(new Set([user3.id]))
       })
 
       test('should publish "invite" message to the party path', async () => {
-        party = await partyService.invite(leader, USER1_CLIENT_ID, user3)
+        party = await partyService.invite(leader.id, USER1_CLIENT_ID, user3)
 
         expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
           type: 'invite',
-          invitedUser: user3,
+          invitedUser: user3.id,
           time: currentTime,
           userInfo: {
             id: user3.id,
@@ -169,23 +172,27 @@ describe('parties/party-service', () => {
       })
 
       test('should create a party record', async () => {
-        party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
-        party = await partyService.invite(leader, USER1_CLIENT_ID, user3)
+        party = await partyService.invite(leader.id, USER1_CLIENT_ID, user2)
+        party = await partyService.invite(leader.id, USER1_CLIENT_ID, user3)
 
         expect(party).toMatchObject({
           id: party.id,
-          invites: new Map([
-            [user2.id, user2],
-            [user3.id, user3],
-          ]),
-          members: new Map([[leader.id, leader]]),
-          leader,
+          invites: new Set([user2.id, user3.id]),
+          members: new Set([leader.id]),
+          leader: leader.id,
         })
       })
 
       test('should subscribe leader to the party path', async () => {
-        party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
-        party = await partyService.invite(leader, USER1_CLIENT_ID, user3)
+        findUsersByIdMock.mockResolvedValue(
+          new Map([
+            [user2.id, user2],
+            [leader.id, leader],
+          ]),
+        )
+
+        party = await partyService.invite(leader.id, USER1_CLIENT_ID, user2)
+        party = await partyService.invite(leader.id, USER1_CLIENT_ID, user3)
 
         expect(client1.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
           type: 'init',
@@ -193,9 +200,9 @@ describe('parties/party-service', () => {
             id: party.id,
             // `init` event for the leader is only emitted when the party doesn't exist and the
             // first user is being invited.
-            invites: [user2],
-            members: [leader],
-            leader,
+            invites: [user2.id],
+            members: [leader.id],
+            leader: leader.id,
           },
           time: currentTime,
           userInfos: [
@@ -208,13 +215,13 @@ describe('parties/party-service', () => {
 
     test('should create the invite notification', async () => {
       leader = user1
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, user2)
 
       expect(notificationService.addNotification).toHaveBeenCalledWith({
         userId: user2.id,
         data: {
           type: NotificationType.PartyInvite,
-          from: leader.name,
+          from: leader.id,
           partyId: party.id,
         },
       })
@@ -223,7 +230,7 @@ describe('parties/party-service', () => {
     test('should not create the invite notification if visible one already exists', async () => {
       notificationService.retrieveNotifications = jest.fn().mockResolvedValue([{ visible: true }])
       leader = user1
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, user2)
 
       expect(notificationService.addNotification).not.toHaveBeenCalled()
     })
@@ -232,15 +239,15 @@ describe('parties/party-service', () => {
       notificationService.addNotification = jest.fn().mockRejectedValue(undefined)
 
       await expect(
-        partyService.invite(user1, USER1_CLIENT_ID, user2),
+        partyService.invite(user1.id, USER1_CLIENT_ID, user2),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"Error creating the notification"`)
     })
 
     test('should invite an offline user', async () => {
       leader = user1
-      party = await partyService.invite(leader, USER1_CLIENT_ID, offlineUser)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, offlineUser)
 
-      expect(party.invites).toMatchObject(new Map([[offlineUser.id, offlineUser]]))
+      expect(party.invites).toMatchObject(new Set([offlineUser.id]))
     })
   })
 
@@ -248,8 +255,8 @@ describe('parties/party-service', () => {
     let party: PartyRecord
 
     beforeEach(async () => {
-      party = await partyService.invite(user1, USER1_CLIENT_ID, user2)
-      party = await partyService.invite(user1, USER1_CLIENT_ID, user3)
+      party = await partyService.invite(user1.id, USER1_CLIENT_ID, user2)
+      party = await partyService.invite(user1.id, USER1_CLIENT_ID, user3)
     })
 
     test('should clear the invite notification', async () => {
@@ -263,20 +270,20 @@ describe('parties/party-service', () => {
 
       // This function is implicitly using the promise in its implementation, so we need to await it
       // before we can test if the function below was called.
-      await partyService.decline(party.id, user2)
+      await partyService.decline(party.id, user2.id)
 
       expect(notificationService.clearById).toHaveBeenCalledWith(user2.id, notificationId)
     })
   })
 
   describe('removeInvite', () => {
-    let leader: PartyUser
+    let leader: SbUser
     let party: PartyRecord
 
     beforeEach(async () => {
       leader = user1
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user3)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, user2)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, user3)
     })
 
     test('should clear the invite notification', async () => {
@@ -290,20 +297,20 @@ describe('parties/party-service', () => {
 
       // This function is implicitly using the promise in its implementation, so we need to await it
       // before we can test if the function below was called.
-      await partyService.removeInvite(party.id, leader, user2)
+      await partyService.removeInvite(party.id, leader.id, user2.id)
 
       expect(notificationService.clearById).toHaveBeenCalledWith(user2.id, notificationId)
     })
 
     test('should throw if the party is not found', async () => {
       await expect(
-        partyService.removeInvite('INVALID_PARTY_ID', leader, user2),
+        partyService.removeInvite('INVALID_PARTY_ID', leader.id, user2.id),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
     })
 
     test('should throw if not in party', async () => {
       await expect(
-        partyService.removeInvite(party.id, user2, user4),
+        partyService.removeInvite(party.id, user2.id, user4.id),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
     })
 
@@ -311,7 +318,7 @@ describe('parties/party-service', () => {
       await partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
 
       await expect(
-        partyService.removeInvite(party.id, user2, user3),
+        partyService.removeInvite(party.id, user2.id, user3.id),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `"Only party leaders can remove invites to other people"`,
       )
@@ -319,37 +326,37 @@ describe('parties/party-service', () => {
 
     test('should throw if the user is not invited', async () => {
       await expect(
-        partyService.removeInvite(party.id, leader, user4),
+        partyService.removeInvite(party.id, leader.id, user4.id),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `"Can't remove invite for a user that wasn't invited"`,
       )
     })
 
     test('should update the party record when removed', async () => {
-      await partyService.removeInvite(party.id, leader, user2)
+      await partyService.removeInvite(party.id, leader.id, user2.id)
 
-      expect(party.invites).toMatchObject(new Map([[user3.id, user3]]))
+      expect(party.invites).toMatchObject(new Set([user3.id]))
     })
 
     test('should publish "uninvite" message to the party path', async () => {
-      await partyService.removeInvite(party.id, leader, user2)
+      await partyService.removeInvite(party.id, leader.id, user2.id)
 
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'uninvite',
-        target: user2,
+        target: user2.id,
         time: currentTime,
       })
     })
   })
 
   describe('acceptInvite', () => {
-    let leader: PartyUser
+    let leader: SbUser
     let party: PartyRecord
 
     beforeEach(async () => {
       leader = user1
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user3)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, user2)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, user3)
     })
 
     test('should clear the invite notification', async () => {
@@ -381,11 +388,11 @@ describe('parties/party-service', () => {
     })
 
     test('should throw if the party is full', async () => {
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user4)
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user5)
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user6)
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user7)
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user8)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, user4)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, user5)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, user6)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, user7)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, user8)
       await partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
       await partyService.acceptInvite(party.id, user3, USER3_CLIENT_ID)
       await partyService.acceptInvite(party.id, user4, USER4_CLIENT_ID)
@@ -394,7 +401,7 @@ describe('parties/party-service', () => {
       await partyService.acceptInvite(party.id, user7, USER7_CLIENT_ID)
       await partyService.acceptInvite(party.id, user8, USER8_CLIENT_ID)
 
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user9)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, user9)
 
       await expect(
         partyService.acceptInvite(party.id, user9, USER9_CLIENT_ID),
@@ -402,7 +409,7 @@ describe('parties/party-service', () => {
     })
 
     test('should throw if accepting on web client', async () => {
-      party = await partyService.invite(leader, USER1_CLIENT_ID, webUser)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, webUser)
 
       await expect(
         partyService.acceptInvite(party.id, webUser, WEB_USER_CLIENT_ID),
@@ -412,13 +419,8 @@ describe('parties/party-service', () => {
     test('should update the party record', async () => {
       await partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
 
-      expect(party.invites).toMatchObject(new Map([[user3.id, user3]]))
-      expect(party.members).toMatchObject(
-        new Map([
-          [leader.id, leader],
-          [user2.id, user2],
-        ]),
-      )
+      expect(party.invites).toMatchObject(new Set([user3.id]))
+      expect(party.members).toMatchObject(new Set([leader.id, user2.id]))
     })
 
     test('should publish "join" message to the party path', async () => {
@@ -428,13 +430,25 @@ describe('parties/party-service', () => {
       // before subscribing the user to the party path.
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'join',
-        user: user2,
+        user: user2.id,
         time: currentTime,
+        userInfo: user2,
       })
     })
 
     test('should subscribe user to the party path', async () => {
+      findUsersByIdMock.mockResolvedValue(
+        new Map([
+          [user3.id, user3],
+          [leader.id, leader],
+          [user2.id, user2],
+        ]),
+      )
+
       await partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
+      // TODO(tec27): Add something to FakeNydusServer to resolve when all current subscription
+      // promises are complete?
+      await new Promise(resolve => setTimeout(resolve, 20))
 
       expect(client2.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'init',
@@ -449,31 +463,31 @@ describe('parties/party-service', () => {
     })
 
     describe('when user was already in a party', () => {
-      let oldLeader: PartyUser
+      let oldLeader: SbUser
       let oldParty: PartyRecord
-      let newLeader: PartyUser
+      let newLeader: SbUser
       let newParty: PartyRecord
 
       beforeEach(async () => {
         oldLeader = user4
-        oldParty = await partyService.invite(oldLeader, USER4_CLIENT_ID, user6)
+        oldParty = await partyService.invite(oldLeader.id, USER4_CLIENT_ID, user6)
         await partyService.acceptInvite(oldParty.id, user6, USER6_CLIENT_ID)
 
         newLeader = user5
-        newParty = await partyService.invite(newLeader, USER5_CLIENT_ID, user6)
+        newParty = await partyService.invite(newLeader.id, USER5_CLIENT_ID, user6)
       })
 
       test('should remove the user from the old party', async () => {
         await partyService.acceptInvite(newParty.id, user6, USER6_CLIENT_ID)
 
-        expect(oldParty.members).toMatchObject(new Map([[oldLeader.id, oldLeader]]))
+        expect(oldParty.members).toMatchObject(new Set([oldLeader.id]))
       })
 
       test('should remove the user from the new party on disconnect', async () => {
         await partyService.acceptInvite(newParty.id, user6, USER6_CLIENT_ID)
         client6.disconnect()
 
-        expect(newParty.members).toMatchObject(new Map([[newLeader.id, newLeader]]))
+        expect(newParty.members).toMatchObject(new Set([newLeader.id]))
       })
 
       test('should publish "leave" message to the old party path', async () => {
@@ -481,7 +495,7 @@ describe('parties/party-service', () => {
 
         expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(oldParty.id), {
           type: 'leave',
-          user: user6,
+          user: user6.id,
           time: currentTime,
         })
       })
@@ -489,12 +503,12 @@ describe('parties/party-service', () => {
   })
 
   describe('leaveParty', () => {
-    let leader: PartyUser
+    let leader: SbUser
     let party: PartyRecord
 
     beforeEach(async () => {
       leader = user1
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, user2)
       partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
     })
 
@@ -519,7 +533,7 @@ describe('parties/party-service', () => {
     test('should update the party record', () => {
       partyService.leaveParty(party.id, user2.id, USER2_CLIENT_ID)
 
-      expect(party.members).toMatchObject(new Map([[leader.id, leader]]))
+      expect(party.members).toMatchObject(new Set([leader.id]))
     })
 
     test('should publish "leave" message to the party path', () => {
@@ -529,7 +543,7 @@ describe('parties/party-service', () => {
       // before unsubscribing the user from the party path.
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'leave',
-        user: user2,
+        user: user2.id,
         time: currentTime,
       })
     })
@@ -543,7 +557,7 @@ describe('parties/party-service', () => {
     test('should assign new leader when old leader leaves', () => {
       partyService.leaveParty(party.id, leader.id, USER1_CLIENT_ID)
 
-      expect(party.leader).toMatchObject(user2)
+      expect(party.leader).toBe(user2.id)
     })
 
     test('should publish "leaderChange" message to the party path when leader leaves', () => {
@@ -551,44 +565,44 @@ describe('parties/party-service', () => {
 
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'leaderChange',
-        leader: user2,
+        leader: user2.id,
         time: currentTime,
       })
     })
   })
 
   describe('sendChatMessage', () => {
-    let leader: PartyUser
+    let leader: SbUser
     let party: PartyRecord
 
     beforeEach(async () => {
       leader = user1
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, user2)
       partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
     })
 
     test('should throw if the party is not found', async () => {
       await expect(() =>
-        partyService.sendChatMessage('INVALID_PARTY_ID', user2.id, 'Hello World!'),
+        partyService.sendChatMessage('INVALID_PARTY_ID', user2, 'Hello World!'),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
     })
 
     test('should throw if the user is not in party', async () => {
       await expect(() =>
-        partyService.sendChatMessage(party.id, user3.id, 'Hello World!'),
+        partyService.sendChatMessage(party.id, user3, 'Hello World!'),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
     })
 
     test('should publish "chatMessage" event to the party path', async () => {
       findUsersByNameMock.mockResolvedValue(new Map())
 
-      await partyService.sendChatMessage(party.id, user2.id, 'Hello World!')
+      await partyService.sendChatMessage(party.id, user2, 'Hello World!')
 
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'chatMessage',
         message: {
           partyId: party.id,
-          from: user2,
+          user: user2,
           time: currentTime,
           text: 'Hello World!',
         },
@@ -601,13 +615,13 @@ describe('parties/party-service', () => {
         new Map([['test', { id: 123 as SbUserId, name: 'test' }]]),
       )
 
-      await partyService.sendChatMessage(party.id, user2.id, 'Hello @test and @non-existing')
+      await partyService.sendChatMessage(party.id, user2, 'Hello @test and @non-existing')
 
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'chatMessage',
         message: {
           partyId: party.id,
-          from: user2,
+          user: user2,
           time: currentTime,
           text: 'Hello <@123> and @non-existing',
         },
@@ -620,13 +634,13 @@ describe('parties/party-service', () => {
         new Map([['test', { id: 123 as SbUserId, name: 'test' }]]),
       )
 
-      await partyService.sendChatMessage(party.id, user2.id, 'Hello @TEST and @TeSt')
+      await partyService.sendChatMessage(party.id, user2, 'Hello @TEST and @TeSt')
 
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'chatMessage',
         message: {
           partyId: party.id,
-          from: user2,
+          user: user2,
           time: currentTime,
           text: 'Hello <@123> and <@123>',
         },
@@ -636,129 +650,124 @@ describe('parties/party-service', () => {
   })
 
   describe('kickPlayer', () => {
-    let leader: PartyUser
+    let leader: SbUser
     let party: PartyRecord
 
     beforeEach(async () => {
       leader = user1
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user3)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, user2)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, user3)
       partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
       partyService.acceptInvite(party.id, user3, USER3_CLIENT_ID)
     })
 
     test('should throw if the party is not found', () => {
       expect(() =>
-        partyService.kickPlayer('INVALID_PARTY_ID', leader, user2),
+        partyService.kickPlayer('INVALID_PARTY_ID', leader.id, user2.id),
       ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
     })
 
     test('should throw if not in party', () => {
       expect(() =>
-        partyService.kickPlayer(party.id, user4, user3),
+        partyService.kickPlayer(party.id, user4.id, user3.id),
       ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
     })
 
     test('should throw if kicked by non-leader', () => {
       expect(() =>
-        partyService.kickPlayer(party.id, user2, user3),
+        partyService.kickPlayer(party.id, user2.id, user3.id),
       ).toThrowErrorMatchingInlineSnapshot(`"Only party leaders can kick other people"`)
     })
 
     test('should throw if the user is not in party', () => {
       expect(() =>
-        partyService.kickPlayer(party.id, leader, user4),
+        partyService.kickPlayer(party.id, leader.id, user4.id),
       ).toThrowErrorMatchingInlineSnapshot(`"Can't kick player who is not in your party"`)
     })
 
     test('should throw if trying to kick yourself', () => {
       expect(() =>
-        partyService.kickPlayer(party.id, leader, leader),
+        partyService.kickPlayer(party.id, leader.id, leader.id),
       ).toThrowErrorMatchingInlineSnapshot(`"Can't kick yourself"`)
     })
 
     test('should update the party record when kicked', () => {
-      partyService.kickPlayer(party.id, leader, user2)
+      partyService.kickPlayer(party.id, leader.id, user2.id)
 
-      expect(party.members).toMatchObject(
-        new Map([
-          [leader.id, leader],
-          [user3.id, user3],
-        ]),
-      )
+      expect(party.members).toMatchObject(new Set([leader.id, user3.id]))
     })
 
     test('should publish "kick" message to the party path', () => {
-      partyService.kickPlayer(party.id, leader, user2)
+      partyService.kickPlayer(party.id, leader.id, user2.id)
 
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'kick',
-        target: user2,
+        target: user2.id,
         time: currentTime,
       })
     })
 
     test('should unsubscribe kicked user from the party path', () => {
-      partyService.kickPlayer(party.id, leader, user2)
+      partyService.kickPlayer(party.id, leader.id, user2.id)
 
       expect(client2.unsubscribe).toHaveBeenCalledWith(getPartyPath(party.id))
     })
   })
 
   describe('changeLeader', () => {
-    let leader: PartyUser
+    let leader: SbUser
     let party: PartyRecord
 
     beforeEach(async () => {
       leader = user1
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user2)
-      party = await partyService.invite(leader, USER1_CLIENT_ID, user3)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, user2)
+      party = await partyService.invite(leader.id, USER1_CLIENT_ID, user3)
       partyService.acceptInvite(party.id, user2, USER2_CLIENT_ID)
       partyService.acceptInvite(party.id, user3, USER3_CLIENT_ID)
     })
 
     test('should throw if the party is not found', () => {
       expect(() =>
-        partyService.changeLeader('INVALID_PARTY_ID', leader, user2),
+        partyService.changeLeader('INVALID_PARTY_ID', leader.id, user2.id),
       ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
     })
 
     test('should throw if not in party', () => {
       expect(() =>
-        partyService.changeLeader(party.id, user4, user3),
+        partyService.changeLeader(party.id, user4.id, user3.id),
       ).toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
     })
 
     test('should throw if non-leader tries to change leaders', () => {
       expect(() =>
-        partyService.changeLeader(party.id, user2, user3),
+        partyService.changeLeader(party.id, user2.id, user3.id),
       ).toThrowErrorMatchingInlineSnapshot(`"Only party leaders can change leaders"`)
     })
 
     test('should throw if the user is not in party', () => {
       expect(() =>
-        partyService.changeLeader(party.id, leader, user4),
+        partyService.changeLeader(party.id, leader.id, user4.id),
       ).toThrowErrorMatchingInlineSnapshot(`"Only party members can be made leader"`)
     })
 
     test('should throw if trying to make yourself a leader', () => {
       expect(() =>
-        partyService.changeLeader(party.id, leader, leader),
+        partyService.changeLeader(party.id, leader.id, leader.id),
       ).toThrowErrorMatchingInlineSnapshot(`"You're already a leader"`)
     })
 
     test('should update the party record when changing leaders', () => {
-      partyService.changeLeader(party.id, leader, user2)
+      partyService.changeLeader(party.id, leader.id, user2.id)
 
-      expect(party.leader).toEqual(user2)
+      expect(party.leader).toEqual(user2.id)
     })
 
     test('should publish "leaderChange" message to the party path', () => {
-      partyService.changeLeader(party.id, leader, user2)
+      partyService.changeLeader(party.id, leader.id, user2.id)
 
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'leaderChange',
-        leader: user2,
+        leader: user2.id,
         time: currentTime,
       })
     })

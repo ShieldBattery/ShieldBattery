@@ -1,4 +1,5 @@
 import { SbPolicyType } from './policies/policy-type'
+import { SbUserId } from './users/user-info'
 
 export enum NotificationType {
   EmailVerification = 'emailVerification',
@@ -39,7 +40,7 @@ export interface PolicyUpdatedNotification extends BaseNotification {
 
 export interface PartyInviteNotification extends BaseNotification {
   type: typeof NotificationType.PartyInvite
-  from: string
+  from: SbUserId
   partyId: string
 }
 

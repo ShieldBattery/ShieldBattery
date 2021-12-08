@@ -48,7 +48,7 @@ export interface UserProfile {
 }
 
 /** Information returned for /users/:id/profile, intended to be able to fill out a profile page. */
-export interface GetUserProfilePayload {
+export interface GetUserProfileResponse {
   user: SbUser
   profile: UserProfile
   matchHistory: {
@@ -58,10 +58,14 @@ export interface GetUserProfilePayload {
   }
 }
 
-export interface AcceptPoliciesBody {
+export interface GetBatchUserInfoResponse {
+  userInfos: SbUser[]
+}
+
+export interface AcceptPoliciesRequest {
   policies: Array<[policyType: SbPolicyType, version: number]>
 }
 
-export interface AcceptPoliciesPayload {
+export interface AcceptPoliciesResponse {
   user: SelfUser
 }

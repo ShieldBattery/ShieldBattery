@@ -7,23 +7,23 @@ import {
   PartyInitEvent,
   PartyPayload,
   PartyServiceErrorCode,
-  PartyUser,
 } from '../../../common/parties'
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUser, SbUserId } from '../../../common/users/user-info'
 import { CodedError } from '../errors/coded-error'
 import logger from '../logging/logger'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
 import NotificationService from '../notifications/notification-service'
 import { Clock } from '../time/clock'
+import { findUsersById } from '../users/user-model'
 import { ClientSocketsGroup, ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 
 export interface PartyRecord {
   id: string
-  invites: Map<number, PartyUser>
-  members: Map<number, PartyUser>
-  leader: PartyUser
+  invites: Set<SbUserId>
+  members: Set<SbUserId>
+  leader: SbUserId
 }
 
 export class PartyServiceError extends CodedError<PartyServiceErrorCode> {}
@@ -69,13 +69,13 @@ export default class PartyService {
    * invited user already though.
    */
   async invite(
-    leader: PartyUser,
+    leader: SbUserId,
     leaderClientId: string,
-    invitedUser: PartyUser,
+    invitedUser: SbUser,
   ): Promise<PartyRecord> {
-    const leaderClientSockets = this.getClientSockets(leader.id, leaderClientId)
+    const leaderClientSockets = this.getClientSockets(leader, leaderClientId)
 
-    if (invitedUser.id === leader.id) {
+    if (invitedUser.id === leader) {
       throw new PartyServiceError(
         PartyServiceErrorCode.InvalidSelfAction,
         "Can't invite yourself to the party",
@@ -84,7 +84,7 @@ export default class PartyService {
 
     let party = this.getClientParty(leaderClientSockets)
     if (party) {
-      if (party.leader.id !== leader.id) {
+      if (party.leader !== leader) {
         throw new PartyServiceError(
           PartyServiceErrorCode.InsufficientPermissions,
           'Only party leader can invite people',
@@ -103,22 +103,19 @@ export default class PartyService {
       // reveal to the inviter that the person has declined their first invite, which should be
       // treated as private information.
 
-      party.invites.set(invitedUser.id, invitedUser)
+      party.invites.add(invitedUser.id)
       this.publisher.publish(getPartyPath(party.id), {
         type: 'invite',
-        invitedUser,
+        invitedUser: invitedUser.id,
         time: this.clock.now(),
-        userInfo: {
-          id: invitedUser.id,
-          name: invitedUser.name,
-        },
+        userInfo: invitedUser,
       })
     } else {
       const partyId = cuid()
       party = {
         id: partyId,
-        invites: new Map([[invitedUser.id, invitedUser]]),
-        members: new Map([[leader.id, leader]]),
+        invites: new Set([invitedUser.id]),
+        members: new Set([leader]),
         leader,
       }
 
@@ -127,7 +124,7 @@ export default class PartyService {
       this.subscribeToParty(leaderClientSockets, party)
     }
 
-    await this.maybeSendInviteNotification(party, invitedUser)
+    await this.maybeSendInviteNotification(party, invitedUser.id)
 
     return party
   }
@@ -138,7 +135,7 @@ export default class PartyService {
    * declined. Furthermore, declining an invite doesn't prevent the user from joining the party at
    * a later time, even if currently it's not possible to perform such action through UI.
    */
-  async decline(partyId: string, target: PartyUser) {
+  async decline(partyId: string, target: SbUserId) {
     await this.clearInviteNotification(partyId, target)
   }
 
@@ -148,32 +145,32 @@ export default class PartyService {
    * invite notification is cleared for the invited user, so if they got uninvited before they even
    * saw the invite notification they'll be none the wiser!
    */
-  async removeInvite(partyId: string, removingUser: PartyUser, target: PartyUser) {
+  async removeInvite(partyId: string, removingUser: SbUserId, target: SbUserId) {
     await this.clearInviteNotification(partyId, target)
 
     const party = this.parties.get(partyId)
-    if (!party || !party.members.has(removingUser.id)) {
+    if (!party || !party.members.has(removingUser)) {
       throw new PartyServiceError(
         PartyServiceErrorCode.NotFoundOrNotInParty,
         "Party not found or you're not in it",
       )
     }
 
-    if (removingUser.id !== party.leader.id) {
+    if (removingUser !== party.leader) {
       throw new PartyServiceError(
         PartyServiceErrorCode.InsufficientPermissions,
         'Only party leaders can remove invites to other people',
       )
     }
 
-    if (!party.invites.has(target.id)) {
+    if (!party.invites.has(target)) {
       throw new PartyServiceError(
         PartyServiceErrorCode.InvalidAction,
         "Can't remove invite for a user that wasn't invited",
       )
     }
 
-    party.invites.delete(target.id)
+    party.invites.delete(target)
     this.publisher.publish(getPartyPath(party.id), {
       type: 'uninvite',
       target,
@@ -187,8 +184,8 @@ export default class PartyService {
    * party. Also, it's possible to accept an invite to a party while already being in a different
    * party. In that case, the user will leave the old party and be transferred to a new party.
    */
-  async acceptInvite(partyId: string, user: PartyUser, clientId: string) {
-    await this.clearInviteNotification(partyId, user)
+  async acceptInvite(partyId: string, user: SbUser, clientId: string) {
+    await this.clearInviteNotification(partyId, user.id)
 
     const party = this.parties.get(partyId)
     if (!party || !party.invites.has(user.id)) {
@@ -210,15 +207,16 @@ export default class PartyService {
     const oldParty = this.getClientParty(clientSockets)
 
     // TODO(2Pac): Maybe display a confirmation dialog first to the user if they were already in an
-    // existing party, instead of uncoditionally moving them to a new party?
+    // existing party, instead of unconditionally moving them to a new party?
 
     party.invites.delete(user.id)
-    party.members.set(user.id, user)
+    party.members.add(user.id)
     this.clientSocketsToPartyId.set(clientSockets, partyId)
 
     this.publisher.publish(getPartyPath(party.id), {
       type: 'join',
-      user,
+      user: user.id,
+      userInfo: user,
       time: this.clock.now(),
     })
     this.subscribeToParty(clientSockets, party)
@@ -253,16 +251,15 @@ export default class PartyService {
    * Sends a chat message in the party from a particular user. The chat messages are not persisted
    * anywhere, and users will only be able to see the messages sent since they joined the party.
    */
-  async sendChatMessage(partyId: string, userId: SbUserId, message: string) {
+  async sendChatMessage(partyId: string, user: SbUser, message: string) {
     const party = this.parties.get(partyId)
-    if (!party || !party.members.has(userId)) {
+    if (!party || !party.members.has(user.id)) {
       throw new PartyServiceError(
         PartyServiceErrorCode.NotFoundOrNotInParty,
         "Party not found or you're not in it",
       )
     }
 
-    const user = party.members.get(userId)!
     const text = filterChatMessage(message)
     const [processedText, mentionedUsers] = await processMessageContents(text)
 
@@ -270,7 +267,7 @@ export default class PartyService {
       type: 'chatMessage',
       message: {
         partyId,
-        from: user,
+        user,
         time: this.clock.now(),
         text: processedText,
       },
@@ -282,30 +279,30 @@ export default class PartyService {
    * Kicks a particular user from a party. Only party leaders can kick other people. Kicked players
    * must be invited again to the party if they wish to rejoin.
    */
-  kickPlayer(partyId: string, kickingUser: PartyUser, target: PartyUser) {
+  kickPlayer(partyId: string, kickingUser: SbUserId, target: SbUserId) {
     const party = this.parties.get(partyId)
-    if (!party || !party.members.has(kickingUser.id)) {
+    if (!party || !party.members.has(kickingUser)) {
       throw new PartyServiceError(
         PartyServiceErrorCode.NotFoundOrNotInParty,
         "Party not found or you're not in it",
       )
     }
 
-    if (kickingUser.id !== party.leader.id) {
+    if (kickingUser !== party.leader) {
       throw new PartyServiceError(
         PartyServiceErrorCode.InsufficientPermissions,
         'Only party leaders can kick other people',
       )
     }
 
-    if (!party.members.has(target.id)) {
+    if (!party.members.has(target)) {
       throw new PartyServiceError(
         PartyServiceErrorCode.InvalidAction,
         "Can't kick player who is not in your party",
       )
     }
 
-    if (kickingUser.id === target.id) {
+    if (kickingUser === target) {
       throw new PartyServiceError(PartyServiceErrorCode.InvalidSelfAction, "Can't kick yourself")
     }
 
@@ -315,8 +312,8 @@ export default class PartyService {
       time: this.clock.now(),
     })
 
-    const clientId = this.userIdToClientId.get(target.id)!
-    const clientSockets = this.getClientSockets(target.id, clientId)
+    const clientId = this.userIdToClientId.get(target)!
+    const clientSockets = this.getClientSockets(target, clientId)
     this.removeClientFromParty(clientSockets, party)
   }
 
@@ -324,30 +321,30 @@ export default class PartyService {
    * Changes the party leader. Only the current party leader can initiate the change. This is the
    * same action that happens automatically when a current party leader leaves the party.
    */
-  changeLeader(partyId: string, oldLeader: PartyUser, newLeader: PartyUser) {
+  changeLeader(partyId: string, oldLeader: SbUserId, newLeader: SbUserId) {
     const party = this.parties.get(partyId)
-    if (!party || !party.members.has(oldLeader.id)) {
+    if (!party || !party.members.has(oldLeader)) {
       throw new PartyServiceError(
         PartyServiceErrorCode.NotFoundOrNotInParty,
         "Party not found or you're not in it",
       )
     }
 
-    if (oldLeader.id !== party.leader.id) {
+    if (oldLeader !== party.leader) {
       throw new PartyServiceError(
         PartyServiceErrorCode.InsufficientPermissions,
         'Only party leaders can change leaders',
       )
     }
 
-    if (!party.members.has(newLeader.id)) {
+    if (!party.members.has(newLeader)) {
       throw new PartyServiceError(
         PartyServiceErrorCode.InvalidAction,
         'Only party members can be made leader',
       )
     }
 
-    if (oldLeader.id === newLeader.id) {
+    if (oldLeader === newLeader) {
       throw new PartyServiceError(PartyServiceErrorCode.InvalidAction, "You're already a leader")
     }
 
@@ -359,11 +356,11 @@ export default class PartyService {
     })
   }
 
-  private async maybeSendInviteNotification(party: PartyRecord, user: PartyUser) {
+  private async maybeSendInviteNotification(party: PartyRecord, user: SbUserId) {
     try {
       const notification = (
         await this.notificationService.retrieveNotifications({
-          userId: user.id,
+          userId: user,
           data: { type: NotificationType.PartyInvite, partyId: party.id },
           visible: true,
         })
@@ -374,10 +371,10 @@ export default class PartyService {
       }
 
       await this.notificationService.addNotification({
-        userId: user.id,
+        userId: user,
         data: {
           type: NotificationType.PartyInvite,
-          from: party.leader.name,
+          from: party.leader,
           partyId: party.id,
         },
       })
@@ -390,18 +387,18 @@ export default class PartyService {
     }
   }
 
-  private async clearInviteNotification(partyId: string, user: PartyUser) {
+  private async clearInviteNotification(partyId: string, userId: SbUserId) {
     try {
       const notification = (
         await this.notificationService.retrieveNotifications({
-          userId: user.id,
+          userId,
           data: { type: NotificationType.PartyInvite, partyId },
           visible: true,
         })
       )[0]
 
       if (notification) {
-        await this.notificationService.clearById(user.id, notification.id)
+        await this.notificationService.clearById(userId, notification.id)
       }
     } catch (err) {
       logger.error({ err }, 'error clearing the invite notification')
@@ -412,19 +409,18 @@ export default class PartyService {
     this.userIdToClientId.set(clientSockets.userId, clientSockets.clientId)
     clientSockets.subscribe<PartyInitEvent>(
       getPartyPath(party.id),
-      () => ({
+      async () => ({
         type: 'init',
         party: toPartyJson(party),
         time: this.clock.now(),
-        // TODO(2Pac): This will have to be done differently once we start sending more information
-        // for the users.
-        userInfos: [
-          ...Array.from(party.invites.values()),
-          ...Array.from(party.members.values()),
-        ].map(u => ({
-          id: u.id,
-          name: u.name,
-        })),
+        userInfos: Array.from(
+          (
+            await findUsersById([
+              ...Array.from(party.invites.values()),
+              ...Array.from(party.members.values()),
+            ])
+          ).values(),
+        ),
       }),
       sockets => this.removeClientFromParty(sockets),
     )
@@ -440,12 +436,12 @@ export default class PartyService {
       return
     }
 
-    const user = party.members.get(clientSockets.userId)
-    if (user) {
-      party.members.delete(user.id)
+    const { userId } = clientSockets
+    if (party.members.has(userId)) {
+      party.members.delete(userId)
       this.publisher.publish(getPartyPath(party.id), {
         type: 'leave',
-        user,
+        user: userId,
         time: this.clock.now(),
       })
     }
@@ -464,7 +460,7 @@ export default class PartyService {
     // now non-existing party, should fail.
     if (party.members.size < 1) {
       this.parties.delete(party.id)
-    } else if (clientSockets.userId === party.leader.id) {
+    } else if (clientSockets.userId === party.leader) {
       // If the leader has left the party, we assign a new leader, generally the person who has
       // joined the party the earliest. However, there is no robust solution implemented to ensure
       // that the earliest member becomes a new leader, since the order in which the users accept

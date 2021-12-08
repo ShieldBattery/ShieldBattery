@@ -35,7 +35,7 @@ import {
   SelfJoinPartyMessage,
 } from './party-message-layout'
 import { PartyMessageType } from './party-message-records'
-import { PartyRecord } from './party-reducer'
+import { PartyState } from './party-reducer'
 
 const UserListContainer = styled.div`
   width: 100%;
@@ -96,34 +96,56 @@ export function PlayerSlot({
   )
 }
 
+function PartySlot({
+  userId,
+  hasLeaderActions,
+  onKickPlayer,
+  onChangeLeader,
+}: {
+  userId: SbUserId
+  hasLeaderActions: boolean
+  onKickPlayer: (userId: SbUserId) => void
+  onChangeLeader: (userId: SbUserId) => void
+}) {
+  const user = useAppSelector(state => state.users.byId.get(userId))
+  const name = user ? user.name : ''
+
+  return (
+    <PlayerSlot
+      name={name}
+      hasLeaderActions={hasLeaderActions}
+      onKickPlayer={() => onKickPlayer(userId)}
+      onChangeLeader={() => onChangeLeader(userId)}
+    />
+  )
+}
+
 export function UserList({
   party,
   selfUser,
   onKickPlayer,
   onChangeLeader,
 }: {
-  party: PartyRecord
+  party: PartyState
   selfUser: SelfUserRecord
   onKickPlayer: (userId: SbUserId) => void
   onChangeLeader: (userId: SbUserId) => void
 }) {
-  const playerSlots = party.members.map(u => (
-    <PlayerSlot
-      key={u.id}
-      name={u.name}
-      hasLeaderActions={selfUser.id === party.leader.id && selfUser.id !== u.id}
-      onKickPlayer={() => onKickPlayer(u.id)}
-      onChangeLeader={() => onChangeLeader(u.id)}
+  const filledSlots = party.members.map(u => (
+    <PartySlot
+      key={u}
+      userId={u}
+      hasLeaderActions={selfUser.id === party.leader && selfUser.id !== u}
+      onKickPlayer={onKickPlayer}
+      onChangeLeader={onChangeLeader}
     />
   ))
-  const emptySlots = Range(playerSlots.size, MAX_PARTY_SIZE).map(i => (
+  const emptySlots = Range(filledSlots.size, MAX_PARTY_SIZE).map(i => (
     <OpenSlot key={'empty-' + i} />
   ))
 
   return (
-    <UserListContainer>
-      {[...playerSlots.valueSeq().toArray(), ...emptySlots.toArray()]}
-    </UserListContainer>
+    <UserListContainer>{[...filledSlots.toArray(), ...emptySlots.toArray()]}</UserListContainer>
   )
 }
 
@@ -245,7 +267,7 @@ export function PartyView(props: PartyViewProps) {
           onKickPlayer={onKickPlayerClick}
           onChangeLeader={onChangeLeaderClick}
         />
-        {selfUser.id === party.leader.id ? (
+        {selfUser.id === party.leader ? (
           <TextButton
             label={
               <>

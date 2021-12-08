@@ -14,9 +14,10 @@ import { ALL_POLICY_TYPES, SbPolicyType } from '../../../common/policies/policy-
 import { SbPermissions } from '../../../common/users/permissions'
 import { ClientSessionInfo } from '../../../common/users/session'
 import {
-  AcceptPoliciesBody,
-  AcceptPoliciesPayload,
-  GetUserProfilePayload,
+  AcceptPoliciesRequest,
+  AcceptPoliciesResponse,
+  GetBatchUserInfoResponse,
+  GetUserProfileResponse,
   SbUser,
   SbUserId,
   SelfUser,
@@ -55,7 +56,7 @@ import {
 } from './user-model'
 import { getUserStats } from './user-stats-model'
 
-const JOI_USER_ID = Joi.number().min(1)
+const joiUserId = () => Joi.number().min(1)
 
 const accountCreationThrottle = createThrottle('accountcreation', {
   rate: 1,
@@ -66,6 +67,12 @@ const accountCreationThrottle = createThrottle('accountcreation', {
 const accountUpdateThrottle = createThrottle('accountupdate', {
   rate: 10,
   burst: 20,
+  window: 60000,
+})
+
+const accountRetrievalThrottle = createThrottle('accountretrieval', {
+  rate: 40,
+  burst: 80,
   window: 60000,
 })
 
@@ -136,10 +143,14 @@ export class UserApi {
   }
 
   @httpGet('/:id/profile')
-  async getUserProfile(ctx: RouterContext): Promise<GetUserProfilePayload> {
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session!.userId)),
+  )
+  async getUserProfile(ctx: RouterContext): Promise<GetUserProfileResponse> {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: number }>({
-        id: JOI_USER_ID.required(),
+        id: joiUserId().required(),
       }),
     })
 
@@ -203,6 +214,26 @@ export class UserApi {
       user,
       profile: { userId: user.id, ladder, userStats },
       matchHistory,
+    }
+  }
+
+  @httpGet('/batch-info')
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session!.userId)),
+  )
+  async batchGetInfo(ctx: RouterContext): Promise<GetBatchUserInfoResponse> {
+    const { query } = validateRequest(ctx, {
+      query: Joi.object<{ u: SbUserId[] }>({
+        u: Joi.array().items(joiUserId()).single().min(1).max(20),
+      }),
+    })
+
+    const userIds = query.u
+    const users = await findUsersById(userIds)
+
+    return {
+      userInfos: Array.from(users.values()),
     }
   }
 
@@ -302,12 +333,12 @@ export class UserApi {
     ensureLoggedIn,
     throttleMiddleware(accountUpdateThrottle, ctx => String(ctx.session!.userId)),
   )
-  async acceptPolicies(ctx: RouterContext): Promise<AcceptPoliciesPayload> {
+  async acceptPolicies(ctx: RouterContext): Promise<AcceptPoliciesResponse> {
     const { params, body } = validateRequest(ctx, {
       params: Joi.object<{ id: number }>({
-        id: JOI_USER_ID.required(),
+        id: joiUserId().required(),
       }),
-      body: Joi.object<AcceptPoliciesBody>({
+      body: Joi.object<AcceptPoliciesRequest>({
         policies: Joi.array()
           .items(
             Joi.array()

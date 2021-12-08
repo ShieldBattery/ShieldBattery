@@ -1,5 +1,5 @@
 import { ClientSessionInfo } from '../../common/users/session'
-import { AcceptPoliciesPayload, SelfUser } from '../../common/users/user-info'
+import { AcceptPoliciesResponse, SelfUser } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
 export type AuthActions =
@@ -125,7 +125,7 @@ export interface EmailVerified {
 /** Various legal policies have been accepted successfully by the current user. */
 export interface AcceptPoliciesSuccess {
   type: '@auth/acceptPolicies'
-  payload: AcceptPoliciesPayload
+  payload: AcceptPoliciesResponse
   meta: Record<string, never>
   error?: false
 }

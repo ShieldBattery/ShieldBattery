@@ -6,7 +6,11 @@ import {
   TERMS_OF_SERVICE_VERSION,
 } from '../../common/policies/versions'
 import { apiUrl } from '../../common/urls'
-import { AcceptPoliciesBody, AcceptPoliciesPayload, SbUserId } from '../../common/users/user-info'
+import {
+  AcceptPoliciesRequest,
+  AcceptPoliciesResponse,
+  SbUserId,
+} from '../../common/users/user-info'
 import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
@@ -18,11 +22,11 @@ const policyBatchRequester = new MicrotaskBatchRequester<
 >(
   100,
   (dispatch, items) => {
-    const body: AcceptPoliciesBody = {
+    const body: AcceptPoliciesRequest = {
       policies: items.map(([_, policyType, version]) => [policyType, version]),
     }
     const userId = items[0][0]
-    const promise = fetchJson<AcceptPoliciesPayload>(apiUrl`users/${userId}/policies`, {
+    const promise = fetchJson<AcceptPoliciesResponse>(apiUrl`users/${userId}/policies`, {
       method: 'post',
       body: JSON.stringify(body),
     })

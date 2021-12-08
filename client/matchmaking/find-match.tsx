@@ -112,7 +112,7 @@ export function FindMatch() {
   const selfUser = useSelfUser()
   const isInParty = useAppSelector(s => !!s.party.id)
   const partySize = useAppSelector(s => s.party.members.size)
-  const isPartyLeader = useAppSelector(s => s.party.leader.id === selfUser.id)
+  const isPartyLeader = useAppSelector(s => s.party.leader === selfUser.id)
   const isMatchmakingPartyDisabled =
     isInParty &&
     (!isPartyLeader ||

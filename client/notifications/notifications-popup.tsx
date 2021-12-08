@@ -92,10 +92,15 @@ export default function NotificationPopups() {
   const [notificationItems, setNotificationItems] = useState<Immutable<SbNotification[]>>([])
 
   useEffect(() => {
-    setNotificationItems(items => [
-      ...Array.from(newIds, id => idToNotification.get(id)!),
-      ...items,
-    ])
+    setNotificationItems(items =>
+      Array.from(newIds, id => idToNotification.get(id)!).concat(
+        // NOTE(tec27): There seems to be some way that things can interleave such that newItems
+        // get added to items but then the next `newItems` still contains the ID. We don't expect
+        // there to be *that* many popups so doing this precautionary filter to avoid duplicate
+        // notifications seems fine
+        items.filter(item => !newIds.has(item.id)),
+      ),
+    )
   }, [idToNotification, newIds])
 
   useEffect(() => {

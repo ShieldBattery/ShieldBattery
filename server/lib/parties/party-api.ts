@@ -9,7 +9,6 @@ import {
   ChangeLeaderServerBody,
   InviteToPartyServerBody,
   PartyServiceErrorCode,
-  PartyUser,
   SendChatMessageServerBody,
 } from '../../../common/parties'
 import { asHttpError } from '../errors/error-with-payload'
@@ -99,13 +98,7 @@ export class PartyApi {
     // TODO(2Pac): Check if the target user has blocked invitations from the user issuing
     // the request. Or potentially use friends list when implemented.
 
-    const invite: PartyUser = { id: foundTarget.id, name: foundTarget.name }
-    const leader: PartyUser = {
-      id: ctx.session!.userId,
-      name: ctx.session!.userName,
-    }
-
-    await this.partyService.invite(leader, clientId, invite)
+    await this.partyService.invite(ctx.session!.userId, clientId, foundTarget)
 
     ctx.status = 204
   }
@@ -121,8 +114,7 @@ export class PartyApi {
       }),
     })
 
-    const target: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
-    this.partyService.decline(partyId, target)
+    this.partyService.decline(partyId, ctx.session!.userId)
 
     ctx.status = 204
   }
@@ -144,10 +136,7 @@ export class PartyApi {
       throw new httpErrors.NotFound('Target user not found')
     }
 
-    const removingUser: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
-    const target: PartyUser = { id: foundTarget.id, name: foundTarget.name }
-
-    await this.partyService.removeInvite(partyId, removingUser, target)
+    await this.partyService.removeInvite(partyId, ctx.session!.userId, foundTarget.id)
 
     ctx.status = 204
   }
@@ -167,7 +156,11 @@ export class PartyApi {
       }),
     })
 
-    const user: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
+    const user = await findUserById(ctx.session!.userId)
+    if (!user) {
+      throw new Error("current user couldn't be found")
+    }
+
     await this.partyService.acceptInvite(partyId, user, clientId)
 
     ctx.status = 204
@@ -201,10 +194,7 @@ export class PartyApi {
         throw new httpErrors.NotFound('Target user not found')
       }
 
-      const kickingUser: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
-      const target: PartyUser = { id: foundTarget.id, name: foundTarget.name }
-
-      this.partyService.kickPlayer(partyId, kickingUser, target)
+      this.partyService.kickPlayer(partyId, ctx.session!.userId, foundTarget.id)
     } else {
       assertUnreachable(type)
     }
@@ -227,7 +217,12 @@ export class PartyApi {
       }),
     })
 
-    this.partyService.sendChatMessage(partyId, ctx.session!.userId, message)
+    const user = await findUserById(ctx.session!.userId)
+    if (!user) {
+      throw new Error("current user couldn't be found")
+    }
+
+    this.partyService.sendChatMessage(partyId, user, message)
 
     ctx.status = 204
   }
@@ -252,10 +247,7 @@ export class PartyApi {
       throw new httpErrors.NotFound('Target user not found')
     }
 
-    const oldLeader: PartyUser = { id: ctx.session!.userId, name: ctx.session!.userName }
-    const newLeader: PartyUser = { id: foundTarget.id, name: foundTarget.name }
-
-    this.partyService.changeLeader(partyId, oldLeader, newLeader)
+    this.partyService.changeLeader(partyId, ctx.session!.userId, foundTarget.id)
 
     ctx.status = 204
   }

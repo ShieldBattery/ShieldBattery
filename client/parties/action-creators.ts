@@ -5,6 +5,7 @@ import {
   SendChatMessageServerBody,
 } from '../../common/parties'
 import { apiUrl, urlPath } from '../../common/urls'
+import { SbUserId } from '../../common/users/user-info'
 import { ThunkAction } from '../dispatch-registry'
 import { push } from '../navigation/routing'
 import { clientId } from '../network/client-id'
@@ -12,7 +13,7 @@ import { fetchJson } from '../network/fetch'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { ActivateParty, DeactivateParty } from './actions'
 
-export function inviteToParty(targetId: number): ThunkAction {
+export function inviteToParty(targetId: SbUserId): ThunkAction {
   return dispatch => {
     const params = { clientId, targetId }
     dispatch({
@@ -45,7 +46,7 @@ export function inviteToParty(targetId: number): ThunkAction {
   }
 }
 
-export function removePartyInvite(partyId: string, targetId: number): ThunkAction {
+export function removePartyInvite(partyId: string, targetId: SbUserId): ThunkAction {
   return dispatch => {
     const params = { partyId, targetId }
     dispatch({
@@ -170,7 +171,7 @@ export function sendChatMessage(partyId: string, message: string): ThunkAction {
   }
 }
 
-export function kickPlayer(partyId: string, targetId: number): ThunkAction {
+export function kickPlayer(partyId: string, targetId: SbUserId): ThunkAction {
   return dispatch => {
     const params = { partyId, targetId }
     dispatch({
@@ -195,7 +196,7 @@ export function kickPlayer(partyId: string, targetId: number): ThunkAction {
   }
 }
 
-export function changeLeader(partyId: string, targetId: number): ThunkAction {
+export function changeLeader(partyId: string, targetId: SbUserId): ThunkAction {
   return dispatch => {
     const params = { partyId, targetId }
     dispatch({

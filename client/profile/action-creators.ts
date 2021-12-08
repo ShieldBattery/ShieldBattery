@@ -1,8 +1,14 @@
 import { apiUrl, urlPath } from '../../common/urls'
-import { GetUserProfilePayload, SbUserId } from '../../common/users/user-info'
+import {
+  GetBatchUserInfoResponse,
+  GetUserProfileResponse,
+  SbUserId,
+} from '../../common/users/user-info'
 import { ThunkAction } from '../dispatch-registry'
+import logger from '../logging/logger'
 import { push, replace } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
+import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { fetchJson } from '../network/fetch'
 import { UserProfileSubPage } from './user-profile-sub-page'
 
@@ -46,7 +52,7 @@ export function viewUserProfile(userId: SbUserId, spec: RequestHandlingSpec): Th
     try {
       dispatch({
         type: '@profile/getUserProfile',
-        payload: await fetchJson<GetUserProfilePayload>(apiUrl`users/${userId}/profile`, {
+        payload: await fetchJson<GetUserProfileResponse>(apiUrl`users/${userId}/profile`, {
           signal: spec.signal,
         }),
       })
@@ -54,4 +60,38 @@ export function viewUserProfile(userId: SbUserId, spec: RequestHandlingSpec): Th
       userProfileLoadsInProgress.delete(userId)
     }
   })
+}
+
+const MAX_BATCH_INFO_REQUESTS = 20
+
+const infoBatchRequester = new MicrotaskBatchRequester<SbUserId>(
+  MAX_BATCH_INFO_REQUESTS,
+  (dispatch, items) => {
+    const params = items.map(u => urlPath`u=${u}`).join('&')
+    const promise = fetchJson<GetBatchUserInfoResponse>(apiUrl`users/batch-info` + '?' + params)
+    dispatch({
+      type: '@profile/getBatchUserInfo',
+      payload: promise,
+      meta: {
+        userIds: items,
+      },
+    })
+
+    return promise
+  },
+  err => {
+    logger.error('error while batch requesting user info: ' + (err as Error)?.stack ?? err)
+  },
+)
+
+export function getBatchUserInfo(userId: SbUserId): ThunkAction {
+  return (dispatch, getState) => {
+    const {
+      users: { byId },
+    } = getState()
+
+    if (!byId.has(userId)) {
+      infoBatchRequester.request(dispatch, userId)
+    }
+  }
 }

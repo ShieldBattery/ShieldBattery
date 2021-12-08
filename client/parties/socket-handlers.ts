@@ -29,7 +29,7 @@ const eventToAction: EventToActionMap = {
       },
     })
 
-    if (selfUser.id !== party.leader.id) {
+    if (selfUser.id !== party.leader) {
       // If we have joined someone else's party, navigate to the party view immediately. Party
       // leaders are not navigated as they might want to invite more people from wherever they are.
       navigateToParty(party.id)
@@ -62,12 +62,13 @@ const eventToAction: EventToActionMap = {
   },
 
   join: (partyId, event) => {
-    const { user, time } = event
+    const { user, userInfo, time } = event
     return {
       type: '@parties/updateJoin',
       payload: {
         partyId,
         user,
+        userInfo,
         time,
       },
     }
@@ -76,7 +77,7 @@ const eventToAction: EventToActionMap = {
   leave: (partyId, event) => (dispatch, getState) => {
     const { user, time } = event
     const selfUser = getState().auth.user
-    if (selfUser.id === user.id) {
+    if (selfUser.id === user) {
       // It was us who left the party
       dispatch({
         type: '@parties/updateLeaveSelf',
@@ -118,7 +119,7 @@ const eventToAction: EventToActionMap = {
 
       // Notify the main process of the new message, so it can display an appropriate notification
       ipcRenderer.send('chatNewMessage', {
-        user: event.message.from.name,
+        user: event.message.user.name,
         message: event.message.text,
         urgent: event.mentions.some(m => m.id === auth.user.id),
       })
@@ -137,7 +138,7 @@ const eventToAction: EventToActionMap = {
   kick: (partyId, event) => (dispatch, getState) => {
     const { target, time } = event
     const selfUser = getState().auth.user
-    if (selfUser.id === target.id) {
+    if (selfUser.id === target) {
       // It was us who has been kicked from the party
       dispatch(openSnackbar({ message: 'You have been kicked from the party.' }))
       dispatch({

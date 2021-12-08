@@ -1,5 +1,5 @@
-import { PartyChatMessage, PartyPayload, PartyUser } from '../../common/parties'
-import { SbUser } from '../../common/users/user-info'
+import { PartyChatMessage, PartyPayload } from '../../common/parties'
+import { SbUser, SbUserId } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
 export type PartyActions =
@@ -44,7 +44,7 @@ export interface InviteToPartyBegin {
   type: '@parties/inviteToPartyBegin'
   payload: {
     clientId: string
-    targetId: number
+    targetId: SbUserId
   }
 }
 
@@ -53,7 +53,7 @@ export interface InviteToPartySuccess {
   payload: void
   meta: {
     clientId: string
-    targetId: number
+    targetId: SbUserId
   }
   error?: false
 }
@@ -61,7 +61,7 @@ export interface InviteToPartySuccess {
 export interface InviteToPartyFailure extends BaseFetchFailure<'@parties/inviteToParty'> {
   meta: {
     clientId: string
-    targetId: number
+    targetId: SbUserId
   }
 }
 
@@ -69,7 +69,7 @@ export interface RemovePartyInviteBegin {
   type: '@parties/removePartyInviteBegin'
   payload: {
     partyId: string
-    targetId: number
+    targetId: SbUserId
   }
 }
 
@@ -78,7 +78,7 @@ export interface RemovePartyInviteSuccess {
   payload: void
   meta: {
     partyId: string
-    targetId: number
+    targetId: SbUserId
   }
   error?: false
 }
@@ -86,7 +86,7 @@ export interface RemovePartyInviteSuccess {
 export interface RemovePartyInviteFailure extends BaseFetchFailure<'@parties/removePartyInvite'> {
   meta: {
     partyId: string
-    targetId: number
+    targetId: SbUserId
   }
 }
 
@@ -194,7 +194,7 @@ export interface KickFromPartyBegin {
   type: '@parties/kickFromPartyBegin'
   payload: {
     partyId: string
-    targetId: number
+    targetId: SbUserId
   }
 }
 
@@ -203,7 +203,7 @@ export interface KickFromPartySuccess {
   payload: void
   meta: {
     partyId: string
-    targetId: number
+    targetId: SbUserId
   }
   error?: false
 }
@@ -211,7 +211,7 @@ export interface KickFromPartySuccess {
 export interface KickFromPartyFailure extends BaseFetchFailure<'@parties/kickFromParty'> {
   meta: {
     partyId: string
-    targetId: number
+    targetId: SbUserId
   }
 }
 
@@ -219,7 +219,7 @@ export interface ChangePartyLeaderBegin {
   type: '@parties/changePartyLeaderBegin'
   payload: {
     partyId: string
-    targetId: number
+    targetId: SbUserId
   }
 }
 
@@ -228,7 +228,7 @@ export interface ChangePartyLeaderSuccess {
   payload: void
   meta: {
     partyId: string
-    targetId: number
+    targetId: SbUserId
   }
   error?: false
 }
@@ -236,7 +236,7 @@ export interface ChangePartyLeaderSuccess {
 export interface ChangePartyLeaderFailure extends BaseFetchFailure<'@parties/changePartyLeader'> {
   meta: {
     partyId: string
-    targetId: number
+    targetId: SbUserId
   }
 }
 
@@ -275,7 +275,7 @@ export interface UpdateInvite {
   type: '@parties/updateInvite'
   payload: {
     partyId: string
-    invitedUser: PartyUser
+    invitedUser: SbUserId
     time: number
     userInfo: SbUser
   }
@@ -285,7 +285,7 @@ export interface UpdateUninvite {
   type: '@parties/updateUninvite'
   payload: {
     partyId: string
-    target: PartyUser
+    target: SbUserId
     time: number
   }
 }
@@ -294,8 +294,9 @@ export interface UpdateJoin {
   type: '@parties/updateJoin'
   payload: {
     partyId: string
-    user: PartyUser
+    user: SbUserId
     time: number
+    userInfo: SbUser
   }
 }
 
@@ -303,7 +304,7 @@ export interface UpdateLeave {
   type: '@parties/updateLeave'
   payload: {
     partyId: string
-    user: PartyUser
+    user: SbUserId
     time: number
   }
 }
@@ -320,7 +321,7 @@ export interface UpdateLeaderChange {
   type: '@parties/updateLeaderChange'
   payload: {
     partyId: string
-    leader: PartyUser
+    leader: SbUserId
     time: number
   }
 }
@@ -337,7 +338,7 @@ export interface UpdateKick {
   type: '@parties/updateKick'
   payload: {
     partyId: string
-    target: PartyUser
+    target: SbUserId
     time: number
   }
 }

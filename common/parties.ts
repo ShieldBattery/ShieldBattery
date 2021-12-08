@@ -19,21 +19,16 @@ export enum PartyServiceErrorCode {
   InvalidSelfAction = 'InvalidSelfAction',
 }
 
-export interface PartyUser {
-  id: SbUserId
-  name: string
-}
-
 export interface PartyChatMessage {
   partyId: string
-  from: PartyUser
   time: number
   text: string
+  user: SbUser
 }
 
 export interface AddInvitePayload {
   partyId: string
-  from: PartyUser
+  from: SbUserId
 }
 
 export interface RemoveInvitePayload {
@@ -42,9 +37,9 @@ export interface RemoveInvitePayload {
 
 export interface PartyPayload {
   id: string
-  invites: Array<PartyUser>
-  members: Array<PartyUser>
-  leader: PartyUser
+  invites: SbUserId[]
+  members: SbUserId[]
+  leader: SbUserId
 }
 
 export interface PartyInitEvent {
@@ -56,32 +51,33 @@ export interface PartyInitEvent {
 
 export interface PartyInviteEvent {
   type: 'invite'
-  invitedUser: PartyUser
+  invitedUser: SbUserId
   time: number
   userInfo: SbUser
 }
 
 export interface PartyUninviteEvent {
   type: 'uninvite'
-  target: PartyUser
+  target: SbUserId
   time: number
 }
 
 export interface PartyJoinEvent {
   type: 'join'
-  user: PartyUser
+  user: SbUserId
+  userInfo: SbUser
   time: number
 }
 
 export interface PartyLeaveEvent {
   type: 'leave'
-  user: PartyUser
+  user: SbUserId
   time: number
 }
 
 export interface PartyLeaderChangeEvent {
   type: 'leaderChange'
-  leader: PartyUser
+  leader: SbUserId
   time: number
 }
 
@@ -93,7 +89,7 @@ export interface PartyChatMessageEvent {
 
 export interface PartyKickEvent {
   type: 'kick'
-  target: PartyUser
+  target: SbUserId
   time: number
 }
 
