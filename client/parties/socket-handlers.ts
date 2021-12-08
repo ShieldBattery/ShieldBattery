@@ -114,7 +114,7 @@ const eventToAction: EventToActionMap = {
     return (dispatch, getState) => {
       const {
         auth,
-        party: { activated },
+        party: { current },
       } = getState()
 
       // Notify the main process of the new message, so it can display an appropriate notification
@@ -129,7 +129,7 @@ const eventToAction: EventToActionMap = {
         payload: event,
       })
 
-      if (!activated) {
+      if (!current?.activated) {
         audioManager.playSound(AvailableSound.MessageAlert)
       }
     }

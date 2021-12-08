@@ -9,11 +9,11 @@ import { IconButton } from '../material/button'
 import AttentionIndicator from '../material/left-nav/attention-indicator'
 import { amberA200, colorTextFaint } from '../styles/colors'
 import { singleLine, subtitle2 } from '../styles/typography'
-import { PartyState } from './party-reducer'
+import { CurrentPartyState } from './party-reducer'
 
 const Container = styled.li<{ isActive: boolean }>`
   position: relative;
-  height: 48px;
+  height: 56px;
   border-radius: 2px;
   background-color: ${props => (props.isActive ? 'rgba(255, 255, 255, 0.08)' : 'transparent')};
 
@@ -29,7 +29,7 @@ const StyledLink = styled(Link)`
   flex-direction: row;
   align-items: center;
   height: 100%;
-  padding: 0 16px;
+  padding: 0 4px 0 16px;
 
   &:link,
   &:visited,
@@ -74,12 +74,12 @@ const EntryButton = styled(IconButton)`
   }
 
   &:not(:first-child) {
-    margin-left: 8px;
+    margin-left: 4px;
   }
 `
 
 export interface PartyNavEntryProps {
-  party: PartyState
+  party: CurrentPartyState
   canInvite: boolean
   onInviteUserClick: () => void
   onLeavePartyClick: (partyId: string) => void

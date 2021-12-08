@@ -1,7 +1,8 @@
-import { Range } from 'immutable'
+import { Immutable } from 'immer'
 import React, { useCallback, useEffect } from 'react'
 import styled from 'styled-components'
 import { MAX_PARTY_SIZE } from '../../common/parties'
+import { range } from '../../common/range'
 import { urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/user-info'
 import { SelfUserRecord } from '../auth/auth-records'
@@ -35,7 +36,7 @@ import {
   SelfJoinPartyMessage,
 } from './party-message-layout'
 import { PartyMessageType } from './party-message-records'
-import { PartyState } from './party-reducer'
+import { CurrentPartyState } from './party-reducer'
 
 const UserListContainer = styled.div`
   width: 100%;
@@ -126,26 +127,30 @@ export function UserList({
   onKickPlayer,
   onChangeLeader,
 }: {
-  party: PartyState
+  party: Immutable<CurrentPartyState>
   selfUser: SelfUserRecord
   onKickPlayer: (userId: SbUserId) => void
   onChangeLeader: (userId: SbUserId) => void
 }) {
-  const filledSlots = party.members.map(u => (
-    <PartySlot
-      key={u}
-      userId={u}
-      hasLeaderActions={selfUser.id === party.leader && selfUser.id !== u}
-      onKickPlayer={onKickPlayer}
-      onChangeLeader={onChangeLeader}
-    />
-  ))
-  const emptySlots = Range(filledSlots.size, MAX_PARTY_SIZE).map(i => (
+  const filledSlots =
+    party?.members.map(u => (
+      <PartySlot
+        key={u}
+        userId={u}
+        hasLeaderActions={selfUser.id === party.leader && selfUser.id !== u}
+        onKickPlayer={onKickPlayer}
+        onChangeLeader={onChangeLeader}
+      />
+    )) ?? []
+  const emptySlots = Array.from(range(filledSlots.length, MAX_PARTY_SIZE), i => (
     <OpenSlot key={'empty-' + i} />
   ))
 
   return (
-    <UserListContainer>{[...filledSlots.toArray(), ...emptySlots.toArray()]}</UserListContainer>
+    <UserListContainer>
+      {filledSlots}
+      {emptySlots}
+    </UserListContainer>
   )
 }
 
@@ -209,14 +214,28 @@ interface PartyViewProps {
 export function PartyView(props: PartyViewProps) {
   const dispatch = useAppDispatch()
   const selfUser = useAppSelector(s => s.auth.user)
-  const party = useAppSelector(s => s.party)
-  const partyId = party.id
+  const party = useAppSelector(s => s.party.current)
+  const partyId = party?.id
   const routePartyId = decodeURIComponent(props.params.partyId)
 
-  useEffect(() => {
-    const isInParty = !!partyId
+  const onSendChatMessage = useCallback(
+    (msg: string) => dispatch(sendChatMessage(partyId!, msg)),
+    [partyId, dispatch],
+  )
 
-    if (isInParty) {
+  const onInviteClick = useCallback(() => dispatch(openDialog(DialogType.PartyInvite)), [dispatch])
+  const onLeaveClick = useCallback(() => dispatch(leaveParty(partyId!)), [partyId, dispatch])
+  const onKickPlayerClick = useCallback(
+    userId => dispatch(kickPlayer(partyId!, userId)),
+    [partyId, dispatch],
+  )
+  const onChangeLeaderClick = useCallback(
+    userId => dispatch(changeLeader(partyId!, userId)),
+    [partyId, dispatch],
+  )
+
+  useEffect(() => {
+    if (partyId) {
       // The mismatch between the current URL and the party state can occur in a couple of ways. One
       // is when a user accepts an invite to a new party while already being a member of a different
       // party that is currently being rendered. Another way is that someone links to their own
@@ -226,28 +245,18 @@ export function PartyView(props: PartyViewProps) {
       } else {
         dispatch(activateParty(partyId))
       }
+
+      return () => dispatch(deactivateParty(partyId))
     } else {
       replace('/')
+      return () => {}
     }
-
-    return () => dispatch(deactivateParty(partyId))
   }, [partyId, routePartyId, dispatch])
 
-  const onSendChatMessage = useCallback(
-    (msg: string) => dispatch(sendChatMessage(partyId, msg)),
-    [partyId, dispatch],
-  )
-
-  const onInviteClick = useCallback(() => dispatch(openDialog(DialogType.PartyInvite)), [dispatch])
-  const onLeaveClick = useCallback(() => dispatch(leaveParty(partyId)), [partyId, dispatch])
-  const onKickPlayerClick = useCallback(
-    userId => dispatch(kickPlayer(partyId, userId)),
-    [partyId, dispatch],
-  )
-  const onChangeLeaderClick = useCallback(
-    userId => dispatch(changeLeader(partyId, userId)),
-    [partyId, dispatch],
-  )
+  if (!party) {
+    // We expect that the useEffect above will navigate us away from here after this render anyway
+    return <Container />
+  }
 
   const listProps = {
     messages: party.messages,

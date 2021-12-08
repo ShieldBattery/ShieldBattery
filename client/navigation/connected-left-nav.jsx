@@ -179,14 +179,14 @@ class ConnectedLeftNav extends React.Component {
 
   renderParty() {
     const { auth, party } = this.props
-    if (!party.id || !IS_ELECTRON) return null
+    if (!party.current || !IS_ELECTRON) return null
 
-    const canInvite = auth.user.id === party.leader.id
+    const canInvite = auth.user.id === party.current.leader
     return [
       <Section key='party-section'>
         <PartyNavEntry
           key='party'
-          party={party}
+          party={party.current}
           canInvite={canInvite}
           onInviteUserClick={this.onInviteUserClick}
           onLeavePartyClick={this.onLeavePartyClick}

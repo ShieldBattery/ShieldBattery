@@ -110,9 +110,9 @@ export function FindMatch() {
     s => s.matchmakingStatus.byType.get(activeTab as MatchmakingType)?.enabled ?? false,
   )
   const selfUser = useSelfUser()
-  const isInParty = useAppSelector(s => !!s.party.id)
-  const partySize = useAppSelector(s => s.party.members.size)
-  const isPartyLeader = useAppSelector(s => s.party.leader === selfUser.id)
+  const isInParty = useAppSelector(s => !!s.party.current)
+  const partySize = useAppSelector(s => s.party.current?.members.length ?? 0)
+  const isPartyLeader = useAppSelector(s => s.party.current?.leader === selfUser.id)
   const isMatchmakingPartyDisabled =
     isInParty &&
     (!isPartyLeader ||

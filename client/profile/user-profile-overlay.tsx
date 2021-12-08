@@ -43,7 +43,12 @@ export function ConnectedUserProfileOverlay({
   const dispatch = useAppDispatch()
   const selfUser = useAppSelector(s => s.auth.user)
   const user = useAppSelector(s => s.users.byId.get(userId))
-  const party = useAppSelector(s => s.party)
+
+  const partyId = useAppSelector(s => s.party.current?.id)
+  const partyMembers = useAppSelector(s => s.party.current?.members)
+  const partyInvites = useAppSelector(s => s.party.current?.invites)
+  const partyLeader = useAppSelector(s => s.party.current?.leader)
+
   const onPopoverDismiss = popoverProps.onDismiss
 
   const onViewProfileClick = useCallback(() => {
@@ -55,22 +60,19 @@ export function ConnectedUserProfileOverlay({
   }, [user])
 
   const onInviteToPartyClick = useCallback(() => {
-    dispatch(inviteToParty(user!.id))
+    dispatch(inviteToParty(userId))
     onPopoverDismiss()
-  }, [user, dispatch, onPopoverDismiss])
+  }, [userId, dispatch, onPopoverDismiss])
 
   const onRemovePartyInvite = useCallback(() => {
-    dispatch(removePartyInvite(party.id, user!.id))
+    dispatch(removePartyInvite(partyId!, userId))
     onPopoverDismiss()
-  }, [party, user, dispatch, onPopoverDismiss])
+  }, [partyId, userId, dispatch, onPopoverDismiss])
 
-  const onKickPlayerClick = useCallback(
-    userId => {
-      dispatch(kickPlayer(party.id, user!.id))
-      onPopoverDismiss()
-    },
-    [party, user, dispatch, onPopoverDismiss],
-  )
+  const onKickPlayerClick = useCallback(() => {
+    dispatch(kickPlayer(partyId!, userId))
+    onPopoverDismiss()
+  }, [partyId, userId, dispatch, onPopoverDismiss])
 
   if (!user) {
     return null
@@ -83,20 +85,26 @@ export function ConnectedUserProfileOverlay({
     actions.push(<MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />)
 
     if (PARTIES && IS_ELECTRON) {
-      const isAlreadyInParty = party.members.has(user.id)
-      const hasInvite = party.invites.has(user.id)
-      if (isAlreadyInParty) {
-        actions.push(
-          <MenuItem key='kick-party' text='Kick from party' onClick={onKickPlayerClick} />,
-        )
-      } else if (hasInvite) {
-        actions.push(
-          <MenuItem key='invite' text='Uninvite from party' onClick={onRemovePartyInvite} />,
-        )
-      } else {
+      if (!partyId) {
         actions.push(
           <MenuItem key='invite' text='Invite to party' onClick={onInviteToPartyClick} />,
         )
+      } else if (partyLeader === selfUser.id) {
+        const isAlreadyInParty = !!partyMembers?.includes(user.id)
+        const hasInvite = !!partyInvites?.includes(user.id)
+        if (isAlreadyInParty) {
+          actions.push(
+            <MenuItem key='kick-party' text='Kick from party' onClick={onKickPlayerClick} />,
+          )
+        } else if (hasInvite) {
+          actions.push(
+            <MenuItem key='invite' text='Uninvite from party' onClick={onRemovePartyInvite} />,
+          )
+        } else {
+          actions.push(
+            <MenuItem key='invite' text='Invite to party' onClick={onInviteToPartyClick} />,
+          )
+        }
       }
     }
   }
