@@ -1,30 +1,32 @@
 import React from 'react'
-import { SbUser, SbUserId } from '../../common/users/user-info'
+import styled from 'styled-components'
+import { SbUserId } from '../../common/users/user-info'
+import Avatar from '../avatars/avatar'
 import { Popover, PopoverProps } from '../material/popover'
 import { useAppSelector } from '../redux-hooks'
-import { Actions, Header, PopoverContents, StyledAvatar, Username } from './profile-overlay-content'
+import { headline6, singleLine } from '../styles/typography'
 
-export interface UserProfileOverlayProps {
-  children: React.ReactNode
-  user: SbUser
-  popoverProps: Omit<PopoverProps, 'children'>
-}
+const PopoverContents = styled.div`
+  min-width: 240px;
+`
 
-export function UserProfileOverlay(props: UserProfileOverlayProps) {
-  const { children, user, popoverProps } = props
+const Header = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 24px;
+`
 
-  return (
-    <Popover {...popoverProps}>
-      <PopoverContents>
-        <Header>
-          <StyledAvatar user={user.name} />
-          <Username>{user.name}</Username>
-        </Header>
-        <Actions>{children}</Actions>
-      </PopoverContents>
-    </Popover>
-  )
-}
+const StyledAvatar = styled(Avatar)`
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+`
+
+const Username = styled.div`
+  ${headline6};
+  ${singleLine};
+`
 
 export interface ConnectedUserProfileOverlayProps {
   userId: SbUserId
@@ -42,8 +44,13 @@ export function ConnectedUserProfileOverlay({
   }
 
   return (
-    <UserProfileOverlay user={user} popoverProps={popoverProps}>
-      {null}
-    </UserProfileOverlay>
+    <Popover {...popoverProps}>
+      <PopoverContents>
+        <Header>
+          <StyledAvatar user={user.name} />
+          <Username>{user.name}</Username>
+        </Header>
+      </PopoverContents>
+    </Popover>
   )
 }

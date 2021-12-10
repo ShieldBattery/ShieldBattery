@@ -157,9 +157,10 @@ interface UserListEntryProps {
 
 const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
   const [profileOverlayOpen, setProfileOverlayOpen] = useState(false)
-  const [contextMenuOpen, setContextMenuOpen] = useState(false)
+  const [contextMenuEl, setContextMenuEl] = useState<EventTarget | null>(null)
   const [contextMenuAnchorX, setContextMenuAnchorX] = useState(0)
   const [contextMenuAnchorY, setContextMenuAnchorY] = useState(0)
+  const contextMenuOpen = Boolean(contextMenuEl)
   const userEntryRef = useRef(null)
   const [, anchorX, anchorY] = useAnchorPosition('left', 'top', userEntryRef.current ?? null)
 
@@ -174,11 +175,16 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
 
     setContextMenuAnchorX(event.pageX)
     setContextMenuAnchorY(event.pageY)
-    setContextMenuOpen(true)
+    setContextMenuEl(event.target)
   }, [])
-  const onCloseContextMenu = useCallback(() => {
-    setContextMenuOpen(false)
-  }, [])
+  const onCloseContextMenu = useCallback(
+    (event?: MouseEvent) => {
+      if (contextMenuEl !== event?.target) {
+        setContextMenuEl(null)
+      }
+    },
+    [contextMenuEl],
+  )
 
   const user = useAppSelector(s => s.users.byId.get(props.userId))
   if (!user) {

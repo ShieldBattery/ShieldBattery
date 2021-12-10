@@ -12,7 +12,7 @@ export interface PortalProps {
    * Function called when the portal is being dismissed by clicking outside of its contents. This
    * function should generally result in the `open` prop being set to `false`.
    */
-  onDismiss?: () => void
+  onDismiss?: (event?: MouseEvent) => void
 }
 
 /**
@@ -59,7 +59,7 @@ export function Portal(props: PortalProps) {
       if (onDismiss) {
         if (!portalRef.current?.contains(event.target as Node)) {
           markEventAsHandledDismissal(event)
-          onDismiss()
+          onDismiss(event)
         }
       }
     },
@@ -70,11 +70,11 @@ export function Portal(props: PortalProps) {
     if (open) {
       document.addEventListener('click', onCaptureClick, true /* useCapture */)
       document.addEventListener('click', onBubbleClick)
-      document.addEventListener('contextmenu', onContextMenu, true /* useCapture */)
+      document.addEventListener('contextmenu', onContextMenu)
       return () => {
         document.removeEventListener('click', onCaptureClick, true /* useCapture */)
         document.removeEventListener('click', onBubbleClick)
-        document.removeEventListener('contextmenu', onContextMenu, true /* useCapture */)
+        document.removeEventListener('contextmenu', onContextMenu)
       }
     }
 
