@@ -1,4 +1,4 @@
-import { castDraft, Draft, Immutable, produce } from 'immer'
+import { Draft, Immutable, produce } from 'immer'
 import { ReduxAction } from '../action-types'
 import { ActionWithSystemInfo } from '../redux-system-info'
 
@@ -85,10 +85,13 @@ export function immerKeyedReducer<S>(defaultState: S, reducerObject: ImmerReduce
     if (reducerObject.hasOwnProperty(action.type)) {
       const mapping = reducerObject as Record<string, ImmerReducerFunc<ReduxAction, S>>
 
-      return produce(state, draft =>
-        // NOTE(tec27): The castDraft here is necessary to allow `defaultState` to be a valid return
-        castDraft(mapping[action.type](draft, action as any, state as Immutable<S>)),
-      )
+      return produce(state, draft => {
+        // NOTE(tec27): The result type matches, and `castDraft` used to handle the case that an
+        // immutable state (e.g. a DEFAULT_STATE) was returned, but as of TS 4.5, the overloads here
+        // make it want a Promise for all return values, which seems wrong? Might be fixed in the
+        // future
+        return mapping[action.type](draft, action as any, state as Immutable<S>) as any
+      })
     } else {
       return state
     }
