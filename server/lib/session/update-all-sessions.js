@@ -1,5 +1,6 @@
 import httpErrors from 'http-errors'
-import redis from '../redis'
+import { container } from 'tsyringe'
+import { Redis } from '../redis'
 import sessionStore from './session-store'
 
 export default async function (ctx, updatedValues) {
@@ -7,6 +8,7 @@ export default async function (ctx, updatedValues) {
     throw new httpErrors.Unauthorized()
   }
 
+  const redis = container.resolve(Redis)
   const userSessionsKey = 'user_sessions:' + ctx.session.userId
   const userSessionIds = await redis.smembers(userSessionsKey)
 

@@ -96,7 +96,7 @@ class ConnectedLeftNav extends React.Component {
       link = `/lobbies/${encodeURIComponent(lobby.info.name)}/loading-game`
       title = 'Custom game'
     } else if (matchmaking.isLoading) {
-      title = `Ranked ${matchmaking.match.type}`
+      title = `Ranked ${matchmaking.match?.type ?? ''}`
 
       if (matchmaking.isLaunching) {
         link = '/matchmaking/countdown'
@@ -162,14 +162,15 @@ class ConnectedLeftNav extends React.Component {
 
   renderSearchingMatch() {
     const {
-      matchmaking: { isFinding, searchStartTime },
+      matchmaking: { searchInfo, isLaunching, isCountingDown, isStarting, match },
     } = this.props
-    if (!isFinding || searchStartTime < 0 || !IS_ELECTRON) return null
+    if (!IS_ELECTRON || !searchInfo || isLaunching || isCountingDown || isStarting) return null
 
     return [
       <Section key='searching-match-section'>
         <SearchingMatchNavEntry
-          startTime={searchStartTime}
+          isMatched={!!match}
+          startTime={searchInfo.startTime}
           onCancelSearch={this.onCancelFindMatchClick}
         />
       </Section>,

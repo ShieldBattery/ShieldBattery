@@ -1,9 +1,7 @@
-import { MatchmakingInterval, MatchmakingPlayer } from './matchmaking-player'
+import { SetRequired } from 'type-fest'
+import { MatchmakingEntity, MatchmakingQueueData } from './matchmaking-entity'
 
 /**
- * A MatchmakingPlayer that has had its matchmaking data filled out by the Matchmaker.
+ * A MatchmakingEntity that has had its matchmaking data filled out by the Matchmaker.
  */
-export interface QueuedMatchmakingPlayer extends MatchmakingPlayer {
-  startingInterval: MatchmakingInterval
-  maxInterval: MatchmakingInterval
-}
+export type QueuedMatchmakingEntity = SetRequired<MatchmakingEntity, keyof MatchmakingQueueData>

@@ -3,6 +3,7 @@ import childProcess from 'child_process'
 import fs from 'fs'
 import { Duplex, Readable, Writable } from 'stream'
 import Queue from '../../../common/async/promise-queue'
+import { isTestRun } from '../../../common/is-test-run'
 import { MapExtension, MapVisibility } from '../../../common/maps'
 import { writeFile } from '../file-upload'
 import { addMap } from './map-models'
@@ -10,11 +11,18 @@ import { MapParseData } from './parse-data'
 import { MAP_PARSER_VERSION } from './parser-version'
 
 const BW_DATA_PATH = process.env.SB_SPRITE_DATA || ''
-const MAX_CONCURRENT = Number(process.env.SB_MAP_PARSER_MAX_CONCURRENT)
+let MAX_CONCURRENT = Number(process.env.SB_MAP_PARSER_MAX_CONCURRENT)
 if (Number.isNaN(MAX_CONCURRENT)) {
-  throw new Error('SB_MAP_PARSER_MAX_CONCURRENT must be a number')
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('SB_MAP_PARSER_MAX_CONCURRENT must be a number')
+  } else {
+    MAX_CONCURRENT = 1
+  }
 }
-const mapQueue = new Queue<MapParseResult>(MAX_CONCURRENT)
+// TODO(tec27): Should probably inject this or something instead
+const mapQueue = !isTestRun()
+  ? new Queue<MapParseResult>(MAX_CONCURRENT)
+  : (undefined as any as Queue<MapParseResult>)
 
 /**
  * Parses a map file, returning the results.

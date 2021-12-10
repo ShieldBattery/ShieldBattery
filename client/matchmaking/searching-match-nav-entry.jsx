@@ -22,13 +22,20 @@ const SearchTitle = styled(TitleOld)`
 `
 
 const StyledElapsedTime = styled(ElapsedTime)`
-  ${body2}
+  ${body2};
+  color: ${colorTextSecondary};
+  margin: 0 16px;
+`
+
+const AcceptingText = styled.div`
+  ${body2};
   color: ${colorTextSecondary};
   margin: 0 16px;
 `
 
 export default class SearchingMatchNavEntry extends React.Component {
   static propTypes = {
+    isMatched: PropTypes.bool,
     startTime: PropTypes.number,
     onCancelSearch: PropTypes.func.isRequired,
   }
@@ -37,14 +44,20 @@ export default class SearchingMatchNavEntry extends React.Component {
     return (
       <>
         <SearchingContainer>
-          <SearchTitle>Searching for match</SearchTitle>
-          <SubheaderButton
-            icon={<CancelSearchIcon />}
-            title='Cancel search'
-            onClick={this.onCancelSearchClick}
-          />
+          <SearchTitle>{this.props.isMatched ? 'Match found!' : 'Searching for match'}</SearchTitle>
+          {!this.props.isMatched ? (
+            <SubheaderButton
+              icon={<CancelSearchIcon />}
+              title='Cancel search'
+              onClick={this.onCancelSearchClick}
+            />
+          ) : null}
         </SearchingContainer>
-        <StyledElapsedTime prefix={'Time: '} startTimeMs={this.props.startTime} />
+        {this.props.isMatched ? (
+          <AcceptingText>&hellip;</AcceptingText>
+        ) : (
+          <StyledElapsedTime prefix={'Time: '} startTimeMs={this.props.startTime} />
+        )}
       </>
     )
   }

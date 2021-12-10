@@ -37,7 +37,7 @@ import LobbyView from './lobbies/view'
 import { regenMapImage, removeMap } from './maps/action-creators'
 import { cancelFindMatch } from './matchmaking/action-creators'
 import MatchmakingTitle from './matchmaking/app-bar-title'
-import MatchmakingSearchingOverlay from './matchmaking/matchmaking-searching-overlay'
+import { MatchmakingSearchingOverlay } from './matchmaking/matchmaking-searching-overlay'
 import MatchmakingView from './matchmaking/view'
 import { IconButton } from './material/button'
 import ConnectedLeftNav from './navigation/connected-left-nav'
@@ -204,17 +204,14 @@ class MainLayout extends React.Component {
     if (!IS_ELECTRON) return null
 
     const {
-      matchmaking: { isFinding, findingPreferences, searchStartTime },
+      matchmaking: { searchInfo },
     } = this.props
-    if (!isFinding || !findingPreferences) return null
+    if (!searchInfo) return null
 
     return (
       <MatchmakingSearchingOverlay
         open={this.state.searchingMatchOverlayOpen}
         anchor={this._searchingMatchButtonRef.current}
-        startTime={searchStartTime}
-        matchmakingType={findingPreferences.matchmakingType}
-        selectedRace={findingPreferences.race}
         onCancelSearch={() => {
           this.onCancelFindMatchClick()
           this.onSearchingMatchOverlayClose()
@@ -228,7 +225,7 @@ class MainLayout extends React.Component {
     const { inGameplayActivity, serverStatus } = this.props
     const lobbyCount = serverStatus.lobbyCount > 0 ? serverStatus.lobbyCount : undefined
 
-    const findMatchButton = !this.props.matchmaking.isFinding ? (
+    const findMatchButton = !this.props.matchmaking.searchInfo ? (
       <ActivityButton
         key='find-match'
         ref={this._findMatchButtonRef}

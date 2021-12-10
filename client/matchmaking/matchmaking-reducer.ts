@@ -1,9 +1,17 @@
 import { Immutable } from 'immer'
 import { List, Record } from 'immutable'
 import { MapInfoJson } from '../../common/maps'
-import { MatchmakingPreferences, MatchmakingType } from '../../common/matchmaking'
+import { MatchmakingType } from '../../common/matchmaking'
+import { RaceChar } from '../../common/races'
 import { NETWORK_SITE_CONNECTED } from '../actions'
 import { keyedReducer } from '../reducers/keyed-reducer'
+
+export interface MatchmakingSearchInfo {
+  matchmakingType: MatchmakingType
+  race: RaceChar
+  /** The time when the search was started (as returned by `window.performance.now()`) */
+  startTime: number
+}
 
 export class MatchmakingPlayerRecord extends Record({
   id: 0,
@@ -21,10 +29,7 @@ export class MatchmakingMatchRecord extends Record({
 }) {}
 
 export class BaseMatchmakingState extends Record({
-  isFinding: false,
-  findingPreferences: undefined as Immutable<MatchmakingPreferences> | undefined,
-  /** The time when the search was started (as returned by `window.performance.now()`) */
-  searchStartTime: -1,
+  searchInfo: undefined as Immutable<MatchmakingSearchInfo> | undefined,
   isAccepting: false,
   hasAccepted: false,
   acceptTime: -1,
@@ -61,20 +66,25 @@ export default keyedReducer(new MatchmakingState(), {
     return new MatchmakingState()
   },
 
-  ['@matchmaking/findMatch'](state, action) {
-    if (action.error) {
-      return new MatchmakingState()
-    }
-
+  ['@matchmaking/startSearch'](
+    state,
+    { payload: { matchmakingType, race }, system: { monotonicTime } },
+  ) {
     return new MatchmakingState({
-      isFinding: true,
-      findingPreferences: action.meta?.preferences ?? state.findingPreferences,
-      searchStartTime: action.payload.startTime,
+      searchInfo: {
+        matchmakingType,
+        race,
+        startTime: monotonicTime,
+      },
     })
   },
 
+  ['@matchmaking/requeue'](state, action) {
+    return state.set('match', undefined)
+  },
+
   ['@matchmaking/playerFailedToAccept'](state, action) {
-    return state.set('failedToAccept', true)
+    return state.set('failedToAccept', true).set('searchInfo', undefined).set('match', undefined)
   },
 
   ['@matchmaking/acceptMatchTime'](state, action) {
@@ -85,7 +95,6 @@ export default keyedReducer(new MatchmakingState(), {
     const { matchmakingType, numPlayers } = action.payload
     return state
       .set('match', new MatchmakingMatchRecord({ type: matchmakingType, numPlayers }))
-      .set('isFinding', false)
       .set('hasAccepted', false)
   },
 
@@ -128,7 +137,17 @@ export default keyedReducer(new MatchmakingState(), {
   },
 
   ['@matchmaking/loadingCanceled'](state, action) {
-    return new MatchmakingState()
+    return new MatchmakingState({
+      searchInfo: state.searchInfo,
+    })
+  },
+
+  ['@matchmaking/queueStatus'](state, action) {
+    if (!action.payload.matchmaking) {
+      return new MatchmakingState()
+    }
+
+    return state
   },
 
   [NETWORK_SITE_CONNECTED as any]() {

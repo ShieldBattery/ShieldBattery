@@ -7,6 +7,7 @@ import {
   MatchmakingType,
   MatchReadyEvent,
 } from '../../common/matchmaking'
+import { RaceChar } from '../../common/races'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 import { MatchmakingMatchRecord } from './matchmaking-reducer'
 
@@ -40,6 +41,8 @@ export type MatchmakingActions =
   | GameStarted
   | QueueStatus
   | MatchmakingStatusUpdate
+  | StartMatchSearch
+  | RequeueSearch
 
 export interface GetCurrentMapPoolBegin {
   type: '@matchmaking/getCurrentMapPoolBegin'
@@ -126,6 +129,21 @@ export interface FindMatchFailure extends BaseFetchFailure<'@matchmaking/findMat
     clientId: string
     preferences: Immutable<MatchmakingPreferences>
   }
+}
+
+export interface StartMatchSearch {
+  type: '@matchmaking/startSearch'
+  payload: {
+    matchmakingType: MatchmakingType
+    race: RaceChar
+  }
+  error?: false
+}
+
+export interface RequeueSearch {
+  type: '@matchmaking/requeue'
+  payload: Record<string, never>
+  error?: false
 }
 
 export interface CancelMatchBegin {

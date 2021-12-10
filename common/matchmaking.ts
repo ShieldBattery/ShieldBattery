@@ -143,11 +143,19 @@ export type MatchmakingPreferences2v2 = BaseMatchmakingPreferences<
  */
 export type MatchmakingPreferences = MatchmakingPreferences1v1 | MatchmakingPreferences2v2
 
+export type PreferenceData = MatchmakingPreferences['data']
+
 export interface GetPreferencesResponse {
   preferences: MatchmakingPreferences
   mapPoolOutdated: boolean
   currentMapPoolId: number
   mapInfos: MapInfoJson[]
+}
+
+export interface StartSearchEvent {
+  type: 'startSearch'
+  matchmakingType: MatchmakingType
+  race: RaceChar
 }
 
 export interface MatchFoundEvent {
@@ -215,6 +223,7 @@ export interface QueueStatusEvent {
 }
 
 export type MatchmakingEvent =
+  | StartSearchEvent
   | MatchFoundEvent
   | PlayerAcceptedEvent
   | AcceptTimeoutEvent
@@ -301,4 +310,18 @@ export interface MatchmakingCompletion {
   completionType: MatchmakingCompletionType
   searchTimeMillis: number
   completionTime: Date
+}
+
+export enum MatchmakingServiceErrorCode {
+  ClientDisconnected = 'clientDisconnected',
+  GameplayConflict = 'gameplayConflict',
+  InParty = 'inParty',
+  InvalidClient = 'invalidClient',
+  InvalidMapPool = 'invalidMapPool',
+  InvalidMaps = 'invalidMaps',
+  MatchmakingDisabled = 'matchmakingDisabled',
+  NotInQueue = 'notInQueue',
+  NoActiveMatch = 'noActiveMatch',
+  TooManyPlayers = 'tooManyPlayers',
+  UserOffline = 'userOffline',
 }

@@ -144,6 +144,9 @@ export const PartyQueueCancelMessage = React.memo<{ time: number; reason: PartyQ
           </span>
         )
         break
+      case 'matchmakingDisabled':
+        messageContent = <span>Matchmaking was canceled because it is currently disabled</span>
+        break
       default:
         assertUnreachable(reason)
     }

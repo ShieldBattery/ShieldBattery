@@ -1,8 +1,14 @@
 import { NydusServer } from 'nydus'
-import { MatchmakingPreferences, MatchmakingType } from '../../../common/matchmaking'
+import {
+  MatchmakingPreferences,
+  MatchmakingServiceErrorCode,
+  MatchmakingType,
+} from '../../../common/matchmaking'
 import { NotificationType } from '../../../common/notifications'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId, SbUser, SbUserId } from '../../../common/users/user-info'
+import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
+import { MatchmakingServiceError } from '../matchmaking/matchmaking-service-error'
 import NotificationService from '../notifications/notification-service'
 import { createFakeNotificationService } from '../notifications/testing/notification-service'
 import { FakeClock } from '../time/testing/fake-clock'
@@ -25,6 +31,17 @@ jest.mock('../users/user-model', () => ({
 
 const findUsersByNameMock = asMockedFunction(findUsersByName)
 const findUsersByIdMock = asMockedFunction(findUsersById)
+
+function createMatchmakingService(matchmakerErrorQueue: Error[]) {
+  return {
+    findAsParty: jest.fn(async () => {
+      if (matchmakerErrorQueue.length) {
+        throw matchmakerErrorQueue.shift()
+      }
+    }),
+    registerPartyLeave: jest.fn(),
+  }
+}
 
 describe('parties/party-service', () => {
   const user1: SbUser = { id: makeSbUserId(1), name: 'pachi' }
@@ -68,6 +85,10 @@ describe('parties/party-service', () => {
   let clock: FakeClock
 
   const currentTime = Date.now()
+  const matchmakerErrorQueue: Error[] = []
+  // Basic implementation that throws any queued errors, otherwise resolves
+  let fakeMatchmakingService = createMatchmakingService(matchmakerErrorQueue)
+  let gameplayActivityRegistry: GameplayActivityRegistry
 
   beforeEach(() => {
     nydus = createFakeNydusServer()
@@ -77,8 +98,19 @@ describe('parties/party-service', () => {
     notificationService = createFakeNotificationService()
     clock = new FakeClock()
     clock.setCurrentTime(currentTime)
+    gameplayActivityRegistry = new GameplayActivityRegistry()
 
-    partyService = new PartyService(publisher, clientSocketsManager, notificationService, clock)
+    matchmakerErrorQueue.length = 0
+    fakeMatchmakingService = createMatchmakingService(matchmakerErrorQueue)
+
+    partyService = new PartyService(
+      publisher,
+      clientSocketsManager,
+      notificationService,
+      clock,
+      gameplayActivityRegistry,
+      fakeMatchmakingService as any,
+    )
     connector = new NydusConnector(nydus, sessionLookup)
 
     client1 = connector.connectClient(user1, USER1_CLIENT_ID)
@@ -799,18 +831,24 @@ describe('parties/party-service', () => {
       await expect(
         partyService.findMatch('INVALID_PARTY_ID', leader.id, preferences),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
+
+      expect(gameplayActivityRegistry.getClientForUser(leader.id)).toBeUndefined()
     })
 
     test('should throw if not in party', async () => {
       await expect(() =>
         partyService.findMatch(party.id, user4.id, preferences),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
+
+      expect(gameplayActivityRegistry.getClientForUser(user4.id)).toBeUndefined()
     })
 
     test('should throw if non-leader tries to find match', async () => {
       await expect(() =>
         partyService.findMatch(party.id, user2.id, preferences),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"Only party leaders can queue for matchmaking"`)
+
+      expect(gameplayActivityRegistry.getClientForUser(user2.id)).toBeUndefined()
     })
 
     test('should throw if queueing for a smaller matchmaking type', async () => {
@@ -818,6 +856,8 @@ describe('parties/party-service', () => {
       await expect(() =>
         partyService.findMatch(party.id, leader.id, preferences),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party is too large for that matchmaking type"`)
+
+      expect(gameplayActivityRegistry.getClientForUser(leader.id)).toBeUndefined()
     })
 
     // eslint-disable-next-line jest/no-commented-out-tests
@@ -888,6 +928,9 @@ describe('parties/party-service', () => {
           time: currentTime,
         }),
       )
+
+      expect(gameplayActivityRegistry.getClientForUser(leader.id)).toBeUndefined()
+      expect(gameplayActivityRegistry.getClientForUser(user2.id)).toBeUndefined()
     })
 
     test('should cancel the queue if a player leaves the party', async () => {
@@ -906,6 +949,9 @@ describe('parties/party-service', () => {
           time: currentTime,
         }),
       )
+
+      expect(gameplayActivityRegistry.getClientForUser(leader.id)).toBeUndefined()
+      expect(gameplayActivityRegistry.getClientForUser(user2.id)).toBeUndefined()
     })
 
     test('should cancel the queue if a player is kicked from the party', async () => {
@@ -924,6 +970,9 @@ describe('parties/party-service', () => {
           time: currentTime,
         }),
       )
+
+      expect(gameplayActivityRegistry.getClientForUser(leader.id)).toBeUndefined()
+      expect(gameplayActivityRegistry.getClientForUser(user2.id)).toBeUndefined()
     })
 
     test('should cancel the queue if a player disconnects', async () => {
@@ -942,6 +991,9 @@ describe('parties/party-service', () => {
           time: currentTime,
         }),
       )
+
+      expect(gameplayActivityRegistry.getClientForUser(leader.id)).toBeUndefined()
+      expect(gameplayActivityRegistry.getClientForUser(user2.id)).toBeUndefined()
     })
 
     test("shouldn't add newly joining players to the matchmaking process", async () => {
@@ -951,6 +1003,22 @@ describe('parties/party-service', () => {
       await partyService.acceptInvite(party.id, user3, USER3_CLIENT_ID)
       partyService.acceptFindMatch(party.id, queueId, user2.id, 'z')
       await new Promise<void>(resolve => setTimeout(resolve, 20))
+
+      expect(fakeMatchmakingService.findAsParty).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: preferences.matchmakingType,
+          users: new Map([
+            [leader.id, { race: preferences.race, clientId: USER1_CLIENT_ID }],
+            [user2.id, { race: 'z', clientId: USER2_CLIENT_ID }],
+          ]),
+          partyId: party.id,
+          leaderId: leader.id,
+          leaderPreferences: {
+            mapSelections: preferences.mapSelections,
+            preferenceData: preferences.data,
+          },
+        }),
+      )
 
       expect(nydus.publish).toHaveBeenCalledWith(
         getPartyPath(party.id),
@@ -964,6 +1032,85 @@ describe('parties/party-service', () => {
           time: currentTime,
         }),
       )
+
+      // We expect the matchmaking service would managed this at this point, so it should still be
+      // registered
+      expect(gameplayActivityRegistry.getClientForUser(leader.id)).toBeDefined()
+      expect(gameplayActivityRegistry.getClientForUser(user2.id)).toBeDefined()
+      // user 3 didn't get queued, so should still not be registered
+      expect(gameplayActivityRegistry.getClientForUser(user3.id)).toBeUndefined()
+    })
+
+    test('should handle matchmaking becoming disabled', async () => {
+      matchmakerErrorQueue.push(
+        new MatchmakingServiceError(
+          MatchmakingServiceErrorCode.MatchmakingDisabled,
+          'Matchmaking is currently disabled',
+        ),
+      )
+
+      await partyService.findMatch(party.id, leader.id, preferences)
+      const queueId = party.partyQueueRequest!.id
+
+      await partyService.acceptInvite(party.id, user3, USER3_CLIENT_ID)
+      partyService.acceptFindMatch(party.id, queueId, user2.id, 'z')
+      await new Promise<void>(resolve => setTimeout(resolve, 20))
+
+      expect(fakeMatchmakingService.findAsParty).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: preferences.matchmakingType,
+          users: new Map([
+            [leader.id, { race: preferences.race, clientId: USER1_CLIENT_ID }],
+            [user2.id, { race: 'z', clientId: USER2_CLIENT_ID }],
+          ]),
+          partyId: party.id,
+          leaderId: leader.id,
+          leaderPreferences: {
+            mapSelections: preferences.mapSelections,
+            preferenceData: preferences.data,
+          },
+        }),
+      )
+
+      expect(nydus.publish).toHaveBeenCalledWith(
+        getPartyPath(party.id),
+        expect.objectContaining({
+          type: 'queueCancel',
+          id: queueId,
+          reason: { type: 'matchmakingDisabled' },
+          time: currentTime,
+        }),
+      )
+
+      expect(gameplayActivityRegistry.getClientForUser(leader.id)).toBeUndefined()
+      expect(gameplayActivityRegistry.getClientForUser(user2.id)).toBeUndefined()
+    })
+
+    test('should notify matchmaking of players leaving party after queue', async () => {
+      await partyService.findMatch(party.id, leader.id, preferences)
+      const queueId = party.partyQueueRequest!.id
+
+      partyService.acceptFindMatch(party.id, queueId, user2.id, 'z')
+      await new Promise<void>(resolve => setTimeout(resolve, 20))
+
+      expect(fakeMatchmakingService.findAsParty).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: preferences.matchmakingType,
+          users: new Map([
+            [leader.id, { race: preferences.race, clientId: USER1_CLIENT_ID }],
+            [user2.id, { race: 'z', clientId: USER2_CLIENT_ID }],
+          ]),
+          partyId: party.id,
+          leaderId: leader.id,
+          leaderPreferences: {
+            mapSelections: preferences.mapSelections,
+            preferenceData: preferences.data,
+          },
+        }),
+      )
+
+      partyService.leaveParty(party.id, user2.id, USER2_CLIENT_ID)
+      expect(fakeMatchmakingService.registerPartyLeave).toHaveBeenCalledWith(user2.id, party.id)
     })
   })
 })

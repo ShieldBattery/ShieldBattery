@@ -1,24 +1,27 @@
 /* eslint-disable jest/no-commented-out-tests */
 import { mockRandomForEach } from 'jest-mock-random'
 import { makeSbUserId } from '../../../common/users/user-info'
-import { DEFAULT_MATCH_CHOOSER, initializePlayer } from './matchmaker'
-import { QueuedMatchmakingPlayer } from './matchmaker-queue'
+import { DEFAULT_MATCH_CHOOSER, initializeEntity } from './matchmaker'
+import { QueuedMatchmakingEntity } from './matchmaker-queue'
+import { MatchmakingPlayer } from './matchmaking-entity'
 
 let curUserId = 1
 
-function createPlayer(data: Partial<QueuedMatchmakingPlayer> = {}): QueuedMatchmakingPlayer {
+function createPlayer(data: Partial<MatchmakingPlayer> = {}): QueuedMatchmakingEntity {
   const rating = data.rating ?? 1500
 
-  const player = initializePlayer({
+  const player = initializeEntity({
     id: makeSbUserId(curUserId++),
     name: 'tec27',
     numGamesPlayed: 0,
     rating,
     searchIterations: 0,
     race: 'r',
-    useAlternateRace: false,
-    alternateRace: 'z',
-    mapSelections: new Set([]),
+    preferenceData: {
+      useAlternateRace: false,
+      alternateRace: 'z',
+    },
+    mapSelections: [],
 
     ...data,
 
@@ -144,11 +147,11 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
       Array [
         Array [
           "PLAYER 1 'tec27' @ 1500 mmr",
-          "PLAYER 2 'ReallyBadDude' @ 1500 mmr",
+          "PLAYER 3 'ReallyBadDude2' @ 1500 mmr",
         ],
         Array [
           "PLAYER 4 'ReallyBadDude3' @ 1500 mmr",
-          "PLAYER 3 'ReallyBadDude2' @ 1500 mmr",
+          "PLAYER 2 'ReallyBadDude' @ 1500 mmr",
         ],
       ]
     `)
@@ -206,8 +209,8 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
           "PLAYER 2 'LowSkill' @ 1000 mmr",
         ],
         Array [
-          "PLAYER 3 'MidSkill' @ 1600 mmr",
           "PLAYER 4 'MidSkill2' @ 1400 mmr",
+          "PLAYER 3 'MidSkill' @ 1600 mmr",
         ],
       ]
     `)
@@ -221,8 +224,8 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
           "PLAYER 2 'LowSkill' @ 1000 mmr",
         ],
         Array [
-          "PLAYER 4 'MidSkill2' @ 1400 mmr",
           "PLAYER 3 'MidSkill' @ 1600 mmr",
+          "PLAYER 4 'MidSkill2' @ 1400 mmr",
         ],
       ]
     `)
@@ -234,8 +237,8 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
           "PLAYER 2 'LowSkill' @ 1000 mmr",
         ],
         Array [
-          "PLAYER 4 'MidSkill2' @ 1400 mmr",
           "PLAYER 3 'MidSkill' @ 1600 mmr",
+          "PLAYER 4 'MidSkill2' @ 1400 mmr",
         ],
       ]
     `)

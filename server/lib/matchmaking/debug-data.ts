@@ -1,14 +1,14 @@
 import { singleton } from 'tsyringe'
 import { MatchmakingType } from '../../../common/matchmaking'
 import logger from '../logging/logger'
-import redis from '../redis'
+import { Redis } from '../redis'
 import { Matchmaker } from './matchmaker'
 
 @singleton()
 export class MatchmakingDebugDataService {
   private matchmakers = new Map<MatchmakingType, Matchmaker>()
 
-  constructor() {
+  constructor(private redis: Redis) {
     // Clean up matchmaking queue size data older than 3 months
     const cleanupBefore = new Date()
     cleanupBefore.setDate(cleanupBefore.getDate() - 90)
@@ -50,7 +50,7 @@ export class MatchmakingDebugDataService {
     const startDateNum = startDate ? +startDate : 0
     const endDateNum = endDate ? +endDate : Number.MAX_SAFE_INTEGER
 
-    const values = await redis.zrangebyscore(
+    const values = await this.redis.zrangebyscore(
       `matchmaking:${matchmakingType}:queue`,
       startDateNum,
       endDateNum,

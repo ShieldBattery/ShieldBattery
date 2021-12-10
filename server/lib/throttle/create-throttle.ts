@@ -1,7 +1,7 @@
-import { Redis } from 'ioredis'
 import tokenthrottle, { Throttle } from 'tokenthrottle'
 import { RedisTable, RedisTableOptions } from 'tokenthrottle-redis'
-import redisClient from '../redis'
+import { container } from 'tsyringe'
+import { Redis } from '../redis'
 
 export class PromiseBasedThrottle {
   readonly _throttle: Throttle
@@ -71,7 +71,7 @@ export interface CreateThrottleOptions {
  *    (default: 10 * (`burst` / `rate`) `window`s)
  */
 export default function createThrottle(name: string, opts: CreateThrottleOptions) {
-  const table = new IoredisTable(redisClient, {
+  const table = new IoredisTable(container.resolve(Redis), {
     prefix: 'sbthrottle:' + name,
     expiry:
       opts.expiry ||

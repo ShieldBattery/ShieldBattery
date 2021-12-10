@@ -1,9 +1,9 @@
 import { RouterContext } from '@koa/router'
-import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { MatchmakingPreferences } from '../../../common/matchmaking'
+import { MatchmakingPreferences, MatchmakingServiceErrorCode } from '../../../common/matchmaking'
+import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpPost } from '../http/route-decorators'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -11,11 +11,8 @@ import updateAllSessions from '../session/update-all-sessions'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
-import {
-  MatchmakingService,
-  MatchmakingServiceError,
-  MatchmakingServiceErrorCode,
-} from './matchmaking-service'
+import { MatchmakingService } from './matchmaking-service'
+import { MatchmakingServiceError } from './matchmaking-service-error'
 import { matchmakingPreferencesValidator } from './matchmaking-validators'
 
 const matchmakingThrottle = createThrottle('matchmaking', {
@@ -31,18 +28,20 @@ function convertMatchmakingServiceError(err: unknown) {
 
   switch (err.code) {
     case MatchmakingServiceErrorCode.UserOffline:
-      throw new httpErrors.NotFound(err.message)
+      throw asHttpError(404, err)
     case MatchmakingServiceErrorCode.InvalidMapPool:
     case MatchmakingServiceErrorCode.InvalidMaps:
     case MatchmakingServiceErrorCode.ClientDisconnected:
     case MatchmakingServiceErrorCode.InvalidClient:
-      throw new httpErrors.BadRequest(err.message)
+    case MatchmakingServiceErrorCode.TooManyPlayers:
+      throw asHttpError(400, err)
     case MatchmakingServiceErrorCode.MatchmakingDisabled:
-      throw new httpErrors.Forbidden(err.message)
+      throw asHttpError(403, err)
     case MatchmakingServiceErrorCode.NotInQueue:
     case MatchmakingServiceErrorCode.NoActiveMatch:
     case MatchmakingServiceErrorCode.GameplayConflict:
-      throw new httpErrors.Conflict(err.message)
+    case MatchmakingServiceErrorCode.InParty:
+      throw asHttpError(409, err)
     default:
       assertUnreachable(err.code)
   }

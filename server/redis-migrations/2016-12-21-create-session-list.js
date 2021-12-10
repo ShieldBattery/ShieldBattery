@@ -1,8 +1,9 @@
-import redis from '../lib/redis'
+import { Redis } from '../lib/redis'
 
 const MIGRATION_NAME = '2016-12-21-create-session-list'
 
 async function migrate() {
+  const redis = new Redis()
   const isMigrated = await redis.exists(`migrations:${MIGRATION_NAME}`)
   if (isMigrated) {
     return

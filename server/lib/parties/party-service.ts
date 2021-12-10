@@ -1,10 +1,16 @@
 import cuid from 'cuid'
 import { Immutable } from 'immer'
-import { singleton } from 'tsyringe'
+import { container, delay, inject, instanceCachingFactory, singleton } from 'tsyringe'
+import { InPartyChecker, IN_PARTY_CHECKER } from '../../../client/parties/in-party-checker'
 import { isAbortError, raceAbort } from '../../../common/async/abort-signals'
 import { createDeferred, Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
-import { MatchmakingPreferences, MatchmakingType, TEAM_SIZES } from '../../../common/matchmaking'
+import {
+  MatchmakingPreferences,
+  MatchmakingServiceErrorCode,
+  MatchmakingType,
+  TEAM_SIZES,
+} from '../../../common/matchmaking'
 import { NotificationType } from '../../../common/notifications'
 import {
   MAX_PARTY_SIZE,
@@ -17,7 +23,10 @@ import {
 import { RaceChar } from '../../../common/races'
 import { SbUser, SbUserId } from '../../../common/users/user-info'
 import { CodedError } from '../errors/coded-error'
+import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
+import { MatchmakingService } from '../matchmaking/matchmaking-service'
+import { MatchmakingServiceError } from '../matchmaking/matchmaking-service-error'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
 import NotificationService from '../notifications/notification-service'
@@ -104,7 +113,7 @@ export class PartyQueueRequest {
 }
 
 @singleton()
-export default class PartyService {
+export default class PartyService implements InPartyChecker {
   /**
    * Maps party ID -> record representing that party. Party is created as soon as someone is invited
    * and removed once the last person in a party leaves.
@@ -120,7 +129,13 @@ export default class PartyService {
     private clientSocketsManager: ClientSocketsManager,
     private notificationService: NotificationService,
     private clock: Clock,
+    private gameplayActivityRegistry: GameplayActivityRegistry,
+    @inject(delay(() => MatchmakingService)) private matchmakingService: MatchmakingService,
   ) {}
+
+  isInParty(userId: SbUserId): boolean {
+    return this.userIdToClientId.has(userId)
+  }
 
   /**
    * Invites a user to the party. If a person who is inviting someone else is not already in a
@@ -458,10 +473,25 @@ export default class PartyService {
       )
     }
 
+    const [registered, alreadyActive] = this.gameplayActivityRegistry.registerAll(
+      Array.from(party.members.values(), userId => [
+        userId,
+        this.getClientSockets(userId, this.userIdToClientId.get(userId)!),
+      ]),
+    )
+    if (!registered) {
+      throw new PartyServiceError(
+        PartyServiceErrorCode.AlreadyInGameplayActivity,
+        'One or more player is already in a gameplay activity',
+        { users: alreadyActive },
+      )
+    }
+
     // Copy these values out in case the caller changes the preferences object afterwards for
     // some reason
-    const { race: leaderRace, matchmakingType } = preferences
+    const { race: leaderRace, matchmakingType, mapSelections, data: preferenceData } = preferences
 
+    const { leader } = party
     party.partyQueueRequest = new PartyQueueRequest(
       matchmakingType,
       Array.from(party.members.values()),
@@ -492,16 +522,49 @@ export default class PartyService {
             await partyQueueRequest.untilAcceptStateChanged()
           }
 
-          this.publisher.publish(getPartyPath(party.id), {
-            type: 'queueReady',
-            id: partyQueueRequest.id,
-            queuedMembers: Array.from(partyQueueRequest.getSelectedRaces().entries()),
-            time: this.clock.now(),
-          })
-          // TODO(tec27): queue into matchmaking
+          const queuedMembers = Array.from(partyQueueRequest.getSelectedRaces().entries())
+
+          try {
+            const matchmakingUsers = new Map(
+              queuedMembers.map(([userId, race]) => [
+                userId,
+                { race, clientId: this.userIdToClientId.get(userId)! },
+              ]),
+            )
+            await this.matchmakingService.findAsParty({
+              type: matchmakingType,
+              users: matchmakingUsers,
+              partyId,
+              leaderId: leader,
+              leaderPreferences: {
+                mapSelections,
+                preferenceData,
+              },
+            })
+            this.publisher.publish(getPartyPath(party.id), {
+              type: 'queueReady',
+              id: partyQueueRequest.id,
+              queuedMembers,
+              time: this.clock.now(),
+            })
+          } catch (err: any) {
+            if (!(err instanceof MatchmakingServiceError)) {
+              throw err
+            }
+
+            if (err.code === MatchmakingServiceErrorCode.MatchmakingDisabled) {
+              partyQueueRequest.abort({ type: 'matchmakingDisabled' })
+              // Trigger the AbortError to be thrown
+              await partyQueueRequest.untilAcceptStateChanged()
+            }
+          }
         } catch (err: any) {
           if (!isAbortError(err)) {
             logger.error({ err }, 'error while processing party queue request')
+          }
+
+          for (const userId of partyQueueRequest.members) {
+            this.gameplayActivityRegistry.unregisterClientForUser(userId)
           }
 
           this.publisher.publish(getPartyPath(party.id), {
@@ -662,6 +725,7 @@ export default class PartyService {
     if (party.partyQueueRequest?.members.includes(userId)) {
       party.partyQueueRequest.abort({ type: 'userLeft', user: userId })
     }
+    this.matchmakingService.registerPartyLeave(userId, party.id)
 
     // If the last person in a party leaves, the party is removed. All outstanding invites to this,
     // now non-existing party, should fail.
@@ -696,3 +760,9 @@ export default class PartyService {
     return this.parties.get(partyId as string)
   }
 }
+
+container.register(IN_PARTY_CHECKER, {
+  // NOTE(tec27): We have to use a factory here instead of useClass, because otherwise it resolves
+  // to a different instance of the class, rather than using the constructed singleton
+  useFactory: instanceCachingFactory<InPartyChecker>(c => c.resolve(PartyService)),
+})

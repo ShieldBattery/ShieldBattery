@@ -22,7 +22,7 @@ import { getCurrentMapPool } from './action-creators'
 const ipcRenderer = new TypedIpcRenderer()
 
 type EventToActionMap = {
-  [E in MatchmakingEvent['type']]?: (
+  [E in MatchmakingEvent['type']]: (
     matchmakingType: MatchmakingType,
     event: Extract<MatchmakingEvent, { type: E }>,
   ) => Dispatchable
@@ -137,13 +137,22 @@ const eventToAction: EventToActionMap = {
     }
   },
 
+  startSearch: (matchmakingType, event) => {
+    audioManager.playSound(AvailableSound.EnteredQueue)
+    return {
+      type: '@matchmaking/startSearch',
+      payload: event,
+    }
+  },
+
   requeue: (matchmakingType, event) => (dispatch, getState) => {
     clearRequeueTimer()
     clearAcceptMatchTimer()
 
+    audioManager.playSound(AvailableSound.EnteredQueue)
     dispatch({
-      type: '@matchmaking/findMatch',
-      payload: { startTime: window.performance.now() },
+      type: '@matchmaking/requeue',
+      payload: {},
     })
     requeueState.timer = setTimeout(() => {
       // TODO(tec27): we should allow people to close this dialog themselves, and if/when they do,

@@ -1,11 +1,12 @@
 import Router, { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
+import { container } from 'tsyringe'
 import { MatchmakingType } from '../../../common/matchmaking'
 import { ClientSessionInfo } from '../../../common/users/session'
 import { SelfUser } from '../../../common/users/user-info'
 import { isUserBanned } from '../models/bans'
 import { getPermissions } from '../models/permissions'
-import redis from '../redis'
+import { Redis } from '../redis'
 import initSession from '../session/init'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
@@ -119,6 +120,7 @@ async function endSession(ctx: RouterContext) {
     throw new httpErrors.Conflict('No session active')
   }
 
+  const redis = container.resolve(Redis)
   await redis.srem('user_sessions:' + ctx.session.userId, ctx.sessionId!)
   await ctx.regenerateSession()
   ctx.status = 204

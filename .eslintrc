@@ -155,7 +155,7 @@
     "no-process-env": 0,
     "no-process-exit": 0,
     "no-proto": 2,
-    "no-redeclare": 2,
+    "no-redeclare": 0,
     "no-regex-spaces": 2,
     "no-reserved-keys": 0,
     "no-restricted-globals": [
@@ -276,6 +276,7 @@
     "@typescript-eslint/no-explicit-any": 0,
     "@typescript-eslint/no-extra-semi": 0,
     "@typescript-eslint/no-non-null-assertion": 0,
+    "@typescript-eslint/no-redeclare": 2,
     "@typescript-eslint/no-unused-vars": [
       2,
       { "vars": "all", "args": "none", "varsIgnorePattern": "^_" }

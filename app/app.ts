@@ -299,7 +299,14 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
   ipcMain.handle('activeGameStartWhenReady', (event, gameId) =>
     activeGameManager.startWhenReady(gameId),
   )
-  ipcMain.handle('activeGameSetConfig', (event, config) => activeGameManager.setGameConfig(config))
+  ipcMain.handle('activeGameSetConfig', (event, config) => {
+    try {
+      return activeGameManager.setGameConfig(config)
+    } catch (err: any) {
+      logger.error(`Error setting game config: ${err?.stack ?? err}`)
+      return null
+    }
+  })
   ipcMain.handle('activeGameSetRoutes', (event, gameId, routes) =>
     activeGameManager.setGameRoutes(gameId, routes),
   )

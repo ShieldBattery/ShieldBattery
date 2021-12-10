@@ -4,7 +4,7 @@ import { container } from 'tsyringe'
 import { makeSbUserId } from '../../../common/users/user-info'
 import { banUser as dbBanUser, getBanHistory } from '../models/bans'
 import { checkAllPermissions } from '../permissions/check-permissions'
-import redis from '../redis'
+import { Redis } from '../redis'
 import { findUserById } from '../users/user-model'
 import { UserSocketsManager } from '../websockets/socket-groups'
 
@@ -55,6 +55,7 @@ async function banUser(ctx: RouterContext) {
     bannedBy: ban.bannedBy,
     reason: ban.reason,
   }
+  const redis = container.resolve(Redis)
   // Clear all existing sessions for this user
   const userSessionsKey = 'user_sessions:' + userId
   const userSessionIds = await redis.smembers(userSessionsKey)

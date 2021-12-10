@@ -69,19 +69,19 @@ export default class AcceptMatch extends React.Component {
 
   maybeClose() {
     const {
-      matchmaking: { isFinding, failedToAccept, match },
+      matchmaking: { searchInfo, failedToAccept, match },
     } = this.props
-    if (!isFinding && !failedToAccept && !match) {
+    if (!searchInfo && !failedToAccept && !match) {
       this.props.dispatch(closeDialog())
     }
   }
 
   renderDialogContents() {
     const {
-      matchmaking: { isFinding, isAccepting, hasAccepted, acceptTime, failedToAccept, match },
+      matchmaking: { searchInfo, isAccepting, hasAccepted, acceptTime, failedToAccept, match },
     } = this.props
 
-    if (isFinding) {
+    if (searchInfo && !match) {
       return (
         <p>
           Some players failed to accept the match or failed to load. Returning to the matchmaking
@@ -135,11 +135,11 @@ export default class AcceptMatch extends React.Component {
 
   render() {
     const {
-      matchmaking: { isFinding, failedToAccept },
+      matchmaking: { failedToAccept },
       dialogRef,
     } = this.props
 
-    const title = isFinding || failedToAccept ? 'Failed to accept' : 'Your game is ready'
+    const title = failedToAccept ? 'Failed to accept' : 'Your game is ready'
     return (
       <StyledDialog title={title} showCloseButton={false} dialogRef={dialogRef}>
         {this.renderDialogContents()}

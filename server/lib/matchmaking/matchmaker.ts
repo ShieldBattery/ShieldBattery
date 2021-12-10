@@ -1,14 +1,22 @@
 import { OrderedMap } from 'immutable'
 import IntervalTree from 'node-interval-tree'
 import { injectable } from 'tsyringe'
-import { multipleRandomItems } from '../../../common/random'
+import { multipleRandomItems, randomItem } from '../../../common/random'
 import { range } from '../../../common/range'
 import { ExponentialSmoothValue } from '../../../common/statistics/exponential-smoothing'
 import { SbUserId } from '../../../common/users/user-info'
 import logger from '../logging/logger'
 import { LazyScheduler } from './lazy-scheduler'
-import { QueuedMatchmakingPlayer } from './matchmaker-queue'
-import { isNewPlayer, MatchmakingInterval, MatchmakingPlayer } from './matchmaking-player'
+import { QueuedMatchmakingEntity } from './matchmaker-queue'
+import {
+  getMatchmakingEntityId,
+  getNumPlayersInEntity,
+  getPlayersFromEntity,
+  isMatchmakingParty,
+  isNewPlayer,
+  MatchmakingEntity,
+  MatchmakingInterval,
+} from './matchmaking-entity'
 
 /** How often to run the matchmaker 'find match' process. */
 export const MATCHMAKING_INTERVAL_MS = 6 * 1000
@@ -70,52 +78,64 @@ function getPopulationBucket(rating: number): number {
 }
 
 /**
- * Initializes a player (in-place) with their starting and max interval, if it is not already
+ * Initializes an entity (in-place) with their starting and max interval, if it is not already
  * present.
  *
  * This should only be used by the Matchmaker or in tests, you probably don't want to call this!
  */
-export function initializePlayer(player: MatchmakingPlayer): QueuedMatchmakingPlayer {
-  if (!player.startingInterval) {
-    player.startingInterval = {
-      low: player.interval.low,
-      high: player.interval.high,
+export function initializeEntity(entity: MatchmakingEntity): QueuedMatchmakingEntity {
+  if (!entity.startingInterval) {
+    entity.startingInterval = {
+      low: entity.interval.low,
+      high: entity.interval.high,
     }
   }
-  if (!player.maxInterval) {
-    player.maxInterval = {
-      low: Math.max(0, player.interval.low - MAX_SEARCH_BOUND_INCREASES * SEARCH_BOUND_INCREASE),
-      high: player.interval.high + MAX_SEARCH_BOUND_INCREASES * SEARCH_BOUND_INCREASE,
+  if (!entity.maxInterval) {
+    entity.maxInterval = {
+      low: Math.max(0, entity.interval.low - MAX_SEARCH_BOUND_INCREASES * SEARCH_BOUND_INCREASE),
+      high: entity.interval.high + MAX_SEARCH_BOUND_INCREASES * SEARCH_BOUND_INCREASE,
     }
   }
 
-  return player as QueuedMatchmakingPlayer
+  return entity as QueuedMatchmakingEntity
 }
 
 /**
  * Calculates the effective rating of a team, as if they were a single player. Attempts to weight
  * things such that more skilled players influence the resulting rating more than less skilled ones.
  */
-function calcEffectiveRating(team: ReadonlyArray<Readonly<QueuedMatchmakingPlayer>>): number {
+export function calcEffectiveRating(team: ReadonlyArray<Readonly<MatchmakingEntity>>): number {
   // Calculate the root mean square of the team's ratings. Using this formula means that players
   // with higher rating effectively count for more in the output, so a [2500 + 500] team has a
   // higher effective rating than a [1500 + 1500] team.
-  const sum = team.reduce((sum, player) => sum + player.rating * player.rating, 0)
+  let sum = 0
+  let playerCount = 0
+  for (const entity of team) {
+    for (const players of getPlayersFromEntity(entity)) {
+      playerCount += 1
+      sum += players.rating * players.rating
+    }
+  }
+
   // TODO(tec27): Determine what the proper exponent is for this from win/loss data
-  return Math.pow(sum / team.length, 1 / 2)
+  return Math.pow(sum / playerCount, 1 / 2)
+}
+
+function getRatingFromEntity(entity: QueuedMatchmakingEntity): number {
+  return isMatchmakingParty(entity) ? calcEffectiveRating([entity]) : entity.rating
 }
 
 type MatchedTeams = [
-  teamA: Array<Readonly<QueuedMatchmakingPlayer>>,
-  teamB: Array<Readonly<QueuedMatchmakingPlayer>>,
+  teamA: Array<Readonly<QueuedMatchmakingEntity>>,
+  teamB: Array<Readonly<QueuedMatchmakingEntity>>,
 ]
 
 function findOptimalTeams(
   teamSize: number,
-  player: Readonly<QueuedMatchmakingPlayer>,
-  // TODO(tec27): Make this a ReadonlyArray once we're on TS 4.5+ (prior to that, Array.at is only
+  entity: Readonly<QueuedMatchmakingEntity>,
+  // TODO(tec27): Make this a ReadonlyArray once we're on TS 4.6+ (prior to that, Array.at is only
   // available on non-readonly arrays)
-  selections: Array<Readonly<QueuedMatchmakingPlayer>>,
+  selections: Array<Readonly<QueuedMatchmakingEntity>>,
 ): MatchedTeams {
   if (teamSize !== 2) {
     // TODO(tec27): Rework for 3v3. This is incredibly simple for 2v2 (it's simply the matching
@@ -128,12 +148,22 @@ function findOptimalTeams(
     throw new Error('selections must not be empty')
   }
 
+  if (isMatchmakingParty(entity) || selections.length < teamSize) {
+    if (selections.some(s => !isMatchmakingParty(s))) {
+      // This should never happen for 2v2, just a sanity check
+      throw new Error('selections less than team size but contain a non-party')
+    }
+
+    // Teams can't differ, so just return them as is
+    return [[entity], selections]
+  }
+
   // Find all the different permutations of teams, select the one that minimizes the difference
   // between the two teams' effective ratings.
   let bestTeams: MatchedTeams
   let lowestRatingDiff = Infinity
   for (let i = 0; i < selections.length; i++) {
-    const teamA = [player, selections[i]]
+    const teamA = [entity, selections[i]]
     const teamB = [selections.at(i - 1)!, selections.at((i + 1) % selections.length)!]
     const ratingDiff = Math.abs(calcEffectiveRating(teamA) - calcEffectiveRating(teamB))
     if (ratingDiff < lowestRatingDiff) {
@@ -146,23 +176,23 @@ function findOptimalTeams(
 }
 
 /**
- * A function that filters down the potential players by some specific criteria, returning a
- * list of potential players that meet it.
+ * A function that filters down the potential players/parties by some specific criteria, returning a
+ * list of potential players/parties that meet it.
  */
-type PlayerFilter = (
-  player: Readonly<QueuedMatchmakingPlayer>,
-  potentials: ReadonlyArray<QueuedMatchmakingPlayer>,
+type EntityFilter = (
+  entity: Readonly<QueuedMatchmakingEntity>,
+  potentials: ReadonlyArray<QueuedMatchmakingEntity>,
   neededPlayers: number,
-) => QueuedMatchmakingPlayer[]
+) => QueuedMatchmakingEntity[]
 
 // Filters that will be executed in order until we run under the needed number of players or all
 // filters have been run. Once we reach that point, players will be selected at random from the
 // remaining list, and teams will be optimized from that set.
-const FILTERS: ReadonlyArray<PlayerFilter> = [
+const FILTERS: ReadonlyArray<EntityFilter> = [
   // 1) If you are a new player (<25 games), choose the player that also is a new player
   // 2) If you are not a new player, choose the player that also is not a new player
-  (player, potentials) => {
-    const isNew = isNewPlayer(player)
+  (entity, potentials) => {
+    const isNew = isNewPlayer(entity)
     return potentials.filter(p => isNewPlayer(p) === isNew)
   },
   // TODO(tec27): 3) If applicable, choose the player in “Inactive” status.
@@ -172,69 +202,135 @@ const FILTERS: ReadonlyArray<PlayerFilter> = [
   (_, potentials, neededPlayers) => {
     const sorted = potentials.slice().sort((a, b) => b.searchIterations - a.searchIterations)
     // Pick an iteration number that would still give us enough players
+    if (sorted.length < neededPlayers) {
+      // TODO(tec27): Instead, account for parties in picking the index to look at)
+      return sorted
+    }
     const iterations = sorted[neededPlayers - 1].searchIterations
     return sorted.filter(p => p.searchIterations >= iterations)
   },
 
   // 6) Choose the players with the closest rating.
-  (player, potentials, neededPlayers) => {
+  (entity, potentials, neededPlayers) => {
     // Sort by rating difference (lowest difference first)
+    const entityRating = getRatingFromEntity(entity)
     const sorted = potentials
-      .map<[potential: QueuedMatchmakingPlayer, ratingDiff: number]>(p => [
+      .map<[potential: typeof entity, ratingDiff: number]>(p => [
         p,
-        Math.abs(p.rating - player.rating),
+        Math.abs(getRatingFromEntity(p) - entityRating),
       ])
       .sort((a, b) => a[1] - b[1])
+
+    if (sorted.length < neededPlayers) {
+      // TODO(tec27): Instead, account for parties in picking the index to look at)
+      return sorted.map(p => p[0])
+    }
     // Pick a rating difference that would still give us enough players
     const ratingDiff = sorted[neededPlayers - 1][1]
     return sorted.filter(p => p[1] <= ratingDiff).map(p => p[0])
   },
 ]
 
-// TODO(tec27): Handle teamSize > 1
-export const DEFAULT_MATCH_CHOOSER: MatchChooser = (teamSize, player, potentialPlayers) => {
-  const neededPlayers = teamSize * 2 - 1
+function getTotalPlayersInPotentials(potentials: Readonly<QueuedMatchmakingEntity>[]) {
+  return potentials.reduce((total, entity) => total + getNumPlayersInEntity(entity), 0)
+}
 
-  let filtered = potentialPlayers.filter(
-    p => p.interval.low <= player.rating && player.rating <= p.interval.high,
+export const DEFAULT_MATCH_CHOOSER: MatchChooser = (teamSize, entity, potentials) => {
+  const neededPlayers = teamSize * 2 - getNumPlayersInEntity(entity)
+
+  const entityRating = getRatingFromEntity(entity)
+  let filtered = potentials.filter(
+    p => p.interval.low <= entityRating && entityRating <= p.interval.high,
   )
-  if (filtered.length < neededPlayers) {
+  if (getTotalPlayersInPotentials(filtered) < neededPlayers) {
     // Not enough players in this player's search range
     return []
   }
 
   for (const filterFn of FILTERS) {
-    if (filtered.length === neededPlayers) {
+    if (getTotalPlayersInPotentials(filtered) === neededPlayers) {
       break
     }
 
-    const nextFiltered = filterFn(player, filtered, neededPlayers)
-    if (nextFiltered.length < neededPlayers) {
+    const nextFiltered = filterFn(entity, filtered, neededPlayers)
+    if (getTotalPlayersInPotentials(nextFiltered) < neededPlayers) {
       break
     }
 
     filtered = nextFiltered
   }
 
-  if (filtered.length < neededPlayers) {
+  if (getTotalPlayersInPotentials(filtered) < neededPlayers) {
     // There weren't enough applicable players to fill both teams. Note that this really shouldn't
     // happen at this point (it would be handled by the first filter at the start of the function),
     // but having this here makes me feel safer :)
     return []
   } else {
     // 7) Randomize among remaining candidates.
-    const selections = multipleRandomItems(neededPlayers, filtered)
     if (teamSize === 1) {
-      return [[player], [selections[0]]]
+      const selection = randomItem(filtered)
+      return [[entity], [selection]]
     } else {
-      return findOptimalTeams(teamSize, player, selections)
+      // This is kind of annoying because we potentially have combinations in this list that do
+      // not result in a valid team. So instead of just selecting enough to cover N players, we need
+      // to be careful to get the right size of entities. This is already pretty terrible for 2v2,
+      // for 3v3 it seems like it needs a full rethink
+      const shuffled = multipleRandomItems(filtered.length, filtered)
+      if (isMatchmakingParty(entity)) {
+        while (shuffled.length) {
+          if (isMatchmakingParty(shuffled[0])) {
+            return [[entity], [shuffled[0]]]
+          } else {
+            for (let i = 1; i < shuffled.length; i++) {
+              // Find the first other solo player and group them
+              if (!isMatchmakingParty(shuffled[i])) {
+                return [[entity], [shuffled[0], shuffled[i]]]
+              }
+            }
+          }
+
+          // Couldn't find a matching solo player, just get rid of this one and try again :(
+          shuffled.shift()
+        }
+      } else {
+        let partner: QueuedMatchmakingEntity | undefined
+        for (let i = 0; i < shuffled.length; i++) {
+          if (!isMatchmakingParty(shuffled[i])) {
+            partner = shuffled[i]
+            shuffled.splice(i, 1)
+            break
+          }
+        }
+        if (!partner) {
+          // No other solo players to be our partner
+          return []
+        }
+
+        while (shuffled.length) {
+          if (isMatchmakingParty(shuffled[0])) {
+            return [[entity, partner], [shuffled[0]]]
+          } else {
+            for (let i = 1; i < shuffled.length; i++) {
+              // Find the first other solo player and group them
+              if (!isMatchmakingParty(shuffled[i])) {
+                return findOptimalTeams(teamSize, entity, [partner, shuffled[0], shuffled[i]])
+              }
+            }
+          }
+
+          // Couldn't find a matching solo player, just get rid of this one and try again :(
+          shuffled.shift()
+        }
+      }
+
+      return []
     }
   }
 }
 
 export type OnMatchFoundFunc = (
-  teamA: ReadonlyArray<Readonly<MatchmakingPlayer>>,
-  teamB: ReadonlyArray<Readonly<MatchmakingPlayer>>,
+  teamA: ReadonlyArray<Readonly<MatchmakingEntity>>,
+  teamB: ReadonlyArray<Readonly<MatchmakingEntity>>,
 ) => void
 
 /**
@@ -249,14 +345,14 @@ export type OnMatchFoundFunc = (
  */
 type MatchChooser = (
   teamSize: number,
-  player: Readonly<QueuedMatchmakingPlayer>,
-  potentialPlayers: Readonly<QueuedMatchmakingPlayer>[],
+  entity: Readonly<QueuedMatchmakingEntity>,
+  potentialPlayers: Readonly<QueuedMatchmakingEntity>[],
 ) => MatchedTeams | []
 
 @injectable()
 export class Matchmaker {
-  protected tree = new IntervalTree<QueuedMatchmakingPlayer>()
-  protected players = OrderedMap<SbUserId, QueuedMatchmakingPlayer>()
+  protected tree = new IntervalTree<QueuedMatchmakingEntity>()
+  protected entities = OrderedMap<SbUserId, QueuedMatchmakingEntity>()
 
   readonly populationCurrent = Array.from(range(0, POPULATION_NUM_BUCKETS), () => 0)
   readonly populationPeak = Array.from(range(0, POPULATION_NUM_BUCKETS), () => 0)
@@ -297,7 +393,7 @@ export class Matchmaker {
 
       let keepGoing = true
       try {
-        keepGoing = this.matchPlayers()
+        keepGoing = this.searchForMatches()
       } catch (err) {
         logger.error({ err }, 'error while matching players')
       }
@@ -321,28 +417,29 @@ export class Matchmaker {
   }
 
   get queueSize(): number {
-    return this.players.size
+    return this.entities.size
   }
 
   /**
-   * Adds a player to the queue used to find potential matches.
+   * Adds a player/party to the queue used to find potential matches.
    *
-   * @returns `true` if the player was not already in the queue, `false` otherwise
+   * @returns `true` if the player/party was not already in the queue, `false` otherwise
    */
-  addToQueue(player: MatchmakingPlayer): boolean {
-    if (this.players.has(player.id)) {
+  addToQueue(entity: MatchmakingEntity): boolean {
+    const id = getMatchmakingEntityId(entity)
+    if (this.entities.has(id)) {
       return false
     }
 
-    const queuedPlayer = initializePlayer(player)
-    queuedPlayer.maxInterval = this.calculateGoodMaxInterval(queuedPlayer)
+    const queuedEntity = initializeEntity(entity)
+    queuedEntity.maxInterval = this.calculateGoodMaxInterval(queuedEntity)
 
-    const isAdded = this.insertInTree(queuedPlayer)
+    const isAdded = this.insertInTree(queuedEntity)
     if (isAdded) {
-      this.players = this.players.set(queuedPlayer.id, queuedPlayer)
+      this.entities = this.entities.set(id, queuedEntity)
 
-      const popBucket = getPopulationBucket(queuedPlayer.rating)
-      const newPop = this.populationCurrent[popBucket] + 1
+      const popBucket = getPopulationBucket(getRatingFromEntity(queuedEntity))
+      const newPop = this.populationCurrent[popBucket] + getNumPlayersInEntity(queuedEntity)
       this.populationCurrent[popBucket] = newPop
       if (newPop > this.populationPeak[popBucket]) {
         this.populationPeak[popBucket] = newPop
@@ -354,19 +451,20 @@ export class Matchmaker {
   }
 
   /**
-   * Removes a player from the matchmaking queue.
+   * Removes a player/party from the matchmaking queue.
    *
-   * @returns the player's `MatchmakingPlayer` structure if they were queued, otherwise `undefined`
+   * @returns the associated `MatchmakingEntity` structure if they were queued, otherwise
+   *    `undefined`
    */
-  removeFromQueue(playerId: SbUserId): MatchmakingPlayer | undefined {
-    if (!this.players.has(playerId)) {
+  removeFromQueue(userId: SbUserId): MatchmakingEntity | undefined {
+    if (!this.entities.has(userId)) {
       return undefined
     }
-    const player = this.players.get(playerId)!
+    const player = this.entities.get(userId)!
     const isRemoved = this.removeFromTree(player)
     if (isRemoved) {
-      this.players = this.players.delete(playerId)
-      this.onPlayerRemoved(player)
+      this.entities = this.entities.delete(userId)
+      this.onEntityRemoved(player)
     }
     return player
   }
@@ -374,19 +472,19 @@ export class Matchmaker {
   // NOTE(tec27): These just make it easier to do the "right" thing as far as rounding intervals.
   // We don't want to store them pre-rounded because we're adjusting the interval after searches
   // and this would introduce a lot of potential floating point error.
-  private insertInTree(player: QueuedMatchmakingPlayer): boolean {
+  private insertInTree(entity: QueuedMatchmakingEntity): boolean {
     return this.tree.insert(
-      Math.round(player.interval.low),
-      Math.round(player.interval.high),
-      player,
+      Math.round(entity.interval.low),
+      Math.round(entity.interval.high),
+      entity,
     )
   }
 
-  private removeFromTree(player: QueuedMatchmakingPlayer): boolean {
+  private removeFromTree(entity: QueuedMatchmakingEntity): boolean {
     return this.tree.remove(
-      Math.round(player.interval.low),
-      Math.round(player.interval.high),
-      player,
+      Math.round(entity.interval.low),
+      Math.round(entity.interval.high),
+      entity,
     )
   }
 
@@ -394,9 +492,9 @@ export class Matchmaker {
    * Deals with updating population estimates to remove a player. Should be called whenever players
    * are removed (whether because they canceled, because they found a match, etc.).
    */
-  private onPlayerRemoved(player: QueuedMatchmakingPlayer) {
-    const popBucket = getPopulationBucket(player.rating)
-    this.populationCurrent[popBucket] -= 1
+  private onEntityRemoved(entity: QueuedMatchmakingEntity) {
+    const popBucket = getPopulationBucket(getRatingFromEntity(entity))
+    this.populationCurrent[popBucket] -= getNumPlayersInEntity(entity)
     // This can never produce a new peak, so no need to update that
   }
 
@@ -436,72 +534,72 @@ export class Matchmaker {
    *
    * @returns `true` if there are still players in the queue, `false` otherwise
    */
-  private matchPlayers(): boolean {
-    let matchedPlayers = new Set<MatchmakingPlayer>()
+  private searchForMatches(): boolean {
+    let matchedEntities = new Set<MatchmakingEntity>()
 
-    for (const player of this.players.values()) {
-      if (matchedPlayers.has(player)) {
+    for (const entity of this.entities.values()) {
+      if (matchedEntities.has(entity)) {
         // We already matched this player with someone else; skip them
         continue
       }
 
       // Before searching, remove the player searching from the tree so they're not included in
       // results
-      this.removeFromTree(player)
-      player.searchIterations += 1
+      this.removeFromTree(entity)
+      entity.searchIterations += 1
 
-      if (player.searchIterations > IDEAL_MATCH_ITERATIONS) {
+      if (entity.searchIterations > IDEAL_MATCH_ITERATIONS) {
         const atMaxBounds =
-          player.interval.low <= player.maxInterval.low &&
-          player.interval.high >= player.maxInterval.high
+          entity.interval.low <= entity.maxInterval.low &&
+          entity.interval.high >= entity.maxInterval.high
         if (!atMaxBounds) {
-          player.interval.low = Math.max(
-            player.interval.low - SEARCH_BOUND_INCREASE,
-            player.maxInterval.low,
+          entity.interval.low = Math.max(
+            entity.interval.low - SEARCH_BOUND_INCREASE,
+            entity.maxInterval.low,
           )
-          player.interval.high = Math.min(
-            player.interval.high + SEARCH_BOUND_INCREASE,
-            player.maxInterval.high,
+          entity.interval.high = Math.min(
+            entity.interval.high + SEARCH_BOUND_INCREASE,
+            entity.maxInterval.high,
           )
         } else {
-          if (player.searchIterations % POPULATION_ESTIMATE_UPDATE_INTERVAL === 0) {
+          if (entity.searchIterations % POPULATION_ESTIMATE_UPDATE_INTERVAL === 0) {
             // If the player is at their max bounds, every so often we'll recalculate what
             // good bounds are for them, to ensure we're using the latest population estimates to
             // find them a good match. This should mean that if 2 people are in the queue, they
             // will always (eventually) find each other
-            player.maxInterval = this.calculateGoodMaxInterval(player)
+            entity.maxInterval = this.calculateGoodMaxInterval(entity)
           }
         }
       }
 
       const results = this.tree.search(
-        Math.round(player.interval.low),
-        Math.round(player.interval.high),
+        Math.round(entity.interval.low),
+        Math.round(entity.interval.high),
       )
 
-      let teamA, teamB: Array<Readonly<QueuedMatchmakingPlayer>> | undefined
+      let teamA, teamB: Array<Readonly<QueuedMatchmakingEntity>> | undefined
       if (results.length > 0) {
-        ;[teamA, teamB] = this.matchChooser(this.teamSize, player, results)
+        ;[teamA, teamB] = this.matchChooser(this.teamSize, entity, results)
       }
 
       if (teamA && teamB) {
         // Remove the matched players from the queue we use for iteration
-        this.players = this.players.delete(player.id)
-        this.onPlayerRemoved(player)
+        this.entities = this.entities.delete(getMatchmakingEntityId(entity))
+        this.onEntityRemoved(entity)
 
-        for (const players of [teamA, teamB]) {
-          for (const p of players) {
-            if (p !== player) {
-              this.removeFromTree(p)
-              this.players = this.players.delete(p.id)
+        for (const entities of [teamA, teamB]) {
+          for (const cur of entities) {
+            if (cur !== entity) {
+              this.removeFromTree(cur)
+              this.entities = this.entities.delete(getMatchmakingEntityId(cur))
 
               // Since our iteration method returns the whole queue at once, the opponent will still
               // be iterated over, even though we removed them from the queue; To stop that from
               // happening, mark the opponent as 'matched' so it can be skipped later on in the
               // iteration
-              matchedPlayers = matchedPlayers.add(p)
+              matchedEntities = matchedEntities.add(cur)
 
-              this.onPlayerRemoved(p)
+              this.onEntityRemoved(cur)
             }
           }
         }
@@ -510,14 +608,14 @@ export class Matchmaker {
       } else {
         // No matches for this player. Increase their search interval and re-add them to the tree
 
-        this.insertInTree(player)
-        this.players = this.players.set(player.id, player)
+        this.insertInTree(entity)
+        this.entities = this.entities.set(getMatchmakingEntityId(entity), entity)
       }
     }
 
     // NOTE(tec27): We run even if there's only one player in the queue because we need to update
     // the population estimates
-    return this.players.size > 0
+    return this.entities.size > 0
   }
 
   /**
@@ -525,8 +623,8 @@ export class Matchmaker {
    * player will (hopefully) actually find a match, even in times of low population. If the current
    * max interval already contains enough estimated players, it will be returned directly.
    */
-  private calculateGoodMaxInterval(player: QueuedMatchmakingPlayer): MatchmakingInterval {
-    const curMaxInterval = player.maxInterval
+  private calculateGoodMaxInterval(entity: QueuedMatchmakingEntity): MatchmakingInterval {
+    const curMaxInterval = entity.maxInterval
     // NOTE(tec27): These differ from getPopulationBucket slightly, since we want to round
     // differently to better estimate population (if you have 75% of a bucket in your range it
     // should probably have it's population estimate included, but not 25% of a bucket)
@@ -576,9 +674,10 @@ export class Matchmaker {
     if (result.low <= 0 || result.high >= POPULATION_TRACKING_MAX_RATING) {
       return result
     } else {
+      const rating = getRatingFromEntity(entity)
       // Attempt to rebalance the range so it places the player's rating at the center
-      const lowDistance = player.rating - result.low
-      const highDistance = result.high - player.rating
+      const lowDistance = rating - result.low
+      const highDistance = result.high - rating
       if (highDistance > lowDistance) {
         result.low = Math.max(0, result.low - (highDistance - lowDistance))
       } else {

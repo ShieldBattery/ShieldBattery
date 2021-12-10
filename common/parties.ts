@@ -11,15 +11,16 @@ import { SbUser, SbUserId } from './users/user-info'
 export const MAX_PARTY_SIZE = 8
 
 export enum PartyServiceErrorCode {
+  AlreadyMember = 'AlreadyMember',
+  AlreadyInGameplayActivity = 'AlreadyInGameplayActivity',
+  InsufficientPermissions = 'InsufficientPermissions',
+  InvalidAction = 'InvalidAction',
+  InvalidSelfAction = 'InvalidSelfAction',
   NotFoundOrNotInvited = 'NotFoundOrNotInvited',
   NotFoundOrNotInParty = 'NotFoundOrNotInParty',
-  InsufficientPermissions = 'InsufficientPermissions',
+  NotificationFailure = 'NotificationFailure',
   PartyFull = 'PartyFull',
   UserOffline = 'UserOffline',
-  InvalidAction = 'InvalidAction',
-  NotificationFailure = 'NotificationFailure',
-  AlreadyMember = 'AlreadyMember',
-  InvalidSelfAction = 'InvalidSelfAction',
 }
 
 export interface PartyChatMessage {
@@ -148,7 +149,11 @@ export interface AcceptFindMatchAsPartyRequest {
   race: RaceChar
 }
 
-export type PartyQueueCancelReason = PartyQueueRejected | PartyQueueUserLeft | PartyQueueError
+export type PartyQueueCancelReason =
+  | PartyQueueRejected
+  | PartyQueueUserLeft
+  | PartyQueueMatchmakingDisabled
+  | PartyQueueError
 
 export interface PartyQueueRejected {
   type: 'rejected'
@@ -158,6 +163,10 @@ export interface PartyQueueRejected {
 export interface PartyQueueUserLeft {
   type: 'userLeft'
   user: SbUserId
+}
+
+export interface PartyQueueMatchmakingDisabled {
+  type: 'matchmakingDisabled'
 }
 
 export interface PartyQueueError {

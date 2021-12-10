@@ -1,7 +1,8 @@
 import cuid from 'cuid'
 import { Immutable } from 'immer'
-import { container, singleton } from 'tsyringe'
+import { container, inject, singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
+import { InPartyChecker, IN_PARTY_CHECKER } from '../../../client/parties/in-party-checker'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isAbortError, raceAbort } from '../../../common/async/abort-signals'
 import CancelToken from '../../../common/async/cancel-token'
@@ -23,10 +24,13 @@ import {
   MatchmakingCompletionType,
   MatchmakingEvent,
   MatchmakingPreferences,
+  MatchmakingServiceErrorCode,
   MatchmakingType,
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
+  PreferenceData,
   TEAM_SIZES,
 } from '../../../common/matchmaking'
+import { RaceChar } from '../../../common/races'
 import { randomInt, randomItem } from '../../../common/random'
 import { subtract } from '../../../common/sets'
 import { urlPath } from '../../../common/urls'
@@ -36,8 +40,21 @@ import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
 import { getMapInfo } from '../maps/map-models'
 import { MatchmakingDebugDataService } from '../matchmaking/debug-data'
-import { Matchmaker, MATCHMAKING_INTERVAL_MS, OnMatchFoundFunc } from '../matchmaking/matchmaker'
-import { MatchmakingPlayer } from '../matchmaking/matchmaking-player'
+import {
+  calcEffectiveRating,
+  Matchmaker,
+  MATCHMAKING_INTERVAL_MS,
+  OnMatchFoundFunc,
+} from '../matchmaking/matchmaker'
+import {
+  getMatchmakingEntityId,
+  getPlayersFromEntity,
+  MatchmakingEntity,
+  MatchmakingParty,
+  MatchmakingPlayer,
+  MatchmakingPlayerData,
+  matchmakingRatingToPlayerData,
+} from '../matchmaking/matchmaking-entity'
 import MatchmakingStatusService from '../matchmaking/matchmaking-status'
 import {
   createInitialMatchmakingRating,
@@ -46,6 +63,7 @@ import {
   MatchmakingRating,
 } from '../matchmaking/models'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
+import { findUsersById } from '../users/user-model'
 import {
   ClientSocketsGroup,
   ClientSocketsManager,
@@ -53,6 +71,7 @@ import {
   UserSocketsManager,
 } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
+import { MatchmakingServiceError } from './matchmaking-service-error'
 
 interface MatchmakerCallbacks {
   onMatchFound: OnMatchFoundFunc
@@ -91,11 +110,13 @@ class Match {
   constructor(
     readonly id: string,
     readonly type: MatchmakingType,
-    readonly teams: Immutable<MatchmakingPlayer[][]>,
+    readonly teams: Immutable<MatchmakingEntity[][]>,
   ) {
-    for (const players of teams) {
-      for (const p of players) {
-        this.acceptPromises.set(p.id, createDeferred())
+    for (const entities of teams) {
+      for (const entity of entities) {
+        for (const p of getPlayersFromEntity(entity)) {
+          this.acceptPromises.set(p.id, createDeferred())
+        }
       }
     }
 
@@ -122,10 +143,12 @@ class Match {
     )
   }
 
-  *players() {
-    for (const players of this.teams) {
-      for (const p of players) {
-        yield p
+  *players(): Generator<Immutable<MatchmakingPlayerData>> {
+    for (const entities of this.teams) {
+      for (const entity of entities) {
+        for (const p of getPlayersFromEntity(entity)) {
+          yield p
+        }
       }
     }
   }
@@ -154,14 +177,20 @@ class Match {
   }
 
   getKicksAndRequeues(): [toKick: Set<SbUserId>, toRequeue: Set<SbUserId>] {
-    const toRequeue = subtract(new Set(this.teams.flatMap(t => t.map(p => p.id))), this.toKick)
+    const toRequeue = subtract(
+      new Set(this.teams.flatMap(team => team.map(entity => getMatchmakingEntityId(entity)))),
+      this.toKick,
+    )
     return [new Set(this.toKick), toRequeue]
   }
 }
 
 interface QueueEntry {
   userId: SbUserId
+  /** The user ID that the matchmaking queue is registered under. (e.g. the party leader's ID) */
+  registeredId: SbUserId
   type: MatchmakingType
+  partyId?: string
   matchId?: string
 }
 
@@ -175,31 +204,13 @@ interface Timers {
 // messages back and forth from clients
 const ACCEPT_MATCH_LATENCY = 2000
 
-export enum MatchmakingServiceErrorCode {
-  UserOffline = 'userOffline',
-  InvalidMapPool = 'invalidMapPool',
-  InvalidMaps = 'invalidMaps',
-  ClientDisconnected = 'clientDisconnected',
-  MatchmakingDisabled = 'matchmakingDisabled',
-  GameplayConflict = 'gameplayConflict',
-  NotInQueue = 'notInQueue',
-  NoActiveMatch = 'noActiveMatch',
-  InvalidClient = 'invalidClient',
-}
-
-export class MatchmakingServiceError extends Error {
-  constructor(readonly code: MatchmakingServiceErrorCode, message: string) {
-    super(message)
-  }
-}
-
 /**
  * Selects a map for the given players and matchmaking type, based on the players' stored
  * matchmaking preferences and the current map pool.
  */
 async function pickMap(
   matchmakingType: MatchmakingType,
-  players: Immutable<MatchmakingPlayer[]>,
+  entities: Immutable<MatchmakingEntity[]>,
 ): Promise<MapInfo> {
   const currentMapPool = await getCurrentMapPool(matchmakingType)
   if (!currentMapPool) {
@@ -220,9 +231,15 @@ async function pickMap(
   const fullMapPool = new Set(currentMapPool.maps)
   const vetoCount = new Map<string, number>()
   let mapPool = fullMapPool
-  for (const p of players) {
-    mapPool = subtract(mapPool, p.mapSelections)
-    for (const map of p.mapSelections) {
+  for (const e of entities) {
+    let mapSelections: ReadonlyArray<string>
+    if ('players' in e) {
+      mapSelections = e.players.find(p => p.id === e.leaderId)!.mapSelections
+    } else {
+      mapSelections = e.mapSelections
+    }
+    mapPool = subtract(mapPool, mapSelections)
+    for (const map of mapSelections) {
       vetoCount.set(map, (vetoCount.get(map) ?? 0) + 1)
     }
   }
@@ -263,33 +280,37 @@ async function pickMap(
 export class MatchmakingService {
   private matchmakerDelegate: MatchmakerCallbacks = {
     onMatchFound: (teamA, teamB) => {
-      const playerEntry = this.queueEntries.get(teamA[0].id)!
+      const playerEntry = this.queueEntries.get(getMatchmakingEntityId(teamA[0]))!
 
       const matchInfo = new Match(cuid(), playerEntry.type, [teamA, teamB])
       this.matches.set(matchInfo.id, matchInfo)
 
-      for (const players of [teamA, teamB]) {
-        for (const p of players) {
-          const queueEntry = this.queueEntries.get(p.id)!
-          queueEntry.matchId = matchInfo.id
-          this.publishToActiveClient(p.id, {
-            type: 'matchFound',
-            matchmakingType: matchInfo.type,
-            numPlayers: matchInfo.totalPlayers,
-          })
+      for (const entities of [teamA, teamB]) {
+        for (const entity of entities) {
+          for (const p of getPlayersFromEntity(entity)) {
+            const queueEntry = this.queueEntries.get(p.id)!
+            queueEntry.matchId = matchInfo.id
+            this.publishToActiveClient(p.id, {
+              type: 'matchFound',
+              matchmakingType: matchInfo.type,
+              numPlayers: matchInfo.totalPlayers,
+            })
+          }
         }
       }
 
       const completionTime = new Date()
-      for (const players of [teamA, teamB]) {
-        for (const p of players) {
-          insertMatchmakingCompletion({
-            userId: p.id,
-            matchmakingType: matchInfo.type,
-            completionType: MatchmakingCompletionType.Found,
-            searchTimeMillis: p.searchIterations * MATCHMAKING_INTERVAL_MS,
-            completionTime,
-          }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
+      for (const entities of [teamA, teamB]) {
+        for (const entity of entities) {
+          for (const p of getPlayersFromEntity(entity)) {
+            insertMatchmakingCompletion({
+              userId: p.id,
+              matchmakingType: matchInfo.type,
+              completionType: MatchmakingCompletionType.Found,
+              searchTimeMillis: entity.searchIterations * MATCHMAKING_INTERVAL_MS,
+              completionTime,
+            }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
+          }
         }
       }
 
@@ -310,16 +331,18 @@ export class MatchmakingService {
       cancelToken.throwIfCancelling()
 
       const playersJson = matchInfo.teams.flatMap(team =>
-        team.map(p => {
-          const slot = slots.find(s => s.name === p.name)!
+        team.flatMap(entities =>
+          Array.from(getPlayersFromEntity(entities), p => {
+            const slot = slots.find(s => s.name === p.name)!
 
-          return {
-            id: p.id,
-            name: p.name,
-            race: slot.race,
-            rating: p.rating,
-          }
-        }),
+            return {
+              id: p.id,
+              name: p.name,
+              race: slot.race,
+              rating: p.rating,
+            }
+          }),
+        ),
       )
 
       // Using `map` with `Promise.all` here instead of `forEach`, so our general error handler
@@ -435,6 +458,7 @@ export class MatchmakingService {
     private clientSocketsManager: ClientSocketsManager,
     private matchmakingStatus: MatchmakingStatusService,
     private activityRegistry: GameplayActivityRegistry,
+    @inject(IN_PARTY_CHECKER) private inPartyChecker: InPartyChecker,
   ) {
     this.matchmakers = new Map(
       ALL_MATCHMAKING_TYPES.map(type => [
@@ -452,8 +476,16 @@ export class MatchmakingService {
     }
   }
 
-  async find(userId: SbUserId, clientId: string, preferences: MatchmakingPreferences) {
-    const { matchmakingType: type, race, mapSelections, data } = preferences
+  /**
+   * Adds a user to the matchmaking queue. This can only be used for solo players, players in a
+   * party should use `findAsParty` instead (this call will fail for them).
+   */
+  async find<M extends MatchmakingType>(
+    userId: SbUserId,
+    clientId: string,
+    preferences: MatchmakingPreferences & { matchmakingType: M },
+  ): Promise<void> {
+    const { matchmakingType: type, race, mapSelections, data: preferenceData } = preferences
     const userSockets = this.getUserSocketsOrFail(userId)
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
 
@@ -461,6 +493,13 @@ export class MatchmakingService {
       throw new MatchmakingServiceError(
         MatchmakingServiceErrorCode.MatchmakingDisabled,
         'Matchmaking is currently disabled',
+      )
+    }
+
+    if (this.inPartyChecker.isInParty(userId)) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.InParty,
+        'User is in a party, cannot queue as solo player',
       )
     }
 
@@ -472,36 +511,34 @@ export class MatchmakingService {
     }
 
     try {
-      const mmr: MatchmakingRating =
-        (await getMatchmakingRating(userId, type)) ??
-        (await createInitialMatchmakingRating(userId, type))
+      const mmr = await this.retrieveMmr(userId, type)
+      const playerData = matchmakingRatingToPlayerData({
+        mmr,
+        username: userSockets.name,
+        race,
+        mapSelections: mapSelections.slice(),
+        preferenceData,
+      })
 
       // TODO(tec27): Bump up the uncertainty based on how long ago the last played date was:
       // "After [14] days, the inactive player’s uncertainty (search range) increases by 24 per day,
       // up to a maximum of 336 after 14 additional days."
-
       const halfUncertainty = mmr.uncertainty / 2
 
       const player: MatchmakingPlayer = {
-        id: clientSockets.userId,
-        name: clientSockets.name,
-        numGamesPlayed: mmr.numGamesPlayed,
-        rating: mmr.rating,
+        ...playerData,
         interval: {
           low: mmr.rating - halfUncertainty,
           high: mmr.rating + halfUncertainty,
         },
         searchIterations: 0,
-        race,
-        useAlternateRace: !!data?.useAlternateRace,
-        alternateRace: data?.alternateRace ?? 'z',
-        mapSelections: new Set(mapSelections),
       }
 
       this.matchmakers.get(type)!.addToQueue(player)
       this.queueEntries.set(userId, {
         type,
         userId,
+        registeredId: userId,
       })
     } catch (err) {
       // Clear out the activity registry for this user, since they didn't actually make it into the
@@ -510,23 +547,112 @@ export class MatchmakingService {
       throw err
     }
 
-    userSockets.subscribe<MatchmakingEvent>(
-      MatchmakingService.getUserPath(userSockets.userId),
-      () => {
-        return {
-          type: 'queueStatus',
-          matchmaking: { type },
-        }
-      },
-    )
-    clientSockets.subscribe<MatchmakingEvent>(
-      MatchmakingService.getClientPath(clientSockets),
-      undefined,
-      sockets => this.removeClientFromMatchmaking(sockets, true),
-    )
+    this.subscribeUserToQueueUpdates(userSockets, clientSockets, type, race)
   }
 
-  async cancel(userId: SbUserId) {
+  /**
+   * Adds a party of users to matchmaking as a single group. Callers of this need to manage the
+   * registering the gameplay activity status themselves (until this function returns successfully,
+   * at which point the activity status will be handled by this service).
+   */
+  async findAsParty({
+    type,
+    users,
+    partyId,
+    leaderId,
+    leaderPreferences,
+  }: {
+    type: MatchmakingType
+    users: Readonly<Map<SbUserId, { race: RaceChar; clientId: string }>>
+    partyId: string
+    leaderId: SbUserId
+    leaderPreferences: {
+      mapSelections: ReadonlyArray<string>
+      preferenceData: Readonly<PreferenceData>
+    }
+  }): Promise<void> {
+    const { mapSelections, preferenceData } = leaderPreferences
+
+    if (!this.matchmakingStatus.isEnabled(type)) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.MatchmakingDisabled,
+        'Matchmaking is currently disabled',
+      )
+    }
+
+    if (users.size > TEAM_SIZES[type]) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.TooManyPlayers,
+        'Party is too large for that matchmaking type',
+      )
+    }
+
+    const anyNotInGameplay = Array.from(users.entries()).some(
+      ([id, { clientId }]) => this.activityRegistry.getClientForUser(id)?.clientId !== clientId,
+    )
+    if (anyNotInGameplay) {
+      // This is a programming error, rather than something the user should really ever encounter
+      throw new Error('At least one party user was not registered in gameplay activity')
+    }
+
+    const names = await findUsersById(Array.from(users.keys()))
+    const mmrs = await Promise.all(Array.from(users.keys(), id => this.retrieveMmr(id, type)))
+    const matchmakingParty: MatchmakingParty = {
+      leaderId,
+      partyId,
+      players: mmrs.map(mmr => ({
+        id: mmr.userId,
+        name: names.get(mmr.userId)!.name,
+        race: users.get(mmr.userId)!.race,
+        mapSelections,
+        preferenceData,
+        numGamesPlayed: mmr.numGamesPlayed,
+        rating: mmr.rating,
+      })),
+      // We'll update this below
+      interval: {
+        low: 0,
+        high: 0,
+      },
+      searchIterations: 0,
+    }
+
+    const effectiveRating = calcEffectiveRating([matchmakingParty])
+    // Choose the largest uncertainty among the party members to use as the party's uncertainty
+    let uncertainty = 0
+    for (const mmr of mmrs) {
+      if (mmr.uncertainty > uncertainty) {
+        uncertainty = mmr.uncertainty
+      }
+    }
+
+    const halfUncertainty = uncertainty / 2
+    matchmakingParty.interval.low = effectiveRating - halfUncertainty
+    matchmakingParty.interval.high = effectiveRating + halfUncertainty
+
+    const userToSockets = new Map(
+      Array.from(users.entries(), ([id, { clientId }]) => [
+        id,
+        {
+          userSockets: this.getUserSocketsOrFail(id),
+          clientSockets: this.getClientSocketsOrFail(id, clientId),
+        },
+      ]),
+    )
+
+    this.matchmakers.get(type)!.addToQueue(matchmakingParty)
+    for (const [userId, { userSockets, clientSockets }] of userToSockets.entries()) {
+      this.queueEntries.set(userId, {
+        type,
+        userId,
+        registeredId: leaderId,
+        partyId,
+      })
+      this.subscribeUserToQueueUpdates(userSockets, clientSockets, type, users.get(userId)!.race)
+    }
+  }
+
+  async cancel(userId: SbUserId): Promise<void> {
     const clientSockets = this.activityRegistry.getClientForUser(userId)
     if (!clientSockets || !this.queueEntries.has(userId)) {
       throw new MatchmakingServiceError(
@@ -538,7 +664,7 @@ export class MatchmakingService {
     this.removeClientFromMatchmaking(clientSockets, false)
   }
 
-  async accept(userId: SbUserId) {
+  async accept(userId: SbUserId): Promise<void> {
     const queueEntry = this.queueEntries.get(userId)
     if (!queueEntry?.matchId) {
       throw new MatchmakingServiceError(
@@ -548,6 +674,50 @@ export class MatchmakingService {
     }
 
     this.matches.get(queueEntry.matchId)?.registerAccept(userId)
+  }
+
+  /**
+   * Register that a player left a party. If that party is currently queued, we treat this like a
+   * disconnect.
+   */
+  registerPartyLeave(userId: SbUserId, partyId: string): void {
+    const queueEntry = this.queueEntries.get(userId)
+    if (queueEntry?.partyId === partyId) {
+      this.removeClientFromMatchmaking(this.activityRegistry.getClientForUser(userId)!, false)
+    }
+  }
+
+  private async retrieveMmr(userId: SbUserId, type: MatchmakingType): Promise<MatchmakingRating> {
+    return (
+      (await getMatchmakingRating(userId, type)) ??
+      (await createInitialMatchmakingRating(userId, type))
+    )
+  }
+
+  private subscribeUserToQueueUpdates(
+    userSockets: UserSocketsGroup,
+    clientSockets: ClientSocketsGroup,
+    matchmakingType: MatchmakingType,
+    race: RaceChar,
+  ): void {
+    userSockets.subscribe<MatchmakingEvent>(
+      MatchmakingService.getUserPath(userSockets.userId),
+      () => {
+        return {
+          type: 'queueStatus',
+          matchmaking: { type: matchmakingType },
+        }
+      },
+    )
+    clientSockets.subscribe<MatchmakingEvent>(
+      MatchmakingService.getClientPath(clientSockets),
+      () => ({
+        type: 'startSearch',
+        matchmakingType,
+        race,
+      }),
+      sockets => this.removeClientFromMatchmaking(sockets, true),
+    )
   }
 
   private async runMatch(matchId: string) {
@@ -575,41 +745,61 @@ export class MatchmakingService {
 
       const [toKick, toRequeue] = match.getKicksAndRequeues()
 
+      const entities = match.teams.flat()
+
       for (const id of toKick) {
-        this.queueEntries.delete(id)
-        this.publishToActiveClient(id, {
-          type: 'acceptTimeout',
-        })
-        this.unregisterActivity(id)
+        const entity = entities.find(entity => getMatchmakingEntityId(entity) === id)!
+        for (const p of getPlayersFromEntity(entity)) {
+          this.queueEntries.delete(p.id)
+          this.publishToActiveClient(p.id, {
+            type: 'acceptTimeout',
+          })
+          this.unregisterActivity(p.id)
+        }
       }
 
-      const players = Array.from(match.players())
-
       for (const id of toRequeue) {
-        this.queueEntries.get(id)!.matchId = undefined
-        const player = players.find(p => p.id === id)!
-        // Generate a writable version of the MatchmakingPlayer
-        const newQueueEntry: MatchmakingPlayer = {
-          ...player,
-          mapSelections: new Set(player.mapSelections),
-        }
-        this.matchmakers.get(match.type)!.addToQueue(newQueueEntry)
+        const entity = entities.find(entity => getMatchmakingEntityId(entity) === id)!
+        let playerMissing = false
 
-        if (phase === 'loading') {
-          // TODO(tec27): Give a better reason here, and ideally derive who to kick from the load
-          // failures
-          this.publishToActiveClient(id, {
-            type: 'cancelLoading',
-            reason: 'loading failed',
+        for (const p of getPlayersFromEntity(entity)) {
+          const queueEntry = this.queueEntries.get(p.id)
+          if (!queueEntry) {
+            // This client must have disconnected/left
+            playerMissing = true
+            continue
+          }
+
+          queueEntry.matchId = undefined
+
+          if (phase === 'loading') {
+            // TODO(tec27): Give a better reason here, and ideally derive who to kick from the load
+            // failures
+            this.publishToActiveClient(p.id, {
+              type: 'cancelLoading',
+              reason: 'loading failed',
+            })
+          }
+
+          this.publishToActiveClient(p.id, {
+            type: 'requeue',
           })
         }
 
-        // TODO(tec27): Really this event should have info about what is being queued for, with
-        // what settings, etc. (MatchmakingPreferences, probably). It should be enough info that
-        // the event can be the same on the client as it is for the initial queue
-        this.publishToActiveClient(id, {
-          type: 'requeue',
-        })
+        if (!playerMissing) {
+          // Generate a writable version of the MatchmakingEntity
+          const newQueueEntry =
+            'players' in entity
+              ? {
+                  ...entity,
+                  players: entity.players.map(p => ({ ...p })),
+                }
+              : {
+                  ...entity,
+                }
+
+          this.matchmakers.get(match.type)!.addToQueue(newQueueEntry)
+        }
       }
     } finally {
       this.matches.delete(match.id)
@@ -622,23 +812,37 @@ export class MatchmakingService {
     const players = Array.from(match.players())
 
     if (match.type === MatchmakingType.Match1v1) {
+      // NOTE(tec27): Type inference here is kinda bad, it should know that Match is a Match1v1 at
+      // this point and thus preferenceData has certain things, but it doesn't =/
+
       const firstPlayer = players[0]
       // NOTE(tec27): alternate race selection is not available for random users. We block this
       // from being set elsewhere, but ignore it here just in case
       const playersHaveSameRace =
         firstPlayer.race !== 'r' && players.every(p => p.race === firstPlayer.race)
-      if (playersHaveSameRace && players.every(p => p.useAlternateRace === true)) {
+      if (playersHaveSameRace && players.every(p => p.preferenceData.useAlternateRace === true)) {
         // All players have the same race and all of them want to use an alternate race: select
         // one of the players randomly to play their alternate race, leaving the other player to
         // play their main race.
         const randomPlayerIndex = randomInt(0, players.length)
         slots = players.map((p, i) =>
-          createHuman(p.name, p.id, i === randomPlayerIndex ? p.alternateRace : p.race),
+          createHuman(
+            p.name,
+            p.id,
+            i === randomPlayerIndex ? p.preferenceData.alternateRace : p.race,
+          ),
         )
-      } else if (playersHaveSameRace && players.some(p => p.useAlternateRace === true)) {
+      } else if (
+        playersHaveSameRace &&
+        players.some(p => p.preferenceData.useAlternateRace === true)
+      ) {
         // All players have the same main race and one of them wants to use an alternate race
         slots = players.map(p =>
-          createHuman(p.name, p.id, p.useAlternateRace ? p.alternateRace : p.race),
+          createHuman(
+            p.name,
+            p.id,
+            p.preferenceData.useAlternateRace ? p.preferenceData.alternateRace : p.race,
+          ),
         )
       } else {
         // No alternate race selection, so everyone gets their selected race
@@ -654,7 +858,11 @@ export class MatchmakingService {
       ]
     } else {
       // Alternate race is not allowed for non-1v1 matchmaking types, so this is very simple!
-      const slotsInTeams = match.teams.map(t => t.map(p => createHuman(p.name, p.id, p.race)))
+      const slotsInTeams = match.teams.map(team =>
+        team.flatMap(entity =>
+          Array.from(getPlayersFromEntity(entity), p => createHuman(p.name, p.id, p.race)),
+        ),
+      )
       slots = slotsInTeams.flat()
       teams = slotsInTeams.map(t =>
         t.map(s => ({
@@ -665,7 +873,8 @@ export class MatchmakingService {
       )
     }
 
-    const chosenMap = await pickMap(match.type, players)
+    const entities = match.teams.flat()
+    const chosenMap = await pickMap(match.type, entities)
 
     let gameSourceExtra: MatchmakingExtra
     switch (match.type) {
@@ -677,8 +886,7 @@ export class MatchmakingService {
       case MatchmakingType.Match2v2:
         gameSourceExtra = {
           type: match.type,
-          // TODO(tec27): When parties support is added, use the real groupings here
-          parties: players.map(p => [p.id]),
+          parties: entities.map(entity => Array.from(getPlayersFromEntity(entity), p => p.id)),
         }
         break
       default:
@@ -741,46 +949,53 @@ export class MatchmakingService {
     // NOTE(2Pac): Client can leave, i.e. disconnect, during the queueing process, during the
     // loading process, or even during the game process.
     const entry = this.queueEntries.get(client.userId)
+    const toUnregister = [client.userId]
     // Means the client disconnected during the queueing process
     if (entry) {
       this.queueEntries.delete(client.userId)
 
-      const player = this.matchmakers.get(entry.type)!.removeFromQueue(entry.userId)
-      if (player) {
-        insertMatchmakingCompletion({
-          userId: player.id,
-          matchmakingType: entry.type,
-          completionType: isDisconnect
-            ? MatchmakingCompletionType.Disconnect
-            : MatchmakingCompletionType.Cancel,
-          searchTimeMillis: player.searchIterations * MATCHMAKING_INTERVAL_MS,
-          completionTime: new Date(),
-        }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
-      }
+      const entity = this.matchmakers.get(entry.type)!.removeFromQueue(entry.registeredId)
+      if (entity) {
+        toUnregister.length = 0
+        for (const player of getPlayersFromEntity(entity)) {
+          toUnregister.push(player.id)
+          this.queueEntries.delete(player.id)
 
-      if (entry.matchId) {
-        this.matches.get(entry.matchId)?.registerDecline(client.userId)
+          insertMatchmakingCompletion({
+            userId: player.id,
+            matchmakingType: entry.type,
+            completionType: isDisconnect
+              ? MatchmakingCompletionType.Disconnect
+              : MatchmakingCompletionType.Cancel,
+            searchTimeMillis: entity.searchIterations * MATCHMAKING_INTERVAL_MS,
+            completionTime: new Date(),
+          }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
+        }
+
+        if (entry.matchId) {
+          this.matches.get(entry.matchId)?.registerDecline(client.userId)
+        }
       }
     }
 
-    // Means the client disconnected during the loading process
-    if (this.clientTimers.has(client.userId)) {
-      const { mapSelectionTimer, countdownTimer, cancelToken } = this.clientTimers.get(
-        client.userId,
-      )!
-      if (countdownTimer) {
-        countdownTimer.reject(new Error('Countdown cancelled'))
-      }
-      if (mapSelectionTimer) {
-        mapSelectionTimer.reject(new Error('Map selection cancelled'))
+    for (const userId of toUnregister) {
+      if (this.clientTimers.has(userId)) {
+        // Means the client disconnected during the loading process
+        const { mapSelectionTimer, countdownTimer, cancelToken } = this.clientTimers.get(userId)!
+        if (countdownTimer) {
+          countdownTimer.reject(new Error('Countdown cancelled'))
+        }
+        if (mapSelectionTimer) {
+          mapSelectionTimer.reject(new Error('Map selection cancelled'))
+        }
+
+        cancelToken.cancel()
+
+        this.clientTimers.delete(userId)
       }
 
-      cancelToken.cancel()
-
-      this.clientTimers.delete(client.userId)
+      this.unregisterActivity(userId)
     }
-
-    this.unregisterActivity(client.userId)
   }
 
   private getUserSocketsOrFail(userId: SbUserId): UserSocketsGroup {

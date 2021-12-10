@@ -18,7 +18,7 @@ import logMiddleware from './lib/logging/log-middleware'
 import log from './lib/logging/logger'
 import userIpsMiddleware from './lib/network/user-ips-middleware'
 import { RallyPointService } from './lib/rally-point/rally-point-service'
-import redis from './lib/redis'
+import { Redis } from './lib/redis'
 import checkOrigin from './lib/security/check-origin'
 import { cors } from './lib/security/cors'
 import secureHeaders from './lib/security/headers'
@@ -171,6 +171,7 @@ const rallyPointInitPromise = rallyPointService.initialize(
   }
 
   log.info('Testing connection to redis.')
+  const redis = container.resolve(Redis)
   try {
     await redis.ping()
   } catch (err) {

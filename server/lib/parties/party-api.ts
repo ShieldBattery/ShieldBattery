@@ -54,6 +54,7 @@ function convertPartyServiceError(err: unknown) {
     case PartyServiceErrorCode.InvalidAction:
     case PartyServiceErrorCode.AlreadyMember:
     case PartyServiceErrorCode.InvalidSelfAction:
+    case PartyServiceErrorCode.AlreadyInGameplayActivity:
       throw asHttpError(400, err)
     case PartyServiceErrorCode.InsufficientPermissions:
       throw asHttpError(403, err)

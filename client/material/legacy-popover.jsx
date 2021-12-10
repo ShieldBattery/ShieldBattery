@@ -321,10 +321,10 @@ export class LegacyPopover extends React.Component {
       }
 
       const popoverStyle = {
-        top: pos.top,
-        bottom: pos.bottom,
-        left: pos.left,
-        right: pos.right,
+        top: pos?.top,
+        bottom: pos?.bottom,
+        left: pos?.left,
+        right: pos?.right,
       }
 
       return (
