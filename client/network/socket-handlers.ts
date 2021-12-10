@@ -1,4 +1,5 @@
 import { NydusClient } from 'nydus-client'
+import { batch } from 'react-redux'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
 import { NETWORK_SITE_CONNECTED, NETWORK_SITE_DISCONNECTED } from '../actions'
@@ -108,7 +109,9 @@ const handlers = [
 
 export default function register() {
   const ipcRenderer = new TypedIpcRenderer()
-  for (const handler of handlers) {
-    handler({ siteSocket, ipcRenderer })
-  }
+  batch(() => {
+    for (const handler of handlers) {
+      handler({ siteSocket, ipcRenderer })
+    }
+  })
 }
