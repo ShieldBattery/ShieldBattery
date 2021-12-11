@@ -600,15 +600,15 @@ export class MatchmakingService {
     const matchmakingParty: MatchmakingParty = {
       leaderId,
       partyId,
-      players: mmrs.map(mmr => ({
-        id: mmr.userId,
-        name: names.get(mmr.userId)!.name,
-        race: users.get(mmr.userId)!.race,
-        mapSelections,
-        preferenceData,
-        numGamesPlayed: mmr.numGamesPlayed,
-        rating: mmr.rating,
-      })),
+      players: mmrs.map(mmr =>
+        matchmakingRatingToPlayerData({
+          mmr,
+          username: names.get(mmr.userId)!.name,
+          race: users.get(mmr.userId)!.race,
+          mapSelections: mapSelections.slice(),
+          preferenceData,
+        }),
+      ),
       // We'll update this below
       interval: {
         low: 0,
