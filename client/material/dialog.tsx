@@ -42,6 +42,7 @@ const Surface = styled(CardLayer)`
   border-radius: 2px;
   box-shadow: ${shadowDef8dp};
   contain: paint;
+  overscroll-behavior: contain;
   pointer-events: auto;
 
   &.enter {
