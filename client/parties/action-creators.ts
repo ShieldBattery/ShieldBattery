@@ -1,5 +1,9 @@
 import { Immutable } from 'immer'
-import { MatchmakingPreferences } from '../../common/matchmaking'
+import {
+  defaultPreferenceData,
+  MatchmakingPreferences,
+  MatchmakingType,
+} from '../../common/matchmaking'
 import {
   AcceptFindMatchAsPartyRequest,
   AcceptPartyInviteRequest,
@@ -13,7 +17,10 @@ import { apiUrl, urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/user-info'
 import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
-import { updateLastQueuedMatchmakingType } from '../matchmaking/action-creators'
+import {
+  updateLastQueuedMatchmakingType,
+  updateMatchmakingPreferences,
+} from '../matchmaking/action-creators'
 import { push } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
@@ -277,11 +284,39 @@ export function findMatchAsParty(
 export function acceptFindMatchAsParty(
   partyId: string,
   queueId: string,
+  matchmakingType: MatchmakingType,
   race: RaceChar,
   spec: RequestHandlingSpec,
 ): ThunkAction {
-  return abortableThunk(spec, async () => {
+  return abortableThunk(spec, async dispatch => {
     const body: AcceptFindMatchAsPartyRequest = { race }
+
+    dispatch((_, getState) => {
+      const {
+        auth: {
+          user: { id: selfId },
+        },
+        mapPools: { byType: mapPoolByType },
+        matchmakingPreferences: { byType: preferencesByType },
+      } = getState()
+
+      const curPreferences = preferencesByType.get(matchmakingType)?.preferences
+      if (curPreferences?.race !== race) {
+        // Typings with `Immutable` tend to be... extremely annoying? For some reason I don't
+        // understand. One option would just be to cast this whole object to any, but ideally we'd
+        // like compilation to fail here if new things get added, so using a Record with the right
+        // keys gets us *some* protection at least
+        const newPreferences: Record<keyof MatchmakingPreferences, any> = {
+          userId: curPreferences?.userId ?? selfId,
+          matchmakingType: curPreferences?.matchmakingType ?? matchmakingType,
+          race,
+          mapPoolId: curPreferences?.mapPoolId ?? mapPoolByType.get(matchmakingType)?.id ?? 1,
+          mapSelections: curPreferences?.mapSelections?.slice() ?? [],
+          data: curPreferences?.data ?? defaultPreferenceData(matchmakingType),
+        }
+        dispatch(updateMatchmakingPreferences(matchmakingType, newPreferences))
+      }
+    })
 
     await fetchJson<void>(apiUrl`parties/${partyId}/find-match/${queueId}`, {
       signal: spec.signal,

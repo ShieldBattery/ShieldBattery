@@ -135,18 +135,23 @@ export function updateMatchmakingPreferences<M extends MatchmakingType>(
       meta: { type: matchmakingType },
     })
 
-    promise.then(payload => {
-      const {
-        mapPools: { byType },
-      } = getState()
+    promise
+      .then(payload => {
+        const {
+          mapPools: { byType },
+        } = getState()
 
-      if (
-        !byType.has(matchmakingType) ||
-        byType.get(matchmakingType)!.id !== payload.currentMapPoolId
-      ) {
-        dispatch(getCurrentMapPool(matchmakingType))
-      }
-    })
+        if (
+          !byType.has(matchmakingType) ||
+          byType.get(matchmakingType)!.id !== payload.currentMapPoolId
+        ) {
+          dispatch(getCurrentMapPool(matchmakingType))
+        }
+      })
+      .catch(() => {
+        // Errors will be handled by the redux dispatch, but if we don't have an error handler here
+        // it will count as unhandled.
+      })
   }
 }
 

@@ -6,7 +6,6 @@ import {
   ALL_MATCHMAKING_TYPES,
   GetPreferencesResponse,
   MatchmakingPreferences,
-  MatchmakingPreferencesData1v1,
   MatchmakingType,
 } from '../../../common/matchmaking'
 import { httpApi, httpBeforeAll } from '../http/http-api'
@@ -16,6 +15,7 @@ import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
 import MatchmakingPreferencesService from './matchmaking-preferences-service'
+import { matchmakingPreferencesValidator } from './matchmaking-validators'
 
 @httpApi('/matchmakingPreferences')
 @httpBeforeAll(ensureLoggedIn)
@@ -25,24 +25,10 @@ export class MatchmakingPreferencesApi {
   @httpPost('/:matchmakingType')
   async upsertPreferences(ctx: RouterContext): Promise<GetPreferencesResponse> {
     const { params, body } = validateRequest(ctx, {
-      params: Joi.object({
+      params: Joi.object<{ matchmakingType: MatchmakingType }>({
         matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
       }).required(),
-      body: Joi.object<MatchmakingPreferences>({
-        race: Joi.string().valid('p', 't', 'z', 'r').required(),
-        mapSelections: Joi.array().items(Joi.string()).min(0).max(3).required(),
-        data: Joi.alternatives()
-          .try(
-            Joi.object<MatchmakingPreferencesData1v1>({
-              useAlternateRace: Joi.bool(),
-              alternateRace: Joi.string().valid('p', 't', 'z'),
-            }),
-          )
-          .required(),
-        userId: Joi.number().valid(ctx.session!.userId).required(),
-        matchmakingType: Joi.valid(ctx.params.matchmakingType).required(),
-        mapPoolId: Joi.number().min(1).required(),
-      }).required(),
+      body: matchmakingPreferencesValidator(ctx.session!.userId).required(),
     })
 
     const currentMapPool = await getCurrentMapPool(params.matchmakingType)

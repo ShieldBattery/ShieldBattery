@@ -145,6 +145,22 @@ export type MatchmakingPreferences = MatchmakingPreferences1v1 | MatchmakingPref
 
 export type PreferenceData = MatchmakingPreferences['data']
 
+export function defaultPreferenceData<M extends MatchmakingType>(
+  matchmakingType: M,
+): (MatchmakingPreferences & { type: M })['data'] {
+  switch (matchmakingType) {
+    case MatchmakingType.Match1v1:
+      return {
+        useAlternateRace: false,
+        alternateRace: 'z',
+      }
+    case MatchmakingType.Match2v2:
+      return {}
+    default:
+      return assertUnreachable(matchmakingType)
+  }
+}
+
 export interface GetPreferencesResponse {
   preferences: MatchmakingPreferences
   mapPoolOutdated: boolean

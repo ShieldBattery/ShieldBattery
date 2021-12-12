@@ -38,6 +38,7 @@ export function PartyQueueAcceptDialog({ dialogRef }: CommonDialogProps) {
   const partyId = useAppSelector(s => s.party.current?.id)
   const queueState = useAppSelector(s => s.party.current?.queueState)
   const queueId = queueState?.id
+  const matchmakingType = queueState?.matchmakingType
   const racePreference = useAppSelector(
     s =>
       s.matchmakingPreferences.byType.get(queueState?.matchmakingType ?? MatchmakingType.Match1v1)
@@ -67,10 +68,10 @@ export function PartyQueueAcceptDialog({ dialogRef }: CommonDialogProps) {
     }
   }, [partyId, queueId, dispatch])
   const onSearch = useCallback(() => {
-    if (partyId && queueId) {
+    if (partyId && queueId && matchmakingType) {
       setChangeInProgress(true)
       dispatch(
-        acceptFindMatchAsParty(partyId, queueId, race, {
+        acceptFindMatchAsParty(partyId, queueId, matchmakingType, race, {
           // NOTE(tec27): We expect the state updates over the websocket to close the dialog
           onSuccess: () => {
             setError(undefined)
@@ -83,7 +84,7 @@ export function PartyQueueAcceptDialog({ dialogRef }: CommonDialogProps) {
         }),
       )
     }
-  }, [race, partyId, queueId, dispatch])
+  }, [race, partyId, queueId, matchmakingType, dispatch])
 
   useEffect(() => {
     if (!queueState || queueState.accepted.has(selfId)) {
