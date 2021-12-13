@@ -40,8 +40,8 @@ function VsyncCheckBox(props) {
       label={props.label}
       inputProps={props.inputProps}
       onChange={event => {
-        const { name, checked } = event.target
-        props.onChange(name, checked ? 1 : 0)
+        const { checked } = event.target
+        props.onChange(checked ? 1 : 0)
       }}
     />
   )

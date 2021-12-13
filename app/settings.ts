@@ -8,7 +8,7 @@ import { findInstallPath } from './find-install-path'
 import log from './logger'
 
 const VERSION = 10
-const SCR_VERSION = 3
+const SCR_VERSION = 4
 
 async function findStarcraftPath() {
   let starcraftPath = await findInstallPath()
@@ -407,6 +407,23 @@ export class ScrSettings extends Settings<ScrSettingsData> {
       newSettings.selectedSkin = blizzSettings.selectedSkin
       newSettings.showBonusSkins = blizzSettings.showBonusSkins
       newSettings.version = 3
+    }
+    if (newSettings.version < 4) {
+      // Address previous issues with vsyncOn setting. If not n range, we just reset it to the
+      // current blizz setting (or off if the blizz setting is also bad)
+      const vsyncOnAsNumber = Number(newSettings.vsyncOn)
+      if (vsyncOnAsNumber !== 0 && vsyncOnAsNumber !== 1) {
+        const blizzAsNumber = Number(fromBlizzardToSb(this.blizzardSettings).vsyncOn)
+        if (blizzAsNumber !== 0 && blizzAsNumber !== 1) {
+          newSettings.vsyncOn = 0
+        } else {
+          newSettings.vsyncOn = blizzAsNumber
+        }
+      } else {
+        newSettings.vsyncOn = vsyncOnAsNumber
+      }
+
+      newSettings.version = 4
     }
 
     newSettings.version = SCR_VERSION
