@@ -1,8 +1,37 @@
 import React from 'react'
 import { UseTransitionProps } from 'react-spring'
+import styled from 'styled-components'
+import Avatar from '../avatars/avatar'
 import { Popover, useAnchorPosition } from '../material/popover'
 import { defaultSpring } from '../material/springs'
-import { Actions, Header, PopoverContents, StyledAvatar, Username } from './profile-overlay-content'
+import { headline6, singleLine } from '../styles/typography'
+
+const PopoverContents = styled.div`
+  min-width: 240px;
+`
+
+const Header = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 24px;
+`
+
+const StyledAvatar = styled(Avatar)`
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+`
+
+const Username = styled.div`
+  ${headline6};
+  ${singleLine};
+`
+
+const Actions = styled.div`
+  padding-top: 8px;
+  padding-bottom: 8px;
+`
 
 interface SelfProfileOverlayProps {
   open: boolean

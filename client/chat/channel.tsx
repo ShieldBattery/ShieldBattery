@@ -10,6 +10,7 @@ import { useAnchorPosition } from '../material/popover'
 import Chat from '../messaging/chat'
 import { Message } from '../messaging/message-records'
 import { push } from '../navigation/routing'
+import { ConnectedUserContextMenu } from '../profile/user-context-menu'
 import { ConnectedUserProfileOverlay } from '../profile/user-profile-overlay'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -155,16 +156,40 @@ interface UserListEntryProps {
 }
 
 const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
-  const [overlayOpen, setOverlayOpen] = useState(false)
+  const [profileOverlayOpen, setProfileOverlayOpen] = useState(false)
+  const [contextMenuEl, setContextMenuEl] = useState<Element | null>(null)
+  const [contextMenuAnchorX, setContextMenuAnchorX] = useState(0)
+  const [contextMenuAnchorY, setContextMenuAnchorY] = useState(0)
+  const contextMenuOpen = Boolean(contextMenuEl)
   const userEntryRef = useRef(null)
   const [, anchorX, anchorY] = useAnchorPosition('left', 'top', userEntryRef.current ?? null)
 
-  const onOpenOverlay = useCallback(() => {
-    setOverlayOpen(true)
+  const onOpenProfileOverlay = useCallback(() => {
+    setProfileOverlayOpen(true)
   }, [])
-  const onCloseOverlay = useCallback(() => {
-    setOverlayOpen(false)
+  const onCloseProfileOverlay = useCallback(() => {
+    setProfileOverlayOpen(false)
   }, [])
+  const onOpenContextMenu = useCallback((event: React.MouseEvent) => {
+    event.preventDefault()
+
+    setContextMenuAnchorX(event.pageX)
+    setContextMenuAnchorY(event.pageY)
+    setContextMenuEl(event.currentTarget)
+  }, [])
+  const onCloseContextMenu = useCallback(
+    (event?: MouseEvent) => {
+      if (
+        !contextMenuEl ||
+        event?.button !== 2 ||
+        !event?.target ||
+        !contextMenuEl.contains(event.target as Node)
+      ) {
+        setContextMenuEl(null)
+      }
+    },
+    [contextMenuEl],
+  )
 
   const user = useAppSelector(s => s.users.byId.get(props.userId))
   if (!user) {
@@ -181,14 +206,26 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
   return (
     <div style={props.style}>
       <ConnectedUserProfileOverlay
-        key={'overlay'}
+        key={'profile-overlay'}
         userId={props.userId}
         popoverProps={{
-          open: overlayOpen,
-          onDismiss: onCloseOverlay,
+          open: profileOverlayOpen,
+          onDismiss: onCloseProfileOverlay,
           anchorX: (anchorX ?? 0) - 4,
           anchorY: anchorY ?? 0,
           originX: 'right',
+          originY: 'top',
+        }}
+      />
+      <ConnectedUserContextMenu
+        key={'context-menu'}
+        userId={props.userId}
+        popoverProps={{
+          open: contextMenuOpen,
+          onDismiss: onCloseContextMenu,
+          anchorX: contextMenuAnchorX,
+          anchorY: contextMenuAnchorY,
+          originX: 'left',
           originY: 'top',
         }}
       />
@@ -197,8 +234,9 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
         ref={userEntryRef}
         key={'entry'}
         faded={!!props.faded}
-        isOverlayOpen={overlayOpen}
-        onClick={onOpenOverlay}>
+        isOverlayOpen={profileOverlayOpen || contextMenuOpen}
+        onClick={onOpenProfileOverlay}
+        onContextMenu={onOpenContextMenu}>
         <StyledAvatar user={user.name} />
         <UserListName>{user.name}</UserListName>
       </UserListEntryItem>
