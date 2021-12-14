@@ -1,11 +1,16 @@
+import { ReadonlyDeep } from 'type-fest'
+import { GameConfig, GameSource } from '../../common/games/configuration'
 import { GetGameResponse } from '../../common/games/games'
 import { apiUrl, urlPath } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
+import { findMatch } from '../matchmaking/action-creators'
 import { push } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { fetchJson } from '../network/fetch'
+import { findMatchAsParty } from '../parties/action-creators'
+import { openSnackbar } from '../snackbars/action-creators'
 import { ResultsSubPage } from './results-sub-page'
 
 /**
@@ -69,5 +74,31 @@ export function unsubscribeFromGame(gameId: string): ThunkAction {
         logger.error(`Error unsubscribing from game ${gameId}: ${(err as any)?.stack ?? err}`)
       },
     )
+  }
+}
+
+export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): ThunkAction {
+  return (dispatch, getState) => {
+    if (gameConfig.gameSource !== GameSource.Matchmaking) {
+      return
+    }
+
+    const {
+      party: { current },
+      matchmakingPreferences: { byType },
+    } = getState()
+    const prefs = byType.get(gameConfig.gameSourceExtra.type)?.preferences
+
+    if (!prefs) {
+      // TODO(tec27): Request them?
+      dispatch(openSnackbar({ message: 'There was a problem searching for a match' }))
+      return
+    }
+
+    if (current) {
+      dispatch(findMatchAsParty(prefs, current.id))
+    } else {
+      dispatch(findMatch(prefs.matchmakingType, prefs))
+    }
   }
 }

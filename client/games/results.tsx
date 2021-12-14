@@ -1,8 +1,8 @@
-import { Immutable } from 'immer'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
+import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { GameConfigPlayer, isTeamType } from '../../common/games/configuration'
+import { GameConfigPlayer, GameSource, isTeamType } from '../../common/games/configuration'
 import { GameRecordJson, getGameTypeLabel } from '../../common/games/games'
 import { ReconciledPlayerResult, ReconciledResult } from '../../common/games/results'
 import { getTeamNames } from '../../common/maps'
@@ -22,6 +22,7 @@ import Card from '../material/card'
 import { Ripple } from '../material/ripple'
 import { shadow2dp } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
+import { replace } from '../navigation/routing'
 import { useRefreshToken } from '../network/refresh-token'
 import { navigateToUserProfile } from '../profile/action-creators'
 import { LoadingDotsArea } from '../progress/dots'
@@ -44,6 +45,7 @@ import {
 } from '../styles/typography'
 import {
   navigateToGameResults,
+  searchAgainFromGame,
   subscribeToGame,
   unsubscribeFromGame,
   viewGame,
@@ -181,6 +183,11 @@ export function ConnectedGameResultsPage({
   const [isLoading, setIsLoading] = useState(!game)
   const cancelLoadRef = useRef(new AbortController())
   const [refreshToken, triggerRefresh] = useRefreshToken()
+  const canSearchMatchmaking = useAppSelector(s => {
+    const currentParty = s.party.current
+    const isSearching = !!s.matchmaking.searchInfo
+    return !isSearching && (!currentParty || currentParty.leader === s.auth.user.id)
+  })
 
   const results = game?.results
 
@@ -227,27 +234,19 @@ export function ConnectedGameResultsPage({
     return () => {}
   }, [gameId, isLoading, results, dispatch])
 
-  let content: React.ReactNode
-  switch (subPage) {
-    case ResultsSubPage.Summary:
-      content = (
-        <SummaryPage
-          gameId={gameId}
-          game={game}
-          loadingError={loadingError}
-          isLoading={isLoading}
-        />
-      )
-      break
-
-    case ResultsSubPage.Stats:
-    case ResultsSubPage.BuildOrders:
-      content = <ComingSoonPage />
-      break
-
-    default:
-      content = assertUnreachable(subPage)
-  }
+  useEffect(() => {
+    if (
+      isPostGame &&
+      selfUser &&
+      game &&
+      !game.config.teams.some(t => t.some(p => !p.isComputer && p.id === selfUser?.id))
+    ) {
+      // If the user isn't in this game, they shouldn't be looking at the post-game screen. Mostly
+      // just handles someone getting linked here somehow (or trying to be tricky :) ). Stops
+      // potential local errors, nothing this really enables remotely
+      navigateToGameResults(game.id, false, subPage, replace)
+    }
+  }, [isPostGame, game, selfUser, subPage])
 
   const headline = useMemo<string>(() => {
     if (game && !game.results) {
@@ -276,6 +275,39 @@ export function ConnectedGameResultsPage({
     return 'Results'
   }, [selfUser, game])
 
+  const config = game?.config
+  const onSearchAgain = useCallback(() => {
+    if (!config || config.gameSource !== GameSource.Matchmaking) {
+      return
+    }
+
+    dispatch(searchAgainFromGame(config))
+  }, [config, dispatch])
+
+  let content: React.ReactNode
+  switch (subPage) {
+    case ResultsSubPage.Summary:
+      content = (
+        <SummaryPage
+          gameId={gameId}
+          game={game}
+          loadingError={loadingError}
+          isLoading={isLoading}
+        />
+      )
+      break
+
+    case ResultsSubPage.Stats:
+    case ResultsSubPage.BuildOrders:
+      content = <ComingSoonPage />
+      break
+
+    default:
+      content = assertUnreachable(subPage)
+  }
+
+  const showSearchAgain = isPostGame && config?.gameSource === GameSource.Matchmaking
+  const disableSearchAgain = !canSearchMatchmaking
   const isLive = !game?.results
 
   return (
@@ -307,6 +339,13 @@ export function ConnectedGameResultsPage({
         <LiveFinalIndicator $isLive={isLive}>{isLive ? 'Live' : 'Final'}</LiveFinalIndicator>
       </HeaderArea>
       <ButtonBar>
+        {showSearchAgain ? (
+          <RaisedButton
+            label='Search again'
+            onClick={onSearchAgain}
+            disabled={disableSearchAgain}
+          />
+        ) : null}
         {/* TODO(tec27): Search again, watch replay, etc. */}
         <ButtonSpacer />
         <RaisedButton label='Refresh' iconStart={<RefreshIcon />} onClick={triggerRefresh} />
@@ -407,7 +446,7 @@ function SummaryPage({
   isLoading,
 }: {
   gameId: string
-  game?: Immutable<GameRecordJson>
+  game?: ReadonlyDeep<GameRecordJson>
   loadingError?: Error
   isLoading: boolean
 }) {
@@ -593,7 +632,7 @@ export interface PlayerResultProps {
   className?: string
   config: GameConfigPlayer
   result?: ReconciledPlayerResult
-  mmrChange?: Immutable<PublicMatchmakingRatingChangeJson>
+  mmrChange?: ReadonlyDeep<PublicMatchmakingRatingChangeJson>
 }
 
 export function PlayerResult({ className, config, result, mmrChange }: PlayerResultProps) {

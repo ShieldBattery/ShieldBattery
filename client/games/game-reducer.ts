@@ -1,4 +1,4 @@
-import { Immutable } from 'immer'
+import { ReadonlyDeep } from 'type-fest'
 import { GameRecordJson } from '../../common/games/games'
 import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/user-info'
@@ -10,7 +10,7 @@ export interface GameState {
   mmrChangesById: Map<string, Map<SbUserId, PublicMatchmakingRatingChangeJson>>
 }
 
-const DEFAULT_STATE: Immutable<GameState> = {
+const DEFAULT_STATE: ReadonlyDeep<GameState> = {
   byId: new Map(),
   mmrChangesById: new Map(),
 }
