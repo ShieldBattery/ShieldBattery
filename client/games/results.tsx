@@ -13,6 +13,7 @@ import Avatar from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import RefreshIcon from '../icons/material/ic_refresh_black_24px.svg'
+import FindMatchIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { RaceIcon } from '../lobbies/race-icon'
 import { batchGetMapInfo } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
@@ -131,6 +132,11 @@ const LiveFinalIndicator = styled.div<{ $isLive: boolean }>`
   ${singleLine};
 
   color: ${props => (props.$isLive ? amberA200 : colorTextFaint)};
+`
+
+const StyledFindMatchIcon = styled(FindMatchIcon)`
+  height: 24px;
+  width: auto;
 `
 
 const gameDateFormat = new Intl.DateTimeFormat(navigator.language, {
@@ -342,8 +348,9 @@ export function ConnectedGameResultsPage({
         {showSearchAgain ? (
           <RaisedButton
             label='Search again'
-            onClick={onSearchAgain}
+            iconStart={<StyledFindMatchIcon />}
             disabled={disableSearchAgain}
+            onClick={onSearchAgain}
           />
         ) : null}
         {/* TODO(tec27): Search again, watch replay, etc. */}
