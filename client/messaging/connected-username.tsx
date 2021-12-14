@@ -1,15 +1,21 @@
-import React, { useCallback, useRef, useState } from 'react'
+import React from 'react'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/user-info'
-import { useAnchorPosition } from '../material/popover'
-import { ConnectedUserProfileOverlay } from '../profile/user-profile-overlay'
+import { useUserOverlays } from '../profile/user-overlays'
 import { useAppSelector } from '../redux-hooks'
+import { colorDividers } from '../styles/colors'
 
 const Username = styled.span`
   &:hover {
     cursor: pointer;
     text-decoration: underline;
   }
+`
+
+const LoadingName = styled.span`
+  margin-right: 0.25em;
+  background-color: ${colorDividers};
+  border-radius: 2px;
 `
 
 /**
@@ -29,38 +35,34 @@ export function ConnectedUsername({
   userId: SbUserId
   isMention?: boolean
 }) {
-  const [overlayOpen, setOverlayOpen] = useState(false)
-  const usernameRef = useRef(null)
-  const [, anchorX, anchorY] = useAnchorPosition('right', 'top', usernameRef.current ?? null)
-
-  const onOpenOverlay = useCallback(() => {
-    setOverlayOpen(true)
-  }, [])
-  const onCloseOverlay = useCallback(() => {
-    setOverlayOpen(false)
-  }, [])
+  const { clickableElemRef, overlayNodes, onClick, onContextMenu } =
+    useUserOverlays<HTMLSpanElement>({
+      userId,
+      profileAnchorX: 'right',
+      profileAnchorY: 'top',
+      profileOriginX: 'left',
+      profileOriginY: 'top',
+      profileOffsetX: 4,
+    })
 
   const user = useAppSelector(s => s.users.byId.get(userId))
-  if (!user) {
-    return <span>[Unknown user]</span>
-  }
+  const username = user?.name ?? (
+    <LoadingName aria-label={'Username loading…'}>
+      &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
+    </LoadingName>
+  )
 
   return (
     <>
-      <ConnectedUserProfileOverlay
-        key={'overlay'}
-        userId={user.id}
-        popoverProps={{
-          open: overlayOpen,
-          onDismiss: onCloseOverlay,
-          anchorX: (anchorX ?? 0) + 4,
-          anchorY: anchorY ?? 0,
-          originX: 'left',
-          originY: 'top',
-        }}
-      />
-      <Username ref={usernameRef} className={className} onClick={onOpenOverlay}>
-        {isMention ? `@${user.name}` : user.name}
+      {overlayNodes}
+
+      <Username
+        ref={clickableElemRef}
+        className={className}
+        onClick={onClick}
+        onContextMenu={onContextMenu}>
+        {isMention ? '@' : ''}
+        {username}
       </Username>
     </>
   )

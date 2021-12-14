@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef } from 'react'
 import { VariableSizeList } from 'react-window'
 import styled, { css } from 'styled-components'
 import { ClientChatMessageType, ServerChatMessageType } from '../../common/chat'
@@ -6,12 +6,10 @@ import { MULTI_CHANNEL } from '../../common/flags'
 import { SbUserId } from '../../common/users/user-info'
 import Avatar from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
-import { useAnchorPosition } from '../material/popover'
 import Chat from '../messaging/chat'
 import { Message } from '../messaging/message-records'
 import { push } from '../navigation/routing'
-import { ConnectedUserContextMenu } from '../profile/user-context-menu'
-import { ConnectedUserProfileOverlay } from '../profile/user-profile-overlay'
+import { useUserOverlays } from '../profile/user-overlays'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { RootState } from '../root-reducer'
@@ -20,6 +18,7 @@ import {
   alphaDisabled,
   background700,
   background800,
+  colorDividers,
   colorTextFaint,
   colorTextSecondary,
 } from '../styles/colors'
@@ -139,14 +138,15 @@ const LoadingAvatar = styled.div`
   width: 32px;
   height: 32px;
   margin-right: 16px;
-  border: 1px solid ${colorTextFaint};
+
+  background-color: ${colorDividers};
   border-radius: 50%;
 `
 
 const LoadingName = styled.div`
   width: 64px;
   height: 24px;
-  background-color: ${colorTextFaint};
+  background-color: ${colorDividers};
 `
 
 interface UserListEntryProps {
@@ -156,48 +156,23 @@ interface UserListEntryProps {
 }
 
 const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
-  const [profileOverlayOpen, setProfileOverlayOpen] = useState(false)
-  const [contextMenuEl, setContextMenuEl] = useState<Element | null>(null)
-  const [contextMenuAnchorX, setContextMenuAnchorX] = useState(0)
-  const [contextMenuAnchorY, setContextMenuAnchorY] = useState(0)
-  const contextMenuOpen = Boolean(contextMenuEl)
-  const userEntryRef = useRef(null)
-  const [, anchorX, anchorY] = useAnchorPosition('left', 'top', userEntryRef.current ?? null)
-
-  const onOpenProfileOverlay = useCallback(() => {
-    setProfileOverlayOpen(true)
-  }, [])
-  const onCloseProfileOverlay = useCallback(() => {
-    setProfileOverlayOpen(false)
-  }, [])
-  const onOpenContextMenu = useCallback((event: React.MouseEvent) => {
-    event.preventDefault()
-
-    setContextMenuAnchorX(event.pageX)
-    setContextMenuAnchorY(event.pageY)
-    setContextMenuEl(event.currentTarget)
-  }, [])
-  const onCloseContextMenu = useCallback(
-    (event?: MouseEvent) => {
-      if (
-        !contextMenuEl ||
-        event?.button !== 2 ||
-        !event?.target ||
-        !contextMenuEl.contains(event.target as Node)
-      ) {
-        setContextMenuEl(null)
-      }
-    },
-    [contextMenuEl],
-  )
-
   const user = useAppSelector(s => s.users.byId.get(props.userId))
+  const { clickableElemRef, overlayNodes, onClick, onContextMenu, isOverlayOpen } =
+    useUserOverlays<HTMLDivElement>({
+      userId: props.userId,
+      profileAnchorX: 'left',
+      profileAnchorY: 'top',
+      profileOriginX: 'right',
+      profileOriginY: 'top',
+      profileOffsetX: -4,
+    })
+
   if (!user) {
     return (
       <div style={props.style}>
-        <LoadingUserListEntryItem key={'entry'}>
+        <LoadingUserListEntryItem key='entry'>
           <LoadingAvatar />
-          <LoadingName />
+          <LoadingName aria-label='Username loading…' />
         </LoadingUserListEntryItem>
       </div>
     )
@@ -205,38 +180,15 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
 
   return (
     <div style={props.style}>
-      <ConnectedUserProfileOverlay
-        key={'profile-overlay'}
-        userId={props.userId}
-        popoverProps={{
-          open: profileOverlayOpen,
-          onDismiss: onCloseProfileOverlay,
-          anchorX: (anchorX ?? 0) - 4,
-          anchorY: anchorY ?? 0,
-          originX: 'right',
-          originY: 'top',
-        }}
-      />
-      <ConnectedUserContextMenu
-        key={'context-menu'}
-        userId={props.userId}
-        popoverProps={{
-          open: contextMenuOpen,
-          onDismiss: onCloseContextMenu,
-          anchorX: contextMenuAnchorX,
-          anchorY: contextMenuAnchorY,
-          originX: 'left',
-          originY: 'top',
-        }}
-      />
+      {overlayNodes}
 
       <UserListEntryItem
-        ref={userEntryRef}
-        key={'entry'}
+        ref={clickableElemRef}
+        key='entry'
         faded={!!props.faded}
-        isOverlayOpen={profileOverlayOpen || contextMenuOpen}
-        onClick={onOpenProfileOverlay}
-        onContextMenu={onOpenContextMenu}>
+        isOverlayOpen={isOverlayOpen}
+        onClick={onClick}
+        onContextMenu={onContextMenu}>
         <StyledAvatar user={user.name} />
         <UserListName>{user.name}</UserListName>
       </UserListEntryItem>
@@ -405,27 +357,22 @@ function renderMessage(msg: Message) {
   }
 }
 
-type UserEntries = [userId: SbUserId, username: string | undefined][]
+type UserEntry = [userId: SbUserId, username: string | undefined]
 
 function makeUserEntriesSelector(userIds: ReadonlySet<SbUserId> | undefined) {
-  return (state: RootState) => {
-    const userEntries: UserEntries = []
+  return (state: RootState): UserEntry[] => {
     if (!userIds) {
       return []
     }
 
-    for (const userId of Array.from(userIds.values()).sort((a, b) => a - b)) {
-      const username = state.users.byId.get(userId)?.name
-      if (username) {
-        userEntries.push([userId, username])
-      }
-    }
-
-    return userEntries
+    return Array.from<SbUserId, UserEntry>(userIds.values(), id => [
+      id,
+      state.users.byId.get(id)?.name,
+    ]).sort((a, b) => a[0] - b[0])
   }
 }
 
-function areUserEntriesEqual(a: UserEntries, b: UserEntries): boolean {
+function areUserEntriesEqual(a: ReadonlyArray<UserEntry>, b: ReadonlyArray<UserEntry>): boolean {
   if (a.length !== b.length) {
     return false
   }
@@ -441,11 +388,11 @@ function areUserEntriesEqual(a: UserEntries, b: UserEntries): boolean {
   return true
 }
 
-function sortUsers(userEntries: UserEntries) {
+function sortUsers(userEntries: UserEntry[]) {
   return userEntries
     .sort(([aId, aName], [bId, bName]) => {
       // We put any user that still hasn't loaded at the bottom of the list
-      if (!aName && !bName) {
+      if (aName === bName) {
         return 0
       } else if (!aName) {
         return 1

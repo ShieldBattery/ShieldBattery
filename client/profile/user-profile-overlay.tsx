@@ -4,6 +4,7 @@ import { SbUserId } from '../../common/users/user-info'
 import Avatar from '../avatars/avatar'
 import { Popover, PopoverProps } from '../material/popover'
 import { useAppSelector } from '../redux-hooks'
+import { colorDividers } from '../styles/colors'
 import { headline6, singleLine } from '../styles/typography'
 
 const PopoverContents = styled.div`
@@ -23,9 +24,28 @@ const StyledAvatar = styled(Avatar)`
   margin-bottom: 16px;
 `
 
+// TODO(tec27): This should just be handled by the Avatar component
+const LoadingAvatar = styled.div`
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+
+  background-color: ${colorDividers};
+  border-radius: 50%;
+`
+
 const Username = styled.div`
   ${headline6};
   ${singleLine};
+`
+
+const LoadingUsername = styled.div`
+  width: 48px;
+  height: 20px;
+  margin: 4px 0;
+
+  background-color: ${colorDividers};
+  border-radius: 2px;
 `
 
 export interface ConnectedUserProfileOverlayProps {
@@ -39,16 +59,21 @@ export function ConnectedUserProfileOverlay({
 }: ConnectedUserProfileOverlayProps) {
   const user = useAppSelector(s => s.users.byId.get(userId))
 
-  if (!user) {
-    return null
-  }
-
   return (
     <Popover {...popoverProps}>
       <PopoverContents>
         <Header>
-          <StyledAvatar user={user.name} />
-          <Username>{user.name}</Username>
+          {user ? (
+            <>
+              <StyledAvatar user={user.name} />
+              <Username>{user.name}</Username>
+            </>
+          ) : (
+            <>
+              <LoadingAvatar />
+              <LoadingUsername aria-label='Username loading…' />
+            </>
+          )}
         </Header>
       </PopoverContents>
     </Popover>
