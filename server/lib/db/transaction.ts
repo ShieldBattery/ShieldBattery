@@ -25,7 +25,11 @@ async function rollbackFor(err: unknown, client: DbClient, done: DbDone) {
   try {
     await client.query('ROLLBACK')
   } catch (rollbackErr) {
-    done(rollbackErr)
+    if (rollbackErr instanceof Error) {
+      done(rollbackErr)
+    } else {
+      done(true)
+    }
     throw rollbackErr
   }
 
