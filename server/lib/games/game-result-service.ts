@@ -9,7 +9,7 @@ import {
   toGameRecordJson,
 } from '../../../common/games/games'
 import { GameClientPlayerResult, GameResultErrorCode } from '../../../common/games/results'
-import { MatchmakingType } from '../../../common/matchmaking'
+import { MatchmakingType, toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
 import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/user-info'
@@ -20,9 +20,11 @@ import { CodedError } from '../errors/coded-error'
 import { setReconciledResult } from '../games/game-models'
 import { hasCompletedResults, reconcileResults } from '../games/results'
 import {
+  getMatchmakingRatingChangesForGame,
   getMatchmakingRatingsWithLock,
   insertMatchmakingRatingChange,
   MatchmakingRating,
+  MatchmakingRatingChange,
   updateMatchmakingRating,
 } from '../matchmaking/models'
 import { calculateChangedRatings } from '../matchmaking/rating'
@@ -56,6 +58,16 @@ export default class GameResultService {
     return game
   }
 
+  async retrieveMatchmakingRatingChanges(
+    gameRecord: Readonly<GameRecord>,
+  ): Promise<MatchmakingRatingChange[]> {
+    if (gameRecord.config.gameSource !== GameSource.Matchmaking || !gameRecord.results) {
+      return []
+    }
+
+    return await getMatchmakingRatingChangesForGame(gameRecord.id)
+  }
+
   async subscribeToGame(userId: SbUserId, clientId: string, gameId: string): Promise<void> {
     const clientSockets = this.clientSocketsManager.getById(userId, clientId)
     if (!clientSockets) {
@@ -75,7 +87,12 @@ export default class GameResultService {
       async () => {
         const game = await this.retrieveGame(gameId)
         if (game) {
-          return { type: 'update', game: toGameRecordJson(game) }
+          const mmrChanges = await this.retrieveMatchmakingRatingChanges(game)
+          return {
+            type: 'update',
+            game: toGameRecordJson(game),
+            mmrChanges: mmrChanges.map(m => toPublicMatchmakingRatingChangeJson(m)),
+          }
         } else {
           return undefined
         }
@@ -163,9 +180,11 @@ export default class GameResultService {
       .then(() => this.maybeReconcileResults(gameRecord))
       .then(async () => {
         const game = await this.retrieveGame(gameId)
+        const mmrChanges = await this.retrieveMatchmakingRatingChanges(game)
         this.typedPublisher.publish(GameResultService.getGameSubPath(gameId), {
           type: 'update',
           game: toGameRecordJson(game),
+          mmrChanges: mmrChanges.map(m => toPublicMatchmakingRatingChangeJson(m)),
         })
       })
       .catch(err => {

@@ -1,5 +1,9 @@
 import sql from 'sql-template-strings'
-import { MatchmakingCompletion, MatchmakingType } from '../../../common/matchmaking'
+import {
+  MatchmakingCompletion,
+  MatchmakingResult,
+  MatchmakingType,
+} from '../../../common/matchmaking'
 import { SbUserId } from '../../../common/users/user-info'
 import db, { DbClient } from '../db'
 import { Dbify } from '../db/types'
@@ -249,8 +253,6 @@ export async function refreshRankings(): Promise<void> {
   }
 }
 
-export type MatchmakingResult = 'loss' | 'win'
-
 export interface MatchmakingRatingChange {
   userId: SbUserId
   matchmakingType: MatchmakingType
@@ -287,7 +289,6 @@ export interface MatchmakingRatingChange {
 
 type DbMatchmakingRatingChange = Dbify<MatchmakingRatingChange>
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function fromDbMatchmakingRatingChange(
   result: Readonly<DbMatchmakingRatingChange>,
 ): MatchmakingRatingChange {
@@ -323,6 +324,24 @@ export async function insertMatchmakingRatingChange(
         ${c.ratingChange}, ${c.kFactor}, ${c.kFactorChange}, ${c.uncertainty},
         ${c.uncertaintyChange}, ${c.probability}, ${c.unexpectedStreak});
   `)
+}
+
+export async function getMatchmakingRatingChangesForGame(
+  gameId: string,
+  withClient?: DbClient,
+): Promise<MatchmakingRatingChange[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbMatchmakingRatingChange>(sql`
+      SELECT *
+      FROM matchmaking_rating_changes
+      WHERE game_id = ${gameId};
+    `)
+
+    return result.rows.map(r => fromDbMatchmakingRatingChange(r))
+  } finally {
+    done()
+  }
 }
 
 type DbMatchmakingCompletion = Dbify<MatchmakingCompletion>

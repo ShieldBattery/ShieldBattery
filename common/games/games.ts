@@ -2,7 +2,7 @@ import { Immutable } from 'immer'
 import { assertUnreachable } from '../assert-unreachable'
 import { Jsonify } from '../json'
 import { MapInfoJson } from '../maps'
-import { MatchmakingType } from '../matchmaking'
+import { MatchmakingType, PublicMatchmakingRatingChangeJson } from '../matchmaking'
 import { SbUser, SbUserId } from '../users/user-info'
 import { GameConfig, GameSource } from './configuration'
 import { ReconciledPlayerResult } from './results'
@@ -56,6 +56,7 @@ export interface GetGameResponse {
   /** Can be undefined if the map could not be found (e.g. if it has been deleted). */
   map: MapInfoJson | undefined
   users: SbUser[]
+  mmrChanges: PublicMatchmakingRatingChangeJson[]
 }
 
 /** Events that can be sent when subscribed to changes to a particular game record. */
@@ -64,4 +65,5 @@ export type GameSubscriptionEvent = GameRecordUpdate
 export interface GameRecordUpdate {
   type: 'update'
   game: GameRecordJson
+  mmrChanges: PublicMatchmakingRatingChangeJson[]
 }

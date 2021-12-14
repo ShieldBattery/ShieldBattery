@@ -54,6 +54,44 @@ export interface MatchmakingPlayer {
   rating: number
 }
 
+export type MatchmakingResult = 'loss' | 'win'
+
+/**
+ * The change that occurred to a player's matchmaking rating as a result of a game. This only
+ * contains fields that can be publicly visible (keeping internal factors hidden).
+ */
+export interface PublicMatchmakingRatingChange {
+  userId: SbUserId
+  matchmakingType: MatchmakingType
+  gameId: string
+  /**
+   * When the change occurred (this is when the game was reconciled, not necessarily when it was
+   * played or finished).
+   */
+  changeDate: Date
+  outcome: MatchmakingResult
+  /** The player's rating after this game. */
+  rating: number
+  /** The delta between the user's old rating and their new rating. */
+  ratingChange: number
+}
+
+export type PublicMatchmakingRatingChangeJson = Jsonify<PublicMatchmakingRatingChange>
+
+export function toPublicMatchmakingRatingChangeJson(
+  input: Readonly<PublicMatchmakingRatingChange>,
+): PublicMatchmakingRatingChangeJson {
+  return {
+    userId: input.userId,
+    matchmakingType: input.matchmakingType,
+    gameId: input.gameId,
+    changeDate: Number(input.changeDate),
+    outcome: input.outcome,
+    rating: input.rating,
+    ratingChange: input.ratingChange,
+  }
+}
+
 /**
  * The body data of the API route for adding new matchmaking times.
  */

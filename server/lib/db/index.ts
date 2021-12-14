@@ -29,7 +29,7 @@ if (!isTestRun()) {
   pool = new pg.Pool({ connectionString })
 }
 
-export type DbDone = (release?: unknown) => void
+export type DbDone = (err?: Error | boolean) => void
 
 export interface ClientResult {
   /**
@@ -76,16 +76,20 @@ export class DbClient {
   }
 }
 
-// TODO(tec27): I think it might be better to wrap the query functions instead of just wrapping the
-// client pool getter, but since I don't know how we'll be using this too much yet I'm just
-// keeping it simple for now
-export default function getDbClient() {
-  return new Promise<ClientResult>((resolve, reject) => {
-    pool!.connect((err, client, done) => {
-      if (err) reject(err)
-      else resolve({ client: new DbClient(client), done })
-    })
-  })
+const NOOP_DONE = () => {}
+
+/**
+ * Retrieves a database client from the pool. If a defined `inputClient` is passed in, it will be
+ * returned instead of retrieving a new client (so query functions can easily utilize existing
+ * clients, while also being simple to work with if no client is available already).
+ */
+export async function getDbClient(inputClient?: DbClient): Promise<ClientResult> {
+  if (inputClient) {
+    return { client: inputClient, done: NOOP_DONE }
+  }
+
+  const client = await pool!.connect()
+  return { client: new DbClient(client), done: client.release.bind(client) }
 }
 
 /**
@@ -103,3 +107,5 @@ export async function withDbClient<T, U extends any[]>(
     done()
   }
 }
+
+export default getDbClient

@@ -8,9 +8,22 @@ import { clientId } from '../network/client-id'
 import { fetchJson } from '../network/fetch'
 import { ResultsSubPage } from './results-sub-page'
 
-/** Navigates to a game's result page (and optionally, a specific tab within that). */
-export function navigateToGameResults(gameId: string, tab?: ResultsSubPage, transitionFn = push) {
-  transitionFn(urlPath`/games/${gameId}/${tab ?? ''}`)
+/**
+ * Navigates to a game's result page (and optionally, a specific tab within that).
+ *
+ * @param gameId The ID of the game to navigate to
+ * @param asPostGame If this is being shown as a post-game screen (and should have things like
+ *     a requeue button, animations for score, etc.)
+ * @param tab The tab within the results page to navigate to
+ * @param transitionFn A function that will perform the transition to the new page
+ */
+export function navigateToGameResults(
+  gameId: string,
+  asPostGame?: boolean,
+  tab?: ResultsSubPage,
+  transitionFn = push,
+) {
+  transitionFn(urlPath`/games/${gameId}/${tab ?? ''}` + (asPostGame ? '?post-game' : ''))
 }
 
 const gameLoadsInProgress = new Set<string>()

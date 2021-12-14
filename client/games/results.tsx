@@ -6,8 +6,11 @@ import { GameConfigPlayer, isTeamType } from '../../common/games/configuration'
 import { GameRecordJson, getGameTypeLabel } from '../../common/games/games'
 import { ReconciledPlayerResult, ReconciledResult } from '../../common/games/results'
 import { getTeamNames } from '../../common/maps'
+import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/user-info'
 import { useSelfUser } from '../auth/state-hooks'
+import Avatar from '../avatars/avatar'
+import ComputerAvatar from '../avatars/computer-avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import RefreshIcon from '../icons/material/ic_refresh_black_24px.svg'
 import { RaceIcon } from '../lobbies/race-icon'
@@ -38,7 +41,6 @@ import {
   overline,
   singleLine,
   subtitle1,
-  subtitle2,
 } from '../styles/typography'
 import {
   navigateToGameResults,
@@ -122,18 +124,11 @@ const HeaderInfoValue = styled.div`
   ${singleLine};
 `
 
-const LiveIndicator = styled.div`
+const LiveFinalIndicator = styled.div<{ $isLive: boolean }>`
   ${body2};
   ${singleLine};
 
-  color: ${amberA200};
-`
-
-const FinalIndicator = styled.div`
-  ${body2};
-  ${singleLine};
-
-  color: ${colorTextFaint};
+  color: ${props => (props.$isLive ? amberA200 : colorTextFaint)};
 `
 
 const gameDateFormat = new Intl.DateTimeFormat(navigator.language, {
@@ -172,11 +167,12 @@ export function ConnectedGameResultsPage({
   subPage = ResultsSubPage.Summary,
 }: ConnectedGameResultsPageProps) {
   const dispatch = useAppDispatch()
+  const isPostGame = location.search === '?post-game'
   const onTabChange = useCallback(
     (tab: ResultsSubPage) => {
-      navigateToGameResults(gameId, tab)
+      navigateToGameResults(gameId, isPostGame, tab)
     },
-    [gameId],
+    [gameId, isPostGame],
   )
 
   const selfUser = useSelfUser()
@@ -219,15 +215,17 @@ export function ConnectedGameResultsPage({
     // At the moment the only time a game will really change is when it doesn't have results yet, so
     // we only subscribe in that case. If we start updating game records more often, we may want to
     // subscribe all the time
-    if (!results) {
+    if (!isLoading && !results) {
       dispatch(subscribeToGame(gameId))
       return () => {
+        // TODO(tec27): We may want to be more picky about when we do this, so we limit the number
+        // of requests we send here
         dispatch(unsubscribeFromGame(gameId))
       }
     }
 
     return () => {}
-  }, [gameId, results, dispatch])
+  }, [gameId, isLoading, results, dispatch])
 
   let content: React.ReactNode
   switch (subPage) {
@@ -278,6 +276,8 @@ export function ConnectedGameResultsPage({
     return 'Results'
   }, [selfUser, game])
 
+  const isLive = !game?.results
+
   return (
     <Container>
       <HeaderArea>
@@ -304,11 +304,7 @@ export function ConnectedGameResultsPage({
             </>
           ) : null}
         </HeaderInfo>
-        {!game?.results ? (
-          <LiveIndicator>Live</LiveIndicator>
-        ) : (
-          <FinalIndicator>Final</FinalIndicator>
-        )}
+        <LiveFinalIndicator $isLive={isLive}>{isLive ? 'Live' : 'Final'}</LiveFinalIndicator>
       </HeaderArea>
       <ButtonBar>
         {/* TODO(tec27): Search again, watch replay, etc. */}
@@ -419,6 +415,7 @@ function SummaryPage({
 
   const mapId = game?.mapId
   const map = useAppSelector(s => (mapId ? s.maps2.byId.get(mapId) : undefined))
+  const mmrChanges = useAppSelector(s => s.games.mmrChangesById.get(gameId))
 
   const [configAndResults, teamLabels] = useMemo((): [
     Map<SbUserId | string, ConfigAndResult>,
@@ -473,7 +470,14 @@ function SummaryPage({
     const elems = team.map((p, j) => {
       const key = p.isComputer ? `${i}-${j}` : p.id
       const [config, result] = configAndResults.get(key)!
-      return <PlayerResult key={String(key)} config={config} result={result} />
+      return (
+        <PlayerResult
+          key={String(key)}
+          config={config}
+          result={result}
+          mmrChange={!p.isComputer ? mmrChanges?.get(p.id) : undefined}
+        />
+      )
     })
 
     if (showTeams) {
@@ -504,9 +508,8 @@ const PlayerResultContainer = styled.button`
   ${buttonReset};
 
   width: 100%;
-  height: 36px;
-  padding-left: 8px;
-  padding-right: 8px;
+  height: 56px;
+  padding: 8px;
 
   display: flex;
   align-items: center;
@@ -521,7 +524,7 @@ const PlayerResultContainer = styled.button`
 const RaceRoot = styled.div`
   position: relative;
   width: auto;
-  height: 24px;
+  height: 32px;
 `
 
 const StyledRaceIcon = styled(RaceIcon)`
@@ -534,13 +537,26 @@ const SelectedRandomIcon = styled(RaceIcon)`
   bottom: 0;
   right: 0;
   width: auto;
-  height: 12px;
+  height: 20px;
+`
+
+const PlayerAvatar = styled(Avatar)`
+  width: 40px;
+  height: 40px;
+  margin-left: 8px;
+`
+
+const StyledComputerAvatar = styled(ComputerAvatar)`
+  width: 40px;
+  height: 40px;
+  margin-left: 8px;
+  color: ${colorTextSecondary};
 `
 
 const PlayerName = styled.div`
-  ${subtitle2};
+  ${headline6};
   ${singleLine};
-  margin-left: 8px;
+  margin-left: 16px;
   margin-right: 8px;
   flex-grow: 1;
 `
@@ -553,10 +569,23 @@ const PlayerApm = styled.div`
   text-align: right;
 `
 
+const GameResultColumn = styled.div`
+  width: 96px;
+  display: flex;
+  flex-direction: column;
+`
+
 const StyledGameResultText = styled(GameResultText)`
   ${body1};
   ${singleLine};
-  width: 96px;
+  width: 100%;
+  text-align: right;
+`
+
+const StyledMmrChangeText = styled(MmrChangeText)`
+  ${body1};
+  ${singleLine};
+  width: 100%;
   text-align: right;
 `
 
@@ -564,9 +593,10 @@ export interface PlayerResultProps {
   className?: string
   config: GameConfigPlayer
   result?: ReconciledPlayerResult
+  mmrChange?: Immutable<PublicMatchmakingRatingChangeJson>
 }
 
-export function PlayerResult({ className, config, result }: PlayerResultProps) {
+export function PlayerResult({ className, config, result, mmrChange }: PlayerResultProps) {
   const user = useAppSelector(s => (config.isComputer ? undefined : s.users.byId.get(config.id)))
   const [buttonProps, rippleRef] = useButtonState({
     onClick: () => user && navigateToUserProfile(user.id, user.name),
@@ -578,9 +608,13 @@ export function PlayerResult({ className, config, result }: PlayerResultProps) {
         <StyledRaceIcon race={result?.race ?? config.race} />
         {result?.race && config.race === 'r' ? <SelectedRandomIcon race='r' /> : null}
       </RaceRoot>
+      {config.isComputer ? <StyledComputerAvatar /> : <PlayerAvatar user={user?.name ?? ''} />}
       <PlayerName>{config.isComputer ? 'Computer' : user?.name ?? ''}</PlayerName>
       <PlayerApm>{result?.apm ?? 0} APM</PlayerApm>
-      <StyledGameResultText result={result?.result ?? 'unknown'} />
+      <GameResultColumn>
+        <StyledGameResultText result={result?.result ?? 'unknown'} />
+        {mmrChange ? <StyledMmrChangeText change={mmrChange.ratingChange} /> : null}
+      </GameResultColumn>
       <Ripple ref={rippleRef} />
     </PlayerResultContainer>
   )
@@ -611,5 +645,16 @@ export function GameResultText({ className, result }: GameResultTextProps) {
       return <span className={className}>—</span>
     default:
       return assertUnreachable(result)
+  }
+}
+
+function MmrChangeText({ className, change }: { className?: string; change: number }) {
+  const roundChange = Math.round(change)
+  if (roundChange === 0) {
+    return <span className={className}>+0</span>
+  } else if (roundChange > 0) {
+    return <PositiveText className={className}>+{roundChange}</PositiveText>
+  } else {
+    return <NegativeText className={className}>{roundChange}</NegativeText>
   }
 }

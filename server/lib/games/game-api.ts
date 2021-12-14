@@ -13,6 +13,7 @@ import {
   SubmitGameResultsRequest,
 } from '../../../common/games/results'
 import { toMapInfoJson } from '../../../common/maps'
+import { toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
 import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPost, httpPut } from '../http/route-decorators'
@@ -138,17 +139,20 @@ export class GameApi {
 
     const game = await this.gameResultService.retrieveGame(gameId)
 
-    const mapPromise = getMapInfo([game.mapId], ctx.session!.userId)
-    const usersPromise = findUsersById(
-      game.config.teams.flatMap(t => t.filter(p => !p.isComputer).map(p => p.id)),
+    const usersToRetrieve = game.config.teams.flatMap(t =>
+      t.filter(p => !p.isComputer).map(p => p.id),
     )
-
-    const mapArray = await mapPromise
+    const [mapArray, users, mmrChanges] = await Promise.all([
+      getMapInfo([game.mapId], ctx.session!.userId),
+      findUsersById(usersToRetrieve),
+      this.gameResultService.retrieveMatchmakingRatingChanges(game),
+    ])
 
     return {
       game: toGameRecordJson(game),
       map: mapArray.length ? toMapInfoJson(mapArray[0]) : undefined,
-      users: Array.from((await usersPromise).values()),
+      users: Array.from(users.values()),
+      mmrChanges: mmrChanges.map(m => toPublicMatchmakingRatingChangeJson(m)),
     }
   }
 

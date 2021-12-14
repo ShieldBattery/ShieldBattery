@@ -23,7 +23,12 @@ export default class MatchmakingView extends React.Component {
     if (prevProps.activeGame.isActive && !this.props.activeGame.isActive) {
       // TODO(2Pac): handle this in socket-handlers once we start tracking game ending on the server
       if (prevProps.gameClient.gameId) {
-        navigateToGameResults(prevProps.gameClient.gameId, ResultsSubPage.Summary, replace)
+        navigateToGameResults(
+          prevProps.gameClient.gameId,
+          true /* isPostGame */,
+          ResultsSubPage.Summary,
+          replace,
+        )
       } else {
         replace('/')
       }
