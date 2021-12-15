@@ -1,5 +1,5 @@
 import type { IpcMainEvent, IpcMainInvokeEvent, IpcRendererEvent, WebContents } from 'electron'
-import { Promisable, PromiseValue } from 'type-fest'
+import { Promisable } from 'type-fest'
 import { GameLaunchConfig, GameRoute } from './game-launch-config'
 import { GameClientPlayerResult } from './games/results'
 import { LocalSettingsData, ScrSettingsData } from './local-settings'
@@ -252,7 +252,7 @@ export class TypedIpcRenderer {
   invoke<K extends keyof IpcInvokeables>(
     channel: K,
     ...args: Parameters<IpcInvokeables[K]>
-  ): Promise<PromiseValue<ReturnType<IpcInvokeables[K]>>> | undefined {
+  ): Promise<Awaited<ReturnType<IpcInvokeables[K]>>> | undefined {
     return ipcRenderer?.invoke(channel, ...args)
   }
 

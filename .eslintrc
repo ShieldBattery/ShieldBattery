@@ -32,7 +32,7 @@
 
   "overrides": [
     {
-      "files": ["**/*.test.js", "**/*.test.ts"],
+      "files": ["**/*.test.js", "**/*.test.ts", "**/*.test.tsx"],
       "env": {
         "browser": true,
         "es6": true,
@@ -178,6 +178,11 @@
             "name": "type-fest",
             "importNames": ["Jsonify"],
             "message": "Use Jsonify from ./common/json instead."
+          },
+          {
+            "name": "electron",
+            "importNames": ["ipcMain", "ipcRenderer"],
+            "message": "Use ./common/ipc instead."
           }
         ]
       }
