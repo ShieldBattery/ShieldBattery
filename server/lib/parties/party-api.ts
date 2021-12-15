@@ -3,16 +3,20 @@ import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+import { USERNAME_MAXLENGTH, USERNAME_MINLENGTH, USERNAME_PATTERN } from '../../../common/constants'
 import { PARTIES } from '../../../common/flags'
 import {
   AcceptFindMatchAsPartyRequest,
   AcceptPartyInviteRequest,
   ChangePartyLeaderRequest,
   FindMatchAsPartyRequest,
+  InviteIdToPartyRequest,
+  InviteNameToPartyRequest,
   InviteToPartyRequest,
   PartyServiceErrorCode,
   SendPartyChatMessageRequest,
 } from '../../../common/parties'
+import { SbUser } from '../../../common/users/user-info'
 import { asHttpError } from '../errors/error-with-payload'
 import { featureEnabled } from '../flags/feature-enabled'
 import { httpApi, httpBeforeAll } from '../http/http-api'
@@ -21,7 +25,7 @@ import { matchmakingPreferencesValidator } from '../matchmaking/matchmaking-vali
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
-import { findUserById } from '../users/user-model'
+import { findUserById, findUserByName } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
 import PartyService, { PartyServiceError } from './party-service'
 
@@ -60,6 +64,7 @@ function convertPartyServiceError(err: unknown) {
       throw asHttpError(403, err)
     case PartyServiceErrorCode.PartyFull:
       throw asHttpError(409, err)
+    case PartyServiceErrorCode.UserNotFound:
     case PartyServiceErrorCode.UserOffline:
       throw asHttpError(404, err)
     case PartyServiceErrorCode.NotificationFailure:
@@ -85,16 +90,34 @@ export class PartyApi {
   @httpPost('/invites')
   @httpBefore(throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)))
   async invite(ctx: RouterContext): Promise<void> {
-    const {
-      body: { clientId, targetId },
-    } = validateRequest(ctx, {
-      body: Joi.object<InviteToPartyRequest>({
-        clientId: Joi.string().required(),
-        targetId: Joi.number().min(1).required(),
-      }),
+    const { body } = validateRequest(ctx, {
+      body: Joi.alternatives().try(
+        Joi.object<InviteIdToPartyRequest>({
+          clientId: Joi.string().required(),
+          targetId: Joi.number().min(1).required(),
+        }),
+        Joi.object<InviteNameToPartyRequest>({
+          clientId: Joi.string().required(),
+          // TODO(tec27): Put this validator somewhere common
+          targetName: Joi.string()
+            .min(USERNAME_MINLENGTH)
+            .max(USERNAME_MAXLENGTH)
+            .pattern(USERNAME_PATTERN)
+            .required(),
+        }),
+        // NOTE(tec27): This dumb cast is just to make our return types happy, since
+        // AlternativesSchema doesn't have a type parameter :(
+      ) as unknown as Joi.ObjectSchema<InviteToPartyRequest>,
     })
 
-    const foundTarget = await findUserById(targetId)
+    const { clientId } = body
+    let foundTarget: SbUser | undefined
+    if ('targetId' in body) {
+      foundTarget = await findUserById(body.targetId)
+    } else if ('targetName' in body) {
+      foundTarget = await findUserByName(body.targetName)
+    }
+
     if (!foundTarget) {
       throw new httpErrors.NotFound('Target user not found')
     }

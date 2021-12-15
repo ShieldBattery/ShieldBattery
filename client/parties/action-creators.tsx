@@ -33,59 +33,51 @@ import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { ActivateParty, DeactivateParty } from './actions'
 import { AlreadySearchingErrorContent } from './find-match-error-content'
 
-export function inviteToParty(targetId: SbUserId): ThunkAction {
+export function inviteToParty(
+  target: { targetId: SbUserId } | { targetName: string },
+): ThunkAction {
   return dispatch => {
-    const params = { clientId, targetId }
-    dispatch({
-      type: '@parties/inviteToPartyBegin',
-      payload: params,
-    })
-
-    dispatch({
-      type: '@parties/inviteToParty',
-      payload: fetchJson<void>(apiUrl`parties/invites`, {
-        method: 'POST',
-        body: encodeBodyAsParams<InviteToPartyRequest>({ clientId, targetId }),
-      }).catch(err => {
-        let message = 'An error occurred while sending an invite'
-        if (err.body.code === PartyServiceErrorCode.NotificationFailure) {
-          message = 'Failed to send an invite. Please try again'
-        } else if (err.body.code === PartyServiceErrorCode.AlreadyMember) {
-          const user = err.body.user?.name ?? 'The user'
-          message = `${user} is already in your party`
-        } else if (err.body.code === PartyServiceErrorCode.InvalidSelfAction) {
-          message = "Can't invite yourself to the party"
-        }
-
-        dispatch(openSnackbar({ message, time: TIMING_LONG }))
-        throw err
+    fetchJson<void>(apiUrl`parties/invites`, {
+      method: 'POST',
+      body: encodeBodyAsParams<InviteToPartyRequest>({
+        ...target,
+        clientId,
       }),
-      meta: params,
+    }).catch(err => {
+      let message = 'An error occurred while sending an invite'
+
+      if (isFetchError(err) && err.code) {
+        if (err.code === PartyServiceErrorCode.NotificationFailure) {
+          message = 'Failed to send an invite. Please try again'
+        } else if (err.code === PartyServiceErrorCode.AlreadyMember) {
+          const user = (err.body as any)?.user?.name ?? 'The user'
+          message = `${user} is already in your party`
+        } else if (err.code === PartyServiceErrorCode.InvalidSelfAction) {
+          message = "Can't invite yourself to the party"
+        } else {
+          logger.error(`Unhandled code when inviting to party: ${err.code}`)
+        }
+      } else {
+        logger.error(`Error when inviting to party: ${err.stack ?? err}`)
+      }
+
+      dispatch(openSnackbar({ message, time: TIMING_LONG }))
     })
   }
 }
 
 export function removePartyInvite(partyId: string, targetId: SbUserId): ThunkAction {
   return dispatch => {
-    const params = { partyId, targetId }
-    dispatch({
-      type: '@parties/removePartyInviteBegin',
-      payload: params,
-    })
-
-    dispatch({
-      type: '@parties/removePartyInvite',
-      payload: fetchJson<void>(apiUrl`parties/invites/${partyId}/${targetId}`, {
-        method: 'DELETE',
-      }).catch(err => {
-        dispatch(
-          openSnackbar({
-            message: 'An error occurred while removing an invite',
-          }),
-        )
-        throw err
-      }),
-      meta: params,
+    fetchJson<void>(apiUrl`parties/invites/${partyId}/${targetId}`, {
+      method: 'DELETE',
+    }).catch(err => {
+      logger.error(`Error while removing party invite: ${err.stack ?? err}`)
+      // TODO(tec27): Handle codes
+      dispatch(
+        openSnackbar({
+          message: 'An error occurred while removing an invite',
+        }),
+      )
     })
   }
 }

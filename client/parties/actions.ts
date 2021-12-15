@@ -6,12 +6,6 @@ import { SbUser, SbUserId } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type PartyActions =
-  | InviteToPartyBegin
-  | InviteToPartySuccess
-  | InviteToPartyFailure
-  | RemovePartyInviteBegin
-  | RemovePartyInviteSuccess
-  | RemovePartyInviteFailure
   | DeclinePartyInviteBegin
   | DeclinePartyInviteSuccess
   | DeclinePartyInviteFailure
@@ -46,56 +40,6 @@ export type PartyActions =
   | UpdateQueue
   | UpdateQueueCancel
   | UpdateQueueReady
-
-export interface InviteToPartyBegin {
-  type: '@parties/inviteToPartyBegin'
-  payload: {
-    clientId: string
-    targetId: SbUserId
-  }
-}
-
-export interface InviteToPartySuccess {
-  type: '@parties/inviteToParty'
-  payload: void
-  meta: {
-    clientId: string
-    targetId: SbUserId
-  }
-  error?: false
-}
-
-export interface InviteToPartyFailure extends BaseFetchFailure<'@parties/inviteToParty'> {
-  meta: {
-    clientId: string
-    targetId: SbUserId
-  }
-}
-
-export interface RemovePartyInviteBegin {
-  type: '@parties/removePartyInviteBegin'
-  payload: {
-    partyId: string
-    targetId: SbUserId
-  }
-}
-
-export interface RemovePartyInviteSuccess {
-  type: '@parties/removePartyInvite'
-  payload: void
-  meta: {
-    partyId: string
-    targetId: SbUserId
-  }
-  error?: false
-}
-
-export interface RemovePartyInviteFailure extends BaseFetchFailure<'@parties/removePartyInvite'> {
-  meta: {
-    partyId: string
-    targetId: SbUserId
-  }
-}
 
 export interface DeclinePartyInviteBegin {
   type: '@parties/declinePartyInviteBegin'

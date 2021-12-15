@@ -20,6 +20,7 @@ export enum PartyServiceErrorCode {
   NotFoundOrNotInParty = 'NotFoundOrNotInParty',
   NotificationFailure = 'NotificationFailure',
   PartyFull = 'PartyFull',
+  UserNotFound = 'UserNotFound',
   UserOffline = 'UserOffline',
 }
 
@@ -124,10 +125,17 @@ export type PartyEvent =
   | PartyQueueCancelEvent
   | PartyQueueReadyEvent
 
-export interface InviteToPartyRequest {
+export interface InviteIdToPartyRequest {
   clientId: string
   targetId: number
 }
+
+export interface InviteNameToPartyRequest {
+  clientId: string
+  targetName: string
+}
+
+export type InviteToPartyRequest = InviteIdToPartyRequest | InviteNameToPartyRequest
 
 export interface AcceptPartyInviteRequest {
   clientId: string

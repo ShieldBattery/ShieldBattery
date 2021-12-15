@@ -41,7 +41,7 @@ export function ConnectedUserContextMenu({ userId, popoverProps }: ConnectedUser
   }, [user])
 
   const onInviteToPartyClick = useCallback(() => {
-    dispatch(inviteToParty(userId))
+    dispatch(inviteToParty({ targetId: userId }))
     onPopoverDismiss()
   }, [userId, dispatch, onPopoverDismiss])
 
