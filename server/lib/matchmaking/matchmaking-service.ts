@@ -2,7 +2,6 @@ import cuid from 'cuid'
 import { Immutable } from 'immer'
 import { container, inject, singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
-import { InPartyChecker, IN_PARTY_CHECKER } from '../../../client/parties/in-party-checker'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isAbortError, raceAbort } from '../../../common/async/abort-signals'
 import CancelToken from '../../../common/async/cancel-token'
@@ -63,6 +62,7 @@ import {
   MatchmakingRating,
 } from '../matchmaking/models'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
+import { InPartyChecker, IN_PARTY_CHECKER } from '../parties/in-party-checker'
 import { findUsersById } from '../users/user-model'
 import {
   ClientSocketsGroup,

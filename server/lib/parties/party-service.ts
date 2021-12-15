@@ -1,7 +1,6 @@
 import cuid from 'cuid'
 import { Immutable } from 'immer'
 import { container, delay, inject, instanceCachingFactory, singleton } from 'tsyringe'
-import { InPartyChecker, IN_PARTY_CHECKER } from '../../../client/parties/in-party-checker'
 import { isAbortError, raceAbort } from '../../../common/async/abort-signals'
 import { createDeferred, Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
@@ -34,6 +33,7 @@ import { Clock } from '../time/clock'
 import { findUsersById } from '../users/user-model'
 import { ClientSocketsGroup, ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
+import { InPartyChecker, IN_PARTY_CHECKER } from './in-party-checker'
 
 export interface PartyRecord {
   id: string
