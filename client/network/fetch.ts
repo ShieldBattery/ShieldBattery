@@ -45,12 +45,13 @@ export function fetchRaw(path: string, opts?: RequestInit): Promise<Response> {
     ...DEFAULT_HEADERS,
     ...opts.headers,
   }
-  if (opts.body && !FormData.prototype.isPrototypeOf(opts.body)) {
-    // If we're sending a body, set the Content-Type header to be JSON unless it's a form (this
-    // will set the Content-Type itself and also set the form-data boundary correctly). We don't set
-    // this otherwise because a Content-Type of `application/json` will trigger a preflight request
-    // even if the body is empty.
-    ;(headers as Record<string, string>)['Content-Type'] = 'application/json'
+  if (opts.body) {
+    if (typeof opts.body === 'string') {
+      // If we're sending a string body, assume this is already-encoded JSON. We only want to set
+      // this header in this particular case, because setting it even with empty bodies will trigger
+      // a CORS preflight request
+      ;(headers as Record<string, string>)['Content-Type'] = 'application/json'
+    }
   }
 
   return fetch(serverUrl, {
@@ -139,4 +140,18 @@ export function fetchReadableStream(path: string, opts?: RequestInit) {
 
   const fetchPromise = fetchRaw(path, opts).then(ensureSuccessStatus)
   return new BrowserReadableStreamWrapper(fetchPromise)
+}
+
+type SearchParamsValues = string | number | boolean | null | undefined | Date
+type ValidSearchParams<T> = Record<keyof T, SearchParamsValues>
+
+/**
+ * Encodes an object as a URLSearchParams. For this to properly, the object must only contain values
+ * that can be stringified (so no nested objects, no functions, etc). For POST requests, this is a
+ * preferable format over JSON, as it does not need to be pre-flighted for CORS.
+ */
+export function encodeBodyAsParams<BodyType extends ValidSearchParams<BodyType>>(
+  body: BodyType,
+): URLSearchParams {
+  return new URLSearchParams(body as unknown as Record<string, string>)
 }

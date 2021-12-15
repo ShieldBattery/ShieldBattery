@@ -3,7 +3,7 @@ import { apiUrl } from '../../common/urls'
 import { SbUser } from '../../common/users/user-info'
 import { ThunkAction } from '../dispatch-registry'
 import { push } from '../navigation/routing'
-import { fetchJson } from '../network/fetch'
+import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { ActivateChannel, DeactivateChannel } from './actions'
 
 export function joinChannel(channel: string): ThunkAction {
@@ -44,12 +44,11 @@ export function sendMessage(channel: string, message: string): ThunkAction {
       payload: params,
     })
 
-    const requestBody: SendChatMessageServerRequest = { message }
     dispatch({
       type: '@chat/sendMessage',
       payload: fetchJson<void>(apiUrl`chat/${channel}/messages`, {
         method: 'POST',
-        body: JSON.stringify(requestBody),
+        body: encodeBodyAsParams<SendChatMessageServerRequest>({ message }),
       }),
       meta: params,
     })
