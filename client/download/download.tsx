@@ -89,7 +89,7 @@ const InstallerButtonLabel = styled.span`
 `
 
 export default class Download extends React.Component {
-  render() {
+  override render() {
     return (
       <React.Fragment>
         <Blurb>Download the ShieldBattery client to:</Blurb>
@@ -131,6 +131,7 @@ export default class Download extends React.Component {
   }
 
   onDownloadClick = () => {
+    window.fathom?.trackGoal('BCSXAXFR', 0)
     window.location.assign('/published_artifacts/win/ShieldBattery.latest.exe')
   }
 }

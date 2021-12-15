@@ -1,4 +1,5 @@
 import cuid from 'cuid'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { ClientSessionInfo } from '../../common/users/session'
 import { SbUserId, SelfUser } from '../../common/users/user-info'
 import type { PromisifiedAction, ReduxAction } from '../action-types'
@@ -76,12 +77,20 @@ export function logOut() {
 
 export function signUp(username: string, email: string, password: string) {
   const reqUrl = '/api/1/users'
-  return idRequest('@auth/signUp', () =>
+  const result = idRequest('@auth/signUp', () =>
     fetchJson<ClientSessionInfo>(reqUrl, {
       method: 'post',
       body: JSON.stringify({ username, email, password }),
     }),
   )
+
+  result.promise
+    .then(() => {
+      window.fathom?.trackGoal('YTZ0JAUE', 0)
+    })
+    .catch(swallowNonBuiltins)
+
+  return result
 }
 
 export function getCurrentSession() {
