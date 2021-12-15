@@ -340,17 +340,22 @@ function renderMessage(msg: Message) {
 
 type UserEntry = [userId: SbUserId, username: string | undefined]
 
-function makeUserEntriesSelector(userIds: ReadonlySet<SbUserId> | undefined) {
-  return (state: RootState): UserEntry[] => {
-    if (!userIds) {
-      return []
-    }
+function useUserEntriesSelector(userIds: ReadonlySet<SbUserId> | undefined) {
+  return useCallback(
+    (state: RootState): ReadonlyArray<UserEntry> => {
+      if (!userIds?.size) {
+        return []
+      }
 
-    return Array.from<SbUserId, UserEntry>(userIds.values(), id => [
-      id,
-      state.users.byId.get(id)?.name,
-    ]).sort((a, b) => a[0] - b[0])
-  }
+      const result = Array.from<SbUserId, UserEntry>(userIds.values(), id => [
+        id,
+        state.users.byId.get(id)?.name,
+      ])
+      result.sort((a, b) => a[0] - b[0])
+      return result
+    },
+    [userIds],
+  )
 }
 
 function areUserEntriesEqual(a: ReadonlyArray<UserEntry>, b: ReadonlyArray<UserEntry>): boolean {
@@ -369,8 +374,9 @@ function areUserEntriesEqual(a: ReadonlyArray<UserEntry>, b: ReadonlyArray<UserE
   return true
 }
 
-function sortUsers(userEntries: UserEntry[]) {
+function sortUsers(userEntries: ReadonlyArray<UserEntry>): SbUserId[] {
   return userEntries
+    .slice()
     .sort(([aId, aName], [bId, bName]) => {
       // We put any user that still hasn't loaded at the bottom of the list
       if (aName === bName) {
@@ -400,12 +406,12 @@ export default function Channel(props: ChatChannelProps) {
   // We map the user IDs to their usernames so we can sort them by their name without pulling all of
   // the users from the store and depending on any of their changes.
   const activeUserEntries = useAppSelector(
-    makeUserEntriesSelector(activeUserIds),
+    useUserEntriesSelector(activeUserIds),
     areUserEntriesEqual,
   )
-  const idleUserEntries = useAppSelector(makeUserEntriesSelector(idleUserIds), areUserEntriesEqual)
+  const idleUserEntries = useAppSelector(useUserEntriesSelector(idleUserIds), areUserEntriesEqual)
   const offlineUserEntries = useAppSelector(
-    makeUserEntriesSelector(offlineUserIds),
+    useUserEntriesSelector(offlineUserIds),
     areUserEntriesEqual,
   )
 
