@@ -84,7 +84,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
           hey
            
           <common-message-layout__MentionedUsername
-            isMention={true}
+            prefix="@"
             userId={123}
           />
         </common-message-layout__Text>
@@ -117,7 +117,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
            go here
            
           <common-message-layout__MentionedUsername
-            isMention={true}
+            prefix="@"
             userId={123}
           />
         </common-message-layout__Text>
@@ -145,7 +145,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
           hey
            
           <common-message-layout__MentionedUsername
-            isMention={true}
+            prefix="@"
             userId={123}
           />
            see 
@@ -157,7 +157,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
            go here
            
           <common-message-layout__MentionedUsername
-            isMention={true}
+            prefix="@"
             userId={123}
           />
         </common-message-layout__Text>
@@ -184,7 +184,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
         <common-message-layout__Text>
           
           <common-message-layout__MentionedUsername
-            isMention={true}
+            prefix="@"
             userId={123}
           />
            go to 
@@ -224,7 +224,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
            go here
            
           <common-message-layout__MentionedUsername
-            isMention={true}
+            prefix="@"
             userId={123}
           />
            or here 
@@ -258,7 +258,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
           Hey
            
           <common-message-layout__MentionedUsername
-            isMention={true}
+            prefix="@"
             userId={1}
           />
         </common-message-layout__Text>
