@@ -1,9 +1,9 @@
 import React from 'react'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/user-info'
-import { useUserOverlays } from '../profile/user-overlays'
 import { useAppSelector } from '../redux-hooks'
 import { colorDividers } from '../styles/colors'
+import { useUserOverlays } from './user-overlays'
 
 const Username = styled.span`
   &:hover {
@@ -29,11 +29,11 @@ const LoadingName = styled.span`
 export function ConnectedUsername({
   className,
   userId,
-  isMention = false,
+  prefix = '',
 }: {
   className?: string
   userId: SbUserId
-  isMention?: boolean
+  prefix?: string
 }) {
   const { clickableElemRef, overlayNodes, onClick, onContextMenu } =
     useUserOverlays<HTMLSpanElement>({
@@ -61,7 +61,7 @@ export function ConnectedUsername({
         className={className}
         onClick={onClick}
         onContextMenu={onContextMenu}>
-        {isMention ? '@' : ''}
+        {prefix}
         {username}
       </Username>
     </>

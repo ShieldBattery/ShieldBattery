@@ -3,8 +3,8 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmaking'
 import { PartyQueueCancelReason } from '../../common/parties'
 import { SbUserId } from '../../common/users/user-info'
-import { ConnectedUsername } from '../messaging/connected-username'
 import { SystemImportant, SystemMessage } from '../messaging/message-layout'
+import { ConnectedUsername } from '../profile/connected-username'
 
 export const SelfJoinPartyMessage = React.memo<{ time: number; leaderId: SbUserId }>(props => {
   const { time, leaderId } = props

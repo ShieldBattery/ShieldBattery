@@ -1,12 +1,12 @@
 import React from 'react'
 import { SbUserId } from '../../common/users/user-info'
-import { ConnectedUsername } from '../messaging/connected-username'
 import {
   InfoImportant,
   SeparatedInfoMessage,
   SystemImportant,
   SystemMessage,
 } from '../messaging/message-layout'
+import { ConnectedUsername } from '../profile/connected-username'
 
 export const JoinChannelMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props

@@ -4,9 +4,9 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { matchLinks } from '../../common/text/links'
 import { matchMentionsMarkup } from '../../common/text/mentions'
 import { makeSbUserId, SbUserId } from '../../common/users/user-info'
+import { ConnectedUsername } from '../profile/connected-username'
 import { amberA100, blue100 } from '../styles/colors'
 import { body2 } from '../styles/typography'
-import { ConnectedUsername } from './connected-username'
 import { ExternalLink } from './external-link'
 import {
   InfoImportant,
@@ -81,7 +81,7 @@ export const TextMessage = React.memo<{
 
         elements.push(
           match.groups.prefix,
-          <MentionedUsername key={match.index} userId={userId} isMention={true} />,
+          <MentionedUsername key={match.index} userId={userId} prefix={'@'} />,
         )
       } else if (match.type === 'link') {
         // TODO(tec27): Handle links to our own host specially, redirecting to the correct route
