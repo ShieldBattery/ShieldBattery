@@ -12,7 +12,7 @@ type EventToActionMap = {
 }
 
 const eventToAction: EventToActionMap = {
-  initSession(event) {
+  initSession2(event) {
     return {
       type: '@whispers/initSession',
       payload: {

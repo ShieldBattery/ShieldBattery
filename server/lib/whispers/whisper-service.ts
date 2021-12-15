@@ -237,7 +237,7 @@ export default class WhisperService {
     userSockets.subscribe<WhisperSessionInitEvent>(
       getSessionPath(userSockets.name, target.name),
       () => ({
-        action: 'initSession',
+        action: 'initSession2',
         target,
         targetStatus: this.getUserStatus(target.id),
       }),

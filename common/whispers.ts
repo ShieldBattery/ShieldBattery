@@ -34,7 +34,7 @@ export enum WhisperUserStatus {
 }
 
 export interface WhisperSessionInitEvent {
-  action: 'initSession'
+  action: 'initSession2'
   target: SbUser
   targetStatus: WhisperUserStatus
 }
