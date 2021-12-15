@@ -5,10 +5,7 @@ import Koa from 'koa'
 import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { USERNAME_MAXLENGTH, USERNAME_MINLENGTH, USERNAME_PATTERN } from '../../../common/constants'
-import {
-  GetSessionHistoryServerResponse,
-  SendWhisperMessageServerRequest,
-} from '../../../common/whispers'
+import { GetSessionHistoryResponse, SendWhisperMessageRequest } from '../../../common/whispers'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -118,7 +115,7 @@ export class WhisperApi {
     const {
       body: { message },
     } = validateRequest(ctx, {
-      body: Joi.object<SendWhisperMessageServerRequest>({
+      body: Joi.object<SendWhisperMessageRequest>({
         message: Joi.string().min(1).required(),
       }),
     })
@@ -132,7 +129,7 @@ export class WhisperApi {
   // for old clients.
   @httpGet('/:targetName/messages')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
-  getSessionHistoryOld(ctx: RouterContext): Omit<GetSessionHistoryServerResponse, 'mentions'> {
+  getSessionHistoryOld(ctx: RouterContext): Omit<GetSessionHistoryResponse, 'mentions'> {
     return {
       messages: [],
       users: [],
@@ -141,7 +138,7 @@ export class WhisperApi {
 
   @httpGet('/:targetName/messages2')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
-  async getSessionHistory(ctx: RouterContext): Promise<GetSessionHistoryServerResponse> {
+  async getSessionHistory(ctx: RouterContext): Promise<GetSessionHistoryResponse> {
     const targetName = getValidatedTargetName(ctx)
     const {
       query: { limit, beforeTime },

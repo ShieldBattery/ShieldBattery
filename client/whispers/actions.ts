@@ -1,5 +1,5 @@
 import { SbUser } from '../../common/users/user-info'
-import { GetSessionHistoryServerResponse, WhisperUserStatus } from '../../common/whispers'
+import { GetSessionHistoryResponse, WhisperUserStatus } from '../../common/whispers'
 import { BaseFetchFailure } from '../network/fetch-action-types'
 
 export type WhisperActions =
@@ -125,7 +125,7 @@ export interface LoadMessageHistoryBegin {
  */
 export interface LoadMessageHistory {
   type: '@whispers/loadMessageHistory'
-  payload: GetSessionHistoryServerResponse
+  payload: GetSessionHistoryResponse
   meta: {
     target: string
     limit: number

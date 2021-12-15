@@ -7,6 +7,7 @@ import {
 import {
   AcceptFindMatchAsPartyRequest,
   AcceptPartyInviteRequest,
+  ChangePartyLeaderRequest,
   FindMatchAsPartyRequest,
   InviteToPartyRequest,
   PartyServiceErrorCode,
@@ -24,7 +25,7 @@ import {
 import { push } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
-import { fetchJson } from '../network/fetch'
+import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { ActivateParty, DeactivateParty } from './actions'
 
@@ -36,12 +37,11 @@ export function inviteToParty(targetId: SbUserId): ThunkAction {
       payload: params,
     })
 
-    const requestBody: InviteToPartyRequest = { clientId, targetId }
     dispatch({
       type: '@parties/inviteToParty',
       payload: fetchJson<void>(apiUrl`parties/invites`, {
         method: 'POST',
-        body: JSON.stringify(requestBody),
+        body: encodeBodyAsParams<InviteToPartyRequest>({ clientId, targetId }),
       }).catch(err => {
         let message = 'An error occurred while sending an invite'
         if (err.body.code === PartyServiceErrorCode.NotificationFailure) {
@@ -119,12 +119,11 @@ export function acceptPartyInvite(partyId: string): ThunkAction {
       payload: params,
     })
 
-    const requestBody: AcceptPartyInviteRequest = { clientId }
     dispatch({
       type: '@parties/acceptPartyInvite',
       payload: fetchJson<void>(apiUrl`parties/${partyId}`, {
         method: 'POST',
-        body: JSON.stringify(requestBody),
+        body: encodeBodyAsParams<AcceptPartyInviteRequest>({ clientId }),
       }).catch(err => {
         let message = 'An error occurred while accepting an invite'
         if (err.body.code === PartyServiceErrorCode.NotFoundOrNotInvited) {
@@ -174,12 +173,11 @@ export function sendChatMessage(partyId: string, message: string): ThunkAction {
       payload: params,
     })
 
-    const requestBody: SendPartyChatMessageRequest = { message }
     dispatch({
       type: '@parties/sendChatMessage',
       payload: fetchJson<void>(apiUrl`parties/${partyId}/messages`, {
         method: 'POST',
-        body: JSON.stringify(requestBody),
+        body: encodeBodyAsParams<SendPartyChatMessageRequest>({ message }),
       }),
       meta: params,
     })
@@ -223,7 +221,7 @@ export function changeLeader(partyId: string, targetId: SbUserId): ThunkAction {
       type: '@parties/changePartyLeader',
       payload: fetchJson<void>(apiUrl`parties/${partyId}/change-leader`, {
         method: 'POST',
-        body: JSON.stringify({ targetId }),
+        body: encodeBodyAsParams<ChangePartyLeaderRequest>({ targetId }),
       }).catch(err => {
         dispatch(
           openSnackbar({

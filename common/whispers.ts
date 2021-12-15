@@ -77,14 +77,14 @@ export type WhisperEvent =
   | WhisperUserIdleEvent
   | WhisperUserOfflineEvent
 
-export interface SendWhisperMessageServerRequest {
+export interface SendWhisperMessageRequest {
   message: string
 }
 
 /**
  * Payload returned for a request to retrieve the session history.
  */
-export interface GetSessionHistoryServerResponse {
+export interface GetSessionHistoryResponse {
   /**
    * A list of messages for a particular whisper session. Note that this payload is paginated so not
    * all of the messages are returned at once.

@@ -2,7 +2,7 @@ import { Map, OrderedSet, Set } from 'immutable'
 import { singleton } from 'tsyringe'
 import { SbUser, SbUserId } from '../../../common/users/user-info'
 import {
-  GetSessionHistoryServerResponse,
+  GetSessionHistoryResponse,
   WhisperEvent,
   WhisperMessage,
   WhisperMessageType,
@@ -152,7 +152,7 @@ export default class WhisperService {
     targetName: string,
     limit?: number,
     beforeTime?: number,
-  ): Promise<GetSessionHistoryServerResponse> {
+  ): Promise<GetSessionHistoryResponse> {
     const [user, target] = await Promise.all([
       this.getUserById(userId),
       this.getUserByName(targetName),

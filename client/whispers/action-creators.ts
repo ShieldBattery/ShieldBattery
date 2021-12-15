@@ -1,11 +1,8 @@
 import { apiUrl } from '../../common/urls'
-import {
-  GetSessionHistoryServerResponse,
-  SendWhisperMessageServerRequest,
-} from '../../common/whispers'
+import { GetSessionHistoryResponse, SendWhisperMessageRequest } from '../../common/whispers'
 import { ThunkAction } from '../dispatch-registry'
 import { push } from '../navigation/routing'
-import { fetchJson } from '../network/fetch'
+import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { ActivateWhisperSession, DeactivateWhisperSession } from './actions'
 
 export function startWhisperSession(target: string): ThunkAction {
@@ -46,12 +43,11 @@ export function sendMessage(target: string, message: string): ThunkAction {
       payload: params,
     })
 
-    const requestBody: SendWhisperMessageServerRequest = { message }
     dispatch({
       type: '@whispers/sendMessage',
       payload: fetchJson<void>(apiUrl`whispers/${target}/messages`, {
         method: 'POST',
-        body: JSON.stringify(requestBody),
+        body: encodeBodyAsParams<SendWhisperMessageRequest>({ message }),
       }),
       meta: params,
     })
@@ -78,7 +74,7 @@ export function getMessageHistory(target: string, limit: number): ThunkAction {
     })
     dispatch({
       type: '@whispers/loadMessageHistory',
-      payload: fetchJson<GetSessionHistoryServerResponse>(
+      payload: fetchJson<GetSessionHistoryResponse>(
         apiUrl`whispers/${target}/messages2?limit=${limit}&beforeTime=${earliestMessageTime}`,
         { method: 'GET' },
       ),
