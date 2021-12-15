@@ -257,12 +257,15 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
       if (systemTray) {
         systemTray.showUnreadIcon(data.urgent)
       }
+
+      if (data.urgent) {
+        mainWindow.flashFrame(true)
+      }
     }
   })
 
   ipcMain.on('userAttentionRequired', event => {
     if (mainWindow && !mainWindow.isFocused()) {
-      mainWindow.once('focus', () => mainWindow?.flashFrame(false))
       mainWindow.flashFrame(true)
     }
   })
@@ -511,6 +514,7 @@ async function createWindow() {
       if (systemTray) {
         systemTray.clearUnreadIcon()
       }
+      mainWindow?.flashFrame(false)
       TypedIpcSender.from(mainWindow?.webContents).send('windowFocusChanged', true)
     })
     .on('blur', () => {

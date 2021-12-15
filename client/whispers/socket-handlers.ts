@@ -1,12 +1,14 @@
 import { NydusClient } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { WhisperEvent } from '../../common/whispers'
-import { dispatch, Dispatchable } from '../dispatch-registry'
+import audioManager, { AvailableSound } from '../audio/audio-manager'
+import { dispatch, Dispatchable, ThunkAction } from '../dispatch-registry'
+import windowFocus from '../window-focus'
 
 const ipcRenderer = new TypedIpcRenderer()
 
 type EventToActionMap = {
-  [E in WhisperEvent['action']]?: (event: Extract<WhisperEvent, { action: E }>) => Dispatchable
+  [E in WhisperEvent['action']]: (event: Extract<WhisperEvent, { action: E }>) => Dispatchable
 }
 
 const eventToAction: EventToActionMap = {
@@ -29,27 +31,43 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  message(event) {
-    // Notify the main process of the new message, so it can display an appropriate notification
-    ipcRenderer.send('chatNewMessage', {
-      user: event.message.from.name,
-      message: event.message.data.text,
-      urgent: true,
-    })
+  message(event): ThunkAction {
+    return (dispatch, getState) => {
+      // Notify the main process of the new message, so it can display an appropriate notification
+      ipcRenderer.send('chatNewMessage', {
+        user: event.message.from.name,
+        message: event.message.data.text,
+        urgent: true,
+      })
 
-    return {
-      type: '@whispers/updateMessage',
-      payload: {
-        message: {
-          id: event.message.id,
-          time: event.message.sent,
-          from: event.message.from,
-          to: event.message.to,
-          text: event.message.data.text,
+      dispatch({
+        type: '@whispers/updateMessage',
+        payload: {
+          message: {
+            id: event.message.id,
+            time: event.message.sent,
+            from: event.message.from,
+            to: event.message.to,
+            text: event.message.data.text,
+          },
+          users: event.users,
+          mentions: event.mentions,
         },
-        users: event.users,
-        mentions: event.mentions,
-      },
+      })
+
+      const {
+        whispers: { sessions, byName },
+      } = getState()
+      const { from, to } = event.message
+      const sessionName = (sessions.has(from.name) ? from.name : to.name).toLowerCase()
+      const session = byName.get(sessionName)
+      if (!session) {
+        return
+      }
+
+      if (!session.activated || !windowFocus.isFocused()) {
+        audioManager.playSound(AvailableSound.MessageAlert)
+      }
     }
   },
 

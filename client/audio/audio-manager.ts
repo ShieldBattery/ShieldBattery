@@ -120,5 +120,5 @@ export class AudioManager {
   }
 }
 
-const instance = new AudioManager()
-export default instance
+export const audioManager = new AudioManager()
+export default audioManager

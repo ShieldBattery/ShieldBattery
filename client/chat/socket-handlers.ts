@@ -1,15 +1,17 @@
 import { NydusClient } from 'nydus-client'
 import { ChatEvent } from '../../common/chat'
 import { TypedIpcRenderer } from '../../common/ipc'
+import audioManager, { AvailableSound } from '../audio/audio-manager'
 import { dispatch, Dispatchable } from '../dispatch-registry'
+import windowFocus from '../window-focus'
 
 const ipcRenderer = new TypedIpcRenderer()
 
 type EventToActionMap = {
-  [E in ChatEvent['action']]?: (
+  [E in ChatEvent['action']]: (
     channel: string,
     event: Extract<ChatEvent, { action: E }>,
-  ) => Dispatchable
+  ) => Dispatchable | undefined
 }
 
 const eventToAction: EventToActionMap = {
@@ -48,13 +50,17 @@ const eventToAction: EventToActionMap = {
 
   message2(channel, event) {
     return (dispatch, getState) => {
-      const { auth } = getState()
+      const {
+        auth,
+        chat: { byName },
+      } = getState()
 
+      const isUrgent = event.mentions.some(m => m.id === auth.user.id)
       // Notify the main process of the new message, so it can display an appropriate notification
       ipcRenderer.send('chatNewMessage', {
         user: event.user.name,
         message: event.message.text,
-        urgent: event.mentions.some(m => m.id === auth.user.id),
+        urgent: isUrgent,
       })
 
       dispatch({
@@ -62,6 +68,11 @@ const eventToAction: EventToActionMap = {
         payload: event,
         meta: { channel },
       })
+
+      const channelState = byName.get(channel.toLowerCase())
+      if (isUrgent && channelState && (!channelState.activated || !windowFocus.isFocused())) {
+        audioManager.playSound(AvailableSound.MessageAlert)
+      }
     }
   },
 
@@ -88,6 +99,14 @@ const eventToAction: EventToActionMap = {
       meta: { channel },
     }
   },
+
+  // TODO(tec27): implement
+  kick(channel, event) {
+    return undefined
+  },
+  ban(channel, event) {
+    return undefined
+  },
 }
 
 export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
@@ -95,7 +114,7 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
     const actionName = event.action as ChatEvent['action']
     if (!eventToAction[actionName]) return
 
-    const action = eventToAction[actionName]!(route.params.channel, event)
+    const action = eventToAction[actionName](route.params.channel, event)
     if (action) dispatch(action)
   })
 }
