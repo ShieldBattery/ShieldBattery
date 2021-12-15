@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
 import { MapInfoJson } from '../../common/maps'
-import { FetchError } from '../network/fetch-action-types'
+import { FetchError } from '../network/fetch-errors'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 // TODO(2Pac): Figure out if this reducer is even needed. I have no idea what was I thinking when I

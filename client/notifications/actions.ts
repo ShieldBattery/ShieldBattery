@@ -1,5 +1,5 @@
 import { ClearNotificationsServerResponse, SbNotification } from '../../common/notifications'
-import { BaseFetchFailure } from '../network/fetch-action-types'
+import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type NotificationActions =
   | ServerInitNotifications

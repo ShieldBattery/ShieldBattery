@@ -1,6 +1,5 @@
 import { Immutable } from 'immer'
 import { MapPreferences, MapSortType, MapVisibility, NumPlayers, Tileset } from '../../common/maps'
-import { FetchError } from '../network/fetch-action-types'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface MapPreferencesState {
@@ -18,7 +17,7 @@ export interface MapPreferencesState {
   isRequesting: boolean
   // NOTE(2Pac): We don't actually display this anywhere since it's not that useful to the user
   /** A potential error of our request to get map preferences. */
-  lastError?: FetchError
+  lastError?: { status: number; statusText: string; body: unknown }
 }
 
 const DEFAULT_STATE: Immutable<MapPreferencesState> = {
@@ -50,7 +49,8 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.isRequesting = false
 
     if (action.error) {
-      state.lastError = action.payload
+      const { status, statusText, body } = action.payload
+      state.lastError = { status, statusText, body }
       return
     }
 
@@ -61,7 +61,8 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.isRequesting = false
 
     if (action.error) {
-      state.lastError = action.payload
+      const { status, statusText, body } = action.payload
+      state.lastError = { status, statusText, body }
       return
     }
 

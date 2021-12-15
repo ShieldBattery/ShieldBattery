@@ -458,7 +458,7 @@ export default class PartyService implements InPartyChecker {
       party.partyQueueRequest.matchmakingType !== preferences.matchmakingType
     ) {
       throw new PartyServiceError(
-        PartyServiceErrorCode.InvalidAction,
+        PartyServiceErrorCode.AlreadyInGameplayActivity,
         'Party is already in the process of queueing for a different matchmaking type',
       )
     } else if (party.partyQueueRequest) {

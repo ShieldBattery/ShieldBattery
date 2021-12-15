@@ -1,4 +1,5 @@
 import { Immutable } from 'immer'
+import React from 'react'
 import {
   defaultPreferenceData,
   MatchmakingPreferences,
@@ -16,6 +17,7 @@ import {
 import { RaceChar } from '../../common/races'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/user-info'
+import { openSimpleDialog } from '../dialogs/action-creators'
 import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
 import {
@@ -26,8 +28,10 @@ import { push } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
+import { isFetchError } from '../network/fetch-errors'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { ActivateParty, DeactivateParty } from './actions'
+import { AlreadySearchingErrorContent } from './find-match-error-content'
 
 export function inviteToParty(targetId: SbUserId): ThunkAction {
   return dispatch => {
@@ -262,12 +266,36 @@ export function findMatchAsParty(
       body: JSON.stringify(body),
     })
     promise.catch(err => {
-      logger.error(`Error while queuing for matchmaking as a party: ${err?.stack ?? err}`)
-      dispatch(
-        openSnackbar({
-          message: 'An error occurred while queueing for matchmaking',
-        }),
-      )
+      let dialogMessage: React.ReactNode = 'Something went wrong :('
+
+      if (isFetchError(err) && err.code) {
+        switch (err.code) {
+          case PartyServiceErrorCode.NotFoundOrNotInParty:
+            dialogMessage = "Party not found or you're not in it"
+            break
+          case PartyServiceErrorCode.InsufficientPermissions:
+            dialogMessage = 'Only party leaders can queue for matchmaking'
+            break
+          case PartyServiceErrorCode.AlreadyInGameplayActivity:
+            dialogMessage = 'The party is already searching for a different matchmaking type'
+            const body = err.body as any
+            if (body.users && Array.isArray(body.users)) {
+              dialogMessage = <AlreadySearchingErrorContent users={body.users as SbUserId[]} />
+            }
+            break
+          case PartyServiceErrorCode.InvalidAction:
+            dialogMessage = 'The party is too large for that matchmaking type'
+            break
+          default:
+            logger.error(
+              `Unhandled error code while queueing for matchmaking as a party: ${err.code}`,
+            )
+            break
+        }
+      } else {
+        logger.error(`Error while queuing for matchmaking as a party: ${err?.stack ?? err}`)
+      }
+      dispatch(openSimpleDialog('Error searching for a match', dialogMessage, true))
     })
 
     dispatch(updateLastQueuedMatchmakingType(preferences.matchmakingType))

@@ -43,7 +43,7 @@ function handleError(state: State, action: AuthErrors) {
   return state.withMutations(s =>
     s.set('authChangeInProgress', false).set('lastFailure', {
       reqId: meta.reqId,
-      err: action.payload.body ? action.payload.body.error : 'Connection error',
+      err: action.payload.statusText ?? 'Connection error',
     }),
   )
 }
@@ -66,9 +66,9 @@ function emailVerified(state: State, action: VerifyEmailSuccess) {
 }
 
 function handleVerifyEmailError(state: State, action: VerifyEmailFailure) {
-  const { body, res } = action.payload
-  let errMessage = body ? body.error : 'Verification error'
-  if (res.status === 400) {
+  const { status, statusText } = action.payload
+  let errMessage = statusText ?? 'Verification error'
+  if (status === 400) {
     errMessage = `The provided email or verification code is not valid. If the verification code
       matches the one you were emailed, it may have expired. Please request a new verification
       email and try again.`

@@ -1,15 +1,20 @@
 import { Immutable } from 'immer'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
   GetMatchmakingMapPoolBody,
   GetPreferencesResponse,
   MatchmakingPreferences,
+  MatchmakingServiceErrorCode,
   MatchmakingType,
 } from '../../common/matchmaking'
 import { apiUrl } from '../../common/urls'
+import { openSimpleDialog } from '../dialogs/action-creators'
 import { ThunkAction } from '../dispatch-registry'
+import logger from '../logging/logger'
 import { clientId } from '../network/client-id'
 import { fetchJson } from '../network/fetch'
+import { isFetchError } from '../network/fetch-errors'
 import { UpdateLastQueuedMatchmakingType } from './actions'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -21,29 +26,45 @@ export function findMatch<M extends MatchmakingType>(
   return dispatch => {
     ipcRenderer.send('rallyPointRefreshPings')
 
-    const params = { clientId, preferences }
-    dispatch({
-      type: '@matchmaking/findMatchBegin',
-      payload: params,
+    const findPromise = fetchJson<void>(apiUrl`matchmaking/find`, {
+      method: 'POST',
+      body: JSON.stringify({ clientId, preferences }),
     })
 
-    dispatch({
-      type: '@matchmaking/findMatch',
-      payload: fetchJson<void>(apiUrl`matchmaking/find`, {
-        method: 'POST',
-        body: JSON.stringify(params),
-      }).then<{ startTime: number }>(() => {
+    findPromise.catch(err => {
+      let message = 'Something went wrong :('
+
+      if (isFetchError(err) && err.code) {
+        switch (err.code) {
+          case MatchmakingServiceErrorCode.MatchmakingDisabled:
+            message = 'Matchmaking is currently disabled'
+            break
+          case MatchmakingServiceErrorCode.InParty:
+            message = 'You are in a party, cannot queue as a solo player'
+            break
+          case MatchmakingServiceErrorCode.GameplayConflict:
+            message = 'You are already in a game, searching for a match, or in a custom lobby'
+            break
+          default:
+            logger.error(
+              `Unhandled error code while queueing for matchmaking as a solo player: ${err.code}`,
+            )
+            break
+        }
+      } else {
+        logger.error(`Error while queuing for matchmaking as a solo player: ${err?.stack ?? err}`)
+      }
+      dispatch(openSimpleDialog('Error searching for a match', message, true))
+    })
+
+    findPromise
+      .then(() => {
         dispatch(updateLastQueuedMatchmakingType(matchmakingType))
         // Load the current map pool in the store so we can download all of the maps in it as soon
         // as the player queues.
         dispatch(getCurrentMapPool(matchmakingType))
-
-        return {
-          startTime: window.performance.now(),
-        }
-      }),
-      meta: params,
-    })
+      })
+      .catch(swallowNonBuiltins)
   }
 }
 

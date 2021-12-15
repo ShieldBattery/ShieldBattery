@@ -1,6 +1,6 @@
 import { SbUser } from '../../common/users/user-info'
 import { GetSessionHistoryResponse, WhisperUserStatus } from '../../common/whispers'
-import { BaseFetchFailure } from '../network/fetch-action-types'
+import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type WhisperActions =
   | StartWhisperSessionBegin

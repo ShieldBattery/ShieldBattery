@@ -11,7 +11,7 @@ import {
   UpdateMapServerRequest,
   UploadMapResponse,
 } from '../../common/maps'
-import { BaseFetchFailure } from '../network/fetch-action-types'
+import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type MapsActions =
   | UploadLocalMapBegin

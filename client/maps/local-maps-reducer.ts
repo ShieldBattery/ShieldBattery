@@ -1,5 +1,5 @@
 import { Immutable } from 'immer'
-import { FetchError } from '../network/fetch-action-types'
+import { FetchError } from '../network/fetch-errors'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface LocalMapsState {

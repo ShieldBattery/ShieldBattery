@@ -5,7 +5,7 @@ import { ACTIVE_GAME_STATUS } from '../actions'
 import { dispatch } from '../dispatch-registry'
 import logger from '../logging/logger'
 import { fetchJson } from '../network/fetch'
-import { FetchError } from '../network/fetch-action-types'
+import { isFetchError } from '../network/fetch-errors'
 
 export default function ({ ipcRenderer }: { ipcRenderer: TypedIpcRenderer }) {
   ipcRenderer.on('activeGameStatus', (event, status) => {
@@ -26,8 +26,8 @@ export default function ({ ipcRenderer }: { ipcRenderer: TypedIpcRenderer }) {
         method: 'put',
         body: JSON.stringify({ status: stringToStatus(status.state), extra: status.extra }),
       }).catch(err => {
-        if (err instanceof FetchError) {
-          if (err.res.status === 409 || err.res.status === 404) {
+        if (isFetchError(err)) {
+          if (err.status === 409 || err.status === 404) {
             logger.error(
               'Quitting current game due to error reporting game status to server: ' + err.message,
             )

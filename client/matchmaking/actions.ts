@@ -1,14 +1,12 @@
-import { Immutable } from 'immer'
 import {
   GetMatchmakingMapPoolBody,
   GetPreferencesResponse,
-  MatchmakingPreferences,
   MatchmakingStatusJson,
   MatchmakingType,
   MatchReadyEvent,
 } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
-import { BaseFetchFailure } from '../network/fetch-action-types'
+import { BaseFetchFailure } from '../network/fetch-errors'
 import { MatchmakingMatchRecord } from './matchmaking-reducer'
 
 export type MatchmakingActions =
@@ -20,9 +18,6 @@ export type MatchmakingActions =
   | UpdatePreferencesSuccess
   | UpdatePreferencesFailure
   | UpdateLastQueuedMatchmakingType
-  | FindMatchBegin
-  | FindMatchSuccess
-  | FindMatchFailure
   | CancelMatchBegin
   | CancelMatchSuccess
   | CancelMatchFailure
@@ -102,33 +97,6 @@ export interface UpdatePreferencesFailure
 export interface UpdateLastQueuedMatchmakingType {
   type: '@matchmaking/updateLastQueuedMatchmakingType'
   payload: MatchmakingType
-}
-
-export interface FindMatchBegin {
-  type: '@matchmaking/findMatchBegin'
-  payload: {
-    clientId: string
-    preferences: Immutable<MatchmakingPreferences>
-  }
-}
-
-export interface FindMatchSuccess {
-  type: '@matchmaking/findMatch'
-  payload: {
-    startTime: number
-  }
-  meta?: {
-    clientId: string
-    preferences: Immutable<MatchmakingPreferences>
-  }
-  error?: false
-}
-
-export interface FindMatchFailure extends BaseFetchFailure<'@matchmaking/findMatch'> {
-  meta?: {
-    clientId: string
-    preferences: Immutable<MatchmakingPreferences>
-  }
 }
 
 export interface StartMatchSearch {

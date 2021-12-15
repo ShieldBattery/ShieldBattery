@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
 import { MatchmakingPreferences, MatchmakingType } from '../../common/matchmaking'
-import { FetchError } from '../network/fetch-action-types'
+import { FetchError } from '../network/fetch-errors'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface FetchedMatchmakingPreferences {

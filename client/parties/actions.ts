@@ -3,7 +3,7 @@ import { MatchmakingPreferences, MatchmakingType } from '../../common/matchmakin
 import { PartyChatMessage, PartyJson, PartyQueueCancelReason } from '../../common/parties'
 import { RaceChar } from '../../common/races'
 import { SbUser, SbUserId } from '../../common/users/user-info'
-import { BaseFetchFailure } from '../network/fetch-action-types'
+import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type PartyActions =
   | InviteToPartyBegin

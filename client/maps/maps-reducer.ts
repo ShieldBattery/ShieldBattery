@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
 import { MapInfoJson } from '../../common/maps'
-import { FetchError } from '../network/fetch-action-types'
+import { FetchError } from '../network/fetch-errors'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 /** @deprecated Do not add new things here, use maps2-reducer */

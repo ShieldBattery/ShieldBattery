@@ -1,6 +1,6 @@
 import { GetRankingsResponse } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
-import { BaseFetchFailure } from '../network/fetch-action-types'
+import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type LadderActions = GetRankingsBegin | GetRankingsSuccess | GetRankingsFailure
 

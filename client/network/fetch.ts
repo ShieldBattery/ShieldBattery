@@ -1,6 +1,6 @@
 import { Readable } from 'stream'
 import 'whatwg-fetch'
-import { FetchError } from './fetch-action-types'
+import { FetchError } from './fetch-errors'
 import { makeServerUrl } from './server-url'
 
 const fetch = window.fetch
@@ -8,11 +8,12 @@ const fetch = window.fetch
 // NOTE(tec27): I have no idea where to import this from otherwise lol
 type RequestInit = NonNullable<Parameters<typeof fetch>[1]>
 
-function ensureSuccessStatus(res: Response): Response {
+async function ensureSuccessStatus(res: Response): Promise<Response> {
   if (res.status >= 200 && res.status < 300) {
     return res
   } else {
-    throw new FetchError(`${res.url} got ${res.status}: ${res.statusText}`, res)
+    const text = await res.text()
+    throw new FetchError(res, text)
   }
 }
 
@@ -62,25 +63,9 @@ export function fetchRaw(path: string, opts?: RequestInit): Promise<Response> {
 }
 
 export async function fetchJson<T>(path: string, opts?: RequestInit): Promise<T> {
-  try {
-    const res = ensureSuccessStatus(await fetchRaw(path, opts))
-    const text = await res.text()
-    return parseResponseJson(text)
-  } catch (err: any) {
-    if (!err.res) throw err
-
-    const res: Response = err.res
-
-    try {
-      const text = await res.text()
-      const parsed = parseResponseJson(text)
-      err.body = parsed
-    } catch (_) {
-      err.body = { error: err.message }
-    }
-
-    throw err
-  }
+  const res = await ensureSuccessStatus(await fetchRaw(path, opts))
+  const text = await res.text()
+  return parseResponseJson(text)
 }
 
 type StreamReader = ReturnType<typeof ReadableStream.prototype.getReader>
