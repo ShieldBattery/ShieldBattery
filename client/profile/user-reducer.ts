@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
 import { GameRecordJson } from '../../common/games/games'
-import { SbUser, SbUserId, UserProfile } from '../../common/users/user-info'
+import { SbUser, SbUserId, UserProfileJson } from '../../common/users/user-info'
 import { LOBBY_INIT_DATA, LOBBY_UPDATE_CHAT_MESSAGE, LOBBY_UPDATE_SLOT_CREATE } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
@@ -18,7 +18,7 @@ export interface UserState {
   /** A map of user ID -> recent match history. */
   idToMatchHistory: Map<SbUserId, GameRecordJson[]>
   /** A map of user ID -> user profile information. */
-  idToProfile: Map<SbUserId, UserProfile>
+  idToProfile: Map<SbUserId, UserProfileJson>
   /**
    * The set of user IDs for which data is currently loading. This is intended to be used for
    * showing loading indicators and deduping requests.

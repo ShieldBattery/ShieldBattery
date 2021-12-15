@@ -1,4 +1,5 @@
 import React from 'react'
+import { hot } from 'react-hot-loader/root'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/user-info'
 import { ConnectedUsername } from '../profile/connected-username'
@@ -12,7 +13,10 @@ const StyledConnectedUsername = styled(ConnectedUsername)`
   ${subtitle2};
 `
 
-export function AlreadySearchingErrorContent({ users }: { users: SbUserId[] }) {
+// NOTE(tec27): The hot() call here is necessary because this file is used by socket-handlers,
+// which get included at a level that does not get hot-reloaded. Without this, everything this
+// component uses (and anything that also uses it) cannot be hot reloaded, which is a lot of things!
+export const AlreadySearchingErrorContent = hot(({ users }: { users: SbUserId[] }) => {
   return (
     <Subtitle1>
       Some party members are already playing a game, searching for a match, or in a custom lobby:
@@ -25,4 +29,4 @@ export function AlreadySearchingErrorContent({ users }: { users: SbUserId[] }) {
       </UserList>
     </Subtitle1>
   )
-}
+})

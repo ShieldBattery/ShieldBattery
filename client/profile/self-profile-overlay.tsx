@@ -1,7 +1,7 @@
 import React from 'react'
 import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
-import Avatar from '../avatars/avatar'
+import { Avatar } from '../avatars/avatar'
 import { Popover, useAnchorPosition } from '../material/popover'
 import { defaultSpring } from '../material/springs'
 import { headline6, singleLine } from '../styles/typography'

@@ -8,7 +8,7 @@ import {
   EMAIL_PATTERN,
   PASSWORD_MINLENGTH,
 } from '../../common/constants'
-import Avatar from '../avatars/avatar'
+import { Avatar } from '../avatars/avatar'
 import { closeDialog } from '../dialogs/action-creators'
 import form from '../forms/form'
 import SubmitOnEnter from '../forms/submit-on-enter'

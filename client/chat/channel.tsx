@@ -4,7 +4,7 @@ import styled, { css } from 'styled-components'
 import { ClientChatMessageType, ServerChatMessageType } from '../../common/chat'
 import { MULTI_CHANNEL } from '../../common/flags'
 import { SbUserId } from '../../common/users/user-info'
-import Avatar from '../avatars/avatar'
+import { ConnectedAvatar } from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import Chat from '../messaging/chat'
 import { Message } from '../messaging/message-records'
@@ -72,7 +72,7 @@ const UserListOverline = styled.div`
   }
 `
 
-const StyledAvatar = styled(Avatar)`
+const StyledAvatar = styled(ConnectedAvatar)`
   width: 32px;
   height: 32px;
 
@@ -80,10 +80,19 @@ const StyledAvatar = styled(Avatar)`
 
   margin: 2px 16px 2px 0;
 `
+const LoadingName = styled.div`
+  width: 64px;
+  height: 20px;
+  margin: 8px 0;
+  display: inline-block;
+
+  background-color: ${colorDividers};
+  border-radius: 2px;
+`
 
 const fadedCss = css`
   color: ${colorTextFaint};
-  ${StyledAvatar} {
+  ${StyledAvatar}, ${LoadingName} {
     opacity: ${alphaDisabled};
   }
 `
@@ -128,27 +137,6 @@ const UserListName = styled.span`
   display: inline-block;
 `
 
-const LoadingUserListEntryItem = styled(UserListEntryItem)`
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-`
-
-const LoadingAvatar = styled.div`
-  width: 32px;
-  height: 32px;
-  margin-right: 16px;
-
-  background-color: ${colorDividers};
-  border-radius: 50%;
-`
-
-const LoadingName = styled.div`
-  width: 64px;
-  height: 24px;
-  background-color: ${colorDividers};
-`
-
 interface UserListEntryProps {
   userId: SbUserId
   faded?: boolean
@@ -167,17 +155,6 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
       profileOffsetX: -4,
     })
 
-  if (!user) {
-    return (
-      <div style={props.style}>
-        <LoadingUserListEntryItem key='entry'>
-          <LoadingAvatar />
-          <LoadingName aria-label='Username loading…' />
-        </LoadingUserListEntryItem>
-      </div>
-    )
-  }
-
   return (
     <div style={props.style}>
       {overlayNodes}
@@ -189,8 +166,12 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
         isOverlayOpen={isOverlayOpen}
         onClick={onClick}
         onContextMenu={onContextMenu}>
-        <StyledAvatar user={user.name} />
-        <UserListName>{user.name}</UserListName>
+        <StyledAvatar userId={props.userId} />
+        {user ? (
+          <UserListName>{user.name}</UserListName>
+        ) : (
+          <LoadingName aria-label='Username loading…' />
+        )}
       </UserListEntryItem>
     </div>
   )

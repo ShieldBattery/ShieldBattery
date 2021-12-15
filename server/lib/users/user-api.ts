@@ -51,6 +51,7 @@ import {
   findUserById,
   findUserByName,
   findUsersById,
+  retrieveUserCreatedDate,
   updateUser,
   UserUpdatables,
 } from './user-model'
@@ -176,6 +177,7 @@ export class UserApi {
       }
     })
     const userStatsPromise = getUserStats(user.id)
+    const createdDatePromise = retrieveUserCreatedDate(user.id)
 
     const NUM_RECENT_GAMES = 6
     const matchHistoryPromise = (async () => {
@@ -208,11 +210,15 @@ export class UserApi {
     // TODO(tec27): I think these calls will be combine-able in later versions of TS, as of 4.3
     // the inference doesn't work for destructuring the results
     await Promise.all(matchmakingPromises)
-    const [userStats, matchHistory] = await Promise.all([userStatsPromise, matchHistoryPromise])
+    const [userStats, matchHistory, createdDate] = await Promise.all([
+      userStatsPromise,
+      matchHistoryPromise,
+      createdDatePromise,
+    ])
 
     return {
       user,
-      profile: { userId: user.id, ladder, userStats },
+      profile: { userId: user.id, created: Number(createdDate), ladder, userStats },
       matchHistory,
     }
   }

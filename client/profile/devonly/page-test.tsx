@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import styled from 'styled-components'
 import { GameRecordJson } from '../../../common/games/games'
-import { makeSbUserId, SbUser, UserProfile } from '../../../common/users/user-info'
+import { makeSbUserId, SbUser, UserProfileJson } from '../../../common/users/user-info'
 import { background700 } from '../../styles/colors'
 import { UserProfilePage } from '../user-profile'
 import { UserProfileSubPage } from '../user-profile-sub-page'
@@ -23,8 +23,9 @@ const TestContent = styled.div`
   flex-grow: 1;
 `
 
-const PROFILE: UserProfile = {
+const PROFILE: UserProfileJson = {
   userId: makeSbUserId(1),
+  created: Date.now(),
   ladder: {},
   userStats: {
     userId: makeSbUserId(1),
@@ -51,7 +52,7 @@ const MATCH_HISTORY: GameRecordJson[] = []
 
 export function ProfilePageTest() {
   const [user] = useState<SbUser>({ id: PROFILE.userId, name: '[TL] BigFan' })
-  const [profile] = useState<UserProfile>(PROFILE)
+  const [profile] = useState<UserProfileJson>(PROFILE)
   const [subPage, setSubPage] = useState<UserProfileSubPage>()
 
   return (

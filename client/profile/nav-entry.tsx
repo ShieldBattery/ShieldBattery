@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
-import Avatar from '../avatars/avatar'
+import { Avatar } from '../avatars/avatar'
 import ExpandIcon from '../icons/material/expand_less_black_24px.svg'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'

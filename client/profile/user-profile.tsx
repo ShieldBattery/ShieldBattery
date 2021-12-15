@@ -10,8 +10,8 @@ import {
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
-import { SbUser, SbUserId, UserProfile } from '../../common/users/user-info'
-import Avatar from '../avatars/avatar'
+import { SbUser, SbUserId, UserProfileJson } from '../../common/users/user-info'
+import { ConnectedAvatar } from '../avatars/avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import { RaceIcon } from '../lobbies/race-icon'
 import { shadow2dp } from '../material/shadows'
@@ -142,7 +142,7 @@ export function ConnectedUserProfilePage({
 
 export interface UserProfilePageProps {
   user: SbUser
-  profile: UserProfile
+  profile: UserProfileJson
   matchHistory: Immutable<GameRecordJson[]>
   subPage?: UserProfileSubPage
   onTabChange: (tab: UserProfileSubPage) => void
@@ -209,7 +209,7 @@ const AvatarCircle = styled.div`
   border-radius: 50%;
 `
 
-const StyledAvatar = styled(Avatar)`
+const StyledAvatar = styled(ConnectedAvatar)`
   position: absolute;
   width: 56px;
   height: 56px;
@@ -275,7 +275,7 @@ function SummaryPage({
   matchHistory,
 }: {
   user: SbUser
-  profile: UserProfile
+  profile: UserProfileJson
   matchHistory: Immutable<GameRecordJson[]>
 }) {
   // TODO(tec27): Build the title feature :)
@@ -307,7 +307,7 @@ function SummaryPage({
     <>
       <TopSection>
         <AvatarCircle>
-          <StyledAvatar user={user.name} />
+          <StyledAvatar userId={user.id} />
         </AvatarCircle>
         <UsernameAndTitle>
           <Username>{user.name}</Username>
@@ -530,7 +530,7 @@ function TotalGamesEntry({ race, wins, losses }: { race: RaceChar; wins: number;
       <div>
         <TotalGamesText>{wins + losses}</TotalGamesText>
         <WinLossText>
-          {wins} W – {losses} L – {winrate}%
+          {wins} W &ndash; {losses} L &ndash; {winrate}%
         </WinLossText>
       </div>
     </TotalGamesEntryRoot>

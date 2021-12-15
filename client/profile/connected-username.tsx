@@ -19,12 +19,8 @@ const LoadingName = styled.span`
 `
 
 /**
- * A component which displays the username in messaging-related services (e.g. chat, lobbies,
- * whispers) and any additional functionality that we might want to do with them, like opening a
- * user profile when clicked.
- *
- * This component is connected to the store where it tries to find the user. All the services using
- * it should ensure that the user is loaded in the store properly.
+ * A component which displays a clickable username, displaying the user's profile overlay or
+ * context menu when clicked.
  */
 export function ConnectedUsername({
   className,

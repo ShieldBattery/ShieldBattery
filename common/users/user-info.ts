@@ -1,5 +1,6 @@
 import { Opaque } from 'type-fest'
 import { GameRecordJson } from '../games/games'
+import { Jsonify } from '../json'
 import { LadderPlayer } from '../ladder'
 import { MapInfoJson } from '../maps'
 import { MatchmakingType } from '../matchmaking'
@@ -43,14 +44,26 @@ export interface SelfUser extends SbUser {
  */
 export interface UserProfile {
   userId: SbUserId
+  created: Date
   ladder: Partial<Record<MatchmakingType, LadderPlayer>>
   userStats: UserStats
+}
+
+export type UserProfileJson = Jsonify<UserProfile>
+
+export function toUserProfileJson(userProfile: UserProfile): UserProfileJson {
+  return {
+    userId: userProfile.userId,
+    created: Number(userProfile.created),
+    ladder: userProfile.ladder,
+    userStats: userProfile.userStats,
+  }
 }
 
 /** Information returned for /users/:id/profile, intended to be able to fill out a profile page. */
 export interface GetUserProfileResponse {
   user: SbUser
-  profile: UserProfile
+  profile: UserProfileJson
   matchHistory: {
     games: GameRecordJson[]
     maps: MapInfoJson[]

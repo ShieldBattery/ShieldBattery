@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
-import Avatar from '../avatars/avatar'
+import { Avatar } from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
 import { RacePicker } from './race-picker'
 import SelectedRace from './selected-race'
@@ -21,7 +21,6 @@ export default class PlayerSlot extends React.Component {
     name: PropTypes.string.isRequired,
     race: PropTypes.string,
     isComputer: PropTypes.bool,
-    avatarImage: PropTypes.string,
     onSetRace: PropTypes.func,
     onOpenSlot: PropTypes.func,
     onCloseSlot: PropTypes.func,
@@ -54,7 +53,6 @@ export default class PlayerSlot extends React.Component {
     const {
       name,
       isComputer,
-      avatarImage,
       isHost,
       canMakeObserver,
       canRemoveObserver,
@@ -65,11 +63,7 @@ export default class PlayerSlot extends React.Component {
       onMakeObserver,
       onRemoveObserver,
     } = this.props
-    const avatar = isComputer ? (
-      <StyledAvatar as={ComputerAvatar} />
-    ) : (
-      <StyledAvatar user={name} image={avatarImage} />
-    )
+    const avatar = isComputer ? <StyledAvatar as={ComputerAvatar} /> : <StyledAvatar user={name} />
     const displayName = isComputer ? 'Computer' : name
 
     const slotActions = []

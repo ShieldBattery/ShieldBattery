@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
-import Avatar from '../avatars/avatar'
+import { Avatar } from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
 import { RaceIcon } from '../lobbies/race-icon'
 import Card from '../material/card'
@@ -25,7 +25,7 @@ const StyledAvatar = styled(Avatar)`
   flex-shrink: 0;
   width: 56px;
   height: 56px;
-  opacity: ${props => (props.ready ? 1 : alphaDisabled)};
+  opacity: ${props => (props.$ready ? 1 : alphaDisabled)};
   ${fastOutSlowInShort};
 `
 
@@ -62,9 +62,9 @@ export default class PlayerCard extends React.Component {
     const { player, isComputer, isReady } = this.props
 
     const avatar = isComputer ? (
-      <StyledAvatar as={ComputerAvatar} ready={isReady} />
+      <StyledAvatar as={ComputerAvatar} $ready={isReady} />
     ) : (
-      <StyledAvatar user={player.name} ready={isReady} />
+      <StyledAvatar user={player.name} $ready={isReady} />
     )
     const displayName = isComputer ? 'Computer' : player.name
 
