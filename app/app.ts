@@ -511,6 +511,10 @@ async function createWindow() {
       if (systemTray) {
         systemTray.clearUnreadIcon()
       }
+      TypedIpcSender.from(mainWindow?.webContents).send('windowFocusChanged', true)
+    })
+    .on('blur', () => {
+      TypedIpcSender.from(mainWindow?.webContents).send('windowFocusChanged', false)
     })
     .on('show', () => {
       if (systemTray) {
@@ -589,6 +593,10 @@ app.on('ready', async () => {
       TypedIpcSender.from(mainWindow?.webContents).send(
         'windowMaximizedState',
         mainWindow?.isMaximized() ?? false,
+      )
+      TypedIpcSender.from(mainWindow?.webContents).send(
+        'windowFocusChanged',
+        mainWindow?.isFocused() ?? false,
       )
     })
   } catch (err: any) {

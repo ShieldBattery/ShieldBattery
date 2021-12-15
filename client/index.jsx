@@ -14,6 +14,7 @@ import log from './logging/logger'
 import RedirectProvider from './navigation/redirect-provider'
 import registerSocketHandlers from './network/socket-handlers'
 import { RootErrorBoundary } from './root-error-boundary'
+import './window-focus'
 
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 

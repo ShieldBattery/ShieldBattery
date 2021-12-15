@@ -85,6 +85,8 @@ interface IpcMainSendables {
   updaterNewVersionFound: () => void
   updaterUpToDate: () => void
 
+  /** Sent when the window is focused or unfocused. */
+  windowFocusChanged: (focused: boolean) => void
   windowMaximizedState: (isMaximized: boolean) => void
 }
 

@@ -6,6 +6,7 @@ import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { dispatch, Dispatchable } from '../dispatch-registry'
 import { openSnackbar } from '../snackbars/action-creators'
+import windowFocus from '../window-focus'
 import { navigateToParty } from './action-creators'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -131,7 +132,7 @@ const eventToAction: EventToActionMap = {
         payload: event,
       })
 
-      if (!current?.activated) {
+      if (!current?.activated || !windowFocus.isFocused()) {
         audioManager.playSound(AvailableSound.MessageAlert)
       }
     }
