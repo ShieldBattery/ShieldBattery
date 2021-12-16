@@ -54,8 +54,8 @@ export function Avatar({ image, user, color, glowing, className }: AvatarProps) 
 
   return (
     <IconContainer className={className}>
-      {glowing ? <IconAvatar color={avatarColor} glowing={true} /> : null}
-      <IconAvatar color={avatarColor} />
+      {glowing ? <IconAvatar $color={avatarColor} $glowing={true} /> : null}
+      <IconAvatar $color={avatarColor} />
     </IconContainer>
   )
 }
