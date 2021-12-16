@@ -1,3 +1,45 @@
+#### 8.0.0 (December 15, 2021)
+
+- **2v2 matchmaking.** Team matchmaking is finally here! Our matchmaker can now handle matching up
+  teams of 2, either with parties or creating teams from solo players. Ratings are calculated
+  similar to 1v1, with each player in the team getting their own rating value. Our ladder page has
+  also been updated to let you see the latest rankings for the 2v2 mode.
+- **It's a party!** You can now invite up to 7 other people to join your party by right-clicking
+  their name in chat. Parties get their own private chat area, and are able to queue up together for
+  team matchmaking. In the future, parties will allow you to watch replays together and easily
+  create private custom lobbies.
+- **Profile improvements.** The popup displayed when you click someone's name in chat has been
+  improved to show a bunch more info at a glance: account creation date, win/loss record, ranks and
+  more! We also split the useful user actions into a separate menu which you can find by
+  right-clicking someone's name.
+- **Game results page.** Game results pages now subscribe to live updates, so you'll always see the
+  latest version with up-to-date results, even if you left the game early. The page also properly
+  divides players into teams when necessary, and shows MMR changes for each player in ranked modes.
+  If you're arriving at the page by completinga ranked game, there's also a snazzy new button to
+  search for another match right from the page.
+- **Better message notifications.** Whisper, lobby, and party messages will all qualify as "urgent"
+  now, displaying the red icon and flashing the window's taskbar entry. We've also added a sound for
+  these cases (as well as when someone mentions you) to make things more noticeable. Settings for
+  controlling when these sounds should play are coming in the near future, although you can control
+  the volume of these sounds in the App settings today.
+- **Auto-updater improvements.** The auto-updater should now download updates faster for users not
+  near our main server.
+- **Bug fixes and polish.** We put tons of bug fixes and polish into this release, including but not
+  limited to: a fix for game crashes caused by checking or unchecking the Vsync setting checkbox,
+  corrections to game result calculation in games with alliances, improved latency when performing a ton of actions in the standalone client (sending chat messages, for instance), and added sounds
+  for performing certain actions (like entering the matchmaking queue).
+
+##### Known Issues
+
+- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
+  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
+  very least add a warning for this case in the future (or better yet, automate re-authing), but
+  for now, try to launch the game from the Blizzard launcher at least once a month.
+- **Off-center screen starting position.** For some users, generally in positions on the right side
+  of the screen, the starting screen position may be slightly off-center from where it usually is
+- **Observer chat is broken.** Observers are unable to send messages ingame currently. This will be
+  fixed in a future update.
+
 #### 7.1.5 (November 15, 2021)
 
 - **EUD maps fixed.** We've fixed the last of the non-working EUD maps (and found and fixed a bug
