@@ -177,6 +177,7 @@ class Match {
   }
 
   getKicksAndRequeues(): [toKick: Set<SbUserId>, toRequeue: Set<SbUserId>] {
+    // Requeue any party leaders and solo players that don't appear in toKick
     const toRequeue = subtract(
       new Set(this.teams.flatMap(team => team.map(entity => getMatchmakingEntityId(entity)))),
       this.toKick,
@@ -1003,10 +1004,10 @@ export class MatchmakingService {
             completionTime: new Date(),
           }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
         }
+      }
 
-        if (entry.matchId) {
-          this.matches.get(entry.matchId)?.registerDecline(client.userId)
-        }
+      if (entry.matchId) {
+        this.matches.get(entry.matchId)?.registerDecline(client.userId)
       }
     }
 
