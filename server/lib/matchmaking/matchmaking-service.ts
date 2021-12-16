@@ -480,13 +480,12 @@ export class MatchmakingService {
    * Adds a user to the matchmaking queue. This can only be used for solo players, players in a
    * party should use `findAsParty` instead (this call will fail for them).
    */
-  async find<M extends MatchmakingType>(
+  async find(
     userId: SbUserId,
     clientId: string,
-    preferences: MatchmakingPreferences & { matchmakingType: M },
+    preferences: MatchmakingPreferences,
   ): Promise<void> {
-    const { matchmakingType: type, race, mapSelections, data: preferenceData } = preferences
-    const userSockets = this.getUserSocketsOrFail(userId)
+    const { matchmakingType: type } = preferences
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
 
     if (!this.matchmakingStatus.isEnabled(type)) {
@@ -511,41 +510,61 @@ export class MatchmakingService {
     }
 
     try {
-      const mmr = await this.retrieveMmr(userId, type)
-      const playerData = matchmakingRatingToPlayerData({
-        mmr,
-        username: userSockets.name,
-        race,
-        mapSelections: mapSelections.slice(),
-        preferenceData,
-      })
-
-      // TODO(tec27): Bump up the uncertainty based on how long ago the last played date was:
-      // "After [14] days, the inactive player’s uncertainty (search range) increases by 24 per day,
-      // up to a maximum of 336 after 14 additional days."
-      const halfUncertainty = mmr.uncertainty / 2
-
-      const player: MatchmakingPlayer = {
-        ...playerData,
-        interval: {
-          low: mmr.rating - halfUncertainty,
-          high: mmr.rating + halfUncertainty,
-        },
-        searchIterations: 0,
-      }
-
-      this.matchmakers.get(type)!.addToQueue(player)
-      this.queueEntries.set(userId, {
-        type,
-        userId,
-        registeredId: userId,
-      })
+      await this.queueSoloPlayer(userId, clientId, preferences)
     } catch (err) {
       // Clear out the activity registry for this user, since they didn't actually make it into the
       // queue
       this.activityRegistry.unregisterClientForUser(userId)
       throw err
     }
+  }
+
+  /**
+   * Helper that deals with actually putting a solo player into the queue. This should only be
+   * called *after* the player's request has been validated and they've been registered as the
+   * active gameplay client.
+   */
+  private async queueSoloPlayer(
+    userId: SbUserId,
+    clientId: string,
+    preferences: Pick<
+      MatchmakingPreferences,
+      'matchmakingType' | 'race' | 'mapSelections' | 'data'
+    >,
+  ): Promise<void> {
+    const { matchmakingType: type, race, mapSelections, data: preferenceData } = preferences
+    const userSockets = this.getUserSocketsOrFail(userId)
+    const clientSockets = this.getClientSocketsOrFail(userId, clientId)
+
+    const mmr = await this.retrieveMmr(userId, type)
+    const playerData = matchmakingRatingToPlayerData({
+      mmr,
+      username: userSockets.name,
+      race,
+      mapSelections: mapSelections.slice(),
+      preferenceData,
+    })
+
+    // TODO(tec27): Bump up the uncertainty based on how long ago the last played date was:
+    // "After [14] days, the inactive player’s uncertainty (search range) increases by 24 per day,
+    // up to a maximum of 336 after 14 additional days."
+    const halfUncertainty = mmr.uncertainty / 2
+
+    const player: MatchmakingPlayer = {
+      ...playerData,
+      interval: {
+        low: mmr.rating - halfUncertainty,
+        high: mmr.rating + halfUncertainty,
+      },
+      searchIterations: 0,
+    }
+
+    this.matchmakers.get(type)!.addToQueue(player)
+    this.queueEntries.set(userId, {
+      type,
+      userId,
+      registeredId: userId,
+    })
 
     this.subscribeUserToQueueUpdates(userSockets, clientSockets, type, race)
   }
@@ -593,6 +612,19 @@ export class MatchmakingService {
     if (anyNotInGameplay) {
       // This is a programming error, rather than something the user should really ever encounter
       throw new Error('At least one party user was not registered in gameplay activity')
+    }
+
+    if (users.size === 1) {
+      // Just queue as a solo player to simplify the matchmaker logic (which assumes a party is
+      // 2 players)
+      const user = users.get(leaderId)!
+      await this.queueSoloPlayer(leaderId, user.clientId, {
+        matchmakingType: type,
+        race: user.race,
+        mapSelections: mapSelections.slice(),
+        data: preferenceData,
+      })
+      return
     }
 
     const names = await findUsersById(Array.from(users.keys()))

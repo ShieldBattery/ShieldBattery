@@ -37,6 +37,7 @@ export default class MatchmakingPreferencesService {
               // have been initialized and aren't simply missing.
               const preferences: MatchmakingPreferences | Record<string, never> =
                 (await getMatchmakingPreferences(c.userId, matchmakingType)) ?? {}
+              const mapSelections = preferences.mapSelections ?? []
               const currentMapPool = await getCurrentMapPool(matchmakingType)
 
               const mapPoolOutdated =
@@ -45,9 +46,7 @@ export default class MatchmakingPreferencesService {
                 preferences.mapPoolId !== currentMapPool.id
               const mapInfos = currentMapPool
                 ? (
-                    await getMapInfo(
-                      preferences.mapSelections.filter(m => currentMapPool.maps.includes(m)),
-                    )
+                    await getMapInfo(mapSelections.filter(m => currentMapPool.maps.includes(m)))
                   ).map(m => toMapInfoJson(m))
                 : []
 

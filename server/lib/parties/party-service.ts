@@ -554,9 +554,16 @@ export default class PartyService implements InPartyChecker {
 
             if (err.code === MatchmakingServiceErrorCode.MatchmakingDisabled) {
               partyQueueRequest.abort({ type: 'matchmakingDisabled' })
-              // Trigger the AbortError to be thrown
-              await partyQueueRequest.untilAcceptStateChanged()
+            } else {
+              logger.error(
+                { err },
+                `Unhandled matchmaking error code when finding a match as a party: ${err.code}`,
+              )
+              partyQueueRequest.abort({ type: 'error' })
             }
+
+            // Trigger the AbortError to be thrown
+            await partyQueueRequest.untilAcceptStateChanged()
           }
         } catch (err: any) {
           if (!isAbortError(err)) {

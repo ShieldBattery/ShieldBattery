@@ -192,6 +192,10 @@ const eventToAction: EventToActionMap = {
     })
 
     const totalPlayers = event.slots.length
+    // TODO(tec27): If matchmaking bugs, this can result in floating point numbers (e.g. if
+    // 3 players get queued into a 2v2), which breaks the game load. Ideally the server would send
+    // the actual teams instead of just an array of players, and we'd use the first team's size to
+    // pick the subtype. (Or the server could send the whole configuration directly)
     const teamSize = totalPlayers / 2
     const slots: PlayerInfo[] = event.slots.map((slot, i) => ({
       id: slot.id,
