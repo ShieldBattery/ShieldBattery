@@ -103,6 +103,7 @@ class Match {
   private acceptPromises = new Map<SbUserId, Deferred<void>>()
   private acceptTimeout: Promise<void>
   private clearAcceptTimeout: (reason?: any) => void
+  private userIdToRegisteredId = new Map<SbUserId, SbUserId>()
 
   private toKick = new Set<SbUserId>()
   private abortController = new AbortController()
@@ -114,8 +115,10 @@ class Match {
   ) {
     for (const entities of teams) {
       for (const entity of entities) {
+        const registeredId = getMatchmakingEntityId(entity)
         for (const p of getPlayersFromEntity(entity)) {
           this.acceptPromises.set(p.id, createDeferred())
+          this.userIdToRegisteredId.set(p.id, registeredId)
         }
       }
     }
@@ -128,7 +131,7 @@ class Match {
       .then(() => {
         if (this.acceptPromises.size) {
           for (const id of this.acceptPromises.keys()) {
-            this.toKick.add(id)
+            this.toKick.add(this.userIdToRegisteredId.get(id)!)
           }
           this.abortController.abort()
         }
@@ -171,7 +174,7 @@ class Match {
   }
 
   registerDecline(userId: SbUserId) {
-    this.toKick.add(userId)
+    this.toKick.add(this.userIdToRegisteredId.get(userId)!)
     this.abortController.abort()
     this.clearAcceptTimeout()
   }

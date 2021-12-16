@@ -80,7 +80,7 @@ export default keyedReducer(new MatchmakingState(), {
   },
 
   ['@matchmaking/requeue'](state, action) {
-    return state.set('match', undefined)
+    return state.set('match', undefined).set('failedToAccept', false)
   },
 
   ['@matchmaking/playerFailedToAccept'](state, action) {
@@ -144,7 +144,7 @@ export default keyedReducer(new MatchmakingState(), {
 
   ['@matchmaking/queueStatus'](state, action) {
     if (!action.payload.matchmaking) {
-      return new MatchmakingState()
+      return new MatchmakingState({ failedToAccept: state.failedToAccept })
     }
 
     return state
