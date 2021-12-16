@@ -67,7 +67,7 @@ export interface PopoverProps {
   /** Whether the popover is currently open. */
   open: boolean
   /** Callback called when the popover is dismissed. */
-  onDismiss: () => void
+  onDismiss: (event?: MouseEvent) => void
   /**
    * The X position of the anchor for this popover (generally the element that triggered it). In
    * most cases, this should either be found with `useAnchorPosition` or be a location derived from

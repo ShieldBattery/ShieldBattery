@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react'
 import { VariableSizeList } from 'react-window'
 import styled, { css } from 'styled-components'
+import { assertUnreachable } from '../../common/assert-unreachable'
 import { ClientChatMessageType, ServerChatMessageType } from '../../common/chat'
 import { MULTI_CHANNEL } from '../../common/flags'
 import { SbUserId } from '../../common/users/user-info'
@@ -177,6 +178,65 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
   )
 })
 
+enum UserListRowType {
+  Header,
+  Active,
+  Faded,
+}
+
+interface HeaderRowData {
+  type: UserListRowType.Header
+  label: string
+  count: number
+}
+
+interface ActiveRowData {
+  type: UserListRowType.Active
+  userId: SbUserId
+}
+
+interface FadedRowData {
+  type: UserListRowType.Faded
+  userId: SbUserId
+}
+
+type UserListRowData = HeaderRowData | ActiveRowData | FadedRowData
+
+function UserListRow({
+  index,
+  data,
+  style,
+}: {
+  index: number
+  data: ReadonlyArray<UserListRowData>
+  style: React.CSSProperties
+}) {
+  const row = data[index]
+  if (row.type === UserListRowType.Header) {
+    return (
+      <UserListOverline style={style} key={row.label}>
+        <span>
+          {row.label} ({row.count})
+        </span>
+      </UserListOverline>
+    )
+  } else {
+    const faded = row.type === UserListRowType.Faded
+    return (
+      <ConnectedUserListEntry style={style} userId={row.userId} key={row.userId} faded={faded} />
+    )
+  }
+}
+
+function getUserListItemKey(index: number, data: ReadonlyArray<UserListRowData>) {
+  const row = data[index]
+  if (row.type === UserListRowType.Header) {
+    return row.label
+  } else {
+    return row.userId
+  }
+}
+
 interface UserListProps {
   active: SbUserId[]
   idle: SbUserId[]
@@ -188,98 +248,51 @@ const UserList = React.memo((props: UserListProps) => {
   const [dimensionsRef, containerRect] = useObservedDimensions()
   const listRef = useRef<VariableSizeList | null>(null)
 
-  const rowCount = useMemo(
-    () =>
-      1 +
-      active.length +
-      (idle.length ? 1 : 0) +
-      idle.length +
-      (offline.length ? 1 : 0) +
-      offline.length,
-    [active, idle, offline],
-  )
+  const rowData = useMemo((): ReadonlyArray<UserListRowData> => {
+    let result: UserListRowData[] = [
+      { type: UserListRowType.Header, label: 'Active', count: active.length },
+    ]
+    result = result.concat(active.map(userId => ({ type: UserListRowType.Active, userId })))
+
+    if (idle.length) {
+      result.push({ type: UserListRowType.Header, label: 'Idle', count: idle.length })
+      result = result.concat(idle.map(userId => ({ type: UserListRowType.Faded, userId })))
+    }
+
+    if (offline.length) {
+      result.push({ type: UserListRowType.Header, label: 'Offline', count: offline.length })
+      result = result.concat(offline.map(userId => ({ type: UserListRowType.Faded, userId })))
+    }
+
+    return result
+  }, [active, idle, offline])
 
   const getRowHeight = useCallback(
     (index: number) => {
-      if (index >= rowCount) {
+      if (index >= rowData.length) {
         throw new Error('Asked to size nonexistent user: ' + index)
       }
 
-      const idleHeaderIndex = idle.length ? active.length + 1 : null
-      let offlineHeaderIndex = null
-      if (offline.length) {
-        offlineHeaderIndex =
-          idleHeaderIndex != null ? idleHeaderIndex + idle.length + 1 : active.length + 1
+      if (index === 0) {
+        return FIRST_OVERLINE_HEIGHT
       }
 
-      switch (index) {
-        case 0:
-          return FIRST_OVERLINE_HEIGHT
-        case idleHeaderIndex:
-        case offlineHeaderIndex:
+      const type = rowData[index].type
+      switch (type) {
+        case UserListRowType.Header:
           return OVERLINE_HEIGHT
-        default:
+        case UserListRowType.Active:
+        case UserListRowType.Faded:
           return USER_ENTRY_HEIGHT
-      }
-    },
-    [active, idle, offline, rowCount],
-  )
-
-  const renderRow = useCallback(
-    ({ index, style }: { index: number; style: React.CSSProperties }) => {
-      if (index >= rowCount) {
-        throw new Error('Asked to render nonexistent user: ' + index)
-      }
-
-      const idleHeaderIndex = idle.length ? active.length + 1 : null
-      let offlineHeaderIndex = null
-      if (offline.length) {
-        offlineHeaderIndex =
-          idleHeaderIndex != null ? idleHeaderIndex + idle.length + 1 : active.length + 1
-      }
-
-      switch (index) {
-        case 0:
-          return (
-            <UserListOverline style={style} key='active'>
-              Active ({active.length})
-            </UserListOverline>
-          )
-        case idleHeaderIndex:
-          return (
-            <UserListOverline style={style} key='idle'>
-              Idle ({idle.length})
-            </UserListOverline>
-          )
-        case offlineHeaderIndex:
-          return (
-            <UserListOverline style={style} key='offline'>
-              Offline ({offline.length})
-            </UserListOverline>
-          )
         default:
-          let userId: SbUserId | undefined
-          let faded = false
-          if (index < active.length + 1) {
-            userId = active[index - 1]!
-          } else if (offlineHeaderIndex && index > offlineHeaderIndex) {
-            faded = true
-            userId = offline[index - offlineHeaderIndex - 1]!
-          } else {
-            userId = idleHeaderIndex ? idle[index - idleHeaderIndex - 1]! : undefined
-          }
-
-          if (userId) {
-            return (
-              <ConnectedUserListEntry style={style} userId={userId} key={userId} faded={faded} />
-            )
-          }
-          throw new Error('Asked to render nonexistent user: ' + index)
+          return assertUnreachable(type)
       }
     },
-    [active, idle, offline, rowCount],
+    [rowData],
   )
 
+  // Trigger recalculating row sizes whenever the rowCount changes. This is necessary since the
+  // rows have different heights depending on type
   useMemo(() => {
     listRef.current?.resetAfterIndex(0, false)
   }, [getRowHeight]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -291,9 +304,11 @@ const UserList = React.memo((props: UserListProps) => {
         style={{ overflowX: 'hidden', paddingBottom: '8px' }}
         width='100%'
         height={containerRect?.height ?? 0}
-        itemCount={rowCount}
+        itemCount={rowData.length}
+        itemData={rowData}
+        itemKey={getUserListItemKey}
         itemSize={getRowHeight}>
-        {renderRow}
+        {UserListRow}
       </VariableSizeList>
     </UserListContainer>
   )
