@@ -119,7 +119,7 @@ export default class AcceptMatch extends React.Component {
               [...acceptedAvatars, ...unacceptedAvatars]
             ) : (
               <AcceptMatchButton
-                label='Accept match'
+                label='Ready up'
                 onClick={this.onAcceptClick}
                 disabled={isAccepting}
               />
