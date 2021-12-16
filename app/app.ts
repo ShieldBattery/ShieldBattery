@@ -431,10 +431,18 @@ function registerHotkeys() {
   )
   localShortcut.register(mainWindow!, 'F12', () => mainWindow?.webContents.toggleDevTools())
 
-  localShortcut.register(mainWindow!, 'CmdOrCtrl+R', () =>
-    mainWindow?.webContents.reloadIgnoringCache(),
-  )
-  localShortcut.register(mainWindow!, 'F5', () => mainWindow?.webContents.reloadIgnoringCache())
+  localShortcut.register(mainWindow!, 'CmdOrCtrl+R', () => {
+    // TODO(tec27): Also allow for this if the user has the debug privilege
+    if (isDev) {
+      mainWindow?.webContents.reloadIgnoringCache()
+    }
+  })
+  localShortcut.register(mainWindow!, 'F5', () => {
+    // TODO(tec27): Also allow for this if the user has the debug privilege
+    if (isDev) {
+      mainWindow?.webContents.reloadIgnoringCache()
+    }
+  })
 }
 
 async function createWindow() {
