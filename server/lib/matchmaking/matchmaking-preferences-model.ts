@@ -56,7 +56,7 @@ export async function upsertMatchmakingPreferences({
 export async function getMatchmakingPreferences(
   userId: SbUserId,
   matchmakingType: MatchmakingType,
-): Promise<MatchmakingPreferences | null> {
+): Promise<MatchmakingPreferences | undefined> {
   const { client, done } = await db()
   try {
     const result = await client.query<DbMatchmakingPreferences>(sql`
@@ -64,7 +64,7 @@ export async function getMatchmakingPreferences(
       FROM matchmaking_preferences
       WHERE user_id = ${userId} AND matchmaking_type = ${matchmakingType}
     `)
-    return result.rows.length > 0 ? convertFromDb(result.rows[0]) : null
+    return result.rows.length > 0 ? convertFromDb(result.rows[0]) : undefined
   } finally {
     done()
   }

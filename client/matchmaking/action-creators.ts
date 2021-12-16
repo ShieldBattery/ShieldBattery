@@ -2,6 +2,7 @@ import { Immutable } from 'immer'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
+  defaultPreferences,
   GetMatchmakingMapPoolBody,
   GetPreferencesResponse,
   MatchmakingPreferences,
@@ -21,14 +22,32 @@ const ipcRenderer = new TypedIpcRenderer()
 
 export function findMatch<M extends MatchmakingType>(
   matchmakingType: M,
-  preferences: Immutable<MatchmakingPreferences & { matchmakingType: M }>,
+  preferences:
+    | Immutable<MatchmakingPreferences & { matchmakingType: M }>
+    | Record<string, never>
+    | undefined,
 ): ThunkAction {
-  return dispatch => {
+  return (dispatch, getState) => {
     ipcRenderer.send('rallyPointRefreshPings')
+
+    const {
+      auth: { user },
+      mapPools: { byType: mapPoolByType },
+    } = getState()
+    const selfId = user.id
+
+    const prefs =
+      !!preferences && 'race' in preferences
+        ? (preferences as Immutable<MatchmakingPreferences>)
+        : defaultPreferences(
+            matchmakingType,
+            selfId,
+            preferences?.mapPoolId ?? mapPoolByType.get(matchmakingType)?.id ?? 1,
+          )
 
     const findPromise = fetchJson<void>(apiUrl`matchmaking/find`, {
       method: 'POST',
-      body: JSON.stringify({ clientId, preferences }),
+      body: JSON.stringify({ clientId, preferences: prefs }),
     })
 
     findPromise.catch(err => {

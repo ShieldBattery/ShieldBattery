@@ -89,8 +89,12 @@ function model2v2ToPrefs(model: Model2v2, userId: SbUserId, mapPoolId: number) {
 export function Contents2v2({ formRef, onSubmit, disabled }: FindMatchContentsProps) {
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
-  const prefs: Partial<Immutable<MatchmakingPreferences2v2>> = useAppSelector(
-    s => s.matchmakingPreferences.byType.get(MatchmakingType.Match2v2)?.preferences ?? {},
+  const prefs: Immutable<MatchmakingPreferences2v2> | Record<string, never> = useAppSelector(
+    s =>
+      (s.matchmakingPreferences.byType.get(MatchmakingType.Match2v2)?.preferences as
+        | Immutable<MatchmakingPreferences2v2>
+        | Record<string, never>
+        | undefined) ?? {},
   )
   const mapPoolOutdated = useAppSelector(
     s => s.matchmakingPreferences.byType.get(MatchmakingType.Match2v2)?.mapPoolOutdated ?? false,

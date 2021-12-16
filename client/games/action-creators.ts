@@ -83,11 +83,13 @@ export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): Thunk
       return
     }
 
+    const matchmakingType = gameConfig.gameSourceExtra.type
+
     const {
       party: { current },
       matchmakingPreferences: { byType },
     } = getState()
-    const prefs = byType.get(gameConfig.gameSourceExtra.type)?.preferences
+    const prefs = byType.get(matchmakingType)?.preferences
 
     if (!prefs) {
       // TODO(tec27): Request them?
@@ -96,9 +98,9 @@ export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): Thunk
     }
 
     if (current) {
-      dispatch(findMatchAsParty(prefs, current.id))
+      dispatch(findMatchAsParty(matchmakingType, prefs ?? {}, current.id))
     } else {
-      dispatch(findMatch(prefs.matchmakingType, prefs))
+      dispatch(findMatch(matchmakingType, prefs ?? {}))
     }
   }
 }

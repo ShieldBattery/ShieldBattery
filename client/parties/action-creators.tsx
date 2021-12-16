@@ -1,7 +1,7 @@
 import { Immutable } from 'immer'
 import React from 'react'
 import {
-  defaultPreferenceData,
+  defaultPreferences,
   MatchmakingPreferences,
   MatchmakingType,
 } from '../../common/matchmaking'
@@ -246,12 +246,27 @@ export function deactivateParty(partyId: string): DeactivateParty {
 }
 
 export function findMatchAsParty(
-  preferences: Immutable<MatchmakingPreferences>,
+  matchmakingType: MatchmakingType,
+  preferences: Immutable<MatchmakingPreferences> | Record<string, never>,
   partyId: string,
 ): ThunkAction {
-  return dispatch => {
+  return (dispatch, getState) => {
+    const {
+      auth: { user },
+      mapPools: { byType: mapPoolByType },
+    } = getState()
+    const selfId = user.id
+
+    const prefs =
+      !!preferences && 'race' in preferences
+        ? (preferences as Immutable<MatchmakingPreferences>)
+        : defaultPreferences(
+            matchmakingType,
+            selfId,
+            preferences?.mapPoolId ?? mapPoolByType.get(matchmakingType)?.id ?? 1,
+          )
     const body: FindMatchAsPartyRequest = {
-      preferences,
+      preferences: prefs,
     }
     const promise = fetchJson<void>(apiUrl`parties/${partyId}/find-match`, {
       method: 'POST',
@@ -290,11 +305,11 @@ export function findMatchAsParty(
       dispatch(openSimpleDialog('Error searching for a match', dialogMessage, true))
     })
 
-    dispatch(updateLastQueuedMatchmakingType(preferences.matchmakingType))
+    dispatch(updateLastQueuedMatchmakingType(matchmakingType))
     dispatch({
       type: '@parties/findMatchAsParty',
       payload: promise,
-      meta: { partyId, preferences },
+      meta: { partyId, preferences: prefs },
     })
   }
 }
@@ -320,17 +335,18 @@ export function acceptFindMatchAsParty(
 
       const curPreferences = preferencesByType.get(matchmakingType)?.preferences
       if (curPreferences?.race !== race) {
-        // Typings with `Immutable` tend to be... extremely annoying? For some reason I don't
-        // understand. One option would just be to cast this whole object to any, but ideally we'd
-        // like compilation to fail here if new things get added, so using a Record with the right
-        // keys gets us *some* protection at least
-        const newPreferences: Record<keyof MatchmakingPreferences, any> = {
-          userId: curPreferences?.userId ?? selfId,
-          matchmakingType: curPreferences?.matchmakingType ?? matchmakingType,
+        const defaults = defaultPreferences(
+          matchmakingType,
+          selfId,
+          curPreferences?.mapPoolId ?? mapPoolByType.get(matchmakingType)?.id ?? 1,
+        )
+        const newPreferences: MatchmakingPreferences = {
+          userId: selfId,
+          matchmakingType: matchmakingType as any,
           race,
-          mapPoolId: curPreferences?.mapPoolId ?? mapPoolByType.get(matchmakingType)?.id ?? 1,
-          mapSelections: curPreferences?.mapSelections?.slice() ?? [],
-          data: curPreferences?.data ?? defaultPreferenceData(matchmakingType),
+          mapPoolId: curPreferences?.mapPoolId ?? defaults.mapPoolId,
+          mapSelections: curPreferences?.mapSelections?.slice() ?? defaults.mapSelections,
+          data: curPreferences?.data ?? defaults.data,
         }
         dispatch(updateMatchmakingPreferences(matchmakingType, newPreferences))
       }

@@ -146,7 +146,7 @@ export function FindMatch() {
       }
 
       if (isInParty) {
-        dispatch(findMatchAsParty(prefs, partyId))
+        dispatch(findMatchAsParty(activeTab, prefs, partyId))
       } else {
         dispatch(findMatch(activeTab, prefs))
       }

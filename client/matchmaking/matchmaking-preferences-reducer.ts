@@ -4,7 +4,7 @@ import { FetchError } from '../network/fetch-errors'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface FetchedMatchmakingPreferences {
-  preferences?: MatchmakingPreferences
+  preferences?: MatchmakingPreferences | Record<string, never>
   mapPoolOutdated?: boolean
   lastError?: FetchError
 }
