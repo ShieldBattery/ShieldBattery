@@ -113,7 +113,7 @@ export default class MatchmakingMatch extends React.Component {
 
     return (
       <Container>
-        <Headline3>{map.name}</Headline3>
+        <Headline3>{map?.name ?? ''}</Headline3>
         <TopHalfContainer>
           <Spacer />
           <StyledMapThumbnail map={map} size={320} />

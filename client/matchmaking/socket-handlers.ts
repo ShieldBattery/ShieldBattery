@@ -14,6 +14,7 @@ import audioManager, { AudioManager, AvailableSound } from '../audio/audio-manag
 import { closeDialog, openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { dispatch, Dispatchable } from '../dispatch-registry'
+import logger from '../logging/logger'
 import { push, replace } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
 import { openSnackbar } from '../snackbars/action-creators'
@@ -301,10 +302,17 @@ const eventToAction: EventToActionMap = {
       matchmaking: { match },
     } = getState()
 
+    if (!match) {
+      logger.error('Received gameStarted event without a match')
+      return
+    }
+
     const currentPath = location.pathname
     if (currentPath === '/matchmaking/game-starting') {
       replace('/matchmaking/active-game')
     }
+    // TODO(tec27): This event is kind of absurd: we're pulling state out of the reducer to pass it
+    // back to the reducer again? Should think more deeply about what we're trying to signal here
     dispatch({
       type: '@matchmaking/gameStarted',
       payload: {
