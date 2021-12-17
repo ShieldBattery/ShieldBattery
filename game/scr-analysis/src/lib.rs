@@ -414,4 +414,8 @@ impl<'e> Analysis<'e> {
     pub fn game_data(&mut self) -> Option<Operand<'e>> {
         self.0.game_data()
     }
+
+    pub fn spawn_dialog(&mut self) -> Option<VirtualAddress> {
+        self.0.spawn_dialog()
+    }
 }

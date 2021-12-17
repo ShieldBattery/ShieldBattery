@@ -1,4 +1,5 @@
 mod bw_hash_table;
+mod dialog_hook;
 mod file_hook;
 mod game;
 mod pe_image;
@@ -136,6 +137,7 @@ pub struct BwScr {
     open_file: scarf::VirtualAddress,
     prepare_issue_order: scarf::VirtualAddress,
     create_game_multiplayer: scarf::VirtualAddress,
+    spawn_dialog: scarf::VirtualAddress,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
 
@@ -1006,6 +1008,8 @@ impl BwScr {
         let prepare_issue_order = analysis.prepare_issue_order().ok_or("prepare_issue_order")?;
         let create_game_multiplayer = analysis.create_game_multiplayer()
             .ok_or("create_game_multiplayer")?;
+        let spawn_dialog = analysis.spawn_dialog()
+            .ok_or("spawn_dialog")?;
         let anti_troll = analysis.anti_troll();
 
         let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
@@ -1127,6 +1131,7 @@ impl BwScr {
             replay_minimap_patch,
             prepare_issue_order,
             create_game_multiplayer,
+            spawn_dialog,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
             exe_build,
             sdf_cache,
@@ -1389,6 +1394,13 @@ impl BwScr {
                 (*info).max_player_count = game_thread::setup_info().slots.len() as u8;
                 orig(info, name, password, map_path, a5, a6, a7, a8)
             },
+            address,
+        );
+
+        let address = self.spawn_dialog.0 as usize - base;
+        exe.hook_closure_address(
+            SpawnDialog,
+            |a, b, c, o| dialog_hook::spawn_dialog_hook(a, b, c, o),
             address,
         );
 
@@ -2640,6 +2652,7 @@ mod hooks {
             *const u8, // Map path?
             usize, usize, usize, usize, // 0x10 byte struct passed by value
         ) -> u32;
+        !0 => SpawnDialog(*mut bw::Dialog, usize, usize) -> usize;
     );
 
     whack_hooks!(stdcall, 0,

@@ -192,7 +192,7 @@ unsafe fn game_results() -> GameThreadResults {
         player_was_dropped: {
             let mut arr = [false; 8];
             for i in 0..8 {
-                arr[i] = (*game).player_has_left[i] != 0;
+                arr[i] = (*game).player_was_dropped[i] != 0;
             }
             arr
         },
@@ -254,8 +254,11 @@ pub unsafe fn after_init_game_data() {
         }
     }
 
+    let game_data = bw.game_data();
+    let had_allies_enabled = (*game_data).game_template.allies_enabled != 0;
+    bw::set_had_allies_enabled(had_allies_enabled);
     if setup_info().disable_alliance_changes.unwrap_or(false) {
-        (*bw.game_data()).game_template.allies_enabled = 0;
+        (*game_data).game_template.allies_enabled = 0;
     }
 
     send_game_msg_to_async(GameThreadMessage::PlayersRandomized(mapping));

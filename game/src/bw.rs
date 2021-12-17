@@ -3,6 +3,7 @@ pub mod list;
 pub mod unit;
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use libc::{c_void, sockaddr};
 use once_cell::sync::OnceCell;
@@ -96,6 +97,19 @@ pub trait Bw: Sync + Send {
     unsafe fn free(&self, ptr: *mut u8);
 
     unsafe fn call_original_status_screen_fn(&self, unit_id: UnitId, dialog: *mut Dialog);
+}
+
+/// One bool for state that doesn't require specific handling based on version.
+/// Probably should refactor this state to some structure that is available as
+/// `bw.common_state()` or something later on, but this will work for this one case.
+static HAD_ALLIES_ENABLED: AtomicBool = AtomicBool::new(false);
+
+pub fn set_had_allies_enabled(had: bool) {
+    HAD_ALLIES_ENABLED.store(had, Ordering::Relaxed)
+}
+
+pub fn get_had_allies_enabled() -> bool {
+    HAD_ALLIES_ENABLED.load(Ordering::Relaxed)
 }
 
 pub struct ReplayVisions {
