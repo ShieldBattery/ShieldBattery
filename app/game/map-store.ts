@@ -24,7 +24,7 @@ export class MapStore {
     // Goal of dirs is twofold:
     // - Avoid a huge number of files in a single directory
     // - Get the resulting filename under 32 characters (necessary because BW checks this =/)
-    const firstDir = mapHash.substr(0, 2)
+    const firstDir = mapHash.slice(0, 2)
     const secondDir = b64
     return path.join(this.basePath, firstDir, secondDir, `map.${mapFormat}`)
   }
