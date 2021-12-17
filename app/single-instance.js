@@ -14,7 +14,7 @@ export default function () {
   let getMainWindow
   const socket =
     process.platform === 'win32'
-      ? `\\\\.\\pipe\\${sanitize(process.env.USERNAME)}-${app.name}-singleInstance`
+      ? `\\\\.\\pipe\\${sanitize(os.userInfo().username ?? 'username')}-${app.name}-singleInstance`
       : path.join(os.tempdir(), app.name + '.sock')
 
   const client = net
