@@ -36,22 +36,22 @@ function MatchmakingMatchHolder() {
 }
 
 export default function MatchmakingView() {
-  const activeGame = useAppSelector(s => s.activeGame)
-  const gameClient = useAppSelector(s => s.gameClient)
-  const matchmaking = useAppSelector(s => s.matchmaking)
+  const gameIsActive = useAppSelector(s => s.activeGame.isActive)
+  const gameId = useAppSelector(s => s.gameClient.gameId)
+  const matchmakingIsLoading = useAppSelector(s => s.matchmaking.isLoading)
 
-  const prevIsActive = usePrevious(activeGame.isActive)
-  const prevGameId = usePrevious(gameClient.gameId)
+  const prevGameIsActive = usePrevious(gameIsActive)
+  const prevGameId = usePrevious(gameId)
 
   useEffect(() => {
-    if (!matchmaking.isLoading && !activeGame.isActive) {
-      if (prevIsActive && prevGameId) {
+    if (!matchmakingIsLoading && !gameIsActive) {
+      if (prevGameIsActive && prevGameId) {
         navigateToGameResults(prevGameId, true /* isPostGame */, ResultsSubPage.Summary, replace)
+      } else {
+        replace('/')
       }
-
-      replace('/')
     }
-  }, [matchmaking, activeGame, prevIsActive, prevGameId])
+  }, [prevGameId, matchmakingIsLoading, gameIsActive, prevGameIsActive])
 
   return (
     <Switch>
