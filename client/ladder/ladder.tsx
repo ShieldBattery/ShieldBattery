@@ -8,6 +8,7 @@ import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmakin
 import { SbUser, SbUserId } from '../../common/users/user-info'
 import { Avatar } from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
+import { JsonLocalStorageValue } from '../local-storage'
 import { animationFrameHandler, AnimationFrameHandler } from '../material/animation-frame-handler'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
@@ -54,6 +55,8 @@ const Content = styled.div`
   overflow: hidden;
 `
 
+const savedLadderTab = new JsonLocalStorageValue<MatchmakingType>('ladderTab')
+
 export interface LadderProps {
   matchmakingType?: MatchmakingType
 }
@@ -61,7 +64,9 @@ export interface LadderProps {
 /**
  * Displays a ranked table of players on the ladder(s).
  */
-export function Ladder({ matchmakingType = MatchmakingType.Match1v1 }: LadderProps) {
+export function Ladder({ matchmakingType: routeType }: LadderProps) {
+  const matchmakingType = routeType ?? savedLadderTab.getValue() ?? MatchmakingType.Match1v1
+
   const dispatch = useAppDispatch()
   const rankings = useAppSelector(s => s.ladder.typeToRankings.get(matchmakingType))
   const usersById = useAppSelector(s => s.users.byId)
@@ -73,6 +78,12 @@ export function Ladder({ matchmakingType = MatchmakingType.Match1v1 }: LadderPro
   useEffect(() => {
     dispatch(getRankings(matchmakingType))
   }, [dispatch, matchmakingType])
+
+  useEffect(() => {
+    if (routeType) {
+      savedLadderTab.setValue(routeType)
+    }
+  }, [routeType])
 
   if (!rankings) {
     return null

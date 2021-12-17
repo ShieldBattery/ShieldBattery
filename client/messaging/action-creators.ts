@@ -2,45 +2,8 @@ import { MouseEvent } from 'react'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
-import logger from '../logging/logger'
+import { JsonLocalStorageValue } from '../local-storage'
 import { getServerOrigin } from '../network/server-url'
-
-// TODO(tec27): Move this to a more common location
-class JsonLocalStorageValue<T> {
-  constructor(readonly name: string) {}
-
-  /**
-   * Retrieves the current `localStorage` value (parsed as JSON).
-   * @returns the parsed value, or `undefined` if it isn't set or fails to parse.
-   */
-  getValue(): T | undefined {
-    const valueJson = localStorage.getItem(this.name)
-    if (valueJson === null) {
-      return undefined
-    }
-
-    try {
-      return JSON.parse(valueJson)
-    } catch (err) {
-      logger.error(`error parsing value for ${this.name}: ${(err as any).stack ?? err}`)
-      return undefined
-    }
-  }
-
-  /**
-   * Sets the current `localStorage` value, encoding it as JSON.
-   */
-  setValue(value: T): void {
-    localStorage.setItem(this.name, JSON.stringify(value))
-  }
-
-  /**
-   * Clears (unsets) the current `localStorage` value.
-   */
-  clear(): void {
-    localStorage.removeItem(this.name)
-  }
-}
 
 const trustedDomainsValue = new JsonLocalStorageValue<string[]>('trustedDomains')
 
