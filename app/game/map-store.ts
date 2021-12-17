@@ -6,6 +6,7 @@ import path from 'path'
 import { pipeline } from 'stream'
 import { promisify } from 'util'
 import HashThrough from '../../common/hash-through'
+import { MapExtension } from '../../common/maps'
 import log from '../logger'
 
 const pipelinePromise = promisify(pipeline)
@@ -18,8 +19,7 @@ export class MapStore {
     this.dirCreated = mkdirp(basePath)
   }
 
-  // TODO(tec27): mapFormat can be a string enum instead?
-  getPath(mapHash: string, mapFormat: string): string {
+  getPath(mapHash: string, mapFormat: MapExtension): string {
     const b64 = Buffer.from(mapHash, 'hex').toString('base64')
     // Goal of dirs is twofold:
     // - Avoid a huge number of files in a single directory
@@ -29,7 +29,7 @@ export class MapStore {
     return path.join(this.basePath, firstDir, secondDir, `map.${mapFormat}`)
   }
 
-  async downloadMap(mapHash: string, mapFormat: string, mapUrl: string): Promise<boolean> {
+  async downloadMap(mapHash: string, mapFormat: MapExtension, mapUrl: string): Promise<boolean> {
     if (!this.activeDownloads.has(mapHash)) {
       this.activeDownloads = this.activeDownloads.set(
         mapHash,
@@ -42,7 +42,7 @@ export class MapStore {
 
   private async checkAndDownloadMap(
     mapHash: string,
-    mapFormat: string,
+    mapFormat: MapExtension,
     mapUrl: string,
   ): Promise<boolean> {
     await this.dirCreated

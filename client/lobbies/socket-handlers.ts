@@ -2,7 +2,7 @@ import { NydusClient, RouteHandler } from 'nydus-client'
 import { GameLaunchConfig, GameRoute, PlayerInfo } from '../../common/game-launch-config'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
-import { MapInfoJson } from '../../common/maps'
+import { MapExtension, MapInfoJson } from '../../common/maps'
 import { urlPath } from '../../common/urls'
 import { SbUser, SbUserId } from '../../common/users/user-info'
 import {
@@ -108,7 +108,7 @@ interface LobbyInitEvent {
     map: {
       hash: string
       mapData: {
-        format: string
+        format: MapExtension
       }
       mapUrl: string
     }

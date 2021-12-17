@@ -3,6 +3,7 @@ import { Promisable } from 'type-fest'
 import { GameLaunchConfig, GameRoute } from './game-launch-config'
 import { GameClientPlayerResult } from './games/results'
 import { LocalSettingsData, ScrSettingsData } from './local-settings'
+import { MapExtension } from './maps'
 import { ResolvedRallyPointServer } from './rally-point'
 import { ShieldBatteryFileResult } from './shieldbattery-file'
 
@@ -18,7 +19,7 @@ interface IpcInvokeables {
 
   logMessage: (level: string, message: string) => void
 
-  mapStoreDownloadMap: (hash: string, format: string, mapUrl: string) => Promise<boolean>
+  mapStoreDownloadMap: (hash: string, format: MapExtension, mapUrl: string) => Promise<boolean>
 
   pathsGetDocumentsPath: () => Promise<string>
 
