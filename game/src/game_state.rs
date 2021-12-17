@@ -29,7 +29,6 @@ use crate::game_thread::{
 use crate::network_manager::{NetworkError, NetworkManager};
 use crate::replay;
 use crate::snp;
-use crate::windows;
 
 pub struct GameState {
     init_state: InitState,
@@ -1108,12 +1107,7 @@ unsafe fn join_lobby(
         }
         game_info
     };
-    let map_path: Bytes = match windows::ansi_codepage_cstring(&info.map_path) {
-        Ok(o) => o.into(),
-        Err(_) => {
-            return future::err(GameInitError::NonAnsiPath((&info.map_path).into())).boxed();
-        }
-    };
+    let map_path: Bytes = info.map_path.clone().into();
     async move {
         let mut repeat_interval = tokio::time::interval(Duration::from_millis(10));
         loop {

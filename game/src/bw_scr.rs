@@ -2109,7 +2109,10 @@ impl bw::Bw for BwScr {
         }
         debug!("Joined game");
 
-        let mut out = [0u32; 8];
+        // Needs to be at least 0x24 bytes, but adding some buffer space in case the
+        // output struct changes.
+        let mut out = [0u32; 0x10];
+        self.storm_set_last_error(0);
         let ok = (self.init_map_from_path)(
             map_path.as_ptr(),
             out.as_mut_ptr() as *mut c_void,
@@ -2117,7 +2120,9 @@ impl bw::Bw for BwScr {
             0,
         );
         if ok == 0 {
-            return Err(self.storm_last_error());
+            let error = self.storm_last_error();
+            error!("init_map_from_path failed: {:08x}", error);
+            return Err(error);
         }
         self.init_team_game_playable_slots();
         Ok(())
