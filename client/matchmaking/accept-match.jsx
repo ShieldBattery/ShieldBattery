@@ -16,7 +16,7 @@ const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
 
 const StyledDialog = styled(Dialog)`
-  width: 384px;
+  width: 400px;
 `
 
 const CenteredContainer = styled.div`
@@ -84,7 +84,7 @@ export default class AcceptMatch extends React.Component {
     if (searchInfo && !match) {
       return (
         <p>
-          Some players failed to accept the match or failed to load. Returning to the matchmaking
+          Some players didn't ready up in time or failed to load. Returning to the matchmaking
           queue&hellip;
         </p>
       )
@@ -92,7 +92,7 @@ export default class AcceptMatch extends React.Component {
       return (
         <div>
           <KeyListener onKeyDown={this.onFailedKeyDown} />
-          <p>You failed to accept the match and have been removed from the queue.</p>
+          <p>You didn't ready up in time and have been removed from the queue.</p>
           <RaisedButton label='Ok' onClick={this.onFailedClick} />
         </div>
       )
@@ -113,7 +113,7 @@ export default class AcceptMatch extends React.Component {
       return (
         <div>
           <KeyListener onKeyDown={this.onAcceptKeyDown} />
-          <Body1>All players must accept the match to begin.</Body1>
+          <Body1>All players must ready up for the match to start.</Body1>
           <CenteredContainer>
             {hasAccepted ? (
               [...acceptedAvatars, ...unacceptedAvatars]
@@ -139,7 +139,7 @@ export default class AcceptMatch extends React.Component {
       dialogRef,
     } = this.props
 
-    const title = failedToAccept ? 'Failed to accept' : 'Your game is ready'
+    const title = failedToAccept ? 'Failed to accept' : 'Match found'
     return (
       <StyledDialog title={title} showCloseButton={false} dialogRef={dialogRef}>
         {this.renderDialogContents()}
