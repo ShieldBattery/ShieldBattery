@@ -1,5 +1,5 @@
 import sql from 'sql-template-strings'
-import { GameRecord } from '../../../common/games/games'
+import { GameRecord, GameRouteDebugInfo } from '../../../common/games/games'
 import { ReconciledResults } from '../../../common/games/results'
 import { SbUserId } from '../../../common/users/user-info'
 import db, { DbClient } from '../db'
@@ -93,6 +93,27 @@ export async function setReconciledResult(
       dispute_reviewed = false
     WHERE id = ${gameId}
   `)
+}
+
+/**
+ * Updates the route debug info for the specified game. This should be used when the game is in the
+ * process of loading, and all players have had their rally-point routes determined and created.
+ */
+export async function updateRouteDebugInfo(
+  gameId: string,
+  routeDebugInfo: GameRouteDebugInfo[],
+  withClient?: DbClient,
+): Promise<void> {
+  const { client, done } = await db(withClient)
+  try {
+    await client.query(sql`
+      UPDATE games
+      SET routes = ${routeDebugInfo}
+      WHERE id = ${gameId}
+    `)
+  } finally {
+    done()
+  }
 }
 
 /**

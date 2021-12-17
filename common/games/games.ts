@@ -21,6 +21,15 @@ export interface GameRecord {
 
 export type GameRecordJson = Jsonify<GameRecord>
 
+export interface GameRouteDebugInfo {
+  p1: SbUserId
+  p2: SbUserId
+  /** A rally-point server ID. */
+  server: number
+  /** The estimated latency between the players (1-way) in milliseconds. */
+  latency: number
+}
+
 export function toGameRecordJson(game: GameRecord): GameRecordJson {
   return {
     id: game.id,

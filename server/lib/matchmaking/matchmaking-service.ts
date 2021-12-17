@@ -34,7 +34,7 @@ import { randomInt, randomItem } from '../../../common/random'
 import { subtract } from '../../../common/sets'
 import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/user-info'
-import gameLoader from '../games/game-loader'
+import gameLoader, { GameLoaderError } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
 import { getMapInfo } from '../maps/map-models'
@@ -775,9 +775,16 @@ export class MatchmakingService {
       phase = 'loading'
       await this.doGameLoad(match)
     } catch (err: any) {
-      if (!isAbortError(err)) {
+      if (
+        !isAbortError(err) &&
+        !(err instanceof MatchmakingServiceError) &&
+        !(err instanceof GameLoaderError)
+      ) {
         logger.error({ err }, 'error while processing match')
       }
+
+      // TODO(tec27): GameLoaderError can tell us what player failed to load now, we should add that
+      // player (or their party) to the kick list
 
       const [toKick, toRequeue] = match.getKicksAndRequeues()
 

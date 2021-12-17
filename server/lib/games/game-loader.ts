@@ -5,16 +5,37 @@ import createDeferred, { Deferred } from '../../../common/async/deferred'
 import rejectOnTimeout from '../../../common/async/reject-on-timeout'
 import { GameRoute } from '../../../common/game-launch-config'
 import { GameConfig } from '../../../common/games/configuration'
+import { GameRouteDebugInfo } from '../../../common/games/games'
 import { Slot } from '../../../common/lobbies/slot'
 import { SbUserId } from '../../../common/users/user-info'
+import { CodedError } from '../errors/coded-error'
 import log from '../logging/logger'
 import { deleteUserRecordsForGame } from '../models/games-users'
 import { RallyPointRouteInfo, RallyPointService } from '../rally-point/rally-point-service'
-import { deleteRecordForGame } from './game-models'
+import { deleteRecordForGame, updateRouteDebugInfo } from './game-models'
 import { GameplayActivityRegistry } from './gameplay-activity-registry'
 import { registerGame } from './registration'
 
 const GAME_LOAD_TIMEOUT = 60 * 1000
+
+export enum GameLoadErrorType {
+  PlayerFailed = 'playerFailed',
+}
+
+interface GameLoadErrorTypeToData {
+  [GameLoadErrorType.PlayerFailed]: {
+    userId: SbUserId
+  }
+}
+
+export class GameLoaderError<T extends GameLoadErrorType> extends CodedError<
+  T,
+  GameLoadErrorTypeToData[T]
+> {
+  constructor(code: T, message: string, data: GameLoadErrorTypeToData[T]) {
+    super(code, message, data)
+  }
+}
 
 function generateSeed() {
   // BWChart and some other replay sites/libraries utilize the random seed as the date the game was
@@ -188,12 +209,18 @@ export class GameLoader {
     }
 
     const loadingData = this.loadingGames.get(gameId)!
-    if (!loadingData.players.some(p => p.name === playerName)) {
+    const loadingPlayer = loadingData.players.find(p => p.name === playerName)
+    if (!loadingPlayer) {
       return false
     }
 
     // TODO(tec27): Make some error type that lets us pass this info back to users
-    return this.maybeCancelLoadingFromSystem(gameId, new Error(`${playerName} failed to load`))
+    return this.maybeCancelLoadingFromSystem(
+      gameId,
+      new GameLoaderError(GameLoadErrorType.PlayerFailed, `${playerName} failed to load`, {
+        userId: loadingPlayer.userId,
+      }),
+    )
   }
 
   private maybeCancelLoadingFromSystem(gameId: string, reason: Error) {
@@ -268,6 +295,18 @@ export class GameLoader {
           val.push({ for: p1Slot.id, server, routeId, playerId: p2Id }),
         )
     }, IMap<Slot, List<GameRoute>>())
+
+    const debugRouteInfo = routes.map<GameRouteDebugInfo>(route => ({
+      p1: route.p1,
+      p2: route.p2,
+      server: route.server.id,
+      latency: route.estimatedLatency,
+    }))
+    Promise.resolve()
+      .then(() => updateRouteDebugInfo(gameId, debugRouteInfo))
+      .catch(err => {
+        log.error({ err }, 'error updating route debug info')
+      })
 
     for (const [player, routes] of routesByPlayer.entries()) {
       if (onRoutesSet) {

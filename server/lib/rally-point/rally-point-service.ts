@@ -6,6 +6,7 @@ import RallyPointCreator, { CreatedRoute } from 'rally-point-creator'
 import { singleton } from 'tsyringe'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import { RallyPointServer, ResolvedRallyPointServer } from '../../../common/rally-point'
+import { SbUserId } from '../../../common/users/user-info'
 import isDev from '../env/is-dev'
 import log from '../logging/logger'
 import { ClientSocketsGroup, ClientSocketsManager } from '../websockets/socket-groups'
@@ -15,9 +16,9 @@ const SERVER_UPDATE_PATH = '/rallyPoint/serverList'
 
 export interface RallyPointRouteInfo {
   /** The user ID of player 1. */
-  p1: number
+  p1: SbUserId
   /** The user ID of player 2. */
-  p2: number
+  p2: SbUserId
   /**
    * The rally-point route info, containing information players will need to provide to the server
    * to initialize the connection.
@@ -25,6 +26,8 @@ export interface RallyPointRouteInfo {
   route: CreatedRoute
   /** Which rally-point server this route is for. */
   server: ResolvedRallyPointServer
+  /** The estimated latency between players (this is one-way, from player A to the server to B). */
+  estimatedLatency: number
 }
 
 @singleton()
@@ -250,6 +253,9 @@ export class RallyPointService {
       p2: player2.userId,
       route,
       server,
+      // minPing is the round trip time from both players, summed, we divide by 2 to get the
+      // 1-way latency
+      estimatedLatency: minPing / 2,
     }
   }
 
