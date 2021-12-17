@@ -115,16 +115,19 @@ impl bw::Bw for Bw1161 {
         &self,
         game_info: &mut bw::JoinableGameInfo,
         _is_eud: bool,
-        map_path: &[u8],
+        map_path: &CStr,
         _address: std::net::Ipv4Addr,
     ) -> Result<(), u32> {
-        assert!(*map_path.last().unwrap() == 0, "Map path was not null-terminated");
         let ok = join_game(game_info);
         if ok == 0 {
             return Err(storm::SErrGetLastError());
         }
         let mut out = [0u32; 8];
-        let ok = init_map_from_path(map_path.as_ptr(), out.as_mut_ptr() as *mut c_void, 0);
+        let ok = init_map_from_path(
+            map_path.as_ptr() as *const u8,
+            out.as_mut_ptr() as *mut c_void,
+            0,
+        );
         if ok == 0 {
             return Err(storm::SErrGetLastError());
         }

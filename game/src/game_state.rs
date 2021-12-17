@@ -1,4 +1,4 @@
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::io;
 use std::mem;
 use std::net::Ipv4Addr;
@@ -7,7 +7,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
-use bytes::Bytes;
 use futures::prelude::*;
 use futures::{pin_mut};
 use http::header::{HeaderMap, ORIGIN};
@@ -164,6 +163,9 @@ quick_error! {
         }
         MissingMapInfo(desc: &'static str) {
             display("Missing map info '{}'", desc)
+        }
+        NullInPath(path: String) {
+            display("Path '{}' contains null character", path)
         }
     }
 }
@@ -1107,12 +1109,15 @@ unsafe fn join_lobby(
         }
         game_info
     };
-    let map_path: Bytes = info.map_path.clone().into();
+    let map_path = match CString::new(info.map_path.as_bytes()) {
+        Ok(o) => Arc::new(o),
+        Err(_) => return future::err(GameInitError::NullInPath(info.map_path.clone())).boxed(),
+    };
     async move {
         let mut repeat_interval = tokio::time::interval(Duration::from_millis(10));
         loop {
             repeat_interval.tick().await;
-            match try_join_lobby_once(game_info.clone(), is_eud, map_path.clone()).await {
+            match try_join_lobby_once(game_info.clone(), is_eud, &map_path).await {
                 Ok(()) => break,
                 Err(e) => debug!("Storm join error: {:08x}", e),
             }
@@ -1136,7 +1141,7 @@ unsafe fn join_lobby(
 async unsafe fn try_join_lobby_once(
     mut game_info: bw::JoinableGameInfo,
     is_eud: bool,
-    map_path: Bytes,
+    map_path: &Arc<CString>,
 ) -> Result<(), u32> {
     // Storm sends game join packets and then waits for a response *synchronously* (waiting for up to
     // 5 seconds). Since we're on the async thread, and our network code is on the async thread, obviously
@@ -1144,6 +1149,7 @@ async unsafe fn try_join_lobby_once(
     // really. But I digress). Therefore, we queue this onto a background thread, which will let our
     // network code actually do its job.
     let (send, recv) = oneshot::channel();
+    let map_path = map_path.clone();
     std::thread::spawn(move || {
         let address = Ipv4Addr::new(10, 27, 27, 0);
         snp::spoof_game("shieldbattery", address);

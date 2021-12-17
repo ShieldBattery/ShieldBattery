@@ -7,6 +7,7 @@ mod sdf_cache;
 mod shader_replaces;
 mod thiscall;
 
+use std::ffi::{CStr};
 use std::marker::PhantomData;
 use std::mem;
 use std::path::{Path, PathBuf};
@@ -2048,11 +2049,9 @@ impl bw::Bw for BwScr {
         &self,
         input_game_info: &mut bw::JoinableGameInfo,
         is_eud: bool,
-        map_path: &[u8],
+        map_path: &CStr,
         address: std::net::Ipv4Addr,
     ) -> Result<(), u32> {
-        assert!(*map_path.last().unwrap() == 0, "Map path was not null-terminated");
-
         // The GameInfoValue struct is being changed on the newer versions that keeps
         // getting rolled back.. Keep support for both versions.
         let params = if self.uses_new_join_param_variant {
@@ -2114,7 +2113,7 @@ impl bw::Bw for BwScr {
         let mut out = [0u32; 0x10];
         self.storm_set_last_error(0);
         let ok = (self.init_map_from_path)(
-            map_path.as_ptr(),
+            map_path.as_ptr() as *const u8,
             out.as_mut_ptr() as *mut c_void,
             0,
             0,

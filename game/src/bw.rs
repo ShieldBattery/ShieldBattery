@@ -2,6 +2,7 @@ pub mod commands;
 pub mod list;
 pub mod unit;
 
+use std::ffi::CStr;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -57,13 +58,12 @@ pub trait Bw: Sync + Send {
         lobby_name: &str,
         game_type: GameType,
     ) -> Result<(), LobbyCreateError>;
-    /// `map_path` must be null-terminated.
     /// `address` is only used by SCR. 1161 sets address by snp::spoof_game.
     unsafe fn join_lobby(
         &self,
         game_info: &mut JoinableGameInfo,
         is_eud_map: bool,
-        map_path: &[u8],
+        map_path: &CStr,
         address: std::net::Ipv4Addr,
     ) -> Result<(), u32>;
     unsafe fn game(&self) -> *mut Game;
