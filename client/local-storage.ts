@@ -1,6 +1,9 @@
 import logger from './logging/logger'
 
-// TODO(tec27): Move this to a more common location
+/**
+ * A manager for a JSON value stored in local storage. Provides easy methods to set and retrieve
+ * the value (if any), doing the necessary parsing/encoding.
+ */
 export class JsonLocalStorageValue<T> {
   constructor(readonly name: string) {}
 
