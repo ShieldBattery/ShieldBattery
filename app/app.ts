@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import { app, BrowserWindow, dialog, protocol, screen, Session, shell } from 'electron'
+import { app, BrowserWindow, dialog, Menu, protocol, screen, Session, shell } from 'electron'
 import isDev from 'electron-is-dev'
 import localShortcut from 'electron-localshortcut'
 import { autoUpdater } from 'electron-updater'
@@ -575,6 +575,10 @@ async function createWindow() {
 app.on('ready', async () => {
   const localSettingsPromise = createLocalSettings()
   const scrSettingsPromise = createScrSettings()
+
+  // We don't display this anyway, and it registers shortcuts for things that we don't want (e.g.
+  // Ctrl+W to close, Ctrl+R to refresh [which we don't want outside of dev])
+  Menu.setApplicationMenu(null)
 
   if (!isDev) {
     autoUpdater.checkForUpdates()
