@@ -7,9 +7,11 @@ use crate::bw;
 // Structures of messages that are used to communicate with the electron app.
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Settings {
     pub local: serde_json::Map<String, serde_json::Value>,
     pub scr: serde_json::Map<String, serde_json::Value>,
+    pub settings_file_path: String,
 }
 
 // app/common/game_status.js

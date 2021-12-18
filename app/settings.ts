@@ -319,7 +319,16 @@ export class ScrSettings extends Settings<ScrSettingsData> {
   private blizzardFilepath: string
   private blizzardSettings!: Record<string, any>
 
-  constructor(filepath: string, blizzardFilepath: string) {
+  /**
+   * Creates a new ScrSettings.
+   *
+   * @param filepath the path to store the settings file that gets updated by our settings dialog
+   * @param blizzardFilepath the path to the game's normal settings file, which we overlay our
+   *   settings on top of.
+   * @param gameFilepath the path to the file that the game should load instead of the normal
+   *   settings file, which we write out during game launches.
+   */
+  constructor(filepath: string, blizzardFilepath: string, readonly gameFilepath: string) {
     const initializeFunc = async function (this: ScrSettings) {
       try {
         this.settings = JSON.parse(await fsPromises.readFile(this.filepath, { encoding: 'utf8' }))
@@ -447,16 +456,23 @@ export class ScrSettings extends Settings<ScrSettingsData> {
     }
   }
 
-  // Function which overwrites the Blizzard settings with our own. This should be done before each
-  // game to make sure the game is initialized with our settings, instead of Blizzard's.
-  async overwriteBlizzardSettingsFile() {
+  /**
+   * Writes out the current SC:R settings to our replacement file, which the game will redirect
+   * reads/writes of CSettings.json to. Once the game completes, `syncWithGameSettingsFile` should
+   * be called to update our settings with what was changed ingame.
+   */
+  async writeGameSettingsFile() {
+    log.debug('Writing ScrSettings to game settings file')
     await this.initialized
     const merged = { ...this.blizzardSettings, ...fromSbToBlizzard(this.settings) }
-    if (!deepEqual(merged, this.blizzardSettings)) {
-      this.blizzardSettings = merged
-      await fsPromises.writeFile(this.blizzardFilepath, jsonify(this.blizzardSettings), {
-        encoding: 'utf8',
-      })
-    }
+    await fsPromises.writeFile(this.gameFilepath, jsonify(merged), { encoding: 'utf8' })
+  }
+
+  async syncWithGameSettingsFile() {
+    log.debug('Syncing ScrSettings with game settings file')
+    await this.initialized
+    const contents = await fsPromises.readFile(this.gameFilepath, { encoding: 'utf8' })
+    const newData = fromBlizzardToSb(JSON.parse(contents))
+    await this.merge(newData)
   }
 }

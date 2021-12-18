@@ -17,7 +17,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, AtomicU32, Ordering};
 
 use byteorder::{ByteOrder, LittleEndian};
 use libc::c_void;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use scr_analysis::{DatType, scarf};
 use smallvec::SmallVec;
 use winapi::um::libloaderapi::{GetModuleHandleW};
@@ -158,6 +158,8 @@ pub struct BwScr {
     /// Avoid reporting the same player being dropped multiple times.
     /// Bit 0x1 = Net id 0, 0x2 = net id 1, etc.
     dropped_players: AtomicU32,
+    // Path that reads/writes of CSettings.json will be redirected to
+    settings_file_path: RwLock<String>,
 }
 
 struct SendPtr<T>(T);
@@ -1150,6 +1152,7 @@ impl BwScr {
             show_skins: AtomicBool::new(false),
             is_processing_game_commands: AtomicBool::new(false),
             dropped_players: AtomicU32::new(0),
+            settings_file_path: RwLock::new(String::new()),
         })
     }
 
@@ -1863,6 +1866,10 @@ impl bw::Bw for BwScr {
             });
         self.is_carbot.store(is_carbot, Ordering::Relaxed);
         self.show_skins.store(show_skins, Ordering::Relaxed);
+
+        let mut settings_file_path = self.settings_file_path.write();
+        settings_file_path.clear();
+        settings_file_path.push_str(&settings.settings_file_path);
     }
 
     unsafe fn run_game_loop(&self) {
@@ -2410,6 +2417,28 @@ fn create_file_hook(
                     // we'll need read access to the newly created file as well.
                     // Can't think of any issues this extra flag may cause..
                     access |= GENERIC_READ;
+                }
+            }
+
+            // Check if this is for CSettings.json and redirect it to our own file instead
+            if !is_replay {
+                const CSETTINGS_JSON: &[u8] = b"CSettings.json";
+
+                let name_len = (0..).find(|&i| *filename.add(i) == 0).unwrap();
+                let filename = std::slice::from_raw_parts(filename, name_len);
+                let ending = Some(())
+                    .and_then(|()| filename.get(filename.len().checked_sub(CSETTINGS_JSON.len())?..));
+                if let Some(ending) = ending {
+                    if ascii_compare_u16_u8_casei(ending, CSETTINGS_JSON) {
+                        let replacement = bw.settings_file_path.read();
+                        if replacement.is_empty() {
+                            error!("Replacement settings file path not set")
+                        } else {
+                            debug!("Mapping CSettings.json CreateFile call to {}", replacement);
+                            return orig(windows::winapi_str(replacement.clone()).as_ptr(), access, share,
+                                        security, creation_disposition, flags, template);
+                        }
+                    }
                 }
             }
         }

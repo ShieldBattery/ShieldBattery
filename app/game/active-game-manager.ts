@@ -234,6 +234,7 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
     this.emit('gameCommand', id, 'settings', {
       local: await this.localSettings.get(),
       scr: await this.scrSettings.get(),
+      settingsFilePath: this.scrSettings.gameFilepath,
     })
 
     if (game.routes) {
@@ -322,6 +323,12 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
     }
 
     log.verbose(`Game ${id} exited with code 0x${exitCode.toString(16)}`)
+
+    Promise.resolve()
+      .then(() => this.scrSettings.syncWithGameSettingsFile())
+      .catch(err => {
+        log.error(`Error syncing settings with game settings file: ${err?.stack ?? err}`)
+      })
 
     let status = this.activeGame.status?.state ?? GameStatus.Unknown
     if (status < GameStatus.Finished) {
@@ -432,7 +439,7 @@ async function doLaunch(
   if (isRemastered) {
     // Blizzard reinitializes their settings file everytime the SC:R is opened through their
     // launcher. So we must do the same thing with our own version of settings before each game.
-    await scrSettings.overwriteBlizzardSettingsFile()
+    await scrSettings.writeGameSettingsFile()
   }
 
   const userDataPath = app.getPath('userData')

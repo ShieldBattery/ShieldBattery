@@ -103,6 +103,10 @@ async function createScrSettings() {
   const settings = new ScrSettings(
     path.join(getUserDataPath(), fileName),
     path.join(app.getPath('documents'), 'StarCraft', 'CSettings.json'),
+    path.join(
+      getUserDataPath(),
+      sbSessionName ? `CSettings-${sbSessionName}.json` : 'CSettings.json',
+    ),
   )
   await settings.untilInitialized()
   return settings
@@ -114,7 +118,7 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
   })
 
   ipcMain.handle('settingsOverwriteBlizzardFile', async () => {
-    await scrSettings.overwriteBlizzardSettingsFile()
+    await scrSettings.writeGameSettingsFile()
   })
 
   ipcMain
