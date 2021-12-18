@@ -18,6 +18,23 @@ FROM matchmaking_completions
 GROUP BY matchmaking_type;
 ```
 
+## Recent game rally-point routes + estimated latency, 1 route per row
+
+Change the first common table expression to select the game entries you care about.
+
+```sql
+WITH game_routes AS (
+	SELECT g.id, g.routes FROM games g
+	WHERE g.routes IS NOT NULL
+	ORDER BY g.start_time DESC
+	LIMIT 10
+) SELECT g.id AS game_id, u1.name AS p1, u2.name AS p2, r.description AS "server", g.route->>'latency' AS latency
+FROM (SELECT g.id, UNNEST(g.routes) AS route FROM game_routes g) g
+JOIN rally_point_servers r ON (route->>'server')::NUMERIC = r.id
+JOIN users u1 ON (g.route->>'p1')::NUMERIC = u1.id
+JOIN users u2 ON (g.route->>'p2')::NUMERIC = u2.id;
+```
+
 # Creating a readonly role and user logins
 
 These must be executed as the superuser.
