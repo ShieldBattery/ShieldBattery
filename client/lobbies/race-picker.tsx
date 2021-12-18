@@ -20,6 +20,7 @@ export const RaceButton = styled.button<{
   $size: RacePickerSize
   $race: RaceChar
   $active: boolean
+  $allowInteraction: boolean
 }>`
   ${buttonReset};
 
@@ -28,7 +29,9 @@ export const RaceButton = styled.button<{
   width: ${props => (props.$size === RacePickerSize.Medium ? '36px' : '48px')};
   height: ${props => (props.$size === RacePickerSize.Medium ? '36px' : '48px')};
   min-height: ${props => (props.$size === RacePickerSize.Medium ? '32px' : '44px')};
-  padding: 2px;
+  padding: ${props => (props.$allowInteraction ? '0' : '2px')};
+
+  border: ${props => (props.$allowInteraction ? '2px solid currentColor' : 'none')};
   border-radius: 8px;
 
   &:not(:first-child) {
@@ -155,7 +158,13 @@ export const RacePicker = React.forwardRef(
           hiddenRaces?.includes(r) ? (
             <HiddenRaceIcon key={r} />
           ) : (
-            <RaceButton key={r} $size={size} $race={r} $active={r === race} {...buttonProps[i]}>
+            <RaceButton
+              key={r}
+              $size={size}
+              $race={r}
+              $active={r === race}
+              $allowInteraction={allowInteraction}
+              {...buttonProps[i]}>
               <StyledRaceIcon race={r} $size={size} />
               <Ripple ref={rippleRefs[i]} disabled={!allowInteraction} />
             </RaceButton>

@@ -28,7 +28,7 @@ const MatchmakingTypeText = styled.span`
 `
 
 const StyledRaceSelect = styled(RaceSelect)`
-  margin: 24px 0 0 -8px;
+  margin: 24px 0 0;
 `
 
 export function PartyQueueAcceptDialog({ dialogRef }: CommonDialogProps) {
