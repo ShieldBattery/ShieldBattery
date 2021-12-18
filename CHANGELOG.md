@@ -1,3 +1,28 @@
+#### 8.0.1 (December 17, 2021)
+
+- **Fixed ally chat.** Ally chat should now be working in ranked 2v2 games. And if you never
+  realized it was broken, well, it was! Your ally wasn't ignoring you! Probably.
+- **UI tweaks.** We've tweaked a bunch of interfaces to smooth over some things people were
+  confused about: party queues, race selection, readying up for a found match, and more! Special
+  thanks to everyone who has streamed themselves using ShieldBattery, it's been very helpful to see
+  what you're finding hard to use!
+- **Bug fixes.** We've fixed a bunch of small and rare bugs, but for some people these are probably
+  very important:
+
+  - Fixed a rare crash when launching the standalone application
+  - Fixed a crash on initializing the game if your Windows username contained non-latin characters
+
+##### Known Issues
+
+- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
+  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
+  very least add a warning for this case in the future (or better yet, automate re-authing), but
+  for now, try to launch the game from the Blizzard launcher at least once a month.
+- **Off-center screen starting position.** For some users, generally in positions on the right side
+  of the screen, the starting screen position may be slightly off-center from where it usually is
+- **Observer chat is broken.** Observers are unable to send messages ingame currently. This will be
+  fixed in a future update.
+
 #### 8.0.0 (December 15, 2021)
 
 - **2v2 matchmaking.** Team matchmaking is finally here! Our matchmaker can now handle matching up
