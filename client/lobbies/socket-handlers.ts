@@ -3,6 +3,7 @@ import { GameLaunchConfig, GameRoute, PlayerInfo } from '../../common/game-launc
 import { TypedIpcRenderer } from '../../common/ipc'
 import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
 import { MapExtension, MapInfoJson } from '../../common/maps'
+import { BwTurnRate } from '../../common/network'
 import { urlPath } from '../../common/urls'
 import { SbUser, SbUserId } from '../../common/users/user-info'
 import {
@@ -183,6 +184,7 @@ interface LobbySetupGameEvent {
   setup: {
     gameId: string
     seed: number
+    turnRate?: BwTurnRate | 0
   }
   // TODO(tec27): Right now this can be undefined if the local player is an observer, but perhaps
   // that should be handled differently?
@@ -423,6 +425,7 @@ const eventToAction: EventToActionMap = {
         slots: playerInfos,
         host: hostInfo,
         seed: event.setup.seed,
+        turnRate: event.setup.turnRate,
         resultCode: event.resultCode,
         serverUrl: makeServerUrl(''),
       },

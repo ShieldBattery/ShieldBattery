@@ -7,6 +7,7 @@ import { GameRoute } from '../../../common/game-launch-config'
 import { GameConfig } from '../../../common/games/configuration'
 import { GameRouteDebugInfo } from '../../../common/games/games'
 import { Slot } from '../../../common/lobbies/slot'
+import { BwTurnRate, BwUserLatency, turnRateToMaxLatency } from '../../../common/network'
 import { SbUserId } from '../../../common/users/user-info'
 import { CodedError } from '../errors/coded-error'
 import log from '../logging/logger'
@@ -17,6 +18,20 @@ import { GameplayActivityRegistry } from './gameplay-activity-registry'
 import { registerGame } from './registration'
 
 const GAME_LOAD_TIMEOUT = 60 * 1000
+
+// NOTE(tec27): It's important that these are sorted low -> high
+const POTENTIAL_TURN_RATES: ReadonlyArray<BwTurnRate> = [12, 14, 16, 20, 24]
+/**
+ * Entries of turn rate -> the max latency that is allowed to auto-pick that turn rate. These values
+ * are chosen to be a bit conservative, and ensure that even if there is somewhat frequent packet
+ * loss, the ingame settings could be used to get things mostly playable. (This is a stop-gap
+ * measure, longer-term our netcode should be able to adjust on the fly.)
+ */
+const MAX_LATENCIES: ReadonlyArray<[turnRate: BwTurnRate, maxLatency: number]> =
+  POTENTIAL_TURN_RATES.map(turnRate => [
+    turnRate,
+    turnRateToMaxLatency(turnRate, BwUserLatency.ExtraHigh) / 2,
+  ])
 
 export enum GameLoadErrorType {
   PlayerFailed = 'playerFailed',
@@ -95,7 +110,7 @@ const LoadingDatas = {
 }
 
 export type OnGameSetupFunc = (
-  gameInfo: { gameId: string; seed: number },
+  gameInfo: { gameId: string; seed: number; turnRate?: BwTurnRate },
   /** Map of user ID -> code for submitting the game results */
   resultCodes: Map<SbUserId, string>,
 ) => void
@@ -257,10 +272,6 @@ export class GameLoader {
     const loadingData = this.loadingGames.get(gameId)!
     const { players, cancelToken } = loadingData
 
-    const onGameSetupResult = onGameSetup
-      ? onGameSetup({ gameId, seed: generateSeed() }, resultCodes)
-      : Promise.resolve()
-
     const rallyPointService = container.resolve(RallyPointService)
     const activityRegistry = container.resolve(GameplayActivityRegistry)
 
@@ -278,6 +289,22 @@ export class GameLoader {
 
     const routes = hasMultipleHumans ? await createRoutes(players) : []
     cancelToken.throwIfCancelling()
+
+    let maxEstimatedLatency = 0
+    for (const route of routes) {
+      if (route.estimatedLatency > maxEstimatedLatency) {
+        maxEstimatedLatency = route.estimatedLatency
+      }
+    }
+    const availableTurnRates = MAX_LATENCIES.filter(([_, latency]) => latency > maxEstimatedLatency)
+    // Of the turn rates that work for this latency, pick the best one
+    const chosenTurnRate: BwTurnRate = availableTurnRates.length
+      ? availableTurnRates.at(-1)![0]
+      : 12
+
+    const onGameSetupResult = onGameSetup
+      ? onGameSetup({ gameId, seed: generateSeed(), turnRate: chosenTurnRate }, resultCodes)
+      : Promise.resolve()
 
     // get a list of routes + player IDs per player, broadcast that to each player
     const routesByPlayer = routes.reduce((result, route) => {

@@ -1,6 +1,7 @@
 import { GameType } from './games/configuration'
 import { SlotType } from './lobbies/slot'
 import { MapInfoJson } from './maps'
+import { BwTurnRate } from './network'
 import { RaceChar } from './races'
 import { ResolvedRallyPointServer } from './rally-point'
 import { SbUserId } from './users/user-info'
@@ -75,6 +76,11 @@ export interface GameLaunchConfig {
      * Whether changing allies during the game is disabled. Optional, defaults to false (i.e. use
      * the default for the game mode). */
     disableAllianceChanges?: boolean
+    /**
+     * Turn rate for the game. 0 means dynamic, other values mean N turns per second. If not
+     * provided, defaults to dynamic.
+     */
+    turnRate?: BwTurnRate | 0
     seed: number
     /**
      * The code used to submit results for this game to the server. This is secret and unique per

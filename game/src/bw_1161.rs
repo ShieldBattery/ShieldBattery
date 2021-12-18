@@ -107,6 +107,7 @@ impl bw::Bw for Bw1161 {
         _map_info: &MapInfo,
         lobby_name: &str,
         game_type: bw::GameType,
+        _turn_rate: u32,
     ) -> Result<(), bw::LobbyCreateError> {
         create_lobby(map_path, lobby_name, game_type)
     }
@@ -115,6 +116,7 @@ impl bw::Bw for Bw1161 {
         &self,
         game_info: &mut bw::JoinableGameInfo,
         _is_eud: bool,
+        _turn_rate: u32,
         map_path: &CStr,
         _address: std::net::Ipv4Addr,
     ) -> Result<(), u32> {

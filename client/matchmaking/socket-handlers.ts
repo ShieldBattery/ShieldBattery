@@ -215,7 +215,7 @@ const eventToAction: EventToActionMap = {
         name: user.name,
       },
       setup: {
-        gameId: event.setup.gameId!,
+        gameId: event.setup.gameId,
         name: 'Matchmaking game', // Does this even matter for anything?
         map: event.chosenMap,
         gameType:
@@ -226,7 +226,8 @@ const eventToAction: EventToActionMap = {
         slots,
         host: slots[0], // Arbitrarily set first player as host
         disableAllianceChanges: true,
-        seed: event.setup.seed!,
+        turnRate: event.setup.turnRate,
+        seed: event.setup.seed,
         resultCode: event.resultCode!,
         serverUrl: makeServerUrl(''),
       },

@@ -1790,6 +1790,7 @@ impl BwScr {
         &self,
         input_game_info: &mut bw::JoinableGameInfo,
         is_eud: bool,
+        turn_rate: u32,
     ) -> bw_hash_table::HashTable<scr::BwString, T> {
         let mut params = bw_hash_table::HashTable::<scr::BwString, T>::new(0x20, 0x8, 0x28);
         let mut add_param = |key: &[u8], value: u32| {
@@ -1812,9 +1813,7 @@ impl BwScr {
         add_param(b"map_tile_set", input_game_info.tileset as u32);
         add_param(b"map_width", input_game_info.map_width as u32);
         add_param(b"map_height", input_game_info.map_height as u32);
-        // Not sure if we want to change this one day. I think 0 means dynamic,
-        // which is assumed by the host as well AFAIK.
-        add_param(b"net_turn_rate", 0);
+        add_param(b"net_turn_rate", turn_rate);
         // Flag 0x4 = Old limits, 0x10 = EUD
         let flags = if is_eud { 0x14 } else { 0x0 };
         add_param(b"flags", flags);
@@ -1961,12 +1960,15 @@ impl bw::Bw for BwScr {
         map_info: &MapInfo,
         lobby_name: &str,
         game_type: bw::GameType,
+        turn_rate: u32,
     ) -> Result<(), bw::LobbyCreateError> {
         let mut game_input: scr::GameInput = mem::zeroed();
         init_bw_string(&mut game_input.name, lobby_name.as_bytes());
         init_bw_string(&mut game_input.password, b"");
         game_input.speed = 6;
         game_input.game_type_subtype = game_type.as_u32();
+
+        game_input.turn_rate = turn_rate;
 
         let is_eud = match map_info.map_data {
             Some(ref s) => s.is_eud,
@@ -2056,13 +2058,14 @@ impl bw::Bw for BwScr {
         &self,
         input_game_info: &mut bw::JoinableGameInfo,
         is_eud: bool,
+        turn_rate: u32,
         map_path: &CStr,
         address: std::net::Ipv4Addr,
     ) -> Result<(), u32> {
         // The GameInfoValue struct is being changed on the newer versions that keeps
         // getting rolled back.. Keep support for both versions.
         let params = if self.uses_new_join_param_variant {
-            self.build_join_game_params::<scr::GameInfoValue>(input_game_info, is_eud)
+            self.build_join_game_params::<scr::GameInfoValue>(input_game_info, is_eud, turn_rate)
         } else {
             // HashTable itself has same layout regardless of which values it contains,
             // so this kind of cast is fine. Only BW is going to read params after this,
@@ -2073,7 +2076,7 @@ impl bw::Bw for BwScr {
             // Should remove this branch at some point anyway, once we're sure we don't need
             // to support 9411.
             mem::transmute(
-                self.build_join_game_params::<scr::GameInfoValueOld>(input_game_info, is_eud)
+                self.build_join_game_params::<scr::GameInfoValueOld>(input_game_info, is_eud, turn_rate)
             )
         };
 

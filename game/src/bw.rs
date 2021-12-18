@@ -57,12 +57,14 @@ pub trait Bw: Sync + Send {
         map_info: &MapInfo,
         lobby_name: &str,
         game_type: GameType,
+        turn_rate: u32,
     ) -> Result<(), LobbyCreateError>;
     /// `address` is only used by SCR. 1161 sets address by snp::spoof_game.
     unsafe fn join_lobby(
         &self,
         game_info: &mut JoinableGameInfo,
         is_eud_map: bool,
+        turn_rate: u32,
         map_path: &CStr,
         address: std::net::Ipv4Addr,
     ) -> Result<(), u32>;

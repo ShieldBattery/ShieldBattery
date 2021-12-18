@@ -29,6 +29,7 @@ import {
   PreferenceData,
   TEAM_SIZES,
 } from '../../../common/matchmaking'
+import { BwTurnRate } from '../../../common/network'
 import { RaceChar } from '../../../common/races'
 import { randomInt, randomItem } from '../../../common/random'
 import { subtract } from '../../../common/sets'
@@ -82,10 +83,11 @@ interface GameLoaderCallbacks {
     matchInfo: Readonly<Match>
     clients: ReadonlyArray<ClientSocketsGroup>
     slots: ReadonlyArray<Slot>
-    setup?: Partial<{
+    setup: {
       gameId: string
       seed: number
-    }>
+      turnRate?: BwTurnRate
+    }
     resultCodes: ReadonlyMap<SbUserId, string>
     chosenMap: MapInfoJson
     cancelToken: CancelToken
@@ -327,7 +329,7 @@ export class MatchmakingService {
       matchInfo,
       clients,
       slots,
-      setup = {},
+      setup,
       resultCodes,
       chosenMap,
       cancelToken,

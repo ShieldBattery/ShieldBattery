@@ -1054,7 +1054,7 @@ impl InitInProgress {
 unsafe fn create_lobby(info: &GameSetupInfo, game_type: GameType) -> Result<(), GameInitError> {
     let map_path = Path::new(&info.map_path);
     get_bw()
-        .create_lobby(map_path, &info.map, &info.name, game_type)
+        .create_lobby(map_path, &info.map, &info.name, game_type, info.turn_rate.unwrap_or(0))
         .map_err(|e| GameInitError::Bw(e))
 }
 
@@ -1113,11 +1113,12 @@ unsafe fn join_lobby(
         Ok(o) => Arc::new(o),
         Err(_) => return future::err(GameInitError::NullInPath(info.map_path.clone())).boxed(),
     };
+    let turn_rate = info.turn_rate.unwrap_or(0);
     async move {
         let mut repeat_interval = tokio::time::interval(Duration::from_millis(10));
         loop {
             repeat_interval.tick().await;
-            match try_join_lobby_once(game_info.clone(), is_eud, &map_path).await {
+            match try_join_lobby_once(game_info.clone(), is_eud, turn_rate, &map_path).await {
                 Ok(()) => break,
                 Err(e) => debug!("Storm join error: {:08x}", e),
             }
@@ -1141,6 +1142,7 @@ unsafe fn join_lobby(
 async unsafe fn try_join_lobby_once(
     mut game_info: bw::JoinableGameInfo,
     is_eud: bool,
+    turn_rate: u32,
     map_path: &Arc<CString>,
 ) -> Result<(), u32> {
     // Storm sends game join packets and then waits for a response *synchronously* (waiting for up to
@@ -1154,7 +1156,7 @@ async unsafe fn try_join_lobby_once(
         let address = Ipv4Addr::new(10, 27, 27, 0);
         snp::spoof_game("shieldbattery", address);
         let bw = get_bw();
-        let result = bw.join_lobby(&mut game_info, is_eud, &map_path, address);
+        let result = bw.join_lobby(&mut game_info, is_eud, turn_rate, &map_path, address);
         let _ = send.send(result);
     });
 
