@@ -2,7 +2,7 @@ import { Immutable } from 'immer'
 import { assertUnreachable } from '../assert-unreachable'
 import { Jsonify } from '../json'
 import { MapInfoJson } from '../maps'
-import { MatchmakingType, PublicMatchmakingRatingChangeJson } from '../matchmaking'
+import { matchmakingTypeToLabel, PublicMatchmakingRatingChangeJson } from '../matchmaking'
 import { SbUser, SbUserId } from '../users/user-info'
 import { GameConfig, GameSource } from './configuration'
 import { ReconciledPlayerResult } from './results'
@@ -49,12 +49,7 @@ export function getGameTypeLabel(game: Immutable<GameRecordJson>): string {
   if (game.config.gameSource === GameSource.Lobby) {
     return 'Custom game'
   } else if (game.config.gameSource === GameSource.Matchmaking) {
-    switch (game.config.gameSourceExtra.type) {
-      case MatchmakingType.Match1v1:
-        return 'Ranked 1v1'
-      case MatchmakingType.Match2v2:
-        return 'Ranked 2v2'
-    }
+    return `Ranked ${matchmakingTypeToLabel(game.config.gameSourceExtra.type)}`
   }
 
   return assertUnreachable(game.config)

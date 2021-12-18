@@ -19,9 +19,9 @@ export const ALL_MATCHMAKING_TYPES: ReadonlyArray<MatchmakingType> = Object.valu
 export function matchmakingTypeToLabel(type: MatchmakingType): string {
   switch (type) {
     case MatchmakingType.Match1v1:
-      return '1 vs 1'
+      return '1v1'
     case MatchmakingType.Match2v2:
-      return '2 vs 2'
+      return '2v2'
     default:
       return assertUnreachable(type)
   }
