@@ -286,6 +286,7 @@ export const sbToScrMapping = Map<Omit<keyof ScrSettingsData, 'version'>, string
   ['consoleSkin', 'selectedConsole'],
   ['selectedSkin', 'selectedSkin'],
   ['showBonusSkins', 'skinsEnabled'],
+  ['selectedAnnouncer', 'selectedAnnouncer'],
 ])
 
 export const scrToSbMapping = sbToScrMapping.mapEntries(([key, value]) => [value, key])

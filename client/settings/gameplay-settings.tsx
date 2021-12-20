@@ -1,5 +1,4 @@
-import PropTypes from 'prop-types'
-import React, { useImperativeHandle } from 'react'
+import React, { useImperativeHandle, useMemo } from 'react'
 import styled from 'styled-components'
 import {
   ALL_CONSOLE_SKINS,
@@ -18,7 +17,8 @@ import { Select } from '../material/select/select'
 import { colorTextSecondary } from '../styles/colors'
 import { overline } from '../styles/typography'
 import { FormContainer } from './settings-content'
-import { LocalSettings, ScrSettings } from './settings-records'
+import { SettingsFormHandle } from './settings-form-ref'
+import { ScrSettings } from './settings-records'
 
 const ApmAlertCheckbox = styled(CheckBox)`
   margin-top: 32px;
@@ -56,12 +56,8 @@ function validateApmValue(val: number, model: GameplaySettingsModel) {
   return val <= 0 || val > 999 ? 'Enter a value between 1 and 999' : undefined
 }
 
-interface FormRef {
-  submit: () => void
-}
-
 const GameplayRemasteredForm = React.forwardRef<
-  FormRef,
+  SettingsFormHandle,
   {
     model: GameplaySettingsModel
     onChange: (model: GameplaySettingsModel) => void
@@ -160,42 +156,30 @@ const GameplayRemasteredForm = React.forwardRef<
 })
 
 export interface GameplaySettingsProps {
-  localSettings: LocalSettings
   scrSettings: ScrSettings
-  // TODO(tec27): This is pretty hacky and we should find some better way to handle this
-  formRef: React.MutableRefObject<{ submit: () => void }>
-  isRemastered?: boolean
+  formRef: React.Ref<SettingsFormHandle>
   onChange: (values: GameplaySettingsModel) => void
   onSubmit: (values: GameplaySettingsModel) => void
 }
 
-export default class GameplaySettings extends React.Component<GameplaySettingsProps> {
-  static propTypes = {
-    scrSettings: PropTypes.object.isRequired,
-    formRef: PropTypes.object.isRequired,
-    isRemastered: PropTypes.bool,
-    onChange: PropTypes.func.isRequired,
-    onSubmit: PropTypes.func.isRequired,
-  }
-
-  override render() {
-    const { scrSettings, formRef, isRemastered } = this.props
-
-    if (!isRemastered) {
-      // We don't have yet any gameplay-related settings for 1.16.1
-      return null
-    }
-
+export default function GameplaySettings({
+  scrSettings,
+  formRef,
+  onChange,
+  onSubmit,
+}: GameplaySettingsProps) {
+  const formModel = useMemo(
     // TODO(tec27): remove cast once Immutable infers types properly
-    const formScrModel: GameplaySettingsModel = { ...scrSettings.toJS() } as GameplaySettingsModel
+    () => ({ ...scrSettings.toJS() } as GameplaySettingsModel),
+    [scrSettings],
+  )
 
-    return (
-      <GameplayRemasteredForm
-        ref={formRef}
-        model={formScrModel}
-        onChange={this.props.onChange}
-        onSubmit={this.props.onSubmit}
-      />
-    )
-  }
+  return (
+    <GameplayRemasteredForm
+      ref={formRef}
+      model={formModel}
+      onChange={onChange}
+      onSubmit={onSubmit}
+    />
+  )
 }

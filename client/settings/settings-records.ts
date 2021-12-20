@@ -1,5 +1,5 @@
 import { Record } from 'immutable'
-import { ConsoleSkin, IngameSkin } from '../../common/blizz-settings'
+import { Announcer, ConsoleSkin, IngameSkin } from '../../common/blizz-settings'
 import {
   LocalSettingsData,
   ScrSettingsData,
@@ -46,6 +46,7 @@ export class ScrSettings
     gameSubtitlesOn: false,
     cinematicSubtitlesOn: false,
     originalVoiceOversOn: false,
+    selectedAnnouncer: Announcer.Default as Announcer,
     // Video settings
     displayMode: 0,
     fpsLimitOn: false,

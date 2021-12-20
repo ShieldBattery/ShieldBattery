@@ -100,3 +100,37 @@ export function getDisplayModeName(mode: DisplayMode): string {
       return assertUnreachable(mode)
   }
 }
+
+/**
+ * Custom announcers that can be selected for the `selectedAnnouncer` value in SC:R settings.
+ */
+export enum Announcer {
+  Default = 'default',
+  Jaekyung = 'Jaekyung',
+  Yongjun = 'Yongjun',
+  Jungmin = 'Jungmin',
+  UmJeonKim = 'UmJeonKim',
+  Jini = 'Jini',
+}
+
+export const ALL_ANNOUNCERS: Readonly<Announcer[]> = Object.values(Announcer)
+
+/** Returns a displayable name for an `Announcer`. */
+export function getAnnouncerName(announcer: Announcer): string {
+  switch (announcer) {
+    case Announcer.Default:
+      return 'Default'
+    case Announcer.Jaekyung:
+      return 'Um Jae Kyung'
+    case Announcer.Jini:
+      return 'Hey Jini'
+    case Announcer.Jungmin:
+      return 'Kim Jungmin'
+    case Announcer.UmJeonKim:
+      return 'Um, Jeon, Kim Trio'
+    case Announcer.Yongjun:
+      return 'Jeon Yong Jun'
+    default:
+      return assertUnreachable(announcer)
+  }
+}

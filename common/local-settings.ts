@@ -1,4 +1,4 @@
-import { ConsoleSkin, DisplayMode, IngameSkin } from './blizz-settings'
+import { Announcer, ConsoleSkin, DisplayMode, IngameSkin } from './blizz-settings'
 
 /**
  * Settings related to the ShieldBattery Electron app (that will not be exposed to users in the
@@ -70,4 +70,5 @@ export interface ScrSettingsData {
   consoleSkin: ConsoleSkin
   selectedSkin: IngameSkin
   showBonusSkins: boolean
+  selectedAnnouncer: Announcer
 }
