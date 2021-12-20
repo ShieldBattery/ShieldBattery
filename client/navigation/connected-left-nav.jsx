@@ -12,6 +12,7 @@ import EditIcon from '../icons/material/edit-24px.svg'
 import AddIcon from '../icons/material/ic_add_black_24px.svg'
 import ChangelogIcon from '../icons/material/ic_new_releases_black_24px.svg'
 import LogoutIcon from '../icons/material/ic_power_settings_new_black_24px.svg'
+import PortraitIcon from '../icons/material/portrait_24px.svg'
 import { leaveLobby } from '../lobbies/action-creators'
 import LobbyNavEntry from '../lobbies/nav-entry'
 import { cancelFindMatch } from '../matchmaking/action-creators'
@@ -25,6 +26,7 @@ import MenuDivider from '../material/menu/divider'
 import MenuItem from '../material/menu/item'
 import { leaveParty } from '../parties/action-creators'
 import { PartyNavEntry } from '../parties/party-nav-entry'
+import { navigateToUserProfile } from '../profile/action-creators'
 import ProfileNavEntry from '../profile/nav-entry'
 import { SelfProfileOverlay } from '../profile/self-profile-overlay'
 import { closeWhisperSession } from '../whispers/action-creators'
@@ -204,6 +206,7 @@ class ConnectedLeftNav extends React.Component {
         onDismiss={this.onCloseProfileOverlay}
         anchor={this._profileEntryRef.current}
         username={this.props.auth.user.name}>
+        <MenuItem icon={<PortraitIcon />} text='View profile' onClick={this.onViewProfileClick} />
         <MenuItem icon={<ChangelogIcon />} text='View changelog' onClick={this.onChangelogClick} />
         <MenuItem icon={<EditIcon />} text='Edit account' onClick={this.onAccountClick} />
         <MenuDivider />
@@ -333,6 +336,11 @@ class ConnectedLeftNav extends React.Component {
   onAccountClick = () => {
     this.onCloseProfileOverlay()
     this.props.dispatch(openDialog(DialogType.Account))
+  }
+
+  onViewProfileClick = () => {
+    this.onCloseProfileOverlay()
+    navigateToUserProfile(this.props.auth.user.id, this.props.auth.user.name)
   }
 }
 
