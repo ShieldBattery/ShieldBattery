@@ -46,6 +46,7 @@ interface GameplaySettingsModel {
   showBonusSkins: boolean
   selectedSkin: IngameSkin
   unitPortraits: number
+  showTurnRate: boolean
 }
 
 function validateApmValue(val: number, model: GameplaySettingsModel) {
@@ -117,6 +118,11 @@ const GameplayRemasteredForm = React.forwardRef<
           <CheckBox
             {...bindCheckable('colorCyclingOn')}
             label='Enable color cycling'
+            inputProps={{ tabIndex: 0 }}
+          />
+          <CheckBox
+            {...bindCheckable('showTurnRate')}
+            label='Show turn rate'
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox

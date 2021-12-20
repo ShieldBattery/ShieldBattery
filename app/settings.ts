@@ -8,7 +8,7 @@ import { findInstallPath } from './find-install-path'
 import log from './logger'
 
 const VERSION = 10
-const SCR_VERSION = 4
+const SCR_VERSION = 5
 
 async function findStarcraftPath() {
   let starcraftPath = await findInstallPath()
@@ -287,6 +287,8 @@ export const sbToScrMapping = Map<Omit<keyof ScrSettingsData, 'version'>, string
   ['selectedSkin', 'selectedSkin'],
   ['showBonusSkins', 'skinsEnabled'],
   ['selectedAnnouncer', 'selectedAnnouncer'],
+  ['showFps', 'ShowFPS'],
+  ['showTurnRate', 'ShowTurnRate'],
 ])
 
 export const scrToSbMapping = sbToScrMapping.mapEntries(([key, value]) => [value, key])
@@ -434,6 +436,17 @@ export class ScrSettings extends Settings<ScrSettingsData> {
       }
 
       newSettings.version = 4
+    }
+    if (newSettings.version < 5) {
+      // Add new settings that we didn't have before
+
+      // NOTE(tec27): Like `createDefaults` above, this is always called *after* scrSettings has
+      // been loaded
+      const blizzSettings = fromBlizzardToSb(this.blizzardSettings)
+      newSettings.selectedAnnouncer = blizzSettings.selectedAnnouncer
+      newSettings.showFps = blizzSettings.showFps
+      newSettings.showTurnRate = blizzSettings.showTurnRate
+      newSettings.version = 5
     }
 
     newSettings.version = SCR_VERSION

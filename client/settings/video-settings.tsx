@@ -1,4 +1,5 @@
 import React, { useImperativeHandle, useMemo } from 'react'
+import styled from 'styled-components'
 import { ALL_DISPLAY_MODES, DisplayMode, getDisplayModeName } from '../../common/blizz-settings'
 import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
@@ -9,6 +10,11 @@ import Slider from '../material/slider'
 import { FormContainer } from './settings-content'
 import { SettingsFormHandle } from './settings-form-ref'
 import { ScrSettings } from './settings-records'
+
+const Spacer = styled.div`
+  width: 100%;
+  height: 32px;
+`
 
 // NOTE(tec27): Vsync is weird and is a number in the settings, but actually a boolean value. This
 // component just acts as a custom one and does the conversion
@@ -47,6 +53,7 @@ interface VideoSettingsModel {
   smoothUnitTurningOn: boolean
   shadowStackingOn: boolean
   pillarboxOn: boolean
+  showFps: boolean
 }
 
 const VideoSettingsForm = React.forwardRef<
@@ -85,6 +92,7 @@ const VideoSettingsForm = React.forwardRef<
             max={3}
             step={1}
           />
+          <Spacer />
           <CheckBox
             {...bindCheckable('fpsLimitOn')}
             label='Enable FPS limit'
@@ -134,9 +142,10 @@ const VideoSettingsForm = React.forwardRef<
           />
           <CheckBox
             {...bindCheckable('pillarboxOn')}
-            label='Keep aspect ratio'
+            label='Pillarbox (4:3 aspect ratio)'
             inputProps={{ tabIndex: 0 }}
           />
+          <CheckBox {...bindCheckable('showFps')} label='Show FPS' inputProps={{ tabIndex: 0 }} />
         </div>
       </FormContainer>
     </form>

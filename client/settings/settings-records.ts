@@ -59,6 +59,7 @@ export class ScrSettings
     smoothUnitTurningOn: false,
     shadowStackingOn: false,
     pillarboxOn: false,
+    showFps: false,
     // Gameplay settings
     gameTimerOn: false,
     colorCyclingOn: false,
@@ -72,5 +73,6 @@ export class ScrSettings
     consoleSkin: ConsoleSkin.Default as ConsoleSkin,
     selectedSkin: IngameSkin.Default as IngameSkin,
     showBonusSkins: false,
+    showTurnRate: false,
   })
   implements Readonly<Omit<ScrSettingsData, 'version'>> {}

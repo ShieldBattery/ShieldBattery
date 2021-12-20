@@ -71,4 +71,6 @@ export interface ScrSettingsData {
   selectedSkin: IngameSkin
   showBonusSkins: boolean
   selectedAnnouncer: Announcer
+  showFps: boolean
+  showTurnRate: boolean
 }
