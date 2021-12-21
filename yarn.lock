@@ -3594,11 +3594,6 @@ caniuse-lite@^1.0.30001286:
   resolved "https://registry.yarnpkg.com/caniuse-lite/-/caniuse-lite-1.0.30001286.tgz#3e9debad420419618cfdf52dc9b6572b28a8fff6"
   integrity sha512-zaEMRH6xg8ESMi2eQ3R4eZ5qw/hJiVsO/HlLwniIwErij0JDr9P+8V4dtx1l+kLq6j3yy8l8W4fst1lBnat5wQ==
 
-canonical-host@^0.0.5:
-  version "0.0.5"
-  resolved "https://registry.yarnpkg.com/canonical-host/-/canonical-host-0.0.5.tgz#125a7ee985835cdcab3909a427a6f45a5393f465"
-  integrity sha1-Elp+6YWDXNyrOQmkJ6b0WlOT9GU=
-
 center-align@^0.1.1:
   version "0.1.3"
   resolved "https://registry.yarnpkg.com/center-align/-/center-align-0.1.3.tgz#aa0d32629b6ee972200411cbd4461c907bc2b7ad"

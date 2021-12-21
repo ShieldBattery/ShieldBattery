@@ -16,6 +16,7 @@ import AwsStore from './lib/file-upload/aws'
 import LocalFileStore from './lib/file-upload/local-filesystem'
 import logMiddleware from './lib/logging/log-middleware'
 import log from './lib/logging/logger'
+import { redirectToCanonical } from './lib/network/redirect-to-canonical'
 import userIpsMiddleware from './lib/network/user-ips-middleware'
 import { RallyPointService } from './lib/rally-point/rally-point-service'
 import { Redis } from './lib/redis'
@@ -126,6 +127,7 @@ app
     }),
   )
   .use(views(path.join(__dirname, 'views'), { extension: 'jade' }))
+  .use(redirectToCanonical(process.env.SB_CANONICAL_HOST))
   .use(checkOrigin(process.env.SB_CANONICAL_HOST))
   .use(koaBody())
   .use(sessionMiddleware)
