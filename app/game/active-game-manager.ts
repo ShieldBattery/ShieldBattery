@@ -366,6 +366,9 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
       got(config.setup.serverUrl + apiUrl`games/${this.activeGame.id}/results`, {
         method: 'post',
         body: JSON.stringify(submission),
+        headers: {
+          Origin: 'shieldbattery://app',
+        },
       })
         .then(() => {
           log.verbose('Game result submitted successfully')
