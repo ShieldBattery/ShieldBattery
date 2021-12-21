@@ -41,15 +41,14 @@ const longTimestamp = new Intl.DateTimeFormat(navigator.language, {
   minute: '2-digit',
 })
 
-/** Hidden separators that only show up in copy+paste. Should be aria-hidden as well. */
-export const Separator = styled.i`
-  position: absolute;
+/** Hidden separators that only show up in copy+paste. */
+export const Separator = styled.i.attrs({ 'aria-hidden': true })`
+  width: 1px;
+  height: 100%;
+
   display: inline-block;
-  top: -10000px;
-  left: -10000px;
-  opacity: 0;
-  width: 0;
   line-height: inherit;
+  opacity: 0;
   white-space: pre;
 `
 
@@ -60,7 +59,8 @@ const Timestamp = styled.span`
   ${caption};
   width: 72px;
   display: inline-block;
-  padding-right: 8px;
+  /** 8px when we add 1px for the separator */
+  padding-right: 7px;
   line-height: inherit;
   color: ${colorTextFaint};
   text-align: right;
@@ -72,9 +72,9 @@ interface MessageTimestampProps {
 
 export const MessageTimestamp = (props: MessageTimestampProps) => (
   <Timestamp title={longTimestamp.format(props.time)}>
-    <Separator aria-hidden={true}>[</Separator>
+    <Separator>[</Separator>
     {getLocalTime(new Date(props.time))}
-    <Separator aria-hidden={true}>] </Separator>
+    <Separator>] </Separator>
   </Timestamp>
 )
 
