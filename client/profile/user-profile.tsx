@@ -1,5 +1,5 @@
 import { Immutable } from 'immer'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameRecordJson } from '../../common/games/games'
@@ -10,10 +10,16 @@ import {
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
-import { SbUser, SbUserId, UserProfileJson } from '../../common/users/user-info'
+import { SbPermissions } from '../../common/users/permissions'
+import { SbUser, SbUserId, SelfUser, UserProfileJson } from '../../common/users/user-info'
+import { hasAnyPermission } from '../admin/admin-permissions'
+import { useSelfPermissions, useSelfUser } from '../auth/state-hooks'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
+import { useForm } from '../forms/form-hook'
 import { RaceIcon } from '../lobbies/race-icon'
+import { TextButton } from '../material/button'
+import CheckBox from '../material/check-box'
 import { shadow2dp } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { goToIndex } from '../navigation/action-creators'
@@ -33,6 +39,7 @@ import {
   caption,
   headline3,
   headline4,
+  Headline5,
   headline6,
   overline,
   singleLine,
@@ -41,6 +48,8 @@ import {
   Subtitle2,
 } from '../styles/typography'
 import {
+  adminGetUserPermissions,
+  adminUpdateUserPermissions,
   correctUsernameForProfile,
   navigateToUserProfile,
   viewUserProfile,
@@ -86,6 +95,7 @@ export function ConnectedUserProfilePage({
   const user = useAppSelector(s => s.users.byId.get(userId))
   const profile = useAppSelector(s => s.users.idToProfile.get(userId))
   const matchHistory = useAppSelector(s => s.users.idToMatchHistory.get(userId)) ?? []
+  const isAdmin = useAppSelector(s => hasAnyPermission(s.auth, 'editPermissions', 'banUsers'))
 
   const onTabChange = useCallback(
     (tab: UserProfileSubPage) => {
@@ -121,6 +131,12 @@ export function ConnectedUserProfilePage({
     }
   }, [usernameFromRoute, user, subPage])
 
+  useEffect(() => {
+    if (subPage === UserProfileSubPage.Admin && !isAdmin) {
+      navigateToUserProfile(userId, usernameFromRoute, UserProfileSubPage.Summary, replace)
+    }
+  }, [subPage, isAdmin, userId, usernameFromRoute])
+
   if (loadingError) {
     // TODO(tec27): Handle specific errors, e.g. not found vs server error
     return <LoadingError>There was a problem loading this user.</LoadingError>
@@ -136,6 +152,7 @@ export function ConnectedUserProfilePage({
       matchHistory={matchHistory}
       subPage={subPage}
       onTabChange={onTabChange}
+      isAdmin={isAdmin}
     />
   )
 }
@@ -146,6 +163,7 @@ export interface UserProfilePageProps {
   matchHistory: Immutable<GameRecordJson[]>
   subPage?: UserProfileSubPage
   onTabChange: (tab: UserProfileSubPage) => void
+  isAdmin: boolean
 }
 
 export function UserProfilePage({
@@ -154,6 +172,7 @@ export function UserProfilePage({
   matchHistory,
   subPage = UserProfileSubPage.Summary,
   onTabChange,
+  isAdmin,
 }: UserProfilePageProps) {
   let content: React.ReactNode
   switch (subPage) {
@@ -165,6 +184,12 @@ export function UserProfilePage({
     case UserProfileSubPage.MatchHistory:
     case UserProfileSubPage.Seasons:
       content = <ComingSoonPage />
+      break
+
+    case UserProfileSubPage.Admin:
+      // Parent component should navigate away from this page in a useEffect if not admin, so null
+      // is fine in that case
+      content = isAdmin ? <AdminUserPage user={user} /> : null
       break
 
     default:
@@ -179,6 +204,7 @@ export function UserProfilePage({
           <TabItem value={UserProfileSubPage.Stats} text='Stats' />
           <TabItem value={UserProfileSubPage.MatchHistory} text='Match history' />
           <TabItem value={UserProfileSubPage.Seasons} text='Seasons' />
+          {isAdmin ? <TabItem value={UserProfileSubPage.Admin} text='Admin' /> : null}
         </Tabs>
       </TabArea>
 
@@ -534,5 +560,176 @@ function TotalGamesEntry({ race, wins, losses }: { race: RaceChar; wins: number;
         </WinLossText>
       </div>
     </TotalGamesEntryRoot>
+  )
+}
+
+const AdminUserPageRoot = styled.div`
+  width: 100%;
+  margin: 34px 0 0;
+  padding: 0 24px;
+
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 40px;
+`
+
+const AdminSection = styled.div`
+  padding: 16px;
+  border: 1px solid ${colorDividers};
+  border-radius: 2px;
+`
+
+function AdminUserPage({ user }: { user: SbUser }) {
+  const selfUser = useSelfUser()
+  const selfPermissions = useSelfPermissions()
+  return (
+    <AdminUserPageRoot>
+      {selfPermissions.editPermissions ? (
+        <PermissionsEditor user={user} selfUser={selfUser} />
+      ) : null}
+    </AdminUserPageRoot>
+  )
+}
+
+function PermissionsEditor({ user, selfUser }: { user: SbUser; selfUser: SelfUser }) {
+  const dispatch = useAppDispatch()
+  const [permissions, setPermissions] = useState<Readonly<SbPermissions>>()
+
+  const [requestError, setRequestError] = useState<Error>()
+  const cancelLoadRef = useRef(new AbortController())
+  const [formKey, setFormKey] = useState(0)
+
+  const userId = user.id
+  const isSelf = userId === selfUser.id
+
+  const onFormSubmit = useCallback(
+    (model: SbPermissions) => {
+      dispatch(
+        adminUpdateUserPermissions(userId, model, {
+          onSuccess: () => {
+            setPermissions(model)
+            setRequestError(undefined)
+          },
+          onError: (error: Error) => {
+            setRequestError(error)
+          },
+        }),
+      )
+    },
+    [userId, dispatch],
+  )
+
+  const model = useMemo(() => (permissions ? { ...permissions } : undefined), [permissions])
+
+  useEffect(() => {
+    cancelLoadRef.current.abort()
+    const abortController = new AbortController()
+    cancelLoadRef.current = abortController
+
+    dispatch(
+      adminGetUserPermissions(userId, {
+        signal: abortController.signal,
+        onSuccess: response => {
+          setRequestError(undefined)
+          setPermissions(response.permissions)
+          setFormKey(key => key + 1)
+        },
+        onError: err => setRequestError(err),
+      }),
+    )
+
+    return () => {
+      abortController.abort()
+    }
+  }, [userId, dispatch])
+
+  return (
+    <AdminSection>
+      <Headline5>Permissions</Headline5>
+      {requestError ? <LoadingError>{requestError.message}</LoadingError> : null}
+      {model ? (
+        <PermissionsEditorForm
+          key={formKey}
+          isSelf={isSelf}
+          model={model}
+          onSubmit={onFormSubmit}
+        />
+      ) : (
+        <LoadingDotsArea />
+      )}
+    </AdminSection>
+  )
+}
+
+function PermissionsEditorForm({
+  isSelf,
+  model,
+  onSubmit: onFormSubmit,
+}: {
+  isSelf: boolean
+  model: SbPermissions
+  onSubmit: (model: SbPermissions) => void
+}) {
+  const { onSubmit, bindCheckable } = useForm(
+    model,
+    {},
+    {
+      onSubmit: onFormSubmit,
+    },
+  )
+
+  const inputProps = {
+    tabIndex: 0,
+  }
+
+  return (
+    <form noValidate={true} onSubmit={onSubmit}>
+      <CheckBox
+        {...bindCheckable('editPermissions')}
+        label='Edit permissions'
+        inputProps={inputProps}
+        disabled={isSelf}
+      />
+      <CheckBox {...bindCheckable('debug')} label='Debug' inputProps={inputProps} />
+      <CheckBox
+        {...bindCheckable('acceptInvites')}
+        label='Accept beta invites'
+        inputProps={inputProps}
+      />
+      <CheckBox
+        {...bindCheckable('editAllChannels')}
+        label='Edit all channels'
+        inputProps={inputProps}
+      />
+      <CheckBox {...bindCheckable('banUsers')} label='Ban users' inputProps={inputProps} />
+      <CheckBox {...bindCheckable('manageMaps')} label='Manage maps' inputProps={inputProps} />
+      <CheckBox
+        {...bindCheckable('manageMapPools')}
+        label='Manage matchmaking map pools'
+        inputProps={inputProps}
+      />
+      <CheckBox
+        {...bindCheckable('manageMatchmakingTimes')}
+        label='Manage matchmaking times'
+        inputProps={inputProps}
+      />
+      <CheckBox
+        {...bindCheckable('manageRallyPointServers')}
+        label='Manage rally-point servers'
+        inputProps={inputProps}
+      />
+      <CheckBox
+        {...bindCheckable('massDeleteMaps')}
+        label='Mass delete maps'
+        inputProps={inputProps}
+      />
+      <CheckBox
+        {...bindCheckable('moderateChatChannels')}
+        label='Moderate chat channels'
+        inputProps={inputProps}
+      />
+
+      <TextButton label='Save' color='accent' tabIndex={0} onClick={onSubmit} />
+    </form>
   )
 }

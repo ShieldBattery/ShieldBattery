@@ -4,7 +4,6 @@ export { default as activityOverlay } from './activities/activity-overlay-reduce
 export { default as bans } from './admin/bans-reducer'
 export { default as adminMapPools } from './admin/map-pools-reducer'
 export { default as matchmakingTimes } from './admin/matchmaking-times-reducer'
-export { default as permissions } from './admin/permissions-reducer'
 export { default as auth } from './auth/auth-reducer'
 export { default as chat } from './chat/chat-reducer'
 export { default as dialog } from './dialogs/dialog-reducer'

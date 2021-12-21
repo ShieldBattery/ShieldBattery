@@ -19,4 +19,6 @@ export enum UserProfileSubPage {
    * Statistics for the player broken down by matchmaking season.
    */
   Seasons = 'seasons',
+  /** Administrative actions and log for the users. Only visible to users with permissions. */
+  Admin = 'admin',
 }

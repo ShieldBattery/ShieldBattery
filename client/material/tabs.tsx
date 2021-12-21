@@ -115,7 +115,7 @@ export const TabItem = React.memo(
 )
 
 export interface TabsProps<T> {
-  children: ReturnType<typeof TabItem>[]
+  children: Array<ReturnType<typeof TabItem> | null>
   activeTab: T
   onChange?: (value: T) => void
   bottomDivider?: boolean
@@ -125,6 +125,11 @@ export interface TabsProps<T> {
 export function Tabs<T>({ children, activeTab, onChange, bottomDivider, className }: TabsProps<T>) {
   const tabElems = useMemo(() => {
     const tabs = React.Children.map(children, (child, i) => {
+      if (!child) {
+        // Skip nulls to allow for optional tabs
+        return child
+      }
+
       const isActive = activeTab === (child!.props as TabItemProps<T>).value
       return React.cloneElement(child!, {
         key: `tab-${i}`,
@@ -135,8 +140,10 @@ export function Tabs<T>({ children, activeTab, onChange, bottomDivider, classNam
 
     const tabElems: React.ReactNode[] = []
     for (let i = 0; i < tabs!.length; i++) {
-      tabElems.push(tabs![i])
-      tabElems.push(<TabSpacer key={`spacer-${i}`} />)
+      if (tabs![i]) {
+        tabElems.push(tabs![i])
+        tabElems.push(<TabSpacer key={`spacer-${i}`} />)
+      }
     }
     // Remove the last spacer since we don't want spacers on the outside
     tabElems.pop()

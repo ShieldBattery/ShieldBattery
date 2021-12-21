@@ -92,7 +92,7 @@ async function startNewSession(ctx: RouterContext) {
 
   try {
     await ctx.regenerateSession()
-    const perms = await getPermissions(user.id)
+    const perms = (await getPermissions(user.id))!
     await maybeMigrateSignupIp(user.id, ctx.ip)
 
     const sessionInfo: ClientSessionInfo = {

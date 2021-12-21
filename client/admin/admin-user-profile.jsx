@@ -10,7 +10,6 @@ import { TextButton } from '../material/button'
 import TextField from '../material/text-field'
 import { push } from '../navigation/routing'
 import BanUsers from './bans'
-import PermissionsResult from './permissions'
 
 const Container = styled.div`
   padding: 0 20px;
@@ -27,9 +26,6 @@ export class AdminUserProfileView extends React.Component {
     const username = decodeURIComponent(params.username)
 
     const children = []
-    if (perms.editPermissions) {
-      children.push(<PermissionsResult key='perms' username={username} />)
-    }
     if (perms.banUsers) {
       children.push(<BanUsers key='bans' username={username} />)
     }

@@ -5,6 +5,7 @@ import { LadderPlayer } from '../ladder'
 import { MapInfoJson } from '../maps'
 import { MatchmakingType } from '../matchmaking'
 import { SbPolicyType } from '../policies/policy-type'
+import { SbPermissions } from './permissions'
 import { UserStats } from './user-stats'
 
 export type SbUserId = Opaque<number, 'SbUser'>
@@ -60,6 +61,11 @@ export function toUserProfileJson(userProfile: UserProfile): UserProfileJson {
   }
 }
 
+// TODO(tec27): Add more error codes for the various failures
+export enum UserErrorCode {
+  NotFound = 'notFound',
+}
+
 /** Information returned for /users/:id/profile, intended to be able to fill out a profile page. */
 export interface GetUserProfileResponse {
   user: SbUser
@@ -81,4 +87,13 @@ export interface AcceptPoliciesRequest {
 
 export interface AcceptPoliciesResponse {
   user: SelfUser
+}
+
+export interface AdminGetPermissionsResponse {
+  user: SbUser
+  permissions: SbPermissions
+}
+
+export interface AdminUpdatePermissionsRequest {
+  permissions: SbPermissions
 }

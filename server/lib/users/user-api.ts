@@ -16,17 +16,21 @@ import { ClientSessionInfo } from '../../../common/users/session'
 import {
   AcceptPoliciesRequest,
   AcceptPoliciesResponse,
+  AdminGetPermissionsResponse,
+  AdminUpdatePermissionsRequest,
   GetBatchUserInfoResponse,
   GetUserProfileResponse,
   SbUser,
   SbUserId,
   SelfUser,
+  UserErrorCode,
 } from '../../../common/users/user-info'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
-import { HttpErrorWithPayload } from '../errors/error-with-payload'
+import { CodedError, makeErrorConverterMiddleware } from '../errors/coded-error'
+import { asHttpError } from '../errors/error-with-payload'
 import { getRecentGamesForUser } from '../games/game-models'
-import { httpApi } from '../http/http-api'
+import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import sendMail from '../mail/mailer'
 import { getMapInfo } from '../maps/map-models'
@@ -37,7 +41,8 @@ import {
   getEmailVerificationsCount,
 } from '../models/email-verifications'
 import { usePasswordResetCode } from '../models/password-resets'
-import { checkAnyPermission } from '../permissions/check-permissions'
+import { getPermissions, updatePermissions } from '../models/permissions'
+import { checkAllPermissions, checkAnyPermission } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import initSession from '../session/init'
 import updateAllSessions from '../session/update-all-sessions'
@@ -93,7 +98,24 @@ function hashPass(password: string): Promise<string> {
   return bcrypt.hash(password, 10 /* saltRounds */)
 }
 
+class UserApiError extends CodedError<UserErrorCode> {}
+
+const convertUserApiErrors = makeErrorConverterMiddleware(err => {
+  if (!(err instanceof UserApiError)) {
+    throw err
+  }
+
+  switch (err.code) {
+    case UserErrorCode.NotFound:
+      throw asHttpError(404, err)
+
+    default:
+      assertUnreachable(err.code)
+  }
+})
+
 @httpApi('/users')
+@httpBeforeAll(convertUserApiErrors)
 export class UserApi {
   constructor(private nydus: NydusServer) {}
 
@@ -150,15 +172,14 @@ export class UserApi {
   )
   async getUserProfile(ctx: RouterContext): Promise<GetUserProfileResponse> {
     const { params } = validateRequest(ctx, {
-      params: Joi.object<{ id: number }>({
+      params: Joi.object<{ id: SbUserId }>({
         id: joiUserId().required(),
       }),
     })
 
     const user = await findUserById(params.id)
     if (!user) {
-      // TODO(tec27): put the possible codes for this in common/
-      throw new HttpErrorWithPayload(404, 'user not found', { code: 'USER_NOT_FOUND' })
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
     }
 
     const ladder: Partial<Record<MatchmakingType, LadderPlayer>> = {}
@@ -490,7 +511,64 @@ export class UserApi {
 }
 
 @httpApi('/admin/users')
+@httpBeforeAll(convertUserApiErrors, ensureLoggedIn)
 export class AdminUserApi {
+  @httpGet('/:id/permissions')
+  @httpBefore(checkAllPermissions('editPermissions'))
+  async getPermissions(ctx: RouterContext): Promise<AdminGetPermissionsResponse> {
+    const { params } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }),
+    })
+
+    const [user, permissions] = await Promise.all([
+      findUserById(params.id),
+      getPermissions(params.id),
+    ])
+    if (!user || !permissions) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    return {
+      user,
+      permissions,
+    }
+  }
+
+  @httpPost('/:id/permissions')
+  @httpBefore(checkAllPermissions('editPermissions'))
+  async updatePermissions(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }),
+      body: Joi.object<AdminUpdatePermissionsRequest>({
+        permissions: Joi.object<SbPermissions>({
+          editPermissions: Joi.boolean().required(),
+          debug: Joi.boolean().required(),
+          acceptInvites: Joi.boolean().required(),
+          editAllChannels: Joi.boolean().required(),
+          banUsers: Joi.boolean().required(),
+          manageMaps: Joi.boolean().required(),
+          manageMapPools: Joi.boolean().required(),
+          manageMatchmakingTimes: Joi.boolean().required(),
+          manageRallyPointServers: Joi.boolean().required(),
+          massDeleteMaps: Joi.boolean().required(),
+          moderateChatChannels: Joi.boolean().required(),
+        }).required(),
+      }),
+    })
+
+    const permissions = await updatePermissions(params.id, body.permissions)
+
+    if (!permissions) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    ctx.status = 204
+  }
+
   @httpGet('/:searchTerm')
   @httpBefore(checkAnyPermission('banUsers', 'editPermissions'))
   async findUser(ctx: RouterContext): Promise<SbUser[]> {

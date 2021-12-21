@@ -1,5 +1,8 @@
 import { apiUrl, urlPath } from '../../common/urls'
+import { SbPermissions } from '../../common/users/permissions'
 import {
+  AdminGetPermissionsResponse,
+  AdminUpdatePermissionsRequest,
   GetBatchUserInfoResponse,
   GetUserProfileResponse,
   SbUserId,
@@ -19,8 +22,9 @@ export function navigateToUserProfile(
   userId: SbUserId,
   username: string,
   tab?: UserProfileSubPage,
+  transitionFn = push,
 ) {
-  push(urlPath`/users/${userId}/${username}/${tab ?? ''}`)
+  transitionFn(urlPath`/users/${userId}/${username}/${tab ?? ''}`)
 }
 
 /**
@@ -42,7 +46,7 @@ const userProfileLoadsInProgress = new Set<number>()
  * Signals that a specific user's profile is being viewed. If we don't have a local copy of that
  * user's profile data already, it will be retrieved from the server.
  */
-export function viewUserProfile(userId: SbUserId, spec: RequestHandlingSpec): ThunkAction {
+export function viewUserProfile(userId: SbUserId, spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     if (userProfileLoadsInProgress.has(userId)) {
       return
@@ -94,4 +98,29 @@ export function getBatchUserInfo(userId: SbUserId): ThunkAction {
       infoBatchRequester.request(dispatch, userId)
     }
   }
+}
+
+export function adminGetUserPermissions(
+  userId: SbUserId,
+  spec: RequestHandlingSpec<AdminGetPermissionsResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    return await fetchJson<AdminGetPermissionsResponse>(apiUrl`admin/users/${userId}/permissions`)
+  })
+}
+
+export function adminUpdateUserPermissions(
+  userId: SbUserId,
+  permissions: SbPermissions,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    const body: AdminUpdatePermissionsRequest = {
+      permissions,
+    }
+    return await fetchJson<void>(apiUrl`admin/users/${userId}/permissions`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  })
 }

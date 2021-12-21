@@ -6,7 +6,7 @@ import { RootState } from '../root-reducer'
  * Configures the handling of a particular request, allowing a caller to be notified when it is
  * completed or fails, and optionally allowing the request to be canceled via an `AbortController`.
  */
-export interface RequestHandlingSpec {
+export interface RequestHandlingSpec<T = void> {
   /**
    * An optional signal to be used to detect if the request was canceled. Canceled requests will not
    * call through to `onSuccess` or `onError`. This signal should be the same one passed to any
@@ -16,7 +16,7 @@ export interface RequestHandlingSpec {
   /**
    * A function that will be called if the underlying request succeeds.
    */
-  onSuccess: () => void
+  onSuccess: (result: T) => void
   /**
    * A function that will be called if the underlying request fails (not including failures due
    * to `AbortError`s).
@@ -44,18 +44,18 @@ export interface RequestHandlingSpec {
  *  })
  * }
  */
-export function abortableThunk<T extends ReduxAction>(
-  { signal, onSuccess, onError }: RequestHandlingSpec,
-  thunkFn: (dispatch: DispatchFunction<T>, getState: () => RootState) => Promise<void>,
+export function abortableThunk<ResultType, T extends ReduxAction>(
+  { signal, onSuccess, onError }: RequestHandlingSpec<ResultType>,
+  thunkFn: (dispatch: DispatchFunction<T>, getState: () => RootState) => Promise<ResultType>,
 ): ThunkAction<T> {
   return (dispatch, getState) => {
     thunkFn(dispatch, getState)
-      .then(() => {
+      .then(result => {
         if (signal?.aborted) {
           return
         }
 
-        onSuccess()
+        onSuccess(result)
       })
       .catch((err: Error) => {
         if (signal?.aborted || (signal && err.name === 'AbortError')) {

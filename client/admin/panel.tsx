@@ -11,12 +11,12 @@ import {
   CanSeeDebugFilter,
   CanViewUserProfileFilter,
 } from './admin-route-filters'
+import { UserFind } from './admin-user-profile'
 import { DebugLogs } from './debug-logs'
 import { DebugMatchmaking } from './debug-matchmaking'
 import AdminMapPools from './map-pools'
 import AdminMatchmakingTimes from './matchmaking-times'
 import { AdminRallyPoint } from './rally-point'
-import { UserFind } from './user-profile'
 
 const AdminMapManager = IS_ELECTRON ? require('./map-manager').default : null
 

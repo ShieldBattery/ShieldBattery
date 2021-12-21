@@ -35,7 +35,7 @@ export async function createPermissions(
   return convertFromDb(result.rows[0])
 }
 
-export async function getPermissions(userId: SbUserId) {
+export async function getPermissions(userId: SbUserId): Promise<SbPermissions | undefined> {
   const query = sql`
     SELECT user_id, edit_permissions, debug, accept_invites, edit_all_channels, ban_users,
         manage_maps, manage_map_pools, mass_delete_maps, manage_matchmaking_times,
@@ -47,13 +47,16 @@ export async function getPermissions(userId: SbUserId) {
   const { client, done } = await db()
   try {
     const result = await client.query<DbPermissions>(query)
-    return convertFromDb(result.rows[0])
+    return result.rows.length ? convertFromDb(result.rows[0]) : undefined
   } finally {
     done()
   }
 }
 
-export async function updatePermissions(userId: SbUserId, perms: SbPermissions) {
+export async function updatePermissions(
+  userId: SbUserId,
+  perms: SbPermissions,
+): Promise<SbPermissions | undefined> {
   const query = sql`
     UPDATE permissions
     SET

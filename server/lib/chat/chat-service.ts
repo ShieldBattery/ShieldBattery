@@ -218,7 +218,7 @@ export default class ChatService {
       )
     }
     if (
-      !moderatorPermissions.moderateChatChannels &&
+      !moderatorPermissions?.moderateChatChannels &&
       !moderatorUserChannel.channelPermissions.owner
     ) {
       if (!moderatorUserChannel.channelPermissions[moderationAction]) {

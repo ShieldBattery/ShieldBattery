@@ -4,3 +4,8 @@ import { useAppSelector } from '../redux-hooks'
 export function useSelfUser() {
   return useAppSelector(s => s.auth.user)
 }
+
+/** A hook that returns the permissions of the currently logged in user. */
+export function useSelfPermissions() {
+  return useAppSelector(s => s.auth.permissions)
+}
