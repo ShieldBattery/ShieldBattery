@@ -4,8 +4,6 @@ import {
   ADMIN_BAN_USER_BEGIN,
   ADMIN_GET_BAN_HISTORY,
   ADMIN_GET_BAN_HISTORY_BEGIN,
-  ADMIN_GET_PERMISSIONS,
-  ADMIN_GET_PERMISSIONS_BEGIN,
   ADMIN_MAP_POOL_CLEAR_SEARCH,
   ADMIN_MAP_POOL_CREATE,
   ADMIN_MAP_POOL_CREATE_BEGIN,
@@ -25,8 +23,6 @@ import {
   ADMIN_MATCHMAKING_TIMES_GET_HISTORY_BEGIN,
   ADMIN_MATCHMAKING_TIMES_GET_PAST,
   ADMIN_MATCHMAKING_TIMES_GET_PAST_BEGIN,
-  ADMIN_SET_PERMISSIONS,
-  ADMIN_SET_PERMISSIONS_BEGIN,
 } from '../actions'
 import { fetchJson } from '../network/fetch'
 import { openSnackbar } from '../snackbars/action-creators'
@@ -51,50 +47,6 @@ async function fetchUserId(username) {
     throw new Error('No user found with that name')
   } else {
     return value[0].id
-  }
-}
-
-function getPermissions(username) {
-  return dispatch => {
-    dispatch({
-      type: ADMIN_GET_PERMISSIONS_BEGIN,
-      payload: { username },
-    })
-    dispatch({
-      type: ADMIN_GET_PERMISSIONS,
-      payload: fetchUserId(username).then(id =>
-        fetchJson('/api/1/permissions/' + encodeURIComponent(id)),
-      ),
-      meta: { username },
-    })
-  }
-}
-
-export function getPermissionsIfNeeded(username) {
-  return (dispatch, getState) => {
-    if (shouldGetUserProfile(getState().permissions, username)) {
-      dispatch(getPermissions(username))
-    }
-  }
-}
-
-export function setPermissions(username, permissions) {
-  return dispatch => {
-    dispatch({
-      type: ADMIN_SET_PERMISSIONS_BEGIN,
-      meta: { username, permissions },
-    })
-    const params = { method: 'post', body: JSON.stringify(permissions) }
-    dispatch({
-      type: ADMIN_SET_PERMISSIONS,
-      payload: fetchUserId(username)
-        .then(id => fetchJson('/api/1/permissions/' + encodeURIComponent(id), params))
-        .then(permissions => {
-          dispatch(openSnackbar({ message: 'Saved!' }))
-          return permissions
-        }),
-      meta: { username, permissions },
-    })
   }
 }
 
