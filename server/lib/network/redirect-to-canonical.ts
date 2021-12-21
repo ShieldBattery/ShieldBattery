@@ -6,7 +6,7 @@ export function redirectToCanonical(canonicalHost: string) {
   const toCompare = asUrl.host.toLowerCase()
 
   return async function redirectToCanonicalMiddleware(ctx: Koa.Context, next: Koa.Next) {
-    const host = ctx.get('Host') ?? ''
+    const host = ctx.request.host
     if (host.toLowerCase() !== toCompare) {
       ctx.redirect(`${canonicalHost}${ctx.url}`)
       ctx.status = 308
