@@ -20,7 +20,7 @@ import {
   PartyServiceErrorCode,
 } from '../../../common/parties'
 import { RaceChar } from '../../../common/races'
-import { SbUser, SbUserId } from '../../../common/users/user-info'
+import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import { CodedError } from '../errors/coded-error'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'

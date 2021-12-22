@@ -10,7 +10,7 @@ import {
   GetBatchUserInfoResponse,
   GetUserProfileResponse,
   SbUserId,
-} from '../../common/users/user-info'
+} from '../../common/users/sb-user'
 import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
 import { push, replace } from '../navigation/routing'

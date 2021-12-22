@@ -1,5 +1,5 @@
 import { ReconciledPlayerResult, ReconciledResult } from '../../../common/games/results'
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUserId } from '../../../common/users/sb-user'
 import { NEW_PLAYER_GAME_COUNT } from './constants'
 import { MatchmakingRating, MatchmakingRatingChange } from './models'
 

@@ -1,6 +1,6 @@
 import { Session } from 'koa-generic-session'
 import { SbPermissions } from '../common/users/permissions'
-import { SbUserId } from '../common/users/user-info'
+import { SbUserId } from '../common/users/sb-user'
 
 declare module 'koa' {
   interface AppSession extends Session {

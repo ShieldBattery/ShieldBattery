@@ -1,7 +1,7 @@
 import sql from 'sql-template-strings'
 import { GameRecord, GameRouteDebugInfo } from '../../../common/games/games'
 import { ReconciledResults } from '../../../common/games/results'
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
 import { Dbify } from '../db/types'
 

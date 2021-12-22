@@ -1,7 +1,7 @@
 import { RouterContext } from '@koa/router'
 import { Next } from 'koa'
 import { MatchmakingType } from '../../../common/matchmaking'
-import { SelfUser } from '../../../common/users/user-info'
+import { SelfUser } from '../../../common/users/sb-user'
 import { findSelfById } from '../users/user-model'
 
 /**

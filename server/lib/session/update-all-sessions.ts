@@ -1,6 +1,6 @@
 import Koa from 'koa'
 import { container } from 'tsyringe'
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUserId } from '../../../common/users/sb-user'
 import { Redis } from '../redis'
 import sessionStore from './session-store'
 

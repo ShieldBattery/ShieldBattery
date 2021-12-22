@@ -1,7 +1,7 @@
 import { List } from 'immutable'
 import React from 'react'
 import { LadderPlayer } from '../../../common/ladder'
-import { makeSbUserId, SbUser, SbUserId } from '../../../common/users/user-info'
+import { makeSbUserId, SbUser, SbUserId } from '../../../common/users/sb-user'
 import { LadderTable } from '../ladder'
 
 const PLAYERS: LadderPlayer[] = []

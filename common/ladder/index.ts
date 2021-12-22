@@ -1,4 +1,4 @@
-import { SbUser, SbUserId } from '../users/user-info'
+import { SbUser, SbUserId } from '../users/sb-user'
 
 /**
  * A ranked player for a particular matchmaking ladder. Contains information about their play

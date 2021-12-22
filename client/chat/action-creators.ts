@@ -1,6 +1,6 @@
 import { GetChannelHistoryServerResponse, SendChatMessageServerRequest } from '../../common/chat'
 import { apiUrl } from '../../common/urls'
-import { SbUser } from '../../common/users/user-info'
+import { SbUser } from '../../common/users/sb-user'
 import { ThunkAction } from '../dispatch-registry'
 import { push } from '../navigation/routing'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'

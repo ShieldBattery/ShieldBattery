@@ -18,7 +18,7 @@ import {
   SbUserId,
   SelfUser,
   UserProfileJson,
-} from '../../common/users/user-info'
+} from '../../common/users/sb-user'
 import { hasAnyPermission } from '../admin/admin-permissions'
 import { useSelfPermissions, useSelfUser } from '../auth/state-hooks'
 import { ConnectedAvatar } from '../avatars/avatar'

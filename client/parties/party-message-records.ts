@@ -1,7 +1,7 @@
 import { Record } from 'immutable'
 import { MatchmakingType } from '../../common/matchmaking'
 import { PartyQueueCancelReason } from '../../common/parties'
-import { SbUserId } from '../../common/users/user-info'
+import { SbUserId } from '../../common/users/sb-user'
 import { BaseMessage } from '../messaging/message-records'
 
 export enum PartyMessageType {

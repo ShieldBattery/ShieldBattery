@@ -1,7 +1,7 @@
 import cuid from 'cuid'
 import { Record } from 'immutable'
 import { RaceChar } from '../races'
-import { SbUserId } from '../users/user-info'
+import { SbUserId } from '../users/sb-user'
 
 export enum SlotType {
   Human = 'human',

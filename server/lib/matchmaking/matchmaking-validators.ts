@@ -5,7 +5,7 @@ import {
   MatchmakingPreferencesData1v1,
   MatchmakingType,
 } from '../../../common/matchmaking'
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUserId } from '../../../common/users/sb-user'
 
 export function matchmakingPreferencesValidator(forUserId: SbUserId) {
   return Joi.object<MatchmakingPreferences>({

@@ -1,5 +1,5 @@
 import sql from 'sql-template-strings'
-import { SbUser, SbUserId } from '../../../common/users/user-info'
+import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import { WhisperMessageData } from '../../../common/whispers'
 import db from '../db'
 import { Dbify } from '../db/types'

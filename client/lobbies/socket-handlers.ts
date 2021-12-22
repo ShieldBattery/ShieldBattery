@@ -5,7 +5,7 @@ import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
 import { MapExtension, MapInfoJson } from '../../common/maps'
 import { BwTurnRate } from '../../common/network'
 import { urlPath } from '../../common/urls'
-import { SbUser, SbUserId } from '../../common/users/user-info'
+import { SbUser, SbUserId } from '../../common/users/sb-user'
 import {
   ACTIVE_GAME_LAUNCH,
   LOBBIES_COUNT_UPDATE,

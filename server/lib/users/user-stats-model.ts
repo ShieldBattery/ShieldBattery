@@ -1,6 +1,6 @@
 import sql from 'sql-template-strings'
 import { AssignedRaceChar, RaceChar } from '../../../common/races'
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUserId } from '../../../common/users/sb-user'
 import { UserStats } from '../../../common/users/user-stats'
 import db, { DbClient } from '../db'
 import { Dbify } from '../db/types'

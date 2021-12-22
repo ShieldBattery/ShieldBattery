@@ -1,4 +1,4 @@
-import { SbUser, SbUserId } from './users/user-info'
+import { SbUser, SbUserId } from './users/sb-user'
 
 /** Chat messages which are persisted in the DB and shown each time the user opens the app. */
 export enum ServerChatMessageType {

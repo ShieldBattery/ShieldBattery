@@ -9,7 +9,7 @@ import {
   UpdateRallyPointServerRequest,
   UpdateRallyPointServerResponse,
 } from '../../../common/rally-point'
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUserId } from '../../../common/users/sb-user'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpGet, httpPost, httpPut } from '../http/route-decorators'
 import { checkAllPermissions } from '../permissions/check-permissions'

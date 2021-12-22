@@ -1,6 +1,6 @@
 import sql, { SQLStatement } from 'sql-template-strings'
 import { ChannelPermissions, ServerChatMessageType } from '../../../common/chat'
-import { SbUser, SbUserId } from '../../../common/users/user-info'
+import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'

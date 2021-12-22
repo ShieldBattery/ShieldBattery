@@ -6,7 +6,7 @@ import {
 } from '../../../common/matchmaking'
 import { NotificationType } from '../../../common/notifications'
 import { asMockedFunction } from '../../../common/testing/mocks'
-import { makeSbUserId, SbUser, SbUserId } from '../../../common/users/user-info'
+import { makeSbUserId, SbUser, SbUserId } from '../../../common/users/sb-user'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import { MatchmakingServiceError } from '../matchmaking/matchmaking-service-error'
 import NotificationService from '../notifications/notification-service'

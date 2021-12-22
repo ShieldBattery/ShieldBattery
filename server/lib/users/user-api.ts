@@ -11,7 +11,6 @@ import { toMapInfoJson } from '../../../common/maps'
 import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
 import { ALL_POLICY_TYPES, SbPolicyType } from '../../../common/policies/policy-type'
 import { SbPermissions } from '../../../common/users/permissions'
-import { ClientSessionInfo } from '../../../common/users/session'
 import {
   AcceptPoliciesRequest,
   AcceptPoliciesResponse,
@@ -28,7 +27,8 @@ import {
   SelfUser,
   toBanHistoryEntryJson,
   UserErrorCode,
-} from '../../../common/users/user-info'
+} from '../../../common/users/sb-user'
+import { ClientSessionInfo } from '../../../common/users/session'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { CodedError, makeErrorConverterMiddleware } from '../errors/coded-error'

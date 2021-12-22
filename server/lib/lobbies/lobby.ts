@@ -31,7 +31,7 @@ import {
 } from '../../../common/lobbies/slot'
 import { getTeamNames, MapForce, MapInfo, numTeams } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUserId } from '../../../common/users/sb-user'
 
 export function hasControlledOpens(gameType: GameType) {
   return gameType === GameType.TeamMelee || gameType === GameType.TeamFreeForAll

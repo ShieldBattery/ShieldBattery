@@ -1,6 +1,6 @@
 /* eslint-disable jest/no-commented-out-tests */
 import { mockRandomForEach } from 'jest-mock-random'
-import { makeSbUserId } from '../../../common/users/user-info'
+import { makeSbUserId } from '../../../common/users/sb-user'
 import { DEFAULT_MATCH_CHOOSER, initializeEntity } from './matchmaker'
 import { QueuedMatchmakingEntity } from './matchmaker-queue'
 import { MatchmakingPlayer } from './matchmaking-entity'

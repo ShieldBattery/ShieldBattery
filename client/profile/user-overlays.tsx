@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react'
-import { SbUserId } from '../../common/users/user-info'
+import { SbUserId } from '../../common/users/sb-user'
 import { OriginX, OriginY, useAnchorPosition } from '../material/popover'
 import { ConnectedUserContextMenu } from './user-context-menu'
 import { ConnectedUserProfileOverlay } from './user-profile-overlay'

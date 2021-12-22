@@ -1,6 +1,6 @@
 import { MatchmakingType } from '../matchmaking'
 import { SbPermissions } from './permissions'
-import { SelfUser } from './user-info'
+import { SelfUser } from './sb-user'
 
 /**
  * Information about the current user's session, generally used to initialize the application. This

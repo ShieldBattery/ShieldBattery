@@ -4,7 +4,7 @@ import {
   GetBatchUserInfoResponse,
   GetUserProfileResponse,
   SbUserId,
-} from '../../common/users/user-info'
+} from '../../common/users/sb-user'
 
 export type ProfileActions =
   | GetUserProfile

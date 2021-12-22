@@ -1,6 +1,6 @@
 import { singleton } from 'tsyringe'
 import { NotificationEvent, NotificationServerInitEvent } from '../../../common/notifications'
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUserId } from '../../../common/users/sb-user'
 import logger from '../logging/logger'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'

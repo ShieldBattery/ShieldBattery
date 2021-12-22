@@ -1,4 +1,4 @@
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUserId } from '../../../common/users/sb-user'
 
 /**
  * Keeps track of the user's IP address in our database. This indirection is necessary so we don't
@@ -7,4 +7,4 @@ import { SbUserId } from '../../../common/users/user-info'
  * Meant to be used with tsyringe's dependency injection system, so it can easily be mocked out in
  * tests. The injection token is the same as the function name, i.e. "updateOrInsertUserIp".
  */
-export type UpdateOrInsertUserIp = (userId: SbUserId, ipAddress: string) => Promise<void>
+export type UpsertUserIp = (userId: SbUserId, ipAddress: string) => Promise<void>

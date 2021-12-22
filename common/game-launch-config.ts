@@ -4,7 +4,7 @@ import { MapInfoJson } from './maps'
 import { BwTurnRate } from './network'
 import { RaceChar } from './races'
 import { ResolvedRallyPointServer } from './rally-point'
-import { SbUserId } from './users/user-info'
+import { SbUserId } from './users/sb-user'
 
 /**
  * Configuration for a particular player in a game. This is similar to Lobby's `Slot` structure,

@@ -8,7 +8,7 @@ import {
   ChatUserOfflineEvent,
   GetChannelHistoryServerResponse,
 } from '../../common/chat'
-import { SbUser } from '../../common/users/user-info'
+import { SbUser } from '../../common/users/sb-user'
 import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type ChatActions =

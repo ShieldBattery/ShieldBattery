@@ -6,7 +6,7 @@ import {
   MatchmakingType,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
-import { SbUserId } from '../../common/users/user-info'
+import { SbUserId } from '../../common/users/sb-user'
 import { UserStats } from '../../common/users/user-stats'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { Popover, PopoverProps } from '../material/popover'

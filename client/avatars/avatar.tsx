@@ -1,6 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import { SbUserId } from '../../common/users/user-info'
+import { SbUserId } from '../../common/users/sb-user'
 import { useAppSelector } from '../redux-hooks'
 import { amberA400, colorDividers } from '../styles/colors'
 import PlaceholderIcon from './avatar-placeholder.svg'

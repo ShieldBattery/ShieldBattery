@@ -1,5 +1,5 @@
 import { AssignedRaceChar } from '../races'
-import { SbUserId } from '../users/user-info'
+import { SbUserId } from '../users/sb-user'
 
 /**
  * The results of a game, as reported by the game client. These results have not yet been reconciled

@@ -1,6 +1,6 @@
 import { Record } from 'immutable'
 import { SbPermissions } from '../../common/users/permissions'
-import { SbUserId } from '../../common/users/user-info'
+import { SbUserId } from '../../common/users/sb-user'
 
 export class SelfUserRecord extends Record({
   id: -1 as SbUserId,

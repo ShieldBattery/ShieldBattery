@@ -1,5 +1,5 @@
 import React from 'react'
-import { SbUserId } from '../../common/users/user-info'
+import { SbUserId } from '../../common/users/sb-user'
 import { SystemImportant, SystemMessage } from '../messaging/message-layout'
 import { ConnectedUsername } from '../profile/connected-username'
 

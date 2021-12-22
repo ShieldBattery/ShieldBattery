@@ -1,7 +1,7 @@
 import React from 'react'
 import { hot } from 'react-hot-loader/root'
 import styled from 'styled-components'
-import { SbUserId } from '../../common/users/user-info'
+import { SbUserId } from '../../common/users/sb-user'
 import { ConnectedUsername } from '../profile/connected-username'
 import { Subtitle1, subtitle2 } from '../styles/typography'
 

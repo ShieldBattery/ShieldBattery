@@ -1,5 +1,5 @@
 import { SbPolicyType } from './policies/policy-type'
-import { SbUserId } from './users/user-info'
+import { SbUserId } from './users/sb-user'
 
 export enum NotificationType {
   EmailVerification = 'emailVerification',

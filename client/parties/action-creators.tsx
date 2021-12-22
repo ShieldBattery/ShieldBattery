@@ -16,7 +16,7 @@ import {
 } from '../../common/parties'
 import { RaceChar } from '../../common/races'
 import { apiUrl, urlPath } from '../../common/urls'
-import { SbUserId } from '../../common/users/user-info'
+import { SbUserId } from '../../common/users/sb-user'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'

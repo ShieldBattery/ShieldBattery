@@ -2,7 +2,7 @@ import { SetOptional } from 'type-fest'
 import { assertUnreachable } from '../assert-unreachable'
 import { MatchmakingType } from '../matchmaking'
 import { RaceChar } from '../races'
-import { SbUserId } from '../users/user-info'
+import { SbUserId } from '../users/sb-user'
 
 export enum GameSource {
   Lobby = 'LOBBY',

@@ -1,7 +1,7 @@
 import sql from 'sql-template-strings'
 import { SetRequired } from 'type-fest'
 import { NotificationType } from '../../../common/notifications'
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUserId } from '../../../common/users/sb-user'
 import db from '../db/index'
 import { Dbify } from '../db/types'
 

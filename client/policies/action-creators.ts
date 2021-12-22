@@ -6,11 +6,7 @@ import {
   TERMS_OF_SERVICE_VERSION,
 } from '../../common/policies/versions'
 import { apiUrl } from '../../common/urls'
-import {
-  AcceptPoliciesRequest,
-  AcceptPoliciesResponse,
-  SbUserId,
-} from '../../common/users/user-info'
+import { AcceptPoliciesRequest, AcceptPoliciesResponse, SbUserId } from '../../common/users/sb-user'
 import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
 import { MicrotaskBatchRequester } from '../network/batch-requests'

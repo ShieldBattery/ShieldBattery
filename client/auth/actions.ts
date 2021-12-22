@@ -1,6 +1,6 @@
 import { SbPermissions } from '../../common/users/permissions'
+import { AcceptPoliciesResponse, SbUserId, SelfUser } from '../../common/users/sb-user'
 import { ClientSessionInfo } from '../../common/users/session'
-import { AcceptPoliciesResponse, SbUserId, SelfUser } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type AuthActions =

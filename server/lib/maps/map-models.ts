@@ -8,7 +8,7 @@ import {
   MapVisibility,
   Tileset,
 } from '../../../common/maps'
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUserId } from '../../../common/users/sb-user'
 import db from '../db'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'

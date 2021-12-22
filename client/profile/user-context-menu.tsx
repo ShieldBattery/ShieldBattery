@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react'
 import styled from 'styled-components'
 import { PARTIES } from '../../common/flags'
-import { SbUserId } from '../../common/users/user-info'
+import { SbUserId } from '../../common/users/sb-user'
 import MenuItem from '../material/menu/item'
 import Menu from '../material/menu/menu'
 import { PopoverProps } from '../material/popover'

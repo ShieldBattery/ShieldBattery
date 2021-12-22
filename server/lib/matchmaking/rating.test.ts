@@ -1,6 +1,6 @@
 import { ReconciledPlayerResult } from '../../../common/games/results'
 import { MatchmakingType } from '../../../common/matchmaking'
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUserId } from '../../../common/users/sb-user'
 import { DEFAULT_MATCHMAKING_RATING, MatchmakingRating } from './models'
 import { calculateChangedRatings } from './rating'
 

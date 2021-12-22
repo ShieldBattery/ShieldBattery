@@ -1,5 +1,5 @@
 import { matchUserMentions, MENTION_REGEX } from '../../../common/text/mentions'
-import { SbUser } from '../../../common/users/user-info'
+import { SbUser } from '../../../common/users/sb-user'
 import { findUsersByName } from '../users/user-model'
 
 /**

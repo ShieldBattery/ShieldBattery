@@ -5,7 +5,7 @@ import { Slot } from './lobbies/slot'
 import { MapInfoJson } from './maps'
 import { BwTurnRate } from './network'
 import { AssignedRaceChar, RaceChar } from './races'
-import { SbUserId } from './users/user-info'
+import { SbUserId } from './users/sb-user'
 
 /**
  * A string representation of each of the matchmaking types that we support.

@@ -1,7 +1,7 @@
 import cuid from 'cuid'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
+import { SbUserId, SelfUser } from '../../common/users/sb-user'
 import { ClientSessionInfo } from '../../common/users/session'
-import { SbUserId, SelfUser } from '../../common/users/user-info'
 import type { PromisifiedAction, ReduxAction } from '../action-types'
 import type { ThunkAction } from '../dispatch-registry'
 import { fetchJson } from '../network/fetch'

@@ -1,6 +1,6 @@
 import { Map, OrderedSet, Set } from 'immutable'
 import { singleton } from 'tsyringe'
-import { SbUser, SbUserId } from '../../../common/users/user-info'
+import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import {
   GetSessionHistoryResponse,
   WhisperEvent,

@@ -1,6 +1,6 @@
 import sql from 'sql-template-strings'
 import { MatchmakingPreferences, MatchmakingType } from '../../../common/matchmaking'
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUserId } from '../../../common/users/sb-user'
 import db from '../db'
 import { Dbify } from '../db/types'
 

@@ -1,4 +1,4 @@
-import { SbUser } from '../../common/users/user-info'
+import { SbUser } from '../../common/users/sb-user'
 import { GetSessionHistoryResponse, WhisperUserStatus } from '../../common/whispers'
 import { BaseFetchFailure } from '../network/fetch-errors'
 

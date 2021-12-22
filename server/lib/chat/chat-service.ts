@@ -10,7 +10,7 @@ import {
   ServerChatMessage,
   ServerChatMessageType,
 } from '../../../common/chat'
-import { SbUser, SbUserId } from '../../../common/users/user-info'
+import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import { DbClient } from '../db'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'

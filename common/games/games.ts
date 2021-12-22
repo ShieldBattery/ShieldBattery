@@ -3,7 +3,7 @@ import { assertUnreachable } from '../assert-unreachable'
 import { Jsonify } from '../json'
 import { MapInfoJson } from '../maps'
 import { matchmakingTypeToLabel, PublicMatchmakingRatingChangeJson } from '../matchmaking'
-import { SbUser, SbUserId } from '../users/user-info'
+import { SbUser, SbUserId } from '../users/sb-user'
 import { GameConfig, GameSource } from './configuration'
 import { ReconciledPlayerResult } from './results'
 

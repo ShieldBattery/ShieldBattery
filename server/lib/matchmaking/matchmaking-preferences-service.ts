@@ -6,7 +6,7 @@ import {
   MatchmakingPreferences,
   MatchmakingType,
 } from '../../../common/matchmaking'
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUserId } from '../../../common/users/sb-user'
 import logger from '../logging/logger'
 import { getMapInfo } from '../maps/map-models'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'

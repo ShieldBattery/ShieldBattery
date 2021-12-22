@@ -10,7 +10,7 @@ import {
 import { createComputer, createHuman, Slot } from '../../../common/lobbies/slot'
 import { MapInfo, MapVisibility, Tileset } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
-import { makeSbUserId } from '../../../common/users/user-info'
+import { makeSbUserId } from '../../../common/users/sb-user'
 import {
   addPlayer,
   closeSlot,

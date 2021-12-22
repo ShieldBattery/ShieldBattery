@@ -1,7 +1,7 @@
 import cuid from 'cuid'
 import { Immutable } from 'immer'
 import { ChannelPermissions, ChatMessage, ClientChatMessageType } from '../../common/chat'
-import { SbUserId } from '../../common/users/user-info'
+import { SbUserId } from '../../common/users/sb-user'
 import { NETWORK_SITE_CONNECTED } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 

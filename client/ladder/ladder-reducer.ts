@@ -1,7 +1,7 @@
 import { List, Map, Record } from 'immutable'
 import { LadderPlayer } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
-import { SbUserId } from '../../common/users/user-info'
+import { SbUserId } from '../../common/users/sb-user'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
 export class LadderPlayerRecord

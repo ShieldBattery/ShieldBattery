@@ -4,7 +4,7 @@ import {
   MatchmakingResult,
   MatchmakingType,
 } from '../../../common/matchmaking'
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
 import { Dbify } from '../db/types'
 

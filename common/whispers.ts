@@ -1,4 +1,4 @@
-import { SbUser, SbUserId } from './users/user-info'
+import { SbUser, SbUserId } from './users/sb-user'
 
 export enum WhisperMessageType {
   TextMessage = 'message',

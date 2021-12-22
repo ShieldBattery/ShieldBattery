@@ -10,7 +10,7 @@ import {
   TERMS_OF_SERVICE_VERSION,
 } from '../../../common/policies/versions'
 import { SbPermissions } from '../../../common/users/permissions'
-import { SbUser, SbUserId, SelfUser } from '../../../common/users/user-info'
+import { SbUser, SbUserId, SelfUser } from '../../../common/users/sb-user'
 import ChatService from '../chat/chat-service'
 import db, { DbClient } from '../db'
 import transact from '../db/transaction'

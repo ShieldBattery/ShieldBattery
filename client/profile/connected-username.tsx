@@ -1,6 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import { SbUserId } from '../../common/users/user-info'
+import { SbUserId } from '../../common/users/sb-user'
 import { useAppSelector } from '../redux-hooks'
 import { colorDividers } from '../styles/colors'
 import { useUserOverlays } from './user-overlays'

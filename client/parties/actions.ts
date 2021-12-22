@@ -2,7 +2,7 @@ import { Immutable } from 'immer'
 import { MatchmakingPreferences, MatchmakingType } from '../../common/matchmaking'
 import { PartyChatMessage, PartyJson, PartyQueueCancelReason } from '../../common/parties'
 import { RaceChar } from '../../common/races'
-import { SbUser, SbUserId } from '../../common/users/user-info'
+import { SbUser, SbUserId } from '../../common/users/sb-user'
 import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type PartyActions =

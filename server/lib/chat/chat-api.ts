@@ -10,7 +10,7 @@ import {
 } from '../../../common/chat'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
 import { MULTI_CHANNEL } from '../../../common/flags'
-import { SbUser } from '../../../common/users/user-info'
+import { SbUser } from '../../../common/users/sb-user'
 import { featureEnabled } from '../flags/feature-enabled'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'

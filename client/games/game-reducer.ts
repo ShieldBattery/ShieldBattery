@@ -1,7 +1,7 @@
 import { ReadonlyDeep } from 'type-fest'
 import { GameRecordJson } from '../../common/games/games'
 import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
-import { SbUserId } from '../../common/users/user-info'
+import { SbUserId } from '../../common/users/sb-user'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface GameState {

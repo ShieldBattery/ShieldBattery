@@ -12,7 +12,7 @@ import { GameClientPlayerResult, GameResultErrorCode } from '../../../common/gam
 import { MatchmakingType, toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
 import { urlPath } from '../../../common/urls'
-import { SbUserId } from '../../../common/users/user-info'
+import { SbUserId } from '../../../common/users/sb-user'
 import { UserStats } from '../../../common/users/user-stats'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'

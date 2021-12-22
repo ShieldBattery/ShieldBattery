@@ -1,5 +1,5 @@
 import { Record } from 'immutable'
-import { SbUserId } from '../../common/users/user-info'
+import { SbUserId } from '../../common/users/sb-user'
 import { BaseMessage } from '../messaging/message-records'
 
 export enum ChatMessageType {
