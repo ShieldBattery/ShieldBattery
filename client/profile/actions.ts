@@ -1,10 +1,16 @@
 import {
+  AdminBanUserResponse,
+  AdminGetBansResponse,
   GetBatchUserInfoResponse,
   GetUserProfileResponse,
   SbUserId,
 } from '../../common/users/user-info'
 
-export type ProfileActions = GetUserProfile | GetBatchUserInfo
+export type ProfileActions =
+  | GetUserProfile
+  | GetBatchUserInfo
+  | AdminGetUserBanHistory
+  | AdminBanUser
 
 export interface GetUserProfile {
   type: '@profile/getUserProfile'
@@ -28,3 +34,13 @@ export type GetBatchUserInfo =
         userIds: ReadonlyArray<SbUserId>
       }
     }
+
+export interface AdminGetUserBanHistory {
+  type: '@profile/adminGetUserBanHistory'
+  payload: AdminGetBansResponse
+}
+
+export interface AdminBanUser {
+  type: '@profile/adminBanUser'
+  payload: AdminBanUserResponse
+}

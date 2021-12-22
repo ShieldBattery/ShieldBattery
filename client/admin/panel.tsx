@@ -9,9 +9,7 @@ import {
   CanManageMatchmakingTimesFilter,
   CanManageRallyPointFilter,
   CanSeeDebugFilter,
-  CanViewUserProfileFilter,
 } from './admin-route-filters'
-import { UserFind } from './admin-user-profile'
 import { DebugLogs } from './debug-logs'
 import { DebugMatchmaking } from './debug-matchmaking'
 import AdminMapPools from './map-pools'
@@ -37,12 +35,6 @@ function AdminDashboard(props: AdminDashboardProps) {
       </li>
     </>
   ) : null
-  const usersLink =
-    perms.editPermissions || perms.banUsers ? (
-      <li>
-        <Link href='/admin/users'>View user's profile</Link>
-      </li>
-    ) : null
   const mapsLink =
     (perms.manageMaps || perms.massDeleteMaps) && IS_ELECTRON ? (
       <li>
@@ -68,7 +60,6 @@ function AdminDashboard(props: AdminDashboardProps) {
   return (
     <ul>
       {debugLinks}
-      {usersLink}
       {mapsLink}
       {mapPoolsLink}
       {matchmakingTimesLink}
@@ -82,11 +73,6 @@ function AdminPanel() {
 
   return (
     <Switch>
-      <ConditionalRoute
-        path='/admin/users/:username?'
-        filters={[CanViewUserProfileFilter]}
-        component={UserFind}
-      />
       {AdminMapManager ? <Route path='/admin/map-manager' component={AdminMapManager} /> : <></>}
       <ConditionalRoute
         path='/admin/map-pools'

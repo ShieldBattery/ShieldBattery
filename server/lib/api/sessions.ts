@@ -4,12 +4,12 @@ import { container } from 'tsyringe'
 import { MatchmakingType } from '../../../common/matchmaking'
 import { ClientSessionInfo } from '../../../common/users/session'
 import { SelfUser } from '../../../common/users/user-info'
-import { isUserBanned } from '../models/bans'
 import { getPermissions } from '../models/permissions'
 import { Redis } from '../redis'
 import initSession from '../session/init'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
+import { isUserBanned } from '../users/ban-models'
 import { attemptLogin, findSelfById, maybeMigrateSignupIp } from '../users/user-model'
 
 // TODO(tec27): Think about maybe a different mechanism for this. I could see this causing problems

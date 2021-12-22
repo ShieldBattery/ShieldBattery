@@ -64,6 +64,7 @@ export function toUserProfileJson(userProfile: UserProfile): UserProfileJson {
 // TODO(tec27): Add more error codes for the various failures
 export enum UserErrorCode {
   NotFound = 'notFound',
+  NotAllowedOnSelf = 'notAllowedOnSelf',
 }
 
 /** Information returned for /users/:id/profile, intended to be able to fill out a profile page. */
@@ -96,4 +97,42 @@ export interface AdminGetPermissionsResponse {
 
 export interface AdminUpdatePermissionsRequest {
   permissions: SbPermissions
+}
+
+export interface BanHistoryEntry {
+  id: string
+  userId: SbUserId
+  bannedBy: SbUserId
+  startTime: Date
+  endTime: Date
+  reason?: string
+}
+
+export type BanHistoryEntryJson = Jsonify<BanHistoryEntry>
+
+export function toBanHistoryEntryJson(entry: BanHistoryEntry) {
+  return {
+    id: entry.id,
+    userId: entry.userId,
+    bannedBy: entry.bannedBy,
+    startTime: Number(entry.startTime),
+    endTime: Number(entry.endTime),
+    reason: entry.reason,
+  }
+}
+
+export interface AdminGetBansResponse {
+  forUser: SbUserId
+  bans: BanHistoryEntryJson[]
+  users: SbUser[]
+}
+
+export interface AdminBanUserRequest {
+  banLengthHours: number
+  reason?: string
+}
+
+export interface AdminBanUserResponse {
+  ban: BanHistoryEntryJson
+  users: SbUser[]
 }

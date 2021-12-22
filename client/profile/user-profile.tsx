@@ -1,6 +1,7 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
+import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameRecordJson } from '../../common/games/games'
 import { LadderPlayer } from '../../common/ladder'
@@ -11,17 +12,26 @@ import {
 } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { SbPermissions } from '../../common/users/permissions'
-import { SbUser, SbUserId, SelfUser, UserProfileJson } from '../../common/users/user-info'
+import {
+  BanHistoryEntryJson,
+  SbUser,
+  SbUserId,
+  SelfUser,
+  UserProfileJson,
+} from '../../common/users/user-info'
 import { hasAnyPermission } from '../admin/admin-permissions'
 import { useSelfPermissions, useSelfUser } from '../auth/state-hooks'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import { useForm } from '../forms/form-hook'
 import { RaceIcon } from '../lobbies/race-icon'
-import { TextButton } from '../material/button'
+import { RaisedButton, TextButton } from '../material/button'
 import CheckBox from '../material/check-box'
+import { Option } from '../material/select/option'
+import { Select } from '../material/select/select'
 import { shadow2dp } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
+import TextField from '../material/text-field'
 import { goToIndex } from '../navigation/action-creators'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
@@ -36,6 +46,8 @@ import {
   colorTextSecondary,
 } from '../styles/colors'
 import {
+  body1,
+  Body1,
   caption,
   headline3,
   headline4,
@@ -48,12 +60,15 @@ import {
   Subtitle2,
 } from '../styles/typography'
 import {
+  adminBanUser,
+  adminGetUserBanHistory,
   adminGetUserPermissions,
   adminUpdateUserPermissions,
   correctUsernameForProfile,
   navigateToUserProfile,
   viewUserProfile,
 } from './action-creators'
+import { ConnectedUsername } from './connected-username'
 import { MiniMatchHistory } from './mini-match-history'
 import { UserProfileSubPage } from './user-profile-sub-page'
 
@@ -569,14 +584,19 @@ const AdminUserPageRoot = styled.div`
   padding: 0 24px;
 
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  column-gap: 40px;
+  column-gap: 32px;
+  grid-auto-rows: minmax(128px, auto);
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  row-gap: 16px;
 `
 
-const AdminSection = styled.div`
-  padding: 16px;
+const AdminSection = styled.div<{ $gridColumn?: string }>`
+  block-size: min-content;
+  padding: 16px 16px 0;
+
   border: 1px solid ${colorDividers};
   border-radius: 2px;
+  grid-column: ${props => props.$gridColumn ?? 'auto'};
 `
 
 function AdminUserPage({ user }: { user: SbUser }) {
@@ -587,6 +607,7 @@ function AdminUserPage({ user }: { user: SbUser }) {
       {selfPermissions.editPermissions ? (
         <PermissionsEditor user={user} selfUser={selfUser} />
       ) : null}
+      {selfPermissions.banUsers ? <BanHistory user={user} selfUser={selfUser} /> : null}
     </AdminUserPageRoot>
   )
 }
@@ -644,7 +665,7 @@ function PermissionsEditor({ user, selfUser }: { user: SbUser; selfUser: SelfUse
   }, [userId, dispatch])
 
   return (
-    <AdminSection>
+    <AdminSection $gridColumn='span 3'>
       <Headline5>Permissions</Headline5>
       {requestError ? <LoadingError>{requestError.message}</LoadingError> : null}
       {model ? (
@@ -730,6 +751,203 @@ function PermissionsEditorForm({
       />
 
       <TextButton label='Save' color='accent' tabIndex={0} onClick={onSubmit} />
+    </form>
+  )
+}
+
+const BAN_FORM_DEFAULTS: BanFormModel = {
+  banLengthHours: 3,
+  reason: undefined,
+}
+
+function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUser }) {
+  const dispatch = useAppDispatch()
+  const [banHistory, setBanHistory] = useState<ReadonlyDeep<BanHistoryEntryJson[]>>()
+
+  const [requestError, setRequestError] = useState<Error>()
+  const cancelLoadRef = useRef(new AbortController())
+
+  const userId = user.id
+  const isSelf = userId === selfUser.id
+
+  const onFormSubmit = useCallback(
+    (model: BanFormModel) => {
+      dispatch(
+        adminBanUser(
+          { userId, banLengthHours: model.banLengthHours, reason: model.reason },
+          {
+            onSuccess: response => {
+              setBanHistory(history => {
+                if (!history?.some(b => b.id === response.ban.id)) {
+                  return [response.ban].concat(history || [])
+                }
+
+                return history
+              })
+              setRequestError(undefined)
+            },
+            onError: err => setRequestError(err),
+          },
+        ),
+      )
+    },
+    [userId, dispatch],
+  )
+
+  useEffect(() => {
+    cancelLoadRef.current.abort()
+    const abortController = new AbortController()
+    cancelLoadRef.current = abortController
+
+    setBanHistory(undefined)
+    dispatch(
+      adminGetUserBanHistory(userId, {
+        signal: abortController.signal,
+        onSuccess: response => {
+          setRequestError(undefined)
+          setBanHistory(response.bans)
+        },
+        onError: err => setRequestError(err),
+      }),
+    )
+
+    return () => {
+      abortController.abort()
+    }
+  }, [userId, dispatch])
+
+  return (
+    <AdminSection $gridColumn='span 6'>
+      <Headline5>Ban history</Headline5>
+      {requestError ? <LoadingError>{requestError.message}</LoadingError> : null}
+      {banHistory === undefined ? <LoadingDotsArea /> : <BanHistoryList banHistory={banHistory} />}
+      {!isSelf ? (
+        <BanUserForm key={`form-${userId}`} model={BAN_FORM_DEFAULTS} onSubmit={onFormSubmit} />
+      ) : null}
+    </AdminSection>
+  )
+}
+
+const BanTable = styled.table`
+  text-align: left;
+  margin: 16px 0 32px;
+
+  th,
+  td {
+    ${body1};
+
+    min-width: 100px;
+    max-width: 150px;
+    padding: 4px;
+
+    border: 1px solid ${colorDividers};
+    border-radius: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: top;
+    white-space: no-wrap;
+  }
+
+  th {
+    ${caption};
+    color: ${colorTextSecondary};
+  }
+`
+
+const BanRow = styled.tr<{ $expired?: boolean }>`
+  color: ${props => (!props.$expired ? colorTextPrimary : colorTextFaint)};
+`
+
+const EmptyState = styled.td`
+  ${subtitle1};
+  color: ${colorTextFaint};
+`
+
+const banDateFormat = new Intl.DateTimeFormat(navigator.language, {
+  year: 'numeric',
+  month: 'short',
+  day: '2-digit',
+  hour: 'numeric',
+  minute: '2-digit',
+})
+
+function BanHistoryList({ banHistory }: { banHistory: ReadonlyDeep<BanHistoryEntryJson[]> }) {
+  return (
+    <BanTable>
+      <thead>
+        <tr>
+          <th>Start time</th>
+          <th>End time</th>
+          <th>Banned by</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        {banHistory.length ? (
+          banHistory.map(b => (
+            <BanRow $expired={b.startTime <= Date.now() && b.endTime <= Date.now()}>
+              <td>{banDateFormat.format(b.startTime)}</td>
+              <td>{banDateFormat.format(b.endTime)}</td>
+              <td>
+                <ConnectedUsername userId={b.bannedBy} />
+              </td>
+              <td>{b.reason ?? ''}</td>
+            </BanRow>
+          ))
+        ) : (
+          <BanRow>
+            <EmptyState colSpan={4}>No bans found</EmptyState>
+          </BanRow>
+        )}
+      </tbody>
+    </BanTable>
+  )
+}
+
+interface BanFormModel {
+  banLengthHours: number
+  reason?: string
+}
+
+function BanUserForm({
+  model,
+  onSubmit: onFormSubmit,
+}: {
+  model: BanFormModel
+  onSubmit: (model: BanFormModel) => void
+}) {
+  const { onSubmit, bindCustom, bindInput } = useForm(
+    model,
+    {},
+    {
+      onSubmit: onFormSubmit,
+    },
+  )
+
+  return (
+    <form noValidate={true} onSubmit={onSubmit}>
+      <Headline5>Ban user</Headline5>
+      <Select {...bindCustom('banLengthHours')} label='Ban length' tabIndex={0}>
+        <Option value={3} text='3 Hours' />
+        <Option value={24} text='1 Day' />
+        <Option value={24 * 7} text='1 Week' />
+        <Option value={24 * 7 * 4} text='1 Month' />
+        <Option value={24 * 365 * 999} text='Permanent!' />
+      </Select>
+      <Body1>This reason will be visible to the user!</Body1>
+      <TextField
+        {...bindInput('reason')}
+        label='Ban reason'
+        floatingLabel={true}
+        inputProps={{
+          tabIndex: 0,
+          autoCapitalize: 'off',
+          autoComplete: 'off',
+          autoCorrect: 'off',
+          spellCheck: false,
+        }}
+      />
+      <RaisedButton label='Ban' color='primary' tabIndex={0} onClick={onSubmit} />
     </form>
   )
 }

@@ -128,7 +128,12 @@ export function fetchReadableStream(path: string, opts?: RequestInit) {
 }
 
 type SearchParamsValues = string | number | boolean | null | undefined | Date
-type ValidSearchParams<T> = Record<keyof T, SearchParamsValues>
+// NOTE(tec27): We do this directly rather than using Record because Record<keyof T, ...> will
+// make the properties required (that is, remove optionalality). Good explanation with examples
+// here: https://stackoverflow.com/a/56140392
+type ValidSearchParams<T> = {
+  [K in keyof T]: SearchParamsValues
+}
 
 /**
  * Encodes an object as a URLSearchParams. For this to properly, the object must only contain values

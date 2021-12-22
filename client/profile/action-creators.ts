@@ -1,6 +1,10 @@
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbPermissions } from '../../common/users/permissions'
 import {
+  AdminBanUserRequest,
+  AdminBanUserResponse,
+  AdminGetBansResponse,
   AdminGetPermissionsResponse,
   AdminUpdatePermissionsRequest,
   GetBatchUserInfoResponse,
@@ -12,7 +16,7 @@ import logger from '../logging/logger'
 import { push, replace } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
-import { fetchJson } from '../network/fetch'
+import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { UserProfileSubPage } from './user-profile-sub-page'
 
 /**
@@ -122,5 +126,40 @@ export function adminUpdateUserPermissions(
       method: 'POST',
       body: JSON.stringify(body),
     })
+  })
+}
+
+export function adminGetUserBanHistory(
+  userId: SbUserId,
+  spec: RequestHandlingSpec<AdminGetBansResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const promise = fetchJson<AdminGetBansResponse>(apiUrl`admin/users/${userId}/bans`)
+    promise
+      .then(res => dispatch({ type: '@profile/adminGetUserBanHistory', payload: res }))
+      .catch(swallowNonBuiltins)
+
+    return promise
+  })
+}
+
+export function adminBanUser(
+  { userId, banLengthHours, reason }: { userId: SbUserId; banLengthHours: number; reason?: string },
+  spec: RequestHandlingSpec<AdminBanUserResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const promise = fetchJson<AdminBanUserResponse>(apiUrl`admin/users/${userId}/bans`, {
+      method: 'POST',
+      body: encodeBodyAsParams<AdminBanUserRequest>({
+        banLengthHours,
+        reason,
+      }),
+    })
+
+    promise
+      .then(res => dispatch({ type: '@profile/adminBanUser', payload: res }))
+      .catch(swallowNonBuiltins)
+
+    return promise
   })
 }

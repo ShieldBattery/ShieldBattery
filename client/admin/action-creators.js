@@ -1,9 +1,5 @@
 import { apiUrl } from '../../common/urls'
 import {
-  ADMIN_BAN_USER,
-  ADMIN_BAN_USER_BEGIN,
-  ADMIN_GET_BAN_HISTORY,
-  ADMIN_GET_BAN_HISTORY_BEGIN,
   ADMIN_MAP_POOL_CLEAR_SEARCH,
   ADMIN_MAP_POOL_CREATE,
   ADMIN_MAP_POOL_CREATE_BEGIN,
@@ -27,68 +23,12 @@ import {
 import { fetchJson } from '../network/fetch'
 import { openSnackbar } from '../snackbars/action-creators'
 
-const USER_PROFILE_STALE_TIME = 60 * 1000
-function shouldGetUserProfile(state, username) {
-  // TODO(tec27): Refactor all of this to flow into a single reducer and API request that stores the
-  // time, instead of storing a time in each single reducer and just expecting that they have the
-  // same structure.
-  const { users } = state
-  if (!users.has(username)) {
-    return true
-  }
-  const user = users.get(username)
-  return !user.isRequesting && Date.now() - user.lastUpdated > USER_PROFILE_STALE_TIME
-}
-
-async function fetchUserId(username) {
-  // TODO(tec27): Look in users reducer first?
+export async function fetchUserId(username) {
   const value = await fetchJson(apiUrl`admin/users/${username}`)
   if (!value.length) {
     throw new Error('No user found with that name')
   } else {
     return value[0].id
-  }
-}
-
-function getBanHistory(username) {
-  return dispatch => {
-    dispatch({
-      type: ADMIN_GET_BAN_HISTORY_BEGIN,
-      payload: { username },
-    })
-    dispatch({
-      type: ADMIN_GET_BAN_HISTORY,
-      payload: fetchUserId(username).then(id => fetchJson('/api/1/bans/' + encodeURIComponent(id))),
-      meta: { username },
-    })
-  }
-}
-
-export function getBanHistoryIfNeeded(username) {
-  return (dispatch, getState) => {
-    if (shouldGetUserProfile(getState().bans, username)) {
-      dispatch(getBanHistory(username))
-    }
-  }
-}
-
-export function banUser(username, length, reason) {
-  return dispatch => {
-    dispatch({
-      type: ADMIN_BAN_USER_BEGIN,
-      meta: { username, length, reason },
-    })
-    const params = { method: 'post', body: JSON.stringify({ banLengthHours: length, reason }) }
-    dispatch({
-      type: ADMIN_BAN_USER,
-      payload: fetchUserId(username)
-        .then(id => fetchJson('/api/1/bans/' + encodeURIComponent(id), params))
-        .then(bans => {
-          dispatch(openSnackbar({ message: 'Banned!' }))
-          return bans
-        }),
-      meta: { username, length, reason },
-    })
   }
 }
 

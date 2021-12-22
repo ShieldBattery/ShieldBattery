@@ -16,6 +16,9 @@ import { ClientSessionInfo } from '../../../common/users/session'
 import {
   AcceptPoliciesRequest,
   AcceptPoliciesResponse,
+  AdminBanUserRequest,
+  AdminBanUserResponse,
+  AdminGetBansResponse,
   AdminGetPermissionsResponse,
   AdminUpdatePermissionsRequest,
   GetBatchUserInfoResponse,
@@ -23,6 +26,7 @@ import {
   SbUser,
   SbUserId,
   SelfUser,
+  toBanHistoryEntryJson,
   UserErrorCode,
 } from '../../../common/users/user-info'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
@@ -43,12 +47,15 @@ import {
 import { usePasswordResetCode } from '../models/password-resets'
 import { getPermissions, updatePermissions } from '../models/permissions'
 import { checkAllPermissions, checkAnyPermission } from '../permissions/check-permissions'
+import { Redis } from '../redis'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import initSession from '../session/init'
 import updateAllSessions from '../session/update-all-sessions'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
+import { UserSocketsManager } from '../websockets/socket-groups'
+import { banUser, retrieveBanHistory } from './ban-models'
 import {
   attemptLogin,
   createUser,
@@ -108,6 +115,8 @@ const convertUserApiErrors = makeErrorConverterMiddleware(err => {
   switch (err.code) {
     case UserErrorCode.NotFound:
       throw asHttpError(404, err)
+    case UserErrorCode.NotAllowedOnSelf:
+      throw asHttpError(409, err)
 
     default:
       assertUnreachable(err.code)
@@ -513,6 +522,8 @@ export class UserApi {
 @httpApi('/admin/users')
 @httpBeforeAll(convertUserApiErrors, ensureLoggedIn)
 export class AdminUserApi {
+  constructor(private userSocketsManager: UserSocketsManager, private redis: Redis) {}
+
   @httpGet('/:id/permissions')
   @httpBefore(checkAllPermissions('editPermissions'))
   async getPermissions(ctx: RouterContext): Promise<AdminGetPermissionsResponse> {
@@ -567,6 +578,90 @@ export class AdminUserApi {
     }
 
     ctx.status = 204
+  }
+
+  @httpGet('/:id/bans')
+  @httpBefore(checkAllPermissions('banUsers'))
+  async getBans(ctx: RouterContext): Promise<AdminGetBansResponse> {
+    const { params } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }),
+    })
+
+    const [user, banHistory] = await Promise.all([
+      findUserById(params.id),
+      retrieveBanHistory(params.id),
+    ])
+
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    const banningUsers = banHistory.length
+      ? Array.from((await findUsersById(banHistory.map(b => b.bannedBy))).values())
+      : []
+
+    return {
+      forUser: params.id,
+      bans: banHistory.map(b => toBanHistoryEntryJson(b)),
+      users: banningUsers.concat(user),
+    }
+  }
+
+  @httpPost('/:id/bans')
+  @httpBefore(checkAllPermissions('banUsers'))
+  async banUser(ctx: RouterContext): Promise<AdminBanUserResponse> {
+    const { params, body } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }),
+      body: Joi.object<AdminBanUserRequest>({
+        banLengthHours: Joi.number().required(),
+        reason: Joi.string(),
+      }).required(),
+    })
+
+    if (params.id === ctx.session!.userId) {
+      throw new UserApiError(UserErrorCode.NotAllowedOnSelf, "can't ban yourself")
+    }
+
+    const user = await findUserById(params.id)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    const [ban, bannedBy] = await Promise.all([
+      banUser({
+        userId: params.id,
+        bannedBy: ctx.session!.userId,
+        banLengthHours: body.banLengthHours,
+        reason: body.reason,
+      }),
+      findUserById(ctx.session!.userId),
+    ])
+
+    // Delete all the active sessions and close any sockets they have open, so that they're forced
+    // to log in again and we don't need to ban check on every operation
+    const userSessionsKey = `user_sessions:${params.id}`
+    const userSessionIds = await this.redis.smembers(userSessionsKey)
+    // We could also use ioredis#pipeline here, but I think in practice the number of sessions per
+    // user ID will be fairly low
+    await Promise.all(userSessionIds.map(id => this.redis.del(id)))
+    const keyDeletion = this.redis.del(userSessionsKey)
+    this.userSocketsManager.getById(params.id)?.closeAll()
+    await keyDeletion
+
+    // This would be a really weird occurrence! So we just make sure we do the actual banning before
+    // this, and let the 500 pass through after
+    if (!bannedBy) {
+      throw new Error("couldn't find current user")
+    }
+
+    return {
+      ban: toBanHistoryEntryJson(ban),
+      users: [user, bannedBy],
+    }
   }
 
   @httpGet('/:searchTerm')
