@@ -5,7 +5,7 @@ import { container, inject, singleton } from 'tsyringe'
 import { TypedEventEmitter } from '../../../common/typed-emitter'
 import { SbUserId } from '../../../common/users/sb-user'
 import log from '../logging/logger'
-import { UpdateOrInsertUserIp } from '../network/user-ips-type'
+import { UpsertUserIp } from '../network/user-ips-type'
 import getAddress from './get-address'
 import { RequestSessionLookup, SessionInfo } from './session-lookup'
 
@@ -176,7 +176,7 @@ export class UserSocketsManager extends EventEmitter {
   constructor(
     private nydus: NydusServer,
     private sessionLookup: RequestSessionLookup,
-    @inject('updateOrInsertUserIp') private updateOrInsertUserIp: UpdateOrInsertUserIp,
+    @inject('upsertUserIp') private upsertUserIp: UpsertUserIp,
   ) {
     super()
 
@@ -203,7 +203,7 @@ export class UserSocketsManager extends EventEmitter {
         this.users.get(userId)!.add(socket)
       }
 
-      this.updateOrInsertUserIp(userId, getAddress(socket.conn.request)).catch(() => {
+      this.upsertUserIp(userId, getAddress(socket.conn.request)).catch(() => {
         log.error({ req: socket.conn.request }, 'failed to save user IP address')
       })
     })
