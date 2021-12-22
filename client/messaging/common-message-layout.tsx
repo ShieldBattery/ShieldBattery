@@ -111,7 +111,7 @@ export const TextMessage = React.memo<{
       <Username>
         <ConnectedUsername userId={userId} />
       </Username>
-      <Separator aria-hidden={true}>{': '}</Separator>
+      <Separator>{': '}</Separator>
       <Text>{parsedText}</Text>
     </TimestampMessageLayout>
   )

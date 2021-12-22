@@ -24,10 +24,8 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             userId={2}
           />
         </common-message-layout__Username>
-        <message-layout__Separator
-          aria-hidden={true}
-        >
-          :
+        <message-layout__Separator>
+          : 
         </message-layout__Separator>
         <common-message-layout__Text>
           This is test message
@@ -47,13 +45,11 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             userId={2}
           />
         </common-message-layout__Username>
-        <message-layout__Separator
-          aria-hidden={true}
-        >
-          :
+        <message-layout__Separator>
+          : 
         </message-layout__Separator>
         <common-message-layout__Text>
-          here is a link
+          here is a link 
           <ExternalLink
             href="http://www.example.com"
           >
@@ -75,14 +71,12 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             userId={2}
           />
         </common-message-layout__Username>
-        <message-layout__Separator
-          aria-hidden={true}
-        >
-          :
+        <message-layout__Separator>
+          : 
         </message-layout__Separator>
         <common-message-layout__Text>
           hey
-
+           
           <common-message-layout__MentionedUsername
             prefix="@"
             userId={123}
@@ -103,10 +97,8 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             userId={2}
           />
         </common-message-layout__Username>
-        <message-layout__Separator
-          aria-hidden={true}
-        >
-          :
+        <message-layout__Separator>
+          : 
         </message-layout__Separator>
         <common-message-layout__Text>
           <ExternalLink
@@ -115,7 +107,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             http://www.example.com
           </ExternalLink>
            go here
-
+           
           <common-message-layout__MentionedUsername
             prefix="@"
             userId={123}
@@ -136,26 +128,24 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             userId={2}
           />
         </common-message-layout__Username>
-        <message-layout__Separator
-          aria-hidden={true}
-        >
-          :
+        <message-layout__Separator>
+          : 
         </message-layout__Separator>
         <common-message-layout__Text>
           hey
-
+           
           <common-message-layout__MentionedUsername
             prefix="@"
             userId={123}
           />
-           see
+           see 
           <ExternalLink
             href="http://www.example.com"
           >
             http://www.example.com
           </ExternalLink>
            go here
-
+           
           <common-message-layout__MentionedUsername
             prefix="@"
             userId={123}
@@ -176,18 +166,16 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             userId={2}
           />
         </common-message-layout__Username>
-        <message-layout__Separator
-          aria-hidden={true}
-        >
-          :
+        <message-layout__Separator>
+          : 
         </message-layout__Separator>
         <common-message-layout__Text>
-
+          
           <common-message-layout__MentionedUsername
             prefix="@"
             userId={123}
           />
-           go to
+           go to 
           <ExternalLink
             href="http://www.example.com"
           >
@@ -210,10 +198,8 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             userId={2}
           />
         </common-message-layout__Username>
-        <message-layout__Separator
-          aria-hidden={true}
-        >
-          :
+        <message-layout__Separator>
+          : 
         </message-layout__Separator>
         <common-message-layout__Text>
           <ExternalLink
@@ -222,12 +208,12 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             http://www.example.com
           </ExternalLink>
            go here
-
+           
           <common-message-layout__MentionedUsername
             prefix="@"
             userId={123}
           />
-           or here
+           or here 
           <ExternalLink
             href="http://www.example.com"
           >
@@ -249,14 +235,12 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             userId={2}
           />
         </common-message-layout__Username>
-        <message-layout__Separator
-          aria-hidden={true}
-        >
-          :
+        <message-layout__Separator>
+          : 
         </message-layout__Separator>
         <common-message-layout__Text>
           Hey
-
+           
           <common-message-layout__MentionedUsername
             prefix="@"
             userId={1}
