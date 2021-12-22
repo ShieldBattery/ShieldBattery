@@ -7,7 +7,7 @@ import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpPost } from '../http/route-decorators'
 import ensureLoggedIn from '../session/ensure-logged-in'
-import updateAllSessions from '../session/update-all-sessions'
+import { updateAllSessionsForCurrentUser } from '../session/update-all-sessions'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
@@ -74,7 +74,9 @@ export class MatchmakingApi {
     await this.matchmakingService.find(ctx.session!.userId, clientId, preferences)
 
     // Save the last queued matchmaking type on the user's session
-    await updateAllSessions(ctx, { lastQueuedMatchmakingType: preferences.matchmakingType })
+    await updateAllSessionsForCurrentUser(ctx, {
+      lastQueuedMatchmakingType: preferences.matchmakingType,
+    })
   }
 
   @httpDelete('/find')

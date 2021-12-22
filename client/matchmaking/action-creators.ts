@@ -128,20 +128,22 @@ export function getCurrentMapPool(type: MatchmakingType): ThunkAction {
       apiUrl`matchmaking-map-pools/${type}/current`,
     )
 
-    promise.then(body => {
-      // As a slight optimization, we download the whole map pool as soon as we get it. This
-      // shouldn't be a prohibitively expensive operation, since our map store checks if a map
-      // already exists before attempting to download it.
-      for (const map of body.mapInfos) {
-        ipcRenderer
-          .invoke('mapStoreDownloadMap', map.hash, map.mapData.format, map.mapUrl!)
-          ?.catch(err => {
-            // This is already logged to our file by the map store, so we just log it to the
-            // console for easy visibility during development
-            console.error('Error downloading map: ' + err + '\n' + err.stack)
-          })
-      }
-    })
+    promise
+      .then(body => {
+        // As a slight optimization, we download the whole map pool as soon as we get it. This
+        // shouldn't be a prohibitively expensive operation, since our map store checks if a map
+        // already exists before attempting to download it.
+        for (const map of body.mapInfos) {
+          ipcRenderer
+            .invoke('mapStoreDownloadMap', map.hash, map.mapData.format, map.mapUrl!)
+            ?.catch(err => {
+              // This is already logged to our file by the map store, so we just log it to the
+              // console for easy visibility during development
+              console.error('Error downloading map: ' + err + '\n' + err.stack)
+            })
+        }
+      })
+      .catch(swallowNonBuiltins)
 
     dispatch({
       type: '@matchmaking/getCurrentMapPool',
@@ -188,10 +190,7 @@ export function updateMatchmakingPreferences<M extends MatchmakingType>(
           dispatch(getCurrentMapPool(matchmakingType))
         }
       })
-      .catch(() => {
-        // Errors will be handled by the redux dispatch, but if we don't have an error handler here
-        // it will count as unhandled.
-      })
+      .catch(swallowNonBuiltins)
   }
 }
 

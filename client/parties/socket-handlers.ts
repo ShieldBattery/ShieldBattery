@@ -219,7 +219,7 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
   const partiesHandler: RouteHandler = (route: RouteInfo, event: PartyEvent) => {
     if (!eventToAction[event.type]) return
 
-    const action = eventToAction[event.type]!(route.params.partyId, event as any)
+    const action = eventToAction[event.type](route.params.partyId, event as any)
     if (action) dispatch(action)
   }
 

@@ -1,12 +1,15 @@
-import type { NydusClient } from 'nydus-client'
+import type { NydusClient, RouteInfo } from 'nydus-client'
 import { EMAIL_VERIFICATION_ID } from '../../common/notifications'
-import { ReduxAction } from '../action-types'
-import { dispatch, Dispatchable } from '../dispatch-registry'
+import { AuthEvent } from '../../common/users/user-info'
+import { dispatch, Dispatchable, ThunkAction } from '../dispatch-registry'
 import { clearNotificationById } from '../notifications/action-creators'
 
-// TODO(tec27): Improve the types around all of this so that we know the event types and such
-const eventToAction: Record<string, (event: any) => Dispatchable<ReduxAction> | undefined> = {
-  emailVerified() {
+type EventToActionMap = {
+  [E in AuthEvent['action']]: (event: Extract<AuthEvent, { action: E }>) => Dispatchable | undefined
+}
+
+const eventToAction: Readonly<EventToActionMap> = {
+  emailVerified(): ThunkAction {
     return dispatch => {
       dispatch({
         type: '@auth/emailVerified',
@@ -15,13 +18,23 @@ const eventToAction: Record<string, (event: any) => Dispatchable<ReduxAction> | 
       dispatch(clearNotificationById(EMAIL_VERIFICATION_ID))
     }
   },
+
+  permissionsChanged(event) {
+    return {
+      type: '@auth/permissionsChanged',
+      payload: {
+        userId: event.userId,
+        permissions: event.permissions,
+      },
+    }
+  },
 }
 
 export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
-  siteSocket.registerRoute('/userProfiles/:userId', (route, event) => {
+  siteSocket.registerRoute('/userProfiles/:userId', (route: RouteInfo, event: AuthEvent) => {
     if (!eventToAction.hasOwnProperty(event.action)) return
 
-    const action = eventToAction[event.action](event)
+    const action = eventToAction[event.action](event as any)
     if (action) dispatch(action)
   })
 }

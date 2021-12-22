@@ -136,3 +136,16 @@ export interface AdminBanUserResponse {
   ban: BanHistoryEntryJson
   users: SbUser[]
 }
+
+export interface EmailVerifiedEvent {
+  action: 'emailVerified'
+  userId: SbUserId
+}
+
+export interface PermissionsChangedEvent {
+  action: 'permissionsChanged'
+  userId: SbUserId
+  permissions: SbPermissions
+}
+
+export type AuthEvent = EmailVerifiedEvent | PermissionsChangedEvent

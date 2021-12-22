@@ -118,4 +118,11 @@ export default keyedReducer(new AuthState(), {
       return state.set('user', new SelfUserRecord(action.payload.user))
     }
   },
+  ['@auth/permissionsChanged'](state, action) {
+    if (action.payload.userId !== state.user.id) {
+      return state
+    }
+
+    return state.set('permissions', new PermissionsRecord(action.payload.permissions))
+  },
 })

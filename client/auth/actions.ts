@@ -1,5 +1,6 @@
+import { SbPermissions } from '../../common/users/permissions'
 import { ClientSessionInfo } from '../../common/users/session'
-import { AcceptPoliciesResponse, SelfUser } from '../../common/users/user-info'
+import { AcceptPoliciesResponse, SbUserId, SelfUser } from '../../common/users/user-info'
 import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type AuthActions =
@@ -25,6 +26,7 @@ export type AuthActions =
   | EmailVerified
   | AcceptPoliciesSuccess
   | AcceptPoliciesFailure
+  | PermissionsChanged
 
 interface BaseAuthSuccess<T extends string, P = void> {
   type: T
@@ -133,4 +135,12 @@ export interface AcceptPoliciesSuccess {
 /** Accepting legal policies failed. */
 export interface AcceptPoliciesFailure extends BaseFetchFailure<'@auth/acceptPolicies'> {
   meta: Record<string, never>
+}
+
+export interface PermissionsChanged {
+  type: '@auth/permissionsChanged'
+  payload: {
+    userId: SbUserId
+    permissions: SbPermissions
+  }
 }

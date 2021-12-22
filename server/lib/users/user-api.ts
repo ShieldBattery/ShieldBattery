@@ -3,7 +3,6 @@ import bcrypt from 'bcrypt'
 import cuid from 'cuid'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
-import { NydusServer } from 'nydus'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isValidEmail, isValidPassword, isValidUsername } from '../../../common/constants'
 import { toGameRecordJson } from '../../../common/games/games'
@@ -21,6 +20,7 @@ import {
   AdminGetBansResponse,
   AdminGetPermissionsResponse,
   AdminUpdatePermissionsRequest,
+  AuthEvent,
   GetBatchUserInfoResponse,
   GetUserProfileResponse,
   SbUser,
@@ -50,11 +50,12 @@ import { checkAllPermissions, checkAnyPermission } from '../permissions/check-pe
 import { Redis } from '../redis'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import initSession from '../session/init'
-import updateAllSessions from '../session/update-all-sessions'
+import { updateAllSessions, updateAllSessionsForCurrentUser } from '../session/update-all-sessions'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
 import { UserSocketsManager } from '../websockets/socket-groups'
+import { TypedPublisher } from '../websockets/typed-publisher'
 import { banUser, retrieveBanHistory } from './ban-models'
 import {
   attemptLogin,
@@ -126,7 +127,7 @@ const convertUserApiErrors = makeErrorConverterMiddleware(err => {
 @httpApi('/users')
 @httpBeforeAll(convertUserApiErrors)
 export class UserApi {
-  constructor(private nydus: NydusServer) {}
+  constructor(private publisher: TypedPublisher<AuthEvent>) {}
 
   @httpPost('/')
   @httpBefore(throttleMiddleware(accountCreationThrottle, ctx => ctx.ip))
@@ -351,7 +352,7 @@ export class UserApi {
 
       const emailVerificationCode = cuid()
       await addEmailVerificationCode(user.id, user.email, emailVerificationCode, ctx.ip)
-      await updateAllSessions(ctx, { emailVerified: false })
+      await updateAllSessionsForCurrentUser(ctx, { emailVerified: false })
 
       sendMail({
         to: user.email,
@@ -472,7 +473,7 @@ export class UserApi {
     }
 
     // Update all of the user's sessions to indicate that their email is now indeed verified.
-    await updateAllSessions(ctx, { emailVerified: true })
+    await updateAllSessionsForCurrentUser(ctx, { emailVerified: true })
     // We update this session specifically as well, to ensure that any previous changes to the
     // session during this request don't cause a stale value to be written
     ctx.session!.emailVerified = true
@@ -482,9 +483,10 @@ export class UserApi {
     // NOTE(2Pac): With the way the things are currently set up on client (their socket is not
     // connected when they open the email verification page), the client making the request won't
     // actually get this event. Thankfully, that's easy to deal with on the client-side.
-    this.nydus.publish('/userProfiles/' + ctx.session!.userId, { action: 'emailVerified' })
-    // TODO(tec27): get the above path from UserSocketsGroup instead of just concat'ing things
-    // together here
+    this.publisher.publish(`/userProfiles/${ctx.session!.userId}`, {
+      action: 'emailVerified',
+      userId: ctx.session!.userId,
+    })
 
     ctx.status = 204
   }
@@ -522,7 +524,11 @@ export class UserApi {
 @httpApi('/admin/users')
 @httpBeforeAll(convertUserApiErrors, ensureLoggedIn)
 export class AdminUserApi {
-  constructor(private userSocketsManager: UserSocketsManager, private redis: Redis) {}
+  constructor(
+    private userSocketsManager: UserSocketsManager,
+    private redis: Redis,
+    private publisher: TypedPublisher<AuthEvent>,
+  ) {}
 
   @httpGet('/:id/permissions')
   @httpBefore(checkAllPermissions('editPermissions'))
@@ -576,6 +582,13 @@ export class AdminUserApi {
     if (!permissions) {
       throw new UserApiError(UserErrorCode.NotFound, 'user not found')
     }
+
+    await updateAllSessions(params.id, { permissions })
+    this.publisher.publish(`/userProfiles/${params.id}`, {
+      action: 'permissionsChanged',
+      userId: params.id,
+      permissions,
+    })
 
     ctx.status = 204
   }
