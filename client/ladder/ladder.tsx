@@ -154,6 +154,7 @@ const RowContainer = styled.button<{ $isEven: boolean }>`
   ${subtitle1};
   width: 100%;
   height: ${ROW_HEIGHT}px;
+  padding: 0;
 
   display: flex;
   align-items: center;
@@ -187,6 +188,7 @@ const BaseCell = styled.div`
 
 const RankCell = styled(BaseCell)`
   width: 64px;
+  padding-left: 16px;
   text-align: right;
 `
 
@@ -209,8 +211,9 @@ const WinLossCell = styled(BaseCell)`
 
 const LastPlayedCell = styled(BaseCell)`
   width: 156px;
-  padding: 0 8px 0 32px;
+  padding: 0 16px 0 32px;
   color: ${colorTextSecondary};
+  text-align: right;
 `
 
 const StyledAvatar = styled(Avatar)`
