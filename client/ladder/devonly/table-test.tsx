@@ -36,6 +36,7 @@ for (let i = 0; i < 1000; i++) {
 export function TableTest() {
   return (
     <LadderTable
+      lastUpdated={NOW}
       players={List(PLAYERS)}
       usersById={usersById}
       totalCount={PLAYERS.length}
