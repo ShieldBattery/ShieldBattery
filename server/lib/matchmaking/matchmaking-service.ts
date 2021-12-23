@@ -39,7 +39,6 @@ import gameLoader, { GameLoaderError } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
 import { getMapInfo } from '../maps/map-models'
-import { MatchmakingDebugDataService } from '../matchmaking/debug-data'
 import {
   calcEffectiveRating,
   Matchmaker,
@@ -475,11 +474,6 @@ export class MatchmakingService {
           .setOnMatchFound(this.matchmakerDelegate.onMatchFound),
       ]),
     )
-
-    const debugDataService = container.resolve(MatchmakingDebugDataService)
-    for (const [type, matchmaker] of this.matchmakers.entries()) {
-      debugDataService.registerMatchmaker(type, matchmaker)
-    }
   }
 
   /**

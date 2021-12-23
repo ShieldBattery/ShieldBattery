@@ -11,7 +11,6 @@ import {
   CanSeeDebugFilter,
 } from './admin-route-filters'
 import { DebugLogs } from './debug-logs'
-import { DebugMatchmaking } from './debug-matchmaking'
 import AdminMapPools from './map-pools'
 import AdminMatchmakingTimes from './matchmaking-times'
 import { AdminRallyPoint } from './rally-point'
@@ -29,9 +28,6 @@ function AdminDashboard(props: AdminDashboardProps) {
     <>
       <li>
         <Link href='/admin/debug-logs'>Debug logs</Link>
-      </li>
-      <li>
-        <Link href='/admin/debug-matchmaking'>Debug matchmaking</Link>
       </li>
     </>
   ) : null
@@ -88,11 +84,6 @@ function AdminPanel() {
         path='/admin/debug-logs/:rest*'
         filters={[CanSeeDebugFilter]}
         component={DebugLogs}
-      />
-      <ConditionalRoute
-        path='/admin/debug-matchmaking/:rest*'
-        filters={[CanSeeDebugFilter]}
-        component={DebugMatchmaking}
       />
       <ConditionalRoute
         path='/admin/rally-point/:rest*'
