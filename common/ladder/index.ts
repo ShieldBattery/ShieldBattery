@@ -24,4 +24,6 @@ export interface GetRankingsResponse {
   players: LadderPlayer[]
   /** A list of user info for players that are in the returned `players` list. */
   users: SbUser[]
+  /** A unix timestamp of the last time the rankings were refreshed. */
+  lastUpdated: number
 }

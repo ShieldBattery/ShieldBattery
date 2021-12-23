@@ -8,6 +8,7 @@ import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmakin
 import { SbUser, SbUserId } from '../../common/users/sb-user'
 import { Avatar } from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
+import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
 import { JsonLocalStorageValue } from '../local-storage'
 import { animationFrameHandler, AnimationFrameHandler } from '../material/animation-frame-handler'
 import { useButtonState } from '../material/button'
@@ -27,7 +28,7 @@ import {
   colorTextFaint,
   colorTextSecondary,
 } from '../styles/colors'
-import { overline, subtitle1, subtitle2 } from '../styles/typography'
+import { body1, overline, subtitle1, subtitle2 } from '../styles/typography'
 import { timeAgo } from '../time/time-ago'
 import { getRankings, navigateToLadder } from './action-creators'
 
@@ -85,10 +86,6 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
     }
   }, [routeType])
 
-  if (!rankings) {
-    return null
-  }
-
   return (
     <LadderPage>
       <TabsContainer>
@@ -104,14 +101,19 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
         </Tabs>
       </TabsContainer>
       <Content>
-        <LadderTable
-          totalCount={rankings.totalCount}
-          players={rankings.players}
-          usersById={usersById}
-          isLoading={rankings.isLoading}
-          lastError={rankings.lastError}
-          curTime={Number(rankings.fetchTime)}
-        />
+        {rankings ? (
+          <LadderTable
+            lastUpdated={rankings.lastUpdated}
+            totalCount={rankings.totalCount}
+            players={rankings.players}
+            usersById={usersById}
+            isLoading={rankings.isLoading}
+            lastError={rankings.lastError}
+            curTime={Number(rankings.fetchTime)}
+          />
+        ) : (
+          <LoadingDotsArea />
+        )}
       </Content>
     </LadderPage>
   )
@@ -128,11 +130,22 @@ const TableContainer = styled.div`
   overflow-y: auto;
 `
 
+const LastUpdatedText = styled.div`
+  ${body1};
+  width: 100%;
+  max-width: 800px;
+  margin: 8px 16px 0;
+  padding: 0 16px;
+
+  color: ${colorTextSecondary};
+  text-align: right;
+`
+
 const Table = styled(FixedSizeList)`
   width: 100%;
   height: auto;
   max-width: 800px;
-  margin: 16px 16px;
+  margin: 8px 16px 16px;
 `
 
 const RowContainer = styled.button<{ $isEven: boolean }>`
@@ -234,6 +247,7 @@ export interface LadderTableProps {
   isLoading: boolean
   players?: List<Readonly<LadderPlayer>>
   usersById: Immutable<Map<SbUserId, SbUser>>
+  lastUpdated: number
   lastError?: Error
 }
 
@@ -321,6 +335,9 @@ export function LadderTable(props: LadderTableProps) {
 
   return (
     <TableContainer ref={containerCallback} onScroll={containerScrollHandler.current?.handler}>
+      <LastUpdatedText title={longTimestamp.format(props.lastUpdated)}>
+        Last updated: {shortTimestamp.format(props.lastUpdated)}
+      </LastUpdatedText>
       {props.totalCount > 0 ? (
         <Table
           ref={tableRef}

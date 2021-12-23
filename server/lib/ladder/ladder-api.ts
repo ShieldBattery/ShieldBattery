@@ -6,25 +6,50 @@ import { SbUser } from '../../../common/users/sb-user'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpGet } from '../http/route-decorators'
 import { JobScheduler } from '../jobs/job-scheduler'
+import logger from '../logging/logger'
 import { getRankings, refreshRankings } from '../matchmaking/models'
+import { Redis } from '../redis'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
 
 const UPDATE_RANKS_MINUTES = 5
 
+const LAST_UPDATED_KEY = 'lib/ladder#updateRanks:lastRun'
+
 @httpApi('/ladder')
 @httpBeforeAll(ensureLoggedIn)
 export class LadderApi {
-  constructor(private jobScheduler: JobScheduler) {
+  private lastUpdated = new Date()
+  private runOnce = false
+
+  constructor(private jobScheduler: JobScheduler, private redis: Redis) {
     const startTime = new Date()
     const timeRemainder = UPDATE_RANKS_MINUTES - (startTime.getMinutes() % UPDATE_RANKS_MINUTES)
     startTime.setMinutes(startTime.getMinutes() + timeRemainder, 0, 0)
+
+    this.redis
+      .get(LAST_UPDATED_KEY)
+      .then(lastUpdatedStr => {
+        if (!this.runOnce && lastUpdatedStr) {
+          this.lastUpdated = new Date(Number(lastUpdatedStr))
+        }
+      })
+      .catch(err => {
+        logger.error({ err }, 'Error getting last updated time for ladder rankings')
+      })
+
     this.jobScheduler.scheduleJob(
       'lib/ladder#updateRanks',
       startTime,
       UPDATE_RANKS_MINUTES * 60 * 1000,
       async () => {
+        this.runOnce = true
+        const updatedAt = new Date()
+        this.redis.set(LAST_UPDATED_KEY, Number(updatedAt)).catch(err => {
+          logger.error({ err }, 'Error setting last updated time for ladder rankings')
+        })
         await refreshRankings()
+        this.lastUpdated = updatedAt
       },
     )
   }
@@ -60,6 +85,7 @@ export class LadderApi {
       totalCount: rankings.length,
       players,
       users,
+      lastUpdated: Number(this.lastUpdated),
     }
   }
 }

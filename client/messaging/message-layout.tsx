@@ -1,5 +1,6 @@
 import React from 'react'
 import styled, { css } from 'styled-components'
+import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
 import {
   amberA100,
   blue100,
@@ -9,37 +10,6 @@ import {
   colorTextSecondary,
 } from '../styles/colors'
 import { body1, body2, caption } from '../styles/typography'
-
-const localeTimeSupported = !!Date.prototype.toLocaleTimeString
-function getLocalTime(date: Date) {
-  if (localeTimeSupported) {
-    return date.toLocaleTimeString(navigator.language, {
-      hour: 'numeric',
-      minute: '2-digit',
-    })
-  }
-
-  // Internationalization isn't supported, so we'll just format to American time. DEAL WITH IT.
-  let hour = date.getHours()
-  const isPm = hour >= 12
-  hour = isPm ? hour - 12 : hour
-  if (hour === 0) {
-    hour = 12
-  }
-  let minute = '' + date.getMinutes()
-  if (minute.length === 1) {
-    minute = '0' + minute
-  }
-  return hour + ':' + minute + ' ' + (isPm ? 'PM' : 'AM')
-}
-
-const longTimestamp = new Intl.DateTimeFormat(navigator.language, {
-  year: 'numeric',
-  month: 'short',
-  day: '2-digit',
-  hour: 'numeric',
-  minute: '2-digit',
-})
 
 /** Hidden separators that only show up in copy+paste. */
 export const Separator = styled.i.attrs({ 'aria-hidden': true })`
@@ -73,7 +43,7 @@ interface MessageTimestampProps {
 export const MessageTimestamp = (props: MessageTimestampProps) => (
   <Timestamp title={longTimestamp.format(props.time)}>
     <Separator>[</Separator>
-    {getLocalTime(new Date(props.time))}
+    {shortTimestamp.format(props.time)}
     <Separator>] </Separator>
   </Timestamp>
 )

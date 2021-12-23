@@ -20,6 +20,7 @@ export class RetrievedRankings extends Record({
   fetchTime: new Date(0),
   lastError: undefined as Error | undefined,
   players: List<LadderPlayerRecord>(),
+  lastUpdated: 0,
   totalCount: 0,
 }) {}
 
@@ -50,11 +51,12 @@ export default keyedReducer(new LadderState(), {
     if (action.error) {
       newRankings = newRankings.set('lastError', action.payload)
     } else {
-      const { totalCount, players } = action.payload
+      const { totalCount, players, lastUpdated } = action.payload
       newRankings = newRankings
         .set('lastError', undefined)
         .set('totalCount', totalCount)
         .set('players', List(players.map(p => new LadderPlayerRecord(p))))
+        .set('lastUpdated', lastUpdated)
     }
 
     const typeToRankings = state.typeToRankings.set(action.meta.matchmakingType, newRankings)
