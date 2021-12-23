@@ -18,7 +18,7 @@ import KeyListener from '../keyboard/key-listener'
 import MapSelect from '../maps/map-select'
 import { RaisedButton } from '../material/button'
 import { ScrollableContent } from '../material/scroll-bar'
-import { Option } from '../material/select/option'
+import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
 import TextField from '../material/text-field'
 import LoadingIndicator from '../progress/dots'
@@ -134,7 +134,7 @@ class CreateLobbyForm extends React.Component {
       return (
         <Select {...bindCustom('gameSubType')} label='Teams' disabled={disabled} tabIndex={0}>
           {Range(slots - 1, 0).map(top => (
-            <Option key={top} value={top} text={`${top} vs ${slots - top}`} />
+            <SelectOption key={top} value={top} text={`${top} vs ${slots - top}`} />
           ))}
         </Select>
       )
@@ -142,7 +142,7 @@ class CreateLobbyForm extends React.Component {
       return (
         <Select {...bindCustom('gameSubType')} label='Teams' disabled={disabled} tabIndex={0}>
           {Range(2, Math.min(slots, 4) + 1).map(numTeams => (
-            <Option key={numTeams} value={numTeams} text={`${numTeams} teams`} />
+            <SelectOption key={numTeams} value={numTeams} text={`${numTeams} teams`} />
           ))}
         </Select>
       )
@@ -172,7 +172,7 @@ class CreateLobbyForm extends React.Component {
         <GameTypeAndSubType>
           <Select {...bindCustom('gameType')} label='Game type' disabled={disabled} tabIndex={0}>
             {ALL_GAME_TYPES.map(type => (
-              <Option key={type} value={type} text={gameTypeToLabel(type)} />
+              <SelectOption key={type} value={type} text={gameTypeToLabel(type)} />
             ))}
           </Select>
           {this.renderSubTypeSelection()}

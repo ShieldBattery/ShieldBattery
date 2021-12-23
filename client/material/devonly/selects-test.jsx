@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import Card from '../card'
-import { Option } from '../select/option'
+import { SelectOption } from '../select/option'
 import { Select } from '../select/select'
 import TextField from '../text-field'
 
@@ -38,48 +38,48 @@ export default class SelectsTest extends React.Component {
             value={this.state.value1}
             label='First'
             onChange={value => this.onChange(1, value)}>
-            <Option value={1} text='Menu option 1' />
-            <Option value={2} text='Menu option 2' />
-            <Option value={3} text='Menu option 3' />
-            <Option value={4} text='Menu option 4' />
-            <Option value={5} text='Menu option 5' />
-            <Option value={6} text='Menu option 6' />
-            <Option value={7} text='Menu option 7' />
-            <Option value={8} text='Menu option 8' />
+            <SelectOption value={1} text='Menu option 1' />
+            <SelectOption value={2} text='Menu option 2' />
+            <SelectOption value={3} text='Menu option 3' />
+            <SelectOption value={4} text='Menu option 4' />
+            <SelectOption value={5} text='Menu option 5' />
+            <SelectOption value={6} text='Menu option 6' />
+            <SelectOption value={7} text='Menu option 7' />
+            <SelectOption value={8} text='Menu option 8' />
           </Select>
 
           <Select value={this.state.value2} disabled={true} label='Disabled'>
-            <Option value={1} text='Menu option 1' />
-            <Option value={2} text='Menu option 2' />
-            <Option value={3} text='Menu option 3' />
-            <Option value={4} text='Menu option 4' />
-            <Option value={5} text='This one is disabled' />
-            <Option value={6} text='Menu option 6' />
-            <Option value={7} text='Menu option 7' />
-            <Option value={8} text='Menu option 8' />
+            <SelectOption value={1} text='Menu option 1' />
+            <SelectOption value={2} text='Menu option 2' />
+            <SelectOption value={3} text='Menu option 3' />
+            <SelectOption value={4} text='Menu option 4' />
+            <SelectOption value={5} text='This one is disabled' />
+            <SelectOption value={6} text='Menu option 6' />
+            <SelectOption value={7} text='Menu option 7' />
+            <SelectOption value={8} text='Menu option 8' />
           </Select>
 
           <Select
             value={this.state.value3}
             label='No default value'
             onChange={value => this.onChange(3, value)}>
-            <Option value={1} text='Menu option 1' />
-            <Option value={2} text='Menu option 2' />
-            <Option value={3} text='Menu option 3' />
-            <Option value={4} text='Menu option 4' />
+            <SelectOption value={1} text='Menu option 1' />
+            <SelectOption value={2} text='Menu option 2' />
+            <SelectOption value={3} text='Menu option 3' />
+            <SelectOption value={4} text='Menu option 4' />
           </Select>
 
           <Select value={this.state.value4} onChange={value => this.onChange(4, value)}>
-            <Option value={1} text='No label' />
-            <Option value={2} text='Menu option 2' />
+            <SelectOption value={1} text='No label' />
+            <SelectOption value={2} text='Menu option 2' />
           </Select>
 
           <Select
             value={this.state.value5}
             allowErrors={false}
             onChange={value => this.onChange(5, value)}>
-            <Option value={1} text='No label, no allow errors' />
-            <Option value={2} text='Menu option 2' />
+            <SelectOption value={1} text='No label, no allow errors' />
+            <SelectOption value={2} text='Menu option 2' />
           </Select>
 
           <Select
@@ -87,8 +87,8 @@ export default class SelectsTest extends React.Component {
             label='No allow errors'
             allowErrors={false}
             onChange={value => this.onChange(6, value)}>
-            <Option value={1} text='Menu option 1' />
-            <Option value={2} text='Menu option 2' />
+            <SelectOption value={1} text='Menu option 1' />
+            <SelectOption value={2} text='Menu option 2' />
           </Select>
 
           <Select
@@ -96,10 +96,10 @@ export default class SelectsTest extends React.Component {
             label='With errors'
             errorText='Hi mom'
             onChange={value => this.onChange(7, value)}>
-            <Option value={1} text='Menu option 1' />
-            <Option value={2} text='Menu option 2' />
-            <Option value={3} text='Menu option 3' />
-            <Option value={4} text='Menu option 4' />
+            <SelectOption value={1} text='Menu option 1' />
+            <SelectOption value={2} text='Menu option 2' />
+            <SelectOption value={3} text='Menu option 3' />
+            <SelectOption value={4} text='Menu option 4' />
           </Select>
 
           <TextField floatingLabel={true} label='Label 2' errorText='hi' />

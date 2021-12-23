@@ -4,7 +4,7 @@ import { ALL_ANNOUNCERS, Announcer, getAnnouncerName } from '../../common/blizz-
 import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import CheckBox from '../material/check-box'
-import { Option } from '../material/select/option'
+import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
 import Slider from '../material/slider'
 import { colorTextSecondary } from '../styles/colors'
@@ -92,7 +92,7 @@ const SoundSettingsForm = React.forwardRef<
           <AnnouncerOverline>Packs (must be purchased from Blizzard)</AnnouncerOverline>
           <Select {...bindCustom('selectedAnnouncer')} label='Announcer' tabIndex={0}>
             {ALL_ANNOUNCERS.map(announcer => (
-              <Option key={announcer} value={announcer} text={getAnnouncerName(announcer)} />
+              <SelectOption key={announcer} value={announcer} text={getAnnouncerName(announcer)} />
             ))}
           </Select>
         </div>

@@ -14,7 +14,7 @@ import UpDirectory from '../icons/material/ic_subdirectory_arrow_left_black_24px
 import KeyListener from '../keyboard/key-listener'
 import { IconButton } from '../material/button'
 import { ScrollableContent } from '../material/scroll-bar'
-import { Option } from '../material/select/option'
+import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
 import { shadow4dp } from '../material/shadows'
 import LoadingIndicator from '../progress/dots'
@@ -511,7 +511,7 @@ export default class Files extends React.Component {
       path,
     )}`
     const rootFolderOptions = Object.values(rootFolders).map(f => (
-      <Option key={f.id} value={f.id} text={f.name} />
+      <SelectOption key={f.id} value={f.id} text={f.name} />
     ))
     return (
       <Root ref={this._focusBrowser} tabIndex='-1'>

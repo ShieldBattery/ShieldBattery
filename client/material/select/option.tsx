@@ -36,7 +36,7 @@ const StyledMenuItem = styled(MenuItem)<{ $selected?: boolean; $focused?: boolea
   }};
 `
 
-export interface OptionProps {
+export interface SelectOptionProps {
   text: string
   value: unknown
   focused?: boolean
@@ -44,7 +44,7 @@ export interface OptionProps {
   onItemSelected?: () => void
 }
 
-export function Option({ text, focused, selected, onItemSelected }: OptionProps) {
+export function SelectOption({ text, focused, selected, onItemSelected }: SelectOptionProps) {
   const onClick = useCallback(() => {
     if (onItemSelected) {
       onItemSelected()
@@ -54,7 +54,7 @@ export function Option({ text, focused, selected, onItemSelected }: OptionProps)
   return <StyledMenuItem onClick={onClick} text={text} $focused={focused} $selected={selected} />
 }
 
-Option.propTypes = {
+SelectOption.propTypes = {
   text: PropTypes.string.isRequired,
   value: PropTypes.any.isRequired,
   focused: PropTypes.bool,
@@ -62,4 +62,4 @@ Option.propTypes = {
   onItemSelected: PropTypes.func,
 }
 
-Option[MenuItemSymbol] = true
+SelectOption[MenuItemSymbol] = true

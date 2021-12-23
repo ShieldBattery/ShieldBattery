@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import Card from '../card'
-import { Option } from '../select/option'
+import { SelectOption } from '../select/option'
 import { Select } from '../select/select'
 import Slider from '../slider'
 import TextField from '../text-field'
@@ -81,14 +81,14 @@ export default class SliderTest extends React.Component {
             onChange={value => this.onChange('5', value)}
           />
           <Select value={2} label='First'>
-            <Option value={1} text='Menu option 1' />
-            <Option value={2} text='Menu option 2' />
-            <Option value={3} text='Menu option 3' />
-            <Option value={4} text='Menu option 4' />
-            <Option value={5} text='Menu option 5' />
-            <Option value={6} text='Menu option 6' />
-            <Option value={7} text='Menu option 7' />
-            <Option value={8} text='Menu option 8' />
+            <SelectOption value={1} text='Menu option 1' />
+            <SelectOption value={2} text='Menu option 2' />
+            <SelectOption value={3} text='Menu option 3' />
+            <SelectOption value={4} text='Menu option 4' />
+            <SelectOption value={5} text='Menu option 5' />
+            <SelectOption value={6} text='Menu option 6' />
+            <SelectOption value={7} text='Menu option 7' />
+            <SelectOption value={8} text='Menu option 8' />
           </Select>
           <Slider
             min={0}

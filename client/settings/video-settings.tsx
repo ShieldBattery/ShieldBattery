@@ -4,7 +4,7 @@ import { ALL_DISPLAY_MODES, DisplayMode, getDisplayModeName } from '../../common
 import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import CheckBox from '../material/check-box'
-import { Option } from '../material/select/option'
+import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
 import Slider from '../material/slider'
 import { FormContainer } from './settings-content'
@@ -81,7 +81,7 @@ const VideoSettingsForm = React.forwardRef<
         <div>
           <Select {...bindCustom('displayMode')} label='Display mode' tabIndex={0}>
             {ALL_DISPLAY_MODES.map((dm, i) => (
-              <Option key={i} value={dm} text={getDisplayModeName(dm)} />
+              <SelectOption key={i} value={dm} text={getDisplayModeName(dm)} />
             ))}
           </Select>
           <Slider

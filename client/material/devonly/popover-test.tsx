@@ -4,7 +4,7 @@ import VertMenuIcon from '../../icons/material/ic_more_vert_black_24px.svg'
 import { OriginX, OriginY, Popover, useAnchorPosition } from '../../material/popover'
 import { Headline4, Headline5, Subtitle1 } from '../../styles/typography'
 import { IconButton } from '../button'
-import { Option } from '../select/option'
+import { SelectOption } from '../select/option'
 import { Select } from '../select/select'
 
 const Container = styled.div`
@@ -87,24 +87,24 @@ export default function PopoverTest() {
 
         <OptionsContainer>
           <Select value={anchorOriginX} label='Anchor origin X' onChange={setAnchorOriginX}>
-            <Option value='left' text='Left' />
-            <Option value='center' text='Center' />
-            <Option value='right' text='Right' />
+            <SelectOption value='left' text='Left' />
+            <SelectOption value='center' text='Center' />
+            <SelectOption value='right' text='Right' />
           </Select>
           <Select value={anchorOriginY} label='Anchor origin Y' onChange={setAnchorOriginY}>
-            <Option value='top' text='Top' />
-            <Option value='center' text='Center' />
-            <Option value='bottom' text='Bottom' />
+            <SelectOption value='top' text='Top' />
+            <SelectOption value='center' text='Center' />
+            <SelectOption value='bottom' text='Bottom' />
           </Select>
           <Select value={popoverOriginX} label='Popover origin X' onChange={setPopoverOriginX}>
-            <Option value='left' text='Left' />
-            <Option value='center' text='Center' />
-            <Option value='right' text='Right' />
+            <SelectOption value='left' text='Left' />
+            <SelectOption value='center' text='Center' />
+            <SelectOption value='right' text='Right' />
           </Select>
           <Select value={popoverOriginY} label='Popover origin Y' onChange={setPopoverOriginY}>
-            <Option value='top' text='Top' />
-            <Option value='center' text='Center' />
-            <Option value='bottom' text='Bottom' />
+            <SelectOption value='top' text='Top' />
+            <SelectOption value='center' text='Center' />
+            <SelectOption value='bottom' text='Bottom' />
           </Select>
         </OptionsContainer>
 

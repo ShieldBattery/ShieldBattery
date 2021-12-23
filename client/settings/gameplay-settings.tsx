@@ -12,7 +12,7 @@ import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import CheckBox from '../material/check-box'
 import NumberTextField from '../material/number-text-field'
-import { Option } from '../material/select/option'
+import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
 import { colorTextSecondary } from '../styles/colors'
 import { overline } from '../styles/typography'
@@ -80,13 +80,13 @@ const GameplayRemasteredForm = React.forwardRef<
       <FormContainer>
         <div>
           <Select {...bindCustom('unitPortraits')} label='Portraits' tabIndex={0}>
-            <Option value={2} text='Animated' />
-            <Option value={1} text='Still' />
-            <Option value={0} text='Disabled' />
+            <SelectOption value={2} text='Animated' />
+            <SelectOption value={1} text='Still' />
+            <SelectOption value={0} text='Disabled' />
           </Select>
           <Select {...bindCustom('minimapPosition')} label='Minimap position' tabIndex={0}>
-            <Option value={true} text='Bottom-left corner' />
-            <Option value={false} text='Standard' />
+            <SelectOption value={true} text='Bottom-left corner' />
+            <SelectOption value={false} text='Standard' />
           </Select>
           <SkinOverline>Skins (must be purchased from Blizzard)</SkinOverline>
           <BonusSkinsCheckBox
@@ -100,12 +100,12 @@ const GameplayRemasteredForm = React.forwardRef<
             tabIndex={0}
             disabled={!getInputValue('showBonusSkins')}>
             {ALL_INGAME_SKINS.map(skin => (
-              <Option key={skin || 'default'} value={skin} text={getIngameSkinName(skin)} />
+              <SelectOption key={skin || 'default'} value={skin} text={getIngameSkinName(skin)} />
             ))}
           </Select>
           <Select {...bindCustom('consoleSkin')} label='Console skin' tabIndex={0}>
             {ALL_CONSOLE_SKINS.map(skin => (
-              <Option key={skin} value={skin} text={getConsoleSkinName(skin)} />
+              <SelectOption key={skin} value={skin} text={getConsoleSkinName(skin)} />
             ))}
           </Select>
         </div>
