@@ -1,4 +1,5 @@
 import { ClientSessionInfo } from '../../common/users/session'
+import { isFetchError } from '../network/fetch-errors'
 import { keyedReducer } from '../reducers/keyed-reducer'
 import {
   AccountUpdateSuccess,
@@ -10,7 +11,6 @@ import {
   LogOutSuccess,
   SignUpFailure,
   SignUpSuccess,
-  VerifyEmailFailure,
   VerifyEmailSuccess,
 } from './actions'
 import { AuthState, PermissionsRecord, SelfUserRecord } from './auth-records'
@@ -44,6 +44,7 @@ function handleError(state: State, action: AuthErrors) {
     s.set('authChangeInProgress', false).set('lastFailure', {
       reqId: meta.reqId,
       err: action.payload.statusText ?? 'Connection error',
+      code: isFetchError(action.payload) ? action.payload.code : undefined,
     }),
   )
 }
@@ -62,23 +63,6 @@ function emailVerified(state: State, action: VerifyEmailSuccess) {
       .set('authChangeInProgress', false)
       .set('lastFailure', null)
       .setIn(['user', 'emailVerified'], true),
-  )
-}
-
-function handleVerifyEmailError(state: State, action: VerifyEmailFailure) {
-  const { status, statusText } = action.payload
-  let errMessage = statusText ?? 'Verification error'
-  if (status === 400) {
-    errMessage = `The provided email or verification code is not valid. If the verification code
-      matches the one you were emailed, it may have expired. Please request a new verification
-      email and try again.`
-  }
-
-  return state.withMutations(s =>
-    s.set('authChangeInProgress', false).set('lastFailure', {
-      ...action.meta,
-      err: errMessage,
-    }),
   )
 }
 
@@ -110,7 +94,7 @@ export default keyedReducer(new AuthState(), {
   ['@auth/startPasswordReset']: noOpOrError,
   ['@auth/emailVerified']: state => state.setIn(['user', 'emailVerified'], true),
   ['@auth/verifyEmail']: (state, action) =>
-    !action.error ? emailVerified(state, action) : handleVerifyEmailError(state, action),
+    !action.error ? emailVerified(state, action) : handleError(state, action),
   ['@auth/acceptPolicies'](state, action) {
     if (action.error) {
       return state

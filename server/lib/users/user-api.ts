@@ -118,11 +118,32 @@ const convertUserApiErrors = makeErrorConverterMiddleware(err => {
       throw asHttpError(404, err)
     case UserErrorCode.NotAllowedOnSelf:
       throw asHttpError(409, err)
+    case UserErrorCode.InvalidCode:
+      throw asHttpError(410, err)
 
     default:
       assertUnreachable(err.code)
   }
 })
+
+function sendVerificationEmail({
+  email,
+  code,
+  userId,
+  username,
+}: {
+  email: string
+  code: string
+  userId: SbUserId
+  username: string
+}) {
+  return sendMail({
+    to: email,
+    subject: 'ShieldBattery Email Verification',
+    templateName: 'email-verification',
+    templateData: { token: code, userId, username },
+  })
+}
 
 @httpApi('/users')
 @httpBeforeAll(convertUserApiErrors)
@@ -165,11 +186,11 @@ export class UserApi {
     const code = cuid()
     await addEmailVerificationCode(createdUser.user.id, email, code, ctx.ip)
     // No need to await for this
-    sendMail({
-      to: email,
-      subject: 'ShieldBattery Email Verification',
-      templateName: 'email-verification',
-      templateData: { token: code },
+    sendVerificationEmail({
+      email,
+      code,
+      userId: createdUser.user.id,
+      username: createdUser.user.name,
     }).catch(err => ctx.log.error({ err, req: ctx.req }, 'Error sending email verification email'))
 
     return sessionInfo
@@ -354,11 +375,11 @@ export class UserApi {
       await addEmailVerificationCode(user.id, user.email, emailVerificationCode, ctx.ip)
       await updateAllSessionsForCurrentUser(ctx, { emailVerified: false })
 
-      sendMail({
-        to: user.email,
-        subject: 'ShieldBattery Email Verification',
-        templateName: 'email-verification',
-        templateData: { token: emailVerificationCode },
+      sendVerificationEmail({
+        email: user.email,
+        code: emailVerificationCode,
+        userId: user.id,
+        username: user.name,
       }).catch(err => ctx.log.error({ err }, 'Error sending email verification email'))
     }
 
@@ -372,7 +393,7 @@ export class UserApi {
   )
   async acceptPolicies(ctx: RouterContext): Promise<AcceptPoliciesResponse> {
     const { params, body } = validateRequest(ctx, {
-      params: Joi.object<{ id: number }>({
+      params: Joi.object<{ id: SbUserId }>({
         id: joiUserId().required(),
       }),
       body: Joi.object<AcceptPoliciesRequest>({
@@ -450,26 +471,66 @@ export class UserApi {
     ctx.status = 204
   }
 
-  @httpPost('/emailVerification')
+  @httpPost('/:id/email-verification/send')
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(sendVerificationThrottle, ctx => String(ctx.session!.userId)),
+  )
+  async resendVerificationEmail(ctx: RouterContext): Promise<void> {
+    const { params } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: Joi.number().valid(ctx.session!.userId).required(),
+      }),
+    })
+
+    const user = await findSelfById(params.id)
+    if (!user) {
+      throw new httpErrors.BadRequest('User not found')
+    }
+
+    const emailVerificationsCount = await getEmailVerificationsCount(user.id, user.email)
+    if (emailVerificationsCount > 10) {
+      throw new httpErrors.Conflict('Email is over verification limit')
+    }
+
+    const code = cuid()
+    await addEmailVerificationCode(user.id, user.email, code, ctx.ip)
+    await sendVerificationEmail({
+      email: user.email,
+      code,
+      userId: user.id,
+      username: user.name,
+    })
+
+    ctx.status = 204
+  }
+
+  @httpPost('/:id/email-verification')
   @httpBefore(
     ensureLoggedIn,
     throttleMiddleware(emailVerificationThrottle, ctx => String(ctx.session!.userId)),
   )
   async verifyEmail(ctx: RouterContext): Promise<void> {
-    const { code } = ctx.query
+    const {
+      params,
+      body: { code },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: Joi.number().valid(ctx.session!.userId).required(),
+      }),
+      body: Joi.object<{ code: string }>({
+        code: Joi.string().required(),
+      }),
+    })
 
-    if (!code) {
-      throw new httpErrors.BadRequest('Invalid parameters')
-    }
-
-    const user = await findSelfById(ctx.session!.userId)
+    const user = await findSelfById(params.id)
     if (!user) {
-      throw new httpErrors.BadRequest('User not found')
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
     }
 
     const emailVerified = await consumeEmailVerificationCode(user.id, user.email, code)
     if (!emailVerified) {
-      throw new httpErrors.BadRequest('Email verification code is invalid')
+      throw new UserApiError(UserErrorCode.InvalidCode, 'invalid code')
     }
 
     // Update all of the user's sessions to indicate that their email is now indeed verified.
@@ -483,39 +544,10 @@ export class UserApi {
     // NOTE(2Pac): With the way the things are currently set up on client (their socket is not
     // connected when they open the email verification page), the client making the request won't
     // actually get this event. Thankfully, that's easy to deal with on the client-side.
-    this.publisher.publish(`/userProfiles/${ctx.session!.userId}`, {
+    this.publisher.publish(`/userProfiles/${user.id}`, {
       action: 'emailVerified',
-      userId: ctx.session!.userId,
+      userId: user.id,
     })
-
-    ctx.status = 204
-  }
-
-  @httpPost('/sendVerification')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(sendVerificationThrottle, ctx => String(ctx.session!.userId)),
-  )
-  async sendVerificationEmail(ctx: RouterContext): Promise<void> {
-    const user = await findSelfById(ctx.session!.userId)
-    if (!user) {
-      throw new httpErrors.BadRequest('User not found')
-    }
-
-    const emailVerificationsCount = await getEmailVerificationsCount(user.id, user.email)
-    if (emailVerificationsCount > 10) {
-      throw new httpErrors.Conflict('Email is over verification limit')
-    }
-
-    const code = cuid()
-    await addEmailVerificationCode(user.id, user.email, code, ctx.ip)
-    // No need to await for this
-    sendMail({
-      to: user.email,
-      subject: 'ShieldBattery Email Verification',
-      templateName: 'email-verification',
-      templateData: { token: code },
-    }).catch(err => ctx.log.error({ err }, 'Error sending email verification email'))
 
     ctx.status = 204
   }

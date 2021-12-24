@@ -30,7 +30,7 @@ export class PermissionsRecord
 
 export class AuthState extends Record({
   authChangeInProgress: false,
-  lastFailure: null as { reqId: string; err: string } | null,
+  lastFailure: null as { reqId: string; err: string; code?: string } | null,
   user: new SelfUserRecord(),
   permissions: new PermissionsRecord(),
 }) {}

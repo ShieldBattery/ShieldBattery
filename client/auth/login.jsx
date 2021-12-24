@@ -150,7 +150,7 @@ export default class Login extends React.Component {
           <AuthBody>{errContents}</AuthBody>
           <LoginForm
             ref={this._setForm}
-            model={{}}
+            model={{ username: queryString.parse(location.search).username ?? '' }}
             onSubmit={this.onSubmit}
             onForgotUsernameClick={this.onForgotUsernameClick}
             onForgotPasswordClick={this.onForgotPasswordClick}

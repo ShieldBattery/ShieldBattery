@@ -1,11 +1,12 @@
 import cuid from 'cuid'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
+import { apiUrl } from '../../common/urls'
 import { SbUserId, SelfUser } from '../../common/users/sb-user'
 import { ClientSessionInfo } from '../../common/users/session'
 import type { PromisifiedAction, ReduxAction } from '../action-types'
 import type { ThunkAction } from '../dispatch-registry'
-import { fetchJson } from '../network/fetch'
-import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
+import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
+import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { AccountUpdateSuccess, AuthChangeBegin } from './actions'
 
 type IdRequestable = Extract<
@@ -146,32 +147,19 @@ export function resetPassword(username: string, code: string, password: string) 
   )
 }
 
-export function verifyEmail(token: string) {
-  const url = `/api/1/users/emailVerification?code=${encodeURIComponent(token)}`
-
-  return idRequest('@auth/verifyEmail', () => fetchJson<void>(url, { method: 'post' }))
+export function verifyEmail(userId: SbUserId, token: string) {
+  return idRequest('@auth/verifyEmail', () =>
+    fetchJson<void>(apiUrl`users/${userId}/email-verification`, {
+      method: 'post',
+      body: encodeBodyAsParams({ code: token }),
+    }),
+  )
 }
 
-export function sendVerificationEmail(): ThunkAction {
-  return dispatch =>
-    fetchJson<void>('/api/1/users/sendVerification', { method: 'post' }).then(
-      () =>
-        dispatch(
-          openSnackbar({
-            message: 'Verification email has been sent successfully.',
-            time: TIMING_LONG,
-          }),
-        ),
-      () => {
-        dispatch(
-          openSnackbar({
-            message:
-              'Something went wrong while sending a verification email, please try again later.',
-            time: TIMING_LONG,
-          }),
-        )
-      },
-    )
+export function sendVerificationEmail(userId: SbUserId, spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, () =>
+    fetchJson<void>(apiUrl`users/${userId}/email-verification/send`, { method: 'post' }),
+  )
 }
 
 export function updateAccount(userId: SbUserId, userProps: Partial<SelfUser>) {

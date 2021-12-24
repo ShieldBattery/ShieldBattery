@@ -65,6 +65,7 @@ export function toUserProfileJson(userProfile: UserProfile): UserProfileJson {
 export enum UserErrorCode {
   NotFound = 'notFound',
   NotAllowedOnSelf = 'notAllowedOnSelf',
+  InvalidCode = 'invalidCode',
 }
 
 /** Information returned for /users/:id/profile, intended to be able to fill out a profile page. */

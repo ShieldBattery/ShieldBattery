@@ -102,7 +102,7 @@ export const AuthCheckBox = styled(CheckBox)`
   max-height: 100%;
 `
 
-export const AuthContentContainer = styled.div`
+export const AuthContentContainer = styled.div<{ isLoading: boolean }>`
   opacity: ${props => (props.isLoading ? '0' : '1')};
   pointer-events: ${props => (props.isLoading ? 'none' : 'auto')};
   transition: opacity 150ms linear;

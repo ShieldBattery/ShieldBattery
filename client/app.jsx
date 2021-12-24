@@ -5,7 +5,7 @@ import { StyleSheetManager } from 'styled-components'
 import { Route, Switch, useRoute } from 'wouter'
 import { WindowControls, WindowControlsStyle } from './app-bar/window-controls'
 import { isLoggedIn } from './auth/auth-utils'
-import { VerifyEmail } from './auth/email-verification'
+import { EmailVerificationUi } from './auth/email-verification'
 import { ForgotPassword, ForgotUser, ResetPassword } from './auth/forgot'
 import LoggedInFilter from './auth/logged-in-filter'
 import Login from './auth/login'
@@ -87,7 +87,7 @@ function App() {
           <LoginRoute path='/login' component={Login} />
           <LoginRoute path='/reset-password' component={ResetPassword} />
           <LoginRoute path='/signup' component={Signup} />
-          <LoginRoute path='/verify-email' component={VerifyEmail} />
+          <LoginRoute path='/verify-email' component={EmailVerificationUi} />
           {!IS_PRODUCTION ? <Route path='/dev/:rest*' component={LoadableDev} /> : <></>}
           <Route>
             <MainContent />
