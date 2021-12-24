@@ -1,7 +1,7 @@
 // Middleware that tracks user's ip addresses over time. Used to make moderatoring the website
 // easier; nothing nefarious, we promise!
 import Koa from 'koa'
-import { upsertUserIp } from '../models/user-ips'
+import { upsertUserIp } from '../users/user-ips'
 
 // This middleware must be placed *after* the session middleware in the chain of middlewares
 export default function userIpsMiddleware() {

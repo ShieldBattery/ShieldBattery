@@ -18,6 +18,7 @@ import {
   AdminBanUserResponse,
   AdminGetBansResponse,
   AdminGetPermissionsResponse,
+  AdminGetUserIpsResponse,
   AdminUpdatePermissionsRequest,
   AuthEvent,
   GetBatchUserInfoResponse,
@@ -26,6 +27,7 @@ import {
   SbUserId,
   SelfUser,
   toBanHistoryEntryJson,
+  toUserIpInfoJson,
   UserErrorCode,
 } from '../../../common/users/sb-user'
 import { ClientSessionInfo } from '../../../common/users/session'
@@ -57,6 +59,7 @@ import { validateRequest } from '../validation/joi-validator'
 import { UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { banUser, retrieveBanHistory } from './ban-models'
+import { retrieveIpsForUser, retrieveRelatedUsersForIps } from './user-ips'
 import {
   attemptLogin,
   createUser,
@@ -706,6 +709,51 @@ export class AdminUserApi {
     return {
       ban: toBanHistoryEntryJson(ban),
       users: [user, bannedBy],
+    }
+  }
+
+  @httpGet('/:id/ips')
+  @httpBefore(checkAllPermissions('banUsers'))
+  async getIps(ctx: RouterContext): Promise<AdminGetUserIpsResponse> {
+    const { params } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }),
+    })
+
+    const user = await findUserById(params.id)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    const ips = await retrieveIpsForUser(user.id)
+    if (!ips.length) {
+      return {
+        forUser: user.id,
+        ips: [],
+        relatedUsers: [],
+        users: [user],
+      }
+    }
+
+    const relatedUsers = await retrieveRelatedUsersForIps(
+      ips.map(i => i.ipAddress),
+      user.id,
+    )
+
+    const otherUserIds = Array.from(
+      new Set(Array.from(relatedUsers.values(), v => v.map(info => info.userId)).flat()),
+    )
+    const otherUsers = Array.from((await findUsersById(otherUserIds)).values())
+
+    return {
+      forUser: user.id,
+      ips: ips.map(i => toUserIpInfoJson(i)),
+      relatedUsers: Array.from(relatedUsers.entries(), ([ip, infos]) => [
+        ip,
+        infos.map(i => toUserIpInfoJson(i)),
+      ]),
+      users: otherUsers.concat(user),
     }
   }
 

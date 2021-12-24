@@ -1,3 +1,4 @@
+import { batch } from 'react-redux'
 import { ReduxAction } from '../action-types'
 import { DispatchFunction, ThunkAction } from '../dispatch-registry'
 import { RootState } from '../root-reducer'
@@ -55,14 +56,18 @@ export function abortableThunk<ResultType, T extends ReduxAction>(
           return
         }
 
-        onSuccess(result)
+        batch(() => {
+          onSuccess(result)
+        })
       })
       .catch((err: Error) => {
         if (signal?.aborted || (signal && err.name === 'AbortError')) {
           return
         }
 
-        onError(err)
+        batch(() => {
+          onError(err)
+        })
       })
   }
 }

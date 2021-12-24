@@ -1,4 +1,3 @@
-import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbPermissions } from '../../common/users/permissions'
 import {
@@ -6,6 +5,7 @@ import {
   AdminBanUserResponse,
   AdminGetBansResponse,
   AdminGetPermissionsResponse,
+  AdminGetUserIpsResponse,
   AdminUpdatePermissionsRequest,
   GetBatchUserInfoResponse,
   GetUserProfileResponse,
@@ -134,12 +134,10 @@ export function adminGetUserBanHistory(
   spec: RequestHandlingSpec<AdminGetBansResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const promise = fetchJson<AdminGetBansResponse>(apiUrl`admin/users/${userId}/bans`)
-    promise
-      .then(res => dispatch({ type: '@profile/adminGetUserBanHistory', payload: res }))
-      .catch(swallowNonBuiltins)
+    const res = await fetchJson<AdminGetBansResponse>(apiUrl`admin/users/${userId}/bans`)
+    dispatch({ type: '@profile/adminGetUserBanHistory', payload: res })
 
-    return promise
+    return res
   })
 }
 
@@ -148,18 +146,27 @@ export function adminBanUser(
   spec: RequestHandlingSpec<AdminBanUserResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const promise = fetchJson<AdminBanUserResponse>(apiUrl`admin/users/${userId}/bans`, {
+    const res = await fetchJson<AdminBanUserResponse>(apiUrl`admin/users/${userId}/bans`, {
       method: 'POST',
       body: encodeBodyAsParams<AdminBanUserRequest>({
         banLengthHours,
         reason,
       }),
     })
+    dispatch({ type: '@profile/adminBanUser', payload: res })
 
-    promise
-      .then(res => dispatch({ type: '@profile/adminBanUser', payload: res }))
-      .catch(swallowNonBuiltins)
+    return res
+  })
+}
 
-    return promise
+export function adminGetUserIps(
+  userId: SbUserId,
+  spec: RequestHandlingSpec<AdminGetUserIpsResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const res = await fetchJson<AdminGetUserIpsResponse>(apiUrl`admin/users/${userId}/ips`)
+    dispatch({ type: '@profile/adminGetUserIps', payload: res })
+
+    return res
   })
 }

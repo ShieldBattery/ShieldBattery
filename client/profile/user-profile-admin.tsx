@@ -3,7 +3,7 @@ import { hot } from 'react-hot-loader/root'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { SbPermissions } from '../../common/users/permissions'
-import { BanHistoryEntryJson, SbUser, SelfUser } from '../../common/users/sb-user'
+import { BanHistoryEntryJson, SbUser, SelfUser, UserIpInfoJson } from '../../common/users/sb-user'
 import { useSelfPermissions, useSelfUser } from '../auth/state-hooks'
 import { useForm } from '../forms/form-hook'
 import { RaisedButton, TextButton } from '../material/button'
@@ -23,6 +23,7 @@ import { body1, Body1, caption, Headline5, subtitle1 } from '../styles/typograph
 import {
   adminBanUser,
   adminGetUserBanHistory,
+  adminGetUserIps,
   adminGetUserPermissions,
   adminUpdateUserPermissions,
 } from './action-creators'
@@ -66,6 +67,7 @@ export const AdminUserPage = hot(({ user }: { user: SbUser }) => {
         <PermissionsEditor user={user} selfUser={selfUser} />
       ) : null}
       {selfPermissions.banUsers ? <BanHistory user={user} selfUser={selfUser} /> : null}
+      {selfPermissions.banUsers ? <UserIpHistory user={user} /> : null}
     </AdminUserPageRoot>
   )
 })
@@ -407,5 +409,131 @@ function BanUserForm({
       />
       <RaisedButton label='Ban' color='primary' tabIndex={0} onClick={onSubmit} />
     </form>
+  )
+}
+
+function UserIpHistory({ user }: { user: SbUser }) {
+  const dispatch = useAppDispatch()
+  const [ips, setIps] = useState<ReadonlyDeep<UserIpInfoJson[]>>()
+  const [relatedUsers, setRelatedUsers] = useState<ReadonlyDeep<Map<string, UserIpInfoJson[]>>>()
+
+  const [requestError, setRequestError] = useState<Error>()
+  const cancelLoadRef = useRef(new AbortController())
+
+  const userId = user.id
+
+  useEffect(() => {
+    cancelLoadRef.current.abort()
+    const abortController = new AbortController()
+    cancelLoadRef.current = abortController
+
+    setIps(undefined)
+    setRelatedUsers(undefined)
+    dispatch(
+      adminGetUserIps(userId, {
+        signal: abortController.signal,
+        onSuccess: response => {
+          setIps(response.ips)
+          setRelatedUsers(new Map(response.relatedUsers))
+        },
+        onError: err => setRequestError(err),
+      }),
+    )
+
+    return () => {
+      abortController.abort()
+    }
+  }, [userId, dispatch])
+
+  return (
+    <AdminSection $gridColumn='span 5'>
+      <Headline5>IP addresses</Headline5>
+      {requestError ? <LoadingError>{requestError.message}</LoadingError> : null}
+      {ips === undefined ? <LoadingDotsArea /> : <IpList ips={ips} relatedUsers={relatedUsers!} />}
+    </AdminSection>
+  )
+}
+
+const IpListRoot = styled.div`
+  ${subtitle1};
+  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+
+  user-select: contain;
+
+  & * {
+    user-select: text;
+  }
+`
+const IpEntry = styled.div``
+
+const IpAddress = styled.div`
+  filter: blur(4px);
+
+  &:hover {
+    filter: none;
+  }
+`
+
+const dateRangeFormat = new Intl.DateTimeFormat(navigator.language, {
+  dateStyle: 'short',
+  timeStyle: 'short',
+})
+
+const IpDateRange = styled.div`
+  color: ${colorTextSecondary};
+`
+
+const SeenCount = styled.div`
+  color: ${colorTextSecondary};
+`
+
+const RelatedUsers = styled.div`
+  ${body1};
+  margin: 16px 0;
+  padding-left: 40px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+`
+
+function IpList({
+  ips,
+  relatedUsers,
+}: {
+  ips: ReadonlyDeep<UserIpInfoJson[]>
+  relatedUsers: ReadonlyDeep<Map<string, UserIpInfoJson[]>>
+}) {
+  return (
+    <IpListRoot>
+      {ips.map(info => {
+        const related = relatedUsers.get(info.ipAddress) || []
+        return (
+          <IpEntry key={info.ipAddress}>
+            <IpAddress>{info.ipAddress}</IpAddress>
+            <IpDateRange>
+              {dateRangeFormat.format(info.firstUsed)} &ndash;{' '}
+              {dateRangeFormat.format(info.lastUsed)}
+            </IpDateRange>
+            <SeenCount>Seen {info.timesSeen} times</SeenCount>
+            <RelatedUsers>
+              {related.map(r => (
+                <IpEntry key={r.userId}>
+                  <ConnectedUsername userId={r.userId} />
+                  <IpDateRange>
+                    {dateRangeFormat.format(r.firstUsed)} &ndash;{' '}
+                    {dateRangeFormat.format(r.lastUsed)}
+                  </IpDateRange>
+                  <SeenCount>Seen {r.timesSeen} times</SeenCount>
+                </IpEntry>
+              ))}
+            </RelatedUsers>
+          </IpEntry>
+        )
+      })}
+    </IpListRoot>
   )
 }

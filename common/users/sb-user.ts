@@ -138,6 +138,33 @@ export interface AdminBanUserResponse {
   users: SbUser[]
 }
 
+export interface UserIpInfo {
+  userId: SbUserId
+  ipAddress: string
+  firstUsed: Date
+  lastUsed: Date
+  timesSeen: number
+}
+
+export type UserIpInfoJson = Jsonify<UserIpInfo>
+
+export function toUserIpInfoJson(info: UserIpInfo): UserIpInfoJson {
+  return {
+    userId: info.userId,
+    ipAddress: info.ipAddress,
+    firstUsed: Number(info.firstUsed),
+    lastUsed: Number(info.lastUsed),
+    timesSeen: info.timesSeen,
+  }
+}
+
+export interface AdminGetUserIpsResponse {
+  forUser: SbUserId
+  ips: UserIpInfoJson[]
+  relatedUsers: Array<[ip: string, infos: Array<UserIpInfoJson>]>
+  users: SbUser[]
+}
+
 export interface EmailVerifiedEvent {
   action: 'emailVerified'
   userId: SbUserId

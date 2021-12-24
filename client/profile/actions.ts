@@ -1,6 +1,7 @@
 import {
   AdminBanUserResponse,
   AdminGetBansResponse,
+  AdminGetUserIpsResponse,
   GetBatchUserInfoResponse,
   GetUserProfileResponse,
   SbUserId,
@@ -11,6 +12,7 @@ export type ProfileActions =
   | GetBatchUserInfo
   | AdminGetUserBanHistory
   | AdminBanUser
+  | AdminGetUserIps
 
 export interface GetUserProfile {
   type: '@profile/getUserProfile'
@@ -43,4 +45,9 @@ export interface AdminGetUserBanHistory {
 export interface AdminBanUser {
   type: '@profile/adminBanUser'
   payload: AdminBanUserResponse
+}
+
+export interface AdminGetUserIps {
+  type: '@profile/adminGetUserIps'
+  payload: AdminGetUserIpsResponse
 }

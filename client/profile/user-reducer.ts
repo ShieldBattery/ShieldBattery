@@ -129,6 +129,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, action.payload.users)
   },
 
+  ['@profile/adminGetUserIps'](state, action) {
+    updateUsers(state, action.payload.users)
+  },
+
   ['@profile/getBatchUserInfo'](state, action) {
     if (action.error) {
       return
