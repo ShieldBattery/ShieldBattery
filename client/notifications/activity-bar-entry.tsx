@@ -1,3 +1,4 @@
+import keycode from 'keycode'
 import React, { useCallback, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import NotificationsIcon from '../icons/material/notifications_black_24px.svg'
@@ -7,6 +8,8 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { amberA200 } from '../styles/colors'
 import { markLocalNotificationsRead, markNotificationsRead } from './action-creators'
 import { ConnectedNotificationsList } from './notifications-list'
+
+const KEY_N = keycode('n')
 
 const UnreadIndicator = styled.div`
   width: 8px;
@@ -84,6 +87,7 @@ export function NotificationsButton() {
           icon={<NotificationsIcon />}
           title={hasUnread ? 'Notifications (unread)' : 'Notifications'}
           onClick={onClick}
+          hotkey={{ keyCode: KEY_N, altKey: true }}
           testName='notifications-button'
         />
         {hasUnread ? <UnreadIndicator /> : null}

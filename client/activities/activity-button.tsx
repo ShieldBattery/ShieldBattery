@@ -1,7 +1,7 @@
-import React, { useCallback, useMemo, useRef } from 'react'
+import React, { useMemo } from 'react'
 import styled, { css, keyframes } from 'styled-components'
 import KeyListener from '../keyboard/key-listener'
-import { useButtonState } from '../material/button'
+import { useButtonState, useHotkeyHandler } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
 import { blue50, colorTextFaint, colorTextSecondary } from '../styles/colors'
@@ -127,48 +127,12 @@ export interface ActivityButtonProps {
 export const ActivityButton = React.memo(
   React.forwardRef<HTMLButtonElement, ActivityButtonProps>(
     ({ label, icon, disabled, glowing, count, onClick, hotkey }, ref) => {
-      const localRef = useRef<HTMLButtonElement>()
       const [buttonProps, rippleRef] = useButtonState({
         disabled,
         onClick,
       })
-      const setRefs = useCallback(
-        (elem: HTMLButtonElement | null) => {
-          localRef.current = elem !== null ? elem : undefined
-          if (ref) {
-            if (typeof ref === 'function') {
-              ref(elem)
-            } else {
-              ref.current = elem
-            }
-          }
-        },
-        [ref],
-      )
-      const onKeyDown = useCallback(
-        (event: KeyboardEvent) => {
-          if (disabled || !hotkey) {
-            return false
-          }
+      const [setRefs, hotkeyHandler] = useHotkeyHandler({ ref, disabled, hotkey })
 
-          if (
-            event.keyCode === hotkey.keyCode &&
-            event.altKey === !!hotkey.altKey &&
-            event.shiftKey === !!hotkey.shiftKey &&
-            event.ctrlKey === !!hotkey.ctrlKey
-          ) {
-            if (localRef.current) {
-              localRef.current.click()
-            } else if (onClick) {
-              onClick()
-            }
-            return true
-          }
-
-          return false
-        },
-        [disabled, hotkey, onClick],
-      )
       const labelElems = useMemo(() => {
         if (disabled || !hotkey) {
           return label
@@ -191,7 +155,7 @@ export const ActivityButton = React.memo(
 
       return (
         <Container ref={setRefs} {...buttonProps}>
-          {hotkey ? <KeyListener onKeyDown={onKeyDown} /> : null}
+          {hotkey ? <KeyListener onKeyDown={hotkeyHandler} /> : null}
           {count !== undefined ? <Count>{count}</Count> : null}
           <IconContainer glowing={glowing}>
             {glowing ? icon : null}

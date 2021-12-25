@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
+import KeyListener from '../keyboard/key-listener'
 import {
   amberA400,
   blue400,
@@ -228,6 +229,84 @@ export function useButtonState({
   ]
 }
 
+export interface HotkeyProp {
+  keyCode: number
+  altKey?: boolean
+  shiftKey?: boolean
+  ctrlKey?: boolean
+}
+
+export interface HotkeyHandlerProps {
+  /** The reference to the button that should be pressed programmatically. */
+  ref: React.ForwardedRef<HTMLButtonElement>
+  /** Whether the button is disabled (hotkey will do nothing). */
+  disabled?: boolean
+  /**
+   * A hotkey to register for the button. Pressing the specified modifiers and key will result in
+   * the button being clicked programmatically.
+   */
+  hotkey?: HotkeyProp
+}
+
+type HotkeyHandlerState = [
+  /**
+   * A function which can be used to set a ref on the button in a consistent way, regardless if the
+   * ref was passed as a function or as an object.
+   */
+  setRefs: (elem: HTMLButtonElement | null) => void,
+  /**
+   * A keyboard event handler which will programmatically click the button if the hotkey was
+   * pressed.
+   */
+  hotkeyHandler: (event: KeyboardEvent) => boolean,
+]
+
+export function useHotkeyHandler({
+  ref,
+  disabled,
+  hotkey,
+}: HotkeyHandlerProps): HotkeyHandlerState {
+  const localRef = useRef<HTMLButtonElement>()
+
+  const setRefs = useCallback(
+    (elem: HTMLButtonElement | null) => {
+      localRef.current = elem !== null ? elem : undefined
+      if (ref) {
+        if (typeof ref === 'function') {
+          ref(elem)
+        } else {
+          ref.current = elem
+        }
+      }
+    },
+    [ref],
+  )
+
+  const hotkeyHandler = useCallback(
+    (event: KeyboardEvent) => {
+      if (disabled || !hotkey) {
+        return false
+      }
+
+      if (
+        event.keyCode === hotkey.keyCode &&
+        event.altKey === !!hotkey.altKey &&
+        event.shiftKey === !!hotkey.shiftKey &&
+        event.ctrlKey === !!hotkey.ctrlKey
+      ) {
+        localRef.current?.click()
+
+        return true
+      }
+
+      return false
+    },
+    [disabled, hotkey],
+  )
+
+  return [setRefs, hotkeyHandler]
+}
+
 const IconContainer = styled.div`
   width: auto;
   height: 100%;
@@ -301,6 +380,7 @@ export interface RaisedButtonProps {
   title?: string
   type?: 'button' | 'reset' | 'submit'
   name?: string
+  hotkey?: HotkeyProp
   testName?: string
 }
 
@@ -325,6 +405,7 @@ export const RaisedButton = React.forwardRef(
       title,
       type,
       name,
+      hotkey,
       testName,
     }: RaisedButtonProps,
     ref: React.ForwardedRef<HTMLButtonElement>,
@@ -337,10 +418,11 @@ export const RaisedButton = React.forwardRef(
       onDoubleClick,
       onMouseDown,
     })
+    const [setRefs, hotkeyHandler] = useHotkeyHandler({ ref, disabled, hotkey })
 
     return (
       <RaisedButtonRoot
-        ref={ref}
+        ref={setRefs}
         className={className}
         $color={color}
         tabIndex={tabIndex}
@@ -349,6 +431,7 @@ export const RaisedButton = React.forwardRef(
         name={name}
         data-test={testName}
         {...buttonProps}>
+        {hotkey ? <KeyListener onKeyDown={hotkeyHandler} /> : null}
         <Label>
           {iconStart ? <IconContainer>{iconStart}</IconContainer> : null}
           {label}
@@ -422,6 +505,7 @@ export interface TextButtonProps {
   title?: string
   type?: 'button' | 'reset' | 'submit'
   name?: string
+  hotkey?: HotkeyProp
   testName?: string
 }
 
@@ -446,6 +530,7 @@ export const TextButton = React.forwardRef(
       title,
       type,
       name,
+      hotkey,
       testName,
     }: TextButtonProps,
     ref: React.ForwardedRef<HTMLButtonElement>,
@@ -458,10 +543,11 @@ export const TextButton = React.forwardRef(
       onDoubleClick,
       onMouseDown,
     })
+    const [setRefs, hotkeyHandler] = useHotkeyHandler({ ref, disabled, hotkey })
 
     return (
       <TextButtonRoot
-        ref={ref}
+        ref={setRefs}
         className={className}
         $color={color}
         tabIndex={tabIndex}
@@ -470,6 +556,7 @@ export const TextButton = React.forwardRef(
         name={name}
         data-test={testName}
         {...buttonProps}>
+        {hotkey ? <KeyListener onKeyDown={hotkeyHandler} /> : null}
         <Label>
           {iconStart ? <IconContainer>{iconStart}</IconContainer> : null}
           {label}
@@ -514,6 +601,7 @@ export interface IconButtonProps {
   tabIndex?: number
   type?: 'button' | 'reset' | 'submit'
   name?: string
+  hotkey?: HotkeyProp
   testName?: string
 }
 
@@ -533,6 +621,7 @@ export const IconButton = React.forwardRef(
       tabIndex,
       type,
       name,
+      hotkey,
       testName,
     }: IconButtonProps,
     ref: React.ForwardedRef<HTMLButtonElement>,
@@ -545,10 +634,11 @@ export const IconButton = React.forwardRef(
       onDoubleClick,
       onMouseDown,
     })
+    const [setRefs, hotkeyHandler] = useHotkeyHandler({ ref, disabled, hotkey })
 
     return (
       <IconButtonRoot
-        ref={ref}
+        ref={setRefs}
         className={className}
         tabIndex={tabIndex}
         title={title}
@@ -556,6 +646,7 @@ export const IconButton = React.forwardRef(
         name={name}
         data-test={testName}
         {...buttonProps}>
+        {hotkey ? <KeyListener onKeyDown={hotkeyHandler} /> : null}
         {icon}
         <Ripple ref={rippleRef} disabled={disabled} />
       </IconButtonRoot>
