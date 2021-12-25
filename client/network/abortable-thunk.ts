@@ -23,6 +23,12 @@ export interface RequestHandlingSpec<T = void> {
    * to `AbortError`s).
    */
   onError: (err: Error) => void
+  /**
+   * A function that will be called when the underlying request ends (regardless if it was
+   * successful, failed, or aborted). Useful to cleanup any potential per-request data, e.g. loading
+   * state.
+   */
+  onFinally?: () => void
 }
 
 /**
@@ -46,7 +52,7 @@ export interface RequestHandlingSpec<T = void> {
  * }
  */
 export function abortableThunk<ResultType, T extends ReduxAction>(
-  { signal, onSuccess, onError }: RequestHandlingSpec<ResultType>,
+  { signal, onSuccess, onError, onFinally }: RequestHandlingSpec<ResultType>,
   thunkFn: (dispatch: DispatchFunction<T>, getState: () => RootState) => Promise<ResultType>,
 ): ThunkAction<T> {
   return (dispatch, getState) => {
@@ -67,6 +73,13 @@ export function abortableThunk<ResultType, T extends ReduxAction>(
 
         batch(() => {
           onError(err)
+        })
+      })
+      .finally(() => {
+        batch(() => {
+          if (onFinally) {
+            onFinally()
+          }
         })
       })
   }

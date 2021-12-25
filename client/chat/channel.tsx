@@ -36,7 +36,9 @@ import {
   sendMessage,
 } from './action-creators'
 import {
+  BanUserMessage,
   JoinChannelMessage,
+  KickUserMessage,
   LeaveChannelMessage,
   NewChannelOwnerMessage,
   SelfJoinChannelMessage,
@@ -350,6 +352,10 @@ const StyledChat = styled(Chat)`
 
 function renderMessage(msg: Message) {
   switch (msg.type) {
+    case ClientChatMessageType.BanUser:
+      return <BanUserMessage key={msg.id} time={msg.time} userId={msg.userId} />
+    case ClientChatMessageType.KickUser:
+      return <KickUserMessage key={msg.id} time={msg.time} userId={msg.userId} />
     case ServerChatMessageType.JoinChannel:
       return <JoinChannelMessage key={msg.id} time={msg.time} userId={msg.userId} />
     case ClientChatMessageType.LeaveChannel:

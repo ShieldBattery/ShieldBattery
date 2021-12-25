@@ -428,7 +428,7 @@ export function ConnectedLeftNav() {
   )
 
   const onJoinChannelClick = useCallback(() => {
-    dispatch(openDialog(DialogType.Channel))
+    dispatch(openDialog(DialogType.ChannelJoin))
   }, [dispatch])
   const onChannelLeave = useCallback(
     (channel: string) => {

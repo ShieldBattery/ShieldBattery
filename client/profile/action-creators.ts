@@ -44,7 +44,7 @@ export function correctUsernameForProfile(
   replace(urlPath`/users/${userId}/${username}/${tab ?? ''}`)
 }
 
-const userProfileLoadsInProgress = new Set<number>()
+const userProfileLoadsInProgress = new Set<SbUserId>()
 
 /**
  * Signals that a specific user's profile is being viewed. If we don't have a local copy of that

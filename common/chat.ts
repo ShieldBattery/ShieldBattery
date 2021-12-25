@@ -1,4 +1,19 @@
+import { Jsonify } from './json'
 import { SbUser, SbUserId } from './users/sb-user'
+
+export enum ChatServiceErrorCode {
+  UserOffline = 'UserOffline',
+  UserNotFound = 'UserNotFound',
+  InvalidJoinAction = 'InvalidJoinAction',
+  LeaveShieldBattery = 'LeaveShieldBattery',
+  InvalidLeaveAction = 'InvalidLeaveAction',
+  InvalidModerationAction = 'InvalidModerationAction',
+  ModeratorAccess = 'ModeratorAccess',
+  UserBanned = 'UserBanned',
+  InvalidSendAction = 'InvalidSendAction',
+  InvalidGetHistoryAction = 'InvalidGetHistoryAction',
+  InvalidGetUsersAction = 'InvalidGetUsersAction',
+}
 
 /** Chat messages which are persisted in the DB and shown each time the user opens the app. */
 export enum ServerChatMessageType {
@@ -8,6 +23,8 @@ export enum ServerChatMessageType {
 
 /** Chat messages which are only displayed on the client and are cleared when the app reloads. */
 export enum ClientChatMessageType {
+  BanUser = 'banUser',
+  KickUser = 'kickUser',
   LeaveChannel = 'leaveChannel',
   NewChannelOwner = 'newOwner',
   SelfJoinChannel = 'selfJoinChannel',
@@ -41,6 +58,18 @@ export interface LeaveChannelMessage extends BaseChatMessage {
   userId: SbUserId
 }
 
+/** A message that is displayed in the chat when someone gets kicked from the channel. */
+export interface KickUserMessage extends BaseChatMessage {
+  type: typeof ClientChatMessageType.KickUser
+  userId: SbUserId
+}
+
+/** A message that is displayed in the chat when someone gets banned from the channel. */
+export interface BanUserMessage extends BaseChatMessage {
+  type: typeof ClientChatMessageType.BanUser
+  userId: SbUserId
+}
+
 /**
  * A message that is displayed in the chat when a current owner of the channel leaves and a new
  * owner is selected.
@@ -61,6 +90,8 @@ export interface SelfJoinChannelMessage extends BaseChatMessage {
 export type ServerChatMessage = TextMessage | JoinChannelMessage
 
 export type ClientChatMessage =
+  | BanUserMessage
+  | KickUserMessage
   | LeaveChannelMessage
   | NewChannelOwnerMessage
   | SelfJoinChannelMessage
@@ -144,6 +175,10 @@ export interface ChatUserOfflineEvent {
   userId: SbUserId
 }
 
+/**
+ * Events that are sent to all clients in a particular chat channel (except the "init" event which
+ * is sent only to the client that initially subscribes to these events).
+ */
 export type ChatEvent =
   | ChatInitEvent
   | ChatJoinEvent
@@ -154,6 +189,15 @@ export type ChatEvent =
   | ChatUserActiveEvent
   | ChatUserIdleEvent
   | ChatUserOfflineEvent
+
+export interface ChatPermissionsChangedEvent {
+  action: 'permissionsChanged'
+  /** The channel permissions for the current user whose permissions have changed. */
+  selfPermissions: ChannelPermissions
+}
+
+/** Events that are sent to a particular user in a particular chat channel. */
+export type ChatUserEvent = ChatPermissionsChangedEvent
 
 export interface SendChatMessageServerRequest {
   message: string
@@ -189,8 +233,6 @@ export enum ChannelModerationAction {
  * them.
  */
 export interface ModerateChannelUserServerRequest {
-  /** User that is about to get moderated, e.g. kicked or banned. */
-  targetId: SbUserId
   /** Precise moderation action that will be performed on the user, e.g. kicked or banned. */
   moderationAction: ChannelModerationAction
   /**
@@ -198,4 +240,33 @@ export interface ModerateChannelUserServerRequest {
    * e.g. banning.
    */
   moderationReason?: string
+}
+
+/**
+ * Specific chat information about a user in a particular channel, such as their join date, their
+ * channel role (e.g. are they a moderator), etc.
+ */
+export interface ChatUserProfile {
+  joinDate: number
+  /**
+   * User is considered a channel moderator if they have one of the following permissions:
+   *  - owner
+   *  - editPermissions
+   *  - ban
+   *  - kick
+   */
+  isModerator: boolean
+}
+
+export type ChatUserProfileJson = Jsonify<ChatUserProfile>
+
+/**
+ * The response returned when fetching a profile of a user in a specific chat channel. The profile
+ * itself can be `null` in case the user has left the channel, but their name is still visible in
+ * old messages.
+ */
+export interface GetChatUserProfileResponse {
+  userId: SbUserId
+  channelName: string
+  profile: ChatUserProfileJson | null
 }

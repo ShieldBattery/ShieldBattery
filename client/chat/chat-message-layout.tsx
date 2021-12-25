@@ -39,6 +39,34 @@ export const LeaveChannelMessage = React.memo<{ time: number; userId: SbUserId }
   )
 })
 
+export const KickUserMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
+  const { time, userId } = props
+  return (
+    <SystemMessage time={time}>
+      <span>
+        <SystemImportant>
+          <ConnectedUsername userId={userId} />
+        </SystemImportant>{' '}
+        has been kicked from the channel
+      </span>
+    </SystemMessage>
+  )
+})
+
+export const BanUserMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
+  const { time, userId } = props
+  return (
+    <SystemMessage time={time}>
+      <span>
+        <SystemImportant>
+          <ConnectedUsername userId={userId} />
+        </SystemImportant>{' '}
+        has been banned from the channel
+      </span>
+    </SystemMessage>
+  )
+})
+
 export const NewChannelOwnerMessage = React.memo<{ time: number; newOwnerId: SbUserId }>(props => {
   const { time, newOwnerId } = props
   const filterClick = useMentionFilterClick()
