@@ -441,6 +441,12 @@ function registerHotkeys() {
       mainWindow?.webContents.reloadIgnoringCache()
     }
   })
+  localShortcut.register(mainWindow!, 'CmdOrCtrl+Shift+R', () => {
+    // TODO(tec27): Also allow for this if the user has the debug privilege
+    if (isDev) {
+      mainWindow?.webContents.reloadIgnoringCache()
+    }
+  })
   localShortcut.register(mainWindow!, 'F5', () => {
     // TODO(tec27): Also allow for this if the user has the debug privilege
     if (isDev) {
