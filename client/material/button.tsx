@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react'
+import React, { useCallback, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useKeyListener } from '../keyboard/key-listener'
@@ -269,6 +269,42 @@ export function useButtonHotkey({ ref, disabled, hotkey }: ButtonHotkeyProps) {
       return false
     },
   })
+}
+
+export interface HotkeyedLabelProps {
+  /** Whether the button is disabled (label will remain unchanged). */
+  disabled?: boolean
+  /** A hotkey that is registered for the button. The label will underline the hotkeyed letter. */
+  hotkey?: HotkeyProp
+  /** The given label of the button. If not a string, it will remain unchanged. */
+  label: string | React.ReactNode
+}
+
+export function useHotkeyedLabel({ disabled, hotkey, label }: HotkeyedLabelProps) {
+  return useMemo(() => {
+    if (disabled || !hotkey || typeof label !== 'string') {
+      return label
+    }
+
+    const hotkeyString = String.fromCharCode(hotkey.keyCode).toLowerCase()
+    const result = []
+    let hasFoundHotkeyChar = false
+    for (const char of label) {
+      if (!hasFoundHotkeyChar && char.toLowerCase() === hotkeyString) {
+        result.push(<u key={char}>{char}</u>)
+        hasFoundHotkeyChar = true
+      } else {
+        // The underline character eats the spaces around it, so we insert an &nbsp; here.
+        if (char === ' ') {
+          result.push('\u00A0')
+        } else {
+          result.push(char)
+        }
+      }
+    }
+
+    return result
+  }, [disabled, hotkey, label])
 }
 
 const IconContainer = styled.div`

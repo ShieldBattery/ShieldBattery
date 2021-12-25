@@ -1,6 +1,6 @@
-import React, { useCallback, useMemo, useRef } from 'react'
+import React, { useCallback, useRef } from 'react'
 import styled, { css, keyframes } from 'styled-components'
-import { HotkeyProp, useButtonHotkey, useButtonState } from '../material/button'
+import { HotkeyProp, useButtonHotkey, useButtonState, useHotkeyedLabel } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
 import { blue50, colorTextFaint, colorTextSecondary } from '../styles/colors'
@@ -145,26 +145,7 @@ export const ActivityButton = React.memo(
       )
 
       useButtonHotkey({ ref: buttonRef, disabled, hotkey })
-
-      const labelElems = useMemo(() => {
-        if (disabled || !hotkey) {
-          return label
-        }
-
-        const hotkeyString = String.fromCharCode(hotkey.keyCode).toLowerCase()
-        const result = []
-        let hasFoundHotkeyChar = false
-        for (const char of label) {
-          if (!hasFoundHotkeyChar && char.toLowerCase() === hotkeyString) {
-            result.push(<u key={char}>{char}</u>)
-            hasFoundHotkeyChar = true
-          } else {
-            result.push(char)
-          }
-        }
-
-        return result
-      }, [disabled, hotkey, label])
+      const hotkeyedLabel = useHotkeyedLabel({ disabled, hotkey, label })
 
       return (
         <Container ref={setButtonRef} {...buttonProps}>
@@ -173,7 +154,7 @@ export const ActivityButton = React.memo(
             {glowing ? icon : null}
             {icon}
           </IconContainer>
-          <Label>{labelElems}</Label>
+          <Label>{hotkeyedLabel}</Label>
           <Ripple ref={rippleRef} disabled={disabled} />
         </Container>
       )
