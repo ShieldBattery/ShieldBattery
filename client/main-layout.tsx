@@ -161,7 +161,7 @@ export function MainLayout() {
 
   const searchingMatchButtonRef = useRef<HTMLButtonElement>(null)
   const settingsButtonRef = useRef<HTMLButtonElement>(null)
-  useButtonHotkey({ ref: settingsButtonRef, hotkey: ALT_S })
+  useButtonHotkey({ ref: settingsButtonRef, hotkeys: [ALT_S] })
 
   useEffect(() => {
     dispatch(openChangelogIfNecessary())
@@ -280,7 +280,7 @@ export function MainLayout() {
       label='Find match'
       onClick={onFindMatchClick}
       disabled={inGameplayActivity}
-      hotkey={ALT_F}
+      hotkeys={[ALT_F]}
     />
   ) : (
     <ActivityButton
@@ -290,7 +290,7 @@ export function MainLayout() {
       glowing={true}
       label='Finding…'
       onClick={() => setSearchingMatchOverlayOpen(true)}
-      hotkey={ALT_F}
+      hotkeys={[ALT_F]}
     />
   )
   const activityButtons = IS_ELECTRON
@@ -302,14 +302,14 @@ export function MainLayout() {
           label='Create'
           onClick={onCreateLobbyClick}
           disabled={inGameplayActivity}
-          hotkey={ALT_C}
+          hotkeys={[ALT_C]}
         />,
         <ActivityButton
           key='join-game'
           icon={<JoinGameIcon />}
           label='Join'
           onClick={onJoinLobbyClick}
-          hotkey={ALT_J}
+          hotkeys={[ALT_J]}
           count={lobbyCount > 0 ? lobbyCount : undefined}
         />,
         <ActivityButton
@@ -317,21 +317,21 @@ export function MainLayout() {
           icon={<StyledMapsIcon />}
           label='Maps'
           onClick={onMapsClick}
-          hotkey={ALT_M}
+          hotkeys={[ALT_M]}
         />,
         <ActivityButton
           key='replays'
           icon={<ReplaysIcon />}
           label='Replays'
           onClick={onReplaysClick}
-          hotkey={ALT_R}
+          hotkeys={[ALT_R]}
         />,
         <ActivityButton
           key='ladder'
           icon={<LadderIcon />}
           label='Ladder'
           onClick={() => navigateToLadder()}
-          hotkey={ALT_D}
+          hotkeys={[ALT_D]}
         />,
         <ActivitySpacer key='spacer' />,
       ]
@@ -341,14 +341,14 @@ export function MainLayout() {
           icon={<DownloadIcon />}
           label='Download'
           onClick={() => dispatch(openDialog(DialogType.Download))}
-          hotkey={ALT_O}
+          hotkeys={[ALT_O]}
         />,
         <ActivityButton
           key='ladder'
           icon={<LadderIcon />}
           label='Ladder'
           onClick={() => navigateToLadder()}
-          hotkey={ALT_D}
+          hotkeys={[ALT_D]}
         />,
         <ActivitySpacer key='spacer' />,
       ]

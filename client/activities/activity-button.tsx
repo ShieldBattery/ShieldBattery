@@ -112,16 +112,16 @@ export interface ActivityButtonProps {
    */
   onClick?: (event?: React.MouseEvent) => void
   /**
-   * A hotkey to register for the button. Pressing the specified modifiers and key will result in
-   * the button being clicked programmatically.
+   * An array of hotkeys to register for the button. Pressing any of the specified modifiers and key
+   * will result in the button being clicked programmatically.
    */
-  hotkey: HotkeyProp
+  hotkeys: HotkeyProp[]
 }
 
 export const ActivityButton = React.memo(
   React.forwardRef(
     (
-      { label, icon, disabled, glowing, count, onClick, hotkey }: ActivityButtonProps,
+      { label, icon, disabled, glowing, count, onClick, hotkeys }: ActivityButtonProps,
       ref: React.ForwardedRef<HTMLButtonElement>,
     ) => {
       const [buttonProps, rippleRef] = useButtonState({
@@ -144,7 +144,7 @@ export const ActivityButton = React.memo(
         [ref],
       )
 
-      useButtonHotkey({ ref: buttonRef, disabled, hotkey })
+      useButtonHotkey({ ref: buttonRef, disabled, hotkeys })
 
       return (
         <Container ref={setButtonRef} {...buttonProps}>
@@ -154,7 +154,7 @@ export const ActivityButton = React.memo(
             {icon}
           </IconContainer>
           <Label>
-            <HotkeyedText hotkey={hotkey} text={label} disabled={disabled} />
+            <HotkeyedText hotkeys={hotkeys} text={label} disabled={disabled} />
           </Label>
           <Ripple ref={rippleRef} disabled={disabled} />
         </Container>

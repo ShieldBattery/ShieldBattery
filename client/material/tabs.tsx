@@ -1,11 +1,25 @@
+import keycode from 'keycode'
 import { rgba } from 'polished'
-import React, { useCallback, useMemo } from 'react'
+import React, { useCallback, useMemo, useRef } from 'react'
 import styled from 'styled-components'
+import KeyListener from '../keyboard/key-listener'
 import { amberA400, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { buttonText, singleLine } from '../styles/typography'
-import { useButtonState } from './button'
+import { HotkeyProp, useButtonHotkey, useButtonState } from './button'
 import { buttonReset } from './button-reset'
 import { Ripple } from './ripple'
+
+const KEY_NUMBERS = [
+  keycode('1'),
+  keycode('2'),
+  keycode('3'),
+  keycode('4'),
+  keycode('5'),
+  keycode('6'),
+  keycode('7'),
+  keycode('8'),
+  keycode('9'),
+]
 
 const Container = styled.div`
   position: relative;
@@ -66,6 +80,8 @@ export interface TabItemProps<T> {
    * should not be passed directly.
    */
   active?: boolean
+  /** An array of hotkeys to register for this tab item. */
+  hotkeys: HotkeyProp[]
   /**
    * Called whenever this tab is selected. This will be set by the containing Tabs component and
    * should not be passed directly.
@@ -76,7 +92,7 @@ export interface TabItemProps<T> {
 export const TabItem = React.memo(
   React.forwardRef(
     <T,>(
-      { text, value, active, disabled, onSelected, className }: TabItemProps<T>,
+      { text, value, active, disabled, hotkeys, onSelected, className }: TabItemProps<T>,
       ref: React.ForwardedRef<HTMLButtonElement>,
     ) => {
       const onClick = useCallback(() => {
@@ -89,9 +105,26 @@ export const TabItem = React.memo(
         onClick,
       })
 
+      // TODO(2Pac): Move this to a common hook that multiplexes refs and share with activity button
+      const tabItemRef = useRef<HTMLButtonElement>()
+      const setTabItemRef = useCallback(
+        (elem: HTMLButtonElement | null) => {
+          tabItemRef.current = elem ?? undefined
+          if (ref) {
+            if (typeof ref === 'function') {
+              ref(elem)
+            } else {
+              ref.current = elem
+            }
+          }
+        },
+        [ref],
+      )
+      useButtonHotkey({ ref: tabItemRef, disabled, hotkeys })
+
       return (
         <TabItemContainer
-          ref={ref}
+          ref={setTabItemRef}
           className={className}
           $isActiveTab={active ?? false}
           title={text}
@@ -119,10 +152,17 @@ export function Tabs<T>({ children, activeTab, onChange, className }: TabsProps<
         return child
       }
 
+      const hotkeys = [{ keyCode: KEY_NUMBERS[i], ctrlKey: true }]
+      if (children.length - 1 === i) {
+        // The last tab item has an additional Ctrl+9 hotkey
+        hotkeys.push({ keyCode: KEY_NUMBERS[8], ctrlKey: true })
+      }
+
       const isActive = activeTab === (child!.props as TabItemProps<T>).value
       return React.cloneElement(child!, {
         key: `tab-${i}`,
         active: isActive,
+        hotkeys,
         onSelected: onChange,
       })
     })

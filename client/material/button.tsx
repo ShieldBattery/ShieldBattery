@@ -243,37 +243,42 @@ export interface ButtonHotkeyProps {
   /** The reference to the button that should be pressed programmatically. */
   ref: React.MutableRefObject<HTMLButtonElement | undefined | null>
   /**
-   * A hotkey to register for the button. Pressing the specified modifiers and key will result in
-   * the button being clicked programmatically.
+   * An array of hotkeys to register for the button. Pressing any of the specified modifiers and key
+   * combinations will result in the button being clicked programmatically.
    */
-  hotkey: HotkeyProp
+  hotkeys: HotkeyProp[]
   /** Whether the button is disabled (hotkey will do nothing). */
   disabled?: boolean
 }
 
-export function useButtonHotkey({ ref, disabled, hotkey }: ButtonHotkeyProps) {
+export function useButtonHotkey({ ref, disabled, hotkeys }: ButtonHotkeyProps) {
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
-      if (
-        !disabled &&
-        event.keyCode === hotkey.keyCode &&
-        event.altKey === !!hotkey.altKey &&
-        event.shiftKey === !!hotkey.shiftKey &&
-        event.ctrlKey === !!hotkey.ctrlKey
-      ) {
-        ref.current?.click()
+      for (const hotkey of hotkeys) {
+        if (
+          !disabled &&
+          event.keyCode === hotkey.keyCode &&
+          event.altKey === !!hotkey.altKey &&
+          event.shiftKey === !!hotkey.shiftKey &&
+          event.ctrlKey === !!hotkey.ctrlKey
+        ) {
+          ref.current?.click()
 
-        return true
+          return true
+        }
       }
 
       return false
-    },
+    }
   })
 }
 
 export interface HotkeyedTextProps {
-  /** A hotkey that is registered for the button. The text will underline the hotkeyed letter. */
-  hotkey: HotkeyProp
+  /**
+   * An array of hotkeys that are registered for the button. The hook will pick the first hotkey in
+   * the array which will be used to underline the hotkeyed letter.
+   */
+  hotkeys: HotkeyProp[]
   /** The text that should be hotkeyed. If the button is disabled, it will remain unchanged. */
   text: string
   /** Whether the button is disabled (text will remain unchanged). */
@@ -285,12 +290,12 @@ export interface HotkeyedTextProps {
  * given hotkey. Technically, this component is not really button-specific, but that's mostly where
  * it will be used so we leave it here.
  */
-export const HotkeyedText = React.memo(({ hotkey, text, disabled }: HotkeyedTextProps) => {
+export const HotkeyedText = React.memo(({ hotkeys, text, disabled }: HotkeyedTextProps) => {
   if (disabled) {
     return <>{text}</>
   }
 
-  const hotkeyString = String.fromCharCode(hotkey.keyCode).toLowerCase()
+  const hotkeyString = String.fromCharCode(hotkeys[0].keyCode).toLowerCase()
   const result = []
   let hasFoundHotkeyChar = false
   for (const char of text) {
