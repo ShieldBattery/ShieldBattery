@@ -849,6 +849,23 @@ export class MatchmakingService {
     let slots: Slot[]
     let teams: GameConfigPlayer[][]
     const players = Array.from(match.players())
+    const clients: ClientSocketsGroup[] = []
+    let declined = false
+    for (const p of players) {
+      const client = this.activityRegistry.getClientForUser(p.id)
+      if (!client) {
+        match.registerDecline(p.id)
+        declined = true
+      } else {
+        clients.push(client)
+      }
+    }
+    if (declined) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.ClientDisconnected,
+        'client disconnected before game load',
+      )
+    }
 
     if (match.type === MatchmakingType.Match1v1) {
       // NOTE(tec27): Type inference here is kinda bad, it should know that Match is a Match1v1 at
@@ -939,8 +956,6 @@ export class MatchmakingService {
       gameSourceExtra,
       teams,
     }
-
-    const clients = players.map(({ id }) => this.activityRegistry.getClientForUser(id)!)
 
     const loadCancelToken = new CancelToken()
     const gameLoaded = gameLoader.loadGame({
