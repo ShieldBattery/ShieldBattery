@@ -93,7 +93,8 @@ This is the second (and final) step in our deployment process. This step should 
 
 ### Start the server
 
-Upload the entire `deployment` folder at the root of this repository to the target server.
+Upload the entire `deployment/appserver/` folder at the root of this repository to the target
+server.
 
 Rename `sample.env` to `.env` and update the values to match your desired configuration.
 
@@ -113,7 +114,8 @@ docker-compose up -d
 This starts up all the necessary services, so provided everything has been configured correctly, the
 application should "just work" after running this command.
 
-To see more commands you can use with docker compose, check out [this link](https://docs.docker.com/compose/reference/overview/).
+To see more commands you can use with docker compose, check out
+[this link](https://docs.docker.com/compose/reference/overview/).
 
 ### Import the existing database
 
@@ -153,7 +155,8 @@ location you uploaded it to.
 
 Docker offers a way for one service to wait for another service before starting. However, their mechanism doesn't wait for other services to actually be "ready" before starting a service that depends on those services, because the "ready" state is subjective to each service.
 
-In the current version of our `docker-compose.yml` file, we've utilized a [third party script](https://github.com/vishnubob/wait-for-it) to wait for the service that contains the database to actually be ready before running the server migrations. Perhaps we should extend this to other services as well, eg. actually wait for `redis` service to be ready before starting the server. However, I have not noticed any problems so far so it might be an overkill.
+In the current version of our `docker-compose.yml` file, we've utilized a
+[third party script](https://github.com/vishnubob/wait-for-it) to wait for the service that contains the database to actually be ready before running the server migrations. Perhaps we should extend this to other services as well, eg. actually wait for `redis` service to be ready before starting the server. However, I have not noticed any problems so far so it might be an overkill.
 
 ### Healthcheck
 

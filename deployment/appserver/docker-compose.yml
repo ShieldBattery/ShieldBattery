@@ -154,16 +154,11 @@ services:
       - SB_DB=${SB_DB:-shieldbattery}
       - SB_DB_USER=${SB_DB_USER:-shieldbattery}
       - SB_DB_PASSWORD=${SB_DB_PASSWORD:?missing SB_DB_PASSWORD}
-    # Forward a port to tailscale so we can access it via that (but not via the internet)
-    ports:
-      - '${TAILSCALE_IP:-127.0.0.1}:5432:5432'
     networks:
       - backend
     volumes:
       - ./db/init-scripts:/docker-entrypoint-initdb.d:ro
       - db_data:/var/lib/postgresql/data
-    depends_on:
-      - tailscale
 
   # This is a service used to run the server migrations before the server actually starts. It uses
   # the same image as the server, but overrides its startup command to only run migrations and exit.
@@ -193,15 +188,23 @@ services:
       - db
       - redis
 
-  # Connect to tailscale so we can securely access internal servers remotely
   tailscale:
-    image: tailscale/tailscale:latest
-    command: ['tailscaled']
-    privileged: true
+    build: ./tailscale
     restart: unless-stopped
+    environment:
+      - AUTH_KEY=${TAILSCALE_AUTH_KEY:-}
+      - ROUTES=${TAILSCALE_ROUTES:-}
+      - EXTRA_ARGS=${TAILSCALE_EXTRA_ARGS:-}
+    cap_add:
+      - NET_ADMIN
     ports:
+      # tailscale's own communication port
       - '41641:41641/udp'
-    network_mode: host
+    networks:
+      - backend
+      - frontend
     volumes:
       - /var/lib:/var/lib
-      - /dev/net/tun:/dev/net/tun
+    depends_on:
+      - app_server
+      - db
