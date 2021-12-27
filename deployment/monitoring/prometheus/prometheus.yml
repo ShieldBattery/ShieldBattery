@@ -13,4 +13,4 @@ scrape_configs:
 
   - job_name: 'app_server'
     static_configs:
-      -targets: ['sb-staging:80']
+      - targets: ['sb-staging:80']
