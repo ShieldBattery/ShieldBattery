@@ -1,0 +1,65 @@
+version: '3.7'
+
+volumes:
+    prometheus_data:
+    grafana_data:
+
+services:
+  tailscale:
+    image: tailscale/tailscale:latest
+    restart: unless-stopped
+    command: >
+      sh -c "mkdir -p /dev/net &&
+             mknod /dev/net/tun c 10 200 &&
+             tailscaled"
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - '41641:41641/udp'
+    volumes:
+      - /var/lib:/var/lib
+
+  grafana:
+    image: grafana/grafana-oss:8.3.3
+    restart: unless-stopped
+    network_mode: service:tailscale
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_NAME=Main Org.
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+
+  prometheus:
+    image: prom/prometheus:v2.32.1
+    restart: unless-stopped
+    network_mode: service:tailscale
+    volumes:
+      - ./prometheus/:/etc/prometheus/
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    environment:
+      - PROMETHEUS_USERNAME=prometheus
+      - PROMETHEUS_PASSWORD=prometheus
+      - PROMETHEUS_ADMIN_USERNAME=admin
+      - PROMETHEUS_ADMIN_PASSWORD=admin
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    restart: unless-stopped
+    network_mode: service:tailscale
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
