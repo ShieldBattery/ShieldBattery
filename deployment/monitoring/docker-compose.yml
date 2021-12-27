@@ -11,7 +11,7 @@ services:
     command: >
       sh -c "mkdir -p /dev/net &&
              mknod /dev/net/tun c 10 200 &&
-             tailscaled
+             tailscaled"
     cap_add:
       - NET_ADMIN
     ports:
