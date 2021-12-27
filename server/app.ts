@@ -16,6 +16,7 @@ import AwsStore from './lib/file-upload/aws'
 import LocalFileStore from './lib/file-upload/local-filesystem'
 import logMiddleware from './lib/logging/log-middleware'
 import log from './lib/logging/logger'
+import { prometheusHttpMetrics, prometheusMiddleware } from './lib/monitoring/prometheus-middleware'
 import { redirectToCanonical } from './lib/network/redirect-to-canonical'
 import userIpsMiddleware from './lib/network/user-ips-middleware'
 import { RallyPointService } from './lib/rally-point/rally-point-service'
@@ -116,6 +117,8 @@ process.on('unhandledRejection', err => {
 })
 
 app
+  .use(prometheusMiddleware())
+  .use(prometheusHttpMetrics())
   .use(logMiddleware())
   .use(errorPayloadMiddleware())
   .use(

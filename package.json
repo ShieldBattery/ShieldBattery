@@ -149,6 +149,7 @@
     "pino-http": "^6.3.3",
     "pino-pretty": "^7.0.1",
     "pino-tee": "^0.3.0",
+    "prom-client": "^14.0.1",
     "rally-point-creator": "^2.0.0",
     "rally-point-server": "^2.0.0",
     "regenerator-runtime": "^0.13.3",

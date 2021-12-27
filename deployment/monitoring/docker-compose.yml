@@ -11,7 +11,7 @@ services:
     command: >
       sh -c "mkdir -p /dev/net &&
              mknod /dev/net/tun c 10 200 &&
-             tailscaled"
+             tailscaled
     cap_add:
       - NET_ADMIN
     ports:
@@ -50,7 +50,7 @@ services:
       - PROMETHEUS_ADMIN_USERNAME=admin
       - PROMETHEUS_ADMIN_PASSWORD=admin
 
-  node-exporter:
+  node_exporter:
     image: prom/node-exporter:latest
     restart: unless-stopped
     network_mode: service:tailscale

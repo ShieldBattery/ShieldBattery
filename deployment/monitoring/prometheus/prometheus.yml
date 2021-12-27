@@ -9,4 +9,8 @@ scrape_configs:
 
   - job_name: 'node'
     static_configs:
-      - targets: ['node-exporter:9100']
+      - targets: ['localhost:9100', 'sb-staging:9100']
+
+  - job_name: 'app_server'
+    static_configs:
+      -targets: ['sb-staging:80']
