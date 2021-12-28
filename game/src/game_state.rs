@@ -261,6 +261,7 @@ impl GameState {
         let send_messages_to_state = self.internal_send.clone();
         let game_request_send = self.send_main_thread_requests.clone();
 
+        let init_routes_when_ready_future = self.network.init_routes_when_ready();
         let network_ready_future = self.network.wait_network_ready();
         let net_game_info_set_future = self.network.set_game_info(info.clone());
         let allow_start = self.wait_can_start_game();
@@ -291,6 +292,9 @@ impl GameState {
                     create_lobby(&info, game_type)?;
                 }
             }
+            init_routes_when_ready_future
+                .await
+                .map_err(|e| GameInitError::NetworkInit(e))?;
             start_game_request(&game_request_send, GameThreadRequestType::RunWndProc)
                 .map_err(|()| GameInitError::Closed)?;
             net_game_info_set_future
@@ -353,7 +357,7 @@ impl GameState {
                     }
                 }
                 select! {
-                    _ = tokio::time::sleep(Duration::from_millis(100)) => continue,
+                    _ = tokio::time::sleep(Duration::from_millis(42)) => continue,
                     res = &mut players_joined => {
                         res?;
                         break;
@@ -433,6 +437,7 @@ impl GameState {
     // messages to other tasks.
     fn handle_message(&mut self, message: GameStateMessage) -> impl Future<Output = ()> {
         use self::GameStateMessage::*;
+
         match message {
             SetSettings(settings) => {
                 self.set_settings(&settings);
@@ -1288,7 +1293,7 @@ async unsafe fn do_lobby_game_init(info: &GameSetupInfo) {
         if done {
             break;
         }
-        tokio::time::sleep(Duration::from_millis(20)).await;
+        tokio::time::sleep(Duration::from_millis(42)).await;
     }
 }
 

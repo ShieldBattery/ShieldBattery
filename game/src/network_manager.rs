@@ -23,6 +23,7 @@ pub struct NetworkManager {
 pub enum NetworkManagerMessage {
     Snp(SnpMessage),
     Routes(Vec<RouteInput>),
+    InitRoutesWhenReady(),
     WaitNetworkReady(oneshot::Sender<Result<()>>),
     RoutesReady(Result<Vec<Arc<Route>>>),
     PingResult((String, u16), Result<RallyPointServer>),
@@ -71,6 +72,8 @@ struct ReadyNetwork {
 
 #[derive(Default)]
 struct IncompleteNetwork {
+    ready_to_init: bool,
+    setup: Option<Vec<RouteInput>>,
     routes: Option<Vec<Arc<Route>>>,
     game_info: Option<Arc<app_messages::GameSetupInfo>>,
     // This existing means that storm side is active
@@ -127,10 +130,35 @@ impl NetworkState {
 }
 
 impl State {
+    fn maybe_init_routes(&mut self) {
+        let mut setup = None;
+        if let NetworkState::Incomplete(ref mut incomplete) = self.network {
+            if incomplete.ready_to_init && incomplete.setup.is_some() {
+                setup = incomplete.setup.take();
+            }
+        }
+
+        if let Some(setup) = setup {
+            let future = self.join_routes(setup);
+            let send = self.send_messages.clone();
+            let (cancel_token, canceler) = CancelToken::new();
+            let cancelable = async move {
+                let task = async move {
+                    let result = future.await;
+                    let _ = send.send(NetworkManagerMessage::RoutesReady(result)).await;
+                };
+                pin_mut!(task);
+                let _ = cancel_token.bind(task).await;
+            };
+            self.cancel_child_tasks.push(canceler);
+            tokio::spawn(cancelable);
+        }
+    }
+
     fn join_routes(
         &mut self,
         setup: Vec<RouteInput>,
-    ) -> impl Future<Output = Result<Vec<Arc<Route>>>> {
+    ) -> impl Future<Output=Result<Vec<Arc<Route>>>> {
         let futures = setup
             .into_iter()
             .map(|route| {
@@ -260,19 +288,18 @@ impl State {
         self.clean_child_tasks();
         match message {
             NetworkManagerMessage::Routes(setup) => {
-                let future = self.join_routes(setup);
-                let send = self.send_messages.clone();
-                let (cancel_token, canceler) = CancelToken::new();
-                let cancelable = async move {
-                    let task = async move {
-                        let result = future.await;
-                        let _ = send.send(NetworkManagerMessage::RoutesReady(result)).await;
-                    };
-                    pin_mut!(task);
-                    let _ = cancel_token.bind(task).await;
-                };
-                self.cancel_child_tasks.push(canceler);
-                tokio::spawn(cancelable);
+                if let NetworkState::Incomplete(ref mut incomplete) = self.network {
+                    incomplete.setup = Some(setup);
+                    debug!("NetworkManager setup received");
+                }
+                self.maybe_init_routes();
+            }
+            NetworkManagerMessage::InitRoutesWhenReady() => {
+                if let NetworkState::Incomplete(ref mut incomplete) = self.network {
+                    incomplete.ready_to_init = true;
+                    debug!("NetworkManager okay to init routes once setup is received");
+                }
+                self.maybe_init_routes();
             }
             NetworkManagerMessage::PingResult(key, result) => {
                 self.handle_ping_result(key, result);
@@ -302,32 +329,26 @@ impl State {
                     }
                     self.check_network_ready();
                 }
-                SnpMessage::Destroy => {
-                    debug!("Snp destroy");
-                    self.network = NetworkState::Incomplete(Default::default());
-                    self.cancel_child_tasks.clear();
-                }
-                SnpMessage::Send(targets, data) => {
+                SnpMessage::Send(target, data) => {
                     if let NetworkState::Ready(ref network) = self.network {
                         let data: Bytes = data.into();
-                        let sends = targets
-                            .iter()
-                            .filter_map(|addr| network.ip_to_routes.get(&addr))
-                            .map(|route| {
-                                self.rally_point.forward(
-                                    &route.route_id,
-                                    route.player_id,
-                                    data.clone(),
-                                    &route.address,
-                                )
-                            })
-                            .collect::<Vec<_>>();
-                        let task = future::try_join_all(sends)
-                            .map_err(|e| error!("Send error {}", e))
-                            .map(|_| ());
-                        let (cancel_token, canceler) = CancelToken::new();
-                        self.cancel_child_tasks.push(canceler);
-                        tokio::spawn(cancel_token.bind(task));
+                        let route = network.ip_to_routes.get(&target);
+                        if let Some(route) = route {
+                            let send = self.rally_point.forward(
+                                &route.route_id, route.player_id, data.clone(), &route.address);
+
+                            let task = send
+                                .map_err(|e| error!("Send error {}", e))
+                                .map(|_| ());
+                            let (cancel_token, canceler) = CancelToken::new();
+                            self.cancel_child_tasks.push(canceler);
+                            tokio::spawn(async move {
+                                pin_mut!(task);
+                                let _ = cancel_token.bind(task).await;
+                            });
+                        } else {
+                            error!("Tried to send packet without a route: {}", target);
+                        }
                     } else {
                         warn!("Storm tried to send data without ready network");
                     }
@@ -543,6 +564,20 @@ impl NetworkManager {
             let result = recv.await
                 .map_err(|_| NetworkError::NotActive)?;
             result
+        }
+    }
+
+    /// Tells the NetworkManager it is okay to do route initialization once the setup has been
+    /// received. This is used to block rally-point init from happening before the lobby has been
+    /// created (which helps avoid the dreaded "mandatory 5 second timeout" that happens if a client
+    /// tries to join before it's ready).
+    pub fn init_routes_when_ready(
+        &self,
+    ) -> impl Future<Output = Result<()>> {
+        let send = self.send_messages.clone();
+        async move {
+            send.send(NetworkManagerMessage::InitRoutesWhenReady()).await
+                .map_err(|_| NetworkError::NotActive)
         }
     }
 

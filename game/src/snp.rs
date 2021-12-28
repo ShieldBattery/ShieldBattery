@@ -21,39 +21,6 @@ pub const PROVIDER_ID: u32 = 0x53424154;
 pub const SNP_PACKET_SIZE: u32 = 576 - 13 - (60 + 8);
 const STORM_ERROR_NO_MESSAGES_WAITING: u32 = 0x8510006b;
 
-pub static SNP_FUNCTIONS: bw::SnpFunctions = bw::SnpFunctions {
-    size: mem::size_of::<bw::SnpFunctions>() as u32,
-    // Some of these functions have temporary addresses that make it easier to tell what
-    // function was being called in stack traces and error messages
-    func1: -1isize as *mut c_void,
-    unbind,
-    free_packet,
-    free_server_packet,
-    get_game_info,
-    func6: -6isize as *mut c_void,
-    initialize: initialize_1161,
-    func8: -8isize as *mut c_void,
-    enum_devices,
-    receive_games_list,
-    receive_packet,
-    receive_server_packet,
-    func13: -13isize as *mut c_void,
-    send_packet,
-    send_command,
-    broadcast_game,
-    stop_broadcasting_game,
-    free_device_data,
-    find_games,
-    func20: -20isize as *mut c_void,
-    report_game_result,
-    func22: -22isize as *mut c_void,
-    func23: -23isize as *mut c_void,
-    func24: -24isize as *mut c_void,
-    get_league_id,
-    do_league_logout,
-    get_reply_target,
-};
-
 pub static CAPABILITIES: bw::SnpCapabilities = bw::SnpCapabilities {
     size: mem::size_of::<bw::SnpCapabilities>() as u32,
     // As far as I can see, only the 1 bit matters here, and seems to affect how storm
@@ -80,8 +47,6 @@ pub static CAPABILITIES: bw::SnpCapabilities = bw::SnpCapabilities {
     // Matches UDP LAN
     turn_delay: 2,
 };
-
-static mut STORM_VISIBLE_SPOOFED_GAME: Option<bw::SnpGameInfo> = None;
 
 struct State {
     spoofed_game: Option<bw::SnpGameInfo>,
@@ -159,9 +124,8 @@ pub fn spoof_game(name: &str, address: Ipv4Addr) {
 
 /// Messages sent to the async SNP task from BW's side.
 pub enum SnpMessage {
-    Destroy,
     CreateNetworkHandler(SendMessages),
-    Send(Vec<Ipv4Addr>, Vec<u8>),
+    Send(Ipv4Addr, Vec<u8>),
 }
 
 /// This is named SendMessages since it allows the network task to
@@ -199,59 +163,12 @@ fn send_snp_message(message: SnpMessage) {
     send_game_msg_to_async(GameThreadMessage::Snp(message));
 }
 
-extern "stdcall" fn unbind() -> i32 {
-    with_state(|state| {
-        send_snp_message(SnpMessage::Destroy);
-        state.spoofed_game = None;
-        state.current_client_info = None;
-        1
-    })
-}
-
 pub unsafe extern "stdcall" fn free_packet(
     from: *mut sockaddr,
     _data: *const u8,
     _data_len: u32,
 ) -> i32 {
     Box::from_raw(from as *mut RawReceivedMessage);
-    1
-}
-
-extern "stdcall" fn free_server_packet(
-    _from: *mut sockaddr,
-    _data: *mut c_void,
-    _data_len: u32,
-) -> i32 {
-    1
-}
-
-unsafe extern "stdcall" fn get_game_info(
-    index: u32,
-    _game_name: *const u8,
-    _password: *const u8,
-    result_info: *mut bw::SnpGameInfo,
-) -> i32 {
-    if index != 1 {
-        return 0;
-    }
-    with_state(|state| {
-        if let Some(ref game) = state.spoofed_game {
-            *result_info = game.clone();
-            1
-        } else {
-            0
-        }
-    })
-}
-
-unsafe extern "stdcall" fn initialize_1161(
-    client_info: *const bw::ClientInfo,
-    _user_data: *mut c_void,
-    _battle_info: *mut c_void,
-    _module_data: *mut c_void,
-    receive_event: HANDLE,
-) -> i32 {
-    initialize(&*client_info, Some(receive_event));
     1
 }
 
@@ -278,40 +195,6 @@ pub unsafe fn initialize(client_info: &bw::ClientInfo, receive_event: Option<HAN
             receive_callback: Arc::new(receive_callback),
         }));
     });
-}
-
-unsafe extern "stdcall" fn enum_devices(device_data: *mut *mut c_void) -> i32 {
-    // this function appears unnecessary in modern protocols.
-    // the important thing here is to zero out the pointer returned in modem_data,
-    // and return true (no error)
-    *device_data = null_mut();
-    1
-}
-
-unsafe extern "stdcall" fn receive_games_list(
-    _unk1: u32,
-    _unk2: u32,
-    received_list: *mut *mut bw::SnpGameInfo,
-) -> i32 {
-    with_state(|state| {
-        match state.spoofed_game {
-            Some(ref s) => {
-                if STORM_VISIBLE_SPOOFED_GAME.is_none() {
-                    STORM_VISIBLE_SPOOFED_GAME = Some(mem::zeroed());
-                }
-                let ptr: *mut bw::SnpGameInfo = STORM_VISIBLE_SPOOFED_GAME.as_mut().unwrap();
-                if state.spoofed_game_dirty {
-                    *ptr = s.clone();
-                    state.spoofed_game_dirty = false;
-                }
-                *received_list = ptr;
-            }
-            None => {
-                *received_list = null_mut();
-            }
-        }
-        1
-    })
 }
 
 pub unsafe extern "stdcall" fn receive_packet(
@@ -348,57 +231,14 @@ pub unsafe extern "stdcall" fn receive_packet(
     }
 }
 
-unsafe extern "stdcall" fn receive_server_packet(
-    from: *mut *mut sockaddr,
-    data: *mut *mut c_void,
-    length: *mut u32,
-) -> i32 {
-    if !from.is_null() {
-        *from = null_mut();
-    }
-    if !data.is_null() {
-        *data = null_mut();
-    }
-    if !length.is_null() {
-        *length = 0;
-    }
-    0
-}
-
-unsafe extern "stdcall" fn send_packet(
-    num_targets: u32,
-    targets: *const *const sockaddr,
-    data: *const u8,
-    data_len: u32,
-) -> i32 {
-    let targets = std::slice::from_raw_parts(targets, num_targets as usize);
-    let targets = targets.iter().map(|t| sockaddr_to_std_ip(**t)).collect();
-    let data = std::slice::from_raw_parts(data, data_len as usize);
-    send_snp_message(SnpMessage::Send(targets, data.into()));
-    1
-}
-
-pub unsafe extern "stdcall" fn send_packet_scr(
+pub unsafe extern "stdcall" fn send_packet(
     target: *const sockaddr,
     data: *const u8,
     data_len: u32,
 ) -> i32 {
-    let targets = &[target];
-    let targets = targets.iter().map(|t| sockaddr_to_std_ip(**t)).collect();
+    let target = sockaddr_to_std_ip(*target);
     let data = std::slice::from_raw_parts(data, data_len as usize);
-    send_snp_message(SnpMessage::Send(targets, data.into()));
-    1
-}
-
-unsafe extern "stdcall" fn send_command(
-    _unk1: *const u8,
-    _player_name: *const u8,
-    _unk2: *mut c_void,
-    _unk3: *mut c_void,
-    _command: *const u8,
-) -> i32 {
-    // battle.snp checks that the data at unk2 and unk3 is 0 or it doesn't send
-    // unk1 seems to always be '\\.\\game\<game name>'
+    send_snp_message(SnpMessage::Send(target, data.into()));
     1
 }
 
@@ -418,40 +258,5 @@ pub unsafe extern "stdcall" fn broadcast_game(
 }
 
 pub unsafe extern "stdcall" fn stop_broadcasting_game() -> i32 {
-    1
-}
-
-unsafe extern "stdcall" fn free_device_data(_data: *mut c_void) -> i32 {
-    // we never allocate modem data, so the pointer passed in will always be NULL.
-    // thus, we can simply return true.
-    1
-}
-
-unsafe extern "stdcall" fn find_games(_unk1: i32, _list: *mut c_void) -> i32 {
-    1
-}
-
-unsafe extern "stdcall" fn report_game_result(
-    _unk1: i32,
-    _player_slots_len: i32,
-    _player_name: *const u8,
-    _unk2: *const i32,
-    _map_name: *const u8,
-    _results: *const u8,
-) -> i32 {
-    1
-}
-
-unsafe extern "stdcall" fn get_league_id(id: *mut i32) -> i32 {
-    // this function always returns false it seems
-    *id = 0;
-    0
-}
-
-unsafe extern "stdcall" fn do_league_logout(_player_name: *const u8) -> i32 {
-    1
-}
-
-unsafe extern "stdcall" fn get_reply_target(_dest: *const u8, _dest_len: u32) -> i32 {
     1
 }

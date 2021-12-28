@@ -1,21 +1,18 @@
-pub mod commands;
-pub mod list;
-pub mod unit;
-
 use std::ffi::CStr;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
+pub use bw_dat::structs::*;
+use bw_dat::UnitId;
 use libc::{c_void, sockaddr};
 use once_cell::sync::OnceCell;
 use quick_error::quick_error;
-use winapi::shared::ntdef::HANDLE;
-
-use bw_dat::UnitId;
 
 use crate::app_messages::{MapInfo, Settings};
 
-pub use bw_dat::structs::*;
+pub mod commands;
+pub mod list;
+pub mod unit;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct StormPlayerId(pub u8);
@@ -262,62 +259,31 @@ pub struct SnpGameInfo {
 
 #[repr(C)]
 pub struct SnpFunctions {
-    pub size: u32,
-    pub func1: *mut c_void,
-    pub unbind: unsafe extern "stdcall" fn() -> i32,
+    pub unk0: usize,
     pub free_packet: unsafe extern "stdcall" fn(*mut sockaddr, *const u8, u32) -> i32,
-    pub free_server_packet: unsafe extern "stdcall" fn(*mut sockaddr, *mut c_void, u32) -> i32,
-    pub get_game_info:
-        unsafe extern "stdcall" fn(u32, *const u8, *const u8, *mut SnpGameInfo) -> i32,
-    pub func6: *mut c_void,
     pub initialize: unsafe extern "stdcall" fn(
-        *const ClientInfo,
+        *const crate::bw::ClientInfo,
         *mut c_void,
         *mut c_void,
         *mut c_void,
-        HANDLE,
     ) -> i32,
-    pub func8: *mut c_void,
-    pub enum_devices: unsafe extern "stdcall" fn(*mut *mut c_void) -> i32,
-    pub receive_games_list: unsafe extern "stdcall" fn(u32, u32, *mut *mut SnpGameInfo) -> i32,
+    pub unk0c: usize,
     pub receive_packet:
-        unsafe extern "stdcall" fn(*mut *mut sockaddr, *mut *const u8, *mut u32) -> i32,
-    pub receive_server_packet:
-        unsafe extern "stdcall" fn(*mut *mut sockaddr, *mut *mut c_void, *mut u32) -> i32,
-    pub func13: *mut c_void, // SelectGame
-    pub send_packet: unsafe extern "stdcall" fn(u32, *const *const sockaddr, *const u8, u32) -> i32,
-    pub send_command: unsafe extern "stdcall" fn(
-        *const u8,
-        *const u8,
-        *mut c_void,
-        *mut c_void,
-        *const u8,
-    ) -> i32,
-    pub broadcast_game: unsafe extern "stdcall" fn(
-        *const u8,
-        *const u8,
-        *const u8,
-        i32,
-        u32,
-        i32,
-        i32,
-        i32,
-        *mut c_void,
-        u32,
-    ) -> i32,
+    unsafe extern "stdcall" fn(*mut *mut sockaddr, *mut *const u8, *mut u32) -> i32,
+    pub send_packet: unsafe extern "stdcall" fn(*const sockaddr, *const u8, u32) -> i32,
+    pub unk18: usize,
+    pub broadcast_game: unsafe extern "stdcall"
+    fn(*const u8, *const u8, *const u8, i32, u32, i32, i32, i32, *mut c_void, u32) -> i32,
     pub stop_broadcasting_game: unsafe extern "stdcall" fn() -> i32,
-    pub free_device_data: unsafe extern "stdcall" fn(*mut c_void) -> i32,
-    pub find_games: unsafe extern "stdcall" fn(i32, *mut c_void) -> i32,
-    pub func20: *mut c_void,
-    pub report_game_result:
-        unsafe extern "stdcall" fn(i32, i32, *const u8, *const i32, *const u8, *const u8) -> i32,
-    pub func22: *mut c_void,
-    pub func23: *mut c_void,
-    pub func24: *mut c_void,
-    pub get_league_id: unsafe extern "stdcall" fn(*mut i32) -> i32,
-    pub do_league_logout: unsafe extern "stdcall" fn(*const u8) -> i32,
-    pub get_reply_target: unsafe extern "stdcall" fn(*const u8, u32) -> i32,
+    pub unk24: usize,
+    pub unk28: usize,
+    pub joined_game: Option<unsafe extern "stdcall" fn(*const u8, usize) -> i32>,
+    pub unk30: usize,
+    pub unk34: usize,
+    pub start_listening_for_games: Option<unsafe extern "stdcall" fn() -> i32>,
+    pub future_padding: [usize; 0x10],
 }
+
 
 #[repr(C)]
 pub struct SnpListEntry {

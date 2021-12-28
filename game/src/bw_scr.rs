@@ -1,3 +1,32 @@
+use std::ffi::CStr;
+use std::marker::PhantomData;
+use std::mem;
+use std::path::{Path, PathBuf};
+use std::ptr::{null, null_mut};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
+
+use bw_dat::UnitId;
+use byteorder::{ByteOrder, LittleEndian};
+use libc::c_void;
+use parking_lot::{Mutex, RwLock};
+use smallvec::SmallVec;
+use winapi::um::errhandlingapi::SetLastError;
+use winapi::um::libloaderapi::GetModuleHandleW;
+
+use scr_analysis::{DatType, scarf};
+use sdf_cache::{InitSdfCache, SdfCache};
+use shader_replaces::ShaderReplaces;
+pub use thiscall::Thiscall;
+
+use crate::app_messages::{MapInfo, Settings};
+use crate::bw::{self, Bw, FowSpriteIterator, SnpFunctions, StormPlayerId};
+use crate::bw::commands;
+use crate::bw::unit::{Unit, UnitIterator};
+use crate::game_thread;
+use crate::snp;
+use crate::windows;
+
 mod bw_hash_table;
 mod dialog_hook;
 mod file_hook;
@@ -6,36 +35,6 @@ mod pe_image;
 mod sdf_cache;
 mod shader_replaces;
 mod thiscall;
-
-use std::ffi::{CStr};
-use std::marker::PhantomData;
-use std::mem;
-use std::path::{Path, PathBuf};
-use std::ptr::{null, null_mut};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicUsize, AtomicU32, Ordering};
-
-use byteorder::{ByteOrder, LittleEndian};
-use libc::c_void;
-use parking_lot::{Mutex, RwLock};
-use scr_analysis::{DatType, scarf};
-use smallvec::SmallVec;
-use winapi::um::errhandlingapi::SetLastError;
-use winapi::um::libloaderapi::{GetModuleHandleW};
-
-use bw_dat::UnitId;
-
-use crate::app_messages::{MapInfo, Settings};
-use crate::bw::{self, Bw, FowSpriteIterator, StormPlayerId};
-use crate::bw::commands;
-use crate::bw::unit::{Unit, UnitIterator};
-use crate::game_thread;
-use crate::snp;
-use crate::windows;
-
-use sdf_cache::{InitSdfCache, SdfCache};
-use shader_replaces::ShaderReplaces;
-pub use thiscall::Thiscall;
 
 const NET_PLAYER_COUNT: usize = 12;
 const SHADER_ID_MASK: u32 = 0x1c;
@@ -217,9 +216,11 @@ unsafe impl Send for RendererState {}
 unsafe impl Sync for RendererState {}
 
 pub mod scr {
-    use libc::{c_void, sockaddr};
+    use libc::{c_void};
 
     use crate::bw;
+    use crate::bw::SnpFunctions;
+
     use super::thiscall::Thiscall;
 
     #[repr(C)]
@@ -502,33 +503,6 @@ pub mod scr {
         // Always 5, not useful for us
         pub protocol_version: u16,
         pub name: [u8; 0x60],
-    }
-
-    #[repr(C)]
-    pub struct SnpFunctions {
-        pub unk0: usize,
-        pub free_packet: unsafe extern "stdcall" fn(*mut sockaddr, *const u8, u32) -> i32,
-        pub initialize: unsafe extern "stdcall" fn(
-            *const crate::bw::ClientInfo,
-            *mut c_void,
-            *mut c_void,
-            *mut c_void,
-        ) -> i32,
-        pub unk0c: usize,
-        pub receive_packet:
-            unsafe extern "stdcall" fn(*mut *mut sockaddr, *mut *const u8, *mut u32) -> i32,
-        pub send_packet: unsafe extern "stdcall" fn(*const sockaddr, *const u8, u32) -> i32,
-        pub unk18: usize,
-        pub broadcast_game: unsafe extern "stdcall"
-            fn(*const u8, *const u8, *const u8, i32, u32, i32, i32, i32, *mut c_void, u32) -> i32,
-        pub stop_broadcasting_game: unsafe extern "stdcall" fn() -> i32,
-        pub unk24: usize,
-        pub unk28: usize,
-        pub joined_game: Option<unsafe extern "stdcall" fn(*const u8, usize) -> i32>,
-        pub unk30: usize,
-        pub unk34: usize,
-        pub start_listening_for_games: Option<unsafe extern "stdcall" fn() -> i32>,
-        pub future_padding: [usize; 0x10],
     }
 
     #[repr(C)]
@@ -2635,13 +2609,13 @@ fn load_snp_list_hook(
     }
 }
 
-static SNP_FUNCTIONS: scr::SnpFunctions = scr::SnpFunctions {
+static SNP_FUNCTIONS: SnpFunctions = SnpFunctions {
     unk0: 0,
     free_packet: snp::free_packet,
     initialize: snp_initialize,
     unk0c: 0,
     receive_packet: snp::receive_packet,
-    send_packet: snp::send_packet_scr,
+    send_packet: snp::send_packet,
     unk18: 0,
     broadcast_game: snp::broadcast_game,
     stop_broadcasting_game: snp::stop_broadcasting_game,
@@ -2698,7 +2672,7 @@ static SNP_INITIALIZED: AtomicBool = AtomicBool::new(false);
 
 unsafe extern "stdcall" fn snp_load_bind(
     snp_index: u32,
-    funcs: *mut *const scr::SnpFunctions,
+    funcs: *mut *const SnpFunctions,
 ) -> u32 {
     if snp_index > 0 {
         return 0;
@@ -2712,6 +2686,7 @@ mod hooks {
     use libc::c_void;
 
     use crate::bw;
+
     use super::scr;
 
     whack_hooks!(0, // cdecl

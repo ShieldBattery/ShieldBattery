@@ -293,18 +293,6 @@ unsafe fn load_init_helper() -> Result<InitHelperFn, io::Error> {
     Ok(mem::transmute(address))
 }
 
-/// 1.16.1 calls LoadLibrary + GetProcAddress(SnpBind) on this dll to get networking functions.
-#[no_mangle]
-#[allow(non_snake_case)]
-pub unsafe extern "stdcall" fn SnpBind(index: u32, functions: *mut *const bw::SnpFunctions) -> u32 {
-    // we only have one provider, so any index over that is an error
-    if index > 0 || functions.is_null() {
-        return 0;
-    }
-    *functions = &snp::SNP_FUNCTIONS;
-    1
-}
-
 lazy_static! {
     static ref PATCHER: Mutex<whack::Patcher> = Mutex::new(whack::Patcher::new());
     static ref ASYNC_RUNTIME: Mutex<Option<tokio::runtime::Handle>> = Mutex::new(None);
