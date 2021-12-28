@@ -122,6 +122,44 @@ describe('games/results/hasCompletedResults', () => {
 
     expect(hasCompletedResults(results)).toBeTrue()
   })
+
+  test('should handle legacy case that 1 player is disconnected when others have victories', () => {
+    const results = [
+      {
+        reporter: 2,
+        time: 7,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Playing, 't', 27),
+          makePlayerResult(2, GameClientResult.Disconnected, 'z', 35),
+          makePlayerResult(3, GameClientResult.Playing, 'p', 44),
+          makePlayerResult(4, GameClientResult.Disconnected, 'p', 378),
+        ],
+      },
+      {
+        reporter: 3,
+        time: 50,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Disconnected, 't', 27),
+          makePlayerResult(2, GameClientResult.Victory, 'z', 35),
+          makePlayerResult(3, GameClientResult.Victory, 'p', 44),
+          makePlayerResult(4, GameClientResult.Defeat, 'p', 378),
+        ],
+      },
+      {
+        reporter: 4,
+        time: 9,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Disconnected, 't', 27),
+          makePlayerResult(2, GameClientResult.Disconnected, 'z', 35),
+          makePlayerResult(3, GameClientResult.Playing, 'p', 44),
+          makePlayerResult(4, GameClientResult.Disconnected, 'p', 378),
+        ],
+      },
+      null,
+    ]
+
+    expect(hasCompletedResults(results)).toBeTrue()
+  })
 })
 
 function evaluateResults(
@@ -415,6 +453,53 @@ describe('games/results/reconcileResults', () => {
       5: { result: 'loss', race: 'z', apm: 40 },
       7: { result: 'loss', race: 't', apm: 20 },
       8: { result: 'win', race: 'z', apm: 30 },
+    })
+  })
+
+  test('2v2 with one player missing report and being disconnected', () => {
+    // Tests legacy clients that don't map disconnects-with-victories to losses
+    const results = [
+      {
+        reporter: 2,
+        time: 7,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Playing, 't', 27),
+          makePlayerResult(2, GameClientResult.Disconnected, 'z', 35),
+          makePlayerResult(3, GameClientResult.Playing, 'p', 44),
+          makePlayerResult(4, GameClientResult.Disconnected, 'p', 378),
+        ],
+      },
+      {
+        reporter: 3,
+        time: 50,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Disconnected, 't', 27),
+          makePlayerResult(2, GameClientResult.Victory, 'z', 35),
+          makePlayerResult(3, GameClientResult.Victory, 'p', 44),
+          makePlayerResult(4, GameClientResult.Defeat, 'p', 378),
+        ],
+      },
+      {
+        reporter: 4,
+        time: 9,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Disconnected, 't', 27),
+          makePlayerResult(2, GameClientResult.Disconnected, 'z', 35),
+          makePlayerResult(3, GameClientResult.Playing, 'p', 44),
+          makePlayerResult(4, GameClientResult.Disconnected, 'p', 378),
+        ],
+      },
+      null,
+    ]
+
+    const reconciled = reconcileResults(results)
+
+    expect(reconciled.disputed).toBe(false)
+    evaluateResults(reconciled.results, {
+      1: { result: 'loss', race: 't', apm: 0 },
+      2: { result: 'win', race: 'z', apm: 35 },
+      3: { result: 'win', race: 'p', apm: 44 },
+      4: { result: 'loss', race: 'p', apm: 378 },
     })
   })
 })

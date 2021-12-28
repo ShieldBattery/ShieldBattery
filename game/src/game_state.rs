@@ -1006,6 +1006,21 @@ impl InitInProgress {
                     }
                 }
             }
+
+            // Now that we've processed all the possible victories, any players left as disconnected
+            // are actually defeated
+            for player in &self.joined_players {
+                if let Some(player_id) = player.player_id {
+                    if player_id >= 8 {
+                        // This is an observer, skip
+                        continue;
+                    }
+                    let storm_id = player.storm_id.0 as usize;
+                    if results[storm_id] == GameResult::Disconnected {
+                        results[storm_id] = GameResult::Defeat;
+                    }
+                }
+            }
         }
 
         let results = self

@@ -17,15 +17,39 @@ export interface ResultSubmission {
   playerResults: Array<[SbUserId, GameClientPlayerResult]>
 }
 
-function isTerminal(resultCode: GameClientResult) {
-  return resultCode === GameClientResult.Victory || resultCode === GameClientResult.Defeat
+/**
+ * Returns whether the given result is "terminal" (that is, won't change again in future
+ * non-malicious reports).
+ *
+ * @param resultCode the reported result for the client
+ * @param disconnectIsLoss whether or not disconnects count as a loss (and are therefor terminal).
+ *     This handles older client reports where a dropped player that was not allied with a victor
+ *     would not be marked as losing, and just be disconnected instead. This should generally be
+ *     true if the result report contains any victories.
+ */
+function isTerminal(resultCode: GameClientResult, disconnectIsLoss = false) {
+  return (
+    resultCode === GameClientResult.Victory ||
+    resultCode === GameClientResult.Defeat ||
+    (disconnectIsLoss && resultCode === GameClientResult.Disconnected)
+  )
 }
 
-function countTerminalStates(resultMap: Array<[number, GameClientPlayerResult]>) {
-  return resultMap.reduce((sum, [, curResult]) => (isTerminal(curResult.result) ? sum + 1 : sum), 0)
+/**
+ * Counts the total number of terminal results in a given report.
+ *
+ * @param resultMap an array of [SbUserId, GameClientPlayerResult] entries, one for each player in
+ *     the game
+ */
+function countTerminalStates(resultMap: ReadonlyArray<[SbUserId, GameClientPlayerResult]>) {
+  const disconnectIsLoss = resultMap.some(([_, r]) => r.result === GameClientResult.Victory)
+  return resultMap.reduce(
+    (sum, [, curResult]) => (isTerminal(curResult.result, disconnectIsLoss) ? sum + 1 : sum),
+    0,
+  )
 }
 
-function getNumPlayers(results: Array<ResultSubmission | null>) {
+function getNumPlayers(results: ReadonlyArray<ResultSubmission | null>) {
   for (const result of results) {
     if (result) {
       return result.playerResults.length
@@ -42,7 +66,7 @@ function getNumPlayers(results: Array<ResultSubmission | null>) {
  * @param results an array of results submitted from each player. Players that have not submitted
  *   results yet will be nulls in this array.
  */
-export function hasCompletedResults(results: Array<ResultSubmission | null>) {
+export function hasCompletedResults(results: ReadonlyArray<ResultSubmission | null>) {
   const numPlayers = getNumPlayers(results)
 
   const numTerminalStates = results
@@ -64,7 +88,9 @@ export function hasCompletedResults(results: Array<ResultSubmission | null>) {
  * @param results an array of results submitted from each player. For players that have not
  *   submitted a result yet, a null will be present in this array.
  */
-export function reconcileResults(results: Array<ResultSubmission | null>): ReconciledResults {
+export function reconcileResults(
+  results: ReadonlyArray<ResultSubmission | null>,
+): ReconciledResults {
   // TODO(tec27): Incomplete results can also sometimes be reconciled (e.g. 1 player still playing,
   // 1 player disconnected) but we need more information about the game type to do so (e.g. what
   // team structure is)
@@ -88,10 +114,23 @@ export function reconcileResults(results: Array<ResultSubmission | null>): Recon
   const combined = new Map<SbUserId, GameClientPlayerResult[]>()
   const apm = new Map<SbUserId, number>()
   for (const { reporter, playerResults } of sortedResults) {
-    for (const [id, result] of playerResults) {
+    const disconnectIsLoss = playerResults.some(([_, r]) => r.result === GameClientResult.Victory)
+
+    for (const [id, r] of playerResults) {
       if (!combined.has(id)) {
         combined.set(id, [])
       }
+
+      // Handle legacy client reports that don't properly force disconnect clients to a defeat when
+      // the game's victors are known
+      let result = r
+      if (disconnectIsLoss && r.result === GameClientResult.Disconnected) {
+        result = {
+          ...r,
+          result: GameClientResult.Defeat,
+        }
+      }
+
       combined.get(id)!.push(result)
 
       if (reporter === id) {
