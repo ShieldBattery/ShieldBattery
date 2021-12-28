@@ -6,7 +6,7 @@ import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useElementRect, useObservedDimensions } from '../dom/dimension-hooks'
 import { useWindowListener } from '../dom/window-listener'
-import KeyListener from '../keyboard/key-listener'
+import { useKeyListener } from '../keyboard/key-listener'
 import { useForceUpdate, usePreviousDefined } from '../state-hooks'
 import { CardLayer } from '../styles/colors'
 import { Portal } from './portal'
@@ -111,7 +111,27 @@ export const DEFAULT_TRANSITION: UseTransitionProps<boolean> = {
  * Popovers have a customizable origin that gets placed at a specified anchor position, with logic
  * to ensure the stay within the usable area of the screen.
  */
-export function Popover({
+export function Popover(props: PopoverProps) {
+  const transition = useTransition<boolean, UseTransitionProps<boolean>>(
+    props.open,
+    props.transitionProps ?? DEFAULT_TRANSITION,
+  )
+
+  return transition(
+    (styles, open) =>
+      open && (
+        <Portal onDismiss={props.onDismiss} open={open}>
+          <PopoverContent {...props} styles={styles} />
+        </Portal>
+      ),
+  )
+}
+
+/**
+ * Helper component for Popovers to minimize the amount of work being done/hooks being kept for
+ * popovers that are not open.
+ */
+function PopoverContent({
   anchorX,
   anchorY,
   children,
@@ -120,8 +140,8 @@ export function Popover({
   onDismiss,
   originX,
   originY,
-  transitionProps = DEFAULT_TRANSITION,
-}: PopoverProps) {
+  styles,
+}: PopoverProps & { styles: React.CSSProperties }) {
   const [maxSizeRectRef, maxSizeRect] = useElementRect()
   // NOTE(tec27): We need this so that the component re-renders if the window is resized
   const [maxSizeObserverRef] = useObservedDimensions()
@@ -135,21 +155,23 @@ export function Popover({
     },
     [maxSizeRectRef, maxSizeObserverRef],
   )
-  const onKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      if (event.code !== ESCAPE) return false
 
-      if (onDismiss) {
-        onDismiss()
-        return true
-      }
+  useKeyListener({
+    exclusive: true,
+    onKeyDown: useCallback(
+      event => {
+        if (event.code !== ESCAPE) return false
 
-      return false
-    },
-    [onDismiss],
-  )
+        if (onDismiss) {
+          onDismiss()
+          return true
+        }
 
-  const transition = useTransition<boolean, UseTransitionProps<boolean>>(open, transitionProps)
+        return false
+      },
+      [onDismiss],
+    ),
+  })
 
   // Calculate the X/Y position of the popover, based on the anchor position and what the origin is.
   // The Math.max calculates the desired position (taking into account safe zone offset), then the
@@ -229,22 +251,15 @@ export function Popover({
     [propX]: posX + 'px',
     [propY]: posY + 'px',
   }
-
-  return transition(
-    (styles, open) =>
-      open && (
-        <Portal onDismiss={onDismiss} open={open}>
-          <PositioningArea ref={maxSizeRef}>
-            <KeyListener onKeyDown={onKeyDown} exclusive={true} />
-            <Container
-              ref={containerRef}
-              className={className}
-              style={{ ...styles, ...(containerStyle as any) }}>
-              <Card>{children}</Card>
-            </Container>
-          </PositioningArea>
-        </Portal>
-      ),
+  return (
+    <PositioningArea ref={maxSizeRef}>
+      <Container
+        ref={containerRef}
+        className={className}
+        style={{ ...styles, ...(containerStyle as any) }}>
+        <Card>{children}</Card>
+      </Container>
+    </PositioningArea>
   )
 }
 

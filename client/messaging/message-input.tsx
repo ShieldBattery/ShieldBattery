@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react'
 import styled from 'styled-components'
-import KeyListener from '../keyboard/key-listener'
+import { useKeyListener } from '../keyboard/key-listener'
 import TextField from '../material/text-field'
 import { colorDividers } from '../styles/colors'
 
@@ -45,44 +45,47 @@ export default function MessageInput(props: MessageInputProps) {
     }
   }, [message, onSendChatMessage])
 
-  const onKeyPress = useCallback((event: React.KeyboardEvent<TextField>) => {
-    const target = event.target as HTMLElement
+  useKeyListener({
+    onKeyPress: useCallback(event => {
+      const target = event.target as HTMLElement
 
-    if (event.ctrlKey || event.altKey || ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) {
-      return false
-    }
-
-    const key = event.key ? event.key : String.fromCharCode(event.charCode)
-    if (key && key.length === 1) {
-      if (key === ' ' && target.tagName === 'BUTTON') {
-        // Space bar should click the button, rather than doing any of this
+      if (
+        event.ctrlKey ||
+        event.altKey ||
+        ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)
+      ) {
         return false
       }
 
-      inputRef.current?.focus()
-      setMessage(message => message + key)
-      return true
-    }
+      const key = event.key ? event.key : String.fromCharCode(event.charCode)
+      if (key && key.length === 1) {
+        if (key === ' ' && target.tagName === 'BUTTON') {
+          // Space bar should click the button, rather than doing any of this
+          return false
+        }
 
-    return false
-  }, [])
+        inputRef.current?.focus()
+        setMessage(message => message + key)
+        return true
+      }
+
+      return false
+    }, []),
+  })
 
   return (
-    <>
-      <KeyListener onKeyPress={onKeyPress} />
-      <StyledTextField
-        ref={inputRef}
-        className={props.className}
-        label='Send a message'
-        value={message}
-        maxLength={500}
-        floatingLabel={false}
-        allowErrors={false}
-        showDivider={props.showDivider}
-        inputProps={{ autoComplete: 'off' }}
-        onEnterKeyDown={onEnterKeyDown}
-        onChange={onChange}
-      />
-    </>
+    <StyledTextField
+      ref={inputRef}
+      className={props.className}
+      label='Send a message'
+      value={message}
+      maxLength={500}
+      floatingLabel={false}
+      allowErrors={false}
+      showDivider={props.showDivider}
+      inputProps={{ autoComplete: 'off' }}
+      onEnterKeyDown={onEnterKeyDown}
+      onChange={onChange}
+    />
   )
 }
