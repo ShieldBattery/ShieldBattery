@@ -3,6 +3,7 @@ import { container } from 'tsyringe'
 import CancelToken, { MultiCancelToken } from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import rejectOnTimeout from '../../../common/async/reject-on-timeout'
+import { USE_STATIC_TURNRATE } from '../../../common/flags'
 import { GameRoute } from '../../../common/game-launch-config'
 import { GameConfig } from '../../../common/games/configuration'
 import { GameRouteDebugInfo } from '../../../common/games/games'
@@ -290,17 +291,21 @@ export class GameLoader {
     const routes = hasMultipleHumans ? await createRoutes(players) : []
     cancelToken.throwIfCancelling()
 
-    let maxEstimatedLatency = 0
-    for (const route of routes) {
-      if (route.estimatedLatency > maxEstimatedLatency) {
-        maxEstimatedLatency = route.estimatedLatency
+    let chosenTurnRate: BwTurnRate | undefined
+
+    if (USE_STATIC_TURNRATE) {
+      let maxEstimatedLatency = 0
+      for (const route of routes) {
+        if (route.estimatedLatency > maxEstimatedLatency) {
+          maxEstimatedLatency = route.estimatedLatency
+        }
       }
+      const availableTurnRates = MAX_LATENCIES.filter(
+        ([_, latency]) => latency > maxEstimatedLatency,
+      )
+      // Of the turn rates that work for this latency, pick the best one
+      chosenTurnRate = availableTurnRates.length ? availableTurnRates.at(-1)![0] : 12
     }
-    const availableTurnRates = MAX_LATENCIES.filter(([_, latency]) => latency > maxEstimatedLatency)
-    // Of the turn rates that work for this latency, pick the best one
-    const chosenTurnRate: BwTurnRate = availableTurnRates.length
-      ? availableTurnRates.at(-1)![0]
-      : 12
 
     const onGameSetupResult = onGameSetup
       ? onGameSetup({ gameId, seed: generateSeed(), turnRate: chosenTurnRate }, resultCodes)
