@@ -156,3 +156,30 @@ export async function getRecentGamesForUser(
     done()
   }
 }
+
+/**
+ * Returns a list of game IDs that don't yet have reconciled results. This can be used to (roughly)
+ * determine games that have completed but didn't get reconciled (usually because at least one
+ * player failed to report).
+ *
+ * @param reportedBeforeTime Only include game IDs that have a reported result from before this time
+ * @param withClient a DB client to use to make the query (optional)
+ */
+export async function findUnreconciledGames(
+  reportedBeforeTime: Date,
+  withClient?: DbClient,
+): Promise<string[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ id: string }>(sql`
+      SELECT DISTINCT gu.game_id as "id"
+      FROM games_users gu
+      WHERE gu."reported_results" IS NOT NULL
+      AND gu."result" IS NULL
+      AND gu.reported_at < ${reportedBeforeTime};
+    `)
+    return result.rows.map(row => row.id)
+  } finally {
+    done()
+  }
+}

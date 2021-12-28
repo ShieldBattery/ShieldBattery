@@ -17,8 +17,10 @@ import { UserStats } from '../../../common/users/user-stats'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { CodedError } from '../errors/coded-error'
-import { setReconciledResult } from '../games/game-models'
+import { findUnreconciledGames, setReconciledResult } from '../games/game-models'
 import { hasCompletedResults, reconcileResults } from '../games/results'
+import { JobScheduler } from '../jobs/job-scheduler'
+import logger from '../logging/logger'
 import {
   getMatchmakingRatingChangesForGame,
   getMatchmakingRatingsWithLock,
@@ -42,12 +44,56 @@ import { getGameRecord } from './game-models'
 
 export class GameResultServiceError extends CodedError<GameResultErrorCode> {}
 
+/** How often the reconciliation job should run. */
+const RECONCILE_INCOMPLETE_RESULTS_MINUTES = 15
+/**
+ * How long after the first result report until we consider a game to be completed, even if we don't
+ * have every players' results.
+ * TODO(tec27): Use a more accurate method for detecting games in progress, like pinging the server
+ * from the game client periodically, or integrating with rally-point
+ */
+const FORCE_RECONCILE_TIMEOUT_MINUTES = 3 * 60
+
 @singleton()
 export default class GameResultService {
   constructor(
-    readonly clientSocketsManager: ClientSocketsManager,
-    readonly typedPublisher: TypedPublisher<GameSubscriptionEvent>,
-  ) {}
+    private clientSocketsManager: ClientSocketsManager,
+    private typedPublisher: TypedPublisher<GameSubscriptionEvent>,
+    private jobScheduler: JobScheduler,
+  ) {
+    const jobStartTime = new Date()
+    jobStartTime.setMinutes(jobStartTime.getMinutes() + RECONCILE_INCOMPLETE_RESULTS_MINUTES)
+
+    this.jobScheduler.scheduleJob(
+      'lib/games#reconcileIncompleteResults',
+      jobStartTime,
+      RECONCILE_INCOMPLETE_RESULTS_MINUTES * 60 * 1000,
+      async () => {
+        const reconcileBefore = new Date()
+        reconcileBefore.setMinutes(reconcileBefore.getMinutes() - FORCE_RECONCILE_TIMEOUT_MINUTES)
+        const toReconcile = await findUnreconciledGames(reconcileBefore)
+        // TODO(tec27): add prometheues metric for number of unreconciled games found
+
+        for (const gameId of toReconcile) {
+          try {
+            const gameRecord = await this.retrieveGame(gameId)
+            this.maybeReconcileResults(gameRecord, true /* force */)
+          } catch (err: unknown) {
+            if (
+              err instanceof SyntaxError ||
+              err instanceof TypeError ||
+              err instanceof ReferenceError ||
+              err instanceof RangeError
+            ) {
+              throw err
+            }
+
+            logger.error({ err }, `failed to reconcile game ${gameId}`, err)
+          }
+        }
+      },
+    )
+  }
 
   async retrieveGame(gameId: string): Promise<GameRecord> {
     const game = await getGameRecord(gameId)
@@ -199,12 +245,10 @@ export default class GameResultService {
       })
   }
 
-  // TODO(tec27): Periodically check for games that have not been reconciled that are older than X
-  // time, and force a result (or mark them permanently unknown/unfinished)
-  private async maybeReconcileResults(gameRecord: GameRecord): Promise<void> {
+  private async maybeReconcileResults(gameRecord: GameRecord, force = false): Promise<void> {
     const gameId = gameRecord.id
     const currentResults = await getCurrentReportedResults(gameId)
-    if (!hasCompletedResults(currentResults)) {
+    if (!force && !hasCompletedResults(currentResults)) {
       return
     }
 
