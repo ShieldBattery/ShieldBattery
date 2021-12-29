@@ -21,7 +21,7 @@ import {
   isUms,
 } from '../../../common/lobbies'
 import * as Slots from '../../../common/lobbies/slot'
-import gameLoader from '../games/game-loader'
+import { GameLoader } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
 import { getMapInfo } from '../maps/map-models'
@@ -67,6 +67,7 @@ export class LobbyApi {
     this.userSockets = userSockets
     this.clientSockets = clientSockets
     this.activityRegistry = container.resolve(GameplayActivityRegistry)
+    this.gameLoader = container.resolve(GameLoader)
     this.lobbies = new Map()
     this.lobbyClients = new Map()
     this.lobbyBannedUsers = new Map()
@@ -724,7 +725,7 @@ export class LobbyApi {
       let gameId
       // TODO(tec27): actually make use of this CancelToken for disconnects
       const cancelToken = new CancelToken()
-      const gameLoaded = gameLoader.loadGame({
+      const gameLoaded = this.gameLoader.loadGame({
         players: getHumanSlots(lobby),
         mapId: lobby.map.id,
         gameConfig,

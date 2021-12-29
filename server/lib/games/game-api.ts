@@ -25,7 +25,7 @@ import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { findUsersById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
-import gameLoader from './game-loader'
+import { GameLoader } from './game-loader'
 import { countCompletedGames } from './game-models'
 import GameResultService, { GameResultServiceError } from './game-result-service'
 
@@ -130,6 +130,7 @@ export class GameApi {
   constructor(
     private gameResultService: GameResultService,
     @inject('upsertUserIp') private upsertUserIp: UpsertUserIp,
+    private gameLoader: GameLoader,
   ) {}
 
   @httpGet('/:gameId')
@@ -202,17 +203,17 @@ export class GameApi {
 
     if (
       (status === GameStatus.Playing || status === GameStatus.Error) &&
-      !gameLoader.isLoading(gameId)
+      !this.gameLoader.isLoading(gameId)
     ) {
       throw new httpErrors.Conflict('game must be loading')
     }
 
     if (status === GameStatus.Playing) {
-      if (!gameLoader.registerGameAsLoaded(gameId, ctx.session!.userName)) {
+      if (!this.gameLoader.registerGameAsLoaded(gameId, ctx.session!.userName)) {
         throw new httpErrors.NotFound('game not found')
       }
     } else if (status === GameStatus.Error) {
-      if (!gameLoader.maybeCancelLoading(gameId, ctx.session!.userName)) {
+      if (!this.gameLoader.maybeCancelLoading(gameId, ctx.session!.userName)) {
         throw new httpErrors.NotFound('game not found')
       }
     } else {

@@ -1,11 +1,12 @@
 import { List, Map as IMap, Record, Set } from 'immutable'
-import { container } from 'tsyringe'
+import { Counter, Histogram, linearBuckets } from 'prom-client'
+import { container, singleton } from 'tsyringe'
 import CancelToken, { MultiCancelToken } from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import rejectOnTimeout from '../../../common/async/reject-on-timeout'
 import { USE_STATIC_TURNRATE } from '../../../common/flags'
 import { GameRoute } from '../../../common/game-launch-config'
-import { GameConfig } from '../../../common/games/configuration'
+import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GameRouteDebugInfo } from '../../../common/games/games'
 import { Slot } from '../../../common/lobbies/slot'
 import { BwTurnRate, BwUserLatency, turnRateToMaxLatency } from '../../../common/network'
@@ -96,6 +97,7 @@ function createRoutes(players: Set<Slot>): Promise<RouteResult[]> {
 }
 
 const createLoadingData = Record({
+  gameSource: GameSource.Lobby,
   players: Set<Slot>(),
   finishedPlayers: Set<string>(),
   cancelToken: null as unknown as CancelToken,
@@ -148,9 +150,34 @@ export interface GameLoadRequest {
   onRoutesSet?: OnRoutesSetFunc
 }
 
+@singleton()
 export class GameLoader {
   // Maps game id -> loading data
   private loadingGames = IMap<string, LoadingData>()
+
+  private gameLoadRequestsTotalMetric = new Counter({
+    name: 'shieldbattery_game_loader_requests_total',
+    labelNames: ['game_source'],
+    help: 'Total number of game load requests',
+  })
+  private gameLoadFailuresTotalMetric = new Counter({
+    name: 'shieldbattery_game_loader_failures_total',
+    // TODO(tec27): Add failure types?
+    labelNames: ['game_source'],
+    help: 'Total number of game load requests that failed',
+  })
+  private gameLoadSuccessesTotalMetric = new Counter({
+    name: 'shieldbattery_game_loader_successes_total',
+    labelNames: ['game_source'],
+    help: 'Total number of game load requests that succeeded',
+  })
+  private maxEstimatedLatencyMetric = new Histogram({
+    name: 'shieldbattery_game_loader_max_estimated_latency_seconds',
+    labelNames: ['game_source'],
+    help: 'Maximum latency between a pair of peers in a game in seconds',
+    buckets: linearBuckets(0.01, 0.03, 12),
+  })
+  // TODO(tec27): Add a metric for the chosen turn rate if we turn the static turnrate feature on
 
   /**
    * Starts the process of loading a new game.
@@ -161,12 +188,15 @@ export class GameLoader {
   loadGame({ players, mapId, gameConfig, cancelToken, onGameSetup, onRoutesSet }: GameLoadRequest) {
     const gameLoaded = createDeferred<void>()
 
+    this.gameLoadRequestsTotalMetric.labels(gameConfig.gameSource).inc()
+
     registerGame(mapId, gameConfig)
       .then(({ gameId, resultCodes }) => {
         const loadingCancelToken = new MultiCancelToken(cancelToken)
         this.loadingGames = this.loadingGames.set(
           gameId,
           createLoadingData({
+            gameSource: gameConfig.gameSource,
             players: Set(players),
             cancelToken: loadingCancelToken,
             deferred: gameLoaded,
@@ -186,6 +216,10 @@ export class GameLoader {
         // can't cancel it that way
         gameLoaded.reject(new Error("Couldn't register game with database"))
       })
+
+    gameLoaded.catch(() => {
+      this.gameLoadFailuresTotalMetric.labels(gameConfig.gameSource).inc()
+    })
 
     return gameLoaded
   }
@@ -210,6 +244,8 @@ export class GameLoader {
       this.loadingGames = this.loadingGames.delete(gameId)
       loadingData.deferred.resolve()
     }
+
+    this.gameLoadSuccessesTotalMetric.labels(loadingData.gameSource).inc()
 
     return true
   }
@@ -292,20 +328,24 @@ export class GameLoader {
     cancelToken.throwIfCancelling()
 
     let chosenTurnRate: BwTurnRate | undefined
+    let maxEstimatedLatency = 0
+    for (const route of routes) {
+      if (route.estimatedLatency > maxEstimatedLatency) {
+        maxEstimatedLatency = route.estimatedLatency
+      }
+    }
 
     if (USE_STATIC_TURNRATE) {
-      let maxEstimatedLatency = 0
-      for (const route of routes) {
-        if (route.estimatedLatency > maxEstimatedLatency) {
-          maxEstimatedLatency = route.estimatedLatency
-        }
-      }
       const availableTurnRates = MAX_LATENCIES.filter(
         ([_, latency]) => latency > maxEstimatedLatency,
       )
       // Of the turn rates that work for this latency, pick the best one
       chosenTurnRate = availableTurnRates.length ? availableTurnRates.at(-1)![0] : 12
     }
+
+    this.maxEstimatedLatencyMetric
+      .labels(loadingData.gameSource)
+      .observe(maxEstimatedLatency / 1000)
 
     const onGameSetupResult = onGameSetup
       ? onGameSetup({ gameId, seed: generateSeed(), turnRate: chosenTurnRate }, resultCodes)
@@ -355,5 +395,3 @@ export class GameLoader {
     cancelToken.throwIfCancelling()
   }
 }
-
-export default new GameLoader()

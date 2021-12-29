@@ -36,7 +36,7 @@ import { randomInt, randomItem } from '../../../common/random'
 import { subtract } from '../../../common/sets'
 import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/sb-user'
-import gameLoader, { GameLoaderError } from '../games/game-loader'
+import { GameLoader, GameLoaderError } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
 import { getMapInfo } from '../maps/map-models'
@@ -496,6 +496,7 @@ export class MatchmakingService {
     private clientSocketsManager: ClientSocketsManager,
     private matchmakingStatus: MatchmakingStatusService,
     private activityRegistry: GameplayActivityRegistry,
+    private gameLoader: GameLoader,
     @inject(IN_PARTY_CHECKER) private inPartyChecker: InPartyChecker,
   ) {
     this.matchmakers = new Map(
@@ -998,7 +999,7 @@ export class MatchmakingService {
     }
 
     const loadCancelToken = new CancelToken()
-    const gameLoaded = gameLoader.loadGame({
+    const gameLoaded = this.gameLoader.loadGame({
       players: slots,
       mapId: chosenMap.id,
       gameConfig,
