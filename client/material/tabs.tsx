@@ -85,13 +85,13 @@ export const TabItem = React.memo(
         }
       }, [disabled, value, onSelected])
       const [buttonProps, rippleRef] = useButtonState({
+        ref,
         disabled,
         onClick,
       })
 
       return (
         <TabItemContainer
-          ref={ref}
           className={className}
           $isActiveTab={active ?? false}
           title={text}

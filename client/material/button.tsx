@@ -36,7 +36,7 @@ export interface HotkeyProp {
 }
 
 export interface ButtonStateProps {
-  ref: React.ForwardedRef<HTMLButtonElement>
+  ref?: React.ForwardedRef<HTMLButtonElement>
   disabled?: boolean
   hotkey?: HotkeyProp
   onBlur?: (event: React.FocusEvent) => void
