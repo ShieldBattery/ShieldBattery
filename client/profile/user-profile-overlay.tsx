@@ -9,6 +9,7 @@ import {
 import { SbUserId } from '../../common/users/sb-user'
 import { UserStats } from '../../common/users/user-stats'
 import { ConnectedAvatar } from '../avatars/avatar'
+import { longTimestamp } from '../i18n/date-formats'
 import { Popover, PopoverProps } from '../material/popover'
 import { shadow2dp } from '../material/shadows'
 import { LoadingDotsArea } from '../progress/dots'
@@ -235,7 +236,9 @@ function OverlayContents({ userId, onDismiss }: { userId: SbUserId; onDismiss: (
         <>
           <div>
             <SectionHeader>Info</SectionHeader>
-            <Body1>Joined {joinDateFormat.format(profile.created)}</Body1>
+            <Body1 title={longTimestamp.format(profile.created)}>
+              Joined {joinDateFormat.format(profile.created)}
+            </Body1>
           </div>
 
           <div>
