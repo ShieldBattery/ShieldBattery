@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react'
 import styled, { css, keyframes } from 'styled-components'
-import KeyListener from '../keyboard/key-listener'
-import { useButtonState, useHotkeyHandler } from '../material/button'
+import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
 import { blue50, colorTextFaint, colorTextSecondary } from '../styles/colors'
@@ -128,11 +127,11 @@ export const ActivityButton = React.memo(
   React.forwardRef<HTMLButtonElement, ActivityButtonProps>(
     ({ label, icon, disabled, glowing, count, onClick, hotkey }, ref) => {
       const [buttonProps, rippleRef] = useButtonState({
+        ref,
         disabled,
+        hotkey,
         onClick,
       })
-      const [setRefs, hotkeyHandler] = useHotkeyHandler({ ref, disabled, hotkey })
-
       const labelElems = useMemo(() => {
         if (disabled || !hotkey) {
           return label
@@ -154,8 +153,7 @@ export const ActivityButton = React.memo(
       }, [disabled, hotkey, label])
 
       return (
-        <Container ref={setRefs} {...buttonProps}>
-          {hotkey ? <KeyListener onKeyDown={hotkeyHandler} /> : null}
+        <Container {...buttonProps}>
           {count !== undefined ? <Count>{count}</Count> : null}
           <IconContainer glowing={glowing}>
             {glowing ? icon : null}
