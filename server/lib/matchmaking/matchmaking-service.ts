@@ -1,5 +1,6 @@
 import cuid from 'cuid'
 import { Immutable } from 'immer'
+import { Counter, exponentialBuckets, Histogram } from 'prom-client'
 import { container, inject, singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../../common/assert-unreachable'
@@ -47,6 +48,7 @@ import {
 } from '../matchmaking/matchmaker'
 import {
   getMatchmakingEntityId,
+  getNumPlayersInEntity,
   getPlayersFromEntity,
   MatchmakingEntity,
   MatchmakingParty,
@@ -316,8 +318,17 @@ export class MatchmakingService {
               completionTime,
             }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
           }
+          this.matchSearchTimeMetric
+            .labels(
+              matchInfo.type,
+              String(getNumPlayersInEntity(entity)),
+              MatchmakingCompletionType.Found,
+            )
+            .observe((entity.searchIterations * MATCHMAKING_INTERVAL_MS) / 1000)
         }
       }
+
+      this.matchesFoundMetric.labels(matchInfo.type).inc()
 
       this.runMatch(matchInfo.id).catch(swallowNonBuiltins)
     },
@@ -457,6 +468,28 @@ export class MatchmakingService {
   // Maps user ID -> Timers
   private clientTimers = new Map<SbUserId, Timers>()
 
+  private matchesRequestedMetric = new Counter({
+    name: 'shieldbattery_matchmaker_matches_requested_total',
+    labelNames: ['matchmaking_type', 'party_size'],
+    help: 'Total number of matches requested',
+  })
+  private matchesFoundMetric = new Counter({
+    name: 'shieldbattery_matchmaker_matches_found_total',
+    labelNames: ['matchmaking_type'],
+    help: 'Total number of matches found',
+  })
+  private matchRequestsCanceledMetric = new Counter({
+    name: 'shieldbattery_matchmaker_match_requests_canceled_total',
+    labelNames: ['matchmaking_type', 'party_size'],
+    help: 'Total number of cancellations of match requests',
+  })
+  private matchSearchTimeMetric = new Histogram({
+    name: 'shieldbattery_matchmaker_completion_seconds',
+    labelNames: ['matchmaking_type', 'party_size', 'completion_type'],
+    help: 'Duration of a matchmaking search in seconds',
+    buckets: exponentialBuckets(1, 1.75, 20),
+  })
+
   constructor(
     private publisher: TypedPublisher<ReadonlyDeep<MatchmakingEvent>>,
     private userSocketsManager: UserSocketsManager,
@@ -470,7 +503,7 @@ export class MatchmakingService {
         type,
         container
           .resolve(Matchmaker)
-          .setTeamSize(TEAM_SIZES[type])
+          .setMatchmakingType(type)
           .setOnMatchFound(this.matchmakerDelegate.onMatchFound),
       ]),
     )
@@ -567,6 +600,7 @@ export class MatchmakingService {
     })
 
     this.subscribeUserToQueueUpdates(userSockets, clientSockets, type, race)
+    this.matchesRequestedMetric.labels(type, '1').inc()
   }
 
   /**
@@ -682,6 +716,7 @@ export class MatchmakingService {
       })
       this.subscribeUserToQueueUpdates(userSockets, clientSockets, type, users.get(userId)!.race)
     }
+    this.matchesRequestedMetric.labels(type, String(users.size)).inc()
   }
 
   async cancel(userId: SbUserId): Promise<void> {
@@ -1030,6 +1065,17 @@ export class MatchmakingService {
             completionTime: new Date(),
           }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
         }
+
+        this.matchSearchTimeMetric
+          .labels(
+            entry.type,
+            String(getNumPlayersInEntity(entity)),
+            isDisconnect ? MatchmakingCompletionType.Disconnect : MatchmakingCompletionType.Cancel,
+          )
+          .observe((entity.searchIterations * MATCHMAKING_INTERVAL_MS) / 1000)
+        this.matchRequestsCanceledMetric
+          .labels(entry.type, String(getNumPlayersInEntity(entity)))
+          .inc()
       }
 
       if (entry.matchId) {

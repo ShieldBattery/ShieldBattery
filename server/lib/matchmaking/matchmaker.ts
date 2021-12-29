@@ -1,6 +1,8 @@
 import { OrderedMap } from 'immutable'
 import IntervalTree from 'node-interval-tree'
+import { Gauge } from 'prom-client'
 import { injectable } from 'tsyringe'
+import { MatchmakingType, TEAM_SIZES } from '../../../common/matchmaking'
 import { multipleRandomItems, randomItem } from '../../../common/random'
 import { range } from '../../../common/range'
 import { ExponentialSmoothValue } from '../../../common/statistics/exponential-smoothing'
@@ -351,6 +353,8 @@ type MatchChooser = (
 
 @injectable()
 export class Matchmaker {
+  static queueSizeMetric: Gauge<'matchmaking_type'> | undefined
+
   protected tree = new IntervalTree<QueuedMatchmakingEntity>()
   protected entities = OrderedMap<SbUserId, QueuedMatchmakingEntity>()
 
@@ -363,6 +367,7 @@ export class Matchmaker {
   )
   private populationInterval = 0
 
+  private matchmakingType = MatchmakingType.Match1v1
   /**
    * How many players will be on each team for a complete match. Note that this assumes we only
    * have modes with 2 teams total, and would need to be adjusted for more.
@@ -374,6 +379,14 @@ export class Matchmaker {
   private matchChooser: MatchChooser = DEFAULT_MATCH_CHOOSER
 
   constructor(private scheduler: LazyScheduler) {
+    if (!Matchmaker.queueSizeMetric) {
+      Matchmaker.queueSizeMetric = new Gauge({
+        name: 'shieldbattery_matchmaker_queue_size',
+        labelNames: ['matchmaking_type'],
+        help: 'Current number of players in the matchmaking queue',
+      })
+    }
+
     scheduler.setDelay(MATCHMAKING_INTERVAL_MS)
     scheduler.setErrorHandler(err => {
       logger.error({ err }, 'error in scheduled matchmaking handler')
@@ -406,8 +419,9 @@ export class Matchmaker {
     })
   }
 
-  setTeamSize(teamSize: number): this {
-    this.teamSize = teamSize
+  setMatchmakingType(matchmakingType: MatchmakingType): this {
+    this.matchmakingType = matchmakingType
+    this.teamSize = TEAM_SIZES[matchmakingType]
     return this
   }
 
@@ -439,7 +453,9 @@ export class Matchmaker {
       this.entities = this.entities.set(id, queuedEntity)
 
       const popBucket = getPopulationBucket(getRatingFromEntity(queuedEntity))
-      const newPop = this.populationCurrent[popBucket] + getNumPlayersInEntity(queuedEntity)
+      const numPlayers = getNumPlayersInEntity(queuedEntity)
+      Matchmaker.queueSizeMetric?.labels(this.matchmakingType).inc(numPlayers)
+      const newPop = this.populationCurrent[popBucket] + numPlayers
       this.populationCurrent[popBucket] = newPop
       if (newPop > this.populationPeak[popBucket]) {
         this.populationPeak[popBucket] = newPop
@@ -494,7 +510,9 @@ export class Matchmaker {
    */
   private onEntityRemoved(entity: QueuedMatchmakingEntity) {
     const popBucket = getPopulationBucket(getRatingFromEntity(entity))
-    this.populationCurrent[popBucket] -= getNumPlayersInEntity(entity)
+    const numPlayers = getNumPlayersInEntity(entity)
+    Matchmaker.queueSizeMetric?.labels(this.matchmakingType).dec(numPlayers)
+    this.populationCurrent[popBucket] -= numPlayers
     // This can never produce a new peak, so no need to update that
   }
 
