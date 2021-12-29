@@ -49,7 +49,7 @@ export function prometheusHttpMetrics() {
     labelNames: ['method', 'code'],
     name: 'http_server_requests_seconds',
     help: 'Duration of HTTP requests in seconds',
-    buckets: promClient.exponentialBuckets(0.05, 1.3, 20),
+    buckets: promClient.exponentialBuckets(0.025, 1.3, 20),
   })
 
   const httpRequestSizeBytes = new promClient.Summary({

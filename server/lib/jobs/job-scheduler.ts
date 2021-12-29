@@ -1,3 +1,4 @@
+import { exponentialBuckets, Histogram } from 'prom-client'
 import { singleton } from 'tsyringe'
 import logger from '../logging/logger'
 import { monotonicNow } from '../time/monotonic-now'
@@ -20,6 +21,12 @@ interface JobInfo {
 @singleton()
 export class JobScheduler {
   private jobs = new Map<string, JobInfo>()
+  private runtimeMetric = new Histogram({
+    labelNames: ['jobId'],
+    name: 'shieldbattery_job_runtime_seconds',
+    help: 'Duration of job runtime in seconds',
+    buckets: exponentialBuckets(0.01, 1.4, 20),
+  })
 
   /**
    * Schedules a job to run. If a job has already been scheduled with that ID, it will be replaced
@@ -76,12 +83,11 @@ export class JobScheduler {
       this.unscheduleJob(jobId)
     }
 
-    logger.info(`Running job ${jobId}`)
     const startTime = monotonicNow()
     job.jobFn().then(
       () => {
         const completionTime = monotonicNow()
-        logger.info(`Job ${jobId} completed in ${completionTime - startTime}ms`)
+        this.runtimeMetric.labels(jobId).observe((completionTime - startTime) / 1000)
       },
       err => {
         logger.error(`Error while running ${jobId}: ${err.message}\n${err.stack ?? err}`)
