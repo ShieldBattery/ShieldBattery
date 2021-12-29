@@ -1,9 +1,10 @@
 import { Immutable } from 'immer'
 import { List, Record } from 'immutable'
 import { MapInfoJson } from '../../common/maps'
-import { MatchmakingType } from '../../common/matchmaking'
+import { MatchmakingServiceErrorCode, MatchmakingType } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { NETWORK_SITE_CONNECTED } from '../actions'
+import { isFetchError } from '../network/fetch-errors'
 import { keyedReducer } from '../reducers/keyed-reducer'
 
 export interface MatchmakingSearchInfo {
@@ -62,8 +63,19 @@ export default keyedReducer(new MatchmakingState(), {
   },
 
   ['@matchmaking/cancelMatch'](state, action) {
-    // TODO(tec27): handle errors, which might indicate you're currently still in the queue
-    return new MatchmakingState()
+    if (action.error) {
+      if (isFetchError(action.payload)) {
+        if (action.payload.code !== MatchmakingServiceErrorCode.MatchAlreadyStarting) {
+          return new MatchmakingState()
+        }
+      }
+
+      // non-FetchError indicates a server or connection error, leave the state as it was
+      return state
+    } else {
+      // Success, matchmaking was canceled
+      return new MatchmakingState()
+    }
   },
 
   ['@matchmaking/startSearch'](

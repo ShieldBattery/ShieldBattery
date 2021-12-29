@@ -691,6 +691,11 @@ export class MatchmakingService {
         MatchmakingServiceErrorCode.NotInQueue,
         'User does not have an active matchmaking queue',
       )
+    } else if (this.queueEntries.get(userId)?.matchId) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.MatchAlreadyStarting,
+        'Match is already starting and cannot be canceled',
+      )
     }
 
     this.removeClientFromMatchmaking(clientSockets, false)

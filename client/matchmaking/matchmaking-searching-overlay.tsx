@@ -108,6 +108,7 @@ export function MatchmakingSearchingOverlay({
   onDismiss,
 }: MatchmakingSearchingOverlayProps) {
   const searchInfo = useAppSelector(s => s.matchmaking.searchInfo)
+  const isMatched = useAppSelector(s => Boolean(s.matchmaking.match))
 
   if (!searchInfo) {
     return null
@@ -158,7 +159,7 @@ export function MatchmakingSearchingOverlay({
                   <StyledElapsedTime startTimeMs={searchInfo.startTime} />
                 </InfoItem>
               </InfoContainer>
-              <RaisedButton label='Cancel search' onClick={onCancelSearch} />
+              <RaisedButton label='Cancel search' onClick={onCancelSearch} disabled={isMatched} />
             </Contents>
           </CSSTransition>
         )

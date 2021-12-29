@@ -41,6 +41,7 @@ function convertMatchmakingServiceError(err: unknown) {
     case MatchmakingServiceErrorCode.NoActiveMatch:
     case MatchmakingServiceErrorCode.GameplayConflict:
     case MatchmakingServiceErrorCode.InParty:
+    case MatchmakingServiceErrorCode.MatchAlreadyStarting:
       throw asHttpError(409, err)
     default:
       assertUnreachable(err.code)

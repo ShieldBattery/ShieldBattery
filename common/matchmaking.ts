@@ -393,6 +393,7 @@ export enum MatchmakingServiceErrorCode {
   InvalidClient = 'invalidClient',
   InvalidMapPool = 'invalidMapPool',
   InvalidMaps = 'invalidMaps',
+  MatchAlreadyStarting = 'matchAlreadyStarting',
   MatchmakingDisabled = 'matchmakingDisabled',
   NotInQueue = 'notInQueue',
   NoActiveMatch = 'noActiveMatch',
