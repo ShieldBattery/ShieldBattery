@@ -3,7 +3,7 @@ import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
 import { Readable } from 'stream'
-import { container, singleton } from 'tsyringe'
+import { container, inject, singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { GameStatus } from '../../../common/game-status'
 import { GetGameResponse, toGameRecordJson } from '../../../common/games/games'
@@ -19,6 +19,7 @@ import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPost, httpPut } from '../http/route-decorators'
 import logger from '../logging/logger'
 import { getMapInfo } from '../maps/map-models'
+import { UpsertUserIp } from '../network/user-ips-type'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
@@ -126,7 +127,10 @@ async function convertServiceErrors(ctx: RouterContext, next: Koa.Next) {
 @httpApi('/games')
 @httpBeforeAll(convertServiceErrors)
 export class GameApi {
-  constructor(private gameResultService: GameResultService) {}
+  constructor(
+    private gameResultService: GameResultService,
+    @inject('upsertUserIp') private upsertUserIp: UpsertUserIp,
+  ) {}
 
   @httpGet('/:gameId')
   @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.userId)))
@@ -259,6 +263,10 @@ export class GameApi {
       playerResults,
       logger: ctx.log,
     })
+
+    // If it was successful, record this user's IP for that account, since the normal middleware
+    // to do so won't have run
+    this.upsertUserIp(userId, ctx.ip)
 
     ctx.status = 204
   }
