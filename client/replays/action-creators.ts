@@ -15,9 +15,14 @@ import { makeServerUrl } from '../network/server-url'
 
 const ipcRenderer = new TypedIpcRenderer()
 
+// TODO(tec27): Move this to an IPC call
 // TODO(tec27): Tighten up the types in here once the dependencies and actions have been migrated
 // to TS
-function getReplayHeader(filePath: string): Promise<any> {
+async function getReplayHeader(filePath: string): Promise<any> {
+  if (!IS_ELECTRON) {
+    return undefined
+  }
+
   return new Promise((resolve, reject) => {
     const fileStream = fs.createReadStream(filePath)
     fileStream.on('error', reject)

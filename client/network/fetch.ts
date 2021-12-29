@@ -1,4 +1,3 @@
-import { Readable } from 'stream'
 import 'whatwg-fetch'
 import { FetchError } from './fetch-errors'
 import { makeServerUrl } from './server-url'
@@ -66,65 +65,6 @@ export async function fetchJson<T>(path: string, opts?: RequestInit): Promise<T>
   const res = await ensureSuccessStatus(await fetchRaw(path, opts))
   const text = await res.text()
   return parseResponseJson(text)
-}
-
-type StreamReader = ReturnType<typeof ReadableStream.prototype.getReader>
-
-// Wraps the whatwg ReadableStream to be a Node ReadableStream
-class BrowserReadableStreamWrapper extends Readable {
-  private readerPromise: Promise<StreamReader>
-  private reading = false
-
-  constructor(fetchPromise: Promise<Response>) {
-    super()
-    this.readerPromise = fetchPromise.then(res => res.body!.getReader())
-
-    fetchPromise.catch(this.emitError)
-  }
-
-  override _read() {
-    if (this.reading) {
-      return
-    }
-
-    this.reading = true
-    this.doRead()
-  }
-
-  private doRead() {
-    this.readerPromise
-      .then(reader => reader.read())
-      .then(({ value, done }) => {
-        if (done) {
-          this.push(null)
-          this.reading = false
-          return
-        }
-
-        const keepGoing = this.push(Buffer.from(value.buffer))
-        if (keepGoing) {
-          this.doRead()
-        } else {
-          this.reading = false
-        }
-      }, this.emitError)
-  }
-
-  private emitError = (err: Error) => {
-    this.emit('error', err)
-  }
-}
-
-// Returns a Node ReadableStream for data from the response of the request. This should only be used
-// in Electron, as the necessary fetch API is not supported in all browsers we support yet (and not
-// polyfilled with our polyfill)
-export function fetchReadableStream(path: string, opts?: RequestInit) {
-  if (!IS_ELECTRON) {
-    throw new Error('Reading a stream is not supported in browsers yet')
-  }
-
-  const fetchPromise = fetchRaw(path, opts).then(ensureSuccessStatus)
-  return new BrowserReadableStreamWrapper(fetchPromise)
 }
 
 type SearchParamsValues = string | number | boolean | null | undefined | Date

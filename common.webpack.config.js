@@ -119,9 +119,6 @@ export default function ({
     alias: {
       'react-dom': '@hot-loader/react-dom',
     },
-    fallback: {
-      stream: require.resolve('stream-browserify'),
-    },
   }
 
   if (!isProd) {
