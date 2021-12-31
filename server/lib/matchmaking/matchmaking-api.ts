@@ -2,7 +2,7 @@ import { RouterContext } from '@koa/router'
 import Joi from 'joi'
 import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { MatchmakingPreferences, MatchmakingServiceErrorCode } from '../../../common/matchmaking'
+import { FindMatchRequest, MatchmakingServiceErrorCode } from '../../../common/matchmaking'
 import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpPost } from '../http/route-decorators'
@@ -10,6 +10,8 @@ import ensureLoggedIn from '../session/ensure-logged-in'
 import { updateAllSessionsForCurrentUser } from '../session/update-all-sessions'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
+import { joiClientIdentifiers } from '../users/client-ids'
+import { UserIdentifierManager } from '../users/user-identifier-manager'
 import { validateRequest } from '../validation/joi-validator'
 import { MatchmakingService } from './matchmaking-service'
 import { MatchmakingServiceError } from './matchmaking-service-error'
@@ -59,19 +61,24 @@ async function convertMatchmakingServiceErrors(ctx: RouterContext, next: Koa.Nex
 @httpApi('/matchmaking')
 @httpBeforeAll(ensureLoggedIn, convertMatchmakingServiceErrors)
 export class MatchmakingApi {
-  constructor(private matchmakingService: MatchmakingService) {}
+  constructor(
+    private matchmakingService: MatchmakingService,
+    private userIdManager: UserIdentifierManager,
+  ) {}
 
   @httpPost('/find')
   @httpBefore(throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.userId)))
   async findMatch(ctx: RouterContext): Promise<void> {
     const { body } = validateRequest(ctx, {
-      body: Joi.object<{ clientId: string; preferences: MatchmakingPreferences }>({
+      body: Joi.object<FindMatchRequest>({
         clientId: Joi.string().required(),
         preferences: matchmakingPreferencesValidator(ctx.session!.userId).required(),
+        identifiers: joiClientIdentifiers().required(),
       }),
     })
-    const { clientId, preferences } = body
+    const { clientId, preferences, identifiers } = body
 
+    await this.userIdManager.upsert(ctx.session!.userId, identifiers)
     await this.matchmakingService.find(ctx.session!.userId, clientId, preferences)
 
     // Save the last queued matchmaking type on the user's session

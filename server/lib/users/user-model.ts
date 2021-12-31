@@ -16,7 +16,7 @@ import db, { DbClient } from '../db'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { createPermissions } from '../models/permissions'
-import { UserIdentifierManager } from './user-identifier-upserter'
+import { UserIdentifierManager } from './user-identifier-manager'
 import { createUserStats } from './user-stats-model'
 
 /**

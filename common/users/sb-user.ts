@@ -61,11 +61,15 @@ export function toUserProfileJson(userProfile: UserProfile): UserProfileJson {
   }
 }
 
-// TODO(tec27): Add more error codes for the various failures
+// TODO(tec27): Finish adding codes from remaining user APIs
 export enum UserErrorCode {
   NotFound = 'notFound',
   NotAllowedOnSelf = 'notAllowedOnSelf',
   InvalidCode = 'invalidCode',
+  InvalidCredentials = 'invalidCredentials',
+  AccountBanned = 'accountBanned',
+  SessionExpired = 'sessionExpired',
+  UsernameTaken = 'usernameTaken',
 }
 
 /** Information returned for /users/:id/profile, intended to be able to fill out a profile page. */

@@ -25,6 +25,8 @@ import { matchmakingPreferencesValidator } from '../matchmaking/matchmaking-vali
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
+import { joiClientIdentifiers } from '../users/client-ids'
+import { UserIdentifierManager } from '../users/user-identifier-manager'
 import { findUserById, findUserByName } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
 import PartyService, { PartyServiceError } from './party-service'
@@ -85,7 +87,7 @@ async function convertPartyServiceErrors(ctx: RouterContext, next: Koa.Next) {
 @httpApi('/parties')
 @httpBeforeAll(featureEnabled(PARTIES), ensureLoggedIn, convertPartyServiceErrors)
 export class PartyApi {
-  constructor(private partyService: PartyService) {}
+  constructor(private partyService: PartyService, private userIdManager: UserIdentifierManager) {}
 
   @httpPost('/invites')
   @httpBefore(throttleMiddleware(invitesThrottle, ctx => String(ctx.session!.userId)))
@@ -284,16 +286,18 @@ export class PartyApi {
   async findMatch(ctx: RouterContext): Promise<void> {
     const {
       params: { partyId },
-      body: { preferences },
+      body: { preferences, identifiers },
     } = validateRequest(ctx, {
       params: Joi.object<{ partyId: string }>({
         partyId: Joi.string().required(),
       }),
       body: Joi.object<FindMatchAsPartyRequest>({
         preferences: matchmakingPreferencesValidator(ctx.session!.userId).required(),
+        identifiers: joiClientIdentifiers().required(),
       }),
     })
 
+    await this.userIdManager.upsert(ctx.session!.userId, identifiers)
     await this.partyService.findMatch(partyId, ctx.session!.userId, preferences)
   }
 
@@ -302,7 +306,7 @@ export class PartyApi {
   async acceptFindMatch(ctx: RouterContext): Promise<void> {
     const {
       params: { partyId, queueId },
-      body: { race },
+      body: { race, identifiers },
     } = validateRequest(ctx, {
       params: Joi.object<{ partyId: string; queueId: string }>({
         partyId: Joi.string().required(),
@@ -310,9 +314,11 @@ export class PartyApi {
       }),
       body: Joi.object<AcceptFindMatchAsPartyRequest>({
         race: Joi.string().valid('p', 'r', 't', 'z').required(),
+        identifiers: joiClientIdentifiers().required(),
       }),
     })
 
+    await this.userIdManager.upsert(ctx.session!.userId, identifiers)
     this.partyService.acceptFindMatch(partyId, queueId, ctx.session!.userId, race)
   }
 

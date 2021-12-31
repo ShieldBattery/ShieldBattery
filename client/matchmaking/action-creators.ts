@@ -3,6 +3,7 @@ import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
   defaultPreferences,
+  FindMatchRequest,
   GetMatchmakingMapPoolBody,
   GetPreferencesResponse,
   MatchmakingPreferences,
@@ -45,9 +46,19 @@ export function findMatch<M extends MatchmakingType>(
             preferences?.mapPoolId ?? mapPoolByType.get(matchmakingType)?.id ?? 1,
           )
 
-    const findPromise = fetchJson<void>(apiUrl`matchmaking/find`, {
-      method: 'POST',
-      body: JSON.stringify({ clientId, preferences: prefs }),
+    const findPromise = Promise.resolve().then(async () => {
+      const identifiers = (await ipcRenderer.invoke('securityGetClientIds')) ?? []
+
+      const body: FindMatchRequest = {
+        clientId,
+        preferences: prefs as any,
+        identifiers,
+      }
+
+      return fetchJson<void>(apiUrl`matchmaking/find`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
     })
 
     findPromise.catch(err => {

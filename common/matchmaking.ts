@@ -400,3 +400,9 @@ export enum MatchmakingServiceErrorCode {
   TooManyPlayers = 'tooManyPlayers',
   UserOffline = 'userOffline',
 }
+
+export interface FindMatchRequest {
+  clientId: string
+  preferences: MatchmakingPreferences
+  identifiers: [type: number, hashStr: string][]
+}

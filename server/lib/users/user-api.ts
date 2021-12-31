@@ -44,8 +44,6 @@ import {
 import { ClientSessionInfo } from '../../../common/users/session'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
-import { CodedError, makeErrorConverterMiddleware } from '../errors/coded-error'
-import { asHttpError } from '../errors/error-with-payload'
 import { getRecentGamesForUser } from '../games/game-models'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators'
@@ -70,6 +68,8 @@ import { validateRequest } from '../validation/joi-validator'
 import { UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { banUser, retrieveBanHistory } from './ban-models'
+import { joiClientIdentifiers } from './client-ids'
+import { convertUserApiErrors, UserApiError } from './user-api-errors'
 import { retrieveIpsForUser, retrieveRelatedUsersForIps } from './user-ips'
 import {
   attemptLogin,
@@ -120,26 +120,6 @@ function hashPass(password: string): Promise<string> {
   return bcrypt.hash(password, 10 /* saltRounds */)
 }
 
-class UserApiError extends CodedError<UserErrorCode> {}
-
-const convertUserApiErrors = makeErrorConverterMiddleware(err => {
-  if (!(err instanceof UserApiError)) {
-    throw err
-  }
-
-  switch (err.code) {
-    case UserErrorCode.NotFound:
-      throw asHttpError(404, err)
-    case UserErrorCode.NotAllowedOnSelf:
-      throw asHttpError(409, err)
-    case UserErrorCode.InvalidCode:
-      throw asHttpError(410, err)
-
-    default:
-      assertUnreachable(err.code)
-  }
-})
-
 function sendVerificationEmail({
   email,
   code,
@@ -188,15 +168,7 @@ export class UserApi {
           .pattern(EMAIL_PATTERN)
           .trim()
           .required(),
-        clientIds: Joi.array()
-          .items(
-            Joi.array().ordered(
-              Joi.number().min(0).max(6).required(),
-              Joi.string().min(0).max(64).required(),
-            ),
-          )
-          .min(1)
-          .required(),
+        clientIds: joiClientIdentifiers().required(),
       }),
     })
 
@@ -215,7 +187,7 @@ export class UserApi {
       })
     } catch (err: any) {
       if (err.code && err.code === UNIQUE_VIOLATION) {
-        throw new httpErrors.Conflict('A user with that name already exists')
+        throw new UserApiError(UserErrorCode.UsernameTaken, 'A user with that name already exists')
       }
       throw err
     }

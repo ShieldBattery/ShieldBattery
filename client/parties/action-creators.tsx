@@ -1,5 +1,6 @@
 import { Immutable } from 'immer'
 import React from 'react'
+import { TypedIpcRenderer } from '../../common/ipc'
 import {
   defaultPreferences,
   MatchmakingPreferences,
@@ -32,6 +33,8 @@ import { isFetchError } from '../network/fetch-errors'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { ActivateParty, DeactivateParty } from './actions'
 import { AlreadySearchingErrorContent } from './find-match-error-content'
+
+const ipcRenderer = new TypedIpcRenderer()
 
 export function inviteToParty(
   target: { targetId: SbUserId } | { targetName: string },
@@ -265,13 +268,19 @@ export function findMatchAsParty(
             selfId,
             preferences?.mapPoolId ?? mapPoolByType.get(matchmakingType)?.id ?? 1,
           )
-    const body: FindMatchAsPartyRequest = {
-      preferences: prefs,
-    }
-    const promise = fetchJson<void>(apiUrl`parties/${partyId}/find-match`, {
-      method: 'POST',
-      body: JSON.stringify(body),
+
+    const promise = Promise.resolve().then(async () => {
+      const identifiers = (await ipcRenderer.invoke('securityGetClientIds')) ?? []
+      const body: FindMatchAsPartyRequest = {
+        preferences: prefs,
+        identifiers,
+      }
+      return fetchJson<void>(apiUrl`parties/${partyId}/find-match`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
     })
+
     promise.catch(err => {
       let dialogMessage: React.ReactNode = 'Something went wrong :('
 
@@ -322,7 +331,8 @@ export function acceptFindMatchAsParty(
   spec: RequestHandlingSpec,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const body: AcceptFindMatchAsPartyRequest = { race }
+    const identifiers = (await ipcRenderer.invoke('securityGetClientIds')) ?? []
+    const body: AcceptFindMatchAsPartyRequest = { race, identifiers }
 
     dispatch((_, getState) => {
       const {

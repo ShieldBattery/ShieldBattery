@@ -151,10 +151,12 @@ export interface ChangePartyLeaderRequest {
 
 export interface FindMatchAsPartyRequest {
   preferences: Immutable<MatchmakingPreferences>
+  identifiers: [type: number, hashStr: string][]
 }
 
 export interface AcceptFindMatchAsPartyRequest {
   race: RaceChar
+  identifiers: [type: number, hashStr: string][]
 }
 
 export type PartyQueueCancelReason =
