@@ -70,6 +70,7 @@ export enum UserErrorCode {
   AccountBanned = 'accountBanned',
   SessionExpired = 'sessionExpired',
   UsernameTaken = 'usernameTaken',
+  SuspiciousActivity = 'suspiciousActivity',
 }
 
 /** Information returned for /users/:id/profile, intended to be able to fill out a profile page. */

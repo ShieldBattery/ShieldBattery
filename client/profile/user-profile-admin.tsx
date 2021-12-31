@@ -344,8 +344,8 @@ function BanHistoryList({ banHistory }: { banHistory: ReadonlyDeep<BanHistoryEnt
       </thead>
       <tbody>
         {banHistory.length ? (
-          banHistory.map(b => (
-            <BanRow $expired={b.startTime <= Date.now() && b.endTime <= Date.now()}>
+          banHistory.map((b, i) => (
+            <BanRow key={i} $expired={b.startTime <= Date.now() && b.endTime <= Date.now()}>
               <td>{banDateFormat.format(b.startTime)}</td>
               <td>{banDateFormat.format(b.endTime)}</td>
               <td>

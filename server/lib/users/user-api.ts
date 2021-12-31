@@ -57,6 +57,7 @@ import {
 } from '../models/email-verifications'
 import { usePasswordResetCode } from '../models/password-resets'
 import { getPermissions, updatePermissions } from '../models/permissions'
+import { isElectronClient } from '../network/only-web-clients'
 import { checkAllPermissions, checkAnyPermission } from '../permissions/check-permissions'
 import { Redis } from '../redis'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -69,6 +70,7 @@ import { UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { banUser, retrieveBanHistory } from './ban-models'
 import { joiClientIdentifiers } from './client-ids'
+import { SuspiciousIpsService } from './suspicious-ips'
 import { convertUserApiErrors, UserApiError } from './user-api-errors'
 import { retrieveIpsForUser, retrieveRelatedUsersForIps } from './user-ips'
 import {
@@ -149,7 +151,10 @@ interface SignupRequestBody {
 @httpApi('/users')
 @httpBeforeAll(convertUserApiErrors)
 export class UserApi {
-  constructor(private publisher: TypedPublisher<AuthEvent>) {}
+  constructor(
+    private publisher: TypedPublisher<AuthEvent>,
+    private suspiciousIps: SuspiciousIpsService,
+  ) {}
 
   @httpPost('/')
   @httpBefore(throttleMiddleware(accountCreationThrottle, ctx => ctx.ip))
@@ -171,6 +176,15 @@ export class UserApi {
         clientIds: joiClientIdentifiers().required(),
       }),
     })
+
+    if (!isElectronClient(ctx)) {
+      if (await this.suspiciousIps.isIpSuspicious(ctx.ip)) {
+        throw new UserApiError(
+          UserErrorCode.SuspiciousActivity,
+          'Suspicious activity detected, creating accounts on the web is disabled',
+        )
+      }
+    }
 
     const { username, password, email, clientIds } = body
 
@@ -580,6 +594,7 @@ export class AdminUserApi {
     private userSocketsManager: UserSocketsManager,
     private redis: Redis,
     private publisher: TypedPublisher<AuthEvent>,
+    private suspiciousIps: SuspiciousIpsService,
   ) {}
 
   @httpGet('/:id/permissions')
@@ -696,7 +711,7 @@ export class AdminUserApi {
       throw new UserApiError(UserErrorCode.NotFound, 'user not found')
     }
 
-    const [ban, bannedBy] = await Promise.all([
+    const [ban, bannedBy, allIps] = await Promise.all([
       banUser({
         userId: params.id,
         bannedBy: ctx.session!.userId,
@@ -704,7 +719,12 @@ export class AdminUserApi {
         reason: body.reason,
       }),
       findUserById(ctx.session!.userId),
+      retrieveIpsForUser(params.id),
     ])
+
+    const bannedUntil = new Date()
+    bannedUntil.setHours(bannedUntil.getHours() + body.banLengthHours)
+    await this.suspiciousIps.markSuspicious(allIps, bannedUntil)
 
     // Delete all the active sessions and close any sockets they have open, so that they're forced
     // to log in again and we don't need to ban check on every operation

@@ -104,7 +104,9 @@ export class SessionApi {
       }
     }
 
-    user = user ?? (await attemptLogin(username, password))
+    if (!user) {
+      user = await attemptLogin(username, password)
+    }
 
     if (!user) {
       throw new UserApiError(UserErrorCode.InvalidCredentials, 'Incorrect username or password')
