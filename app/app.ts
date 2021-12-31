@@ -8,6 +8,7 @@ import path from 'path'
 import { Readable } from 'stream'
 import { container } from 'tsyringe'
 import { URL } from 'url'
+import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { TypedIpcMain, TypedIpcSender } from '../common/ipc'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import currentSession from './current-session'
@@ -17,6 +18,8 @@ import createGameServer, { GameServer } from './game/game-server'
 import { MapStore } from './game/map-store'
 import logger from './logger'
 import { RallyPointManager } from './rally-point/rally-point-manager'
+import './security/client'
+import { collect } from './security/client'
 import { LocalSettings, ScrSettings } from './settings'
 import SystemTray from './system-tray'
 import { getUserDataPath } from './user-data-path'
@@ -89,11 +92,22 @@ let gameServer: GameServer
 
 export const getMainWindow = () => mainWindow
 
+let cachedIds: [number, string][] = []
+let cachedIdPath: string | undefined
+
+async function cacheIdsIfNeeded(newPath?: string, force?: boolean) {
+  if (force || newPath !== cachedIdPath) {
+    cachedIds = await collect(msg => logger.error(msg), modelId, newPath)
+    cachedIdPath = newPath
+  }
+}
+
 async function createLocalSettings() {
   const sbSessionName = process.env.SB_SESSION
   const fileName = sbSessionName ? `settings-${sbSessionName}.json` : 'settings.json'
   const settings = new LocalSettings(path.join(getUserDataPath(), fileName))
   await settings.untilInitialized()
+  await cacheIdsIfNeeded((await settings.get()).starcraftPath, true /* force */)
   return settings
 }
 
@@ -278,7 +292,13 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
     return app.getPath('documents')
   })
 
+  ipcMain.handle('securityGetClientIds', async event => {
+    await cacheIdsIfNeeded((await localSettings.get()).starcraftPath)
+    return cachedIds
+  })
+
   ipcMain.handle('settingsCheckStarcraftPath', async (event, path) => {
+    cacheIdsIfNeeded(path).catch(swallowNonBuiltins)
     return checkStarcraftPath(path)
   })
 

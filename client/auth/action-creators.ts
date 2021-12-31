@@ -1,5 +1,6 @@
 import cuid from 'cuid'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
+import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
 import { SbUserId, SelfUser } from '../../common/users/sb-user'
 import { ClientSessionInfo } from '../../common/users/session'
@@ -8,6 +9,9 @@ import type { ThunkAction } from '../dispatch-registry'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { AccountUpdateSuccess, AuthChangeBegin } from './actions'
+import { getBrowserprint } from './browserprint'
+
+const typedIpc = new TypedIpcRenderer()
 
 type IdRequestable = Extract<
   Exclude<ReduxAction, { error: true }>,
@@ -55,17 +59,29 @@ function idRequest<
   return { id: reqId, action: thunk!, promise }
 }
 
+async function getExtraSessionData() {
+  let extraData: { clientIds: [number, string][] }
+  if (IS_ELECTRON) {
+    extraData = { clientIds: (await typedIpc.invoke('securityGetClientIds')) ?? [] }
+  } else {
+    extraData = { clientIds: [[0, await getBrowserprint()]] }
+  }
+
+  return extraData
+}
+
 export function logIn(username: string, password: string, remember: boolean) {
-  return idRequest('@auth/logIn', () =>
-    fetchJson<ClientSessionInfo>('/api/1/sessions', {
+  return idRequest('@auth/logIn', async () => {
+    return fetchJson<ClientSessionInfo>('/api/1/sessions', {
       method: 'post',
       body: JSON.stringify({
+        ...(await getExtraSessionData()),
         username,
         password,
         remember: !!remember,
       }),
-    }),
-  )
+    })
+  })
 }
 
 export function logOut() {
@@ -78,12 +94,12 @@ export function logOut() {
 
 export function signUp(username: string, email: string, password: string) {
   const reqUrl = '/api/1/users'
-  const result = idRequest('@auth/signUp', () =>
-    fetchJson<ClientSessionInfo>(reqUrl, {
+  const result = idRequest('@auth/signUp', async () => {
+    return fetchJson<ClientSessionInfo>(reqUrl, {
       method: 'post',
-      body: JSON.stringify({ username, email, password }),
-    }),
-  )
+      body: JSON.stringify({ ...(await getExtraSessionData()), username, email, password }),
+    })
+  })
 
   result.promise
     .then(() => {

@@ -1,7 +1,9 @@
 // Can't use ES6 imports in this file because this won't be running through Babel
+require('dotenv').config({ path: '.env-build' })
 require('./babel-register')
 const makeConfig = require('./common.webpack.config.js').default
 const path = require('path')
+const webpack = require('webpack')
 
 // Configuration for the web part of the electron process (the client/ scripts
 // compiled for electron)
@@ -94,6 +96,8 @@ const electronWeb = makeConfig({
   },
 })
 
+const clientImpl = process.env.SB_BUILD_SECURITY_CLIENTS_IMPL
+
 // Configuration for the main process scripts of Electron (the app/ scripts)
 const mainWebpackOpts = {
   target: 'electron-main',
@@ -105,7 +109,14 @@ const mainWebpackOpts = {
     path: path.join(__dirname, 'app', 'dist'),
     libraryTarget: 'commonjs2',
   },
-  plugins: [],
+  plugins: !clientImpl
+    ? []
+    : [
+        new webpack.NormalModuleReplacementPlugin(
+          /[\\/]app[\\/]security[\\/]client.ts/,
+          path.resolve(__dirname, clientImpl),
+        ),
+      ],
 }
 
 const mainBabelOpts = {

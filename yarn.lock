@@ -1097,6 +1097,13 @@
     minimatch "^3.0.4"
     strip-json-comments "^3.1.1"
 
+"@fingerprintjs/fingerprintjs@^3.3.2":
+  version "3.3.2"
+  resolved "https://registry.yarnpkg.com/@fingerprintjs/fingerprintjs/-/fingerprintjs-3.3.2.tgz#8b1d79dfda8b1d9a66958d46894e459faef77c9c"
+  integrity sha512-CB/n3JWnMvhLWgR49Z6qSr6PShXQKGmIiZ0VAmQeoW8foD5z067xUnCxGG7/Fd9rfwmx6I4+8i549j0ujQEcAQ==
+  dependencies:
+    tslib "^2.0.1"
+
 "@hapi/hoek@^9.0.0":
   version "9.2.1"
   resolved "https://registry.yarnpkg.com/@hapi/hoek/-/hoek-9.2.1.tgz#9551142a1980503752536b5050fd99f4a7f13b17"
@@ -2196,6 +2203,11 @@
   version "1.10.5"
   resolved "https://registry.yarnpkg.com/@types/verror/-/verror-1.10.5.tgz#2a1413aded46e67a1fe2386800e291123ed75eb1"
   integrity sha512-9UjMCHK5GPgQRoNbqdLIAvAy0EInuiqbW0PBMtVP6B5B2HQJlvoJHM+KodPZMEjOa5VkSc+5LH7xy+cUzQdmHw==
+
+"@types/winreg@^1.2.31":
+  version "1.2.31"
+  resolved "https://registry.yarnpkg.com/@types/winreg/-/winreg-1.2.31.tgz#914a7f076fd8f0f39964eb2e5c624c4fbdca77f7"
+  integrity sha512-SDatEMEtQ1cJK3esIdH6colduWBP+42Xw9Guq1sf/N6rM3ZxgljBduvZOwBsxRps/k5+Wwf5HJun6pH8OnD2gg==
 
 "@types/ws@^8.2.0":
   version "8.2.2"

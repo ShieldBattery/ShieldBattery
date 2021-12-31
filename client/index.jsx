@@ -8,6 +8,7 @@ import { AUDIO_MANAGER_INITIALIZED } from './actions'
 import App from './app'
 import audioManager from './audio/audio-manager'
 import { bootstrapSession, getCurrentSession } from './auth/action-creators'
+import { initBrowserprint } from './auth/browserprint'
 import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
 import log from './logging/logger'
@@ -105,6 +106,9 @@ const rootElemPromise = new Promise((resolve, reject) => {
 })
 
 const initAudioPromise = audioManager.initialize()
+if (!IS_ELECTRON) {
+  initBrowserprint()
+}
 
 Promise.all([rootElemPromise])
   .then(async ([elem]) => {

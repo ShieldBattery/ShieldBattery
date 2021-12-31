@@ -6,6 +6,7 @@ node_modules/
 server/.env
 .idea/
 .env
+.env-build
 npm-debug.log
 yarn-error.log
 stats.json

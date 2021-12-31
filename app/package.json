@@ -27,6 +27,5 @@
     "nan": "^2.14.1",
     "sanitize-filename": "^1.6.3",
     "winreg": "^1.2.2"
-  },
-  "devDependencies": {}
+  }
 }

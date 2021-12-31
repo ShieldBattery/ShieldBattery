@@ -16,6 +16,7 @@ import db, { DbClient } from '../db'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { createPermissions } from '../models/permissions'
+import { UserIdentifierManager } from './user-identifier-upserter'
 import { createUserStats } from './user-stats-model'
 
 /**
@@ -103,12 +104,14 @@ export async function createUser({
   hashedPassword,
   ipAddress,
   createdDate = new Date(),
+  clientIds,
 }: {
   name: string
   email: string
   hashedPassword: string
   ipAddress: string
   createdDate?: Date
+  clientIds: ReadonlyArray<[type: number, hashStr: string]>
 }): Promise<{ user: SelfUser; permissions: SbPermissions }> {
   const transactionCompleted = createDeferred<void>()
   transactionCompleted.catch(swallowNonBuiltins)
@@ -135,11 +138,13 @@ export async function createUser({
       `)
 
       const chatService = container.resolve(ChatService)
+      const userIdManager = container.resolve(UserIdentifierManager)
 
       const [permissions] = await Promise.all([
         createPermissions(client, userInternal.id),
         chatService.joinChannel('ShieldBattery', userInternal.id, client, transactionCompleted),
         createUserStats(client, userInternal.id),
+        userIdManager.upsert(userInternal.id, clientIds, client),
       ])
 
       return { user: convertToExternalSelf(userInternal), permissions }

@@ -23,6 +23,8 @@ interface IpcInvokeables {
 
   pathsGetDocumentsPath: () => Promise<string>
 
+  securityGetClientIds: () => Promise<[number, string][]>
+
   settingsCheckStarcraftPath: (
     path: string,
   ) => Promise<{ path: boolean; version: boolean; remastered: boolean }>

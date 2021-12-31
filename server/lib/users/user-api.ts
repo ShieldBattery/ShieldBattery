@@ -4,7 +4,18 @@ import cuid from 'cuid'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { isValidEmail, isValidPassword, isValidUsername } from '../../../common/constants'
+import {
+  EMAIL_MAXLENGTH,
+  EMAIL_MINLENGTH,
+  EMAIL_PATTERN,
+  isValidEmail,
+  isValidPassword,
+  isValidUsername,
+  PASSWORD_MINLENGTH,
+  USERNAME_MAXLENGTH,
+  USERNAME_MINLENGTH,
+  USERNAME_PATTERN,
+} from '../../../common/constants'
 import { toGameRecordJson } from '../../../common/games/games'
 import { LadderPlayer } from '../../../common/ladder'
 import { toMapInfoJson } from '../../../common/maps'
@@ -148,6 +159,13 @@ function sendVerificationEmail({
   })
 }
 
+interface SignupRequestBody {
+  username: string
+  password: string
+  email: string
+  clientIds: [type: number, hash: string][]
+}
+
 @httpApi('/users')
 @httpBeforeAll(convertUserApiErrors)
 export class UserApi {
@@ -156,18 +174,45 @@ export class UserApi {
   @httpPost('/')
   @httpBefore(throttleMiddleware(accountCreationThrottle, ctx => ctx.ip))
   async createUser(ctx: RouterContext): Promise<ClientSessionInfo> {
-    const { username, password } = ctx.request.body
-    const email = ctx.request.body.email.trim()
+    const { body } = validateRequest(ctx, {
+      body: Joi.object<SignupRequestBody>({
+        username: Joi.string()
+          .min(USERNAME_MINLENGTH)
+          .max(USERNAME_MAXLENGTH)
+          .pattern(USERNAME_PATTERN)
+          .required(),
+        password: Joi.string().min(PASSWORD_MINLENGTH).required(),
+        email: Joi.string()
+          .min(EMAIL_MINLENGTH)
+          .max(EMAIL_MAXLENGTH)
+          .pattern(EMAIL_PATTERN)
+          .trim()
+          .required(),
+        clientIds: Joi.array()
+          .items(
+            Joi.array().ordered(
+              Joi.number().min(0).max(6).required(),
+              Joi.string().min(0).max(64).required(),
+            ),
+          )
+          .min(1)
+          .required(),
+      }),
+    })
 
-    if (!isValidUsername(username) || !isValidEmail(email) || !isValidPassword(password)) {
-      throw new httpErrors.BadRequest('Invalid parameters')
-    }
+    const { username, password, email, clientIds } = body
 
     const hashedPassword = await hashPass(password)
 
     let createdUser: { user: SelfUser; permissions: SbPermissions } | undefined
     try {
-      createdUser = await createUser({ name: username, email, hashedPassword, ipAddress: ctx.ip })
+      createdUser = await createUser({
+        name: username,
+        email,
+        hashedPassword,
+        ipAddress: ctx.ip,
+        clientIds,
+      })
     } catch (err: any) {
       if (err.code && err.code === UNIQUE_VIOLATION) {
         throw new httpErrors.Conflict('A user with that name already exists')
