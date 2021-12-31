@@ -27,17 +27,24 @@ export function toUserBanRow(dbRow: DbUserBanRow) {
 
 export async function retrieveBanHistory(
   userId: SbUserId,
+  limit?: number,
   withClient?: DbClient,
 ): Promise<UserBanRow[]> {
   const { client, done } = await db(withClient)
   try {
-    const result = await client.query(sql`
+    const query = sql`
       SELECT id, user_id, start_time, end_time, banned_by, reason
       FROM user_bans
       WHERE user_id = ${userId}
       ORDER BY start_time DESC
-    `)
+    `
+    if (limit !== undefined) {
+      query.append(sql`
+        LIMIT ${limit}
+      `)
+    }
 
+    const result = await client.query<DbUserBanRow>(query)
     return result.rows.map(r => toUserBanRow(r))
   } finally {
     done()

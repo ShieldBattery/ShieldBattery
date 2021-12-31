@@ -24,7 +24,6 @@ import {
   AuthTextField,
   AuthTitle,
   BottomActionButton,
-  ErrorsContainer,
   FieldRow,
   ForgotActionButton,
   LoadingArea,
@@ -32,6 +31,7 @@ import {
   Spacer,
 } from './auth-content'
 import { redirectIfLoggedIn } from './auth-utils'
+import { UserErrorDisplay } from './user-error-display'
 
 const usernameValidator = composeValidators(
   required('Enter a username'),
@@ -110,12 +110,14 @@ class LoginForm extends React.Component {
 @connect(state => ({ auth: state.auth }))
 export default class Login extends React.Component {
   state = {
-    reqId: null,
+    isLoading: false,
+    lastError: undefined,
   }
   _form = null
   _setForm = elem => {
     this._form = elem
   }
+  _abortController = undefined
 
   componentDidMount() {
     redirectIfLoggedIn(this.props)
@@ -127,27 +129,24 @@ export default class Login extends React.Component {
 
   render() {
     const {
-      auth: { authChangeInProgress, lastFailure },
+      auth: { authChangeInProgress },
     } = this.props
+    const { isLoading, lastError } = this.state
+
     let loadingContents
-    if (authChangeInProgress) {
+    if (authChangeInProgress || isLoading) {
       loadingContents = (
         <LoadingArea>
           <LoadingIndicator />
         </LoadingArea>
       )
     }
-    let errContents
-    const reqId = this.state.reqId
-    if (reqId && lastFailure && lastFailure.reqId === reqId) {
-      errContents = <ErrorsContainer>Error: {lastFailure.err}</ErrorsContainer>
-    }
 
     return (
       <AuthContent>
-        <AuthContentContainer isLoading={authChangeInProgress}>
+        <AuthContentContainer isLoading={isLoading || authChangeInProgress}>
           <AuthTitle>Log in</AuthTitle>
-          <AuthBody>{errContents}</AuthBody>
+          <AuthBody>{lastError ? <UserErrorDisplay error={lastError} /> : null}</AuthBody>
           <LoginForm
             ref={this._setForm}
             model={{ username: queryString.parse(location.search).username ?? '' }}
@@ -195,10 +194,31 @@ export default class Login extends React.Component {
 
   onSubmit = () => {
     const values = this._form.getModel()
-    const { id, action } = logIn(values.username, values.password, values.remember)
+    this._abortController?.abort()
+
+    const abortController = (this._abortController = new AbortController())
     this.setState({
-      reqId: id,
+      isLoading: true,
+      lastError: undefined,
     })
-    this.props.dispatch(action)
+    this.props.dispatch(
+      logIn(
+        {
+          username: values.username,
+          password: values.password,
+          remember: values.remember,
+        },
+        {
+          onSuccess: () => {},
+          onError: err => {
+            this.setState({
+              isLoading: false,
+              lastError: err,
+            })
+          },
+          signal: abortController.signal,
+        },
+      ),
+    )
   }
 }

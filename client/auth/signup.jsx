@@ -41,11 +41,11 @@ import {
   AuthTextField,
   AuthTitle,
   BottomActionButton,
-  ErrorsContainer,
   FieldRow,
   LoadingArea,
 } from './auth-content'
 import { redirectIfLoggedIn } from './auth-utils'
+import { UserErrorDisplay } from './user-error-display'
 
 const SignupBottomAction = styled(AuthBottomAction)`
   flex-direction: row;
@@ -226,12 +226,14 @@ class SignupForm extends React.Component {
 @connect(state => ({ auth: state.auth }))
 export default class Signup extends React.Component {
   state = {
-    reqId: null,
+    isLoading: false,
+    lastError: undefined,
   }
   _form = null
   _setForm = elem => {
     this._form = elem
   }
+  _abortController = undefined
 
   componentDidMount() {
     redirectIfLoggedIn(this.props)
@@ -243,10 +245,12 @@ export default class Signup extends React.Component {
 
   render() {
     const {
-      auth: { authChangeInProgress, lastFailure },
+      auth: { authChangeInProgress },
     } = this.props
+    const { isLoading, lastError } = this.state
+
     let loadingContents
-    if (authChangeInProgress) {
+    if (authChangeInProgress || isLoading) {
       loadingContents = (
         <LoadingArea>
           <LoadingIndicator />
@@ -254,19 +258,13 @@ export default class Signup extends React.Component {
       )
     }
 
-    let errContents
-    const reqId = this.state.reqId
-    if (reqId && lastFailure && lastFailure.reqId === reqId) {
-      errContents = <ErrorsContainer>Error: {lastFailure.err}</ErrorsContainer>
-    }
-
     const model = queryString.parse(window.location.search)
     return (
       <AuthContent>
-        <AuthContentContainer isLoading={authChangeInProgress}>
+        <AuthContentContainer isLoading={isLoading || authChangeInProgress}>
           <AuthTitle>Create account</AuthTitle>
           <AuthBody>
-            {errContents}
+            {lastError ? <UserErrorDisplay error={lastError} /> : null}
             <SignupForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
           </AuthBody>
         </AuthContentContainer>
@@ -286,10 +284,31 @@ export default class Signup extends React.Component {
 
   onSubmit = () => {
     const values = this._form.getModel()
-    const { id, action } = signUp(values.username, values.email, values.password)
+    this._abortController?.abort()
+
+    const abortController = (this._abortController = new AbortController())
     this.setState({
-      reqId: id,
+      isLoading: true,
+      lastError: undefined,
     })
-    this.props.dispatch(action)
+    this.props.dispatch(
+      signUp(
+        {
+          username: values.username,
+          email: values.email,
+          password: values.password,
+        },
+        {
+          onSuccess: () => {},
+          onError: err => {
+            this.setState({
+              isLoading: false,
+              lastError: err,
+            })
+          },
+          signal: abortController.signal,
+        },
+      ),
+    )
   }
 }

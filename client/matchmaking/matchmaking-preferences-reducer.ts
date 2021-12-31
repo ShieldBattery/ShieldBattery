@@ -52,10 +52,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@auth/loadCurrentSession'](state, action) {
-    if (action.error) {
-      return state
-    }
-
     const { lastQueuedMatchmakingType } = action.payload
     if (lastQueuedMatchmakingType) {
       state.lastQueuedMatchmakingType = lastQueuedMatchmakingType

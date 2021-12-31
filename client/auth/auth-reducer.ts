@@ -5,12 +5,7 @@ import {
   AccountUpdateSuccess,
   AuthActions,
   AuthChangeBegin,
-  LoadCurrentSessionSuccess,
-  LogInFailure,
-  LogInSuccess,
   LogOutSuccess,
-  SignUpFailure,
-  SignUpSuccess,
   VerifyEmailSuccess,
 } from './actions'
 import { AuthState, PermissionsRecord, SelfUserRecord } from './auth-records'
@@ -74,21 +69,13 @@ function accountUpdate(state: State, action: AccountUpdateSuccess) {
     .set('user', new SelfUserRecord(user))
 }
 
-const logInSplitter = (
-  state: State,
-  action: LogInSuccess | LogInFailure | SignUpSuccess | SignUpFailure | LoadCurrentSessionSuccess,
-) => (!action.error ? logInSuccess(state, action) : handleError(state, action))
-
 export default keyedReducer(new AuthState(), {
   ['@auth/accountUpdate']: (state, action) =>
     !action.error ? accountUpdate(state, action) : handleError(state, action),
   ['@auth/changeBegin']: begin,
-  ['@auth/logIn']: logInSplitter,
   ['@auth/logOut']: (state, action) =>
     !action.error ? logOutSuccess(state, action) : handleError(state, action),
-  ['@auth/signUp']: logInSplitter,
-  ['@auth/loadCurrentSession']: (state, action) =>
-    !action.error ? logInSuccess(state, action) : state.set('authChangeInProgress', false),
+  ['@auth/loadCurrentSession']: logInSuccess,
   ['@auth/resetPassword']: noOpOrError,
   ['@auth/recoverUsername']: noOpOrError,
   ['@auth/startPasswordReset']: noOpOrError,

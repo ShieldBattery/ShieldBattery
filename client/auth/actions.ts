@@ -7,8 +7,6 @@ export type AuthActions =
   | AuthChangeBegin
   | AccountUpdateSuccess
   | AccountUpdateFailure
-  | LogInSuccess
-  | LogInFailure
   | LogOutSuccess
   | LogOutFailure
   | ResetPasswordSuccess
@@ -17,10 +15,7 @@ export type AuthActions =
   | RecoverUsernameFailure
   | StartPasswordResetSuccess
   | StartPasswordResetFailure
-  | SignUpSuccess
-  | SignUpFailure
   | LoadCurrentSessionSuccess
-  | LoadCurrentSessionFailure
   | VerifyEmailSuccess
   | VerifyEmailFailure
   | EmailVerified
@@ -68,15 +63,6 @@ export type AccountUpdateSuccess = BaseAuthSuccess<'@auth/accountUpdate', SelfUs
  */
 export type AccountUpdateFailure = BaseAuthFailure<'@auth/accountUpdate'>
 
-/**
- * Logging into the user account was successful.
- */
-export type LogInSuccess = BaseAuthSuccess<'@auth/logIn', ClientSessionInfo>
-/**
- * Logging into the user account failed.
- */
-export type LogInFailure = BaseAuthFailure<'@auth/logIn'>
-
 /** Logging out of the user account was successful. */
 export type LogOutSuccess = BaseAuthSuccess<'@auth/logOut'>
 /** Logging out of the user account failed. */
@@ -97,21 +83,14 @@ export type StartPasswordResetSuccess = BaseAuthSuccess<'@auth/startPasswordRese
 /** Initiating a password reset for a user failed. */
 export type StartPasswordResetFailure = BaseAuthFailure<'@auth/startPasswordReset'>
 
-/** Signing up for a new account succeeded and the user is now logged in. */
-export type SignUpSuccess = BaseAuthSuccess<'@auth/signUp', ClientSessionInfo>
-/** Signing up for a new account failed. */
-export type SignUpFailure = BaseAuthFailure<'@auth/signUp'>
-
 /**
  * Loading the current active user session from the server succeeded and the returned user is now
  * active.
  */
-export type LoadCurrentSessionSuccess = BaseAuthSuccess<
-  '@auth/loadCurrentSession',
-  ClientSessionInfo
->
-/** Loading the current active user session from the server failed. */
-export type LoadCurrentSessionFailure = BaseAuthFailure<'@auth/loadCurrentSession'>
+export interface LoadCurrentSessionSuccess {
+  type: '@auth/loadCurrentSession'
+  payload: ClientSessionInfo
+}
 
 /** The current user's email has been successfully verified. */
 export type VerifyEmailSuccess = BaseAuthSuccess<'@auth/verifyEmail'>

@@ -123,15 +123,27 @@ Promise.all([rootElemPromise])
     return { elem, store }
   })
   .then(async ({ elem, store }) => {
-    const { action, promise: sessionPromise } =
-      IS_ELECTRON || !window._sbInitData
-        ? getCurrentSession()
-        : bootstrapSession(window._sbInitData.session)
+    let action
+    let sessionPromise
+
+    if (IS_ELECTRON || !window._sbInitData) {
+      sessionPromise = new Promise((resolve, reject) => {
+        action = getCurrentSession({
+          onSuccess: () => resolve(),
+          onError: err => reject(err),
+        })
+      })
+    } else {
+      action = bootstrapSession(window._sbInitData.session)
+      sessionPromise = Promise.resolve()
+    }
+
     store.dispatch(action)
     try {
       await sessionPromise
     } catch (err) {
       // Ignored, usually just means we don't have a current session
+      // TODO(tec27): Probably we should handle some error codes here specifically
     }
     return { elem, store, history }
   })

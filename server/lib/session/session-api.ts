@@ -15,7 +15,7 @@ import { getPermissions } from '../models/permissions'
 import { Redis } from '../redis'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
-import { isUserBanned } from '../users/ban-models'
+import { isUserBanned, retrieveBanHistory } from '../users/ban-models'
 import { joiClientIdentifiers } from '../users/client-ids'
 import { convertUserApiErrors, UserApiError } from '../users/user-api-errors'
 import { UserIdentifierManager } from '../users/user-identifier-manager'
@@ -117,11 +117,21 @@ export class SessionApi {
     }
 
     if (await isUserBanned(user.id)) {
-      throw new UserApiError(UserErrorCode.AccountBanned, 'This account has been banned')
+      const banHistory = await retrieveBanHistory(user.id, 1)
+      const banEntry = banHistory.length ? banHistory[0] : undefined
+      throw new UserApiError(UserErrorCode.AccountBanned, 'This account has been banned', {
+        reason: banEntry?.reason,
+        expiration: Number(banEntry?.endTime),
+      })
     } else if (await this.userIdentifierManager.banUserIfNeeded(user.id)) {
       // NOTE(tec27): We make sure to do this check *after* checking the account ban only, otherwise
       // any banned used that attempts to logs in will be permanently banned.
-      throw new UserApiError(UserErrorCode.AccountBanned, 'This account has been banned')
+      const banHistory = await retrieveBanHistory(user.id, 1)
+      const banEntry = banHistory.length ? banHistory[0] : undefined
+      throw new UserApiError(UserErrorCode.AccountBanned, 'This account has been banned', {
+        reason: banEntry?.reason,
+        expiration: Number(banEntry?.endTime),
+      })
     }
 
     await ctx.regenerateSession()

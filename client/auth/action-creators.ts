@@ -1,5 +1,4 @@
 import cuid from 'cuid'
-import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
 import { SbUserId, SelfUser } from '../../common/users/sb-user'
@@ -70,9 +69,12 @@ async function getExtraSessionData() {
   return extraData
 }
 
-export function logIn(username: string, password: string, remember: boolean) {
-  return idRequest('@auth/logIn', async () => {
-    return fetchJson<ClientSessionInfo>('/api/1/sessions', {
+export function logIn(
+  { username, password, remember }: { username: string; password: string; remember: boolean },
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await fetchJson<ClientSessionInfo>(apiUrl`sessions`, {
       method: 'post',
       body: JSON.stringify({
         ...(await getExtraSessionData()),
@@ -81,50 +83,65 @@ export function logIn(username: string, password: string, remember: boolean) {
         remember: !!remember,
       }),
     })
+
+    dispatch({
+      type: '@auth/loadCurrentSession',
+      payload: result,
+    })
   })
 }
 
 export function logOut() {
   return idRequest('@auth/logOut', () =>
-    fetchJson<void>('/api/1/sessions', {
+    fetchJson<void>(apiUrl`sessions`, {
       method: 'delete',
     }),
   )
 }
 
-export function signUp(username: string, email: string, password: string) {
-  const reqUrl = '/api/1/users'
-  const result = idRequest('@auth/signUp', async () => {
-    return fetchJson<ClientSessionInfo>(reqUrl, {
+export function signUp(
+  { username, email, password }: { username: string; email: string; password: string },
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await fetchJson<ClientSessionInfo>(apiUrl`users`, {
       method: 'post',
       body: JSON.stringify({ ...(await getExtraSessionData()), username, email, password }),
     })
-  })
+    window.fathom?.trackGoal('YTZ0JAUE', 0)
 
-  result.promise
-    .then(() => {
-      window.fathom?.trackGoal('YTZ0JAUE', 0)
+    dispatch({
+      type: '@auth/loadCurrentSession',
+      payload: result,
     })
-    .catch(swallowNonBuiltins)
-
-  return result
+  })
 }
 
-export function getCurrentSession() {
-  return idRequest('@auth/loadCurrentSession', () =>
-    fetchJson<ClientSessionInfo>('/api/1/sessions?date=' + Date.now(), {
+export function getCurrentSession(spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await fetchJson<ClientSessionInfo>(apiUrl`sessions?date=${Date.now()}`, {
       method: 'get',
-    }),
-  )
+    })
+
+    dispatch({
+      type: '@auth/loadCurrentSession',
+      payload: result,
+    })
+  })
 }
 
 /**
  * "Loads" the session from what was sent on the page. This is only usable in web clients, since
  * Electron clients load a static local page. */
-export function bootstrapSession(session?: ClientSessionInfo) {
-  return idRequest('@auth/loadCurrentSession', () =>
-    session ? Promise.resolve(session) : Promise.reject(new Error('Session expired')),
-  )
+export function bootstrapSession(session?: ClientSessionInfo): ThunkAction {
+  return dispatch => {
+    if (session) {
+      dispatch({
+        type: '@auth/loadCurrentSession',
+        payload: session,
+      })
+    }
+  }
 }
 
 export function recoverUsername(email: string) {

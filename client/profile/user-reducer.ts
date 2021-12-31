@@ -57,24 +57,7 @@ function updateUsers(state: UserState, users: SbUser[]) {
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {
-  ['@auth/logIn'](state, action) {
-    if (action.error) {
-      return
-    }
-
-    const {
-      payload: { user },
-    } = action
-
-    state.byId.set(user.id, { id: user.id, name: user.name })
-    state.usernameToId.set(user.name, user.id)
-  },
-
   ['@auth/loadCurrentSession'](state, action) {
-    if (action.error) {
-      return
-    }
-
     const {
       payload: { user },
     } = action
