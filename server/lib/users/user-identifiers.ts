@@ -27,7 +27,7 @@ export async function upsertUserIdentifiers(
   const { client, done } = await db(withClient)
   try {
     const query = sql`
-      INSERT INTO user_identifiers
+      INSERT INTO user_identifiers ui
       (user_id, identifier_type, identifier_hash, first_used, last_used, times_seen)
       VALUES
     `
@@ -41,7 +41,7 @@ export async function upsertUserIdentifiers(
       ON CONFLICT (user_id, identifier_type, identifier_hash)
       DO UPDATE
       SET last_used = NOW(),
-      times_seen = EXCLUDED.times_seen + 1
+      times_seen = ui.times_seen + 1
     `)
 
     await client.query(query)
