@@ -59,19 +59,19 @@ import { usePasswordResetCode } from '../models/password-resets'
 import { getPermissions, updatePermissions } from '../models/permissions'
 import { isElectronClient } from '../network/only-web-clients'
 import { checkAllPermissions, checkAnyPermission } from '../permissions/check-permissions'
-import { Redis } from '../redis'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import initSession from '../session/init'
 import { updateAllSessions, updateAllSessionsForCurrentUser } from '../session/update-all-sessions'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
-import { UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
-import { banUser, retrieveBanHistory } from './ban-models'
+import { BanEnacter } from './ban-enacter'
+import { retrieveBanHistory } from './ban-models'
 import { joiClientIdentifiers } from './client-ids'
 import { SuspiciousIpsService } from './suspicious-ips'
 import { convertUserApiErrors, UserApiError } from './user-api-errors'
+import { UserIdentifierManager } from './user-identifier-manager'
 import { retrieveIpsForUser, retrieveRelatedUsersForIps } from './user-ips'
 import {
   attemptLogin,
@@ -154,6 +154,7 @@ export class UserApi {
   constructor(
     private publisher: TypedPublisher<AuthEvent>,
     private suspiciousIps: SuspiciousIpsService,
+    private userIdManager: UserIdentifierManager,
   ) {}
 
   @httpPost('/')
@@ -177,16 +178,29 @@ export class UserApi {
       }),
     })
 
+    const { username, password, email, clientIds } = body
+
     if (!isElectronClient(ctx)) {
-      if (await this.suspiciousIps.isIpSuspicious(ctx.ip)) {
+      const [suspicious, signupAllowed] = await Promise.all([
+        this.suspiciousIps.isIpSuspicious(ctx.ip),
+        this.userIdManager.isSignupAllowed(true, clientIds),
+      ])
+
+      if (suspicious || !signupAllowed) {
         throw new UserApiError(
           UserErrorCode.SuspiciousActivity,
           'Suspicious activity detected, creating accounts on the web is disabled',
         )
       }
+    } else {
+      const signupAllowed = await this.userIdManager.isSignupAllowed(false, clientIds)
+      if (!signupAllowed) {
+        throw new UserApiError(
+          UserErrorCode.MachineBanned,
+          'This machine is banned from creating new accounts',
+        )
+      }
     }
-
-    const { username, password, email, clientIds } = body
 
     const hashedPassword = await hashPass(password)
 
@@ -590,12 +604,7 @@ export class UserApi {
 @httpApi('/admin/users')
 @httpBeforeAll(convertUserApiErrors, ensureLoggedIn)
 export class AdminUserApi {
-  constructor(
-    private userSocketsManager: UserSocketsManager,
-    private redis: Redis,
-    private publisher: TypedPublisher<AuthEvent>,
-    private suspiciousIps: SuspiciousIpsService,
-  ) {}
+  constructor(private publisher: TypedPublisher<AuthEvent>, private banEnacter: BanEnacter) {}
 
   @httpGet('/:id/permissions')
   @httpBefore(checkAllPermissions('editPermissions'))
@@ -678,8 +687,12 @@ export class AdminUserApi {
       throw new UserApiError(UserErrorCode.NotFound, 'user not found')
     }
 
+    const banningUserIds = Array.from(
+      new Set(banHistory.map(b => b.bannedBy).filter((i): i is SbUserId => i !== undefined)),
+    )
+
     const banningUsers = banHistory.length
-      ? Array.from((await findUsersById(banHistory.map(b => b.bannedBy))).values())
+      ? Array.from((await findUsersById(banningUserIds)).values())
       : []
 
     return {
@@ -711,31 +724,15 @@ export class AdminUserApi {
       throw new UserApiError(UserErrorCode.NotFound, 'user not found')
     }
 
-    const [ban, bannedBy, allIps] = await Promise.all([
-      banUser({
-        userId: params.id,
+    const [ban, bannedBy] = await Promise.all([
+      this.banEnacter.enactBan({
+        targetId: user.id,
         bannedBy: ctx.session!.userId,
         banLengthHours: body.banLengthHours,
         reason: body.reason,
       }),
-      findUserById(ctx.session!.userId),
-      retrieveIpsForUser(params.id),
+      await findUserById(ctx.session!.userId),
     ])
-
-    const bannedUntil = new Date()
-    bannedUntil.setHours(bannedUntil.getHours() + body.banLengthHours)
-    await this.suspiciousIps.markSuspicious(allIps, bannedUntil)
-
-    // Delete all the active sessions and close any sockets they have open, so that they're forced
-    // to log in again and we don't need to ban check on every operation
-    const userSessionsKey = `user_sessions:${params.id}`
-    const userSessionIds = await this.redis.smembers(userSessionsKey)
-    // We could also use ioredis#pipeline here, but I think in practice the number of sessions per
-    // user ID will be fairly low
-    await Promise.all(userSessionIds.map(id => this.redis.del(id)))
-    const keyDeletion = this.redis.del(userSessionsKey)
-    this.userSocketsManager.getById(params.id)?.closeAll()
-    await keyDeletion
 
     // This would be a really weird occurrence! So we just make sure we do the actual banning before
     // this, and let the 500 pass through after

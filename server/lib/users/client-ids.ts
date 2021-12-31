@@ -1,4 +1,5 @@
 import Joi from 'joi'
+import isDev from '../env/is-dev'
 
 export function joiClientIdentifiers() {
   return Joi.array()
@@ -10,3 +11,8 @@ export function joiClientIdentifiers() {
     )
     .min(1)
 }
+
+/**
+ * How many identifiers have to match for a user to be considered as being on the same machine.
+ */
+export const MIN_BANNED_IDENTIFIER_MATCHES = isDev ? 1 : 4

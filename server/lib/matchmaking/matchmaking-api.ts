@@ -1,4 +1,5 @@
 import { RouterContext } from '@koa/router'
+import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
@@ -79,6 +80,11 @@ export class MatchmakingApi {
     const { clientId, preferences, identifiers } = body
 
     await this.userIdManager.upsert(ctx.session!.userId, identifiers)
+
+    if (await this.userIdManager.banUserIfNeeded(ctx.session!.userId)) {
+      throw new httpErrors.UnauthorizedError('This account is banned')
+    }
+
     await this.matchmakingService.find(ctx.session!.userId, clientId, preferences)
 
     // Save the last queued matchmaking type on the user's session

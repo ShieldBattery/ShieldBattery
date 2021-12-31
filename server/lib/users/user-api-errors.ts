@@ -27,6 +27,8 @@ export const convertUserApiErrors = makeErrorConverterMiddleware(err => {
       throw asHttpError(409, err)
     case UserErrorCode.SuspiciousActivity:
       throw asHttpError(401, err)
+    case UserErrorCode.MachineBanned:
+      throw asHttpError(401, err)
 
     default:
       assertUnreachable(err.code)

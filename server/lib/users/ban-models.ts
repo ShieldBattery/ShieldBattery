@@ -8,7 +8,7 @@ export interface UserBanRow {
   userId: SbUserId
   startTime: Date
   endTime: Date
-  bannedBy: SbUserId
+  bannedBy?: SbUserId
   reason?: string
 }
 
@@ -20,7 +20,7 @@ export function toUserBanRow(dbRow: DbUserBanRow) {
     userId: dbRow.user_id,
     startTime: dbRow.start_time,
     endTime: dbRow.end_time,
-    bannedBy: dbRow.banned_by,
+    bannedBy: dbRow.banned_by !== null ? dbRow.banned_by : undefined,
     reason: dbRow.reason,
   }
 }
@@ -50,9 +50,9 @@ export async function banUser(
     bannedBy,
     banLengthHours,
     reason,
-  }: { userId: SbUserId; bannedBy: SbUserId; banLengthHours: number; reason?: string },
+  }: { userId: SbUserId; bannedBy?: SbUserId; banLengthHours: number; reason?: string },
   withClient?: DbClient,
-) {
+): Promise<UserBanRow> {
   const { client, done } = await db(withClient)
   const startDate = new Date()
   const endDate = new Date()

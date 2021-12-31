@@ -71,6 +71,7 @@ export enum UserErrorCode {
   SessionExpired = 'sessionExpired',
   UsernameTaken = 'usernameTaken',
   SuspiciousActivity = 'suspiciousActivity',
+  MachineBanned = 'machineBanned',
 }
 
 /** Information returned for /users/:id/profile, intended to be able to fill out a profile page. */
@@ -108,7 +109,7 @@ export interface AdminUpdatePermissionsRequest {
 export interface BanHistoryEntry {
   id: string
   userId: SbUserId
-  bannedBy: SbUserId
+  bannedBy?: SbUserId
   startTime: Date
   endTime: Date
   reason?: string

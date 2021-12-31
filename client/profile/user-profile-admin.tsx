@@ -349,7 +349,11 @@ function BanHistoryList({ banHistory }: { banHistory: ReadonlyDeep<BanHistoryEnt
               <td>{banDateFormat.format(b.startTime)}</td>
               <td>{banDateFormat.format(b.endTime)}</td>
               <td>
-                <ConnectedUsername userId={b.bannedBy} />
+                {b.bannedBy !== undefined ? (
+                  <ConnectedUsername userId={b.bannedBy} />
+                ) : (
+                  <span>- system -</span>
+                )}
               </td>
               <td>{b.reason ?? ''}</td>
             </BanRow>

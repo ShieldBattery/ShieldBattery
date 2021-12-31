@@ -116,8 +116,11 @@ export class SessionApi {
       await this.userIdentifierManager.upsert(user.id, clientIds)
     }
 
-    const isBanned = await isUserBanned(user.id)
-    if (isBanned) {
+    if (await isUserBanned(user.id)) {
+      throw new UserApiError(UserErrorCode.AccountBanned, 'This account has been banned')
+    } else if (await this.userIdentifierManager.banUserIfNeeded(user.id)) {
+      // NOTE(tec27): We make sure to do this check *after* checking the account ban only, otherwise
+      // any banned used that attempts to logs in will be permanently banned.
       throw new UserApiError(UserErrorCode.AccountBanned, 'This account has been banned')
     }
 
