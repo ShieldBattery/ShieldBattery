@@ -448,7 +448,7 @@ async function doLaunch(
   const userDataPath = app.getPath('userData')
   let appPath
   if (isRemastered) {
-    appPath = path.join(starcraftPath, 'x86/starcraft.exe')
+    appPath = path.join(starcraftPath, 'x86', 'starcraft.exe')
   } else {
     appPath = path.join(starcraftPath, 'starcraft.exe')
   }
