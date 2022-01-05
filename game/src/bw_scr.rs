@@ -2198,7 +2198,7 @@ impl bw::Bw for BwScr {
         (self.process_game_commands)(commands.as_ptr(), commands.len(), 1);
         self.command_user.write(self.local_player_id.resolve());
         self.unique_command_user.write(self.local_unique_player_id.resolve());
-        self.enable_rng.write(1);
+        self.enable_rng.write(0);
     }
 
     unsafe fn replay_visions(&self) -> bw::ReplayVisions {
