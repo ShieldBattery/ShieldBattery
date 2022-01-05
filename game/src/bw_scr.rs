@@ -34,7 +34,7 @@ use crate::windows;
 
 use sdf_cache::{InitSdfCache, SdfCache};
 use shader_replaces::ShaderReplaces;
-use thiscall::Thiscall;
+pub use thiscall::Thiscall;
 
 const NET_PLAYER_COUNT: usize = 12;
 const SHADER_ID_MASK: u32 = 0x1c;

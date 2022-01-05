@@ -1,4 +1,5 @@
 use std::io;
+use std::ffi::CStr;
 use std::mem;
 use std::path::Path;
 use std::ptr::null_mut;
@@ -13,6 +14,7 @@ use winapi::um::processthreadsapi::{
 };
 use winapi::um::winnt::{EXCEPTION_POINTERS, FILE_ATTRIBUTE_NORMAL, HANDLE, GENERIC_WRITE};
 
+use crate::bw_scr::Thiscall;
 use crate::windows;
 
 /// Initializes our own crash handler and patches over
@@ -42,18 +44,50 @@ pub unsafe extern "C" fn cdecl_crash_dump(exception: *mut EXCEPTION_POINTERS) ->
     crash_dump_and_exit(exception);
 }
 
+#[repr(C)]
+struct CppException {
+    vtable: *const CppExceptionVtable,
+}
+
+#[repr(C)]
+struct CppExceptionVtable {
+    delete: Thiscall<unsafe extern fn(*mut CppException)>,
+    message: Thiscall<unsafe extern fn(*mut CppException) -> *const i8>,
+}
+
 unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
     assert!(!exception.is_null());
     // TODO
     let place = (*(*exception).ContextRecord).Eip;
-    let mut message = format!("Crash @ {:08x}", place);
+    let exception_record = (*exception).ExceptionRecord;
+    let exception_code = (*exception_record).ExceptionCode;
+    let mut message = format!("Crash @ {:08x}\nException {:08x}", place, exception_code);
+    if exception_code == 0xe06d7363 {
+        // Execute C++ exception message() function.
+        // If this crashes then it's unfortunate though..
+        let cpp_exception = (*exception_record).ExceptionInformation[1] as *mut CppException;
+        if !cpp_exception.is_null() {
+            let vtable = (*cpp_exception).vtable;
+            if !vtable.is_null() {
+                let cpp_message = (*vtable).message.call1(cpp_exception);
+                if !cpp_message.is_null() {
+                    let msg = CStr::from_ptr(cpp_message);
+                    message = format!(
+                        "{}\nC++ exception message: '{}'",
+                        message, msg.to_string_lossy(),
+                    );
+                }
+            }
+        }
+    }
+
     if let Err(e) = write_minidump_to_default_path(exception) {
-        message = format!("Crash @ {:08x}, couldn't write dump: {}", place, e);
-    };
+        message = format!("{}\nCouldn't write dump: {}", message, e);
+    }
 
     error!("{}", message);
     windows::message_box("Shieldbattery crash :(", &message);
-    TerminateProcess(GetCurrentProcess(), (*(*exception).ExceptionRecord).ExceptionCode);
+    TerminateProcess(GetCurrentProcess(), exception_code);
     loop {}
 }
 
