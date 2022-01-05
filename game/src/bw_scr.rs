@@ -20,6 +20,7 @@ use libc::c_void;
 use parking_lot::{Mutex, RwLock};
 use scr_analysis::{DatType, scarf};
 use smallvec::SmallVec;
+use winapi::um::errhandlingapi::SetLastError;
 use winapi::um::libloaderapi::{GetModuleHandleW};
 
 use bw_dat::UnitId;
@@ -2369,7 +2370,6 @@ fn create_event_hook(
     orig: unsafe extern fn(*mut c_void, u32, u32, *const u16) -> *mut c_void,
 ) -> *mut c_void {
     unsafe {
-        use winapi::um::errhandlingapi::SetLastError;
         if !name.is_null() {
             let name_len = (0..).find(|&i| *name.add(i) == 0).unwrap();
             let name = std::slice::from_raw_parts(name, name_len);
@@ -2394,13 +2394,15 @@ fn create_file_hook(
     template: *mut c_void,
     orig: unsafe extern fn(*const u16, u32, u32, *mut c_void, u32, u32, *mut c_void) -> *mut c_void,
 ) -> *mut c_void {
-    use winapi::um::fileapi::{CREATE_ALWAYS};
+    use winapi::um::fileapi::{CREATE_ALWAYS, CREATE_NEW};
     use winapi::um::handleapi::INVALID_HANDLE_VALUE;
     use winapi::um::winnt::GENERIC_READ;
     unsafe {
         let mut is_replay = false;
         let mut access = access;
         if !filename.is_null() {
+            let name_len = (0..).find(|&i| *filename.add(i) == 0).unwrap();
+            let filename = std::slice::from_raw_parts(filename, name_len);
             // Check for creating a replay file. (We add more data to it after BW has done
             // writing it)
             //
@@ -2410,37 +2412,42 @@ fn create_file_hook(
             // accept any file ending with .rep and check for magic bytes when at CloseHandle
             // hook.
             if creation_disposition == CREATE_ALWAYS {
-                let name_len = (0..).find(|&i| *filename.add(i) == 0).unwrap();
-                let filename = std::slice::from_raw_parts(filename, name_len);
                 let ext = Some(())
                     .and_then(|()| filename.get(filename.len().checked_sub(4)?..));
                 if let Some(ext) = ext {
                     is_replay = ascii_compare_u16_u8_casei(ext, b".rep");
-                    // To read the replay magic bytes at CloseHandle hook,
-                    // we'll need read access to the newly created file as well.
-                    // Can't think of any issues this extra flag may cause..
-                    access |= GENERIC_READ;
+                    if is_replay {
+                        // To read the replay magic bytes at CloseHandle hook,
+                        // we'll need read access to the newly created file as well.
+                        // Can't think of any issues this extra flag may cause..
+                        access |= GENERIC_READ;
+                    }
                 }
             }
 
-            // Check if this is for CSettings.json and redirect it to our own file instead
             if !is_replay {
-                const CSETTINGS_JSON: &[u8] = b"CSettings.json";
+                // Check if this is for CSettings.json and redirect it to our own file instead
+                if check_filename(filename, b"CSettings.json") {
+                    let replacement = bw.settings_file_path.read();
+                    if replacement.is_empty() {
+                        error!("Replacement settings file path not set")
+                    } else {
+                        debug!("Mapping CSettings.json CreateFile call to {}", replacement);
+                        return orig(windows::winapi_str(&*replacement).as_ptr(), access, share,
+                                    security, creation_disposition, flags, template);
+                    }
+                }
 
-                let name_len = (0..).find(|&i| *filename.add(i) == 0).unwrap();
-                let filename = std::slice::from_raw_parts(filename, name_len);
-                let ending = Some(())
-                    .and_then(|()| filename.get(filename.len().checked_sub(CSETTINGS_JSON.len())?..));
-                if let Some(ending) = ending {
-                    if ascii_compare_u16_u8_casei(ending, CSETTINGS_JSON) {
-                        let replacement = bw.settings_file_path.read();
-                        if replacement.is_empty() {
-                            error!("Replacement settings file path not set")
-                        } else {
-                            debug!("Mapping CSettings.json CreateFile call to {}", replacement);
-                            return orig(windows::winapi_str(replacement.clone()).as_ptr(), access, share,
-                                        security, creation_disposition, flags, template);
-                        }
+                // Check for CASC repair marker. If trying to read, just pretend it doesn't
+                // exits. If trying to create (SC:R thought that the installation is broken),
+                // exit without creating the file (Hopefully the crash dump will have some
+                // information on the issue if it is our fault).
+                if check_filename(filename, b"CascRepair.mrk") {
+                    if matches!(creation_disposition, CREATE_ALWAYS | CREATE_NEW) {
+                        panic!("Unable to read CASC archive, may have to repair installation");
+                    } else {
+                        SetLastError(winapi::shared::winerror::ERROR_FILE_NOT_FOUND);
+                        return INVALID_HANDLE_VALUE;
                     }
                 }
             }
@@ -2452,6 +2459,19 @@ fn create_file_hook(
         }
         handle
     }
+}
+
+fn check_filename(filename: &[u16], compare: &[u8]) -> bool {
+    let ending = Some(())
+        .and_then(|()| filename.get(filename.len().checked_sub(compare.len() + 1)?..));
+    if let Some(ending) = ending {
+        if ending[0] == b'\\' as u16 || ending[0] == b'/' as u16 {
+            if ascii_compare_u16_u8_casei(&ending[1..], compare) {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 fn copy_file_hook(
