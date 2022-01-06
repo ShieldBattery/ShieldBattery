@@ -27,7 +27,7 @@ export async function upsertUserIdentifiers(
   const { client, done } = await db(withClient)
   try {
     const query = sql`
-      INSERT INTO user_identifiers ui
+      INSERT INTO user_identifiers AS ui
       (user_id, identifier_type, identifier_hash, first_used, last_used, times_seen)
       VALUES
     `
