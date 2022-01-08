@@ -135,10 +135,11 @@ const Actions = styled.div<{ $showDivider?: boolean }>`
   position: relative;
   flex-grow: 0;
   flex-shrink: 0;
+  padding: 8px 4px 4px;
 
-  padding: 8px 4px 0;
-  margin-bottom: 2px;
-  text-align: right;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 
   &::after {
     position: absolute;

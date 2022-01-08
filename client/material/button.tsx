@@ -247,8 +247,7 @@ const RaisedButtonRoot = styled.button<RaisedButtonStyleProps>`
   ${shadow2dp};
 
   min-width: 88px;
-  min-height: 36px;
-  margin: 6px 0;
+  min-height: 40px;
   padding: 0 16px;
   display: inline-table;
 
@@ -366,8 +365,7 @@ const TextButtonRoot = styled.button<TextButtonStyleProps>`
   ${fastOutSlowInShort};
 
   min-width: 64px;
-  min-height: 36px;
-  margin: 6px 0;
+  min-height: 40px;
   padding: 0 16px;
   display: inline-table;
 
