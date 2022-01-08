@@ -18,6 +18,7 @@ import { ComingSoon } from '../coming-soon/coming-soon'
 import { RaceIcon } from '../lobbies/race-icon'
 import { shadow2dp } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
+import { selectableTextContainer } from '../material/text-selection'
 import { goToIndex } from '../navigation/action-creators'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
@@ -242,6 +243,7 @@ const StyledAvatar = styled(ConnectedAvatar)`
 `
 
 const UsernameAndTitle = styled.div`
+  ${selectableTextContainer};
   flex-grow: 1;
   margin-left: 24px;
 `

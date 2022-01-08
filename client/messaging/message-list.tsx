@@ -7,6 +7,7 @@ import { SbUserId } from '../../common/users/sb-user'
 import { useSelfUser } from '../auth/state-hooks'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { animationFrameHandler } from '../material/animation-frame-handler'
+import { selectableTextContainer } from '../material/text-selection'
 import { NewDayMessage, TextMessage } from './common-message-layout'
 import { CommonMessageType, Message, NewDayMessageRecord } from './message-records'
 
@@ -30,11 +31,7 @@ const Scrollable = styled.div`
 `
 
 const Messages = styled.div`
-  user-select: contain;
-
-  & * {
-    user-select: text;
-  }
+  ${selectableTextContainer}
 `
 
 function renderCommonMessage(msg: Message, selfUserId: SbUserId) {
