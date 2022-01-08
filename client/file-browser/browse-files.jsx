@@ -5,7 +5,7 @@ import pathApi from 'path'
 import PropTypes from 'prop-types'
 import React from 'react'
 import { connect } from 'react-redux'
-import { List as VirtualizedList } from 'react-virtualized'
+import { AutoSizer, List as VirtualizedList } from 'react-virtualized'
 import styled from 'styled-components'
 import ChevronRight from '../icons/material/ic_chevron_right_black_24px.svg'
 import Folder from '../icons/material/ic_folder_black_24px.svg'
@@ -13,7 +13,6 @@ import Refresh from '../icons/material/ic_refresh_black_24px.svg'
 import UpDirectory from '../icons/material/ic_subdirectory_arrow_left_black_24px.svg'
 import KeyListener from '../keyboard/key-listener'
 import { IconButton } from '../material/button'
-import { ScrollableContent } from '../material/scroll-bar'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
 import { shadow4dp } from '../material/shadows'
@@ -275,7 +274,7 @@ const ExternalError = styled.div`
   border-bottom: 1px solid ${colorDividers};
 `
 
-const FilesScrollableContent = styled(ScrollableContent)`
+const FilesContent = styled.div`
   flex-grow: 1;
   flex-shrink: 1;
 `
@@ -317,7 +316,6 @@ export default class Files extends React.Component {
       ] || this.props.rootFolders.default,
   }
 
-  contentRef = React.createRef()
   listRef = React.createRef()
 
   // Focus *something* when browser is opened, because if we don't, whatever was focused before
@@ -436,11 +434,6 @@ export default class Files extends React.Component {
       return <p>{lastError.message}</p>
     }
 
-    if (!this.contentRef.current) {
-      // This can happen on the first render
-      return null
-    }
-
     const entries = this.getEntries(this.props, this.state)
     const _rowRenderer = ({ index, style }) => {
       const { fileTypes } = this.props
@@ -483,21 +476,23 @@ export default class Files extends React.Component {
       }
     }
 
-    const width = this.contentRef.current.getClientWidth()
-    const height = this.contentRef.current.getClientHeight()
     return (
       <>
         <KeyListener onKeyDown={this.onKeyDown} />
-        <FilesVirtualizedList
-          ref={this.listRef}
-          width={width}
-          height={height - VERT_PADDING * 2}
-          rowCount={entries.size}
-          rowHeight={ENTRY_HEIGHT}
-          rowRenderer={_rowRenderer}
-          style={{ overflowX: false, overflowY: false }}
-          containerStyle={{ marginTop: VERT_PADDING, marginBottom: VERT_PADDING }}
-        />
+        <AutoSizer nonce={window.SB_CSP_NONCE}>
+          {({ height, width }) => (
+            <FilesVirtualizedList
+              ref={this.listRef}
+              width={width}
+              height={height}
+              rowCount={entries.size}
+              rowHeight={ENTRY_HEIGHT}
+              rowRenderer={_rowRenderer}
+              style={{ overflowX: false }}
+              containerStyle={{ marginTop: VERT_PADDING, marginBottom: VERT_PADDING }}
+            />
+          )}
+        </AutoSizer>
       </>
     )
   }
@@ -534,9 +529,7 @@ export default class Files extends React.Component {
           </BreadcrumbsAndActions>
         </TopBar>
         {error ? <ExternalError>{error}</ExternalError> : null}
-        <FilesScrollableContent ref={this.contentRef} onScroll={this.onScroll}>
-          {this.renderFiles()}
-        </FilesScrollableContent>
+        <FilesContent>{this.renderFiles()}</FilesContent>
       </Root>
     )
   }
@@ -599,8 +592,6 @@ export default class Files extends React.Component {
 
   _moveFocusedIndexBy = delta => {
     const { focusedPath } = this.state
-    const { scrollToTop, scrollToBottom } = this.contentRef.current
-
     const entries = this.getEntries(this.props, this.state)
     const focusedIndex = entries.findIndex(f => f.path === focusedPath)
     if (focusedIndex === -1) return
@@ -608,10 +599,8 @@ export default class Files extends React.Component {
     let newIndex = focusedIndex + delta
     if (newIndex < 0) {
       newIndex = 0
-      scrollToTop()
     } else if (newIndex > entries.size - 1) {
       newIndex = entries.size - 1
-      scrollToBottom()
     }
 
     if (newIndex === focusedIndex) return
@@ -626,29 +615,7 @@ export default class Files extends React.Component {
   }
 
   _scrollToIndex = index => {
-    const { getClientHeight, getScrollTop, scrollTop } = this.contentRef.current
-
-    const clientHeight = getClientHeight()
-    const ENTRIES_SHOWN = Math.floor(clientHeight / ENTRY_HEIGHT)
-
-    // Adjust scroll position to keep the item in view
-    // TODO(2Pac): This was taken from the Select component, with some minor adjustments. Try
-    // extracting this logic (along with anything else needed) into some kind of a List component.
-    const curTopIndex = Math.ceil(Math.max(0, getScrollTop() - VERT_PADDING) / ENTRY_HEIGHT)
-    const curBottomIndex = curTopIndex + ENTRIES_SHOWN - 1 // accounts for partially shown entries
-    if (index >= curTopIndex && index <= curBottomIndex) {
-      // New index is in view, no need to adjust scroll position
-      return
-    } else if (index < curTopIndex) {
-      // Make the new index the top item
-      scrollTop(VERT_PADDING + ENTRY_HEIGHT * index)
-    } else {
-      // Calculates the space used to display a partially shown entry, so the bottom entry is
-      // aligned to the bottom of the list
-      const partialHeight = clientHeight - VERT_PADDING - ENTRIES_SHOWN * ENTRY_HEIGHT
-      // Make the new index the bottom item
-      scrollTop(ENTRY_HEIGHT * (index + 1 - ENTRIES_SHOWN) - partialHeight)
-    }
+    this.listRef.current?.scrollToRow(index)
   }
 
   onKeyDown = event => {
@@ -690,14 +657,5 @@ export default class Files extends React.Component {
     }
 
     return false
-  }
-
-  onScroll = event => {
-    // This event handler is necessary to make our custom scrollbar work with `react-virtualized`
-    if (!this.listRef.current) return
-    const { scrollTop, scrollLeft } = event.target
-    const { Grid: grid } = this.listRef.current
-
-    grid.handleScrollEvent({ scrollTop, scrollLeft })
   }
 }
