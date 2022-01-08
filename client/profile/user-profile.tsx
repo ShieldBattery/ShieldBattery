@@ -58,13 +58,8 @@ const LoadableAdminUserPage = loadable(() => import('./user-profile-admin'), {
 
 const Container = styled.div`
   max-width: 960px;
-  /* 18px + 6px from tab = 24px at top, 12px + 24px from tab = 36px from left */
-  padding: 18px 12px 24px;
-`
-
-const TabArea = styled.div`
-  width: 100%;
-  max-width: 720px;
+  /* 12px + 24px from tab = 36px from left */
+  padding: 24px 12px;
 `
 
 const LoadingError = styled.div`
@@ -156,68 +151,9 @@ export function ConnectedUserProfilePage({
   )
 }
 
-export interface UserProfilePageProps {
-  user: SbUser
-  profile: UserProfileJson
-  matchHistory: Immutable<GameRecordJson[]>
-  subPage?: UserProfileSubPage
-  onTabChange: (tab: UserProfileSubPage) => void
-  isAdmin: boolean
-}
-
-export function UserProfilePage({
-  user,
-  profile,
-  matchHistory,
-  subPage = UserProfileSubPage.Summary,
-  onTabChange,
-  isAdmin,
-}: UserProfilePageProps) {
-  let content: React.ReactNode
-  switch (subPage) {
-    case UserProfileSubPage.Summary:
-      content = <SummaryPage user={user} profile={profile} matchHistory={matchHistory} />
-      break
-
-    case UserProfileSubPage.Stats:
-    case UserProfileSubPage.MatchHistory:
-    case UserProfileSubPage.Seasons:
-      content = <ComingSoonPage />
-      break
-
-    case UserProfileSubPage.Admin:
-      // Parent component should navigate away from this page in a useEffect if not admin, so null
-      // is fine in that case
-      content = isAdmin ? <LoadableAdminUserPage user={user} /> : null
-      break
-
-    default:
-      content = assertUnreachable(subPage)
-  }
-
-  return (
-    <Container>
-      <TabArea>
-        <Tabs activeTab={subPage} onChange={onTabChange}>
-          <TabItem value={UserProfileSubPage.Summary} text='Summary' />
-          <TabItem value={UserProfileSubPage.Stats} text='Stats' />
-          <TabItem value={UserProfileSubPage.MatchHistory} text='Match history' />
-          <TabItem value={UserProfileSubPage.Seasons} text='Seasons' />
-          {isAdmin ? <TabItem value={UserProfileSubPage.Admin} text='Admin' /> : null}
-        </Tabs>
-      </TabArea>
-
-      {content}
-    </Container>
-  )
-}
-
 const TopSection = styled.div`
   height: 100px;
   width: 100%;
-  /* 34px + 6px from tab = 40px */
-  margin-top: 34px;
-  margin-bottom: 48px;
   padding: 0 24px;
 
   display: flex;
@@ -253,6 +189,83 @@ const Username = styled.div`
   ${singleLine};
   color: ${amberA400};
 `
+
+const TabArea = styled.div`
+  width: 100%;
+  max-width: 720px;
+  margin-top: 8px;
+  /** 18px + 6px built-in margin on tabs = 24px */
+  padding: 18px 0;
+`
+
+export interface UserProfilePageProps {
+  user: SbUser
+  profile: UserProfileJson
+  matchHistory: Immutable<GameRecordJson[]>
+  subPage?: UserProfileSubPage
+  onTabChange: (tab: UserProfileSubPage) => void
+  isAdmin: boolean
+}
+
+export function UserProfilePage({
+  user,
+  profile,
+  matchHistory,
+  subPage = UserProfileSubPage.Summary,
+  onTabChange,
+  isAdmin,
+}: UserProfilePageProps) {
+  // TODO(tec27): Build the title feature :)
+  const title = 'Novice'
+
+  let content: React.ReactNode
+  switch (subPage) {
+    case UserProfileSubPage.Summary:
+      content = <SummaryPage user={user} profile={profile} matchHistory={matchHistory} />
+      break
+
+    case UserProfileSubPage.Stats:
+    case UserProfileSubPage.MatchHistory:
+    case UserProfileSubPage.Seasons:
+      content = <ComingSoonPage />
+      break
+
+    case UserProfileSubPage.Admin:
+      // Parent component should navigate away from this page in a useEffect if not admin, so null
+      // is fine in that case
+      content = isAdmin ? <LoadableAdminUserPage user={user} /> : null
+      break
+
+    default:
+      content = assertUnreachable(subPage)
+  }
+
+  return (
+    <Container>
+      <TopSection>
+        <AvatarCircle>
+          <StyledAvatar userId={user.id} />
+        </AvatarCircle>
+        <UsernameAndTitle>
+          <Username>{user.name}</Username>
+          <Subtitle2>{title}</Subtitle2>
+        </UsernameAndTitle>
+      </TopSection>
+
+      <TabArea>
+        <Tabs activeTab={subPage} onChange={onTabChange}>
+          <TabItem value={UserProfileSubPage.Summary} text='Summary' />
+          <TabItem value={UserProfileSubPage.Stats} text='Stats' />
+          <TabItem value={UserProfileSubPage.MatchHistory} text='Match history' />
+          <TabItem value={UserProfileSubPage.Seasons} text='Seasons' />
+          {isAdmin ? <TabItem value={UserProfileSubPage.Admin} text='Admin' /> : null}
+        </Tabs>
+      </TabArea>
+
+      {content}
+    </Container>
+  )
+}
 
 const SectionOverline = styled.div`
   ${overline};
@@ -304,9 +317,6 @@ function SummaryPage({
   profile: UserProfileJson
   matchHistory: Immutable<GameRecordJson[]>
 }) {
-  // TODO(tec27): Build the title feature :)
-  const title = 'Novice'
-
   const stats = profile.userStats
   const pStats: RaceStats = {
     race: 'p',
@@ -331,16 +341,6 @@ function SummaryPage({
 
   return (
     <>
-      <TopSection>
-        <AvatarCircle>
-          <StyledAvatar userId={user.id} />
-        </AvatarCircle>
-        <UsernameAndTitle>
-          <Username>{user.name}</Username>
-          <Subtitle2>{title}</Subtitle2>
-        </UsernameAndTitle>
-      </TopSection>
-
       {hasAnyRanks && (
         <>
           <RankedSection>
