@@ -251,7 +251,6 @@
     "query-string": "^7.0.0",
     "rally-point-player": "^2.0.0",
     "react": "^17.0.1",
-    "react-custom-scrollbars": "^4.2.1",
     "react-dom": "^17.0.1",
     "react-hot-loader": "^4.12.18",
     "react-is": "^17.0.1",
