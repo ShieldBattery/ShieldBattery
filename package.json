@@ -275,7 +275,6 @@
     "webpack-cli": "^4.9.1",
     "webpack-dev-middleware": "^5.2.2",
     "webpack-hot-middleware": "^2.25.0",
-    "whatwg-fetch": "^3.0.0",
     "wouter": "^2.7.4",
     "ws": "^8.3.0"
   },

@@ -1,4 +1,3 @@
-import 'whatwg-fetch'
 import { FetchError } from './fetch-errors'
 import { makeServerUrl } from './server-url'
 
