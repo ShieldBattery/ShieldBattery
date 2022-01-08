@@ -62,6 +62,7 @@ const Container = styled.div`
 const TabArea = styled.div`
   width: 100%;
   max-width: 720px;
+  padding: 0 24px;
 `
 
 const ButtonBar = styled.div`

@@ -51,14 +51,15 @@ const ContentsBody = styled.div`
   padding: 12px 24px;
 `
 
-const ScrollDivider = styled.div<{ show: boolean }>`
+const ScrollDivider = styled.div<{ $show: boolean; $showAt: 'top' | 'bottom' }>`
   position: absolute;
   height: 1px;
   left: 0;
   right: 0;
-  top: 0;
 
-  background-color: ${props => (props.show ? colorDividers : 'transparent')};
+  ${props => (props.$showAt === 'top' ? 'top: 0;' : 'bottom: 0;')};
+
+  background-color: ${props => (props.$show ? colorDividers : 'transparent')};
   transition: background-color 150ms linear;
 `
 
@@ -69,6 +70,11 @@ const Actions = styled.div`
   align-items: center;
   padding: 16px 24px;
   contain: content;
+`
+
+const TabArea = styled.div`
+  position: relative;
+  padding: 0px 24px 8px;
 `
 
 interface DisabledContentsProps {
@@ -123,7 +129,7 @@ export function FindMatch() {
 
   const isMatchmakingDisabled = isMatchmakingStatusDisabled || isMatchmakingPartyDisabled
 
-  const [, isAtBottom, topElem, bottomElem] = useScrollIndicatorState({
+  const [isAtTop, isAtBottom, topElem, bottomElem] = useScrollIndicatorState({
     refreshToken: activeTab,
   })
   const formRef = useRef<FindMatchFormRef>(null)
@@ -196,11 +202,15 @@ export function FindMatch() {
       <TitleBar>
         <Headline5>Find match</Headline5>
       </TitleBar>
-      <Tabs bottomDivider={true} activeTab={activeTab} onChange={onTabChange}>
-        <TabItem text='1 vs 1' value={MatchmakingType.Match1v1} />
-        <TabItem text='2 vs 2' value={MatchmakingType.Match2v2} />
-        <TabItem text='3 vs 3' value={'3v3'} />
-      </Tabs>
+      <TabArea>
+        <Tabs activeTab={activeTab} onChange={onTabChange}>
+          <TabItem text='1 vs 1' value={MatchmakingType.Match1v1} />
+          <TabItem text='2 vs 2' value={MatchmakingType.Match2v2} />
+          <TabItem text='3 vs 3' value={'3v3'} />
+        </Tabs>
+
+        <ScrollDivider $show={!isAtTop} $showAt='bottom' />
+      </TabArea>
 
       {contents ? (
         <>
@@ -216,7 +226,7 @@ export function FindMatch() {
             />
           </Contents>
           <Actions>
-            <ScrollDivider show={!isAtBottom} />
+            <ScrollDivider $show={!isAtBottom} $showAt='top' />
             <RaisedButton
               label='Find match'
               disabled={isMatchmakingDisabled}

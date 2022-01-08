@@ -24,6 +24,7 @@ import {
   background400,
   background500,
   background600,
+  colorDividers,
   colorError,
   colorTextFaint,
   colorTextSecondary,
@@ -44,9 +45,24 @@ const LadderPage = styled.div`
 // NOTE(tec27): Using a container here instead of styling directly because styling it results in
 // TS not being able to figure out the generic param, so it doesn't like our tab change handler
 const TabsContainer = styled.div`
+  position: relative;
   width: 100%;
   max-width: 832px;
   flex-shrink: 0;
+
+  padding: 8px 16px;
+`
+
+const ScrollDivider = styled.div<{ $show: boolean; $showAt: 'top' | 'bottom' }>`
+  position: absolute;
+  height: 1px;
+  left: 0;
+  right: 0;
+
+  ${props => (props.$showAt === 'top' ? 'top: 0;' : 'bottom: 0;')};
+
+  background-color: ${props => (props.$show ? colorDividers : 'transparent')};
+  transition: background-color 150ms linear;
 `
 
 const Content = styled.div`
@@ -89,7 +105,7 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
   return (
     <LadderPage>
       <TabsContainer>
-        <Tabs bottomDivider={true} activeTab={matchmakingType} onChange={onTabChange}>
+        <Tabs activeTab={matchmakingType} onChange={onTabChange}>
           <TabItem
             text={matchmakingTypeToLabel(MatchmakingType.Match1v1)}
             value={MatchmakingType.Match1v1}
@@ -99,6 +115,7 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
             value={MatchmakingType.Match2v2}
           />
         </Tabs>
+        <ScrollDivider $show={true} $showAt='bottom' />
       </TabsContainer>
       <Content>
         {rankings ? (

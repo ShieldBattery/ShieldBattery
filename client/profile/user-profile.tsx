@@ -154,6 +154,7 @@ export function ConnectedUserProfilePage({
 const TopSection = styled.div`
   height: 100px;
   width: 100%;
+  margin-bottom: 32px;
   padding: 0 24px;
 
   display: flex;
@@ -193,9 +194,8 @@ const Username = styled.div`
 const TabArea = styled.div`
   width: 100%;
   max-width: 720px;
-  margin-top: 8px;
-  /** 18px + 6px built-in margin on tabs = 24px */
-  padding: 18px 0;
+  margin-bottom: 24px;
+  padding: 0 24px;
 `
 
 export interface UserProfilePageProps {

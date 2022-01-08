@@ -173,7 +173,7 @@ export function TabsTest() {
     <Container>
       <DemoCard>
         <CardHeadline>No scrolling</CardHeadline>
-        <Tabs bottomDivider={true} activeTab={activeTab} onChange={setActiveTab}>
+        <Tabs activeTab={activeTab} onChange={setActiveTab}>
           <TabItem text='1st' value={0} />
           <TabItem text='Second tab' value={1} />
           <TabItem text='Third long tab' value={2} />
@@ -184,7 +184,7 @@ export function TabsTest() {
 
       <DemoCard>
         <CardHeadline>Scrolling</CardHeadline>
-        <Tabs bottomDivider={true} activeTab={activeTab} onChange={setActiveTab}>
+        <Tabs activeTab={activeTab} onChange={setActiveTab}>
           <TabItem text='First' value={0} />
           <TabItem text='Second' value={1} />
           <TabItem text='Third' value={2} />

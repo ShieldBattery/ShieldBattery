@@ -130,7 +130,7 @@ export default function SettingsDialog({ dialogRef, onCancel }: CommonDialogProp
   )
 
   const tabs = (
-    <Tabs activeTab={activeTab} onChange={onTabChange} bottomDivider={true}>
+    <Tabs activeTab={activeTab} onChange={onTabChange}>
       <TabItem key='app' text='App' value={SettingsTab.App} />
       <TabItem key='input' text='Input' value={SettingsTab.Input} />
       <TabItem key='sound' text='Sound' value={SettingsTab.Sound} />
@@ -212,6 +212,7 @@ export default function SettingsDialog({ dialogRef, onCancel }: CommonDialogProp
       title='Settings'
       titleAction={titleAction}
       tabs={tabs}
+      alwaysHasTopDivider={true}
       buttons={buttons}
       onCancel={onCancel}>
       <ContentsBody>

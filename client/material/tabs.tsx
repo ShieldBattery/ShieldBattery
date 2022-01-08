@@ -1,3 +1,4 @@
+import { rgba } from 'polished'
 import React, { useCallback, useMemo } from 'react'
 import styled from 'styled-components'
 import { amberA400, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
@@ -8,13 +9,11 @@ import { Ripple } from './ripple'
 
 const Container = styled.div`
   position: relative;
-  height: 48px;
-  margin: 0;
-  /* 36px + 12px = 48px total height */
-  padding: 6px 24px;
+  height: 40px;
 
   display: flex;
   flex-direction: row;
+  align-items: center;
   contain: content;
 `
 
@@ -28,7 +27,7 @@ export const TabItemContainer = styled.button<{ $isActiveTab: boolean }>`
 
   flex: 1 1 auto;
   min-width: 64px;
-  height: 36px;
+  height: 40px;
 
   display: flex;
   flex-direction: row;
@@ -37,9 +36,10 @@ export const TabItemContainer = styled.button<{ $isActiveTab: boolean }>`
 
   padding: 0 16px;
 
-  color: ${props => (props.$isActiveTab ? amberA400 : colorTextSecondary)};
   background-color: ${props => (props.$isActiveTab ? 'rgba(255, 255, 255, 0.08)' : 'transparent')};
+  border: 1px solid ${props => (props.$isActiveTab ? rgba(amberA400, 0.24) : colorDividers)};
   border-radius: 4px;
+  color: ${props => (props.$isActiveTab ? amberA400 : colorTextSecondary)};
   transition: background-color 15ms linear, color 15ms linear;
 
   &:disabled {
@@ -54,16 +54,6 @@ export const TabSpacer = styled.div`
   max-width: 24px;
 
   flex: 1 1 0;
-`
-
-const BottomDivider = styled.div`
-  position: absolute;
-  height: 1px;
-  bottom: 0;
-  left: 0;
-  right: 0;
-
-  background-color: ${colorDividers};
 `
 
 export interface TabItemProps<T> {
@@ -118,11 +108,10 @@ export interface TabsProps<T> {
   children: Array<ReturnType<typeof TabItem> | null>
   activeTab: T
   onChange?: (value: T) => void
-  bottomDivider?: boolean
   className?: string
 }
 
-export function Tabs<T>({ children, activeTab, onChange, bottomDivider, className }: TabsProps<T>) {
+export function Tabs<T>({ children, activeTab, onChange, className }: TabsProps<T>) {
   const tabElems = useMemo(() => {
     const tabs = React.Children.map(children, (child, i) => {
       if (!child) {
@@ -150,10 +139,5 @@ export function Tabs<T>({ children, activeTab, onChange, bottomDivider, classNam
     return tabElems
   }, [activeTab, children, onChange])
 
-  return (
-    <Container className={className}>
-      {tabElems}
-      {bottomDivider ? <BottomDivider /> : null}
-    </Container>
-  )
+  return <Container className={className}>{tabElems}</Container>
 }

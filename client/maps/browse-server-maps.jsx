@@ -69,6 +69,11 @@ const ErrorText = styled.div`
   color: ${colorError};
 `
 
+const TabArea = styled.div`
+  position: relative;
+  padding: 0px 24px 8px;
+`
+
 const ScrollDivider = styled.div`
   width: 100%;
   height: 1px;
@@ -388,11 +393,14 @@ export default class Maps extends React.Component {
           <ActivityBackButton />
           <Headline5>{title}</Headline5>
         </TitleBar>
-        <Tabs activeTab={activeTab} onChange={this.onTabChange} bottomDivider={true}>
-          <TabItem text='Official' value={TAB_OFFICIAL_MAPS} />
-          <TabItem text='My maps' value={TAB_MY_MAPS} />
-          <TabItem text='Community' value={TAB_COMMUNITY_MAPS} />
-        </Tabs>
+        <TabArea>
+          <Tabs activeTab={activeTab} onChange={this.onTabChange}>
+            <TabItem text='Official' value={TAB_OFFICIAL_MAPS} />
+            <TabItem text='My maps' value={TAB_MY_MAPS} />
+            <TabItem text='Community' value={TAB_COMMUNITY_MAPS} />
+          </Tabs>
+        </TabArea>
+        <ScrollDivider position='top' />
         <Contents>
           <ContentsBody>
             {maps.lastError ? (

@@ -153,6 +153,23 @@ const Actions = styled.div<{ $showDivider?: boolean }>`
   }
 `
 
+const TabsContainer = styled.div<{ $showDivider?: boolean }>`
+  position: relative;
+  padding: 0 24px 8px;
+
+  &::after {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 1px;
+
+    background-color: ${props => (props.$showDivider ? colorDividers : ' transparent')};
+    content: '';
+    transition: background-color 125ms linear;
+  }
+`
+
 export interface DialogProps {
   buttons?: React.ReactNodeArray
   children: React.ReactNode
@@ -169,6 +186,7 @@ export interface DialogProps {
   title: string
   titleAction?: React.ReactNode
   onCancel?: () => void
+  alwaysHasTopDivider?: boolean
 }
 
 export function Dialog({
@@ -183,6 +201,7 @@ export function Dialog({
   title,
   titleAction,
   onCancel,
+  alwaysHasTopDivider = false,
 }: DialogProps) {
   const onKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -210,7 +229,9 @@ export function Dialog({
           {titleAction}
           {closeButton}
         </TitleBar>
-        {tabs}
+        {tabs ? (
+          <TabsContainer $showDivider={!isAtTop || alwaysHasTopDivider}>{tabs}</TabsContainer>
+        ) : null}
 
         <Body $fullBleed={fullBleed}>
           {topNode}
