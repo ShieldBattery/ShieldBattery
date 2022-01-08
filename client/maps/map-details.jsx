@@ -12,7 +12,6 @@ import EditIcon from '../icons/material/edit-24px.svg'
 import KeyListener from '../keyboard/key-listener'
 import { IconButton } from '../material/button'
 import { Dialog } from '../material/dialog'
-import { ScrollableContent } from '../material/scroll-bar'
 import TextField from '../material/text-field'
 import LoadingIndicator from '../progress/dots'
 import { colorError, colorTextSecondary } from '../styles/colors'
@@ -61,6 +60,7 @@ const MapName = styled(Display1Old)`
 
 const MapDescriptionWrapper = styled.div`
   height: 120px;
+  overflow-y: auto;
 `
 
 const MapDescription = styled(SubheadingOld)`
@@ -270,12 +270,10 @@ export default class MapDetails extends React.Component {
             />
           ) : (
             <MapDescriptionWrapper>
-              <ScrollableContent>
-                <MapDescription canEdit={canEdit}>
-                  {map.description}
-                  {canEdit ? this._getEditButton('description') : null}
-                </MapDescription>
-              </ScrollableContent>
+              <MapDescription canEdit={canEdit}>
+                {map.description}
+                {canEdit ? this._getEditButton('description') : null}
+              </MapDescription>
             </MapDescriptionWrapper>
           )}
           <MapData>
