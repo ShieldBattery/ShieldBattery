@@ -7,13 +7,12 @@ import { closeOverlay } from '../activities/action-creators'
 import { DisabledOverlay } from '../activities/disabled-content'
 import { useSelfUser } from '../auth/state-hooks'
 import { ComingSoon } from '../coming-soon/coming-soon'
-import KeyListener from '../keyboard/key-listener'
+import { useKeyListener } from '../keyboard/key-listener'
 import { RaisedButton } from '../material/button'
-import { useScrollIndicatorState } from '../material/scroll-indicator'
+import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { TabItem, Tabs } from '../material/tabs'
 import { findMatchAsParty } from '../parties/action-creators'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { colorDividers } from '../styles/colors'
 import { Headline5 } from '../styles/typography'
 import { findMatch, updateLastQueuedMatchmakingType } from './action-creators'
 import { Contents1v1 } from './find-1v1'
@@ -49,18 +48,6 @@ const Contents = styled.div<{ $disabled: boolean }>`
 
 const ContentsBody = styled.div`
   padding: 12px 24px;
-`
-
-const ScrollDivider = styled.div<{ $show: boolean; $showAt: 'top' | 'bottom' }>`
-  position: absolute;
-  height: 1px;
-  left: 0;
-  right: 0;
-
-  ${props => (props.$showAt === 'top' ? 'top: 0;' : 'bottom: 0;')};
-
-  background-color: ${props => (props.$show ? colorDividers : 'transparent')};
-  transition: background-color 150ms linear;
 `
 
 const Actions = styled.div`
@@ -165,8 +152,8 @@ export function FindMatch() {
     formRef.current?.submit()
   }, [])
 
-  const onKeyDown = useCallback(
-    (event: KeyboardEvent) => {
+  useKeyListener({
+    onKeyDown: (event: KeyboardEvent) => {
       if (event.code === ENTER || event.code === ENTER_NUMPAD) {
         onFindClick()
         return true
@@ -174,8 +161,7 @@ export function FindMatch() {
 
       return false
     },
-    [onFindClick],
-  )
+  })
 
   let contents: React.ReactNode | undefined
   switch (activeTab) {
@@ -214,7 +200,6 @@ export function FindMatch() {
 
       {contents ? (
         <>
-          <KeyListener onKeyDown={onKeyDown} />
           <Contents $disabled={isMatchmakingDisabled}>
             {topElem}
             <ContentsBody>{contents}</ContentsBody>

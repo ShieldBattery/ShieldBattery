@@ -6,7 +6,6 @@ import { MatchmakingType } from '../../common/matchmaking'
 import CheckIcon from '../icons/material/baseline-check_circle-24px.svg'
 import { RaisedButton, TextButton } from '../material/button'
 import CheckBox from '../material/check-box'
-import { ScrollableContent } from '../material/scroll-bar'
 import { TabItem, Tabs } from '../material/tabs'
 import LoadingIndicator from '../progress/dots'
 import { amberA400, colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
@@ -208,6 +207,7 @@ class MatchmakingTimesHistory extends React.PureComponent {
 const Container = styled.div`
   max-width: 800px;
   padding: 0 16px;
+  overflow-y: auto;
 `
 
 const DateInputContainer = styled.div`
@@ -273,39 +273,37 @@ export default class MatchmakingTimes extends React.Component {
     }
 
     return (
-      <ScrollableContent>
-        <Container>
-          <Tabs activeTab={activeTab} onChange={this.onTabChange}>
-            <TabItem text='1v1' value={MatchmakingType.Match1v1} />
-            <TabItem text='2v2' value={MatchmakingType.Match2v2} />
-          </Tabs>
-          <h3>Add a new matchmaking time</h3>
-          <p>Choose a date and time (in your local timezone) when the matchmaking will start</p>
-          <DateInputContainer>
-            <DateInput
-              type='datetime-local'
-              value={this.state.startDate}
-              onChange={this.onStartDateChange}
-            />
-            {dateValidationContents}
-          </DateInputContainer>
-          <CheckBox label='Enabled' checked={enabled} onChange={this.onEnabledChange} />
-          <AddNewButton
-            label='Add'
-            disabled={startDate === '' || invalidDate}
-            onClick={this.onAddNew}
+      <Container>
+        <Tabs activeTab={activeTab} onChange={this.onTabChange}>
+          <TabItem text='1v1' value={MatchmakingType.Match1v1} />
+          <TabItem text='2v2' value={MatchmakingType.Match2v2} />
+        </Tabs>
+        <h3>Add a new matchmaking time</h3>
+        <p>Choose a date and time (in your local timezone) when the matchmaking will start</p>
+        <DateInputContainer>
+          <DateInput
+            type='datetime-local'
+            value={this.state.startDate}
+            onChange={this.onStartDateChange}
           />
-          <h3>Matchmaking times history</h3>
-          <MatchmakingTimesHistory
-            history={matchmakingTimesHistory}
-            futureTimesPage={futureTimesPage}
-            pastTimesPage={pastTimesPage}
-            onLoadMoreFuture={this.onLoadMoreFutureTimes}
-            onLoadMorePast={this.onLoadMorePastTimes}
-            onDelete={this.onDeleteMatchmakingTime}
-          />
-        </Container>
-      </ScrollableContent>
+          {dateValidationContents}
+        </DateInputContainer>
+        <CheckBox label='Enabled' checked={enabled} onChange={this.onEnabledChange} />
+        <AddNewButton
+          label='Add'
+          disabled={startDate === '' || invalidDate}
+          onClick={this.onAddNew}
+        />
+        <h3>Matchmaking times history</h3>
+        <MatchmakingTimesHistory
+          history={matchmakingTimesHistory}
+          futureTimesPage={futureTimesPage}
+          pastTimesPage={pastTimesPage}
+          onLoadMoreFuture={this.onLoadMoreFutureTimes}
+          onLoadMorePast={this.onLoadMorePastTimes}
+          onDelete={this.onDeleteMatchmakingTime}
+        />
+      </Container>
     )
   }
 

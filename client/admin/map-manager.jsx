@@ -8,7 +8,6 @@ import SuccessIcon from '../icons/material/baseline-check_circle-24px.svg'
 import ErrorIcon from '../icons/material/baseline-error-24px.svg'
 import uploadMap from '../maps/upload'
 import { RaisedButton, TextButton } from '../material/button'
-import { ScrollableContent } from '../material/scroll-bar'
 import { fetchJson } from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
 import {
@@ -23,6 +22,7 @@ import { singleLine, SubheadingOld } from '../styles/typography'
 const Container = styled.div`
   max-width: 600px;
   padding: 0 16px;
+  overflow-y: auto;
 `
 
 const SelectedFiles = styled.ul`
@@ -229,12 +229,10 @@ export default class MapManager extends React.Component {
 
   render() {
     return (
-      <ScrollableContent>
-        <Container>
-          {this.renderUploadMaps()}
-          {this.renderDeleteMaps()}
-        </Container>
-      </ScrollableContent>
+      <Container>
+        {this.renderUploadMaps()}
+        {this.renderDeleteMaps()}
+      </Container>
     )
   }
 

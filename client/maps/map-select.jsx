@@ -144,7 +144,8 @@ export default class MapSelect extends React.Component {
     } = this.props
     const { isFocused, focusedIndex } = this.state
 
-    const isSelected = m => (typeof value === 'string' ? value === m.id : value.includes(m.id))
+    const isSelected = m =>
+      !!value && (typeof value === 'string' ? value === m.id : value.includes(m.id))
     const mapElements = list.map((id, i) => {
       const map = byId.get(id)
       return (

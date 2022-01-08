@@ -152,7 +152,7 @@ export default class JoinLobby extends React.Component {
         </TitleBar>
         <Contents>
           <ContentsBody>{this.renderList()}</ContentsBody>
-          {this.props.party.id ? (
+          {this.props.party.current ? (
             <DisabledOverlay>
               <DisabledCard>
                 <Headline5>Disabled while in party</Headline5>

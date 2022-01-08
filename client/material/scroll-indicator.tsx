@@ -1,9 +1,26 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
+import { colorDividers } from '../styles/colors'
 
 const ScrollObserved = styled.div`
   width: 0px;
   height: 0px;
+`
+
+/**
+ * A line that will be drawn if `$show` is `true`. Must be placed inside a `position: relative`
+ * ancestor.
+ */
+export const ScrollDivider = styled.div<{ $show: boolean; $showAt: 'top' | 'bottom' }>`
+  position: absolute;
+  height: 1px;
+  left: 0;
+  right: 0;
+
+  ${props => (props.$showAt === 'top' ? 'top: 0;' : 'bottom: 0;')};
+
+  background-color: ${props => (props.$show ? colorDividers : 'transparent')};
+  transition: background-color 150ms linear;
 `
 
 interface ScrollIndicatorStateProps {
