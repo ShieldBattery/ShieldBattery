@@ -473,6 +473,10 @@ function registerHotkeys() {
       mainWindow?.webContents.reloadIgnoringCache()
     }
   })
+
+  localShortcut.register(mainWindow!, 'F11', () => {
+    mainWindow?.setFullScreen(!mainWindow?.isFullScreen())
+  })
 }
 
 async function createWindow() {
