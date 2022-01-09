@@ -4,7 +4,6 @@ import styled, { css } from 'styled-components'
 import { DISCORD_URL } from '../../common/url-constants'
 import { apiUrl } from '../../common/urls'
 import { openDialog } from '../dialogs/action-creators'
-import { ConnectedDialogOverlay } from '../dialogs/connected-dialog-overlay'
 import { DialogType } from '../dialogs/dialog-type'
 import DiscordIcon from '../icons/brands/discord-lockup.svg'
 import GithubIcon from '../icons/brands/github.svg'
@@ -23,7 +22,6 @@ import {
   background700,
   background800,
   background900,
-  blue800,
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors'
@@ -45,22 +43,6 @@ const SplashContainer = styled.div`
 
   & * {
     user-select: text;
-  }
-
-  .electron & {
-    /* move links below window controls */
-    padding-top: 32px !important;
-
-    &::after {
-      position: absolute;
-      height: 32px;
-      top: 0;
-      left: 0;
-      right: 0;
-      content: '';
-      background-color: ${blue800};
-      -webkit-app-region: drag;
-    }
   }
 `
 
@@ -473,234 +455,227 @@ export default function Splash() {
   const onSignUpClick = () => push({ pathname: '/signup' })
 
   return (
-    <React.Fragment>
-      <SplashContainer>
-        <BackgroundVideo playsInline={true} autoPlay={true} muted={true} loop={true}>
-          <source src={makeServerUrl('/videos/splash-video.mp4')} type='video/mp4' />
-        </BackgroundVideo>
-        <BackgroundVideoScrim />
-        <TopLinks />
-        <LogoLockup>
-          <Logo src={makeServerUrl('/images/logo.svg')} />
-          <StyledLogoText />
-        </LogoLockup>
-        <TagLine>Play StarCraft 1 on the premier community-run platform</TagLine>
-        <Blurb>
-          ShieldBattery is the first community-run server that supports StarCraft:{'\u00A0'}
-          Remastered. Our custom launcher enhances the real game client to work with our advanced
-          platform, improving on the StarCraft 1 experience while maintaining faithful, authentic
-          gameplay. Download our launcher and start playing in just a few clicks!
-        </Blurb>
-        {!IS_ELECTRON ? (
-          <ButtonsContainer>
-            <SplashButton label='Sign Up' color='primary' onClick={onSignUpClick} />
-            <SplashButton
-              label='Download'
-              color='primary'
-              onClick={() => dispatch(openDialog(DialogType.Download))}
-            />
-          </ButtonsContainer>
-        ) : (
+    <SplashContainer>
+      <BackgroundVideo playsInline={true} autoPlay={true} muted={true} loop={true}>
+        <source src={makeServerUrl('/videos/splash-video.mp4')} type='video/mp4' />
+      </BackgroundVideo>
+      <BackgroundVideoScrim />
+      <TopLinks />
+      <LogoLockup>
+        <Logo src={makeServerUrl('/images/logo.svg')} />
+        <StyledLogoText />
+      </LogoLockup>
+      <TagLine>Play StarCraft 1 on the premier community-run platform</TagLine>
+      <Blurb>
+        ShieldBattery is the first community-run server that supports StarCraft:{'\u00A0'}
+        Remastered. Our custom launcher enhances the real game client to work with our advanced
+        platform, improving on the StarCraft 1 experience while maintaining faithful, authentic
+        gameplay. Download our launcher and start playing in just a few clicks!
+      </Blurb>
+      {!IS_ELECTRON ? (
+        <ButtonsContainer>
           <SplashButton label='Sign Up' color='primary' onClick={onSignUpClick} />
-        )}
-        <StyledGameCount />
-        <BenefitContainer>
-          {BENEFITS.map((f, i) => (
-            <BenefitSection
-              title={f.title}
-              body={f.body}
-              image={f.image}
-              imageAtStart={i % 2 !== 0}
-              key={`feature-${i}`}
+          <SplashButton
+            label='Download'
+            color='primary'
+            onClick={() => dispatch(openDialog(DialogType.Download))}
+          />
+        </ButtonsContainer>
+      ) : (
+        <SplashButton label='Sign Up' color='primary' onClick={onSignUpClick} />
+      )}
+      <StyledGameCount />
+      <BenefitContainer>
+        {BENEFITS.map((f, i) => (
+          <BenefitSection
+            title={f.title}
+            body={f.body}
+            image={f.image}
+            imageAtStart={i % 2 !== 0}
+            key={`feature-${i}`}
+          />
+        ))}
+      </BenefitContainer>
+      <FeatureContainer>
+        <FeatureSection>
+          <FeatureSectionTitle>Features</FeatureSectionTitle>
+          <FeatureSectionList>
+            <FeatureEntry
+              title='1v1 and 2v2 Matchmaking'
+              description={'Find matches quickly and easily, by yourself or with an arranged team.'}
             />
-          ))}
-        </BenefitContainer>
-        <FeatureContainer>
-          <FeatureSection>
-            <FeatureSectionTitle>Features</FeatureSectionTitle>
-            <FeatureSectionList>
-              <FeatureEntry
-                title='1v1 and 2v2 Matchmaking'
-                description={
-                  'Find matches quickly and easily, by yourself or with an arranged team.'
-                }
-              />
-              <FeatureEntry
-                title='Ranked ladder'
-                description={
-                  'Hone your skills in our Elo-based ranking system for all matchmaking modes.'
-                }
-              />
-              <FeatureEntry
-                title='StarCraft: Remastered support'
-                description={
-                  'Support for all the new Remastered features, including HD graphics (if ' +
-                  'purchased from Blizzard) and custom hotkeys.'
-                }
-              />
-              <FeatureEntry
-                title='Fixes for bugs and exploits'
-                description={
-                  'Avoid the hacks and exploits that plague the official servers. ' +
-                  'Things like worker duplication, mineral hacks, and permanently floating ' +
-                  'workers are a thing of the past here.'
-                }
-              />
-              <FeatureEntry
-                title='Improved netcode'
-                description='Less lag, drops, and packet loss!'
-              />
-              <FeatureEntry
-                title='Working Team Melee replays'
-                description={'Play back any games played in Team Melee mode on ShieldBattery!'}
-              />
-              <FeatureEntry
-                title='Parties'
-                description={
-                  'Party up with your friends to easily host private matches, watch replays ' +
-                  'together, or join matchmaking.'
-                }
-              />
-              <FeatureEntry
-                title='Cloud-based map distribution and hosting'
-                description={
-                  'Play on any of the maps in our official library, or upload your own. Upload ' +
-                  'all your favorite maps, share them with your friends, host them from anywhere.'
-                }
-              />
-              <FeatureEntry
-                title='Web-based chat client'
-                description={
-                  'Keep up with your friends (and enemies) without needing to install anything.'
-                }
-              />
-            </FeatureSectionList>
-          </FeatureSection>
-          <FeatureSection>
-            <FeatureSectionTitle>
-              In the pipe <ComingSoonText>(coming soon)</ComingSoonText>
-            </FeatureSectionTitle>
-            <FeatureSectionList>
-              <FeatureEntry
-                title='3v3 matchmaking'
-                description='Easily find games for 3v3, with arranged or random teams.'
-              />
-              <FeatureEntry
-                title='Cloud-synced replays'
-                description={
-                  'Automatic uploading for replays. Share them with others, watch them from ' +
-                  'anywhere!'
-                }
-              />
-              <FeatureEntry
-                title='Configurable pixel scaling'
-                description={
-                  'Improve the look of SD graphics on modern screens with custom scaling ' +
-                  'algorithms.'
-                }
-              />
-              <FeatureEntry
-                title='Live match streaming'
-                description={
-                  'Jump into in-progress matches and watch them live, with all the ' +
-                  'benefits of ingame observing.'
-                }
-              />
-              <FeatureEntry
-                title='Player profiles and statistics'
-                description={
-                  'Check out your skills across different matchups and maps, find ways to ' +
-                  'improve, and see how you stack up against the competition.'
-                }
-              />
-              <FeatureEntry
-                title='Replay analysis'
-                description={
-                  'Built-in support for BWChart-like replay analysis, as well as more advanced ' +
-                  'statistics and charting.'
-                }
-              />
-              <FeatureEntry
-                title='First person replays'
-                description={
-                  'Record mouse and screen movements and play them back for all players.'
-                }
-              />
-              <FeatureEntry
-                title='Training/sandbox mode'
-                description={'Test out new builds, practice your worker split, improve your micro.'}
-              />
-              <FeatureEntry
-                title='Friends list'
-                description={
-                  'Track when your friends are online, easily send them messages and invite ' +
-                  'them to games.'
-                }
-              />
-              <FeatureEntry
-                title='New built-in mapmaking features'
-                description={
-                  'Destructible rocks, ideal worker starting positions, advanced creep ' +
-                  ' placement, and more!'
-                }
-              />
-              <FeatureEntry
-                title='Automated tournaments and leagues'
-                description={
-                  'Find tournaments and leagues that match your skill level, run automatically.'
-                }
-              />
-              <FeatureEntry
-                title='Expanded chat features'
-                description={
-                  'Express yourself using emotes, embed maps, matches, and replays, and more!'
-                }
-              />
-              <FeatureEntry
-                title='Use Map Settings portal'
-                description={
-                  'Find and explore UMS maps with ease, then quickly gather players and get ' +
-                  'the game started.'
-                }
-              />
-            </FeatureSectionList>
-          </FeatureSection>
-        </FeatureContainer>
-        <LinksSection>
-          <LinksHeader>Links</LinksHeader>
-          <LinkEntries>
-            <a
-              href='https://twitter.com/ShieldBatteryBW'
-              title='Twitter'
-              target='_blank'
-              rel='noopener'>
-              <StyledTwitterIcon />
-            </a>
-            <a
-              href='https://github.com/ShieldBattery/ShieldBattery'
-              title='GitHub'
-              target='_blank'
-              rel='noopener'>
-              <StyledGithubIcon />
-            </a>
-            <a href={DISCORD_URL} title='Discord' target='_blank' rel='noopener'>
-              <StyledDiscordIcon />
-            </a>
-            <a href='https://patreon.com/tec27' title='Patreon' target='_blank' rel='noopener'>
-              <StyledPatreonIcon />
-            </a>
-          </LinkEntries>
-        </LinksSection>
-        <DisclaimerSection>
-          <DisclaimerText>
-            StarCraft is a registered trademark of Blizzard Entertainment, Inc. ShieldBattery is
-            developed solely by members of the community, unaffiliated with Blizzard, and is not
-            officially endorsed or supported by Blizzard.
-          </DisclaimerText>
-        </DisclaimerSection>
-        <BottomLinks />
-      </SplashContainer>
-      <ConnectedDialogOverlay />
-    </React.Fragment>
+            <FeatureEntry
+              title='Ranked ladder'
+              description={
+                'Hone your skills in our Elo-based ranking system for all matchmaking modes.'
+              }
+            />
+            <FeatureEntry
+              title='StarCraft: Remastered support'
+              description={
+                'Support for all the new Remastered features, including HD graphics (if ' +
+                'purchased from Blizzard) and custom hotkeys.'
+              }
+            />
+            <FeatureEntry
+              title='Fixes for bugs and exploits'
+              description={
+                'Avoid the hacks and exploits that plague the official servers. ' +
+                'Things like worker duplication, mineral hacks, and permanently floating ' +
+                'workers are a thing of the past here.'
+              }
+            />
+            <FeatureEntry
+              title='Improved netcode'
+              description='Less lag, drops, and packet loss!'
+            />
+            <FeatureEntry
+              title='Working Team Melee replays'
+              description={'Play back any games played in Team Melee mode on ShieldBattery!'}
+            />
+            <FeatureEntry
+              title='Parties'
+              description={
+                'Party up with your friends to easily host private matches, watch replays ' +
+                'together, or join matchmaking.'
+              }
+            />
+            <FeatureEntry
+              title='Cloud-based map distribution and hosting'
+              description={
+                'Play on any of the maps in our official library, or upload your own. Upload ' +
+                'all your favorite maps, share them with your friends, host them from anywhere.'
+              }
+            />
+            <FeatureEntry
+              title='Web-based chat client'
+              description={
+                'Keep up with your friends (and enemies) without needing to install anything.'
+              }
+            />
+          </FeatureSectionList>
+        </FeatureSection>
+        <FeatureSection>
+          <FeatureSectionTitle>
+            In the pipe <ComingSoonText>(coming soon)</ComingSoonText>
+          </FeatureSectionTitle>
+          <FeatureSectionList>
+            <FeatureEntry
+              title='3v3 matchmaking'
+              description='Easily find games for 3v3, with arranged or random teams.'
+            />
+            <FeatureEntry
+              title='Cloud-synced replays'
+              description={
+                'Automatic uploading for replays. Share them with others, watch them from ' +
+                'anywhere!'
+              }
+            />
+            <FeatureEntry
+              title='Configurable pixel scaling'
+              description={
+                'Improve the look of SD graphics on modern screens with custom scaling ' +
+                'algorithms.'
+              }
+            />
+            <FeatureEntry
+              title='Live match streaming'
+              description={
+                'Jump into in-progress matches and watch them live, with all the ' +
+                'benefits of ingame observing.'
+              }
+            />
+            <FeatureEntry
+              title='Player profiles and statistics'
+              description={
+                'Check out your skills across different matchups and maps, find ways to ' +
+                'improve, and see how you stack up against the competition.'
+              }
+            />
+            <FeatureEntry
+              title='Replay analysis'
+              description={
+                'Built-in support for BWChart-like replay analysis, as well as more advanced ' +
+                'statistics and charting.'
+              }
+            />
+            <FeatureEntry
+              title='First person replays'
+              description={'Record mouse and screen movements and play them back for all players.'}
+            />
+            <FeatureEntry
+              title='Training/sandbox mode'
+              description={'Test out new builds, practice your worker split, improve your micro.'}
+            />
+            <FeatureEntry
+              title='Friends list'
+              description={
+                'Track when your friends are online, easily send them messages and invite ' +
+                'them to games.'
+              }
+            />
+            <FeatureEntry
+              title='New built-in mapmaking features'
+              description={
+                'Destructible rocks, ideal worker starting positions, advanced creep ' +
+                ' placement, and more!'
+              }
+            />
+            <FeatureEntry
+              title='Automated tournaments and leagues'
+              description={
+                'Find tournaments and leagues that match your skill level, run automatically.'
+              }
+            />
+            <FeatureEntry
+              title='Expanded chat features'
+              description={
+                'Express yourself using emotes, embed maps, matches, and replays, and more!'
+              }
+            />
+            <FeatureEntry
+              title='Use Map Settings portal'
+              description={
+                'Find and explore UMS maps with ease, then quickly gather players and get ' +
+                'the game started.'
+              }
+            />
+          </FeatureSectionList>
+        </FeatureSection>
+      </FeatureContainer>
+      <LinksSection>
+        <LinksHeader>Links</LinksHeader>
+        <LinkEntries>
+          <a
+            href='https://twitter.com/ShieldBatteryBW'
+            title='Twitter'
+            target='_blank'
+            rel='noopener'>
+            <StyledTwitterIcon />
+          </a>
+          <a
+            href='https://github.com/ShieldBattery/ShieldBattery'
+            title='GitHub'
+            target='_blank'
+            rel='noopener'>
+            <StyledGithubIcon />
+          </a>
+          <a href={DISCORD_URL} title='Discord' target='_blank' rel='noopener'>
+            <StyledDiscordIcon />
+          </a>
+          <a href='https://patreon.com/tec27' title='Patreon' target='_blank' rel='noopener'>
+            <StyledPatreonIcon />
+          </a>
+        </LinkEntries>
+      </LinksSection>
+      <DisclaimerSection>
+        <DisclaimerText>
+          StarCraft is a registered trademark of Blizzard Entertainment, Inc. ShieldBattery is
+          developed solely by members of the community, unaffiliated with Blizzard, and is not
+          officially endorsed or supported by Blizzard.
+        </DisclaimerText>
+      </DisclaimerSection>
+      <BottomLinks />
+    </SplashContainer>
   )
 }

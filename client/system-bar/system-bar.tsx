@@ -8,11 +8,14 @@ import { shadow4dp } from '../material/shadows'
 import { zIndexAppBar } from '../material/zindex'
 import { push } from '../navigation/routing'
 import { blue800, colorError } from '../styles/colors'
-import { caption, headline6, singleLine } from '../styles/typography'
+import { caption } from '../styles/typography'
 import { SizeLeft, SizeRight, SizeTop } from './window-controls'
 
 const Container = styled.header`
   ${shadow4dp};
+  flex-grow: 0;
+  flex-shrink: 0;
+
   width: 100%;
   height: 24px;
   margin: 0;
@@ -32,11 +35,6 @@ const LeftSide = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
-`
-
-export const AppBarTitle = styled.div`
-  ${headline6};
-  ${singleLine};
 `
 
 const StyledIconButton = styled(IconButton)`
@@ -65,12 +63,7 @@ const DevIndicator = styled.div`
   -webkit-app-region: no-drag;
 `
 
-export interface AppBarProps {
-  children?: React.ReactNode
-  className?: string
-}
-
-export default function AppBar(props: AppBarProps) {
+export function SystemBar() {
   useLayoutEffect(() => {
     document.body.style.setProperty('--sb-system-bar-height', '24px')
     return () => {
@@ -83,7 +76,7 @@ export default function AppBar(props: AppBarProps) {
   }, [])
 
   return (
-    <Container className={props.className}>
+    <Container>
       <SizeTop />
       <SizeLeft />
       <SizeRight />

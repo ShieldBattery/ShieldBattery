@@ -1,39 +1,12 @@
-import React, { useLayoutEffect } from 'react'
+import React from 'react'
 import styled from 'styled-components'
-import { SizeLeft, SizeRight, SizeTop } from '../app-bar/window-controls'
-import { ConnectedDialogOverlay } from '../dialogs/connected-dialog-overlay'
 import LogoText from '../logos/logotext-640x100.svg'
 import { makeServerUrl } from '../network/server-url'
-import { blue800 } from '../styles/colors'
-
-const Background = styled.div`
-  .electron & {
-    overflow: hidden;
-  }
-`
 
 const Wrapper = styled.div`
   width: 100%;
-  height: 100%;
   padding-left: var(--pixel-shove-x, 0);
-
-  .electron & {
-    height: calc(100% - 32px);
-    overflow: auto;
-  }
-`
-
-// TODO(tec27): Just use the app bar here
-const DRAGGABLE_HEIGHT = '24px'
-
-const Draggable = styled.div`
-  width: 100%;
-  height: ${DRAGGABLE_HEIGHT};
-
-  .electron & {
-    background-color: ${blue800};
-    -webkit-app-region: drag;
-  }
+  overflow: auto;
 `
 
 const Contents = styled.div`
@@ -59,33 +32,15 @@ export interface LoginLayoutProps {
 }
 
 export default function LoginLayout({ children }: LoginLayoutProps) {
-  useLayoutEffect(() => {
-    document.body.style.setProperty(
-      '--sb-system-bar-height',
-      IS_ELECTRON ? DRAGGABLE_HEIGHT : '0px',
-    )
-    return () => {
-      document.body.style.removeProperty('--sb-system-bar-height')
-    }
-  }, [])
-
   return (
-    <Background>
-      <Draggable>
-        <SizeTop />
-        <SizeLeft />
-        <SizeRight />
-      </Draggable>
-      <Wrapper>
-        <Contents>
-          <Logo src={makeServerUrl('/images/logo.svg')} />
-          <StyledLogoText>
-            <LogoText />
-          </StyledLogoText>
-          {children}
-        </Contents>
-      </Wrapper>
-      <ConnectedDialogOverlay />
-    </Background>
+    <Wrapper>
+      <Contents>
+        <Logo src={makeServerUrl('/images/logo.svg')} />
+        <StyledLogoText>
+          <LogoText />
+        </StyledLogoText>
+        {children}
+      </Contents>
+    </Wrapper>
   )
 }

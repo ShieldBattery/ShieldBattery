@@ -123,14 +123,11 @@ export function WindowControls() {
     ipcRenderer.send('windowMinimize')
   }, [])
 
-  if (!IS_ELECTRON) {
-    return null
-  }
-
   // The reason why we're using portals to render window controls is so we can ensure they always
   // stay on top of other components, even dialogs and other components that use portals
   return ReactDOM.createPortal(
     <>
+      <WindowControlsStyle />
       <CloseButton title={'Close'} onClick={onCloseClick}>
         <CloseIcon />
       </CloseButton>

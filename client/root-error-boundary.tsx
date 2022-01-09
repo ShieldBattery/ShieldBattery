@@ -1,13 +1,13 @@
 import React from 'react'
 import styled from 'styled-components'
 import { DISCORD_URL } from '../common/url-constants'
-import { WindowControls, WindowControlsStyle } from './app-bar/window-controls'
 import logger from './logging/logger'
 import { RaisedButton } from './material/button'
 import { colorTextSecondary } from './styles/colors'
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
 import { Headline5, subtitle1 } from './styles/typography'
+import { WindowControls, WindowControlsStyle } from './system-bar/window-controls'
 
 export interface RootErrorBoundaryProps {
   /** A class name that will be applied to the root container that displays errors. */

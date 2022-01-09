@@ -3,7 +3,7 @@ import keycode from 'keycode'
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-import { Route, Switch, useLocation } from 'wouter'
+import { Route, Switch } from 'wouter'
 import { EMAIL_VERIFICATION_ID, NotificationType } from '../common/notifications'
 import { openOverlay } from './activities/action-creators'
 import ActivityBar from './activities/activity-bar'
@@ -11,14 +11,10 @@ import { ActivityButton } from './activities/activity-button'
 import ActivityOverlay from './activities/activity-overlay'
 import ActivitySpacer from './activities/spacer'
 import { IsAdminFilter } from './admin/admin-route-filters'
-import AdminTitle from './admin/app-bar-title'
-import AppBar from './app-bar/app-bar'
 import { openChangelogIfNecessary } from './changelog/action-creators'
-import { ChatListTitle, ChatTitle } from './chat/app-bar-title'
 import ChatChannel from './chat/channel'
 import ChatList from './chat/list'
 import { openDialog } from './dialogs/action-creators'
-import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay'
 import { DialogType } from './dialogs/dialog-type'
 import { ConnectedGameResultsPage } from './games/results'
 import LadderIcon from './icons/material/emoji_events_black_36px.svg'
@@ -30,13 +26,10 @@ import MapsIcon from './icons/material/ic_terrain_black_36px.svg'
 import SettingsIcon from './icons/material/settings_black_24px.svg'
 import FindMatchIcon from './icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { navigateToLadder } from './ladder/action-creators'
-import { LadderTitle } from './ladder/app-bar-title'
 import { Ladder } from './ladder/ladder'
-import LobbyTitle from './lobbies/app-bar-title'
 import LobbyView from './lobbies/view'
 import { regenMapImage, removeMap } from './maps/action-creators'
 import { cancelFindMatch } from './matchmaking/action-creators'
-import MatchmakingTitle from './matchmaking/app-bar-title'
 import { MatchmakingSearchingOverlay } from './matchmaking/matchmaking-searching-overlay'
 import MatchmakingView from './matchmaking/view'
 import { IconButton } from './material/button'
@@ -47,7 +40,6 @@ import { replace } from './navigation/routing'
 import { addLocalNotification } from './notifications/action-creators'
 import { NotificationsButton } from './notifications/activity-bar-entry'
 import NotificationPopups from './notifications/notifications-popup'
-import { PartyTitle } from './parties/app-bar-title'
 import { PartyView } from './parties/party-view'
 import {
   addAcceptableUseNotificationIfNeeded,
@@ -56,11 +48,9 @@ import {
 } from './policies/action-creators'
 import { ConnectedUserProfilePage } from './profile/user-profile'
 import LoadingIndicator from './progress/dots'
-import ConnectedSnackbar from './snackbars/connected-snackbar'
 import { isShieldBatteryHealthy, isStarcraftHealthy } from './starcraft/is-starcraft-healthy'
 import { colorTextSecondary } from './styles/colors'
 import { caption } from './styles/typography'
-import WhispersTitle from './whispers/app-bar-title'
 import Whisper from './whispers/whisper'
 
 const curVersion = __WEBPACK_ENV.VERSION
@@ -74,13 +64,7 @@ const KEY_R = keycode('r')
 
 const Container = styled.div`
   display: flex;
-  flex-direction: column;
-`
-
-const Layout = styled.div`
-  display: flex;
-  flex-grow: 1;
-  height: calc(100% - 64px);
+  overflow: hidden;
 `
 
 const Content = styled.div`
@@ -130,33 +114,6 @@ const FadedSettingsIcon = styled(SettingsIcon)`
  * more smarts we can add it as a Context var or put it in the store or something.
  */
 let firstLoggedIn = true
-
-function AppBarTitle() {
-  // NOTE(tec27): Using this hook ensures this gets re-rendered if the location changes
-  const [location] = useLocation()
-
-  // TODO(tec27): Just use the same routes from the layout for this? (need a way to split that into
-  // two fragments, one with the content components, one with the title components)
-  if (location.startsWith('/admin')) {
-    return <AdminTitle />
-  } else if (location === '/chat') {
-    return <ChatListTitle />
-  } else if (location.startsWith('/chat/')) {
-    return <ChatTitle />
-  } else if (/^\/ladder(\/|$)/.test(location)) {
-    return <LadderTitle />
-  } else if (/^\/lobbies(\/|$)/.test(location)) {
-    return <LobbyTitle />
-  } else if (/^\/matchmaking(\/|$)/.test(location)) {
-    return <MatchmakingTitle />
-  } else if (/^\/parties(\/|$)/.test(location)) {
-    return <PartyTitle />
-  } else if (/^\/whispers(\/|$)/.test(location)) {
-    return <WhispersTitle />
-  }
-
-  return null
-}
 
 function stateToProps(state) {
   return {
@@ -307,69 +264,62 @@ class MainLayout extends React.Component {
 
     return (
       <Container>
-        <AppBar>
-          <AppBarTitle />
-        </AppBar>
-        <Layout>
-          <ConnectedLeftNav />
-          <Content>
-            <Switch>
-              <ConditionalRoute
-                path='/admin/:rest*'
-                filters={[IsAdminFilter]}
-                component={LoadableAdminPanel}
-              />
-              <Route path='/chat' component={ChatList} />
-              <Route path='/chat/:channel' component={ChatChannel} />
-              <Route path='/ladder/:matchmakingType?'>
-                {params => <Ladder matchmakingType={params.matchmakingType} />}
-              </Route>
-              <Route path='/games/:gameId/:subPage?'>
-                {params => (
-                  <ConnectedGameResultsPage gameId={params.gameId} subPage={params.subPage} />
-                )}
-              </Route>
-              {lobbyRoute}
-              {matchmakingRoute}
-              {partyRoute}
-              <Route path='/users/:userId/:username/:subPage?'>
-                {params => (
-                  <ConnectedUserProfilePage
-                    userId={Number(params.userId)}
-                    username={params.username}
-                    subPage={params.subPage}
-                  />
-                )}
-              </Route>
-              <Route path='/whispers/:target' component={Whisper} />
-              {/* If no paths match, redirect the page to the "index". */}
-              <Route>
-                <Index transitionFn={replace} />
-              </Route>
-            </Switch>
-          </Content>
-          <ActivityBar>
-            {activityButtons}
+        <ConnectedLeftNav />
+        <Content>
+          <Switch>
+            <ConditionalRoute
+              path='/admin/:rest*'
+              filters={[IsAdminFilter]}
+              component={LoadableAdminPanel}
+            />
+            <Route path='/chat' component={ChatList} />
+            <Route path='/chat/:channel' component={ChatChannel} />
+            <Route path='/ladder/:matchmakingType?'>
+              {params => <Ladder matchmakingType={params.matchmakingType} />}
+            </Route>
+            <Route path='/games/:gameId/:subPage?'>
+              {params => (
+                <ConnectedGameResultsPage gameId={params.gameId} subPage={params.subPage} />
+              )}
+            </Route>
+            {lobbyRoute}
+            {matchmakingRoute}
+            {partyRoute}
+            <Route path='/users/:userId/:username/:subPage?'>
+              {params => (
+                <ConnectedUserProfilePage
+                  userId={Number(params.userId)}
+                  username={params.username}
+                  subPage={params.subPage}
+                />
+              )}
+            </Route>
+            <Route path='/whispers/:target' component={Whisper} />
+            {/* If no paths match, redirect the page to the "index". */}
+            <Route>
+              <Index transitionFn={replace} />
+            </Route>
+          </Switch>
+        </Content>
+        <ActivityBar>
+          {activityButtons}
 
-            <MiniActivityButtonsContainer key='mini-buttons'>
-              <NotificationsButton />
-              {/* TODO(tec27): Hotkey this to Alt+S */}
-              <IconButton
-                key='settings'
-                icon={<FadedSettingsIcon />}
-                title='Settings'
-                onClick={this.onSettingsClick}
-              />
-            </MiniActivityButtonsContainer>
+          <MiniActivityButtonsContainer key='mini-buttons'>
+            <NotificationsButton />
+            {/* TODO(tec27): Hotkey this to Alt+S */}
+            <IconButton
+              key='settings'
+              icon={<FadedSettingsIcon />}
+              title='Settings'
+              onClick={this.onSettingsClick}
+            />
+          </MiniActivityButtonsContainer>
 
-            <VersionText key='version'>v{curVersion}</VersionText>
-          </ActivityBar>
-          {this.renderSearchingMatchOverlay()}
-          <ActivityOverlay />
-          <ConnectedSnackbar />
-          <ConnectedDialogOverlay />
-          <NotificationPopups />
-        </Layout>
+          <VersionText key='version'>v{curVersion}</VersionText>
+        </ActivityBar>
+        {this.renderSearchingMatchOverlay()}
+        <ActivityOverlay />
+        <NotificationPopups />
       </Container>
     )
   }

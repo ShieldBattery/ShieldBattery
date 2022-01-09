@@ -30,16 +30,26 @@ const GlobalStyle = createGlobalStyle`
     font-size: 14px;
     line-height: 1.42857;
     background-color: ${colorBackground};
+
+    /** This will be overridden on the body styles in Electron */
+    --sb-system-bar-height: 0px;
   }
 
-  html, body, #app, #app > div {
+  html, body, #app {
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
     -webkit-touch-callout: none;
+    width: 100%;
     height: 100%;
     margin: 0;
     padding: 0;
     position: relative;
+    overflow: hidden;
+  }
+
+  #app > div {
+    width: 100%;
+    height: calc(100% - var(--sb-system-bar-height, 0px));
   }
 
   [disabled] {

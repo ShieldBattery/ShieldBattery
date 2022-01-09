@@ -256,6 +256,7 @@ const Splash = styled.div`
   flex-direction: column;
   align-items: center;
   background-color: ${background800};
+  overflow: auto;
 
   & * {
     user-select: text;

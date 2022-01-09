@@ -3,13 +3,13 @@ import React, { useLayoutEffect } from 'react'
 import { hot } from 'react-hot-loader/root'
 import { StyleSheetManager } from 'styled-components'
 import { Route, Switch, useRoute } from 'wouter'
-import { WindowControls, WindowControlsStyle } from './app-bar/window-controls'
 import { isLoggedIn } from './auth/auth-utils'
 import { EmailVerificationUi } from './auth/email-verification'
 import { ForgotPassword, ForgotUser, ResetPassword } from './auth/forgot'
 import LoggedInFilter from './auth/logged-in-filter'
 import Login from './auth/login'
 import Signup from './auth/signup'
+import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay'
 import { usePixelShover } from './dom/pixel-shover'
 import DownloadPage from './download/download-page'
 import Faq from './landing/faq'
@@ -25,6 +25,7 @@ import {
 } from './policies/policy-displays'
 import LoadingIndicator from './progress/dots'
 import { useAppSelector } from './redux-hooks'
+import ConnectedSnackbar from './snackbars/connected-snackbar'
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
 
@@ -37,6 +38,16 @@ const LoadableDev = IS_PRODUCTION
       // place?)
       fallback: <LoadingIndicator />,
     })
+
+const LoadableWindowControls = IS_ELECTRON
+  ? loadable(() => import('./system-bar/window-controls'), {
+      resolveComponent: m => m.WindowControls,
+    })
+  : () => null
+
+const LoadableSystemBar = IS_ELECTRON
+  ? loadable(() => import('./system-bar/system-bar'), { resolveComponent: m => m.SystemBar })
+  : () => null
 
 function MainContent() {
   const [matchesRoot] = useRoute('/')
@@ -70,11 +81,11 @@ function App() {
 
   return (
     <StyleSheetManager disableVendorPrefixes={IS_ELECTRON}>
-      <React.Fragment>
+      <>
         <ResetStyle />
         <GlobalStyle />
-        <WindowControlsStyle />
-        <WindowControls />
+        <LoadableWindowControls />
+        <LoadableSystemBar />
         <Switch>
           <Route path='/splash' component={Splash} />
           <Route path='/faq' component={Faq} />
@@ -93,7 +104,9 @@ function App() {
             <MainContent />
           </Route>
         </Switch>
-      </React.Fragment>
+        <ConnectedSnackbar />
+        <ConnectedDialogOverlay />
+      </>
     </StyleSheetManager>
   )
 }
