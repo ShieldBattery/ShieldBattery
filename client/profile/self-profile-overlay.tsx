@@ -32,6 +32,9 @@ const Actions = styled.div`
   ${body1};
   padding-top: 8px;
   padding-bottom: 8px;
+
+  display: flex;
+  flex-direction: column;
 `
 
 interface SelfProfileOverlayProps {

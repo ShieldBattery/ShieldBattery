@@ -32,9 +32,15 @@ const MENU_MAX_HEIGHT_DENSE = ITEM_HEIGHT_DENSE * (ITEMS_SHOWN_DENSE + 0.5) + VE
 export const Overlay = styled(CardLayer)<{ $dense?: boolean }>`
   ${props => (props.$dense ? body1 : subtitle1)};
 
-  min-width: 160px;
+  --sb-menu-min-width: 160px;
+
+  min-width: var(--sb-menu-min-width);
   min-height: ${props => (props.$dense ? MENU_MIN_HEIGHT_DENSE : MENU_MIN_HEIGHT)}px;
   max-height: ${props => (props.$dense ? MENU_MAX_HEIGHT_DENSE : MENU_MAX_HEIGHT)}px;
+
+  display: flex;
+  flex-direction: column;
+
   z-index: ${zIndexMenu};
   border-radius: 2px;
   contain: content;

@@ -1,4 +1,3 @@
-import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
 import SelectedIcon from '../../icons/material/check-24px.svg'
@@ -10,33 +9,17 @@ const StyledMenuItem = styled(MenuItem)<{ $selected?: boolean }>`
   padding-left: ${props => (props.$selected ? '10px' : '46px')};
 `
 
-export interface SelectedItemProps extends MenuItemProps {
+export interface SelectedItemProps extends Omit<MenuItemProps, 'onClick' | 'icon'> {
   selected?: boolean
   onItemSelected?: () => void
 }
 
-export class SelectedItem extends React.Component<SelectedItemProps> {
-  static propTypes = {
-    ...MenuItem.propTypes,
-    selected: PropTypes.bool,
-    onItemSelected: PropTypes.func,
-  }
+export function SelectedItem({ selected, onItemSelected, ...otherProps }: SelectedItemProps) {
+  const icon = selected ? <SelectedIcon /> : undefined
 
-  static [MenuItemSymbol] = true
-
-  override render() {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { selected, onItemSelected, ...otherProps } = this.props
-    const icon = selected ? <SelectedIcon /> : null
-
-    return (
-      <StyledMenuItem {...otherProps} $selected={selected} icon={icon} onClick={this.onClick} />
-    )
-  }
-
-  onClick = () => {
-    if (this.props.onItemSelected) {
-      this.props.onItemSelected()
-    }
-  }
+  return (
+    <StyledMenuItem {...otherProps} $selected={selected} icon={icon} onClick={onItemSelected} />
+  )
 }
+
+SelectedItem[MenuItemSymbol] = true

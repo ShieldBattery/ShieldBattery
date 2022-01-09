@@ -1,29 +1,25 @@
-import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
 import { singleLine } from '../../styles/typography'
+import { useButtonState } from '../button'
+import { buttonReset } from '../button-reset'
+import { Ripple } from '../ripple'
 import { ITEM_HEIGHT, ITEM_HEIGHT_DENSE } from './menu'
 import { MenuItemSymbol } from './menu-item-symbol'
 
-const Item = styled.div<{ $dense?: boolean; $focused?: boolean }>`
-  display: flex;
-  align-items: center;
+const Item = styled.button<{ $dense?: boolean; $focused?: boolean }>`
+  ${buttonReset};
   position: relative;
   width: auto;
   height: ${props => (props.$dense ? ITEM_HEIGHT_DENSE : ITEM_HEIGHT)}px;
-  padding: 0 12px;
-  cursor: pointer;
+  margin: 0 4px;
+  padding: 0 8px;
 
-  &:hover {
-    background-color: ${props =>
-      props.$focused ? 'rgba(255, 255, 255, 0.24)' : 'rgba(255, 255, 255, 0.08)'};
-  }
+  display: flex;
+  align-items: center;
 
-  &:active {
-    background-color: rgba(255, 255, 255, 0.24);
-  }
-
-  ${props => (props.$focused ? 'background-color: rgba(255, 255, 255, 0.24)' : '')};
+  border-radius: 2px;
+  text-align: left;
 `
 
 const ItemText = styled.div`
@@ -49,24 +45,17 @@ export interface MenuItemProps {
   onClick?: (event: React.MouseEvent) => void
 }
 
-export class MenuItem extends React.Component<MenuItemProps> {
-  static propTypes = {
-    text: PropTypes.string.isRequired,
-    icon: PropTypes.node,
-    focused: PropTypes.bool,
-    dense: PropTypes.bool,
-    onClick: PropTypes.func,
-  }
+export function MenuItem({ text, icon, dense, onClick, className }: MenuItemProps) {
+  // TODO(tec27): Should probably use the `onFocus` here instead of faking focus from the menu?
+  const [buttonProps, rippleRef] = useButtonState({ onClick })
 
-  static [MenuItemSymbol] = true
-
-  override render() {
-    const { text, icon, focused, dense, onClick } = this.props
-    return (
-      <Item className={this.props.className} $focused={focused} $dense={dense} onClick={onClick}>
-        {icon ? <ItemIcon>{icon}</ItemIcon> : null}
-        <ItemText>{text}</ItemText>
-      </Item>
-    )
-  }
+  return (
+    <Item className={className} $dense={dense} {...buttonProps}>
+      {icon ? <ItemIcon>{icon}</ItemIcon> : null}
+      <ItemText>{text}</ItemText>
+      <Ripple ref={rippleRef} />
+    </Item>
+  )
 }
+
+MenuItem[MenuItemSymbol] = true
