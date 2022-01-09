@@ -426,7 +426,9 @@ function setupCspProtocol(curSession: Session) {
               `script-src 'self' 'nonce-${nonce}' ${reactDevPolicy} ${chunkPolicy} ` +
               `${scriptEvalPolicy};` +
               `style-src 'self' 'nonce-${nonce}' https://fonts.googleapis.com;` +
-              "font-src 'self' https://fonts.gstatic.com;",
+              "font-src 'self' https://fonts.gstatic.com;" +
+              "object-src 'none';" +
+              "form-action 'none';",
           },
           data: dataStream,
         })

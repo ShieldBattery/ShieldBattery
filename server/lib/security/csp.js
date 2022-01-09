@@ -17,7 +17,10 @@ export function getCspNonce(ctx) {
   const policy =
     `script-src 'self' 'nonce-${nonce}' ${scriptEvalPolicy};` +
     `style-src 'self' 'nonce-${nonce}' https://fonts.googleapis.com;` +
-    "font-src 'self' https://fonts.gstatic.com;"
+    "font-src 'self' https://fonts.gstatic.com;" +
+    "object-src 'none';" +
+    "form-action 'none';"
+
   ctx.set('Content-Security-Policy', policy)
 
   ctx[CSP_NONCE_VALUE] = nonce
