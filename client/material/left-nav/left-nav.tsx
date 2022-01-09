@@ -1,12 +1,12 @@
-import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
 import { background700 } from '../../styles/colors'
 
+const Header = styled.div``
 const Footer = styled.div``
 
 const Container = styled.nav`
-  width: 256px;
+  width: 272px;
 
   display: flex;
   flex-direction: column;
@@ -22,18 +22,20 @@ const Sections = styled.div`
   overflow-y: auto;
 `
 
-function LeftNav(props) {
+export interface LeftNavProps {
+  children: React.ReactNode
+  header?: React.ReactNode
+  footer?: React.ReactNode
+}
+
+export default function LeftNav(props: LeftNavProps) {
+  const header = props.header ? <Header>{props.header}</Header> : undefined
   const footer = props.footer ? <Footer>{props.footer}</Footer> : undefined
   return (
     <Container>
+      {header}
       <Sections>{props.children}</Sections>
       {footer}
     </Container>
   )
 }
-
-LeftNav.propTypes = {
-  footer: PropTypes.node,
-}
-
-export default LeftNav

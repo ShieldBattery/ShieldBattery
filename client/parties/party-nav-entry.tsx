@@ -1,3 +1,4 @@
+import { Immutable } from 'immer'
 import React, { useCallback } from 'react'
 import styled from 'styled-components'
 import { Link, useRoute } from 'wouter'
@@ -79,7 +80,7 @@ const EntryButton = styled(IconButton)`
 `
 
 export interface PartyNavEntryProps {
-  party: CurrentPartyState
+  party: Immutable<CurrentPartyState>
   canInvite: boolean
   onInviteUserClick: () => void
   onLeavePartyClick: (partyId: string) => void

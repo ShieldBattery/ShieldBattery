@@ -23,7 +23,8 @@ const Wrapper = styled.div`
   }
 `
 
-const DRAGGABLE_HEIGHT = '32px'
+// TODO(tec27): Just use the app bar here
+const DRAGGABLE_HEIGHT = '24px'
 
 const Draggable = styled.div`
   width: 100%;

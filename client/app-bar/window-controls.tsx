@@ -3,15 +3,15 @@ import ReactDOM from 'react-dom'
 import styled, { createGlobalStyle, css } from 'styled-components'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
-import CloseIcon from '../icons/material/ic_close_black_24px.svg'
-import MaximizeIcon from '../icons/material/ic_fullscreen_black_24px.svg'
-import MinimizeIcon from '../icons/material/ic_remove_black_24px.svg'
+import CloseIcon from '../icons/codicons/chrome-close.svg'
+import MaximizeIcon from '../icons/codicons/chrome-maximize.svg'
+import MinimizeIcon from '../icons/codicons/chrome-minimize.svg'
 import { buttonReset } from '../material/button-reset'
 import { zIndexWindowControls } from '../material/zindex'
 
 const ipcRenderer = new TypedIpcRenderer()
 
-export const windowControlsHeight = IS_ELECTRON ? '32px' : '0px'
+export const windowControlsHeight = IS_ELECTRON ? '24px' : '0px'
 
 export const WindowControlsStyle = createGlobalStyle`
   .sb-window-controls {
@@ -26,10 +26,13 @@ const button = css`
   ${buttonReset};
   width: 48px;
   height: ${windowControlsHeight};
-  line-height: ${windowControlsHeight};
-  padding: 4px 12px;
-  float: right;
+  padding: 4px 0;
+
   cursor: pointer;
+  float: right;
+  line-height: ${windowControlsHeight};
+  text-align: center;
+  vertical-align: center;
 
   -webkit-app-region: no-drag;
 

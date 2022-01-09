@@ -1,35 +1,20 @@
-import React, { useCallback, useLayoutEffect, useMemo, useState } from 'react'
-import { UseTransitionProps } from 'react-spring'
+import React, { useCallback, useLayoutEffect } from 'react'
 import styled from 'styled-components'
 import { DEV_INDICATOR } from '../../common/flags'
 import { useIsAdmin } from '../admin/admin-permissions'
-import DiscordIcon from '../icons/brands/discord.svg'
-import GitHubIcon from '../icons/brands/github.svg'
-import KofiColorIcon from '../icons/brands/kofi-color.svg'
-import PatreonIcon from '../icons/brands/patreon.svg'
-import TwitterIcon from '../icons/brands/twitter.svg'
 import AdminIcon from '../icons/material/admin_panel_settings_black_24px.svg'
 import { IconButton } from '../material/button'
-import { Divider } from '../material/menu/divider'
-import { MenuItem } from '../material/menu/item'
-import { Menu } from '../material/menu/menu'
-import { useAnchorPosition } from '../material/popover'
 import { shadow4dp } from '../material/shadows'
-import { defaultSpring } from '../material/springs'
-import { standardIncrement } from '../material/units'
 import { zIndexAppBar } from '../material/zindex'
 import { push } from '../navigation/routing'
-import { ActiveUserCount } from '../serverstatus/active-users'
-import { useValueAsRef } from '../state-hooks'
-import { blue800, colorError, colorTextSecondary } from '../styles/colors'
-import { body1, caption, headline6, overline, singleLine } from '../styles/typography'
-import Lockup from './lockup'
-import { SizeLeft, SizeRight, SizeTop, windowControlsHeight } from './window-controls'
+import { blue800, colorError } from '../styles/colors'
+import { caption, headline6, singleLine } from '../styles/typography'
+import { SizeLeft, SizeRight, SizeTop } from './window-controls'
 
 const Container = styled.header`
   ${shadow4dp};
   width: 100%;
-  height: ${standardIncrement};
+  height: 24px;
   margin: 0;
   padding: 0;
   position: relative;
@@ -44,32 +29,9 @@ const Container = styled.header`
 `
 
 const LeftSide = styled.div`
-  width: 264px;
-  position: relative;
-`
-
-const AppMenu = styled(Menu)`
-  width: 240px;
-  max-height: 420px;
-`
-
-const AppMenuOverline = styled.div`
-  ${overline};
-  ${singleLine};
-  color: ${colorTextSecondary};
-  padding: 8px 12px 0;
-`
-
-const Content = styled.div`
-  height: 100%;
-  flex-grow: 1;
-
   display: flex;
   align-items: center;
-
-  & > * {
-    padding-left: 16px;
-  }
+  gap: 8px;
 `
 
 export const AppBarTitle = styled.div`
@@ -77,61 +39,30 @@ export const AppBarTitle = styled.div`
   ${singleLine};
 `
 
-const RightSide = styled.div`
-  width: 144px;
-  height: calc(${standardIncrement} - ${windowControlsHeight});
-  margin-top: ${windowControlsHeight};
-
-  display: flex;
-  align-items: center;
-`
-
-const UserCount = styled(ActiveUserCount)`
-  ${body1};
-  ${singleLine};
-
-  flex-shrink: 0;
-  flex-grow: 1;
-  padding-right: 16px;
-  text-align: right;
-`
-
 const StyledIconButton = styled(IconButton)`
-  width: 32px;
-  min-height: 32px;
+  width: 48px;
+  min-height: 24px;
   padding: 0;
-  // NOTE(tec27): This icon is a bit weird and feels off-center when centered
-  margin-left: 10px;
   -webkit-app-region: no-drag;
 `
 
 const DevIndicator = styled.div`
   ${caption};
 
-  width: 100px;
-  height: 20px;
-  position: absolute;
-  top: 8px;
-  left: -32px;
+  width: 80px;
+  height: 16px;
+  margin-left: 4px;
 
   background-color: ${colorError};
+  border-radius: 2px;
   cursor: pointer;
   font-weight: 600;
   letter-spacing: 2px;
-  line-height: 20px;
+  line-height: 16px;
   opacity: 0.84;
   text-align: center;
   text-transform: uppercase;
-  transform: rotate(-45deg);
   -webkit-app-region: no-drag;
-`
-
-const StyledTwitterIcon = styled(TwitterIcon)`
-  color: #1d9bf0;
-`
-
-const StyledPatreonIcon = styled(PatreonIcon)`
-  color: #ff424e;
 `
 
 export interface AppBarProps {
@@ -139,28 +70,9 @@ export interface AppBarProps {
   className?: string
 }
 
-const APP_MENU_LINKS: Array<[text?: string, icon?: React.ReactNode, url?: string]> = [
-  ['Discord', <DiscordIcon />, 'https://discord.gg/S8dfMx94a4'],
-  ['Twitter', <StyledTwitterIcon />, 'https://twitter.com/ShieldBatteryBW'],
-  ['GitHub', <GitHubIcon />, 'https://github.com/ShieldBattery/ShieldBattery'],
-  [],
-  ['Support the project'],
-  ['Patreon', <StyledPatreonIcon />, 'https://patreon.com/tec27'],
-  ['GitHub Sponsors', <GitHubIcon />, 'https://github.com/sponsors/ShieldBattery'],
-  ['Ko-fi', <KofiColorIcon />, 'https://ko-fi.com/tec27'],
-]
-
-const MENU_TRANSITION: UseTransitionProps<boolean> = {
-  from: { opacity: 0, scaleY: 0.5 },
-  enter: { opacity: 1, scaleY: 1 },
-  leave: { opacity: 0, scaleY: 0 },
-  config: (item, index, phase) => key =>
-    phase === 'leave' || key === 'opacity' ? { ...defaultSpring, clamp: true } : defaultSpring,
-}
-
 export default function AppBar(props: AppBarProps) {
   useLayoutEffect(() => {
-    document.body.style.setProperty('--sb-system-bar-height', standardIncrement)
+    document.body.style.setProperty('--sb-system-bar-height', '24px')
     return () => {
       document.body.style.removeProperty('--sb-system-bar-height')
     }
@@ -170,71 +82,22 @@ export default function AppBar(props: AppBarProps) {
     push('/admin')
   }, [])
 
-  const [appMenuAnchor, setAppMenuAnchor] = useState<HTMLElement>()
-  const appMenuAnchorRef = useValueAsRef(appMenuAnchor)
-  const [, anchorX, anchorY] = useAnchorPosition('center', 'bottom', appMenuAnchor ?? null)
-  const onLockupClick = useCallback(
-    (event: React.MouseEvent) => {
-      if (!appMenuAnchorRef.current) {
-        setAppMenuAnchor(event.currentTarget as HTMLElement)
-      }
-    },
-    [appMenuAnchorRef],
-  )
-  const onAppMenuDismiss = useCallback(() => {
-    setAppMenuAnchor(undefined)
-  }, [])
-  const appMenuItems = useMemo(
-    () =>
-      APP_MENU_LINKS.map(([text, icon, url], i) => {
-        if (text && url) {
-          return (
-            <MenuItem
-              key={i}
-              text={text}
-              icon={icon}
-              onClick={() => {
-                window.open(url as string, '_blank')
-                setAppMenuAnchor(undefined)
-              }}
-            />
-          )
-        } else if (text) {
-          return <AppMenuOverline key={i}>{text}</AppMenuOverline>
-        } else {
-          return <Divider key={i} />
-        }
-      }),
-    [],
-  )
-
-  // TODO(tec27): Allow this particular popover to leave the safe area (and overlap the app bar)
   return (
     <Container className={props.className}>
       <SizeTop />
       <SizeLeft />
       <SizeRight />
       <LeftSide>
-        <Lockup onClick={onLockupClick} menuOpened={!!appMenuAnchor} />
-        <AppMenu
-          open={!!appMenuAnchor}
-          onDismiss={onAppMenuDismiss}
-          originX='center'
-          originY='top'
-          anchorX={(anchorX ?? 0) - 8}
-          anchorY={anchorY ?? 0}
-          transitionProps={MENU_TRANSITION}>
-          {appMenuItems}
-        </AppMenu>
-        {DEV_INDICATOR ? <DevIndicator onClick={() => push('/dev')}>Dev</DevIndicator> : null}
-      </LeftSide>
-      <Content>{props.children}</Content>
-      <RightSide>
+        {DEV_INDICATOR ? (
+          // TODO(tec27): Find a place for this + admin that will show up on the web version too
+          <DevIndicator title='Go to dev pages' onClick={() => push('/dev')}>
+            Dev
+          </DevIndicator>
+        ) : null}
         {isAdmin ? (
           <StyledIconButton title='Admin' icon={<AdminIcon />} onClick={onAdminClick} />
         ) : null}
-        <UserCount />
-      </RightSide>
+      </LeftSide>
     </Container>
   )
 }

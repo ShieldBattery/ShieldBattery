@@ -7,18 +7,18 @@ import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { fastOutSlowIn } from '../material/curve-constants'
 import { Ripple } from '../material/ripple'
-import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
+import { colorTextFaint, colorTextPrimary } from '../styles/colors'
 
 const Container = styled.button`
   ${buttonReset};
 
   height: 100%;
-  padding: 8px 0px 8px 8px;
+  padding: 8px 10px 8px 8px;
 
   display: flex;
   align-items: center;
 
-  color: ${colorTextSecondary};
+  color: ${colorTextFaint};
   cursor: pointer;
   -webkit-app-region: no-drag;
 
@@ -39,7 +39,7 @@ const SizedLogoText = styled(LogoText)`
   width: auto;
   height: 56px;
   margin-left: 8px;
-  margin-right: 8px;
+  margin-right: 12px;
 `
 
 const AnimatedExpandIcon = styled(ExpandIcon)`
