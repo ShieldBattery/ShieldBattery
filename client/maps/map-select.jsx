@@ -176,8 +176,8 @@ export default class MapSelect extends React.Component {
         <KeyListener onKeyDown={this.onKeyDown} />
         {errorText ? <ErrorText>{errorText}</ErrorText> : null}
         <ImageList
-          columnCount={THUMBNAIL_SIZES[thumbnailSize].columnCount}
-          padding={THUMBNAIL_SIZES[thumbnailSize].padding}>
+          $columnCount={THUMBNAIL_SIZES[thumbnailSize].columnCount}
+          $padding={THUMBNAIL_SIZES[thumbnailSize].padding}>
           {mapElements}
           {canBrowseMaps ? (
             <BrowseButton

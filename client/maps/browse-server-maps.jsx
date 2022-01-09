@@ -293,8 +293,8 @@ export default class Maps extends React.Component {
       <>
         <SectionHeader>{header}</SectionHeader>
         <ImageList
-          columnCount={THUMBNAIL_SIZES[thumbnailSize].columnCount}
-          padding={THUMBNAIL_SIZES[thumbnailSize].padding}>
+          $columnCount={THUMBNAIL_SIZES[thumbnailSize].columnCount}
+          $padding={THUMBNAIL_SIZES[thumbnailSize].padding}>
           <MapList
             maps={maps}
             user={auth.user}

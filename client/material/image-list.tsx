@@ -1,10 +1,10 @@
 import styled from 'styled-components'
 
-export default styled.div`
+export default styled.div<{ $columnCount?: number; $padding?: number }>`
   display: grid;
-  grid-template-columns: ${props => `repeat(${props.columnCount || 3}, 1fr)`};
+  grid-template-columns: ${props => `repeat(${props.$columnCount ?? 3}, 1fr)`};
   grid-auto-rows: 1fr;
-  grid-gap: ${props => `${props.padding || 4}px`};
+  grid-gap: ${props => `${props.$padding ?? 4}px`};
 
   // A trick to keep grid items at 1:1 aspect ratio while having variable widths
   &::before {
