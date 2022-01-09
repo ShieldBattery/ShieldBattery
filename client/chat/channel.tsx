@@ -10,7 +10,9 @@ import { useObservedDimensions } from '../dom/dimension-hooks'
 import Chat from '../messaging/chat'
 import { Message } from '../messaging/message-records'
 import { push } from '../navigation/routing'
+import { ConnectedUserContextMenu } from '../profile/user-context-menu'
 import { useUserOverlays } from '../profile/user-overlays'
+import { ConnectedUserProfileOverlay } from '../profile/user-profile-overlay'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { RootState } from '../root-reducer'
@@ -146,19 +148,26 @@ interface UserListEntryProps {
 
 const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
   const user = useAppSelector(s => s.users.byId.get(props.userId))
-  const { clickableElemRef, overlayNodes, onClick, onContextMenu, isOverlayOpen } =
-    useUserOverlays<HTMLDivElement>({
-      userId: props.userId,
-      profileAnchorX: 'left',
-      profileAnchorY: 'top',
-      profileOriginX: 'right',
-      profileOriginY: 'top',
-      profileOffsetX: -4,
-    })
+  const {
+    clickableElemRef,
+    profileOverlayProps,
+    contextMenuProps,
+    onClick,
+    onContextMenu,
+    isOverlayOpen,
+  } = useUserOverlays<HTMLDivElement>({
+    userId: props.userId,
+    profileAnchorX: 'left',
+    profileAnchorY: 'top',
+    profileOriginX: 'right',
+    profileOriginY: 'top',
+    profileOffsetX: -4,
+  })
 
   return (
     <div style={props.style}>
-      {overlayNodes}
+      <ConnectedUserProfileOverlay {...profileOverlayProps} />
+      <ConnectedUserContextMenu {...contextMenuProps} />
 
       <UserListEntryItem
         ref={clickableElemRef}

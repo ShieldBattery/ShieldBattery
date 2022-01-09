@@ -1,8 +1,8 @@
 import React, { useCallback, useRef, useState } from 'react'
 import { SbUserId } from '../../common/users/sb-user'
 import { OriginX, OriginY, useAnchorPosition } from '../material/popover'
-import { ConnectedUserContextMenu } from './user-context-menu'
-import { ConnectedUserProfileOverlay } from './user-profile-overlay'
+import { ConnectedUserContextMenuProps } from './user-context-menu'
+import { ConnectedUserProfileOverlayProps } from './user-profile-overlay'
 
 /**
  * Returns nodes to render various types of user overlay UIs, and event handlers to attach to
@@ -26,7 +26,8 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
   profileOffsetY?: number
 }): {
   clickableElemRef: React.RefObject<E>
-  overlayNodes: React.ReactFragment
+  profileOverlayProps: ConnectedUserProfileOverlayProps
+  contextMenuProps: ConnectedUserContextMenuProps
   onClick: (event?: React.MouseEvent) => void
   onContextMenu: (event: React.MouseEvent) => void
   isOverlayOpen: boolean
@@ -70,40 +71,32 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
     [contextMenuEl],
   )
 
-  const overlayNodes = (
-    <>
-      <ConnectedUserProfileOverlay
-        key='profile-overlay'
-        userId={userId}
-        popoverProps={{
-          open: profileOverlayOpen,
-          onDismiss: onCloseProfileOverlay,
-          anchorX: (anchorX ?? 0) + profileOffsetX,
-          anchorY: (anchorY ?? 0) + profileOffsetY,
-          originX: profileOriginX,
-          originY: profileOriginY,
-        }}
-      />
-      <ConnectedUserContextMenu
-        key='context-menu'
-        userId={userId}
-        popoverProps={{
-          open: contextMenuOpen,
-          onDismiss: onCloseContextMenu,
-          anchorX: contextMenuAnchorX,
-          anchorY: contextMenuAnchorY,
-          originX: 'left',
-          originY: 'top',
-        }}
-      />
-    </>
-  )
-
   return {
     clickableElemRef,
-    overlayNodes,
     onClick: onOpenProfileOverlay,
     onContextMenu: onOpenContextMenu,
     isOverlayOpen: profileOverlayOpen || contextMenuOpen,
+    profileOverlayProps: {
+      userId,
+      popoverProps: {
+        open: profileOverlayOpen,
+        onDismiss: onCloseProfileOverlay,
+        anchorX: (anchorX ?? 0) + profileOffsetX,
+        anchorY: (anchorY ?? 0) + profileOffsetY,
+        originX: profileOriginX,
+        originY: profileOriginY,
+      },
+    },
+    contextMenuProps: {
+      userId,
+      popoverProps: {
+        open: contextMenuOpen,
+        onDismiss: onCloseContextMenu,
+        anchorX: contextMenuAnchorX,
+        anchorY: contextMenuAnchorY,
+        originX: 'left',
+        originY: 'top',
+      },
+    },
   }
 }

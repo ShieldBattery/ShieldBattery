@@ -3,7 +3,9 @@ import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user'
 import { useAppSelector } from '../redux-hooks'
 import { colorDividers } from '../styles/colors'
+import { ConnectedUserContextMenu } from './user-context-menu'
 import { useUserOverlays } from './user-overlays'
+import { ConnectedUserProfileOverlay } from './user-profile-overlay'
 
 const Username = styled.span`
   &:hover {
@@ -31,7 +33,7 @@ export function ConnectedUsername({
   userId: SbUserId
   prefix?: string
 }) {
-  const { clickableElemRef, overlayNodes, onClick, onContextMenu } =
+  const { clickableElemRef, profileOverlayProps, contextMenuProps, onClick, onContextMenu } =
     useUserOverlays<HTMLSpanElement>({
       userId,
       profileAnchorX: 'right',
@@ -50,7 +52,8 @@ export function ConnectedUsername({
 
   return (
     <>
-      {overlayNodes}
+      <ConnectedUserProfileOverlay {...profileOverlayProps} />
+      <ConnectedUserContextMenu {...contextMenuProps} />
 
       <Username
         ref={clickableElemRef}
