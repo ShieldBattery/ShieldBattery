@@ -4,7 +4,6 @@ import Joi from 'joi'
 import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { USERNAME_MAXLENGTH, USERNAME_MINLENGTH, USERNAME_PATTERN } from '../../../common/constants'
-import { PARTIES } from '../../../common/flags'
 import {
   AcceptFindMatchAsPartyRequest,
   AcceptPartyInviteRequest,
@@ -18,7 +17,6 @@ import {
 } from '../../../common/parties'
 import { SbUser } from '../../../common/users/sb-user'
 import { asHttpError } from '../errors/error-with-payload'
-import { featureEnabled } from '../flags/feature-enabled'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpPost } from '../http/route-decorators'
 import { matchmakingPreferencesValidator } from '../matchmaking/matchmaking-validators'
@@ -85,7 +83,7 @@ async function convertPartyServiceErrors(ctx: RouterContext, next: Koa.Next) {
 }
 
 @httpApi('/parties')
-@httpBeforeAll(featureEnabled(PARTIES), ensureLoggedIn, convertPartyServiceErrors)
+@httpBeforeAll(ensureLoggedIn, convertPartyServiceErrors)
 export class PartyApi {
   constructor(private partyService: PartyService, private userIdManager: UserIdentifierManager) {}
 

@@ -1,6 +1,5 @@
 import React, { useCallback } from 'react'
 import styled from 'styled-components'
-import { PARTIES } from '../../common/flags'
 import { SbUserId } from '../../common/users/sb-user'
 import MenuItem from '../material/menu/item'
 import Menu from '../material/menu/menu'
@@ -65,7 +64,7 @@ export function ConnectedUserContextMenu({ userId, popoverProps }: ConnectedUser
     if (user.id !== selfUser.id) {
       actions.push(<MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />)
 
-      if (PARTIES && IS_ELECTRON) {
+      if (IS_ELECTRON) {
         if (!partyId) {
           actions.push(
             <MenuItem key='invite' text='Invite to party' onClick={onInviteToPartyClick} />,

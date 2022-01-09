@@ -15,7 +15,5 @@ export const DEV_INDICATOR = DEV()
 export const MULTI_CHANNEL = DEV()
 /** Allow launching with BW 1.16.1 installation. */
 export const BW_1161 = DEV()
-/** Allow party related features (invite players, decline/accept an invite, etc.). */
-export const PARTIES = ON()
 /** Calculate a static turnrate to use rather than using dynamic. */
 export const USE_STATIC_TURNRATE = DEV()
