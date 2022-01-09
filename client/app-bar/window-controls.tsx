@@ -1,7 +1,8 @@
-import React from 'react'
+import React, { useCallback } from 'react'
 import ReactDOM from 'react-dom'
 import styled, { createGlobalStyle, css } from 'styled-components'
 import { TypedIpcRenderer } from '../../common/ipc'
+import { useExternalElementRef } from '../dom/use-external-element-ref'
 import CloseIcon from '../icons/material/ic_close_black_24px.svg'
 import MaximizeIcon from '../icons/material/ic_fullscreen_black_24px.svg'
 import MinimizeIcon from '../icons/material/ic_remove_black_24px.svg'
@@ -96,51 +97,11 @@ export const SizeRight = styled.div`
   bottom: 0;
 `
 
-export class WindowControls extends React.Component {
-  controls: HTMLDivElement | null = null
-
-  override componentWillUnmount() {
-    this.removeWindowControls()
-  }
-
-  override render() {
-    if (!IS_ELECTRON) {
-      return null
-    }
-
-    if (!this.controls) {
-      this.controls = document.createElement('div')
-      this.controls.classList.add('sb-window-controls')
-      document.body.appendChild(this.controls)
-    }
-
-    const contents = (
-      <>
-        <CloseButton title={'Close'} onClick={this.onCloseClick}>
-          <CloseIcon />
-        </CloseButton>
-        <MaximizeButton title={'Maximize/Restore'} onClick={this.onMaximizeClick}>
-          <MaximizeIcon />
-        </MaximizeButton>
-        <MinimizeButton title={'Minimize'} onClick={this.onMinimizeClick}>
-          <MinimizeIcon />
-        </MinimizeButton>
-      </>
-    )
-
-    // The reason why we're using portals to render window controls is so we can ensure they always
-    // stay on top of other components, even dialogs and other components that use portals
-    return ReactDOM.createPortal(contents, this.controls)
-  }
-
-  removeWindowControls() {
-    if (!IS_ELECTRON || !this.controls) return
-
-    document.body.removeChild(this.controls)
-    this.controls = null
-  }
-
-  onCloseClick = () => {
+export function WindowControls() {
+  const container = useExternalElementRef(elem => {
+    elem.classList.add('sb-window-controls')
+  })
+  const onCloseClick = useCallback(() => {
     let shouldDisplayCloseHint
     const KEY = 'closeHintShown'
     const val = window.localStorage.getItem(KEY)
@@ -151,13 +112,32 @@ export class WindowControls extends React.Component {
       shouldDisplayCloseHint = false
     }
     ipcRenderer.send('windowClose', shouldDisplayCloseHint)
-  }
-
-  onMaximizeClick = () => {
+  }, [])
+  const onMaximizeClick = useCallback(() => {
     ipcRenderer.send('windowMaximize')
+  }, [])
+  const onMinimizeClick = useCallback(() => {
+    ipcRenderer.send('windowMinimize')
+  }, [])
+
+  if (!IS_ELECTRON) {
+    return null
   }
 
-  onMinimizeClick = () => {
-    ipcRenderer.send('windowMinimize')
-  }
+  // The reason why we're using portals to render window controls is so we can ensure they always
+  // stay on top of other components, even dialogs and other components that use portals
+  return ReactDOM.createPortal(
+    <>
+      <CloseButton title={'Close'} onClick={onCloseClick}>
+        <CloseIcon />
+      </CloseButton>
+      <MaximizeButton title={'Maximize/Restore'} onClick={onMaximizeClick}>
+        <MaximizeIcon />
+      </MaximizeButton>
+      <MinimizeButton title={'Minimize'} onClick={onMinimizeClick}>
+        <MinimizeIcon />
+      </MinimizeButton>
+    </>,
+    container.current,
+  )
 }
