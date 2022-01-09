@@ -20,6 +20,20 @@ const LoadingName = styled.span`
   border-radius: 2px;
 `
 
+export interface ConnectedUsernameProps {
+  className?: string
+  /** The user to show the corresponding name for. */
+  userId: SbUserId
+  /** A string to show before the username, e.g. '@' for mentions. */
+  prefix?: string
+  /**
+   * An optional callback that will be called before the normal `onClick` handling. If the click
+   * was handled by the callback, it should return `true` to indicate the normal behavior should
+   * not occur.
+   */
+  filterClick?: (userId: SbUserId, e: React.MouseEvent) => boolean
+}
+
 /**
  * A component which displays a clickable username, displaying the user's profile overlay or
  * context menu when clicked.
@@ -28,11 +42,8 @@ export function ConnectedUsername({
   className,
   userId,
   prefix = '',
-}: {
-  className?: string
-  userId: SbUserId
-  prefix?: string
-}) {
+  filterClick,
+}: ConnectedUsernameProps) {
   const { clickableElemRef, profileOverlayProps, contextMenuProps, onClick, onContextMenu } =
     useUserOverlays<HTMLSpanElement>({
       userId,
@@ -41,6 +52,7 @@ export function ConnectedUsername({
       profileOriginX: 'left',
       profileOriginY: 'top',
       profileOffsetX: 4,
+      filterClick,
     })
 
   const user = useAppSelector(s => s.users.byId.get(userId))

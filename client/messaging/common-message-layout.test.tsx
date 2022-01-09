@@ -21,6 +21,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
       >
         <common-message-layout__Username>
           <ConnectedUsername
+            filterClick={[Function]}
             userId={2}
           />
         </common-message-layout__Username>
@@ -42,6 +43,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
       >
         <common-message-layout__Username>
           <ConnectedUsername
+            filterClick={[Function]}
             userId={2}
           />
         </common-message-layout__Username>
@@ -68,6 +70,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
       >
         <common-message-layout__Username>
           <ConnectedUsername
+            filterClick={[Function]}
             userId={2}
           />
         </common-message-layout__Username>
@@ -78,6 +81,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
           hey
            
           <common-message-layout__MentionedUsername
+            filterClick={[Function]}
             prefix="@"
             userId={123}
           />
@@ -94,6 +98,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
       >
         <common-message-layout__Username>
           <ConnectedUsername
+            filterClick={[Function]}
             userId={2}
           />
         </common-message-layout__Username>
@@ -109,6 +114,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
            go here
            
           <common-message-layout__MentionedUsername
+            filterClick={[Function]}
             prefix="@"
             userId={123}
           />
@@ -125,6 +131,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
       >
         <common-message-layout__Username>
           <ConnectedUsername
+            filterClick={[Function]}
             userId={2}
           />
         </common-message-layout__Username>
@@ -135,6 +142,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
           hey
            
           <common-message-layout__MentionedUsername
+            filterClick={[Function]}
             prefix="@"
             userId={123}
           />
@@ -147,6 +155,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
            go here
            
           <common-message-layout__MentionedUsername
+            filterClick={[Function]}
             prefix="@"
             userId={123}
           />
@@ -163,6 +172,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
       >
         <common-message-layout__Username>
           <ConnectedUsername
+            filterClick={[Function]}
             userId={2}
           />
         </common-message-layout__Username>
@@ -172,6 +182,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
         <common-message-layout__Text>
           
           <common-message-layout__MentionedUsername
+            filterClick={[Function]}
             prefix="@"
             userId={123}
           />
@@ -195,6 +206,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
       >
         <common-message-layout__Username>
           <ConnectedUsername
+            filterClick={[Function]}
             userId={2}
           />
         </common-message-layout__Username>
@@ -210,6 +222,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
            go here
            
           <common-message-layout__MentionedUsername
+            filterClick={[Function]}
             prefix="@"
             userId={123}
           />
@@ -232,6 +245,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
       >
         <common-message-layout__Username>
           <ConnectedUsername
+            filterClick={[Function]}
             userId={2}
           />
         </common-message-layout__Username>
@@ -242,6 +256,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
           Hey
            
           <common-message-layout__MentionedUsername
+            filterClick={[Function]}
             prefix="@"
             userId={1}
           />

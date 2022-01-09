@@ -1,5 +1,6 @@
 import React from 'react'
 import { SbUserId } from '../../common/users/sb-user'
+import { useMentionFilterClick } from '../messaging/mention-hooks'
 import {
   InfoImportant,
   SeparatedInfoMessage,
@@ -10,11 +11,12 @@ import { ConnectedUsername } from '../profile/connected-username'
 
 export const JoinChannelMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
+  const filterClick = useMentionFilterClick()
   return (
     <SystemMessage time={time}>
       <span>
         <SystemImportant>
-          <ConnectedUsername userId={userId} />
+          <ConnectedUsername userId={userId} filterClick={filterClick} />
         </SystemImportant>{' '}
         has joined the channel
       </span>
@@ -24,11 +26,12 @@ export const JoinChannelMessage = React.memo<{ time: number; userId: SbUserId }>
 
 export const LeaveChannelMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
+  const filterClick = useMentionFilterClick()
   return (
     <SystemMessage time={time}>
       <span>
         <SystemImportant>
-          <ConnectedUsername userId={userId} />
+          <ConnectedUsername userId={userId} filterClick={filterClick} />
         </SystemImportant>{' '}
         has left the channel
       </span>
@@ -38,11 +41,12 @@ export const LeaveChannelMessage = React.memo<{ time: number; userId: SbUserId }
 
 export const NewChannelOwnerMessage = React.memo<{ time: number; newOwnerId: SbUserId }>(props => {
   const { time, newOwnerId } = props
+  const filterClick = useMentionFilterClick()
   return (
     <SystemMessage time={time}>
       <span>
         <SystemImportant>
-          <ConnectedUsername userId={newOwnerId} />
+          <ConnectedUsername userId={newOwnerId} filterClick={filterClick} />
         </SystemImportant>{' '}
         is the new owner of the channel
       </span>

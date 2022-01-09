@@ -16,6 +16,7 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
   profileOriginY = 'top',
   profileOffsetX = 0,
   profileOffsetY = 0,
+  filterClick,
 }: {
   userId: SbUserId
   profileAnchorX?: OriginX
@@ -24,6 +25,7 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
   profileOriginY?: OriginY
   profileOffsetX?: number
   profileOffsetY?: number
+  filterClick?: (userId: SbUserId, e: React.MouseEvent) => boolean
 }): {
   clickableElemRef: React.RefObject<E>
   profileOverlayProps: ConnectedUserProfileOverlayProps
@@ -50,6 +52,15 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
   const onCloseProfileOverlay = useCallback(() => {
     setProfileOverlayOpen(false)
   }, [])
+  const onClick = useCallback(
+    (e?: React.MouseEvent) => {
+      if (!e || !filterClick || !filterClick(userId, e)) {
+        onOpenProfileOverlay()
+      }
+    },
+    [userId, onOpenProfileOverlay, filterClick],
+  )
+
   const onOpenContextMenu = useCallback((event: React.MouseEvent) => {
     event.preventDefault()
 
@@ -73,7 +84,7 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
 
   return {
     clickableElemRef,
-    onClick: onOpenProfileOverlay,
+    onClick,
     onContextMenu: onOpenContextMenu,
     isOverlayOpen: profileOverlayOpen || contextMenuOpen,
     profileOverlayProps: {

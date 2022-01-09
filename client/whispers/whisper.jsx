@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-import Chat from '../messaging/chat'
+import { Chat } from '../messaging/chat'
 import { push } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'

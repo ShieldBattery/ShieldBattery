@@ -297,6 +297,22 @@ export default class TextField extends React.Component {
     this.input.focus()
   }
 
+  get selectionStart() {
+    return this.input.selectionStart
+  }
+
+  get selectionEnd() {
+    return this.input.selectionEnd
+  }
+
+  get selectionDirection() {
+    return this.input.selectionDirection
+  }
+
+  setSelectionRange(selectionStart, selectionEnd, selectionDirection) {
+    this.input.setSelectionRange(selectionStart, selectionEnd, selectionDirection)
+  }
+
   autoSize = elem => {
     const padding = this.props.dense ? TEXTAREA_BOTTOM_PADDING_DENSE : TEXTAREA_BOTTOM_PADDING
     // Needed in order to lower the height when deleting text

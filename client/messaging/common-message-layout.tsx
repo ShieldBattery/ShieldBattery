@@ -8,6 +8,7 @@ import { ConnectedUsername } from '../profile/connected-username'
 import { amberA100, blue100 } from '../styles/colors'
 import { body2 } from '../styles/typography'
 import { ExternalLink } from './external-link'
+import { useMentionFilterClick } from './mention-hooks'
 import {
   InfoImportant,
   SeparatedInfoMessage,
@@ -53,6 +54,7 @@ export const TextMessage = React.memo<{
   text: string
 }>(props => {
   const { userId, selfUserId, time, text } = props
+  const filterClick = useMentionFilterClick()
   const [parsedText, isHighlighted] = useMemo(() => {
     const matches = getAllMatches(text)
     const sortedMatches = Array.from(matches).sort((a, b) => a.index - b.index)
@@ -81,7 +83,12 @@ export const TextMessage = React.memo<{
 
         elements.push(
           match.groups.prefix,
-          <MentionedUsername key={match.index} userId={userId} prefix={'@'} />,
+          <MentionedUsername
+            key={match.index}
+            userId={userId}
+            prefix={'@'}
+            filterClick={filterClick}
+          />,
         )
       } else if (match.type === 'link') {
         // TODO(tec27): Handle links to our own host specially, redirecting to the correct route
@@ -104,12 +111,12 @@ export const TextMessage = React.memo<{
     }
 
     return [elements, isHighlighted]
-  }, [text, selfUserId])
+  }, [text, selfUserId, filterClick])
 
   return (
     <TimestampMessageLayout time={time} highlighted={isHighlighted}>
       <Username>
-        <ConnectedUsername userId={userId} />
+        <ConnectedUsername userId={userId} filterClick={filterClick} />
       </Username>
       <Separator>{': '}</Separator>
       <Text>{parsedText}</Text>

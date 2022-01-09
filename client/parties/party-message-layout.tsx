@@ -3,17 +3,19 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmaking'
 import { PartyQueueCancelReason } from '../../common/parties'
 import { SbUserId } from '../../common/users/sb-user'
+import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { SystemImportant, SystemMessage } from '../messaging/message-layout'
 import { ConnectedUsername } from '../profile/connected-username'
 
 export const SelfJoinPartyMessage = React.memo<{ time: number; leaderId: SbUserId }>(props => {
   const { time, leaderId } = props
+  const filterClick = useMentionFilterClick()
   return (
     <SystemMessage time={time}>
       <span>
         You have joined the party. The leader is{' '}
         <SystemImportant>
-          <ConnectedUsername userId={leaderId} />
+          <ConnectedUsername userId={leaderId} filterClick={filterClick} />
         </SystemImportant>
         .
       </span>
@@ -23,12 +25,13 @@ export const SelfJoinPartyMessage = React.memo<{ time: number; leaderId: SbUserI
 
 export const InviteToPartyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
+  const filterClick = useMentionFilterClick()
   return (
     <SystemMessage time={time}>
       <span>
         &gt;&gt;{' '}
         <SystemImportant>
-          <ConnectedUsername userId={userId} />
+          <ConnectedUsername userId={userId} filterClick={filterClick} />
         </SystemImportant>{' '}
         has been invited to the party
       </span>
@@ -38,12 +41,13 @@ export const InviteToPartyMessage = React.memo<{ time: number; userId: SbUserId 
 
 export const JoinPartyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
+  const filterClick = useMentionFilterClick()
   return (
     <SystemMessage time={time}>
       <span>
         &gt;&gt;{' '}
         <SystemImportant>
-          <ConnectedUsername userId={userId} />
+          <ConnectedUsername userId={userId} filterClick={filterClick} />
         </SystemImportant>{' '}
         has joined the party
       </span>
@@ -53,12 +57,13 @@ export const JoinPartyMessage = React.memo<{ time: number; userId: SbUserId }>(p
 
 export const LeavePartyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
+  const filterClick = useMentionFilterClick()
   return (
     <SystemMessage time={time}>
       <span>
         &lt;&lt;{' '}
         <SystemImportant>
-          <ConnectedUsername userId={userId} />
+          <ConnectedUsername userId={userId} filterClick={filterClick} />
         </SystemImportant>{' '}
         has left the party
       </span>
@@ -68,11 +73,12 @@ export const LeavePartyMessage = React.memo<{ time: number; userId: SbUserId }>(
 
 export const PartyLeaderChangeMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
+  const filterClick = useMentionFilterClick()
   return (
     <SystemMessage time={time}>
       <span>
         <SystemImportant>
-          <ConnectedUsername userId={userId} />
+          <ConnectedUsername userId={userId} filterClick={filterClick} />
         </SystemImportant>{' '}
         is now the leader
       </span>
@@ -82,12 +88,13 @@ export const PartyLeaderChangeMessage = React.memo<{ time: number; userId: SbUse
 
 export const KickFromPartyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
+  const filterClick = useMentionFilterClick()
   return (
     <SystemMessage time={time}>
       <span>
         &lt;&lt;{' '}
         <SystemImportant>
-          <ConnectedUsername userId={userId} />
+          <ConnectedUsername userId={userId} filterClick={filterClick} />
         </SystemImportant>{' '}
         has been kicked from the party
       </span>
@@ -101,11 +108,12 @@ export const PartyQueueStartMessage = React.memo<{
   matchmakingType: MatchmakingType
 }>(props => {
   const { time, leaderId, matchmakingType } = props
+  const filterClick = useMentionFilterClick()
   return (
     <SystemMessage time={time}>
       <span>
         <SystemImportant>
-          <ConnectedUsername userId={leaderId} />
+          <ConnectedUsername userId={leaderId} filterClick={filterClick} />
         </SystemImportant>{' '}
         is starting a search for a{' '}
         <SystemImportant>{matchmakingTypeToLabel(matchmakingType)}</SystemImportant> match
@@ -117,6 +125,7 @@ export const PartyQueueStartMessage = React.memo<{
 export const PartyQueueCancelMessage = React.memo<{ time: number; reason: PartyQueueCancelReason }>(
   props => {
     const { time, reason } = props
+    const filterClick = useMentionFilterClick()
 
     let messageContent: React.ReactNode
     switch (reason.type) {
@@ -127,7 +136,7 @@ export const PartyQueueCancelMessage = React.memo<{ time: number; reason: PartyQ
         messageContent = (
           <span>
             <SystemImportant>
-              <ConnectedUsername userId={reason.user} />
+              <ConnectedUsername userId={reason.user} filterClick={filterClick} />
             </SystemImportant>{' '}
             canceled matchmaking
           </span>
@@ -138,7 +147,7 @@ export const PartyQueueCancelMessage = React.memo<{ time: number; reason: PartyQ
           <span>
             Matchmaking was canceled because{' '}
             <SystemImportant>
-              <ConnectedUsername userId={reason.user} />
+              <ConnectedUsername userId={reason.user} filterClick={filterClick} />
             </SystemImportant>{' '}
             left the party
           </span>

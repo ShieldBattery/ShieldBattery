@@ -7,13 +7,14 @@ import { MULTI_CHANNEL } from '../../common/flags'
 import { SbUserId } from '../../common/users/sb-user'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
-import Chat from '../messaging/chat'
+import { Chat } from '../messaging/chat'
+import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { Message } from '../messaging/message-records'
 import { push } from '../navigation/routing'
 import { ConnectedUserContextMenu } from '../profile/user-context-menu'
 import { useUserOverlays } from '../profile/user-overlays'
 import { ConnectedUserProfileOverlay } from '../profile/user-profile-overlay'
-import LoadingIndicator from '../progress/dots'
+import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { RootState } from '../root-reducer'
 import { usePrevious } from '../state-hooks'
@@ -148,6 +149,7 @@ interface UserListEntryProps {
 
 const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
   const user = useAppSelector(s => s.users.byId.get(props.userId))
+  const filterClick = useMentionFilterClick()
   const {
     clickableElemRef,
     profileOverlayProps,
@@ -162,6 +164,7 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
     profileOriginX: 'right',
     profileOriginY: 'top',
     profileOffsetX: -4,
+    filterClick,
   })
 
   return (
@@ -334,11 +337,9 @@ const Container = styled.div`
   background-color: ${background700};
 `
 
-const LoadingArea = styled.div`
-  padding-top: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+const StyledLoadingDotsArea = styled(LoadingDotsArea)`
+  width: 100%;
+  max-width: 960px;
 `
 
 const StyledChat = styled(Chat)`
@@ -480,30 +481,32 @@ export default function Channel(props: ChatChannelProps) {
   const sortedIdleUsers = useMemo(() => sortUsers(idleUserEntries), [idleUserEntries])
   const sortedOfflineUsers = useMemo(() => sortUsers(offlineUserEntries), [offlineUserEntries])
 
-  if (!channel) {
-    return (
-      <LoadingArea>
-        <LoadingIndicator />
-      </LoadingArea>
-    )
-  }
-
-  const listProps = {
-    messages: channel.messages,
-    loading: channel.loadingHistory,
-    hasMoreHistory: channel.hasHistory,
-    refreshToken: channelName,
-    renderMessage,
-    onLoadMoreMessages,
-  }
-  const inputProps = {
-    onSendChatMessage,
-  }
-
   return (
     <Container>
-      <StyledChat listProps={listProps} inputProps={inputProps} />
-      <UserList active={sortedActiveUsers} idle={sortedIdleUsers} offline={sortedOfflineUsers} />
+      {channel ? (
+        <StyledChat
+          listProps={{
+            messages: channel.messages,
+            loading: channel.loadingHistory,
+            hasMoreHistory: channel.hasHistory,
+            refreshToken: channelName,
+            renderMessage,
+            onLoadMoreMessages,
+          }}
+          inputProps={{
+            onSendChatMessage,
+          }}
+          extraContent={
+            <UserList
+              active={sortedActiveUsers}
+              idle={sortedIdleUsers}
+              offline={sortedOfflineUsers}
+            />
+          }
+        />
+      ) : (
+        <StyledLoadingDotsArea />
+      )}
     </Container>
   )
 }
