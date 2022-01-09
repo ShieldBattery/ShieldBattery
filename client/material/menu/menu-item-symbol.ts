@@ -5,9 +5,7 @@ import { ReactElement } from 'react'
  * menu implementations can distinguish between menu items and decorative elements (e.g. dividers,
  * overlines, etc.).
  */
-const MenuItemSymbol = Symbol('MenuItem')
-
-export default MenuItemSymbol
+export const MenuItemSymbol = Symbol('MenuItem')
 
 /**
  * Returns true of the specified child has a typed marked as a MenuItem (rather than static or

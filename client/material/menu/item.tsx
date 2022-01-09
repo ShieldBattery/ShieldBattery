@@ -1,9 +1,9 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
-import { singleLine, subtitle1 } from '../../styles/typography'
+import { singleLine } from '../../styles/typography'
 import { ITEM_HEIGHT, ITEM_HEIGHT_DENSE } from './menu'
-import MenuItemSymbol from './menu-item-symbol'
+import { MenuItemSymbol } from './menu-item-symbol'
 
 const Item = styled.div<{ $dense?: boolean; $focused?: boolean }>`
   display: flex;
@@ -27,7 +27,6 @@ const Item = styled.div<{ $dense?: boolean; $focused?: boolean }>`
 `
 
 const ItemText = styled.div`
-  ${subtitle1};
   ${singleLine};
   flex-grow: 1;
 `
@@ -50,7 +49,7 @@ export interface MenuItemProps {
   onClick?: (event: React.MouseEvent) => void
 }
 
-export default class MenuItem extends React.Component<MenuItemProps> {
+export class MenuItem extends React.Component<MenuItemProps> {
   static propTypes = {
     text: PropTypes.string.isRequired,
     icon: PropTypes.node,
@@ -66,7 +65,7 @@ export default class MenuItem extends React.Component<MenuItemProps> {
     return (
       <Item className={this.props.className} $focused={focused} $dense={dense} onClick={onClick}>
         {icon ? <ItemIcon>{icon}</ItemIcon> : null}
-        <ItemText as='span'>{text}</ItemText>
+        <ItemText>{text}</ItemText>
       </Item>
     )
   }

@@ -136,7 +136,6 @@ function PopoverContent({
   anchorY,
   children,
   className,
-  open,
   onDismiss,
   originX,
   originY,
@@ -158,19 +157,16 @@ function PopoverContent({
 
   useKeyListener({
     exclusive: true,
-    onKeyDown: useCallback(
-      event => {
-        if (event.code !== ESCAPE) return false
+    onKeyDown: event => {
+      if (event.code !== ESCAPE) return false
 
-        if (onDismiss) {
-          onDismiss()
-          return true
-        }
+      if (onDismiss) {
+        onDismiss()
+        return true
+      }
 
-        return false
-      },
-      [onDismiss],
-    ),
+      return false
+    },
   })
 
   // Calculate the X/Y position of the popover, based on the anchor position and what the origin is.

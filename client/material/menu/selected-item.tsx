@@ -2,8 +2,8 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
 import SelectedIcon from '../../icons/material/check-24px.svg'
-import MenuItem, { MenuItemProps } from './item'
-import MenuItemSymbol from './menu-item-symbol'
+import { MenuItem, MenuItemProps } from './item'
+import { MenuItemSymbol } from './menu-item-symbol'
 
 // 10px is (12px - 2px of built-in padding in the icon)
 const StyledMenuItem = styled(MenuItem)<{ $selected?: boolean }>`
@@ -15,7 +15,7 @@ export interface SelectedItemProps extends MenuItemProps {
   onItemSelected?: () => void
 }
 
-class SelectedItem extends React.Component<SelectedItemProps> {
+export class SelectedItem extends React.Component<SelectedItemProps> {
   static propTypes = {
     ...MenuItem.propTypes,
     selected: PropTypes.bool,
@@ -40,5 +40,3 @@ class SelectedItem extends React.Component<SelectedItemProps> {
     }
   }
 }
-
-export default SelectedItem

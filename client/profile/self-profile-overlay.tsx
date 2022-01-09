@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import { Avatar } from '../avatars/avatar'
 import { Popover, useAnchorPosition } from '../material/popover'
 import { defaultSpring } from '../material/springs'
-import { headline6, singleLine } from '../styles/typography'
+import { body1, headline6, singleLine } from '../styles/typography'
 
 const PopoverContents = styled.div`
   min-width: 240px;
@@ -29,6 +29,7 @@ const Username = styled.div`
 `
 
 const Actions = styled.div`
+  ${body1};
   padding-top: 8px;
   padding-bottom: 8px;
 `

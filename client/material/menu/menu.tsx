@@ -3,6 +3,7 @@ import React from 'react'
 import styled from 'styled-components'
 import KeyListener from '../../keyboard/key-listener'
 import { CardLayer } from '../../styles/colors'
+import { body1, subtitle1 } from '../../styles/typography'
 import { Popover, PopoverProps } from '../popover'
 import { zIndexMenu } from '../zindex'
 import { isMenuItem } from './menu-item-symbol'
@@ -29,6 +30,8 @@ const MENU_MAX_HEIGHT = ITEM_HEIGHT * (ITEMS_SHOWN + 0.5) + VERT_PADDING
 const MENU_MAX_HEIGHT_DENSE = ITEM_HEIGHT_DENSE * (ITEMS_SHOWN_DENSE + 0.5) + VERT_PADDING
 
 export const Overlay = styled(CardLayer)<{ $dense?: boolean }>`
+  ${props => (props.$dense ? body1 : subtitle1)};
+
   min-width: 160px;
   min-height: ${props => (props.$dense ? MENU_MIN_HEIGHT_DENSE : MENU_MIN_HEIGHT)}px;
   max-height: ${props => (props.$dense ? MENU_MAX_HEIGHT_DENSE : MENU_MAX_HEIGHT)}px;
@@ -59,7 +62,7 @@ interface MenuState {
 // A wrapper component around Popover that can be used to quickly write Menus
 // TODO(2Pac): Menus should probably have some default positioning instead of exposing the
 // lower-level API of the Popovers.
-export default class Menu extends React.Component<MenuProps, MenuState> {
+export class Menu extends React.Component<MenuProps, MenuState> {
   static propTypes = {
     dense: PropTypes.bool,
     selectedIndex: PropTypes.number,

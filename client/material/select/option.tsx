@@ -3,8 +3,8 @@ import PropTypes from 'prop-types'
 import React, { useCallback } from 'react'
 import styled from 'styled-components'
 import { amberA400 } from '../../styles/colors'
-import MenuItem from '../menu/item'
-import MenuItemSymbol from '../menu/menu-item-symbol'
+import { MenuItem } from '../menu/item'
+import { MenuItemSymbol } from '../menu/menu-item-symbol'
 
 const StyledMenuItem = styled(MenuItem)<{ $selected?: boolean; $focused?: boolean }>`
   &:hover {

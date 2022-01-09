@@ -5,14 +5,14 @@ import { useId } from '../../dom/unique-id'
 import ArrowDropDownIcon from '../../icons/material/ic_arrow_drop_down_black_24px.svg'
 import KeyListener from '../../keyboard/key-listener'
 import { useValueAsRef } from '../../state-hooks'
-import { amberA400, colorTextFaint, colorTextPrimary } from '../../styles/colors'
+import { amberA400, background300, colorTextFaint, colorTextPrimary } from '../../styles/colors'
 import { buttonReset } from '../button-reset'
 import { fastOutSlowIn } from '../curve-constants'
 import InputBase from '../input-base'
 import InputError from '../input-error'
 import FloatingLabel from '../input-floating-label'
 import InputUnderline from '../input-underline'
-import Menu from '../menu/menu'
+import { Menu } from '../menu/menu'
 import { useAnchorPosition } from '../popover'
 import { defaultSpring } from '../springs'
 
@@ -96,6 +96,7 @@ const Icon = styled.span<{ $disabled?: boolean; $focused?: boolean; $opened?: bo
 
 const StyledMenu = styled(Menu)<{ $overlayWidth: number }>`
   width: ${props => props.$overlayWidth}px;
+  background-color: ${background300};
 `
 
 export interface SelectProps {

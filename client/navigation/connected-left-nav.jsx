@@ -1,5 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
+import styled from 'styled-components'
 import { MULTI_CHANNEL } from '../../common/flags'
 import GameActivityNavEntry from '../active-game/game-activity-nav-entry'
 import { logOut } from '../auth/action-creators'
@@ -17,13 +18,12 @@ import { leaveLobby } from '../lobbies/action-creators'
 import LobbyNavEntry from '../lobbies/nav-entry'
 import { cancelFindMatch } from '../matchmaking/action-creators'
 import SearchingMatchNavEntry from '../matchmaking/searching-match-nav-entry'
-import Divider from '../material/left-nav/divider'
 import LeftNav from '../material/left-nav/left-nav'
 import Section from '../material/left-nav/section'
 import Subheader from '../material/left-nav/subheader'
 import { SubheaderButton } from '../material/left-nav/subheader-button'
-import MenuDivider from '../material/menu/divider'
-import MenuItem from '../material/menu/item'
+import { Divider as MenuDivider } from '../material/menu/divider'
+import { MenuItem } from '../material/menu/item'
 import { leaveParty } from '../parties/action-creators'
 import { PartyNavEntry } from '../parties/party-nav-entry'
 import { navigateToUserProfile } from '../profile/action-creators'
@@ -31,6 +31,11 @@ import ProfileNavEntry from '../profile/nav-entry'
 import { SelfProfileOverlay } from '../profile/self-profile-overlay'
 import { closeWhisperSession } from '../whispers/action-creators'
 import WhisperNavEntry from '../whispers/nav-entry'
+
+const Divider = styled.hr`
+  border: none;
+  margin-top: 16px;
+`
 
 function stateToProps(state) {
   return {
