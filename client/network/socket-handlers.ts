@@ -87,12 +87,12 @@ const envSpecificHandlers = IS_ELECTRON
   ? [
       rallyPointHandler,
       require('../active-game/socket-handlers').default,
-      require('../app-bar/ipc-handlers').default,
       require('../download/ipc-handlers').default,
       require('../lobbies/socket-handlers').default,
       require('../matchmaking/socket-handlers').default,
       require('../parties/socket-handlers').default,
       require('../settings/ipc-handlers').default,
+      require('../system-bar/ipc-handlers').default,
     ]
   : []
 

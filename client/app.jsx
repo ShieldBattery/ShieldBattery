@@ -25,6 +25,7 @@ import {
 } from './policies/policy-displays'
 import LoadingIndicator from './progress/dots'
 import { useAppSelector } from './redux-hooks'
+import { RootErrorBoundary } from './root-error-boundary'
 import ConnectedSnackbar from './snackbars/connected-snackbar'
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
@@ -86,24 +87,26 @@ function App() {
         <GlobalStyle />
         <LoadableWindowControls />
         <LoadableSystemBar />
-        <Switch>
-          <Route path='/splash' component={Splash} />
-          <Route path='/faq' component={Faq} />
-          <Route path='/download' component={DownloadPage} />
-          <Route path='/acceptable-use' component={AcceptableUsePage} />
-          <Route path='/privacy' component={PrivacyPolicyPage} />
-          <Route path='/terms-of-service' component={TermsOfServicePage} />
-          <LoginRoute path='/forgot-password' component={ForgotPassword} />
-          <LoginRoute path='/forgot-user' component={ForgotUser} />
-          <LoginRoute path='/login' component={Login} />
-          <LoginRoute path='/reset-password' component={ResetPassword} />
-          <LoginRoute path='/signup' component={Signup} />
-          <LoginRoute path='/verify-email' component={EmailVerificationUi} />
-          {!IS_PRODUCTION ? <Route path='/dev/:rest*' component={LoadableDev} /> : <></>}
-          <Route>
-            <MainContent />
-          </Route>
-        </Switch>
+        <RootErrorBoundary>
+          <Switch>
+            <Route path='/splash' component={Splash} />
+            <Route path='/faq' component={Faq} />
+            <Route path='/download' component={DownloadPage} />
+            <Route path='/acceptable-use' component={AcceptableUsePage} />
+            <Route path='/privacy' component={PrivacyPolicyPage} />
+            <Route path='/terms-of-service' component={TermsOfServicePage} />
+            <LoginRoute path='/forgot-password' component={ForgotPassword} />
+            <LoginRoute path='/forgot-user' component={ForgotUser} />
+            <LoginRoute path='/login' component={Login} />
+            <LoginRoute path='/reset-password' component={ResetPassword} />
+            <LoginRoute path='/signup' component={Signup} />
+            <LoginRoute path='/verify-email' component={EmailVerificationUi} />
+            {!IS_PRODUCTION ? <Route path='/dev/:rest*' component={LoadableDev} /> : <></>}
+            <Route>
+              <MainContent />
+            </Route>
+          </Switch>
+        </RootErrorBoundary>
         <ConnectedSnackbar />
         <ConnectedDialogOverlay />
       </>

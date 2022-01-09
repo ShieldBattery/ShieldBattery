@@ -592,6 +592,11 @@ async function createWindow() {
   if (!process.argv.includes('--hidden')) {
     mainWindow.once('ready-to-show', () => {
       mainWindow!.show()
+      if (!isDev) {
+        ipcMain.on('networkSiteConnected', () => {
+          autoUpdater.checkForUpdates()
+        })
+      }
     })
   }
 
