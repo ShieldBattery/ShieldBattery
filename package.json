@@ -206,6 +206,7 @@
     "@types/split2": "^3.2.0",
     "@types/styled-components": "^5.1.7",
     "@types/tmp": "^0.2.0",
+    "@types/vary": "^1.1.0",
     "@types/winreg": "^1.2.31",
     "@types/ws": "^8.2.0",
     "@typescript-eslint/eslint-plugin": "^5.3.1",

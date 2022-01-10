@@ -1,13 +1,14 @@
 import crypto from 'crypto'
+import Koa from 'koa'
 import isDev from '../env/is-dev'
 
 const CSP_NONCE_VALUE = Symbol('cspNonceValue')
 
 // Get the Content Security Policy nonce for a given Koa context. If a policy has not yet been
 // attached, one will be generated and applied.
-export function getCspNonce(ctx) {
-  if (ctx[CSP_NONCE_VALUE]) {
-    return ctx[CSP_NONCE_VALUE]
+export function getCspNonce(ctx: Koa.Context): string {
+  if ((ctx as any)[CSP_NONCE_VALUE]) {
+    return (ctx as any)[CSP_NONCE_VALUE]
   }
 
   const nonce = crypto.randomBytes(16).toString('base64')
@@ -22,7 +23,6 @@ export function getCspNonce(ctx) {
     "form-action 'none';"
 
   ctx.set('Content-Security-Policy', policy)
-
-  ctx[CSP_NONCE_VALUE] = nonce
+  ;(ctx as any)[CSP_NONCE_VALUE] = nonce
   return nonce
 }

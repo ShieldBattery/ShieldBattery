@@ -2199,6 +2199,13 @@
   resolved "https://registry.yarnpkg.com/@types/tmp/-/tmp-0.2.2.tgz#424537a3b91828cb26aaf697f21ae3cd1b69f7e7"
   integrity sha512-MhSa0yylXtVMsyT8qFpHA1DLHj4DvQGH5ntxrhHSh8PxUVNi35Wk+P5hVgqbO2qZqOotqr9jaoPRL+iRjWYm/A==
 
+"@types/vary@^1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@types/vary/-/vary-1.1.0.tgz#f2cf83dfcdb6d002785054ba39c28536f59ff211"
+  integrity sha512-LQWqrIa0dvEOOH37lGksMEXbypRLUFqu6Gx0pmX7zIUisD2I/qaVgEX/vJ/PSVSW0Hk6yz1BNkFpqg6dZm3Wug==
+  dependencies:
+    "@types/node" "*"
+
 "@types/verror@^1.10.3":
   version "1.10.5"
   resolved "https://registry.yarnpkg.com/@types/verror/-/verror-1.10.5.tgz#2a1413aded46e67a1fe2386800e291123ed75eb1"
