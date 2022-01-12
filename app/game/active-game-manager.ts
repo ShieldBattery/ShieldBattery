@@ -1,6 +1,5 @@
 import { app } from 'electron'
 import { promises as fsPromises } from 'fs'
-import got from 'got'
 import { Set } from 'immutable'
 import path from 'path'
 import { singleton } from 'tsyringe'
@@ -13,7 +12,6 @@ import {
 import { GameStatus, statusToString } from '../../common/game-status'
 import { GameClientPlayerResult, SubmitGameResultsRequest } from '../../common/games/results'
 import { TypedEventEmitter } from '../../common/typed-emitter'
-import { apiUrl } from '../../common/urls'
 import log from '../logger'
 import { LocalSettings, ScrSettings } from '../settings'
 import { checkStarcraftPath } from './check-starcraft-path'
@@ -73,6 +71,7 @@ export interface ActiveGameManagerEvents {
   }) => void
   gameStatus: (statusInfo: { id: string; state: string; extra?: any; isReplay: boolean }) => void
   replaySave: (gameId: string, path: string) => void
+  resendResults: (gameId: string, requestBody: SubmitGameResultsRequest) => void
 }
 
 @singleton()
@@ -352,9 +351,6 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
       !this.activeGame.resultSent &&
       this.activeGame.result
     ) {
-      // TODO(#542): Retry submission of these results more times/for longer to try and ensure
-      // complete resutls on the server
-      log.verbose('Game failed to send result, retrying once from the app')
       const config = this.activeGame.config!
       const submission: SubmitGameResultsRequest = {
         userId: config.localUser.id,
@@ -363,19 +359,7 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
         playerResults: Array.from(Object.entries(this.activeGame.result.result)),
       }
 
-      got(config.setup.serverUrl + apiUrl`games/${this.activeGame.id}/results`, {
-        method: 'post',
-        body: JSON.stringify(submission),
-        headers: {
-          Origin: 'shieldbattery://app',
-        },
-      })
-        .then(() => {
-          log.verbose('Game result submitted successfully')
-        })
-        .catch(err => {
-          log.error('Game result submission failed: ' + err)
-        })
+      this.emit('resendResults', this.activeGame.id, submission)
     }
 
     this.activeGame = null

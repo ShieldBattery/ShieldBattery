@@ -319,9 +319,17 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
 
   const activeGameManager = container.resolve(ActiveGameManager)
 
-  activeGameManager.on('gameStatus', status => {
-    TypedIpcSender.from(mainWindow?.webContents).send('activeGameStatus', status)
-  })
+  activeGameManager
+    .on('gameStatus', status => {
+      TypedIpcSender.from(mainWindow?.webContents).send('activeGameStatus', status)
+    })
+    .on('resendResults', (gameId, requestBody) => {
+      TypedIpcSender.from(mainWindow?.webContents).send(
+        'activeGameResendResults',
+        gameId,
+        requestBody,
+      )
+    })
 
   ipcMain.handle('activeGameStartWhenReady', (event, gameId) =>
     activeGameManager.startWhenReady(gameId),

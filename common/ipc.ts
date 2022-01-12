@@ -1,7 +1,7 @@
 import type { IpcMainEvent, IpcMainInvokeEvent, IpcRendererEvent, WebContents } from 'electron'
 import { Promisable } from 'type-fest'
 import { GameLaunchConfig, GameRoute } from './game-launch-config'
-import { GameClientPlayerResult } from './games/results'
+import { GameClientPlayerResult, SubmitGameResultsRequest } from './games/results'
 import { LocalSettingsData, ScrSettingsData } from './local-settings'
 import { MapExtension } from './maps'
 import { ResolvedRallyPointServer } from './rally-point'
@@ -72,6 +72,12 @@ interface IpcMainSendables {
     result: Record<string, GameClientPlayerResult>
     time: number
   }) => void
+  /**
+   * Used if sending results from the game fails for some reason. We pass this off to the
+   * renderer process to do because this usually indicates some issue with e.g. the TLS stack of
+   * this system, so using the network stack outside the renderer also tends to fail.
+   */
+  activeGameResendResults: (gameId: string, requestBody: SubmitGameResultsRequest) => void
   activeGameStatus: (status: { id: string; state: string; extra?: any; isReplay: boolean }) => void
 
   rallyPointPingResult: (server: ResolvedRallyPointServer, ping: number) => void
