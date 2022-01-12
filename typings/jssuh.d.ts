@@ -1,7 +1,6 @@
 // TODO(tec27): Make proper types for jssuh (and include them in the module ideally)
 declare module 'jssuh' {
   import { Transform } from 'stream'
-  import { TypedEventEmitter } from '../common/typed-emitter'
 
   export type ReplayRace = 'protoss' | 'terran' | 'zerg' | 'unknown'
 
@@ -32,11 +31,5 @@ declare module 'jssuh' {
     remastered: boolean
   }
 
-  export interface ReplayParserEvents {
-    replayHeader: (header: ReplayHeader) => void
-  }
-
-  export default class ReplayParser
-    extends Transform
-    implements TypedEventEmitter<ReplayParserEvents> {}
+  export default class ReplayParser extends Transform {}
 }

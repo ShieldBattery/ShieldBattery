@@ -1,5 +1,5 @@
 import type { IpcMainEvent, IpcMainInvokeEvent, IpcRendererEvent, WebContents } from 'electron'
-import { ReplayHeader } from 'jssuh'
+import type { ReplayHeader } from 'jssuh'
 import { Promisable } from 'type-fest'
 import { GameLaunchConfig, GameRoute } from './game-launch-config'
 import { GameClientPlayerResult, SubmitGameResultsRequest } from './games/results'
