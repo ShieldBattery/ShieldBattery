@@ -1,7 +1,6 @@
 import { List } from 'immutable'
 import keycode from 'keycode'
 import memoize from 'memoize-one'
-import pathApi from 'path'
 import PropTypes from 'prop-types'
 import React from 'react'
 import { connect } from 'react-redux'
@@ -194,7 +193,7 @@ class PathBreadcrumbs extends React.Component {
   }
 
   render() {
-    const pieces = this.props.path.split(pathApi.sep)
+    const pieces = this.props.path.split(/[\\\/]/g)
     if (pieces[pieces.length - 1] === '') {
       // Remove the last entry if it's empty (due to a trailing slash)
       pieces.pop()
@@ -202,7 +201,7 @@ class PathBreadcrumbs extends React.Component {
     const { elems } = pieces.reduce(
       (r, piece, i) => {
         const isLast = i === pieces.length - 1
-        r.curPath += (i === 0 ? '' : pathApi.sep) + piece
+        r.curPath += (i === 0 ? '' : '\\') + piece
         // Save the value at the current time so the function doesn't always use the last value
         const navPath = r.curPath
         r.elems.push(
@@ -294,6 +293,15 @@ const LoadingContainer = styled.div`
   justify-content: center;
 `
 
+function getDir(filePath) {
+  const lastSlash = filePath.lastIndexOf('\\')
+  if (lastSlash !== -1) {
+    return filePath.substring(0, lastSlash)
+  } else {
+    return ''
+  }
+}
+
 @connect(state => ({ fileBrowser: state.fileBrowser }))
 export default class Files extends React.Component {
   static propTypes = {
@@ -330,9 +338,7 @@ export default class Files extends React.Component {
       const { rootFolder } = state
       const { path, files, folders } = fileBrowser[browseId]
       const isRootFolder = path === rootFolder.path
-      const upOneDir = isRootFolder
-        ? new List([])
-        : new List([{ type: 'up', path: `${path}${pathApi.sep}..` }])
+      const upOneDir = isRootFolder ? new List([]) : new List([{ type: 'up', path: `${path}\\..` }])
       const filteredFiles = files.filter(f => fileTypes[f.extension])
       return upOneDir.concat(folders, filteredFiles)
     },
@@ -366,7 +372,7 @@ export default class Files extends React.Component {
     const { focusedPath, rootFolder } = this.state
     const initialPath =
       focusedPath && focusedPath.toLowerCase().startsWith(rootFolder.path.toLowerCase())
-        ? pathApi.parse(focusedPath).dir
+        ? getDir(focusedPath)
         : rootFolder.path
 
     this.props.dispatch(changePath(browseId, initialPath))
@@ -501,10 +507,7 @@ export default class Files extends React.Component {
     const { title, titleButton, rootFolders, error } = this.props
     const { rootFolder } = this.state
     const { path } = this.props.fileBrowser[this.props.browseId]
-    const displayedPath = `${rootFolder.name}${pathApi.sep}${pathApi.relative(
-      rootFolder.path,
-      path,
-    )}`
+    const displayedPath = `${rootFolder.name}\\${path.slice(rootFolder.path.length + 1)}`
     const rootFolderOptions = Object.values(rootFolders).map(f => (
       <SelectOption key={f.id} value={f.id} text={f.name} />
     ))
@@ -541,14 +544,12 @@ export default class Files extends React.Component {
   onBreadcrumbNavigate = path => {
     const { rootFolder } = this.state
     const pathWithoutRoot = path.slice(rootFolder.name.length + 1)
-    this.props.dispatch(
-      changePath(this.props.browseId, pathApi.join(rootFolder.path, pathWithoutRoot)),
-    )
+    this.props.dispatch(changePath(this.props.browseId, rootFolder.path + '\\' + pathWithoutRoot))
   }
 
   onUpLevelClick = () => {
     const { path } = this.props.fileBrowser[this.props.browseId]
-    const prevPath = pathApi.parse(path).dir
+    const prevPath = getDir(path)
     this.props.dispatch(changePath(this.props.browseId, prevPath))
   }
 
@@ -577,7 +578,7 @@ export default class Files extends React.Component {
     const { path, files, folders } = this.props.fileBrowser[this.props.browseId]
     const { focusedPath } = this.state
 
-    if (focusedPath === `${path}${pathApi.sep}..`) {
+    if (focusedPath === `${path}\\..`) {
       this.onUpLevelClick()
       return
     }

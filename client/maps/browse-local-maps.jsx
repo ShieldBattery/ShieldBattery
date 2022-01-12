@@ -1,4 +1,3 @@
-import path from 'path'
 import PropTypes from 'prop-types'
 import React from 'react'
 import { connect } from 'react-redux'
@@ -33,7 +32,7 @@ export default class LocalMaps extends React.Component {
 
   componentDidMount() {
     ipcRenderer.invoke('pathsGetDocumentsPath').then(documentsPath => {
-      this.setState({ documentsPath: path.join(documentsPath, 'Starcraft', 'maps') })
+      this.setState({ documentsPath: [documentsPath, 'Starcraft', 'maps'].join('\\') })
     })
   }
 
@@ -68,7 +67,7 @@ export default class LocalMaps extends React.Component {
     const defaultFolder = {
       id: 'default',
       name: 'Program folder',
-      path: path.join(this.props.settings.local.starcraftPath, 'Maps'),
+      path: [this.props.settings.local.starcraftPath, 'Maps'].join('\\'),
     }
     const downloadsFolder = {
       id: 'documents',

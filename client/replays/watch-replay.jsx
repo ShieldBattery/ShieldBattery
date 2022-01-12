@@ -1,4 +1,3 @@
-import path from 'path'
 import React from 'react'
 import { connect } from 'react-redux'
 import { TypedIpcRenderer } from '../../common/ipc'
@@ -10,11 +9,8 @@ import { startReplay } from './action-creators'
 const ipcRenderer = new TypedIpcRenderer()
 
 async function getReplayFolder() {
-  return path.join(
-    await ipcRenderer.invoke('pathsGetDocumentsPath'),
-    'Starcraft',
-    'maps',
-    'replays',
+  return [await ipcRenderer.invoke('pathsGetDocumentsPath'), 'Starcraft', 'maps', 'replays'].join(
+    '\\',
   )
 }
 
