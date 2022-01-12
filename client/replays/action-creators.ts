@@ -1,6 +1,5 @@
 import cuid from 'cuid'
-import fs from 'fs'
-import ReplayParser from 'jssuh'
+import { ReplayHeader } from 'jssuh'
 import { PlayerInfo } from '../../common/game-launch-config'
 import { GameType } from '../../common/games/configuration'
 import { TypedIpcRenderer } from '../../common/ipc'
@@ -18,24 +17,11 @@ const ipcRenderer = new TypedIpcRenderer()
 // TODO(tec27): Move this to an IPC call
 // TODO(tec27): Tighten up the types in here once the dependencies and actions have been migrated
 // to TS
-async function getReplayHeader(filePath: string): Promise<any> {
-  if (!IS_ELECTRON) {
-    return undefined
-  }
-
-  return new Promise((resolve, reject) => {
-    const fileStream = fs.createReadStream(filePath)
-    fileStream.on('error', reject)
-
-    const parser = new ReplayParser()
-    parser.on('replayHeader', resolve).on('error', reject)
-
-    fileStream.pipe(parser)
-    parser.resume()
-  })
+async function getReplayHeader(filePath: string): Promise<ReplayHeader | undefined> {
+  return ipcRenderer.invoke('replayParseHeader', filePath)
 }
 
-async function setGameConfig(replay: any, user: SelfUserRecord) {
+async function setGameConfig(replay: { name: string; path: string }, user: SelfUserRecord) {
   const player: PlayerInfo = {
     type: SlotType.Human,
     typeId: 6,
@@ -46,7 +32,7 @@ async function setGameConfig(replay: any, user: SelfUserRecord) {
   }
   const slots = [player]
 
-  const header = await getReplayHeader(replay.path)
+  const header = (await getReplayHeader(replay.path))!
 
   return ipcRenderer.invoke('activeGameSetConfig', {
     localUser: {

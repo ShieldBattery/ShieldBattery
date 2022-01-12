@@ -6,7 +6,7 @@ import FileInput from '../forms/file-input'
 import form from '../forms/form'
 import SuccessIcon from '../icons/material/baseline-check_circle-24px.svg'
 import ErrorIcon from '../icons/material/baseline-error-24px.svg'
-import uploadMap from '../maps/upload'
+import { upload as uploadMap } from '../maps/upload'
 import { RaisedButton, TextButton } from '../material/button'
 import { fetchJson } from '../network/fetch'
 import LoadingIndicator from '../progress/dots'
@@ -17,7 +17,7 @@ import {
   colorSuccess,
   colorTextSecondary,
 } from '../styles/colors'
-import { singleLine, SubheadingOld } from '../styles/typography'
+import { singleLine, SubheadingOld, subtitle1 } from '../styles/typography'
 
 const Container = styled.div`
   max-width: 600px;
@@ -60,7 +60,8 @@ const StyledErrorIcon = styled(ErrorIcon)`
   color: ${colorError};
 `
 
-const Underline = styled(SubheadingOld)`
+const Underline = styled.div`
+  ${subtitle1};
   color: ${colorTextSecondary};
 `
 

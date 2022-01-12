@@ -4,12 +4,15 @@ import isDev from 'electron-is-dev'
 import localShortcut from 'electron-localshortcut'
 import { autoUpdater } from 'electron-updater'
 import fs from 'fs'
+import fsPromises from 'fs/promises'
+import ReplayParser from 'jssuh'
 import path from 'path'
 import { Readable } from 'stream'
+import { pipeline } from 'stream/promises'
 import { container } from 'tsyringe'
 import { URL } from 'url'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
-import { TypedIpcMain, TypedIpcSender } from '../common/ipc'
+import { FsDirent, TypedIpcMain, TypedIpcSender } from '../common/ipc'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import currentSession from './current-session'
 import { ActiveGameManager } from './game/active-game-manager'
@@ -346,11 +349,53 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
     activeGameManager.setGameRoutes(gameId, routes),
   )
 
+  ipcMain.handle('fsReadFile', async (_, filePath) => {
+    return fsPromises.readFile(filePath)
+  })
+  ipcMain.handle('fsReadDir', async (_, dirPath, options) => {
+    const result = await fsPromises.readdir(dirPath, options)
+    return result.map<FsDirent>(d => ({
+      isFile: d.isFile(),
+      isDirectory: d.isDirectory(),
+      name: d.name,
+    }))
+  })
+  ipcMain.handle('fsStat', async (_, filePath) => {
+    const result = await fsPromises.stat(filePath)
+    return {
+      isFile: result.isFile(),
+      isDirectory: result.isDirectory(),
+      size: result.size,
+      blksize: result.blksize,
+      blocks: result.blocks,
+      atimeMs: result.atimeMs,
+      mtimeMs: result.mtimeMs,
+      ctimeMs: result.ctimeMs,
+      birthtimeMs: result.birthtimeMs,
+      atime: result.atime,
+      mtime: result.mtime,
+      ctime: result.ctime,
+      birthtime: result.birthtime,
+    }
+  })
+
   const mapStore = container.resolve(MapStore)
 
   ipcMain.handle('mapStoreDownloadMap', (event, mapHash, mapFormat, mapUrl) =>
     mapStore.downloadMap(mapHash, mapFormat, mapUrl),
   )
+
+  ipcMain.handle('replayParseHeader', async (event, replayPath) => {
+    return new Promise(async resolve => {
+      const parser = new ReplayParser()
+      parser.on('replayHeader', header => resolve(header))
+
+      const promise = pipeline(fs.createReadStream(replayPath), parser)
+
+      parser.resume()
+      await promise
+    })
+  })
 
   ipcMain.handle('shieldbatteryCheckFiles', () => checkShieldBatteryFiles())
 

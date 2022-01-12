@@ -20,11 +20,11 @@ import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { fetchJson } from '../network/fetch'
 import { openSnackbar } from '../snackbars/action-creators'
 import { ClearMaps } from './actions'
+import { upload } from './upload'
 
 async function uploadMap(filePath: string) {
   if (IS_ELECTRON) {
-    const module = await import('./upload')
-    return module?.default<UploadMapResponse>(filePath, apiUrl`maps`)
+    return upload<UploadMapResponse>(filePath, apiUrl`maps`)
   } else {
     throw new Error('cannot upload maps on non-electron clients')
   }

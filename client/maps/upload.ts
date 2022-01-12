@@ -1,10 +1,20 @@
-import { promises as fsPromises } from 'fs'
-import path from 'path'
+import { TypedIpcRenderer } from '../../common/ipc'
 import { fetchJson } from '../network/fetch'
 
-export default async function upload<T>(filePath: string, apiPath: string): Promise<T> {
-  const extension = path.extname(filePath).slice(1).toLowerCase()
-  const file = await fsPromises.readFile(filePath)
+const ipcRenderer = new TypedIpcRenderer()
+
+function getExtension(filePath: string) {
+  const index = filePath.lastIndexOf('.')
+  if (index === -1) {
+    return filePath.toLowerCase()
+  } else {
+    return filePath.slice(index + 1).toLowerCase()
+  }
+}
+
+export async function upload<T>(filePath: string, apiPath: string): Promise<T> {
+  const extension = getExtension(filePath)
+  const file = await ipcRenderer.invoke('fsReadFile', filePath)!
 
   const formData = new FormData()
   formData.append('extension', extension)

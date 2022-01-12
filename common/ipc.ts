@@ -1,4 +1,5 @@
 import type { IpcMainEvent, IpcMainInvokeEvent, IpcRendererEvent, WebContents } from 'electron'
+import { ReplayHeader } from 'jssuh'
 import { Promisable } from 'type-fest'
 import { GameLaunchConfig, GameRoute } from './game-launch-config'
 import { GameClientPlayerResult, SubmitGameResultsRequest } from './games/results'
@@ -11,17 +12,56 @@ const IS_RENDERER = typeof process === 'undefined' || !process || process.type =
 const ipcRenderer = IS_ELECTRON && IS_RENDERER ? require('electron').ipcRenderer : null
 const ipcMain = IS_ELECTRON && !IS_RENDERER ? require('electron').ipcMain : null
 
+/**
+ * Equivalent to a node.js fs.Dirent object, but with relevant functions converted to be raw values,
+ * so that it can be passed across IPC.
+ */
+export interface FsDirent {
+  isFile: boolean
+  isDirectory: boolean
+  name: string
+}
+
+/**
+ * Equivalent to a node.js fs.Stats object, but with relevant functions converted to be raw values,
+ * so that it can be passed across IPC.
+ */
+export interface FsStats {
+  isFile: boolean
+  isDirectory: boolean
+  size: number
+  blksize: number
+  blocks: number
+  atimeMs: number
+  mtimeMs: number
+  ctimeMs: number
+  birthtimeMs: number
+  atime: Date
+  mtime: Date
+  ctime: Date
+  birthtime: Date
+}
+
 /** RPCs that can be invoked by the renderer process to run code in the main process. */
 interface IpcInvokeables {
   activeGameStartWhenReady: (gameId: string) => void
   activeGameSetConfig: (config: GameLaunchConfig | Record<string, never>) => string | null
   activeGameSetRoutes: (gameId: string, routes: GameRoute[]) => void
 
+  // TODO(tec27): Support the non-filetypes version if we need it, overloads don't seem to work
+  // well with the current approach for typing these invokes =/
+  fsReadDir: (dirPath: string, options: { withFileTypes: true }) => Promise<FsDirent[]>
+  // TODO(tec27): Add types for options + returning a string if encoding is specified?
+  fsReadFile: (filePath: string) => Promise<ArrayBuffer>
+  fsStat: (filePath: string) => Promise<FsStats>
+
   logMessage: (level: string, message: string) => void
 
   mapStoreDownloadMap: (hash: string, format: MapExtension, mapUrl: string) => Promise<boolean>
 
   pathsGetDocumentsPath: () => Promise<string>
+
+  replayParseHeader: (replayPath: string) => Promise<ReplayHeader>
 
   securityGetClientIds: () => Promise<[number, string][]>
 
