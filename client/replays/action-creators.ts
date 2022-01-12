@@ -1,5 +1,5 @@
 import cuid from 'cuid'
-import { ReplayHeader } from 'jssuh'
+import type { ReplayHeader } from 'jssuh'
 import { PlayerInfo } from '../../common/game-launch-config'
 import { GameType } from '../../common/games/configuration'
 import { TypedIpcRenderer } from '../../common/ipc'

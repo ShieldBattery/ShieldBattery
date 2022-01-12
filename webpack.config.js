@@ -8,7 +8,8 @@ const webpack = require('webpack')
 // Configuration for the web part of the electron process (the client/ scripts
 // compiled for electron)
 const webWebpackOpts = {
-  target: 'electron-renderer',
+  // NOTE(tec27): Since we sandbox + context-isolate, this acts like a normal web browser
+  target: 'web',
   entry: {
     bundle: './client/index.jsx',
   },
@@ -17,10 +18,13 @@ const webWebpackOpts = {
     filename: '[name].js',
     path: path.join(__dirname, 'app', 'dist'),
     publicPath: process.env.NODE_ENV !== 'production' ? 'http://localhost:5566/dist/' : '/dist/',
-    libraryTarget: 'commonjs2',
     crossOriginLoading: 'anonymous',
   },
-  plugins: [],
+  plugins: [
+    // For whatever reason, `import type { ... } from 'electron'` isn't being removed by
+    // babel/preset-typescript, so we just ignore them instead.
+    new webpack.IgnorePlugin({ checkResource: resource => resource === 'electron' }),
+  ],
 }
 
 const webBabelOpts = {
@@ -103,6 +107,9 @@ const mainWebpackOpts = {
   target: 'electron-main',
   entry: {
     index: './app/startup.js',
+    // NOTE(tec27): If this ever gets more complex we'll probably need to split it into its own
+    // webpack config with target = 'electron-preload'
+    preload: './app/preload.js',
   },
   output: {
     filename: '[name].js',

@@ -16,6 +16,7 @@ files:
     to: './'
     filter:
       - 'index.js'
+      - 'preload.js'
   - from: 'dist/native/'
     to: './native/'
     filter:

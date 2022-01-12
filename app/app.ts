@@ -32,6 +32,27 @@ if (!(global as any).__WEBPACK_ENV) {
   ;(global as any).__WEBPACK_ENV = {}
 }
 
+process
+  .on('uncaughtException', function (err) {
+    // NOTE(tec27): Electron seems to emit null errors sometimes? Not much we can do about logging
+    // them. (One I have definitely seen this for is 'ResizeObserver loop limit exceeded', which
+    // is an error that can be safely ignored anyway)
+    if (!err) return
+
+    console.error(err.stack ?? err)
+    logger.error(err.stack ?? String(err))
+    // TODO(tec27): We used to exit here, what's the right thing now? Close window? Show error
+    // dialog to user?
+  })
+  .on('unhandledRejection', function (err) {
+    logger.error((err as any).stack ?? String(err))
+    if (err instanceof TypeError || err instanceof SyntaxError || err instanceof ReferenceError) {
+      // TODO(tec27): We used to exit here, what's the right thing now? Close window? Show error
+      // dialog to user?
+    }
+    // Other promise rejections are likely less severe, leave the process up but log it
+  })
+
 const ipcMain = new TypedIpcMain()
 
 getUserDataPath()
@@ -556,13 +577,11 @@ async function createWindow() {
     show: false,
     title: 'ShieldBattery',
     webPreferences: {
+      preload: path.join(app.getAppPath(), 'preload.js'),
       session: curSession,
-      // TODO(tec27): Figure out a path to turning this off as it's a security risk
-      nodeIntegration: true,
-      // TODO(tec27): Ideally we'd turn these options on as well (note that these get turned on
-      // automatically if the page has a CSP set, which is why we turn it off here)
-      contextIsolation: false,
-      sandbox: false,
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
     },
   })
 

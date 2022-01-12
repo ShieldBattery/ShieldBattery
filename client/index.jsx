@@ -25,29 +25,6 @@ window.__webpack_nonce__ = window.SB_CSP_NONCE
 enableMapSet()
 setAutoFreeze(isDev)
 
-if (IS_ELECTRON) {
-  process
-    .on('uncaughtException', function (err) {
-      // NOTE(tec27): Electron seems to emit null errors sometimes? Not much we can do about logging
-      // them. (One I have definitely seen this for is 'ResizeObserver loop limit exceeded', which
-      // is an error that can be safely ignored anyway)
-      if (!err) return
-
-      console.error(err.stack)
-      log.error(err.stack)
-      // TODO(tec27): We used to exit here, what's the right thing now? Close window? Show error
-      // dialog to user?
-    })
-    .on('unhandledRejection', function (err) {
-      log.error(err.stack)
-      if (err instanceof TypeError || err instanceof SyntaxError || err instanceof ReferenceError) {
-        // TODO(tec27): We used to exit here, what's the right thing now? Close window? Show error
-        // dialog to user?
-      }
-      // Other promise rejections are likely less severe, leave the process up but log it
-    })
-}
-
 window.addEventListener('error', event => {
   const messageText = event.error?.message ?? event.message
   if (messageText === 'ResizeObserver loop limit exceeded') {

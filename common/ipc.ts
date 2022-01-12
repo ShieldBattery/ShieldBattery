@@ -1,4 +1,10 @@
-import type { IpcMainEvent, IpcMainInvokeEvent, IpcRendererEvent, WebContents } from 'electron'
+import type {
+  IpcMainEvent,
+  IpcMainInvokeEvent,
+  IpcRenderer,
+  IpcRendererEvent,
+  WebContents,
+} from 'electron'
 import type { ReplayHeader } from 'jssuh'
 import { Promisable } from 'type-fest'
 import { GameLaunchConfig, GameRoute } from './game-launch-config'
@@ -9,7 +15,10 @@ import { ResolvedRallyPointServer } from './rally-point'
 import { ShieldBatteryFileResult } from './shieldbattery-file'
 
 const IS_RENDERER = typeof process === 'undefined' || !process || process.type === 'renderer'
-const ipcRenderer = IS_ELECTRON && IS_RENDERER ? require('electron').ipcRenderer : null
+const ipcRenderer =
+  IS_ELECTRON && IS_RENDERER
+    ? ((window as any).SHIELDBATTERY_ELECTRON_API.ipcRenderer as IpcRenderer)
+    : null
 const ipcMain = IS_ELECTRON && !IS_RENDERER ? require('electron').ipcMain : null
 
 /**
