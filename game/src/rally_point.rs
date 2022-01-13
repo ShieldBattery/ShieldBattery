@@ -483,7 +483,9 @@ pub fn init() -> RallyPoint {
     // Though additionally, in order to report send errors to whichever future caused the send,
     // send requests take an optional mpsc::Sender that can should link back to the relevant
     // future. Acks sent to server can/should have it as None.
-    let addr = "[::]:0".parse().unwrap();
+    let args = crate::parse_args();
+    let addr = format!("[::]:{}", args.rally_point_port).parse().unwrap();
+    debug!("Binding rally-point to {}", addr);
 
     let (send_requests, mut recv_requests) = mpsc::channel(16);
     // Separate channel for internal communication, so that dropping RallyPoint

@@ -481,6 +481,7 @@ struct Args {
     game_id: String,
     server_port: u16,
     user_data_path: PathBuf,
+    rally_point_port: u16,
     is_scr: bool,
 }
 
@@ -501,6 +502,7 @@ fn try_parse_args() -> Option<Args> {
     let game_id = args.next()?.into_string().ok()?;
     let server_port = args.next()?.into_string().ok()?.parse::<u16>().ok()?;
     let user_data_path = args.next()?.into();
+    let rally_point_port = args.next()?.into_string().ok()?.parse::<u16>().ok()?;
     let is_scr = args.next()
         .and_then(|x| x.into_string().ok())
         .filter(|x| x == "-launch")
@@ -510,6 +512,7 @@ fn try_parse_args() -> Option<Args> {
         game_id,
         server_port,
         user_data_path,
+        rally_point_port,
         is_scr,
     })
 }

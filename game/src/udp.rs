@@ -72,7 +72,7 @@ fn bind_udp_ipv6_ipv4_socket(local_addr: &SocketAddrV6) -> Result<UdpSocket, io:
         }
         let mut raw_addr = SOCKADDR_IN6_LH {
             sin6_family: AF_INET6 as u16,
-            sin6_port: local_addr.port(),
+            sin6_port: local_addr.port().to_be(),
             sin6_flowinfo: 0,
             ..mem::zeroed()
         };
