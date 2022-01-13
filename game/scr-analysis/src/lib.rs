@@ -81,6 +81,8 @@ impl<'e> Analysis<'e> {
         self.0.is_multiplayer()
     }
 
+    pub fn is_paused(&mut self) -> Option<Operand<'e>> { self.0.is_paused() }
+
     pub fn select_map_entry(&mut self) -> Option<VirtualAddress> {
         self.0.select_map_entry()
     }

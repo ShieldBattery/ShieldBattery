@@ -50,6 +50,7 @@ pub struct BwScr {
     storm_player_flags: Value<*mut u32>,
     lobby_state: Value<u8>,
     is_multiplayer: Value<u8>,
+    is_paused: Value<u8>,
     game_state: Value<u8>,
     sprites_inited: Value<u8>,
     local_player_id: Value<u32>,
@@ -912,6 +913,7 @@ impl BwScr {
         let step_network = analysis.step_network().ok_or("step_network")?;
         let lobby_state = analysis.lobby_state().ok_or("Lobby state")?;
         let is_multiplayer = analysis.is_multiplayer().ok_or("is_multiplayer")?;
+        let is_paused = analysis.is_paused().ok_or("is_paused")?;
         let select_map_entry = analysis.select_map_entry().ok_or("select_map_entry")?;
         let game_state = analysis.game_state().ok_or("Game state")?;
         let mainmenu_entry_hook = analysis.mainmenu_entry_hook().ok_or("Entry hook")?;
@@ -1062,6 +1064,7 @@ impl BwScr {
             storm_player_flags: Value::new(ctx, storm_player_flags),
             lobby_state: Value::new(ctx, lobby_state),
             is_multiplayer: Value::new(ctx, is_multiplayer),
+            is_paused: Value::new(ctx, is_paused),
             game_state: Value::new(ctx, game_state),
             sprites_inited: Value::new(ctx, sprites_inited),
             local_player_id: Value::new(ctx, local_player_id),
