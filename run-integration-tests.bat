@@ -8,9 +8,12 @@ cd "%scriptroot%\integration"
 
 docker-compose down -v
 docker-compose build
+if errorlevel 1 goto exit
 docker-compose up -V -d
+if errorlevel 1 goto exit
 
 cd ..
 yarn run test:integration
 
+:exit
 cd "%startdir%"

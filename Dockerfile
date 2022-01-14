@@ -51,6 +51,9 @@ RUN apk add --no-cache bash logrotate
 # Set up log rotation
 COPY --from=builder /shieldbattery/server/deployment_files/logrotate.conf /etc/logrotate.d/shieldbattery
 
+# Give the logrotate status file to the node user since that's what crond will be running under
+RUN touch /var/lib/logrotate.status && chown node:node /var/lib/logrotate.status
+
 # Set the user to `node` for any subsequent `RUN` and `CMD` instructions
 USER node
 
@@ -67,14 +70,20 @@ COPY --chown=node:node --from=builder /shieldbattery/babel-register.js /shieldba
 # Copy the installed dependencies from the first stage
 COPY --chown=node:node --from=builder /shieldbattery/wait-for-it/wait-for-it.sh tools/wait-for-it.sh
 
+# Allow the update script to be run (necessary when building on Linux)
+RUN chmod +x ./server/update_server.sh
+
 # Make the various volume locations as the right user (if we let Docker do it they end up owned by
 # root and not writeable)
 RUN mkdir ./server/logs && mkdir ./server/uploaded_files && mkdir ./server/bw_sprite_data
 
+RUN touch /var/lib/logrotate.status
+
 # http (generally reverse-proxied to)
 EXPOSE 5555/tcp
 
-CMD node ./server/index.js | \
+CMD crond -l 3 -f > /dev/stdout 2> /dev/stderr & | \
+  node ./server/index.js | \
   ./node_modules/.bin/pino-tee warn ./server/logs/errors.log | \
   node ./server/utils/pino-pg | \
   tee ./server/logs/server.log
