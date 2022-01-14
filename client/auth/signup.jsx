@@ -216,7 +216,12 @@ class SignupForm extends React.Component {
         />
 
         <FieldRow>
-          <RaisedButton label='Create account' onClick={onSubmit} tabIndex={1} />
+          <RaisedButton
+            label='Create account'
+            onClick={onSubmit}
+            tabIndex={1}
+            testName='submit-button'
+          />
         </FieldRow>
       </form>
     )

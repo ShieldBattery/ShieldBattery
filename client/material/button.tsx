@@ -301,6 +301,7 @@ export interface RaisedButtonProps {
   title?: string
   type?: 'button' | 'reset' | 'submit'
   name?: string
+  testName?: string
 }
 
 /**
@@ -324,6 +325,7 @@ export const RaisedButton = React.forwardRef(
       title,
       type,
       name,
+      testName,
     }: RaisedButtonProps,
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
@@ -345,6 +347,7 @@ export const RaisedButton = React.forwardRef(
         title={title}
         type={type ?? 'button'}
         name={name}
+        data-test={testName}
         {...buttonProps}>
         <Label>
           {iconStart ? <IconContainer>{iconStart}</IconContainer> : null}
@@ -419,6 +422,7 @@ export interface TextButtonProps {
   title?: string
   type?: 'button' | 'reset' | 'submit'
   name?: string
+  testName?: string
 }
 
 /**
@@ -442,6 +446,7 @@ export const TextButton = React.forwardRef(
       title,
       type,
       name,
+      testName,
     }: TextButtonProps,
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
@@ -463,6 +468,7 @@ export const TextButton = React.forwardRef(
         title={title}
         type={type ?? 'button'}
         name={name}
+        data-test={testName}
         {...buttonProps}>
         <Label>
           {iconStart ? <IconContainer>{iconStart}</IconContainer> : null}
@@ -508,6 +514,7 @@ export interface IconButtonProps {
   tabIndex?: number
   type?: 'button' | 'reset' | 'submit'
   name?: string
+  testName?: string
 }
 
 /** A button that displays just an icon (with no text, and no background or elevation). */
@@ -526,6 +533,7 @@ export const IconButton = React.forwardRef(
       tabIndex,
       type,
       name,
+      testName,
     }: IconButtonProps,
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
@@ -546,6 +554,7 @@ export const IconButton = React.forwardRef(
         title={title}
         type={type ?? 'button'}
         name={name}
+        data-test={testName}
         {...buttonProps}>
         {icon}
         <Ripple ref={rippleRef} disabled={disabled} />

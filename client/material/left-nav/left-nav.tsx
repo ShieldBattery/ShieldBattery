@@ -32,7 +32,7 @@ export default function LeftNav(props: LeftNavProps) {
   const header = props.header ? <Header>{props.header}</Header> : undefined
   const footer = props.footer ? <Footer>{props.footer}</Footer> : undefined
   return (
-    <Container>
+    <Container data-test='left-nav'>
       {header}
       <Sections>{props.children}</Sections>
       {footer}

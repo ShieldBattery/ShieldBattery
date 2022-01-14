@@ -253,11 +253,19 @@ On Windows, run integration tests from the root of the repo by doing:
 
 This will stop any previous integration servers, create new ones, and then run the tests.
 
+If you know that none of the changes you have made will affect the app server container
+(e.g. if you only changed test code), you can also run this with `nobuild` to iterate a bit faster:
+
+```bat
+.\run-integration-tests.bat nobuild
+```
+
 On other operating systems, you can do those steps manually:
 
 ```sh
 cd ./integration && \
 docker-compose down -v && \
+docker-compose build && \
 docker-compose up -V -d && \
 cd .. && \
 yarn run test:integration

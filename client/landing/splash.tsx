@@ -474,7 +474,12 @@ export default function Splash() {
       </Blurb>
       {!IS_ELECTRON ? (
         <ButtonsContainer>
-          <SplashButton label='Sign Up' color='primary' onClick={onSignUpClick} />
+          <SplashButton
+            label='Sign Up'
+            color='primary'
+            onClick={onSignUpClick}
+            testName='sign-up-button'
+          />
           <SplashButton
             label='Download'
             color='primary'
@@ -482,7 +487,12 @@ export default function Splash() {
           />
         </ButtonsContainer>
       ) : (
-        <SplashButton label='Sign Up' color='primary' onClick={onSignUpClick} />
+        <SplashButton
+          label='Sign Up'
+          color='primary'
+          onClick={onSignUpClick}
+          testName='sign-up-button'
+        />
       )}
       <StyledGameCount />
       <BenefitContainer>

@@ -99,7 +99,7 @@ class LoginForm extends React.Component {
             inputProps={{ tabIndex: 1 }}
           />
           <Spacer />
-          <RaisedButton label='Log in' onClick={onSubmit} tabIndex={1} />
+          <RaisedButton label='Log in' onClick={onSubmit} tabIndex={1} testName='submit-button' />
           <RowEdge />
         </FieldRow>
       </form>

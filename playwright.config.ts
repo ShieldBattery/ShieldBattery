@@ -2,6 +2,7 @@ import { devices, PlaywrightTestConfig } from '@playwright/test'
 
 const config: PlaywrightTestConfig = {
   testDir: './integration/tests',
+  globalSetup: require.resolve('./integration/global-setup.ts'),
 
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
