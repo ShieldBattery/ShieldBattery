@@ -13,6 +13,8 @@ docker-compose up -V -d
 if errorlevel 1 goto exit
 
 cd ..
+@rem Wait for the server to be up
+timeout /t 10 /nobreak
 yarn run test:integration
 
 :exit
