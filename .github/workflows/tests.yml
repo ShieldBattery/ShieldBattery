@@ -14,6 +14,9 @@ jobs:
       - name: Running Docker containers
         run: cd ./integration && docker-compose up -V -d
 
+      - name: Check running containers
+        run: docker ps -a
+
       - name: Using Node.js 16.x
         uses: actions/setup-node@v2
         with:
