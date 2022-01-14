@@ -75,6 +75,12 @@ jobs:
       - name: Run integration tests
         run: yarn test:integration
 
+      - name: Check running containers 2
+        run: docker ps -a
+
+      - name: View app-server logs
+        run: docker logs integration_app-server_1
+
       - uses: actions/upload-artifact@v2
         if: ${{ failure() || success() }}
         with:
