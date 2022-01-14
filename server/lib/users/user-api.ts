@@ -220,6 +220,15 @@ export class UserApi {
       throw err
     }
 
+    // If this is the first user ever created, give them the ability to edit permissions. This
+    // mostly just makes it easier to get started in development and tests.
+    if (createdUser.user.id === 1) {
+      await updatePermissions(createdUser.user.id, {
+        ...createdUser.permissions,
+        editPermissions: true,
+      })
+    }
+
     const sessionInfo: ClientSessionInfo = {
       user: createdUser.user,
       permissions: createdUser.permissions,
