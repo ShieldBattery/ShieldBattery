@@ -1,0 +1,77 @@
+version: '3.7'
+
+# This docker-compose file is used by our integration tests to stand up a running server
+# environment that (mostly) matches the one that is used in production.
+
+services:
+  # This is just here to ensure we only build the app_server image once, instead of both for
+  # app_server and migration
+  _app-server-build:
+    image: app_server
+    build: '../'
+    command: ['echo', 'built']
+
+  app-server:
+    image: app_server
+    restart: unless-stopped
+    init: true
+    ports:
+      - 5527:5555
+    environment:
+      - DATABASE_URL=postgres://shieldbattery:shieldbattery_pass@db/shieldbattery
+      - SB_HTTP_PORT=5555
+      - SB_HTTPS_REVERSE_PROXY=true
+      - SB_REDIS_HOST=redis
+      - SB_REDIS_PORT=6379
+      - 'SB_ROUTE_CREATOR_HOST=::'
+      - SB_ROUTE_CREATOR_PORT=14099
+      - SB_FILE_STORE={"filesystem":{"path":"server/uploaded_files"}}
+      - SB_MAP_PARSER_MAX_CONCURRENT=1
+      - 'SB_CANONICAL_HOST=http://localhost:5527'
+      - 'SB_SESSION_SECRET=1234SuPeR5ecReT'
+      - SB_SESSION_TTL=2592000
+      - SB_RALLY_POINT_SECRET=rp_secret
+    depends_on:
+      - _app_server_build
+      - db
+      - migration
+      - redis
+
+  redis:
+    image: redis:6.2.6-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+
+  db:
+    image: postgres:12-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres_pass
+      - POSTGRES_DB=postgres
+      - SB_DB=shieldbattery
+      - SB_DB_USER=shieldbattery
+      - SB_DB_PASSWORD=shieldbattery_pass
+    volumes:
+      - ../deployment/appserver/db/init-scripts:/docker-entrypoint-initdb.d:ro
+
+  # This is a service used to run the server migrations before the server actually starts. It uses
+  # the same image as the server, but overrides its startup command to only run migrations and exit.
+  migration:
+    image: app_server
+    init: true
+    environment:
+      - 'SB_SESSION_SECRET=1234SuPeR5ecReT'
+      - SB_SESSION_TTL=2592000
+      - SB_REDIS_HOST=redis
+      - SB_REDIS_PORT=6379
+      - DATABASE_URL=postgres://shieldbattery:shieldbattery_pass@db/shieldbattery
+    # TODO(tec27): These scripts also touch redis so we should probably wait for it as well, but
+    # it's kind of a pain with this script so I haven't. General assumption is that by the time we
+    # get to that point, redis will be ready anyway (or the redis library will wait properly), but
+    # I guess we'll see?
+    command: ['./tools/wait-for-it.sh', 'db:5432', '--', 'bash', '-c', './server/update_server.sh']
+    depends_on:
+      - _app_server_build
+      - db
+      - redis

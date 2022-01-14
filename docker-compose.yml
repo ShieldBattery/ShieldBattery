@@ -36,5 +36,5 @@ services:
       - SB_DB_USER=${SB_DB_USER:-shieldbattery}
       - SB_DB_PASSWORD=${SB_DB_PASSWORD:?missing SB_DB_PASSWORD}
     volumes:
-      - ./deployment/db/init-scripts:/docker-entrypoint-initdb.d:ro
+      - ./deployment/appserver/db/init-scripts:/docker-entrypoint-initdb.d:ro
       - db_data:/var/lib/postgresql/data

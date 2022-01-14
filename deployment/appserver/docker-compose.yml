@@ -166,12 +166,6 @@ services:
     image: shieldbattery/shieldbattery:${SB_VERSION:-latest}
     init: true
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=${POSTGRES_SUPER_PASSWORD}
-      - POSTGRES_DB=postgres
-      - SB_DB=${SB_DB:-shieldbattery}
-      - SB_DB_USER=${SB_DB_USER:-shieldbattery}
-      - SB_DB_PASSWORD=${SB_DB_PASSWORD}
       - SB_SESSION_SECRET=${SB_SESSION_SECRET}
       - SB_SESSION_TTL=${SB_SESSION_TTL}
       - SB_REDIS_HOST=redis
