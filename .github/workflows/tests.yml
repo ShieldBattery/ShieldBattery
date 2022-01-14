@@ -67,25 +67,14 @@ jobs:
         run: yarn test
 
       - name: Install playwright dependencies
-        run: npx playwright install-deps
-
-      - name: Check running containers
-        run: docker ps -a
+        run: npx playwright install
 
       - name: Run integration tests
         run: yarn test:integration
 
-      - name: Check running containers 2
-        if: ${{ failure() }}
-        run: docker ps -a
-
       - name: View app-server logs
         if: ${{ failure() }}
         run: docker logs integration_app-server_1
-
-      - name: View migration logs
-        if: ${{ failure() }}
-        run: docker logs integration_migration_1
 
       - uses: actions/upload-artifact@v2
         if: ${{ failure() || success() }}
