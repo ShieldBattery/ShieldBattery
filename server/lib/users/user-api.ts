@@ -227,6 +227,7 @@ export class UserApi {
         ...createdUser.permissions,
         editPermissions: true,
       })
+      createdUser.permissions.editPermissions = true
     }
 
     const sessionInfo: ClientSessionInfo = {
