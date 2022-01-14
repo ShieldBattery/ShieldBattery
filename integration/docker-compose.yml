@@ -32,7 +32,7 @@ services:
       - SB_SESSION_TTL=2592000
       - SB_RALLY_POINT_SECRET=rp_secret
     depends_on:
-      - _app_server_build
+      - _app-server-build
       - db
       - migration
       - redis
@@ -72,6 +72,6 @@ services:
     # I guess we'll see?
     command: ['./tools/wait-for-it.sh', 'db:5432', '--', 'bash', '-c', './server/update_server.sh']
     depends_on:
-      - _app_server_build
+      - _app-server-build
       - db
       - redis
