@@ -59,7 +59,7 @@ function showUserError(error: FetchError) {
 
 export function UserErrorDisplay({ className, error }: UserErrorDisplayProps) {
   return (
-    <ErrorsContainer className={className}>
+    <ErrorsContainer className={className} data-test='errors-container'>
       {isFetchError(error) ? (
         showUserError(error)
       ) : (
