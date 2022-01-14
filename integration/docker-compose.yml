@@ -20,7 +20,7 @@ services:
     environment:
       - DATABASE_URL=postgres://shieldbattery:shieldbattery_pass@db/shieldbattery
       - SB_HTTP_PORT=5555
-      - SB_HTTPS_REVERSE_PROXY=true
+      - SB_HTTPS_REVERSE_PROXY=false
       - SB_REDIS_HOST=redis
       - SB_REDIS_PORT=6379
       - 'SB_ROUTE_CREATOR_HOST=::'
@@ -31,6 +31,7 @@ services:
       - 'SB_SESSION_SECRET=1234SuPeR5ecReT'
       - SB_SESSION_TTL=2592000
       - SB_RALLY_POINT_SECRET=rp_secret
+      - SB_DISABLE_THROTTLING=true
     depends_on:
       - _app-server-build
       - db

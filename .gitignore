@@ -4,6 +4,7 @@ app/styles/
 dist/
 node_modules/
 test-results/
+test-state/
 server/.env
 .idea/
 .env
