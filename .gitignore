@@ -3,6 +3,7 @@ app/game/native/*/*.node
 app/styles/
 dist/
 node_modules/
+test-results/
 server/.env
 .idea/
 .env

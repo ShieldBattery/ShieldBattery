@@ -213,3 +213,52 @@ launch times and to reduce system load by setting environment `SB_NO_HD` to `1`.
 Disabling HD graphics may cause crashes if the game tries to render with them, so it is recommended
 to launch SC:R, switch the graphics to SD, and close the game before setting the environment
 variable.
+
+## Running tests
+
+Our tests are split into two types:
+
+- **Unit tests**: These are written with Jest, and are next to the files they test with a
+  `.test.ts` extension. They run against the specific code they test _only_, so they don't have
+  e.g. a real database and any service dependencies need to be mocked.
+- **Integration tests**: These are written with Playwright, and are located in the
+  `integration/tests/` directory. These utilize a real server, database, etc. running in a Docker
+  container. The services are recreated per global test run, but state _is_ shared between tests,
+  so be careful to isolate properly (via separate user accounts, channels, etc.).
+
+### Running unit tests locally
+
+To run unit tests as well as lint and typechecking, do:
+
+```sh
+yarn run test
+```
+
+If you're developing a new test or modifying an existing one, you can run only the tests and re-run
+on each change by doing:
+
+```sh
+yarn run testonly --watch
+```
+
+### Running integration tests locally
+
+Since the integration service setup uses Docker, you'll need to have that installed and set up.
+
+On Windows, run integration tests from the root of the repo by doing:
+
+```bat
+.\run-integration-tests.bat
+```
+
+This will stop any previous integration servers, create new ones, and then run the tests.
+
+On other operating systems, you can do those steps manually:
+
+```sh
+cd ./integration && \
+docker-compose down -v && \
+docker-compose up -V -d && \
+cd .. && \
+yarn run test:integration
+```
