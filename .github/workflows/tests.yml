@@ -67,7 +67,7 @@ jobs:
         run: yarn test
 
       - name: Install playwright dependencies
-        run: npx playwright install
+        run: npx playwright install-deps && npx playwright install
 
       - name: Run integration tests
         run: yarn test:integration
