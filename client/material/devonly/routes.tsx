@@ -8,6 +8,7 @@ import DevSliders from './slider-test'
 import DevSteppers from './stepper-test'
 import { TabsTest } from './tabs-test'
 import DevTextFields from './text-field-test'
+import { TooltipTest } from './tooltip-test'
 
 const BASE_URL = '/dev/material'
 
@@ -38,6 +39,9 @@ function DevMaterialDashboard() {
       <li>
         <Link href={`${BASE_URL}/textfield`}>Textfield component</Link>
       </li>
+      <li>
+        <Link href={`${BASE_URL}/tooltip`}>Tooltip component</Link>
+      </li>
     </ul>
   )
 }
@@ -53,6 +57,7 @@ export default function DevMaterialRoutes() {
       <Route path={`${BASE_URL}/stepper`} component={DevSteppers as any} />
       <Route path={`${BASE_URL}/tabs`} component={TabsTest} />
       <Route path={`${BASE_URL}/textfield`} component={DevTextFields as any} />
+      <Route path={`${BASE_URL}/tooltip`} component={TooltipTest} />
       <Route>
         <DevMaterialDashboard />
       </Route>

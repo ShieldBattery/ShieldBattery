@@ -1,6 +1,7 @@
 import React from 'react'
 import styled, { css } from 'styled-components'
 import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
+import { Tooltip } from '../material/tooltip'
 import {
   amberA100,
   blue100,
@@ -41,11 +42,13 @@ interface MessageTimestampProps {
 }
 
 export const MessageTimestamp = (props: MessageTimestampProps) => (
-  <Timestamp title={longTimestamp.format(props.time)}>
-    <Separator>[</Separator>
-    {shortTimestamp.format(props.time)}
-    <Separator>] </Separator>
-  </Timestamp>
+  <Tooltip text={longTimestamp.format(props.time)} position='top'>
+    <Timestamp>
+      <Separator>[</Separator>
+      {shortTimestamp.format(props.time)}
+      <Separator>] </Separator>
+    </Timestamp>
+  </Tooltip>
 )
 
 const messageContainerBase = css`

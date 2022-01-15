@@ -12,6 +12,7 @@ import { ConnectedAvatar } from '../avatars/avatar'
 import { longTimestamp } from '../i18n/date-formats'
 import { Popover, PopoverProps } from '../material/popover'
 import { shadow2dp } from '../material/shadows'
+import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import {
@@ -236,9 +237,9 @@ function OverlayContents({ userId, onDismiss }: { userId: SbUserId; onDismiss: (
         <>
           <div>
             <SectionHeader>Info</SectionHeader>
-            <Body1 title={longTimestamp.format(profile.created)}>
-              Joined {joinDateFormat.format(profile.created)}
-            </Body1>
+            <Tooltip text={longTimestamp.format(profile.created)}>
+              <Body1>Joined {joinDateFormat.format(profile.created)}</Body1>
+            </Tooltip>
           </div>
 
           <div>

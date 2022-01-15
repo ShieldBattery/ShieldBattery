@@ -59,6 +59,7 @@
 
   "globals": {
     "document": "readonly",
+    "JSX": "readonly",
     "navigator": "readonly",
     "window": "readonly",
     "IS_ELECTRON": "readonly",
