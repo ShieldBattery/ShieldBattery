@@ -41,7 +41,6 @@ export function EmailVerificationUi() {
   const token = urlParams.get('token')
   const forUserId = urlParams.has('userId') ? Number(urlParams.get('userId')) : undefined
   const forUsername = urlParams.get('username')
-  console.dir(urlParams)
 
   const emailVerified = curUserId === forUserId && auth.user?.emailVerified
 
@@ -100,39 +99,51 @@ export function EmailVerificationUi() {
   let bottomActionButton: React.ReactNode | undefined
   if (!isLoggedIn(auth)) {
     contents = (
-      <ErrorsContainer>
+      <ErrorsContainer data-test='not-logged-in-error'>
         Error: You need to be logged in to verify your email. Please log in by clicking the button
         below and try again.
       </ErrorsContainer>
     )
-    bottomActionButton = <BottomActionButton label='Log in' onClick={onLogInClick} />
+    bottomActionButton = (
+      <BottomActionButton label='Log in' onClick={onLogInClick} testName='log-in-button' />
+    )
   } else if (resendError) {
     contents = <ErrorsContainer>Error resending email: {resendError}</ErrorsContainer>
   } else if (emailResent) {
     contents = (
-      <SuccessContainer>
+      <SuccessContainer data-test='email-resent-success'>
         A new verification code has been sent to your account's email address.
       </SuccessContainer>
     )
   } else if (forUserId !== undefined && forUserId !== curUserId) {
     contents = (
-      <ErrorsContainer>
+      <ErrorsContainer data-test='wrong-user-error'>
         Error: You need must be logged into the account whose email you want to verify. Please
         switch users by clicking the button below and try again.
       </ErrorsContainer>
     )
-    bottomActionButton = <BottomActionButton label='Switch user' onClick={onSwitchUserClick} />
+    bottomActionButton = (
+      <BottomActionButton
+        label='Switch user'
+        onClick={onSwitchUserClick}
+        testName='switch-user-button'
+      />
+    )
   } else if (reqIdRef.current && lastFailure && lastFailure.reqId === reqIdRef.current) {
     if (lastFailure.code === UserErrorCode.InvalidCode) {
       contents = (
-        <ErrorsContainer>
+        <ErrorsContainer data-test='invalid-code-error'>
           Error: The provided email or verification code is not valid. If the verification code
           matches the one you were emailed, it may have expired. Please request a new verification
           email and try again.
         </ErrorsContainer>
       )
       bottomActionButton = (
-        <BottomActionButton label='Resend verification email' onClick={onResendClick} />
+        <BottomActionButton
+          label='Resend verification email'
+          onClick={onResendClick}
+          testName='resend-email-button'
+        />
       )
     } else {
       contents = <ErrorsContainer>Error: {lastFailure.err}</ErrorsContainer>
