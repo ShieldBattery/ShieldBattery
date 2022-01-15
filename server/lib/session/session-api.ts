@@ -64,6 +64,16 @@ export class SessionApi {
       throw new UserApiError(UserErrorCode.SessionExpired, 'Session expired')
     }
 
+    const sessionInfo: ClientSessionInfo = {
+      user,
+      permissions: ctx.session.permissions,
+      lastQueuedMatchmakingType: ctx.session.lastQueuedMatchmakingType,
+    }
+    // Ensure that the currently saved session has matching values to what we just retrieved from
+    // the DB (prevents things like a user having a session with outdated email verification status
+    // due to a botched migration or something)
+    initSession(ctx, sessionInfo)
+
     return {
       user,
       permissions: ctx.session.permissions,

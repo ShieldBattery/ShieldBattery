@@ -1,5 +1,6 @@
 import { Session } from 'koa-generic-session'
 import promClient from 'prom-client'
+import { MatchmakingType } from '../common/matchmaking'
 import { SbPermissions } from '../common/users/permissions'
 import { SbUserId } from '../common/users/sb-user'
 
@@ -15,6 +16,7 @@ declare module 'koa' {
     acceptedUsePolicyVersion: number
 
     permissions: SbPermissions
+    lastQueuedMatchmakingType: MatchmakingType
   }
 
   // NOTE(tec27): We add a bunch of things to ExtendedContext so that koa-router's more generic

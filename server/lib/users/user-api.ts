@@ -50,11 +50,6 @@ import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorato
 import sendMail from '../mail/mailer'
 import { getMapInfo } from '../maps/map-models'
 import { getRankForUser } from '../matchmaking/models'
-import {
-  addEmailVerificationCode,
-  consumeEmailVerificationCode,
-  getEmailVerificationsCount,
-} from '../models/email-verifications'
 import { usePasswordResetCode } from '../models/password-resets'
 import { getPermissions, updatePermissions } from '../models/permissions'
 import { isElectronClient } from '../network/only-web-clients'
@@ -69,6 +64,11 @@ import { TypedPublisher } from '../websockets/typed-publisher'
 import { BanEnacter } from './ban-enacter'
 import { retrieveBanHistory } from './ban-models'
 import { joiClientIdentifiers } from './client-ids'
+import {
+  addEmailVerificationCode,
+  consumeEmailVerificationCode,
+  getEmailVerificationsCount,
+} from './email-verification-models'
 import { SuspiciousIpsService } from './suspicious-ips'
 import { convertUserApiErrors, UserApiError } from './user-api-errors'
 import { UserIdentifierManager } from './user-identifier-manager'
@@ -242,7 +242,7 @@ export class UserApi {
     initSession(ctx, sessionInfo)
 
     const code = cuid()
-    await addEmailVerificationCode(createdUser.user.id, email, code, ctx.ip)
+    await addEmailVerificationCode({ userId: createdUser.user.id, email, code, ip: ctx.ip })
     // No need to await for this
     sendVerificationEmail({
       email,
@@ -430,7 +430,12 @@ export class UserApi {
       }).catch(err => ctx.log.error({ err, req: ctx.req }, 'Error sending email changed email'))
 
       const emailVerificationCode = cuid()
-      await addEmailVerificationCode(user.id, user.email, emailVerificationCode, ctx.ip)
+      await addEmailVerificationCode({
+        userId: user.id,
+        email: user.email,
+        code: emailVerificationCode,
+        ip: ctx.ip,
+      })
       await updateAllSessionsForCurrentUser(ctx, { emailVerified: false })
 
       sendVerificationEmail({
@@ -546,13 +551,16 @@ export class UserApi {
       throw new httpErrors.BadRequest('User not found')
     }
 
-    const emailVerificationsCount = await getEmailVerificationsCount(user.id, user.email)
+    const emailVerificationsCount = await getEmailVerificationsCount({
+      id: user.id,
+      email: user.email,
+    })
     if (emailVerificationsCount > 10) {
       throw new httpErrors.Conflict('Email is over verification limit')
     }
 
     const code = cuid()
-    await addEmailVerificationCode(user.id, user.email, code, ctx.ip)
+    await addEmailVerificationCode({ userId: user.id, email: user.email, code, ip: ctx.ip })
     await sendVerificationEmail({
       email: user.email,
       code,
@@ -586,7 +594,11 @@ export class UserApi {
       throw new UserApiError(UserErrorCode.NotFound, 'user not found')
     }
 
-    const emailVerified = await consumeEmailVerificationCode(user.id, user.email, code)
+    const emailVerified = await consumeEmailVerificationCode({
+      id: user.id,
+      email: user.email,
+      code,
+    })
     if (!emailVerified) {
       throw new UserApiError(UserErrorCode.InvalidCode, 'invalid code')
     }
