@@ -71,8 +71,9 @@ COPY --chown=node:node --from=builder /shieldbattery/babel-register.js /shieldba
 # Copy the installed dependencies from the first stage
 COPY --chown=node:node --from=builder /shieldbattery/wait-for-it/wait-for-it.sh tools/wait-for-it.sh
 
-# Allow the update script to be run (necessary when building on Linux)
+# Allow the various scripts to be run (necessary when building on Linux)
 RUN chmod +x ./server/update_server.sh
+RUN chmod +x ./server/testing/run_mailgun.sh
 
 COPY --chown=node:node --from=builder /shieldbattery/server/deployment_files/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

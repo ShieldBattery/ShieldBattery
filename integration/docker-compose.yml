@@ -27,11 +27,15 @@ services:
       - SB_ROUTE_CREATOR_PORT=14099
       - SB_FILE_STORE={"filesystem":{"path":"server/uploaded_files"}}
       - SB_MAP_PARSER_MAX_CONCURRENT=1
-      - 'SB_CANONICAL_HOST=http://127.0.0.1:5527'
+      - 'SB_CANONICAL_HOST=http://localhost:5527'
       - 'SB_SESSION_SECRET=1234SuPeR5ecReT'
       - SB_SESSION_TTL=2592000
       - SB_RALLY_POINT_SECRET=rp_secret
       - SB_DISABLE_THROTTLING=true
+      - SB_MAILGUN_KEY=DEADBEEF
+      - SB_MAILGUN_DOMAIN=mg.example.org
+      - 'SB_MAILGUN_FROM=ShieldBattery <shieldbattery@example.org>'
+      - 'SB_MAILGUN_URL=http://mailgun:5528'
     depends_on:
       - _app-server-build
       - db
@@ -76,3 +80,17 @@ services:
       - _app-server-build
       - db
       - redis
+
+  # Also just based on the main app_server image, but runninga different server script inside it to
+  # bring up a fake mailgun API.
+  mailgun:
+    image: app_server
+    restart: unless-stopped
+    init: true
+    ports:
+      - 5528:5528
+    environment:
+      - FAKE_MAILGUN_PORT=5528
+    command: ['bash', '-c', './server/testing/run_mailgun.sh']
+    depends_on:
+      - _app-server-build

@@ -67,7 +67,7 @@ export const EmailVerificationNotificationUi = React.forwardRef<
       read={props.read}
       icon={<ColoredWarningIcon />}
       text={
-        <span>
+        <span data-test='email-verification-notification'>
           Your email is unverified! Check for an email from ShieldBattery. If you don't see one, we
           can{' '}
           <a href='#' onClick={onClick}>

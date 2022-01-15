@@ -84,6 +84,7 @@ export function NotificationsButton() {
           icon={<NotificationsIcon />}
           title={hasUnread ? 'Notifications (unread)' : 'Notifications'}
           onClick={onClick}
+          testName='notifications-button'
         />
         {hasUnread ? <UnreadIndicator /> : null}
       </ButtonContainer>

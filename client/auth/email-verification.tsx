@@ -139,7 +139,9 @@ export function EmailVerificationUi() {
     }
   } else if (emailVerified) {
     contents = <SuccessContainer>Your email has been successfully verified.</SuccessContainer>
-    bottomActionButton = <BottomActionButton label='Continue' onClick={onContinueClick} />
+    bottomActionButton = (
+      <BottomActionButton label='Continue' onClick={onContinueClick} testName='continue-button' />
+    )
   } else if (!authChangeInProgress) {
     contents = <ErrorsContainer>Something went terribly wrong. Please try again.</ErrorsContainer>
   }

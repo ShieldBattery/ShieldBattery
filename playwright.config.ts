@@ -5,7 +5,9 @@ const config: PlaywrightTestConfig = {
   globalSetup: require.resolve('./integration/global-setup.ts'),
 
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  // We can't really do retries because our database is shared between tests, so
+  // e.g. signup tests will conflict with each other on created accounts
+  retries: 0,
 
   projects: [
     {
@@ -15,12 +17,12 @@ const config: PlaywrightTestConfig = {
   ],
 
   use: {
-    baseURL: 'http://127.0.0.1:5527',
+    baseURL: 'http://localhost:5527',
     headless: true,
     viewport: { width: 1280, height: 720 },
     screenshot: 'only-on-failure',
-    trace: 'on-first-retry',
-    video: 'on-first-retry',
+    trace: 'retain-on-failure',
+    video: 'retain-on-failure',
   },
 }
 
