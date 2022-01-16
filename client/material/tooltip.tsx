@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useTransition, UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
 import { background100 } from '../styles/colors'
@@ -11,14 +11,17 @@ const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 
 const Container = styled.div`
   ${caption};
-  display: flex;
-  justify-content: center;
-  align-items: center;
 
   min-height: 24px;
   padding: 4px 8px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
   border-radius: 4px;
   background-color: ${background100};
+  pointer-events: none;
 `
 
 export type TooltipPosition = 'left' | 'right' | 'top' | 'bottom'
@@ -41,12 +44,12 @@ interface TooltipProps {
  * Utilizes popovers to deal with positioning, but with a much simpler API than that of a Popover.
  */
 export function Tooltip({ text, children, position = 'bottom', className }: TooltipProps) {
+  const [open, setOpen] = useState(false)
   const [anchorElem, setAnchorElem] = useState<HTMLElement>()
-  const transition = useTransition<boolean, UseTransitionProps<boolean>>(!!anchorElem, {
+  const transition = useTransition<boolean, UseTransitionProps<boolean>>(open, {
     from: { opacity: 0, scale: 0.667 },
     enter: { opacity: 1, scale: 1 },
     leave: { opacity: 0, scale: 0.333 },
-    delay: 800,
     config: (item, index, phase) => key =>
       phase === 'leave' || key === 'opacity' ? { ...defaultSpring, clamp: true } : defaultSpring,
   })
@@ -59,12 +62,30 @@ export function Tooltip({ text, children, position = 'bottom', className }: Tool
     anchorElem ?? null,
   )
 
-  const onMouseEnter = (event: React.MouseEvent) => {
+  const onMouseEnter = useCallback((event: React.MouseEvent) => {
     setAnchorElem(event.currentTarget as HTMLElement)
-  }
-  const onMouseLeave = (event: React.MouseEvent) => {
+  }, [])
+  const onMouseLeave = useCallback((event: React.MouseEvent) => {
     setAnchorElem(undefined)
-  }
+  }, [])
+
+  useEffect(() => {
+    if (anchorElem) {
+      let timeout: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
+        timeout = undefined
+        setOpen(true)
+      }, 200)
+
+      return () => {
+        if (timeout) {
+          clearTimeout(timeout)
+        }
+      }
+    } else {
+      setOpen(false)
+      return () => {}
+    }
+  }, [anchorElem])
 
   const childrenCount = React.Children.count(children)
   if (isDev && childrenCount !== 1) {
