@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { useTransition, UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
-import { background100 } from '../styles/colors'
+import { background900 } from '../styles/colors'
 import { caption } from '../styles/typography'
 import { OriginX, OriginY, PopoverContent, useAnchorPosition } from './popover'
 import { Portal } from './portal'
+import { shadow2dp } from './shadows'
 import { defaultSpring } from './springs'
 
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
@@ -15,6 +16,7 @@ const NoPointerPortal = styled(Portal)`
 
 const Container = styled.div`
   ${caption};
+  ${shadow2dp};
 
   min-height: 24px;
   padding: 4px 8px;
@@ -23,8 +25,9 @@ const Container = styled.div`
   align-items: center;
   justify-content: center;
 
+  border: 1px solid rgba(255, 255, 255, 0.36);
   border-radius: 4px;
-  background-color: ${background100};
+  background-color: ${background900};
   pointer-events: none;
 `
 
