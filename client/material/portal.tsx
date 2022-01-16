@@ -61,6 +61,7 @@ function useDismissalClickHandler(
 }
 
 export interface PortalProps {
+  className?: string
   /** Children rendered inside the Portal. */
   children: React.ReactNode
   /** Whether or not the portal contents should be shown/rendered */
@@ -83,6 +84,8 @@ export function Portal(props: PortalProps) {
   const portalRef = useExternalElementRef()
   const [onCaptureClick, onBubbleClick] = useDismissalClickHandler(portalRef, onDismiss)
   const [onCaptureContextMenu, onBubbleContextMenu] = useDismissalClickHandler(portalRef, onDismiss)
+
+  portalRef.current.className = props.className ?? ''
 
   useEffect(() => {
     if (open) {

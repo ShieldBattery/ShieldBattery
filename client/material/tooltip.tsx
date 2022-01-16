@@ -9,6 +9,10 @@ import { defaultSpring } from './springs'
 
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 
+const NoPointerPortal = styled(Portal)`
+  pointer-events: none;
+`
+
 const Container = styled.div`
   ${caption};
 
@@ -21,6 +25,10 @@ const Container = styled.div`
 
   border-radius: 4px;
   background-color: ${background100};
+  pointer-events: none;
+`
+
+const NoPointerPopoverContent = styled(PopoverContent)`
   pointer-events: none;
 `
 
@@ -125,16 +133,16 @@ export function Tooltip({ text, children, position = 'bottom', className }: Tool
       {transition(
         (styles, open) =>
           open && (
-            <Portal open={open}>
-              <PopoverContent
+            <NoPointerPortal open={open}>
+              <NoPointerPopoverContent
                 anchorX={anchorX}
                 anchorY={anchorY}
                 originX={originX}
                 originY={originY}
                 styles={styles}>
                 <Container className={className}>{text}</Container>
-              </PopoverContent>
-            </Portal>
+              </NoPointerPopoverContent>
+            </NoPointerPortal>
           ),
       )}
     </>
