@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { useTransition, UseTransitionProps } from 'react-spring'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { background900 } from '../styles/colors'
 import { caption } from '../styles/typography'
 import { OriginX, OriginY, PopoverContent, useAnchorPosition } from './popover'
@@ -14,10 +14,11 @@ const NoPointerPortal = styled(Portal)`
   pointer-events: none;
 `
 
-const Container = styled.div`
+const Container = styled.div<{ $position: TooltipPosition }>`
   ${caption};
   ${shadow2dp};
 
+  position: relative;
   min-height: 24px;
   padding: 4px 8px;
 
@@ -29,6 +30,58 @@ const Container = styled.div`
   border-radius: 4px;
   background-color: ${background900};
   pointer-events: none;
+
+  &::before {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+
+    background-color: inherit;
+    border: 1px solid rgba(255, 255, 255, 0.36);
+
+    ${props => {
+      if (props.$position === 'left') {
+        return css`
+          top: 50%;
+          right: 0px;
+
+          transform: translate(50%, -50%) rotate(45deg);
+          border-bottom: none;
+          border-left: none;
+        `
+      } else if (props.$position === 'right') {
+        return css`
+          top: 50%;
+          left: 0px;
+
+          transform: translate(-50%, -50%) rotate(45deg);
+          border-top: none;
+          border-right: none;
+        `
+      } else if (props.$position === 'top') {
+        return css`
+          bottom: 0px;
+          left: 50%;
+
+          transform: translate(-50%, 50%) rotate(45deg);
+          border-top: none;
+          border-left: none;
+        `
+      } else if (props.$position === 'bottom') {
+        return css`
+          top: 0px;
+          left: 50%;
+
+          transform: translate(-50%, -50%) rotate(45deg);
+          border-bottom: none;
+          border-right: none;
+        `
+      } else {
+        return ''
+      }
+    }}
+  }
 `
 
 const NoPointerPopoverContent = styled(PopoverContent)`
@@ -111,10 +164,10 @@ export function Tooltip({ text, children, position = 'bottom', className }: Tool
   let originX: OriginX
   if (anchorOriginX === 'left') {
     originX = 'right'
-    anchorX = anchorX - 16
+    anchorX = anchorX - 8
   } else if (anchorOriginX === 'right') {
     originX = 'left'
-    anchorX = anchorX + 16
+    anchorX = anchorX + 8
   } else {
     originX = 'center'
   }
@@ -122,10 +175,10 @@ export function Tooltip({ text, children, position = 'bottom', className }: Tool
   let originY: OriginY
   if (anchorOriginY === 'top') {
     originY = 'bottom'
-    anchorY = anchorY - 16
+    anchorY = anchorY - 8
   } else if (anchorOriginY === 'bottom') {
     originY = 'top'
-    anchorY = anchorY + 16
+    anchorY = anchorY + 8
   } else {
     originY = 'center'
   }
@@ -143,7 +196,9 @@ export function Tooltip({ text, children, position = 'bottom', className }: Tool
                 originX={originX}
                 originY={originY}
                 styles={styles}>
-                <Container className={className}>{text}</Container>
+                <Container className={className} $position={position}>
+                  {text}
+                </Container>
               </NoPointerPopoverContent>
             </NoPointerPortal>
           ),
