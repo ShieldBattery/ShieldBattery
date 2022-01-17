@@ -21,6 +21,7 @@ export const Separator = styled.i.attrs({ 'aria-hidden': true })`
   line-height: inherit;
   opacity: 0;
   white-space: pre;
+  pointer-events: none;
 `
 
 // NOTE(tec27): These styles are done a bit oddly to ensure that message contents wraps in a
