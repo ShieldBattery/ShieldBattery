@@ -511,8 +511,6 @@ export interface IconButtonProps {
   onClick?: React.MouseEventHandler
   onDoubleClick?: React.MouseEventHandler
   onMouseDown?: React.MouseEventHandler
-  onMouseEnter?: React.MouseEventHandler
-  onMouseLeave?: React.MouseEventHandler
   tabIndex?: number
   type?: 'button' | 'reset' | 'submit'
   name?: string
@@ -532,8 +530,6 @@ export const IconButton = React.forwardRef(
       onClick,
       onDoubleClick,
       onMouseDown,
-      onMouseEnter,
-      onMouseLeave,
       tabIndex,
       type,
       name,
@@ -548,8 +544,6 @@ export const IconButton = React.forwardRef(
       onClick,
       onDoubleClick,
       onMouseDown,
-      onMouseEnter,
-      onMouseLeave,
     })
 
     return (

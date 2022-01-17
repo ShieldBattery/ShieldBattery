@@ -8,13 +8,13 @@ import { Portal } from './portal'
 import { shadow2dp } from './shadows'
 import { defaultSpring } from './springs'
 
-const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
+export type TooltipPosition = 'left' | 'right' | 'top' | 'bottom'
 
 const NoPointerPortal = styled(Portal)`
   pointer-events: none;
 `
 
-const Container = styled.div<{ $position: TooltipPosition }>`
+const TooltipContent = styled.div<{ $position: TooltipPosition }>`
   ${caption};
   ${shadow2dp};
 
@@ -88,17 +88,60 @@ const NoPointerPopoverContent = styled(PopoverContent)`
   pointer-events: none;
 `
 
-export type TooltipPosition = 'left' | 'right' | 'top' | 'bottom'
+interface TooltipChildrenWrapperProps {
+  /** The Tooltip text that will be displayed in an `aria-label` attribute. */
+  text: string
+  /** The Tooltip children element(s) that this component will wrap. */
+  children: React.ReactNode
+  /** Class name applied to the children wrapper container element. */
+  className?: string
+  /** Event handler that will be called when a cursor enters the Tooltip target area. */
+  onMouseEnter: (event: React.MouseEvent) => void
+  /** Event handler that will be called when a cursor leaves the Tooltip target area. */
+  onMouseLeave: (event: React.MouseEvent) => void
+}
+
+/**
+ * A helper component that wraps the children that were sent to the Tooltip component, thus ensuring
+ * that the Tooltip component itself always has a single child on which to attach the mouse event
+ * listeners.
+ */
+function TooltipChildrenWrapper({
+  text,
+  children,
+  className,
+  onMouseEnter,
+  onMouseLeave,
+}: TooltipChildrenWrapperProps) {
+  return (
+    <div
+      className={className}
+      aria-label={text}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}>
+      {children}
+    </div>
+  )
+}
 
 interface TooltipProps {
   /** The text that should be displayed in the Tooltip. */
   text: string
-  /** The child element that the Tooltip should be linked to. Should only be a single element. */
+  /**
+   * The children that the Tooltip should be linked to. Should usually only be a single element, but
+   * the Tooltip will work even if there are multiple (by creating a wrapper element around all of
+   * them).
+   */
   children: React.ReactNode
   /** One of the four sides that can be used to position the Tooltip. Defaults to 'bottom'. */
   position?: TooltipPosition
-  /** Class name applied to the root container of the Tooltip (that has the background, etc.). */
+  /** Class name applied to the component that wraps the Tooltip children. */
   className?: string
+  /**
+   * A custom component that will be used instead of the default Tooltip container. Can be used if
+   * you wish to customize the Tooltip style.
+   * */
+  tooltipContainer?: React.ReactNode
 }
 
 /**
@@ -107,7 +150,13 @@ interface TooltipProps {
  *
  * Utilizes popovers to deal with positioning, but with a much simpler API than that of a Popover.
  */
-export function Tooltip({ text, children, position = 'bottom', className }: TooltipProps) {
+export function Tooltip({
+  text,
+  children,
+  position = 'bottom',
+  className,
+  tooltipContainer,
+}: TooltipProps) {
   const [open, setOpen] = useState(false)
   const [anchorElem, setAnchorElem] = useState<HTMLElement>()
   const transition = useTransition<boolean, UseTransitionProps<boolean>>(open, {
@@ -151,16 +200,6 @@ export function Tooltip({ text, children, position = 'bottom', className }: Tool
     }
   }, [anchorElem])
 
-  const childrenCount = React.Children.count(children)
-  if (isDev && childrenCount !== 1) {
-    throw new Error('Tooltip should wrap exactly one element')
-  }
-
-  const childNode = React.cloneElement(children as JSX.Element, {
-    onMouseEnter,
-    onMouseLeave,
-  })
-
   let originX: OriginX
   if (anchorOriginX === 'left') {
     originX = 'right'
@@ -185,7 +224,13 @@ export function Tooltip({ text, children, position = 'bottom', className }: Tool
 
   return (
     <>
-      {childNode}
+      <TooltipChildrenWrapper
+        text={text}
+        className={className}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}>
+        {children}
+      </TooltipChildrenWrapper>
       {transition(
         (styles, open) =>
           open && (
@@ -196,9 +241,11 @@ export function Tooltip({ text, children, position = 'bottom', className }: Tool
                 originX={originX}
                 originY={originY}
                 styles={styles}>
-                <Container className={className} $position={position}>
-                  {text}
-                </Container>
+                {tooltipContainer ? (
+                  tooltipContainer
+                ) : (
+                  <TooltipContent $position={position}>{text}</TooltipContent>
+                )}
               </NoPointerPopoverContent>
             </NoPointerPortal>
           ),

@@ -24,6 +24,10 @@ export const Separator = styled.i.attrs({ 'aria-hidden': true })`
   pointer-events: none;
 `
 
+const StyledTooltip = styled(Tooltip)`
+  display: inline;
+`
+
 // NOTE(tec27): These styles are done a bit oddly to ensure that message contents wraps in a
 // pleasing way. We effectively pad everything and then push the timestamps into the padding. By
 // doing this we also ensure copy+paste looks decent (instead of on separate lines)
@@ -43,13 +47,13 @@ interface MessageTimestampProps {
 }
 
 export const MessageTimestamp = (props: MessageTimestampProps) => (
-  <Tooltip text={longTimestamp.format(props.time)} position='top'>
+  <StyledTooltip text={longTimestamp.format(props.time)} position='top'>
     <Timestamp>
       <Separator>[</Separator>
       {shortTimestamp.format(props.time)}
       <Separator>] </Separator>
     </Timestamp>
-  </Tooltip>
+  </StyledTooltip>
 )
 
 const messageContainerBase = css`

@@ -18,26 +18,27 @@ const Content = styled.div`
   border-left: var(--pixel-shove-x, 0) solid transparent;
 `
 
-const TooltipTarget = styled.span`
-  margin: 16px;
+const StyledTooltipTarget = styled(Tooltip)`
+  display: inline-block;
+  margin: 0 16px;
 `
 
 export function TooltipTest() {
   return (
     <Container>
       <Content>
-        <Tooltip text="Hi. I'm a tooltip!" position='bottom'>
-          <TooltipTarget>Tooltip at bottom</TooltipTarget>
-        </Tooltip>
-        <Tooltip text="Hi. I'm a tooltip!" position='top'>
-          <TooltipTarget>Tooltip at top</TooltipTarget>
-        </Tooltip>
-        <Tooltip text="Hi. I'm a tooltip!" position='left'>
-          <TooltipTarget>Tooltip at left side</TooltipTarget>
-        </Tooltip>
-        <Tooltip text="Hi. I'm a tooltip!" position='right'>
-          <TooltipTarget>Tooltip at right side</TooltipTarget>
-        </Tooltip>
+        <StyledTooltipTarget text="Hi. I'm a tooltip!" position='bottom'>
+          <span>Tooltip at bottom</span>
+        </StyledTooltipTarget>
+        <StyledTooltipTarget text="Hi. I'm a tooltip!" position='top'>
+          <span>Tooltip at top</span>
+        </StyledTooltipTarget>
+        <StyledTooltipTarget text="Hi. I'm a tooltip!" position='left'>
+          <span>Tooltip at left side</span>
+        </StyledTooltipTarget>
+        <StyledTooltipTarget text="Hi. I'm a tooltip!" position='right'>
+          <span>Tooltip at right side</span>
+        </StyledTooltipTarget>
       </Content>
     </Container>
   )
