@@ -74,9 +74,7 @@ interface IpcInvokeables {
 
   securityGetClientIds: () => Promise<[number, string][]>
 
-  settingsCheckStarcraftPath: (
-    path: string,
-  ) => Promise<{ path: boolean; version: boolean; remastered: boolean }>
+  settingsCheckStarcraftPath: (path: string) => Promise<{ path: boolean; version: boolean }>
   settingsBrowseForStarcraft: (
     defaultPath: string,
   ) => Promise<{ canceled: boolean; filePaths: string[] }>

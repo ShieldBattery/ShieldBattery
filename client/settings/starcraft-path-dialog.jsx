@@ -11,7 +11,7 @@ import { Dialog } from '../material/dialog'
 import TextField from '../material/text-field'
 import { isStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 import { colorError } from '../styles/colors'
-import { SubheadingOld } from '../styles/typography'
+import { Subtitle1 } from '../styles/typography'
 import { mergeLocalSettings } from './action-creators'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -54,7 +54,7 @@ const BrowseButtonContainer = styled.div`
   height: 56px;
 `
 
-const ErrorText = styled(SubheadingOld)`
+const ErrorText = styled(Subtitle1)`
   color: ${colorError};
 `
 

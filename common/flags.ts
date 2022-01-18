@@ -13,7 +13,5 @@ const ON = () => true
 export const DEV_INDICATOR = DEV()
 /** Allow users to join multiple channels (and leave channels). */
 export const MULTI_CHANNEL = DEV()
-/** Allow launching with BW 1.16.1 installation. */
-export const BW_1161 = DEV()
 /** Calculate a static turnrate to use rather than using dynamic. */
 export const USE_STATIC_TURNRATE = DEV()

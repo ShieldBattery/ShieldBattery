@@ -426,35 +426,25 @@ async function doLaunch(
   if (!checkResult.path || !checkResult.version) {
     throw new Error(`StarCraft path ${starcraftPath} not valid: ` + JSON.stringify(checkResult))
   }
-  const isRemastered = checkResult.remastered
-  if (isRemastered) {
-    // Blizzard reinitializes their settings file everytime the SC:R is opened through their
-    // launcher. So we must do the same thing with our own version of settings before each game.
-    await scrSettings.writeGameSettingsFile()
-  }
+
+  // Ensure that our local settings file is up-to-date with the current settings
+  await scrSettings.writeGameSettingsFile()
 
   const userDataPath = app.getPath('userData')
-  let appPath
-  if (isRemastered) {
-    appPath = path.join(starcraftPath, 'x86', 'starcraft.exe')
-  } else {
-    appPath = path.join(starcraftPath, 'starcraft.exe')
-  }
+  const appPath = path.join(starcraftPath, 'x86', 'starcraft.exe')
   log.debug(`Attempting to launch ${appPath} with StarCraft path: ${starcraftPath}`)
+
   const rallyPointPort = !isNaN(RALLY_POINT_PORT) ? RALLY_POINT_PORT : 0
-  let args = `"${appPath}" ${gameId} ${serverPort} "${userDataPath}" ${rallyPointPort}`
-  if (isRemastered) {
-    // SCR uses -launch as an argument to skip bnet launcher.
-    // We also use it in DLL to detect whether apply 1.16.1 or SCR patches.
-    args += ' -launch'
-  }
+  // NOTE(tec27): SC:R uses -launch as an argument to skip bnet launcher.
+  const args = `"${appPath}" ${gameId} ${serverPort} "${userDataPath}" ${rallyPointPort} -launch`
 
   const { launchProcess } = await nativeProcessModule
 
   const proc = await launchProcess({
     appPath,
     args: args as any,
-    launchSuspended: !isRemastered,
+    launchSuspended: false,
+    debuggerLaunch: true,
     currentDir: starcraftPath,
     environment: [
       // Prevent Windows Game Explorer from trying to make a network connection on process launch,
@@ -463,7 +453,6 @@ async function doLaunch(
       // forge.
       '__COMPAT_LAYER=!GameUX !256Color !640x480 !Win95 !Win98 !Win2000 !NT4SP5',
     ],
-    debuggerLaunch: isRemastered,
     logCallback: ((msg: string) => log.verbose(`[Inject] ${msg}`)) as any,
   })
   log.verbose('Process launched')
