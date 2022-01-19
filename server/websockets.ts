@@ -115,7 +115,7 @@ export class WebsocketServer {
     const logger = log.child({ reqId: cuid() })
     logger.info({ req }, 'websocket authorizing')
     if (!req.headers.cookie) {
-      logger.error({ req, err: new Error('request had no cookies') }, 'websocket error')
+      logger.warn({ req, err: new Error('request had no cookies') }, 'websocket error')
       cb(null, false)
       return
     }
