@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { useTransition, UseTransitionProps } from 'react-spring'
-import styled, { css } from 'styled-components'
+import styled, { css, FlattenSimpleInterpolation } from 'styled-components'
 import { background900 } from '../styles/colors'
 import { caption } from '../styles/typography'
 import { OriginX, OriginY, PopoverContent, useAnchorPosition } from './popover'
@@ -14,7 +14,42 @@ const NoPointerPortal = styled(Portal)`
   pointer-events: none;
 `
 
-const TooltipContent = styled.div<{ $position: TooltipPosition }>`
+const arrowStyle: Record<TooltipPosition, FlattenSimpleInterpolation> = {
+  left: css`
+    top: 50%;
+    right: 0px;
+
+    transform: translate(50%, -50%) rotate(45deg);
+    border-bottom: none;
+    border-left: none;
+  `,
+  right: css`
+    top: 50%;
+    left: 0px;
+
+    transform: translate(-50%, -50%) rotate(45deg);
+    border-top: none;
+    border-right: none;
+  `,
+  top: css`
+    bottom: 0px;
+    left: 50%;
+
+    transform: translate(-50%, 50%) rotate(45deg);
+    border-top: none;
+    border-left: none;
+  `,
+  bottom: css`
+    top: 0px;
+    left: 50%;
+
+    transform: translate(-50%, -50%) rotate(45deg);
+    border-bottom: none;
+    border-right: none;
+  `,
+}
+
+const TooltipContent = styled.div<{ $position?: TooltipPosition }>`
   ${caption};
   ${shadow2dp};
 
@@ -40,89 +75,13 @@ const TooltipContent = styled.div<{ $position: TooltipPosition }>`
     background-color: inherit;
     border: 1px solid rgba(255, 255, 255, 0.36);
 
-    ${props => {
-      if (props.$position === 'left') {
-        return css`
-          top: 50%;
-          right: 0px;
-
-          transform: translate(50%, -50%) rotate(45deg);
-          border-bottom: none;
-          border-left: none;
-        `
-      } else if (props.$position === 'right') {
-        return css`
-          top: 50%;
-          left: 0px;
-
-          transform: translate(-50%, -50%) rotate(45deg);
-          border-top: none;
-          border-right: none;
-        `
-      } else if (props.$position === 'top') {
-        return css`
-          bottom: 0px;
-          left: 50%;
-
-          transform: translate(-50%, 50%) rotate(45deg);
-          border-top: none;
-          border-left: none;
-        `
-      } else if (props.$position === 'bottom') {
-        return css`
-          top: 0px;
-          left: 50%;
-
-          transform: translate(-50%, -50%) rotate(45deg);
-          border-bottom: none;
-          border-right: none;
-        `
-      } else {
-        return ''
-      }
-    }}
+    ${props => arrowStyle[props.$position!]};
   }
 `
 
 const NoPointerPopoverContent = styled(PopoverContent)`
   pointer-events: none;
 `
-
-interface TooltipChildrenWrapperProps {
-  /** The Tooltip text that will be displayed in an `aria-label` attribute. */
-  text: string
-  /** The Tooltip children element(s) that this component will wrap. */
-  children: React.ReactNode
-  /** Class name applied to the children wrapper container element. */
-  className?: string
-  /** Event handler that will be called when a cursor enters the Tooltip target area. */
-  onMouseEnter: (event: React.MouseEvent) => void
-  /** Event handler that will be called when a cursor leaves the Tooltip target area. */
-  onMouseLeave: (event: React.MouseEvent) => void
-}
-
-/**
- * A helper component that wraps the children that were sent to the Tooltip component, thus ensuring
- * that the Tooltip component itself always has a single child on which to attach the mouse event
- * listeners.
- */
-function TooltipChildrenWrapper({
-  text,
-  children,
-  className,
-  onMouseEnter,
-  onMouseLeave,
-}: TooltipChildrenWrapperProps) {
-  return (
-    <div
-      className={className}
-      aria-label={text}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}>
-      {children}
-    </div>
-  )
-}
 
 interface TooltipProps {
   /** The text that should be displayed in the Tooltip. */
@@ -135,13 +94,17 @@ interface TooltipProps {
   children: React.ReactNode
   /** One of the four sides that can be used to position the Tooltip. Defaults to 'bottom'. */
   position?: TooltipPosition
+  /** The text that will be used in the `aria-label` attribute. Defaults to the Tooltip's text. */
+  ariaLabel?: string
   /** Class name applied to the component that wraps the Tooltip children. */
   className?: string
   /**
-   * A custom component that will be used instead of the default Tooltip container. Can be used if
-   * you wish to customize the Tooltip style.
+   * A custom component that will be used instead of the default Tooltip content element. Can be
+   * used if you wish to customize the Tooltip style. Will get injected with the following props:
+   *  - $position: TooltipPosition
+   *  - children: string (the Tooltip's text)
    * */
-  tooltipContainer?: React.ReactNode
+  contentComponent?: React.ReactNode
 }
 
 /**
@@ -153,9 +116,10 @@ interface TooltipProps {
 export function Tooltip({
   text,
   children,
-  position = 'bottom',
   className,
-  tooltipContainer,
+  ariaLabel = text,
+  position = 'bottom',
+  contentComponent = <TooltipContent />,
 }: TooltipProps) {
   const [open, setOpen] = useState(false)
   const [anchorElem, setAnchorElem] = useState<HTMLElement>()
@@ -222,15 +186,20 @@ export function Tooltip({
     originY = 'center'
   }
 
+  const tooltipContent = React.cloneElement(contentComponent as JSX.Element, {
+    $position: position,
+    children: text,
+  })
+
   return (
     <>
-      <TooltipChildrenWrapper
-        text={text}
+      <div
         className={className}
+        aria-label={ariaLabel}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}>
         {children}
-      </TooltipChildrenWrapper>
+      </div>
       {transition(
         (styles, open) =>
           open && (
@@ -241,11 +210,7 @@ export function Tooltip({
                 originX={originX}
                 originY={originY}
                 styles={styles}>
-                {tooltipContainer ? (
-                  tooltipContainer
-                ) : (
-                  <TooltipContent $position={position}>{text}</TooltipContent>
-                )}
+                {tooltipContent}
               </NoPointerPopoverContent>
             </NoPointerPortal>
           ),
