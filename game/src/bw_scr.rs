@@ -77,6 +77,7 @@ pub struct BwScr {
     allocator: Value<*mut scr::Allocator>,
     allocated_order_count: Value<u32>,
     order_limit: Value<u32>,
+    units: Value<*mut scr::BwVector>,
     replay_bfix: Option<Value<*mut scr::ReplayBfix>>,
     replay_gcfg: Option<Value<*mut scr::ReplayGcfg>>,
     anti_troll: Option<Value<*mut scr::AntiTroll>>,
@@ -141,6 +142,7 @@ pub struct BwScr {
     prepare_issue_order: scarf::VirtualAddress,
     create_game_multiplayer: scarf::VirtualAddress,
     spawn_dialog: scarf::VirtualAddress,
+    step_game_logic: scarf::VirtualAddress,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
 
@@ -162,6 +164,7 @@ pub struct BwScr {
     dropped_players: AtomicU32,
     // Path that reads/writes of CSettings.json will be redirected to
     settings_file_path: RwLock<String>,
+    detection_status_copy: Mutex<Vec<u32>>,
 }
 
 struct SendPtr<T>(T);
@@ -280,6 +283,13 @@ pub mod scr {
         pub length: usize,
         pub capacity: usize,
         pub inline_buffer: [u8; 0x10],
+    }
+
+    #[repr(C)]
+    pub struct BwVector {
+        pub data: *mut c_void,
+        pub length: usize,
+        pub capacity: usize,
     }
 
     #[repr(C)]
@@ -1016,7 +1026,10 @@ impl BwScr {
             .ok_or("create_game_multiplayer")?;
         let spawn_dialog = analysis.spawn_dialog()
             .ok_or("spawn_dialog")?;
+        let step_game_logic = analysis.step_game_logic()
+            .ok_or("step_game_logic")?;
         let anti_troll = analysis.anti_troll();
+        let units = analysis.units().ok_or("units")?;
 
         let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
             Some(0) => false,
@@ -1091,6 +1104,7 @@ impl BwScr {
             allocator: Value::new(ctx, allocator),
             allocated_order_count: Value::new(ctx, allocated_order_count),
             order_limit: Value::new(ctx, order_limit),
+            units: Value::new(ctx, units),
             replay_bfix: replay_bfix.map(move |x| Value::new(ctx, x)),
             replay_gcfg: replay_gcfg.map(move |x| Value::new(ctx, x)),
             anti_troll: anti_troll.map(move |x| Value::new(ctx, x)),
@@ -1139,6 +1153,7 @@ impl BwScr {
             prepare_issue_order,
             create_game_multiplayer,
             spawn_dialog,
+            step_game_logic,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
             exe_build,
             sdf_cache,
@@ -1157,6 +1172,7 @@ impl BwScr {
             is_processing_game_commands: AtomicBool::new(false),
             dropped_players: AtomicU32::new(0),
             settings_file_path: RwLock::new(String::new()),
+            detection_status_copy: Mutex::new(Vec::new()),
         })
     }
 
@@ -1409,6 +1425,13 @@ impl BwScr {
         exe.hook_closure_address(
             SpawnDialog,
             |a, b, c, o| dialog_hook::spawn_dialog_hook(a, b, c, o),
+            address,
+        );
+
+        let address = self.step_game_logic.0 as usize - base;
+        exe.hook_closure_address(
+            StepGameLogic,
+            move |a, o| step_game_logic_hook(self, a, o),
             address,
         );
 
@@ -1851,6 +1874,21 @@ impl BwScr {
         }
         result
     }
+
+    /// This function should reset any state that affects synced gameplay logic to what
+    /// it is on game init.
+    ///
+    /// This is currently being called on as early as possible, before game_loop() call,
+    /// but if any later additions need to initialize state based on BW state, it could
+    /// be moved to be called at init_game_data, init_unit_data, or other later initialization
+    /// hooks too.
+    ///
+    /// The only case where this may be called more than once is when the user
+    /// seeks replay backwards and it has to be simulated from start over again, so
+    /// we don't need to and shouldn't reset any network state.
+    fn reset_state_for_game_init(&self) {
+        self.detection_status_copy.lock().clear();
+    }
 }
 
 impl bw::Bw for BwScr {
@@ -1877,6 +1915,7 @@ impl bw::Bw for BwScr {
 
     unsafe fn run_game_loop(&self) {
         loop {
+            self.reset_state_for_game_init();
             self.game_state.write(3); // Playing
             (self.game_loop)();
             // Replay seeking exits game loop and sets a bool for it to restart,
@@ -2712,6 +2751,7 @@ mod hooks {
             usize, usize, usize, usize, // 0x10 byte struct passed by value
         ) -> u32;
         !0 => SpawnDialog(*mut bw::Dialog, usize, usize) -> usize;
+        !0 => StepGameLogic(usize) -> usize;
     );
 
     whack_hooks!(stdcall, 0,
@@ -2788,5 +2828,46 @@ fn log_time<F: FnOnce() -> R, R>(name: &str, func: F) -> R {
     let time = std::time::Instant::now();
     let ret = func();
     debug!("{} took {:?}", name, time.elapsed());
+    ret
+}
+
+/// This is the main function for progressing synced game logic, including
+/// receiving handling of network commands, and replay commands if this is replay.
+///
+/// If replay is being seeked (replay_seek_frame global), this function will
+/// run several steps before returning, otherwise it progresses a single step.
+unsafe fn step_game_logic_hook(
+    bw: &'static BwScr,
+    param: usize, // Always 0, nonzero would affect replay playback somehow
+    orig: unsafe extern fn(usize) -> usize,
+) -> usize {
+    // Observer / replay UI in SC:R has a bug with toggling player visions:
+    // In order to immediately update un/detected sprite to match what players see,
+    // BW calls update_detection_status(unit) that in addition to updating sprite
+    // (not expected to be synced), will write to unit.detection_status (expected to be synced).
+    //
+    // Fixing this by reverting any changes to unit.detection_status outside step_game_logic,
+    // this simpler to implement than adding analysis for the obs UI functions.
+    let units = bw.units.resolve();
+    {
+        // For first call of this function detection_status_copy should be empty
+        // and this loop before orig will not write to anything.
+        //
+        // FWIW, it is be fine to rely on (*units).length and (*units).data being
+        // constant for the all step_game_logic calls across single game.
+        let detection_status = bw.detection_status_copy.lock();
+        let unit_ptr = (*units).data as *mut bw::Unit;
+        for (i, value) in detection_status.iter().copied().enumerate() {
+            (*unit_ptr.add(i)).detection_status = value;
+        }
+    }
+    let ret = orig(param);
+    {
+        let mut detection_status = bw.detection_status_copy.lock();
+        let unit_count = (*units).length;
+        let unit_ptr = (*units).data as *mut bw::Unit;
+        detection_status.clear();
+        detection_status.extend((0..unit_count).map(|i| (*unit_ptr.add(i)).detection_status));
+    }
     ret
 }

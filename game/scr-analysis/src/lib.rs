@@ -420,4 +420,19 @@ impl<'e> Analysis<'e> {
     pub fn spawn_dialog(&mut self) -> Option<VirtualAddress> {
         self.0.spawn_dialog()
     }
+
+    pub fn step_game_logic(&mut self) -> Option<VirtualAddress> {
+        self.0.step_game_logic()
+    }
+
+    pub fn units(&mut self) -> Option<Operand<'e>> {
+        // This function returns pointer to unit array `vector<bw::Unit>`,
+        // samase_scarf units analysis returns pointer to the actual array
+        // (So the analysis works with older versions which had hardcoded unit limits
+        // and as such had just a global array instead of vector),
+        // so extract `x` from samase_scarf result `Mem32[x]` and assume that is correct.
+        self.0.units()
+            .and_then(|x| x.if_memory())
+            .map(|mem| mem.address_op(self.2))
+    }
 }
