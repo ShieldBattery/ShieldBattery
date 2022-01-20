@@ -49,7 +49,7 @@ const arrowStyle: Record<TooltipPosition, FlattenSimpleInterpolation> = {
   `,
 }
 
-const TooltipContent = styled.div<{ $position?: TooltipPosition }>`
+const TooltipContent = styled.div<{ $position: TooltipPosition }>`
   ${caption};
   ${shadow2dp};
 
@@ -75,7 +75,7 @@ const TooltipContent = styled.div<{ $position?: TooltipPosition }>`
     background-color: inherit;
     border: 1px solid rgba(255, 255, 255, 0.36);
 
-    ${props => arrowStyle[props.$position!]};
+    ${props => arrowStyle[props.$position]};
   }
 `
 
@@ -101,10 +101,10 @@ interface TooltipProps {
   /**
    * A custom component that will be used instead of the default Tooltip content element. Can be
    * used if you wish to customize the Tooltip style. Will get injected with the following props:
-   *  - $position: TooltipPosition
-   *  - children: string (the Tooltip's text)
+   *  - $position: the `TooltipPosition` of the content
+   *  - children: the Tooltip's text
    * */
-  contentComponent?: React.ReactNode
+  ContentComponent?: React.ComponentType<{ $position: TooltipPosition; children: React.ReactNode }>
 }
 
 /**
@@ -119,7 +119,7 @@ export function Tooltip({
   className,
   ariaLabel = text,
   position = 'bottom',
-  contentComponent = <TooltipContent />,
+  ContentComponent = TooltipContent,
 }: TooltipProps) {
   const [open, setOpen] = useState(false)
   const [anchorElem, setAnchorElem] = useState<HTMLElement>()
@@ -186,11 +186,6 @@ export function Tooltip({
     originY = 'center'
   }
 
-  const tooltipContent = React.cloneElement(contentComponent as JSX.Element, {
-    $position: position,
-    children: text,
-  })
-
   return (
     <>
       <div
@@ -210,7 +205,7 @@ export function Tooltip({
                 originX={originX}
                 originY={originY}
                 styles={styles}>
-                {tooltipContent}
+                <ContentComponent $position={position}>{text}</ContentComponent>
               </NoPointerPopoverContent>
             </NoPointerPortal>
           ),

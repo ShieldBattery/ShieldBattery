@@ -1,6 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import { Tooltip, TooltipPosition } from '../tooltip'
+import { Tooltip } from '../tooltip'
 
 const Container = styled.div`
   width: 100%;
@@ -23,7 +23,7 @@ const StyledTooltipTarget = styled(Tooltip)`
   margin: 0 16px;
 `
 
-const ContentComponent = styled.div<{ $position?: TooltipPosition }>`
+const ContentComponent = styled.div`
   background-color: red;
   border-radius: 50%;
 `
@@ -44,7 +44,7 @@ export function TooltipTest() {
         <StyledTooltipTarget text="Hi. I'm a tooltip!" position='right'>
           <span>Tooltip at right side</span>
         </StyledTooltipTarget>
-        <StyledTooltipTarget text="Hi. I'm a tooltip!" contentComponent={<ContentComponent />}>
+        <StyledTooltipTarget text="Hi. I'm a tooltip!" ContentComponent={ContentComponent}>
           <span>Tooltip with custom content component</span>
         </StyledTooltipTarget>
       </Content>

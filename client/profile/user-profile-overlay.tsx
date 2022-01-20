@@ -213,6 +213,7 @@ function OverlayContents({ userId, onDismiss }: { userId: SbUserId; onDismiss: (
   }, [dispatch, userId])
 
   const hasAnyRanks = !!Object.keys(profile?.ladder ?? {}).length
+  const longFormattedDate = longTimestamp.format(profile?.created)
 
   return (
     <PopoverContents>
@@ -237,7 +238,7 @@ function OverlayContents({ userId, onDismiss }: { userId: SbUserId; onDismiss: (
         <>
           <div>
             <SectionHeader>Info</SectionHeader>
-            <Tooltip text={longTimestamp.format(profile.created)}>
+            <Tooltip text={longFormattedDate} ariaLabel={`Joined ${longFormattedDate}`}>
               <Body1>Joined {joinDateFormat.format(profile.created)}</Body1>
             </Tooltip>
           </div>
