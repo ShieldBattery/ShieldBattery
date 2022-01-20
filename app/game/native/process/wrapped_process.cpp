@@ -396,34 +396,48 @@ static std::mutex worker_lock;
 static std::mutex parent_lock;
 static std::condition_variable worker_signal;
 static std::condition_variable parent_signal;
-static unique_ptr<std::function<void()>> thread_queue_task;
+static uint64_t next_worker_task_id = 1;
+static uint64_t last_done_worker_task = 0;
+static vector<std::function<void()>> thread_queue_tasks;
 
 static void WorkerThread() {
   std::unique_lock<std::mutex> lock(worker_lock);
   while (true) {
-    if (thread_queue_task.get() == nullptr) {
+    if (thread_queue_tasks.empty()) {
       worker_signal.wait(lock);
       continue;
     }
-    std::function<void()> *task = thread_queue_task.get();
+    std::function<void()> task = thread_queue_tasks[0];
+    thread_queue_tasks.erase(thread_queue_tasks.begin());
     lock.unlock();
-    (*task)();
-    parent_signal.notify_one();
+    task();
+    {
+        std::unique_lock<std::mutex> parent(parent_lock);
+        last_done_worker_task += 1;
+        parent_signal.notify_all();
+    }
     lock.lock();
-    thread_queue_task.reset(nullptr);
   }
 }
 
 // Blocks until the work is complete.
 void DoWorkOnWorkerThread(std::function<void()> task) {
+  uint64_t id = 0;
   std::call_once(worker_thread_init, [](){ worker_thread = new std::thread(WorkerThread); });
   {
     std::lock_guard<std::mutex> lock(worker_lock);
-    thread_queue_task.reset(new std::function<void()>(task));
+    thread_queue_tasks.push_back(task);
+    id = next_worker_task_id;
+    next_worker_task_id += 1;
   }
-  std::unique_lock<std::mutex> lock(parent_lock);
   worker_signal.notify_one();
-  parent_signal.wait(lock);
+  while (true) {
+      std::unique_lock<std::mutex> lock(parent_lock);
+      if (last_done_worker_task >= id) {
+          break;
+      }
+      parent_signal.wait(lock);
+  }
 }
 
 Process::Process(const wstring& app_path, const wstring& arguments, bool launch_suspended,
