@@ -426,7 +426,7 @@ void DoWorkOnWorkerThread(std::function<void()> task) {
   std::call_once(worker_thread_init, [](){ worker_thread = new std::thread(WorkerThread); });
   {
     std::lock_guard<std::mutex> lock(worker_lock);
-    thread_queue_tasks.push_back(new std::function<void()>(task));
+    thread_queue_tasks.push_back(task);
     id = next_worker_task_id;
     next_worker_task_id += 1;
   }
