@@ -25,49 +25,6 @@ pub fn winapi_str<T: AsRef<OsStr>>(input: T) -> Vec<u16> {
     buf
 }
 
-// If the conversion was lossy, returns Err(lossy_result)
-pub fn ansi_codepage_cstring<T: AsRef<OsStr>>(input: T) -> Result<Vec<u8>, Vec<u8>> {
-    use winapi::um::stringapiset::WideCharToMultiByte;
-    use winapi::um::winnls::CP_ACP;
-
-    unsafe {
-        let os_str = input.as_ref();
-        let unicode = winapi_str(os_str);
-        let length = WideCharToMultiByte(
-            CP_ACP,
-            0,
-            unicode.as_ptr(),
-            unicode.len() as i32,
-            null_mut(),
-            0,
-            null_mut(),
-            null_mut(),
-        );
-        let mut buffer = vec![0u8; length as usize];
-        let mut used_default_char = 0;
-        WideCharToMultiByte(
-            CP_ACP,
-            0,
-            unicode.as_ptr(),
-            unicode.len() as i32,
-            buffer.as_mut_ptr() as *mut i8,
-            length,
-            null_mut(),
-            &mut used_default_char,
-        );
-        assert!(buffer[length as usize - 1] == 0);
-        if used_default_char != 0 {
-            warn!(
-                "Couldn't losslessly convert '{}' to ANSI codepage",
-                os_str.to_string_lossy()
-            );
-            Err(buffer)
-        } else {
-            Ok(buffer)
-        }
-    }
-}
-
 pub fn os_string_from_winapi(input: &[u16]) -> OsString {
     OsString::from_wide(input)
 }
@@ -205,18 +162,6 @@ impl Library {
                 Err(_) => return Err(io::ErrorKind::InvalidInput.into()),
             };
             let result = GetProcAddress(self.0, string.as_ptr());
-            if result.is_null() {
-                Err(io::Error::last_os_error())
-            } else {
-                Ok(result)
-            }
-        }
-    }
-
-    pub fn proc_address_ordinal(&self, ordinal: u16) -> Result<FARPROC, io::Error> {
-        use winapi::um::libloaderapi::GetProcAddress;
-        unsafe {
-            let result = GetProcAddress(self.0, ordinal as usize as *const i8);
             if result.is_null() {
                 Err(io::Error::last_os_error())
             } else {

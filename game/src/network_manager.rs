@@ -147,8 +147,8 @@ impl State {
                     // Route id logged twice since we move from string to u64 here,
                     // have one line where they both are shown to connect them in case.
                     debug!(
-                        "Picked server {:?} for route {:?} ({})",
-                        server, route_id, route1.route_id,
+                        "Picked server {:?} for route {:?} ({}) [{}ms]",
+                        server, route_id, route1.route_id, server.ping.as_millis(),
                     );
                     rally_point
                         .join_route(server.address, route_id, player_id, timeout).await

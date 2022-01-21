@@ -11,10 +11,8 @@ mod hook_macro;
 mod app_messages;
 mod app_socket;
 mod bw;
-mod bw_1161;
 mod bw_scr;
 mod cancel_token;
-mod chat;
 mod crash_dump;
 mod forge;
 mod game_state;
@@ -232,18 +230,9 @@ pub extern "C" fn OnInject() {
         process_id,
         env!("SHIELDBATTERY_VERSION"),
     );
-    let args = parse_args();
-    if args.is_scr {
-        unsafe {
-            let init_helper = load_init_helper().expect("Unable to load sb_init.dll");
-            init_helper(scr_init, crash_dump::cdecl_crash_dump);
-        }
-    } else {
-        let bw = Box::leak(Box::new(bw_1161::Bw1161));
-        unsafe {
-            bw.patch_game();
-        }
-        bw::set_bw_impl(bw);
+    unsafe {
+        let init_helper = load_init_helper().expect("Unable to load sb_init.dll");
+        init_helper(scr_init, crash_dump::cdecl_crash_dump);
     }
 }
 
@@ -482,7 +471,6 @@ struct Args {
     server_port: u16,
     user_data_path: PathBuf,
     rally_point_port: u16,
-    is_scr: bool,
 }
 
 // TODO: This function should probably cache the result instead of recomputing
@@ -503,16 +491,11 @@ fn try_parse_args() -> Option<Args> {
     let server_port = args.next()?.into_string().ok()?.parse::<u16>().ok()?;
     let user_data_path = args.next()?.into();
     let rally_point_port = args.next()?.into_string().ok()?.parse::<u16>().ok()?;
-    let is_scr = args.next()
-        .and_then(|x| x.into_string().ok())
-        .filter(|x| x == "-launch")
-        .is_some();
 
     Some(Args {
         game_id,
         server_port,
         user_data_path,
         rally_point_port,
-        is_scr,
     })
 }

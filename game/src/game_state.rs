@@ -680,40 +680,6 @@ impl InitInProgress {
         };
         self.all_players_joined = true;
 
-        // Change ally chat for observers to be observer chat.
-        let is_observer = self
-            .setup_info
-            .slots
-            .iter()
-            .find(|x| x.name == self.local_user.name)
-            .map(|slot| slot.is_observer())
-            .unwrap_or(false);
-        // TODO(tec27): Fix observer chat to work for SC:R, this doesn't really have an effect
-        if is_observer {
-            let observer_storm_ids = self
-                .setup_info
-                .slots
-                .iter()
-                .filter(|x| x.is_observer())
-                .filter_map(|slot| {
-                    match self
-                        .joined_players
-                        .iter()
-                        .find(|joined| slot.name == joined.name)
-                    {
-                        Some(s) => Some(s.storm_id),
-                        None => {
-                            error!("Couldn't find storm id for observer {}", slot.name);
-                            None
-                        }
-                    }
-                })
-                .collect::<Vec<_>>();
-            crate::chat::set_ally_override(&observer_storm_ids);
-        } else {
-            crate::chat::clear_ally_override();
-        }
-
         for sender in self.on_all_players_joined.drain(..) {
             let _ = sender.send(result.clone());
         }

@@ -211,7 +211,6 @@ pub const RACE_ZERG: u8 = 0x0;
 pub const RACE_TERRAN: u8 = 0x1;
 pub const RACE_PROTOSS: u8 = 0x2;
 pub const RACE_RANDOM: u8 = 0x6;
-pub const CHAT_MESSAGE_ALLIES: u8 = 0x3;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -226,12 +225,6 @@ pub struct StormPlayer {
     pub padding: u8,
 }
 
-#[repr(C, packed)]
-pub struct PreplacedUnit {
-    pub whatever: [u8; 0x10],
-    pub player: u8,
-}
-
 #[repr(C)]
 pub struct FowSprite {
     pub prev: *mut FowSprite,
@@ -240,30 +233,12 @@ pub struct FowSprite {
     pub sprite: *mut c_void,
 }
 
-#[repr(C, packed)]
-pub struct UiEvent {
-    pub extended_type: u32,
-    pub extended_param: u32,
-    pub value: u32,
-    pub ty: u16,
-    pub x: i16,
-    pub y: i16,
-}
-
 // A packet which bw sends to init game data
 #[repr(C, packed)]
 pub struct LobbyGameInitData {
     pub game_init_command: u8,
     pub random_seed: u32,
     pub player_bytes: [u8; 8],
-}
-
-#[repr(C, packed)]
-pub struct MapListEntry {
-    // Storm list pointers, so any value < 0 is list end
-    pub prev: *mut MapListEntry,
-    pub next: *mut MapListEntry,
-    pub name: [u8; 32],
 }
 
 #[repr(C)]
