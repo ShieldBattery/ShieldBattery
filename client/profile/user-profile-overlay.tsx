@@ -238,7 +238,7 @@ function OverlayContents({ userId, onDismiss }: { userId: SbUserId; onDismiss: (
         <>
           <div>
             <SectionHeader>Info</SectionHeader>
-            <Tooltip text={longFormattedDate} ariaLabel={`Joined ${longFormattedDate}`}>
+            <Tooltip text={longFormattedDate}>
               <Body1>Joined {joinDateFormat.format(profile.created)}</Body1>
             </Tooltip>
           </div>
