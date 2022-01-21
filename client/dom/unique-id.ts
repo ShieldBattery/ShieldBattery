@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useState } from 'react'
 
 let id = 0
 
@@ -16,10 +16,6 @@ export default function genId(): string {
  * referenced by a label element).
  */
 export function useId(): string {
-  const idRef = useRef<string>()
-  if (!idRef.current) {
-    idRef.current = genId()
-  }
-
-  return idRef.current!
+  const [id] = useState(() => genId())
+  return id
 }

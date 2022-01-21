@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { useTransition, UseTransitionProps } from 'react-spring'
 import styled, { css, FlattenSimpleInterpolation } from 'styled-components'
+import { useId } from '../dom/unique-id'
 import { background900 } from '../styles/colors'
 import { caption } from '../styles/typography'
 import { OriginX, OriginY, PopoverContent, useAnchorPosition } from './popover'
@@ -94,15 +95,18 @@ interface TooltipProps {
   children: React.ReactNode
   /** One of the four sides that can be used to position the Tooltip. Defaults to 'bottom'. */
   position?: TooltipPosition
-  /** The text that will be used in the `aria-label` attribute. Defaults to the Tooltip's text. */
-  ariaLabel?: string
   /** Class name applied to the component that wraps the Tooltip children. */
   className?: string
+  /**
+   * A value for the tabindex attribute of the tooltip trigger. Tooltip triggers should be
+   * keyboard-accessible, so this defaults to `0`.
+   */
+  tabIndex?: number
   /**
    * A custom component that will be used instead of the default Tooltip content element. Can be
    * used if you wish to customize the Tooltip style. Will get injected with the following props:
    *  - $position: the `TooltipPosition` of the content
-   *  - children: the Tooltip's text
+   *  - children: the Tooltip's content
    * */
   ContentComponent?: React.ComponentType<{ $position: TooltipPosition; children: React.ReactNode }>
 }
@@ -117,12 +121,17 @@ export function Tooltip({
   text,
   children,
   className,
-  ariaLabel = text,
+  tabIndex = 0,
   position = 'bottom',
   ContentComponent = TooltipContent,
 }: TooltipProps) {
+  const contentId = useId()
   const [open, setOpen] = useState(false)
-  const [anchorElem, setAnchorElem] = useState<HTMLElement>()
+  // NOTE(tec27): We store two potential anchors here so that mousing over the element while it's
+  // also being focused doesn't make the tooltip go away
+  const [mouseAnchorElem, setMouseAnchorElem] = useState<HTMLElement>()
+  const [focusAnchorElem, setFocusAnchorElem] = useState<HTMLElement>()
+  const anchorElem = focusAnchorElem ?? mouseAnchorElem
   const transition = useTransition<boolean, UseTransitionProps<boolean>>(open, {
     from: { opacity: 0, scale: 0.667 },
     enter: { opacity: 1, scale: 1 },
@@ -139,11 +148,17 @@ export function Tooltip({
     anchorElem ?? null,
   )
 
-  const onMouseEnter = useCallback((event: React.MouseEvent) => {
-    setAnchorElem(event.currentTarget as HTMLElement)
+  const onMouseEnter = useCallback((event: React.MouseEvent | React.FocusEvent) => {
+    setMouseAnchorElem(event.currentTarget as HTMLElement)
   }, [])
-  const onMouseLeave = useCallback((event: React.MouseEvent) => {
-    setAnchorElem(undefined)
+  const onMouseLeave = useCallback(() => {
+    setMouseAnchorElem(undefined)
+  }, [])
+  const onFocus = useCallback((event: React.FocusEvent) => {
+    setFocusAnchorElem(event.currentTarget as HTMLElement)
+  }, [])
+  const onBlur = useCallback(() => {
+    setFocusAnchorElem(undefined)
   }, [])
 
   useEffect(() => {
@@ -190,9 +205,12 @@ export function Tooltip({
     <>
       <div
         className={className}
-        aria-label={ariaLabel}
         onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}>
+        onMouseLeave={onMouseLeave}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        aria-describedby={open ? contentId : undefined}
+        tabIndex={tabIndex}>
         {children}
       </div>
       {transition(
@@ -200,6 +218,8 @@ export function Tooltip({
           open && (
             <NoPointerPortal open={open}>
               <NoPointerPopoverContent
+                role='tooltip'
+                id={contentId}
                 anchorX={anchorX}
                 anchorY={anchorY}
                 originX={originX}

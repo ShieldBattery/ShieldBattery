@@ -132,6 +132,9 @@ export function Popover(props: PopoverProps) {
 export interface PopoverContentProps extends Omit<PopoverProps, 'open' | 'onDismiss'> {
   open?: boolean
   onDismiss?: (event?: MouseEvent) => void
+  id?: string
+  /** The ARIA role to use for the content container. */
+  role?: React.AriaRole
   styles: React.CSSProperties
 }
 
@@ -145,6 +148,8 @@ export function PopoverContent({
   anchorY,
   children,
   className,
+  id,
+  role,
   onDismiss,
   originX,
   originY,
@@ -261,6 +266,8 @@ export function PopoverContent({
       <Container
         ref={containerRef}
         className={className}
+        id={id}
+        role={role}
         style={{ ...styles, ...(containerStyle as any) }}>
         {children}
       </Container>
