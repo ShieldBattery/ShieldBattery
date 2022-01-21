@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import styled, { css, keyframes } from 'styled-components'
-import { useButtonState, useButtonHotkey, useButtonRef } from '../material/button'
+import { useButtonHotkey, useButtonRef, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
 import { blue50, colorTextFaint, colorTextSecondary } from '../styles/colors'
