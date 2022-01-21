@@ -1,8 +1,9 @@
-import React, { useLayoutEffect } from 'react'
+import React from 'react'
 import { hot } from 'react-hot-loader/root'
 import styled from 'styled-components'
 import { Link, Route, Switch } from 'wouter'
 import DevActivities from './activities/devonly/routes'
+import { DevDownload } from './download/devonly/routes'
 import { DevLadder } from './ladder/devonly/routes'
 import DevLists from './lists/devonly/routes'
 import DevLobbies from './lobbies/devonly/routes'
@@ -24,12 +25,6 @@ const HomeLink = styled.div`
   padding-left: 16px;
   line-height: 32px;
   border-bottom: 1px solid ${colorDividers};
-
-  -webkit-app-region: drag;
-
-  & a {
-    -webkit-app-region: no-drag;
-  }
 `
 
 const Content = styled.div`
@@ -46,6 +41,9 @@ function DevDashboard() {
       <ul>
         <li>
           <Link href='/dev/activities'>Activity components</Link>
+        </li>
+        <li>
+          <Link href='/dev/download'>Download components</Link>
         </li>
         <li>
           <Link href='/dev/ladder'>Ladder components</Link>
@@ -68,13 +66,6 @@ function DevDashboard() {
 }
 
 function Dev() {
-  useLayoutEffect(() => {
-    document.body.style.setProperty('--sb-system-bar-height', '32px')
-    return () => {
-      document.body.style.removeProperty('--sb-system-bar-height')
-    }
-  }, [])
-
   return (
     <Container>
       <HomeLink>
@@ -83,6 +74,7 @@ function Dev() {
       <Content>
         <Switch>
           <Route path='/dev/activities/:rest*' component={DevActivities} />
+          <Route path='/dev/download/:rest*' component={DevDownload} />
           <Route path='/dev/ladder/:rest*' component={DevLadder} />
           <Route path='/dev/lists/:rest*' component={DevLists} />
           <Route path='/dev/lobbies/:rest*' component={DevLobbies} />

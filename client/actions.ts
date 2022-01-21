@@ -212,14 +212,6 @@ export const SUBSCRIPTIONS_CLIENT_LOADING_COMPLETE = 'SUBSCRIPTIONS_CLIENT_LOADI
 // The server has finished subscribing this user (across clients) to the things it needs
 export const SUBSCRIPTIONS_USER_LOADING_COMPLETE = 'SUBSCRIPTIONS_USER_LOADING_COMPLETE'
 
-// The auto-updater has found that a new version is available and a download is in progress
-export const UPDATER_NEW_VERSION_FOUND = 'UPDATER_NEW_VERSION_FOUND'
-// The auto-updater has terminated downloading a new version (successfully or unsuccessfully). If
-// successful, it is ready to restart and install it.
-export const UPDATER_NEW_VERSION_DOWNLOADED = 'UPDATER_NEW_VERSION_DOWNLOADED'
-// The auto-updater determined that we're using the latest version
-export const UPDATER_UP_TO_DATE = 'UPDATER_UP_TO_DATE'
-
 // The server has finished giving us our initial whispers data (eg. the list of users we had the
 // whisper window opened with when we last used the site) upon connecting
 export const WHISPERS_LOADING_COMPLETE = 'WHISPERS_LOADING_COMPLETE'

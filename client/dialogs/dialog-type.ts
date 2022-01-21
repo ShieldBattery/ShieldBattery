@@ -17,6 +17,5 @@ export enum DialogType {
   StarcraftHealth = 'starcraftHealth',
   StarcraftPath = 'starcraftPath',
   TermsOfService = 'termsOfService',
-  UpdateAvailable = 'updateAvailable',
   Whispers = 'whispers',
 }

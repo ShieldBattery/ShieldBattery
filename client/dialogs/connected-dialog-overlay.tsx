@@ -10,7 +10,6 @@ import ChangelogDialog from '../changelog/changelog-dialog'
 import JoinChannelDialog from '../chat/join-channel'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
 import DownloadDialog from '../download/download-dialog'
-import UpdateDialog from '../download/update-dialog'
 import MapDetailsDialog from '../maps/map-details'
 import { MapPreviewDialog } from '../maps/map-preview'
 import AcceptMatch from '../matchmaking/accept-match'
@@ -104,8 +103,6 @@ function getDialog(
       return { component: StarcraftPathDialog, modal: false }
     case DialogType.TermsOfService:
       return { component: TermsOfServiceDialog, modal: false }
-    case DialogType.UpdateAvailable:
-      return { component: UpdateDialog, modal: true }
     case DialogType.Whispers:
       return { component: CreateWhisperSessionDialog, modal: false }
     default:

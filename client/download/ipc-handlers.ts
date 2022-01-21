@@ -1,12 +1,5 @@
 import { TypedIpcRenderer } from '../../common/ipc'
-import {
-  UPDATER_NEW_VERSION_DOWNLOADED,
-  UPDATER_NEW_VERSION_FOUND,
-  UPDATER_UP_TO_DATE,
-} from '../actions'
-import { openDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
-import { dispatch } from '../dispatch-registry'
+import { changeUpdateState } from './updater-state'
 
 export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcRenderer }) {
   if (!ipcRenderer) {
@@ -15,17 +8,28 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
 
   ipcRenderer
     .on('updaterNewVersionFound', () => {
-      dispatch({ type: UPDATER_NEW_VERSION_FOUND } as any)
-      dispatch(openDialog(DialogType.UpdateAvailable))
+      changeUpdateState(state => {
+        state.hasUpdate = true
+        state.hasDownloadError = false
+        state.readyToInstall = false
+      })
     })
     .on('updaterDownloadError', () => {
-      dispatch({ type: UPDATER_NEW_VERSION_DOWNLOADED, error: true } as any)
+      changeUpdateState(state => {
+        state.hasDownloadError = true
+      })
     })
     .on('updaterNewVersionDownloaded', () => {
-      dispatch({ type: UPDATER_NEW_VERSION_DOWNLOADED } as any)
+      changeUpdateState(state => {
+        state.readyToInstall = true
+      })
     })
     .on('updaterUpToDate', () => {
-      dispatch({ type: UPDATER_UP_TO_DATE } as any)
+      changeUpdateState(state => {
+        state.hasUpdate = false
+        state.hasDownloadError = false
+        state.readyToInstall = false
+      })
     })
 
   // Trigger an initial retrieval of the update state, in case one was found before this window

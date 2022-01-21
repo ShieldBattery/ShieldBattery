@@ -12,6 +12,7 @@ import Signup from './auth/signup'
 import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay'
 import { usePixelShover } from './dom/pixel-shover'
 import DownloadPage from './download/download-page'
+import { UpdateOverlay } from './download/update-overlay'
 import Faq from './landing/faq'
 import Splash from './landing/splash'
 import LoadingFilter from './loading/loading-filter'
@@ -109,6 +110,7 @@ function App() {
         </RootErrorBoundary>
         <ConnectedSnackbar />
         <ConnectedDialogOverlay />
+        <UpdateOverlay />
       </>
     </StyleSheetManager>
   )
