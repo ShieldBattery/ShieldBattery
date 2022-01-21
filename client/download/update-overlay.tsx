@@ -1,4 +1,5 @@
 import { rgba } from 'polished'
+import prettyBytes from 'pretty-bytes'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { animated, useTransition } from 'react-spring'
 import styled from 'styled-components'
@@ -10,9 +11,14 @@ import { defaultSpring } from '../material/springs'
 import { zIndexDialogScrim } from '../material/zindex'
 import { makeServerUrl } from '../network/server-url'
 import { LoadingDotsArea } from '../progress/dots'
-import { dialogScrim } from '../styles/colors'
-import { Subtitle1 } from '../styles/typography'
-import { addChangeHandler, removeChangeHandler, UpdateStateChangeHandler } from './updater-state'
+import { amberA400, dialogScrim } from '../styles/colors'
+import { Body1, Subtitle1 } from '../styles/typography'
+import {
+  addChangeHandler,
+  removeChangeHandler,
+  UpdateProgress,
+  UpdateStateChangeHandler,
+} from './updater-state'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -39,12 +45,14 @@ export function UpdateOverlay() {
   const [hasUpdate, setHasUpdate] = useState(false)
   const [hasDownloadError, setHasDownloadError] = useState(false)
   const [readyToInstall, setReadyToInstall] = useState(false)
+  const [progress, setProgress] = useState<UpdateProgress>()
   const focusableRef = useRef<HTMLSpanElement>(null)
 
   const changeHandler = useCallback<UpdateStateChangeHandler>(state => {
     setHasUpdate(state.hasUpdate)
     setHasDownloadError(state.hasDownloadError)
     setReadyToInstall(state.readyToInstall)
+    setProgress(state.progress)
   }, [])
   const onFocusTrap = useCallback(() => {
     // Focus was about to leave the dialog area, redirect it back to the dialog
@@ -88,6 +96,7 @@ export function UpdateOverlay() {
           hasUpdate={hasUpdate}
           hasDownloadError={hasDownloadError}
           readyToInstall={readyToInstall}
+          progress={progress}
         />
       </span>
       <span tabIndex={0} onFocus={onFocusTrap} />
@@ -110,11 +119,17 @@ export interface UpdateDialogProps {
   hasUpdate: boolean
   hasDownloadError: boolean
   readyToInstall: boolean
+  progress?: UpdateProgress
 }
 
 // NOTE(tec27): This is *not* available as a normal connected Dialog, it is only rendered by the
 // `UpdateOverlay` component. We expose it for easier testing in dev pages.
-export function UpdateDialog({ hasUpdate, hasDownloadError, readyToInstall }: UpdateDialogProps) {
+export function UpdateDialog({
+  hasUpdate,
+  hasDownloadError,
+  readyToInstall,
+  progress,
+}: UpdateDialogProps) {
   const title = !hasDownloadError ? 'Update available' : 'Error downloading update'
 
   let content = <span />
@@ -148,7 +163,7 @@ export function UpdateDialog({ hasUpdate, hasDownloadError, readyToInstall }: Up
           A new update is being downloaded. Please wait for the download to complete in order to
           continue.
         </Subtitle1>
-        <LoadingDotsArea />
+        {progress ? <UpdateProgressUi progress={progress} /> : <LoadingDotsArea />}
       </Content>
     )
   }
@@ -157,5 +172,51 @@ export function UpdateDialog({ hasUpdate, hasDownloadError, readyToInstall }: Up
     <StyledDialog title={title} showCloseButton={false}>
       {content}
     </StyledDialog>
+  )
+}
+
+const ProgressBar = styled.div`
+  position: relative;
+  width: 100%;
+  height: 12px;
+  background-color: rgba(255, 255, 255, 0.16);
+`
+
+const FilledProgressBar = styled.div<{ $filledScale: number }>`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 12px;
+  background-color: ${amberA400};
+  transform: ${props => `scaleX(${props.$filledScale})`};
+  transform-origin: 0% 50%;
+  transition: transform 80ms linear;
+  will-change: transform;
+`
+
+const ProgressContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: center;
+`
+
+function UpdateProgressUi({ progress }: { progress: UpdateProgress }) {
+  const { totalBytes, bytesTransferred, bytesPerSecond } = progress
+
+  const prettyTotalBytes = prettyBytes(totalBytes)
+  const prettyBytesTransferred = prettyBytes(bytesTransferred)
+  const prettyBytesPerSecond = prettyBytes(bytesPerSecond)
+
+  return (
+    <ProgressContainer>
+      <ProgressBar>
+        <FilledProgressBar $filledScale={bytesTransferred / totalBytes} />
+      </ProgressBar>
+      <Body1>
+        {prettyBytesTransferred} / {prettyTotalBytes} at {prettyBytesPerSecond}/s
+      </Body1>
+    </ProgressContainer>
   )
 }

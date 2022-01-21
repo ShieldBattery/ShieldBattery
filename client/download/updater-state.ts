@@ -6,10 +6,17 @@ import produce, { Draft, Immutable } from 'immer'
 // changes might break a reducer and therefore break the UI, if our updater depends on normal
 // reducer state then the only recourse is to re-download the client from our website).
 
+export interface UpdateProgress {
+  bytesTransferred: number
+  totalBytes: number
+  bytesPerSecond: number
+}
+
 export interface UpdateState {
   hasUpdate: boolean
   hasDownloadError: boolean
   readyToInstall: boolean
+  progress?: UpdateProgress
 }
 
 export type UpdateStateChangeHandler = (state: UpdateState) => void

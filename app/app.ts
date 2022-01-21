@@ -272,6 +272,22 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
       downloadingUpdate = false
       sendUpdateState()
     })
+    .on(
+      'download-progress',
+      (progressInfo: {
+        total: number
+        delta: number
+        transferred: number
+        percent: number
+        bytesPerSecond: number
+      }) => {
+        mainWindow?.webContents.send('updaterDownloadProgress', {
+          bytesTransferred: progressInfo.transferred,
+          totalBytes: progressInfo.total,
+          bytesPerSecond: progressInfo.bytesPerSecond,
+        })
+      },
+    )
     .on('error', () => {
       if (updateState === 'updaterNewVersionFound') {
         updateState = 'updaterDownloadError'

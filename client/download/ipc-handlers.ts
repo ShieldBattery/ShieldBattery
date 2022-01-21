@@ -17,11 +17,13 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
     .on('updaterDownloadError', () => {
       changeUpdateState(state => {
         state.hasDownloadError = true
+        state.progress = undefined
       })
     })
     .on('updaterNewVersionDownloaded', () => {
       changeUpdateState(state => {
         state.readyToInstall = true
+        state.progress = undefined
       })
     })
     .on('updaterUpToDate', () => {
@@ -29,6 +31,12 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
         state.hasUpdate = false
         state.hasDownloadError = false
         state.readyToInstall = false
+        state.progress = undefined
+      })
+    })
+    .on('updaterDownloadProgress', (_, info) => {
+      changeUpdateState(state => {
+        state.progress = { ...info }
       })
     })
 

@@ -137,6 +137,11 @@ interface IpcMainSendables {
   settingsScrMergeError: (err: Error) => void
 
   updaterDownloadError: () => void
+  updaterDownloadProgress: (progressInfo: {
+    bytesTransferred: number
+    totalBytes: number
+    bytesPerSecond: number
+  }) => void
   updaterNewVersionDownloaded: () => void
   updaterNewVersionFound: () => void
   updaterUpToDate: () => void
