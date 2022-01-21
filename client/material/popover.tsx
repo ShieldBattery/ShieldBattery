@@ -121,26 +121,40 @@ export function Popover(props: PopoverProps) {
     (styles, open) =>
       open && (
         <Portal onDismiss={props.onDismiss} open={open}>
-          <PopoverContent {...props} styles={styles} />
+          <PopoverContent {...props} styles={styles}>
+            <Card>{props.children}</Card>
+          </PopoverContent>
         </Portal>
       ),
   )
 }
 
+export interface PopoverContentProps extends Omit<PopoverProps, 'open' | 'onDismiss'> {
+  open?: boolean
+  onDismiss?: (event?: MouseEvent) => void
+  id?: string
+  /** The ARIA role to use for the content container. */
+  role?: React.AriaRole
+  styles: React.CSSProperties
+}
+
 /**
  * Helper component for Popovers to minimize the amount of work being done/hooks being kept for
- * popovers that are not open.
+ * popovers that are not open. Also used by components similar to Popovers, but with slightly
+ * different API/styling, e.g. Tooltips.
  */
-function PopoverContent({
+export function PopoverContent({
   anchorX,
   anchorY,
   children,
   className,
+  id,
+  role,
   onDismiss,
   originX,
   originY,
   styles,
-}: PopoverProps & { styles: React.CSSProperties }) {
+}: PopoverContentProps) {
   const [maxSizeRectRef, maxSizeRect] = useElementRect()
   // NOTE(tec27): We need this so that the component re-renders if the window is resized
   const [maxSizeObserverRef] = useObservedDimensions()
@@ -252,8 +266,10 @@ function PopoverContent({
       <Container
         ref={containerRef}
         className={className}
+        id={id}
+        role={role}
         style={{ ...styles, ...(containerStyle as any) }}>
-        <Card>{children}</Card>
+        {children}
       </Container>
     </PositioningArea>
   )

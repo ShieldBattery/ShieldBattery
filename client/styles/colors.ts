@@ -46,8 +46,8 @@ export const background900 = '#091320'
 export const backgroundSaturatedLight = '#02498C'
 export const backgroundSaturatedDark = '#034078'
 
-export const alphaDividers = '0.12'
-export const alphaDisabled = '0.5'
+export const alphaDividers = 0.12
+export const alphaDisabled = 0.5
 
 export const colorText = '#ffffff'
 

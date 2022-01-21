@@ -1,6 +1,7 @@
 import React from 'react'
 import styled, { css } from 'styled-components'
 import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
+import { Tooltip } from '../material/tooltip'
 import {
   amberA100,
   blue100,
@@ -20,6 +21,11 @@ export const Separator = styled.i.attrs({ 'aria-hidden': true })`
   line-height: inherit;
   opacity: 0;
   white-space: pre;
+  pointer-events: none;
+`
+
+const StyledTooltip = styled(Tooltip)`
+  display: inline;
 `
 
 // NOTE(tec27): These styles are done a bit oddly to ensure that message contents wraps in a
@@ -41,11 +47,13 @@ interface MessageTimestampProps {
 }
 
 export const MessageTimestamp = (props: MessageTimestampProps) => (
-  <Timestamp title={longTimestamp.format(props.time)}>
-    <Separator>[</Separator>
-    {shortTimestamp.format(props.time)}
-    <Separator>] </Separator>
-  </Timestamp>
+  <StyledTooltip text={longTimestamp.format(props.time)} position='top'>
+    <Timestamp>
+      <Separator>[</Separator>
+      {shortTimestamp.format(props.time)}
+      <Separator>] </Separator>
+    </Timestamp>
+  </StyledTooltip>
 )
 
 const messageContainerBase = css`
