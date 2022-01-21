@@ -76,10 +76,10 @@ const ProfileNavEntry = React.forwardRef(
     { user, onProfileEntryClick, profileMenuOpen }: ProfileNavEntryProps,
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
-    const [buttonProps, rippleRef] = useButtonState({ ref, onClick: onProfileEntryClick })
+    const [buttonProps, rippleRef] = useButtonState({ onClick: onProfileEntryClick })
 
     return (
-      <Container {...buttonProps}>
+      <Container ref={ref} {...buttonProps}>
         <StyledAvatar user={user} />
         <User>{user}</User>
         <StyledExpandIcon $flipped={profileMenuOpen} />

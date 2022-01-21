@@ -73,7 +73,6 @@ export const FloatingActionButton = React.forwardRef(
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
     const [buttonProps, rippleRef] = useButtonState({
-      ref,
       disabled,
       onBlur,
       onFocus,
@@ -82,7 +81,7 @@ export const FloatingActionButton = React.forwardRef(
     })
 
     return (
-      <Root className={className} tabIndex={tabIndex} title={title} {...buttonProps}>
+      <Root ref={ref} className={className} tabIndex={tabIndex} title={title} {...buttonProps}>
         {icon}
         <Ripple ref={rippleRef} disabled={disabled} />
       </Root>

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import styled, { css, keyframes } from 'styled-components'
-import { useButtonState } from '../material/button'
+import { useButtonState, useButtonHotkey, useButtonRef } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
 import { blue50, colorTextFaint, colorTextSecondary } from '../styles/colors'
@@ -127,11 +127,12 @@ export const ActivityButton = React.memo(
   React.forwardRef<HTMLButtonElement, ActivityButtonProps>(
     ({ label, icon, disabled, glowing, count, onClick, hotkey }, ref) => {
       const [buttonProps, rippleRef] = useButtonState({
-        ref,
         disabled,
-        hotkey,
         onClick,
       })
+      const [buttonRef, setButtonRef] = useButtonRef(ref)
+      useButtonHotkey({ ref: buttonRef, disabled, hotkey })
+
       const labelElems = useMemo(() => {
         if (disabled || !hotkey) {
           return label
@@ -153,7 +154,7 @@ export const ActivityButton = React.memo(
       }, [disabled, hotkey, label])
 
       return (
-        <Container {...buttonProps}>
+        <Container ref={setButtonRef} {...buttonProps}>
           {count !== undefined ? <Count>{count}</Count> : null}
           <IconContainer glowing={glowing}>
             {glowing ? icon : null}

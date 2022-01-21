@@ -28,17 +28,33 @@ export const Label = styled.span`
   white-space: nowrap;
 `
 
-export interface HotkeyProp {
-  keyCode: number
-  altKey?: boolean
-  shiftKey?: boolean
-  ctrlKey?: boolean
+export function useButtonRef(
+  ref: React.ForwardedRef<HTMLButtonElement>,
+): [
+  buttonRef: React.MutableRefObject<HTMLButtonElement | undefined>,
+  setButtonRef: (elem: HTMLButtonElement | null) => void,
+] {
+  const buttonRef = useRef<HTMLButtonElement>()
+
+  const setButtonRef = useCallback(
+    (elem: HTMLButtonElement | null) => {
+      buttonRef.current = elem !== null ? elem : undefined
+      if (ref) {
+        if (typeof ref === 'function') {
+          ref(elem)
+        } else {
+          ref.current = elem
+        }
+      }
+    },
+    [ref],
+  )
+
+  return [buttonRef, setButtonRef]
 }
 
 export interface ButtonStateProps {
-  ref?: React.ForwardedRef<HTMLButtonElement>
   disabled?: boolean
-  hotkey?: HotkeyProp
   onBlur?: (event: React.FocusEvent) => void
   onFocus?: (event: React.FocusEvent) => void
   onClick?: (event: React.MouseEvent) => void
@@ -46,8 +62,8 @@ export interface ButtonStateProps {
   onMouseDown?: (event: React.MouseEvent) => void
   onMouseEnter?: (event: React.MouseEvent) => void
   onMouseLeave?: (event: React.MouseEvent) => void
-  onKeyDown?: (event: KeyboardEvent) => void
-  onKeyUp?: (event: KeyboardEvent) => void
+  onKeyDown?: (event: React.KeyboardEvent) => void
+  onKeyUp?: (event: React.KeyboardEvent) => void
 }
 
 /**
@@ -65,7 +81,6 @@ export interface ButtonStateStyleProps {
 }
 
 export interface ButtonStateAppliedProps extends ButtonStateStyleProps {
-  ref: (elem: HTMLButtonElement | null) => void
   disabled: boolean
   onBlur: (event: React.FocusEvent) => void
   onFocus: (event: React.FocusEvent) => void
@@ -74,6 +89,8 @@ export interface ButtonStateAppliedProps extends ButtonStateStyleProps {
   onMouseDown: (event: React.MouseEvent) => void
   onMouseEnter: (event: React.MouseEvent) => void
   onMouseLeave: (event: React.MouseEvent) => void
+  onKeyDown: (event: React.KeyboardEvent) => void
+  onKeyUp: (event: React.KeyboardEvent) => void
 }
 
 type ButtonState = [
@@ -88,9 +105,7 @@ type ButtonState = [
 ]
 
 export function useButtonState({
-  ref,
   disabled,
-  hotkey,
   onBlur,
   onFocus,
   onClick,
@@ -102,22 +117,7 @@ export function useButtonState({
   onKeyUp,
 }: ButtonStateProps): ButtonState {
   const [focused, setFocused] = useState(false)
-  const buttonRef = useRef<HTMLButtonElement>()
   const rippleRef = useRef<RippleController>(null)
-
-  const setButtonRef = useCallback(
-    (elem: HTMLButtonElement | null) => {
-      buttonRef.current = elem !== null ? elem : undefined
-      if (ref) {
-        if (typeof ref === 'function') {
-          ref(elem)
-        } else {
-          ref.current = elem
-        }
-      }
-    },
-    [ref],
-  )
 
   const handleBlur = useCallback(
     (event: React.FocusEvent) => {
@@ -197,73 +197,47 @@ export function useButtonState({
   )
 
   const keyDownActivatedRef = useRef(false)
-  useKeyListener({
-    onKeyDown: useCallback(
-      (event: KeyboardEvent) => {
-        const activationTarget = event.currentTarget
-        if (activationTarget instanceof HTMLButtonElement) {
-          if (activationTarget?.matches(':active')) {
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      const activationTarget = event.currentTarget
+      if (activationTarget.matches(':active')) {
+        rippleRef.current?.onActivate(event)
+        keyDownActivatedRef.current = true
+      } else {
+        keyDownActivatedRef.current = false
+
+        requestAnimationFrame(() => {
+          // Sometimes browsers don't active the element until after the event has been processed,
+          // so we check again on the next frame
+          if (activationTarget.matches(':active')) {
             rippleRef.current?.onActivate(event)
             keyDownActivatedRef.current = true
-          } else {
-            keyDownActivatedRef.current = false
-
-            requestAnimationFrame(() => {
-              // Sometimes browsers don't active the element until after the event has been
-              // processed, so we check again on the next frame
-              if (activationTarget?.matches(':active')) {
-                rippleRef.current?.onActivate(event)
-                keyDownActivatedRef.current = true
-              }
-            })
           }
-        }
+        })
+      }
 
-        if (
-          !disabled &&
-          hotkey &&
-          event.keyCode === hotkey.keyCode &&
-          event.altKey === !!hotkey.altKey &&
-          event.shiftKey === !!hotkey.shiftKey &&
-          event.ctrlKey === !!hotkey.ctrlKey
-        ) {
-          buttonRef.current?.click()
+      if (onKeyDown) {
+        onKeyDown(event)
+      }
+    },
+    [onKeyDown],
+  )
+  const handleKeyUp = useCallback(
+    (event: React.KeyboardEvent) => {
+      if (keyDownActivatedRef.current) {
+        rippleRef.current?.onDeactivate()
+        keyDownActivatedRef.current = false
+      }
 
-          return true
-        }
-
-        if (onKeyDown) {
-          onKeyDown(event)
-
-          return true
-        }
-
-        return false
-      },
-      [disabled, hotkey, onKeyDown],
-    ),
-    onKeyUp: useCallback(
-      (event: KeyboardEvent) => {
-        if (keyDownActivatedRef.current) {
-          rippleRef.current?.onDeactivate()
-          keyDownActivatedRef.current = false
-        }
-
-        if (onKeyUp) {
-          onKeyUp(event)
-
-          return true
-        }
-
-        return false
-      },
-      [onKeyUp],
-    ),
-  })
+      if (onKeyUp) {
+        onKeyUp(event)
+      }
+    },
+    [onKeyUp],
+  )
 
   return [
     {
-      ref: setButtonRef,
       disabled: disabled === true,
       onBlur: handleBlur,
       onFocus: handleFocus,
@@ -272,10 +246,52 @@ export function useButtonState({
       onMouseDown: handleMouseDown,
       onMouseEnter: handleMouseEnter,
       onMouseLeave: handleMouseLeave,
+      onKeyDown: handleKeyDown,
+      onKeyUp: handleKeyUp,
       $focused: focused,
     },
     rippleRef,
   ]
+}
+
+export interface HotkeyProp {
+  keyCode: number
+  altKey?: boolean
+  shiftKey?: boolean
+  ctrlKey?: boolean
+}
+
+export interface ButtonHotkeyProps {
+  /** The reference to the button that should be pressed programmatically. */
+  ref?: React.MutableRefObject<HTMLButtonElement | undefined>
+  /** Whether the button is disabled (hotkey will do nothing). */
+  disabled?: boolean
+  /**
+   * A hotkey to register for the button. Pressing the specified modifiers and key will result in
+   * the button being clicked programmatically.
+   */
+  hotkey?: HotkeyProp
+}
+
+export function useButtonHotkey({ ref, disabled, hotkey }: ButtonHotkeyProps) {
+  useKeyListener({
+    onKeyDown: (event: KeyboardEvent) => {
+      if (
+        !disabled &&
+        hotkey &&
+        event.keyCode === hotkey.keyCode &&
+        event.altKey === !!hotkey.altKey &&
+        event.shiftKey === !!hotkey.shiftKey &&
+        event.ctrlKey === !!hotkey.ctrlKey
+      ) {
+        ref?.current?.click()
+
+        return true
+      }
+
+      return false
+    },
+  })
 }
 
 const IconContainer = styled.div`
@@ -382,18 +398,19 @@ export const RaisedButton = React.forwardRef(
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
     const [buttonProps, rippleRef] = useButtonState({
-      ref,
       disabled,
-      hotkey,
       onBlur,
       onFocus,
       onClick,
       onDoubleClick,
       onMouseDown,
     })
+    const [buttonRef, setButtonRef] = useButtonRef(ref)
+    useButtonHotkey({ ref: buttonRef, disabled, hotkey })
 
     return (
       <RaisedButtonRoot
+        ref={setButtonRef}
         className={className}
         $color={color}
         tabIndex={tabIndex}
@@ -506,18 +523,19 @@ export const TextButton = React.forwardRef(
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
     const [buttonProps, rippleRef] = useButtonState({
-      ref,
       disabled,
-      hotkey,
       onBlur,
       onFocus,
       onClick,
       onDoubleClick,
       onMouseDown,
     })
+    const [buttonRef, setButtonRef] = useButtonRef(ref)
+    useButtonHotkey({ ref: buttonRef, disabled, hotkey })
 
     return (
       <TextButtonRoot
+        ref={setButtonRef}
         className={className}
         $color={color}
         tabIndex={tabIndex}
@@ -596,18 +614,19 @@ export const IconButton = React.forwardRef(
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
     const [buttonProps, rippleRef] = useButtonState({
-      ref,
       disabled,
-      hotkey,
       onBlur,
       onFocus,
       onClick,
       onDoubleClick,
       onMouseDown,
     })
+    const [buttonRef, setButtonRef] = useButtonRef(ref)
+    useButtonHotkey({ ref: buttonRef, disabled, hotkey })
 
     return (
       <IconButtonRoot
+        ref={setButtonRef}
         className={className}
         tabIndex={tabIndex}
         title={title}
