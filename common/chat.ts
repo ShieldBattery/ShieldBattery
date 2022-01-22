@@ -2,17 +2,17 @@ import { Jsonify } from './json'
 import { SbUser, SbUserId } from './users/sb-user'
 
 export enum ChatServiceErrorCode {
-  UserOffline = 'UserOffline',
-  UserNotFound = 'UserNotFound',
-  InvalidJoinAction = 'InvalidJoinAction',
+  AlreadyJoined = 'AlreadyJoined',
   LeaveShieldBattery = 'LeaveShieldBattery',
-  InvalidLeaveAction = 'InvalidLeaveAction',
-  InvalidModerationAction = 'InvalidModerationAction',
-  ModeratorAccess = 'ModeratorAccess',
+  ModerateChannelOwner = 'ModerateChannelOwner',
+  ModerateChannelModerator = 'ModerateChannelModerator',
+  ModerateUser = 'ModerateUser',
+  ModerateYourself = 'ModerateYourself',
+  NotInChannel = 'NotInChannel',
+  TargetNotInChannel = 'TargetNotInChannel',
   UserBanned = 'UserBanned',
-  InvalidSendAction = 'InvalidSendAction',
-  InvalidGetHistoryAction = 'InvalidGetHistoryAction',
-  InvalidGetUsersAction = 'InvalidGetUsersAction',
+  UserNotFound = 'UserNotFound',
+  UserOffline = 'UserOffline',
 }
 
 /** Chat messages which are persisted in the DB and shown each time the user opens the app. */
@@ -247,7 +247,9 @@ export interface ModerateChannelUserServerRequest {
  * channel role (e.g. are they a moderator), etc.
  */
 export interface ChatUserProfile {
-  joinDate: number
+  userId: SbUserId
+  channelName: string
+  joinDate: Date
   /**
    * User is considered a channel moderator if they have one of the following permissions:
    *  - owner
@@ -260,13 +262,22 @@ export interface ChatUserProfile {
 
 export type ChatUserProfileJson = Jsonify<ChatUserProfile>
 
+export function toChatUserProfileJson(chatUserProfile: ChatUserProfile): ChatUserProfileJson {
+  return {
+    userId: chatUserProfile.userId,
+    channelName: chatUserProfile.channelName,
+    joinDate: Number(chatUserProfile.joinDate),
+    isModerator: chatUserProfile.isModerator,
+  }
+}
+
 /**
  * The response returned when fetching a profile of a user in a specific chat channel. The profile
- * itself can be `null` in case the user has left the channel, but their name is still visible in
- * old messages.
+ * itself can be `undefined` in case the user has left the channel, but their name is still visible
+ * in old messages.
  */
 export interface GetChatUserProfileResponse {
   userId: SbUserId
   channelName: string
-  profile: ChatUserProfileJson | null
+  profile?: ChatUserProfileJson
 }

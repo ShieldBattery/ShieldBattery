@@ -17,6 +17,7 @@ import { ConnectedUserProfileOverlay } from '../profile/user-profile-overlay'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { RootState } from '../root-reducer'
+import { openSnackbar } from '../snackbars/action-creators'
 import { usePrevious } from '../state-hooks'
 import {
   alphaDisabled,
@@ -446,10 +447,10 @@ export default function Channel(props: ChatChannelProps) {
     areUserEntriesEqual,
   )
 
-  const prevChannelName = usePrevious(channelName)
-  const prevChannel = usePrevious(channel)
   const isInChannel = !!channel
-  const isLeavingChannel = !isInChannel && !!prevChannel && prevChannelName === channelName
+  const prevIsInChannel = usePrevious(isInChannel)
+  const prevChannelName = usePrevious(channelName)
+  const isLeavingChannel = !isInChannel && prevIsInChannel && prevChannelName === channelName
 
   // TODO(2Pac): Pull this out into some kind of "isLeaving" hook and share with whispers/lobby?
   useEffect(() => {
@@ -458,19 +459,28 @@ export default function Channel(props: ChatChannelProps) {
     }
   }, [isLeavingChannel])
 
+  const cancelJoinRef = useRef(new AbortController())
+
   useEffect(() => {
+    cancelJoinRef.current.abort()
+    const abortController = new AbortController()
+    cancelJoinRef.current = abortController
+
     if (isInChannel) {
       dispatch(retrieveUserList(channelName))
       dispatch(activateChannel(channelName) as any)
     } else if (!isLeavingChannel) {
       if (MULTI_CHANNEL) {
-        dispatch(joinChannel(channelName))
+        dispatch(joinChannel(channelName, { signal: abortController.signal }))
       } else {
         push('/')
       }
     }
 
-    return () => dispatch(deactivateChannel(channelName) as any)
+    return () => {
+      abortController.abort()
+      dispatch(deactivateChannel(channelName) as any)
+    }
   }, [isInChannel, isLeavingChannel, channelName, dispatch])
 
   const onLoadMoreMessages = useCallback(

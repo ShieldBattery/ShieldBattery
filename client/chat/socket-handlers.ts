@@ -168,7 +168,7 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
     if (action) dispatch(action)
   })
 
-  siteSocket.registerRoute('/chat/:channel/:userId', (route, event) => {
+  siteSocket.registerRoute('/chat/:channel/users/:userId', (route, event) => {
     const actionName = event.action as ChatUserEvent['action']
     if (!eventToChatUserAction[actionName]) return
 

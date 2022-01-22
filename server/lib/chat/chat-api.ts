@@ -64,18 +64,18 @@ function convertChatServiceError(err: unknown) {
   }
 
   switch (err.code) {
+    case ChatServiceErrorCode.NotInChannel:
+    case ChatServiceErrorCode.TargetNotInChannel:
     case ChatServiceErrorCode.UserOffline:
     case ChatServiceErrorCode.UserNotFound:
       throw asHttpError(404, err)
-    case ChatServiceErrorCode.InvalidJoinAction:
-    case ChatServiceErrorCode.InvalidLeaveAction:
-    case ChatServiceErrorCode.InvalidSendAction:
-    case ChatServiceErrorCode.InvalidGetHistoryAction:
-    case ChatServiceErrorCode.InvalidGetUsersAction:
-    case ChatServiceErrorCode.InvalidModerationAction:
+    case ChatServiceErrorCode.AlreadyJoined:
+    case ChatServiceErrorCode.ModerateYourself:
       throw asHttpError(400, err)
     case ChatServiceErrorCode.LeaveShieldBattery:
-    case ChatServiceErrorCode.ModeratorAccess:
+    case ChatServiceErrorCode.ModerateChannelOwner:
+    case ChatServiceErrorCode.ModerateChannelModerator:
+    case ChatServiceErrorCode.ModerateUser:
       throw asHttpError(403, err)
     case ChatServiceErrorCode.UserBanned:
       throw asHttpError(401, err)
@@ -198,7 +198,7 @@ export class ChatApi {
     return await this.chatService.getChannelUsers(channelName, ctx.session!.userId)
   }
 
-  @httpGet('/:channelName/:targetId')
+  @httpGet('/:channelName/users/:targetId')
   @httpBefore(throttleMiddleware(getUserProfileThrottle, ctx => String(ctx.session!.userId)))
   async getChatUserProfile(ctx: RouterContext): Promise<GetChatUserProfileResponse> {
     const {
@@ -213,7 +213,7 @@ export class ChatApi {
     return await this.chatService.getChatUserProfile(channelName, ctx.session!.userId, targetId)
   }
 
-  @httpPost('/:channelName/:targetId/remove')
+  @httpPost('/:channelName/users/:targetId/remove')
   @httpBefore(
     featureEnabled(MULTI_CHANNEL),
     throttleMiddleware(kickBanThrottle, ctx => String(ctx.session!.userId)),

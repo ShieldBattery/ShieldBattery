@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useRef } from 'react'
+import React, { useCallback } from 'react'
 import { ChannelModerationAction } from '../../common/chat'
 import { SbUser } from '../../common/users/sb-user'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { useForm } from '../forms/form-hook'
+import { useAutoFocusRef } from '../material/auto-focus'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import TextField from '../material/text-field'
@@ -15,7 +16,7 @@ interface BanUserModel {
   banReason: string
 }
 
-type ChannelBanUserDialogProps = CommonDialogProps & {
+interface ChannelBanUserDialogProps extends CommonDialogProps {
   channel: string
   user: SbUser
 }
@@ -27,12 +28,7 @@ export function ChannelBanUserDialog({
   user,
 }: ChannelBanUserDialogProps) {
   const dispatch = useAppDispatch()
-  const inputRef = useRef<TextField>(null)
-
-  useEffect(() => {
-    const autoFocusTimer = setTimeout(() => inputRef.current?.focus(), 450)
-    return () => clearTimeout(autoFocusTimer)
-  }, [])
+  const autoFocusRef = useAutoFocusRef<TextField>()
 
   const onFormSubmit = useCallback(
     (model: BanUserModel) => {
@@ -77,7 +73,7 @@ export function ChannelBanUserDialog({
           {...bindInput('banReason')}
           label='Ban reason (optional)'
           floatingLabel={true}
-          ref={inputRef}
+          ref={autoFocusRef}
           inputProps={{
             autoCapitalize: 'off',
             autoCorrect: 'off',

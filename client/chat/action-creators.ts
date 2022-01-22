@@ -17,40 +17,34 @@ import { isFetchError } from '../network/fetch-errors'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { ActivateChannel, DeactivateChannel } from './actions'
 
-export function joinChannel(channel: string): ThunkAction {
-  return dispatch => {
-    const params = { channel }
-    dispatch({
-      type: '@chat/joinChannelBegin',
-      payload: params,
-    })
-    dispatch({
-      type: '@chat/joinChannel',
-      payload: fetchJson<void>(apiUrl`chat/${channel}`, { method: 'POST' }).catch(err => {
-        // TODO(2Pac): Rework how joining channel works. Currently we first navigate to the channel
-        // and then attempt to join it. Which seems weird to me?
-        //
-        // To work around this for now, if the user is banned we redirect them to the index page,
-        // but ideally they wouldn't be navigated to the channel in the first place.
-        replace('/')
+export function joinChannel(channel: string, spec: RequestHandlingSpec<void>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const promise = fetchJson<void>(apiUrl`chat/${channel}`, { method: 'POST' })
+    promise.catch(err => {
+      // TODO(2Pac): Rework how joining channel works. Currently we first navigate to the channel
+      // and then attempt to join it. Which seems weird to me?
+      //
+      // To work around this for now, if the user is banned we redirect them to the index page,
+      // but ideally they wouldn't be navigated to the channel in the first place.
+      replace('/')
 
-        let message = `An error occurred while joining ${channel}`
+      let message = `An error occurred while joining ${channel}`
 
-        if (isFetchError(err) && err.code) {
-          if (err.code === ChatServiceErrorCode.UserBanned) {
-            message = `You are banned from ${channel}`
-          } else {
-            logger.error(`Unhandled code when joining ${channel}: ${err.code}`)
-          }
+      if (isFetchError(err) && err.code) {
+        if (err.code === ChatServiceErrorCode.UserBanned) {
+          message = `You are banned from ${channel}`
         } else {
-          logger.error(`Error when joining ${channel}: ${err.stack ?? err}`)
+          logger.error(`Unhandled code when joining ${channel}: ${err.code}`)
         }
+      } else {
+        logger.error(`Error when joining ${channel}: ${err.stack ?? err}`)
+      }
 
-        dispatch(openSnackbar({ message, time: TIMING_LONG }))
-      }),
-      meta: params,
+      dispatch(openSnackbar({ message, time: TIMING_LONG }))
     })
-  }
+
+    return promise
+  })
 }
 
 export function leaveChannel(channel: string): ThunkAction {
@@ -76,7 +70,7 @@ export function moderateUser(
   moderationReason?: string,
 ): ThunkAction {
   return abortableThunk(spec, async () => {
-    return fetchJson<void>(apiUrl`chat/${channel}/${userId}/remove`, {
+    return fetchJson<void>(apiUrl`chat/${channel}/users/${userId}/remove`, {
       method: 'POST',
       body: encodeBodyAsParams<ModerateChannelUserServerRequest>({
         moderationAction,
@@ -164,7 +158,7 @@ export function retrieveUserList(channel: string): ThunkAction {
   }
 }
 
-const chatUserProfileLoadsInProgress = new Set<SbUserId>()
+const chatUserProfileLoadsInProgress = new Set<`${string}|${SbUserId}`>()
 
 export function getChatUserProfile(
   channel: string,
@@ -180,20 +174,24 @@ export function getChatUserProfile(
       return
     }
 
-    if (chatUserProfileLoadsInProgress.has(targetId)) {
+    const channelTargetId = `${channel}|${targetId}`
+    if (chatUserProfileLoadsInProgress.has(channelTargetId)) {
       return
     }
-    chatUserProfileLoadsInProgress.add(targetId)
+    chatUserProfileLoadsInProgress.add(channelTargetId)
 
     try {
       dispatch({
         type: '@chat/getChatUserProfile',
-        payload: await fetchJson<GetChatUserProfileResponse>(apiUrl`chat/${channel}/${targetId}`, {
-          method: 'GET',
-        }),
+        payload: await fetchJson<GetChatUserProfileResponse>(
+          apiUrl`chat/${channel}/users/${targetId}`,
+          {
+            method: 'GET',
+          },
+        ),
       })
     } finally {
-      chatUserProfileLoadsInProgress.delete(targetId)
+      chatUserProfileLoadsInProgress.delete(channelTargetId)
     }
   })
 }

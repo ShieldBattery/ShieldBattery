@@ -4,7 +4,7 @@ import {
   ChannelModerationAction,
   ChannelPermissions,
   ChatMessage,
-  ChatUserProfile,
+  ChatUserProfileJson,
   ClientChatMessageType,
 } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user'
@@ -24,7 +24,7 @@ export interface ChannelState {
   name: string
   messages: ChatMessage[]
   users: UsersState
-  userProfiles: Map<SbUserId, ChatUserProfile>
+  userProfiles: Map<SbUserId, ChatUserProfileJson>
   selfPermissions: ChannelPermissions
 
   loadingHistory: boolean
