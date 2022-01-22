@@ -17,7 +17,6 @@ import { ConnectedUserProfileOverlay } from '../profile/user-profile-overlay'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { RootState } from '../root-reducer'
-import { openSnackbar } from '../snackbars/action-creators'
 import { usePrevious } from '../state-hooks'
 import {
   alphaDisabled,
