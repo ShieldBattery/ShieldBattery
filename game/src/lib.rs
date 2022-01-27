@@ -5,25 +5,6 @@ extern crate log;
 #[macro_use]
 extern crate whack;
 
-#[macro_use]
-mod hook_macro;
-
-mod app_messages;
-mod app_socket;
-mod bw;
-mod bw_scr;
-mod cancel_token;
-mod crash_dump;
-mod forge;
-mod game_state;
-mod game_thread;
-mod network_manager;
-mod rally_point;
-mod replay;
-mod snp;
-mod udp;
-mod windows;
-
 use std::fs::File;
 use std::io;
 use std::mem;
@@ -39,6 +20,26 @@ use winapi::um::winnt::EXCEPTION_POINTERS;
 
 use crate::game_state::GameStateMessage;
 use crate::game_thread::GameThreadMessage;
+
+#[macro_use]
+mod hook_macro;
+
+mod app_messages;
+mod app_socket;
+mod bw;
+mod bw_scr;
+mod cancel_token;
+mod crash_dump;
+mod forge;
+mod game_state;
+mod game_thread;
+mod network_manager;
+mod protos;
+mod rally_point;
+mod replay;
+mod snp;
+mod udp;
+mod windows;
 
 const WAIT_DEBUGGER: bool = false;
 
