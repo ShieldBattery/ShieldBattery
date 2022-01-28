@@ -12,7 +12,7 @@ use compile_shaders::{ShaderModel, ShaderType};
 
 static SOURCES: &[(&str, &str, &[(&str, &str)])] = &[("mask", "mask.hlsl", &[])];
 
-static PROTOS: &[&str] = &["src/protos/messages.proto"];
+static PROTOS: &[&str] = &["src/proto/messages.proto"];
 
 fn main() {
     for &path in PROTOS {
@@ -21,9 +21,7 @@ fn main() {
     let mut prost_build = prost_build::Config::new();
     // Use Bytes for bytes fields instead of a Vec<u8>
     prost_build.bytes(&["."]);
-    prost_build
-        .compile_protos(PROTOS, &["src/protos/"])
-        .unwrap();
+    prost_build.compile_protos(PROTOS, &["src/proto/"]).unwrap();
 
     let out_path = std::env::var("OUT_DIR").unwrap();
     let out_path = Path::new(&out_path);

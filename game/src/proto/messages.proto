@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package shieldbattery.protos.messages;
+package shieldbattery.proto.messages;
 
 // TODO(tec27): Write a version that deals with acks and can include multiple storm messages
 message StormWrapper {

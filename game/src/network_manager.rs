@@ -14,7 +14,7 @@ use tokio::sync::{mpsc, oneshot};
 use crate::app_messages;
 use crate::app_messages::Route as RouteInput;
 use crate::cancel_token::{CancelToken, Canceler};
-use crate::protos::messages::StormWrapper;
+use crate::proto::messages::StormWrapper;
 use crate::rally_point::{PlayerId, RallyPoint, RallyPointError, RouteId};
 use crate::snp::{self, SnpMessage};
 
