@@ -22,9 +22,7 @@ export interface LocalSettingsData extends ShieldBatteryAppSettingsData {
   masterVolume: number
   gameWinWidth: number
   gameWinHeight: number
-  v1161displayMode: number
-  v1161mouseSensitivity: number
-  v1161maintainAspectRatio: boolean
+  visualizeNetworkStalls?: boolean
 }
 
 export interface ScrSettingsData {

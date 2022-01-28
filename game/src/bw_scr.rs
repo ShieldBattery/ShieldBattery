@@ -3,8 +3,8 @@ use std::marker::PhantomData;
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use bw_dat::UnitId;
 use byteorder::{ByteOrder, LittleEndian};
@@ -14,15 +14,15 @@ use smallvec::SmallVec;
 use winapi::um::errhandlingapi::SetLastError;
 use winapi::um::libloaderapi::GetModuleHandleW;
 
-use scr_analysis::{DatType, scarf};
+use scr_analysis::{scarf, DatType};
 use sdf_cache::{InitSdfCache, SdfCache};
 use shader_replaces::ShaderReplaces;
 pub use thiscall::Thiscall;
 
 use crate::app_messages::{MapInfo, Settings};
-use crate::bw::{self, Bw, FowSpriteIterator, SnpFunctions, StormPlayerId};
 use crate::bw::commands;
 use crate::bw::unit::{Unit, UnitIterator};
+use crate::bw::{self, Bw, FowSpriteIterator, SnpFunctions, StormPlayerId};
 use crate::game_thread;
 use crate::snp;
 use crate::windows;
@@ -57,6 +57,9 @@ pub struct BwScr {
     command_user: Value<u32>,
     unique_command_user: Value<u32>,
     storm_command_user: Value<u32>,
+    /// Indicates whether the network is okay to proceed with the next turn (i.e. all turns are
+    /// available from all players)
+    is_network_ready: Value<u8>,
     net_player_to_game: Value<*mut u32>,
     net_player_to_unique: Value<*mut u32>,
     local_player_name: Value<*mut u8>,
@@ -91,7 +94,7 @@ pub struct BwScr {
     // called to update what controls on status screen are shown if the unit
     // is single selected.
     status_screen_funcs: Option<scarf::VirtualAddress>,
-    original_status_screen_update: Vec<unsafe extern fn(*mut bw::Dialog)>,
+    original_status_screen_update: Vec<unsafe extern "C" fn(*mut bw::Dialog)>,
 
     init_network_player_info: unsafe extern "C" fn(u32, u32, u32, u32),
     step_network: unsafe extern "C" fn(),
@@ -102,8 +105,7 @@ pub struct BwScr {
     ) -> u32,
     // arg 1 path, a2 out, a3 is_campaign, a4 unused?
     init_map_from_path: unsafe extern "C" fn(*const u8, *mut c_void, u32, u32) -> u32,
-    join_game:
-        unsafe extern "C" fn(*mut scr::JoinableGameInfo, *mut scr::BwString, usize) -> u32,
+    join_game: unsafe extern "C" fn(*mut scr::JoinableGameInfo, *mut scr::BwString, usize) -> u32,
     game_loop: unsafe extern "C" fn(),
     init_sprites: unsafe extern "C" fn(),
     init_real_time_lighting: Option<unsafe extern "C" fn()>,
@@ -156,6 +158,7 @@ pub struct BwScr {
     open_replay_files: Mutex<Vec<SendPtr<*mut c_void>>>,
     is_carbot: AtomicBool,
     show_skins: AtomicBool,
+    visualize_network_stalls: AtomicBool,
     is_processing_game_commands: AtomicBool,
     /// Avoid reporting the same player being dropped multiple times.
     /// Bit 0x1 = Net id 0, 0x2 = net id 1, etc.
@@ -216,7 +219,7 @@ unsafe impl Send for RendererState {}
 unsafe impl Sync for RendererState {}
 
 pub mod scr {
-    use libc::{c_void};
+    use libc::c_void;
 
     use crate::bw;
     use crate::bw::SnpFunctions;
@@ -226,8 +229,8 @@ pub mod scr {
     #[repr(C)]
     pub struct SnpLoadFuncs {
         pub identify: unsafe extern "stdcall" fn(
-            u32, // snp index
-            *mut u32, // id
+            u32,            // snp index
+            *mut u32,       // id
             *mut *const u8, // name
             *mut *const u8, // description
             *mut *const crate::bw::SnpCapabilities,
@@ -345,59 +348,59 @@ pub mod scr {
 
     #[repr(C)]
     pub struct V_FileHandle1 {
-        pub destroy: Thiscall<unsafe extern fn(*mut FileHandle, u32)>,
-        pub read: Thiscall<unsafe extern fn(*mut FileHandle, *mut u8, u32) -> u32>,
-        pub skip: Thiscall<unsafe extern fn(*mut FileHandle, u32)>,
+        pub destroy: Thiscall<unsafe extern "C" fn(*mut FileHandle, u32)>,
+        pub read: Thiscall<unsafe extern "C" fn(*mut FileHandle, *mut u8, u32) -> u32>,
+        pub skip: Thiscall<unsafe extern "C" fn(*mut FileHandle, u32)>,
         pub safety_padding: [usize; 0x20],
     }
 
     #[repr(C)]
     pub struct V_FileHandle2 {
         pub unk0: [usize; 1],
-        pub peek: Thiscall<unsafe extern fn(*mut c_void, *mut u8, u32) -> u32>,
+        pub peek: Thiscall<unsafe extern "C" fn(*mut c_void, *mut u8, u32) -> u32>,
         pub safety_padding: [usize; 0x20],
     }
 
     #[repr(C)]
     pub struct V_FileHandle3 {
         pub unk0: [usize; 1],
-        pub tell: Thiscall<unsafe extern fn(*mut c_void) -> u32>,
-        pub seek: Thiscall<unsafe extern fn(*mut c_void, u32)>,
-        pub file_size: Thiscall<unsafe extern fn(*mut c_void) -> u32>,
+        pub tell: Thiscall<unsafe extern "C" fn(*mut c_void) -> u32>,
+        pub seek: Thiscall<unsafe extern "C" fn(*mut c_void, u32)>,
+        pub file_size: Thiscall<unsafe extern "C" fn(*mut c_void) -> u32>,
         pub safety_padding: [usize; 0x20],
     }
 
     #[repr(C)]
     pub struct V_FileMetadata {
         pub unk0: [usize; 1],
-        pub tell: Thiscall<unsafe extern fn(*mut FileMetadata) -> u32>,
-        pub seek: Thiscall<unsafe extern fn(*mut FileMetadata, u32)>,
-        pub file_size: Thiscall<unsafe extern fn(*mut FileMetadata) -> u32>,
+        pub tell: Thiscall<unsafe extern "C" fn(*mut FileMetadata) -> u32>,
+        pub seek: Thiscall<unsafe extern "C" fn(*mut FileMetadata, u32)>,
+        pub file_size: Thiscall<unsafe extern "C" fn(*mut FileMetadata) -> u32>,
         pub safety_padding: [usize; 0x20],
     }
 
     #[repr(C)]
     pub struct V_FileRead {
         pub destroy: usize,
-        pub read: Thiscall<unsafe extern fn(*mut FileRead, *mut u8, u32) -> u32>,
-        pub skip: Thiscall<unsafe extern fn(*mut FileRead, u32)>,
+        pub read: Thiscall<unsafe extern "C" fn(*mut FileRead, *mut u8, u32) -> u32>,
+        pub skip: Thiscall<unsafe extern "C" fn(*mut FileRead, u32)>,
         pub safety_padding: [usize; 0x20],
     }
 
     #[repr(C)]
     pub struct V_FilePeek {
         pub destroy: usize,
-        pub peek: Thiscall<unsafe extern fn(*mut FilePeek, *mut u8, u32) -> u32>,
+        pub peek: Thiscall<unsafe extern "C" fn(*mut FilePeek, *mut u8, u32) -> u32>,
         pub safety_padding: [usize; 0x20],
     }
 
     #[repr(C)]
     pub struct V_Function {
-        pub destroy_inner: Thiscall<unsafe extern fn(*mut Function, u32)>,
-        pub invoke: Thiscall<unsafe extern fn(*mut Function)>,
-        pub get_sizes: Thiscall<unsafe extern fn(*mut Function, *mut u32)>,
-        pub copy: Thiscall<unsafe extern fn(*mut Function, *mut Function)>,
-        pub copy2: Thiscall<unsafe extern fn(*mut Function, *mut Function)>,
+        pub destroy_inner: Thiscall<unsafe extern "C" fn(*mut Function, u32)>,
+        pub invoke: Thiscall<unsafe extern "C" fn(*mut Function)>,
+        pub get_sizes: Thiscall<unsafe extern "C" fn(*mut Function, *mut u32)>,
+        pub copy: Thiscall<unsafe extern "C" fn(*mut Function, *mut Function)>,
+        pub copy2: Thiscall<unsafe extern "C" fn(*mut Function, *mut Function)>,
         pub safety_padding: [usize; 0x20],
     }
 
@@ -570,10 +573,10 @@ pub mod scr {
     #[repr(C)]
     pub struct AllocatorVtable {
         pub delete: usize,
-        pub alloc: Thiscall<unsafe extern fn(*mut Allocator, usize, usize) -> *mut u8>,
+        pub alloc: Thiscall<unsafe extern "C" fn(*mut Allocator, usize, usize) -> *mut u8>,
         pub fn2: usize,
         pub fn3: usize,
-        pub free: Thiscall<unsafe extern fn(*mut Allocator, *mut u8)>,
+        pub free: Thiscall<unsafe extern "C" fn(*mut Allocator, *mut u8)>,
     }
 
     #[repr(C)]
@@ -660,18 +663,30 @@ trait BwValue {
 }
 
 impl<T> BwValue for *mut T {
-    fn from_usize(val: usize) -> Self { val as *mut T }
-    fn to_usize(val: Self) -> usize { val as usize }
+    fn from_usize(val: usize) -> Self {
+        val as *mut T
+    }
+    fn to_usize(val: Self) -> usize {
+        val as usize
+    }
 }
 
 impl BwValue for u8 {
-    fn from_usize(val: usize) -> Self { val as u8 }
-    fn to_usize(val: Self) -> usize { val as usize }
+    fn from_usize(val: usize) -> Self {
+        val as u8
+    }
+    fn to_usize(val: Self) -> usize {
+        val as usize
+    }
 }
 
 impl BwValue for u32 {
-    fn from_usize(val: usize) -> Self { val as u32 }
-    fn to_usize(val: Self) -> usize { val as usize }
+    fn from_usize(val: usize) -> Self {
+        val as u32
+    }
+    fn to_usize(val: Self) -> usize {
+        val as usize
+    }
 }
 
 impl<T: BwValue> Value<T> {
@@ -787,11 +802,10 @@ unsafe fn resolve_operand(op: scarf::Operand<'_>, custom: &[usize]) -> usize {
                 _ => panic!("Unimplemented resolve: {}", op),
             }
         }
-        OperandType::Custom(id) => {
-            custom.get(id as usize)
-                .copied()
-                .unwrap_or_else(|| panic!("Resolve needs custom id {}", id))
-        }
+        OperandType::Custom(id) => custom
+            .get(id as usize)
+            .copied()
+            .unwrap_or_else(|| panic!("Resolve needs custom id {}", id)),
         _ => panic!("Unimplemented resolve: {}", op),
     }
 }
@@ -821,9 +835,7 @@ impl GameInfoValueTrait for scr::GameInfoValueOld {
         Self {
             variant: 2,
             padding: 0,
-            data: scr::GameInfoValueUnion {
-                var2_3: val as u64,
-            }
+            data: scr::GameInfoValueUnion { var2_3: val as u64 },
         }
     }
 
@@ -833,9 +845,12 @@ impl GameInfoValueTrait for scr::GameInfoValueOld {
             padding: 0,
             data: scr::GameInfoValueUnion {
                 var1: mem::zeroed(),
-            }
+            },
         };
-        init_bw_string(&mut *(value.data.var1.as_mut_ptr() as *mut scr::BwString), val);
+        init_bw_string(
+            &mut *(value.data.var1.as_mut_ptr() as *mut scr::BwString),
+            val,
+        );
         value
     }
 }
@@ -844,9 +859,7 @@ impl GameInfoValueTrait for scr::GameInfoValue {
     unsafe fn from_u32(val: u32) -> Self {
         Self {
             variant: 2,
-            data: scr::GameInfoValueUnion {
-                var2_3: val as u64,
-            }
+            data: scr::GameInfoValueUnion { var2_3: val as u64 },
         }
     }
 
@@ -855,9 +868,12 @@ impl GameInfoValueTrait for scr::GameInfoValue {
             variant: 1,
             data: scr::GameInfoValueUnion {
                 var1: mem::zeroed(),
-            }
+            },
         };
-        init_bw_string(&mut *(value.data.var1.as_mut_ptr() as *mut scr::BwString), val);
+        init_bw_string(
+            &mut *(value.data.var1.as_mut_ptr() as *mut scr::BwString),
+            val,
+        );
         value
     }
 }
@@ -874,8 +890,8 @@ impl BwScr {
             let sections = vec![pe_image::get_pe_header(base), text, rdata, data, reloc];
             let base = scarf::VirtualAddress(base as u32);
             let mut binary = scarf::raw_bin(base, sections);
-            let relocs = scarf::analysis::find_relocs::<scarf::ExecutionStateX86<'_>>(&binary)
-                .unwrap();
+            let relocs =
+                scarf::analysis::find_relocs::<scarf::ExecutionStateX86<'_>>(&binary).unwrap();
             binary.set_relocs(relocs);
             binary
         };
@@ -887,10 +903,12 @@ impl BwScr {
         let game_data = analysis.game_data().ok_or("Game Data")?;
         let players = analysis.players().ok_or("Players")?;
         let chk_players = analysis.chk_init_players().ok_or("CHK players")?;
-        let init_chk_player_types =
-            analysis.original_chk_player_types().ok_or("Orig CHK player types")?;
+        let init_chk_player_types = analysis
+            .original_chk_player_types()
+            .ok_or("Orig CHK player types")?;
         let storm_players = analysis.storm_players().ok_or("Storm players")?;
-        let init_network_player_info = analysis.init_net_player()
+        let init_network_player_info = analysis
+            .init_net_player()
             .ok_or("init_network_player_info")?;
         let storm_player_flags = analysis.net_player_flags().ok_or("Storm player flags")?;
         let step_network = analysis.step_network().ok_or("step_network")?;
@@ -906,32 +924,41 @@ impl BwScr {
         let init_real_time_lighting = analysis.init_real_time_lighting();
         let sprites_inited = analysis.images_loaded().ok_or("Sprites inited")?;
         let init_game_network = analysis.init_game_network().ok_or("Init game network")?;
-        let process_lobby_commands = analysis.process_lobby_commands()
+        let process_lobby_commands = analysis
+            .process_lobby_commands()
             .ok_or("Process lobby commands")?;
         let send_command = analysis.send_command().ok_or("send_command")?;
         let local_player_id = analysis.local_player_id().ok_or("Local player id")?;
         let local_storm_id = analysis.local_storm_player_id().ok_or("Local storm id")?;
-        let local_unique_player_id = analysis.local_unique_player_id()
+        let local_unique_player_id = analysis
+            .local_unique_player_id()
             .ok_or("Local unique player id")?;
         let command_user = analysis.command_user().ok_or("Command user")?;
-        let unique_command_user = analysis.unique_command_user().ok_or("Unique command user")?;
+        let unique_command_user = analysis
+            .unique_command_user()
+            .ok_or("Unique command user")?;
         let storm_command_user = analysis.storm_command_user().ok_or("Storm command user")?;
+        let is_network_ready = analysis.network_ready().ok_or("Is network ready")?;
         let net_player_to_game = analysis.net_player_to_game().ok_or("Net player to game")?;
-        let net_player_to_unique = analysis.net_player_to_unique().ok_or("Net player to unique")?;
+        let net_player_to_unique = analysis
+            .net_player_to_unique()
+            .ok_or("Net player to unique")?;
         let choose_snp = analysis.choose_snp().ok_or("choose_snp")?;
         let local_player_name = analysis.local_player_name().ok_or("Local player name")?;
         let fonts = analysis.fonts().ok_or("Fonts")?;
-        let init_storm_networking = analysis.init_storm_networking()
+        let init_storm_networking = analysis
+            .init_storm_networking()
             .ok_or("init_storm_networking")?;
         let load_snp_list = analysis.load_snp_list().ok_or("load_snp_list")?;
         let start_udp_server = analysis.start_udp_server().ok_or("start_udp_server")?;
-        let font_cache_render_ascii = analysis.font_cache_render_ascii()
+        let font_cache_render_ascii = analysis
+            .font_cache_render_ascii()
             .ok_or("font_cache_render_ascii")?;
         let ttf_malloc = analysis.ttf_malloc().ok_or("ttf_malloc")?;
         let ttf_render_sdf = analysis.ttf_render_sdf().ok_or("ttf_render_sdf")?;
-        let lobby_create_callback_offset =
-            analysis.create_game_dialog_vtbl_on_multiplayer_create()
-                .ok_or("Lobby create callback vtable offset")?;
+        let lobby_create_callback_offset = analysis
+            .create_game_dialog_vtbl_on_multiplayer_create()
+            .ok_or("Lobby create callback vtable offset")?;
         let process_game_commands = analysis.process_commands().ok_or("process_game_commands")?;
         let game_command_lengths = analysis.command_lengths();
         let snet_recv_packets = analysis.snet_recv_packets().ok_or("snet_recv_packets")?;
@@ -939,38 +966,60 @@ impl BwScr {
         let step_io = analysis.step_io().ok_or("step_io")?;
         let init_game_data = analysis.init_game().ok_or("init_game_data")?;
         let init_unit_data = analysis.init_units().ok_or("init_unit_data")?;
-        let step_replay_commands = analysis.step_replay_commands().ok_or("step_replay_commands")?;
+        let step_replay_commands = analysis
+            .step_replay_commands()
+            .ok_or("step_replay_commands")?;
 
-        let prism_pixel_shaders = analysis.prism_pixel_shaders().ok_or("Prism pixel shaders")?;
+        let prism_pixel_shaders = analysis
+            .prism_pixel_shaders()
+            .ok_or("Prism pixel shaders")?;
         let prism_renderer_vtable = analysis.prism_renderer_vtable().ok_or("Prism renderer")?;
 
         let first_active_unit = analysis.first_active_unit().ok_or("first_active_unit")?;
         let client_selection = analysis.client_selection().ok_or("client_selection")?;
         let sprite_x = analysis.sprite_x().ok_or("sprite_x")?;
         let sprite_y = analysis.sprite_y().ok_or("sprite_y")?;
-        let sprites_by_y_tile = analysis.sprites_by_y_tile_start()
+        let sprites_by_y_tile = analysis
+            .sprites_by_y_tile_start()
             .ok_or("sprites_by_y_tile_start")?;
-        let sprites_by_y_tile_end = analysis.sprites_by_y_tile_end()
+        let sprites_by_y_tile_end = analysis
+            .sprites_by_y_tile_end()
             .ok_or("sprites_by_y_tile_end")?;
         let step_game = analysis.step_game().ok_or("step_game")?;
         let free_sprites = LinkedList {
-            start: Value::new(ctx, analysis.first_free_sprite().ok_or("first_free_sprite")?),
+            start: Value::new(
+                ctx,
+                analysis.first_free_sprite().ok_or("first_free_sprite")?,
+            ),
             end: Value::new(ctx, analysis.last_free_sprite().ok_or("last_free_sprite")?),
         };
         let active_fow_sprites = LinkedList {
             start: Value::new(
-               ctx,
-               analysis.first_active_fow_sprite().ok_or("first_active_fow_sprite")?,
+                ctx,
+                analysis
+                    .first_active_fow_sprite()
+                    .ok_or("first_active_fow_sprite")?,
             ),
             end: Value::new(
                 ctx,
-                analysis.last_active_fow_sprite().ok_or("last_active_fow_sprite")?,
+                analysis
+                    .last_active_fow_sprite()
+                    .ok_or("last_active_fow_sprite")?,
             ),
         };
         let free_fow_sprites = LinkedList {
-            start:
-                Value::new(ctx, analysis.first_free_fow_sprite().ok_or("first_free_fow_sprite")?),
-            end: Value::new(ctx, analysis.last_free_fow_sprite().ok_or("last_free_fow_sprite")?),
+            start: Value::new(
+                ctx,
+                analysis
+                    .first_free_fow_sprite()
+                    .ok_or("first_free_fow_sprite")?,
+            ),
+            end: Value::new(
+                ctx,
+                analysis
+                    .last_free_fow_sprite()
+                    .ok_or("last_free_fow_sprite")?,
+            ),
         };
         let free_images = LinkedList {
             start: Value::new(ctx, analysis.first_free_image().ok_or("first_free_image")?),
@@ -985,21 +1034,24 @@ impl BwScr {
         let replay_header = analysis.replay_header().ok_or("replay_header")?;
         let enable_rng = analysis.enable_rng().ok_or("Enable RNG")?;
         let replay_visions = analysis.replay_visions().ok_or("replay_visions")?;
-        let replay_show_entire_map = analysis.replay_show_entire_map()
+        let replay_show_entire_map = analysis
+            .replay_show_entire_map()
             .ok_or("replay_show_entire_map")?;
         let allocator = analysis.allocator().ok_or("allocator")?;
-        let allocated_order_count = analysis.allocated_order_count()
+        let allocated_order_count = analysis
+            .allocated_order_count()
             .ok_or("allocated_order_count")?;
         let order_limit = analysis.order_limit().ok_or("order_limit")?;
         let replay_bfix = analysis.replay_bfix();
         let replay_gcfg = analysis.replay_gcfg();
-        let prepare_issue_order = analysis.prepare_issue_order().ok_or("prepare_issue_order")?;
-        let create_game_multiplayer = analysis.create_game_multiplayer()
+        let prepare_issue_order = analysis
+            .prepare_issue_order()
+            .ok_or("prepare_issue_order")?;
+        let create_game_multiplayer = analysis
+            .create_game_multiplayer()
             .ok_or("create_game_multiplayer")?;
-        let spawn_dialog = analysis.spawn_dialog()
-            .ok_or("spawn_dialog")?;
-        let step_game_logic = analysis.step_game_logic()
-            .ok_or("step_game_logic")?;
+        let spawn_dialog = analysis.spawn_dialog().ok_or("spawn_dialog")?;
+        let step_game_logic = analysis.step_game_logic().ok_or("step_game_logic")?;
         let anti_troll = analysis.anti_troll();
         let units = analysis.units().ok_or("units")?;
 
@@ -1018,7 +1070,8 @@ impl BwScr {
             Some(s) => s == "1",
             None => false,
         };
-        let open_file = analysis.file_hook()
+        let open_file = analysis
+            .file_hook()
             .ok_or("open_file (Required due to SB_NO_HD)")?;
 
         let replay_minimap_patch = analysis.replay_minimap_unexplored_fog_patch();
@@ -1057,6 +1110,7 @@ impl BwScr {
             command_user: Value::new(ctx, command_user),
             unique_command_user: Value::new(ctx, unique_command_user),
             storm_command_user: Value::new(ctx, storm_command_user),
+            is_network_ready: Value::new(ctx, is_network_ready),
             net_player_to_game: Value::new(ctx, net_player_to_game),
             net_player_to_unique: Value::new(ctx, net_player_to_unique),
             local_player_name: Value::new(ctx, local_player_name),
@@ -1094,8 +1148,9 @@ impl BwScr {
             init_map_from_path: unsafe { mem::transmute(init_map_from_path.0) },
             join_game: unsafe { mem::transmute(join_game.0) },
             init_sprites: unsafe { mem::transmute(init_sprites.0) },
-            init_real_time_lighting:
-                unsafe { init_real_time_lighting.map(|x| mem::transmute(x.0)) },
+            init_real_time_lighting: unsafe {
+                init_real_time_lighting.map(|x| mem::transmute(x.0))
+            },
             init_game_network: unsafe { mem::transmute(init_game_network.0) },
             process_lobby_commands: unsafe { mem::transmute(process_lobby_commands.0) },
             send_command: unsafe { mem::transmute(send_command.0) },
@@ -1140,6 +1195,7 @@ impl BwScr {
             open_replay_files: Mutex::new(Vec::new()),
             is_carbot: AtomicBool::new(false),
             show_skins: AtomicBool::new(false),
+            visualize_network_stalls: AtomicBool::new(false),
             is_processing_game_commands: AtomicBool::new(false),
             dropped_players: AtomicU32::new(0),
             settings_file_path: RwLock::new(String::new()),
@@ -1155,35 +1211,43 @@ impl BwScr {
         let mut exe = active_patcher.patch_memory(image as *mut _, base, 0);
         let base = base as usize;
         let address = self.mainmenu_entry_hook.0 as usize - base;
-        exe.hook_closure_address(GameInit, move |_| {
-            debug!("SCR game init hook");
-            crate::process_init_hook();
-        }, address);
+        exe.hook_closure_address(
+            GameInit,
+            move |_| {
+                debug!("SCR game init hook");
+                crate::process_init_hook();
+            },
+            address,
+        );
         // This function being run while Windows loader lock is held, crate::initialize
         // cannot be called so hook the exe's entry point and call it from there.
         let address = pe_entry_point_offset(base as *const u8);
         let sdf_cache = self.sdf_cache.clone();
-        exe.hook_closure_address(EntryPoint, move |orig| {
-            // crate::initialize initializes the async runtime, letting us to start
-            // loading SDF cache.
-            crate::initialize();
-            let async_handle = crate::async_handle();
-            let mut sdf_cache = sdf_cache.clone().lock_owned();
-            async_handle.spawn(async move {
-                let exe_hash = pe_image::hash_pe_header(base as *const u8);
-                *sdf_cache = Some(SdfCache::init(exe_hash).await);
-            });
+        exe.hook_closure_address(
+            EntryPoint,
+            move |orig| {
+                // crate::initialize initializes the async runtime, letting us to start
+                // loading SDF cache.
+                crate::initialize();
+                let async_handle = crate::async_handle();
+                let mut sdf_cache = sdf_cache.clone().lock_owned();
+                async_handle.spawn(async move {
+                    let exe_hash = pe_image::hash_pe_header(base as *const u8);
+                    *sdf_cache = Some(SdfCache::init(exe_hash).await);
+                });
 
-            // This function is practically SCR's main(), so it won't return and any code
-            // below will not be ran.
-            orig();
-        }, address);
+                // This function is practically SCR's main(), so it won't return and any code
+                // below will not be ran.
+                orig();
+            },
+            address,
+        );
 
         let address = self.load_snp_list.0 as usize - base;
         exe.hook_closure_address(LoadSnpList, load_snp_list_hook, address);
         // The UDP server seems to be just Bonjour stuff, which we don't use.
         let address = self.start_udp_server.0 as usize - base;
-        exe.hook_closure_address(StartUdpServer, |_, _| { 1 }, address);
+        exe.hook_closure_address(StartUdpServer, |_, _| 1, address);
 
         let address = self.process_game_commands as usize - base;
         exe.hook_closure_address(
@@ -1224,16 +1288,21 @@ impl BwScr {
                         info!(
                             "Dropped players {:?} at some point between last check and before \
                             handling commands for game player {} net {}. Game frame 0x{:x}",
-                            players, command_user, self.storm_command_user.resolve(), frame,
+                            players,
+                            command_user,
+                            self.storm_command_user.resolve(),
+                            frame,
                         );
                     }
                 }
                 // There should be no way this is called recursively, but even still
                 // handle that case by keeping track of was_processing.
                 let was_processing = self.is_processing_game_commands.load(Ordering::Relaxed);
-                self.is_processing_game_commands.store(true, Ordering::Relaxed);
+                self.is_processing_game_commands
+                    .store(true, Ordering::Relaxed);
                 orig(slice.as_ptr(), slice.len(), are_recorded_replay_commands);
-                self.is_processing_game_commands.store(was_processing, Ordering::Relaxed);
+                self.is_processing_game_commands
+                    .store(was_processing, Ordering::Relaxed);
                 if !is_replay {
                     if !sync_seen {
                         if is_observer {
@@ -1266,7 +1335,10 @@ impl BwScr {
                         info!(
                             "Dropped players {:?} while handling commands for game player {} \
                             net {}, {:02x?}. Game frame 0x{:x}",
-                            players, command_user, self.storm_command_user.resolve(), slice,
+                            players,
+                            command_user,
+                            self.storm_command_user.resolve(),
+                            slice,
                             frame,
                         );
                     }
@@ -1300,40 +1372,57 @@ impl BwScr {
                 let slice = std::slice::from_raw_parts(data, len);
                 if let Some(&byte) = slice.get(0) {
                     if byte == 0x48 && player == 0 {
-                        self.lobby_game_init_command_seen.store(true, Ordering::Relaxed);
+                        self.lobby_game_init_command_seen
+                            .store(true, Ordering::Relaxed);
                     }
                 }
                 orig(data, len, player);
             },
-            address
+            address,
         );
         let address = self.step_game.0 as usize - base;
-        exe.hook_closure_address(StepGame, move |orig| {
-            orig();
-            game_thread::after_step_game();
-        }, address);
+        exe.hook_closure_address(
+            StepGame,
+            move |orig| {
+                orig();
+                game_thread::after_step_game();
+            },
+            address,
+        );
         let address = self.init_game_data.0 as usize - base;
-        exe.hook_closure_address(InitGameData, move |orig| {
-            let ok = log_time("init_game_data", || orig());
-            if ok == 0 {
-                error!("init_game_data failed");
-                return 0;
-            }
-            if let Some(anti_troll) = self.anti_troll {
-                (*anti_troll.resolve()).active = 0;
-            }
-            game_thread::after_init_game_data();
-            1
-        }, address);
+        exe.hook_closure_address(
+            InitGameData,
+            move |orig| {
+                let ok = log_time("init_game_data", || orig());
+                if ok == 0 {
+                    error!("init_game_data failed");
+                    return 0;
+                }
+                if let Some(anti_troll) = self.anti_troll {
+                    (*anti_troll.resolve()).active = 0;
+                }
+                game_thread::after_init_game_data();
+                1
+            },
+            address,
+        );
         let address = self.init_unit_data.0 as usize - base;
-        exe.hook_closure_address(InitUnitData, move |orig| {
-            game_thread::before_init_unit_data(self);
-            log_time("init_unit_data", || orig());
-        }, address);
+        exe.hook_closure_address(
+            InitUnitData,
+            move |orig| {
+                game_thread::before_init_unit_data(self);
+                log_time("init_unit_data", || orig());
+            },
+            address,
+        );
         let address = self.step_replay_commands.0 as usize - base;
-        exe.hook_closure_address(StepReplayCommands, |orig| {
-            game_thread::step_replay_commands(orig);
-        }, address);
+        exe.hook_closure_address(
+            StepReplayCommands,
+            |orig| {
+                game_thread::step_replay_commands(orig);
+            },
+            address,
+        );
 
         if let Some(ref patch) = self.replay_minimap_patch {
             let address = patch.address.0 as usize - base;
@@ -1341,9 +1430,11 @@ impl BwScr {
         }
 
         let address = self.open_file.0 as usize - base;
-        exe.hook_closure_address(OpenFile, move |a, b, c, orig| {
-            file_hook::open_file_hook(self, a, b, c, orig)
-        }, address);
+        exe.hook_closure_address(
+            OpenFile,
+            move |a, b, c, orig| file_hook::open_file_hook(self, a, b, c, orig),
+            address,
+        );
 
         let address = self.prepare_issue_order.0 as usize - base;
         exe.hook_closure_address(
@@ -1380,7 +1471,12 @@ impl BwScr {
                 let dynamic_turn_rate = a8;
                 info!(
                     "Called create_game_multiplayer, game params {} {} {} {} {} {} {}",
-                    unk0, turn_rate, is_bnet_matchmaking, unk9, old_game_limits, eud,
+                    unk0,
+                    turn_rate,
+                    is_bnet_matchmaking,
+                    unk9,
+                    old_game_limits,
+                    eud,
                     dynamic_turn_rate,
                 );
                 // This value is originally set to how many human player starting locations
@@ -1409,11 +1505,12 @@ impl BwScr {
         if let Some(funcs) = self.status_screen_funcs {
             let funcs = std::slice::from_raw_parts_mut(funcs.0 as *mut bw::UnitStatusFunc, 228);
             for func in funcs {
-                unsafe extern fn always_true() -> u32 {
+                unsafe extern "C" fn always_true() -> u32 {
                     1
                 }
-                unsafe extern fn update_status(status_screen: *mut bw::Dialog) {
+                unsafe extern "C" fn update_status(status_screen: *mut bw::Dialog) {
                     let bw = bw::get_bw();
+
                     let selected = match bw.client_selection()[0] {
                         Some(s) => s,
                         None => return,
@@ -1434,14 +1531,13 @@ impl BwScr {
 
         sdf_cache::apply_sdf_cache_hooks(&self, &mut exe, base);
 
-        let create_file_hook_closure = move |a, b, c, d, e, f, g, o| {
-            create_file_hook(&self, a, b, c, d, e, f, g, o)
-        };
-        let close_handle_hook = move |handle, orig: unsafe extern fn(_) -> _| {
+        let create_file_hook_closure =
+            move |a, b, c, d, e, f, g, o| create_file_hook(&self, a, b, c, d, e, f, g, o);
+        let close_handle_hook = move |handle, orig: unsafe extern "C" fn(_) -> _| {
             self.check_replay_file_finish(handle);
             orig(handle)
         };
-        let switch_to_thread_hook = move |_orig: unsafe extern fn() -> _| {
+        let switch_to_thread_hook = move |_orig: unsafe extern "C" fn() -> _| {
             // Quick hackfix to work around tokio inefficiency where it
             // seems to yield async thread unnecessarily, causing Windows
             // to prioritize the main render thread instead. This can be
@@ -1467,9 +1563,8 @@ impl BwScr {
         // so that we don't end up loading the DLL for no reason if a future
         // patch stops using this function.
         if windows::module_handle("xinput9_1_0").is_some() {
-            let xinput_get_state_hook = |_, _, _| {
-                winapi::shared::winerror::ERROR_DEVICE_NOT_CONNECTED
-            };
+            let xinput_get_state_hook =
+                |_, _, _| winapi::shared::winerror::ERROR_DEVICE_NOT_CONNECTED;
             hook_winapi_exports!(&mut active_patcher, "xinput9_1_0",
                 "XInputGetState", XInputGetState, xinput_get_state_hook;
             );
@@ -1485,57 +1580,78 @@ impl BwScr {
         let create_shader = *renderer_vtable.add(0x10);
         // Render hook
         let relative = *renderer_vtable.add(0x7) - base;
-        exe.hook_closure_address(Renderer_Render, move |renderer, commands, width, height, orig| {
-            if self.shader_replaces.has_changed() {
-                // Hot reload shaders.
-                // Unfortunately repatching the .exe to replace shader sets in BW
-                // memory is not currently possible.
-                // Will have to write over the previously allocated scr::PrismShader slice
-                // instead.
-                let create_shader: Thiscall<unsafe extern fn(
-                    *mut c_void, *mut scr::Shader, *const u8, *const u8, *const u8, *mut c_void,
-                ) -> usize> = Thiscall::wrap_thiscall(create_shader);
-                for (id, new_set) in self.shader_replaces.iter_shaders() {
-                    if let Some(shader_set) = self.prism_pixel_shaders.get(id as usize) {
-                        let shader_set = shader_set.0 as usize as *mut scr::PrismShaderSet;
-                        assert!((*shader_set).count as usize == new_set.len());
-                        let out = std::slice::from_raw_parts_mut(
-                            (*shader_set).shaders,
-                            (*shader_set).count as usize,
-                        );
-                        if out[0].data != new_set[0].data {
-                            out.copy_from_slice(new_set);
-                            let args = {
-                                let renderer_state = self.renderer_state.lock();
-                                renderer_state.shader_inputs.get(id as usize).copied()
-                            };
-                            if let Some(args) = args {
-                                create_shader.call6(
-                                    renderer,
-                                    args.shader,
-                                    null(),
-                                    args.vertex_path,
-                                    args.pixel_path,
-                                    null_mut(),
-                                );
+        exe.hook_closure_address(
+            Renderer_Render,
+            move |renderer, commands, width, height, orig| {
+                if self.shader_replaces.has_changed() {
+                    // Hot reload shaders.
+                    // Unfortunately repatching the .exe to replace shader sets in BW
+                    // memory is not currently possible.
+                    // Will have to write over the previously allocated scr::PrismShader slice
+                    // instead.
+                    let create_shader: Thiscall<
+                        unsafe extern "C" fn(
+                            *mut c_void,
+                            *mut scr::Shader,
+                            *const u8,
+                            *const u8,
+                            *const u8,
+                            *mut c_void,
+                        ) -> usize,
+                    > = Thiscall::wrap_thiscall(create_shader);
+                    for (id, new_set) in self.shader_replaces.iter_shaders() {
+                        if let Some(shader_set) = self.prism_pixel_shaders.get(id as usize) {
+                            let shader_set = shader_set.0 as usize as *mut scr::PrismShaderSet;
+                            assert_eq!((*shader_set).count as usize, new_set.len());
+                            let out = std::slice::from_raw_parts_mut(
+                                (*shader_set).shaders,
+                                (*shader_set).count as usize,
+                            );
+                            if out[0].data != new_set[0].data {
+                                out.copy_from_slice(new_set);
+                                let args = {
+                                    let renderer_state = self.renderer_state.lock();
+                                    renderer_state.shader_inputs.get(id as usize).copied()
+                                };
+                                if let Some(args) = args {
+                                    create_shader.call6(
+                                        renderer,
+                                        args.shader,
+                                        null(),
+                                        args.vertex_path,
+                                        args.pixel_path,
+                                        null_mut(),
+                                    );
+                                }
                             }
                         }
                     }
                 }
-            }
-            // Leave unexplored area in UMS maps black
-            let use_new_mask = if crate::game_thread::is_ums() {
-                0.0
-            } else {
-                1.0
-            };
-            for cmd in &mut (*commands).commands {
-                if cmd.shader_id == SHADER_ID_MASK {
-                    cmd.shader_constants[0] = use_new_mask;
+
+                let show_network_stalled = if self.visualize_network_stalls.load(Ordering::Relaxed)
+                    && self.is_network_ready.resolve() == 0
+                {
+                    1.0
+                } else {
+                    0.0
+                };
+
+                // Leave unexplored area in UMS maps black
+                let use_new_mask = if crate::game_thread::is_ums() {
+                    0.0
+                } else {
+                    1.0
+                };
+                for cmd in &mut (*commands).commands {
+                    if cmd.shader_id == SHADER_ID_MASK {
+                        cmd.shader_constants[0] = use_new_mask;
+                        cmd.shader_constants[1] = show_network_stalled;
+                    }
                 }
-            }
-            orig(renderer, commands, width, height)
-        }, relative);
+                orig(renderer, commands, width, height)
+            },
+            relative,
+        );
 
         // CreateShader hook
         let relative = create_shader as usize - base;
@@ -1578,8 +1694,13 @@ impl BwScr {
             let player = players.add(i);
             let storm_id = (*player).storm_id;
 
-            debug!("Slot {} has id {}, player_type {}, storm_id {}",
-                i, (*player).id, (*player).player_type, (*player).storm_id);
+            debug!(
+                "Slot {} has id {}, player_type {}, storm_id {}",
+                i,
+                (*player).id,
+                (*player).player_type,
+                (*player).storm_id
+            );
             if (*player).player_type == bw::PLAYER_TYPE_HUMAN {
                 let game_id = match i < 12 {
                     true => i,
@@ -1822,12 +1943,19 @@ impl BwScr {
             let mut value = T::from_string(value_str);
             params.insert(&mut string, &mut value);
         };
-        let host_name_length = input_game_info.game_creator
-            .iter().position(|&x| x == 0)
+        let host_name_length = input_game_info
+            .game_creator
+            .iter()
+            .position(|&x| x == 0)
             .unwrap_or(input_game_info.game_creator.len());
-        add_param_string(b"host_name", &input_game_info.game_creator[..host_name_length]);
-        let map_name_length = input_game_info.map_name
-            .iter().position(|&x| x == 0)
+        add_param_string(
+            b"host_name",
+            &input_game_info.game_creator[..host_name_length],
+        );
+        let map_name_length = input_game_info
+            .map_name
+            .iter()
+            .position(|&x| x == 0)
             .unwrap_or(input_game_info.map_name.len());
         add_param_string(b"map_name", &input_game_info.map_name[..map_name_length]);
         params
@@ -1836,11 +1964,17 @@ impl BwScr {
     unsafe fn check_player_drops(&self) -> Option<Vec<u8>> {
         let mut result = None;
         let mut dropped_players = self.dropped_players.load(Ordering::Relaxed);
-        for (i, _) in self.storm_player_flags().iter().enumerate().filter(|x| *x.1 == 0x1_0000) {
+        for (i, _) in self
+            .storm_player_flags()
+            .iter()
+            .enumerate()
+            .filter(|x| *x.1 == 0x1_0000)
+        {
             if dropped_players & (1 << i) == 0 {
                 dropped_players |= 1 << i;
                 result.get_or_insert_with(|| Vec::new()).push(i as u8);
-                self.dropped_players.store(dropped_players, Ordering::Relaxed);
+                self.dropped_players
+                    .store(dropped_players, Ordering::Relaxed);
             }
         }
         result
@@ -1864,20 +1998,32 @@ impl BwScr {
 
 impl bw::Bw for BwScr {
     fn set_settings(&self, settings: &Settings) {
-        let is_carbot = settings.scr.get("selectedSkin")
+        let is_carbot = settings
+            .scr
+            .get("selectedSkin")
             .and_then(|x| x.as_str())
             .unwrap_or_else(|| {
                 warn!("settings.scr.selectedSkin was not set");
                 ""
-            }) == "carbot";
-        let show_skins = settings.scr.get("showBonusSkins")
+            })
+            == "carbot";
+        let show_skins = settings
+            .scr
+            .get("showBonusSkins")
             .and_then(|x| x.as_bool())
             .unwrap_or_else(|| {
                 warn!("settings.scr.showBonusSkins was not set");
                 true
             });
+        let visualize_network_stalls = settings
+            .local
+            .get("visualizeNetworkStalls")
+            .and_then(|x| x.as_bool())
+            .unwrap_or_else(|| false);
         self.is_carbot.store(is_carbot, Ordering::Relaxed);
         self.show_skins.store(show_skins, Ordering::Relaxed);
+        self.visualize_network_stalls
+            .store(visualize_network_stalls, Ordering::Relaxed);
 
         let mut settings_file_path = self.settings_file_path.write();
         settings_file_path.clear();
@@ -2032,7 +2178,8 @@ impl bw::Bw for BwScr {
         init_bw_string(&mut entry.path_directory, &map_dir);
         init_bw_string(&mut entry.path_filename, map_file.as_bytes());
         entry.unk_linked_list[1] = entry.unk_linked_list.as_ptr() as usize;
-        let is_replay = map_path.extension()
+        let is_replay = map_path
+            .extension()
             .and_then(|ext| ext.to_str())
             .filter(|&ext| ext == "rep")
             .is_some();
@@ -2089,9 +2236,11 @@ impl bw::Bw for BwScr {
             // now so it is fine. We just leak the few strings that we have.
             // Should remove this branch at some point anyway, once we're sure we don't need
             // to support 9411.
-            mem::transmute(
-                self.build_join_game_params::<scr::GameInfoValueOld>(input_game_info, is_eud, turn_rate)
-            )
+            mem::transmute(self.build_join_game_params::<scr::GameInfoValueOld>(
+                input_game_info,
+                is_eud,
+                turn_rate,
+            ))
         };
 
         let mut game_info = scr::JoinableGameInfo {
@@ -2120,7 +2269,9 @@ impl bw::Bw for BwScr {
         let mut password: scr::BwString = mem::zeroed();
         init_bw_string(&mut password, b"");
         self.storm_set_last_error(0);
-        let error = log_time("join_game", || (self.join_game)(&mut game_info, &mut password, 0));
+        let error = log_time("join_game", || {
+            (self.join_game)(&mut game_info, &mut password, 0)
+        });
         if error != 0 {
             // Try storm error first, if it's 0 then use the returned error.
             let storm_error = self.storm_last_error();
@@ -2172,7 +2323,9 @@ impl bw::Bw for BwScr {
         self.game.resolve()
     }
 
-    unsafe fn game_data(&self) -> *mut bw::JoinableGameInfo { self.game_data.resolve() }
+    unsafe fn game_data(&self) -> *mut bw::JoinableGameInfo {
+        self.game_data.resolve()
+    }
 
     unsafe fn players(&self) -> *mut bw::Player {
         self.players.resolve()
@@ -2193,12 +2346,11 @@ impl bw::Bw for BwScr {
     unsafe fn process_replay_commands(&self, commands: &[u8], storm_player: StormPlayerId) {
         let players = self.players();
         let game = self.game();
-        let unique_player = match (0..8)
-            .position(|i| (*players.add(i)).storm_id as u8 == storm_player.0)
-        {
-            Some(s) => s as u8,
-            None => return,
-        };
+        let unique_player =
+            match (0..8).position(|i| (*players.add(i)).storm_id as u8 == storm_player.0) {
+                Some(s) => s as u8,
+                None => return,
+            };
         let game_player = if game_thread::is_team_game() {
             // Teams start from 1
             let team = (*players.add(unique_player as usize)).team;
@@ -2211,7 +2363,8 @@ impl bw::Bw for BwScr {
         self.enable_rng.write(1);
         (self.process_game_commands)(commands.as_ptr(), commands.len(), 1);
         self.command_user.write(self.local_player_id.resolve());
-        self.unique_command_user.write(self.local_unique_player_id.resolve());
+        self.unique_command_user
+            .write(self.local_unique_player_id.resolve());
         self.enable_rng.write(0);
     }
 
@@ -2269,8 +2422,9 @@ impl bw::Bw for BwScr {
     unsafe fn storm_players(&self) -> Vec<bw::StormPlayer> {
         let ptr = self.storm_players.resolve();
         let scr_players = std::slice::from_raw_parts(ptr, NET_PLAYER_COUNT);
-        scr_players.iter().map(|player| {
-            bw::StormPlayer {
+        scr_players
+            .iter()
+            .map(|player| bw::StormPlayer {
                 state: player.state,
                 unk1: player.unk1,
                 flags: player.flags,
@@ -2282,8 +2436,8 @@ impl bw::Bw for BwScr {
                     name
                 },
                 padding: 0,
-            }
-        }).collect()
+            })
+            .collect()
     }
 
     unsafe fn storm_player_flags(&self) -> Vec<u32> {
@@ -2310,6 +2464,10 @@ impl bw::Bw for BwScr {
             func(dialog);
         }
     }
+
+    unsafe fn is_network_ready(&self) -> bool {
+        self.is_network_ready.resolve() == 1
+    }
 }
 
 fn init_bw_dat(analysis: &mut scr_analysis::Analysis<'_>) -> Result<(), &'static str> {
@@ -2333,8 +2491,12 @@ fn init_bw_dat(analysis: &mut scr_analysis::Analysis<'_>) -> Result<(), &'static
 
     let units = analysis.dat_table(DatType::Units).ok_or("units.dat")?;
     let weapons = analysis.dat_table(DatType::Weapons).ok_or("weapons.dat")?;
-    let upgrades = analysis.dat_table(DatType::Upgrades).ok_or("upgrades.dat")?;
-    let techdata = analysis.dat_table(DatType::TechData).ok_or("techdata.dat")?;
+    let upgrades = analysis
+        .dat_table(DatType::Upgrades)
+        .ok_or("upgrades.dat")?;
+    let techdata = analysis
+        .dat_table(DatType::TechData)
+        .ok_or("techdata.dat")?;
     let orders = analysis.dat_table(DatType::Orders).ok_or("orders.dat")?;
     let mut out = Vec::with_capacity(0x36 + 0x18 + 0xc + 0xb + 0x13);
     unsafe {
@@ -2359,11 +2521,11 @@ fn init_bw_dat(analysis: &mut scr_analysis::Analysis<'_>) -> Result<(), &'static
     Ok(())
 }
 
-unsafe extern fn bw_malloc(size: usize) -> *mut u8 {
+unsafe extern "C" fn bw_malloc(size: usize) -> *mut u8 {
     bw::get_bw().alloc(size)
 }
 
-unsafe extern fn bw_free(ptr: *mut u8) {
+unsafe extern "C" fn bw_free(ptr: *mut u8) {
     bw::get_bw().free(ptr)
 }
 
@@ -2380,7 +2542,7 @@ fn create_event_hook(
     init_state: u32,
     manual_reset: u32,
     name: *const u16,
-    orig: unsafe extern fn(*mut c_void, u32, u32, *const u16) -> *mut c_void,
+    orig: unsafe extern "C" fn(*mut c_void, u32, u32, *const u16) -> *mut c_void,
 ) -> *mut c_void {
     unsafe {
         if !name.is_null() {
@@ -2405,7 +2567,15 @@ fn create_file_hook(
     creation_disposition: u32,
     flags: u32,
     template: *mut c_void,
-    orig: unsafe extern fn(*const u16, u32, u32, *mut c_void, u32, u32, *mut c_void) -> *mut c_void,
+    orig: unsafe extern "C" fn(
+        *const u16,
+        u32,
+        u32,
+        *mut c_void,
+        u32,
+        u32,
+        *mut c_void,
+    ) -> *mut c_void,
 ) -> *mut c_void {
     use winapi::um::fileapi::{CREATE_ALWAYS, CREATE_NEW};
     use winapi::um::handleapi::INVALID_HANDLE_VALUE;
@@ -2425,8 +2595,7 @@ fn create_file_hook(
             // accept any file ending with .rep and check for magic bytes when at CloseHandle
             // hook.
             if creation_disposition == CREATE_ALWAYS {
-                let ext = Some(())
-                    .and_then(|()| filename.get(filename.len().checked_sub(4)?..));
+                let ext = Some(()).and_then(|()| filename.get(filename.len().checked_sub(4)?..));
                 if let Some(ext) = ext {
                     is_replay = ascii_compare_u16_u8_casei(ext, b".rep");
                     if is_replay {
@@ -2446,8 +2615,15 @@ fn create_file_hook(
                         error!("Replacement settings file path not set")
                     } else {
                         debug!("Mapping CSettings.json CreateFile call to {}", replacement);
-                        return orig(windows::winapi_str(&*replacement).as_ptr(), access, share,
-                                    security, creation_disposition, flags, template);
+                        return orig(
+                            windows::winapi_str(&*replacement).as_ptr(),
+                            access,
+                            share,
+                            security,
+                            creation_disposition,
+                            flags,
+                            template,
+                        );
                     }
                 }
 
@@ -2465,8 +2641,15 @@ fn create_file_hook(
                 }
             }
         }
-        let handle =
-            orig(filename, access, share, security, creation_disposition, flags, template);
+        let handle = orig(
+            filename,
+            access,
+            share,
+            security,
+            creation_disposition,
+            flags,
+            template,
+        );
         if handle != INVALID_HANDLE_VALUE && is_replay {
             bw.register_possible_replay_handle(handle);
         }
@@ -2475,8 +2658,8 @@ fn create_file_hook(
 }
 
 fn check_filename(filename: &[u16], compare: &[u8]) -> bool {
-    let ending = Some(())
-        .and_then(|()| filename.get(filename.len().checked_sub(compare.len() + 1)?..));
+    let ending =
+        Some(()).and_then(|()| filename.get(filename.len().checked_sub(compare.len() + 1)?..));
     if let Some(ending) = ending {
         if ending[0] == b'\\' as u16 || ending[0] == b'/' as u16 {
             if ascii_compare_u16_u8_casei(&ending[1..], compare) {
@@ -2491,7 +2674,7 @@ fn copy_file_hook(
     src_name: *const u16,
     dest_name: *const u16,
     fail_if_exist: u32,
-    orig: unsafe extern fn(*const u16, *const u16, u32) -> u32,
+    orig: unsafe extern "C" fn(*const u16, *const u16, u32) -> u32,
 ) -> u32 {
     unsafe {
         if src_name.is_null() || dest_name.is_null() {
@@ -2500,7 +2683,9 @@ fn copy_file_hook(
         let compare = b"lastreplay.rep";
         let src_name_len = (0..).find(|&i| *src_name.add(i) == 0).unwrap();
         let src_name_slice = std::slice::from_raw_parts(src_name, src_name_len);
-        let is_copying_lastreplay = src_name_slice.len().checked_sub(compare.len())
+        let is_copying_lastreplay = src_name_slice
+            .len()
+            .checked_sub(compare.len())
             .and_then(|suffix_len| src_name_slice.get(suffix_len..))
             .filter(|suffix| ascii_compare_u16_u8_casei(suffix, compare))
             .is_some();
@@ -2549,7 +2734,8 @@ fn copy_file_hook(
                 // ???
                 error!(
                     "Couldn't find suitable filename for {} / {}",
-                    path.display(), filename_base,
+                    path.display(),
+                    filename_base,
                 );
                 // Return success anyway.
                 return 1;
@@ -2589,7 +2775,7 @@ fn ascii_compare_u16_u8(a: &[u16], b: &[u8]) -> bool {
 fn load_snp_list_hook(
     callbacks: *mut scr::SnpLoadFuncs,
     count: u32,
-    orig: unsafe extern fn(*mut scr::SnpLoadFuncs, u32) -> u32,
+    orig: unsafe extern "C" fn(*mut scr::SnpLoadFuncs, u32) -> u32,
 ) -> u32 {
     let mut funcs = scr::SnpLoadFuncs {
         identify: snp_load_identify,
@@ -2670,10 +2856,7 @@ unsafe extern "stdcall" fn snp_initialize(
 static SCR_SNP_INITIALIZE: AtomicUsize = AtomicUsize::new(0);
 static SNP_INITIALIZED: AtomicBool = AtomicBool::new(false);
 
-unsafe extern "stdcall" fn snp_load_bind(
-    snp_index: u32,
-    funcs: *mut *const SnpFunctions,
-) -> u32 {
+unsafe extern "stdcall" fn snp_load_bind(snp_index: u32, funcs: *mut *const SnpFunctions) -> u32 {
     if snp_index > 0 {
         return 0;
     }
@@ -2762,7 +2945,7 @@ mod hooks {
 static READ_FS: [u8; 8] = [0x8b, 0x44, 0xe4, 0x04, 0x64, 0x8b, 0x00, 0xc3];
 
 unsafe fn read_fs(offset: usize) -> usize {
-    let func: extern fn(usize) -> usize = mem::transmute(READ_FS.as_ptr());
+    let func: extern "C" fn(usize) -> usize = mem::transmute(READ_FS.as_ptr());
     func(offset)
 }
 
@@ -2811,7 +2994,7 @@ fn log_time<F: FnOnce() -> R, R>(name: &str, func: F) -> R {
 unsafe fn step_game_logic_hook(
     bw: &'static BwScr,
     param: usize, // Always 0, nonzero would affect replay playback somehow
-    orig: unsafe extern fn(usize) -> usize,
+    orig: unsafe extern "C" fn(usize) -> usize,
 ) -> usize {
     // Observer / replay UI in SC:R has a bug with toggling player visions:
     // In order to immediately update un/detected sprite to match what players see,

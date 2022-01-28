@@ -159,14 +159,11 @@ export class LocalSettings extends Settings<LocalSettingsData> {
       winHeight: -1,
       winMaximized: false,
       masterVolume: 50,
-      // Game window pos/size settings are only used in v1.16.1 for now; use it in SC:R eventually
+      // Game window pos/size settings are not used yet (but are saved), will use it soon
       gameWinX: -1,
       gameWinY: -1,
       gameWinWidth: -1,
       gameWinHeight: -1,
-      v1161displayMode: 0,
-      v1161mouseSensitivity: 0,
-      v1161maintainAspectRatio: true,
     }
   }
 
@@ -204,9 +201,6 @@ export class LocalSettings extends Settings<LocalSettingsData> {
       log.verbose('Found settings version 5, migrating to version 6')
       newSettings.gameWinWidth = (settings as any).width
       newSettings.gameWinHeight = (settings as any).height
-      newSettings.v1161displayMode = (settings as any).displayMode
-      newSettings.v1161maintainAspectRatio = (settings as any).maintainAspectRatio
-      newSettings.v1161mouseSensitivity = (settings as any).mouseSensitivity
 
       delete (newSettings as any).width
       delete (newSettings as any).height

@@ -1,13 +1,10 @@
 //! SC:R-specific code that affects game rules. Bugfixes, improvements, other things that will
 //! affect gameplay and very likely require handling replay compatibility.
-//!
-//! Some similar changes that work same on 1.16.1 are under `crate::game_thread` module. Though
-//! arguably it would be clearer to refactor these under `crate::bw::game` or such instead.
 
 use std::ptr::{self, null_mut};
-use std::sync::atomic::{Ordering};
+use std::sync::atomic::Ordering;
 
-use bw_dat::{Unit, OrderId, order};
+use bw_dat::{order, OrderId, Unit};
 
 use crate::bw;
 use crate::game_thread;
@@ -38,8 +35,7 @@ pub unsafe fn prepare_issue_order(
     let mut allocated_order_count = bw.allocated_order_count.resolve();
     while let Some(last_queued) = queue.last() {
         let last_queued_id = OrderId((*last_queued).order_id);
-        let delete = last_queued_id == order ||
-            (clear_queue && last_queued_id.interruptable());
+        let delete = last_queued_id == order || (clear_queue && last_queued_id.interruptable());
         if !delete {
             break;
         }
@@ -75,11 +71,7 @@ pub unsafe fn prepare_issue_order(
     }
 }
 
-unsafe fn can_allocate_order(
-    bw: &'static BwScr,
-    unit: Unit,
-    new_order: OrderId,
-) -> bool {
+unsafe fn can_allocate_order(bw: &'static BwScr, unit: Unit, new_order: OrderId) -> bool {
     // There are several different compatibility rules depending on replay version:
     // Also the non-SB rules erroneously check unit's current order instead of new order,
     // causing comparisions against orders be more pointless.
@@ -109,8 +101,10 @@ unsafe fn can_allocate_order(
     //
     // (*) Multiple separate values in replay can be used to trigger this Newer SC:R build rule.
 
-    let sbat_rules = !game_thread::is_replay() ||
-        game_thread::sbat_replay_data().map(|x| x.game_logic_version >= 1).unwrap_or(false);
+    let sbat_rules = !game_thread::is_replay()
+        || game_thread::sbat_replay_data()
+            .map(|x| x.game_logic_version >= 1)
+            .unwrap_or(false);
     let order_supply_low = order_supply_low(bw);
     if sbat_rules {
         if new_order == order::DIE {
@@ -132,22 +126,22 @@ unsafe fn can_allocate_order(
     if let (Some(bfix), Some(gcfg)) = (bw.replay_bfix, bw.replay_gcfg) {
         let replay_bfix = bfix.resolve();
         let replay_gcfg = gcfg.resolve();
-        let newer_scr_rules = (*replay_bfix).flags & 0x4 != 0 ||
-            (*replay_gcfg).unk10 != 5 ||
-            (*replay_gcfg).build > 8153;
-        let blizz_flying_scv_fix  = (*replay_gcfg).build >= 9713;
+        let newer_scr_rules = (*replay_bfix).flags & 0x4 != 0
+            || (*replay_gcfg).unk10 != 5
+            || (*replay_gcfg).build > 8153;
+        let blizz_flying_scv_fix = (*replay_gcfg).build >= 9713;
 
         let highlight_orders = (**unit).highlight_order_count;
-        if blizz_flying_scv_fix &&
-            highlight_orders >= 8 &&
-            unit.order() == order::CONSTRUCTING_BUILDING &&
-            new_order == order::RESET_COLLISION
+        if blizz_flying_scv_fix
+            && highlight_orders >= 8
+            && unit.order() == order::CONSTRUCTING_BUILDING
+            && new_order == order::RESET_COLLISION
         {
             return true;
         }
         if newer_scr_rules {
-            return (!order_supply_low && highlight_orders < 8) ||
-                matches!(unit.order(), order::DIE | order::RESET_COLLISION_HARVESTER);
+            return (!order_supply_low && highlight_orders < 8)
+                || matches!(unit.order(), order::DIE | order::RESET_COLLISION_HARVESTER);
         }
         if (*replay_gcfg).build == 8153 {
             return (!order_supply_low && highlight_orders < 8) || unit.order() == order::DIE;

@@ -195,6 +195,7 @@ export default function SettingsDialog({ dialogRef, onCancel }: CommonDialogProp
     case SettingsTab.Gameplay:
       contents = (
         <GameplaySettings
+          localSettings={tempLocalSettings}
           scrSettings={tempScrSettings}
           formRef={formRef}
           onChange={onSettingsChange}

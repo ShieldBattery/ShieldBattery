@@ -84,6 +84,9 @@ pub trait Bw: Sync + Send {
     unsafe fn create_fow_sprite(&self, unit: unit::Unit);
     unsafe fn sprite_position(&self, sprite: *mut c_void) -> Point;
     unsafe fn client_selection(&self) -> [Option<unit::Unit>; 12];
+    /// Returns whether or not the network is ready to proceed to the next turn (that is, all
+    /// player's turns have been received). False indicates that we are currently in a stall.
+    unsafe fn is_network_ready(&self) -> bool;
 
     /// Note: Size is unspecified, but will not change between calls.
     /// (Remastered has 12 storm players)
@@ -269,11 +272,21 @@ pub struct SnpFunctions {
     ) -> i32,
     pub unk0c: usize,
     pub receive_packet:
-    unsafe extern "stdcall" fn(*mut *mut sockaddr, *mut *const u8, *mut u32) -> i32,
+        unsafe extern "stdcall" fn(*mut *mut sockaddr, *mut *const u8, *mut u32) -> i32,
     pub send_packet: unsafe extern "stdcall" fn(*const sockaddr, *const u8, u32) -> i32,
     pub unk18: usize,
-    pub broadcast_game: unsafe extern "stdcall"
-    fn(*const u8, *const u8, *const u8, i32, u32, i32, i32, i32, *mut c_void, u32) -> i32,
+    pub broadcast_game: unsafe extern "stdcall" fn(
+        *const u8,
+        *const u8,
+        *const u8,
+        i32,
+        u32,
+        i32,
+        i32,
+        i32,
+        *mut c_void,
+        u32,
+    ) -> i32,
     pub stop_broadcasting_game: unsafe extern "stdcall" fn() -> i32,
     pub unk24: usize,
     pub unk28: usize,
@@ -283,7 +296,6 @@ pub struct SnpFunctions {
     pub start_listening_for_games: Option<unsafe extern "stdcall" fn() -> i32>,
     pub future_padding: [usize; 0x10],
 }
-
 
 #[repr(C)]
 pub struct SnpListEntry {
@@ -405,8 +417,8 @@ pub struct ReplayHeader {
 #[repr(C)]
 pub struct UnitStatusFunc {
     pub index: u32,
-    pub has_changed: unsafe extern fn() -> u32,
-    pub update_status: unsafe extern fn(*mut Dialog),
+    pub has_changed: unsafe extern "C" fn() -> u32,
+    pub update_status: unsafe extern "C" fn(*mut Dialog),
 }
 
 unsafe impl Send for SnpFunctions {}

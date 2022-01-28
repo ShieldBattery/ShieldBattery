@@ -18,9 +18,7 @@ export class LocalSettings
     masterVolume: 0,
     gameWinWidth: -1,
     gameWinHeight: -1,
-    v1161displayMode: -1,
-    v1161mouseSensitivity: -1,
-    v1161maintainAspectRatio: false,
+    visualizeNetworkStalls: false,
   })
   implements Readonly<Omit<LocalSettingsData, keyof ShieldBatteryAppSettingsData>> {}
 

@@ -9,10 +9,10 @@
 //! whatever the main crate's BwScr::new wants.
 
 pub use samase_scarf::scarf;
-pub use samase_scarf::{DatType, DatTablePtr};
+pub use samase_scarf::{DatTablePtr, DatType};
 
-use scarf::{BinaryFile, ExecutionStateX86, MemAccessSize, Operand, OperandCtx, VirtualAddress};
 use scarf::exec_state::VirtualAddress as VirtualAddressTrait;
+use scarf::{BinaryFile, ExecutionStateX86, MemAccessSize, Operand, OperandCtx, VirtualAddress};
 
 pub type Patch = samase_scarf::Patch<VirtualAddress>;
 
@@ -23,16 +23,16 @@ pub struct Analysis<'e>(
 );
 
 impl<'e> Analysis<'e> {
-    pub fn new(
-        binary: &'e BinaryFile<VirtualAddress>,
-        ctx: OperandCtx<'e>,
-    ) -> Analysis<'e> {
+    pub fn new(binary: &'e BinaryFile<VirtualAddress>, ctx: OperandCtx<'e>) -> Analysis<'e> {
         Analysis(samase_scarf::Analysis::new(binary, ctx), binary, ctx)
     }
 
     fn eud(&mut self, address: u32) -> Option<Operand<'e>> {
         let euds = self.0.eud_table();
-        let index = euds.euds.binary_search_by_key(&address, |x| x.address).ok()?;
+        let index = euds
+            .euds
+            .binary_search_by_key(&address, |x| x.address)
+            .ok()?;
         Some(euds.euds.get(index)?.operand)
     }
 
@@ -81,7 +81,9 @@ impl<'e> Analysis<'e> {
         self.0.is_multiplayer()
     }
 
-    pub fn is_paused(&mut self) -> Option<Operand<'e>> { self.0.is_paused() }
+    pub fn is_paused(&mut self) -> Option<Operand<'e>> {
+        self.0.is_paused()
+    }
 
     pub fn select_map_entry(&mut self) -> Option<VirtualAddress> {
         self.0.select_map_entry()
@@ -204,7 +206,9 @@ impl<'e> Analysis<'e> {
             // There is only 1 matching vtable for now, hopefully it won't change
             .filter(|x| x.len() == 1)
             .map(|x| x[0])?;
-        self.1.read_address(scheduler_vtable + VirtualAddress::SIZE * 3).ok()
+        self.1
+            .read_address(scheduler_vtable + VirtualAddress::SIZE * 3)
+            .ok()
     }
 
     pub fn init_game(&mut self) -> Option<VirtualAddress> {
@@ -223,7 +227,8 @@ impl<'e> Analysis<'e> {
         let binary = self.1;
         let base = binary.base;
         let pe_start = binary.read_u32(base + 0x3c).ok()?;
-        let tls_offset = binary.read_u32(base + pe_start + 0xc0)
+        let tls_offset = binary
+            .read_u32(base + pe_start + 0xc0)
             .ok()
             .filter(|&offset| offset != 0)?;
         let tls_address = base + tls_offset;
@@ -234,8 +239,7 @@ impl<'e> Analysis<'e> {
     pub fn prism_pixel_shaders(&mut self) -> Option<Vec<VirtualAddress>> {
         // As of this writing, there are 0x2b pixel shaders in SC:R;
         // assume that finding any less is an error.
-        Some((*self.0.prism_pixel_shaders()).clone())
-            .filter(|x| x.len() >= 0x2b)
+        Some((*self.0.prism_pixel_shaders()).clone()).filter(|x| x.len() >= 0x2b)
     }
 
     pub fn prism_renderer_vtable(&mut self) -> Option<VirtualAddress> {
@@ -301,7 +305,8 @@ impl<'e> Analysis<'e> {
     }
 
     pub fn replay_minimap_unexplored_fog_patch(&mut self) -> Option<Patch> {
-        self.0.replay_minimap_unexplored_fog_patch()
+        self.0
+            .replay_minimap_unexplored_fog_patch()
             .map(|x| (*x).clone())
     }
 
@@ -346,7 +351,8 @@ impl<'e> Analysis<'e> {
     }
 
     pub fn status_screen_funcs(&mut self) -> Option<VirtualAddress> {
-        self.0.firegraft_addresses()
+        self.0
+            .firegraft_addresses()
             .unit_status_funcs
             .get(0)
             .copied()
@@ -366,7 +372,9 @@ impl<'e> Analysis<'e> {
 
     pub fn order_limit(&mut self) -> Option<Operand<'e>> {
         let limits = self.0.limits();
-        limits.arrays.get(5)
+        limits
+            .arrays
+            .get(5)
             .filter(|x| x.len() == 1)
             .and_then(|x| x.get(0))
             .filter(|x| x.1 == 0 && x.2 == 0)
@@ -431,8 +439,13 @@ impl<'e> Analysis<'e> {
         // (So the analysis works with older versions which had hardcoded unit limits
         // and as such had just a global array instead of vector),
         // so extract `x` from samase_scarf result `Mem32[x]` and assume that is correct.
-        self.0.units()
+        self.0
+            .units()
             .and_then(|x| x.if_memory())
             .map(|mem| mem.address_op(self.2))
+    }
+
+    pub fn network_ready(&mut self) -> Option<Operand<'e>> {
+        self.0.network_ready()
     }
 }

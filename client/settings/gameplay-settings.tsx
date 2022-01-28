@@ -8,6 +8,7 @@ import {
   getIngameSkinName,
   IngameSkin,
 } from '../../common/blizz-settings'
+import { DEV_INDICATOR } from '../../common/flags'
 import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import CheckBox from '../material/check-box'
@@ -18,13 +19,13 @@ import { colorTextSecondary } from '../styles/colors'
 import { overline } from '../styles/typography'
 import { FormContainer } from './settings-content'
 import { SettingsFormHandle } from './settings-form-ref'
-import { ScrSettings } from './settings-records'
+import { LocalSettings, ScrSettings } from './settings-records'
 
 const ApmAlertCheckbox = styled(CheckBox)`
   margin-top: 32px;
 `
 
-const SkinOverline = styled.div`
+const SectionOverline = styled.div`
   ${overline};
   color: ${colorTextSecondary};
 `
@@ -47,6 +48,8 @@ interface GameplaySettingsModel {
   selectedSkin: IngameSkin
   unitPortraits: number
   showTurnRate: boolean
+  // Dev-only settings
+  visualizeNetworkStalls?: boolean
 }
 
 function validateApmValue(val: number, model: GameplaySettingsModel) {
@@ -88,7 +91,7 @@ const GameplayRemasteredForm = React.forwardRef<
             <SelectOption value={true} text='Bottom-left corner' />
             <SelectOption value={false} text='Standard' />
           </Select>
-          <SkinOverline>Skins (must be purchased from Blizzard)</SkinOverline>
+          <SectionOverline>Skins (must be purchased from Blizzard)</SectionOverline>
           <BonusSkinsCheckBox
             {...bindCheckable('showBonusSkins')}
             label='Show bonus skins'
@@ -156,12 +159,23 @@ const GameplayRemasteredForm = React.forwardRef<
             disabled={!getInputValue('apmAlertOn')}
           />
         </div>
+        {DEV_INDICATOR ? (
+          <div>
+            <SectionOverline>Dev-only settings</SectionOverline>
+            <CheckBox
+              {...bindCheckable('visualizeNetworkStalls')}
+              label='Visualize network stalls'
+              inputProps={{ tabIndex: 0 }}
+            />
+          </div>
+        ) : null}
       </FormContainer>
     </form>
   )
 })
 
 export interface GameplaySettingsProps {
+  localSettings: LocalSettings
   scrSettings: ScrSettings
   formRef: React.Ref<SettingsFormHandle>
   onChange: (values: GameplaySettingsModel) => void
@@ -169,6 +183,7 @@ export interface GameplaySettingsProps {
 }
 
 export default function GameplaySettings({
+  localSettings,
   scrSettings,
   formRef,
   onChange,
@@ -176,8 +191,12 @@ export default function GameplaySettings({
 }: GameplaySettingsProps) {
   const formModel = useMemo(
     // TODO(tec27): remove cast once Immutable infers types properly
-    () => ({ ...scrSettings.toJS() } as GameplaySettingsModel),
-    [scrSettings],
+    () =>
+      ({
+        ...scrSettings.toJS(),
+        visualizeNetworkStalls: localSettings.visualizeNetworkStalls,
+      } as GameplaySettingsModel),
+    [scrSettings, localSettings],
   )
 
   return (

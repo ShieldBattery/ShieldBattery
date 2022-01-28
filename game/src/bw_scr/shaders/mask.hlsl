@@ -17,6 +17,8 @@ cbuffer constants
     // if 0, uses the normal BW behaviour where unexplored areas are black (For UMS),
     // otherwise makes unexplored areas somewhat visible as well.
     float useNewMask;
+    // if 1, the network is currently stalled and the game should be shaded accordingly
+    float showNetworkStalled;
 };
 
 #define MAX_FOG_MASK 0.84
@@ -28,7 +30,7 @@ PS_OUTPUT main(VS_OUTPUT v)
     float maskValue = mask.Sample(maskSampler, v.texCoord).x;
     if (useNewMask == 0.0)
     {
-        o.frag_color = float4(0.0, 0.0, 0.0, maskValue);
+        o.frag_color = float4(showNetworkStalled, 0.0, 0.0, maskValue);
     }
     else
     {
@@ -42,7 +44,7 @@ PS_OUTPUT main(VS_OUTPUT v)
             (MAX_FOG_MASK - MIN_FOG_MASK);
         maskValue = lowMaskValue + highMaskValue;
         o.frag_color = float4(
-            0.0,
+            showNetworkStalled,
             0.0,
             0.0,
             maskValue);
