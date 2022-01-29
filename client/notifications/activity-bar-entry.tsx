@@ -1,8 +1,8 @@
 import keycode from 'keycode'
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import NotificationsIcon from '../icons/material/notifications_black_24px.svg'
-import { HotkeyProp, IconButton } from '../material/button'
+import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button'
 import { Popover, useAnchorPosition } from '../material/popover'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { amberA200 } from '../styles/colors'
@@ -80,14 +80,17 @@ export function NotificationsButton() {
   }, [localUnreadNotifications, serverUnreadNotifications, dispatch])
   const [, anchorX, anchorY] = useAnchorPosition('right', 'bottom', anchor ?? null)
 
+  const buttonRef = useRef<HTMLButtonElement>()
+  useButtonHotkey({ ref: buttonRef, hotkey: ALT_N })
+
   return (
     <>
       <ButtonContainer>
         <IconButton
+          ref={buttonRef}
           icon={<NotificationsIcon />}
           title={hasUnread ? 'Notifications (unread)' : 'Notifications'}
           onClick={onClick}
-          hotkey={ALT_N}
           testName='notifications-button'
         />
         {hasUnread ? <UnreadIndicator /> : null}

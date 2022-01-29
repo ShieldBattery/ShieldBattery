@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react'
+import React, { useCallback, useMemo, useRef } from 'react'
 import styled, { css, keyframes } from 'styled-components'
-import { useButtonHotkey, useButtonRef, useButtonState } from '../material/button'
+import { HotkeyProp, useButtonHotkey, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
 import { blue50, colorTextFaint, colorTextSecondary } from '../styles/colors'
@@ -115,12 +115,7 @@ export interface ActivityButtonProps {
    * A hotkey to register for the button. Pressing the specified modifiers and key will result in
    * the button being clicked programmatically.
    */
-  hotkey?: {
-    keyCode: number
-    altKey?: boolean
-    shiftKey?: boolean
-    ctrlKey?: boolean
-  }
+  hotkey: HotkeyProp
 }
 
 export const ActivityButton = React.memo(
@@ -130,7 +125,22 @@ export const ActivityButton = React.memo(
         disabled,
         onClick,
       })
-      const [buttonRef, setButtonRef] = useButtonRef(ref)
+
+      const buttonRef = useRef<HTMLButtonElement>()
+      const setButtonRef = useCallback(
+        (elem: HTMLButtonElement | null) => {
+          buttonRef.current = elem !== null ? elem : undefined
+          if (ref) {
+            if (typeof ref === 'function') {
+              ref(elem)
+            } else {
+              ref.current = elem
+            }
+          }
+        },
+        [ref],
+      )
+
       useButtonHotkey({ ref: buttonRef, disabled, hotkey })
 
       const labelElems = useMemo(() => {

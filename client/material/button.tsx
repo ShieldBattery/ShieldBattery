@@ -28,31 +28,6 @@ export const Label = styled.span`
   white-space: nowrap;
 `
 
-export function useButtonRef(
-  ref: React.ForwardedRef<HTMLButtonElement>,
-): [
-  buttonRef: React.MutableRefObject<HTMLButtonElement | undefined>,
-  setButtonRef: (elem: HTMLButtonElement | null) => void,
-] {
-  const buttonRef = useRef<HTMLButtonElement>()
-
-  const setButtonRef = useCallback(
-    (elem: HTMLButtonElement | null) => {
-      buttonRef.current = elem !== null ? elem : undefined
-      if (ref) {
-        if (typeof ref === 'function') {
-          ref(elem)
-        } else {
-          ref.current = elem
-        }
-      }
-    },
-    [ref],
-  )
-
-  return [buttonRef, setButtonRef]
-}
-
 export interface ButtonStateProps {
   disabled?: boolean
   onBlur?: (event: React.FocusEvent) => void
@@ -263,14 +238,14 @@ export interface HotkeyProp {
 
 export interface ButtonHotkeyProps {
   /** The reference to the button that should be pressed programmatically. */
-  ref?: React.MutableRefObject<HTMLButtonElement | undefined>
-  /** Whether the button is disabled (hotkey will do nothing). */
-  disabled?: boolean
+  ref: React.MutableRefObject<HTMLButtonElement | undefined>
   /**
    * A hotkey to register for the button. Pressing the specified modifiers and key will result in
    * the button being clicked programmatically.
    */
-  hotkey?: HotkeyProp
+  hotkey: HotkeyProp
+  /** Whether the button is disabled (hotkey will do nothing). */
+  disabled?: boolean
 }
 
 export function useButtonHotkey({ ref, disabled, hotkey }: ButtonHotkeyProps) {
@@ -278,13 +253,12 @@ export function useButtonHotkey({ ref, disabled, hotkey }: ButtonHotkeyProps) {
     onKeyDown: (event: KeyboardEvent) => {
       if (
         !disabled &&
-        hotkey &&
         event.keyCode === hotkey.keyCode &&
         event.altKey === !!hotkey.altKey &&
         event.shiftKey === !!hotkey.shiftKey &&
         event.ctrlKey === !!hotkey.ctrlKey
       ) {
-        ref?.current?.click()
+        ref.current?.click()
 
         return true
       }
@@ -367,7 +341,6 @@ export interface RaisedButtonProps {
   title?: string
   type?: 'button' | 'reset' | 'submit'
   name?: string
-  hotkey?: HotkeyProp
   testName?: string
 }
 
@@ -392,10 +365,9 @@ export const RaisedButton = React.forwardRef(
       title,
       type,
       name,
-      hotkey,
       testName,
     }: RaisedButtonProps,
-    ref: React.ForwardedRef<HTMLButtonElement>,
+    ref: React.ForwardedRef<HTMLButtonElement | undefined>,
   ) => {
     const [buttonProps, rippleRef] = useButtonState({
       disabled,
@@ -405,12 +377,10 @@ export const RaisedButton = React.forwardRef(
       onDoubleClick,
       onMouseDown,
     })
-    const [buttonRef, setButtonRef] = useButtonRef(ref)
-    useButtonHotkey({ ref: buttonRef, disabled, hotkey })
 
     return (
       <RaisedButtonRoot
-        ref={setButtonRef}
+        ref={ref}
         className={className}
         $color={color}
         tabIndex={tabIndex}
@@ -492,7 +462,6 @@ export interface TextButtonProps {
   title?: string
   type?: 'button' | 'reset' | 'submit'
   name?: string
-  hotkey?: HotkeyProp
   testName?: string
 }
 
@@ -517,10 +486,9 @@ export const TextButton = React.forwardRef(
       title,
       type,
       name,
-      hotkey,
       testName,
     }: TextButtonProps,
-    ref: React.ForwardedRef<HTMLButtonElement>,
+    ref: React.ForwardedRef<HTMLButtonElement | undefined>,
   ) => {
     const [buttonProps, rippleRef] = useButtonState({
       disabled,
@@ -530,12 +498,10 @@ export const TextButton = React.forwardRef(
       onDoubleClick,
       onMouseDown,
     })
-    const [buttonRef, setButtonRef] = useButtonRef(ref)
-    useButtonHotkey({ ref: buttonRef, disabled, hotkey })
 
     return (
       <TextButtonRoot
-        ref={setButtonRef}
+        ref={ref}
         className={className}
         $color={color}
         tabIndex={tabIndex}
@@ -588,7 +554,6 @@ export interface IconButtonProps {
   tabIndex?: number
   type?: 'button' | 'reset' | 'submit'
   name?: string
-  hotkey?: HotkeyProp
   testName?: string
 }
 
@@ -608,10 +573,9 @@ export const IconButton = React.forwardRef(
       tabIndex,
       type,
       name,
-      hotkey,
       testName,
     }: IconButtonProps,
-    ref: React.ForwardedRef<HTMLButtonElement>,
+    ref: React.ForwardedRef<HTMLButtonElement | undefined>,
   ) => {
     const [buttonProps, rippleRef] = useButtonState({
       disabled,
@@ -621,12 +585,10 @@ export const IconButton = React.forwardRef(
       onDoubleClick,
       onMouseDown,
     })
-    const [buttonRef, setButtonRef] = useButtonRef(ref)
-    useButtonHotkey({ ref: buttonRef, disabled, hotkey })
 
     return (
       <IconButtonRoot
-        ref={setButtonRef}
+        ref={ref}
         className={className}
         tabIndex={tabIndex}
         title={title}
