@@ -2,7 +2,41 @@ syntax = "proto3";
 
 package shieldbattery.proto.messages;
 
-// TODO(tec27): Write a version that deals with acks and can include multiple storm messages
+// The main container for all packets forwarded through rally-point. Contains
+// one or more `GameMessagePayload`s in `payloads`, and information that the
+// sender can use to track which payloads have been seen.
+message GameMessage {
+  // TODO(tec27): Would maybe be nice to integrate some of the logic from QUIC as
+  // far as condensing packet numbers (so that these could usually be a byte rather
+  // than a longer variable length as connection duration increases
+
+  // Always-increasing sequence number
+  uint64 packet_num = 1;
+  // The `packet_num` of the last packet that was received
+  uint64 ack = 2;
+  // A bitfield of acked packets. If bit `N` is set, packet `ack - N - 1`
+  // has been acked.
+  fixed32 ack_bits = 3;
+
+  // Sub-messages that should be delivered to their relevant destinations. Senders
+  // should send payloads until packets containing them have been acked (so sending
+  // the same payload multiple times is acceptable).
+  repeated GameMessagePayload payloads = 4;
+}
+
+// A wrapper type around the different types of payloads we forward through rally-point.
+message GameMessagePayload {
+  // Always-increasing sequence number used for tracking message identity (so we know
+  // which packets contain which messages, and which messages have been acked).
+  uint64 payload_num = 1;
+
+  oneof payload {
+    // A message Storm requested we send. The data inside can be passed directly to Storm's
+    // normal network processing.
+    StormWrapper storm = 2;
+  }
+}
+
 message StormWrapper {
   bytes storm_data = 1;
 }

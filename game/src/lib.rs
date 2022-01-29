@@ -33,6 +33,7 @@ mod crash_dump;
 mod forge;
 mod game_state;
 mod game_thread;
+mod netcode;
 mod network_manager;
 mod proto;
 mod rally_point;

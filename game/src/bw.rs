@@ -437,7 +437,6 @@ fn struct_sizes() {
     assert_eq!(size_of::<StormPlayer>(), 0x22);
     assert_eq!(size_of::<JoinableGameInfo>(), 0x8d);
     assert_eq!(size_of::<GameTemplate>(), 0x20);
-    assert_eq!(size_of::<UiEvent>(), 0x12);
     assert_eq!(size_of::<FowSprite>(), 0x10);
     assert_eq!(size_of::<ReplayData>(), 0x20);
     assert_eq!(size_of::<ReplayHeader>(), 0x279);
