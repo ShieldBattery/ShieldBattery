@@ -160,7 +160,7 @@ export function MainLayout() {
 
   const searchingMatchButtonRef = useRef<HTMLButtonElement>(null)
   const settingsButtonRef = useRef<HTMLButtonElement>(null)
-  useButtonHotkey({ element: settingsButtonRef.current ?? undefined, hotkey: ALT_S })
+  useButtonHotkey({ ref: settingsButtonRef, hotkey: ALT_S })
 
   useEffect(() => {
     dispatch(openChangelogIfNecessary())

@@ -119,15 +119,32 @@ export interface ActivityButtonProps {
 }
 
 export const ActivityButton = React.memo(
-  React.forwardRef<HTMLButtonElement, ActivityButtonProps>(
-    ({ label, icon, disabled, glowing, count, onClick, hotkey }, ref) => {
+  React.forwardRef(
+    (
+      { label, icon, disabled, glowing, count, onClick, hotkey }: ActivityButtonProps,
+      ref: React.ForwardedRef<HTMLButtonElement>,
+    ) => {
       const [buttonProps, rippleRef] = useButtonState({
         disabled,
         onClick,
       })
 
-      const buttonRef = useRef<HTMLButtonElement>(null)
-      useButtonHotkey({ element: buttonRef.current ?? undefined, disabled, hotkey })
+      const buttonRef = useRef<HTMLButtonElement>()
+      const setButtonRef = useCallback(
+        (elem: HTMLButtonElement | null) => {
+          buttonRef.current = elem !== null ? elem : undefined
+          if (ref) {
+            if (typeof ref === 'function') {
+              ref(elem)
+            } else {
+              ref.current = elem
+            }
+          }
+        },
+        [ref],
+      )
+
+      useButtonHotkey({ ref: buttonRef, disabled, hotkey })
 
       const labelElems = useMemo(() => {
         if (disabled || !hotkey) {
@@ -150,7 +167,7 @@ export const ActivityButton = React.memo(
       }, [disabled, hotkey, label])
 
       return (
-        <Container ref={ref} {...buttonProps}>
+        <Container ref={setButtonRef} {...buttonProps}>
           {count !== undefined ? <Count>{count}</Count> : null}
           <IconContainer glowing={glowing}>
             {glowing ? icon : null}

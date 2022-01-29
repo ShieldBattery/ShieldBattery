@@ -237,8 +237,8 @@ export interface HotkeyProp {
 }
 
 export interface ButtonHotkeyProps {
-  /** The button element that should be pressed programmatically. */
-  element?: HTMLButtonElement
+  /** The reference to the button that should be pressed programmatically. */
+  ref: React.MutableRefObject<HTMLButtonElement | undefined | null>
   /**
    * A hotkey to register for the button. Pressing the specified modifiers and key will result in
    * the button being clicked programmatically.
@@ -248,7 +248,7 @@ export interface ButtonHotkeyProps {
   disabled?: boolean
 }
 
-export function useButtonHotkey({ element, disabled, hotkey }: ButtonHotkeyProps) {
+export function useButtonHotkey({ ref, disabled, hotkey }: ButtonHotkeyProps) {
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
       if (
@@ -258,7 +258,7 @@ export function useButtonHotkey({ element, disabled, hotkey }: ButtonHotkeyProps
         event.shiftKey === !!hotkey.shiftKey &&
         event.ctrlKey === !!hotkey.ctrlKey
       ) {
-        element?.click()
+        ref.current?.click()
 
         return true
       }
@@ -367,7 +367,7 @@ export const RaisedButton = React.forwardRef(
       name,
       testName,
     }: RaisedButtonProps,
-    ref: React.ForwardedRef<HTMLButtonElement | undefined>,
+    ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
     const [buttonProps, rippleRef] = useButtonState({
       disabled,
@@ -488,7 +488,7 @@ export const TextButton = React.forwardRef(
       name,
       testName,
     }: TextButtonProps,
-    ref: React.ForwardedRef<HTMLButtonElement | undefined>,
+    ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
     const [buttonProps, rippleRef] = useButtonState({
       disabled,
@@ -575,7 +575,7 @@ export const IconButton = React.forwardRef(
       name,
       testName,
     }: IconButtonProps,
-    ref: React.ForwardedRef<HTMLButtonElement | undefined>,
+    ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
     const [buttonProps, rippleRef] = useButtonState({
       disabled,

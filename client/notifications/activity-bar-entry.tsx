@@ -81,7 +81,7 @@ export function NotificationsButton() {
   const [, anchorX, anchorY] = useAnchorPosition('right', 'bottom', anchor ?? null)
 
   const buttonRef = useRef<HTMLButtonElement>(null)
-  useButtonHotkey({ element: buttonRef.current ?? undefined, hotkey: ALT_N })
+  useButtonHotkey({ ref: buttonRef, hotkey: ALT_N })
 
   return (
     <>
