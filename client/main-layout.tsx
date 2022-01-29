@@ -34,7 +34,7 @@ import { regenMapImage, removeMap } from './maps/action-creators'
 import { cancelFindMatch } from './matchmaking/action-creators'
 import { MatchmakingSearchingOverlay } from './matchmaking/matchmaking-searching-overlay'
 import MatchmakingView from './matchmaking/view'
-import { IconButton } from './material/button'
+import { IconButton, useButtonHotkey } from './material/button'
 import { ConnectedLeftNav } from './navigation/connected-left-nav'
 import { ConditionalRoute } from './navigation/custom-routes'
 import Index from './navigation/index'
@@ -66,6 +66,7 @@ const ALT_J = { keyCode: keycode('j'), altKey: true }
 const ALT_M = { keyCode: keycode('m'), altKey: true }
 const ALT_O = { keyCode: keycode('o'), altKey: true }
 const ALT_R = { keyCode: keycode('r'), altKey: true }
+const ALT_S = { keyCode: keycode('s'), altKey: true }
 
 const Container = styled.div`
   display: flex;
@@ -158,6 +159,8 @@ export function MainLayout() {
   const [searchingMatchOverlayOpen, setSearchingMatchOverlayOpen] = useState(false)
 
   const searchingMatchButtonRef = useRef<HTMLButtonElement>(null)
+  const settingsButtonRef = useRef<HTMLButtonElement>(null)
+  useButtonHotkey({ element: settingsButtonRef.current ?? undefined, hotkey: ALT_S })
 
   useEffect(() => {
     dispatch(openChangelogIfNecessary())
@@ -398,9 +401,9 @@ export function MainLayout() {
 
         <MiniActivityButtonsContainer key='mini-buttons'>
           <NotificationsButton />
-          {/* TODO(tec27): Hotkey this to Alt+S */}
           <IconButton
             key='settings'
+            ref={settingsButtonRef}
             icon={<FadedSettingsIcon />}
             title='Settings'
             onClick={() => dispatch(openDialog(DialogType.Settings))}

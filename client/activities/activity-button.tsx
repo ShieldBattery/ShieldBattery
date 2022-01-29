@@ -126,22 +126,8 @@ export const ActivityButton = React.memo(
         onClick,
       })
 
-      const buttonRef = useRef<HTMLButtonElement>()
-      const setButtonRef = useCallback(
-        (elem: HTMLButtonElement | null) => {
-          buttonRef.current = elem !== null ? elem : undefined
-          if (ref) {
-            if (typeof ref === 'function') {
-              ref(elem)
-            } else {
-              ref.current = elem
-            }
-          }
-        },
-        [ref],
-      )
-
-      useButtonHotkey({ ref: buttonRef, disabled, hotkey })
+      const buttonRef = useRef<HTMLButtonElement>(null)
+      useButtonHotkey({ element: buttonRef.current ?? undefined, disabled, hotkey })
 
       const labelElems = useMemo(() => {
         if (disabled || !hotkey) {
@@ -164,7 +150,7 @@ export const ActivityButton = React.memo(
       }, [disabled, hotkey, label])
 
       return (
-        <Container ref={setButtonRef} {...buttonProps}>
+        <Container ref={ref} {...buttonProps}>
           {count !== undefined ? <Count>{count}</Count> : null}
           <IconContainer glowing={glowing}>
             {glowing ? icon : null}

@@ -237,8 +237,8 @@ export interface HotkeyProp {
 }
 
 export interface ButtonHotkeyProps {
-  /** The reference to the button that should be pressed programmatically. */
-  ref: React.MutableRefObject<HTMLButtonElement | undefined>
+  /** The button element that should be pressed programmatically. */
+  element?: HTMLButtonElement
   /**
    * A hotkey to register for the button. Pressing the specified modifiers and key will result in
    * the button being clicked programmatically.
@@ -248,7 +248,7 @@ export interface ButtonHotkeyProps {
   disabled?: boolean
 }
 
-export function useButtonHotkey({ ref, disabled, hotkey }: ButtonHotkeyProps) {
+export function useButtonHotkey({ element, disabled, hotkey }: ButtonHotkeyProps) {
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
       if (
@@ -258,7 +258,7 @@ export function useButtonHotkey({ ref, disabled, hotkey }: ButtonHotkeyProps) {
         event.shiftKey === !!hotkey.shiftKey &&
         event.ctrlKey === !!hotkey.ctrlKey
       ) {
-        ref.current?.click()
+        element?.click()
 
         return true
       }
