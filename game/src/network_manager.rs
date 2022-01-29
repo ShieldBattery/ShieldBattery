@@ -426,25 +426,26 @@ impl State {
                 // Doesn't hurt to keep them active but old code stopped them once storm
                 // became active.
             }
-            NetworkManagerMessage::ReceivePacket(ip, packet, snp_send) => {
+            NetworkManagerMessage::ReceivePacket(ip, mut packet, snp_send) => {
                 if let Some(ack_manager) = self.ip_to_ack_manager.get_mut(&ip) {
-                    let mut packet = packet.clone();
-                    let game_message: GameMessage = GameMessage::decode(&mut packet).unwrap();
+                    if let Ok(game_message) = GameMessage::decode(&mut packet) {
+                        ack_manager.handle_incoming(&game_message);
 
-                    ack_manager.handle_incoming(&game_message);
-
-                    for payload in game_message.payloads.iter() {
-                        // TODO(tec27): Handle payload types besides Storm
-                        match &payload.payload {
-                            Some(Payload::Storm(s)) => {
-                                let message = snp::ReceivedMessage {
-                                    from: ip,
-                                    data: s.storm_data.clone(),
-                                };
-                                snp_send.send(message)
+                        for payload in game_message.payloads.iter() {
+                            // TODO(tec27): Handle payload types besides Storm
+                            match &payload.payload {
+                                Some(Payload::Storm(s)) => {
+                                    let message = snp::ReceivedMessage {
+                                        from: ip,
+                                        data: s.storm_data.clone(),
+                                    };
+                                    snp_send.send(message)
+                                }
+                                _ => {}
                             }
-                            _ => {}
                         }
+                    } else {
+                        error!("Received a badly formed packet from {}", ip);
                     }
                 } else {
                     error!("Received a packet without an associated AckManager: {}", ip);

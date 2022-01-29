@@ -173,14 +173,6 @@ impl AckManager {
 
         message.payloads.push(payload.clone());
         let payload_len = payload.encoded_len();
-        self.unacked_payloads.insert(
-            payload.payload_num,
-            SentPayload {
-                send_count: 1,
-                payload,
-                payload_len,
-            },
-        );
 
         if payload_len < self.max_payload_size as usize {
             let mut remaining = self.max_payload_size - payload_len as u32;
@@ -195,6 +187,16 @@ impl AckManager {
             }
         }
 
+        // NOTE(tec27): Make sure to insert this *after* adding additional payloads from the unacked
+        // ones, otherwise you can end up doubling this payload in the current packet
+        self.unacked_payloads.insert(
+            payload.payload_num,
+            SentPayload {
+                send_count: 1,
+                payload,
+                payload_len,
+            },
+        );
         self.sent_packets.insert(
             message.packet_num,
             SentPacket {
