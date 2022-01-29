@@ -80,6 +80,7 @@ impl AckManager {
     }
 
     /// Returns the number of payloads that have been sent that are not currently acked.
+    #[allow(dead_code)] // TODO(tec27): Use this in some stat reporting
     pub fn payloads_in_flight(&self) -> usize {
         self.unacked_payloads.len()
     }
