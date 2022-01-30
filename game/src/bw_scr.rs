@@ -1551,7 +1551,7 @@ impl BwScr {
         let get_tick_count_hook = move |_orig: unsafe extern "C" fn() -> u32| {
             // BW uses GetTickCount for a lot of things that should really have better than
             // 16ms resolution, so we hook this to give them a better timer. In practice this
-            // improves the reliabiltiy of turn timing, which hopefully improves the reliability of
+            // improves the reliability of turn timing, which hopefully improves the reliability of
             // the netcode, and maybe other things
 
             // If you leave your game open 49.7 days, well, sorry :)
