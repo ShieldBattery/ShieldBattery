@@ -7,8 +7,8 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
+use futures::pin_mut;
 use futures::prelude::*;
-use futures::{pin_mut};
 use http::header::{HeaderMap, ORIGIN};
 use quick_error::quick_error;
 use tokio::select;
@@ -16,7 +16,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
     GamePlayerResult, GameResults, GameResultsReport, GameSetupInfo, LocalUser, MapForce,
-    PlayerInfo, Race, UmsLobbyRace, Route, Settings, SetupProgress, GAME_STATUS_ERROR,
+    PlayerInfo, Race, Route, Settings, SetupProgress, UmsLobbyRace, GAME_STATUS_ERROR,
 };
 use crate::app_socket;
 use crate::bw::{self, get_bw, GameType, StormPlayerId};
@@ -264,7 +264,7 @@ impl GameState {
         let init_routes_when_ready_future = self.network.init_routes_when_ready();
         let network_ready_future = self.network.wait_network_ready();
         let net_game_info_set_future = self.network.set_game_info(info.clone());
-        let allow_start = self.wait_can_start_game();
+        let mut allow_start = self.wait_can_start_game().boxed();
 
         self.init_main_thread
             .send(())
@@ -311,8 +311,10 @@ impl GameState {
             }
             debug!("In lobby, setting up slots");
             unsafe {
-                let ums_forces = info.map
-                    .map_data.as_ref()
+                let ums_forces = info
+                    .map
+                    .map_data
+                    .as_ref()
                     .map(|x| &x.ums_forces[..])
                     .unwrap_or(&[]);
                 setup_slots(&info.slots, game_type, ums_forces);
@@ -383,7 +385,17 @@ impl GameState {
                 }
             }
 
-            allow_start.await;
+            loop {
+                unsafe {
+                    bw.maybe_receive_turns();
+                }
+
+                select! {
+                    _ = tokio::time::sleep(Duration::from_millis(42)) => continue,
+                    _ = &mut allow_start => break,
+                }
+            }
+
             unsafe {
                 do_lobby_game_init(&info).await;
             }
@@ -471,9 +483,8 @@ impl GameState {
                                 extra: Some(msg),
                             },
                         };
-                        let _ =
-                            app_socket::send_message(&ws_send, "/game/setupProgress", message)
-                                .await;
+                        let _ = app_socket::send_message(&ws_send, "/game/setupProgress", message)
+                            .await;
                         expect_quit(&async_stop).await;
                     }
                 };
@@ -557,7 +568,8 @@ impl GameState {
                             );
                         }
                     }
-                    let mapping = state.joined_players
+                    let mapping = state
+                        .joined_players
                         .iter()
                         .map(|player| game_thread::PlayerIdMapping {
                             game_id: player.player_id,
@@ -604,7 +616,7 @@ async fn send_game_result(
 
     if info.result_code.is_none() {
         debug!("Had no result code, skipping sending results");
-        return
+        return;
     }
 
     // Attempt to send results to the server, if this fails, we expect
@@ -738,7 +750,8 @@ impl InitInProgress {
         // we probably should add some extra step (E.g. sending some network packet)
         // to make sure the person is totally joined before we add them here at all.
         self.joined_players.retain(|joined_player| {
-            let retain = storm_names.iter()
+            let retain = storm_names
+                .iter()
                 .any(|name| name.as_deref() == Some(&*joined_player.name));
             if !retain {
                 warn!("Player {} has left", joined_player.name);
@@ -780,7 +793,8 @@ impl InitInProgress {
                     // I believe there isn't any reason why a slot associated with
                     // human wouldn't have shieldbattery user ids, so just fail here
                     // instead of keeping sb_user_id as Option<u32>.
-                    let sb_user_id = slot.user_id
+                    let sb_user_id = slot
+                        .user_id
                         .ok_or_else(|| GameInitError::NoShieldbatteryId(name.into()))?;
                     debug!("Player {} received storm id {}", name, storm_id.0);
                     self.joined_players.push(JoinedPlayer {
@@ -861,7 +875,10 @@ impl InitInProgress {
                     player_to_storm_id[player_id] = storm_id;
                 }
 
-                debug!("{} has victory_state {}", storm_id, game_results.victory_state[player_id]);
+                debug!(
+                    "{} has victory_state {}",
+                    storm_id, game_results.victory_state[player_id]
+                );
                 results[storm_id] = match game_results.victory_state[player_id] {
                     1 => GameResult::Disconnected,
                     2 => GameResult::Defeat,
@@ -886,10 +903,13 @@ impl InitInProgress {
         let has_victory = results.contains(&GameResult::Victory);
         for storm_id in 0..8 {
             let dropped = game_results.player_was_dropped[storm_id];
-            let quit = game_results.player_has_quit[storm_id] ||
-                (!dropped && storm_id == local_storm_id);
+            let quit =
+                game_results.player_has_quit[storm_id] || (!dropped && storm_id == local_storm_id);
 
-            debug!("{} has player_was_dropped {}, player_has_quit {}", storm_id, dropped, quit);
+            debug!(
+                "{} has player_was_dropped {}, player_has_quit {}",
+                storm_id, dropped, quit
+            );
 
             if dropped {
                 results[storm_id] = if lose_type == Some(PlayerLoseType::UnknownDisconnect) {
@@ -908,7 +928,8 @@ impl InitInProgress {
                         let s = player_to_storm_id[p];
                         if s < 8
                             && !game_results.player_was_dropped[s]
-                            && !game_results.player_has_quit[s] {
+                            && !game_results.player_has_quit[s]
+                        {
                             // Change Defeat -> Disconnect because we can't know the terminal result yet,
                             // and this alliance could allow this player to win still
                             results[storm_id] = GameResult::Disconnected;
@@ -949,7 +970,10 @@ impl InitInProgress {
 
             while let Some(winner_player_id) = to_process.pop() {
                 let winner_alliances = game_results.alliances[winner_player_id];
-                debug!("processing player {}, alliances: {:?}", winner_player_id, winner_alliances);
+                debug!(
+                    "processing player {}, alliances: {:?}",
+                    winner_player_id, winner_alliances
+                );
 
                 for player in &self.joined_players {
                     if let Some(player_id) = player.player_id {
@@ -967,8 +991,13 @@ impl InitInProgress {
                         let storm_id = player.storm_id.0 as usize;
                         let allied_with_winner =
                             game_results.alliances[player_id][winner_player_id] == 2;
-                        if allied_with_winner && winner_alliances[player_id] == 2
-                            && !matches!(results[storm_id], GameResult::Playing | GameResult::Victory) {
+                        if allied_with_winner
+                            && winner_alliances[player_id] == 2
+                            && !matches!(
+                                results[storm_id],
+                                GameResult::Playing | GameResult::Victory
+                            )
+                        {
                             results[storm_id] = GameResult::Victory;
                             // Changing this player's result can mean that their allies now win, so
                             // we need to process them as well
@@ -1040,7 +1069,13 @@ impl InitInProgress {
 unsafe fn create_lobby(info: &GameSetupInfo, game_type: GameType) -> Result<(), GameInitError> {
     let map_path = Path::new(&info.map_path);
     get_bw()
-        .create_lobby(map_path, &info.map, &info.name, game_type, info.turn_rate.unwrap_or(0))
+        .create_lobby(
+            map_path,
+            &info.map,
+            &info.name,
+            game_type,
+            info.turn_rate.unwrap_or(0),
+        )
         .map_err(|e| GameInitError::Bw(e))
 }
 
@@ -1163,7 +1198,7 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType, ums_forces: &[M
             storm_id: u32::MAX,
             player_type: match slots.len() < i {
                 true => bw::PLAYER_TYPE_OPEN,
-                false => bw::PLAYER_TYPE_NONE
+                false => bw::PLAYER_TYPE_NONE,
             },
             race: bw::RACE_RANDOM,
             team: 0,
@@ -1234,10 +1269,15 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType, ums_forces: &[M
         // much replacement for that code, we'll have to set this replay header value here.
         let replay_header = bw.replay_header();
         for player in ums_forces.iter().flat_map(|x| x.players.iter()) {
-            if let Some(value) =
-                (*replay_header).ums_user_select_slots.get_mut(player.id as usize)
+            if let Some(value) = (*replay_header)
+                .ums_user_select_slots
+                .get_mut(player.id as usize)
             {
-                *value = if player.race == UmsLobbyRace::Any { 1 } else { 0 };
+                *value = if player.race == UmsLobbyRace::Any {
+                    1
+                } else {
+                    0
+                };
             }
         }
     }
@@ -1360,12 +1400,10 @@ fn start_game_request(
     Ok(wait_done)
 }
 
-async fn read_sbat_replay_data(
-    path: &Path,
-) -> Result<Option<replay::SbatReplayData>, io::Error> {
+async fn read_sbat_replay_data(path: &Path) -> Result<Option<replay::SbatReplayData>, io::Error> {
     use byteorder::{ByteOrder, LittleEndian};
-    use tokio::io::{AsyncReadExt, AsyncSeekExt};
     use tokio::fs;
+    use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
     let mut file = fs::File::open(path).await?;
     let mut buffer = [0u8; 0x14];
@@ -1376,7 +1414,8 @@ async fn read_sbat_replay_data(
         return Ok(None);
     }
     let end_pos = file.seek(io::SeekFrom::End(0)).await?;
-    file.seek(io::SeekFrom::Start(scr_extension_offset as u64)).await?;
+    file.seek(io::SeekFrom::Start(scr_extension_offset as u64))
+        .await?;
     let length = end_pos.saturating_sub(scr_extension_offset as u64) as usize;
     let mut buffer = vec![0u8; length];
     file.read_exact(&mut buffer).await?;
@@ -1390,9 +1429,7 @@ async fn read_sbat_replay_data(
         let section_length = LittleEndian::read_u32(&header[4..]) as usize;
         if id == replay::SECTION_ID {
             let data = Some(())
-                .and_then(|()| {
-                    Some(buffer.get(pos.checked_add(8)?..)?.get(..section_length)?)
-                })
+                .and_then(|()| Some(buffer.get(pos.checked_add(8)?..)?.get(..section_length)?))
                 .and_then(|input| replay::parse_shieldbattery_data(input));
             return match data {
                 Some(o) => Ok(Some(o)),
