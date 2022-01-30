@@ -20,6 +20,13 @@ export function userLatencyToTurnBuffer(latency: BwUserLatency): number {
   }
 }
 
+// NOTE(tec27): This is a conservative estimate for how much any given turn execution can be
+// delayed/early, as well as overhead from sending/receiving packets. This is based on experiments
+// done by me locally. I can guarantee that meeting the latency given without this value will not
+// provide lag-free gameplay, but the overhead appears to be a constant factor rather than a factor
+// of the turn rate or user latency setting.
+const NETWORK_OVERHEAD_MS = 20
+
 /**
  * Returns the amount of time between a turn starting and it playing back ingame, given a
  * particular turn rate and user latency setting.
@@ -35,13 +42,7 @@ export function turnRateToMaxLatency(
     throw new Error('turnRate must be between 8 and 24')
   }
 
-  // NOTE(tec27): The 28 here is a conservative estimate for how much any given turn execution can
-  // be delayed/early. This is based on experiments done by me locally, and may need some tweaking.
-  // I can guarantee that meeting the latency given without this value will not provide lag-free
-  // gameplay, but the overhead appears to be a constant factor rather than a factor of the turn
-  // rate or user latency setting. *If* we find a way to make turn execution timing more reliable,
-  // this factor may go down/go away.
-  return (1000 * userLatencyToTurnBuffer(userLatency)) / turnRate - 28
+  return (1000 * userLatencyToTurnBuffer(userLatency)) / turnRate - NETWORK_OVERHEAD_MS
 }
 
 export type BwTurnRate = 8 | 10 | 12 | 14 | 16 | 20 | 24

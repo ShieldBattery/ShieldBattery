@@ -1547,11 +1547,22 @@ impl BwScr {
             // this function out shouldn't cause any other scheduling priority issues.
             0
         };
+        let init_time = std::time::Instant::now();
+        let get_tick_count_hook = move |_orig: unsafe extern "C" fn() -> u32| {
+            // BW uses GetTickCount for a lot of things that should really have better than
+            // 16ms resolution, so we hook this to give them a better timer. In practice this
+            // improves the reliabiltiy of turn timing, which hopefully improves the reliability of
+            // the netcode, and maybe other things
+
+            // If you leave your game open 49.7 days, well, sorry :)
+            init_time.elapsed().as_millis() as u32
+        };
         hook_winapi_exports!(&mut active_patcher, "kernel32",
             "CreateEventW", CreateEventW, create_event_hook;
             "CreateFileW", CreateFileW, create_file_hook_closure;
             "CopyFileW", CopyFileW, copy_file_hook;
             "CloseHandle", CloseHandle, close_handle_hook;
+            "GetTickCount", GetTickCount, get_tick_count_hook;
             "SwitchToThread", SwitchToThread, switch_to_thread_hook;
         );
 
@@ -2913,6 +2924,7 @@ mod hooks {
         !0 => LoadSnpList(*mut scr::SnpLoadFuncs, u32) -> u32;
         !0 => CreateEventW(*mut c_void, u32, u32, *const u16) -> *mut c_void;
         !0 => CloseHandle(*mut c_void) -> u32;
+        !0 => GetTickCount() -> u32;
         !0 => SwitchToThread() -> u32;
         !0 => CreateFileW(
             *const u16,
