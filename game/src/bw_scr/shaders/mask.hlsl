@@ -30,7 +30,11 @@ PS_OUTPUT main(VS_OUTPUT v)
     float maskValue = mask.Sample(maskSampler, v.texCoord).x;
     if (useNewMask == 0.0)
     {
-        o.frag_color = float4(showNetworkStalled, 0.0, 0.0, maskValue);
+        o.frag_color = float4(
+          showNetworkStalled * 0.16,
+          showNetworkStalled * 0.08,
+          showNetworkStalled * 0.16,
+          maskValue);
     }
     else
     {
@@ -44,9 +48,9 @@ PS_OUTPUT main(VS_OUTPUT v)
             (MAX_FOG_MASK - MIN_FOG_MASK);
         maskValue = lowMaskValue + highMaskValue;
         o.frag_color = float4(
-            showNetworkStalled,
-            0.0,
-            0.0,
+            showNetworkStalled * 0.16,
+            showNetworkStalled * 0.08,
+            showNetworkStalled * 0.16,
             maskValue);
     }
     return o;
