@@ -133,6 +133,7 @@ pub struct BwScr {
     init_game_data: scarf::VirtualAddress,
     init_unit_data: scarf::VirtualAddress,
     step_game: scarf::VirtualAddress,
+    step_network_addr: scarf::VirtualAddress,
     step_replay_commands: scarf::VirtualAddress,
     game_command_lengths: Vec<u32>,
     prism_pixel_shaders: Vec<scarf::VirtualAddress>,
@@ -160,6 +161,11 @@ pub struct BwScr {
     show_skins: AtomicBool,
     visualize_network_stalls: AtomicBool,
     is_processing_game_commands: AtomicBool,
+    /// True if the network is currently stalled (updated whenever `step_network` is called).
+    in_network_stall: AtomicBool,
+    /// If [`in_network_stall`] is true, this will be the first time the stall was observed, which
+    /// can be used to calculate the stall length when it resolves.
+    network_stall_start: RwLock<Option<std::time::Instant>>,
     /// Avoid reporting the same player being dropped multiple times.
     /// Bit 0x1 = Net id 0, 0x2 = net id 1, etc.
     dropped_players: AtomicU32,
@@ -1143,6 +1149,7 @@ impl BwScr {
             original_status_screen_update,
             init_network_player_info: unsafe { mem::transmute(init_network_player_info.0) },
             step_network: unsafe { mem::transmute(step_network.0) },
+            step_network_addr: step_network,
             select_map_entry: unsafe { mem::transmute(select_map_entry.0) },
             game_loop: unsafe { mem::transmute(game_loop.0) },
             init_map_from_path: unsafe { mem::transmute(init_map_from_path.0) },
@@ -1197,6 +1204,8 @@ impl BwScr {
             show_skins: AtomicBool::new(false),
             visualize_network_stalls: AtomicBool::new(false),
             is_processing_game_commands: AtomicBool::new(false),
+            in_network_stall: AtomicBool::new(false),
+            network_stall_start: RwLock::new(None),
             dropped_players: AtomicU32::new(0),
             settings_file_path: RwLock::new(String::new()),
             detection_status_copy: Mutex::new(Vec::new()),
@@ -1386,6 +1395,32 @@ impl BwScr {
             move |orig| {
                 orig();
                 game_thread::after_step_game();
+            },
+            address,
+        );
+        let address = self.step_network_addr.0 as usize - base;
+        exe.hook_closure_address(
+            StepNetwork,
+            move |orig| {
+                let ret = orig();
+
+                let in_stall = self.is_network_ready.resolve() == 0;
+                let was_in_stall = self.in_network_stall.swap(in_stall, Ordering::Relaxed);
+                if in_stall && !was_in_stall {
+                    let now = std::time::Instant::now();
+                    let mut stall_start = self.network_stall_start.write();
+                    *stall_start = Some(now);
+                } else if !in_stall && was_in_stall {
+                    let mut stall_start = self.network_stall_start.write();
+                    let stall_duration = stall_start
+                        .unwrap_or_else(|| std::time::Instant::now())
+                        .elapsed();
+                    *stall_start = None;
+
+                    debug!("Network stall, lasted {:?}", stall_duration);
+                }
+
+                ret
             },
             address,
         );
@@ -2918,6 +2953,7 @@ mod hooks {
         ) -> u32;
         !0 => SpawnDialog(*mut bw::Dialog, usize, usize) -> usize;
         !0 => StepGameLogic(usize) -> usize;
+        !0 => StepNetwork() -> usize;
     );
 
     whack_hooks!(stdcall, 0,
