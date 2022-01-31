@@ -3,7 +3,7 @@ import { GameRoute } from './game-launch-config'
 import { Jsonify } from './json'
 import { Slot } from './lobbies/slot'
 import { MapInfoJson } from './maps'
-import { BwTurnRate } from './network'
+import { BwTurnRate, BwUserLatency } from './network'
 import { AssignedRaceChar, RaceChar } from './races'
 import { SbUserId } from './users/sb-user'
 
@@ -255,7 +255,7 @@ export interface RequeueEvent {
 export interface MatchReadyEvent {
   type: 'matchReady'
   matchmakingType: MatchmakingType
-  setup: { gameId: string; seed: number; turnRate?: BwTurnRate | 0 }
+  setup: { gameId: string; seed: number; turnRate?: BwTurnRate | 0; userLatency?: BwUserLatency }
   resultCode?: string
   // TODO(tec27): This is not a correct type, this cannot be a Record, it's deserialized from JSON
   slots: Slot[]

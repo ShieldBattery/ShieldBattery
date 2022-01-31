@@ -30,7 +30,7 @@ import {
   PreferenceData,
   TEAM_SIZES,
 } from '../../../common/matchmaking'
-import { BwTurnRate } from '../../../common/network'
+import { BwTurnRate, BwUserLatency } from '../../../common/network'
 import { RaceChar } from '../../../common/races'
 import { randomInt, randomItem } from '../../../common/random'
 import { subtract } from '../../../common/sets'
@@ -88,6 +88,7 @@ interface GameLoaderCallbacks {
       gameId: string
       seed: number
       turnRate?: BwTurnRate
+      userLatency?: BwUserLatency
     }
     resultCodes: ReadonlyMap<SbUserId, string>
     chosenMap: MapInfoJson

@@ -448,4 +448,8 @@ impl<'e> Analysis<'e> {
     pub fn network_ready(&mut self) -> Option<Operand<'e>> {
         self.0.network_ready()
     }
+
+    pub fn net_user_latency(&mut self) -> Option<Operand<'e>> {
+        self.0.net_user_latency()
+    }
 }

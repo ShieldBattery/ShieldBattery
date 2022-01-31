@@ -227,6 +227,7 @@ const eventToAction: EventToActionMap = {
         host: slots[0], // Arbitrarily set first player as host
         disableAllianceChanges: true,
         turnRate: event.setup.turnRate,
+        userLatency: event.setup.userLatency,
         seed: event.setup.seed,
         resultCode: event.resultCode!,
         serverUrl: makeServerUrl(''),

@@ -1,7 +1,7 @@
 import { GameType } from './games/configuration'
 import { SlotType } from './lobbies/slot'
 import { MapInfoJson } from './maps'
-import { BwTurnRate } from './network'
+import { BwTurnRate, BwUserLatency } from './network'
 import { RaceChar } from './races'
 import { ResolvedRallyPointServer } from './rally-point'
 import { SbUserId } from './users/sb-user'
@@ -81,6 +81,10 @@ export interface GameLaunchConfig {
      * provided, defaults to dynamic.
      */
     turnRate?: BwTurnRate | 0
+    /**
+     * The initial user latency setting to use. If not set, will default to Low.
+     */
+    userLatency?: BwUserLatency
     seed: number
     /**
      * The code used to submit results for this game to the server. This is secret and unique per

@@ -20,9 +20,9 @@ use shader_replaces::ShaderReplaces;
 pub use thiscall::Thiscall;
 
 use crate::app_messages::{MapInfo, Settings};
-use crate::bw::commands;
 use crate::bw::unit::{Unit, UnitIterator};
 use crate::bw::{self, Bw, FowSpriteIterator, SnpFunctions, StormPlayerId};
+use crate::bw::{commands, UserLatency};
 use crate::game_thread;
 use crate::snp;
 use crate::windows;
@@ -60,6 +60,8 @@ pub struct BwScr {
     /// Indicates whether the network is okay to proceed with the next turn (i.e. all turns are
     /// available from all players)
     is_network_ready: Value<u8>,
+    /// User latency setting, 0 = Low, 1 = High, 2 = Extra High
+    net_user_latency: Value<u32>,
     net_player_to_game: Value<*mut u32>,
     net_player_to_unique: Value<*mut u32>,
     local_player_name: Value<*mut u8>,
@@ -945,6 +947,7 @@ impl BwScr {
             .ok_or("Unique command user")?;
         let storm_command_user = analysis.storm_command_user().ok_or("Storm command user")?;
         let is_network_ready = analysis.network_ready().ok_or("Is network ready")?;
+        let net_user_latency = analysis.net_user_latency().ok_or("Net user latency")?;
         let net_player_to_game = analysis.net_player_to_game().ok_or("Net player to game")?;
         let net_player_to_unique = analysis
             .net_player_to_unique()
@@ -1117,6 +1120,7 @@ impl BwScr {
             unique_command_user: Value::new(ctx, unique_command_user),
             storm_command_user: Value::new(ctx, storm_command_user),
             is_network_ready: Value::new(ctx, is_network_ready),
+            net_user_latency: Value::new(ctx, net_user_latency),
             net_player_to_game: Value::new(ctx, net_player_to_game),
             net_player_to_unique: Value::new(ctx, net_player_to_unique),
             local_player_name: Value::new(ctx, local_player_name),
@@ -2513,6 +2517,14 @@ impl bw::Bw for BwScr {
 
     unsafe fn is_network_ready(&self) -> bool {
         self.is_network_ready.resolve() == 1
+    }
+
+    unsafe fn set_user_latency(&self, latency: UserLatency) {
+        self.net_user_latency.write(match latency {
+            UserLatency::Low => 0,
+            UserLatency::High => 1,
+            UserLatency::ExtraHigh => 2,
+        });
     }
 }
 

@@ -122,7 +122,7 @@ const LoadingDatas = {
 }
 
 export type OnGameSetupFunc = (
-  gameInfo: { gameId: string; seed: number; turnRate?: BwTurnRate },
+  gameInfo: { gameId: string; seed: number; turnRate?: BwTurnRate; userLatency?: BwUserLatency },
   /** Map of user ID -> code for submitting the game results */
   resultCodes: Map<SbUserId, string>,
 ) => void
@@ -337,6 +337,7 @@ export class GameLoader {
     cancelToken.throwIfCancelling()
 
     let chosenTurnRate: BwTurnRate | undefined
+    let chosenUserLatency: BwUserLatency | undefined
     let maxEstimatedLatency = 0
     for (const route of routes) {
       if (route.estimatedLatency > maxEstimatedLatency) {
@@ -351,6 +352,7 @@ export class GameLoader {
       if (availableTurnRates.length) {
         // Of the turn rates that work for this latency, pick the best one
         chosenTurnRate = availableTurnRates.at(-1)![0]
+        chosenUserLatency = BwUserLatency.Low
       } else {
         // Fall back to a latency that will work for High latency
         availableTurnRates = MAX_LATENCIES_HIGH.filter(
@@ -358,6 +360,7 @@ export class GameLoader {
         )
         // Of the turn rates that work for this latency, pick the best one
         chosenTurnRate = availableTurnRates.length ? availableTurnRates.at(-1)![0] : 12
+        chosenUserLatency = BwUserLatency.High
       }
     }
 
@@ -366,7 +369,15 @@ export class GameLoader {
       .observe(maxEstimatedLatency / 1000)
 
     const onGameSetupResult = onGameSetup
-      ? onGameSetup({ gameId, seed: generateSeed(), turnRate: chosenTurnRate }, resultCodes)
+      ? onGameSetup(
+          {
+            gameId,
+            seed: generateSeed(),
+            turnRate: chosenTurnRate,
+            userLatency: chosenUserLatency,
+          },
+          resultCodes,
+        )
       : Promise.resolve()
 
     // get a list of routes + player IDs per player, broadcast that to each player

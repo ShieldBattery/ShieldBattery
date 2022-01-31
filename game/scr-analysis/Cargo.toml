@@ -3,6 +3,7 @@ name = "scr-analysis"
 version = "0.1.0"
 edition = "2018"
 
+# TODO(tec27): Move back to normal version once net_user_latency is merged
 [dependencies.samase_scarf]
-git = "https://github.com/neivv/samase_scarf.git"
-rev = "662b863cb9e912d11d8bfdcb94e1a4e9904e1034"
+git = "https://github.com/tec27/samase_scarf.git"
+rev = "9d0f7ddca21a3955c9819b7f58a45c54e1617b76"

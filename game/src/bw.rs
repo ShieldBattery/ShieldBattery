@@ -87,6 +87,7 @@ pub trait Bw: Sync + Send {
     /// Returns whether or not the network is ready to proceed to the next turn (that is, all
     /// player's turns have been received). False indicates that we are currently in a stall.
     unsafe fn is_network_ready(&self) -> bool;
+    unsafe fn set_user_latency(&self, latency: UserLatency);
 
     /// Note: Size is unspecified, but will not change between calls.
     /// (Remastered has 12 storm players)
@@ -211,6 +212,13 @@ pub const RACE_ZERG: u8 = 0x0;
 pub const RACE_TERRAN: u8 = 0x1;
 pub const RACE_PROTOSS: u8 = 0x2;
 pub const RACE_RANDOM: u8 = 0x6;
+
+#[derive(Debug)]
+pub enum UserLatency {
+    Low,
+    High,
+    ExtraHigh,
+}
 
 #[repr(C)]
 #[derive(Copy, Clone)]

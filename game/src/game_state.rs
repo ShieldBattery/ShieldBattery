@@ -19,7 +19,7 @@ use crate::app_messages::{
     PlayerInfo, Race, Route, Settings, SetupProgress, UmsLobbyRace, GAME_STATUS_ERROR,
 };
 use crate::app_socket;
-use crate::bw::{self, get_bw, GameType, StormPlayerId};
+use crate::bw::{self, get_bw, GameType, StormPlayerId, UserLatency};
 use crate::cancel_token::{CancelToken, Canceler, SharedCanceler};
 use crate::forge;
 use crate::game_thread::{
@@ -309,6 +309,24 @@ impl GameState {
                     join_lobby(&info, game_type).await?;
                 }
             }
+
+            if let Some(latency) = info.user_latency {
+                let latency = match latency {
+                    0 => UserLatency::Low,
+                    1 => UserLatency::High,
+                    2 => UserLatency::ExtraHigh,
+                    val => {
+                        warn!("Invalid user latency value: {}", val);
+                        UserLatency::Low
+                    }
+                };
+                debug!("Setting initial user latency: {:?}", latency);
+                let bw = get_bw();
+                unsafe {
+                    bw.set_user_latency(latency);
+                }
+            }
+
             debug!("In lobby, setting up slots");
             unsafe {
                 let ums_forces = info
