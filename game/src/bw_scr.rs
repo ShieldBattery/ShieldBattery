@@ -146,6 +146,7 @@ pub struct BwScr {
     create_game_multiplayer: scarf::VirtualAddress,
     spawn_dialog: scarf::VirtualAddress,
     step_game_logic: scarf::VirtualAddress,
+    net_format_turn_rate: scarf::VirtualAddress,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
 
@@ -605,6 +606,14 @@ pub mod scr {
         pub active: u8,
     }
 
+    #[repr(C)]
+    pub struct NetFormatTurnRateResult {
+        // TODO(tec27): Not entirely certain what this is, behaves kind of weird during a DTR scan.
+        // This first value is a pointer that gets zeroed out if not used.
+        pub unk0: [u8; 4],
+        pub text: BwString,
+    }
+
     unsafe impl Sync for PrismShader {}
     unsafe impl Send for PrismShader {}
 
@@ -948,6 +957,9 @@ impl BwScr {
         let storm_command_user = analysis.storm_command_user().ok_or("Storm command user")?;
         let is_network_ready = analysis.network_ready().ok_or("Is network ready")?;
         let net_user_latency = analysis.net_user_latency().ok_or("Net user latency")?;
+        let net_format_turn_rate = analysis
+            .net_format_turn_rate()
+            .ok_or("net_format_turn_rate")?;
         let net_player_to_game = analysis.net_player_to_game().ok_or("Net player to game")?;
         let net_player_to_unique = analysis
             .net_player_to_unique()
@@ -1151,6 +1163,7 @@ impl BwScr {
             uses_new_join_param_variant,
             status_screen_funcs,
             original_status_screen_update,
+            net_format_turn_rate,
             init_network_player_info: unsafe { mem::transmute(init_network_player_info.0) },
             step_network: unsafe { mem::transmute(step_network.0) },
             step_network_addr: step_network,
@@ -1428,6 +1441,41 @@ impl BwScr {
             },
             address,
         );
+
+        let address = self.net_format_turn_rate.0 as usize - base;
+        exe.hook_closure_address(
+            NetFormatTurnRate,
+            move |result: *mut scr::NetFormatTurnRateResult, dtr_scan_in_progress, orig| {
+                // NOTE(tec27): We don't use the original value at all but it's a convenient way to
+                // get them to allocate a real string for us.
+                orig(result, dtr_scan_in_progress);
+
+                let turn_rate = match (*self.game_data()).turn_rate {
+                    0 => 24, // This only happens with DTR, and is temporary anyway
+                    val => val,
+                };
+                let cur_user_latency = self.net_user_latency.resolve();
+                let user_delay = 2 /* proto_latency */ + cur_user_latency;
+                let effective_latency =
+                    ((1000f32 * user_delay as f32 + 500f32) / turn_rate as f32).round();
+                // NOTE(tec27): It's *very important* that this always fit into the inline buffer
+                // of BwString, since the string they generate might only be using that
+                let value = format!("Lat: {:.0}ms", effective_latency);
+                let mut text = &mut (*result).text;
+                // Check for safety, but ideally this would never have the possibility of being
+                // false
+                if value.len() < text.capacity {
+                    let text_slice = std::slice::from_raw_parts_mut(text.pointer, text.capacity);
+                    (&mut text_slice[..value.len()]).copy_from_slice(value.as_bytes());
+                    text_slice[value.len()] = 0;
+                    text.length = value.len();
+                } else {
+                    error!("Latency string was outside available capacity")
+                }
+            },
+            address,
+        );
+
         let address = self.init_game_data.0 as usize - base;
         exe.hook_closure_address(
             InitGameData,
@@ -2966,6 +3014,9 @@ mod hooks {
         !0 => SpawnDialog(*mut bw::Dialog, usize, usize) -> usize;
         !0 => StepGameLogic(usize) -> usize;
         !0 => StepNetwork() -> usize;
+        // TODO(tec27): Not entirely certain that this return value is correct, but the game doesn't
+        // seem to look at it anyway?
+        !0 => NetFormatTurnRate(*mut scr::NetFormatTurnRateResult, bool);
     );
 
     whack_hooks!(stdcall, 0,

@@ -1113,7 +1113,7 @@ checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
 [[package]]
 name = "samase_scarf"
 version = "0.1.0"
-source = "git+https://github.com/neivv/samase_scarf.git?rev=3fc92a9437912edae6eb846031456002139eed86#3fc92a9437912edae6eb846031456002139eed86"
+source = "git+https://github.com/tec27/samase_scarf.git?rev=bd3ff0598ffbc37e6a9f8fb908dbf4ba56cd497a#bd3ff0598ffbc37e6a9f8fb908dbf4ba56cd497a"
 dependencies = [
  "array-init",
  "arrayvec",
@@ -1130,7 +1130,7 @@ dependencies = [
 [[package]]
 name = "scarf"
 version = "0.3.0"
-source = "git+https://github.com/neivv/scarf?rev=5c4c21502e4a81ee6b8e6717446ba513ad1fc45b#5c4c21502e4a81ee6b8e6717446ba513ad1fc45b"
+source = "git+https://github.com/neivv/scarf?rev=cd05765550af45bc3be20bad2f80ba62f7c452c3#cd05765550af45bc3be20bad2f80ba62f7c452c3"
 dependencies = [
  "array-init",
  "arrayvec",
