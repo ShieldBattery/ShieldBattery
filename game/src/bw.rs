@@ -365,7 +365,7 @@ pub struct JoinableGameInfo {
     pub approval: u8,
     pub game_type: u16,
     pub game_subtype: u16,
-    pub cdkey_checksum: u32,
+    pub turn_rate: u32,
     pub tileset: u16,
     pub is_replay: u8,
     pub active_computer_players: u8, // Only set when saving - why..
