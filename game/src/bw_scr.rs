@@ -41,7 +41,7 @@ const SHADER_ID_MASK: u32 = 0x1c;
 
 pub struct BwScr {
     game: Value<*mut bw::Game>,
-    game_data: Value<*mut bw::JoinableGameInfo>,
+    game_data: Value<*mut bw::BwGameData>,
     players: Value<*mut bw::Player>,
     chk_players: Value<*mut bw::Player>,
     init_chk_player_types: Value<*mut u8>,
@@ -1957,7 +1957,7 @@ impl BwScr {
     /// in case blizzard is being indecisive.
     unsafe fn build_join_game_params<T: GameInfoValueTrait>(
         &self,
-        input_game_info: &mut bw::JoinableGameInfo,
+        input_game_info: &mut bw::BwGameData,
         is_eud: bool,
         turn_rate: u32,
     ) -> bw_hash_table::HashTable<scr::BwString, T> {
@@ -2267,7 +2267,7 @@ impl bw::Bw for BwScr {
 
     unsafe fn join_lobby(
         &self,
-        input_game_info: &mut bw::JoinableGameInfo,
+        input_game_info: &mut bw::BwGameData,
         is_eud: bool,
         turn_rate: u32,
         map_path: &CStr,
@@ -2373,7 +2373,7 @@ impl bw::Bw for BwScr {
         self.game.resolve()
     }
 
-    unsafe fn game_data(&self) -> *mut bw::JoinableGameInfo {
+    unsafe fn game_data(&self) -> *mut bw::BwGameData {
         self.game_data.resolve()
     }
 
@@ -2957,7 +2957,7 @@ mod hooks {
         !0 => StepReplayCommands();
         !0 => StartUdpServer(@ecx *mut c_void) -> u32;
         !0 => CreateGameMultiplayer(
-            *mut bw::JoinableGameInfo, // Note: 1.16.1 struct, not scr::JoinableGameInfo
+            *mut bw::BwGameData, // Note: 1.16.1 struct, not scr::JoinableGameInfo
             *const u8, // Game name
             *const u8, // Password (null)
             *const u8, // Map path?

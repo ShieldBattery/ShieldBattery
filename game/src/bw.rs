@@ -59,14 +59,14 @@ pub trait Bw: Sync + Send {
     /// `address` is only used by SCR. 1161 sets address by snp::spoof_game.
     unsafe fn join_lobby(
         &self,
-        game_info: &mut JoinableGameInfo,
+        game_info: &mut BwGameData,
         is_eud_map: bool,
         turn_rate: u32,
         map_path: &CStr,
         address: std::net::Ipv4Addr,
     ) -> Result<(), u32>;
     unsafe fn game(&self) -> *mut Game;
-    unsafe fn game_data(&self) -> *mut JoinableGameInfo;
+    unsafe fn game_data(&self) -> *mut BwGameData;
     unsafe fn players(&self) -> *mut Player;
     /// May be null in some edge case?
     /// But since it is used for both recording and replaying it usually isn't.
@@ -353,7 +353,7 @@ pub struct ClientInfo {
 
 #[repr(C, packed)]
 #[derive(Clone, Copy)]
-pub struct JoinableGameInfo {
+pub struct BwGameData {
     pub index: u32,
     pub name: [u8; 24],
     pub save_checksum: u32,
@@ -416,7 +416,7 @@ pub struct ReplayHeader {
     pub replay_end_frame: u32,
     pub campaign_mission: u16,
     pub save_data_command: [u8; 0xd],
-    pub game_info: JoinableGameInfo,
+    pub game_info: BwGameData,
     pub players: [Player; 0xc],
     pub ai_player_names: [u32; 8],
     pub ums_user_select_slots: [u8; 8],
@@ -443,7 +443,7 @@ fn struct_sizes() {
     use std::mem::size_of;
     assert_eq!(size_of::<SnpGameInfo>(), 0x13c);
     assert_eq!(size_of::<StormPlayer>(), 0x22);
-    assert_eq!(size_of::<JoinableGameInfo>(), 0x8d);
+    assert_eq!(size_of::<BwGameData>(), 0x8d);
     assert_eq!(size_of::<GameTemplate>(), 0x20);
     assert_eq!(size_of::<FowSprite>(), 0x10);
     assert_eq!(size_of::<ReplayData>(), 0x20);

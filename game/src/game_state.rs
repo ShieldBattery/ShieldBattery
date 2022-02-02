@@ -1120,7 +1120,7 @@ unsafe fn join_lobby(
     // This info isn't used ingame (with exception of game_type?),
     // but it is written in the header of replays/saves.
     let game_info = {
-        let mut game_info = bw::JoinableGameInfo {
+        let mut game_info = bw::BwGameData {
             index: 1,
             map_width: map_data.width,
             map_height: map_data.height,
@@ -1179,7 +1179,7 @@ unsafe fn join_lobby(
 }
 
 async unsafe fn try_join_lobby_once(
-    mut game_info: bw::JoinableGameInfo,
+    mut game_info: bw::BwGameData,
     is_eud: bool,
     turn_rate: u32,
     map_path: &Arc<CString>,
