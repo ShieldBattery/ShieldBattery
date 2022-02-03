@@ -319,7 +319,6 @@ pub mod scr {
             if replace_with.len() > self.get_capacity() {
                 // New value doesn't fit, reallocate
                 if !self.is_using_inline_buffer() {
-                    debug!("Freeing existing string memory");
                     unsafe {
                         bw_free(self.pointer);
                         self.pointer = std::ptr::null_mut();
@@ -328,7 +327,6 @@ pub mod scr {
 
                 // TODO(tec27): Increase this size a bit to avoid reallocations?
                 let new_capacity = replace_with.len();
-                debug!("Allocating new memory for string of size {}", new_capacity);
                 unsafe {
                     self.pointer = bw_malloc(new_capacity + 1);
                     self.capacity = new_capacity;
