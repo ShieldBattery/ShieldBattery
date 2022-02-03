@@ -232,6 +232,7 @@ pub mod scr {
 
     use crate::bw;
     use crate::bw::SnpFunctions;
+    use crate::bw_scr::{bw_free, bw_malloc};
 
     use super::thiscall::Thiscall;
 
@@ -291,10 +292,57 @@ pub mod scr {
 
     #[repr(C)]
     pub struct BwString {
+        /// A pointer to the current memory containing the characters in the string.
         pub pointer: *mut u8,
+        /// Current length of the string, not including the null terminator.
         pub length: usize,
+        /// Total size of the memory pointed to by [`pointer`], not including the null terminator.
+        /// The sign bit of the capacity signifies whether or not the inline buffer is being used
+        /// (sign bit set = internal buffer).
         pub capacity: usize,
+        /// A buffer that will be used if the string fits within it.
         pub inline_buffer: [u8; 0x10],
+    }
+
+    impl BwString {
+        /// Returns the capacity (with the bit signifying internal/external buffer removed).
+        pub fn get_capacity(&self) -> usize {
+            return self.capacity & (usize::MAX >> 1);
+        }
+
+        pub fn is_using_inline_buffer(&self) -> bool {
+            return self.capacity & !(usize::MAX >> 1) != 0;
+        }
+
+        /// Replaces the entire contents of the string, allocating new memory if necessary.
+        pub fn replace_all(&mut self, replace_with: &str) {
+            if replace_with.len() > self.get_capacity() {
+                // New value doesn't fit, reallocate
+                if !self.is_using_inline_buffer() {
+                    debug!("Freeing existing string memory");
+                    unsafe {
+                        bw_free(self.pointer);
+                        self.pointer = std::ptr::null_mut();
+                    }
+                }
+
+                // TODO(tec27): Increase this size a bit to avoid reallocations?
+                let new_capacity = replace_with.len();
+                debug!("Allocating new memory for string of size {}", new_capacity);
+                unsafe {
+                    self.pointer = bw_malloc(new_capacity + 1);
+                    self.capacity = new_capacity;
+                }
+            }
+
+            unsafe {
+                let text_slice =
+                    std::slice::from_raw_parts_mut(self.pointer, self.get_capacity() + 1);
+                (&mut text_slice[..replace_with.len()]).copy_from_slice(replace_with.as_bytes());
+                text_slice[replace_with.len()] = 0;
+                self.length = replace_with.len();
+            }
+        }
     }
 
     #[repr(C)]
@@ -1458,20 +1506,8 @@ impl BwScr {
                 let user_delay = 2 /* proto_latency */ + cur_user_latency;
                 let effective_latency =
                     ((1000f32 * user_delay as f32 + 500f32) / turn_rate as f32).round();
-                // NOTE(tec27): It's *very important* that this always fit into the inline buffer
-                // of BwString, since the string they generate might only be using that
                 let value = format!("Lat: {:.0}ms", effective_latency);
-                let mut text = &mut (*result).text;
-                // Check for safety, but ideally this would never have the possibility of being
-                // false
-                if value.len() < text.capacity {
-                    let text_slice = std::slice::from_raw_parts_mut(text.pointer, text.capacity);
-                    (&mut text_slice[..value.len()]).copy_from_slice(value.as_bytes());
-                    text_slice[value.len()] = 0;
-                    text.length = value.len();
-                } else {
-                    error!("Latency string was outside available capacity")
-                }
+                (*result).text.replace_all(value.as_str());
             },
             address,
         );
