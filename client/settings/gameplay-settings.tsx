@@ -125,7 +125,7 @@ const GameplayRemasteredForm = React.forwardRef<
           />
           <CheckBox
             {...bindCheckable('showTurnRate')}
-            label='Show turn rate'
+            label='Show latency'
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
