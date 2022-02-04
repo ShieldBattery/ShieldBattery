@@ -34,9 +34,15 @@ message GameMessagePayload {
     // A message Storm requested we send. The data inside can be passed directly to Storm's
     // normal network processing.
     StormWrapper storm = 2;
+
+    ClientReadyMessage client_ready = 3;
   }
 }
 
 message StormWrapper {
   bytes storm_data = 1;
+}
+
+// This client has loaded their game/lobby and is ready to start.
+message ClientReadyMessage {
 }

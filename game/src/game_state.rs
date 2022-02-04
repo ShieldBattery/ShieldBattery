@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::ffi::{CStr, CString};
 use std::io;
 use std::mem;
@@ -15,8 +16,8 @@ use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
-    GamePlayerResult, GameResults, GameResultsReport, GameSetupInfo, LocalUser, MapForce,
-    PlayerInfo, Race, Route, Settings, SetupProgress, UmsLobbyRace, GAME_STATUS_ERROR,
+    GamePlayerResult, GameResults, GameResultsReport, GameSetupInfo, LobbyPlayerId, LocalUser,
+    MapForce, PlayerInfo, Race, Route, Settings, SetupProgress, UmsLobbyRace, GAME_STATUS_ERROR,
 };
 use crate::app_socket;
 use crate::bw::{self, get_bw, GameType, StormPlayerId, UserLatency};
@@ -25,13 +26,18 @@ use crate::forge;
 use crate::game_thread::{
     self, GameThreadMessage, GameThreadRequest, GameThreadRequestType, GameThreadResults,
 };
-use crate::network_manager::{NetworkError, NetworkManager};
+use crate::network_manager::{
+    GameStateToNetworkMessage, NetworkError, NetworkManager, NetworkToGameStateMessage,
+};
+use crate::proto::messages::game_message_payload::Payload;
+use crate::proto::messages::ClientReadyMessage;
 use crate::replay;
 use crate::snp;
 
 pub struct GameState {
     init_state: InitState,
     network: NetworkManager,
+    network_send: mpsc::Sender<GameStateToNetworkMessage>,
     ws_send: app_socket::SendMessages,
     internal_send: self::SendMessages,
     init_main_thread: std::sync::mpsc::Sender<()>,
@@ -39,16 +45,16 @@ pub struct GameState {
     #[allow(dead_code)]
     running_game: Option<Canceler>,
     async_stop: SharedCanceler,
-    can_start_game: CanStartGame,
+    can_start_game: AwaitableTaskState,
     game_started: bool,
 }
 
 pub type SendMessages = mpsc::Sender<GameStateMessage>;
 
-enum CanStartGame {
-    Yes,
-    /// Tasks waiting for start permission push wakeup sender here
-    No(Vec<oneshot::Sender<()>>),
+enum AwaitableTaskState<T = ()> {
+    Complete,
+    /// Things waiting for the task to complete push wakeup sender here
+    Incomplete(Vec<oneshot::Sender<T>>),
 }
 
 enum InitState {
@@ -94,6 +100,7 @@ pub enum GameStateMessage {
     PlayersChanged,
     GameSetupDone,
     GameThread(GameThreadMessage),
+    Network(NetworkToGameStateMessage),
     CleanupQuit,
     QuitIfNotStarted,
 }
@@ -209,12 +216,12 @@ impl GameState {
 
     fn wait_can_start_game(&mut self) -> impl Future<Output = ()> {
         let recv = match self.can_start_game {
-            CanStartGame::No(ref mut waiters) => {
+            AwaitableTaskState::Incomplete(ref mut waiters) => {
                 let (send, recv) = oneshot::channel();
                 waiters.push(send);
                 Some(recv)
             }
-            CanStartGame::Yes => None,
+            AwaitableTaskState::Complete => None,
         };
         async move {
             if let Some(recv) = recv {
@@ -236,15 +243,14 @@ impl GameState {
             }
         };
 
+        let info = Arc::new(info);
         // The complete initialization logic is split between futures in this function
         // and self.init_state updating itself in response to network events,
         // both places poking bw's state as well..
         // It may probably be better to move everything to InitInProgress and have this
         // function just initialize it?
         // For now it's worth noting that until the `init_state.wait_for_players` future
-        // completes, InitInProgress will update bw's player state and setting observer
-        // chat override.
-        let info = Arc::new(info);
+        // completes, InitInProgress will update bw's player state.
         let mut init_state = match self.init_state {
             InitState::WaitingForInput(ref mut state) => match state.init_if_ready(&info) {
                 Ok(o) => o,
@@ -255,16 +261,18 @@ impl GameState {
             }
         };
         let local_user = init_state.local_user.clone();
-        let mut players_joined = init_state.wait_for_players();
+        let mut players_joined = init_state.wait_for_players().boxed();
+        let all_players_ready = init_state.wait_all_players_ready().boxed();
         self.init_state = InitState::Started(init_state);
 
         let send_messages_to_state = self.internal_send.clone();
         let game_request_send = self.send_main_thread_requests.clone();
 
+        let network_send = self.network_send.clone();
         let init_routes_when_ready_future = self.network.init_routes_when_ready();
         let network_ready_future = self.network.wait_network_ready();
         let net_game_info_set_future = self.network.set_game_info(info.clone());
-        let mut allow_start = self.wait_can_start_game().boxed();
+        let allow_start = self.wait_can_start_game().boxed();
 
         self.init_main_thread
             .send(())
@@ -403,15 +411,36 @@ impl GameState {
                 }
             }
 
-            loop {
-                unsafe {
-                    bw.maybe_receive_turns();
+            if !is_host {
+                debug!("Notifying host that client is ready");
+                network_send
+                    .send(GameStateToNetworkMessage::SendPayload(
+                        info.host.id.clone(),
+                        Payload::ClientReady(ClientReadyMessage::default()),
+                    ))
+                    .await
+                    .map_err(|_| GameInitError::Closed)?;
+                // Note that we don't need to wait for anything further as a non-host, the game's
+                // normal seed event will signal it's time to start (handled in do_lobby_game_init)
+            } else {
+                // Wait for all the players to be ready to start, and the server to let us go
+                let mut ready_future =
+                    future::try_join(allow_start.map(|_| Ok(())), all_players_ready);
+                loop {
+                    unsafe {
+                        bw.maybe_receive_turns();
+                    }
+
+                    select! {
+                        _ = tokio::time::sleep(Duration::from_millis(42)) => continue,
+                        res = &mut ready_future => {
+                            res?;
+                            break
+                        },
+                    }
                 }
 
-                select! {
-                    _ = tokio::time::sleep(Duration::from_millis(42)) => continue,
-                    _ = &mut allow_start => break,
-                }
+                debug!("All players are ready to start");
             }
 
             unsafe {
@@ -478,14 +507,16 @@ impl GameState {
             SetRoutes(routes) => {
                 return self.set_routes(routes).boxed();
             }
-            StartWhenReady => match mem::replace(&mut self.can_start_game, CanStartGame::Yes) {
-                CanStartGame::Yes => (),
-                CanStartGame::No(waiting) => {
-                    for sender in waiting {
-                        let _ = sender.send(());
+            StartWhenReady => {
+                match mem::replace(&mut self.can_start_game, AwaitableTaskState::Complete) {
+                    AwaitableTaskState::Complete => (),
+                    AwaitableTaskState::Incomplete(waiting) => {
+                        for sender in waiting {
+                            let _ = sender.send(());
+                        }
                     }
                 }
-            },
+            }
             SetupGame(info) => {
                 let ws_send = self.ws_send.clone();
                 let async_stop = self.async_stop.clone();
@@ -539,6 +570,9 @@ impl GameState {
             }
             GameThread(msg) => {
                 return self.handle_game_thread_message(msg);
+            }
+            Network(msg) => {
+                return self.handle_network_message(msg);
             }
             CleanupQuit => {
                 let cleanup_request = GameThreadRequestType::ExitCleanup;
@@ -606,6 +640,33 @@ impl GameState {
                     warn!("Received results before init was started");
                 }
             }
+        }
+        future::ready(()).boxed()
+    }
+
+    fn handle_network_message(
+        &mut self,
+        msg: NetworkToGameStateMessage,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+        use crate::network_manager::NetworkToGameStateMessage::*;
+        match msg {
+            ReceivePayload(ref player_id, payload) => match payload {
+                Payload::ClientReady(_) => {
+                    if let InitState::Started(ref mut state) = self.init_state {
+                        if state.unready_players.remove(player_id) {
+                            debug!("{:?} is now ready", player_id)
+                        }
+
+                        state.check_unready_players();
+                    } else {
+                        error!(
+                            "Got ClientReady for {:?} before init had started",
+                            player_id
+                        );
+                    }
+                }
+                _ => {}
+            },
         }
         future::ready(()).boxed()
     }
@@ -679,11 +740,12 @@ async fn send_game_result(
 }
 
 struct InitInProgress {
-    on_all_players_joined: Vec<oneshot::Sender<Result<(), GameInitError>>>,
-    all_players_joined: bool,
+    all_players_joined: AwaitableTaskState<Result<(), GameInitError>>,
+    all_players_ready: AwaitableTaskState<()>,
     setup_info: Arc<GameSetupInfo>,
     local_user: Arc<LocalUser>,
     joined_players: Vec<JoinedPlayer>,
+    unready_players: HashSet<LobbyPlayerId>,
     waiting_for_result: Vec<oneshot::Sender<Arc<GameResults>>>,
 }
 
@@ -697,14 +759,36 @@ struct JoinedPlayer {
 
 impl InitInProgress {
     fn new(setup_info: Arc<GameSetupInfo>, local_user: Arc<LocalUser>) -> InitInProgress {
-        InitInProgress {
-            on_all_players_joined: Vec::new(),
-            all_players_joined: false,
+        let is_host = setup_info.host.name == local_user.name;
+        // Only the host tracks client readiness
+        let unready_players = if is_host {
+            setup_info
+                .slots
+                .iter()
+                .filter_map(|slot| {
+                    if !slot.is_human() || slot.name == local_user.name {
+                        None
+                    } else {
+                        Some(slot.id.clone())
+                    }
+                })
+                .collect::<HashSet<_>>()
+        } else {
+            HashSet::new()
+        };
+
+        let mut result = InitInProgress {
+            all_players_joined: AwaitableTaskState::Incomplete(Vec::new()),
+            all_players_ready: AwaitableTaskState::Incomplete(Vec::new()),
             setup_info,
             local_user,
             joined_players: Vec::new(),
+            unready_players,
             waiting_for_result: Vec::new(),
-        }
+        };
+        result.check_unready_players();
+
+        result
     }
 
     fn players_changed(&mut self) {
@@ -713,10 +797,14 @@ impl InitInProgress {
             Err(e) => Err(e),
             Ok(false) => return,
         };
-        self.all_players_joined = true;
 
-        for sender in self.on_all_players_joined.drain(..) {
-            let _ = sender.send(result.clone());
+        match mem::replace(&mut self.all_players_joined, AwaitableTaskState::Complete) {
+            AwaitableTaskState::Complete => {}
+            AwaitableTaskState::Incomplete(waiting) => {
+                for sender in waiting {
+                    let _ = sender.send(result.clone());
+                }
+            }
         }
     }
 
@@ -724,15 +812,43 @@ impl InitInProgress {
     // self.players_changed gets called whenever game thread sends a join notification,
     // and once when the init task tells that a player is in lobby.
     fn wait_for_players(&mut self) -> impl Future<Output = Result<(), GameInitError>> {
-        if self.all_players_joined {
-            future::ok(()).boxed()
-        } else {
-            let (send_done, recv_done) = oneshot::channel();
-            self.on_all_players_joined.push(send_done);
-            recv_done
-                .map_err(|_| GameInitError::Closed)
-                .and_then(|inner| future::ready(inner))
-                .boxed()
+        let f = match self.all_players_joined {
+            AwaitableTaskState::Incomplete(ref mut waiters) => {
+                let (send, recv) = oneshot::channel();
+                waiters.push(send);
+                Some(recv)
+            }
+            AwaitableTaskState::Complete => None,
+        };
+
+        async move {
+            if let Some(f) = f {
+                f.map_err(|_| GameInitError::Closed).await?
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    /// Waits until all players have notified the host that they are ready.
+    fn wait_all_players_ready(&mut self) -> impl Future<Output = Result<(), GameInitError>> {
+        let f = match self.all_players_ready {
+            AwaitableTaskState::Incomplete(ref mut waiters) => {
+                let (send, recv) = oneshot::channel();
+                waiters.push(send);
+                Some(recv)
+            }
+            AwaitableTaskState::Complete => None,
+        };
+
+        async move {
+            if let Some(f) = f {
+                f.map_err(|_| GameInitError::Closed)
+                    .and_then(|inner| future::ok(inner))
+                    .await
+            } else {
+                Ok(())
+            }
         }
     }
 
@@ -848,6 +964,22 @@ impl InitInProgress {
         } else {
             debug!("Waiting for players {:?}", waiting_for);
             false
+        }
+    }
+
+    /// Checks if there are still any unready players, updating the task state if not.
+    fn check_unready_players(&mut self) {
+        if self.unready_players.is_empty() {
+            match mem::replace(&mut self.all_players_ready, AwaitableTaskState::Complete) {
+                AwaitableTaskState::Complete => {}
+                AwaitableTaskState::Incomplete(waiting) => {
+                    for sender in waiting {
+                        let _ = sender.send(());
+                    }
+                }
+            }
+        } else {
+            debug!("Still waiting for ready from: {:?}", self.unready_players);
         }
     }
 
@@ -1363,26 +1495,30 @@ pub async fn create_future(
     send_main_thread_requests: std::sync::mpsc::Sender<GameThreadRequest>,
 ) {
     let (internal_send, mut internal_recv) = mpsc::channel(8);
+    let (network_send, network_recv) = mpsc::channel(64);
+    let (from_network_send, mut from_network_recv) = mpsc::channel(64);
     let mut game_state = GameState {
         init_state: InitState::WaitingForInput(IncompleteInit {
             settings_set: false,
             local_user: None,
             routes_set: false,
         }),
-        network: NetworkManager::new(),
+        network: NetworkManager::new(from_network_send, network_recv),
+        network_send,
         ws_send,
         internal_send,
         init_main_thread,
         send_main_thread_requests,
         running_game: None,
         async_stop,
-        can_start_game: CanStartGame::No(Vec::new()),
+        can_start_game: AwaitableTaskState::Incomplete(Vec::new()),
         game_started: false,
     };
     loop {
         let message = select! {
             x = messages.recv() => x,
             x = internal_recv.recv() => x,
+            x = from_network_recv.recv() => x.map(|x| GameStateMessage::Network(x)),
         };
         match message {
             Some(m) => game_state.handle_message(m).await,

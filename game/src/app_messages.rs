@@ -149,10 +149,14 @@ pub struct MapForcePlayer {
     pub race: UmsLobbyRace,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Hash)]
+#[serde(transparent)]
+pub struct LobbyPlayerId(String);
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerInfo {
-    pub id: String,
+    pub id: LobbyPlayerId,
     pub name: String,
     pub race: Option<String>,
     pub user_id: Option<u32>,
@@ -204,7 +208,7 @@ impl PlayerInfo {
 #[serde(rename_all = "camelCase")]
 pub struct Route {
     #[serde(rename = "for")]
-    pub for_player: String,
+    pub for_player: LobbyPlayerId,
     pub server: RallyPointServer,
     pub route_id: String,
     pub player_id: u32,

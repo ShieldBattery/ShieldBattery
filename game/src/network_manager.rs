@@ -6,13 +6,14 @@ use std::time::Duration;
 use bytes::{Bytes, BytesMut};
 use futures::pin_mut;
 use futures::prelude::*;
+use parking_lot::Mutex;
 use prost::Message;
 use quick_error::quick_error;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages;
-use crate::app_messages::Route as RouteInput;
+use crate::app_messages::{LobbyPlayerId, Route as RouteInput};
 use crate::cancel_token::{CancelToken, Canceler};
 use crate::netcode::ack_manager::AckManager;
 use crate::netcode::storm::is_storm_resend;
@@ -35,6 +36,15 @@ pub enum NetworkManagerMessage {
     StartKeepAlive(Arc<Route>),
     SetGameInfo(Arc<app_messages::GameSetupInfo>),
     ReceivePacket(Ipv4Addr, Bytes, SendMessages),
+    GameState(GameStateToNetworkMessage),
+}
+
+pub enum GameStateToNetworkMessage {
+    SendPayload(LobbyPlayerId, Payload),
+}
+
+pub enum NetworkToGameStateMessage {
+    ReceivePayload(LobbyPlayerId, Payload),
 }
 
 quick_error! {
@@ -63,7 +73,7 @@ pub struct Route {
     player_id: PlayerId,
     address: SocketAddr,
     // Links routes to PlayerInfo
-    lobby_player_id: String,
+    lobby_player_id: LobbyPlayerId,
 }
 
 enum NetworkState {
@@ -72,8 +82,15 @@ enum NetworkState {
     Error(NetworkError),
 }
 
+#[derive(Clone)]
+struct RouteState {
+    route: Arc<Route>,
+    ack_manager: Arc<Mutex<AckManager>>,
+}
+
 struct ReadyNetwork {
-    ip_to_routes: HashMap<Ipv4Addr, Arc<Route>>,
+    ip_to_routes: HashMap<Ipv4Addr, RouteState>,
+    lobby_id_to_routes: HashMap<LobbyPlayerId, RouteState>,
 }
 
 #[derive(Default)]
@@ -90,11 +107,11 @@ struct State {
     network: NetworkState,
     pings: PingState,
     rally_point: RallyPoint,
-    ip_to_ack_manager: HashMap<Ipv4Addr, AckManager>,
     waiting_for_network: Vec<oneshot::Sender<Result<()>>>,
     cancel_child_tasks: Vec<Canceler>,
     keep_routes_alive: Vec<Canceler>,
     send_messages: mpsc::Sender<NetworkManagerMessage>,
+    game_state_send: mpsc::Sender<NetworkToGameStateMessage>,
 }
 
 #[derive(Default)]
@@ -194,7 +211,7 @@ impl State {
                         .map_err(|e| NetworkError::RallyPoint(Arc::new(e)))?;
 
                     debug!(
-                        "Connected to {} for id {} [{:?}]",
+                        "Connected to {} for id {:?} [{:?}]",
                         route1.server.description, route1.for_player, route_id,
                     );
                     let route = Arc::new(Route {
@@ -361,34 +378,33 @@ impl State {
                         storm_wrapper.storm_data = data.into();
                         payload.payload = Some(Payload::Storm(storm_wrapper));
 
-                        if let Some(ack_manager) = self.ip_to_ack_manager.get_mut(&target) {
-                            let game_message = ack_manager.build_outgoing(payload);
+                        if let Some(ref route_state) = network.ip_to_routes.get(&target) {
+                            let game_message = {
+                                let mut ack_manager = route_state.ack_manager.lock();
+                                ack_manager.build_outgoing(payload)
+                            };
 
                             let mut packet = BytesMut::with_capacity(game_message.encoded_len());
                             game_message.encode(&mut packet).unwrap();
                             let packet = packet.freeze();
 
-                            let route = network.ip_to_routes.get(&target);
-                            if let Some(route) = route {
-                                let send = self.rally_point.forward(
-                                    &route.route_id,
-                                    route.player_id,
-                                    packet.clone(),
-                                    &route.address,
-                                );
+                            let route = &route_state.route;
+                            let send = self.rally_point.forward(
+                                &route.route_id,
+                                route.player_id,
+                                packet.clone(),
+                                &route.address,
+                            );
 
-                                let task = send.map_err(|e| error!("Send error {}", e)).map(|_| ());
-                                let (cancel_token, canceler) = CancelToken::new();
-                                self.cancel_child_tasks.push(canceler);
-                                tokio::spawn(async move {
-                                    pin_mut!(task);
-                                    let _ = cancel_token.bind(task).await;
-                                });
-                            } else {
-                                error!("Tried to send packet without a route: {}", target);
-                            }
+                            let task = send.map_err(|e| error!("Send error {}", e)).map(|_| ());
+                            let (cancel_token, canceler) = CancelToken::new();
+                            self.cancel_child_tasks.push(canceler);
+                            tokio::spawn(async move {
+                                pin_mut!(task);
+                                let _ = cancel_token.bind(task).await;
+                            });
                         } else {
-                            error!("Tried send packet without an AckManager: {}", target);
+                            error!("Tried to send packet without a route: {}", target);
                         }
                     } else {
                         warn!("Storm tried to send data without ready network");
@@ -427,30 +443,101 @@ impl State {
                 // became active.
             }
             NetworkManagerMessage::ReceivePacket(ip, mut packet, snp_send) => {
-                if let Some(ack_manager) = self.ip_to_ack_manager.get_mut(&ip) {
-                    if let Ok(game_message) = GameMessage::decode(&mut packet) {
-                        ack_manager.handle_incoming(&game_message);
+                if let NetworkState::Ready(ref network) = self.network {
+                    if let Some(ref route_state) = network.ip_to_routes.get(&ip) {
+                        if let Ok(game_message) = GameMessage::decode(&mut packet) {
+                            // CLion is bad at figuring out this type :(
+                            let game_message = game_message as GameMessage;
 
-                        for payload in game_message.payloads.iter() {
-                            // TODO(tec27): Handle payload types besides Storm
-                            match &payload.payload {
-                                Some(Payload::Storm(s)) => {
-                                    let message = snp::ReceivedMessage {
-                                        from: ip,
-                                        data: s.storm_data.clone(),
-                                    };
-                                    snp_send.send(message)
-                                }
-                                _ => {}
+                            {
+                                let mut ack_manager = route_state.ack_manager.lock();
+                                ack_manager.handle_incoming(&game_message);
                             }
+
+                            for payload in game_message.payloads.into_iter() {
+                                match payload.payload {
+                                    Some(Payload::Storm(s)) => {
+                                        let message = snp::ReceivedMessage {
+                                            from: ip,
+                                            data: s.storm_data.clone(),
+                                        };
+                                        snp_send.send(message)
+                                    }
+                                    Some(payload) => {
+                                        let message = NetworkToGameStateMessage::ReceivePayload(
+                                            route_state.route.lobby_player_id.clone(),
+                                            payload,
+                                        );
+
+                                        let game_state_send = self.game_state_send.clone();
+                                        let (cancel_token, canceler) = CancelToken::new();
+                                        self.cancel_child_tasks.push(canceler);
+
+                                        let cancelable = async move {
+                                            let task = async move {
+                                                game_state_send
+                                                    .send(message)
+                                                    .map_err(|e| error!("Send error {}", e))
+                                                    .map(|_| ())
+                                                    .await
+                                            };
+                                            pin_mut!(task);
+                                            let _ = cancel_token.bind(task).await;
+                                        };
+                                        tokio::spawn(cancelable);
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        } else {
+                            error!("Received a badly formed packet from {}", ip);
                         }
                     } else {
-                        error!("Received a badly formed packet from {}", ip);
+                        error!("Received a packet without an associated route: {}", ip)
                     }
                 } else {
-                    error!("Received a packet without an associated AckManager: {}", ip);
+                    error!("Received a packet before network was ready");
                 }
             }
+            NetworkManagerMessage::GameState(message) => match message {
+                GameStateToNetworkMessage::SendPayload(target, payload) => {
+                    if let NetworkState::Ready(ref network) = self.network {
+                        let mut payload_wrapper: GameMessagePayload = GameMessagePayload::default();
+                        payload_wrapper.payload = Some(payload);
+
+                        if let Some(ref route_state) = network.lobby_id_to_routes.get(&target) {
+                            let game_message = {
+                                let mut ack_manager = route_state.ack_manager.lock();
+                                ack_manager.build_outgoing(payload_wrapper)
+                            };
+
+                            let mut packet = BytesMut::with_capacity(game_message.encoded_len());
+                            game_message.encode(&mut packet).unwrap();
+                            let packet = packet.freeze();
+
+                            let route = &route_state.route;
+                            let send = self.rally_point.forward(
+                                &route.route_id,
+                                route.player_id,
+                                packet.clone(),
+                                &route.address,
+                            );
+
+                            let task = send.map_err(|e| error!("Send error {}", e)).map(|_| ());
+                            let (cancel_token, canceler) = CancelToken::new();
+                            self.cancel_child_tasks.push(canceler);
+                            tokio::spawn(async move {
+                                pin_mut!(task);
+                                let _ = cancel_token.bind(task).await;
+                            });
+                        } else {
+                            error!("Tried to send packet without a route: {:?}", target);
+                        }
+                    } else {
+                        warn!("Game state tried to send a payload before network was ready");
+                    }
+                }
+            },
         }
     }
 
@@ -490,13 +577,39 @@ impl State {
             .iter()
             .filter(|x| x.is_human() || x.is_observer())
             .filter(|x| x.id != game_info.host.id);
+        let lobby_id_to_routes = host
+            .into_iter()
+            .chain(rest.clone())
+            .enumerate()
+            .filter_map(|(_, player)| {
+                match routes.iter().find(|x| x.lobby_player_id == player.id) {
+                    Some(route) => Some((
+                        player.id.clone(),
+                        RouteState {
+                            route: route.clone(),
+                            ack_manager: Arc::new(Mutex::new(AckManager::new())),
+                        },
+                    )),
+                    None => {
+                        // There won't be a route for current player
+                        None
+                    }
+                }
+            })
+            .collect::<HashMap<_, _>>();
         let ip_to_routes = host
             .into_iter()
             .chain(rest)
             .enumerate()
             .filter_map(|(i, player)| {
                 match routes.iter().find(|x| x.lobby_player_id == player.id) {
-                    Some(route) => Some((Ipv4Addr::new(10, 27, 27, i as u8), route.clone())),
+                    Some(route) => Some((
+                        Ipv4Addr::new(10, 27, 27, i as u8),
+                        lobby_id_to_routes
+                            .get(&route.lobby_player_id)
+                            .unwrap()
+                            .clone(),
+                    )),
                     None => {
                         // There won't be a route for current player
                         None
@@ -505,15 +618,10 @@ impl State {
             })
             .collect::<HashMap<_, _>>();
 
-        // Ensure we have an AckManager for each player's network connection
-        for &ip in ip_to_routes.keys() {
-            self.ip_to_ack_manager.insert(ip, AckManager::new());
-        }
-
         // Create the task which receives packets and forwards them to Storm
         let streams_done = ip_to_routes
             .iter()
-            .map(|(&ip, route)| {
+            .map(|(&ip, RouteState { ref route, .. })| {
                 let snp_send = snp_send_messages.clone();
                 let net_message_sender = self.send_messages.clone();
                 let stream = self
@@ -556,7 +664,10 @@ impl State {
         self.cancel_child_tasks.push(canceler);
         tokio::spawn(cancel_token.bind(recv_task));
 
-        let ready = ReadyNetwork { ip_to_routes };
+        let ready = ReadyNetwork {
+            ip_to_routes,
+            lobby_id_to_routes,
+        };
         self.network = NetworkState::Ready(ready);
         for waiting in self.waiting_for_network.drain(..) {
             let _ = waiting.send(Ok(()));
@@ -585,7 +696,7 @@ fn ping_server(
                             ping,
                         })
                         .map_err(|e| {
-                            error!("Rally error {}", e);
+                            error!("Rally-point error {}", e);
                             NetworkError::ServerUnreachable
                         });
                     future.boxed()
@@ -602,7 +713,10 @@ fn ping_server(
 }
 
 impl NetworkManager {
-    pub fn new() -> NetworkManager {
+    pub fn new(
+        game_state_send: mpsc::Sender<NetworkToGameStateMessage>,
+        mut game_state_recv: mpsc::Receiver<GameStateToNetworkMessage>,
+    ) -> Self {
         let (send_messages, mut receive_messages) = mpsc::channel(64);
         let (internal_send_messages, mut internal_receive_messages) = mpsc::channel(16);
         let mut state = State {
@@ -610,16 +724,17 @@ impl NetworkManager {
             waiting_for_network: Vec::new(),
             send_messages: internal_send_messages,
             rally_point: crate::rally_point::init(),
-            ip_to_ack_manager: HashMap::new(),
             cancel_child_tasks: Vec::new(),
             keep_routes_alive: Vec::new(),
             pings: PingState::default(),
+            game_state_send,
         };
         let task = async move {
             loop {
                 let message = select! {
                     x = receive_messages.recv() => x,
                     x = internal_receive_messages.recv() => x,
+                    x = game_state_recv.recv() => x.map(|x| NetworkManagerMessage::GameState(x)),
                 };
                 match message {
                     Some(m) => state.handle_message(m),
@@ -629,7 +744,7 @@ impl NetworkManager {
             debug!("Route manager task ended");
         };
         tokio::spawn(task);
-        NetworkManager { send_messages }
+        Self { send_messages }
     }
 
     /// The main async future of NetworkManager.
