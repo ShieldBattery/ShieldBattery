@@ -17,7 +17,8 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
     GamePlayerResult, GameResults, GameResultsReport, GameSetupInfo, LobbyPlayerId, LocalUser,
-    MapForce, PlayerInfo, Race, Route, Settings, SetupProgress, UmsLobbyRace, GAME_STATUS_ERROR,
+    MapForce, NetworkStallInfo, PlayerInfo, Race, Route, Settings, SetupProgress, UmsLobbyRace,
+    GAME_STATUS_ERROR,
 };
 use crate::app_socket;
 use crate::bw::{self, get_bw, GameType, StormPlayerId, UserLatency};
@@ -484,6 +485,8 @@ impl GameState {
                 send_game_result(&results, &info, &local_user, &ws_send).await;
             }
 
+            debug!("Network stall statistics: {:?}", results.network_stalls);
+
             app_socket::send_message(&ws_send, "/game/finished", ())
                 .await
                 .map_err(|_| GameInitError::Closed)?;
@@ -640,6 +643,24 @@ impl GameState {
                     warn!("Received results before init was started");
                 }
             }
+            NetworkStall(duration) => {
+                if let InitState::Started(ref mut state) = self.init_state {
+                    state.stall_count += 1;
+                    // We stop storing more durations if there have been a ton of stalls, don't want
+                    // to use up tons of memory just to get a median
+                    if state.stall_count <= 1024 {
+                        state.stall_durations.push(duration)
+                    }
+                    if duration > state.stall_max {
+                        state.stall_max = duration;
+                    }
+                    if duration < state.stall_min {
+                        state.stall_min = duration;
+                    }
+                } else {
+                    warn!("Notified of network stall before init was started");
+                }
+            }
         }
         future::ready(()).boxed()
     }
@@ -747,6 +768,10 @@ struct InitInProgress {
     joined_players: Vec<JoinedPlayer>,
     unready_players: HashSet<LobbyPlayerId>,
     waiting_for_result: Vec<oneshot::Sender<Arc<GameResults>>>,
+    stall_durations: Vec<Duration>,
+    stall_count: usize,
+    stall_min: Duration,
+    stall_max: Duration,
 }
 
 #[derive(Debug)]
@@ -785,6 +810,10 @@ impl InitInProgress {
             joined_players: Vec::new(),
             unready_players,
             waiting_for_result: Vec::new(),
+            stall_durations: Vec::new(),
+            stall_count: 0,
+            stall_max: Duration::from_millis(0),
+            stall_min: Duration::MAX,
         };
         result.check_unready_players();
 
@@ -1205,10 +1234,28 @@ impl InitInProgress {
                 }
             })
             .collect();
+
+        self.stall_durations.sort_unstable();
+        let stall_median = self
+            .stall_durations
+            .get(self.stall_durations.len() / 2)
+            .map_or(0, |d| d.as_millis());
+        let (stall_min, stall_max) = if self.stall_count > 0 {
+            (self.stall_min.as_millis(), self.stall_max.as_millis())
+        } else {
+            (0, 0)
+        };
+
         let message = Arc::new(GameResults {
             results,
             // Assuming fastest speed
             time_ms: game_results.time_ms,
+            network_stalls: NetworkStallInfo {
+                count: self.stall_count as u32,
+                median: stall_median as u32,
+                min: stall_min as u32,
+                max: stall_max as u32,
+            },
         });
         for send in self.waiting_for_result.drain(..) {
             let _ = send.send(message.clone());

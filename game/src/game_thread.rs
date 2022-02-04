@@ -36,8 +36,6 @@ static SBAT_REPLAY_DATA: OnceCell<replay::SbatReplayData> = OnceCell::new();
 /// Once this is set it is expected to be valid for the entire game.
 /// Could also be easily extended to have storm ids if mapping between them is needed.
 static PLAYER_ID_MAPPING: OnceCell<Vec<PlayerIdMapping>> = OnceCell::new();
-/// Current frame being played, not necessarily valid in replays.
-static CURRENT_FRAME: AtomicU32 = AtomicU32::new(0);
 
 pub struct PlayerIdMapping {
     /// None at least for observers
@@ -53,11 +51,6 @@ pub fn set_sbat_replay_data(data: replay::SbatReplayData) {
 
 pub fn sbat_replay_data() -> Option<&'static replay::SbatReplayData> {
     SBAT_REPLAY_DATA.get()
-}
-
-#[allow(dead_code)] // This is useful for debug logging sometimes :)
-pub fn current_frame() -> u32 {
-    CURRENT_FRAME.load(Ordering::Relaxed)
 }
 
 // Async tasks request game thread to do some work
@@ -94,6 +87,7 @@ pub enum GameThreadMessage {
     /// considered invalid and updated to match this mapping.
     PlayersRandomized([Option<u8>; bw::MAX_STORM_PLAYERS]),
     Results(GameThreadResults),
+    NetworkStall(std::time::Duration),
 }
 
 /// Sends a message from game thread to the async system.
@@ -342,8 +336,6 @@ pub fn map_name_for_filename() -> String {
 /// its once-per-gameplay-frame processing but before anything gets rendered. It probably
 /// isn't too useful to us unless we end up having a need to change game rules.
 pub unsafe fn after_step_game() {
-    CURRENT_FRAME.fetch_add(1, Ordering::Relaxed);
-
     let bw = get_bw();
     if is_replay() && !is_ums() {
         // One thing BW's step_game does is that it removes any fog sprites that were

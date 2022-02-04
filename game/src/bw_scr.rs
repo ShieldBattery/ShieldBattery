@@ -23,9 +23,10 @@ use crate::app_messages::{MapInfo, Settings};
 use crate::bw::unit::{Unit, UnitIterator};
 use crate::bw::{self, Bw, FowSpriteIterator, SnpFunctions, StormPlayerId};
 use crate::bw::{commands, UserLatency};
-use crate::game_thread;
+use crate::game_thread::send_game_msg_to_async;
 use crate::snp;
 use crate::windows;
+use crate::{game_thread, GameThreadMessage};
 
 mod bw_hash_table;
 mod dialog_hook;
@@ -1480,7 +1481,7 @@ impl BwScr {
                         .elapsed();
                     *stall_start = None;
 
-                    debug!("Network stall, lasted {:?}", stall_duration);
+                    send_game_msg_to_async(GameThreadMessage::NetworkStall(stall_duration));
                 }
 
                 ret

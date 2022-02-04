@@ -72,11 +72,21 @@ pub struct GamePlayerResult {
     pub apm: u32,
 }
 
+#[derive(Debug, Serialize)]
+pub struct NetworkStallInfo {
+    pub count: u32,
+    pub min: u32,
+    pub max: u32,
+    pub median: u32,
+}
+
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GameResults {
     #[serde(rename = "time")]
     pub time_ms: u32,
     pub results: HashMap<String, GamePlayerResult>,
+    pub network_stalls: NetworkStallInfo,
 }
 
 #[derive(Serialize)]
