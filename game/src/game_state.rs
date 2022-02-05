@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::ffi::{CStr, CString};
 use std::io;
 use std::mem;
@@ -31,7 +31,7 @@ use crate::network_manager::{
     GameStateToNetworkMessage, NetworkError, NetworkManager, NetworkToGameStateMessage,
 };
 use crate::proto::messages::game_message_payload::Payload;
-use crate::proto::messages::ClientReadyMessage;
+use crate::proto::messages::{ClientAckResponseMessage, ClientReadyMessage};
 use crate::replay;
 use crate::snp;
 
@@ -417,7 +417,7 @@ impl GameState {
                 network_send
                     .send(GameStateToNetworkMessage::SendPayload(
                         info.host.id.clone(),
-                        Payload::ClientReady(ClientReadyMessage::default()),
+                        Some(Payload::ClientReady(ClientReadyMessage::default())),
                     ))
                     .await
                     .map_err(|_| GameInitError::Closed)?;
@@ -468,6 +468,8 @@ impl GameState {
 
         let ws_send = self.ws_send.clone();
         let game_request_send = self.send_main_thread_requests.clone();
+        let setup_info = init_state.setup_info.clone();
+        let network_send = self.network_send.clone();
         let results = init_state.wait_for_results();
         async move {
             forge::end_wnd_proc();
@@ -481,15 +483,47 @@ impl GameState {
             game_done.await;
             let results = results.await?;
 
+            // Make sure (or at least try to) that quit messages get delivered to everyone and don't
+            // get lost, so that quitting players don't trigger a drop screen.
+            let mut deliver_final_network = Vec::new();
+            for (name, _) in results
+                .results
+                .iter()
+                .filter(|(_, r)| r.result == 0 /* playing */)
+            {
+                if let Some(slot) = setup_info.slots.iter().find(|s| name == &s.name) {
+                    debug!("Triggering final network sends for {}", slot.name);
+                    let (send, recv) = oneshot::channel();
+                    let _ = network_send
+                        .send(GameStateToNetworkMessage::DeliverPayloadsInFlight(
+                            slot.id.clone(),
+                            send,
+                        ))
+                        .await
+                        .map_err(|e| debug!("Send error {}", e));
+
+                    deliver_final_network.push(recv);
+                }
+            }
+
             if !info.is_replay() {
                 send_game_result(&results, &info, &local_user, &ws_send).await;
             }
 
             debug!("Network stall statistics: {:?}", results.network_stalls);
 
+            if !deliver_final_network.is_empty() {
+                select! {
+                    _ = future::join_all(deliver_final_network) => {},
+                    _ = tokio::time::sleep(Duration::from_millis(5000)) => {},
+                }
+            }
+            debug!("Final network sends completed");
+
             app_socket::send_message(&ws_send, "/game/finished", ())
                 .await
                 .map_err(|_| GameInitError::Closed)?;
+
             Ok(())
         }
         .boxed()
@@ -685,6 +719,22 @@ impl GameState {
                             player_id
                         );
                     }
+                }
+                Payload::ClientAckRequest(_) => {
+                    // Trigger a response to this packet immediately to deliver any acks.
+                    let network_send = self.network_send.clone();
+                    let player_id = player_id.clone();
+                    tokio::spawn(async move {
+                        let _ = network_send
+                            .send(GameStateToNetworkMessage::SendPayload(
+                                player_id,
+                                Some(Payload::ClientAckResponse(
+                                    ClientAckResponseMessage::default(),
+                                )),
+                            ))
+                            .await
+                            .map_err(|e| error!("Send error {}", e));
+                    });
                 }
                 _ => {}
             },
@@ -1233,7 +1283,7 @@ impl InitInProgress {
                     None
                 }
             })
-            .collect();
+            .collect::<HashMap<_, _>>();
 
         self.stall_durations.sort_unstable();
         let stall_median = self

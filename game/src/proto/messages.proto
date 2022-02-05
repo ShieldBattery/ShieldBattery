@@ -36,6 +36,8 @@ message GameMessagePayload {
     StormWrapper storm = 2;
 
     ClientReadyMessage client_ready = 3;
+    ClientAckRequestMessage client_ack_request = 4;
+    ClientAckResponseMessage client_ack_response = 5;
   }
 }
 
@@ -45,4 +47,15 @@ message StormWrapper {
 
 // This client has loaded their game/lobby and is ready to start.
 message ClientReadyMessage {
+}
+
+// This client would like the receiver to immediately generate a new packet containing
+// any acks they may have. Ack request payloads will never be considered "unacked" (as
+// they are often used to clean up the final payloads of a connection).
+message ClientAckRequestMessage {
+}
+
+// Response message type to [`ClientAckRequestMessage`]. This will similarly also not
+// have its ack status tracked.
+message ClientAckResponseMessage {
 }

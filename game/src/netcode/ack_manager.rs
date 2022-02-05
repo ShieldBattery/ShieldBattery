@@ -2,7 +2,8 @@ use prost::Message;
 use std::collections::BTreeMap;
 
 use crate::netcode::sequence_buffer::SequenceBuffer;
-use crate::proto::messages::{GameMessage, GameMessagePayload};
+use crate::proto::messages::game_message_payload::Payload;
+use crate::proto::messages::{ClientAckRequestMessage, GameMessage, GameMessagePayload};
 
 // NOTE(tec27): This is higher than the IPv4 spec, but in practice will work for basically everyone.
 // Setting a higher value lets us pack more redundant messages in each packet, increasing
@@ -80,7 +81,6 @@ impl AckManager {
     }
 
     /// Returns the number of payloads that have been sent that are not currently acked.
-    #[allow(dead_code)] // TODO(tec27): Use this in some stat reporting
     pub fn payloads_in_flight(&self) -> usize {
         self.unacked_payloads.len()
     }
@@ -154,25 +154,43 @@ impl AckManager {
         };
     }
 
-    /// Constructs a new [`GameMessage`] containing the specified [`GameMessagePayload`] and other
+    /// Constructs a new [`GameMessage`] containing the specified [`Payload`] and other
     /// payloads selected by this manager to be included. The GameMessage will be given a proper
     /// sequence number, ack, and ack_bits for the current state of the manager. The given payload
-    /// will have its `payload_num` initialized appropriately.
+    /// will be assigned a payload number to identify it.
+    ///
+    /// If no payload is given, the request will be considered a [`ClientAckRequest`].
     ///
     /// Any messages built this way will be assumed to have been sent to the remote client, if they
     /// are not it can trigger delays in sending payloads.
-    pub fn build_outgoing(&mut self, mut payload: GameMessagePayload) -> GameMessage {
+    pub fn build_outgoing(&mut self, payload: Option<Payload>) -> GameMessage {
         let mut message: GameMessage = GameMessage::default();
         message.packet_num = self.packet_num;
         self.packet_num += 1;
         message.ack = self.last_seen_remote_packet_num();
         message.ack_bits = self.ack_bits();
 
-        payload.payload_num = self.payload_num;
+        let payload = payload
+            .or_else(|| Some(Payload::ClientAckRequest(ClientAckRequestMessage::default())))
+            .map(|p| {
+                let mut payload: GameMessagePayload = GameMessagePayload::default();
+                payload.payload = Some(p);
+                payload.payload_num = self.payload_num;
+                payload
+            })
+            .unwrap();
         self.payload_num += 1;
 
         message.payloads.push(payload.clone());
         let payload_len = payload.encoded_len();
+        let unacked_payload = match payload.payload {
+            Some(Payload::ClientAckRequest(_)) | Some(Payload::ClientAckResponse(_)) => None,
+            _ => Some(SentPayload {
+                send_count: 1,
+                payload,
+                payload_len,
+            }),
+        };
 
         if payload_len < self.max_payload_size as usize {
             let mut remaining = self.max_payload_size - payload_len as u32;
@@ -189,14 +207,10 @@ impl AckManager {
 
         // NOTE(tec27): Make sure to insert this *after* adding additional payloads from the unacked
         // ones, otherwise you can end up doubling this payload in the current packet
-        self.unacked_payloads.insert(
-            payload.payload_num,
-            SentPayload {
-                send_count: 1,
-                payload,
-                payload_len,
-            },
-        );
+        if let Some(unacked) = unacked_payload {
+            self.unacked_payloads
+                .insert(unacked.payload.payload_num, unacked);
+        }
         self.sent_packets.insert(
             message.packet_num,
             SentPacket {
@@ -233,7 +247,7 @@ mod tests {
     use prost::Message;
 
     use crate::proto::messages::game_message_payload::Payload;
-    use crate::proto::messages::{GameMessage, GameMessagePayload, StormWrapper};
+    use crate::proto::messages::{GameMessage, StormWrapper};
 
     use super::AckManager;
     use super::MAX_GAME_MESSAGE_OVERHEAD;
@@ -256,7 +270,7 @@ mod tests {
 
         for i in 0..10 {
             let payload = make_test_payload();
-            let message = manager.build_outgoing(payload);
+            let message = manager.build_outgoing(Some(payload));
 
             assert_eq!(message.packet_num, i as u64);
             assert_eq!(message.payloads[0].payload_num, i as u64);
@@ -267,7 +281,7 @@ mod tests {
     fn ack_with_no_receives() {
         let mut manager = AckManager::new();
         let payload = make_test_payload();
-        let message = manager.build_outgoing(payload);
+        let message = manager.build_outgoing(Some(payload));
 
         assert_eq!(message.ack, NO_REMOTE_PACKETS_SEEN_NUM);
         assert_eq!(message.ack_bits, 0);
@@ -281,7 +295,7 @@ mod tests {
 
         for _ in 0..10 {
             let payload = make_test_payload();
-            manager.build_outgoing(payload);
+            manager.build_outgoing(Some(payload));
         }
 
         assert_eq!(manager.payloads_in_flight(), 10);
@@ -302,7 +316,7 @@ mod tests {
         assert_eq!(manager.payloads_in_flight(), 3);
 
         let payload = make_test_payload();
-        let message = manager.build_outgoing(payload);
+        let message = manager.build_outgoing(Some(payload));
         let desired: u32 = 0b0011_1111;
         assert_eq!(message.ack, 6);
         assert_eq!(
@@ -316,7 +330,7 @@ mod tests {
         assert_eq!(manager.payloads_in_flight(), 2);
 
         let payload = make_test_payload();
-        let message = manager.build_outgoing(payload);
+        let message = manager.build_outgoing(Some(payload));
         // packet 7 (1 below current packet) was dropped
         let desired: u32 = 0b1111_1110;
         assert_eq!(message.ack, 8);
@@ -334,10 +348,10 @@ mod tests {
 
         for _ in 0..500 {
             let payload = make_test_payload();
-            let outgoing = local.build_outgoing(payload);
+            let outgoing = local.build_outgoing(Some(payload));
 
             let payload = make_test_payload();
-            let incoming = remote.build_outgoing(payload);
+            let incoming = remote.build_outgoing(Some(payload));
             remote.handle_incoming(&outgoing);
             local.handle_incoming(&incoming);
         }
@@ -355,10 +369,10 @@ mod tests {
         let mut drop_count = 0;
         for i in 0..100 {
             let payload = make_test_payload();
-            let outgoing = local.build_outgoing(payload);
+            let outgoing = local.build_outgoing(Some(payload));
 
             let payload = make_test_payload();
-            let incoming = remote.build_outgoing(payload);
+            let incoming = remote.build_outgoing(Some(payload));
 
             if i % 4 == 0 {
                 // drop it
@@ -378,7 +392,7 @@ mod tests {
         assert_eq!(local.payloads_in_flight(), 1);
         assert_eq!(remote.payloads_in_flight(), 1);
 
-        let message = local.build_outgoing(make_test_payload());
+        let message = local.build_outgoing(Some(make_test_payload()));
         assert_eq!(message.ack, 99);
         // No packet loss from remote -> local, so the acks should all be here
         let desired = 0b1111_1111_1111_1111_1111_1111_1111_1111;
@@ -388,7 +402,7 @@ mod tests {
             message.ack_bits, desired
         );
 
-        let message = remote.build_outgoing(make_test_payload());
+        let message = remote.build_outgoing(Some(make_test_payload()));
         assert_eq!(message.ack, 99);
         // Every 4th packet was dropped, this reads right to left from 98 -> 66
         let desired = 0b1011_1011_1011_1011_1011_1011_1011_1011;
@@ -399,10 +413,8 @@ mod tests {
         );
     }
 
-    fn make_test_payload() -> GameMessagePayload {
-        let mut payload: GameMessagePayload = GameMessagePayload::default();
-        payload.payload = Some(Payload::Storm(StormWrapper::default()));
-        payload
+    fn make_test_payload() -> Payload {
+        Payload::Storm(StormWrapper::default())
     }
 
     fn make_fake_incoming(packet_num: u64, ack: u64, acked_in_bits: &[u64]) -> GameMessage {

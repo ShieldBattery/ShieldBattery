@@ -16,9 +16,9 @@ use crate::app_messages;
 use crate::app_messages::{LobbyPlayerId, Route as RouteInput};
 use crate::cancel_token::{CancelToken, Canceler};
 use crate::netcode::ack_manager::AckManager;
-use crate::netcode::storm::is_storm_resend;
+use crate::netcode::storm::{get_resend_info, get_storm_id, ResendType};
 use crate::proto::messages::game_message_payload::Payload;
-use crate::proto::messages::{GameMessage, GameMessagePayload, StormWrapper};
+use crate::proto::messages::{GameMessage, StormWrapper};
 use crate::rally_point::{PlayerId, RallyPoint, RallyPointError, RouteId};
 use crate::snp::{self, SendMessages, SnpMessage};
 
@@ -40,7 +40,11 @@ pub enum NetworkManagerMessage {
 }
 
 pub enum GameStateToNetworkMessage {
-    SendPayload(LobbyPlayerId, Payload),
+    SendPayload(LobbyPlayerId, Option<Payload>),
+    /// Run packets through the queue for a short duration to try and get acks for all the payloads
+    /// in flight. This should be used at the completion of a game to ensure any final payloads get
+    /// delivered.
+    DeliverPayloadsInFlight(LobbyPlayerId, oneshot::Sender<Result<()>>),
 }
 
 pub enum NetworkToGameStateMessage {
@@ -112,6 +116,10 @@ struct State {
     keep_routes_alive: Vec<Canceler>,
     send_messages: mpsc::Sender<NetworkManagerMessage>,
     game_state_send: mpsc::Sender<NetworkToGameStateMessage>,
+    /// Maps a storm ID (from the Storm packet header) to a last seen time.
+    last_seen_packet_time: HashMap<u8, std::time::Instant>,
+    /// Maps an IP address to a player ID (from the Storm packet header).
+    ip_to_storm_id: HashMap<Ipv4Addr, u8>,
 }
 
 #[derive(Default)]
@@ -365,18 +373,35 @@ impl State {
                 }
                 SnpMessage::Send(target, data) => {
                     if let NetworkState::Ready(ref network) = self.network {
-                        if is_storm_resend(&data) {
-                            // NOTE(tec27): We drop all Storm resend requests/responses because we
-                            // manage our own reliability layer. This is safe (provided we manage to
-                            // deliver packets reliably) because these message types do not
-                            // increment Storm's internal sequence numbers.
-                            return;
-                        }
+                        match get_resend_info(&data) {
+                            Some(ResendType::Request(None)) => {
+                                // NOTE(tec27): We drop all Storm resend requests to the same user
+                                // who original sent them, because they add nothing to our existing
+                                // protocol. Our protocol now resends payloads until they're acked,
+                                // so any missing payloads from this user will already be in flight.
+                                return;
+                            }
+                            Some(ResendType::Request(Some(ref resend_target))) => {
+                                if let Some(last_seen) =
+                                    self.last_seen_packet_time.get(resend_target)
+                                {
+                                    if last_seen.elapsed() < Duration::from_millis(500) {
+                                        // If we've seen a packet from this player recently, then
+                                        // just ignore this request and assume Storm will get what
+                                        // it needs through normal protocol means.
+                                        return;
+                                    }
+                                }
+                            }
+                            // NOTE(tec27): We allow all resend responses through because those are
+                            // *only* for other users' packets, resends of our own packets are sent
+                            // as normal (non-resend) packets.
+                            _ => {}
+                        };
 
-                        let mut payload: GameMessagePayload = GameMessagePayload::default();
                         let mut storm_wrapper: StormWrapper = StormWrapper::default();
                         storm_wrapper.storm_data = data.into();
-                        payload.payload = Some(Payload::Storm(storm_wrapper));
+                        let payload = Some(Payload::Storm(storm_wrapper));
 
                         if let Some(ref route_state) = network.ip_to_routes.get(&target) {
                             let game_message = {
@@ -454,9 +479,36 @@ impl State {
                                 ack_manager.handle_incoming(&game_message);
                             }
 
+                            let need_id = if let Some(storm_id) = self.ip_to_storm_id.get(&ip) {
+                                self.last_seen_packet_time
+                                    .insert(*storm_id, std::time::Instant::now());
+                                false
+                            } else {
+                                true
+                            };
+
                             for payload in game_message.payloads.into_iter() {
                                 match payload.payload {
                                     Some(Payload::Storm(s)) => {
+                                        if need_id {
+                                            if let Some(from_id) =
+                                                get_storm_id(s.storm_data.as_ref())
+                                            {
+                                                if from_id != 255
+                                                    && get_resend_info(s.storm_data.as_ref())
+                                                        .is_none()
+                                                {
+                                                    self.ip_to_storm_id
+                                                        .entry(ip)
+                                                        .or_insert(from_id);
+                                                    debug!(
+                                                        "{:?} found to have Storm ID: {}",
+                                                        ip, from_id
+                                                    );
+                                                }
+                                            }
+                                        }
+
                                         let message = snp::ReceivedMessage {
                                             from: ip,
                                             data: s.storm_data.clone(),
@@ -502,13 +554,10 @@ impl State {
             NetworkManagerMessage::GameState(message) => match message {
                 GameStateToNetworkMessage::SendPayload(target, payload) => {
                     if let NetworkState::Ready(ref network) = self.network {
-                        let mut payload_wrapper: GameMessagePayload = GameMessagePayload::default();
-                        payload_wrapper.payload = Some(payload);
-
                         if let Some(ref route_state) = network.lobby_id_to_routes.get(&target) {
                             let game_message = {
                                 let mut ack_manager = route_state.ack_manager.lock();
-                                ack_manager.build_outgoing(payload_wrapper)
+                                ack_manager.build_outgoing(payload)
                             };
 
                             let mut packet = BytesMut::with_capacity(game_message.encoded_len());
@@ -530,6 +579,65 @@ impl State {
                                 pin_mut!(task);
                                 let _ = cancel_token.bind(task).await;
                             });
+                        } else {
+                            error!("Tried to send packet without a route: {:?}", target);
+                        }
+                    } else {
+                        warn!("Game state tried to send a payload before network was ready");
+                    }
+                }
+                GameStateToNetworkMessage::DeliverPayloadsInFlight(target, on_complete) => {
+                    if let NetworkState::Ready(ref network) = self.network {
+                        if let Some(ref route_state) = network.lobby_id_to_routes.get(&target) {
+                            let (cancel_token, canceler) = CancelToken::new();
+                            self.cancel_child_tasks.push(canceler);
+                            let rally_point = self.rally_point.clone();
+                            let ack_manager = route_state.ack_manager.clone();
+                            let route = route_state.route.clone();
+
+                            let cancelable = async move {
+                                let task = async move {
+                                    let mut attempts = 0;
+
+                                    loop {
+                                        let game_message = {
+                                            let mut ack_manager = ack_manager.lock();
+                                            if ack_manager.payloads_in_flight() == 0 {
+                                                break;
+                                            }
+                                            ack_manager.build_outgoing(None)
+                                        };
+
+                                        let mut packet =
+                                            BytesMut::with_capacity(game_message.encoded_len());
+                                        game_message.encode(&mut packet).unwrap();
+                                        let packet = packet.freeze();
+
+                                        let _ = rally_point
+                                            .forward(
+                                                &route.route_id,
+                                                route.player_id,
+                                                packet.clone(),
+                                                &route.address,
+                                            )
+                                            .await
+                                            .map_err(|e| error!("Send error {}", e));
+
+                                        attempts += 1;
+                                        if attempts < 50 {
+                                            tokio::time::sleep(Duration::from_millis(42)).await;
+                                        } else {
+                                            break;
+                                        }
+                                    }
+
+                                    let _ = on_complete.send(Ok(()));
+                                };
+                                pin_mut!(task);
+                                let _ = cancel_token.bind(task).await;
+                            };
+
+                            tokio::spawn(cancelable);
                         } else {
                             error!("Tried to send packet without a route: {:?}", target);
                         }
@@ -728,6 +836,8 @@ impl NetworkManager {
             keep_routes_alive: Vec::new(),
             pings: PingState::default(),
             game_state_send,
+            last_seen_packet_time: HashMap::new(),
+            ip_to_storm_id: HashMap::new(),
         };
         let task = async move {
             loop {

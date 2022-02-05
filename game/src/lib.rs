@@ -4,6 +4,7 @@
 extern crate log;
 #[macro_use]
 extern crate whack;
+extern crate core;
 
 use std::fs::File;
 use std::io;

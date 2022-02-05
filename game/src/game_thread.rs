@@ -1,6 +1,5 @@
 //! Hooks and other code that is running on the game/main thread (As opposed to async threads).
 
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 
