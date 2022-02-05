@@ -144,14 +144,11 @@ impl AckManager {
 
     fn on_packet_acked(&mut self, sequence: u64) {
         let acked = self.sent_packets.remove(sequence);
-        match acked {
-            Some(packet) => {
-                for id in packet.payload_nums.iter() {
-                    self.unacked_payloads.remove(id);
-                }
+        if let Some(packet) = acked {
+            for id in packet.payload_nums.iter() {
+                self.unacked_payloads.remove(id);
             }
-            None => {}
-        };
+        }
     }
 
     /// Constructs a new [`GameMessage`] containing the specified [`Payload`] and other
@@ -164,19 +161,19 @@ impl AckManager {
     /// Any messages built this way will be assumed to have been sent to the remote client, if they
     /// are not it can trigger delays in sending payloads.
     pub fn build_outgoing(&mut self, payload: Option<Payload>) -> GameMessage {
-        let mut message: GameMessage = GameMessage::default();
-        message.packet_num = self.packet_num;
+        let mut message = GameMessage {
+            packet_num: self.packet_num,
+            ack: self.last_seen_remote_packet_num(),
+            ack_bits: self.ack_bits(),
+            ..Default::default()
+        };
         self.packet_num += 1;
-        message.ack = self.last_seen_remote_packet_num();
-        message.ack_bits = self.ack_bits();
 
         let payload = payload
             .or_else(|| Some(Payload::ClientAckRequest(ClientAckRequestMessage::default())))
-            .map(|p| {
-                let mut payload: GameMessagePayload = GameMessagePayload::default();
-                payload.payload = Some(p);
-                payload.payload_num = self.payload_num;
-                payload
+            .map(|p| GameMessagePayload {
+                payload: Some(p),
+                payload_num: self.payload_num,
             })
             .unwrap();
         self.payload_num += 1;

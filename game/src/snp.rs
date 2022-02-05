@@ -180,7 +180,7 @@ pub unsafe fn initialize(client_info: &bw::ClientInfo, receive_event: Option<HAN
     with_state(|state| {
         state.spoofed_game = None;
         state.spoofed_game_dirty = false;
-        state.current_client_info = Some(client_info.clone());
+        state.current_client_info = Some(*client_info);
         // I don't know what's the intended usage pattern with this handle,
         // but duplicating it should make it safe to send to a thread that may use it
         // without having to synchronize storm unbinding SNP.

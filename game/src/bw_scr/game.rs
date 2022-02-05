@@ -12,6 +12,7 @@ use crate::game_thread;
 use super::BwScr;
 
 /// Change order allocation limits to be better what SC:R does.
+#[allow(clippy::too_many_arguments)] // Blizard's function, not ours
 pub unsafe fn prepare_issue_order(
     bw: &'static BwScr,
     unit: Unit,

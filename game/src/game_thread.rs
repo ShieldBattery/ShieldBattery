@@ -43,7 +43,7 @@ pub struct PlayerIdMapping {
 }
 
 pub fn set_sbat_replay_data(data: replay::SbatReplayData) {
-    if let Err(_) = SBAT_REPLAY_DATA.set(data) {
+    if SBAT_REPLAY_DATA.set(data).is_err() {
         warn!("Tried to set shieldbattery replay data twice");
     }
 }
@@ -133,7 +133,7 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
             get_bw().clean_up_for_exit();
         }
         SetupInfo(info) => {
-            if let Err(_) = SETUP_INFO.set(info) {
+            if SETUP_INFO.set(info).is_err() {
                 warn!("Received second SetupInfo");
             }
         }
@@ -141,7 +141,7 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
 }
 
 pub fn set_player_id_mapping(mapping: Vec<PlayerIdMapping>) {
-    if let Err(_) = PLAYER_ID_MAPPING.set(mapping) {
+    if PLAYER_ID_MAPPING.set(mapping).is_err() {
         warn!("Player id mapping set twice");
     }
 }

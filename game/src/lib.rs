@@ -162,7 +162,7 @@ fn panic_hook(info: &std::panic::PanicInfo) {
     let mut msg = String::new();
     let location = match info.location() {
         Some(s) => format!("{}:{}", s.file(), s.line()),
-        None => format!("unknown location"),
+        None => "unknown location".to_string(),
     };
     writeln!(msg, "Panic at {}", location).unwrap();
     let payload = info.payload();
@@ -311,7 +311,7 @@ fn initialize() {
     std::thread::spawn(move || {
         async_thread(sender);
     });
-    if let Err(_) = receiver.recv() {
+    if receiver.recv().is_err() {
         // Async thread closed, wait for it to exit the process
         wait_async_exit();
     }

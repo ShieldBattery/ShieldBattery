@@ -1,18 +1,18 @@
-use std::io;
 use std::ffi::CStr;
+use std::io;
 use std::mem;
 use std::path::Path;
 use std::ptr::null_mut;
 
 use libc::c_void;
 use scopeguard::defer;
-use winapi::um::errhandlingapi::{SetUnhandledExceptionFilter};
+use winapi::um::errhandlingapi::SetUnhandledExceptionFilter;
 use winapi::um::fileapi::{CreateFileW, CREATE_ALWAYS};
 use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
 use winapi::um::processthreadsapi::{
-    TerminateProcess, GetCurrentProcess, GetCurrentThreadId, GetCurrentProcessId,
+    GetCurrentProcess, GetCurrentProcessId, GetCurrentThreadId, TerminateProcess,
 };
-use winapi::um::winnt::{EXCEPTION_POINTERS, FILE_ATTRIBUTE_NORMAL, HANDLE, GENERIC_WRITE};
+use winapi::um::winnt::{EXCEPTION_POINTERS, FILE_ATTRIBUTE_NORMAL, GENERIC_WRITE, HANDLE};
 
 use crate::bw_scr::Thiscall;
 use crate::windows;
@@ -22,7 +22,9 @@ use crate::windows;
 pub unsafe fn init_crash_handler() {
     SetUnhandledExceptionFilter(Some(exception_handler));
     let kernel32 = windows::load_library("kernel32").unwrap();
-    let address = kernel32.proc_address("SetUnhandledExceptionFilter").unwrap();
+    let address = kernel32
+        .proc_address("SetUnhandledExceptionFilter")
+        .unwrap();
     let mut patcher = crate::PATCHER.lock();
     let mut patcher = patcher.patch_library("kernel32", 0);
     patcher.hook_closure_address(
@@ -51,8 +53,8 @@ struct CppException {
 
 #[repr(C)]
 struct CppExceptionVtable {
-    delete: Thiscall<unsafe extern fn(*mut CppException)>,
-    message: Thiscall<unsafe extern fn(*mut CppException) -> *const i8>,
+    delete: Thiscall<unsafe extern "C" fn(*mut CppException)>,
+    message: Thiscall<unsafe extern "C" fn(*mut CppException) -> *const i8>,
 }
 
 unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
@@ -74,7 +76,8 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
                     let msg = CStr::from_ptr(cpp_message);
                     message = format!(
                         "{}\nC++ exception message: '{}'",
-                        message, msg.to_string_lossy(),
+                        message,
+                        msg.to_string_lossy(),
                     );
                 }
             }
@@ -88,6 +91,7 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
     error!("{}", message);
     windows::message_box("Shieldbattery crash :(", &message);
     TerminateProcess(GetCurrentProcess(), exception_code);
+    #[allow(clippy::empty_loop)] // This just runs until the process terminates from the above call
     loop {}
 }
 
@@ -99,17 +103,14 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
 /// dumped correctly.
 pub unsafe fn write_minidump_to_default_path(
     exception: *mut EXCEPTION_POINTERS,
-) -> Result<(), io::Error>{
+) -> Result<(), io::Error> {
     let args = crate::parse_args();
     let minidump_path = args.user_data_path.join("logs/latest_crash.dmp");
     write_minidump(&minidump_path, exception)
 }
 
 /// The exception is allowed to be null.
-unsafe fn write_minidump(
-    path: &Path,
-    exception: *mut EXCEPTION_POINTERS,
-) -> Result<(), io::Error> {
+unsafe fn write_minidump(path: &Path, exception: *mut EXCEPTION_POINTERS) -> Result<(), io::Error> {
     let file = CreateFileW(
         windows::winapi_str(path).as_ptr(),
         GENERIC_WRITE,
@@ -122,7 +123,9 @@ unsafe fn write_minidump(
     if file == INVALID_HANDLE_VALUE {
         return Err(io::Error::last_os_error());
     }
-    defer!({ CloseHandle(file); });
+    defer!({
+        CloseHandle(file);
+    });
 
     let mut exception_param = MinidumpExceptionInfo {
         thread_id: GetCurrentThreadId(),
@@ -153,15 +156,18 @@ struct MinidumpExceptionInfo {
     client_pointers: u32,
 }
 
-unsafe fn load_minidump_write_dump() -> Result<unsafe extern "system" fn(
-    HANDLE,
-    u32,
-    HANDLE,
-    u32,
-    *mut MinidumpExceptionInfo,
-    *mut c_void,
-    *mut c_void,
-) -> u32, io::Error> {
+unsafe fn load_minidump_write_dump() -> Result<
+    unsafe extern "system" fn(
+        HANDLE,
+        u32,
+        HANDLE,
+        u32,
+        *mut MinidumpExceptionInfo,
+        *mut c_void,
+        *mut c_void,
+    ) -> u32,
+    io::Error,
+> {
     let dbghelp = windows::load_library("dbghelp")?;
     let func = dbghelp.proc_address("MiniDumpWriteDump")?;
     mem::forget(dbghelp);

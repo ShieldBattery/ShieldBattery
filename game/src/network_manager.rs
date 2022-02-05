@@ -286,7 +286,7 @@ impl State {
                 .waiters
                 .push(send);
             recv.map_err(|_| NetworkError::NotActive)
-                .and_then(|x| future::ready(x))
+                .and_then(future::ready)
                 .boxed()
         }
     }
@@ -399,11 +399,11 @@ impl State {
                             _ => {}
                         };
 
-                        let mut storm_wrapper: StormWrapper = StormWrapper::default();
-                        storm_wrapper.storm_data = data.into();
-                        let payload = Some(Payload::Storm(storm_wrapper));
+                        let payload = Some(Payload::Storm(StormWrapper {
+                            storm_data: data.into(),
+                        }));
 
-                        if let Some(ref route_state) = network.ip_to_routes.get(&target) {
+                        if let Some(route_state) = network.ip_to_routes.get(&target) {
                             let game_message = {
                                 let mut ack_manager = route_state.ack_manager.lock();
                                 ack_manager.build_outgoing(payload)
@@ -417,7 +417,7 @@ impl State {
                             let send = self.rally_point.forward(
                                 &route.route_id,
                                 route.player_id,
-                                packet.clone(),
+                                packet,
                                 &route.address,
                             );
 
@@ -469,7 +469,7 @@ impl State {
             }
             NetworkManagerMessage::ReceivePacket(ip, mut packet, snp_send) => {
                 if let NetworkState::Ready(ref network) = self.network {
-                    if let Some(ref route_state) = network.ip_to_routes.get(&ip) {
+                    if let Some(route_state) = network.ip_to_routes.get(&ip) {
                         if let Ok(game_message) = GameMessage::decode(&mut packet) {
                             // CLion is bad at figuring out this type :(
                             let game_message = game_message as GameMessage;
@@ -554,7 +554,7 @@ impl State {
             NetworkManagerMessage::GameState(message) => match message {
                 GameStateToNetworkMessage::SendPayload(target, payload) => {
                     if let NetworkState::Ready(ref network) = self.network {
-                        if let Some(ref route_state) = network.lobby_id_to_routes.get(&target) {
+                        if let Some(route_state) = network.lobby_id_to_routes.get(&target) {
                             let game_message = {
                                 let mut ack_manager = route_state.ack_manager.lock();
                                 ack_manager.build_outgoing(payload)
@@ -568,7 +568,7 @@ impl State {
                             let send = self.rally_point.forward(
                                 &route.route_id,
                                 route.player_id,
-                                packet.clone(),
+                                packet,
                                 &route.address,
                             );
 
@@ -588,7 +588,7 @@ impl State {
                 }
                 GameStateToNetworkMessage::DeliverPayloadsInFlight(target, on_complete) => {
                     if let NetworkState::Ready(ref network) = self.network {
-                        if let Some(ref route_state) = network.lobby_id_to_routes.get(&target) {
+                        if let Some(route_state) = network.lobby_id_to_routes.get(&target) {
                             let (cancel_token, canceler) = CancelToken::new();
                             self.cancel_child_tasks.push(canceler);
                             let rally_point = self.rally_point.clone();
@@ -690,19 +690,18 @@ impl State {
             .chain(rest.clone())
             .enumerate()
             .filter_map(|(_, player)| {
-                match routes.iter().find(|x| x.lobby_player_id == player.id) {
-                    Some(route) => Some((
-                        player.id.clone(),
-                        RouteState {
-                            route: route.clone(),
-                            ack_manager: Arc::new(Mutex::new(AckManager::new())),
-                        },
-                    )),
-                    None => {
-                        // There won't be a route for current player
-                        None
-                    }
-                }
+                routes
+                    .iter()
+                    .find(|x| x.lobby_player_id == player.id)
+                    .map(|route| {
+                        (
+                            player.id.clone(),
+                            RouteState {
+                                route: route.clone(),
+                                ack_manager: Arc::new(Mutex::new(AckManager::new())),
+                            },
+                        )
+                    })
             })
             .collect::<HashMap<_, _>>();
         let ip_to_routes = host
@@ -710,19 +709,18 @@ impl State {
             .chain(rest)
             .enumerate()
             .filter_map(|(i, player)| {
-                match routes.iter().find(|x| x.lobby_player_id == player.id) {
-                    Some(route) => Some((
-                        Ipv4Addr::new(10, 27, 27, i as u8),
-                        lobby_id_to_routes
-                            .get(&route.lobby_player_id)
-                            .unwrap()
-                            .clone(),
-                    )),
-                    None => {
-                        // There won't be a route for current player
-                        None
-                    }
-                }
+                routes
+                    .iter()
+                    .find(|x| x.lobby_player_id == player.id)
+                    .map(|route| {
+                        (
+                            Ipv4Addr::new(10, 27, 27, i as u8),
+                            lobby_id_to_routes
+                                .get(&route.lobby_player_id)
+                                .unwrap()
+                                .clone(),
+                        )
+                    })
             })
             .collect::<HashMap<_, _>>();
 
@@ -844,7 +842,7 @@ impl NetworkManager {
                 let message = select! {
                     x = receive_messages.recv() => x,
                     x = internal_receive_messages.recv() => x,
-                    x = game_state_recv.recv() => x.map(|x| NetworkManagerMessage::GameState(x)),
+                    x = game_state_recv.recv() => x.map(NetworkManagerMessage::GameState),
                 };
                 match message {
                     Some(m) => state.handle_message(m),

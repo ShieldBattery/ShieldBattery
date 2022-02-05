@@ -101,7 +101,7 @@ unsafe extern "system" fn wnd_proc_scr(
         }
         None
     });
-    let ret = if let Some(ret) = ret {
+    if let Some(ret) = ret {
         ret
     } else {
         let orig_wnd_proc = with_forge(|f| f.orig_wnd_proc);
@@ -110,8 +110,7 @@ unsafe extern "system" fn wnd_proc_scr(
         } else {
             DefWindowProcA(window, msg, wparam, lparam)
         }
-    };
-    ret
+    }
 }
 
 unsafe fn msg_game_started(window: HWND) {
@@ -268,6 +267,7 @@ fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) ->
     }
 }
 
+#[allow(clippy::too_many_arguments)] // Not our function
 fn set_window_pos(
     hwnd: HWND,
     hwnd_after: HWND,
@@ -378,6 +378,7 @@ fn register_class_w(
 }
 
 /// Stores the window handle.
+#[allow(clippy::too_many_arguments)] // Not our function
 fn create_window_w(
     ex_style: u32,
     class_name: *const u16,
@@ -560,10 +561,7 @@ pub fn end_wnd_proc() {
 }
 
 pub fn game_started() {
-    let handle = with_forge(|forge| match forge.window {
-        Some(ref s) => Some(s.handle),
-        None => None,
-    });
+    let handle = with_forge(|forge| forge.window.as_ref().map(|s| s.handle));
     if let Some(handle) = handle {
         unsafe {
             PostMessageA(handle, WM_GAME_STARTED, 0, 0);
@@ -572,10 +570,7 @@ pub fn game_started() {
 }
 
 pub fn hide_window() {
-    let handle = with_forge(|forge| match forge.window {
-        Some(ref s) => Some(s.handle),
-        None => None,
-    });
+    let handle = with_forge(|forge| forge.window.as_ref().map(|s| s.handle));
     if let Some(handle) = handle {
         unsafe {
             with_scr_hooks_disabled(|| {

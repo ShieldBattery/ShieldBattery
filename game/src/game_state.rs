@@ -303,15 +303,15 @@ impl GameState {
             }
             init_routes_when_ready_future
                 .await
-                .map_err(|e| GameInitError::NetworkInit(e))?;
+                .map_err(GameInitError::NetworkInit)?;
             start_game_request(&game_request_send, GameThreadRequestType::RunWndProc)
                 .map_err(|()| GameInitError::Closed)?;
             net_game_info_set_future
                 .await
-                .map_err(|e| GameInitError::NetworkInit(e))?;
+                .map_err(GameInitError::NetworkInit)?;
             network_ready_future
                 .await
-                .map_err(|e| GameInitError::NetworkInit(e))?;
+                .map_err(GameInitError::NetworkInit)?;
             debug!("Network ready");
             if !is_host {
                 unsafe {
@@ -923,7 +923,7 @@ impl InitInProgress {
         async move {
             if let Some(f) = f {
                 f.map_err(|_| GameInitError::Closed)
-                    .and_then(|inner| future::ok(inner))
+                    .and_then(future::ok)
                     .await
             } else {
                 Ok(())
@@ -985,40 +985,38 @@ impl InitInProgress {
                 if self.joined_players[joined_pos].storm_id != storm_id {
                     return Err(GameInitError::StormIdChanged(name.into()));
                 }
-            } else {
-                if let Some(slot) = self.setup_info.slots.iter().find(|x| x.name == name) {
-                    // TODO(tec27): This isn't really a player id, more of a slot offset?
-                    let player_id;
-                    let bw_slot = (0..16).find(|&i| {
-                        let player = players.add(i);
-                        let bw_name = CStr::from_ptr((*player).name.as_ptr() as *const i8);
-                        bw_name.to_str() == Ok(name)
-                    });
-                    if let Some(bw_slot) = bw_slot {
-                        (*players.add(bw_slot)).storm_id = storm_id.0 as u32;
-                        player_id = Some(bw_slot as u8);
-                    } else {
-                        return Err(GameInitError::UnexpectedPlayer(name.into()));
-                    }
-                    if self.joined_players.iter().any(|x| x.player_id == player_id) {
-                        return Err(GameInitError::UnexpectedPlayer(name.into()));
-                    }
-                    // I believe there isn't any reason why a slot associated with
-                    // human wouldn't have shieldbattery user ids, so just fail here
-                    // instead of keeping sb_user_id as Option<u32>.
-                    let sb_user_id = slot
-                        .user_id
-                        .ok_or_else(|| GameInitError::NoShieldbatteryId(name.into()))?;
-                    debug!("Player {} received storm id {}", name, storm_id.0);
-                    self.joined_players.push(JoinedPlayer {
-                        name: name.into(),
-                        storm_id,
-                        player_id,
-                        sb_user_id,
-                    });
+            } else if let Some(slot) = self.setup_info.slots.iter().find(|x| x.name == name) {
+                // TODO(tec27): This isn't really a player id, more of a slot offset?
+                let player_id;
+                let bw_slot = (0..16).find(|&i| {
+                    let player = players.add(i);
+                    let bw_name = CStr::from_ptr((*player).name.as_ptr() as *const i8);
+                    bw_name.to_str() == Ok(name)
+                });
+                if let Some(bw_slot) = bw_slot {
+                    (*players.add(bw_slot)).storm_id = storm_id.0 as u32;
+                    player_id = Some(bw_slot as u8);
                 } else {
                     return Err(GameInitError::UnexpectedPlayer(name.into()));
                 }
+                if self.joined_players.iter().any(|x| x.player_id == player_id) {
+                    return Err(GameInitError::UnexpectedPlayer(name.into()));
+                }
+                // I believe there isn't any reason why a slot associated with
+                // human wouldn't have shieldbattery user ids, so just fail here
+                // instead of keeping sb_user_id as Option<u32>.
+                let sb_user_id = slot
+                    .user_id
+                    .ok_or_else(|| GameInitError::NoShieldbatteryId(name.into()))?;
+                debug!("Player {} received storm id {}", name, storm_id.0);
+                self.joined_players.push(JoinedPlayer {
+                    name: name.into(),
+                    storm_id,
+                    player_id,
+                    sb_user_id,
+                });
+            } else {
+                return Err(GameInitError::UnexpectedPlayer(name.into()));
             }
         }
         Ok(())
@@ -1087,8 +1085,8 @@ impl InitInProgress {
                 );
             });
 
-        let mut storm_to_player_id = [255 as usize; 8];
-        let mut player_to_storm_id = [255 as usize; 8];
+        let mut storm_to_player_id = [255; 8];
+        let mut player_to_storm_id = [255; 8];
         for player in &self.joined_players {
             if let Some(player_id) = player.player_id {
                 if player_id >= 8 {
@@ -1323,7 +1321,7 @@ unsafe fn create_lobby(info: &GameSetupInfo, game_type: GameType) -> Result<(), 
             game_type,
             info.turn_rate.unwrap_or(0),
         )
-        .map_err(|e| GameInitError::Bw(e))
+        .map_err(GameInitError::Bw)
 }
 
 unsafe fn join_lobby(
@@ -1386,7 +1384,7 @@ unsafe fn join_lobby(
         let mut repeat_interval = tokio::time::interval(Duration::from_millis(10));
         loop {
             repeat_interval.tick().await;
-            match try_join_lobby_once(game_info.clone(), is_eud, turn_rate, &map_path).await {
+            match try_join_lobby_once(game_info, is_eud, turn_rate, &map_path).await {
                 Ok(()) => break,
                 Err(e) => debug!("Storm join error: {:08x}", e),
             }
@@ -1615,7 +1613,7 @@ pub async fn create_future(
         let message = select! {
             x = messages.recv() => x,
             x = internal_recv.recv() => x,
-            x = from_network_recv.recv() => x.map(|x| GameStateMessage::Network(x)),
+            x = from_network_recv.recv() => x.map(GameStateMessage::Network),
         };
         match message {
             Some(m) => game_state.handle_message(m).await,
@@ -1676,12 +1674,12 @@ async fn read_sbat_replay_data(path: &Path) -> Result<Option<replay::SbatReplayD
             Some(s) => s,
             None => break,
         };
-        let id = LittleEndian::read_u32(&header);
+        let id = LittleEndian::read_u32(header);
         let section_length = LittleEndian::read_u32(&header[4..]) as usize;
         if id == replay::SECTION_ID {
             let data = Some(())
-                .and_then(|()| Some(buffer.get(pos.checked_add(8)?..)?.get(..section_length)?))
-                .and_then(|input| replay::parse_shieldbattery_data(input));
+                .and_then(|()| buffer.get(pos.checked_add(8)?..)?.get(..section_length))
+                .and_then(replay::parse_shieldbattery_data);
             return match data {
                 Some(o) => Ok(Some(o)),
                 None => Err(io::Error::new(

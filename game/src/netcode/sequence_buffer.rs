@@ -114,7 +114,9 @@ impl<T: Clone + Default> SequenceBuffer<T> {
 
         if last_sequence < first_sequence {
             return;
-        } else if last_sequence - first_sequence >= self.entries.len() as u64 {
+        }
+
+        if last_sequence - first_sequence >= self.entries.len() as u64 {
             // At least one full rotation, so we can just remove everything
             for index in 0..self.entry_sequences.len() {
                 self.entry_sequences[index] = -1;

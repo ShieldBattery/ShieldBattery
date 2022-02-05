@@ -9,7 +9,7 @@ pub unsafe fn spawn_dialog_hook(
     raw: *mut bw::Dialog,
     unk: usize,
     event_handler: usize,
-    orig: unsafe extern fn(*mut bw::Dialog, usize, usize) -> usize,
+    orig: unsafe extern "C" fn(*mut bw::Dialog, usize, usize) -> usize,
 ) -> usize {
     let dialog = Dialog::new(raw);
     let ctrl = dialog.as_control();
@@ -25,14 +25,13 @@ pub unsafe fn spawn_dialog_hook(
     } else {
         event_handler
     };
-    let result = orig(raw, unk, event_handler);
-    result
+    orig(raw, unk, event_handler)
 }
 
-unsafe extern fn chat_box_event_handler(
+unsafe extern "C" fn chat_box_event_handler(
     ctrl: *mut bw::Control,
     event: *mut bw::ControlEvent,
-    orig: unsafe extern fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
+    orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
 ) -> u32 {
     // This dialog checks if allies are enabled to allow/prevent ally chat;
     // as we disable allies to prevent changing them from what they originally
@@ -46,10 +45,10 @@ unsafe extern fn chat_box_event_handler(
     ret
 }
 
-unsafe extern fn msg_filter_event_handler(
+unsafe extern "C" fn msg_filter_event_handler(
     ctrl: *mut bw::Control,
     event: *mut bw::ControlEvent,
-    orig: unsafe extern fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
+    orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
 ) -> u32 {
     // Same as chat box, to make the radio button for "Send to allies" enabled even when
     // alliances cannot be changed.

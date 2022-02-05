@@ -308,11 +308,11 @@ pub mod scr {
     impl BwString {
         /// Returns the capacity (with the bit signifying internal/external buffer removed).
         pub fn get_capacity(&self) -> usize {
-            return self.capacity & (usize::MAX >> 1);
+            self.capacity & (usize::MAX >> 1)
         }
 
         pub fn is_using_inline_buffer(&self) -> bool {
-            return self.capacity & !(usize::MAX >> 1) != 0;
+            self.capacity & !(usize::MAX >> 1) != 0
         }
 
         /// Replaces the entire contents of the string, allocating new memory if necessary.
@@ -1477,7 +1477,7 @@ impl BwScr {
                 } else if !in_stall && was_in_stall {
                     let mut stall_start = self.network_stall_start.write();
                     let stall_duration = stall_start
-                        .unwrap_or_else(|| std::time::Instant::now())
+                        .unwrap_or_else(std::time::Instant::now)
                         .elapsed();
                     *stall_start = None;
 
@@ -1651,10 +1651,10 @@ impl BwScr {
 
         self.patch_shaders(&mut exe, base);
 
-        sdf_cache::apply_sdf_cache_hooks(&self, &mut exe, base);
+        sdf_cache::apply_sdf_cache_hooks(self, &mut exe, base);
 
         let create_file_hook_closure =
-            move |a, b, c, d, e, f, g, o| create_file_hook(&self, a, b, c, d, e, f, g, o);
+            move |a, b, c, d, e, f, g, o| create_file_hook(self, a, b, c, d, e, f, g, o);
         let close_handle_hook = move |handle, orig: unsafe extern "C" fn(_) -> _| {
             self.check_replay_file_finish(handle);
             orig(handle)
@@ -2109,7 +2109,7 @@ impl BwScr {
         {
             if dropped_players & (1 << i) == 0 {
                 dropped_players |= 1 << i;
-                result.get_or_insert_with(|| Vec::new()).push(i as u8);
+                result.get_or_insert_with(Vec::new).push(i as u8);
                 self.dropped_players
                     .store(dropped_players, Ordering::Relaxed);
             }
@@ -2156,7 +2156,7 @@ impl bw::Bw for BwScr {
             .local
             .get("visualizeNetworkStalls")
             .and_then(|x| x.as_bool())
-            .unwrap_or_else(|| false);
+            .unwrap_or(false);
         self.is_carbot.store(is_carbot, Ordering::Relaxed);
         self.show_skins.store(show_skins, Ordering::Relaxed);
         self.visualize_network_stalls
@@ -2675,7 +2675,7 @@ unsafe extern "C" fn bw_free(ptr: *mut u8) {
 }
 
 fn get_exe_build() -> u32 {
-    let exe_path = windows::module_name(0 as *mut _).expect("Couldn't get exe path");
+    let exe_path = windows::module_name(std::ptr::null_mut()).expect("Couldn't get exe path");
     match windows::version::get_version(Path::new(&exe_path)) {
         Some(s) => s.3 as u32,
         None => 0,
@@ -2703,6 +2703,7 @@ fn create_event_hook(
     }
 }
 
+#[allow(clippy::too_many_arguments)] // Tell that to Bill Gates, clippy :)
 fn create_file_hook(
     bw: &BwScr,
     filename: *const u16,
