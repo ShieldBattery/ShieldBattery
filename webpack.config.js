@@ -135,6 +135,7 @@ const preloadWebpackOpts = {
     path: path.join(__dirname, 'app', 'dist'),
     libraryTarget: 'commonjs2',
   },
+  plugins: [],
 }
 
 const mainBabelOpts = {
