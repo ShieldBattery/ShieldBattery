@@ -222,7 +222,7 @@ impl AckManager {
 
 #[derive(Default, Clone, Debug, PartialEq)]
 struct SentPacket {
-    /// The sequence number associated wit this packet.
+    /// The sequence number associated with this packet.
     pub packet_num: u64,
     /// The `payload_num` of payloads that were contained within this packet.
     pub payload_nums: Box<[u64]>,
