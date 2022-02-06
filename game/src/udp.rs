@@ -126,7 +126,7 @@ pub fn udp_socket(local_addr: &SocketAddr) -> Result<(UdpSend, UdpRecv), io::Err
     let closed2 = closed.clone();
     let (send, recv) = unbounded_channel();
     std::thread::spawn(move || {
-        let mut buf = vec![0; 1024];
+        let mut buf = vec![0; 2048];
         loop {
             if closed2.load(Ordering::Relaxed) == true {
                 break;
@@ -182,10 +182,7 @@ impl Sink<(Bytes, SocketAddr)> for UdpSend {
         }
     }
 
-    fn poll_flush(
-        mut self: Pin<&mut Self>,
-        cx: &mut task::Context,
-    ) -> Poll<Result<(), io::Error>> {
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<Result<(), io::Error>> {
         while self.pending_results != 0 {
             match self.results.poll_recv(cx) {
                 Poll::Pending => return Poll::Pending,

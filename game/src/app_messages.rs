@@ -72,11 +72,21 @@ pub struct GamePlayerResult {
     pub apm: u32,
 }
 
+#[derive(Debug, Serialize)]
+pub struct NetworkStallInfo {
+    pub count: u32,
+    pub min: u32,
+    pub max: u32,
+    pub median: u32,
+}
+
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GameResults {
     #[serde(rename = "time")]
     pub time_ms: u32,
     pub results: HashMap<String, GamePlayerResult>,
+    pub network_stalls: NetworkStallInfo,
 }
 
 #[derive(Serialize)]
@@ -100,6 +110,7 @@ pub struct GameSetupInfo {
     pub host: PlayerInfo,
     pub disable_alliance_changes: Option<bool>,
     pub turn_rate: Option<u32>,
+    pub user_latency: Option<u32>,
     pub seed: u32,
     pub game_id: String,
     pub result_code: Option<String>,
@@ -148,10 +159,14 @@ pub struct MapForcePlayer {
     pub race: UmsLobbyRace,
 }
 
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Hash)]
+#[serde(transparent)]
+pub struct LobbyPlayerId(String);
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerInfo {
-    pub id: String,
+    pub id: LobbyPlayerId,
     pub name: String,
     pub race: Option<String>,
     pub user_id: Option<u32>,
@@ -203,7 +218,7 @@ impl PlayerInfo {
 #[serde(rename_all = "camelCase")]
 pub struct Route {
     #[serde(rename = "for")]
-    pub for_player: String,
+    pub for_player: LobbyPlayerId,
     pub server: RallyPointServer,
     pub route_id: String,
     pub player_id: u32,

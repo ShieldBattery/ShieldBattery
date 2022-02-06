@@ -1,28 +1,10 @@
-#![recursion_limit="1024"] // Required for futures::select
+#![recursion_limit = "1024"] // Required for futures::select
 
 #[macro_use]
 extern crate log;
 #[macro_use]
 extern crate whack;
-
-#[macro_use]
-mod hook_macro;
-
-mod app_messages;
-mod app_socket;
-mod bw;
-mod bw_scr;
-mod cancel_token;
-mod crash_dump;
-mod forge;
-mod game_state;
-mod game_thread;
-mod network_manager;
-mod rally_point;
-mod replay;
-mod snp;
-mod udp;
-mod windows;
+extern crate core;
 
 use std::fs::File;
 use std::io;
@@ -39,6 +21,27 @@ use winapi::um::winnt::EXCEPTION_POINTERS;
 
 use crate::game_state::GameStateMessage;
 use crate::game_thread::GameThreadMessage;
+
+#[macro_use]
+mod hook_macro;
+
+mod app_messages;
+mod app_socket;
+mod bw;
+mod bw_scr;
+mod cancel_token;
+mod crash_dump;
+mod forge;
+mod game_state;
+mod game_thread;
+mod netcode;
+mod network_manager;
+mod proto;
+mod rally_point;
+mod replay;
+mod snp;
+mod udp;
+mod windows;
 
 const WAIT_DEBUGGER: bool = false;
 
@@ -159,7 +162,7 @@ fn panic_hook(info: &std::panic::PanicInfo) {
     let mut msg = String::new();
     let location = match info.location() {
         Some(s) => format!("{}:{}", s.file(), s.line()),
-        None => format!("unknown location"),
+        None => "unknown location".to_string(),
     };
     writeln!(msg, "Panic at {}", location).unwrap();
     let payload = info.payload();
@@ -177,11 +180,10 @@ fn panic_hook(info: &std::panic::PanicInfo) {
     error!("{}", msg);
     if !already_panicking {
         // Write minidump in a separate thread so that this thread's stack will be accurate.
-        let result = std::thread::spawn(move || {
-            unsafe {
-                crash_dump::write_minidump_to_default_path(std::ptr::null_mut())
-            }
-        }).join();
+        let result = std::thread::spawn(move || unsafe {
+            crash_dump::write_minidump_to_default_path(std::ptr::null_mut())
+        })
+        .join();
         match result {
             Ok(Ok(())) => (),
             Ok(Err(e)) => {
@@ -194,7 +196,10 @@ fn panic_hook(info: &std::panic::PanicInfo) {
         }
     }
     // TODO Probs tell how to report, where to get log file etc
-    windows::message_box("Shieldbattery crash :(", &format!("{}\n{}", location, panic_msg));
+    windows::message_box(
+        "Shieldbattery crash :(",
+        &format!("{}\n{}", location, panic_msg),
+    );
     unsafe {
         TerminateProcess(GetCurrentProcess(), 0x4230daef);
     }
@@ -265,8 +270,7 @@ pub unsafe extern "system" fn DllMain(
     instance: usize,
     ul_reason_for_call: u32,
     _reserved: *mut c_void,
-) -> u32
-{
+) -> u32 {
     // DLL_PROCESS_ATTACH
     if ul_reason_for_call == 1 {
         SELF_HANDLE.store(instance, Ordering::Relaxed);
@@ -282,7 +286,8 @@ unsafe fn load_init_helper() -> Result<InitHelperFn, io::Error> {
     assert_ne!(self_handle, 0);
     let dll_path = windows::module_name(self_handle as *mut _)
         .and_then(|path| {
-            Path::new(&path).parent()
+            Path::new(&path)
+                .parent()
                 .map(|path| path.join("sb_init.dll"))
         })
         .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Unable to get DLL path"))?;
@@ -306,7 +311,7 @@ fn initialize() {
     std::thread::spawn(move || {
         async_thread(sender);
     });
-    if let Err(_) = receiver.recv() {
+    if receiver.recv().is_err() {
         // Async thread closed, wait for it to exit the process
         wait_async_exit();
     }
@@ -431,16 +436,21 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
             let game_state_send = game_state_send.clone();
             let launch_timeout_quit = async move {
                 tokio::time::sleep(Duration::from_millis(60000)).await;
-                let _ = game_state_send.send(GameStateMessage::QuitIfNotStarted).await;
+                let _ = game_state_send
+                    .send(GameStateMessage::QuitIfNotStarted)
+                    .await;
             };
             tokio::spawn(launch_timeout_quit);
         }
         let messages_from_game = handle_messages_from_game_thread(websocket_send, game_state_send);
-        let main_task = future::join3(game_state, websocket_connection, messages_from_game)
-            .map(|_| ());
-        cancel_token.bind(main_task.boxed()).inspect(|_| {
-            debug!("Main async task ended");
-        }).map(|_| ())
+        let main_task =
+            future::join3(game_state, websocket_connection, messages_from_game).map(|_| ());
+        cancel_token
+            .bind(main_task.boxed())
+            .inspect(|_| {
+                debug!("Main async task ended");
+            })
+            .map(|_| ())
     }));
     drop(runtime);
     info!("Async thread end");
@@ -451,7 +461,11 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
 /// that would block on sync I/O.
 /// Currently this is used to eagerly open some filesystem files to speed up SCR loading.
 fn async_handle() -> tokio::runtime::Handle {
-    ASYNC_RUNTIME.lock().as_ref().expect("Async runtime was not initialized").clone()
+    ASYNC_RUNTIME
+        .lock()
+        .as_ref()
+        .expect("Async runtime was not initialized")
+        .clone()
 }
 
 struct Args {

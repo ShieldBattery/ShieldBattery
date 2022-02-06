@@ -20,12 +20,13 @@ use shader_replaces::ShaderReplaces;
 pub use thiscall::Thiscall;
 
 use crate::app_messages::{MapInfo, Settings};
-use crate::bw::commands;
 use crate::bw::unit::{Unit, UnitIterator};
 use crate::bw::{self, Bw, FowSpriteIterator, SnpFunctions, StormPlayerId};
-use crate::game_thread;
+use crate::bw::{commands, UserLatency};
+use crate::game_thread::send_game_msg_to_async;
 use crate::snp;
 use crate::windows;
+use crate::{game_thread, GameThreadMessage};
 
 mod bw_hash_table;
 mod dialog_hook;
@@ -41,7 +42,7 @@ const SHADER_ID_MASK: u32 = 0x1c;
 
 pub struct BwScr {
     game: Value<*mut bw::Game>,
-    game_data: Value<*mut bw::JoinableGameInfo>,
+    game_data: Value<*mut bw::BwGameData>,
     players: Value<*mut bw::Player>,
     chk_players: Value<*mut bw::Player>,
     init_chk_player_types: Value<*mut u8>,
@@ -60,6 +61,8 @@ pub struct BwScr {
     /// Indicates whether the network is okay to proceed with the next turn (i.e. all turns are
     /// available from all players)
     is_network_ready: Value<u8>,
+    /// User latency setting, 0 = Low, 1 = High, 2 = Extra High
+    net_user_latency: Value<u32>,
     net_player_to_game: Value<*mut u32>,
     net_player_to_unique: Value<*mut u32>,
     local_player_name: Value<*mut u8>,
@@ -133,6 +136,7 @@ pub struct BwScr {
     init_game_data: scarf::VirtualAddress,
     init_unit_data: scarf::VirtualAddress,
     step_game: scarf::VirtualAddress,
+    step_network_addr: scarf::VirtualAddress,
     step_replay_commands: scarf::VirtualAddress,
     game_command_lengths: Vec<u32>,
     prism_pixel_shaders: Vec<scarf::VirtualAddress>,
@@ -143,6 +147,7 @@ pub struct BwScr {
     create_game_multiplayer: scarf::VirtualAddress,
     spawn_dialog: scarf::VirtualAddress,
     step_game_logic: scarf::VirtualAddress,
+    net_format_turn_rate: scarf::VirtualAddress,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
 
@@ -160,6 +165,11 @@ pub struct BwScr {
     show_skins: AtomicBool,
     visualize_network_stalls: AtomicBool,
     is_processing_game_commands: AtomicBool,
+    /// True if the network is currently stalled (updated whenever `step_network` is called).
+    in_network_stall: AtomicBool,
+    /// If [`in_network_stall`] is true, this will be the first time the stall was observed, which
+    /// can be used to calculate the stall length when it resolves.
+    network_stall_start: RwLock<Option<std::time::Instant>>,
     /// Avoid reporting the same player being dropped multiple times.
     /// Bit 0x1 = Net id 0, 0x2 = net id 1, etc.
     dropped_players: AtomicU32,
@@ -223,6 +233,7 @@ pub mod scr {
 
     use crate::bw;
     use crate::bw::SnpFunctions;
+    use crate::bw_scr::{bw_free, bw_malloc};
 
     use super::thiscall::Thiscall;
 
@@ -282,10 +293,55 @@ pub mod scr {
 
     #[repr(C)]
     pub struct BwString {
+        /// A pointer to the current memory containing the characters in the string.
         pub pointer: *mut u8,
+        /// Current length of the string, not including the null terminator.
         pub length: usize,
+        /// Total size of the memory pointed to by [`pointer`], not including the null terminator.
+        /// The sign bit of the capacity signifies whether or not the inline buffer is being used
+        /// (sign bit set = internal buffer).
         pub capacity: usize,
+        /// A buffer that will be used if the string fits within it.
         pub inline_buffer: [u8; 0x10],
+    }
+
+    impl BwString {
+        /// Returns the capacity (with the bit signifying internal/external buffer removed).
+        pub fn get_capacity(&self) -> usize {
+            self.capacity & (usize::MAX >> 1)
+        }
+
+        pub fn is_using_inline_buffer(&self) -> bool {
+            self.capacity & !(usize::MAX >> 1) != 0
+        }
+
+        /// Replaces the entire contents of the string, allocating new memory if necessary.
+        pub fn replace_all(&mut self, replace_with: &str) {
+            if replace_with.len() > self.get_capacity() {
+                // New value doesn't fit, reallocate
+                if !self.is_using_inline_buffer() {
+                    unsafe {
+                        bw_free(self.pointer);
+                        self.pointer = std::ptr::null_mut();
+                    }
+                }
+
+                // TODO(tec27): Increase this size a bit to avoid reallocations?
+                let new_capacity = replace_with.len();
+                unsafe {
+                    self.pointer = bw_malloc(new_capacity + 1);
+                    self.capacity = new_capacity;
+                }
+            }
+
+            unsafe {
+                let text_slice =
+                    std::slice::from_raw_parts_mut(self.pointer, self.get_capacity() + 1);
+                (&mut text_slice[..replace_with.len()]).copy_from_slice(replace_with.as_bytes());
+                text_slice[replace_with.len()] = 0;
+                self.length = replace_with.len();
+            }
+        }
     }
 
     #[repr(C)]
@@ -595,6 +651,14 @@ pub mod scr {
     #[repr(C)]
     pub struct AntiTroll {
         pub active: u8,
+    }
+
+    #[repr(C)]
+    pub struct NetFormatTurnRateResult {
+        // TODO(tec27): Not entirely certain what this is, behaves kind of weird during a DTR scan.
+        // This first value is a pointer that gets zeroed out if not used.
+        pub unk0: [u8; 4],
+        pub text: BwString,
     }
 
     unsafe impl Sync for PrismShader {}
@@ -939,6 +1003,10 @@ impl BwScr {
             .ok_or("Unique command user")?;
         let storm_command_user = analysis.storm_command_user().ok_or("Storm command user")?;
         let is_network_ready = analysis.network_ready().ok_or("Is network ready")?;
+        let net_user_latency = analysis.net_user_latency().ok_or("Net user latency")?;
+        let net_format_turn_rate = analysis
+            .net_format_turn_rate()
+            .ok_or("net_format_turn_rate")?;
         let net_player_to_game = analysis.net_player_to_game().ok_or("Net player to game")?;
         let net_player_to_unique = analysis
             .net_player_to_unique()
@@ -1111,6 +1179,7 @@ impl BwScr {
             unique_command_user: Value::new(ctx, unique_command_user),
             storm_command_user: Value::new(ctx, storm_command_user),
             is_network_ready: Value::new(ctx, is_network_ready),
+            net_user_latency: Value::new(ctx, net_user_latency),
             net_player_to_game: Value::new(ctx, net_player_to_game),
             net_player_to_unique: Value::new(ctx, net_player_to_unique),
             local_player_name: Value::new(ctx, local_player_name),
@@ -1141,8 +1210,10 @@ impl BwScr {
             uses_new_join_param_variant,
             status_screen_funcs,
             original_status_screen_update,
+            net_format_turn_rate,
             init_network_player_info: unsafe { mem::transmute(init_network_player_info.0) },
             step_network: unsafe { mem::transmute(step_network.0) },
+            step_network_addr: step_network,
             select_map_entry: unsafe { mem::transmute(select_map_entry.0) },
             game_loop: unsafe { mem::transmute(game_loop.0) },
             init_map_from_path: unsafe { mem::transmute(init_map_from_path.0) },
@@ -1197,6 +1268,8 @@ impl BwScr {
             show_skins: AtomicBool::new(false),
             visualize_network_stalls: AtomicBool::new(false),
             is_processing_game_commands: AtomicBool::new(false),
+            in_network_stall: AtomicBool::new(false),
+            network_stall_start: RwLock::new(None),
             dropped_players: AtomicU32::new(0),
             settings_file_path: RwLock::new(String::new()),
             detection_status_copy: Mutex::new(Vec::new()),
@@ -1389,6 +1462,55 @@ impl BwScr {
             },
             address,
         );
+        let address = self.step_network_addr.0 as usize - base;
+        exe.hook_closure_address(
+            StepNetwork,
+            move |orig| {
+                let ret = orig();
+
+                let in_stall = self.is_network_ready.resolve() == 0;
+                let was_in_stall = self.in_network_stall.swap(in_stall, Ordering::Relaxed);
+                if in_stall && !was_in_stall {
+                    let now = std::time::Instant::now();
+                    let mut stall_start = self.network_stall_start.write();
+                    *stall_start = Some(now);
+                } else if !in_stall && was_in_stall {
+                    let mut stall_start = self.network_stall_start.write();
+                    let stall_duration = stall_start
+                        .unwrap_or_else(std::time::Instant::now)
+                        .elapsed();
+                    *stall_start = None;
+
+                    send_game_msg_to_async(GameThreadMessage::NetworkStall(stall_duration));
+                }
+
+                ret
+            },
+            address,
+        );
+
+        let address = self.net_format_turn_rate.0 as usize - base;
+        exe.hook_closure_address(
+            NetFormatTurnRate,
+            move |result: *mut scr::NetFormatTurnRateResult, dtr_scan_in_progress, orig| {
+                // NOTE(tec27): We don't use the original value at all but it's a convenient way to
+                // get them to allocate a real string for us.
+                orig(result, dtr_scan_in_progress);
+
+                let turn_rate = match (*self.game_data()).turn_rate {
+                    0 => 24, // This only happens with DTR, and is temporary anyway
+                    val => val,
+                };
+                let cur_user_latency = self.net_user_latency.resolve();
+                let user_delay = 2 /* proto_latency */ + cur_user_latency;
+                let effective_latency =
+                    ((1000f32 * user_delay as f32 + 500f32) / turn_rate as f32).round();
+                let value = format!("Lat: {:.0}ms", effective_latency);
+                (*result).text.replace_all(value.as_str());
+            },
+            address,
+        );
+
         let address = self.init_game_data.0 as usize - base;
         exe.hook_closure_address(
             InitGameData,
@@ -1529,10 +1651,10 @@ impl BwScr {
 
         self.patch_shaders(&mut exe, base);
 
-        sdf_cache::apply_sdf_cache_hooks(&self, &mut exe, base);
+        sdf_cache::apply_sdf_cache_hooks(self, &mut exe, base);
 
         let create_file_hook_closure =
-            move |a, b, c, d, e, f, g, o| create_file_hook(&self, a, b, c, d, e, f, g, o);
+            move |a, b, c, d, e, f, g, o| create_file_hook(self, a, b, c, d, e, f, g, o);
         let close_handle_hook = move |handle, orig: unsafe extern "C" fn(_) -> _| {
             self.check_replay_file_finish(handle);
             orig(handle)
@@ -1547,11 +1669,26 @@ impl BwScr {
             // this function out shouldn't cause any other scheduling priority issues.
             0
         };
+        let init_time = std::time::Instant::now();
+        let init_tick_count = winapi::um::sysinfoapi::GetTickCount();
+        let get_tick_count_hook = move |_orig: unsafe extern "C" fn() -> u32| {
+            // BW uses GetTickCount for a lot of things that should really have better than
+            // 16ms resolution, so we hook this to give them a better timer. In practice this
+            // improves the reliability of turn timing, which hopefully improves the reliability of
+            // the netcode, and maybe other things
+
+            // We add the initial tick count here because some other Windows APIs
+            // (notably GetMessageTime) return values that are expected to be in the same range.
+            // Without doing this, SC:R will discard some otherwise valid events and make it so
+            // things like keypresses take multiple presses to achieve one action.
+            (init_time.elapsed().as_millis() as u32).wrapping_add(init_tick_count)
+        };
         hook_winapi_exports!(&mut active_patcher, "kernel32",
             "CreateEventW", CreateEventW, create_event_hook;
             "CreateFileW", CreateFileW, create_file_hook_closure;
             "CopyFileW", CopyFileW, copy_file_hook;
             "CloseHandle", CloseHandle, close_handle_hook;
+            "GetTickCount", GetTickCount, get_tick_count_hook;
             "SwitchToThread", SwitchToThread, switch_to_thread_hook;
         );
 
@@ -1907,7 +2044,7 @@ impl BwScr {
     /// in case blizzard is being indecisive.
     unsafe fn build_join_game_params<T: GameInfoValueTrait>(
         &self,
-        input_game_info: &mut bw::JoinableGameInfo,
+        input_game_info: &mut bw::BwGameData,
         is_eud: bool,
         turn_rate: u32,
     ) -> bw_hash_table::HashTable<scr::BwString, T> {
@@ -1972,7 +2109,7 @@ impl BwScr {
         {
             if dropped_players & (1 << i) == 0 {
                 dropped_players |= 1 << i;
-                result.get_or_insert_with(|| Vec::new()).push(i as u8);
+                result.get_or_insert_with(Vec::new).push(i as u8);
                 self.dropped_players
                     .store(dropped_players, Ordering::Relaxed);
             }
@@ -2019,7 +2156,7 @@ impl bw::Bw for BwScr {
             .local
             .get("visualizeNetworkStalls")
             .and_then(|x| x.as_bool())
-            .unwrap_or_else(|| false);
+            .unwrap_or(false);
         self.is_carbot.store(is_carbot, Ordering::Relaxed);
         self.show_skins.store(show_skins, Ordering::Relaxed);
         self.visualize_network_stalls
@@ -2217,7 +2354,7 @@ impl bw::Bw for BwScr {
 
     unsafe fn join_lobby(
         &self,
-        input_game_info: &mut bw::JoinableGameInfo,
+        input_game_info: &mut bw::BwGameData,
         is_eud: bool,
         turn_rate: u32,
         map_path: &CStr,
@@ -2323,7 +2460,7 @@ impl bw::Bw for BwScr {
         self.game.resolve()
     }
 
-    unsafe fn game_data(&self) -> *mut bw::JoinableGameInfo {
+    unsafe fn game_data(&self) -> *mut bw::BwGameData {
         self.game_data.resolve()
     }
 
@@ -2468,6 +2605,14 @@ impl bw::Bw for BwScr {
     unsafe fn is_network_ready(&self) -> bool {
         self.is_network_ready.resolve() == 1
     }
+
+    unsafe fn set_user_latency(&self, latency: UserLatency) {
+        self.net_user_latency.write(match latency {
+            UserLatency::Low => 0,
+            UserLatency::High => 1,
+            UserLatency::ExtraHigh => 2,
+        });
+    }
 }
 
 fn init_bw_dat(analysis: &mut scr_analysis::Analysis<'_>) -> Result<(), &'static str> {
@@ -2530,7 +2675,7 @@ unsafe extern "C" fn bw_free(ptr: *mut u8) {
 }
 
 fn get_exe_build() -> u32 {
-    let exe_path = windows::module_name(0 as *mut _).expect("Couldn't get exe path");
+    let exe_path = windows::module_name(std::ptr::null_mut()).expect("Couldn't get exe path");
     match windows::version::get_version(Path::new(&exe_path)) {
         Some(s) => s.3 as u32,
         None => 0,
@@ -2558,6 +2703,7 @@ fn create_event_hook(
     }
 }
 
+#[allow(clippy::too_many_arguments)] // Tell that to Bill Gates, clippy :)
 fn create_file_hook(
     bw: &BwScr,
     filename: *const u16,
@@ -2899,7 +3045,7 @@ mod hooks {
         !0 => StepReplayCommands();
         !0 => StartUdpServer(@ecx *mut c_void) -> u32;
         !0 => CreateGameMultiplayer(
-            *mut bw::JoinableGameInfo, // Note: 1.16.1 struct, not scr::JoinableGameInfo
+            *mut bw::BwGameData, // Note: 1.16.1 struct, not scr::JoinableGameInfo
             *const u8, // Game name
             *const u8, // Password (null)
             *const u8, // Map path?
@@ -2907,12 +3053,17 @@ mod hooks {
         ) -> u32;
         !0 => SpawnDialog(*mut bw::Dialog, usize, usize) -> usize;
         !0 => StepGameLogic(usize) -> usize;
+        !0 => StepNetwork() -> usize;
+        // TODO(tec27): Not entirely certain that this return value is correct, but the game doesn't
+        // seem to look at it anyway?
+        !0 => NetFormatTurnRate(*mut scr::NetFormatTurnRateResult, bool);
     );
 
     whack_hooks!(stdcall, 0,
         !0 => LoadSnpList(*mut scr::SnpLoadFuncs, u32) -> u32;
         !0 => CreateEventW(*mut c_void, u32, u32, *const u16) -> *mut c_void;
         !0 => CloseHandle(*mut c_void) -> u32;
+        !0 => GetTickCount() -> u32;
         !0 => SwitchToThread() -> u32;
         !0 => CreateFileW(
             *const u16,

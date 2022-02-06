@@ -12,8 +12,8 @@ use once_cell::sync::OnceCell;
 use bw_dat::dialog::Dialog;
 use bw_dat::{Unit, UnitId};
 
-use crate::app_messages::{GameSetupInfo};
-use crate::bw::{self, Bw, get_bw, StormPlayerId};
+use crate::app_messages::GameSetupInfo;
+use crate::bw::{self, get_bw, Bw, StormPlayerId};
 use crate::forge;
 use crate::replay;
 use crate::snp;
@@ -43,7 +43,7 @@ pub struct PlayerIdMapping {
 }
 
 pub fn set_sbat_replay_data(data: replay::SbatReplayData) {
-    if let Err(_) = SBAT_REPLAY_DATA.set(data) {
+    if SBAT_REPLAY_DATA.set(data).is_err() {
         warn!("Tried to set shieldbattery replay data twice");
     }
 }
@@ -86,6 +86,7 @@ pub enum GameThreadMessage {
     /// considered invalid and updated to match this mapping.
     PlayersRandomized([Option<u8>; bw::MAX_STORM_PLAYERS]),
     Results(GameThreadResults),
+    NetworkStall(std::time::Duration),
 }
 
 /// Sends a message from game thread to the async system.
@@ -132,7 +133,7 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
             get_bw().clean_up_for_exit();
         }
         SetupInfo(info) => {
-            if let Err(_) = SETUP_INFO.set(info) {
+            if SETUP_INFO.set(info).is_err() {
                 warn!("Received second SetupInfo");
             }
         }
@@ -140,18 +141,16 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
 }
 
 pub fn set_player_id_mapping(mapping: Vec<PlayerIdMapping>) {
-    if let Err(_) = PLAYER_ID_MAPPING.set(mapping) {
+    if PLAYER_ID_MAPPING.set(mapping).is_err() {
         warn!("Player id mapping set twice");
     }
 }
 
 pub fn player_id_mapping() -> &'static [PlayerIdMapping] {
-    PLAYER_ID_MAPPING.get()
-        .map(|x| &**x)
-        .unwrap_or_else(|| {
-            warn!("Tried to access player id mapping before it was set");
-            &[]
-        })
+    PLAYER_ID_MAPPING.get().map(|x| &**x).unwrap_or_else(|| {
+        warn!("Tried to access player id mapping before it was set");
+        &[]
+    })
 }
 
 #[derive(Eq, PartialEq, Copy, Clone)]
@@ -246,8 +245,10 @@ pub unsafe fn after_init_game_data() {
     debug!("After randomization:");
     for i in 0..16 {
         let player = *players.add(i);
-        debug!("Slot {} has id {}, player_type {}, storm_id {}",
-                i, player.id, player.player_type, player.storm_id);
+        debug!(
+            "Slot {} has id {}, player_type {}, storm_id {}",
+            i, player.id, player.player_type, player.storm_id
+        );
         let storm_id = player.storm_id;
         if let Some(out) = mapping.get_mut(storm_id as usize) {
             *out = Some(i as u8);
@@ -275,7 +276,8 @@ pub unsafe fn after_init_game_data() {
 pub fn is_ums() -> bool {
     // TODO This returns false on replays. Also same thing about looking at BW's
     // structures as for is_team_game
-    SETUP_INFO.get()
+    SETUP_INFO
+        .get()
         .and_then(|x| x.game_type())
         .filter(|x| x.is_ums())
         .is_some()
@@ -289,7 +291,8 @@ pub fn is_team_game() -> bool {
             .filter(|x| x.team_game_main_players != [0, 0, 0, 0])
             .is_some()
     } else {
-        SETUP_INFO.get()
+        SETUP_INFO
+            .get()
             .and_then(|x| x.game_type())
             .filter(|x| x.is_team_game())
             .is_some()
@@ -297,7 +300,8 @@ pub fn is_team_game() -> bool {
 }
 
 pub fn is_replay() -> bool {
-    SETUP_INFO.get()
+    SETUP_INFO
+        .get()
         .and_then(|x| x.map.is_replay)
         .unwrap_or(false)
 }
@@ -310,7 +314,8 @@ pub fn setup_info() -> &'static GameSetupInfo {
 /// without any color chars (Even if the app also filters them out),
 /// or characters illegal in filenames on Windows.
 pub fn map_name_for_filename() -> String {
-    let mut name: String = SETUP_INFO.get()
+    let mut name: String = SETUP_INFO
+        .get()
         .and_then(|x| x.map.name.as_deref())
         .unwrap_or("(Unknown map name)")
         .into();
@@ -356,8 +361,8 @@ pub unsafe fn after_step_game() {
                 // desired, checking that `sprite.player == 11` should only include
                 // buildings that existed from map start
                 if let Some(sprite) = unit.sprite() {
-                    let is_visible = replay_visions.show_entire_map ||
-                        sprite.visibility_mask() & replay_visions.players != 0;
+                    let is_visible = replay_visions.show_entire_map
+                        || sprite.visibility_mask() & replay_visions.players != 0;
                     if !is_visible {
                         let pos = bw.sprite_position(*sprite as *mut c_void);
                         if fow_sprites.insert((pos.x, pos.y, unit.id())) {
@@ -375,7 +380,7 @@ pub unsafe fn after_step_game() {
 ///
 /// A function pointer for the original function is still needed to handle replay ending
 /// case which we don't need to touch.
-pub unsafe fn step_replay_commands(orig: unsafe extern fn()) {
+pub unsafe fn step_replay_commands(orig: unsafe extern "C" fn()) {
     let bw = get_bw();
     let game = bw.game();
     let replay = bw.replay_data();
@@ -428,10 +433,7 @@ fn replay_next_frame<'a>(input: &'a [u8]) -> Option<(ReplayFrame<'a>, &'a [u8])>
     let rest = input.get(5..)?;
     let commands = rest.get(..commands_len as usize)?;
     let rest = rest.get(commands_len as usize..)?;
-    Some((ReplayFrame {
-        frame,
-        commands,
-    }, rest))
+    Some((ReplayFrame { frame, commands }, rest))
 }
 
 impl<'a> ReplayFrame<'a> {
@@ -463,7 +465,8 @@ pub unsafe fn before_init_unit_data(bw: &dyn Bw) {
         if ext.team_game_main_players != [0, 0, 0, 0] {
             (*game).team_game_main_player = ext.team_game_main_players;
             (*game).starting_races = ext.starting_races;
-            let team_count = ext.team_game_main_players
+            let team_count = ext
+                .team_game_main_players
                 .iter()
                 .take_while(|&&x| x != 0xff)
                 .count();
@@ -545,9 +548,9 @@ pub unsafe fn after_status_screen_update(bw: &dyn Bw, status_screen: Dialog, uni
             // been used.
             if let Some(rank_status) = status_screen.child_by_id(-20) {
                 let existing_text = rank_status.string();
-                if rank_status.is_hidden() ||
-                    existing_text.starts_with("Stacked") ||
-                    existing_text == ""
+                if rank_status.is_hidden()
+                    || existing_text.starts_with("Stacked")
+                    || existing_text == ""
                 {
                     use std::io::Write;
 

@@ -25,14 +25,23 @@ const GAME_LOAD_TIMEOUT = 60 * 1000
 const POTENTIAL_TURN_RATES: ReadonlyArray<BwTurnRate> = [12, 14, 16, 20, 24]
 /**
  * Entries of turn rate -> the max latency that is allowed to auto-pick that turn rate. These values
- * are chosen to be a bit conservative, and ensure that even if there is somewhat frequent packet
- * loss, the ingame settings could be used to get things mostly playable. (This is a stop-gap
- * measure, longer-term our netcode should be able to adjust on the fly.)
+ * are chosen to work initially on low latency, although with significant packet loss may need to be
+ * bumped higher. (This is a stop-gap measure, longer-term our netcode should be able to adjust on
+ * the fly.)
  */
-const MAX_LATENCIES: ReadonlyArray<[turnRate: BwTurnRate, maxLatency: number]> =
+const MAX_LATENCIES_LOW: ReadonlyArray<[turnRate: BwTurnRate, maxLatency: number]> =
   POTENTIAL_TURN_RATES.map(turnRate => [
     turnRate,
-    turnRateToMaxLatency(turnRate, BwUserLatency.ExtraHigh) / 2,
+    turnRateToMaxLatency(turnRate, BwUserLatency.Low),
+  ])
+/**
+ * Latencies to check if none of the MAX_LATENCIES_LOW work. At that point we pick a latency based
+ * on what would be optimal for the "High" ingame latency setting.
+ */
+const MAX_LATENCIES_HIGH: ReadonlyArray<[turnRate: BwTurnRate, maxLatency: number]> =
+  POTENTIAL_TURN_RATES.map(turnRate => [
+    turnRate,
+    turnRateToMaxLatency(turnRate, BwUserLatency.High),
   ])
 
 export enum GameLoadErrorType {
@@ -113,7 +122,7 @@ const LoadingDatas = {
 }
 
 export type OnGameSetupFunc = (
-  gameInfo: { gameId: string; seed: number; turnRate?: BwTurnRate },
+  gameInfo: { gameId: string; seed: number; turnRate?: BwTurnRate; userLatency?: BwUserLatency },
   /** Map of user ID -> code for submitting the game results */
   resultCodes: Map<SbUserId, string>,
 ) => void
@@ -328,6 +337,7 @@ export class GameLoader {
     cancelToken.throwIfCancelling()
 
     let chosenTurnRate: BwTurnRate | undefined
+    let chosenUserLatency: BwUserLatency | undefined
     let maxEstimatedLatency = 0
     for (const route of routes) {
       if (route.estimatedLatency > maxEstimatedLatency) {
@@ -336,11 +346,22 @@ export class GameLoader {
     }
 
     if (USE_STATIC_TURNRATE) {
-      const availableTurnRates = MAX_LATENCIES.filter(
+      let availableTurnRates = MAX_LATENCIES_LOW.filter(
         ([_, latency]) => latency > maxEstimatedLatency,
       )
-      // Of the turn rates that work for this latency, pick the best one
-      chosenTurnRate = availableTurnRates.length ? availableTurnRates.at(-1)![0] : 12
+      if (availableTurnRates.length) {
+        // Of the turn rates that work for this latency, pick the best one
+        chosenTurnRate = availableTurnRates.at(-1)![0]
+        chosenUserLatency = BwUserLatency.Low
+      } else {
+        // Fall back to a latency that will work for High latency
+        availableTurnRates = MAX_LATENCIES_HIGH.filter(
+          ([_, latency]) => latency > maxEstimatedLatency,
+        )
+        // Of the turn rates that work for this latency, pick the best one
+        chosenTurnRate = availableTurnRates.length ? availableTurnRates.at(-1)![0] : 12
+        chosenUserLatency = BwUserLatency.High
+      }
     }
 
     this.maxEstimatedLatencyMetric
@@ -348,7 +369,15 @@ export class GameLoader {
       .observe(maxEstimatedLatency / 1000)
 
     const onGameSetupResult = onGameSetup
-      ? onGameSetup({ gameId, seed: generateSeed(), turnRate: chosenTurnRate }, resultCodes)
+      ? onGameSetup(
+          {
+            gameId,
+            seed: generateSeed(),
+            turnRate: chosenTurnRate,
+            userLatency: chosenUserLatency,
+          },
+          resultCodes,
+        )
       : Promise.resolve()
 
     // get a list of routes + player IDs per player, broadcast that to each player

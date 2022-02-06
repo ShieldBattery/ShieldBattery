@@ -59,14 +59,14 @@ pub trait Bw: Sync + Send {
     /// `address` is only used by SCR. 1161 sets address by snp::spoof_game.
     unsafe fn join_lobby(
         &self,
-        game_info: &mut JoinableGameInfo,
+        game_info: &mut BwGameData,
         is_eud_map: bool,
         turn_rate: u32,
         map_path: &CStr,
         address: std::net::Ipv4Addr,
     ) -> Result<(), u32>;
     unsafe fn game(&self) -> *mut Game;
-    unsafe fn game_data(&self) -> *mut JoinableGameInfo;
+    unsafe fn game_data(&self) -> *mut BwGameData;
     unsafe fn players(&self) -> *mut Player;
     /// May be null in some edge case?
     /// But since it is used for both recording and replaying it usually isn't.
@@ -87,6 +87,7 @@ pub trait Bw: Sync + Send {
     /// Returns whether or not the network is ready to proceed to the next turn (that is, all
     /// player's turns have been received). False indicates that we are currently in a stall.
     unsafe fn is_network_ready(&self) -> bool;
+    unsafe fn set_user_latency(&self, latency: UserLatency);
 
     /// Note: Size is unspecified, but will not change between calls.
     /// (Remastered has 12 storm players)
@@ -211,6 +212,13 @@ pub const RACE_ZERG: u8 = 0x0;
 pub const RACE_TERRAN: u8 = 0x1;
 pub const RACE_PROTOSS: u8 = 0x2;
 pub const RACE_RANDOM: u8 = 0x6;
+
+#[derive(Debug)]
+pub enum UserLatency {
+    Low,
+    High,
+    ExtraHigh,
+}
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -345,7 +353,7 @@ pub struct ClientInfo {
 
 #[repr(C, packed)]
 #[derive(Clone, Copy)]
-pub struct JoinableGameInfo {
+pub struct BwGameData {
     pub index: u32,
     pub name: [u8; 24],
     pub save_checksum: u32,
@@ -357,7 +365,7 @@ pub struct JoinableGameInfo {
     pub approval: u8,
     pub game_type: u16,
     pub game_subtype: u16,
-    pub cdkey_checksum: u32,
+    pub turn_rate: u32,
     pub tileset: u16,
     pub is_replay: u8,
     pub active_computer_players: u8, // Only set when saving - why..
@@ -408,7 +416,7 @@ pub struct ReplayHeader {
     pub replay_end_frame: u32,
     pub campaign_mission: u16,
     pub save_data_command: [u8; 0xd],
-    pub game_info: JoinableGameInfo,
+    pub game_info: BwGameData,
     pub players: [Player; 0xc],
     pub ai_player_names: [u32; 8],
     pub ums_user_select_slots: [u8; 8],
@@ -435,9 +443,8 @@ fn struct_sizes() {
     use std::mem::size_of;
     assert_eq!(size_of::<SnpGameInfo>(), 0x13c);
     assert_eq!(size_of::<StormPlayer>(), 0x22);
-    assert_eq!(size_of::<JoinableGameInfo>(), 0x8d);
+    assert_eq!(size_of::<BwGameData>(), 0x8d);
     assert_eq!(size_of::<GameTemplate>(), 0x20);
-    assert_eq!(size_of::<UiEvent>(), 0x12);
     assert_eq!(size_of::<FowSprite>(), 0x10);
     assert_eq!(size_of::<ReplayData>(), 0x20);
     assert_eq!(size_of::<ReplayHeader>(), 0x279);

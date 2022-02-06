@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::ffi::{CStr, CString};
 use std::io;
 use std::mem;
@@ -7,31 +8,37 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
+use futures::pin_mut;
 use futures::prelude::*;
-use futures::{pin_mut};
 use http::header::{HeaderMap, ORIGIN};
 use quick_error::quick_error;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
-    GamePlayerResult, GameResults, GameResultsReport, GameSetupInfo, LocalUser, MapForce,
-    PlayerInfo, Race, UmsLobbyRace, Route, Settings, SetupProgress, GAME_STATUS_ERROR,
+    GamePlayerResult, GameResults, GameResultsReport, GameSetupInfo, LobbyPlayerId, LocalUser,
+    MapForce, NetworkStallInfo, PlayerInfo, Race, Route, Settings, SetupProgress, UmsLobbyRace,
+    GAME_STATUS_ERROR,
 };
 use crate::app_socket;
-use crate::bw::{self, get_bw, GameType, StormPlayerId};
+use crate::bw::{self, get_bw, GameType, StormPlayerId, UserLatency};
 use crate::cancel_token::{CancelToken, Canceler, SharedCanceler};
 use crate::forge;
 use crate::game_thread::{
     self, GameThreadMessage, GameThreadRequest, GameThreadRequestType, GameThreadResults,
 };
-use crate::network_manager::{NetworkError, NetworkManager};
+use crate::network_manager::{
+    GameStateToNetworkMessage, NetworkError, NetworkManager, NetworkToGameStateMessage,
+};
+use crate::proto::messages::game_message_payload::Payload;
+use crate::proto::messages::{ClientAckResponseMessage, ClientReadyMessage};
 use crate::replay;
 use crate::snp;
 
 pub struct GameState {
     init_state: InitState,
     network: NetworkManager,
+    network_send: mpsc::Sender<GameStateToNetworkMessage>,
     ws_send: app_socket::SendMessages,
     internal_send: self::SendMessages,
     init_main_thread: std::sync::mpsc::Sender<()>,
@@ -39,16 +46,16 @@ pub struct GameState {
     #[allow(dead_code)]
     running_game: Option<Canceler>,
     async_stop: SharedCanceler,
-    can_start_game: CanStartGame,
+    can_start_game: AwaitableTaskState,
     game_started: bool,
 }
 
 pub type SendMessages = mpsc::Sender<GameStateMessage>;
 
-enum CanStartGame {
-    Yes,
-    /// Tasks waiting for start permission push wakeup sender here
-    No(Vec<oneshot::Sender<()>>),
+enum AwaitableTaskState<T = ()> {
+    Complete,
+    /// Things waiting for the task to complete push wakeup sender here
+    Incomplete(Vec<oneshot::Sender<T>>),
 }
 
 enum InitState {
@@ -94,6 +101,7 @@ pub enum GameStateMessage {
     PlayersChanged,
     GameSetupDone,
     GameThread(GameThreadMessage),
+    Network(NetworkToGameStateMessage),
     CleanupQuit,
     QuitIfNotStarted,
 }
@@ -209,12 +217,12 @@ impl GameState {
 
     fn wait_can_start_game(&mut self) -> impl Future<Output = ()> {
         let recv = match self.can_start_game {
-            CanStartGame::No(ref mut waiters) => {
+            AwaitableTaskState::Incomplete(ref mut waiters) => {
                 let (send, recv) = oneshot::channel();
                 waiters.push(send);
                 Some(recv)
             }
-            CanStartGame::Yes => None,
+            AwaitableTaskState::Complete => None,
         };
         async move {
             if let Some(recv) = recv {
@@ -236,15 +244,14 @@ impl GameState {
             }
         };
 
+        let info = Arc::new(info);
         // The complete initialization logic is split between futures in this function
         // and self.init_state updating itself in response to network events,
         // both places poking bw's state as well..
         // It may probably be better to move everything to InitInProgress and have this
         // function just initialize it?
         // For now it's worth noting that until the `init_state.wait_for_players` future
-        // completes, InitInProgress will update bw's player state and setting observer
-        // chat override.
-        let info = Arc::new(info);
+        // completes, InitInProgress will update bw's player state.
         let mut init_state = match self.init_state {
             InitState::WaitingForInput(ref mut state) => match state.init_if_ready(&info) {
                 Ok(o) => o,
@@ -255,16 +262,18 @@ impl GameState {
             }
         };
         let local_user = init_state.local_user.clone();
-        let mut players_joined = init_state.wait_for_players();
+        let mut players_joined = init_state.wait_for_players().boxed();
+        let all_players_ready = init_state.wait_all_players_ready().boxed();
         self.init_state = InitState::Started(init_state);
 
         let send_messages_to_state = self.internal_send.clone();
         let game_request_send = self.send_main_thread_requests.clone();
 
+        let network_send = self.network_send.clone();
         let init_routes_when_ready_future = self.network.init_routes_when_ready();
         let network_ready_future = self.network.wait_network_ready();
         let net_game_info_set_future = self.network.set_game_info(info.clone());
-        let allow_start = self.wait_can_start_game();
+        let allow_start = self.wait_can_start_game().boxed();
 
         self.init_main_thread
             .send(())
@@ -294,25 +303,45 @@ impl GameState {
             }
             init_routes_when_ready_future
                 .await
-                .map_err(|e| GameInitError::NetworkInit(e))?;
+                .map_err(GameInitError::NetworkInit)?;
             start_game_request(&game_request_send, GameThreadRequestType::RunWndProc)
                 .map_err(|()| GameInitError::Closed)?;
             net_game_info_set_future
                 .await
-                .map_err(|e| GameInitError::NetworkInit(e))?;
+                .map_err(GameInitError::NetworkInit)?;
             network_ready_future
                 .await
-                .map_err(|e| GameInitError::NetworkInit(e))?;
+                .map_err(GameInitError::NetworkInit)?;
             debug!("Network ready");
             if !is_host {
                 unsafe {
                     join_lobby(&info, game_type).await?;
                 }
             }
+
+            if let Some(latency) = info.user_latency {
+                let latency = match latency {
+                    0 => UserLatency::Low,
+                    1 => UserLatency::High,
+                    2 => UserLatency::ExtraHigh,
+                    val => {
+                        warn!("Invalid user latency value: {}", val);
+                        UserLatency::Low
+                    }
+                };
+                debug!("Setting initial user latency: {:?}", latency);
+                let bw = get_bw();
+                unsafe {
+                    bw.set_user_latency(latency);
+                }
+            }
+
             debug!("In lobby, setting up slots");
             unsafe {
-                let ums_forces = info.map
-                    .map_data.as_ref()
+                let ums_forces = info
+                    .map
+                    .map_data
+                    .as_ref()
                     .map(|x| &x.ums_forces[..])
                     .unwrap_or(&[]);
                 setup_slots(&info.slots, game_type, ums_forces);
@@ -383,7 +412,38 @@ impl GameState {
                 }
             }
 
-            allow_start.await;
+            if !is_host {
+                debug!("Notifying host that client is ready");
+                network_send
+                    .send(GameStateToNetworkMessage::SendPayload(
+                        info.host.id.clone(),
+                        Some(Payload::ClientReady(ClientReadyMessage::default())),
+                    ))
+                    .await
+                    .map_err(|_| GameInitError::Closed)?;
+                // Note that we don't need to wait for anything further as a non-host, the game's
+                // normal seed event will signal it's time to start (handled in do_lobby_game_init)
+            } else {
+                // Wait for all the players to be ready to start, and the server to let us go
+                let mut ready_future =
+                    future::try_join(allow_start.map(|_| Ok(())), all_players_ready);
+                loop {
+                    unsafe {
+                        bw.maybe_receive_turns();
+                    }
+
+                    select! {
+                        _ = tokio::time::sleep(Duration::from_millis(42)) => continue,
+                        res = &mut ready_future => {
+                            res?;
+                            break
+                        },
+                    }
+                }
+
+                debug!("All players are ready to start");
+            }
+
             unsafe {
                 do_lobby_game_init(&info).await;
             }
@@ -408,6 +468,8 @@ impl GameState {
 
         let ws_send = self.ws_send.clone();
         let game_request_send = self.send_main_thread_requests.clone();
+        let setup_info = init_state.setup_info.clone();
+        let network_send = self.network_send.clone();
         let results = init_state.wait_for_results();
         async move {
             forge::end_wnd_proc();
@@ -421,13 +483,47 @@ impl GameState {
             game_done.await;
             let results = results.await?;
 
+            // Make sure (or at least try to) that quit messages get delivered to everyone and don't
+            // get lost, so that quitting players don't trigger a drop screen.
+            let mut deliver_final_network = Vec::new();
+            for (name, _) in results
+                .results
+                .iter()
+                .filter(|(_, r)| r.result == 0 /* playing */)
+            {
+                if let Some(slot) = setup_info.slots.iter().find(|s| name == &s.name) {
+                    debug!("Triggering final network sends for {}", slot.name);
+                    let (send, recv) = oneshot::channel();
+                    let _ = network_send
+                        .send(GameStateToNetworkMessage::DeliverPayloadsInFlight(
+                            slot.id.clone(),
+                            send,
+                        ))
+                        .await
+                        .map_err(|e| debug!("Send error {}", e));
+
+                    deliver_final_network.push(recv);
+                }
+            }
+
             if !info.is_replay() {
                 send_game_result(&results, &info, &local_user, &ws_send).await;
             }
 
+            debug!("Network stall statistics: {:?}", results.network_stalls);
+
+            if !deliver_final_network.is_empty() {
+                select! {
+                    _ = future::join_all(deliver_final_network) => {},
+                    _ = tokio::time::sleep(Duration::from_millis(5000)) => {},
+                }
+            }
+            debug!("Final network sends completed");
+
             app_socket::send_message(&ws_send, "/game/finished", ())
                 .await
                 .map_err(|_| GameInitError::Closed)?;
+
             Ok(())
         }
         .boxed()
@@ -448,14 +544,16 @@ impl GameState {
             SetRoutes(routes) => {
                 return self.set_routes(routes).boxed();
             }
-            StartWhenReady => match mem::replace(&mut self.can_start_game, CanStartGame::Yes) {
-                CanStartGame::Yes => (),
-                CanStartGame::No(waiting) => {
-                    for sender in waiting {
-                        let _ = sender.send(());
+            StartWhenReady => {
+                match mem::replace(&mut self.can_start_game, AwaitableTaskState::Complete) {
+                    AwaitableTaskState::Complete => (),
+                    AwaitableTaskState::Incomplete(waiting) => {
+                        for sender in waiting {
+                            let _ = sender.send(());
+                        }
                     }
                 }
-            },
+            }
             SetupGame(info) => {
                 let ws_send = self.ws_send.clone();
                 let async_stop = self.async_stop.clone();
@@ -471,9 +569,8 @@ impl GameState {
                                 extra: Some(msg),
                             },
                         };
-                        let _ =
-                            app_socket::send_message(&ws_send, "/game/setupProgress", message)
-                                .await;
+                        let _ = app_socket::send_message(&ws_send, "/game/setupProgress", message)
+                            .await;
                         expect_quit(&async_stop).await;
                     }
                 };
@@ -510,6 +607,9 @@ impl GameState {
             }
             GameThread(msg) => {
                 return self.handle_game_thread_message(msg);
+            }
+            Network(msg) => {
+                return self.handle_network_message(msg);
             }
             CleanupQuit => {
                 let cleanup_request = GameThreadRequestType::ExitCleanup;
@@ -557,7 +657,8 @@ impl GameState {
                             );
                         }
                     }
-                    let mapping = state.joined_players
+                    let mapping = state
+                        .joined_players
                         .iter()
                         .map(|player| game_thread::PlayerIdMapping {
                             game_id: player.player_id,
@@ -576,6 +677,67 @@ impl GameState {
                     warn!("Received results before init was started");
                 }
             }
+            NetworkStall(duration) => {
+                if let InitState::Started(ref mut state) = self.init_state {
+                    state.stall_count += 1;
+                    // We stop storing more durations if there have been a ton of stalls, don't want
+                    // to use up tons of memory just to get a median
+                    if state.stall_count <= 1024 {
+                        state.stall_durations.push(duration)
+                    }
+                    if duration > state.stall_max {
+                        state.stall_max = duration;
+                    }
+                    if duration < state.stall_min {
+                        state.stall_min = duration;
+                    }
+                } else {
+                    warn!("Notified of network stall before init was started");
+                }
+            }
+        }
+        future::ready(()).boxed()
+    }
+
+    fn handle_network_message(
+        &mut self,
+        msg: NetworkToGameStateMessage,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+        use crate::network_manager::NetworkToGameStateMessage::*;
+        match msg {
+            ReceivePayload(ref player_id, payload) => match payload {
+                Payload::ClientReady(_) => {
+                    if let InitState::Started(ref mut state) = self.init_state {
+                        if state.unready_players.remove(player_id) {
+                            debug!("{:?} is now ready", player_id)
+                        }
+
+                        state.check_unready_players();
+                    } else {
+                        error!(
+                            "Got ClientReady for {:?} before init had started",
+                            player_id
+                        );
+                    }
+                }
+                Payload::ClientAckRequest(_) => {
+                    // Trigger a response to this packet immediately to deliver any acks.
+                    let network_send = self.network_send.clone();
+                    let player_id = player_id.clone();
+                    tokio::spawn(async move {
+                        let _ = network_send
+                            .send(GameStateToNetworkMessage::SendPayload(
+                                player_id,
+                                Some(Payload::ClientAckResponse(
+                                    ClientAckResponseMessage::default(),
+                                )),
+                            ))
+                            .await
+                            .map_err(|e| error!("Send error {}", e));
+                    });
+                }
+                _ => {}
+            },
         }
         future::ready(()).boxed()
     }
@@ -604,7 +766,7 @@ async fn send_game_result(
 
     if info.result_code.is_none() {
         debug!("Had no result code, skipping sending results");
-        return
+        return;
     }
 
     // Attempt to send results to the server, if this fails, we expect
@@ -649,12 +811,17 @@ async fn send_game_result(
 }
 
 struct InitInProgress {
-    on_all_players_joined: Vec<oneshot::Sender<Result<(), GameInitError>>>,
-    all_players_joined: bool,
+    all_players_joined: AwaitableTaskState<Result<(), GameInitError>>,
+    all_players_ready: AwaitableTaskState<()>,
     setup_info: Arc<GameSetupInfo>,
     local_user: Arc<LocalUser>,
     joined_players: Vec<JoinedPlayer>,
+    unready_players: HashSet<LobbyPlayerId>,
     waiting_for_result: Vec<oneshot::Sender<Arc<GameResults>>>,
+    stall_durations: Vec<Duration>,
+    stall_count: usize,
+    stall_min: Duration,
+    stall_max: Duration,
 }
 
 #[derive(Debug)]
@@ -667,14 +834,40 @@ struct JoinedPlayer {
 
 impl InitInProgress {
     fn new(setup_info: Arc<GameSetupInfo>, local_user: Arc<LocalUser>) -> InitInProgress {
-        InitInProgress {
-            on_all_players_joined: Vec::new(),
-            all_players_joined: false,
+        let is_host = setup_info.host.name == local_user.name;
+        // Only the host tracks client readiness
+        let unready_players = if is_host {
+            setup_info
+                .slots
+                .iter()
+                .filter_map(|slot| {
+                    if !slot.is_human() || slot.name == local_user.name {
+                        None
+                    } else {
+                        Some(slot.id.clone())
+                    }
+                })
+                .collect::<HashSet<_>>()
+        } else {
+            HashSet::new()
+        };
+
+        let mut result = InitInProgress {
+            all_players_joined: AwaitableTaskState::Incomplete(Vec::new()),
+            all_players_ready: AwaitableTaskState::Incomplete(Vec::new()),
             setup_info,
             local_user,
             joined_players: Vec::new(),
+            unready_players,
             waiting_for_result: Vec::new(),
-        }
+            stall_durations: Vec::new(),
+            stall_count: 0,
+            stall_max: Duration::from_millis(0),
+            stall_min: Duration::MAX,
+        };
+        result.check_unready_players();
+
+        result
     }
 
     fn players_changed(&mut self) {
@@ -683,10 +876,14 @@ impl InitInProgress {
             Err(e) => Err(e),
             Ok(false) => return,
         };
-        self.all_players_joined = true;
 
-        for sender in self.on_all_players_joined.drain(..) {
-            let _ = sender.send(result.clone());
+        match mem::replace(&mut self.all_players_joined, AwaitableTaskState::Complete) {
+            AwaitableTaskState::Complete => {}
+            AwaitableTaskState::Incomplete(waiting) => {
+                for sender in waiting {
+                    let _ = sender.send(result.clone());
+                }
+            }
         }
     }
 
@@ -694,15 +891,43 @@ impl InitInProgress {
     // self.players_changed gets called whenever game thread sends a join notification,
     // and once when the init task tells that a player is in lobby.
     fn wait_for_players(&mut self) -> impl Future<Output = Result<(), GameInitError>> {
-        if self.all_players_joined {
-            future::ok(()).boxed()
-        } else {
-            let (send_done, recv_done) = oneshot::channel();
-            self.on_all_players_joined.push(send_done);
-            recv_done
-                .map_err(|_| GameInitError::Closed)
-                .and_then(|inner| future::ready(inner))
-                .boxed()
+        let f = match self.all_players_joined {
+            AwaitableTaskState::Incomplete(ref mut waiters) => {
+                let (send, recv) = oneshot::channel();
+                waiters.push(send);
+                Some(recv)
+            }
+            AwaitableTaskState::Complete => None,
+        };
+
+        async move {
+            if let Some(f) = f {
+                f.map_err(|_| GameInitError::Closed).await?
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    /// Waits until all players have notified the host that they are ready.
+    fn wait_all_players_ready(&mut self) -> impl Future<Output = Result<(), GameInitError>> {
+        let f = match self.all_players_ready {
+            AwaitableTaskState::Incomplete(ref mut waiters) => {
+                let (send, recv) = oneshot::channel();
+                waiters.push(send);
+                Some(recv)
+            }
+            AwaitableTaskState::Complete => None,
+        };
+
+        async move {
+            if let Some(f) = f {
+                f.map_err(|_| GameInitError::Closed)
+                    .and_then(future::ok)
+                    .await
+            } else {
+                Ok(())
+            }
         }
     }
 
@@ -738,7 +963,8 @@ impl InitInProgress {
         // we probably should add some extra step (E.g. sending some network packet)
         // to make sure the person is totally joined before we add them here at all.
         self.joined_players.retain(|joined_player| {
-            let retain = storm_names.iter()
+            let retain = storm_names
+                .iter()
                 .any(|name| name.as_deref() == Some(&*joined_player.name));
             if !retain {
                 warn!("Player {} has left", joined_player.name);
@@ -759,39 +985,38 @@ impl InitInProgress {
                 if self.joined_players[joined_pos].storm_id != storm_id {
                     return Err(GameInitError::StormIdChanged(name.into()));
                 }
-            } else {
-                if let Some(slot) = self.setup_info.slots.iter().find(|x| x.name == name) {
-                    // TODO(tec27): This isn't really a player id, more of a slot offset?
-                    let player_id;
-                    let bw_slot = (0..16).find(|&i| {
-                        let player = players.add(i);
-                        let bw_name = CStr::from_ptr((*player).name.as_ptr() as *const i8);
-                        bw_name.to_str() == Ok(name)
-                    });
-                    if let Some(bw_slot) = bw_slot {
-                        (*players.add(bw_slot)).storm_id = storm_id.0 as u32;
-                        player_id = Some(bw_slot as u8);
-                    } else {
-                        return Err(GameInitError::UnexpectedPlayer(name.into()));
-                    }
-                    if self.joined_players.iter().any(|x| x.player_id == player_id) {
-                        return Err(GameInitError::UnexpectedPlayer(name.into()));
-                    }
-                    // I believe there isn't any reason why a slot associated with
-                    // human wouldn't have shieldbattery user ids, so just fail here
-                    // instead of keeping sb_user_id as Option<u32>.
-                    let sb_user_id = slot.user_id
-                        .ok_or_else(|| GameInitError::NoShieldbatteryId(name.into()))?;
-                    debug!("Player {} received storm id {}", name, storm_id.0);
-                    self.joined_players.push(JoinedPlayer {
-                        name: name.into(),
-                        storm_id,
-                        player_id,
-                        sb_user_id,
-                    });
+            } else if let Some(slot) = self.setup_info.slots.iter().find(|x| x.name == name) {
+                // TODO(tec27): This isn't really a player id, more of a slot offset?
+                let player_id;
+                let bw_slot = (0..16).find(|&i| {
+                    let player = players.add(i);
+                    let bw_name = CStr::from_ptr((*player).name.as_ptr() as *const i8);
+                    bw_name.to_str() == Ok(name)
+                });
+                if let Some(bw_slot) = bw_slot {
+                    (*players.add(bw_slot)).storm_id = storm_id.0 as u32;
+                    player_id = Some(bw_slot as u8);
                 } else {
                     return Err(GameInitError::UnexpectedPlayer(name.into()));
                 }
+                if self.joined_players.iter().any(|x| x.player_id == player_id) {
+                    return Err(GameInitError::UnexpectedPlayer(name.into()));
+                }
+                // I believe there isn't any reason why a slot associated with
+                // human wouldn't have shieldbattery user ids, so just fail here
+                // instead of keeping sb_user_id as Option<u32>.
+                let sb_user_id = slot
+                    .user_id
+                    .ok_or_else(|| GameInitError::NoShieldbatteryId(name.into()))?;
+                debug!("Player {} received storm id {}", name, storm_id.0);
+                self.joined_players.push(JoinedPlayer {
+                    name: name.into(),
+                    storm_id,
+                    player_id,
+                    sb_user_id,
+                });
+            } else {
+                return Err(GameInitError::UnexpectedPlayer(name.into()));
             }
         }
         Ok(())
@@ -816,6 +1041,22 @@ impl InitInProgress {
         } else {
             debug!("Waiting for players {:?}", waiting_for);
             false
+        }
+    }
+
+    /// Checks if there are still any unready players, updating the task state if not.
+    fn check_unready_players(&mut self) {
+        if self.unready_players.is_empty() {
+            match mem::replace(&mut self.all_players_ready, AwaitableTaskState::Complete) {
+                AwaitableTaskState::Complete => {}
+                AwaitableTaskState::Incomplete(waiting) => {
+                    for sender in waiting {
+                        let _ = sender.send(());
+                    }
+                }
+            }
+        } else {
+            debug!("Still waiting for ready from: {:?}", self.unready_players);
         }
     }
 
@@ -844,8 +1085,8 @@ impl InitInProgress {
                 );
             });
 
-        let mut storm_to_player_id = [255 as usize; 8];
-        let mut player_to_storm_id = [255 as usize; 8];
+        let mut storm_to_player_id = [255; 8];
+        let mut player_to_storm_id = [255; 8];
         for player in &self.joined_players {
             if let Some(player_id) = player.player_id {
                 if player_id >= 8 {
@@ -861,7 +1102,10 @@ impl InitInProgress {
                     player_to_storm_id[player_id] = storm_id;
                 }
 
-                debug!("{} has victory_state {}", storm_id, game_results.victory_state[player_id]);
+                debug!(
+                    "{} has victory_state {}",
+                    storm_id, game_results.victory_state[player_id]
+                );
                 results[storm_id] = match game_results.victory_state[player_id] {
                     1 => GameResult::Disconnected,
                     2 => GameResult::Defeat,
@@ -886,10 +1130,13 @@ impl InitInProgress {
         let has_victory = results.contains(&GameResult::Victory);
         for storm_id in 0..8 {
             let dropped = game_results.player_was_dropped[storm_id];
-            let quit = game_results.player_has_quit[storm_id] ||
-                (!dropped && storm_id == local_storm_id);
+            let quit =
+                game_results.player_has_quit[storm_id] || (!dropped && storm_id == local_storm_id);
 
-            debug!("{} has player_was_dropped {}, player_has_quit {}", storm_id, dropped, quit);
+            debug!(
+                "{} has player_was_dropped {}, player_has_quit {}",
+                storm_id, dropped, quit
+            );
 
             if dropped {
                 results[storm_id] = if lose_type == Some(PlayerLoseType::UnknownDisconnect) {
@@ -908,7 +1155,8 @@ impl InitInProgress {
                         let s = player_to_storm_id[p];
                         if s < 8
                             && !game_results.player_was_dropped[s]
-                            && !game_results.player_has_quit[s] {
+                            && !game_results.player_has_quit[s]
+                        {
                             // Change Defeat -> Disconnect because we can't know the terminal result yet,
                             // and this alliance could allow this player to win still
                             results[storm_id] = GameResult::Disconnected;
@@ -949,7 +1197,10 @@ impl InitInProgress {
 
             while let Some(winner_player_id) = to_process.pop() {
                 let winner_alliances = game_results.alliances[winner_player_id];
-                debug!("processing player {}, alliances: {:?}", winner_player_id, winner_alliances);
+                debug!(
+                    "processing player {}, alliances: {:?}",
+                    winner_player_id, winner_alliances
+                );
 
                 for player in &self.joined_players {
                     if let Some(player_id) = player.player_id {
@@ -967,8 +1218,13 @@ impl InitInProgress {
                         let storm_id = player.storm_id.0 as usize;
                         let allied_with_winner =
                             game_results.alliances[player_id][winner_player_id] == 2;
-                        if allied_with_winner && winner_alliances[player_id] == 2
-                            && !matches!(results[storm_id], GameResult::Playing | GameResult::Victory) {
+                        if allied_with_winner
+                            && winner_alliances[player_id] == 2
+                            && !matches!(
+                                results[storm_id],
+                                GameResult::Playing | GameResult::Victory
+                            )
+                        {
                             results[storm_id] = GameResult::Victory;
                             // Changing this player's result can mean that their allies now win, so
                             // we need to process them as well
@@ -1025,11 +1281,29 @@ impl InitInProgress {
                     None
                 }
             })
-            .collect();
+            .collect::<HashMap<_, _>>();
+
+        self.stall_durations.sort_unstable();
+        let stall_median = self
+            .stall_durations
+            .get(self.stall_durations.len() / 2)
+            .map_or(0, |d| d.as_millis());
+        let (stall_min, stall_max) = if self.stall_count > 0 {
+            (self.stall_min.as_millis(), self.stall_max.as_millis())
+        } else {
+            (0, 0)
+        };
+
         let message = Arc::new(GameResults {
             results,
             // Assuming fastest speed
             time_ms: game_results.time_ms,
+            network_stalls: NetworkStallInfo {
+                count: self.stall_count as u32,
+                median: stall_median as u32,
+                min: stall_min as u32,
+                max: stall_max as u32,
+            },
         });
         for send in self.waiting_for_result.drain(..) {
             let _ = send.send(message.clone());
@@ -1040,8 +1314,14 @@ impl InitInProgress {
 unsafe fn create_lobby(info: &GameSetupInfo, game_type: GameType) -> Result<(), GameInitError> {
     let map_path = Path::new(&info.map_path);
     get_bw()
-        .create_lobby(map_path, &info.map, &info.name, game_type, info.turn_rate.unwrap_or(0))
-        .map_err(|e| GameInitError::Bw(e))
+        .create_lobby(
+            map_path,
+            &info.map,
+            &info.name,
+            game_type,
+            info.turn_rate.unwrap_or(0),
+        )
+        .map_err(GameInitError::Bw)
 }
 
 unsafe fn join_lobby(
@@ -1067,7 +1347,7 @@ unsafe fn join_lobby(
     // This info isn't used ingame (with exception of game_type?),
     // but it is written in the header of replays/saves.
     let game_info = {
-        let mut game_info = bw::JoinableGameInfo {
+        let mut game_info = bw::BwGameData {
             index: 1,
             map_width: map_data.width,
             map_height: map_data.height,
@@ -1104,7 +1384,7 @@ unsafe fn join_lobby(
         let mut repeat_interval = tokio::time::interval(Duration::from_millis(10));
         loop {
             repeat_interval.tick().await;
-            match try_join_lobby_once(game_info.clone(), is_eud, turn_rate, &map_path).await {
+            match try_join_lobby_once(game_info, is_eud, turn_rate, &map_path).await {
                 Ok(()) => break,
                 Err(e) => debug!("Storm join error: {:08x}", e),
             }
@@ -1126,7 +1406,7 @@ unsafe fn join_lobby(
 }
 
 async unsafe fn try_join_lobby_once(
-    mut game_info: bw::JoinableGameInfo,
+    mut game_info: bw::BwGameData,
     is_eud: bool,
     turn_rate: u32,
     map_path: &Arc<CString>,
@@ -1163,7 +1443,7 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType, ums_forces: &[M
             storm_id: u32::MAX,
             player_type: match slots.len() < i {
                 true => bw::PLAYER_TYPE_OPEN,
-                false => bw::PLAYER_TYPE_NONE
+                false => bw::PLAYER_TYPE_NONE,
             },
             race: bw::RACE_RANDOM,
             team: 0,
@@ -1234,10 +1514,15 @@ unsafe fn setup_slots(slots: &[PlayerInfo], game_type: GameType, ums_forces: &[M
         // much replacement for that code, we'll have to set this replay header value here.
         let replay_header = bw.replay_header();
         for player in ums_forces.iter().flat_map(|x| x.players.iter()) {
-            if let Some(value) =
-                (*replay_header).ums_user_select_slots.get_mut(player.id as usize)
+            if let Some(value) = (*replay_header)
+                .ums_user_select_slots
+                .get_mut(player.id as usize)
             {
-                *value = if player.race == UmsLobbyRace::Any { 1 } else { 0 };
+                *value = if player.race == UmsLobbyRace::Any {
+                    1
+                } else {
+                    0
+                };
             }
         }
     }
@@ -1305,26 +1590,30 @@ pub async fn create_future(
     send_main_thread_requests: std::sync::mpsc::Sender<GameThreadRequest>,
 ) {
     let (internal_send, mut internal_recv) = mpsc::channel(8);
+    let (network_send, network_recv) = mpsc::channel(64);
+    let (from_network_send, mut from_network_recv) = mpsc::channel(64);
     let mut game_state = GameState {
         init_state: InitState::WaitingForInput(IncompleteInit {
             settings_set: false,
             local_user: None,
             routes_set: false,
         }),
-        network: NetworkManager::new(),
+        network: NetworkManager::new(from_network_send, network_recv),
+        network_send,
         ws_send,
         internal_send,
         init_main_thread,
         send_main_thread_requests,
         running_game: None,
         async_stop,
-        can_start_game: CanStartGame::No(Vec::new()),
+        can_start_game: AwaitableTaskState::Incomplete(Vec::new()),
         game_started: false,
     };
     loop {
         let message = select! {
             x = messages.recv() => x,
             x = internal_recv.recv() => x,
+            x = from_network_recv.recv() => x.map(GameStateMessage::Network),
         };
         match message {
             Some(m) => game_state.handle_message(m).await,
@@ -1360,12 +1649,10 @@ fn start_game_request(
     Ok(wait_done)
 }
 
-async fn read_sbat_replay_data(
-    path: &Path,
-) -> Result<Option<replay::SbatReplayData>, io::Error> {
+async fn read_sbat_replay_data(path: &Path) -> Result<Option<replay::SbatReplayData>, io::Error> {
     use byteorder::{ByteOrder, LittleEndian};
-    use tokio::io::{AsyncReadExt, AsyncSeekExt};
     use tokio::fs;
+    use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
     let mut file = fs::File::open(path).await?;
     let mut buffer = [0u8; 0x14];
@@ -1376,7 +1663,8 @@ async fn read_sbat_replay_data(
         return Ok(None);
     }
     let end_pos = file.seek(io::SeekFrom::End(0)).await?;
-    file.seek(io::SeekFrom::Start(scr_extension_offset as u64)).await?;
+    file.seek(io::SeekFrom::Start(scr_extension_offset as u64))
+        .await?;
     let length = end_pos.saturating_sub(scr_extension_offset as u64) as usize;
     let mut buffer = vec![0u8; length];
     file.read_exact(&mut buffer).await?;
@@ -1386,14 +1674,12 @@ async fn read_sbat_replay_data(
             Some(s) => s,
             None => break,
         };
-        let id = LittleEndian::read_u32(&header);
+        let id = LittleEndian::read_u32(header);
         let section_length = LittleEndian::read_u32(&header[4..]) as usize;
         if id == replay::SECTION_ID {
             let data = Some(())
-                .and_then(|()| {
-                    Some(buffer.get(pos.checked_add(8)?..)?.get(..section_length)?)
-                })
-                .and_then(|input| replay::parse_shieldbattery_data(input));
+                .and_then(|()| buffer.get(pos.checked_add(8)?..)?.get(..section_length))
+                .and_then(replay::parse_shieldbattery_data);
             return match data {
                 Some(o) => Ok(Some(o)),
                 None => Err(io::Error::new(

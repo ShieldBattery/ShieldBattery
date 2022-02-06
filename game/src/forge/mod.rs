@@ -8,15 +8,13 @@ use lazy_static::lazy_static;
 use libc::c_void;
 use winapi::shared::minwindef::{ATOM, HINSTANCE};
 use winapi::shared::windef::{HMENU, HWND};
-use winapi::um::wingdi::{DEVMODEW};
+use winapi::um::wingdi::DEVMODEW;
 use winapi::um::winuser::*;
 
-use crate::game_thread::{GameThreadMessage, send_game_msg_to_async};
+use crate::game_thread::{send_game_msg_to_async, GameThreadMessage};
 
 mod scr_hooks {
-    use super::{
-        ATOM, c_void, DEVMODEW, HINSTANCE, HMENU, HWND, WNDCLASSEXW,
-    };
+    use super::{c_void, ATOM, DEVMODEW, HINSTANCE, HMENU, HWND, WNDCLASSEXW};
 
     whack_hooks!(stdcall, 0,
         !0 => CreateWindowExW(
@@ -75,7 +73,11 @@ unsafe extern "system" fn wnd_proc_scr(
                 let new_pos = lparam as *const WINDOWPOS;
                 debug!(
                     "Window pos changed to {},{},{},{}, flags 0x{:x}",
-                    (*new_pos).x, (*new_pos).y, (*new_pos).cx, (*new_pos).cy, (*new_pos).flags,
+                    (*new_pos).x,
+                    (*new_pos).y,
+                    (*new_pos).cx,
+                    (*new_pos).cy,
+                    (*new_pos).flags,
                 );
 
                 // Window uses -32000 positions to indicate 'minimized' since Windows 3.1 or so, and
@@ -86,7 +88,11 @@ unsafe extern "system" fn wnd_proc_scr(
                         // completed, as SC:R seems to send one during the quit process
                         if forge.game_started {
                             send_game_msg_to_async(GameThreadMessage::WindowMove(
-                                (*new_pos).x, (*new_pos).y, (*new_pos).cx, (*new_pos).cy));
+                                (*new_pos).x,
+                                (*new_pos).y,
+                                (*new_pos).cx,
+                                (*new_pos).cy,
+                            ));
                         }
                     });
                 }
@@ -95,7 +101,7 @@ unsafe extern "system" fn wnd_proc_scr(
         }
         None
     });
-    let ret = if let Some(ret) = ret {
+    if let Some(ret) = ret {
         ret
     } else {
         let orig_wnd_proc = with_forge(|f| f.orig_wnd_proc);
@@ -104,8 +110,7 @@ unsafe extern "system" fn wnd_proc_scr(
         } else {
             DefWindowProcA(window, msg, wparam, lparam)
         }
-    };
-    ret
+    }
 }
 
 unsafe fn msg_game_started(window: HWND) {
@@ -226,7 +231,7 @@ struct Window {
 
 unsafe impl Send for Window {}
 
-fn scr_set_cursor_pos(x: i32, y: i32, orig: unsafe extern fn(i32, i32) -> i32) -> i32 {
+fn scr_set_cursor_pos(x: i32, y: i32, orig: unsafe extern "C" fn(i32, i32) -> i32) -> i32 {
     // Unlike 1161, SCR is aware of the desktop resolution,
     // so we just have to block this if the game hasn't started yet.
     if !scr_hooks_disabled() {
@@ -235,12 +240,10 @@ fn scr_set_cursor_pos(x: i32, y: i32, orig: unsafe extern fn(i32, i32) -> i32) -
             return 1;
         }
     }
-    unsafe {
-        orig(x, y)
-    }
+    unsafe { orig(x, y) }
 }
 
-fn show_window(window: HWND, show: i32, orig: unsafe extern fn(HWND, i32) -> u32) -> u32 {
+fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) -> u32) -> u32 {
     // SCR May have reasons to hide/reshow window, so allow that once game has started.
     // (Though it seems to be calling SetWindowPos always instead)
     // Never allow 1161's ShowWindow calls to get through.
@@ -264,6 +267,7 @@ fn show_window(window: HWND, show: i32, orig: unsafe extern fn(HWND, i32) -> u32
     }
 }
 
+#[allow(clippy::too_many_arguments)] // Not our function
 fn set_window_pos(
     hwnd: HWND,
     hwnd_after: HWND,
@@ -272,13 +276,16 @@ fn set_window_pos(
     w: i32,
     h: i32,
     flags: u32,
-    orig: unsafe extern fn(HWND, HWND, i32, i32, i32, i32, u32) -> u32,
+    orig: unsafe extern "C" fn(HWND, HWND, i32, i32, i32, i32, u32) -> u32,
 ) -> u32 {
     // Add SWP_NOACTIVATE | SWP_HIDEWINDOW when scr calls this during
     // its window creation, which happens early enough in loading that
     // we don't want to show the window yet.
     unsafe {
-        debug!("SetWindowPos {:p} {},{} {},{} flags 0x{:x}", hwnd, x, y, w, h, flags);
+        debug!(
+            "SetWindowPos {:p} {},{} {},{} flags 0x{:x}",
+            hwnd, x, y, w, h, flags
+        );
         let new_flags = if !scr_hooks_disabled() && is_forge_window(hwnd) {
             with_forge(|forge| {
                 if forge.game_started {
@@ -302,7 +309,7 @@ fn change_display_settings_ex(
     hwnd: HWND,
     flags: u32,
     param: *mut c_void,
-    orig: unsafe extern fn(*const u16, *mut DEVMODEW, HWND, u32, *mut c_void) -> i32,
+    orig: unsafe extern "C" fn(*const u16, *mut DEVMODEW, HWND, u32, *mut c_void) -> i32,
 ) -> i32 {
     unsafe {
         // SC:R seems to call this setting despite not needing to in its current rendering APIs.
@@ -321,7 +328,8 @@ fn change_display_settings_ex(
             // but just error for now.
             error!(
                 "Received larger than expected devmode: {:x} bytes (expected at most {:x}",
-                (*devmode).dmSize, mem::size_of::<DEVMODEW>(),
+                (*devmode).dmSize,
+                mem::size_of::<DEVMODEW>(),
             );
             return orig(device_name, devmode, hwnd, flags, param);
         }
@@ -333,7 +341,7 @@ fn change_display_settings_ex(
 
 fn register_class_w(
     class: *const WNDCLASSEXW,
-    orig: unsafe extern fn(*const WNDCLASSEXW) -> ATOM,
+    orig: unsafe extern "C" fn(*const WNDCLASSEXW) -> ATOM,
 ) -> ATOM {
     unsafe {
         let os_string;
@@ -370,6 +378,7 @@ fn register_class_w(
 }
 
 /// Stores the window handle.
+#[allow(clippy::too_many_arguments)] // Not our function
 fn create_window_w(
     ex_style: u32,
     class_name: *const u16,
@@ -383,7 +392,7 @@ fn create_window_w(
     menu: HMENU,
     instance: HINSTANCE,
     param: *mut c_void,
-    orig: unsafe extern fn(
+    orig: unsafe extern "C" fn(
         u32,
         *const u16,
         *const u16,
@@ -430,11 +439,7 @@ fn create_window_w(
     }
 }
 
-fn get_window_long_w(
-    window: HWND,
-    long: i32,
-    orig: unsafe extern fn(HWND, i32) -> u32,
-) -> u32 {
+fn get_window_long_w(window: HWND, long: i32, orig: unsafe extern "C" fn(HWND, i32) -> u32) -> u32 {
     // SC:R uses GetWindowLongW(GWL_STYLE) and stores the result. It may then update
     // that Starcraft-side copy of the style and call SetWindowLongW() to update
     // it at Windows side. However, GWL_STYLE also contains a flag that controls
@@ -556,10 +561,7 @@ pub fn end_wnd_proc() {
 }
 
 pub fn game_started() {
-    let handle = with_forge(|forge| match forge.window {
-        Some(ref s) => Some(s.handle),
-        None => None,
-    });
+    let handle = with_forge(|forge| forge.window.as_ref().map(|s| s.handle));
     if let Some(handle) = handle {
         unsafe {
             PostMessageA(handle, WM_GAME_STARTED, 0, 0);
@@ -568,10 +570,7 @@ pub fn game_started() {
 }
 
 pub fn hide_window() {
-    let handle = with_forge(|forge| match forge.window {
-        Some(ref s) => Some(s.handle),
-        None => None,
-    });
+    let handle = with_forge(|forge| forge.window.as_ref().map(|s| s.handle));
     if let Some(handle) = handle {
         unsafe {
             with_scr_hooks_disabled(|| {

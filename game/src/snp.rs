@@ -13,12 +13,15 @@ use winapi::um::sysinfoapi::GetTickCount;
 
 use crate::bw;
 use crate::game_thread::{send_game_msg_to_async, GameThreadMessage};
-use crate::windows::{OwnedHandle};
+use crate::windows::OwnedHandle;
 
 // 'SBAT'
 pub const PROVIDER_ID: u32 = 0x53424154;
-// min-MTU - (rally-point-overhead) - (max-IP-header-size + udp-header-size)
-pub const SNP_PACKET_SIZE: u32 = 576 - 13 - (60 + 8);
+// NOTE(tec27): The value below is what *Storm* will obey and deal with fragmenting around. We
+// maintain our own max payload size that assumes a larger min-MTU (basically always safe nowadays).
+// We could probably bump this up but I have yet to see a case where Storm hits this max anyway.
+// min-MTU - (rally-point-overhead) - (max-IP-header-size + udp-header-size) - netcode-overhead
+pub const SNP_PAYLOAD_SIZE: u32 = 576 - 13 - (60 + 8) - 23;
 const STORM_ERROR_NO_MESSAGES_WAITING: u32 = 0x8510006b;
 
 pub static CAPABILITIES: bw::SnpCapabilities = bw::SnpCapabilities {
@@ -29,7 +32,7 @@ pub static CAPABILITIES: bw::SnpCapabilities = bw::SnpCapabilities {
     // well.
     unknown1: 0x20000000,
     // minus 16 because Storm normally does that (overhead?)
-    max_packet_size: SNP_PACKET_SIZE - 16,
+    max_packet_size: SNP_PAYLOAD_SIZE - 16,
     unknown3: 16,
     displayed_player_count: 256,
     // This value is related to timeouts in some way (it's always used alongside
@@ -177,19 +180,18 @@ pub unsafe fn initialize(client_info: &bw::ClientInfo, receive_event: Option<HAN
     with_state(|state| {
         state.spoofed_game = None;
         state.spoofed_game_dirty = false;
-        state.current_client_info = Some(client_info.clone());
+        state.current_client_info = Some(*client_info);
         // I don't know what's the intended usage pattern with this handle,
         // but duplicating it should make it safe to send to a thread that may use it
         // without having to synchronize storm unbinding SNP.
         let receive_callback = if let Some(receive_event) = receive_event {
-            let receive_event = OwnedHandle::duplicate(receive_event)
-                .expect("SNP event handle duplication failed");
+            let receive_event =
+                OwnedHandle::duplicate(receive_event).expect("SNP event handle duplication failed");
             Box::new(move || {
                 SetEvent(receive_event.get());
             }) as Box<dyn Fn() + Send + Sync + 'static>
         } else {
-            Box::new(move || {
-            })
+            Box::new(move || {})
         };
         send_snp_message(SnpMessage::CreateNetworkHandler(SendMessages {
             receive_callback: Arc::new(receive_callback),
