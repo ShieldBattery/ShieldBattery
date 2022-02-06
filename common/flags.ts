@@ -14,4 +14,4 @@ export const DEV_INDICATOR = DEV()
 /** Allow users to join multiple channels (and leave channels). */
 export const MULTI_CHANNEL = DEV()
 /** Calculate a static turnrate to use rather than using dynamic. */
-export const USE_STATIC_TURNRATE = DEV()
+export const USE_STATIC_TURNRATE = ON()
