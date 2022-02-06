@@ -133,7 +133,6 @@ const preloadWebpackOpts = {
   output: {
     filename: '[name].js',
     path: path.join(__dirname, 'app', 'dist'),
-    libraryTarget: 'commonjs2',
   },
   plugins: [],
 }
