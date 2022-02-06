@@ -107,9 +107,6 @@ const mainWebpackOpts = {
   target: 'electron-main',
   entry: {
     index: './app/startup.js',
-    // NOTE(tec27): If this ever gets more complex we'll probably need to split it into its own
-    // webpack config with target = 'electron-preload'
-    preload: './app/preload.js',
   },
   output: {
     filename: '[name].js',
@@ -124,6 +121,20 @@ const mainWebpackOpts = {
           path.resolve(__dirname, clientImpl),
         ),
       ],
+}
+
+// Configuration for the Electron preload script. Note that this uses the same
+// babel config as the main process scripts
+const preloadWebpackOpts = {
+  target: 'electron-preload',
+  entry: {
+    preload: './app/preload.js',
+  },
+  output: {
+    filename: '[name].js',
+    path: path.join(__dirname, 'app', 'dist'),
+    libraryTarget: 'commonjs2',
+  },
 }
 
 const mainBabelOpts = {
@@ -181,4 +192,20 @@ const electronMain = makeConfig({
   ],
 })
 
-module.exports = process.env.NODE_ENV === 'production' ? [electronWeb, electronMain] : electronWeb
+const electronPreload = makeConfig({
+  webpack: preloadWebpackOpts,
+  babel: mainBabelOpts,
+  mainEntry: 'preload',
+  globalDefines: {
+    IS_ELECTRON: true,
+  },
+  envDefines: {
+    SB_ANALYTICS_ID: process.env.SB_ANALYTICS_ID
+      ? JSON.stringify(process.env.SB_ANALYTICS_ID)
+      : undefined,
+    SB_SERVER: SB_SERVER ? JSON.stringify(SB_SERVER) : undefined,
+  },
+})
+
+module.exports =
+  process.env.NODE_ENV === 'production' ? [electronWeb, electronMain, electronPreload] : electronWeb
