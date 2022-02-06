@@ -1,4 +1,4 @@
-import React, { Ref } from 'react'
+import React from 'react'
 import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
@@ -96,7 +96,7 @@ const StyledElapsedTime = styled(ElapsedTime)`
 
 export interface MatchmakingSearchingOverlayProps {
   open: boolean
-  anchor: Ref<HTMLElement>
+  anchor?: HTMLButtonElement
   onCancelSearch: () => void
   onDismiss: () => void
 }

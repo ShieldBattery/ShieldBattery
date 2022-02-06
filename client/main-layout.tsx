@@ -1,10 +1,11 @@
 import loadable from '@loadable/component'
 import keycode from 'keycode'
-import React from 'react'
-import { connect } from 'react-redux'
+import React, { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { Route, Switch } from 'wouter'
+import { MapInfoJson } from '../common/maps'
 import { EMAIL_VERIFICATION_ID, NotificationType } from '../common/notifications'
+import { makeSbUserId } from '../common/users/sb-user'
 import { openOverlay } from './activities/action-creators'
 import ActivityBar from './activities/activity-bar'
 import { ActivityButton } from './activities/activity-button'
@@ -48,6 +49,7 @@ import {
 } from './policies/action-creators'
 import { ConnectedUserProfilePage } from './profile/user-profile'
 import LoadingIndicator from './progress/dots'
+import { useAppDispatch, useAppSelector } from './redux-hooks'
 import { isShieldBatteryHealthy, isStarcraftHealthy } from './starcraft/is-starcraft-healthy'
 import { colorTextSecondary } from './styles/colors'
 import { caption } from './styles/typography'
@@ -89,7 +91,8 @@ let lobbyRoute = <></>
 let matchmakingRoute = <></>
 let partyRoute = <></>
 if (IS_ELECTRON) {
-  lobbyRoute = <Route path='/lobbies/:lobby/:rest*' component={LobbyView} />
+  // TODO(2Pac): Remove `any` once the `LobbyView` is TS-ified
+  lobbyRoute = <Route path='/lobbies/:lobby/:rest*' component={LobbyView as any} />
   matchmakingRoute = <Route path='/matchmaking/:rest*' component={MatchmakingView} />
   partyRoute = <Route path='/parties/:partyId/:rest*' component={PartyView} />
 }
@@ -115,31 +118,26 @@ const FadedSettingsIcon = styled(SettingsIcon)`
  */
 let firstLoggedIn = true
 
-function stateToProps(state) {
-  return {
-    auth: state.auth,
-    inGameplayActivity: state.gameplayActivity.inGameplayActivity,
-    starcraft: state.starcraft,
-    matchmaking: state.matchmaking,
-    serverStatus: state.serverStatus,
-  }
-}
+export function MainLayout() {
+  const dispatch = useAppDispatch()
+  const inGameplayActivity = useAppSelector(s => s.gameplayActivity.inGameplayActivity)
+  const isEmailVerified = useAppSelector(s => s.auth.user.emailVerified)
+  const isMatchmakingSearching = useAppSelector(s => !!s.matchmaking.searchInfo)
+  const lobbyCount = useAppSelector(s => s.serverStatus.lobbyCount)
+  const starcraft = useAppSelector(s => s.starcraft)
 
-@connect(stateToProps)
-class MainLayout extends React.Component {
-  state = {
-    searchingMatchOverlayOpen: false,
-  }
+  const [searchingMatchOverlayOpen, setSearchingMatchOverlayOpen] = useState(false)
 
-  _findMatchButtonRef = React.createRef()
-  _searchingMatchButtonRef = React.createRef()
+  const findMatchButtonRef = useRef<HTMLButtonElement>()
+  const searchingMatchButtonRef = useRef<HTMLButtonElement>()
 
-  componentDidMount() {
-    this.props.dispatch(openChangelogIfNecessary())
+  useEffect(() => {
+    dispatch(openChangelogIfNecessary())
+
     if (firstLoggedIn) {
       firstLoggedIn = false
-      if (!this.props.auth.user.emailVerified) {
-        this.props.dispatch(
+      if (!isEmailVerified) {
+        dispatch(
           addLocalNotification({
             id: EMAIL_VERIFICATION_ID,
             type: NotificationType.EmailVerification,
@@ -147,283 +145,257 @@ class MainLayout extends React.Component {
         )
       }
 
-      this.props.dispatch(addPrivacyPolicyNotificationIfNeeded())
-      this.props.dispatch(addTermsOfServiceNotificationIfNeeded())
-      this.props.dispatch(addAcceptableUseNotificationIfNeeded())
+      dispatch(addPrivacyPolicyNotificationIfNeeded())
+      dispatch(addTermsOfServiceNotificationIfNeeded())
+      dispatch(addAcceptableUseNotificationIfNeeded())
+    }
+
+    return () => {
+      firstLoggedIn = true
+    }
+  }, [isEmailVerified, dispatch])
+
+  const onFindMatchClick = () => {
+    if (!isShieldBatteryHealthy({ starcraft })) {
+      dispatch(openDialog(DialogType.ShieldBatteryHealth))
+    } else if (!isStarcraftHealthy({ starcraft })) {
+      dispatch(openDialog(DialogType.StarcraftHealth))
+    } else {
+      // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
+      dispatch(openOverlay('findMatch') as any)
     }
   }
 
-  componentWillUnmount() {
-    firstLoggedIn = true
+  const onCreateLobbyClick = () => {
+    if (!isShieldBatteryHealthy({ starcraft })) {
+      dispatch(openDialog(DialogType.ShieldBatteryHealth))
+    } else if (!isStarcraftHealthy({ starcraft })) {
+      dispatch(openDialog(DialogType.StarcraftHealth))
+    } else {
+      // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
+      dispatch(openOverlay('createLobby') as any)
+    }
   }
 
-  renderSearchingMatchOverlay() {
-    if (!IS_ELECTRON) return null
+  const onJoinLobbyClick = () => {
+    if (!isShieldBatteryHealthy({ starcraft })) {
+      dispatch(openDialog(DialogType.ShieldBatteryHealth))
+    } else if (!isStarcraftHealthy({ starcraft })) {
+      dispatch(openDialog(DialogType.StarcraftHealth))
+    } else {
+      // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
+      dispatch(openOverlay('joinLobby') as any)
+    }
+  }
 
-    const {
-      matchmaking: { searchInfo },
-    } = this.props
-    if (!searchInfo) return null
+  const onMapUpload = (map: MapInfoJson) => {
+    // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
+    dispatch(openOverlay('browseServerMaps', { ...serverMapsProps, uploadedMap: map }) as any)
+  }
+
+  const onMapDetails = (map: MapInfoJson) => {
+    dispatch(openDialog(DialogType.MapDetails, { mapId: map.id }))
+  }
+
+  const onRemoveMap = (map: MapInfoJson) => {
+    dispatch(removeMap(map))
+  }
+
+  const onRegenMapImage = (map: MapInfoJson) => {
+    dispatch(regenMapImage(map))
+  }
+
+  const serverMapsProps = {
+    title: 'Maps',
+    onMapUpload,
+    onMapSelect: onMapDetails,
+    onMapDetails,
+    onRemoveMap,
+    onRegenMapImage,
+  }
+
+  const onMapsClick = () => {
+    if (!isShieldBatteryHealthy({ starcraft })) {
+      dispatch(openDialog(DialogType.ShieldBatteryHealth))
+    } else if (!isStarcraftHealthy({ starcraft })) {
+      dispatch(openDialog(DialogType.StarcraftHealth))
+    } else {
+      // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
+      dispatch(openOverlay('browseServerMaps', serverMapsProps) as any)
+    }
+  }
+
+  const onReplaysClick = () => {
+    if (!isShieldBatteryHealthy({ starcraft })) {
+      dispatch(openDialog(DialogType.ShieldBatteryHealth))
+    } else if (!isStarcraftHealthy({ starcraft })) {
+      dispatch(openDialog(DialogType.StarcraftHealth))
+    } else {
+      // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
+      dispatch(openOverlay('watchReplay') as any)
+    }
+  }
+
+  const findMatchButton = !isMatchmakingSearching ? (
+    <ActivityButton
+      key='find-match'
+      ref={findMatchButtonRef}
+      icon={<FindMatchIcon />}
+      label='Find match'
+      onClick={onFindMatchClick}
+      disabled={inGameplayActivity}
+      hotkey={{ keyCode: KEY_F, altKey: true }}
+    />
+  ) : (
+    <ActivityButton
+      key='searching-match'
+      ref={searchingMatchButtonRef}
+      icon={<FindMatchIcon />}
+      glowing={true}
+      label='Finding…'
+      onClick={() => setSearchingMatchOverlayOpen(true)}
+      hotkey={{ keyCode: KEY_F, altKey: true }}
+    />
+  )
+  const activityButtons = IS_ELECTRON
+    ? [
+        findMatchButton,
+        <ActivityButton
+          key='create-game'
+          icon={<CreateGameIcon />}
+          label='Create'
+          onClick={onCreateLobbyClick}
+          disabled={inGameplayActivity}
+          hotkey={{ keyCode: KEY_C, altKey: true }}
+        />,
+        <ActivityButton
+          key='join-game'
+          icon={<JoinGameIcon />}
+          label='Join'
+          onClick={onJoinLobbyClick}
+          hotkey={{ keyCode: KEY_J, altKey: true }}
+          count={lobbyCount > 0 ? lobbyCount : undefined}
+        />,
+        <ActivityButton
+          key='maps'
+          icon={<StyledMapsIcon />}
+          label='Maps'
+          onClick={onMapsClick}
+          hotkey={{ keyCode: KEY_M, altKey: true }}
+        />,
+        <ActivityButton
+          key='replays'
+          icon={<ReplaysIcon />}
+          label='Replays'
+          onClick={onReplaysClick}
+          hotkey={{ keyCode: KEY_R, altKey: true }}
+        />,
+        <ActivityButton
+          key='ladder'
+          icon={<LadderIcon />}
+          label='Ladder'
+          onClick={() => navigateToLadder()}
+          hotkey={{ keyCode: KEY_D, altKey: true }}
+        />,
+        <ActivitySpacer key='spacer' />,
+      ]
+    : [
+        <ActivityButton
+          key='download'
+          icon={<DownloadIcon />}
+          label='Download'
+          onClick={() => dispatch(openDialog(DialogType.Download))}
+        />,
+        <ActivityButton
+          key='ladder'
+          icon={<LadderIcon />}
+          label='Ladder'
+          onClick={() => navigateToLadder()}
+          hotkey={{ keyCode: KEY_D, altKey: true }}
+        />,
+        <ActivitySpacer key='spacer' />,
+      ]
+
+  const renderSearchingMatchOverlay = () => {
+    if (!IS_ELECTRON && !isMatchmakingSearching) {
+      return null
+    }
 
     return (
       <MatchmakingSearchingOverlay
-        open={this.state.searchingMatchOverlayOpen}
-        anchor={this._searchingMatchButtonRef.current}
+        open={searchingMatchOverlayOpen}
+        anchor={searchingMatchButtonRef.current}
         onCancelSearch={() => {
-          this.onCancelFindMatchClick()
-          this.onSearchingMatchOverlayClose()
+          dispatch(cancelFindMatch())
+          setSearchingMatchOverlayOpen(false)
         }}
-        onDismiss={this.onSearchingMatchOverlayClose}
+        onDismiss={() => setSearchingMatchOverlayOpen(false)}
       />
     )
   }
 
-  render() {
-    const { inGameplayActivity, serverStatus } = this.props
-    const lobbyCount = serverStatus.lobbyCount > 0 ? serverStatus.lobbyCount : undefined
+  return (
+    <Container>
+      <ConnectedLeftNav />
+      <Content>
+        <Switch>
+          <ConditionalRoute
+            path='/admin/:rest*'
+            filters={[IsAdminFilter]}
+            component={LoadableAdminPanel}
+          />
+          <Route path='/chat' component={ChatList} />
+          <Route path='/chat/:channel' component={ChatChannel} />
+          <Route path='/ladder/:matchmakingLabel?'>
+            {/* TODO(2Pac): Type this better somehow? */}
+            {params => <Ladder matchmakingType={params.matchmakingLabel as any} />}
+          </Route>
+          <Route path='/games/:gameId/:subPage?'>
+            {params => (
+              // TODO(2Pac): Type this better somehow?
+              <ConnectedGameResultsPage gameId={params.gameId} subPage={params.subPage as any} />
+            )}
+          </Route>
+          {lobbyRoute}
+          {matchmakingRoute}
+          {partyRoute}
+          <Route path='/users/:userId/:username/:subPage?'>
+            {params => (
+              <ConnectedUserProfilePage
+                userId={makeSbUserId(Number(params.userId))}
+                username={params.username}
+                // TODO(2Pac): Type this better somehow?
+                subPage={params.subPage as any}
+              />
+            )}
+          </Route>
+          {/* TODO(2Pac): Remove `any` once the `Whisper` is TS-ified */}
+          <Route path='/whispers/:target' component={Whisper as any} />
+          {/* If no paths match, redirect the page to the "index". */}
+          <Route>
+            <Index transitionFn={replace} />
+          </Route>
+        </Switch>
+      </Content>
+      <ActivityBar>
+        {activityButtons}
 
-    const findMatchButton = !this.props.matchmaking.searchInfo ? (
-      <ActivityButton
-        key='find-match'
-        ref={this._findMatchButtonRef}
-        icon={<FindMatchIcon />}
-        label='Find match'
-        onClick={this.onFindMatchClick}
-        disabled={inGameplayActivity}
-        hotkey={{ keyCode: KEY_F, altKey: true }}
-      />
-    ) : (
-      <ActivityButton
-        key='searching-match'
-        ref={this._searchingMatchButtonRef}
-        icon={<FindMatchIcon />}
-        glowing={true}
-        label='Finding…'
-        onClick={this.onSearchingMatchOverlayOpen}
-        hotkey={{ keyCode: KEY_F, altKey: true }}
-      />
-    )
-    const activityButtons = IS_ELECTRON
-      ? [
-          findMatchButton,
-          <ActivityButton
-            key='create-game'
-            icon={<CreateGameIcon />}
-            label='Create'
-            onClick={this.onCreateLobbyClick}
-            disabled={inGameplayActivity}
-            hotkey={{ keyCode: KEY_C, altKey: true }}
-          />,
-          <ActivityButton
-            key='join-game'
-            icon={<JoinGameIcon />}
-            label='Join'
-            onClick={this.onJoinLobbyClick}
-            hotkey={{ keyCode: KEY_J, altKey: true }}
-            count={lobbyCount}
-          />,
-          <ActivityButton
-            key='maps'
-            icon={<StyledMapsIcon />}
-            label='Maps'
-            onClick={this.onMapsClick}
-            hotkey={{ keyCode: KEY_M, altKey: true }}
-          />,
-          <ActivityButton
-            key='replays'
-            icon={<ReplaysIcon />}
-            label='Replays'
-            onClick={this.onReplaysClick}
-            hotkey={{ keyCode: KEY_R, altKey: true }}
-          />,
-          <ActivityButton
-            key='ladder'
-            icon={<LadderIcon />}
-            label='Ladder'
-            onClick={this.onLadderClick}
-            hotkey={{ keyCode: KEY_D, altKey: true }}
-          />,
-          <ActivitySpacer key='spacer' />,
-        ]
-      : [
-          <ActivityButton
-            key='download'
-            icon={<DownloadIcon />}
-            label='Download'
-            onClick={this.onDownloadClick}
-          />,
-          <ActivityButton
-            key='ladder'
-            icon={<LadderIcon />}
-            label='Ladder'
-            onClick={this.onLadderClick}
-            hotkey={{ keyCode: KEY_D, altKey: true }}
-          />,
-          <ActivitySpacer key='spacer' />,
-        ]
+        <MiniActivityButtonsContainer key='mini-buttons'>
+          <NotificationsButton />
+          {/* TODO(tec27): Hotkey this to Alt+S */}
+          <IconButton
+            key='settings'
+            icon={<FadedSettingsIcon />}
+            title='Settings'
+            onClick={() => dispatch(openDialog(DialogType.Settings))}
+          />
+        </MiniActivityButtonsContainer>
 
-    return (
-      <Container>
-        <ConnectedLeftNav />
-        <Content>
-          <Switch>
-            <ConditionalRoute
-              path='/admin/:rest*'
-              filters={[IsAdminFilter]}
-              component={LoadableAdminPanel}
-            />
-            <Route path='/chat' component={ChatList} />
-            <Route path='/chat/:channel' component={ChatChannel} />
-            <Route path='/ladder/:matchmakingType?'>
-              {params => <Ladder matchmakingType={params.matchmakingType} />}
-            </Route>
-            <Route path='/games/:gameId/:subPage?'>
-              {params => (
-                <ConnectedGameResultsPage gameId={params.gameId} subPage={params.subPage} />
-              )}
-            </Route>
-            {lobbyRoute}
-            {matchmakingRoute}
-            {partyRoute}
-            <Route path='/users/:userId/:username/:subPage?'>
-              {params => (
-                <ConnectedUserProfilePage
-                  userId={Number(params.userId)}
-                  username={params.username}
-                  subPage={params.subPage}
-                />
-              )}
-            </Route>
-            <Route path='/whispers/:target' component={Whisper} />
-            {/* If no paths match, redirect the page to the "index". */}
-            <Route>
-              <Index transitionFn={replace} />
-            </Route>
-          </Switch>
-        </Content>
-        <ActivityBar>
-          {activityButtons}
-
-          <MiniActivityButtonsContainer key='mini-buttons'>
-            <NotificationsButton />
-            {/* TODO(tec27): Hotkey this to Alt+S */}
-            <IconButton
-              key='settings'
-              icon={<FadedSettingsIcon />}
-              title='Settings'
-              onClick={this.onSettingsClick}
-            />
-          </MiniActivityButtonsContainer>
-
-          <VersionText key='version'>v{curVersion}</VersionText>
-        </ActivityBar>
-        {this.renderSearchingMatchOverlay()}
-        <ActivityOverlay />
-        <NotificationPopups />
-      </Container>
-    )
-  }
-
-  onSearchingMatchOverlayOpen = () => {
-    this.setState({ searchingMatchOverlayOpen: true })
-  }
-
-  onSearchingMatchOverlayClose = () => {
-    this.setState({ searchingMatchOverlayOpen: false })
-  }
-
-  onSettingsClick = () => {
-    this.props.dispatch(openDialog(DialogType.Settings))
-  }
-
-  onFindMatchClick = () => {
-    if (!isShieldBatteryHealthy(this.props)) {
-      this.props.dispatch(openDialog(DialogType.ShieldBatteryHealth))
-    } else if (!isStarcraftHealthy(this.props)) {
-      this.props.dispatch(openDialog(DialogType.StarcraftHealth))
-    } else {
-      this.props.dispatch(openOverlay('findMatch'))
-    }
-  }
-
-  onCancelFindMatchClick = () => {
-    this.props.dispatch(cancelFindMatch())
-  }
-
-  onCreateLobbyClick = () => {
-    if (!isShieldBatteryHealthy(this.props)) {
-      this.props.dispatch(openDialog(DialogType.ShieldBatteryHealth))
-    } else if (!isStarcraftHealthy(this.props)) {
-      this.props.dispatch(openDialog(DialogType.StarcraftHealth))
-    } else {
-      this.props.dispatch(openOverlay('createLobby'))
-    }
-  }
-
-  onJoinLobbyClick = () => {
-    if (!isShieldBatteryHealthy(this.props)) {
-      this.props.dispatch(openDialog(DialogType.ShieldBatteryHealth))
-    } else if (!isStarcraftHealthy(this.props)) {
-      this.props.dispatch(openDialog(DialogType.StarcraftHealth))
-    } else {
-      this.props.dispatch(openOverlay('joinLobby'))
-    }
-  }
-
-  onMapUpload = map => {
-    this.props.dispatch(
-      openOverlay('browseServerMaps', { ...this.serverMapsProps, uploadedMap: map }),
-    )
-  }
-
-  onMapDetails = map => {
-    this.props.dispatch(openDialog(DialogType.MapDetails, { mapId: map.id }))
-  }
-
-  onRemoveMap = map => {
-    this.props.dispatch(removeMap(map))
-  }
-
-  onRegenMapImage = map => {
-    this.props.dispatch(regenMapImage(map))
-  }
-
-  serverMapsProps = {
-    title: 'Maps',
-    onMapUpload: this.onMapUpload,
-    onMapSelect: this.onMapDetails,
-    onMapDetails: this.onMapDetails,
-    onRemoveMap: this.onRemoveMap,
-    onRegenMapImage: this.onRegenMapImage,
-  }
-
-  onMapsClick = () => {
-    if (!isShieldBatteryHealthy(this.props)) {
-      this.props.dispatch(openDialog(DialogType.ShieldBatteryHealth))
-    } else if (!isStarcraftHealthy(this.props)) {
-      this.props.dispatch(openDialog(DialogType.StarcraftHealth))
-    } else {
-      this.props.dispatch(openOverlay('browseServerMaps', this.serverMapsProps))
-    }
-  }
-
-  onReplaysClick = () => {
-    if (!isShieldBatteryHealthy(this.props)) {
-      this.props.dispatch(openDialog(DialogType.ShieldBatteryHealth))
-    } else if (!isStarcraftHealthy(this.props)) {
-      this.props.dispatch(openDialog(DialogType.StarcraftHealth))
-    } else {
-      this.props.dispatch(openOverlay('watchReplay'))
-    }
-  }
-
-  onDownloadClick = () => {
-    this.props.dispatch(openDialog('download'))
-  }
-
-  onLadderClick = () => {
-    navigateToLadder()
-  }
+        <VersionText key='version'>v{curVersion}</VersionText>
+      </ActivityBar>
+      {renderSearchingMatchOverlay()}
+      <ActivityOverlay />
+      <NotificationPopups />
+    </Container>
+  )
 }
-
-export default MainLayout
