@@ -237,6 +237,9 @@ export interface HotkeyProp {
 }
 
 export interface ButtonHotkeyProps {
+  // NOTE(tec27): The typings encode null-initialized refs as readonly, but there doesn't seem to be
+  // any different handling on the React side, so converting them to MutableRefObjects in this case
+  // seems to be safe.
   /** The reference to the button that should be pressed programmatically. */
   ref: React.MutableRefObject<HTMLButtonElement | undefined | null>
   /**
