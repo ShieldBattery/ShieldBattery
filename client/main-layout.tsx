@@ -5,7 +5,6 @@ import styled from 'styled-components'
 import { Route, Switch } from 'wouter'
 import { MapInfoJson } from '../common/maps'
 import { EMAIL_VERIFICATION_ID, NotificationType } from '../common/notifications'
-import { makeSbUserId } from '../common/users/sb-user'
 import { ReduxAction } from './action-types'
 import { openOverlay } from './activities/action-creators'
 import ActivityBar from './activities/activity-bar'
@@ -19,7 +18,7 @@ import ChatList from './chat/list'
 import { openDialog } from './dialogs/action-creators'
 import { DialogType } from './dialogs/dialog-type'
 import { DispatchFunction } from './dispatch-registry'
-import { ConnectedGameResultsPage } from './games/results'
+import { GamesRouteComponent } from './games/route'
 import LadderIcon from './icons/material/emoji_events_black_36px.svg'
 import JoinGameIcon from './icons/material/ic_call_merge_black_36px.svg'
 import CreateGameIcon from './icons/material/ic_gavel_black_36px.svg'
@@ -29,7 +28,7 @@ import MapsIcon from './icons/material/ic_terrain_black_36px.svg'
 import SettingsIcon from './icons/material/settings_black_24px.svg'
 import FindMatchIcon from './icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { navigateToLadder } from './ladder/action-creators'
-import { Ladder } from './ladder/ladder'
+import { LadderRouteComponent } from './ladder/ladder'
 import LobbyView from './lobbies/view'
 import { regenMapImage, removeMap } from './maps/action-creators'
 import { cancelFindMatch } from './matchmaking/action-creators'
@@ -49,7 +48,7 @@ import {
   addPrivacyPolicyNotificationIfNeeded,
   addTermsOfServiceNotificationIfNeeded,
 } from './policies/action-creators'
-import { ConnectedUserProfilePage } from './profile/user-profile'
+import { ProfileRouteComponent } from './profile/route'
 import LoadingIndicator from './progress/dots'
 import { useAppDispatch, useAppSelector } from './redux-hooks'
 import { isShieldBatteryHealthy, isStarcraftHealthy } from './starcraft/is-starcraft-healthy'
@@ -157,8 +156,8 @@ export function MainLayout() {
 
   const [searchingMatchOverlayOpen, setSearchingMatchOverlayOpen] = useState(false)
 
-  const findMatchButtonRef = useRef<HTMLButtonElement>()
-  const searchingMatchButtonRef = useRef<HTMLButtonElement>()
+  const findMatchButtonRef = useRef<HTMLButtonElement>(null)
+  const searchingMatchButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     dispatch(openChangelogIfNecessary())
@@ -358,7 +357,7 @@ export function MainLayout() {
     return (
       <MatchmakingSearchingOverlay
         open={searchingMatchOverlayOpen}
-        anchor={searchingMatchButtonRef.current}
+        anchor={searchingMatchButtonRef.current ?? undefined}
         onCancelSearch={() => {
           dispatch(cancelFindMatch())
           setSearchingMatchOverlayOpen(false)
@@ -379,30 +378,13 @@ export function MainLayout() {
             component={LoadableAdminPanel}
           />
           <Route path='/chat' component={ChatList} />
-          <Route path='/chat/:channel' component={ChatChannel} />
-          <Route path='/ladder/:matchmakingLabel?'>
-            {/* TODO(2Pac): Type this better somehow? */}
-            {params => <Ladder matchmakingType={params.matchmakingLabel as any} />}
-          </Route>
-          <Route path='/games/:gameId/:subPage?'>
-            {params => (
-              // TODO(2Pac): Type this better somehow?
-              <ConnectedGameResultsPage gameId={params.gameId} subPage={params.subPage as any} />
-            )}
-          </Route>
+          <Route path='/chat/:channel/:rest*' component={ChatChannel} />
+          <Route path='/ladder/:rest*' component={LadderRouteComponent} />
+          <Route path='/games/:rest*' component={GamesRouteComponent} />
           {lobbyRoute}
           {matchmakingRoute}
           {partyRoute}
-          <Route path='/users/:userId/:username/:subPage?'>
-            {params => (
-              <ConnectedUserProfilePage
-                userId={makeSbUserId(Number(params.userId))}
-                username={params.username}
-                // TODO(2Pac): Type this better somehow?
-                subPage={params.subPage as any}
-              />
-            )}
-          </Route>
+          <Route path='/users/:rest*' component={ProfileRouteComponent} />
           {/* TODO(2Pac): Remove `any` once the `Whisper` is TS-ified */}
           <Route path='/whispers/:target' component={Whisper as any} />
           {/* If no paths match, redirect the page to the "index". */}

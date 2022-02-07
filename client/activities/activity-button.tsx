@@ -125,7 +125,7 @@ export interface ActivityButtonProps {
 }
 
 export const ActivityButton = React.memo(
-  React.forwardRef<HTMLButtonElement | undefined, ActivityButtonProps>(
+  React.forwardRef<HTMLButtonElement, ActivityButtonProps>(
     ({ label, icon, disabled, glowing, count, onClick, hotkey }, ref) => {
       const localRef = useRef<HTMLButtonElement>()
       const [buttonProps, rippleRef] = useButtonState({

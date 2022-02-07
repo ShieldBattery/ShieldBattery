@@ -3,8 +3,13 @@ import { List } from 'immutable'
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { areEqual, FixedSizeList } from 'react-window'
 import styled from 'styled-components'
+import { useRoute } from 'wouter'
 import { LadderPlayer } from '../../common/ladder'
-import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmaking'
+import {
+  ALL_MATCHMAKING_TYPES,
+  MatchmakingType,
+  matchmakingTypeToLabel,
+} from '../../common/matchmaking'
 import { SbUser, SbUserId } from '../../common/users/sb-user'
 import { Avatar } from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
@@ -16,6 +21,7 @@ import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
 import { shadow4dp } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
+import { replace } from '../navigation/routing'
 import { navigateToUserProfile } from '../profile/action-creators'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -73,6 +79,23 @@ const Content = styled.div`
 `
 
 const savedLadderTab = new JsonLocalStorageValue<MatchmakingType>('ladderTab')
+
+export function LadderRouteComponent(props: { params: any }) {
+  const [matches, params] = useRoute<{ matchmakingType: string }>('/ladder/:matchmakingType?')
+
+  if (!matches) {
+    queueMicrotask(() => {
+      replace('/')
+    })
+    return null
+  }
+
+  const matchmakingType = ALL_MATCHMAKING_TYPES.includes(params?.matchmakingType as MatchmakingType)
+    ? (params!.matchmakingType as MatchmakingType)
+    : undefined
+
+  return <Ladder matchmakingType={matchmakingType} />
+}
 
 export interface LadderProps {
   matchmakingType?: MatchmakingType

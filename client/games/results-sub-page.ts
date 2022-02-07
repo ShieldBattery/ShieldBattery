@@ -16,3 +16,5 @@ export enum ResultsSubPage {
    */
   BuildOrders = 'build-orders',
 }
+
+export const ALL_RESULTS_SUB_PAGES: ReadonlyArray<ResultsSubPage> = Object.values(ResultsSubPage)
