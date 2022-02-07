@@ -1,11 +1,12 @@
 import loadable from '@loadable/component'
 import keycode from 'keycode'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { Route, Switch } from 'wouter'
 import { MapInfoJson } from '../common/maps'
 import { EMAIL_VERIFICATION_ID, NotificationType } from '../common/notifications'
 import { makeSbUserId } from '../common/users/sb-user'
+import { ReduxAction } from './action-types'
 import { openOverlay } from './activities/action-creators'
 import ActivityBar from './activities/activity-bar'
 import { ActivityButton } from './activities/activity-button'
@@ -17,6 +18,7 @@ import ChatChannel from './chat/channel'
 import ChatList from './chat/list'
 import { openDialog } from './dialogs/action-creators'
 import { DialogType } from './dialogs/dialog-type'
+import { DispatchFunction } from './dispatch-registry'
 import { ConnectedGameResultsPage } from './games/results'
 import LadderIcon from './icons/material/emoji_events_black_36px.svg'
 import JoinGameIcon from './icons/material/ic_call_merge_black_36px.svg'
@@ -51,6 +53,7 @@ import { ConnectedUserProfilePage } from './profile/user-profile'
 import LoadingIndicator from './progress/dots'
 import { useAppDispatch, useAppSelector } from './redux-hooks'
 import { isShieldBatteryHealthy, isStarcraftHealthy } from './starcraft/is-starcraft-healthy'
+import { StarcraftStatus } from './starcraft/starcraft-reducer'
 import { colorTextSecondary } from './styles/colors'
 import { caption } from './styles/typography'
 import Whisper from './whispers/whisper'
@@ -118,6 +121,32 @@ const FadedSettingsIcon = styled(SettingsIcon)`
  */
 let firstLoggedIn = true
 
+/**
+ * Calls the specified callback only if the StarCraft and ShieldBattery installations are "healthy".
+ *
+ * The deps argument here won't be linted so you should ensure that it's a complete list.
+ */
+function useHealthyStarcraftCallback<T extends (...args: any[]) => any>(
+  dispatch: DispatchFunction<ReduxAction>,
+  starcraft: StarcraftStatus,
+  callback: T,
+  deps: any[] = [],
+) {
+  return useCallback(
+    (...args) => {
+      if (!isShieldBatteryHealthy({ starcraft })) {
+        dispatch(openDialog(DialogType.ShieldBatteryHealth))
+      } else if (!isStarcraftHealthy({ starcraft })) {
+        dispatch(openDialog(DialogType.StarcraftHealth))
+      } else {
+        callback(...args)
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dispatch, starcraft, callback, ...deps],
+  )
+}
+
 export function MainLayout() {
   const dispatch = useAppDispatch()
   const inGameplayActivity = useAppSelector(s => s.gameplayActivity.inGameplayActivity)
@@ -155,77 +184,82 @@ export function MainLayout() {
     }
   }, [isEmailVerified, dispatch])
 
-  const onFindMatchClick = () => {
-    if (!isShieldBatteryHealthy({ starcraft })) {
-      dispatch(openDialog(DialogType.ShieldBatteryHealth))
-    } else if (!isStarcraftHealthy({ starcraft })) {
-      dispatch(openDialog(DialogType.StarcraftHealth))
-    } else {
-      // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
-      dispatch(openOverlay('findMatch') as any)
-    }
-  }
-
-  const onCreateLobbyClick = () => {
-    if (!isShieldBatteryHealthy({ starcraft })) {
-      dispatch(openDialog(DialogType.ShieldBatteryHealth))
-    } else if (!isStarcraftHealthy({ starcraft })) {
-      dispatch(openDialog(DialogType.StarcraftHealth))
-    } else {
-      // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
-      dispatch(openOverlay('createLobby') as any)
-    }
-  }
-
-  const onJoinLobbyClick = () => {
-    if (!isShieldBatteryHealthy({ starcraft })) {
-      dispatch(openDialog(DialogType.ShieldBatteryHealth))
-    } else if (!isStarcraftHealthy({ starcraft })) {
-      dispatch(openDialog(DialogType.StarcraftHealth))
-    } else {
-      // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
-      dispatch(openOverlay('joinLobby') as any)
-    }
-  }
-
-  const onMapUpload = (map: MapInfoJson) => {
+  const onFindMatchClick = useHealthyStarcraftCallback(dispatch, starcraft, () => {
     // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
-    dispatch(openOverlay('browseServerMaps', { ...serverMapsProps, uploadedMap: map }) as any)
-  }
+    dispatch(openOverlay('findMatch') as any)
+  })
 
-  const onMapDetails = (map: MapInfoJson) => {
-    dispatch(openDialog(DialogType.MapDetails, { mapId: map.id }))
-  }
+  const onCreateLobbyClick = useHealthyStarcraftCallback(dispatch, starcraft, () => {
+    // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
+    dispatch(openOverlay('createLobby') as any)
+  })
 
-  const onRemoveMap = (map: MapInfoJson) => {
-    dispatch(removeMap(map))
-  }
+  const onJoinLobbyClick = useHealthyStarcraftCallback(dispatch, starcraft, () => {
+    // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
+    dispatch(openOverlay('joinLobby') as any)
+  })
 
-  const onRegenMapImage = (map: MapInfoJson) => {
-    dispatch(regenMapImage(map))
-  }
+  const onMapDetails = useCallback(
+    (map: MapInfoJson) => {
+      dispatch(openDialog(DialogType.MapDetails, { mapId: map.id }))
+    },
+    [dispatch],
+  )
 
-  const serverMapsProps = {
-    title: 'Maps',
-    onMapUpload,
-    onMapSelect: onMapDetails,
-    onMapDetails,
-    onRemoveMap,
-    onRegenMapImage,
-  }
+  const onRemoveMap = useCallback(
+    (map: MapInfoJson) => {
+      dispatch(removeMap(map))
+    },
+    [dispatch],
+  )
 
-  const onMapsClick = () => {
-    if (!isShieldBatteryHealthy({ starcraft })) {
-      dispatch(openDialog(DialogType.ShieldBatteryHealth))
-    } else if (!isStarcraftHealthy({ starcraft })) {
-      dispatch(openDialog(DialogType.StarcraftHealth))
-    } else {
+  const onRegenMapImage = useCallback(
+    (map: MapInfoJson) => {
+      dispatch(regenMapImage(map))
+    },
+    [dispatch],
+  )
+
+  const onMapUpload = useCallback(
+    (map: MapInfoJson) => {
       // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
-      dispatch(openOverlay('browseServerMaps', serverMapsProps) as any)
-    }
-  }
+      dispatch(
+        openOverlay('browseServerMaps', {
+          uploadedMap: map,
+          title: 'Maps',
+          onMapUpload,
+          onMapSelect: onMapDetails,
+          onMapDetails,
+          onRemoveMap,
+          onRegenMapImage,
+        }) as any,
+      )
+    },
+    [dispatch, onMapDetails, onRegenMapImage, onRemoveMap],
+  )
 
-  const onReplaysClick = () => {
+  // TODO(tec27): Figure out why the hell this requires a valid starcraft installation and then fix
+  // that and remove this requirement
+  const onMapsClick = useHealthyStarcraftCallback(
+    dispatch,
+    starcraft,
+    () => {
+      // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
+      dispatch(
+        openOverlay('browseServerMaps', {
+          title: 'Maps',
+          onMapUpload,
+          onMapSelect: onMapDetails,
+          onMapDetails,
+          onRemoveMap,
+          onRegenMapImage,
+        }) as any,
+      )
+    },
+    [onMapDetails, onMapUpload, onRegenMapImage, onRemoveMap],
+  )
+
+  const onReplaysClick = useCallback(() => {
     if (!isShieldBatteryHealthy({ starcraft })) {
       dispatch(openDialog(DialogType.ShieldBatteryHealth))
     } else if (!isStarcraftHealthy({ starcraft })) {
@@ -234,7 +268,7 @@ export function MainLayout() {
       // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
       dispatch(openOverlay('watchReplay') as any)
     }
-  }
+  }, [dispatch, starcraft])
 
   const findMatchButton = !isMatchmakingSearching ? (
     <ActivityButton
