@@ -16,7 +16,7 @@ import { UpdateOverlay } from './download/update-overlay'
 import Faq from './landing/faq'
 import Splash from './landing/splash'
 import LoadingFilter from './loading/loading-filter'
-import MainLayout from './main-layout'
+import { MainLayout } from './main-layout'
 import { LoginRoute } from './navigation/custom-routes'
 import SiteConnectedFilter from './network/site-connected-filter'
 import {

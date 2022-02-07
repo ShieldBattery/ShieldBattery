@@ -22,3 +22,6 @@ export enum UserProfileSubPage {
   /** Administrative actions and log for the users. Only visible to users with permissions. */
   Admin = 'admin',
 }
+
+export const ALL_USER_PROFILE_SUB_PAGES: ReadonlyArray<UserProfileSubPage> =
+  Object.values(UserProfileSubPage)
