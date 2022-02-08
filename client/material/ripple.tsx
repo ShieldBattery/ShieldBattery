@@ -151,7 +151,7 @@ export interface RippleController {
    * that cause the element to be made active (an easy way to check this is to call
    * `HTMLElement.matches(':active')`).
    */
-  onActivate(event?: React.MouseEvent | React.KeyboardEvent): void
+  onActivate(event?: React.MouseEvent | React.KeyboardEvent | MouseEvent | KeyboardEvent): void
   /**
    * Deactivate the ripple (causing it to complete its animation --> rest). This should be
    * called on the opposing events of `onActivate`, that is, `mouseup` and `keyup` events for

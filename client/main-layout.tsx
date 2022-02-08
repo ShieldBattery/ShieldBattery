@@ -34,7 +34,7 @@ import { regenMapImage, removeMap } from './maps/action-creators'
 import { cancelFindMatch } from './matchmaking/action-creators'
 import { MatchmakingSearchingOverlay } from './matchmaking/matchmaking-searching-overlay'
 import MatchmakingView from './matchmaking/view'
-import { IconButton } from './material/button'
+import { IconButton, useButtonHotkey } from './material/button'
 import { ConnectedLeftNav } from './navigation/connected-left-nav'
 import { ConditionalRoute } from './navigation/custom-routes'
 import Index from './navigation/index'
@@ -59,12 +59,14 @@ import Whisper from './whispers/whisper'
 
 const curVersion = __WEBPACK_ENV.VERSION
 
-const KEY_C = keycode('c')
-const KEY_D = keycode('d')
-const KEY_F = keycode('f')
-const KEY_J = keycode('j')
-const KEY_M = keycode('m')
-const KEY_R = keycode('r')
+const ALT_C = { keyCode: keycode('c'), altKey: true }
+const ALT_D = { keyCode: keycode('d'), altKey: true }
+const ALT_F = { keyCode: keycode('f'), altKey: true }
+const ALT_J = { keyCode: keycode('j'), altKey: true }
+const ALT_M = { keyCode: keycode('m'), altKey: true }
+const ALT_O = { keyCode: keycode('o'), altKey: true }
+const ALT_R = { keyCode: keycode('r'), altKey: true }
+const ALT_S = { keyCode: keycode('s'), altKey: true }
 
 const Container = styled.div`
   display: flex;
@@ -156,8 +158,9 @@ export function MainLayout() {
 
   const [searchingMatchOverlayOpen, setSearchingMatchOverlayOpen] = useState(false)
 
-  const findMatchButtonRef = useRef<HTMLButtonElement>(null)
   const searchingMatchButtonRef = useRef<HTMLButtonElement>(null)
+  const settingsButtonRef = useRef<HTMLButtonElement>(null)
+  useButtonHotkey({ ref: settingsButtonRef, hotkey: ALT_S })
 
   useEffect(() => {
     dispatch(openChangelogIfNecessary())
@@ -272,12 +275,11 @@ export function MainLayout() {
   const findMatchButton = !isMatchmakingSearching ? (
     <ActivityButton
       key='find-match'
-      ref={findMatchButtonRef}
       icon={<FindMatchIcon />}
       label='Find match'
       onClick={onFindMatchClick}
       disabled={inGameplayActivity}
-      hotkey={{ keyCode: KEY_F, altKey: true }}
+      hotkey={ALT_F}
     />
   ) : (
     <ActivityButton
@@ -287,7 +289,7 @@ export function MainLayout() {
       glowing={true}
       label='Finding…'
       onClick={() => setSearchingMatchOverlayOpen(true)}
-      hotkey={{ keyCode: KEY_F, altKey: true }}
+      hotkey={ALT_F}
     />
   )
   const activityButtons = IS_ELECTRON
@@ -299,14 +301,14 @@ export function MainLayout() {
           label='Create'
           onClick={onCreateLobbyClick}
           disabled={inGameplayActivity}
-          hotkey={{ keyCode: KEY_C, altKey: true }}
+          hotkey={ALT_C}
         />,
         <ActivityButton
           key='join-game'
           icon={<JoinGameIcon />}
           label='Join'
           onClick={onJoinLobbyClick}
-          hotkey={{ keyCode: KEY_J, altKey: true }}
+          hotkey={ALT_J}
           count={lobbyCount > 0 ? lobbyCount : undefined}
         />,
         <ActivityButton
@@ -314,21 +316,21 @@ export function MainLayout() {
           icon={<StyledMapsIcon />}
           label='Maps'
           onClick={onMapsClick}
-          hotkey={{ keyCode: KEY_M, altKey: true }}
+          hotkey={ALT_M}
         />,
         <ActivityButton
           key='replays'
           icon={<ReplaysIcon />}
           label='Replays'
           onClick={onReplaysClick}
-          hotkey={{ keyCode: KEY_R, altKey: true }}
+          hotkey={ALT_R}
         />,
         <ActivityButton
           key='ladder'
           icon={<LadderIcon />}
           label='Ladder'
           onClick={() => navigateToLadder()}
-          hotkey={{ keyCode: KEY_D, altKey: true }}
+          hotkey={ALT_D}
         />,
         <ActivitySpacer key='spacer' />,
       ]
@@ -338,13 +340,14 @@ export function MainLayout() {
           icon={<DownloadIcon />}
           label='Download'
           onClick={() => dispatch(openDialog(DialogType.Download))}
+          hotkey={ALT_O}
         />,
         <ActivityButton
           key='ladder'
           icon={<LadderIcon />}
           label='Ladder'
           onClick={() => navigateToLadder()}
-          hotkey={{ keyCode: KEY_D, altKey: true }}
+          hotkey={ALT_D}
         />,
         <ActivitySpacer key='spacer' />,
       ]
@@ -398,9 +401,9 @@ export function MainLayout() {
 
         <MiniActivityButtonsContainer key='mini-buttons'>
           <NotificationsButton />
-          {/* TODO(tec27): Hotkey this to Alt+S */}
           <IconButton
             key='settings'
+            ref={settingsButtonRef}
             icon={<FadedSettingsIcon />}
             title='Settings'
             onClick={() => dispatch(openDialog(DialogType.Settings))}

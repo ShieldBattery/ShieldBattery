@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
+import { useKeyListener } from '../keyboard/key-listener'
 import {
   amberA400,
   blue400,
@@ -226,6 +227,48 @@ export function useButtonState({
     },
     rippleRef,
   ]
+}
+
+export interface HotkeyProp {
+  keyCode: number
+  altKey?: boolean
+  shiftKey?: boolean
+  ctrlKey?: boolean
+}
+
+export interface ButtonHotkeyProps {
+  // NOTE(tec27): The typings encode null-initialized refs as readonly, but there doesn't seem to be
+  // any different handling on the React side, so converting them to MutableRefObjects in this case
+  // seems to be safe.
+  /** The reference to the button that should be pressed programmatically. */
+  ref: React.MutableRefObject<HTMLButtonElement | undefined | null>
+  /**
+   * A hotkey to register for the button. Pressing the specified modifiers and key will result in
+   * the button being clicked programmatically.
+   */
+  hotkey: HotkeyProp
+  /** Whether the button is disabled (hotkey will do nothing). */
+  disabled?: boolean
+}
+
+export function useButtonHotkey({ ref, disabled, hotkey }: ButtonHotkeyProps) {
+  useKeyListener({
+    onKeyDown: (event: KeyboardEvent) => {
+      if (
+        !disabled &&
+        event.keyCode === hotkey.keyCode &&
+        event.altKey === !!hotkey.altKey &&
+        event.shiftKey === !!hotkey.shiftKey &&
+        event.ctrlKey === !!hotkey.ctrlKey
+      ) {
+        ref.current?.click()
+
+        return true
+      }
+
+      return false
+    },
+  })
 }
 
 const IconContainer = styled.div`
