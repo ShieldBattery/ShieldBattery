@@ -132,7 +132,7 @@ export const ActivityButton = React.memo(
       const buttonRef = useRef<HTMLButtonElement>()
       const setButtonRef = useCallback(
         (elem: HTMLButtonElement | null) => {
-          buttonRef.current = elem !== null ? elem : undefined
+          buttonRef.current = elem ?? undefined
           if (ref) {
             if (typeof ref === 'function') {
               ref(elem)
