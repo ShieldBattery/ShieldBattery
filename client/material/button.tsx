@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useKeyListener } from '../keyboard/key-listener'
@@ -271,41 +271,44 @@ export function useButtonHotkey({ ref, disabled, hotkey }: ButtonHotkeyProps) {
   })
 }
 
-export interface HotkeyedLabelProps {
-  /** Whether the button is disabled (label will remain unchanged). */
+export interface HotkeyedTextProps {
+  /** A hotkey that is registered for the button. The text will underline the hotkeyed letter. */
+  hotkey: HotkeyProp
+  /** The text that should be hotkeyed. If the button is disabled, it will remain unchanged. */
+  text: string
+  /** Whether the button is disabled (text will remain unchanged). */
   disabled?: boolean
-  /** A hotkey that is registered for the button. The label will underline the hotkeyed letter. */
-  hotkey?: HotkeyProp
-  /** The given label of the button. If not a string, it will remain unchanged. */
-  label: string | React.ReactNode
 }
 
-export function useHotkeyedLabel({ disabled, hotkey, label }: HotkeyedLabelProps) {
-  return useMemo(() => {
-    if (disabled || !hotkey || typeof label !== 'string') {
-      return label
-    }
+/**
+ * A component which, given a hotkey and some text, underlines the character in the text of the
+ * given hotkey. Technically, this component is not really button-specific, but that's mostly where
+ * it will be used so we leave it here.
+ */
+export const HotkeyedText = React.memo(({ hotkey, text, disabled }: HotkeyedTextProps) => {
+  if (disabled) {
+    return <>{text}</>
+  }
 
-    const hotkeyString = String.fromCharCode(hotkey.keyCode).toLowerCase()
-    const result = []
-    let hasFoundHotkeyChar = false
-    for (const char of label) {
-      if (!hasFoundHotkeyChar && char.toLowerCase() === hotkeyString) {
-        result.push(<u key={char}>{char}</u>)
-        hasFoundHotkeyChar = true
+  const hotkeyString = String.fromCharCode(hotkey.keyCode).toLowerCase()
+  const result = []
+  let hasFoundHotkeyChar = false
+  for (const char of text) {
+    if (!hasFoundHotkeyChar && char.toLowerCase() === hotkeyString) {
+      result.push(<u key={char}>{char}</u>)
+      hasFoundHotkeyChar = true
+    } else {
+      // The underline character eats the spaces around it, so we insert an &nbsp; here.
+      if (char === ' ') {
+        result.push('\u00A0')
       } else {
-        // The underline character eats the spaces around it, so we insert an &nbsp; here.
-        if (char === ' ') {
-          result.push('\u00A0')
-        } else {
-          result.push(char)
-        }
+        result.push(char)
       }
     }
+  }
 
-    return result
-  }, [disabled, hotkey, label])
-}
+  return <>{result}</>
+})
 
 const IconContainer = styled.div`
   width: auto;

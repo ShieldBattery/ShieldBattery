@@ -1,6 +1,6 @@
 import React, { useCallback, useRef } from 'react'
 import styled, { css, keyframes } from 'styled-components'
-import { HotkeyProp, useButtonHotkey, useButtonState, useHotkeyedLabel } from '../material/button'
+import { HotkeyedText, HotkeyProp, useButtonHotkey, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
 import { blue50, colorTextFaint, colorTextSecondary } from '../styles/colors'
@@ -145,7 +145,6 @@ export const ActivityButton = React.memo(
       )
 
       useButtonHotkey({ ref: buttonRef, disabled, hotkey })
-      const hotkeyedLabel = useHotkeyedLabel({ disabled, hotkey, label })
 
       return (
         <Container ref={setButtonRef} {...buttonProps}>
@@ -154,7 +153,9 @@ export const ActivityButton = React.memo(
             {glowing ? icon : null}
             {icon}
           </IconContainer>
-          <Label>{hotkeyedLabel}</Label>
+          <Label>
+            <HotkeyedText hotkey={hotkey} text={label} disabled={disabled} />
+          </Label>
           <Ripple ref={rippleRef} disabled={disabled} />
         </Container>
       )
