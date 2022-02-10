@@ -271,6 +271,45 @@ export function useButtonHotkey({ ref, disabled, hotkey }: ButtonHotkeyProps) {
   })
 }
 
+export interface HotkeyedTextProps {
+  /** A hotkey that is registered for the button. The text will underline the hotkeyed letter. */
+  hotkey: HotkeyProp
+  /** The text that should be hotkeyed. If the button is disabled, it will remain unchanged. */
+  text: string
+  /** Whether the button is disabled (text will remain unchanged). */
+  disabled?: boolean
+}
+
+/**
+ * A component which, given a hotkey and some text, underlines the character in the text of the
+ * given hotkey. Technically, this component is not really button-specific, but that's mostly where
+ * it will be used so we leave it here.
+ */
+export const HotkeyedText = React.memo(({ hotkey, text, disabled }: HotkeyedTextProps) => {
+  if (disabled) {
+    return <>{text}</>
+  }
+
+  const hotkeyString = String.fromCharCode(hotkey.keyCode).toLowerCase()
+  const result = []
+  let hasFoundHotkeyChar = false
+  for (const char of text) {
+    if (!hasFoundHotkeyChar && char.toLowerCase() === hotkeyString) {
+      result.push(<u key={char}>{char}</u>)
+      hasFoundHotkeyChar = true
+    } else {
+      // The underline character eats the spaces around it, so we insert an &nbsp; here.
+      if (char === ' ') {
+        result.push('\u00A0')
+      } else {
+        result.push(char)
+      }
+    }
+  }
+
+  return <>{result}</>
+})
+
 const IconContainer = styled.div`
   width: auto;
   height: 100%;

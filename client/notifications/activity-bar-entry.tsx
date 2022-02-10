@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import NotificationsIcon from '../icons/material/notifications_black_24px.svg'
 import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button'
 import { Popover, useAnchorPosition } from '../material/popover'
+import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { amberA200 } from '../styles/colors'
 import { markLocalNotificationsRead, markNotificationsRead } from './action-creators'
@@ -86,13 +87,16 @@ export function NotificationsButton() {
   return (
     <>
       <ButtonContainer>
-        <IconButton
-          ref={buttonRef}
-          icon={<NotificationsIcon />}
-          title={hasUnread ? 'Notifications (unread)' : 'Notifications'}
-          onClick={onClick}
-          testName='notifications-button'
-        />
+        <Tooltip
+          text={hasUnread ? 'Notifications - unread (Alt + N)' : 'Notifications (Alt + N)'}
+          position='left'>
+          <IconButton
+            ref={buttonRef}
+            icon={<NotificationsIcon />}
+            onClick={onClick}
+            testName='notifications-button'
+          />
+        </Tooltip>
         {hasUnread ? <UnreadIndicator /> : null}
       </ButtonContainer>
       <Popover

@@ -35,6 +35,7 @@ import { cancelFindMatch } from './matchmaking/action-creators'
 import { MatchmakingSearchingOverlay } from './matchmaking/matchmaking-searching-overlay'
 import MatchmakingView from './matchmaking/view'
 import { IconButton, useButtonHotkey } from './material/button'
+import { Tooltip } from './material/tooltip'
 import { ConnectedLeftNav } from './navigation/connected-left-nav'
 import { ConditionalRoute } from './navigation/custom-routes'
 import Index from './navigation/index'
@@ -401,13 +402,14 @@ export function MainLayout() {
 
         <MiniActivityButtonsContainer key='mini-buttons'>
           <NotificationsButton />
-          <IconButton
-            key='settings'
-            ref={settingsButtonRef}
-            icon={<FadedSettingsIcon />}
-            title='Settings'
-            onClick={() => dispatch(openDialog(DialogType.Settings))}
-          />
+          <Tooltip text='Settings (Alt + S)' position='left'>
+            <IconButton
+              key='settings'
+              ref={settingsButtonRef}
+              icon={<FadedSettingsIcon />}
+              onClick={() => dispatch(openDialog(DialogType.Settings))}
+            />
+          </Tooltip>
         </MiniActivityButtonsContainer>
 
         <VersionText key='version'>v{curVersion}</VersionText>
