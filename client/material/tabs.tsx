@@ -2,7 +2,6 @@ import keycode from 'keycode'
 import { rgba } from 'polished'
 import React, { useCallback, useMemo, useRef } from 'react'
 import styled from 'styled-components'
-import KeyListener from '../keyboard/key-listener'
 import { amberA400, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { buttonText, singleLine } from '../styles/typography'
 import { HotkeyProp, useButtonHotkey, useButtonState } from './button'
@@ -81,7 +80,7 @@ export interface TabItemProps<T> {
    */
   active?: boolean
   /** An array of hotkeys to register for this tab item. */
-  hotkeys: HotkeyProp[]
+  hotkeys?: HotkeyProp[]
   /**
    * Called whenever this tab is selected. This will be set by the containing Tabs component and
    * should not be passed directly.
@@ -120,7 +119,7 @@ export const TabItem = React.memo(
         },
         [ref],
       )
-      useButtonHotkey({ ref: tabItemRef, disabled, hotkeys })
+      useButtonHotkey({ ref: tabItemRef, disabled, hotkeys: hotkeys! })
 
       return (
         <TabItemContainer

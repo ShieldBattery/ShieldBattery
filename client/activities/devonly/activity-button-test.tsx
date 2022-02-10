@@ -37,16 +37,16 @@ export default class ActivityButtonsTest extends React.Component {
         <StyledCard>
           <h3>Press some buttons</h3>
           <ActivityBar>
-            <ActivityButton icon={<Icon />} label='Default' hotkey={ALT_1} />
-            <ActivityButton icon={<Icon />} label='Disabled' disabled={true} hotkey={ALT_2} />
-            <ActivityButton icon={<Icon />} label='Glowing' glowing={true} hotkey={ALT_3} />
-            <ActivityButton icon={<Icon />} label='Count' count={27} hotkey={ALT_4} />
+            <ActivityButton icon={<Icon />} label='Default' hotkeys={[ALT_1]} />
+            <ActivityButton icon={<Icon />} label='Disabled' disabled={true} hotkeys={[ALT_2]} />
+            <ActivityButton icon={<Icon />} label='Glowing' glowing={true} hotkeys={[ALT_3]} />
+            <ActivityButton icon={<Icon />} label='Count' count={27} hotkeys={[ALT_4]} />
             <ActivityButton
               icon={<Icon />}
               label='CountGlow'
               glowing={true}
               count={666}
-              hotkey={ALT_5}
+              hotkeys={[ALT_5]}
             />
           </ActivityBar>
         </StyledCard>
