@@ -269,7 +269,7 @@ export function useButtonHotkey({ ref, disabled, hotkeys }: ButtonHotkeyProps) {
       }
 
       return false
-    }
+    },
   })
 }
 
