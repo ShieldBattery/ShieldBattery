@@ -1,7 +1,8 @@
 import keycode from 'keycode'
 import { rgba } from 'polished'
-import React, { useCallback, useMemo, useRef } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import styled from 'styled-components'
+import { useKeyListener } from '../keyboard/key-listener'
 import { useMultiRef } from '../state-hooks'
 import { amberA400, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { buttonText, singleLine } from '../styles/typography'
@@ -20,6 +21,8 @@ const KEY_NUMBERS = [
   keycode('8'),
   keycode('9'),
 ]
+const PAGEUP = keycode('page up')
+const PAGEDOWN = keycode('page down')
 
 const Container = styled.div`
   position: relative;
@@ -154,7 +157,7 @@ export function Tabs<T>({ children, activeTab, onChange, className }: TabsProps<
       }
 
       const isActive = activeTab === (child.props as TabItemProps<T>).value
-      return React.cloneElement(child!, {
+      return React.cloneElement(child, {
         key: `tab-${i}`,
         active: isActive,
         hotkeys,
@@ -173,6 +176,53 @@ export function Tabs<T>({ children, activeTab, onChange, className }: TabsProps<
     tabElems.pop()
     return tabElems
   }, [activeTab, children, onChange])
+
+  useKeyListener({
+    onKeyDown: (event: KeyboardEvent) => {
+      if ((event.keyCode === PAGEUP || event.keyCode === PAGEDOWN) && event.ctrlKey === true) {
+        const enabledChildren: React.ReactElement[] = []
+        React.Children.forEach(children, (child, i) => {
+          if (child && !(child.props as TabItemProps<T>).disabled) {
+            enabledChildren.push(child)
+          }
+        })
+
+        if (enabledChildren.length < 2) {
+          return false
+        }
+
+        let previousOrNextTab: T | undefined
+        React.Children.forEach(enabledChildren, (child, i) => {
+          let previousOrNextChild
+          if (event.keyCode === PAGEUP) {
+            previousOrNextChild =
+              i === enabledChildren.length - 1 ? enabledChildren[0] : enabledChildren[i + 1]
+          } else {
+            previousOrNextChild =
+              i === 0 ? enabledChildren[enabledChildren.length - 1] : enabledChildren[i - 1]
+          }
+
+          if (
+            child &&
+            previousOrNextChild &&
+            (previousOrNextChild.props as TabItemProps<T>).value === activeTab
+          ) {
+            previousOrNextTab = child.props.value
+          }
+        })
+
+        if (previousOrNextTab !== undefined && onChange) {
+          onChange(previousOrNextTab)
+
+          return true
+        }
+
+        return false
+      }
+
+      return false
+    },
+  })
 
   return <Container className={className}>{tabElems}</Container>
 }
