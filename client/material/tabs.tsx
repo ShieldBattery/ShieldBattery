@@ -119,7 +119,7 @@ export const TabItem = React.memo(
         },
         [ref],
       )
-      useButtonHotkey({ ref: tabItemRef, disabled, hotkeys: hotkeys! })
+      useButtonHotkey({ ref: tabItemRef, disabled, hotkey: hotkeys! })
 
       return (
         <TabItemContainer
@@ -151,13 +151,22 @@ export function Tabs<T>({ children, activeTab, onChange, className }: TabsProps<
         return child
       }
 
-      const hotkeys = [{ keyCode: KEY_NUMBERS[i], ctrlKey: true }]
+      const childHotkeys = (child.props as TabItemProps<T>).hotkeys
+      const hotkeys: HotkeyProp[] = []
+
+      if (Array.isArray(childHotkeys)) {
+        for (const childHotkey of childHotkeys) {
+          hotkeys.push(childHotkey)
+        }
+      }
+
+      hotkeys.push({ keyCode: KEY_NUMBERS[i], ctrlKey: true })
       if (children.length - 1 === i) {
         // The last tab item has an additional Ctrl+9 hotkey
         hotkeys.push({ keyCode: KEY_NUMBERS[8], ctrlKey: true })
       }
 
-      const isActive = activeTab === (child!.props as TabItemProps<T>).value
+      const isActive = activeTab === (child.props as TabItemProps<T>).value
       return React.cloneElement(child!, {
         key: `tab-${i}`,
         active: isActive,
