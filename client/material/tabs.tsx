@@ -2,6 +2,7 @@ import keycode from 'keycode'
 import { rgba } from 'polished'
 import React, { useCallback, useMemo, useRef } from 'react'
 import styled from 'styled-components'
+import { useMultiRef } from '../state-hooks'
 import { amberA400, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { buttonText, singleLine } from '../styles/typography'
 import { HotkeyProp, useButtonHotkey, useButtonState } from './button'
@@ -104,21 +105,7 @@ export const TabItem = React.memo(
         onClick,
       })
 
-      // TODO(2Pac): Move this to a common hook that multiplexes refs and share with activity button
-      const tabItemRef = useRef<HTMLButtonElement>()
-      const setTabItemRef = useCallback(
-        (elem: HTMLButtonElement | null) => {
-          tabItemRef.current = elem ?? undefined
-          if (ref) {
-            if (typeof ref === 'function') {
-              ref(elem)
-            } else {
-              ref.current = elem
-            }
-          }
-        },
-        [ref],
-      )
+      const [tabItemRef, setTabItemRef] = useMultiRef<HTMLButtonElement>(ref)
       useButtonHotkey({ ref: tabItemRef, disabled, hotkey: hotkeys! })
 
       return (
