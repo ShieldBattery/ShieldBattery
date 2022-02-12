@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react'
+import React from 'react'
 import styled, { css, keyframes } from 'styled-components'
 import { HotkeyedText, HotkeyProp, useButtonHotkey, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
