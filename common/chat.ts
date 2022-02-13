@@ -3,11 +3,12 @@ import { SbUser, SbUserId } from './users/sb-user'
 
 export enum ChatServiceErrorCode {
   AlreadyJoined = 'AlreadyJoined',
-  LeaveShieldBattery = 'LeaveShieldBattery',
-  ModerateChannelOwner = 'ModerateChannelOwner',
-  ModerateChannelModerator = 'ModerateChannelModerator',
-  ModerateUser = 'ModerateUser',
-  ModerateYourself = 'ModerateYourself',
+  CannotLeaveShieldBattery = 'CannotLeaveShieldBattery',
+  CannotModerateChannelOwner = 'CannotModerateChannelOwner',
+  CannotModerateChannelModerator = 'CannotModerateChannelModerator',
+  CannotModerateShieldBattery = 'CannotModerateShieldBattery',
+  CannotModerateYourself = 'CannotModerateYourself',
+  NotEnoughPermissionsToModerate = 'NotEnoughPermissionsToModerate',
   NotInChannel = 'NotInChannel',
   TargetNotInChannel = 'TargetNotInChannel',
   UserBanned = 'UserBanned',
@@ -272,12 +273,17 @@ export function toChatUserProfileJson(chatUserProfile: ChatUserProfile): ChatUse
 }
 
 /**
- * The response returned when fetching a profile of a user in a specific chat channel. The profile
- * itself can be `undefined` in case the user has left the channel, but their name is still visible
- * in old messages.
+ * The response returned when fetching a profile of a user in a specific chat channel.
  */
 export interface GetChatUserProfileResponse {
+  /** The ID of a user for which the profile is being returned. */
   userId: SbUserId
+  /** The specific channel for which the user's profile is being returned. */
   channelName: string
+  /**
+   * User's profile in a specific chat channel. Includes stuff like their channel join date, channel
+   * permissions, etc. Can be `undefined` in case the user has left the channel, but their name is
+   * still visible in old messages.
+   */
   profile?: ChatUserProfileJson
 }

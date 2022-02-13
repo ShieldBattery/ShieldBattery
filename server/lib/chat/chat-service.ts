@@ -152,7 +152,7 @@ export default class ChatService {
     const originalChannelName = await this.getOriginalChannelName(channelName)
     if (originalChannelName === 'ShieldBattery') {
       throw new ChatServiceError(
-        ChatServiceErrorCode.LeaveShieldBattery,
+        ChatServiceErrorCode.CannotLeaveShieldBattery,
         "Can't leave ShieldBattery channel",
       )
     }
@@ -202,7 +202,10 @@ export default class ChatService {
       )
     }
     if (userId === targetId) {
-      throw new ChatServiceError(ChatServiceErrorCode.ModerateYourself, "Can't moderate yourself")
+      throw new ChatServiceError(
+        ChatServiceErrorCode.CannotModerateYourself,
+        "Can't moderate yourself",
+      )
     }
 
     const isUserServerModerator =
@@ -223,19 +226,19 @@ export default class ChatService {
 
     if (isTargetChannelOwner && !isUserServerModerator) {
       throw new ChatServiceError(
-        ChatServiceErrorCode.ModerateChannelOwner,
+        ChatServiceErrorCode.CannotModerateChannelOwner,
         'Only server moderators can moderate channel owners',
       )
     }
     if (isTargetChannelModerator && !isUserServerModerator && !isUserChannelOwner) {
       throw new ChatServiceError(
-        ChatServiceErrorCode.ModerateChannelModerator,
+        ChatServiceErrorCode.CannotModerateChannelModerator,
         'Only server moderators and channel owners can moderate channel moderators',
       )
     }
     if (!isUserServerModerator && !isUserChannelOwner && !isUserChannelModerator) {
       throw new ChatServiceError(
-        ChatServiceErrorCode.ModerateUser,
+        ChatServiceErrorCode.NotEnoughPermissionsToModerate,
         'Not enough permissions to moderate the user',
       )
     }
@@ -243,7 +246,7 @@ export default class ChatService {
     const originalChannelName = await this.getOriginalChannelName(channelName)
     if (originalChannelName === 'ShieldBattery') {
       throw new ChatServiceError(
-        ChatServiceErrorCode.LeaveShieldBattery,
+        ChatServiceErrorCode.CannotModerateShieldBattery,
         "Can't moderate users in the ShieldBattery channel",
       )
     }
@@ -476,20 +479,15 @@ export default class ChatService {
   ): Promise<SbUserId | null> {
     const { newOwnerId } = await removeUserFromChannel(userId, channelName)
 
-    // As a slight optimization, attempt to find the new owner in the database and notify them that
-    // their permissions changed only if they're online. Otherwise, they'll receive updated
-    // permissions once they come online.
-    if (newOwnerId && !!this.userSocketsManager.getById(newOwnerId)) {
+    if (newOwnerId) {
       const newOwner = await getUserChannelEntryForUser(newOwnerId, channelName)
-      if (!newOwner) {
-        // Shouldn't really happen, but just in case
-        return null
-      }
 
-      this.publisher.publish(getChannelUserPath(channelName, newOwnerId), {
-        action: 'permissionsChanged',
-        selfPermissions: newOwner.channelPermissions,
-      })
+      if (newOwner) {
+        this.publisher.publish(getChannelUserPath(channelName, newOwnerId), {
+          action: 'permissionsChanged',
+          selfPermissions: newOwner.channelPermissions,
+        })
+      }
     }
 
     const updated = this.state.channels.get(channelName)!.delete(userId)

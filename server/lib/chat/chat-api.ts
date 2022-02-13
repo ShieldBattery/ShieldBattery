@@ -70,12 +70,13 @@ function convertChatServiceError(err: unknown) {
     case ChatServiceErrorCode.UserNotFound:
       throw asHttpError(404, err)
     case ChatServiceErrorCode.AlreadyJoined:
-    case ChatServiceErrorCode.ModerateYourself:
+    case ChatServiceErrorCode.CannotModerateYourself:
+    case ChatServiceErrorCode.CannotLeaveShieldBattery:
+    case ChatServiceErrorCode.CannotModerateShieldBattery:
       throw asHttpError(400, err)
-    case ChatServiceErrorCode.LeaveShieldBattery:
-    case ChatServiceErrorCode.ModerateChannelOwner:
-    case ChatServiceErrorCode.ModerateChannelModerator:
-    case ChatServiceErrorCode.ModerateUser:
+    case ChatServiceErrorCode.CannotModerateChannelOwner:
+    case ChatServiceErrorCode.CannotModerateChannelModerator:
+    case ChatServiceErrorCode.NotEnoughPermissionsToModerate:
       throw asHttpError(403, err)
     case ChatServiceErrorCode.UserBanned:
       throw asHttpError(401, err)

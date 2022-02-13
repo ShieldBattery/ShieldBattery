@@ -38,14 +38,19 @@ export function ConnectedUserContextMenu({ userId, popoverProps }: ConnectedUser
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
   const cancelLoadRef = useRef(new AbortController())
-  const [isLoadingChatUserProfile, setIsLoadingChatUserProfile] = useState<boolean>(false)
   const [loadingChatUserProfileError, setLoadingChatUserProfileError] = useState<Error>()
   const selfPermissions = useAppSelector(s => s.auth.permissions)
   const user = useAppSelector(s => s.users.byId.get(userId))
   const [, routeParams] = useRoute('/chat/:channelName')
   const channelName = routeParams?.channelName.toLowerCase()
-  const channel = useAppSelector(s => (channelName ? s.chat.byName.get(channelName) : undefined))
-  const chatUserProfile = channel?.userProfiles.get(userId)
+  const chatUserProfile = useAppSelector(s => {
+    const channel = channelName ? s.chat.byName.get(channelName) : undefined
+    return channel?.userProfiles.get(userId)
+  })
+  const chatSelfPermissions = useAppSelector(s => {
+    const channel = channelName ? s.chat.byName.get(channelName) : undefined
+    return channel?.selfPermissions
+  })
 
   const partyId = useAppSelector(s => s.party.current?.id)
   const partyMembers = useAppSelector(s => s.party.current?.members)
@@ -58,13 +63,11 @@ export function ConnectedUserContextMenu({ userId, popoverProps }: ConnectedUser
     cancelLoadRef.current = abortController
 
     if (popoverProps.open && channelName) {
-      setIsLoadingChatUserProfile(true)
       dispatch(
         getChatUserProfile(channelName, userId, {
           signal: abortController.signal,
           onSuccess: () => setLoadingChatUserProfileError(undefined),
           onError: err => setLoadingChatUserProfileError(err),
-          onFinally: () => setIsLoadingChatUserProfile(false),
         }),
       )
     }
@@ -123,7 +126,7 @@ export function ConnectedUserContextMenu({ userId, popoverProps }: ConnectedUser
   }, [user, channelName, dispatch, onPopoverDismiss])
 
   const actions: React.ReactNode[] = []
-  if (!user || isLoadingChatUserProfile) {
+  if (!user || !chatUserProfile || !chatSelfPermissions) {
     // TODO(tec27): Ideally this wouldn't have hover/focus state
     actions.push(<LoadingItem key='loading' text='Loading user…' />)
   } else {
@@ -157,23 +160,21 @@ export function ConnectedUserContextMenu({ userId, popoverProps }: ConnectedUser
       }
 
       if (MULTI_CHANNEL && channelName && channelName.toLowerCase() !== 'shieldbattery') {
-        if (chatUserProfile) {
-          if (selfPermissions.moderateChatChannels || channel?.selfPermissions.owner) {
-            actions.push(
-              <Divider key='moderation-divider' />,
-              <MenuItem key='kick' text={`Kick ${user.name}`} onClick={onKickUser} />,
-              <MenuItem key='ban' text={`Ban ${user.name}`} onClick={onBanUser} />,
-            )
-          } else if (!chatUserProfile.isModerator) {
-            if (channel?.selfPermissions.kick || channel?.selfPermissions.ban) {
-              actions.push(<Divider key='moderation-divider' />)
-            }
-            if (channel?.selfPermissions.kick) {
-              actions.push(<MenuItem key='kick' text={`Kick ${user.name}`} onClick={onKickUser} />)
-            }
-            if (channel?.selfPermissions.ban) {
-              actions.push(<MenuItem key='ban' text={`Ban ${user.name}`} onClick={onBanUser} />)
-            }
+        if (selfPermissions.moderateChatChannels || chatSelfPermissions.owner) {
+          actions.push(
+            <Divider key='moderation-divider' />,
+            <MenuItem key='kick' text={`Kick ${user.name}`} onClick={onKickUser} />,
+            <MenuItem key='ban' text={`Ban ${user.name}`} onClick={onBanUser} />,
+          )
+        } else if (!chatUserProfile.isModerator) {
+          if (chatSelfPermissions.kick || chatSelfPermissions.ban) {
+            actions.push(<Divider key='moderation-divider' />)
+          }
+          if (chatSelfPermissions.kick) {
+            actions.push(<MenuItem key='kick' text={`Kick ${user.name}`} onClick={onKickUser} />)
+          }
+          if (chatSelfPermissions.ban) {
+            actions.push(<MenuItem key='ban' text={`Ban ${user.name}`} onClick={onBanUser} />)
           }
         }
       }

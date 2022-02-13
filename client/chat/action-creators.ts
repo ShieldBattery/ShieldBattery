@@ -1,6 +1,5 @@
 import {
   ChannelModerationAction,
-  ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
   GetChatUserProfileResponse,
   ModerateChannelUserServerRequest,
@@ -9,41 +8,14 @@ import {
 import { apiUrl } from '../../common/urls'
 import { SbUser, SbUserId } from '../../common/users/sb-user'
 import { ThunkAction } from '../dispatch-registry'
-import logger from '../logging/logger'
-import { push, replace } from '../navigation/routing'
+import { push } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
-import { isFetchError } from '../network/fetch-errors'
-import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { ActivateChannel, DeactivateChannel } from './actions'
 
 export function joinChannel(channel: string, spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const promise = fetchJson<void>(apiUrl`chat/${channel}`, { method: 'POST' })
-    promise.catch(err => {
-      // TODO(2Pac): Rework how joining channel works. Currently we first navigate to the channel
-      // and then attempt to join it. Which seems weird to me?
-      //
-      // To work around this for now, if the user is banned we redirect them to the index page,
-      // but ideally they wouldn't be navigated to the channel in the first place.
-      replace('/')
-
-      let message = `An error occurred while joining ${channel}`
-
-      if (isFetchError(err) && err.code) {
-        if (err.code === ChatServiceErrorCode.UserBanned) {
-          message = `You are banned from ${channel}`
-        } else {
-          logger.error(`Unhandled code when joining ${channel}: ${err.code}`)
-        }
-      } else {
-        logger.error(`Error when joining ${channel}: ${err.stack ?? err}`)
-      }
-
-      dispatch(openSnackbar({ message, time: TIMING_LONG }))
-    })
-
-    return promise
+    return fetchJson<void>(apiUrl`chat/${channel}`, { method: 'POST' })
   })
 }
 

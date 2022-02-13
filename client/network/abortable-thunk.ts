@@ -17,18 +17,12 @@ export interface RequestHandlingSpec<T = void> {
   /**
    * A function that will be called if the underlying request succeeds.
    */
-  onSuccess?: (result: T) => void
+  onSuccess: (result: T) => void
   /**
    * A function that will be called if the underlying request fails (not including failures due
    * to `AbortError`s).
    */
-  onError?: (err: Error) => void
-  /**
-   * A function that will be called when the underlying request ends (regardless if it was
-   * successful, failed, or aborted). Useful to cleanup any potential per-request data, e.g. loading
-   * state.
-   */
-  onFinally?: () => void
+  onError: (err: Error) => void
 }
 
 /**
@@ -52,7 +46,7 @@ export interface RequestHandlingSpec<T = void> {
  * }
  */
 export function abortableThunk<ResultType, T extends ReduxAction>(
-  { signal, onSuccess, onError, onFinally }: RequestHandlingSpec<ResultType>,
+  { signal, onSuccess, onError }: RequestHandlingSpec<ResultType>,
   thunkFn: (dispatch: DispatchFunction<T>, getState: () => RootState) => Promise<ResultType>,
 ): ThunkAction<T> {
   return (dispatch, getState) => {
@@ -63,9 +57,7 @@ export function abortableThunk<ResultType, T extends ReduxAction>(
         }
 
         batch(() => {
-          if (onSuccess) {
-            onSuccess(result)
-          }
+          onSuccess(result)
         })
       })
       .catch((err: Error) => {
@@ -74,16 +66,7 @@ export function abortableThunk<ResultType, T extends ReduxAction>(
         }
 
         batch(() => {
-          if (onError) {
-            onError(err)
-          }
-        })
-      })
-      .finally(() => {
-        batch(() => {
-          if (onFinally) {
-            onFinally()
-          }
+          onError(err)
         })
       })
   }

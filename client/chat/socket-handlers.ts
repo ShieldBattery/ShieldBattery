@@ -73,6 +73,8 @@ const eventToChatAction: EventToChatActionMap = {
     const { auth } = getState()
     if (auth.user.id === event.targetId) {
       // It was us who has been banned from the channel
+      // TODO(2Pac): Send a notification to the banned user that they've been banned, instead of
+      // just showing a snackbar which is easily missed if the user is not looking.
       dispatch(
         openSnackbar({ message: `You have been banned from ${channel}.`, time: TIMING_LONG }),
       )
