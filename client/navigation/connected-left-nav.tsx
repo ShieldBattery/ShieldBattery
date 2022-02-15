@@ -1,3 +1,4 @@
+import keycode from 'keycode'
 import React, { useCallback, useMemo, useRef, useState } from 'react'
 import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
@@ -27,6 +28,7 @@ import { leaveLobby } from '../lobbies/action-creators'
 import LobbyNavEntry from '../lobbies/nav-entry'
 import { cancelFindMatch } from '../matchmaking/action-creators'
 import SearchingMatchNavEntry from '../matchmaking/searching-match-nav-entry'
+import { useButtonHotkey } from '../material/button'
 import LeftNav from '../material/left-nav/left-nav'
 import Section from '../material/left-nav/section'
 import Subheader from '../material/left-nav/subheader'
@@ -36,6 +38,7 @@ import { MenuItem } from '../material/menu/item'
 import { Menu } from '../material/menu/menu'
 import { useAnchorPosition } from '../material/popover'
 import { defaultSpring } from '../material/springs'
+import { Tooltip } from '../material/tooltip'
 import { leaveParty } from '../parties/action-creators'
 import { PartyNavEntry } from '../parties/party-nav-entry'
 import { navigateToUserProfile } from '../profile/action-creators'
@@ -48,6 +51,9 @@ import { overline, singleLine } from '../styles/typography'
 import { closeWhisperSession } from '../whispers/action-creators'
 import WhisperNavEntry from '../whispers/nav-entry'
 import Lockup from './lockup'
+
+const ALT_H = { keyCode: keycode('h'), altKey: true }
+const ALT_W = { keyCode: keycode('w'), altKey: true }
 
 const SectionSpacer = styled.hr`
   border: none;
@@ -391,6 +397,11 @@ export function ConnectedLeftNav() {
 
   const [profileOverlayOpen, setProfileOverlayOpen] = useState(false)
   const profileEntryRef = useRef<HTMLButtonElement>(null)
+  const joinChannelButtonRef = useRef<HTMLButtonElement>(null)
+  const startWhisperButtonRef = useRef<HTMLButtonElement>(null)
+
+  useButtonHotkey({ ref: joinChannelButtonRef, hotkey: ALT_H })
+  useButtonHotkey({ ref: startWhisperButtonRef, hotkey: ALT_W })
 
   const onProfileEntryClick = useCallback(() => {
     setProfileOverlayOpen(true)
@@ -447,10 +458,14 @@ export function ConnectedLeftNav() {
   )
 
   const joinChannelButton = (
-    <SubheaderButton icon={<AddIcon />} title='Join a channel' onClick={onJoinChannelClick} />
+    <Tooltip text='Join a channel (Alt + H)' position='right'>
+      <SubheaderButton ref={joinChannelButtonRef} icon={<AddIcon />} onClick={onJoinChannelClick} />
+    </Tooltip>
   )
   const addWhisperButton = (
-    <SubheaderButton icon={<AddIcon />} title='Start a whisper' onClick={onAddWhisperClick} />
+    <Tooltip text='Start a whisper (Alt + W)' position='right'>
+      <SubheaderButton ref={startWhisperButtonRef} icon={<AddIcon />} onClick={onAddWhisperClick} />
+    </Tooltip>
   )
 
   return (
