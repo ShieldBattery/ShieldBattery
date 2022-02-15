@@ -142,13 +142,7 @@ export function Tabs<T>({ children, activeTab, onChange, className }: TabsProps<
       }
 
       const childHotkeys = (child.props as TabItemProps<T>).hotkeys
-      const hotkeys: HotkeyProp[] = []
-
-      if (Array.isArray(childHotkeys)) {
-        for (const childHotkey of childHotkeys) {
-          hotkeys.push(childHotkey)
-        }
-      }
+      const hotkeys = (childHotkeys ?? []).slice()
 
       hotkeys.push({ keyCode: KEY_NUMBERS[i], ctrlKey: true })
       if (children.length - 1 === i) {
@@ -188,7 +182,7 @@ export function Tabs<T>({ children, activeTab, onChange, className }: TabsProps<
         })
 
         if (enabledChildren.length < 2) {
-          return false
+          return true
         }
 
         let previousOrNextTab: T | undefined
