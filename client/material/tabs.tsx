@@ -173,45 +173,43 @@ export function Tabs<T>({ children, activeTab, onChange, className }: TabsProps<
 
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
-      if ((event.keyCode === PAGEUP || event.keyCode === PAGEDOWN) && event.ctrlKey === true) {
-        const enabledChildren: React.ReactElement[] = []
-        React.Children.forEach(children, (child, i) => {
-          if (child && !(child.props as TabItemProps<T>).disabled) {
-            enabledChildren.push(child)
-          }
-        })
-
-        if (enabledChildren.length < 2) {
-          return true
-        }
-
-        let previousOrNextTab: T | undefined
-        React.Children.forEach(enabledChildren, (child, i) => {
-          let previousOrNextChild
-          if (event.keyCode === PAGEUP) {
-            previousOrNextChild =
-              i === enabledChildren.length - 1 ? enabledChildren[0] : enabledChildren[i + 1]
-          } else {
-            previousOrNextChild =
-              i === 0 ? enabledChildren[enabledChildren.length - 1] : enabledChildren[i - 1]
-          }
-
-          if (
-            child &&
-            previousOrNextChild &&
-            (previousOrNextChild.props as TabItemProps<T>).value === activeTab
-          ) {
-            previousOrNextTab = child.props.value
-          }
-        })
-
-        if (previousOrNextTab !== undefined && onChange) {
-          onChange(previousOrNextTab)
-
-          return true
-        }
-
+      if (!onChange) {
         return false
+      }
+
+      let activeTabIndex = 0
+      const enabledChildren: React.ReactElement[] = []
+      React.Children.forEach(children, child => {
+        if (!child) {
+          return
+        }
+
+        const childProps = child.props as TabItemProps<T>
+        if (childProps.value === activeTab || !childProps.disabled) {
+          enabledChildren.push(child)
+        }
+        if (childProps.value === activeTab) {
+          // This needs to be the index in the `enabledChildren` array, not from all of the children
+          activeTabIndex = enabledChildren.length - 1
+        }
+      })
+
+      if (enabledChildren.length < 2) {
+        return true
+      }
+
+      if (event.keyCode === PAGEUP) {
+        const previousIndex = (activeTabIndex - 1 + enabledChildren.length) % enabledChildren.length
+        const tab = enabledChildren[previousIndex]
+        onChange(tab.props.value)
+
+        return true
+      } else if (event.keyCode === PAGEDOWN) {
+        const nextIndex = (activeTabIndex + 1) % enabledChildren.length
+        const tab = enabledChildren[nextIndex]
+        onChange(tab.props.value)
+
+        return true
       }
 
       return false
