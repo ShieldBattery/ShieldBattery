@@ -1,22 +1,29 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { VariableSizeList } from 'react-window'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { ClientChatMessageType, ServerChatMessageType } from '../../common/chat'
+import {
+  ChatServiceErrorCode,
+  ClientChatMessageType,
+  ServerChatMessageType,
+} from '../../common/chat'
 import { MULTI_CHANNEL } from '../../common/flags'
 import { SbUserId } from '../../common/users/sb-user'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
+import { logger } from '../logging/logger'
 import { Chat } from '../messaging/chat'
 import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { Message } from '../messaging/message-records'
-import { push } from '../navigation/routing'
+import { push, replace } from '../navigation/routing'
+import { isFetchError } from '../network/fetch-errors'
 import { ConnectedUserContextMenu } from '../profile/user-context-menu'
 import { useUserOverlays } from '../profile/user-overlays'
 import { ConnectedUserProfileOverlay } from '../profile/user-profile-overlay'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { RootState } from '../root-reducer'
+import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { usePrevious } from '../state-hooks'
 import {
   alphaDisabled,
@@ -36,7 +43,9 @@ import {
   sendMessage,
 } from './action-creators'
 import {
+  BanUserMessage,
   JoinChannelMessage,
+  KickUserMessage,
   LeaveChannelMessage,
   NewChannelOwnerMessage,
   SelfJoinChannelMessage,
@@ -350,6 +359,10 @@ const StyledChat = styled(Chat)`
 
 function renderMessage(msg: Message) {
   switch (msg.type) {
+    case ClientChatMessageType.BanUser:
+      return <BanUserMessage key={msg.id} time={msg.time} userId={msg.userId} />
+    case ClientChatMessageType.KickUser:
+      return <KickUserMessage key={msg.id} time={msg.time} userId={msg.userId} />
     case ServerChatMessageType.JoinChannel:
       return <JoinChannelMessage key={msg.id} time={msg.time} userId={msg.userId} />
     case ClientChatMessageType.LeaveChannel:
@@ -440,10 +453,10 @@ export default function Channel(props: ChatChannelProps) {
     areUserEntriesEqual,
   )
 
-  const prevChannelName = usePrevious(channelName)
-  const prevChannel = usePrevious(channel)
   const isInChannel = !!channel
-  const isLeavingChannel = !isInChannel && !!prevChannel && prevChannelName === channelName
+  const prevIsInChannel = usePrevious(isInChannel)
+  const prevChannelName = usePrevious(channelName)
+  const isLeavingChannel = !isInChannel && prevIsInChannel && prevChannelName === channelName
 
   // TODO(2Pac): Pull this out into some kind of "isLeaving" hook and share with whispers/lobby?
   useEffect(() => {
@@ -452,20 +465,73 @@ export default function Channel(props: ChatChannelProps) {
     }
   }, [isLeavingChannel])
 
+  const [joinChannelError, setJoinChannelError] = useState<Error>()
+  const cancelJoinRef = useRef(new AbortController())
+
   useEffect(() => {
+    cancelJoinRef.current.abort()
+    const abortController = new AbortController()
+    cancelJoinRef.current = abortController
+
     if (isInChannel) {
       dispatch(retrieveUserList(channelName))
       dispatch(activateChannel(channelName) as any)
     } else if (!isLeavingChannel) {
       if (MULTI_CHANNEL) {
-        dispatch(joinChannel(channelName))
+        dispatch(
+          joinChannel(channelName, {
+            signal: abortController.signal,
+            onSuccess: () => setJoinChannelError(undefined),
+            onError: err => setJoinChannelError(err),
+          }),
+        )
       } else {
         push('/')
       }
     }
 
-    return () => dispatch(deactivateChannel(channelName) as any)
+    return () => {
+      abortController.abort()
+      dispatch(deactivateChannel(channelName) as any)
+    }
   }, [isInChannel, isLeavingChannel, channelName, dispatch])
+
+  useEffect(() => {
+    if (joinChannelError) {
+      // TODO(2Pac): Rework how joining channel works. Currently we first navigate to the channel
+      // and then attempt to join it. Which seems weird to me?
+      //
+      // To work around this for now, if the user is banned we redirect them to the index page,
+      // but ideally they wouldn't be navigated to the channel in the first place.
+      replace('/')
+
+      let message = `An error occurred while joining ${channelName}`
+
+      if (isFetchError(joinChannelError) && joinChannelError.code) {
+        if (joinChannelError.code === ChatServiceErrorCode.UserBanned) {
+          message = `You are banned from ${channelName}`
+        } else {
+          logger.error(`Unhandled code when joining ${channelName}: ${joinChannelError.code}`)
+        }
+      } else {
+        logger.error(
+          `Error when joining ${channelName}: ${joinChannelError.stack ?? joinChannelError}`,
+        )
+      }
+
+      // TODO(2Pac): Once the joining channel is re-worked, this should probably display the error
+      // message based on the context in which the user attempted to join a channel, e.g.
+      //  - display the error message directly in the join-channel dialog if the user used the
+      //    join-channel dialog to join the channel
+      //  - display the error message in the chat channel (or a snackbar) if user attempted to join
+      //    the channel with a chat command
+      //  - display the error message in the channel info page if user lands on the channel page
+      //    directly
+      //  - do *something* else when a user attempts to join by clicking the channel invite in the
+      //    notifications
+      dispatch(openSnackbar({ message, time: TIMING_LONG }))
+    }
+  }, [joinChannelError, channelName, dispatch])
 
   const onLoadMoreMessages = useCallback(
     () => dispatch(getMessageHistory(channelName, MESSAGES_LIMIT)),

@@ -252,7 +252,7 @@ export interface LeaveChannelResult {
   newOwnerId: SbUserId | null
 }
 
-export async function leaveChannel(
+export async function removeUserFromChannel(
   userId: SbUserId,
   channelName: string,
 ): Promise<LeaveChannelResult> {

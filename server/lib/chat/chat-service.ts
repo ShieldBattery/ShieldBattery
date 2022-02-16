@@ -1,4 +1,4 @@
-import { Map, Record, Set } from 'immutable'
+import { Map, Record as ImmutableRecord, Set } from 'immutable'
 import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
@@ -6,12 +6,16 @@ import {
   ChannelPermissions,
   ChatEvent,
   ChatInitEvent,
+  ChatServiceErrorCode,
+  ChatUserEvent,
   GetChannelHistoryServerResponse,
   ServerChatMessage,
   ServerChatMessageType,
+  toChatUserProfileJson,
 } from '../../../common/chat'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import { DbClient } from '../db'
+import { CodedError } from '../errors/coded-error'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
 import { getPermissions } from '../models/permissions'
@@ -28,38 +32,24 @@ import {
   getUserChannelEntryForUser,
   getUsersForChannel,
   isUserBannedFromChannel,
-  leaveChannel,
+  removeUserFromChannel,
 } from './chat-models'
 
-class ChatState extends Record({
+class ChatState extends ImmutableRecord({
   /** Maps channel name -> Set of IDs of users in that channel. */
   channels: Map<string, Set<SbUserId>>(),
   /** Maps userId -> Set of channels they're in (as names). */
   users: Map<SbUserId, Set<string>>(),
 }) {}
 
-export enum ChatServiceErrorCode {
-  UserOffline,
-  UserNotFound,
-  InvalidJoinAction,
-  LeaveShieldBattery,
-  InvalidLeaveAction,
-  InvalidModerationAction,
-  ModeratorAccess,
-  UserBanned,
-  InvalidSendAction,
-  InvalidGetHistoryAction,
-  InvalidGetUsersAction,
-}
-
-export class ChatServiceError extends Error {
-  constructor(readonly code: ChatServiceErrorCode, message: string) {
-    super(message)
-  }
-}
+export class ChatServiceError extends CodedError<ChatServiceErrorCode> {}
 
 export function getChannelPath(channelName: string): string {
   return `/chat2/${encodeURIComponent(channelName)}`
+}
+
+export function getChannelUserPath(channelName: string, userId: SbUserId): string {
+  return `/chat/${encodeURIComponent(channelName)}/users/${userId}`
 }
 
 @singleton()
@@ -67,7 +57,7 @@ export default class ChatService {
   private state = new ChatState()
 
   constructor(
-    private publisher: TypedPublisher<ChatEvent>,
+    private publisher: TypedPublisher<ChatEvent | ChatUserEvent>,
     private userSocketsManager: UserSocketsManager,
   ) {
     userSocketsManager
@@ -95,7 +85,7 @@ export default class ChatService {
 
     const originalChannelName = await this.getOriginalChannelName(channelName)
     if (this.state.users.has(userId) && this.state.users.get(userId)!.has(originalChannelName)) {
-      throw new ChatServiceError(ChatServiceErrorCode.InvalidJoinAction, 'Already in this channel')
+      throw new ChatServiceError(ChatServiceErrorCode.AlreadyJoined, 'Already in this channel')
     }
 
     const [userInfo, isBanned] = await Promise.all([
@@ -162,7 +152,7 @@ export default class ChatService {
     const originalChannelName = await this.getOriginalChannelName(channelName)
     if (originalChannelName === 'ShieldBattery') {
       throw new ChatServiceError(
-        ChatServiceErrorCode.LeaveShieldBattery,
+        ChatServiceErrorCode.CannotLeaveShieldBattery,
         "Can't leave ShieldBattery channel",
       )
     }
@@ -171,7 +161,7 @@ export default class ChatService {
       !this.state.users.get(userSockets.userId)!.has(originalChannelName)
     ) {
       throw new ChatServiceError(
-        ChatServiceErrorCode.InvalidLeaveAction,
+        ChatServiceErrorCode.NotInChannel,
         'Must be in channel to leave it',
       )
     }
@@ -188,92 +178,97 @@ export default class ChatService {
 
   async moderateUser(
     channelName: string,
-    moderatorId: SbUserId,
+    userId: SbUserId,
     targetId: SbUserId,
     moderationAction: ChannelModerationAction,
     moderationReason?: string,
   ): Promise<void> {
-    const [moderatorPermissions, moderatorUserChannel, targetUserChannel] = await Promise.all([
-      getPermissions(moderatorId),
-      getUserChannelEntryForUser(moderatorId, channelName),
+    const [userPermissions, userChannelEntry, targetChannelEntry] = await Promise.all([
+      getPermissions(userId),
+      getUserChannelEntryForUser(userId, channelName),
       getUserChannelEntryForUser(targetId, channelName),
     ])
 
-    if (!moderatorUserChannel) {
+    if (!userChannelEntry) {
       throw new ChatServiceError(
-        ChatServiceErrorCode.InvalidModerationAction,
+        ChatServiceErrorCode.NotInChannel,
         'Must be in channel to moderate users',
       )
     }
-    if (!targetUserChannel) {
+    if (!targetChannelEntry) {
       throw new ChatServiceError(
-        ChatServiceErrorCode.InvalidModerationAction,
+        ChatServiceErrorCode.TargetNotInChannel,
         'User must be in channel to moderate them',
       )
     }
-    if (moderatorId === targetId) {
+    if (userId === targetId) {
       throw new ChatServiceError(
-        ChatServiceErrorCode.InvalidModerationAction,
+        ChatServiceErrorCode.CannotModerateYourself,
         "Can't moderate yourself",
       )
     }
-    if (
-      !moderatorPermissions?.moderateChatChannels &&
-      !moderatorUserChannel.channelPermissions.owner
-    ) {
-      if (!moderatorUserChannel.channelPermissions[moderationAction]) {
-        throw new ChatServiceError(
-          ChatServiceErrorCode.ModeratorAccess,
-          'Not enough permissions to moderate the user',
-        )
-      }
-      if (
-        targetUserChannel.channelPermissions.owner ||
-        targetUserChannel.channelPermissions.editPermissions ||
-        targetUserChannel.channelPermissions.ban ||
-        targetUserChannel.channelPermissions.kick
-      ) {
-        throw new ChatServiceError(
-          ChatServiceErrorCode.ModeratorAccess,
-          "Can't moderate users that have moderator access",
-        )
-      }
+
+    const isUserServerModerator =
+      userPermissions?.editPermissions || userPermissions?.moderateChatChannels
+
+    const isUserChannelOwner = userChannelEntry.channelPermissions.owner
+    const isTargetChannelOwner = targetChannelEntry.channelPermissions.owner
+
+    const isUserChannelModerator =
+      userChannelEntry.channelPermissions.editPermissions ||
+      userChannelEntry.channelPermissions[moderationAction]
+    const isTargetChannelModerator =
+      targetChannelEntry.channelPermissions.editPermissions ||
+      targetChannelEntry.channelPermissions.ban ||
+      targetChannelEntry.channelPermissions.kick
+
+    // TODO(2Pac): Really need tests for these.
+
+    if (isTargetChannelOwner && !isUserServerModerator) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.CannotModerateChannelOwner,
+        'Only server moderators can moderate channel owners',
+      )
+    }
+    if (isTargetChannelModerator && !isUserServerModerator && !isUserChannelOwner) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.CannotModerateChannelModerator,
+        'Only server moderators and channel owners can moderate channel moderators',
+      )
+    }
+    if (!isUserServerModerator && !isUserChannelOwner && !isUserChannelModerator) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.NotEnoughPermissionsToModerate,
+        'Not enough permissions to moderate the user',
+      )
     }
 
     const originalChannelName = await this.getOriginalChannelName(channelName)
     if (originalChannelName === 'ShieldBattery') {
       throw new ChatServiceError(
-        ChatServiceErrorCode.LeaveShieldBattery,
+        ChatServiceErrorCode.CannotModerateShieldBattery,
         "Can't moderate users in the ShieldBattery channel",
-      )
-    }
-    if (
-      !this.state.users.has(targetId) ||
-      !this.state.users.get(targetId)!.has(originalChannelName)
-    ) {
-      throw new ChatServiceError(
-        ChatServiceErrorCode.InvalidModerationAction,
-        'User must be in channel to moderate them',
       )
     }
 
     if (moderationAction === ChannelModerationAction.Ban) {
-      await banUserFromChannel(originalChannelName, moderatorId, targetId, moderationReason)
+      await banUserFromChannel(originalChannelName, userId, targetId, moderationReason)
     }
 
-    // NOTE(2Pac): New owner can technically be selected if a global moderator removes the current
+    // NOTE(2Pac): New owner can technically be selected if a server moderator removes the current
     // owner.
     const newOwnerId = await this.removeUserFromChannel(originalChannelName, targetId)
+
+    this.publisher.publish(getChannelPath(originalChannelName), {
+      action: moderationAction,
+      targetId,
+      newOwnerId,
+    })
 
     // NOTE(2Pac): We don't use the helper method here because moderating people while they're
     // offline is allowed.
     const targetSockets = this.userSocketsManager.getById(targetId)
     if (targetSockets) {
-      this.publisher.publish(getChannelPath(originalChannelName), {
-        action: moderationAction,
-        targetId: targetSockets.userId,
-        newOwnerId,
-      })
       this.unsubscribeUserFromChannel(targetSockets, originalChannelName)
     }
   }
@@ -287,7 +282,7 @@ export default class ChatService {
       !this.state.users.get(userSockets.userId)!.has(originalChannelName)
     ) {
       throw new ChatServiceError(
-        ChatServiceErrorCode.InvalidSendAction,
+        ChatServiceErrorCode.NotInChannel,
         'Must be in a channel to send a message to it',
       )
     }
@@ -333,7 +328,7 @@ export default class ChatService {
       !this.state.users.get(userSockets.userId)!.has(originalChannelName)
     ) {
       throw new ChatServiceError(
-        ChatServiceErrorCode.InvalidGetHistoryAction,
+        ChatServiceErrorCode.NotInChannel,
         'Must be in a channel to retrieve message history',
       )
     }
@@ -398,12 +393,50 @@ export default class ChatService {
       !this.state.users.get(userSockets.userId)!.has(originalChannelName)
     ) {
       throw new ChatServiceError(
-        ChatServiceErrorCode.InvalidGetUsersAction,
+        ChatServiceErrorCode.NotInChannel,
         'Must be in a channel to retrieve user list',
       )
     }
 
     return getUsersForChannel(originalChannelName)
+  }
+
+  async getChatUserProfile(channelName: string, userId: SbUserId, targetId: SbUserId) {
+    const userSockets = this.getUserSockets(userId)
+    const originalChannelName = await this.getOriginalChannelName(channelName)
+    if (
+      !this.state.users.has(userSockets.userId) ||
+      !this.state.users.get(userSockets.userId)!.has(originalChannelName)
+    ) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.NotInChannel,
+        'Must be in a channel to retrieve user profile',
+      )
+    }
+
+    const chatUser = await getUserChannelEntryForUser(targetId, originalChannelName)
+    // This usually means the user has left the channel.
+    if (!chatUser) {
+      // We don't throw an error here because users can still request the profile of users that have
+      // left the channel. So we return a response without a profile and expect clients to handle
+      // those users in any way they want.
+      return {
+        userId: targetId,
+        channelName,
+      }
+    }
+
+    const { channelPermissions: perms } = chatUser
+    return {
+      userId: chatUser.userId,
+      channelName: chatUser.channelName,
+      profile: toChatUserProfileJson({
+        userId: chatUser.userId,
+        channelName: chatUser.channelName,
+        joinDate: chatUser.joinDate,
+        isModerator: perms.owner || perms.editPermissions || perms.ban || perms.kick,
+      }),
+    }
   }
 
   async getOriginalChannelName(channelName: string): Promise<string> {
@@ -433,6 +466,7 @@ export default class ChatService {
       activeUserIds: this.state.channels.get(channelName)!.toArray(),
       selfPermissions: channelPermissions,
     }))
+    userSockets.subscribe(getChannelUserPath(channelName, userSockets.userId))
   }
 
   unsubscribeUserFromChannel(user: UserSocketsGroup, channelName: string) {
@@ -443,14 +477,28 @@ export default class ChatService {
     channelName: string,
     userId: SbUserId,
   ): Promise<SbUserId | null> {
-    const { newOwnerId } = await leaveChannel(userId, channelName)
+    const { newOwnerId } = await removeUserFromChannel(userId, channelName)
+
+    if (newOwnerId) {
+      const newOwner = await getUserChannelEntryForUser(newOwnerId, channelName)
+
+      if (newOwner) {
+        this.publisher.publish(getChannelUserPath(channelName, newOwnerId), {
+          action: 'permissionsChanged',
+          selfPermissions: newOwner.channelPermissions,
+        })
+      }
+    }
+
     const updated = this.state.channels.get(channelName)!.delete(userId)
     this.state = updated.size
       ? this.state.setIn(['channels', channelName], updated)
       : this.state.deleteIn(['channels', channelName])
 
-    // TODO(tec27): Remove `any` cast once Immutable properly types this call again
-    this.state = this.state.updateIn(['users', userId], u => (u as any).delete(channelName))
+    if (this.state.users.has(userId) && this.state.users.get(userId)!.has(channelName)) {
+      // TODO(tec27): Remove `any` cast once Immutable properly types this call again
+      this.state = this.state.updateIn(['users', userId], u => (u as any).delete(channelName))
+    }
 
     return newOwnerId
   }

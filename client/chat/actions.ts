@@ -1,12 +1,16 @@
 import {
+  ChatBanEvent,
   ChatInitEvent,
   ChatJoinEvent,
+  ChatKickEvent,
   ChatLeaveEvent,
   ChatMessageEvent,
+  ChatPermissionsChangedEvent,
   ChatUserActiveEvent,
   ChatUserIdleEvent,
   ChatUserOfflineEvent,
   GetChannelHistoryServerResponse,
+  GetChatUserProfileResponse,
 } from '../../common/chat'
 import { SbUser } from '../../common/users/sb-user'
 import { BaseFetchFailure } from '../network/fetch-errors'
@@ -27,16 +31,22 @@ export type ChatActions =
   | RetrieveUserListBegin
   | RetrieveUserList
   | RetrieveUserListFailure
+  | GetChatUserProfile
   | ActivateChannel
   | DeactivateChannel
   | InitChannel
   | UpdateJoin
   | UpdateLeave
   | UpdateLeaveSelf
+  | UpdateKick
+  | UpdateKickSelf
+  | UpdateBan
+  | UpdateBanSelf
   | UpdateMessage
   | UpdateUserActive
   | UpdateUserIdle
   | UpdateUserOffline
+  | UpdateSelfPermissions
 
 export interface JoinChannelBegin {
   type: '@chat/joinChannelBegin'
@@ -175,6 +185,14 @@ export interface RetrieveUserListFailure extends BaseFetchFailure<'@chat/retriev
 }
 
 /**
+ * Get the specific user's profile in a particular chat channel.
+ */
+export interface GetChatUserProfile {
+  type: '@chat/getChatUserProfile'
+  payload: GetChatUserProfileResponse
+}
+
+/**
  * Activate a particular chat channel. This is a purely client-side action which marks the channel
  * as "active", and removes the unread indicator if there is one.
  */
@@ -232,6 +250,40 @@ export interface UpdateLeaveSelf {
 }
 
 /**
+ * A user has been kicked in a channel we're in.
+ */
+export interface UpdateKick {
+  type: '@chat/updateKick'
+  payload: ChatKickEvent
+  meta: { channel: string }
+}
+
+/**
+ * We have been kicked from a channel.
+ */
+export interface UpdateKickSelf {
+  type: '@chat/updateKickSelf'
+  meta: { channel: string }
+}
+
+/**
+ * A user has been banned in a channel we're in.
+ */
+export interface UpdateBan {
+  type: '@chat/updateBan'
+  payload: ChatBanEvent
+  meta: { channel: string }
+}
+
+/**
+ * We have been banned from a channel.
+ */
+export interface UpdateBanSelf {
+  type: '@chat/updateBanSelf'
+  meta: { channel: string }
+}
+
+/**
  * A channel we're in has receieved a new text message.
  */
 export interface UpdateMessage {
@@ -259,10 +311,19 @@ export interface UpdateUserIdle {
 }
 
 /**
- * A user in one of our chat channels has gone offline
+ * A user in one of our chat channels has gone offline.
  */
 export interface UpdateUserOffline {
   type: '@chat/updateUserOffline'
   payload: ChatUserOfflineEvent
+  meta: { channel: string }
+}
+
+/**
+ * Our permissions in one of the chat channels we're in have changed.
+ */
+export interface UpdateSelfPermissions {
+  type: '@chat/permissionsChanged'
+  payload: ChatPermissionsChangedEvent
   meta: { channel: string }
 }

@@ -1,6 +1,12 @@
 import cuid from 'cuid'
 import { Immutable } from 'immer'
-import { ChannelPermissions, ChatMessage, ClientChatMessageType } from '../../common/chat'
+import {
+  ChannelModerationAction,
+  ChannelPermissions,
+  ChatMessage,
+  ChatUserProfileJson,
+  ClientChatMessageType,
+} from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user'
 import { NETWORK_SITE_CONNECTED } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
@@ -18,6 +24,7 @@ export interface ChannelState {
   name: string
   messages: ChatMessage[]
   users: UsersState
+  userProfiles: Map<SbUserId, ChatUserProfileJson>
   selfPermissions: ChannelPermissions
 
   loadingHistory: boolean
@@ -39,6 +46,56 @@ export interface ChatState {
 const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
   channels: new Set(),
   byName: new Map(),
+}
+
+function removeUserFromChannel(
+  state: ChatState,
+  channelName: string,
+  userId: SbUserId,
+  newOwnerId: SbUserId | null,
+  reason?: ChannelModerationAction,
+) {
+  const channel = state.byName.get(channelName)
+  if (!channel) {
+    return
+  }
+
+  channel.users.active.delete(userId)
+  channel.users.idle.delete(userId)
+  channel.users.offline.delete(userId)
+  channel.userProfiles.delete(userId)
+
+  let messageType:
+    | ClientChatMessageType.LeaveChannel
+    | ClientChatMessageType.KickUser
+    | ClientChatMessageType.BanUser = ClientChatMessageType.LeaveChannel
+  if (reason === ChannelModerationAction.Kick) {
+    messageType = ClientChatMessageType.KickUser
+  } else if (reason === ChannelModerationAction.Ban) {
+    messageType = ClientChatMessageType.BanUser
+  }
+
+  updateMessages(state, channelName, true, m =>
+    m.concat({
+      id: cuid(),
+      type: messageType,
+      channel: channelName,
+      time: Date.now(),
+      userId,
+    }),
+  )
+
+  if (newOwnerId) {
+    updateMessages(state, channelName, true, m =>
+      m.concat({
+        id: cuid(),
+        type: ClientChatMessageType.NewChannelOwner,
+        channel: channelName,
+        time: Date.now(),
+        newOwnerId,
+      }),
+    )
+  }
 }
 
 /**
@@ -89,6 +146,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       messages: [],
       users: channelUsers,
       selfPermissions,
+      userProfiles: new Map(),
       loadingHistory: false,
       hasHistory: true,
       hasLoadedUserList: false,
@@ -121,7 +179,6 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
     channel.users.active.add(user.id)
 
-    // TODO(2Pac): make this configurable
     updateMessages(state, lowerCaseChannelName, true, m => m.concat(message))
   },
 
@@ -130,39 +187,54 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     const { channel: channelName } = action.meta
     const lowerCaseChannelName = channelName.toLowerCase()
 
-    const channel = state.byName.get(lowerCaseChannelName)
-    if (!channel) {
-      return
-    }
-
-    channel.users.active.delete(userId)
-    channel.users.idle.delete(userId)
-
-    // TODO(2Pac): make this configurable
-    updateMessages(state, lowerCaseChannelName, true, m =>
-      m.concat({
-        id: cuid(),
-        type: ClientChatMessageType.LeaveChannel,
-        channel: lowerCaseChannelName,
-        time: Date.now(),
-        userId,
-      }),
-    )
-
-    if (newOwnerId) {
-      updateMessages(state, lowerCaseChannelName, true, m =>
-        m.concat({
-          id: cuid(),
-          type: ClientChatMessageType.NewChannelOwner,
-          channel: lowerCaseChannelName,
-          time: Date.now(),
-          newOwnerId,
-        }),
-      )
-    }
+    removeUserFromChannel(state, lowerCaseChannelName, userId, newOwnerId)
   },
 
   ['@chat/updateLeaveSelf'](state, action) {
+    const { channel: channelName } = action.meta
+    const lowerCaseChannelName = channelName.toLowerCase()
+
+    state.channels.delete(channelName)
+    state.byName.delete(lowerCaseChannelName)
+  },
+
+  ['@chat/updateKick'](state, action) {
+    const { targetId, newOwnerId } = action.payload
+    const { channel: channelName } = action.meta
+    const lowerCaseChannelName = channelName.toLowerCase()
+
+    removeUserFromChannel(
+      state,
+      lowerCaseChannelName,
+      targetId,
+      newOwnerId,
+      ChannelModerationAction.Kick,
+    )
+  },
+
+  ['@chat/updateKickSelf'](state, action) {
+    const { channel: channelName } = action.meta
+    const lowerCaseChannelName = channelName.toLowerCase()
+
+    state.channels.delete(channelName)
+    state.byName.delete(lowerCaseChannelName)
+  },
+
+  ['@chat/updateBan'](state, action) {
+    const { targetId, newOwnerId } = action.payload
+    const { channel: channelName } = action.meta
+    const lowerCaseChannelName = channelName.toLowerCase()
+
+    removeUserFromChannel(
+      state,
+      lowerCaseChannelName,
+      targetId,
+      newOwnerId,
+      ChannelModerationAction.Ban,
+    )
+  },
+
+  ['@chat/updateBanSelf'](state, action) {
     const { channel: channelName } = action.meta
     const lowerCaseChannelName = channelName.toLowerCase()
 
@@ -296,6 +368,20 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     channel.users.offline = new Set(offlineArray.map(u => u.id))
   },
 
+  ['@chat/getChatUserProfile'](state, action) {
+    const { userId, channelName, profile } = action.payload
+    const lowerCaseChannelName = channelName.toLowerCase()
+
+    const channel = state.byName.get(lowerCaseChannelName)
+    if (!channel) {
+      return
+    }
+
+    if (profile) {
+      channel.userProfiles.set(userId, profile)
+    }
+  },
+
   ['@chat/activateChannel'](state, action) {
     const { channel: channelName } = action.payload
     const lowerCaseChannelName = channelName.toLowerCase()
@@ -324,6 +410,18 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     channel.messages = channel.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
     channel.hasHistory = channel.hasHistory || hasHistory
     channel.activated = false
+  },
+
+  ['@chat/permissionsChanged'](state, action) {
+    const { channel: channelName } = action.meta
+    const lowerCaseChannelName = channelName.toLowerCase()
+
+    const channel = state.byName.get(lowerCaseChannelName)
+    if (!channel) {
+      return
+    }
+
+    channel.selfPermissions = action.payload.selfPermissions
   },
 
   [NETWORK_SITE_CONNECTED as any]() {
