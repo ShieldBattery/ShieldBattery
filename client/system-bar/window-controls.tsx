@@ -6,6 +6,7 @@ import { useExternalElementRef } from '../dom/use-external-element-ref'
 import CloseIcon from '../icons/codicons/chrome-close.svg'
 import MaximizeIcon from '../icons/codicons/chrome-maximize.svg'
 import MinimizeIcon from '../icons/codicons/chrome-minimize.svg'
+import RestoreIcon from '../icons/codicons/chrome-restore.svg'
 import { buttonReset } from '../material/button-reset'
 import { zIndexWindowControls } from '../material/zindex'
 
@@ -57,7 +58,23 @@ const CloseButton = styled.button`
   }
 `
 
-const MaximizeButton = styled.button`
+const StyledMaximizeIcon = styled(MaximizeIcon)`
+  display: inline;
+
+  .maximized & {
+    display: none;
+  }
+`
+
+const StyledRestoreIcon = styled(RestoreIcon)`
+  display: none;
+
+  .maximized & {
+    display: inline;
+  }
+`
+
+const MaximizeRestoreButton = styled.button`
   ${button};
 `
 
@@ -131,9 +148,10 @@ export function WindowControls() {
       <CloseButton title={'Close'} onClick={onCloseClick}>
         <CloseIcon />
       </CloseButton>
-      <MaximizeButton title={'Maximize/Restore'} onClick={onMaximizeClick}>
-        <MaximizeIcon />
-      </MaximizeButton>
+      <MaximizeRestoreButton title={'Maximize/Restore'} onClick={onMaximizeClick}>
+        <StyledMaximizeIcon />
+        <StyledRestoreIcon />
+      </MaximizeRestoreButton>
       <MinimizeButton title={'Minimize'} onClick={onMinimizeClick}>
         <MinimizeIcon />
       </MinimizeButton>
