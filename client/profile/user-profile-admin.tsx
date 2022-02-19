@@ -172,11 +172,6 @@ function PermissionsEditorForm({
         disabled={isSelf}
       />
       <CheckBox {...bindCheckable('debug')} label='Debug' inputProps={inputProps} />
-      <CheckBox
-        {...bindCheckable('editAllChannels')}
-        label='Edit all channels'
-        inputProps={inputProps}
-      />
       <CheckBox {...bindCheckable('banUsers')} label='Ban users' inputProps={inputProps} />
       <CheckBox {...bindCheckable('manageMaps')} label='Manage maps' inputProps={inputProps} />
       <CheckBox
