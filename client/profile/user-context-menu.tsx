@@ -1,9 +1,10 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useContext } from 'react'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user'
 import { MenuItem } from '../material/menu/item'
 import { Menu } from '../material/menu/menu'
 import { PopoverProps } from '../material/popover'
+import { ChatContext } from '../messaging/chat'
 import { inviteToParty, kickPlayer, removePartyInvite } from '../parties/action-creators'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorTextFaint } from '../styles/colors'
@@ -35,6 +36,12 @@ export function ConnectedUserContextMenu({ userId, popoverProps }: ConnectedUser
     navigateToUserProfile(user!.id, user!.name)
   }, [user])
 
+  const chatContext = useContext(ChatContext)
+  const onMentionClick = useCallback(() => {
+    chatContext.mentionUser(user!.id)
+    onPopoverDismiss()
+  }, [user, chatContext, onPopoverDismiss])
+
   const onWhisperClick = useCallback(() => {
     navigateToWhisper(user!.name)
   }, [user])
@@ -62,6 +69,7 @@ export function ConnectedUserContextMenu({ userId, popoverProps }: ConnectedUser
     actions.push(<MenuItem key='profile' text='View profile' onClick={onViewProfileClick} />)
 
     if (user.id !== selfUser.id) {
+      actions.push(<MenuItem key='mention' text='Mention' onClick={onMentionClick} />)
       actions.push(<MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />)
 
       if (IS_ELECTRON) {
