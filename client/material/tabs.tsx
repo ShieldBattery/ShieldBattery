@@ -1,11 +1,28 @@
+import keycode from 'keycode'
 import { rgba } from 'polished'
 import React, { useCallback, useMemo } from 'react'
 import styled from 'styled-components'
+import { useKeyListener } from '../keyboard/key-listener'
+import { useMultiRef } from '../state-hooks'
 import { amberA400, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { buttonText, singleLine } from '../styles/typography'
-import { useButtonState } from './button'
+import { HotkeyProp, useButtonHotkey, useButtonState } from './button'
 import { buttonReset } from './button-reset'
 import { Ripple } from './ripple'
+
+const KEY_NUMBERS = [
+  keycode('1'),
+  keycode('2'),
+  keycode('3'),
+  keycode('4'),
+  keycode('5'),
+  keycode('6'),
+  keycode('7'),
+  keycode('8'),
+  keycode('9'),
+]
+const PAGEUP = keycode('page up')
+const PAGEDOWN = keycode('page down')
 
 const Container = styled.div`
   position: relative;
@@ -66,6 +83,8 @@ export interface TabItemProps<T> {
    * should not be passed directly.
    */
   active?: boolean
+  /** An array of hotkeys to register for this tab item. */
+  hotkeys?: HotkeyProp[]
   /**
    * Called whenever this tab is selected. This will be set by the containing Tabs component and
    * should not be passed directly.
@@ -76,7 +95,7 @@ export interface TabItemProps<T> {
 export const TabItem = React.memo(
   React.forwardRef(
     <T,>(
-      { text, value, active, disabled, onSelected, className }: TabItemProps<T>,
+      { text, value, active, disabled, hotkeys, onSelected, className }: TabItemProps<T>,
       ref: React.ForwardedRef<HTMLButtonElement>,
     ) => {
       const onClick = useCallback(() => {
@@ -89,9 +108,12 @@ export const TabItem = React.memo(
         onClick,
       })
 
+      const [tabItemRef, setTabItemRef] = useMultiRef<HTMLButtonElement>(ref)
+      useButtonHotkey({ ref: tabItemRef, disabled, hotkey: hotkeys! })
+
       return (
         <TabItemContainer
-          ref={ref}
+          ref={setTabItemRef}
           className={className}
           $isActiveTab={active ?? false}
           title={text}
@@ -119,10 +141,20 @@ export function Tabs<T>({ children, activeTab, onChange, className }: TabsProps<
         return child
       }
 
-      const isActive = activeTab === (child!.props as TabItemProps<T>).value
-      return React.cloneElement(child!, {
+      const childHotkeys = (child.props as TabItemProps<T>).hotkeys
+      const hotkeys = (childHotkeys ?? []).slice()
+
+      hotkeys.push({ keyCode: KEY_NUMBERS[i], ctrlKey: true })
+      if (children.length - 1 === i) {
+        // The last tab item has an additional Ctrl+9 hotkey
+        hotkeys.push({ keyCode: KEY_NUMBERS[8], ctrlKey: true })
+      }
+
+      const isActive = activeTab === (child.props as TabItemProps<T>).value
+      return React.cloneElement(child, {
         key: `tab-${i}`,
         active: isActive,
+        hotkeys,
         onSelected: onChange,
       })
     })
@@ -138,6 +170,55 @@ export function Tabs<T>({ children, activeTab, onChange, className }: TabsProps<
     tabElems.pop()
     return tabElems
   }, [activeTab, children, onChange])
+
+  useKeyListener({
+    onKeyDown: (event: KeyboardEvent) => {
+      if ((event.keyCode === PAGEUP || event.keyCode === PAGEDOWN) && event.ctrlKey === true) {
+        if (!onChange) {
+          return false
+        }
+
+        let activeTabIndex = 0
+        const enabledChildren: React.ReactElement[] = []
+        React.Children.forEach(children, child => {
+          if (!child) {
+            return
+          }
+
+          const childProps = child.props as TabItemProps<T>
+          if (childProps.value === activeTab || !childProps.disabled) {
+            enabledChildren.push(child)
+          }
+          if (childProps.value === activeTab) {
+            // This needs to be the index in the `enabledChildren` array, not from all of the
+            // children
+            activeTabIndex = enabledChildren.length - 1
+          }
+        })
+
+        if (enabledChildren.length < 2) {
+          return true
+        }
+
+        if (event.keyCode === PAGEUP) {
+          const previousIndex =
+            (activeTabIndex - 1 + enabledChildren.length) % enabledChildren.length
+          const tab = enabledChildren[previousIndex]
+          onChange(tab.props.value)
+
+          return true
+        } else if (event.keyCode === PAGEDOWN) {
+          const nextIndex = (activeTabIndex + 1) % enabledChildren.length
+          const tab = enabledChildren[nextIndex]
+          onChange(tab.props.value)
+
+          return true
+        }
+      }
+
+      return false
+    },
+  })
 
   return <Container className={className}>{tabElems}</Container>
 }

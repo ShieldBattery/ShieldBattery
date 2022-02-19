@@ -1,8 +1,9 @@
-import React, { useCallback, useRef } from 'react'
+import React from 'react'
 import styled, { css, keyframes } from 'styled-components'
 import { HotkeyedText, HotkeyProp, useButtonHotkey, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
+import { useMultiRef } from '../state-hooks'
 import { blue50, colorTextFaint, colorTextSecondary } from '../styles/colors'
 
 const Container = styled.button`
@@ -129,21 +130,7 @@ export const ActivityButton = React.memo(
         onClick,
       })
 
-      const buttonRef = useRef<HTMLButtonElement>()
-      const setButtonRef = useCallback(
-        (elem: HTMLButtonElement | null) => {
-          buttonRef.current = elem ?? undefined
-          if (ref) {
-            if (typeof ref === 'function') {
-              ref(elem)
-            } else {
-              ref.current = elem
-            }
-          }
-        },
-        [ref],
-      )
-
+      const [buttonRef, setButtonRef] = useMultiRef<HTMLButtonElement>(ref)
       useButtonHotkey({ ref: buttonRef, disabled, hotkey })
 
       return (

@@ -68,3 +68,28 @@ export function useForceUpdate(): () => void {
     forceUpdater({})
   }, [])
 }
+
+/**
+ * A hook which multiplexes the given ref with a local one. Mostly useful when needing to create a
+ * local ref in a component that already forwards a ref to another component below it.
+ */
+export function useMultiRef<T>(
+  ref: React.ForwardedRef<T>,
+): [elemRef: React.MutableRefObject<T | undefined>, setElemRef: (elem: T | null) => void] {
+  const elemRef = useRef<T>()
+  const setElemRef = useCallback(
+    (elem: T | null) => {
+      elemRef.current = elem ?? undefined
+      if (ref) {
+        if (typeof ref === 'function') {
+          ref(elem)
+        } else {
+          ref.current = elem
+        }
+      }
+    },
+    [ref],
+  )
+
+  return [elemRef, setElemRef]
+}
