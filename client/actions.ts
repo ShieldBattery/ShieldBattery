@@ -32,9 +32,6 @@ export const ADMIN_MATCHMAKING_TIMES_GET_PAST = 'ADMIN_MATCHMAKING_TIMES_GET_PAS
 // The AudioManager has finished initializing and is ready to play sounds
 export const AUDIO_MANAGER_INITIALIZED = 'AUDIO_MANAGER_INITIALIZED'
 
-export const BETA_CREATE_INVITE_BEGIN = 'BETA_CREATE_INVITE_BEGIN'
-export const BETA_CREATE_INVITE = 'BETA_CREATE_INVITE'
-
 // The server has finished giving us our initial chat data (e.g what channels we are in) on connect
 export const CHAT_LOADING_COMPLETE = 'CHAT_LOADING_COMPLETE'
 

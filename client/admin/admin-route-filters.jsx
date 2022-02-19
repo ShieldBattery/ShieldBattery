@@ -15,12 +15,6 @@ export const CanViewUserProfileFilter = createConditionalRedirect(
   () => replace('/admin'),
 )
 
-export const CanAcceptBetaInvitesFilter = createConditionalRedirect(
-  'CanAcceptBetaInvitesFilter',
-  state => !hasAllPermissions(state.auth, 'acceptInvites'),
-  () => replace('/admin'),
-)
-
 export const CanManageMapPoolsFilter = createConditionalRedirect(
   'CanManageMapPoolsFilter',
   state => !hasAllPermissions(state.auth, 'manageMapPools'),
