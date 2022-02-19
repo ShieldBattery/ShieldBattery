@@ -65,14 +65,14 @@ services:
     # to actually be "ready" (whatever "ready" means for a particular service). If you need to
     # control the startup of services more granularly, use the `wait-for-it.sh` script available in
     # this image. The reason why we're not waiting for `db` service to actually be ready here is
-    # because we're waiting for the `migration` service to start, and `migration` service won't
-    # start until the `db` service is ready.
+    # because we're waiting for the `update_server` service to start, and `update_server` service
+    # won't start until the `db` service is ready.
     depends_on:
       - db
-      - migration
       - nginx_proxy
       - proxy_gen
       - redis
+      - update_server
 
   nginx_proxy:
     image: nginx:stable-alpine
@@ -160,9 +160,10 @@ services:
       - ./db/init-scripts:/docker-entrypoint-initdb.d:ro
       - db_data:/var/lib/postgresql/data
 
-  # This is a service used to run the server migrations before the server actually starts. It uses
-  # the same image as the server, but overrides its startup command to only run migrations and exit.
-  migration:
+  # This is a service used to run everything needed (e.g. run migrations, copy assets, etc.) to
+  # update the server to a new version before it actually starts. It uses the same image as the
+  # main server container, but overrides its startup command to only update the server and exit.
+  update_server:
     image: shieldbattery/shieldbattery:${SB_VERSION:-latest}
     init: true
     environment:
@@ -170,6 +171,7 @@ services:
       - SB_SESSION_TTL=${SB_SESSION_TTL}
       - SB_REDIS_HOST=redis
       - SB_REDIS_PORT=6379
+      - SB_FILE_STORE=${SB_FILE_STORE}
       - DATABASE_URL=postgres://${SB_DB_USER:-shieldbattery}:${SB_DB_PASSWORD}@db/${SB_DB:-shieldbattery}
     # TODO(tec27): These scripts also touch redis so we should probably wait for it as well, but
     # it's kind of a pain with this script so I haven't. General assumption is that by the time we

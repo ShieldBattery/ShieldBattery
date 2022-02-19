@@ -46,11 +46,10 @@ ENV SB_PREBUILT_ASSETS=true
 
 # Since we're executing some bash scripts (eg. `wait-for-it.sh`) before running the containers using
 # this image, we need to install it explicitly because alpine-based images don't have it by default.
-RUN apk add --no-cache bash logrotate
+RUN apk add --no-cache bash logrotate s3cmd jq
 
 # Set up log rotation
 COPY --from=builder /shieldbattery/server/deployment_files/logrotate.conf /etc/logrotate.d/shieldbattery
-
 
 # Give the logrotate status file to the node user since that's what crond will be running under
 RUN touch /var/lib/logrotate.status && chown node:node /var/lib/logrotate.status
