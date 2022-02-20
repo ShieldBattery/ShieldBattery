@@ -330,6 +330,29 @@ export async function removeUserFromChannel(
   })
 }
 
+export async function updateUserPermissions(
+  channelName: string,
+  userId: SbUserId,
+  perms: ChannelPermissions,
+) {
+  const { client, done } = await db()
+  try {
+    await client.query(sql`
+      UPDATE channel_users
+      SET
+        kick = ${perms.kick},
+        ban = ${perms.ban},
+        change_topic = ${perms.changeTopic},
+        toggle_private = ${perms.togglePrivate},
+        edit_permissions = ${perms.editPermissions}
+      WHERE channel_name = ${channelName} AND user_id = ${userId}
+      RETURNING *;
+    `)
+  } finally {
+    done()
+  }
+}
+
 export async function banUserFromChannel(
   channelName: string,
   moderatorId: SbUserId,

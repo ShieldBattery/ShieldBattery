@@ -3,11 +3,14 @@ import Joi from 'joi'
 import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
+  ChannelPermissions,
   ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
+  GetChannelUserPermissionsResponse,
   GetChatUserProfileResponse,
   ModerateChannelUserServerRequest,
   SendChatMessageServerRequest,
+  UpdateChannelUserPermissionsRequest,
 } from '../../../common/chat'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
 import { MULTI_CHANNEL } from '../../../common/flags'
@@ -58,6 +61,12 @@ const getUserProfileThrottle = createThrottle('chatgetuserprofile', {
   window: 60000,
 })
 
+const userPermissionsThrottle = createThrottle('chatuserpermissions', {
+  rate: 30,
+  burst: 60,
+  window: 60000,
+})
+
 function convertChatServiceError(err: unknown) {
   if (!(err instanceof ChatServiceError)) {
     throw err
@@ -74,9 +83,10 @@ function convertChatServiceError(err: unknown) {
     case ChatServiceErrorCode.CannotLeaveShieldBattery:
     case ChatServiceErrorCode.CannotModerateShieldBattery:
       throw asHttpError(400, err)
+    case ChatServiceErrorCode.CannotChangeChannelOwner:
     case ChatServiceErrorCode.CannotModerateChannelOwner:
     case ChatServiceErrorCode.CannotModerateChannelModerator:
-    case ChatServiceErrorCode.NotEnoughPermissionsToModerate:
+    case ChatServiceErrorCode.NotEnoughPermissions:
       throw asHttpError(403, err)
     case ChatServiceErrorCode.UserBanned:
       throw asHttpError(401, err)
@@ -240,6 +250,60 @@ export class ChatApi {
       targetId,
       moderationAction,
       moderationReason,
+    )
+
+    ctx.status = 204
+  }
+
+  @httpGet('/:channelName/users/:targetId/permissions')
+  @httpBefore(
+    featureEnabled(MULTI_CHANNEL),
+    throttleMiddleware(userPermissionsThrottle, ctx => String(ctx.session!.userId)),
+  )
+  async getChannelUserPermissions(ctx: RouterContext): Promise<GetChannelUserPermissionsResponse> {
+    const {
+      params: { channelName, targetId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ channelName: string; targetId: SbUserId }>({
+        channelName: Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN).required(),
+        targetId: Joi.number().min(1).required(),
+      }),
+    })
+
+    return await this.chatService.getUserPermissions(channelName, ctx.session!.userId, targetId)
+  }
+
+  @httpPost('/:channelName/users/:targetId/permissions')
+  @httpBefore(
+    featureEnabled(MULTI_CHANNEL),
+    throttleMiddleware(userPermissionsThrottle, ctx => String(ctx.session!.userId)),
+  )
+  async updateChannelUserPermissions(ctx: RouterContext): Promise<void> {
+    const {
+      params: { channelName, targetId },
+      body: { permissions },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ channelName: string; targetId: SbUserId }>({
+        channelName: Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN).required(),
+        targetId: Joi.number().min(1).required(),
+      }),
+      body: Joi.object<UpdateChannelUserPermissionsRequest>({
+        permissions: Joi.object<ChannelPermissions>({
+          kick: Joi.boolean().required(),
+          ban: Joi.boolean().required(),
+          changeTopic: Joi.boolean().required(),
+          togglePrivate: Joi.boolean().required(),
+          editPermissions: Joi.boolean().required(),
+          owner: Joi.boolean().required(),
+        }).required(),
+      }),
+    })
+
+    await this.chatService.updateUserPermissions(
+      channelName,
+      ctx.session!.userId,
+      targetId,
+      permissions,
     )
 
     ctx.status = 204
