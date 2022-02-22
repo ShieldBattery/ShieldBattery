@@ -173,11 +173,6 @@ function PermissionsEditorForm({
       />
       <CheckBox {...bindCheckable('debug')} label='Debug' inputProps={inputProps} />
       <CheckBox
-        {...bindCheckable('acceptInvites')}
-        label='Accept beta invites'
-        inputProps={inputProps}
-      />
-      <CheckBox
         {...bindCheckable('editAllChannels')}
         label='Edit all channels'
         inputProps={inputProps}

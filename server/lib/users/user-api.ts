@@ -662,7 +662,6 @@ export class AdminUserApi {
         permissions: Joi.object<SbPermissions>({
           editPermissions: Joi.boolean().required(),
           debug: Joi.boolean().required(),
-          acceptInvites: Joi.boolean().required(),
           editAllChannels: Joi.boolean().required(),
           banUsers: Joi.boolean().required(),
           manageMaps: Joi.boolean().required(),

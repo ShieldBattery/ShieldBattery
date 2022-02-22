@@ -16,7 +16,6 @@ export class PermissionsRecord
   extends Record({
     editPermissions: false,
     debug: false,
-    acceptInvites: false,
     editAllChannels: false,
     banUsers: false,
     manageMaps: false,
