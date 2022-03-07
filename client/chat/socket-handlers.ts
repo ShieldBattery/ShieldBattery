@@ -16,7 +16,7 @@ type EventToChatActionMap = {
 }
 
 const eventToChatAction: EventToChatActionMap = {
-  init2(channel, event) {
+  init3(channel, event) {
     return {
       type: '@chat/initChannel',
       payload: event,

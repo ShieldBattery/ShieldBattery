@@ -2,6 +2,7 @@ import { Map, Record as ImmutableRecord, Set } from 'immutable'
 import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
+  ChannelInfo,
   ChannelModerationAction,
   ChannelPermissions,
   ChatEvent,
@@ -26,7 +27,7 @@ import {
   addMessageToChannel,
   addUserToChannel,
   banUserFromChannel,
-  findChannel,
+  getChannelInfo,
   getChannelsForUser,
   getMessagesForChannel,
   getUserChannelEntryForUser,
@@ -102,7 +103,8 @@ export default class ChatService {
       )
     }
 
-    const result = await addUserToChannel(userId, originalChannelName, client)
+    const userChannelEntry = await addUserToChannel(userId, originalChannelName, client)
+    const channelInfo = (await getChannelInfo([userChannelEntry.channelName]))[0]
     const message = await addMessageToChannel(
       userId,
       originalChannelName,
@@ -119,10 +121,10 @@ export default class ChatService {
       this.state = this.state
         // TODO(tec27): Remove `any` cast once Immutable properly types this call again
         .updateIn(['channels', originalChannelName], (s = Set<SbUserId>()) =>
-          (s as any).add(result.userId),
+          (s as any).add(userChannelEntry.userId),
         )
         // TODO(tec27): Remove `any` cast once Immutable properly types this call again
-        .updateIn(['users', result.userId], (s = Set<string>()) =>
+        .updateIn(['users', userChannelEntry.userId], (s = Set<string>()) =>
           (s as any).add(originalChannelName),
         )
 
@@ -142,7 +144,12 @@ export default class ChatService {
       // is allowed in some cases (e.g. during account creation)
       const userSockets = this.userSocketsManager.getById(userId)
       if (userSockets) {
-        this.subscribeUserToChannel(userSockets, result.channelName, result.channelPermissions)
+        this.subscribeUserToChannel(
+          userSockets,
+          userChannelEntry.channelName,
+          channelInfo,
+          userChannelEntry.channelPermissions,
+        )
       }
     })
   }
@@ -183,11 +190,13 @@ export default class ChatService {
     moderationAction: ChannelModerationAction,
     moderationReason?: string,
   ): Promise<void> {
-    const [userPermissions, userChannelEntry, targetChannelEntry] = await Promise.all([
-      getPermissions(userId),
-      getUserChannelEntryForUser(userId, channelName),
-      getUserChannelEntryForUser(targetId, channelName),
-    ])
+    const [[channelInfo], userPermissions, userChannelEntry, targetChannelEntry] =
+      await Promise.all([
+        getChannelInfo([channelName]),
+        getPermissions(userId),
+        getUserChannelEntryForUser(userId, channelName),
+        getUserChannelEntryForUser(targetId, channelName),
+      ])
 
     if (!userChannelEntry) {
       throw new ChatServiceError(
@@ -211,8 +220,8 @@ export default class ChatService {
     const isUserServerModerator =
       userPermissions?.editPermissions || userPermissions?.moderateChatChannels
 
-    const isUserChannelOwner = userChannelEntry.channelPermissions.owner
-    const isTargetChannelOwner = targetChannelEntry.channelPermissions.owner
+    const isUserChannelOwner = channelInfo.ownerId === userId
+    const isTargetChannelOwner = channelInfo.ownerId === targetId
 
     const isUserChannelModerator =
       userChannelEntry.channelPermissions.editPermissions ||
@@ -426,6 +435,9 @@ export default class ChatService {
       }
     }
 
+    const channelInfo = (await getChannelInfo([chatUser.channelName]))[0]
+    const isOwner = channelInfo.ownerId === userId
+
     const { channelPermissions: perms } = chatUser
     return {
       userId: chatUser.userId,
@@ -434,13 +446,13 @@ export default class ChatService {
         userId: chatUser.userId,
         channelName: chatUser.channelName,
         joinDate: chatUser.joinDate,
-        isModerator: perms.owner || perms.editPermissions || perms.ban || perms.kick,
+        isModerator: isOwner || perms.editPermissions || perms.ban || perms.kick,
       }),
     }
   }
 
   async getOriginalChannelName(channelName: string): Promise<string> {
-    const foundChannel = await findChannel(channelName)
+    const foundChannel = (await getChannelInfo([channelName]))[0]
 
     // If the channel already exists in database, return its name with original casing; otherwise
     // return it as is
@@ -459,10 +471,12 @@ export default class ChatService {
   private subscribeUserToChannel(
     userSockets: UserSocketsGroup,
     channelName: string,
+    channelInfo: ChannelInfo,
     channelPermissions: ChannelPermissions,
   ) {
     userSockets.subscribe<ChatInitEvent>(getChannelPath(channelName), () => ({
-      action: 'init2',
+      action: 'init3',
+      channelInfo,
       activeUserIds: this.state.channels.get(channelName)!.toArray(),
       selfPermissions: channelPermissions,
     }))
@@ -476,19 +490,8 @@ export default class ChatService {
   private async removeUserFromChannel(
     channelName: string,
     userId: SbUserId,
-  ): Promise<SbUserId | null> {
+  ): Promise<SbUserId | undefined> {
     const { newOwnerId } = await removeUserFromChannel(userId, channelName)
-
-    if (newOwnerId) {
-      const newOwner = await getUserChannelEntryForUser(newOwnerId, channelName)
-
-      if (newOwner) {
-        this.publisher.publish(getChannelUserPath(channelName, newOwnerId), {
-          action: 'permissionsChanged',
-          selfPermissions: newOwner.channelPermissions,
-        })
-      }
-    }
 
     const updated = this.state.channels.get(channelName)!.delete(userId)
     this.state = updated.size
@@ -505,6 +508,8 @@ export default class ChatService {
 
   private async handleNewUser(userSockets: UserSocketsGroup) {
     const userChannels = await getChannelsForUser(userSockets.userId)
+    const channelInfos = await getChannelInfo(userChannels.map(uc => uc.channelName))
+    const channelNameToInfo = Map<string, ChannelInfo>(channelInfos.map(c => [c.name, c]))
     if (!userSockets.sockets.size) {
       // The user disconnected while we were waiting for their channel list
       return
@@ -525,6 +530,7 @@ export default class ChatService {
       this.subscribeUserToChannel(
         userSockets,
         userChannel.channelName,
+        channelNameToInfo.get(userChannel.channelName)!,
         userChannel.channelPermissions,
       )
     }
