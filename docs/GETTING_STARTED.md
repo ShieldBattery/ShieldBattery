@@ -127,7 +127,7 @@ For more documentation, check out the [redis docs](http://redis.io/documentation
 
 #### Configuring the ShieldBattery server
 
-In the root directory, copy `sample.env` to a file named `.env`. Edit this file sas you see fit to
+In the root directory, copy `sample.env` to a file named `.env`. Edit this file as you see fit to
 match your local configuration.
 
 ## Installing dependencies
@@ -144,9 +144,6 @@ This should be done every time a `yarn.lock` file changes in the repository.
 ## Initialize the database structure
 
 **NOTE**: PostgreSQL must be properly configured beforehand for the db-migrate scripts to work.
-
-**NOTE**: an existing `DATABASE_URL` environment variable will take precedence over `.env` file and
-should be removed or updated to match your desired database configuration.
 
 From the root of this repository execute this to migrate the database to the latest structure:
 
