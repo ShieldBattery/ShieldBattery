@@ -11,7 +11,7 @@ dependencies in order to properly test things.
 ### JavaScript
 
 All of the JavaScript will either run in, or be built by, [node.js](https://nodejs.org). You'll need
-to install a version of it, generally the current version is a good choice (14.17.3 at the time of
+to install a version of it, generally the current version is a good choice (16.14.0 at the time of
 writing). On Windows, you'll be given the option to install dependencies for building native modules
 (Visual Studio build tools + Python), you should take that option if you don't already have them
 installed separately.
@@ -125,14 +125,14 @@ redis-server
 
 For more documentation, check out the [redis docs](http://redis.io/documentation).
 
-## Configuring the ShieldBattery server
+#### Configuring the ShieldBattery server
 
-Inside the `server` folder, copy `sample.env` to a file named `.env`. Edit this file sas you see fit
-to match your local configuration.
+In the root directory, copy `sample.env` to a file named `.env`. Edit this file as you see fit to
+match your local configuration.
 
 ## Installing dependencies
 
-Every directory with a `yarn.lock` needs to have it's dependencies installed with Yarn. You can do
+Every directory with a `yarn.lock` needs to have its dependencies installed with Yarn. You can do
 this manually, or simply run `yarnall` from the root directory:
 
 ```
@@ -144,9 +144,6 @@ This should be done every time a `yarn.lock` file changes in the repository.
 ## Initialize the database structure
 
 **NOTE**: PostgreSQL must be properly configured beforehand for the db-migrate scripts to work.
-
-**NOTE**: an existing `DATABASE_URL` environment variable will take precedence over `database.json`
-and should be removed or updated to match your desired database configuration.
 
 From the root of this repository execute this to migrate the database to the latest structure:
 
