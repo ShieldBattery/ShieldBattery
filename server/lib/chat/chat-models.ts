@@ -276,9 +276,6 @@ export async function removeUserFromChannel(
       return { newOwnerId: undefined } as LeaveChannelResult
     }
 
-    // TODO(2Pac): Re-think this. This means that a channel might have an owner who is not in it
-    // anymore. Although, they would keep their ownership status if they rejoin later, so maybe
-    // that's fine?
     const highTrafficChannelResult = await client.query(sql`
       SELECT name FROM channels
       WHERE name = ${channelName} AND high_traffic = true;

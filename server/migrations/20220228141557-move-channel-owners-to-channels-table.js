@@ -1,4 +1,10 @@
 exports.up = async function (db) {
+  // We leave the column as nullable to support "high traffic" channels which don't have an owner.
+  await db.runSql(`
+    ALTER TABLE channels
+    ADD COLUMN owner_id integer;
+  `)
+
   // We don't use `ON DELETE CASCADE` here which means that a user can't be deleted if they're still
   // an owner of a channel. This shouldn't really matter since we'll probably never delete user rows
   // outright, but it also serves as a safety check so we don't lose a whole channel by deleting a
@@ -8,16 +14,9 @@ exports.up = async function (db) {
   // user and everything should be fine :d
   await db.runSql(`
     ALTER TABLE channels
-    ADD COLUMN owner_id integer;
-  `)
-
-  await db.runSql(`
-    ALTER TABLE channels
     ADD CONSTRAINT channels_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES users (id);
   `)
 
-  // This should be safe to do because in previous migration we updated all channels to have an
-  // owner.
   await db.runSql(`
     UPDATE channels AS c
     SET owner_id = cu.user_id
@@ -25,9 +24,12 @@ exports.up = async function (db) {
     WHERE c.name = cu.channel_name AND cu.owner = true;
   `)
 
+  // In a previous migration we gave each channel an owner; we're undoing that now here for "high
+  // traffic" channels since they're not supposed to have owners.
   await db.runSql(`
-    ALTER TABLE channels
-    ALTER COLUMN owner_id SET NOT NULL;
+    UPDATE channels
+    SET owner_id = NULL
+    WHERE high_traffic = true;
   `)
 
   await db.runSql(`
