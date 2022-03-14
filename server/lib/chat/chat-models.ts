@@ -334,8 +334,9 @@ export async function updateUserPermissions(
   channelName: string,
   userId: SbUserId,
   perms: ChannelPermissions,
+  withClient?: DbClient,
 ) {
-  const { client, done } = await db()
+  const { client, done } = await db(withClient)
   try {
     await client.query(sql`
       UPDATE channel_users
@@ -345,8 +346,7 @@ export async function updateUserPermissions(
         change_topic = ${perms.changeTopic},
         toggle_private = ${perms.togglePrivate},
         edit_permissions = ${perms.editPermissions}
-      WHERE channel_name = ${channelName} AND user_id = ${userId}
-      RETURNING *;
+      WHERE channel_name = ${channelName} AND user_id = ${userId};
     `)
   } finally {
     done()

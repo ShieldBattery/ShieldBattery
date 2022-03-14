@@ -67,6 +67,8 @@ const userPermissionsThrottle = createThrottle('chatuserpermissions', {
   window: 60000,
 })
 
+const channelNameSchema = Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN).required()
+
 function convertChatServiceError(err: unknown) {
   if (!(err instanceof ChatServiceError)) {
     throw err
@@ -108,7 +110,7 @@ function getValidatedChannelName(ctx: RouterContext) {
     params: { channelName },
   } = validateRequest(ctx, {
     params: Joi.object<{ channelName: string }>({
-      channelName: Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN).required(),
+      channelName: channelNameSchema,
     }),
   })
 
@@ -216,7 +218,7 @@ export class ChatApi {
       params: { channelName, targetId },
     } = validateRequest(ctx, {
       params: Joi.object<{ channelName: string; targetId: SbUserId }>({
-        channelName: Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN).required(),
+        channelName: channelNameSchema,
         targetId: Joi.number().min(1).required(),
       }),
     })
@@ -235,7 +237,7 @@ export class ChatApi {
       body: { moderationAction, moderationReason },
     } = validateRequest(ctx, {
       params: Joi.object<{ channelName: string; targetId: SbUserId }>({
-        channelName: Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN).required(),
+        channelName: channelNameSchema,
         targetId: Joi.number().min(1).required(),
       }),
       body: Joi.object<ModerateChannelUserServerRequest>({
@@ -265,7 +267,7 @@ export class ChatApi {
       params: { channelName, targetId },
     } = validateRequest(ctx, {
       params: Joi.object<{ channelName: string; targetId: SbUserId }>({
-        channelName: Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN).required(),
+        channelName: channelNameSchema,
         targetId: Joi.number().min(1).required(),
       }),
     })
@@ -284,7 +286,7 @@ export class ChatApi {
       body: { permissions },
     } = validateRequest(ctx, {
       params: Joi.object<{ channelName: string; targetId: SbUserId }>({
-        channelName: Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN).required(),
+        channelName: channelNameSchema,
         targetId: Joi.number().min(1).required(),
       }),
       body: Joi.object<UpdateChannelUserPermissionsRequest>({
