@@ -3,21 +3,27 @@ import Joi from 'joi'
 import { GetRankingsResponse, LadderPlayer } from '../../../common/ladder'
 import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
 import { SbUser } from '../../../common/users/sb-user'
-import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpGet } from '../http/route-decorators'
+import { httpApi } from '../http/http-api'
+import { httpBefore, httpGet } from '../http/route-decorators'
 import { JobScheduler } from '../jobs/job-scheduler'
 import logger from '../logging/logger'
 import { getRankings, refreshRankings } from '../matchmaking/models'
 import { Redis } from '../redis'
-import ensureLoggedIn from '../session/ensure-logged-in'
+import createThrottle from '../throttle/create-throttle'
+import throttleMiddleware from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
 
 const UPDATE_RANKS_MINUTES = 5
 
 const LAST_UPDATED_KEY = 'lib/ladder#updateRanks:lastRun'
 
+const getRankingsThrottle = createThrottle('laddergetrankings', {
+  rate: 50,
+  burst: 100,
+  window: 60000,
+})
+
 @httpApi('/ladder')
-@httpBeforeAll(ensureLoggedIn)
 export class LadderApi {
   private lastUpdated = new Date()
   private runOnce = false
@@ -55,6 +61,7 @@ export class LadderApi {
   }
 
   @httpGet('/:matchmakingType')
+  @httpBefore(throttleMiddleware(getRankingsThrottle, ctx => ctx.ip))
   async getRankings(ctx: RouterContext): Promise<GetRankingsResponse> {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ matchmakingType: MatchmakingType }>({
