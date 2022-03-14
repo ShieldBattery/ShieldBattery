@@ -294,7 +294,6 @@ export class ChatApi {
           changeTopic: Joi.boolean().required(),
           togglePrivate: Joi.boolean().required(),
           editPermissions: Joi.boolean().required(),
-          owner: Joi.boolean().required(),
         }).required(),
       }),
     })

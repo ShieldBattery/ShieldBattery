@@ -453,7 +453,8 @@ export default class ChatService {
   }
 
   async getUserPermissions(channelName: string, userId: SbUserId, targetId: SbUserId) {
-    const [userChannelEntry, targetChannelEntry] = await Promise.all([
+    const [[channelInfo], userChannelEntry, targetChannelEntry] = await Promise.all([
+      getChannelInfo([channelName]),
       getUserChannelEntryForUser(userId, channelName),
       getUserChannelEntryForUser(targetId, channelName),
     ])
@@ -470,10 +471,9 @@ export default class ChatService {
         'User must be in channel to get their permissions',
       )
     }
-    if (
-      !userChannelEntry.channelPermissions.owner &&
-      !userChannelEntry.channelPermissions.editPermissions
-    ) {
+
+    const isUserChannelOwner = channelInfo.ownerId === userId
+    if (!isUserChannelOwner && !userChannelEntry.channelPermissions.editPermissions) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotEnoughPermissions,
         "You don't have enough permissions to get other user's permissions",
@@ -493,7 +493,8 @@ export default class ChatService {
     targetId: SbUserId,
     permissions: ChannelPermissions,
   ) {
-    const [userChannelEntry, targetChannelEntry] = await Promise.all([
+    const [[channelInfo], userChannelEntry, targetChannelEntry] = await Promise.all([
+      getChannelInfo([channelName]),
       getUserChannelEntryForUser(userId, channelName),
       getUserChannelEntryForUser(targetId, channelName),
     ])
@@ -510,20 +511,12 @@ export default class ChatService {
         'User must be in channel to update their permissions',
       )
     }
-    if (
-      !userChannelEntry.channelPermissions.owner &&
-      !userChannelEntry.channelPermissions.editPermissions
-    ) {
+
+    const isUserChannelOwner = channelInfo.ownerId === userId
+    if (!isUserChannelOwner && !userChannelEntry.channelPermissions.editPermissions) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotEnoughPermissions,
         "You don't have enough permissions to update other user's permissions",
-      )
-    }
-    // TODO(2Pac): Add a dedicated API for transferring channel ownership.
-    if (userId !== targetId && permissions.owner) {
-      throw new ChatServiceError(
-        ChatServiceErrorCode.CannotChangeChannelOwner,
-        "You can't change channel owner through this API",
       )
     }
 
