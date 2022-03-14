@@ -521,6 +521,10 @@ export default class ChatService {
     }
 
     await updateUserPermissions(channelName, targetId, permissions)
+    this.publisher.publish(getChannelUserPath(channelName, targetId), {
+      action: 'permissionsChanged',
+      selfPermissions: permissions,
+    })
   }
 
   async getOriginalChannelName(channelName: string): Promise<string> {
