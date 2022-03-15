@@ -26,6 +26,7 @@ export interface ChannelState {
   users: UsersState
   userProfiles: Map<SbUserId, ChatUserProfileJson>
   selfPermissions: ChannelPermissions
+  ownerId: SbUserId
 
   loadingHistory: boolean
   hasHistory: boolean
@@ -38,6 +39,7 @@ export interface ChannelState {
 }
 
 export interface ChatState {
+  // Note that the values here are in original casing, as they were when channel was first created
   channels: Set<string>
   // Note that the keys for this map are always lower-case
   byName: Map<string, ChannelState>
@@ -52,7 +54,7 @@ function removeUserFromChannel(
   state: ChatState,
   channelName: string,
   userId: SbUserId,
-  newOwnerId: SbUserId | null,
+  newOwnerId?: SbUserId,
   reason?: ChannelModerationAction,
 ) {
   const channel = state.byName.get(channelName)
@@ -86,6 +88,8 @@ function removeUserFromChannel(
   )
 
   if (newOwnerId) {
+    channel.ownerId = newOwnerId
+
     updateMessages(state, channelName, true, m =>
       m.concat({
         id: cuid(),
@@ -132,7 +136,7 @@ function updateMessages(
 
 export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   ['@chat/initChannel'](state, action) {
-    const { activeUserIds, selfPermissions } = action.payload
+    const { channelInfo, activeUserIds, selfPermissions } = action.payload
     const { channel: channelName } = action.meta
     const lowerCaseChannelName = channelName.toLowerCase()
 
@@ -146,6 +150,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       messages: [],
       users: channelUsers,
       selfPermissions,
+      ownerId: channelInfo.ownerId,
       userProfiles: new Map(),
       loadingHistory: false,
       hasHistory: true,

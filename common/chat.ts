@@ -99,17 +99,55 @@ export type ClientChatMessage =
 
 export type ChatMessage = ServerChatMessage | ClientChatMessage
 
+export interface ChannelInfo {
+  /** The name of the chat channel. */
+  name: string
+  /**
+   * The ID of the user that is considered a channel owner. Usually the person who joined the chat
+   * channel the earliest.
+   */
+  ownerId: SbUserId
+  /**
+   * A flag indicating whether the chat channel is private or not. Private chat channels can only be
+   * joined through an invite.
+   */
+  private: boolean
+  /**
+   * A flag indicating whether the chat channel is declared as having high traffic or not. High
+   * traffic channels can have certain rules (e.g. owners are not automatically transferred in them)
+   * that distinguish them from smaller channels.
+   */
+  highTraffic: boolean
+  /** A short message used to display the channel's current topic. */
+  topic: string
+  // TODO(2Pac): Can probably remove this, if we go with invitation system for private channels.
+  /** A channel's password */
+  password: string
+}
+
 export interface ChannelPermissions {
+  /**
+   * A flag indicating whether the user has a permission to kick someone from the channel. Kicking a
+   * user allows them to rejoin the channel immediately after they've been kicked.
+   */
   kick: boolean
+  /**
+   * A flag indicating whether the user has a permission to ban someone from the channel. Banning a
+   * user forbids them from rejoining the channel until they've been unbanned.
+   */
   ban: boolean
+  /** A flag indicating whether the user has a permission to change the channel's topic. */
   changeTopic: boolean
+  /** A flag indicating whether the user has a permission to change the channel's private status. */
   togglePrivate: boolean
+  /** A flag indicating whether the user has a permission to edit other user's permissions. */
   editPermissions: boolean
-  owner: boolean
 }
 
 export interface ChatInitEvent {
-  action: 'init2'
+  action: 'init3'
+  /** The information about the channel that the current user is initializing. */
+  channelInfo: ChannelInfo
   /** A list of IDs of active users that are in the chat channel. */
   activeUserIds: SbUserId[]
   /** The channel permissions for the current user that is initializing the channel. */
@@ -129,7 +167,7 @@ export interface ChatLeaveEvent {
   /** The ID of a user that has left the chat channel. */
   userId: SbUserId
   /** The ID of a user that was selected as a new owner of the channel, if any. */
-  newOwnerId: SbUserId | null
+  newOwnerId?: SbUserId
 }
 
 export interface ChatKickEvent {
@@ -137,7 +175,7 @@ export interface ChatKickEvent {
   /** The ID of a user that was kicked from the chat channel. */
   targetId: SbUserId
   /** The ID of a user that was selected as a new owner of the channel, if any. */
-  newOwnerId: SbUserId | null
+  newOwnerId?: SbUserId
 }
 
 export interface ChatBanEvent {
@@ -145,7 +183,7 @@ export interface ChatBanEvent {
   /** The ID of a user that was banned from the chat channel. */
   targetId: SbUserId
   /** The ID of a user that was selected as a new owner of the channel, if any. */
-  newOwnerId: SbUserId | null
+  newOwnerId?: SbUserId
 }
 
 export interface ChatMessageEvent {
@@ -252,8 +290,8 @@ export interface ChatUserProfile {
   channelName: string
   joinDate: Date
   /**
-   * User is considered a channel moderator if they have one of the following permissions:
-   *  - owner
+   * User is considered a channel moderator if they are an owner of the channel, or have one of the
+   * following permissions:
    *  - editPermissions
    *  - ban
    *  - kick
