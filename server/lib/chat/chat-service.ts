@@ -34,6 +34,7 @@ import {
   getUsersForChannel,
   isUserBannedFromChannel,
   removeUserFromChannel,
+  updateUserPermissions,
 } from './chat-models'
 
 class ChatState extends ImmutableRecord({
@@ -247,7 +248,7 @@ export default class ChatService {
     }
     if (!isUserServerModerator && !isUserChannelOwner && !isUserChannelModerator) {
       throw new ChatServiceError(
-        ChatServiceErrorCode.NotEnoughPermissionsToModerate,
+        ChatServiceErrorCode.NotEnoughPermissions,
         'Not enough permissions to moderate the user',
       )
     }
@@ -449,6 +450,81 @@ export default class ChatService {
         isModerator: isOwner || perms.editPermissions || perms.ban || perms.kick,
       }),
     }
+  }
+
+  async getUserPermissions(channelName: string, userId: SbUserId, targetId: SbUserId) {
+    const [[channelInfo], userChannelEntry, targetChannelEntry] = await Promise.all([
+      getChannelInfo([channelName]),
+      getUserChannelEntryForUser(userId, channelName),
+      getUserChannelEntryForUser(targetId, channelName),
+    ])
+
+    if (!userChannelEntry) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.NotInChannel,
+        "Must be in channel to get user's permissions",
+      )
+    }
+    if (!targetChannelEntry) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.TargetNotInChannel,
+        'User must be in channel to get their permissions',
+      )
+    }
+
+    const isUserChannelOwner = channelInfo.ownerId === userId
+    if (!isUserChannelOwner && !userChannelEntry.channelPermissions.editPermissions) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.NotEnoughPermissions,
+        "You don't have enough permissions to get other user's permissions",
+      )
+    }
+
+    return {
+      userId: targetChannelEntry.userId,
+      channelName: targetChannelEntry.channelName,
+      permissions: targetChannelEntry.channelPermissions,
+    }
+  }
+
+  async updateUserPermissions(
+    channelName: string,
+    userId: SbUserId,
+    targetId: SbUserId,
+    permissions: ChannelPermissions,
+  ) {
+    const [[channelInfo], userChannelEntry, targetChannelEntry] = await Promise.all([
+      getChannelInfo([channelName]),
+      getUserChannelEntryForUser(userId, channelName),
+      getUserChannelEntryForUser(targetId, channelName),
+    ])
+
+    if (!userChannelEntry) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.NotInChannel,
+        "Must be in channel to update user's permissions",
+      )
+    }
+    if (!targetChannelEntry) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.TargetNotInChannel,
+        'User must be in channel to update their permissions',
+      )
+    }
+
+    const isUserChannelOwner = channelInfo.ownerId === userId
+    if (!isUserChannelOwner && !userChannelEntry.channelPermissions.editPermissions) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.NotEnoughPermissions,
+        "You don't have enough permissions to update other user's permissions",
+      )
+    }
+
+    await updateUserPermissions(channelName, targetId, permissions)
+    this.publisher.publish(getChannelUserPath(channelName, targetId), {
+      action: 'permissionsChanged',
+      selfPermissions: permissions,
+    })
   }
 
   async getOriginalChannelName(channelName: string): Promise<string> {

@@ -37,7 +37,7 @@ function showBanUserError(user: string, error: FetchError) {
       return <ErrorText>You cannot ban channel owner</ErrorText>
     case ChatServiceErrorCode.CannotModerateChannelModerator:
       return <ErrorText>You cannot ban another moderator</ErrorText>
-    case ChatServiceErrorCode.NotEnoughPermissionsToModerate:
+    case ChatServiceErrorCode.NotEnoughPermissions:
       return <ErrorText>You don't have enough permissions to ban this user</ErrorText>
 
     default:

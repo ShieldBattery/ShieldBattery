@@ -3,12 +3,13 @@ import { SbUser, SbUserId } from './users/sb-user'
 
 export enum ChatServiceErrorCode {
   AlreadyJoined = 'AlreadyJoined',
+  CannotChangeChannelOwner = 'CannotChangeChannelOwner',
   CannotLeaveShieldBattery = 'CannotLeaveShieldBattery',
   CannotModerateChannelOwner = 'CannotModerateChannelOwner',
   CannotModerateChannelModerator = 'CannotModerateChannelModerator',
   CannotModerateShieldBattery = 'CannotModerateShieldBattery',
   CannotModerateYourself = 'CannotModerateYourself',
-  NotEnoughPermissionsToModerate = 'NotEnoughPermissionsToModerate',
+  NotEnoughPermissions = 'NotEnoughPermissions',
   NotInChannel = 'NotInChannel',
   TargetNotInChannel = 'TargetNotInChannel',
   UserBanned = 'UserBanned',
@@ -324,4 +325,24 @@ export interface GetChatUserProfileResponse {
    * still visible in old messages.
    */
   profile?: ChatUserProfileJson
+}
+
+/**
+ * The response returned when fetching the permissions of a user in a specific chat channel.
+ */
+export interface GetChannelUserPermissionsResponse {
+  /** The ID of a user for which the permissions are being returned. */
+  userId: SbUserId
+  /** The specific channel for which the user's permissions are being returned. */
+  channelName: string
+  /** User's permissions in a specific channel. */
+  permissions: ChannelPermissions
+}
+
+/**
+ * The body of a request when updating the permissions of a user in a specific chat channel.
+ */
+export interface UpdateChannelUserPermissionsRequest {
+  /** The new permissions to update the user to. */
+  permissions: ChannelPermissions
 }
