@@ -22,13 +22,17 @@ HOST_BASE=$(echo $SB_FILE_STORE | jq '.doSpaces.endpoint')
 HOST_BUCKET="%(bucket)s.${HOST_BASE}"
 SPACE_NAME=$(echo $SB_FILE_STORE | jq '.doSpaces.bucket')
 
+# TODO(2Pac): Generally these variables shouldn't be set when running integration tests (I think?),
+# but maybe we should split this into a separate script, one which is not run in integration tests
+# at all?
+
 if [[ $ACCESS_KEY ]] && [[ $SECRET_KEY ]] && [[ $HOST_BASE ]] && [[ $SPACE_NAME ]]; then
   echo "Syncing public assets to the cloud"
-  s3cmd sync \
-    --access_key=${ACCESS_KEY} \
-    --secret_key=${SECRET_KEY} \
-    --host=${HOST_BASE} \
-    --host-bucket=${HOST_BUCKET} \
+  python3 ./tools/s3cmd/s3cmd sync \
+    --access_key="ACCESS_KEY" \
+    --secret_key="SECRET_KEY" \
+    --host="HOST_BASE" \
+    --host-bucket="HOST_BUCKET" \
     --recursive \
     server/public/ s3://${SPACE_NAME}/public/
 fi
