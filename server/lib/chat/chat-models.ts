@@ -262,7 +262,7 @@ export async function removeUserFromChannel(
     if (deleteChannelResult.rowCount > 0) {
       // Channel was deleted; meaning there is no one left in it so there is no one to transfer the
       // ownership to
-      return { newOwnerId: undefined } as LeaveChannelResult
+      return {}
     }
 
     const currentOwnerResult = await client.query<{ owner_id: SbUserId }>(sql`
@@ -273,7 +273,7 @@ export async function removeUserFromChannel(
 
     if (currentOwnerResult.rows[0].owner_id !== userId) {
       // The leaving user was not the owner, so there's no reason to transfer ownership to anyone
-      return { newOwnerId: undefined } as LeaveChannelResult
+      return {}
     }
 
     const highTrafficChannelResult = await client.query(sql`
@@ -282,7 +282,7 @@ export async function removeUserFromChannel(
     `)
     if (highTrafficChannelResult.rowCount > 0) {
       // Don't transfer ownership in "high traffic" channels
-      return { newOwnerId: undefined } as LeaveChannelResult
+      return {}
     }
 
     const earliestPermissionUserResult = await client.query<DbUserChannelEntry>(sql`
@@ -305,7 +305,7 @@ export async function removeUserFromChannel(
         SET owner_id = ${newOwner.user_id}
         WHERE name = ${channelName};
       `)
-      return { newOwnerId: newOwner.user_id } as LeaveChannelResult
+      return { newOwnerId: newOwner.user_id }
     }
 
     // Transfer ownership to the user who has joined the channel earliest
@@ -326,7 +326,7 @@ export async function removeUserFromChannel(
       SET owner_id = ${earliestUserResult.rows[0].user_id}
       WHERE name = ${channelName};
     `)
-    return { newOwnerId: earliestUserResult.rows[0].user_id } as LeaveChannelResult
+    return { newOwnerId: earliestUserResult.rows[0].user_id }
   })
 }
 
