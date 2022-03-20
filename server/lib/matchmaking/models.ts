@@ -4,11 +4,12 @@ import {
   MatchmakingResult,
   MatchmakingType,
 } from '../../../common/matchmaking'
+import { RaceStats } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
 import { Dbify } from '../db/types'
 
-export interface MatchmakingRating {
+export type MatchmakingRating = {
   userId: SbUserId
   matchmakingType: MatchmakingType
   /** The user's current MMR. */
@@ -43,7 +44,7 @@ export interface MatchmakingRating {
   wins: number
   /** The number of games this user has lost in this matchmaking type. */
   losses: number
-}
+} & RaceStats
 
 export const DEFAULT_MATCHMAKING_RATING: Readonly<
   Omit<MatchmakingRating, 'userId' | 'matchmakingType'>
@@ -56,6 +57,20 @@ export const DEFAULT_MATCHMAKING_RATING: Readonly<
   lastPlayedDate: new Date(0),
   wins: 0,
   losses: 0,
+  pWins: 0,
+  pLosses: 0,
+  tWins: 0,
+  tLosses: 0,
+  zWins: 0,
+  zLosses: 0,
+  rWins: 0,
+  rLosses: 0,
+  rPWins: 0,
+  rPLosses: 0,
+  rTWins: 0,
+  rTLosses: 0,
+  rZWins: 0,
+  rZLosses: 0,
 }
 
 type DbMatchmakingRating = Dbify<MatchmakingRating>
@@ -72,6 +87,20 @@ function fromDbMatchmakingRating(result: Readonly<DbMatchmakingRating>): Matchma
     lastPlayedDate: result.last_played_date,
     wins: result.wins,
     losses: result.losses,
+    pWins: result.p_wins,
+    pLosses: result.p_losses,
+    tWins: result.t_wins,
+    tLosses: result.t_losses,
+    zWins: result.z_wins,
+    zLosses: result.z_losses,
+    rWins: result.r_wins,
+    rLosses: result.r_losses,
+    rPWins: result.r_p_wins,
+    rPLosses: result.r_p_losses,
+    rTWins: result.r_t_wins,
+    rTLosses: result.r_t_losses,
+    rZWins: result.r_z_wins,
+    rZLosses: result.r_z_losses,
   }
 }
 
@@ -111,11 +140,15 @@ export async function createInitialMatchmakingRating(
     const result = await client.query<DbMatchmakingRating>(sql`
       INSERT INTO matchmaking_ratings
         (user_id, matchmaking_type, rating, k_factor, uncertainty, unexpected_streak,
-          num_games_played, last_played_date, wins, losses)
+          num_games_played, last_played_date, wins, losses, p_wins, p_losses, t_wins, t_losses,
+          z_wins, z_losses, r_wins, r_losses, r_p_wins, r_p_losses, r_t_wins, r_t_losses, r_z_wins,
+          r_z_losses)
       VALUES
         (${userId}, ${matchmakingType}, ${mmr.rating}, ${mmr.kFactor}, ${mmr.uncertainty},
           ${mmr.unexpectedStreak}, ${mmr.numGamesPlayed}, ${mmr.lastPlayedDate}, ${mmr.wins},
-          ${mmr.losses})
+          ${mmr.losses}, ${mmr.pWins}, ${mmr.pLosses}, ${mmr.tWins}, ${mmr.tLosses}, ${mmr.zWins},
+          ${mmr.zLosses}, ${mmr.rWins}, ${mmr.rLosses}, ${mmr.rPWins}, ${mmr.rPLosses},
+          ${mmr.rTWins}, ${mmr.rTLosses}, ${mmr.rZWins}, ${mmr.rZLosses})
       RETURNING *
     `)
 
@@ -162,13 +195,27 @@ export async function updateMatchmakingRating(
        num_games_played = ${mmr.numGamesPlayed},
        last_played_date = ${mmr.lastPlayedDate},
        wins = ${mmr.wins},
-       losses = ${mmr.losses}
+       losses = ${mmr.losses},
+       p_wins = ${mmr.pWins},
+       p_losses = ${mmr.pLosses},
+       t_wins = ${mmr.tWins},
+       t_losses = ${mmr.tLosses},
+       z_wins = ${mmr.zWins},
+       z_losses = ${mmr.zLosses},
+       r_wins = ${mmr.rWins},
+       r_losses = ${mmr.rLosses},
+       r_p_wins = ${mmr.rPWins},
+       r_p_losses = ${mmr.rPLosses},
+       r_t_wins = ${mmr.rTWins},
+       r_t_losses = ${mmr.rTLosses},
+       r_z_wins = ${mmr.rZWins},
+       r_z_losses = ${mmr.rZLosses}
     WHERE user_id = ${mmr.userId} AND matchmaking_type = ${mmr.matchmakingType};
   `)
 }
 
 // TODO(tec27): Remove username from this and get user data in another query
-export interface GetRankingsResult {
+export type GetRankingsResult = {
   matchmakingType: MatchmakingType
   rank: number
   userId: SbUserId
@@ -177,7 +224,7 @@ export interface GetRankingsResult {
   wins: number
   losses: number
   lastPlayedDate: Date
-}
+} & RaceStats
 
 type DbGetRankingsResult = Dbify<GetRankingsResult>
 
@@ -191,6 +238,20 @@ function fromDbGetRankingsResult(r: DbGetRankingsResult) {
     rating: r.rating,
     wins: r.wins,
     losses: r.losses,
+    pWins: r.p_wins,
+    pLosses: r.p_losses,
+    tWins: r.t_wins,
+    tLosses: r.t_losses,
+    zWins: r.z_wins,
+    zLosses: r.z_losses,
+    rWins: r.r_wins,
+    rLosses: r.r_losses,
+    rPWins: r.r_p_wins,
+    rPLosses: r.r_p_losses,
+    rTWins: r.r_t_wins,
+    rTLosses: r.r_t_losses,
+    rZWins: r.r_z_wins,
+    rZLosses: r.r_z_losses,
     lastPlayedDate: r.last_played_date,
   }
 }
@@ -203,7 +264,9 @@ export async function getRankings(matchmakingType: MatchmakingType): Promise<Get
   try {
     const result = await client.query<Dbify<GetRankingsResult>>(sql`
       SELECT r.matchmaking_type, r.rank, u.name AS username, r.user_id, r.rating,
-          r.wins, r.losses, r.last_played_date
+          r.wins, r.losses, r.p_wins, r.p_losses, r.t_wins, r.t_losses, r.z_wins, r.z_losses,
+          r.r_wins, r.r_losses, r.r_p_wins, r.r_p_losses, r.r_t_wins, r.r_t_losses, r.r_z_wins,
+          r.r_z_losses, r.last_played_date
       FROM ranked_matchmaking_ratings_view r JOIN users u
         ON r.user_id = u.id
       WHERE r.matchmaking_type = ${matchmakingType}
@@ -225,7 +288,9 @@ export async function getRankForUser(
   try {
     const result = await client.query<Dbify<GetRankingsResult>>(sql`
       SELECT r.matchmaking_type, r.rank, u.name AS username, r.user_id, r.rating,
-          r.wins, r.losses, r.last_played_date
+          r.wins, r.losses, r.p_wins, r.p_losses, r.t_wins, r.t_losses, r.z_wins, r.z_losses,
+          r.r_wins, r.r_losses, r.r_p_wins, r.r_p_losses, r.r_t_wins, r.r_t_losses, r.r_z_wins,
+          r.r_z_losses, r.last_played_date
       FROM ranked_matchmaking_ratings_view r JOIN users u
         ON r.user_id = u.id
       WHERE r.matchmaking_type = ${matchmakingType} AND r.user_id = ${userId};

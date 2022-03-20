@@ -259,6 +259,16 @@ export default class GameResultService {
       // and "fixup" rank changes and win/loss counters
       const resultEntries = Array.from(reconciled.results.entries())
 
+      const idToSelectedRace = new Map(
+        gameRecord.config.teams
+          .map(team =>
+            team
+              .filter(p => !p.isComputer)
+              .map<[id: SbUserId, race: RaceChar]>(p => [p.id, p.race]),
+          )
+          .flat(),
+      )
+
       const matchmakingDbPromises: Array<Promise<unknown>> = []
       if (gameRecord.config.gameSource === GameSource.Matchmaking && !reconciled.disputed) {
         // Calculate and update the matchmaking ranks
@@ -305,6 +315,11 @@ export default class GameResultService {
           const change = ratingChanges.get(mmr.userId)!
           matchmakingDbPromises.push(insertMatchmakingRatingChange(client, change))
 
+          const selectedRace = idToSelectedRace.get(mmr.userId)!
+          const assignedRace = reconciled.results.get(mmr.userId)!.race
+          const winCount = change.outcome === 'win' ? 1 : 0
+          const lossCount = change.outcome === 'win' ? 0 : 1
+
           const updatedMmr: MatchmakingRating = {
             userId: mmr.userId,
             matchmakingType: mmr.matchmakingType,
@@ -314,9 +329,26 @@ export default class GameResultService {
             unexpectedStreak: change.unexpectedStreak,
             numGamesPlayed: mmr.numGamesPlayed + 1,
             lastPlayedDate: reconcileDate,
-            wins: mmr.wins + (change.outcome === 'win' ? 1 : 0),
-            losses: mmr.losses + (change.outcome === 'win' ? 0 : 1),
+            wins: mmr.wins + winCount,
+            losses: mmr.losses + lossCount,
+
+            pWins: mmr.pWins + (selectedRace === 'p' ? winCount : 0),
+            pLosses: mmr.pLosses + (selectedRace === 'p' ? lossCount : 0),
+            tWins: mmr.tWins + (selectedRace === 't' ? winCount : 0),
+            tLosses: mmr.tLosses + (selectedRace === 't' ? lossCount : 0),
+            zWins: mmr.zWins + (selectedRace === 'z' ? winCount : 0),
+            zLosses: mmr.zLosses + (selectedRace === 'z' ? lossCount : 0),
+            rWins: mmr.rWins + (selectedRace === 'r' ? winCount : 0),
+            rLosses: mmr.rLosses + (selectedRace === 'r' ? lossCount : 0),
+
+            rPWins: mmr.rPWins + (selectedRace === 'r' && assignedRace === 'p' ? winCount : 0),
+            rPLosses: mmr.rPLosses + (selectedRace === 'r' && assignedRace === 'p' ? lossCount : 0),
+            rTWins: mmr.rTWins + (selectedRace === 'r' && assignedRace === 't' ? winCount : 0),
+            rTLosses: mmr.rTLosses + (selectedRace === 'r' && assignedRace === 't' ? lossCount : 0),
+            rZWins: mmr.rZWins + (selectedRace === 'r' && assignedRace === 'z' ? winCount : 0),
+            rZLosses: mmr.rZLosses + (selectedRace === 'r' && assignedRace === 'z' ? lossCount : 0),
           }
+
           matchmakingDbPromises.push(updateMatchmakingRating(client, updatedMmr))
         }
       }
@@ -329,16 +361,6 @@ export default class GameResultService {
 
       const statsUpdatePromises: Array<Promise<UserStats>> = []
       if (gameRecord.config.gameType !== 'ums' && !reconciled.disputed) {
-        const idToSelectedRace = new Map(
-          gameRecord.config.teams
-            .map(team =>
-              team
-                .filter(p => !p.isComputer)
-                .map<[id: number, race: RaceChar]>(p => [p.id, p.race]),
-            )
-            .flat(),
-        )
-
         for (const [userId, result] of reconciled.results.entries()) {
           if (result.result !== 'win' && result.result !== 'loss') {
             continue

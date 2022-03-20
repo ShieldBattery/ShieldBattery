@@ -1,17 +1,18 @@
+import { RaceStats } from '../races'
 import { SbUser, SbUserId } from '../users/sb-user'
 
 /**
  * A ranked player for a particular matchmaking ladder. Contains information about their play
  * history and current rating.
  */
-export interface LadderPlayer {
+export type LadderPlayer = {
   rank: number
   userId: SbUserId
   rating: number
   wins: number
   losses: number
   lastPlayedDate: number
-}
+} & RaceStats
 
 // TODO(#658): Implement pagination for this request
 /**
