@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import LogoText from '../logos/logotext-640x100.svg'
-import { makeServerUrl } from '../network/server-url'
+import { makePublicAssetUrl } from '../network/server-url'
 
 const Wrapper = styled.div`
   width: 100%;
@@ -35,7 +35,7 @@ export default function LoginLayout({ children }: LoginLayoutProps) {
   return (
     <Wrapper>
       <Contents>
-        <Logo src={makeServerUrl('/images/logo.svg')} />
+        <Logo src={makePublicAssetUrl('/images/logo.svg')} />
         <StyledLogoText>
           <LogoText />
         </StyledLogoText>

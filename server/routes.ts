@@ -55,10 +55,23 @@ export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) 
   // TODO(tec27): we should probably do something based on expected content type as well
   router.get('/robots.txt', send404).get('/favicon.ico', send404)
 
-  // NOTE(tec27): This used to send our feedback URL to clients. Leaving it in place for now to
-  // not break those clients on launch, can be deleted later on.
+  let publicAssetsUrl: string
+  if (process.env.SB_FILE_STORE) {
+    const fileStoreSettings = JSON.parse(process.env.SB_FILE_STORE)
+    if (fileStoreSettings.doSpaces) {
+      const settings = fileStoreSettings.doSpaces
+      publicAssetsUrl = settings.cdnHost
+        ? `https://${settings.cdnHost}/public`
+        : `https://${settings.bucket}.${settings.endpoint}/public`
+    } else {
+      publicAssetsUrl = process.env.SB_CANONICAL_HOST!
+    }
+  }
+
   router.get('/config', async ctx => {
-    ctx.body = {}
+    ctx.body = {
+      publicAssetsUrl,
+    }
     ctx.type = 'application/json'
   })
 

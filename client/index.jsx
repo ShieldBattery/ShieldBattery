@@ -11,8 +11,11 @@ import { bootstrapSession, getCurrentSession } from './auth/action-creators'
 import { initBrowserprint } from './auth/browserprint'
 import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
+import { JsonLocalStorageValue } from './local-storage'
 import log from './logging/logger'
 import RedirectProvider from './navigation/redirect-provider'
+import { fetchJson } from './network/fetch'
+import { getServerOrigin } from './network/server-url'
 import registerSocketHandlers from './network/socket-handlers'
 import { RootErrorBoundary } from './root-error-boundary'
 import './window-focus'
@@ -100,6 +103,7 @@ Promise.all([rootElemPromise])
     return { elem, store }
   })
   .then(async ({ elem, store }) => {
+    const configPromise = fetchJson('/config', { method: 'get' })
     let action
     let sessionPromise
 
@@ -117,7 +121,10 @@ Promise.all([rootElemPromise])
 
     store.dispatch(action)
     try {
-      await sessionPromise
+      const [config] = await Promise.all([configPromise, sessionPromise])
+      const serverOrigin = getServerOrigin().toLowerCase()
+      const publicAssetsUrl = new JsonLocalStorageValue(`${serverOrigin}:publicAssetsUrl`)
+      publicAssetsUrl.setValue(config.publicAssetsUrl)
     } catch (err) {
       // Ignored, usually just means we don't have a current session
       // TODO(tec27): Probably we should handle some error codes here specifically

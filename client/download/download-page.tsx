@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import LogoText from '../logos/logotext-640x100.svg'
-import { makeServerUrl } from '../network/server-url'
+import { makePublicAssetUrl } from '../network/server-url'
 import Download from './download'
 
 const Wrapper = styled.div`
@@ -31,7 +31,7 @@ export default class DownloadPage extends React.Component {
     return (
       <div>
         <Wrapper>
-          <Logo src={makeServerUrl('/images/logo.svg')} />
+          <Logo src={makePublicAssetUrl('/images/logo.svg')} />
           <LogoTextContainer>
             <LogoText />
           </LogoTextContainer>

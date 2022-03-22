@@ -33,6 +33,7 @@ if [[ $ACCESS_KEY ]] && [[ $SECRET_KEY ]] && [[ $HOST_BASE ]] && [[ $SPACE_NAME 
     --secret_key="SECRET_KEY" \
     --host="HOST_BASE" \
     --host-bucket="HOST_BUCKET" \
+    --acl-public \
     --recursive \
     server/public/ s3://${SPACE_NAME}/public/
 fi
