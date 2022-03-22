@@ -70,6 +70,7 @@ exports.up = async function (db) {
           ON gu.game_id = g.id
         WHERE
           g.config->>'gameSource' = 'MATCHMAKING' AND
+          gu.selected_race = 'r' AND
           gu.assigned_race = '${race}' AND
           gu.result = 'win'
         GROUP BY user_id, matchmaking_type
@@ -86,6 +87,7 @@ exports.up = async function (db) {
           ON gu.game_id = g.id
         WHERE
           g.config->>'gameSource' = 'MATCHMAKING' AND
+          gu.selected_race = 'r' AND
           gu.assigned_race = '${race}' AND
           gu.result = 'loss'
         GROUP BY user_id, matchmaking_type

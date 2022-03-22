@@ -9,7 +9,7 @@ import { SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
 import { Dbify } from '../db/types'
 
-export type MatchmakingRating = {
+export interface MatchmakingRating extends RaceStats {
   userId: SbUserId
   matchmakingType: MatchmakingType
   /** The user's current MMR. */
@@ -44,7 +44,7 @@ export type MatchmakingRating = {
   wins: number
   /** The number of games this user has lost in this matchmaking type. */
   losses: number
-} & RaceStats
+}
 
 export const DEFAULT_MATCHMAKING_RATING: Readonly<
   Omit<MatchmakingRating, 'userId' | 'matchmakingType'>
@@ -215,7 +215,7 @@ export async function updateMatchmakingRating(
 }
 
 // TODO(tec27): Remove username from this and get user data in another query
-export type GetRankingsResult = {
+export interface GetRankingsResult extends RaceStats {
   matchmakingType: MatchmakingType
   rank: number
   userId: SbUserId
@@ -224,7 +224,7 @@ export type GetRankingsResult = {
   wins: number
   losses: number
   lastPlayedDate: Date
-} & RaceStats
+}
 
 type DbGetRankingsResult = Dbify<GetRankingsResult>
 
