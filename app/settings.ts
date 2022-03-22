@@ -3,7 +3,7 @@ import fs, { promises as fsPromises } from 'fs'
 import { Map } from 'immutable'
 import { ConditionalKeys } from 'type-fest'
 import { LocalSettingsData, ScrSettingsData } from '../common/local-settings'
-import { TypedEventEmitter } from '../common/typed-emitter'
+import { EventMap, TypedEventEmitter } from '../common/typed-emitter'
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
@@ -26,7 +26,7 @@ function jsonify(settings: unknown) {
   return JSON.stringify(settings, null, 2)
 }
 
-interface SettingsEvents<T> {
+interface SettingsEvents<T> extends EventMap {
   change: (settings: Readonly<Partial<T>>) => void
 }
 

@@ -1,5 +1,7 @@
 import { EventEmitter } from 'events'
-import TypedEmitter from 'typed-emitter'
+import TypedEmitter, { EventMap } from 'typed-emitter'
+
+export { EventMap }
 
 /**
  * A typed version of the normal node EventEmitter class, such that emitted/handled events and
@@ -26,8 +28,8 @@ import TypedEmitter from 'typed-emitter'
  * }
  * ```
  */
-export abstract class TypedEventEmitter<T> extends (EventEmitter as {
-  new <T>(): TypedEmitter<T>
+export abstract class TypedEventEmitter<T extends EventMap> extends (EventEmitter as {
+  new <T extends EventMap>(): TypedEmitter<T>
 })<T> {
   constructor() {
     // NOTE(tec27): No idea why eslint thinks super isn't a constructor here, I assume it's failing

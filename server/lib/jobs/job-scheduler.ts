@@ -45,7 +45,7 @@ export class JobScheduler {
 
     let firstTimeout = Number(startTime) - Date.now()
     if (firstTimeout < 0) {
-      logger.warning(`startTime for job ${jobId} was not in the future`)
+      logger.warn(`startTime for job ${jobId} was not in the future`)
       firstTimeout = 0
     }
 
@@ -73,7 +73,7 @@ export class JobScheduler {
 
   private runJob(jobId: string) {
     if (!this.jobs.has(jobId)) {
-      logger.warning(`Woke to run job ${jobId} but it wasn't found in the schedule`)
+      logger.warn(`Woke to run job ${jobId} but it wasn't found in the schedule`)
     }
 
     const job = this.jobs.get(jobId)!

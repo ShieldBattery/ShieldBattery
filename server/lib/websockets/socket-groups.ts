@@ -2,7 +2,7 @@ import { EventEmitter } from 'events'
 import { Map, Set } from 'immutable'
 import { NydusClient, NydusServer } from 'nydus'
 import { container, inject, singleton } from 'tsyringe'
-import { TypedEventEmitter } from '../../../common/typed-emitter'
+import { EventMap, TypedEventEmitter } from '../../../common/typed-emitter'
 import { SbUserId } from '../../../common/users/sb-user'
 import log from '../logging/logger'
 import { UpsertUserIp } from '../network/user-ips-type'
@@ -19,7 +19,7 @@ interface SubscriptionInfo<T> {
 
 const defaultDataGetter: DataGetter<any, any> = () => {}
 
-interface SocketGroupEvents<T> {
+interface SocketGroupEvents<T> extends EventMap {
   connection: (group: T, socket: NydusClient) => void
   close: (group: T) => void
 }
@@ -230,7 +230,7 @@ export class UserSocketsManager extends EventEmitter {
   }
 }
 
-interface ClientSocketsManagerEvents {
+interface ClientSocketsManagerEvents extends EventMap {
   newClient: (client: ClientSocketsGroup) => void
   clientQuit: (client: ClientSocketsGroup) => void
 }

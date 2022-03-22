@@ -11,7 +11,7 @@ import {
 } from '../../common/game-launch-config'
 import { GameStatus, statusToString } from '../../common/game-status'
 import { GameClientPlayerResult, SubmitGameResultsRequest } from '../../common/games/results'
-import { TypedEventEmitter } from '../../common/typed-emitter'
+import { EventMap, TypedEventEmitter } from '../../common/typed-emitter'
 import log from '../logger'
 import { LocalSettings, ScrSettings } from '../settings'
 import { checkStarcraftPath } from './check-starcraft-path'
@@ -64,7 +64,7 @@ function isGameConfig(
   return !!(possibleConfig as any).setup
 }
 
-export interface ActiveGameManagerEvents {
+export interface ActiveGameManagerEvents extends EventMap {
   gameCommand: (gameId: string, command: string, ...args: any[]) => void
   gameResult: (info: {
     gameId: string
