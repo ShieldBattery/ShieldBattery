@@ -20,6 +20,20 @@ for (let i = 0; i < 1000; i++) {
 
   const wins = Math.floor(Math.random() * 100) + 5
   const losses = Math.floor(Math.random() * 100) + 5
+  const pWins = Math.floor(Math.random() * 100) + 5
+  const pLosses = Math.floor(Math.random() * 100) + 5
+  const tWins = Math.floor(Math.random() * 100) + 5
+  const tLosses = Math.floor(Math.random() * 100) + 5
+  const zWins = Math.floor(Math.random() * 100) + 5
+  const zLosses = Math.floor(Math.random() * 100) + 5
+  const rWins = Math.floor(Math.random() * 100) + 5
+  const rLosses = Math.floor(Math.random() * 100) + 5
+  const rPWins = Math.floor(Math.random() * 100) + 5
+  const rPLosses = Math.floor(Math.random() * 100) + 5
+  const rTWins = Math.floor(Math.random() * 100) + 5
+  const rTLosses = Math.floor(Math.random() * 100) + 5
+  const rZWins = Math.floor(Math.random() * 100) + 5
+  const rZLosses = Math.floor(Math.random() * 100) + 5
   const lastPlayedDate = NOW - (Math.floor(Math.random() * 14 * 24 * 60 * 60 * 1000) + 1000)
 
   PLAYERS.push({
@@ -28,6 +42,20 @@ for (let i = 0; i < 1000; i++) {
     rating,
     wins,
     losses,
+    pWins,
+    pLosses,
+    tWins,
+    tLosses,
+    zWins,
+    zLosses,
+    rWins,
+    rLosses,
+    rPWins,
+    rPLosses,
+    rTWins,
+    rTLosses,
+    rZWins,
+    rZLosses,
     lastPlayedDate,
   })
   usersById.set(makeSbUserId(i), { id: makeSbUserId(i), name })

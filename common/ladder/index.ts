@@ -1,10 +1,11 @@
+import { RaceStats } from '../races'
 import { SbUser, SbUserId } from '../users/sb-user'
 
 /**
  * A ranked player for a particular matchmaking ladder. Contains information about their play
  * history and current rating.
  */
-export interface LadderPlayer {
+export interface LadderPlayer extends RaceStats {
   rank: number
   userId: SbUserId
   rating: number
