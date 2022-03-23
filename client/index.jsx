@@ -11,13 +11,12 @@ import { bootstrapSession, getCurrentSession } from './auth/action-creators'
 import { initBrowserprint } from './auth/browserprint'
 import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
-import { JsonLocalStorageValue } from './local-storage'
 import log from './logging/logger'
 import RedirectProvider from './navigation/redirect-provider'
 import { fetchJson } from './network/fetch'
-import { getServerOrigin } from './network/server-url'
 import registerSocketHandlers from './network/socket-handlers'
 import { RootErrorBoundary } from './root-error-boundary'
+import { serverConfig } from './server-config-storage'
 import './window-focus'
 
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
@@ -103,11 +102,12 @@ Promise.all([rootElemPromise])
     return { elem, store }
   })
   .then(async ({ elem, store }) => {
-    const configPromise = fetchJson('/config', { method: 'get' })
     let action
+    let configPromise
     let sessionPromise
 
     if (IS_ELECTRON || !window._sbInitData) {
+      configPromise = fetchJson('/config', { method: 'get' })
       sessionPromise = new Promise((resolve, reject) => {
         action = getCurrentSession({
           onSuccess: () => resolve(),
@@ -116,15 +116,19 @@ Promise.all([rootElemPromise])
       })
     } else {
       action = bootstrapSession(window._sbInitData.session)
+      configPromise = Promise.resolve(window._sbInitData.serverConfig)
       sessionPromise = Promise.resolve()
     }
 
     store.dispatch(action)
     try {
-      const [config] = await Promise.all([configPromise, sessionPromise])
-      const serverOrigin = getServerOrigin().toLowerCase()
-      const publicAssetsUrl = new JsonLocalStorageValue(`${serverOrigin}:publicAssetsUrl`)
-      publicAssetsUrl.setValue(config.publicAssetsUrl)
+      const config = await configPromise
+      serverConfig.setValue(config)
+    } catch (err) {
+      // TODO(2Pac): Do something with the error
+    }
+    try {
+      await sessionPromise
     } catch (err) {
       // Ignored, usually just means we don't have a current session
       // TODO(tec27): Probably we should handle some error codes here specifically
