@@ -3,5 +3,6 @@
  * injected into the HTML document for the web version.
  */
 export interface ServerConfig {
-  staticAssetsUrl: string
+  /** URL to the server's public directory containing static content. */
+  publicAssetsUrl: string
 }

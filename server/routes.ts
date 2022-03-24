@@ -56,19 +56,19 @@ export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) 
   // TODO(tec27): we should probably do something based on expected content type as well
   router.get('/robots.txt', send404).get('/favicon.ico', send404)
 
-  let staticAssetsUrl: string
+  let publicAssetsUrl: string
   const fileStoreSettings = JSON.parse(process.env.SB_FILE_STORE!)
   if (fileStoreSettings.doSpaces) {
     const settings = fileStoreSettings.doSpaces
-    staticAssetsUrl = settings.cdnHost
+    publicAssetsUrl = settings.cdnHost
       ? `https://${settings.cdnHost}/public/`
       : `https://${settings.bucket}.${settings.endpoint}/public/`
   } else {
-    staticAssetsUrl = '/'
+    publicAssetsUrl = '/'
   }
 
   const serverConfig: ServerConfig = {
-    staticAssetsUrl,
+    publicAssetsUrl,
   }
 
   router.get('/config', async ctx => {

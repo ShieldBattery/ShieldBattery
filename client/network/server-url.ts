@@ -39,11 +39,11 @@ export function getServerOrigin() {
  */
 export function makePublicAssetUrl(path: string) {
   const slashlessPath = path.startsWith('/') ? path.substring(1) : '' + path
-  const staticAssetsUrl = serverConfig.getValue()?.staticAssetsUrl
-  if (staticAssetsUrl === '/') {
+  const publicAssetsUrl = serverConfig.getValue()?.publicAssetsUrl
+  if (publicAssetsUrl === '/') {
     return getServerOrigin() + '/' + slashlessPath
-  } else if (staticAssetsUrl) {
-    return staticAssetsUrl + slashlessPath
+  } else if (publicAssetsUrl) {
+    return publicAssetsUrl + slashlessPath
   } else {
     return 'https://cdn.shieldbattery.net/public/' + slashlessPath
   }
