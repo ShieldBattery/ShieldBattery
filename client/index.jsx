@@ -125,7 +125,9 @@ Promise.all([rootElemPromise])
       const config = await configPromise
       serverConfig.setValue(config)
     } catch (err) {
-      // TODO(2Pac): Do something with the error
+      // Ignoring the error here shouldn't be that big of a deal since the config is usually cached
+      // in the client's local storage anyway. But also, most config properties should have some
+      // default values to fall back on to ensure things don't break.
     }
     try {
       await sessionPromise
