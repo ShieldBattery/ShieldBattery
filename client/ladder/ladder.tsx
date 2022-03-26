@@ -10,10 +10,12 @@ import {
   MatchmakingType,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
+import { RaceChar } from '../../common/races'
 import { SbUser, SbUserId } from '../../common/users/sb-user'
 import { Avatar } from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
+import { RaceIcon } from '../lobbies/race-icon'
 import { JsonLocalStorageValue } from '../local-storage'
 import { animationFrameHandler, AnimationFrameHandler } from '../material/animation-frame-handler'
 import { useButtonState } from '../material/button'
@@ -239,6 +241,12 @@ const PlayerCell = styled(BaseCell)`
   align-items: center;
 `
 
+const RaceCell = styled(BaseCell)`
+  width: 48px;
+  display: flex;
+  align-items: center;
+`
+
 const RatingCell = styled(BaseCell)`
   width: 56px;
   text-align: right;
@@ -266,6 +274,11 @@ const StyledAvatar = styled(Avatar)`
 const PlayerName = styled.div`
   ${subtitle2};
   line-height: ${ROW_HEIGHT}px;
+`
+
+const StyledRaceIcon = styled(RaceIcon)`
+  width: 32px;
+  height: 32px;
 `
 
 const ErrorText = styled.div`
@@ -406,6 +419,7 @@ const innerElementWithHeader = React.forwardRef<HTMLDivElement, { children: Reac
       <HeaderRowContainer key='header' style={{ top: 0, left: 0 }}>
         <RankCell>Rank</RankCell>
         <PlayerCell>Player</PlayerCell>
+        <RaceCell>Race</RaceCell>
         <RatingCell>Rating</RatingCell>
         <WinLossCell>Win/loss</WinLossCell>
         <LastPlayedCell>Last played</LastPlayedCell>
@@ -433,6 +447,15 @@ const Row = React.memo(({ style, isEven, player, username, curTime, onSelected }
   }, [onSelected, player, username])
   const [buttonProps, rippleRef] = useButtonState({ onClick })
 
+  const raceStats: Array<[number, RaceChar]> = [
+    [player.pWins + player.pLosses, 'p'],
+    [player.tWins + player.tLosses, 't'],
+    [player.zWins + player.zLosses, 'z'],
+    [player.rWins + player.rLosses, 'r'],
+  ]
+  raceStats.sort((a, b) => b[0] - a[0])
+  const mostPlayedRace = raceStats[0][1]
+
   return (
     <RowContainer style={style} $isEven={isEven} {...buttonProps}>
       <RankCell>{player.rank}</RankCell>
@@ -440,6 +463,9 @@ const Row = React.memo(({ style, isEven, player, username, curTime, onSelected }
         <StyledAvatar user={username} />
         <PlayerName>{username}</PlayerName>
       </PlayerCell>
+      <RaceCell>
+        <StyledRaceIcon race={mostPlayedRace} />
+      </RaceCell>
       <RatingCell>{Math.round(player.rating)}</RatingCell>
       <WinLossCell>
         {player.wins} &ndash; {player.losses}
