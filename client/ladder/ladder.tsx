@@ -244,7 +244,6 @@ const PlayerCell = styled(BaseCell)`
 const RaceCell = styled(BaseCell)`
   width: 48px;
   display: flex;
-  justify-content: flex-end;
   align-items: center;
 `
 
@@ -448,14 +447,14 @@ const Row = React.memo(({ style, isEven, player, username, curTime, onSelected }
   }, [onSelected, player, username])
   const [buttonProps, rippleRef] = useButtonState({ onClick })
 
-  const raceStats = new Map<number, RaceChar>([
+  const raceStats: Array<[number, RaceChar]> = [
     [player.pWins + player.pLosses, 'p'],
     [player.tWins + player.tLosses, 't'],
     [player.zWins + player.zLosses, 'z'],
     [player.rWins + player.rLosses, 'r'],
-  ])
-  const mostPlayedGames = [...raceStats.keys()].sort((a, b) => b - a)[0]
-  const mostPlayedRace = raceStats.get(mostPlayedGames)!
+  ]
+  raceStats.sort((a, b) => b[0] - a[0])
+  const mostPlayedRace = raceStats[0][1]
 
   return (
     <RowContainer style={style} $isEven={isEven} {...buttonProps}>
