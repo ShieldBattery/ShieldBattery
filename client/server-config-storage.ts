@@ -1,6 +1,6 @@
 import { ServerConfig } from '../common/server-config'
 import { JsonLocalStorageValue } from './local-storage'
-import { getServerOrigin } from './network/server-url'
+import { baseUrl } from './network/server-base-url'
 
-const serverOrigin = getServerOrigin().toLowerCase()
-export const serverConfig = new JsonLocalStorageValue<ServerConfig>(`${serverOrigin}:serverConfig`)
+const localStorageKey = IS_ELECTRON ? `${baseUrl}:serverConfig` : 'serverConfig'
+export const serverConfig = new JsonLocalStorageValue<ServerConfig>(localStorageKey)

@@ -128,6 +128,7 @@ Promise.all([rootElemPromise])
       // Ignoring the error here shouldn't be that big of a deal since the config is usually cached
       // in the client's local storage anyway. But also, most config properties should have some
       // default values to fall back on to ensure things don't break.
+      log.warning(`An error when retrieving the server config: ${err?.stack ?? err}`)
     }
     try {
       await sessionPromise

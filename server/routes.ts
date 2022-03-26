@@ -64,7 +64,8 @@ export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) 
       ? `https://${settings.cdnHost}/public/`
       : `https://${settings.bucket}.${settings.endpoint}/public/`
   } else {
-    publicAssetsUrl = '/'
+    const canonicalHost = process.env.SB_CANONICAL_HOST!
+    publicAssetsUrl = canonicalHost.endsWith('/') ? canonicalHost : canonicalHost + '/'
   }
 
   const serverConfig: ServerConfig = {
