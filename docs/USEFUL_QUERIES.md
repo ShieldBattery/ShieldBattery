@@ -36,6 +36,28 @@ JOIN users u2 ON (g.route->>'p2')::NUMERIC = u2.id
 ORDER BY g.start_time, p1;
 ```
 
+## Veto count for each map in the current map pool
+
+This query returns maps grouped by each matchmaking type, but it's easy to add a filter for a
+single matchmaking type if you're interested in only one.
+
+```sql
+WITH mmp AS (
+  SELECT matchmaking_type, MAX(id) AS current_map_pool
+  FROM matchmaking_map_pools
+  GROUP BY matchmaking_type
+)
+SELECT name, COUNT(*) AS vetoes, matchmaking_type
+FROM (
+  SELECT unnest(map_selections) AS map_id, map_pool_id
+  FROM matchmaking_preferences
+) mp
+INNER JOIN uploaded_maps um ON um.id = mp.map_id
+INNER JOIN mmp ON mmp.current_map_pool = mp.map_pool_id
+GROUP BY name, matchmaking_type
+ORDER BY matchmaking_type, vetoes DESC;
+```
+
 # Creating a readonly role and user logins
 
 These must be executed as the superuser.
