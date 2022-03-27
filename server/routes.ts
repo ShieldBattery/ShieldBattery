@@ -6,6 +6,7 @@ import Koa from 'koa'
 import koaConvert from 'koa-convert'
 import koaStatic from 'koa-static'
 import path from 'path'
+import { ServerConfig } from '../common/server-config'
 import { ClientSessionInfo } from '../common/users/session'
 import './http-apis'
 import { getUrl, readFile } from './lib/file-upload'
@@ -55,10 +56,24 @@ export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) 
   // TODO(tec27): we should probably do something based on expected content type as well
   router.get('/robots.txt', send404).get('/favicon.ico', send404)
 
-  // NOTE(tec27): This used to send our feedback URL to clients. Leaving it in place for now to
-  // not break those clients on launch, can be deleted later on.
+  let publicAssetsUrl: string
+  const fileStoreSettings = JSON.parse(process.env.SB_FILE_STORE!)
+  if (fileStoreSettings.doSpaces) {
+    const settings = fileStoreSettings.doSpaces
+    publicAssetsUrl = settings.cdnHost
+      ? `https://${settings.cdnHost}/public/`
+      : `https://${settings.bucket}.${settings.endpoint}/public/`
+  } else {
+    const canonicalHost = process.env.SB_CANONICAL_HOST!
+    publicAssetsUrl = canonicalHost.endsWith('/') ? canonicalHost : canonicalHost + '/'
+  }
+
+  const serverConfig: ServerConfig = {
+    publicAssetsUrl,
+  }
+
   router.get('/config', async ctx => {
-    ctx.body = {}
+    ctx.body = serverConfig
     ctx.type = 'application/json'
   })
 
@@ -102,22 +117,22 @@ export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) 
     '/:param*',
     koaConvert(koaStatic(path.join(__dirname, 'public'))),
     async (ctx: RouterContext) => {
-      let initData: { session: ClientSessionInfo } | Record<string, never> = {}
+      const initData: { serverConfig: ServerConfig; session?: ClientSessionInfo } = {
+        serverConfig,
+      }
       if (ctx.session?.userId) {
-        initData = {
-          session: {
-            user: {
-              id: ctx.session.userId,
-              name: ctx.session.userName,
-              email: ctx.session.email,
-              emailVerified: ctx.session.emailVerified,
-              acceptedPrivacyVersion: ctx.session.acceptedPrivacyVersion,
-              acceptedTermsVersion: ctx.session.acceptedTermsVersion,
-              acceptedUsePolicyVersion: ctx.session.acceptedUsePolicyVersion,
-            },
-            permissions: ctx.session.permissions,
-            lastQueuedMatchmakingType: ctx.session.lastQueuedMatchmakingType,
+        initData.session = {
+          user: {
+            id: ctx.session.userId,
+            name: ctx.session.userName,
+            email: ctx.session.email,
+            emailVerified: ctx.session.emailVerified,
+            acceptedPrivacyVersion: ctx.session.acceptedPrivacyVersion,
+            acceptedTermsVersion: ctx.session.acceptedTermsVersion,
+            acceptedUsePolicyVersion: ctx.session.acceptedUsePolicyVersion,
           },
+          permissions: ctx.session.permissions,
+          lastQueuedMatchmakingType: ctx.session.lastQueuedMatchmakingType,
         }
       }
       await ctx.render('index', {

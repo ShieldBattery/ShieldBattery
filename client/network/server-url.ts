@@ -1,7 +1,5 @@
-const baseUrl =
-  IS_ELECTRON && (window as any).SHIELDBATTERY_ELECTRON_API?.env?.SB_SERVER
-    ? (window as any).SHIELDBATTERY_ELECTRON_API.env.SB_SERVER
-    : __WEBPACK_ENV.SB_SERVER
+import { serverConfig } from '../server-config-storage'
+import { baseUrl } from './server-base-url'
 
 /**
  * Returns an absolute server URL for a path, if necessary (if running in Electron). If it's not
@@ -25,5 +23,19 @@ export function getServerOrigin() {
     return location.origin
   } else {
     return makeServerUrl('')
+  }
+}
+
+/**
+ * Returns an URL for a path that is supposed to be in a public assets directory. In case it's not
+ * set (should be very rare), we default to our production server CDN.
+ */
+export function makePublicAssetUrl(path: string) {
+  const slashlessPath = path.startsWith('/') ? path.substring(1) : '' + path
+  const publicAssetsUrl = serverConfig.getValue()?.publicAssetsUrl
+  if (publicAssetsUrl) {
+    return publicAssetsUrl + slashlessPath
+  } else {
+    return 'https://cdn.shieldbattery.net/public/' + slashlessPath
   }
 }

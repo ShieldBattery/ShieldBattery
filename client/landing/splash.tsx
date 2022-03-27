@@ -15,7 +15,7 @@ import { Label, RaisedButton } from '../material/button'
 import Card from '../material/card'
 import { linearOutSlowIn } from '../material/curve-constants'
 import { push } from '../navigation/routing'
-import { makeServerUrl } from '../network/server-url'
+import { makePublicAssetUrl } from '../network/server-url'
 import { useAppDispatch } from '../redux-hooks'
 import {
   amberA400,
@@ -457,12 +457,12 @@ export default function Splash() {
   return (
     <SplashContainer>
       <BackgroundVideo playsInline={true} autoPlay={true} muted={true} loop={true}>
-        <source src={makeServerUrl('/videos/splash-video.mp4')} type='video/mp4' />
+        <source src={makePublicAssetUrl('/videos/splash-video.mp4')} type='video/mp4' />
       </BackgroundVideo>
       <BackgroundVideoScrim />
       <TopLinks />
       <LogoLockup>
-        <Logo src={makeServerUrl('/images/logo.svg')} />
+        <Logo src={makePublicAssetUrl('/images/logo.svg')} />
         <StyledLogoText />
       </LogoLockup>
       <TagLine>Play StarCraft 1 on the premier community-run platform</TagLine>

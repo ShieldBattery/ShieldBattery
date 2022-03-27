@@ -13,8 +13,10 @@ import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
 import log from './logging/logger'
 import RedirectProvider from './navigation/redirect-provider'
+import { fetchJson } from './network/fetch'
 import registerSocketHandlers from './network/socket-handlers'
 import { RootErrorBoundary } from './root-error-boundary'
+import { serverConfig } from './server-config-storage'
 import './window-focus'
 
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
@@ -101,9 +103,11 @@ Promise.all([rootElemPromise])
   })
   .then(async ({ elem, store }) => {
     let action
+    let configPromise
     let sessionPromise
 
     if (IS_ELECTRON || !window._sbInitData) {
+      configPromise = fetchJson('/config', { method: 'get' })
       sessionPromise = new Promise((resolve, reject) => {
         action = getCurrentSession({
           onSuccess: () => resolve(),
@@ -112,10 +116,20 @@ Promise.all([rootElemPromise])
       })
     } else {
       action = bootstrapSession(window._sbInitData.session)
+      configPromise = Promise.resolve(window._sbInitData.serverConfig)
       sessionPromise = Promise.resolve()
     }
 
     store.dispatch(action)
+    try {
+      const config = await configPromise
+      serverConfig.setValue(config)
+    } catch (err) {
+      // Ignoring the error here shouldn't be that big of a deal since the config is usually cached
+      // in the client's local storage anyway. But also, most config properties should have some
+      // default values to fall back on to ensure things don't break.
+      log.warning(`An error when retrieving the server config: ${err?.stack ?? err}`)
+    }
     try {
       await sessionPromise
     } catch (err) {

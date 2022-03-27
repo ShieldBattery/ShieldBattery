@@ -41,7 +41,7 @@ export function usePreviousDefined<T>(value: T | undefined): T | undefined {
  * @example
  *
  * export const CounterComponent = (props) => {
- *   const countRef = usePropAsRef(props.count)
+ *   const countRef = useValueAsRef(props.count)
  *   const onClick = useCallback(() => console.log('Count: ' + countRef.current), [])
  *   return <button title='Count' onClick={onClick} />
  * }

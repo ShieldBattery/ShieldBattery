@@ -6,7 +6,7 @@ import { DISCORD_URL } from '../../common/url-constants'
 import QuestionIcon from '../icons/material/ic_help_outline_black_48px.svg'
 import LogoText from '../logos/logotext-640x100.svg'
 import { shadowDef4dp } from '../material/shadow-constants'
-import { makeServerUrl } from '../network/server-url'
+import { makePublicAssetUrl } from '../network/server-url'
 import {
   background700,
   background800,
@@ -396,7 +396,7 @@ export default class Faq extends React.Component {
       <Splash>
         <TopLinks />
         <LogoContainer>
-          <Logo src={makeServerUrl('/images/splash-logo.png')} />
+          <Logo src={makePublicAssetUrl('/images/splash-logo.png')} />
           <StyledLogoText />
         </LogoContainer>
         <Intro>
