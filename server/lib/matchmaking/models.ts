@@ -257,21 +257,37 @@ function fromDbGetRankingsResult(r: DbGetRankingsResult) {
 }
 
 /**
- * Returns a list of players sorted by rank for a particular matchmaking type.
+ * Returns a list of players sorted by rank, and optionally filtered by a search query, for a
+ * particular matchmaking type.
  */
-export async function getRankings(matchmakingType: MatchmakingType): Promise<GetRankingsResult[]> {
+export async function getRankings(
+  matchmakingType: MatchmakingType,
+  searchStr?: string,
+): Promise<GetRankingsResult[]> {
   const { client, done } = await db()
   try {
-    const result = await client.query<Dbify<GetRankingsResult>>(sql`
-      SELECT r.matchmaking_type, r.rank, u.name AS username, r.user_id, r.rating,
-          r.wins, r.losses, r.p_wins, r.p_losses, r.t_wins, r.t_losses, r.z_wins, r.z_losses,
-          r.r_wins, r.r_losses, r.r_p_wins, r.r_p_losses, r.r_t_wins, r.r_t_losses, r.r_z_wins,
-          r.r_z_losses, r.last_played_date
+    const query = sql`
+      SELECT r.matchmaking_type, r.rank, u.name AS username, r.user_id, r.rating, r.wins, r.losses,
+        r.p_wins, r.p_losses, r.t_wins, r.t_losses, r.z_wins, r.z_losses, r.r_wins, r.r_losses,
+        r.r_p_wins, r.r_p_losses, r.r_t_wins, r.r_t_losses, r.r_z_wins, r.r_z_losses,
+        r.last_played_date
       FROM ranked_matchmaking_ratings_view r JOIN users u
         ON r.user_id = u.id
       WHERE r.matchmaking_type = ${matchmakingType}
+    `
+
+    if (searchStr) {
+      const escapedStr = `%${searchStr.replace(/[_%\\]/g, '\\$&')}%`
+      query.append(sql`
+        AND u.name ILIKE ${escapedStr}
+      `)
+    }
+
+    query.append(sql`
       ORDER BY r.rank;
     `)
+
+    const result = await client.query<Dbify<GetRankingsResult>>(query)
 
     return result.rows.map(r => fromDbGetRankingsResult(r))
   } finally {

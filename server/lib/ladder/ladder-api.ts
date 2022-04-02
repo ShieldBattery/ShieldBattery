@@ -63,13 +63,16 @@ export class LadderApi {
   @httpGet('/:matchmakingType')
   @httpBefore(throttleMiddleware(getRankingsThrottle, ctx => ctx.ip))
   async getRankings(ctx: RouterContext): Promise<GetRankingsResponse> {
-    const { params } = validateRequest(ctx, {
+    const { params, query } = validateRequest(ctx, {
       params: Joi.object<{ matchmakingType: MatchmakingType }>({
         matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
       }),
+      query: Joi.object<{ q?: string }>({
+        q: Joi.string().allow(''),
+      }),
     })
 
-    const rankings = await getRankings(params.matchmakingType)
+    const rankings = await getRankings(params.matchmakingType, query.q)
 
     const players: LadderPlayer[] = []
     const users: SbUser[] = []

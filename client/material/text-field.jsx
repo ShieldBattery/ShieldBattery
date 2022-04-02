@@ -297,6 +297,10 @@ export default class TextField extends React.Component {
     this.input.focus()
   }
 
+  select() {
+    this.input.select()
+  }
+
   get selectionStart() {
     return this.input.selectionStart
   }

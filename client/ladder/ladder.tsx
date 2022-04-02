@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
-import { List } from 'immutable'
-import React, { useCallback, useEffect, useRef } from 'react'
+import { debounce } from 'lodash-es'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { TableVirtuoso } from 'react-virtuoso'
 import styled from 'styled-components'
 import { useRoute } from 'wouter'
@@ -25,6 +25,8 @@ import { replace } from '../navigation/routing'
 import { navigateToUserProfile } from '../profile/action-creators'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useLocationSearchParam } from '../router-hooks'
+import { SearchInput } from '../search/search-input'
 import { useForceUpdate, useValueAsRef } from '../state-hooks'
 import {
   background400,
@@ -38,6 +40,8 @@ import {
 import { body1, overline, subtitle1, subtitle2 } from '../styles/typography'
 import { timeAgo } from '../time/time-ago'
 import { getRankings, navigateToLadder } from './action-creators'
+
+const CURRENT_TIME = Date.now()
 
 const LadderPage = styled.div`
   width: 100%;
@@ -115,9 +119,40 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
     navigateToLadder(tab)
   }, [])
 
+  const [lastError, setLastError] = useState<Error>()
+  const [searchQuery, setSearchQuery] = useLocationSearchParam('q')
+
+  const debouncedSearchRef = useRef(
+    debounce((searchQuery: string) => {
+      // TODO(2Pac): Find out why the component gets re-rendered a bunch of times after updating the
+      // location and see if there's anything we can do to stop that.
+      setSearchQuery(searchQuery)
+    }, 450),
+  )
+
+  const onSearchChange = useCallback((searchQuery: string) => {
+    // TODO(2Pac): Should we clear the results and show *something* as soon as the user starts
+    // typing?
+    debouncedSearchRef.current(searchQuery)
+  }, [])
+
   useEffect(() => {
-    dispatch(getRankings(matchmakingType))
-  }, [dispatch, matchmakingType])
+    const abortController = new AbortController()
+    const debouncedSearch = debouncedSearchRef.current
+
+    dispatch(
+      getRankings(matchmakingType, searchQuery, {
+        signal: abortController.signal,
+        onSuccess: () => setLastError(undefined),
+        onError: err => setLastError(err),
+      }),
+    )
+
+    return () => {
+      abortController.abort()
+      debouncedSearch.cancel()
+    }
+  }, [dispatch, matchmakingType, searchQuery])
 
   useEffect(() => {
     if (routeType) {
@@ -147,9 +182,10 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
             totalCount={rankings.totalCount}
             players={rankings.players}
             usersById={usersById}
-            isLoading={rankings.isLoading}
-            lastError={rankings.lastError}
-            curTime={Number(rankings.fetchTime)}
+            lastError={lastError}
+            curTime={CURRENT_TIME}
+            searchQuery={searchQuery}
+            onSearchChange={onSearchChange}
           />
         ) : (
           <LoadingDotsArea />
@@ -170,11 +206,19 @@ const TableContainer = styled.div`
   overflow-y: auto;
 `
 
-const LastUpdatedText = styled.div`
-  ${body1};
+const SearchContainer = styled.div`
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+
   width: 100%;
   max-width: 800px;
-  margin: 8px 16px 0;
+  margin: 16px 16px 8px;
+`
+
+const LastUpdatedText = styled.div`
+  ${body1};
   padding: 0 16px;
 
   color: ${colorTextSecondary};
@@ -299,11 +343,12 @@ const EmptyText = styled.div`
 export interface LadderTableProps {
   curTime: number
   totalCount: number
-  isLoading: boolean
-  players?: List<Readonly<LadderPlayer>>
+  players?: ReadonlyArray<LadderPlayer>
   usersById: Immutable<Map<SbUserId, SbUser>>
   lastUpdated: number
   lastError?: Error
+  searchQuery: string
+  onSearchChange: (value: string) => void
 }
 
 export function LadderTable(props: LadderTableProps) {
@@ -321,16 +366,14 @@ export function LadderTable(props: LadderTableProps) {
     [forceUpdate],
   )
 
-  const { players, usersById, isLoading, lastError, curTime } = props
+  const { players, usersById, lastError, curTime, searchQuery, onSearchChange } = props
   const noRowsRenderer = useCallback(() => {
-    if (isLoading) {
-      return <LoadingDotsArea />
-    } else if (lastError) {
+    if (lastError) {
       return <ErrorText>There was an error retrieving the current rankings.</ErrorText>
     } else {
       return <EmptyText>Nothing to see here</EmptyText>
     }
-  }, [isLoading, lastError])
+  }, [lastError])
 
   const onRowSelected = useCallback((userId: SbUserId, username: string) => {
     navigateToUserProfile(userId, username)
@@ -342,7 +385,7 @@ export function LadderTable(props: LadderTableProps) {
 
   const renderRow = useCallback(
     (index: number) => {
-      const player = playersRef.current?.get(index - 1)
+      const player = playersRef.current?.[index - 1]
       if (!player) {
         return <span></span>
       }
@@ -365,9 +408,12 @@ export function LadderTable(props: LadderTableProps) {
 
   return (
     <TableContainer ref={setContainerRef}>
-      <LastUpdatedText title={longTimestamp.format(props.lastUpdated)}>
-        Last updated: {shortTimestamp.format(props.lastUpdated)}
-      </LastUpdatedText>
+      <SearchContainer>
+        <SearchInput searchQuery={searchQuery} onSearchChange={onSearchChange} />
+        <LastUpdatedText title={longTimestamp.format(props.lastUpdated)}>
+          Last updated: {shortTimestamp.format(props.lastUpdated)}
+        </LastUpdatedText>
+      </SearchContainer>
       {containerRef.current && props.totalCount > 0 ? (
         <TableVirtuoso
           customScrollParent={containerRef.current}

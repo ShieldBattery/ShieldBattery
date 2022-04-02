@@ -492,10 +492,13 @@ export default class Maps extends React.Component {
     }
   }
 
-  _resetDebounced = debounce(this._reset, 450)
+  _resetDebounced = debounce(searchQuery => {
+    this.setState({ searchQuery })
+    this._reset()
+  }, 450)
 
   onSearchChange = searchQuery => {
-    this.setState(() => ({ searchQuery }), this._resetDebounced)
+    this._resetDebounced(searchQuery)
     // TODO(2Pac): Display something else when a user starts typing and before the search starts?
     this.props.dispatch(clearMapsList())
   }
