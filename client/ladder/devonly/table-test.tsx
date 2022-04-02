@@ -1,5 +1,4 @@
-import { List } from 'immutable'
-import React from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { LadderPlayer } from '../../../common/ladder'
 import { makeSbUserId, SbUser, SbUserId } from '../../../common/users/sb-user'
 import { LadderTable } from '../ladder'
@@ -62,14 +61,25 @@ for (let i = 0; i < 1000; i++) {
 }
 
 export function TableTest() {
+  const [searchQuery, setSearchQuery] = useState('')
+  const players = useMemo(
+    () => PLAYERS.filter(p => usersById.get(p.userId)!.name.includes(searchQuery)),
+    [searchQuery],
+  )
+
+  const onSearchChange = useCallback((searchQuery: string) => {
+    setSearchQuery(searchQuery)
+  }, [])
+
   return (
     <LadderTable
       lastUpdated={NOW}
-      players={List(PLAYERS)}
+      players={players}
       usersById={usersById}
       totalCount={PLAYERS.length}
-      isLoading={false}
       curTime={Date.now()}
+      searchQuery={searchQuery}
+      onSearchChange={onSearchChange}
     />
   )
 }
