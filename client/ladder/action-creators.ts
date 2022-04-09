@@ -8,7 +8,8 @@ import { fetchJson } from '../network/fetch'
 
 const LADDER_RANKINGS_CACHE_TIME_MS = 60 * 1000
 
-const lastFetchTimeByMatchmakingType = new Map<MatchmakingType, Date>()
+const lastFetchTimeByMatchmakingType = new Map<MatchmakingType, number>()
+const lastSearchTimeByMatchmakingType = new Map<MatchmakingType, number>()
 const lastSearchQueryByMatchmakingType = new Map<MatchmakingType, string>()
 
 export function getRankings(
@@ -17,37 +18,46 @@ export function getRankings(
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const fetchTime = new Date()
-    const lastFetchTime = lastFetchTimeByMatchmakingType.get(matchmakingType) ?? new Date(0)
+    // `performance.now()` can return value that's less than our cache time, so we floor it to that.
+    const fetchTime = performance.now() + LADDER_RANKINGS_CACHE_TIME_MS
+    const lastFetchTime = lastFetchTimeByMatchmakingType.get(matchmakingType) ?? 0
+    const lastSearchTime = lastFetchTimeByMatchmakingType.get(matchmakingType) ?? 0
     const lastSearchQuery = lastSearchQueryByMatchmakingType.get(matchmakingType) ?? ''
 
-    if (
-      Number(fetchTime) - Number(lastFetchTime) < LADDER_RANKINGS_CACHE_TIME_MS &&
-      lastSearchQuery === searchQuery
-    ) {
-      return
+    if (searchQuery) {
+      if (
+        fetchTime - lastSearchTime < LADDER_RANKINGS_CACHE_TIME_MS &&
+        lastSearchQuery === searchQuery
+      ) {
+        return
+      }
+
+      lastSearchTimeByMatchmakingType.set(matchmakingType, fetchTime)
+    } else {
+      if (fetchTime - lastFetchTime < LADDER_RANKINGS_CACHE_TIME_MS) {
+        return
+      }
+
+      lastFetchTimeByMatchmakingType.set(matchmakingType, fetchTime)
     }
 
-    lastFetchTimeByMatchmakingType.set(matchmakingType, fetchTime)
     lastSearchQueryByMatchmakingType.set(matchmakingType, searchQuery)
 
     const result = await fetchJson<GetRankingsResponse>(
-      apiUrl`ladder/${matchmakingType}`.concat(searchQuery ? urlPath`?q=${searchQuery}` : ''),
+      apiUrl`ladder/${matchmakingType}` + (searchQuery ? urlPath`?q=${searchQuery}` : ''),
       {
         signal: spec.signal,
       },
     )
 
-    if (fetchTime < lastFetchTime) {
-      // Don't update the state if we aren't the last request outstanding
-      return
+    // Don't update the state if we aren't the last request outstanding
+    if (fetchTime >= lastFetchTimeByMatchmakingType.get(matchmakingType)!) {
+      dispatch({
+        type: '@ladder/getRankings',
+        payload: result,
+        meta: { matchmakingType, searchQuery },
+      })
     }
-
-    dispatch({
-      type: '@ladder/getRankings',
-      payload: result,
-      meta: { matchmakingType },
-    })
   })
 }
 

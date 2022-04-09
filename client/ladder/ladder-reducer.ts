@@ -9,19 +9,28 @@ export interface RetrievedRankings {
   totalCount: number
 }
 
+export interface SearchResults extends RetrievedRankings {
+  searchQuery: string
+}
+
 export interface LadderState {
   typeToRankings: Map<MatchmakingType, RetrievedRankings>
+  typeToSearchResults: Map<MatchmakingType, SearchResults>
 }
 
 const DEFAULT_LADDER_STATE: Immutable<LadderState> = {
   typeToRankings: new Map(),
+  typeToSearchResults: new Map(),
 }
 
 export default immerKeyedReducer(DEFAULT_LADDER_STATE, {
   ['@ladder/getRankings'](state, action) {
-    const { matchmakingType } = action.meta
-    const { players, totalCount, lastUpdated } = action.payload
+    const { matchmakingType, searchQuery } = action.meta
 
-    state.typeToRankings.set(matchmakingType, { players, totalCount, lastUpdated })
+    if (searchQuery) {
+      state.typeToSearchResults.set(matchmakingType, { ...action.payload, searchQuery })
+    } else {
+      state.typeToRankings.set(matchmakingType, action.payload)
+    }
   },
 })

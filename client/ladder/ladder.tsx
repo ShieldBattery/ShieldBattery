@@ -113,6 +113,7 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
 
   const dispatch = useAppDispatch()
   const rankings = useAppSelector(s => s.ladder.typeToRankings.get(matchmakingType))
+  const searchResults = useAppSelector(s => s.ladder.typeToSearchResults.get(matchmakingType))
   const usersById = useAppSelector(s => s.users.byId)
 
   const onTabChange = useCallback((tab: MatchmakingType) => {
@@ -130,11 +131,20 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
     }, 450),
   )
 
-  const onSearchChange = useCallback((searchQuery: string) => {
-    // TODO(2Pac): Should we clear the results and show *something* as soon as the user starts
-    // typing?
-    debouncedSearchRef.current(searchQuery)
-  }, [])
+  const onSearchChange = useCallback(
+    (searchQuery: string) => {
+      if (searchQuery) {
+        // TODO(2Pac): Should we clear the results and show *something* as soon as the user starts
+        // typing?
+        debouncedSearchRef.current(searchQuery)
+      } else {
+        // When user clears the search, we don't need to debounce showing the full rankings as
+        // they're saved separately from search results.
+        setSearchQuery(searchQuery)
+      }
+    },
+    [setSearchQuery],
+  )
 
   useEffect(() => {
     const abortController = new AbortController()
@@ -160,6 +170,35 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
     }
   }, [routeType])
 
+  let content = <LoadingDotsArea />
+  if (searchQuery && searchResults) {
+    content = (
+      <LadderTable
+        lastUpdated={searchResults.lastUpdated}
+        totalCount={searchResults.totalCount}
+        players={searchResults.players}
+        usersById={usersById}
+        lastError={lastError}
+        curTime={CURRENT_TIME}
+        searchQuery={searchQuery}
+        onSearchChange={onSearchChange}
+      />
+    )
+  } else if (rankings) {
+    content = (
+      <LadderTable
+        lastUpdated={rankings.lastUpdated}
+        totalCount={rankings.totalCount}
+        players={rankings.players}
+        usersById={usersById}
+        lastError={lastError}
+        curTime={CURRENT_TIME}
+        searchQuery={searchQuery}
+        onSearchChange={onSearchChange}
+      />
+    )
+  }
+
   return (
     <LadderPage>
       <TabsContainer>
@@ -175,22 +214,7 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
         </Tabs>
         <ScrollDivider $show={true} $showAt='bottom' />
       </TabsContainer>
-      <Content>
-        {rankings ? (
-          <LadderTable
-            lastUpdated={rankings.lastUpdated}
-            totalCount={rankings.totalCount}
-            players={rankings.players}
-            usersById={usersById}
-            lastError={lastError}
-            curTime={CURRENT_TIME}
-            searchQuery={searchQuery}
-            onSearchChange={onSearchChange}
-          />
-        ) : (
-          <LoadingDotsArea />
-        )}
-      </Content>
+      <Content>{content}</Content>
     </LadderPage>
   )
 }
