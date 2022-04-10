@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react'
+import React, { useEffect } from 'react'
 import styled from 'styled-components'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { Dialog } from '../material/dialog'
@@ -7,7 +7,9 @@ import { background400 } from '../styles/colors'
 import { batchGetMapInfo } from './action-creators'
 import MapImage from './map-image'
 
-const StyledDialog = styled(Dialog)`
+const StyledDialog = styled(Dialog)<{ $mapWidth?: number; $mapHeight?: number }>`
+  --sb-map-width: ${props => props.$mapWidth};
+  --sb-map-height: ${props => props.$mapHeight};
   --sb-map-preview-aspect-ratio: calc(var(--sb-map-width, 1) / var(--sb-map-height, 1));
 
   --sb-map-preview-height-restricted: calc((100vh - 160px) * var(--sb-map-preview-aspect-ratio));
@@ -38,17 +40,10 @@ export function MapPreviewDialog({ mapId, onCancel, dialogRef }: MapPreviewDialo
     dispatch(batchGetMapInfo(mapId))
   }, [dispatch, mapId])
 
-  const style = useMemo(
-    () => ({
-      '--sb-map-width': map?.mapData.width,
-      '--sb-map-height': map?.mapData.height,
-    }),
-    [map],
-  )
-
   return (
     <StyledDialog
-      style={style as any}
+      $mapWidth={map?.mapData.width}
+      $mapHeight={map?.mapData.height}
       onCancel={onCancel}
       dialogRef={dialogRef}
       fullBleed={true}
