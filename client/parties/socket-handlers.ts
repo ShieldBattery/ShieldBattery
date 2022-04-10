@@ -187,7 +187,7 @@ const eventToAction: EventToActionMap = {
 
     if (showRaceDialog) {
       audioManager.playSound(AvailableSound.PartyQueue)
-      dispatch(openDialog(DialogType.PartyQueueAccept))
+      dispatch(openDialog({ type: DialogType.PartyQueueAccept }))
     }
   },
 

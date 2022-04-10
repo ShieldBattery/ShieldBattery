@@ -82,7 +82,7 @@ export default function SettingsDialog({ dialogRef, onCancel }: CommonDialogProp
     savedSettingsTab.setValue(value)
   }, [])
   const onSetPathClick = useCallback(() => {
-    dispatch(openDialog(DialogType.StarcraftPath))
+    dispatch(openDialog({ type: DialogType.StarcraftPath }))
   }, [dispatch])
   const onSettingsSave = useCallback(() => {
     formRef.current?.submit()

@@ -11,5 +11,5 @@ export function openChangelogIfNecessary() {
 }
 
 export function openChangelog() {
-  return openDialog(DialogType.Changelog)
+  return openDialog({ type: DialogType.Changelog })
 }

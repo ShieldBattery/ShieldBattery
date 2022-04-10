@@ -20,7 +20,7 @@ export function maybeOpenExternalLinkDialog(e: MouseEvent<HTMLAnchorElement>): T
 
     if (!isHostTrusted) {
       e.preventDefault()
-      dispatch(openDialog(DialogType.ExternalLink, { href, domain }))
+      dispatch(openDialog({ type: DialogType.ExternalLink, initData: { href, domain } }))
     }
   }
 }

@@ -105,7 +105,7 @@ const eventToAction: EventToActionMap = {
       type: '@matchmaking/acceptMatchTime',
       payload: tick,
     })
-    dispatch(openDialog(DialogType.AcceptMatch))
+    dispatch(openDialog({ type: DialogType.AcceptMatch }))
 
     acceptMatchState.timer = setInterval(() => {
       tick -= 1
