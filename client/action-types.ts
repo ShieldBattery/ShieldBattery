@@ -1,6 +1,7 @@
 import { AuthActions } from './auth/actions'
 import { ChatActions } from './chat/actions'
 import { DialogActions } from './dialogs/actions'
+import { FileBrowserActions } from './file-browser/actions'
 import { GamesActions } from './games/actions'
 import { LadderActions } from './ladder/actions'
 import { MapsActions } from './maps/actions'
@@ -14,6 +15,7 @@ type AllActions =
   | AuthActions
   | ChatActions
   | DialogActions
+  | FileBrowserActions
   | GamesActions
   | LadderActions
   | MapsActions

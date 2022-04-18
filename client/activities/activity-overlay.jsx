@@ -12,22 +12,16 @@ import { zIndexBackdrop, zIndexSideNav } from '../material/zindex'
 import { background700, dialogScrim } from '../styles/colors'
 import { closeOverlay } from './action-creators'
 
-const {
-  FindMatch,
-  BrowseMapSelections,
-  CreateLobby,
-  WatchReplay,
-  BrowseLocalMaps,
-  BrowseServerMaps,
-} = IS_ELECTRON
-  ? {
-      FindMatch: require('../matchmaking/find-match').FindMatch,
-      CreateLobby: require('../lobbies/create-lobby').CreateLobby,
-      WatchReplay: require('../replays/watch-replay').default,
-      BrowseLocalMaps: require('../maps/browse-local-maps').default,
-      BrowseServerMaps: require('../maps/browse-server-maps').default,
-    }
-  : {}
+const { FindMatch, CreateLobby, BrowseLocalMaps, BrowseServerMaps, BrowseLocalReplays } =
+  IS_ELECTRON
+    ? {
+        FindMatch: require('../matchmaking/find-match').FindMatch,
+        CreateLobby: require('../lobbies/create-lobby').CreateLobby,
+        BrowseLocalMaps: require('../maps/browse-local-maps').BrowseLocalMaps,
+        BrowseServerMaps: require('../maps/browse-server-maps').default,
+        BrowseLocalReplays: require('../replays/browse-local-replays').BrowseLocalReplays,
+      }
+    : {}
 
 const ESCAPE = keycode('escape')
 
@@ -125,18 +119,16 @@ export default class ActivityOverlay extends React.Component {
     switch (activityOverlay.current.overlayType) {
       case 'findMatch':
         return FindMatch
-      case 'browseMapSelections':
-        return BrowseMapSelections
       case 'createLobby':
         return CreateLobby
       case 'joinLobby':
         return JoinLobby
-      case 'watchReplay':
-        return WatchReplay
       case 'browseLocalMaps':
         return BrowseLocalMaps
       case 'browseServerMaps':
         return BrowseServerMaps
+      case 'browseLocalReplays':
+        return BrowseLocalReplays
       default:
         throw new Error('Unknown overlay type: ' + activityOverlay.current.overlayType)
     }
