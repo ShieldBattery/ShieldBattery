@@ -35,16 +35,6 @@ export const AUDIO_MANAGER_INITIALIZED = 'AUDIO_MANAGER_INITIALIZED'
 // The server has finished giving us our initial chat data (e.g what channels we are in) on connect
 export const CHAT_LOADING_COMPLETE = 'CHAT_LOADING_COMPLETE'
 
-// We have clicked on a folder inside the file browser
-export const FILE_BROWSER_CHANGE_PATH = 'FILE_BROWSER_CHANGE_PATH'
-// Clear the list of files from the client
-export const FILE_BROWSER_CLEAR_FILES = 'FILE_BROWSER_CLEAR_FILES'
-// We are starting the process of getting the list of files (and folders) from a user's computer
-export const FILE_BROWSER_GET_LIST_BEGIN = 'FILE_BROWSER_GET_LIST_BEGIN'
-// We have received a response to our files retrieval (error or the list of the files for that
-// particular folder)
-export const FILE_BROWSER_GET_LIST = 'FILE_BROWSER_GET_LIST'
-
 // The server has sent us an updated count on the number of active lobbies
 export const LOBBIES_COUNT_UPDATE = 'LOBBIES_COUNT_UPDATE'
 

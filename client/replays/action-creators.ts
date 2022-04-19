@@ -8,6 +8,7 @@ import { REPLAYS_START_REPLAY } from '../actions'
 import { SelfUserRecord } from '../auth/auth-records'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { ThunkAction } from '../dispatch-registry'
+import { FileBrowserFileEntry } from '../file-browser/file-browser-types'
 import logger from '../logging/logger'
 import { push } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
@@ -58,7 +59,7 @@ function setGameRoutes(gameId: string) {
   ipcRenderer.invoke('activeGameStartWhenReady', gameId)
 }
 
-export function startReplay(replay: any): ThunkAction {
+export function startReplay(replay: FileBrowserFileEntry): ThunkAction {
   return (dispatch, getState) => {
     const {
       auth: { user },

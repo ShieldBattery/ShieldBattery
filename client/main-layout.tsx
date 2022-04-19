@@ -269,7 +269,7 @@ export function MainLayout() {
       dispatch(openDialog(DialogType.StarcraftHealth))
     } else {
       // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
-      dispatch(openOverlay('watchReplay') as any)
+      dispatch(openOverlay('browseLocalReplays') as any)
     }
   }, [dispatch, starcraft])
 

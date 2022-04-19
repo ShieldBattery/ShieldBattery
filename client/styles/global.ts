@@ -117,32 +117,6 @@ const GlobalStyle = createGlobalStyle`
     height: 0px;
   }
   /** End scrollbar styling */
-
-  /**
-   * react-virtualized styles
-   * These are copied out of the supplied styles.css so that we don't have to import/utilize CSS,
-   * and have had their stylistic preferences stripped (only layout stuff is left).
-   */
-  .ReactVirtualized__Table__headerRow {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-  }
-  .ReactVirtualized__Table__row {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-  }
-  .ReactVirtualized__Table__headerTruncatedText {
-    display: inline-block;
-    max-width: 100%;
-    overflow: hidden;
-  }
-  .ReactVirtualized__Table__sortableHeaderIconContainer {
-    display: flex;
-    align-items: center;
-  }
-  /* end react-virtualized */
 `
 
 export default GlobalStyle

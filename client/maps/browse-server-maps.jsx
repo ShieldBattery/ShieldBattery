@@ -233,6 +233,7 @@ export default class Maps extends React.Component {
         tilesetFilter,
         lastError,
       },
+      uploadedMap,
     } = this.props
     const { activeTab } = this.state
 
@@ -241,7 +242,7 @@ export default class Maps extends React.Component {
 
       if (!lastError) {
         this.setState({
-          activeTab: visibilityToTab(visibility),
+          activeTab: uploadedMap ? TAB_MY_MAPS : visibilityToTab(visibility),
           thumbnailSize,
           sortOption,
           numPlayersFilter: new Set(numPlayersFilter),
