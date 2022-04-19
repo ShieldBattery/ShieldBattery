@@ -1,4 +1,5 @@
 import { Session } from 'koa-generic-session'
+import { Logger } from 'pino'
 import promClient from 'prom-client'
 import { MatchmakingType } from '../common/matchmaking'
 import { SbPermissions } from '../common/users/permissions'
@@ -42,5 +43,8 @@ declare module 'koa' {
 
     // For Prometheus additions
     prometheus: typeof promClient
+
+    // From koa-pino-logger
+    log: Logger
   }
 }

@@ -8,7 +8,6 @@ export class Redis extends IoRedis {
     super({
       port: Number(process.env.SB_REDIS_PORT),
       host: process.env.SB_REDIS_HOST,
-      dropBufferSupport: true,
     })
   }
 }
