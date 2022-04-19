@@ -1,3 +1,5 @@
+import React from 'react'
+
 export enum FileBrowserType {
   Maps = 'maps',
   Replays = 'replays',
