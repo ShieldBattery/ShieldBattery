@@ -10,6 +10,7 @@ import {
 } from '../../common/constants'
 import { Avatar } from '../avatars/avatar'
 import { closeDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import form from '../forms/form'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import {
@@ -171,7 +172,7 @@ export default class EditAccount extends React.Component {
     const hasError = !!this.props.auth.lastFailure
 
     if (isPrevRequesting && !isRequesting && !hasError) {
-      this.props.dispatch(closeDialog())
+      this.props.dispatch(closeDialog(DialogType.Account))
     }
   }
 
@@ -261,7 +262,7 @@ export default class EditAccount extends React.Component {
 
     if (oldValues.email === values.email && !values.newPassword) {
       // Nothing changed, just close the dialog.
-      this.props.dispatch(closeDialog())
+      this.props.dispatch(closeDialog(DialogType.Account))
       return
     }
     if (oldValues.email !== values.email) {

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef } from 'react'
 import { USERNAME_MAXLENGTH, USERNAME_MINLENGTH, USERNAME_PATTERN } from '../../common/constants'
 import { closeDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { useForm } from '../forms/form-hook'
 import { composeValidators, maxLength, minLength, regex, required } from '../forms/validators'
 import { TextButton } from '../material/button'
@@ -38,7 +39,7 @@ export function PartyInviteDialog({
   const onFormSubmit = useCallback(
     (model: InviteUsersModel) => {
       dispatch(inviteToParty({ targetName: model.user }))
-      dispatch(closeDialog())
+      dispatch(closeDialog(DialogType.PartyInvite))
     },
     [dispatch],
   )

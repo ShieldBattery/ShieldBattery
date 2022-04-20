@@ -4,6 +4,7 @@ import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmakin
 import { useSelfUser } from '../auth/state-hooks'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
+import { DialogType } from '../dialogs/dialog-type'
 import { RacePickerSize } from '../lobbies/race-picker'
 import { RaceSelect } from '../matchmaking/race-select'
 import { TextButton } from '../material/button'
@@ -88,7 +89,7 @@ export function PartyQueueAcceptDialog({ dialogRef }: CommonDialogProps) {
 
   useEffect(() => {
     if (!queueState || queueState.accepted.has(selfId)) {
-      dispatch(closeDialog())
+      dispatch(closeDialog(DialogType.PartyQueueAccept))
     }
   }, [selfId, queueState, dispatch])
   useEffect(() => {

@@ -52,6 +52,8 @@ const Scrim = styled(animated.div)`
 const INVISIBLE_SCRIM_COLOR = rgba(dialogScrim, 0)
 const VISIBLE_SCRIM_COLOR = rgba(dialogScrim, 0.42)
 
+const noop = () => {}
+
 export interface DialogContextValue {
   styles: SpringValues
 }
@@ -124,9 +126,9 @@ export function ConnectedDialogOverlay() {
 
   const isTopDialogModal = topDialog ? getDialog(topDialog.type, starcraft).modal : false
   const onCancel = useCallback(
-    (modal: boolean, event?: React.MouseEvent) => {
-      if (!modal && (!event || !isHandledDismissalEvent(event.nativeEvent))) {
-        dispatch(closeDialog())
+    (dialogType: DialogType | 'all', event?: React.MouseEvent) => {
+      if (!event || !isHandledDismissalEvent(event.nativeEvent)) {
+        dispatch(closeDialog(dialogType))
       }
     },
     [dispatch],
@@ -165,7 +167,14 @@ export function ConnectedDialogOverlay() {
     <>
       {scrimTransition(
         (styles, open) =>
-          open && <Scrim style={styles} onClick={event => onCancel(isTopDialogModal, event)} />,
+          open && (
+            <Scrim
+              style={styles}
+              onClick={event =>
+                isTopDialogModal ? noop() : onCancel(topDialog?.type ?? 'all', event)
+              }
+            />
+          ),
       )}
       {dialogTransition((styles, dialogState) => {
         const { component: DialogComponent, modal } = getDialog(dialogState.type, starcraft)
@@ -179,7 +188,9 @@ export function ConnectedDialogOverlay() {
               <DialogContext.Provider value={{ styles }}>
                 <DialogComponent
                   dialogRef={dialogRef}
-                  onCancel={(event: React.MouseEvent) => onCancel(modal, event)}
+                  onCancel={(event: React.MouseEvent) =>
+                    modal ? noop() : onCancel(dialogState.type, event)
+                  }
                   {...dialogState.initData}
                 />
               </DialogContext.Provider>

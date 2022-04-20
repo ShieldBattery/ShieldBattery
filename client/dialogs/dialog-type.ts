@@ -21,105 +21,54 @@ export enum DialogType {
   Whispers = 'whispers',
 }
 
-export interface BaseDialogPayload {
-  type: DialogType
-  initData?: Record<string, unknown>
+type BaseDialogPayload<D, DataType = Record<string, never>> = {
+  type: D
+  initData?: DataType
 }
 
-export interface AcceptableUseDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.AcceptableUse
-}
-
-export interface AcceptMatchDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.AcceptMatch
-}
-
-export interface AccountDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.Account
-}
-
-export interface ChangelogDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.Changelog
-}
-
-export interface ChannelJoinDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.ChannelJoin
-}
-
-export interface ChannelBanUserDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.ChannelBanUser
-}
-
-export interface DownloadDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.Download
-}
-
-export interface ExternalLinkDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.ExternalLink
-  initData: {
+type AcceptableUseDialogPayload = BaseDialogPayload<typeof DialogType.AcceptableUse>
+type AcceptMatchDialogPayload = BaseDialogPayload<typeof DialogType.AcceptMatch>
+type AccountDialogPayload = BaseDialogPayload<typeof DialogType.Account>
+type ChangelogDialogPayload = BaseDialogPayload<typeof DialogType.Changelog>
+type ChannelJoinDialogPayload = BaseDialogPayload<typeof DialogType.ChannelJoin>
+type ChannelBanUserDialogPayload = BaseDialogPayload<typeof DialogType.ChannelBanUser>
+type DownloadDialogPayload = BaseDialogPayload<typeof DialogType.Download>
+type ExternalLinkDialogPayload = BaseDialogPayload<
+  typeof DialogType.ExternalLink,
+  {
     href: string
     domain: string
   }
-}
-
-export interface MapDetailsDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.MapDetails
-  initData: {
+>
+type MapDetailsDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapDetails,
+  {
     mapId: string
   }
-}
-
-export interface MapPreviewDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.MapPreview
-  initData: {
+>
+type MapPreviewDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapPreview,
+  {
     mapId: string
   }
-}
-
-export interface PartyQueueAcceptDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.PartyQueueAccept
-}
-
-export interface PartyInviteDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.PartyInvite
-}
-
-export interface PrivacyPolicyDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.PrivacyPolicy
-}
-
-export interface SettingsDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.Settings
-}
-
-export interface SimpleDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.Simple
-  initData: {
+>
+type PartyQueueAcceptDialogPayload = BaseDialogPayload<typeof DialogType.PartyQueueAccept>
+type PartyInviteDialogPayload = BaseDialogPayload<typeof DialogType.PartyInvite>
+type PrivacyPolicyDialogPayload = BaseDialogPayload<typeof DialogType.PrivacyPolicy>
+type SettingsDialogPayload = BaseDialogPayload<typeof DialogType.Settings>
+type SimpleDialogPayload = BaseDialogPayload<
+  typeof DialogType.Simple,
+  {
     simpleTitle: string
     simpleContent: React.ReactNode
     hasButton: boolean
   }
-}
-
-export interface ShieldBatteryHealthDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.ShieldBatteryHealth
-}
-
-export interface StarcraftHealthDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.StarcraftHealth
-}
-
-export interface StarcraftPathDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.StarcraftPath
-}
-
-export interface TermsOfServiceDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.TermsOfService
-}
-
-export interface WhispersDialogPayload extends BaseDialogPayload {
-  type: typeof DialogType.Whispers
-}
+>
+type ShieldBatteryHealthDialogPayload = BaseDialogPayload<typeof DialogType.ShieldBatteryHealth>
+type StarcraftHealthDialogPayload = BaseDialogPayload<typeof DialogType.StarcraftHealth>
+type StarcraftPathDialogPayload = BaseDialogPayload<typeof DialogType.StarcraftPath>
+type TermsOfServiceDialogPayload = BaseDialogPayload<typeof DialogType.TermsOfService>
+type WhispersDialogPayload = BaseDialogPayload<typeof DialogType.Whispers>
 
 export type DialogPayload =
   | AcceptableUseDialogPayload

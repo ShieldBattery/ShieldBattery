@@ -20,8 +20,11 @@ export function openSimpleDialog(
   })
 }
 
-export function closeDialog(): CloseDialog {
+export function closeDialog(dialogType: DialogType | 'all'): CloseDialog {
   return {
     type: '@dialogs/close',
+    payload: {
+      dialogType,
+    },
   }
 }

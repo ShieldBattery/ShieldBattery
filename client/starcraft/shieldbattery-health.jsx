@@ -2,6 +2,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { closeDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { RaisedButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { openSnackbar } from '../snackbars/action-creators'
@@ -35,7 +36,7 @@ export class ShieldBatteryHealthDialog extends React.Component {
           message: 'Your local installation is now free of problems.',
         }),
       )
-      this.props.dispatch(closeDialog())
+      this.props.dispatch(closeDialog(DialogType.ShieldBatteryHealth))
     }
   }
 

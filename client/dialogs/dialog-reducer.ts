@@ -23,6 +23,18 @@ export default immerKeyedReducer(DEFAULT_DIALOG_HISTORY_STATE, {
   },
 
   ['@dialogs/close'](state, action) {
-    state.history.pop()
+    const { dialogType } = action.payload
+
+    if (dialogType === 'all') {
+      state.history = []
+      return
+    }
+
+    const dialogIndex = state.history.findIndex(h => h.type === dialogType)
+    if (dialogIndex < 0) {
+      return
+    }
+
+    state.history.splice(dialogIndex)
   },
 })

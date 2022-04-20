@@ -88,7 +88,7 @@ export default function SettingsDialog({ dialogRef, onCancel }: CommonDialogProp
     formRef.current?.submit()
   }, [])
   const onSettingsCancel = useCallback(() => {
-    dispatch(closeDialog())
+    dispatch(closeDialog(DialogType.Settings))
   }, [dispatch])
   const onSettingsChange = useCallback((settings: Partial<LocalSettings & ScrSettings>) => {
     setTempLocalSettings(prev => prev.merge(settings))
@@ -109,7 +109,7 @@ export default function SettingsDialog({ dialogRef, onCancel }: CommonDialogProp
     // those would happen async-ly. Should probably have a form of this that doesn't bother with
     // dispatching and just returns a promise we can await
     if (!lastError) {
-      dispatch(closeDialog())
+      dispatch(closeDialog(DialogType.Settings))
     }
   }, [dispatch, tempLocalSettings, tempScrSettings, lastError])
 

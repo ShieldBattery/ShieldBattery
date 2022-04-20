@@ -1,4 +1,4 @@
-import { DialogPayload } from './dialog-type'
+import { DialogPayload, DialogType } from './dialog-type'
 
 export type DialogActions = OpenDialog | CloseDialog
 
@@ -9,4 +9,7 @@ export interface OpenDialog {
 
 export interface CloseDialog {
   type: '@dialogs/close'
+  payload: {
+    dialogType: DialogType | 'all'
+  }
 }
