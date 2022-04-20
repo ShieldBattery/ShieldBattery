@@ -14,33 +14,52 @@ const lastSearchQueryByMatchmakingType = new Map<MatchmakingType, string>()
 
 export function getRankings(
   matchmakingType: MatchmakingType,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const fetchTime = performance.now()
+    const lastFetchTime = lastFetchTimeByMatchmakingType.get(matchmakingType)
+
+    if (lastFetchTime && fetchTime - lastFetchTime < LADDER_RANKINGS_CACHE_TIME_MS) {
+      return
+    }
+
+    lastFetchTimeByMatchmakingType.set(matchmakingType, fetchTime)
+
+    const result = await fetchJson<GetRankingsResponse>(apiUrl`ladder/${matchmakingType}`, {
+      signal: spec.signal,
+    })
+
+    // Don't update the state if we aren't the last request outstanding
+    if (fetchTime >= lastFetchTimeByMatchmakingType.get(matchmakingType)!) {
+      dispatch({
+        type: '@ladder/getRankings',
+        payload: result,
+        meta: { matchmakingType },
+      })
+    }
+  })
+}
+
+export function searchRankings(
+  matchmakingType: MatchmakingType,
   searchQuery: string,
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    // `performance.now()` can return value that's less than our cache time, so we floor it to that.
-    const fetchTime = performance.now() + LADDER_RANKINGS_CACHE_TIME_MS
-    const lastFetchTime = lastFetchTimeByMatchmakingType.get(matchmakingType) ?? 0
-    const lastSearchTime = lastFetchTimeByMatchmakingType.get(matchmakingType) ?? 0
-    const lastSearchQuery = lastSearchQueryByMatchmakingType.get(matchmakingType) ?? ''
+    const fetchTime = performance.now()
+    const lastSearchTime = lastFetchTimeByMatchmakingType.get(matchmakingType)
+    const lastSearchQuery = lastSearchQueryByMatchmakingType.get(matchmakingType)
 
-    if (searchQuery) {
-      if (
-        fetchTime - lastSearchTime < LADDER_RANKINGS_CACHE_TIME_MS &&
-        lastSearchQuery === searchQuery
-      ) {
-        return
-      }
-
-      lastSearchTimeByMatchmakingType.set(matchmakingType, fetchTime)
-    } else {
-      if (fetchTime - lastFetchTime < LADDER_RANKINGS_CACHE_TIME_MS) {
-        return
-      }
-
-      lastFetchTimeByMatchmakingType.set(matchmakingType, fetchTime)
+    if (
+      lastSearchTime &&
+      fetchTime - lastSearchTime < LADDER_RANKINGS_CACHE_TIME_MS &&
+      lastSearchQuery === searchQuery
+    ) {
+      return
     }
 
+    lastSearchTimeByMatchmakingType.set(matchmakingType, fetchTime)
     lastSearchQueryByMatchmakingType.set(matchmakingType, searchQuery)
 
     const result = await fetchJson<GetRankingsResponse>(
@@ -53,7 +72,7 @@ export function getRankings(
     // Don't update the state if we aren't the last request outstanding
     if (fetchTime >= lastFetchTimeByMatchmakingType.get(matchmakingType)!) {
       dispatch({
-        type: '@ladder/getRankings',
+        type: '@ladder/searchRankings',
         payload: result,
         meta: { matchmakingType, searchQuery },
       })

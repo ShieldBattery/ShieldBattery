@@ -39,7 +39,7 @@ import {
 } from '../styles/colors'
 import { body1, overline, subtitle1, subtitle2 } from '../styles/typography'
 import { timeAgo } from '../time/time-ago'
-import { getRankings, navigateToLadder } from './action-creators'
+import { getRankings, navigateToLadder, searchRankings } from './action-creators'
 
 const CURRENT_TIME = Date.now()
 
@@ -147,19 +147,31 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
   )
 
   useEffect(() => {
-    const abortController = new AbortController()
+    const getRankingsAbortController = new AbortController()
+    const searchRankingsAbortController = new AbortController()
     const debouncedSearch = debouncedSearchRef.current
 
-    dispatch(
-      getRankings(matchmakingType, searchQuery, {
-        signal: abortController.signal,
-        onSuccess: () => setLastError(undefined),
-        onError: err => setLastError(err),
-      }),
-    )
+    if (searchQuery) {
+      dispatch(
+        searchRankings(matchmakingType, searchQuery, {
+          signal: searchRankingsAbortController.signal,
+          onSuccess: () => setLastError(undefined),
+          onError: err => setLastError(err),
+        }),
+      )
+    } else {
+      dispatch(
+        getRankings(matchmakingType, {
+          signal: getRankingsAbortController.signal,
+          onSuccess: () => setLastError(undefined),
+          onError: err => setLastError(err),
+        }),
+      )
+    }
 
     return () => {
-      abortController.abort()
+      getRankingsAbortController.abort()
+      searchRankingsAbortController.abort()
       debouncedSearch.cancel()
     }
   }, [dispatch, matchmakingType, searchQuery])
@@ -170,33 +182,23 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
     }
   }, [routeType])
 
-  let content = <LoadingDotsArea />
+  let rankingsData = {
+    lastUpdated: 0,
+    totalCount: 0,
+    players: [] as Immutable<LadderPlayer[]>,
+  }
   if (searchQuery && searchResults) {
-    content = (
-      <LadderTable
-        lastUpdated={searchResults.lastUpdated}
-        totalCount={searchResults.totalCount}
-        players={searchResults.players}
-        usersById={usersById}
-        lastError={lastError}
-        curTime={CURRENT_TIME}
-        searchQuery={searchQuery}
-        onSearchChange={onSearchChange}
-      />
-    )
+    rankingsData = {
+      lastUpdated: searchResults.lastUpdated,
+      totalCount: searchResults.totalCount,
+      players: searchResults.players,
+    }
   } else if (rankings) {
-    content = (
-      <LadderTable
-        lastUpdated={rankings.lastUpdated}
-        totalCount={rankings.totalCount}
-        players={rankings.players}
-        usersById={usersById}
-        lastError={lastError}
-        curTime={CURRENT_TIME}
-        searchQuery={searchQuery}
-        onSearchChange={onSearchChange}
-      />
-    )
+    rankingsData = {
+      lastUpdated: rankings.lastUpdated,
+      totalCount: rankings.totalCount,
+      players: rankings.players,
+    }
   }
 
   return (
@@ -214,7 +216,20 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
         </Tabs>
         <ScrollDivider $show={true} $showAt='bottom' />
       </TabsContainer>
-      <Content>{content}</Content>
+      <Content>
+        {(searchQuery && searchResults) || rankings ? (
+          <LadderTable
+            {...rankingsData}
+            usersById={usersById}
+            lastError={lastError}
+            curTime={CURRENT_TIME}
+            searchQuery={searchQuery}
+            onSearchChange={onSearchChange}
+          />
+        ) : (
+          <LoadingDotsArea />
+        )}
+      </Content>
     </LadderPage>
   )
 }
