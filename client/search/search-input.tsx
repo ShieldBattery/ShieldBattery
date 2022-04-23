@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
-import styled from 'styled-components'
+import React, { useCallback, useRef, useState } from 'react'
+import styled, { css } from 'styled-components'
 import SearchIcon from '../icons/material/baseline-search-24px.svg'
 import { useKeyListener } from '../keyboard/key-listener'
 import { fastOutSlowInShort } from '../material/curves'
@@ -10,7 +10,18 @@ const ESCAPE = 'Escape'
 const F = 'KeyF'
 
 const TextFieldContainer = styled(TextField)`
-  width: ${props => (props.isFocused ? '250px' : '200px')};
+  --sb-search-input-width: 200px;
+  --sb-search-input-focused-width: 250px;
+
+  ${props =>
+    props.isFocused
+      ? css`
+          width: var(--sb-search-input-focused-width);
+        `
+      : css`
+          width: var(--sb-search-input-width);
+        `}
+
   ${fastOutSlowInShort};
 `
 
@@ -21,18 +32,10 @@ interface SearchInputProps {
 }
 
 export function SearchInput({ searchQuery, onSearchChange, className }: SearchInputProps) {
-  const [inputValue, setInputValue] = useState('')
+  const [inputValue, setInputValue] = useState(searchQuery)
   const [inputFocused, setInputFocused] = useState(false)
   const inputFocusedRef = useValueAsRef(inputFocused)
   const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    // In case the `searchQuery` (the value that was actually searched for) gets out of sync with
-    // the input value (which can happen if network requests return out of order for example), we
-    // update the input value to what was actually searched for so it reflects the search results
-    // accurately.
-    setInputValue(searchQuery)
-  }, [searchQuery])
 
   const onInputFocus = useCallback(() => {
     setInputFocused(true)

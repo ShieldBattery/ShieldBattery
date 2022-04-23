@@ -104,6 +104,14 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, action.payload.users)
   },
 
+  ['@ladder/searchRankings'](state, action) {
+    if (action.error) {
+      return
+    }
+
+    updateUsers(state, action.payload.users)
+  },
+
   ['@profile/adminBanUser'](state, action) {
     updateUsers(state, action.payload.users)
   },

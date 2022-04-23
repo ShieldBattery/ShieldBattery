@@ -20,7 +20,7 @@ export function getRankings(
     const fetchTime = performance.now()
     const lastFetchTime = lastFetchTimeByMatchmakingType.get(matchmakingType)
 
-    if (lastFetchTime && fetchTime - lastFetchTime < LADDER_RANKINGS_CACHE_TIME_MS) {
+    if (lastFetchTime !== undefined && fetchTime - lastFetchTime < LADDER_RANKINGS_CACHE_TIME_MS) {
       return
     }
 
@@ -31,7 +31,7 @@ export function getRankings(
     })
 
     // Don't update the state if we aren't the last request outstanding
-    if (fetchTime >= lastFetchTimeByMatchmakingType.get(matchmakingType)!) {
+    if (fetchTime >= (lastFetchTimeByMatchmakingType.get(matchmakingType) ?? 0)) {
       dispatch({
         type: '@ladder/getRankings',
         payload: result,
@@ -52,7 +52,7 @@ export function searchRankings(
     const lastSearchQuery = lastSearchQueryByMatchmakingType.get(matchmakingType)
 
     if (
-      lastSearchTime &&
+      lastSearchTime !== undefined &&
       fetchTime - lastSearchTime < LADDER_RANKINGS_CACHE_TIME_MS &&
       lastSearchQuery === searchQuery
     ) {
@@ -70,7 +70,7 @@ export function searchRankings(
     )
 
     // Don't update the state if we aren't the last request outstanding
-    if (fetchTime >= lastFetchTimeByMatchmakingType.get(matchmakingType)!) {
+    if (fetchTime >= (lastFetchTimeByMatchmakingType.get(matchmakingType) ?? 0)) {
       dispatch({
         type: '@ladder/searchRankings',
         payload: result,

@@ -24,13 +24,14 @@ export const useLocationSearchParam = (
   const searchValue = searchParams.get(name) ?? ''
 
   const setLocationSearch = (value: string) => {
+    const params = new URLSearchParams(Array.from(searchParams.entries()))
     if (value) {
-      searchParams.set(name, value)
+      params.set(name, value)
     } else {
-      searchParams.delete(name)
+      params.delete(name)
     }
 
-    const searchString = searchParams.toString()
+    const searchString = params.toString()
     setLocation(location + (searchString ? `?${searchString}` : ''))
   }
 

@@ -128,19 +128,17 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
       // TODO(2Pac): Find out why the component gets re-rendered a bunch of times after updating the
       // location and see if there's anything we can do to stop that.
       setSearchQuery(searchQuery)
-    }, 450),
+    }, 100),
   )
 
   const onSearchChange = useCallback(
     (searchQuery: string) => {
       if (searchQuery) {
-        // TODO(2Pac): Should we clear the results and show *something* as soon as the user starts
-        // typing?
         debouncedSearchRef.current(searchQuery)
       } else {
         // When user clears the search, we don't need to debounce showing the full rankings as
         // they're saved separately from search results.
-        setSearchQuery(searchQuery)
+        setSearchQuery('')
       }
     },
     [setSearchQuery],

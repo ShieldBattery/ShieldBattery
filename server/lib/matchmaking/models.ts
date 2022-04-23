@@ -7,6 +7,7 @@ import {
 import { RaceStats } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
+import { escapeSearchString } from '../db/escape-search-string'
 import { Dbify } from '../db/types'
 
 export interface MatchmakingRating extends RaceStats {
@@ -277,7 +278,7 @@ export async function getRankings(
     `
 
     if (searchStr) {
-      const escapedStr = `%${searchStr.replace(/[_%\\]/g, '\\$&')}%`
+      const escapedStr = `%${escapeSearchString(searchStr)}%`
       query.append(sql`
         AND u.name ILIKE ${escapedStr}
       `)
