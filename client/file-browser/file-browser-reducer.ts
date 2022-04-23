@@ -11,8 +11,8 @@ import {
 export interface FileBrowserState {
   path: string
   upOneDir?: FileBrowserUpEntry
-  folders?: FileBrowserFolderEntry[]
-  files?: FileBrowserFileEntry[]
+  folders: FileBrowserFolderEntry[]
+  files: FileBrowserFileEntry[]
 }
 
 export interface FileBrowserStates {
@@ -67,6 +67,8 @@ export default immerKeyedReducer(DEFAULT_FILE_BROWSER_STATE, {
   ['@fileBrowser/changePath'](state, action) {
     state[action.payload.browserType] = {
       path: action.payload.browserPath,
+      folders: [],
+      files: [],
     }
   },
 

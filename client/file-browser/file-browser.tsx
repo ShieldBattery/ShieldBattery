@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FixedSizeList } from 'react-window'
+import { Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useObservedDimensions } from '../dom/dimension-hooks'
@@ -16,6 +16,7 @@ import { Select } from '../material/select/select'
 import { shadow4dp } from '../material/shadows'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { usePrevious } from '../state-hooks'
 import {
   amberA400,
   blue700,
@@ -27,7 +28,11 @@ import {
   colorTextSecondary,
 } from '../styles/colors'
 import { Caption, Headline5, headline6, subtitle1, Subtitle1 } from '../styles/typography'
-import { changePath, clearFiles, getFiles } from './action-creators'
+import {
+  changePath as changePathAction,
+  clearFiles,
+  getFiles as getFilesAction,
+} from './action-creators'
 import {
   FileBrowserEntry,
   FileBrowserEntryConfig,
@@ -91,20 +96,18 @@ const InfoContainer = styled.div`
 
 interface FileBrowserEntryProps {
   isFocused: boolean
-  style: React.CSSProperties
 }
 
 function UpOneDir({
   upOneDir,
   isFocused,
   onClick,
-  style,
 }: FileBrowserEntryProps & {
   upOneDir: FileBrowserUpEntry
   onClick: (entry: FileBrowserUpEntry) => void
 }) {
   return (
-    <EntryContainer style={style} $focused={isFocused} onClick={() => onClick(upOneDir)}>
+    <EntryContainer $focused={isFocused} onClick={() => onClick(upOneDir)}>
       <EntryIcon>
         <UpDirectory />
       </EntryIcon>
@@ -123,13 +126,12 @@ function FolderEntry({
   folder,
   isFocused,
   onClick,
-  style,
 }: FileBrowserEntryProps & {
   folder: FileBrowserFolderEntry
   onClick: (entry: FileBrowserFolderEntry) => void
 }) {
   return (
-    <FolderEntryContainer style={style} $focused={isFocused} onClick={() => onClick(folder)}>
+    <FolderEntryContainer $focused={isFocused} onClick={() => onClick(folder)}>
       <EntryIcon>
         <Folder />
       </EntryIcon>
@@ -152,14 +154,13 @@ function FileEntry({
   icon,
   isFocused,
   onClick,
-  style,
 }: FileBrowserEntryProps & {
   file: FileBrowserFileEntry
   icon: React.ReactElement
   onClick: (entry: FileBrowserFileEntry) => void
 }) {
   return (
-    <FileEntryContainer style={style} $focused={isFocused} onClick={() => onClick(file)}>
+    <FileEntryContainer $focused={isFocused} onClick={() => onClick(file)}>
       <EntryIcon>{icon}</EntryIcon>
       <InfoContainer>
         <Subtitle1>{file.name}</Subtitle1>
@@ -284,6 +285,11 @@ const FilesContent = styled.div`
   flex-shrink: 1;
 `
 
+const VertPadding = styled.div<{ context?: unknown }>`
+  width: 100%;
+  height: ${VERT_PADDING}px;
+`
+
 const ErrorText = styled.div`
   ${subtitle1};
   padding: 16px;
@@ -336,10 +342,11 @@ export function FileBrowser({
   const fileBrowser = useAppSelector(s => s.fileBrowser[browserType])
   const fileBrowserPath = fileBrowser?.path
   const [dimensionsRef, containerRect] = useObservedDimensions()
+  const [isLoadingFiles, setIsLoadingFiles] = useState(true)
   const [loadFilesError, setLoadFilesError] = useState<Error>()
+  const prevIsLoadingFiles = usePrevious(isLoadingFiles)
 
-  const listRef = useRef<FixedSizeList>(null)
-  const listOuterRef = useRef<HTMLElement>(null)
+  const listRef = useRef<VirtuosoHandle>(null)
 
   const [initialFocusedPath, initialRootFolderId] = useMemo(
     () => [
@@ -360,8 +367,8 @@ export function FileBrowser({
   }, [])
 
   const entries = useMemo(() => {
-    if (!fileBrowser || !fileBrowser.folders || !fileBrowser.files) {
-      return undefined
+    if (!fileBrowser || isLoadingFiles || loadFilesError) {
+      return []
     }
 
     const { upOneDir, files, folders } = fileBrowser
@@ -370,12 +377,20 @@ export function FileBrowser({
     return upOneDir
       ? entries.concat(upOneDir, folders, filteredFiles)
       : entries.concat(folders, filteredFiles)
-  }, [fileBrowser, fileTypes])
+  }, [fileBrowser, fileTypes, isLoadingFiles, loadFilesError])
 
   const focusedIndex = useMemo(() => {
-    const hasFocusedIndex = focusedPath && entries && entries.map(i => i.path).includes(focusedPath)
+    const hasFocusedIndex = focusedPath && entries.map(i => i.path).includes(focusedPath)
     return hasFocusedIndex ? entries.findIndex(f => f.path === focusedPath) : -1
   }, [entries, focusedPath])
+
+  const changePath = useCallback(
+    (browserType: FileBrowserType, path: string) => {
+      setIsLoadingFiles(true)
+      dispatch(changePathAction(browserType, path))
+    },
+    [dispatch],
+  )
 
   useEffect(() => {
     // This effect should only change the initial path, to effectively initialize the file browser.
@@ -389,35 +404,46 @@ export function FileBrowser({
         ? getDir(focusedPath)
         : rootFolder.path
 
-    dispatch(changePath(browserType, initialPath))
-  }, [browserType, dispatch, fileBrowserPath, focusedPath, rootFolder.path])
+    changePath(browserType, initialPath)
+  }, [browserType, changePath, fileBrowserPath, focusedPath, rootFolder.path])
 
   useEffect(() => {
-    if (!entries || entries.length < 1) {
-      return
+    // This effect should only scroll to the focused entry when files are freshly loaded. All other
+    // scrolling should be done through user action (e.g. keyboard navigation).
+    if (prevIsLoadingFiles && !isLoadingFiles && entries.length > 0) {
+      if (focusedIndex > -1) {
+        listRef.current?.scrollToIndex({ index: focusedIndex, align: 'center' })
+      } else {
+        // Focus first entry if nothing else is focused. Will be 'Up one directory' entry in all
+        // non-root folders. In the root folder it will either be the first folder or a file.
+        setFocusedPath(entries[0].path)
+      }
     }
+  }, [prevIsLoadingFiles, isLoadingFiles, entries, focusedIndex])
 
-    if (focusedIndex > -1) {
-      listRef.current?.scrollToItem(focusedIndex)
-    } else {
-      // Focus first entry if nothing else is focused. Will be 'Up one directory' entry in all
-      // non-root folders. In the root folder it will either be the first folder or a file.
-      setFocusedPath(entries[0].path)
-    }
-  }, [entries, focusedIndex])
-
-  useEffect(() => {
+  const getFiles = useCallback(() => {
     if (!fileBrowserPath) {
       return
     }
 
+    setIsLoadingFiles(true)
     dispatch(
-      getFiles(browserType, fileBrowserPath, rootFolder.path, {
-        onSuccess: () => setLoadFilesError(undefined),
-        onError: err => setLoadFilesError(err),
+      getFilesAction(browserType, fileBrowserPath, rootFolder.path, {
+        onSuccess: () => {
+          setIsLoadingFiles(false)
+          setLoadFilesError(undefined)
+        },
+        onError: err => {
+          setIsLoadingFiles(false)
+          setLoadFilesError(err)
+        },
       }),
     )
   }, [browserType, dispatch, fileBrowserPath, rootFolder.path])
+
+  useEffect(() => {
+    getFiles()
+  }, [getFiles])
 
   useEffect(() => {
     // TODO(2Pac): Test if this is an expensive operation to do each time the focused path changes;
@@ -445,14 +471,12 @@ export function FileBrowser({
   const onBreadcrumbNavigate = useCallback(
     (path: string) => {
       const pathWithoutRoot = path.slice(rootFolder.name.length + 1)
-      dispatch(
-        changePath(
-          browserType,
-          pathWithoutRoot ? rootFolder.path + '\\' + pathWithoutRoot : rootFolder.path,
-        ),
+      changePath(
+        browserType,
+        pathWithoutRoot ? rootFolder.path + '\\' + pathWithoutRoot : rootFolder.path,
       )
     },
-    [browserType, dispatch, rootFolder.name, rootFolder.path],
+    [browserType, changePath, rootFolder.name.length, rootFolder.path],
   )
 
   const onUpLevelClick = useCallback(() => {
@@ -461,14 +485,14 @@ export function FileBrowser({
     }
 
     const prevPath = getDir(fileBrowserPath)
-    dispatch(changePath(browserType, prevPath))
-  }, [browserType, dispatch, fileBrowserPath])
+    changePath(browserType, prevPath)
+  }, [browserType, changePath, fileBrowserPath])
 
   const onFolderClick = useCallback(
     (folder: FileBrowserFolderEntry) => {
-      dispatch(changePath(browserType, folder.path))
+      changePath(browserType, folder.path)
     },
-    [browserType, dispatch],
+    [browserType, changePath],
   )
 
   const onFileClick = useCallback(
@@ -483,22 +507,9 @@ export function FileBrowser({
     [fileTypes],
   )
 
-  const onRefreshClick = useCallback(() => {
-    if (!fileBrowserPath) {
-      return
-    }
-
-    dispatch(
-      getFiles(browserType, fileBrowserPath, rootFolder.path, {
-        onSuccess: () => setLoadFilesError(undefined),
-        onError: err => setLoadFilesError(err),
-      }),
-    )
-  }, [browserType, dispatch, fileBrowserPath, rootFolder.path])
-
   const moveFocusedIndexBy = useCallback(
     (delta: number) => {
-      if (!entries || focusedIndex < 0) {
+      if (focusedIndex < 0) {
         return
       }
 
@@ -518,14 +529,14 @@ export function FileBrowser({
         setFocusedPath(newFocusedEntry.path)
       }
 
-      listRef.current?.scrollToItem(newIndex)
+      listRef.current?.scrollIntoView({ index: newIndex })
     },
     [entries, focusedIndex, focusedPath],
   )
 
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
-      if (!fileBrowser || !fileBrowser.folders || !fileBrowser.files || !entries) {
+      if (!fileBrowser || entries.length < 1) {
         return false
       }
 
@@ -554,10 +565,10 @@ export function FileBrowser({
           return true
         case PAGEUP:
         case PAGEDOWN:
-          if (!listOuterRef.current) {
+          if (!containerRect) {
             return true
           }
-          const ENTRIES_SHOWN = Math.floor(listOuterRef.current.clientHeight / ENTRY_HEIGHT)
+          const ENTRIES_SHOWN = Math.floor(containerRect.height / ENTRY_HEIGHT)
           // This tries to mimick the way "page up" and "page down" keys work in Windows file
           // explorer
           const delta = event.code === PAGEUP ? -ENTRIES_SHOWN + 1 : ENTRIES_SHOWN - 1
@@ -572,11 +583,9 @@ export function FileBrowser({
 
           setFocusedPath(newFocusedEntry.path)
           if (event.code === HOME) {
-            listRef.current?.scrollTo(0)
+            listRef.current?.scrollToIndex({ index: 0, align: 'end' })
           } else if (event.code === END) {
-            // TODO(2Pac): Figure out why react-window won't scroll to the bottom of a page when the
-            // inner list has padding on top/bottom
-            listRef.current?.scrollTo(listOuterRef.current?.scrollHeight ?? 0)
+            listRef.current?.scrollToIndex({ index: entries.length, align: 'start' })
           }
           return true
         case BACKSPACE:
@@ -592,31 +601,26 @@ export function FileBrowser({
   })
 
   const noRowsRenderer = useCallback(() => {
-    if (loadFilesError) {
-      return <ErrorText>{loadFilesError.message}</ErrorText>
-    } else if (!entries) {
+    if (isLoadingFiles) {
       return <LoadingDotsArea />
+    } else if (loadFilesError) {
+      return <ErrorText>{loadFilesError.message}</ErrorText>
     } else {
       return <EmptyText>Nothing to see here</EmptyText>
     }
-  }, [entries, loadFilesError])
+  }, [isLoadingFiles, loadFilesError])
 
   const renderRow = useCallback(
-    ({ index, style }: { index: number; style: React.CSSProperties }) => {
+    (index: number) => {
       const entry = entries?.[index]
       if (!entry) {
-        return <span style={style}></span>
+        return <span></span>
       }
 
-      const styleWithPadding = {
-        ...style,
-        top: style.top !== undefined ? `${Number(style.top) + VERT_PADDING}px` : style.top,
-      }
       const isFocused = entry.path === focusedPath
       if (entry.type === FileBrowserEntryType.Up) {
         return (
           <UpOneDir
-            style={styleWithPadding}
             upOneDir={entry}
             onClick={onUpLevelClick}
             isFocused={isFocused}
@@ -626,7 +630,6 @@ export function FileBrowser({
       } else if (entry.type === FileBrowserEntryType.Folder) {
         return (
           <FolderEntry
-            style={styleWithPadding}
             folder={entry}
             onClick={onFolderClick}
             isFocused={isFocused}
@@ -637,7 +640,6 @@ export function FileBrowser({
         const entryConfig = fileTypes[entry.extension]
         return (
           <FileEntry
-            style={styleWithPadding}
             file={entry}
             onClick={onFileClick}
             icon={entryConfig ? entryConfig.icon : <span></span>}
@@ -673,22 +675,19 @@ export function FileBrowser({
         ) : null}
         <BreadcrumbsAndActions>
           <StyledPathBreadcrumbs path={displayedPath} onNavigate={onBreadcrumbNavigate} />
-          <IconButton icon={<Refresh />} onClick={onRefreshClick} title={'Refresh'} />
+          <IconButton icon={<Refresh />} onClick={getFiles} title={'Refresh'} />
         </BreadcrumbsAndActions>
       </TopBar>
       {error ? <ExternalError>{error}</ExternalError> : null}
       <FilesContent ref={dimensionsRef}>
-        {entries && entries.length > 0 ? (
-          <FixedSizeList
+        {entries.length > 0 ? (
+          <Virtuoso
             ref={listRef}
-            outerRef={listOuterRef}
-            width='100%'
-            height={containerRect?.height ?? 0}
-            itemCount={entries.length}
-            itemSize={ENTRY_HEIGHT}
-            innerElementType={innerElementWithMargin}>
-            {renderRow}
-          </FixedSizeList>
+            style={{ height: '100%' }}
+            components={{ Header: VertPadding, Footer: VertPadding }}
+            totalCount={entries.length}
+            itemContent={renderRow}
+          />
         ) : (
           noRowsRenderer()
         )}
@@ -696,19 +695,3 @@ export function FileBrowser({
     </Root>
   )
 }
-
-const innerElementWithMargin = React.forwardRef<HTMLDivElement, { style: React.CSSProperties }>(
-  ({ style, ...rest }, ref) => (
-    <div
-      ref={ref}
-      style={{
-        ...style,
-        height:
-          style.height !== undefined
-            ? `${Number(style.height) + VERT_PADDING * 2}px`
-            : style.height,
-      }}
-      {...rest}
-    />
-  ),
-)
