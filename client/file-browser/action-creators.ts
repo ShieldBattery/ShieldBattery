@@ -25,6 +25,8 @@ export function getFiles(
   })
 }
 
+// TODO(2Pac): This action should probably include getting files as well, instead of having two
+// separate actions which must be kept in sync.
 export function changePath(browserType: FileBrowserType, browserPath: string): ChangePath {
   return {
     type: '@fileBrowser/changePath',
