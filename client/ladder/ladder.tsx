@@ -1,7 +1,7 @@
 import { Immutable } from 'immer'
 import { List } from 'immutable'
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { areEqual, FixedSizeList } from 'react-window'
+import React, { useCallback, useEffect, useRef } from 'react'
+import { TableVirtuoso } from 'react-virtuoso'
 import styled from 'styled-components'
 import { useRoute } from 'wouter'
 import { LadderPlayer } from '../../common/ladder'
@@ -13,11 +13,9 @@ import {
 import { RaceChar } from '../../common/races'
 import { SbUser, SbUserId } from '../../common/users/sb-user'
 import { Avatar } from '../avatars/avatar'
-import { useObservedDimensions } from '../dom/dimension-hooks'
 import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
 import { RaceIcon } from '../lobbies/race-icon'
 import { JsonLocalStorageValue } from '../local-storage'
-import { animationFrameHandler, AnimationFrameHandler } from '../material/animation-frame-handler'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
@@ -183,7 +181,7 @@ const LastUpdatedText = styled.div`
   text-align: right;
 `
 
-const Table = styled(FixedSizeList)`
+const Table = styled.div`
   width: 100%;
   height: auto;
   max-width: 800px;
@@ -204,7 +202,7 @@ const RowContainer = styled.button<{ $isEven: boolean }>`
   background-color: ${props => (props.$isEven ? background400 : background500)};
 `
 
-const HeaderRowContainer = styled.div`
+const HeaderRowContainer = styled.div<{ context?: unknown }>`
   ${shadow4dp};
   ${overline};
   width: 100%;
@@ -308,43 +306,7 @@ export interface LadderTableProps {
 }
 
 export function LadderTable(props: LadderTableProps) {
-  const [dimensionsRef, containerRect] = useObservedDimensions()
-  const containerRef = useRef<HTMLElement | null>(null)
-  // multiplex the ref to the container to our own ref + the dimensions one
-  const containerCallback = useCallback(
-    (node: HTMLElement | null) => {
-      dimensionsRef(node)
-      containerRef.current = node
-    },
-    [dimensionsRef],
-  )
-
-  const tableRef = useRef<FixedSizeList>(null)
-  const tableOuterRef = useRef<HTMLElement>(null)
-
-  const [scrollTop, setScrollTop] = useState(0)
-  const containerScrollHandler = useRef<AnimationFrameHandler<HTMLDivElement>>()
-  useLayoutEffect(() => {
-    containerScrollHandler.current = animationFrameHandler(() => {
-      setScrollTop(containerRef.current?.scrollTop ?? 0)
-    })
-
-    setScrollTop(containerRef.current?.scrollTop ?? 0)
-
-    return () => {
-      containerScrollHandler.current?.cancel()
-      containerScrollHandler.current = undefined
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!tableRef.current || !tableOuterRef.current) {
-      return
-    }
-
-    const outer = tableOuterRef.current
-    tableRef.current.scrollTo(scrollTop - outer.offsetTop)
-  }, [scrollTop])
+  const containerRef = useRef<HTMLDivElement | null>(null)
 
   const { players, usersById, isLoading, lastError, curTime } = props
   const noRowsRenderer = useCallback(() => {
@@ -366,10 +328,10 @@ export function LadderTable(props: LadderTableProps) {
   const usersByIdRef = useValueAsRef(usersById)
 
   const renderRow = useCallback(
-    ({ index, style }: { index: number; style: React.CSSProperties }) => {
+    (index: number) => {
       const player = playersRef.current?.get(index - 1)
       if (!player) {
-        return <span style={style}></span>
+        return <span></span>
       }
 
       const username = usersByIdRef.current.get(player.userId)?.name ?? ''
@@ -377,7 +339,6 @@ export function LadderTable(props: LadderTableProps) {
       return (
         <Row
           key={player.userId}
-          style={style}
           isEven={index % 2 === 0}
           player={player}
           username={username}
@@ -390,22 +351,24 @@ export function LadderTable(props: LadderTableProps) {
   )
 
   return (
-    <TableContainer ref={containerCallback} onScroll={containerScrollHandler.current?.handler}>
+    <TableContainer ref={containerRef}>
       <LastUpdatedText title={longTimestamp.format(props.lastUpdated)}>
         Last updated: {shortTimestamp.format(props.lastUpdated)}
       </LastUpdatedText>
-      {props.totalCount > 0 ? (
-        <Table
-          ref={tableRef}
-          outerRef={tableOuterRef}
-          style={{ height: 'auto', display: 'inline-block', overflow: 'unset' }}
-          width='100%'
-          height={containerRect?.height ?? 0}
-          itemCount={props.totalCount + 1}
-          itemSize={ROW_HEIGHT}
-          innerElementType={innerElementWithHeader}>
-          {renderRow}
-        </Table>
+      {containerRef.current && props.totalCount > 0 ? (
+        <TableVirtuoso
+          customScrollParent={containerRef.current}
+          fixedHeaderContent={Header}
+          components={{
+            Table,
+            TableHead: HeaderRowContainer,
+            TableBody,
+            TableRow,
+            FillerRow,
+          }}
+          totalCount={props.totalCount}
+          itemContent={renderRow}
+        />
       ) : (
         noRowsRenderer()
       )}
@@ -413,25 +376,30 @@ export function LadderTable(props: LadderTableProps) {
   )
 }
 
-const innerElementWithHeader = React.forwardRef<HTMLDivElement, { children: React.ReactNode }>(
-  ({ children, ...rest }, ref) => (
-    <div ref={ref} {...rest}>
-      <HeaderRowContainer key='header' style={{ top: 0, left: 0 }}>
-        <RankCell>Rank</RankCell>
-        <PlayerCell>Player</PlayerCell>
-        <RaceCell>Race</RaceCell>
-        <RatingCell>Rating</RatingCell>
-        <WinLossCell>Win/loss</WinLossCell>
-        <LastPlayedCell>Last played</LastPlayedCell>
-      </HeaderRowContainer>
-
-      {children}
-    </div>
-  ),
+const Header = () => (
+  <>
+    <RankCell>Rank</RankCell>
+    <PlayerCell>Player</PlayerCell>
+    <RaceCell>Race</RaceCell>
+    <RatingCell>Rating</RatingCell>
+    <WinLossCell>Win/loss</WinLossCell>
+    <LastPlayedCell>Last played</LastPlayedCell>
+  </>
 )
 
+// TODO(2Pac): react-virtuoso types expect the `ref` here to point to a `tbody` element. I opened an
+// issue on their github page: https://github.com/petyosi/react-virtuoso/issues/644
+const TableBody = React.forwardRef((props, ref: React.ForwardedRef<any>) => (
+  <div ref={ref} {...props} />
+))
+
+const TableRow = styled.div``
+
+const FillerRow = styled.div<{ height: number }>`
+  height: ${props => `${props.height}px`};
+`
+
 interface RowProps {
-  style?: React.CSSProperties
   isEven: boolean
   player: LadderPlayer
   username: string
@@ -439,7 +407,7 @@ interface RowProps {
   onSelected?: (userId: SbUserId, username: string) => void
 }
 
-const Row = React.memo(({ style, isEven, player, username, curTime, onSelected }: RowProps) => {
+const Row = React.memo(({ isEven, player, username, curTime, onSelected }: RowProps) => {
   const onClick = useCallback(() => {
     if (onSelected) {
       onSelected(player.userId, username)
@@ -457,7 +425,7 @@ const Row = React.memo(({ style, isEven, player, username, curTime, onSelected }
   const mostPlayedRace = raceStats[0][1]
 
   return (
-    <RowContainer style={style} $isEven={isEven} {...buttonProps}>
+    <RowContainer $isEven={isEven} {...buttonProps}>
       <RankCell>{player.rank}</RankCell>
       <PlayerCell>
         <StyledAvatar user={username} />
@@ -474,4 +442,4 @@ const Row = React.memo(({ style, isEven, player, username, curTime, onSelected }
       <Ripple ref={rippleRef} />
     </RowContainer>
   )
-}, areEqual)
+})
