@@ -10,16 +10,13 @@ const ESCAPE = 'Escape'
 const F = 'KeyF'
 
 const TextFieldContainer = styled(TextField)`
-  --sb-search-input-width: 200px;
-  --sb-search-input-focused-width: 250px;
-
   ${props =>
     props.isFocused
       ? css`
-          width: var(--sb-search-input-focused-width);
+          width: var(--sb-search-input-focused-width, 250px);
         `
       : css`
-          width: var(--sb-search-input-width);
+          width: var(--sb-search-input-width, 200px);
         `}
 
   ${fastOutSlowInShort};
