@@ -185,7 +185,8 @@ const Table = styled.div`
   width: 100%;
   height: auto;
   max-width: 800px;
-  margin: 8px 16px 16px;
+  margin: 8px 16px 0px;
+  padding-bottom: 16px;
 `
 
 const RowContainer = styled.button<{ $isEven: boolean }>`
