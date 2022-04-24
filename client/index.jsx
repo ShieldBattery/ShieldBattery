@@ -1,4 +1,3 @@
-import { Provider as ResizeObserverProvider } from '@envato/react-resize-observer-hook'
 import { enableMapSet, setAutoFreeze } from 'immer'
 import React from 'react'
 import { render } from 'react-dom'
@@ -142,16 +141,14 @@ Promise.all([rootElemPromise])
     render(
       <RootErrorBoundary>
         <ReduxProvider store={store}>
-          <ResizeObserverProvider>
-            <Router>
-              <RedirectProvider>
-                <>
-                  <App />
-                  {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
-                </>
-              </RedirectProvider>
-            </Router>
-          </ResizeObserverProvider>
+          <Router>
+            <RedirectProvider>
+              <>
+                <App />
+                {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
+              </>
+            </RedirectProvider>
+          </Router>
         </ReduxProvider>
       </RootErrorBoundary>,
       elem,

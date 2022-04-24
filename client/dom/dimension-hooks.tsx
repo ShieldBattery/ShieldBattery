@@ -1,8 +1,8 @@
-import { ObservedElement, useResizeObserver } from '@envato/react-resize-observer-hook'
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import React, { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useValueAsRef } from '../state-hooks'
 
-export type DimensionsHookResult = [
-  ref: (instance: ObservedElement | null) => void,
+export type DimensionsHookResult<T extends Element> = [
+  ref: React.RefCallback<T>,
   contentRect?: DOMRectReadOnly,
 ]
 
@@ -15,9 +15,106 @@ export type DimensionsHookResult = [
  * you need a position, you may want to consider `useElementRect` (either instead of this, or in
  * addition to this).
  */
-export function useObservedDimensions(): DimensionsHookResult {
-  const [ref, observedEntry] = useResizeObserver()
-  return [ref, observedEntry?.contentRect]
+export function useObservedDimensions<T extends Element>(): DimensionsHookResult<T> {
+  const [ref, observerEntry] = useResizeObserver()
+  return [ref, observerEntry?.contentRect]
+}
+
+type ResizeObserverHookCallback = (entry: ResizeObserverEntry) => void
+// NOTE(tec27): Using multiple ResizeObservers seems to be a lot more expensive that using a single
+// one to observe multiple elements, at least according to some casual googling. So instead of
+// creating one for each hook, we lazily create a single one and use it for all of them.
+let resizeObserver: ResizeObserver | undefined
+const observedResizeElements = new WeakMap<Element, ResizeObserverHookCallback>()
+
+function onResizeObserved(entries: ResizeObserverEntry[]) {
+  for (const entry of entries) {
+    const handler = observedResizeElements.get(entry.target)
+    if (handler) {
+      handler(entry)
+    }
+  }
+}
+
+export function useResizeObserver<T extends Element>(
+  options: ResizeObserverOptions = {},
+): [ref: React.RefCallback<T>, observerEntry: ResizeObserverEntry | undefined] {
+  const [observerEntry, setObserverEntry] = useState<ResizeObserverEntry>()
+  const observerEntryRef = useValueAsRef(observerEntry)
+
+  const { box } = options
+  const onResize = useCallback(
+    (entry: ResizeObserverEntry) => {
+      if (!observerEntryRef.current) {
+        setObserverEntry(entry)
+        return
+      }
+
+      const observerEntry = observerEntryRef.current
+      let changed = false
+
+      switch (box) {
+        case 'border-box':
+          changed = entry.borderBoxSize.some(
+            (boxSize, i) =>
+              boxSize.inlineSize !== observerEntry.borderBoxSize[i].inlineSize ||
+              boxSize.blockSize !== observerEntry.borderBoxSize[i].blockSize,
+          )
+          break
+
+        case 'content-box':
+          changed = entry.contentBoxSize.some(
+            (boxSize, i) =>
+              boxSize.inlineSize !== observerEntry.contentBoxSize[i].inlineSize ||
+              boxSize.blockSize !== observerEntry.contentBoxSize[i].blockSize,
+          )
+          break
+
+        case 'device-pixel-content-box':
+          changed = entry.devicePixelContentBoxSize.some(
+            (boxSize, i) =>
+              boxSize.inlineSize !== observerEntry.devicePixelContentBoxSize[i].inlineSize ||
+              boxSize.blockSize !== observerEntry.devicePixelContentBoxSize[i].blockSize,
+          )
+          break
+
+        default:
+          changed =
+            entry.contentRect.width !== observerEntry.contentRect.width ||
+            entry.contentRect.height !== observerEntry.contentRect.height
+          break
+      }
+
+      if (changed) {
+        setObserverEntry(entry)
+      }
+    },
+    [box, observerEntryRef],
+  )
+
+  if (!resizeObserver) {
+    resizeObserver = new ResizeObserver(onResizeObserved)
+  }
+
+  const ref = useRef<T>()
+  const setRef = useCallback(
+    (node: T | null) => {
+      if (ref.current) {
+        resizeObserver?.unobserve(ref.current)
+        observedResizeElements.delete(ref.current)
+      }
+
+      if (node) {
+        observedResizeElements.set(node, onResize)
+        resizeObserver?.observe(node, options)
+      }
+
+      ref.current = node ?? undefined
+    },
+    [onResize, options],
+  )
+
+  return [setRef, observerEntry]
 }
 
 /**
