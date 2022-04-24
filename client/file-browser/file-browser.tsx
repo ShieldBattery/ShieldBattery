@@ -683,7 +683,6 @@ export function FileBrowser({
         {entries.length > 0 ? (
           <Virtuoso
             ref={listRef}
-            style={{ height: '100%' }}
             components={{ Header: VertPadding, Footer: VertPadding }}
             totalCount={entries.length}
             itemContent={renderRow}
