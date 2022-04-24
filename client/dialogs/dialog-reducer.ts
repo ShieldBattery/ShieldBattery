@@ -1,4 +1,5 @@
 import { Immutable } from 'immer'
+import { findLastIndex } from '../../common/arrays'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 import { DialogType } from './dialog-type'
 
@@ -30,11 +31,11 @@ export default immerKeyedReducer(DEFAULT_DIALOG_HISTORY_STATE, {
       return
     }
 
-    const dialogIndex = state.history.findIndex(h => h.type === dialogType)
+    const dialogIndex = findLastIndex(state.history, h => h.type === dialogType)
     if (dialogIndex < 0) {
       return
     }
 
-    state.history.splice(dialogIndex)
+    state.history = state.history.slice(0, dialogIndex)
   },
 })
