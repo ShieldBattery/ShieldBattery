@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { VariableSizeList } from 'react-window'
+import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
-import { assertUnreachable } from '../../common/assert-unreachable'
 import {
   ChatServiceErrorCode,
   ClientChatMessageType,
@@ -10,7 +9,6 @@ import {
 import { MULTI_CHANNEL } from '../../common/flags'
 import { SbUserId } from '../../common/users/sb-user'
 import { ConnectedAvatar } from '../avatars/avatar'
-import { useObservedDimensions } from '../dom/dimension-hooks'
 import { logger } from '../logging/logger'
 import { Chat } from '../messaging/chat'
 import { useMentionFilterClick } from '../messaging/mention-hooks'
@@ -55,10 +53,13 @@ const UserListContainer = styled.div`
   width: 256px;
   flex-grow: 0;
   flex-shrink: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
 
   background-color: ${background700};
+`
+
+const VertPadding = styled.div<{ context?: unknown }>`
+  width: 100%;
+  height: 8px;
 `
 
 const userListRow = css`
@@ -72,17 +73,13 @@ const userListRow = css`
 const OVERLINE_HEIGHT = 36 + 24
 const FIRST_OVERLINE_HEIGHT = 36 + 8
 
-const UserListOverline = styled.div`
+const UserListOverline = styled.div<{ $firstOverline: boolean }>`
   ${overline}
   ${userListRow};
-  height: ${OVERLINE_HEIGHT}px;
+  height: ${props => (props.$firstOverline ? FIRST_OVERLINE_HEIGHT : OVERLINE_HEIGHT)}px;
   color: ${colorTextSecondary};
 
-  padding-top: 24px;
-
-  &:first-child {
-    padding-top: 8px;
-  }
+  padding-top: ${props => (props.$firstOverline ? '8px' : '24px')};
 `
 
 const StyledAvatar = styled(ConnectedAvatar)`
@@ -223,41 +220,6 @@ interface FadedRowData {
 
 type UserListRowData = HeaderRowData | ActiveRowData | FadedRowData
 
-function UserListRow({
-  index,
-  data,
-  style,
-}: {
-  index: number
-  data: ReadonlyArray<UserListRowData>
-  style: React.CSSProperties
-}) {
-  const row = data[index]
-  if (row.type === UserListRowType.Header) {
-    return (
-      <UserListOverline style={style} key={row.label}>
-        <span>
-          {row.label} ({row.count})
-        </span>
-      </UserListOverline>
-    )
-  } else {
-    const faded = row.type === UserListRowType.Faded
-    return (
-      <ConnectedUserListEntry style={style} userId={row.userId} key={row.userId} faded={faded} />
-    )
-  }
-}
-
-function getUserListItemKey(index: number, data: ReadonlyArray<UserListRowData>) {
-  const row = data[index]
-  if (row.type === UserListRowType.Header) {
-    return row.label
-  } else {
-    return row.userId
-  }
-}
-
 interface UserListProps {
   active: SbUserId[]
   idle: SbUserId[]
@@ -266,8 +228,6 @@ interface UserListProps {
 
 const UserList = React.memo((props: UserListProps) => {
   const { active, idle, offline } = props
-  const [dimensionsRef, containerRect] = useObservedDimensions()
-  const listRef = useRef<VariableSizeList | null>(null)
 
   const rowData = useMemo((): ReadonlyArray<UserListRowData> => {
     let result: UserListRowData[] = [
@@ -288,49 +248,32 @@ const UserList = React.memo((props: UserListProps) => {
     return result
   }, [active, idle, offline])
 
-  const getRowHeight = useCallback(
+  const renderRow = useCallback(
     (index: number) => {
-      if (index >= rowData.length) {
-        throw new Error('Asked to size nonexistent user: ' + index)
-      }
-
-      if (index === 0) {
-        return FIRST_OVERLINE_HEIGHT
-      }
-
-      const type = rowData[index].type
-      switch (type) {
-        case UserListRowType.Header:
-          return OVERLINE_HEIGHT
-        case UserListRowType.Active:
-        case UserListRowType.Faded:
-          return USER_ENTRY_HEIGHT
-        default:
-          return assertUnreachable(type)
+      const row = rowData[index]
+      if (row.type === UserListRowType.Header) {
+        return (
+          <UserListOverline key={row.label} $firstOverline={index === 0}>
+            <span>
+              {row.label} ({row.count})
+            </span>
+          </UserListOverline>
+        )
+      } else {
+        const faded = row.type === UserListRowType.Faded
+        return <ConnectedUserListEntry userId={row.userId} key={row.userId} faded={faded} />
       }
     },
     [rowData],
   )
 
-  // Trigger recalculating row sizes whenever the rowCount changes. This is necessary since the
-  // rows have different heights depending on type
-  useMemo(() => {
-    listRef.current?.resetAfterIndex(0, false)
-  }, [getRowHeight]) // eslint-disable-line react-hooks/exhaustive-deps
-
   return (
-    <UserListContainer ref={dimensionsRef}>
-      <VariableSizeList
-        ref={listRef}
-        style={{ overflowX: 'hidden', paddingBottom: '8px' }}
-        width='100%'
-        height={containerRect?.height ?? 0}
-        itemCount={rowData.length}
-        itemData={rowData}
-        itemKey={getUserListItemKey}
-        itemSize={getRowHeight}>
-        {UserListRow}
-      </VariableSizeList>
+    <UserListContainer>
+      <Virtuoso
+        components={{ Footer: VertPadding }}
+        totalCount={rowData.length}
+        itemContent={renderRow}
+      />
     </UserListContainer>
   )
 })
