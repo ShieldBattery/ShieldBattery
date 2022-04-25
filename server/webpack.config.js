@@ -2,6 +2,9 @@ require('../babel-register')
 const makeConfig = require('../common.webpack.config.js').default
 const path = require('path')
 
+const nodeEnv = process.env.NODE_ENV || 'development'
+const isProd = nodeEnv === 'production'
+
 const TARGET_BROWSERS = 'last 2 versions, not dead, not ie 11, not ie_mob 11, not op_mini all'
 
 const webpackOpts = {
@@ -50,8 +53,7 @@ const babelOpts = {
     ['@babel/plugin-proposal-nullish-coalescing-operator'],
     ['@babel/plugin-proposal-optional-chaining'],
     ['babel-plugin-const-enum'],
-    ['react-refresh/babel', { skipEnvCheck: true }],
-  ],
+  ].concat(isProd ? [] : ['react-refresh/babel', { skipEnvCheck: true }]),
 }
 
 module.exports = makeConfig({
