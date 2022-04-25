@@ -36,6 +36,11 @@ const PolicyRoot = styled.div`
 `
 
 const PageRoot = styled.div`
+  width: 100%;
+  overflow: auto;
+`
+
+const PageContentRoot = styled.div`
   max-width: 840px;
   margin: 0 auto !important;
   padding-right: var(--pixel-shove-x, 0) !important;
@@ -49,10 +54,12 @@ const PageHeader = styled.div`
 function PolicyPage(props: { title: string; children: React.ReactNode }) {
   return (
     <PageRoot>
-      <TopLinks />
-      <PageHeader>{props.title}</PageHeader>
-      <React.Suspense fallback={<LoadingDotsArea />}>{props.children}</React.Suspense>
-      <BottomLinks />
+      <PageContentRoot>
+        <TopLinks />
+        <PageHeader>{props.title}</PageHeader>
+        <React.Suspense fallback={<LoadingDotsArea />}>{props.children}</React.Suspense>
+        <BottomLinks />
+      </PageContentRoot>
     </PageRoot>
   )
 }
