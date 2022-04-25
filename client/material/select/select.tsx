@@ -1,7 +1,6 @@
-import React, { useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useId, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
-import { useId } from '../../dom/unique-id'
 import ArrowDropDownIcon from '../../icons/material/ic_arrow_drop_down_black_24px.svg'
 import KeyListener from '../../keyboard/key-listener'
 import { useValueAsRef } from '../../state-hooks'

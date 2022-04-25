@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useId, useState } from 'react'
 import { useTransition, UseTransitionProps } from 'react-spring'
 import styled, { css, FlattenSimpleInterpolation } from 'styled-components'
-import { useId } from '../dom/unique-id'
 import { background900 } from '../styles/colors'
 import { caption } from '../styles/typography'
 import { OriginX, OriginY, PopoverContent, useAnchorPosition } from './popover'
