@@ -1,6 +1,7 @@
 // Common webpack config settings, call with options specific to each environment to create a real
 // config
 
+import ReactRefreshWebpackPlugin from '@pmmmwh/react-refresh-webpack-plugin'
 import TerserWebpackPlugin from 'terser-webpack-plugin'
 import webpack from 'webpack'
 import packageJson from './package.json'
@@ -107,17 +108,10 @@ export default function ({
         /[\\/]any-promise[\\/]/,
         require.resolve('./common/promise.js'),
       ),
-    ],
+    ].concat(isProd ? [] : [new ReactRefreshWebpackPlugin()]),
 
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx'],
-    },
-  }
-
-  config.resolve = {
-    ...config.resolve,
-    alias: {
-      'react-dom': '@hot-loader/react-dom',
     },
   }
 
@@ -125,7 +119,6 @@ export default function ({
     // Allow __filename usage in our files in dev
     config.node = { __filename: true, __dirname: true }
     config.devtool = 'eval-cheap-module-source-map'
-    config.entry[mainEntry] = ['react-hot-loader/patch', config.entry[mainEntry]].flat()
     config.plugins = config.plugins.concat([new webpack.HotModuleReplacementPlugin()])
   } else {
     if (config.target === 'electron-main') {

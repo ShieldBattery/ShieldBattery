@@ -1,4 +1,3 @@
-import loadable from '@loadable/component'
 import keycode from 'keycode'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
@@ -102,11 +101,17 @@ if (IS_ELECTRON) {
   partyRoute = <Route path='/parties/:partyId/:rest*' component={PartyView} />
 }
 
-const LoadableAdminPanel = loadable(() => import('./admin/panel'), {
+const AdminPanelComponent = React.lazy(() => import('./admin/panel'))
+
+function LoadableAdminPanel() {
   // TODO(tec27): do we need to position this indicator differently? (or pull that into a common
   // place?)
-  fallback: <LoadingIndicator />,
-})
+  return (
+    <React.Suspense fallback={<LoadingIndicator />}>
+      <AdminPanelComponent />
+    </React.Suspense>
+  )
+}
 
 const MiniActivityButtonsContainer = styled.div`
   width: 100%;
@@ -135,7 +140,7 @@ function useHealthyStarcraftCallback<T extends (...args: any[]) => any>(
   deps: any[] = [],
 ) {
   return useCallback(
-    (...args) => {
+    (...args: Parameters<T>) => {
       if (!isShieldBatteryHealthy({ starcraft })) {
         dispatch(openDialog(DialogType.ShieldBatteryHealth))
       } else if (!isStarcraftHealthy({ starcraft })) {

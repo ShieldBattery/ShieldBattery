@@ -10,7 +10,7 @@ import { Ripple } from '../material/ripple'
 import { colorTextFaint, colorTextPrimary } from '../styles/colors'
 import { cabin, singleLine } from '../styles/typography'
 
-const StyledExpandIcon = styled(ExpandIcon)`
+const StyledExpandIcon = styled(ExpandIcon)<{ $flipped?: boolean }>`
   transform: rotate(${props => (props.$flipped ? '180deg' : '0deg')});
   transition: transform 125ms ${fastOutSlowIn};
   will-change: transform;

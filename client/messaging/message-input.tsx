@@ -75,7 +75,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     }, [message, onSendChatMessage])
 
     useKeyListener({
-      onKeyPress: useCallback(event => {
+      onKeyPress: useCallback((event: KeyboardEvent) => {
         const target = event.target as HTMLElement
 
         if (

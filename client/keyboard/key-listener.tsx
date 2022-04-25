@@ -58,6 +58,7 @@ export interface KeyListenerProps {
   onKeyUp?: (event: KeyboardEvent) => boolean
   onKeyPress?: (event: KeyboardEvent) => boolean
   exclusive?: boolean
+  children?: React.ReactNode
 }
 
 /**

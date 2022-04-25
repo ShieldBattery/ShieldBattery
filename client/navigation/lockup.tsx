@@ -42,7 +42,7 @@ const SizedLogoText = styled(LogoText)`
   margin-right: 12px;
 `
 
-const AnimatedExpandIcon = styled(ExpandIcon)`
+const AnimatedExpandIcon = styled(ExpandIcon)<{ $flipped?: boolean }>`
   color: inherit;
   /* NOTE(tec27): This icon points upwards and we want it pointing downward by default */
   transform: rotate(${props => (props.$flipped ? '0deg' : '180deg')});

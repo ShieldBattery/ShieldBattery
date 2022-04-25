@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { hot } from 'react-hot-loader/root'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { SbPermissions } from '../../common/users/permissions'
@@ -58,7 +57,7 @@ const LoadingError = styled.div`
   padding: 0 24px;
 `
 
-export const AdminUserPage = hot(({ user }: { user: SbUser }) => {
+export function AdminUserPage({ user }: { user: SbUser }) {
   const selfUser = useSelfUser()
   const selfPermissions = useSelfPermissions()
   return (
@@ -70,7 +69,7 @@ export const AdminUserPage = hot(({ user }: { user: SbUser }) => {
       {selfPermissions.banUsers ? <UserIpHistory user={user} /> : null}
     </AdminUserPageRoot>
   )
-})
+}
 
 function PermissionsEditor({ user, selfUser }: { user: SbUser; selfUser: SelfUser }) {
   const dispatch = useAppDispatch()

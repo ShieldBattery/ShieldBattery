@@ -2,6 +2,6 @@
 declare module '*.svg' {
   import * as React from 'react'
 
-  const component: React.ComponentType<any>
+  const component: React.FunctionComponent<React.SVGAttributes<SVGElement>>
   export default component
 }

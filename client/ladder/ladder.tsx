@@ -25,7 +25,7 @@ import { replace } from '../navigation/routing'
 import { navigateToUserProfile } from '../profile/action-creators'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { useValueAsRef } from '../state-hooks'
+import { useForceUpdate, useValueAsRef } from '../state-hooks'
 import {
   background400,
   background500,
@@ -308,6 +308,18 @@ export interface LadderTableProps {
 
 export function LadderTable(props: LadderTableProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const forceUpdate = useForceUpdate()
+  const setContainerRef = useCallback(
+    (ref: HTMLDivElement | null) => {
+      if (containerRef.current !== ref) {
+        containerRef.current = ref
+        if (ref !== null) {
+          forceUpdate()
+        }
+      }
+    },
+    [forceUpdate],
+  )
 
   const { players, usersById, isLoading, lastError, curTime } = props
   const noRowsRenderer = useCallback(() => {
@@ -352,7 +364,7 @@ export function LadderTable(props: LadderTableProps) {
   )
 
   return (
-    <TableContainer ref={containerRef}>
+    <TableContainer ref={setContainerRef}>
       <LastUpdatedText title={longTimestamp.format(props.lastUpdated)}>
         Last updated: {shortTimestamp.format(props.lastUpdated)}
       </LastUpdatedText>

@@ -83,7 +83,7 @@ export class RootErrorBoundary extends React.Component<
           <WindowControls />
           <Container>
             <Headline5>Something went wrong :(</Headline5>
-            <ErrorInfo>{error.stack ?? error}</ErrorInfo>
+            <ErrorInfo>{String(error.stack ?? error)}</ErrorInfo>
             <Instructions>
               Please report this issue to us in our{' '}
               <a href={DISCORD_URL} title='Discord' target='_blank' rel='noopener'>

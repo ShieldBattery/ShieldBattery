@@ -1,4 +1,3 @@
-import loadable from '@loadable/component'
 import React from 'react'
 import styled from 'styled-components'
 import { Dialog } from '../material/dialog'
@@ -58,15 +57,10 @@ const Content = styled.div`
   }
 `
 
-const ChangelogLoadable = loadable(
-  async () => {
-    const { default: html } = await import('../../CHANGELOG.md')
-    return () => <Content dangerouslySetInnerHTML={{ __html: html }} />
-  },
-  {
-    fallback: <LoadingDotsArea />,
-  },
-)
+const ChangelogLoadable = React.lazy(async () => {
+  const { default: html } = await import('../../CHANGELOG.md')
+  return { default: () => <Content dangerouslySetInnerHTML={{ __html: html }} /> }
+})
 
 export default class ChangelogDialog extends React.Component {
   _setting = false
@@ -86,7 +80,9 @@ export default class ChangelogDialog extends React.Component {
         onCancel={this.onDismiss}
         showCloseButton={true}
         dialogRef={this.props.dialogRef}>
-        <ChangelogLoadable />
+        <React.Suspense fallback={<LoadingDotsArea />}>
+          <ChangelogLoadable />
+        </React.Suspense>
       </Dialog>
     )
   }

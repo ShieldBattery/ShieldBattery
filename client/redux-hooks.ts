@@ -7,7 +7,12 @@ import { RootState } from './root-reducer'
 /**
  * A hook to access the Redux `dispatch` function.
  */
-export const useAppDispatch = () => useDispatch<DispatchFunction<ReduxAction>>()
+export const useAppDispatch = () => {
+  // NOTE(tec27): This used to work via the generic parameter, but at some point the action types
+  // between our declarations and the react-redux one started clashing in ways that I can't quite
+  // understand, so doing a dumb cast for now
+  return useDispatch() as unknown as DispatchFunction<ReduxAction>
+}
 
 /**
  * A hook to access the redux store's state. This hook takes a selector function

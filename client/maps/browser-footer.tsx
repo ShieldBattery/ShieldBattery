@@ -125,6 +125,7 @@ interface FilterOverlayProps {
   onDismiss: () => void
   onApply: () => void
   anchor: any
+  children?: React.ReactNode
 }
 
 class FilterOverlay extends React.Component<FilterOverlayProps> {

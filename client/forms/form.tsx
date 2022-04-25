@@ -409,7 +409,7 @@ export default function formDecorator<ModelType, WrappedProps>(
           setInputError: this.setInputError,
         }
 
-        return <Wrapped {...(propsToSpread as WrappedProps)} {...childProps} />
+        return <Wrapped {...(propsToSpread as unknown as WrappedProps)} {...childProps} />
       }
     }
 

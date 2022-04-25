@@ -1,6 +1,6 @@
 import { enableMapSet, setAutoFreeze } from 'immer'
 import React from 'react'
-import { render } from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import { Provider as ReduxProvider } from 'react-redux'
 import { Router } from 'wouter'
 import { AUDIO_MANAGER_INITIALIZED } from './actions'
@@ -138,7 +138,8 @@ Promise.all([rootElemPromise])
     return { elem, store, history }
   })
   .then(({ elem, store }) => {
-    render(
+    const root = createRoot(elem)
+    root.render(
       <RootErrorBoundary>
         <ReduxProvider store={store}>
           <Router>
@@ -151,6 +152,5 @@ Promise.all([rootElemPromise])
           </Router>
         </ReduxProvider>
       </RootErrorBoundary>,
-      elem,
     )
   })

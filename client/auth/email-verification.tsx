@@ -108,7 +108,11 @@ export function EmailVerificationUi() {
       <BottomActionButton label='Log in' onClick={onLogInClick} testName='log-in-button' />
     )
   } else if (resendError) {
-    contents = <ErrorsContainer>Error resending email: {resendError}</ErrorsContainer>
+    contents = (
+      <ErrorsContainer>
+        <>Error resending email: {resendError}</>
+      </ErrorsContainer>
+    )
   } else if (emailResent) {
     contents = (
       <SuccessContainer data-test='email-resent-success'>

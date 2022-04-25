@@ -678,7 +678,7 @@ export function FileBrowser({
           <IconButton icon={<Refresh />} onClick={getFiles} title={'Refresh'} />
         </BreadcrumbsAndActions>
       </TopBar>
-      {error ? <ExternalError>{error}</ExternalError> : null}
+      {error ? <ExternalError>{String(error)}</ExternalError> : null}
       <FilesContent ref={dimensionsRef}>
         {entries.length > 0 ? (
           <Virtuoso

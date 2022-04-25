@@ -260,11 +260,11 @@ export function PartyView(props: PartyViewProps) {
   const onInviteClick = useCallback(() => dispatch(openDialog(DialogType.PartyInvite)), [dispatch])
   const onLeaveClick = useCallback(() => dispatch(leaveParty(partyId!)), [partyId, dispatch])
   const onKickPlayerClick = useCallback(
-    userId => dispatch(kickPlayer(partyId!, userId)),
+    (userId: SbUserId) => dispatch(kickPlayer(partyId!, userId)),
     [partyId, dispatch],
   )
   const onChangeLeaderClick = useCallback(
-    userId => dispatch(changeLeader(partyId!, userId)),
+    (userId: SbUserId) => dispatch(changeLeader(partyId!, userId)),
     [partyId, dispatch],
   )
 

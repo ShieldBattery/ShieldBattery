@@ -285,7 +285,7 @@ const BENEFITS: Readonly<Array<Omit<BenefitSectionProps, 'imageAtStart'>>> = [
         home here.
       </p>,
     ],
-    image: <StyledChatImage alt='' />,
+    image: <StyledChatImage aria-label='' />,
   },
   {
     title: 'Tactically faithful',
@@ -296,7 +296,7 @@ const BENEFITS: Readonly<Array<Omit<BenefitSectionProps, 'imageAtStart'>>> = [
         features and improvements to make your StarCraft experience better than ever.
       </p>,
     ],
-    image: <StyledTacticallyFaithfulImage alt='' />,
+    image: <StyledTacticallyFaithfulImage aria-label='' />,
   },
   {
     title: 'Full potential unlocked',
@@ -308,7 +308,7 @@ const BENEFITS: Readonly<Array<Omit<BenefitSectionProps, 'imageAtStart'>>> = [
         they could have: ShieldBattery is a revolutionary step forward for the StarCraft community.
       </p>,
     ],
-    image: <StyledLockOpenIcon alt='' />,
+    image: <StyledLockOpenIcon aria-label='' />,
   },
 ]
 

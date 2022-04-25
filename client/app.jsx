@@ -1,6 +1,4 @@
-import loadable from '@loadable/component'
 import React, { useLayoutEffect } from 'react'
-import { hot } from 'react-hot-loader/root'
 import { StyleSheetManager } from 'styled-components'
 import { Route, Switch, useRoute } from 'wouter'
 import { isLoggedIn } from './auth/auth-utils'
@@ -33,22 +31,26 @@ import ResetStyle from './styles/reset'
 
 const IS_PRODUCTION = __WEBPACK_ENV.NODE_ENV === 'production'
 
-const LoadableDev = IS_PRODUCTION
-  ? () => null
-  : loadable(() => import('./dev'), {
-      // TODO(tec27): do we need to position this indicator differently? (or pull that into a common
-      // place?)
-      fallback: <LoadingIndicator />,
-    })
+const DevComponent = IS_PRODUCTION ? () => undefined : React.lazy(() => import('./dev'))
+
+function LoadableDev() {
+  // TODO(tec27): do we need to position this indicator differently? (or pull that into a common
+  // place?)
+  return (
+    <React.Suspense fallback={<LoadingIndicator />}>
+      <DevComponent />
+    </React.Suspense>
+  )
+}
 
 const LoadableWindowControls = IS_ELECTRON
-  ? loadable(() => import('./system-bar/window-controls'), {
-      resolveComponent: m => m.WindowControls,
-    })
-  : () => null
+  ? React.lazy(async () => ({
+      default: (await import('./system-bar/window-controls')).WindowControls,
+    }))
+  : () => undefined
 
 const LoadableSystemBar = IS_ELECTRON
-  ? loadable(() => import('./system-bar/system-bar'), { resolveComponent: m => m.SystemBar })
+  ? React.lazy(async () => ({ default: (await import('./system-bar/system-bar')).SystemBar }))
   : () => null
 
 function MainContent() {
@@ -74,7 +76,7 @@ function MainContent() {
   )
 }
 
-function App() {
+export default function App() {
   const [shoveX, shoveY] = usePixelShover()
   useLayoutEffect(() => {
     document.body.style.setProperty('--pixel-shove-x', `${shoveX}px`)
@@ -115,5 +117,3 @@ function App() {
     </StyleSheetManager>
   )
 }
-
-export default hot(App)

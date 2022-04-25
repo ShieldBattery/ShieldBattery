@@ -1,4 +1,3 @@
-import loadable from '@loadable/component'
 import React from 'react'
 import styled from 'styled-components'
 import { policyTypeToLabel, SbPolicyType } from '../../common/policies/policy-type'
@@ -52,21 +51,16 @@ function PolicyPage(props: { title: string; children: React.ReactNode }) {
     <PageRoot>
       <TopLinks />
       <PageHeader>{props.title}</PageHeader>
-      {props.children}
+      <React.Suspense fallback={<LoadingDotsArea />}>{props.children}</React.Suspense>
       <BottomLinks />
     </PageRoot>
   )
 }
 
-const AcceptableUseContent = loadable(
-  async () => {
-    const { default: policy } = await import('../../common/policies/acceptable-use.html')
-    return () => <PolicyRoot dangerouslySetInnerHTML={{ __html: policy }} />
-  },
-  {
-    fallback: <LoadingDotsArea />,
-  },
-)
+const AcceptableUseContent = React.lazy(async () => {
+  const { default: policy } = await import('../../common/policies/acceptable-use.html')
+  return { default: () => <PolicyRoot dangerouslySetInnerHTML={{ __html: policy }} /> }
+})
 
 export function AcceptableUseDialog(props: CommonDialogProps) {
   return (
@@ -88,15 +82,10 @@ export function AcceptableUsePage() {
   )
 }
 
-const PrivacyPolicyContent = loadable(
-  async () => {
-    const { default: policy } = await import('../../common/policies/privacy.html')
-    return () => <PolicyRoot dangerouslySetInnerHTML={{ __html: policy }} />
-  },
-  {
-    fallback: <LoadingDotsArea />,
-  },
-)
+const PrivacyPolicyContent = React.lazy(async () => {
+  const { default: policy } = await import('../../common/policies/privacy.html')
+  return { default: () => <PolicyRoot dangerouslySetInnerHTML={{ __html: policy }} /> }
+})
 
 export function PrivacyPolicyDialog(props: CommonDialogProps) {
   return (
@@ -118,15 +107,10 @@ export function PrivacyPolicyPage() {
   )
 }
 
-const TermsOfServiceContent = loadable(
-  async () => {
-    const { default: policy } = await import('../../common/policies/terms-of-service.html')
-    return () => <PolicyRoot dangerouslySetInnerHTML={{ __html: policy }} />
-  },
-  {
-    fallback: <LoadingDotsArea />,
-  },
-)
+const TermsOfServiceContent = React.lazy(async () => {
+  const { default: policy } = await import('../../common/policies/terms-of-service.html')
+  return { default: () => <PolicyRoot dangerouslySetInnerHTML={{ __html: policy }} /> }
+})
 
 export function TermsOfServiceDialog(props: CommonDialogProps) {
   return (

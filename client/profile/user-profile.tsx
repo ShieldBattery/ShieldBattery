@@ -1,4 +1,3 @@
-import loadable from '@loadable/component'
 import { Immutable } from 'immer'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
@@ -51,10 +50,9 @@ import {
 import { MiniMatchHistory } from './mini-match-history'
 import { UserProfileSubPage } from './user-profile-sub-page'
 
-const LoadableAdminUserPage = loadable(() => import('./user-profile-admin'), {
-  fallback: <LoadingDotsArea />,
-  resolveComponent: m => m.AdminUserPage,
-})
+const LoadableAdminUserPage = React.lazy(async () => ({
+  default: (await import('./user-profile-admin')).AdminUserPage,
+}))
 
 const Container = styled.div`
   max-width: 960px;
@@ -233,7 +231,11 @@ export function UserProfilePage({
     case UserProfileSubPage.Admin:
       // Parent component should navigate away from this page in a useEffect if not admin, so null
       // is fine in that case
-      content = isAdmin ? <LoadableAdminUserPage user={user} /> : null
+      content = isAdmin ? (
+        <React.Suspense fallback={<LoadingDotsArea />}>
+          <LoadableAdminUserPage user={user} />{' '}
+        </React.Suspense>
+      ) : null
       break
 
     default:

@@ -1,5 +1,4 @@
 import React from 'react'
-import { hot } from 'react-hot-loader/root'
 import styled from 'styled-components'
 import { Link, Route, Switch } from 'wouter'
 import DevActivities from './activities/devonly/routes'
@@ -65,7 +64,7 @@ function DevDashboard() {
   )
 }
 
-function Dev() {
+export default function Dev() {
   return (
     <Container>
       <HomeLink>
@@ -86,7 +85,3 @@ function Dev() {
     </Container>
   )
 }
-
-// NOTE(tec27): @loadable/component seems to screw with react-hot-loader in weird ways, so we make
-// this root it's own hot context to keep things working inside here
-export default hot(Dev)

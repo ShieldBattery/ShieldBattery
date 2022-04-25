@@ -1,5 +1,4 @@
 import React from 'react'
-import { hot } from 'react-hot-loader/root'
 import { Link, Route, Switch } from 'wouter'
 import { PermissionsRecord } from '../auth/auth-records'
 import { ConditionalRoute } from '../navigation/custom-routes'
@@ -64,7 +63,7 @@ function AdminDashboard(props: AdminDashboardProps) {
   )
 }
 
-function AdminPanel() {
+export default function AdminPanel() {
   const perms = useAppSelector(s => s.auth.permissions)
 
   return (
@@ -96,7 +95,3 @@ function AdminPanel() {
     </Switch>
   )
 }
-
-// NOTE(tec27): @loadable/component seems to screw with react-hot-loader in weird ways, so we make
-// this root it's own hot context to keep things working inside here
-export default hot(AdminPanel)
