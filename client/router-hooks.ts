@@ -1,4 +1,17 @@
+import { useMemo, useSyncExternalStore } from 'react'
 import { useLocation } from 'wouter'
+
+const events = ['popstate', 'pushState', 'replaceState', 'hashchange']
+function subscribe(callback: () => void) {
+  for (const event of events) {
+    window.addEventListener(event, callback)
+  }
+  return () => {
+    for (const event of events) {
+      window.removeEventListener(event, callback)
+    }
+  }
+}
 
 /**
  * A hook that reads a search param with a given name from `window.location`, and allows changing
@@ -20,7 +33,8 @@ export const useLocationSearchParam = (
   name: string,
 ): [value: string, setValue: (value: string) => void] => {
   const [location, setLocation] = useLocation()
-  const searchParams = new URLSearchParams(window.location.search)
+  const searchParamsString = useSyncExternalStore(subscribe, () => window.location.search)
+  const searchParams = useMemo(() => new URLSearchParams(searchParamsString), [searchParamsString])
   const searchValue = searchParams.get(name) ?? ''
 
   const setLocationSearch = (value: string) => {
