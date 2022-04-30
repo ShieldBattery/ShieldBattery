@@ -1,5 +1,5 @@
-import { useMemo, useSyncExternalStore } from 'react'
-import { useLocation } from 'wouter'
+import { useCallback, useMemo, useSyncExternalStore } from 'react'
+import { push, replace } from './navigation/routing'
 
 const events = ['popstate', 'pushState', 'replaceState', 'hashchange']
 function subscribe(callback: () => void) {
@@ -11,6 +11,31 @@ function subscribe(callback: () => void) {
       window.removeEventListener(event, callback)
     }
   }
+}
+
+export interface SetLocationOptions {
+  replace?: boolean
+}
+
+/**
+ * A custom `useLocation` hook which uses `useSyncExternalStore` hook to subscribe to the location
+ * changes. Unlike wouter's `useLocation` hook, which returns just a location pathname without the
+ * search params, this hook returns the whole `Location` object including the search params.
+ */
+export function useLocation(): [
+  location: Location,
+  setLocation: (url: string, options?: SetLocationOptions) => void,
+] {
+  const location = useSyncExternalStore(subscribe, () => window.location)
+  const setLocation = useCallback((url: string, options: SetLocationOptions | undefined) => {
+    if (options?.replace) {
+      replace(url)
+    } else {
+      push(url)
+    }
+  }, [])
+
+  return [location, setLocation]
 }
 
 /**
@@ -33,8 +58,7 @@ export const useLocationSearchParam = (
   name: string,
 ): [value: string, setValue: (value: string) => void] => {
   const [location, setLocation] = useLocation()
-  const searchParamsString = useSyncExternalStore(subscribe, () => window.location.search)
-  const searchParams = useMemo(() => new URLSearchParams(searchParamsString), [searchParamsString])
+  const searchParams = useMemo(() => new URL(location.href), [location.href]).searchParams
   const searchValue = searchParams.get(name) ?? ''
 
   const setLocationSearch = (value: string) => {
@@ -46,7 +70,7 @@ export const useLocationSearchParam = (
     }
 
     const searchString = params.toString()
-    setLocation(location + (searchString ? `?${searchString}` : ''))
+    setLocation(location.pathname + (searchString ? `?${searchString}` : ''))
   }
 
   return [searchValue, setLocationSearch]
