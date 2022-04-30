@@ -28,6 +28,7 @@ import {
   MatchmakingType,
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
   PreferenceData,
+  SeasonId,
   TEAM_SIZES,
 } from '../../../common/matchmaking'
 import { BwTurnRate, BwUserLatency } from '../../../common/network'
@@ -73,6 +74,7 @@ import {
   UserSocketsManager,
 } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
+import { MatchmakingSeasonsService } from './matchmaking-seasons'
 import { MatchmakingServiceError } from './matchmaking-service-error'
 
 interface MatchmakerCallbacks {
@@ -499,6 +501,7 @@ export class MatchmakingService {
     private activityRegistry: GameplayActivityRegistry,
     private gameLoader: GameLoader,
     @inject(IN_PARTY_CHECKER) private inPartyChecker: InPartyChecker,
+    private matchmakingSeasonsService: MatchmakingSeasonsService,
   ) {
     this.matchmakers = new Map(
       ALL_MATCHMAKING_TYPES.map(type => [
@@ -571,7 +574,8 @@ export class MatchmakingService {
     const userSockets = this.getUserSocketsOrFail(userId)
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
 
-    const mmr = await this.retrieveMmr(userId, type)
+    const season = await this.matchmakingSeasonsService.getCurrentSeason()
+    const mmr = await this.retrieveMmr(userId, type, season.id)
     const playerData = matchmakingRatingToPlayerData({
       mmr,
       username: userSockets.name,
@@ -663,8 +667,11 @@ export class MatchmakingService {
       return
     }
 
+    const season = await this.matchmakingSeasonsService.getCurrentSeason()
     const names = await findUsersById(Array.from(users.keys()))
-    const mmrs = await Promise.all(Array.from(users.keys(), id => this.retrieveMmr(id, type)))
+    const mmrs = await Promise.all(
+      Array.from(users.keys(), id => this.retrieveMmr(id, type, season.id)),
+    )
     const matchmakingParty: MatchmakingParty = {
       leaderId,
       partyId,
@@ -761,10 +768,14 @@ export class MatchmakingService {
     }
   }
 
-  private async retrieveMmr(userId: SbUserId, type: MatchmakingType): Promise<MatchmakingRating> {
+  private async retrieveMmr(
+    userId: SbUserId,
+    type: MatchmakingType,
+    seasonId: SeasonId,
+  ): Promise<MatchmakingRating> {
     return (
-      (await getMatchmakingRating(userId, type)) ??
-      (await createInitialMatchmakingRating(userId, type))
+      (await getMatchmakingRating(userId, type, seasonId)) ??
+      (await createInitialMatchmakingRating(userId, type, seasonId))
     )
   }
 

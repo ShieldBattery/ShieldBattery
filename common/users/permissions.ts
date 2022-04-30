@@ -4,6 +4,7 @@ export interface SbPermissions {
   banUsers: boolean
   manageMaps: boolean
   manageMapPools: boolean
+  manageMatchmakingSeasons: boolean
   manageMatchmakingTimes: boolean
   manageRallyPointServers: boolean
   massDeleteMaps: boolean

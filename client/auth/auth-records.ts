@@ -19,6 +19,7 @@ export class PermissionsRecord
     banUsers: false,
     manageMaps: false,
     manageMapPools: false,
+    manageMatchmakingSeasons: false,
     manageMatchmakingTimes: false,
     manageRallyPointServers: false,
     massDeleteMaps: false,

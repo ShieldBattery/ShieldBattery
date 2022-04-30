@@ -1,6 +1,6 @@
 import { ReconciledPlayerResult } from '../../../common/games/results'
-import { MatchmakingType } from '../../../common/matchmaking'
-import { SbUserId } from '../../../common/users/sb-user'
+import { makeSeasonId, MatchmakingType } from '../../../common/matchmaking'
+import { makeSbUserId } from '../../../common/users/sb-user'
 import { DEFAULT_MATCHMAKING_RATING, MatchmakingRating } from './models'
 import { calculateChangedRatings } from './rating'
 
@@ -25,8 +25,9 @@ function createMatchmakingRating(
   return {
     ...DEFAULT_MATCHMAKING_RATING,
     matchmakingType: MatchmakingType.Match1v1,
+    seasonId: makeSeasonId(1),
     ...data,
-    userId: (data.userId ?? 1) as SbUserId,
+    userId: makeSbUserId(data.userId ?? 1),
   }
 }
 

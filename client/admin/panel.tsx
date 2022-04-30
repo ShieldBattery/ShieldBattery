@@ -5,12 +5,14 @@ import { ConditionalRoute } from '../navigation/custom-routes'
 import { useAppSelector } from '../redux-hooks'
 import {
   CanManageMapPoolsFilter,
+  CanManageMatchmakingSeasonsFilter,
   CanManageMatchmakingTimesFilter,
   CanManageRallyPointFilter,
   CanSeeDebugFilter,
 } from './admin-route-filters'
 import { DebugLogs } from './debug-logs'
 import AdminMapPools from './map-pools'
+import { AdminMatchmakingSeasons } from './matchmaking-seasons'
 import AdminMatchmakingTimes from './matchmaking-times'
 import { AdminRallyPoint } from './rally-point'
 
@@ -41,6 +43,11 @@ function AdminDashboard(props: AdminDashboardProps) {
       <Link href='/admin/map-pools'>Manage matchmaking map pools</Link>
     </li>
   ) : null
+  const matchmakingSeasonsLink = perms.manageMatchmakingSeasons ? (
+    <li>
+      <Link href='/admin/matchmaking-seasons'>Manage matchmaking seasons</Link>
+    </li>
+  ) : null
   const matchmakingTimesLink = perms.manageMatchmakingTimes ? (
     <li>
       <Link href='/admin/matchmaking-times'>Manage matchmaking times</Link>
@@ -57,6 +64,7 @@ function AdminDashboard(props: AdminDashboardProps) {
       {debugLinks}
       {mapsLink}
       {mapPoolsLink}
+      {matchmakingSeasonsLink}
       {matchmakingTimesLink}
       {rallyPointLink}
     </ul>
@@ -73,6 +81,11 @@ export default function AdminPanel() {
         path='/admin/map-pools'
         filters={[CanManageMapPoolsFilter]}
         component={AdminMapPools}
+      />
+      <ConditionalRoute
+        path='/admin/matchmaking-seasons'
+        filters={[CanManageMatchmakingSeasonsFilter]}
+        component={AdminMatchmakingSeasons}
       />
       <ConditionalRoute
         path='/admin/matchmaking-times'

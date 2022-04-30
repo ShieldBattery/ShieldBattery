@@ -21,6 +21,7 @@ import { findUnreconciledGames, setReconciledResult } from '../games/game-models
 import { hasCompletedResults, reconcileResults } from '../games/results'
 import { JobScheduler } from '../jobs/job-scheduler'
 import logger from '../logging/logger'
+import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
 import {
   getMatchmakingRatingChangesForGame,
   getMatchmakingRatingsWithLock,
@@ -60,6 +61,7 @@ export default class GameResultService {
     private clientSocketsManager: ClientSocketsManager,
     private typedPublisher: TypedPublisher<GameSubscriptionEvent>,
     private jobScheduler: JobScheduler,
+    private matchmakingSeasonsService: MatchmakingSeasonsService,
   ) {
     const jobStartTime = new Date()
     jobStartTime.setMinutes(jobStartTime.getMinutes() + RECONCILE_INCOMPLETE_RESULTS_MINUTES)
@@ -269,8 +271,20 @@ export default class GameResultService {
           .flat(),
       )
 
+      const season = await this.matchmakingSeasonsService.getSeasonForDate(gameRecord.startTime)
+      const curSeason = await this.matchmakingSeasonsService.getCurrentSeason()
+
       const matchmakingDbPromises: Array<Promise<unknown>> = []
-      if (gameRecord.config.gameSource === GameSource.Matchmaking && !reconciled.disputed) {
+      if (
+        gameRecord.config.gameSource === GameSource.Matchmaking &&
+        !reconciled.disputed &&
+        // NOTE(tec27): In the case that results are reconciled after a new season has started, we
+        // disregard the MMR changes from this game. This does lead to some possible ways to avoid
+        // MMR changes through malicious action currently, however the alternative solution is also
+        // exploitable (in the opposite direction). Doing it in this way means the rankings we
+        // deliver at season end are "final" and never need to be updated again.
+        season.id === curSeason.id
+      ) {
         // Calculate and update the matchmaking ranks
 
         // NOTE(tec27): We sort these so we always lock them in the same order and avoid
@@ -281,6 +295,7 @@ export default class GameResultService {
           client,
           userIds,
           gameRecord.config.gameSourceExtra.type,
+          season.id,
         )
         if (mmrs.length !== userIds.length) {
           throw new Error('missing MMR for some users')
@@ -323,6 +338,7 @@ export default class GameResultService {
           const updatedMmr: MatchmakingRating = {
             userId: mmr.userId,
             matchmakingType: mmr.matchmakingType,
+            seasonId: mmr.seasonId,
             rating: change.rating,
             kFactor: change.kFactor,
             uncertainty: change.uncertainty,

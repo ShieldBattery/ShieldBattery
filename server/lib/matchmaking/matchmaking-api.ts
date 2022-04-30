@@ -1,12 +1,22 @@
 import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
-import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { FindMatchRequest, MatchmakingServiceErrorCode } from '../../../common/matchmaking'
+import {
+  AddMatchmakingSeasonResponse,
+  FindMatchRequest,
+  GetMatchmakingSeasonsResponse,
+  MatchmakingSeasonsServiceErrorCode,
+  MatchmakingServiceErrorCode,
+  SeasonId,
+  ServerAddMatchmakingSeasonRequest,
+  toMatchmakingSeasonJson,
+} from '../../../common/matchmaking'
+import { makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpBefore, httpDelete, httpPost } from '../http/route-decorators'
+import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
+import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { updateAllSessionsForCurrentUser } from '../session/update-all-sessions'
 import createThrottle from '../throttle/create-throttle'
@@ -14,6 +24,7 @@ import throttleMiddleware from '../throttle/middleware'
 import { joiClientIdentifiers } from '../users/client-ids'
 import { UserIdentifierManager } from '../users/user-identifier-manager'
 import { validateRequest } from '../validation/joi-validator'
+import { MatchmakingSeasonsService, MatchmakingSeasonsServiceError } from './matchmaking-seasons'
 import { MatchmakingService } from './matchmaking-service'
 import { MatchmakingServiceError } from './matchmaking-service-error'
 import { matchmakingPreferencesValidator } from './matchmaking-validators'
@@ -24,7 +35,7 @@ const matchmakingThrottle = createThrottle('matchmaking', {
   window: 60000,
 })
 
-function convertMatchmakingServiceError(err: unknown) {
+const convertMatchmakingServiceErrors = makeErrorConverterMiddleware(err => {
   if (!(err instanceof MatchmakingServiceError)) {
     throw err
   }
@@ -49,22 +60,34 @@ function convertMatchmakingServiceError(err: unknown) {
     default:
       assertUnreachable(err.code)
   }
-}
+})
 
-async function convertMatchmakingServiceErrors(ctx: RouterContext, next: Koa.Next) {
-  try {
-    await next()
-  } catch (err) {
-    convertMatchmakingServiceError(err)
+const convertMatchmakingSeasonsServiceErrors = makeErrorConverterMiddleware(err => {
+  if (!(err instanceof MatchmakingSeasonsServiceError)) {
+    throw err
   }
-}
+
+  switch (err.code) {
+    case MatchmakingSeasonsServiceErrorCode.MustBeInFuture:
+      throw asHttpError(400, err)
+    case MatchmakingSeasonsServiceErrorCode.NotFound:
+      throw asHttpError(404, err)
+    default:
+      assertUnreachable(err.code)
+  }
+})
 
 @httpApi('/matchmaking')
-@httpBeforeAll(ensureLoggedIn, convertMatchmakingServiceErrors)
+@httpBeforeAll(
+  ensureLoggedIn,
+  convertMatchmakingServiceErrors,
+  convertMatchmakingSeasonsServiceErrors,
+)
 export class MatchmakingApi {
   constructor(
     private matchmakingService: MatchmakingService,
     private userIdManager: UserIdentifierManager,
+    private matchmakingSeasonsService: MatchmakingSeasonsService,
   ) {}
 
   @httpPost('/find')
@@ -103,5 +126,44 @@ export class MatchmakingApi {
   @httpBefore(throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.userId)))
   async acceptMatch(ctx: RouterContext): Promise<void> {
     await this.matchmakingService.accept(ctx.session!.userId)
+  }
+
+  @httpGet('/seasons')
+  @httpBefore(checkAllPermissions('manageMatchmakingSeasons'))
+  async getMatchmakingSeasons(ctx: RouterContext): Promise<GetMatchmakingSeasonsResponse> {
+    return {
+      seasons: (await this.matchmakingSeasonsService.getAllSeasons()).map(s =>
+        toMatchmakingSeasonJson(s),
+      ),
+      current: (await this.matchmakingSeasonsService.getCurrentSeason()).id,
+    }
+  }
+
+  @httpPost('/seasons')
+  @httpBefore(checkAllPermissions('manageMatchmakingSeasons'))
+  async addMatchmakingSeason(ctx: RouterContext): Promise<AddMatchmakingSeasonResponse> {
+    const { body } = validateRequest(ctx, {
+      body: Joi.object<ServerAddMatchmakingSeasonRequest>({
+        startDate: Joi.date().timestamp().min(Date.now()).required(),
+        name: Joi.string().required(),
+        useLegacyRating: Joi.boolean().required(),
+      }),
+    })
+
+    return {
+      season: toMatchmakingSeasonJson(await this.matchmakingSeasonsService.addSeason(body)),
+    }
+  }
+
+  @httpDelete('/seasons/:id')
+  @httpBefore(checkAllPermissions('manageMatchmakingSeasons'))
+  async deleteMatchmakingSeason(ctx: RouterContext): Promise<void> {
+    const { params } = validateRequest(ctx, {
+      params: Joi.object<{ id: SeasonId }>({
+        id: Joi.number().min(1).required(),
+      }),
+    })
+
+    await this.matchmakingSeasonsService.deleteSeason(params.id)
   }
 }

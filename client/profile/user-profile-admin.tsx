@@ -184,6 +184,11 @@ function PermissionsEditorForm({
         inputProps={inputProps}
       />
       <CheckBox
+        {...bindCheckable('manageMatchmakingSeasons')}
+        label='Manage matchmaking seasons'
+        inputProps={inputProps}
+      />
+      <CheckBox
         {...bindCheckable('manageRallyPointServers')}
         label='Manage rally-point servers'
         inputProps={inputProps}

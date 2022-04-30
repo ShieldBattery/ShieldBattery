@@ -679,6 +679,7 @@ export class AdminUserApi {
           banUsers: Joi.boolean().required(),
           manageMaps: Joi.boolean().required(),
           manageMapPools: Joi.boolean().required(),
+          manageMatchmakingSeasons: Joi.boolean().required(),
           manageMatchmakingTimes: Joi.boolean().required(),
           manageRallyPointServers: Joi.boolean().required(),
           massDeleteMaps: Joi.boolean().required(),
@@ -693,7 +694,11 @@ export class AdminUserApi {
       throw new UserApiError(UserErrorCode.NotFound, 'user not found')
     }
 
-    await updateAllSessions(params.id, { permissions })
+    if (ctx.session!.id === params.id) {
+      await updateAllSessionsForCurrentUser(ctx, { permissions })
+    } else {
+      await updateAllSessions(params.id, { permissions })
+    }
     this.publisher.publish(`/userProfiles/${params.id}`, {
       action: 'permissionsChanged',
       userId: params.id,

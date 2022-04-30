@@ -1,3 +1,4 @@
+import { Opaque } from 'type-fest'
 import { assertUnreachable } from './assert-unreachable'
 import { GameRoute } from './game-launch-config'
 import { Jsonify } from './json'
@@ -25,6 +26,34 @@ export function matchmakingTypeToLabel(type: MatchmakingType): string {
       return '2v2'
     default:
       return assertUnreachable(type)
+  }
+}
+
+export type SeasonId = Opaque<number, 'SeasonId'>
+
+/**
+ * Converts a season ID number into a properly typed version. Alternative methods of retrieving a
+ * SeasonId should be preferred, such as using a value retrieved rom the database.
+ */
+export function makeSeasonId(id: number): SeasonId {
+  return id as SeasonId
+}
+
+export interface MatchmakingSeason {
+  id: SeasonId
+  startDate: Date
+  name: string
+  useLegacyRating: boolean
+}
+
+export type MatchmakingSeasonJson = Jsonify<MatchmakingSeason>
+
+export function toMatchmakingSeasonJson(season: MatchmakingSeason): MatchmakingSeasonJson {
+  return {
+    id: season.id,
+    startDate: Number(season.startDate),
+    name: season.name,
+    useLegacyRating: season.useLegacyRating,
   }
 }
 
@@ -405,4 +434,22 @@ export interface FindMatchRequest {
   clientId: string
   preferences: MatchmakingPreferences
   identifiers: [type: number, hashStr: string][]
+}
+
+export enum MatchmakingSeasonsServiceErrorCode {
+  MustBeInFuture = 'mustBeInFuture',
+  NotFound = 'notFound',
+}
+
+export interface GetMatchmakingSeasonsResponse {
+  seasons: MatchmakingSeasonJson[]
+  current: SeasonId
+}
+
+export type ServerAddMatchmakingSeasonRequest = Omit<MatchmakingSeason, 'id'>
+
+export type AddMatchmakingSeasonRequest = Jsonify<ServerAddMatchmakingSeasonRequest>
+
+export interface AddMatchmakingSeasonResponse {
+  season: MatchmakingSeasonJson
 }

@@ -2,7 +2,9 @@ import sql from 'sql-template-strings'
 import {
   MatchmakingCompletion,
   MatchmakingResult,
+  MatchmakingSeason,
   MatchmakingType,
+  SeasonId,
 } from '../../../common/matchmaking'
 import { RaceStats } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user'
@@ -13,6 +15,7 @@ import { Dbify } from '../db/types'
 export interface MatchmakingRating extends RaceStats {
   userId: SbUserId
   matchmakingType: MatchmakingType
+  seasonId: SeasonId
   /** The user's current MMR. */
   rating: number
   /**
@@ -48,7 +51,7 @@ export interface MatchmakingRating extends RaceStats {
 }
 
 export const DEFAULT_MATCHMAKING_RATING: Readonly<
-  Omit<MatchmakingRating, 'userId' | 'matchmakingType'>
+  Omit<MatchmakingRating, 'userId' | 'matchmakingType' | 'seasonId'>
 > = {
   rating: 1500,
   kFactor: 40,
@@ -80,6 +83,7 @@ function fromDbMatchmakingRating(result: Readonly<DbMatchmakingRating>): Matchma
   return {
     userId: result.user_id,
     matchmakingType: result.matchmaking_type,
+    seasonId: result.season_id,
     rating: result.rating,
     kFactor: result.k_factor,
     uncertainty: result.uncertainty,
@@ -112,13 +116,16 @@ function fromDbMatchmakingRating(result: Readonly<DbMatchmakingRating>): Matchma
 export async function getMatchmakingRating(
   userId: SbUserId,
   matchmakingType: MatchmakingType,
+  seasonId: SeasonId,
 ): Promise<MatchmakingRating | undefined> {
   const { client, done } = await db()
   try {
     const result = await client.query<DbMatchmakingRating>(sql`
       SELECT *
       FROM matchmaking_ratings
-      WHERE user_id = ${userId} AND matchmaking_type = ${matchmakingType};
+      WHERE user_id = ${userId}
+        AND matchmaking_type = ${matchmakingType}
+        AND season_id = ${seasonId};
     `)
     return result.rowCount > 0 ? fromDbMatchmakingRating(result.rows[0]) : undefined
   } finally {
@@ -134,22 +141,23 @@ export async function getMatchmakingRating(
 export async function createInitialMatchmakingRating(
   userId: SbUserId,
   matchmakingType: MatchmakingType,
+  seasonId: SeasonId,
   mmr = DEFAULT_MATCHMAKING_RATING,
 ): Promise<MatchmakingRating> {
   const { client, done } = await db()
   try {
     const result = await client.query<DbMatchmakingRating>(sql`
       INSERT INTO matchmaking_ratings
-        (user_id, matchmaking_type, rating, k_factor, uncertainty, unexpected_streak,
+        (user_id, matchmaking_type, season_id, rating, k_factor, uncertainty, unexpected_streak,
           num_games_played, last_played_date, wins, losses, p_wins, p_losses, t_wins, t_losses,
           z_wins, z_losses, r_wins, r_losses, r_p_wins, r_p_losses, r_t_wins, r_t_losses, r_z_wins,
           r_z_losses)
       VALUES
-        (${userId}, ${matchmakingType}, ${mmr.rating}, ${mmr.kFactor}, ${mmr.uncertainty},
-          ${mmr.unexpectedStreak}, ${mmr.numGamesPlayed}, ${mmr.lastPlayedDate}, ${mmr.wins},
-          ${mmr.losses}, ${mmr.pWins}, ${mmr.pLosses}, ${mmr.tWins}, ${mmr.tLosses}, ${mmr.zWins},
-          ${mmr.zLosses}, ${mmr.rWins}, ${mmr.rLosses}, ${mmr.rPWins}, ${mmr.rPLosses},
-          ${mmr.rTWins}, ${mmr.rTLosses}, ${mmr.rZWins}, ${mmr.rZLosses})
+        (${userId}, ${matchmakingType}, ${seasonId}, ${mmr.rating}, ${mmr.kFactor},
+          ${mmr.uncertainty}, ${mmr.unexpectedStreak}, ${mmr.numGamesPlayed}, ${mmr.lastPlayedDate},
+          ${mmr.wins}, ${mmr.losses}, ${mmr.pWins}, ${mmr.pLosses}, ${mmr.tWins}, ${mmr.tLosses},
+          ${mmr.zWins}, ${mmr.zLosses}, ${mmr.rWins}, ${mmr.rLosses}, ${mmr.rPWins},
+          ${mmr.rPLosses}, ${mmr.rTWins}, ${mmr.rTLosses}, ${mmr.rZWins}, ${mmr.rZLosses})
       RETURNING *
     `)
 
@@ -167,11 +175,14 @@ export async function getMatchmakingRatingsWithLock(
   client: DbClient,
   userIds: SbUserId[],
   matchmakingType: MatchmakingType,
+  seasonId: SeasonId,
 ): Promise<MatchmakingRating[]> {
   const result = await client.query<DbMatchmakingRating>(sql`
     SELECT *
     FROM matchmaking_ratings
-    WHERE user_id = ANY(${userIds}) AND matchmaking_type = ${matchmakingType}
+    WHERE user_id = ANY(${userIds})
+      AND matchmaking_type = ${matchmakingType}
+      AND season_id = ${seasonId}
     FOR UPDATE;
   `)
   return result.rows.map(r => fromDbMatchmakingRating(r))
@@ -211,7 +222,9 @@ export async function updateMatchmakingRating(
        r_t_losses = ${mmr.rTLosses},
        r_z_wins = ${mmr.rZWins},
        r_z_losses = ${mmr.rZLosses}
-    WHERE user_id = ${mmr.userId} AND matchmaking_type = ${mmr.matchmakingType};
+    WHERE user_id = ${mmr.userId}
+      AND matchmaking_type = ${mmr.matchmakingType}
+      AND season_id = ${mmr.seasonId};
   `)
 }
 
@@ -457,6 +470,67 @@ export async function insertMatchmakingCompletion(
     `)
 
     return fromDbMatchmakingCompletion(result.rows[0])
+  } finally {
+    done()
+  }
+}
+
+type DbMatchmakingSeason = Dbify<MatchmakingSeason>
+
+function fromDbMatchmakingSeason(result: Readonly<DbMatchmakingSeason>): MatchmakingSeason {
+  return {
+    id: result.id,
+    startDate: result.start_date,
+    name: result.name,
+    useLegacyRating: result.use_legacy_rating,
+  }
+}
+
+/** Returns all of the matchmaking seasons, in descending order by start date. */
+export async function getMatchmakingSeasons(withClient?: DbClient): Promise<MatchmakingSeason[]> {
+  const { client, done } = await db(withClient)
+
+  try {
+    const result = await client.query<DbMatchmakingSeason>(sql`
+      SELECT *
+      FROM matchmaking_seasons
+      ORDER BY start_date DESC;
+    `)
+    return result.rows.map(r => fromDbMatchmakingSeason(r))
+  } finally {
+    done()
+  }
+}
+
+export async function addMatchmakingSeason(
+  season: Omit<MatchmakingSeason, 'id'>,
+  withClient?: DbClient,
+): Promise<MatchmakingSeason> {
+  const { client, done } = await db(withClient)
+
+  try {
+    const result = await client.query<DbMatchmakingSeason>(sql`
+      INSERT INTO matchmaking_seasons
+        (start_date, name, use_legacy_rating)
+      VALUES
+        (${season.startDate}, ${season.name}, ${season.useLegacyRating})
+      RETURNING *
+    `)
+
+    return fromDbMatchmakingSeason(result.rows[0])
+  } finally {
+    done()
+  }
+}
+
+export async function deleteMatchmakingSeason(id: SeasonId, withClient?: DbClient): Promise<void> {
+  const { client, done } = await db(withClient)
+
+  try {
+    await client.query(sql`
+      DELETE FROM matchmaking_seasons
+      WHERE id = ${id};
+    `)
   } finally {
     done()
   }
