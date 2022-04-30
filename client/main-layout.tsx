@@ -142,9 +142,9 @@ function useHealthyStarcraftCallback<T extends (...args: any[]) => any>(
   return useCallback(
     (...args: Parameters<T>) => {
       if (!isShieldBatteryHealthy({ starcraft })) {
-        dispatch(openDialog(DialogType.ShieldBatteryHealth))
+        dispatch(openDialog({ type: DialogType.ShieldBatteryHealth }))
       } else if (!isStarcraftHealthy({ starcraft })) {
-        dispatch(openDialog(DialogType.StarcraftHealth))
+        dispatch(openDialog({ type: DialogType.StarcraftHealth }))
       } else {
         callback(...args)
       }
@@ -209,7 +209,7 @@ export function MainLayout() {
 
   const onMapDetails = useCallback(
     (map: MapInfoJson) => {
-      dispatch(openDialog(DialogType.MapDetails, { mapId: map.id }))
+      dispatch(openDialog({ type: DialogType.MapDetails, initData: { mapId: map.id } }))
     },
     [dispatch],
   )
@@ -269,9 +269,9 @@ export function MainLayout() {
 
   const onReplaysClick = useCallback(() => {
     if (!isShieldBatteryHealthy({ starcraft })) {
-      dispatch(openDialog(DialogType.ShieldBatteryHealth))
+      dispatch(openDialog({ type: DialogType.ShieldBatteryHealth }))
     } else if (!isStarcraftHealthy({ starcraft })) {
-      dispatch(openDialog(DialogType.StarcraftHealth))
+      dispatch(openDialog({ type: DialogType.StarcraftHealth }))
     } else {
       // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
       dispatch(openOverlay('browseLocalReplays') as any)
@@ -345,7 +345,7 @@ export function MainLayout() {
           key='download'
           icon={<DownloadIcon />}
           label='Download'
-          onClick={() => dispatch(openDialog(DialogType.Download))}
+          onClick={() => dispatch(openDialog({ type: DialogType.Download }))}
           hotkey={ALT_O}
         />,
         <ActivityButton
@@ -412,7 +412,7 @@ export function MainLayout() {
               key='settings'
               ref={settingsButtonRef}
               icon={<FadedSettingsIcon />}
-              onClick={() => dispatch(openDialog(DialogType.Settings))}
+              onClick={() => dispatch(openDialog({ type: DialogType.Settings }))}
             />
           </Tooltip>
         </MiniActivityButtonsContainer>

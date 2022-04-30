@@ -26,7 +26,7 @@ export default class StarcraftHealthCheckupDialog extends React.Component {
           message: 'Your local installation is now free of problems.',
         }),
       )
-      this.props.dispatch(closeDialog())
+      this.props.dispatch(closeDialog(DialogType.StarcraftHealth))
     }
   }
 
@@ -92,6 +92,6 @@ export default class StarcraftHealthCheckupDialog extends React.Component {
 
   onSettingsClicked(e) {
     e.preventDefault()
-    this.props.dispatch(openDialog(DialogType.Settings))
+    this.props.dispatch(openDialog({ type: DialogType.Settings }))
   }
 }

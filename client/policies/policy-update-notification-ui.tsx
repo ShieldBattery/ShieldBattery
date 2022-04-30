@@ -44,7 +44,7 @@ export const PolicyUpdateNotificationUi = React.forwardRef<
             href='#'
             onClick={e => {
               e.preventDefault()
-              dispatch(openDialog(dialogType))
+              dispatch(openDialog({ type: dialogType }))
             }}>
             {label}
           </a>{' '}
@@ -55,7 +55,9 @@ export const PolicyUpdateNotificationUi = React.forwardRef<
   )
 })
 
-function policyTypeToDialogType(policyType: SbPolicyType): DialogType {
+function policyTypeToDialogType(
+  policyType: SbPolicyType,
+): DialogType.AcceptableUse | DialogType.PrivacyPolicy | DialogType.TermsOfService {
   switch (policyType) {
     case SbPolicyType.AcceptableUse:
       return DialogType.AcceptableUse

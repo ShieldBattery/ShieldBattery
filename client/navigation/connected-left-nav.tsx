@@ -315,7 +315,7 @@ function PartySection() {
   const currentParty = useAppSelector(s => s.party.current)
 
   const onInviteClick = useCallback(() => {
-    dispatch(openDialog(DialogType.PartyInvite))
+    dispatch(openDialog({ type: DialogType.PartyInvite }))
   }, [dispatch])
   const onLeaveClick = useCallback(
     (partyId: string) => {
@@ -419,7 +419,7 @@ export function ConnectedLeftNav() {
   }, [dispatch, onProfileOverlayClose])
   const onEditAccountClick = useCallback(() => {
     onProfileOverlayClose()
-    dispatch(openDialog(DialogType.Account))
+    dispatch(openDialog({ type: DialogType.Account }))
   }, [dispatch, onProfileOverlayClose])
   const onViewProfileClick = useCallback(() => {
     onProfileOverlayClose()
@@ -439,7 +439,7 @@ export function ConnectedLeftNav() {
   )
 
   const onJoinChannelClick = useCallback(() => {
-    dispatch(openDialog(DialogType.ChannelJoin))
+    dispatch(openDialog({ type: DialogType.ChannelJoin }))
   }, [dispatch])
   const onChannelLeave = useCallback(
     (channel: string) => {
@@ -448,7 +448,7 @@ export function ConnectedLeftNav() {
     [dispatch],
   )
   const onAddWhisperClick = useCallback(() => {
-    dispatch(openDialog(DialogType.Whispers))
+    dispatch(openDialog({ type: DialogType.Whispers }))
   }, [dispatch])
   const onWhisperClose = useCallback(
     (username: string) => {

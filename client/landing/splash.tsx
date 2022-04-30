@@ -483,7 +483,7 @@ export default function Splash() {
           <SplashButton
             label='Download'
             color='primary'
-            onClick={() => dispatch(openDialog(DialogType.Download))}
+            onClick={() => dispatch(openDialog({ type: DialogType.Download }))}
           />
         </ButtonsContainer>
       ) : (

@@ -2,6 +2,7 @@ import React, { useCallback } from 'react'
 import styled from 'styled-components'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
+import { DialogType } from '../dialogs/dialog-type'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { useAppDispatch } from '../redux-hooks'
@@ -49,7 +50,7 @@ export function ExternalLinkDialog({ href, domain, onCancel, dialogRef }: Extern
   const dispatch = useAppDispatch()
 
   const onOpenLinkClick = useCallback(() => {
-    dispatch(closeDialog())
+    dispatch(closeDialog(DialogType.ExternalLink))
     window.open(href, '_blank', 'noopener,noreferrer')
   }, [dispatch, href])
 

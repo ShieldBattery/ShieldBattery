@@ -1,13 +1,14 @@
 import keycode from 'keycode'
 import { rgba } from 'polished'
-import React, { useCallback } from 'react'
+import React, { useCallback, useContext } from 'react'
+import { animated } from 'react-spring'
 import styled, { css } from 'styled-components'
+import { DialogContext } from '../dialogs/connected-dialog-overlay'
 import CloseDialogIcon from '../icons/material/ic_close_black_24px.svg'
 import KeyListener from '../keyboard/key-listener'
 import { background900, CardLayer, colorDividers } from '../styles/colors'
 import { headline5 } from '../styles/typography'
 import { IconButton } from './button'
-import { fastOutLinearIn, fastOutSlowIn, linearOutSlowIn } from './curve-constants'
 import { useScrollIndicatorState } from './scroll-indicator'
 import { shadowDef8dp } from './shadow-constants'
 import { zIndexDialog } from './zindex'
@@ -28,7 +29,7 @@ const Container = styled.div`
   z-index: ${zIndexDialog};
 `
 
-const Surface = styled(CardLayer)`
+const Surface = styled(animated(CardLayer))`
   width: calc(100% - 160px);
   max-width: 768px;
   max-height: calc(100% - 160px);
@@ -44,29 +45,6 @@ const Surface = styled(CardLayer)`
   contain: paint;
   overscroll-behavior: contain;
   pointer-events: auto;
-
-  &.enter {
-    transform: translate3d(0, -100%, 0) scale(0.6, 0.2);
-    opacity: 0;
-  }
-
-  &.enterActive {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-    transition: transform 350ms ${linearOutSlowIn}, opacity 250ms ${fastOutSlowIn};
-  }
-
-  &.exit {
-    pointer-events: none;
-    transform: translate3d(0, 0, 0) scale(1);
-    opacity: 1;
-  }
-
-  &.exitActive {
-    transform: translate3d(0, -100%, 0) scale(0.6, 0.2);
-    opacity: 0;
-    transition: transform 250ms ${fastOutLinearIn}, opacity 200ms ${fastOutSlowIn} 50ms;
-  }
 `
 
 const TitleBar = styled.div<{ $fullBleed?: boolean; $showDivider?: boolean }>`
@@ -204,6 +182,7 @@ export function Dialog({
   onCancel,
   alwaysHasTopDivider = false,
 }: DialogProps) {
+  const dialogContext = useContext(DialogContext)
   const onKeyDown = useCallback(
     (event: KeyboardEvent) => {
       if (onCancel && event.keyCode === ESCAPE) {
@@ -223,7 +202,7 @@ export function Dialog({
 
   return (
     <Container role='dialog'>
-      <Surface className={className} style={style} ref={dialogRef}>
+      <Surface className={className} style={{ ...style, ...dialogContext.styles }} ref={dialogRef}>
         <KeyListener onKeyDown={onKeyDown} exclusive={true} />
         <TitleBar $fullBleed={fullBleed} $showDivider={!isAtTop && !tabs}>
           <Title>{title}</Title>

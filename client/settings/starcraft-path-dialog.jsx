@@ -139,9 +139,9 @@ export default class StarcraftPath extends React.Component {
 
   onSettingsCancel = () => {
     if (isStarcraftHealthy(this.props)) {
-      this.props.dispatch(openDialog(DialogType.Settings))
+      this.props.dispatch(openDialog({ type: DialogType.Settings }))
     } else {
-      this.props.dispatch(closeDialog())
+      this.props.dispatch(closeDialog(DialogType.StarcraftPath))
     }
   }
 
@@ -153,7 +153,7 @@ export default class StarcraftPath extends React.Component {
     this.props.dispatch(mergeLocalSettings(newSettings))
 
     if (!this.props.settings.lastError) {
-      this.props.dispatch(openDialog(DialogType.Settings))
+      this.props.dispatch(openDialog({ type: DialogType.Settings }))
     }
   }
 }

@@ -1,8 +1,7 @@
 import { rgba } from 'polished'
 import React, { useCallback, useRef } from 'react'
 import ReactDOM from 'react-dom'
-import { animated, useTransition } from 'react-spring'
-import { CSSTransition, TransitionGroup } from 'react-transition-group'
+import { animated, SpringValues, useTransition, UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import EditAccount from '../auth/edit-account'
@@ -34,6 +33,7 @@ import StarcraftHealthCheckupDialog from '../starcraft/starcraft-health'
 import { dialogScrim } from '../styles/colors'
 import CreateWhisperSessionDialog from '../whispers/create-whisper'
 import { closeDialog } from './action-creators'
+import { DialogState } from './dialog-reducer'
 import { DialogType } from './dialog-type'
 import { SimpleDialog } from './simple-dialog'
 
@@ -52,14 +52,14 @@ const Scrim = styled(animated.div)`
 const INVISIBLE_SCRIM_COLOR = rgba(dialogScrim, 0)
 const VISIBLE_SCRIM_COLOR = rgba(dialogScrim, 0.42)
 
-const transitionNames = {
-  appear: 'enter',
-  appearActive: 'enterActive',
-  enter: 'enter',
-  enterActive: 'enterActive',
-  exit: 'exit',
-  exitActive: 'exitActive',
+const noop = () => {}
+
+export interface DialogContextValue {
+  styles: SpringValues
 }
+export const DialogContext = React.createContext<DialogContextValue>({
+  styles: {},
+})
 
 function getDialog(
   dialogType: DialogType,
@@ -115,32 +115,30 @@ function getDialog(
 
 export function ConnectedDialogOverlay() {
   const dispatch = useAppDispatch()
-  const dialogState = useAppSelector(s => s.dialog)
+  const dialogHistory = useAppSelector(s => s.dialog.history)
+  const isDialogOpen = dialogHistory.length > 0
+  const topDialog = isDialogOpen ? dialogHistory[dialogHistory.length - 1] : undefined
   const starcraft = useAppSelector(s => s.starcraft)
 
   const focusableRef = useRef<HTMLSpanElement>(null)
   const dialogRef = useRef<HTMLElement>(null)
   const portalRef = useExternalElementRef()
 
-  const { dialogType } = dialogState
-  const { component: DialogComponent, modal } = dialogType
-    ? getDialog(dialogType, starcraft)
-    : { component: null, modal: false }
-
+  const isTopDialogModal = topDialog ? getDialog(topDialog.type, starcraft).modal : false
   const onCancel = useCallback(
-    (event?: React.MouseEvent) => {
-      if (dialogType && !modal && (!event || !isHandledDismissalEvent(event.nativeEvent))) {
-        dispatch(closeDialog())
+    (dialogType: DialogType | 'all', event?: React.MouseEvent) => {
+      if (!event || !isHandledDismissalEvent(event.nativeEvent)) {
+        dispatch(closeDialog(dialogType))
       }
     },
-    [dialogType, modal, dispatch],
+    [dispatch],
   )
   const onFocusTrap = useCallback(() => {
     // Focus was about to leave the dialog area, redirect it back to the dialog
     focusableRef.current?.focus()
   }, [])
 
-  const scrimTransition = useTransition(dialogState.isDialogOpened, {
+  const scrimTransition = useTransition(isDialogOpen, {
     from: {
       background: INVISIBLE_SCRIM_COLOR,
     },
@@ -152,33 +150,55 @@ export function ConnectedDialogOverlay() {
     },
   })
 
-  // Dialog content implementations should focus *something* when mounted, so that our focus traps
-  // have the proper effect of keeping focus in the dialog
-  let renderedDialog
-  if (dialogState.isDialogOpened && DialogComponent) {
-    renderedDialog = (
-      <CSSTransition
-        classNames={transitionNames}
-        timeout={{ enter: 350, exit: 250 }}
-        nodeRef={dialogRef}>
-        <DialogComponent
-          key='dialog'
-          dialogRef={dialogRef}
-          onCancel={onCancel}
-          {...dialogState.initData.toJS()}
-        />
-      </CSSTransition>
-    )
-  }
+  const dialogTransition = useTransition<DialogState, UseTransitionProps<DialogState>>(
+    dialogHistory,
+    {
+      from: { opacity: 0, transform: 'translate3d(0, -100%, 0) scale(0.6, 0.2)' },
+      enter: { opacity: 1, transform: 'translate3d(0, 0%, 0) scale(1, 1)' },
+      leave: { opacity: 0, transform: 'translate3d(0, -100%, 0) scale(0.6, 0.2)' },
+      config: {
+        ...defaultSpring,
+        clamp: true,
+      },
+    },
+  )
 
   return ReactDOM.createPortal(
     <>
-      {scrimTransition((styles, open) => open && <Scrim style={styles} onClick={onCancel} />)}
-      <span tabIndex={0} onFocus={onFocusTrap} />
-      <span ref={focusableRef} tabIndex={-1}>
-        <TransitionGroup>{renderedDialog}</TransitionGroup>
-      </span>
-      <span tabIndex={0} onFocus={onFocusTrap} />
+      {scrimTransition(
+        (styles, open) =>
+          open && (
+            <Scrim
+              style={styles}
+              onClick={event =>
+                isTopDialogModal ? noop() : onCancel(topDialog?.type ?? 'all', event)
+              }
+            />
+          ),
+      )}
+      {dialogTransition((styles, dialogState) => {
+        const { component: DialogComponent, modal } = getDialog(dialogState.type, starcraft)
+
+        // Dialog content implementations should focus *something* when mounted, so that our focus
+        // traps have the proper effect of keeping focus in the dialog
+        return (
+          <>
+            <span tabIndex={0} onFocus={onFocusTrap} />
+            <span ref={focusableRef} tabIndex={-1}>
+              <DialogContext.Provider value={{ styles }}>
+                <DialogComponent
+                  dialogRef={dialogRef}
+                  onCancel={(event: React.MouseEvent) =>
+                    modal ? noop() : onCancel(dialogState.type, event)
+                  }
+                  {...dialogState.initData}
+                />
+              </DialogContext.Provider>
+            </span>
+            <span tabIndex={0} onFocus={onFocusTrap} />
+          </>
+        )
+      })}
     </>,
     portalRef.current,
   )

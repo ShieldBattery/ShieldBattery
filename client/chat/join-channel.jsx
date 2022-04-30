@@ -2,6 +2,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../common/constants'
 import { closeDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import form from '../forms/form'
 import { composeValidators, maxLength, regex, required } from '../forms/validators'
 import { TextButton } from '../material/button'
@@ -96,7 +97,7 @@ export default class JoinChannel extends React.Component {
 
   onSubmit = () => {
     const channel = this._form.getModel().channel
-    this.props.dispatch(closeDialog())
+    this.props.dispatch(closeDialog(DialogType.ChannelJoin))
     navigateToChannel(channel)
   }
 }

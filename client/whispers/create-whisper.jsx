@@ -2,6 +2,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { USERNAME_MAXLENGTH, USERNAME_MINLENGTH, USERNAME_PATTERN } from '../../common/constants'
 import { closeDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import form from '../forms/form'
 import { composeValidators, maxLength, minLength, regex, required } from '../forms/validators'
 import { TextButton } from '../material/button'
@@ -97,7 +98,7 @@ export default class CreateWhisper extends React.Component {
 
   onSubmit = () => {
     const target = this._form.getModel().target
-    this.props.dispatch(closeDialog())
+    this.props.dispatch(closeDialog(DialogType.Whispers))
     navigateToWhisper(target)
   }
 }

@@ -113,7 +113,7 @@ function DialogLink({ dialogType, text }) {
   const onClick = event => {
     event.preventDefault()
     event.stopPropagation()
-    dispatch(openDialog(dialogType))
+    dispatch(openDialog({ type: dialogType }))
   }
 
   return (

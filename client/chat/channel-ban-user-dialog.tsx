@@ -4,6 +4,7 @@ import { ChannelModerationAction, ChatServiceErrorCode } from '../../common/chat
 import { SbUser } from '../../common/users/sb-user'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
+import { DialogType } from '../dialogs/dialog-type'
 import { useForm } from '../forms/form-hook'
 import { useAutoFocusRef } from '../material/auto-focus'
 import { TextButton } from '../material/button'
@@ -92,7 +93,7 @@ export function ChannelBanUserDialog({
           {
             onSuccess: () => {
               dispatch(openSnackbar({ message: `${user.name} was banned` }))
-              dispatch(closeDialog())
+              dispatch(closeDialog(DialogType.ChannelBanUser))
             },
             onError: err => setBanUserError(err),
           },

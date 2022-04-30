@@ -105,7 +105,7 @@ const eventToAction: EventToActionMap = {
       type: '@matchmaking/acceptMatchTime',
       payload: tick,
     })
-    dispatch(openDialog(DialogType.AcceptMatch))
+    dispatch(openDialog({ type: DialogType.AcceptMatch }))
 
     acceptMatchState.timer = setInterval(() => {
       tick -= 1
@@ -158,12 +158,12 @@ const eventToAction: EventToActionMap = {
     requeueState.timer = setTimeout(() => {
       // TODO(tec27): we should allow people to close this dialog themselves, and if/when they do,
       // clear this timer
-      dispatch(closeDialog())
+      dispatch(closeDialog(DialogType.AcceptMatch))
     }, 5000)
   },
 
   matchReady: (matchmakingType, event) => (dispatch, getState) => {
-    dispatch(closeDialog())
+    dispatch(closeDialog(DialogType.AcceptMatch))
     clearAcceptMatchTimer()
 
     // All players are ready; feel free to move to the loading screen and start the game

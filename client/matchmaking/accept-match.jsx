@@ -5,6 +5,7 @@ import styled from 'styled-components'
 import { MATCHMAKING_ACCEPT_MATCH_TIME_MS } from '../../common/matchmaking'
 import { Avatar } from '../avatars/avatar'
 import { closeDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import KeyListener from '../keyboard/key-listener'
 import { RaisedButton } from '../material/button'
 import { Dialog } from '../material/dialog'
@@ -72,7 +73,7 @@ export default class AcceptMatch extends React.Component {
       matchmaking: { searchInfo, failedToAccept, match },
     } = this.props
     if (!searchInfo && !failedToAccept && !match) {
-      this.props.dispatch(closeDialog())
+      this.props.dispatch(closeDialog(DialogType.AcceptMatch))
     }
   }
 
@@ -152,7 +153,7 @@ export default class AcceptMatch extends React.Component {
   }
 
   onFailedClick = () => {
-    this.props.dispatch(closeDialog())
+    this.props.dispatch(closeDialog(DialogType.AcceptMatch))
   }
 
   onAcceptKeyDown = event => {

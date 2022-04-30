@@ -295,5 +295,5 @@ export function batchGetMapInfo(mapId: string, maxCacheAgeMillis = 60000): Thunk
 }
 
 export function openMapPreviewDialog(mapId: string) {
-  return openDialog(DialogType.MapPreview, { mapId })
+  return openDialog({ type: DialogType.MapPreview, initData: { mapId } })
 }
