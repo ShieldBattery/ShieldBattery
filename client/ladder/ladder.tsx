@@ -221,7 +221,7 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
         <ScrollDivider $show={true} $showAt='bottom' />
       </TabsContainer>
       <Content>
-        {(searchQuery && searchResults) || rankings ? (
+        {searchResults || rankings ? (
           <LadderTable
             {...rankingsData}
             usersById={usersById}
