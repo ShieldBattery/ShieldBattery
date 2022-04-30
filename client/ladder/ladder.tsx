@@ -422,7 +422,7 @@ export function LadderTable(props: LadderTableProps) {
 
   const renderRow = useCallback(
     (index: number) => {
-      const player = playersRef.current?.[index - 1]
+      const player = playersRef.current?.[index]
       if (!player) {
         return <span></span>
       }
