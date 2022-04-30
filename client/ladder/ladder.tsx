@@ -26,7 +26,7 @@ import { navigateToUserProfile } from '../profile/action-creators'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useLocationSearchParam } from '../router-hooks'
-import { SearchInput } from '../search/search-input'
+import { SearchInput, SearchInputHandle } from '../search/search-input'
 import { useForceUpdate, useValueAsRef } from '../state-hooks'
 import {
   background400,
@@ -116,12 +116,14 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
   const searchResults = useAppSelector(s => s.ladder.typeToSearchResults.get(matchmakingType))
   const usersById = useAppSelector(s => s.users.byId)
 
-  const [lastError, setLastError] = useState<Error>()
-  const [searchQuery, setSearchQuery] = useLocationSearchParam('q')
-
+  const searchInputRef = useRef<SearchInputHandle>(null)
   const onTabChange = useCallback((tab: MatchmakingType) => {
+    searchInputRef.current?.clear()
     navigateToLadder(tab)
   }, [])
+
+  const [lastError, setLastError] = useState<Error>()
+  const [searchQuery, setSearchQuery] = useLocationSearchParam('q')
 
   const debouncedSearchRef = useRef(
     debounce((searchQuery: string) => {
@@ -221,6 +223,7 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
             usersById={usersById}
             lastError={lastError}
             curTime={CURRENT_TIME}
+            searchInputRef={searchInputRef}
             searchQuery={searchQuery}
             onSearchChange={onSearchChange}
           />
@@ -384,6 +387,7 @@ export interface LadderTableProps {
   usersById: Immutable<Map<SbUserId, SbUser>>
   lastUpdated: number
   lastError?: Error
+  searchInputRef: React.RefObject<SearchInputHandle>
   searchQuery: string
   onSearchChange: (value: string) => void
 }
@@ -403,7 +407,8 @@ export function LadderTable(props: LadderTableProps) {
     [forceUpdate],
   )
 
-  const { players, usersById, lastError, curTime, searchQuery, onSearchChange } = props
+  const { players, usersById, lastError, curTime, searchInputRef, searchQuery, onSearchChange } =
+    props
   const noRowsRenderer = useCallback(() => {
     if (lastError) {
       return <ErrorText>There was an error retrieving the current rankings.</ErrorText>
@@ -446,7 +451,11 @@ export function LadderTable(props: LadderTableProps) {
   return (
     <TableContainer ref={setContainerRef}>
       <SearchContainer>
-        <SearchInput searchQuery={searchQuery} onSearchChange={onSearchChange} />
+        <SearchInput
+          ref={searchInputRef}
+          searchQuery={searchQuery}
+          onSearchChange={onSearchChange}
+        />
         <LastUpdatedText title={longTimestamp.format(props.lastUpdated)}>
           Last updated: {shortTimestamp.format(props.lastUpdated)}
         </LastUpdatedText>
