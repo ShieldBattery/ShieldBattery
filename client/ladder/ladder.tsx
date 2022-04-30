@@ -119,15 +119,9 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
   const [lastError, setLastError] = useState<Error>()
   const [searchQuery, setSearchQuery] = useLocationSearchParam('q')
 
-  const onTabChange = useCallback(
-    (tab: MatchmakingType) => {
-      navigateToLadder(tab)
-      if (searchQuery) {
-        setSearchQuery('')
-      }
-    },
-    [searchQuery, setSearchQuery],
-  )
+  const onTabChange = useCallback((tab: MatchmakingType) => {
+    navigateToLadder(tab)
+  }, [])
 
   const debouncedSearchRef = useRef(
     debounce((searchQuery: string) => {
