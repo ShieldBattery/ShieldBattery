@@ -10,5 +10,7 @@ describe('common/arrays', () => {
     expect(findLastIndex([1, 2, 3], makeCallbackFn(2))).toBe(1)
     expect(findLastIndex([1, 2, 3], makeCallbackFn(3))).toBe(2)
     expect(findLastIndex([1, 2, 3], makeCallbackFn(4))).toBe(-1)
+    expect(findLastIndex([1, 1, 1], makeCallbackFn(1))).toBe(2)
+    expect(findLastIndex([1, 2, 1, 2], makeCallbackFn(1))).toBe(2)
   })
 })
