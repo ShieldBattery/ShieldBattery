@@ -116,12 +116,18 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
   const searchResults = useAppSelector(s => s.ladder.typeToSearchResults.get(matchmakingType))
   const usersById = useAppSelector(s => s.users.byId)
 
-  const onTabChange = useCallback((tab: MatchmakingType) => {
-    navigateToLadder(tab)
-  }, [])
-
   const [lastError, setLastError] = useState<Error>()
   const [searchQuery, setSearchQuery] = useLocationSearchParam('q')
+
+  const onTabChange = useCallback(
+    (tab: MatchmakingType) => {
+      navigateToLadder(tab)
+      if (searchQuery) {
+        setSearchQuery('')
+      }
+    },
+    [searchQuery, setSearchQuery],
+  )
 
   const debouncedSearchRef = useRef(
     debounce((searchQuery: string) => {
