@@ -20,8 +20,8 @@ function subscribe(callback: () => void) {
  * including the search params.
  */
 export function useUrl(): URL {
-  const url = useMemo(() => new URL(window.location.href), [])
-  return useSyncExternalStore(subscribe, () => url)
+  const location = useSyncExternalStore(subscribe, () => window.location)
+  return useMemo(() => new URL(location.href), [location.href])
 }
 
 /**
@@ -43,7 +43,8 @@ export function useUrl(): URL {
 export const useLocationSearchParam = (
   name: string,
 ): [value: string, setValue: (value: string) => void] => {
-  const searchParams = useUrl().searchParams
+  const url = useUrl()
+  const searchParams = url.searchParams
   const searchValue = searchParams.get(name) ?? ''
 
   const setLocationSearch = (value: string) => {
@@ -55,7 +56,7 @@ export const useLocationSearchParam = (
     }
 
     const searchString = params.toString()
-    push(location.pathname + (searchString ? `?${searchString}` : ''))
+    push(url.pathname + (searchString ? `?${searchString}` : ''))
   }
 
   return [searchValue, setLocationSearch]
