@@ -269,11 +269,7 @@ const UserList = React.memo((props: UserListProps) => {
 
   return (
     <UserListContainer>
-      <Virtuoso
-        components={{ Footer: VertPadding }}
-        totalCount={rowData.length}
-        itemContent={renderRow}
-      />
+      <Virtuoso components={{ Footer: VertPadding }} data={rowData} itemContent={renderRow} />
     </UserListContainer>
   )
 })

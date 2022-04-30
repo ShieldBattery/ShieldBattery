@@ -125,11 +125,12 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
   const [lastError, setLastError] = useState<Error>()
   const [searchQuery, setSearchQuery] = useLocationSearchParam('q')
 
+  const setSearchQueryRef = useValueAsRef(setSearchQuery)
   const debouncedSearchRef = useRef(
     debounce((searchQuery: string) => {
       // TODO(2Pac): Find out why the component gets re-rendered a bunch of times after updating the
       // location and see if there's anything we can do to stop that.
-      setSearchQuery(searchQuery)
+      setSearchQueryRef.current(searchQuery)
     }, 100),
   )
 
@@ -471,7 +472,7 @@ export function LadderTable(props: LadderTableProps) {
             TableRow,
             FillerRow,
           }}
-          totalCount={props.totalCount}
+          data={playersRef.current}
           itemContent={renderRow}
         />
       ) : (

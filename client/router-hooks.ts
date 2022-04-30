@@ -1,4 +1,4 @@
-import { useMemo, useSyncExternalStore } from 'react'
+import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import { push } from './navigation/routing'
 
 const events = ['popstate', 'pushState', 'replaceState', 'hashchange']
@@ -47,17 +47,20 @@ export const useLocationSearchParam = (
   const searchParams = url.searchParams
   const searchValue = searchParams.get(name) ?? ''
 
-  const setLocationSearch = (value: string) => {
-    const params = new URLSearchParams(Array.from(searchParams.entries()))
-    if (value) {
-      params.set(name, value)
-    } else {
-      params.delete(name)
-    }
+  const setLocationSearch = useCallback(
+    (value: string) => {
+      const params = new URLSearchParams(Array.from(searchParams.entries()))
+      if (value) {
+        params.set(name, value)
+      } else {
+        params.delete(name)
+      }
 
-    const searchString = params.toString()
-    push(url.pathname + (searchString ? `?${searchString}` : ''))
-  }
+      const searchString = params.toString()
+      push(url.pathname + (searchString ? `?${searchString}` : ''))
+    },
+    [name, searchParams, url.pathname],
+  )
 
   return [searchValue, setLocationSearch]
 }
