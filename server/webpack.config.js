@@ -53,7 +53,7 @@ const babelOpts = {
     ['@babel/plugin-proposal-nullish-coalescing-operator'],
     ['@babel/plugin-proposal-optional-chaining'],
     ['babel-plugin-const-enum'],
-  ].concat(isProd ? [] : ['react-refresh/babel', { skipEnvCheck: true }]),
+  ].concat(isProd ? [] : [['react-refresh/babel', { skipEnvCheck: true }]]),
 }
 
 module.exports = makeConfig({
