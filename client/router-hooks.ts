@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useSyncExternalStore } from 'react'
-import { push, replace } from './navigation/routing'
+import { useMemo, useSyncExternalStore } from 'react'
+import { push } from './navigation/routing'
 
 const events = ['popstate', 'pushState', 'replaceState', 'hashchange']
 function subscribe(callback: () => void) {
@@ -13,29 +13,15 @@ function subscribe(callback: () => void) {
   }
 }
 
-export interface SetLocationOptions {
-  replace?: boolean
-}
-
 /**
- * A custom `useLocation` hook which uses `useSyncExternalStore` hook to subscribe to the location
- * changes. Unlike wouter's `useLocation` hook, which returns just a location pathname without the
- * search params, this hook returns the whole `Location` object including the search params.
+ * A hook which utilizes `useSyncExternalStore` hook to subscribe to the location changes, and
+ * returns a memoized URL of the current location. Unlike wouter's `useLocation` hook, which returns
+ * just a location pathname without the search params, this hook returns the whole `URL` object
+ * including the search params.
  */
-export function useLocation(): [
-  location: Location,
-  setLocation: (url: string, options?: SetLocationOptions) => void,
-] {
-  const location = useSyncExternalStore(subscribe, () => window.location)
-  const setLocation = useCallback((url: string, options: SetLocationOptions | undefined) => {
-    if (options?.replace) {
-      replace(url)
-    } else {
-      push(url)
-    }
-  }, [])
-
-  return [location, setLocation]
+export function useUrl(): URL {
+  const url = useMemo(() => new URL(window.location.href), [])
+  return useSyncExternalStore(subscribe, () => url)
 }
 
 /**
@@ -57,8 +43,7 @@ export function useLocation(): [
 export const useLocationSearchParam = (
   name: string,
 ): [value: string, setValue: (value: string) => void] => {
-  const [location, setLocation] = useLocation()
-  const searchParams = useMemo(() => new URL(location.href), [location.href]).searchParams
+  const searchParams = useUrl().searchParams
   const searchValue = searchParams.get(name) ?? ''
 
   const setLocationSearch = (value: string) => {
@@ -70,7 +55,7 @@ export const useLocationSearchParam = (
     }
 
     const searchString = params.toString()
-    setLocation(location.pathname + (searchString ? `?${searchString}` : ''))
+    push(location.pathname + (searchString ? `?${searchString}` : ''))
   }
 
   return [searchValue, setLocationSearch]
