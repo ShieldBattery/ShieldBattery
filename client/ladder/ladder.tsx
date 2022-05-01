@@ -21,11 +21,11 @@ import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
 import { shadow4dp } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
+import { useLocationSearchParam } from '../navigation/router-hooks'
 import { replace } from '../navigation/routing'
 import { navigateToUserProfile } from '../profile/action-creators'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { useLocationSearchParam } from '../router-hooks'
 import { SearchInput, SearchInputHandle } from '../search/search-input'
 import { useForceUpdate, useValueAsRef } from '../state-hooks'
 import {
@@ -40,8 +40,6 @@ import {
 import { body1, overline, subtitle1, subtitle2 } from '../styles/typography'
 import { timeAgo } from '../time/time-ago'
 import { getRankings, navigateToLadder, searchRankings } from './action-creators'
-
-const CURRENT_TIME = Date.now()
 
 const LadderPage = styled.div`
   width: 100%;
@@ -187,18 +185,21 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
     lastUpdated: 0,
     totalCount: 0,
     players: [] as Immutable<LadderPlayer[]>,
+    curTime: 0,
   }
   if (searchQuery && searchResults) {
     rankingsData = {
       lastUpdated: searchResults.lastUpdated,
       totalCount: searchResults.totalCount,
       players: searchResults.players,
+      curTime: Number(searchResults.fetchTime),
     }
   } else if (rankings) {
     rankingsData = {
       lastUpdated: rankings.lastUpdated,
       totalCount: rankings.totalCount,
       players: rankings.players,
+      curTime: Number(rankings.fetchTime),
     }
   }
 
@@ -223,7 +224,6 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
             {...rankingsData}
             usersById={usersById}
             lastError={lastError}
-            curTime={CURRENT_TIME}
             searchInputRef={searchInputRef}
             searchQuery={searchQuery}
             onSearchChange={onSearchChange}
@@ -472,7 +472,7 @@ export function LadderTable(props: LadderTableProps) {
             TableRow,
             FillerRow,
           }}
-          data={playersRef.current}
+          data={players}
           itemContent={renderRow}
         />
       ) : (

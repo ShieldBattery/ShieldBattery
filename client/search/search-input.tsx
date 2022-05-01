@@ -1,5 +1,5 @@
 import React, { useCallback, useImperativeHandle, useRef, useState } from 'react'
-import styled, { css } from 'styled-components'
+import styled from 'styled-components'
 import SearchIcon from '../icons/material/baseline-search-24px.svg'
 import { useKeyListener } from '../keyboard/key-listener'
 import { fastOutSlowInShort } from '../material/curves'
@@ -10,14 +10,10 @@ const ESCAPE = 'Escape'
 const F = 'KeyF'
 
 const TextFieldContainer = styled(TextField)`
-  ${props =>
+  width: ${props =>
     props.isFocused
-      ? css`
-          width: var(--sb-search-input-focused-width, 250px);
-        `
-      : css`
-          width: var(--sb-search-input-width, 200px);
-        `}
+      ? 'var(--sb-search-input-focused-width, 250px)'
+      : 'var(--sb-search-input-width, 200px)'};
 
   ${fastOutSlowInShort};
 `
@@ -78,7 +74,7 @@ export const SearchInput = React.forwardRef<SearchInputHandle, SearchInputProps>
 
     return (
       <TextFieldContainer
-        clasName={className}
+        className={className}
         ref={inputRef}
         value={inputValue}
         label='Search'

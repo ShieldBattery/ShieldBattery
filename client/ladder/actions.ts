@@ -12,6 +12,7 @@ export interface GetRankings {
   error?: false
   meta: {
     matchmakingType: MatchmakingType
+    fetchTime: Date
   }
 }
 
@@ -25,5 +26,6 @@ export interface SearchRankings {
   meta: {
     matchmakingType: MatchmakingType
     searchQuery: string
+    fetchTime: Date
   }
 }

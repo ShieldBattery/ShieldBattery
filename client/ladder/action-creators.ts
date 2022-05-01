@@ -35,7 +35,7 @@ export function getRankings(
       dispatch({
         type: '@ladder/getRankings',
         payload: result,
-        meta: { matchmakingType },
+        meta: { matchmakingType, fetchTime: new Date() },
       })
     }
   })
@@ -74,7 +74,7 @@ export function searchRankings(
       dispatch({
         type: '@ladder/searchRankings',
         payload: result,
-        meta: { matchmakingType, searchQuery },
+        meta: { matchmakingType, searchQuery, fetchTime: new Date() },
       })
     }
   })

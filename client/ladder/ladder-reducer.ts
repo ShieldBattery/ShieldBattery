@@ -7,6 +7,7 @@ export interface RetrievedRankings {
   players: LadderPlayer[]
   lastUpdated: number
   totalCount: number
+  fetchTime: Date
 }
 
 export interface SearchResults extends RetrievedRankings {
@@ -25,12 +26,14 @@ const DEFAULT_LADDER_STATE: Immutable<LadderState> = {
 
 export default immerKeyedReducer(DEFAULT_LADDER_STATE, {
   ['@ladder/getRankings'](state, action) {
-    state.typeToRankings.set(action.meta.matchmakingType, action.payload)
+    const { matchmakingType, fetchTime } = action.meta
+
+    state.typeToRankings.set(matchmakingType, { ...action.payload, fetchTime })
   },
 
   ['@ladder/searchRankings'](state, action) {
-    const { matchmakingType, searchQuery } = action.meta
+    const { matchmakingType, searchQuery, fetchTime } = action.meta
 
-    state.typeToSearchResults.set(matchmakingType, { ...action.payload, searchQuery })
+    state.typeToSearchResults.set(matchmakingType, { ...action.payload, searchQuery, fetchTime })
   },
 })

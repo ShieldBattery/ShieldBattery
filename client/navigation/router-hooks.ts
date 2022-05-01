@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useSyncExternalStore } from 'react'
-import { push } from './navigation/routing'
+import { push } from './routing'
 
 const events = ['popstate', 'pushState', 'replaceState', 'hashchange']
 function subscribe(callback: () => void) {
