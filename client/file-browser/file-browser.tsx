@@ -684,7 +684,7 @@ export function FileBrowser({
           <Virtuoso
             ref={listRef}
             components={{ Header: VertPadding, Footer: VertPadding }}
-            totalCount={entries.length}
+            data={entries}
             itemContent={renderRow}
           />
         ) : (

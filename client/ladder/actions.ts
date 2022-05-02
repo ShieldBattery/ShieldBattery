@@ -1,25 +1,12 @@
 import { GetRankingsResponse } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
-import { BaseFetchFailure } from '../network/fetch-errors'
 
-export type LadderActions = GetRankingsBegin | GetRankingsSuccess | GetRankingsFailure
-
-/**
- * A request is being made to the server to retrieve the current rankings for a particular
- * matchmaking type.
- */
-export interface GetRankingsBegin {
-  type: '@ladder/getRankingsBegin'
-  payload: {
-    matchmakingType: MatchmakingType
-    fetchTime: Date
-  }
-}
+export type LadderActions = GetRankings | SearchRankings
 
 /**
- * The server has returned the current rankings for a particular matchmaking type.
+ * Retrieves the current rankings for a particular matchmaking type.
  */
-export interface GetRankingsSuccess {
+export interface GetRankings {
   type: '@ladder/getRankings'
   payload: GetRankingsResponse
   error?: false
@@ -30,11 +17,15 @@ export interface GetRankingsSuccess {
 }
 
 /**
- * A request for the current rankings has failed.
+ * Retrieves the current rankings for a particular matchmaking type, filtered by a search query.
  */
-export interface GetRankingsFailure extends BaseFetchFailure<'@ladder/getRankings'> {
+export interface SearchRankings {
+  type: '@ladder/searchRankings'
+  payload: GetRankingsResponse
+  error?: false
   meta: {
     matchmakingType: MatchmakingType
+    searchQuery: string
     fetchTime: Date
   }
 }

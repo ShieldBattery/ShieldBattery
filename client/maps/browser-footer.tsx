@@ -6,19 +6,17 @@ import styled from 'styled-components'
 import { ALL_TILESETS, tilesetToName } from '../../common/maps'
 import FilterIcon from '../icons/material/baseline-filter_list-24px.svg'
 import FolderIcon from '../icons/material/baseline-folder_open-24px.svg'
-import SearchIcon from '../icons/material/baseline-search-24px.svg'
 import SortIcon from '../icons/material/baseline-sort_by_alpha-24px.svg'
 import SizeIcon from '../icons/material/baseline-view_list-24px.svg'
 import KeyListener from '../keyboard/key-listener'
 import { IconButton, TextButton } from '../material/button'
 import CheckBox from '../material/check-box'
-import { fastOutSlowInShort } from '../material/curves'
 import { FloatingActionButton } from '../material/floating-action-button'
 import { LegacyPopover } from '../material/legacy-popover'
 import { Menu } from '../material/menu/menu'
 import { SelectedItem as SelectedMenuItem } from '../material/menu/selected-item'
 import { useAnchorPosition } from '../material/popover'
-import TextField from '../material/text-field'
+import { SearchInput } from '../search/search-input'
 import { usePrevious, useValueAsRef } from '../state-hooks'
 import { colorTextSecondary } from '../styles/colors'
 import { overline } from '../styles/typography'
@@ -35,7 +33,6 @@ const transitionNames = {
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
 const ESCAPE = 'Escape'
-const F = 'KeyF'
 
 const Container = styled.div`
   position: relative;
@@ -113,11 +110,6 @@ const FilterActions = styled.div`
   display: flex;
   justify-content: flex-end;
   margin-top: 8px;
-`
-
-const SearchInput = styled(TextField)`
-  width: ${props => (props.isFocused ? '250px' : '200px')};
-  ${fastOutSlowInShort};
 `
 
 interface FilterOverlayProps {
@@ -228,34 +220,17 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
   const [open, setOpen] = useState<FooterView>()
   const [tempNumPlayersFilter, setTempNumPlayersFilter] = useState(props.numPlayersFilter)
   const [tempTilesetFilter, setTempTilesetFilter] = useState(props.tilesetFilter)
-  const [searchFocused, setSearchFocused] = useState(false)
 
   const filterApplyButtonRef = useRef<HTMLButtonElement>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
   const filterButtonRef = useRef<HTMLButtonElement>(null)
 
   const [sizeRef, sizeAnchorX, sizeAnchorY] = useAnchorPosition('right', 'bottom')
   const [sortMenuRef, sortAnchorX, sortAnchorY] = useAnchorPosition('right', 'bottom')
 
-  const searchFocusedRef = useValueAsRef(searchFocused)
   const numPlayersFilterRef = useValueAsRef(props.numPlayersFilter)
   const tilesetFilterRef = useValueAsRef(props.tilesetFilter)
   const lastOpen = usePrevious(open)
 
-  const onKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      if (event.code === F && event.ctrlKey) {
-        searchInputRef.current?.focus()
-        return true
-      } else if (event.code === ESCAPE && searchFocusedRef.current) {
-        searchInputRef.current?.blur()
-        return true
-      }
-
-      return false
-    },
-    [searchFocusedRef],
-  )
   const onDismiss = useCallback(() => {
     setOpen(undefined)
   }, [])
@@ -269,20 +244,7 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
     setOpen('sortMenu')
   }, [])
 
-  const { onSearchChange, onSizeChange, onSortChange, onFilterApply } = props
-
-  const forwardOnSearchChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      onSearchChange(event.target.value)
-    },
-    [onSearchChange],
-  )
-  const onSearchFocus = useCallback(() => {
-    setSearchFocused(true)
-  }, [])
-  const onSearchBlur = useCallback(() => {
-    setSearchFocused(false)
-  }, [])
+  const { onSizeChange, onSortChange, onFilterApply } = props
 
   const onSizeSelected = useCallback(
     (index: number) => {
@@ -359,7 +321,6 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
 
   return (
     <Container>
-      <KeyListener onKeyDown={onKeyDown} />
       <PositionedFloatingActionButton
         title='Browse local maps'
         icon={<FolderIcon />}
@@ -386,18 +347,7 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
         />
       </LeftActions>
 
-      <SearchInput
-        ref={searchInputRef}
-        value={props.searchQuery}
-        label='Search'
-        dense={true}
-        allowErrors={false}
-        isFocused={searchFocused}
-        onChange={forwardOnSearchChange}
-        onFocus={onSearchFocus}
-        onBlur={onSearchBlur}
-        leadingIcons={[<SearchIcon />]}
-      />
+      <SearchInput searchQuery={props.searchQuery} onSearchChange={props.onSearchChange} />
 
       <Menu
         open={open === 'sizeMenu'}
