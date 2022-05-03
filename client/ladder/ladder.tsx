@@ -37,7 +37,7 @@ import {
   colorTextFaint,
   colorTextSecondary,
 } from '../styles/colors'
-import { body1, overline, subtitle1, subtitle2 } from '../styles/typography'
+import { body1, overline, singleLine, subtitle1, subtitle2 } from '../styles/typography'
 import { timeAgo } from '../time/time-ago'
 import { getRankings, navigateToLadder, searchRankings } from './action-creators'
 
@@ -254,7 +254,7 @@ const SearchContainer = styled.div`
   align-items: center;
 
   width: 100%;
-  max-width: 800px;
+  max-width: min(800px, 100% - 32px);
   margin: 16px 16px 8px;
 `
 
@@ -269,7 +269,7 @@ const LastUpdatedText = styled.div`
 const Table = styled.div`
   width: 100%;
   height: auto;
-  max-width: 800px;
+  max-width: min(800px, 100% - 32px);
   margin: 8px 16px 0px;
   padding-bottom: 16px;
 `
@@ -293,7 +293,6 @@ const HeaderRowContainer = styled.div<{ context?: unknown }>`
   ${overline};
   width: 100%;
   height: ${ROW_HEIGHT}px;
-  max-width: 800px;
   position: sticky !important;
   top: 0;
 
@@ -357,6 +356,7 @@ const StyledAvatar = styled(Avatar)`
 
 const PlayerName = styled.div`
   ${subtitle2};
+  ${singleLine};
   line-height: ${ROW_HEIGHT}px;
 `
 
