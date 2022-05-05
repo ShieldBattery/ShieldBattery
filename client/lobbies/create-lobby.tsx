@@ -22,7 +22,7 @@ import { RaisedButton } from '../material/button'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
-import TextField from '../material/text-field'
+import { TextField, TextFieldHandle } from '../material/text-field'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useValueAsRef } from '../state-hooks'
@@ -99,7 +99,7 @@ interface CreateLobbyFormHandle {
 }
 
 interface CreateLobbyFormProps {
-  inputRef: React.Ref<TextField>
+  inputRef: React.Ref<TextFieldHandle>
   disabled: boolean
   model: CreateLobbyModel
   onSubmit: (model: CreateLobbyModel) => void
@@ -268,7 +268,7 @@ export function CreateLobby(props: CreateLobbyProps) {
 
   const isInParty = useAppSelector(s => !!s.party.current)
   const formRef = useRef<CreateLobbyFormHandle>(null)
-  const autoFocusRef = useAutoFocusRef<TextField>()
+  const autoFocusRef = useAutoFocusRef<TextFieldHandle>()
   const [isAtTop, isAtBottom, topElem, bottomElem] = useScrollIndicatorState()
 
   const onCreateClick = useCallback(() => {

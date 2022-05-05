@@ -21,12 +21,13 @@ import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
 import { shadow4dp } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
+import { TextFieldHandle } from '../material/text-field'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { replace } from '../navigation/routing'
 import { navigateToUserProfile } from '../profile/action-creators'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { SearchInput, SearchInputHandle } from '../search/search-input'
+import { SearchInput } from '../search/search-input'
 import { useForceUpdate, useValueAsRef } from '../state-hooks'
 import {
   background400,
@@ -114,7 +115,7 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
   const searchResults = useAppSelector(s => s.ladder.typeToSearchResults.get(matchmakingType))
   const usersById = useAppSelector(s => s.users.byId)
 
-  const searchInputRef = useRef<SearchInputHandle>(null)
+  const searchInputRef = useRef<TextFieldHandle>(null)
   const onTabChange = useCallback((tab: MatchmakingType) => {
     searchInputRef.current?.clear()
     navigateToLadder(tab)
@@ -388,7 +389,7 @@ export interface LadderTableProps {
   usersById: Immutable<Map<SbUserId, SbUser>>
   lastUpdated: number
   lastError?: Error
-  searchInputRef?: React.RefObject<SearchInputHandle>
+  searchInputRef?: React.RefObject<TextFieldHandle>
   searchQuery: string
   onSearchChange: (value: string) => void
 }

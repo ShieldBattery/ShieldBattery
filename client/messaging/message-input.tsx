@@ -1,7 +1,7 @@
 import React, { useCallback, useImperativeHandle, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { useKeyListener } from '../keyboard/key-listener'
-import TextField from '../material/text-field'
+import { TextField, TextFieldHandle } from '../material/text-field'
 import { colorDividers } from '../styles/colors'
 
 const StyledTextField = styled(TextField)<{ showDivider?: boolean }>`
@@ -37,7 +37,7 @@ export interface MessageInputHandle {
 export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputProps>(
   (props, ref) => {
     const [message, setMessage] = useState('')
-    const inputRef = useRef<TextField>(null)
+    const inputRef = useRef<TextFieldHandle>(null)
 
     useImperativeHandle(ref, () => ({
       focus: () => {
@@ -108,11 +108,10 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
         className={props.className}
         label='Send a message'
         value={message}
-        maxLength={500}
         floatingLabel={false}
         allowErrors={false}
         showDivider={props.showDivider}
-        inputProps={{ autoComplete: 'off' }}
+        inputProps={{ autoComplete: 'off', maxLength: 500 }}
         onEnterKeyDown={onEnterKeyDown}
         onChange={onChange}
       />

@@ -9,7 +9,7 @@ import { useForm } from '../forms/form-hook'
 import { useAutoFocusRef } from '../material/auto-focus'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
-import TextField from '../material/text-field'
+import { TextField, TextFieldHandle } from '../material/text-field'
 import { FetchError, isFetchError } from '../network/fetch-errors'
 import { useAppDispatch } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
@@ -80,7 +80,7 @@ export function ChannelBanUserDialog({
   user,
 }: ChannelBanUserDialogProps) {
   const dispatch = useAppDispatch()
-  const autoFocusRef = useAutoFocusRef<TextField>()
+  const autoFocusRef = useAutoFocusRef<TextFieldHandle>()
   const [banUserError, setBanUserError] = useState<Error>()
 
   const onFormSubmit = useCallback(
@@ -133,7 +133,7 @@ export function ChannelBanUserDialog({
           inputProps={{
             autoCapitalize: 'off',
             autoCorrect: 'off',
-            spellCheck: 'off',
+            spellCheck: false,
             tabIndex: 0,
           }}
         />

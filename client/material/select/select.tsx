@@ -7,10 +7,10 @@ import { useValueAsRef } from '../../state-hooks'
 import { amberA400, background300, colorTextFaint, colorTextPrimary } from '../../styles/colors'
 import { buttonReset } from '../button-reset'
 import { fastOutSlowIn } from '../curve-constants'
-import InputBase from '../input-base'
-import InputError from '../input-error'
-import FloatingLabel from '../input-floating-label'
-import InputUnderline from '../input-underline'
+import { InputBase } from '../input-base'
+import { InputError } from '../input-error'
+import { FloatingLabel } from '../input-floating-label'
+import { InputUnderline } from '../input-underline'
 import { Menu } from '../menu/menu'
 import { useAnchorPosition } from '../popover'
 import { defaultSpring } from '../springs'
@@ -282,14 +282,14 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
           {label ? (
             <FloatingLabel
               htmlFor={id}
-              hasValue={value !== undefined}
-              focused={focused}
-              disabled={disabled}
-              error={!!errorText}>
+              $hasValue={value !== undefined}
+              $focused={focused}
+              $disabled={disabled}
+              $error={!!errorText}>
               {label}
             </FloatingLabel>
           ) : null}
-          <DisplayValue as='span' floatingLabel={!!label} disabled={disabled}>
+          <DisplayValue as='span' $floatingLabel={!!label} $disabled={disabled}>
             {displayValue}
           </DisplayValue>
           <Icon $opened={opened} $focused={focused} $disabled={disabled}>

@@ -1,8 +1,8 @@
 import styled from 'styled-components'
 import { Label, TextButton } from '../material/button'
 import CheckBox from '../material/check-box'
-import PasswordTextField from '../material/password-text-field'
-import TextField from '../material/text-field'
+import { PasswordTextField } from '../material/password-text-field'
+import { TextField } from '../material/text-field'
 import { colorError, colorSuccess, colorTextSecondary } from '../styles/colors'
 import { headline4 } from '../styles/typography'
 

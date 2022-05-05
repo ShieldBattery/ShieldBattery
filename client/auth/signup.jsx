@@ -26,7 +26,7 @@ import {
 } from '../forms/validators'
 import { RaisedButton } from '../material/button'
 import CheckBox from '../material/check-box'
-import InputError from '../material/input-error'
+import { InputError } from '../material/input-error'
 import { push } from '../navigation/routing'
 import { fetchJson } from '../network/fetch'
 import LoadingIndicator from '../progress/dots'

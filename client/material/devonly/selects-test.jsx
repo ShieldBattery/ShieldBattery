@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import Card from '../card'
 import { SelectOption } from '../select/option'
 import { Select } from '../select/select'
-import TextField from '../text-field'
+import { TextField } from '../text-field'
 
 const Container = styled.div`
   display: flex;
