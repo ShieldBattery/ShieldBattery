@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
 import {
@@ -10,12 +10,13 @@ import { MULTI_CHANNEL } from '../../common/flags'
 import { SbUserId } from '../../common/users/sb-user'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { logger } from '../logging/logger'
-import { Chat } from '../messaging/chat'
+import { MenuItem } from '../material/menu/item'
+import { Chat, ChatContext } from '../messaging/chat'
 import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { Message } from '../messaging/message-records'
 import { push, replace } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
-import { ConnectedUserContextMenu } from '../profile/user-context-menu'
+import { ConnectedUserContextMenu, useUserMenuContext } from '../profile/user-context-menu'
 import { useUserOverlays } from '../profile/user-overlays'
 import { ConnectedUserProfileOverlay } from '../profile/user-profile-overlay'
 import { LoadingDotsArea } from '../progress/dots'
@@ -153,8 +154,8 @@ interface UserListEntryProps {
   style?: any
 }
 
-const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
-  const user = useAppSelector(s => s.users.byId.get(props.userId))
+const ConnectedUserListEntry = React.memo<UserListEntryProps>(({ userId, faded, style }) => {
+  const user = useAppSelector(s => s.users.byId.get(userId))
   const filterClick = useMentionFilterClick()
   const {
     clickableElemRef,
@@ -164,7 +165,7 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
     onContextMenu,
     isOverlayOpen,
   } = useUserOverlays<HTMLDivElement>({
-    userId: props.userId,
+    userId,
     profileAnchorX: 'left',
     profileAnchorY: 'top',
     profileOriginX: 'right',
@@ -173,19 +174,37 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
     filterClick,
   })
 
+  // TODO(2Pac): Extract all of this into a hook, so it can be used in other places, e.g. chat
+  // messages.
+  const { appendUserMenuItems, userMenuStatuses } = useUserMenuContext()
+  const onDismiss = userMenuStatuses.get(userId)?.onDismiss
+  const chatContext = useContext(ChatContext)
+  const onMentionClick = useCallback(() => {
+    chatContext.mentionUser(userId)
+    onDismiss?.()
+  }, [chatContext, onDismiss, userId])
+
+  useEffect(() => {
+    console.log('effect3')
+    appendUserMenuItems(
+      userId,
+      new Map([['common', [<MenuItem key='mention' text='Mention' onClick={onMentionClick} />]]]),
+    )
+  }, [appendUserMenuItems, onMentionClick, userId])
+
   return (
-    <div style={props.style}>
+    <div style={style}>
       <ConnectedUserProfileOverlay {...profileOverlayProps} />
       <ConnectedUserContextMenu {...contextMenuProps} />
 
       <UserListEntryItem
         ref={clickableElemRef}
         key='entry'
-        faded={!!props.faded}
+        faded={!!faded}
         isOverlayOpen={isOverlayOpen}
         onClick={onClick}
         onContextMenu={onContextMenu}>
-        <StyledAvatar userId={props.userId} />
+        <StyledAvatar userId={userId} />
         {user ? (
           <UserListName>{user.name}</UserListName>
         ) : (

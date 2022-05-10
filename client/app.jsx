@@ -22,6 +22,7 @@ import {
   PrivacyPolicyPage,
   TermsOfServicePage,
 } from './policies/policy-displays'
+import { UserContextMenuProvider } from './profile/user-context-menu'
 import LoadingIndicator from './progress/dots'
 import { useAppSelector } from './redux-hooks'
 import { RootErrorBoundary } from './root-error-boundary'
@@ -69,7 +70,9 @@ function MainContent() {
     <LoggedInFilter>
       <SiteConnectedFilter>
         <LoadingFilter>
-          <MainLayout />
+          <UserContextMenuProvider>
+            <MainLayout />
+          </UserContextMenuProvider>
         </LoadingFilter>
       </SiteConnectedFilter>
     </LoggedInFilter>

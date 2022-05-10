@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 /**
  * A hook to access the previous value of some variable inside a functional component.
@@ -51,6 +51,21 @@ export function useValueAsRef<T>(value: T): React.MutableRefObject<T> {
   ref.current = value
 
   return ref
+}
+
+type CallbackFn<A extends any[], R> = (...args: A) => R
+export function useStableCallback<A extends any[], R>(
+  callbackFn: CallbackFn<A, R>,
+): CallbackFn<A, R> {
+  const callbackRef = useRef<CallbackFn<A, R>>(callbackFn)
+
+  useLayoutEffect(() => {
+    callbackRef.current = callbackFn
+  })
+
+  return useCallback((...args: A): R => {
+    return callbackRef.current(...args)
+  }, [])
 }
 
 /**
