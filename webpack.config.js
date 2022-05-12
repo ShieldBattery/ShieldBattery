@@ -53,8 +53,7 @@ const webBabelOpts = {
     ['@babel/plugin-proposal-nullish-coalescing-operator'],
     ['@babel/plugin-proposal-optional-chaining'],
     ['babel-plugin-const-enum'],
-    ['react-refresh/babel'],
-  ],
+  ].concat(process.env.NODE_ENV !== 'production' ? [['react-refresh/babel']] : []),
 }
 
 if (process.env.NODE_ENV !== 'production') {

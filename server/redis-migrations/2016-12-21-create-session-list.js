@@ -1,9 +1,10 @@
+import { container } from 'tsyringe'
 import { Redis } from '../lib/redis'
 
 const MIGRATION_NAME = '2016-12-21-create-session-list'
 
 async function migrate() {
-  const redis = new Redis()
+  const redis = container.resolve(Redis)
   const isMigrated = await redis.exists(`migrations:${MIGRATION_NAME}`)
   if (isMigrated) {
     return
@@ -25,3 +26,10 @@ async function migrate() {
 }
 
 migrate()
+  .then(() => {
+    process.exit()
+  })
+  .catch(err => {
+    console.error(err)
+    process.exit(1)
+  })

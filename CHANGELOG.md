@@ -1,3 +1,14 @@
+#### 8.3.0 (May 12, 2022)
+
+- **Main race in ladder rankings.** The ladder rankings now display a player's main race, detected
+  based on all the games they have played during the season.
+- **Rankings search.** Tired of scrolling to the bottom of the rankings to find all of your
+  not-so-talented friends? Fear not, you can now simply type their name into our snazzy new search
+  box and filter the rankings down to just the matching accounts!
+- **Improved shortcut keys.** We've added a shortcut for opening the client settings (Alt + S), as
+  well as starting a new whisper (Alt + W). There are also hotkeys for moving between tabs in any
+  interface that has them (Ctrl + 1-9).
+
 #### 8.2.0 (February 5, 2022)
 
 - **Improved netcode.** We've made a first pass at improving the netcode ingame. With this update,
