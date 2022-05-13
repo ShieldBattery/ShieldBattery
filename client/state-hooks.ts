@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 /**
  * A hook to access the previous value of some variable inside a functional component.
@@ -92,4 +92,28 @@ export function useMultiRef<T>(
   )
 
   return [elemRef, setElemRef]
+}
+
+/**
+ * Wraps a function/callback so that it is identity-stable, even if it is recreated across
+ * different renders. This is useful for functions that depend on current props/state, but are used
+ * as event handlers on their children.
+ *
+ * This is a not-completely-correct implementation of React's future `useEvent` hook, as described
+ * here: https://github.com/reactjs/rfcs/blob/useevent/text/0000-useevent.md
+ *
+ * It differs in the following ways (and you should avoid causing any behavior that differs as a
+ * result of these, so we can easily migrate in the future):
+ *
+ * - It doesn't throw if the stable callback is called during rendering
+ * - The current function value gets swapped slightly later than React's future version
+ *
+ * TODO(tec27): Replace with React's `useEvent` once it is available
+ */
+export function useStableCallback<A extends any[], R>(fn: (...args: A) => R): (...args: A) => R {
+  const ref = useRef<(...args: A) => R>(fn)
+  useLayoutEffect(() => {
+    ref.current = fn
+  })
+  return useCallback((...args: A) => ref.current(...args), [])
 }

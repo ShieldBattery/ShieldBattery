@@ -1,10 +1,10 @@
-import React, { useCallback, useImperativeHandle, useRef, useState } from 'react'
+import React, { useImperativeHandle, useRef, useState } from 'react'
 import styled from 'styled-components'
 import SearchIcon from '../icons/material/baseline-search-24px.svg'
 import { useKeyListener } from '../keyboard/key-listener'
 import { fastOutSlowInShort } from '../material/curves'
 import TextField from '../material/text-field'
-import { useValueAsRef } from '../state-hooks'
+import { useStableCallback } from '../state-hooks'
 
 const ESCAPE = 'Escape'
 const F = 'KeyF'
@@ -12,7 +12,7 @@ const F = 'KeyF'
 const TextFieldContainer = styled(TextField)`
   width: ${props =>
     props.isFocused
-      ? 'var(--sb-search-input-focused-width, 250px)'
+      ? 'var(--sb-search-input-focused-width, 256px)'
       : 'var(--sb-search-input-width, 200px)'};
 
   ${fastOutSlowInShort};
@@ -32,7 +32,6 @@ export const SearchInput = React.forwardRef<SearchInputHandle, SearchInputProps>
   ({ searchQuery, onSearchChange, className }, ref) => {
     const [inputValue, setInputValue] = useState(searchQuery)
     const [inputFocused, setInputFocused] = useState(false)
-    const inputFocusedRef = useValueAsRef(inputFocused)
     const inputRef = useRef<HTMLInputElement>(null)
 
     useImperativeHandle(ref, () => ({
@@ -43,33 +42,30 @@ export const SearchInput = React.forwardRef<SearchInputHandle, SearchInputProps>
       },
     }))
 
-    const onInputFocus = useCallback(() => {
+    const onInputFocus = useStableCallback(() => {
       setInputFocused(true)
-    }, [])
-    const onInputBlur = useCallback(() => {
+    })
+    const onInputBlur = useStableCallback(() => {
       setInputFocused(false)
-    }, [])
-    const onInputChange = useCallback(
-      (event: React.ChangeEvent<HTMLInputElement>) => {
-        setInputValue(event.target.value)
-        onSearchChange(event.target.value)
-      },
-      [onSearchChange],
-    )
+    })
+    const onInputChange = useStableCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+      setInputValue(event.target.value)
+      onSearchChange(event.target.value)
+    })
 
     useKeyListener({
-      onKeyDown: event => {
+      onKeyDown: useStableCallback(event => {
         if (event.code === F && event.ctrlKey) {
           inputRef.current?.focus()
           inputRef.current?.select()
           return true
-        } else if (event.code === ESCAPE && inputFocusedRef.current) {
+        } else if (event.code === ESCAPE && inputFocused) {
           inputRef.current?.blur()
           return true
         }
 
         return false
-      },
+      }),
     })
 
     return (
