@@ -18,16 +18,16 @@ import { RaceIcon } from '../lobbies/race-icon'
 import { JsonLocalStorageValue } from '../local-storage'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
+import { fastOutSlowInShort } from '../material/curves'
 import { Ripple } from '../material/ripple'
 import { shadow4dp } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
-import { TextFieldHandle } from '../material/text-field'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { replace } from '../navigation/routing'
 import { navigateToUserProfile } from '../profile/action-creators'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { SearchInput } from '../search/search-input'
+import { SearchInput, SearchInputHandle } from '../search/search-input'
 import { useForceUpdate, useValueAsRef } from '../state-hooks'
 import {
   background400,
@@ -115,7 +115,7 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
   const searchResults = useAppSelector(s => s.ladder.typeToSearchResults.get(matchmakingType))
   const usersById = useAppSelector(s => s.users.byId)
 
-  const searchInputRef = useRef<TextFieldHandle>(null)
+  const searchInputRef = useRef<SearchInputHandle>(null)
   const onTabChange = useCallback((tab: MatchmakingType) => {
     searchInputRef.current?.clear()
     navigateToLadder(tab)
@@ -259,6 +259,15 @@ const SearchContainer = styled.div`
   margin: 16px 16px 8px;
 `
 
+const StyledSearchInput = styled(SearchInput)`
+  width: 200px;
+  ${fastOutSlowInShort};
+
+  &:focus-within {
+    width: 256px;
+  }
+`
+
 const LastUpdatedText = styled.div`
   ${body1};
   padding: 0 16px;
@@ -389,7 +398,7 @@ export interface LadderTableProps {
   usersById: Immutable<Map<SbUserId, SbUser>>
   lastUpdated: number
   lastError?: Error
-  searchInputRef?: React.RefObject<TextFieldHandle>
+  searchInputRef: React.RefObject<SearchInputHandle>
   searchQuery: string
   onSearchChange: (value: string) => void
 }
@@ -411,6 +420,7 @@ export function LadderTable(props: LadderTableProps) {
 
   const { players, usersById, lastError, curTime, searchInputRef, searchQuery, onSearchChange } =
     props
+
   const noRowsRenderer = useCallback(() => {
     if (lastError) {
       return <ErrorText>There was an error retrieving the current rankings.</ErrorText>
@@ -453,7 +463,7 @@ export function LadderTable(props: LadderTableProps) {
   return (
     <TableContainer ref={setContainerRef}>
       <SearchContainer>
-        <SearchInput
+        <StyledSearchInput
           ref={searchInputRef}
           searchQuery={searchQuery}
           onSearchChange={onSearchChange}

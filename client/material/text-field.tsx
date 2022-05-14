@@ -1,6 +1,7 @@
-import React, { useCallback, useId, useImperativeHandle, useRef, useState } from 'react'
+import React, { useCallback, useId, useState } from 'react'
 import styled, { css } from 'styled-components'
 import ClearIcon from '../icons/material/baseline-clear-24px.svg'
+import { useMultiRef, useStableCallback } from '../state-hooks'
 import { colorTextSecondary } from '../styles/colors'
 import { IconButton } from './button'
 import { InputBase, TEXTAREA_BOTTOM_PADDING, TEXTAREA_BOTTOM_PADDING_DENSE } from './input-base'
@@ -135,21 +136,6 @@ const ClearButton = styled(IconButton)`
 
 export type TextSelectionDirection = 'forward' | 'backward' | 'none'
 
-export interface TextFieldHandle {
-  clear: () => void
-  blur: () => void
-  focus: () => void
-  select: () => void
-  selectionStart: () => number
-  selectionEnd: () => number
-  selectionDirection: () => TextSelectionDirection
-  setSelectionRange: (
-    selectionStart: number,
-    selectionEnd: number,
-    selectionDirection: TextSelectionDirection,
-  ) => void
-}
-
 export interface TextFieldProps {
   allowErrors?: boolean
   className?: string
@@ -177,7 +163,7 @@ export interface TextFieldProps {
 
 // A Material text field component with single-line, multi-line and text area variants, supporting
 // with and without floating labels
-export const TextField = React.forwardRef<TextFieldHandle, TextFieldProps>(
+export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
   (
     {
       allowErrors = true,
@@ -207,48 +193,7 @@ export const TextField = React.forwardRef<TextFieldHandle, TextFieldProps>(
   ) => {
     const id = useId()
     const [isFocused, setIsFocused] = useState(false)
-    const inputRef = useRef<HTMLInputElement>(null)
-
-    const clearInput = useCallback(() => {
-      if (!inputRef.current) {
-        return
-      }
-
-      // React overrides the input value setter so we have to do shenanigans to set a value
-      // manually. See this answer for more infor: https://stackoverflow.com/a/46012210/398302
-      const nativeInputValue = Object.getOwnPropertyDescriptor(
-        window.HTMLInputElement.prototype,
-        'value',
-      )
-      nativeInputValue?.set?.call(inputRef.current, '')
-      const changeEvent = new Event('input', { bubbles: true })
-      inputRef.current.dispatchEvent(changeEvent)
-    }, [])
-
-    useImperativeHandle(ref, () => ({
-      clear: clearInput,
-      blur() {
-        inputRef.current?.blur()
-      },
-      focus() {
-        inputRef.current?.focus()
-      },
-      select() {
-        inputRef.current?.select()
-      },
-      selectionStart() {
-        return inputRef.current?.selectionStart ?? 0
-      },
-      selectionEnd() {
-        return inputRef.current?.selectionEnd ?? 0
-      },
-      selectionDirection() {
-        return inputRef.current?.selectionDirection ?? 'none'
-      },
-      setSelectionRange(selectionStart, selectionEnd, selectionDirection) {
-        inputRef.current?.setSelectionRange(selectionStart, selectionEnd, selectionDirection)
-      },
-    }))
+    const [inputRef, setInputRef] = useMultiRef<HTMLInputElement>(ref)
 
     const autoSize = useCallback(
       (elem: HTMLInputElement) => {
@@ -302,7 +247,6 @@ export const TextField = React.forwardRef<TextFieldHandle, TextFieldProps>(
     )
 
     const internalInputProps = {
-      ref: inputRef,
       id,
       value,
       type,
@@ -334,10 +278,22 @@ export const TextField = React.forwardRef<TextFieldHandle, TextFieldProps>(
         )
       })
 
-    const clearAndFocusInput = useCallback(() => {
-      clearInput()
+    const clearAndFocusInput = useStableCallback(() => {
+      if (!inputRef.current) {
+        return
+      }
+
+      // React overrides the input value setter so we have to do shenanigans to set a value
+      // manually. See this answer for more info: https://stackoverflow.com/a/46012210/398302
+      const nativeInputValue = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )
+      nativeInputValue?.set?.call(inputRef.current, '')
+      const changeEvent = new Event('input', { bubbles: true })
+      inputRef.current.dispatchEvent(changeEvent)
       inputRef.current?.focus()
-    }, [clearInput])
+    })
 
     if (hasClearButton && value) {
       trailingIconsElements.push(
@@ -395,6 +351,7 @@ export const TextField = React.forwardRef<TextFieldHandle, TextFieldProps>(
           {renderLabel()}
           {leadingIconsElements.length > 0 ? leadingIconsElements : null}
           <InputBase
+            ref={setInputRef}
             as={multiline ? 'textarea' : 'input'}
             rows={rows}
             $focused={isFocused}

@@ -1,35 +1,42 @@
-import React, { useState } from 'react'
-import styled from 'styled-components'
+import React, { useImperativeHandle, useRef, useState } from 'react'
 import SearchIcon from '../icons/material/baseline-search-24px.svg'
 import { useKeyListener } from '../keyboard/key-listener'
-import { fastOutSlowInShort } from '../material/curves'
-import { TextField, TextFieldHandle } from '../material/text-field'
-import { useMultiRef, useStableCallback } from '../state-hooks'
+import { TextField } from '../material/text-field'
+import { useStableCallback } from '../state-hooks'
 
 const ESCAPE = 'Escape'
 const F = 'KeyF'
 
-const TextFieldContainer = styled(TextField)`
-  width: var(--sb-search-input-width, 200px);
-  ${fastOutSlowInShort};
-
-  &:focus-within {
-    width: var(--sb-search-input-focused-width, 256px);
-  }
-`
+export interface SearchInputHandle {
+  clear: () => void
+}
 
 interface SearchInputProps {
   searchQuery: string
   onSearchChange: (value: string) => void
-  isSearching?: boolean
   className?: string
 }
 
-export const SearchInput = React.forwardRef<TextFieldHandle, SearchInputProps>(
-  ({ searchQuery, onSearchChange, isSearching, className }, ref) => {
+export const SearchInput = React.forwardRef<SearchInputHandle, SearchInputProps>(
+  ({ searchQuery, onSearchChange, className }, ref) => {
     const [inputValue, setInputValue] = useState(searchQuery)
-    const [inputRef, setInputRef] = useMultiRef<TextFieldHandle>(ref)
+    const [searchFocused, setInputFocused] = useState(false)
+    const inputRef = useRef<HTMLInputElement>(null)
 
+    useImperativeHandle(ref, () => ({
+      clear: () => {
+        if (inputValue) {
+          setInputValue('')
+        }
+      },
+    }))
+
+    const onInputFocus = useStableCallback(() => {
+      setInputFocused(true)
+    })
+    const onInputBlur = useStableCallback(() => {
+      setInputFocused(false)
+    })
     const onInputChange = useStableCallback((event: React.ChangeEvent<HTMLInputElement>) => {
       setInputValue(event.target.value)
       onSearchChange(event.target.value)
@@ -41,7 +48,7 @@ export const SearchInput = React.forwardRef<TextFieldHandle, SearchInputProps>(
           inputRef.current?.focus()
           inputRef.current?.select()
           return true
-        } else if (event.code === ESCAPE) {
+        } else if (event.code === ESCAPE && searchFocused) {
           inputRef.current?.blur()
           return true
         }
@@ -51,14 +58,16 @@ export const SearchInput = React.forwardRef<TextFieldHandle, SearchInputProps>(
     })
 
     return (
-      <TextFieldContainer
+      <TextField
         className={className}
-        ref={setInputRef}
+        ref={inputRef}
         value={inputValue}
         label='Search'
         dense={true}
         allowErrors={false}
         onChange={onInputChange}
+        onFocus={onInputFocus}
+        onBlur={onInputBlur}
         leadingIcons={[<SearchIcon />]}
         hasClearButton={true}
       />

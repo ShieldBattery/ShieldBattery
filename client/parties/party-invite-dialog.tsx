@@ -6,7 +6,7 @@ import { useForm } from '../forms/form-hook'
 import { composeValidators, maxLength, minLength, regex, required } from '../forms/validators'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
-import { TextField, TextFieldHandle } from '../material/text-field'
+import { TextField } from '../material/text-field'
 import { useAppDispatch } from '../redux-hooks'
 import { inviteToParty } from './action-creators'
 
@@ -29,7 +29,7 @@ export function PartyInviteDialog({
   onCancel: () => void
 }) {
   const dispatch = useAppDispatch()
-  const inputRef = useRef<TextFieldHandle>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const autoFocusTimer = setTimeout(() => inputRef.current?.focus(), 450)
