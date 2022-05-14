@@ -398,7 +398,7 @@ export interface LadderTableProps {
   usersById: Immutable<Map<SbUserId, SbUser>>
   lastUpdated: number
   lastError?: Error
-  searchInputRef: React.RefObject<SearchInputHandle>
+  searchInputRef?: React.RefObject<SearchInputHandle>
   searchQuery: string
   onSearchChange: (value: string) => void
 }
