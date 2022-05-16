@@ -161,8 +161,10 @@ export interface TextFieldProps {
   value: string
 }
 
-// A Material text field component with single-line, multi-line and text area variants, supporting
-// with and without floating labels
+/**
+ * A Material text field component with single-line, multi-line and text area variants, supporting
+ * with and without floating labels.
+ */
 export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
   (
     {
@@ -309,34 +311,33 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
       )
     }
 
-    const renderLabel = () => {
-      if (!label) {
-        return null
-      } else if (floatingLabel) {
-        return (
-          <FloatingLabel
-            htmlFor={id}
-            $hasValue={!!value}
-            $dense={dense}
-            $focused={isFocused}
-            $error={!!errorText}
-            $disabled={disabled}
-            $leadingIconsLength={leadingIcons.length}>
-            {label}
-          </FloatingLabel>
-        )
-      } else {
-        return (
-          <Label
-            htmlFor={id}
-            $hasValue={!!value}
-            $dense={dense}
-            $disabled={disabled}
-            $leadingIconsLength={leadingIcons.length}>
-            {label}
-          </Label>
-        )
-      }
+    let renderLabel
+    if (!label) {
+      renderLabel = null
+    } else if (floatingLabel) {
+      renderLabel = (
+        <FloatingLabel
+          htmlFor={id}
+          $hasValue={!!value}
+          $dense={dense}
+          $focused={isFocused}
+          $error={!!errorText}
+          $disabled={disabled}
+          $leadingIconsLength={leadingIcons.length}>
+          {label}
+        </FloatingLabel>
+      )
+    } else {
+      renderLabel = (
+        <Label
+          htmlFor={id}
+          $hasValue={!!value}
+          $dense={dense}
+          $disabled={disabled}
+          $leadingIconsLength={leadingIcons.length}>
+          {label}
+        </Label>
+      )
     }
 
     return (
@@ -348,7 +349,7 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
           $dense={dense}
           $multiline={multiline}
           $maxRows={maxRows}>
-          {renderLabel()}
+          {renderLabel}
           {leadingIconsElements.length > 0 ? leadingIconsElements : null}
           <InputBase
             ref={setInputRef}
