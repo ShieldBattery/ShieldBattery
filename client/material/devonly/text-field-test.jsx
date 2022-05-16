@@ -5,8 +5,8 @@ import LeadingIcon from '../../icons/material/baseline-view_list-24px.svg'
 import { IconButton } from '../button'
 import Card from '../card'
 import CheckBox from '../check-box'
-import PasswordTextField from '../password-text-field'
-import TextField from '../text-field'
+import { PasswordTextField } from '../password-text-field'
+import { TextField } from '../text-field'
 
 const Container = styled.div`
   display: flex;

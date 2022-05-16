@@ -18,6 +18,7 @@ import { RaceIcon } from '../lobbies/race-icon'
 import { JsonLocalStorageValue } from '../local-storage'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
+import { fastOutSlowInShort } from '../material/curves'
 import { Ripple } from '../material/ripple'
 import { shadow4dp } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
@@ -258,6 +259,15 @@ const SearchContainer = styled.div`
   margin: 16px 16px 8px;
 `
 
+const StyledSearchInput = styled(SearchInput)`
+  width: 200px;
+  ${fastOutSlowInShort};
+
+  &:focus-within {
+    width: 256px;
+  }
+`
+
 const LastUpdatedText = styled.div`
   ${body1};
   padding: 0 16px;
@@ -410,6 +420,7 @@ export function LadderTable(props: LadderTableProps) {
 
   const { players, usersById, lastError, curTime, searchInputRef, searchQuery, onSearchChange } =
     props
+
   const noRowsRenderer = useCallback(() => {
     if (lastError) {
       return <ErrorText>There was an error retrieving the current rankings.</ErrorText>
@@ -452,7 +463,7 @@ export function LadderTable(props: LadderTableProps) {
   return (
     <TableContainer ref={setContainerRef}>
       <SearchContainer>
-        <SearchInput
+        <StyledSearchInput
           ref={searchInputRef}
           searchQuery={searchQuery}
           onSearchChange={onSearchChange}

@@ -9,7 +9,7 @@ import { RaisedButton, TextButton } from '../material/button'
 import CheckBox from '../material/check-box'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
-import TextField from '../material/text-field'
+import { TextField } from '../material/text-field'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import {

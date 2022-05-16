@@ -7,7 +7,7 @@ import form from '../forms/form'
 import { composeValidators, maxLength, regex, required } from '../forms/validators'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
-import TextField from '../material/text-field'
+import { TextField } from '../material/text-field'
 import { navigateToChannel } from './action-creators'
 
 const channelValidator = composeValidators(

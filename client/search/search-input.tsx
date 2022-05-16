@@ -1,22 +1,11 @@
 import React, { useImperativeHandle, useRef, useState } from 'react'
-import styled from 'styled-components'
 import SearchIcon from '../icons/material/baseline-search-24px.svg'
 import { useKeyListener } from '../keyboard/key-listener'
-import { fastOutSlowInShort } from '../material/curves'
-import TextField from '../material/text-field'
+import { TextField } from '../material/text-field'
 import { useStableCallback } from '../state-hooks'
 
 const ESCAPE = 'Escape'
 const F = 'KeyF'
-
-const TextFieldContainer = styled(TextField)`
-  width: ${props =>
-    props.isFocused
-      ? 'var(--sb-search-input-focused-width, 256px)'
-      : 'var(--sb-search-input-width, 200px)'};
-
-  ${fastOutSlowInShort};
-`
 
 export interface SearchInputHandle {
   clear: () => void
@@ -31,7 +20,7 @@ interface SearchInputProps {
 export const SearchInput = React.forwardRef<SearchInputHandle, SearchInputProps>(
   ({ searchQuery, onSearchChange, className }, ref) => {
     const [inputValue, setInputValue] = useState(searchQuery)
-    const [inputFocused, setInputFocused] = useState(false)
+    const [searchFocused, setInputFocused] = useState(false)
     const inputRef = useRef<HTMLInputElement>(null)
 
     useImperativeHandle(ref, () => ({
@@ -59,7 +48,7 @@ export const SearchInput = React.forwardRef<SearchInputHandle, SearchInputProps>
           inputRef.current?.focus()
           inputRef.current?.select()
           return true
-        } else if (event.code === ESCAPE && inputFocused) {
+        } else if (event.code === ESCAPE && searchFocused) {
           inputRef.current?.blur()
           return true
         }
@@ -69,18 +58,18 @@ export const SearchInput = React.forwardRef<SearchInputHandle, SearchInputProps>
     })
 
     return (
-      <TextFieldContainer
+      <TextField
         className={className}
         ref={inputRef}
         value={inputValue}
         label='Search'
         dense={true}
         allowErrors={false}
-        isFocused={inputFocused}
         onChange={onInputChange}
         onFocus={onInputFocus}
         onBlur={onInputBlur}
         leadingIcons={[<SearchIcon />]}
+        hasClearButton={true}
       />
     )
   },

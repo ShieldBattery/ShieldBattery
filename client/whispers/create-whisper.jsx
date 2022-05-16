@@ -7,7 +7,7 @@ import form from '../forms/form'
 import { composeValidators, maxLength, minLength, regex, required } from '../forms/validators'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
-import TextField from '../material/text-field'
+import { TextField } from '../material/text-field'
 import { navigateToWhisper } from './action-creators'
 
 const usernameValidator = composeValidators(

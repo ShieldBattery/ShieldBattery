@@ -1,4 +1,3 @@
-import PropTypes from 'prop-types'
 import React from 'react'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import styled from 'styled-components'
@@ -55,7 +54,7 @@ export interface InputErrorProps {
   className?: string
 }
 
-export default function InputError(props: InputErrorProps) {
+export function InputError(props: InputErrorProps) {
   // `CSSTransition` can't on its own animate an exit transition of text content (error text in our
   // case), because it gets immediately removed from the DOM when exit transition starts, even if
   // the node that holds those contents remain in DOM; i.e., when using only `CSSTransition`,
@@ -75,9 +74,4 @@ export default function InputError(props: InputErrorProps) {
       ) : null}
     </StyledTransitionGroup>
   )
-}
-
-InputError.propTypes = {
-  error: PropTypes.string,
-  className: PropTypes.string,
 }

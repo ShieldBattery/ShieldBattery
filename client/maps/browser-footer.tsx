@@ -11,6 +11,7 @@ import SizeIcon from '../icons/material/baseline-view_list-24px.svg'
 import KeyListener from '../keyboard/key-listener'
 import { IconButton, TextButton } from '../material/button'
 import CheckBox from '../material/check-box'
+import { fastOutSlowInShort } from '../material/curves'
 import { FloatingActionButton } from '../material/floating-action-button'
 import { LegacyPopover } from '../material/legacy-popover'
 import { Menu } from '../material/menu/menu'
@@ -57,6 +58,15 @@ const PositionedFloatingActionButton = styled(FloatingActionButton)`
   position: absolute;
   top: -28px;
   left: calc(50% - 28px);
+`
+
+const StyledSearchInput = styled(SearchInput)`
+  width: 200px;
+  ${fastOutSlowInShort};
+
+  &:focus-within {
+    width: 256px;
+  }
 `
 
 const FilterOverlayContents = styled.div<{ transitionDuration: number; transitionDelay: number }>`
@@ -244,7 +254,7 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
     setOpen('sortMenu')
   }, [])
 
-  const { onSizeChange, onSortChange, onFilterApply } = props
+  const { searchQuery, onSearchChange, onSizeChange, onSortChange, onFilterApply } = props
 
   const onSizeSelected = useCallback(
     (index: number) => {
@@ -347,7 +357,7 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
         />
       </LeftActions>
 
-      <SearchInput searchQuery={props.searchQuery} onSearchChange={props.onSearchChange} />
+      <StyledSearchInput searchQuery={searchQuery} onSearchChange={onSearchChange} />
 
       <Menu
         open={open === 'sizeMenu'}
