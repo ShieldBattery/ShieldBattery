@@ -27,7 +27,6 @@ import {
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import Settings from '../settings/settings'
 import StarcraftPathDialog from '../settings/starcraft-path-dialog'
-import { isStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 import { ShieldBatteryHealthDialog } from '../starcraft/shieldbattery-health'
 import StarcraftHealthCheckupDialog from '../starcraft/starcraft-health'
 import { dialogScrim } from '../styles/colors'
@@ -61,10 +60,10 @@ export const DialogContext = React.createContext<DialogContextValue>({
   styles: {},
 })
 
-function getDialog(
-  dialogType: DialogType,
-  starcraftState: any,
-): { component: React.ComponentType<any>; modal: boolean } {
+function getDialog(dialogType: DialogType): {
+  component: React.ComponentType<any>
+  modal: boolean
+} {
   switch (dialogType) {
     case DialogType.AcceptMatch:
       return { component: AcceptMatch, modal: true }
@@ -93,9 +92,7 @@ function getDialog(
     case DialogType.PrivacyPolicy:
       return { component: PrivacyPolicyDialog, modal: false }
     case DialogType.Settings:
-      return isStarcraftHealthy({ starcraft: starcraftState })
-        ? { component: Settings, modal: false }
-        : { component: StarcraftPathDialog, modal: false }
+      return { component: Settings, modal: false }
     case DialogType.Simple:
       return { component: SimpleDialog, modal: false }
     case DialogType.ShieldBatteryHealth:
@@ -118,13 +115,12 @@ export function ConnectedDialogOverlay() {
   const dialogHistory = useAppSelector(s => s.dialog.history)
   const isDialogOpen = dialogHistory.length > 0
   const topDialog = isDialogOpen ? dialogHistory[dialogHistory.length - 1] : undefined
-  const starcraft = useAppSelector(s => s.starcraft)
 
   const focusableRef = useRef<HTMLSpanElement>(null)
   const dialogRef = useRef<HTMLElement>(null)
   const portalRef = useExternalElementRef()
 
-  const isTopDialogModal = topDialog ? getDialog(topDialog.type, starcraft).modal : false
+  const isTopDialogModal = topDialog ? getDialog(topDialog.type).modal : false
   const onCancel = useCallback(
     (dialogType: DialogType | 'all', event?: React.MouseEvent) => {
       if (!event || !isHandledDismissalEvent(event.nativeEvent)) {
@@ -177,7 +173,7 @@ export function ConnectedDialogOverlay() {
           ),
       )}
       {dialogTransition((styles, dialogState) => {
-        const { component: DialogComponent, modal } = getDialog(dialogState.type, starcraft)
+        const { component: DialogComponent, modal } = getDialog(dialogState.type)
 
         // Dialog content implementations should focus *something* when mounted, so that our focus
         // traps have the proper effect of keeping focus in the dialog

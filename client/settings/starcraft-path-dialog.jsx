@@ -2,14 +2,13 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { closeDialog, openDialog } from '../dialogs/action-creators'
+import { closeDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import form from '../forms/form'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { RaisedButton, TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { TextField } from '../material/text-field'
-import { isStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 import { colorError } from '../styles/colors'
 import { Subtitle1 } from '../styles/typography'
 import { mergeLocalSettings } from './action-creators'
@@ -138,11 +137,7 @@ export default class StarcraftPath extends React.Component {
   }
 
   onSettingsCancel = () => {
-    if (isStarcraftHealthy(this.props)) {
-      this.props.dispatch(openDialog({ type: DialogType.Settings }))
-    } else {
-      this.props.dispatch(closeDialog(DialogType.StarcraftPath))
-    }
+    this.props.dispatch(closeDialog(DialogType.StarcraftPath))
   }
 
   onSubmit = () => {
@@ -153,7 +148,7 @@ export default class StarcraftPath extends React.Component {
     this.props.dispatch(mergeLocalSettings(newSettings))
 
     if (!this.props.settings.lastError) {
-      this.props.dispatch(openDialog({ type: DialogType.Settings }))
+      this.props.dispatch(closeDialog(DialogType.StarcraftPath))
     }
   }
 }
