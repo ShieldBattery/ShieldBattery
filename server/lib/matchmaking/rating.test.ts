@@ -1,8 +1,8 @@
 import { ReconciledPlayerResult } from '../../../common/games/results'
 import { makeSeasonId, MatchmakingType } from '../../../common/matchmaking'
 import { makeSbUserId } from '../../../common/users/sb-user'
-import { DEFAULT_MATCHMAKING_RATING, MatchmakingRating } from './models'
-import { calculateChangedRatings } from './rating'
+import { LEGACY_DEFAULT_MATCHMAKING_RATING, MatchmakingRating } from './models'
+import { legacyCalculateChangedRatings } from './rating'
 
 const GAME_ID = 'asdfzxcv'
 const GAME_DATE = new Date(27)
@@ -23,7 +23,7 @@ function createMatchmakingRating(
   data: Partial<Omit<MatchmakingRating, 'userId'>> & Partial<{ userId: number }> = {},
 ): MatchmakingRating {
   return {
-    ...DEFAULT_MATCHMAKING_RATING,
+    ...LEGACY_DEFAULT_MATCHMAKING_RATING,
     matchmakingType: MatchmakingType.Match1v1,
     seasonId: makeSeasonId(1),
     ...data,
@@ -31,7 +31,7 @@ function createMatchmakingRating(
   }
 }
 
-describe('matchmaking/rating/calculateChangedRatings', () => {
+describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
   test('1v1 - evenly matched new players', () => {
     const player = createMatchmakingRating({ userId: 1 })
     const opponent = createMatchmakingRating({ userId: 2 })
@@ -40,7 +40,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings({
+    const changes = legacyCalculateChangedRatings({
       gameId: GAME_ID,
       gameDate: GAME_DATE,
       results,
@@ -52,12 +52,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(playerChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
+        "points": 1520,
+        "pointsChange": 20,
         "probability": 0.5,
         "rating": 1520,
         "ratingChange": 20,
@@ -69,12 +73,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "loss",
+        "points": 1480,
+        "pointsChange": -20,
         "probability": 0.5,
         "rating": 1480,
         "ratingChange": -20,
@@ -94,7 +102,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings({
+    const changes = legacyCalculateChangedRatings({
       gameId: GAME_ID,
       gameDate: GAME_DATE,
       results,
@@ -106,12 +114,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(playerChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
+        "points": 1803.6363636363637,
+        "pointsChange": 3.6363636363637397,
         "probability": 0.9090909090909091,
         "rating": 1803.6363636363637,
         "ratingChange": 3.6363636363637397,
@@ -123,12 +135,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "loss",
+        "points": 1396.3636363636363,
+        "pointsChange": -3.6363636363637397,
         "probability": 0.09090909090909091,
         "rating": 1396.3636363636363,
         "ratingChange": -3.6363636363637397,
@@ -148,7 +164,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, WIN],
     ])
 
-    const changes = calculateChangedRatings({
+    const changes = legacyCalculateChangedRatings({
       gameId: GAME_ID,
       gameDate: GAME_DATE,
       results,
@@ -160,12 +176,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(playerChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "loss",
+        "points": 1763.6363636363637,
+        "pointsChange": -36.36363636363626,
         "probability": 0.9090909090909091,
         "rating": 1763.6363636363637,
         "ratingChange": -36.36363636363626,
@@ -177,12 +197,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
+        "points": 1436.3636363636363,
+        "pointsChange": 36.36363636363626,
         "probability": 0.09090909090909091,
         "rating": 1436.3636363636363,
         "ratingChange": 36.36363636363626,
@@ -202,7 +226,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings({
+    const changes = legacyCalculateChangedRatings({
       gameId: GAME_ID,
       gameDate: GAME_DATE,
       results,
@@ -214,12 +238,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(playerChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
+        "points": 1800.0013398168774,
+        "pointsChange": 0.0013398168773619545,
         "probability": 0.9999665045780651,
         "rating": 1800.0013398168774,
         "ratingChange": 0.0013398168773619545,
@@ -231,12 +259,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "loss",
+        "points": 9.998660183122604,
+        "pointsChange": -0.0013398168773957053,
         "probability": 0.00003349542193491098,
         "rating": 9.998660183122604,
         "ratingChange": -0.0013398168773957053,
@@ -256,7 +288,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings({
+    const changes = legacyCalculateChangedRatings({
       gameId: GAME_ID,
       gameDate: GAME_DATE,
       results,
@@ -268,12 +300,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(playerChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
+        "points": 21,
+        "pointsChange": 20,
         "probability": 0.5,
         "rating": 21,
         "ratingChange": 20,
@@ -285,12 +321,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "loss",
+        "points": 0,
+        "pointsChange": -1,
         "probability": 0.5,
         "rating": 0,
         "ratingChange": -1,
@@ -310,7 +350,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings({
+    const changes = legacyCalculateChangedRatings({
       gameId: GAME_ID,
       gameDate: GAME_DATE,
       results,
@@ -322,12 +362,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(playerChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 39.5,
         "kFactorChange": -0.5,
         "matchmakingType": "1v1",
         "outcome": "win",
+        "points": 1520,
+        "pointsChange": 20,
         "probability": 0.5,
         "rating": 1520,
         "ratingChange": 20,
@@ -339,12 +383,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "loss",
+        "points": 1480,
+        "pointsChange": -20,
         "probability": 0.5,
         "rating": 1480,
         "ratingChange": -20,
@@ -364,7 +412,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings({
+    const changes = legacyCalculateChangedRatings({
       gameId: GAME_ID,
       gameDate: GAME_DATE,
       results,
@@ -376,12 +424,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(playerChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 39.09090909090909,
         "kFactorChange": -0.9090909090909065,
         "matchmakingType": "1v1",
         "outcome": "win",
+        "points": 1803.6363636363637,
+        "pointsChange": 3.6363636363637397,
         "probability": 0.9090909090909091,
         "rating": 1803.6363636363637,
         "ratingChange": 3.6363636363637397,
@@ -393,12 +445,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 39.09090909090909,
         "kFactorChange": -0.9090909090909065,
         "matchmakingType": "1v1",
         "outcome": "loss",
+        "points": 1396.3636363636363,
+        "pointsChange": -3.6363636363637397,
         "probability": 0.09090909090909091,
         "rating": 1396.3636363636363,
         "ratingChange": -3.6363636363637397,
@@ -418,7 +474,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, WIN],
     ])
 
-    const changes = calculateChangedRatings({
+    const changes = legacyCalculateChangedRatings({
       gameId: GAME_ID,
       gameDate: GAME_DATE,
       results,
@@ -430,12 +486,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(playerChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "loss",
+        "points": 1763.6363636363637,
+        "pointsChange": -36.36363636363626,
         "probability": 0.9090909090909091,
         "rating": 1763.6363636363637,
         "ratingChange": -36.36363636363626,
@@ -447,12 +507,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
+        "points": 1436.3636363636363,
+        "pointsChange": 36.36363636363626,
         "probability": 0.09090909090909091,
         "rating": 1436.3636363636363,
         "ratingChange": 36.36363636363626,
@@ -478,7 +542,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings({
+    const changes = legacyCalculateChangedRatings({
       gameId: GAME_ID,
       gameDate: GAME_DATE,
       results,
@@ -490,12 +554,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(playerChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 24,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
+        "points": 1803.6235093730718,
+        "pointsChange": 3.6235093730717836,
         "probability": 0.8490204427886767,
         "rating": 1803.6235093730718,
         "ratingChange": 3.6235093730717836,
@@ -507,12 +575,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "loss",
+        "points": 1493.9608177115472,
+        "pointsChange": -6.039182288452821,
         "probability": 0.15097955721132328,
         "rating": 1493.9608177115472,
         "ratingChange": -6.039182288452821,
@@ -538,7 +610,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, WIN],
     ])
 
-    const changes = calculateChangedRatings({
+    const changes = legacyCalculateChangedRatings({
       gameId: GAME_ID,
       gameDate: GAME_DATE,
       results,
@@ -550,12 +622,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(playerChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 24,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "loss",
+        "points": 1779.6235093730718,
+        "pointsChange": -20.376490626928216,
         "probability": 0.8490204427886767,
         "rating": 1779.6235093730718,
         "ratingChange": -20.376490626928216,
@@ -567,12 +643,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
+        "points": 1533.960817711547,
+        "pointsChange": 33.96081771154695,
         "probability": 0.15097955721132328,
         "rating": 1533.960817711547,
         "ratingChange": 33.96081771154695,
@@ -599,7 +679,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, WIN],
     ])
 
-    const changes = calculateChangedRatings({
+    const changes = legacyCalculateChangedRatings({
       gameId: GAME_ID,
       gameDate: GAME_DATE,
       results,
@@ -611,12 +691,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(playerChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 25,
         "kFactorChange": 1,
         "matchmakingType": "1v1",
         "outcome": "loss",
+        "points": 1779.6235093730718,
+        "pointsChange": -20.376490626928216,
         "probability": 0.8490204427886767,
         "rating": 1779.6235093730718,
         "ratingChange": -20.376490626928216,
@@ -628,12 +712,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
+        "points": 1533.960817711547,
+        "pointsChange": 33.96081771154695,
         "probability": 0.15097955721132328,
         "rating": 1533.960817711547,
         "ratingChange": 33.96081771154695,
@@ -660,7 +748,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings({
+    const changes = legacyCalculateChangedRatings({
       gameId: GAME_ID,
       gameDate: GAME_DATE,
       results,
@@ -672,12 +760,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(playerChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 24,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
+        "points": 1803.6235093730718,
+        "pointsChange": 3.6235093730717836,
         "probability": 0.8490204427886767,
         "rating": 1803.6235093730718,
         "ratingChange": 3.6235093730717836,
@@ -689,12 +781,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "loss",
+        "points": 1493.9608177115472,
+        "pointsChange": -6.039182288452821,
         "probability": 0.15097955721132328,
         "rating": 1493.9608177115472,
         "ratingChange": -6.039182288452821,
@@ -730,7 +826,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent2.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings({
+    const changes = legacyCalculateChangedRatings({
       gameId: GAME_ID,
       gameDate: GAME_DATE,
       results,
@@ -747,12 +843,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(player1Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
+        "points": 1520,
+        "pointsChange": 20,
         "probability": 0.5,
         "rating": 1520,
         "ratingChange": 20,
@@ -764,12 +864,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(player2Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
+        "points": 1520,
+        "pointsChange": 20,
         "probability": 0.5,
         "rating": 1520,
         "ratingChange": 20,
@@ -781,12 +885,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent1Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "loss",
+        "points": 1480,
+        "pointsChange": -20,
         "probability": 0.5,
         "rating": 1480,
         "ratingChange": -20,
@@ -798,12 +906,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent2Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "loss",
+        "points": 1480,
+        "pointsChange": -20,
         "probability": 0.5,
         "rating": 1480,
         "ratingChange": -20,
@@ -843,7 +955,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent2.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings({
+    const changes = legacyCalculateChangedRatings({
       gameId: GAME_ID,
       gameDate: GAME_DATE,
       results,
@@ -860,12 +972,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(player1Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
+        "points": 1802.7903314943562,
+        "pointsChange": 2.7903314943562236,
         "probability": 0.9302417126410938,
         "rating": 1802.7903314943562,
         "ratingChange": 2.7903314943562236,
@@ -877,12 +993,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(player2Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
+        "points": 1607.6672930980217,
+        "pointsChange": 7.667293098021673,
         "probability": 0.8083176725494586,
         "rating": 1607.6672930980217,
         "ratingChange": 7.667293098021673,
@@ -894,12 +1014,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent1Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "loss",
+        "points": 1393.9608177115472,
+        "pointsChange": -6.039182288452821,
         "probability": 0.15097955721132328,
         "rating": 1393.9608177115472,
         "ratingChange": -6.039182288452821,
@@ -911,12 +1035,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent2Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "loss",
+        "points": 1296.3636363636363,
+        "pointsChange": -3.6363636363637397,
         "probability": 0.09090909090909091,
         "rating": 1296.3636363636363,
         "ratingChange": -3.6363636363637397,
@@ -956,7 +1084,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent2.userId, WIN],
     ])
 
-    const changes = calculateChangedRatings({
+    const changes = legacyCalculateChangedRatings({
       gameId: GAME_ID,
       gameDate: GAME_DATE,
       results,
@@ -973,12 +1101,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(player1Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "loss",
+        "points": 1762.7903314943562,
+        "pointsChange": -37.209668505643776,
         "probability": 0.9302417126410938,
         "rating": 1762.7903314943562,
         "ratingChange": -37.209668505643776,
@@ -990,12 +1122,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(player2Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "loss",
+        "points": 1567.6672930980217,
+        "pointsChange": -32.33270690197833,
         "probability": 0.8083176725494586,
         "rating": 1567.6672930980217,
         "ratingChange": -32.33270690197833,
@@ -1007,12 +1143,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent1Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
+        "points": 1433.960817711547,
+        "pointsChange": 33.96081771154695,
         "probability": 0.15097955721132328,
         "rating": 1433.960817711547,
         "ratingChange": 33.96081771154695,
@@ -1024,12 +1164,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent2Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
+        "points": 1336.3636363636363,
+        "pointsChange": 36.36363636363626,
         "probability": 0.09090909090909091,
         "rating": 1336.3636363636363,
         "ratingChange": 36.36363636363626,
@@ -1069,7 +1213,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent2.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings({
+    const changes = legacyCalculateChangedRatings({
       gameId: GAME_ID,
       gameDate: GAME_DATE,
       results,
@@ -1086,12 +1230,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(player1Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 39.5,
         "kFactorChange": -0.5,
         "matchmakingType": "2v2",
         "outcome": "win",
+        "points": 1520,
+        "pointsChange": 20,
         "probability": 0.5,
         "rating": 1520,
         "ratingChange": 20,
@@ -1103,12 +1251,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(player2Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 39.5,
         "kFactorChange": -0.5,
         "matchmakingType": "2v2",
         "outcome": "win",
+        "points": 1520,
+        "pointsChange": 20,
         "probability": 0.5,
         "rating": 1520,
         "ratingChange": 20,
@@ -1120,12 +1272,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent1Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "loss",
+        "points": 1480,
+        "pointsChange": -20,
         "probability": 0.5,
         "rating": 1480,
         "ratingChange": -20,
@@ -1137,12 +1293,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent2Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "loss",
+        "points": 1480,
+        "pointsChange": -20,
         "probability": 0.5,
         "rating": 1480,
         "ratingChange": -20,
@@ -1182,7 +1342,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent2.userId, LOSS],
     ])
 
-    const changes = calculateChangedRatings({
+    const changes = legacyCalculateChangedRatings({
       gameId: GAME_ID,
       gameDate: GAME_DATE,
       results,
@@ -1199,12 +1359,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(player1Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
+        "points": 1806.0391822884528,
+        "pointsChange": 6.039182288452821,
         "probability": 0.8490204427886767,
         "rating": 1806.0391822884528,
         "ratingChange": 6.039182288452821,
@@ -1216,12 +1380,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(player2Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
+        "points": 1330.3898770659184,
+        "pointsChange": 30.389877065918427,
         "probability": 0.2402530733520421,
         "rating": 1330.3898770659184,
         "ratingChange": 30.389877065918427,
@@ -1233,12 +1401,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent1Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "loss",
+        "points": 1435.6025999921153,
+        "pointsChange": -14.397400007884698,
         "probability": 0.35993500019711494,
         "rating": 1435.6025999921153,
         "ratingChange": -14.397400007884698,
@@ -1250,12 +1422,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent2Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "loss",
+        "points": 1530,
+        "pointsChange": -20,
         "probability": 0.5,
         "rating": 1530,
         "ratingChange": -20,
@@ -1295,7 +1471,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       [opponent2.userId, WIN],
     ])
 
-    const changes = calculateChangedRatings({
+    const changes = legacyCalculateChangedRatings({
       gameId: GAME_ID,
       gameDate: GAME_DATE,
       results,
@@ -1312,12 +1488,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(player1Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "loss",
+        "points": 1766.039182288453,
+        "pointsChange": -33.96081771154695,
         "probability": 0.8490204427886767,
         "rating": 1766.039182288453,
         "ratingChange": -33.96081771154695,
@@ -1329,12 +1509,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(player2Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "loss",
+        "points": 1290.3898770659184,
+        "pointsChange": -9.610122934081573,
         "probability": 0.2402530733520421,
         "rating": 1290.3898770659184,
         "ratingChange": -9.610122934081573,
@@ -1346,12 +1530,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent1Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
+        "points": 1475.6025999921153,
+        "pointsChange": 25.6025999921153,
         "probability": 0.35993500019711494,
         "rating": 1475.6025999921153,
         "ratingChange": 25.6025999921153,
@@ -1363,12 +1551,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent2Change).toMatchInlineSnapshot(`
       Object {
+        "bonusUsed": 0,
+        "bonusUsedChange": 0,
         "changeDate": 1970-01-01T00:00:00.027Z,
         "gameId": "asdfzxcv",
         "kFactor": 40,
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
+        "points": 1570,
+        "pointsChange": 20,
         "probability": 0.5,
         "rating": 1570,
         "ratingChange": 20,

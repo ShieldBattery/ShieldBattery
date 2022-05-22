@@ -16,22 +16,41 @@ export interface MatchmakingRating extends RaceStats {
   userId: SbUserId
   matchmakingType: MatchmakingType
   seasonId: SeasonId
-  /** The user's current MMR. */
+  /**
+   * The user's current MMR. This value is (generally) maintained between seasons, and represents
+   * the midpoint of the user's predicted skill level.
+   */
   rating: number
   /**
    * The user's current K value, used for determining the magnitude of MMR changes. In the range
    * [24, 40], starting out at 40 for the first 25 games.
+   *
+   * @deprecated Used for legacy ratings only, will be deleted soon.
    */
   kFactor: number
   /**
    * The amount of uncertainty in the user's current rating, used to determine the range to search
-   * for opponents within. In the range [80, 600], starting at 200 for a new player.
+   * for opponents within and the magnitude of rating changes for a win/loss.
    */
   uncertainty: number
+  /**
+   * The user's current seasonal points. This value is reset each season, and is effectively the
+   * rating they have "earned". It is used for determining rankings.
+   */
+  points: number
+  /**
+   * The amount of the bonus point pool that has been used by this user. Over the course of the
+   * season, users accrue bonus points at a regular rate. Bonus points are used to either increase
+   * the point reward for wins, or decrease the point loss for losses. This number is used to
+   * determine how much of the pool is left when calculating point changes.
+   */
+  bonusUsed: number
   /**
    * How many games in a row have had unexpected outcomes (either a loss with P > 0.5, or a win
    * with P < 0.5). Should be a value in the range [0, 2] (values higher than that apply extra
    * change to the K value and reset the streak to 0).
+   *
+   * @deprecated Used for legacy ratings only, will be deleted soon.
    */
   unexpectedStreak: number
   /**
@@ -50,12 +69,17 @@ export interface MatchmakingRating extends RaceStats {
   losses: number
 }
 
-export const DEFAULT_MATCHMAKING_RATING: Readonly<
+/**
+ * @deprecated Used for legacy ratings only, will be deleted soon.
+ */
+export const LEGACY_DEFAULT_MATCHMAKING_RATING: Readonly<
   Omit<MatchmakingRating, 'userId' | 'matchmakingType' | 'seasonId'>
 > = {
   rating: 1500,
   kFactor: 40,
   uncertainty: 200,
+  points: 1500,
+  bonusUsed: 0,
   unexpectedStreak: 0,
   numGamesPlayed: 0,
   lastPlayedDate: new Date(0),
@@ -87,6 +111,8 @@ function fromDbMatchmakingRating(result: Readonly<DbMatchmakingRating>): Matchma
     rating: result.rating,
     kFactor: result.k_factor,
     uncertainty: result.uncertainty,
+    points: result.points,
+    bonusUsed: result.bonus_used,
     unexpectedStreak: result.unexpected_streak,
     numGamesPlayed: result.num_games_played,
     lastPlayedDate: result.last_played_date,
@@ -142,19 +168,20 @@ export async function createInitialMatchmakingRating(
   userId: SbUserId,
   matchmakingType: MatchmakingType,
   seasonId: SeasonId,
-  mmr = DEFAULT_MATCHMAKING_RATING,
+  mmr = LEGACY_DEFAULT_MATCHMAKING_RATING,
 ): Promise<MatchmakingRating> {
   const { client, done } = await db()
   try {
     const result = await client.query<DbMatchmakingRating>(sql`
       INSERT INTO matchmaking_ratings
-        (user_id, matchmaking_type, season_id, rating, k_factor, uncertainty, unexpected_streak,
-          num_games_played, last_played_date, wins, losses, p_wins, p_losses, t_wins, t_losses,
-          z_wins, z_losses, r_wins, r_losses, r_p_wins, r_p_losses, r_t_wins, r_t_losses, r_z_wins,
-          r_z_losses)
+        (user_id, matchmaking_type, season_id, rating, k_factor, uncertainty, points, bonus_used,
+          unexpected_streak, num_games_played, last_played_date, wins, losses, p_wins, p_losses,
+          t_wins, t_losses, z_wins, z_losses, r_wins, r_losses, r_p_wins, r_p_losses, r_t_wins,
+          r_t_losses, r_z_wins, r_z_losses)
       VALUES
         (${userId}, ${matchmakingType}, ${seasonId}, ${mmr.rating}, ${mmr.kFactor},
-          ${mmr.uncertainty}, ${mmr.unexpectedStreak}, ${mmr.numGamesPlayed}, ${mmr.lastPlayedDate},
+          ${mmr.uncertainty}, ${mmr.points}, ${mmr.bonusUsed}, ${mmr.unexpectedStreak},
+          ${mmr.numGamesPlayed}, ${mmr.lastPlayedDate},
           ${mmr.wins}, ${mmr.losses}, ${mmr.pWins}, ${mmr.pLosses}, ${mmr.tWins}, ${mmr.tLosses},
           ${mmr.zWins}, ${mmr.zLosses}, ${mmr.rWins}, ${mmr.rLosses}, ${mmr.rPWins},
           ${mmr.rPLosses}, ${mmr.rTWins}, ${mmr.rTLosses}, ${mmr.rZWins}, ${mmr.rZLosses})
@@ -203,6 +230,8 @@ export async function updateMatchmakingRating(
        rating = ${mmr.rating},
        k_factor = ${mmr.kFactor},
        uncertainty = ${mmr.uncertainty},
+       points = ${mmr.points},
+       bonus_used = ${mmr.bonusUsed},
        unexpected_streak = ${mmr.unexpectedStreak},
        num_games_played = ${mmr.numGamesPlayed},
        last_played_date = ${mmr.lastPlayedDate},
@@ -229,6 +258,7 @@ export async function updateMatchmakingRating(
 }
 
 // TODO(tec27): Remove username from this and get user data in another query
+// FIXME: update the view to include points/bonus and include them here
 export interface GetRankingsResult extends RaceStats {
   matchmakingType: MatchmakingType
   rank: number
@@ -361,14 +391,30 @@ export interface MatchmakingRatingChange {
   rating: number
   /** The change that was applied to the rating for this game. */
   ratingChange: number
-  /** The final K value after the change took place. */
+  /**
+   * The final K value after the change took place.
+   *
+   * @deprecated For legacy ratings only, will be deleted soon.
+   */
   kFactor: number
-  /** The change that was applied to the K value for this game. */
+  /**
+   * The change that was applied to the K value for this game.
+   *
+   * @deprecated For legacy ratings only, will be deleted soon.
+   */
   kFactorChange: number
   /** The final uncertainty value after the change took place. */
   uncertainty: number
   /** The change that was applied to the uncertainty value for this game. */
   uncertaintyChange: number
+  /** The final ranked points after this change took place. */
+  points: number
+  /** The change that was applied to the points for this game (including bonus points). */
+  pointsChange: number
+  /** The final amount of bonus points used this season after the change took place. */
+  bonusUsed: number
+  /** The change that was applied to the `bonusUsed` value for this game. */
+  bonusUsedChange: number
   /**
    * The probability value (P) of this player winning the game. In the range [0, 1], with a value
    * of 0.5 meaning there is an equal probability of losing or winning.
@@ -378,6 +424,8 @@ export interface MatchmakingRatingChange {
    * How many games in a row have had unexpected outcomes (either a loss with P > 0.5, or a win
    * with P < 0.5). Should be a value in the range [0, 2] (values higher than that apply extra
    * change to the K value and reset the streak to 0).
+   *
+   * @deprecated For legacy ratings only, will be deleted soon.
    */
   unexpectedStreak: number
 }
@@ -399,6 +447,10 @@ function fromDbMatchmakingRatingChange(
     kFactorChange: result.k_factor_change,
     uncertainty: result.uncertainty,
     uncertaintyChange: result.uncertainty_change,
+    points: result.points,
+    pointsChange: result.points_change,
+    bonusUsed: result.bonus_used,
+    bonusUsedChange: result.bonus_used_change,
     probability: result.probability,
     unexpectedStreak: result.unexpected_streak,
   }
@@ -413,11 +465,13 @@ export async function insertMatchmakingRatingChange(
   await client.query(sql`
     INSERT INTO matchmaking_rating_changes
       (user_id, matchmaking_type, game_id, change_date, outcome, rating, rating_change, k_factor,
-        k_factor_change, uncertainty, uncertainty_change, probability, unexpected_streak)
+        k_factor_change, uncertainty, uncertainty_change, points, points_change, bonus_used,
+        bonus_used_change, probability, unexpected_streak)
     VALUES
       (${c.userId}, ${c.matchmakingType}, ${c.gameId}, ${c.changeDate}, ${c.outcome}, ${c.rating},
         ${c.ratingChange}, ${c.kFactor}, ${c.kFactorChange}, ${c.uncertainty},
-        ${c.uncertaintyChange}, ${c.probability}, ${c.unexpectedStreak});
+        ${c.uncertaintyChange}, ${c.points}, ${c.pointsChange}, ${c.bonusUsed},
+        ${c.bonusUsedChange}, ${c.probability}, ${c.unexpectedStreak});
   `)
 }
 

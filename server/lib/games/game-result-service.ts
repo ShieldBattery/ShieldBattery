@@ -30,7 +30,7 @@ import {
   MatchmakingRatingChange,
   updateMatchmakingRating,
 } from '../matchmaking/models'
-import { calculateChangedRatings } from '../matchmaking/rating'
+import { legacyCalculateChangedRatings } from '../matchmaking/rating'
 import {
   getCurrentReportedResults,
   getUserGameRecord,
@@ -318,7 +318,7 @@ export default class GameResultService {
           teams = assertUnreachable(gameSourceExtra)
         }
 
-        const ratingChanges = calculateChangedRatings({
+        const ratingChanges = legacyCalculateChangedRatings({
           gameId,
           gameDate: reconcileDate,
           results: reconciled.results,
@@ -342,6 +342,8 @@ export default class GameResultService {
             rating: change.rating,
             kFactor: change.kFactor,
             uncertainty: change.uncertainty,
+            points: change.points,
+            bonusUsed: change.bonusUsed,
             unexpectedStreak: change.unexpectedStreak,
             numGamesPlayed: mmr.numGamesPlayed + 1,
             lastPlayedDate: reconcileDate,

@@ -7,23 +7,27 @@ import { MatchmakingRating, MatchmakingRatingChange } from './models'
  * Calculates a `MatchmakingRatingChange` for each user in a game. This function expects that every
  * player in `results` has a matching entry in `mmrs`.
  *
- * @param gameId the ID of the game that was played
- * @param gameDate when the game was completed (and changed ratings were calculated)
- * @param results the reconciled results of the game, with everyone having a win or a loss (e.g.
- *   not disputed results)
- * @param mmrs the current matchmaking rating info for the user, prior to playing the game
+ * @deprecated Only use for calculating legacy ratings, will be deleted soon.
  */
-export function calculateChangedRatings({
+export function legacyCalculateChangedRatings({
   gameId,
   gameDate,
   results,
   mmrs,
   teams,
 }: {
+  /** The ID of the game that was played. */
   gameId: string
+  /** When the game was completed (and changed ratings were calculated). */
   gameDate: Date
+  /**
+   * The reconciled results of the game, with everyone having a win or a loss (e.g. not disputed
+   * results).
+   */
   results: Map<SbUserId, ReconciledPlayerResult>
+  /** The current matchmaking rating info for the users, prior to playing the game. */
   mmrs: MatchmakingRating[]
+  /** The player's user IDs split into their respective teams. */
   teams: [teamA: SbUserId[], teamB: SbUserId[]]
   // TODO(tec27): Pass in party information as well
 }): Map<SbUserId, MatchmakingRatingChange> {
@@ -33,7 +37,7 @@ export function calculateChangedRatings({
     // 1v1
     result.set(
       mmrs[0].userId,
-      makeRatingChange({
+      legacyMakeRatingChange({
         gameId,
         gameDate,
         player: mmrs[0],
@@ -43,7 +47,7 @@ export function calculateChangedRatings({
     )
     result.set(
       mmrs[1].userId,
-      makeRatingChange({
+      legacyMakeRatingChange({
         gameId,
         gameDate,
         player: mmrs[1],
@@ -69,7 +73,7 @@ export function calculateChangedRatings({
     for (const player of teamARatings) {
       result.set(
         player.userId,
-        makeRatingChange({
+        legacyMakeRatingChange({
           gameId,
           gameDate,
           player,
@@ -83,7 +87,7 @@ export function calculateChangedRatings({
     for (const player of teamBRatings) {
       result.set(
         player.userId,
-        makeRatingChange({
+        legacyMakeRatingChange({
           gameId,
           gameDate,
           player,
@@ -107,7 +111,10 @@ function calcTeamRating(ratings: ReadonlyArray<MatchmakingRating>): number {
   return sum / ratings.length
 }
 
-function makeRatingChange({
+/**
+ * @deprecated Only use for calculating legacy ratings, will be deleted soon.
+ */
+function legacyMakeRatingChange({
   gameId,
   gameDate,
   player,
@@ -163,6 +170,10 @@ function makeRatingChange({
     kFactorChange: newKFactor - player.kFactor,
     uncertainty: newUncertainty,
     uncertaintyChange: newUncertainty - player.uncertainty,
+    points: newRating,
+    pointsChange: newRating - player.rating,
+    bonusUsed: 0,
+    bonusUsedChange: 0,
     probability: p,
     unexpectedStreak: newUnexpectedStreak,
   }
