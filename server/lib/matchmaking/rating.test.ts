@@ -19,7 +19,8 @@ const LOSS: ReconciledPlayerResult = {
   apm: 400,
 }
 
-function createMatchmakingRating(
+/** @deprecated For legacy ratings only, will be deleted soon. */
+function legacyCreateMatchmakingRating(
   data: Partial<Omit<MatchmakingRating, 'userId'>> & Partial<{ userId: number }> = {},
 ): MatchmakingRating {
   return {
@@ -28,13 +29,14 @@ function createMatchmakingRating(
     seasonId: makeSeasonId(1),
     ...data,
     userId: makeSbUserId(data.userId ?? 1),
+    points: data.points ?? data.rating ?? LEGACY_DEFAULT_MATCHMAKING_RATING.points,
   }
 }
 
 describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
   test('1v1 - evenly matched new players', () => {
-    const player = createMatchmakingRating({ userId: 1 })
-    const opponent = createMatchmakingRating({ userId: 2 })
+    const player = legacyCreateMatchmakingRating({ userId: 1 })
+    const opponent = legacyCreateMatchmakingRating({ userId: 2 })
     const results = new Map([
       [player.userId, WIN],
       [opponent.userId, LOSS],
@@ -95,8 +97,8 @@ describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
   })
 
   test('1v1 - better new player wins', () => {
-    const player = createMatchmakingRating({ userId: 1, rating: 1800 })
-    const opponent = createMatchmakingRating({ userId: 2, rating: 1400 })
+    const player = legacyCreateMatchmakingRating({ userId: 1, rating: 1800 })
+    const opponent = legacyCreateMatchmakingRating({ userId: 2, rating: 1400 })
     const results = new Map([
       [player.userId, WIN],
       [opponent.userId, LOSS],
@@ -157,8 +159,8 @@ describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
   })
 
   test('1v1 - better new player loses', () => {
-    const player = createMatchmakingRating({ userId: 1, rating: 1800 })
-    const opponent = createMatchmakingRating({ userId: 2, rating: 1400 })
+    const player = legacyCreateMatchmakingRating({ userId: 1, rating: 1800 })
+    const opponent = legacyCreateMatchmakingRating({ userId: 2, rating: 1400 })
     const results = new Map([
       [player.userId, LOSS],
       [opponent.userId, WIN],
@@ -219,8 +221,8 @@ describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
   })
 
   test('1v1 - wildly better new player wins', () => {
-    const player = createMatchmakingRating({ userId: 1, rating: 1800 })
-    const opponent = createMatchmakingRating({ userId: 2, rating: 10 })
+    const player = legacyCreateMatchmakingRating({ userId: 1, rating: 1800 })
+    const opponent = legacyCreateMatchmakingRating({ userId: 2, rating: 10 })
     const results = new Map([
       [player.userId, WIN],
       [opponent.userId, LOSS],
@@ -281,8 +283,8 @@ describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
   })
 
   test("1v1 - really bad players can't go below 0", () => {
-    const player = createMatchmakingRating({ userId: 1, rating: 1 })
-    const opponent = createMatchmakingRating({ userId: 2, rating: 1 })
+    const player = legacyCreateMatchmakingRating({ userId: 1, rating: 1 })
+    const opponent = legacyCreateMatchmakingRating({ userId: 2, rating: 1 })
     const results = new Map([
       [player.userId, WIN],
       [opponent.userId, LOSS],
@@ -343,8 +345,8 @@ describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
   })
 
   test('1v1 - evenly matched veteran players', () => {
-    const player = createMatchmakingRating({ userId: 1, numGamesPlayed: 25 })
-    const opponent = createMatchmakingRating({ userId: 2, numGamesPlayed: 25 })
+    const player = legacyCreateMatchmakingRating({ userId: 1, numGamesPlayed: 25 })
+    const opponent = legacyCreateMatchmakingRating({ userId: 2, numGamesPlayed: 25 })
     const results = new Map([
       [player.userId, WIN],
       [opponent.userId, LOSS],
@@ -405,8 +407,8 @@ describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
   })
 
   test('1v1 - better veteran player wins', () => {
-    const player = createMatchmakingRating({ userId: 1, rating: 1800, numGamesPlayed: 25 })
-    const opponent = createMatchmakingRating({ userId: 2, rating: 1400, numGamesPlayed: 25 })
+    const player = legacyCreateMatchmakingRating({ userId: 1, rating: 1800, numGamesPlayed: 25 })
+    const opponent = legacyCreateMatchmakingRating({ userId: 2, rating: 1400, numGamesPlayed: 25 })
     const results = new Map([
       [player.userId, WIN],
       [opponent.userId, LOSS],
@@ -467,8 +469,8 @@ describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
   })
 
   test('1v1 - better veteran player loses', () => {
-    const player = createMatchmakingRating({ userId: 1, rating: 1800, numGamesPlayed: 25 })
-    const opponent = createMatchmakingRating({ userId: 2, rating: 1400, numGamesPlayed: 25 })
+    const player = legacyCreateMatchmakingRating({ userId: 1, rating: 1800, numGamesPlayed: 25 })
+    const opponent = legacyCreateMatchmakingRating({ userId: 2, rating: 1400, numGamesPlayed: 25 })
     const results = new Map([
       [player.userId, LOSS],
       [opponent.userId, WIN],
@@ -529,14 +531,14 @@ describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
   })
 
   test('1v1 - well-defined veteran player wins versus new player', () => {
-    const player = createMatchmakingRating({
+    const player = legacyCreateMatchmakingRating({
       userId: 1,
       rating: 1800,
       numGamesPlayed: 25,
       kFactor: 24,
       uncertainty: 80,
     })
-    const opponent = createMatchmakingRating({ userId: 2 })
+    const opponent = legacyCreateMatchmakingRating({ userId: 2 })
     const results = new Map([
       [player.userId, WIN],
       [opponent.userId, LOSS],
@@ -597,14 +599,14 @@ describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
   })
 
   test('1v1 - well-defined veteran player loses versus new player', () => {
-    const player = createMatchmakingRating({
+    const player = legacyCreateMatchmakingRating({
       userId: 1,
       rating: 1800,
       numGamesPlayed: 25,
       kFactor: 24,
       uncertainty: 80,
     })
-    const opponent = createMatchmakingRating({ userId: 2 })
+    const opponent = legacyCreateMatchmakingRating({ userId: 2 })
     const results = new Map([
       [player.userId, LOSS],
       [opponent.userId, WIN],
@@ -665,7 +667,7 @@ describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
   })
 
   test('1v1 - well-defined veteran player continues a loss streak versus new player', () => {
-    const player = createMatchmakingRating({
+    const player = legacyCreateMatchmakingRating({
       userId: 1,
       rating: 1800,
       numGamesPlayed: 25,
@@ -673,7 +675,7 @@ describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
       uncertainty: 120,
       unexpectedStreak: 2,
     })
-    const opponent = createMatchmakingRating({ userId: 2 })
+    const opponent = legacyCreateMatchmakingRating({ userId: 2 })
     const results = new Map([
       [player.userId, LOSS],
       [opponent.userId, WIN],
@@ -734,7 +736,7 @@ describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
   })
 
   test('1v1 - well-defined veteran player ends a loss streak versus new player', () => {
-    const player = createMatchmakingRating({
+    const player = legacyCreateMatchmakingRating({
       userId: 1,
       rating: 1800,
       numGamesPlayed: 25,
@@ -742,7 +744,7 @@ describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
       uncertainty: 120,
       unexpectedStreak: 2,
     })
-    const opponent = createMatchmakingRating({ userId: 2 })
+    const opponent = legacyCreateMatchmakingRating({ userId: 2 })
     const results = new Map([
       [player.userId, WIN],
       [opponent.userId, LOSS],
@@ -803,19 +805,19 @@ describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
   })
 
   test('2v2 - evenly matched new players', () => {
-    const player1 = createMatchmakingRating({
+    const player1 = legacyCreateMatchmakingRating({
       userId: 1,
       matchmakingType: MatchmakingType.Match2v2,
     })
-    const player2 = createMatchmakingRating({
+    const player2 = legacyCreateMatchmakingRating({
       userId: 2,
       matchmakingType: MatchmakingType.Match2v2,
     })
-    const opponent1 = createMatchmakingRating({
+    const opponent1 = legacyCreateMatchmakingRating({
       userId: 3,
       matchmakingType: MatchmakingType.Match2v2,
     })
-    const opponent2 = createMatchmakingRating({
+    const opponent2 = legacyCreateMatchmakingRating({
       userId: 4,
       matchmakingType: MatchmakingType.Match2v2,
     })
@@ -928,22 +930,22 @@ describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
   })
 
   test('2v2 - better new players win', () => {
-    const player1 = createMatchmakingRating({
+    const player1 = legacyCreateMatchmakingRating({
       userId: 1,
       matchmakingType: MatchmakingType.Match2v2,
       rating: 1800,
     })
-    const player2 = createMatchmakingRating({
+    const player2 = legacyCreateMatchmakingRating({
       userId: 2,
       matchmakingType: MatchmakingType.Match2v2,
       rating: 1600,
     })
-    const opponent1 = createMatchmakingRating({
+    const opponent1 = legacyCreateMatchmakingRating({
       userId: 3,
       matchmakingType: MatchmakingType.Match2v2,
       rating: 1400,
     })
-    const opponent2 = createMatchmakingRating({
+    const opponent2 = legacyCreateMatchmakingRating({
       userId: 4,
       matchmakingType: MatchmakingType.Match2v2,
       rating: 1300,
@@ -1057,22 +1059,22 @@ describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
   })
 
   test('2v2 - better new players lose', () => {
-    const player1 = createMatchmakingRating({
+    const player1 = legacyCreateMatchmakingRating({
       userId: 1,
       matchmakingType: MatchmakingType.Match2v2,
       rating: 1800,
     })
-    const player2 = createMatchmakingRating({
+    const player2 = legacyCreateMatchmakingRating({
       userId: 2,
       matchmakingType: MatchmakingType.Match2v2,
       rating: 1600,
     })
-    const opponent1 = createMatchmakingRating({
+    const opponent1 = legacyCreateMatchmakingRating({
       userId: 3,
       matchmakingType: MatchmakingType.Match2v2,
       rating: 1400,
     })
-    const opponent2 = createMatchmakingRating({
+    const opponent2 = legacyCreateMatchmakingRating({
       userId: 4,
       matchmakingType: MatchmakingType.Match2v2,
       rating: 1300,
@@ -1186,22 +1188,22 @@ describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
   })
 
   test('2v2 - evenly matched veteran players', () => {
-    const player1 = createMatchmakingRating({
+    const player1 = legacyCreateMatchmakingRating({
       userId: 1,
       matchmakingType: MatchmakingType.Match2v2,
       numGamesPlayed: 30,
     })
-    const player2 = createMatchmakingRating({
+    const player2 = legacyCreateMatchmakingRating({
       userId: 2,
       matchmakingType: MatchmakingType.Match2v2,
       numGamesPlayed: 35,
     })
-    const opponent1 = createMatchmakingRating({
+    const opponent1 = legacyCreateMatchmakingRating({
       userId: 3,
       matchmakingType: MatchmakingType.Match2v2,
       numGamesPlayed: 25,
     })
-    const opponent2 = createMatchmakingRating({
+    const opponent2 = legacyCreateMatchmakingRating({
       userId: 4,
       matchmakingType: MatchmakingType.Match2v2,
       numGamesPlayed: 40,
@@ -1315,22 +1317,22 @@ describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
   })
 
   test('2v2 - mixed upper/lower ratings', () => {
-    const player1 = createMatchmakingRating({
+    const player1 = legacyCreateMatchmakingRating({
       userId: 1,
       matchmakingType: MatchmakingType.Match2v2,
       rating: 1800,
     })
-    const player2 = createMatchmakingRating({
+    const player2 = legacyCreateMatchmakingRating({
       userId: 2,
       matchmakingType: MatchmakingType.Match2v2,
       rating: 1300,
     })
-    const opponent1 = createMatchmakingRating({
+    const opponent1 = legacyCreateMatchmakingRating({
       userId: 3,
       matchmakingType: MatchmakingType.Match2v2,
       rating: 1450,
     })
-    const opponent2 = createMatchmakingRating({
+    const opponent2 = legacyCreateMatchmakingRating({
       userId: 4,
       matchmakingType: MatchmakingType.Match2v2,
       rating: 1550,
@@ -1444,22 +1446,22 @@ describe('matchmaking/rating/legacyCalculateChangedRatings', () => {
   })
 
   test('2v2 - mixed upper/lower ratings, highest loses', () => {
-    const player1 = createMatchmakingRating({
+    const player1 = legacyCreateMatchmakingRating({
       userId: 1,
       matchmakingType: MatchmakingType.Match2v2,
       rating: 1800,
     })
-    const player2 = createMatchmakingRating({
+    const player2 = legacyCreateMatchmakingRating({
       userId: 2,
       matchmakingType: MatchmakingType.Match2v2,
       rating: 1300,
     })
-    const opponent1 = createMatchmakingRating({
+    const opponent1 = legacyCreateMatchmakingRating({
       userId: 3,
       matchmakingType: MatchmakingType.Match2v2,
       rating: 1450,
     })
-    const opponent2 = createMatchmakingRating({
+    const opponent2 = legacyCreateMatchmakingRating({
       userId: 4,
       matchmakingType: MatchmakingType.Match2v2,
       rating: 1550,
