@@ -67,7 +67,7 @@ export const TabItemContainer = styled.button<{ $isActiveTab: boolean }>`
 
 export const TabSpacer = styled.div`
   height: 1px;
-  min-width: 0px;
+  min-width: 8px;
   max-width: 24px;
 
   flex: 1 1 0;

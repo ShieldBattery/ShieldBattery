@@ -258,13 +258,14 @@ export async function updateMatchmakingRating(
 }
 
 // TODO(tec27): Remove username from this and get user data in another query
-// FIXME: update the view to include points/bonus and include them here
 export interface GetRankingsResult extends RaceStats {
   matchmakingType: MatchmakingType
   rank: number
   userId: SbUserId
   username: string
   rating: number
+  points: number
+  bonusUsed: number
   wins: number
   losses: number
   lastPlayedDate: Date
@@ -272,7 +273,7 @@ export interface GetRankingsResult extends RaceStats {
 
 type DbGetRankingsResult = Dbify<GetRankingsResult>
 
-function fromDbGetRankingsResult(r: DbGetRankingsResult) {
+function fromDbGetRankingsResult(r: DbGetRankingsResult): GetRankingsResult {
   return {
     matchmakingType: r.matchmaking_type,
     // NOTE(tec27): RANK() is a bigint so this is actually a string
@@ -280,6 +281,8 @@ function fromDbGetRankingsResult(r: DbGetRankingsResult) {
     userId: r.user_id,
     username: r.username,
     rating: r.rating,
+    points: r.points,
+    bonusUsed: r.bonus_used,
     wins: r.wins,
     losses: r.losses,
     pWins: r.p_wins,
@@ -311,8 +314,12 @@ export async function getRankings(
   const { client, done } = await db()
   try {
     const query = sql`
-      SELECT r.matchmaking_type, r.rank, u.name AS username, r.user_id, r.rating, r.wins, r.losses,
-        r.p_wins, r.p_losses, r.t_wins, r.t_losses, r.z_wins, r.z_losses, r.r_wins, r.r_losses,
+      SELECT r.matchmaking_type, r.rank, u.name AS username, r.user_id, r.rating, r.points,
+        r.bonus_used, r.wins, r.losses,
+        r.p_wins, r.p_losses,
+        r.t_wins, r.t_losses,
+        r.z_wins, r.z_losses,
+        r.r_wins, r.r_losses,
         r.r_p_wins, r.r_p_losses, r.r_t_wins, r.r_t_losses, r.r_z_wins, r.r_z_losses,
         r.last_played_date
       FROM ranked_matchmaking_ratings_view r JOIN users u
@@ -347,10 +354,14 @@ export async function getRankForUser(
   const { client, done } = await db()
   try {
     const result = await client.query<Dbify<GetRankingsResult>>(sql`
-      SELECT r.matchmaking_type, r.rank, u.name AS username, r.user_id, r.rating,
-          r.wins, r.losses, r.p_wins, r.p_losses, r.t_wins, r.t_losses, r.z_wins, r.z_losses,
-          r.r_wins, r.r_losses, r.r_p_wins, r.r_p_losses, r.r_t_wins, r.r_t_losses, r.r_z_wins,
-          r.r_z_losses, r.last_played_date
+      SELECT r.matchmaking_type, r.rank, u.name AS username, r.user_id, r.rating, r.points,
+        r.bonus_used, r.wins, r.losses,
+        r.p_wins, r.p_losses,
+        r.t_wins, r.t_losses,
+        r.z_wins, r.z_losses,
+        r.r_wins, r.r_losses,
+        r.r_p_wins, r.r_p_losses, r.r_t_wins, r.r_t_losses, r.r_z_wins, r.r_z_losses,
+        r.last_played_date
       FROM ranked_matchmaking_ratings_view r JOIN users u
         ON r.user_id = u.id
       WHERE r.matchmaking_type = ${matchmakingType} AND r.user_id = ${userId};

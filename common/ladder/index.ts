@@ -9,6 +9,8 @@ export interface LadderPlayer extends RaceStats {
   rank: number
   userId: SbUserId
   rating: number
+  points: number
+  bonusUsed: number
   wins: number
   losses: number
   lastPlayedDate: number

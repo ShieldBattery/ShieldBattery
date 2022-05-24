@@ -10,16 +10,16 @@ import {
   MatchmakingType,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
-import { RaceChar } from '../../common/races'
+import { RaceChar, raceCharToLabel } from '../../common/races'
 import { SbUser, SbUserId } from '../../common/users/sb-user'
 import { Avatar } from '../avatars/avatar'
 import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
-import { RaceIcon } from '../lobbies/race-icon'
 import { JsonLocalStorageValue } from '../local-storage'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { fastOutSlowInShort } from '../material/curves'
 import { Ripple } from '../material/ripple'
+import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { shadow4dp } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { useLocationSearchParam } from '../navigation/router-hooks'
@@ -28,17 +28,24 @@ import { navigateToUserProfile } from '../profile/action-creators'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { SearchInput, SearchInputHandle } from '../search/search-input'
-import { useForceUpdate, useValueAsRef } from '../state-hooks'
+import { useForceUpdate, useStableCallback, useValueAsRef } from '../state-hooks'
 import {
-  background400,
-  background500,
-  background600,
+  background800,
   colorDividers,
   colorError,
   colorTextFaint,
   colorTextSecondary,
+  getRaceColor,
 } from '../styles/colors'
-import { body1, overline, singleLine, subtitle1, subtitle2 } from '../styles/typography'
+import {
+  body1,
+  caption,
+  Headline6,
+  overline,
+  singleLine,
+  subtitle1,
+  subtitle2,
+} from '../styles/typography'
 import { timeAgo } from '../time/time-ago'
 import { getRankings, navigateToLadder, searchRankings } from './action-creators'
 
@@ -51,27 +58,26 @@ const LadderPage = styled.div`
   overflow: hidden;
 `
 
-// NOTE(tec27): Using a container here instead of styling directly because styling it results in
-// TS not being able to figure out the generic param, so it doesn't like our tab change handler
-const TabsContainer = styled.div`
+const PageHeader = styled.div`
   position: relative;
   width: 100%;
   max-width: 832px;
+  padding: 8px 16px;
   flex-shrink: 0;
 
-  padding: 8px 16px;
+  display: flex;
+  gap: 40px;
+  align-items: center;
 `
 
-const ScrollDivider = styled.div<{ $show: boolean; $showAt: 'top' | 'bottom' }>`
-  position: absolute;
-  height: 1px;
-  left: 0;
-  right: 0;
+const TABS_MIN_WIDTH_PX =
+  ALL_MATCHMAKING_TYPES.length * 100 + (ALL_MATCHMAKING_TYPES.length - 1) * 24
 
-  ${props => (props.$showAt === 'top' ? 'top: 0;' : 'bottom: 0;')};
-
-  background-color: ${props => (props.$show ? colorDividers : 'transparent')};
-  transition: background-color 150ms linear;
+// NOTE(tec27): Using a container here instead of styling directly because styling it results in
+// TS not being able to figure out the generic param, so it doesn't like our tab change handler
+const TabsContainer = styled.div`
+  min-width: ${TABS_MIN_WIDTH_PX}px;
+  flex-shrink: 0;
 `
 
 const Content = styled.div`
@@ -132,6 +138,10 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
       setSearchQueryRef.current(searchQuery)
     }, 100),
   )
+
+  const [isAtTop, , topNode, bottomNode] = useScrollIndicatorState({
+    refreshToken: matchmakingType,
+  })
 
   const onSearchChange = useCallback(
     (searchQuery: string) => {
@@ -206,19 +216,22 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
 
   return (
     <LadderPage>
-      <TabsContainer>
-        <Tabs activeTab={matchmakingType} onChange={onTabChange}>
-          <TabItem
-            text={matchmakingTypeToLabel(MatchmakingType.Match1v1)}
-            value={MatchmakingType.Match1v1}
-          />
-          <TabItem
-            text={matchmakingTypeToLabel(MatchmakingType.Match2v2)}
-            value={MatchmakingType.Match2v2}
-          />
-        </Tabs>
-        <ScrollDivider $show={true} $showAt='bottom' />
-      </TabsContainer>
+      <PageHeader>
+        <Headline6>Ladder</Headline6>
+        <TabsContainer>
+          <Tabs activeTab={matchmakingType} onChange={onTabChange}>
+            <TabItem
+              text={matchmakingTypeToLabel(MatchmakingType.Match1v1)}
+              value={MatchmakingType.Match1v1}
+            />
+            <TabItem
+              text={matchmakingTypeToLabel(MatchmakingType.Match2v2)}
+              value={MatchmakingType.Match2v2}
+            />
+          </Tabs>
+        </TabsContainer>
+        <ScrollDivider $show={!isAtTop} $showAt='bottom' />
+      </PageHeader>
       <Content>
         {searchResults || rankings ? (
           <LadderTable
@@ -228,6 +241,8 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
             searchInputRef={searchInputRef}
             searchQuery={searchQuery}
             onSearchChange={onSearchChange}
+            topNode={topNode}
+            bottomNode={bottomNode}
           />
         ) : (
           <LoadingDotsArea />
@@ -236,8 +251,6 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
     </LadderPage>
   )
 }
-
-const ROW_HEIGHT = 48
 
 const TableContainer = styled.div`
   width: 100%;
@@ -282,6 +295,8 @@ const Table = styled.div`
   max-width: min(800px, 100% - 32px);
   margin: 8px 16px 0px;
   padding-bottom: 16px;
+  border: 1px solid ${colorDividers};
+  border-radius: 2px;
 `
 
 const RowContainer = styled.button<{ $isEven: boolean }>`
@@ -289,36 +304,44 @@ const RowContainer = styled.button<{ $isEven: boolean }>`
 
   ${subtitle1};
   width: 100%;
-  height: ${ROW_HEIGHT}px;
+  height: 64px;
   padding: 0;
 
   display: flex;
   align-items: center;
 
-  background-color: ${props => (props.$isEven ? background400 : background500)};
+  --sb-ladder-row-height: 64px;
 `
 
+const HEADER_STUCK_CLASS = 'sb-ladder-table-sticky-header'
+
 const HeaderRowContainer = styled.div<{ context?: unknown }>`
-  ${shadow4dp};
   ${overline};
   width: 100%;
-  height: ${ROW_HEIGHT}px;
+  height: 48px;
   position: sticky !important;
   top: 0;
 
   display: flex;
   align-items: center;
 
-  background-color: ${background600};
+  background-color: ${background800};
   color: ${colorTextSecondary} !important;
   contain: content;
+
+  --sb-ladder-row-height: 48px;
+
+  .${HEADER_STUCK_CLASS} & {
+    ${shadow4dp};
+    border-bottom: 1px solid ${colorDividers};
+  }
 `
 
 const BaseCell = styled.div`
   height: 100%;
   flex: 1 1 auto;
   padding: 0 8px;
-  line-height: ${ROW_HEIGHT}px;
+  line-height: var(--sb-ladder-row-height, 64px);
 `
 
 const RankCell = styled(BaseCell)`
@@ -334,10 +357,9 @@ const PlayerCell = styled(BaseCell)`
   align-items: center;
 `
 
-const RaceCell = styled(BaseCell)`
-  width: 48px;
-  display: flex;
-  align-items: center;
+const PointsCell = styled(BaseCell)`
+  width: 56px;
+  text-align: right;
 `
 
 const RatingCell = styled(BaseCell)`
@@ -346,7 +368,16 @@ const RatingCell = styled(BaseCell)`
 `
 
 const WinLossCell = styled(BaseCell)`
-  width: 128px;
+  width: 112px;
+  height: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  // Reset the line-height in here, the flex will handle vertical centering and this will allow
+  // records to split across lines if needed
+  line-height: 1.5;
   text-align: right;
 `
 
@@ -364,15 +395,20 @@ const StyledAvatar = styled(Avatar)`
   margin-right: 16px;
 `
 
+const PlayerNameAndRace = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+`
+
 const PlayerName = styled.div`
   ${subtitle2};
   ${singleLine};
-  line-height: ${ROW_HEIGHT}px;
 `
 
-const StyledRaceIcon = styled(RaceIcon)`
-  width: 32px;
-  height: 32px;
+const PlayerRace = styled.div<{ $race: RaceChar }>`
+  ${caption};
+  color: ${props => getRaceColor(props.$race)};
 `
 
 const ErrorText = styled.div`
@@ -401,6 +437,8 @@ export interface LadderTableProps {
   searchInputRef?: React.RefObject<SearchInputHandle>
   searchQuery: string
   onSearchChange: (value: string) => void
+  topNode?: React.ReactNode
+  bottomNode?: React.ReactNode
 }
 
 export function LadderTable(props: LadderTableProps) {
@@ -418,50 +456,55 @@ export function LadderTable(props: LadderTableProps) {
     [forceUpdate],
   )
 
-  const { players, usersById, lastError, curTime, searchInputRef, searchQuery, onSearchChange } =
-    props
+  const {
+    players,
+    usersById,
+    lastError,
+    curTime,
+    searchInputRef,
+    searchQuery,
+    onSearchChange,
+    topNode,
+    bottomNode,
+  } = props
 
-  const noRowsRenderer = useCallback(() => {
-    if (lastError) {
-      return <ErrorText>There was an error retrieving the current rankings.</ErrorText>
-    } else {
-      return <EmptyText>Nothing to see here</EmptyText>
-    }
-  }, [lastError])
+  const [isHeaderUnstuck, , topHeaderNode, bottomHeaderNode] = useScrollIndicatorState({
+    refreshToken: players,
+  })
 
   const onRowSelected = useCallback((userId: SbUserId, username: string) => {
     navigateToUserProfile(userId, username)
   }, [])
 
-  const curTimeRef = useValueAsRef(curTime)
-  const playersRef = useValueAsRef(players)
-  const usersByIdRef = useValueAsRef(usersById)
+  const renderRow = useStableCallback((index: number) => {
+    const player = players?.[index]
+    if (!player) {
+      return <span></span>
+    }
 
-  const renderRow = useCallback(
-    (index: number) => {
-      const player = playersRef.current?.[index]
-      if (!player) {
-        return <span></span>
-      }
+    const username = usersById.get(player.userId)?.name ?? ''
 
-      const username = usersByIdRef.current.get(player.userId)?.name ?? ''
+    return (
+      <Row
+        key={player.userId}
+        isEven={index % 2 === 0}
+        player={player}
+        username={username}
+        curTime={curTime}
+        onSelected={onRowSelected}
+      />
+    )
+  })
 
-      return (
-        <Row
-          key={player.userId}
-          isEven={index % 2 === 0}
-          player={player}
-          username={username}
-          curTime={curTimeRef.current}
-          onSelected={onRowSelected}
-        />
-      )
-    },
-    [onRowSelected, curTimeRef, playersRef, usersByIdRef],
+  const emptyContent = lastError ? (
+    <ErrorText>There was an error retrieving the current rankings.</ErrorText>
+  ) : (
+    <EmptyText>Nothing to see here</EmptyText>
   )
 
   return (
     <TableContainer ref={setContainerRef}>
+      {topNode}
       <SearchContainer>
         <StyledSearchInput
           ref={searchInputRef}
@@ -472,8 +515,10 @@ export function LadderTable(props: LadderTableProps) {
           Last updated: {shortTimestamp.format(props.lastUpdated)}
         </LastUpdatedText>
       </SearchContainer>
+      {topHeaderNode}
       {containerRef.current && props.totalCount > 0 ? (
         <TableVirtuoso
+          className={isHeaderUnstuck ? '' : HEADER_STUCK_CLASS}
           customScrollParent={containerRef.current}
           fixedHeaderContent={Header}
           components={{
@@ -487,8 +532,10 @@ export function LadderTable(props: LadderTableProps) {
           itemContent={renderRow}
         />
       ) : (
-        noRowsRenderer()
+        emptyContent
       )}
+      {bottomHeaderNode}
+      {bottomNode}
     </TableContainer>
   )
 }
@@ -497,8 +544,8 @@ const Header = () => (
   <>
     <RankCell>Rank</RankCell>
     <PlayerCell>Player</PlayerCell>
-    <RaceCell>Race</RaceCell>
-    <RatingCell>Rating</RatingCell>
+    <PointsCell>Points</PointsCell>
+    <RatingCell>MMR</RatingCell>
     <WinLossCell>Win/loss</WinLossCell>
     <LastPlayedCell>Last played</LastPlayedCell>
   </>
@@ -546,11 +593,12 @@ const Row = React.memo(({ isEven, player, username, curTime, onSelected }: RowPr
       <RankCell>{player.rank}</RankCell>
       <PlayerCell>
         <StyledAvatar user={username} />
-        <PlayerName>{username}</PlayerName>
+        <PlayerNameAndRace>
+          <PlayerName>{username}</PlayerName>
+          <PlayerRace $race={mostPlayedRace}>{raceCharToLabel(mostPlayedRace)}</PlayerRace>
+        </PlayerNameAndRace>
       </PlayerCell>
-      <RaceCell>
-        <StyledRaceIcon race={mostPlayedRace} />
-      </RaceCell>
+      <PointsCell>{Math.round(player.points)}</PointsCell>
       <RatingCell>{Math.round(player.rating)}</RatingCell>
       <WinLossCell>
         {player.wins} &ndash; {player.losses}

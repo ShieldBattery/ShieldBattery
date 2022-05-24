@@ -1,3 +1,5 @@
+import { assertUnreachable } from './assert-unreachable'
+
 /** A single-character representation of a chosen StarCraft race. */
 export type RaceChar = 'p' | 'r' | 't' | 'z'
 
@@ -27,4 +29,19 @@ export interface RaceStats {
   rTLosses: number
   rZWins: number
   rZLosses: number
+}
+
+export function raceCharToLabel(raceChar: RaceChar): string {
+  switch (raceChar) {
+    case 'p':
+      return 'Protoss'
+    case 'r':
+      return 'Random'
+    case 't':
+      return 'Terran'
+    case 'z':
+      return 'Zerg'
+    default:
+      return assertUnreachable(raceChar)
+  }
 }
