@@ -39,6 +39,8 @@ for (let i = 0; i < 1000; i++) {
     rank: i + 1,
     userId: makeSbUserId(i),
     rating,
+    points: rating * 4,
+    bonusUsed: 0,
     wins,
     losses,
     pWins,

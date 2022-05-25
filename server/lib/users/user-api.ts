@@ -280,6 +280,8 @@ export class UserApi {
           rank: r.rank,
           userId: r.userId,
           rating: r.rating,
+          points: r.points,
+          bonusUsed: r.bonusUsed,
           wins: r.wins,
           losses: r.losses,
           pWins: r.pWins,
