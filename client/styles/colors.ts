@@ -67,10 +67,10 @@ export const colorPositive = '#69f0ae'
 /** Color used to indicate something negative (e.g. losing). */
 export const colorNegative = '#e66060'
 
-export const colorZerg = '#ff1744'
-export const colorProtoss = '#00e676'
-export const colorTerran = '#2979ff'
-export const colorRandom = '#ff9100'
+export const colorZerg = '#f76e6e'
+export const colorProtoss = '#21ed8a'
+export const colorTerran = '#559df1'
+export const colorRandom = '#f7a63b'
 
 export function getRaceColor(race: RaceChar) {
   switch (race) {
