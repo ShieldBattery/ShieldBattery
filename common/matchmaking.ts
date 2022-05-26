@@ -58,6 +58,12 @@ export function toMatchmakingSeasonJson(season: MatchmakingSeason): MatchmakingS
 }
 
 /**
+ * The amount of bonus points accrued per millisecond since the start of a season. Bonus points are
+ * used to improve wins and offset losses, until the bonus pool has been exhausted.
+ */
+export const MATCHMAKING_BONUS_EARNED_PER_MS = 400 / (7 * 24 * 60 * 60 * 1000) // 400 per week
+
+/**
  * A Record of MatchmakingType -> the size of a team within a match.
  */
 export const TEAM_SIZES: Readonly<Record<MatchmakingType, number>> = {
@@ -67,6 +73,17 @@ export const TEAM_SIZES: Readonly<Record<MatchmakingType, number>> = {
 
 export function isValidMatchmakingType(type: string) {
   return Object.values(MatchmakingType).includes(type as MatchmakingType)
+}
+
+/** The time period after which a user who has played no games will be considered "inactive". */
+export const MATCHMAKING_INACTIVE_TIME_MS = 14 * 24 * 60 * 60 * 1000 // 14 days
+
+/**
+ * Returns whether a player was considered inactive by the system given the last time they played a
+ * game and the time of a new game.
+ */
+export function wasPlayerInactive(lastPlayedDate: Date, gameDate: Date): boolean {
+  return Number(gameDate) - Number(lastPlayedDate) >= MATCHMAKING_INACTIVE_TIME_MS
 }
 
 /** How long users have to accept a match, in milliseconds. */
