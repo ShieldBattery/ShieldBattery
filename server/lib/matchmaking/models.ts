@@ -34,6 +34,11 @@ export interface MatchmakingRating extends RaceStats {
    */
   uncertainty: number
   /**
+   * The degree of expected fluctuation in a player's rating. This value is high when a player has
+   * erratic performances and low when the player performs at a consistent level.
+   */
+  volatility: number
+  /**
    * The user's current seasonal points. This value is reset each season, and is effectively the
    * rating they have "earned". It is used for determining rankings.
    */
@@ -54,8 +59,7 @@ export interface MatchmakingRating extends RaceStats {
    */
   unexpectedStreak: number
   /**
-   * The number of matchmaking games this user has played, used to determine how the K value
-   * changes.
+   * The number of matchmaking games this user has played during this season.
    */
   numGamesPlayed: number
   /**
@@ -78,7 +82,38 @@ export const LEGACY_DEFAULT_MATCHMAKING_RATING: Readonly<
   rating: 1500,
   kFactor: 40,
   uncertainty: 200,
+  volatility: 0,
   points: 1500,
+  bonusUsed: 0,
+  unexpectedStreak: 0,
+  numGamesPlayed: 0,
+  lastPlayedDate: new Date(0),
+  wins: 0,
+  losses: 0,
+  pWins: 0,
+  pLosses: 0,
+  tWins: 0,
+  tLosses: 0,
+  zWins: 0,
+  zLosses: 0,
+  rWins: 0,
+  rLosses: 0,
+  rPWins: 0,
+  rPLosses: 0,
+  rTWins: 0,
+  rTLosses: 0,
+  rZWins: 0,
+  rZLosses: 0,
+}
+
+export const DEFAULT_MATCHMAKING_RATING: Readonly<
+  Omit<MatchmakingRating, 'userId' | 'matchmakingType' | 'seasonId'>
+> = {
+  rating: 1500,
+  kFactor: 0,
+  uncertainty: 350,
+  volatility: 0.06,
+  points: 0,
   bonusUsed: 0,
   unexpectedStreak: 0,
   numGamesPlayed: 0,
@@ -111,6 +146,7 @@ function fromDbMatchmakingRating(result: Readonly<DbMatchmakingRating>): Matchma
     rating: result.rating,
     kFactor: result.k_factor,
     uncertainty: result.uncertainty,
+    volatility: result.volatility,
     points: result.points,
     bonusUsed: result.bonus_used,
     unexpectedStreak: result.unexpected_streak,
@@ -174,14 +210,14 @@ export async function createInitialMatchmakingRating(
   try {
     const result = await client.query<DbMatchmakingRating>(sql`
       INSERT INTO matchmaking_ratings
-        (user_id, matchmaking_type, season_id, rating, k_factor, uncertainty, points, bonus_used,
-          unexpected_streak, num_games_played, last_played_date, wins, losses, p_wins, p_losses,
-          t_wins, t_losses, z_wins, z_losses, r_wins, r_losses, r_p_wins, r_p_losses, r_t_wins,
-          r_t_losses, r_z_wins, r_z_losses)
+        (user_id, matchmaking_type, season_id, rating, k_factor, uncertainty, volatility, points,
+          bonus_used, unexpected_streak, num_games_played, last_played_date, wins, losses, p_wins,
+          p_losses, t_wins, t_losses, z_wins, z_losses, r_wins, r_losses, r_p_wins, r_p_losses,
+          r_t_wins, r_t_losses, r_z_wins, r_z_losses)
       VALUES
         (${userId}, ${matchmakingType}, ${seasonId}, ${mmr.rating}, ${mmr.kFactor},
-          ${mmr.uncertainty}, ${mmr.points}, ${mmr.bonusUsed}, ${mmr.unexpectedStreak},
-          ${mmr.numGamesPlayed}, ${mmr.lastPlayedDate},
+          ${mmr.uncertainty}, ${mmr.volatility}, ${mmr.points}, ${mmr.bonusUsed},
+          ${mmr.unexpectedStreak}, ${mmr.numGamesPlayed}, ${mmr.lastPlayedDate},
           ${mmr.wins}, ${mmr.losses}, ${mmr.pWins}, ${mmr.pLosses}, ${mmr.tWins}, ${mmr.tLosses},
           ${mmr.zWins}, ${mmr.zLosses}, ${mmr.rWins}, ${mmr.rLosses}, ${mmr.rPWins},
           ${mmr.rPLosses}, ${mmr.rTWins}, ${mmr.rTLosses}, ${mmr.rZWins}, ${mmr.rZLosses})
@@ -230,6 +266,7 @@ export async function updateMatchmakingRating(
        rating = ${mmr.rating},
        k_factor = ${mmr.kFactor},
        uncertainty = ${mmr.uncertainty},
+       volatility = ${mmr.volatility},
        points = ${mmr.points},
        bonus_used = ${mmr.bonusUsed},
        unexpected_streak = ${mmr.unexpectedStreak},
@@ -418,6 +455,10 @@ export interface MatchmakingRatingChange {
   uncertainty: number
   /** The change that was applied to the uncertainty value for this game. */
   uncertaintyChange: number
+  /** The final volatility value after the change took place. */
+  volatility: number
+  /** The change that was applied to the volatility value for this game. */
+  volatilityChange: number
   /** The final ranked points after this change took place. */
   points: number
   /** The change that was applied to the points for this game (including bonus points). */
@@ -458,6 +499,8 @@ function fromDbMatchmakingRatingChange(
     kFactorChange: result.k_factor_change,
     uncertainty: result.uncertainty,
     uncertaintyChange: result.uncertainty_change,
+    volatility: result.volatility,
+    volatilityChange: result.volatility_change,
     points: result.points,
     pointsChange: result.points_change,
     bonusUsed: result.bonus_used,
@@ -476,13 +519,14 @@ export async function insertMatchmakingRatingChange(
   await client.query(sql`
     INSERT INTO matchmaking_rating_changes
       (user_id, matchmaking_type, game_id, change_date, outcome, rating, rating_change, k_factor,
-        k_factor_change, uncertainty, uncertainty_change, points, points_change, bonus_used,
-        bonus_used_change, probability, unexpected_streak)
+        k_factor_change, uncertainty, uncertainty_change, volatility, volatility_change,
+        points, points_change, bonus_used, bonus_used_change, probability, unexpected_streak)
     VALUES
       (${c.userId}, ${c.matchmakingType}, ${c.gameId}, ${c.changeDate}, ${c.outcome}, ${c.rating},
         ${c.ratingChange}, ${c.kFactor}, ${c.kFactorChange}, ${c.uncertainty},
-        ${c.uncertaintyChange}, ${c.points}, ${c.pointsChange}, ${c.bonusUsed},
-        ${c.bonusUsedChange}, ${c.probability}, ${c.unexpectedStreak});
+        ${c.uncertaintyChange}, ${c.volatility}, ${c.volatilityChange}, ${c.points},
+        ${c.pointsChange}, ${c.bonusUsed}, ${c.bonusUsedChange}, ${c.probability},
+        ${c.unexpectedStreak});
   `)
 }
 

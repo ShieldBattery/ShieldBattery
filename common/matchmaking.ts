@@ -83,7 +83,9 @@ export const MATCHMAKING_INACTIVE_TIME_MS = 14 * 24 * 60 * 60 * 1000 // 14 days
  * game and the time of a new game.
  */
 export function wasPlayerInactive(lastPlayedDate: Date, gameDate: Date): boolean {
-  return Number(gameDate) - Number(lastPlayedDate) >= MATCHMAKING_INACTIVE_TIME_MS
+  return Number(lastPlayedDate) > 0
+    ? Number(gameDate) - Number(lastPlayedDate) >= MATCHMAKING_INACTIVE_TIME_MS
+    : false
 }
 
 /** How long users have to accept a match, in milliseconds. */
