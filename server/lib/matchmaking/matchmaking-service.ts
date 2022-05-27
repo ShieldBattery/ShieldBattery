@@ -24,11 +24,11 @@ import {
   MatchmakingCompletionType,
   MatchmakingEvent,
   MatchmakingPreferences,
+  MatchmakingSeason,
   MatchmakingServiceErrorCode,
   MatchmakingType,
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
   PreferenceData,
-  SeasonId,
   TEAM_SIZES,
 } from '../../../common/matchmaking'
 import { BwTurnRate, BwUserLatency } from '../../../common/network'
@@ -66,6 +66,7 @@ import {
 } from '../matchmaking/models'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import { InPartyChecker, IN_PARTY_CHECKER } from '../parties/in-party-checker'
+import { Clock } from '../time/clock'
 import { findUsersById } from '../users/user-model'
 import {
   ClientSocketsGroup,
@@ -76,6 +77,7 @@ import {
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { MatchmakingSeasonsService } from './matchmaking-seasons'
 import { MatchmakingServiceError } from './matchmaking-service-error'
+import { adjustMatchmakingRatingForInactivity } from './rating'
 
 interface MatchmakerCallbacks {
   onMatchFound: OnMatchFoundFunc
@@ -309,7 +311,7 @@ export class MatchmakingService {
         }
       }
 
-      const completionTime = new Date()
+      const completionTime = new Date(this.clock.now())
       for (const entities of [teamA, teamB]) {
         for (const entity of entities) {
           for (const p of getPlayersFromEntity(entity)) {
@@ -493,6 +495,8 @@ export class MatchmakingService {
     buckets: exponentialBuckets(1, 1.75, 20),
   })
 
+  // Injecting this many is fine!
+  // eslint-disable-next-line max-params
   constructor(
     private publisher: TypedPublisher<ReadonlyDeep<MatchmakingEvent>>,
     private userSocketsManager: UserSocketsManager,
@@ -502,6 +506,7 @@ export class MatchmakingService {
     private gameLoader: GameLoader,
     @inject(IN_PARTY_CHECKER) private inPartyChecker: InPartyChecker,
     private matchmakingSeasonsService: MatchmakingSeasonsService,
+    private clock: Clock,
   ) {
     this.matchmakers = new Map(
       ALL_MATCHMAKING_TYPES.map(type => [
@@ -575,7 +580,7 @@ export class MatchmakingService {
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
 
     const season = await this.matchmakingSeasonsService.getCurrentSeason()
-    const mmr = await this.retrieveMmr(userId, type, season.id)
+    const mmr = await this.retrieveMmr(userId, type, season)
     const playerData = matchmakingRatingToPlayerData({
       mmr,
       username: userSockets.name,
@@ -670,7 +675,7 @@ export class MatchmakingService {
     const season = await this.matchmakingSeasonsService.getCurrentSeason()
     const names = await findUsersById(Array.from(users.keys()))
     const mmrs = await Promise.all(
-      Array.from(users.keys(), id => this.retrieveMmr(id, type, season.id)),
+      Array.from(users.keys(), id => this.retrieveMmr(id, type, season)),
     )
     const matchmakingParty: MatchmakingParty = {
       leaderId,
@@ -771,11 +776,12 @@ export class MatchmakingService {
   private async retrieveMmr(
     userId: SbUserId,
     type: MatchmakingType,
-    seasonId: SeasonId,
+    season: MatchmakingSeason,
   ): Promise<MatchmakingRating> {
-    return (
-      (await getMatchmakingRating(userId, type, seasonId)) ??
-      (await createInitialMatchmakingRating(userId, type, seasonId))
+    return adjustMatchmakingRatingForInactivity(
+      (await getMatchmakingRating(userId, type, season.id)) ??
+        (await createInitialMatchmakingRating(userId, type, season)),
+      new Date(this.clock.now()),
     )
   }
 
@@ -1075,7 +1081,7 @@ export class MatchmakingService {
               ? MatchmakingCompletionType.Disconnect
               : MatchmakingCompletionType.Cancel,
             searchTimeMillis: entity.searchIterations * MATCHMAKING_INTERVAL_MS,
-            completionTime: new Date(),
+            completionTime: new Date(this.clock.now()),
           }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
         }
 

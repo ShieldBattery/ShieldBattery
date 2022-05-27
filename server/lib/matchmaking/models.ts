@@ -203,8 +203,8 @@ export async function getMatchmakingRating(
 export async function createInitialMatchmakingRating(
   userId: SbUserId,
   matchmakingType: MatchmakingType,
-  seasonId: SeasonId,
-  mmr = LEGACY_DEFAULT_MATCHMAKING_RATING,
+  season: MatchmakingSeason,
+  mmr = season.useLegacyRating ? LEGACY_DEFAULT_MATCHMAKING_RATING : DEFAULT_MATCHMAKING_RATING,
 ): Promise<MatchmakingRating> {
   const { client, done } = await db()
   try {
@@ -215,7 +215,7 @@ export async function createInitialMatchmakingRating(
           p_losses, t_wins, t_losses, z_wins, z_losses, r_wins, r_losses, r_p_wins, r_p_losses,
           r_t_wins, r_t_losses, r_z_wins, r_z_losses)
       VALUES
-        (${userId}, ${matchmakingType}, ${seasonId}, ${mmr.rating}, ${mmr.kFactor},
+        (${userId}, ${matchmakingType}, ${season.id}, ${mmr.rating}, ${mmr.kFactor},
           ${mmr.uncertainty}, ${mmr.volatility}, ${mmr.points}, ${mmr.bonusUsed},
           ${mmr.unexpectedStreak}, ${mmr.numGamesPlayed}, ${mmr.lastPlayedDate},
           ${mmr.wins}, ${mmr.losses}, ${mmr.pWins}, ${mmr.pLosses}, ${mmr.tWins}, ${mmr.tLosses},
