@@ -23,6 +23,7 @@ import Card from '../material/card'
 import { Ripple } from '../material/ripple'
 import { shadow2dp } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
+import { Tooltip, TooltipContent, TooltipPosition } from '../material/tooltip'
 import { replace } from '../navigation/routing'
 import { useRefreshToken } from '../network/refresh-token'
 import { navigateToUserProfile } from '../profile/action-creators'
@@ -629,7 +630,7 @@ const StyledGameResultText = styled(GameResultText)`
   text-align: right;
 `
 
-const StyledMmrChangeText = styled(MmrChangeText)`
+const StyledPointsChangeText = styled(PointsChangeText)`
   ${body1};
   ${singleLine};
   width: 100%;
@@ -660,7 +661,7 @@ export function PlayerResult({ className, config, result, mmrChange }: PlayerRes
       <PlayerApm>{result?.apm ?? 0} APM</PlayerApm>
       <GameResultColumn>
         <StyledGameResultText result={result?.result ?? 'unknown'} />
-        {mmrChange ? <StyledMmrChangeText change={mmrChange.ratingChange} /> : null}
+        {mmrChange ? <StyledPointsChangeText change={mmrChange} /> : null}
       </GameResultColumn>
       <Ripple ref={rippleRef} />
     </PlayerResultContainer>
@@ -695,13 +696,46 @@ export function GameResultText({ className, result }: GameResultTextProps) {
   }
 }
 
-function MmrChangeText({ className, change }: { className?: string; change: number }) {
-  const roundChange = Math.round(change)
-  if (roundChange === 0) {
+function PointsChangeText({
+  className,
+  change,
+}: {
+  className?: string
+  change: PublicMatchmakingRatingChangeJson
+}) {
+  const roundChange = Math.round(change.pointsChange)
+  const changeWithoutBonus = Math.round(change.pointsChange - change.bonusUsedChange)
+  const bonusChange = Math.round(change.bonusUsedChange)
+
+  const PointsOverview = useCallback(
+    (props: { $position: TooltipPosition }) => (
+      <TooltipContent $position={props.$position}>
+        <div>
+          <div>
+            Base: <PointDelta delta={changeWithoutBonus} />
+          </div>
+          <div>
+            Bonus: <PointDelta delta={bonusChange} />
+          </div>
+        </div>
+      </TooltipContent>
+    ),
+    [changeWithoutBonus, bonusChange],
+  )
+
+  return (
+    <Tooltip className={className} text={''} ContentComponent={PointsOverview} position={'right'}>
+      <PointDelta delta={roundChange} />
+    </Tooltip>
+  )
+}
+
+function PointDelta({ className, delta }: { className?: string; delta: number }) {
+  if (delta === 0) {
     return <span className={className}>+0</span>
-  } else if (roundChange > 0) {
-    return <PositiveText className={className}>+{roundChange}</PositiveText>
+  } else if (delta > 0) {
+    return <PositiveText className={className}>+{delta}</PositiveText>
   } else {
-    return <NegativeText className={className}>{roundChange}</NegativeText>
+    return <NegativeText className={className}>{delta}</NegativeText>
   }
 }

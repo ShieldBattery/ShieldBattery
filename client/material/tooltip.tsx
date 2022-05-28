@@ -49,7 +49,7 @@ const arrowStyle: Record<TooltipPosition, FlattenSimpleInterpolation> = {
   `,
 }
 
-const TooltipContent = styled.div<{ $position: TooltipPosition }>`
+export const TooltipContent = styled.div<{ $position: TooltipPosition }>`
   ${caption};
   ${shadow2dp};
 

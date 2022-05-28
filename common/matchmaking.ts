@@ -123,6 +123,14 @@ export interface PublicMatchmakingRatingChange {
   rating: number
   /** The delta between the user's old rating and their new rating. */
   ratingChange: number
+  /** The player's ranked points after this game. */
+  points: number
+  /** The delta between the user's old points and their new points. */
+  pointsChange: number
+  /** The amount of bonus points this user has used this season. */
+  bonusUsed: number
+  /** The amount of bonus points used for this game. */
+  bonusUsedChange: number
 }
 
 export type PublicMatchmakingRatingChangeJson = Jsonify<PublicMatchmakingRatingChange>
@@ -138,6 +146,10 @@ export function toPublicMatchmakingRatingChangeJson(
     outcome: input.outcome,
     rating: input.rating,
     ratingChange: input.ratingChange,
+    points: input.points,
+    pointsChange: input.pointsChange,
+    bonusUsed: input.bonusUsed,
+    bonusUsedChange: input.bonusUsedChange,
   }
 }
 
