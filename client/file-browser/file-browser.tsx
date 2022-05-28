@@ -3,11 +3,7 @@ import { Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useObservedDimensions } from '../dom/dimension-hooks'
-import { longTimestamp } from '../i18n/date-formats'
-import ChevronRight from '../icons/material/ic_chevron_right_black_24px.svg'
-import Folder from '../icons/material/ic_folder_black_24px.svg'
 import Refresh from '../icons/material/ic_refresh_black_24px.svg'
-import UpDirectory from '../icons/material/ic_subdirectory_arrow_left_black_24px.svg'
 import { useKeyListener } from '../keyboard/key-listener'
 import { JsonLocalStorageValue } from '../local-storage'
 import { IconButton } from '../material/button'
@@ -15,24 +11,11 @@ import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
 import { shadow4dp } from '../material/shadows'
 import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { usePrevious } from '../state-hooks'
-import {
-  amberA400,
-  blue700,
-  blue800,
-  colorDividers,
-  colorError,
-  colorTextFaint,
-  colorTextPrimary,
-  colorTextSecondary,
-} from '../styles/colors'
-import { Caption, Headline5, headline6, subtitle1, Subtitle1 } from '../styles/typography'
-import {
-  changePath as changePathAction,
-  clearFiles,
-  getFiles as getFilesAction,
-} from './action-creators'
+import { usePrevious, useStableCallback } from '../state-hooks'
+import { blue800, colorError, colorTextFaint } from '../styles/colors'
+import { Headline5, subtitle1 } from '../styles/typography'
+import { PathBreadcrumbs } from './file-browser-breadcrumbs'
+import { ENTRY_HEIGHT, FileEntry, FolderEntry, UpOneDir } from './file-browser-entries'
 import {
   FileBrowserEntry,
   FileBrowserEntryConfig,
@@ -44,6 +27,7 @@ import {
   FileBrowserType,
   FileBrowserUpEntry,
 } from './file-browser-types'
+import readFolder from './get-files'
 
 const FOCUSED_KEY = 'FocusedPath'
 const ROOT_ID = 'RootId'
@@ -57,178 +41,6 @@ const PAGEDOWN = 'PageDown'
 const HOME = 'Home'
 const END = 'End'
 const BACKSPACE = 'Backspace'
-
-const VERT_PADDING = 8
-const ENTRY_HEIGHT = 60
-
-const EntryContainer = styled.div<{ $focused: boolean }>`
-  width: 100%;
-  height: ${ENTRY_HEIGHT}px;
-  padding: 0 16px;
-  display: flex;
-  align-items: center;
-  background-color: ${props => (props.$focused ? 'rgba(255, 255, 255, 0.24)' : 'transparent')};
-
-  &:hover {
-    background-color: rgba(255, 255, 255, 0.08);
-    cursor: pointer;
-  }
-`
-
-const EntryIcon = styled.div`
-  width: 40px;
-  height: 40px;
-  margin-right: 16px;
-  padding: 8px;
-  flex-grow: 0;
-  flex-shrink: 0;
-
-  background: ${colorTextSecondary};
-  border-radius: 50%;
-  color: rgba(0, 0, 0, 0.54);
-`
-
-const InfoContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  flex-grow: 1;
-`
-
-interface FileBrowserEntryProps {
-  isFocused: boolean
-}
-
-function UpOneDir({
-  upOneDir,
-  isFocused,
-  onClick,
-}: FileBrowserEntryProps & {
-  upOneDir: FileBrowserUpEntry
-  onClick: (entry: FileBrowserUpEntry) => void
-}) {
-  return (
-    <EntryContainer $focused={isFocused} onClick={() => onClick(upOneDir)}>
-      <EntryIcon>
-        <UpDirectory />
-      </EntryIcon>
-      <Subtitle1>{upOneDir.name}</Subtitle1>
-    </EntryContainer>
-  )
-}
-
-const FolderEntryContainer = styled(EntryContainer)`
-  & ${EntryIcon} {
-    background: ${amberA400};
-  }
-`
-
-function FolderEntry({
-  folder,
-  isFocused,
-  onClick,
-}: FileBrowserEntryProps & {
-  folder: FileBrowserFolderEntry
-  onClick: (entry: FileBrowserFolderEntry) => void
-}) {
-  return (
-    <FolderEntryContainer $focused={isFocused} onClick={() => onClick(folder)}>
-      <EntryIcon>
-        <Folder />
-      </EntryIcon>
-      <InfoContainer>
-        <Subtitle1>{folder.name}</Subtitle1>
-      </InfoContainer>
-    </FolderEntryContainer>
-  )
-}
-
-const FileEntryContainer = styled(EntryContainer)`
-  & ${EntryIcon} {
-    background: ${blue700};
-    color: ${colorTextPrimary};
-  }
-`
-
-function FileEntry({
-  file,
-  icon,
-  isFocused,
-  onClick,
-}: FileBrowserEntryProps & {
-  file: FileBrowserFileEntry
-  icon: React.ReactElement
-  onClick: (entry: FileBrowserFileEntry) => void
-}) {
-  return (
-    <FileEntryContainer $focused={isFocused} onClick={() => onClick(file)}>
-      <EntryIcon>{icon}</EntryIcon>
-      <InfoContainer>
-        <Subtitle1>{file.name}</Subtitle1>
-        <Caption>{longTimestamp.format(file.date)}</Caption>
-      </InfoContainer>
-    </FileEntryContainer>
-  )
-}
-
-const BreadcrumbPiece = styled.span<{ $active: boolean }>`
-  ${headline6};
-  padding: 8px;
-  flex-grow: 0;
-  flex-shrink: 0;
-
-  font-weight: normal;
-  color: ${props => (props.$active ? colorTextPrimary : colorTextSecondary)};
-  cursor: ${props => (props.$active ? 'auto' : 'pointer')};
-`
-
-const BreadcrumbSeparator = styled(ChevronRight)`
-  display: inline-block;
-  flex-grow: 0;
-  flex-shrink: 0;
-  color: ${colorTextFaint};
-`
-
-interface PathBreadcrumbsProps {
-  className?: string
-  path: string
-  onNavigate: (navPath: string) => void
-}
-
-const PathBreadcrumbs = React.memo<PathBreadcrumbsProps>(
-  ({ className, onNavigate, path }) => {
-    const pieces = path.split(/[\\\/]/g)
-    if (pieces[pieces.length - 1] === '') {
-      // Remove the last entry if it's empty (due to a trailing slash)
-      pieces.pop()
-    }
-    const { elems } = pieces.reduce<{ elems: React.ReactNode[]; curPath: string }>(
-      (r, piece, i) => {
-        if (piece.length === 0) {
-          return r
-        }
-        const isLast = i === pieces.length - 1
-        r.curPath += (i === 0 ? '' : '\\') + piece
-        // Save the value at the current time so the function doesn't always use the last value
-        const navPath = r.curPath
-        r.elems.push(
-          <BreadcrumbPiece
-            key={i}
-            $active={isLast}
-            onClick={isLast ? undefined : () => onNavigate(navPath)}>
-            {piece}
-          </BreadcrumbPiece>,
-        )
-        r.elems.push(<BreadcrumbSeparator key={i + '|'} />)
-
-        return r
-      },
-      { elems: [], curPath: '' },
-    )
-
-    return <div className={className}>{elems}</div>
-  },
-  (prevProps, nextProps) => prevProps.path === nextProps.path,
-)
 
 const Root = styled.div`
   width: 100%;
@@ -274,12 +86,6 @@ const StyledPathBreadcrumbs = styled(PathBreadcrumbs)`
   padding: 0 8px;
 `
 
-const ExternalError = styled.div`
-  padding: 8px;
-  color: ${colorError};
-  border-bottom: 1px solid ${colorDividers};
-`
-
 const FilesContent = styled.div`
   flex-grow: 1;
   flex-shrink: 1;
@@ -287,7 +93,7 @@ const FilesContent = styled.div`
 
 const VertPadding = styled.div<{ context?: unknown }>`
   width: 100%;
-  height: ${VERT_PADDING}px;
+  height: 8px;
 `
 
 const ErrorText = styled.div`
@@ -315,6 +121,8 @@ function getDir(filePath: string) {
   }
 }
 
+const sortByName = (a: FileBrowserEntry, b: FileBrowserEntry) => a.name.localeCompare(b.name)
+
 interface FileBrowserProps {
   browserType: FileBrowserType
   rootFolders: {
@@ -328,6 +136,8 @@ interface FileBrowserProps {
     [key in string]?: FileBrowserEntryConfig
   }
   error?: Error
+  foldersSortFunc?: (a: FileBrowserEntry, b: FileBrowserEntry) => number
+  filesSortFunc?: (a: FileBrowserEntry, b: FileBrowserEntry) => number
 }
 
 export function FileBrowser({
@@ -337,10 +147,14 @@ export function FileBrowser({
   titleButton,
   fileTypes,
   error,
+  foldersSortFunc = sortByName,
+  filesSortFunc = sortByName,
 }: FileBrowserProps) {
-  const dispatch = useAppDispatch()
-  const fileBrowser = useAppSelector(s => s.fileBrowser[browserType])
-  const fileBrowserPath = fileBrowser?.path
+  const [fileBrowserPath, setFileBrowserPath] = useState('')
+  const [upOneDir, setUpOneDir] = useState<FileBrowserUpEntry>()
+  const [folders, setFolders] = useState<FileBrowserFolderEntry[]>([])
+  const [files, setFiles] = useState<FileBrowserFileEntry[]>([])
+
   const [dimensionsRef, containerRect] = useObservedDimensions()
   const [isLoadingFiles, setIsLoadingFiles] = useState(true)
   const [loadFilesError, setLoadFilesError] = useState<Error>()
@@ -367,30 +181,22 @@ export function FileBrowser({
   }, [])
 
   const entries = useMemo(() => {
-    if (!fileBrowser || isLoadingFiles || loadFilesError) {
+    if (isLoadingFiles || loadFilesError) {
       return []
     }
 
-    const { upOneDir, files, folders } = fileBrowser
     const entries: FileBrowserEntry[] = []
     const filteredFiles = files.filter(f => fileTypes[f.extension])
+
     return upOneDir
       ? entries.concat(upOneDir, folders, filteredFiles)
       : entries.concat(folders, filteredFiles)
-  }, [fileBrowser, fileTypes, isLoadingFiles, loadFilesError])
+  }, [fileTypes, files, folders, isLoadingFiles, loadFilesError, upOneDir])
 
   const focusedIndex = useMemo(() => {
     const hasFocusedIndex = focusedPath && entries.map(i => i.path).includes(focusedPath)
     return hasFocusedIndex ? entries.findIndex(f => f.path === focusedPath) : -1
   }, [entries, focusedPath])
-
-  const changePath = useCallback(
-    (browserType: FileBrowserType, path: string) => {
-      setIsLoadingFiles(true)
-      dispatch(changePathAction(browserType, path))
-    },
-    [dispatch],
-  )
 
   useEffect(() => {
     // This effect should only change the initial path, to effectively initialize the file browser.
@@ -404,8 +210,8 @@ export function FileBrowser({
         ? getDir(focusedPath)
         : rootFolder.path
 
-    changePath(browserType, initialPath)
-  }, [browserType, changePath, fileBrowserPath, focusedPath, rootFolder.path])
+    setFileBrowserPath(initialPath)
+  }, [fileBrowserPath, focusedPath, rootFolder.path])
 
   useEffect(() => {
     // This effect should only scroll to the focused entry when files are freshly loaded. All other
@@ -421,29 +227,47 @@ export function FileBrowser({
     }
   }, [prevIsLoadingFiles, isLoadingFiles, entries, focusedIndex])
 
-  const getFiles = useCallback(() => {
+  const getFiles = useStableCallback(async () => {
     if (!fileBrowserPath) {
       return
     }
 
     setIsLoadingFiles(true)
-    dispatch(
-      getFilesAction(browserType, fileBrowserPath, rootFolder.path, {
-        onSuccess: () => {
-          setIsLoadingFiles(false)
-          setLoadFilesError(undefined)
-        },
-        onError: err => {
-          setIsLoadingFiles(false)
-          setLoadFilesError(err)
-        },
-      }),
-    )
-  }, [browserType, dispatch, fileBrowserPath, rootFolder.path])
+    setLoadFilesError(undefined)
+
+    try {
+      const result = await readFolder(fileBrowserPath)
+
+      const isRootFolder = fileBrowserPath === rootFolder.path
+      let upOneDir: FileBrowserUpEntry | undefined
+      if (!isRootFolder) {
+        upOneDir = {
+          type: FileBrowserEntryType.Up,
+          name: 'Up one directory',
+          path: `${fileBrowserPath}\\..`,
+        }
+      }
+
+      const folders: FileBrowserFolderEntry[] = result
+        .filter((e): e is FileBrowserFolderEntry => e.type === FileBrowserEntryType.Folder)
+        .sort(foldersSortFunc)
+      const files: FileBrowserFileEntry[] = result
+        .filter((e): e is FileBrowserFileEntry => e.type === FileBrowserEntryType.File)
+        .sort(filesSortFunc)
+
+      setUpOneDir(upOneDir)
+      setFolders(folders)
+      setFiles(files)
+    } catch (err) {
+      setLoadFilesError(err as Error)
+    } finally {
+      setIsLoadingFiles(false)
+    }
+  })
 
   useEffect(() => {
     getFiles()
-  }, [getFiles])
+  }, [fileBrowserPath, getFiles])
 
   useEffect(() => {
     // TODO(2Pac): Test if this is an expensive operation to do each time the focused path changes;
@@ -457,101 +281,83 @@ export function FileBrowser({
     initialRootFolderId.setValue(rootFolder.id)
   }, [initialRootFolderId, rootFolder.id])
 
-  useEffect(() => {
-    return () => dispatch(clearFiles(browserType))
-  }, [browserType, dispatch])
+  const onRootFolderChange = useStableCallback((rootId: FileBrowserRootFolderId) => {
+    setRootFolder(rootFolders[rootId]!)
+  })
 
-  const onRootFolderChange = useCallback(
-    (rootId: FileBrowserRootFolderId) => {
-      setRootFolder(rootFolders[rootId]!)
-    },
-    [rootFolders],
-  )
+  const onBreadcrumbNavigate = useStableCallback((path: string) => {
+    const pathWithoutRoot = path.slice(rootFolder.name.length + 1)
+    setFileBrowserPath(pathWithoutRoot ? rootFolder.path + '\\' + pathWithoutRoot : rootFolder.path)
+  })
 
-  const onBreadcrumbNavigate = useCallback(
-    (path: string) => {
-      const pathWithoutRoot = path.slice(rootFolder.name.length + 1)
-      changePath(
-        browserType,
-        pathWithoutRoot ? rootFolder.path + '\\' + pathWithoutRoot : rootFolder.path,
-      )
-    },
-    [browserType, changePath, rootFolder.name.length, rootFolder.path],
-  )
-
-  const onUpLevelClick = useCallback(() => {
+  const onUpLevelClick = useStableCallback(() => {
     if (!fileBrowserPath) {
       return
     }
 
     const prevPath = getDir(fileBrowserPath)
-    changePath(browserType, prevPath)
-  }, [browserType, changePath, fileBrowserPath])
+    setFileBrowserPath(prevPath)
+  })
 
-  const onFolderClick = useCallback(
-    (folder: FileBrowserFolderEntry) => {
-      changePath(browserType, folder.path)
-    },
-    [browserType, changePath],
-  )
+  const onFolderClick = useStableCallback((folder: FileBrowserFolderEntry) => {
+    setFileBrowserPath(folder.path)
+  })
 
-  const onFileClick = useCallback(
-    (file: FileBrowserFileEntry) => {
-      const entryConfig = fileTypes[file.extension]
-      if (!entryConfig) {
-        return
-      }
-      setFocusedPath(file.path)
-      entryConfig.onSelect(file)
-    },
-    [fileTypes],
-  )
+  const onFileClick = useStableCallback((file: FileBrowserFileEntry) => {
+    const entryConfig = fileTypes[file.extension]
+    if (!entryConfig) {
+      return
+    }
+    setFocusedPath(file.path)
+    entryConfig.onSelect(file)
+  })
 
-  const moveFocusedIndexBy = useCallback(
-    (delta: number) => {
-      if (focusedIndex < 0) {
-        return
-      }
+  const moveFocusedIndexBy = useStableCallback((delta: number) => {
+    if (focusedIndex < 0) {
+      return
+    }
 
-      let newIndex = focusedIndex + delta
-      if (newIndex < 0) {
-        newIndex = 0
-      } else if (newIndex > entries.length - 1) {
-        newIndex = entries.length - 1
-      }
+    let newIndex = focusedIndex + delta
+    if (newIndex < 0) {
+      newIndex = 0
+    } else if (newIndex > entries.length - 1) {
+      newIndex = entries.length - 1
+    }
 
-      if (newIndex === focusedIndex) {
-        return
-      }
+    if (newIndex === focusedIndex) {
+      return
+    }
 
-      const newFocusedEntry = entries[newIndex]
-      if (newFocusedEntry.path !== focusedPath) {
-        setFocusedPath(newFocusedEntry.path)
-      }
+    const newFocusedEntry = entries[newIndex]
+    if (newFocusedEntry.path !== focusedPath) {
+      setFocusedPath(newFocusedEntry.path)
+    }
 
+    if (newIndex === 0) {
+      listRef.current?.scrollToIndex({ index: 0, align: 'end' })
+    } else {
       listRef.current?.scrollIntoView({ index: newIndex })
-    },
-    [entries, focusedIndex, focusedPath],
-  )
+    }
+  })
 
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
-      if (!fileBrowser || entries.length < 1) {
+      if (entries.length < 1) {
         return false
       }
 
       switch (event.code) {
         case ENTER || ENTER_NUMPAD:
-          if (focusedPath === `${fileBrowser.path}\\..`) {
+          if (focusedPath === `${fileBrowserPath}\\..`) {
             onUpLevelClick()
             return true
           }
-          const focusedFolderEntry = fileBrowser.folders.find(f => f.path === focusedPath)
+          const focusedFolderEntry = folders.find(f => f.path === focusedPath)
           if (focusedFolderEntry) {
             onFolderClick(focusedFolderEntry)
             return true
           }
-          const focusedFileEntry = fileBrowser.files.find(f => f.path === focusedPath)
+          const focusedFileEntry = files.find(f => f.path === focusedPath)
           if (focusedFileEntry) {
             onFileClick(focusedFileEntry)
             return true
@@ -589,7 +395,7 @@ export function FileBrowser({
           }
           return true
         case BACKSPACE:
-          const isRootFolder = fileBrowser?.path === rootFolder.path
+          const isRootFolder = fileBrowserPath === rootFolder.path
           if (!isRootFolder) {
             onUpLevelClick()
           }
@@ -600,59 +406,55 @@ export function FileBrowser({
     },
   })
 
-  const noRowsRenderer = useCallback(() => {
-    if (isLoadingFiles) {
-      return <LoadingDotsArea />
-    } else if (loadFilesError) {
-      return <ErrorText>{loadFilesError.message}</ErrorText>
-    } else {
-      return <EmptyText>Nothing to see here</EmptyText>
+  const renderRow = useStableCallback((index: number) => {
+    const entry = entries?.[index]
+    if (!entry) {
+      return <span></span>
     }
-  }, [isLoadingFiles, loadFilesError])
 
-  const renderRow = useCallback(
-    (index: number) => {
-      const entry = entries?.[index]
-      if (!entry) {
-        return <span></span>
-      }
+    const isFocused = entry.path === focusedPath
+    if (entry.type === FileBrowserEntryType.Up) {
+      return (
+        <UpOneDir
+          upOneDir={entry}
+          onClick={onUpLevelClick}
+          isFocused={isFocused}
+          key={'up-one-dir'}
+        />
+      )
+    } else if (entry.type === FileBrowserEntryType.Folder) {
+      return (
+        <FolderEntry
+          folder={entry}
+          onClick={onFolderClick}
+          isFocused={isFocused}
+          key={entry.path}
+        />
+      )
+    } else if (entry.type === FileBrowserEntryType.File) {
+      const entryConfig = fileTypes[entry.extension]
+      return (
+        <FileEntry
+          file={entry}
+          onClick={onFileClick}
+          icon={entryConfig ? entryConfig.icon : <span></span>}
+          isFocused={isFocused}
+          key={entry.path}
+        />
+      )
+    } else {
+      return assertUnreachable(entry)
+    }
+  })
 
-      const isFocused = entry.path === focusedPath
-      if (entry.type === FileBrowserEntryType.Up) {
-        return (
-          <UpOneDir
-            upOneDir={entry}
-            onClick={onUpLevelClick}
-            isFocused={isFocused}
-            key={'up-one-dir'}
-          />
-        )
-      } else if (entry.type === FileBrowserEntryType.Folder) {
-        return (
-          <FolderEntry
-            folder={entry}
-            onClick={onFolderClick}
-            isFocused={isFocused}
-            key={entry.path}
-          />
-        )
-      } else if (entry.type === FileBrowserEntryType.File) {
-        const entryConfig = fileTypes[entry.extension]
-        return (
-          <FileEntry
-            file={entry}
-            onClick={onFileClick}
-            icon={entryConfig ? entryConfig.icon : <span></span>}
-            isFocused={isFocused}
-            key={entry.path}
-          />
-        )
-      } else {
-        return assertUnreachable(entry)
-      }
-    },
-    [entries, fileTypes, focusedPath, onFileClick, onFolderClick, onUpLevelClick],
-  )
+  let emptyContent
+  if (isLoadingFiles) {
+    emptyContent = <LoadingDotsArea />
+  } else if (loadFilesError) {
+    emptyContent = <ErrorText>{loadFilesError.message}</ErrorText>
+  } else {
+    emptyContent = <EmptyText>Nothing to see here</EmptyText>
+  }
 
   const displayedPath = fileBrowserPath
     ? `${rootFolder.name}\\${fileBrowserPath.slice(rootFolder.path.length + 1)}`
@@ -678,7 +480,6 @@ export function FileBrowser({
           <IconButton icon={<Refresh />} onClick={getFiles} title={'Refresh'} />
         </BreadcrumbsAndActions>
       </TopBar>
-      {error ? <ExternalError>{String(error)}</ExternalError> : null}
       <FilesContent ref={dimensionsRef}>
         {entries.length > 0 ? (
           <Virtuoso
@@ -688,7 +489,7 @@ export function FileBrowser({
             itemContent={renderRow}
           />
         ) : (
-          noRowsRenderer()
+          emptyContent
         )}
       </FilesContent>
     </Root>
