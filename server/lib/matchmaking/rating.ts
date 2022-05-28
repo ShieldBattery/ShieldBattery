@@ -300,7 +300,7 @@ function makeRatingChange({
     pointsChange,
     bonusUsed: player.bonusUsed + bonusApplied,
     bonusUsedChange: bonusApplied,
-    probability: winProbability,
+    probability: expectedProbability,
     unexpectedStreak: 0,
   }
 }

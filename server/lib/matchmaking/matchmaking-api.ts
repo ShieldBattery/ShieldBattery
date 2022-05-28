@@ -147,6 +147,7 @@ export class MatchmakingApi {
         startDate: Joi.date().timestamp().min(Date.now()).required(),
         name: Joi.string().required(),
         useLegacyRating: Joi.boolean().required(),
+        resetMmr: Joi.boolean().required(),
       }),
     })
 

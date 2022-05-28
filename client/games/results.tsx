@@ -609,18 +609,11 @@ const PlayerName = styled.div`
   flex-grow: 1;
 `
 
-const PlayerApm = styled.div`
-  ${body1};
-  ${singleLine};
-  width: 96px;
-  color: ${colorTextSecondary};
-  text-align: right;
-`
-
 const GameResultColumn = styled.div`
-  width: 96px;
+  width: 128px;
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
 `
 
 const StyledGameResultText = styled(GameResultText)`
@@ -633,7 +626,6 @@ const StyledGameResultText = styled(GameResultText)`
 const StyledPointsChangeText = styled(PointsChangeText)`
   ${body1};
   ${singleLine};
-  width: 100%;
   text-align: right;
 `
 
@@ -658,7 +650,6 @@ export function PlayerResult({ className, config, result, mmrChange }: PlayerRes
       </RaceRoot>
       {config.isComputer ? <StyledComputerAvatar /> : <PlayerAvatar user={user?.name ?? ''} />}
       <PlayerName>{config.isComputer ? 'Computer' : user?.name ?? ''}</PlayerName>
-      <PlayerApm>{result?.apm ?? 0} APM</PlayerApm>
       <GameResultColumn>
         <StyledGameResultText result={result?.result ?? 'unknown'} />
         {mmrChange ? <StyledPointsChangeText change={mmrChange} /> : null}
@@ -703,6 +694,7 @@ function PointsChangeText({
   className?: string
   change: PublicMatchmakingRatingChangeJson
 }) {
+  const roundPoints = Math.round(change.points)
   const roundChange = Math.round(change.pointsChange)
   const changeWithoutBonus = Math.round(change.pointsChange - change.bonusUsedChange)
   const bonusChange = Math.round(change.bonusUsedChange)
@@ -725,7 +717,7 @@ function PointsChangeText({
 
   return (
     <Tooltip className={className} text={''} ContentComponent={PointsOverview} position={'right'}>
-      <PointDelta delta={roundChange} />
+      {roundPoints} (<PointDelta delta={roundChange} />)
     </Tooltip>
   )
 }

@@ -74,7 +74,7 @@ const SeasonName = styled.div`
   flex-grow: 1;
 `
 
-const LegacyText = styled.span`
+const ModifierText = styled.span`
   color: ${colorTextSecondary};
 `
 
@@ -92,7 +92,8 @@ function SeasonRow({
       <StartDate>{longTimestamp.format(season.startDate)}</StartDate>
       <SeasonName>
         {season.name}
-        {season.useLegacyRating ? <LegacyText> (legacy ratings)</LegacyText> : undefined}
+        {season.useLegacyRating ? <ModifierText> (legacy ratings)</ModifierText> : undefined}
+        {season.resetMmr ? <ModifierText> (MMR reset)</ModifierText> : undefined}
       </SeasonName>
       {season.startDate > Date.now() ? (
         <IconButton icon={<CloseIcon />} title='Delete' onClick={() => onDeleteClick(season.id)} />
@@ -123,12 +124,14 @@ interface AddSeasonModel {
   startDate?: string
   name?: string
   useLegacyRating: boolean
+  resetMmr: boolean
 }
 
 function AddSeasonForm(props: { onSubmit: (model: AddSeasonModel) => void }) {
   const { onSubmit, bindInput, bindCheckable } = useForm<AddSeasonModel>(
     {
       useLegacyRating: false,
+      resetMmr: false,
     },
     {
       startDate: value =>
@@ -152,6 +155,7 @@ function AddSeasonForm(props: { onSubmit: (model: AddSeasonModel) => void }) {
           inputProps={{ tabIndex: 0 }}
         />
         <DateInput {...bindInput('startDate')} type='datetime-local' tabIndex={0} />
+        <CheckBox {...bindCheckable('resetMmr')} label='Reset MMR' inputProps={{ tabIndex: 0 }} />
         <CheckBox
           {...bindCheckable('useLegacyRating')}
           label='Use legacy rating system'
@@ -202,6 +206,7 @@ export function AdminMatchmakingSeasons() {
         startDate: Date.parse(model.startDate!),
         name: model.name!,
         useLegacyRating: model.useLegacyRating,
+        resetMmr: model.resetMmr,
       }),
     })
       .then(() => {

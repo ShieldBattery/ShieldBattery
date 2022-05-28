@@ -20,18 +20,21 @@ const STARTING_SEASONS: ReadonlyArray<MatchmakingSeason> = [
     startDate: new Date('2023-01-01'),
     name: 'Cooler Season',
     useLegacyRating: false,
+    resetMmr: false,
   },
   {
     id: makeSeasonId(2),
     startDate: new Date('2022-06-01'),
     name: 'Cool Season',
     useLegacyRating: false,
+    resetMmr: true,
   },
   {
     id: makeSeasonId(1),
     startDate: new Date('2012-01-01'),
     name: 'Beta Season',
     useLegacyRating: true,
+    resetMmr: true,
   },
 ]
 
@@ -100,12 +103,14 @@ describe('matchmaking/matchmaking-seasons', () => {
       startDate: new Date('2025-01-01'),
       name: 'New Season',
       useLegacyRating: false,
+      resetMmr: true,
     })
 
     expect(createdSeason).toMatchInlineSnapshot(`
       Object {
         "id": 4,
         "name": "New Season",
+        "resetMmr": true,
         "startDate": 2025-01-01T00:00:00.000Z,
         "useLegacyRating": false,
       }
@@ -121,6 +126,7 @@ describe('matchmaking/matchmaking-seasons', () => {
       startDate: new Date('2014-01-01'),
       name: 'Past Season',
       useLegacyRating: true,
+      resetMmr: true,
     })
 
     await expect(result).rejects.toThrowErrorMatchingInlineSnapshot(

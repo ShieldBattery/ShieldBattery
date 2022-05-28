@@ -197,17 +197,69 @@ export async function getMatchmakingRating(
 
 /**
  * Creates an initial matchmaking rating entry for a player, before they've played any games in that
- * matchmaking type. This should only be used when we have some lock on this player for that
- * matchmaking type (for instance, they have been put in the game activity registry).
+ * matchmaking type for the season. This should only be used when we have some lock on this player
+ * for that matchmaking type (for instance, they have been put in the game activity registry).
+ *
+ * This will try to utilize a past MMR record (from a previous season) if one can be found.
  */
 export async function createInitialMatchmakingRating(
   userId: SbUserId,
   matchmakingType: MatchmakingType,
   season: MatchmakingSeason,
-  mmr = season.useLegacyRating ? LEGACY_DEFAULT_MATCHMAKING_RATING : DEFAULT_MATCHMAKING_RATING,
 ): Promise<MatchmakingRating> {
   const { client, done } = await db()
   try {
+    // First, try to find a previous season's MMR that hasn't been reset
+    const previousMmrs = await client.query<{ reset: boolean } & Partial<DbMatchmakingRating>>(sql`
+      SELECT ms.reset_mmr as reset, mr.*
+      FROM matchmaking_seasons ms
+      LEFT JOIN matchmaking_ratings mr
+      ON ms.id = mr.season_id
+      AND mr.user_id = ${userId}
+      AND mr.matchmaking_type = ${matchmakingType}
+      WHERE ms.start_date < ${season.startDate}
+      ORDER BY ms.start_date DESC;
+    `)
+    let previousMmr: MatchmakingRating | undefined
+    if (!season.resetMmr) {
+      for (const row of previousMmrs.rows) {
+        if (row.user_id) {
+          // NOTE(tec27): With this query either all the columns will be set or none of them will,
+          // so this cast is safe
+          previousMmr = fromDbMatchmakingRating(row as DbMatchmakingRating)
+          break
+        } else if (row.reset) {
+          // Once we find a reset season without finding a previous MMR, all MMRs past that point
+          // are void
+          break
+        }
+      }
+    }
+
+    const defaults = season.useLegacyRating
+      ? LEGACY_DEFAULT_MATCHMAKING_RATING
+      : DEFAULT_MATCHMAKING_RATING
+
+    const mmr: MatchmakingRating = previousMmr
+      ? {
+          ...defaults,
+          userId,
+          matchmakingType,
+          seasonId: season.id,
+          rating: previousMmr.rating,
+          kFactor: previousMmr.kFactor,
+          uncertainty: previousMmr.uncertainty,
+          volatility: previousMmr.volatility,
+          unexpectedStreak: previousMmr.unexpectedStreak,
+          lastPlayedDate: previousMmr.lastPlayedDate,
+        }
+      : {
+          ...defaults,
+          userId,
+          matchmakingType,
+          seasonId: season.id,
+        }
+
     const result = await client.query<DbMatchmakingRating>(sql`
       INSERT INTO matchmaking_ratings
         (user_id, matchmaking_type, season_id, rating, k_factor, uncertainty, volatility, points,
@@ -592,6 +644,7 @@ function fromDbMatchmakingSeason(result: Readonly<DbMatchmakingSeason>): Matchma
     startDate: result.start_date,
     name: result.name,
     useLegacyRating: result.use_legacy_rating,
+    resetMmr: result.reset_mmr,
   }
 }
 
@@ -620,9 +673,9 @@ export async function addMatchmakingSeason(
   try {
     const result = await client.query<DbMatchmakingSeason>(sql`
       INSERT INTO matchmaking_seasons
-        (start_date, name, use_legacy_rating)
+        (start_date, name, use_legacy_rating, reset_mmr)
       VALUES
-        (${season.startDate}, ${season.name}, ${season.useLegacyRating})
+        (${season.startDate}, ${season.name}, ${season.useLegacyRating}, ${season.resetMmr})
       RETURNING *
     `)
 

@@ -44,6 +44,7 @@ export interface MatchmakingSeason {
   startDate: Date
   name: string
   useLegacyRating: boolean
+  resetMmr: boolean
 }
 
 export type MatchmakingSeasonJson = Jsonify<MatchmakingSeason>
@@ -54,6 +55,7 @@ export function toMatchmakingSeasonJson(season: MatchmakingSeason): MatchmakingS
     startDate: Number(season.startDate),
     name: season.name,
     useLegacyRating: season.useLegacyRating,
+    resetMmr: season.resetMmr,
   }
 }
 
