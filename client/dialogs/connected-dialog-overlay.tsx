@@ -1,7 +1,7 @@
 import { rgba } from 'polished'
 import React, { useCallback, useRef } from 'react'
 import ReactDOM from 'react-dom'
-import { animated, SpringValues, useTransition, UseTransitionProps } from 'react-spring'
+import { animated, useTransition, UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import EditAccount from '../auth/edit-account'
@@ -54,7 +54,7 @@ const VISIBLE_SCRIM_COLOR = rgba(dialogScrim, 0.42)
 const noop = () => {}
 
 export interface DialogContextValue {
-  styles: SpringValues
+  styles: React.CSSProperties
 }
 export const DialogContext = React.createContext<DialogContextValue>({
   styles: {},
@@ -172,8 +172,9 @@ export function ConnectedDialogOverlay() {
             />
           ),
       )}
-      {dialogTransition((styles, dialogState) => {
+      {dialogTransition((styles, dialogState, transition, index) => {
         const { component: DialogComponent, modal } = getDialog(dialogState.type)
+        const isTopDialog = dialogHistory.length - 1 === index
 
         // Dialog content implementations should focus *something* when mounted, so that our focus
         // traps have the proper effect of keeping focus in the dialog
@@ -181,7 +182,8 @@ export function ConnectedDialogOverlay() {
           <>
             <span tabIndex={0} onFocus={onFocusTrap} />
             <span ref={focusableRef} tabIndex={-1}>
-              <DialogContext.Provider value={{ styles }}>
+              <DialogContext.Provider
+                value={{ styles: { ...styles, pointerEvents: isTopDialog ? 'auto' : 'none' } }}>
                 <DialogComponent
                   dialogRef={dialogRef}
                   onCancel={(event: React.MouseEvent) =>

@@ -2,9 +2,10 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
-import { closeDialog, openDialog } from '../dialogs/action-creators'
+import { closeDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { Dialog } from '../material/dialog'
+import { openSettingsDialog } from '../settings/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import { SubheadingOld } from '../styles/typography'
 import {
@@ -92,6 +93,6 @@ export default class StarcraftHealthCheckupDialog extends React.Component {
 
   onSettingsClicked(e) {
     e.preventDefault()
-    this.props.dispatch(openDialog({ type: DialogType.Settings }))
+    this.props.dispatch(openSettingsDialog())
   }
 }
