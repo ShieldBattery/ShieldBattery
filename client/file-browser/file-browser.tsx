@@ -1,3 +1,4 @@
+import produce, { Immutable } from 'immer'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import styled from 'styled-components'
@@ -19,9 +20,9 @@ import { PathBreadcrumbs } from './file-browser-breadcrumbs'
 import { ENTRY_HEIGHT, FileEntry, FolderEntry, UpOneDir } from './file-browser-entries'
 import {
   FileBrowserEntry,
-  FileBrowserEntryConfig,
   FileBrowserEntryType,
   FileBrowserFileEntry,
+  FileBrowserFileEntryConfig,
   FileBrowserFolderEntry,
   FileBrowserRootFolder,
   FileBrowserRootFolderId,
@@ -42,6 +43,7 @@ const PAGEDOWN = 'PageDown'
 const HOME = 'Home'
 const END = 'End'
 const BACKSPACE = 'Backspace'
+const SPACE = 'Space'
 
 const Root = styled.div`
   width: 100%;
@@ -133,12 +135,8 @@ interface FileBrowserProps {
   }
   title: string
   titleButton?: React.ReactElement
-  fileTypes: {
-    [key in string]?: FileBrowserEntryConfig
-  }
-  error?: Error
-  foldersSortFunc?: (a: FileBrowserEntry, b: FileBrowserEntry) => number
-  filesSortFunc?: (a: FileBrowserEntry, b: FileBrowserEntry) => number
+  fileEntryConfig: FileBrowserFileEntryConfig
+  sortFunc?: (a: FileBrowserEntry, b: FileBrowserEntry) => number
 }
 
 export function FileBrowser({
@@ -146,10 +144,8 @@ export function FileBrowser({
   rootFolders,
   title = 'Files',
   titleButton,
-  fileTypes,
-  error,
-  foldersSortFunc = sortByName,
-  filesSortFunc = sortByName,
+  fileEntryConfig,
+  sortFunc = sortByName,
 }: FileBrowserProps) {
   const [scrollerRef] = useVirtuosoScrollFix()
 
@@ -157,6 +153,7 @@ export function FileBrowser({
   const [upOneDir, setUpOneDir] = useState<FileBrowserUpEntry>()
   const [folders, setFolders] = useState<FileBrowserFolderEntry[]>([])
   const [files, setFiles] = useState<FileBrowserFileEntry[]>([])
+  const [expandedFiles, setExpandedFiles] = useState<Immutable<Map<string, boolean>>>(new Map())
 
   const [dimensionsRef, containerRect] = useObservedDimensions()
   const [isLoadingFiles, setIsLoadingFiles] = useState(true)
@@ -189,12 +186,12 @@ export function FileBrowser({
     }
 
     const entries: FileBrowserEntry[] = []
-    const filteredFiles = files.filter(f => fileTypes[f.extension])
+    const filteredFiles = files.filter(f => fileEntryConfig.allowedExtensions.includes(f.extension))
 
     return upOneDir
       ? entries.concat(upOneDir, folders, filteredFiles)
       : entries.concat(folders, filteredFiles)
-  }, [fileTypes, files, folders, isLoadingFiles, loadFilesError, upOneDir])
+  }, [fileEntryConfig, files, folders, isLoadingFiles, loadFilesError, upOneDir])
 
   const focusedIndex = useMemo(() => {
     const hasFocusedIndex = focusedPath && entries.map(i => i.path).includes(focusedPath)
@@ -254,10 +251,10 @@ export function FileBrowser({
 
       const folders: FileBrowserFolderEntry[] = result
         .filter((e): e is FileBrowserFolderEntry => e.type === FileBrowserEntryType.Folder)
-        .sort(foldersSortFunc)
+        .sort(sortFunc)
       const files: FileBrowserFileEntry[] = result
         .filter((e): e is FileBrowserFileEntry => e.type === FileBrowserEntryType.File)
-        .sort(filesSortFunc)
+        .sort(sortFunc)
 
       setUpOneDir(upOneDir)
       setFolders(folders)
@@ -311,13 +308,23 @@ export function FileBrowser({
     setFileBrowserPath(folder.path)
   })
 
-  const onFileClick = useStableCallback((file: FileBrowserFileEntry) => {
-    const entryConfig = fileTypes[file.extension]
-    if (!entryConfig) {
-      return
-    }
+  const onFileClick = useStableCallback((file: FileBrowserFileEntry, isKeyboardEvent?: boolean) => {
     setFocusedPath(file.path)
-    entryConfig.onSelect(file)
+
+    // We only allow clicking on a file entry to select it in case the file entry doesn't have an
+    // expansion panel. In case it does, we'll display a dedicated button to select the file entry,
+    // to make it more explicit and to lower the chance of accidentally clicking the file entry
+    // while intending to click the expand button.
+    // Also, when executing this callback from a keyboard event (e.g. by pressing Enter), we always
+    // select the file entry.
+    if (isKeyboardEvent || !fileEntryConfig.ExpansionPanelComponent) {
+      fileEntryConfig.onSelect(file)
+    }
+  })
+
+  const onFileExpandClick = useStableCallback((file: FileBrowserFileEntry) => {
+    const isExpanded = expandedFiles.get(file.path)
+    setExpandedFiles(produce(draft => draft.set(file.path, !isExpanded)))
   })
 
   const moveFocusedIndexBy = useStableCallback((delta: number) => {
@@ -355,7 +362,7 @@ export function FileBrowser({
       }
 
       switch (event.code) {
-        case ENTER || ENTER_NUMPAD:
+        case ENTER || ENTER_NUMPAD: {
           if (focusedPath === `${fileBrowserPath}\\..`) {
             onUpLevelClick()
             return true
@@ -367,7 +374,15 @@ export function FileBrowser({
           }
           const focusedFileEntry = files.find(f => f.path === focusedPath)
           if (focusedFileEntry) {
-            onFileClick(focusedFileEntry)
+            onFileClick(focusedFileEntry, true)
+            return true
+          }
+          return true
+        }
+        case SPACE:
+          const focusedFileEntry = files.find(f => f.path === focusedPath)
+          if (focusedFileEntry && fileEntryConfig.ExpansionPanelComponent) {
+            onFileExpandClick(focusedFileEntry)
             return true
           }
           return true
@@ -440,13 +455,14 @@ export function FileBrowser({
         />
       )
     } else if (entry.type === FileBrowserEntryType.File) {
-      const entryConfig = fileTypes[entry.extension]
       return (
         <FileEntry
           file={entry}
-          onClick={onFileClick}
-          icon={entryConfig ? entryConfig.icon : <span></span>}
+          fileEntryConfig={fileEntryConfig}
           isFocused={isFocused}
+          isExpanded={expandedFiles.get(entry.path)}
+          onClick={onFileClick}
+          onExpandClick={onFileExpandClick}
           key={entry.path}
         />
       )

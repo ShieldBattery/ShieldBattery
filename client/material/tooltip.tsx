@@ -11,6 +11,13 @@ import { defaultSpring } from './springs'
 
 export type TooltipPosition = 'left' | 'right' | 'top' | 'bottom'
 
+const TooltipChildrenContainer = styled.div`
+  // NOTE(2Pac): For some reason, when tooltips are used inside a flex container with "row"
+  // direction, their height exceeds the height of their children, and making them flex containers
+  // themselves "fixes" that.
+  display: flex;
+`
+
 const NoPointerPortal = styled(Portal)`
   pointer-events: none;
 `
@@ -85,8 +92,8 @@ const NoPointerPopoverContent = styled(PopoverContent)`
 `
 
 interface TooltipProps {
-  /** The text that should be displayed in the Tooltip. */
-  text: string
+  /** The react node (usually string) that should be displayed in the Tooltip. */
+  text: React.ReactNode
   /**
    * The children that the Tooltip should be linked to. Should usually only be a single element, but
    * the Tooltip will work even if there are multiple (by creating a wrapper element around all of
@@ -203,7 +210,7 @@ export function Tooltip({
 
   return (
     <>
-      <div
+      <TooltipChildrenContainer
         className={className}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
@@ -212,7 +219,7 @@ export function Tooltip({
         aria-describedby={open ? contentId : undefined}
         tabIndex={tabIndex}>
         {children}
-      </div>
+      </TooltipChildrenContainer>
       {transition(
         (styles, open) =>
           open && (

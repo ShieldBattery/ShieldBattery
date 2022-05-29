@@ -4,6 +4,7 @@ import { closeOverlay } from '../activities/action-creators'
 import { FileBrowser } from '../file-browser/file-browser'
 import {
   FileBrowserFileEntry,
+  FileBrowserFileEntryConfig,
   FileBrowserRootFolderId,
   FileBrowserType,
 } from '../file-browser/file-browser-types'
@@ -17,6 +18,10 @@ async function getReplayFolderPath() {
   return [await ipcRenderer.invoke('pathsGetDocumentsPath'), 'Starcraft', 'maps', 'replays'].join(
     '\\',
   )
+}
+
+function ExpansionPanel({ file }: { file: FileBrowserFileEntry }) {
+  return <div>Expanded!</div>
 }
 
 export function BrowseLocalReplays() {
@@ -35,9 +40,13 @@ export function BrowseLocalReplays() {
     [dispatch],
   )
 
-  const fileTypes = useMemo(
+  const fileEntryConfig: FileBrowserFileEntryConfig = useMemo(
     () => ({
-      rep: { icon: <Replay />, onSelect: onStartReplay },
+      icon: <Replay />,
+      allowedExtensions: ['rep'],
+      ExpansionPanelComponent: ExpansionPanel,
+      onSelect: onStartReplay,
+      onSelectTitle: 'Watch replay',
     }),
     [onStartReplay],
   )
@@ -61,7 +70,7 @@ export function BrowseLocalReplays() {
       browserType={FileBrowserType.Replays}
       title='Local Replays'
       rootFolders={rootFolders}
-      fileTypes={fileTypes}
+      fileEntryConfig={fileEntryConfig}
     />
   )
 }

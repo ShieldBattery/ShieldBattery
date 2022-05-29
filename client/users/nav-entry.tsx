@@ -2,19 +2,12 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
 import { Avatar } from '../avatars/avatar'
-import ExpandIcon from '../icons/material/expand_less_black_24px.svg'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
-import { fastOutSlowIn } from '../material/curve-constants'
 import { Ripple } from '../material/ripple'
+import { AnimatedExpandIcon } from '../styles/animated-expand-icon'
 import { colorTextFaint, colorTextPrimary } from '../styles/colors'
 import { cabin, singleLine } from '../styles/typography'
-
-const StyledExpandIcon = styled(ExpandIcon)<{ $flipped?: boolean }>`
-  transform: rotate(${props => (props.$flipped ? '180deg' : '0deg')});
-  transition: transform 125ms ${fastOutSlowIn};
-  will-change: transform;
-`
 
 const Container = styled.button`
   ${buttonReset};
@@ -31,13 +24,13 @@ const Container = styled.button`
   cursor: pointer;
   text-align: left;
 
-  & ${StyledExpandIcon} {
+  & ${AnimatedExpandIcon} {
     color: ${colorTextFaint};
   }
 
   &:hover,
   &:active {
-    & ${StyledExpandIcon} {
+    & ${AnimatedExpandIcon} {
       color: ${colorTextPrimary};
     }
   }
@@ -82,7 +75,7 @@ const ProfileNavEntry = React.forwardRef(
       <Container ref={ref} {...buttonProps}>
         <StyledAvatar user={user} />
         <User>{user}</User>
-        <StyledExpandIcon $flipped={profileMenuOpen} />
+        <AnimatedExpandIcon $flipped={profileMenuOpen} />
         <Ripple ref={rippleRef} />
       </Container>
     )
