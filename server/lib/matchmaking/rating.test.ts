@@ -73,8 +73,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(playerChange).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 9.599999999999999e-19,
-        "bonusUsedChange": 9.599999999999999e-19,
+        "bonusUsed": 0.0009599904000959991,
+        "bonusUsedChange": 0.0009599904000959991,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -104,8 +104,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
-        "points": 153.14285714285705,
-        "pointsChange": 153.14285714285705,
+        "points": 153.12578869576757,
+        "pointsChange": 153.12578869576757,
         "probability": 0.8727767622922719,
         "rating": 2002.4341359287553,
         "ratingChange": 2.4341359287552677,
@@ -151,8 +151,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
-        "points": 153.14285714285617,
-        "pointsChange": 153.14285714285617,
+        "points": 153.1125088742847,
+        "pointsChange": 153.1125088742847,
         "probability": 0.6394677305521533,
         "rating": 1631.3689199495877,
         "ratingChange": 131.36891994958773,
@@ -166,8 +166,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 9.599999999999992e-14,
-        "bonusUsedChange": 9.599999999999992e-14,
+        "bonusUsed": 0.01706844708957159,
+        "bonusUsedChange": 0.01706844708957159,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -218,8 +218,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
-        "points": 153.14285714285705,
-        "pointsChange": 153.14285714285705,
+        "points": 153.12578869576757,
+        "pointsChange": 153.12578869576757,
         "probability": 0.5,
         "rating": 1662.3108939062977,
         "ratingChange": 162.31089390629768,
@@ -233,8 +233,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 9.599999999999992e-14,
-        "bonusUsedChange": 9.599999999999992e-14,
+        "bonusUsed": 0.01706844708957159,
+        "bonusUsedChange": 0.01706844708957159,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -285,8 +285,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
-        "points": 153.14285714285617,
-        "pointsChange": 153.14285714285617,
+        "points": 153.1125088742847,
+        "pointsChange": 153.1125088742847,
         "probability": 0.8235503599873776,
         "rating": 1865.905393230908,
         "ratingChange": 65.90539323090798,
@@ -300,8 +300,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 9.600000000000001e-17,
-        "bonusUsedChange": 9.600000000000001e-17,
+        "bonusUsed": 0.003035690556797335,
+        "bonusUsedChange": 0.003035690556797335,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -344,8 +344,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(playerChange).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 9.599999999999905e-13,
-        "bonusUsedChange": 9.599999999999905e-13,
+        "bonusUsed": 0.0303482685724433,
+        "bonusUsedChange": 0.0303482685724433,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -375,8 +375,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
-        "points": 153.14285714285714,
-        "pointsChange": 153.14285714285714,
+        "points": 153.13982145230034,
+        "pointsChange": 153.13982145230034,
         "probability": 0.17644964001262234,
         "rating": 1707.6028572169848,
         "ratingChange": 307.60285721698483,
@@ -411,16 +411,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(playerChange).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 53.501916841180105,
-        "bonusUsedChange": 53.501916841180105,
+        "bonusUsed": 49.381169679935866,
+        "bonusUsedChange": 49.381169679935866,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
-        "points": 107.00383368236021,
-        "pointsChange": 107.00383368236021,
+        "points": 98.76233935987173,
+        "pointsChange": 98.76233935987173,
         "probability": 0.9989873147672865,
         "rating": 1800.4773358542373,
         "ratingChange": 0.47733585423725344,
@@ -434,8 +434,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 9.600000000000001e-17,
-        "bonusUsedChange": 9.600000000000001e-17,
+        "bonusUsed": 0.003035690556797335,
+        "bonusUsedChange": 0.003035690556797335,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -478,16 +478,16 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(playerChange).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 48.55259600746991,
-        "bonusUsedChange": 48.55259600746991,
+        "bonusUsed": 48.138154724078674,
+        "bonusUsedChange": 48.138154724078674,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
-        "points": 97.10519201493982,
-        "pointsChange": 97.10519201493982,
+        "points": 96.27630944815735,
+        "pointsChange": 96.27630944815735,
         "probability": 0.5,
         "rating": 163.3108939062979,
         "ratingChange": 162.3108939062979,
@@ -563,8 +563,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
-        "points": 5648.031796483463,
-        "pointsChange": 148.03179648346298,
+        "points": 5621.703782903016,
+        "pointsChange": 121.7037829030157,
         "probability": 0.5,
         "rating": 1504.599790880405,
         "ratingChange": 4.599790880404953,
@@ -586,8 +586,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "loss",
-        "points": 4999.969651731428,
-        "pointsChange": -0.0303482685724433,
+        "points": 4988.7044765165065,
+        "pointsChange": -11.295523483493623,
         "probability": 0.5,
         "rating": 1489.7214447426297,
         "ratingChange": -10.278555257370272,
@@ -639,8 +639,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
-        "points": 153.14285714285617,
-        "pointsChange": 153.14285714285617,
+        "points": 153.1125088742847,
+        "pointsChange": 153.1125088742847,
         "probability": 0.9067117622479638,
         "rating": 1800.6618473247609,
         "ratingChange": 0.6618473247608563,
@@ -654,8 +654,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 9.600000000000001e-17,
-        "bonusUsedChange": 9.600000000000001e-17,
+        "bonusUsed": 0.003035690556797335,
+        "bonusUsedChange": 0.003035690556797335,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -707,8 +707,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(playerChange).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 9.599999999999905e-13,
-        "bonusUsedChange": 9.599999999999905e-13,
+        "bonusUsed": 0.0303482685724433,
+        "bonusUsedChange": 0.0303482685724433,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -738,8 +738,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
-        "points": 153.14285714285714,
-        "pointsChange": 153.14285714285714,
+        "points": 153.13982145230034,
+        "pointsChange": 153.13982145230034,
         "probability": 0.0932882377520363,
         "rating": 1418.9261362476745,
         "ratingChange": 18.92613624767455,
@@ -787,8 +787,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
-        "points": 153.14285714285705,
-        "pointsChange": 153.14285714285705,
+        "points": 153.12578869576757,
+        "pointsChange": 153.12578869576757,
         "probability": 0.7605034968281987,
         "rating": 1805.8998778914479,
         "ratingChange": 5.899877891447886,
@@ -802,8 +802,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 9.600000000000001e-17,
-        "bonusUsedChange": 9.600000000000001e-17,
+        "bonusUsed": 0.003035690556797335,
+        "bonusUsedChange": 0.003035690556797335,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -851,8 +851,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(playerChange).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 9.599999999999992e-14,
-        "bonusUsedChange": 9.599999999999992e-14,
+        "bonusUsed": 0.01706844708957159,
+        "bonusUsedChange": 0.01706844708957159,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -882,8 +882,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "1v1",
         "outcome": "win",
-        "points": 153.14285714285714,
-        "pointsChange": 153.14285714285714,
+        "points": 153.13982145230034,
+        "pointsChange": 153.13982145230034,
         "probability": 0.15492878366474863,
         "rating": 1887.1725788267997,
         "ratingChange": 387.17257882679974,
@@ -995,8 +995,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
-        "points": 153.14285714285705,
-        "pointsChange": 153.14285714285705,
+        "points": 153.12578869576757,
+        "pointsChange": 153.12578869576757,
         "probability": 0.5,
         "rating": 1662.3108939062977,
         "ratingChange": 162.31089390629768,
@@ -1018,8 +1018,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
-        "points": 153.14285714285705,
-        "pointsChange": 153.14285714285705,
+        "points": 153.12578869576757,
+        "pointsChange": 153.12578869576757,
         "probability": 0.5,
         "rating": 1662.3108939062977,
         "ratingChange": 162.31089390629768,
@@ -1033,8 +1033,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent1Change).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 9.599999999999992e-14,
-        "bonusUsedChange": 9.599999999999992e-14,
+        "bonusUsed": 0.01706844708957159,
+        "bonusUsedChange": 0.01706844708957159,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -1056,8 +1056,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent2Change).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 9.599999999999992e-14,
-        "bonusUsedChange": 9.599999999999992e-14,
+        "bonusUsed": 0.01706844708957159,
+        "bonusUsedChange": 0.01706844708957159,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -1133,8 +1133,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
-        "points": 153.1428571428541,
-        "pointsChange": 153.1428571428541,
+        "points": 153.1023913428144,
+        "pointsChange": 153.1023913428144,
         "probability": 0.8498165352583855,
         "rating": 1857.5592656406598,
         "ratingChange": 57.55926564065976,
@@ -1156,8 +1156,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
-        "points": 153.1428571428541,
-        "pointsChange": 153.1428571428541,
+        "points": 153.1023913428144,
+        "pointsChange": 153.1023913428144,
         "probability": 0.7236957078097978,
         "rating": 1695.680481793672,
         "ratingChange": 95.68048179367202,
@@ -1171,8 +1171,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent1Change).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 9.6e-16,
-        "bonusUsedChange": 9.6e-16,
+        "bonusUsed": 0.005398173160242497,
+        "bonusUsedChange": 0.005398173160242497,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -1194,8 +1194,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent2Change).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 9.6e-16,
-        "bonusUsedChange": 9.6e-16,
+        "bonusUsed": 0.005398173160242497,
+        "bonusUsedChange": 0.005398173160242497,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -1263,8 +1263,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(player1Change).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 3.035786553761548e-12,
-        "bonusUsedChange": 3.035786553761548e-12,
+        "bonusUsed": 0.040465800042757426,
+        "bonusUsedChange": 0.040465800042757426,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -1286,8 +1286,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(player2Change).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 3.035786553761548e-12,
-        "bonusUsedChange": 3.035786553761548e-12,
+        "bonusUsed": 0.040465800042757426,
+        "bonusUsedChange": 0.040465800042757426,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -1317,8 +1317,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
-        "points": 153.14285714285714,
-        "pointsChange": 153.14285714285714,
+        "points": 153.1374589696969,
+        "pointsChange": 153.1374589696969,
         "probability": 0.2394965031718012,
         "rating": 1669.7644622294274,
         "ratingChange": 269.7644622294274,
@@ -1340,8 +1340,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
-        "points": 153.14285714285714,
-        "pointsChange": 153.14285714285714,
+        "points": 153.1374589696969,
+        "pointsChange": 153.1374589696969,
         "probability": 0.17644964001262234,
         "rating": 1607.6028572169848,
         "ratingChange": 307.60285721698483,
@@ -1413,8 +1413,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
-        "points": 153.14285714285705,
-        "pointsChange": 153.14285714285705,
+        "points": 153.12578869576757,
+        "pointsChange": 153.12578869576757,
         "probability": 0.5,
         "rating": 1517.2335985230613,
         "ratingChange": 17.233598523061346,
@@ -1436,8 +1436,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
-        "points": 153.14285714285705,
-        "pointsChange": 153.14285714285705,
+        "points": 153.12578869576757,
+        "pointsChange": 153.12578869576757,
         "probability": 0.5,
         "rating": 1515.2686772489176,
         "ratingChange": 15.268677248917584,
@@ -1451,8 +1451,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent1Change).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 9.599999999999992e-14,
-        "bonusUsedChange": 9.599999999999992e-14,
+        "bonusUsed": 0.01706844708957159,
+        "bonusUsedChange": 0.01706844708957159,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -1474,8 +1474,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent2Change).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 9.599999999999992e-14,
-        "bonusUsedChange": 9.599999999999992e-14,
+        "bonusUsed": 0.01706844708957159,
+        "bonusUsedChange": 0.01706844708957159,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -1551,8 +1551,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
-        "points": 153.14285714285705,
-        "pointsChange": 153.14285714285705,
+        "points": 153.12578869576757,
+        "pointsChange": 153.12578869576757,
         "probability": 0.7605034968281987,
         "rating": 1884.9537748435948,
         "ratingChange": 84.95377484359483,
@@ -1574,8 +1574,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
-        "points": 153.14285714285705,
-        "pointsChange": 153.14285714285705,
+        "points": 153.12578869576757,
+        "pointsChange": 153.12578869576757,
         "probability": 0.31641538274428405,
         "rating": 1531.6685868916709,
         "ratingChange": 231.66858689167088,
@@ -1589,8 +1589,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent1Change).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 3.035786553761644e-14,
-        "bonusUsedChange": 3.035786553761644e-14,
+        "bonusUsed": 0.012800098828155795,
+        "bonusUsedChange": 0.012800098828155795,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -1612,8 +1612,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(opponent2Change).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 3.035786553761644e-14,
-        "bonusUsedChange": 3.035786553761644e-14,
+        "bonusUsed": 0.012800098828155795,
+        "bonusUsedChange": 0.012800098828155795,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -1681,8 +1681,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
 
     expect(player1Change).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 9.599999999999992e-14,
-        "bonusUsedChange": 9.599999999999992e-14,
+        "bonusUsed": 0.01706844708957159,
+        "bonusUsedChange": 0.01706844708957159,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -1704,8 +1704,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     `)
     expect(player2Change).toMatchInlineSnapshot(`
       Object {
-        "bonusUsed": 9.599999999999992e-14,
-        "bonusUsedChange": 9.599999999999992e-14,
+        "bonusUsed": 0.01706844708957159,
+        "bonusUsedChange": 0.01706844708957159,
         "changeDate": 2022-05-02T00:00:00.000Z,
         "gameId": "asdfzxcv",
         "kFactor": 0,
@@ -1735,8 +1735,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
-        "points": 153.1428571428571,
-        "pointsChange": 153.1428571428571,
+        "points": 153.130057044029,
+        "pointsChange": 153.130057044029,
         "probability": 0.4048860337291681,
         "rating": 1645.3970569806693,
         "ratingChange": 195.39705698066928,
@@ -1758,8 +1758,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         "kFactorChange": 0,
         "matchmakingType": "2v2",
         "outcome": "win",
-        "points": 153.1428571428571,
-        "pointsChange": 153.1428571428571,
+        "points": 153.130057044029,
+        "pointsChange": 153.130057044029,
         "probability": 0.5,
         "rating": 1712.3108939062977,
         "ratingChange": 162.31089390629768,

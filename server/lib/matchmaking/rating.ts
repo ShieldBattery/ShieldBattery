@@ -262,7 +262,7 @@ function makeRatingChange({
   // Calculate change in points
   const pointsWithoutBonus = Math.max(player.points - player.bonusUsed, 0)
   const winProbability =
-    1 / (1 + Math.pow(10, (4 * opponentRatingGlicko - pointsWithoutBonus) / 400))
+    1 / (1 + Math.pow(10, (4 * opponentRatingGlicko - pointsWithoutBonus) / 1600))
   let pointsChange = 4 * POINTS_ELO_K_FACTOR * (outcome - winProbability)
   if (result === 'win' && pointsChange < 1) {
     pointsChange = 1
