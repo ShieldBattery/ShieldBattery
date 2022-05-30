@@ -14,10 +14,13 @@ export function openSimpleDialog(
   simpleContent: React.ReactNode,
   hasButton = true,
 ): OpenDialog {
-  return openDialog({
-    type: DialogType.Simple,
-    initData: { simpleTitle, simpleContent, hasButton },
-  })
+  return {
+    type: '@dialogs/open',
+    payload: {
+      type: DialogType.Simple,
+      initData: { simpleTitle, simpleContent, hasButton },
+    },
+  }
 }
 
 export function closeDialog(dialogType: DialogType | 'all'): CloseDialog {

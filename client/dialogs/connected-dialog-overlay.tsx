@@ -1,7 +1,7 @@
 import { rgba } from 'polished'
 import React, { useCallback, useRef } from 'react'
 import ReactDOM from 'react-dom'
-import { animated, SpringValues, useTransition, UseTransitionProps } from 'react-spring'
+import { animated, useTransition, UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import EditAccount from '../auth/edit-account'
@@ -27,7 +27,6 @@ import {
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import Settings from '../settings/settings'
 import StarcraftPathDialog from '../settings/starcraft-path-dialog'
-import { isStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 import { ShieldBatteryHealthDialog } from '../starcraft/shieldbattery-health'
 import StarcraftHealthCheckupDialog from '../starcraft/starcraft-health'
 import { dialogScrim } from '../styles/colors'
@@ -55,16 +54,16 @@ const VISIBLE_SCRIM_COLOR = rgba(dialogScrim, 0.42)
 const noop = () => {}
 
 export interface DialogContextValue {
-  styles: SpringValues
+  styles: React.CSSProperties
 }
 export const DialogContext = React.createContext<DialogContextValue>({
   styles: {},
 })
 
-function getDialog(
-  dialogType: DialogType,
-  starcraftState: any,
-): { component: React.ComponentType<any>; modal: boolean } {
+function getDialog(dialogType: DialogType): {
+  component: React.ComponentType<any>
+  modal: boolean
+} {
   switch (dialogType) {
     case DialogType.AcceptMatch:
       return { component: AcceptMatch, modal: true }
@@ -93,9 +92,7 @@ function getDialog(
     case DialogType.PrivacyPolicy:
       return { component: PrivacyPolicyDialog, modal: false }
     case DialogType.Settings:
-      return isStarcraftHealthy({ starcraft: starcraftState })
-        ? { component: Settings, modal: false }
-        : { component: StarcraftPathDialog, modal: false }
+      return { component: Settings, modal: false }
     case DialogType.Simple:
       return { component: SimpleDialog, modal: false }
     case DialogType.ShieldBatteryHealth:
@@ -118,13 +115,12 @@ export function ConnectedDialogOverlay() {
   const dialogHistory = useAppSelector(s => s.dialog.history)
   const isDialogOpen = dialogHistory.length > 0
   const topDialog = isDialogOpen ? dialogHistory[dialogHistory.length - 1] : undefined
-  const starcraft = useAppSelector(s => s.starcraft)
 
   const focusableRef = useRef<HTMLSpanElement>(null)
   const dialogRef = useRef<HTMLElement>(null)
   const portalRef = useExternalElementRef()
 
-  const isTopDialogModal = topDialog ? getDialog(topDialog.type, starcraft).modal : false
+  const isTopDialogModal = topDialog ? getDialog(topDialog.type).modal : false
   const onCancel = useCallback(
     (dialogType: DialogType | 'all', event?: React.MouseEvent) => {
       if (!event || !isHandledDismissalEvent(event.nativeEvent)) {
@@ -165,27 +161,32 @@ export function ConnectedDialogOverlay() {
 
   return ReactDOM.createPortal(
     <>
-      {scrimTransition(
-        (styles, open) =>
-          open && (
-            <Scrim
-              style={styles}
-              onClick={event =>
-                isTopDialogModal ? noop() : onCancel(topDialog?.type ?? 'all', event)
-              }
-            />
-          ),
-      )}
-      {dialogTransition((styles, dialogState) => {
-        const { component: DialogComponent, modal } = getDialog(dialogState.type, starcraft)
+      {dialogTransition((dialogStyles, dialogState, transition, index) => {
+        const { component: DialogComponent, modal } = getDialog(dialogState.type)
+        const isTopDialog = dialogHistory.length - 1 === index
 
         // Dialog content implementations should focus *something* when mounted, so that our focus
         // traps have the proper effect of keeping focus in the dialog
         return (
           <>
+            {scrimTransition(
+              (scrimStyles, open) =>
+                open &&
+                isTopDialog && (
+                  <Scrim
+                    style={scrimStyles}
+                    onClick={event =>
+                      isTopDialogModal ? noop() : onCancel(topDialog?.type ?? 'all', event)
+                    }
+                  />
+                ),
+            )}
             <span tabIndex={0} onFocus={onFocusTrap} />
             <span ref={focusableRef} tabIndex={-1}>
-              <DialogContext.Provider value={{ styles }}>
+              <DialogContext.Provider
+                value={{
+                  styles: { ...dialogStyles, pointerEvents: isTopDialog ? undefined : 'none' },
+                }}>
                 <DialogComponent
                   dialogRef={dialogRef}
                   onCancel={(event: React.MouseEvent) =>

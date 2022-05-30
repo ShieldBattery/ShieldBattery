@@ -2,9 +2,33 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import { LocalSettingsData, ScrSettingsData } from '../../common/local-settings'
 import { LOCAL_SETTINGS_SET_BEGIN, SCR_SETTINGS_SET_BEGIN } from '../actions'
 import { audioManager } from '../audio/audio-manager'
+import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
+import { isStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 
 const ipcRenderer = new TypedIpcRenderer()
+
+export function openSettingsDialog(): ThunkAction {
+  return (dispatch, getState) => {
+    const { starcraft } = getState()
+
+    if (!isStarcraftHealthy({ starcraft })) {
+      dispatch({
+        type: '@dialogs/open',
+        payload: {
+          type: DialogType.StarcraftPath,
+        },
+      })
+    } else {
+      dispatch({
+        type: '@dialogs/open',
+        payload: {
+          type: DialogType.Settings,
+        },
+      })
+    }
+  }
+}
 
 export function mergeLocalSettings(settings: Partial<LocalSettingsData>): ThunkAction {
   return dispatch => {
