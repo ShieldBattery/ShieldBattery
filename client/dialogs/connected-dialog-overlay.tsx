@@ -161,18 +161,7 @@ export function ConnectedDialogOverlay() {
 
   return ReactDOM.createPortal(
     <>
-      {scrimTransition(
-        (styles, open) =>
-          open && (
-            <Scrim
-              style={styles}
-              onClick={event =>
-                isTopDialogModal ? noop() : onCancel(topDialog?.type ?? 'all', event)
-              }
-            />
-          ),
-      )}
-      {dialogTransition((styles, dialogState, transition, index) => {
+      {dialogTransition((dialogStyles, dialogState, transition, index) => {
         const { component: DialogComponent, modal } = getDialog(dialogState.type)
         const isTopDialog = dialogHistory.length - 1 === index
 
@@ -180,10 +169,24 @@ export function ConnectedDialogOverlay() {
         // traps have the proper effect of keeping focus in the dialog
         return (
           <>
+            {scrimTransition(
+              (scrimStyles, open) =>
+                open &&
+                isTopDialog && (
+                  <Scrim
+                    style={scrimStyles}
+                    onClick={event =>
+                      isTopDialogModal ? noop() : onCancel(topDialog?.type ?? 'all', event)
+                    }
+                  />
+                ),
+            )}
             <span tabIndex={0} onFocus={onFocusTrap} />
             <span ref={focusableRef} tabIndex={-1}>
               <DialogContext.Provider
-                value={{ styles: { ...styles, pointerEvents: isTopDialog ? 'auto' : 'none' } }}>
+                value={{
+                  styles: { ...dialogStyles, pointerEvents: isTopDialog ? undefined : 'none' },
+                }}>
                 <DialogComponent
                   dialogRef={dialogRef}
                   onCancel={(event: React.MouseEvent) =>
