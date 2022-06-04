@@ -146,7 +146,7 @@ export function getChatUserProfile(
       return
     }
 
-    const channelTargetId = `${channel}|${targetId}`
+    const channelTargetId: `${string}|${SbUserId}` = `${channel}|${targetId}`
     if (chatUserProfileLoadsInProgress.has(channelTargetId)) {
       return
     }
