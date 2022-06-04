@@ -696,7 +696,7 @@ export class AdminUserApi {
       throw new UserApiError(UserErrorCode.NotFound, 'user not found')
     }
 
-    if (ctx.session!.id === params.id) {
+    if (ctx.session!.userId === params.id) {
       await updateAllSessionsForCurrentUser(ctx, { permissions })
     } else {
       await updateAllSessions(params.id, { permissions })
