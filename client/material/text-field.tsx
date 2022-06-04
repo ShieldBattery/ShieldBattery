@@ -239,7 +239,7 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
 
     const onInputKeyDown = useCallback(
       (event: React.KeyboardEvent<HTMLInputElement>) => {
-        if (event.code === 'Enter' || event.code === 'EnterNumpad') {
+        if (event.code === 'Enter' || event.code === 'NumpadEnter') {
           onEnterKeyDown?.(event)
         }
 
