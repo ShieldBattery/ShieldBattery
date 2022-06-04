@@ -1,4 +1,3 @@
-import { Session } from 'koa-generic-session'
 import { Logger } from 'pino'
 import promClient from 'prom-client'
 import { MatchmakingType } from '../common/matchmaking'
@@ -6,7 +5,8 @@ import { SbPermissions } from '../common/users/permissions'
 import { SbUserId } from '../common/users/sb-user'
 
 declare module 'koa' {
-  interface AppSession extends Session {
+  interface AppSession {
+    cookie: any // TODO(tec27): Type this better, this is how koa-generic-session types it as well
     // TODO(tec27): Maybe just move these user fields into a SelfUser to keep things synced up?
     userId: SbUserId
     userName: string

@@ -15,7 +15,7 @@ export async function updateAllSessionsForCurrentUser(
   // Update the user's current session first, just in case something goes wrong below, we don't
   // want to be saving the outdated session over anything we've updated
   for (const [key, value] of Object.entries(updatedValues)) {
-    ctx.session[key] = value
+    ;(ctx.session as any)[key] = value
   }
 
   return updateAllSessions(ctx.session.userId, updatedValues)
