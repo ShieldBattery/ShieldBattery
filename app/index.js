@@ -3,7 +3,7 @@ require('@babel/register')({
     [
       '@babel/preset-env',
       {
-        targets: { electron: '18.2' },
+        targets: { electron: '19.0' },
         useBuiltIns: 'usage',
         corejs: 3,
       },
