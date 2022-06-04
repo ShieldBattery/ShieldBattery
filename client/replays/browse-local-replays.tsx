@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { getGameDurationStr } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
+import { MapInfoJson } from '../../common/maps'
 import { replayGameTypeToLabel, replayRaceToChar } from '../../common/replays'
 import { closeOverlay } from '../activities/action-creators'
 import { FileBrowser } from '../file-browser/file-browser'
@@ -15,7 +16,7 @@ import {
 } from '../file-browser/file-browser-types'
 import Replay from '../icons/material/ic_movie_black_24px.svg'
 import { RaceIcon } from '../lobbies/race-icon'
-import { FightingSpirit } from '../maps/devonly/maps-for-testing'
+import { MapNoImage } from '../maps/map-image'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { RaisedButton } from '../material/button'
 import { shadow2dp } from '../material/shadows'
@@ -131,6 +132,14 @@ const ReplayInfo = styled.div`
   color: ${colorTextSecondary};
 `
 
+const MapNoImageContainer = styled.div`
+  position: relative;
+  width: 100%;
+  height: auto;
+  border-radius: 2px;
+  contain: content;
+`
+
 const ReplayActionsContainer = styled.div`
   display: flex;
   justify-content: flex-end;
@@ -142,6 +151,7 @@ const ReplayActionsContainer = styled.div`
 export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
   const dispatch = useAppDispatch()
   const [replayHeader, setReplayHeader] = useState<ReplayHeader>()
+  const [mapInfo, setMapInfo] = useState<MapInfoJson>()
 
   useEffect(() => {
     // TODO(2Pac): cache this?
@@ -198,7 +208,13 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
       <InfoContainer>
         <PlayerListContainer>{playerListItems}</PlayerListContainer>
         <MapContainer>
-          <StyledMapThumbnail map={FightingSpirit} />
+          {mapInfo ? (
+            <StyledMapThumbnail map={mapInfo} />
+          ) : (
+            <MapNoImageContainer>
+              <MapNoImage />
+            </MapNoImageContainer>
+          )}
           <MapName>{replayHeader?.mapName ?? 'Unknown map'}</MapName>
           <ReplayInfo>Game type: {gameTypeLabel}</ReplayInfo>
           <ReplayInfo>Duration: {durationStr}</ReplayInfo>
