@@ -1,3 +1,19 @@
+#### 8.4.0 (June 4, 2022)
+
+- **Seasons.** Rankings will now be reset periodically (exact schedule still TBD), with the first
+  reset occurring shortly after this update. Thank you to everyone that participated in our beta
+  season, and we'll see you in Season 1!
+- **New ranked system.** We've deployed a new ranked system based on Glicko 2, with tons of
+  improvements from things we learned during our beta season. Our main goals are to encourage
+  player activity throughout the season, to provide accurate and close matches even during the
+  beginning of a season, and to make rankings feel earned. Players now have a _rating_ (MMR), used
+  for finding balanced matches, and _points_ (RP), which are won or lost based on your performance
+  and skill level. Points are reset to 0 each season and used for determining ladder rankings, while
+  rating is carried across seasons. There is also a bonus pool that all players collect at a rate of
+  400 points per week: this pool will be used to offset point losses, or double point gains (so it's
+  in your best interest to play throughout the whole season so you receive all the bonus points!).
+  We look forward to your continued feedback on this system!
+
 #### 8.3.0 (May 12, 2022)
 
 - **Main race in ladder rankings.** The ladder rankings now display a player's main race, detected
