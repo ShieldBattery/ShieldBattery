@@ -323,6 +323,7 @@ export function FileBrowser({
   })
 
   const onFileExpandClick = useStableCallback((file: FileBrowserFileEntry) => {
+    setFocusedPath(file.path)
     const isExpanded = expandedFiles.get(file.path)
     setExpandedFiles(produce(draft => draft.set(file.path, !isExpanded)))
   })

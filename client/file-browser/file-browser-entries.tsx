@@ -101,6 +101,8 @@ export function FolderEntry({
 }
 
 const SelectButton = styled(TextButton)<{ $focused: boolean }>`
+  margin: 0 8px;
+
   ${props =>
     !props.$focused
       ? css`
@@ -149,64 +151,66 @@ const ExpandText = styled.div`
 // do. In case we need to add more custom functionality to it, we should probably split this into
 // multiple components, e.g. `<SimpleFileEntry />`, `<ExpandedFileEntry />` etc., *or*, allow file
 // browsers to define completely custom components for their files.
-export function FileEntry({
-  file,
-  fileEntryConfig,
-  isFocused,
-  isExpanded,
-  onClick,
-  onExpandClick,
-}: FileBrowserEntryProps & {
-  file: FileBrowserFileEntry
-  fileEntryConfig: FileBrowserFileEntryConfig
-  isFocused: boolean
-  isExpanded?: boolean
-  onClick: (entry: FileBrowserFileEntry) => void
-  onExpandClick?: (entry: FileBrowserFileEntry) => void
-}) {
-  const { icon, ExpansionPanelComponent, onSelect, onSelectTitle } = fileEntryConfig
+export const FileEntry = React.memo(
+  ({
+    file,
+    fileEntryConfig,
+    isFocused,
+    isExpanded,
+    onClick,
+    onExpandClick,
+  }: FileBrowserEntryProps & {
+    file: FileBrowserFileEntry
+    fileEntryConfig: FileBrowserFileEntryConfig
+    isFocused: boolean
+    isExpanded?: boolean
+    onClick: (entry: FileBrowserFileEntry) => void
+    onExpandClick?: (entry: FileBrowserFileEntry) => void
+  }) => {
+    const { icon, ExpansionPanelComponent, onSelect, onSelectTitle } = fileEntryConfig
 
-  const handleExpandClick = useStableCallback((event: React.MouseEvent) => {
-    event.stopPropagation()
-    onExpandClick?.(file)
-  })
+    const handleExpandClick = useStableCallback((event: React.MouseEvent) => {
+      event.stopPropagation()
+      onExpandClick?.(file)
+    })
 
-  return (
-    <>
-      <FileEntryContainer
-        $clickable={!ExpansionPanelComponent}
-        $focused={isFocused}
-        onClick={() => onClick(file)}>
-        <EntryIcon>{icon}</EntryIcon>
-        <InfoContainer>
-          <Subtitle1>{file.name}</Subtitle1>
-          <Caption>{longTimestamp.format(file.date)}</Caption>
-        </InfoContainer>
-        {ExpansionPanelComponent ? (
-          <>
-            <SelectButton
-              $focused={isFocused}
-              label={onSelectTitle}
-              onClick={() => onSelect(file)}
-            />
-            <StyledTooltip
-              $focused={isFocused}
-              text={
-                <ExpandText>
-                  <span>Expand replay</span>
-                  <span>(Space)</span>
-                </ExpandText>
-              }
-              position='bottom'>
-              <IconButton
-                icon={<AnimatedExpandIcon $flipped={isExpanded} $reversed={true} />}
-                onClick={handleExpandClick}
+    return (
+      <>
+        <FileEntryContainer
+          $clickable={!ExpansionPanelComponent}
+          $focused={isFocused}
+          onClick={() => onClick(file)}>
+          <EntryIcon>{icon}</EntryIcon>
+          <InfoContainer>
+            <Subtitle1>{file.name}</Subtitle1>
+            <Caption>{longTimestamp.format(file.date)}</Caption>
+          </InfoContainer>
+          {ExpansionPanelComponent ? (
+            <>
+              <SelectButton
+                $focused={isFocused}
+                label={onSelectTitle}
+                onClick={() => onSelect(file)}
               />
-            </StyledTooltip>
-          </>
-        ) : null}
-      </FileEntryContainer>
-      {isExpanded && !!ExpansionPanelComponent ? <ExpansionPanelComponent file={file} /> : null}
-    </>
-  )
-}
+              <StyledTooltip
+                $focused={isFocused}
+                text={
+                  <ExpandText>
+                    <span>Expand</span>
+                    <span>(Space)</span>
+                  </ExpandText>
+                }
+                position='bottom'>
+                <IconButton
+                  icon={<AnimatedExpandIcon $flipped={isExpanded} $reversed={true} />}
+                  onClick={handleExpandClick}
+                />
+              </StyledTooltip>
+            </>
+          ) : null}
+        </FileEntryContainer>
+        {isExpanded && !!ExpansionPanelComponent && <ExpansionPanelComponent file={file} />}
+      </>
+    )
+  },
+)

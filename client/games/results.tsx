@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameConfigPlayer, GameSource, isTeamType } from '../../common/games/configuration'
-import { GameRecordJson, getGameTypeLabel } from '../../common/games/games'
+import { GameRecordJson, getGameDurationStr, getGameTypeLabel } from '../../common/games/games'
 import { ReconciledPlayerResult, ReconciledResult } from '../../common/games/results'
 import { getTeamNames } from '../../common/maps'
 import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
@@ -147,18 +147,6 @@ const gameDateFormat = new Intl.DateTimeFormat(navigator.language, {
   month: 'short',
   day: '2-digit',
 })
-
-function getDurationStr(durationMs: number): string {
-  const timeSec = Math.floor(durationMs / 1000)
-  const hours = Math.floor(timeSec / 3600)
-  const minutes = Math.floor(timeSec / 60) % 60
-  const seconds = timeSec % 60
-
-  return [hours, minutes, seconds]
-    .map(v => ('' + v).padStart(2, '0'))
-    .filter((v, i) => v !== '00' || i > 0)
-    .join(':')
-}
 
 export interface ConnectedGameResultsPageProps {
   gameId: string
@@ -331,7 +319,7 @@ export function ConnectedGameResultsPage({
               <HeaderInfoItem>
                 <HeaderInfoLabel>Duration</HeaderInfoLabel>
                 <HeaderInfoValue>
-                  {game.gameLength ? getDurationStr(game.gameLength) : '—'}
+                  {game.gameLength ? getGameDurationStr(game.gameLength) : '—'}
                 </HeaderInfoValue>
               </HeaderInfoItem>
             </>
