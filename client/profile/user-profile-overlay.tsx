@@ -382,6 +382,7 @@ function RankDisplay({
           {ladderPlayer.rank}
         </RankDisplayRank>
         <RankDisplayRating>{Math.round(ladderPlayer.rating)} MMR</RankDisplayRating>
+        <RankDisplayRating>{Math.round(ladderPlayer.points)} RP</RankDisplayRating>
         <RankWinLoss>
           {ladderPlayer.wins} &ndash; {ladderPlayer.losses}
         </RankWinLoss>
