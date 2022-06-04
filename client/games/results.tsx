@@ -609,8 +609,15 @@ const PlayerName = styled.div`
   flex-grow: 1;
 `
 
+const MmrChangeColumn = styled.div`
+  width: 136px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+`
+
 const GameResultColumn = styled.div`
-  width: 128px;
+  width: 72px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -623,7 +630,7 @@ const StyledGameResultText = styled(GameResultText)`
   text-align: right;
 `
 
-const StyledPointsChangeText = styled(PointsChangeText)`
+const StyledPointsChangeText = styled(MmrChangeText)`
   ${body1};
   ${singleLine};
   text-align: right;
@@ -650,9 +657,13 @@ export function PlayerResult({ className, config, result, mmrChange }: PlayerRes
       </RaceRoot>
       {config.isComputer ? <StyledComputerAvatar /> : <PlayerAvatar user={user?.name ?? ''} />}
       <PlayerName>{config.isComputer ? 'Computer' : user?.name ?? ''}</PlayerName>
+      {mmrChange ? (
+        <MmrChangeColumn>
+          <StyledPointsChangeText change={mmrChange} />
+        </MmrChangeColumn>
+      ) : undefined}
       <GameResultColumn>
         <StyledGameResultText result={result?.result ?? 'unknown'} />
-        {mmrChange ? <StyledPointsChangeText change={mmrChange} /> : null}
       </GameResultColumn>
       <Ripple ref={rippleRef} />
     </PlayerResultContainer>
@@ -687,7 +698,7 @@ export function GameResultText({ className, result }: GameResultTextProps) {
   }
 }
 
-function PointsChangeText({
+function MmrChangeText({
   className,
   change,
 }: {
@@ -704,10 +715,10 @@ function PointsChangeText({
       <TooltipContent $position={props.$position}>
         <div>
           <div>
-            Base: <PointDelta delta={changeWithoutBonus} />
+            Base: <NumberDelta delta={changeWithoutBonus} />
           </div>
           <div>
-            Bonus: <PointDelta delta={bonusChange} />
+            Bonus: <NumberDelta delta={bonusChange} />
           </div>
         </div>
       </TooltipContent>
@@ -715,14 +726,24 @@ function PointsChangeText({
     [changeWithoutBonus, bonusChange],
   )
 
+  const roundRating = Math.round(change.rating)
+  const ratingChange = Math.round(change.ratingChange)
+
   return (
-    <Tooltip className={className} text={''} ContentComponent={PointsOverview} position={'right'}>
-      {roundPoints} (<PointDelta delta={roundChange} />)
-    </Tooltip>
+    <>
+      <span>
+        {roundRating} MMR (<NumberDelta delta={ratingChange} />)
+      </span>
+      <Tooltip className={className} text={''} ContentComponent={PointsOverview} position={'right'}>
+        <span>
+          {roundPoints} RP (<NumberDelta delta={roundChange} />)
+        </span>
+      </Tooltip>
+    </>
   )
 }
 
-function PointDelta({ className, delta }: { className?: string; delta: number }) {
+function NumberDelta({ className, delta }: { className?: string; delta: number }) {
   if (delta === 0) {
     return <span className={className}>+0</span>
   } else if (delta > 0) {

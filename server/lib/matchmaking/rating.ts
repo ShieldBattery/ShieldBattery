@@ -271,7 +271,7 @@ function makeRatingChange({
   // Apply bonus pool
   const timeSinceSeasonStart = Number(gameDate) - Number(season.startDate)
   const bonusAvailable = Math.max(
-    timeSinceSeasonStart * MATCHMAKING_BONUS_EARNED_PER_MS - player.bonusUsed,
+    Math.floor(timeSinceSeasonStart * MATCHMAKING_BONUS_EARNED_PER_MS - player.bonusUsed),
     0,
   )
   // For wins, bonus pool can up to double the point improvement. For losses, bonus pool can offset
