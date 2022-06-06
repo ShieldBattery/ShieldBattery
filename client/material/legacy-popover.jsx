@@ -2,7 +2,7 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
 import WindowListener from '../dom/window-listener'
-import KeyListener from '../keyboard/key-listener'
+import KeyListener, { KeyListenerBoundary } from '../keyboard/key-listener'
 import { CardLayer } from '../styles/colors'
 import { fastOutSlowIn } from './curve-constants'
 import { Portal } from './portal'
@@ -331,18 +331,20 @@ export class LegacyPopover extends React.Component {
         <span ref={this.recalcPopoverPosition}>
           <WindowListener event='resize' listener={this.recalcPopoverPosition} />
           <WindowListener event='scroll' listener={this.recalcPopoverPosition} />
-          <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
           {open ? (
-            <Container key={'popover'} style={popoverStyle} ref={this._ref}>
-              {disableScaleTransition ? null : (
-                <ScaleHorizontal style={this.state.scaleHorizontalStyle}>
-                  <ScaleVertical style={this.state.scaleVerticalStyle}>
-                    <Background style={this.state.backgroundStyle} />
-                  </ScaleVertical>
-                </ScaleHorizontal>
-              )}
-              {children(state, TIMINGS)}
-            </Container>
+            <KeyListenerBoundary>
+              <KeyListener onKeyDown={this.onKeyDown} />
+              <Container key={'popover'} style={popoverStyle} ref={this._ref}>
+                {disableScaleTransition ? null : (
+                  <ScaleHorizontal style={this.state.scaleHorizontalStyle}>
+                    <ScaleVertical style={this.state.scaleVerticalStyle}>
+                      <Background style={this.state.backgroundStyle} />
+                    </ScaleVertical>
+                  </ScaleHorizontal>
+                )}
+                {children(state, TIMINGS)}
+              </Container>
+            </KeyListenerBoundary>
           ) : null}
         </span>
       )

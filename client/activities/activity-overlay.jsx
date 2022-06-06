@@ -3,7 +3,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import styled from 'styled-components'
-import KeyListener from '../keyboard/key-listener'
+import KeyListener, { KeyListenerBoundary } from '../keyboard/key-listener'
 import JoinLobby from '../lobbies/join-lobby'
 import { fastOutLinearIn, linearOutSlowIn } from '../material/curve-constants'
 import { isHandledDismissalEvent } from '../material/dismissal-events'
@@ -145,9 +145,11 @@ export default class ActivityOverlay extends React.Component {
     return (
       <CSSTransition classNames={transitionNames} timeout={{ enter: 350, exit: 250 }}>
         <Container key={'overlay'}>
-          <KeyListener onKeyDown={this.onKeyDown} exclusive={true} />
-          <Scrim onClick={this.onScrimClick} />
-          <Overlay>{overlayComponent}</Overlay>
+          <KeyListenerBoundary>
+            <KeyListener onKeyDown={this.onKeyDown} />
+            <Scrim onClick={this.onScrimClick} />
+            <Overlay>{overlayComponent}</Overlay>
+          </KeyListenerBoundary>
         </Container>
       </CSSTransition>
     )

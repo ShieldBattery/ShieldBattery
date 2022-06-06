@@ -5,7 +5,7 @@ import { animated } from 'react-spring'
 import styled, { css } from 'styled-components'
 import { DialogContext } from '../dialogs/connected-dialog-overlay'
 import CloseDialogIcon from '../icons/material/ic_close_black_24px.svg'
-import KeyListener from '../keyboard/key-listener'
+import KeyListener, { KeyListenerBoundary } from '../keyboard/key-listener'
 import { background900, CardLayer, colorDividers } from '../styles/colors'
 import { headline5 } from '../styles/typography'
 import { IconButton } from './button'
@@ -203,22 +203,26 @@ export function Dialog({
   return (
     <Container role='dialog'>
       <Surface className={className} style={{ ...style, ...dialogContext.styles }} ref={dialogRef}>
-        <KeyListener onKeyDown={onKeyDown} exclusive={true} />
-        <TitleBar $fullBleed={fullBleed} $showDivider={!isAtTop && !tabs}>
-          <Title>{title}</Title>
-          {titleAction}
-          {closeButton}
-        </TitleBar>
-        {tabs ? (
-          <TabsContainer $showDivider={!isAtTop || alwaysHasTopDivider}>{tabs}</TabsContainer>
-        ) : null}
+        <KeyListenerBoundary>
+          <KeyListener onKeyDown={onKeyDown} />
+          <TitleBar $fullBleed={fullBleed} $showDivider={!isAtTop && !tabs}>
+            <Title>{title}</Title>
+            {titleAction}
+            {closeButton}
+          </TitleBar>
+          {tabs ? (
+            <TabsContainer $showDivider={!isAtTop || alwaysHasTopDivider}>{tabs}</TabsContainer>
+          ) : null}
 
-        <Body $fullBleed={fullBleed}>
-          {topNode}
-          {children}
-          {bottomNode}
-        </Body>
-        {buttons && buttons.length ? <Actions $showDivider={!isAtBottom}>{buttons}</Actions> : null}
+          <Body $fullBleed={fullBleed}>
+            {topNode}
+            {children}
+            {bottomNode}
+          </Body>
+          {buttons && buttons.length ? (
+            <Actions $showDivider={!isAtBottom}>{buttons}</Actions>
+          ) : null}
+        </KeyListenerBoundary>
       </Surface>
     </Container>
   )

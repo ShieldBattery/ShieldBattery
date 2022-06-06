@@ -6,7 +6,7 @@ import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useElementRect, useObservedDimensions } from '../dom/dimension-hooks'
 import { useWindowListener } from '../dom/window-listener'
-import { useKeyListener } from '../keyboard/key-listener'
+import { KeyListenerBoundary, useKeyListener } from '../keyboard/key-listener'
 import { useForceUpdate, usePreviousDefined } from '../state-hooks'
 import { CardLayer } from '../styles/colors'
 import { Portal } from './portal'
@@ -121,9 +121,11 @@ export function Popover(props: PopoverProps) {
     (styles, open) =>
       open && (
         <Portal onDismiss={props.onDismiss} open={open}>
-          <PopoverContent {...props} styles={styles}>
-            <Card>{props.children}</Card>
-          </PopoverContent>
+          <KeyListenerBoundary>
+            <PopoverContent {...props} styles={styles}>
+              <Card>{props.children}</Card>
+            </PopoverContent>
+          </KeyListenerBoundary>
         </Portal>
       ),
   )
@@ -170,7 +172,6 @@ export function PopoverContent({
   )
 
   useKeyListener({
-    exclusive: true,
     onKeyDown: event => {
       if (event.code !== ESCAPE) return false
 

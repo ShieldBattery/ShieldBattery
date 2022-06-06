@@ -11,6 +11,7 @@ import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay'
 import { usePixelShover } from './dom/pixel-shover'
 import DownloadPage from './download/download-page'
 import { UpdateOverlay } from './download/update-overlay'
+import { KeyListenerBoundary } from './keyboard/key-listener'
 import Faq from './landing/faq'
 import Splash from './landing/splash'
 import LoadingFilter from './loading/loading-filter'
@@ -91,27 +92,29 @@ export default function App() {
         <LoadableWindowControls />
         <LoadableSystemBar />
         <RootErrorBoundary>
-          <Switch>
-            <Route path='/splash' component={Splash} />
-            <Route path='/faq' component={Faq} />
-            <Route path='/download' component={DownloadPage} />
-            <Route path='/acceptable-use' component={AcceptableUsePage} />
-            <Route path='/privacy' component={PrivacyPolicyPage} />
-            <Route path='/terms-of-service' component={TermsOfServicePage} />
-            <LoginRoute path='/forgot-password' component={ForgotPassword} />
-            <LoginRoute path='/forgot-user' component={ForgotUser} />
-            <LoginRoute path='/login' component={Login} />
-            <LoginRoute path='/reset-password' component={ResetPassword} />
-            <LoginRoute path='/signup' component={Signup} />
-            <LoginRoute path='/verify-email' component={EmailVerificationUi} />
-            {!IS_PRODUCTION ? <Route path='/dev/:rest*' component={LoadableDev} /> : <></>}
-            <Route>
-              <MainContent />
-            </Route>
-          </Switch>
+          <KeyListenerBoundary>
+            <Switch>
+              <Route path='/splash' component={Splash} />
+              <Route path='/faq' component={Faq} />
+              <Route path='/download' component={DownloadPage} />
+              <Route path='/acceptable-use' component={AcceptableUsePage} />
+              <Route path='/privacy' component={PrivacyPolicyPage} />
+              <Route path='/terms-of-service' component={TermsOfServicePage} />
+              <LoginRoute path='/forgot-password' component={ForgotPassword} />
+              <LoginRoute path='/forgot-user' component={ForgotUser} />
+              <LoginRoute path='/login' component={Login} />
+              <LoginRoute path='/reset-password' component={ResetPassword} />
+              <LoginRoute path='/signup' component={Signup} />
+              <LoginRoute path='/verify-email' component={EmailVerificationUi} />
+              {!IS_PRODUCTION ? <Route path='/dev/:rest*' component={LoadableDev} /> : <></>}
+              <Route>
+                <MainContent />
+              </Route>
+            </Switch>
+            <ConnectedSnackbar />
+            <ConnectedDialogOverlay />
+          </KeyListenerBoundary>
         </RootErrorBoundary>
-        <ConnectedSnackbar />
-        <ConnectedDialogOverlay />
         <UpdateOverlay />
       </>
     </StyleSheetManager>

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useId, useState } from 'react'
 import { useTransition, UseTransitionProps } from 'react-spring'
 import styled, { css, FlattenSimpleInterpolation } from 'styled-components'
+import { KeyListenerBoundary } from '../keyboard/key-listener'
 import { background900 } from '../styles/colors'
 import { caption } from '../styles/typography'
 import { OriginX, OriginY, PopoverContent, useAnchorPosition } from './popover'
@@ -216,16 +217,18 @@ export function Tooltip({
         (styles, open) =>
           open && (
             <NoPointerPortal open={open}>
-              <NoPointerPopoverContent
-                role='tooltip'
-                id={contentId}
-                anchorX={anchorX}
-                anchorY={anchorY}
-                originX={originX}
-                originY={originY}
-                styles={styles}>
-                <ContentComponent $position={position}>{text}</ContentComponent>
-              </NoPointerPopoverContent>
+              <KeyListenerBoundary>
+                <NoPointerPopoverContent
+                  role='tooltip'
+                  id={contentId}
+                  anchorX={anchorX}
+                  anchorY={anchorY}
+                  originX={originX}
+                  originY={originY}
+                  styles={styles}>
+                  <ContentComponent $position={position}>{text}</ContentComponent>
+                </NoPointerPopoverContent>
+              </KeyListenerBoundary>
             </NoPointerPortal>
           ),
       )}
