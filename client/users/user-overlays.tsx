@@ -17,6 +17,7 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
   profileOffsetX = 0,
   profileOffsetY = 0,
   filterClick,
+  modifyMenuItems,
 }: {
   userId: SbUserId
   profileAnchorX?: OriginX
@@ -26,6 +27,7 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
   profileOffsetX?: number
   profileOffsetY?: number
   filterClick?: (userId: SbUserId, e: React.MouseEvent) => boolean
+  modifyMenuItems?: (userId: SbUserId, items: React.ReactNode[]) => React.ReactNode[]
 }): {
   clickableElemRef: React.RefObject<E>
   profileOverlayProps: ConnectedUserProfileOverlayProps
@@ -100,6 +102,7 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
     },
     contextMenuProps: {
       userId,
+      modifyMenuItems,
       popoverProps: {
         open: contextMenuOpen,
         onDismiss: onCloseContextMenu,

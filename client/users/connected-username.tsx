@@ -32,6 +32,12 @@ export interface ConnectedUsernameProps {
    * not occur.
    */
   filterClick?: (userId: SbUserId, e: React.MouseEvent) => boolean
+  /**
+   * An optional function that will be called when rendering menu items. If provided, the value
+   * returned from this function will be used as the `children` of the menu. Mutating the input
+   * value and returning it is okay.
+   */
+  modifyMenuItems?: (userId: SbUserId, items: React.ReactNode[]) => React.ReactNode[]
 }
 
 /**
@@ -43,6 +49,7 @@ export function ConnectedUsername({
   userId,
   prefix = '',
   filterClick,
+  modifyMenuItems,
 }: ConnectedUsernameProps) {
   const { clickableElemRef, profileOverlayProps, contextMenuProps, onClick, onContextMenu } =
     useUserOverlays<HTMLSpanElement>({
@@ -53,6 +60,7 @@ export function ConnectedUsername({
       profileOriginY: 'top',
       profileOffsetX: 4,
       filterClick,
+      modifyMenuItems,
     })
 
   const user = useAppSelector(s => s.users.byId.get(userId))

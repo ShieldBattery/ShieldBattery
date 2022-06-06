@@ -14,14 +14,41 @@ const LoadingItem = styled(MenuItem)`
   color: ${colorTextFaint};
 `
 
+export interface ConnectedUserContextMenuProps {
+  userId: SbUserId
+  /**
+   * An optional function that will be called when rendering menu items. If provided, the value
+   * returned from this function will be used as the `children` of the menu. Mutating the input
+   * value and returning it is okay.
+   */
+  modifyMenuItems?: (userId: SbUserId, items: React.ReactNode[]) => React.ReactNode[]
+  popoverProps: Omit<PopoverProps, 'children'>
+}
+
+export function ConnectedUserContextMenu({
+  userId,
+  modifyMenuItems,
+  popoverProps,
+}: ConnectedUserContextMenuProps) {
+  return (
+    <Popover {...popoverProps}>
+      <ConnectedUserContextMenuContents
+        userId={userId}
+        modifyMenuItems={modifyMenuItems}
+        onDismiss={popoverProps.onDismiss}
+      />
+    </Popover>
+  )
+}
+
 /**
  * Helper component for user context menu to make sure the hooks are only run when the menu is open.
  */
 function ConnectedUserContextMenuContents({
   userId,
+  modifyMenuItems,
   onDismiss,
-}: {
-  userId: SbUserId
+}: Omit<ConnectedUserContextMenuProps, 'popoverProps'> & {
   onDismiss: () => void
 }) {
   const dispatch = useAppDispatch()
@@ -56,7 +83,7 @@ function ConnectedUserContextMenuContents({
     onDismiss()
   }, [partyId, userId, dispatch, onDismiss])
 
-  const actions: React.ReactNode[] = []
+  let actions: React.ReactNode[] = []
   if (!user) {
     // TODO(tec27): Ideally this wouldn't have hover/focus state
     actions.push(<LoadingItem key='loading' text='Loading user…' />)
@@ -92,18 +119,9 @@ function ConnectedUserContextMenuContents({
     }
   }
 
+  if (modifyMenuItems) {
+    actions = modifyMenuItems(userId, actions)
+  }
+
   return <MenuList dense={true}>{actions}</MenuList>
-}
-
-export interface ConnectedUserContextMenuProps {
-  userId: SbUserId
-  popoverProps: Omit<PopoverProps, 'children'>
-}
-
-export function ConnectedUserContextMenu({ userId, popoverProps }: ConnectedUserContextMenuProps) {
-  return (
-    <Popover {...popoverProps}>
-      <ConnectedUserContextMenuContents userId={userId} onDismiss={popoverProps.onDismiss} />
-    </Popover>
-  )
 }
