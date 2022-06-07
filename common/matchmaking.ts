@@ -43,7 +43,6 @@ export interface MatchmakingSeason {
   id: SeasonId
   startDate: Date
   name: string
-  useLegacyRating: boolean
   resetMmr: boolean
 }
 
@@ -54,7 +53,6 @@ export function toMatchmakingSeasonJson(season: MatchmakingSeason): MatchmakingS
     id: season.id,
     startDate: Number(season.startDate),
     name: season.name,
-    useLegacyRating: season.useLegacyRating,
     resetMmr: season.resetMmr,
   }
 }

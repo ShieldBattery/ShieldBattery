@@ -146,7 +146,6 @@ export class MatchmakingApi {
       body: Joi.object<ServerAddMatchmakingSeasonRequest>({
         startDate: Joi.date().timestamp().min(Date.now()).required(),
         name: Joi.string().required(),
-        useLegacyRating: Joi.boolean().required(),
         resetMmr: Joi.boolean().required(),
       }),
     })

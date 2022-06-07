@@ -92,7 +92,6 @@ function SeasonRow({
       <StartDate>{longTimestamp.format(season.startDate)}</StartDate>
       <SeasonName>
         {season.name}
-        {season.useLegacyRating ? <ModifierText> (legacy ratings)</ModifierText> : undefined}
         {season.resetMmr ? <ModifierText> (MMR reset)</ModifierText> : undefined}
       </SeasonName>
       {season.startDate > Date.now() ? (
@@ -123,14 +122,12 @@ const DateInput = styled.input`
 interface AddSeasonModel {
   startDate?: string
   name?: string
-  useLegacyRating: boolean
   resetMmr: boolean
 }
 
 function AddSeasonForm(props: { onSubmit: (model: AddSeasonModel) => void }) {
   const { onSubmit, bindInput, bindCheckable } = useForm<AddSeasonModel>(
     {
-      useLegacyRating: false,
       resetMmr: false,
     },
     {
@@ -156,11 +153,6 @@ function AddSeasonForm(props: { onSubmit: (model: AddSeasonModel) => void }) {
         />
         <DateInput {...bindInput('startDate')} type='datetime-local' tabIndex={0} />
         <CheckBox {...bindCheckable('resetMmr')} label='Reset MMR' inputProps={{ tabIndex: 0 }} />
-        <CheckBox
-          {...bindCheckable('useLegacyRating')}
-          label='Use legacy rating system'
-          inputProps={{ tabIndex: 0 }}
-        />
 
         <RaisedButton label='Submit' color='primary' onClick={onSubmit} />
       </form>
@@ -205,7 +197,6 @@ export function AdminMatchmakingSeasons() {
       body: encodeBodyAsParams<AddMatchmakingSeasonRequest>({
         startDate: Date.parse(model.startDate!),
         name: model.name!,
-        useLegacyRating: model.useLegacyRating,
         resetMmr: model.resetMmr,
       }),
     })
