@@ -125,10 +125,6 @@ export class GameServer {
 }
 
 export default function createGameServer(localSettings: LocalSettings) {
-  // Requiring index.js explicitly as the ws library "helpfully" has a separate browser .js file
-  // in package.json which just errors to tell that it can only be used with node.
-  // And Webpack "helpfully" loads the browser-intended files from package.json when used with
-  // Electron.
   const httpServer = http
     .createServer((req, res) => {
       res.writeHead(418)
