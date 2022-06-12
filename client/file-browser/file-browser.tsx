@@ -198,6 +198,7 @@ export function FileBrowser({
     return hasFocusedIndex ? entries.findIndex(f => f.path === focusedPath) : -1
   }, [entries, focusedPath])
 
+  const rootFolderPath = rootFolder.path
   useEffect(() => {
     // This effect should only change the initial path, to effectively initialize the file browser.
     // All subsequent path changes should be done through user action.
@@ -206,12 +207,12 @@ export function FileBrowser({
     }
 
     const initialPath =
-      focusedPath && focusedPath.toLowerCase().startsWith(rootFolder.path.toLowerCase())
+      focusedPath && focusedPath.toLowerCase().startsWith(rootFolderPath.toLowerCase())
         ? getDir(focusedPath)
-        : rootFolder.path
+        : rootFolderPath
 
     setFileBrowserPath(initialPath)
-  }, [fileBrowserPath, focusedPath, rootFolder.path])
+  }, [fileBrowserPath, focusedPath, rootFolderPath])
 
   useEffect(() => {
     // This effect should only scroll to the focused entry when files are freshly loaded. All other
@@ -282,7 +283,11 @@ export function FileBrowser({
   }, [initialRootFolderId, rootFolder.id])
 
   const onRootFolderChange = useStableCallback((rootId: FileBrowserRootFolderId) => {
-    setRootFolder(rootFolders[rootId]!)
+    const rootFolder = rootFolders[rootId]!
+    setRootFolder(rootFolder)
+    setFileBrowserPath(path =>
+      path.toLowerCase().startsWith(rootFolder.path.toLowerCase()) ? path : rootFolder.path,
+    )
   })
 
   const onBreadcrumbNavigate = useStableCallback((path: string) => {
