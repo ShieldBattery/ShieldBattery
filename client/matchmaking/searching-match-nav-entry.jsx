@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
+import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import CancelSearchIcon from '../icons/material/ic_close_black_24px.svg'
 import { SubheaderButton } from '../material/left-nav/subheader-button'
 import { colorTextSecondary } from '../styles/colors'
@@ -37,6 +38,7 @@ export default class SearchingMatchNavEntry extends React.Component {
   static propTypes = {
     isMatched: PropTypes.bool,
     startTime: PropTypes.number,
+    matchmakingType: PropTypes.string,
     onCancelSearch: PropTypes.func.isRequired,
   }
 
@@ -44,7 +46,11 @@ export default class SearchingMatchNavEntry extends React.Component {
     return (
       <>
         <SearchingContainer>
-          <SearchTitle>{this.props.isMatched ? 'Match found!' : 'Searching for match'}</SearchTitle>
+          <SearchTitle>
+            {this.props.isMatched
+              ? 'Match found!'
+              : `Searching for ${matchmakingTypeToLabel(this.props.matchmakingType)}`}
+          </SearchTitle>
           {!this.props.isMatched ? (
             <SubheaderButton
               icon={<CancelSearchIcon />}

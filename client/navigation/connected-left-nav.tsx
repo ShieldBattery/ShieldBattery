@@ -182,6 +182,7 @@ function SearchingMatchSection() {
         <SearchingMatchNavEntry
           isMatched={!!match}
           startTime={searchInfo.startTime}
+          matchmakingType={searchInfo.matchmakingType}
           onCancelSearch={onCancel}
         />
       </Section>
