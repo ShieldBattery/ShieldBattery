@@ -1,3 +1,12 @@
+#### 8.4.1 (June 13, 2022)
+
+- **Bug fixes.** We've fixed an issue that prevented the client from running on Windows 7, as well
+  as issues with non-working shortcut keys and janky scrolling.
+- **Better rankings for ties.** Users that are tied for points will now be ranked by their MMR,
+  rather than randomly sorted.
+- **Labeled searching.** The matchmaking search status in the navigation area will now display which
+  matchmaking type you are queued for.
+
 #### 8.4.0 (June 4, 2022)
 
 - **Seasons.** Rankings will now be reset periodically (exact schedule still TBD), with the first
