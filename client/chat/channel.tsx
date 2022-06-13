@@ -9,6 +9,7 @@ import {
 import { MULTI_CHANNEL } from '../../common/flags'
 import { SbUserId } from '../../common/users/sb-user'
 import { ConnectedAvatar } from '../avatars/avatar'
+import { useVirtuosoScrollFix } from '../dom/virtuoso-scroll-fix'
 import { logger } from '../logging/logger'
 import { Chat } from '../messaging/chat'
 import { useMentionFilterClick } from '../messaging/mention-hooks'
@@ -227,6 +228,8 @@ interface UserListProps {
 }
 
 const UserList = React.memo((props: UserListProps) => {
+  const [scrollerRef] = useVirtuosoScrollFix()
+
   const { active, idle, offline } = props
 
   const rowData = useMemo((): ReadonlyArray<UserListRowData> => {
@@ -248,28 +251,29 @@ const UserList = React.memo((props: UserListProps) => {
     return result
   }, [active, idle, offline])
 
-  const renderRow = useCallback(
-    (index: number) => {
-      const row = rowData[index]
-      if (row.type === UserListRowType.Header) {
-        return (
-          <UserListOverline key={row.label} $firstOverline={index === 0}>
-            <span>
-              {row.label} ({row.count})
-            </span>
-          </UserListOverline>
-        )
-      } else {
-        const faded = row.type === UserListRowType.Faded
-        return <ConnectedUserListEntry userId={row.userId} key={row.userId} faded={faded} />
-      }
-    },
-    [rowData],
-  )
+  const renderRow = useCallback((index: number, row: UserListRowData) => {
+    if (row.type === UserListRowType.Header) {
+      return (
+        <UserListOverline key={row.label} $firstOverline={index === 0}>
+          <span>
+            {row.label} ({row.count})
+          </span>
+        </UserListOverline>
+      )
+    } else {
+      const faded = row.type === UserListRowType.Faded
+      return <ConnectedUserListEntry userId={row.userId} key={row.userId} faded={faded} />
+    }
+  }, [])
 
   return (
     <UserListContainer>
-      <Virtuoso components={{ Footer: VertPadding }} data={rowData} itemContent={renderRow} />
+      <Virtuoso
+        scrollerRef={scrollerRef}
+        components={{ Footer: VertPadding }}
+        data={rowData}
+        itemContent={renderRow}
+      />
     </UserListContainer>
   )
 })

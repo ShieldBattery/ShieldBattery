@@ -78,7 +78,6 @@ export function TableTest() {
       lastUpdated={NOW}
       players={players}
       usersById={usersById}
-      totalCount={PLAYERS.length}
       curTime={Date.now()}
       searchQuery={searchQuery}
       onSearchChange={onSearchChange}

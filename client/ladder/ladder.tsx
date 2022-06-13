@@ -13,6 +13,7 @@ import {
 import { RaceChar, raceCharToLabel } from '../../common/races'
 import { SbUser, SbUserId } from '../../common/users/sb-user'
 import { Avatar } from '../avatars/avatar'
+import { useVirtuosoScrollFix } from '../dom/virtuoso-scroll-fix'
 import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
 import { JsonLocalStorageValue } from '../local-storage'
 import { useButtonState } from '../material/button'
@@ -429,7 +430,6 @@ const EmptyText = styled.div`
 
 export interface LadderTableProps {
   curTime: number
-  totalCount: number
   players?: ReadonlyArray<LadderPlayer>
   usersById: Immutable<Map<SbUserId, SbUser>>
   lastUpdated: number
@@ -442,18 +442,21 @@ export interface LadderTableProps {
 }
 
 export function LadderTable(props: LadderTableProps) {
+  const [setScrollerRef] = useVirtuosoScrollFix()
+
   const containerRef = useRef<HTMLDivElement | null>(null)
   const forceUpdate = useForceUpdate()
   const setContainerRef = useCallback(
     (ref: HTMLDivElement | null) => {
       if (containerRef.current !== ref) {
+        setScrollerRef(ref)
         containerRef.current = ref
         if (ref !== null) {
           forceUpdate()
         }
       }
     },
-    [forceUpdate],
+    [forceUpdate, setScrollerRef],
   )
 
   const {
@@ -476,12 +479,7 @@ export function LadderTable(props: LadderTableProps) {
     navigateToUserProfile(userId, username)
   }, [])
 
-  const renderRow = useStableCallback((index: number) => {
-    const player = players?.[index]
-    if (!player) {
-      return <span></span>
-    }
-
+  const renderRow = useStableCallback((index: number, player: LadderPlayer) => {
     const username = usersById.get(player.userId)?.name ?? ''
 
     return (
@@ -516,7 +514,7 @@ export function LadderTable(props: LadderTableProps) {
         </LastUpdatedText>
       </SearchContainer>
       {topHeaderNode}
-      {containerRef.current && props.totalCount > 0 ? (
+      {containerRef.current && (players?.length ?? 0) > 0 ? (
         <TableVirtuoso
           className={isHeaderUnstuck ? '' : HEADER_STUCK_CLASS}
           customScrollParent={containerRef.current}

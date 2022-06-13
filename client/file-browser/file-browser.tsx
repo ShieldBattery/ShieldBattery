@@ -3,6 +3,7 @@ import { Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useObservedDimensions } from '../dom/dimension-hooks'
+import { useVirtuosoScrollFix } from '../dom/virtuoso-scroll-fix'
 import Refresh from '../icons/material/ic_refresh_black_24px.svg'
 import { useKeyListener } from '../keyboard/key-listener'
 import { JsonLocalStorageValue } from '../local-storage'
@@ -150,6 +151,8 @@ export function FileBrowser({
   foldersSortFunc = sortByName,
   filesSortFunc = sortByName,
 }: FileBrowserProps) {
+  const [scrollerRef] = useVirtuosoScrollFix()
+
   const [fileBrowserPath, setFileBrowserPath] = useState('')
   const [upOneDir, setUpOneDir] = useState<FileBrowserUpEntry>()
   const [folders, setFolders] = useState<FileBrowserFolderEntry[]>([])
@@ -489,6 +492,7 @@ export function FileBrowser({
         {entries.length > 0 ? (
           <Virtuoso
             ref={listRef}
+            scrollerRef={scrollerRef}
             components={{ Header: VertPadding, Footer: VertPadding }}
             data={entries}
             itemContent={renderRow}
