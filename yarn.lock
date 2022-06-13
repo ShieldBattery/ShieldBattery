@@ -9373,10 +9373,10 @@ react-use-measure@^2.0.4:
   dependencies:
     debounce "^1.2.1"
 
-react-virtuoso@^2.9.2:
-  version "2.12.1"
-  resolved "https://registry.yarnpkg.com/react-virtuoso/-/react-virtuoso-2.12.1.tgz#00aa5b4ac8704c446dff113c07f495e92cba62c6"
-  integrity sha512-Q+5Tklsvbl81uUU40iOAjT5oLdVv9nIQMhWmWkcdDlCy86tGTUQZfjTOW/ZydFrUcXrdta0IfvUD2U03xneAhg==
+react-virtuoso@^2.13.2:
+  version "2.13.2"
+  resolved "https://registry.yarnpkg.com/react-virtuoso/-/react-virtuoso-2.13.2.tgz#dc5403e57e3e5aec0f4fe222f61e152f2a7f8017"
+  integrity sha512-DuZpTCC0rY5SAKPHQoZPKX3xAYN2iAGcG3P1Z7JVjq/8727usIwpSwvXGomyCvBIC2DHBX4yX46nVZ97+C6Pkw==
   dependencies:
     "@virtuoso.dev/react-urx" "^0.2.12"
     "@virtuoso.dev/urx" "^0.2.12"
