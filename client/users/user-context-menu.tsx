@@ -91,7 +91,7 @@ export function ConnectedUserContextMenu({ userId, popoverProps }: ConnectedUser
   }
 
   return (
-    <Menu dense={true} {...popoverProps}>
+    <Menu dense={true} popoverProps={popoverProps}>
       {actions}
     </Menu>
   )

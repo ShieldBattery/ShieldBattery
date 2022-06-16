@@ -44,12 +44,14 @@ export function SlotActions({ slotActions }: SlotActionsProps) {
         onClick={onOpenOverlay}
       />
       <Menu
-        open={overlayOpen}
-        onDismiss={onCloseOverlay}
-        originX='right'
-        originY='top'
-        anchorX={anchorX ?? 0}
-        anchorY={anchorY ?? 0}>
+        popoverProps={{
+          open: overlayOpen,
+          onDismiss: onCloseOverlay,
+          originX: 'right',
+          originY: 'top',
+          anchorX: anchorX ?? 0,
+          anchorY: anchorY ?? 0,
+        }}>
         {actions}
       </Menu>
     </div>

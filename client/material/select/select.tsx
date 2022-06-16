@@ -12,6 +12,7 @@ import { InputError } from '../input-error'
 import { FloatingLabel } from '../input-floating-label'
 import { InputUnderline } from '../input-underline'
 import { Menu } from '../menu/menu'
+import { isSelectedMenuItem } from '../menu/menu-item-symbol'
 import { useAnchorPosition } from '../popover'
 import { defaultSpring } from '../springs'
 
@@ -244,25 +245,27 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
       [anchorRef],
     )
 
-    const [displayValue, selectedIndex] = useMemo(() => {
-      if (value === undefined) {
-        return [undefined, undefined]
-      }
+    const [displayValue, options] = useMemo(() => {
+      let displayText: string | undefined
+      const options = React.Children.map(children, (child, index) => {
+        if (!isSelectedMenuItem(child)) return child
 
-      const childrenArray = React.Children.toArray(children) as React.ReactElement[]
-      let i = 0
-      for (const child of childrenArray) {
+        let selected = false
         if (value !== undefined && child.props.value !== undefined) {
           if (compareValues(value, child.props.value)) {
-            return [child.props.text, i]
+            displayText = child.props.text
+            selected = true
           }
         }
 
-        i++
-      }
+        return React.cloneElement(child, {
+          selected,
+          onClick: () => onOptionChanged(index),
+        })
+      })
 
-      return [undefined, undefined]
-    }, [value, compareValues, children])
+      return [displayText, options]
+    }, [children, compareValues, onOptionChanged, value])
 
     const overlayWidth = inputRef.current?.offsetWidth ?? 0
 
@@ -300,16 +303,16 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
         {allowErrors ? <InputError error={errorText} /> : null}
         <StyledMenu
           $overlayWidth={overlayWidth}
-          open={opened}
-          onDismiss={onClose}
-          anchorX={anchorX ?? 0}
-          anchorY={anchorY ?? 0}
-          originX='center'
-          originY='top'
-          selectedIndex={selectedIndex ?? -1}
-          onItemSelected={onOptionChanged}
-          transitionProps={MENU_TRANSITION}>
-          {children}
+          popoverProps={{
+            open: opened,
+            onDismiss: onClose,
+            anchorX: anchorX ?? 0,
+            anchorY: anchorY ?? 0,
+            originX: 'center',
+            originY: 'top',
+            transitionProps: MENU_TRANSITION,
+          }}>
+          {options}
         </StyledMenu>
       </div>
     )

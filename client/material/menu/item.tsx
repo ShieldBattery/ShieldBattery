@@ -1,11 +1,11 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import styled from 'styled-components'
 import { singleLine } from '../../styles/typography'
 import { useButtonState } from '../button'
 import { buttonReset } from '../button-reset'
 import { Ripple } from '../ripple'
 import { ITEM_HEIGHT, ITEM_HEIGHT_DENSE } from './menu'
-import { MenuItemSymbol } from './menu-item-symbol'
+import { MenuItemSymbol, MenuItemType } from './menu-item-symbol'
 
 const Item = styled.button<{ $dense?: boolean; $focused?: boolean }>`
   ${buttonReset};
@@ -17,6 +17,7 @@ const Item = styled.button<{ $dense?: boolean; $focused?: boolean }>`
 
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 
   border-radius: 2px;
   text-align: left;
@@ -45,12 +46,20 @@ export interface MenuItemProps {
   onClick?: (event: React.MouseEvent) => void
 }
 
-export function MenuItem({ text, icon, dense, onClick, className }: MenuItemProps) {
-  // TODO(tec27): Should probably use the `onFocus` here instead of faking focus from the menu?
+export function MenuItem({ text, icon, dense, focused, onClick, className }: MenuItemProps) {
   const [buttonProps, rippleRef] = useButtonState({ onClick })
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (focused) {
+      buttonRef.current?.focus()
+    } else {
+      buttonRef.current?.blur()
+    }
+  }, [focused])
 
   return (
-    <Item className={className} $dense={dense} {...buttonProps}>
+    <Item ref={buttonRef} className={className} $dense={dense} {...buttonProps}>
       {icon ? <ItemIcon>{icon}</ItemIcon> : null}
       <ItemText>{text}</ItemText>
       <Ripple ref={rippleRef} />
@@ -58,4 +67,4 @@ export function MenuItem({ text, icon, dense, onClick, className }: MenuItemProp
   )
 }
 
-MenuItem[MenuItemSymbol] = true
+MenuItem[MenuItemSymbol] = MenuItemType.Default

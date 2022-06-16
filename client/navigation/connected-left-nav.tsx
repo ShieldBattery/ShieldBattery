@@ -147,13 +147,15 @@ function LockupAndMenu() {
     <LockupContainer>
       <Lockup onClick={onLockupClick} menuOpened={!!appMenuAnchor} />
       <AppMenu
-        open={!!appMenuAnchor}
-        onDismiss={onAppMenuDismiss}
-        originX='center'
-        originY='top'
-        anchorX={(anchorX ?? 0) - 8}
-        anchorY={(anchorY ?? 0) + 8}
-        transitionProps={MENU_TRANSITION}>
+        popoverProps={{
+          open: !!appMenuAnchor,
+          onDismiss: onAppMenuDismiss,
+          originX: 'center',
+          originY: 'top',
+          anchorX: (anchorX ?? 0) - 8,
+          anchorY: (anchorY ?? 0) + 8,
+          transitionProps: MENU_TRANSITION,
+        }}>
         {appMenuItems}
       </AppMenu>
     </LockupContainer>

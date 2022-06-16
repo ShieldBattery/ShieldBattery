@@ -270,12 +270,14 @@ export function MapThumbnail({
                 onClick={onOpenMenu}
               />
               <Menu
-                open={menuOpen}
-                onDismiss={onCloseMenu}
-                anchorX={anchorX ?? 0}
-                anchorY={anchorY ?? 0}
-                originX='right'
-                originY='top'>
+                popoverProps={{
+                  open: menuOpen,
+                  onDismiss: onCloseMenu,
+                  anchorX: anchorX ?? 0,
+                  anchorY: anchorY ?? 0,
+                  originX: 'right',
+                  originY: 'top',
+                }}>
                 {actions}
               </Menu>
             </>

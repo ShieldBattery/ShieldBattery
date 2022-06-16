@@ -401,12 +401,14 @@ const MapPoolHistoryRow = React.memo(props => {
           onClick={onActionsOverlayOpen}
         />
         <Menu
-          open={actionsOverlayOpen}
-          onDismiss={onActionsOverlayClose}
-          anchorX={anchorX ?? 0}
-          anchorY={anchorY ?? 0}
-          originX='left'
-          originY='top'>
+          popoverProps={{
+            open: actionsOverlayOpen,
+            onDismiss: onActionsOverlayClose,
+            anchorX: anchorX ?? 0,
+            anchorY: anchorY ?? 0,
+            originX: 'left',
+            originY: 'top',
+          }}>
           {actions}
         </Menu>
       </>

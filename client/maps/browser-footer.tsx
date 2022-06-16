@@ -225,6 +225,8 @@ export interface BrowserFooterProps {
 }
 
 type FooterView = 'filterOverlay' | 'sizeMenu' | 'sortMenu'
+const SIZE_MENU_OPTIONS = ['Small', 'Medium', 'Large']
+const SORT_MENU_OPTIONS = ['Name', 'Number of players', 'Date uploaded']
 
 export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
   const [open, setOpen] = useState<FooterView>()
@@ -360,18 +362,23 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
       <StyledSearchInput searchQuery={searchQuery} onSearchChange={onSearchChange} />
 
       <Menu
-        open={open === 'sizeMenu'}
-        onDismiss={onDismiss}
-        anchorX={sizeAnchorX ?? 0}
-        anchorY={sizeAnchorY ?? 0}
-        originX='right'
-        originY='bottom'
         dense={true}
-        selectedIndex={props.thumbnailSize}
-        onItemSelected={onSizeSelected}>
-        <SelectedMenuItem text='Small' />
-        <SelectedMenuItem text='Medium' />
-        <SelectedMenuItem text='Large' />
+        popoverProps={{
+          open: open === 'sizeMenu',
+          onDismiss,
+          anchorX: sizeAnchorX ?? 0,
+          anchorY: sizeAnchorY ?? 0,
+          originX: 'right',
+          originY: 'bottom',
+        }}>
+        {SIZE_MENU_OPTIONS.map((text, index) => (
+          <SelectedMenuItem
+            key={index}
+            text={text}
+            selected={props.thumbnailSize === index}
+            onClick={() => onSizeSelected(index)}
+          />
+        ))}
       </Menu>
       <FilterOverlay
         open={open === 'filterOverlay'}
@@ -393,18 +400,23 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
         </FilterActions>
       </FilterOverlay>
       <Menu
-        open={open === 'sortMenu'}
-        onDismiss={onDismiss}
-        anchorX={sortAnchorX ?? 0}
-        anchorY={sortAnchorY ?? 0}
-        originX='right'
-        originY='bottom'
         dense={true}
-        selectedIndex={props.sortOption}
-        onItemSelected={onSortSelected}>
-        <SelectedMenuItem text='Name' />
-        <SelectedMenuItem text='Number of players' />
-        <SelectedMenuItem text='Date uploaded' />
+        popoverProps={{
+          open: open === 'sortMenu',
+          onDismiss,
+          anchorX: sortAnchorX ?? 0,
+          anchorY: sortAnchorY ?? 0,
+          originX: 'right',
+          originY: 'bottom',
+        }}>
+        {SORT_MENU_OPTIONS.map((text, index) => (
+          <SelectedMenuItem
+            key={index}
+            text={text}
+            selected={props.sortOption === index}
+            onClick={() => onSortSelected(index)}
+          />
+        ))}
       </Menu>
     </Container>
   )
