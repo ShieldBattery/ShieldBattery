@@ -28,6 +28,7 @@ const HomeLink = styled.div`
 
 const Content = styled.div`
   height: calc(100% - 32px);
+  overflow-y: auto;
 `
 
 function DevDashboard() {

@@ -29,6 +29,128 @@ export function matchmakingTypeToLabel(type: MatchmakingType): string {
   }
 }
 
+/**
+ * Divisions that players can place into, based on their MMR.
+ *
+ * NOTE(tec27): Be careful changing the values of these, they are expected to match image filenames.
+ */
+export enum MatchmakingDivision {
+  Unranked = 'unranked',
+  Bronze1 = 'bronze1',
+  Bronze2 = 'bronze2',
+  Bronze3 = 'bronze3',
+  Silver1 = 'silver1',
+  Silver2 = 'silver2',
+  Silver3 = 'silver3',
+  Gold1 = 'gold1',
+  Gold2 = 'gold2',
+  Gold3 = 'gold3',
+  Platinum1 = 'platinum1',
+  Platinum2 = 'platinum2',
+  Platinum3 = 'platinum3',
+  Diamond1 = 'diamond1',
+  Diamond2 = 'diamond2',
+  Diamond3 = 'diamond3',
+  Champion = 'champion',
+}
+
+export const ALL_MATCHMAKING_DIVISIONS: ReadonlyArray<MatchmakingDivision> =
+  Object.values(MatchmakingDivision)
+
+export function matchmakingDivisionToLabel(rank: MatchmakingDivision): string {
+  switch (rank) {
+    case MatchmakingDivision.Unranked:
+      return 'Unranked'
+    case MatchmakingDivision.Bronze1:
+      return 'Bronze 1'
+    case MatchmakingDivision.Bronze2:
+      return 'Bronze 2'
+    case MatchmakingDivision.Bronze3:
+      return 'Bronze 3'
+    case MatchmakingDivision.Silver1:
+      return 'Silver 1'
+    case MatchmakingDivision.Silver2:
+      return 'Silver 2'
+    case MatchmakingDivision.Silver3:
+      return 'Silver 3'
+    case MatchmakingDivision.Gold1:
+      return 'Gold 1'
+    case MatchmakingDivision.Gold2:
+      return 'Gold 2'
+    case MatchmakingDivision.Gold3:
+      return 'Gold 3'
+    case MatchmakingDivision.Platinum1:
+      return 'Platinum 1'
+    case MatchmakingDivision.Platinum2:
+      return 'Platinum 2'
+    case MatchmakingDivision.Platinum3:
+      return 'Platinum 3'
+    case MatchmakingDivision.Diamond1:
+      return 'Diamond 1'
+    case MatchmakingDivision.Diamond2:
+      return 'Diamond 2'
+    case MatchmakingDivision.Diamond3:
+      return 'Diamond 3'
+    case MatchmakingDivision.Champion:
+      return 'Champion'
+    default:
+      return assertUnreachable(rank)
+  }
+}
+
+/**
+ * How many players can be in the Champion division. The top N players with more than Diamond 3
+ * rating will make it into the division, with the remaining players staying in Diamond 3.
+ */
+export const NUM_CHAMPIONS = 10
+
+/** Converts a given rating and rank into a matching `MatchmakingDivision`. */
+export function ratingToMatchmakingDivision(rating: number, rank: number): MatchmakingDivision {
+  if (rating < 1200) {
+    if (rating < 1040) {
+      return MatchmakingDivision.Bronze1
+    } else if (rating < 1120) {
+      return MatchmakingDivision.Bronze2
+    } else {
+      return MatchmakingDivision.Bronze3
+    }
+  } else if (rating < 1440) {
+    if (rating < 1280) {
+      return MatchmakingDivision.Silver1
+    } else if (rating < 1360) {
+      return MatchmakingDivision.Silver2
+    } else {
+      return MatchmakingDivision.Silver3
+    }
+  } else if (rating < 1680) {
+    if (rating < 1520) {
+      return MatchmakingDivision.Gold1
+    } else if (rating < 1600) {
+      return MatchmakingDivision.Gold2
+    } else {
+      return MatchmakingDivision.Gold3
+    }
+  } else if (rating < 1920) {
+    if (rating < 1760) {
+      return MatchmakingDivision.Platinum1
+    } else if (rating < 1840) {
+      return MatchmakingDivision.Platinum2
+    } else {
+      return MatchmakingDivision.Platinum3
+    }
+  } else if (rating < 2400) {
+    if (rating < 2000) {
+      return MatchmakingDivision.Diamond1
+    } else if (rating < 2080) {
+      return MatchmakingDivision.Diamond2
+    } else {
+      return MatchmakingDivision.Diamond3
+    }
+  } else {
+    return rank <= NUM_CHAMPIONS ? MatchmakingDivision.Champion : MatchmakingDivision.Diamond3
+  }
+}
+
 export type SeasonId = Opaque<number, 'SeasonId'>
 
 /**
