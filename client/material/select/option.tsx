@@ -53,4 +53,4 @@ export function SelectOption({ text, focused, selected, onClick }: SelectOptionP
   )
 }
 
-SelectOption[MenuItemSymbol] = MenuItemType.Selected
+SelectOption[MenuItemSymbol] = MenuItemType.Selectable

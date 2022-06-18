@@ -4,7 +4,6 @@ import { useKeyListener } from '../../keyboard/key-listener'
 import { useStableCallback } from '../../state-hooks'
 import { CardLayer } from '../../styles/colors'
 import { body1, subtitle1 } from '../../styles/typography'
-import { Popover, PopoverProps } from '../popover'
 import { zIndexMenu } from '../zindex'
 import { isMenuItem } from './menu-item-symbol'
 
@@ -61,6 +60,13 @@ export interface MenuListProps {
   dense?: boolean
 }
 
+/**
+ * A material design menu component with support for dense menu items and keyboard handling.
+ *
+ * Note that this component just renders the menu content, it doesn't render the popover part. The
+ * reason for this separation is so we can create menus that run certain hooks (e.g. connect to the
+ * store) which will be rendered only when the popover is open.
+ */
 export function MenuList({ children, className, dense }: MenuListProps) {
   const [activeIndex, setActiveIndex] = useState(-1)
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -107,8 +113,6 @@ export function MenuList({ children, className, dense }: MenuListProps) {
   })
 
   useKeyListener({
-    // TODO(2Pac): Call the click handler of the currently active menu item by pressing Enter (and
-    // Space?)
     onKeyDown: useStableCallback(event => {
       if (event.code === UP) {
         moveActiveIndexBy(-1)
@@ -150,24 +154,5 @@ export function MenuList({ children, className, dense }: MenuListProps) {
       {items}
       <Padding />
     </Overlay>
-  )
-}
-
-export interface MenuProps extends MenuListProps {
-  popoverProps: Omit<PopoverProps, 'children'>
-}
-
-/**
- * A wrapper component around Popover that can be used to quickly write menus.
- *
- * This component just renders the `Popover` and expects it to only render the `MenuList` when the
- * menu is actually open. This makes sure that all the logic of the menu (e.g. keyboard handlers) is
- * only run when the menu is open.
- */
-export function Menu({ popoverProps, ...menuListProps }: MenuProps) {
-  return (
-    <Popover {...popoverProps}>
-      <MenuList {...menuListProps} />
-    </Popover>
   )
 }

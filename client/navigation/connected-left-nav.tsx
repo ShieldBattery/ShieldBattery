@@ -35,8 +35,8 @@ import Subheader from '../material/left-nav/subheader'
 import { SubheaderButton } from '../material/left-nav/subheader-button'
 import { Divider as MenuDivider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
-import { Menu } from '../material/menu/menu'
-import { useAnchorPosition } from '../material/popover'
+import { MenuList } from '../material/menu/menu'
+import { Popover, useAnchorPosition } from '../material/popover'
 import { defaultSpring } from '../material/springs'
 import { Tooltip } from '../material/tooltip'
 import { leaveParty } from '../parties/action-creators'
@@ -65,7 +65,7 @@ const LockupContainer = styled.div`
   width: 100%;
 `
 
-const AppMenu = styled(Menu)`
+const AppMenu = styled(MenuList)`
   width: 256px;
   max-height: 420px;
 `
@@ -146,18 +146,16 @@ function LockupAndMenu() {
   return (
     <LockupContainer>
       <Lockup onClick={onLockupClick} menuOpened={!!appMenuAnchor} />
-      <AppMenu
-        popoverProps={{
-          open: !!appMenuAnchor,
-          onDismiss: onAppMenuDismiss,
-          originX: 'center',
-          originY: 'top',
-          anchorX: (anchorX ?? 0) - 8,
-          anchorY: (anchorY ?? 0) + 8,
-          transitionProps: MENU_TRANSITION,
-        }}>
-        {appMenuItems}
-      </AppMenu>
+      <Popover
+        open={!!appMenuAnchor}
+        onDismiss={onAppMenuDismiss}
+        anchorX={(anchorX ?? 0) - 8}
+        anchorY={(anchorY ?? 0) + 8}
+        originX='center'
+        originY='top'
+        transitionProps={MENU_TRANSITION}>
+        <AppMenu>{appMenuItems}</AppMenu>
+      </Popover>
     </LockupContainer>
   )
 }

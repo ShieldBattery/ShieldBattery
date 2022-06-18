@@ -2,7 +2,7 @@ import { ReactElement } from 'react'
 
 export enum MenuItemType {
   Default = 'Default',
-  Selected = 'Selected',
+  Selectable = 'Selectable',
 }
 
 export const ALL_MENU_ITEM_TYPES: ReadonlyArray<MenuItemType> = Object.values(MenuItemType)
@@ -27,11 +27,11 @@ export function isMenuItem(child: unknown): child is ReactElement {
 }
 
 /**
- * Returns true if the specified child has a type marked as a selected MenuItem (rather than any
+ * Returns true if the specified child has a type marked as a selectable MenuItem (rather than any
  * other type of menu item or static or decorative content).
  */
-export function isSelectedMenuItem(child: unknown): child is ReactElement {
+export function isSelectableMenuItem(child: unknown): child is ReactElement {
   return (
-    child && (child as any).type && (child as any).type[MenuItemSymbol] === MenuItemType.Selected
+    child && (child as any).type && (child as any).type[MenuItemSymbol] === MenuItemType.Selectable
   )
 }

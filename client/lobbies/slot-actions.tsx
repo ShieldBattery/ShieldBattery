@@ -2,8 +2,8 @@ import React, { useCallback, useMemo, useState } from 'react'
 import SlotActionsIcon from '../icons/material/ic_more_vert_black_24px.svg'
 import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
-import { Menu } from '../material/menu/menu'
-import { useAnchorPosition } from '../material/popover'
+import { MenuList } from '../material/menu/menu'
+import { Popover, useAnchorPosition } from '../material/popover'
 
 interface SlotActionsProps {
   slotActions: Array<[text: string, handler: () => void]>
@@ -43,17 +43,15 @@ export function SlotActions({ slotActions }: SlotActionsProps) {
         ref={anchorRef}
         onClick={onOpenOverlay}
       />
-      <Menu
-        popoverProps={{
-          open: overlayOpen,
-          onDismiss: onCloseOverlay,
-          originX: 'right',
-          originY: 'top',
-          anchorX: anchorX ?? 0,
-          anchorY: anchorY ?? 0,
-        }}>
-        {actions}
-      </Menu>
+      <Popover
+        open={overlayOpen}
+        onDismiss={onCloseOverlay}
+        anchorX={anchorX ?? 0}
+        anchorY={anchorY ?? 0}
+        originX='right'
+        originY='top'>
+        <MenuList>{actions}</MenuList>
+      </Popover>
     </div>
   )
 }

@@ -14,9 +14,9 @@ import CheckBox from '../material/check-box'
 import { fastOutSlowInShort } from '../material/curves'
 import { FloatingActionButton } from '../material/floating-action-button'
 import { LegacyPopover } from '../material/legacy-popover'
-import { Menu } from '../material/menu/menu'
-import { SelectedItem as SelectedMenuItem } from '../material/menu/selected-item'
-import { useAnchorPosition } from '../material/popover'
+import { MenuList } from '../material/menu/menu'
+import { SelectableMenuItem } from '../material/menu/selectable-item'
+import { Popover, useAnchorPosition } from '../material/popover'
 import { SearchInput } from '../search/search-input'
 import { usePrevious, useValueAsRef } from '../state-hooks'
 import { colorTextSecondary } from '../styles/colors'
@@ -361,25 +361,25 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
 
       <StyledSearchInput searchQuery={searchQuery} onSearchChange={onSearchChange} />
 
-      <Menu
-        dense={true}
-        popoverProps={{
-          open: open === 'sizeMenu',
-          onDismiss,
-          anchorX: sizeAnchorX ?? 0,
-          anchorY: sizeAnchorY ?? 0,
-          originX: 'right',
-          originY: 'bottom',
-        }}>
-        {SIZE_MENU_OPTIONS.map((text, index) => (
-          <SelectedMenuItem
-            key={index}
-            text={text}
-            selected={props.thumbnailSize === index}
-            onClick={() => onSizeSelected(index)}
-          />
-        ))}
-      </Menu>
+      <Popover
+        open={open === 'sizeMenu'}
+        onDismiss={onDismiss}
+        anchorX={sizeAnchorX ?? 0}
+        anchorY={sizeAnchorY ?? 0}
+        originX='right'
+        originY='bottom'>
+        <MenuList dense={true}>
+          {SIZE_MENU_OPTIONS.map((text, index) => (
+            <SelectableMenuItem
+              key={index}
+              text={text}
+              selected={props.thumbnailSize === index}
+              onClick={() => onSizeSelected(index)}
+            />
+          ))}
+        </MenuList>
+      </Popover>
+
       <FilterOverlay
         open={open === 'filterOverlay'}
         onDismiss={onDismiss}
@@ -399,25 +399,25 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
           />
         </FilterActions>
       </FilterOverlay>
-      <Menu
-        dense={true}
-        popoverProps={{
-          open: open === 'sortMenu',
-          onDismiss,
-          anchorX: sortAnchorX ?? 0,
-          anchorY: sortAnchorY ?? 0,
-          originX: 'right',
-          originY: 'bottom',
-        }}>
-        {SORT_MENU_OPTIONS.map((text, index) => (
-          <SelectedMenuItem
-            key={index}
-            text={text}
-            selected={props.sortOption === index}
-            onClick={() => onSortSelected(index)}
-          />
-        ))}
-      </Menu>
+
+      <Popover
+        open={open === 'sortMenu'}
+        onDismiss={onDismiss}
+        anchorX={sortAnchorX ?? 0}
+        anchorY={sortAnchorY ?? 0}
+        originX='right'
+        originY='bottom'>
+        <MenuList dense={true}>
+          {SORT_MENU_OPTIONS.map((text, index) => (
+            <SelectableMenuItem
+              key={index}
+              text={text}
+              selected={props.sortOption === index}
+              onClick={() => onSortSelected(index)}
+            />
+          ))}
+        </MenuList>
+      </Popover>
     </Container>
   )
 })

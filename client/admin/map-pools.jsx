@@ -16,8 +16,8 @@ import Carousel from '../lists/carousel'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { IconButton, RaisedButton, TextButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
-import { Menu } from '../material/menu/menu'
-import { useAnchorPosition } from '../material/popover'
+import { MenuList } from '../material/menu/menu'
+import { Popover, useAnchorPosition } from '../material/popover'
 import { TabItem, Tabs } from '../material/tabs'
 import { TextField } from '../material/text-field'
 import LoadingIndicator from '../progress/dots'
@@ -400,17 +400,15 @@ const MapPoolHistoryRow = React.memo(props => {
           ref={anchorRef}
           onClick={onActionsOverlayOpen}
         />
-        <Menu
-          popoverProps={{
-            open: actionsOverlayOpen,
-            onDismiss: onActionsOverlayClose,
-            anchorX: anchorX ?? 0,
-            anchorY: anchorY ?? 0,
-            originX: 'left',
-            originY: 'top',
-          }}>
-          {actions}
-        </Menu>
+        <Popover
+          open={actionsOverlayOpen}
+          onDismiss={onActionsOverlayClose}
+          anchorX={anchorX ?? 0}
+          anchorY={anchorY ?? 0}
+          originX='left'
+          originY='top'>
+          <MenuList>{actions}</MenuList>
+        </Popover>
       </>
     )
   }

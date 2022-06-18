@@ -11,9 +11,9 @@ import { InputBase } from '../input-base'
 import { InputError } from '../input-error'
 import { FloatingLabel } from '../input-floating-label'
 import { InputUnderline } from '../input-underline'
-import { Menu } from '../menu/menu'
-import { isSelectedMenuItem } from '../menu/menu-item-symbol'
-import { useAnchorPosition } from '../popover'
+import { MenuList } from '../menu/menu'
+import { isSelectableMenuItem } from '../menu/menu-item-symbol'
+import { Popover, useAnchorPosition } from '../popover'
 import { defaultSpring } from '../springs'
 
 const SPACE = 'Space'
@@ -94,7 +94,7 @@ const Icon = styled.span<{ $disabled?: boolean; $focused?: boolean; $opened?: bo
   }
 `
 
-const StyledMenu = styled(Menu)<{ $overlayWidth: number }>`
+const StyledMenuList = styled(MenuList)<{ $overlayWidth: number }>`
   width: ${props => props.$overlayWidth}px;
   background-color: ${background300};
 `
@@ -248,7 +248,7 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
     const [displayValue, options] = useMemo(() => {
       let displayText: string | undefined
       const options = React.Children.map(children, (child, index) => {
-        if (!isSelectedMenuItem(child)) return child
+        if (!isSelectableMenuItem(child)) return child
 
         let selected = false
         if (value !== undefined && child.props.value !== undefined) {
@@ -301,19 +301,16 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
           <InputUnderline focused={focused} error={!!errorText} disabled={disabled} />
         </SelectContainer>
         {allowErrors ? <InputError error={errorText} /> : null}
-        <StyledMenu
-          $overlayWidth={overlayWidth}
-          popoverProps={{
-            open: opened,
-            onDismiss: onClose,
-            anchorX: anchorX ?? 0,
-            anchorY: anchorY ?? 0,
-            originX: 'center',
-            originY: 'top',
-            transitionProps: MENU_TRANSITION,
-          }}>
-          {options}
-        </StyledMenu>
+        <Popover
+          open={opened}
+          onDismiss={onClose}
+          anchorX={anchorX ?? 0}
+          anchorY={anchorY ?? 0}
+          originX='center'
+          originY='top'
+          transitionProps={MENU_TRANSITION}>
+          <StyledMenuList $overlayWidth={overlayWidth}>{options}</StyledMenuList>
+        </Popover>
       </div>
     )
   },

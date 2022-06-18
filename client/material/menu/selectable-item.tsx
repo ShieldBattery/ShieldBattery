@@ -9,14 +9,14 @@ const StyledMenuItem = styled(MenuItem)<{ $selected?: boolean }>`
   padding-left: ${props => (props.$selected ? '10px' : '46px')};
 `
 
-export interface SelectedItemProps extends Omit<MenuItemProps, 'icon'> {
+export interface SelectableMenuItemProps extends Omit<MenuItemProps, 'icon'> {
   selected?: boolean
 }
 
-export function SelectedItem({ selected, ...otherProps }: SelectedItemProps) {
+export function SelectableMenuItem({ selected, ...otherProps }: SelectableMenuItemProps) {
   const icon = selected ? <SelectedIcon /> : undefined
 
   return <StyledMenuItem {...otherProps} $selected={selected} icon={icon} />
 }
 
-SelectedItem[MenuItemSymbol] = MenuItemType.Selected
+SelectableMenuItem[MenuItemSymbol] = MenuItemType.Selectable
