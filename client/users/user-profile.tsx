@@ -6,8 +6,10 @@ import { GameRecordJson } from '../../common/games/games'
 import { LadderPlayer } from '../../common/ladder'
 import {
   ALL_MATCHMAKING_TYPES,
+  matchmakingDivisionToLabel,
   MatchmakingType,
   matchmakingTypeToLabel,
+  ratingToMatchmakingDivision,
 } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { SbUser, SbUserId, UserProfileJson } from '../../common/users/sb-user'
@@ -15,7 +17,7 @@ import { hasAnyPermission } from '../admin/admin-permissions'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import { RaceIcon } from '../lobbies/race-icon'
-import { shadow2dp } from '../material/shadows'
+import { LadderPlayerIcon } from '../matchmaking/rank-icon'
 import { TabItem, Tabs } from '../material/tabs'
 import { selectableTextContainer } from '../material/text-selection'
 import { goToIndex } from '../navigation/action-creators'
@@ -26,12 +28,12 @@ import {
   amberA400,
   backgroundSaturatedDark,
   backgroundSaturatedLight,
-  colorDividers,
   colorTextFaint,
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors'
 import {
+  body1,
   caption,
   headline3,
   headline4,
@@ -394,48 +396,44 @@ function ComingSoonPage() {
 
 const RankDisplayRoot = styled.div`
   position: relative;
-  width: 172px;
 
-  text-align: center;
+  display: flex;
+  gap: 24px;
 
   & + & {
-    margin-left: 24px;
+    margin-left: 64px;
   }
 `
 
-const RankDisplayTypePositioner = styled.div`
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
+const DivisionInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+`
+
+const DivisionIcon = styled(LadderPlayerIcon)`
+  width: 104px;
+  height: 104px;
+  padding: 2px;
+
+  background-color: ${backgroundSaturatedDark};
+  border: 6px solid ${backgroundSaturatedLight};
+  border-radius: 50%;
 `
 
 const RankDisplayType = styled.div`
   ${subtitle2};
   ${singleLine};
-  ${shadow2dp};
-  display: inline-block;
-  padding: 0 16px;
-
-  background-color: ${backgroundSaturatedLight};
-  border: 2px solid ${colorDividers};
-  border-radius: 12px;
   color: ${colorTextSecondary};
+  padding-top: 4px;
 `
 
 const RankDisplayInfo = styled.div`
-  width: 100%;
-  margin-top: 14px;
-  padding: 24px 8px 8px;
-
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-
-  background-color: ${backgroundSaturatedDark};
-  border: 2px solid ${colorDividers};
-  border-radius: 2px;
+  gap: 4px;
+  padding: 8px 0;
 `
 
 const RankDisplayRank = styled.div`
@@ -448,9 +446,15 @@ const RankDisplayPrefix = styled.span`
 `
 
 const RankDisplayRating = styled.div`
+  ${body1};
+  ${singleLine};
+
+  color: ${colorTextSecondary};
+`
+
+const RankDisplayPoints = styled.div`
   ${subtitle1};
   ${singleLine};
-  margin-top: 4px;
 
   color: ${colorTextSecondary};
 `
@@ -458,7 +462,6 @@ const RankDisplayRating = styled.div`
 const RankWinLoss = styled.div`
   ${subtitle1};
   ${singleLine};
-  margin-top: 4px;
 
   color: ${colorTextSecondary};
 `
@@ -470,18 +473,24 @@ function RankDisplay({
   matchmakingType: MatchmakingType
   ladderPlayer: LadderPlayer
 }) {
+  const division = ratingToMatchmakingDivision(ladderPlayer.rating, ladderPlayer.rank)
+  const divisionLabel = matchmakingDivisionToLabel(division)
+
   return (
     <RankDisplayRoot>
-      <RankDisplayTypePositioner>
-        <RankDisplayType>{matchmakingTypeToLabel(matchmakingType)}</RankDisplayType>
-      </RankDisplayTypePositioner>
+      <DivisionInfo>
+        <DivisionIcon player={ladderPlayer} />
+        <RankDisplayType>
+          {matchmakingTypeToLabel(matchmakingType)} &mdash; {divisionLabel}
+        </RankDisplayType>
+        <RankDisplayRating>{Math.round(ladderPlayer.rating)} MMR</RankDisplayRating>
+      </DivisionInfo>
       <RankDisplayInfo>
         <RankDisplayRank>
           <RankDisplayPrefix>#</RankDisplayPrefix>
           {ladderPlayer.rank}
         </RankDisplayRank>
-        <RankDisplayRating>{Math.round(ladderPlayer.rating)} MMR</RankDisplayRating>
-        <RankDisplayRating>{Math.round(ladderPlayer.points)} RP</RankDisplayRating>
+        <RankDisplayPoints>{Math.round(ladderPlayer.points)} RP</RankDisplayPoints>
         <RankWinLoss>
           {ladderPlayer.wins} &ndash; {ladderPlayer.losses}
         </RankWinLoss>

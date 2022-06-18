@@ -151,6 +151,9 @@ export function ratingToMatchmakingDivision(rating: number, rank: number): Match
   }
 }
 
+/** How many matches a user must play before we calculate a division for them. */
+export const NUM_PLACEMENT_MATCHES = 5
+
 export type SeasonId = Opaque<number, 'SeasonId'>
 
 /**

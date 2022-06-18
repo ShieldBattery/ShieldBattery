@@ -1,8 +1,10 @@
 import React from 'react'
 import styled from 'styled-components'
+import { LadderPlayer } from '../../common/ladder'
 import {
   MatchmakingDivision,
   matchmakingDivisionToLabel,
+  NUM_PLACEMENT_MATCHES,
   ratingToMatchmakingDivision,
 } from '../../common/matchmaking'
 import { makePublicAssetUrl } from '../network/server-url'
@@ -76,4 +78,18 @@ export function UnrankedIcon({ className }: UnrankedIconProps) {
       <StyledImage src={iconUrl} alt={divisionLabel} />
     </Container>
   )
+}
+
+export interface LadderPlayerIconProps {
+  player: LadderPlayer
+  className?: string
+}
+
+export function LadderPlayerIcon({ player, className }: LadderPlayerIconProps) {
+  // TODO(tec27): Use lifetime games played instead, once it has been added
+  if (player.wins + player.losses < NUM_PLACEMENT_MATCHES) {
+    return <UnrankedIcon className={className} />
+  } else {
+    return <RankIcon rating={player.rating} rank={player.rank} className={className} />
+  }
 }
