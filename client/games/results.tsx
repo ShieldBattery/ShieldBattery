@@ -26,7 +26,6 @@ import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip, TooltipContent, TooltipPosition } from '../material/tooltip'
 import { replace } from '../navigation/routing'
 import { useRefreshToken } from '../network/refresh-token'
-import { navigateToUserProfile } from '../profile/action-creators'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import {
@@ -45,6 +44,7 @@ import {
   singleLine,
   subtitle1,
 } from '../styles/typography'
+import { navigateToUserProfile } from '../users/action-creators'
 import {
   navigateToGameResults,
   searchAgainFromGame,

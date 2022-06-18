@@ -2,7 +2,7 @@ import React from 'react'
 import { SbUserId } from '../../common/users/sb-user'
 import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { SystemImportant, SystemMessage } from '../messaging/message-layout'
-import { ConnectedUsername } from '../profile/connected-username'
+import { ConnectedUsername } from '../users/connected-username'
 
 export const JoinLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props

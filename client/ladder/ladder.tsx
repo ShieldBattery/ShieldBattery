@@ -25,7 +25,6 @@ import { shadow4dp } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { replace } from '../navigation/routing'
-import { navigateToUserProfile } from '../profile/action-creators'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { SearchInput, SearchInputHandle } from '../search/search-input'
@@ -48,6 +47,7 @@ import {
   subtitle2,
 } from '../styles/typography'
 import { timeAgo } from '../time/time-ago'
+import { navigateToUserProfile } from '../users/action-creators'
 import { getRankings, navigateToLadder, searchRankings } from './action-creators'
 
 const LadderPage = styled.div`

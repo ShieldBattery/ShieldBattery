@@ -5,7 +5,7 @@ import { PartyQueueCancelReason } from '../../common/parties'
 import { SbUserId } from '../../common/users/sb-user'
 import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { SystemImportant, SystemMessage } from '../messaging/message-layout'
-import { ConnectedUsername } from '../profile/connected-username'
+import { ConnectedUsername } from '../users/connected-username'
 
 export const SelfJoinPartyMessage = React.memo<{ time: number; leaderId: SbUserId }>(props => {
   const { time, leaderId } = props

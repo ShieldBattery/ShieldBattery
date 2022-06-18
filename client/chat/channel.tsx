@@ -16,9 +16,6 @@ import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { Message } from '../messaging/message-records'
 import { push, replace } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
-import { ConnectedUserContextMenu } from '../profile/user-context-menu'
-import { useUserOverlays } from '../profile/user-overlays'
-import { ConnectedUserProfileOverlay } from '../profile/user-profile-overlay'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { RootState } from '../root-reducer'
@@ -33,6 +30,9 @@ import {
   colorTextSecondary,
 } from '../styles/colors'
 import { body2, overline, singleLine } from '../styles/typography'
+import { ConnectedUserContextMenu } from '../users/user-context-menu'
+import { useUserOverlays } from '../users/user-overlays'
+import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
 import {
   activateChannel,
   deactivateChannel,

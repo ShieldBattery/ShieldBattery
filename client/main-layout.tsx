@@ -48,7 +48,6 @@ import {
   addPrivacyPolicyNotificationIfNeeded,
   addTermsOfServiceNotificationIfNeeded,
 } from './policies/action-creators'
-import { ProfileRouteComponent } from './profile/route'
 import LoadingIndicator from './progress/dots'
 import { useAppDispatch, useAppSelector } from './redux-hooks'
 import { openSettingsDialog } from './settings/action-creators'
@@ -56,6 +55,7 @@ import { isShieldBatteryHealthy, isStarcraftHealthy } from './starcraft/is-starc
 import { StarcraftStatus } from './starcraft/starcraft-reducer'
 import { colorTextSecondary } from './styles/colors'
 import { caption } from './styles/typography'
+import { ProfileRouteComponent } from './users/route'
 import Whisper from './whispers/whisper'
 
 const curVersion = __WEBPACK_ENV.VERSION

@@ -7,7 +7,7 @@ import { MapsActions } from './maps/actions'
 import { MatchmakingActions } from './matchmaking/actions'
 import { NotificationActions } from './notifications/actions'
 import { PartyActions } from './parties/actions'
-import { ProfileActions } from './profile/actions'
+import { ProfileActions } from './users/actions'
 import { WhisperActions } from './whispers/actions'
 
 type AllActions =

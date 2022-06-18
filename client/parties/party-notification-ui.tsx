@@ -5,10 +5,10 @@ import SupervisedUser from '../icons/material/supervised_user_circle_black_24px.
 import { TextButton } from '../material/button'
 import { markNotificationsRead } from '../notifications/action-creators'
 import { ActionableNotification } from '../notifications/notifications'
-import { getBatchUserInfo } from '../profile/action-creators'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { blue300 } from '../styles/colors'
 import { body2 } from '../styles/typography'
+import { getBatchUserInfo } from '../users/action-creators'
 import { acceptPartyInvite, declinePartyInvite } from './action-creators'
 
 const ColoredPartyIcon = styled(SupervisedUser)`

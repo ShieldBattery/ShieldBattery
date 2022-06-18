@@ -1,8 +1,8 @@
 import React from 'react'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user'
-import { ConnectedUsername } from '../profile/connected-username'
 import { Subtitle1, subtitle2 } from '../styles/typography'
+import { ConnectedUsername } from '../users/connected-username'
 
 const UserList = styled.ul``
 
