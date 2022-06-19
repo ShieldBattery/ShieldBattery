@@ -35,6 +35,7 @@ const RankContainer = styled.svg`
   width: 100%;
   left: 0;
   bottom: 0;
+  pointer-events: none;
 `
 
 const RankText = styled.div`
@@ -87,7 +88,8 @@ export interface LadderPlayerIconProps {
 
 export function LadderPlayerIcon({ player, className }: LadderPlayerIconProps) {
   // TODO(tec27): Use lifetime games played instead, once it has been added
-  if (player.wins + player.losses < NUM_PLACEMENT_MATCHES) {
+  const lifetimeGames = player.wins + player.losses
+  if (lifetimeGames < NUM_PLACEMENT_MATCHES) {
     return <UnrankedIcon className={className} />
   } else {
     return <RankIcon rating={player.rating} rank={player.rank} className={className} />

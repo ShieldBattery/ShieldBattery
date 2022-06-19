@@ -1,3 +1,8 @@
+import {
+  MatchmakingDivision,
+  NUM_PLACEMENT_MATCHES,
+  ratingToMatchmakingDivision,
+} from '../matchmaking'
 import { RaceStats } from '../races'
 import { SbUser, SbUserId } from '../users/sb-user'
 
@@ -14,6 +19,16 @@ export interface LadderPlayer extends RaceStats {
   wins: number
   losses: number
   lastPlayedDate: number
+}
+
+export function ladderPlayerToMatchmakingDivision(player: LadderPlayer): MatchmakingDivision {
+  // TODO(tec27): Use lifetime games played instead, once it has been added
+  const lifetimeGames = player.wins + player.losses
+  if (lifetimeGames < NUM_PLACEMENT_MATCHES) {
+    return MatchmakingDivision.Unranked
+  } else {
+    return ratingToMatchmakingDivision(player.rating, player.rank)
+  }
 }
 
 // TODO(#658): Implement pagination for this request

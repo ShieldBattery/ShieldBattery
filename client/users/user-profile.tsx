@@ -3,13 +3,13 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameRecordJson } from '../../common/games/games'
-import { LadderPlayer } from '../../common/ladder'
+import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder'
 import {
   ALL_MATCHMAKING_TYPES,
+  MatchmakingDivision,
   matchmakingDivisionToLabel,
   MatchmakingType,
   matchmakingTypeToLabel,
-  ratingToMatchmakingDivision,
 } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { SbUser, SbUserId, UserProfileJson } from '../../common/users/sb-user'
@@ -26,17 +26,17 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import {
   amberA400,
+  background700,
   backgroundSaturatedDark,
   backgroundSaturatedLight,
+  colorDividers,
   colorTextFaint,
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors'
 import {
-  body1,
   caption,
   headline3,
-  headline4,
   headline6,
   overline,
   singleLine,
@@ -397,11 +397,15 @@ function ComingSoonPage() {
 const RankDisplayRoot = styled.div`
   position: relative;
 
+  padding: 16px 16px 8px;
+
   display: flex;
-  gap: 24px;
+
+  background-color: ${background700};
+  border-radius: 4px;
 
   & + & {
-    margin-left: 64px;
+    margin-left: 8px;
   }
 `
 
@@ -409,61 +413,64 @@ const DivisionInfo = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+
+  border-right: 1px solid ${colorDividers};
+  padding-right: 15px;
 `
 
 const DivisionIcon = styled(LadderPlayerIcon)`
-  width: 104px;
-  height: 104px;
-  padding: 2px;
+  width: 88px;
+  height: 88px;
+`
 
-  background-color: ${backgroundSaturatedDark};
-  border: 6px solid ${backgroundSaturatedLight};
-  border-radius: 50%;
+const RankDisplayDivisionLabel = styled.div`
+  ${headline6};
+  padding-top: 12px;
 `
 
 const RankDisplayType = styled.div`
   ${subtitle2};
   ${singleLine};
-  color: ${colorTextSecondary};
-  padding-top: 4px;
+  color: ${colorTextFaint};
 `
 
 const RankDisplayInfo = styled.div`
+  padding-left: 8px;
+
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 0;
+  justify-content: center;
+  gap: 24px;
+
+  color: ${colorTextSecondary};
 `
 
-const RankDisplayRank = styled.div`
-  ${headline4};
+const RankDisplayInfoRow = styled.div`
+  height: 44px;
+  display: flex;
+  gap: 8px;
+`
+
+const RankDisplayInfoEntry = styled.div`
+  width: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`
+
+const RankDisplayInfoLabel = styled.div`
+  ${caption};
+  ${singleLine};
+  color: ${colorTextFaint};
+`
+
+const RankDisplayInfoValue = styled.div`
+  ${subtitle1};
   ${singleLine};
 `
 
 const RankDisplayPrefix = styled.span`
-  ${subtitle1};
-`
-
-const RankDisplayRating = styled.div`
-  ${body1};
-  ${singleLine};
-
-  color: ${colorTextSecondary};
-`
-
-const RankDisplayPoints = styled.div`
-  ${subtitle1};
-  ${singleLine};
-
-  color: ${colorTextSecondary};
-`
-
-const RankWinLoss = styled.div`
-  ${subtitle1};
-  ${singleLine};
-
-  color: ${colorTextSecondary};
+  ${caption};
 `
 
 function RankDisplay({
@@ -473,27 +480,47 @@ function RankDisplay({
   matchmakingType: MatchmakingType
   ladderPlayer: LadderPlayer
 }) {
-  const division = ratingToMatchmakingDivision(ladderPlayer.rating, ladderPlayer.rank)
+  const division = ladderPlayerToMatchmakingDivision(ladderPlayer)
+
+  if (division === MatchmakingDivision.Unranked) {
+    return null
+  }
+
   const divisionLabel = matchmakingDivisionToLabel(division)
 
   return (
     <RankDisplayRoot>
       <DivisionInfo>
         <DivisionIcon player={ladderPlayer} />
-        <RankDisplayType>
-          {matchmakingTypeToLabel(matchmakingType)} &mdash; {divisionLabel}
-        </RankDisplayType>
-        <RankDisplayRating>{Math.round(ladderPlayer.rating)} MMR</RankDisplayRating>
+        <RankDisplayDivisionLabel>{divisionLabel}</RankDisplayDivisionLabel>
+        <RankDisplayType>{matchmakingTypeToLabel(matchmakingType)}</RankDisplayType>
       </DivisionInfo>
       <RankDisplayInfo>
-        <RankDisplayRank>
-          <RankDisplayPrefix>#</RankDisplayPrefix>
-          {ladderPlayer.rank}
-        </RankDisplayRank>
-        <RankDisplayPoints>{Math.round(ladderPlayer.points)} RP</RankDisplayPoints>
-        <RankWinLoss>
-          {ladderPlayer.wins} &ndash; {ladderPlayer.losses}
-        </RankWinLoss>
+        <RankDisplayInfoRow>
+          <RankDisplayInfoEntry>
+            <RankDisplayInfoValue>
+              <RankDisplayPrefix>#</RankDisplayPrefix>
+              {ladderPlayer.rank}
+            </RankDisplayInfoValue>
+            <RankDisplayInfoLabel>Rank</RankDisplayInfoLabel>
+          </RankDisplayInfoEntry>
+          <RankDisplayInfoEntry>
+            <RankDisplayInfoValue>{Math.round(ladderPlayer.points)}</RankDisplayInfoValue>
+            <RankDisplayInfoLabel>Points</RankDisplayInfoLabel>
+          </RankDisplayInfoEntry>
+        </RankDisplayInfoRow>
+        <RankDisplayInfoRow>
+          <RankDisplayInfoEntry>
+            <RankDisplayInfoValue>
+              {ladderPlayer.wins} &ndash; {ladderPlayer.losses}
+            </RankDisplayInfoValue>
+            <RankDisplayInfoLabel>Record</RankDisplayInfoLabel>
+          </RankDisplayInfoEntry>
+          <RankDisplayInfoEntry>
+            <RankDisplayInfoValue>{Math.round(ladderPlayer.rating)}</RankDisplayInfoValue>
+            <RankDisplayInfoLabel>Rating</RankDisplayInfoLabel>
+          </RankDisplayInfoEntry>
+        </RankDisplayInfoRow>
       </RankDisplayInfo>
     </RankDisplayRoot>
   )
