@@ -289,6 +289,8 @@ const RankedSection = styled.div`
 
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 `
 
 const TotalGamesSection = styled.div`
@@ -408,10 +410,6 @@ const RankDisplayRoot = styled.div`
 
   background-color: ${background700};
   border-radius: 4px;
-
-  & + & {
-    margin-left: 8px;
-  }
 `
 
 const DivisionInfo = styled.div`
@@ -457,7 +455,7 @@ const RankDisplayInfoRow = styled.div`
 `
 
 const RankDisplayInfoEntry = styled.div`
-  width: 80px;
+  width: 96px;
   display: flex;
   flex-direction: column;
   align-items: center;
