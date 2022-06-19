@@ -281,6 +281,11 @@ const SectionOverline = styled.div`
 const RankedSection = styled.div`
   padding: 0 24px;
   margin-bottom: 48px;
+  &:empty {
+    // Don't add extra margin if the player only has ranks that are still in placements (and thus
+    // not shown)
+    margin-bottom: 0;
+  }
 
   display: flex;
   align-items: center;
