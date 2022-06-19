@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { LadderPlayer } from '../../common/ladder'
+import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder'
 import {
   ALL_MATCHMAKING_TYPES,
+  matchmakingDivisionToLabel,
   MatchmakingType,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
@@ -10,13 +11,13 @@ import { SbUserId } from '../../common/users/sb-user'
 import { UserStats } from '../../common/users/user-stats'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { longTimestamp } from '../i18n/date-formats'
+import { LadderPlayerIcon } from '../matchmaking/rank-icon'
 import { Popover, PopoverProps } from '../material/popover'
-import { shadow2dp } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import {
-  background300,
+  background500,
   background900,
   backgroundSaturatedDark,
   backgroundSaturatedLight,
@@ -30,7 +31,6 @@ import {
   body2,
   buttonText,
   caption,
-  headline5,
   headline6,
   overline,
   singleLine,
@@ -302,65 +302,26 @@ function TotalGameStats({ userStats }: { userStats: UserStats }) {
 }
 
 const RankDisplayRoot = styled.div`
-  position: relative;
   width: 108px;
+  padding: 8px 8px 4px;
 
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  background-color: ${background500};
+  border-radius: 4px;
 `
 
-const RankDisplayTypePositioner = styled.div`
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
+const DivisionIcon = styled(LadderPlayerIcon)`
+  width: 88px;
+  height: 88px;
 `
 
 const RankDisplayType = styled.div`
   ${body2};
   ${singleLine};
-  ${shadow2dp};
-  display: inline-block;
-  padding: 0 16px;
-
-  background-color: ${background300};
-  border: 2px solid ${colorDividers};
-  border-radius: 12px;
-  color: ${colorTextSecondary};
-`
-
-const RankDisplayInfo = styled.div`
-  width: 100%;
-  margin-top: 14px;
-  padding: 14px 8px 8px;
-
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-
-  background-color: ${background300};
-  border: 2px solid ${colorDividers};
-  border-radius: 2px;
-`
-
-const RankDisplayRank = styled.div`
-  ${headline5};
-  ${singleLine};
-`
-
-const RankDisplayPrefix = styled.span`
-  ${subtitle1};
-`
-
-const RankDisplayRating = styled.div`
-  ${body1};
-  ${singleLine};
-  color: ${colorTextSecondary};
-`
-
-const RankWinLoss = styled.div`
-  ${body1};
-  ${singleLine};
+  padding-top: 4px;
   color: ${colorTextSecondary};
 `
 
@@ -371,22 +332,15 @@ function RankDisplay({
   matchmakingType: MatchmakingType
   ladderPlayer: LadderPlayer
 }) {
+  const division = ladderPlayerToMatchmakingDivision(ladderPlayer)
+  const divisionLabel = matchmakingDivisionToLabel(division)
+
   return (
     <RankDisplayRoot>
-      <RankDisplayTypePositioner>
-        <RankDisplayType>{matchmakingTypeToLabel(matchmakingType)}</RankDisplayType>
-      </RankDisplayTypePositioner>
-      <RankDisplayInfo>
-        <RankDisplayRank>
-          <RankDisplayPrefix>#</RankDisplayPrefix>
-          {ladderPlayer.rank}
-        </RankDisplayRank>
-        <RankDisplayRating>{Math.round(ladderPlayer.rating)} MMR</RankDisplayRating>
-        <RankDisplayRating>{Math.round(ladderPlayer.points)} RP</RankDisplayRating>
-        <RankWinLoss>
-          {ladderPlayer.wins} &ndash; {ladderPlayer.losses}
-        </RankWinLoss>
-      </RankDisplayInfo>
+      <Tooltip text={divisionLabel} position={'top'}>
+        <DivisionIcon player={ladderPlayer} />
+      </Tooltip>
+      <RankDisplayType>{matchmakingTypeToLabel(matchmakingType)}</RankDisplayType>
     </RankDisplayRoot>
   )
 }

@@ -402,8 +402,6 @@ function ComingSoonPage() {
 }
 
 const RankDisplayRoot = styled.div`
-  position: relative;
-
   padding: 16px 16px 8px;
 
   display: flex;
