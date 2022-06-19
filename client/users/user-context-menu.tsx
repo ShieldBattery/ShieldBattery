@@ -21,7 +21,11 @@ export interface ConnectedUserContextMenuProps {
    * returned from this function will be used as the `children` of the menu. Mutating the input
    * value and returning it is okay.
    */
-  modifyMenuItems?: (userId: SbUserId, items: React.ReactNode[]) => React.ReactNode[]
+  modifyMenuItems?: (
+    userId: SbUserId,
+    items: React.ReactNode[],
+    onMenuClose: (event?: MouseEvent) => void,
+  ) => React.ReactNode[]
   popoverProps: Omit<PopoverProps, 'children'>
 }
 
@@ -120,7 +124,7 @@ function ConnectedUserContextMenuContents({
   }
 
   if (modifyMenuItems) {
-    actions = modifyMenuItems(userId, actions)
+    actions = modifyMenuItems(userId, actions, onDismiss)
   }
 
   return <MenuList dense={true}>{actions}</MenuList>

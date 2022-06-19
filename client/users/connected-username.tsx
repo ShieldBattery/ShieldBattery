@@ -37,7 +37,11 @@ export interface ConnectedUsernameProps {
    * returned from this function will be used as the `children` of the menu. Mutating the input
    * value and returning it is okay.
    */
-  modifyMenuItems?: (userId: SbUserId, items: React.ReactNode[]) => React.ReactNode[]
+  modifyMenuItems?: (
+    userId: SbUserId,
+    items: React.ReactNode[],
+    onMenuClose: (event?: MouseEvent) => void,
+  ) => React.ReactNode[]
 }
 
 /**

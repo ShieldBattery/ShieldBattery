@@ -27,7 +27,11 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
   profileOffsetX?: number
   profileOffsetY?: number
   filterClick?: (userId: SbUserId, e: React.MouseEvent) => boolean
-  modifyMenuItems?: (userId: SbUserId, items: React.ReactNode[]) => React.ReactNode[]
+  modifyMenuItems?: (
+    userId: SbUserId,
+    items: React.ReactNode[],
+    onMenuClose: (event?: MouseEvent) => void,
+  ) => React.ReactNode[]
 }): {
   clickableElemRef: React.RefObject<E>
   profileOverlayProps: ConnectedUserProfileOverlayProps

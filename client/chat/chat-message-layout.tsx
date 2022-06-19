@@ -1,6 +1,6 @@
 import React from 'react'
 import { SbUserId } from '../../common/users/sb-user'
-import { useMentionFilterClick } from '../messaging/mention-hooks'
+import { useMentionFilterClick, useMentionMenuItem } from '../messaging/mention-hooks'
 import {
   InfoImportant,
   SeparatedInfoMessage,
@@ -12,11 +12,16 @@ import { ConnectedUsername } from '../users/connected-username'
 export const JoinChannelMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const filterClick = useMentionFilterClick()
+  const addMentionMenuItem = useMentionMenuItem()
   return (
     <SystemMessage time={time}>
       <span>
         <SystemImportant>
-          <ConnectedUsername userId={userId} filterClick={filterClick} />
+          <ConnectedUsername
+            userId={userId}
+            filterClick={filterClick}
+            modifyMenuItems={addMentionMenuItem}
+          />
         </SystemImportant>{' '}
         has joined the channel
       </span>
@@ -27,11 +32,16 @@ export const JoinChannelMessage = React.memo<{ time: number; userId: SbUserId }>
 export const LeaveChannelMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const filterClick = useMentionFilterClick()
+  const addMentionMenuItem = useMentionMenuItem()
   return (
     <SystemMessage time={time}>
       <span>
         <SystemImportant>
-          <ConnectedUsername userId={userId} filterClick={filterClick} />
+          <ConnectedUsername
+            userId={userId}
+            filterClick={filterClick}
+            modifyMenuItems={addMentionMenuItem}
+          />
         </SystemImportant>{' '}
         has left the channel
       </span>
@@ -70,11 +80,16 @@ export const BanUserMessage = React.memo<{ time: number; userId: SbUserId }>(pro
 export const NewChannelOwnerMessage = React.memo<{ time: number; newOwnerId: SbUserId }>(props => {
   const { time, newOwnerId } = props
   const filterClick = useMentionFilterClick()
+  const addMentionMenuItem = useMentionMenuItem()
   return (
     <SystemMessage time={time}>
       <span>
         <SystemImportant>
-          <ConnectedUsername userId={newOwnerId} filterClick={filterClick} />
+          <ConnectedUsername
+            userId={newOwnerId}
+            filterClick={filterClick}
+            modifyMenuItems={addMentionMenuItem}
+          />
         </SystemImportant>{' '}
         is the new owner of the channel
       </span>
