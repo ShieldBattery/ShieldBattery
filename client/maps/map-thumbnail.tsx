@@ -10,8 +10,8 @@ import MapActionsIcon from '../icons/material/ic_more_vert_black_24px.svg'
 import ZoomInIcon from '../icons/material/zoom_in-24px.svg'
 import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
-import { Menu } from '../material/menu/menu'
-import { useAnchorPosition } from '../material/popover'
+import { MenuList } from '../material/menu/menu'
+import { Popover, useAnchorPosition } from '../material/popover'
 import { amberA100, background700, background900, colorTextPrimary } from '../styles/colors'
 import { singleLine, subtitle2 } from '../styles/typography'
 import MapImage from './map-image'
@@ -269,15 +269,15 @@ export function MapThumbnail({
                 title='Map actions'
                 onClick={onOpenMenu}
               />
-              <Menu
+              <Popover
                 open={menuOpen}
                 onDismiss={onCloseMenu}
                 anchorX={anchorX ?? 0}
                 anchorY={anchorY ?? 0}
                 originX='right'
                 originY='top'>
-                {actions}
-              </Menu>
+                <MenuList>{actions}</MenuList>
+              </Popover>
             </>
           ) : null}
         </TextProtection>

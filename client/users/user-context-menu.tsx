@@ -2,8 +2,8 @@ import React, { useCallback } from 'react'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user'
 import { MenuItem } from '../material/menu/item'
-import { Menu } from '../material/menu/menu'
-import { PopoverProps } from '../material/popover'
+import { MenuList } from '../material/menu/menu'
+import { Popover, PopoverProps } from '../material/popover'
 import { inviteToParty, kickPlayer, removePartyInvite } from '../parties/action-creators'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorTextFaint } from '../styles/colors'
@@ -14,12 +14,16 @@ const LoadingItem = styled(MenuItem)`
   color: ${colorTextFaint};
 `
 
-export interface ConnectedUserContextMenuProps {
+/**
+ * Helper component for user context menu to make sure the hooks are only run when the menu is open.
+ */
+function ConnectedUserContextMenuContents({
+  userId,
+  onDismiss,
+}: {
   userId: SbUserId
-  popoverProps: Omit<PopoverProps, 'children'>
-}
-
-export function ConnectedUserContextMenu({ userId, popoverProps }: ConnectedUserContextMenuProps) {
+  onDismiss: () => void
+}) {
   const dispatch = useAppDispatch()
   const selfUser = useAppSelector(s => s.auth.user)
   const user = useAppSelector(s => s.users.byId.get(userId))
@@ -28,8 +32,6 @@ export function ConnectedUserContextMenu({ userId, popoverProps }: ConnectedUser
   const partyMembers = useAppSelector(s => s.party.current?.members)
   const partyInvites = useAppSelector(s => s.party.current?.invites)
   const partyLeader = useAppSelector(s => s.party.current?.leader)
-
-  const onPopoverDismiss = popoverProps.onDismiss
 
   const onViewProfileClick = useCallback(() => {
     navigateToUserProfile(user!.id, user!.name)
@@ -41,18 +43,18 @@ export function ConnectedUserContextMenu({ userId, popoverProps }: ConnectedUser
 
   const onInviteToPartyClick = useCallback(() => {
     dispatch(inviteToParty({ targetId: userId }))
-    onPopoverDismiss()
-  }, [userId, dispatch, onPopoverDismiss])
+    onDismiss()
+  }, [userId, dispatch, onDismiss])
 
   const onRemovePartyInvite = useCallback(() => {
     dispatch(removePartyInvite(partyId!, userId))
-    onPopoverDismiss()
-  }, [partyId, userId, dispatch, onPopoverDismiss])
+    onDismiss()
+  }, [partyId, userId, dispatch, onDismiss])
 
   const onKickPlayerClick = useCallback(() => {
     dispatch(kickPlayer(partyId!, userId))
-    onPopoverDismiss()
-  }, [partyId, userId, dispatch, onPopoverDismiss])
+    onDismiss()
+  }, [partyId, userId, dispatch, onDismiss])
 
   const actions: React.ReactNode[] = []
   if (!user) {
@@ -90,9 +92,18 @@ export function ConnectedUserContextMenu({ userId, popoverProps }: ConnectedUser
     }
   }
 
+  return <MenuList dense={true}>{actions}</MenuList>
+}
+
+export interface ConnectedUserContextMenuProps {
+  userId: SbUserId
+  popoverProps: Omit<PopoverProps, 'children'>
+}
+
+export function ConnectedUserContextMenu({ userId, popoverProps }: ConnectedUserContextMenuProps) {
   return (
-    <Menu dense={true} {...popoverProps}>
-      {actions}
-    </Menu>
+    <Popover {...popoverProps}>
+      <ConnectedUserContextMenuContents userId={userId} onDismiss={popoverProps.onDismiss} />
+    </Popover>
   )
 }

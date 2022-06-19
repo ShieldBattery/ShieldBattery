@@ -11,8 +11,9 @@ import { InputBase } from '../input-base'
 import { InputError } from '../input-error'
 import { FloatingLabel } from '../input-floating-label'
 import { InputUnderline } from '../input-underline'
-import { Menu } from '../menu/menu'
-import { useAnchorPosition } from '../popover'
+import { MenuList } from '../menu/menu'
+import { isSelectableMenuItem } from '../menu/menu-item-symbol'
+import { Popover, useAnchorPosition } from '../popover'
 import { defaultSpring } from '../springs'
 
 const SPACE = 'Space'
@@ -93,7 +94,7 @@ const Icon = styled.span<{ $disabled?: boolean; $focused?: boolean; $opened?: bo
   }
 `
 
-const StyledMenu = styled(Menu)<{ $overlayWidth: number }>`
+const StyledMenuList = styled(MenuList)<{ $overlayWidth: number }>`
   width: ${props => props.$overlayWidth}px;
   background-color: ${background300};
 `
@@ -244,25 +245,27 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
       [anchorRef],
     )
 
-    const [displayValue, selectedIndex] = useMemo(() => {
-      if (value === undefined) {
-        return [undefined, undefined]
-      }
+    const [displayValue, options] = useMemo(() => {
+      let displayText: string | undefined
+      const options = React.Children.map(children, (child, index) => {
+        if (!isSelectableMenuItem(child)) return child
 
-      const childrenArray = React.Children.toArray(children) as React.ReactElement[]
-      let i = 0
-      for (const child of childrenArray) {
+        let selected = false
         if (value !== undefined && child.props.value !== undefined) {
           if (compareValues(value, child.props.value)) {
-            return [child.props.text, i]
+            displayText = child.props.text
+            selected = true
           }
         }
 
-        i++
-      }
+        return React.cloneElement(child, {
+          selected,
+          onClick: () => onOptionChanged(index),
+        })
+      })
 
-      return [undefined, undefined]
-    }, [value, compareValues, children])
+      return [displayText, options]
+    }, [children, compareValues, onOptionChanged, value])
 
     const overlayWidth = inputRef.current?.offsetWidth ?? 0
 
@@ -298,19 +301,16 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
           <InputUnderline focused={focused} error={!!errorText} disabled={disabled} />
         </SelectContainer>
         {allowErrors ? <InputError error={errorText} /> : null}
-        <StyledMenu
-          $overlayWidth={overlayWidth}
+        <Popover
           open={opened}
           onDismiss={onClose}
           anchorX={anchorX ?? 0}
           anchorY={anchorY ?? 0}
           originX='center'
           originY='top'
-          selectedIndex={selectedIndex ?? -1}
-          onItemSelected={onOptionChanged}
           transitionProps={MENU_TRANSITION}>
-          {children}
-        </StyledMenu>
+          <StyledMenuList $overlayWidth={overlayWidth}>{options}</StyledMenuList>
+        </Popover>
       </div>
     )
   },

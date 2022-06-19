@@ -1,10 +1,9 @@
 import { rgba } from 'polished'
-import PropTypes from 'prop-types'
 import React, { useCallback } from 'react'
 import styled from 'styled-components'
 import { amberA400 } from '../../styles/colors'
 import { MenuItem } from '../menu/item'
-import { MenuItemSymbol } from '../menu/menu-item-symbol'
+import { MenuItemSymbol, MenuItemType } from '../menu/menu-item-symbol'
 
 const StyledMenuItem = styled(MenuItem)<{ $selected?: boolean; $focused?: boolean }>`
   &:hover {
@@ -41,25 +40,17 @@ export interface SelectOptionProps {
   value: unknown
   focused?: boolean
   selected?: boolean
-  onItemSelected?: () => void
+  onClick?: () => void
 }
 
-export function SelectOption({ text, focused, selected, onItemSelected }: SelectOptionProps) {
-  const onClick = useCallback(() => {
-    if (onItemSelected) {
-      onItemSelected()
-    }
-  }, [onItemSelected])
+export function SelectOption({ text, focused, selected, onClick }: SelectOptionProps) {
+  const onOptionClick = useCallback(() => {
+    onClick?.()
+  }, [onClick])
 
-  return <StyledMenuItem onClick={onClick} text={text} $focused={focused} $selected={selected} />
+  return (
+    <StyledMenuItem text={text} $focused={focused} $selected={selected} onClick={onOptionClick} />
+  )
 }
 
-SelectOption.propTypes = {
-  text: PropTypes.string.isRequired,
-  value: PropTypes.any.isRequired,
-  focused: PropTypes.bool,
-  selected: PropTypes.bool,
-  onItemSelected: PropTypes.func,
-}
-
-SelectOption[MenuItemSymbol] = true
+SelectOption[MenuItemSymbol] = MenuItemType.Selectable

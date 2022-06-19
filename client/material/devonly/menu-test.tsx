@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { colorTextSecondary } from '../../styles/colors'
 import { subtitle1 } from '../../styles/typography'
@@ -6,9 +6,9 @@ import { RaisedButton } from '../button'
 import Card from '../card'
 import { Divider } from '../menu/divider'
 import { MenuItem } from '../menu/item'
-import { Menu } from '../menu/menu'
-import { SelectedItem as SelectedMenuItem } from '../menu/selected-item'
-import { useAnchorPosition } from '../popover'
+import { MenuList } from '../menu/menu'
+import { SelectableMenuItem } from '../menu/selectable-item'
+import { OriginX, OriginY, Popover, useAnchorPosition } from '../popover'
 
 const Container = styled.div`
   display: flex;
@@ -25,7 +25,7 @@ const StyledCard = styled(Card)`
   max-width: 640px;
 `
 
-const StyledMenu = styled(Menu)`
+const StyledMenuList = styled(MenuList)`
   min-width: 256px;
 `
 
@@ -35,6 +35,8 @@ const Overline = styled.div`
   margin: 8px 0;
   color: ${colorTextSecondary};
 `
+
+const makeArrayRange = (size: number) => Array.from(Array(size).keys())
 
 export function MenuTest() {
   const [activeMenu, setActiveMenu] = useState<string>()
@@ -64,6 +66,17 @@ export function MenuTest() {
     }
   }
 
+  const popoverProps = useMemo(
+    () => ({
+      onDismiss,
+      originX: 'center' as OriginX,
+      originY: 'top' as OriginY,
+      anchorX: anchorX ?? 0,
+      anchorY: (anchorY ?? 0) + 36,
+    }),
+    [anchorX, anchorY, onDismiss],
+  )
+
   return (
     <Container>
       <StyledCard>
@@ -74,107 +87,88 @@ export function MenuTest() {
         <RaisedButton label='Selection menu' onClick={makeClickHandler('selection-menu')} />
         <RaisedButton label='Mixed' onClick={makeClickHandler('mixed')} />
 
-        <Menu
-          open={activeMenu === 'normal'}
-          onDismiss={onDismiss}
-          originX='center'
-          originY='top'
-          anchorX={anchorX ?? 0}
-          anchorY={(anchorY ?? 0) + 36}>
-          <MenuItem text='Menu item 1' onClick={onDismiss} />
-          <MenuItem text='Menu item 2' onClick={onDismiss} />
-          <MenuItem text='Menu item 3' onClick={onDismiss} />
-        </Menu>
-        <StyledMenu
-          open={activeMenu === 'scrollable'}
-          onDismiss={onDismiss}
-          originX='center'
-          originY='top'
-          anchorX={anchorX ?? 0}
-          anchorY={(anchorY ?? 0) + 36}>
-          <MenuItem text='Menu item 1' onClick={onDismiss} />
-          <MenuItem text='Menu item 2' onClick={onDismiss} />
-          <MenuItem text='Menu item 3' onClick={onDismiss} />
-          <MenuItem text='Menu item 4' onClick={onDismiss} />
-          <MenuItem text='Menu item 5' onClick={onDismiss} />
-          <MenuItem text='Menu item 6' onClick={onDismiss} />
-          <MenuItem text='Menu item 7' onClick={onDismiss} />
-          <MenuItem text='Menu item 8' onClick={onDismiss} />
-          <MenuItem text='Menu item 9' onClick={onDismiss} />
-          <MenuItem text='Menu item 10' onClick={onDismiss} />
-        </StyledMenu>
-        <Menu
-          open={activeMenu === 'dense'}
-          onDismiss={onDismiss}
-          originX='center'
-          originY='top'
-          anchorX={anchorX ?? 0}
-          anchorY={(anchorY ?? 0) + 36}
-          dense={true}>
-          <MenuItem text='Menu item 1' onClick={onDismiss} />
-          <MenuItem text='Menu item 2' onClick={onDismiss} />
-          <MenuItem text='Menu item 3' onClick={onDismiss} />
-          <MenuItem text='Menu item 4' onClick={onDismiss} />
-          <MenuItem text='Menu item 5' onClick={onDismiss} />
-        </Menu>
-        <StyledMenu
-          open={activeMenu === 'scrollable-dense'}
-          onDismiss={onDismiss}
-          originX='center'
-          originY='top'
-          anchorX={anchorX ?? 0}
-          anchorY={(anchorY ?? 0) + 36}
-          dense={true}>
-          <MenuItem text='Menu item 1' onClick={onDismiss} />
-          <MenuItem text='Menu item 2' onClick={onDismiss} />
-          <MenuItem text='Menu item 3' onClick={onDismiss} />
-          <MenuItem text='Menu item 4' onClick={onDismiss} />
-          <MenuItem text='Menu item 5' onClick={onDismiss} />
-          <MenuItem text='Menu item 6' onClick={onDismiss} />
-          <MenuItem text='Menu item 7' onClick={onDismiss} />
-          <MenuItem text='Menu item 8' onClick={onDismiss} />
-          <MenuItem text='Menu item 9' onClick={onDismiss} />
-          <MenuItem text='Menu item 10' onClick={onDismiss} />
-          <MenuItem text='Menu item 11' onClick={onDismiss} />
-          <MenuItem text='Menu item 12' onClick={onDismiss} />
-          <MenuItem text='Menu item 13' onClick={onDismiss} />
-          <MenuItem text='Menu item 14' onClick={onDismiss} />
-          <MenuItem text='Menu item 15' onClick={onDismiss} />
-        </StyledMenu>
-        <Menu
-          open={activeMenu === 'selection-menu'}
-          onDismiss={onDismiss}
-          originX='center'
-          originY='top'
-          anchorX={anchorX ?? 0}
-          anchorY={(anchorY ?? 0) + 36}
-          dense={true}
-          selectedIndex={selectedIndex}
-          onItemSelected={onSelected}>
-          <SelectedMenuItem text='Menu item 1' />
-          <SelectedMenuItem text='Menu item 2' />
-          <SelectedMenuItem text='Menu item 3' />
-          <SelectedMenuItem text='Menu item 4' />
-          <SelectedMenuItem text='Menu item 5' />
-        </Menu>
-        <StyledMenu
-          open={activeMenu === 'mixed'}
-          onDismiss={onDismiss}
-          originX='center'
-          originY='top'
-          anchorX={anchorX ?? 0}
-          anchorY={(anchorY ?? 0) + 36}
-          dense={true}
-          selectedIndex={selectedIndex}
-          onItemSelected={onSelected}>
-          <Overline>Subheading</Overline>
-          <SelectedMenuItem text='Menu item 1' />
-          <SelectedMenuItem text='Menu item 2' />
-          <SelectedMenuItem text='Menu item 3' />
-          <Divider />
-          <MenuItem text='Menu item 4' onClick={onDismiss} />
-          <MenuItem text='Menu item 5' onClick={onDismiss} />
-        </StyledMenu>
+        <Popover open={activeMenu === 'normal'} {...popoverProps}>
+          <MenuList>
+            <MenuItem text='Menu item 1' onClick={onDismiss} />
+            <MenuItem text='Menu item 2' onClick={onDismiss} />
+            <MenuItem text='Menu item 3' onClick={onDismiss} />
+          </MenuList>
+        </Popover>
+
+        <Popover open={activeMenu === 'scrollable'} {...popoverProps}>
+          <StyledMenuList>
+            <MenuItem text='Menu item 1' onClick={onDismiss} />
+            <MenuItem text='Menu item 2' onClick={onDismiss} />
+            <MenuItem text='Menu item 3' onClick={onDismiss} />
+            <MenuItem text='Menu item 4' onClick={onDismiss} />
+            <MenuItem text='Menu item 5' onClick={onDismiss} />
+            <MenuItem text='Menu item 6' onClick={onDismiss} />
+            <MenuItem text='Menu item 7' onClick={onDismiss} />
+            <MenuItem text='Menu item 8' onClick={onDismiss} />
+            <MenuItem text='Menu item 9' onClick={onDismiss} />
+            <MenuItem text='Menu item 10' onClick={onDismiss} />
+          </StyledMenuList>
+        </Popover>
+
+        <Popover open={activeMenu === 'dense'} {...popoverProps}>
+          <MenuList dense={true}>
+            <MenuItem text='Menu item 1' onClick={onDismiss} />
+            <MenuItem text='Menu item 2' onClick={onDismiss} />
+            <MenuItem text='Menu item 3' onClick={onDismiss} />
+            <MenuItem text='Menu item 4' onClick={onDismiss} />
+            <MenuItem text='Menu item 5' onClick={onDismiss} />
+          </MenuList>
+        </Popover>
+
+        <Popover open={activeMenu === 'scrollable-dense'} {...popoverProps}>
+          <StyledMenuList dense={true}>
+            <MenuItem text='Menu item 1' onClick={onDismiss} />
+            <MenuItem text='Menu item 2' onClick={onDismiss} />
+            <MenuItem text='Menu item 3' onClick={onDismiss} />
+            <MenuItem text='Menu item 4' onClick={onDismiss} />
+            <MenuItem text='Menu item 5' onClick={onDismiss} />
+            <MenuItem text='Menu item 6' onClick={onDismiss} />
+            <MenuItem text='Menu item 7' onClick={onDismiss} />
+            <MenuItem text='Menu item 8' onClick={onDismiss} />
+            <MenuItem text='Menu item 9' onClick={onDismiss} />
+            <MenuItem text='Menu item 10' onClick={onDismiss} />
+            <MenuItem text='Menu item 11' onClick={onDismiss} />
+            <MenuItem text='Menu item 12' onClick={onDismiss} />
+            <MenuItem text='Menu item 13' onClick={onDismiss} />
+            <MenuItem text='Menu item 14' onClick={onDismiss} />
+            <MenuItem text='Menu item 15' onClick={onDismiss} />
+          </StyledMenuList>
+        </Popover>
+
+        <Popover open={activeMenu === 'selection-menu'} {...popoverProps}>
+          <MenuList dense={true}>
+            {makeArrayRange(5).map(i => (
+              <SelectableMenuItem
+                key={i}
+                text={`Menu item ${i + 1}`}
+                selected={selectedIndex === i}
+                onClick={() => onSelected(i)}
+              />
+            ))}
+          </MenuList>
+        </Popover>
+
+        <Popover open={activeMenu === 'mixed'} {...popoverProps}>
+          <StyledMenuList dense={true}>
+            <Overline>Subheading</Overline>
+            {makeArrayRange(3).map(i => (
+              <SelectableMenuItem
+                key={i}
+                text={`Menu item ${i + 1}`}
+                selected={selectedIndex === i}
+                onClick={() => onSelected(i)}
+              />
+            ))}
+            <Divider />
+            <MenuItem text='Menu item 4' onClick={onDismiss} />
+            <MenuItem text='Menu item 5' onClick={onDismiss} />
+          </StyledMenuList>
+        </Popover>
       </StyledCard>
     </Container>
   )
