@@ -132,6 +132,6 @@ export default class Download extends React.Component {
 
   onDownloadClick = () => {
     window.fathom?.trackGoal('BCSXAXFR', 0)
-    window.location.assign('/published_artifacts/win/ShieldBattery.latest.exe')
+    window.location.assign(`/published_artifacts/win/ShieldBattery.latest.exe?t${Date.now()}`)
   }
 }
