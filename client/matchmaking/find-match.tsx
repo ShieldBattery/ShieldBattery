@@ -2,7 +2,11 @@ import { Immutable } from 'immer'
 import React, { useCallback, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { MatchmakingPreferences, MatchmakingType } from '../../common/matchmaking'
+import {
+  MatchmakingPreferences,
+  MatchmakingType,
+  matchmakingTypeToLabel,
+} from '../../common/matchmaking'
 import { closeOverlay } from '../activities/action-creators'
 import { DisabledOverlay } from '../activities/disabled-content'
 import { useSelfUser } from '../auth/state-hooks'
@@ -33,10 +37,11 @@ const Container = styled.div`
 `
 
 const TitleBar = styled.div`
+  position: relative;
+  padding: 16px 24px;
   display: flex;
   flex-direction: row;
   align-items: center;
-  margin: 16px 24px;
 `
 
 const Contents = styled.div<{ $disabled: boolean }>`
@@ -60,8 +65,9 @@ const Actions = styled.div`
 `
 
 const TabArea = styled.div`
-  position: relative;
-  padding: 0px 24px 8px;
+  min-width: 312px;
+  margin-left: 24px;
+  flex-shrink: 0;
 `
 
 interface DisabledContentsProps {
@@ -187,16 +193,21 @@ export function FindMatch() {
     <Container>
       <TitleBar>
         <Headline5>Find match</Headline5>
-      </TitleBar>
-      <TabArea>
-        <Tabs activeTab={activeTab} onChange={onTabChange}>
-          <TabItem text='1 vs 1' value={MatchmakingType.Match1v1} />
-          <TabItem text='2 vs 2' value={MatchmakingType.Match2v2} />
-          <TabItem text='3 vs 3' value={'3v3'} />
-        </Tabs>
-
+        <TabArea>
+          <Tabs activeTab={activeTab} onChange={onTabChange}>
+            <TabItem
+              text={matchmakingTypeToLabel(MatchmakingType.Match1v1)}
+              value={MatchmakingType.Match1v1}
+            />
+            <TabItem
+              text={matchmakingTypeToLabel(MatchmakingType.Match2v2)}
+              value={MatchmakingType.Match2v2}
+            />
+            <TabItem text={'3v3'} value={'3v3'} />
+          </Tabs>
+        </TabArea>
         <ScrollDivider $show={!isAtTop} $showAt='bottom' />
-      </TabArea>
+      </TitleBar>
 
       {contents ? (
         <>
