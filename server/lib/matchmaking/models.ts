@@ -48,13 +48,18 @@ export interface MatchmakingRating extends RaceStats {
    */
   numGamesPlayed: number
   /**
+   * The number of games this user has played for this matchmaking type since the last MMR reset.
+   * This can be used to determine if the user is still in placements.
+   */
+  lifetimeGames: number
+  /**
    * The date of the last game this user has played (or when its results were tabulated). This is
    * used to determine when users are inactive.
    */
   lastPlayedDate: Date
-  /** The number of games this user has won in this matchmaking type. */
+  /** The number of games this user has won in this matchmaking type during this season. */
   wins: number
-  /** The number of games this user has lost in this matchmaking type. */
+  /** The number of games this user has lost in this matchmaking type during this season. */
   losses: number
 }
 
@@ -67,6 +72,7 @@ export const DEFAULT_MATCHMAKING_RATING: Readonly<
   points: 0,
   bonusUsed: 0,
   numGamesPlayed: 0,
+  lifetimeGames: 0,
   lastPlayedDate: new Date(0),
   wins: 0,
   losses: 0,
@@ -99,6 +105,7 @@ function fromDbMatchmakingRating(result: Readonly<DbMatchmakingRating>): Matchma
     points: result.points,
     bonusUsed: result.bonus_used,
     numGamesPlayed: result.num_games_played,
+    lifetimeGames: result.lifetime_games,
     lastPlayedDate: result.last_played_date,
     wins: result.wins,
     losses: result.losses,
@@ -194,6 +201,7 @@ export async function createInitialMatchmakingRating(
           uncertainty: previousMmr.uncertainty,
           volatility: previousMmr.volatility,
           lastPlayedDate: previousMmr.lastPlayedDate,
+          lifetimeGames: previousMmr.lifetimeGames,
         }
       : {
           ...DEFAULT_MATCHMAKING_RATING,
@@ -205,13 +213,13 @@ export async function createInitialMatchmakingRating(
     const result = await client.query<DbMatchmakingRating>(sql`
       INSERT INTO matchmaking_ratings
         (user_id, matchmaking_type, season_id, rating, uncertainty, volatility, points,
-          bonus_used, num_games_played, last_played_date, wins, losses, p_wins,
+          bonus_used, num_games_played, last_played_date, lifetime_games, wins, losses, p_wins,
           p_losses, t_wins, t_losses, z_wins, z_losses, r_wins, r_losses, r_p_wins, r_p_losses,
           r_t_wins, r_t_losses, r_z_wins, r_z_losses)
       VALUES
         (${userId}, ${matchmakingType}, ${season.id}, ${mmr.rating},
           ${mmr.uncertainty}, ${mmr.volatility}, ${mmr.points}, ${mmr.bonusUsed},
-          ${mmr.numGamesPlayed}, ${mmr.lastPlayedDate},
+          ${mmr.numGamesPlayed}, ${mmr.lastPlayedDate}, ${mmr.lifetimeGames},
           ${mmr.wins}, ${mmr.losses}, ${mmr.pWins}, ${mmr.pLosses}, ${mmr.tWins}, ${mmr.tLosses},
           ${mmr.zWins}, ${mmr.zLosses}, ${mmr.rWins}, ${mmr.rLosses}, ${mmr.rPWins},
           ${mmr.rPLosses}, ${mmr.rTWins}, ${mmr.rTLosses}, ${mmr.rZWins}, ${mmr.rZLosses})
@@ -264,6 +272,7 @@ export async function updateMatchmakingRating(
        bonus_used = ${mmr.bonusUsed},
        num_games_played = ${mmr.numGamesPlayed},
        last_played_date = ${mmr.lastPlayedDate},
+       lifetime_games = ${mmr.lifetimeGames},
        wins = ${mmr.wins},
        losses = ${mmr.losses},
        p_wins = ${mmr.pWins},
@@ -297,6 +306,7 @@ export interface GetRankingsResult extends RaceStats {
   bonusUsed: number
   wins: number
   losses: number
+  lifetimeGames: number
   lastPlayedDate: Date
 }
 
@@ -314,6 +324,7 @@ function fromDbGetRankingsResult(r: DbGetRankingsResult): GetRankingsResult {
     bonusUsed: r.bonus_used,
     wins: r.wins,
     losses: r.losses,
+    lifetimeGames: r.lifetime_games,
     pWins: r.p_wins,
     pLosses: r.p_losses,
     tWins: r.t_wins,
@@ -344,7 +355,7 @@ export async function getRankings(
   try {
     const query = sql`
       SELECT r.matchmaking_type, r.rank, u.name AS username, r.user_id, r.rating, r.points,
-        r.bonus_used, r.wins, r.losses,
+        r.bonus_used, r.wins, r.losses, r.lifetime_games,
         r.p_wins, r.p_losses,
         r.t_wins, r.t_losses,
         r.z_wins, r.z_losses,
@@ -384,7 +395,7 @@ export async function getRankForUser(
   try {
     const result = await client.query<Dbify<GetRankingsResult>>(sql`
       SELECT r.matchmaking_type, r.rank, u.name AS username, r.user_id, r.rating, r.points,
-        r.bonus_used, r.wins, r.losses,
+        r.bonus_used, r.lifetime_games, r.wins, r.losses,
         r.p_wins, r.p_losses,
         r.t_wins, r.t_losses,
         r.z_wins, r.z_losses,

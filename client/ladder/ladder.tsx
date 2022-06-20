@@ -9,6 +9,7 @@ import {
   ALL_MATCHMAKING_TYPES,
   MatchmakingType,
   matchmakingTypeToLabel,
+  NUM_PLACEMENT_MATCHES,
 } from '../../common/matchmaking'
 import { RaceChar, raceCharToLabel } from '../../common/races'
 import { SbUser, SbUserId } from '../../common/users/sb-user'
@@ -561,6 +562,10 @@ const FillerRow = styled.div<{ height: number }>`
   height: ${props => `${props.height}px`};
 `
 
+const UnratedText = styled.span`
+  color: ${colorTextFaint};
+`
+
 interface RowProps {
   isEven: boolean
   player: LadderPlayer
@@ -597,7 +602,13 @@ const Row = React.memo(({ isEven, player, username, curTime, onSelected }: RowPr
         </PlayerNameAndRace>
       </PlayerCell>
       <PointsCell>{Math.round(player.points)}</PointsCell>
-      <RatingCell>{Math.round(player.rating)}</RatingCell>
+      <RatingCell>
+        {player.lifetimeGames >= NUM_PLACEMENT_MATCHES ? (
+          Math.round(player.rating)
+        ) : (
+          <UnratedText>&mdash;</UnratedText>
+        )}
+      </RatingCell>
       <WinLossCell>
         {player.wins} &ndash; {player.losses}
       </WinLossCell>

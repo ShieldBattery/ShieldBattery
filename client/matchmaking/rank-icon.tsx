@@ -87,9 +87,7 @@ export interface LadderPlayerIconProps {
 }
 
 export function LadderPlayerIcon({ player, className }: LadderPlayerIconProps) {
-  // TODO(tec27): Use lifetime games played instead, once it has been added
-  const lifetimeGames = player.wins + player.losses
-  if (lifetimeGames < NUM_PLACEMENT_MATCHES) {
+  if (player.lifetimeGames < NUM_PLACEMENT_MATCHES) {
     return <UnrankedIcon className={className} />
   } else {
     return <RankIcon rating={player.rating} rank={player.rank} className={className} />

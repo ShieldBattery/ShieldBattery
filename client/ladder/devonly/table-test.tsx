@@ -17,8 +17,8 @@ for (let i = 0; i < 1000; i++) {
   const rating = curRating
   curRating -= Math.random() * 3
 
-  const wins = Math.floor(Math.random() * 100) + 5
-  const losses = Math.floor(Math.random() * 100) + 5
+  const wins = Math.floor(Math.random() * 100)
+  const losses = Math.floor(Math.random() * 100)
   const pWins = Math.floor(Math.random() * 100) + 5
   const pLosses = Math.floor(Math.random() * 100) + 5
   const tWins = Math.floor(Math.random() * 100) + 5
@@ -41,6 +41,7 @@ for (let i = 0; i < 1000; i++) {
     rating,
     points: rating * 4,
     bonusUsed: 0,
+    lifetimeGames: wins + losses,
     wins,
     losses,
     pWins,

@@ -19,7 +19,11 @@ import {
 import { toGameRecordJson } from '../../../common/games/games'
 import { LadderPlayer } from '../../../common/ladder'
 import { toMapInfoJson } from '../../../common/maps'
-import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
+import {
+  ALL_MATCHMAKING_TYPES,
+  MatchmakingType,
+  NUM_PLACEMENT_MATCHES,
+} from '../../../common/matchmaking'
 import { ALL_POLICY_TYPES, SbPolicyType } from '../../../common/policies/policy-type'
 import { SbPermissions } from '../../../common/users/permissions'
 import {
@@ -279,11 +283,12 @@ export class UserApi {
         ladder[m] = {
           rank: r.rank,
           userId: r.userId,
-          rating: r.rating,
+          rating: r.lifetimeGames >= NUM_PLACEMENT_MATCHES ? r.rating : 0,
           points: r.points,
           bonusUsed: r.bonusUsed,
           wins: r.wins,
           losses: r.losses,
+          lifetimeGames: r.lifetimeGames,
           pWins: r.pWins,
           pLosses: r.pLosses,
           tWins: r.tWins,

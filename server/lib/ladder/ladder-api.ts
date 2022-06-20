@@ -1,7 +1,11 @@
 import { RouterContext } from '@koa/router'
 import Joi from 'joi'
 import { GetRankingsResponse, LadderPlayer } from '../../../common/ladder'
-import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
+import {
+  ALL_MATCHMAKING_TYPES,
+  MatchmakingType,
+  NUM_PLACEMENT_MATCHES,
+} from '../../../common/matchmaking'
 import { SbUser } from '../../../common/users/sb-user'
 import { httpApi } from '../http/http-api'
 import { httpBefore, httpGet } from '../http/route-decorators'
@@ -80,9 +84,10 @@ export class LadderApi {
       players.push({
         rank: r.rank,
         userId: r.userId,
-        rating: r.rating,
+        rating: r.lifetimeGames >= NUM_PLACEMENT_MATCHES ? r.rating : 0,
         points: r.points,
         bonusUsed: r.bonusUsed,
+        lifetimeGames: r.lifetimeGames,
         wins: r.wins,
         losses: r.losses,
         pWins: r.pWins,
