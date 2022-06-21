@@ -89,6 +89,16 @@ const Content = styled.div`
   overflow: hidden;
 `
 
+const LastUpdatedText = styled.div`
+  ${body1};
+  padding-right: 16px;
+  flex-grow: 1;
+  flex-shrink: 0;
+
+  color: ${colorTextSecondary};
+  text-align: right;
+`
+
 const savedLadderTab = new JsonLocalStorageValue<MatchmakingType>('ladderTab')
 
 export function LadderRouteComponent(props: { params: any }) {
@@ -232,10 +242,15 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
             />
           </Tabs>
         </TabsContainer>
+        {rankingsData ? (
+          <LastUpdatedText title={longTimestamp.format(rankingsData.lastUpdated)}>
+            Updated: {shortTimestamp.format(rankingsData.lastUpdated)}
+          </LastUpdatedText>
+        ) : null}
         <ScrollDivider $show={!isAtTop} $showAt='bottom' />
       </PageHeader>
       <Content>
-        {searchResults || rankings ? (
+        {rankingsData ? (
           <LadderTable
             {...rankingsData}
             usersById={usersById}
@@ -281,14 +296,6 @@ const StyledSearchInput = styled(SearchInput)`
   &:focus-within {
     width: 256px;
   }
-`
-
-const LastUpdatedText = styled.div`
-  ${body1};
-  padding: 0 16px;
-
-  color: ${colorTextSecondary};
-  text-align: right;
 `
 
 const Table = styled.div`
@@ -510,9 +517,6 @@ export function LadderTable(props: LadderTableProps) {
           searchQuery={searchQuery}
           onSearchChange={onSearchChange}
         />
-        <LastUpdatedText title={longTimestamp.format(props.lastUpdated)}>
-          Last updated: {shortTimestamp.format(props.lastUpdated)}
-        </LastUpdatedText>
       </SearchContainer>
       {topHeaderNode}
       {containerRef.current && (players?.length ?? 0) > 0 ? (
