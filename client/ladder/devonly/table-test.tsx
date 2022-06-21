@@ -6,7 +6,7 @@ import { LadderTable } from '../ladder'
 const PLAYERS: LadderPlayer[] = []
 const usersById: Map<SbUserId, SbUser> = new Map()
 
-let curRating = 2200
+let curRating = 2600
 const NOW = Date.now()
 for (let i = 0; i < 1000; i++) {
   // Generate a random name between 3 and 16 characters long
@@ -15,7 +15,7 @@ for (let i = 0; i < 1000; i++) {
   ).substring(0, Math.floor(Math.random() * 14) + 3)
 
   const rating = curRating
-  curRating -= Math.random() * 3
+  curRating -= Math.random() * 4
 
   const wins = Math.floor(Math.random() * 100)
   const losses = Math.floor(Math.random() * 100)

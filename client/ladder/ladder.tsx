@@ -4,9 +4,10 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { TableVirtuoso } from 'react-virtuoso'
 import styled from 'styled-components'
 import { useRoute } from 'wouter'
-import { LadderPlayer } from '../../common/ladder'
+import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder'
 import {
   ALL_MATCHMAKING_TYPES,
+  matchmakingDivisionToLabel,
   MatchmakingType,
   matchmakingTypeToLabel,
   NUM_PLACEMENT_MATCHES,
@@ -17,6 +18,7 @@ import { Avatar } from '../avatars/avatar'
 import { useVirtuosoScrollFix } from '../dom/virtuoso-scroll-fix'
 import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
 import { JsonLocalStorageValue } from '../local-storage'
+import { LadderPlayerIcon } from '../matchmaking/rank-icon'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { fastOutSlowInShort } from '../material/curves'
@@ -24,6 +26,7 @@ import { Ripple } from '../material/ripple'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { shadow4dp } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
+import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
@@ -313,13 +316,13 @@ const RowContainer = styled.button<{ $isEven: boolean }>`
 
   ${subtitle1};
   width: 100%;
-  height: 64px;
+  height: 72px;
   padding: 0;
 
   display: flex;
   align-items: center;
 
-  --sb-ladder-row-height: 64px;
+  --sb-ladder-row-height: 72px;
 `
 
 const HEADER_STUCK_CLASS = 'sb-ladder-table-sticky-header'
@@ -350,13 +353,17 @@ const BaseCell = styled.div`
   height: 100%;
   flex: 1 1 auto;
   padding: 0 8px;
-  line-height: var(--sb-ladder-row-height, 64px);
+  line-height: var(--sb-ladder-row-height, 72px);
 `
 
 const RankCell = styled(BaseCell)`
-  width: 64px;
+  width: 112px;
   padding-left: 16px;
-  text-align: right;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 `
 
 const PlayerCell = styled(BaseCell)`
@@ -391,7 +398,7 @@ const WinLossCell = styled(BaseCell)`
 `
 
 const LastPlayedCell = styled(BaseCell)`
-  width: 156px;
+  width: 140px;
   padding: 0 16px 0 32px;
   color: ${colorTextSecondary};
   text-align: right;
@@ -545,7 +552,10 @@ export function LadderTable(props: LadderTableProps) {
 
 const Header = () => (
   <>
-    <RankCell>Rank</RankCell>
+    <RankCell>
+      <span></span>
+      <span>Rank</span>
+    </RankCell>
     <PlayerCell>Player</PlayerCell>
     <PointsCell>Points</PointsCell>
     <RatingCell>MMR</RatingCell>
@@ -568,6 +578,11 @@ const FillerRow = styled.div<{ height: number }>`
 
 const UnratedText = styled.span`
   color: ${colorTextFaint};
+`
+
+const DivisionIcon = styled(LadderPlayerIcon)`
+  width: 44px;
+  height: 44px;
 `
 
 interface RowProps {
@@ -595,9 +610,17 @@ const Row = React.memo(({ isEven, player, username, curTime, onSelected }: RowPr
   raceStats.sort((a, b) => b[0] - a[0])
   const mostPlayedRace = raceStats[0][1]
 
+  const division = ladderPlayerToMatchmakingDivision(player)
+  const divisionLabel = matchmakingDivisionToLabel(division)
+
   return (
     <RowContainer $isEven={isEven} {...buttonProps}>
-      <RankCell>{player.rank}</RankCell>
+      <RankCell>
+        <Tooltip text={divisionLabel} position='bottom'>
+          <DivisionIcon player={player} />
+        </Tooltip>
+        <span>{player.rank}</span>
+      </RankCell>
       <PlayerCell>
         <StyledAvatar user={username} />
         <PlayerNameAndRace>
