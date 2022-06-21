@@ -66,13 +66,13 @@ export function RankIcon({ rating, rank, className, showChampionRank = true }: R
   )
 }
 
-export interface UnrankedIconProps {
+export interface UnratedIconProps {
   className?: string
 }
 
-export function UnrankedIcon({ className }: UnrankedIconProps) {
-  const iconUrl = makePublicAssetUrl('images/ranks/unranked.svg')
-  const divisionLabel = matchmakingDivisionToLabel(MatchmakingDivision.Unranked)
+export function UnratedIcon({ className }: UnratedIconProps) {
+  const iconUrl = makePublicAssetUrl('images/ranks/unrated.svg')
+  const divisionLabel = matchmakingDivisionToLabel(MatchmakingDivision.Unrated)
 
   return (
     <Container className={className}>
@@ -88,7 +88,7 @@ export interface LadderPlayerIconProps {
 
 export function LadderPlayerIcon({ player, className }: LadderPlayerIconProps) {
   if (player.lifetimeGames < NUM_PLACEMENT_MATCHES) {
-    return <UnrankedIcon className={className} />
+    return <UnratedIcon className={className} />
   } else {
     return <RankIcon rating={player.rating} rank={player.rank} className={className} />
   }

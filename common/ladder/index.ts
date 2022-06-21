@@ -24,7 +24,7 @@ export interface LadderPlayer extends RaceStats {
 
 export function ladderPlayerToMatchmakingDivision(player: LadderPlayer): MatchmakingDivision {
   if (player.lifetimeGames < NUM_PLACEMENT_MATCHES) {
-    return MatchmakingDivision.Unranked
+    return MatchmakingDivision.Unrated
   } else {
     return ratingToMatchmakingDivision(player.rating, player.rank)
   }

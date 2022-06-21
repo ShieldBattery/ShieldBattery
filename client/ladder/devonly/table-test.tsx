@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react'
 import { LadderPlayer } from '../../../common/ladder'
 import { makeSbUserId, SbUser, SbUserId } from '../../../common/users/sb-user'
-import { LadderTable } from '../ladder'
+import { DivisionFilter, LadderTable } from '../ladder'
 
 const PLAYERS: LadderPlayer[] = []
 const usersById: Map<SbUserId, SbUser> = new Map()
@@ -65,6 +65,7 @@ for (let i = 0; i < 1000; i++) {
 
 export function TableTest() {
   const [searchQuery, setSearchQuery] = useState('')
+  const [filteredDivision, setFilteredDivision] = useState('')
   const players = useMemo(
     () => PLAYERS.filter(p => usersById.get(p.userId)!.name.includes(searchQuery)),
     [searchQuery],
@@ -82,6 +83,8 @@ export function TableTest() {
       curTime={Date.now()}
       searchQuery={searchQuery}
       onSearchChange={onSearchChange}
+      filteredDivision={(filteredDivision || 'all') as DivisionFilter}
+      onFilteredDivisionChange={setFilteredDivision}
     />
   )
 }

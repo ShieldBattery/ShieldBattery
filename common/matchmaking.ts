@@ -35,7 +35,7 @@ export function matchmakingTypeToLabel(type: MatchmakingType): string {
  * NOTE(tec27): Be careful changing the values of these, they are expected to match image filenames.
  */
 export enum MatchmakingDivision {
-  Unranked = 'unranked',
+  Unrated = 'unrated',
   Bronze1 = 'bronze1',
   Bronze2 = 'bronze2',
   Bronze3 = 'bronze3',
@@ -59,8 +59,8 @@ export const ALL_MATCHMAKING_DIVISIONS: ReadonlyArray<MatchmakingDivision> =
 
 export function matchmakingDivisionToLabel(rank: MatchmakingDivision): string {
   switch (rank) {
-    case MatchmakingDivision.Unranked:
-      return 'Unranked'
+    case MatchmakingDivision.Unrated:
+      return 'Unrated'
     case MatchmakingDivision.Bronze1:
       return 'Bronze 1'
     case MatchmakingDivision.Bronze2:

@@ -483,7 +483,7 @@ function RankDisplay({
 }) {
   const division = ladderPlayerToMatchmakingDivision(ladderPlayer)
 
-  if (division === MatchmakingDivision.Unranked) {
+  if (division === MatchmakingDivision.Unrated) {
     return null
   }
 

@@ -1,12 +1,14 @@
 import { Immutable } from 'immer'
 import { debounce } from 'lodash-es'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TableVirtuoso } from 'react-virtuoso'
 import styled from 'styled-components'
 import { useRoute } from 'wouter'
+import { assertUnreachable } from '../../common/assert-unreachable'
 import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder'
 import {
   ALL_MATCHMAKING_TYPES,
+  MatchmakingDivision,
   matchmakingDivisionToLabel,
   MatchmakingType,
   matchmakingTypeToLabel,
@@ -24,6 +26,8 @@ import { buttonReset } from '../material/button-reset'
 import { fastOutSlowInShort } from '../material/curves'
 import { Ripple } from '../material/ripple'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
+import { SelectOption } from '../material/select/option'
+import { Select } from '../material/select/select'
 import { shadow4dp } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
@@ -145,6 +149,8 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
   const [lastError, setLastError] = useState<Error>()
   const [searchQuery, setSearchQuery] = useLocationSearchParam('q')
 
+  const [filteredDivision, setFilteredDivision] = useLocationSearchParam('division')
+
   const setSearchQueryRef = useValueAsRef(setSearchQuery)
   const debouncedSearchRef = useRef(
     debounce((searchQuery: string) => {
@@ -207,6 +213,14 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
     }
   }, [routeType])
 
+  useEffect(() => {
+    if (filteredDivision) {
+      if (!ALL_DIVISION_FILTERS.includes(filteredDivision as DivisionFilter)) {
+        setFilteredDivision('')
+      }
+    }
+  }, [filteredDivision, setFilteredDivision])
+
   let rankingsData = {
     lastUpdated: 0,
     totalCount: 0,
@@ -261,6 +275,8 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
             searchInputRef={searchInputRef}
             searchQuery={searchQuery}
             onSearchChange={onSearchChange}
+            filteredDivision={(filteredDivision || 'all') as DivisionFilter}
+            onFilteredDivisionChange={setFilteredDivision}
             topNode={topNode}
             bottomNode={bottomNode}
           />
@@ -281,7 +297,7 @@ const TableContainer = styled.div`
   overflow-y: auto;
 `
 
-const SearchContainer = styled.div`
+const FiltersContainer = styled.div`
   display: flex;
   flex-direction: row;
   justify-content: space-between;
@@ -299,6 +315,10 @@ const StyledSearchInput = styled(SearchInput)`
   &:focus-within {
     width: 256px;
   }
+`
+
+const DivisionSelect = styled(Select)`
+  width: 148px;
 `
 
 const Table = styled.div`
@@ -443,6 +463,19 @@ const EmptyText = styled.div`
   text-align: center;
 `
 
+export enum DivisionFilter {
+  All = 'all',
+  Champion = 'champion',
+  Diamond = 'diamond',
+  Platinum = 'platinum',
+  Gold = 'gold',
+  Silver = 'silver',
+  Bronze = 'bronze',
+  Unrated = 'unrated',
+}
+
+const ALL_DIVISION_FILTERS: ReadonlyArray<DivisionFilter> = Object.values(DivisionFilter)
+
 export interface LadderTableProps {
   curTime: number
   players?: ReadonlyArray<LadderPlayer>
@@ -452,6 +485,8 @@ export interface LadderTableProps {
   searchInputRef?: React.RefObject<SearchInputHandle>
   searchQuery: string
   onSearchChange: (value: string) => void
+  filteredDivision: DivisionFilter
+  onFilteredDivisionChange: (value: DivisionFilter) => void
   topNode?: React.ReactNode
   bottomNode?: React.ReactNode
 }
@@ -482,10 +517,11 @@ export function LadderTable(props: LadderTableProps) {
     searchInputRef,
     searchQuery,
     onSearchChange,
+    filteredDivision,
+    onFilteredDivisionChange,
     topNode,
     bottomNode,
   } = props
-
   const [isHeaderUnstuck, , topHeaderNode, bottomHeaderNode] = useScrollIndicatorState({
     refreshToken: players,
   })
@@ -512,21 +548,109 @@ export function LadderTable(props: LadderTableProps) {
   const emptyContent = lastError ? (
     <ErrorText>There was an error retrieving the current rankings.</ErrorText>
   ) : (
-    <EmptyText>Nothing to see here</EmptyText>
+    <EmptyText>No matching players.</EmptyText>
   )
+
+  const data = useMemo(() => {
+    if (
+      !players ||
+      filteredDivision === DivisionFilter.All ||
+      !ALL_DIVISION_FILTERS.includes(filteredDivision)
+    ) {
+      return players
+    }
+
+    const playersWithDivs = players.map<[player: LadderPlayer, division: MatchmakingDivision]>(
+      p => [p, ladderPlayerToMatchmakingDivision(p)],
+    )
+
+    switch (filteredDivision) {
+      case DivisionFilter.Bronze:
+        return playersWithDivs
+          .filter(
+            ([, div]) =>
+              div === MatchmakingDivision.Bronze1 ||
+              div === MatchmakingDivision.Bronze2 ||
+              div === MatchmakingDivision.Bronze3,
+          )
+          .map(([p]) => p)
+      case DivisionFilter.Silver:
+        return playersWithDivs
+          .filter(
+            ([, div]) =>
+              div === MatchmakingDivision.Silver1 ||
+              div === MatchmakingDivision.Silver2 ||
+              div === MatchmakingDivision.Silver3,
+          )
+          .map(([p]) => p)
+      case DivisionFilter.Gold:
+        return playersWithDivs
+          .filter(
+            ([, div]) =>
+              div === MatchmakingDivision.Gold1 ||
+              div === MatchmakingDivision.Gold2 ||
+              div === MatchmakingDivision.Gold3,
+          )
+          .map(([p]) => p)
+      case DivisionFilter.Platinum:
+        return playersWithDivs
+          .filter(
+            ([, div]) =>
+              div === MatchmakingDivision.Platinum1 ||
+              div === MatchmakingDivision.Platinum2 ||
+              div === MatchmakingDivision.Platinum3,
+          )
+          .map(([p]) => p)
+      case DivisionFilter.Diamond:
+        return playersWithDivs
+          .filter(
+            ([, div]) =>
+              div === MatchmakingDivision.Diamond1 ||
+              div === MatchmakingDivision.Diamond2 ||
+              div === MatchmakingDivision.Diamond3,
+          )
+          .map(([p]) => p)
+      case DivisionFilter.Champion:
+        return playersWithDivs
+          .filter(([, div]) => div === MatchmakingDivision.Champion)
+          .map(([p]) => p)
+      case DivisionFilter.Unrated:
+        return playersWithDivs
+          .filter(([, div]) => div === MatchmakingDivision.Unrated)
+          .map(([p]) => p)
+
+      default:
+        return assertUnreachable(filteredDivision)
+    }
+  }, [players, filteredDivision])
 
   return (
     <TableContainer ref={setContainerRef}>
       {topNode}
-      <SearchContainer>
+      <FiltersContainer>
         <StyledSearchInput
           ref={searchInputRef}
           searchQuery={searchQuery}
           onSearchChange={onSearchChange}
         />
-      </SearchContainer>
+        <DivisionSelect
+          dense={true}
+          label={'Division'}
+          value={filteredDivision}
+          onChange={onFilteredDivisionChange}
+          allowErrors={false}>
+          <SelectOption value={DivisionFilter.All} text={'All'} />
+          <SelectOption value={DivisionFilter.Champion} text={'Champion'} />
+          <SelectOption value={DivisionFilter.Diamond} text={'Diamond'} />
+          <SelectOption value={DivisionFilter.Platinum} text={'Platinum'} />
+          <SelectOption value={DivisionFilter.Gold} text={'Gold'} />
+          <SelectOption value={DivisionFilter.Silver} text={'Silver'} />
+          <SelectOption value={DivisionFilter.Bronze} text={'Bronze'} />
+          <SelectOption value={DivisionFilter.Unrated} text={'Unrated'} />
+        </DivisionSelect>
+      </FiltersContainer>
       {topHeaderNode}
-      {containerRef.current && (players?.length ?? 0) > 0 ? (
+      {containerRef.current && (data?.length ?? 0) > 0 ? (
         <TableVirtuoso
           className={isHeaderUnstuck ? '' : HEADER_STUCK_CLASS}
           customScrollParent={containerRef.current}
@@ -538,7 +662,7 @@ export function LadderTable(props: LadderTableProps) {
             TableRow,
             FillerRow,
           }}
-          data={players}
+          data={data}
           itemContent={renderRow}
         />
       ) : (

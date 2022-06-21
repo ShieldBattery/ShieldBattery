@@ -1,6 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import { RankIcon, UnrankedIcon } from '../rank-icon'
+import { RankIcon, UnratedIcon } from '../rank-icon'
 
 const Container = styled.div`
   display: flex;
@@ -43,7 +43,7 @@ export function RankIconsTest() {
     <Container>
       <Column>
         <Row>
-          <UnrankedIcon />
+          <UnratedIcon />
         </Row>
 
         <Row>

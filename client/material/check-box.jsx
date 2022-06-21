@@ -146,7 +146,7 @@ const CheckIcon = styled.div`
   }
 `
 
-export default class CheckBox extends React.Component {
+export class CheckBox extends React.Component {
   static propTypes = {
     name: PropTypes.string,
     checked: PropTypes.bool,
@@ -218,3 +218,5 @@ export default class CheckBox extends React.Component {
     this.mouseActive = true
   }
 }
+
+export default CheckBox

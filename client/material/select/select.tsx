@@ -2,7 +2,7 @@ import React, { useCallback, useId, useImperativeHandle, useMemo, useRef, useSta
 import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
 import ArrowDropDownIcon from '../../icons/material/ic_arrow_drop_down_black_24px.svg'
-import KeyListener from '../../keyboard/key-listener'
+import { useKeyListener } from '../../keyboard/key-listener'
 import { useValueAsRef } from '../../state-hooks'
 import { amberA400, background300, colorTextFaint, colorTextPrimary } from '../../styles/colors'
 import { buttonReset } from '../button-reset'
@@ -20,16 +20,14 @@ const SPACE = 'Space'
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
 
-const CONTAINER_HEIGHT = 56
-
-const SelectContainer = styled.button<{ disabled?: boolean; $focused?: boolean }>`
+const SelectContainer = styled.button<{ disabled?: boolean; $focused?: boolean; $dense?: boolean }>`
   ${buttonReset};
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   position: relative;
   width: 100%;
-  height: ${CONTAINER_HEIGHT}px;
+  height: ${props => (props.$dense ? '40px' : '56px')};
   padding: 0;
   cursor: ${props => (props.disabled ? 'default' : 'pointer')};
   font-size: 16px;
@@ -65,10 +63,15 @@ const DisplayValue = styled(InputBase)`
   align-items: center;
 `
 
-const Icon = styled.span<{ $disabled?: boolean; $focused?: boolean; $opened?: boolean }>`
+const Icon = styled.span<{
+  $disabled?: boolean
+  $focused?: boolean
+  $opened?: boolean
+  $dense?: boolean
+}>`
   position: absolute;
   top: 50%;
-  right: 12px;
+  right: ${props => (props.$dense ? '8px' : '12px')};
   width: 24px;
   height: 24px;
   margin-left: 4px;
@@ -115,6 +118,10 @@ export interface SelectProps {
    */
   className?: string
   /**
+   * An optional id to use for the interactable element.
+   */
+  id?: string
+  /**
    * Whether or not errors are possible. If they are not possible, no error text will ever be
    * shown and no space will be reserved for it next to the input. Defaults to `true`.
    */
@@ -123,6 +130,8 @@ export interface SelectProps {
    * Error text to show (`allowErrors` must be true for this to work).
    */
   errorText?: string
+  /** Whether the input should be styled in a more compact way (defaults to false). */
+  dense?: boolean
   /**
    * A label to include with the input, specifying what the input is for to users.
    */
@@ -164,15 +173,18 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
       className,
       allowErrors = true,
       errorText,
+      dense = false,
       label,
       disabled,
       tabIndex,
       onChange,
       compareValues = Object.is,
+      id: propsId,
     },
     forwardedRef,
   ) => {
-    const id = useId()
+    const hookId = useId()
+    const id = propsId ?? hookId
     const [focused, setFocused] = useState(false)
     const [opened, setOpened] = useState(false)
     const inputRef = useRef<HTMLButtonElement>()
@@ -221,8 +233,8 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
       },
       [onChange, onClose, children],
     )
-    const onKeyDown = useCallback(
-      (event: KeyboardEvent) => {
+    useKeyListener({
+      onKeyDown: (event: KeyboardEvent) => {
         if (!focusedRef.current) return false
 
         if (!openedRef.current) {
@@ -234,8 +246,7 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
 
         return false
       },
-      [focusedRef, openedRef, onOpen],
-    )
+    })
 
     const multiplexRefs = useCallback(
       (elem: HTMLButtonElement | null) => {
@@ -271,13 +282,13 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
 
     return (
       <div className={className}>
-        <KeyListener onKeyDown={onKeyDown} />
         <SelectContainer
           ref={multiplexRefs}
           id={id}
           type='button'
           disabled={disabled}
           $focused={focused}
+          $dense={dense}
           tabIndex={disabled ? undefined : tabIndex ?? 0}
           onFocus={onFocus}
           onBlur={onBlur}
@@ -286,16 +297,17 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
             <FloatingLabel
               htmlFor={id}
               $hasValue={value !== undefined}
+              $dense={dense}
               $focused={focused}
               $disabled={disabled}
               $error={!!errorText}>
               {label}
             </FloatingLabel>
           ) : null}
-          <DisplayValue as='span' $floatingLabel={!!label} $disabled={disabled}>
+          <DisplayValue as='span' $floatingLabel={!!label} $disabled={disabled} $dense={dense}>
             {displayValue}
           </DisplayValue>
-          <Icon $opened={opened} $focused={focused} $disabled={disabled}>
+          <Icon $opened={opened} $focused={focused} $disabled={disabled} $dense={dense}>
             <ArrowDropDownIcon />
           </Icon>
           <InputUnderline focused={focused} error={!!errorText} disabled={disabled} />
@@ -309,7 +321,9 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
           originX='center'
           originY='top'
           transitionProps={MENU_TRANSITION}>
-          <StyledMenuList $overlayWidth={overlayWidth}>{options}</StyledMenuList>
+          <StyledMenuList $overlayWidth={overlayWidth} dense={dense}>
+            {options}
+          </StyledMenuList>
         </Popover>
       </div>
     )

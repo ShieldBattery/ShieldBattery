@@ -1,6 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import Card from '../card'
+import { CheckBox } from '../check-box'
 import { SelectOption } from '../select/option'
 import { Select } from '../select/select'
 import { TextField } from '../text-field'
@@ -26,15 +27,18 @@ export default class SelectsTest extends React.Component {
     value5: 1,
     value6: 1,
     value7: 1,
+    dense: false,
   }
 
   render() {
     return (
       <Container>
         <StyledCard>
+          <CheckBox checked={this.state.dense} label='Dense' onChange={this.onDenseChange} />
           <h3>Select some things</h3>
-          <TextField floatingLabel={true} label='Label' />
+          <TextField dense={this.state.dense} floatingLabel={true} label='Label' />
           <Select
+            dense={this.state.dense}
             value={this.state.value1}
             label='First'
             onChange={value => this.onChange(1, value)}>
@@ -48,7 +52,11 @@ export default class SelectsTest extends React.Component {
             <SelectOption value={8} text='Menu option 8' />
           </Select>
 
-          <Select value={this.state.value2} disabled={true} label='Disabled'>
+          <Select
+            dense={this.state.dense}
+            value={this.state.value2}
+            disabled={true}
+            label='Disabled'>
             <SelectOption value={1} text='Menu option 1' />
             <SelectOption value={2} text='Menu option 2' />
             <SelectOption value={3} text='Menu option 3' />
@@ -60,6 +68,7 @@ export default class SelectsTest extends React.Component {
           </Select>
 
           <Select
+            dense={this.state.dense}
             value={this.state.value3}
             label='No default value'
             onChange={value => this.onChange(3, value)}>
@@ -69,12 +78,16 @@ export default class SelectsTest extends React.Component {
             <SelectOption value={4} text='Menu option 4' />
           </Select>
 
-          <Select value={this.state.value4} onChange={value => this.onChange(4, value)}>
+          <Select
+            dense={this.state.dense}
+            value={this.state.value4}
+            onChange={value => this.onChange(4, value)}>
             <SelectOption value={1} text='No label' />
             <SelectOption value={2} text='Menu option 2' />
           </Select>
 
           <Select
+            dense={this.state.dense}
             value={this.state.value5}
             allowErrors={false}
             onChange={value => this.onChange(5, value)}>
@@ -83,6 +96,7 @@ export default class SelectsTest extends React.Component {
           </Select>
 
           <Select
+            dense={this.state.dense}
             value={this.state.value6}
             label='No allow errors'
             allowErrors={false}
@@ -92,6 +106,7 @@ export default class SelectsTest extends React.Component {
           </Select>
 
           <Select
+            dense={this.state.dense}
             value={this.state.value7}
             label='With errors'
             errorText='Hi mom'
@@ -102,7 +117,7 @@ export default class SelectsTest extends React.Component {
             <SelectOption value={4} text='Menu option 4' />
           </Select>
 
-          <TextField floatingLabel={true} label='Label 2' errorText='hi' />
+          <TextField dense={this.state.dense} floatingLabel={true} label='Label 2' errorText='hi' />
         </StyledCard>
       </Container>
     )
@@ -114,5 +129,9 @@ export default class SelectsTest extends React.Component {
     this.setState({
       [valueKey]: value,
     })
+  }
+
+  onDenseChange = event => {
+    this.setState({ dense: event.target.checked })
   }
 }

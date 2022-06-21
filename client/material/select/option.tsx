@@ -5,7 +5,10 @@ import { amberA400 } from '../../styles/colors'
 import { MenuItem } from '../menu/item'
 import { MenuItemSymbol, MenuItemType } from '../menu/menu-item-symbol'
 
-const StyledMenuItem = styled(MenuItem)<{ $selected?: boolean; $focused?: boolean }>`
+const StyledMenuItem = styled(MenuItem)<{
+  $selected?: boolean
+  $focused?: boolean
+}>`
   &:hover {
     background-color: ${props => {
       if (props.$selected) {
@@ -40,16 +43,23 @@ export interface SelectOptionProps {
   value: unknown
   focused?: boolean
   selected?: boolean
+  dense?: boolean
   onClick?: () => void
 }
 
-export function SelectOption({ text, focused, selected, onClick }: SelectOptionProps) {
+export function SelectOption({ text, focused, selected, dense, onClick }: SelectOptionProps) {
   const onOptionClick = useCallback(() => {
     onClick?.()
   }, [onClick])
 
   return (
-    <StyledMenuItem text={text} $focused={focused} $selected={selected} onClick={onOptionClick} />
+    <StyledMenuItem
+      text={text}
+      dense={dense}
+      $focused={focused}
+      $selected={selected}
+      onClick={onOptionClick}
+    />
   )
 }
 
