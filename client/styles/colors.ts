@@ -69,7 +69,7 @@ export const colorNegative = '#e66060'
 
 export const colorZerg = '#c1a3f5'
 export const colorProtoss = '#ffe57f'
-export const colorTerran = '#559df1'
+export const colorTerran = '#89bbf5'
 export const colorRandom = '#f5a63d'
 
 export function getRaceColor(race: RaceChar) {
