@@ -12,7 +12,7 @@ import { ConnectedAvatar } from '../avatars/avatar'
 import { useVirtuosoScrollFix } from '../dom/virtuoso-scroll-fix'
 import { logger } from '../logging/logger'
 import { Chat } from '../messaging/chat'
-import { useMentionFilterClick, useMentionMenuItem } from '../messaging/mention-hooks'
+import { useChatMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
 import { Message } from '../messaging/message-records'
 import { push, replace } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
@@ -157,7 +157,7 @@ interface UserListEntryProps {
 const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
   const user = useAppSelector(s => s.users.byId.get(props.userId))
   const filterClick = useMentionFilterClick()
-  const addMentionMenuItem = useMentionMenuItem()
+  const addChatMenuItems = useChatMenuItems()
 
   const {
     clickableElemRef,
@@ -174,7 +174,7 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
     profileOriginY: 'top',
     profileOffsetX: -4,
     filterClick,
-    modifyMenuItems: addMentionMenuItem,
+    modifyMenuItems: addChatMenuItems,
   })
 
   return (

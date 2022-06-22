@@ -8,7 +8,7 @@ import { amberA100, blue100 } from '../styles/colors'
 import { body2 } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { ExternalLink } from './external-link'
-import { useMentionFilterClick, useMentionMenuItem } from './mention-hooks'
+import { useChatMenuItems, useMentionFilterClick } from './mention-hooks'
 import {
   InfoImportant,
   SeparatedInfoMessage,
@@ -55,7 +55,7 @@ export const TextMessage = React.memo<{
 }>(props => {
   const { userId, selfUserId, time, text } = props
   const filterClick = useMentionFilterClick()
-  const addMentionMenuItem = useMentionMenuItem()
+  const addChatMenuItems = useChatMenuItems()
   const [parsedText, isHighlighted] = useMemo(() => {
     const matches = getAllMatches(text)
     const sortedMatches = Array.from(matches).sort((a, b) => a.index - b.index)
@@ -89,7 +89,7 @@ export const TextMessage = React.memo<{
             userId={userId}
             prefix={'@'}
             filterClick={filterClick}
-            modifyMenuItems={addMentionMenuItem}
+            modifyMenuItems={addChatMenuItems}
           />,
         )
       } else if (match.type === 'link') {
@@ -113,7 +113,7 @@ export const TextMessage = React.memo<{
     }
 
     return [elements, isHighlighted]
-  }, [text, selfUserId, filterClick, addMentionMenuItem])
+  }, [text, selfUserId, filterClick, addChatMenuItems])
 
   return (
     <TimestampMessageLayout time={time} highlighted={isHighlighted}>
@@ -121,7 +121,7 @@ export const TextMessage = React.memo<{
         <ConnectedUsername
           userId={userId}
           filterClick={filterClick}
-          modifyMenuItems={addMentionMenuItem}
+          modifyMenuItems={addChatMenuItems}
         />
       </Username>
       <Separator>{': '}</Separator>
