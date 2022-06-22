@@ -1,5 +1,5 @@
 import { Immutable } from 'immer'
-import { findLastIndex } from '../../common/arrays'
+import { findLastIndex } from '../../common/js/arrays'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 import { DialogType } from './dialog-type'
 

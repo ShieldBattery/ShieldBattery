@@ -1,11 +1,13 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
+import { appendToMapArray } from '../../common/js/maps'
 import { SbUserId } from '../../common/users/sb-user'
 import { MenuItem } from '../material/menu/item'
 import { MessageInput, MessageInputHandle, MessageInputProps } from '../messaging/message-input'
 import MessageList, { MessageListProps } from '../messaging/message-list'
 import { useAppDispatch } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
+import { MenuItemCategory } from '../users/user-context-menu'
 
 const MessagesAndInput = styled.div`
   display: flex;
@@ -35,18 +37,18 @@ interface ChatProps {
    */
   modifyMenuItems?: (
     userId: SbUserId,
-    items: React.ReactNode[],
+    items: Map<MenuItemCategory, React.ReactNode[]>,
     onMenuClose: (event?: MouseEvent) => void,
-  ) => React.ReactNode[]
+  ) => Map<MenuItemCategory, React.ReactNode[]>
 }
 
 export interface ChatContextValue {
   mentionUser: (userId: SbUserId) => void
   modifyMenuItems?: (
     userId: SbUserId,
-    items: React.ReactNode[],
+    items: Map<MenuItemCategory, React.ReactNode[]>,
     onMenuClose: (event?: MouseEvent) => void,
-  ) => React.ReactNode[]
+  ) => Map<MenuItemCategory, React.ReactNode[]>
 }
 export const ChatContext = React.createContext<ChatContextValue>({
   mentionUser: () => {},
@@ -99,13 +101,12 @@ export function Chat({
       mentionUser,
       modifyMenuItems: (
         userId: SbUserId,
-        items: React.ReactNode[],
+        items: Map<MenuItemCategory, React.ReactNode[]>,
         onMenuClose: (event?: MouseEvent) => void,
       ) => {
-        // TODO(2Pac): Make the `items` a map of "menu item category" -> "items" so we can add this
-        // action to the end of a "general" category, but before the "party" category. Or something
-        // like that.
-        items.push(
+        appendToMapArray(
+          items,
+          MenuItemCategory.General,
           <MenuItem
             key='mention'
             text='Mention'

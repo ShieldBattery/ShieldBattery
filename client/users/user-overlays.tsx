@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react'
 import { SbUserId } from '../../common/users/sb-user'
 import { OriginX, OriginY, useAnchorPosition } from '../material/popover'
-import { ConnectedUserContextMenuProps } from './user-context-menu'
+import { ConnectedUserContextMenuProps, MenuItemCategory } from './user-context-menu'
 import { ConnectedUserProfileOverlayProps } from './user-profile-overlay'
 
 /**
@@ -29,9 +29,9 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
   filterClick?: (userId: SbUserId, e: React.MouseEvent) => boolean
   modifyMenuItems?: (
     userId: SbUserId,
-    items: React.ReactNode[],
+    items: Map<MenuItemCategory, React.ReactNode[]>,
     onMenuClose: (event?: MouseEvent) => void,
-  ) => React.ReactNode[]
+  ) => Map<MenuItemCategory, React.ReactNode[]>
 }): {
   clickableElemRef: React.RefObject<E>
   profileOverlayProps: ConnectedUserProfileOverlayProps

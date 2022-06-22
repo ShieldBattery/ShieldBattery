@@ -1,5 +1,6 @@
 import React, { useCallback, useContext } from 'react'
 import { SbUserId } from '../../common/users/sb-user'
+import { MenuItemCategory } from '../users/user-context-menu'
 import { ChatContext } from './chat'
 
 /**
@@ -30,12 +31,16 @@ export function useMentionFilterClick(): (userId: SbUserId, e: React.MouseEvent)
  */
 export function useChatMenuItems(): (
   userId: SbUserId,
-  items: React.ReactNode[],
+  items: Map<MenuItemCategory, React.ReactNode[]>,
   onMenuClose: (event?: MouseEvent) => void,
-) => React.ReactNode[] {
+) => Map<MenuItemCategory, React.ReactNode[]> {
   const chatContext = useContext(ChatContext)
   return useCallback(
-    (userId: SbUserId, items: React.ReactNode[], onMenuClose: (event?: MouseEvent) => void) => {
+    (
+      userId: SbUserId,
+      items: Map<MenuItemCategory, React.ReactNode[]>,
+      onMenuClose: (event?: MouseEvent) => void,
+    ) => {
       return chatContext.modifyMenuItems?.(userId, items, onMenuClose) ?? items
     },
     [chatContext],

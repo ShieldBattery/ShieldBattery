@@ -1,11 +1,14 @@
-import React, { useCallback } from 'react'
+import React, { useMemo } from 'react'
 import styled from 'styled-components'
+import { appendToMapArray } from '../../common/js/maps'
 import { SbUserId } from '../../common/users/sb-user'
+import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, PopoverProps } from '../material/popover'
 import { inviteToParty, kickPlayer, removePartyInvite } from '../parties/action-creators'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useStableCallback } from '../state-hooks'
 import { colorTextFaint } from '../styles/colors'
 import { navigateToWhisper } from '../whispers/action-creators'
 import { navigateToUserProfile } from './action-creators'
@@ -13,6 +16,27 @@ import { navigateToUserProfile } from './action-creators'
 const LoadingItem = styled(MenuItem)`
   color: ${colorTextFaint};
 `
+
+/**
+ * All the possible categories of the menu items in the user context menu. In case you're not sure
+ * what constitues a new category, a divider will be inserted between each category, so it might
+ * help to think of it in those terms.
+ *
+ * **IMPORTANT**: The order of the values in this enum is used to render the menu item categories in
+ * that same order.
+ */
+export enum MenuItemCategory {
+  /** Contains general menu items, like view profile, whisper, mention */
+  General = 'General',
+  /** Contains party-related menu items, like invite/uninvite to/from party */
+  Party = 'Party',
+  // TODO(2Pac): Create a "destructive" menu item for this category, in red-ish color or something?
+  /** Contains destructive menu items, like kick/ban from chat channels, lobbies */
+  Destructive = 'Destructive',
+}
+
+export const ALL_MENU_ITEM_CATEGORIES: ReadonlyArray<MenuItemCategory> =
+  Object.values(MenuItemCategory)
 
 export interface ConnectedUserContextMenuProps {
   userId: SbUserId
@@ -23,9 +47,9 @@ export interface ConnectedUserContextMenuProps {
    */
   modifyMenuItems?: (
     userId: SbUserId,
-    items: React.ReactNode[],
+    items: Map<MenuItemCategory, React.ReactNode[]>,
     onMenuClose: (event?: MouseEvent) => void,
-  ) => React.ReactNode[]
+  ) => Map<MenuItemCategory, React.ReactNode[]>
   popoverProps: Omit<PopoverProps, 'children'>
 }
 
@@ -64,68 +88,122 @@ function ConnectedUserContextMenuContents({
   const partyInvites = useAppSelector(s => s.party.current?.invites)
   const partyLeader = useAppSelector(s => s.party.current?.leader)
 
-  const onViewProfileClick = useCallback(() => {
+  const onViewProfileClick = useStableCallback(() => {
     navigateToUserProfile(user!.id, user!.name)
-  }, [user])
+  })
 
-  const onWhisperClick = useCallback(() => {
+  const onWhisperClick = useStableCallback(() => {
     navigateToWhisper(user!.name)
-  }, [user])
+  })
 
-  const onInviteToPartyClick = useCallback(() => {
+  const onInviteToPartyClick = useStableCallback(() => {
     dispatch(inviteToParty({ targetId: userId }))
     onDismiss()
-  }, [userId, dispatch, onDismiss])
+  })
 
-  const onRemovePartyInvite = useCallback(() => {
+  const onRemovePartyInvite = useStableCallback(() => {
     dispatch(removePartyInvite(partyId!, userId))
     onDismiss()
-  }, [partyId, userId, dispatch, onDismiss])
+  })
 
-  const onKickPlayerClick = useCallback(() => {
+  const onKickPlayerClick = useStableCallback(() => {
     dispatch(kickPlayer(partyId!, userId))
     onDismiss()
-  }, [partyId, userId, dispatch, onDismiss])
+  })
 
-  let actions: React.ReactNode[] = []
-  if (!user) {
-    // TODO(tec27): Ideally this wouldn't have hover/focus state
-    actions.push(<LoadingItem key='loading' text='Loading user…' />)
-  } else {
-    actions.push(<MenuItem key='profile' text='View profile' onClick={onViewProfileClick} />)
+  const items = useMemo(() => {
+    let items: Map<MenuItemCategory, React.ReactNode[]> = new Map()
+    if (!user) {
+      // TODO(tec27): Ideally this wouldn't have hover/focus state
+      appendToMapArray(
+        items,
+        MenuItemCategory.General,
+        <LoadingItem key='loading' text='Loading user…' />,
+      )
+    } else {
+      appendToMapArray(
+        items,
+        MenuItemCategory.General,
+        <MenuItem key='profile' text='View profile' onClick={onViewProfileClick} />,
+      )
 
-    if (user.id !== selfUser.id) {
-      actions.push(<MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />)
+      if (user.id !== selfUser.id) {
+        appendToMapArray(
+          items,
+          MenuItemCategory.General,
+          <MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />,
+        )
 
-      if (IS_ELECTRON) {
-        if (!partyId) {
-          actions.push(
-            <MenuItem key='invite' text='Invite to party' onClick={onInviteToPartyClick} />,
-          )
-        } else if (partyLeader === selfUser.id) {
-          const isAlreadyInParty = !!partyMembers?.includes(user.id)
-          const hasInvite = !!partyInvites?.includes(user.id)
-          if (isAlreadyInParty) {
-            actions.push(
-              <MenuItem key='kick-party' text='Kick from party' onClick={onKickPlayerClick} />,
-            )
-          } else if (hasInvite) {
-            actions.push(
-              <MenuItem key='invite' text='Uninvite from party' onClick={onRemovePartyInvite} />,
-            )
-          } else {
-            actions.push(
+        if (IS_ELECTRON) {
+          if (!partyId) {
+            appendToMapArray(
+              items,
+              MenuItemCategory.Party,
               <MenuItem key='invite' text='Invite to party' onClick={onInviteToPartyClick} />,
             )
+          } else if (partyLeader === selfUser.id) {
+            const isAlreadyInParty = !!partyMembers?.includes(user.id)
+            const hasInvite = !!partyInvites?.includes(user.id)
+            if (isAlreadyInParty) {
+              // TODO(2Pac): Move this item to "destructive" category, but only iside the party
+              // context. And instead show "View party" or something in non-party contexts?
+              appendToMapArray(
+                items,
+                MenuItemCategory.Party,
+                <MenuItem key='kick-party' text='Kick from party' onClick={onKickPlayerClick} />,
+              )
+            } else if (hasInvite) {
+              appendToMapArray(
+                items,
+                MenuItemCategory.Party,
+                <MenuItem key='invite' text='Uninvite from party' onClick={onRemovePartyInvite} />,
+              )
+            } else {
+              appendToMapArray(
+                items,
+                MenuItemCategory.Party,
+                <MenuItem key='invite' text='Invite to party' onClick={onInviteToPartyClick} />,
+              )
+            }
           }
         }
       }
     }
-  }
 
-  if (modifyMenuItems) {
-    actions = modifyMenuItems(userId, actions, onDismiss)
-  }
+    if (modifyMenuItems) {
+      items = modifyMenuItems(userId, items, onDismiss)
+    }
 
-  return <MenuList dense={true}>{actions}</MenuList>
+    return items
+  }, [
+    modifyMenuItems,
+    onDismiss,
+    onInviteToPartyClick,
+    onKickPlayerClick,
+    onRemovePartyInvite,
+    onViewProfileClick,
+    onWhisperClick,
+    partyId,
+    partyInvites,
+    partyLeader,
+    partyMembers,
+    selfUser.id,
+    user,
+    userId,
+  ])
+
+  const orderedMenuItems = useMemo(() => {
+    return ALL_MENU_ITEM_CATEGORIES.reduce<React.ReactNode[]>((elems, category, index) => {
+      const categoryItems = items.get(category) ?? []
+
+      if (categoryItems.length > 0 && index > 0) {
+        elems.push(<Divider key={`divider-${index}`} />)
+      }
+
+      elems.push(...categoryItems)
+      return elems
+    }, [])
+  }, [items])
+
+  return <MenuList dense={true}>{orderedMenuItems}</MenuList>
 }
