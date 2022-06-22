@@ -3,8 +3,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { getGameDurationStr } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { MapInfoJson } from '../../common/maps'
-import { replayGameTypeToLabel, replayRaceToChar } from '../../common/replays'
+import {
+  replayGameTypeToLabel,
+  replayRaceToChar,
+  ReplayShieldBatteryData,
+} from '../../common/replays'
+import { SbUserId } from '../../common/users/sb-user'
 import { closeOverlay } from '../activities/action-creators'
 import { FileBrowser } from '../file-browser/file-browser'
 import {
@@ -14,13 +18,14 @@ import {
   FileBrowserRootFolderId,
   FileBrowserType,
 } from '../file-browser/file-browser-types'
+import { viewGame } from '../games/action-creators'
 import Replay from '../icons/material/ic_movie_black_24px.svg'
 import { RaceIcon } from '../lobbies/race-icon'
 import { MapNoImage } from '../maps/map-image'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { RaisedButton } from '../material/button'
 import { shadow2dp } from '../material/shadows'
-import { useAppDispatch } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import { background400, colorTextSecondary } from '../styles/colors'
 import { headline6, overline, singleLine, subtitle1 } from '../styles/typography'
@@ -36,6 +41,12 @@ async function getReplayFolderPath() {
 
 async function getReplayHeader(filePath: string): Promise<ReplayHeader | undefined> {
   return ipcRenderer.invoke('replayParseHeader', filePath)
+}
+
+async function getReplayShieldBatteryData(
+  filePath: string,
+): Promise<ReplayShieldBatteryData | undefined> {
+  return ipcRenderer.invoke('replayShieldBatteryData', filePath)
 }
 
 // Most of these styles were copied from game results page, with some minor modifications. I don't
@@ -151,16 +162,33 @@ const ReplayActionsContainer = styled.div`
 export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
   const dispatch = useAppDispatch()
   const [replayHeader, setReplayHeader] = useState<ReplayHeader>()
-  const [mapInfo, setMapInfo] = useState<MapInfoJson>()
+  const [replayShieldBatteryData, setReplayShieldBatteryData] = useState<ReplayShieldBatteryData>()
+  const gameId = replayShieldBatteryData?.gameId
+  const replayUserIds = replayShieldBatteryData?.userIds
+  const gameInfo = useAppSelector(s => s.games.byId.get(gameId ?? ''))
+  const mapInfo = useAppSelector(s => s.maps2.byId.get(gameInfo?.mapId ?? ''))
+  const usersById = useAppSelector(s => s.users.byId)
 
   useEffect(() => {
-    // TODO(2Pac): cache this?
     getReplayHeader(file.path).then(header => setReplayHeader(header))
+    getReplayShieldBatteryData(file.path).then(data => setReplayShieldBatteryData(data))
   }, [file.path])
+
+  useEffect(() => {
+    const getGameInfoAbortController = new AbortController()
+
+    if (gameId) {
+      dispatch(viewGame(gameId, { signal: getGameInfoAbortController.signal }))
+    }
+
+    return () => {
+      getGameInfoAbortController.abort()
+    }
+  }, [gameId, dispatch])
 
   const [durationStr, gameTypeLabel, playerListItems] = useMemo(() => {
     if (!replayHeader) {
-      return ['00:00', null]
+      return ['00:00', null, null]
     }
 
     // TODO(2Pac): Handle replays not played at the fastest speed (if that's even possible?)
@@ -168,8 +196,10 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
     const durationStr = getGameDurationStr(timeMs)
     const gameTypeLabel = replayGameTypeToLabel(replayHeader.gameType)
 
-    const teams = replayHeader.players.reduce((acc, player) => {
-      const team = acc.get(player.team)
+    const teams = replayHeader.players.reduce((acc, p) => {
+      const team = acc.get(p.team)
+      const sbUser = usersById.get((replayUserIds?.[p.id] ?? -1) as SbUserId)
+      const player = sbUser ? { ...p, name: sbUser.name } : p
       if (team) {
         team.push(player)
       } else {
@@ -196,9 +226,10 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
     })
 
     return [durationStr, gameTypeLabel, playerListItems]
-  }, [replayHeader])
+  }, [replayHeader, replayUserIds, usersById])
 
   const onStartReplay = useStableCallback(() => {
+    // TODO(2Pac): Remove `any` cast after overlays are TS-ified
     dispatch(closeOverlay() as any)
     dispatch(startReplay(file))
   })
@@ -216,7 +247,7 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
             </MapNoImageContainer>
           )}
           <MapName>{replayHeader?.mapName ?? 'Unknown map'}</MapName>
-          <ReplayInfo>Game type: {gameTypeLabel}</ReplayInfo>
+          <ReplayInfo>Game type: {gameTypeLabel ?? 'Unknown'}</ReplayInfo>
           <ReplayInfo>Duration: {durationStr}</ReplayInfo>
         </MapContainer>
       </InfoContainer>

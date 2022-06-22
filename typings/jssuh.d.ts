@@ -31,5 +31,7 @@ declare module 'jssuh' {
     remastered: boolean
   }
 
-  export default class ReplayParser extends Transform {}
+  export default class ReplayParser extends Transform {
+    rawScrSection(tag: string, callback: (bytes: Buffer) => void) {}
+  }
 }

@@ -20,6 +20,7 @@ import { checkStarcraftPath } from './game/check-starcraft-path'
 import createGameServer, { GameServer } from './game/game-server'
 import { MapStore } from './game/map-store'
 import logger from './logger'
+import { parseShieldbatteryReplayData } from './parse-shieldbattery-replay'
 import { RallyPointManager } from './rally-point/rally-point-manager'
 import './security/client'
 import { collect } from './security/client'
@@ -426,6 +427,27 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
     return new Promise(async resolve => {
       const parser = new ReplayParser()
       parser.on('replayHeader', header => resolve(header))
+
+      const promise = pipeline(fs.createReadStream(replayPath), parser)
+
+      parser.resume()
+      await promise
+    })
+  })
+
+  ipcMain.handle('replayShieldBatteryData', async (event, replayPath) => {
+    return new Promise(async resolve => {
+      const parser = new ReplayParser()
+      let hasSbatSection = false
+      parser.rawScrSection('Sbat', buffer => {
+        hasSbatSection = true
+        resolve(parseShieldbatteryReplayData(buffer))
+      })
+      parser.on('end', () => {
+        if (!hasSbatSection) {
+          resolve(undefined)
+        }
+      })
 
       const promise = pipeline(fs.createReadStream(replayPath), parser)
 

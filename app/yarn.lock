@@ -1625,7 +1625,7 @@ jsonfile@^6.0.1:
   optionalDependencies:
     graceful-fs "^4.1.6"
 
-jssuh@^1.4.1:
+jssuh@^1.5.0:
   version "1.5.0"
   resolved "https://registry.yarnpkg.com/jssuh/-/jssuh-1.5.0.tgz#69a3f60d6c9dab3af89f4a642a3703d00a787504"
   integrity sha512-2zEMU2p/Um9Nwk8PhmRlF+je8l6+RtOSNoH3ophVD8TpxNeNxwHrqDLepUap0yJFqe2mUYqtGKdw7V3keOtYbw==

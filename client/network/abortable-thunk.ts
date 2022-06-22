@@ -15,14 +15,14 @@ export interface RequestHandlingSpec<T = void> {
    */
   signal?: AbortSignal
   /**
-   * A function that will be called if the underlying request succeeds.
+   * An optional function that will be called if the underlying request succeeds.
    */
-  onSuccess: (result: T) => void
+  onSuccess?: (result: T) => void
   /**
-   * A function that will be called if the underlying request fails (not including failures due
-   * to `AbortError`s).
+   * An optional function that will be called if the underlying request fails (not including
+   * failures due to `AbortError`s).
    */
-  onError: (err: Error) => void
+  onError?: (err: Error) => void
 }
 
 /**
@@ -57,7 +57,7 @@ export function abortableThunk<ResultType, T extends ReduxAction>(
         }
 
         batch(() => {
-          onSuccess(result)
+          onSuccess?.(result)
         })
       })
       .catch((err: Error) => {
@@ -66,7 +66,7 @@ export function abortableThunk<ResultType, T extends ReduxAction>(
         }
 
         batch(() => {
-          onError(err)
+          onError?.(err)
         })
       })
   }
