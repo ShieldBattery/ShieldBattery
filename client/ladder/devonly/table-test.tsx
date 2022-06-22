@@ -39,7 +39,7 @@ for (let i = 0; i < 1000; i++) {
     rank: i + 1,
     userId: makeSbUserId(i),
     rating,
-    points: rating * 4,
+    points: rating * (Math.random() * 4),
     bonusUsed: 0,
     lifetimeGames: wins + losses,
     wins,
@@ -61,6 +61,11 @@ for (let i = 0; i < 1000; i++) {
     lastPlayedDate,
   })
   usersById.set(makeSbUserId(i), { id: makeSbUserId(i), name })
+}
+
+PLAYERS.sort((a, b) => b.points - a.points)
+for (let i = 0; i < PLAYERS.length; i++) {
+  PLAYERS[i].rank = i + 1
 }
 
 export function TableTest() {
