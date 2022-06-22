@@ -265,6 +265,11 @@ const GamePreviewPlayerRandomIcon = styled(RaceIcon)`
   right: 0;
   width: auto;
   height: 12px;
+
+  & path:not([fill='none']) {
+    stroke: rgba(0, 0, 0, 0.36);
+    stroke-width: 2px;
+  }
 `
 
 interface GamePreviewPlayerRaceProps {

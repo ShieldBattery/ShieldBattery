@@ -586,6 +586,11 @@ const SelectedRandomIcon = styled(RaceIcon)`
   right: 0;
   width: auto;
   height: 20px;
+
+  & path:not([fill='none']) {
+    stroke: rgba(0, 0, 0, 0.36);
+    stroke-width: 2px;
+  }
 `
 
 const PlayerAvatar = styled(Avatar)`
