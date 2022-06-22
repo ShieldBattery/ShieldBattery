@@ -1,5 +1,5 @@
 import { ReplayHeader, ReplayPlayer } from 'jssuh'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { getGameDurationStr } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
@@ -10,6 +10,7 @@ import {
 } from '../../common/replays'
 import { SbUserId } from '../../common/users/sb-user'
 import { closeOverlay } from '../activities/action-creators'
+import { useCutoffElement } from '../dom/cutoff-element'
 import { FileBrowser } from '../file-browser/file-browser'
 import {
   ExpansionPanelProps,
@@ -25,6 +26,7 @@ import { MapNoImage } from '../maps/map-image'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { RaisedButton } from '../material/button'
 import { shadow2dp } from '../material/shadows'
+import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import { background400, colorTextSecondary } from '../styles/colors'
@@ -74,23 +76,6 @@ const PlayerListContainer = styled.div`
   grid-column: 1 / 6;
 `
 
-const MapContainer = styled.div`
-  grid-column: 6 / 9;
-  height: auto;
-
-  text-align: center;
-`
-
-const StyledMapThumbnail = styled(MapThumbnail)`
-  ${shadow2dp};
-`
-
-const MapName = styled.div`
-  ${headline6};
-  ${singleLine};
-  margin-top: 8px;
-`
-
 const TeamLabel = styled.div`
   ${overline};
   ${singleLine};
@@ -135,7 +120,33 @@ const PlayerName = styled.div`
   flex-grow: 1;
 `
 
-const ReplayInfo = styled.div`
+const ReplayInfoContainer = styled.div`
+  grid-column: 6 / 9;
+  height: auto;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+`
+
+const StyledMapThumbnail = styled(MapThumbnail)`
+  ${shadow2dp};
+`
+
+const MapName = styled.div`
+  ${headline6};
+  ${singleLine};
+  margin-top: 8px;
+`
+
+const StyledTooltip = styled(Tooltip)`
+  width: 100%;
+  display: flex;
+  justify-content: center;
+`
+
+const ReplayInfoText = styled.div`
   ${subtitle1};
   ${singleLine};
   margin: 8px 0;
@@ -169,6 +180,11 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
   const mapInfo = useAppSelector(s => s.maps2.byId.get(gameInfo?.mapId ?? ''))
   const usersById = useAppSelector(s => s.users.byId)
 
+  const mapNameRef = useRef<HTMLDivElement>(null)
+  const isMapNameCutOff = useCutoffElement(mapNameRef.current)
+  const gameTypeRef = useRef<HTMLDivElement>(null)
+  const isGameTypeCutOff = useCutoffElement(gameTypeRef.current)
+
   useEffect(() => {
     getReplayHeader(file.path).then(header => setReplayHeader(header))
     getReplayShieldBatteryData(file.path).then(data => setReplayShieldBatteryData(data))
@@ -186,15 +202,16 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
     }
   }, [gameId, dispatch])
 
-  const [durationStr, gameTypeLabel, playerListItems] = useMemo(() => {
+  const [durationStr, gameTypeLabel, mapName, playerListItems] = useMemo(() => {
     if (!replayHeader) {
-      return ['00:00', null, null]
+      return ['00:00', 'Unknown', 'Unknown map', null]
     }
 
     // TODO(2Pac): Handle replays not played at the fastest speed (if that's even possible?)
     const timeMs = (replayHeader.durationFrames / 24) * 1000
     const durationStr = getGameDurationStr(timeMs)
     const gameTypeLabel = replayGameTypeToLabel(replayHeader.gameType)
+    const mapName = mapInfo?.name ?? replayHeader.mapName
 
     const teams = replayHeader.players.reduce((acc, p) => {
       const team = acc.get(p.team)
@@ -225,8 +242,8 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
       return elems
     })
 
-    return [durationStr, gameTypeLabel, playerListItems]
-  }, [replayHeader, replayUserIds, usersById])
+    return [durationStr, gameTypeLabel, mapName, playerListItems]
+  }, [mapInfo?.name, replayHeader, replayUserIds, usersById])
 
   const onStartReplay = useStableCallback(() => {
     // TODO(2Pac): Remove `any` cast after overlays are TS-ified
@@ -238,7 +255,7 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
     <ReplayPanelContainer $isLoading={!replayHeader}>
       <InfoContainer>
         <PlayerListContainer>{playerListItems}</PlayerListContainer>
-        <MapContainer>
+        <ReplayInfoContainer>
           {mapInfo ? (
             <StyledMapThumbnail map={mapInfo} />
           ) : (
@@ -246,10 +263,14 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
               <MapNoImage />
             </MapNoImageContainer>
           )}
-          <MapName>{replayHeader?.mapName ?? 'Unknown map'}</MapName>
-          <ReplayInfo>Game type: {gameTypeLabel ?? 'Unknown'}</ReplayInfo>
-          <ReplayInfo>Duration: {durationStr}</ReplayInfo>
-        </MapContainer>
+          <StyledTooltip text={mapName} position='bottom' showTooltip={isMapNameCutOff}>
+            <MapName ref={mapNameRef}>{mapName}</MapName>
+          </StyledTooltip>
+          <StyledTooltip text={gameTypeLabel} position='bottom' showTooltip={isGameTypeCutOff}>
+            <ReplayInfoText ref={gameTypeRef}>Game type: {gameTypeLabel}</ReplayInfoText>
+          </StyledTooltip>
+          <ReplayInfoText>Duration: {durationStr}</ReplayInfoText>
+        </ReplayInfoContainer>
       </InfoContainer>
       <ReplayActionsContainer>
         <RaisedButton label='Watch replay' onClick={onStartReplay} />

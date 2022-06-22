@@ -116,6 +116,11 @@ interface TooltipProps {
    *  - children: the Tooltip's content
    * */
   ContentComponent?: React.ComponentType<{ $position: TooltipPosition; children: React.ReactNode }>
+  /**
+   * Sometimes you might want to conditionally show the Tooltip, but keep the DOM element of the
+   * child the same in both cases (e.g. if you want to show the Tooltip only when text is cutoff).
+   */
+  showTooltip?: boolean
 }
 
 /**
@@ -131,6 +136,7 @@ export function Tooltip({
   tabIndex = 0,
   position = 'bottom',
   ContentComponent = TooltipContent,
+  showTooltip = true,
 }: TooltipProps) {
   const contentId = useId()
   const [open, setOpen] = useState(false)
@@ -222,6 +228,7 @@ export function Tooltip({
       </TooltipChildrenContainer>
       {transition(
         (styles, open) =>
+          showTooltip &&
           open && (
             <NoPointerPortal open={open}>
               <KeyListenerBoundary>
