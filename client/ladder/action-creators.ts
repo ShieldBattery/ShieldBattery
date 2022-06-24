@@ -1,4 +1,4 @@
-import { GetRankingsResponse } from '../../common/ladder'
+import { GetRankForUserResponse, GetRankingsResponse } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
 import { apiUrl, urlPath } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
@@ -77,6 +77,22 @@ export function searchRankings(
         meta: { matchmakingType, searchQuery, fetchTime: new Date() },
       })
     }
+  })
+}
+
+export function getInstantaneousSelfRank(spec: RequestHandlingSpec<void>): ThunkAction {
+  return abortableThunk(spec, async (dispatch, getState) => {
+    const { auth } = getState()
+    const selfId = auth.user.id
+
+    const result = await fetchJson<GetRankForUserResponse>(apiUrl`ladder/users/${selfId}`, {
+      signal: spec.signal,
+    })
+
+    dispatch({
+      type: '@ladder/getInstantaneousSelfRank',
+      payload: result,
+    })
   })
 }
 

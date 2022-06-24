@@ -82,7 +82,7 @@ export function UnratedIcon({ className }: UnratedIconProps) {
 }
 
 export interface LadderPlayerIconProps {
-  player: LadderPlayer
+  player: Readonly<LadderPlayer>
   className?: string
 }
 

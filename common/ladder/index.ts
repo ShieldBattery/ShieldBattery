@@ -1,5 +1,7 @@
 import {
   MatchmakingDivision,
+  MatchmakingSeasonJson,
+  MatchmakingType,
   NUM_PLACEMENT_MATCHES,
   ratingToMatchmakingDivision,
 } from '../matchmaking'
@@ -22,12 +24,19 @@ export interface LadderPlayer extends RaceStats {
   lastPlayedDate: number
 }
 
-export function ladderPlayerToMatchmakingDivision(player: LadderPlayer): MatchmakingDivision {
+export function ladderPlayerToMatchmakingDivision(
+  player: Readonly<LadderPlayer>,
+): MatchmakingDivision {
   if (player.lifetimeGames < NUM_PLACEMENT_MATCHES) {
     return MatchmakingDivision.Unrated
   } else {
     return ratingToMatchmakingDivision(player.rating, player.rank)
   }
+}
+
+export enum LadderErrorCode {
+  NotFound = 'NotFound',
+  OnlyAllowedOnSelf = 'OnlyAllowedOnSelf',
 }
 
 // TODO(#658): Implement pagination for this request
@@ -43,4 +52,15 @@ export interface GetRankingsResponse {
   users: SbUser[]
   /** A unix timestamp of the last time the rankings were refreshed. */
   lastUpdated: number
+}
+
+/**
+ * The ranks/rating/etc. for a given user, across all matchmaking types. Note that the info other
+ * than the rank here is "instantaneous", that is, it is calculated on the fly and not batched. The
+ * rank is only updated every so often.
+ */
+export interface GetRankForUserResponse {
+  ranks: Partial<Record<MatchmakingType, LadderPlayer>>
+  user: SbUser
+  currentSeason: MatchmakingSeasonJson
 }

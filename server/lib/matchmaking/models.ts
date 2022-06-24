@@ -414,6 +414,38 @@ export async function getRankForUser(
 }
 
 /**
+ * Returns a user's rating/rank info, with everything except for the rank calculated from "current"
+ * data instead of the batch-updated rank info. Any matchmaking types that the user has not
+ * completed a game in will not be included in the result.
+ */
+export async function getInstantaneousRanksForUser(
+  userId: SbUserId,
+  seasonId: SeasonId,
+): Promise<GetRankingsResult[]> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<Dbify<GetRankingsResult>>(sql`
+      SELECT r.matchmaking_type, v.rank, u.name AS username, r.user_id, r.rating, r.points,
+        r.bonus_used, r.lifetime_games, r.wins, r.losses,
+        r.p_wins, r.p_losses,
+        r.t_wins, r.t_losses,
+        r.z_wins, r.z_losses,
+        r.r_wins, r.r_losses,
+        r.r_p_wins, r.r_p_losses, r.r_t_wins, r.r_t_losses, r.r_z_wins, r.r_z_losses,
+        r.last_played_date
+      FROM ranked_matchmaking_ratings_view v
+        JOIN users u ON v.user_id = u.id
+        JOIN matchmaking_ratings r ON r.user_id = u.id
+      WHERE r.season_id = ${seasonId} AND r.user_id = ${userId} AND r.num_games_played > 0;
+    `)
+
+    return result.rows.map(r => fromDbGetRankingsResult(r))
+  } finally {
+    done()
+  }
+}
+
+/**
  * Triggers an updated to the pre-ranked view of matchmaking ratings. This should be run
  * periodically to make fresh data available to `getRankings` calls.
  */

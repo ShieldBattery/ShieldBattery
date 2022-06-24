@@ -1,7 +1,7 @@
-import { GetRankingsResponse } from '../../common/ladder'
+import { GetRankForUserResponse, GetRankingsResponse } from '../../common/ladder'
 import { MatchmakingType } from '../../common/matchmaking'
 
-export type LadderActions = GetRankings | SearchRankings
+export type LadderActions = GetRankings | SearchRankings | GetInstantaneousSelfRank
 
 /**
  * Retrieves the current rankings for a particular matchmaking type.
@@ -28,4 +28,9 @@ export interface SearchRankings {
     searchQuery: string
     fetchTime: Date
   }
+}
+
+export interface GetInstantaneousSelfRank {
+  type: '@ladder/getInstantaneousSelfRank'
+  payload: GetRankForUserResponse
 }

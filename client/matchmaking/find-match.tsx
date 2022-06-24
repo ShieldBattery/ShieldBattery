@@ -1,23 +1,47 @@
 import { Immutable } from 'immer'
-import React, { useCallback, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
+import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder'
 import {
+  MatchmakingDivision,
+  matchmakingDivisionToLabel,
   MatchmakingPreferences,
   MatchmakingType,
   matchmakingTypeToLabel,
+  MATCHMAKING_BONUS_EARNED_PER_MS,
+  NUM_PLACEMENT_MATCHES,
 } from '../../common/matchmaking'
 import { closeOverlay } from '../activities/action-creators'
 import { DisabledOverlay } from '../activities/disabled-content'
 import { useSelfUser } from '../auth/state-hooks'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import { useKeyListener } from '../keyboard/key-listener'
+import { getInstantaneousSelfRank } from '../ladder/action-creators'
 import { RaisedButton } from '../material/button'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { TabItem, Tabs } from '../material/tabs'
+import { Tooltip } from '../material/tooltip'
 import { findMatchAsParty } from '../parties/action-creators'
+import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { Headline5 } from '../styles/typography'
+import {
+  amberA400,
+  background600,
+  colorDividers,
+  colorError,
+  colorTextFaint,
+  colorTextSecondary,
+} from '../styles/colors'
+import {
+  body1,
+  caption,
+  headline5,
+  Headline5,
+  headline6,
+  singleLine,
+  subtitle1,
+} from '../styles/typography'
 import { findMatch, updateLastQueuedMatchmakingType } from './action-creators'
 import { Contents1v1 } from './find-1v1'
 import { Contents2v2 } from './find-2v2'
@@ -26,6 +50,7 @@ import {
   ConnectedMatchmakingDisabledCard,
   ConnectedPartyDisabledCard,
 } from './matchmaking-disabled-card'
+import { LadderPlayerIcon } from './rank-icon'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -52,7 +77,7 @@ const Contents = styled.div<{ $disabled: boolean }>`
 `
 
 const ContentsBody = styled.div`
-  padding: 12px 24px;
+  padding: 0px 24px 12px;
 `
 
 const Actions = styled.div`
@@ -213,7 +238,10 @@ export function FindMatch() {
         <>
           <Contents $disabled={isMatchmakingDisabled}>
             {topElem}
-            <ContentsBody>{contents}</ContentsBody>
+            <ContentsBody>
+              <RankInfo matchmakingType={activeTab as MatchmakingType} />
+              {contents}
+            </ContentsBody>
             {bottomElem}
             <DisabledContents
               matchmakingType={activeTab as MatchmakingType}
@@ -238,5 +266,240 @@ export function FindMatch() {
         </Contents>
       )}
     </Container>
+  )
+}
+
+const RankInfoContainer = styled.div`
+  max-width: 384px;
+  height: 160px;
+
+  padding: 16px;
+  margin-bottom: 16px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background-color: ${background600};
+  border-radius: 4px;
+`
+
+const RankLoadingError = styled.div`
+  ${body1};
+  color: ${colorError};
+`
+
+const DivisionInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  border-right: 1px solid ${colorDividers};
+  padding-right: 15px;
+`
+
+const DivisionIcon = styled(LadderPlayerIcon)`
+  width: 88px;
+  height: 88px;
+`
+
+const RankDisplayDivisionLabel = styled.div`
+  ${headline6};
+  padding-top: 12px;
+`
+
+const RankDisplayInfo = styled.div`
+  padding-left: 24px;
+  flex-grow: 1;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 24px;
+
+  color: ${colorTextSecondary};
+`
+
+const RankDisplayInfoRow = styled.div`
+  height: 44px;
+  display: flex;
+  gap: 8px;
+`
+
+const RankDisplayInfoEntry = styled.div`
+  width: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`
+
+const RankDisplayInfoLabel = styled.div`
+  ${caption};
+  ${singleLine};
+  color: ${colorTextFaint};
+`
+
+const RankDisplayInfoValue = styled.div`
+  ${subtitle1};
+  ${singleLine};
+`
+
+const BonusBarEntry = styled(RankDisplayInfoEntry)`
+  width: calc(96px + 96px + 24px);
+`
+
+const BonusBar = styled.div<{ $scale: number }>`
+  position: relative;
+  width: 100%;
+  height: 20px;
+  margin: 2px 0;
+
+  border: 2px solid ${colorDividers};
+  border-radius: 9999px;
+  contain: paint;
+
+  &::after {
+    position: absolute;
+    content: '';
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+
+    background-color: ${amberA400};
+    transform: ${props => `scaleX(${props.$scale})`};
+    transform-origin: 0% 50%;
+  }
+`
+
+const UnratedText = styled.div`
+  ${headline5};
+  text-align: center;
+`
+
+const BONUS_PER_WEEK = Math.floor(MATCHMAKING_BONUS_EARNED_PER_MS * 1000 * 60 * 60 * 24 * 7)
+
+function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
+  const dispatch = useAppDispatch()
+  const selfUser = useSelfUser()
+  const selfUserId = selfUser?.id
+  const [loadingError, setLoadingError] = useState<Error>()
+
+  const season = useAppSelector(s => s.selfRank.currentSeason)
+  const ladderPlayer = useAppSelector<Readonly<LadderPlayer>>(
+    s =>
+      s.selfRank.byType.get(matchmakingType) ?? {
+        rank: Number.MAX_SAFE_INTEGER,
+        userId: selfUserId,
+        rating: 0,
+        points: 0,
+        bonusUsed: 0,
+        lifetimeGames: 0,
+        wins: 0,
+        losses: 0,
+        lastPlayedDate: 0,
+
+        pWins: 0,
+        pLosses: 0,
+        tWins: 0,
+        tLosses: 0,
+        zWins: 0,
+        zLosses: 0,
+        rWins: 0,
+        rLosses: 0,
+
+        rPWins: 0,
+        rPLosses: 0,
+        rTWins: 0,
+        rTLosses: 0,
+        rZWins: 0,
+        rZLosses: 0,
+      },
+  )
+
+  const bonusPoolSize = useMemo(() => {
+    if (!season) {
+      return 0
+    }
+
+    return (Date.now() - season.startDate) * MATCHMAKING_BONUS_EARNED_PER_MS
+  }, [season])
+
+  useEffect(() => {
+    const abortController = new AbortController()
+
+    dispatch(
+      getInstantaneousSelfRank({
+        signal: abortController.signal,
+        onSuccess: () => {
+          setLoadingError(undefined)
+        },
+        onError: err => {
+          setLoadingError(err)
+        },
+      }),
+    )
+
+    return () => {
+      abortController.abort()
+    }
+  }, [dispatch, selfUserId])
+
+  if (loadingError) {
+    return (
+      <RankInfoContainer>
+        <RankLoadingError>There was a problem loading your current rank.</RankLoadingError>
+      </RankInfoContainer>
+    )
+  }
+  if (!season) {
+    return (
+      <RankInfoContainer>
+        <LoadingDotsArea />
+      </RankInfoContainer>
+    )
+  }
+
+  const division = ladderPlayerToMatchmakingDivision(ladderPlayer)
+
+  const bonusAvailable = Math.floor(bonusPoolSize - ladderPlayer.bonusUsed)
+  const bonusScale = bonusAvailable / BONUS_PER_WEEK
+
+  return (
+    <RankInfoContainer>
+      <DivisionInfo>
+        <DivisionIcon player={ladderPlayer} />
+        <RankDisplayDivisionLabel>{matchmakingDivisionToLabel(division)}</RankDisplayDivisionLabel>
+      </DivisionInfo>
+
+      <RankDisplayInfo>
+        {division !== MatchmakingDivision.Unrated ? (
+          <>
+            <RankDisplayInfoRow>
+              <Tooltip text={`${bonusAvailable} points`} position='top'>
+                <BonusBarEntry>
+                  <BonusBar $scale={bonusScale} />
+                  <RankDisplayInfoLabel>Bonus pool</RankDisplayInfoLabel>
+                </BonusBarEntry>
+              </Tooltip>
+            </RankDisplayInfoRow>
+            <RankDisplayInfoRow>
+              <RankDisplayInfoEntry>
+                <RankDisplayInfoValue>{Math.round(ladderPlayer.points)}</RankDisplayInfoValue>
+                <RankDisplayInfoLabel>Points</RankDisplayInfoLabel>
+              </RankDisplayInfoEntry>
+              <RankDisplayInfoEntry>
+                <RankDisplayInfoValue>{Math.round(ladderPlayer.rating)}</RankDisplayInfoValue>
+                <RankDisplayInfoLabel>Rating</RankDisplayInfoLabel>
+              </RankDisplayInfoEntry>
+            </RankDisplayInfoRow>
+          </>
+        ) : (
+          <UnratedText>
+            {ladderPlayer.lifetimeGames} / {NUM_PLACEMENT_MATCHES} placements
+          </UnratedText>
+        )}
+      </RankDisplayInfo>
+    </RankInfoContainer>
   )
 }

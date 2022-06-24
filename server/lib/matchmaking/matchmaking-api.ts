@@ -5,6 +5,7 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   AddMatchmakingSeasonResponse,
   FindMatchRequest,
+  GetCurrentMatchmakingSeasonResponse,
   GetMatchmakingSeasonsResponse,
   MatchmakingSeasonsServiceErrorCode,
   MatchmakingServiceErrorCode,
@@ -136,6 +137,15 @@ export class MatchmakingApi {
         toMatchmakingSeasonJson(s),
       ),
       current: (await this.matchmakingSeasonsService.getCurrentSeason()).id,
+    }
+  }
+
+  @httpGet('/seasons/current')
+  async getCurrentMatchmakingSeason(
+    ctx: RouterContext,
+  ): Promise<GetCurrentMatchmakingSeasonResponse> {
+    return {
+      season: toMatchmakingSeasonJson(await this.matchmakingSeasonsService.getCurrentSeason()),
     }
   }
 

@@ -609,3 +609,7 @@ export type AddMatchmakingSeasonRequest = Jsonify<ServerAddMatchmakingSeasonRequ
 export interface AddMatchmakingSeasonResponse {
   season: MatchmakingSeasonJson
 }
+
+export interface GetCurrentMatchmakingSeasonResponse {
+  season: MatchmakingSeasonJson
+}

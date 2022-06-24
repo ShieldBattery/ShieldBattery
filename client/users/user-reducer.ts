@@ -96,6 +96,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, users)
   },
 
+  ['@ladder/getInstantaneousSelfRank'](state, { payload: { user } }) {
+    updateUsers(state, [user])
+  },
+
   ['@ladder/getRankings'](state, action) {
     if (action.error) {
       return

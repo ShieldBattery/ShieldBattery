@@ -4,9 +4,11 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import {
   defaultPreferences,
   FindMatchRequest,
+  GetCurrentMatchmakingSeasonResponse,
   GetMatchmakingMapPoolBody,
   GetPreferencesResponse,
   MatchmakingPreferences,
+  MatchmakingSeasonJson,
   MatchmakingServiceErrorCode,
   MatchmakingType,
 } from '../../common/matchmaking'
@@ -14,6 +16,7 @@ import { apiUrl } from '../../common/urls'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
+import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
@@ -212,4 +215,20 @@ export function updateLastQueuedMatchmakingType(
     type: '@matchmaking/updateLastQueuedMatchmakingType',
     payload: type,
   }
+}
+
+export function getCurrentMatchmakingSeason(
+  spec: RequestHandlingSpec<MatchmakingSeasonJson>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    // TODO(tec27): Add a reducer for this and dispatch it?
+    const response = await fetchJson<GetCurrentMatchmakingSeasonResponse>(
+      apiUrl`matchmaking/seasons/current`,
+      {
+        signal: spec.signal,
+      },
+    )
+
+    return response.season
+  })
 }

@@ -89,8 +89,7 @@ import {
   UserUpdatables,
 } from './user-model'
 import { getUserStats } from './user-stats-model'
-
-const joiUserId = () => Joi.number().min(1)
+import { joiUserId } from './user-validators'
 
 const accountCreationThrottle = createThrottle('accountcreation', {
   rate: 1,
