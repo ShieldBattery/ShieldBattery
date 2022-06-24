@@ -462,7 +462,7 @@ function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
 
   const division = ladderPlayerToMatchmakingDivision(ladderPlayer)
 
-  const bonusAvailable = Math.floor(bonusPoolSize - ladderPlayer.bonusUsed)
+  const bonusAvailable = Math.max(0, Math.floor(bonusPoolSize - ladderPlayer.bonusUsed))
   const bonusScale = bonusAvailable / BONUS_PER_WEEK
 
   return (
