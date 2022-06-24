@@ -657,7 +657,10 @@ export function LadderTable(props: LadderTableProps) {
           fixedHeaderContent={Header}
           components={{
             Table,
-            TableHead: HeaderRowContainer,
+            // NOTE(tec27): virtuoso expects a table section here, even though it doesn't *really*
+            // care. Because of that though, the typings clash with what is acceptable for `ref`
+            // props, so we cast to `any` to get past that error
+            TableHead: HeaderRowContainer as any,
             TableBody,
             TableRow,
             FillerRow,
