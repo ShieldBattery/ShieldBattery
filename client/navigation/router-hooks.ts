@@ -1,6 +1,6 @@
 import { useMemo, useSyncExternalStore } from 'react'
 import { useStableCallback } from '../state-hooks'
-import { push } from './routing'
+import { replace } from './routing'
 
 const events = ['popstate', 'pushState', 'replaceState', 'hashchange']
 function subscribe(callback: () => void) {
@@ -57,7 +57,7 @@ export const useLocationSearchParam = (
     }
 
     const searchString = params.toString()
-    push(url.pathname + (searchString ? `?${searchString}` : ''))
+    replace(url.pathname + (searchString ? `?${searchString}` : ''))
   })
 
   return [searchValue, setLocationSearch]
