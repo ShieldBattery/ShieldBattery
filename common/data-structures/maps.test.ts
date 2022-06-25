@@ -1,24 +1,24 @@
-import { appendToMapArray, prependToMapArray } from './maps'
+import { appendToMultimap, prependToMultimap } from './maps'
 
 describe('common/maps', () => {
-  test('appendToMapArray', () => {
+  test('appendToMultimap', () => {
     const map = new Map<string, number[]>()
 
-    appendToMapArray(map, 'key', 1)
+    appendToMultimap(map, 'key', 1)
     expect(map.get('key')![0]).toBe(1)
 
-    appendToMapArray(map, 'key', 2)
+    appendToMultimap(map, 'key', 2)
     expect(map.get('key')![0]).toBe(1)
     expect(map.get('key')![1]).toBe(2)
   })
 
-  test('prependToMapArray', () => {
+  test('prependToMultimap', () => {
     const map = new Map<string, number[]>()
 
-    prependToMapArray(map, 'key', 1)
+    prependToMultimap(map, 'key', 1)
     expect(map.get('key')![0]).toBe(1)
 
-    prependToMapArray(map, 'key', 2)
+    prependToMultimap(map, 'key', 2)
     expect(map.get('key')![0]).toBe(2)
     expect(map.get('key')![1]).toBe(1)
   })

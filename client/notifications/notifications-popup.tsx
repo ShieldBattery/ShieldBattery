@@ -9,7 +9,7 @@ import {
   UseTransitionProps,
 } from 'react-spring'
 import styled from 'styled-components'
-import { subtract, union } from '../../common/js/sets'
+import { subtract, union } from '../../common/data-structures/sets'
 import { SbNotification } from '../../common/notifications'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
 import CheckIcon from '../icons/material/check-24px.svg'

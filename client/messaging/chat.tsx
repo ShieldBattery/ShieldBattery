@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { appendToMapArray } from '../../common/js/maps'
+import { appendToMultimap } from '../../common/data-structures/maps'
 import { SbUserId } from '../../common/users/sb-user'
 import { MenuItem } from '../material/menu/item'
 import { MessageInput, MessageInputHandle, MessageInputProps } from '../messaging/message-input'
@@ -104,7 +104,7 @@ export function Chat({
         items: Map<MenuItemCategory, React.ReactNode[]>,
         onMenuClose: (event?: MouseEvent) => void,
       ) => {
-        appendToMapArray(
+        appendToMultimap(
           items,
           MenuItemCategory.General,
           <MenuItem

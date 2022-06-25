@@ -1,5 +1,5 @@
 import { Immutable } from 'immer'
-import { intersection, union } from '../../common/js/sets'
+import { intersection, union } from '../../common/data-structures/sets'
 import { SbNotification } from '../../common/notifications'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 

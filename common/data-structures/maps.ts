@@ -6,7 +6,7 @@
  *
  * Mutates the input map instead of returning a new map.
  */
-export function appendToMapArray<K, T>(map: Map<K, T[]>, key: K, item: T) {
+export function appendToMultimap<K, T>(map: Map<K, T[]>, key: K, item: T) {
   const value = map.get(key)
 
   if (value === undefined) {
@@ -24,7 +24,7 @@ export function appendToMapArray<K, T>(map: Map<K, T[]>, key: K, item: T) {
  *
  * Mutates the input map instead of returning a new map.
  */
-export function prependToMapArray<K, T>(map: Map<K, T[]>, key: K, item: T) {
+export function prependToMultimap<K, T>(map: Map<K, T[]>, key: K, item: T) {
   const value = map.get(key)
 
   if (value === undefined) {

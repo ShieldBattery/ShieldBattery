@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import styled from 'styled-components'
-import { appendToMapArray } from '../../common/js/maps'
+import { appendToMultimap } from '../../common/data-structures/maps'
 import { SbUserId } from '../../common/users/sb-user'
 import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
@@ -115,20 +115,20 @@ function ConnectedUserContextMenuContents({
     let items: Map<MenuItemCategory, React.ReactNode[]> = new Map()
     if (!user) {
       // TODO(tec27): Ideally this wouldn't have hover/focus state
-      appendToMapArray(
+      appendToMultimap(
         items,
         MenuItemCategory.General,
         <LoadingItem key='loading' text='Loading user…' />,
       )
     } else {
-      appendToMapArray(
+      appendToMultimap(
         items,
         MenuItemCategory.General,
         <MenuItem key='profile' text='View profile' onClick={onViewProfileClick} />,
       )
 
       if (user.id !== selfUser.id) {
-        appendToMapArray(
+        appendToMultimap(
           items,
           MenuItemCategory.General,
           <MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />,
@@ -136,7 +136,7 @@ function ConnectedUserContextMenuContents({
 
         if (IS_ELECTRON) {
           if (!partyId) {
-            appendToMapArray(
+            appendToMultimap(
               items,
               MenuItemCategory.Party,
               <MenuItem key='invite' text='Invite to party' onClick={onInviteToPartyClick} />,
@@ -147,19 +147,19 @@ function ConnectedUserContextMenuContents({
             if (isAlreadyInParty) {
               // TODO(2Pac): Move this item to "destructive" category, but only iside the party
               // context. And instead show "View party" or something in non-party contexts?
-              appendToMapArray(
+              appendToMultimap(
                 items,
                 MenuItemCategory.Party,
                 <MenuItem key='kick-party' text='Kick from party' onClick={onKickPlayerClick} />,
               )
             } else if (hasInvite) {
-              appendToMapArray(
+              appendToMultimap(
                 items,
                 MenuItemCategory.Party,
                 <MenuItem key='invite' text='Uninvite from party' onClick={onRemovePartyInvite} />,
               )
             } else {
-              appendToMapArray(
+              appendToMultimap(
                 items,
                 MenuItemCategory.Party,
                 <MenuItem key='invite' text='Invite to party' onClick={onInviteToPartyClick} />,

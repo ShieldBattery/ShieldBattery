@@ -9,6 +9,7 @@ import CancelToken from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
+import { subtract } from '../../../common/data-structures/sets'
 import { GameRoute } from '../../../common/game-launch-config'
 import {
   GameConfig,
@@ -17,7 +18,6 @@ import {
   GameType,
   MatchmakingExtra,
 } from '../../../common/games/configuration'
-import { subtract } from '../../../common/js/sets'
 import { createHuman, Slot } from '../../../common/lobbies/slot'
 import { MapInfo, MapInfoJson, toMapInfoJson } from '../../../common/maps'
 import {
