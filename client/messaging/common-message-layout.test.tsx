@@ -22,6 +22,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
         <common-message-layout__Username>
           <ConnectedUsername
             filterClick={[Function]}
+            modifyMenuItems={[Function]}
             userId={2}
           />
         </common-message-layout__Username>
@@ -44,6 +45,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
         <common-message-layout__Username>
           <ConnectedUsername
             filterClick={[Function]}
+            modifyMenuItems={[Function]}
             userId={2}
           />
         </common-message-layout__Username>
@@ -71,6 +73,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
         <common-message-layout__Username>
           <ConnectedUsername
             filterClick={[Function]}
+            modifyMenuItems={[Function]}
             userId={2}
           />
         </common-message-layout__Username>
@@ -82,6 +85,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
            
           <common-message-layout__MentionedUsername
             filterClick={[Function]}
+            modifyMenuItems={[Function]}
             prefix="@"
             userId={123}
           />
@@ -99,6 +103,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
         <common-message-layout__Username>
           <ConnectedUsername
             filterClick={[Function]}
+            modifyMenuItems={[Function]}
             userId={2}
           />
         </common-message-layout__Username>
@@ -115,6 +120,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
            
           <common-message-layout__MentionedUsername
             filterClick={[Function]}
+            modifyMenuItems={[Function]}
             prefix="@"
             userId={123}
           />
@@ -132,6 +138,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
         <common-message-layout__Username>
           <ConnectedUsername
             filterClick={[Function]}
+            modifyMenuItems={[Function]}
             userId={2}
           />
         </common-message-layout__Username>
@@ -143,6 +150,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
            
           <common-message-layout__MentionedUsername
             filterClick={[Function]}
+            modifyMenuItems={[Function]}
             prefix="@"
             userId={123}
           />
@@ -156,6 +164,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
            
           <common-message-layout__MentionedUsername
             filterClick={[Function]}
+            modifyMenuItems={[Function]}
             prefix="@"
             userId={123}
           />
@@ -173,6 +182,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
         <common-message-layout__Username>
           <ConnectedUsername
             filterClick={[Function]}
+            modifyMenuItems={[Function]}
             userId={2}
           />
         </common-message-layout__Username>
@@ -183,6 +193,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
           
           <common-message-layout__MentionedUsername
             filterClick={[Function]}
+            modifyMenuItems={[Function]}
             prefix="@"
             userId={123}
           />
@@ -207,6 +218,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
         <common-message-layout__Username>
           <ConnectedUsername
             filterClick={[Function]}
+            modifyMenuItems={[Function]}
             userId={2}
           />
         </common-message-layout__Username>
@@ -223,6 +235,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
            
           <common-message-layout__MentionedUsername
             filterClick={[Function]}
+            modifyMenuItems={[Function]}
             prefix="@"
             userId={123}
           />
@@ -246,6 +259,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
         <common-message-layout__Username>
           <ConnectedUsername
             filterClick={[Function]}
+            modifyMenuItems={[Function]}
             userId={2}
           />
         </common-message-layout__Username>
@@ -257,6 +271,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
            
           <common-message-layout__MentionedUsername
             filterClick={[Function]}
+            modifyMenuItems={[Function]}
             prefix="@"
             userId={1}
           />

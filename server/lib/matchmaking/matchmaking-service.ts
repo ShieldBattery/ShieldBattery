@@ -9,6 +9,7 @@ import CancelToken from '../../../common/async/cancel-token'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
+import { subtract } from '../../../common/data-structures/sets'
 import { GameRoute } from '../../../common/game-launch-config'
 import {
   GameConfig,
@@ -34,7 +35,6 @@ import {
 import { BwTurnRate, BwUserLatency } from '../../../common/network'
 import { RaceChar } from '../../../common/races'
 import { randomInt, randomItem } from '../../../common/random'
-import { subtract } from '../../../common/sets'
 import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/sb-user'
 import { GameLoader, GameLoaderError } from '../games/game-loader'

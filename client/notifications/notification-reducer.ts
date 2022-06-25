@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
+import { intersection, union } from '../../common/data-structures/sets'
 import { SbNotification } from '../../common/notifications'
-import { intersection, union } from '../../common/sets'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface ClearRequest {
