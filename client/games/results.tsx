@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameConfigPlayer, GameSource, isTeamType } from '../../common/games/configuration'
-import { GameRecordJson, getGameDurationStr, getGameTypeLabel } from '../../common/games/games'
+import { GameRecordJson, getGameDurationString, getGameTypeLabel } from '../../common/games/games'
 import { ReconciledPlayerResult, ReconciledResult } from '../../common/games/results'
 import { getTeamNames } from '../../common/maps'
 import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
@@ -319,7 +319,7 @@ export function ConnectedGameResultsPage({
               <HeaderInfoItem>
                 <HeaderInfoLabel>Duration</HeaderInfoLabel>
                 <HeaderInfoValue>
-                  {game.gameLength ? getGameDurationStr(game.gameLength) : '—'}
+                  {game.gameLength ? getGameDurationString(game.gameLength) : '—'}
                 </HeaderInfoValue>
               </HeaderInfoItem>
             </>

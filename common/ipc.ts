@@ -71,8 +71,9 @@ interface IpcInvokeables {
 
   pathsGetDocumentsPath: () => Promise<string>
 
-  replayParseHeader: (replayPath: string) => Promise<ReplayHeader>
-  replayShieldBatteryData: (replayPath: string) => Promise<ReplayShieldBatteryData | undefined>
+  replayParseData: (
+    replayPath: string,
+  ) => Promise<{ headerData?: ReplayHeader; shieldBatteryData?: ReplayShieldBatteryData }>
 
   securityGetClientIds: () => Promise<[number, string][]>
 

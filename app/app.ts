@@ -5,7 +5,7 @@ import localShortcut from 'electron-localshortcut'
 import { autoUpdater } from 'electron-updater'
 import fs from 'fs'
 import fsPromises from 'fs/promises'
-import ReplayParser from 'jssuh'
+import ReplayParser, { ReplayHeader } from 'jssuh'
 import path from 'path'
 import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
@@ -13,6 +13,7 @@ import { container } from 'tsyringe'
 import { URL } from 'url'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { FsDirent, TypedIpcMain, TypedIpcSender } from '../common/ipc'
+import { ReplayShieldBatteryData } from '../common/replays'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import currentSession from './current-session'
 import { ActiveGameManager } from './game/active-game-manager'
@@ -423,30 +424,25 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
     mapStore.downloadMap(mapHash, mapFormat, mapUrl),
   )
 
-  ipcMain.handle('replayParseHeader', async (event, replayPath) => {
-    return new Promise(async resolve => {
+  ipcMain.handle('replayParseData', async (event, replayPath) => {
+    return new Promise(async (resolve, reject) => {
       const parser = new ReplayParser()
-      parser.on('replayHeader', header => resolve(header))
-
-      const promise = pipeline(fs.createReadStream(replayPath), parser)
-
-      parser.resume()
-      await promise
-    })
-  })
-
-  ipcMain.handle('replayShieldBatteryData', async (event, replayPath) => {
-    return new Promise(async resolve => {
-      const parser = new ReplayParser()
-      let hasSbatSection = false
-      parser.rawScrSection('Sbat', buffer => {
-        hasSbatSection = true
-        resolve(parseShieldbatteryReplayData(buffer))
+      let headerData: ReplayHeader
+      parser.on('replayHeader', header => {
+        headerData = header
       })
-      parser.on('end', () => {
-        if (!hasSbatSection) {
-          resolve(undefined)
+
+      let shieldBatteryData: ReplayShieldBatteryData
+      parser.rawScrSection('Sbat', buffer => {
+        try {
+          shieldBatteryData = parseShieldbatteryReplayData(buffer)
+        } catch (err) {
+          reject(err)
         }
+      })
+
+      parser.on('end', () => {
+        resolve({ headerData, shieldBatteryData })
       })
 
       const promise = pipeline(fs.createReadStream(replayPath), parser)

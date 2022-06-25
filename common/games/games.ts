@@ -72,7 +72,7 @@ export interface GameRecordUpdate {
   mmrChanges: PublicMatchmakingRatingChangeJson[]
 }
 
-export function getGameDurationStr(durationMs: number): string {
+export function getGameDurationString(durationMs: number): string {
   const timeSec = Math.floor(durationMs / 1000)
   const hours = Math.floor(timeSec / 3600)
   const minutes = Math.floor(timeSec / 60) % 60

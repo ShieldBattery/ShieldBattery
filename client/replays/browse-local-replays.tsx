@@ -1,7 +1,7 @@
 import { ReplayHeader, ReplayPlayer } from 'jssuh'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import styled from 'styled-components'
-import { getGameDurationStr } from '../../common/games/games'
+import { getGameDurationString } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
   replayGameTypeToLabel,
@@ -10,7 +10,7 @@ import {
 } from '../../common/replays'
 import { SbUserId } from '../../common/users/sb-user'
 import { closeOverlay } from '../activities/action-creators'
-import { useCutoffElement } from '../dom/cutoff-element'
+import { useOverflowingElement } from '../dom/overflowing-element'
 import { FileBrowser } from '../file-browser/file-browser'
 import {
   ExpansionPanelProps,
@@ -27,9 +27,10 @@ import { MapThumbnail } from '../maps/map-thumbnail'
 import { RaisedButton } from '../material/button'
 import { shadow2dp } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
+import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
-import { background400, colorTextSecondary } from '../styles/colors'
+import { background400, colorError, colorTextSecondary } from '../styles/colors'
 import { headline6, overline, singleLine, subtitle1 } from '../styles/typography'
 import { startReplay } from './action-creators'
 
@@ -41,27 +42,30 @@ async function getReplayFolderPath() {
   )
 }
 
-async function getReplayHeader(filePath: string): Promise<ReplayHeader | undefined> {
-  return ipcRenderer.invoke('replayParseHeader', filePath)
-}
-
-async function getReplayShieldBatteryData(
+async function getReplayData(
   filePath: string,
-): Promise<ReplayShieldBatteryData | undefined> {
-  return ipcRenderer.invoke('replayShieldBatteryData', filePath)
+): Promise<{ headerData?: ReplayHeader; shieldBatteryData?: ReplayShieldBatteryData } | undefined> {
+  return ipcRenderer.invoke('replayParseData', filePath)
 }
 
 // Most of these styles were copied from game results page, with some minor modifications. I don't
 // think it's worth trying to reuse the same components in both places, since their purpose is quite
 // different, and they'll probably diverge even more in the future.
 
-const ReplayPanelContainer = styled.div<{ $isLoading: boolean }>`
+const ReplayPanelContainer = styled.div`
   width: 100%;
   padding: 16px;
   background-color: ${background400};
 
-  opacity: ${props => (props.$isLoading ? 0.6 : 1)};
+  opacity: 1;
   transition: opacity linear 100ms;
+`
+
+const ErrorText = styled.div`
+  ${subtitle1};
+  padding: 16px;
+
+  color: ${colorError};
 `
 
 const InfoContainer = styled.div`
@@ -172,29 +176,43 @@ const ReplayActionsContainer = styled.div`
 
 export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
   const dispatch = useAppDispatch()
-  const [replayHeader, setReplayHeader] = useState<ReplayHeader>()
-  const [replayShieldBatteryData, setReplayShieldBatteryData] = useState<ReplayShieldBatteryData>()
-  const gameId = replayShieldBatteryData?.gameId
-  const replayUserIds = replayShieldBatteryData?.userIds
+  const [replayData, setReplayData] = useState<{
+    headerData?: ReplayHeader
+    shieldBatteryData?: ReplayShieldBatteryData
+  }>()
+  const gameId = replayData?.shieldBatteryData?.gameId
+  const replayUserIds = replayData?.shieldBatteryData?.userIds
   const gameInfo = useAppSelector(s => s.games.byId.get(gameId ?? ''))
   const mapInfo = useAppSelector(s => s.maps2.byId.get(gameInfo?.mapId ?? ''))
   const usersById = useAppSelector(s => s.users.byId)
 
-  const mapNameRef = useRef<HTMLDivElement>(null)
-  const isMapNameCutOff = useCutoffElement(mapNameRef.current)
-  const gameTypeRef = useRef<HTMLDivElement>(null)
-  const isGameTypeCutOff = useCutoffElement(gameTypeRef.current)
+  const [mapNameRef, isMapNameOverflowing] = useOverflowingElement()
+  const [gameTypeRef, isGameTypeOverflowing] = useOverflowingElement()
+
+  const [parseError, setParseError] = useState(null)
 
   useEffect(() => {
-    getReplayHeader(file.path).then(header => setReplayHeader(header))
-    getReplayShieldBatteryData(file.path).then(data => setReplayShieldBatteryData(data))
+    getReplayData(file.path)
+      .then(data => {
+        setParseError(null)
+        setReplayData(data)
+      })
+      .catch(err => setParseError(err))
   }, [file.path])
 
   useEffect(() => {
     const getGameInfoAbortController = new AbortController()
 
     if (gameId) {
-      dispatch(viewGame(gameId, { signal: getGameInfoAbortController.signal }))
+      dispatch(
+        // In case this returns an error, we just default to showing the data from the replay
+        // itself. That's why we're not utilizing the `onSuccess`/`onError` handlers here.
+        viewGame(gameId, {
+          signal: getGameInfoAbortController.signal,
+          onSuccess: () => {},
+          onError: () => {},
+        }),
+      )
     }
 
     return () => {
@@ -203,13 +221,14 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
   }, [gameId, dispatch])
 
   const [durationStr, gameTypeLabel, mapName, playerListItems] = useMemo(() => {
+    const replayHeader = replayData?.headerData
     if (!replayHeader) {
       return ['00:00', 'Unknown', 'Unknown map', null]
     }
 
     // TODO(2Pac): Handle replays not played at the fastest speed (if that's even possible?)
     const timeMs = (replayHeader.durationFrames / 24) * 1000
-    const durationStr = getGameDurationStr(timeMs)
+    const durationStr = getGameDurationString(timeMs)
     const gameTypeLabel = replayGameTypeToLabel(replayHeader.gameType)
     const mapName = mapInfo?.name ?? replayHeader.mapName
 
@@ -243,7 +262,7 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
     })
 
     return [durationStr, gameTypeLabel, mapName, playerListItems]
-  }, [mapInfo?.name, replayHeader, replayUserIds, usersById])
+  }, [mapInfo?.name, replayData, replayUserIds, usersById])
 
   const onStartReplay = useStableCallback(() => {
     // TODO(2Pac): Remove `any` cast after overlays are TS-ified
@@ -251,8 +270,13 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
     dispatch(startReplay(file))
   })
 
-  return (
-    <ReplayPanelContainer $isLoading={!replayHeader}>
+  let content
+  if (parseError) {
+    content = <ErrorText>There was an error parsing the replay</ErrorText>
+  } else if (!replayData) {
+    content = <LoadingDotsArea />
+  } else if (replayData) {
+    content = (
       <InfoContainer>
         <PlayerListContainer>{playerListItems}</PlayerListContainer>
         <ReplayInfoContainer>
@@ -263,15 +287,21 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
               <MapNoImage />
             </MapNoImageContainer>
           )}
-          <StyledTooltip text={mapName} position='bottom' showTooltip={isMapNameCutOff}>
+          <StyledTooltip text={mapName} position='bottom' disabled={!isMapNameOverflowing}>
             <MapName ref={mapNameRef}>{mapName}</MapName>
           </StyledTooltip>
-          <StyledTooltip text={gameTypeLabel} position='bottom' showTooltip={isGameTypeCutOff}>
+          <StyledTooltip text={gameTypeLabel} position='bottom' disabled={!isGameTypeOverflowing}>
             <ReplayInfoText ref={gameTypeRef}>Game type: {gameTypeLabel}</ReplayInfoText>
           </StyledTooltip>
           <ReplayInfoText>Duration: {durationStr}</ReplayInfoText>
         </ReplayInfoContainer>
       </InfoContainer>
+    )
+  }
+
+  return (
+    <ReplayPanelContainer>
+      {content}
       <ReplayActionsContainer>
         <RaisedButton label='Watch replay' onClick={onStartReplay} />
       </ReplayActionsContainer>

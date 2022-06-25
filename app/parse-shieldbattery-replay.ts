@@ -1,5 +1,6 @@
 import { ReplayShieldBatteryData } from '../common/replays'
 import { SbUserId } from '../common/users/sb-user'
+import log from './logger'
 
 /**
  * Parse the ShieldBattery version as it's written in the replay file. Since it's a string of 16
@@ -44,20 +45,26 @@ function parseUserIds(userIds: Buffer): SbUserId[] {
 }
 
 export function parseShieldbatteryReplayData(buffer: Buffer): ReplayShieldBatteryData {
-  const formatVersion = buffer.readUint16LE(0x0)
-  const starcraftExeBuild = buffer.readUInt32LE(0x2)
-  const shieldBatteryVersion = buffer.subarray(0x6, 0x16).toString()
-  // NOTE(2Pac): We skip the 0x16 - 0x1a which is the `team_game_main_players`
-  // NOTE(2Pac): We skip the 0x1a - 0x26 which is the `starting_races`
-  const gameId = buffer.subarray(0x26, 0x36)
-  const userIds = buffer.subarray(0x36, 0x56)
-  // NOTE(2Pac): We skip the 0x56 - 0x58 which is the `game_logic_version`
-
-  return {
-    formatVersion,
-    starcraftExeBuild,
-    shieldBatteryVersion: parseShieldBatteryVersion(shieldBatteryVersion),
-    gameId: parseGameId(gameId),
-    userIds: parseUserIds(userIds),
+  // 0x56 bytes is the size of the first version of our replay data, so anything above that is fine.
+  if (buffer.length < 0x56) {
+    log.error(`The replay's ShieldBattery data section size is invalid: ${buffer.length}`)
+    throw new Error("The replay's ShieldBattery data section size is invalid")
   }
+
+  const formatVersion = buffer.readUint16LE(0x0)
+  const data = { formatVersion } as ReplayShieldBatteryData
+
+  if (formatVersion >= 0) {
+    data.starcraftExeBuild = buffer.readUInt32LE(0x2)
+    data.shieldBatteryVersion = parseShieldBatteryVersion(buffer.subarray(0x6, 0x16).toString())
+    // NOTE(2Pac): We skip the 0x16 - 0x1a which is the `team_game_main_players`
+    // NOTE(2Pac): We skip the 0x1a - 0x26 which is the `starting_races`
+    data.gameId = parseGameId(buffer.subarray(0x26, 0x36))
+    data.userIds = parseUserIds(buffer.subarray(0x36, 0x56))
+  }
+  if (formatVersion >= 1) {
+    // NOTE(2Pac): We skip the 0x56 - 0x58 which is the `game_logic_version`
+  }
+
+  return data
 }

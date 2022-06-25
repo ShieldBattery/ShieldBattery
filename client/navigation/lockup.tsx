@@ -53,7 +53,7 @@ export default function Lockup({ onClick, menuOpened }: LockupProps) {
     <Container aria-label='ShieldBattery' {...buttonProps}>
       <SizedLogo />
       <SizedLogoText />
-      <AnimatedExpandIcon $flipped={!!menuOpened} $reversed={true} />
+      <AnimatedExpandIcon $open={!!menuOpened} $reversed={true} />
       <Ripple ref={rippleRef} />
     </Container>
   )

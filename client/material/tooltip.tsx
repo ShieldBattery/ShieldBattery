@@ -117,10 +117,11 @@ interface TooltipProps {
    * */
   ContentComponent?: React.ComponentType<{ $position: TooltipPosition; children: React.ReactNode }>
   /**
-   * Sometimes you might want to conditionally show the Tooltip, but keep the DOM element of the
-   * child the same in both cases (e.g. if you want to show the Tooltip only when text is cutoff).
+   * Optionally disable interaction with this tooltip. This allows for cases where we need to turn
+   * a tooltip off without changing the DOM structure around it, such as only showing a tooltip
+   * when text is cut off.
    */
-  showTooltip?: boolean
+  disabled?: boolean
 }
 
 /**
@@ -136,7 +137,7 @@ export function Tooltip({
   tabIndex = 0,
   position = 'bottom',
   ContentComponent = TooltipContent,
-  showTooltip = true,
+  disabled,
 }: TooltipProps) {
   const contentId = useId()
   const [open, setOpen] = useState(false)
@@ -228,7 +229,7 @@ export function Tooltip({
       </TooltipChildrenContainer>
       {transition(
         (styles, open) =>
-          showTooltip &&
+          !disabled &&
           open && (
             <NoPointerPortal open={open}>
               <KeyListenerBoundary>

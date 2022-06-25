@@ -15,11 +15,8 @@ import { makeServerUrl } from '../network/server-url'
 
 const ipcRenderer = new TypedIpcRenderer()
 
-// TODO(tec27): Move this to an IPC call
-// TODO(tec27): Tighten up the types in here once the dependencies and actions have been migrated
-// to TS
 async function getReplayHeader(filePath: string): Promise<ReplayHeader | undefined> {
-  return ipcRenderer.invoke('replayParseHeader', filePath)
+  return (await ipcRenderer.invoke('replayParseData', filePath))?.headerData
 }
 
 async function setGameConfig(replay: { name: string; path: string }, user: SelfUserRecord) {

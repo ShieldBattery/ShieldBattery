@@ -24,9 +24,14 @@ enum SupportedReplayGameType {
   Melee = 2,
   FreeForAll = 3,
   OneVsOne = 4,
+  CaptureTheFlag = 5,
+  Greed = 6,
+  Slaughter = 7,
+  SuddenDeath = 8,
   UseMapSettings = 10,
   TeamMelee = 11,
   TeamFreeForAll = 12,
+  TeamCaptureTheFlag = 13,
   TopVsBottom = 15,
 }
 
@@ -38,12 +43,22 @@ export function replayGameTypeToLabel(gameType: SupportedReplayGameType): string
       return 'Free for all'
     case SupportedReplayGameType.OneVsOne:
       return 'One on one'
+    case SupportedReplayGameType.CaptureTheFlag:
+      return 'Capture the flag'
+    case SupportedReplayGameType.Greed:
+      return 'Greed'
+    case SupportedReplayGameType.Slaughter:
+      return 'Slaughter'
+    case SupportedReplayGameType.SuddenDeath:
+      return 'Sudden death'
     case SupportedReplayGameType.UseMapSettings:
       return 'Use map settings'
     case SupportedReplayGameType.TeamMelee:
       return 'Team melee'
     case SupportedReplayGameType.TeamFreeForAll:
       return 'Team free for all'
+    case SupportedReplayGameType.TeamCaptureTheFlag:
+      return 'Team capture the flag'
     case SupportedReplayGameType.TopVsBottom:
       return 'Top vs bottom'
     default:
@@ -70,10 +85,10 @@ export interface ReplayShieldBatteryData {
   /**
    * The list of user IDs that were in this game. In case there were less than 8 players in the
    * game, all "empty" user IDs will be set to 0xFFFF_FFFF. We keep those IDs in the array, so we
-   * can match the index in this array to an index in players array we get from the header.
+   * can match the index in this array to an ID in players array we get from the header.
    *
-   * The order of this array should match the order of the `players` array in the replay header,
-   * such as that `header.players[i]` and `userIds[i]` point to the same player.
+   * The order of this array can be used to match the user IDs with players from the replay header,
+   * such that `userIds[player.id]` will give you the player's SB user ID.
    */
   userIds: SbUserId[]
 }
