@@ -30,6 +30,10 @@ const starcraftPathValidator = () => {
   }
 }
 
+function normalizePath(path) {
+  return path?.replace(/\\(x86|x86_64)\\?$/, '')
+}
+
 const SelectFolderContainer = styled.div`
   display: flex;
 `
@@ -91,7 +95,7 @@ class StarcraftPathForm extends React.Component {
 
     if (selection.canceled || currentPath.toLowerCase() === selectedPath.toLowerCase()) return
 
-    setInputValue('path', selectedPath)
+    setInputValue('path', normalizePath(selectedPath))
   }
 }
 
