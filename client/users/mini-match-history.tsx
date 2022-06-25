@@ -7,12 +7,14 @@ import { ReconciledResult } from '../../common/games/results'
 import { RaceChar } from '../../common/races'
 import { SbUser, SbUserId } from '../../common/users/sb-user'
 import { navigateToGameResults } from '../games/action-creators'
+import { longTimestamp } from '../i18n/date-formats'
 import { RaceIcon } from '../lobbies/race-icon'
 import { batchGetMapInfo, openMapPreviewDialog } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { TextButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
+import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import {
   background700,
@@ -178,7 +180,9 @@ export function ConnectedGameListEntry({
 
       <GameListEntryTextRow $color='secondary'>
         <Body1>{matchType}</Body1>
-        <Body1>{timeAgo(Date.now() - startTime)}</Body1>
+        <Tooltip text={longTimestamp.format(startTime)} position='left'>
+          <Body1>{timeAgo(Date.now() - startTime)}</Body1>
+        </Tooltip>
       </GameListEntryTextRow>
 
       <Ripple ref={rippleRef} />

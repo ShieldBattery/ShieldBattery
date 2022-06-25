@@ -12,6 +12,7 @@ import { useSelfUser } from '../auth/state-hooks'
 import { Avatar } from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
+import { longTimestamp } from '../i18n/date-formats'
 import RefreshIcon from '../icons/material/ic_refresh_black_24px.svg'
 import FindMatchIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { RaceIcon } from '../lobbies/race-icon'
@@ -145,14 +146,6 @@ const gameDateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
   month: 'short',
   day: '2-digit',
-})
-
-const longGameDateFormat = new Intl.DateTimeFormat(navigator.language, {
-  year: 'numeric',
-  month: 'short',
-  day: '2-digit',
-  hour: 'numeric',
-  minute: '2-digit',
 })
 
 function getDurationStr(durationMs: number): string {
@@ -331,7 +324,7 @@ export function ConnectedGameResultsPage({
               </HeaderInfoItem>
               <HeaderInfoItem>
                 <HeaderInfoLabel>Date</HeaderInfoLabel>
-                <HeaderInfoValue title={longGameDateFormat.format(game.startTime)}>
+                <HeaderInfoValue title={longTimestamp.format(game.startTime)}>
                   {gameDateFormat.format(game.startTime)}
                 </HeaderInfoValue>
               </HeaderInfoItem>
