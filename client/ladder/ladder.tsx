@@ -150,8 +150,6 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
   const [searchQuery, setSearchQuery] = useLocationSearchParam('q')
   const [filteredDivision, setFilteredDivision] = useLocationSearchParam('division', push)
 
-  console.log('hi')
-
   const setSearchQueryRef = useValueAsRef(setSearchQuery)
   const debouncedSearchRef = useRef(
     debounce((searchQuery: string) => {
