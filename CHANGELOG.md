@@ -1,3 +1,23 @@
+#### 8.5.0 (June 25, 2022)
+
+- **Ranked divisions.** We've added divisions to all ranked modes based on MMR, along with brand new
+  icons for each. All divisions below the top one are split into 3 tiers. The top division,
+  Champion, is reserved for the top 10 players by rank, provided they are above the minimum rating.
+  You'll see these new divisions in all the places we show ranks: leaderboards, profiles, and user
+  overlays.
+- **Placement matches.** Ranked modes will now assign users a rating after 5 placement matches,
+  rather than immediately. This helps reduce confusion early on as you can bounce around different
+  divisions very rapidly in your early games. Since we preserve MMR across seasons, placement
+  matches will only need to be completed once per matchmaking type for the lifetime of an account.
+- **Updated colors for Protoss and Zerg.** We found the previous colors got a bit confusing with our
+  positive/negative colors. Since we didn't want anyone to think we're playing favorites, Protoss is
+  now yellow and Zerg is now purple.
+- **Tweaked ranked points target.** We've moved the ranked points target lower (from 4 times MMR to
+  2 times MMR). This should help players arrive at the level that they begin losing points in fewer
+  games, which should reduce confusion about the system.
+- **Refreshed Find Match screen.** The Find Match screen now shows information about your current
+  ranked division and bonus pool size.
+
 #### 8.4.1 (June 13, 2022)
 
 - **Bug fixes.** We've fixed an issue that prevented the client from running on Windows 7, as well
