@@ -32,7 +32,7 @@ import { shadow4dp } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
-import { replace } from '../navigation/routing'
+import { push, replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { SearchInput, SearchInputHandle } from '../search/search-input'
@@ -148,8 +148,9 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
 
   const [lastError, setLastError] = useState<Error>()
   const [searchQuery, setSearchQuery] = useLocationSearchParam('q')
+  const [filteredDivision, setFilteredDivision] = useLocationSearchParam('division', push)
 
-  const [filteredDivision, setFilteredDivision] = useLocationSearchParam('division')
+  console.log('hi')
 
   const setSearchQueryRef = useValueAsRef(setSearchQuery)
   const debouncedSearchRef = useRef(

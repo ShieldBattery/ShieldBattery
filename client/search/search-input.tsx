@@ -1,8 +1,8 @@
-import React, { useImperativeHandle, useRef, useState } from 'react'
+import React, { useEffect, useImperativeHandle, useRef, useState } from 'react'
 import SearchIcon from '../icons/material/baseline-search-24px.svg'
 import { useKeyListener } from '../keyboard/key-listener'
 import { TextField } from '../material/text-field'
-import { useStableCallback } from '../state-hooks'
+import { usePrevious, useStableCallback } from '../state-hooks'
 
 const ESCAPE = 'Escape'
 const F = 'KeyF'
@@ -22,6 +22,14 @@ export const SearchInput = React.forwardRef<SearchInputHandle, SearchInputProps>
     const [inputValue, setInputValue] = useState(searchQuery)
     const [searchFocused, setInputFocused] = useState(false)
     const inputRef = useRef<HTMLInputElement>(null)
+
+    const prevSearchQuery = usePrevious(searchQuery)
+    useEffect(() => {
+      // If we were rendered before and the props have changed, update the input value to match
+      if (searchQuery !== prevSearchQuery && prevSearchQuery !== undefined) {
+        setInputValue(searchQuery)
+      }
+    }, [searchQuery, prevSearchQuery])
 
     useImperativeHandle(ref, () => ({
       clear: () => {

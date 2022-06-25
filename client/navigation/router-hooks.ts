@@ -43,6 +43,7 @@ export function useUrl(): URL {
  */
 export const useLocationSearchParam = (
   name: string,
+  transitionFn = replace,
 ): [value: string, setValue: (value: string) => void] => {
   const url = useUrl()
   const searchParams = url.searchParams
@@ -57,7 +58,7 @@ export const useLocationSearchParam = (
     }
 
     const searchString = params.toString()
-    replace(url.pathname + (searchString ? `?${searchString}` : ''))
+    transitionFn(url.pathname + (searchString ? `?${searchString}` : ''))
   })
 
   return [searchValue, setLocationSearch]
