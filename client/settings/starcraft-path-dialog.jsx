@@ -9,8 +9,8 @@ import SubmitOnEnter from '../forms/submit-on-enter'
 import { RaisedButton, TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { TextField } from '../material/text-field'
-import { colorError } from '../styles/colors'
-import { Subtitle1 } from '../styles/typography'
+import { background500, colorError } from '../styles/colors'
+import { body1, body2, Subtitle1 } from '../styles/typography'
 import { mergeLocalSettings } from './action-creators'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -99,6 +99,17 @@ class StarcraftPathForm extends React.Component {
   }
 }
 
+const Instructions = styled.div`
+  ${body1};
+  margin-bottom: 16px;
+`
+
+const ExampleText = styled.span`
+  ${body2};
+  padding: 0 4px;
+  background-color: ${background500};
+`
+
 @connect(state => ({ settings: state.settings, starcraft: state.starcraft }))
 export default class StarcraftPath extends React.Component {
   _form = React.createRef()
@@ -128,6 +139,14 @@ export default class StarcraftPath extends React.Component {
 
     return (
       <Dialog title={'StarCraft Path'} buttons={buttons} onCancel={onCancel} dialogRef={dialogRef}>
+        <Instructions>
+          Please select the directory where you have installed StarCraft: Remastered.
+        </Instructions>
+        <Instructions>
+          This is usually <ExampleText>C:\Program Files (x86)\StarCraft</ExampleText> but may be
+          elsewhere if you have customized it in the Battle.net launcher.
+        </Instructions>
+
         <StarcraftPathForm ref={this._form} model={formModel} onSubmit={this.onSubmit} />
         {settings.lastError ? (
           <ErrorText>There was an issue saving the StarCraft path. Please try again.</ErrorText>
