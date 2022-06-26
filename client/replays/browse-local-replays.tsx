@@ -48,10 +48,6 @@ async function getReplayData(
   return ipcRenderer.invoke('replayParseData', filePath)
 }
 
-// Most of these styles were copied from game results page, with some minor modifications. I don't
-// think it's worth trying to reuse the same components in both places, since their purpose is quite
-// different, and they'll probably diverge even more in the future.
-
 const ReplayPanelContainer = styled.div`
   width: 100%;
   padding: 16px;
@@ -226,8 +222,7 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
       return ['00:00', 'Unknown', 'Unknown map', null]
     }
 
-    // TODO(2Pac): Handle replays not played at the fastest speed (if that's even possible?)
-    const timeMs = (replayHeader.durationFrames / 24) * 1000
+    const timeMs = (replayHeader.durationFrames * 1000) / 24
     const durationStr = getGameDurationString(timeMs)
     const gameTypeLabel = replayGameTypeToLabel(replayHeader.gameType)
     const mapName = mapInfo?.name ?? replayHeader.mapName

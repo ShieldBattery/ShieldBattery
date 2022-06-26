@@ -62,7 +62,7 @@ export function replayGameTypeToLabel(gameType: SupportedReplayGameType): string
     case SupportedReplayGameType.TopVsBottom:
       return 'Top vs bottom'
     default:
-      return assertUnreachable(gameType)
+      return 'Unknown'
   }
 }
 
