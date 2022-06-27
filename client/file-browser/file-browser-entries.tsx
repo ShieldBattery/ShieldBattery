@@ -4,7 +4,6 @@ import { longTimestamp } from '../i18n/date-formats'
 import Folder from '../icons/material/ic_folder_black_24px.svg'
 import UpDirectory from '../icons/material/ic_subdirectory_arrow_left_black_24px.svg'
 import { IconButton, TextButton } from '../material/button'
-import { Tooltip } from '../material/tooltip'
 import { useStableCallback } from '../state-hooks'
 import { AnimatedExpandIcon } from '../styles/animated-expand-icon'
 import { amberA400, blue700, colorTextPrimary, colorTextSecondary } from '../styles/colors'
@@ -111,7 +110,7 @@ const SelectButton = styled(TextButton)<{ $focused: boolean }>`
       : ''}
 `
 
-const StyledTooltip = styled(Tooltip)<{ $focused: boolean }>`
+const ExpandButton = styled(IconButton)<{ $focused: boolean }>`
   ${props =>
     !props.$focused
       ? css`
@@ -136,15 +135,9 @@ const FileEntryContainer = styled(EntryContainer)<{ $clickable: boolean }>`
   &:hover ${SelectButton} {
     display: inline-table;
   }
-  &:hover ${StyledTooltip} {
+  &:hover ${ExpandButton} {
     display: flex;
   }
-`
-
-const ExpandText = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
 `
 
 // NOTE(2Pac): This component is currently pushing the boundaries of what a generic component should
@@ -192,20 +185,11 @@ export const FileEntry = React.memo(
                 label={onSelectTitle}
                 onClick={() => onSelect(file)}
               />
-              <StyledTooltip
+              <ExpandButton
                 $focused={isFocused}
-                text={
-                  <ExpandText>
-                    <span>Expand</span>
-                    <span>(Space)</span>
-                  </ExpandText>
-                }
-                position='bottom'>
-                <IconButton
-                  icon={<AnimatedExpandIcon $pointUp={isExpanded} />}
-                  onClick={handleExpandClick}
-                />
-              </StyledTooltip>
+                icon={<AnimatedExpandIcon $pointUp={isExpanded} />}
+                onClick={handleExpandClick}
+              />
             </>
           ) : null}
         </FileEntryContainer>
