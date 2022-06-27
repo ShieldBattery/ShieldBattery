@@ -202,7 +202,7 @@ export const FileEntry = React.memo(
                 }
                 position='bottom'>
                 <IconButton
-                  icon={<AnimatedExpandIcon $open={isExpanded} $reversed={true} />}
+                  icon={<AnimatedExpandIcon $pointUp={isExpanded} />}
                   onClick={handleExpandClick}
                 />
               </StyledTooltip>

@@ -4,18 +4,10 @@ import { fastOutSlowIn } from '../material/curve-constants'
 
 /**
  * An expand icon which can be rotated by a 180 degrees. Usually used in accordion-like components.
- * By default the icon is pointing upwards, but can be made to point downwards by default with the
- * `$reversed` prop.
  */
-export const AnimatedExpandIcon = styled(ExpandIcon)<{ $open?: boolean; $reversed?: boolean }>`
+export const AnimatedExpandIcon = styled(ExpandIcon)<{ $pointUp?: boolean }>`
   color: inherit;
-  transform: rotate(
-    ${props => {
-      const rotateFrom = props.$reversed ? '0deg' : '180deg'
-      const rotateTo = props.$reversed ? '180deg' : '0deg'
-      return props.$open ? rotateFrom : rotateTo
-    }}
-  );
+  transform: rotate(${props => (props.$pointUp ? '0deg' : '180deg')});
   transition: transform 125ms ${fastOutSlowIn};
   will-change: transform;
 `

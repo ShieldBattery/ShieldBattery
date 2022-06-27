@@ -424,7 +424,7 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
     mapStore.downloadMap(mapHash, mapFormat, mapUrl),
   )
 
-  ipcMain.handle('replayParseData', async (event, replayPath) => {
+  ipcMain.handle('replayParseMetadata', async (event, replayPath) => {
     return new Promise(async (resolve, reject) => {
       const parser = new ReplayParser()
       let headerData: ReplayHeader

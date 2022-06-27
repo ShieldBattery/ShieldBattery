@@ -42,10 +42,10 @@ async function getReplayFolderPath() {
   )
 }
 
-async function getReplayData(
+async function getReplayMetadata(
   filePath: string,
 ): Promise<{ headerData?: ReplayHeader; shieldBatteryData?: ReplayShieldBatteryData } | undefined> {
-  return ipcRenderer.invoke('replayParseData', filePath)
+  return ipcRenderer.invoke('replayParseMetadata', filePath)
 }
 
 const ReplayPanelContainer = styled.div`
@@ -172,12 +172,12 @@ const ReplayActionsContainer = styled.div`
 
 export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
   const dispatch = useAppDispatch()
-  const [replayData, setReplayData] = useState<{
+  const [replayMetadata, setReplayMetadata] = useState<{
     headerData?: ReplayHeader
     shieldBatteryData?: ReplayShieldBatteryData
   }>()
-  const gameId = replayData?.shieldBatteryData?.gameId
-  const replayUserIds = replayData?.shieldBatteryData?.userIds
+  const gameId = replayMetadata?.shieldBatteryData?.gameId
+  const replayUserIds = replayMetadata?.shieldBatteryData?.userIds
   const gameInfo = useAppSelector(s => s.games.byId.get(gameId ?? ''))
   const mapInfo = useAppSelector(s => s.maps2.byId.get(gameInfo?.mapId ?? ''))
   const usersById = useAppSelector(s => s.users.byId)
@@ -188,10 +188,10 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
   const [parseError, setParseError] = useState(null)
 
   useEffect(() => {
-    getReplayData(file.path)
+    getReplayMetadata(file.path)
       .then(data => {
         setParseError(null)
-        setReplayData(data)
+        setReplayMetadata(data)
       })
       .catch(err => setParseError(err))
   }, [file.path])
@@ -217,7 +217,7 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
   }, [gameId, dispatch])
 
   const [durationStr, gameTypeLabel, mapName, playerListItems] = useMemo(() => {
-    const replayHeader = replayData?.headerData
+    const replayHeader = replayMetadata?.headerData
     if (!replayHeader) {
       return ['00:00', 'Unknown', 'Unknown map', null]
     }
@@ -257,7 +257,7 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
     })
 
     return [durationStr, gameTypeLabel, mapName, playerListItems]
-  }, [mapInfo?.name, replayData, replayUserIds, usersById])
+  }, [mapInfo?.name, replayMetadata, replayUserIds, usersById])
 
   const onStartReplay = useStableCallback(() => {
     // TODO(2Pac): Remove `any` cast after overlays are TS-ified
@@ -268,9 +268,9 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
   let content
   if (parseError) {
     content = <ErrorText>There was an error parsing the replay</ErrorText>
-  } else if (!replayData) {
+  } else if (!replayMetadata) {
     content = <LoadingDotsArea />
-  } else if (replayData) {
+  } else if (replayMetadata) {
     content = (
       <InfoContainer>
         <PlayerListContainer>{playerListItems}</PlayerListContainer>

@@ -75,7 +75,7 @@ const ProfileNavEntry = React.forwardRef(
       <Container ref={ref} {...buttonProps}>
         <StyledAvatar user={user} />
         <User>{user}</User>
-        <AnimatedExpandIcon $open={profileMenuOpen} />
+        <AnimatedExpandIcon $pointUp={!profileMenuOpen} />
         <Ripple ref={rippleRef} />
       </Container>
     )
