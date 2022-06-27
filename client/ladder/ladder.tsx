@@ -23,7 +23,6 @@ import { JsonLocalStorageValue } from '../local-storage'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
-import { fastOutSlowInShort } from '../material/curves'
 import { Ripple } from '../material/ripple'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { SelectOption } from '../material/select/option'
@@ -308,12 +307,7 @@ const FiltersContainer = styled.div`
 `
 
 const StyledSearchInput = styled(SearchInput)`
-  width: 200px;
-  ${fastOutSlowInShort};
-
-  &:focus-within {
-    width: 256px;
-  }
+  width: 256px;
 `
 
 const DivisionSelect = styled(Select)`
