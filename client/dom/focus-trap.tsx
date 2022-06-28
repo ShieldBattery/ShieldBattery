@@ -6,6 +6,9 @@ export interface FocusTrapProps {
   /**
    * An ref to focus initially, and when focus travels outside of the bounds of the children. This
    * should be an element somewhere inside of the children (optimally at the beginning of content).
+   *
+   * **Note:** This element **must** have a tabIndex set. If it should not normally be
+   * keyboard-navigable, this can be `-1`, and should probably be `0` otherwise.
    */
   focusableRef: React.RefObject<HTMLElement>
 }
@@ -24,6 +27,12 @@ export function FocusTrap({ children, focusableRef }: FocusTrapProps) {
 
   const focusOnMount = useStableCallback(() => {
     focusableRef.current?.focus()
+    if (
+      __WEBPACK_ENV.NODE_ENV !== 'production' &&
+      !focusableRef.current?.hasAttribute('tabindex')
+    ) {
+      throw new Error('focusableRef must have a tabIndex set')
+    }
   })
   useEffect(focusOnMount, [focusOnMount])
 

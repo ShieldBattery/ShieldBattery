@@ -5,6 +5,7 @@ import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useElementRect, useObservedDimensions } from '../dom/dimension-hooks'
+import { FocusTrap } from '../dom/focus-trap'
 import { useWindowListener } from '../dom/window-listener'
 import { KeyListenerBoundary, useKeyListener } from '../keyboard/key-listener'
 import { useForceUpdate, usePreviousDefined } from '../state-hooks'
@@ -55,6 +56,10 @@ const Card = styled(CardLayer)`
   ${shadow10dp};
   border-radius: 2px;
   contain: content;
+
+  &:focus {
+    outline: none;
+  }
 `
 
 /** An origin point on the X axis. */
@@ -93,7 +98,7 @@ export interface PopoverProps {
    * Custom configuration for the open/close transition. Optional, defaults to a uniform scale
    * and opacity change.
    */
-  transitionProps?: UseTransitionProps<boolean>
+  transitionProps?: Omit<UseTransitionProps<boolean>, 'onRest'>
 }
 
 export const DEFAULT_TRANSITION: UseTransitionProps<boolean> = {
@@ -104,6 +109,8 @@ export const DEFAULT_TRANSITION: UseTransitionProps<boolean> = {
     phase === 'leave' || key === 'opacity' ? { ...defaultSpring, clamp: true } : defaultSpring,
 }
 
+type PopoverOnRest = Extract<UseTransitionProps<boolean>['onRest'], (...args: any[]) => any>
+
 /**
  * A UI element that floats over the rest of the document contents. This is generally used for
  * things like dynamic menus or dropdowns.
@@ -112,9 +119,23 @@ export const DEFAULT_TRANSITION: UseTransitionProps<boolean> = {
  * to ensure the stay within the usable area of the screen.
  */
 export function Popover(props: PopoverProps) {
+  const focusableRef = useRef<HTMLDivElement>(null)
+
+  const onRest = useCallback<PopoverOnRest>((_result: unknown, _ctrl: unknown, open: boolean) => {
+    if (open) {
+      // We need to focus the element here because the browser prevents it prior to this (not
+      // entirely sure why, I assume because the element is either not yet in the DOM or it is not
+      // visible)
+      focusableRef.current?.focus()
+    }
+  }, [])
+  const transitionProps: UseTransitionProps<boolean> = {
+    ...(props.transitionProps ?? DEFAULT_TRANSITION),
+    onRest,
+  }
   const transition = useTransition<boolean, UseTransitionProps<boolean>>(
     props.open,
-    props.transitionProps ?? DEFAULT_TRANSITION,
+    transitionProps,
   )
 
   return transition(
@@ -122,9 +143,13 @@ export function Popover(props: PopoverProps) {
       open && (
         <Portal onDismiss={props.onDismiss} open={open}>
           <KeyListenerBoundary>
-            <PopoverContent {...props} styles={styles}>
-              <Card>{props.children}</Card>
-            </PopoverContent>
+            <FocusTrap focusableRef={focusableRef}>
+              <PopoverContent {...props} styles={styles}>
+                <Card ref={focusableRef} tabIndex={-1}>
+                  {props.children}
+                </Card>
+              </PopoverContent>
+            </FocusTrap>
           </KeyListenerBoundary>
         </Portal>
       ),

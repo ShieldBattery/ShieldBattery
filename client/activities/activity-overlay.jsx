@@ -144,9 +144,12 @@ export default class ActivityOverlay extends React.Component {
       <CSSTransition classNames={transitionNames} timeout={{ enter: 350, exit: 250 }}>
         <Container key={'overlay'}>
           <KeyListenerBoundary>
-            <KeyListener onKeyDown={this.onKeyDown} />
-            <Scrim onClick={this.onScrimClick} />
-            <Overlay>{overlayComponent}</Overlay>
+            <FocusTrap focusableRef={this._focusable}>
+              <span ref={this._focusable} tabIndex={-1} />
+              <KeyListener onKeyDown={this.onKeyDown} />
+              <Scrim onClick={this.onScrimClick} />
+              <Overlay>{overlayComponent}</Overlay>
+            </FocusTrap>
           </KeyListenerBoundary>
         </Container>
       </CSSTransition>
@@ -154,13 +157,7 @@ export default class ActivityOverlay extends React.Component {
   }
 
   render() {
-    return (
-      <FocusTrap focusableRef={this._focusable}>
-        <span ref={this._focusable} tabIndex={-1}>
-          <TransitionGroup>{this.renderOverlay()}</TransitionGroup>
-        </span>
-      </FocusTrap>
-    )
+    return <TransitionGroup>{this.renderOverlay()}</TransitionGroup>
   }
 
   onScrimClick = event => {
