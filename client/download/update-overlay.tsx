@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { animated, useTransition } from 'react-spring'
 import styled from 'styled-components'
 import { TypedIpcRenderer } from '../../common/ipc'
+import { FocusTrap } from '../dom/focus-trap'
 import { RaisedButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { Portal } from '../material/portal'
@@ -54,10 +55,6 @@ export function UpdateOverlay() {
     setReadyToInstall(state.readyToInstall)
     setProgress(state.progress)
   }, [])
-  const onFocusTrap = useCallback(() => {
-    // Focus was about to leave the dialog area, redirect it back to the dialog
-    focusableRef.current?.focus()
-  }, [])
 
   const scrimTransition = useTransition(hasUpdate, {
     from: {
@@ -90,16 +87,16 @@ export function UpdateOverlay() {
     <StyledPortal open={true}>
       {scrimTransition((styles, open) => open && <Scrim style={styles} />)}
 
-      <span tabIndex={0} onFocus={onFocusTrap} />
-      <span ref={focusableRef} tabIndex={-1}>
-        <UpdateDialog
-          hasUpdate={hasUpdate}
-          hasDownloadError={hasDownloadError}
-          readyToInstall={readyToInstall}
-          progress={progress}
-        />
-      </span>
-      <span tabIndex={0} onFocus={onFocusTrap} />
+      <FocusTrap focusableRef={focusableRef}>
+        <span ref={focusableRef} tabIndex={-1}>
+          <UpdateDialog
+            hasUpdate={hasUpdate}
+            hasDownloadError={hasDownloadError}
+            readyToInstall={readyToInstall}
+            progress={progress}
+          />
+        </span>
+      </FocusTrap>
     </StyledPortal>
   ) : null
 }

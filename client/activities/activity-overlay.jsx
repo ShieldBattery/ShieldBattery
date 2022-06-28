@@ -3,6 +3,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import styled from 'styled-components'
+import { FocusTrap } from '../dom/focus-trap'
 import KeyListener, { KeyListenerBoundary } from '../keyboard/key-listener'
 import JoinLobby from '../lobbies/join-lobby'
 import { fastOutLinearIn, linearOutSlowIn } from '../material/curve-constants'
@@ -108,10 +109,7 @@ const Container = styled.div`
 
 @connect(state => ({ activityOverlay: state.activityOverlay }))
 export default class ActivityOverlay extends React.Component {
-  _focusable = null
-  _setFocusable = elem => {
-    this._focusable = elem
-  }
+  _focusable = React.createRef()
 
   getOverlayComponent() {
     const { activityOverlay } = this.props
@@ -157,13 +155,11 @@ export default class ActivityOverlay extends React.Component {
 
   render() {
     return (
-      <>
-        <span key='topFocus' tabIndex={0} onFocus={this.onFocusTrap} />
-        <span key='mainFocus' ref={this._setFocusable} tabIndex={-1}>
+      <FocusTrap focusableRef={this._focusable}>
+        <span ref={this._focusable} tabIndex={-1}>
           <TransitionGroup>{this.renderOverlay()}</TransitionGroup>
         </span>
-        <span key='bottomFocus' tabIndex={0} onFocus={this.onFocusTrap} />
-      </>
+      </FocusTrap>
     )
   }
 
@@ -180,10 +176,5 @@ export default class ActivityOverlay extends React.Component {
     }
 
     return false
-  }
-
-  onFocusTrap = () => {
-    // Focus was about to leave the activity area, redirect it back to the activity
-    this._focusable.focus()
   }
 }

@@ -8,6 +8,7 @@ import EditAccount from '../auth/edit-account'
 import ChangelogDialog from '../changelog/changelog-dialog'
 import { ChannelBanUserDialog } from '../chat/channel-ban-user-dialog'
 import JoinChannelDialog from '../chat/join-channel'
+import { FocusTrap } from '../dom/focus-trap'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
 import DownloadDialog from '../download/download-dialog'
 import MapDetailsDialog from '../maps/map-details'
@@ -129,10 +130,6 @@ export function ConnectedDialogOverlay() {
     },
     [dispatch],
   )
-  const onFocusTrap = useCallback(() => {
-    // Focus was about to leave the dialog area, redirect it back to the dialog
-    focusableRef.current?.focus()
-  }, [])
 
   const scrimTransition = useTransition(isDialogOpen, {
     from: {
@@ -181,22 +178,22 @@ export function ConnectedDialogOverlay() {
                   />
                 ),
             )}
-            <span tabIndex={0} onFocus={onFocusTrap} />
-            <span ref={focusableRef} tabIndex={-1}>
-              <DialogContext.Provider
-                value={{
-                  styles: { ...dialogStyles, pointerEvents: isTopDialog ? undefined : 'none' },
-                }}>
-                <DialogComponent
-                  dialogRef={dialogRef}
-                  onCancel={(event: React.MouseEvent) =>
-                    modal ? noop() : onCancel(dialogState.type, event)
-                  }
-                  {...dialogState.initData}
-                />
-              </DialogContext.Provider>
-            </span>
-            <span tabIndex={0} onFocus={onFocusTrap} />
+            <FocusTrap focusableRef={focusableRef}>
+              <span ref={focusableRef} tabIndex={-1}>
+                <DialogContext.Provider
+                  value={{
+                    styles: { ...dialogStyles, pointerEvents: isTopDialog ? undefined : 'none' },
+                  }}>
+                  <DialogComponent
+                    dialogRef={dialogRef}
+                    onCancel={(event: React.MouseEvent) =>
+                      modal ? noop() : onCancel(dialogState.type, event)
+                    }
+                    {...dialogState.initData}
+                  />
+                </DialogContext.Provider>
+              </span>
+            </FocusTrap>
           </>
         )
       })}

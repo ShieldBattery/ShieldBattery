@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
 import { ALL_TILESETS, tilesetToName } from '../../common/maps'
+import { FocusTrap } from '../dom/focus-trap'
 import FilterIcon from '../icons/material/baseline-filter_list-24px.svg'
 import FolderIcon from '../icons/material/baseline-folder_open-24px.svg'
 import SortIcon from '../icons/material/baseline-sort_by_alpha-24px.svg'
@@ -166,22 +167,22 @@ class FilterOverlay extends React.Component<FilterOverlayProps> {
           return (
             <>
               <KeyListener onKeyDown={this.onKeyDown} />
-              <span key='topFocus' tabIndex={0} onFocus={this.onFocusTrap} />
-              <MainFocus key='mainFocus' ref={this.focusable} tabIndex={-1}>
-                <CSSTransition
-                  in={state === 'opening' || state === 'opened'}
-                  classNames={transitionNames}
-                  appear={true}
-                  timeout={{ appear: openDuration, enter: openDuration, exit: closeDuration }}>
-                  <FilterOverlayContents
-                    key={'contents'}
-                    transitionDuration={transitionDuration}
-                    transitionDelay={transitionDelay}>
-                    {children}
-                  </FilterOverlayContents>
-                </CSSTransition>
-              </MainFocus>
-              <span key='bottomFocus' tabIndex={0} onFocus={this.onFocusTrap} />
+              <FocusTrap focusableRef={this.focusable}>
+                <MainFocus key='mainFocus' ref={this.focusable} tabIndex={-1}>
+                  <CSSTransition
+                    in={state === 'opening' || state === 'opened'}
+                    classNames={transitionNames}
+                    appear={true}
+                    timeout={{ appear: openDuration, enter: openDuration, exit: closeDuration }}>
+                    <FilterOverlayContents
+                      key={'contents'}
+                      transitionDuration={transitionDuration}
+                      transitionDelay={transitionDelay}>
+                      {children}
+                    </FilterOverlayContents>
+                  </CSSTransition>
+                </MainFocus>
+              </FocusTrap>
             </>
           )
         }}
