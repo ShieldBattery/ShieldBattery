@@ -437,7 +437,7 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
         try {
           shieldBatteryData = parseShieldbatteryReplayData(buffer)
         } catch (err) {
-          reject(err)
+          logger.error(`Error parsing the replay's ShieldBattery data section: ${err}`)
         }
       })
 

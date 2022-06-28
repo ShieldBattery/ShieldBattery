@@ -1,13 +1,12 @@
 import { ReplayShieldBatteryData } from '../common/replays'
-import { SbUserId } from '../common/users/sb-user'
-import log from './logger'
+import { makeSbUserId, SbUserId } from '../common/users/sb-user'
 
 /**
  * Parse the ShieldBattery version as it's written in the replay file. Since it's a string of 16
  * characters, it's padded by the `\u0000` character at the end, which we trim here.
  */
 function parseShieldBatteryVersion(shieldBatteryVersion: string) {
-  return shieldBatteryVersion.slice(0, shieldBatteryVersion.indexOf('\u0000'))
+  return shieldBatteryVersion.split('\u0000', 1)[0]
 }
 
 /**
@@ -37,7 +36,7 @@ function parseGameId(gameId: Buffer) {
 function parseUserIds(userIds: Buffer): SbUserId[] {
   const array: SbUserId[] = []
   for (let i = 0; i < 8; i++) {
-    const userId = userIds.readUint32LE(i * 4) as SbUserId
+    const userId = makeSbUserId(userIds.readUint32LE(i * 4))
     array.push(userId)
   }
 
@@ -47,8 +46,7 @@ function parseUserIds(userIds: Buffer): SbUserId[] {
 export function parseShieldbatteryReplayData(buffer: Buffer): ReplayShieldBatteryData {
   // 0x56 bytes is the size of the first version of our replay data, so anything above that is fine.
   if (buffer.length < 0x56) {
-    log.error(`The replay's ShieldBattery data section size is invalid: ${buffer.length}`)
-    throw new Error("The replay's ShieldBattery data section size is invalid")
+    throw new Error(`The replay's ShieldBattery data section size is invalid: ${buffer.length}`)
   }
 
   const formatVersion = buffer.readUint16LE(0x0)
