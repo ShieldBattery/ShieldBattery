@@ -432,12 +432,14 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
         headerData = header
       })
 
-      let shieldBatteryData: ReplayShieldBatteryData
+      let shieldBatteryData: ReplayShieldBatteryData | undefined
       parser.rawScrSection('Sbat', buffer => {
         try {
           shieldBatteryData = parseShieldbatteryReplayData(buffer)
         } catch (err) {
-          logger.error(`Error parsing the replay's ShieldBattery data section: ${err}`)
+          logger.error(
+            `Error parsing the replay's ShieldBattery data section: ${(err as any).stack ?? err}`,
+          )
         }
       })
 
