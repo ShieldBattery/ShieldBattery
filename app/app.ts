@@ -5,7 +5,7 @@ import localShortcut from 'electron-localshortcut'
 import { autoUpdater } from 'electron-updater'
 import fs from 'fs'
 import fsPromises from 'fs/promises'
-import ReplayParser from 'jssuh'
+import ReplayParser, { ReplayHeader } from 'jssuh'
 import path from 'path'
 import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
@@ -13,6 +13,7 @@ import { container } from 'tsyringe'
 import { URL } from 'url'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { FsDirent, TypedIpcMain, TypedIpcSender } from '../common/ipc'
+import { ReplayShieldBatteryData } from '../common/replays'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import currentSession from './current-session'
 import { ActiveGameManager } from './game/active-game-manager'
@@ -20,6 +21,7 @@ import { checkStarcraftPath } from './game/check-starcraft-path'
 import createGameServer, { GameServer } from './game/game-server'
 import { MapStore } from './game/map-store'
 import logger from './logger'
+import { parseShieldbatteryReplayData } from './parse-shieldbattery-replay'
 import { RallyPointManager } from './rally-point/rally-point-manager'
 import './security/client'
 import { collect } from './security/client'
@@ -422,10 +424,28 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
     mapStore.downloadMap(mapHash, mapFormat, mapUrl),
   )
 
-  ipcMain.handle('replayParseHeader', async (event, replayPath) => {
-    return new Promise(async resolve => {
+  ipcMain.handle('replayParseMetadata', async (event, replayPath) => {
+    return new Promise(async (resolve, reject) => {
       const parser = new ReplayParser()
-      parser.on('replayHeader', header => resolve(header))
+      let headerData: ReplayHeader
+      parser.on('replayHeader', header => {
+        headerData = header
+      })
+
+      let shieldBatteryData: ReplayShieldBatteryData | undefined
+      parser.rawScrSection('Sbat', buffer => {
+        try {
+          shieldBatteryData = parseShieldbatteryReplayData(buffer)
+        } catch (err) {
+          logger.error(
+            `Error parsing the replay's ShieldBattery data section: ${(err as any).stack ?? err}`,
+          )
+        }
+      })
+
+      parser.on('end', () => {
+        resolve({ headerData, shieldBatteryData })
+      })
 
       const promise = pipeline(fs.createReadStream(replayPath), parser)
 

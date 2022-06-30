@@ -44,7 +44,14 @@ export interface FileBrowserRootFolder {
   path: string
 }
 
-export interface FileBrowserEntryConfig {
+export interface ExpansionPanelProps {
+  file: FileBrowserFileEntry
+}
+
+export interface FileBrowserFileEntryConfig {
   icon: React.ReactElement
+  allowedExtensions: string[]
+  ExpansionPanelComponent?: React.ComponentType<ExpansionPanelProps>
   onSelect: (entry: FileBrowserFileEntry) => void
+  onSelectTitle?: string
 }

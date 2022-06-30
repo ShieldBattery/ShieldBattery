@@ -6,6 +6,7 @@ import { ActivityBackButton } from '../activities/activity-back-button'
 import { FileBrowser } from '../file-browser/file-browser'
 import {
   FileBrowserFileEntry,
+  FileBrowserFileEntryConfig,
   FileBrowserRootFolderId,
   FileBrowserType,
 } from '../file-browser/file-browser-types'
@@ -55,10 +56,11 @@ export function BrowseLocalMaps(props: { onMapSelect: (map: MapInfoJson) => void
     [dispatch, props.onMapSelect],
   )
 
-  const fileTypes = useMemo(
+  const fileEntryConfig: FileBrowserFileEntryConfig = useMemo(
     () => ({
-      scm: { icon: <MapIcon />, onSelect: onMapSelect },
-      scx: { icon: <MapIcon />, onSelect: onMapSelect },
+      icon: <MapIcon />,
+      allowedExtensions: ['scm', 'scx'],
+      onSelect: onMapSelect,
     }),
     [onMapSelect],
   )
@@ -96,7 +98,7 @@ export function BrowseLocalMaps(props: { onMapSelect: (map: MapInfoJson) => void
       title='Local Maps'
       titleButton={<ActivityBackButton />}
       rootFolders={rootFolders}
-      fileTypes={fileTypes}
+      fileEntryConfig={fileEntryConfig}
     />
   )
 }

@@ -12,6 +12,7 @@ import { GameClientPlayerResult, SubmitGameResultsRequest } from './games/result
 import { LocalSettingsData, ScrSettingsData } from './local-settings'
 import { MapExtension } from './maps'
 import { ResolvedRallyPointServer } from './rally-point'
+import { ReplayShieldBatteryData } from './replays'
 import { ShieldBatteryFileResult } from './shieldbattery-file'
 
 const IS_RENDERER = typeof process === 'undefined' || !process || process.type === 'renderer'
@@ -70,7 +71,9 @@ interface IpcInvokeables {
 
   pathsGetDocumentsPath: () => Promise<string>
 
-  replayParseHeader: (replayPath: string) => Promise<ReplayHeader>
+  replayParseMetadata: (
+    replayPath: string,
+  ) => Promise<{ headerData?: ReplayHeader; shieldBatteryData?: ReplayShieldBatteryData }>
 
   securityGetClientIds: () => Promise<[number, string][]>
 

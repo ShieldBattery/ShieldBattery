@@ -1,5 +1,4 @@
 import cuid from 'cuid'
-import type { ReplayHeader } from 'jssuh'
 import { PlayerInfo } from '../../common/game-launch-config'
 import { GameType } from '../../common/games/configuration'
 import { TypedIpcRenderer } from '../../common/ipc'
@@ -15,13 +14,6 @@ import { makeServerUrl } from '../network/server-url'
 
 const ipcRenderer = new TypedIpcRenderer()
 
-// TODO(tec27): Move this to an IPC call
-// TODO(tec27): Tighten up the types in here once the dependencies and actions have been migrated
-// to TS
-async function getReplayHeader(filePath: string): Promise<ReplayHeader | undefined> {
-  return ipcRenderer.invoke('replayParseHeader', filePath)
-}
-
 async function setGameConfig(replay: { name: string; path: string }, user: SelfUserRecord) {
   const player: PlayerInfo = {
     type: SlotType.Human,
@@ -33,7 +25,7 @@ async function setGameConfig(replay: { name: string; path: string }, user: SelfU
   }
   const slots = [player]
 
-  const header = (await getReplayHeader(replay.path))!
+  const header = (await ipcRenderer.invoke('replayParseMetadata', replay.path))?.headerData
 
   return ipcRenderer.invoke('activeGameSetConfig', {
     localUser: {
@@ -48,7 +40,7 @@ async function setGameConfig(replay: { name: string; path: string }, user: SelfU
       gameSubType: 0,
       slots,
       host: player,
-      seed: header.seed,
+      seed: header?.seed ?? 0,
       serverUrl: makeServerUrl(''),
     },
   })

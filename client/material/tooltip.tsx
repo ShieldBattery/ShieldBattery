@@ -11,6 +11,13 @@ import { defaultSpring } from './springs'
 
 export type TooltipPosition = 'left' | 'right' | 'top' | 'bottom'
 
+const TooltipChildrenContainer = styled.div`
+  // NOTE(2Pac): For some reason, when tooltips are used inside a flex container with "row"
+  // direction, their height exceeds the height of their children, and making them flex containers
+  // themselves "fixes" that.
+  display: flex;
+`
+
 const NoPointerPortal = styled(Portal)`
   pointer-events: none;
 `
@@ -85,8 +92,8 @@ const NoPointerPopoverContent = styled(PopoverContent)`
 `
 
 interface TooltipProps {
-  /** The text that should be displayed in the Tooltip. */
-  text: string
+  /** The react node (usually string) that should be displayed in the Tooltip. */
+  text: React.ReactNode
   /**
    * The children that the Tooltip should be linked to. Should usually only be a single element, but
    * the Tooltip will work even if there are multiple (by creating a wrapper element around all of
@@ -109,6 +116,12 @@ interface TooltipProps {
    *  - children: the Tooltip's content
    * */
   ContentComponent?: React.ComponentType<{ $position: TooltipPosition; children: React.ReactNode }>
+  /**
+   * Optionally disable interaction with this tooltip. This allows for cases where we need to turn
+   * a tooltip off without changing the DOM structure around it, such as only showing a tooltip
+   * when text is cut off.
+   */
+  disabled?: boolean
 }
 
 /**
@@ -124,6 +137,7 @@ export function Tooltip({
   tabIndex = 0,
   position = 'bottom',
   ContentComponent = TooltipContent,
+  disabled,
 }: TooltipProps) {
   const contentId = useId()
   const [open, setOpen] = useState(false)
@@ -203,7 +217,7 @@ export function Tooltip({
 
   return (
     <>
-      <div
+      <TooltipChildrenContainer
         className={className}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
@@ -212,9 +226,10 @@ export function Tooltip({
         aria-describedby={open ? contentId : undefined}
         tabIndex={tabIndex}>
         {children}
-      </div>
+      </TooltipChildrenContainer>
       {transition(
         (styles, open) =>
+          !disabled &&
           open && (
             <NoPointerPortal open={open}>
               <KeyListenerBoundary>

@@ -1,12 +1,16 @@
 import React from 'react'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { longTimestamp } from '../i18n/date-formats'
 import Folder from '../icons/material/ic_folder_black_24px.svg'
 import UpDirectory from '../icons/material/ic_subdirectory_arrow_left_black_24px.svg'
+import { IconButton, TextButton } from '../material/button'
+import { useStableCallback } from '../state-hooks'
+import { AnimatedExpandIcon } from '../styles/animated-expand-icon'
 import { amberA400, blue700, colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { Caption, Subtitle1 } from '../styles/typography'
 import {
   FileBrowserFileEntry,
+  FileBrowserFileEntryConfig,
   FileBrowserFolderEntry,
   FileBrowserUpEntry,
 } from './file-browser-types'
@@ -19,7 +23,8 @@ const EntryContainer = styled.div<{ $focused: boolean }>`
   padding: 0 16px;
   display: flex;
   align-items: center;
-  background-color: ${props => (props.$focused ? 'rgba(255, 255, 255, 0.24)' : 'transparent')};
+  background-color: ${props =>
+    props.$focused ? 'rgba(255, 255, 255, 0.24) !important' : 'transparent'};
 
   &:hover {
     background-color: rgba(255, 255, 255, 0.08);
@@ -94,30 +99,102 @@ export function FolderEntry({
   )
 }
 
-const FileEntryContainer = styled(EntryContainer)`
+const SelectButton = styled(TextButton)<{ $focused: boolean }>`
+  margin: 0 8px;
+
+  ${props =>
+    !props.$focused
+      ? css`
+          display: none;
+        `
+      : ''}
+`
+
+const ExpandButton = styled(IconButton)<{ $focused: boolean }>`
+  ${props =>
+    !props.$focused
+      ? css`
+          display: none;
+        `
+      : ''}
+`
+
+const FileEntryContainer = styled(EntryContainer)<{ $clickable: boolean }>`
+  ${props =>
+    !props.$clickable
+      ? css`
+          cursor: auto !important;
+        `
+      : ''}
+
   & ${EntryIcon} {
     background: ${blue700};
     color: ${colorTextPrimary};
   }
+
+  &:hover ${SelectButton} {
+    display: inline-table;
+  }
+  &:hover ${ExpandButton} {
+    display: flex;
+  }
 `
 
-export function FileEntry({
-  file,
-  icon,
-  isFocused,
-  onClick,
-}: FileBrowserEntryProps & {
-  file: FileBrowserFileEntry
-  icon: React.ReactElement
-  onClick: (entry: FileBrowserFileEntry) => void
-}) {
-  return (
-    <FileEntryContainer $focused={isFocused} onClick={() => onClick(file)}>
-      <EntryIcon>{icon}</EntryIcon>
-      <InfoContainer>
-        <Subtitle1>{file.name}</Subtitle1>
-        <Caption>{longTimestamp.format(file.date)}</Caption>
-      </InfoContainer>
-    </FileEntryContainer>
-  )
-}
+// NOTE(2Pac): This component is currently pushing the boundaries of what a generic component should
+// do. In case we need to add more custom functionality to it, we should probably split this into
+// multiple components, e.g. `<SimpleFileEntry />`, `<ExpandedFileEntry />` etc., *or*, allow file
+// browsers to define completely custom components for their files.
+export const FileEntry = React.memo(
+  ({
+    file,
+    fileEntryConfig,
+    isFocused,
+    isExpanded,
+    onClick,
+    onExpandClick,
+  }: FileBrowserEntryProps & {
+    file: FileBrowserFileEntry
+    fileEntryConfig: FileBrowserFileEntryConfig
+    isFocused: boolean
+    isExpanded?: boolean
+    onClick: (entry: FileBrowserFileEntry) => void
+    onExpandClick?: (entry: FileBrowserFileEntry) => void
+  }) => {
+    const { icon, ExpansionPanelComponent, onSelect, onSelectTitle } = fileEntryConfig
+
+    const handleExpandClick = useStableCallback((event: React.MouseEvent) => {
+      event.stopPropagation()
+      onExpandClick?.(file)
+    })
+
+    return (
+      <>
+        <FileEntryContainer
+          $clickable={!ExpansionPanelComponent}
+          $focused={isFocused}
+          onClick={() => onClick(file)}>
+          <EntryIcon>{icon}</EntryIcon>
+          <InfoContainer>
+            <Subtitle1>{file.name}</Subtitle1>
+            <Caption>{longTimestamp.format(file.date)}</Caption>
+          </InfoContainer>
+          {ExpansionPanelComponent ? (
+            <>
+              <SelectButton
+                $focused={isFocused}
+                label={onSelectTitle}
+                onClick={() => onSelect(file)}
+              />
+              <ExpandButton
+                $focused={isFocused}
+                icon={<AnimatedExpandIcon $pointUp={isExpanded} />}
+                onClick={handleExpandClick}
+              />
+            </>
+          ) : null}
+        </FileEntryContainer>
+        {isExpanded && !!ExpansionPanelComponent && <ExpansionPanelComponent file={file} />}
+      </>
+    )
+  },
+)

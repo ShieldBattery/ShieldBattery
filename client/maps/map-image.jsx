@@ -36,7 +36,7 @@ const NoImageContainer = styled.div`
   }
 `
 
-const NoImage = () => (
+export const MapNoImage = () => (
   <NoImageContainer>
     <ImageIcon />
     <Subtitle1>Map preview not available</Subtitle1>
@@ -54,7 +54,7 @@ export default class MapImage extends React.Component {
 
   static defaultProps = {
     size: 256,
-    noImageElem: <NoImage />,
+    noImageElem: <MapNoImage />,
   }
 
   render() {

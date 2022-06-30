@@ -1,12 +1,11 @@
 import React from 'react'
 import styled from 'styled-components'
-import ExpandIcon from '../icons/material/expand_less_black_24px.svg'
 import Logo from '../logos/logo-no-bg.svg'
 import LogoText from '../logos/logotext-white-154x56.svg'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
-import { fastOutSlowIn } from '../material/curve-constants'
 import { Ripple } from '../material/ripple'
+import { AnimatedExpandIcon } from '../styles/animated-expand-icon'
 import { colorTextFaint, colorTextPrimary } from '../styles/colors'
 
 const Container = styled.button`
@@ -42,14 +41,6 @@ const SizedLogoText = styled(LogoText)`
   margin-right: 12px;
 `
 
-const AnimatedExpandIcon = styled(ExpandIcon)<{ $flipped?: boolean }>`
-  color: inherit;
-  /* NOTE(tec27): This icon points upwards and we want it pointing downward by default */
-  transform: rotate(${props => (props.$flipped ? '0deg' : '180deg')});
-  transition: transform 125ms ${fastOutSlowIn};
-  will-change: transform;
-`
-
 export interface LockupProps {
   onClick?: (event: React.MouseEvent) => void
   menuOpened?: boolean
@@ -62,7 +53,7 @@ export default function Lockup({ onClick, menuOpened }: LockupProps) {
     <Container aria-label='ShieldBattery' {...buttonProps}>
       <SizedLogo />
       <SizedLogoText />
-      <AnimatedExpandIcon $flipped={!!menuOpened} />
+      <AnimatedExpandIcon $pointUp={!!menuOpened} />
       <Ripple ref={rippleRef} />
     </Container>
   )
