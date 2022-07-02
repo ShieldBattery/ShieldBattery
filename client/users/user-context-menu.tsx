@@ -30,7 +30,6 @@ export enum MenuItemCategory {
   General = 'General',
   /** Contains party-related menu items, like invite/uninvite to/from party */
   Party = 'Party',
-  // TODO(2Pac): Create a "destructive" menu item for this category, in red-ish color or something?
   /** Contains destructive menu items, like kick/ban from chat channels, lobbies */
   Destructive = 'Destructive',
 }
