@@ -54,7 +54,7 @@ export function RankIcon({ rating, rank, className, showChampionRank = true }: R
 
   return (
     <Container className={className}>
-      <StyledImage src={iconUrl} alt={divisionLabel} />
+      <StyledImage src={iconUrl} alt={divisionLabel} draggable='false' />
       {showChampionRank && division === MatchmakingDivision.Champion ? (
         <RankContainer viewBox='0 0 88 88' xmlns='http://www.w3.org/2000/svg'>
           <foreignObject x='0' y='60' width='88' height='24'>
@@ -76,7 +76,7 @@ export function UnratedIcon({ className }: UnratedIconProps) {
 
   return (
     <Container className={className}>
-      <StyledImage src={iconUrl} alt={divisionLabel} />
+      <StyledImage src={iconUrl} alt={divisionLabel} draggable='false' />
     </Container>
   )
 }
