@@ -737,7 +737,7 @@ const Row = React.memo(({ isEven, player, username, curTime, onSelected }: RowPr
     <RowContainer $isEven={isEven} {...buttonProps}>
       <RankCell>
         <Tooltip text={divisionLabel} position='bottom'>
-          <DivisionIcon player={player} />
+          <DivisionIcon player={player} size={44} />
         </Tooltip>
         <span>{player.rank}</span>
       </RankCell>

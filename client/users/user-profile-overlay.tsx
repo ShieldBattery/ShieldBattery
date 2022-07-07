@@ -338,7 +338,7 @@ function RankDisplay({
   return (
     <RankDisplayRoot>
       <Tooltip text={divisionLabel} position={'top'}>
-        <DivisionIcon player={ladderPlayer} />
+        <DivisionIcon player={ladderPlayer} size={88} />
       </Tooltip>
       <RankDisplayType>{matchmakingTypeToLabel(matchmakingType)}</RankDisplayType>
     </RankDisplayRoot>

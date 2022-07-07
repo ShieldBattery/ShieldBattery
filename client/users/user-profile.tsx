@@ -492,7 +492,7 @@ function RankDisplay({
   return (
     <RankDisplayRoot>
       <DivisionInfo>
-        <DivisionIcon player={ladderPlayer} />
+        <DivisionIcon player={ladderPlayer} size={88} />
         <RankDisplayDivisionLabel>{divisionLabel}</RankDisplayDivisionLabel>
         <RankDisplayType>{matchmakingTypeToLabel(matchmakingType)}</RankDisplayType>
       </DivisionInfo>

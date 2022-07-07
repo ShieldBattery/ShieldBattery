@@ -14,7 +14,10 @@ export interface RankIconProps {
   rating: number
   rank: number
   className?: string
+  /** Whether to add text to Champion-rated players showing their current rank. */
   showChampionRank?: boolean
+  /** The pixel size the icon will be displayed at. Defaults to 88px. */
+  size?: number
 }
 
 const Container = styled.div`
@@ -47,14 +50,33 @@ const RankText = styled.div`
   text-shadow: 0 0 2px rgba(0, 0, 0, 0.87);
 `
 
-export function RankIcon({ rating, rank, className, showChampionRank = true }: RankIconProps) {
+export function RankIcon({
+  rating,
+  rank,
+  className,
+  showChampionRank = true,
+  size = 88,
+}: RankIconProps) {
   const division = ratingToMatchmakingDivision(rating, rank)
-  const iconUrl = makePublicAssetUrl(`images/ranks/${encodeURIComponent(division)}.svg`)
+  const encodedDivision = encodeURIComponent(division)
+  const svgUrl = makePublicAssetUrl(`images/ranks/${encodedDivision}.svg`)
+  const srcSet = `
+    ${makePublicAssetUrl(`/images/ranks/${encodedDivision}-22px.png`)} 22w,
+    ${makePublicAssetUrl(`/images/ranks/${encodedDivision}-44px.png`)} 44w,
+    ${makePublicAssetUrl(`/images/ranks/${encodedDivision}-88px.png`)} 88w,
+    ${svgUrl} 176w
+  `
   const divisionLabel = matchmakingDivisionToLabel(division)
 
   return (
     <Container className={className}>
-      <StyledImage src={iconUrl} alt={divisionLabel} draggable='false' />
+      <StyledImage
+        src={svgUrl}
+        srcSet={srcSet}
+        sizes={`${size}px`}
+        alt={divisionLabel}
+        draggable='false'
+      />
       {showChampionRank && division === MatchmakingDivision.Champion ? (
         <RankContainer viewBox='0 0 88 88' xmlns='http://www.w3.org/2000/svg'>
           <foreignObject x='0' y='60' width='88' height='24'>
@@ -68,15 +90,29 @@ export function RankIcon({ rating, rank, className, showChampionRank = true }: R
 
 export interface UnratedIconProps {
   className?: string
+  /** The pixel size the icon will be displayed at. Defaults to 88px. */
+  size?: number
 }
 
-export function UnratedIcon({ className }: UnratedIconProps) {
-  const iconUrl = makePublicAssetUrl('images/ranks/unrated.svg')
+export function UnratedIcon({ className, size = 88 }: UnratedIconProps) {
+  const svgUrl = makePublicAssetUrl('images/ranks/unrated.svg')
+  const srcSet = `
+    ${makePublicAssetUrl(`/images/ranks/unrated-22px.png`)} 22w,
+    ${makePublicAssetUrl(`/images/ranks/unrated-44px.png`)} 44w,
+    ${makePublicAssetUrl(`/images/ranks/unrated-88px.png`)} 88w,
+    ${svgUrl} 176w
+  `
   const divisionLabel = matchmakingDivisionToLabel(MatchmakingDivision.Unrated)
 
   return (
     <Container className={className}>
-      <StyledImage src={iconUrl} alt={divisionLabel} draggable='false' />
+      <StyledImage
+        src={svgUrl}
+        srcSet={srcSet}
+        sizes={`${size}px`}
+        alt={divisionLabel}
+        draggable='false'
+      />
     </Container>
   )
 }
@@ -84,12 +120,14 @@ export function UnratedIcon({ className }: UnratedIconProps) {
 export interface LadderPlayerIconProps {
   player: Readonly<LadderPlayer>
   className?: string
+  /** The pixel size the icon will be displayed at. Defaults to 88px. */
+  size?: number
 }
 
-export function LadderPlayerIcon({ player, className }: LadderPlayerIconProps) {
+export function LadderPlayerIcon({ player, className, size }: LadderPlayerIconProps) {
   if (player.lifetimeGames < NUM_PLACEMENT_MATCHES) {
-    return <UnratedIcon className={className} />
+    return <UnratedIcon className={className} size={size} />
   } else {
-    return <RankIcon rating={player.rating} rank={player.rank} className={className} />
+    return <RankIcon rating={player.rating} rank={player.rank} className={className} size={size} />
   }
 }

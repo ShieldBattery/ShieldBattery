@@ -468,7 +468,7 @@ function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
   return (
     <RankInfoContainer>
       <DivisionInfo>
-        <DivisionIcon player={ladderPlayer} />
+        <DivisionIcon player={ladderPlayer} size={88} />
         <RankDisplayDivisionLabel>{matchmakingDivisionToLabel(division)}</RankDisplayDivisionLabel>
       </DivisionInfo>
 

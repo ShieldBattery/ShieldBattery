@@ -87,13 +87,13 @@ export function RankIconsTest() {
       </Column>
       <Column>
         <Row>
-          <TinyIcon rating={2500} rank={10} showChampionRank={false} />
+          <TinyIcon rating={2500} rank={10} showChampionRank={false} size={22} />
         </Row>
         <Row>
-          <SmallIcon rating={2500} rank={10} />
+          <SmallIcon rating={2500} rank={10} size={44} />
         </Row>
         <Row>
-          <LargeIcon rating={2500} rank={10} />
+          <LargeIcon rating={2500} rank={10} size={172} />
         </Row>
       </Column>
     </Container>
