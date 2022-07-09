@@ -20,6 +20,11 @@ const DestructiveMenuItem = styled(MenuItem)`
   --sb-ripple-color: ${colorError};
 `
 
+/**
+ * Even though this function is technically not a React component, nor a custom hook, we still treat
+ * it as one since it suits our needs quite nicely (by allowing us to run hooks in it only when the
+ * user context menu is open).
+ */
 export const addChannelMenuItems = (
   userId: SbUserId,
   items: Map<MenuItemCategory, React.ReactNode[]>,
