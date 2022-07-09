@@ -1,7 +1,6 @@
 import { stringToStatus } from '../../common/game-status'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
-import { ACTIVE_GAME_STATUS } from '../actions'
 import { dispatch } from '../dispatch-registry'
 import logger from '../logging/logger'
 import { fetchJson } from '../network/fetch'
@@ -10,9 +9,9 @@ import { isFetchError } from '../network/fetch-errors'
 export default function ({ ipcRenderer }: { ipcRenderer: TypedIpcRenderer }) {
   ipcRenderer.on('activeGameStatus', (event, status) => {
     dispatch({
-      type: ACTIVE_GAME_STATUS,
+      type: '@active-game/status',
       payload: status,
-    } as any)
+    })
 
     if (status.isReplay) {
       // Don't report replay status to the server (because it will error out and result in us

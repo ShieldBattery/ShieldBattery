@@ -8,6 +8,7 @@ import type {
 import type { ReplayHeader } from 'jssuh'
 import { Promisable } from 'type-fest'
 import { GameLaunchConfig, GameRoute } from './game-launch-config'
+import { ReportedGameStatus } from './game-status'
 import { GameClientPlayerResult, SubmitGameResultsRequest } from './games/results'
 import { LocalSettingsData, ScrSettingsData } from './local-settings'
 import { MapExtension } from './maps'
@@ -128,7 +129,7 @@ interface IpcMainSendables {
    * this system, so using the network stack outside the renderer also tends to fail.
    */
   activeGameResendResults: (gameId: string, requestBody: SubmitGameResultsRequest) => void
-  activeGameStatus: (status: { id: string; state: string; extra?: any; isReplay: boolean }) => void
+  activeGameStatus: (status: ReportedGameStatus) => void
 
   rallyPointPingResult: (server: ResolvedRallyPointServer, ping: number) => void
 

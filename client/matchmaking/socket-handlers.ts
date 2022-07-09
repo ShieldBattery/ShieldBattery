@@ -9,7 +9,6 @@ import {
   MatchmakingType,
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
 } from '../../common/matchmaking'
-import { ACTIVE_GAME_LAUNCH } from '../actions'
 import audioManager, { AudioManager, AvailableSound } from '../audio/audio-manager'
 import { closeDialog, openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
@@ -216,7 +215,7 @@ const eventToAction: EventToActionMap = {
       },
       setup: {
         gameId: event.setup.gameId,
-        name: 'Matchmaking game', // Does this even matter for anything?
+        name: 'Matchmaking game',
         map: event.chosenMap,
         gameType:
           event.matchmakingType === MatchmakingType.Match1v1
@@ -235,9 +234,9 @@ const eventToAction: EventToActionMap = {
     }
 
     dispatch({
-      type: ACTIVE_GAME_LAUNCH,
-      payload: ipcRenderer.invoke('activeGameSetConfig', config),
-    } as any)
+      type: '@active-game/launch',
+      payload: ipcRenderer.invoke('activeGameSetConfig', config)!,
+    })
   },
 
   setRoutes: (matchmakingType, event) => () => {
@@ -290,9 +289,9 @@ const eventToAction: EventToActionMap = {
       replace('/')
     }
     dispatch({
-      type: ACTIVE_GAME_LAUNCH,
-      payload: ipcRenderer.invoke('activeGameSetConfig', {}),
-    } as any)
+      type: '@active-game/launch',
+      payload: ipcRenderer.invoke('activeGameSetConfig', {})!,
+    })
     dispatch({ type: '@matchmaking/loadingCanceled' })
     dispatch(openSnackbar({ message: 'The game has failed to load.' }))
   },

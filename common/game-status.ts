@@ -49,6 +49,8 @@ export function statusToString(status: GameStatus) {
   }
 }
 
+export type GameStatusString = ReturnType<typeof statusToString>
+
 export function stringToStatus(str: ReturnType<typeof statusToString>) {
   switch (str) {
     case 'unknown':
@@ -74,4 +76,11 @@ export function stringToStatus(str: ReturnType<typeof statusToString>) {
     default:
       return assertUnreachable(str)
   }
+}
+
+export interface ReportedGameStatus {
+  id: string
+  state: GameStatusString
+  extra?: any
+  isReplay: boolean
 }

@@ -9,7 +9,7 @@ import {
   isReplayLaunchConfig,
   isReplayMapInfo,
 } from '../../common/game-launch-config'
-import { GameStatus, statusToString } from '../../common/game-status'
+import { GameStatus, ReportedGameStatus, statusToString } from '../../common/game-status'
 import { GameClientPlayerResult, SubmitGameResultsRequest } from '../../common/games/results'
 import { EventMap, TypedEventEmitter } from '../../common/typed-emitter'
 import log from '../logger'
@@ -73,7 +73,7 @@ export interface ActiveGameManagerEvents extends EventMap {
     /** The time the game took in milliseconds. */
     time: number
   }) => void
-  gameStatus: (statusInfo: { id: string; state: string; extra?: any; isReplay: boolean }) => void
+  gameStatus: (statusInfo: ReportedGameStatus) => void
   replaySave: (gameId: string, path: string) => void
   resendResults: (gameId: string, requestBody: SubmitGameResultsRequest) => void
 }
@@ -91,7 +91,7 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
     super()
   }
 
-  getStatus() {
+  getStatus(): ReportedGameStatus | null {
     const game = this.activeGame
     if (game) {
       return {

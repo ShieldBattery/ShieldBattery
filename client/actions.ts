@@ -1,10 +1,5 @@
 // Every possible dispatched action in the app should be included here, sorted semi-alphabetically
 
-// A new StarCraft game has launched
-export const ACTIVE_GAME_LAUNCH = 'ACTIVE_GAME_LAUNCH'
-// The status for a currently running StarCraft game has been updated
-export const ACTIVE_GAME_STATUS = 'ACTIVE_GAME_STATUS'
-
 export const ACTIVITY_OVERLAY_OPEN = 'ACTIVITY_OVERLAY_OPEN'
 export const ACTIVITY_OVERLAY_CLOSE = 'ACTIVITY_OVERLAY_CLOSE'
 export const ACTIVITY_OVERLAY_GO_BACK = 'ACTIVITY_OVERLAY_GO_BACK'

@@ -7,7 +7,6 @@ import { BwTurnRate, BwUserLatency } from '../../common/network'
 import { urlPath } from '../../common/urls'
 import { SbUser, SbUserId } from '../../common/users/sb-user'
 import {
-  ACTIVE_GAME_LAUNCH,
   LOBBIES_COUNT_UPDATE,
   LOBBIES_LIST_UPDATE,
   LOBBY_INIT_DATA,
@@ -434,9 +433,9 @@ const eventToAction: EventToActionMap = {
     }
 
     dispatch({
-      type: ACTIVE_GAME_LAUNCH,
-      payload: ipcRenderer.invoke('activeGameSetConfig', config),
-    } as any)
+      type: '@active-game/launch',
+      payload: ipcRenderer.invoke('activeGameSetConfig', config)!,
+    })
   },
 
   setRoutes: (name, event) => dispatch => {
@@ -470,9 +469,9 @@ const eventToAction: EventToActionMap = {
     }
 
     dispatch({
-      type: ACTIVE_GAME_LAUNCH,
-      payload: ipcRenderer.invoke('activeGameSetConfig', {}),
-    } as any)
+      type: '@active-game/launch',
+      payload: ipcRenderer.invoke('activeGameSetConfig', {})!,
+    })
     dispatch({ type: LOBBY_UPDATE_LOADING_CANCELED } as any)
   },
 

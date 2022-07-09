@@ -1,8 +1,9 @@
 import { Record } from 'immutable'
-import { ACTIVE_GAME_STATUS, LOBBY_UPDATE_GAME_STARTED } from '../actions'
+import { LOBBY_UPDATE_GAME_STARTED } from '../actions'
 import { LobbyRecord } from '../lobbies/lobby-reducer'
 import { MatchmakingMatchRecord } from '../matchmaking/matchmaking-reducer'
 import { keyedReducer } from '../reducers/keyed-reducer'
+import { ActiveGameStatus } from './actions'
 
 export type GameInfo = LobbyGameInfo | MatchmakingGameInfo
 
@@ -32,7 +33,7 @@ export default keyedReducer(new ActiveGame(), {
     return state.set('isActive', true).set('info', { type: 'matchmaking', extra: action.payload })
   },
 
-  [ACTIVE_GAME_STATUS as any](state: ActiveGame, action: any) {
+  ['@active-game/status'](state: ActiveGame, action: ActiveGameStatus) {
     const { state: status } = action.payload
     if (status !== 'playing') {
       return new ActiveGame()
