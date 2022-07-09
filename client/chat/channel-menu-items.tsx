@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import styled from 'styled-components'
 import { ChannelModerationAction } from '../../common/chat'
 import { appendToMultimap } from '../../common/data-structures/maps'
@@ -12,7 +12,7 @@ import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { colorError } from '../styles/colors'
 import { MenuItemCategory } from '../users/user-context-menu'
-import { moderateUser } from './action-creators'
+import { getChatUserProfile, moderateUser } from './action-creators'
 
 const DestructiveMenuItem = styled(MenuItem)`
   color: ${colorError};
@@ -32,6 +32,22 @@ export const addChannelMenuItems = (
   const selfUserId = useAppSelector(s => s.auth.user.id)
   const user = useAppSelector(s => s.users.byId.get(userId))
   const channel = useAppSelector(s => s.chat.byName.get(channelName))
+
+  useEffect(() => {
+    const abortController = new AbortController()
+
+    dispatch(
+      getChatUserProfile(channelName, userId, {
+        signal: abortController.signal,
+        onSuccess: () => {},
+        onError: () => {},
+      }),
+    )
+
+    return () => {
+      abortController.abort()
+    }
+  }, [dispatch, channelName, userId])
 
   const onKickUser = useStableCallback(() => {
     if (!user || !channel) {
@@ -67,8 +83,17 @@ export const addChannelMenuItems = (
   }
 
   const channelUserProfile = channel.userProfiles.get(user.id)
-  if (MULTI_CHANNEL && user.id !== selfUserId) {
-    if (selfPermissions.moderateChatChannels || channel?.ownerId === user.id) {
+  if (
+    MULTI_CHANNEL &&
+    channelUserProfile &&
+    user.id !== selfUserId &&
+    channelName.toLowerCase() !== 'shieldbattery'
+  ) {
+    if (
+      selfPermissions.editPermissions ||
+      selfPermissions.moderateChatChannels ||
+      channel.ownerId === selfUserId
+    ) {
       appendToMultimap(
         items,
         MenuItemCategory.Destructive,
@@ -79,7 +104,7 @@ export const addChannelMenuItems = (
         MenuItemCategory.Destructive,
         <DestructiveMenuItem key='ban' text={`Ban ${user.name}`} onClick={onBanUser} />,
       )
-    } else if (channelUserProfile && !channelUserProfile.isModerator) {
+    } else if (!channelUserProfile.isModerator) {
       if (channel?.selfPermissions?.kick) {
         appendToMultimap(
           items,
