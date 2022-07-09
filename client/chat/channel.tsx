@@ -2,20 +2,15 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
 import {
-  ChannelModerationAction,
   ChatServiceErrorCode,
   ClientChatMessageType,
   ServerChatMessageType,
 } from '../../common/chat'
-import { appendToMultimap } from '../../common/data-structures/maps'
 import { MULTI_CHANNEL } from '../../common/flags'
 import { SbUserId } from '../../common/users/sb-user'
 import { ConnectedAvatar } from '../avatars/avatar'
-import { openDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
 import { useVirtuosoScrollFix } from '../dom/virtuoso-scroll-fix'
 import { logger } from '../logging/logger'
-import { MenuItem } from '../material/menu/item'
 import { Chat } from '../messaging/chat'
 import { useChatMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
 import { Message } from '../messaging/message-records'
@@ -31,12 +26,11 @@ import {
   background700,
   background800,
   colorDividers,
-  colorError,
   colorTextFaint,
   colorTextSecondary,
 } from '../styles/colors'
 import { body2, overline, singleLine } from '../styles/typography'
-import { ConnectedUserContextMenu, MenuItemCategory } from '../users/user-context-menu'
+import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
 import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
 import {
@@ -44,10 +38,10 @@ import {
   deactivateChannel,
   getMessageHistory,
   joinChannel,
-  moderateUser,
   retrieveUserList,
   sendMessage,
 } from './action-creators'
+import { addChannelMenuItems } from './channel-menu-items'
 import {
   BanUserMessage,
   JoinChannelMessage,
@@ -310,12 +304,6 @@ const StyledChat = styled(Chat)`
   background-color: ${background800};
 `
 
-const DestructiveMenuItem = styled(MenuItem)`
-  color: ${colorError};
-
-  --sb-ripple-color: ${colorError};
-`
-
 function renderMessage(msg: Message) {
   switch (msg.type) {
     case ClientChatMessageType.BanUser:
@@ -335,33 +323,35 @@ function renderMessage(msg: Message) {
   }
 }
 
-type UserEntry = Map<SbUserId, string | undefined>
+type UserEntry = [userId: SbUserId, username: string | undefined]
 
 function useUserEntriesSelector(userIds: ReadonlySet<SbUserId> | undefined) {
   return useCallback(
-    (state: RootState): UserEntry => {
+    (state: RootState): ReadonlyArray<UserEntry> => {
       if (!userIds?.size) {
-        return new Map()
+        return []
       }
 
-      return new Map(Array.from(userIds.values(), id => [id, state.users.byId.get(id)?.name]))
+      const result = Array.from<SbUserId, UserEntry>(userIds.values(), id => [
+        id,
+        state.users.byId.get(id)?.name,
+      ])
+      result.sort((a, b) => a[0] - b[0])
+      return result
     },
     [userIds],
   )
 }
 
-function areUserEntriesEqual(a: UserEntry, b: UserEntry): boolean {
-  if (a.size !== b.size) {
+function areUserEntriesEqual(a: ReadonlyArray<UserEntry>, b: ReadonlyArray<UserEntry>): boolean {
+  if (a.length !== b.length) {
     return false
   }
 
-  for (const [userId, aName] of a) {
-    if (!b.has(userId)) {
-      return false
-    }
-
-    const bName = b.get(userId)
-    if (aName !== bName) {
+  for (let i = 0; i < a.length; i++) {
+    const [aId, aName] = a[i]
+    const [bId, bName] = b[i]
+    if (aId !== bId || aName !== bName) {
       return false
     }
   }
@@ -369,8 +359,9 @@ function areUserEntriesEqual(a: UserEntry, b: UserEntry): boolean {
   return true
 }
 
-function sortUsers(userEntries: UserEntry): SbUserId[] {
-  return Array.from(userEntries.entries())
+function sortUsers(userEntries: ReadonlyArray<UserEntry>): SbUserId[] {
+  return userEntries
+    .slice()
     .sort(([aId, aName], [bId, bName]) => {
       // We put any user that still hasn't loaded at the bottom of the list
       if (aName === bName) {
@@ -393,8 +384,6 @@ interface ChatChannelProps {
 export default function Channel(props: ChatChannelProps) {
   const channelName = decodeURIComponent(props.params.channel).toLowerCase()
   const dispatch = useAppDispatch()
-  const selfPermissions = useAppSelector(s => s.auth.permissions)
-  const selfUserId = useAppSelector(s => s.auth.user.id)
   const channel = useAppSelector(s => s.chat.byName.get(channelName))
   const activeUserIds = channel?.users.active
   const idleUserIds = channel?.users.idle
@@ -501,86 +490,6 @@ export default function Channel(props: ChatChannelProps) {
     [dispatch, channelName],
   )
 
-  const addChannelMenuItems = useCallback(
-    (
-      userId: SbUserId,
-      items: Map<MenuItemCategory, React.ReactNode[]>,
-      onMenuClose: (event?: MouseEvent) => void,
-    ) => {
-      const userName =
-        activeUserEntries.get(userId) ??
-        idleUserEntries.get(userId) ??
-        offlineUserEntries.get(userId)
-
-      if (!userName || !channel) {
-        return items
-      }
-
-      const onKickUser = () => {
-        dispatch(
-          moderateUser(channelName, userId, ChannelModerationAction.Kick, {
-            onSuccess: () => dispatch(openSnackbar({ message: `${userName} was kicked` })),
-            onError: () => dispatch(openSnackbar({ message: `Error kicking ${userName}` })),
-          }),
-        )
-        onMenuClose()
-      }
-
-      const onBanUser = () => {
-        dispatch(
-          openDialog({
-            type: DialogType.ChannelBanUser,
-            initData: { channel: channelName, userId },
-          }),
-        )
-        onMenuClose()
-      }
-
-      const channelUserProfile = channel.userProfiles.get(userId)
-      if (MULTI_CHANNEL && userId !== selfUserId) {
-        if (selfPermissions.moderateChatChannels || channel?.ownerId === userId) {
-          appendToMultimap(
-            items,
-            MenuItemCategory.Destructive,
-            <DestructiveMenuItem key='kick' text={`Kick ${userName}`} onClick={onKickUser} />,
-          )
-          appendToMultimap(
-            items,
-            MenuItemCategory.Destructive,
-            <DestructiveMenuItem key='ban' text={`Ban ${userName}`} onClick={onBanUser} />,
-          )
-        } else if (channelUserProfile && !channelUserProfile.isModerator) {
-          if (channel?.selfPermissions?.kick) {
-            appendToMultimap(
-              items,
-              MenuItemCategory.Destructive,
-              <DestructiveMenuItem key='kick' text={`Kick ${userName}`} onClick={onKickUser} />,
-            )
-          }
-          if (channel?.selfPermissions?.ban) {
-            appendToMultimap(
-              items,
-              MenuItemCategory.Destructive,
-              <DestructiveMenuItem key='ban' text={`Ban ${userName}`} onClick={onBanUser} />,
-            )
-          }
-        }
-      }
-
-      return items
-    },
-    [
-      activeUserEntries,
-      channel,
-      channelName,
-      dispatch,
-      idleUserEntries,
-      offlineUserEntries,
-      selfPermissions.moderateChatChannels,
-      selfUserId,
-    ],
-  )
-
   const sortedActiveUsers = useMemo(() => sortUsers(activeUserEntries), [activeUserEntries])
   const sortedIdleUsers = useMemo(() => sortUsers(idleUserEntries), [idleUserEntries])
   const sortedOfflineUsers = useMemo(() => sortUsers(offlineUserEntries), [offlineUserEntries])
@@ -607,7 +516,7 @@ export default function Channel(props: ChatChannelProps) {
               offline={sortedOfflineUsers}
             />
           }
-          modifyMenuItems={addChannelMenuItems}
+          modifyMenuItems={(...args) => addChannelMenuItems(...args, channelName)}
         />
       ) : (
         <StyledLoadingDotsArea />
