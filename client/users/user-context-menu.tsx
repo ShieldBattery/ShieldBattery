@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React from 'react'
 import styled from 'styled-components'
 import { appendToMultimap } from '../../common/data-structures/maps'
 import { SbUserId } from '../../common/users/sb-user'
@@ -30,7 +30,6 @@ export enum MenuItemCategory {
   General = 'General',
   /** Contains party-related menu items, like invite/uninvite to/from party */
   Party = 'Party',
-  // TODO(2Pac): Create a "destructive" menu item for this category, in red-ish color or something?
   /** Contains destructive menu items, like kick/ban from chat channels, lobbies */
   Destructive = 'Destructive',
 }
@@ -111,89 +110,70 @@ function ConnectedUserContextMenuContents({
     onDismiss()
   })
 
-  const items = useMemo(() => {
-    let items: Map<MenuItemCategory, React.ReactNode[]> = new Map()
-    if (!user) {
-      // TODO(tec27): Ideally this wouldn't have hover/focus state
+  let items: Map<MenuItemCategory, React.ReactNode[]> = new Map()
+  if (!user) {
+    // TODO(tec27): Ideally this wouldn't have hover/focus state
+    appendToMultimap(
+      items,
+      MenuItemCategory.General,
+      <LoadingItem key='loading' text='Loading user…' />,
+    )
+  } else {
+    appendToMultimap(
+      items,
+      MenuItemCategory.General,
+      <MenuItem key='profile' text='View profile' onClick={onViewProfileClick} />,
+    )
+
+    if (user.id !== selfUser.id) {
       appendToMultimap(
         items,
         MenuItemCategory.General,
-        <LoadingItem key='loading' text='Loading user…' />,
-      )
-    } else {
-      appendToMultimap(
-        items,
-        MenuItemCategory.General,
-        <MenuItem key='profile' text='View profile' onClick={onViewProfileClick} />,
+        <MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />,
       )
 
-      if (user.id !== selfUser.id) {
-        appendToMultimap(
-          items,
-          MenuItemCategory.General,
-          <MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />,
-        )
-
-        if (IS_ELECTRON) {
-          if (!partyId) {
+      if (IS_ELECTRON) {
+        if (!partyId) {
+          appendToMultimap(
+            items,
+            MenuItemCategory.Party,
+            <MenuItem key='invite' text='Invite to party' onClick={onInviteToPartyClick} />,
+          )
+        } else if (partyLeader === selfUser.id) {
+          const isAlreadyInParty = !!partyMembers?.includes(user.id)
+          const hasInvite = !!partyInvites?.includes(user.id)
+          if (isAlreadyInParty) {
+            // TODO(2Pac): Move this item to "destructive" category, but only iside the party
+            // context. And instead show "View party" or something in non-party contexts?
+            appendToMultimap(
+              items,
+              MenuItemCategory.Party,
+              <MenuItem key='kick-party' text='Kick from party' onClick={onKickPlayerClick} />,
+            )
+          } else if (hasInvite) {
+            appendToMultimap(
+              items,
+              MenuItemCategory.Party,
+              <MenuItem key='invite' text='Uninvite from party' onClick={onRemovePartyInvite} />,
+            )
+          } else {
             appendToMultimap(
               items,
               MenuItemCategory.Party,
               <MenuItem key='invite' text='Invite to party' onClick={onInviteToPartyClick} />,
             )
-          } else if (partyLeader === selfUser.id) {
-            const isAlreadyInParty = !!partyMembers?.includes(user.id)
-            const hasInvite = !!partyInvites?.includes(user.id)
-            if (isAlreadyInParty) {
-              // TODO(2Pac): Move this item to "destructive" category, but only iside the party
-              // context. And instead show "View party" or something in non-party contexts?
-              appendToMultimap(
-                items,
-                MenuItemCategory.Party,
-                <MenuItem key='kick-party' text='Kick from party' onClick={onKickPlayerClick} />,
-              )
-            } else if (hasInvite) {
-              appendToMultimap(
-                items,
-                MenuItemCategory.Party,
-                <MenuItem key='invite' text='Uninvite from party' onClick={onRemovePartyInvite} />,
-              )
-            } else {
-              appendToMultimap(
-                items,
-                MenuItemCategory.Party,
-                <MenuItem key='invite' text='Invite to party' onClick={onInviteToPartyClick} />,
-              )
-            }
           }
         }
       }
     }
+  }
 
-    if (modifyMenuItems) {
-      items = modifyMenuItems(userId, items, onDismiss)
-    }
+  if (modifyMenuItems) {
+    items = modifyMenuItems(userId, items, onDismiss)
+  }
 
-    return items
-  }, [
-    modifyMenuItems,
-    onDismiss,
-    onInviteToPartyClick,
-    onKickPlayerClick,
-    onRemovePartyInvite,
-    onViewProfileClick,
-    onWhisperClick,
-    partyId,
-    partyInvites,
-    partyLeader,
-    partyMembers,
-    selfUser.id,
-    user,
-    userId,
-  ])
-
-  const orderedMenuItems = useMemo(() => {
-    return ALL_MENU_ITEM_CATEGORIES.reduce<React.ReactNode[]>((elems, category, index) => {
+  const orderedMenuItems = ALL_MENU_ITEM_CATEGORIES.reduce<React.ReactNode[]>(
+    (elems, category, index) => {
       const categoryItems = items.get(category) ?? []
 
       if (categoryItems.length > 0 && index > 0) {
@@ -202,8 +182,9 @@ function ConnectedUserContextMenuContents({
 
       elems.push(...categoryItems)
       return elems
-    }, [])
-  }, [items])
+    },
+    [],
+  )
 
   return <MenuList dense={true}>{orderedMenuItems}</MenuList>
 }

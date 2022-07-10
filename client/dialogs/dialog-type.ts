@@ -1,3 +1,5 @@
+import { SbUserId } from '../../common/users/sb-user'
+
 export enum DialogType {
   AcceptableUse = 'acceptableUse',
   AcceptMatch = 'acceptMatch',
@@ -31,7 +33,13 @@ type AcceptMatchDialogPayload = BaseDialogPayload<typeof DialogType.AcceptMatch>
 type AccountDialogPayload = BaseDialogPayload<typeof DialogType.Account>
 type ChangelogDialogPayload = BaseDialogPayload<typeof DialogType.Changelog>
 type ChannelJoinDialogPayload = BaseDialogPayload<typeof DialogType.ChannelJoin>
-type ChannelBanUserDialogPayload = BaseDialogPayload<typeof DialogType.ChannelBanUser>
+type ChannelBanUserDialogPayload = BaseDialogPayload<
+  typeof DialogType.ChannelBanUser,
+  {
+    channel: string
+    userId: SbUserId
+  }
+>
 type DownloadDialogPayload = BaseDialogPayload<typeof DialogType.Download>
 type ExternalLinkDialogPayload = BaseDialogPayload<
   typeof DialogType.ExternalLink,

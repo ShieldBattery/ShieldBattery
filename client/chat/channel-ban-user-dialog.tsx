@@ -1,17 +1,16 @@
 import React, { useCallback, useState } from 'react'
 import styled from 'styled-components'
 import { ChannelModerationAction, ChatServiceErrorCode } from '../../common/chat'
-import { SbUser } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { DialogType } from '../dialogs/dialog-type'
 import { useForm } from '../forms/form-hook'
-import { useAutoFocusRef } from '../material/auto-focus'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { TextField } from '../material/text-field'
 import { FetchError, isFetchError } from '../network/fetch-errors'
-import { useAppDispatch } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { colorError } from '../styles/colors'
 import { subtitle1 } from '../styles/typography'
@@ -70,17 +69,17 @@ interface BanUserModel {
 
 interface ChannelBanUserDialogProps extends CommonDialogProps {
   channel: string
-  user: SbUser
+  userId: SbUserId
 }
 
 export function ChannelBanUserDialog({
   dialogRef,
   onCancel,
   channel,
-  user,
+  userId,
 }: ChannelBanUserDialogProps) {
   const dispatch = useAppDispatch()
-  const autoFocusRef = useAutoFocusRef<HTMLInputElement>()
+  const user = useAppSelector(s => s.users.byId.get(userId))!
   const [banUserError, setBanUserError] = useState<Error>()
 
   const onFormSubmit = useCallback(
@@ -129,7 +128,6 @@ export function ChannelBanUserDialog({
           {...bindInput('banReason')}
           label='Ban reason (optional)'
           floatingLabel={true}
-          ref={autoFocusRef}
           inputProps={{
             autoCapitalize: 'off',
             autoCorrect: 'off',
