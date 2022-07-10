@@ -30,7 +30,7 @@ import {
   colorTextSecondary,
 } from '../styles/colors'
 import { body2, overline, singleLine } from '../styles/typography'
-import { ConnectedUserContextMenu } from '../users/user-context-menu'
+import { ConnectedUserContextMenu, MenuItemCategory } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
 import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
 import {
@@ -494,6 +494,15 @@ export default function Channel(props: ChatChannelProps) {
   const sortedIdleUsers = useMemo(() => sortUsers(idleUserEntries), [idleUserEntries])
   const sortedOfflineUsers = useMemo(() => sortUsers(offlineUserEntries), [offlineUserEntries])
 
+  const modifyMenuItems = useCallback(
+    (
+      userId: SbUserId,
+      items: Map<MenuItemCategory, React.ReactNode[]>,
+      onMenuClose: (event?: MouseEvent) => void,
+    ) => addChannelMenuItems(userId, items, onMenuClose, channelName),
+    [channelName],
+  )
+
   return (
     <Container>
       {channel ? (
@@ -516,7 +525,7 @@ export default function Channel(props: ChatChannelProps) {
               offline={sortedOfflineUsers}
             />
           }
-          modifyMenuItems={(...args) => addChannelMenuItems(...args, channelName)}
+          modifyMenuItems={modifyMenuItems}
         />
       ) : (
         <StyledLoadingDotsArea />

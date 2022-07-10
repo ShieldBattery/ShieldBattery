@@ -20,10 +20,12 @@ const DestructiveMenuItem = styled(MenuItem)`
   --sb-ripple-color: ${colorError};
 `
 
+// NOTE(2Pac): Even though this function is technically not a React component, nor a custom hook, we
+// still treat it as one since it suits our needs quite nicely (by allowing us to run hooks in it
+// only when the user context menu is open).
 /**
- * Even though this function is technically not a React component, nor a custom hook, we still treat
- * it as one since it suits our needs quite nicely (by allowing us to run hooks in it only when the
- * user context menu is open).
+ * A function which adds user context menu items specific to chat channels (e.g. kick/ban user from
+ * a chat channel).
  */
 export const addChannelMenuItems = (
   userId: SbUserId,
