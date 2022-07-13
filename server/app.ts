@@ -107,14 +107,26 @@ app.on('error', (err: PossibleHttpError & PossibleNodeError, ctx?: RouterContext
   }
 })
 
-process.on('unhandledRejection', err => {
-  log.error({ err }, 'unhandled rejection')
-  if (err instanceof TypeError || err instanceof SyntaxError || err instanceof ReferenceError) {
-    // These types are very unlikely to be handle-able properly, exit
-    throw err
-  }
-  // Other promise rejections are likely less severe, leave the process up but log it
-})
+const unhandledRejections = new Set<Promise<any>>()
+process
+  .on('unhandledRejection', (err, promise) => {
+    unhandledRejections.add(promise)
+    setTimeout(() => {
+      if (!unhandledRejections.delete(promise)) {
+        return
+      }
+
+      log.error({ err }, 'rejection unhandled after 1 second')
+      if (err instanceof TypeError || err instanceof SyntaxError || err instanceof ReferenceError) {
+        // These types are very unlikely to be handle-able properly, exit
+        throw err
+      }
+      // Other promise rejections are likely less severe, leave the process up but log it
+    }, 1000)
+  })
+  .on('rejectionHandled', promise => {
+    unhandledRejections.delete(promise)
+  })
 
 app
   .use(prometheusMiddleware())
