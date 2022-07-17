@@ -1,7 +1,8 @@
-import React, { useCallback, useImperativeHandle, useRef, useState } from 'react'
+import React, { SetStateAction, useCallback, useImperativeHandle, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { useKeyListener } from '../keyboard/key-listener'
 import { TextField } from '../material/text-field'
+import { useStableCallback } from '../state-hooks'
 import { colorDividers } from '../styles/colors'
 
 const StyledTextField = styled(TextField)<{ showDivider?: boolean }>`
@@ -23,10 +24,45 @@ const StyledTextField = styled(TextField)<{ showDivider?: boolean }>`
   }
 `
 
+function useStorageSyncedState(
+  defaultInitialValue: string,
+  key?: string,
+): [value: string, setValue: (value: SetStateAction<string>) => void] {
+  const [value, setValue] = useState<string>(() =>
+    key ? sessionStorage.getItem(key) ?? defaultInitialValue : defaultInitialValue,
+  )
+  const syncedSetValue = useCallback(
+    (value: SetStateAction<string>) => {
+      if (typeof value === 'string') {
+        setValue(value)
+        if (key) {
+          sessionStorage.setItem(key, value)
+        }
+      } else {
+        setValue(prev => {
+          const newValue = value(prev)
+          if (key) {
+            sessionStorage.setItem(key, newValue)
+          }
+          return newValue
+        })
+      }
+    },
+    [key],
+  )
+  return [value, syncedSetValue]
+}
+
 export interface MessageInputProps {
   className?: string
   showDivider?: boolean
   onSendChatMessage: (msg: string) => void
+  /**
+   * A key to store the current message input contents under (in sessionStorage). If provided, the
+   * previous message input contents will be restored when the component is mounted (so the key
+   * should uniquely identify the type + instance of the chat container).
+   */
+  storageKey?: string
 }
 
 export interface MessageInputHandle {
@@ -36,7 +72,7 @@ export interface MessageInputHandle {
 
 export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputProps>(
   (props, ref) => {
-    const [message, setMessage] = useState('')
+    const [message, setMessage] = useStorageSyncedState('', props.storageKey)
     const inputRef = useRef<HTMLInputElement>(null)
 
     useImperativeHandle(ref, () => ({
@@ -62,20 +98,21 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       },
     }))
 
-    const onChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-      setMessage(event.target.value)
-    }, [])
+    const onChange = useStableCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+      const message = event.target.value
+      setMessage(message)
+    })
 
     const { onSendChatMessage } = props
-    const onEnterKeyDown = useCallback(() => {
+    const onEnterKeyDown = useStableCallback(() => {
       if (message) {
         onSendChatMessage(message)
         setMessage('')
       }
-    }, [message, onSendChatMessage])
+    })
 
     useKeyListener({
-      onKeyPress: useCallback((event: KeyboardEvent) => {
+      onKeyPress: useStableCallback((event: KeyboardEvent) => {
         const target = event.target as HTMLElement
 
         if (
@@ -99,7 +136,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
         }
 
         return false
-      }, []),
+      }),
     })
 
     return (

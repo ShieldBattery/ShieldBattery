@@ -124,7 +124,12 @@ export function Chat({
     <ChatContext.Provider value={chatContextValue}>
       <MessagesAndInput className={className}>
         <StyledMessageList {...listProps} onScrollUpdate={onScrollUpdate} />
-        <MessageInput {...inputProps} ref={messageInputRef} showDivider={isScrolledUp} />
+        <MessageInput
+          {...inputProps}
+          ref={messageInputRef}
+          showDivider={isScrolledUp}
+          key={inputProps.storageKey}
+        />
       </MessagesAndInput>
       {extraContent}
     </ChatContext.Provider>

@@ -517,6 +517,7 @@ export default function Channel(props: ChatChannelProps) {
           }}
           inputProps={{
             onSendChatMessage,
+            storageKey: `chat.${channelName}`,
           }}
           extraContent={
             <UserList

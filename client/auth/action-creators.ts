@@ -83,6 +83,7 @@ export function logIn(
         remember: !!remember,
       }),
     })
+    sessionStorage.clear()
 
     dispatch({
       type: '@auth/loadCurrentSession',
@@ -92,11 +93,13 @@ export function logIn(
 }
 
 export function logOut() {
-  return idRequest('@auth/logOut', () =>
-    fetchJson<void>(apiUrl`sessions`, {
+  return idRequest('@auth/logOut', async () => {
+    const result = await fetchJson<void>(apiUrl`sessions`, {
       method: 'delete',
-    }),
-  )
+    })
+    sessionStorage.clear()
+    return result
+  })
 }
 
 export function signUp(
@@ -109,6 +112,7 @@ export function signUp(
       body: JSON.stringify({ ...(await getExtraSessionData()), username, email, password }),
     })
     window.fathom?.trackGoal('YTZ0JAUE', 0)
+    sessionStorage.clear()
 
     dispatch({
       type: '@auth/loadCurrentSession',

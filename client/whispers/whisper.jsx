@@ -122,6 +122,7 @@ export default class Whisper extends React.Component {
     }
     const inputProps = {
       onSendChatMessage: this.onSendChatMessage,
+      storageKey: `whisper.${target}`,
     }
 
     return (
