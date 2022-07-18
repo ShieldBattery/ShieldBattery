@@ -295,17 +295,18 @@ export function PartyView(props: PartyViewProps) {
     return <Container />
   }
 
-  const listProps = {
-    messages: party.messages,
-    renderMessage: renderPartyMessage,
-  }
-  const inputProps = {
-    onSendChatMessage,
-  }
-
   return (
     <Container>
-      <StyledChat listProps={listProps} inputProps={inputProps} />
+      <StyledChat
+        listProps={{
+          messages: party.messages,
+          renderMessage: renderPartyMessage,
+        }}
+        inputProps={{
+          onSendChatMessage,
+          storageKey: `party.${partyId}`,
+        }}
+      />
       <RightSide>
         <UserList
           party={party}
