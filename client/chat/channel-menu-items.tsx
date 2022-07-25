@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import styled from 'styled-components'
-import { ChannelModerationAction } from '../../common/chat'
+import { ChannelModerationAction, SbChannelId } from '../../common/chat'
 import { appendToMultimap } from '../../common/data-structures/maps'
 import { MULTI_CHANNEL } from '../../common/flags'
 import { SbUserId } from '../../common/users/sb-user'
@@ -31,20 +31,20 @@ export const addChannelMenuItems = (
   userId: SbUserId,
   items: Map<MenuItemCategory, React.ReactNode[]>,
   onMenuClose: (event?: MouseEvent) => void,
-  channelName: string,
+  channelId: SbChannelId,
 ) => {
   /* eslint-disable react-hooks/rules-of-hooks */
   const dispatch = useAppDispatch()
   const selfPermissions = useAppSelector(s => s.auth.permissions)
   const selfUserId = useAppSelector(s => s.auth.user.id)
   const user = useAppSelector(s => s.users.byId.get(userId))
-  const channel = useAppSelector(s => s.chat.byName.get(channelName))
+  const channel = useAppSelector(s => s.chat.byId.get(channelId))
 
   useEffect(() => {
     const abortController = new AbortController()
 
     dispatch(
-      getChatUserProfile(channelName, userId, {
+      getChatUserProfile(channelId, userId, {
         signal: abortController.signal,
         onSuccess: () => {},
         onError: () => {},
@@ -54,7 +54,7 @@ export const addChannelMenuItems = (
     return () => {
       abortController.abort()
     }
-  }, [dispatch, channelName, userId])
+  }, [dispatch, channelId, userId])
 
   const onKickUser = useStableCallback(() => {
     if (!user || !channel) {
@@ -62,7 +62,7 @@ export const addChannelMenuItems = (
     }
 
     dispatch(
-      moderateUser(channel.name, user.id, ChannelModerationAction.Kick, {
+      moderateUser(channelId, user.id, ChannelModerationAction.Kick, {
         onSuccess: () => dispatch(openSnackbar({ message: `${user.name} was kicked` })),
         onError: () => dispatch(openSnackbar({ message: `Error kicking ${user.name}` })),
       }),
@@ -78,7 +78,7 @@ export const addChannelMenuItems = (
     dispatch(
       openDialog({
         type: DialogType.ChannelBanUser,
-        initData: { channel: channel.name, userId },
+        initData: { channelId, userId },
       }),
     )
     onMenuClose()
@@ -90,12 +90,7 @@ export const addChannelMenuItems = (
   }
 
   const channelUserProfile = channel.userProfiles.get(user.id)
-  if (
-    MULTI_CHANNEL &&
-    channelUserProfile &&
-    user.id !== selfUserId &&
-    channelName.toLowerCase() !== 'shieldbattery'
-  ) {
+  if (MULTI_CHANNEL && channelUserProfile && user.id !== selfUserId && channelId !== 1) {
     if (
       selfPermissions.editPermissions ||
       selfPermissions.moderateChatChannels ||

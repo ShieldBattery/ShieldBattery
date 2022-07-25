@@ -9,10 +9,10 @@ import {
   GetChannelUserPermissionsResponse,
   GetChatUserProfileResponse,
   ModerateChannelUserServerRequest,
+  SbChannelId,
   SendChatMessageServerRequest,
   UpdateChannelUserPermissionsRequest,
 } from '../../../common/chat'
-import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
 import { MULTI_CHANNEL } from '../../../common/flags'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import { asHttpError } from '../errors/error-with-payload'
@@ -67,7 +67,7 @@ const userPermissionsThrottle = createThrottle('chatuserpermissions', {
   window: 60000,
 })
 
-const channelNameSchema = Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN).required()
+const serialIdSchema = Joi.number().min(1).required()
 
 function convertChatServiceError(err: unknown) {
   if (!(err instanceof ChatServiceError)) {
@@ -105,16 +105,16 @@ async function convertChatServiceErrors(ctx: RouterContext, next: Koa.Next) {
   }
 }
 
-function getValidatedChannelName(ctx: RouterContext) {
+function getValidatedChannelId(ctx: RouterContext) {
   const {
-    params: { channelName },
+    params: { channelId },
   } = validateRequest(ctx, {
-    params: Joi.object<{ channelName: string }>({
-      channelName: channelNameSchema,
+    params: Joi.object<{ channelId: SbChannelId }>({
+      channelId: serialIdSchema,
     }),
   })
 
-  return channelName
+  return channelId
 }
 
 @httpApi('/chat')
@@ -122,36 +122,36 @@ function getValidatedChannelName(ctx: RouterContext) {
 export class ChatApi {
   constructor(private chatService: ChatService) {}
 
-  @httpPost('/:channelName')
+  @httpPost('/:channelId')
   @httpBefore(
     featureEnabled(MULTI_CHANNEL),
     throttleMiddleware(joinThrottle, ctx => String(ctx.session!.userId)),
   )
   async joinChannel(ctx: RouterContext): Promise<void> {
-    const channelName = getValidatedChannelName(ctx)
+    const channelId = getValidatedChannelId(ctx)
 
-    await this.chatService.joinChannel(channelName, ctx.session!.userId)
+    await this.chatService.joinChannel(channelId, ctx.session!.userId)
 
     ctx.status = 204
   }
 
-  @httpDelete('/:channelName')
+  @httpDelete('/:channelId')
   @httpBefore(
     featureEnabled(MULTI_CHANNEL),
     throttleMiddleware(leaveThrottle, ctx => String(ctx.session!.userId)),
   )
   async leaveChannel(ctx: RouterContext): Promise<void> {
-    const channelName = getValidatedChannelName(ctx)
+    const channelId = getValidatedChannelId(ctx)
 
-    await this.chatService.leaveChannel(channelName, ctx.session!.userId)
+    await this.chatService.leaveChannel(channelId, ctx.session!.userId)
 
     ctx.status = 204
   }
 
-  @httpPost('/:channelName/messages')
+  @httpPost('/:channelId/messages')
   @httpBefore(throttleMiddleware(sendThrottle, ctx => String(ctx.session!.userId)))
   async sendChatMessage(ctx: RouterContext): Promise<void> {
-    const channelName = getValidatedChannelName(ctx)
+    const channelId = getValidatedChannelId(ctx)
     const {
       body: { message },
     } = validateRequest(ctx, {
@@ -160,13 +160,13 @@ export class ChatApi {
       }),
     })
 
-    await this.chatService.sendChatMessage(channelName, ctx.session!.userId, message)
+    await this.chatService.sendChatMessage(channelId, ctx.session!.userId, message)
 
     ctx.status = 204
   }
 
   /**
-   * @deprecated This API was last used in version 7.1.4. Use `/:channelName/messages2` instead.
+   * @deprecated This API was last used in version 7.1.4. Use `/:channelId/messages2` instead.
    */
   @httpGet('/:channelName/messages')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
@@ -174,10 +174,10 @@ export class ChatApi {
     return []
   }
 
-  @httpGet('/:channelName/messages2')
+  @httpGet('/:channelId/messages2')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
   async getChannelHistory(ctx: RouterContext): Promise<GetChannelHistoryServerResponse> {
-    const channelName = getValidatedChannelName(ctx)
+    const channelId = getValidatedChannelId(ctx)
     const {
       query: { limit, beforeTime },
     } = validateRequest(ctx, {
@@ -188,7 +188,7 @@ export class ChatApi {
     })
 
     return await this.chatService.getChannelHistory(
-      channelName,
+      channelId,
       ctx.session!.userId,
       limit,
       beforeTime,
@@ -196,7 +196,7 @@ export class ChatApi {
   }
 
   /**
-   * @deprecated This API was last used in version 7.1.7. Use `/:channelName/users2` instead.
+   * @deprecated This API was last used in version 7.1.7. Use `/:channelId/users2` instead.
    */
   @httpGet('/:channelName/users')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
@@ -204,41 +204,41 @@ export class ChatApi {
     return []
   }
 
-  @httpGet('/:channelName/users2')
+  @httpGet('/:channelId/users2')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
   async getChannelUsers(ctx: RouterContext): Promise<SbUser[]> {
-    const channelName = getValidatedChannelName(ctx)
-    return await this.chatService.getChannelUsers(channelName, ctx.session!.userId)
+    const channelId = getValidatedChannelId(ctx)
+    return await this.chatService.getChannelUsers(channelId, ctx.session!.userId)
   }
 
-  @httpGet('/:channelName/users/:targetId')
+  @httpGet('/:channelId/users/:targetId')
   @httpBefore(throttleMiddleware(getUserProfileThrottle, ctx => String(ctx.session!.userId)))
   async getChatUserProfile(ctx: RouterContext): Promise<GetChatUserProfileResponse> {
     const {
-      params: { channelName, targetId },
+      params: { channelId, targetId },
     } = validateRequest(ctx, {
-      params: Joi.object<{ channelName: string; targetId: SbUserId }>({
-        channelName: channelNameSchema,
-        targetId: Joi.number().min(1).required(),
+      params: Joi.object<{ channelId: SbChannelId; targetId: SbUserId }>({
+        channelId: serialIdSchema,
+        targetId: serialIdSchema,
       }),
     })
 
-    return await this.chatService.getChatUserProfile(channelName, ctx.session!.userId, targetId)
+    return await this.chatService.getChatUserProfile(channelId, ctx.session!.userId, targetId)
   }
 
-  @httpPost('/:channelName/users/:targetId/remove')
+  @httpPost('/:channelId/users/:targetId/remove')
   @httpBefore(
     featureEnabled(MULTI_CHANNEL),
     throttleMiddleware(kickBanThrottle, ctx => String(ctx.session!.userId)),
   )
   async moderateChannelUser(ctx: RouterContext): Promise<void> {
     const {
-      params: { channelName, targetId },
+      params: { channelId, targetId },
       body: { moderationAction, moderationReason },
     } = validateRequest(ctx, {
-      params: Joi.object<{ channelName: string; targetId: SbUserId }>({
-        channelName: channelNameSchema,
-        targetId: Joi.number().min(1).required(),
+      params: Joi.object<{ channelId: SbChannelId; targetId: SbUserId }>({
+        channelId: serialIdSchema,
+        targetId: serialIdSchema,
       }),
       body: Joi.object<ModerateChannelUserServerRequest>({
         moderationAction: Joi.string().valid('kick', 'ban').required(),
@@ -247,7 +247,7 @@ export class ChatApi {
     })
 
     await this.chatService.moderateUser(
-      channelName,
+      channelId,
       ctx.session!.userId,
       targetId,
       moderationAction,
@@ -257,37 +257,37 @@ export class ChatApi {
     ctx.status = 204
   }
 
-  @httpGet('/:channelName/users/:targetId/permissions')
+  @httpGet('/:channelId/users/:targetId/permissions')
   @httpBefore(
     featureEnabled(MULTI_CHANNEL),
     throttleMiddleware(userPermissionsThrottle, ctx => String(ctx.session!.userId)),
   )
   async getChannelUserPermissions(ctx: RouterContext): Promise<GetChannelUserPermissionsResponse> {
     const {
-      params: { channelName, targetId },
+      params: { channelId, targetId },
     } = validateRequest(ctx, {
-      params: Joi.object<{ channelName: string; targetId: SbUserId }>({
-        channelName: channelNameSchema,
-        targetId: Joi.number().min(1).required(),
+      params: Joi.object<{ channelId: SbChannelId; targetId: SbUserId }>({
+        channelId: serialIdSchema,
+        targetId: serialIdSchema,
       }),
     })
 
-    return await this.chatService.getUserPermissions(channelName, ctx.session!.userId, targetId)
+    return await this.chatService.getUserPermissions(channelId, ctx.session!.userId, targetId)
   }
 
-  @httpPost('/:channelName/users/:targetId/permissions')
+  @httpPost('/:channelId/users/:targetId/permissions')
   @httpBefore(
     featureEnabled(MULTI_CHANNEL),
     throttleMiddleware(userPermissionsThrottle, ctx => String(ctx.session!.userId)),
   )
   async updateChannelUserPermissions(ctx: RouterContext): Promise<void> {
     const {
-      params: { channelName, targetId },
+      params: { channelId, targetId },
       body: { permissions },
     } = validateRequest(ctx, {
-      params: Joi.object<{ channelName: string; targetId: SbUserId }>({
-        channelName: channelNameSchema,
-        targetId: Joi.number().min(1).required(),
+      params: Joi.object<{ channelId: SbChannelId; targetId: SbUserId }>({
+        channelId: serialIdSchema,
+        targetId: serialIdSchema,
       }),
       body: Joi.object<UpdateChannelUserPermissionsRequest>({
         permissions: Joi.object<ChannelPermissions>({
@@ -301,7 +301,7 @@ export class ChatApi {
     })
 
     await this.chatService.updateUserPermissions(
-      channelName,
+      channelId,
       ctx.session!.userId,
       targetId,
       permissions,

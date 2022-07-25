@@ -10,6 +10,7 @@ import {
   ChatServiceErrorCode,
   ChatUserEvent,
   GetChannelHistoryServerResponse,
+  SbChannelId,
   ServerChatMessage,
   ServerChatMessageType,
   toChatUserProfileJson,
@@ -38,20 +39,20 @@ import {
 } from './chat-models'
 
 class ChatState extends ImmutableRecord({
-  /** Maps channel name -> Set of IDs of users in that channel. */
-  channels: Map<string, Set<SbUserId>>(),
-  /** Maps userId -> Set of channels they're in (as names). */
-  users: Map<SbUserId, Set<string>>(),
+  /** Maps channel id -> Set of IDs of users in that channel. */
+  channels: Map<SbChannelId, Set<SbUserId>>(),
+  /** Maps userId -> Set of channels they're in (as ids). */
+  users: Map<SbUserId, Set<SbChannelId>>(),
 }) {}
 
 export class ChatServiceError extends CodedError<ChatServiceErrorCode> {}
 
-export function getChannelPath(channelName: string): string {
-  return `/chat2/${encodeURIComponent(channelName)}`
+export function getChannelPath(channelId: SbChannelId): string {
+  return `/chat3/${channelId}`
 }
 
-export function getChannelUserPath(channelName: string, userId: SbUserId): string {
-  return `/chat/${encodeURIComponent(channelName)}/users/${userId}`
+export function getChannelUserPath(channelId: SbChannelId, userId: SbUserId): string {
+  return `/chat2/${channelId}/users/${userId}`
 }
 
 @singleton()
@@ -75,7 +76,7 @@ export default class ChatService {
    * fully resolved.
    */
   async joinChannel(
-    channelName: string,
+    channelId: SbChannelId,
     userId: SbUserId,
     client?: DbClient,
     transactionCompleted = Promise.resolve(),
@@ -85,14 +86,13 @@ export default class ChatService {
     // is done after `transactionCompleted` resolves). If you do not follow this rule, you *will*
     // break user creation and I *will* be sad :(
 
-    const originalChannelName = await this.getOriginalChannelName(channelName)
-    if (this.state.users.has(userId) && this.state.users.get(userId)!.has(originalChannelName)) {
+    if (this.state.users.has(userId) && this.state.users.get(userId)!.has(channelId)) {
       throw new ChatServiceError(ChatServiceErrorCode.AlreadyJoined, 'Already in this channel')
     }
 
     const [userInfo, isBanned] = await Promise.all([
       findUserById(userId, client),
-      isUserBannedFromChannel(originalChannelName, userId, client),
+      isUserBannedFromChannel(channelId, userId, client),
     ])
     if (!userInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.UserNotFound, "User doesn't exist")
@@ -104,11 +104,11 @@ export default class ChatService {
       )
     }
 
-    const userChannelEntry = await addUserToChannel(userId, originalChannelName, client)
-    const channelInfo = (await getChannelInfo([userChannelEntry.channelName]))[0]
+    const userChannelEntry = await addUserToChannel(userId, channelId, client)
+    const channelInfo = (await getChannelInfo([userChannelEntry.channelId]))[0]
     const message = await addMessageToChannel(
       userId,
-      originalChannelName,
+      channelId,
       {
         type: ServerChatMessageType.JoinChannel,
       },
@@ -121,21 +121,21 @@ export default class ChatService {
     transactionCompleted.then(() => {
       this.state = this.state
         // TODO(tec27): Remove `any` cast once Immutable properly types this call again
-        .updateIn(['channels', originalChannelName], (s = Set<SbUserId>()) =>
+        .updateIn(['channels', channelId], (s = Set<SbUserId>()) =>
           (s as any).add(userChannelEntry.userId),
         )
         // TODO(tec27): Remove `any` cast once Immutable properly types this call again
         .updateIn(['users', userChannelEntry.userId], (s = Set<string>()) =>
-          (s as any).add(originalChannelName),
+          (s as any).add(channelId),
         )
 
-      this.publisher.publish(getChannelPath(originalChannelName), {
+      this.publisher.publish(getChannelPath(channelId), {
         action: 'join2',
         user: userInfo,
         message: {
           id: message.msgId,
           type: ServerChatMessageType.JoinChannel,
-          channel: message.channelName,
+          channelId: message.channelId,
           userId: message.userId,
           time: Number(message.sent),
         },
@@ -147,7 +147,7 @@ export default class ChatService {
       if (userSockets) {
         this.subscribeUserToChannel(
           userSockets,
-          userChannelEntry.channelName,
+          userChannelEntry.channelId,
           channelInfo,
           userChannelEntry.channelPermissions,
         )
@@ -155,10 +155,10 @@ export default class ChatService {
     })
   }
 
-  async leaveChannel(channelName: string, userId: SbUserId): Promise<void> {
+  async leaveChannel(channelId: SbChannelId, userId: SbUserId): Promise<void> {
     const userSockets = this.getUserSockets(userId)
-    const originalChannelName = await this.getOriginalChannelName(channelName)
-    if (originalChannelName === 'ShieldBattery') {
+    if (channelId === 1) {
+      // TODO(2Pac): Remove this restriction once we have a news/home page
       throw new ChatServiceError(
         ChatServiceErrorCode.CannotLeaveShieldBattery,
         "Can't leave ShieldBattery channel",
@@ -166,7 +166,7 @@ export default class ChatService {
     }
     if (
       !this.state.users.has(userSockets.userId) ||
-      !this.state.users.get(userSockets.userId)!.has(originalChannelName)
+      !this.state.users.get(userSockets.userId)!.has(channelId)
     ) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
@@ -174,18 +174,18 @@ export default class ChatService {
       )
     }
 
-    const newOwnerId = await this.removeUserFromChannel(originalChannelName, userId)
+    const newOwnerId = await this.removeUserFromChannel(channelId, userId)
 
-    this.publisher.publish(getChannelPath(originalChannelName), {
+    this.publisher.publish(getChannelPath(channelId), {
       action: 'leave2',
       userId: userSockets.userId,
       newOwnerId,
     })
-    this.unsubscribeUserFromChannel(userSockets, originalChannelName)
+    this.unsubscribeUserFromChannel(userSockets, channelId)
   }
 
   async moderateUser(
-    channelName: string,
+    channelId: SbChannelId,
     userId: SbUserId,
     targetId: SbUserId,
     moderationAction: ChannelModerationAction,
@@ -193,10 +193,10 @@ export default class ChatService {
   ): Promise<void> {
     const [[channelInfo], userPermissions, userChannelEntry, targetChannelEntry] =
       await Promise.all([
-        getChannelInfo([channelName]),
+        getChannelInfo([channelId]),
         getPermissions(userId),
-        getUserChannelEntryForUser(userId, channelName),
-        getUserChannelEntryForUser(targetId, channelName),
+        getUserChannelEntryForUser(userId, channelId),
+        getUserChannelEntryForUser(targetId, channelId),
       ])
 
     if (!userChannelEntry) {
@@ -253,8 +253,8 @@ export default class ChatService {
       )
     }
 
-    const originalChannelName = await this.getOriginalChannelName(channelName)
-    if (originalChannelName === 'ShieldBattery') {
+    if (channelId === 1) {
+      // TODO(2Pac): Remove this restriction once we have a news/home page
       throw new ChatServiceError(
         ChatServiceErrorCode.CannotModerateShieldBattery,
         "Can't moderate users in the ShieldBattery channel",
@@ -262,14 +262,14 @@ export default class ChatService {
     }
 
     if (moderationAction === ChannelModerationAction.Ban) {
-      await banUserFromChannel(originalChannelName, userId, targetId, moderationReason)
+      await banUserFromChannel(channelId, userId, targetId, moderationReason)
     }
 
     // NOTE(2Pac): New owner can technically be selected if a server moderator removes the current
     // owner.
-    const newOwnerId = await this.removeUserFromChannel(originalChannelName, targetId)
+    const newOwnerId = await this.removeUserFromChannel(channelId, targetId)
 
-    this.publisher.publish(getChannelPath(originalChannelName), {
+    this.publisher.publish(getChannelPath(channelId), {
       action: moderationAction,
       targetId,
       newOwnerId,
@@ -279,17 +279,15 @@ export default class ChatService {
     // offline is allowed.
     const targetSockets = this.userSocketsManager.getById(targetId)
     if (targetSockets) {
-      this.unsubscribeUserFromChannel(targetSockets, originalChannelName)
+      this.unsubscribeUserFromChannel(targetSockets, channelId)
     }
   }
 
-  async sendChatMessage(channelName: string, userId: SbUserId, message: string): Promise<void> {
+  async sendChatMessage(channelId: SbChannelId, userId: SbUserId, message: string): Promise<void> {
     const userSockets = this.getUserSockets(userId)
-    const originalChannelName = await this.getOriginalChannelName(channelName)
-    // TODO(tec27): lookup channel keys case insensitively?
     if (
       !this.state.users.has(userSockets.userId) ||
-      !this.state.users.get(userSockets.userId)!.has(originalChannelName)
+      !this.state.users.get(userSockets.userId)!.has(channelId)
     ) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
@@ -300,18 +298,18 @@ export default class ChatService {
     const text = filterChatMessage(message)
     const [processedText, mentionedUsers] = await processMessageContents(text)
     const mentions = Array.from(mentionedUsers.values())
-    const result = await addMessageToChannel(userSockets.userId, originalChannelName, {
+    const result = await addMessageToChannel(userSockets.userId, channelId, {
       type: ServerChatMessageType.TextMessage,
       text: processedText,
       mentions: mentions.map(m => m.id),
     })
 
-    this.publisher.publish(getChannelPath(originalChannelName), {
+    this.publisher.publish(getChannelPath(channelId), {
       action: 'message2',
       message: {
         id: result.msgId,
         type: result.data.type,
-        channel: result.channelName,
+        channelId: result.channelId,
         from: result.userId,
         time: Number(result.sent),
         text: result.data.text,
@@ -325,17 +323,15 @@ export default class ChatService {
   }
 
   async getChannelHistory(
-    channelName: string,
+    channelId: SbChannelId,
     userId: SbUserId,
     limit?: number,
     beforeTime?: number,
   ): Promise<GetChannelHistoryServerResponse> {
     const userSockets = this.getUserSockets(userId)
-    const originalChannelName = await this.getOriginalChannelName(channelName)
-    // TODO(tec27): lookup channel keys case insensitively?
     if (
       !this.state.users.has(userSockets.userId) ||
-      !this.state.users.get(userSockets.userId)!.has(originalChannelName)
+      !this.state.users.get(userSockets.userId)!.has(channelId)
     ) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
@@ -344,7 +340,7 @@ export default class ChatService {
     }
 
     const dbMessages = await getMessagesForChannel(
-      originalChannelName,
+      channelId,
       limit,
       beforeTime && beforeTime > -1 ? new Date(beforeTime) : undefined,
     )
@@ -359,7 +355,7 @@ export default class ChatService {
           messages.push({
             id: msg.msgId,
             type: msg.data.type,
-            channel: msg.channelName,
+            channelId: msg.channelId,
             from: msg.userId,
             time: Number(msg.sent),
             text: msg.data.text,
@@ -374,7 +370,7 @@ export default class ChatService {
           messages.push({
             id: msg.msgId,
             type: msg.data.type,
-            channel: msg.channelName,
+            channelId: msg.channelId,
             userId: msg.userId,
             time: Number(msg.sent),
           })
@@ -395,12 +391,11 @@ export default class ChatService {
     }
   }
 
-  async getChannelUsers(channelName: string, userId: SbUserId): Promise<SbUser[]> {
+  async getChannelUsers(channelId: SbChannelId, userId: SbUserId): Promise<SbUser[]> {
     const userSockets = this.getUserSockets(userId)
-    const originalChannelName = await this.getOriginalChannelName(channelName)
     if (
       !this.state.users.has(userSockets.userId) ||
-      !this.state.users.get(userSockets.userId)!.has(originalChannelName)
+      !this.state.users.get(userSockets.userId)!.has(channelId)
     ) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
@@ -408,15 +403,14 @@ export default class ChatService {
       )
     }
 
-    return getUsersForChannel(originalChannelName)
+    return getUsersForChannel(channelId)
   }
 
-  async getChatUserProfile(channelName: string, userId: SbUserId, targetId: SbUserId) {
+  async getChatUserProfile(channelId: SbChannelId, userId: SbUserId, targetId: SbUserId) {
     const userSockets = this.getUserSockets(userId)
-    const originalChannelName = await this.getOriginalChannelName(channelName)
     if (
       !this.state.users.has(userSockets.userId) ||
-      !this.state.users.get(userSockets.userId)!.has(originalChannelName)
+      !this.state.users.get(userSockets.userId)!.has(channelId)
     ) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
@@ -424,7 +418,7 @@ export default class ChatService {
       )
     }
 
-    const chatUser = await getUserChannelEntryForUser(targetId, originalChannelName)
+    const chatUser = await getUserChannelEntryForUser(targetId, channelId)
     // This usually means the user has left the channel.
     if (!chatUser) {
       // We don't throw an error here because users can still request the profile of users that have
@@ -432,31 +426,31 @@ export default class ChatService {
       // those users in any way they want.
       return {
         userId: targetId,
-        channelName,
+        channelId,
       }
     }
 
-    const channelInfo = (await getChannelInfo([chatUser.channelName]))[0]
+    const channelInfo = (await getChannelInfo([chatUser.channelId]))[0]
     const isOwner = channelInfo.ownerId === userId
 
     const { channelPermissions: perms } = chatUser
     return {
       userId: chatUser.userId,
-      channelName: chatUser.channelName,
+      channelId: chatUser.channelId,
       profile: toChatUserProfileJson({
         userId: chatUser.userId,
-        channelName: chatUser.channelName,
+        channelId: chatUser.channelId,
         joinDate: chatUser.joinDate,
         isModerator: isOwner || perms.editPermissions || perms.ban || perms.kick,
       }),
     }
   }
 
-  async getUserPermissions(channelName: string, userId: SbUserId, targetId: SbUserId) {
+  async getUserPermissions(channelId: SbChannelId, userId: SbUserId, targetId: SbUserId) {
     const [[channelInfo], userChannelEntry, targetChannelEntry] = await Promise.all([
-      getChannelInfo([channelName]),
-      getUserChannelEntryForUser(userId, channelName),
-      getUserChannelEntryForUser(targetId, channelName),
+      getChannelInfo([channelId]),
+      getUserChannelEntryForUser(userId, channelId),
+      getUserChannelEntryForUser(targetId, channelId),
     ])
 
     if (!userChannelEntry) {
@@ -482,21 +476,21 @@ export default class ChatService {
 
     return {
       userId: targetChannelEntry.userId,
-      channelName: targetChannelEntry.channelName,
+      channelId: targetChannelEntry.channelId,
       permissions: targetChannelEntry.channelPermissions,
     }
   }
 
   async updateUserPermissions(
-    channelName: string,
+    channelId: SbChannelId,
     userId: SbUserId,
     targetId: SbUserId,
     permissions: ChannelPermissions,
   ) {
     const [[channelInfo], userChannelEntry, targetChannelEntry] = await Promise.all([
-      getChannelInfo([channelName]),
-      getUserChannelEntryForUser(userId, channelName),
-      getUserChannelEntryForUser(targetId, channelName),
+      getChannelInfo([channelId]),
+      getUserChannelEntryForUser(userId, channelId),
+      getUserChannelEntryForUser(targetId, channelId),
     ])
 
     if (!userChannelEntry) {
@@ -520,19 +514,11 @@ export default class ChatService {
       )
     }
 
-    await updateUserPermissions(channelName, targetId, permissions)
-    this.publisher.publish(getChannelUserPath(channelName, targetId), {
+    await updateUserPermissions(channelId, targetId, permissions)
+    this.publisher.publish(getChannelUserPath(channelId, targetId), {
       action: 'permissionsChanged',
       selfPermissions: permissions,
     })
-  }
-
-  async getOriginalChannelName(channelName: string): Promise<string> {
-    const foundChannel = (await getChannelInfo([channelName]))[0]
-
-    // If the channel already exists in database, return its name with original casing; otherwise
-    // return it as is
-    return foundChannel ? foundChannel.name : channelName
   }
 
   private getUserSockets(userId: SbUserId): UserSocketsGroup {
@@ -546,37 +532,37 @@ export default class ChatService {
 
   private subscribeUserToChannel(
     userSockets: UserSocketsGroup,
-    channelName: string,
+    channelId: SbChannelId,
     channelInfo: ChannelInfo,
     channelPermissions: ChannelPermissions,
   ) {
-    userSockets.subscribe<ChatInitEvent>(getChannelPath(channelName), () => ({
+    userSockets.subscribe<ChatInitEvent>(getChannelPath(channelId), () => ({
       action: 'init3',
       channelInfo,
-      activeUserIds: this.state.channels.get(channelName)!.toArray(),
+      activeUserIds: this.state.channels.get(channelId)!.toArray(),
       selfPermissions: channelPermissions,
     }))
-    userSockets.subscribe(getChannelUserPath(channelName, userSockets.userId))
+    userSockets.subscribe(getChannelUserPath(channelId, userSockets.userId))
   }
 
-  unsubscribeUserFromChannel(user: UserSocketsGroup, channelName: string) {
-    user.unsubscribe(getChannelPath(channelName))
+  unsubscribeUserFromChannel(user: UserSocketsGroup, channelId: SbChannelId) {
+    user.unsubscribe(getChannelPath(channelId))
   }
 
   private async removeUserFromChannel(
-    channelName: string,
+    channelId: SbChannelId,
     userId: SbUserId,
   ): Promise<SbUserId | undefined> {
-    const { newOwnerId } = await removeUserFromChannel(userId, channelName)
+    const { newOwnerId } = await removeUserFromChannel(userId, channelId)
 
-    const updated = this.state.channels.get(channelName)!.delete(userId)
+    const updated = this.state.channels.get(channelId)!.delete(userId)
     this.state = updated.size
-      ? this.state.setIn(['channels', channelName], updated)
-      : this.state.deleteIn(['channels', channelName])
+      ? this.state.setIn(['channels', channelId], updated)
+      : this.state.deleteIn(['channels', channelId])
 
-    if (this.state.users.has(userId) && this.state.users.get(userId)!.has(channelName)) {
+    if (this.state.users.has(userId) && this.state.users.get(userId)!.has(channelId)) {
       // TODO(tec27): Remove `any` cast once Immutable properly types this call again
-      this.state = this.state.updateIn(['users', userId], u => (u as any).delete(channelName))
+      this.state = this.state.updateIn(['users', userId], u => (u as any).delete(channelId))
     }
 
     return newOwnerId
@@ -584,29 +570,29 @@ export default class ChatService {
 
   private async handleNewUser(userSockets: UserSocketsGroup) {
     const userChannels = await getChannelsForUser(userSockets.userId)
-    const channelInfos = await getChannelInfo(userChannels.map(uc => uc.channelName))
-    const channelNameToInfo = Map<string, ChannelInfo>(channelInfos.map(c => [c.name, c]))
+    const channelInfos = await getChannelInfo(userChannels.map(uc => uc.channelId))
+    const channelIdToInfo = Map<SbChannelId, ChannelInfo>(channelInfos.map(c => [c.id, c]))
     if (!userSockets.sockets.size) {
       // The user disconnected while we were waiting for their channel list
       return
     }
 
-    const channelSet = Set(userChannels.map(c => c.channelName))
+    const channelSet = Set(userChannels.map(c => c.channelId))
     const userSet = Set<SbUserId>(userChannels.map(u => u.userId))
-    const inChannels = Map(userChannels.map(c => [c.channelName, userSet]))
+    const inChannels = Map(userChannels.map(c => [c.channelId, userSet]))
 
     this.state = this.state
       .mergeDeepIn(['channels'], inChannels)
       .setIn(['users', userSockets.userId], channelSet)
     for (const userChannel of userChannels) {
-      this.publisher.publish(getChannelPath(userChannel.channelName), {
+      this.publisher.publish(getChannelPath(userChannel.channelId), {
         action: 'userActive2',
         userId: userSockets.userId,
       })
       this.subscribeUserToChannel(
         userSockets,
-        userChannel.channelName,
-        channelNameToInfo.get(userChannel.channelName)!,
+        userChannel.channelId,
+        channelIdToInfo.get(userChannel.channelId)!,
         userChannel.channelPermissions,
       )
     }

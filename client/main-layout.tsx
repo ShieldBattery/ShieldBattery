@@ -12,8 +12,7 @@ import ActivityOverlay from './activities/activity-overlay'
 import ActivitySpacer from './activities/spacer'
 import { IsAdminFilter } from './admin/admin-route-filters'
 import { openChangelogIfNecessary } from './changelog/action-creators'
-import ChatChannel from './chat/channel'
-import ChatList from './chat/list'
+import { ChannelRouteComponent } from './chat/route'
 import { openDialog } from './dialogs/action-creators'
 import { DialogType } from './dialogs/dialog-type'
 import { DispatchFunction } from './dispatch-registry'
@@ -387,8 +386,7 @@ export function MainLayout() {
             filters={[IsAdminFilter]}
             component={LoadableAdminPanel}
           />
-          <Route path='/chat' component={ChatList} />
-          <Route path='/chat/:channel/:rest*' component={ChatChannel} />
+          <Route path='/chat/:rest*' component={ChannelRouteComponent} />
           <Route path='/ladder/:rest*' component={LadderRouteComponent} />
           <Route path='/games/:rest*' component={GamesRouteComponent} />
           {lobbyRoute}

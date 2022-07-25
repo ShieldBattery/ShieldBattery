@@ -1,3 +1,4 @@
+import { SbChannelId } from '../../common/chat'
 import { GameRecordJson } from '../../common/games/games'
 import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/sb-user'
@@ -38,7 +39,7 @@ type ChannelJoinDialogPayload = BaseDialogPayload<typeof DialogType.ChannelJoin>
 type ChannelBanUserDialogPayload = BaseDialogPayload<
   typeof DialogType.ChannelBanUser,
   {
-    channel: string
+    channelId: SbChannelId
     userId: SbUserId
   }
 >

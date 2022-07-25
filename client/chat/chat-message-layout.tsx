@@ -1,4 +1,5 @@
 import React from 'react'
+import { SbChannelId } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user'
 import { useChatMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
 import {
@@ -8,6 +9,7 @@ import {
   SystemMessage,
 } from '../messaging/message-layout'
 import { ConnectedUsername } from '../users/connected-username'
+import { ConnectedChannelName } from './connected-channel-name'
 
 export const JoinChannelMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
@@ -97,12 +99,15 @@ export const NewChannelOwnerMessage = React.memo<{ time: number; newOwnerId: SbU
   )
 })
 
-export const SelfJoinChannelMessage = React.memo<{ channel: string }>(props => {
-  const { channel } = props
+export const SelfJoinChannelMessage = React.memo<{ channelId: SbChannelId }>(props => {
+  const { channelId } = props
   return (
     <SeparatedInfoMessage>
       <span>
-        You joined <InfoImportant>#{channel}</InfoImportant>
+        You joined{' '}
+        <InfoImportant>
+          <ConnectedChannelName channelId={channelId} />
+        </InfoImportant>
       </span>
     </SeparatedInfoMessage>
   )

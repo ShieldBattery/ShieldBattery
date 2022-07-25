@@ -3,6 +3,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react'
 import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
 import { useLocation } from 'wouter'
+import { SbChannelId } from '../../common/chat'
 import { MULTI_CHANNEL } from '../../common/flags'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { urlPath } from '../../common/urls'
@@ -11,7 +12,7 @@ import { logOut } from '../auth/action-creators'
 import { useSelfUser } from '../auth/state-hooks'
 import { openChangelog } from '../changelog/action-creators'
 import { leaveChannel } from '../chat/action-creators'
-import ChatNavEntry from '../chat/nav-entry'
+import { ChatNavEntry } from '../chat/nav-entry'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import DiscordIcon from '../icons/brands/discord.svg'
@@ -348,20 +349,20 @@ function PartySection() {
 }
 
 function ConnectedChatNavEntry({
-  channelName,
+  channelId,
   onLeave,
 }: {
-  channelName: string
-  onLeave: (channelName: string) => void
+  channelId: SbChannelId
+  onLeave: (channelId: SbChannelId) => void
 }) {
-  const hasUnread = useAppSelector(
-    s => s.chat.byName.get(channelName.toLowerCase())?.hasUnread ?? false,
-  )
+  const channelName = useAppSelector(s => s.chat.byId.get(channelId)!.name)
+  const hasUnread = useAppSelector(s => s.chat.byId.get(channelId)?.hasUnread ?? false)
   const [pathname] = useLocation()
 
   return (
     <ChatNavEntry
-      channel={channelName}
+      channelId={channelId}
+      channelName={channelName}
       currentPath={pathname}
       hasUnread={hasUnread}
       onLeave={onLeave}
@@ -444,8 +445,8 @@ export function ConnectedLeftNav() {
     dispatch(openDialog({ type: DialogType.ChannelJoin }))
   }, [dispatch])
   const onChannelLeave = useCallback(
-    (channel: string) => {
-      dispatch(leaveChannel(channel))
+    (channelId: SbChannelId) => {
+      dispatch(leaveChannel(channelId))
     },
     [dispatch],
   )
@@ -480,7 +481,7 @@ export function ConnectedLeftNav() {
       <Subheader button={MULTI_CHANNEL ? joinChannelButton : null}>Chat channels</Subheader>
       <Section>
         {Array.from(chatChannels.values(), c => (
-          <ConnectedChatNavEntry key={c} channelName={c} onLeave={onChannelLeave} />
+          <ConnectedChatNavEntry key={c} channelId={c} onLeave={onChannelLeave} />
         ))}
       </Section>
       <SectionSpacer />

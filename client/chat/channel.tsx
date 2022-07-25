@@ -4,6 +4,7 @@ import styled, { css } from 'styled-components'
 import {
   ChatServiceErrorCode,
   ClientChatMessageType,
+  SbChannelId,
   ServerChatMessageType,
 } from '../../common/chat'
 import { MULTI_CHANNEL } from '../../common/flags'
@@ -35,6 +36,7 @@ import { useUserOverlays } from '../users/user-overlays'
 import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
 import {
   activateChannel,
+  correctChannelNameForChat,
   deactivateChannel,
   getMessageHistory,
   joinChannel,
@@ -317,7 +319,7 @@ function renderMessage(msg: Message) {
     case ClientChatMessageType.NewChannelOwner:
       return <NewChannelOwnerMessage key={msg.id} time={msg.time} newOwnerId={msg.newOwnerId} />
     case ClientChatMessageType.SelfJoinChannel:
-      return <SelfJoinChannelMessage key={msg.id} channel={msg.channel} />
+      return <SelfJoinChannelMessage key={msg.id} channelId={msg.channelId} />
     default:
       return null
   }
@@ -378,13 +380,17 @@ function sortUsers(userEntries: ReadonlyArray<UserEntry>): SbUserId[] {
 }
 
 interface ChatChannelProps {
-  params: { channel: string }
+  channelId: SbChannelId
+  channelName: string
 }
 
-export default function Channel(props: ChatChannelProps) {
-  const channelName = decodeURIComponent(props.params.channel).toLowerCase()
+export function ConnectedChatChannel({
+  channelId,
+  channelName: channelNameFromRoute,
+}: ChatChannelProps) {
   const dispatch = useAppDispatch()
-  const channel = useAppSelector(s => s.chat.byName.get(channelName))
+  const channel = useAppSelector(s => s.chat.byId.get(channelId))
+  const channelName = channel?.name
   const activeUserIds = channel?.users.active
   const idleUserIds = channel?.users.idle
   const offlineUserIds = channel?.users.offline
@@ -402,8 +408,8 @@ export default function Channel(props: ChatChannelProps) {
 
   const isInChannel = !!channel
   const prevIsInChannel = usePrevious(isInChannel)
-  const prevChannelName = usePrevious(channelName)
-  const isLeavingChannel = !isInChannel && prevIsInChannel && prevChannelName === channelName
+  const prevChannelId = usePrevious(channelId)
+  const isLeavingChannel = !isInChannel && prevIsInChannel && prevChannelId === channelId
 
   // TODO(2Pac): Pull this out into some kind of "isLeaving" hook and share with whispers/lobby?
   useEffect(() => {
@@ -421,12 +427,12 @@ export default function Channel(props: ChatChannelProps) {
     cancelJoinRef.current = abortController
 
     if (isInChannel) {
-      dispatch(retrieveUserList(channelName))
-      dispatch(activateChannel(channelName) as any)
+      dispatch(retrieveUserList(channelId))
+      dispatch(activateChannel(channelId) as any)
     } else if (!isLeavingChannel) {
       if (MULTI_CHANNEL) {
         dispatch(
-          joinChannel(channelName, {
+          joinChannel(channelId, {
             signal: abortController.signal,
             onSuccess: () => setJoinChannelError(undefined),
             onError: err => setJoinChannelError(err),
@@ -439,9 +445,15 @@ export default function Channel(props: ChatChannelProps) {
 
     return () => {
       abortController.abort()
-      dispatch(deactivateChannel(channelName) as any)
+      dispatch(deactivateChannel(channelId) as any)
     }
-  }, [isInChannel, isLeavingChannel, channelName, dispatch])
+  }, [isInChannel, isLeavingChannel, channelId, dispatch])
+
+  useEffect(() => {
+    if (channel && channelNameFromRoute !== channel.name) {
+      correctChannelNameForChat(channel.id, channel.name)
+    }
+  }, [channel, channelNameFromRoute])
 
   useEffect(() => {
     if (joinChannelError) {
@@ -481,13 +493,13 @@ export default function Channel(props: ChatChannelProps) {
   }, [joinChannelError, channelName, dispatch])
 
   const onLoadMoreMessages = useCallback(
-    () => dispatch(getMessageHistory(channelName, MESSAGES_LIMIT)),
-    [channelName, dispatch],
+    () => dispatch(getMessageHistory(channelId, MESSAGES_LIMIT)),
+    [channelId, dispatch],
   )
 
   const onSendChatMessage = useCallback(
-    (msg: string) => dispatch(sendMessage(channelName, msg)),
-    [dispatch, channelName],
+    (msg: string) => dispatch(sendMessage(channelId, msg)),
+    [dispatch, channelId],
   )
 
   const sortedActiveUsers = useMemo(() => sortUsers(activeUserEntries), [activeUserEntries])
@@ -499,8 +511,8 @@ export default function Channel(props: ChatChannelProps) {
       userId: SbUserId,
       items: Map<MenuItemCategory, React.ReactNode[]>,
       onMenuClose: (event?: MouseEvent) => void,
-    ) => addChannelMenuItems(userId, items, onMenuClose, channelName),
-    [channelName],
+    ) => addChannelMenuItems(userId, items, onMenuClose, channelId),
+    [channelId],
   )
 
   return (
@@ -511,13 +523,13 @@ export default function Channel(props: ChatChannelProps) {
             messages: channel.messages,
             loading: channel.loadingHistory,
             hasMoreHistory: channel.hasHistory,
-            refreshToken: channelName,
+            refreshToken: channelId,
             renderMessage,
             onLoadMoreMessages,
           }}
           inputProps={{
             onSendChatMessage,
-            storageKey: `chat.${channelName}`,
+            storageKey: `chat.${channelId}`,
           }}
           extraContent={
             <UserList

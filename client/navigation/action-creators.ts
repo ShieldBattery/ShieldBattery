@@ -8,12 +8,13 @@ export function goToIndex(transitionFn = push): ThunkAction {
     const {
       lobby,
       whispers: { sessions },
-      chat: { channels },
+      chat: { byId, channels },
     } = getState()
     if (lobby.inLobby && IS_ELECTRON) {
       transitionFn(`/lobbies/${encodeURIComponent(lobby.info.name)}`)
     } else if (channels.size) {
-      transitionFn(`/chat/${encodeURIComponent(channels.values().next().value)}`)
+      const channelId = channels.values().next().value
+      transitionFn(`/chat/${channelId}/${encodeURIComponent(byId.get(channelId)!.name)}`)
     } else if (sessions.size) {
       transitionFn(`/whispers/${encodeURIComponent(sessions.first()!)}`)
     } else {

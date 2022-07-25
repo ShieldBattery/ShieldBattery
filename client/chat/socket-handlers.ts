@@ -1,5 +1,5 @@
-import { NydusClient } from 'nydus-client'
-import { ChatEvent, ChatUserEvent } from '../../common/chat'
+import { NydusClient, RouteInfo } from 'nydus-client'
+import { ChatEvent, ChatUserEvent, makeSbChannelId, SbChannelId } from '../../common/chat'
 import { TypedIpcRenderer } from '../../common/ipc'
 import audioManager, { AvailableSound } from '../audio/audio-manager'
 import { dispatch, Dispatchable } from '../dispatch-registry'
@@ -10,92 +10,94 @@ const ipcRenderer = new TypedIpcRenderer()
 
 type EventToChatActionMap = {
   [E in ChatEvent['action']]: (
-    channel: string,
+    channelId: SbChannelId,
     event: Extract<ChatEvent, { action: E }>,
   ) => Dispatchable | undefined
 }
 
 const eventToChatAction: EventToChatActionMap = {
-  init3(channel, event) {
+  init3(channelId, event) {
     return {
       type: '@chat/initChannel',
       payload: event,
-      meta: { channel },
+      meta: { channelId },
     }
   },
 
-  join2(channel, event) {
+  join2(channelId, event) {
     return {
       type: '@chat/updateJoin',
       payload: event,
-      meta: { channel },
+      meta: { channelId },
     }
   },
 
-  leave2: (channel, event) => (dispatch, getState) => {
+  leave2: (channelId, event) => (dispatch, getState) => {
     const { auth } = getState()
     if (auth.user.id === event.userId) {
       // It was us who left the channel
       dispatch({
         type: '@chat/updateLeaveSelf',
-        meta: { channel },
+        meta: { channelId },
       })
     } else {
       dispatch({
         type: '@chat/updateLeave',
         payload: event,
-        meta: { channel },
+        meta: { channelId },
       })
     }
   },
 
-  kick: (channel, event) => (dispatch, getState) => {
-    const { auth } = getState()
+  kick: (channelId, event) => (dispatch, getState) => {
+    const { auth, chat } = getState()
+    const channel = chat.byId.get(channelId)!
     if (auth.user.id === event.targetId) {
       // It was us who has been kicked from the channel
       dispatch(
-        openSnackbar({ message: `You have been kicked from ${channel}.`, time: TIMING_LONG }),
+        openSnackbar({ message: `You have been kicked from ${channel.name}.`, time: TIMING_LONG }),
       )
       dispatch({
         type: '@chat/updateKickSelf',
-        meta: { channel },
+        meta: { channelId },
       })
     } else {
       dispatch({
         type: '@chat/updateKick',
         payload: event,
-        meta: { channel },
+        meta: { channelId },
       })
     }
   },
 
-  ban: (channel, event) => (dispatch, getState) => {
-    const { auth } = getState()
+  ban: (channelId, event) => (dispatch, getState) => {
+    const { auth, chat } = getState()
+    const channel = chat.byId.get(channelId)!
     if (auth.user.id === event.targetId) {
       // It was us who has been banned from the channel
       // TODO(2Pac): Send a notification to the banned user that they've been banned, instead of
       // just showing a snackbar which is easily missed if the user is not looking.
       dispatch(
-        openSnackbar({ message: `You have been banned from ${channel}.`, time: TIMING_LONG }),
+        openSnackbar({ message: `You have been banned from ${channel.name}.`, time: TIMING_LONG }),
       )
       dispatch({
         type: '@chat/updateBanSelf',
-        meta: { channel },
+        meta: { channelId },
       })
     } else {
       dispatch({
         type: '@chat/updateBan',
         payload: event,
-        meta: { channel },
+        meta: { channelId },
       })
     }
   },
 
-  message2(channel, event) {
+  message2(channelId, event) {
     return (dispatch, getState) => {
       const {
         auth,
-        chat: { byName },
+        chat: { byId },
       } = getState()
 
       const isUrgent = event.mentions.some(m => m.id === auth.user.id)
@@ -109,72 +111,79 @@ const eventToChatAction: EventToChatActionMap = {
       dispatch({
         type: '@chat/updateMessage',
         payload: event,
-        meta: { channel },
+        meta: { channelId },
       })
 
-      const channelState = byName.get(channel.toLowerCase())
+      const channelState = byId.get(channelId)
       if (isUrgent && channelState && (!channelState.activated || !windowFocus.isFocused())) {
         audioManager.playSound(AvailableSound.MessageAlert)
       }
     }
   },
 
-  userActive2(channel, event) {
+  userActive2(channelId, event) {
     return {
       type: '@chat/updateUserActive',
       payload: event,
-      meta: { channel },
+      meta: { channelId },
     }
   },
 
-  userIdle2(channel, event) {
+  userIdle2(channelId, event) {
     return {
       type: '@chat/updateUserIdle',
       payload: event,
-      meta: { channel },
+      meta: { channelId },
     }
   },
 
-  userOffline2(channel, event) {
+  userOffline2(channelId, event) {
     return {
       type: '@chat/updateUserOffline',
       payload: event,
-      meta: { channel },
+      meta: { channelId },
     }
   },
 }
 
 type EventToChatUserActionMap = {
   [E in ChatUserEvent['action']]: (
-    channel: string,
+    channelId: SbChannelId,
     event: Extract<ChatUserEvent, { action: E }>,
   ) => Dispatchable | undefined
 }
 
 const eventToChatUserAction: EventToChatUserActionMap = {
-  permissionsChanged(channel, event) {
+  permissionsChanged(channelId, event) {
     return {
       type: '@chat/permissionsChanged',
       payload: event,
-      meta: { channel },
+      meta: { channelId },
     }
   },
 }
 
 export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
-  siteSocket.registerRoute('/chat2/:channel', (route, event) => {
-    const actionName = event.action as ChatEvent['action']
-    if (!eventToChatAction[actionName]) return
+  siteSocket.registerRoute('/chat3/:channelId', (route: RouteInfo, event: ChatEvent) => {
+    if (!eventToChatAction.hasOwnProperty(event.action)) return
 
-    const action = eventToChatAction[actionName](route.params.channel, event)
+    const action = eventToChatAction[event.action](
+      makeSbChannelId(Number(route.params.channelId)),
+      event as any,
+    )
     if (action) dispatch(action)
   })
 
-  siteSocket.registerRoute('/chat/:channel/users/:userId', (route, event) => {
-    const actionName = event.action as ChatUserEvent['action']
-    if (!eventToChatUserAction[actionName]) return
+  siteSocket.registerRoute(
+    '/chat2/:channelId/users/:userId',
+    (route: RouteInfo, event: ChatUserEvent) => {
+      if (!eventToChatUserAction.hasOwnProperty(event.action)) return
 
-    const action = eventToChatUserAction[actionName](route.params.channel, event)
-    if (action) dispatch(action)
-  })
+      const action = eventToChatUserAction[event.action](
+        makeSbChannelId(Number(route.params.channelId)),
+        event as any,
+      )
+      if (action) dispatch(action)
+    },
+  )
 }

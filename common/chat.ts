@@ -1,5 +1,17 @@
+import { Opaque } from 'type-fest'
 import { Jsonify } from './json'
 import { SbUser, SbUserId } from './users/sb-user'
+
+export type SbChannelId = Opaque<number, 'SbChannelId'>
+
+/**
+ * Converts a channel ID number into a properly typed version. Alternative methods of retrieving an
+ * SbChannelId should be preferred, such as using a value retrieved from the database, or getting
+ * one via the common Joi validator.
+ */
+export function makeSbChannelId(id: number): SbChannelId {
+  return id as SbChannelId
+}
 
 export enum ChatServiceErrorCode {
   AlreadyJoined = 'AlreadyJoined',
@@ -37,7 +49,7 @@ export type ChatMessageType = ServerChatMessageType | ClientChatMessageType
 export interface BaseChatMessage {
   id: string
   type: ChatMessageType
-  channel: string
+  channelId: SbChannelId
   time: number
 }
 
@@ -101,6 +113,8 @@ export type ClientChatMessage =
 export type ChatMessage = ServerChatMessage | ClientChatMessage
 
 export interface ChannelInfo {
+  /** The channel ID. */
+  id: SbChannelId
   /** The name of the chat channel. */
   name: string
   /**
@@ -288,7 +302,7 @@ export interface ModerateChannelUserServerRequest {
  */
 export interface ChatUserProfile {
   userId: SbUserId
-  channelName: string
+  channelId: SbChannelId
   joinDate: Date
   /**
    * User is considered a channel moderator if they are an owner of the channel, or have one of the
@@ -305,7 +319,7 @@ export type ChatUserProfileJson = Jsonify<ChatUserProfile>
 export function toChatUserProfileJson(chatUserProfile: ChatUserProfile): ChatUserProfileJson {
   return {
     userId: chatUserProfile.userId,
-    channelName: chatUserProfile.channelName,
+    channelId: chatUserProfile.channelId,
     joinDate: Number(chatUserProfile.joinDate),
     isModerator: chatUserProfile.isModerator,
   }
@@ -318,7 +332,7 @@ export interface GetChatUserProfileResponse {
   /** The ID of a user for which the profile is being returned. */
   userId: SbUserId
   /** The specific channel for which the user's profile is being returned. */
-  channelName: string
+  channelId: SbChannelId
   /**
    * User's profile in a specific chat channel. Includes stuff like their channel join date, channel
    * permissions, etc. Can be `undefined` in case the user has left the channel, but their name is
@@ -334,7 +348,7 @@ export interface GetChannelUserPermissionsResponse {
   /** The ID of a user for which the permissions are being returned. */
   userId: SbUserId
   /** The specific channel for which the user's permissions are being returned. */
-  channelName: string
+  channelId: SbChannelId
   /** User's permissions in a specific channel. */
   permissions: ChannelPermissions
 }
