@@ -28,6 +28,16 @@ Visual Studio 2017 or higher is required to build various C++ parts and to link 
 The easiest/cheapest way to get this is through the
 [Community edition](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx).
 
+### CMake
+
+The protobuf dependency (`prost-build`) of the Rust DLL expects [CMake](https://cmake.org) to be
+installed and in `PATH` during build.
+
+Alternatively `prost-build` will also accept `protoc` if it is available in `PATH`, skipping the
+compilation and `cmake` dependency. See
+[`prost-build` readme](https://github.com/tokio-rs/prost/tree/25ab1cc77cba01568d7a72b01f7725f13b8cc095/prost-build)
+for more information.
+
 ### Rust
 
 The code that runs within BW process is a DLL written in [Rust](https://rust-lang.org). The

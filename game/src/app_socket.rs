@@ -19,15 +19,20 @@ type WebSocketStream =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>;
 
 async fn connect_to_app() -> Result<(WebSocketStream, HandshakeResponse), tungstenite::Error> {
+    use http::header::HeaderValue;
+    use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+
     let args = crate::parse_args();
     let url = format!("ws://127.0.0.1:{}", args.server_port);
     info!("Connecting to {} ...", url);
-    let request = http::Request::builder()
-        .uri(url)
-        .header("Origin", "BROODWARS")
-        .header("x-game-id", &args.game_id)
-        .body(())
+    // Have tungstenite build base request for our url, which includes necessary headers
+    // like sec-websocket-key, then add our own headers.
+    let mut request = url.into_client_request()
         .expect("Couldn't build HTTP request for app connection");
+    let headers = request.headers_mut();
+    headers.reserve(2);
+    headers.insert("Origin", HeaderValue::from_static("BROODWARS"));
+    headers.insert("x-game-id", HeaderValue::from_str(&args.game_id).expect("Invalid game id"));
     tokio_tungstenite::connect_async(request).await
 }
 

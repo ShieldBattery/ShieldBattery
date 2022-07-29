@@ -1970,6 +1970,10 @@ impl BwScr {
         let sprite_lists_start = self.sprites_by_y_tile.resolve();
         let sprite_lists_end = self.sprites_by_y_tile_end.resolve();
         let y_tile = self.sprite_y(in_sprite) / 32;
+        if y_tile >= 0x100 {
+            error!("Sprite y tile was invalid: 0x{:x}", y_tile);
+            return None;
+        }
         let sprite_list = bw::list::LinkedList {
             start: sprite_lists_start.add(y_tile as usize),
             end: sprite_lists_end.add(y_tile as usize),
