@@ -1,4 +1,5 @@
 import React from 'react'
+import { animated, SpringValues, useSpringRef, useTransition } from 'react-spring'
 import styled from 'styled-components'
 import {
   getDivisionColor,
@@ -13,6 +14,7 @@ import WatchReplayIcon from '../icons/material/videocam_24px.svg'
 import SearchAgainIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { RaisedButton } from '../material/button'
 import { Body, Dialog } from '../material/dialog'
+import { defaultSpring } from '../material/springs'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { startReplayFromPath } from '../replays/action-creators'
 import { useStableCallback } from '../state-hooks'
@@ -152,6 +154,28 @@ export function PostMatchDialog({
       : _divHigh
   const divPercent = (mmrChange.rating - divLow) / (divHigh - divLow)
 
+  const deltaSpring = useSpringRef()
+  const deltaTransition = useTransition(
+    [
+      { label: 'RP', value: mmrChange.pointsChange },
+      { label: 'MMR', value: mmrChange.ratingChange },
+    ],
+    {
+      ref: deltaSpring,
+      config: defaultSpring,
+      delay: 200,
+      trail: 750,
+      from: {
+        opacity: 0,
+        translateY: 24,
+      },
+      enter: {
+        opacity: 1,
+        translateY: 0,
+      },
+    },
+  )
+
   return (
     <StyledDialog
       dialogRef={dialogRef}
@@ -164,8 +188,9 @@ export function PostMatchDialog({
           <RankLabel>{matchmakingDivisionToLabel(division)}</RankLabel>
         </IconWithLabel>
         <Deltas>
-          <DeltaItem label='RP' value={mmrChange.pointsChange} />
-          <DeltaItem label='MMR' value={mmrChange.ratingChange} />
+          {deltaTransition((style, item) => (
+            <DeltaItem style={style} {...item} />
+          ))}
         </Deltas>
       </IconAndDeltas>
       <RatingBarContainer>
@@ -192,7 +217,7 @@ export function PostMatchDialog({
   )
 }
 
-const DeltaItemRoot = styled.div`
+const DeltaItemRoot = styled(animated.div)`
   ${headline4};
   display: flex;
   gap: 12px;
@@ -209,11 +234,19 @@ const DeltaLabel = styled.div`
   color: ${colorTextSecondary};
 `
 
-function DeltaItem({ label, value }: { label: string; value: number }) {
+function DeltaItem({
+  label,
+  value,
+  style,
+}: {
+  label: string
+  value: number
+  style?: SpringValues<{ opacity: number; translateY: number }>
+}) {
   const roundedValue = Math.round(value)
 
   return (
-    <DeltaItemRoot>
+    <DeltaItemRoot style={style}>
       <DeltaValue>
         {roundedValue < 0 ? '' : '+'}
         {roundedValue}
