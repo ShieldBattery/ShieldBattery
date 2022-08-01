@@ -69,6 +69,7 @@ export type PostMatchDialogPayload = BaseDialogPayload<
   {
     game: GameRecordJson
     mmrChange: PublicMatchmakingRatingChangeJson
+    replayPath?: string
   }
 >
 type PrivacyPolicyDialogPayload = BaseDialogPayload<typeof DialogType.PrivacyPolicy>

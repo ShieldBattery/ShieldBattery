@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
+use crate::app_messages::ReplaySaved;
 use lazy_static::lazy_static;
 use libc::c_void;
 use parking_lot::Mutex;
@@ -348,6 +349,14 @@ async fn handle_messages_from_game_thread(
                 let msg = app_socket::encode_message("/game/windowMove", WindowMove { x, y, w, h });
                 if let Some(msg) = msg {
                     let _ = ws_send.send(msg).await;
+                }
+            }
+            GameThreadMessage::ReplaySaved(path) => {
+                if let Ok(path) = path.into_os_string().into_string() {
+                    let msg = app_socket::encode_message("/game/replaySaved", ReplaySaved { path });
+                    if let Some(msg) = msg {
+                        let _ = ws_send.send(msg).await;
+                    }
                 }
             }
             other => {

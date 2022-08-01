@@ -118,6 +118,7 @@ interface IpcRendererSendables {
 
 /** Events that can be sent from the main process to a renderer process. */
 interface IpcMainSendables {
+  activeGameReplaySaved: (gameId: string, replayPath: string) => void
   activeGameResult: (data: {
     gameId: string
     result: Record<string, GameClientPlayerResult>

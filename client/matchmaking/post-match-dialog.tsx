@@ -14,7 +14,7 @@ import SearchAgainIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px
 import { RaisedButton } from '../material/button'
 import { Body, Dialog } from '../material/dialog'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { openSnackbar } from '../snackbars/action-creators'
+import { startReplayFromPath } from '../replays/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { colorDividers, colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { caption, headline4, headline6 } from '../styles/typography'
@@ -120,16 +120,22 @@ const SizedSearchAgainIcon = styled(SearchAgainIcon)`
 
 type PostMatchDialogProps = CommonDialogProps & PostMatchDialogPayload['initData']
 
-export function PostMatchDialog({ dialogRef, onCancel, game, mmrChange }: PostMatchDialogProps) {
+export function PostMatchDialog({
+  dialogRef,
+  onCancel,
+  game,
+  mmrChange,
+  replayPath,
+}: PostMatchDialogProps) {
   const dispatch = useAppDispatch()
   const onSearchAgain = useStableCallback(() => {
     dispatch(searchAgainFromGame(game.config))
     onCancel()
   })
   const onWatchReplay = useStableCallback(() => {
-    // TODO(tec27): Implement last replay watching
-    dispatch(openSnackbar({ message: 'Not yet implemented' }))
-    onCancel()
+    if (replayPath) {
+      dispatch(startReplayFromPath(replayPath))
+    }
   })
   const canSearchMatchmaking = useAppSelector(s => {
     const currentParty = s.party.current
@@ -179,6 +185,7 @@ export function PostMatchDialog({ dialogRef, onCancel, game, mmrChange }: PostMa
           label='Watch replay'
           iconStart={<WatchReplayIcon />}
           onClick={onWatchReplay}
+          disabled={!replayPath}
         />
       </ButtonBar>
     </StyledDialog>

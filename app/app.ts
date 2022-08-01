@@ -372,6 +372,12 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
         requestBody,
       )
     })
+    .on('gameResult', info => {
+      TypedIpcSender.from(mainWindow?.webContents).send('activeGameResult', info)
+    })
+    .on('replaySaved', (gameId, replayPath) => {
+      TypedIpcSender.from(mainWindow?.webContents).send('activeGameReplaySaved', gameId, replayPath)
+    })
 
   ipcMain.handle('activeGameStartWhenReady', (event, gameId) =>
     activeGameManager.startWhenReady(gameId),

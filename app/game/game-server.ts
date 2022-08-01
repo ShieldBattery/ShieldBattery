@@ -102,8 +102,8 @@ export class GameServer {
       case '/game/finished':
         this.activeGameManager.handleGameFinished(gameId)
         break
-      case '/game/replaySave':
-        this.activeGameManager.handleReplaySave(gameId, payload.path)
+      case '/game/replaySaved':
+        this.activeGameManager.handleReplaySaved(gameId, payload.path)
         break
       case '/game/windowMove':
         const { x, y, w, h } = payload

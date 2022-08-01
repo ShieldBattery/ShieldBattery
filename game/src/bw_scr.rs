@@ -2894,7 +2894,12 @@ fn copy_file_hook(
             i += 1;
         }
 
-        orig(src_name, windows::winapi_str(&path).as_ptr(), fail_if_exist)
+        let result = orig(src_name, windows::winapi_str(&path).as_ptr(), fail_if_exist);
+        if result != 0 {
+            send_game_msg_to_async(GameThreadMessage::ReplaySaved(path));
+        }
+
+        result
     }
 }
 

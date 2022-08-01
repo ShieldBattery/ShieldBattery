@@ -1,5 +1,6 @@
 //! Hooks and other code that is running on the game/main thread (As opposed to async threads).
 
+use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 
@@ -87,6 +88,7 @@ pub enum GameThreadMessage {
     PlayersRandomized([Option<u8>; bw::MAX_STORM_PLAYERS]),
     Results(GameThreadResults),
     NetworkStall(std::time::Duration),
+    ReplaySaved(PathBuf),
 }
 
 /// Sends a message from game thread to the async system.

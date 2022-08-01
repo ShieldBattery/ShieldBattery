@@ -390,6 +390,7 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
               initData: {
                 game: event.game,
                 mmrChange: event.mmrChange,
+                replayPath: lastGame.replayPath,
               },
             }),
           )

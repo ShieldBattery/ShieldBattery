@@ -72,7 +72,34 @@ export function startReplay(replay: FileBrowserFileEntry): ThunkAction {
         }
       },
       err => {
-        logger.error(`Error starting replay file [${replay.path}]: ${err}`)
+        logger.error(`Error starting replay file [${replay.path}]: ${err?.stack ?? err}`)
+        dispatch(
+          openSimpleDialog(
+            'Error loading replay',
+            'The selected replay could not be loaded. It may either be corrupt, or was created ' +
+              'by a version of StarCraft newer than is currently supported.',
+          ),
+        )
+      },
+    )
+  }
+}
+
+export function startReplayFromPath(path: string): ThunkAction {
+  return (dispatch, getState) => {
+    const {
+      auth: { user },
+    } = getState()
+
+    setGameConfig({ path, name: 'Replay' }, user).then(
+      gameId => {
+        if (gameId) {
+          setGameRoutes(gameId)
+          push('/active-game')
+        }
+      },
+      err => {
+        logger.error(`Error starting replay file [${path}]: ${err?.stack ?? err}`)
         dispatch(
           openSimpleDialog(
             'Error loading replay',

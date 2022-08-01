@@ -641,6 +641,7 @@ impl GameState {
         use crate::game_thread::GameThreadMessage::*;
         match message {
             WindowMove(..) => (),
+            ReplaySaved(..) => (),
             Snp(snp) => {
                 return self.network.send_snp_message(snp).map(|_| ()).boxed();
             }

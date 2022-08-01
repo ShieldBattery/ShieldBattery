@@ -74,7 +74,7 @@ export interface ActiveGameManagerEvents extends EventMap {
     time: number
   }) => void
   gameStatus: (statusInfo: ReportedGameStatus) => void
-  replaySave: (gameId: string, path: string) => void
+  replaySaved: (gameId: string, path: string) => void
   resendResults: (gameId: string, requestBody: SubmitGameResultsRequest) => void
 }
 
@@ -311,13 +311,13 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
     this.emit('gameCommand', gameId, 'cleanup_and_quit')
   }
 
-  handleReplaySave(gameId: string, path: string) {
+  handleReplaySaved(gameId: string, path: string) {
     if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
 
     log.verbose(`Replay saved to: ${path}`)
-    this.emit('replaySave', gameId, path)
+    this.emit('replaySaved', gameId, path)
   }
 
   handleGameExit(id: string, exitCode: number) {

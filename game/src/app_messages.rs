@@ -98,6 +98,11 @@ pub struct GameResultsReport {
     pub player_results: Vec<(String, GamePlayerResult)>,
 }
 
+#[derive(Serialize)]
+pub struct ReplaySaved {
+    pub path: String,
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GameSetupInfo {

@@ -9,6 +9,8 @@ export interface LastGameState {
    * changes). As such, it should not be updated for things like watching replays.
    */
   id?: string
+  /** A path to the replay file saved for the last game, if it is known. */
+  replayPath?: string
 }
 
 const DEFAULT_STATE: ReadonlyDeep<LastGameState> = {
@@ -24,6 +26,12 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
 
     return state
+  },
+
+  ['@active-game/replaySaved'](state, { payload: { gameId, path } }) {
+    if (state.id === gameId) {
+      state.replayPath = path
+    }
   },
 
   ['@matchmaking/matchFound']() {
