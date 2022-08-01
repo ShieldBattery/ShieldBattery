@@ -1,6 +1,7 @@
 import { NydusClient, RouteHandler, RouteInfo } from 'nydus-client'
 import { GameLaunchConfig, PlayerInfo } from '../../common/game-launch-config'
 import { GameType } from '../../common/games/configuration'
+import { MatchmakingResultsEvent } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
   GetPreferencesResponse,
@@ -372,6 +373,27 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
           payload: event,
           meta: { type },
         })
+      })
+    },
+  )
+
+  siteSocket.registerRoute(
+    '/matchmaking-results/:userId',
+    (_route: RouteInfo, event: MatchmakingResultsEvent) => {
+      dispatch((dispatch, getState) => {
+        const { lastGame } = getState()
+
+        if (event.game.id === lastGame.id) {
+          dispatch(
+            openDialog({
+              type: DialogType.PostMatch,
+              initData: {
+                game: event.game,
+                mmrChange: event.mmrChange,
+              },
+            }),
+          )
+        }
       })
     },
   )

@@ -1,5 +1,6 @@
 import { Opaque } from 'type-fest'
 import { assertUnreachable } from './assert-unreachable'
+import { binarySearch } from './data-structures/arrays'
 import { GameRoute } from './game-launch-config'
 import { Jsonify } from './json'
 import { Slot } from './lobbies/slot'
@@ -57,6 +58,27 @@ export enum MatchmakingDivision {
 export const ALL_MATCHMAKING_DIVISIONS: ReadonlyArray<MatchmakingDivision> =
   Object.values(MatchmakingDivision)
 
+const DIVISIONS_TO_RATING: ReadonlyArray<
+  [division: MatchmakingDivision, ratingLow: number, ratingHigh: number]
+> = [
+  [MatchmakingDivision.Bronze1, 0, 1040],
+  [MatchmakingDivision.Bronze2, 1040, 1120],
+  [MatchmakingDivision.Bronze3, 1120, 1200],
+  [MatchmakingDivision.Silver1, 1200, 1280],
+  [MatchmakingDivision.Silver2, 1280, 1360],
+  [MatchmakingDivision.Silver3, 1360, 1440],
+  [MatchmakingDivision.Gold1, 1440, 1520],
+  [MatchmakingDivision.Gold2, 1520, 1600],
+  [MatchmakingDivision.Gold3, 1600, 1680],
+  [MatchmakingDivision.Platinum1, 1680, 1760],
+  [MatchmakingDivision.Platinum2, 1760, 1840],
+  [MatchmakingDivision.Platinum3, 1840, 1920],
+  [MatchmakingDivision.Diamond1, 1920, 2000],
+  [MatchmakingDivision.Diamond2, 2000, 2080],
+  [MatchmakingDivision.Diamond3, 2080, 2400],
+  [MatchmakingDivision.Champion, 2400, Infinity],
+]
+
 export function matchmakingDivisionToLabel(rank: MatchmakingDivision): string {
   switch (rank) {
     case MatchmakingDivision.Unrated:
@@ -98,56 +120,69 @@ export function matchmakingDivisionToLabel(rank: MatchmakingDivision): string {
   }
 }
 
-/**
- * How many players can be in the Champion division. The top N players with more than Diamond 3
- * rating will make it into the division, with the remaining players staying in Diamond 3.
- */
-export const NUM_CHAMPIONS = 10
+/** Converts a given rating into a matching `MatchmakingDivision`. */
+export function ratingToMatchmakingDivision(rating: number): MatchmakingDivision {
+  const index = binarySearch(DIVISIONS_TO_RATING, rating, ([_, low, high], rating) => {
+    if (low > rating) {
+      return 1
+    } else if (high <= rating) {
+      return -1
+    } else {
+      return 0
+    }
+  })
 
-/** Converts a given rating and rank into a matching `MatchmakingDivision`. */
-export function ratingToMatchmakingDivision(rating: number, rank: number): MatchmakingDivision {
-  if (rating < 1200) {
-    if (rating < 1040) {
-      return MatchmakingDivision.Bronze1
-    } else if (rating < 1120) {
-      return MatchmakingDivision.Bronze2
+  return index >= 0 ? DIVISIONS_TO_RATING[index][0] : MatchmakingDivision.Unrated
+}
+
+/**
+ * Converts a given rating into a matching `MatchmakingDivision` and returns it, as well as the
+ * low (inclusive) and high (exclusive) rating bound for the division.
+ */
+export function ratingToMatchmakingDivisionAndBounds(
+  rating: number,
+): Readonly<[division: MatchmakingDivision, low: number, high: number]> {
+  const index = binarySearch(DIVISIONS_TO_RATING, rating, ([_, low, high], rating) => {
+    if (low > rating) {
+      return 1
+    } else if (high <= rating) {
+      return -1
     } else {
-      return MatchmakingDivision.Bronze3
+      return 0
     }
-  } else if (rating < 1440) {
-    if (rating < 1280) {
-      return MatchmakingDivision.Silver1
-    } else if (rating < 1360) {
-      return MatchmakingDivision.Silver2
-    } else {
-      return MatchmakingDivision.Silver3
-    }
-  } else if (rating < 1680) {
-    if (rating < 1520) {
-      return MatchmakingDivision.Gold1
-    } else if (rating < 1600) {
-      return MatchmakingDivision.Gold2
-    } else {
-      return MatchmakingDivision.Gold3
-    }
-  } else if (rating < 1920) {
-    if (rating < 1760) {
-      return MatchmakingDivision.Platinum1
-    } else if (rating < 1840) {
-      return MatchmakingDivision.Platinum2
-    } else {
-      return MatchmakingDivision.Platinum3
-    }
-  } else if (rating < 2400) {
-    if (rating < 2000) {
-      return MatchmakingDivision.Diamond1
-    } else if (rating < 2080) {
-      return MatchmakingDivision.Diamond2
-    } else {
-      return MatchmakingDivision.Diamond3
-    }
-  } else {
-    return rank <= NUM_CHAMPIONS ? MatchmakingDivision.Champion : MatchmakingDivision.Diamond3
+  })
+
+  return index >= 0 ? DIVISIONS_TO_RATING[index] : [MatchmakingDivision.Unrated, 0, Infinity]
+}
+
+export function getDivisionColor(division: MatchmakingDivision) {
+  switch (division) {
+    case MatchmakingDivision.Bronze1:
+    case MatchmakingDivision.Bronze2:
+    case MatchmakingDivision.Bronze3:
+      return '#BD7956'
+    case MatchmakingDivision.Silver1:
+    case MatchmakingDivision.Silver2:
+    case MatchmakingDivision.Silver3:
+      return '#9CA1A3'
+    case MatchmakingDivision.Gold1:
+    case MatchmakingDivision.Gold2:
+    case MatchmakingDivision.Gold3:
+      return '#D5BF6D'
+    case MatchmakingDivision.Platinum1:
+    case MatchmakingDivision.Platinum2:
+    case MatchmakingDivision.Platinum3:
+      return '#72CBF4'
+    case MatchmakingDivision.Diamond1:
+    case MatchmakingDivision.Diamond2:
+    case MatchmakingDivision.Diamond3:
+      return '#B96CED'
+    case MatchmakingDivision.Champion:
+      return '#F27537'
+    case MatchmakingDivision.Unrated:
+      return '#87ABCA'
+    default:
+      return assertUnreachable(division)
   }
 }
 

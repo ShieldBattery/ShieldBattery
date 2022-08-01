@@ -33,8 +33,8 @@ const TinyIcon = styled(RankIcon)`
 
 const LargeIcon = styled(RankIcon)`
   && {
-    width: 172px;
-    height: 172px;
+    width: 176px;
+    height: 176px;
   }
 `
 
@@ -47,53 +47,53 @@ export function RankIconsTest() {
         </Row>
 
         <Row>
-          <RankIcon rating={1} rank={1200} />
-          <RankIcon rating={1000} rank={1200} />
-          <RankIcon rating={1060} rank={1200} />
-          <RankIcon rating={1160} rank={1200} />
+          <RankIcon rating={1} />
+          <RankIcon rating={1000} />
+          <RankIcon rating={1060} />
+          <RankIcon rating={1160} />
         </Row>
 
         <Row>
-          <RankIcon rating={1200} rank={1200} />
-          <RankIcon rating={1300} rank={1200} />
-          <RankIcon rating={1400} rank={1200} />
+          <RankIcon rating={1200} />
+          <RankIcon rating={1300} />
+          <RankIcon rating={1400} />
         </Row>
 
         <Row>
-          <RankIcon rating={1500} rank={1200} />
-          <RankIcon rating={1550} rank={1200} />
-          <RankIcon rating={1600} rank={1200} />
+          <RankIcon rating={1500} />
+          <RankIcon rating={1550} />
+          <RankIcon rating={1600} />
         </Row>
 
         <Row>
-          <RankIcon rating={1700} rank={1200} />
-          <RankIcon rating={1800} rank={1200} />
-          <RankIcon rating={1900} rank={1200} />
+          <RankIcon rating={1700} />
+          <RankIcon rating={1800} />
+          <RankIcon rating={1900} />
         </Row>
 
         <Row>
-          <RankIcon rating={1980} rank={1200} />
-          <RankIcon rating={2000} rank={1200} />
-          <RankIcon rating={2200} rank={1200} />
-          <RankIcon rating={2800} rank={1200} />
+          <RankIcon rating={1980} />
+          <RankIcon rating={2000} />
+          <RankIcon rating={2200} />
+          <RankIcon rating={2800} />
         </Row>
 
         <Row>
-          <RankIcon rating={2200} rank={1} />
-          <RankIcon rating={2500} rank={1} />
-          <RankIcon rating={2500} rank={7} />
-          <RankIcon rating={2500} rank={10} />
+          <RankIcon rating={2200} />
+          <RankIcon rating={2500} />
+          <RankIcon rating={2500} />
+          <RankIcon rating={2500} />
         </Row>
       </Column>
       <Column>
         <Row>
-          <TinyIcon rating={2500} rank={10} showChampionRank={false} size={22} />
+          <TinyIcon rating={2500} size={22} />
         </Row>
         <Row>
-          <SmallIcon rating={2500} rank={10} size={44} />
+          <SmallIcon rating={2500} size={44} />
         </Row>
         <Row>
-          <LargeIcon rating={2500} rank={10} size={172} />
+          <LargeIcon rating={2500} size={176} />
         </Row>
       </Column>
     </Container>

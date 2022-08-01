@@ -99,7 +99,7 @@ const CloseButton = styled(IconButton)`
   margin-right: 12px;
 `
 
-const Body = styled.div<{ $fullBleed?: boolean }>`
+export const Body = styled.div<{ $fullBleed?: boolean }>`
   width: 100%;
   min-height: 100px;
   flex-grow: 1;

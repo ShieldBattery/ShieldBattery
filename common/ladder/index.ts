@@ -30,7 +30,7 @@ export function ladderPlayerToMatchmakingDivision(
   if (player.lifetimeGames < NUM_PLACEMENT_MATCHES) {
     return MatchmakingDivision.Unrated
   } else {
-    return ratingToMatchmakingDivision(player.rating, player.rank)
+    return ratingToMatchmakingDivision(player.rating)
   }
 }
 

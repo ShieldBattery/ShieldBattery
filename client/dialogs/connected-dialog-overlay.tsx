@@ -14,6 +14,7 @@ import DownloadDialog from '../download/download-dialog'
 import MapDetailsDialog from '../maps/map-details'
 import { MapPreviewDialog } from '../maps/map-preview'
 import AcceptMatch from '../matchmaking/accept-match'
+import { PostMatchDialog } from '../matchmaking/post-match-dialog'
 import { isHandledDismissalEvent } from '../material/dismissal-events'
 import { defaultSpring } from '../material/springs'
 import { zIndexDialogScrim } from '../material/zindex'
@@ -90,6 +91,8 @@ function getDialog(dialogType: DialogType): {
       return { component: PartyInviteDialog, modal: false }
     case DialogType.PartyQueueAccept:
       return { component: PartyQueueAcceptDialog, modal: true }
+    case DialogType.PostMatch:
+      return { component: PostMatchDialog, modal: false }
     case DialogType.PrivacyPolicy:
       return { component: PrivacyPolicyDialog, modal: false }
     case DialogType.Settings:

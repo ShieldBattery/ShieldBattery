@@ -6,6 +6,7 @@ import {
   GameRecord,
   GameRecordUpdate,
   GameSubscriptionEvent,
+  MatchmakingResultsEvent,
   toGameRecordJson,
 } from '../../../common/games/games'
 import { GameClientPlayerResult, GameResultErrorCode } from '../../../common/games/results'
@@ -60,6 +61,7 @@ export default class GameResultService {
   constructor(
     private clientSocketsManager: ClientSocketsManager,
     private typedPublisher: TypedPublisher<GameSubscriptionEvent>,
+    private matchmakingPublisher: TypedPublisher<MatchmakingResultsEvent>,
     private jobScheduler: JobScheduler,
     private matchmakingSeasonsService: MatchmakingSeasonsService,
   ) {
@@ -95,6 +97,10 @@ export default class GameResultService {
         }
       },
     )
+
+    this.clientSocketsManager.on('newClient', c => {
+      c.subscribe(GameResultService.getMatchmakingResultsPath(c.userId))
+    })
   }
 
   async retrieveGame(gameId: string): Promise<GameRecord> {
@@ -229,11 +235,26 @@ export default class GameResultService {
       .then(async () => {
         const game = await this.retrieveGame(gameId)
         const mmrChanges = await this.retrieveMatchmakingRatingChanges(game)
+
+        const gameJson = toGameRecordJson(game)
         this.typedPublisher.publish(GameResultService.getGameSubPath(gameId), {
           type: 'update',
-          game: toGameRecordJson(game),
+          game: gameJson,
           mmrChanges: mmrChanges.map(m => toPublicMatchmakingRatingChangeJson(m)),
         })
+
+        if (mmrChanges.length) {
+          for (const change of mmrChanges) {
+            this.matchmakingPublisher.publish(
+              GameResultService.getMatchmakingResultsPath(change.userId),
+              {
+                userId: change.userId,
+                game: gameJson,
+                mmrChange: toPublicMatchmakingRatingChangeJson(change),
+              },
+            )
+          }
+        }
       })
       .catch(err => {
         if (err.code === UNIQUE_VIOLATION && err.constraint === 'matchmaking_rating_changes_pkey') {
@@ -406,5 +427,9 @@ export default class GameResultService {
 
   static getGameSubPath(gameId: string) {
     return urlPath`/games/${gameId}`
+  }
+
+  static getMatchmakingResultsPath(userId: SbUserId) {
+    return urlPath`/matchmaking-results/${userId}`
   }
 }

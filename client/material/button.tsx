@@ -319,7 +319,7 @@ const IconContainer = styled.div`
   display: flex;
   align-items: center;
 
-  margin-right: 8px;
+  margin-right: 6px; // 8px - 2px of built-in padding in icons
 `
 
 interface RaisedButtonStyleProps {
@@ -366,7 +366,7 @@ const RaisedButtonRoot = styled.button<RaisedButtonStyleProps>`
   }
 
   & ${IconContainer} {
-    margin-left: -4px;
+    margin-left: -6px; // 4px + 2px of built-in padding in icons
   }
 `
 

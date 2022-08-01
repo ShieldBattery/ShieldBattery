@@ -72,6 +72,12 @@ export interface GameRecordUpdate {
   mmrChanges: PublicMatchmakingRatingChangeJson[]
 }
 
+export interface MatchmakingResultsEvent {
+  userId: SbUserId
+  game: GameRecordJson
+  mmrChange: PublicMatchmakingRatingChangeJson
+}
+
 export function getGameDurationString(durationMs: number): string {
   const timeSec = Math.floor(durationMs / 1000)
   const hours = Math.floor(timeSec / 3600)

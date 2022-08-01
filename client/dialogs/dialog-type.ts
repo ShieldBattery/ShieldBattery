@@ -1,3 +1,5 @@
+import { GameRecordJson } from '../../common/games/games'
+import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/sb-user'
 
 export enum DialogType {
@@ -13,6 +15,7 @@ export enum DialogType {
   MapPreview = 'mapPreview',
   PartyQueueAccept = 'partyQueueAccept',
   PartyInvite = 'partyInvite',
+  PostMatch = 'postMatch',
   PrivacyPolicy = 'privacyPolicy',
   Settings = 'settings',
   Simple = 'simple',
@@ -23,10 +26,9 @@ export enum DialogType {
   Whispers = 'whispers',
 }
 
-type BaseDialogPayload<D, DataType = Record<string, never>> = {
-  type: D
-  initData?: DataType
-}
+type BaseDialogPayload<D, DataType = undefined> = DataType extends undefined
+  ? { type: D; initData?: undefined }
+  : { type: D; initData: DataType }
 
 type AcceptableUseDialogPayload = BaseDialogPayload<typeof DialogType.AcceptableUse>
 type AcceptMatchDialogPayload = BaseDialogPayload<typeof DialogType.AcceptMatch>
@@ -62,6 +64,13 @@ type MapPreviewDialogPayload = BaseDialogPayload<
 >
 type PartyQueueAcceptDialogPayload = BaseDialogPayload<typeof DialogType.PartyQueueAccept>
 type PartyInviteDialogPayload = BaseDialogPayload<typeof DialogType.PartyInvite>
+export type PostMatchDialogPayload = BaseDialogPayload<
+  typeof DialogType.PostMatch,
+  {
+    game: GameRecordJson
+    mmrChange: PublicMatchmakingRatingChangeJson
+  }
+>
 type PrivacyPolicyDialogPayload = BaseDialogPayload<typeof DialogType.PrivacyPolicy>
 type SettingsDialogPayload = BaseDialogPayload<typeof DialogType.Settings>
 type SimpleDialogPayload = BaseDialogPayload<
@@ -91,6 +100,7 @@ export type DialogPayload =
   | MapPreviewDialogPayload
   | PartyQueueAcceptDialogPayload
   | PartyInviteDialogPayload
+  | PostMatchDialogPayload
   | PrivacyPolicyDialogPayload
   | SettingsDialogPayload
   | SimpleDialogPayload
