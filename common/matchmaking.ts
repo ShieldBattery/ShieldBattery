@@ -58,9 +58,13 @@ export enum MatchmakingDivision {
 export const ALL_MATCHMAKING_DIVISIONS: ReadonlyArray<MatchmakingDivision> =
   Object.values(MatchmakingDivision)
 
-const DIVISIONS_TO_RATING: ReadonlyArray<
-  [division: MatchmakingDivision, ratingLow: number, ratingHigh: number]
-> = [
+export type MatchmakingDivisionWithBounds = [
+  division: MatchmakingDivision,
+  ratingLow: number,
+  ratingHigh: number,
+]
+
+const DIVISIONS_TO_RATING: ReadonlyArray<MatchmakingDivisionWithBounds> = [
   [MatchmakingDivision.Bronze1, 0, 1040],
   [MatchmakingDivision.Bronze2, 1040, 1120],
   [MatchmakingDivision.Bronze3, 1120, 1200],
@@ -120,9 +124,8 @@ export function matchmakingDivisionToLabel(rank: MatchmakingDivision): string {
   }
 }
 
-/** Converts a given rating into a matching `MatchmakingDivision`. */
-export function ratingToMatchmakingDivision(rating: number): MatchmakingDivision {
-  const index = binarySearch(DIVISIONS_TO_RATING, rating, ([_, low, high], rating) => {
+function binarySearchRating(rating: number): number {
+  return binarySearch(DIVISIONS_TO_RATING, rating, ([_, low, high], rating) => {
     if (low > rating) {
       return 1
     } else if (high <= rating) {
@@ -131,7 +134,11 @@ export function ratingToMatchmakingDivision(rating: number): MatchmakingDivision
       return 0
     }
   })
+}
 
+/** Converts a given rating into a matching `MatchmakingDivision`. */
+export function ratingToMatchmakingDivision(rating: number): MatchmakingDivision {
+  const index = binarySearchRating(rating)
   return index >= 0 ? DIVISIONS_TO_RATING[index][0] : MatchmakingDivision.Unrated
 }
 
@@ -141,18 +148,37 @@ export function ratingToMatchmakingDivision(rating: number): MatchmakingDivision
  */
 export function ratingToMatchmakingDivisionAndBounds(
   rating: number,
-): Readonly<[division: MatchmakingDivision, low: number, high: number]> {
-  const index = binarySearch(DIVISIONS_TO_RATING, rating, ([_, low, high], rating) => {
-    if (low > rating) {
-      return 1
-    } else if (high <= rating) {
-      return -1
-    } else {
-      return 0
-    }
-  })
-
+): Readonly<MatchmakingDivisionWithBounds> {
+  const index = binarySearchRating(rating)
   return index >= 0 ? DIVISIONS_TO_RATING[index] : [MatchmakingDivision.Unrated, 0, Infinity]
+}
+
+/**
+ * Retrieves all the relevant divisions for a rating change (that is, if a player goes from
+ * Silver 1 to Gold 2, it would return a list of [Silver 1, Silver 2, Silver 3, Gold 1, Gold 2]).
+ * The resulting list will be ordered correctly such that the starting division is first, and ending
+ * is last.
+ */
+export function getDivisionsForRatingChange(
+  startingRating: number,
+  endingRating: number,
+): Array<Readonly<MatchmakingDivisionWithBounds>> {
+  const startingIndex = binarySearchRating(startingRating)
+  const endingIndex = binarySearchRating(endingRating)
+
+  if (startingIndex === -1 && endingIndex === -1) {
+    return [[MatchmakingDivision.Unrated, 0, Infinity]]
+  } else if (startingIndex === -1) {
+    return [[MatchmakingDivision.Unrated, 0, Infinity], DIVISIONS_TO_RATING[endingIndex]]
+  } else if (endingIndex === -1) {
+    return [[MatchmakingDivision.Unrated, 0, Infinity], DIVISIONS_TO_RATING[startingIndex]]
+  }
+
+  if (startingIndex > endingIndex) {
+    return DIVISIONS_TO_RATING.slice(endingIndex, startingIndex + 1).reverse()
+  } else {
+    return DIVISIONS_TO_RATING.slice(startingIndex, endingIndex + 1)
+  }
 }
 
 export function getDivisionColor(division: MatchmakingDivision) {

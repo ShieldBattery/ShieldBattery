@@ -348,7 +348,7 @@ const BonusBarEntry = styled(RankDisplayInfoEntry)`
   width: calc(96px + 96px + 24px);
 `
 
-const BonusBar = styled.div<{ $scale: number }>`
+const BonusBar = styled.div`
   position: relative;
   width: 100%;
   height: 20px;
@@ -367,7 +367,7 @@ const BonusBar = styled.div<{ $scale: number }>`
     height: 100%;
 
     background-color: ${amberA400};
-    transform: ${props => `scaleX(${props.$scale})`};
+    transform: scaleX(var(--sb-bonus-bar-scale, 0));
     transform-origin: 0% 50%;
   }
 `
@@ -478,7 +478,7 @@ function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
             <RankDisplayInfoRow>
               <Tooltip text={`${bonusAvailable} points`} position='top'>
                 <BonusBarEntry>
-                  <BonusBar $scale={bonusScale} />
+                  <BonusBar style={{ '--sb-bonus-bar-scale': bonusScale } as any} />
                   <RankDisplayInfoLabel>Bonus pool</RankDisplayInfoLabel>
                 </BonusBarEntry>
               </Tooltip>

@@ -1,11 +1,19 @@
-import React from 'react'
-import { animated, SpringValues, useSpringRef, useTransition } from 'react-spring'
+import React, { useCallback, useMemo, useState } from 'react'
+import {
+  animated,
+  SpringValues,
+  useChain,
+  useSpring,
+  useSpringRef,
+  useTransition,
+} from 'react-spring'
 import styled from 'styled-components'
 import {
   getDivisionColor,
+  getDivisionsForRatingChange,
   MatchmakingDivision,
   matchmakingDivisionToLabel,
-  ratingToMatchmakingDivisionAndBounds,
+  MatchmakingDivisionWithBounds,
 } from '../../common/matchmaking'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { PostMatchDialogPayload } from '../dialogs/dialog-type'
@@ -19,8 +27,8 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { startReplayFromPath } from '../replays/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { colorDividers, colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { caption, headline4, headline6 } from '../styles/typography'
-import { RankIcon } from './rank-icon'
+import { caption, headline4, headline6, singleLine } from '../styles/typography'
+import { DivisionIcon } from './rank-icon'
 
 const StyledDialog = styled(Dialog)`
   max-width: 480px;
@@ -34,22 +42,7 @@ const IconAndDeltas = styled.div`
   display: flex;
   gap: 40px;
   align-items: flex-start;
-`
-
-const IconWithLabel = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-`
-
-const StyledRankIcon = styled(RankIcon)`
-  width: 176px;
-  height: 176px;
-`
-
-const RankLabel = styled.div`
-  ${headline6};
-  padding-top: 8px;
+  padding-top: 16px;
 `
 
 const Deltas = styled.div`
@@ -57,53 +50,6 @@ const Deltas = styled.div`
   display: flex;
   flex-direction: column;
   gap: 16px;
-`
-
-const RatingBarContainer = styled.div`
-  position: relative;
-  width: 100%;
-  height: 72px;
-  padding: 24px 0;
-  overflow-x: visible;
-`
-
-const RatingBar = styled.div<{ $scale: number }>`
-  position: relative;
-  width: 100%;
-  height: 20px;
-
-  background-color: rgba(0, 0, 0, 0.24);
-  border: 2px solid ${colorDividers};
-  border-radius: 9999px;
-  contain: paint;
-
-  &::after {
-    position: absolute;
-    content: '';
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-
-    background-color: currentColor;
-    transform: ${props => `scaleX(${props.$scale})`};
-    transform-origin: 0% 50%;
-  }
-`
-
-const RatingLabelMover = styled.div<{ $centerXPercent: number }>`
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 48px;
-
-  transform: ${props => `translateX(${100 * props.$centerXPercent}%)`};
-`
-
-const RatingLabel = styled.div`
-  ${caption};
-  position: absolute;
-  transform: translateX(-50%); // Center the text on the left edge of the box that we move (above)
 `
 
 const ButtonBar = styled.div`
@@ -145,36 +91,84 @@ export function PostMatchDialog({
     return !isSearching && (!currentParty || currentParty.leader === s.auth.user.id)
   })
 
-  const [division, divLow, _divHigh] = ratingToMatchmakingDivisionAndBounds(mmrChange.rating)
-  const divHigh =
-    division === MatchmakingDivision.Champion
-      ? // Champion runs forever, but that doesn't make for a particularly compelling bar, so we
-        // pick a rating that his finite but unlikely to be achieved.
-        Math.max(mmrChange.rating, 3000)
-      : _divHigh
-  const divPercent = (mmrChange.rating - divLow) / (divHigh - divLow)
+  const divisionTransitions = useMemo(() => {
+    const startingRating = mmrChange.rating - mmrChange.ratingChange
+    const divisions = getDivisionsForRatingChange(startingRating, mmrChange.rating)
+    const isNegative = mmrChange.ratingChange < 0
 
-  const deltaSpring = useSpringRef()
-  const deltaTransition = useTransition(
-    [
+    return divisions.map((divisionWithBounds, i) => {
+      const [div, low, high] = divisionWithBounds
+      if (div === MatchmakingDivision.Unrated) {
+        return { divisionWithBounds, from: low, to: high }
+      }
+
+      let from = isNegative ? high : low
+      let to = isNegative ? low : high
+
+      if (i === 0) {
+        from = startingRating
+      }
+      if (i === divisions.length - 1) {
+        to = mmrChange.rating
+      }
+
+      return { divisionWithBounds, from, to }
+    })
+  }, [mmrChange])
+
+  const [curDivisionWithBounds, setCurDivisionWithBounds] = useState(
+    divisionTransitions[0].divisionWithBounds,
+  )
+
+  const divisionSpringRef = useSpringRef()
+  const { rating } = useSpring<{
+    divisionWithBounds: MatchmakingDivisionWithBounds
+    rating: number
+  }>({
+    ref: divisionSpringRef,
+    config: { mass: 120, tension: 200, friction: 100, clamp: true },
+    from: {
+      rating: divisionTransitions[0].from,
+    },
+    to: useCallback(
+      async (next: (props: any) => Promise<unknown>) => {
+        let first = true
+        for (const { divisionWithBounds, from, to } of divisionTransitions) {
+          setCurDivisionWithBounds(divisionWithBounds)
+          await next({ rating: from, reset: true, delay: first ? 0 : 175 })
+          await next({ rating: to })
+          first = false
+        }
+      },
+      [divisionTransitions],
+    ),
+  })
+
+  const deltaValues = useMemo(
+    () => [
       { label: 'RP', value: mmrChange.pointsChange },
       { label: 'MMR', value: mmrChange.ratingChange },
     ],
-    {
-      ref: deltaSpring,
-      config: defaultSpring,
-      delay: 200,
-      trail: 750,
-      from: {
-        opacity: 0,
-        translateY: 24,
-      },
-      enter: {
-        opacity: 1,
-        translateY: 0,
-      },
-    },
+    [mmrChange],
   )
+
+  const deltaSpringRef = useSpringRef()
+  const deltaTransition = useTransition(deltaValues, {
+    ref: deltaSpringRef,
+    config: defaultSpring,
+    delay: 200,
+    trail: 750,
+    from: {
+      opacity: 0,
+      translateY: 24,
+    },
+    enter: {
+      opacity: 1,
+      translateY: 0,
+    },
+  })
+
+  useChain([deltaSpringRef, divisionSpringRef])
 
   return (
     <StyledDialog
@@ -183,22 +177,14 @@ export function PostMatchDialog({
       title='Match results'
       onCancel={onCancel}>
       <IconAndDeltas>
-        <IconWithLabel>
-          <StyledRankIcon rating={mmrChange.rating} size={176} />
-          <RankLabel>{matchmakingDivisionToLabel(division)}</RankLabel>
-        </IconWithLabel>
+        <IconWithLabel division={curDivisionWithBounds[0]} isWin={mmrChange.outcome === 'win'} />
         <Deltas>
           {deltaTransition((style, item) => (
             <DeltaItem style={style} {...item} />
           ))}
         </Deltas>
       </IconAndDeltas>
-      <RatingBarContainer>
-        <RatingBar style={{ color: getDivisionColor(division) }} $scale={divPercent} />
-        <RatingLabelMover $centerXPercent={divPercent}>
-          <RatingLabel>{Math.round(mmrChange.rating)}</RatingLabel>
-        </RatingLabelMover>
-      </RatingBarContainer>
+      <RatingBarView rating={rating} divisionWithBounds={curDivisionWithBounds} />
       <ButtonBar>
         <RaisedButton
           label='Search again'
@@ -255,3 +241,140 @@ function DeltaItem({
     </DeltaItemRoot>
   )
 }
+
+const IconWithLabelRoot = styled(animated.div)`
+  position: relative;
+  width: 176px;
+  height: 212px;
+`
+
+const IconWithLabelElement = styled(animated.div)`
+  position: absolute;
+  top: 0;
+  left: 0;
+`
+
+const StyledDivisionIcon = styled(DivisionIcon)`
+  width: 176px;
+  height: 176px;
+`
+
+const RankLabel = styled.div`
+  ${headline6};
+  ${singleLine};
+  padding-top: 8px;
+  text-align: center;
+`
+
+function IconWithLabel({ division, isWin }: { division: MatchmakingDivision; isWin: boolean }) {
+  const transition = useTransition(division, {
+    key: division,
+    config: (_item, _index, phase) => key =>
+      phase === 'leave' || key === 'opacity' ? { ...defaultSpring, clamp: true } : defaultSpring,
+    initial: {
+      opacity: 1,
+      scale: 1,
+    },
+    from: {
+      opacity: 0,
+      scale: 0.2,
+    },
+    enter: item => [
+      {
+        opacity: 1,
+        scale: 1,
+      },
+    ],
+    leave: {
+      opacity: -0.6,
+      scale: 0.2,
+    },
+  })
+
+  return (
+    <IconWithLabelRoot>
+      {transition((style, division) => (
+        <IconWithLabelElement style={style}>
+          <StyledDivisionIcon division={division} size={176} />
+          <RankLabel>{matchmakingDivisionToLabel(division)}</RankLabel>
+        </IconWithLabelElement>
+      ))}
+    </IconWithLabelRoot>
+  )
+}
+
+const RatingBarRoot = styled.div`
+  position: relative;
+  width: 100%;
+  height: 72px;
+  padding: 32px 0 24px;
+  overflow-x: visible;
+`
+
+const RatingBar = styled.div`
+  position: relative;
+  width: 100%;
+  height: 20px;
+
+  background-color: rgba(0, 0, 0, 0.24);
+  border: 2px solid ${colorDividers};
+  border-radius: 9999px;
+  contain: paint;
+
+  &::after {
+    position: absolute;
+    content: '';
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+
+    background-color: currentColor;
+    transform: scaleX(var(--sb-rating-bar-scale, 0));
+    transform-origin: 0% 50%;
+  }
+`
+
+const RatingLabelMover = styled.div`
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 52px;
+
+  transform: translateX(var(--sb-rating-label-x, 0));
+`
+
+const RatingLabel = styled.div`
+  ${caption};
+  position: absolute;
+  transform: translateX(-50%); // Center the text on the left edge of the box that we move (above)
+`
+
+const RatingBarView = animated(
+  ({
+    divisionWithBounds: [division, low, _high],
+    rating,
+  }: {
+    divisionWithBounds: Readonly<MatchmakingDivisionWithBounds>
+    rating: number
+  }) => {
+    const high =
+      division === MatchmakingDivision.Champion
+        ? // Champion runs forever, but that doesn't make for a particularly compelling bar, so we
+          // pick a rating that his finite but unlikely to be achieved.
+          Math.max(rating, 3000)
+        : _high
+    const divPercent = Math.min((rating - low) / (high - low), 1)
+
+    return (
+      <RatingBarRoot>
+        <RatingBar
+          style={{ color: getDivisionColor(division), '--sb-rating-bar-scale': divPercent } as any}
+        />
+        <RatingLabelMover style={{ '--sb-rating-label-x': `${100 * divPercent}%` } as any}>
+          <RatingLabel>{Math.round(rating)}</RatingLabel>
+        </RatingLabelMover>
+      </RatingBarRoot>
+    )
+  },
+)

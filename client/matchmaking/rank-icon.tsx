@@ -29,27 +29,7 @@ const StyledImage = styled.img`
 
 export function RankIcon({ rating, className, size = 88 }: RankIconProps) {
   const division = ratingToMatchmakingDivision(rating)
-  const encodedDivision = encodeURIComponent(division)
-  const svgUrl = makePublicAssetUrl(`images/ranks/${encodedDivision}.svg`)
-  const srcSet = `
-    ${makePublicAssetUrl(`/images/ranks/${encodedDivision}-22px.png`)} 22w,
-    ${makePublicAssetUrl(`/images/ranks/${encodedDivision}-44px.png`)} 44w,
-    ${makePublicAssetUrl(`/images/ranks/${encodedDivision}-88px.png`)} 88w,
-    ${svgUrl} 176w
-  `
-  const divisionLabel = matchmakingDivisionToLabel(division)
-
-  return (
-    <Container className={className}>
-      <StyledImage
-        src={svgUrl}
-        srcSet={srcSet}
-        sizes={`${size}px`}
-        alt={divisionLabel}
-        draggable='false'
-      />
-    </Container>
-  )
+  return <DivisionIcon className={className} size={size} division={division} />
 }
 
 export interface UnratedIconProps {
@@ -59,14 +39,26 @@ export interface UnratedIconProps {
 }
 
 export function UnratedIcon({ className, size = 88 }: UnratedIconProps) {
-  const svgUrl = makePublicAssetUrl('images/ranks/unrated.svg')
+  return <DivisionIcon className={className} size={size} division={MatchmakingDivision.Unrated} />
+}
+
+export interface DivisionIconProps {
+  division: MatchmakingDivision
+  className?: string
+  /** The pixel size the icon will be displayed at. Defaults to 88px. */
+  size?: number
+}
+
+export function DivisionIcon({ className, division, size }: DivisionIconProps) {
+  const encodedDivision = encodeURIComponent(division)
+  const svgUrl = makePublicAssetUrl(`images/ranks/${encodedDivision}.svg`)
   const srcSet = `
-    ${makePublicAssetUrl(`/images/ranks/unrated-22px.png`)} 22w,
-    ${makePublicAssetUrl(`/images/ranks/unrated-44px.png`)} 44w,
-    ${makePublicAssetUrl(`/images/ranks/unrated-88px.png`)} 88w,
+    ${makePublicAssetUrl(`/images/ranks/${encodedDivision}-22px.png`)} 22w,
+    ${makePublicAssetUrl(`/images/ranks/${encodedDivision}-44px.png`)} 44w,
+    ${makePublicAssetUrl(`/images/ranks/${encodedDivision}-88px.png`)} 88w,
     ${svgUrl} 176w
   `
-  const divisionLabel = matchmakingDivisionToLabel(MatchmakingDivision.Unrated)
+  const divisionLabel = matchmakingDivisionToLabel(division)
 
   return (
     <Container className={className}>
