@@ -260,7 +260,7 @@
     "react-is": "^18.0.0",
     "react-redux": "^8.0.1",
     "react-refresh": "^0.14.0",
-    "react-spring": "^9.3.2",
+    "react-spring": "^9.5.2",
     "react-svg-loader": "3.0.3",
     "react-test-renderer": "^18.0.0",
     "react-transition-group": "^4.3.0",

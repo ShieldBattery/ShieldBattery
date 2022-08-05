@@ -1,4 +1,5 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import { darken, lighten, saturate } from 'polished'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   animated,
   SpringValues,
@@ -15,6 +16,7 @@ import {
   matchmakingDivisionToLabel,
   MatchmakingDivisionWithBounds,
 } from '../../common/matchmaking'
+import audioManager, { AvailableSound } from '../audio/audio-manager'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { PostMatchDialogPayload } from '../dialogs/dialog-type'
 import { searchAgainFromGame } from '../games/action-creators'
@@ -120,11 +122,23 @@ export function PostMatchDialog({
     divisionTransitions[0].divisionWithBounds,
   )
 
+  // NOTE(tec27): We need this because the async spring method (below) will keep advancing even if
+  // the spring has been stopped, and we want it to stop if the dialog has been closed
+  const isMounted = useRef(true)
+  const scoreSoundRef = useRef<AudioBufferSourceNode | undefined>()
+  useEffect(() => {
+    isMounted.current = true
+
+    return () => {
+      isMounted.current = false
+      if (scoreSoundRef.current) {
+        scoreSoundRef.current.loop = false
+      }
+    }
+  }, [])
+
   const divisionSpringRef = useSpringRef()
-  const { rating } = useSpring<{
-    divisionWithBounds: MatchmakingDivisionWithBounds
-    rating: number
-  }>({
+  const { rating } = useSpring<{ rating: number }>({
     ref: divisionSpringRef,
     config: { mass: 120, tension: 200, friction: 100, clamp: true },
     from: {
@@ -134,9 +148,37 @@ export function PostMatchDialog({
       async (next: (props: any) => Promise<unknown>) => {
         let first = true
         for (const { divisionWithBounds, from, to } of divisionTransitions) {
+          if (!isMounted.current) {
+            break
+          }
           setCurDivisionWithBounds(divisionWithBounds)
-          await next({ rating: from, reset: true, delay: first ? 0 : 175 })
-          await next({ rating: to })
+          if (!first) {
+            audioManager.playSound(AvailableSound.RankUp, { when: 0.15 })
+          }
+
+          await next({
+            rating: from,
+            reset: true,
+            delay: first ? 0 : 675,
+          })
+          if (!isMounted.current) {
+            break
+          }
+
+          scoreSoundRef.current?.stop()
+          if (Math.round(to - from) >= 1) {
+            scoreSoundRef.current = audioManager.playSound(AvailableSound.ScoreCount, {
+              loop: true,
+            })
+          }
+          await next({
+            rating: to,
+          })
+
+          if (scoreSoundRef.current) {
+            scoreSoundRef.current.loop = false
+          }
+          scoreSoundRef.current = undefined
           first = false
         }
       },
@@ -156,16 +198,19 @@ export function PostMatchDialog({
   const deltaTransition = useTransition(deltaValues, {
     ref: deltaSpringRef,
     config: defaultSpring,
-    delay: 200,
+    delay: 500,
     trail: 750,
     from: {
       opacity: 0,
-      translateY: 24,
+      translateY: 32,
     },
     enter: {
       opacity: 1,
       translateY: 0,
     },
+    onStart: useCallback((...args: any[]) => {
+      audioManager.playSound(AvailableSound.PointReveal)
+    }, []),
   })
 
   useChain([deltaSpringRef, divisionSpringRef])
@@ -269,25 +314,32 @@ const RankLabel = styled.div`
 function IconWithLabel({ division, isWin }: { division: MatchmakingDivision; isWin: boolean }) {
   const transition = useTransition(division, {
     key: division,
-    config: (_item, _index, phase) => key =>
-      phase === 'leave' || key === 'opacity' ? { ...defaultSpring, clamp: true } : defaultSpring,
-    initial: {
-      opacity: 1,
-      scale: 1,
+    config: (_item, _index, phase) => key => {
+      if (phase === 'leave') {
+        return { ...defaultSpring, clamp: true }
+      } else if (key === 'filter') {
+        return { ...defaultSpring, mass: 10, tension: 520, friction: 120 }
+      } else {
+        return defaultSpring
+      }
     },
+    exitBeforeEnter: true,
+    initial: null,
     from: {
       opacity: 0,
-      scale: 0.2,
+      scale: 0.1,
+      filter: 'saturate(200%) brightness(2) blur(8px)',
     },
     enter: item => [
       {
         opacity: 1,
         scale: 1,
+        filter: 'saturate(100%) brightness(1) blur(0)',
       },
     ],
     leave: {
       opacity: -0.6,
-      scale: 0.2,
+      scale: 0.75,
     },
   })
 
@@ -329,9 +381,9 @@ const RatingBar = styled.div`
     width: 100%;
     height: 100%;
 
-    background-color: currentColor;
-    transform: scaleX(var(--sb-rating-bar-scale, 0));
-    transform-origin: 0% 50%;
+    background: var(--sb-rating-bar-bg, currentColor);
+    transform: translateX(calc(-100% + 100% * var(--sb-rating-bar-scale, 0)));
+    transform-origin: 100% 50%;
   }
 `
 
@@ -366,10 +418,26 @@ const RatingBarView = animated(
         : _high
     const divPercent = Math.min((rating - low) / (high - low), 1)
 
+    const divColor = getDivisionColor(division)
+    const background = useMemo(
+      () => `linear-gradient(to right,
+        ${darken(0.14, saturate(0.1, divColor))} 0%,
+        ${divColor} 33%,
+        ${divColor} 75%,
+        ${lighten(0.12, saturate(0.4, divColor))} 94%,
+        ${lighten(0.14, saturate(0.6, divColor))} 100%)`,
+      [divColor],
+    )
+
     return (
       <RatingBarRoot>
         <RatingBar
-          style={{ color: getDivisionColor(division), '--sb-rating-bar-scale': divPercent } as any}
+          style={
+            {
+              '--sb-rating-bar-bg': background,
+              '--sb-rating-bar-scale': divPercent,
+            } as any
+          }
         />
         <RatingLabelMover style={{ '--sb-rating-label-x': `${100 * divPercent}%` } as any}>
           <RatingLabel>{Math.round(rating)}</RatingLabel>

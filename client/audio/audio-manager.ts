@@ -10,6 +10,9 @@ export enum AvailableSound {
   MessageAlert = 'message-alert.opus',
   PartyInvite = 'party-invite.opus',
   PartyQueue = 'party-queue.opus',
+  PointReveal = 'point-reveal.opus',
+  RankUp = 'rank-up.opus',
+  ScoreCount = 'score-count.opus',
 }
 
 const ALL_SOUNDS: ReadonlyArray<AvailableSound> = Object.values(AvailableSound)
@@ -85,15 +88,28 @@ export class AudioManager {
 
   /**
    * Plays the specified sound.
+   * @params soundId the id of the sound to play
+   * @params loop whether the sound should loop or not (defaults to false)
+   * @params when the time at which the sound should start playing, in seconds, relative to the
+   *   current time (defaults to 0)
    */
-  playSound(soundId: AvailableSound): AudioBufferSourceNode | undefined {
+  playSound(
+    soundId: AvailableSound,
+    options?: Partial<{
+      loop: boolean
+      when: number
+    }>,
+  ): AudioBufferSourceNode | undefined {
     if (!IS_ELECTRON) {
       return undefined
     }
 
     const source = this.getBufferSource(soundId)
+    if (options?.loop) {
+      source.loop = true
+    }
     source.connect(this.nodes.masterGain)
-    source.start()
+    source.start(options?.when ? this.context.currentTime + options.when : 0)
     return source
   }
 
