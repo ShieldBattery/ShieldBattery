@@ -298,5 +298,6 @@ function makeRatingChange({
     bonusUsed: player.bonusUsed + bonusApplied,
     bonusUsedChange: bonusApplied,
     probability: expectedProbability,
+    lifetimeGames: player.lifetimeGames + 1,
   }
 }

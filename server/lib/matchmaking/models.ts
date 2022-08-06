@@ -495,6 +495,11 @@ export interface MatchmakingRatingChange {
    * of 0.5 meaning there is an equal probability of losing or winning.
    */
   probability: number
+  /**
+   * The number of games this user has played since the last season with an MMR reset. This can be
+   * used to determine if they are still in placement matches or not.
+   */
+  lifetimeGames: number
 }
 
 type DbMatchmakingRatingChange = Dbify<MatchmakingRatingChange>
@@ -519,6 +524,7 @@ function fromDbMatchmakingRatingChange(
     bonusUsed: result.bonus_used,
     bonusUsedChange: result.bonus_used_change,
     probability: result.probability,
+    lifetimeGames: result.lifetime_games,
   }
 }
 
@@ -532,12 +538,12 @@ export async function insertMatchmakingRatingChange(
     INSERT INTO matchmaking_rating_changes
       (user_id, matchmaking_type, game_id, change_date, outcome, rating, rating_change,
         uncertainty, uncertainty_change, volatility, volatility_change,
-        points, points_change, bonus_used, bonus_used_change, probability)
+        points, points_change, bonus_used, bonus_used_change, probability, lifetime_games)
     VALUES
       (${c.userId}, ${c.matchmakingType}, ${c.gameId}, ${c.changeDate}, ${c.outcome}, ${c.rating},
         ${c.ratingChange}, ${c.uncertainty}, ${c.uncertaintyChange}, ${c.volatility},
         ${c.volatilityChange}, ${c.points}, ${c.pointsChange}, ${c.bonusUsed}, ${c.bonusUsedChange},
-        ${c.probability})
+        ${c.probability}, ${c.lifetimeGames})
   `)
 }
 
