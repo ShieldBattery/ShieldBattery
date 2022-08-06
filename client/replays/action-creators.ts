@@ -9,7 +9,6 @@ import { openSimpleDialog } from '../dialogs/action-creators'
 import { ThunkAction } from '../dispatch-registry'
 import { FileBrowserFileEntry } from '../file-browser/file-browser-types'
 import logger from '../logging/logger'
-import { push } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -68,7 +67,6 @@ export function startReplay(replay: FileBrowserFileEntry): ThunkAction {
       gameId => {
         if (gameId) {
           setGameRoutes(gameId)
-          push('/active-game')
         }
       },
       err => {
@@ -95,7 +93,6 @@ export function startReplayFromPath(path: string): ThunkAction {
       gameId => {
         if (gameId) {
           setGameRoutes(gameId)
-          push('/active-game')
         }
       },
       err => {
