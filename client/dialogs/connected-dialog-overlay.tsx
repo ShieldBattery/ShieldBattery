@@ -11,6 +11,7 @@ import JoinChannelDialog from '../chat/join-channel'
 import { FocusTrap } from '../dom/focus-trap'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
 import DownloadDialog from '../download/download-dialog'
+import { KeyListenerBoundary } from '../keyboard/key-listener'
 import MapDetailsDialog from '../maps/map-details'
 import { MapPreviewDialog } from '../maps/map-preview'
 import AcceptMatch from '../matchmaking/accept-match'
@@ -57,9 +58,11 @@ const noop = () => {}
 
 export interface DialogContextValue {
   styles: React.CSSProperties
+  isTopDialog: boolean
 }
 export const DialogContext = React.createContext<DialogContextValue>({
   styles: {},
+  isTopDialog: false,
 })
 
 function getDialog(dialogType: DialogType): {
@@ -124,7 +127,6 @@ export function ConnectedDialogOverlay() {
   const dialogRef = useRef<HTMLElement>(null)
   const portalRef = useExternalElementRef()
 
-  const isTopDialogModal = topDialog ? getDialog(topDialog.type).modal : false
   const onCancel = useCallback(
     (dialogType: DialogType | 'all', event?: React.MouseEvent) => {
       if (!event || !isHandledDismissalEvent(event.nativeEvent)) {
@@ -175,28 +177,32 @@ export function ConnectedDialogOverlay() {
                 isTopDialog && (
                   <Scrim
                     style={scrimStyles}
-                    onClick={event =>
-                      isTopDialogModal ? noop() : onCancel(topDialog?.type ?? 'all', event)
-                    }
+                    onClick={modal ? noop : event => onCancel(topDialog?.type ?? 'all', event)}
                   />
                 ),
             )}
-            <FocusTrap focusableRef={focusableRef}>
-              <span ref={focusableRef} tabIndex={-1}>
-                <DialogContext.Provider
-                  value={{
-                    styles: { ...dialogStyles, pointerEvents: isTopDialog ? undefined : 'none' },
-                  }}>
-                  <DialogComponent
-                    dialogRef={dialogRef}
-                    onCancel={(event: React.MouseEvent) =>
-                      modal ? noop() : onCancel(dialogState.type, event)
-                    }
-                    {...dialogState.initData}
-                  />
-                </DialogContext.Provider>
-              </span>
-            </FocusTrap>
+
+            <KeyListenerBoundary active={isTopDialog}>
+              <FocusTrap focusableRef={focusableRef}>
+                <span ref={focusableRef} tabIndex={-1}>
+                  <DialogContext.Provider
+                    value={{
+                      styles: dialogStyles,
+                      isTopDialog,
+                    }}>
+                    <DialogComponent
+                      dialogRef={dialogRef}
+                      onCancel={
+                        modal
+                          ? noop
+                          : (event: React.MouseEvent) => onCancel(dialogState.type, event)
+                      }
+                      {...dialogState.initData}
+                    />
+                  </DialogContext.Provider>
+                </span>
+              </FocusTrap>
+            </KeyListenerBoundary>
           </>
         )
       })}

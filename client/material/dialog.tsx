@@ -5,7 +5,7 @@ import { animated } from 'react-spring'
 import styled, { css } from 'styled-components'
 import { DialogContext } from '../dialogs/connected-dialog-overlay'
 import CloseDialogIcon from '../icons/material/ic_close_black_24px.svg'
-import KeyListener, { KeyListenerBoundary } from '../keyboard/key-listener'
+import { useKeyListener } from '../keyboard/key-listener'
 import { background900, CardLayer, colorDividers } from '../styles/colors'
 import { headline5 } from '../styles/typography'
 import { IconButton } from './button'
@@ -29,7 +29,7 @@ const Container = styled.div`
   z-index: ${zIndexDialog};
 `
 
-const Surface = styled(animated(CardLayer))`
+const Surface = styled(animated(CardLayer))<{ $isTopDialog?: boolean }>`
   width: calc(100% - 160px);
   max-width: 768px;
   max-height: calc(100% - 160px);
@@ -44,7 +44,7 @@ const Surface = styled(animated(CardLayer))`
   box-shadow: ${shadowDef8dp};
   contain: paint;
   overscroll-behavior: contain;
-  pointer-events: auto;
+  pointer-events: ${props => (props.$isTopDialog ? 'auto' : 'none')};
 `
 
 const TitleBar = styled.div<{ $fullBleed?: boolean; $showDivider?: boolean }>`
@@ -183,17 +183,20 @@ export function Dialog({
   alwaysHasTopDivider = false,
 }: DialogProps) {
   const dialogContext = useContext(DialogContext)
-  const onKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      if (onCancel && event.keyCode === ESCAPE) {
-        onCancel()
-        return true
-      }
 
-      return false
-    },
-    [onCancel],
-  )
+  useKeyListener({
+    onKeyDown: useCallback(
+      (event: KeyboardEvent) => {
+        if (onCancel && event.keyCode === ESCAPE) {
+          onCancel()
+          return true
+        }
+
+        return false
+      },
+      [onCancel],
+    ),
+  })
   const [isAtTop, isAtBottom, topNode, bottomNode] = useScrollIndicatorState()
 
   const closeButton = showCloseButton ? (
@@ -202,27 +205,26 @@ export function Dialog({
 
   return (
     <Container role='dialog'>
-      <Surface className={className} style={{ ...style, ...dialogContext.styles }} ref={dialogRef}>
-        <KeyListenerBoundary>
-          <KeyListener onKeyDown={onKeyDown} />
-          <TitleBar $fullBleed={fullBleed} $showDivider={!isAtTop && !tabs}>
-            <Title>{title}</Title>
-            {titleAction}
-            {closeButton}
-          </TitleBar>
-          {tabs ? (
-            <TabsContainer $showDivider={!isAtTop || alwaysHasTopDivider}>{tabs}</TabsContainer>
-          ) : null}
+      <Surface
+        className={className}
+        style={{ ...style, ...dialogContext.styles }}
+        ref={dialogRef}
+        $isTopDialog={dialogContext.isTopDialog}>
+        <TitleBar $fullBleed={fullBleed} $showDivider={!isAtTop && !tabs}>
+          <Title>{title}</Title>
+          {titleAction}
+          {closeButton}
+        </TitleBar>
+        {tabs ? (
+          <TabsContainer $showDivider={!isAtTop || alwaysHasTopDivider}>{tabs}</TabsContainer>
+        ) : null}
 
-          <Body $fullBleed={fullBleed}>
-            {topNode}
-            {children}
-            {bottomNode}
-          </Body>
-          {buttons && buttons.length ? (
-            <Actions $showDivider={!isAtBottom}>{buttons}</Actions>
-          ) : null}
-        </KeyListenerBoundary>
+        <Body $fullBleed={fullBleed}>
+          {topNode}
+          {children}
+          {bottomNode}
+        </Body>
+        {buttons && buttons.length ? <Actions $showDivider={!isAtBottom}>{buttons}</Actions> : null}
       </Surface>
     </Container>
   )

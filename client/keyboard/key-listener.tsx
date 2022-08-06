@@ -71,7 +71,13 @@ const KeyListenerContext = React.createContext<KeyListenerContextValue | undefin
  *
  * To work correctly, a `KeyListenerBoundary` must also be placed at the root of the application.
  */
-export function KeyListenerBoundary({ children }: { children: React.ReactNode }) {
+export function KeyListenerBoundary({
+  children,
+  active = true,
+}: {
+  children: React.ReactNode
+  active?: boolean
+}) {
   const parentBoundary = useContext(KeyListenerContext)
 
   const handlersRef = useRef<KeyHandler[]>([])
@@ -96,10 +102,15 @@ export function KeyListenerBoundary({ children }: { children: React.ReactNode })
     }
   })
 
+  // NOTE(tec27): I tried to use this for checking for double-active-exclusive zones (two or more
+  // exclusive zones as siblings in the same parent), but it seems hard to make workable since the
+  // timing of calls to enter/exclusive isn't easy to find boundaries for)
+  const exclusiveCountRef = useRef(0)
+
   const value = useMemo<KeyListenerContextValue>(
     () => ({
       addKeyHandler(handler) {
-        if (!handlersRef.current.length) {
+        if (exclusiveCountRef.current === 0 && !handlersRef.current.length) {
           document.addEventListener('keydown', onKeyEvent)
           document.addEventListener('keyup', onKeyEvent)
           document.addEventListener('keypress', onKeyEvent)
@@ -111,7 +122,7 @@ export function KeyListenerBoundary({ children }: { children: React.ReactNode })
       removeKeyHandler(handler) {
         handlersRef.current.splice(handlersRef.current.indexOf(handler), 1)
 
-        if (!handlersRef.current.length) {
+        if (exclusiveCountRef.current === 0 && !handlersRef.current.length) {
           document.removeEventListener('keydown', onKeyEvent)
           document.removeEventListener('keyup', onKeyEvent)
           document.removeEventListener('keypress', onKeyEvent)
@@ -119,7 +130,9 @@ export function KeyListenerBoundary({ children }: { children: React.ReactNode })
       },
 
       enterExclusiveMode() {
-        if (handlersRef.current.length) {
+        exclusiveCountRef.current += 1
+
+        if (exclusiveCountRef.current === 1 && handlersRef.current.length) {
           document.removeEventListener('keydown', onKeyEvent)
           document.removeEventListener('keyup', onKeyEvent)
           document.removeEventListener('keypress', onKeyEvent)
@@ -127,7 +140,12 @@ export function KeyListenerBoundary({ children }: { children: React.ReactNode })
       },
 
       exitExclusiveMode() {
-        if (handlersRef.current.length) {
+        exclusiveCountRef.current -= 1
+        if (exclusiveCountRef.current < 0) {
+          throw new Error('Unbalanced KeyListenerBoundary enter/exitExclusiveMode calls')
+        }
+
+        if (exclusiveCountRef.current === 0 && handlersRef.current.length) {
           document.addEventListener('keydown', onKeyEvent)
           document.addEventListener('keyup', onKeyEvent)
           document.addEventListener('keypress', onKeyEvent)
@@ -138,11 +156,19 @@ export function KeyListenerBoundary({ children }: { children: React.ReactNode })
   )
 
   useEffect(() => {
-    const parent = parentBoundary
-    parent?.enterExclusiveMode()
+    if (active) {
+      const parent = parentBoundary
+      parent?.enterExclusiveMode()
 
-    return () => parent?.exitExclusiveMode()
-  }, [parentBoundary])
+      return () => parent?.exitExclusiveMode()
+    }
 
-  return <KeyListenerContext.Provider value={value}>{children}</KeyListenerContext.Provider>
+    return () => {}
+  }, [parentBoundary, active])
+
+  return (
+    <KeyListenerContext.Provider value={active ? value : parentBoundary}>
+      {children}
+    </KeyListenerContext.Provider>
+  )
 }
