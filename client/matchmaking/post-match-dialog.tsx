@@ -1,13 +1,6 @@
 import { darken, lighten, saturate } from 'polished'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  animated,
-  SpringValues,
-  useChain,
-  useSpring,
-  useSpringRef,
-  useTransition,
-} from 'react-spring'
+import { animated, useChain, useSpring, useSpringRef, useTransition } from 'react-spring'
 import styled from 'styled-components'
 import {
   getDivisionColor,
@@ -68,6 +61,8 @@ const SizedSearchAgainIcon = styled(SearchAgainIcon)`
   height: auto;
 `
 
+const AnimatedDeltaItem = animated(DeltaItem)
+
 type PostMatchDialogProps = CommonDialogProps & PostMatchDialogPayload['initData']
 
 export function PostMatchDialog({
@@ -125,6 +120,7 @@ export function PostMatchDialog({
   // NOTE(tec27): We need this because the async spring method (below) will keep advancing even if
   // the spring has been stopped, and we want it to stop if the dialog has been closed
   const isMounted = useRef(true)
+  const ratingAnimAborter = useRef<AbortController | undefined>()
   const scoreSoundRef = useRef<AudioBufferSourceNode | undefined>()
   useEffect(() => {
     isMounted.current = true
@@ -134,57 +130,68 @@ export function PostMatchDialog({
       if (scoreSoundRef.current) {
         scoreSoundRef.current.loop = false
       }
+      ratingAnimAborter.current?.abort()
     }
   }, [])
 
   const divisionSpringRef = useSpringRef()
-  const { rating } = useSpring<{ rating: number }>({
-    ref: divisionSpringRef,
-    config: { mass: 120, tension: 200, friction: 100, clamp: true },
-    from: {
-      rating: divisionTransitions[0].from,
-    },
-    to: useCallback(
-      async (next: (props: any) => Promise<unknown>) => {
-        let first = true
-        for (const { divisionWithBounds, from, to } of divisionTransitions) {
-          if (!isMounted.current) {
-            break
-          }
-          setCurDivisionWithBounds(divisionWithBounds)
-          if (!first) {
-            audioManager.playSound(AvailableSound.RankUp, { when: 0.15 })
-          }
-
-          await next({
-            rating: from,
-            reset: true,
-            delay: first ? 0 : 675,
-          })
-          if (!isMounted.current) {
-            break
-          }
+  const [{ rating }] = useSpring<{ rating: number }>(
+    {
+      ref: divisionSpringRef,
+      config: { mass: 120, tension: 200, friction: 100, clamp: true },
+      from: {
+        rating: divisionTransitions[0].from,
+      },
+      to: useCallback(
+        async (next: (props: any) => Promise<unknown>) => {
+          ratingAnimAborter.current?.abort()
+          ratingAnimAborter.current = new AbortController()
+          const { signal } = ratingAnimAborter.current
 
           scoreSoundRef.current?.stop()
-          if (Math.round(to - from) >= 1) {
-            scoreSoundRef.current = audioManager.playSound(AvailableSound.ScoreCount, {
-              loop: true,
-            })
-          }
-          await next({
-            rating: to,
-          })
 
-          if (scoreSoundRef.current) {
-            scoreSoundRef.current.loop = false
+          let first = true
+          for (const { divisionWithBounds, from, to } of divisionTransitions) {
+            if (signal.aborted) {
+              break
+            }
+            setCurDivisionWithBounds(divisionWithBounds)
+            if (!first) {
+              audioManager.playSound(AvailableSound.RankUp, { when: 0.15 })
+            }
+
+            await next({
+              rating: from,
+              reset: true,
+              immediate: true,
+              delay: first ? 0 : 675,
+            })
+            if (signal.aborted) {
+              break
+            }
+
+            scoreSoundRef.current?.stop()
+            if (Math.round(to - from) >= 1) {
+              scoreSoundRef.current = audioManager.playSound(AvailableSound.ScoreCount, {
+                loop: true,
+              })
+            }
+            await next({
+              rating: to,
+            })
+
+            if (scoreSoundRef.current) {
+              scoreSoundRef.current.loop = false
+            }
+            scoreSoundRef.current = undefined
+            first = false
           }
-          scoreSoundRef.current = undefined
-          first = false
-        }
-      },
-      [divisionTransitions],
-    ),
-  })
+        },
+        [divisionTransitions],
+      ),
+    },
+    [divisionTransitions],
+  )
 
   const deltaValues = useMemo(
     () => [
@@ -197,6 +204,7 @@ export function PostMatchDialog({
   const deltaSpringRef = useSpringRef()
   const deltaTransition = useTransition(deltaValues, {
     ref: deltaSpringRef,
+    keys: deltaValues.map(d => d.label),
     config: defaultSpring,
     delay: 500,
     trail: 750,
@@ -225,7 +233,7 @@ export function PostMatchDialog({
         <IconWithLabel division={curDivisionWithBounds[0]} isWin={mmrChange.outcome === 'win'} />
         <Deltas>
           {deltaTransition((style, item) => (
-            <DeltaItem style={style} {...item} />
+            <AnimatedDeltaItem style={style} {...item} />
           ))}
         </Deltas>
       </IconAndDeltas>
@@ -248,7 +256,7 @@ export function PostMatchDialog({
   )
 }
 
-const DeltaItemRoot = styled(animated.div)`
+const DeltaItemRoot = styled.div`
   ${headline4};
   display: flex;
   gap: 12px;
@@ -272,7 +280,7 @@ function DeltaItem({
 }: {
   label: string
   value: number
-  style?: SpringValues<{ opacity: number; translateY: number }>
+  style?: React.CSSProperties
 }) {
   const roundedValue = Math.round(value)
 

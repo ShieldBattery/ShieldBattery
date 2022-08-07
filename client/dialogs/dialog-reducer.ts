@@ -5,6 +5,7 @@ import { DialogType } from './dialog-type'
 
 export interface DialogState {
   type: DialogType
+  id: string
   initData?: Record<string, unknown>
 }
 
@@ -20,7 +21,7 @@ export default immerKeyedReducer(DEFAULT_DIALOG_HISTORY_STATE, {
   ['@dialogs/open'](state, action) {
     const { type, initData } = action.payload
 
-    state.history.push({ type, initData })
+    state.history.push({ type, initData, id: action.meta.id })
   },
 
   ['@dialogs/close'](state, action) {

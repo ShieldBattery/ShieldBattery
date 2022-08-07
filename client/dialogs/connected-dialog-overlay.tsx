@@ -1,5 +1,6 @@
+import { Immutable } from 'immer'
 import { rgba } from 'polished'
-import React, { useCallback, useRef } from 'react'
+import React, { useCallback, useMemo, useRef } from 'react'
 import ReactDOM from 'react-dom'
 import { animated, useTransition, UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
@@ -62,7 +63,7 @@ export interface DialogContextValue {
 }
 export const DialogContext = React.createContext<DialogContextValue>({
   styles: {},
-  isTopDialog: false,
+  isTopDialog: true,
 })
 
 function getDialog(dialogType: DialogType): {
@@ -117,14 +118,9 @@ function getDialog(dialogType: DialogType): {
   }
 }
 
-export function ConnectedDialogOverlay() {
+export const ConnectedDialogOverlay = () => {
   const dispatch = useAppDispatch()
   const dialogHistory = useAppSelector(s => s.dialog.history)
-  const isDialogOpen = dialogHistory.length > 0
-  const topDialog = isDialogOpen ? dialogHistory[dialogHistory.length - 1] : undefined
-
-  const focusableRef = useRef<HTMLSpanElement>(null)
-  const dialogRef = useRef<HTMLElement>(null)
   const portalRef = useExternalElementRef()
 
   const onCancel = useCallback(
@@ -136,7 +132,60 @@ export function ConnectedDialogOverlay() {
     [dispatch],
   )
 
-  const scrimTransition = useTransition(isDialogOpen, {
+  return ReactDOM.createPortal(
+    <DialogOverlayContent dialogHistory={dialogHistory} onCancel={onCancel} />,
+    portalRef.current,
+  )
+}
+
+function DialogOverlayContent({
+  dialogHistory,
+  onCancel,
+}: {
+  dialogHistory: Immutable<DialogState[]>
+  onCancel: (dialogType: DialogType | 'all', event?: React.MouseEvent) => void
+}) {
+  const dialogTransition = useTransition<DialogState, UseTransitionProps<DialogState>>(
+    dialogHistory,
+    {
+      keys: useCallback((dialog: DialogState) => dialog.id, []),
+      from: { opacity: 0, transform: 'translate3d(0, -100%, 0) scale(0.6, 0.2)' },
+      enter: { opacity: 1, transform: 'translate3d(0, 0%, 0) scale(1, 1)' },
+      leave: { opacity: -0.5, transform: 'translate3d(0, -150%, 0) scale(0.3, 0.1)' },
+      config: (_item, _index, phase) => key =>
+        key === 'opacity' || phase === 'leave' ? { ...defaultSpring, clamp: true } : defaultSpring,
+    },
+  )
+
+  return dialogTransition((dialogStyles, dialogState, transition, index) => (
+    <DialogDisplay
+      dialogStyles={dialogStyles}
+      dialogState={dialogState}
+      isTopDialog={dialogHistory.length - 1 === index}
+      onCancel={onCancel}
+    />
+  ))
+}
+
+function DialogDisplay({
+  dialogStyles,
+  dialogState,
+  isTopDialog,
+  onCancel: propsOnCancel,
+}: {
+  dialogStyles: React.CSSProperties
+  dialogState: DialogState
+  isTopDialog: boolean
+  onCancel: (dialogType: DialogType | 'all', event?: React.MouseEvent) => void
+}) {
+  const dialogType = dialogState.type
+  const { component: DialogComponent, modal } = getDialog(dialogState.type)
+
+  const focusableRef = useRef<HTMLSpanElement>(null)
+  const dialogRef = useRef<HTMLElement>(null)
+
+  const scrimTransition = useTransition(isTopDialog, {
+    key: isTopDialog,
     from: {
       background: INVISIBLE_SCRIM_COLOR,
     },
@@ -148,65 +197,34 @@ export function ConnectedDialogOverlay() {
     },
   })
 
-  const dialogTransition = useTransition<DialogState, UseTransitionProps<DialogState>>(
-    dialogHistory,
-    {
-      from: { opacity: 0, transform: 'translate3d(0, -100%, 0) scale(0.6, 0.2)' },
-      enter: { opacity: 1, transform: 'translate3d(0, 0%, 0) scale(1, 1)' },
-      leave: { opacity: 0, transform: 'translate3d(0, -100%, 0) scale(0.6, 0.2)' },
-      config: {
-        ...defaultSpring,
-        clamp: true,
-      },
-    },
+  const onCancel = useMemo(
+    () => (modal ? noop : (event: React.MouseEvent) => propsOnCancel(dialogType, event)),
+    [propsOnCancel, modal, dialogType],
   )
 
-  return ReactDOM.createPortal(
+  return (
     <>
-      {dialogTransition((dialogStyles, dialogState, transition, index) => {
-        const { component: DialogComponent, modal } = getDialog(dialogState.type)
-        const isTopDialog = dialogHistory.length - 1 === index
-
-        // Dialog content implementations should focus *something* when mounted, so that our focus
-        // traps have the proper effect of keeping focus in the dialog
-        return (
-          <>
-            {scrimTransition(
-              (scrimStyles, open) =>
-                open &&
-                isTopDialog && (
-                  <Scrim
-                    style={scrimStyles}
-                    onClick={modal ? noop : event => onCancel(topDialog?.type ?? 'all', event)}
-                  />
-                ),
-            )}
-
-            <KeyListenerBoundary active={isTopDialog}>
-              <FocusTrap focusableRef={focusableRef}>
-                <span ref={focusableRef} tabIndex={-1}>
-                  <DialogContext.Provider
-                    value={{
-                      styles: dialogStyles,
-                      isTopDialog,
-                    }}>
-                    <DialogComponent
-                      dialogRef={dialogRef}
-                      onCancel={
-                        modal
-                          ? noop
-                          : (event: React.MouseEvent) => onCancel(dialogState.type, event)
-                      }
-                      {...dialogState.initData}
-                    />
-                  </DialogContext.Provider>
-                </span>
-              </FocusTrap>
-            </KeyListenerBoundary>
-          </>
-        )
+      {scrimTransition((scrimStyles, show) => {
+        return show ? <Scrim style={scrimStyles} onClick={onCancel} key='scrim' /> : undefined
       })}
-    </>,
-    portalRef.current,
+
+      <KeyListenerBoundary active={isTopDialog} key='dialog-content'>
+        <FocusTrap focusableRef={focusableRef}>
+          <span ref={focusableRef} tabIndex={-1}>
+            <DialogContext.Provider
+              value={{
+                styles: dialogStyles,
+                isTopDialog,
+              }}>
+              <DialogComponent
+                dialogRef={dialogRef}
+                onCancel={onCancel}
+                {...dialogState.initData}
+              />
+            </DialogContext.Provider>
+          </span>
+        </FocusTrap>
+      </KeyListenerBoundary>
+    </>
   )
 }

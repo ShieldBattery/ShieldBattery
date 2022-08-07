@@ -5,6 +5,9 @@ export type DialogActions = OpenDialog | CloseDialog
 export interface OpenDialog {
   type: '@dialogs/open'
   payload: DialogPayload
+  meta: {
+    id: string
+  }
 }
 
 export interface CloseDialog {

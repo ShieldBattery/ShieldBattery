@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { GameSource, GameType } from '../../../common/games/configuration'
 import { GameRecordJson } from '../../../common/games/games'
@@ -8,12 +8,15 @@ import {
   PublicMatchmakingRatingChangeJson,
 } from '../../../common/matchmaking'
 import { makeSbUserId } from '../../../common/users/sb-user'
+import { openDialog } from '../../dialogs/action-creators'
+import { DialogType } from '../../dialogs/dialog-type'
 import { RaisedButton } from '../../material/button'
 import Card from '../../material/card'
 import CheckBox from '../../material/check-box'
 import { NumberTextField } from '../../material/number-text-field'
+import { useAppDispatch } from '../../redux-hooks'
+import { useStableCallback } from '../../state-hooks'
 import { Body1 } from '../../styles/typography'
-import { PostMatchDialog } from '../post-match-dialog'
 
 const GAME_ID = 'asdf-1234'
 const PLAYER_ID = makeSbUserId(1)
@@ -53,11 +56,7 @@ const ControlsCard = styled(Card)`
 `
 
 export function PostMatchDialogTest() {
-  const dialogRef = useRef<HTMLDivElement>(null)
-  const [dialogShown, setDialogShown] = useState(false)
-  const onCancel = useCallback(() => {
-    setDialogShown(false)
-  }, [])
+  const dispatch = useAppDispatch()
 
   const [outcome, setOutcome] = useState<MatchmakingResult>('win')
   const [startingRating, setStartingRating] = useState(1500)
@@ -86,6 +85,19 @@ export function PostMatchDialogTest() {
       bonusUsedChange: 0,
     }
   }, [outcome, ratingChange, startingRating, pointsChange, startingPoints])
+
+  const onClick = useStableCallback(() => {
+    dispatch(
+      openDialog({
+        type: DialogType.PostMatch,
+        initData: {
+          game: GAME,
+          mmrChange,
+          replayPath: undefined,
+        },
+      }),
+    )
+  })
 
   return (
     <div>
@@ -126,16 +138,8 @@ export function PostMatchDialogTest() {
           value={pointsChange}
           onChange={setPointsChange}
         />
-        <RaisedButton label='Show dialog' onClick={() => setDialogShown(true)} />
+        <RaisedButton label='Show dialog' onClick={onClick} />
       </ControlsCard>
-      {dialogShown ? (
-        <PostMatchDialog
-          dialogRef={dialogRef}
-          onCancel={onCancel}
-          game={GAME}
-          mmrChange={mmrChange}
-        />
-      ) : undefined}
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import { LocalSettingsData, ScrSettingsData } from '../../common/local-settings'
 import { LOCAL_SETTINGS_SET_BEGIN, SCR_SETTINGS_SET_BEGIN } from '../actions'
 import { audioManager } from '../audio/audio-manager'
+import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
 import { isStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
@@ -13,19 +14,17 @@ export function openSettingsDialog(): ThunkAction {
     const { starcraft } = getState()
 
     if (!isStarcraftHealthy({ starcraft })) {
-      dispatch({
-        type: '@dialogs/open',
-        payload: {
+      dispatch(
+        openDialog({
           type: DialogType.StarcraftPath,
-        },
-      })
+        }),
+      )
     } else {
-      dispatch({
-        type: '@dialogs/open',
-        payload: {
+      dispatch(
+        openDialog({
           type: DialogType.Settings,
-        },
-      })
+        }),
+      )
     }
   }
 }
