@@ -305,7 +305,7 @@ export interface PublicMatchmakingRatingChange {
    */
   changeDate: Date
   outcome: MatchmakingResult
-  /** The player's rating after this game. */
+  /** The player's rating after this game. If the user is in placement matches, this will be 0. */
   rating: number
   /** The delta between the user's old rating and their new rating. */
   ratingChange: number
@@ -317,6 +317,8 @@ export interface PublicMatchmakingRatingChange {
   bonusUsed: number
   /** The amount of bonus points used for this game. */
   bonusUsedChange: number
+  /** The number of games this user has played since the last MMR reset. */
+  lifetimeGames: number
 }
 
 export type PublicMatchmakingRatingChangeJson = Jsonify<PublicMatchmakingRatingChange>
@@ -324,18 +326,21 @@ export type PublicMatchmakingRatingChangeJson = Jsonify<PublicMatchmakingRatingC
 export function toPublicMatchmakingRatingChangeJson(
   input: Readonly<PublicMatchmakingRatingChange>,
 ): PublicMatchmakingRatingChangeJson {
+  const inPlacements = input.lifetimeGames < NUM_PLACEMENT_MATCHES
+
   return {
     userId: input.userId,
     matchmakingType: input.matchmakingType,
     gameId: input.gameId,
     changeDate: Number(input.changeDate),
     outcome: input.outcome,
-    rating: input.rating,
-    ratingChange: input.ratingChange,
+    rating: inPlacements ? 0 : input.rating,
+    ratingChange: inPlacements ? 0 : input.ratingChange,
     points: input.points,
     pointsChange: input.pointsChange,
     bonusUsed: input.bonusUsed,
     bonusUsedChange: input.bonusUsedChange,
+    lifetimeGames: input.lifetimeGames,
   }
 }
 

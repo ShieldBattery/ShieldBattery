@@ -1,3 +1,4 @@
+import { Immutable } from 'immer'
 import { darken, lighten, saturate } from 'polished'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { animated, useChain, useSpring, useSpringRef, useTransition } from 'react-spring'
@@ -8,6 +9,9 @@ import {
   MatchmakingDivision,
   matchmakingDivisionToLabel,
   MatchmakingDivisionWithBounds,
+  NUM_PLACEMENT_MATCHES,
+  PublicMatchmakingRatingChangeJson,
+  ratingToMatchmakingDivisionAndBounds,
 } from '../../common/matchmaking'
 import audioManager, { AvailableSound } from '../audio/audio-manager'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
@@ -22,7 +26,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { startReplayFromPath } from '../replays/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { colorDividers, colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { caption, headline4, headline6, singleLine } from '../styles/typography'
+import { caption, headline4, headline5, headline6, singleLine } from '../styles/typography'
 import { DivisionIcon } from './rank-icon'
 
 const StyledDialog = styled(Dialog)`
@@ -40,8 +44,8 @@ const IconAndDeltas = styled.div`
   padding-top: 16px;
 `
 
-const Deltas = styled.div`
-  padding-top: 44px;
+const Deltas = styled.div<{ $pointsOnly?: boolean }>`
+  padding-top: ${props => (props.$pointsOnly ? '68px' : '44px')};
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -63,7 +67,7 @@ const SizedSearchAgainIcon = styled(SearchAgainIcon)`
 
 const AnimatedDeltaItem = animated(DeltaItem)
 
-type PostMatchDialogProps = CommonDialogProps & PostMatchDialogPayload['initData']
+type PostMatchDialogProps = CommonDialogProps & Immutable<PostMatchDialogPayload['initData']>
 
 export function PostMatchDialog({
   dialogRef,
@@ -88,10 +92,54 @@ export function PostMatchDialog({
     return !isSearching && (!currentParty || currentParty.leader === s.auth.user.id)
   })
 
+  return (
+    <StyledDialog
+      dialogRef={dialogRef}
+      showCloseButton={true}
+      title='Match results'
+      onCancel={onCancel}>
+      {mmrChange.lifetimeGames >= NUM_PLACEMENT_MATCHES ? (
+        <RatedUserContent mmrChange={mmrChange} />
+      ) : (
+        <UnratedUserContent mmrChange={mmrChange} />
+      )}
+      <ButtonBar>
+        <RaisedButton
+          label='Search again'
+          iconStart={<SizedSearchAgainIcon />}
+          onClick={onSearchAgain}
+          disabled={!canSearchMatchmaking}
+        />
+        <RaisedButton
+          label='Watch replay'
+          iconStart={<WatchReplayIcon />}
+          onClick={onWatchReplay}
+          disabled={!replayPath}
+        />
+      </ButtonBar>
+    </StyledDialog>
+  )
+}
+
+function RatedUserContent({
+  mmrChange,
+}: {
+  mmrChange: Immutable<PublicMatchmakingRatingChangeJson>
+}) {
   const divisionTransitions = useMemo(() => {
-    const startingRating = mmrChange.rating - mmrChange.ratingChange
-    const divisions = getDivisionsForRatingChange(startingRating, mmrChange.rating)
-    const isNegative = mmrChange.ratingChange < 0
+    const placementPromotion = mmrChange.lifetimeGames === NUM_PLACEMENT_MATCHES
+    let startingRating: number
+    let divisions: Array<Readonly<MatchmakingDivisionWithBounds>>
+    if (placementPromotion) {
+      startingRating = 0
+      const placedDivision = ratingToMatchmakingDivisionAndBounds(mmrChange.rating)
+      divisions = [[MatchmakingDivision.Unrated, 0, placedDivision[1]], placedDivision]
+    } else {
+      startingRating = mmrChange.rating - mmrChange.ratingChange
+      divisions = getDivisionsForRatingChange(startingRating, mmrChange.rating)
+    }
+
+    const isNegative = placementPromotion ? false : mmrChange.ratingChange < 0
 
     return divisions.map((divisionWithBounds, i) => {
       const [div, low, high] = divisionWithBounds
@@ -224,35 +272,61 @@ export function PostMatchDialog({
   useChain([deltaSpringRef, divisionSpringRef])
 
   return (
-    <StyledDialog
-      dialogRef={dialogRef}
-      showCloseButton={true}
-      title='Match results'
-      onCancel={onCancel}>
+    <>
       <IconAndDeltas>
         <IconWithLabel division={curDivisionWithBounds[0]} isWin={mmrChange.outcome === 'win'} />
-        <Deltas>
+        <Deltas $pointsOnly={mmrChange.lifetimeGames === NUM_PLACEMENT_MATCHES}>
           {deltaTransition((style, item) => (
             <AnimatedDeltaItem style={style} {...item} />
           ))}
         </Deltas>
       </IconAndDeltas>
       <RatingBarView rating={rating} divisionWithBounds={curDivisionWithBounds} />
-      <ButtonBar>
-        <RaisedButton
-          label='Search again'
-          iconStart={<SizedSearchAgainIcon />}
-          onClick={onSearchAgain}
-          disabled={!canSearchMatchmaking}
-        />
-        <RaisedButton
-          label='Watch replay'
-          iconStart={<WatchReplayIcon />}
-          onClick={onWatchReplay}
-          disabled={!replayPath}
-        />
-      </ButtonBar>
-    </StyledDialog>
+    </>
+  )
+}
+
+function UnratedUserContent({
+  mmrChange,
+}: {
+  mmrChange: Immutable<PublicMatchmakingRatingChangeJson>
+}) {
+  const deltaValues = useMemo(() => [{ label: 'RP', value: mmrChange.pointsChange }], [mmrChange])
+
+  const deltaSpringRef = useSpringRef()
+  const deltaTransition = useTransition(deltaValues, {
+    ref: deltaSpringRef,
+    keys: deltaValues.map(d => d.label),
+    config: defaultSpring,
+    delay: 500,
+    trail: 750,
+    from: {
+      opacity: 0,
+      translateY: 32,
+    },
+    enter: {
+      opacity: 1,
+      translateY: 0,
+    },
+    onStart: useCallback((...args: any[]) => {
+      audioManager.playSound(AvailableSound.PointReveal)
+    }, []),
+  })
+
+  useChain([deltaSpringRef])
+
+  return (
+    <>
+      <IconAndDeltas>
+        <IconWithLabel division={MatchmakingDivision.Unrated} isWin={mmrChange.outcome === 'win'} />
+        <Deltas $pointsOnly={true}>
+          {deltaTransition((style, item) => (
+            <AnimatedDeltaItem style={style} {...item} />
+          ))}
+        </Deltas>
+      </IconAndDeltas>
+      <PlacementCount lifetimeGames={mmrChange.lifetimeGames} />
+    </>
   )
 }
 
@@ -458,3 +532,19 @@ const RatingBarView = animated(
     )
   },
 )
+
+const PlacementCountRoot = styled.div`
+  ${headline5};
+  padding: 24px 0 8px;
+
+  color: ${colorTextSecondary};
+  text-align: center;
+`
+
+function PlacementCount({ lifetimeGames }: { lifetimeGames: number }) {
+  return (
+    <PlacementCountRoot>
+      {lifetimeGames} / {NUM_PLACEMENT_MATCHES} placements
+    </PlacementCountRoot>
+  )
+}

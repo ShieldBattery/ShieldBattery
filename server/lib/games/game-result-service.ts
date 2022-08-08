@@ -367,7 +367,7 @@ export default class GameResultService {
             points: change.points,
             bonusUsed: change.bonusUsed,
             numGamesPlayed: mmr.numGamesPlayed + 1,
-            lifetimeGames: mmr.lifetimeGames + 1,
+            lifetimeGames: change.lifetimeGames,
             lastPlayedDate: reconcileDate,
             wins: mmr.wins + winCount,
             losses: mmr.losses + lossCount,

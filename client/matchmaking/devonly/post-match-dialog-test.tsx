@@ -5,6 +5,7 @@ import { GameRecordJson } from '../../../common/games/games'
 import {
   MatchmakingResult,
   MatchmakingType,
+  NUM_PLACEMENT_MATCHES,
   PublicMatchmakingRatingChangeJson,
 } from '../../../common/matchmaking'
 import { makeSbUserId } from '../../../common/users/sb-user'
@@ -63,6 +64,7 @@ export function PostMatchDialogTest() {
   const [ratingChange, setRatingChange] = useState(75)
   const [startingPoints, setStartingPoints] = useState(200)
   const [pointsChange, setPointsChange] = useState(96)
+  const [lifetimeGames, setLifetimeGames] = useState(10)
 
   const mmrChange = useMemo<PublicMatchmakingRatingChangeJson>(() => {
     const signedRatingChange = outcome === 'win' ? ratingChange : -ratingChange
@@ -77,14 +79,15 @@ export function PostMatchDialogTest() {
       gameId: GAME_ID,
       changeDate: GAME.startTime + GAME.gameLength!,
       outcome,
-      rating: newRating,
-      ratingChange: newRating - startingRating,
+      rating: lifetimeGames < NUM_PLACEMENT_MATCHES ? 0 : newRating,
+      ratingChange: lifetimeGames < NUM_PLACEMENT_MATCHES ? 0 : newRating - startingRating,
       points: newPoints,
       pointsChange: newPoints - startingPoints,
       bonusUsed: 0,
       bonusUsedChange: 0,
+      lifetimeGames,
     }
-  }, [outcome, ratingChange, startingRating, pointsChange, startingPoints])
+  }, [outcome, ratingChange, startingRating, pointsChange, startingPoints, lifetimeGames])
 
   const onClick = useStableCallback(() => {
     dispatch(
@@ -137,6 +140,12 @@ export function PostMatchDialogTest() {
           floatingLabel={true}
           value={pointsChange}
           onChange={setPointsChange}
+        />
+        <NumberTextField
+          label='Lifetime games'
+          floatingLabel={true}
+          value={lifetimeGames}
+          onChange={setLifetimeGames}
         />
         <RaisedButton label='Show dialog' onClick={onClick} />
       </ControlsCard>
