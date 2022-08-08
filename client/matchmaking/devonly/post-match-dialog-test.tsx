@@ -61,7 +61,7 @@ export function PostMatchDialogTest() {
   const [outcome, setOutcome] = useState<MatchmakingResult>('win')
   const [startingRating, setStartingRating] = useState(1500)
   const [ratingChange, setRatingChange] = useState(75)
-  const [startingPoints, setStartingPoints] = useState(0)
+  const [startingPoints, setStartingPoints] = useState(200)
   const [pointsChange, setPointsChange] = useState(96)
 
   const mmrChange = useMemo<PublicMatchmakingRatingChangeJson>(() => {
