@@ -1,4 +1,5 @@
 import fs from 'fs'
+import Koa from 'koa'
 import koaBody from 'koa-body'
 
 const bodyMiddleware = koaBody({
@@ -14,13 +15,15 @@ const bodyMiddleware = koaBody({
 
 // A Koa middleware function that sets up multipart file handling and will clean up the files
 // once the request is completed
-export default async function handleMultipartFiles(ctx, next) {
+export default async function handleMultipartFiles(ctx: Koa.Context, next: Koa.Next) {
   await bodyMiddleware(ctx, async () => {
     try {
       await next()
     } finally {
-      for (const { path } of Object.values(ctx.request.files)) {
-        fs.unlink(path, e => {})
+      if (ctx.request.files) {
+        for (const { filepath } of Array.from(Object.values(ctx.request.files)).flat()) {
+          fs.unlink(filepath, e => {})
+        }
       }
     }
   })

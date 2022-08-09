@@ -156,10 +156,10 @@ export class MapsApi {
       throw new httpErrors.BadRequest('A single map file must be provided')
     }
 
-    const { path } = ctx.request.files!.file
+    const { filepath } = ctx.request.files!.file
     const { extension } = ctx.request.body
 
-    if (!path) {
+    if (!filepath) {
       throw new httpErrors.BadRequest('map file must be specified')
     } else if (!extension) {
       throw new httpErrors.BadRequest('extension must be specified')
@@ -171,7 +171,7 @@ export class MapsApi {
     }
 
     const map = await storeMap(
-      path,
+      filepath,
       lowerCaseExtension,
       ctx.session!.userId,
       MapVisibility.Official,
@@ -193,10 +193,10 @@ export class MapsApi {
       throw new httpErrors.BadRequest('A single map file must be provided')
     }
 
-    const { path } = ctx.request.files!.file
+    const { filepath } = ctx.request.files!.file
     const { extension } = ctx.request.body
 
-    if (!path) {
+    if (!filepath) {
       throw new httpErrors.BadRequest('map file must be specified')
     } else if (!extension) {
       throw new httpErrors.BadRequest('extension must be specified')
@@ -207,7 +207,12 @@ export class MapsApi {
       throw new httpErrors.BadRequest('Unsupported extension: ' + lowerCaseExtension)
     }
 
-    const map = await storeMap(path, lowerCaseExtension, ctx.session!.userId, MapVisibility.Private)
+    const map = await storeMap(
+      filepath,
+      lowerCaseExtension,
+      ctx.session!.userId,
+      MapVisibility.Private,
+    )
     return {
       map,
     }
