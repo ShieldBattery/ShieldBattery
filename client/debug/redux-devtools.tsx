@@ -1,11 +1,11 @@
+import { createDevTools } from '@redux-devtools/core'
+import { DockMonitor } from '@redux-devtools/dock-monitor'
+import { InspectorMonitor } from '@redux-devtools/inspector-monitor'
 import React from 'react'
-import { createDevTools } from 'redux-devtools'
-import DockMonitor from 'redux-devtools-dock-monitor'
-import InspectorMonitor from 'redux-devtools-inspector'
 import styled from 'styled-components'
 import { useForceUpdate } from '../state-hooks'
 
-const Container = styled.div`
+const Container = styled.div<{ $hidden?: boolean }>`
   position: fixed !important;
   z-index: 99999999 !important;
   pointer-events: ${props => (props.$hidden ? 'none' : 'auto')};
@@ -35,7 +35,7 @@ const Container = styled.div`
 let updateRoot = () => {}
 let updateInspectorMonitor = () => {}
 let isVisible = false
-const setIsVisible = val => {
+const setIsVisible = (val: boolean) => {
   isVisible = val
   updateInspectorMonitor()
   updateRoot()
@@ -55,7 +55,7 @@ const EmptyComponent = styled.div`
  * This is mildly okay when you actually want to see the actions being dispatched, but pretty darn
  * annoying if the UI isn't even onscreen.
  */
-function PerformantInspectorMonitor(props) {
+function PerformantInspectorMonitor(props: any) {
   updateInspectorMonitor = useForceUpdate()
 
   return isVisible ? (
@@ -65,7 +65,7 @@ function PerformantInspectorMonitor(props) {
   )
 }
 
-PerformantInspectorMonitor.update = function (monitorProps, state, action) {
+PerformantInspectorMonitor.update = function (monitorProps: any, state: any, action: any) {
   if (action.type === '@@redux-devtools-log-monitor/TOGGLE_VISIBILITY') {
     setIsVisible(!isVisible)
   }

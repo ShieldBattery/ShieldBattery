@@ -173,6 +173,9 @@
     "@babel/preset-react": "^7.7.4",
     "@playwright/test": "^1.21.1",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.5",
+    "@redux-devtools/core": "^3.13.1",
+    "@redux-devtools/dock-monitor": "^3.0.1",
+    "@redux-devtools/inspector-monitor": "^3.0.1",
     "@types/bcrypt": "^5.0.0",
     "@types/body-parser": "^1.19.0",
     "@types/d3-time-format": "^4.0.0",
@@ -217,7 +220,6 @@
     "babel-plugin-styled-components": "^2.0.7",
     "concat-stream": "^2.0.0",
     "d3-time-format": "^4.1.0",
-    "dateformat": "^4.4.1",
     "deep-equal": "^2.0.1",
     "electron": "^20.0.1",
     "electron-builder": "^23.0.3",
@@ -266,9 +268,6 @@
     "react-transition-group": "^4.3.0",
     "react-virtuoso": "^2.13.2",
     "redux": "^4.2.0",
-    "redux-devtools": "^3.7.0",
-    "redux-devtools-dock-monitor": "^1.2.0",
-    "redux-devtools-inspector": "^0.14.0",
     "redux-thunk": "^2.4.1",
     "stream-browserify": "^3.0.0",
     "styled-components": "^5.3.5",
@@ -282,8 +281,5 @@
     "webpack-hot-middleware": "^2.25.0",
     "wouter": "^2.7.4",
     "ws": "^8.3.0"
-  },
-  "resolutions": {
-    "dateformat": "^4.4.1"
   }
 }

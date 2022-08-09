@@ -986,7 +986,7 @@
     pirates "^4.0.5"
     source-map-support "^0.5.16"
 
-"@babel/runtime@^7.12.1", "@babel/runtime@^7.17.8", "@babel/runtime@^7.3.1", "@babel/runtime@^7.5.5", "@babel/runtime@^7.8.3", "@babel/runtime@^7.8.4", "@babel/runtime@^7.8.7", "@babel/runtime@^7.9.2":
+"@babel/runtime@^7.12.1", "@babel/runtime@^7.16.7", "@babel/runtime@^7.17.8", "@babel/runtime@^7.18.3", "@babel/runtime@^7.3.1", "@babel/runtime@^7.5.5", "@babel/runtime@^7.8.3", "@babel/runtime@^7.8.4", "@babel/runtime@^7.8.7", "@babel/runtime@^7.9.2":
   version "7.18.9"
   resolved "https://registry.yarnpkg.com/@babel/runtime/-/runtime-7.18.9.tgz#b4fcfce55db3d2e5e080d2490f608a3b9f407f4a"
   integrity sha512-lkqXDcvlFT5rvEjiu6+QYO+1GXrEHRo2LOtS7E4GtX5ESIZOgepqsZBVIj6Pv+a6zqsya9VCgiK1KAK4BvJDAw==
@@ -1593,6 +1593,59 @@
     "@react-spring/shared" "~9.5.2"
     "@react-spring/types" "~9.5.2"
 
+"@redux-devtools/core@^3.13.1":
+  version "3.13.1"
+  resolved "https://registry.yarnpkg.com/@redux-devtools/core/-/core-3.13.1.tgz#2abd94c99be1c7d3941c428667f722aa9d56012f"
+  integrity sha512-VZbma4b28D7dLn6rKTxx4r1KJrgiT2EQNF4vjkpTlXTu0cQcHkEcAO9ixMBj6rZGrT/jinCHq8gBy2bWgnDvcA==
+  dependencies:
+    "@babel/runtime" "^7.18.3"
+    "@redux-devtools/instrument" "^2.1.0"
+    "@types/prop-types" "^15.7.5"
+    lodash "^4.17.21"
+    prop-types "^15.8.1"
+
+"@redux-devtools/dock-monitor@^3.0.1":
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/@redux-devtools/dock-monitor/-/dock-monitor-3.0.1.tgz#b7123adfcf46139f60ec1aded812034af73c3173"
+  integrity sha512-ajIa3NRy89B7mw0/4SCNipXIV+B1eOqvprQXdGJPA66F6Gpzf3TKJ2Mupmj4yZNL1NL2GBIAbApNnWE9u+DU5w==
+  dependencies:
+    "@babel/runtime" "^7.18.3"
+    "@types/prop-types" "^15.7.5"
+    parse-key "^0.2.1"
+    prop-types "^15.8.1"
+    react-dock "^0.6.0"
+
+"@redux-devtools/inspector-monitor@^3.0.1":
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/@redux-devtools/inspector-monitor/-/inspector-monitor-3.0.1.tgz#461626a00f504a320be2a41c8ba377eb8d55a19d"
+  integrity sha512-qXipIZHYITXN6+Wkj28LNtUoeu952mBg03/J5WHtAhx9nPLctnMjUbRe8P/IWSErnII5KwXKnYETWBmtpYufeQ==
+  dependencies:
+    "@babel/runtime" "^7.18.3"
+    "@types/dragula" "^3.7.1"
+    "@types/lodash" "^4.14.182"
+    "@types/prop-types" "^15.7.5"
+    dateformat "^4.6.3"
+    hex-rgba "^1.0.2"
+    immutable "^4.1.0"
+    javascript-stringify "^2.1.0"
+    jsondiffpatch "^0.4.1"
+    jss "^10.9.0"
+    jss-preset-default "^10.9.0"
+    lodash.debounce "^4.0.8"
+    prop-types "^15.8.1"
+    react-base16-styling "^0.9.1"
+    react-dragula "^1.1.17"
+    react-json-tree "^0.17.0"
+    redux-devtools-themes "^1.0.0"
+
+"@redux-devtools/instrument@^2.1.0":
+  version "2.1.0"
+  resolved "https://registry.yarnpkg.com/@redux-devtools/instrument/-/instrument-2.1.0.tgz#78c9553225b0eb655128abff8efa8d41384c0a0c"
+  integrity sha512-e8fo88kuq/zWqfNf6S/GNfaQMjF4WSPpucmYfRhzZyyXHC3PCLd/xgz7zooPErDh9QwUXK6sTVYvrkq7hPbsFA==
+  dependencies:
+    "@babel/runtime" "^7.16.7"
+    lodash "^4.17.21"
+
 "@sideway/address@^4.1.3":
   version "4.1.4"
   resolved "https://registry.yarnpkg.com/@sideway/address/-/address-4.1.4.tgz#03dccebc6ea47fdc226f7d3d1ad512955d4783f0"
@@ -1823,7 +1876,7 @@
   resolved "https://registry.yarnpkg.com/@types/deep-equal/-/deep-equal-1.0.1.tgz#71cfabb247c22bcc16d536111f50c0ed12476b03"
   integrity sha512-mMUu4nWHLBlHtxXY17Fg6+ucS/MnndyOWyOe7MmwkoMYxvfQU2ajtRaEvqSUv+aVkMqH/C0NCI8UoVfRNQ10yg==
 
-"@types/dragula@^3.7.0":
+"@types/dragula@^3.7.1":
   version "3.7.1"
   resolved "https://registry.yarnpkg.com/@types/dragula/-/dragula-3.7.1.tgz#79940c2b9a9f0bc5f7d0c486f2cb56651f73170c"
   integrity sha512-hbMEG5+wZEwV6NK4cbexldLWEvYNox8PywM9ICIeCTM99g8nJxccE3C8vvl66TCfnN+R8ioNdOrHWJT+5X0pvw==
@@ -2088,7 +2141,7 @@
   dependencies:
     "@types/lodash" "*"
 
-"@types/lodash@*", "@types/lodash@^4.14.172", "@types/lodash@^4.14.178":
+"@types/lodash@*", "@types/lodash@^4.14.172", "@types/lodash@^4.14.178", "@types/lodash@^4.14.182":
   version "4.14.182"
   resolved "https://registry.yarnpkg.com/@types/lodash/-/lodash-4.14.182.tgz#05301a4d5e62963227eaafe0ce04dd77c54ea5c2"
   integrity sha512-/THyiqyQAP9AfARo4pF+aCGcyiQ94tX/Is2I7HofNRqoYLgN1PBoOWu2/zTA5zMxzP5EFutMtWtGAFRKUe961Q==
@@ -2159,7 +2212,7 @@
   resolved "https://registry.yarnpkg.com/@types/prettier/-/prettier-2.7.0.tgz#ea03e9f0376a4446f44797ca19d9c46c36e352dc"
   integrity sha512-RI1L7N4JnW5gQw2spvL7Sllfuf1SaHdrZpCHiBlCXjIlufi1SMNnbu2teze3/QE67Fg2tBlH7W+mi4hVNk4p0A==
 
-"@types/prop-types@*", "@types/prop-types@^15.7.3":
+"@types/prop-types@*", "@types/prop-types@^15.7.5":
   version "15.7.5"
   resolved "https://registry.yarnpkg.com/@types/prop-types/-/prop-types-15.7.5.tgz#5f19d2b85a98e9558036f6a3cacc8819420f05cf"
   integrity sha512-JCB8C6SnDoQf0cNycqd/35A7MjcnK+ZTqE7judS6o7utxUCg6imJg3QK2qzHKszlTjcj2cn+NwMB2i96ubpj7w==
@@ -4501,7 +4554,7 @@ data-urls@^3.0.1:
     whatwg-mimetype "^3.0.0"
     whatwg-url "^11.0.0"
 
-dateformat@^3.0.3, dateformat@^4.4.1, dateformat@^4.6.3:
+dateformat@^4.6.3:
   version "4.6.3"
   resolved "https://registry.yarnpkg.com/dateformat/-/dateformat-4.6.3.tgz#556fa6497e5217fedb78821424f8a1c22fa3f4b5"
   integrity sha512-2P0p0pFGzHS5EMnhdxQi7aJN+iMheud0UhG4dlE1DLAlvL8JHjJJTX/CSm4JXwV0Ka5nGk3zC5mcb5bUQUxxMA==
@@ -6301,7 +6354,7 @@ immer@^9.0.2:
   resolved "https://registry.yarnpkg.com/immer/-/immer-9.0.15.tgz#0b9169e5b1d22137aba7d43f8a81a495dd1b62dc"
   integrity sha512-2eB/sswms9AEUSkOm4SbV5Y7Vmt/bKRwByd52jfLkW4OLYeaTP3EEiJ9agqU0O/tq6Dk62Zfj+TJSqfm1rLVGQ==
 
-immutable@^4.0.0-rc.12:
+immutable@^4.0.0-rc.12, immutable@^4.1.0:
   version "4.1.0"
   resolved "https://registry.yarnpkg.com/immutable/-/immutable-4.1.0.tgz#f795787f0db780183307b9eb2091fcac1f6fafef"
   integrity sha512-oNkuqVTA8jqG1Q6c+UglTOD1xhC1BtjKI7XkCXRkZHrN5m18/XsnUp8Q89GkQO/z+0WjonSvl0FLhDYftp46nQ==
@@ -6805,7 +6858,7 @@ jake@^10.8.5:
     filelist "^1.0.1"
     minimatch "^3.0.4"
 
-javascript-stringify@^2.0.1:
+javascript-stringify@^2.1.0:
   version "2.1.0"
   resolved "https://registry.yarnpkg.com/javascript-stringify/-/javascript-stringify-2.1.0.tgz#27c76539be14d8bd128219a2d731b09337904e79"
   integrity sha512-JVAfqNPTvNq3sB/VHQJAFxN/sPgKnsKrCwyRt15zwNCdrMMJDdcEOdubuy+DuJYYdm0ox1J4uzEuYKkN+9yhVg==
@@ -7478,7 +7531,7 @@ jss-plugin-vendor-prefixer@10.9.2:
     css-vendor "^2.0.8"
     jss "10.9.2"
 
-jss-preset-default@^10.3.0:
+jss-preset-default@^10.9.0:
   version "10.9.2"
   resolved "https://registry.yarnpkg.com/jss-preset-default/-/jss-preset-default-10.9.2.tgz#684e0c0a2ce3b1127e990457ebc0ba71272780f3"
   integrity sha512-HMkTLgYPRjwdiu8n8ZB2VEfpO95cZ5AmmSYvFSvt76MQJMp/xDh6cP49MmZHwMpIvXwNj0LI8Peglgwz+rHKBQ==
@@ -7498,7 +7551,7 @@ jss-preset-default@^10.3.0:
     jss-plugin-template "10.9.2"
     jss-plugin-vendor-prefixer "10.9.2"
 
-jss@10.9.2, jss@^10.3.0:
+jss@10.9.2, jss@^10.9.0:
   version "10.9.2"
   resolved "https://registry.yarnpkg.com/jss/-/jss-10.9.2.tgz#9379be1f195ef98011dfd31f9448251bd61b95a9"
   integrity sha512-b8G6rWpYLR4teTUbGd4I4EsnWjg7MN0Q5bSsjKhVkJVjhQDy2KzkbD2AW3TuT0RYZVmZZHKIrXDn6kjU14qkUg==
@@ -7858,7 +7911,7 @@ lodash.merge@^4.6.2:
   resolved "https://registry.yarnpkg.com/lodash.merge/-/lodash.merge-4.6.2.tgz#558aa53b43b661e1925a0afdfa36a9a1085fe57a"
   integrity sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==
 
-lodash@^4.17.10, lodash@^4.17.11, lodash@^4.17.15, lodash@^4.17.19, lodash@^4.17.21, lodash@^4.17.4:
+lodash@^4.17.10, lodash@^4.17.11, lodash@^4.17.15, lodash@^4.17.21, lodash@^4.17.4:
   version "4.17.21"
   resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.21.tgz#679591c564c3bffaae8454cf0b3df370c3d6911c"
   integrity sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==
@@ -9243,11 +9296,12 @@ rc@1.2.8, rc@^1.2.8:
     minimist "^1.2.0"
     strip-json-comments "~2.0.1"
 
-react-base16-styling@^0.8.0:
-  version "0.8.2"
-  resolved "https://registry.yarnpkg.com/react-base16-styling/-/react-base16-styling-0.8.2.tgz#6bc97045b0f8c42d14857097d62b9017666aa5b9"
-  integrity sha512-5bxHCNKT/FfU9yMzNB/CaCQLGqZ/Nr4FnaIRJUTkwwPTRaCfYAP+/3opeQb61XvesmofJ4FloTSYW9aw1tMXqQ==
+react-base16-styling@^0.9.1:
+  version "0.9.1"
+  resolved "https://registry.yarnpkg.com/react-base16-styling/-/react-base16-styling-0.9.1.tgz#4906b4c0a51636f2dca2cea8b682175aa8bd0c92"
+  integrity sha512-1s0CY1zRBOQ5M3T61wetEpvQmsYSNtWEcdYzyZNxKa8t7oDvaOn9d21xrGezGAHFWLM7SHcktPuPTrvoqxSfKw==
   dependencies:
+    "@babel/runtime" "^7.16.7"
     "@types/base16" "^1.0.2"
     "@types/lodash" "^4.14.178"
     base16 "^1.0.0"
@@ -9255,14 +9309,16 @@ react-base16-styling@^0.8.0:
     csstype "^3.0.10"
     lodash.curry "^4.1.1"
 
-react-dock@^0.3.0:
-  version "0.3.0"
-  resolved "https://registry.yarnpkg.com/react-dock/-/react-dock-0.3.0.tgz#5d9d51cac78ee5819854c3ad180dabe50c420820"
-  integrity sha512-A0Dfy6enwb6gruxsMXAkZM6hVyJETTcuB4u/CUVPAj4ZH0/ULQacLHmIdUHfYtZYmPCfeEgOa7KyTueSPrIjFg==
+react-dock@^0.6.0:
+  version "0.6.0"
+  resolved "https://registry.yarnpkg.com/react-dock/-/react-dock-0.6.0.tgz#0ee8c3d38aa28642ff900f9310883c1387f3b9b6"
+  integrity sha512-jEOhv1s+pqRQ4JxgUw4XUotnprOehZ23mqchf3whxYXnvNgTQOXCxh6bpcqW8P6OybIk2bYO18r3qimZ3ypCbg==
   dependencies:
-    "@types/prop-types" "^15.7.3"
+    "@babel/runtime" "^7.18.3"
+    "@types/lodash" "^4.14.182"
+    "@types/prop-types" "^15.7.5"
     lodash.debounce "^4.0.8"
-    prop-types "^15.7.2"
+    prop-types "^15.8.1"
 
 react-dom@^18.0.0:
   version "18.2.0"
@@ -9290,14 +9346,16 @@ react-is@^16.13.1, react-is@^16.7.0:
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-16.13.1.tgz#789729a4dc36de2999dc156dd6c1d9c18cea56a4"
   integrity sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==
 
-react-json-tree@^0.13.0:
-  version "0.13.0"
-  resolved "https://registry.yarnpkg.com/react-json-tree/-/react-json-tree-0.13.0.tgz#49b1e68e4ed7f4f918142a4b0d9af6c533c86a7d"
-  integrity sha512-FPJUQzYWi7pvBUAnMd9ENOnAUT2mXLhe01VUbPfKH9Q4gk4FQ0fpS1e1WZ3o7g6zfYJpYJeBTo1WwlMHlMlZOw==
+react-json-tree@^0.17.0:
+  version "0.17.0"
+  resolved "https://registry.yarnpkg.com/react-json-tree/-/react-json-tree-0.17.0.tgz#aca02cb8c2d3d944e128763c5d814bafa92511d4"
+  integrity sha512-hcWjibI/fAvsKnfYk+lka5OrE1Lvb1jH5pSnFhIU5T8cCCxB85r6h/NOzDPggSSgErjmx4rl3+2EkeclIKBOhg==
   dependencies:
-    "@types/prop-types" "^15.7.3"
-    prop-types "^15.7.2"
-    react-base16-styling "^0.8.0"
+    "@babel/runtime" "^7.18.3"
+    "@types/lodash" "^4.14.182"
+    "@types/prop-types" "^15.7.5"
+    prop-types "^15.8.1"
+    react-base16-styling "^0.9.1"
 
 react-redux@^8.0.1:
   version "8.0.2"
@@ -9503,60 +9561,12 @@ reduce-function-call@^1.0.1:
   dependencies:
     balanced-match "^1.0.0"
 
-redux-devtools-dock-monitor@^1.2.0:
-  version "1.2.0"
-  resolved "https://registry.yarnpkg.com/redux-devtools-dock-monitor/-/redux-devtools-dock-monitor-1.2.0.tgz#d7a99e9181dafff25e6869c6cc2bce9a9019eb04"
-  integrity sha512-8Qs47jjs5itZMdhnXVl9sfpb1FPtxQZqs11reKUkJ83xxVsE9plL6FXj+kPjRStppzWUsDLMOLACVx3w/TjiRQ==
-  dependencies:
-    "@types/prop-types" "^15.7.3"
-    parse-key "^0.2.1"
-    prop-types "^15.7.2"
-    react-dock "^0.3.0"
-
-redux-devtools-inspector@^0.14.0:
-  version "0.14.0"
-  resolved "https://registry.yarnpkg.com/redux-devtools-inspector/-/redux-devtools-inspector-0.14.0.tgz#66be39673d8f3dd7d2b1ca5e6b2f9b81a2c2bada"
-  integrity sha512-NRLCUqyzzHwBIE2GQeAc/6uRZMIXG15yhSOlmoPareqiQyBuxYU6bSCcJUhOJrJP2TlAADlb3jfuQQVbMd8w3A==
-  dependencies:
-    "@types/dragula" "^3.7.0"
-    "@types/prop-types" "^15.7.3"
-    dateformat "^3.0.3"
-    hex-rgba "^1.0.2"
-    javascript-stringify "^2.0.1"
-    jsondiffpatch "^0.4.1"
-    jss "^10.3.0"
-    jss-preset-default "^10.3.0"
-    lodash.debounce "^4.0.8"
-    prop-types "^15.7.2"
-    react-base16-styling "^0.8.0"
-    react-dragula "^1.1.17"
-    react-json-tree "^0.13.0"
-    redux-devtools-themes "^1.0.0"
-
-redux-devtools-instrument@^1.10.0:
-  version "1.10.0"
-  resolved "https://registry.yarnpkg.com/redux-devtools-instrument/-/redux-devtools-instrument-1.10.0.tgz#036caf79fa1e5f25ec4bae38a9af4f08c69e323a"
-  integrity sha512-X8JRBCzX2ADSMp+iiV7YQ8uoTNyEm0VPFPd4T854coz6lvRiBrFSqAr9YAS2n8Kzxx8CJQotR0QF9wsMM+3DvA==
-  dependencies:
-    lodash "^4.17.19"
-    symbol-observable "^1.2.0"
-
 redux-devtools-themes@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/redux-devtools-themes/-/redux-devtools-themes-1.0.0.tgz#c482dce3c5373976045f40134907d9dcb3ae3d5d"
   integrity sha512-hBWqdZX+dioMWnTjf8+uSm0q1wCdYO4kU5gERzHcMMbu0Qg7JDR42TnJ6GHJ6r7k/tIpsCSygc9U0ehAtR24TQ==
   dependencies:
     base16 "^1.0.0"
-
-redux-devtools@^3.7.0:
-  version "3.7.0"
-  resolved "https://registry.yarnpkg.com/redux-devtools/-/redux-devtools-3.7.0.tgz#5bc2d50227d94ce95c79dbfdf2ffc7a23c553553"
-  integrity sha512-Lnx3UX7mnJij2Xs+RicPK1GyKkbuodrCKtfYmJsN603wC0mc99W//xCAskGVNmRhIXg4e57m2k1CyX0kVzCsBg==
-  dependencies:
-    "@types/prop-types" "^15.7.3"
-    lodash "^4.17.19"
-    prop-types "^15.7.2"
-    redux-devtools-instrument "^1.10.0"
 
 redux-thunk@^2.4.1:
   version "2.4.1"
