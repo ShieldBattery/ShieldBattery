@@ -114,6 +114,7 @@ protocol.registerSchemesAsPrivileged([
 // Keep a reference to the window and system tray objects so they don't get GC'd and closed
 let mainWindow: BrowserWindow | null
 let systemTray: SystemTray
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let gameServer: GameServer
 
 export const getMainWindow = () => mainWindow
@@ -755,7 +756,6 @@ app.on('ready', async () => {
     setupIpc(localSettings, scrSettings)
     setupCspProtocol(currentSession())
     setupAnalytics(currentSession())
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     gameServer = createGameServer(localSettings)
     await createWindow()
     systemTray = new SystemTray(mainWindow, () => app.quit())

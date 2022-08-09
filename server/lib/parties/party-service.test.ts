@@ -69,13 +69,20 @@ describe('parties/party-service', () => {
 
   let client1: InspectableNydusClient
   let client2: InspectableNydusClient
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let client3: InspectableNydusClient
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let client4: InspectableNydusClient
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let client5: InspectableNydusClient
   let client6: InspectableNydusClient
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let client7: InspectableNydusClient
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let client8: InspectableNydusClient
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let client9: InspectableNydusClient
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let webClient: InspectableNydusClient
 
   let nydus: NydusServer
@@ -115,21 +122,13 @@ describe('parties/party-service', () => {
 
     client1 = connector.connectClient(user1, USER1_CLIENT_ID)
     client2 = connector.connectClient(user2, USER2_CLIENT_ID)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     client3 = connector.connectClient(user3, USER3_CLIENT_ID)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     client4 = connector.connectClient(user4, USER4_CLIENT_ID)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     client5 = connector.connectClient(user5, USER5_CLIENT_ID)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     client6 = connector.connectClient(user6, USER6_CLIENT_ID)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     client7 = connector.connectClient(user7, USER7_CLIENT_ID)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     client8 = connector.connectClient(user8, USER8_CLIENT_ID)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     client9 = connector.connectClient(user9, USER9_CLIENT_ID)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     webClient = connector.connectClient(webUser, WEB_USER_CLIENT_ID, 'web')
 
     clearTestLogs(nydus)
