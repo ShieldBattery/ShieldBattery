@@ -109,7 +109,7 @@ export class MatchmakingApi {
       throw new httpErrors.UnauthorizedError('This account is banned')
     }
 
-    await this.matchmakingService.find(ctx.session!.userId, clientId, preferences)
+    await this.matchmakingService.find(ctx.session!.userId, clientId, identifiers, preferences)
 
     // Save the last queued matchmaking type on the user's session
     await updateAllSessionsForCurrentUser(ctx, {

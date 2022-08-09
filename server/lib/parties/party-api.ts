@@ -296,7 +296,11 @@ export class PartyApi {
     })
 
     await this.userIdManager.upsert(ctx.session!.userId, identifiers)
-    await this.partyService.findMatch(partyId, ctx.session!.userId, preferences)
+    if (await this.userIdManager.banUserIfNeeded(ctx.session!.userId)) {
+      throw new httpErrors.UnauthorizedError('This account is banned')
+    }
+
+    await this.partyService.findMatch(partyId, ctx.session!.userId, identifiers, preferences)
   }
 
   @httpPost('/:partyId/find-match/:queueId')
@@ -317,7 +321,11 @@ export class PartyApi {
     })
 
     await this.userIdManager.upsert(ctx.session!.userId, identifiers)
-    this.partyService.acceptFindMatch(partyId, queueId, ctx.session!.userId, race)
+    if (await this.userIdManager.banUserIfNeeded(ctx.session!.userId)) {
+      throw new httpErrors.UnauthorizedError('This account is banned')
+    }
+
+    this.partyService.acceptFindMatch(partyId, queueId, ctx.session!.userId, identifiers, race)
   }
 
   @httpDelete('/:partyId/find-match/:queueId')

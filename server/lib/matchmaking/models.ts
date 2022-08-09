@@ -155,39 +155,63 @@ export async function getMatchmakingRating(
  * matchmaking type for the season. This should only be used when we have some lock on this player
  * for that matchmaking type (for instance, they have been put in the game activity registry).
  *
- * This will try to utilize a past MMR record (from a previous season) if one can be found.
+ * This will try to utilize a past MMR record (from a previous season, including from users playing
+ * from the same machine) if one can be found.
  */
 export async function createInitialMatchmakingRating(
   userId: SbUserId,
   matchmakingType: MatchmakingType,
   season: MatchmakingSeason,
+  connectedUsers: ReadonlyArray<SbUserId>,
 ): Promise<MatchmakingRating> {
   const { client, done } = await db()
   try {
     // First, try to find a previous season's MMR that hasn't been reset
-    const previousMmrs = await client.query<{ reset: boolean } & Partial<DbMatchmakingRating>>(sql`
-      SELECT ms.reset_mmr as reset, mr.*
+    const previousMmrs = await client.query<
+      { reset: boolean; season_id: SeasonId } & Partial<DbMatchmakingRating>
+    >(sql`
+      SELECT ms.reset_mmr as reset, ms.id as season_id, mr.*
       FROM matchmaking_seasons ms
       LEFT JOIN matchmaking_ratings mr
       ON ms.id = mr.season_id
-      AND mr.user_id = ${userId}
+      AND mr.user_id = ANY(${[userId, ...connectedUsers]})
       AND mr.matchmaking_type = ${matchmakingType}
-      WHERE ms.start_date < ${season.startDate}
-      ORDER BY ms.start_date DESC;
+      WHERE
+        (mr.user_id = ${userId} AND ms.start_date < ${season.startDate}) OR
+        (mr.user_id != ${userId} AND ms.start_date <= ${season.startDate})
+      ORDER BY ms.start_date DESC, mr.last_played_date DESC;
     `)
+
     let previousMmr: MatchmakingRating | undefined
-    if (!season.resetMmr) {
-      for (const row of previousMmrs.rows) {
-        if (row.user_id) {
-          // NOTE(tec27): With this query either all the columns will be set or none of them will,
-          // so this cast is safe
-          previousMmr = fromDbMatchmakingRating(row as DbMatchmakingRating)
-          break
-        } else if (row.reset) {
-          // Once we find a reset season without finding a previous MMR, all MMRs past that point
-          // are void
+    let foundLifetimeGames = false
+    let lifetimeGames = 0
+    for (const row of previousMmrs.rows) {
+      if (row.user_id) {
+        if (row.reset && row.season_id !== season.id) {
+          // Special handling here to allow for smurf detection in the current season even if it's a
+          // reset season, but not allow any older MMR entries
           break
         }
+
+        // NOTE(tec27): With this query either all the columns will be set or none of them will,
+        // so this cast is safe
+        if (!previousMmr) {
+          previousMmr = fromDbMatchmakingRating(row as DbMatchmakingRating)
+        }
+        if (!foundLifetimeGames && row.user_id === userId) {
+          // We try to use the lifetime games only from the current account to make it less
+          // obvious when we've detected a smurf
+          lifetimeGames = row.lifetime_games!
+          foundLifetimeGames = true
+        }
+
+        if (previousMmr && foundLifetimeGames) {
+          break
+        }
+      } else if (row.reset) {
+        // Once we find a reset season without finding a previous MMR, all MMRs past that point
+        // are void
+        break
       }
     }
 
@@ -201,7 +225,7 @@ export async function createInitialMatchmakingRating(
           uncertainty: previousMmr.uncertainty,
           volatility: previousMmr.volatility,
           lastPlayedDate: previousMmr.lastPlayedDate,
-          lifetimeGames: previousMmr.lifetimeGames,
+          lifetimeGames,
         }
       : {
           ...DEFAULT_MATCHMAKING_RATING,

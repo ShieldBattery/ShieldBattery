@@ -5,7 +5,7 @@ import logger from '../logging/logger'
 import { Redis } from '../redis'
 import { UserSocketsManager } from '../websockets/socket-groups'
 import { banUser, UserBanRow } from './ban-models'
-import { MIN_BANNED_IDENTIFIER_MATCHES } from './client-ids'
+import { MIN_IDENTIFIER_MATCHES } from './client-ids'
 import { SuspiciousIpsService } from './suspicious-ips'
 import { banAllIdentifiers, findConnectedUsers } from './user-identifiers'
 import { retrieveIpsForUser } from './user-ips'
@@ -68,7 +68,7 @@ export class BanEnacter {
       await keyDeletion
 
       if (banRelatedUsers) {
-        const connectedUsers = await findConnectedUsers(targetId, MIN_BANNED_IDENTIFIER_MATCHES)
+        const connectedUsers = await findConnectedUsers(targetId, MIN_IDENTIFIER_MATCHES)
         if (connectedUsers.length) {
           Promise.resolve()
             .then(async () => {

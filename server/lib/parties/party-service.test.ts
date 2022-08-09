@@ -829,7 +829,7 @@ describe('parties/party-service', () => {
 
     test('should throw if the party is not found', async () => {
       await expect(
-        partyService.findMatch('INVALID_PARTY_ID', leader.id, preferences),
+        partyService.findMatch('INVALID_PARTY_ID', leader.id, [[1, 'foo']], preferences),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
 
       expect(gameplayActivityRegistry.getClientForUser(leader.id)).toBeUndefined()
@@ -837,7 +837,7 @@ describe('parties/party-service', () => {
 
     test('should throw if not in party', async () => {
       await expect(() =>
-        partyService.findMatch(party.id, user4.id, preferences),
+        partyService.findMatch(party.id, user4.id, [[1, 'foo']], preferences),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party not found or you're not in it"`)
 
       expect(gameplayActivityRegistry.getClientForUser(user4.id)).toBeUndefined()
@@ -845,7 +845,7 @@ describe('parties/party-service', () => {
 
     test('should throw if non-leader tries to find match', async () => {
       await expect(() =>
-        partyService.findMatch(party.id, user2.id, preferences),
+        partyService.findMatch(party.id, user2.id, [[1, 'foo']], preferences),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"Only party leaders can queue for matchmaking"`)
 
       expect(gameplayActivityRegistry.getClientForUser(user2.id)).toBeUndefined()
@@ -854,7 +854,7 @@ describe('parties/party-service', () => {
     test('should throw if queueing for a smaller matchmaking type', async () => {
       preferences.matchmakingType = MatchmakingType.Match1v1
       await expect(() =>
-        partyService.findMatch(party.id, leader.id, preferences),
+        partyService.findMatch(party.id, leader.id, [[1, 'foo']], preferences),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"Party is too large for that matchmaking type"`)
 
       expect(gameplayActivityRegistry.getClientForUser(leader.id)).toBeUndefined()
@@ -878,7 +878,7 @@ describe('parties/party-service', () => {
     */
 
     test('should send out queue updates as players accept', async () => {
-      await partyService.findMatch(party.id, leader.id, preferences)
+      await partyService.findMatch(party.id, leader.id, [[1, 'foo']], preferences)
 
       expect(nydus.publish).toHaveBeenCalledWith(
         getPartyPath(party.id),
@@ -895,7 +895,7 @@ describe('parties/party-service', () => {
       const queueId = party.partyQueueRequest!.id
 
       // TODO(tec27): Extend this test a bit when 3v3 is available
-      partyService.acceptFindMatch(party.id, queueId, user2.id, 'z')
+      partyService.acceptFindMatch(party.id, queueId, user2.id, [[1, 'bar']], 'z')
       await new Promise<void>(resolve => setTimeout(resolve, 20))
 
       expect(nydus.publish).toHaveBeenCalledWith(
@@ -913,7 +913,7 @@ describe('parties/party-service', () => {
     })
 
     test('should cancel the queue if a player rejects the match', async () => {
-      await partyService.findMatch(party.id, leader.id, preferences)
+      await partyService.findMatch(party.id, leader.id, [[1, 'foo']], preferences)
       const queueId = party.partyQueueRequest!.id
 
       partyService.rejectFindMatch(party.id, queueId, user2.id)
@@ -934,7 +934,7 @@ describe('parties/party-service', () => {
     })
 
     test('should cancel the queue if a player leaves the party', async () => {
-      await partyService.findMatch(party.id, leader.id, preferences)
+      await partyService.findMatch(party.id, leader.id, [[1, 'foo']], preferences)
       const queueId = party.partyQueueRequest!.id
 
       partyService.leaveParty(party.id, user2.id, USER2_CLIENT_ID)
@@ -955,7 +955,7 @@ describe('parties/party-service', () => {
     })
 
     test('should cancel the queue if a player is kicked from the party', async () => {
-      await partyService.findMatch(party.id, leader.id, preferences)
+      await partyService.findMatch(party.id, leader.id, [[1, 'foo']], preferences)
       const queueId = party.partyQueueRequest!.id
 
       partyService.kickPlayer(party.id, leader.id, user2.id)
@@ -976,7 +976,7 @@ describe('parties/party-service', () => {
     })
 
     test('should cancel the queue if a player disconnects', async () => {
-      await partyService.findMatch(party.id, leader.id, preferences)
+      await partyService.findMatch(party.id, leader.id, [[1, 'foo']], preferences)
       const queueId = party.partyQueueRequest!.id
 
       client1.disconnect()
@@ -997,19 +997,22 @@ describe('parties/party-service', () => {
     })
 
     test("shouldn't add newly joining players to the matchmaking process", async () => {
-      await partyService.findMatch(party.id, leader.id, preferences)
+      await partyService.findMatch(party.id, leader.id, [[1, 'foo']], preferences)
       const queueId = party.partyQueueRequest!.id
 
       await partyService.acceptInvite(party.id, user3, USER3_CLIENT_ID)
-      partyService.acceptFindMatch(party.id, queueId, user2.id, 'z')
+      partyService.acceptFindMatch(party.id, queueId, user2.id, [[1, 'bar']], 'z')
       await new Promise<void>(resolve => setTimeout(resolve, 20))
 
       expect(fakeMatchmakingService.findAsParty).toHaveBeenCalledWith(
         expect.objectContaining({
           type: preferences.matchmakingType,
           users: new Map([
-            [leader.id, { race: preferences.race, clientId: USER1_CLIENT_ID }],
-            [user2.id, { race: 'z', clientId: USER2_CLIENT_ID }],
+            [
+              leader.id,
+              { race: preferences.race, clientId: USER1_CLIENT_ID, identifiers: [[1, 'foo']] },
+            ],
+            [user2.id, { race: 'z', clientId: USER2_CLIENT_ID, identifiers: [[1, 'bar']] }],
           ]),
           partyId: party.id,
           leaderId: leader.id,
@@ -1049,19 +1052,22 @@ describe('parties/party-service', () => {
         ),
       )
 
-      await partyService.findMatch(party.id, leader.id, preferences)
+      await partyService.findMatch(party.id, leader.id, [[1, 'foo']], preferences)
       const queueId = party.partyQueueRequest!.id
 
       await partyService.acceptInvite(party.id, user3, USER3_CLIENT_ID)
-      partyService.acceptFindMatch(party.id, queueId, user2.id, 'z')
+      partyService.acceptFindMatch(party.id, queueId, user2.id, [[1, 'bar']], 'z')
       await new Promise<void>(resolve => setTimeout(resolve, 20))
 
       expect(fakeMatchmakingService.findAsParty).toHaveBeenCalledWith(
         expect.objectContaining({
           type: preferences.matchmakingType,
           users: new Map([
-            [leader.id, { race: preferences.race, clientId: USER1_CLIENT_ID }],
-            [user2.id, { race: 'z', clientId: USER2_CLIENT_ID }],
+            [
+              leader.id,
+              { race: preferences.race, clientId: USER1_CLIENT_ID, identifiers: [[1, 'foo']] },
+            ],
+            [user2.id, { race: 'z', clientId: USER2_CLIENT_ID, identifiers: [[1, 'bar']] }],
           ]),
           partyId: party.id,
           leaderId: leader.id,
@@ -1087,18 +1093,21 @@ describe('parties/party-service', () => {
     })
 
     test('should notify matchmaking of players leaving party after queue', async () => {
-      await partyService.findMatch(party.id, leader.id, preferences)
+      await partyService.findMatch(party.id, leader.id, [[1, 'foo']], preferences)
       const queueId = party.partyQueueRequest!.id
 
-      partyService.acceptFindMatch(party.id, queueId, user2.id, 'z')
+      partyService.acceptFindMatch(party.id, queueId, user2.id, [[1, 'bar']], 'z')
       await new Promise<void>(resolve => setTimeout(resolve, 20))
 
       expect(fakeMatchmakingService.findAsParty).toHaveBeenCalledWith(
         expect.objectContaining({
           type: preferences.matchmakingType,
           users: new Map([
-            [leader.id, { race: preferences.race, clientId: USER1_CLIENT_ID }],
-            [user2.id, { race: 'z', clientId: USER2_CLIENT_ID }],
+            [
+              leader.id,
+              { race: preferences.race, clientId: USER1_CLIENT_ID, identifiers: [[1, 'foo']] },
+            ],
+            [user2.id, { race: 'z', clientId: USER2_CLIENT_ID, identifiers: [[1, 'bar']] }],
           ]),
           partyId: party.id,
           leaderId: leader.id,

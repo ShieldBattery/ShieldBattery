@@ -67,6 +67,8 @@ import {
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
 import { InPartyChecker, IN_PARTY_CHECKER } from '../parties/in-party-checker'
 import { Clock } from '../time/clock'
+import { ClientIdentifierString } from '../users/client-ids'
+import { UserIdentifierManager } from '../users/user-identifier-manager'
 import { findUsersById } from '../users/user-model'
 import {
   ClientSocketsGroup,
@@ -507,6 +509,7 @@ export class MatchmakingService {
     @inject(IN_PARTY_CHECKER) private inPartyChecker: InPartyChecker,
     private matchmakingSeasonsService: MatchmakingSeasonsService,
     private clock: Clock,
+    private userIdentifierManager: UserIdentifierManager,
   ) {
     this.matchmakers = new Map(
       ALL_MATCHMAKING_TYPES.map(type => [
@@ -526,6 +529,7 @@ export class MatchmakingService {
   async find(
     userId: SbUserId,
     clientId: string,
+    identifiers: ReadonlyArray<ClientIdentifierString>,
     preferences: MatchmakingPreferences,
   ): Promise<void> {
     const { matchmakingType: type } = preferences
@@ -553,7 +557,7 @@ export class MatchmakingService {
     }
 
     try {
-      await this.queueSoloPlayer(userId, clientId, preferences)
+      await this.queueSoloPlayer(userId, clientId, identifiers, preferences)
     } catch (err) {
       // Clear out the activity registry for this user, since they didn't actually make it into the
       // queue
@@ -570,6 +574,7 @@ export class MatchmakingService {
   private async queueSoloPlayer(
     userId: SbUserId,
     clientId: string,
+    identifiers: ReadonlyArray<ClientIdentifierString>,
     preferences: Pick<
       MatchmakingPreferences,
       'matchmakingType' | 'race' | 'mapSelections' | 'data'
@@ -580,7 +585,7 @@ export class MatchmakingService {
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
 
     const season = await this.matchmakingSeasonsService.getCurrentSeason()
-    const mmr = await this.retrieveMmr(userId, type, season)
+    const mmr = await this.retrieveMmr(userId, type, season, identifiers)
     const playerData = matchmakingRatingToPlayerData({
       mmr,
       username: userSockets.name,
@@ -627,7 +632,12 @@ export class MatchmakingService {
     leaderPreferences,
   }: {
     type: MatchmakingType
-    users: Readonly<Map<SbUserId, { race: RaceChar; clientId: string }>>
+    users: Readonly<
+      Map<
+        SbUserId,
+        { race: RaceChar; clientId: string; identifiers: ReadonlyArray<ClientIdentifierString> }
+      >
+    >
     partyId: string
     leaderId: SbUserId
     leaderPreferences: {
@@ -663,7 +673,7 @@ export class MatchmakingService {
       // Just queue as a solo player to simplify the matchmaker logic (which assumes a party is
       // 2 players)
       const user = users.get(leaderId)!
-      await this.queueSoloPlayer(leaderId, user.clientId, {
+      await this.queueSoloPlayer(leaderId, user.clientId, user.identifiers, {
         matchmakingType: type,
         race: user.race,
         mapSelections: mapSelections.slice(),
@@ -675,7 +685,9 @@ export class MatchmakingService {
     const season = await this.matchmakingSeasonsService.getCurrentSeason()
     const names = await findUsersById(Array.from(users.keys()))
     const mmrs = await Promise.all(
-      Array.from(users.keys(), id => this.retrieveMmr(id, type, season)),
+      Array.from(users.entries(), ([id, { identifiers }]) =>
+        this.retrieveMmr(id, type, season, identifiers),
+      ),
     )
     const matchmakingParty: MatchmakingParty = {
       leaderId,
@@ -777,12 +789,15 @@ export class MatchmakingService {
     userId: SbUserId,
     type: MatchmakingType,
     season: MatchmakingSeason,
+    identifiers: ReadonlyArray<ClientIdentifierString>,
   ): Promise<MatchmakingRating> {
-    return adjustMatchmakingRatingForInactivity(
-      (await getMatchmakingRating(userId, type, season.id)) ??
-        (await createInitialMatchmakingRating(userId, type, season)),
-      new Date(this.clock.now()),
-    )
+    let currentMmr = await getMatchmakingRating(userId, type, season.id)
+    if (!currentMmr) {
+      const sameUsers = await this.userIdentifierManager.findUsersWithIdentifiers(identifiers)
+      currentMmr = await createInitialMatchmakingRating(userId, type, season, sameUsers)
+    }
+
+    return adjustMatchmakingRatingForInactivity(currentMmr, new Date(this.clock.now()))
   }
 
   private subscribeUserToQueueUpdates(

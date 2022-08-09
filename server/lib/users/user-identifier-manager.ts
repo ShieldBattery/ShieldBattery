@@ -3,18 +3,23 @@ import { injectable } from 'tsyringe'
 import { SbUserId } from '../../../common/users/sb-user'
 import { DbClient } from '../db'
 import { BanEnacter } from './ban-enacter'
-import { MIN_BANNED_IDENTIFIER_MATCHES } from './client-ids'
+import {
+  ClientIdentifierBuffer,
+  ClientIdentifierString,
+  MIN_IDENTIFIER_MATCHES,
+} from './client-ids'
 import {
   countBannedIdentifiers,
   countBannedUserIdentifiers,
+  findUsersWithIdentifiers,
   upsertUserIdentifiers,
 } from './user-identifiers'
 
 const PERMANENT_BAN_TIME = new Date('9001-01-01T23:00:00')
 
 function convertStringIds(
-  identifiers: ReadonlyArray<[type: number, hashStr: string]>,
-): [type: number, hash: Buffer][] {
+  identifiers: ReadonlyArray<ClientIdentifierString>,
+): ClientIdentifierBuffer[] {
   return identifiers.map<[type: number, hash: Buffer]>(([type, hashStr]) => {
     if (type === 0) {
       // browserprints don't get hashed first, so we do that here
@@ -31,7 +36,7 @@ export class UserIdentifierManager {
 
   async upsert(
     userId: SbUserId,
-    identifiers: ReadonlyArray<[type: number, hashStr: string]>,
+    identifiers: ReadonlyArray<ClientIdentifierString>,
     withClient?: DbClient,
   ): Promise<void> {
     const convertedIds = convertStringIds(identifiers)
@@ -47,7 +52,7 @@ export class UserIdentifierManager {
 
     const banLengthHours = (Number(PERMANENT_BAN_TIME) - Date.now()) / (1000 * 60 * 60)
 
-    if (count >= MIN_BANNED_IDENTIFIER_MATCHES) {
+    if (count >= MIN_IDENTIFIER_MATCHES) {
       await this.banEnacter.enactBan({ targetId: userId, banLengthHours, reason: 'ban evasion' })
       return true
     }
@@ -62,6 +67,14 @@ export class UserIdentifierManager {
     const convertedIds = convertStringIds(identifiers)
     const bannedIdentifiers = await countBannedIdentifiers(convertedIds)
 
-    return isWeb ? bannedIdentifiers === 0 : bannedIdentifiers < MIN_BANNED_IDENTIFIER_MATCHES
+    return isWeb ? bannedIdentifiers === 0 : bannedIdentifiers < MIN_IDENTIFIER_MATCHES
+  }
+
+  async findUsersWithIdentifiers(
+    identifiers: ReadonlyArray<ClientIdentifierString>,
+    withClient?: DbClient,
+  ): Promise<SbUserId[]> {
+    const convertedIds = convertStringIds(identifiers)
+    return findUsersWithIdentifiers(convertedIds, MIN_IDENTIFIER_MATCHES, true, withClient)
   }
 }

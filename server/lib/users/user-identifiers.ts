@@ -1,7 +1,9 @@
 import sql from 'sql-template-strings'
 import { SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
+import { appendJoined } from '../db/queries'
 import { Dbify } from '../db/types'
+import { ClientIdentifierBuffer } from './client-ids'
 
 interface UserIdentifier {
   userId: SbUserId
@@ -83,6 +85,48 @@ export async function findConnectedUsers(
       HAVING COUNT(DISTINCT identifier_type) >= ${minSameIdentifiers}
     `)
 
+    const result = await client.query<{ id: SbUserId }>(query)
+    return result.rows.map(r => r.id)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns a list of user IDs with identifiers that match the ones specified. The identifiers
+ * should correspond to a single machine.
+ */
+export async function findUsersWithIdentifiers(
+  identifiers: ReadonlyArray<ClientIdentifierBuffer>,
+  minSameIdentifiers: number,
+  filterBrowserprint = true,
+  withClient?: DbClient,
+): Promise<SbUserId[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const query = sql`
+      SELECT user_id as "id"
+      FROM user_identifiers ui
+      WHERE
+    `
+    if (filterBrowserprint) {
+      query.append(sql`
+        ui.identifier_type != 0 AND
+      `)
+    }
+
+    appendJoined(
+      query,
+      identifiers.map(
+        ([type, hash]) => sql` (ui.identifier_type = ${type} AND ui.identifier_hash = ${hash}) `,
+      ),
+      sql` OR `,
+    )
+
+    query.append(sql`
+      GROUP BY ui.user_id
+      HAVING COUNT(DISTINCT identifier_type) >= ${minSameIdentifiers}
+    `)
     const result = await client.query<{ id: SbUserId }>(query)
     return result.rows.map(r => r.id)
   } finally {

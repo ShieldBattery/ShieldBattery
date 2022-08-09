@@ -30,6 +30,7 @@ import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
 import NotificationService from '../notifications/notification-service'
 import { Clock } from '../time/clock'
+import { ClientIdentifierString } from '../users/client-ids'
 import { findUsersById } from '../users/user-model'
 import { ClientSocketsGroup, ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
@@ -59,6 +60,11 @@ export function toPartyJson(party: PartyRecord): PartyJson {
   }
 }
 
+export interface PartyAcceptData {
+  race: RaceChar
+  identifiers: ReadonlyArray<ClientIdentifierString>
+}
+
 /**
  * Tracks the current state of a party matchmaking queue request and exposes a way to wait for
  * any changes to that state.
@@ -66,7 +72,7 @@ export function toPartyJson(party: PartyRecord): PartyJson {
 export class PartyQueueRequest {
   readonly id = cuid()
   private acceptPromises = new Map<SbUserId, Deferred<void>>()
-  private selectedRaces = new Map<SbUserId, RaceChar>()
+  private acceptData = new Map<SbUserId, PartyAcceptData>()
   private abortController = new AbortController()
   private cancelReason?: PartyQueueCancelReason
 
@@ -90,10 +96,14 @@ export class PartyQueueRequest {
     return Array.from(this.acceptPromises.keys())
   }
 
-  registerAccept(userId: SbUserId, race: RaceChar) {
+  registerAccept(
+    userId: SbUserId,
+    race: RaceChar,
+    identifiers: ReadonlyArray<ClientIdentifierString>,
+  ) {
     this.acceptPromises.get(userId)?.resolve()
     this.acceptPromises.delete(userId)
-    this.selectedRaces.set(userId, race)
+    this.acceptData.set(userId, { race, identifiers: [...identifiers] })
   }
 
   abort(reason: PartyQueueCancelReason) {
@@ -103,8 +113,8 @@ export class PartyQueueRequest {
     }
   }
 
-  getSelectedRaces(): Readonly<Map<SbUserId, RaceChar>> {
-    return this.selectedRaces
+  getAcceptData(): Readonly<Map<SbUserId, PartyAcceptData>> {
+    return this.acceptData
   }
 
   getCancelReason(): PartyQueueCancelReason | undefined {
@@ -436,6 +446,7 @@ export default class PartyService implements InPartyChecker {
   async findMatch(
     partyId: string,
     fromUser: SbUserId,
+    fromUserIdentifiers: ReadonlyArray<ClientIdentifierString>,
     preferences: Immutable<MatchmakingPreferences>,
   ): Promise<void> {
     const party = this.parties.get(partyId)
@@ -506,7 +517,7 @@ export default class PartyService implements InPartyChecker {
           return
         }
 
-        partyQueueRequest.registerAccept(fromUser, leaderRace)
+        partyQueueRequest.registerAccept(fromUser, leaderRace, fromUserIdentifiers)
 
         try {
           while (partyQueueRequest.getUnacceptedMembers().length) {
@@ -514,7 +525,10 @@ export default class PartyService implements InPartyChecker {
               type: 'queue',
               id: partyQueueRequest.id,
               matchmakingType: partyQueueRequest.matchmakingType,
-              accepted: Array.from(partyQueueRequest.getSelectedRaces().entries()),
+              accepted: Array.from(
+                partyQueueRequest.getAcceptData().entries(),
+                ([userId, data]) => [userId, data.race],
+              ),
               unaccepted: partyQueueRequest.getUnacceptedMembers(),
               time: this.clock.now(),
             })
@@ -522,13 +536,17 @@ export default class PartyService implements InPartyChecker {
             await partyQueueRequest.untilAcceptStateChanged()
           }
 
-          const queuedMembers = Array.from(partyQueueRequest.getSelectedRaces().entries())
+          const queuedMembers = Array.from(partyQueueRequest.getAcceptData().entries())
 
           try {
             const matchmakingUsers = new Map(
-              queuedMembers.map(([userId, race]) => [
+              queuedMembers.map(([userId, data]) => [
                 userId,
-                { race, clientId: this.userIdToClientId.get(userId)! },
+                {
+                  race: data.race,
+                  clientId: this.userIdToClientId.get(userId)!,
+                  identifiers: data.identifiers,
+                },
               ]),
             )
             await this.matchmakingService.findAsParty({
@@ -544,7 +562,7 @@ export default class PartyService implements InPartyChecker {
             this.publisher.publish(getPartyPath(party.id), {
               type: 'queueReady',
               id: partyQueueRequest.id,
-              queuedMembers,
+              queuedMembers: queuedMembers.map(([userId, data]) => [userId, data.race]),
               time: this.clock.now(),
             })
           } catch (err: any) {
@@ -587,7 +605,13 @@ export default class PartyService implements InPartyChecker {
       .catch(swallowNonBuiltins)
   }
 
-  acceptFindMatch(partyId: string, queueId: string, fromUser: SbUserId, race: RaceChar): void {
+  acceptFindMatch(
+    partyId: string,
+    queueId: string,
+    fromUser: SbUserId,
+    fromUserIdentifiers: ReadonlyArray<ClientIdentifierString>,
+    race: RaceChar,
+  ): void {
     const party = this.parties.get(partyId)
     if (!party || !party.members.has(fromUser)) {
       throw new PartyServiceError(
@@ -605,7 +629,7 @@ export default class PartyService implements InPartyChecker {
       )
     }
 
-    party.partyQueueRequest.registerAccept(fromUser, race)
+    party.partyQueueRequest.registerAccept(fromUser, race, fromUserIdentifiers)
   }
 
   rejectFindMatch(partyId: string, queueId: string, fromUser: SbUserId): void {

@@ -12,7 +12,10 @@ export function joiClientIdentifiers() {
     .min(1)
 }
 
+export type ClientIdentifierString = [type: number, hashStr: string]
+export type ClientIdentifierBuffer = [type: number, hash: Buffer]
+
 /**
  * How many identifiers have to match for a user to be considered as being on the same machine.
  */
-export const MIN_BANNED_IDENTIFIER_MATCHES = isDev ? 1 : 4
+export const MIN_IDENTIFIER_MATCHES = isDev ? 1 : 4
