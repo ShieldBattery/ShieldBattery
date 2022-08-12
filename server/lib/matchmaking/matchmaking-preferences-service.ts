@@ -5,6 +5,7 @@ import {
   GetPreferencesResponse,
   MatchmakingPreferences,
   MatchmakingType,
+  PartialMatchmakingPreferences,
 } from '../../../common/matchmaking'
 import { SbUserId } from '../../../common/users/sb-user'
 import logger from '../logging/logger'
@@ -75,7 +76,7 @@ export default class MatchmakingPreferencesService {
    * Service method to upsert matchmaking preferences. Should be used by other services instead of
    * calling the DB method directly.
    */
-  upsertPreferences(props: MatchmakingPreferences) {
-    return upsertMatchmakingPreferences(props)
+  upsertPreferences(preferences: PartialMatchmakingPreferences) {
+    return upsertMatchmakingPreferences(preferences)
   }
 }

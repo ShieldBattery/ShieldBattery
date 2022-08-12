@@ -11,6 +11,7 @@ import {
   MatchmakingSeasonJson,
   MatchmakingServiceErrorCode,
   MatchmakingType,
+  PartialMatchmakingPreferences,
 } from '../../common/matchmaking'
 import { apiUrl } from '../../common/urls'
 import { openSimpleDialog } from '../dialogs/action-creators'
@@ -169,7 +170,7 @@ export function getCurrentMapPool(type: MatchmakingType): ThunkAction {
 
 export function updateMatchmakingPreferences<M extends MatchmakingType>(
   matchmakingType: M,
-  prefs: Immutable<MatchmakingPreferences & { matchmakingType: M }>,
+  prefs: Immutable<PartialMatchmakingPreferences & { matchmakingType: M }>,
 ): ThunkAction {
   return (dispatch, getState) => {
     dispatch({

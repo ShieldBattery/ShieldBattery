@@ -5,7 +5,6 @@ import { toMapInfoJson } from '../../../common/maps'
 import {
   ALL_MATCHMAKING_TYPES,
   GetPreferencesResponse,
-  MatchmakingPreferences,
   MatchmakingType,
 } from '../../../common/matchmaking'
 import { httpApi, httpBeforeAll } from '../http/http-api'
@@ -31,12 +30,16 @@ export class MatchmakingPreferencesApi {
       body: matchmakingPreferencesValidator(ctx.session!.userId).required(),
     })
 
+    if (params.matchmakingType !== body.matchmakingType) {
+      throw new httpErrors.BadRequest('Matchmaking type in params and body must match')
+    }
+
     const currentMapPool = await getCurrentMapPool(params.matchmakingType)
     if (!currentMapPool) {
       throw new httpErrors.BadRequest('invalid matchmaking type')
     }
 
-    if (params.matchmakingType === MatchmakingType.Match1v1) {
+    if (body.matchmakingType === MatchmakingType.Match1v1 && body.data) {
       const {
         race,
         data: { useAlternateRace },
@@ -46,18 +49,18 @@ export class MatchmakingPreferencesApi {
       }
     }
 
+    body.mapSelections = body.mapSelections?.filter(m => currentMapPool.maps.includes(m))
+
     const preferences = await this.matchmakingPreferencesService.upsertPreferences({
       userId: ctx.session!.userId,
-      matchmakingType: params.matchmakingType,
+      matchmakingType: body.matchmakingType,
       race: body.race,
       mapPoolId: currentMapPool.id,
       mapSelections: body.mapSelections,
       data: body.data,
-    } as MatchmakingPreferences)
+    })
 
-    const mapInfos = (
-      await getMapInfo(preferences.mapSelections.filter(m => currentMapPool.maps.includes(m)))
-    ).map(m => toMapInfoJson(m))
+    const mapInfos = (await getMapInfo(preferences.mapSelections)).map(m => toMapInfoJson(m))
 
     return {
       preferences,

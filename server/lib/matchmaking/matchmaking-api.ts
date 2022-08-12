@@ -97,7 +97,10 @@ export class MatchmakingApi {
     const { body } = validateRequest(ctx, {
       body: Joi.object<FindMatchRequest>({
         clientId: Joi.string().required(),
-        preferences: matchmakingPreferencesValidator(ctx.session!.userId).required(),
+        preferences: matchmakingPreferencesValidator(
+          ctx.session!.userId,
+          false /* allowPartial */,
+        ).required(),
         identifiers: joiClientIdentifiers().required(),
       }),
     })

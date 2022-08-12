@@ -1,5 +1,10 @@
 import sql from 'sql-template-strings'
-import { MatchmakingPreferences, MatchmakingType } from '../../../common/matchmaking'
+import {
+  defaultPreferenceData,
+  MatchmakingPreferences,
+  MatchmakingType,
+  PartialMatchmakingPreferences,
+} from '../../../common/matchmaking'
 import { SbUserId } from '../../../common/users/sb-user'
 import db from '../db'
 import { Dbify } from '../db/types'
@@ -21,6 +26,9 @@ function convertFromDb(dbResult: DbMatchmakingPreferences): MatchmakingPreferenc
  * Saves the given matchmaking preferences for a given user and matchmaking type combination. In
  * case the preferences already existed, they're updated with new values. Returns the updated
  * preferences (or new ones in case they were saved for the first time).
+ *
+ * This method accepts partial preferences, replacing missing fields with their default values if no
+ * previous preferences were set, or with the previous values if they were set.
  */
 export async function upsertMatchmakingPreferences({
   userId,
@@ -28,18 +36,22 @@ export async function upsertMatchmakingPreferences({
   race,
   mapPoolId,
   mapSelections,
-  data = {},
-}: MatchmakingPreferences): Promise<MatchmakingPreferences> {
+  data,
+}: PartialMatchmakingPreferences): Promise<MatchmakingPreferences> {
   const { client, done } = await db()
   try {
     const result = await client.query<DbMatchmakingPreferences>(sql`
       INSERT INTO matchmaking_preferences AS mp
         (user_id, matchmaking_type, race, map_pool_id, map_selections, data)
       VALUES
-        (${userId}, ${matchmakingType}, ${race}, ${mapPoolId}, ${mapSelections}, ${data})
+        (${userId}, ${matchmakingType}, ${race ?? 'r'}, ${mapPoolId ?? 1},
+          ${mapSelections ?? []}, ${data ?? defaultPreferenceData(matchmakingType)})
       ON CONFLICT (user_id, matchmaking_type)
       DO UPDATE SET
-        race = ${race}, map_pool_id = ${mapPoolId}, map_selections=${mapSelections}, data = ${data}
+        race = COALESCE(${race}, mp.race),
+        map_pool_id = COALESCE(${mapPoolId}, mp.map_pool_id),
+        map_selections = COALESCE(${mapSelections}, mp.map_selections),
+        data = COALESCE(${data}, mp.data)
       WHERE mp.user_id = ${userId} AND mp.matchmaking_type = ${matchmakingType}
       RETURNING *;
     `)

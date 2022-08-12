@@ -5,6 +5,7 @@ import {
   defaultPreferences,
   MatchmakingPreferences,
   MatchmakingType,
+  PartialMatchmakingPreferences,
 } from '../../common/matchmaking'
 import {
   AcceptFindMatchAsPartyRequest,
@@ -339,27 +340,14 @@ export function acceptFindMatchAsParty(
         auth: {
           user: { id: selfId },
         },
-        mapPools: { byType: mapPoolByType },
-        matchmakingPreferences: { byType: preferencesByType },
       } = getState()
 
-      const curPreferences = preferencesByType.get(matchmakingType)?.preferences
-      if (curPreferences?.race !== race) {
-        const defaults = defaultPreferences(
-          matchmakingType,
-          selfId,
-          curPreferences?.mapPoolId ?? mapPoolByType.get(matchmakingType)?.id ?? 1,
-        )
-        const newPreferences: MatchmakingPreferences = {
-          userId: selfId,
-          matchmakingType: matchmakingType as any,
-          race,
-          mapPoolId: curPreferences?.mapPoolId ?? defaults.mapPoolId,
-          mapSelections: curPreferences?.mapSelections?.slice() ?? defaults.mapSelections,
-          data: curPreferences?.data ?? defaults.data,
-        }
-        dispatch(updateMatchmakingPreferences(matchmakingType, newPreferences))
+      const newPreferences: PartialMatchmakingPreferences = {
+        userId: selfId,
+        matchmakingType,
+        race,
       }
+      dispatch(updateMatchmakingPreferences(matchmakingType, newPreferences))
     })
 
     await fetchJson<void>(apiUrl`parties/${partyId}/find-match/${queueId}`, {

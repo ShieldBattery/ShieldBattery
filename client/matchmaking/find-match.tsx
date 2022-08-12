@@ -270,7 +270,7 @@ export function FindMatch() {
 }
 
 const RankInfoContainer = styled.div`
-  max-width: 384px;
+  max-width: 408px;
   height: 160px;
 
   padding: 16px;

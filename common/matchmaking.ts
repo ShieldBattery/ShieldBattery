@@ -1,4 +1,4 @@
-import { Opaque } from 'type-fest'
+import { Opaque, SetRequired } from 'type-fest'
 import { assertUnreachable } from './assert-unreachable'
 import { binarySearch } from './data-structures/arrays'
 import { GameRoute } from './game-launch-config'
@@ -432,6 +432,11 @@ export type MatchmakingPreferences2v2 = BaseMatchmakingPreferences<
  * matchmaking types.
  */
 export type MatchmakingPreferences = MatchmakingPreferences1v1 | MatchmakingPreferences2v2
+
+export type PartialMatchmakingPreferences = SetRequired<
+  Partial<MatchmakingPreferences>,
+  'matchmakingType' | 'userId'
+>
 
 export type MatchmakingPreferencesOfType<M extends MatchmakingType> = MatchmakingPreferences & {
   matchmakingType: M
