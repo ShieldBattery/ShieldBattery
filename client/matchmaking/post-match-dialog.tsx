@@ -219,7 +219,7 @@ function RatedUserContent({
             }
 
             scoreSoundRef.current?.stop()
-            if (Math.round(to - from) >= 1) {
+            if (Math.round(Math.abs(to - from)) >= 1) {
               scoreSoundRef.current = audioManager.playSound(AvailableSound.ScoreCount, {
                 loop: true,
               })
