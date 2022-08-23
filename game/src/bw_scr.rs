@@ -1659,16 +1659,6 @@ impl BwScr {
             self.check_replay_file_finish(handle);
             orig(handle)
         };
-        let switch_to_thread_hook = move |_orig: unsafe extern "C" fn() -> _| {
-            // Quick hackfix to work around tokio inefficiency where it
-            // seems to yield async thread unnecessarily, causing Windows
-            // to prioritize the main render thread instead. This can be
-            // problematic if running multiple copies of BW and the CPU
-            // doesn't have many cores.
-            // BW doesn't seem to call this to yield otherwise so just dummying
-            // this function out shouldn't cause any other scheduling priority issues.
-            0
-        };
         let init_time = std::time::Instant::now();
         let init_tick_count = winapi::um::sysinfoapi::GetTickCount();
         let get_tick_count_hook = move |_orig: unsafe extern "C" fn() -> u32| {
@@ -1689,7 +1679,6 @@ impl BwScr {
             "CopyFileW", CopyFileW, copy_file_hook;
             "CloseHandle", CloseHandle, close_handle_hook;
             "GetTickCount", GetTickCount, get_tick_count_hook;
-            "SwitchToThread", SwitchToThread, switch_to_thread_hook;
         );
 
         // SCR wants to update gamepad state every frame, but in the end it
@@ -3073,7 +3062,6 @@ mod hooks {
         !0 => CreateEventW(*mut c_void, u32, u32, *const u16) -> *mut c_void;
         !0 => CloseHandle(*mut c_void) -> u32;
         !0 => GetTickCount() -> u32;
-        !0 => SwitchToThread() -> u32;
         !0 => CreateFileW(
             *const u16,
             u32,
