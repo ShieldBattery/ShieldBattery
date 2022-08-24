@@ -21,6 +21,8 @@ export enum ChatServiceErrorCode {
   CannotModerateChannelModerator = 'CannotModerateChannelModerator',
   CannotModerateShieldBattery = 'CannotModerateShieldBattery',
   CannotModerateYourself = 'CannotModerateYourself',
+  ChannelNotFound = 'ChannelNotFound',
+  ChannelClosed = 'ChannelClosed',
   NotEnoughPermissions = 'NotEnoughPermissions',
   NotInChannel = 'NotInChannel',
   TargetNotInChannel = 'TargetNotInChannel',
@@ -359,4 +361,12 @@ export interface GetChannelUserPermissionsResponse {
 export interface UpdateChannelUserPermissionsRequest {
   /** The new permissions to update the user to. */
   permissions: ChannelPermissions
+}
+
+/**
+ * The select channel properties that are safe to return to users who have not joined it yet.
+ */
+export interface ChannelStatus extends Pick<ChannelInfo, 'id' | 'name' | 'private'> {
+  /** Number of users in the channel. Only available for non-private channels. */
+  userCount?: number
 }

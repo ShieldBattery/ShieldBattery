@@ -47,7 +47,7 @@ const HeadlineAndButton = styled.div`
 `
 
 const ErrorText = styled.div`
-  {subtitle1};
+  ${subtitle1};
   margin-bottom: 8px;
   padding: 0 8px;
 

@@ -1,4 +1,5 @@
 import {
+  ChannelStatus,
   ChatBanEvent,
   ChatInitEvent,
   ChatJoinEvent,
@@ -33,6 +34,7 @@ export type ChatActions =
   | RetrieveUserList
   | RetrieveUserListFailure
   | GetChatUserProfile
+  | FindChannel
   | ActivateChannel
   | DeactivateChannel
   | InitChannel
@@ -191,6 +193,14 @@ export interface RetrieveUserListFailure extends BaseFetchFailure<'@chat/retriev
 export interface GetChatUserProfile {
   type: '@chat/getChatUserProfile'
   payload: GetChatUserProfileResponse
+}
+
+/**
+ * Find a specific channel.
+ */
+export interface FindChannel {
+  type: '@chat/findChannel'
+  payload: ChannelStatus
 }
 
 /**

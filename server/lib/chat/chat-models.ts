@@ -91,22 +91,32 @@ export async function getUserChannelEntryForUser(
   }
 }
 
+export async function createChannel(
+  userId: SbUserId,
+  channelName: string,
+  withClient?: DbClient,
+): Promise<ChannelInfo> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbChannel>(sql`
+      INSERT INTO channels (name, owner_id)
+      VALUES (${channelName}, ${userId})
+      RETURNING *;
+    `)
+
+    return convertChannelFromDb(result.rows[0])
+  } finally {
+    done()
+  }
+}
+
 export async function addUserToChannel(
   userId: SbUserId,
   channelId: SbChannelId,
   withClient?: DbClient,
 ): Promise<UserChannelEntry> {
-  const doIt = async (client: DbClient) => {
-    await client.query(sql`
-      INSERT INTO channels (id, owner_id)
-      VALUES (${channelId}, ${userId})
-      ON CONFLICT (id)
-      DO NOTHING;
-    `)
-
-    // We don't bother with giving users in newly created channels full permissions since they're
-    // already marked as an owner of the channel, which trumps all other permissions and allows them
-    // to do everything in the channel.
+  const { client, done } = await db(withClient)
+  try {
     const result = await client.query<DbUserChannelEntry>(sql`
       INSERT INTO channel_users (user_id, channel_id, join_date)
       VALUES (${userId}, ${channelId}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
@@ -118,12 +128,8 @@ export async function addUserToChannel(
     }
 
     return convertUserChannelEntryFromDb(result.rows[0])
-  }
-
-  if (withClient) {
-    return doIt(withClient)
-  } else {
-    return transact(doIt)
+  } finally {
+    done()
   }
 }
 
@@ -265,15 +271,6 @@ export async function removeUserFromChannel(
       RETURNING id;
     `)
     if (deleteChannelResult.rowCount > 0) {
-      // When the channel gets deleted, we remove all the data associated with this channel
-      await client.query(sql`
-        DELETE FROM channel_messages
-        WHERE channel_id = ${channelId};
-
-        DELETE FROM channel_bans
-        WHERE channel_id = ${channelId};
-      `)
-
       // Channel was deleted; meaning there is no one left in it so there is no one to transfer the
       // ownership to
       return {}
@@ -451,6 +448,25 @@ export async function getChannelInfo(
     }
 
     return orderedChannelInfos
+  } finally {
+    done()
+  }
+}
+
+export async function findChannelByName(
+  channelName: string,
+  withClient?: DbClient,
+): Promise<ChannelInfo | undefined> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbChannel>(sql`
+      SELECT *
+      FROM channels
+      WHERE name = ${channelName}
+      LIMIT 1;
+    `)
+
+    return result.rows.length > 0 ? convertChannelFromDb(result.rows[0]) : undefined
   } finally {
     done()
   }

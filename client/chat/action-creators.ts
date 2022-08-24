@@ -1,5 +1,7 @@
 import {
+  ChannelInfo,
   ChannelModerationAction,
+  ChannelStatus,
   GetChannelHistoryServerResponse,
   GetChatUserProfileResponse,
   ModerateChannelUserServerRequest,
@@ -14,9 +16,15 @@ import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { ActivateChannel, DeactivateChannel } from './actions'
 
-export function joinChannel(channelId: SbChannelId, spec: RequestHandlingSpec<void>): ThunkAction {
-  return abortableThunk(spec, async dispatch => {
-    return fetchJson<void>(apiUrl`chat/${channelId}`, { method: 'POST' })
+export function joinChannel(
+  channelName: string,
+  spec: RequestHandlingSpec<ChannelInfo>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    return fetchJson<ChannelInfo>(apiUrl`chat/${channelName}`, {
+      method: 'POST',
+      signal: spec.signal,
+    })
   })
 }
 
@@ -49,6 +57,7 @@ export function moderateUser(
         moderationAction,
         moderationReason,
       }),
+      signal: spec.signal,
     })
   })
 }
@@ -157,12 +166,29 @@ export function getChatUserProfile(
           apiUrl`chat/${channelId}/users/${targetId}`,
           {
             method: 'GET',
+            signal: spec.signal,
           },
         ),
       })
     } finally {
       chatUserProfileLoadsInProgress.delete(channelTargetId)
     }
+  })
+}
+
+export function findChannel(
+  channelId: SbChannelId,
+  channelName: string,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    dispatch({
+      type: '@chat/findChannel',
+      payload: await fetchJson<ChannelStatus>(apiUrl`chat/${channelId}/info/${channelName}`, {
+        method: 'GET',
+        signal: spec.signal,
+      }),
+    })
   })
 }
 
@@ -180,8 +206,8 @@ export function deactivateChannel(channelId: SbChannelId): DeactivateChannel {
   }
 }
 
-export function navigateToChannel(channel: string) {
-  push(`/chat/${encodeURIComponent(channel)}`)
+export function navigateToChannel(channelId: SbChannelId, channelName: string) {
+  push(`/chat/${channelId}/${encodeURIComponent(channelName)}`)
 }
 
 /**

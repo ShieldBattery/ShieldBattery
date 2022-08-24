@@ -3,7 +3,9 @@ import Joi from 'joi'
 import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
+  ChannelInfo,
   ChannelPermissions,
+  ChannelStatus,
   ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
   GetChannelUserPermissionsResponse,
@@ -13,6 +15,7 @@ import {
   SendChatMessageServerRequest,
   UpdateChannelUserPermissionsRequest,
 } from '../../../common/chat'
+import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../../common/constants'
 import { MULTI_CHANNEL } from '../../../common/flags'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import { asHttpError } from '../errors/error-with-payload'
@@ -68,6 +71,7 @@ const userPermissionsThrottle = createThrottle('chatuserpermissions', {
 })
 
 const serialIdSchema = Joi.number().min(1).required()
+const channelNameSchema = Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN).required()
 
 function convertChatServiceError(err: unknown) {
   if (!(err instanceof ChatServiceError)) {
@@ -75,6 +79,8 @@ function convertChatServiceError(err: unknown) {
   }
 
   switch (err.code) {
+    case ChatServiceErrorCode.ChannelNotFound:
+    case ChatServiceErrorCode.ChannelClosed:
     case ChatServiceErrorCode.NotInChannel:
     case ChatServiceErrorCode.TargetNotInChannel:
     case ChatServiceErrorCode.UserOffline:
@@ -122,17 +128,36 @@ function getValidatedChannelId(ctx: RouterContext) {
 export class ChatApi {
   constructor(private chatService: ChatService) {}
 
-  @httpPost('/:channelId')
+  @httpGet('/:channelId/info/:channelName')
+  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
+  async getChannelInfo(ctx: RouterContext): Promise<ChannelStatus> {
+    const {
+      params: { channelId, channelName },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ channelId: SbChannelId; channelName: string }>({
+        channelId: serialIdSchema,
+        channelName: channelNameSchema,
+      }),
+    })
+
+    return await this.chatService.getChannelInfo(channelId, channelName, ctx.session!.userId)
+  }
+
+  @httpPost('/:channelName')
   @httpBefore(
     featureEnabled(MULTI_CHANNEL),
     throttleMiddleware(joinThrottle, ctx => String(ctx.session!.userId)),
   )
-  async joinChannel(ctx: RouterContext): Promise<void> {
-    const channelId = getValidatedChannelId(ctx)
+  async joinChannel(ctx: RouterContext): Promise<ChannelInfo> {
+    const {
+      params: { channelName },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ channelName: string }>({
+        channelName: channelNameSchema,
+      }),
+    })
 
-    await this.chatService.joinChannel(channelId, ctx.session!.userId)
-
-    ctx.status = 204
+    return await this.chatService.joinChannel(channelName, ctx.session!.userId)
   }
 
   @httpDelete('/:channelId')

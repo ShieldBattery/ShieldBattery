@@ -55,6 +55,7 @@ exports.up = async function (db) {
   // Update the `channel_messages` table. Things to update:
   //   - purge the messages that are left in channels that no longer exist
   //   - replace the `channel_messages` column with `channel_id`
+  //   - create the foreign key referencing the `id` column in `channels` (this is done below)
   //   - recreate the index on `channel_id` column
   await db.runSql(`
     DELETE FROM channel_messages
@@ -89,11 +90,28 @@ exports.up = async function (db) {
     ADD CONSTRAINT fk_channel_id FOREIGN KEY (channel_id) REFERENCES channels (id);
 
     ALTER TABLE channel_bans
-    ADD CONSTRAINT fk_channel_id FOREIGN KEY (channel_id) REFERENCES channels (id);
+    ADD CONSTRAINT fk_channel_id
+      FOREIGN KEY (channel_id) REFERENCES channels (id) ON DELETE CASCADE;
+
+    ALTER TABLE channel_messages
+    ADD CONSTRAINT fk_channel_id
+      FOREIGN KEY (channel_id) REFERENCES channels (id) ON DELETE CASCADE;
+  `)
+
+  // As a cherry on top, we make the `name` column unique, so we don't accidentally create two
+  // channels with a same name.
+  await db.runSql(`
+    ALTER TABLE channels
+    ADD CONSTRAINT channel_name_unique UNIQUE (name);
   `)
 }
 
 exports.down = async function (db) {
+  await db.runSql(`
+    ALTER TABLE channels
+    DROP CONSTRAINT channel_name_unique;
+  `)
+
   await db.runSql(`
     ALTER TABLE channel_users
     ADD COLUMN channel_name citext;

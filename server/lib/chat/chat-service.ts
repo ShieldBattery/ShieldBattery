@@ -5,6 +5,7 @@ import {
   ChannelInfo,
   ChannelModerationAction,
   ChannelPermissions,
+  ChannelStatus,
   ChatEvent,
   ChatInitEvent,
   ChatServiceErrorCode,
@@ -17,6 +18,7 @@ import {
 } from '../../../common/chat'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import { DbClient } from '../db'
+import { FOREIGN_KEY_VIOLATION, UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import { CodedError } from '../errors/coded-error'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
@@ -28,6 +30,8 @@ import {
   addMessageToChannel,
   addUserToChannel,
   banUserFromChannel,
+  createChannel,
+  findChannelByName,
   getChannelInfo,
   getChannelsForUser,
   getMessagesForChannel,
@@ -36,6 +40,7 @@ import {
   isUserBannedFromChannel,
   removeUserFromChannel,
   updateUserPermissions,
+  UserChannelEntry,
 } from './chat-models'
 
 class ChatState extends ImmutableRecord({
@@ -54,6 +59,13 @@ export function getChannelPath(channelId: SbChannelId): string {
 export function getChannelUserPath(channelId: SbChannelId, userId: SbUserId): string {
   return `/chat2/${channelId}/users/${userId}`
 }
+
+/**
+ * Maximum number of times that the service will attempt to (re)join the user in case of the timing
+ * issues. E.g. in case the two users attempt to join the same non-existing channel at the same
+ * time, they'll both attempt to create it, but only one will succeed.
+ */
+const MAX_JOIN_ATTEMPTS = 3
 
 @singleton()
 export default class ChatService {
@@ -76,39 +88,65 @@ export default class ChatService {
    * fully resolved.
    */
   async joinChannel(
-    channelId: SbChannelId,
+    channelName: string,
     userId: SbUserId,
     client?: DbClient,
     transactionCompleted = Promise.resolve(),
-  ): Promise<void> {
+  ): Promise<ChannelInfo> {
     // NOTE(tec27): VERY IMPORTANT. This method is used during user creation. You *cannot* assume
     // that any query involving the user will work unless it is done using the provided client (or
     // is done after `transactionCompleted` resolves). If you do not follow this rule, you *will*
     // break user creation and I *will* be sad :(
 
-    if (this.state.users.has(userId) && this.state.users.get(userId)!.has(channelId)) {
-      throw new ChatServiceError(ChatServiceErrorCode.AlreadyJoined, 'Already in this channel')
-    }
-
-    const [userInfo, isBanned] = await Promise.all([
-      findUserById(userId, client),
-      isUserBannedFromChannel(channelId, userId, client),
-    ])
+    const userInfo = await findUserById(userId, client)
     if (!userInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.UserNotFound, "User doesn't exist")
     }
-    if (isBanned) {
-      throw new ChatServiceError(
-        ChatServiceErrorCode.UserBanned,
-        'This user has been banned from this chat channel',
-      )
-    }
 
-    const userChannelEntry = await addUserToChannel(userId, channelId, client)
-    const channelInfo = (await getChannelInfo([userChannelEntry.channelId]))[0]
+    let succeeded = false
+    let attempts = 0
+    let channel: ChannelInfo | undefined
+    let userChannelEntry: UserChannelEntry
+    do {
+      attempts += 1
+      channel = await findChannelByName(channelName, client)
+      if (channel) {
+        if (this.state.users.has(userId) && this.state.users.get(userId)!.has(channel.id)) {
+          throw new ChatServiceError(ChatServiceErrorCode.AlreadyJoined, 'Already in this channel')
+        }
+
+        const isBanned = await isUserBannedFromChannel(channel.id, userId, client)
+        if (isBanned) {
+          throw new ChatServiceError(
+            ChatServiceErrorCode.UserBanned,
+            'This user has been banned from this chat channel',
+          )
+        }
+
+        try {
+          userChannelEntry = await addUserToChannel(userId, channel.id, client)
+          succeeded = true
+        } catch (err: any) {
+          if (err.code !== FOREIGN_KEY_VIOLATION) {
+            throw err
+          }
+        }
+      } else {
+        try {
+          channel = await createChannel(userId, channelName, client)
+          userChannelEntry = await addUserToChannel(userId, channel.id, client)
+          succeeded = true
+        } catch (err: any) {
+          if (err.code !== UNIQUE_VIOLATION) {
+            throw err
+          }
+        }
+      }
+    } while (!succeeded && attempts < MAX_JOIN_ATTEMPTS)
+
     const message = await addMessageToChannel(
       userId,
-      channelId,
+      channel!.id,
       {
         type: ServerChatMessageType.JoinChannel,
       },
@@ -121,15 +159,15 @@ export default class ChatService {
     transactionCompleted.then(() => {
       this.state = this.state
         // TODO(tec27): Remove `any` cast once Immutable properly types this call again
-        .updateIn(['channels', channelId], (s = Set<SbUserId>()) =>
+        .updateIn(['channels', channel!.id], (s = Set<SbUserId>()) =>
           (s as any).add(userChannelEntry.userId),
         )
         // TODO(tec27): Remove `any` cast once Immutable properly types this call again
         .updateIn(['users', userChannelEntry.userId], (s = Set<string>()) =>
-          (s as any).add(channelId),
+          (s as any).add(channel!.id),
         )
 
-      this.publisher.publish(getChannelPath(channelId), {
+      this.publisher.publish(getChannelPath(channel!.id), {
         action: 'join2',
         user: userInfo,
         message: {
@@ -148,11 +186,13 @@ export default class ChatService {
         this.subscribeUserToChannel(
           userSockets,
           userChannelEntry.channelId,
-          channelInfo,
+          channel!,
           userChannelEntry.channelPermissions,
         )
       }
     })
+
+    return channel!
   }
 
   async leaveChannel(channelId: SbChannelId, userId: SbUserId): Promise<void> {
@@ -320,6 +360,38 @@ export default class ChatService {
       },
       mentions,
     })
+  }
+
+  async getChannelInfo(
+    channelId: SbChannelId,
+    channelName: string,
+    userId: SbUserId,
+  ): Promise<ChannelStatus> {
+    const channelInfo: ChannelInfo | undefined = (await getChannelInfo([channelId]))[0]
+
+    if (!channelInfo) {
+      // If the channel with the same name exists, it means it was closed at some point (by everyone
+      // in it leaving), and then created again by someone else, in which case it got a new ID.
+      const channelClosed = await findChannelByName(channelName)
+      if (channelClosed) {
+        throw new ChatServiceError(ChatServiceErrorCode.ChannelClosed, 'Channel was closed')
+      } else {
+        throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+      }
+    }
+
+    let userCount
+    if (!channelInfo.private) {
+      const channelUsers = await getUsersForChannel(channelId)
+      userCount = channelUsers.length
+    }
+
+    return {
+      id: channelInfo.id,
+      name: channelInfo.name,
+      private: channelInfo.private,
+      userCount,
+    }
   }
 
   async getChannelHistory(
