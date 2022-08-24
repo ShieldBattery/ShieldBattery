@@ -27,7 +27,8 @@ import PortraitIcon from '../icons/material/portrait_24px.svg'
 import { leaveLobby } from '../lobbies/action-creators'
 import LobbyNavEntry from '../lobbies/nav-entry'
 import { cancelFindMatch } from '../matchmaking/action-creators'
-import SearchingMatchNavEntry from '../matchmaking/searching-match-nav-entry'
+import { isMatchmakingLoading } from '../matchmaking/matchmaking-reducer'
+import { SearchingMatchNavEntry } from '../matchmaking/searching-match-nav-entry'
 import { useButtonHotkey } from '../material/button'
 import LeftNav from '../material/left-nav/left-nav'
 import Section from '../material/left-nav/section'
@@ -194,21 +195,21 @@ function SearchingMatchSection() {
 function LoadingGameSection() {
   const isLobbyLoading = useAppSelector(s => s.lobby.info.isLoading)
   const lobbyName = useAppSelector(s => s.lobby.info.name)
-  const isMatchmakingLoading = useAppSelector(s => s.matchmaking.isLoading)
+  const isMatchLoading = useAppSelector(s => isMatchmakingLoading(s.matchmaking))
   const matchmakingType = useAppSelector(s => s.matchmaking.match?.type)
   const matchmakingLaunching = useAppSelector(s => s.matchmaking.isLaunching)
   const matchmakingCountingDown = useAppSelector(s => s.matchmaking.isCountingDown)
   const matchmakingStarting = useAppSelector(s => s.matchmaking.isStarting)
   const [currentPath] = useLocation()
 
-  if (!isLobbyLoading && !isMatchmakingLoading) return null
+  if (!isLobbyLoading && !isMatchLoading) return null
 
   let link: string
   let title: string
   if (isLobbyLoading) {
     link = urlPath`/lobbies/${lobbyName}/loading-game`
     title = 'Custom game'
-  } else if (isMatchmakingLoading) {
+  } else if (isMatchLoading) {
     title = `Ranked ${matchmakingType ? matchmakingTypeToLabel(matchmakingType) : ''}`
 
     if (matchmakingLaunching) {

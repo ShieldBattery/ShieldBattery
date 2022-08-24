@@ -1,7 +1,6 @@
 import React from 'react'
 import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
 import MatchmakingMatch from '../matchmaking-match'
-import { MatchmakingPlayerRecord } from '../matchmaking-reducer'
 
 export default class MapSelectionTest extends React.Component {
   state = {
@@ -89,8 +88,8 @@ export default class MapSelectionTest extends React.Component {
     const { isLaunching, isCountingDown, countdownTimer, isStarting } = this.state
 
     const players = [
-      new MatchmakingPlayerRecord({ id: 1, name: 'tec27', race: 'p' }),
-      new MatchmakingPlayerRecord({ id: 2, name: 'Excalibur_Z', race: 'r' }),
+      { id: 1, name: 'tec27', race: 'p' },
+      { id: 2, name: 'Excalibur_Z', race: 'r' },
     ]
 
     return (

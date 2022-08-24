@@ -1,11 +1,14 @@
 import { Immutable } from 'immer'
-import { List, Record } from 'immutable'
 import { MapInfoJson } from '../../common/maps'
-import { MatchmakingServiceErrorCode, MatchmakingType } from '../../common/matchmaking'
+import {
+  MatchmakingPlayer,
+  MatchmakingServiceErrorCode,
+  MatchmakingType,
+} from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { NETWORK_SITE_CONNECTED } from '../actions'
 import { isFetchError } from '../network/fetch-errors'
-import { keyedReducer } from '../reducers/keyed-reducer'
+import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface MatchmakingSearchInfo {
   matchmakingType: MatchmakingType
@@ -14,59 +17,65 @@ export interface MatchmakingSearchInfo {
   startTime: number
 }
 
-export class MatchmakingPlayerRecord extends Record({
-  id: 0,
-  name: '',
-  race: 'r',
-  rating: -1,
-}) {}
+export interface MatchmakingMatch {
+  numPlayers: number
+  acceptedPlayers: number
+  type: MatchmakingType
+  players?: MatchmakingPlayer[]
+  chosenMap?: MapInfoJson
+}
 
-export class MatchmakingMatchRecord extends Record({
-  numPlayers: 0,
-  acceptedPlayers: 0,
-  type: MatchmakingType.Match1v1 as MatchmakingType,
-  players: List<MatchmakingPlayerRecord>(),
-  chosenMap: undefined as MapInfoJson | undefined,
-}) {}
+export interface MatchmakingState {
+  searchInfo?: MatchmakingSearchInfo
+  isAccepting: boolean
+  hasAccepted: boolean
+  acceptTime?: number
+  failedToAccept: boolean
+  isLaunching: boolean
+  isCountingDown: boolean
+  countdownTimer?: number
+  isStarting: boolean
 
-export class BaseMatchmakingState extends Record({
-  searchInfo: undefined as Immutable<MatchmakingSearchInfo> | undefined,
+  match?: MatchmakingMatch
+}
+
+export function isMatchmakingLoading(state: Immutable<MatchmakingState>): boolean {
+  return state.isLaunching || state.isCountingDown || state.isStarting
+}
+
+const DEFAULT_STATE: Immutable<MatchmakingState> = {
+  searchInfo: undefined,
   isAccepting: false,
   hasAccepted: false,
-  acceptTime: -1,
+  acceptTime: undefined,
   failedToAccept: false,
   isLaunching: false,
   isCountingDown: false,
-  countdownTimer: -1,
+  countdownTimer: undefined,
   isStarting: false,
-
-  match: undefined as MatchmakingMatchRecord | undefined,
-}) {}
-
-export class MatchmakingState extends BaseMatchmakingState {
-  get isLoading() {
-    return this.isLaunching || this.isCountingDown || this.isStarting
-  }
+  match: undefined,
 }
 
-export default keyedReducer(new MatchmakingState(), {
+export default immerKeyedReducer(DEFAULT_STATE, {
   ['@matchmaking/acceptMatchBegin'](state, action) {
-    return state.set('isAccepting', true)
+    state.isAccepting = true
   },
 
   ['@matchmaking/acceptMatch'](state, action) {
     if (action.error) {
-      return new MatchmakingState()
+      return DEFAULT_STATE
     }
 
-    return state.set('hasAccepted', true).set('isAccepting', false)
+    state.hasAccepted = true
+    state.isAccepting = false
+    return state
   },
 
   ['@matchmaking/cancelMatch'](state, action) {
     if (action.error) {
       if (isFetchError(action.payload)) {
         if (action.payload.code !== MatchmakingServiceErrorCode.MatchAlreadyStarting) {
-          return new MatchmakingState()
+          return DEFAULT_STATE
         }
       }
 
@@ -74,7 +83,7 @@ export default keyedReducer(new MatchmakingState(), {
       return state
     } else {
       // Success, matchmaking was canceled
-      return new MatchmakingState()
+      return DEFAULT_STATE
     }
   },
 
@@ -82,87 +91,99 @@ export default keyedReducer(new MatchmakingState(), {
     state,
     { payload: { matchmakingType, race }, system: { monotonicTime } },
   ) {
-    return new MatchmakingState({
+    return {
+      ...DEFAULT_STATE,
       searchInfo: {
         matchmakingType,
         race,
         startTime: monotonicTime,
       },
-    })
+    }
   },
 
   ['@matchmaking/requeue'](state, action) {
-    return state.set('match', undefined).set('failedToAccept', false)
+    state.match = undefined
+    state.failedToAccept = false
   },
 
   ['@matchmaking/playerFailedToAccept'](state, action) {
-    return state.set('failedToAccept', true).set('searchInfo', undefined).set('match', undefined)
+    state.failedToAccept = true
+    state.searchInfo = undefined
+    state.match = undefined
   },
 
   ['@matchmaking/acceptMatchTime'](state, action) {
-    return state.set('acceptTime', action.payload)
+    state.acceptTime = action.payload
   },
 
   ['@matchmaking/matchFound'](state, action) {
     const { matchmakingType, numPlayers } = action.payload
-    return state
-      .set('match', new MatchmakingMatchRecord({ type: matchmakingType, numPlayers }))
-      .set('hasAccepted', false)
+    state.match = {
+      type: matchmakingType,
+      numPlayers,
+      acceptedPlayers: 0,
+      players: undefined,
+    }
+    state.hasAccepted = false
   },
 
   ['@matchmaking/playerAccepted'](state, action) {
-    return state.setIn(['match', 'acceptedPlayers'], action.payload.acceptedPlayers)
+    if (state.match) {
+      state.match.acceptedPlayers = action.payload.acceptedPlayers
+    }
   },
 
   ['@matchmaking/matchReady'](state, action) {
     const { matchmakingType, players, chosenMap } = action.payload
 
-    return state.set('isLaunching', true).set(
-      'match',
-      new MatchmakingMatchRecord({
-        type: matchmakingType,
-        acceptedPlayers: players.length,
-        numPlayers: players.length,
-        players: List(players.map(p => new MatchmakingPlayerRecord(p))),
-        chosenMap,
-      }),
-    )
+    state.isLaunching = true
+    state.match = {
+      type: matchmakingType,
+      acceptedPlayers: players.length,
+      numPlayers: players.length,
+      players,
+      chosenMap,
+    }
   },
 
   ['@matchmaking/countdownStarted'](state, action) {
-    return state
-      .set('isLaunching', false)
-      .set('isCountingDown', true)
-      .set('countdownTimer', action.payload)
+    state.isLaunching = false
+    state.isCountingDown = true
+    state.countdownTimer = action.payload
   },
 
   ['@matchmaking/countdownTick'](state, action) {
-    return state.set('countdownTimer', action.payload)
+    state.countdownTimer = action.payload
   },
 
   ['@matchmaking/gameStarting'](state, action) {
-    return state.set('isStarting', true).set('isCountingDown', false)
+    state.isStarting = true
+    state.isCountingDown = false
   },
 
   ['@matchmaking/gameStarted'](state, action) {
-    return new MatchmakingState()
+    return DEFAULT_STATE
   },
 
   ['@matchmaking/loadingCanceled'](state, action) {
-    return new MatchmakingState({
+    return {
+      ...DEFAULT_STATE,
       searchInfo: state.searchInfo,
-    })
+    }
   },
 
   ['@matchmaking/queueStatus'](state, action) {
     if (!action.payload.matchmaking) {
-      return new MatchmakingState({ failedToAccept: state.failedToAccept })
+      return {
+        ...DEFAULT_STATE,
+        failedToAccept: state.failedToAccept,
+      }
     }
 
     return state
   },
 
   [NETWORK_SITE_CONNECTED as any]() {
-    return new MatchmakingState()
+    return DEFAULT_STATE
   },
 })

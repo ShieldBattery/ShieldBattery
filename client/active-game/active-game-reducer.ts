@@ -1,7 +1,8 @@
+import { Immutable } from 'immer'
 import { Record } from 'immutable'
 import { LOBBY_UPDATE_GAME_STARTED } from '../actions'
 import { LobbyRecord } from '../lobbies/lobby-reducer'
-import { MatchmakingMatchRecord } from '../matchmaking/matchmaking-reducer'
+import { MatchmakingMatch } from '../matchmaking/matchmaking-reducer'
 import { keyedReducer } from '../reducers/keyed-reducer'
 import { ActiveGameStatus } from './actions'
 
@@ -14,7 +15,7 @@ export interface LobbyGameInfo {
 
 export interface MatchmakingGameInfo {
   type: 'matchmaking'
-  extra: { match: MatchmakingMatchRecord }
+  extra: { match: Immutable<MatchmakingMatch> }
 }
 
 export class ActiveGame extends Record({

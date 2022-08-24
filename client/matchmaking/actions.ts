@@ -1,3 +1,4 @@
+import { Immutable } from 'immer'
 import {
   GetMatchmakingMapPoolBody,
   GetPreferencesResponse,
@@ -7,7 +8,7 @@ import {
 } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { BaseFetchFailure } from '../network/fetch-errors'
-import { MatchmakingMatchRecord } from './matchmaking-reducer'
+import { MatchmakingMatch } from './matchmaking-reducer'
 
 export type MatchmakingActions =
   | GetCurrentMapPoolBegin
@@ -191,7 +192,7 @@ export interface LoadingCanceled {
 export interface GameStarted {
   type: '@matchmaking/gameStarted'
   payload: {
-    match: MatchmakingMatchRecord
+    match: Immutable<MatchmakingMatch>
   }
 }
 

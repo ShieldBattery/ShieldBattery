@@ -7,6 +7,7 @@ import { replace } from '../navigation/routing'
 import { useAppSelector } from '../redux-hooks'
 import { usePrevious } from '../state-hooks'
 import MatchmakingMatch from './matchmaking-match'
+import { isMatchmakingLoading } from './matchmaking-reducer'
 
 function MatchmakingMatchHolder() {
   const activeGame = useAppSelector(s => s.activeGame)
@@ -30,7 +31,7 @@ function MatchmakingMatchHolder() {
       countdownTimer={countdownTimer}
       isStarting={isStarting}
       map={chosenMap}
-      players={players.toJS()}
+      players={players}
     />
   )
 }
@@ -38,7 +39,7 @@ function MatchmakingMatchHolder() {
 export default function MatchmakingView() {
   const gameIsActive = useAppSelector(s => s.activeGame.isActive)
   const gameId = useAppSelector(s => s.gameClient.gameId)
-  const matchmakingIsLoading = useAppSelector(s => s.matchmaking.isLoading)
+  const matchmakingIsLoading = useAppSelector(s => isMatchmakingLoading(s.matchmaking))
 
   const prevGameIsActive = usePrevious(gameIsActive)
   const prevGameId = usePrevious(gameId)
