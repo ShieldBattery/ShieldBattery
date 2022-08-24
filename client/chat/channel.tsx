@@ -440,12 +440,13 @@ export function ConnectedChatChannel({
   const sortedIdleUsers = useMemo(() => sortUsers(idleUserEntries), [idleUserEntries])
   const sortedOfflineUsers = useMemo(() => sortUsers(offlineUserEntries), [offlineUserEntries])
 
-  const modifyMenuItems = useStableCallback(
+  const modifyMenuItems = useCallback(
     (
       userId: SbUserId,
       items: Map<MenuItemCategory, React.ReactNode[]>,
       onMenuClose: (event?: MouseEvent) => void,
     ) => addChannelMenuItems(userId, items, onMenuClose, channelId),
+    [channelId],
   )
 
   return (
