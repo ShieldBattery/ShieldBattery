@@ -20,6 +20,7 @@ export const Slot = styled.div`
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  gap: 24px;
 
   ${ObserverSlots} > & {
     width: 50%;
@@ -44,12 +45,11 @@ export const SlotLeft = styled.div`
 export const SlotRight = styled.div`
   width: 50%;
   min-width: 156px;
-  padding-right: 64px;
   display: flex;
   flex-grow: 0;
   flex-shrink: 0;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
 
   ${ObserverSlots} & {
     /* TODO(tec27): can we just use display: none here? */
