@@ -547,7 +547,7 @@ export class LobbyApi {
     if (!playerToBan) {
       throw new errors.BadRequest('invalid slot id')
     }
-    if (playerToBan.type !== 'human') {
+    if (playerToBan.type !== 'human' && playerToBan.type !== 'observer') {
       throw new errors.BadRequest('invalid slot type')
     }
 
