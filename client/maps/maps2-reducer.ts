@@ -108,7 +108,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
-  ['@profile/getUserProfile'](state, action) {
+  ['@users/getUserProfile'](state, action) {
     const {
       payload: {
         matchHistory: { maps },

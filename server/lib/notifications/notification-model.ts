@@ -14,19 +14,41 @@ type MakeSearchable<T extends BaseNotificationData> = SetRequired<
   keyof BaseNotificationData
 >
 
+export interface FriendRequestNotificationData extends BaseNotificationData {
+  type: NotificationType.FriendRequest
+  from: SbUserId
+}
+
+type FriendRequestSearchNotificationData = MakeSearchable<FriendRequestNotificationData>
+
+export interface FriendStartNotificationData extends BaseNotificationData {
+  type: NotificationType.FriendStart
+  with: SbUserId
+}
+
+type FriendStartSearchNotificationData = MakeSearchable<FriendStartNotificationData>
+
+export type NotificationData =
+  | PartyInviteNotificationData
+  | FriendRequestNotificationData
+  | FriendStartNotificationData
+
 export interface PartyInviteNotificationData extends BaseNotificationData {
-  type: typeof NotificationType.PartyInvite
+  type: NotificationType.PartyInvite
   from: SbUserId
   partyId: string
 }
 
 type PartyInviteSearchNotificationData = MakeSearchable<PartyInviteNotificationData>
 
-export type NotificationData = PartyInviteNotificationData
 /**
  * Notification data type that can be used to retrieve notifications by.
  */
-export type SearchNotificationData = PartyInviteSearchNotificationData | Record<string, never>
+export type SearchNotificationData =
+  | FriendRequestSearchNotificationData
+  | FriendStartSearchNotificationData
+  | PartyInviteSearchNotificationData
+  | Record<string, never>
 
 export interface Notification {
   id: string

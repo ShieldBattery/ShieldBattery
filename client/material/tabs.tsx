@@ -74,10 +74,15 @@ export const TabSpacer = styled.div`
 `
 
 export interface TabItemProps<T> {
-  text: string
+  text: React.ReactNode
   value: T
   disabled?: boolean
   className?: string
+  /**
+   * Optional title to show for the tab. If not specified, `text` will be used at the title (so it
+   * should be a `string` in that case).
+   */
+  title?: string
   /**
    * Whether or not the tab is the active one. This will be set by the containing Tabs component and
    * should not be passed directly.
@@ -95,7 +100,16 @@ export interface TabItemProps<T> {
 export const TabItem = React.memo(
   React.forwardRef(
     <T,>(
-      { text, value, active, disabled, hotkeys, onSelected, className }: TabItemProps<T>,
+      {
+        text,
+        value,
+        active,
+        disabled,
+        hotkeys,
+        onSelected,
+        className,
+        title: tooltipText,
+      }: TabItemProps<T>,
       ref: React.ForwardedRef<HTMLButtonElement>,
     ) => {
       const onClick = useCallback(() => {
@@ -111,14 +125,18 @@ export const TabItem = React.memo(
       const [tabItemRef, setTabItemRef] = useMultiRef<HTMLButtonElement>(ref)
       useButtonHotkey({ ref: tabItemRef, disabled, hotkey: hotkeys! })
 
+      // TODO(tec27): Use `<Tooltip>` instead for this (and maybe only set the title from `text` if
+      // it's overflowing?)
+      const title = !tooltipText && typeof text === 'string' ? text : tooltipText
+
       return (
         <TabItemContainer
           ref={setTabItemRef}
           className={className}
           $isActiveTab={active ?? false}
-          title={text}
+          title={title}
           {...buttonProps}>
-          <TabTitle>{text}</TabTitle>
+          {typeof text === 'string' ? <TabTitle>{text}</TabTitle> : text}
           <Ripple ref={rippleRef} disabled={disabled} />
         </TabItemContainer>
       )

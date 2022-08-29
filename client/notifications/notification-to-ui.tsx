@@ -4,6 +4,10 @@ import { NotificationType, SbNotification } from '../../common/notifications'
 import { EmailVerificationNotificationUi } from '../auth/email-verification-notification-ui'
 import { PartyInviteNotificationUi } from '../parties/party-notification-ui'
 import { PolicyUpdateNotificationUi } from '../policies/policy-update-notification-ui'
+import {
+  FriendRequestNotificationUi,
+  FriendStartNotificationUi,
+} from '../users/relationship-notifications'
 
 /**
  * Converts a notification entry into the relevant UI elements for displaying in a list or as a
@@ -45,6 +49,27 @@ export function notificationToUi(
           showDivider={showDivider}
           read={notification.read}
           policyType={notification.policyType}
+        />
+      )
+    case NotificationType.FriendRequest:
+      return (
+        <FriendRequestNotificationUi
+          ref={ref}
+          key={key}
+          notificationId={notification.id}
+          showDivider={showDivider}
+          read={notification.read}
+          from={notification.from}
+        />
+      )
+    case NotificationType.FriendStart:
+      return (
+        <FriendStartNotificationUi
+          ref={ref}
+          key={key}
+          showDivider={showDivider}
+          read={notification.read}
+          otherUser={notification.with}
         />
       )
     default:

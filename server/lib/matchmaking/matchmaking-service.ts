@@ -69,7 +69,7 @@ import { InPartyChecker, IN_PARTY_CHECKER } from '../parties/in-party-checker'
 import { Clock } from '../time/clock'
 import { ClientIdentifierString } from '../users/client-ids'
 import { UserIdentifierManager } from '../users/user-identifier-manager'
-import { findUsersById } from '../users/user-model'
+import { findUsersByIdAsMap } from '../users/user-model'
 import {
   ClientSocketsGroup,
   ClientSocketsManager,
@@ -683,7 +683,7 @@ export class MatchmakingService {
     }
 
     const season = await this.matchmakingSeasonsService.getCurrentSeason()
-    const names = await findUsersById(Array.from(users.keys()))
+    const names = await findUsersByIdAsMap(Array.from(users.keys()))
     const mmrs = await Promise.all(
       Array.from(users.entries(), ([id, { identifiers }]) =>
         this.retrieveMmr(id, type, season, identifiers),

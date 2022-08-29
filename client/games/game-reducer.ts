@@ -16,7 +16,7 @@ const DEFAULT_STATE: ReadonlyDeep<GameState> = {
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {
-  ['@profile/getUserProfile'](state, { payload: { matchHistory } }) {
+  ['@users/getUserProfile'](state, { payload: { matchHistory } }) {
     for (const game of matchHistory.games) {
       state.byId.set(game.id, game)
     }

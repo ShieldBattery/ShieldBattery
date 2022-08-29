@@ -109,6 +109,23 @@ export default class NotificationService {
     })
   }
 
+  /** Clears the first visible notification that matches the given criteria (if one exists). */
+  async clearFirstMatching(criteria: { userId: SbUserId; data?: SearchNotificationData }) {
+    // TODO(tec27): This could probably avoid a round-trip if we write a model method for this
+    // directly
+    const notification = (
+      await this.retrieveNotifications({
+        userId: criteria.userId,
+        data: criteria.data,
+        visible: true,
+      })
+    )[0]
+
+    if (notification) {
+      await this.clearById(criteria.userId, notification.id)
+    }
+  }
+
   /**
    * Marks all of the given notifications as "read" for a particular user and notifies all of user's
    * connected clients.

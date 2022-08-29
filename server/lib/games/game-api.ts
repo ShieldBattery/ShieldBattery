@@ -23,7 +23,7 @@ import { UpsertUserIp } from '../network/user-ips-type'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
-import { findUsersById } from '../users/user-model'
+import { findUsersByIdAsMap } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
 import { GameLoader } from './game-loader'
 import { countCompletedGames } from './game-models'
@@ -149,7 +149,7 @@ export class GameApi {
     )
     const [mapArray, users, mmrChanges] = await Promise.all([
       getMapInfo([game.mapId], ctx.session!.userId),
-      findUsersById(usersToRetrieve),
+      findUsersByIdAsMap(usersToRetrieve),
       this.gameResultService.retrieveMatchmakingRatingChanges(game),
     ])
 

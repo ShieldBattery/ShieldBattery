@@ -1,3 +1,4 @@
+import { GetRelationshipsResponse, UserRelationshipJson } from '../../common/users/relationships'
 import {
   AdminBanUserResponse,
   AdminGetBansResponse,
@@ -7,21 +8,24 @@ import {
   SbUserId,
 } from '../../common/users/sb-user'
 
-export type ProfileActions =
+export type UserActions =
   | GetUserProfile
   | GetBatchUserInfo
   | AdminGetUserBanHistory
   | AdminBanUser
   | AdminGetUserIps
+  | GetRelationships
+  | UpsertUserRelationship
+  | DeleteUserRelationship
 
 export interface GetUserProfile {
-  type: '@profile/getUserProfile'
+  type: '@users/getUserProfile'
   payload: GetUserProfileResponse
 }
 
 export type GetBatchUserInfo =
   | {
-      type: '@profile/getBatchUserInfo'
+      type: '@users/getBatchUserInfo'
       payload: GetBatchUserInfoResponse
       error?: false
       meta: {
@@ -29,7 +33,7 @@ export type GetBatchUserInfo =
       }
     }
   | {
-      type: '@profile/getBatchUserInfo'
+      type: '@users/getBatchUserInfo'
       payload: Error
       error: true
       meta: {
@@ -38,16 +42,36 @@ export type GetBatchUserInfo =
     }
 
 export interface AdminGetUserBanHistory {
-  type: '@profile/adminGetUserBanHistory'
+  type: '@users/adminGetUserBanHistory'
   payload: AdminGetBansResponse
 }
 
 export interface AdminBanUser {
-  type: '@profile/adminBanUser'
+  type: '@users/adminBanUser'
   payload: AdminBanUserResponse
 }
 
 export interface AdminGetUserIps {
-  type: '@profile/adminGetUserIps'
+  type: '@users/adminGetUserIps'
   payload: AdminGetUserIpsResponse
+}
+
+export interface GetRelationships {
+  type: '@users/getRelationships'
+  payload: GetRelationshipsResponse
+}
+
+export interface UpsertUserRelationship {
+  type: '@users/upsertRelationship'
+  payload: {
+    relationship: UserRelationshipJson
+  }
+  meta: { selfId: SbUserId }
+}
+
+export interface DeleteUserRelationship {
+  type: '@users/deleteRelationship'
+  payload: {
+    targetUser: SbUserId
+  }
 }

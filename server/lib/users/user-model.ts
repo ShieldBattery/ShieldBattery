@@ -358,20 +358,26 @@ export async function findUsersByName(names: string[]): Promise<Map<string, SbUs
 }
 
 /**
- * Returns a `Map` of id -> `User` for a given list of IDs. Any IDs that can't be found won't
- * be present in the resulting `Map`.
+ * Returns the data for all users with the specified IDs. If a user cannot be found it will not
+ * be included in the result. The order of the result is not guaranteed.
  */
-export async function findUsersById(ids: SbUserId[]): Promise<Map<SbUserId, SbUser>> {
-  // TODO(tec27): Should this just return an array and let callers make the Map if they want?
+export async function findUsersById(ids: SbUserId[]): Promise<SbUser[]> {
   const { client, done } = await db()
   try {
     const result = await client.query<DbUser>(sql`SELECT * FROM users WHERE id = ANY (${ids})`)
-    return new Map<SbUserId, SbUser>(
-      result.rows.map(row => [row.id, convertToExternal(convertUserFromDb(row))]),
-    )
+    return result.rows.map(r => convertToExternal(convertUserFromDb(r)))
   } finally {
     done()
   }
+}
+
+/**
+ * Returns a `Map` of id -> `SbUser` for a given list of IDs. Any IDs that can't be found won't
+ * be present in the resulting `Map`. If you don't need a `Map`, see `findUsersById` instead.
+ */
+export async function findUsersByIdAsMap(ids: SbUserId[]): Promise<Map<SbUserId, SbUser>> {
+  const result = await findUsersById(ids)
+  return new Map<SbUserId, SbUser>(result.map(u => [u.id, u]))
 }
 
 /**

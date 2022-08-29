@@ -116,19 +116,19 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, action.payload.users)
   },
 
-  ['@profile/adminBanUser'](state, action) {
+  ['@users/adminBanUser'](state, action) {
     updateUsers(state, action.payload.users)
   },
 
-  ['@profile/adminGetUserBanHistory'](state, action) {
+  ['@users/adminGetUserBanHistory'](state, action) {
     updateUsers(state, action.payload.users)
   },
 
-  ['@profile/adminGetUserIps'](state, action) {
+  ['@users/adminGetUserIps'](state, action) {
     updateUsers(state, action.payload.users)
   },
 
-  ['@profile/getBatchUserInfo'](state, action) {
+  ['@users/getBatchUserInfo'](state, action) {
     if (action.error) {
       return
     }
@@ -136,7 +136,11 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, action.payload.userInfos)
   },
 
-  ['@profile/getUserProfile'](state, { payload: { user, profile, matchHistory } }) {
+  ['@users/getRelationships'](state, action) {
+    updateUsers(state, action.payload.users)
+  },
+
+  ['@users/getUserProfile'](state, { payload: { user, profile, matchHistory } }) {
     updateUsers(state, [user])
     updateUsers(state, matchHistory.users)
     state.idToProfile.set(profile.userId, profile)

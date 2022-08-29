@@ -1,5 +1,6 @@
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbPermissions } from '../../common/users/permissions'
+import { GetRelationshipsResponse } from '../../common/users/relationships'
 import {
   AdminBanUserRequest,
   AdminBanUserResponse,
@@ -59,7 +60,7 @@ export function viewUserProfile(userId: SbUserId, spec: RequestHandlingSpec<void
 
     try {
       dispatch({
-        type: '@profile/getUserProfile',
+        type: '@users/getUserProfile',
         payload: await fetchJson<GetUserProfileResponse>(apiUrl`users/${userId}/profile`, {
           signal: spec.signal,
         }),
@@ -78,7 +79,7 @@ const infoBatchRequester = new MicrotaskBatchRequester<SbUserId>(
     const params = items.map(u => urlPath`u=${u}`).join('&')
     const promise = fetchJson<GetBatchUserInfoResponse>(apiUrl`users/batch-info` + '?' + params)
     dispatch({
-      type: '@profile/getBatchUserInfo',
+      type: '@users/getBatchUserInfo',
       payload: promise,
       meta: {
         userIds: items,
@@ -109,7 +110,9 @@ export function adminGetUserPermissions(
   spec: RequestHandlingSpec<AdminGetPermissionsResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async () => {
-    return await fetchJson<AdminGetPermissionsResponse>(apiUrl`admin/users/${userId}/permissions`)
+    return await fetchJson<AdminGetPermissionsResponse>(apiUrl`admin/users/${userId}/permissions`, {
+      signal: spec.signal,
+    })
   })
 }
 
@@ -125,6 +128,7 @@ export function adminUpdateUserPermissions(
     return await fetchJson<void>(apiUrl`admin/users/${userId}/permissions`, {
       method: 'POST',
       body: JSON.stringify(body),
+      signal: spec.signal,
     })
   })
 }
@@ -134,8 +138,10 @@ export function adminGetUserBanHistory(
   spec: RequestHandlingSpec<AdminGetBansResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const res = await fetchJson<AdminGetBansResponse>(apiUrl`admin/users/${userId}/bans`)
-    dispatch({ type: '@profile/adminGetUserBanHistory', payload: res })
+    const res = await fetchJson<AdminGetBansResponse>(apiUrl`admin/users/${userId}/bans`, {
+      signal: spec.signal,
+    })
+    dispatch({ type: '@users/adminGetUserBanHistory', payload: res })
 
     return res
   })
@@ -152,8 +158,9 @@ export function adminBanUser(
         banLengthHours,
         reason,
       }),
+      signal: spec.signal,
     })
-    dispatch({ type: '@profile/adminBanUser', payload: res })
+    dispatch({ type: '@users/adminBanUser', payload: res })
 
     return res
   })
@@ -164,9 +171,116 @@ export function adminGetUserIps(
   spec: RequestHandlingSpec<AdminGetUserIpsResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const res = await fetchJson<AdminGetUserIpsResponse>(apiUrl`admin/users/${userId}/ips`)
-    dispatch({ type: '@profile/adminGetUserIps', payload: res })
+    const res = await fetchJson<AdminGetUserIpsResponse>(apiUrl`admin/users/${userId}/ips`, {
+      signal: spec.signal,
+    })
+    dispatch({ type: '@users/adminGetUserIps', payload: res })
 
     return res
+  })
+}
+
+export function getRelationshipsIfNeeded(spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, async (dispatch, getState) => {
+    const {
+      auth: { user },
+      relationships,
+    } = getState()
+    if (relationships.loaded) {
+      return
+    }
+
+    const result = await fetchJson<GetRelationshipsResponse>(
+      apiUrl`users/${user.id}/relationships`,
+      { signal: spec.signal },
+    )
+    dispatch({ type: '@users/getRelationships', payload: result })
+  })
+}
+
+export function sendFriendRequest(toId: SbUserId, spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, async () => {
+    await fetchJson<void>(apiUrl`users/${toId}/relationships/friend-requests`, {
+      method: 'POST',
+      signal: spec.signal,
+    })
+  })
+}
+
+export function removeFriendRequest(toId: SbUserId, spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, async (_, getState) => {
+    const {
+      auth: { user },
+    } = getState()
+
+    await fetchJson<void>(apiUrl`users/${toId}/relationships/friend-requests/${user.id}`, {
+      method: 'DELETE',
+      signal: spec.signal,
+    })
+  })
+}
+
+export function acceptFriendRequest(fromId: SbUserId, spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, async (_, getState) => {
+    const {
+      auth: { user },
+    } = getState()
+
+    await fetchJson<void>(apiUrl`users/${user.id}/relationships/friends/${fromId}`, {
+      method: 'POST',
+      signal: spec.signal,
+    })
+  })
+}
+
+export function declineFriendRequest(fromId: SbUserId, spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, async (_, getState) => {
+    const {
+      auth: { user },
+    } = getState()
+
+    await fetchJson<void>(apiUrl`users/${user.id}/relationships/friend-requests/${fromId}`, {
+      method: 'DELETE',
+      signal: spec.signal,
+    })
+  })
+}
+
+export function removeFriend(targetId: SbUserId, spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, async (_, getState) => {
+    const {
+      auth: { user },
+    } = getState()
+
+    await fetchJson<void>(apiUrl`users/${user.id}/relationships/friends/${targetId}`, {
+      method: 'DELETE',
+      signal: spec.signal,
+    })
+  })
+}
+
+export function blockUser(targetId: SbUserId, spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, async (_, getState) => {
+    const {
+      auth: { user },
+    } = getState()
+
+    await fetchJson<void>(apiUrl`users/${user.id}/relationships/blocks/${targetId}`, {
+      method: 'POST',
+      signal: spec.signal,
+    })
+  })
+}
+
+export function unblockUser(targetId: SbUserId, spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, async (_, getState) => {
+    const {
+      auth: { user },
+    } = getState()
+
+    await fetchJson<void>(apiUrl`users/${user.id}/relationships/blocks/${targetId}`, {
+      method: 'DELETE',
+      signal: spec.signal,
+    })
   })
 }

@@ -54,6 +54,7 @@ import { isShieldBatteryHealthy, isStarcraftHealthy } from './starcraft/is-starc
 import { StarcraftStatus } from './starcraft/starcraft-reducer'
 import { colorTextSecondary } from './styles/colors'
 import { caption } from './styles/typography'
+import { FriendsListActivityButton } from './users/friends-list'
 import { ProfileRouteComponent } from './users/route'
 import Whisper from './whispers/whisper'
 
@@ -116,6 +117,9 @@ function LoadableAdminPanel() {
 const MiniActivityButtonsContainer = styled.div`
   width: 100%;
   display: flex;
+
+  flex-wrap: wrap-reverse;
+  justify-content: center;
 `
 
 const FadedSettingsIcon = styled(SettingsIcon)`
@@ -414,6 +418,7 @@ export function MainLayout() {
               onClick={() => dispatch(openSettingsDialog())}
             />
           </Tooltip>
+          <FriendsListActivityButton />
         </MiniActivityButtonsContainer>
 
         <VersionText key='version'>v{curVersion}</VersionText>

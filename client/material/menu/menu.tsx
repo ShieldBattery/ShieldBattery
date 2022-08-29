@@ -18,8 +18,8 @@ export const ITEM_HEIGHT_DENSE = 32
 const VERT_PADDING = 8
 const MENU_MIN_HEIGHT = 48
 const MENU_MIN_HEIGHT_DENSE = 32
-const ITEMS_SHOWN = 5
-const ITEMS_SHOWN_DENSE = 8
+const ITEMS_SHOWN = 7
+const ITEMS_SHOWN_DENSE = 11
 // NOTE(tec27): We only add 1 instance of vertical padding here under the assumption that it is
 // less than half the item height in all cases. This means we're either exceed the max height and
 // have some items partially cut off, or we'll be within the max height and have padding visible

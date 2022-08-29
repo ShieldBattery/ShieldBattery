@@ -27,7 +27,7 @@ import { processMessageContents } from '../messaging/process-chat-message'
 import { getPermissions } from '../models/permissions'
 import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids'
 import { findConnectedUsers } from '../users/user-identifiers'
-import { findUserById, findUsersById } from '../users/user-model'
+import { findUserById, findUsersByIdAsMap } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
@@ -529,7 +529,7 @@ export default class ChatService {
       }
     }
 
-    const mentions = await findUsersById(Array.from(mentionIds))
+    const mentions = await findUsersByIdAsMap(Array.from(mentionIds))
 
     return {
       messages,

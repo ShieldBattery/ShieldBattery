@@ -31,7 +31,7 @@ import { processMessageContents } from '../messaging/process-chat-message'
 import NotificationService from '../notifications/notification-service'
 import { Clock } from '../time/clock'
 import { ClientIdentifierString } from '../users/client-ids'
-import { findUsersById } from '../users/user-model'
+import { findUsersByIdAsMap } from '../users/user-model'
 import { ClientSocketsGroup, ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { InPartyChecker, IN_PARTY_CHECKER } from './in-party-checker'
@@ -712,7 +712,7 @@ export default class PartyService implements InPartyChecker {
         time: this.clock.now(),
         userInfos: Array.from(
           (
-            await findUsersById([
+            await findUsersByIdAsMap([
               ...Array.from(party.invites.values()),
               ...Array.from(party.members.values()),
             ])

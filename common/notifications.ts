@@ -2,10 +2,24 @@ import { SbPolicyType } from './policies/policy-type'
 import { SbUserId } from './users/sb-user'
 
 export enum NotificationType {
+  /** The user needs to verify their email. */
   EmailVerification = 'emailVerification',
+  /** Two users are now friends. */
+  FriendStart = 'friendStart',
+  /** A user has sent a friend request to this user. */
+  FriendRequest = 'friendRequest',
+  /** A user has sent a party invite to this user. */
   PartyInvite = 'partyInvite',
+  /** An updated legal policy is available for viewing. */
   PolicyUpdated = 'policyUpdated',
 }
+
+export type SbNotification =
+  | EmailVerificationNotification
+  | FriendRequestNotification
+  | FriendStartNotification
+  | PartyInviteNotification
+  | PolicyUpdatedNotification
 
 export interface BaseNotification {
   /**
@@ -26,28 +40,40 @@ export interface BaseNotification {
 }
 
 export interface EmailVerificationNotification extends BaseNotification {
-  type: typeof NotificationType.EmailVerification
+  type: NotificationType.EmailVerification
   local: true
 }
 
 export const EMAIL_VERIFICATION_ID = 'local-emailVerification'
 
+export interface FriendRequestNotification extends BaseNotification {
+  type: NotificationType.FriendRequest
+  from: SbUserId
+}
+
+export interface FriendStartNotification extends BaseNotification {
+  type: NotificationType.FriendStart
+  with: SbUserId
+}
+
 export interface PolicyUpdatedNotification extends BaseNotification {
-  type: typeof NotificationType.PolicyUpdated
+  type: NotificationType.PolicyUpdated
   local: true
   policyType: SbPolicyType
 }
 
 export interface PartyInviteNotification extends BaseNotification {
-  type: typeof NotificationType.PartyInvite
+  type: NotificationType.PartyInvite
   from: SbUserId
   partyId: string
 }
 
-export type SbNotification =
-  | EmailVerificationNotification
-  | PartyInviteNotification
-  | PolicyUpdatedNotification
+export type NotificationEvent =
+  | NotificationServerInitEvent
+  | NotificationAddEvent
+  | NotificationClearEvent
+  | NotificationClearByIdEvent
+  | NotificationMarkReadEvent
 
 export interface NotificationServerInitEvent {
   type: 'serverInit'
@@ -73,13 +99,6 @@ export interface NotificationMarkReadEvent {
   type: 'markRead'
   notificationIds: ReadonlyArray<string>
 }
-
-export type NotificationEvent =
-  | NotificationServerInitEvent
-  | NotificationAddEvent
-  | NotificationClearEvent
-  | NotificationClearByIdEvent
-  | NotificationMarkReadEvent
 
 export interface ClearNotificationsServerRequest {
   timestamp: number | undefined

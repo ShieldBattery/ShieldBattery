@@ -123,10 +123,14 @@ export function Popover(props: PopoverProps) {
 
   const onRest = useCallback<PopoverOnRest>((_result: unknown, _ctrl: unknown, open: boolean) => {
     if (open) {
-      // We need to focus the element here because the browser prevents it prior to this (not
-      // entirely sure why, I assume because the element is either not yet in the DOM or it is not
-      // visible)
-      focusableRef.current?.focus()
+      if (focusableRef.current) {
+        window.dispatchEvent(new Event('resize'))
+
+        // We need to focus the element here because the browser prevents it prior to this (not
+        // entirely sure why, I assume because the element is either not yet in the DOM or it is not
+        // visible)
+        focusableRef.current.focus()
+      }
     }
   }, [])
   const transitionProps: UseTransitionProps<boolean> = {

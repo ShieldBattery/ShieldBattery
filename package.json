@@ -266,7 +266,7 @@
     "react-svg-loader": "3.0.3",
     "react-test-renderer": "^18.0.0",
     "react-transition-group": "^4.3.0",
-    "react-virtuoso": "^2.13.2",
+    "react-virtuoso": "^2.19.0",
     "redux": "^4.2.0",
     "redux-thunk": "^2.4.1",
     "stream-browserify": "^3.0.0",

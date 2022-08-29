@@ -1,5 +1,4 @@
-import { Set } from 'immutable'
-import type { NydusClient, RouteHandler, RouteInfo } from 'nydus-client'
+import type { NydusClient, RouteInfo } from 'nydus-client'
 import { NotificationEvent, NotificationType } from '../../common/notifications'
 import audioManager, { AvailableSound } from '../audio/audio-manager'
 import { dispatch, Dispatchable } from '../dispatch-registry'
@@ -12,7 +11,7 @@ const NOTIFICATION_SOUNDS: Partial<Record<NotificationType, AvailableSound>> = {
   [NotificationType.PartyInvite]: AvailableSound.PartyInvite,
 }
 
-const ELECTRON_ONLY_NOTIFICATION_TYPES = Set<Readonly<NotificationType>>([
+const ELECTRON_ONLY_NOTIFICATION_TYPES: ReadonlySet<NotificationType> = new Set([
   NotificationType.PartyInvite,
 ])
 
@@ -76,13 +75,14 @@ const eventToAction: EventToActionMap = {
 }
 
 export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
-  const notificationsHandler: RouteHandler = (route: RouteInfo, event: NotificationEvent) => {
-    const actionType = event.type as NotificationEvent['type']
-    if (!eventToAction[actionType]) return
+  siteSocket.registerRoute(
+    '/notifications/:userId',
+    (route: RouteInfo, event: NotificationEvent) => {
+      const actionType = event.type as NotificationEvent['type']
+      if (!eventToAction[actionType]) return
 
-    const action = eventToAction[actionType]!(event as any)
-    if (action) dispatch(action)
-  }
-
-  siteSocket.registerRoute('/notifications/:userId', notificationsHandler)
+      const action = eventToAction[actionType]!(event as any)
+      if (action) dispatch(action)
+    },
+  )
 }

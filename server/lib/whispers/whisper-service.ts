@@ -11,7 +11,7 @@ import {
 } from '../../../common/whispers'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
-import { findUserById, findUserByName, findUsersById } from '../users/user-model'
+import { findUserById, findUserByName, findUsersByIdAsMap } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
@@ -188,7 +188,7 @@ export default class WhisperService {
       }
     }
 
-    const mentions = await findUsersById(Array.from(mentionIds))
+    const mentions = await findUsersByIdAsMap(Array.from(mentionIds))
 
     return {
       messages,

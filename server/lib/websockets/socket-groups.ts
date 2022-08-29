@@ -1,4 +1,3 @@
-import { EventEmitter } from 'events'
 import { Map, Set } from 'immutable'
 import { NydusClient, NydusServer } from 'nydus'
 import { container, inject, singleton } from 'tsyringe'
@@ -9,7 +8,7 @@ import { UpsertUserIp } from '../network/user-ips-type'
 import getAddress from './get-address'
 import { RequestSessionLookup, SessionInfo } from './session-lookup'
 
-export type DataGetter<T, D> = (socketGroup: T, socket: NydusClient) => D | Promise<D>
+export type DataGetter<T, D> = (socketGroup: T, socket: NydusClient) => D | Promise<D | undefined>
 export type CleanupFunc<T> = (socketGroup: T) => void
 
 interface SubscriptionInfo<T> {
@@ -168,9 +167,13 @@ export class ClientSocketsGroup extends SocketGroup<ClientSocketsGroup> {
   }
 }
 
-// TODO(tec27): type the events emitted
+interface UserSocketsManagerEvents extends EventMap {
+  newUser: (user: UserSocketsGroup) => void
+  userQuit: (userId: SbUserId) => void
+}
+
 @singleton()
-export class UserSocketsManager extends EventEmitter {
+export class UserSocketsManager extends TypedEventEmitter<UserSocketsManagerEvents> {
   users = Map<number, UserSocketsGroup>()
 
   constructor(

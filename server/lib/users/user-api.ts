@@ -27,6 +27,12 @@ import {
 import { ALL_POLICY_TYPES, SbPolicyType } from '../../../common/policies/policy-type'
 import { SbPermissions } from '../../../common/users/permissions'
 import {
+  GetRelationshipsResponse,
+  ModifyRelationshipResponse,
+  toUserRelationshipJson,
+  toUserRelationshipSummaryJson,
+} from '../../../common/users/relationships'
+import {
   AcceptPoliciesRequest,
   AcceptPoliciesResponse,
   AdminBanUserRequest,
@@ -50,7 +56,7 @@ import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { getRecentGamesForUser } from '../games/game-models'
 import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators'
+import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import sendMail from '../mail/mailer'
 import { getMapInfo } from '../maps/map-models'
 import { getRankForUser } from '../matchmaking/models'
@@ -74,7 +80,11 @@ import {
   getEmailVerificationsCount,
 } from './email-verification-models'
 import { SuspiciousIpsService } from './suspicious-ips'
-import { convertUserApiErrors, UserApiError } from './user-api-errors'
+import {
+  convertUserApiErrors,
+  convertUserRelationshipServiceErrors,
+  UserApiError,
+} from './user-api-errors'
 import { UserIdentifierManager } from './user-identifier-manager'
 import { retrieveIpsForUser, retrieveRelatedUsersForIps } from './user-ips'
 import {
@@ -88,6 +98,7 @@ import {
   updateUser,
   UserUpdatables,
 } from './user-model'
+import { UserRelationshipService } from './user-relationship-service'
 import { getUserStats } from './user-stats-model'
 import { joiUserId } from './user-validators'
 
@@ -121,6 +132,12 @@ const sendVerificationThrottle = createThrottle('sendverification', {
   window: 12 * 60 * 60 * 1000,
 })
 
+const relationshipsThrottle = createThrottle('accountrelationships', {
+  rate: 5,
+  burst: 25,
+  window: 60000,
+})
+
 function hashPass(password: string): Promise<string> {
   return bcrypt.hash(password, 10 /* saltRounds */)
 }
@@ -152,12 +169,13 @@ interface SignupRequestBody {
 }
 
 @httpApi('/users')
-@httpBeforeAll(convertUserApiErrors)
+@httpBeforeAll(convertUserApiErrors, convertUserRelationshipServiceErrors)
 export class UserApi {
   constructor(
     private publisher: TypedPublisher<AuthEvent>,
     private suspiciousIps: SuspiciousIpsService,
     private userIdManager: UserIdentifierManager,
+    private userRelationshipService: UserRelationshipService,
   ) {}
 
   @httpPost('/')
@@ -333,7 +351,7 @@ export class UserApi {
       return {
         games: games.map(g => toGameRecordJson(g)),
         maps: maps.map(m => toMapInfoJson(m)),
-        users: Array.from(users.values()),
+        users,
       }
     })()
 
@@ -369,7 +387,7 @@ export class UserApi {
     const users = await findUsersById(userIds)
 
     return {
-      userInfos: Array.from(users.values()),
+      userInfos: users,
     }
   }
 
@@ -562,7 +580,7 @@ export class UserApi {
   async resendVerificationEmail(ctx: RouterContext): Promise<void> {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
-        id: Joi.number().valid(ctx.session!.userId).required(),
+        id: joiUserId().valid(ctx.session!.userId).required(),
       }),
     })
 
@@ -602,7 +620,7 @@ export class UserApi {
       body: { code },
     } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
-        id: Joi.number().valid(ctx.session!.userId).required(),
+        id: joiUserId().valid(ctx.session!.userId).required(),
       }),
       body: Joi.object<{ code: string }>({
         code: Joi.string().required(),
@@ -638,6 +656,186 @@ export class UserApi {
       action: 'emailVerified',
       userId: user.id,
     })
+
+    ctx.status = 204
+  }
+
+  @httpGet('/:id/relationships')
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session!.userId)),
+  )
+  async getRelationships(ctx: RouterContext): Promise<GetRelationshipsResponse> {
+    const { params } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().valid(ctx.session!.userId).required(),
+      }),
+    })
+
+    const summary = await this.userRelationshipService.getRelationshipSummary(params.id)
+
+    const allUserIds = [
+      summary.blocks.map(b => b.toId),
+      summary.friends.map(f => f.toId),
+      summary.outgoingRequests.map(r => r.toId),
+      summary.incomingRequests.map(r => r.fromId),
+    ].flat()
+    const users = await findUsersById(allUserIds)
+
+    return { summary: toUserRelationshipSummaryJson(summary), users }
+  }
+
+  @httpPost('/:id/relationships/friend-requests')
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.userId)),
+  )
+  async sendFriendRequest(ctx: RouterContext): Promise<ModifyRelationshipResponse> {
+    const { params } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }),
+    })
+
+    const user = await findUserById(params.id)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    const relationship = await this.userRelationshipService.sendFriendRequest(
+      ctx.session!.userId,
+      user.id,
+    )
+
+    return { relationship: toUserRelationshipJson(relationship), user }
+  }
+
+  @httpDelete('/:toId/relationships/friend-requests/:fromId')
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.userId)),
+  )
+  async removeFriendRequest(ctx: RouterContext): Promise<void> {
+    const {
+      params: { toId, fromId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ toId: SbUserId; fromId: SbUserId }>({
+        toId: joiUserId().required(),
+        fromId: joiUserId().required(),
+      }),
+    })
+
+    if (toId !== ctx.session!.userId && fromId !== ctx.session!.userId) {
+      throw new httpErrors.BadRequest('Can only manage your own friend requests')
+    }
+    const otherUser = toId === ctx.session!.userId ? fromId : toId
+
+    const user = await findUserById(otherUser)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    await this.userRelationshipService.removeFriendRequest(fromId, toId)
+
+    ctx.status = 204
+  }
+
+  @httpPost('/:toId/relationships/friends/:fromId')
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.userId)),
+  )
+  async acceptFriendRequest(ctx: RouterContext): Promise<ModifyRelationshipResponse> {
+    const {
+      params: { toId, fromId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ toId: SbUserId; fromId: SbUserId }>({
+        toId: joiUserId().valid(ctx.session!.userId).required(),
+        fromId: joiUserId().required(),
+      }),
+    })
+
+    const user = await findUserById(fromId)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    const relationship = await this.userRelationshipService.acceptFriendRequest(toId, fromId)
+
+    return { relationship: toUserRelationshipJson(relationship), user }
+  }
+
+  @httpDelete('/:removerId/relationships/friends/:targetId')
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.userId)),
+  )
+  async removeFriend(ctx: RouterContext): Promise<void> {
+    const {
+      params: { removerId, targetId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ removerId: SbUserId; targetId: SbUserId }>({
+        removerId: joiUserId().valid(ctx.session!.userId).required(),
+        targetId: joiUserId().required(),
+      }),
+    })
+
+    const user = await findUserById(targetId)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    await this.userRelationshipService.removeFriend(removerId, targetId)
+
+    ctx.status = 204
+  }
+
+  @httpPost('/:blockerId/relationships/blocks/:targetId')
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.userId)),
+  )
+  async blockUser(ctx: RouterContext): Promise<ModifyRelationshipResponse> {
+    const {
+      params: { blockerId, targetId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ blockerId: SbUserId; targetId: SbUserId }>({
+        blockerId: joiUserId().valid(ctx.session!.userId).required(),
+        targetId: joiUserId().required(),
+      }),
+    })
+
+    const user = await findUserById(targetId)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    const relationship = await this.userRelationshipService.blockUser(blockerId, targetId)
+
+    return { relationship: toUserRelationshipJson(relationship), user }
+  }
+
+  @httpDelete('/:unblockerId/relationships/blocks/:targetId')
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.userId)),
+  )
+  async unblockUser(ctx: RouterContext): Promise<void> {
+    const {
+      params: { unblockerId, targetId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ unblockerId: SbUserId; targetId: SbUserId }>({
+        unblockerId: joiUserId().valid(ctx.session!.userId).required(),
+        targetId: joiUserId().required(),
+      }),
+    })
+
+    const user = await findUserById(targetId)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    await this.userRelationshipService.unblockUser(unblockerId, targetId)
 
     ctx.status = 204
   }
@@ -736,9 +934,7 @@ export class AdminUserApi {
       new Set(banHistory.map(b => b.bannedBy).filter((i): i is SbUserId => i !== undefined)),
     )
 
-    const banningUsers = banHistory.length
-      ? Array.from((await findUsersById(banningUserIds)).values())
-      : []
+    const banningUsers = banHistory.length ? await findUsersById(banningUserIds) : []
 
     return {
       forUser: params.id,
@@ -823,7 +1019,7 @@ export class AdminUserApi {
     const otherUserIds = Array.from(
       new Set(Array.from(relatedUsers.values(), v => v.map(info => info.userId)).flat()),
     )
-    const otherUsers = Array.from((await findUsersById(otherUserIds)).values())
+    const otherUsers = await findUsersById(otherUserIds)
 
     return {
       forUser: user.id,

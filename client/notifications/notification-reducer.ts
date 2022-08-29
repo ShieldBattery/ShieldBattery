@@ -58,7 +58,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     // reconnecting to the server delivers notifications that are in the process of being cleared?
     // Could probably be "fixed" by also re-clearing notifications from the main state upon the
     // clear response
-    for (const n of notifications) {
+    for (let i = notifications.length - 1; i >= 0; i--) {
+      const n = notifications[i]
+
       state.byId.set(n.id, n)
       if (!state.idSet.has(n.id)) {
         state.idSet.add(n.id)

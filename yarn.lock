@@ -9431,10 +9431,10 @@ react-use-measure@^2.0.4:
   dependencies:
     debounce "^1.2.1"
 
-react-virtuoso@^2.13.2:
-  version "2.16.6"
-  resolved "https://registry.yarnpkg.com/react-virtuoso/-/react-virtuoso-2.16.6.tgz#61533bf7428e446a0586acbcffe540dd8e19a5a3"
-  integrity sha512-xpm/edDfrX2auYjnTmzdzpyxppsIvkEWtBgy1In/qMmJHMuXwhTSszCX2zsUs5SbwNCiEAbXjV7Qg1iXVa/QsA==
+react-virtuoso@^2.19.0:
+  version "2.19.0"
+  resolved "https://registry.yarnpkg.com/react-virtuoso/-/react-virtuoso-2.19.0.tgz#d815763c5b31742dbaf15b0c27fca961adf1896a"
+  integrity sha512-GeCleV9cmpYGh1Ldfgdu+4gADLzdWJ48qc4tWguFzYz7FvUSAoELe8268rR8zfIb5FcV3tqpsdvFS5i51c8jyA==
   dependencies:
     "@virtuoso.dev/react-urx" "^0.2.12"
     "@virtuoso.dev/urx" "^0.2.12"

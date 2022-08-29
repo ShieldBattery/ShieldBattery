@@ -12,7 +12,7 @@ import { MatchmakingServiceError } from '../matchmaking/matchmaking-service-erro
 import NotificationService from '../notifications/notification-service'
 import { createFakeNotificationService } from '../notifications/testing/notification-service'
 import { FakeClock } from '../time/testing/fake-clock'
-import { findUsersById, findUsersByName } from '../users/user-model'
+import { findUsersByIdAsMap, findUsersByName } from '../users/user-model'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import {
@@ -26,11 +26,11 @@ import PartyService, { getPartyPath, PartyRecord, toPartyJson } from './party-se
 
 jest.mock('../users/user-model', () => ({
   findUsersByName: jest.fn(),
-  findUsersById: jest.fn(),
+  findUsersByIdAsMap: jest.fn(),
 }))
 
 const findUsersByNameMock = asMockedFunction(findUsersByName)
-const findUsersByIdMock = asMockedFunction(findUsersById)
+const findUsersByIdAsMapMock = asMockedFunction(findUsersByIdAsMap)
 
 function createMatchmakingService(matchmakerErrorQueue: Error[]) {
   return {
@@ -91,7 +91,6 @@ describe('parties/party-service', () => {
   let notificationService: NotificationService
   let clock: FakeClock
 
-  const currentTime = Date.now()
   const matchmakerErrorQueue: Error[] = []
   // Basic implementation that throws any queued errors, otherwise resolves
   let fakeMatchmakingService = createMatchmakingService(matchmakerErrorQueue)
@@ -104,7 +103,7 @@ describe('parties/party-service', () => {
     const publisher = new TypedPublisher(nydus)
     notificationService = createFakeNotificationService()
     clock = new FakeClock()
-    clock.setCurrentTime(currentTime)
+    clock.setCurrentTime(Number(new Date('2022-08-31T00:00:00.000Z')))
     gameplayActivityRegistry = new GameplayActivityRegistry()
 
     matchmakerErrorQueue.length = 0
@@ -133,8 +132,8 @@ describe('parties/party-service', () => {
 
     clearTestLogs(nydus)
     findUsersByNameMock.mockClear()
-    findUsersByIdMock.mockClear()
-    findUsersByIdMock.mockResolvedValue(new Map())
+    findUsersByIdAsMapMock.mockClear()
+    findUsersByIdAsMapMock.mockResolvedValue(new Map())
   })
 
   describe('invite', () => {
@@ -189,7 +188,7 @@ describe('parties/party-service', () => {
         expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
           type: 'invite',
           invitedUser: user3.id,
-          time: currentTime,
+          time: clock.now(),
           userInfo: {
             id: user3.id,
             name: user3.name,
@@ -216,7 +215,7 @@ describe('parties/party-service', () => {
       })
 
       test('should subscribe leader to the party path', async () => {
-        findUsersByIdMock.mockResolvedValue(
+        findUsersByIdAsMapMock.mockResolvedValue(
           new Map([
             [user2.id, user2],
             [leader.id, leader],
@@ -236,7 +235,7 @@ describe('parties/party-service', () => {
             members: [leader.id],
             leader: leader.id,
           },
-          time: currentTime,
+          time: clock.now(),
           userInfos: [
             { id: user2.id, name: user2.name },
             { id: leader.id, name: leader.name },
@@ -293,10 +292,14 @@ describe('parties/party-service', () => {
 
     test('should clear the invite notification', async () => {
       const notificationId = 'NOTIFICATION_ID'
-      notificationService.retrieveNotifications = jest.fn().mockResolvedValue([
+      asMockedFunction(notificationService.retrieveNotifications).mockResolvedValueOnce([
         {
+          userId: user2.id,
           id: notificationId,
-          data: { partyId: party.id },
+          data: { type: NotificationType.PartyInvite, from: party.leader, partyId: party.id },
+          read: false,
+          visible: true,
+          createdAt: new Date(clock.now()),
         },
       ])
 
@@ -320,15 +323,17 @@ describe('parties/party-service', () => {
 
     test('should clear the invite notification', async () => {
       const notificationId = 'NOTIFICATION_ID'
-      notificationService.retrieveNotifications = jest.fn().mockResolvedValue([
+      asMockedFunction(notificationService.retrieveNotifications).mockResolvedValueOnce([
         {
+          userId: user2.id,
           id: notificationId,
-          data: { partyId: party.id },
+          data: { type: NotificationType.PartyInvite, from: party.leader, partyId: party.id },
+          read: false,
+          visible: true,
+          createdAt: new Date(clock.now()),
         },
       ])
 
-      // This function is implicitly using the promise in its implementation, so we need to await it
-      // before we can test if the function below was called.
       await partyService.removeInvite(party.id, leader.id, user2.id)
 
       expect(notificationService.clearById).toHaveBeenCalledWith(user2.id, notificationId)
@@ -376,7 +381,7 @@ describe('parties/party-service', () => {
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'uninvite',
         target: user2.id,
-        time: currentTime,
+        time: clock.now(),
       })
     })
   })
@@ -463,13 +468,13 @@ describe('parties/party-service', () => {
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'join',
         user: user2.id,
-        time: currentTime,
+        time: clock.now(),
         userInfo: user2,
       })
     })
 
     test('should subscribe user to the party path', async () => {
-      findUsersByIdMock.mockResolvedValue(
+      findUsersByIdAsMapMock.mockResolvedValue(
         new Map([
           [user3.id, user3],
           [leader.id, leader],
@@ -485,7 +490,7 @@ describe('parties/party-service', () => {
       expect(client2.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'init',
         party: toPartyJson(party),
-        time: currentTime,
+        time: clock.now(),
         userInfos: [
           { id: user3.id, name: user3.name },
           { id: leader.id, name: leader.name },
@@ -528,7 +533,7 @@ describe('parties/party-service', () => {
         expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(oldParty.id), {
           type: 'leave',
           user: user6.id,
-          time: currentTime,
+          time: clock.now(),
         })
       })
     })
@@ -576,7 +581,7 @@ describe('parties/party-service', () => {
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'leave',
         user: user2.id,
-        time: currentTime,
+        time: clock.now(),
       })
     })
 
@@ -598,7 +603,7 @@ describe('parties/party-service', () => {
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'leaderChange',
         leader: user2.id,
-        time: currentTime,
+        time: clock.now(),
       })
     })
   })
@@ -635,7 +640,7 @@ describe('parties/party-service', () => {
         message: {
           partyId: party.id,
           user: user2,
-          time: currentTime,
+          time: clock.now(),
           text: 'Hello World!',
         },
         mentions: [],
@@ -654,7 +659,7 @@ describe('parties/party-service', () => {
         message: {
           partyId: party.id,
           user: user2,
-          time: currentTime,
+          time: clock.now(),
           text: 'Hello <@123> and @non-existing',
         },
         mentions: [{ id: 123, name: 'test' }],
@@ -673,7 +678,7 @@ describe('parties/party-service', () => {
         message: {
           partyId: party.id,
           user: user2,
-          time: currentTime,
+          time: clock.now(),
           text: 'Hello <@123> and <@123>',
         },
         mentions: [{ id: 123, name: 'test' }],
@@ -735,7 +740,7 @@ describe('parties/party-service', () => {
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'kick',
         target: user2.id,
-        time: currentTime,
+        time: clock.now(),
       })
     })
 
@@ -800,7 +805,7 @@ describe('parties/party-service', () => {
       expect(nydus.publish).toHaveBeenCalledWith(getPartyPath(party.id), {
         type: 'leaderChange',
         leader: user2.id,
-        time: currentTime,
+        time: clock.now(),
       })
     })
   })
@@ -887,7 +892,7 @@ describe('parties/party-service', () => {
           matchmakingType: preferences.matchmakingType,
           accepted: [[leader.id, preferences.race]],
           unaccepted: [user2.id],
-          time: currentTime,
+          time: clock.now(),
         }),
       )
 
@@ -906,7 +911,7 @@ describe('parties/party-service', () => {
             [leader.id, preferences.race],
             [user2.id, 'z'],
           ],
-          time: currentTime,
+          time: clock.now(),
         }),
       )
     })
@@ -924,7 +929,7 @@ describe('parties/party-service', () => {
           type: 'queueCancel',
           id: queueId,
           reason: { type: 'rejected', user: user2.id },
-          time: currentTime,
+          time: clock.now(),
         }),
       )
 
@@ -945,7 +950,7 @@ describe('parties/party-service', () => {
           type: 'queueCancel',
           id: queueId,
           reason: { type: 'userLeft', user: user2.id },
-          time: currentTime,
+          time: clock.now(),
         }),
       )
 
@@ -966,7 +971,7 @@ describe('parties/party-service', () => {
           type: 'queueCancel',
           id: queueId,
           reason: { type: 'userLeft', user: user2.id },
-          time: currentTime,
+          time: clock.now(),
         }),
       )
 
@@ -987,7 +992,7 @@ describe('parties/party-service', () => {
           type: 'queueCancel',
           id: queueId,
           reason: { type: 'userLeft', user: leader.id },
-          time: currentTime,
+          time: clock.now(),
         }),
       )
 
@@ -1031,7 +1036,7 @@ describe('parties/party-service', () => {
             [leader.id, preferences.race],
             [user2.id, 'z'],
           ],
-          time: currentTime,
+          time: clock.now(),
         }),
       )
 
@@ -1083,7 +1088,7 @@ describe('parties/party-service', () => {
           type: 'queueCancel',
           id: queueId,
           reason: { type: 'matchmakingDisabled' },
-          time: currentTime,
+          time: clock.now(),
         }),
       )
 
