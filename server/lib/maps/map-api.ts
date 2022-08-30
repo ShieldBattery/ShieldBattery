@@ -243,8 +243,6 @@ export class MapsApi {
 
     if (!name) {
       throw new httpErrors.BadRequest("Map name can't be empty")
-    } else if (!description) {
-      throw new httpErrors.BadRequest("Map description can't be empty")
     }
 
     let map = (await getMapInfo([mapId], ctx.session!.userId))[0]
