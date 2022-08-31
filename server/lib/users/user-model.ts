@@ -142,7 +142,7 @@ export async function createUser({
 
       const [permissions] = await Promise.all([
         createPermissions(client, userInternal.id),
-        chatService.joinChannel('ShieldBattery', userInternal.id, client, transactionCompleted),
+        chatService.joinInitialChannel(userInternal.id, client, transactionCompleted),
         createUserStats(client, userInternal.id),
         userIdManager.upsert(userInternal.id, clientIds, client),
       ])

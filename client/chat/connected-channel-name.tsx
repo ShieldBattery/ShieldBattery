@@ -21,8 +21,8 @@ export interface ConnectedChannelNameProps {
  * but will be extended with further functionality soon.
  */
 export function ConnectedChannelName({ className, channelId }: ConnectedChannelNameProps) {
-  const channel = useAppSelector(s => s.chat.byId.get(channelId))
-  const channelName = channel?.name ?? (
+  const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
+  const channelName = channelInfo?.name ?? (
     <LoadingName aria-label={'Channel loading…'}>
       &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
     </LoadingName>

@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import styled from 'styled-components'
-import { ChannelStatus, ChatServiceErrorCode, SbChannelId } from '../../common/chat'
+import { ChannelInfo, ChatServiceErrorCode, SbChannelId } from '../../common/chat'
 import ChannelIcon from '../icons/material/baseline-image-24px.svg'
 import WarningIcon from '../icons/material/warning_black_36px.svg'
 import { RaisedButton } from '../material/button'
@@ -11,7 +11,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import { colorError } from '../styles/colors'
 import { body1, Body1, Headline6 } from '../styles/typography'
-import { findChannel, joinChannel, navigateToChannel } from './action-creators'
+import { getChannelInfo, joinChannel, navigateToChannel } from './action-creators'
 
 const Container = styled(Card)`
   width: 100%;
@@ -26,8 +26,6 @@ const Container = styled(Card)`
 
 const StyledLoadingDotsArea = styled(LoadingDotsArea)`
   width: 100%;
-  height: 100%;
-  max-width: 960px;
 `
 
 const StyledChannelIcon = styled.svg`
@@ -52,70 +50,67 @@ const ErrorText = styled.div`
   color: ${colorError};
 `
 
-export interface ChannelStatusCardProps {
+export interface ChannelInfoCardProps {
   channelName: string
-  channelStatus?: ChannelStatus
+  channelInfo?: ChannelInfo
+  isLoading: boolean
   isUserInChannel: boolean
-  findChannelError?: Error
-  joinChannelError?: Error
+  isChannelNotFound: boolean
+  isJoinInProgress: boolean
+  isUserBanned: boolean
   onViewClick: () => void
   onJoinClick: () => void
 }
 
 // NOTE(2Pac): This component was extracted mainly for easier testing in dev pages and probably
 // shouldn't be used on its own.
-export function ChannelStatusCard({
+export function ChannelInfoCard({
   channelName,
-  channelStatus,
+  channelInfo,
+  isLoading,
   isUserInChannel,
-  findChannelError,
-  joinChannelError,
+  isChannelNotFound,
+  isJoinInProgress,
+  isUserBanned,
   onViewClick,
   onJoinClick,
-}: ChannelStatusCardProps) {
+}: ChannelInfoCardProps) {
   const icon =
-    channelStatus && (!channelStatus.private || isUserInChannel) ? (
+    channelInfo && (!channelInfo.private || isUserInChannel) ? (
       <StyledChannelIcon as={ChannelIcon} />
     ) : (
       <ErrorChannelIcon as={WarningIcon} />
     )
 
-  const isChannelNotFound =
-    isFetchError(findChannelError) && findChannelError.code === ChatServiceErrorCode.ChannelNotFound
-  const isChannelClosed =
-    isFetchError(findChannelError) && findChannelError.code === ChatServiceErrorCode.ChannelClosed
-  const isUserBanned =
-    isFetchError(joinChannelError) && joinChannelError.code === ChatServiceErrorCode.UserBanned
-
   let subtitle
   if (isChannelNotFound) {
-    subtitle = <ErrorText>We couldn't find this channel, you may create it yourself</ErrorText>
-  } else if (isChannelClosed) {
-    subtitle = <ErrorText>We couldn't find this channel, it might have been closed</ErrorText>
-  } else if (channelStatus?.private && !isUserInChannel) {
+    subtitle = (
+      <ErrorText>
+        We couldn't find this channel, it might not exist or it has been re-created by someone else
+      </ErrorText>
+    )
+  } else if (channelInfo?.private && !isUserInChannel) {
     subtitle = <ErrorText>This channel is private and requires an invite to join</ErrorText>
   } else if (isUserBanned) {
     subtitle = <ErrorText>You are banned from this channel</ErrorText>
-  } else if (channelStatus?.userCount) {
+  } else if (channelInfo?.userCount) {
     subtitle = (
-      <Body1>{`${channelStatus.userCount} member${channelStatus.userCount > 1 ? 's' : ''}`}</Body1>
+      <Body1>{`${channelInfo.userCount} member${channelInfo.userCount > 1 ? 's' : ''}`}</Body1>
     )
   }
 
   let action
   if (isUserInChannel) {
     action = <RaisedButton label='View' onClick={onViewClick} />
-  } else if (isChannelNotFound) {
-    action = <RaisedButton label='Create' onClick={onJoinClick} />
-  } else if (channelStatus?.private || isUserBanned) {
+  } else if (channelInfo?.private || isUserBanned) {
     action = <RaisedButton label='Join' disabled={true} />
-  } else if (!findChannelError) {
-    action = <RaisedButton label='Join' onClick={onJoinClick} />
+  } else if (channelInfo) {
+    action = <RaisedButton label='Join' disabled={isJoinInProgress} onClick={onJoinClick} />
   }
 
   return (
     <Container>
-      {!channelStatus && !findChannelError ? (
+      {isLoading ? (
         <StyledLoadingDotsArea />
       ) : (
         <>
@@ -131,28 +126,28 @@ export function ChannelStatusCard({
   )
 }
 
-export interface ConnectedChannelStatusCardProps {
+export interface ConnectedChannelInfoCardProps {
   channelId: SbChannelId
   channelName: string
 }
 
-export function ConnectedChannelStatusCard({
+export function ConnectedChannelInfoCard({
   channelId,
   channelName,
-}: ConnectedChannelStatusCardProps) {
+}: ConnectedChannelInfoCardProps) {
   const dispatch = useAppDispatch()
-  const channel = useAppSelector(s => s.chat.byId.get(channelId))
-  const channelStatus = useAppSelector(s => s.channelStatus.byId.get(channelId))
+  const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
+  const isUserInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
 
   const [findChannelError, setFindChannelError] = useState<Error>()
   const [joinChannelError, setJoinChannelError] = useState<Error>()
-  const cancelJoinRef = useRef(new AbortController())
+  const [isJoinInProgress, setIsJoinInProgress] = useState(false)
 
   useEffect(() => {
     const abortController = new AbortController()
 
     dispatch(
-      findChannel(channelId, channelName, {
+      getChannelInfo(channelId, {
         signal: abortController.signal,
         onSuccess: () => setFindChannelError(undefined),
         onError: err => setFindChannelError(err),
@@ -162,37 +157,39 @@ export function ConnectedChannelStatusCard({
     return () => {
       abortController.abort()
     }
-  }, [channelId, dispatch, channelName])
-
-  useEffect(() => {
-    const abortController = cancelJoinRef.current
-
-    return () => {
-      abortController.abort()
-    }
-  }, [])
+  }, [channelId, dispatch])
 
   const onViewClick = useStableCallback(() => {
     navigateToChannel(channelId, channelName)
   })
 
   const onJoinClick = useStableCallback(() => {
+    setIsJoinInProgress(true)
     dispatch(
       joinChannel(channelName, {
-        signal: cancelJoinRef.current.signal,
         onSuccess: channel => navigateToChannel(channel.id, channel.name),
-        onError: err => setJoinChannelError(err),
+        onError: err => {
+          setJoinChannelError(err)
+          setIsJoinInProgress(false)
+        },
       }),
     )
   })
 
+  const isChannelNotFound =
+    isFetchError(findChannelError) && findChannelError.code === ChatServiceErrorCode.ChannelNotFound
+  const isUserBanned =
+    isFetchError(joinChannelError) && joinChannelError.code === ChatServiceErrorCode.UserBanned
+
   return (
-    <ChannelStatusCard
+    <ChannelInfoCard
       channelName={channelName}
-      channelStatus={channelStatus}
-      isUserInChannel={!!channel}
-      findChannelError={findChannelError}
-      joinChannelError={joinChannelError}
+      channelInfo={channelInfo}
+      isLoading={!channelInfo && !findChannelError}
+      isUserInChannel={isUserInChannel}
+      isChannelNotFound={isChannelNotFound}
+      isJoinInProgress={isJoinInProgress}
+      isUserBanned={isUserBanned}
       onViewClick={onViewClick}
       onJoinClick={onJoinClick}
     />

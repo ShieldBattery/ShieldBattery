@@ -1,5 +1,5 @@
 import {
-  ChannelStatus,
+  ChannelInfo,
   ChatBanEvent,
   ChatInitEvent,
   ChatJoinEvent,
@@ -34,7 +34,7 @@ export type ChatActions =
   | RetrieveUserList
   | RetrieveUserListFailure
   | GetChatUserProfile
-  | FindChannel
+  | GetChannelInfo
   | ActivateChannel
   | DeactivateChannel
   | InitChannel
@@ -196,11 +196,11 @@ export interface GetChatUserProfile {
 }
 
 /**
- * Find a specific channel.
+ * Get the publicly available info for a specific channel.
  */
-export interface FindChannel {
-  type: '@chat/findChannel'
-  payload: ChannelStatus
+export interface GetChannelInfo {
+  type: '@chat/getChannelInfo'
+  payload: ChannelInfo
 }
 
 /**

@@ -32,8 +32,8 @@ import {
   retrieveUserList,
   sendMessage,
 } from './action-creators'
+import { ConnectedChannelInfoCard } from './channel-info-card'
 import { addChannelMenuItems } from './channel-menu-items'
-import { ConnectedChannelStatusCard } from './channel-status-card'
 import {
   BanUserMessage,
   JoinChannelMessage,
@@ -291,7 +291,7 @@ const StyledChat = styled(Chat)`
   background-color: ${background800};
 `
 
-const ChannelStatusContainer = styled.div`
+const ChannelInfoContainer = styled.div`
   width: 100%;
   max-width: 960px;
   height: 100%;
@@ -383,10 +383,13 @@ export function ConnectedChatChannel({
   channelName: channelNameFromRoute,
 }: ChatChannelProps) {
   const dispatch = useAppDispatch()
-  const channel = useAppSelector(s => s.chat.byId.get(channelId))
-  const activeUserIds = channel?.users.active
-  const idleUserIds = channel?.users.idle
-  const offlineUserIds = channel?.users.offline
+  const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
+  const channelUsers = useAppSelector(s => s.chat.idToUsers.get(channelId))
+  const channelMessages = useAppSelector(s => s.chat.idToMessages.get(channelId))
+  const isInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
+  const activeUserIds = channelUsers?.active
+  const idleUserIds = channelUsers?.idle
+  const offlineUserIds = channelUsers?.offline
   // We map the user IDs to their usernames so we can sort them by their name without pulling all of
   // the users from the store and depending on any of their changes.
   const activeUserEntries = useAppSelector(
@@ -399,7 +402,6 @@ export function ConnectedChatChannel({
     areUserEntriesEqual,
   )
 
-  const isInChannel = !!channel
   const prevIsInChannel = usePrevious(isInChannel)
   const prevChannelId = usePrevious(channelId)
   const isLeavingChannel = !isInChannel && prevIsInChannel && prevChannelId === channelId
@@ -423,10 +425,10 @@ export function ConnectedChatChannel({
   }, [isInChannel, channelId, dispatch])
 
   useEffect(() => {
-    if (channel && channelNameFromRoute !== channel.name) {
-      correctChannelNameForChat(channel.id, channel.name)
+    if (channelInfo && channelNameFromRoute !== channelInfo.name) {
+      correctChannelNameForChat(channelInfo.id, channelInfo.name)
     }
-  }, [channel, channelNameFromRoute])
+  }, [channelInfo, channelNameFromRoute])
 
   const onLoadMoreMessages = useStableCallback(() =>
     dispatch(getMessageHistory(channelId, MESSAGES_LIMIT)),
@@ -451,12 +453,12 @@ export function ConnectedChatChannel({
 
   return (
     <Container>
-      {channel ? (
+      {isInChannel || isLeavingChannel ? (
         <StyledChat
           listProps={{
-            messages: channel.messages,
-            loading: channel.loadingHistory,
-            hasMoreHistory: channel.hasHistory,
+            messages: channelMessages?.messages ?? [],
+            loading: channelMessages?.loadingHistory,
+            hasMoreHistory: channelMessages?.hasHistory,
             refreshToken: channelId,
             renderMessage,
             onLoadMoreMessages,
@@ -475,9 +477,9 @@ export function ConnectedChatChannel({
           modifyMenuItems={modifyMenuItems}
         />
       ) : (
-        <ChannelStatusContainer>
-          <ConnectedChannelStatusCard channelId={channelId} channelName={channelNameFromRoute} />
-        </ChannelStatusContainer>
+        <ChannelInfoContainer>
+          <ConnectedChannelInfoCard channelId={channelId} channelName={channelNameFromRoute} />
+        </ChannelInfoContainer>
       )}
     </Container>
   )

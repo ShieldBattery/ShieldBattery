@@ -51,11 +51,18 @@ const eventToChatAction: EventToChatActionMap = {
 
   kick: (channelId, event) => (dispatch, getState) => {
     const { auth, chat } = getState()
-    const channel = chat.byId.get(channelId)!
+    const channelInfo = chat.idToInfo.get(channelId)
+    if (!channelInfo) {
+      return
+    }
+
     if (auth.user.id === event.targetId) {
       // It was us who has been kicked from the channel
       dispatch(
-        openSnackbar({ message: `You have been kicked from ${channel.name}.`, time: TIMING_LONG }),
+        openSnackbar({
+          message: `You have been kicked from ${channelInfo.name}.`,
+          time: TIMING_LONG,
+        }),
       )
       dispatch({
         type: '@chat/updateKickSelf',
@@ -72,13 +79,20 @@ const eventToChatAction: EventToChatActionMap = {
 
   ban: (channelId, event) => (dispatch, getState) => {
     const { auth, chat } = getState()
-    const channel = chat.byId.get(channelId)!
+    const channelInfo = chat.idToInfo.get(channelId)
+    if (!channelInfo) {
+      return
+    }
+
     if (auth.user.id === event.targetId) {
       // It was us who has been banned from the channel
       // TODO(2Pac): Send a notification to the banned user that they've been banned, instead of
       // just showing a snackbar which is easily missed if the user is not looking.
       dispatch(
-        openSnackbar({ message: `You have been banned from ${channel.name}.`, time: TIMING_LONG }),
+        openSnackbar({
+          message: `You have been banned from ${channelInfo.name}.`,
+          time: TIMING_LONG,
+        }),
       )
       dispatch({
         type: '@chat/updateBanSelf',
@@ -97,7 +111,7 @@ const eventToChatAction: EventToChatActionMap = {
     return (dispatch, getState) => {
       const {
         auth,
-        chat: { byId },
+        chat: { activatedChannels },
       } = getState()
 
       const isUrgent = event.mentions.some(m => m.id === auth.user.id)
@@ -114,8 +128,8 @@ const eventToChatAction: EventToChatActionMap = {
         meta: { channelId },
       })
 
-      const channelState = byId.get(channelId)
-      if (isUrgent && channelState && (!channelState.activated || !windowFocus.isFocused())) {
+      const isChannelActivated = activatedChannels.has(channelId)
+      if (isUrgent && (!isChannelActivated || !windowFocus.isFocused())) {
         audioManager.playSound(AvailableSound.MessageAlert)
       }
     }
@@ -163,8 +177,10 @@ const eventToChatUserAction: EventToChatUserActionMap = {
   },
 }
 
+const CHANNEL_PATH = '/chat3/:channelId'
+
 export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
-  siteSocket.registerRoute('/chat3/:channelId', (route: RouteInfo, event: ChatEvent) => {
+  siteSocket.registerRoute(CHANNEL_PATH, (route: RouteInfo, event: ChatEvent) => {
     if (!eventToChatAction.hasOwnProperty(event.action)) return
 
     const action = eventToChatAction[event.action](
@@ -175,7 +191,7 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
   })
 
   siteSocket.registerRoute(
-    '/chat2/:channelId/users/:userId',
+    `${CHANNEL_PATH}/users/:userId`,
     (route: RouteInfo, event: ChatUserEvent) => {
       if (!eventToChatUserAction.hasOwnProperty(event.action)) return
 

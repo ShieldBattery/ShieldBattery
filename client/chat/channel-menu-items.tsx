@@ -2,7 +2,7 @@ import React, { useEffect } from 'react'
 import styled from 'styled-components'
 import { ChannelModerationAction, SbChannelId } from '../../common/chat'
 import { appendToMultimap } from '../../common/data-structures/maps'
-import { MULTI_CHANNEL } from '../../common/flags'
+import { CAN_LEAVE_SHIELDBATTERY_CHANNEL, MULTI_CHANNEL } from '../../common/flags'
 import { SbUserId } from '../../common/users/sb-user'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
@@ -38,7 +38,9 @@ export const addChannelMenuItems = (
   const selfPermissions = useAppSelector(s => s.auth.permissions)
   const selfUserId = useAppSelector(s => s.auth.user.id)
   const user = useAppSelector(s => s.users.byId.get(userId))
-  const channel = useAppSelector(s => s.chat.byId.get(channelId))
+  const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
+  const channelUserProfiles = useAppSelector(s => s.chat.idToUserProfiles.get(channelId))
+  const channelSelfPermissions = useAppSelector(s => s.chat.idToSelfPermissions.get(channelId))
 
   useEffect(() => {
     const abortController = new AbortController()
@@ -57,7 +59,7 @@ export const addChannelMenuItems = (
   }, [dispatch, channelId, userId])
 
   const onKickUser = useStableCallback(() => {
-    if (!user || !channel) {
+    if (!user) {
       return
     }
 
@@ -71,7 +73,7 @@ export const addChannelMenuItems = (
   })
 
   const onBanUser = useStableCallback(() => {
-    if (!user || !channel) {
+    if (!user) {
       return
     }
 
@@ -85,16 +87,27 @@ export const addChannelMenuItems = (
   })
   /* eslint-enable react-hooks/rules-of-hooks */
 
-  if (!user || !channel) {
+  if (
+    !user ||
+    !channelInfo ||
+    !channelInfo.joinedChannelData ||
+    !channelUserProfiles ||
+    !channelSelfPermissions
+  ) {
     return items
   }
 
-  const channelUserProfile = channel.userProfiles.get(user.id)
-  if (MULTI_CHANNEL && channelUserProfile && user.id !== selfUserId && channelId !== 1) {
+  const channelUserProfile = channelUserProfiles.get(user.id)
+  if (
+    MULTI_CHANNEL &&
+    channelUserProfile &&
+    user.id !== selfUserId &&
+    (channelId !== 1 || CAN_LEAVE_SHIELDBATTERY_CHANNEL)
+  ) {
     if (
       selfPermissions.editPermissions ||
       selfPermissions.moderateChatChannels ||
-      channel.ownerId === selfUserId
+      channelInfo.joinedChannelData.ownerId === selfUserId
     ) {
       appendToMultimap(
         items,
@@ -107,14 +120,14 @@ export const addChannelMenuItems = (
         <DestructiveMenuItem key='ban' text={`Ban ${user.name}`} onClick={onBanUser} />,
       )
     } else if (!channelUserProfile.isModerator) {
-      if (channel?.selfPermissions?.kick) {
+      if (channelSelfPermissions.kick) {
         appendToMultimap(
           items,
           MenuItemCategory.Destructive,
           <DestructiveMenuItem key='kick' text={`Kick ${user.name}`} onClick={onKickUser} />,
         )
       }
-      if (channel?.selfPermissions?.ban) {
+      if (channelSelfPermissions.ban) {
         appendToMultimap(
           items,
           MenuItemCategory.Destructive,

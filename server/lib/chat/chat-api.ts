@@ -5,7 +5,6 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   ChannelInfo,
   ChannelPermissions,
-  ChannelStatus,
   ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
   GetChannelUserPermissionsResponse,
@@ -70,8 +69,8 @@ const userPermissionsThrottle = createThrottle('chatuserpermissions', {
   window: 60000,
 })
 
-const serialIdSchema = Joi.number().min(1).required()
-const channelNameSchema = Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN).required()
+const serialIdSchema = () => Joi.number().min(1)
+const channelNameSchema = () => Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN)
 
 function convertChatServiceError(err: unknown) {
   if (!(err instanceof ChatServiceError)) {
@@ -80,7 +79,6 @@ function convertChatServiceError(err: unknown) {
 
   switch (err.code) {
     case ChatServiceErrorCode.ChannelNotFound:
-    case ChatServiceErrorCode.ChannelClosed:
     case ChatServiceErrorCode.NotInChannel:
     case ChatServiceErrorCode.TargetNotInChannel:
     case ChatServiceErrorCode.UserOffline:
@@ -116,7 +114,7 @@ function getValidatedChannelId(ctx: RouterContext) {
     params: { channelId },
   } = validateRequest(ctx, {
     params: Joi.object<{ channelId: SbChannelId }>({
-      channelId: serialIdSchema,
+      channelId: serialIdSchema().required(),
     }),
   })
 
@@ -128,22 +126,15 @@ function getValidatedChannelId(ctx: RouterContext) {
 export class ChatApi {
   constructor(private chatService: ChatService) {}
 
-  @httpGet('/:channelId/info/:channelName')
+  @httpGet('/:channelId/info')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
-  async getChannelInfo(ctx: RouterContext): Promise<ChannelStatus> {
-    const {
-      params: { channelId, channelName },
-    } = validateRequest(ctx, {
-      params: Joi.object<{ channelId: SbChannelId; channelName: string }>({
-        channelId: serialIdSchema,
-        channelName: channelNameSchema,
-      }),
-    })
+  async getChannelInfo(ctx: RouterContext): Promise<ChannelInfo> {
+    const channelId = getValidatedChannelId(ctx)
 
-    return await this.chatService.getChannelInfo(channelId, channelName, ctx.session!.userId)
+    return await this.chatService.getChannelInfo(channelId, ctx.session!.userId)
   }
 
-  @httpPost('/:channelName')
+  @httpPost('/join/:channelName')
   @httpBefore(
     featureEnabled(MULTI_CHANNEL),
     throttleMiddleware(joinThrottle, ctx => String(ctx.session!.userId)),
@@ -153,7 +144,7 @@ export class ChatApi {
       params: { channelName },
     } = validateRequest(ctx, {
       params: Joi.object<{ channelName: string }>({
-        channelName: channelNameSchema,
+        channelName: channelNameSchema().required(),
       }),
     })
 
@@ -243,8 +234,8 @@ export class ChatApi {
       params: { channelId, targetId },
     } = validateRequest(ctx, {
       params: Joi.object<{ channelId: SbChannelId; targetId: SbUserId }>({
-        channelId: serialIdSchema,
-        targetId: serialIdSchema,
+        channelId: serialIdSchema().required(),
+        targetId: serialIdSchema().required(),
       }),
     })
 
@@ -262,8 +253,8 @@ export class ChatApi {
       body: { moderationAction, moderationReason },
     } = validateRequest(ctx, {
       params: Joi.object<{ channelId: SbChannelId; targetId: SbUserId }>({
-        channelId: serialIdSchema,
-        targetId: serialIdSchema,
+        channelId: serialIdSchema().required(),
+        targetId: serialIdSchema().required(),
       }),
       body: Joi.object<ModerateChannelUserServerRequest>({
         moderationAction: Joi.string().valid('kick', 'ban').required(),
@@ -292,8 +283,8 @@ export class ChatApi {
       params: { channelId, targetId },
     } = validateRequest(ctx, {
       params: Joi.object<{ channelId: SbChannelId; targetId: SbUserId }>({
-        channelId: serialIdSchema,
-        targetId: serialIdSchema,
+        channelId: serialIdSchema().required(),
+        targetId: serialIdSchema().required(),
       }),
     })
 
@@ -311,8 +302,8 @@ export class ChatApi {
       body: { permissions },
     } = validateRequest(ctx, {
       params: Joi.object<{ channelId: SbChannelId; targetId: SbUserId }>({
-        channelId: serialIdSchema,
-        targetId: serialIdSchema,
+        channelId: serialIdSchema().required(),
+        targetId: serialIdSchema().required(),
       }),
       body: Joi.object<UpdateChannelUserPermissionsRequest>({
         permissions: Joi.object<ChannelPermissions>({

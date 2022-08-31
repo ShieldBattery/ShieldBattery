@@ -1,7 +1,6 @@
 import {
   ChannelInfo,
   ChannelModerationAction,
-  ChannelStatus,
   GetChannelHistoryServerResponse,
   GetChatUserProfileResponse,
   ModerateChannelUserServerRequest,
@@ -21,7 +20,7 @@ export function joinChannel(
   spec: RequestHandlingSpec<ChannelInfo>,
 ): ThunkAction {
   return abortableThunk(spec, async () => {
-    return fetchJson<ChannelInfo>(apiUrl`chat/${channelName}`, {
+    return fetchJson<ChannelInfo>(apiUrl`chat/join/${channelName}`, {
       method: 'POST',
       signal: spec.signal,
     })
@@ -84,14 +83,12 @@ export function sendMessage(channelId: SbChannelId, message: string): ThunkActio
 export function getMessageHistory(channelId: SbChannelId, limit: number): ThunkAction {
   return (dispatch, getStore) => {
     const {
-      chat: { byId },
+      chat: { idToMessages },
     } = getStore()
-    const chanData = byId.get(channelId)
-    if (!chanData) {
-      return
-    }
-
-    const earliestMessageTime = chanData.messages.length ? chanData.messages[0].time : -1
+    const channelMessages = idToMessages.get(channelId)
+    const earliestMessageTime = channelMessages?.messages.length
+      ? channelMessages.messages[0].time
+      : -1
     const params = { channelId, limit, beforeTime: earliestMessageTime }
 
     dispatch({
@@ -112,14 +109,10 @@ export function getMessageHistory(channelId: SbChannelId, limit: number): ThunkA
 export function retrieveUserList(channelId: SbChannelId): ThunkAction {
   return (dispatch, getStore) => {
     const {
-      chat: { byId },
+      chat: { idToUsers },
     } = getStore()
-    const chanData = byId.get(channelId)
-    if (!chanData) {
-      return
-    }
-
-    if (chanData.hasLoadedUserList || chanData.loadingUserList) {
+    const channelUsers = idToUsers.get(channelId)
+    if (channelUsers?.hasLoadedUserList || channelUsers?.loadingUserList) {
       return
     }
 
@@ -146,13 +139,6 @@ export function getChatUserProfile(
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async (dispatch, getStore) => {
-    const {
-      chat: { byId },
-    } = getStore()
-    if (!byId.has(channelId)) {
-      return
-    }
-
     const channelTargetId: `${SbChannelId}|${SbUserId}` = `${channelId}|${targetId}`
     if (chatUserProfileLoadsInProgress.has(channelTargetId)) {
       return
@@ -176,15 +162,14 @@ export function getChatUserProfile(
   })
 }
 
-export function findChannel(
+export function getChannelInfo(
   channelId: SbChannelId,
-  channelName: string,
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     dispatch({
-      type: '@chat/findChannel',
-      payload: await fetchJson<ChannelStatus>(apiUrl`chat/${channelId}/info/${channelName}`, {
+      type: '@chat/getChannelInfo',
+      payload: await fetchJson<ChannelInfo>(apiUrl`chat/${channelId}/info`, {
         method: 'GET',
         signal: spec.signal,
       }),
@@ -207,7 +192,7 @@ export function deactivateChannel(channelId: SbChannelId): DeactivateChannel {
 }
 
 export function navigateToChannel(channelId: SbChannelId, channelName: string) {
-  push(`/chat/${channelId}/${encodeURIComponent(channelName)}`)
+  push(urlPath`/chat/${channelId}/$(channelName}`)
 }
 
 /**

@@ -1,12 +1,11 @@
 import React, { useState } from 'react'
 import styled from 'styled-components'
-import { ChannelStatus, ChatServiceErrorCode, makeSbChannelId } from '../../../common/chat'
+import { ChannelInfo, makeSbChannelId } from '../../../common/chat'
 import Card from '../../material/card'
 import CheckBox from '../../material/check-box'
 import { TextField } from '../../material/text-field'
-import { FetchError } from '../../network/fetch-errors'
 import { Subtitle1 } from '../../styles/typography'
-import { ChannelStatusCard } from '../channel-status-card'
+import { ChannelInfoCard } from '../channel-info-card'
 
 const Container = styled.div`
   display: flex;
@@ -20,44 +19,20 @@ const SettingsCard = styled(Card)`
   max-width: 400px;
 `
 
-export function ChannelStatusCardTest() {
-  const [channelStatus, setChannelStatus] = useState<ChannelStatus>({
+export function ChannelInfoCardTest() {
+  const [channelInfo, setChannelInfo] = useState<ChannelInfo>({
     id: makeSbChannelId(1),
     name: 'ShieldBattery',
     private: false,
+    highTraffic: false,
     userCount: 1337,
   })
   const [isLoading, setIsLoading] = useState(false)
   const [isUserInChannel, setIsUserInChannel] = useState(false)
   const [isUserBanned, setIsUserBanned] = useState(false)
-  const [channelNotFound, setChannelNotFound] = useState(false)
-  const [channelClosed, setChannelClosed] = useState(false)
+  const [isJoinInProgress, setIsJoinInProgress] = useState(false)
+  const [isChannelNotFound, setIsChannelNotFound] = useState(false)
   const [channelName, setChannelName] = useState('ShieldBattery')
-
-  let findChannelErrorCode
-  if (channelNotFound) {
-    findChannelErrorCode = ChatServiceErrorCode.ChannelNotFound
-  } else if (channelClosed) {
-    findChannelErrorCode = ChatServiceErrorCode.ChannelClosed
-  }
-
-  const findChannelError = findChannelErrorCode
-    ? new FetchError(
-        new Response(),
-        JSON.stringify({
-          code: findChannelErrorCode,
-        }),
-      )
-    : undefined
-
-  const joinChannelError = isUserBanned
-    ? new FetchError(
-        new Response(),
-        JSON.stringify({
-          code: ChatServiceErrorCode.UserBanned,
-        }),
-      )
-    : undefined
 
   return (
     <Container>
@@ -70,8 +45,8 @@ export function ChannelStatusCardTest() {
         />
         <CheckBox
           label='Is private'
-          checked={channelStatus.private}
-          onChange={() => setChannelStatus({ ...channelStatus, private: !channelStatus.private })}
+          checked={channelInfo.private}
+          onChange={() => setChannelInfo({ ...channelInfo, private: !channelInfo.private })}
         />
         <CheckBox
           label='Is user in channel'
@@ -84,14 +59,14 @@ export function ChannelStatusCardTest() {
           onChange={() => setIsUserBanned(!isUserBanned)}
         />
         <CheckBox
-          label='Channel not found'
-          checked={channelNotFound}
-          onChange={() => setChannelNotFound(!channelNotFound)}
+          label='Is channel not found'
+          checked={isChannelNotFound}
+          onChange={() => setIsChannelNotFound(!isChannelNotFound)}
         />
         <CheckBox
-          label='Channel closed'
-          checked={channelClosed}
-          onChange={() => setChannelClosed(!channelClosed)}
+          label='Is join in progress'
+          checked={isJoinInProgress}
+          onChange={() => setIsJoinInProgress(!isJoinInProgress)}
         />
         <TextField
           floatingLabel={true}
@@ -102,20 +77,22 @@ export function ChannelStatusCardTest() {
         <TextField
           floatingLabel={true}
           label='User count'
-          value={String(channelStatus.userCount)}
+          value={String(channelInfo.userCount)}
           type='number'
           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            setChannelStatus({ ...channelStatus, userCount: Number(e.target.value) })
+            setChannelInfo({ ...channelInfo, userCount: Number(e.target.value) })
           }
         />
       </SettingsCard>
 
-      <ChannelStatusCard
+      <ChannelInfoCard
         channelName={channelName}
-        channelStatus={!isLoading && !findChannelError ? channelStatus : undefined}
+        channelInfo={!isChannelNotFound ? channelInfo : undefined}
+        isLoading={isLoading}
         isUserInChannel={isUserInChannel}
-        findChannelError={findChannelError}
-        joinChannelError={joinChannelError}
+        isJoinInProgress={isJoinInProgress}
+        isChannelNotFound={isChannelNotFound}
+        isUserBanned={isUserBanned}
         onViewClick={() => {}}
         onJoinClick={() => {}}
       />

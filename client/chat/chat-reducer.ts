@@ -1,6 +1,7 @@
 import cuid from 'cuid'
 import { Immutable } from 'immer'
 import {
+  ChannelInfo,
   ChannelModerationAction,
   ChannelPermissions,
   ChatMessage,
@@ -19,35 +20,46 @@ export interface UsersState {
   active: Set<SbUserId>
   idle: Set<SbUserId>
   offline: Set<SbUserId>
-}
-
-export interface ChannelState {
-  id: SbChannelId
-  name: string
-  messages: ChatMessage[]
-  users: UsersState
-  userProfiles: Map<SbUserId, ChatUserProfileJson>
-  selfPermissions: ChannelPermissions
-  ownerId: SbUserId
-
-  loadingHistory: boolean
-  hasHistory: boolean
 
   hasLoadedUserList: boolean
   loadingUserList: boolean
+}
 
-  activated: boolean
-  hasUnread: boolean
+export interface MessagesState {
+  messages: ChatMessage[]
+
+  loadingHistory: boolean
+  hasHistory: boolean
 }
 
 export interface ChatState {
-  channels: Set<SbChannelId>
-  byId: Map<SbChannelId, ChannelState>
+  /* A set of joined chat channels */
+  joinedChannels: Set<SbChannelId>
+  /* A map of channel ID -> channel info (includes both joined and unjoined chat channels) */
+  idToInfo: Map<SbChannelId, ChannelInfo>
+  /* A map of channel ID -> channel users */
+  idToUsers: Map<SbChannelId, UsersState>
+  /* A map of channel ID -> channel messages */
+  idToMessages: Map<SbChannelId, MessagesState>
+  /* A nested map of channel ID -> a map of user ID -> chat channel user profile */
+  idToUserProfiles: Map<SbChannelId, Map<SbUserId, ChatUserProfileJson>>
+  /* A map of channel ID -> your own permissions for this chat channel */
+  idToSelfPermissions: Map<SbChannelId, ChannelPermissions>
+  /* A set of joined chat channels that are activated */
+  activatedChannels: Set<SbChannelId>
+  /* A set of joined chat channels that are unread */
+  unreadChannels: Set<SbChannelId>
 }
 
 const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
-  channels: new Set(),
-  byId: new Map(),
+  joinedChannels: new Set(),
+  idToInfo: new Map(),
+  idToUsers: new Map(),
+  idToMessages: new Map(),
+  idToUserProfiles: new Map(),
+  idToSelfPermissions: new Map(),
+  activatedChannels: new Set(),
+  unreadChannels: new Set(),
 }
 
 function removeUserFromChannel(
@@ -57,15 +69,17 @@ function removeUserFromChannel(
   newOwnerId?: SbUserId,
   reason?: ChannelModerationAction,
 ) {
-  const channel = state.byId.get(channelId)
-  if (!channel) {
+  const channelInfo = state.idToInfo.get(channelId)
+  const channelUsers = state.idToUsers.get(channelId)
+  const channelUserProfiles = state.idToUserProfiles.get(channelId)
+  if (!channelInfo || !channelInfo.joinedChannelData || !channelUsers || !channelUserProfiles) {
     return
   }
 
-  channel.users.active.delete(userId)
-  channel.users.idle.delete(userId)
-  channel.users.offline.delete(userId)
-  channel.userProfiles.delete(userId)
+  channelUsers.active.delete(userId)
+  channelUsers.idle.delete(userId)
+  channelUsers.offline.delete(userId)
+  channelUserProfiles.delete(userId)
 
   let messageType:
     | ClientChatMessageType.LeaveChannel
@@ -88,7 +102,7 @@ function removeUserFromChannel(
   )
 
   if (newOwnerId) {
-    channel.ownerId = newOwnerId
+    channelInfo.joinedChannelData.ownerId = newOwnerId
 
     updateMessages(state, channelId, true, m =>
       m.concat({
@@ -102,36 +116,52 @@ function removeUserFromChannel(
   }
 }
 
+function removeSelfFromChannel(state: ChatState, channelId: SbChannelId) {
+  state.joinedChannels.delete(channelId)
+  state.idToUsers.delete(channelId)
+  state.idToMessages.delete(channelId)
+  state.idToUserProfiles.delete(channelId)
+  state.idToSelfPermissions.delete(channelId)
+  state.activatedChannels.delete(channelId)
+  state.unreadChannels.delete(channelId)
+}
+
 /**
  * Update the messages field for a channel, keeping the `hasUnread` flag in proper sync.
  *
  * @param state The complete chat state which holds all of the channels.
  * @param channelId The ID of the channel in which to update the messages.
- * @param makesUnread A boolean flag indicating whether to mark a channel as having unread messages.
+ * @param makeUnread A boolean flag indicating whether to mark a channel as having unread messages.
  * @param updateFn A function which should perform the update operation on the messages field. Note
  *   that this function should return a new array, instead of performing the update in-place.
  */
 function updateMessages(
   state: ChatState,
   channelId: SbChannelId,
-  makesUnread: boolean,
+  makeUnread: boolean,
   updateFn: (messages: ChatMessage[]) => ChatMessage[],
 ) {
-  const channel = state.byId.get(channelId)
-  if (!channel) {
+  const channelMessages = state.idToMessages.get(channelId)
+  if (!channelMessages) {
     return
   }
 
-  channel.messages = updateFn(channel.messages)
+  channelMessages.messages = updateFn(channelMessages.messages)
+
+  const isChannelActivated = state.activatedChannels.has(channelId)
+  const isChannelUnread = state.unreadChannels.has(channelId)
 
   let sliced = false
-  if (!channel.activated && channel.messages.length > INACTIVE_CHANNEL_MAX_HISTORY) {
-    channel.messages = channel.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
+  if (!isChannelActivated && channelMessages.messages.length > INACTIVE_CHANNEL_MAX_HISTORY) {
+    channelMessages.messages = channelMessages.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
     sliced = true
   }
 
-  channel.hasUnread = makesUnread ? channel.hasUnread || !channel.activated : channel.hasUnread
-  channel.hasHistory = channel.hasHistory || sliced
+  if (makeUnread && !isChannelUnread && !isChannelActivated) {
+    state.unreadChannels.add(channelId)
+  }
+
+  channelMessages.hasHistory = channelMessages.hasHistory || sliced
 }
 
 export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
@@ -143,24 +173,20 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       active: new Set(activeUserIds),
       idle: new Set(),
       offline: new Set(),
-    }
-    const channelState: ChannelState = {
-      id: channelId,
-      name: channelInfo.name,
-      messages: [],
-      users: channelUsers,
-      selfPermissions,
-      ownerId: channelInfo.ownerId,
-      userProfiles: new Map(),
-      loadingHistory: false,
-      hasHistory: true,
       hasLoadedUserList: false,
       loadingUserList: false,
-      activated: false,
-      hasUnread: false,
     }
-    state.channels.add(channelId)
-    state.byId.set(channelId, channelState)
+    const messagesState: MessagesState = {
+      messages: [],
+      loadingHistory: false,
+      hasHistory: true,
+    }
+    state.joinedChannels.add(channelId)
+    state.idToInfo.set(channelId, channelInfo)
+    state.idToUsers.set(channelId, channelUsers)
+    state.idToMessages.set(channelId, messagesState)
+    state.idToUserProfiles.set(channelId, new Map())
+    state.idToSelfPermissions.set(channelId, selfPermissions)
 
     updateMessages(state, channelId, false, m =>
       m.concat({
@@ -176,12 +202,12 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     const { user, message } = action.payload
     const { channelId } = action.meta
 
-    const channel = state.byId.get(channelId)
-    if (!channel) {
+    const channelUsers = state.idToUsers.get(channelId)
+    if (!channelUsers) {
       return
     }
 
-    channel.users.active.add(user.id)
+    channelUsers.active.add(user.id)
 
     updateMessages(state, channelId, true, m => m.concat(message))
   },
@@ -196,8 +222,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   ['@chat/updateLeaveSelf'](state, action) {
     const { channelId } = action.meta
 
-    state.channels.delete(channelId)
-    state.byId.delete(channelId)
+    removeSelfFromChannel(state, channelId)
   },
 
   ['@chat/updateKick'](state, action) {
@@ -210,8 +235,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   ['@chat/updateKickSelf'](state, action) {
     const { channelId } = action.meta
 
-    state.channels.delete(channelId)
-    state.byId.delete(channelId)
+    removeSelfFromChannel(state, channelId)
   },
 
   ['@chat/updateBan'](state, action) {
@@ -224,8 +248,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   ['@chat/updateBanSelf'](state, action) {
     const { channelId } = action.meta
 
-    state.channels.delete(channelId)
-    state.byId.delete(channelId)
+    removeSelfFromChannel(state, channelId)
   },
 
   ['@chat/updateMessage'](state, action) {
@@ -239,53 +262,53 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     const { userId } = action.payload
     const { channelId } = action.meta
 
-    const channel = state.byId.get(channelId)
-    if (!channel) {
+    const channelUsers = state.idToUsers.get(channelId)
+    if (!channelUsers) {
       return
     }
 
-    channel.users.active.add(userId)
-    channel.users.idle.delete(userId)
-    channel.users.offline.delete(userId)
+    channelUsers.active.add(userId)
+    channelUsers.idle.delete(userId)
+    channelUsers.offline.delete(userId)
   },
 
   ['@chat/updateUserIdle'](state, action) {
     const { userId } = action.payload
     const { channelId } = action.meta
 
-    const channel = state.byId.get(channelId)
-    if (!channel) {
+    const channelUsers = state.idToUsers.get(channelId)
+    if (!channelUsers) {
       return
     }
 
-    channel.users.idle.add(userId)
-    channel.users.active.delete(userId)
-    channel.users.offline.delete(userId)
+    channelUsers.idle.add(userId)
+    channelUsers.active.delete(userId)
+    channelUsers.offline.delete(userId)
   },
 
   ['@chat/updateUserOffline'](state, action) {
     const { userId } = action.payload
     const { channelId } = action.meta
 
-    const channel = state.byId.get(channelId)
-    if (!channel) {
+    const channelUsers = state.idToUsers.get(channelId)
+    if (!channelUsers) {
       return
     }
 
-    channel.users.offline.add(userId)
-    channel.users.active.delete(userId)
-    channel.users.idle.delete(userId)
+    channelUsers.offline.add(userId)
+    channelUsers.active.delete(userId)
+    channelUsers.idle.delete(userId)
   },
 
   ['@chat/loadMessageHistoryBegin'](state, action) {
     const { channelId } = action.payload
 
-    const channel = state.byId.get(channelId)
-    if (!channel) {
+    const channelMessages = state.idToMessages.get(channelId)
+    if (!channelMessages) {
       return
     }
 
-    channel.loadingHistory = true
+    channelMessages.loadingHistory = true
   },
 
   ['@chat/loadMessageHistory'](state, action) {
@@ -296,8 +319,8 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
     const { channelId, limit } = action.meta
 
-    const channel = state.byId.get(channelId)
-    if (!channel) {
+    const channelMessages = state.idToMessages.get(channelId)
+    if (!channelMessages) {
       return
     }
 
@@ -305,9 +328,9 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     // concatenated with the existing messages which could also contain client chat messages.
     const newMessages = action.payload.messages as ChatMessage[]
 
-    channel.loadingHistory = false
+    channelMessages.loadingHistory = false
     if (newMessages.length < limit) {
-      channel.hasHistory = false
+      channelMessages.hasHistory = false
     }
 
     updateMessages(state, channelId, false, messages => newMessages.concat(messages))
@@ -316,13 +339,13 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   ['@chat/retrieveUserListBegin'](state, action) {
     const { channelId } = action.payload
 
-    const channel = state.byId.get(channelId)
-    if (!channel) {
+    const channelUsers = state.idToUsers.get(channelId)
+    if (!channelUsers) {
       return
     }
 
-    channel.hasLoadedUserList = true
-    channel.loadingUserList = true
+    channelUsers.hasLoadedUserList = true
+    channelUsers.loadingUserList = true
   },
 
   ['@chat/retrieveUserList'](state, action) {
@@ -334,67 +357,62 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     const { channelId } = action.meta
     const userList = action.payload
 
-    const channel = state.byId.get(channelId)
-    if (!channel) {
+    const channelUsers = state.idToUsers.get(channelId)
+    if (!channelUsers) {
       return
     }
 
-    const { users } = channel
-    const offlineArray = userList.filter(u => !users.active.has(u.id) && !users.idle.has(u.id))
+    const offlineArray = userList.filter(
+      u => !channelUsers.active.has(u.id) && !channelUsers.idle.has(u.id),
+    )
 
-    channel.loadingUserList = false
-    channel.users.offline = new Set(offlineArray.map(u => u.id))
+    channelUsers.loadingUserList = false
+    channelUsers.offline = new Set(offlineArray.map(u => u.id))
   },
 
   ['@chat/getChatUserProfile'](state, action) {
     const { userId, channelId, profile } = action.payload
 
-    const channel = state.byId.get(channelId)
-    if (!channel) {
+    const channelUserProfiles = state.idToUserProfiles.get(channelId)
+    if (!channelUserProfiles) {
       return
     }
 
     if (profile) {
-      channel.userProfiles.set(userId, profile)
+      channelUserProfiles.set(userId, profile)
     }
+  },
+
+  ['@chat/getChannelInfo'](state, action) {
+    state.idToInfo.set(action.payload.id, action.payload)
   },
 
   ['@chat/activateChannel'](state, action) {
     const { channelId } = action.payload
 
-    const channel = state.byId.get(channelId)
-    if (!channel) {
-      return
-    }
-
-    channel.hasUnread = false
-    channel.activated = true
+    state.unreadChannels.delete(channelId)
+    state.activatedChannels.add(channelId)
   },
 
   ['@chat/deactivateChannel'](state, action) {
     const { channelId } = action.payload
 
-    const channel = state.byId.get(channelId)
-    if (!channel) {
+    const channelMessages = state.idToMessages.get(channelId)
+    if (!channelMessages) {
       return
     }
 
-    const hasHistory = state.byId.get(channelId)!.messages.length > INACTIVE_CHANNEL_MAX_HISTORY
+    const hasHistory = channelMessages.messages.length > INACTIVE_CHANNEL_MAX_HISTORY
 
-    channel.messages = channel.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
-    channel.hasHistory = channel.hasHistory || hasHistory
-    channel.activated = false
+    channelMessages.messages = channelMessages.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
+    channelMessages.hasHistory = channelMessages.hasHistory || hasHistory
+    state.activatedChannels.delete(channelId)
   },
 
   ['@chat/permissionsChanged'](state, action) {
     const { channelId } = action.meta
 
-    const channel = state.byId.get(channelId)
-    if (!channel) {
-      return
-    }
-
-    channel.selfPermissions = action.payload.selfPermissions
+    state.idToSelfPermissions.set(channelId, action.payload.selfPermissions)
   },
 
   [NETWORK_SITE_CONNECTED as any]() {

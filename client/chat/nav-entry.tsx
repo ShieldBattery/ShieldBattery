@@ -1,6 +1,8 @@
 import React from 'react'
 import styled from 'styled-components'
 import { SbChannelId } from '../../common/chat'
+import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../common/flags'
+import { urlPath } from '../../common/urls'
 import CloseIcon from '../icons/material/close-24px.svg'
 import { IconButton } from '../material/button'
 import Entry from '../material/left-nav/entry'
@@ -37,10 +39,10 @@ export function ChatNavEntry({
 
   return (
     <Entry
-      link={`/chat/${channelId}/${encodeURIComponent(channelName)}`}
+      link={urlPath`/chat/${channelId}/${channelName}`}
       currentPath={currentPath}
       needsAttention={hasUnread}
-      button={channelId !== 1 ? button : null}>
+      button={channelId !== 1 || CAN_LEAVE_SHIELDBATTERY_CHANNEL ? button : null}>
       #{channelName}
     </Entry>
   )

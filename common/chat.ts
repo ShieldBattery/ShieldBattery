@@ -22,7 +22,6 @@ export enum ChatServiceErrorCode {
   CannotModerateShieldBattery = 'CannotModerateShieldBattery',
   CannotModerateYourself = 'CannotModerateYourself',
   ChannelNotFound = 'ChannelNotFound',
-  ChannelClosed = 'ChannelClosed',
   NotEnoughPermissions = 'NotEnoughPermissions',
   NotInChannel = 'NotInChannel',
   TargetNotInChannel = 'TargetNotInChannel',
@@ -114,16 +113,24 @@ export type ClientChatMessage =
 
 export type ChatMessage = ServerChatMessage | ClientChatMessage
 
-export interface ChannelInfo {
-  /** The channel ID. */
-  id: SbChannelId
-  /** The name of the chat channel. */
-  name: string
+export interface JoinedChannelData {
   /**
    * The ID of the user that is considered a channel owner. Usually the person who joined the chat
    * channel the earliest.
    */
   ownerId: SbUserId
+  /** A short message used to display the channel's current topic. */
+  topic: string
+  // TODO(2Pac): Can probably remove this, if we go with invitation system for private channels.
+  /** A channel's password */
+  password: string
+}
+
+export interface ChannelInfo {
+  /** The channel ID. */
+  id: SbChannelId
+  /** The name of the chat channel. */
+  name: string
   /**
    * A flag indicating whether the chat channel is private or not. Private chat channels can only be
    * joined through an invite.
@@ -135,11 +142,18 @@ export interface ChannelInfo {
    * that distinguish them from smaller channels.
    */
   highTraffic: boolean
-  /** A short message used to display the channel's current topic. */
-  topic: string
-  // TODO(2Pac): Can probably remove this, if we go with invitation system for private channels.
-  /** A channel's password */
-  password: string
+  /**
+   * Number of users in the channel. Only available for non-private channels, and for private
+   * channels that the user has joined.
+   *
+   * NOTE: This is only used for unjoined channels. Joined channels will have access to the list of
+   * users which can be count.
+   */
+  userCount?: number
+  /**
+   * Extra properties that are only available when the user has actually joined the channel.
+   */
+  joinedChannelData?: JoinedChannelData
 }
 
 export interface ChannelPermissions {
@@ -361,12 +375,4 @@ export interface GetChannelUserPermissionsResponse {
 export interface UpdateChannelUserPermissionsRequest {
   /** The new permissions to update the user to. */
   permissions: ChannelPermissions
-}
-
-/**
- * The select channel properties that are safe to return to users who have not joined it yet.
- */
-export interface ChannelStatus extends Pick<ChannelInfo, 'id' | 'name' | 'private'> {
-  /** Number of users in the channel. Only available for non-private channels. */
-  userCount?: number
 }

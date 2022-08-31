@@ -355,14 +355,14 @@ function ConnectedChatNavEntry({
   channelId: SbChannelId
   onLeave: (channelId: SbChannelId) => void
 }) {
-  const channelName = useAppSelector(s => s.chat.byId.get(channelId)!.name)
-  const hasUnread = useAppSelector(s => s.chat.byId.get(channelId)?.hasUnread ?? false)
+  const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
+  const hasUnread = useAppSelector(s => s.chat.unreadChannels.has(channelId))
   const [pathname] = useLocation()
 
   return (
     <ChatNavEntry
       channelId={channelId}
-      channelName={channelName}
+      channelName={channelInfo?.name ?? 'Loading...'}
       currentPath={pathname}
       hasUnread={hasUnread}
       onLeave={onLeave}
@@ -395,7 +395,7 @@ function ConnectedWhisperNavEntry({
 export function ConnectedLeftNav() {
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
-  const chatChannels = useAppSelector(s => s.chat.channels)
+  const chatChannels = useAppSelector(s => s.chat.joinedChannels)
   const whisperSessions = useAppSelector(s => s.whispers.sessions)
 
   const [profileOverlayOpen, setProfileOverlayOpen] = useState(false)

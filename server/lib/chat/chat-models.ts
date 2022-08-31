@@ -2,6 +2,7 @@ import sql from 'sql-template-strings'
 import {
   ChannelInfo,
   ChannelPermissions,
+  JoinedChannelData,
   SbChannelId,
   ServerChatMessageType,
 } from '../../../common/chat'
@@ -88,6 +89,22 @@ export async function getUserChannelEntryForUser(
     return result.rowCount < 1 ? null : convertUserChannelEntryFromDb(result.rows[0])
   } finally {
     done()
+  }
+}
+
+type DbChannel = Dbify<ChannelInfo & JoinedChannelData>
+
+function convertChannelFromDb(props: DbChannel): ChannelInfo {
+  return {
+    id: props.id,
+    name: props.name,
+    private: props.private,
+    highTraffic: props.high_traffic,
+    joinedChannelData: {
+      ownerId: props.owner_id,
+      topic: props.topic,
+      password: props.password,
+    },
   }
 }
 
@@ -398,20 +415,6 @@ export async function isUserBannedFromChannel(
   }
 }
 
-type DbChannel = Dbify<ChannelInfo>
-
-function convertChannelFromDb(props: DbChannel): ChannelInfo {
-  return {
-    id: props.id,
-    name: props.name,
-    ownerId: props.owner_id,
-    private: props.private,
-    highTraffic: props.high_traffic,
-    topic: props.topic,
-    password: props.password,
-  }
-}
-
 /**
  * Retrieves information for the specified chat channels. The channels are returned in the same
  * order they were passed in. If one of the channels could not be found, it will not be included in
@@ -462,8 +465,7 @@ export async function findChannelByName(
     const result = await client.query<DbChannel>(sql`
       SELECT *
       FROM channels
-      WHERE name = ${channelName}
-      LIMIT 1;
+      WHERE name = ${channelName};
     `)
 
     return result.rows.length > 0 ? convertChannelFromDb(result.rows[0]) : undefined
