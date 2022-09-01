@@ -154,6 +154,11 @@ const MapNoImageContainer = styled.div`
   contain: content;
 `
 
+const TextInfoContainer = styled.div`
+  max-width: 100%;
+  padding: 0 16px;
+`
+
 export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
   const dispatch = useAppDispatch()
   const [replayMetadata, setReplayMetadata] = useState<{
@@ -260,7 +265,7 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
               <MapNoImage />
             </MapNoImageContainer>
           )}
-          <div>
+          <TextInfoContainer>
             <Tooltip text={mapName} position='bottom' disabled={!isMapNameOverflowing}>
               <MapName ref={mapNameRef}>{mapName}</MapName>
             </Tooltip>
@@ -268,7 +273,7 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
               <ReplayInfoText ref={gameTypeRef}>Game type: {gameTypeLabel}</ReplayInfoText>
             </Tooltip>
             <ReplayInfoText>Duration: {durationStr}</ReplayInfoText>
-          </div>
+          </TextInfoContainer>
         </ReplayInfoContainer>
       </InfoContainer>
     )
