@@ -942,9 +942,20 @@ impl GameInfoValueTrait for scr::GameInfoValue {
     }
 }
 
+pub enum BwInitError {
+    AnalysisFail(&'static str),
+    UnsupportedVersion(u32),
+}
+
+impl From<&'static str> for BwInitError {
+    fn from(val: &'static str) -> BwInitError {
+        BwInitError::AnalysisFail(val)
+    }
+}
+
 impl BwScr {
     /// On failure returns a description of address that couldn't be found
-    pub fn new() -> Result<BwScr, &'static str> {
+    pub fn new() -> Result<BwScr, BwInitError> {
         let binary = unsafe {
             let base = GetModuleHandleW(null()) as *const u8;
             let text = pe_image::get_section(base, b".text\0\0\0").unwrap();
@@ -959,6 +970,14 @@ impl BwScr {
             binary.set_relocs(relocs);
             binary
         };
+        let exe_build = get_exe_build();
+        info!("StarCraft build {exe_build}");
+        // We probably would be able to support some older versions too, but require at least the
+        // initial 1.23.9 patch (1.23.9.9899, from July 2021).
+        if exe_build < 9899 {
+            return Err(BwInitError::UnsupportedVersion(exe_build));
+        }
+
         let analysis_ctx = scarf::OperandContext::new();
         let mut analysis = scr_analysis::Analysis::new(&binary, &analysis_ctx);
 
@@ -1129,7 +1148,7 @@ impl BwScr {
             Some(0x20) => true,
             #[cfg(target_arch = "x86_64")]
             Some(0x28) => true,
-            _ => return Err("join_param_variant_layout"),
+            _ => return Err(BwInitError::AnalysisFail("join_param_variant_layout")),
         };
 
         let starcraft_tls_index = analysis.get_tls_index().ok_or("TLS index")?;
@@ -1159,7 +1178,6 @@ impl BwScr {
         debug!("Found all necessary BW data");
 
         let sdf_cache = Arc::new(InitSdfCache::new());
-        let exe_build = get_exe_build();
         Ok(BwScr {
             game: Value::new(ctx, game),
             game_data: Value::new(ctx, game_data),

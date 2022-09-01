@@ -257,7 +257,12 @@ unsafe extern "C" fn scr_init(image: *mut u8) {
     debug!("SCR init");
     let bw = match bw_scr::BwScr::new() {
         Ok(o) => Box::leak(Box::new(o)),
-        Err(e) => panic!("StarCraft version not supported: Couldn't find '{}'", e),
+        Err(bw_scr::BwInitError::AnalysisFail(e)) => {
+            panic!("StarCraft version not supported: Couldn't find '{}'", e);
+        }
+        Err(bw_scr::BwInitError::UnsupportedVersion(build)) => {
+            panic!("StarCraft build {} is not supported.", build);
+        }
     };
     bw.patch_game(image);
     bw::set_bw_impl(bw);
