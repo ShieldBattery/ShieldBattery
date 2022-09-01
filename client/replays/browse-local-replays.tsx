@@ -24,12 +24,10 @@ import Replay from '../icons/material/ic_movie_black_24px.svg'
 import { RaceIcon } from '../lobbies/race-icon'
 import { MapNoImage } from '../maps/map-image'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { RaisedButton } from '../material/button'
 import { shadow2dp } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { useStableCallback } from '../state-hooks'
 import { background400, colorError, colorTextSecondary } from '../styles/colors'
 import { headline6, overline, singleLine, subtitle1 } from '../styles/typography'
 import { startReplay } from './action-creators'
@@ -137,13 +135,7 @@ const StyledMapThumbnail = styled(MapThumbnail)`
 const MapName = styled.div`
   ${headline6};
   ${singleLine};
-  margin-top: 8px;
-`
-
-const StyledTooltip = styled(Tooltip)`
-  width: 100%;
-  display: flex;
-  justify-content: center;
+  margin: 8px 0;
 `
 
 const ReplayInfoText = styled.div`
@@ -160,14 +152,6 @@ const MapNoImageContainer = styled.div`
   height: auto;
   border-radius: 2px;
   contain: content;
-`
-
-const ReplayActionsContainer = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  width: 100%;
-  height: 56px;
 `
 
 export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
@@ -259,12 +243,6 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
     return [durationStr, gameTypeLabel, mapName, playerListItems]
   }, [mapInfo?.name, replayMetadata, replayUserIds, usersById])
 
-  const onStartReplay = useStableCallback(() => {
-    // TODO(2Pac): Remove `any` cast after overlays are TS-ified
-    dispatch(closeOverlay() as any)
-    dispatch(startReplay(file))
-  })
-
   let content
   if (parseError) {
     content = <ErrorText>There was an error parsing the replay</ErrorText>
@@ -282,26 +260,21 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
               <MapNoImage />
             </MapNoImageContainer>
           )}
-          <StyledTooltip text={mapName} position='bottom' disabled={!isMapNameOverflowing}>
-            <MapName ref={mapNameRef}>{mapName}</MapName>
-          </StyledTooltip>
-          <StyledTooltip text={gameTypeLabel} position='bottom' disabled={!isGameTypeOverflowing}>
-            <ReplayInfoText ref={gameTypeRef}>Game type: {gameTypeLabel}</ReplayInfoText>
-          </StyledTooltip>
-          <ReplayInfoText>Duration: {durationStr}</ReplayInfoText>
+          <div>
+            <Tooltip text={mapName} position='bottom' disabled={!isMapNameOverflowing}>
+              <MapName ref={mapNameRef}>{mapName}</MapName>
+            </Tooltip>
+            <Tooltip text={gameTypeLabel} position='bottom' disabled={!isGameTypeOverflowing}>
+              <ReplayInfoText ref={gameTypeRef}>Game type: {gameTypeLabel}</ReplayInfoText>
+            </Tooltip>
+            <ReplayInfoText>Duration: {durationStr}</ReplayInfoText>
+          </div>
         </ReplayInfoContainer>
       </InfoContainer>
     )
   }
 
-  return (
-    <ReplayPanelContainer>
-      {content}
-      <ReplayActionsContainer>
-        <RaisedButton label='Watch replay' onClick={onStartReplay} />
-      </ReplayActionsContainer>
-    </ReplayPanelContainer>
-  )
+  return <ReplayPanelContainer>{content}</ReplayPanelContainer>
 }
 
 export function BrowseLocalReplays() {
