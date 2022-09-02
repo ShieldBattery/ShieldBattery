@@ -51,11 +51,21 @@ pub fn open_file_hook(
                 return out;
             } else {
                 if bw.is_carbot.load(Ordering::Relaxed) && bw.show_skins.load(Ordering::Relaxed) {
-                    // Similarly to skins.json check, don't load the regular HD sprites
+                    // Similarly to skins.json check, don't load all regular HD sprites
                     // if the user has selected carbot
+                    // Carbot doesn't have variant for every single sprite,
+                    // most notably selection circles but also some (semi-unused?) doodads.
+                    // So those anim files still have to be loaded.
                     if path.starts_with(b"anim/main_") && path.ends_with(b".anim") {
-                        memory_buffer_to_bw_file_handle(DUMMY_ANIM, out);
-                        return out;
+                        let load_anim = path.get(b"anim/main_".len()..).and_then(|x| {
+                            let num_str = std::str::from_utf8(x.get(..3)?).ok()?;
+                            let num = num_str.parse::<u32>().ok()?;
+                            MISSING_CARBOT_SPRITES_LOOKUP.get(num as usize).copied()
+                        }).unwrap_or(false);
+                        if !load_anim {
+                            memory_buffer_to_bw_file_handle(DUMMY_ANIM, out);
+                            return out;
+                        }
                     }
                 }
             }
@@ -70,6 +80,24 @@ static DUMMY_BADNAMES: &[u8] = br#"[]"#;
 static EMPTY_SKINS: &[u8] = br#"{"skins":[]}"#;
 static NONCARBOT_SKINS: &[u8] = br#"{"skins":[{"id":1,"name":"PreSale"}]}"#;
 static CARBOT_SKINS: &[u8] = br#"{"skins":[{"id":2,"name":"Carbot"}]}"#;
+
+static MISSING_CARBOT_SPRITES_LOOKUP: [bool; 999] = missing_carbot_sprites();
+const MISSING_CARBOT_SPRITES_LIST: &[u32] = &[
+    106, 503, 561, 562, 563, 564, 565, 566, 567, 568, 569, 570, 571, 572, 573, 574, 575, 576, 577,
+    578, 579, 580, 581, 588, 611, 613, 615, 617, 619, 621, 623, 625, 627, 629, 631, 633, 635, 637,
+    639, 666, 692, 694, 696, 698, 705, 707, 709, 711, 756, 784, 792, 837, 839, 861, 873, 893, 905,
+    908, 910, 932, 965, 972,
+];
+
+const fn missing_carbot_sprites() -> [bool; 999] {
+    let mut result = [false; 999];
+    let mut i = 0;
+    while i < MISSING_CARBOT_SPRITES_LIST.len() {
+        result[MISSING_CARBOT_SPRITES_LIST[i] as usize] = true;
+        i += 1;
+    }
+    result
+}
 
 fn check_dummied_out_hd(path: &[u8]) -> Option<&'static [u8]> {
     if path.ends_with(b".anim") {
