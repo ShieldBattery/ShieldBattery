@@ -1,6 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import ChevronRight from '../icons/material/ic_chevron_right_black_24px.svg'
+import ChevronRight from '../icons/material/chevron_right-24px.svg'
 import { colorTextFaint, colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { headline6 } from '../styles/typography'
 

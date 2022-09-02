@@ -1,5 +1,5 @@
 import React, { useEffect, useImperativeHandle, useRef, useState } from 'react'
-import SearchIcon from '../icons/material/baseline-search-24px.svg'
+import SearchIcon from '../icons/material/search-24px.svg'
 import { useKeyListener } from '../keyboard/key-listener'
 import { TextField } from '../material/text-field'
 import { usePrevious, useStableCallback } from '../state-hooks'

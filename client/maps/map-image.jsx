@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
-import ImageIcon from '../icons/material/baseline-image-24px.svg'
+import ImageIcon from '../icons/material/image-24px.svg'
 import { background700 } from '../styles/colors'
 import { Subtitle1 } from '../styles/typography'
 

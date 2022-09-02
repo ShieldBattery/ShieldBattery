@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect } from 'react'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user'
-import SupervisedUser from '../icons/material/supervised_user_circle_black_24px.svg'
+import SupervisedUser from '../icons/material/supervised_user_circle-24px.svg'
 import { TextButton } from '../material/button'
 import { markNotificationsRead } from '../notifications/action-creators'
 import { ActionableNotification } from '../notifications/notifications'

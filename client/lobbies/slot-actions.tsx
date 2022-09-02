@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react'
-import SlotActionsIcon from '../icons/material/ic_more_vert_black_24px.svg'
+import SlotActionsIcon from '../icons/material/more_vert-24px.svg'
 import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'

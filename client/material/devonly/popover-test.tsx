@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react'
 import styled from 'styled-components'
-import VertMenuIcon from '../../icons/material/ic_more_vert_black_24px.svg'
+import VertMenuIcon from '../../icons/material/more_vert-24px.svg'
 import { OriginX, OriginY, Popover, useAnchorPosition } from '../../material/popover'
 import { Headline4, Headline5, Subtitle1 } from '../../styles/typography'
 import { IconButton } from '../button'

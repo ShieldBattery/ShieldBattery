@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmaking'
-import CancelSearchIcon from '../icons/material/ic_close_black_24px.svg'
+import CancelSearchIcon from '../icons/material/close-24px.svg'
 import { SubheaderButton } from '../material/left-nav/subheader-button'
 import { useStableCallback } from '../state-hooks'
 import { colorTextSecondary } from '../styles/colors'
