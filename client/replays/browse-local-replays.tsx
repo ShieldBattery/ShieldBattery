@@ -135,13 +135,13 @@ const StyledMapThumbnail = styled(MapThumbnail)`
 const MapName = styled.div`
   ${headline6};
   ${singleLine};
-  margin: 8px 0;
+  margin: 12px 0 16px;
 `
 
 const ReplayInfoText = styled.div`
   ${subtitle1};
   ${singleLine};
-  margin: 8px 0;
+  margin: 4px 0;
 
   color: ${colorTextSecondary};
 `
@@ -265,10 +265,10 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
               <MapNoImage />
             </MapNoImageContainer>
           )}
+          <Tooltip text={mapName} position='bottom' disabled={!isMapNameOverflowing}>
+            <MapName ref={mapNameRef}>{mapName}</MapName>
+          </Tooltip>
           <TextInfoContainer>
-            <Tooltip text={mapName} position='bottom' disabled={!isMapNameOverflowing}>
-              <MapName ref={mapNameRef}>{mapName}</MapName>
-            </Tooltip>
             <Tooltip text={gameTypeLabel} position='bottom' disabled={!isGameTypeOverflowing}>
               <ReplayInfoText ref={gameTypeRef}>Game type: {gameTypeLabel}</ReplayInfoText>
             </Tooltip>
