@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import styled from 'styled-components'
-import { ChannelInfo, ChatServiceErrorCode, SbChannelId } from '../../common/chat'
+import { ChatServiceErrorCode, SbChannelId } from '../../common/chat'
 import ChannelIcon from '../icons/material/baseline-image-24px.svg'
 import WarningIcon from '../icons/material/warning_black_36px.svg'
 import { RaisedButton } from '../material/button'
@@ -49,82 +49,6 @@ const ErrorText = styled.div`
   ${body1};
   color: ${colorError};
 `
-
-export interface ChannelInfoCardProps {
-  channelName: string
-  channelInfo?: ChannelInfo
-  isLoading: boolean
-  isUserInChannel: boolean
-  isChannelNotFound: boolean
-  isJoinInProgress: boolean
-  isUserBanned: boolean
-  onViewClick: () => void
-  onJoinClick: () => void
-}
-
-// NOTE(2Pac): This component was extracted mainly for easier testing in dev pages and probably
-// shouldn't be used on its own.
-export function ChannelInfoCard({
-  channelName,
-  channelInfo,
-  isLoading,
-  isUserInChannel,
-  isChannelNotFound,
-  isJoinInProgress,
-  isUserBanned,
-  onViewClick,
-  onJoinClick,
-}: ChannelInfoCardProps) {
-  const icon =
-    channelInfo && (!channelInfo.private || isUserInChannel) ? (
-      <StyledChannelIcon as={ChannelIcon} />
-    ) : (
-      <ErrorChannelIcon as={WarningIcon} />
-    )
-
-  let subtitle
-  if (isChannelNotFound) {
-    subtitle = (
-      <ErrorText>
-        We couldn't find this channel, it might not exist or it has been re-created by someone else
-      </ErrorText>
-    )
-  } else if (channelInfo?.private && !isUserInChannel) {
-    subtitle = <ErrorText>This channel is private and requires an invite to join</ErrorText>
-  } else if (isUserBanned) {
-    subtitle = <ErrorText>You are banned from this channel</ErrorText>
-  } else if (channelInfo?.userCount) {
-    subtitle = (
-      <Body1>{`${channelInfo.userCount} member${channelInfo.userCount > 1 ? 's' : ''}`}</Body1>
-    )
-  }
-
-  let action
-  if (isUserInChannel) {
-    action = <RaisedButton label='View' onClick={onViewClick} />
-  } else if (channelInfo?.private || isUserBanned) {
-    action = <RaisedButton label='Join' disabled={true} />
-  } else if (channelInfo) {
-    action = <RaisedButton label='Join' disabled={isJoinInProgress} onClick={onJoinClick} />
-  }
-
-  return (
-    <Container>
-      {isLoading ? (
-        <StyledLoadingDotsArea />
-      ) : (
-        <>
-          {icon}
-          <ChannelInfoContainer>
-            <Headline6>{channelName}</Headline6>
-            {subtitle}
-          </ChannelInfoContainer>
-          {action}
-        </>
-      )}
-    </Container>
-  )
-}
 
 export interface ConnectedChannelInfoCardProps {
   channelId: SbChannelId
@@ -181,17 +105,53 @@ export function ConnectedChannelInfoCard({
   const isUserBanned =
     isFetchError(joinChannelError) && joinChannelError.code === ChatServiceErrorCode.UserBanned
 
+  const icon =
+    channelInfo && (!channelInfo.private || isUserInChannel) ? (
+      <StyledChannelIcon as={ChannelIcon} />
+    ) : (
+      <ErrorChannelIcon as={WarningIcon} />
+    )
+
+  let subtitle
+  if (isChannelNotFound) {
+    subtitle = (
+      <ErrorText>
+        We couldn't find this channel, it might not exist or it has been re-created by someone else
+      </ErrorText>
+    )
+  } else if (channelInfo?.private && !isUserInChannel) {
+    subtitle = <ErrorText>This channel is private and requires an invite to join</ErrorText>
+  } else if (isUserBanned) {
+    subtitle = <ErrorText>You are banned from this channel</ErrorText>
+  } else if (channelInfo?.userCount) {
+    subtitle = (
+      <Body1>{`${channelInfo.userCount} member${channelInfo.userCount > 1 ? 's' : ''}`}</Body1>
+    )
+  }
+
+  let action
+  if (isUserInChannel) {
+    action = <RaisedButton label='View' onClick={onViewClick} />
+  } else if (channelInfo?.private || isUserBanned) {
+    action = <RaisedButton label='Join' disabled={true} />
+  } else if (channelInfo) {
+    action = <RaisedButton label='Join' disabled={isJoinInProgress} onClick={onJoinClick} />
+  }
+
   return (
-    <ChannelInfoCard
-      channelName={channelName}
-      channelInfo={channelInfo}
-      isLoading={!channelInfo && !findChannelError}
-      isUserInChannel={isUserInChannel}
-      isChannelNotFound={isChannelNotFound}
-      isJoinInProgress={isJoinInProgress}
-      isUserBanned={isUserBanned}
-      onViewClick={onViewClick}
-      onJoinClick={onJoinClick}
-    />
+    <Container>
+      {!channelInfo && !findChannelError ? (
+        <StyledLoadingDotsArea />
+      ) : (
+        <>
+          {icon}
+          <ChannelInfoContainer>
+            <Headline6>{channelName}</Headline6>
+            {subtitle}
+          </ChannelInfoContainer>
+          {action}
+        </>
+      )}
+    </Container>
   )
 }

@@ -175,6 +175,7 @@ export default class ChatService {
     let attempts = 0
     let channel: ChannelInfo | undefined
     let userChannelEntry: UserChannelEntry | undefined
+    let message: ChatMessage
     do {
       attempts += 1
       try {
@@ -198,6 +199,14 @@ export default class ChatService {
 
             try {
               userChannelEntry = await addUserToChannel(userId, channel.id, client)
+              message = await addMessageToChannel(
+                userId,
+                channel!.id,
+                {
+                  type: ServerChatMessageType.JoinChannel,
+                },
+                client,
+              )
               succeeded = true
             } catch (err: any) {
               if (err.code === FOREIGN_KEY_VIOLATION) {
@@ -210,6 +219,14 @@ export default class ChatService {
             try {
               channel = await createChannel(userId, channelName, client)
               userChannelEntry = await addUserToChannel(userId, channel.id, client)
+              message = await addMessageToChannel(
+                userId,
+                channel!.id,
+                {
+                  type: ServerChatMessageType.JoinChannel,
+                },
+                client,
+              )
               succeeded = true
             } catch (err: any) {
               if (err.code === UNIQUE_VIOLATION) {
@@ -227,11 +244,7 @@ export default class ChatService {
       }
     } while (!succeeded && attempts < MAX_JOIN_ATTEMPTS)
 
-    const message = await addMessageToChannel(userId, channel!.id, {
-      type: ServerChatMessageType.JoinChannel,
-    })
-
-    this.updateUserAfterJoining(userInfo, channel!, userChannelEntry!, message)
+    this.updateUserAfterJoining(userInfo, channel!, userChannelEntry!, message!)
 
     return channel!
   }
@@ -239,7 +252,6 @@ export default class ChatService {
   async leaveChannel(channelId: SbChannelId, userId: SbUserId): Promise<void> {
     const userSockets = this.getUserSockets(userId)
     if (channelId === 1 && !CAN_LEAVE_SHIELDBATTERY_CHANNEL) {
-      // TODO(2Pac): Remove this restriction once we have a news/home page
       throw new ChatServiceError(
         ChatServiceErrorCode.CannotLeaveShieldBattery,
         "Can't leave ShieldBattery channel",
@@ -335,7 +347,6 @@ export default class ChatService {
     }
 
     if (channelId === 1 && !CAN_LEAVE_SHIELDBATTERY_CHANNEL) {
-      // TODO(2Pac): Remove this restriction once we have a news/home page
       throw new ChatServiceError(
         ChatServiceErrorCode.CannotModerateShieldBattery,
         "Can't moderate users in the ShieldBattery channel",

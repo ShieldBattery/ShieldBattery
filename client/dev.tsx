@@ -2,7 +2,6 @@ import React from 'react'
 import styled from 'styled-components'
 import { Link, Route, Switch } from 'wouter'
 import DevActivities from './activities/devonly/routes'
-import { DevChat } from './chat/devonly/routes'
 import { DevDownload } from './download/devonly/routes'
 import { DevLadder } from './ladder/devonly/routes'
 import DevLists from './lists/devonly/routes'
@@ -47,9 +46,6 @@ function DevDashboard() {
           <Link href='/dev/download'>Download components</Link>
         </li>
         <li>
-          <Link href='/dev/chat'>Chat components</Link>
-        </li>
-        <li>
           <Link href='/dev/ladder'>Ladder components</Link>
         </li>
         <li>
@@ -78,7 +74,6 @@ export default function Dev() {
       <Content>
         <Switch>
           <Route path='/dev/activities/:rest*' component={DevActivities} />
-          <Route path='/dev/chat/:rest*' component={DevChat} />
           <Route path='/dev/download/:rest*' component={DevDownload} />
           <Route path='/dev/ladder/:rest*' component={DevLadder} />
           <Route path='/dev/lists/:rest*' component={DevLists} />

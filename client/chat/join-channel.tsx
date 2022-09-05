@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useState } from 'react'
 import { ChatServiceErrorCode } from '../../common/chat'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../common/constants'
 import { closeDialog } from '../dialogs/action-creators'
@@ -35,14 +35,12 @@ export function JoinChannelDialog({
   const dispatch = useAppDispatch()
   const autoFocusRef = useAutoFocusRef<HTMLInputElement>()
   const [joinChannelErrorMessage, setJoinChannelErrorMessage] = useState<string>()
-  const cancelJoinRef = useRef(new AbortController())
 
   const onFormSubmit = useStableCallback((model: JoinChannelModel) => {
     const channelName = model.channel
 
     dispatch(
       joinChannel(channelName, {
-        signal: cancelJoinRef.current.signal,
         onSuccess: channel => {
           navigateToChannel(channel.id, channel.name)
           dispatch(closeDialog(DialogType.ChannelJoin))
@@ -65,14 +63,6 @@ export function JoinChannelDialog({
       }),
     )
   })
-
-  useEffect(() => {
-    const abortController = cancelJoinRef.current
-
-    return () => {
-      abortController.abort()
-    }
-  }, [])
 
   const { onSubmit: handleSubmit, bindInput } = useForm<JoinChannelModel>(
     { channel: '' },
