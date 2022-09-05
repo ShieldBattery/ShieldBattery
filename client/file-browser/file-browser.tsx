@@ -1,4 +1,3 @@
-import produce, { Immutable } from 'immer'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import styled from 'styled-components'
@@ -153,7 +152,7 @@ export function FileBrowser({
   const [upOneDir, setUpOneDir] = useState<FileBrowserUpEntry>()
   const [folders, setFolders] = useState<FileBrowserFolderEntry[]>([])
   const [files, setFiles] = useState<FileBrowserFileEntry[]>([])
-  const [expandedFiles, setExpandedFiles] = useState<Immutable<Map<string, boolean>>>(new Map())
+  const [expandedFileEntry, setExpandedFileEntry] = useState<string>()
 
   const [dimensionsRef, containerRect] = useObservedDimensions()
   const [isLoadingFiles, setIsLoadingFiles] = useState(true)
@@ -311,21 +310,16 @@ export function FileBrowser({
   const onFileClick = useStableCallback((file: FileBrowserFileEntry, isKeyboardEvent?: boolean) => {
     setFocusedPath(file.path)
 
-    // We only allow clicking on a file entry to select it in case the file entry doesn't have an
-    // expansion panel. In case it does, we'll display a dedicated button to select the file entry,
-    // to make it more explicit and to lower the chance of accidentally clicking the file entry
-    // while intending to click the expand button.
+    // In case the file entry has an expansion panel component associated with it we open or close
+    // it, otherwise we select the file entry.
     // Also, when executing this callback from a keyboard event (e.g. by pressing Enter), we always
     // select the file entry.
-    if (isKeyboardEvent || !fileEntryConfig.ExpansionPanelComponent) {
+    if (!isKeyboardEvent && fileEntryConfig.ExpansionPanelComponent) {
+      const isExpanded = expandedFileEntry === file.path
+      setExpandedFileEntry(!isExpanded ? file.path : undefined)
+    } else {
       fileEntryConfig.onSelect(file)
     }
-  })
-
-  const onFileExpandClick = useStableCallback((file: FileBrowserFileEntry) => {
-    setFocusedPath(file.path)
-    const isExpanded = expandedFiles.get(file.path)
-    setExpandedFiles(produce(draft => draft.set(file.path, !isExpanded)))
   })
 
   const moveFocusedIndexBy = useStableCallback((delta: number) => {
@@ -383,7 +377,7 @@ export function FileBrowser({
         case SPACE:
           const focusedFileEntry = files.find(f => f.path === focusedPath)
           if (focusedFileEntry && fileEntryConfig.ExpansionPanelComponent) {
-            onFileExpandClick(focusedFileEntry)
+            onFileClick(focusedFileEntry)
             return true
           }
           return true
@@ -461,9 +455,8 @@ export function FileBrowser({
           file={entry}
           fileEntryConfig={fileEntryConfig}
           isFocused={isFocused}
-          isExpanded={expandedFiles.get(entry.path)}
+          isExpanded={expandedFileEntry === entry.path}
           onClick={onFileClick}
-          onExpandClick={onFileExpandClick}
           key={entry.path}
         />
       )

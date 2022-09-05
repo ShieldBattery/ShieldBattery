@@ -3,9 +3,8 @@ import styled, { css } from 'styled-components'
 import { longTimestamp } from '../i18n/date-formats'
 import Folder from '../icons/material/folder-24px.svg'
 import UpDirectory from '../icons/material/subdirectory_arrow_left-24px.svg'
-import { IconButton, TextButton } from '../material/button'
+import { TextButton } from '../material/button'
 import { useStableCallback } from '../state-hooks'
-import { AnimatedExpandIcon } from '../styles/animated-expand-icon'
 import { amberA400, blue700, colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { Caption, Subtitle1 } from '../styles/typography'
 import {
@@ -110,23 +109,7 @@ const SelectButton = styled(TextButton)<{ $focused: boolean }>`
       : ''}
 `
 
-const ExpandButton = styled(IconButton)<{ $focused: boolean }>`
-  ${props =>
-    !props.$focused
-      ? css`
-          display: none;
-        `
-      : ''}
-`
-
-const FileEntryContainer = styled(EntryContainer)<{ $clickable: boolean }>`
-  ${props =>
-    !props.$clickable
-      ? css`
-          cursor: auto !important;
-        `
-      : ''}
-
+const FileEntryContainer = styled(EntryContainer)`
   & ${EntryIcon} {
     background: ${blue700};
     color: ${colorTextPrimary};
@@ -134,9 +117,6 @@ const FileEntryContainer = styled(EntryContainer)<{ $clickable: boolean }>`
 
   &:hover ${SelectButton} {
     display: inline-table;
-  }
-  &:hover ${ExpandButton} {
-    display: flex;
   }
 `
 
@@ -151,46 +131,30 @@ export const FileEntry = React.memo(
     isFocused,
     isExpanded,
     onClick,
-    onExpandClick,
   }: FileBrowserEntryProps & {
     file: FileBrowserFileEntry
     fileEntryConfig: FileBrowserFileEntryConfig
     isFocused: boolean
     isExpanded?: boolean
     onClick: (entry: FileBrowserFileEntry) => void
-    onExpandClick?: (entry: FileBrowserFileEntry) => void
   }) => {
     const { icon, ExpansionPanelComponent, onSelect, onSelectTitle } = fileEntryConfig
 
-    const handleExpandClick = useStableCallback((event: React.MouseEvent) => {
+    const onSelectClick = useStableCallback((event: React.MouseEvent) => {
       event.stopPropagation()
-      onExpandClick?.(file)
+      onSelect(file)
     })
 
     return (
       <>
-        <FileEntryContainer
-          $clickable={!ExpansionPanelComponent}
-          $focused={isFocused}
-          onClick={() => onClick(file)}>
+        <FileEntryContainer $focused={isFocused} onClick={() => onClick(file)}>
           <EntryIcon>{icon}</EntryIcon>
           <InfoContainer>
             <Subtitle1>{file.name}</Subtitle1>
             <Caption>{longTimestamp.format(file.date)}</Caption>
           </InfoContainer>
           {ExpansionPanelComponent ? (
-            <>
-              <SelectButton
-                $focused={isFocused}
-                label={onSelectTitle}
-                onClick={() => onSelect(file)}
-              />
-              <ExpandButton
-                $focused={isFocused}
-                icon={<AnimatedExpandIcon $pointUp={isExpanded} />}
-                onClick={handleExpandClick}
-              />
-            </>
+            <SelectButton $focused={isFocused} label={onSelectTitle} onClick={onSelectClick} />
           ) : null}
         </FileEntryContainer>
         {isExpanded && !!ExpansionPanelComponent && <ExpansionPanelComponent file={file} />}
