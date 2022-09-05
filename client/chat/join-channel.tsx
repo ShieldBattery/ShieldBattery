@@ -42,8 +42,8 @@ export function JoinChannelDialog({
     dispatch(
       joinChannel(channelName, {
         onSuccess: channel => {
-          navigateToChannel(channel.id, channel.name)
           dispatch(closeDialog(DialogType.ChannelJoin))
+          navigateToChannel(channel.id, channel.name)
         },
         onError: err => {
           let message = `An error occurred while joining ${channelName}`
