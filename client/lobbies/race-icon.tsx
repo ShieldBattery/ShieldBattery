@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import { RaceChar } from '../../common/races'
-import RandomIcon from '../icons/material/ic_casino_black_24px.svg'
+import RandomIcon from '../icons/material/casino-24px.svg'
 import ZergIcon from '../icons/starcraft/hydra_24px.svg'
 import TerranIcon from '../icons/starcraft/marine_24px.svg'
 import ProtossIcon from '../icons/starcraft/zealot_24px.svg'

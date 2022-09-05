@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react'
 import styled from 'styled-components'
-import BackIcon from '../icons/material/baseline-arrow_back-24px.svg'
+import BackIcon from '../icons/material/arrow_back-24px.svg'
 import { IconButton } from '../material/button'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { goBack } from './action-creators'

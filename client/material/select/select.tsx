@@ -1,7 +1,7 @@
 import React, { useCallback, useId, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
-import ArrowDropDownIcon from '../../icons/material/ic_arrow_drop_down_black_24px.svg'
+import ArrowDropDownIcon from '../../icons/material/arrow_drop_down-24px.svg'
 import { useKeyListener } from '../../keyboard/key-listener'
 import { useValueAsRef } from '../../state-hooks'
 import { amberA400, background300, colorTextFaint, colorTextPrimary } from '../../styles/colors'

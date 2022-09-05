@@ -1,6 +1,6 @@
 import React, { useCallback, useId, useState } from 'react'
 import styled, { css } from 'styled-components'
-import ClearIcon from '../icons/material/baseline-clear-24px.svg'
+import ClearIcon from '../icons/material/clear-24px.svg'
 import { useMultiRef, useStableCallback } from '../state-hooks'
 import { colorTextSecondary } from '../styles/colors'
 import { IconButton } from './button'

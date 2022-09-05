@@ -8,9 +8,9 @@ import { MatchmakingType } from '../../common/matchmaking'
 import {
   default as CheckIcon,
   default as SelectedIcon,
-} from '../icons/material/baseline-check_circle-24px.svg'
-import SearchIcon from '../icons/material/baseline-search-24px.svg'
-import MapPoolActionsIcon from '../icons/material/ic_more_vert_black_24px.svg'
+} from '../icons/material/check_circle-24px.svg'
+import MapPoolActionsIcon from '../icons/material/more_vert-24px.svg'
+import SearchIcon from '../icons/material/search-24px.svg'
 import KeyListener from '../keyboard/key-listener'
 import Carousel from '../lists/carousel'
 import { MapThumbnail } from '../maps/map-thumbnail'

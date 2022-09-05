@@ -1,6 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import Icon from '../../icons/material/baseline-check_circle-24px.svg'
+import Icon from '../../icons/material/check_circle-24px.svg'
 import { IconButton, RaisedButton, TextButton } from '../button'
 import Card from '../card'
 import { FloatingActionButton } from '../floating-action-button'

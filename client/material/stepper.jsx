@@ -2,8 +2,8 @@ import { Set } from 'immutable'
 import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
-import ErrorIcon from '../icons/material/baseline-error-24px.svg'
 import EditIcon from '../icons/material/edit-24px.svg'
+import ErrorIcon from '../icons/material/error-24px.svg'
 import {
   amberA400,
   colorDividers,

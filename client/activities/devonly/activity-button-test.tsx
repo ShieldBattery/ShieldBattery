@@ -1,7 +1,7 @@
 import keycode from 'keycode'
 import React from 'react'
 import styled from 'styled-components'
-import Icon from '../../icons/material/baseline-check_circle-24px.svg'
+import Icon from '../../icons/material/check_circle-24px.svg'
 import Card from '../../material/card'
 import { background700 } from '../../styles/colors'
 import ActivityBar from '../activity-bar'

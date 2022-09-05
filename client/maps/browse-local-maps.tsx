@@ -10,7 +10,7 @@ import {
   FileBrowserRootFolderId,
   FileBrowserType,
 } from '../file-browser/file-browser-types'
-import MapIcon from '../icons/material/ic_terrain_black_24px.svg'
+import MapIcon from '../icons/material/terrain-24px.svg'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'

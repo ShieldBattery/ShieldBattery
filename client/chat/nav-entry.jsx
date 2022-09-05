@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
-import CloseIcon from '../icons/material/ic_close_black_24px.svg'
+import CloseIcon from '../icons/material/close-24px.svg'
 import { IconButton } from '../material/button'
 import Entry from '../material/left-nav/entry'
 

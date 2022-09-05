@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react'
 import styled from 'styled-components'
-import WarningIcon from '../icons/material/warning_black_36px.svg'
+import WarningIcon from '../icons/material/warning-36px.svg'
 import logger from '../logging/logger'
 import { ActionlessNotification } from '../notifications/notifications'
 import { useAppDispatch } from '../redux-hooks'

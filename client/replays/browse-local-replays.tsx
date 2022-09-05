@@ -20,7 +20,7 @@ import {
   FileBrowserType,
 } from '../file-browser/file-browser-types'
 import { viewGame } from '../games/action-creators'
-import Replay from '../icons/material/ic_movie_black_24px.svg'
+import Replay from '../icons/material/movie-24px.svg'
 import { RaceIcon } from '../lobbies/race-icon'
 import { MapNoImage } from '../maps/map-image'
 import { MapThumbnail } from '../maps/map-thumbnail'

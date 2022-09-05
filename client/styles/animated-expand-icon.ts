@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import ExpandIcon from '../icons/material/expand_less_black_24px.svg'
+import ExpandIcon from '../icons/material/expand_less-24px.svg'
 import { fastOutSlowIn } from '../material/curve-constants'
 
 /**

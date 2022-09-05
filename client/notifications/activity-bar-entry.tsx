@@ -1,7 +1,7 @@
 import keycode from 'keycode'
 import React, { useCallback, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
-import NotificationsIcon from '../icons/material/notifications_black_24px.svg'
+import NotificationsIcon from '../icons/material/notifications-24px.svg'
 import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button'
 import { Popover, useAnchorPosition } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
