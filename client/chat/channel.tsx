@@ -416,11 +416,11 @@ export function ConnectedChatChannel({
   useEffect(() => {
     if (isInChannel) {
       dispatch(retrieveUserList(channelId))
-      dispatch(activateChannel(channelId) as any)
+      dispatch(activateChannel(channelId))
     }
 
     return () => {
-      dispatch(deactivateChannel(channelId) as any)
+      dispatch(deactivateChannel(channelId))
     }
   }, [isInChannel, channelId, dispatch])
 

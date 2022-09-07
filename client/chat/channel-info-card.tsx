@@ -116,13 +116,14 @@ export function ConnectedChannelInfoCard({
   if (isChannelNotFound) {
     subtitle = (
       <ErrorText>
-        We couldn't find this channel, it might not exist or it has been re-created by someone else
+        This channel could not be found. It might not exist, or it may have been re-created by
+        someone else.
       </ErrorText>
     )
   } else if (channelInfo?.private && !isUserInChannel) {
-    subtitle = <ErrorText>This channel is private and requires an invite to join</ErrorText>
+    subtitle = <ErrorText>This channel is private and requires an invite to join.</ErrorText>
   } else if (isUserBanned) {
-    subtitle = <ErrorText>You are banned from this channel</ErrorText>
+    subtitle = <ErrorText>You are banned from this channel.</ErrorText>
   } else if (channelInfo?.userCount) {
     subtitle = (
       <Body1>{`${channelInfo.userCount} member${channelInfo.userCount > 1 ? 's' : ''}`}</Body1>
