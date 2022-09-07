@@ -987,6 +987,17 @@
     "@jridgewell/resolve-uri" "^3.0.3"
     "@jridgewell/sourcemap-codec" "^1.4.10"
 
+"@shieldbattery/stimpack@file:../stimpack":
+  version "0.1.0"
+  dependencies:
+    cargo-cp-artifact "^0.1"
+
+"@shieldbattery/stimpack@github:shieldbattery/stimpack#035d5578":
+  version "0.1.0"
+  resolved "https://codeload.github.com/shieldbattery/stimpack/tar.gz/035d55785b100ffadbc59c8123c84ceebdeb82dc"
+  dependencies:
+    cargo-cp-artifact "^0.1"
+
 "@types/semver@^7.3.6":
   version "7.3.12"
   resolved "https://registry.yarnpkg.com/@types/semver/-/semver-7.3.12.tgz#920447fdd78d76b19de0438b7f60df3c4a80bf1c"
@@ -1097,6 +1108,11 @@ caniuse-lite@^1.0.30001400:
   version "1.0.30001414"
   resolved "https://registry.yarnpkg.com/caniuse-lite/-/caniuse-lite-1.0.30001414.tgz#5f1715e506e71860b4b07c50060ea6462217611e"
   integrity sha512-t55jfSaWjCdocnFdKQoO+d2ct9C59UZg4dY3OnUlSZ447r8pUtIKdp0hpAzrGFultmTC+Us+KpKi4GZl/LXlFg==
+
+cargo-cp-artifact@^0.1:
+  version "0.1.6"
+  resolved "https://registry.yarnpkg.com/cargo-cp-artifact/-/cargo-cp-artifact-0.1.6.tgz#df1bc9dad036ae0f4230639a869182e1d5850f89"
+  integrity sha512-CQw0doK/aaF7j041666XzuilHxqMxaKkn+I5vmBsd8SAwS0cO5CqVEVp0xJwOKstyqWZ6WK4Ww3O6p26x/Goyg==
 
 chalk@^2.0.0:
   version "2.4.2"
@@ -1702,10 +1718,6 @@ ms@2.1.2:
   version "2.1.2"
   resolved "https://registry.yarnpkg.com/ms/-/ms-2.1.2.tgz#d09d1f357b443f493382a8eb3ccd183872ae6009"
   integrity sha512-sGkPx+VjMtmA6MX27oA4FBFELFCZZ4S4XqeGOXCv68tT+jb3vk/RyaKWP0PTKyWtmLSM0b+adUTEvbs1PEaH2w==
-
-"nan@github:tec27/nan#remove_accessor_signature":
-  version "2.16.0"
-  resolved "https://codeload.github.com/tec27/nan/tar.gz/6a2f95a6a2209d8aa7542fb18099fd808a802059"
 
 node-releases@^2.0.6:
   version "2.0.6"
