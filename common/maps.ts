@@ -201,7 +201,7 @@ export function getTeamNames(
  * Filters out unprintable characters used for color codes in BW (we don't utilize these in our
  * client, and they just show up as tofu).
  */
-export function filterColorCodes(str: string) {
+export function filterColorCodes(str: string): string {
   return Array.from(str)
     .filter(c => {
       const code = c.charCodeAt(0)
