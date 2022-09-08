@@ -10,6 +10,7 @@ require('@babel/register')({
 const fs = require('fs')
 const Chk = require('bw-chk')
 const jpeg = require('jpeg-js')
+const { filterColorCodes } = require('../../../common/maps')
 const { parseAndHashMap } = require('./parse-map')
 
 // A map parsing script that runs in a separate process
@@ -82,25 +83,6 @@ function generateImage(map, bwDataPath, width = 1024) {
     )
     return data
   })
-}
-
-/**
- * Filters out unprintable characters used for color codes in BW (we don't utilize these in our
- * client, and they just show up as tofu).
- */
-function filterColorCodes(str) {
-  return Array.from(str)
-    .filter(c => {
-      const code = c.charCodeAt(0)
-      return (
-        code > 0x1f ||
-        /** newline */
-        code === 0x0a ||
-        /** carriage return */
-        code === 0x0d
-      )
-    })
-    .join('')
 }
 
 function createStreamPromise(data, fd) {

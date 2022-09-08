@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { getGameDurationString } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
+import { filterColorCodes } from '../../common/maps'
 import {
   replayGameTypeToLabel,
   replayRaceToChar,
@@ -214,7 +215,7 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
     const timeMs = (replayHeader.durationFrames * 1000) / 24
     const durationStr = getGameDurationString(timeMs)
     const gameTypeLabel = replayGameTypeToLabel(replayHeader.gameType)
-    const mapName = mapInfo?.name ?? replayHeader.mapName
+    const mapName = filterColorCodes(mapInfo?.name ?? replayHeader.mapName)
 
     const teams = replayHeader.players.reduce((acc, p) => {
       const team = acc.get(p.team)
