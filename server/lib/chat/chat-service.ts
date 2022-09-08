@@ -25,14 +25,17 @@ import { CodedError } from '../errors/coded-error'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
 import { getPermissions } from '../models/permissions'
+import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids'
 import { findUserById, findUsersById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
   addMessageToChannel,
   addUserToChannel,
+  banAllChannelIdentifiers,
   banUserFromChannel,
   ChatMessage,
+  countBannedChannelIdentifiers,
   createChannel,
   findChannelByName,
   getChannelInfo,
@@ -161,6 +164,21 @@ export default class ChatService {
     )
   }
 
+  private async banUserFromChannelIfNeeded(
+    channelId: SbChannelId,
+    targetId: SbUserId,
+    client: DbClient,
+  ): Promise<boolean> {
+    const count = await countBannedChannelIdentifiers({ channelId, targetId }, client)
+    if (count >= MIN_IDENTIFIER_MATCHES) {
+      await banUserFromChannel({ channelId, targetId, reason: 'ban evasion' }, client)
+      await banAllChannelIdentifiers({ channelId, targetId }, client)
+      return true
+    }
+
+    return false
+  }
+
   /**
    * Joins `channelName` with account `userId`, allowing them to receive and send messages in it.
    * Handles the use case of two users attempting to join a channel at the same time.
@@ -191,6 +209,11 @@ export default class ChatService {
 
             const isBanned = await isUserBannedFromChannel(channel.id, userId, client)
             if (isBanned) {
+              throw new ChatServiceError(
+                ChatServiceErrorCode.UserBanned,
+                'This user has been banned from this chat channel',
+              )
+            } else if (await this.banUserFromChannelIfNeeded(channel.id, userId, client)) {
               throw new ChatServiceError(
                 ChatServiceErrorCode.UserBanned,
                 'This user has been banned from this chat channel',
@@ -354,7 +377,13 @@ export default class ChatService {
     }
 
     if (moderationAction === ChannelModerationAction.Ban) {
-      await banUserFromChannel(channelId, userId, targetId, moderationReason)
+      await transact(async client => {
+        await banUserFromChannel(
+          { channelId, moderatorId: userId, targetId, reason: moderationReason },
+          client,
+        )
+        await banAllChannelIdentifiers({ channelId, targetId }, client)
+      })
     }
 
     // NOTE(2Pac): New owner can technically be selected if a server moderator removes the current
