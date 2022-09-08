@@ -1,26 +1,17 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo } from 'react'
 import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
-import {
-  ChatServiceErrorCode,
-  ClientChatMessageType,
-  ServerChatMessageType,
-} from '../../common/chat'
-import { MULTI_CHANNEL } from '../../common/flags'
+import { ClientChatMessageType, SbChannelId, ServerChatMessageType } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { useVirtuosoScrollFix } from '../dom/virtuoso-scroll-fix'
-import { logger } from '../logging/logger'
 import { Chat } from '../messaging/chat'
 import { useChatMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
 import { Message } from '../messaging/message-records'
-import { push, replace } from '../navigation/routing'
-import { isFetchError } from '../network/fetch-errors'
-import { LoadingDotsArea } from '../progress/dots'
+import { push } from '../navigation/routing'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { RootState } from '../root-reducer'
-import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
-import { usePrevious } from '../state-hooks'
+import { usePrevious, useStableCallback } from '../state-hooks'
 import {
   alphaDisabled,
   background700,
@@ -35,12 +26,13 @@ import { useUserOverlays } from '../users/user-overlays'
 import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
 import {
   activateChannel,
+  correctChannelNameForChat,
   deactivateChannel,
   getMessageHistory,
-  joinChannel,
   retrieveUserList,
   sendMessage,
 } from './action-creators'
+import { ConnectedChannelInfoCard } from './channel-info-card'
 import { addChannelMenuItems } from './channel-menu-items'
 import {
   BanUserMessage,
@@ -293,15 +285,19 @@ const Container = styled.div`
   background-color: ${background700};
 `
 
-const StyledLoadingDotsArea = styled(LoadingDotsArea)`
-  width: 100%;
-  max-width: 960px;
-`
-
 const StyledChat = styled(Chat)`
   max-width: 960px;
   flex-grow: 1;
   background-color: ${background800};
+`
+
+const ChannelInfoContainer = styled.div`
+  width: 100%;
+  max-width: 960px;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 `
 
 function renderMessage(msg: Message) {
@@ -317,7 +313,7 @@ function renderMessage(msg: Message) {
     case ClientChatMessageType.NewChannelOwner:
       return <NewChannelOwnerMessage key={msg.id} time={msg.time} newOwnerId={msg.newOwnerId} />
     case ClientChatMessageType.SelfJoinChannel:
-      return <SelfJoinChannelMessage key={msg.id} channel={msg.channel} />
+      return <SelfJoinChannelMessage key={msg.id} channelId={msg.channelId} />
     default:
       return null
   }
@@ -378,16 +374,22 @@ function sortUsers(userEntries: ReadonlyArray<UserEntry>): SbUserId[] {
 }
 
 interface ChatChannelProps {
-  params: { channel: string }
+  channelId: SbChannelId
+  channelName: string
 }
 
-export default function Channel(props: ChatChannelProps) {
-  const channelName = decodeURIComponent(props.params.channel).toLowerCase()
+export function ConnectedChatChannel({
+  channelId,
+  channelName: channelNameFromRoute,
+}: ChatChannelProps) {
   const dispatch = useAppDispatch()
-  const channel = useAppSelector(s => s.chat.byName.get(channelName))
-  const activeUserIds = channel?.users.active
-  const idleUserIds = channel?.users.idle
-  const offlineUserIds = channel?.users.offline
+  const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
+  const channelUsers = useAppSelector(s => s.chat.idToUsers.get(channelId))
+  const channelMessages = useAppSelector(s => s.chat.idToMessages.get(channelId))
+  const isInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
+  const activeUserIds = channelUsers?.active
+  const idleUserIds = channelUsers?.idle
+  const offlineUserIds = channelUsers?.offline
   // We map the user IDs to their usernames so we can sort them by their name without pulling all of
   // the users from the store and depending on any of their changes.
   const activeUserEntries = useAppSelector(
@@ -400,10 +402,9 @@ export default function Channel(props: ChatChannelProps) {
     areUserEntriesEqual,
   )
 
-  const isInChannel = !!channel
   const prevIsInChannel = usePrevious(isInChannel)
-  const prevChannelName = usePrevious(channelName)
-  const isLeavingChannel = !isInChannel && prevIsInChannel && prevChannelName === channelName
+  const prevChannelId = usePrevious(channelId)
+  const isLeavingChannel = !isInChannel && prevIsInChannel && prevChannelId === channelId
 
   // TODO(2Pac): Pull this out into some kind of "isLeaving" hook and share with whispers/lobby?
   useEffect(() => {
@@ -412,82 +413,29 @@ export default function Channel(props: ChatChannelProps) {
     }
   }, [isLeavingChannel])
 
-  const [joinChannelError, setJoinChannelError] = useState<Error>()
-  const cancelJoinRef = useRef(new AbortController())
-
   useEffect(() => {
-    cancelJoinRef.current.abort()
-    const abortController = new AbortController()
-    cancelJoinRef.current = abortController
-
     if (isInChannel) {
-      dispatch(retrieveUserList(channelName))
-      dispatch(activateChannel(channelName) as any)
-    } else if (!isLeavingChannel) {
-      if (MULTI_CHANNEL) {
-        dispatch(
-          joinChannel(channelName, {
-            signal: abortController.signal,
-            onSuccess: () => setJoinChannelError(undefined),
-            onError: err => setJoinChannelError(err),
-          }),
-        )
-      } else {
-        push('/')
-      }
+      dispatch(retrieveUserList(channelId))
+      dispatch(activateChannel(channelId))
     }
 
     return () => {
-      abortController.abort()
-      dispatch(deactivateChannel(channelName) as any)
+      dispatch(deactivateChannel(channelId))
     }
-  }, [isInChannel, isLeavingChannel, channelName, dispatch])
+  }, [isInChannel, channelId, dispatch])
 
   useEffect(() => {
-    if (joinChannelError) {
-      // TODO(2Pac): Rework how joining channel works. Currently we first navigate to the channel
-      // and then attempt to join it. Which seems weird to me?
-      //
-      // To work around this for now, if the user is banned we redirect them to the index page,
-      // but ideally they wouldn't be navigated to the channel in the first place.
-      replace('/')
-
-      let message = `An error occurred while joining ${channelName}`
-
-      if (isFetchError(joinChannelError) && joinChannelError.code) {
-        if (joinChannelError.code === ChatServiceErrorCode.UserBanned) {
-          message = `You are banned from ${channelName}`
-        } else {
-          logger.error(`Unhandled code when joining ${channelName}: ${joinChannelError.code}`)
-        }
-      } else {
-        logger.error(
-          `Error when joining ${channelName}: ${joinChannelError.stack ?? joinChannelError}`,
-        )
-      }
-
-      // TODO(2Pac): Once the joining channel is re-worked, this should probably display the error
-      // message based on the context in which the user attempted to join a channel, e.g.
-      //  - display the error message directly in the join-channel dialog if the user used the
-      //    join-channel dialog to join the channel
-      //  - display the error message in the chat channel (or a snackbar) if user attempted to join
-      //    the channel with a chat command
-      //  - display the error message in the channel info page if user lands on the channel page
-      //    directly
-      //  - do *something* else when a user attempts to join by clicking the channel invite in the
-      //    notifications
-      dispatch(openSnackbar({ message, time: TIMING_LONG }))
+    if (channelInfo && channelNameFromRoute !== channelInfo.name) {
+      correctChannelNameForChat(channelInfo.id, channelInfo.name)
     }
-  }, [joinChannelError, channelName, dispatch])
+  }, [channelInfo, channelNameFromRoute])
 
-  const onLoadMoreMessages = useCallback(
-    () => dispatch(getMessageHistory(channelName, MESSAGES_LIMIT)),
-    [channelName, dispatch],
+  const onLoadMoreMessages = useStableCallback(() =>
+    dispatch(getMessageHistory(channelId, MESSAGES_LIMIT)),
   )
 
-  const onSendChatMessage = useCallback(
-    (msg: string) => dispatch(sendMessage(channelName, msg)),
-    [dispatch, channelName],
+  const onSendChatMessage = useStableCallback((msg: string) =>
+    dispatch(sendMessage(channelId, msg)),
   )
 
   const sortedActiveUsers = useMemo(() => sortUsers(activeUserEntries), [activeUserEntries])
@@ -499,25 +447,25 @@ export default function Channel(props: ChatChannelProps) {
       userId: SbUserId,
       items: Map<MenuItemCategory, React.ReactNode[]>,
       onMenuClose: (event?: MouseEvent) => void,
-    ) => addChannelMenuItems(userId, items, onMenuClose, channelName),
-    [channelName],
+    ) => addChannelMenuItems(userId, items, onMenuClose, channelId),
+    [channelId],
   )
 
   return (
     <Container>
-      {channel ? (
+      {isInChannel || isLeavingChannel ? (
         <StyledChat
           listProps={{
-            messages: channel.messages,
-            loading: channel.loadingHistory,
-            hasMoreHistory: channel.hasHistory,
-            refreshToken: channelName,
+            messages: channelMessages?.messages ?? [],
+            loading: channelMessages?.loadingHistory,
+            hasMoreHistory: channelMessages?.hasHistory,
+            refreshToken: channelId,
             renderMessage,
             onLoadMoreMessages,
           }}
           inputProps={{
             onSendChatMessage,
-            storageKey: `chat.${channelName}`,
+            storageKey: `chat.${channelId}`,
           }}
           extraContent={
             <UserList
@@ -529,7 +477,9 @@ export default function Channel(props: ChatChannelProps) {
           modifyMenuItems={modifyMenuItems}
         />
       ) : (
-        <StyledLoadingDotsArea />
+        <ChannelInfoContainer>
+          <ConnectedChannelInfoCard channelId={channelId} channelName={channelNameFromRoute} />
+        </ChannelInfoContainer>
       )}
     </Container>
   )

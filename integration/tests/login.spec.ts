@@ -7,7 +7,7 @@ test('logging in with an existing account', async ({ page }) => {
   await page.check('input[name="remember"]')
   await page.click('[data-test=submit-button]')
 
-  const channelName = await page.innerText('[data-test=left-nav] a[href="/chat/ShieldBattery"]')
+  const channelName = await page.innerText('[data-test=left-nav] a[href="/chat/1/ShieldBattery"]')
   expect(channelName).toBe('#ShieldBattery')
 })
 

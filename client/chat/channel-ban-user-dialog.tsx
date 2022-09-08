@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react'
 import styled from 'styled-components'
-import { ChannelModerationAction, ChatServiceErrorCode } from '../../common/chat'
+import { ChannelModerationAction, ChatServiceErrorCode, SbChannelId } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
@@ -68,14 +68,14 @@ interface BanUserModel {
 }
 
 interface ChannelBanUserDialogProps extends CommonDialogProps {
-  channel: string
+  channelId: SbChannelId
   userId: SbUserId
 }
 
 export function ChannelBanUserDialog({
   dialogRef,
   onCancel,
-  channel,
+  channelId,
   userId,
 }: ChannelBanUserDialogProps) {
   const dispatch = useAppDispatch()
@@ -86,7 +86,7 @@ export function ChannelBanUserDialog({
     (model: BanUserModel) => {
       dispatch(
         moderateUser(
-          channel,
+          channelId,
           user.id,
           ChannelModerationAction.Ban,
           {
@@ -100,7 +100,7 @@ export function ChannelBanUserDialog({
         ),
       )
     },
-    [channel, user, dispatch],
+    [channelId, user, dispatch],
   )
 
   const { onSubmit: handleSubmit, bindInput } = useForm<BanUserModel>(
@@ -117,11 +117,7 @@ export function ChannelBanUserDialog({
   ]
 
   return (
-    <Dialog
-      title={`Ban ${user.name} from ${channel}?`}
-      buttons={buttons}
-      onCancel={onCancel}
-      dialogRef={dialogRef}>
+    <Dialog title={`Ban ${user.name}?`} buttons={buttons} onCancel={onCancel} dialogRef={dialogRef}>
       <form noValidate={true} onSubmit={handleSubmit}>
         {banUserError ? <BanUserErrorDisplay user={user.name} error={banUserError} /> : null}
         <TextField

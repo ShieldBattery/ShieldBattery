@@ -1,4 +1,5 @@
 import {
+  ChannelInfo,
   ChatBanEvent,
   ChatInitEvent,
   ChatJoinEvent,
@@ -11,6 +12,7 @@ import {
   ChatUserOfflineEvent,
   GetChannelHistoryServerResponse,
   GetChatUserProfileResponse,
+  SbChannelId,
 } from '../../common/chat'
 import { SbUser } from '../../common/users/sb-user'
 import { BaseFetchFailure } from '../network/fetch-errors'
@@ -32,6 +34,7 @@ export type ChatActions =
   | RetrieveUserList
   | RetrieveUserListFailure
   | GetChatUserProfile
+  | GetChannelInfo
   | ActivateChannel
   | DeactivateChannel
   | InitChannel
@@ -51,7 +54,7 @@ export type ChatActions =
 export interface JoinChannelBegin {
   type: '@chat/joinChannelBegin'
   payload: {
-    channel: string
+    channelId: SbChannelId
   }
 }
 
@@ -63,21 +66,21 @@ export interface JoinChannel {
   type: '@chat/joinChannel'
   payload: void
   meta: {
-    channel: string
+    channelId: SbChannelId
   }
   error?: false
 }
 
 export interface JoinChannelFailure extends BaseFetchFailure<'@chat/joinChannel'> {
   meta: {
-    channel: string
+    channelId: SbChannelId
   }
 }
 
 export interface LeaveChannelBegin {
   type: '@chat/leaveChannelBegin'
   payload: {
-    channel: string
+    channelId: SbChannelId
   }
 }
 
@@ -89,21 +92,21 @@ export interface LeaveChannel {
   type: '@chat/leaveChannel'
   payload: void
   meta: {
-    channel: string
+    channelId: SbChannelId
   }
   error?: false
 }
 
 export interface LeaveChannelFailure extends BaseFetchFailure<'@chat/leaveChannel'> {
   meta: {
-    channel: string
+    channelId: SbChannelId
   }
 }
 
 export interface SendMessageBegin {
   type: '@chat/sendMessageBegin'
   payload: {
-    channel: string
+    channelId: SbChannelId
     message: string
   }
 }
@@ -115,7 +118,7 @@ export interface SendMessage {
   type: '@chat/sendMessage'
   payload: void
   meta: {
-    channel: string
+    channelId: SbChannelId
     message: string
   }
   error?: false
@@ -123,7 +126,7 @@ export interface SendMessage {
 
 export interface SendMessageFailure extends BaseFetchFailure<'@chat/sendMessage'> {
   meta: {
-    channel: string
+    channelId: SbChannelId
     message: string
   }
 }
@@ -131,7 +134,7 @@ export interface SendMessageFailure extends BaseFetchFailure<'@chat/sendMessage'
 export interface LoadMessageHistoryBegin {
   type: '@chat/loadMessageHistoryBegin'
   payload: {
-    channel: string
+    channelId: SbChannelId
     limit: number
     beforeTime: number
   }
@@ -144,7 +147,7 @@ export interface LoadMessageHistory {
   type: '@chat/loadMessageHistory'
   payload: GetChannelHistoryServerResponse
   meta: {
-    channel: string
+    channelId: SbChannelId
     limit: number
     beforeTime: number
   }
@@ -153,7 +156,7 @@ export interface LoadMessageHistory {
 
 export interface LoadMessageHistoryFailure extends BaseFetchFailure<'@chat/loadMessageHistory'> {
   meta: {
-    channel: string
+    channelId: SbChannelId
     limit: number
     beforeTime: number
   }
@@ -162,7 +165,7 @@ export interface LoadMessageHistoryFailure extends BaseFetchFailure<'@chat/loadM
 export interface RetrieveUserListBegin {
   type: '@chat/retrieveUserListBegin'
   payload: {
-    channel: string
+    channelId: SbChannelId
   }
 }
 
@@ -173,14 +176,14 @@ export interface RetrieveUserList {
   type: '@chat/retrieveUserList'
   payload: SbUser[]
   meta: {
-    channel: string
+    channelId: SbChannelId
   }
   error?: false
 }
 
 export interface RetrieveUserListFailure extends BaseFetchFailure<'@chat/retrieveUserList'> {
   meta: {
-    channel: string
+    channelId: SbChannelId
   }
 }
 
@@ -193,13 +196,21 @@ export interface GetChatUserProfile {
 }
 
 /**
+ * Get the publicly available info for a specific channel.
+ */
+export interface GetChannelInfo {
+  type: '@chat/getChannelInfo'
+  payload: ChannelInfo
+}
+
+/**
  * Activate a particular chat channel. This is a purely client-side action which marks the channel
  * as "active", and removes the unread indicator if there is one.
  */
 export interface ActivateChannel {
   type: '@chat/activateChannel'
   payload: {
-    channel: string
+    channelId: SbChannelId
   }
 }
 
@@ -210,7 +221,7 @@ export interface ActivateChannel {
 export interface DeactivateChannel {
   type: '@chat/deactivateChannel'
   payload: {
-    channel: string
+    channelId: SbChannelId
   }
 }
 
@@ -220,7 +231,7 @@ export interface DeactivateChannel {
 export interface InitChannel {
   type: '@chat/initChannel'
   payload: ChatInitEvent
-  meta: { channel: string }
+  meta: { channelId: SbChannelId }
 }
 
 /**
@@ -229,7 +240,7 @@ export interface InitChannel {
 export interface UpdateJoin {
   type: '@chat/updateJoin'
   payload: ChatJoinEvent
-  meta: { channel: string }
+  meta: { channelId: SbChannelId }
 }
 
 /**
@@ -238,7 +249,7 @@ export interface UpdateJoin {
 export interface UpdateLeave {
   type: '@chat/updateLeave'
   payload: ChatLeaveEvent
-  meta: { channel: string }
+  meta: { channelId: SbChannelId }
 }
 
 /**
@@ -246,7 +257,7 @@ export interface UpdateLeave {
  */
 export interface UpdateLeaveSelf {
   type: '@chat/updateLeaveSelf'
-  meta: { channel: string }
+  meta: { channelId: SbChannelId }
 }
 
 /**
@@ -255,7 +266,7 @@ export interface UpdateLeaveSelf {
 export interface UpdateKick {
   type: '@chat/updateKick'
   payload: ChatKickEvent
-  meta: { channel: string }
+  meta: { channelId: SbChannelId }
 }
 
 /**
@@ -263,7 +274,7 @@ export interface UpdateKick {
  */
 export interface UpdateKickSelf {
   type: '@chat/updateKickSelf'
-  meta: { channel: string }
+  meta: { channelId: SbChannelId }
 }
 
 /**
@@ -272,7 +283,7 @@ export interface UpdateKickSelf {
 export interface UpdateBan {
   type: '@chat/updateBan'
   payload: ChatBanEvent
-  meta: { channel: string }
+  meta: { channelId: SbChannelId }
 }
 
 /**
@@ -280,7 +291,7 @@ export interface UpdateBan {
  */
 export interface UpdateBanSelf {
   type: '@chat/updateBanSelf'
-  meta: { channel: string }
+  meta: { channelId: SbChannelId }
 }
 
 /**
@@ -289,7 +300,7 @@ export interface UpdateBanSelf {
 export interface UpdateMessage {
   type: '@chat/updateMessage'
   payload: ChatMessageEvent
-  meta: { channel: string }
+  meta: { channelId: SbChannelId }
 }
 
 /**
@@ -298,7 +309,7 @@ export interface UpdateMessage {
 export interface UpdateUserActive {
   type: '@chat/updateUserActive'
   payload: ChatUserActiveEvent
-  meta: { channel: string }
+  meta: { channelId: SbChannelId }
 }
 
 /**
@@ -307,7 +318,7 @@ export interface UpdateUserActive {
 export interface UpdateUserIdle {
   type: '@chat/updateUserIdle'
   payload: ChatUserIdleEvent
-  meta: { channel: string }
+  meta: { channelId: SbChannelId }
 }
 
 /**
@@ -316,7 +327,7 @@ export interface UpdateUserIdle {
 export interface UpdateUserOffline {
   type: '@chat/updateUserOffline'
   payload: ChatUserOfflineEvent
-  meta: { channel: string }
+  meta: { channelId: SbChannelId }
 }
 
 /**
@@ -325,5 +336,5 @@ export interface UpdateUserOffline {
 export interface UpdateSelfPermissions {
   type: '@chat/permissionsChanged'
   payload: ChatPermissionsChangedEvent
-  meta: { channel: string }
+  meta: { channelId: SbChannelId }
 }

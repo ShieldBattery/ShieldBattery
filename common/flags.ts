@@ -15,3 +15,6 @@ export const DEV_INDICATOR = DEV()
 export const MULTI_CHANNEL = DEV()
 /** Calculate a static turnrate to use rather than using dynamic. */
 export const USE_STATIC_TURNRATE = ON()
+// TODO(2Pac): Flip this flag to ON once we have a news/home page
+/** Allows users to leave the ShieldBattery chat channel. */
+export const CAN_LEAVE_SHIELDBATTERY_CHANNEL = OFF()
