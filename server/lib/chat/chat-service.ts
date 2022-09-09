@@ -207,12 +207,12 @@ export default class ChatService {
       if (isBanned) {
         throw new ChatServiceError(
           ChatServiceErrorCode.UserBanned,
-          'This user has been banned from this chat channel 1',
+          'This user has been banned from this chat channel',
         )
       } else if (await this.banUserFromChannelIfNeeded(channel.id, userId)) {
         throw new ChatServiceError(
           ChatServiceErrorCode.UserBanned,
-          'This user has been banned from this chat channel 2',
+          'This user has been banned from this chat channel',
         )
       }
     }
