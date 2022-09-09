@@ -381,7 +381,7 @@ export async function updateUserPermissions(
   }
 }
 
-export async function countBannedChannelIdentifiers(
+export async function countBannedIdentifiersForChannel(
   {
     channelId,
     targetId,
@@ -426,21 +426,46 @@ export async function banUserFromChannel(
     moderatorId,
     targetId,
     reason,
-  }: { channelId: SbChannelId; moderatorId?: SbUserId; targetId: SbUserId; reason?: string },
+    automated = false,
+    connectedUsers = [],
+  }: {
+    channelId: SbChannelId
+    moderatorId?: SbUserId
+    targetId: SbUserId
+    reason?: string
+    automated?: boolean
+    connectedUsers?: SbUserId[]
+  },
   withClient?: DbClient,
 ): Promise<void> {
   const { client, done } = await db(withClient)
   try {
-    await client.query(sql`
-      INSERT INTO channel_bans (user_id, channel_id, ban_time, banned_by, reason)
-      VALUES (${targetId}, ${channelId}, ${new Date()}, ${moderatorId}, ${reason});
-    `)
+    if (automated) {
+      await client.query(sql`
+        WITH rc AS (
+          SELECT reason, COUNT(*) AS reason_count
+          FROM channel_bans
+          WHERE channel_id = ${channelId} AND user_id = ANY(${connectedUsers})
+          GROUP BY reason
+          ORDER BY reason_count DESC
+          LIMIT 1
+        )
+        INSERT INTO channel_bans (user_id, channel_id, ban_time, banned_by, reason, automated)
+        SELECT ${targetId}, ${channelId}, ${new Date()}, ${moderatorId}, rc.reason, ${automated}
+        FROM rc;
+      `)
+    } else {
+      await client.query(sql`
+        INSERT INTO channel_bans (user_id, channel_id, ban_time, banned_by, reason, automated)
+        VALUES (${targetId}, ${channelId}, ${new Date()}, ${moderatorId}, ${reason}, ${automated});
+      `)
+    }
   } finally {
     done()
   }
 }
 
-export async function banAllChannelIdentifiers(
+export async function banAllIdentifiersFromChannel(
   {
     channelId,
     targetId,

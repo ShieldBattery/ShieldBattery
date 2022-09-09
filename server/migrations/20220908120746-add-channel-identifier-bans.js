@@ -15,14 +15,29 @@ exports.up = async function (db) {
   await db.runSql(`
     ALTER TABLE channel_bans
     ALTER COLUMN banned_by DROP NOT NULL;
+
+    ALTER TABLE channel_bans
+    ADD COLUMN automated boolean NOT NULL DEFAULT false;
   `)
 }
 
 exports.down = async function (db) {
-  await db.runSql(`DROP TABLE channel_identifier_bans`)
+  await db.runSql(`
+    DROP TABLE channel_identifier_bans;
+  `)
+
+  // Gotta delete the rows where this column is NULL before making it not accept NULL values
+  await db.runSql(`
+    DELETE FROM channel_bans
+    WHERE banned_by IS NULL;
+  `)
+
   await db.runSql(`
     ALTER TABLE channel_bans
     ALTER COLUMN banned_by SET NOT NULL;
+
+    ALTER TABLE channel_bans
+    DROP COLUMN automated;
   `)
 }
 

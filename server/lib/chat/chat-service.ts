@@ -26,16 +26,17 @@ import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
 import { getPermissions } from '../models/permissions'
 import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids'
+import { findConnectedUsers } from '../users/user-identifiers'
 import { findUserById, findUsersById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
   addMessageToChannel,
   addUserToChannel,
-  banAllChannelIdentifiers,
+  banAllIdentifiersFromChannel,
   banUserFromChannel,
   ChatMessage,
-  countBannedChannelIdentifiers,
+  countBannedIdentifiersForChannel,
   createChannel,
   findChannelByName,
   getChannelInfo,
@@ -169,10 +170,16 @@ export default class ChatService {
     targetId: SbUserId,
     client: DbClient,
   ): Promise<boolean> {
-    const count = await countBannedChannelIdentifiers({ channelId, targetId }, client)
+    const count = await countBannedIdentifiersForChannel({ channelId, targetId }, client)
     if (count >= MIN_IDENTIFIER_MATCHES) {
-      await banUserFromChannel({ channelId, targetId, reason: 'ban evasion' }, client)
-      await banAllChannelIdentifiers({ channelId, targetId }, client)
+      const connectedUsers = await findConnectedUsers(
+        targetId,
+        MIN_IDENTIFIER_MATCHES,
+        false,
+        client,
+      )
+      await banUserFromChannel({ channelId, targetId, automated: true, connectedUsers }, client)
+      await banAllIdentifiersFromChannel({ channelId, targetId }, client)
       return true
     }
 
@@ -382,7 +389,7 @@ export default class ChatService {
           { channelId, moderatorId: userId, targetId, reason: moderationReason },
           client,
         )
-        await banAllChannelIdentifiers({ channelId, targetId }, client)
+        await banAllIdentifiersFromChannel({ channelId, targetId }, client)
       })
     }
 
