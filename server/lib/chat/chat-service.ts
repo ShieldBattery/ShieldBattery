@@ -168,23 +168,22 @@ export default class ChatService {
   private async banUserFromChannelIfNeeded(
     channelId: SbChannelId,
     targetId: SbUserId,
+    client: DbClient,
   ): Promise<boolean> {
-    return await transact(async client => {
-      const count = await countBannedIdentifiersForChannel({ channelId, targetId }, client)
-      if (count >= MIN_IDENTIFIER_MATCHES) {
-        const connectedUsers = await findConnectedUsers(
-          targetId,
-          MIN_IDENTIFIER_MATCHES,
-          false,
-          client,
-        )
-        await banUserFromChannel({ channelId, targetId, automated: true, connectedUsers }, client)
-        await banAllIdentifiersFromChannel({ channelId, targetId }, client)
-        return true
-      }
+    const count = await countBannedIdentifiersForChannel({ channelId, targetId }, client)
+    if (count >= MIN_IDENTIFIER_MATCHES) {
+      const connectedUsers = await findConnectedUsers(
+        targetId,
+        MIN_IDENTIFIER_MATCHES,
+        false,
+        client,
+      )
+      await banUserFromChannel({ channelId, targetId, automated: true, connectedUsers }, client)
+      await banAllIdentifiersFromChannel({ channelId, targetId }, client)
+      return true
+    }
 
-      return false
-    })
+    return false
   }
 
   /**
@@ -197,35 +196,41 @@ export default class ChatService {
       throw new ChatServiceError(ChatServiceErrorCode.UserNotFound, "User doesn't exist")
     }
 
-    let channel = await findChannelByName(channelName)
-    if (channel) {
-      if (this.state.users.has(userId) && this.state.users.get(userId)!.has(channel.id)) {
-        throw new ChatServiceError(ChatServiceErrorCode.AlreadyJoined, 'Already in this channel')
-      }
-
-      const isBanned = await isUserBannedFromChannel(channel.id, userId)
-      if (isBanned) {
-        throw new ChatServiceError(
-          ChatServiceErrorCode.UserBanned,
-          'This user has been banned from this chat channel',
-        )
-      } else if (await this.banUserFromChannelIfNeeded(channel.id, userId)) {
-        throw new ChatServiceError(
-          ChatServiceErrorCode.UserBanned,
-          'This user has been banned from this chat channel',
-        )
-      }
-    }
-
     let succeeded = false
     let attempts = 0
+    let channel: ChannelInfo | undefined
     let userChannelEntry: UserChannelEntry | undefined
     let message: ChatMessage
+    let error: ChatServiceError | undefined
     do {
       attempts += 1
       try {
         await transact(async client => {
+          channel = await findChannelByName(channelName, client)
           if (channel) {
+            if (this.state.users.has(userId) && this.state.users.get(userId)!.has(channel.id)) {
+              error = new ChatServiceError(
+                ChatServiceErrorCode.AlreadyJoined,
+                'Already in this channel',
+              )
+              return
+            }
+
+            const isBanned = await isUserBannedFromChannel(channel.id, userId, client)
+            if (isBanned) {
+              error = new ChatServiceError(
+                ChatServiceErrorCode.UserBanned,
+                'This user has been banned from this chat channel',
+              )
+              return
+            } else if (await this.banUserFromChannelIfNeeded(channel.id, userId, client)) {
+              error = new ChatServiceError(
+                ChatServiceErrorCode.UserBanned,
+                'This user has been banned from this chat channel',
+              )
+              return
+            }
+
             try {
               userChannelEntry = await addUserToChannel(userId, channel.id, client)
               message = await addMessageToChannel(
@@ -271,7 +276,11 @@ export default class ChatService {
           throw err
         }
       }
-    } while (!succeeded && attempts < MAX_JOIN_ATTEMPTS)
+    } while (!succeeded && !error && attempts < MAX_JOIN_ATTEMPTS)
+
+    if (error) {
+      throw error
+    }
 
     this.updateUserAfterJoining(userInfo, channel!, userChannelEntry!, message!)
 
