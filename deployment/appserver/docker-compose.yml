@@ -144,6 +144,10 @@ services:
   db:
     image: postgres:12-alpine
     restart: unless-stopped
+    command:
+      - 'postgres'
+      - '-c'
+      - 'random_page_cost=1.1'
     # This matches the recommended value for this container
     # (See 'Caveats' section here: https://hub.docker.com/_/postgres)
     shm_size: 256M
