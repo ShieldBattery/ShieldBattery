@@ -144,10 +144,6 @@ services:
   db:
     image: postgres:12-alpine
     restart: unless-stopped
-    command:
-      - 'postgres'
-      - '-c'
-      - 'random_page_cost=1.1'
     # This matches the recommended value for this container
     # (See 'Caveats' section here: https://hub.docker.com/_/postgres)
     shm_size: 256M
@@ -162,7 +158,9 @@ services:
       - backend
     volumes:
       - ./db/init-scripts:/docker-entrypoint-initdb.d:ro
+      - ./db/postgresql.conf:/etc/postgresql/postgresql.conf
       - db_data:/var/lib/postgresql/data
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
 
   # This is a service used to run everything needed (e.g. run migrations, copy assets, etc.) to
   # update the server to a new version before it actually starts. It uses the same image as the
