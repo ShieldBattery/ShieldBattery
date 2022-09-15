@@ -692,9 +692,9 @@ const TableBody = React.forwardRef((props, ref: React.ForwardedRef<any>) => (
 
 const TableRow = styled.div``
 
-const FillerRow = styled.div<{ height: number }>`
-  height: ${props => `${props.height}px`};
-`
+const FillerRow = styled.div.attrs<{ height: number }>(props => ({
+  style: { height: `${props.height}px` },
+}))<{ height: number }>``
 
 const UnratedText = styled.span`
   color: ${colorTextFaint};
