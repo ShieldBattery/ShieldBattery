@@ -1,4 +1,5 @@
 import sql from 'sql-template-strings'
+import { MergeExclusive } from 'type-fest'
 import {
   ChannelInfo,
   ChannelPermissions,
@@ -428,26 +429,33 @@ export async function banUserFromChannel(
     reason,
     automated = false,
     connectedUsers = [],
-  }: {
-    channelId: SbChannelId
-    moderatorId?: SbUserId
-    targetId: SbUserId
-    reason?: string
-    automated?: boolean
-    connectedUsers?: SbUserId[]
-  },
+  }: MergeExclusive<
+    {
+      channelId: SbChannelId
+      moderatorId?: SbUserId
+      targetId: SbUserId
+      reason?: string
+    },
+    {
+      channelId: SbChannelId
+      moderatorId?: SbUserId
+      targetId: SbUserId
+      automated: boolean
+      connectedUsers: SbUserId[]
+    }
+  >,
   withClient?: DbClient,
 ): Promise<void> {
   const { client, done } = await db(withClient)
   try {
-    if (automated) {
+    if (automated && connectedUsers.length > 0) {
       await client.query(sql`
         WITH rc AS (
-          SELECT reason, COUNT(*) AS reason_count
+          SELECT reason, MIN(ban_time) AS date, COUNT(*) AS reason_count
           FROM channel_bans
           WHERE channel_id = ${channelId} AND user_id = ANY(${connectedUsers})
           GROUP BY reason
-          ORDER BY reason_count DESC
+          ORDER BY reason_count DESC, date DESC
           LIMIT 1
         )
         INSERT INTO channel_bans (user_id, channel_id, ban_time, banned_by, reason, automated)

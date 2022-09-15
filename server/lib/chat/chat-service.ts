@@ -201,33 +201,22 @@ export default class ChatService {
     let channel: ChannelInfo | undefined
     let userChannelEntry: UserChannelEntry | undefined
     let message: ChatMessage
-    let error: ChatServiceError | undefined
+    let isUserBanned: boolean | undefined
     do {
       attempts += 1
       try {
         await transact(async client => {
           channel = await findChannelByName(channelName, client)
           if (channel) {
-            if (this.state.users.has(userId) && this.state.users.get(userId)!.has(channel.id)) {
-              error = new ChatServiceError(
-                ChatServiceErrorCode.AlreadyJoined,
-                'Already in this channel',
-              )
+            const isUserInChannel = await getUserChannelEntryForUser(userId, channel.id)
+            if (isUserInChannel) {
+              succeeded = true
               return
             }
 
             const isBanned = await isUserBannedFromChannel(channel.id, userId, client)
-            if (isBanned) {
-              error = new ChatServiceError(
-                ChatServiceErrorCode.UserBanned,
-                'This user has been banned from this chat channel',
-              )
-              return
-            } else if (await this.banUserFromChannelIfNeeded(channel.id, userId, client)) {
-              error = new ChatServiceError(
-                ChatServiceErrorCode.UserBanned,
-                'This user has been banned from this chat channel',
-              )
+            if (isBanned || (await this.banUserFromChannelIfNeeded(channel.id, userId, client))) {
+              isUserBanned = true
               return
             }
 
@@ -276,10 +265,10 @@ export default class ChatService {
           throw err
         }
       }
-    } while (!succeeded && !error && attempts < MAX_JOIN_ATTEMPTS)
+    } while (!succeeded && !isUserBanned && attempts < MAX_JOIN_ATTEMPTS)
 
-    if (error) {
-      throw error
+    if (isUserBanned) {
+      throw new ChatServiceError(ChatServiceErrorCode.UserBanned, 'User is banned')
     }
 
     this.updateUserAfterJoining(userInfo, channel!, userChannelEntry!, message!)
