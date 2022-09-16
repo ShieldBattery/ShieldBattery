@@ -25,14 +25,18 @@ import { CodedError } from '../errors/coded-error'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
 import { getPermissions } from '../models/permissions'
+import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids'
+import { findConnectedUsers } from '../users/user-identifiers'
 import { findUserById, findUsersById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
   addMessageToChannel,
   addUserToChannel,
+  banAllIdentifiersFromChannel,
   banUserFromChannel,
   ChatMessage,
+  countBannedIdentifiersForChannel,
   createChannel,
   findChannelByName,
   getChannelInfo,
@@ -161,6 +165,27 @@ export default class ChatService {
     )
   }
 
+  private async banUserFromChannelIfNeeded(
+    channelId: SbChannelId,
+    targetId: SbUserId,
+    client: DbClient,
+  ): Promise<boolean> {
+    const count = await countBannedIdentifiersForChannel({ channelId, targetId }, client)
+    if (count >= MIN_IDENTIFIER_MATCHES) {
+      const connectedUsers = await findConnectedUsers(
+        targetId,
+        MIN_IDENTIFIER_MATCHES,
+        false,
+        client,
+      )
+      await banUserFromChannel({ channelId, targetId, automated: true, connectedUsers }, client)
+      await banAllIdentifiersFromChannel({ channelId, targetId }, client)
+      return true
+    }
+
+    return false
+  }
+
   /**
    * Joins `channelName` with account `userId`, allowing them to receive and send messages in it.
    * Handles the use case of two users attempting to join a channel at the same time.
@@ -172,6 +197,7 @@ export default class ChatService {
     }
 
     let succeeded = false
+    let isUserBanned = false
     let attempts = 0
     let channel: ChannelInfo | undefined
     let userChannelEntry: UserChannelEntry | undefined
@@ -182,19 +208,16 @@ export default class ChatService {
         await transact(async client => {
           channel = await findChannelByName(channelName, client)
           if (channel) {
-            if (this.state.users.has(userId) && this.state.users.get(userId)!.has(channel.id)) {
-              throw new ChatServiceError(
-                ChatServiceErrorCode.AlreadyJoined,
-                'Already in this channel',
-              )
+            const isUserInChannel = await getUserChannelEntryForUser(userId, channel.id)
+            if (isUserInChannel) {
+              succeeded = true
+              return
             }
 
             const isBanned = await isUserBannedFromChannel(channel.id, userId, client)
-            if (isBanned) {
-              throw new ChatServiceError(
-                ChatServiceErrorCode.UserBanned,
-                'This user has been banned from this chat channel',
-              )
+            if (isBanned || (await this.banUserFromChannelIfNeeded(channel.id, userId, client))) {
+              isUserBanned = true
+              return
             }
 
             try {
@@ -242,7 +265,11 @@ export default class ChatService {
           throw err
         }
       }
-    } while (!succeeded && attempts < MAX_JOIN_ATTEMPTS)
+    } while (!succeeded && !isUserBanned && attempts < MAX_JOIN_ATTEMPTS)
+
+    if (isUserBanned) {
+      throw new ChatServiceError(ChatServiceErrorCode.UserBanned, 'User is banned')
+    }
 
     this.updateUserAfterJoining(userInfo, channel!, userChannelEntry!, message!)
 
@@ -354,7 +381,13 @@ export default class ChatService {
     }
 
     if (moderationAction === ChannelModerationAction.Ban) {
-      await banUserFromChannel(channelId, userId, targetId, moderationReason)
+      await transact(async client => {
+        await banUserFromChannel(
+          { channelId, moderatorId: userId, targetId, reason: moderationReason },
+          client,
+        )
+        await banAllIdentifiersFromChannel({ channelId, targetId }, client)
+      })
     }
 
     // NOTE(2Pac): New owner can technically be selected if a server moderator removes the current

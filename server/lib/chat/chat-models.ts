@@ -1,4 +1,5 @@
 import sql from 'sql-template-strings'
+import { MergeExclusive } from 'type-fest'
 import {
   ChannelInfo,
   ChannelPermissions,
@@ -381,18 +382,138 @@ export async function updateUserPermissions(
   }
 }
 
-export async function banUserFromChannel(
-  channelId: SbChannelId,
-  moderatorId: SbUserId,
-  targetId: SbUserId,
-  reason?: string,
-): Promise<void> {
-  const { client, done } = await db()
+export async function countBannedIdentifiersForChannel(
+  {
+    channelId,
+    targetId,
+    filterBrowserprint = true,
+  }: {
+    channelId: SbChannelId
+    targetId: SbUserId
+    filterBrowserprint?: boolean
+  },
+  withClient?: DbClient,
+): Promise<number> {
+  const { client, done } = await db(withClient)
+
   try {
-    await client.query(sql`
-      INSERT INTO channel_bans (user_id, channel_id, ban_time, banned_by, reason)
-      VALUES (${targetId}, ${channelId}, ${new Date()}, ${moderatorId}, ${reason});
+    const query = sql`
+      SELECT COUNT(DISTINCT identifier_type) as "matches"
+      FROM channel_identifier_bans cib
+      WHERE cib.channel_id = ${channelId}
+      AND (cib.identifier_type, cib.identifier_hash) IN (
+        SELECT identifier_type, identifier_hash
+        FROM user_identifiers ui
+        WHERE ui.user_id = ${targetId}
+      )
+    `
+
+    if (filterBrowserprint) {
+      query.append(sql`
+        AND cib.identifier_type != 0
+      `)
+    }
+
+    const result = await client.query<{ matches: string }>(query)
+    return result.rows.length > 0 ? Number(result.rows[0].matches) : 0
+  } finally {
+    done()
+  }
+}
+
+export async function banUserFromChannel(
+  {
+    channelId,
+    moderatorId,
+    targetId,
+    reason,
+    automated = false,
+    connectedUsers = [],
+  }: MergeExclusive<
+    {
+      channelId: SbChannelId
+      moderatorId?: SbUserId
+      targetId: SbUserId
+      reason?: string
+    },
+    {
+      channelId: SbChannelId
+      moderatorId?: SbUserId
+      targetId: SbUserId
+      automated: boolean
+      connectedUsers: SbUserId[]
+    }
+  >,
+  withClient?: DbClient,
+): Promise<void> {
+  const { client, done } = await db(withClient)
+  try {
+    if (automated && connectedUsers.length > 0) {
+      await client.query(sql`
+        WITH rc AS (
+          SELECT reason, MIN(ban_time) AS date, COUNT(*) AS reason_count
+          FROM channel_bans
+          WHERE channel_id = ${channelId} AND user_id = ANY(${connectedUsers})
+          GROUP BY reason
+          ORDER BY reason_count DESC, date DESC
+          LIMIT 1
+        )
+        INSERT INTO channel_bans (user_id, channel_id, ban_time, banned_by, reason, automated)
+        SELECT ${targetId}, ${channelId}, ${new Date()}, ${moderatorId}, rc.reason, ${automated}
+        FROM rc;
+      `)
+    } else {
+      await client.query(sql`
+        INSERT INTO channel_bans (user_id, channel_id, ban_time, banned_by, reason, automated)
+        VALUES (${targetId}, ${channelId}, ${new Date()}, ${moderatorId}, ${reason}, ${automated});
+      `)
+    }
+  } finally {
+    done()
+  }
+}
+
+export async function banAllIdentifiersFromChannel(
+  {
+    channelId,
+    targetId,
+    timeBanned = new Date(),
+    filterBrowserprint = true,
+  }: {
+    channelId: SbChannelId
+    targetId: SbUserId
+    timeBanned?: Date
+    filterBrowserprint?: boolean
+  },
+  withClient?: DbClient,
+): Promise<void> {
+  const { client, done } = await db(withClient)
+
+  try {
+    const query = sql`
+      INSERT INTO channel_identifier_bans
+      SELECT
+        ${channelId} AS "channel_id",
+        identifier_type,
+        identifier_hash,
+        ${timeBanned} AS "time_banned",
+        user_id
+      FROM user_identifiers
+      WHERE user_id = ${targetId}
+    `
+
+    if (filterBrowserprint) {
+      query.append(sql`
+        AND identifier_type != 0
+      `)
+    }
+
+    query.append(sql`
+      ON CONFLICT (channel_id, identifier_type, identifier_hash)
+      DO NOTHING
     `)
+
+    await client.query(query)
   } finally {
     done()
   }
@@ -401,11 +522,11 @@ export async function banUserFromChannel(
 export async function isUserBannedFromChannel(
   channelId: SbChannelId,
   userId: SbUserId,
-  client?: DbClient,
+  withClient?: DbClient,
 ): Promise<boolean> {
-  const { client: dbClient, done } = client ? { client, done: () => {} } : await db()
+  const { client, done } = await db(withClient)
   try {
-    const result = await dbClient.query(sql`
+    const result = await client.query(sql`
       SELECT 1 FROM channel_bans
       WHERE user_id = ${userId} AND channel_id = ${channelId};
     `)

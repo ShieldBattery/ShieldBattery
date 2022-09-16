@@ -14,7 +14,6 @@ export function makeSbChannelId(id: number): SbChannelId {
 }
 
 export enum ChatServiceErrorCode {
-  AlreadyJoined = 'AlreadyJoined',
   CannotChangeChannelOwner = 'CannotChangeChannelOwner',
   CannotLeaveShieldBattery = 'CannotLeaveShieldBattery',
   CannotModerateChannelOwner = 'CannotModerateChannelOwner',

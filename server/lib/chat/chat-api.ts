@@ -84,7 +84,6 @@ function convertChatServiceError(err: unknown) {
     case ChatServiceErrorCode.UserOffline:
     case ChatServiceErrorCode.UserNotFound:
       throw asHttpError(404, err)
-    case ChatServiceErrorCode.AlreadyJoined:
     case ChatServiceErrorCode.CannotModerateYourself:
     case ChatServiceErrorCode.CannotLeaveShieldBattery:
     case ChatServiceErrorCode.CannotModerateShieldBattery:
