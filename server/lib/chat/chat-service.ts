@@ -197,11 +197,11 @@ export default class ChatService {
     }
 
     let succeeded = false
+    let isUserBanned = false
     let attempts = 0
     let channel: ChannelInfo | undefined
     let userChannelEntry: UserChannelEntry | undefined
     let message: ChatMessage
-    let isUserBanned: boolean | undefined
     do {
       attempts += 1
       try {
