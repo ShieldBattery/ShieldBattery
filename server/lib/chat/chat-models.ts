@@ -100,7 +100,7 @@ function convertChannelFromDb(props: DbChannel): ChannelInfo {
     id: props.id,
     name: props.name,
     private: props.private,
-    highTraffic: props.high_traffic,
+    official: props.official,
     joinedChannelData: {
       ownerId: props.owner_id,
       topic: props.topic,
@@ -281,9 +281,10 @@ export async function removeUserFromChannel(
       WHERE user_id = ${userId} AND channel_id = ${channelId};
     `)
 
+    // NOTE(2Pac): Only non-official channels are deleted when everyone leaves
     const deleteChannelResult = await client.query(sql`
       DELETE FROM channels
-      WHERE id = ${channelId} AND
+      WHERE id = ${channelId} AND official = false AND
         NOT EXISTS (SELECT 1 FROM channel_users WHERE channel_id = ${channelId})
       RETURNING id;
     `)
@@ -304,12 +305,12 @@ export async function removeUserFromChannel(
       return {}
     }
 
-    const highTrafficChannelResult = await client.query(sql`
+    const officialChannelResult = await client.query(sql`
       SELECT id FROM channels
-      WHERE id = ${channelId} AND high_traffic = true;
+      WHERE id = ${channelId} AND official = true;
     `)
-    if (highTrafficChannelResult.rowCount > 0) {
-      // Don't transfer ownership in "high traffic" channels
+    if (officialChannelResult.rowCount > 0) {
+      // Don't transfer ownership in "official" channels
       return {}
     }
 

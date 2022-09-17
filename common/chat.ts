@@ -133,11 +133,11 @@ export interface ChannelInfo {
    */
   private: boolean
   /**
-   * A flag indicating whether the chat channel is declared as having high traffic or not. High
-   * traffic channels can have certain rules (e.g. owners are not automatically transferred in them)
-   * that distinguish them from smaller channels.
+   * A flag indicating whether the chat channel is declared as an "official" channel. Official
+   * channels can have certain rules (e.g. they're created by staff, they have no owners, they don't
+   * get deleted if everyone leaves, etc.) that distinguish them from regular channels.
    */
-  highTraffic: boolean
+  official: boolean
   /**
    * Number of users in the channel. Only available for non-private channels, and for private
    * channels that the user has joined.
