@@ -120,9 +120,6 @@ export interface JoinedChannelData {
   ownerId: SbUserId
   /** A short message used to display the channel's current topic. */
   topic: string
-  // TODO(2Pac): Can probably remove this, if we go with invitation system for private channels.
-  /** A channel's password */
-  password: string
 }
 
 export interface ChannelInfo {

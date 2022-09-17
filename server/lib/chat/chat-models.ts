@@ -104,7 +104,6 @@ function convertChannelFromDb(props: DbChannel): ChannelInfo {
     joinedChannelData: {
       ownerId: props.owner_id,
       topic: props.topic,
-      password: props.password,
     },
   }
 }
