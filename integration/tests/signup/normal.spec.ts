@@ -1,10 +1,17 @@
 import { expect, test } from '@playwright/test'
 import { suppressChangelog } from '../../changelog-utils'
+import { LoginPage } from '../../pages/login-page'
 import { SentEmailChecker } from '../../sent-email-checker'
 import { generateUsername } from '../../username-generator'
 import { signupWith, VERIFICATION_LINK_REGEX } from './utils'
 
 const sentEmailChecker = new SentEmailChecker()
+
+let loginPage: LoginPage
+
+test.beforeEach(async ({ page }) => {
+  loginPage = new LoginPage(page)
+})
 
 test('sign up and verify email in same browser', async ({ page }) => {
   await page.goto('/signup')
@@ -63,9 +70,7 @@ test('sign up and verify email in different browser', async ({ context, page }) 
   await page.waitForSelector('[data-test=not-logged-in-error]')
   await page.click('[data-test=log-in-button]')
 
-  await page.fill('input[name="username"]', username)
-  await page.fill('input[name="password"]', 'password123')
-  await page.click('[data-test=submit-button]')
+  await loginPage.loginWith(username, 'password123')
 
   await page.click('[data-test=continue-button]')
   await page.click('[data-test=notifications-button]')
