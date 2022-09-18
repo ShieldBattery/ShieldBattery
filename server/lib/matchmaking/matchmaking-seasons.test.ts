@@ -102,7 +102,7 @@ describe('matchmaking/matchmaking-seasons', () => {
     })
 
     expect(createdSeason).toMatchInlineSnapshot(`
-      Object {
+      {
         "id": 4,
         "name": "New Season",
         "resetMmr": true,

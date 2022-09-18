@@ -1,5 +1,7 @@
 /** A utility class for easily setting and retrieving a value from Reflect metadata. */
-export class MetadataValue<V, Target = any> {
+// Lint disabled because that's what the API expects :(
+// eslint-disable-next-line @typescript-eslint/ban-types
+export class MetadataValue<V, Target extends Object = any> {
   constructor(readonly key: symbol) {}
 
   /** Sets the metadata value for `target`. This will overwrite any value there previously. */
@@ -14,7 +16,9 @@ export class MetadataValue<V, Target = any> {
 }
 
 /** A utility class for easily setting and retrieving a list of values from Reflect metadata. */
-export class MetadataListValue<V, Target = any> {
+// Lint disabled because that's what the API expects :(
+// eslint-disable-next-line @typescript-eslint/ban-types
+export class MetadataListValue<V, Target extends Object = any> {
   constructor(readonly key: symbol) {}
 
   /**
@@ -49,7 +53,9 @@ export class MetadataListValue<V, Target = any> {
 }
 
 /** A utility class for easily setting and retrieving a Map of entries from Reflect metadata. */
-export class MetadataMapValue<K, V, Target = any> {
+// Lint disabled because that's what the API expects :(
+// eslint-disable-next-line @typescript-eslint/ban-types
+export class MetadataMapValue<K, V, Target extends Object = any> {
   constructor(readonly metadataKey: symbol) {}
 
   /**

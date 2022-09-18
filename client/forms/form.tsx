@@ -142,7 +142,7 @@ export interface FormChildProps<ModelType> {
  *
  * Validator functions receive (value, model).
  */
-export default function formDecorator<ModelType, WrappedProps>(
+export default function formDecorator<ModelType extends Record<string, any>, WrappedProps>(
   validations: ValidatorMap<ModelType> = {},
 ) {
   return (

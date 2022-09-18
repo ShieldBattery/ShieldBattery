@@ -43,7 +43,7 @@ describe('server/lib/matchmaking/lazy-scheduler', () => {
     await clock.allTimeoutsCompleted()
 
     expect(delays).toMatchInlineSnapshot(`
-      Array [
+      [
         1000,
         1000,
         1000,
@@ -70,7 +70,7 @@ describe('server/lib/matchmaking/lazy-scheduler', () => {
     await clock.allTimeoutsCompleted()
 
     expect(delays).toMatchInlineSnapshot(`
-      Array [
+      [
         1000,
         2000,
       ]
@@ -93,7 +93,7 @@ describe('server/lib/matchmaking/lazy-scheduler', () => {
     await clock.allTimeoutsCompleted()
 
     expect(delays).toMatchInlineSnapshot(`
-      Array [
+      [
         1000,
         2000,
       ]

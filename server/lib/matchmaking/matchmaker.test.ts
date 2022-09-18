@@ -126,11 +126,11 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
     const orThis = createPlayer({ name: 'OrMe', rating: 1730 })
 
     expect(DEFAULT_MATCH_CHOOSER(1, player, [kindaFar, pickThis, orThis])).toMatchInlineSnapshot(`
-      Array [
-        Array [
+      [
+        [
           "PLAYER 1 'tec27' @ 1700 mmr",
         ],
-        Array [
+        [
           "PLAYER 3 'PickMe' @ 1670 mmr",
         ],
       ]
@@ -144,12 +144,12 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
     const p3 = createPlayer({ name: 'ReallyBadDude3' })
 
     expect(DEFAULT_MATCH_CHOOSER(2, player, [p1, p2, p3])).toMatchInlineSnapshot(`
-      Array [
-        Array [
+      [
+        [
           "PLAYER 1 'tec27' @ 1500 mmr",
           "PLAYER 3 'ReallyBadDude2' @ 1500 mmr",
         ],
-        Array [
+        [
           "PLAYER 4 'ReallyBadDude3' @ 1500 mmr",
           "PLAYER 2 'ReallyBadDude' @ 1500 mmr",
         ],
@@ -170,12 +170,12 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
 
     expect(DEFAULT_MATCH_CHOOSER(2, player, [p1, p2, p3, p4, p5, p6, p7, p8]))
       .toMatchInlineSnapshot(`
-      Array [
-        Array [
+      [
+        [
           "PLAYER 1 'tec27' @ 1500 mmr",
           "PLAYER 5 'ReallyBadDude4' @ 1500 mmr",
         ],
-        Array [
+        [
           "PLAYER 4 'ReallyBadDude3' @ 1500 mmr",
           "PLAYER 2 'ReallyBadDude' @ 1500 mmr",
         ],
@@ -203,12 +203,12 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
 
     expect(DEFAULT_MATCH_CHOOSER(2, player, [midSkill, lowSkill, midSkill2]))
       .toMatchInlineSnapshot(`
-      Array [
-        Array [
+      [
+        [
           "PLAYER 1 'tec27' @ 2000 mmr",
           "PLAYER 2 'LowSkill' @ 1000 mmr",
         ],
-        Array [
+        [
           "PLAYER 4 'MidSkill2' @ 1400 mmr",
           "PLAYER 3 'MidSkill' @ 1600 mmr",
         ],
@@ -218,12 +218,12 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
     // on optimal rating difference, not order
     expect(DEFAULT_MATCH_CHOOSER(2, player, [lowSkill, midSkill, midSkill2]))
       .toMatchInlineSnapshot(`
-      Array [
-        Array [
+      [
+        [
           "PLAYER 1 'tec27' @ 2000 mmr",
           "PLAYER 2 'LowSkill' @ 1000 mmr",
         ],
-        Array [
+        [
           "PLAYER 3 'MidSkill' @ 1600 mmr",
           "PLAYER 4 'MidSkill2' @ 1400 mmr",
         ],
@@ -231,12 +231,12 @@ describe('matchmaking/matchmaker/DEFAULT_MATCH_CHOOSER', () => {
     `)
     expect(DEFAULT_MATCH_CHOOSER(2, player, [midSkill, midSkill2, lowSkill]))
       .toMatchInlineSnapshot(`
-      Array [
-        Array [
+      [
+        [
           "PLAYER 1 'tec27' @ 2000 mmr",
           "PLAYER 2 'LowSkill' @ 1000 mmr",
         ],
-        Array [
+        [
           "PLAYER 3 'MidSkill' @ 1600 mmr",
           "PLAYER 4 'MidSkill2' @ 1400 mmr",
         ],

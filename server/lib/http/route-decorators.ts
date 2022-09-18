@@ -8,9 +8,11 @@ interface RouteDefinition {
   path: string
 }
 
-export const routesMetadata = new MetadataMapValue<PropKey, RouteDefinition, unknown>(
-  Symbol('httpApiRoutes'),
-)
+export const routesMetadata = new MetadataMapValue<
+  PropKey,
+  RouteDefinition,
+  Record<string | symbol, unknown>
+>(Symbol('httpApiRoutes'))
 
 type HttpApiMethod = (ctx: RouterContext) => any
 
@@ -60,9 +62,11 @@ export function httpPatch(path: string) {
   return apiMethodDecorator('patch', path)
 }
 
-export const routeMiddlewareMetadata = new MetadataMapValue<PropKey, Router.Middleware[], unknown>(
-  Symbol('httpApiRouteMiddleware'),
-)
+export const routeMiddlewareMetadata = new MetadataMapValue<
+  PropKey,
+  Router.Middleware[],
+  Record<string | symbol, unknown>
+>(Symbol('httpApiRouteMiddleware'))
 
 /**
  * Decorates a method to run the specified middleware functions before handling each request. This

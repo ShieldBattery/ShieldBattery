@@ -67,7 +67,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     const opponentChange = changes.get(opponent.userId)
 
     expect(playerChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 0.3026216815929804,
         "bonusUsedChange": 0.3026216815929804,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -88,7 +88,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -133,7 +133,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     const opponentChange = changes.get(opponent.userId)
 
     expect(playerChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -154,7 +154,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 1.263333748579728,
         "bonusUsedChange": 1.263333748579728,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -196,7 +196,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     const opponentChange = changes.get(opponent.userId)
 
     expect(playerChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -217,7 +217,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 1.263333748579728,
         "bonusUsedChange": 1.263333748579728,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -259,7 +259,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     const opponentChange = changes.get(opponent.userId)
 
     expect(playerChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -280,7 +280,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 0.5368288616481387,
         "bonusUsedChange": 0.5368288616481387,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -322,7 +322,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     const opponentChange = changes.get(opponent.userId)
 
     expect(playerChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 1.6773207835040105,
         "bonusUsedChange": 1.6773207835040105,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -343,7 +343,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -385,7 +385,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     const opponentChange = changes.get(opponent.userId)
 
     expect(playerChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 48.69072784406893,
         "bonusUsedChange": 48.69072784406893,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -406,7 +406,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 0.5368288616481387,
         "bonusUsedChange": 0.5368288616481387,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -448,7 +448,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     const opponentChange = changes.get(opponent.userId)
 
     expect(playerChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 48.06907750510208,
         "bonusUsedChange": 48.06907750510208,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -469,7 +469,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 999999,
         "bonusUsedChange": 0,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -521,7 +521,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     const opponentChange = changes.get(opponent.userId)
 
     expect(playerChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 2.5588118429816866,
         "bonusUsedChange": 2.5588118429816866,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -542,7 +542,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 400,
         "bonusUsedChange": 0,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -593,7 +593,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     const opponentChange = changes.get(opponent.userId)
 
     expect(playerChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -614,7 +614,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 0.5368288616481387,
         "bonusUsedChange": 0.5368288616481387,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -665,7 +665,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     const opponentChange = changes.get(opponent.userId)
 
     expect(playerChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 1.6773207835040105,
         "bonusUsedChange": 1.6773207835040105,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -686,7 +686,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -733,7 +733,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     const opponentChange = changes.get(opponent.userId)
 
     expect(playerChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -754,7 +754,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 0.5368288616481387,
         "bonusUsedChange": 0.5368288616481387,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -801,7 +801,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     const opponentChange = changes.get(opponent.userId)
 
     expect(playerChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 1.263333748579728,
         "bonusUsedChange": 1.263333748579728,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -822,7 +822,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponentChange).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -933,7 +933,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     const opponent2Change = changes.get(opponent2.userId)
 
     expect(player1Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -954,7 +954,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(player2Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -975,7 +975,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponent1Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 1.263333748579728,
         "bonusUsedChange": 1.263333748579728,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -996,7 +996,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponent2Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 1.263333748579728,
         "bonusUsedChange": 1.263333748579728,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1063,7 +1063,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     const opponent2Change = changes.get(opponent2.userId)
 
     expect(player1Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1084,7 +1084,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(player2Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1105,7 +1105,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponent1Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 0.7145401457825784,
         "bonusUsedChange": 0.7145401457825784,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1126,7 +1126,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponent2Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 0.7145401457825784,
         "bonusUsedChange": 0.7145401457825784,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1193,7 +1193,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     const opponent2Change = changes.get(opponent2.userId)
 
     expect(player1Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 1.9317157588508413,
         "bonusUsedChange": 1.9317157588508413,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1214,7 +1214,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(player2Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 1.9317157588508413,
         "bonusUsedChange": 1.9317157588508413,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1235,7 +1235,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponent1Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1256,7 +1256,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponent2Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1327,7 +1327,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     const opponent2Change = changes.get(opponent2.userId)
 
     expect(player1Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1348,7 +1348,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(player2Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1369,7 +1369,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponent1Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 1.263333748579728,
         "bonusUsedChange": 1.263333748579728,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1390,7 +1390,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponent2Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 1.263333748579728,
         "bonusUsedChange": 1.263333748579728,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1457,7 +1457,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     const opponent2Change = changes.get(opponent2.userId)
 
     expect(player1Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1478,7 +1478,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(player2Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1499,7 +1499,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponent1Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 1.0959350448401675,
         "bonusUsedChange": 1.0959350448401675,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1520,7 +1520,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponent2Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 1.0959350448401675,
         "bonusUsedChange": 1.0959350448401675,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1587,7 +1587,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
     const opponent2Change = changes.get(opponent2.userId)
 
     expect(player1Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 1.263333748579728,
         "bonusUsedChange": 1.263333748579728,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1608,7 +1608,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(player2Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 1.263333748579728,
         "bonusUsedChange": 1.263333748579728,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1629,7 +1629,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponent1Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,
@@ -1650,7 +1650,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       }
     `)
     expect(opponent2Change).toMatchInlineSnapshot(`
-      Object {
+      {
         "bonusUsed": 57,
         "bonusUsedChange": 57,
         "changeDate": 2022-05-02T00:00:00.000Z,

@@ -6,14 +6,14 @@ describe('server/lib/db/escapeSearchString', () => {
   })
 
   test('string with underscore character', () => {
-    expect(escapeSearchString('te_st')).toMatchInlineSnapshot(`"te\\\\_st"`)
+    expect(escapeSearchString('te_st')).toMatchInlineSnapshot(`"te\\_st"`)
   })
 
   test('string with percentage sign character', () => {
-    expect(escapeSearchString('te%st')).toMatchInlineSnapshot(`"te\\\\%st"`)
+    expect(escapeSearchString('te%st')).toMatchInlineSnapshot(`"te\\%st"`)
   })
 
   test('string with backslash character', () => {
-    expect(escapeSearchString('te\\st')).toMatchInlineSnapshot(`"te\\\\\\\\st"`)
+    expect(escapeSearchString('te\\st')).toMatchInlineSnapshot(`"te\\\\st"`)
   })
 })

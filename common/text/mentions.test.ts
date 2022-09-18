@@ -7,7 +7,7 @@ describe('common/text/mentions/matchUserMentions', () => {
 
   test('user as entire text', () => {
     expect(doMatch('@test')).toMatchInlineSnapshot(`
-      Array [
+      [
         "test",
       ]
     `)
@@ -15,7 +15,7 @@ describe('common/text/mentions/matchUserMentions', () => {
 
   test('user as beginning text', () => {
     expect(doMatch('@test hi!')).toMatchInlineSnapshot(`
-      Array [
+      [
         "test",
       ]
     `)
@@ -23,7 +23,7 @@ describe('common/text/mentions/matchUserMentions', () => {
 
   test('user as ending text', () => {
     expect(doMatch('Hi @test')).toMatchInlineSnapshot(`
-      Array [
+      [
         "test",
       ]
     `)
@@ -31,7 +31,7 @@ describe('common/text/mentions/matchUserMentions', () => {
 
   test('user as middle text', () => {
     expect(doMatch('Hi @test hello')).toMatchInlineSnapshot(`
-      Array [
+      [
         "test",
       ]
     `)
@@ -39,7 +39,7 @@ describe('common/text/mentions/matchUserMentions', () => {
 
   test('user with multiple mentions', () => {
     expect(doMatch('Hi @test, and hi again @test')).toMatchInlineSnapshot(`
-      Array [
+      [
         "test",
         "test",
       ]
@@ -48,7 +48,7 @@ describe('common/text/mentions/matchUserMentions', () => {
 
   test('user with multiple mentions separated by space', () => {
     expect(doMatch('Hi @test @test @test')).toMatchInlineSnapshot(`
-      Array [
+      [
         "test",
         "test",
         "test",
@@ -58,7 +58,7 @@ describe('common/text/mentions/matchUserMentions', () => {
 
   test('user with comma after it', () => {
     expect(doMatch('Hi @test, and everyone else.')).toMatchInlineSnapshot(`
-      Array [
+      [
         "test",
       ]
     `)
@@ -66,7 +66,7 @@ describe('common/text/mentions/matchUserMentions', () => {
 
   test('user with semi-colon after it', () => {
     expect(doMatch('Hi @test; how are you?')).toMatchInlineSnapshot(`
-      Array [
+      [
         "test",
       ]
     `)
@@ -74,7 +74,7 @@ describe('common/text/mentions/matchUserMentions', () => {
 
   test('user with colon after it', () => {
     expect(doMatch('@test: hello.')).toMatchInlineSnapshot(`
-      Array [
+      [
         "test",
       ]
     `)
@@ -82,7 +82,7 @@ describe('common/text/mentions/matchUserMentions', () => {
 
   test('user with question mark after it', () => {
     expect(doMatch('Hi @test?')).toMatchInlineSnapshot(`
-      Array [
+      [
         "test",
       ]
     `)
@@ -90,7 +90,7 @@ describe('common/text/mentions/matchUserMentions', () => {
 
   test('user with brackets in name', () => {
     expect(doMatch('Hi @[test]')).toMatchInlineSnapshot(`
-      Array [
+      [
         "[test]",
       ]
     `)
@@ -98,7 +98,7 @@ describe('common/text/mentions/matchUserMentions', () => {
 
   test('user with curly brackets in name', () => {
     expect(doMatch('Hi @{test}')).toMatchInlineSnapshot(`
-      Array [
+      [
         "{test}",
       ]
     `)
@@ -106,7 +106,7 @@ describe('common/text/mentions/matchUserMentions', () => {
 
   test('user with braces in name', () => {
     expect(doMatch('Hi @(test)')).toMatchInlineSnapshot(`
-      Array [
+      [
         "(test)",
       ]
     `)
@@ -114,7 +114,7 @@ describe('common/text/mentions/matchUserMentions', () => {
 
   test('user with question mark in name', () => {
     expect(doMatch('Hi @test!')).toMatchInlineSnapshot(`
-      Array [
+      [
         "test!",
       ]
     `)
@@ -122,7 +122,7 @@ describe('common/text/mentions/matchUserMentions', () => {
 
   test('user with period in name', () => {
     expect(doMatch('Hi @test.')).toMatchInlineSnapshot(`
-      Array [
+      [
         "test.",
       ]
     `)
@@ -130,7 +130,7 @@ describe('common/text/mentions/matchUserMentions', () => {
 
   test('user with various other special characters in name', () => {
     expect(doMatch('Hi @test`$^&*+=_-')).toMatchInlineSnapshot(`
-      Array [
+      [
         "test\`$^&*+=_-",
       ]
     `)
@@ -168,7 +168,7 @@ describe('common/text/mentions/matchMentionsMarkup', () => {
 
   test('mention markup as entire text', () => {
     expect(doMatch('<@123>')).toMatchInlineSnapshot(`
-      Array [
+      [
         "123",
       ]
     `)
@@ -176,7 +176,7 @@ describe('common/text/mentions/matchMentionsMarkup', () => {
 
   test('mention markup as beginning text', () => {
     expect(doMatch('<@123> hi!')).toMatchInlineSnapshot(`
-      Array [
+      [
         "123",
       ]
     `)
@@ -184,7 +184,7 @@ describe('common/text/mentions/matchMentionsMarkup', () => {
 
   test('mention markup as ending text', () => {
     expect(doMatch('Hi <@123>')).toMatchInlineSnapshot(`
-      Array [
+      [
         "123",
       ]
     `)
@@ -192,7 +192,7 @@ describe('common/text/mentions/matchMentionsMarkup', () => {
 
   test('mention markup as middle text', () => {
     expect(doMatch('Hi <@123> hello')).toMatchInlineSnapshot(`
-      Array [
+      [
         "123",
       ]
     `)
@@ -200,7 +200,7 @@ describe('common/text/mentions/matchMentionsMarkup', () => {
 
   test('mention markup with multiple mentions', () => {
     expect(doMatch('Hi <@123>, and hi again <@123>')).toMatchInlineSnapshot(`
-      Array [
+      [
         "123",
         "123",
       ]
@@ -208,10 +208,10 @@ describe('common/text/mentions/matchMentionsMarkup', () => {
   })
 
   test('mention markup without the @ character is not mentioned', () => {
-    expect(doMatch('<123>')).toMatchInlineSnapshot(`Array []`)
+    expect(doMatch('<123>')).toMatchInlineSnapshot(`[]`)
   })
 
   test('mention markup with non-digit `userId` is not mentioned', () => {
-    expect(doMatch('<@test>')).toMatchInlineSnapshot(`Array []`)
+    expect(doMatch('<@test>')).toMatchInlineSnapshot(`[]`)
   })
 })

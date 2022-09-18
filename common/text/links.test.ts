@@ -7,7 +7,7 @@ function doMatch(text: string): string[] {
 describe('common/text/links/matchLinks', () => {
   test('link as entire text', () => {
     expect(doMatch('http://example.org/')).toMatchInlineSnapshot(`
-      Array [
+      [
         "http://example.org/",
       ]
     `)
@@ -15,7 +15,7 @@ describe('common/text/links/matchLinks', () => {
 
   test('link as beginning text', () => {
     expect(doMatch('http://example.org/ is a link')).toMatchInlineSnapshot(`
-      Array [
+      [
         "http://example.org/",
       ]
     `)
@@ -23,7 +23,7 @@ describe('common/text/links/matchLinks', () => {
 
   test('link as ending text', () => {
     expect(doMatch('here is a link http://example.org/')).toMatchInlineSnapshot(`
-      Array [
+      [
         "http://example.org/",
       ]
     `)
@@ -31,7 +31,7 @@ describe('common/text/links/matchLinks', () => {
 
   test('link as middle text', () => {
     expect(doMatch('here is a link http://example.org/ okay')).toMatchInlineSnapshot(`
-      Array [
+      [
         "http://example.org/",
       ]
     `)
@@ -39,7 +39,7 @@ describe('common/text/links/matchLinks', () => {
 
   test('link without path', () => {
     expect(doMatch('http://example.org')).toMatchInlineSnapshot(`
-      Array [
+      [
         "http://example.org",
       ]
     `)
@@ -47,7 +47,7 @@ describe('common/text/links/matchLinks', () => {
 
   test('link with hex escaping', () => {
     expect(doMatch('http://www.google.com/#file%20one%26two')).toMatchInlineSnapshot(`
-      Array [
+      [
         "http://www.google.com/#file%20one%26two",
       ]
     `)
@@ -55,7 +55,7 @@ describe('common/text/links/matchLinks', () => {
 
   test('link with https', () => {
     expect(doMatch('https://www.google.com/test')).toMatchInlineSnapshot(`
-      Array [
+      [
         "https://www.google.com/test",
       ]
     `)
@@ -63,7 +63,7 @@ describe('common/text/links/matchLinks', () => {
 
   test('link with empty query', () => {
     expect(doMatch('https://www.google.com/?')).toMatchInlineSnapshot(`
-      Array [
+      [
         "https://www.google.com/?",
       ]
     `)
@@ -72,7 +72,7 @@ describe('common/text/links/matchLinks', () => {
   test('link with query values', () => {
     expect(doMatch('https://www.google.com/?test=true&array%5B%5D=15&array%5B%5D=23'))
       .toMatchInlineSnapshot(`
-      Array [
+      [
         "https://www.google.com/?test=true&array%5B%5D=15&array%5B%5D=23",
       ]
     `)
@@ -80,7 +80,7 @@ describe('common/text/links/matchLinks', () => {
 
   test('link ending in question mark', () => {
     expect(doMatch('http://www.google.com/?foo=bar?')).toMatchInlineSnapshot(`
-      Array [
+      [
         "http://www.google.com/?foo=bar?",
       ]
     `)
@@ -88,7 +88,7 @@ describe('common/text/links/matchLinks', () => {
 
   test('link with query with a +', () => {
     expect(doMatch('http://www.google.com/?foo+bar')).toMatchInlineSnapshot(`
-      Array [
+      [
         "http://www.google.com/?foo+bar",
       ]
     `)
@@ -96,7 +96,7 @@ describe('common/text/links/matchLinks', () => {
 
   test('link with hex escaping in path', () => {
     expect(doMatch('http://www.google.com/test%20path?query')).toMatchInlineSnapshot(`
-      Array [
+      [
         "http://www.google.com/test%20path?query",
       ]
     `)
@@ -104,7 +104,7 @@ describe('common/text/links/matchLinks', () => {
 
   test('link with hash and query', () => {
     expect(doMatch('http://www.google.com/path?query#hash%20escaped')).toMatchInlineSnapshot(`
-      Array [
+      [
         "http://www.google.com/path?query#hash%20escaped",
       ]
     `)
@@ -112,7 +112,7 @@ describe('common/text/links/matchLinks', () => {
 
   test('link with mixed case', () => {
     expect(doMatch('htTpS://WWW.example.ORG/path')).toMatchInlineSnapshot(`
-      Array [
+      [
         "htTpS://WWW.example.ORG/path",
       ]
     `)
@@ -120,7 +120,7 @@ describe('common/text/links/matchLinks', () => {
 
   test('link with ipv4 address', () => {
     expect(doMatch('http://192.168.0.1')).toMatchInlineSnapshot(`
-      Array [
+      [
         "http://192.168.0.1",
       ]
     `)
@@ -128,7 +128,7 @@ describe('common/text/links/matchLinks', () => {
 
   test('link with ip address and port', () => {
     expect(doMatch('http://192.168.0.1:9999')).toMatchInlineSnapshot(`
-      Array [
+      [
         "http://192.168.0.1:9999",
       ]
     `)
@@ -136,7 +136,7 @@ describe('common/text/links/matchLinks', () => {
 
   test('link with host and port', () => {
     expect(doMatch('https://example.org:9999')).toMatchInlineSnapshot(`
-      Array [
+      [
         "https://example.org:9999",
       ]
     `)
@@ -144,7 +144,7 @@ describe('common/text/links/matchLinks', () => {
 
   test('link with percent encoded host', () => {
     expect(doMatch('http://hello.%e4%b8%96%e7%95%8c.com/foo')).toMatchInlineSnapshot(`
-      Array [
+      [
         "http://hello.%e4%b8%96%e7%95%8c.com/foo",
       ]
     `)
@@ -152,7 +152,7 @@ describe('common/text/links/matchLinks', () => {
 
   test('link with path beginning with /', () => {
     expect(doMatch('http://example.org//foo')).toMatchInlineSnapshot(`
-      Array [
+      [
         "http://example.org//foo",
       ]
     `)
@@ -161,7 +161,7 @@ describe('common/text/links/matchLinks', () => {
   test('multiple links in text', () => {
     expect(doMatch('hello http://example.org/ world https://shieldbattery.net foo'))
       .toMatchInlineSnapshot(`
-      Array [
+      [
         "http://example.org/",
         "https://shieldbattery.net",
       ]
@@ -170,7 +170,7 @@ describe('common/text/links/matchLinks', () => {
 
   test('link in parentheses', () => {
     expect(doMatch('hello (http://example.org/) world')).toMatchInlineSnapshot(`
-      Array [
+      [
         "http://example.org/",
       ]
     `)
