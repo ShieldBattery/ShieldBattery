@@ -1,10 +1,17 @@
 import { expect, test } from '@playwright/test'
 import { suppressChangelog } from '../../changelog-utils'
+import { LoginPage } from '../../pages/login-page'
 import { SentEmailChecker } from '../../sent-email-checker'
 import { generateUsername } from '../../username-generator'
 import { signupWith, VERIFICATION_LINK_REGEX } from './utils'
 
 const sentEmailChecker = new SentEmailChecker()
+
+let loginPage: LoginPage
+
+test.beforeEach(async ({ page }) => {
+  loginPage = new LoginPage(page)
+})
 
 test('sign up and verify email with different user', async ({ context, page }) => {
   await page.goto('/signup')
@@ -28,10 +35,8 @@ test('sign up and verify email with different user', async ({ context, page }) =
   expect(link).toBeDefined()
 
   await context.clearCookies()
-  await page.goto('/login')
-  await page.fill('input[name="username"]', 'admin')
-  await page.fill('input[name="password"]', 'admin1234')
-  await page.click('[data-test=submit-button]')
+  await loginPage.navigateTo()
+  await loginPage.loginWith('admin', 'admin1234')
   await page.waitForSelector('[data-test=left-nav]')
 
   await page.goto(link!)
@@ -39,9 +44,7 @@ test('sign up and verify email with different user', async ({ context, page }) =
   await page.waitForSelector('[data-test=wrong-user-error]')
   await page.click('[data-test=switch-user-button]')
 
-  await page.fill('input[name="username"]', username)
-  await page.fill('input[name="password"]', 'password123')
-  await page.click('[data-test=submit-button]')
+  await loginPage.loginWith(username, 'password123')
 
   await page.click('[data-test=continue-button]')
   await page.click('[data-test=notifications-button]')

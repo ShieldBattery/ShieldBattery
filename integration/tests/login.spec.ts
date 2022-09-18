@@ -1,32 +1,41 @@
 import { expect, test } from '@playwright/test'
+import { ChatPage } from '../pages/chat-page'
+import { LoginPage } from '../pages/login-page'
 
-test('logging in with an existing account', async ({ page }) => {
-  await page.goto('/login')
-  await page.fill('input[name="username"]', 'admin')
-  await page.fill('input[name="password"]', 'admin1234')
-  await page.check('input[name="remember"]')
-  await page.click('[data-test=submit-button]')
+const ERROR_INCORRECT_CREDENTIALS = 'Incorrect username or password'
 
-  const channelName = await page.innerText('[data-test=left-nav] a[href="/chat/1/ShieldBattery"]')
-  expect(channelName).toBe('#ShieldBattery')
+let loginPage: LoginPage
+let chatPage: ChatPage
+
+test.beforeEach(async ({ page }) => {
+  loginPage = new LoginPage(page)
+  chatPage = new ChatPage(page)
 })
 
-test('logging in with a non-existent account', async ({ page }) => {
-  await page.goto('/login')
-  await page.fill('input[name="username"]', 'DoesNotExist')
-  await page.fill('input[name="password"]', 'password123')
-  await page.click('[data-test=submit-button]')
+test('logging in with an existing account', async () => {
+  const expectedChannelName = '#ShieldBattery'
 
-  const errorMessage = await page.innerText('[data-test=errors-container]')
-  expect(errorMessage).toBe('Incorrect username or password')
+  await loginPage.navigateTo()
+  await loginPage.fillLoginForm('admin', 'admin1234')
+  await loginPage.checkRememberMe()
+  await loginPage.clickLogInButton()
+
+  const actualChannelName = await chatPage.getNameOfShieldBatteryChannel()
+  expect(actualChannelName).toBe(expectedChannelName)
 })
 
-test('logging in with the wrong password', async ({ page }) => {
-  await page.goto('/login')
-  await page.fill('input[name="username"]', 'admin')
-  await page.fill('input[name="password"]', 'NotMyPassword')
-  await page.click('[data-test=submit-button]')
+test('logging in with a non-existent account', async () => {
+  await loginPage.navigateTo()
+  await loginPage.loginWith('DoesNotExist', 'password123')
 
-  const errorMessage = await page.innerText('[data-test=errors-container]')
-  expect(errorMessage).toBe('Incorrect username or password')
+  const actualErrorMessage = await loginPage.getErrorMessage()
+  expect(actualErrorMessage).toBe(ERROR_INCORRECT_CREDENTIALS)
+})
+
+test('logging in with the wrong password', async () => {
+  await loginPage.navigateTo()
+  await loginPage.loginWith('admin', 'NotMyPassword')
+
+  const actualErrorMessage = await loginPage.getErrorMessage()
+  expect(actualErrorMessage).toBe(ERROR_INCORRECT_CREDENTIALS)
 })

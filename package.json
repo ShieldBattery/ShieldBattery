@@ -91,6 +91,8 @@
     "start-server": "node ./server/index.js | node ./server/utils/pino-pg | pino-pretty -c -t",
     "test": "jest",
     "test:integration": "playwright test",
+    "test:integration:debug": "playwright test --debug",
+    "test:integration:headed": "playwright test --headed",
     "testonly": "jest",
     "typecheck": "tsc --skipLibCheck false",
     "postinstall": "cross-env-test SB_SERVER_ONLY=1 || electron-builder install-app-deps",
