@@ -10,6 +10,8 @@ export class LoginPage {
 
   private readonly buttonLogIn: Locator
 
+  private readonly errorMessage: Locator
+
   constructor(page: Page) {
     this.page = page
 
@@ -18,6 +20,8 @@ export class LoginPage {
     this.inputRememberMe = page.locator('input[name="remember"]')
 
     this.buttonLogIn = page.locator('button[data-test="submit-button"]')
+
+    this.errorMessage = page.locator('div[data-test="errors-container"]')
   }
 
   async loginWith(username: string, password: string): Promise<void> {
@@ -41,5 +45,9 @@ export class LoginPage {
 
   async navigateTo(): Promise<void> {
     await this.page.goto('/login')
+  }
+
+  async getErrorMessage(): Promise<string> {
+    return this.errorMessage.innerText()
   }
 }
