@@ -38,4 +38,8 @@ export class LoginPage {
   async clickLogInButton(): Promise<void> {
     await this.buttonLogIn.click()
   }
+
+  async navigateTo(): Promise<void> {
+    await this.page.goto('/login')
+  }
 }
