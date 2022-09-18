@@ -2,10 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { appendToMultimap } from '../../common/data-structures/maps'
-import {
-  userRelationshipErrorToString,
-  UserRelationshipKind,
-} from '../../common/users/relationships'
+import { UserRelationshipKind } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user'
 import { Divider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
@@ -26,6 +23,7 @@ import {
   sendFriendRequest,
   unblockUser,
 } from './action-creators'
+import { userRelationshipErrorToString } from './relationship-errors'
 
 const LoadingItem = styled(MenuItem)`
   color: ${colorTextFaint};
