@@ -1525,6 +1525,7 @@ impl BwScr {
                     ((1000f32 * user_delay as f32 + 500f32) / turn_rate as f32).round();
                 let value = format!("Lat: {:.0}ms", effective_latency);
                 (*result).text.replace_all(value.as_str());
+                result
             },
             address,
         );
@@ -3070,9 +3071,8 @@ mod hooks {
         !0 => SpawnDialog(*mut bw::Dialog, usize, usize) -> usize;
         !0 => StepGameLogic(usize) -> usize;
         !0 => StepNetwork() -> usize;
-        // TODO(tec27): Not entirely certain that this return value is correct, but the game doesn't
-        // seem to look at it anyway?
-        !0 => NetFormatTurnRate(*mut scr::NetFormatTurnRateResult, bool);
+        !0 => NetFormatTurnRate(*mut scr::NetFormatTurnRateResult, bool) ->
+            *mut scr::NetFormatTurnRateResult;
     );
 
     whack_hooks!(stdcall, 0,
