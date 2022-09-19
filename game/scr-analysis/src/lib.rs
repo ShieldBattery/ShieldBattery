@@ -456,4 +456,28 @@ impl<'e> Analysis<'e> {
     pub fn net_format_turn_rate(&mut self) -> Option<VirtualAddress> {
         self.0.net_format_turn_rate()
     }
+
+    pub fn update_game_screen_size(&mut self) -> Option<VirtualAddress> {
+        self.0.update_game_screen_size()
+    }
+
+    pub fn move_screen(&mut self) -> Option<VirtualAddress> {
+        self.0.move_screen()
+    }
+
+    pub fn map_width_pixels(&mut self) -> Option<Operand<'e>> {
+        self.0.map_width_pixels()
+    }
+
+    pub fn screen_x(&mut self) -> Option<Operand<'e>> {
+        self.0.screen_x()
+    }
+
+    pub fn screen_y(&mut self) -> Option<Operand<'e>> {
+        self.0.screen_y()
+    }
+
+    pub fn game_screen_width_bwpx(&mut self) -> Option<Operand<'e>> {
+        self.0.game_screen_width_bwpx()
+    }
 }

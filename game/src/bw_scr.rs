@@ -81,6 +81,13 @@ pub struct BwScr {
     allocator: Value<*mut scr::Allocator>,
     allocated_order_count: Value<u32>,
     order_limit: Value<u32>,
+    map_width_pixels: Value<u32>,
+    /// Coordinates of screen topleft corner (in map pixels)
+    screen_x: Value<u32>,
+    screen_y: Value<u32>,
+    /// How many map pixels are shown on screen, that is, 640 on 4:3 and default zoom.
+    /// Value is larger on 16:9, as well as when zooming out.
+    game_screen_width_bwpx: Value<u32>,
     units: Value<*mut scr::BwVector>,
     replay_bfix: Option<Value<*mut scr::ReplayBfix>>,
     replay_gcfg: Option<Value<*mut scr::ReplayGcfg>>,
@@ -127,6 +134,7 @@ pub struct BwScr {
     snet_recv_packets: unsafe extern "C" fn(),
     snet_send_packets: unsafe extern "C" fn(),
     process_game_commands: unsafe extern "C" fn(*const u8, usize, u32),
+    move_screen: unsafe extern "C" fn(u32, u32),
     mainmenu_entry_hook: scarf::VirtualAddress,
     load_snp_list: scarf::VirtualAddress,
     start_udp_server: scarf::VirtualAddress,
@@ -148,6 +156,7 @@ pub struct BwScr {
     spawn_dialog: scarf::VirtualAddress,
     step_game_logic: scarf::VirtualAddress,
     net_format_turn_rate: scarf::VirtualAddress,
+    update_game_screen_size: scarf::VirtualAddress,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
 
@@ -1141,6 +1150,16 @@ impl BwScr {
         let step_game_logic = analysis.step_game_logic().ok_or("step_game_logic")?;
         let anti_troll = analysis.anti_troll();
         let units = analysis.units().ok_or("units")?;
+        let map_width_pixels = analysis.map_width_pixels().ok_or("map_width_pixels")?;
+        let screen_x = analysis.screen_x().ok_or("screen_x")?;
+        let screen_y = analysis.screen_y().ok_or("screen_y")?;
+        let game_screen_width_bwpx = analysis
+            .game_screen_width_bwpx()
+            .ok_or("game_screen_width_bwpx")?;
+        let move_screen = analysis.move_screen().ok_or("move_screen")?;
+        let update_game_screen_size = analysis
+            .update_game_screen_size()
+            .ok_or("update_game_screen_size")?;
 
         let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
             Some(0) => false,
@@ -1217,6 +1236,10 @@ impl BwScr {
             allocated_order_count: Value::new(ctx, allocated_order_count),
             order_limit: Value::new(ctx, order_limit),
             units: Value::new(ctx, units),
+            map_width_pixels: Value::new(ctx, map_width_pixels),
+            screen_x: Value::new(ctx, screen_x),
+            screen_y: Value::new(ctx, screen_y),
+            game_screen_width_bwpx: Value::new(ctx, game_screen_width_bwpx),
             replay_bfix: replay_bfix.map(move |x| Value::new(ctx, x)),
             replay_gcfg: replay_gcfg.map(move |x| Value::new(ctx, x)),
             anti_troll: anti_troll.map(move |x| Value::new(ctx, x)),
@@ -1229,6 +1252,7 @@ impl BwScr {
             status_screen_funcs,
             original_status_screen_update,
             net_format_turn_rate,
+            update_game_screen_size,
             init_network_player_info: unsafe { mem::transmute(init_network_player_info.0) },
             step_network: unsafe { mem::transmute(step_network.0) },
             step_network_addr: step_network,
@@ -1249,6 +1273,7 @@ impl BwScr {
             snet_send_packets: unsafe { mem::transmute(snet_send_packets.0) },
             ttf_malloc: unsafe { mem::transmute(ttf_malloc.0) },
             process_game_commands: unsafe { mem::transmute(process_game_commands.0) },
+            move_screen: unsafe { mem::transmute(move_screen.0) },
             load_snp_list,
             start_udp_server,
             mainmenu_entry_hook,
@@ -1526,6 +1551,50 @@ impl BwScr {
                 let value = format!("Lat: {:.0}ms", effective_latency);
                 (*result).text.replace_all(value.as_str());
                 result
+            },
+            address,
+        );
+
+        let address = self.update_game_screen_size.0 as usize - base;
+        exe.hook_closure_address(
+            UpdateGameScreenSize,
+            move |zoom, orig| {
+                // When using f5 to switch between sd-hd, 4:3 - 16:9 the game moves screen x
+                // to `x - 0.5 * (new_width - old_width)`, to keep the screen centered
+                // on what it used to be.
+                // However, if the screen happens to be near right edge of map, its x coordinate
+                // is clamped to (map_width_pixels - new_width) before centering move is done,
+                // causing the aspect-ratio correcting screen move be wrong.
+                //
+                // So we just implement the same algorithm but do aspect ratio fix first and
+                // right edge limiting second.
+                //
+                // Worth noting that update_game_screen_size is called for other cases than
+                // sd-hd switch, but I *think* that if we limit our changes to trigger only
+                // when game_screen_width_bwpx has changed, it won't break the other use cases.
+                // (Not sure what the other use cases are)
+                //
+                // If the above doesn't work, reading a global value that selects the screen
+                // size mode can be used to properly have these changes trigger only on
+                // sd-hd switch. But there isn't analysis for it right now, so hoping that it
+                // isn't needed.
+                let old_width = self.game_screen_width_bwpx.resolve();
+                let old_x = self.screen_x.resolve();
+                orig(zoom);
+                let new_width = self.game_screen_width_bwpx.resolve();
+                if old_width != new_width {
+                    let new_x = (|| {
+                        let diff = (new_width as i32).checked_sub(old_width as i32)?;
+                        (old_x as i32).checked_sub(diff / 2)
+                    })();
+                    if let Some(new_x) = new_x {
+                        let max_x = self.map_width_pixels.resolve().checked_sub(new_width)
+                            .unwrap_or(0) as i32;
+                        let new_x = new_x.clamp(0, max_x) as u32;
+                        let y = self.screen_y.resolve();
+                        (self.move_screen)(new_x, y);
+                    }
+                }
             },
             address,
         );
@@ -3073,6 +3142,7 @@ mod hooks {
         !0 => StepNetwork() -> usize;
         !0 => NetFormatTurnRate(*mut scr::NetFormatTurnRateResult, bool) ->
             *mut scr::NetFormatTurnRateResult;
+        !0 => UpdateGameScreenSize(f32);
     );
 
     whack_hooks!(stdcall, 0,

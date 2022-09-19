@@ -634,12 +634,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 
 [[package]]
-name = "memmem"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a64a92489e2744ce060c349162be1c5f33c6969234104dbd99ddb5feb08b8c15"
-
-[[package]]
 name = "mime"
 version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1077,7 +1071,7 @@ checksum = "f3f6f92acf49d1b98f7a81226834412ada05458b7364277387724a237f062695"
 [[package]]
 name = "samase_scarf"
 version = "0.1.0"
-source = "git+https://github.com/neivv/samase_scarf.git?rev=a865f025c5171aa77dae1bd52e83668afc32fa94#a865f025c5171aa77dae1bd52e83668afc32fa94"
+source = "git+https://github.com/neivv/samase_scarf.git?rev=95176782bea5b6b4e81f8ac49f9b71df98a9ff17#95176782bea5b6b4e81f8ac49f9b71df98a9ff17"
 dependencies = [
  "array-init",
  "arrayvec",
@@ -1087,14 +1081,13 @@ dependencies = [
  "lde 0.3.0 (git+https://github.com/CasualX/lde?rev=6d8e287075eae41d0c6bae4c2f3a54268e0f8b4a)",
  "log",
  "memchr",
- "memmem",
  "scarf",
 ]
 
 [[package]]
 name = "scarf"
 version = "0.3.0"
-source = "git+https://github.com/neivv/scarf?rev=10c4baa279b75f98d91f49ad864247458b4dc7c2#10c4baa279b75f98d91f49ad864247458b4dc7c2"
+source = "git+https://github.com/neivv/scarf?rev=323442a2bed53d3cc608c36149cbacc1d90784d3#323442a2bed53d3cc608c36149cbacc1d90784d3"
 dependencies = [
  "array-init",
  "arrayvec",

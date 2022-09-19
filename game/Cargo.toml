@@ -99,7 +99,7 @@ opt-level = 2
 [profile.dev.package.scarf]
 opt-level = 2
 
-[profile.dev.package.memmem]
+[profile.dev.package.memchr]
 opt-level = 2
 
 # The http crate relies pretty heavily on optimizations to be usable;
