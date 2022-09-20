@@ -33,12 +33,17 @@ const eventToAction: EventToActionMap = {
 
   message(event): ThunkAction {
     return (dispatch, getState) => {
-      // Notify the main process of the new message, so it can display an appropriate notification
-      ipcRenderer.send('chatNewMessage', {
-        user: event.message.from.name,
-        message: event.message.data.text,
-        urgent: true,
-      })
+      const {
+        relationships: { blocks },
+      } = getState()
+
+      const isBlocked = blocks.has(event.message.from.id)
+      if (!isBlocked) {
+        // Notify the main process of the new message, so it can display an appropriate notification
+        ipcRenderer.send('chatNewMessage', {
+          urgent: true,
+        })
+      }
 
       dispatch({
         type: '@whispers/updateMessage',
@@ -65,7 +70,7 @@ const eventToAction: EventToActionMap = {
         return
       }
 
-      if (!session.activated || !windowFocus.isFocused()) {
+      if (!isBlocked && (!session.activated || !windowFocus.isFocused())) {
         audioManager.playSound(AvailableSound.MessageAlert)
       }
     }

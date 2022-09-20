@@ -16,7 +16,7 @@ import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotName, SlotProfile } from '../
 import { SlotActions } from '../lobbies/slot-actions'
 import { TextButton } from '../material/button'
 import { Chat } from '../messaging/chat'
-import { Message } from '../messaging/message-records'
+import { SbMessage } from '../messaging/message-records'
 import { replace } from '../navigation/routing'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
@@ -194,7 +194,7 @@ const CancelQueueButton = styled(TextButton)`
   margin-bottom: 24px;
 `
 
-function renderPartyMessage(msg: Message) {
+function renderPartyMessage(msg: SbMessage) {
   switch (msg.type) {
     case PartyMessageType.SelfJoinParty:
       return <SelfJoinPartyMessage key={msg.id} time={msg.time} leaderId={msg.leaderId} />

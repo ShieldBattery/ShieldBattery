@@ -7,7 +7,7 @@ import { ConnectedAvatar } from '../avatars/avatar'
 import { useVirtuosoScrollFix } from '../dom/virtuoso-scroll-fix'
 import { Chat } from '../messaging/chat'
 import { useChatMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
-import { Message } from '../messaging/message-records'
+import { SbMessage } from '../messaging/message-records'
 import { push } from '../navigation/routing'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious, useStableCallback } from '../state-hooks'
@@ -302,7 +302,7 @@ const ChannelInfoContainer = styled.div`
   align-items: center;
 `
 
-function renderMessage(msg: Message) {
+function renderMessage(msg: SbMessage) {
   switch (msg.type) {
     case ClientChatMessageType.BanUser:
       return <BanUserMessage key={msg.id} time={msg.time} userId={msg.userId} />

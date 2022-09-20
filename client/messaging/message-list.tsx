@@ -2,14 +2,17 @@ import { List } from 'immutable'
 import PropTypes from 'prop-types'
 import React, { ReactNode } from 'react'
 import styled from 'styled-components'
+import { ReadonlyDeep } from 'type-fest'
 import { ServerChatMessageType } from '../../common/chat'
+import { UserRelationshipJson } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user'
 import { useSelfUser } from '../auth/state-hooks'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { animationFrameHandler } from '../material/animation-frame-handler'
 import { selectableTextContainer } from '../material/text-selection'
-import { NewDayMessage, TextMessage } from './common-message-layout'
-import { CommonMessageType, Message, NewDayMessageRecord } from './message-records'
+import { useAppSelector } from '../redux-hooks'
+import { BlockedMessage, NewDayMessage, TextMessage } from './common-message-layout'
+import { CommonMessageType, NewDayMessageRecord, SbMessage } from './message-records'
 
 function isSameDay(d1: Date, d2: Date) {
   return (
@@ -34,14 +37,28 @@ const Messages = styled.div`
   ${selectableTextContainer}
 `
 
-function renderCommonMessage(msg: Message, selfUserId: SbUserId) {
+function renderCommonMessage(
+  msg: SbMessage,
+  selfUserId: SbUserId,
+  blockedUsers: ReadonlyDeep<Map<SbUserId, UserRelationshipJson>>,
+) {
   switch (msg.type) {
     case CommonMessageType.NewDayMessage:
       return <NewDayMessage key={msg.id} time={msg.time} />
     // TODO(2Pac): Reconcile these types into one when everything is moved to immer
     case CommonMessageType.TextMessage:
     case ServerChatMessageType.TextMessage:
-      return (
+      // TODO(tec27): Would probably be nice to collect adjacent blocked messages into a single
+      // item?
+      return blockedUsers.has(msg.from) ? (
+        <BlockedMessage
+          key={msg.id}
+          userId={msg.from}
+          selfUserId={selfUserId}
+          time={msg.time}
+          text={msg.text}
+        />
+      ) : (
         <TextMessage
           key={msg.id}
           userId={msg.from}
@@ -55,40 +72,44 @@ function renderCommonMessage(msg: Message, selfUserId: SbUserId) {
   }
 }
 
-const handleUnknown = (msg: Message) => {
+const handleUnknown = (msg: SbMessage) => {
   return null
 }
 
 // TODO(2Pac): Inline this when all messaging related components have been moved to immer
-function getMessagesLength(messages: List<Message> | ReadonlyArray<Message>): number {
+function getMessagesLength(messages: List<SbMessage> | ReadonlyArray<SbMessage>): number {
   if (Array.isArray(messages)) {
     return messages.length
   } else {
-    return (messages as List<Message>).size
+    return (messages as List<SbMessage>).size
   }
 }
 
 // TODO(2Pac): Inline this when all messaging related components have been moved to immer
 function getMessageAtIndex(
-  messages: List<Message> | ReadonlyArray<Message>,
+  messages: List<SbMessage> | ReadonlyArray<SbMessage>,
   index: number,
-): Message | undefined {
+): SbMessage | undefined {
   if (Array.isArray(messages)) {
     return messages[index]
   } else {
-    return (messages as List<Message>).get(index)
+    return (messages as List<SbMessage>).get(index)
   }
 }
 
 interface PureMessageListProps {
-  messages: List<Message> | ReadonlyArray<Message>
-  renderMessage?: (msg: Message) => ReactNode
+  messages: List<SbMessage> | ReadonlyArray<SbMessage>
+  renderMessage?: (
+    msg: SbMessage,
+    blockedUsers: ReadonlyDeep<Map<SbUserId, UserRelationshipJson>>,
+  ) => ReactNode
 }
 
 // This contains just the messages, to avoid needing to re-render them all if e.g. loading state
 // changes on the actual message list
 const PureMessageList = React.memo<PureMessageListProps>(({ messages, renderMessage }) => {
   const selfUserId = useSelfUser().id
+  const blocks = useAppSelector(s => s.relationships.blocks)
 
   return (
     <Messages>
@@ -97,7 +118,7 @@ const PureMessageList = React.memo<PureMessageListProps>(({ messages, renderMess
         // messages are handled by calling the `renderMessage` function which should be supplied by
         // each service if they have any special messages to handle.
         const messageLayout =
-          renderCommonMessage(m, selfUserId) ?? (renderMessage ?? handleUnknown)(m)
+          renderCommonMessage(m, selfUserId, blocks) ?? (renderMessage ?? handleUnknown)(m, blocks)
 
         const prevMessage = index > 0 ? getMessageAtIndex(messages, index - 1) : null
         if (!prevMessage || isSameDay(new Date(prevMessage.time), new Date(m.time))) {
@@ -108,7 +129,7 @@ const PureMessageList = React.memo<PureMessageListProps>(({ messages, renderMess
             time: m.time,
           })
 
-          return [renderCommonMessage(newDayMessageRecord, selfUserId), messageLayout]
+          return [renderCommonMessage(newDayMessageRecord, selfUserId, blocks), messageLayout]
         }
       })}
     </Messages>
@@ -116,12 +137,12 @@ const PureMessageList = React.memo<PureMessageListProps>(({ messages, renderMess
 })
 
 export interface MessageListProps {
-  messages: List<Message> | ReadonlyArray<Message>
+  messages: List<SbMessage> | ReadonlyArray<SbMessage>
   /**
    * Function which will be called to render a particular message. If not provided, only common
    * messages will be rendered.
    */
-  renderMessage?: (msg: Message) => ReactNode
+  renderMessage?: (msg: SbMessage) => ReactNode
   className?: string
   /** Whether we are currently requesting more history for this message list. */
   loading?: boolean

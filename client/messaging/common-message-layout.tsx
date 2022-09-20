@@ -1,10 +1,16 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { matchLinks } from '../../common/text/links'
 import { matchMentionsMarkup } from '../../common/text/mentions'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user'
-import { amberA100, blue100 } from '../styles/colors'
+import {
+  amberA100,
+  blue100,
+  colorDividers,
+  colorTextFaint,
+  colorTextSecondary,
+} from '../styles/colors'
 import { body2 } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { ExternalLink } from './external-link'
@@ -127,6 +133,63 @@ export const TextMessage = React.memo<{
       <Separator>{': '}</Separator>
       <Text>{parsedText}</Text>
     </TimestampMessageLayout>
+  )
+})
+
+const BlockedText = styled.span`
+  color: ${colorTextSecondary};
+  line-height: inherit;
+  overflow-wrap: break-word;
+  overflow: hidden;
+  word-wrap: break-word;
+`
+
+const BlockedDivider = styled.span`
+  padding: 0 8px;
+  color: ${colorTextFaint};
+`
+
+const ShowHideLink = styled.a`
+  color: ${colorTextFaint};
+
+  &:hover {
+    cursor: pointer;
+  }
+`
+
+const VisibleBlockedMessage = styled.div`
+  padding: 4px 0;
+  background-color: rgba(0, 0, 0, 0.12);
+  border: 1px solid ${colorDividers};
+  border-radius: 2px;
+`
+
+export const BlockedMessage = React.memo<{
+  userId: SbUserId
+  selfUserId: SbUserId
+  time: number
+  text: string
+}>(props => {
+  const [show, setShow] = useState(false)
+
+  return (
+    <>
+      <TimestampMessageLayout time={props.time} highlighted={false}>
+        <BlockedText>Blocked message</BlockedText>
+        <BlockedDivider>&mdash;</BlockedDivider>
+        <ShowHideLink onClick={() => setShow(!show)}>{show ? 'Hide' : 'Show'}</ShowHideLink>
+      </TimestampMessageLayout>
+      {show ? (
+        <VisibleBlockedMessage>
+          <TextMessage
+            userId={props.userId}
+            selfUserId={props.selfUserId}
+            time={props.time}
+            text={props.text}
+          />
+        </VisibleBlockedMessage>
+      ) : undefined}
+    </>
   )
 })
 

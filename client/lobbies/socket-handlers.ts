@@ -213,7 +213,7 @@ interface LobbyGameStartedEvent {
 interface LobbyChatMessage {
   lobbyName: string
   time: number
-  from: string
+  from: SbUserId
   text: string
 }
 
@@ -494,21 +494,26 @@ const eventToAction: EventToActionMap = {
 
   chat(name, event) {
     return (dispatch, getState) => {
-      const { auth, lobby } = getState()
+      const {
+        auth,
+        lobby,
+        relationships: { blocks },
+      } = getState()
 
-      // Notify the main process of the new message, so it can display an appropriate notification
-      ipcRenderer.send('chatNewMessage', {
-        user: event.message.from,
-        message: event.message.text,
-        urgent: event.mentions.some(m => m.id === auth.user.id),
-      })
+      const isBlocked = blocks.has(event.message.from)
+      if (!isBlocked) {
+        // Notify the main process of the new message, so it can display an appropriate notification
+        ipcRenderer.send('chatNewMessage', {
+          urgent: event.mentions.some(m => m.id === auth.user.id),
+        })
+      }
 
       dispatch({
         type: LOBBY_UPDATE_CHAT_MESSAGE,
         payload: event,
       } as any)
 
-      if (!lobby.activated || !windowFocus.isFocused()) {
+      if (!isBlocked && (!lobby.activated || !windowFocus.isFocused())) {
         audioManager.playSound(AvailableSound.MessageAlert)
       }
     }

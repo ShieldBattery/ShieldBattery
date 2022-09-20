@@ -112,15 +112,17 @@ const eventToChatAction: EventToChatActionMap = {
       const {
         auth,
         chat: { activatedChannels },
+        relationships: { blocks },
       } = getState()
 
-      const isUrgent = event.mentions.some(m => m.id === auth.user.id)
-      // Notify the main process of the new message, so it can display an appropriate notification
-      ipcRenderer.send('chatNewMessage', {
-        user: event.user.name,
-        message: event.message.text,
-        urgent: isUrgent,
-      })
+      const isBlocked = blocks.has(event.message.from)
+      const isUrgent = !isBlocked && event.mentions.some(m => m.id === auth.user.id)
+      if (!isBlocked) {
+        // Notify the main process of the new message, so it can display an appropriate notification
+        ipcRenderer.send('chatNewMessage', {
+          urgent: isUrgent,
+        })
+      }
 
       dispatch({
         type: '@chat/updateMessage',

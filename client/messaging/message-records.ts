@@ -44,4 +44,4 @@ export class NewDayMessageRecord
   implements BaseMessage {}
 
 export type CommonMessage = TextMessageRecord | NewDayMessageRecord
-export type Message = CommonMessage | ChatMessage | LobbyMessage | PartyMessage
+export type SbMessage = CommonMessage | ChatMessage | LobbyMessage | PartyMessage

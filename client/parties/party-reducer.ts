@@ -4,7 +4,7 @@ import { MatchmakingType } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user'
 import { NETWORK_SITE_CONNECTED } from '../actions'
-import { Message, TextMessageRecord } from '../messaging/message-records'
+import { SbMessage, TextMessageRecord } from '../messaging/message-records'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 import {
   InviteToPartyMessageRecord,
@@ -34,7 +34,7 @@ export interface CurrentPartyState {
   members: SbUserId[]
   leader: SbUserId
 
-  messages: Message[]
+  messages: SbMessage[]
   hasUnread: boolean
   activated: boolean
 
@@ -50,7 +50,7 @@ const DEFAULT_STATE: Immutable<PartiesState> = {
 }
 
 /** Adds a new message to the party chat, updating the unread state if needed. */
-function addMessage(state: CurrentPartyState, message: Message) {
+function addMessage(state: CurrentPartyState, message: SbMessage) {
   state.messages.push(message)
   state.hasUnread = state.hasUnread || !state.activated
 }

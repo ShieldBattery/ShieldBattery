@@ -118,21 +118,23 @@ const eventToAction: EventToActionMap = {
       const {
         auth,
         party: { current },
+        relationships: { blocks },
       } = getState()
 
-      // Notify the main process of the new message, so it can display an appropriate notification
-      ipcRenderer.send('chatNewMessage', {
-        user: event.message.user.name,
-        message: event.message.text,
-        urgent: event.mentions.some(m => m.id === auth.user.id),
-      })
+      const isBlocked = blocks.has(event.message.user.id)
+      if (!isBlocked) {
+        // Notify the main process of the new message, so it can display an appropriate notification
+        ipcRenderer.send('chatNewMessage', {
+          urgent: event.mentions.some(m => m.id === auth.user.id),
+        })
+      }
 
       dispatch({
         type: '@parties/updateChatMessage',
         payload: event,
       })
 
-      if (!current?.activated || !windowFocus.isFocused()) {
+      if (!isBlocked && (!current?.activated || !windowFocus.isFocused())) {
         audioManager.playSound(AvailableSound.MessageAlert)
       }
     }

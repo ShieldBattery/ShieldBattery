@@ -21,7 +21,7 @@ import { RaisedButton } from '../material/button'
 import Card from '../material/card'
 import { shadow2dp } from '../material/shadows'
 import { Chat } from '../messaging/chat'
-import { Message } from '../messaging/message-records'
+import { SbMessage } from '../messaging/message-records'
 import { colorTextSecondary } from '../styles/colors'
 import { body1, headline4, headline6, subtitle1 } from '../styles/typography'
 import ClosedSlot from './closed-slot'
@@ -124,7 +124,7 @@ const Countdown = styled.div`
   margin: 16px 0;
 `
 
-function renderChatMessage(msg: Message) {
+function renderChatMessage(msg: SbMessage) {
   switch (msg.type) {
     case LobbyMessageType.JoinLobby:
       return <JoinLobbyMessage key={msg.id} time={msg.time} userId={msg.userId} />
@@ -155,7 +155,7 @@ function renderChatMessage(msg: Message) {
 
 interface LobbyProps {
   lobby: LobbyInfo
-  chat: List<Message>
+  chat: List<SbMessage>
   user: SelfUserRecord
   isFavoritingMap: boolean
   onLeaveLobbyClick: () => void
