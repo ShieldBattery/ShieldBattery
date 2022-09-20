@@ -314,32 +314,32 @@ export async function removeUserFromChannel(
     //   - `toggle_private`
     //   - `change_topic`
     // If there's no such user, then the user who has joined the channel earliest is chosen.
-    const newOwnerResult = await client.query<DbUserChannelEntry>(sql`
-      SELECT user_id
-      FROM channel_users
-      WHERE channel_id = ${channelId}
-      ORDER BY
-        edit_permissions DESC,
-        ban DESC,
-        kick DESC,
-        toggle_private DESC,
-        change_topic DESC,
-        join_date
-      LIMIT 1;
+    const newOwnerResult = await client.query<{ owner_id: SbUserId }>(sql`
+      WITH own AS (
+        SELECT user_id
+        FROM channel_users
+        WHERE channel_id = ${channelId}
+        ORDER BY
+          edit_permissions DESC,
+          ban DESC,
+          kick DESC,
+          toggle_private DESC,
+          change_topic DESC,
+          join_date
+        LIMIT 1
+      )
+      UPDATE channels
+      SET owner_id = own.user_id
+      FROM own
+      WHERE id = ${channelId}
+      RETURNING owner_id;
     `)
     if (newOwnerResult.rows.length < 1) {
       // This would mean that the channel has no users left at all which would be very odd indeed
       throw new Error('No rows returned')
     }
 
-    const newOwnerId = newOwnerResult.rows[0].user_id
-    await client.query(sql`
-      UPDATE channels
-      SET owner_id = ${newOwnerId}
-      WHERE id = ${channelId};
-    `)
-
-    return { newOwnerId }
+    return { newOwnerId: newOwnerResult.rows[0].owner_id }
   })
 }
 
