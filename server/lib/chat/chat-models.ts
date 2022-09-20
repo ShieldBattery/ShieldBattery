@@ -87,7 +87,7 @@ export async function getUserChannelEntryForUser(
       FROM channel_users
       WHERE channel_id = ${channelId} AND user_id = ${userId};
     `)
-    return result.rowCount < 1 ? null : convertUserChannelEntryFromDb(result.rows[0])
+    return result.rows.length < 1 ? null : convertUserChannelEntryFromDb(result.rows[0])
   } finally {
     done()
   }
@@ -140,7 +140,7 @@ export async function addUserToChannel(
       RETURNING *;
     `)
 
-    if (result.rowCount < 1) {
+    if (result.rows.length < 1) {
       throw new Error('No rows returned')
     }
 
@@ -285,8 +285,7 @@ export async function removeUserFromChannel(
     const deleteChannelResult = await client.query(sql`
       DELETE FROM channels
       WHERE id = ${channelId} AND official = false AND
-        NOT EXISTS (SELECT 1 FROM channel_users WHERE channel_id = ${channelId})
-      RETURNING id;
+        NOT EXISTS (SELECT 1 FROM channel_users WHERE channel_id = ${channelId});
     `)
     if (deleteChannelResult.rowCount > 0) {
       // Channel was deleted; meaning there is no one left in it so there is no one to transfer the
@@ -294,68 +293,53 @@ export async function removeUserFromChannel(
       return {}
     }
 
-    const currentOwnerResult = await client.query<{ owner_id: SbUserId }>(sql`
-      SELECT owner_id
+    const channelResult = await client.query<DbChannel>(sql`
+      SELECT *
       FROM channels
       WHERE id = ${channelId};
     `)
-
-    if (currentOwnerResult.rows[0].owner_id !== userId) {
+    if (channelResult.rows[0].owner_id !== userId) {
       // The leaving user was not the owner, so there's no reason to transfer ownership to anyone
       return {}
-    }
-
-    const officialChannelResult = await client.query(sql`
-      SELECT id FROM channels
-      WHERE id = ${channelId} AND official = true;
-    `)
-    if (officialChannelResult.rowCount > 0) {
+    } else if (channelResult.rows[0].official) {
       // Don't transfer ownership in "official" channels
       return {}
     }
 
-    const earliestPermissionUserResult = await client.query<DbUserChannelEntry>(sql`
-      SELECT *
-      FROM channel_users
-      WHERE channel_id = ${channelId} AND (kick = true OR ban = true OR
-        change_topic = true OR toggle_private = true OR edit_permissions = true)
-      ORDER BY join_date;
-    `)
-    if (earliestPermissionUserResult.rowCount > 0) {
-      // Transfer ownership to the user who has joined the channel earliest and has an
-      // `edit_permissions` permission, or if there's no such user, then choose the first user with
-      // any kind of permission
-      const newOwner =
-        earliestPermissionUserResult.rows.find(u => u.edit_permissions) ||
-        earliestPermissionUserResult.rows[0]
-
-      await client.query(sql`
-        UPDATE channels
-        SET owner_id = ${newOwner.user_id}
-        WHERE id = ${channelId};
-      `)
-      return { newOwnerId: newOwner.user_id }
-    }
-
-    // Transfer ownership to the user who has joined the channel earliest
-    const earliestUserResult = await client.query<{ user_id: SbUserId }>(sql`
+    // Transfer ownership to the user who has joined the channel earliest and has any of the
+    // permissions in the following order:
+    //   - `edit_permissions`
+    //   - `ban`
+    //   - `kick`
+    //   - `toggle_private`
+    //   - `change_topic`
+    // If there's no such user, then the user who has joined the channel earliest is chosen.
+    const newOwnerResult = await client.query<DbUserChannelEntry>(sql`
       SELECT user_id
       FROM channel_users
       WHERE channel_id = ${channelId}
-      ORDER BY join_date;
+      ORDER BY
+        edit_permissions DESC,
+        ban DESC,
+        kick DESC,
+        toggle_private DESC,
+        change_topic DESC,
+        join_date
+      LIMIT 1;
     `)
-
-    // This would mean that the channel has no users left at all which would be very odd indeed
-    if (earliestUserResult.rowCount < 1) {
+    if (newOwnerResult.rows.length < 1) {
+      // This would mean that the channel has no users left at all which would be very odd indeed
       throw new Error('No rows returned')
     }
 
+    const newOwnerId = newOwnerResult.rows[0].user_id
     await client.query(sql`
       UPDATE channels
-      SET owner_id = ${earliestUserResult.rows[0].user_id}
+      SET owner_id = ${newOwnerId}
       WHERE id = ${channelId};
     `)
-    return { newOwnerId: earliestUserResult.rows[0].user_id }
+
+    return { newOwnerId }
   })
 }
 
@@ -553,7 +537,7 @@ export async function getChannelInfo(
       WHERE id = ANY(${channelIds});
     `)
 
-    if (result.rowCount < 1) {
+    if (result.rows.length < 1) {
       return []
     }
 
