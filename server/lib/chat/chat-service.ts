@@ -197,6 +197,7 @@ export default class ChatService {
     }
 
     let succeeded = false
+    let isUserInChannel = false
     let isUserBanned = false
     let attempts = 0
     let channel: ChannelInfo | undefined
@@ -208,7 +209,7 @@ export default class ChatService {
         await transact(async client => {
           channel = await findChannelByName(channelName, client)
           if (channel) {
-            const isUserInChannel = await getUserChannelEntryForUser(userId, channel.id)
+            isUserInChannel = Boolean(await getUserChannelEntryForUser(userId, channel.id))
             if (isUserInChannel) {
               succeeded = true
               return
@@ -267,7 +268,9 @@ export default class ChatService {
       }
     } while (!succeeded && !isUserBanned && attempts < MAX_JOIN_ATTEMPTS)
 
-    if (isUserBanned) {
+    if (isUserInChannel) {
+      return channel!
+    } else if (isUserBanned) {
       throw new ChatServiceError(ChatServiceErrorCode.UserBanned, 'User is banned')
     }
 
