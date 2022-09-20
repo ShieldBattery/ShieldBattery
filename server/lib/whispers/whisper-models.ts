@@ -33,39 +33,23 @@ export async function startWhisperSession(userId: SbUserId, targetUserId: SbUser
   const { client, done } = await db()
   try {
     await client.query(sql`
-      WITH ut AS (
-        SELECT u.id AS user_id, t.id AS target_user_id
-        FROM users AS u, users AS t
-        WHERE u.id = ${userId} AND t.id = ${targetUserId}
-      )
       INSERT INTO whisper_sessions (user_id, target_user_id, start_date)
-      SELECT ut.user_id, ut.target_user_id, CURRENT_TIMESTAMP AT TIME ZONE 'UTC' FROM ut
-      WHERE NOT EXISTS (
-        SELECT 1
-        FROM whisper_sessions
-        WHERE user_id = ut.user_id AND target_user_id = ut.target_user_id
-      );
+      VALUES (${userId}, ${targetUserId}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+      ON CONFLICT DO NOTHING;
     `)
   } finally {
     done()
   }
 }
 
-export async function closeWhisperSession(userId: SbUserId, targetId: SbUserId): Promise<void> {
+export async function closeWhisperSession(userId: SbUserId, targetId: SbUserId): Promise<boolean> {
   const { client, done } = await db()
   try {
     const result = await client.query(sql`
-      WITH tid AS (
-        SELECT t.id AS target_user_id
-        FROM users AS t
-        WHERE t.id = ${targetId}
-      )
       DELETE FROM whisper_sessions
-      WHERE user_id = ${userId} AND target_user_id = (SELECT target_user_id FROM tid);
+      WHERE user_id = ${userId} AND target_user_id = ${targetId};
     `)
-    if (result.rowCount < 1) {
-      throw new Error('No rows deleted')
-    }
+    return result.rowCount > 0
   } finally {
     done()
   }
@@ -108,22 +92,17 @@ function convertMessageFromDb(dbMessage: DbWhisperMessage): WhisperMessage {
 }
 
 export async function addMessageToWhisper(
-  fromId: number,
-  toId: number,
+  fromId: SbUserId,
+  toId: SbUserId,
   messageData: WhisperMessageData,
 ): Promise<WhisperMessage> {
   const { client, done } = await db()
   try {
     const result = await client.query<DbWhisperMessage>(sql`
-      WITH tid AS (
-        SELECT t.id AS to_id
-        FROM users AS t
-        WHERE t.id = ${toId}
-      ), ins AS (
+      WITH ins AS (
         INSERT INTO whisper_messages (id, from_id, to_id, sent, data)
-        SELECT uuid_generate_v4(), ${fromId}, tid.to_id,
-          CURRENT_TIMESTAMP AT TIME ZONE 'UTC', ${messageData}
-        FROM tid
+        VALUES (uuid_generate_v4(), ${fromId}, ${toId},
+          CURRENT_TIMESTAMP AT TIME ZONE 'UTC', ${messageData})
         RETURNING id, from_id, to_id, sent, data
       )
       SELECT ins.id, u_from.id AS from_id, u_from.name AS from_name, u_to.id AS to_id,
@@ -142,27 +121,23 @@ export async function addMessageToWhisper(
 }
 
 export async function getMessagesForWhisperSession(
-  userId1: number,
-  userId2: number,
+  userId1: SbUserId,
+  userId2: SbUserId,
   limit = 50,
   beforeDate?: Date,
 ): Promise<WhisperMessage[]> {
   const { client, done } = await db()
 
   const query = sql`
-    WITH u AS (
-      SELECT u1.id AS user1_id, u2.id AS user2_id
-      FROM users AS u1, users AS u2
-      WHERE u1.id = ${userId1} AND u2.id = ${userId2}
-    ), messages AS (
-      SELECT m.id, u_from.id AS from_id, u_from.name AS from_name, u_to.id AS to_id,
+    WITH messages AS (
+      SELECT m.id, m.from_id AS from_id, u_from.name AS from_name, m.to_id AS to_id,
         u_to.name AS to_name, m.sent, m.data
       FROM whisper_messages AS m
       INNER JOIN users AS u_from ON m.from_id = u_from.id
-      INNER JOIN users AS u_to ON m.to_id = u_to.id, u
+      INNER JOIN users AS u_to ON m.to_id = u_to.id
       WHERE (
-        (m.from_id = u.user1_id AND m.to_id = u.user2_id) OR
-        (m.from_id = u.user2_id AND m.to_id = u.user1_id)
+        (m.from_id = ${userId1} AND m.to_id = ${userId2}) OR
+        (m.from_id = ${userId2} AND m.to_id = ${userId1})
       ) `
 
   if (beforeDate !== undefined) {
