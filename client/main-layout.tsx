@@ -56,7 +56,7 @@ import { colorTextSecondary } from './styles/colors'
 import { caption } from './styles/typography'
 import { FriendsListActivityButton } from './users/friends-list'
 import { ProfileRouteComponent } from './users/route'
-import Whisper from './whispers/whisper'
+import { WhisperRouteComponent } from './whispers/route'
 
 const curVersion = __WEBPACK_ENV.VERSION
 
@@ -398,7 +398,7 @@ export function MainLayout() {
           {partyRoute}
           <Route path='/users/:rest*' component={ProfileRouteComponent} />
           {/* TODO(2Pac): Remove `any` once the `Whisper` is TS-ified */}
-          <Route path='/whispers/:target' component={Whisper as any} />
+          <Route path='/whispers/:rest*' component={WhisperRouteComponent} />
           {/* If no paths match, redirect the page to the "index". */}
           <Route>
             <Index transitionFn={replace} />

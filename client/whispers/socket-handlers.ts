@@ -17,7 +17,6 @@ const eventToAction: EventToActionMap = {
       type: '@whispers/initSession',
       payload: {
         target: event.target,
-        targetStatus: event.targetStatus,
       },
     }
   },
@@ -35,6 +34,7 @@ const eventToAction: EventToActionMap = {
     return (dispatch, getState) => {
       const {
         relationships: { blocks },
+        whispers: { sessions, byId: whispersById },
       } = getState()
 
       const isBlocked = blocks.has(event.message.from.id)
@@ -60,12 +60,9 @@ const eventToAction: EventToActionMap = {
         },
       })
 
-      const {
-        whispers: { sessions, byName },
-      } = getState()
       const { from, to } = event.message
-      const sessionName = (sessions.has(from.name) ? from.name : to.name).toLowerCase()
-      const session = byName.get(sessionName)
+      const sessionId = sessions.has(from.id) ? from.id : to.id
+      const session = whispersById.get(sessionId)
       if (!session) {
         return
       }
@@ -75,37 +72,10 @@ const eventToAction: EventToActionMap = {
       }
     }
   },
-
-  userActive(event) {
-    return {
-      type: '@whispers/updateUserActive',
-      payload: {
-        user: event.target,
-      },
-    }
-  },
-
-  userIdle(event) {
-    return {
-      type: '@whispers/updateUserIdle',
-      payload: {
-        user: event.target,
-      },
-    }
-  },
-
-  userOffline(event) {
-    return {
-      type: '@whispers/updateUserOffline',
-      payload: {
-        user: event.target,
-      },
-    }
-  },
 }
 
 export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
-  siteSocket.registerRoute('/whispers2/:userAndTarget', (route, event) => {
+  siteSocket.registerRoute('/whispers3/:userAndTarget', (route, event) => {
     const actionName = event.action as WhisperEvent['action']
     if (!eventToAction[actionName]) return
 

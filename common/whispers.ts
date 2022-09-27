@@ -1,3 +1,4 @@
+import { assertUnreachable } from './assert-unreachable'
 import { SbUser, SbUserId } from './users/sb-user'
 
 export enum WhisperMessageType {
@@ -27,21 +28,14 @@ export interface WhisperMessage {
   data: WhisperMessageData
 }
 
-export enum WhisperUserStatus {
-  Active = 'active',
-  Idle = 'idle',
-  Offline = 'offline',
-}
-
 export interface WhisperSessionInitEvent {
   action: 'initSession2'
   target: SbUser
-  targetStatus: WhisperUserStatus
 }
 
 export interface WhisperSessionCloseEvent {
   action: 'closeSession'
-  target: SbUser
+  target: SbUserId
 }
 
 export interface WhisperMessageUpdateEvent {
@@ -54,28 +48,10 @@ export interface WhisperMessageUpdateEvent {
   mentions: SbUser[]
 }
 
-export interface WhisperUserActiveEvent {
-  action: 'userActive'
-  target: SbUser
-}
-
-export interface WhisperUserIdleEvent {
-  action: 'userIdle'
-  target: SbUser
-}
-
-export interface WhisperUserOfflineEvent {
-  action: 'userOffline'
-  target: SbUser
-}
-
 export type WhisperEvent =
   | WhisperSessionInitEvent
   | WhisperSessionCloseEvent
   | WhisperMessageUpdateEvent
-  | WhisperUserActiveEvent
-  | WhisperUserIdleEvent
-  | WhisperUserOfflineEvent
 
 export interface SendWhisperMessageRequest {
   message: string
@@ -94,4 +70,36 @@ export interface GetSessionHistoryResponse {
   users: SbUser[]
   /** A list of user infos for all whisper users that were mentioned in the messages, if any. */
   mentions: SbUser[]
+}
+
+export enum WhisperServiceErrorCode {
+  UserNotFound = 'userNotFound',
+  NoSelfMessaging = 'noSelfMessaging',
+  InvalidGetSessionHistoryAction = 'invalidGetSessionHistoryAction',
+}
+
+const ALL_WHISPER_SERVICE_ERROR_CODES: ReadonlyArray<WhisperServiceErrorCode> =
+  Object.values(WhisperServiceErrorCode)
+
+function isWhisperServiceErrorCode(code: string): code is WhisperServiceErrorCode {
+  return ALL_WHISPER_SERVICE_ERROR_CODES.includes(code as WhisperServiceErrorCode)
+}
+
+export function whisperServiceErrorToString(
+  code: WhisperServiceErrorCode | string | undefined,
+): string {
+  if (code !== undefined && isWhisperServiceErrorCode(code)) {
+    switch (code) {
+      case WhisperServiceErrorCode.UserNotFound:
+        return 'User not found'
+      case WhisperServiceErrorCode.NoSelfMessaging:
+        return 'Cannot send messages to yourself'
+      case WhisperServiceErrorCode.InvalidGetSessionHistoryAction:
+        return 'Must have an active whisper session with a user to retrieve message history'
+      default:
+        return assertUnreachable(code)
+    }
+  } else {
+    return 'Unknown error'
+  }
 }

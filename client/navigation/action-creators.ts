@@ -1,3 +1,4 @@
+import { urlPath } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import { push } from './routing'
 
@@ -7,16 +8,18 @@ export function goToIndex(transitionFn = push): ThunkAction {
   return (_, getState) => {
     const {
       lobby,
-      whispers: { sessions },
       chat: { idToInfo, joinedChannels },
+      users: { byId },
+      whispers: { sessions },
     } = getState()
     if (lobby.inLobby && IS_ELECTRON) {
-      transitionFn(`/lobbies/${encodeURIComponent(lobby.info.name)}`)
+      transitionFn(urlPath`/lobbies/${lobby.info.name}`)
     } else if (joinedChannels.size) {
-      const channelId = joinedChannels.values().next().value
-      transitionFn(`/chat/${channelId}/${encodeURIComponent(idToInfo.get(channelId)!.name)}`)
+      const [first] = joinedChannels.values()
+      transitionFn(urlPath`/chat/${first}/${idToInfo.get(first)?.name ?? ''}`)
     } else if (sessions.size) {
-      transitionFn(`/whispers/${encodeURIComponent(sessions.first()!)}`)
+      const [first] = sessions
+      transitionFn(urlPath`/whispers/${first}/${byId.get(first)?.name ?? ''}`)
     } else {
       transitionFn('/chat')
     }

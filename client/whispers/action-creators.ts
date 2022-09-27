@@ -1,102 +1,108 @@
-import { apiUrl } from '../../common/urls'
+import { apiUrl, urlPath } from '../../common/urls'
+import { SbUserId } from '../../common/users/sb-user'
 import { GetSessionHistoryResponse, SendWhisperMessageRequest } from '../../common/whispers'
 import { ThunkAction } from '../dispatch-registry'
-import { push } from '../navigation/routing'
+import { push, replace } from '../navigation/routing'
+import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { ActivateWhisperSession, DeactivateWhisperSession } from './actions'
 
-export function startWhisperSession(target: string): ThunkAction {
-  return dispatch => {
-    const params = { target }
-    dispatch({
-      type: '@whispers/startWhisperSessionBegin',
-      payload: params,
+export function startWhisperSessionByName(
+  target: string,
+  spec: RequestHandlingSpec<{ userId: SbUserId }>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    return fetchJson<{ userId: SbUserId }>(apiUrl`whispers/by-name/${target}`, {
+      method: 'POST',
+      signal: spec.signal,
     })
-    dispatch({
-      type: '@whispers/startWhisperSession',
-      payload: fetchJson<void>(apiUrl`whispers/${target}`, { method: 'POST' }),
-      meta: params,
-    })
-  }
+  })
 }
 
-export function closeWhisperSession(target: string): ThunkAction {
-  return dispatch => {
-    const params = { target }
-    dispatch({
-      type: '@whispers/closeWhisperSessionBegin',
-      payload: params,
+export function startWhisperSessionById(target: SbUserId, spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, async () => {
+    return fetchJson<void>(apiUrl`whispers/${target}`, {
+      method: 'POST',
+      signal: spec.signal,
     })
-    dispatch({
-      type: '@whispers/closeWhisperSession',
-      payload: fetchJson<void>(apiUrl`whispers/${target}`, { method: 'DELETE' }),
-      meta: params,
-    })
-  }
+  })
 }
 
-export function sendMessage(target: string, message: string): ThunkAction {
-  return dispatch => {
-    const params = { target, message }
-    dispatch({
-      type: '@whispers/sendMessageBegin',
-      payload: params,
+export function closeWhisperSession(target: SbUserId, spec: RequestHandlingSpec): ThunkAction {
+  return abortableThunk(spec, async () => {
+    return fetchJson<void>(apiUrl`whispers/${target}`, {
+      method: 'DELETE',
+      signal: spec.signal,
     })
-
-    dispatch({
-      type: '@whispers/sendMessage',
-      payload: fetchJson<void>(apiUrl`whispers/${target}/messages`, {
-        method: 'POST',
-        body: encodeBodyAsParams<SendWhisperMessageRequest>({ message }),
-      }),
-      meta: params,
-    })
-  }
+  })
 }
 
-export function getMessageHistory(target: string, limit: number): ThunkAction {
-  return (dispatch, getStore) => {
+export function sendMessage(
+  target: SbUserId,
+  message: string,
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    return fetchJson<void>(apiUrl`whispers/${target}/messages`, {
+      method: 'POST',
+      body: encodeBodyAsParams<SendWhisperMessageRequest>({ message }),
+    })
+  })
+}
+
+export function getMessageHistory(
+  target: SbUserId,
+  limit: number,
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return abortableThunk(spec, async (dispatch, getStore) => {
     const {
-      whispers: { byName },
+      whispers: { byId },
     } = getStore()
-    const lowerCaseTarget = target.toLowerCase()
-    if (!byName.has(lowerCaseTarget)) {
+    if (!byId.has(target)) {
       return
     }
 
-    const sessionData = byName.get(lowerCaseTarget)!
-    const earliestMessageTime = sessionData.messages.first({ time: -1 }).time
-    const params = { target, limit, beforeTime: earliestMessageTime }
+    const sessionData = byId.get(target)!
+    const earliestMessageTime = sessionData.messages.length ? sessionData.messages[0].time : -1
 
-    dispatch({
-      type: '@whispers/loadMessageHistoryBegin',
-      payload: params,
-    })
     dispatch({
       type: '@whispers/loadMessageHistory',
       payload: fetchJson<GetSessionHistoryResponse>(
         apiUrl`whispers/${target}/messages2?limit=${limit}&beforeTime=${earliestMessageTime}`,
-        { method: 'GET' },
       ),
-      meta: params,
+      meta: {
+        target,
+        limit,
+        beforeTime: earliestMessageTime,
+      },
     })
-  }
+  })
 }
 
-export function activateWhisperSession(target: string): ActivateWhisperSession {
+export function activateWhisperSession(target: SbUserId): ActivateWhisperSession {
   return {
     type: '@whispers/activateWhisperSession',
     payload: { target },
   }
 }
 
-export function deactivateWhisperSession(target: string): DeactivateWhisperSession {
+export function deactivateWhisperSession(target: SbUserId): DeactivateWhisperSession {
   return {
     type: '@whispers/deactivateWhisperSession',
     payload: { target },
   }
 }
 
-export function navigateToWhisper(target: string) {
-  push(`/whispers/${encodeURIComponent(target)}`)
+export function navigateToWhisper(targetId: SbUserId, targetName: string, transitionFn = push) {
+  transitionFn(urlPath`/whispers/${targetId}/${targetName}`)
+}
+
+/**
+ * Corrects the URL for a whisper to a specific user if it is already being viewed. This is meant to
+ * be used when the client arrived on the page but the username doesn't match what we have stored
+ * for their user ID.
+ */
+export function correctUsernameForWhisper(userId: SbUserId, username: string) {
+  replace(urlPath`/whispers/${userId}/${username}`)
 }

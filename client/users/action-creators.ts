@@ -34,7 +34,7 @@ export function navigateToUserProfile(
 
 /**
  * Corrects the URL for a specific user's profile if it is already being viewed. This is meant to be
- * used when the client arrived on the page bu the username doesn't match what we have stored for
+ * used when the client arrived on the page but the username doesn't match what we have stored for
  * their user ID.
  */
 export function correctUsernameForProfile(

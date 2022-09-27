@@ -1,5 +1,5 @@
 import keycode from 'keycode'
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
 import { useLocation } from 'wouter'
@@ -7,6 +7,7 @@ import { SbChannelId } from '../../common/chat'
 import { MULTI_CHANNEL } from '../../common/flags'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { urlPath } from '../../common/urls'
+import { SbUserId } from '../../common/users/sb-user'
 import GameActivityNavEntry from '../active-game/game-activity-nav-entry'
 import { logOut } from '../auth/action-creators'
 import { useSelfUser } from '../auth/state-hooks'
@@ -44,14 +45,15 @@ import { Tooltip } from '../material/tooltip'
 import { leaveParty } from '../parties/action-creators'
 import { PartyNavEntry } from '../parties/party-nav-entry'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { useValueAsRef } from '../state-hooks'
 import { colorTextSecondary } from '../styles/colors'
 import { overline, singleLine } from '../styles/typography'
-import { navigateToUserProfile } from '../users/action-creators'
+import { getBatchUserInfo, navigateToUserProfile } from '../users/action-creators'
 import ProfileNavEntry from '../users/nav-entry'
 import { SelfProfileOverlay } from '../users/self-profile-overlay'
 import { closeWhisperSession } from '../whispers/action-creators'
-import WhisperNavEntry from '../whispers/nav-entry'
+import { WhisperNavEntry } from '../whispers/nav-entry'
 import Lockup from './lockup'
 
 const ALT_H = { keyCode: keycode('h'), altKey: true }
@@ -371,20 +373,25 @@ function ConnectedChatNavEntry({
 }
 
 function ConnectedWhisperNavEntry({
-  username,
+  userId,
   onClose,
 }: {
-  username: string
-  onClose: (username: string) => void
+  userId: SbUserId
+  onClose: (userId: SbUserId) => void
 }) {
-  const hasUnread = useAppSelector(
-    s => s.whispers.byName.get(username.toLowerCase())?.hasUnread ?? false,
-  )
+  const dispatch = useAppDispatch()
+  const username = useAppSelector(s => s.users.byId.get(userId)?.name)
+  const hasUnread = useAppSelector(s => s.whispers.byId.get(userId)?.hasUnread ?? false)
   const [pathname] = useLocation()
+
+  useEffect(() => {
+    dispatch(getBatchUserInfo(userId))
+  }, [dispatch, userId])
 
   return (
     <WhisperNavEntry
-      user={username}
+      userId={userId}
+      username={username}
       currentPath={pathname}
       hasUnread={hasUnread}
       onClose={onClose}
@@ -454,8 +461,20 @@ export function ConnectedLeftNav() {
     dispatch(openDialog({ type: DialogType.Whispers }))
   }, [dispatch])
   const onWhisperClose = useCallback(
-    (username: string) => {
-      dispatch(closeWhisperSession(username))
+    (userId: SbUserId) => {
+      dispatch(
+        closeWhisperSession(userId, {
+          onSuccess: () => {},
+          onError: err => {
+            dispatch(
+              openSnackbar({
+                message: `Error closing whisper session: ${err.message}`,
+                time: TIMING_LONG,
+              }),
+            )
+          },
+        }),
+      )
     },
     [dispatch],
   )
@@ -488,7 +507,7 @@ export function ConnectedLeftNav() {
       <Subheader button={addWhisperButton}>Whispers</Subheader>
       <Section>
         {Array.from(whisperSessions.values(), w => (
-          <ConnectedWhisperNavEntry key={w} username={w} onClose={onWhisperClose} />
+          <ConnectedWhisperNavEntry key={w} userId={w} onClose={onWhisperClose} />
         ))}
       </Section>
 

@@ -118,7 +118,7 @@ function ConnectedUserContextMenuContents({
   })
 
   const onWhisperClick = useStableCallback(() => {
-    navigateToWhisper(user!.name)
+    navigateToWhisper(user!.id, user!.name)
   })
 
   const onInviteToPartyClick = useStableCallback(() => {

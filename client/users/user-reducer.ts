@@ -148,10 +148,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@whispers/loadMessageHistory'](state, action) {
-    if (action.error) {
-      return
-    }
-
     updateUsers(state, action.payload.users)
     updateUsers(state, action.payload.mentions)
   },
