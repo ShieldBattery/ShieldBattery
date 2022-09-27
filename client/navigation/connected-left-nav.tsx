@@ -382,13 +382,14 @@ function ConnectedWhisperNavEntry({
   const dispatch = useAppDispatch()
   const username = useAppSelector(s => s.users.byId.get(userId)?.name)
   const hasUnread = useAppSelector(s => s.whispers.byId.get(userId)?.hasUnread ?? false)
+  const isBlocked = useAppSelector(s => s.relationships.blocks.has(userId))
   const [pathname] = useLocation()
 
   useEffect(() => {
     dispatch(getBatchUserInfo(userId))
   }, [dispatch, userId])
 
-  return (
+  return isBlocked ? null : (
     <WhisperNavEntry
       userId={userId}
       username={username}

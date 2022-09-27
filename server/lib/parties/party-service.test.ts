@@ -43,6 +43,12 @@ function createMatchmakingService(matchmakerErrorQueue: Error[]) {
   }
 }
 
+function createUserRelationshipService() {
+  return {
+    isUserBlocked: jest.fn(async () => false),
+  }
+}
+
 describe('parties/party-service', () => {
   const user1: SbUser = { id: makeSbUserId(1), name: 'pachi' }
   const user2: SbUser = { id: makeSbUserId(2), name: 'harem' }
@@ -95,6 +101,7 @@ describe('parties/party-service', () => {
   // Basic implementation that throws any queued errors, otherwise resolves
   let fakeMatchmakingService = createMatchmakingService(matchmakerErrorQueue)
   let gameplayActivityRegistry: GameplayActivityRegistry
+  let userRelationshipService = createUserRelationshipService()
 
   beforeEach(() => {
     nydus = createFakeNydusServer()
@@ -108,6 +115,7 @@ describe('parties/party-service', () => {
 
     matchmakerErrorQueue.length = 0
     fakeMatchmakingService = createMatchmakingService(matchmakerErrorQueue)
+    userRelationshipService = createUserRelationshipService()
 
     partyService = new PartyService(
       publisher,
@@ -116,6 +124,7 @@ describe('parties/party-service', () => {
       clock,
       gameplayActivityRegistry,
       fakeMatchmakingService as any,
+      userRelationshipService as any,
     )
     connector = new NydusConnector(nydus, sessionLookup)
 
@@ -194,6 +203,13 @@ describe('parties/party-service', () => {
             name: user3.name,
           },
         })
+      })
+
+      test('should throw if the user has blocked the leader', async () => {
+        asMockedFunction(userRelationshipService.isUserBlocked).mockResolvedValue(true)
+        await expect(
+          partyService.invite(user1.id, USER1_CLIENT_ID, user2),
+        ).rejects.toThrowErrorMatchingInlineSnapshot(`"This user has blocked you"`)
       })
     })
 

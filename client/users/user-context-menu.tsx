@@ -152,11 +152,13 @@ function ConnectedUserContextMenuContents({
     )
 
     if (user.id !== selfUser.id) {
-      appendToMultimap(
-        items,
-        MenuItemCategory.General,
-        <MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />,
-      )
+      if (relationshipKind !== UserRelationshipKind.Block) {
+        appendToMultimap(
+          items,
+          MenuItemCategory.General,
+          <MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />,
+        )
+      }
 
       switch (relationshipKind) {
         case UserRelationshipKind.Friend:
@@ -337,7 +339,7 @@ function ConnectedUserContextMenuContents({
       }
 
       if (IS_ELECTRON) {
-        if (!partyId) {
+        if (!partyId && relationshipKind !== UserRelationshipKind.Block) {
           appendToMultimap(
             items,
             MenuItemCategory.Party,
@@ -360,7 +362,7 @@ function ConnectedUserContextMenuContents({
               MenuItemCategory.Party,
               <MenuItem key='invite' text='Uninvite from party' onClick={onRemovePartyInvite} />,
             )
-          } else {
+          } else if (relationshipKind !== UserRelationshipKind.Block) {
             appendToMultimap(
               items,
               MenuItemCategory.Party,

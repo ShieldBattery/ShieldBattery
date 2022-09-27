@@ -69,6 +69,8 @@ function convertPartyServiceError(err: unknown) {
       throw asHttpError(404, err)
     case PartyServiceErrorCode.NotificationFailure:
       throw asHttpError(500, err)
+    case PartyServiceErrorCode.Blocked:
+      throw asHttpError(403, err)
     default:
       assertUnreachable(err.code)
   }

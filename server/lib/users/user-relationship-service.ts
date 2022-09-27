@@ -22,7 +22,8 @@ import {
   blockUser,
   countBlocks,
   countFriendsAndRequests,
-  getRelationshipsForUser,
+  getRelationshipsForUsers,
+  getRelationshipSummaryForUser,
   removeFriend,
   removeFriendRequest,
   sendFriendRequest,
@@ -337,6 +338,11 @@ export class UserRelationshipService {
   }
 
   async getRelationshipSummary(userId: SbUserId): Promise<UserRelationshipSummary> {
-    return await getRelationshipsForUser(userId)
+    return await getRelationshipSummaryForUser(userId)
+  }
+
+  async isUserBlocked(userId: SbUserId, targetId: SbUserId): Promise<boolean> {
+    const relationships = await getRelationshipsForUsers(userId, targetId)
+    return relationships.some(r => r.kind === UserRelationshipKind.Block && r.toId === userId)
   }
 }

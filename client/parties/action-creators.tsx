@@ -58,6 +58,8 @@ export function inviteToParty(
           message = `${user} is already in your party`
         } else if (err.code === PartyServiceErrorCode.InvalidSelfAction) {
           message = "Can't invite yourself to the party"
+        } else if (err.code === PartyServiceErrorCode.Blocked) {
+          message = 'Failed to send invite, you have been blocked by this user'
         } else {
           logger.error(`Unhandled code when inviting to party: ${err.code}`)
         }

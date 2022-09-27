@@ -32,6 +32,7 @@ import NotificationService from '../notifications/notification-service'
 import { Clock } from '../time/clock'
 import { ClientIdentifierString } from '../users/client-ids'
 import { findUsersByIdAsMap } from '../users/user-model'
+import { UserRelationshipService } from '../users/user-relationship-service'
 import { ClientSocketsGroup, ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { InPartyChecker, IN_PARTY_CHECKER } from './in-party-checker'
@@ -141,6 +142,7 @@ export default class PartyService implements InPartyChecker {
     private clock: Clock,
     private gameplayActivityRegistry: GameplayActivityRegistry,
     @inject(delay(() => MatchmakingService)) private matchmakingService: MatchmakingService,
+    private userRelationshipService: UserRelationshipService,
   ) {}
 
   isInParty(userId: SbUserId): boolean {
@@ -167,6 +169,11 @@ export default class PartyService implements InPartyChecker {
         PartyServiceErrorCode.InvalidSelfAction,
         "Can't invite yourself to the party",
       )
+    }
+
+    const isBlocked = await this.userRelationshipService.isUserBlocked(leader, invitedUser.id)
+    if (isBlocked) {
+      throw new PartyServiceError(PartyServiceErrorCode.Blocked, 'This user has blocked you')
     }
 
     let party = this.getClientParty(leaderClientSockets)

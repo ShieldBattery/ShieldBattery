@@ -13,6 +13,7 @@ export const MAX_PARTY_SIZE = 8
 export enum PartyServiceErrorCode {
   AlreadyMember = 'AlreadyMember',
   AlreadyInGameplayActivity = 'AlreadyInGameplayActivity',
+  Blocked = 'Blocked',
   InsufficientPermissions = 'InsufficientPermissions',
   InvalidAction = 'InvalidAction',
   InvalidSelfAction = 'InvalidSelfAction',

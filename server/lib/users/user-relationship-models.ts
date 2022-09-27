@@ -152,7 +152,7 @@ function mutualToExternal(relationship: MutualUserRelationship): UserRelationshi
  * Returns a summary of all the relationships for a specified user, separated into the various
  * relationship types and viewed from the perspective of the user.
  */
-export async function getRelationshipsForUser(
+export async function getRelationshipSummaryForUser(
   userId: SbUserId,
   withClient?: DbClient,
 ): Promise<UserRelationshipSummary> {
@@ -514,12 +514,16 @@ export async function blockUser(
           ELSE EXCLUDED.kind
         END,
         low_created_at = CASE
+          WHEN ur.kind = 'block_both' THEN ur.low_created_at
+          WHEN ur.kind = 'block_low_to_high' THEN ur.low_created_at
           WHEN ur.kind = 'block_high_to_low' THEN EXCLUDED.low_created_at
-          ELSE ur.low_created_at
+          ELSE EXCLUDED.low_created_at
         END,
         high_created_at = CASE
+          WHEN ur.kind = 'block_both' THEN ur.high_created_at
           WHEN ur.kind = 'block_low_to_high' THEN EXCLUDED.high_created_at
-          ELSE ur.high_created_at
+          WHEN ur.kind = 'block_high_to_low' THEN ur.high_created_at
+          ELSE EXCLUDED.high_created_at
         END
       RETURNING *;
     `)
@@ -588,4 +592,28 @@ export async function unblockUser(
       return mutualToExternal(convertFromDb(result.rows[0]))
     }
   })
+}
+
+/** Returns the relationship(s) between two users, if any. */
+export async function getRelationshipsForUsers(
+  userA: SbUserId,
+  userB: SbUserId,
+  withClient?: DbClient,
+): Promise<UserRelationship[]> {
+  if (userA === userB) {
+    throw new Error('Cannot have a relationship with self')
+  }
+
+  const [lowId, highId] = userA < userB ? [userA, userB] : [userB, userA]
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbMutualUserRelationship>(sql`
+      SELECT * FROM user_relationships
+      WHERE user_low = ${lowId} AND user_high = ${highId};
+    `)
+
+    return result.rows.length > 0 ? mutualToExternal(convertFromDb(result.rows[0])) : []
+  } finally {
+    done()
+  }
 }
