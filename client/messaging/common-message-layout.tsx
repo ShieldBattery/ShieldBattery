@@ -4,13 +4,7 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { matchLinks } from '../../common/text/links'
 import { matchMentionsMarkup } from '../../common/text/mentions'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user'
-import {
-  amberA100,
-  blue100,
-  colorDividers,
-  colorTextFaint,
-  colorTextSecondary,
-} from '../styles/colors'
+import { amberA100, blue100, colorDividers, colorTextFaint } from '../styles/colors'
 import { body2 } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { ExternalLink } from './external-link'
@@ -137,7 +131,7 @@ export const TextMessage = React.memo<{
 })
 
 const BlockedText = styled.span`
-  color: ${colorTextSecondary};
+  color: ${colorTextFaint};
   line-height: inherit;
   overflow-wrap: break-word;
   overflow: hidden;
