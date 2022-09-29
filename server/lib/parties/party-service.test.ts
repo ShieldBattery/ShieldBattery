@@ -45,7 +45,7 @@ function createMatchmakingService(matchmakerErrorQueue: Error[]) {
 
 function createUserRelationshipService() {
   return {
-    isUserBlocked: jest.fn(async () => false),
+    isUserBlockedBy: jest.fn(async () => false),
   }
 }
 
@@ -206,7 +206,7 @@ describe('parties/party-service', () => {
       })
 
       test('should throw if the user has blocked the leader', async () => {
-        asMockedFunction(userRelationshipService.isUserBlocked).mockResolvedValue(true)
+        asMockedFunction(userRelationshipService.isUserBlockedBy).mockResolvedValue(true)
         await expect(
           partyService.invite(user1.id, USER1_CLIENT_ID, user2),
         ).rejects.toThrowErrorMatchingInlineSnapshot(`"This user has blocked you"`)

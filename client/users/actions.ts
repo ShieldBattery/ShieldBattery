@@ -1,4 +1,8 @@
-import { GetRelationshipsResponse, UserRelationshipJson } from '../../common/users/relationships'
+import {
+  FriendActivityStatusUpdateEvent,
+  GetRelationshipsResponse,
+  UserRelationshipJson,
+} from '../../common/users/relationships'
 import {
   AdminBanUserResponse,
   AdminGetBansResponse,
@@ -17,6 +21,7 @@ export type UserActions =
   | GetRelationships
   | UpsertUserRelationship
   | DeleteUserRelationship
+  | UpdateFriendActivityStatus
 
 export interface GetUserProfile {
   type: '@users/getUserProfile'
@@ -74,4 +79,9 @@ export interface DeleteUserRelationship {
   payload: {
     targetUser: SbUserId
   }
+}
+
+export interface UpdateFriendActivityStatus {
+  type: '@users/updateFriendActivityStatus'
+  payload: FriendActivityStatusUpdateEvent
 }

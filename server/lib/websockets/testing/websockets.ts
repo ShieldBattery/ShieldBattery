@@ -43,7 +43,11 @@ export class FakeNydusServer
         if (typeof initialData.then === 'function') {
           // TODO(tec27): might need to handle disconnects here? probably only applies to very
           // complex test scenarios though
-          initialData.then((data: any) => client.publish(path, data))
+          initialData.then((data: any) => {
+            if (data !== undefined) {
+              client.publish(path, data)
+            }
+          })
         } else {
           client.publish(path, initialData)
         }

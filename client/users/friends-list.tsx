@@ -2,7 +2,8 @@ import keycode from 'keycode'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
-import { UserRelationshipJson } from '../../common/users/relationships'
+import { appendToMultimap } from '../../common/data-structures/maps'
+import { FriendActivityStatus, UserRelationshipJson } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user'
 import { useSelfUser } from '../auth/state-hooks'
 import { ConnectedAvatar } from '../avatars/avatar'
@@ -112,7 +113,12 @@ export function FriendsListActivityButton() {
   const buttonRef = useRef<HTMLButtonElement>(null)
   useButtonHotkey({ ref: buttonRef, hotkey: ALT_E })
 
-  const friendCount = useAppSelector(s => s.relationships.friends.size)
+  const friendActivityStatus = useAppSelector(s => s.relationships.friendActivityStatus)
+  const friendCount = useMemo(() => {
+    return Array.from(friendActivityStatus.values()).filter(
+      status => status !== FriendActivityStatus.Offline,
+    ).length
+  }, [friendActivityStatus])
 
   return (
     <>
@@ -286,21 +292,42 @@ type FriendsListRowData = HeaderData | OnlineData | OfflineData
 
 function FriendsList({ height }: { height: number }) {
   const friends = useAppSelector(s => s.relationships.friends)
+  const friendActivityStatus = useAppSelector(s => s.relationships.friendActivityStatus)
   const friendUserEntries = useAppSelector(useUserEntriesSelector(friends), areUserEntriesEqual)
-  const sortedFriends = useMemo(() => sortUserEntries(friendUserEntries), [friendUserEntries])
+  const friendsByStatus = useMemo(() => {
+    const sortedFriends = sortUserEntries(friendUserEntries)
+    const result = new Map<FriendActivityStatus, SbUserId[]>()
+    for (const f of sortedFriends) {
+      appendToMultimap(result, friendActivityStatus.get(f) ?? FriendActivityStatus.Offline, f)
+    }
+    return result
+  }, [friendUserEntries, friendActivityStatus])
 
-  // TODO(tec27): actually use online/offline stuff
   const rowData = useMemo((): ReadonlyArray<FriendsListRowData> => {
+    const onlineFriends = friendsByStatus.get(FriendActivityStatus.Online) ?? []
     let result: FriendsListRowData[] = [
-      { type: FriendsListRowType.Header, label: 'Online', count: sortedFriends.length },
+      { type: FriendsListRowType.Header, label: 'Online', count: onlineFriends.length },
     ]
 
     result = result.concat(
-      sortedFriends.map(userId => ({ type: FriendsListRowType.Online, userId })),
+      onlineFriends.map(userId => ({ type: FriendsListRowType.Online, userId })),
     )
 
+    const offlineFriends = friendsByStatus.get(FriendActivityStatus.Offline) ?? []
+    if (offlineFriends.length > 0) {
+      result.push({
+        type: FriendsListRowType.Header,
+        label: 'Offline',
+        count: offlineFriends.length,
+      })
+
+      result = result.concat(
+        offlineFriends.map(userId => ({ type: FriendsListRowType.Offline, userId })),
+      )
+    }
+
     return result
-  }, [sortedFriends])
+  }, [friendsByStatus])
 
   const renderRow = useCallback((index: number, row: FriendsListRowData) => {
     if (row.type === FriendsListRowType.Header) {
@@ -315,7 +342,7 @@ function FriendsList({ height }: { height: number }) {
     }
   }, [])
 
-  return sortedFriends.length === 0 ? (
+  return friends.size === 0 ? (
     <EmptyList>Nothing to see here</EmptyList>
   ) : (
     <Virtuoso

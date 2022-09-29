@@ -86,3 +86,14 @@ export interface UserRelationshipDeleteEvent {
   type: 'delete'
   targetUser: SbUserId
 }
+
+// TODO(tec27): Add more stuff to this, like ingame, idle, etc.
+export enum FriendActivityStatus {
+  Online = 'online',
+  Offline = 'offline',
+}
+
+export interface FriendActivityStatusUpdateEvent {
+  userId: SbUserId
+  status: FriendActivityStatus
+}

@@ -2,6 +2,7 @@ import { NydusServer } from 'nydus'
 import { NotificationType } from '../../../common/notifications'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import {
+  FriendActivityStatus,
   MAX_BLOCKS,
   MAX_FRIENDS,
   UserRelationship,
@@ -21,7 +22,11 @@ import {
   NydusConnector,
 } from '../websockets/testing/websockets'
 import { TypedPublisher } from '../websockets/typed-publisher'
-import { getRelationshipsPath, UserRelationshipService } from './user-relationship-service'
+import {
+  getFriendActivityStatusPath,
+  getRelationshipsPath,
+  UserRelationshipService,
+} from './user-relationship-service'
 
 function clearFakeDb() {
   ;(global as any).__TESTONLY_CLEAR_DB()
@@ -52,7 +57,7 @@ jest.mock('./user-relationship-models', () => {
   )
 
   return {
-    getRelationshipsForUser: jest.fn(async (userId: SbUserId) => {
+    getRelationshipSummaryForUser: jest.fn(async (userId: SbUserId) => {
       const value = fakeDb.get(userId)
       return {
         friends: [...(value?.friends ?? [])],
@@ -341,6 +346,11 @@ jest.mock('./user-relationship-models', () => {
       fakeDb.set(unblockerId, unblockerSummary)
       fakeDb.set(targetId, targetSummary)
       return result
+    }),
+
+    isUserBlockedBy: jest.fn(async (userId: SbUserId, potentialBlocker: SbUserId) => {
+      const blockerSummary = fakeDb.get(potentialBlocker)
+      return blockerSummary?.blocks?.some(r => r.toId === userId) ?? false
     }),
   }
 })
@@ -990,28 +1000,132 @@ describe('users/user-relationship-service', () => {
         targetUser: TO,
       })
     })
+
+    // NOTE(tec27): block removals otherwise are idempotent (they don't throw)
+    test('should throw if no block found (different kind of reverse relationship)', async () => {
+      const FROM = makeSbUserId(1)
+      const TO = makeSbUserId(2)
+
+      await userRelationshipService.sendFriendRequest(TO, FROM)
+
+      await expect(
+        userRelationshipService.unblockUser(FROM, TO),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Not currently blocking that user"`)
+    })
+
+    test('should throw if no block found (different kind of outgoing relationship)', async () => {
+      const FROM = makeSbUserId(1)
+      const TO = makeSbUserId(2)
+
+      await userRelationshipService.sendFriendRequest(FROM, TO)
+
+      await expect(
+        userRelationshipService.unblockUser(FROM, TO),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Not currently blocking that user"`)
+    })
   })
 
-  // NOTE(tec27): block removals otherwise are idempotent (they don't throw)
-  test('should throw if no block is found (different kind of reverse relationship)', async () => {
-    const FROM = makeSbUserId(1)
-    const TO = makeSbUserId(2)
+  describe('activity status updates', () => {
+    test('should give status updates on connect for existing friendships', async () => {
+      const USER = makeSbUserId(1)
 
-    await userRelationshipService.sendFriendRequest(TO, FROM)
+      await userRelationshipService.sendFriendRequest(makeSbUserId(2), USER)
+      await userRelationshipService.sendFriendRequest(makeSbUserId(3), USER)
+      await userRelationshipService.acceptFriendRequest(USER, makeSbUserId(2))
+      await userRelationshipService.acceptFriendRequest(USER, makeSbUserId(3))
 
-    await expect(
-      userRelationshipService.unblockUser(FROM, TO),
-    ).rejects.toThrowErrorMatchingInlineSnapshot(`"Not currently blocking that user"`)
-  })
+      const nextClient = connector.connectClient({ id: makeSbUserId(1), name: 'One' }, 'another')
+      await Promise.resolve()
 
-  test('should throw if no block is found (different kind of outgoing relationship)', async () => {
-    const FROM = makeSbUserId(1)
-    const TO = makeSbUserId(2)
+      expect(nextClient.publish).toHaveBeenCalledWith(
+        getFriendActivityStatusPath(makeSbUserId(2)),
+        {
+          userId: makeSbUserId(2),
+          status: FriendActivityStatus.Online,
+        },
+      )
+      // not online, so no publish
+      expect(nextClient.publish).not.toHaveBeenCalledWith(
+        getFriendActivityStatusPath(makeSbUserId(3)),
+        {
+          userId: makeSbUserId(3),
+          status: FriendActivityStatus.Online,
+        },
+      )
 
-    await userRelationshipService.sendFriendRequest(FROM, TO)
+      asMockedFunction(nextClient.publish).mockClear()
+      client2.disconnect()
+      await Promise.resolve()
+      expect(nextClient.publish).toHaveBeenCalledWith(
+        getFriendActivityStatusPath(makeSbUserId(2)),
+        {
+          userId: makeSbUserId(2),
+          status: FriendActivityStatus.Offline,
+        },
+      )
+    })
 
-    await expect(
-      userRelationshipService.unblockUser(FROM, TO),
-    ).rejects.toThrowErrorMatchingInlineSnapshot(`"Not currently blocking that user"`)
+    test('should give status updates for new friendships', async () => {
+      const USER = makeSbUserId(1)
+      const OTHER = makeSbUserId(2)
+
+      await userRelationshipService.sendFriendRequest(OTHER, USER)
+      await userRelationshipService.acceptFriendRequest(USER, OTHER)
+
+      await Promise.resolve()
+
+      expect(client1.publish).toHaveBeenCalledWith(getFriendActivityStatusPath(OTHER), {
+        userId: OTHER,
+        status: FriendActivityStatus.Online,
+      })
+      expect(client2.publish).toHaveBeenCalledWith(getFriendActivityStatusPath(USER), {
+        userId: USER,
+        status: FriendActivityStatus.Online,
+      })
+    })
+
+    test('should unsubscribe when friendships end - remove friend', async () => {
+      const USER = makeSbUserId(1)
+      const OTHER = makeSbUserId(3)
+
+      await userRelationshipService.sendFriendRequest(OTHER, USER)
+      await userRelationshipService.acceptFriendRequest(USER, OTHER)
+      await Promise.resolve()
+
+      await userRelationshipService.removeFriend(USER, OTHER)
+      await Promise.resolve()
+
+      asMockedFunction(client1.publish).mockClear()
+
+      client2.disconnect()
+      await Promise.resolve()
+
+      expect(client1.publish).not.toHaveBeenCalledWith(getFriendActivityStatusPath(OTHER), {
+        userId: OTHER,
+        status: FriendActivityStatus.Offline,
+      })
+    })
+
+    test('should unsubscribe when friendships end - block', async () => {
+      const USER = makeSbUserId(1)
+      const OTHER = makeSbUserId(3)
+
+      await userRelationshipService.sendFriendRequest(OTHER, USER)
+      await userRelationshipService.acceptFriendRequest(USER, OTHER)
+      await Promise.resolve()
+
+      await userRelationshipService.blockUser(OTHER, USER)
+      await Promise.resolve()
+
+      asMockedFunction(client1.publish).mockClear()
+
+      client2.disconnect()
+      await Promise.resolve()
+
+      expect(client1.publish).not.toHaveBeenCalledWith(getFriendActivityStatusPath(OTHER), {
+        userId: OTHER,
+        status: FriendActivityStatus.Offline,
+      })
+    })
   })
 })

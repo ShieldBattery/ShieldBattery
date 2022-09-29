@@ -1,5 +1,8 @@
 import type { NydusClient, RouteInfo } from 'nydus-client'
-import { UserRelationshipEvent } from '../../common/users/relationships'
+import {
+  FriendActivityStatusUpdateEvent,
+  UserRelationshipEvent,
+} from '../../common/users/relationships'
 import { dispatch, Dispatchable } from '../dispatch-registry'
 
 type EventToActionMap = {
@@ -39,6 +42,16 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
 
       const action = eventToAction[actionType]!(event as any)
       if (action) dispatch(action)
+    },
+  )
+
+  siteSocket.registerRoute(
+    '/friends/status/:userId',
+    (route: RouteInfo, event: FriendActivityStatusUpdateEvent) => {
+      dispatch({
+        type: '@users/updateFriendActivityStatus',
+        payload: event,
+      })
     },
   )
 }

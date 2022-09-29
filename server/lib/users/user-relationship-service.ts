@@ -1,6 +1,8 @@
 import { singleton } from 'tsyringe'
 import { NotificationType } from '../../../common/notifications'
 import {
+  FriendActivityStatus,
+  FriendActivityStatusUpdateEvent,
   MAX_BLOCKS,
   MAX_FRIENDS,
   toUserRelationshipJson,
@@ -15,7 +17,7 @@ import { CodedError } from '../errors/coded-error'
 import logger from '../logging/logger'
 import NotificationService from '../notifications/notification-service'
 import { Clock } from '../time/clock'
-import { UserSocketsManager } from '../websockets/socket-groups'
+import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
   acceptFriendRequest,
@@ -36,23 +38,54 @@ export function getRelationshipsPath(userId: SbUserId): string {
   return `/relationships/${userId}`
 }
 
+export function getFriendActivityStatusPath(userId: SbUserId): string {
+  return `/friends/status/${userId}`
+}
+
 @singleton()
 export class UserRelationshipService {
   constructor(
     private clock: Clock,
-    private publisher: TypedPublisher<UserRelationshipEvent>,
+    private publisher: TypedPublisher<UserRelationshipEvent | FriendActivityStatusUpdateEvent>,
     private userSocketsManager: UserSocketsManager,
     private notificationService: NotificationService,
   ) {
-    userSocketsManager.on('newUser', userSockets => {
-      // TODO(tec27): look up friends and subscribe to their status routes/send updates for user
-      // connecting/disconnecting
+    userSocketsManager
+      .on('newUser', userSockets => {
+        // NOTE(tec27): We don't provide initial data over this as it's potentially a lot of stuff
+        // to send over websockets. We instead expect that the client will get this info by making a
+        // request on load
+        userSockets.subscribe(getRelationshipsPath(userSockets.userId))
+        publisher.publish(getFriendActivityStatusPath(userSockets.userId), {
+          userId: userSockets.userId,
+          status: FriendActivityStatus.Online,
+        })
 
-      // NOTE(tec27): We don't provide initial data over this as it's potentially a lot of stuff
-      // to send over websockets. We instead expect that the client will get this info by making a
-      // request on load (or have it placed in the DOM directly for the web version)
-      userSockets.subscribe(getRelationshipsPath(userSockets.userId))
-    })
+        Promise.resolve()
+          .then(async () => {
+            if (!userSockets.sockets.size) {
+              return
+            }
+
+            const summary = await getRelationshipSummaryForUser(userSockets.userId)
+            if (!userSockets.sockets.size) {
+              return
+            }
+
+            for (const { toId: friendId } of summary.friends) {
+              this.subscribeToFriendActivityStatusUpdates(userSockets, friendId)
+            }
+          })
+          .catch(err => {
+            logger.error({ err }, 'Error subscribing to status updates for friends')
+          })
+      })
+      .on('userQuit', userId => {
+        publisher.publish(getFriendActivityStatusPath(userId), {
+          userId,
+          status: FriendActivityStatus.Offline,
+        })
+      })
   }
 
   private publishUpsert(userId: SbUserId, relationship: UserRelationship) {
@@ -67,6 +100,32 @@ export class UserRelationshipService {
       type: 'delete',
       targetUser: deletedUserId,
     })
+
+    // Any delete potentially deletes a friend relationship, so we ensure they don't get status
+    // updates any more either
+    this.userSocketsManager
+      .getById(toUserId)
+      ?.unsubscribe(getFriendActivityStatusPath(deletedUserId))
+  }
+
+  private subscribeToFriendActivityStatusUpdates(
+    userSockets: UserSocketsGroup | undefined,
+    friendId: SbUserId,
+  ) {
+    userSockets?.subscribe<FriendActivityStatusUpdateEvent>(
+      getFriendActivityStatusPath(friendId),
+      async () => {
+        // NOTE(tec27): We only send updates for online users, just to minimize the amount of data
+        // that needs to be sent. Clients can assume their friends are offline until they receive
+        // this event
+        return this.userSocketsManager.getById(friendId)
+          ? {
+              userId: friendId,
+              status: FriendActivityStatus.Online,
+            }
+          : undefined
+      },
+    )
   }
 
   async sendFriendRequest(fromId: SbUserId, toId: SbUserId): Promise<UserRelationship> {
@@ -112,6 +171,15 @@ export class UserRelationshipService {
           } else if (fromRelationship.kind === UserRelationshipKind.Friend) {
             this.publishUpsert(fromId, fromRelationship)
             this.publishUpsert(toId, relationships.find(r => r.fromId === toId)!)
+
+            this.subscribeToFriendActivityStatusUpdates(
+              this.userSocketsManager.getById(fromId),
+              toId,
+            )
+            this.subscribeToFriendActivityStatusUpdates(
+              this.userSocketsManager.getById(toId),
+              fromId,
+            )
 
             await Promise.all([
               this.notificationService.addNotification({
@@ -184,6 +252,15 @@ export class UserRelationshipService {
           if (acceptingRelationship.kind === UserRelationshipKind.Friend) {
             this.publishUpsert(acceptingId, acceptingRelationship)
             this.publishUpsert(requestingId, relationships.find(r => r.fromId === requestingId)!)
+
+            this.subscribeToFriendActivityStatusUpdates(
+              this.userSocketsManager.getById(acceptingId),
+              requestingId,
+            )
+            this.subscribeToFriendActivityStatusUpdates(
+              this.userSocketsManager.getById(requestingId),
+              acceptingId,
+            )
 
             await Promise.all([
               this.notificationService.addNotification({
@@ -341,8 +418,9 @@ export class UserRelationshipService {
     return await getRelationshipSummaryForUser(userId)
   }
 
-  async isUserBlocked(userId: SbUserId, targetId: SbUserId): Promise<boolean> {
-    const relationships = await getRelationshipsForUsers(userId, targetId)
+  /** Returns whether the given user with `userId` is blocked by `potentialBlocker`. */
+  async isUserBlockedBy(userId: SbUserId, potentialBlocker: SbUserId): Promise<boolean> {
+    const relationships = await getRelationshipsForUsers(userId, potentialBlocker)
     return relationships.some(r => r.kind === UserRelationshipKind.Block && r.toId === userId)
   }
 }

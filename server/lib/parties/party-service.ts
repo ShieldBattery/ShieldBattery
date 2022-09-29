@@ -171,7 +171,7 @@ export default class PartyService implements InPartyChecker {
       )
     }
 
-    const isBlocked = await this.userRelationshipService.isUserBlocked(leader, invitedUser.id)
+    const isBlocked = await this.userRelationshipService.isUserBlockedBy(leader, invitedUser.id)
     if (isBlocked) {
       throw new PartyServiceError(PartyServiceErrorCode.Blocked, 'This user has blocked you')
     }

@@ -1,6 +1,10 @@
 import { Immutable } from 'immer'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { UserRelationshipJson, UserRelationshipKind } from '../../common/users/relationships'
+import {
+  FriendActivityStatus,
+  UserRelationshipJson,
+  UserRelationshipKind,
+} from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user'
 import { NETWORK_SITE_CONNECTED } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
@@ -10,6 +14,9 @@ export interface RelationshipState {
   blocks: Map<SbUserId, UserRelationshipJson>
   incomingRequests: Map<SbUserId, UserRelationshipJson>
   outgoingRequests: Map<SbUserId, UserRelationshipJson>
+
+  friendActivityStatus: Map<SbUserId, FriendActivityStatus>
+
   loaded: boolean
   loadedAt: number
 }
@@ -19,6 +26,9 @@ const DEFAULT_STATE: Immutable<RelationshipState> = {
   blocks: new Map(),
   incomingRequests: new Map(),
   outgoingRequests: new Map(),
+
+  friendActivityStatus: new Map(),
+
   loaded: false,
   loadedAt: -1,
 }
@@ -32,6 +42,13 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.incomingRequests = new Map(summary.incomingRequests.map(r => [r.fromId, r]))
     state.outgoingRequests = new Map(summary.outgoingRequests.map(r => [r.toId, r]))
 
+    state.friendActivityStatus = new Map(
+      summary.friends.map(r => [
+        r.toId,
+        state.friendActivityStatus.get(r.toId) ?? FriendActivityStatus.Offline,
+      ]),
+    )
+
     state.loaded = true
     state.loadedAt = action.system.monotonicTime
   },
@@ -39,6 +56,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   ['@users/upsertRelationship'](state, { payload: { relationship }, meta: { selfId } }) {
     if (relationship.kind === UserRelationshipKind.Friend) {
       state.friends.set(relationship.toId, relationship)
+      state.friendActivityStatus.set(relationship.toId, FriendActivityStatus.Offline)
 
       state.outgoingRequests.delete(relationship.toId)
       state.incomingRequests.delete(relationship.toId)
@@ -49,6 +67,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       state.outgoingRequests.delete(relationship.toId)
       state.incomingRequests.delete(relationship.toId)
       state.friends.delete(relationship.toId)
+      state.friendActivityStatus.delete(relationship.toId)
     } else if (relationship.kind === UserRelationshipKind.FriendRequest) {
       if (relationship.fromId === selfId) {
         state.outgoingRequests.set(relationship.toId, relationship)
@@ -56,12 +75,14 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         state.blocks.delete(relationship.toId)
         state.incomingRequests.delete(relationship.toId)
         state.friends.delete(relationship.toId)
+        state.friendActivityStatus.delete(relationship.toId)
       } else {
         state.incomingRequests.set(relationship.fromId, relationship)
 
         state.blocks.delete(relationship.fromId)
         state.outgoingRequests.delete(relationship.fromId)
         state.friends.delete(relationship.fromId)
+        state.friendActivityStatus.delete(relationship.fromId)
       }
     } else {
       assertUnreachable(relationship.kind)
@@ -73,6 +94,11 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.blocks.delete(targetUser)
     state.incomingRequests.delete(targetUser)
     state.outgoingRequests.delete(targetUser)
+    state.friendActivityStatus.delete(targetUser)
+  },
+
+  ['@users/updateFriendActivityStatus'](state, { payload: { userId, status } }) {
+    state.friendActivityStatus.set(userId, status)
   },
 
   [NETWORK_SITE_CONNECTED as any]() {
