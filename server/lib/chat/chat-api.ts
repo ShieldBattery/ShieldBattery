@@ -329,7 +329,10 @@ export class ChatApi {
   }
 
   @httpGet('/')
-  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
+  @httpBefore(
+    featureEnabled(MULTI_CHANNEL),
+    throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)),
+  )
   async getChannels(ctx: RouterContext): Promise<GetChannelsResponse> {
     const {
       query: { q: searchQuery, limit, page },
