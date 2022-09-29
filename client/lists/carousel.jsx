@@ -128,10 +128,8 @@ export default class Carousel extends React.Component {
     const { translateWidth, hasPrevItems, hasNextItems } = this.state
 
     const contentStyle = { transform: `translateX(${translateWidth}px)` }
-    // We count the children so we don't show the buttons while the items are loading
-    const childrenCount = React.Children.count(this.props.children)
-    const showPrevButton = hasPrevItems && childrenCount > 0
-    const showNextButton = hasNextItems && childrenCount > 0
+    const showPrevButton = hasPrevItems
+    const showNextButton = hasNextItems && !isLoading
 
     return (
       <CarouselContainer ref={this._carouselRef} className={this.props.className}>

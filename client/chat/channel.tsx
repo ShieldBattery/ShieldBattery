@@ -225,7 +225,7 @@ interface UserListProps {
   offline: SbUserId[]
 }
 
-const UserList = React.memo((props: UserListProps) => {
+export const UserList = React.memo((props: UserListProps) => {
   const [scrollerRef] = useVirtuosoScrollFix()
 
   const { active, idle, offline } = props

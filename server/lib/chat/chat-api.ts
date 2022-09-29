@@ -7,6 +7,7 @@ import {
   ChannelPermissions,
   ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
+  GetChannelsResponse,
   GetChannelUserPermissionsResponse,
   GetChatUserProfileResponse,
   ModerateChannelUserServerRequest,
@@ -21,10 +22,12 @@ import { asHttpError } from '../errors/error-with-payload'
 import { featureEnabled } from '../flags/feature-enabled'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
+import { checkAnyPermission } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
+import { getChannelsForUser } from './chat-models'
 import ChatService, { ChatServiceError } from './chat-service'
 
 const joinThrottle = createThrottle('chatjoin', {
@@ -323,5 +326,65 @@ export class ChatApi {
     )
 
     ctx.status = 204
+  }
+
+  @httpGet('/')
+  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
+  async getChannels(ctx: RouterContext): Promise<GetChannelsResponse> {
+    const {
+      query: { q: searchQuery, limit, page },
+    } = validateRequest(ctx, {
+      query: Joi.object<{ q?: string; page: number; limit: number }>({
+        q: Joi.string().allow(''),
+        limit: Joi.number(),
+        page: Joi.number(),
+      }),
+    })
+
+    const result = await getChannelsForUser(
+      ctx.session!.userId,
+      false /* isAdmin */,
+      limit,
+      page,
+      searchQuery,
+    )
+    return {
+      channels: result.channels,
+      totalCount: result.total,
+      currentPage: page,
+    }
+  }
+}
+
+@httpApi('/admin/chat')
+@httpBeforeAll(ensureLoggedIn, convertChatServiceErrors)
+export class AdminChatApi {
+  constructor(private chatService: ChatService) {}
+
+  @httpGet('/')
+  @httpBefore(checkAnyPermission('editPermissions', 'moderateChatChannels'))
+  async getChannels(ctx: RouterContext): Promise<GetChannelsResponse> {
+    const {
+      query: { q: searchQuery, limit, page },
+    } = validateRequest(ctx, {
+      query: Joi.object<{ q?: string; page: number; limit: number }>({
+        q: Joi.string().allow(''),
+        limit: Joi.number(),
+        page: Joi.number(),
+      }),
+    })
+
+    const result = await getChannelsForUser(
+      ctx.session!.userId,
+      true /* isAdmin */,
+      limit,
+      page,
+      searchQuery,
+    )
+    return {
+      channels: result.channels,
+      totalCount: result.total,
+      currentPage: page,
+    }
   }
 }

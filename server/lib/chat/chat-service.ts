@@ -40,8 +40,8 @@ import {
   createChannel,
   findChannelByName,
   getChannelInfo,
-  getChannelsForUser,
   getMessagesForChannel,
+  getUserChannelEntriesForUser,
   getUserChannelEntryForUser,
   getUsersForChannel,
   isUserBannedFromChannel,
@@ -718,7 +718,7 @@ export default class ChatService {
   }
 
   private async handleNewUser(userSockets: UserSocketsGroup) {
-    const userChannels = await getChannelsForUser(userSockets.userId)
+    const userChannels = await getUserChannelEntriesForUser(userSockets.userId)
     const channelInfos = await getChannelInfo(userChannels.map(uc => uc.channelId))
     const channelIdToInfo = Map<SbChannelId, ChannelInfo>(channelInfos.map(c => [c.id, c]))
     if (!userSockets.sockets.size) {

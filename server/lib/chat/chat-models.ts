@@ -1,4 +1,4 @@
-import sql from 'sql-template-strings'
+import sql, { SQLStatement } from 'sql-template-strings'
 import { MergeExclusive } from 'type-fest'
 import {
   ChannelInfo,
@@ -40,7 +40,7 @@ function convertUserChannelEntryFromDb(props: DbUserChannelEntry): UserChannelEn
  * Gets a user channel entry for each channel that a particular user is in, ordered by their channel
  * join date.
  */
-export async function getChannelsForUser(userId: SbUserId): Promise<UserChannelEntry[]> {
+export async function getUserChannelEntriesForUser(userId: SbUserId): Promise<UserChannelEntry[]> {
   const { client, done } = await db()
   try {
     const result = await client.query<DbUserChannelEntry>(sql`
@@ -101,6 +101,7 @@ function convertChannelFromDb(props: DbChannel): ChannelInfo {
     name: props.name,
     private: props.private,
     official: props.official,
+    userCount: props.user_count,
     joinedChannelData: {
       ownerId: props.owner_id,
       topic: props.topic,
@@ -574,6 +575,97 @@ export async function findChannelByName(
     `)
 
     return result.rows.length > 0 ? convertChannelFromDb(result.rows[0]) : undefined
+  } finally {
+    done()
+  }
+}
+
+/** Returns the number of channels that match a particular condition. */
+async function getChannelsCount(
+  whereCondition?: SQLStatement,
+  withClient?: DbClient,
+): Promise<number> {
+  const { client, done } = await db(withClient)
+  try {
+    const query = sql`
+      SELECT COUNT(*) AS count
+      FROM channels
+    `
+
+    if (whereCondition) {
+      query.append(whereCondition)
+    }
+
+    const result = await client.query<{ count: string }>(query)
+
+    return Number(result.rows[0].count)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Gets a list of chat channels for a particular user, optionally filtered by a `searchStr`. If the
+ * user is an admin, this method will return a full list of channels. Otherwise, this method will
+ * only return non-private channels and channels that the user is not joined in.
+ */
+export async function getChannelsForUser(
+  userId: SbUserId,
+  isAdmin: boolean,
+  limit: number,
+  pageNumber: number,
+  searchStr?: string,
+  withClient?: DbClient,
+): Promise<{ channels: ChannelInfo[]; total: number }> {
+  const { client, done } = await db(withClient)
+  try {
+    const query = isAdmin
+      ? sql`
+        SELECT c.*, COUNT(cu.user_id) AS user_count
+        FROM channels c
+        INNER JOIN channel_users cu ON c.id = cu.channel_id
+      `
+      : sql`
+        WITH unjoined_channels AS (
+          SELECT DISTINCT(channel_id)
+          FROM channel_users
+          WHERE channel_id NOT IN (SELECT channel_id FROM channel_users WHERE user_id = ${userId})
+        )
+        SELECT c.*, COUNT(cu.user_id) AS user_count
+        FROM channels c
+        INNER JOIN unjoined_channels ON c.id = unjoined_channels.channel_id
+        INNER JOIN channel_users cu ON c.id = cu.channel_id
+      `
+
+    let whereCondition: SQLStatement | undefined
+    if (!isAdmin) {
+      whereCondition = sql`WHERE private = false`
+    }
+    if (searchStr) {
+      const escapedStr = `%${searchStr.replace(/[_%\\]/g, '\\$&')}%`
+
+      if (whereCondition) {
+        whereCondition.append(sql` AND name ILIKE ${escapedStr}`)
+      } else {
+        whereCondition = sql`WHERE name ILIKE ${escapedStr}`
+      }
+
+      query.append(whereCondition)
+    }
+
+    query.append(sql`
+      GROUP BY c.id
+      ORDER BY user_count DESC, name
+      LIMIT ${limit}
+      OFFSET ${pageNumber * limit}
+    `)
+
+    const result = await client.query<DbChannel>(query)
+
+    const channels = await Promise.all(result.rows.map(row => convertChannelFromDb(row)))
+    const total = await getChannelsCount(whereCondition, withClient)
+
+    return { channels, total }
   } finally {
     done()
   }

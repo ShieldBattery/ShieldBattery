@@ -38,3 +38,9 @@ export const CanManageRallyPointFilter = createConditionalRedirect(
   state => !hasAllPermissions(state.auth, 'manageRallyPointServers'),
   () => replace('/admin'),
 )
+
+export const CanManageChatChannels = createConditionalRedirect(
+  'CanManageChatChannels',
+  state => !hasAllPermissions(state.auth, 'moderateChatChannels'),
+  () => replace('/admin'),
+)

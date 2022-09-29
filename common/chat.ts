@@ -372,3 +372,16 @@ export interface UpdateChannelUserPermissionsRequest {
   /** The new permissions to update the user to. */
   permissions: ChannelPermissions
 }
+
+/**
+ * Payload returned for a request to retrieve the list of chat channels, optionally filtered by a
+ * search query.
+ */
+export interface GetChannelsResponse {
+  /** The list of (optionally filtered) channels. */
+  channels: ChannelInfo[]
+  /** The total number of channels that were found. */
+  totalCount: number
+  /** The current page of the retrieved channels. */
+  currentPage: number
+}
