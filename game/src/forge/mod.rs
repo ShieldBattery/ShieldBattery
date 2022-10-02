@@ -150,11 +150,6 @@ unsafe fn msg_timer(window: HWND, timer_id: i32) {
         UnregisterHotKey(window, FOREGROUND_HOTKEY_ID);
         KillTimer(window, FOREGROUND_HOTKEY_ID as usize);
 
-        // Set the final window title for scene switchers to key off of. Note that this
-        // is different from BW's "typical" title so that people don't have to reconfigure
-        // scene switchers when moving between our service and others.
-        SetWindowTextA(window, "Brood War - ShieldBattery\0".as_ptr() as *const i8);
-
         // Show the window and bring it to the front
         ShowWindow(window, SW_SHOWNORMAL);
         SetForegroundWindow(window);
