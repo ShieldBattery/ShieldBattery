@@ -171,7 +171,7 @@ pub unsafe extern "stdcall" fn free_packet(
     _data: *const u8,
     _data_len: u32,
 ) -> i32 {
-    Box::from_raw(from as *mut RawReceivedMessage);
+    drop(Box::from_raw(from as *mut RawReceivedMessage));
     1
 }
 

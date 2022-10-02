@@ -7,10 +7,10 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut};
 
-use winapi::um::d3dcompiler::*;
-use winapi::um::d3dcommon::*;
-use winapi::um::winnt::HRESULT;
 use winapi::shared::winerror::{E_FAIL, S_OK};
+use winapi::um::d3dcommon::*;
+use winapi::um::d3dcompiler::*;
+use winapi::um::winnt::HRESULT;
 
 pub enum ShaderModel {
     Sm4,
@@ -38,7 +38,7 @@ pub fn wrap_prism_shader(bytes: &[u8]) -> Vec<u8> {
 /// Disassembles a compiled D3D shader.
 pub fn disassemble(bytes: &[u8]) -> io::Result<Vec<u8>> {
     unsafe {
-        let mut blob = std::ptr::null_mut();
+        let mut blob = null_mut();
         let error = D3DDisassemble(
             bytes.as_ptr() as *const _,
             bytes.len(),
@@ -169,7 +169,9 @@ struct IncludeHandlerHandle(*mut IncludeHandler);
 
 impl Drop for IncludeHandlerHandle {
     fn drop(&mut self) {
-        unsafe { Box::from_raw(self.0); }
+        unsafe {
+            drop(Box::from_raw(self.0));
+        }
     }
 }
 
@@ -228,7 +230,11 @@ impl IncludeHandler {
         data: *const winapi::ctypes::c_void,
     ) -> HRESULT {
         let s = s as *mut IncludeHandler;
-        let pos = match (*s).buffers.iter().position(|x| x.as_ptr() == data as *const u8) {
+        let pos = match (*s)
+            .buffers
+            .iter()
+            .position(|x| x.as_ptr() == data as *const u8)
+        {
             Some(s) => s,
             None => return E_FAIL,
         };
