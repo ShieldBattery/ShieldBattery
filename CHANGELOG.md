@@ -1,3 +1,39 @@
+#### 8.6.0 (October 3, 2022)
+
+- **Friends and enemies.** We've built out a new friends list and added a way to block other user's
+  chat messages. Friendships are mutual, so you'll have to get someone else to accept you before
+  you'll be able to track them in your list. Blocking will only work in the application currently,
+  we'll add further tools to manage ingame chat in the future.
+- **New game servers.** There's now better global server coverage for games with new servers in
+  Montreal, Seattle, Chicago, Dallas, Miami, and Santiago. These are in addition to the many servers
+  we already had, and should help improve latency and performance for anyone in those areas.
+- **More info for local replays.** The replay browser can now show info about game type, players,
+  and more for local replays, so you can easily find the replay you're looking for. For replays of
+  games played on ShieldBattery, it will also retrieve information about the map the game was played
+  on.
+- **Rank change dialog.** After each ranked game completes, we now show a snazzy dialog to visualize
+  your rank change, as well as let you queue up for another match or watch the replay.
+- **Adjusted rank progression.** The top rank (Champion) now has requirements similar to the ranks
+  below it, and has had its max player cap removed. All players over 2400 rating will now be in the
+  Champion division.
+- **Smurf detection.** Players queueing for matchmaking will now be checked against existing
+  accounts, and anyone determined to be smurfing will have their rating adjusted accordingly. This
+  should result in more accurate matches for and against players that swap to new accounts.
+- **And some small stuff:**
+  - Fixed a bug that caused the starting screen position to occasionally be off-center when spawning
+    on the right side of the map.
+  - Message contents are now saved as you navigate throughout the app, so viewing someone's profile
+    will no longer clear out that huge essay you were in the process of writing to your party
+    members about their deficiencies in defending zergling pressure.
+  - Players in observer slots are now once again bannable in lobbies.
+  - Fixed selection circles not being visible when using the Carbot skin.
+  - Removed the custom title from the StarCraft window. This _may_ require updating settings in your
+    streaming programs if you are using window or game capture.
+  - Disabled SC:R's global PrintScreen hotkeys, which were interfering with all PrintScreen presses
+    as long as the game was running.
+  - Fixed an issue with the Accept Match dialog sometimes staying up permanently if a match had
+    failed to start.
+
 #### 8.5.0 (June 25, 2022)
 
 - **Ranked divisions.** We've added divisions to all ranked modes based on MMR, along with brand new
@@ -327,72 +363,3 @@
   of the screen, the starting screen position may be slightly off-center from where it usually is
 - **Observer chat is broken.** Observers are unable to send messages ingame currently. This will be
   fixed in a future update.
-
-#### 7.0.19 (July 27, 2021)
-
-- **Support for SC:R 1.23.8.9713.** We've fixed launching multiplayer games on the latest version
-  of StarCraft: Remastered. Our improved fix for flying SCVs will still be used in place of
-  Blizzard's during gameplay. We also have compatibility code for older replays, so replays
-  containing the SCV exploit will continue to play back correctly when viewed through our client.
-- **Time travel.** You'll now be able to see the history of chat channels from before you joined
-  them. Please only use this power for good, we take no responsibility for users preventing their
-  own conception.
-- **UI fixes for profiles.** User avatars should now display in the proper color, map thumbnails
-  will load a bit more smoothly, and the match history should look a bit nicer if you only have a
-  couple games played.
-
-##### Known Issues
-
-- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
-  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
-  very least add a warning for this case in the future (or better yet, automate re-authing), but
-  for now, try to launch the game from the Blizzard launcher at least once a month.
-- **Observer mode missing.** We're still getting our lobby code to work with the newer ingame
-  observer things, this will return shortly!
-- **Off-center screen starting position.** For some users, generally in positions on the right side
-  of the screen, the starting screen position may be slightly off-center from where it usually is.
-
-#### 7.0.18 (July 10, 2021)
-
-- **Profiles are here!** User profiles are now available, accessible from the user menu in chat
-  channels as well as the ladder rankings. Check out a user's recent match history, their stats
-  with various races, and more! More personalization and statistics coming soon!
-- **Start minimized.** When ShieldBattery is set to launch on system startup, you can now make it
-  start minimized as well.
-- **Clickable names.** Usernames in the various chat experiences (channels, whispers, lobbies) are
-  now clickable and will bring up a menu so that you can easily access extra functionality.
-
-##### Known Issues
-
-- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
-  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
-  very least add a warning for this case in the future (or better yet, automate re-authing), but
-  for now, try to launch the game from the Blizzard launcher at least once a month.
-- **Observer mode missing.** We're still getting our lobby code to work with the newer ingame
-  observer things, this will return shortly!
-- **Off-center screen starting position.** For some users, generally in positions on the right side
-  of the screen, the starting screen position may be slightly off-center from where it usually is.
-
-#### 7.0.16 (June 27, 2021)
-
-- **You're grounded.** Fixed an exploit that allowed SCVs and Drones to fly over obstacles if their
-  order queue size was exceeded in a specific way. This also fixes some existing mineral hack
-  exploits.
-- **Launch at startup.** Added an option to launch the ShieldBattery client at system startup
-  (defaults to on). You can change this in the 'App' tab of the settings.
-- **Ladder table fixes.** Fixed some issues with the ladder rankings table when users had
-  particularly long names.
-
-##### Known Issues
-
-- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
-  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
-  very least add a warning for this case in the future (or better yet, automate re-authing), but
-  for now, try to launch the game from the Blizzard launcher at least once a month.
-- **Observer mode missing.** We're still getting our lobby code to work with the newer ingame
-  observer things, this will return shortly!
-- **Off-center screen starting position.** For some users, generally in positions on the right side
-  of the screen, the starting screen position may be slightly off-center from where it usually is.
-- **Replays sometimes crash on startup.** With newer versions of SC:R (9651+), replays occasionally
-  crash as soon as they load. This is a transient issue, and not specific to any particular replay,
-  so relaunching the same replay should work.
