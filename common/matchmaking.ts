@@ -212,6 +212,42 @@ export function getDivisionColor(division: MatchmakingDivision) {
   }
 }
 
+/**
+ * Rating floors to be used to determine if a user is still converging towards their target point
+ * total. If they are still converging, they'll receive extra points for each win until they hit
+ * the value listed here.
+ */
+const RATING_CONVERGENCE_BUCKETS: ReadonlyArray<[minRating: number, extraPoints: number]> = [
+  [960, 100],
+  [1200, 150],
+  [1440, 200],
+  [1680, 250],
+  [1920, 300],
+]
+
+function getRatingConvergenceBucket(rating: number) {
+  let index = 0
+  for (
+    ;
+    index < RATING_CONVERGENCE_BUCKETS.length - 1 &&
+    RATING_CONVERGENCE_BUCKETS[index + 1][0] <= rating;
+    index++
+  ) {
+    // This space intentionally left blank
+  }
+  return RATING_CONVERGENCE_BUCKETS[index]
+}
+
+export function getConvergencePoints(rating: number): number {
+  const [_, extraPoints] = getRatingConvergenceBucket(rating)
+  return extraPoints
+}
+
+export function arePointsConverged(rating: number, points: number): boolean {
+  const [minRating, _] = getRatingConvergenceBucket(rating)
+  return points >= minRating * 4
+}
+
 /** How many matches a user must play before we calculate a division for them. */
 export const NUM_PLACEMENT_MATCHES = 5
 
@@ -247,7 +283,7 @@ export function toMatchmakingSeasonJson(season: MatchmakingSeason): MatchmakingS
  * The amount of bonus points accrued per millisecond since the start of a season. Bonus points are
  * used to improve wins and offset losses, until the bonus pool has been exhausted.
  */
-export const MATCHMAKING_BONUS_EARNED_PER_MS = 400 / (7 * 24 * 60 * 60 * 1000) // 400 per week
+export const MATCHMAKING_BONUS_EARNED_PER_MS = 200 / (7 * 24 * 60 * 60 * 1000) // 200 per week
 
 /**
  * A Record of MatchmakingType -> the size of a team within a match.

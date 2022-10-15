@@ -19,7 +19,7 @@ exports.up = async function (db) {
 
 exports.down = async function (db) {
   await db.runSql(`
-    ALTER TABLE matchmaking_ratings
+    ALTER TABLE matchmaking_rating_changes
     DROP COLUMN lifetime_games;
   `)
 }

@@ -1,5 +1,7 @@
 import { ReconciledPlayerResult, ReconciledResult } from '../../../common/games/results'
 import {
+  arePointsConverged,
+  getConvergencePoints,
   MatchmakingSeason,
   MATCHMAKING_BONUS_EARNED_PER_MS,
   MATCHMAKING_INACTIVE_TIME_MS,
@@ -261,7 +263,7 @@ function makeRatingChange({
   // Calculate change in points
   const pointsWithoutBonus = Math.max(player.points - player.bonusUsed, 0)
   const winProbability =
-    1 / (1 + Math.pow(10, (2 * opponentRatingGlicko - pointsWithoutBonus) / 1600))
+    1 / (1 + Math.pow(10, (4 * opponentRatingGlicko - pointsWithoutBonus) / 1600))
   let pointsChange = 4 * POINTS_ELO_K_FACTOR * (outcome - winProbability)
   if (result === 'win' && pointsChange < 1) {
     pointsChange = 1
@@ -278,8 +280,15 @@ function makeRatingChange({
   const bonusApplied = Math.min(bonusAvailable, Math.abs(pointsChange))
   pointsChange = pointsChange + bonusApplied
 
+  let pointsConverged = player.pointsConverged
+  if (result === 'win' && !pointsConverged) {
+    pointsChange += getConvergencePoints(player.rating)
+  }
+
   // Ensure that a player's points cannot go below 0
   pointsChange = Math.max(pointsChange, -player.points)
+  pointsConverged =
+    pointsConverged || arePointsConverged(player.rating, player.points + pointsChange)
 
   return {
     userId: player.userId,
@@ -295,6 +304,7 @@ function makeRatingChange({
     volatilityChange: newVolatility - player.volatility,
     points: player.points + pointsChange,
     pointsChange,
+    pointsConverged,
     bonusUsed: player.bonusUsed + bonusApplied,
     bonusUsedChange: bonusApplied,
     probability: expectedProbability,

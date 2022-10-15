@@ -358,6 +358,7 @@ export default class GameResultService {
             uncertainty: change.uncertainty,
             volatility: change.volatility,
             points: change.points,
+            pointsConverged: change.pointsConverged,
             bonusUsed: change.bonusUsed,
             numGamesPlayed: mmr.numGamesPlayed + 1,
             lifetimeGames: change.lifetimeGames,

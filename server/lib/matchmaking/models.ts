@@ -37,6 +37,13 @@ export interface MatchmakingRating extends RaceStats {
    */
   points: number
   /**
+   * Whether this user's points have converged with their rating for this season. If points have not
+   * converged (that is, they are lower than 4 * their division's base rating and have not surpassed
+   * that value this season), they will receive extra points for wins (on top of the normal bonus
+   * pool) to help them get to an appropriate point total more quickly.
+   */
+  pointsConverged: boolean
+  /**
    * The amount of the bonus point pool that has been used by this user. Over the course of the
    * season, users accrue bonus points at a regular rate. Bonus points are used to either increase
    * the point reward for wins, or decrease the point loss for losses. This number is used to
@@ -70,6 +77,7 @@ export const DEFAULT_MATCHMAKING_RATING: Readonly<
   uncertainty: 350,
   volatility: 0.06,
   points: 0,
+  pointsConverged: false,
   bonusUsed: 0,
   numGamesPlayed: 0,
   lifetimeGames: 0,
@@ -103,6 +111,7 @@ function fromDbMatchmakingRating(result: Readonly<DbMatchmakingRating>): Matchma
     uncertainty: result.uncertainty,
     volatility: result.volatility,
     points: result.points,
+    pointsConverged: result.points_converged,
     bonusUsed: result.bonus_used,
     numGamesPlayed: result.num_games_played,
     lifetimeGames: result.lifetime_games,
@@ -236,14 +245,17 @@ export async function createInitialMatchmakingRating(
 
     const result = await client.query<DbMatchmakingRating>(sql`
       INSERT INTO matchmaking_ratings
-        (user_id, matchmaking_type, season_id, rating, uncertainty, volatility, points,
-          bonus_used, num_games_played, last_played_date, lifetime_games, wins, losses, p_wins,
-          p_losses, t_wins, t_losses, z_wins, z_losses, r_wins, r_losses, r_p_wins, r_p_losses,
-          r_t_wins, r_t_losses, r_z_wins, r_z_losses)
+        (user_id, matchmaking_type, season_id, rating, uncertainty, volatility,
+          points, points_converged, bonus_used, num_games_played, last_played_date, lifetime_games,
+          wins, losses,
+          p_wins, p_losses,
+          t_wins, t_losses,
+          z_wins, z_losses,
+          r_wins, r_losses, r_p_wins, r_p_losses, r_t_wins, r_t_losses, r_z_wins, r_z_losses)
       VALUES
         (${userId}, ${matchmakingType}, ${season.id}, ${mmr.rating},
-          ${mmr.uncertainty}, ${mmr.volatility}, ${mmr.points}, ${mmr.bonusUsed},
-          ${mmr.numGamesPlayed}, ${mmr.lastPlayedDate}, ${mmr.lifetimeGames},
+          ${mmr.uncertainty}, ${mmr.volatility}, ${mmr.points}, ${mmr.pointsConverged},
+          ${mmr.bonusUsed}, ${mmr.numGamesPlayed}, ${mmr.lastPlayedDate}, ${mmr.lifetimeGames},
           ${mmr.wins}, ${mmr.losses}, ${mmr.pWins}, ${mmr.pLosses}, ${mmr.tWins}, ${mmr.tLosses},
           ${mmr.zWins}, ${mmr.zLosses}, ${mmr.rWins}, ${mmr.rLosses}, ${mmr.rPWins},
           ${mmr.rPLosses}, ${mmr.rTWins}, ${mmr.rTLosses}, ${mmr.rZWins}, ${mmr.rZLosses})
@@ -293,6 +305,7 @@ export async function updateMatchmakingRating(
        uncertainty = ${mmr.uncertainty},
        volatility = ${mmr.volatility},
        points = ${mmr.points},
+       points_converged = ${mmr.pointsConverged},
        bonus_used = ${mmr.bonusUsed},
        num_games_played = ${mmr.numGamesPlayed},
        last_played_date = ${mmr.lastPlayedDate},
@@ -510,6 +523,13 @@ export interface MatchmakingRatingChange {
   points: number
   /** The change that was applied to the points for this game (including bonus points). */
   pointsChange: number
+  /**
+   * Whether this user's points have converged with their rating for this season. If points have not
+   * converged (that is, they are lower than 4 * their division's base rating and have not surpassed
+   * that value this season), they will receive extra points for wins (on top of the normal bonus
+   * pool) to help them get to an appropriate point total more quickly.
+   */
+  pointsConverged: boolean
   /** The final amount of bonus points used this season after the change took place. */
   bonusUsed: number
   /** The change that was applied to the `bonusUsed` value for this game. */
@@ -545,6 +565,7 @@ function fromDbMatchmakingRatingChange(
     volatilityChange: result.volatility_change,
     points: result.points,
     pointsChange: result.points_change,
+    pointsConverged: result.points_converged,
     bonusUsed: result.bonus_used,
     bonusUsedChange: result.bonus_used_change,
     probability: result.probability,
@@ -562,12 +583,13 @@ export async function insertMatchmakingRatingChange(
     INSERT INTO matchmaking_rating_changes
       (user_id, matchmaking_type, game_id, change_date, outcome, rating, rating_change,
         uncertainty, uncertainty_change, volatility, volatility_change,
-        points, points_change, bonus_used, bonus_used_change, probability, lifetime_games)
+        points, points_change, points_converged, bonus_used, bonus_used_change, probability,
+        lifetime_games)
     VALUES
       (${c.userId}, ${c.matchmakingType}, ${c.gameId}, ${c.changeDate}, ${c.outcome}, ${c.rating},
         ${c.ratingChange}, ${c.uncertainty}, ${c.uncertaintyChange}, ${c.volatility},
-        ${c.volatilityChange}, ${c.points}, ${c.pointsChange}, ${c.bonusUsed}, ${c.bonusUsedChange},
-        ${c.probability}, ${c.lifetimeGames})
+        ${c.volatilityChange}, ${c.points}, ${c.pointsChange}, ${c.pointsConverged},
+        ${c.bonusUsed}, ${c.bonusUsedChange}, ${c.probability}, ${c.lifetimeGames})
   `)
 }
 
