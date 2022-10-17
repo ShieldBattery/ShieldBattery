@@ -7,7 +7,6 @@ import {
   ChannelPermissions,
   ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
-  GetChannelsResponse,
   GetChannelUserPermissionsResponse,
   GetChatUserProfileResponse,
   ModerateChannelUserServerRequest,
@@ -27,7 +26,7 @@ import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
-import { getChannelsForUser } from './chat-models'
+import { listAllChannels, listChannels } from './chat-models'
 import ChatService, { ChatServiceError } from './chat-service'
 
 const joinThrottle = createThrottle('chatjoin', {
@@ -333,7 +332,7 @@ export class ChatApi {
     featureEnabled(MULTI_CHANNEL),
     throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)),
   )
-  async getChannels(ctx: RouterContext): Promise<GetChannelsResponse> {
+  async listChannels(ctx: RouterContext): Promise<ChannelInfo[]> {
     const {
       query: { q: searchQuery, limit, page },
     } = validateRequest(ctx, {
@@ -344,18 +343,12 @@ export class ChatApi {
       }),
     })
 
-    const result = await getChannelsForUser(
-      ctx.session!.userId,
-      false /* isAdmin */,
+    return await listChannels({
+      userId: ctx.session!.userId,
       limit,
-      page,
-      searchQuery,
-    )
-    return {
-      channels: result.channels,
-      totalCount: result.total,
-      currentPage: page,
-    }
+      pageNumber: page,
+      searchStr: searchQuery,
+    })
   }
 }
 
@@ -366,7 +359,7 @@ export class AdminChatApi {
 
   @httpGet('/')
   @httpBefore(checkAnyPermission('editPermissions', 'moderateChatChannels'))
-  async getChannels(ctx: RouterContext): Promise<GetChannelsResponse> {
+  async listChannels(ctx: RouterContext): Promise<ChannelInfo[]> {
     const {
       query: { q: searchQuery, limit, page },
     } = validateRequest(ctx, {
@@ -377,17 +370,10 @@ export class AdminChatApi {
       }),
     })
 
-    const result = await getChannelsForUser(
-      ctx.session!.userId,
-      true /* isAdmin */,
+    return await listAllChannels({
       limit,
-      page,
-      searchQuery,
-    )
-    return {
-      channels: result.channels,
-      totalCount: result.total,
-      currentPage: page,
-    }
+      pageNumber: page,
+      searchStr: searchQuery,
+    })
   }
 }

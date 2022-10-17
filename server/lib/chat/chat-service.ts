@@ -40,9 +40,9 @@ import {
   createChannel,
   findChannelByName,
   getChannelInfo,
+  getChannelsForUser,
   getMessagesForChannel,
   getUserChannelEntriesForUser,
-  getUserChannelEntryForUser,
   getUsersForChannel,
   isUserBannedFromChannel,
   removeUserFromChannel,
@@ -209,7 +209,7 @@ export default class ChatService {
         await transact(async client => {
           channel = await findChannelByName(channelName, client)
           if (channel) {
-            isUserInChannel = Boolean(await getUserChannelEntryForUser(userId, channel.id))
+            isUserInChannel = Boolean(await getChannelsForUser(userId, channel.id))
             if (isUserInChannel) {
               succeeded = true
               return
@@ -318,8 +318,8 @@ export default class ChatService {
       await Promise.all([
         getChannelInfo([channelId]),
         getPermissions(userId),
-        getUserChannelEntryForUser(userId, channelId),
-        getUserChannelEntryForUser(targetId, channelId),
+        getChannelsForUser(userId, channelId),
+        getChannelsForUser(targetId, channelId),
       ])
 
     if (!userChannelEntry) {
@@ -568,7 +568,7 @@ export default class ChatService {
       )
     }
 
-    const chatUser = await getUserChannelEntryForUser(targetId, channelId)
+    const chatUser = await getChannelsForUser(targetId, channelId)
     // This usually means the user has left the channel.
     if (!chatUser) {
       // We don't throw an error here because users can still request the profile of users that have
@@ -599,8 +599,8 @@ export default class ChatService {
   async getUserPermissions(channelId: SbChannelId, userId: SbUserId, targetId: SbUserId) {
     const [[channelInfo], userChannelEntry, targetChannelEntry] = await Promise.all([
       getChannelInfo([channelId]),
-      getUserChannelEntryForUser(userId, channelId),
-      getUserChannelEntryForUser(targetId, channelId),
+      getChannelsForUser(userId, channelId),
+      getChannelsForUser(targetId, channelId),
     ])
 
     if (!userChannelEntry) {
@@ -639,8 +639,8 @@ export default class ChatService {
   ) {
     const [[channelInfo], userChannelEntry, targetChannelEntry] = await Promise.all([
       getChannelInfo([channelId]),
-      getUserChannelEntryForUser(userId, channelId),
-      getUserChannelEntryForUser(targetId, channelId),
+      getChannelsForUser(userId, channelId),
+      getChannelsForUser(targetId, channelId),
     ])
 
     if (!userChannelEntry) {

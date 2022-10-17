@@ -76,7 +76,7 @@ export async function getUsersForChannel(channelId: SbChannelId): Promise<SbUser
 /**
  * Gets a user channel entry for a particular user in a particular channel.
  */
-export async function getUserChannelEntryForUser(
+export async function getChannelsForUser(
   userId: SbUserId,
   channelId: SbChannelId,
 ): Promise<UserChannelEntry | null> {
@@ -580,75 +580,42 @@ export async function findChannelByName(
   }
 }
 
-/** Returns the number of channels that match a particular condition. */
-async function getChannelsCount(
-  whereCondition?: SQLStatement,
+/**
+ * Returns a list of non-private chat channels that a user is not joined in, optionally filtered by
+ * a `searchStr`.
+ */
+export async function listChannels(
+  {
+    userId,
+    limit,
+    pageNumber,
+    searchStr,
+  }: {
+    userId: SbUserId
+    limit: number
+    pageNumber: number
+    searchStr?: string
+  },
   withClient?: DbClient,
-): Promise<number> {
+): Promise<ChannelInfo[]> {
   const { client, done } = await db(withClient)
   try {
     const query = sql`
-      SELECT COUNT(*) AS count
-      FROM channels
+      WITH unjoined_channels AS (
+        SELECT DISTINCT(channel_id)
+        FROM channel_users
+        WHERE channel_id NOT IN (SELECT channel_id FROM channel_users WHERE user_id = ${userId})
+      )
+      SELECT c.*, COUNT(cu.user_id) AS user_count
+      FROM channels c
+      INNER JOIN unjoined_channels ON c.id = unjoined_channels.channel_id
+      INNER JOIN channel_users cu ON c.id = cu.channel_id
     `
 
-    if (whereCondition) {
-      query.append(whereCondition)
-    }
-
-    const result = await client.query<{ count: string }>(query)
-
-    return Number(result.rows[0].count)
-  } finally {
-    done()
-  }
-}
-
-/**
- * Gets a list of chat channels for a particular user, optionally filtered by a `searchStr`. If the
- * user is an admin, this method will return a full list of channels. Otherwise, this method will
- * only return non-private channels and channels that the user is not joined in.
- */
-export async function getChannelsForUser(
-  userId: SbUserId,
-  isAdmin: boolean,
-  limit: number,
-  pageNumber: number,
-  searchStr?: string,
-  withClient?: DbClient,
-): Promise<{ channels: ChannelInfo[]; total: number }> {
-  const { client, done } = await db(withClient)
-  try {
-    const query = isAdmin
-      ? sql`
-        SELECT c.*, COUNT(cu.user_id) AS user_count
-        FROM channels c
-        INNER JOIN channel_users cu ON c.id = cu.channel_id
-      `
-      : sql`
-        WITH unjoined_channels AS (
-          SELECT DISTINCT(channel_id)
-          FROM channel_users
-          WHERE channel_id NOT IN (SELECT channel_id FROM channel_users WHERE user_id = ${userId})
-        )
-        SELECT c.*, COUNT(cu.user_id) AS user_count
-        FROM channels c
-        INNER JOIN unjoined_channels ON c.id = unjoined_channels.channel_id
-        INNER JOIN channel_users cu ON c.id = cu.channel_id
-      `
-
-    let whereCondition: SQLStatement | undefined
-    if (!isAdmin) {
-      whereCondition = sql`WHERE private = false`
-    }
+    const whereCondition: SQLStatement = sql`WHERE private = false`
     if (searchStr) {
       const escapedStr = `%${searchStr.replace(/[_%\\]/g, '\\$&')}%`
-
-      if (whereCondition) {
-        whereCondition.append(sql` AND name ILIKE ${escapedStr}`)
-      } else {
-        whereCondition = sql`WHERE name ILIKE ${escapedStr}`
-      }
+      whereCondition.append(sql` AND name ILIKE ${escapedStr}`)
 
       query.append(whereCondition)
     }
@@ -662,10 +629,54 @@ export async function getChannelsForUser(
 
     const result = await client.query<DbChannel>(query)
 
-    const channels = await Promise.all(result.rows.map(row => convertChannelFromDb(row)))
-    const total = await getChannelsCount(whereCondition, withClient)
+    return result.rows.map(row => convertChannelFromDb(row))
+  } finally {
+    done()
+  }
+}
 
-    return { channels, total }
+/**
+ * Returns a full list of chat channels, optionally filtered by a `searchStr`. Only admins should be
+ * able to call this function.
+ */
+export async function listAllChannels(
+  {
+    limit,
+    pageNumber,
+    searchStr,
+  }: {
+    limit: number
+    pageNumber: number
+    searchStr?: string
+  },
+  withClient?: DbClient,
+): Promise<ChannelInfo[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const query = sql`
+      SELECT c.*, COUNT(cu.user_id) AS user_count
+      FROM channels c
+      INNER JOIN channel_users cu ON c.id = cu.channel_id
+    `
+
+    let whereCondition: SQLStatement | undefined
+    if (searchStr) {
+      const escapedStr = `%${searchStr.replace(/[_%\\]/g, '\\$&')}%`
+      whereCondition = sql`WHERE name ILIKE ${escapedStr}`
+
+      query.append(whereCondition)
+    }
+
+    query.append(sql`
+      GROUP BY c.id
+      ORDER BY user_count DESC, name
+      LIMIT ${limit}
+      OFFSET ${pageNumber * limit}
+    `)
+
+    const result = await client.query<DbChannel>(query)
+
+    return result.rows.map(row => convertChannelFromDb(row))
   } finally {
     done()
   }

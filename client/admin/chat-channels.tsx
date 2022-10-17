@@ -1,7 +1,7 @@
 import { debounce } from 'lodash-es'
 import React, { useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { ChannelInfo, GetChannelsResponse } from '../../common/chat'
+import { ChannelInfo } from '../../common/chat'
 import { apiUrl } from '../../common/urls'
 import { getMessageHistory, retrieveUserList } from '../chat/action-creators'
 import { UserList } from '../chat/channel'
@@ -119,10 +119,9 @@ const StyledMessageList = styled(MessageList)`
 
 export function AdminChatChannels() {
   const dispatch = useAppDispatch()
-  const [searchResults, setSearchResults] = useState<GetChannelsResponse>()
-  const channels = searchResults?.channels ?? []
-  const totalCount = searchResults?.totalCount ?? -1
-  const currentPage = searchResults?.currentPage ?? -1
+  const [channels, setChannels] = useState<ChannelInfo[]>()
+  const [currentPage, setCurrentPage] = useState(-1)
+  const [hasMoreChannels, setHasMoreChannels] = useState(true)
 
   const [isLoadingMoreChannels, setIsLoadingMoreChannels] = useState(false)
   const [searchError, setSearchError] = useState<Error>()
@@ -135,7 +134,9 @@ export function AdminChatChannels() {
       // request.
       setSearchQuery(searchQuery)
       setSearchError(undefined)
-      setSearchResults(undefined)
+      setChannels(undefined)
+      setCurrentPage(-1)
+      setHasMoreChannels(true)
       if (carouselRef.current) {
         // TODO(2Pac): Fix the types once the carousel is ported to TypeScript.
         ;(carouselRef.current as any).reset()
@@ -149,12 +150,15 @@ export function AdminChatChannels() {
 
   const onLoadMoreChannels = useStableCallback(() => {
     setIsLoadingMoreChannels(true)
-    fetchJson<GetChannelsResponse>(
+    setCurrentPage(currentPage + 1)
+
+    fetchJson<ChannelInfo[]>(
       apiUrl`admin/chat/?q=${searchQuery}&limit=${SEARCH_CHANNELS_LIMIT}&page=${currentPage + 1}`,
     )
       .then(data => {
         setIsLoadingMoreChannels(false)
-        setSearchResults({ ...data, channels: channels.concat(data.channels) })
+        setChannels((channels ?? []).concat(data))
+        setHasMoreChannels(data.length >= SEARCH_CHANNELS_LIMIT)
       })
       .catch(err => {
         setIsLoadingMoreChannels(false)
@@ -207,10 +211,10 @@ export function AdminChatChannels() {
   let searchContent
   if (searchError) {
     searchContent = <ErrorText>There was an error retrieving the chat channels.</ErrorText>
-  } else if (totalCount === 0) {
+  } else if (channels?.length === 0) {
     searchContent = <NoResults>No matching chat channel.</NoResults>
   } else {
-    const channelItems = channels.map(channel => (
+    const channelItems = (channels ?? []).map(channel => (
       <ChannelThumbnail key={channel.id}>
         <StyledChannelIcon />
         <ChannelInfoContainer>
@@ -223,7 +227,6 @@ export function AdminChatChannels() {
       </ChannelThumbnail>
     ))
 
-    const hasMoreChannels = totalCount === -1 || totalCount > channels.length
     searchContent = (
       <StyledCarousel
         ref={carouselRef}
