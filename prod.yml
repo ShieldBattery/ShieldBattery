@@ -13,12 +13,12 @@ files:
   - '!dist/index.js'
   - '!dist/preload.js'
   - 'dist/**/*.js'
-  - 'dist/**/*.node'
   - from: 'dist/'
     to: './'
     filter:
       - 'index.js'
       - 'preload.js'
+      - 'native/**/*.node'
 nsis:
   artifactName: '${productName}-setup-${version}.${ext}'
 win:
