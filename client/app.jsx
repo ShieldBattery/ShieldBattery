@@ -91,8 +91,8 @@ export default function App() {
         <GlobalStyle />
         <LoadableWindowControls />
         <LoadableSystemBar />
-        <RootErrorBoundary>
-          <KeyListenerBoundary>
+        <KeyListenerBoundary>
+          <RootErrorBoundary>
             <Switch>
               <Route path='/splash' component={Splash} />
               <Route path='/faq' component={Faq} />
@@ -113,9 +113,9 @@ export default function App() {
             </Switch>
             <ConnectedSnackbar />
             <ConnectedDialogOverlay />
-          </KeyListenerBoundary>
-        </RootErrorBoundary>
-        <UpdateOverlay />
+          </RootErrorBoundary>
+          <UpdateOverlay />
+        </KeyListenerBoundary>
       </>
     </StyleSheetManager>
   )
