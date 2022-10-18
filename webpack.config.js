@@ -36,7 +36,7 @@ const webBabelOpts = {
     [
       '@babel/preset-env',
       {
-        targets: { electron: '19.0' },
+        targets: { electron: '21.1' },
         modules: false,
         useBuiltIns: 'usage',
         corejs: 3,
@@ -144,7 +144,7 @@ const mainBabelOpts = {
     [
       '@babel/preset-env',
       {
-        targets: { electron: '16.0' },
+        targets: { electron: '21.1' },
         modules: false,
         useBuiltIns: 'usage',
         corejs: 3,
