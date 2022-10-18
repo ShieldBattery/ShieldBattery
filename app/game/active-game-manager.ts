@@ -145,15 +145,17 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
       this.serverPort,
       this.localSettings,
       this.scrSettings,
+    ).then(
+      async proc => {
+        try {
+          const code = await proc.waitForExit()
+          this.handleGameExit(gameId, code)
+        } catch (err) {
+          this.handleGameExitWaitError(gameId, err as Error)
+        }
+      },
+      err => this.handleGameLaunchError(gameId, err),
     )
-      .then(
-        proc => proc.waitForExit(),
-        err => this.handleGameLaunchError(gameId, err),
-      )
-      .then(
-        code => this.handleGameExit(gameId, code),
-        err => this.handleGameExitWaitError(gameId, err),
-      )
     this.activeGame = {
       ...current,
       id: gameId,
