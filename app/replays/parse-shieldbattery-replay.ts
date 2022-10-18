@@ -1,5 +1,5 @@
-import { ReplayShieldBatteryData } from '../common/replays'
-import { makeSbUserId, SbUserId } from '../common/users/sb-user'
+import { ReplayShieldBatteryData } from '../../common/replays'
+import { makeSbUserId, SbUserId } from '../../common/users/sb-user'
 
 /**
  * Parse the ShieldBattery version as it's written in the replay file. Since it's a string of 16
@@ -13,18 +13,18 @@ function parseShieldBatteryVersion(shieldBatteryVersion: string) {
  * Parse the game ID received as a Buffer into a string matching the UUID format, e.g.
  * "12345678-9abc-def0-1234-56789abcdef0"
  */
-function parseGameId(gameId: Buffer) {
+export function parseGameId(gameId: Buffer) {
   return (
-    gameId.readUint32BE(0).toString(16) +
+    gameId.readUint32BE(0).toString(16).padStart(8, '0') +
     '-' +
-    gameId.readUint16BE(4).toString(16) +
+    gameId.readUint16BE(4).toString(16).padStart(4, '0') +
     '-' +
-    gameId.readUint16BE(6).toString(16) +
+    gameId.readUint16BE(6).toString(16).padStart(4, '0') +
     '-' +
-    gameId.readUint16BE(8).toString(16) +
+    gameId.readUint16BE(8).toString(16).padStart(4, '0') +
     '-' +
-    gameId.readUint32BE(10).toString(16) +
-    gameId.readUint16BE(14).toString(16)
+    gameId.readUint32BE(10).toString(16).padStart(8, '0') +
+    gameId.readUint16BE(14).toString(16).padStart(4, '0')
   )
 }
 
