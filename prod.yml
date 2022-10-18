@@ -10,8 +10,9 @@ files:
   - '!node_modules/**/*'
   - 'index.html'
   - 'assets/**/*'
-  - 'dist/bundle.js'
-  - 'dist/**/*.chunk.js'
+  - '!dist/index.js'
+  - '!dist/preload.js'
+  - 'dist/**/*.js'
   - from: 'dist/'
     to: './'
     filter:

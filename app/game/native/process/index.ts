@@ -1,19 +1,15 @@
-import type { LaunchArgs, StimpackProcess } from '@shieldbattery/stimpack'
+import { launch, LaunchArgs, StimpackProcess, waitForExit } from '@shieldbattery/stimpack'
 
 class Process {
-  constructor(
-    private nativeProcess: StimpackProcess,
-    private waitForExitFn: (process: StimpackProcess) => Promise<number>,
-  ) {}
+  constructor(private nativeProcess: StimpackProcess) {}
 
-  async waitForExit() {
-    return this.waitForExitFn(this.nativeProcess)
+  async waitForExit(): Promise<number> {
+    return waitForExit(this.nativeProcess)
   }
 }
 
 export async function launchProcess(args: LaunchArgs) {
   // Uses dynamic import to avoid ever pulling this into the Web build
-  const native = await import('@shieldbattery/stimpack')
-  const process = await native.launch(args)
-  return new Process(process, native.waitForExit)
+  const process = await launch(args)
+  return new Process(process)
 }

@@ -183,7 +183,6 @@ const electronMain = makeConfig({
           loader: 'native-addon-loader',
           options: {
             name: './native/[name]-[hash].[ext]',
-            from: './native/',
           },
         },
       ],

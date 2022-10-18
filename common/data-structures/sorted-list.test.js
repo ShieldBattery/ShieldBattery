@@ -21,7 +21,7 @@ describe('sorted-list', function () {
   describe('findIndex', () => {
     test('should find nothing in an empty list', () => {
       const result = findIndex(alphaSort, create(alphaSort), 'a')
-      expect(result).toEqual(-1)
+      expect(result).toBe(-1)
     })
 
     test('should find a single item in a one item list', () => {
@@ -31,7 +31,7 @@ describe('sorted-list', function () {
 
     test('should not find a single item in a non-equal one item list', () => {
       const result = findIndex(alphaSort, create(alphaSort, ['b']), 'a')
-      expect(result).toEqual(-1)
+      expect(result).toBe(-1)
     })
 
     test('should find a single item in a three item list, early item', () => {
@@ -64,7 +64,7 @@ describe('sorted-list', function () {
         create(alphaSort, ['a', 'a', 'b', 'b', 'c', 'f', 'f', 'j', 'y', 'y', 'y', 'z']),
         'g',
       )
-      expect(result).toEqual(-1)
+      expect(result).toBe(-1)
     })
   })
 

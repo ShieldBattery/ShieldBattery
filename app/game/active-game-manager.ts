@@ -16,17 +16,11 @@ import log from '../logger'
 import { LocalSettings, ScrSettings } from '../settings'
 import { checkStarcraftPath } from './check-starcraft-path'
 import { MapStore } from './map-store'
+import { launchProcess } from './native/process/index'
 
 // Overrides the default rally-point bind port in the game. Not recommended for use outside of
 // specific development testing, as it can cause game processes to conflict with each other.
 const RALLY_POINT_PORT = Number(process.env.SB_RALLY_POINT_PORT ?? 0)
-
-// NOTE(tec27): this needs to be a dynamic import so that the relative file locations line up
-// between dev and prod builds
-const nativeProcessModule = import(
-  /* webpackChunkName: "native/process" */
-  './native/process/index'
-)
 
 interface ActiveGameInfo {
   id: string
@@ -419,8 +413,6 @@ async function doLaunch(
   const rallyPointPort = !isNaN(RALLY_POINT_PORT) ? RALLY_POINT_PORT : 0
   // NOTE(tec27): SC:R uses -launch as an argument to skip bnet launcher.
   const args = `"${appPath}" ${gameId} ${serverPort} "${userDataPath}" ${rallyPointPort} -launch`
-
-  const { launchProcess } = await nativeProcessModule
 
   const proc = await launchProcess({
     appPath,
