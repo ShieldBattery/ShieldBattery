@@ -40,19 +40,20 @@ for more information.
 
 ### Rust
 
-The code that runs within BW process is a DLL written in [Rust](https://rust-lang.org). The
-simplest way to get things built is to use the [rustup toolchain installer](https://rustup.rs).
+The code that runs within BW process, as well as Electron-side process launching helpers are DLLs
+written in [Rust](https://rust-lang.org). The simplest way to get things built is to use the [rustup
+toolchain installer](https://rustup.rs).
 
-After installing rustup, run `rustup override add stable-i686-pc-windows-msvc` in the
-shieldbattery directory, which sets the default compiler for ShieldBattery to a 32-bit one, as the
-DLL cannot be built or injected to BW as 64-bit.
+Currently we launch 32-bit BW, so the game DLL needs to be built to target 32-bit Windows.
+You will have to run `rustup target add i686-pc-windows-msvc` in order to have 32-bit standard
+library required to build the game DLL.
 
 To build the DLL, run `build.bat` in [`game` directory](../game), which will also copy the
 resulting DLL and other necessary support files to `game/dist`, where the JavaScript code expects
 them to be. The build defaults to the quicker debug build, to build the optimized version run
 `build.bat release`.
 
-If the required minimum Rust version is changed (1.51 as of this writing), you can update the Rust
+If the required minimum Rust version is changed (1.63 as of this writing), you can update the Rust
 toolchain by running `rustup update`.
 
 ## Server software

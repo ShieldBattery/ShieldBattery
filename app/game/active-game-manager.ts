@@ -145,15 +145,17 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
       this.serverPort,
       this.localSettings,
       this.scrSettings,
+    ).then(
+      async proc => {
+        try {
+          const code = await proc.waitForExit()
+          this.handleGameExit(gameId, code)
+        } catch (err) {
+          this.handleGameExitWaitError(gameId, err as Error)
+        }
+      },
+      err => this.handleGameLaunchError(gameId, err),
     )
-      .then(
-        proc => proc.waitForExit(),
-        err => this.handleGameLaunchError(gameId, err),
-      )
-      .then(
-        code => this.handleGameExit(gameId, code),
-        err => this.handleGameExitWaitError(gameId, err),
-      )
     this.activeGame = {
       ...current,
       id: gameId,
@@ -382,27 +384,7 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
   }
 }
 
-// TODO(tec27): add typings for launchProcess
-function silentTerminate(proc: any) {
-  try {
-    proc.terminate()
-  } catch (err) {
-    log.warning('Error terminating process: ' + err)
-  }
-}
-
 const injectPath = path.resolve(app.getAppPath(), '../game/dist/shieldbattery.dll')
-
-async function removeIfOld(path: string, maxAge: number) {
-  try {
-    const stat = await fsPromises.stat(path)
-    if (Date.now() - Number(stat.mtime) > maxAge) {
-      await fsPromises.unlink(path)
-    }
-  } catch (e) {
-    // We won't care the file doesn't exist/can't be touched
-  }
-}
 
 async function doLaunch(
   gameId: string,
@@ -443,46 +425,11 @@ async function doLaunch(
   const proc = await launchProcess({
     appPath,
     args: args as any,
-    launchSuspended: false,
-    debuggerLaunch: true,
     currentDir: starcraftPath,
-    environment: [
-      // Prevent Windows Game Explorer from trying to make a network connection on process launch,
-      // which, if it fails, will be retried ~forever (wat). Also turn off some compatibility
-      // settings that people typically enabled for pre-ShieldBattery BW, but cause problems with
-      // forge.
-      '__COMPAT_LAYER=!GameUX !256Color !640x480 !Win95 !Win98 !Win2000 !NT4SP5',
-    ],
+    dllPath: injectPath,
+    dllFunc: 'OnInject',
     logCallback: ((msg: string) => log.verbose(`[Inject] ${msg}`)) as any,
   })
   log.verbose('Process launched')
-
-  log.debug(`Injecting ${injectPath} into the process...`)
-  const dataRoot = app.getPath('userData')
-  const errorDumpPath = path.join(dataRoot, 'logs', 'inject_fail.dmp')
-  // Remove the error dump if it's older than 2 weeks, as can be really large
-  await removeIfOld(errorDumpPath, 2 * 24 * 3600 * 1000)
-  try {
-    // Note: if debuggerLaunch is true (remastered), injection happens on main thread that stays
-    // suspended until proc.resume() below, while otherwise the OnInject has finished running
-    // before injectDll resolves.
-    // This shouldn't really change anything, but worth noticing to anyone looking at this code.
-    // Could be possibly fixed if someone wants to refactor injection to add something in the
-    // inject_proc asm that synchronizes the launching process without needing an extra thread.
-    await proc.injectDll(injectPath, 'OnInject', errorDumpPath)
-  } catch (err) {
-    silentTerminate(proc)
-    throw err
-  }
-
-  log.verbose('Dll injected. Attempting to resume process...')
-  try {
-    proc.resume()
-  } catch (err) {
-    silentTerminate(proc)
-    throw err
-  }
-
-  log.verbose('Process resumed')
   return proc
 }

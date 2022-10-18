@@ -266,6 +266,8 @@ unsafe extern "C" fn scr_init(image: *mut u8) {
     };
     bw.patch_game(image);
     bw::set_bw_impl(bw);
+    initialize();
+    bw.post_async_init();
 }
 
 static SELF_HANDLE: AtomicUsize = AtomicUsize::new(0);

@@ -1335,29 +1335,6 @@ impl BwScr {
             },
             address,
         );
-        // This function being run while Windows loader lock is held, crate::initialize
-        // cannot be called so hook the exe's entry point and call it from there.
-        let address = pe_entry_point_offset(base as *const u8);
-        let sdf_cache = self.sdf_cache.clone();
-        exe.hook_closure_address(
-            EntryPoint,
-            move |orig| {
-                // crate::initialize initializes the async runtime, letting us to start
-                // loading SDF cache.
-                crate::initialize();
-                let async_handle = crate::async_handle();
-                let mut sdf_cache = sdf_cache.clone().lock_owned();
-                async_handle.spawn(async move {
-                    let exe_hash = pe_image::hash_pe_header(base as *const u8);
-                    *sdf_cache = Some(SdfCache::init(exe_hash).await);
-                });
-
-                // This function is practically SCR's main(), so it won't return and any code
-                // below will not be ran.
-                orig();
-            },
-            address,
-        );
 
         let address = self.load_snp_list.0 as usize - base;
         exe.hook_closure_address(LoadSnpList, load_snp_list_hook, address);
@@ -1785,6 +1762,17 @@ impl BwScr {
         }
         crate::forge::init_hooks_scr(&mut active_patcher);
         debug!("Patched.");
+    }
+
+    pub unsafe fn post_async_init(&'static self) {
+        let base = GetModuleHandleW(null()) as usize;
+        let sdf_cache = self.sdf_cache.clone();
+        let async_handle = crate::async_handle();
+        let mut sdf_cache = sdf_cache.clone().lock_owned();
+        async_handle.spawn(async move {
+            let exe_hash = pe_image::hash_pe_header(base as *const u8);
+            *sdf_cache = Some(SdfCache::init(exe_hash).await);
+        });
     }
 
     unsafe fn patch_shaders(&'static self, exe: &mut whack::ModulePatcher<'_>, base: usize) {
@@ -3204,15 +3192,6 @@ unsafe fn init_bw_string(out: &mut scr::BwString, value: &[u8]) {
         out.length = value.len();
         out.capacity = value.len();
     }
-}
-
-/// Returns the entry point of a binary, read from the PE header.
-///
-/// Adding the returned offset to `binary` would produce function pointer
-/// to the entry.
-unsafe fn pe_entry_point_offset(binary: *const u8) -> usize {
-    let pe_header = binary.add(*(binary.add(0x3c) as *const u32) as usize);
-    *(pe_header.add(0x28) as *const u32) as usize
 }
 
 fn log_time<F: FnOnce() -> R, R>(name: &str, func: F) -> R {

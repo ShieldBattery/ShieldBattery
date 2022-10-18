@@ -987,6 +987,11 @@
     "@jridgewell/resolve-uri" "^3.0.3"
     "@jridgewell/sourcemap-codec" "^1.4.10"
 
+"@shieldbattery/stimpack@^0.2.0":
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/@shieldbattery/stimpack/-/stimpack-0.2.0.tgz#8f1e49ac076a6c3582346d0d05bda841a7408298"
+  integrity sha512-Pyi6QcFt67sncHSM2M+/tBWAjfyRTMA2tXIdpoWqVZEw1qdTkG10RBK8TiUtFFyEyYZ5LpT63XiXLBnueXXBZQ==
+
 "@types/semver@^7.3.6":
   version "7.3.12"
   resolved "https://registry.yarnpkg.com/@types/semver/-/semver-7.3.12.tgz#920447fdd78d76b19de0438b7f60df3c4a80bf1c"
@@ -1702,10 +1707,6 @@ ms@2.1.2:
   version "2.1.2"
   resolved "https://registry.yarnpkg.com/ms/-/ms-2.1.2.tgz#d09d1f357b443f493382a8eb3ccd183872ae6009"
   integrity sha512-sGkPx+VjMtmA6MX27oA4FBFELFCZZ4S4XqeGOXCv68tT+jb3vk/RyaKWP0PTKyWtmLSM0b+adUTEvbs1PEaH2w==
-
-"nan@github:tec27/nan#remove_accessor_signature":
-  version "2.16.0"
-  resolved "https://codeload.github.com/tec27/nan/tar.gz/6a2f95a6a2209d8aa7542fb18099fd808a802059"
 
 node-releases@^2.0.6:
   version "2.0.6"
