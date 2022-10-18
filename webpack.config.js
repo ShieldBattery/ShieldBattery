@@ -109,6 +109,7 @@ const mainWebpackOpts = {
   },
   output: {
     filename: '[name].js',
+    chunkFilename: '[name].appchunk.js',
     path: path.join(__dirname, 'app', 'dist'),
     libraryTarget: 'commonjs2',
   },

@@ -12,12 +12,14 @@ files:
   - 'assets/**/*'
   - '!dist/index.js'
   - '!dist/preload.js'
+  - '!dist/**/*.appchunk.js'
   - 'dist/**/*.js'
   - from: 'dist/'
     to: './'
     filter:
       - 'index.js'
       - 'preload.js'
+      - '**/*.appchunk.js'
       - 'native/**/*.node'
 nsis:
   artifactName: '${productName}-setup-${version}.${ext}'

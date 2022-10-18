@@ -16,7 +16,6 @@ import log from '../logger'
 import { LocalSettings, ScrSettings } from '../settings'
 import { checkStarcraftPath } from './check-starcraft-path'
 import { MapStore } from './map-store'
-import { launchProcess } from './native/process/index'
 
 // Overrides the default rally-point bind port in the game. Not recommended for use outside of
 // specific development testing, as it can cause game processes to conflict with each other.
@@ -414,6 +413,9 @@ async function doLaunch(
   // NOTE(tec27): SC:R uses -launch as an argument to skip bnet launcher.
   const args = `"${appPath}" ${gameId} ${serverPort} "${userDataPath}" ${rallyPointPort} -launch`
 
+  // NOTE(tec27): We dynamically import this so that it doesn't crash the process on startup if
+  // an antivirus decides to delete the native module
+  const { launchProcess } = await import('./native/process/index')
   const proc = await launchProcess({
     appPath,
     args: args as any,
