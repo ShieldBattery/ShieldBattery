@@ -40,7 +40,7 @@ function convertUserChannelEntryFromDb(props: DbUserChannelEntry): UserChannelEn
  * Gets a user channel entry for each channel that a particular user is in, ordered by their channel
  * join date.
  */
-export async function getUserChannelEntriesForUser(userId: SbUserId): Promise<UserChannelEntry[]> {
+export async function getChannelsForUser(userId: SbUserId): Promise<UserChannelEntry[]> {
   const { client, done } = await db()
   try {
     const result = await client.query<DbUserChannelEntry>(sql`
@@ -76,7 +76,7 @@ export async function getUsersForChannel(channelId: SbChannelId): Promise<SbUser
 /**
  * Gets a user channel entry for a particular user in a particular channel.
  */
-export async function getChannelsForUser(
+export async function getUserChannelEntryForUser(
   userId: SbUserId,
   channelId: SbChannelId,
 ): Promise<UserChannelEntry | null> {
