@@ -25,7 +25,7 @@ mod scr_hooks {
         !0 => ChangeDisplaySettingsExW(*const u16, *mut DEVMODEW, HWND, u32, *mut c_void) -> i32;
         !0 => SetWindowPos(HWND, HWND, i32, i32, i32, i32, u32) -> u32;
         !0 => SetCursorPos(i32, i32) -> i32;
-        !0 => GetWindowLongW(HWND, i32) -> u32;
+        !0 => SetWindowLongW(HWND, i32, u32) -> u32;
         !0 => RegisterHotKey(HWND, i32, u32, u32) -> u32;
     );
 }
@@ -435,7 +435,7 @@ fn create_window_w(
     }
 }
 
-fn get_window_long_w(window: HWND, long: i32, orig: unsafe extern "C" fn(HWND, i32) -> u32) -> u32 {
+fn set_window_long_w(window: HWND, index: i32, new_long: u32, orig: unsafe extern "C" fn(HWND, i32, u32) -> u32) -> u32 {
     // SC:R uses GetWindowLongW(GWL_STYLE) and stores the result. It may then update
     // that Starcraft-side copy of the style and call SetWindowLongW() to update
     // it at Windows side. However, GWL_STYLE also contains a flag that controls
@@ -446,12 +446,15 @@ fn get_window_long_w(window: HWND, long: i32, orig: unsafe extern "C" fn(HWND, i
     // This is relevant at least when the game is started up in windowed fullscreen
     // and then switched to windowed mode afterwards.
     // For some reason starting in windowed mode does not have the same issue.
-    let value = unsafe { orig(window, long) };
-    if long == GWL_STYLE {
-        value | WS_VISIBLE
-    } else {
-        value
+    let mut flags = new_long;
+    if is_forge_window(window) && index == GWL_STYLE {
+        if with_forge(|forge| forge.game_started) {
+            flags |= WS_VISIBLE;
+        } else {
+            flags &= !WS_VISIBLE;
+        }
     }
+    unsafe { orig(window, index, flags) }
 }
 
 fn register_hot_key(
@@ -499,7 +502,7 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
         "ChangeDisplaySettingsExW", ChangeDisplaySettingsExW, change_display_settings_ex;
         "SetWindowPos", SetWindowPos, set_window_pos;
         "SetCursorPos", SetCursorPos, scr_set_cursor_pos;
-        "GetWindowLongW", GetWindowLongW, get_window_long_w;
+        "SetWindowLongW", SetWindowLongW, set_window_long_w;
         "RegisterHotKey", RegisterHotKey, register_hot_key;
     );
 }
