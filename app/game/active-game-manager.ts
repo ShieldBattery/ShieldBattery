@@ -10,7 +10,7 @@ import {
   isReplayMapInfo,
 } from '../../common/game-launch-config'
 import { GameStatus, ReportedGameStatus, statusToString } from '../../common/game-status'
-import { GameClientPlayerResult, SubmitGameResultsRequest } from '../../common/games/results'
+import { GameClientPlayerResult, LegacySubmitGameResultsRequest } from '../../common/games/results'
 import { EventMap, TypedEventEmitter } from '../../common/typed-emitter'
 import log from '../logger'
 import { LocalSettings, ScrSettings } from '../settings'
@@ -68,7 +68,7 @@ export interface ActiveGameManagerEvents extends EventMap {
   }) => void
   gameStatus: (statusInfo: ReportedGameStatus) => void
   replaySaved: (gameId: string, path: string) => void
-  resendResults: (gameId: string, requestBody: SubmitGameResultsRequest) => void
+  resendResults: (gameId: string, requestBody: LegacySubmitGameResultsRequest) => void
 }
 
 @singleton()
@@ -351,7 +351,7 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
       this.activeGame.result
     ) {
       const config = this.activeGame.config!
-      const submission: SubmitGameResultsRequest = {
+      const submission: LegacySubmitGameResultsRequest = {
         userId: config.localUser.id,
         resultCode: config.setup.resultCode!,
         time: this.activeGame.result.time,

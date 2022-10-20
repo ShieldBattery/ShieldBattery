@@ -1,4 +1,5 @@
 import sql from 'sql-template-strings'
+import { ReadonlyDeep } from 'type-fest'
 import {
   GameClientPlayerResult,
   ReconciledPlayerResult,
@@ -17,7 +18,7 @@ export interface ReportedResultsData {
     /** The elapsed time of the game, in milliseconds. */
     time: number
     /** A tuple of (userId, result info). */
-    playerResults: Array<[number, GameClientPlayerResult]>
+    playerResults: Array<[SbUserId, GameClientPlayerResult]>
   }
 }
 
@@ -118,7 +119,7 @@ export async function setReportedResults({
   gameId,
   reportedResults,
   reportedAt,
-}: ReportedResultsData) {
+}: ReadonlyDeep<ReportedResultsData>) {
   const { client, done } = await db()
 
   try {

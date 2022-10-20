@@ -1,3 +1,4 @@
+import { Merge } from 'type-fest'
 import { AssignedRaceChar } from '../races'
 import { SbUserId } from '../users/sb-user'
 
@@ -71,6 +72,12 @@ export interface SubmitGameResultsRequest {
   resultCode: string
   /** The elapsed time of the game, in milliseconds. */
   time: number
-  /** A tuple of (player name, result). */
-  playerResults: [playerName: string, result: GameClientPlayerResult][]
+  /** Each player's result. */
+  playerResults: [playerId: SbUserId, result: GameClientPlayerResult][]
 }
+
+// TODO(tec27): Delete once the game code calls the new endpoint
+export type LegacySubmitGameResultsRequest = Merge<
+  SubmitGameResultsRequest,
+  { playerResults: [playerName: string, result: GameClientPlayerResult][] }
+>

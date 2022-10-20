@@ -38,7 +38,7 @@ import {
   setReportedResults,
   setUserReconciledResult,
 } from '../models/games-users'
-import { findUsersByName } from '../users/user-model'
+import { Clock } from '../time/clock'
 import { incrementUserStatsCount, makeCountKeys } from '../users/user-stats-model'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
@@ -64,8 +64,9 @@ export default class GameResultService {
     private matchmakingPublisher: TypedPublisher<MatchmakingResultsEvent>,
     private jobScheduler: JobScheduler,
     private matchmakingSeasonsService: MatchmakingSeasonsService,
+    private clock: Clock,
   ) {
-    const jobStartTime = new Date()
+    const jobStartTime = new Date(this.clock.now())
     jobStartTime.setMinutes(jobStartTime.getMinutes() + RECONCILE_INCOMPLETE_RESULTS_MINUTES)
 
     this.jobScheduler.scheduleJob(
@@ -73,7 +74,7 @@ export default class GameResultService {
       jobStartTime,
       RECONCILE_INCOMPLETE_RESULTS_MINUTES * 60 * 1000,
       async () => {
-        const reconcileBefore = new Date()
+        const reconcileBefore = new Date(this.clock.now())
         reconcileBefore.setMinutes(reconcileBefore.getMinutes() - FORCE_RECONCILE_TIMEOUT_MINUTES)
         const toReconcile = await findUnreconciledGames(reconcileBefore)
         // TODO(tec27): add prometheues metric for number of unreconciled games found
@@ -182,7 +183,7 @@ export default class GameResultService {
     userId: SbUserId
     resultCode: string
     time: number
-    playerResults: ReadonlyArray<[playerName: string, result: GameClientPlayerResult]>
+    playerResults: ReadonlyArray<[playerId: SbUserId, result: GameClientPlayerResult]>
     logger: Logger
   }): Promise<void> {
     const gameUserRecord = await getUserGameRecord(userId, gameId)
@@ -197,36 +198,28 @@ export default class GameResultService {
       )
     }
 
-    const namesInResults = playerResults.map(r => r[0])
-    const namesToUsers = await findUsersByName(namesInResults)
-
     const gameRecord = (await getGameRecord(gameId))!
     const playerIdsInGame = new Set(
       gameRecord.config.teams.map(team => team.filter(p => !p.isComputer).map(p => p.id)).flat(),
     )
 
-    for (const [name, user] of namesToUsers.entries()) {
-      if (!playerIdsInGame.has(user.id)) {
+    for (const [id, _] of playerResults) {
+      if (!playerIdsInGame.has(id)) {
         throw new GameResultServiceError(
           GameResultErrorCode.InvalidPlayers,
-          `player '${name}' was not found in the game record`,
+          `player with id ${id} was not found in the game record`,
         )
       }
     }
-
-    const idResults: [number, GameClientPlayerResult][] = playerResults.map(([name, result]) => [
-      namesToUsers.get(name)!.id,
-      result,
-    ])
 
     await setReportedResults({
       userId,
       gameId,
       reportedResults: {
         time,
-        playerResults: idResults,
+        playerResults,
       },
-      reportedAt: new Date(),
+      reportedAt: new Date(this.clock.now()),
     })
 
     // We don't need to hold up the response while we check for reconciling
@@ -276,7 +269,7 @@ export default class GameResultService {
     }
 
     const reconciled = reconcileResults(currentResults)
-    const reconcileDate = new Date()
+    const reconcileDate = new Date(this.clock.now())
     await transact(async client => {
       // TODO(tec27): in some cases, we'll be re-reconciling results, and we may need to go back
       // and "fixup" rank changes and win/loss counters

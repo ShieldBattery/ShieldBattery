@@ -9,11 +9,14 @@ import { GameStatus } from '../../../common/game-status'
 import { GetGameResponse, toGameRecordJson } from '../../../common/games/games'
 import {
   ALL_GAME_CLIENT_RESULTS,
+  GameClientPlayerResult,
   GameResultErrorCode,
+  LegacySubmitGameResultsRequest,
   SubmitGameResultsRequest,
 } from '../../../common/games/results'
 import { toMapInfoJson } from '../../../common/maps'
 import { toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
+import { SbUserId } from '../../../common/users/sb-user'
 import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPost, httpPut } from '../http/route-decorators'
@@ -23,7 +26,8 @@ import { UpsertUserIp } from '../network/user-ips-type'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
-import { findUsersByIdAsMap } from '../users/user-model'
+import { findUsersByIdAsMap, findUsersByName } from '../users/user-model'
+import { joiUserId } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
 import { GameLoader } from './game-loader'
 import { countCompletedGames } from './game-models'
@@ -227,6 +231,68 @@ export class GameApi {
   // the body is intended to be secret per user and authenticate that they are the one who sent it.
   @httpPost('/:gameId/results')
   @httpBefore(throttleMiddleware(gameResultsThrottle, ctx => String(ctx.ip)))
+  // TODO(tec27): Remove this method once the new API route has been deployed
+  async legacySubmitGameResults(ctx: RouterContext): Promise<void> {
+    const {
+      params: { gameId },
+      body: { userId, resultCode, time, playerResults },
+    } = validateRequest(ctx, {
+      params: GAME_ID_PARAM,
+      body: Joi.object<LegacySubmitGameResultsRequest>({
+        userId: Joi.number().min(0).required(),
+        resultCode: Joi.string().required(),
+        time: Joi.number().min(0).required(),
+        playerResults: Joi.array()
+          .items(
+            Joi.array()
+              .ordered(
+                Joi.string().required(),
+                Joi.object({
+                  result: Joi.valid(...ALL_GAME_CLIENT_RESULTS).required(),
+                  race: Joi.string().valid('p', 't', 'z').required(),
+                  apm: Joi.number().min(0).required(),
+                }).required(),
+              )
+              .required(),
+          )
+          .min(1)
+          .max(8)
+          .required(),
+      }).required(),
+    })
+
+    const namesInResults = playerResults.map(r => r[0])
+    const namesToUsers = await findUsersByName(namesInResults)
+
+    const idResults = playerResults.map<[SbUserId, GameClientPlayerResult]>(([name, result]) => {
+      const user = namesToUsers.get(name)
+      if (!user) {
+        throw new httpErrors.BadRequest(`unknown player name: ${name}`)
+      }
+
+      return [user.id, result]
+    })
+
+    await this.gameResultService.submitGameResults({
+      gameId,
+      userId,
+      resultCode,
+      time,
+      playerResults: idResults,
+      logger: ctx.log,
+    })
+
+    // If it was successful, record this user's IP for that account, since the normal middleware
+    // to do so won't have run
+    this.upsertUserIp(userId, ctx.ip)
+
+    ctx.status = 204
+  }
+
+  // NOTE(tec27): This doesn't require being logged in because the game client sends these requests,
+  // the body is intended to be secret per user and authenticate that they are the one who sent it.
+  @httpPost('/:gameId/results2')
+  @httpBefore(throttleMiddleware(gameResultsThrottle, ctx => String(ctx.ip)))
   async submitGameResults(ctx: RouterContext): Promise<void> {
     const {
       params: { gameId },
@@ -241,7 +307,7 @@ export class GameApi {
           .items(
             Joi.array()
               .ordered(
-                Joi.string().required(),
+                joiUserId().required(),
                 Joi.object({
                   result: Joi.valid(...ALL_GAME_CLIENT_RESULTS).required(),
                   race: Joi.string().valid('p', 't', 'z').required(),
