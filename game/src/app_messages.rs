@@ -85,7 +85,7 @@ pub struct NetworkStallInfo {
 pub struct GameResults {
     #[serde(rename = "time")]
     pub time_ms: u32,
-    pub results: HashMap<String, GamePlayerResult>,
+    pub results: HashMap<u32, GamePlayerResult>,
     pub network_stalls: NetworkStallInfo,
 }
 
@@ -95,7 +95,7 @@ pub struct GameResultsReport {
     pub user_id: u32,
     pub result_code: String,
     pub time: u32,
-    pub player_results: Vec<(String, GamePlayerResult)>,
+    pub player_results: Vec<(u32, GamePlayerResult)>,
 }
 
 #[derive(Serialize)]

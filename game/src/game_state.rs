@@ -486,12 +486,16 @@ impl GameState {
             // Make sure (or at least try to) that quit messages get delivered to everyone and don't
             // get lost, so that quitting players don't trigger a drop screen.
             let mut deliver_final_network = Vec::new();
-            for (name, _) in results
+            for (uid, _) in results
                 .results
                 .iter()
                 .filter(|(_, r)| r.result == 0 /* playing */)
             {
-                if let Some(slot) = setup_info.slots.iter().find(|s| name == &s.name) {
+                if let Some(slot) = setup_info
+                    .slots
+                    .iter()
+                    .find(|s| uid == &s.user_id.unwrap_or(0))
+                {
                     debug!("Triggering final network sends for {}", slot.name);
                     let (send, recv) = oneshot::channel();
                     let _ = network_send
@@ -773,7 +777,7 @@ async fn send_game_result(
     // Attempt to send results to the server, if this fails, we expect
     // the app to retry in the future
     let client = reqwest::Client::new();
-    let result_url = format!("{}/api/1/games/{}/results", info.server_url, info.game_id);
+    let result_url = format!("{}/api/1/games/{}/results2", info.server_url, info.game_id);
 
     let mut result_headers = HeaderMap::new();
     result_headers.insert(ORIGIN, "shieldbattery://game".parse().unwrap());
@@ -785,7 +789,7 @@ async fn send_game_result(
         player_results: results
             .results
             .iter()
-            .map(|(name, result)| (name.clone(), result.clone()))
+            .map(|(&uid, result)| (uid, result.clone()))
             .collect(),
     };
 
@@ -1262,7 +1266,7 @@ impl InitInProgress {
                     }
 
                     Some((
-                        player.name.clone(),
+                        player.sb_user_id,
                         GamePlayerResult {
                             result: results[player.storm_id.0 as usize] as u8,
                             race: match game_results.race[player_id as usize] {

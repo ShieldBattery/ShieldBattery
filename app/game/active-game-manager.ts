@@ -10,8 +10,9 @@ import {
   isReplayMapInfo,
 } from '../../common/game-launch-config'
 import { GameStatus, ReportedGameStatus, statusToString } from '../../common/game-status'
-import { GameClientPlayerResult, LegacySubmitGameResultsRequest } from '../../common/games/results'
+import { GameClientPlayerResult, SubmitGameResultsRequest } from '../../common/games/results'
 import { EventMap, TypedEventEmitter } from '../../common/typed-emitter'
+import { makeSbUserId, SbUserId } from '../../common/users/sb-user'
 import log from '../logger'
 import { LocalSettings, ScrSettings } from '../settings'
 import { checkStarcraftPath } from './check-starcraft-path'
@@ -41,7 +42,7 @@ interface ActiveGameInfo {
    * The results of the game delivered once our local process has completed.
    */
   result?: {
-    result: any
+    result: Record<SbUserId, GameClientPlayerResult>
     /** How long the game was played, in milliseconds. */
     time: number
   }
@@ -61,14 +62,14 @@ export interface ActiveGameManagerEvents extends EventMap {
   gameCommand: (gameId: string, command: string, ...args: any[]) => void
   gameResult: (info: {
     gameId: string
-    /** A mapping of player name -> result. */
-    result: Record<string, GameClientPlayerResult>
+    /** A mapping of player user ID -> result. */
+    result: Record<SbUserId, GameClientPlayerResult>
     /** The time the game took in milliseconds. */
     time: number
   }) => void
   gameStatus: (statusInfo: ReportedGameStatus) => void
   replaySaved: (gameId: string, path: string) => void
-  resendResults: (gameId: string, requestBody: LegacySubmitGameResultsRequest) => void
+  resendResults: (gameId: string, requestBody: SubmitGameResultsRequest) => void
 }
 
 @singleton()
@@ -269,7 +270,7 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
     this.setStatus(GameStatus.Playing)
   }
 
-  handleGameResult(gameId: string, result: Record<string, GameClientPlayerResult>, time: number) {
+  handleGameResult(gameId: string, result: Record<SbUserId, GameClientPlayerResult>, time: number) {
     if (!this.activeGame || this.activeGame.id !== gameId) {
       return
     }
@@ -351,11 +352,14 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
       this.activeGame.result
     ) {
       const config = this.activeGame.config!
-      const submission: LegacySubmitGameResultsRequest = {
+      const submission: SubmitGameResultsRequest = {
         userId: config.localUser.id,
         resultCode: config.setup.resultCode!,
         time: this.activeGame.result.time,
-        playerResults: Array.from(Object.entries(this.activeGame.result.result)),
+        playerResults: Array.from(Object.entries(this.activeGame.result.result), ([id, result]) => [
+          makeSbUserId(Number(id)),
+          result,
+        ]),
       }
 
       this.emit('resendResults', this.activeGame.id, submission)

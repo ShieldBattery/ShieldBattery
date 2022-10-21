@@ -9,7 +9,7 @@ import type { ReplayHeader } from 'jssuh'
 import { Promisable } from 'type-fest'
 import { GameLaunchConfig, GameRoute } from './game-launch-config'
 import { ReportedGameStatus } from './game-status'
-import { GameClientPlayerResult, LegacySubmitGameResultsRequest } from './games/results'
+import { GameClientPlayerResult, SubmitGameResultsRequest } from './games/results'
 import { LocalSettingsData, ScrSettingsData } from './local-settings'
 import { MapExtension } from './maps'
 import { ResolvedRallyPointServer } from './rally-point'
@@ -129,7 +129,7 @@ interface IpcMainSendables {
    * renderer process to do because this usually indicates some issue with e.g. the TLS stack of
    * this system, so using the network stack outside the renderer also tends to fail.
    */
-  activeGameResendResults: (gameId: string, requestBody: LegacySubmitGameResultsRequest) => void
+  activeGameResendResults: (gameId: string, requestBody: SubmitGameResultsRequest) => void
   activeGameStatus: (status: ReportedGameStatus) => void
 
   rallyPointPingResult: (server: ResolvedRallyPointServer, ping: number) => void

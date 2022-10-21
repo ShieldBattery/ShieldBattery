@@ -29,7 +29,7 @@ export default function ({
       // TODO(#542): Retry submission of these results more times/for longer to try and ensure
       // complete resutls on the server
       logger.verbose('Game failed to send result, retrying once from the app')
-      fetchJson<void>(apiUrl`games/${gameId}/results`, {
+      fetchJson<void>(apiUrl`games/${gameId}/results2`, {
         method: 'POST',
         body: JSON.stringify(requestBody),
       })
