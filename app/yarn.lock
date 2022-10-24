@@ -987,10 +987,10 @@
     "@jridgewell/resolve-uri" "3.1.0"
     "@jridgewell/sourcemap-codec" "1.4.14"
 
-"@shieldbattery/stimpack@^0.2.0":
-  version "0.2.0"
-  resolved "https://registry.yarnpkg.com/@shieldbattery/stimpack/-/stimpack-0.2.0.tgz#8f1e49ac076a6c3582346d0d05bda841a7408298"
-  integrity sha512-Pyi6QcFt67sncHSM2M+/tBWAjfyRTMA2tXIdpoWqVZEw1qdTkG10RBK8TiUtFFyEyYZ5LpT63XiXLBnueXXBZQ==
+"@shieldbattery/stimpack@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@shieldbattery/stimpack/-/stimpack-1.0.0.tgz#7eefc7aec63e64e1191027c73fee5c9434bb2a63"
+  integrity sha512-s7QHNjaEHWjfJpuLhctRvK+unMgNJY/OaH3ILq+sbh2rzqth3Oc7tu8VbrrJOYFJwyJp0VXy2GRk2F+dIATWNQ==
 
 "@types/semver@^7.3.6":
   version "7.3.12"
