@@ -389,6 +389,7 @@ async function getMapsCount(whereCondition: SQLStatement): Promise<number> {
 function getOrderByStatement(sort: MapSortType): string {
   const sortByArray = ['name']
   if (sort === MapSortType.NumberOfPlayers) {
+    // TODO(tec27): Use players_melee if this is 0?
     sortByArray.unshift('players_ums')
   } else if (sort === MapSortType.Date) {
     sortByArray.unshift('upload_date DESC')
@@ -414,7 +415,12 @@ export async function getMaps(
   }
 
   if (filters.numPlayers) {
-    whereCondition.append(sql` AND players_ums = ANY(${filters.numPlayers})`)
+    // Some maps (ICCup's Hannibal, for example) has players_ums = 0, which we don't allow filtering
+    // on, so we use players_melee in that case
+    whereCondition.append(sql` AND (
+      players_ums = ANY(${filters.numPlayers}) OR
+      players_ums = 0 AND players_melee = ANY(${filters.numPlayers})
+    )`)
   }
 
   if (filters.tileset) {
@@ -490,7 +496,12 @@ export async function getFavoritedMaps(
   const whereCondition = sql`WHERE removed_at IS NULL AND favorited_by = ${favoritedBy}`
 
   if (filters.numPlayers) {
-    whereCondition.append(sql` AND players_ums = ANY(${filters.numPlayers})`)
+    // Some maps (ICCup's Hannibal, for example) has players_ums = 0, which we don't allow filtering
+    // on, so we use players_melee in that case
+    whereCondition.append(sql` AND (
+      players_ums = ANY(${filters.numPlayers}) OR
+      players_ums = 0 AND players_melee = ANY(${filters.numPlayers})
+    )`)
   }
 
   if (filters.tileset) {
