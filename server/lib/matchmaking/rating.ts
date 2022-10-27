@@ -288,7 +288,11 @@ function makeRatingChange({
   // Ensure that a player's points cannot go below 0
   pointsChange = Math.max(pointsChange, -player.points)
   pointsConverged =
-    pointsConverged || arePointsConverged(player.rating, player.points + pointsChange)
+    pointsConverged ||
+    arePointsConverged(
+      player.rating,
+      player.points + pointsChange - (player.bonusUsed + bonusApplied),
+    )
 
   return {
     userId: player.userId,
