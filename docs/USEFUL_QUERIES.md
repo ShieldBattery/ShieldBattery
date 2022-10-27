@@ -58,6 +58,24 @@ GROUP BY name, matchmaking_type
 ORDER BY matchmaking_type, vetoes DESC;
 ```
 
+## Count matchmaking games by season and type
+
+```sql
+WITH seasons AS (
+	SELECT ms.id, ms.start_date, LEAD(ms.start_date, 1) OVER (ORDER BY start_date) end_date, ms.name
+	FROM matchmaking_seasons ms
+	ORDER BY start_date DESC
+)
+SELECT s.name, g.config->'gameSourceExtra'->>'type', COUNT(*)
+FROM games g
+JOIN seasons s
+ON g.start_time >= s.start_date
+AND g.start_time < s.end_date
+WHERE g.config->>'gameSource' = 'MATCHMAKING'
+GROUP BY s.name, g.config->'gameSourceExtra'->>'type'
+ORDER BY s.name, g.config->'gameSourceExtra'->>'type';
+```
+
 # Creating a readonly role and user logins
 
 These must be executed as the superuser.
