@@ -187,7 +187,8 @@ export async function createInitialMatchmakingRating(
       AND mr.matchmaking_type = ${matchmakingType}
       WHERE
         (mr.user_id = ${userId} AND ms.start_date < ${season.startDate}) OR
-        (mr.user_id != ${userId} AND ms.start_date <= ${season.startDate})
+        (mr.user_id != ${userId} AND ms.start_date <= ${season.startDate}) OR
+        (mr.user_id IS NULL)
       ORDER BY ms.start_date DESC, mr.last_played_date DESC;
     `)
 
@@ -195,8 +196,9 @@ export async function createInitialMatchmakingRating(
     let foundLifetimeGames = false
     let lifetimeGames = 0
     for (const row of previousMmrs.rows) {
+      // row.user_id being non-null means we found a previous MMR
       if (row.user_id) {
-        if (row.reset && row.season_id !== season.id) {
+        if (season.resetMmr && row.season_id !== season.id) {
           // Special handling here to allow for smurf detection in the current season even if it's a
           // reset season, but not allow any older MMR entries
           break
@@ -217,7 +219,9 @@ export async function createInitialMatchmakingRating(
         if (previousMmr && foundLifetimeGames) {
           break
         }
-      } else if (row.reset) {
+      }
+
+      if (row.reset) {
         // Once we find a reset season without finding a previous MMR, all MMRs past that point
         // are void
         break
