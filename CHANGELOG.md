@@ -1,3 +1,22 @@
+#### 8.7.0 (October 27, 2022)
+
+- **Support for WINE.** Although not officially supported, the app is now able to run under WINE on
+  Linux and launch games. If you'd like more details about how to get it working, check out the
+  #development channel in our Discord.
+- **New season with tweaks to the rating system.** Alongside this update comes a new season and new
+  map pools for 1v1 and 2v2. We've taken a look at how the rating system performed for Season 1, and
+  made some adjustments:
+  - Bonus pool reduced to **200** points per week (from **400**). We thought the bonus pool gain
+    was too significant of a factor, especially late in the season, so this change should help to
+    rein that in.
+  - Point target increased to **MMR x 4** (from **MMR x 2**). This should help players spread out
+    more within a division, and keep active players on the leaderboard more in order by division
+    (so Champion players at the top, followed by Diamond, followed by Platinum, etc.).
+  - Added an initial period of rapid point gain for wins for each player at the start of the season.
+    This should bring players up to a point total appropriate for their division quickly, while
+    still providing the benefits that come from using the point system (better anti-smurfing, more
+    accurate matches at the beginning of seasons, etc.).
+
 #### 8.6.0 (October 3, 2022)
 
 - **Friends and enemies.** We've built out a new friends list and added a way to block other user's
