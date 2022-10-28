@@ -9,6 +9,7 @@ import {
 } from '../../../common/chat'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
+import { escapeSearchString } from '../db/escape-search-string'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 
@@ -581,8 +582,9 @@ export async function findChannelByName(
 }
 
 /**
- * Returns a list of non-private chat channels that a user is not joined in, optionally filtered by
- * a `searchStr`.
+ * Returns a list of non-private chat channels, optionally filtered by a `searchStr`. The list
+ * doesn't include the user's joined channel by default, but can be configured to include them as
+ * well.
  */
 export async function listChannels(
   {
@@ -590,31 +592,42 @@ export async function listChannels(
     limit,
     pageNumber,
     searchStr,
+    joined,
   }: {
+    /** User requesting the list of channels. */
     userId: SbUserId
+    /** Amount of channels to return. */
     limit: number
+    /** Offset from which to start listing the channels. */
     pageNumber: number
+    /** String to filter the channels by. */
     searchStr?: string
+    /** Flag which includes the user's joined channels if true. */
+    joined?: boolean
   },
   withClient?: DbClient,
 ): Promise<ChannelInfo[]> {
   const { client, done } = await db(withClient)
   try {
-    const query = sql`
-      WITH unjoined_channels AS (
-        SELECT DISTINCT(channel_id)
-        FROM channel_users
-        WHERE channel_id NOT IN (SELECT channel_id FROM channel_users WHERE user_id = ${userId})
-      )
-      SELECT c.*, COUNT(cu.user_id) AS user_count
-      FROM channels c
-      INNER JOIN unjoined_channels ON c.id = unjoined_channels.channel_id
-      INNER JOIN channel_users cu ON c.id = cu.channel_id
-    `
+    const query = joined
+      ? sql`
+        SELECT c.*
+        FROM channels c
+      `
+      : sql`
+        WITH unjoined_channels AS (
+          SELECT DISTINCT(channel_id)
+          FROM channel_users
+          WHERE channel_id NOT IN (SELECT channel_id FROM channel_users WHERE user_id = ${userId})
+        )
+        SELECT c.*
+        FROM channels c
+        INNER JOIN unjoined_channels ON c.id = unjoined_channels.channel_id
+      `
 
-    const whereCondition: SQLStatement = sql`WHERE private = false`
+    const whereCondition = sql`WHERE private = false`
     if (searchStr) {
-      const escapedStr = `%${searchStr.replace(/[_%\\]/g, '\\$&')}%`
+      const escapedStr = `%${escapeSearchString(searchStr)}%`
       whereCondition.append(sql` AND name ILIKE ${escapedStr}`)
 
       query.append(whereCondition)
@@ -622,7 +635,7 @@ export async function listChannels(
 
     query.append(sql`
       GROUP BY c.id
-      ORDER BY user_count DESC, name
+      ORDER BY c.user_count DESC, c.name
       LIMIT ${limit}
       OFFSET ${pageNumber * limit}
     `)
@@ -654,21 +667,20 @@ export async function listAllChannels(
   const { client, done } = await db(withClient)
   try {
     const query = sql`
-      SELECT c.*, COUNT(cu.user_id) AS user_count
-      FROM channels c
-      INNER JOIN channel_users cu ON c.id = cu.channel_id
+      SELECT *
+      FROM channels
     `
 
     let whereCondition: SQLStatement | undefined
     if (searchStr) {
-      const escapedStr = `%${searchStr.replace(/[_%\\]/g, '\\$&')}%`
+      const escapedStr = `%${escapeSearchString(searchStr)}%`
       whereCondition = sql`WHERE name ILIKE ${escapedStr}`
 
       query.append(whereCondition)
     }
 
     query.append(sql`
-      GROUP BY c.id
+      GROUP BY id
       ORDER BY user_count DESC, name
       LIMIT ${limit}
       OFFSET ${pageNumber * limit}

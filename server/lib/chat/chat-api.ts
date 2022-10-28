@@ -334,12 +334,13 @@ export class ChatApi {
   )
   async listChannels(ctx: RouterContext): Promise<ChannelInfo[]> {
     const {
-      query: { q: searchQuery, limit, page },
+      query: { q: searchQuery, limit, page, joined },
     } = validateRequest(ctx, {
-      query: Joi.object<{ q?: string; page: number; limit: number }>({
+      query: Joi.object<{ q?: string; page: number; limit: number; joined?: boolean }>({
         q: Joi.string().allow(''),
         limit: Joi.number(),
         page: Joi.number(),
+        joined: Joi.boolean().default(false),
       }),
     })
 
@@ -348,6 +349,7 @@ export class ChatApi {
       limit,
       pageNumber: page,
       searchStr: searchQuery,
+      joined,
     })
   }
 }

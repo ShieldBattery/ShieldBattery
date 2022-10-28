@@ -1,10 +1,10 @@
 import { debounce } from 'lodash-es'
-import React, { useMemo, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 import styled from 'styled-components'
 import { ChannelInfo } from '../../common/chat'
 import { apiUrl } from '../../common/urls'
 import { getMessageHistory, retrieveUserList } from '../chat/action-creators'
-import { UserList } from '../chat/channel'
+import { ChannelUserList } from '../chat/channel-user-list'
 import ChannelIcon from '../icons/material/image-24px.svg'
 import Carousel from '../lists/carousel'
 import { RaisedButton } from '../material/button'
@@ -17,11 +17,6 @@ import { SearchInput } from '../search/search-input'
 import { useStableCallback } from '../state-hooks'
 import { colorError, colorTextFaint } from '../styles/colors'
 import { Body1, headline5, headline6, Headline6, singleLine, subtitle1 } from '../styles/typography'
-import {
-  areUserEntriesEqual,
-  sortUserEntries,
-  useUserEntriesSelector,
-} from '../users/sorted-user-ids'
 
 const SEARCH_CHANNELS_LIMIT = 10
 const CHANNEL_MESSAGES_LIMIT = 50
@@ -126,6 +121,7 @@ export function AdminChatChannels() {
   const [isLoadingMoreChannels, setIsLoadingMoreChannels] = useState(false)
   const [searchError, setSearchError] = useState<Error>()
   const [searchQuery, setSearchQuery] = useLocationSearchParam('q')
+  const abortControllerRef = useRef<AbortController>()
 
   const carouselRef = useRef(null)
   const debouncedSearchRef = useRef(
@@ -152,8 +148,12 @@ export function AdminChatChannels() {
     setIsLoadingMoreChannels(true)
     setCurrentPage(currentPage + 1)
 
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = new AbortController()
+
     fetchJson<ChannelInfo[]>(
       apiUrl`admin/chat/?q=${searchQuery}&limit=${SEARCH_CHANNELS_LIMIT}&page=${currentPage + 1}`,
+      { signal: abortControllerRef.current.signal },
     )
       .then(data => {
         setIsLoadingMoreChannels(false)
@@ -167,31 +167,8 @@ export function AdminChatChannels() {
   })
 
   const [selectedChannel, setSelectedChannel] = useState<ChannelInfo>()
-  const channelUsers = useAppSelector(s =>
-    selectedChannel ? s.chat.idToUsers.get(selectedChannel.id) : undefined,
-  )
   const channelMessages = useAppSelector(s =>
     selectedChannel ? s.chat.idToMessages.get(selectedChannel.id) : undefined,
-  )
-  const activeUserIds = channelUsers?.active
-  const idleUserIds = channelUsers?.idle
-  const offlineUserIds = channelUsers?.offline
-
-  const activeUserEntries = useAppSelector(
-    useUserEntriesSelector(activeUserIds),
-    areUserEntriesEqual,
-  )
-  const idleUserEntries = useAppSelector(useUserEntriesSelector(idleUserIds), areUserEntriesEqual)
-  const offlineUserEntries = useAppSelector(
-    useUserEntriesSelector(offlineUserIds),
-    areUserEntriesEqual,
-  )
-
-  const sortedActiveUsers = useMemo(() => sortUserEntries(activeUserEntries), [activeUserEntries])
-  const sortedIdleUsers = useMemo(() => sortUserEntries(idleUserEntries), [idleUserEntries])
-  const sortedOfflineUsers = useMemo(
-    () => sortUserEntries(offlineUserEntries),
-    [offlineUserEntries],
   )
 
   const onLoadMoreMessages = useStableCallback(() => {
@@ -254,11 +231,7 @@ export function AdminChatChannels() {
               hasMoreHistory={channelMessages?.hasHistory}
               refreshToken={selectedChannel.id}
             />
-            <UserList
-              active={sortedActiveUsers}
-              idle={sortedIdleUsers}
-              offline={sortedOfflineUsers}
-            />
+            <ChannelUserList channelId={selectedChannel.id} />
           </ChannelContainer>
         </>
       ) : (
