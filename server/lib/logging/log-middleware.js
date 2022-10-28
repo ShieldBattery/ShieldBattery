@@ -1,6 +1,6 @@
 import koaPino from 'koa-pino-logger'
-import { getLoggerOptions } from './logger'
+import { getLoggerOptions, getLoggerTransports } from './logger'
 
 export default function logMiddleware() {
-  return koaPino(getLoggerOptions())
+  return koaPino(getLoggerOptions(), getLoggerTransports())
 }

@@ -50,6 +50,7 @@ services:
       - SB_MAILGUN_DOMAIN=${SB_MAILGUN_DOMAIN}
       - SB_MAILGUN_FROM=${SB_MAILGUN_FROM}
       - SB_ANALYTICS_ID=${SB_ANALYTICS_ID}
+      - SB_DATADOG_KEY=${SB_DATADOG_KEY}
     networks:
       - frontend
       - backend

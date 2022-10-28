@@ -8,9 +8,7 @@ import {
   CanManageMatchmakingSeasonsFilter,
   CanManageMatchmakingTimesFilter,
   CanManageRallyPointFilter,
-  CanSeeDebugFilter,
 } from './admin-route-filters'
-import { DebugLogs } from './debug-logs'
 import AdminMapPools from './map-pools'
 import { AdminMatchmakingSeasons } from './matchmaking-seasons'
 import AdminMatchmakingTimes from './matchmaking-times'
@@ -25,13 +23,6 @@ interface AdminDashboardProps {
 function AdminDashboard(props: AdminDashboardProps) {
   const perms = props.permissions
 
-  const debugLinks = perms.debug ? (
-    <>
-      <li>
-        <Link href='/admin/debug-logs'>Debug logs</Link>
-      </li>
-    </>
-  ) : null
   const mapsLink =
     (perms.manageMaps || perms.massDeleteMaps) && IS_ELECTRON ? (
       <li>
@@ -61,7 +52,6 @@ function AdminDashboard(props: AdminDashboardProps) {
 
   return (
     <ul>
-      {debugLinks}
       {mapsLink}
       {mapPoolsLink}
       {matchmakingSeasonsLink}
@@ -91,11 +81,6 @@ export default function AdminPanel() {
         path='/admin/matchmaking-times'
         filters={[CanManageMatchmakingTimesFilter]}
         component={AdminMatchmakingTimes}
-      />
-      <ConditionalRoute
-        path='/admin/debug-logs/:rest*'
-        filters={[CanSeeDebugFilter]}
-        component={DebugLogs}
       />
       <ConditionalRoute
         path='/admin/rally-point/:rest*'
