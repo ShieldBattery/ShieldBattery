@@ -5,9 +5,7 @@ import { replace } from '../navigation/routing'
 import { ConnectedChatChannel } from './channel'
 
 export function ChannelRouteComponent(props: { params: any }) {
-  const [matches, params] = useRoute<{ channelId: string; channelName: string }>(
-    '/chat/:channelId/:channelName',
-  )
+  const [matches, params] = useRoute('/chat/:channelId/:channelName')
 
   if (!matches) {
     queueMicrotask(() => {
@@ -15,7 +13,7 @@ export function ChannelRouteComponent(props: { params: any }) {
     })
     return null
   }
-  const channelIdNum = Number(params!.channelId)
+  const channelIdNum = Number(params.channelId)
   if (isNaN(channelIdNum)) {
     queueMicrotask(() => {
       replace('/')

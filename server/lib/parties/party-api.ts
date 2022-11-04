@@ -299,7 +299,7 @@ export class PartyApi {
 
     await this.userIdManager.upsert(ctx.session!.userId, identifiers)
     if (await this.userIdManager.banUserIfNeeded(ctx.session!.userId)) {
-      throw new httpErrors.UnauthorizedError('This account is banned')
+      throw new httpErrors.Unauthorized('This account is banned')
     }
 
     await this.partyService.findMatch(partyId, ctx.session!.userId, identifiers, preferences)
@@ -324,7 +324,7 @@ export class PartyApi {
 
     await this.userIdManager.upsert(ctx.session!.userId, identifiers)
     if (await this.userIdManager.banUserIfNeeded(ctx.session!.userId)) {
-      throw new httpErrors.UnauthorizedError('This account is banned')
+      throw new httpErrors.Unauthorized('This account is banned')
     }
 
     this.partyService.acceptFindMatch(partyId, queueId, ctx.session!.userId, identifiers, race)

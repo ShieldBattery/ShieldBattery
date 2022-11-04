@@ -108,7 +108,7 @@ const LastUpdatedText = styled.div`
 const savedLadderTab = new JsonLocalStorageValue<MatchmakingType>('ladderTab')
 
 export function LadderRouteComponent(props: { params: any }) {
-  const [matches, params] = useRoute<{ matchmakingType: string }>('/ladder/:matchmakingType?')
+  const [matches, params] = useRoute('/ladder/:matchmakingType?')
 
   if (!matches) {
     queueMicrotask(() => {
@@ -117,8 +117,8 @@ export function LadderRouteComponent(props: { params: any }) {
     return null
   }
 
-  const matchmakingType = ALL_MATCHMAKING_TYPES.includes(params?.matchmakingType as MatchmakingType)
-    ? (params!.matchmakingType as MatchmakingType)
+  const matchmakingType = ALL_MATCHMAKING_TYPES.includes(params.matchmakingType as MatchmakingType)
+    ? (params.matchmakingType as MatchmakingType)
     : undefined
 
   return <Ladder matchmakingType={matchmakingType} />

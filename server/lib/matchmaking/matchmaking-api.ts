@@ -109,7 +109,7 @@ export class MatchmakingApi {
     await this.userIdManager.upsert(ctx.session!.userId, identifiers)
 
     if (await this.userIdManager.banUserIfNeeded(ctx.session!.userId)) {
-      throw new httpErrors.UnauthorizedError('This account is banned')
+      throw new httpErrors.Unauthorized('This account is banned')
     }
 
     await this.matchmakingService.find(ctx.session!.userId, clientId, identifiers, preferences)
