@@ -55,7 +55,7 @@ const ChannelInfoContainer = styled.div`
   align-items: center;
 `
 
-function renderMessage(msg: SbMessage) {
+export function renderChannelMessage(msg: SbMessage) {
   switch (msg.type) {
     case ClientChatMessageType.BanUser:
       return <BanUserMessage key={msg.id} time={msg.time} userId={msg.userId} />
@@ -85,6 +85,7 @@ export function ConnectedChatChannel({
 }: ChatChannelProps) {
   const dispatch = useAppDispatch()
   const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
+  const channelUsers = useAppSelector(s => s.chat.idToUsers.get(channelId))
   const channelMessages = useAppSelector(s => s.chat.idToMessages.get(channelId))
   const isInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
 
@@ -142,14 +143,20 @@ export function ConnectedChatChannel({
             loading: channelMessages?.loadingHistory,
             hasMoreHistory: channelMessages?.hasHistory,
             refreshToken: channelId,
-            renderMessage,
+            renderMessage: renderChannelMessage,
             onLoadMoreMessages,
           }}
           inputProps={{
             onSendChatMessage,
             storageKey: `chat.${channelId}`,
           }}
-          extraContent={<ChannelUserList channelId={channelId} />}
+          extraContent={
+            <ChannelUserList
+              active={channelUsers?.active}
+              idle={channelUsers?.idle}
+              offline={channelUsers?.offline}
+            />
+          }
           modifyMenuItems={modifyMenuItems}
         />
       ) : (

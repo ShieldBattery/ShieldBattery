@@ -1,4 +1,4 @@
-import sql, { SQLStatement } from 'sql-template-strings'
+import sql from 'sql-template-strings'
 import { MergeExclusive } from 'type-fest'
 import {
   ChannelInfo,
@@ -584,9 +584,9 @@ export async function findChannelByName(
 /**
  * Returns a list of non-private chat channels, optionally filtered by a `searchStr`. The list
  * doesn't include the user's joined channel by default, but can be configured to include them as
- * well.
+ * well (including the joined private channels).
  */
-export async function listChannels(
+export async function searchChannelsAsUser(
   {
     userId,
     limit,
@@ -611,8 +611,19 @@ export async function listChannels(
   try {
     const query = joined
       ? sql`
+        WITH joined_channels AS (
+          SELECT DISTINCT(channel_id)
+          FROM channel_users
+          WHERE channel_id IN (SELECT channel_id FROM channel_users WHERE user_id = ${userId})
+        )
         SELECT c.*
         FROM channels c
+        INNER JOIN joined_channels ON c.id = joined_channels.channel_id
+
+        UNION
+
+        SELECT *
+        FROM channels
       `
       : sql`
         WITH unjoined_channels AS (
@@ -625,17 +636,14 @@ export async function listChannels(
         INNER JOIN unjoined_channels ON c.id = unjoined_channels.channel_id
       `
 
-    const whereCondition = sql`WHERE private = false`
+    query.append(sql`WHERE private = false`)
     if (searchStr) {
       const escapedStr = `%${escapeSearchString(searchStr)}%`
-      whereCondition.append(sql` AND name ILIKE ${escapedStr}`)
-
-      query.append(whereCondition)
+      query.append(sql` AND name ILIKE ${escapedStr}`)
     }
 
     query.append(sql`
-      GROUP BY c.id
-      ORDER BY c.user_count DESC, c.name
+      ORDER BY user_count DESC, name
       LIMIT ${limit}
       OFFSET ${pageNumber * limit}
     `)
@@ -652,7 +660,7 @@ export async function listChannels(
  * Returns a full list of chat channels, optionally filtered by a `searchStr`. Only admins should be
  * able to call this function.
  */
-export async function listAllChannels(
+export async function searchChannelsAsAdmin(
   {
     limit,
     pageNumber,
@@ -671,16 +679,12 @@ export async function listAllChannels(
       FROM channels
     `
 
-    let whereCondition: SQLStatement | undefined
     if (searchStr) {
       const escapedStr = `%${escapeSearchString(searchStr)}%`
-      whereCondition = sql`WHERE name ILIKE ${escapedStr}`
-
-      query.append(whereCondition)
+      query.append(sql`WHERE name ILIKE ${escapedStr}`)
     }
 
     query.append(sql`
-      GROUP BY id
       ORDER BY user_count DESC, name
       LIMIT ${limit}
       OFFSET ${pageNumber * limit}

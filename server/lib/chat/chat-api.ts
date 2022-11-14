@@ -26,7 +26,7 @@ import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
-import { listAllChannels, listChannels } from './chat-models'
+import { searchChannelsAsAdmin, searchChannelsAsUser } from './chat-models'
 import ChatService, { ChatServiceError } from './chat-service'
 
 const joinThrottle = createThrottle('chatjoin', {
@@ -332,7 +332,7 @@ export class ChatApi {
     featureEnabled(MULTI_CHANNEL),
     throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)),
   )
-  async listChannels(ctx: RouterContext): Promise<ChannelInfo[]> {
+  async searchChannels(ctx: RouterContext): Promise<ChannelInfo[]> {
     const {
       query: { q: searchQuery, limit, page, joined },
     } = validateRequest(ctx, {
@@ -344,7 +344,7 @@ export class ChatApi {
       }),
     })
 
-    return await listChannels({
+    return await searchChannelsAsUser({
       userId: ctx.session!.userId,
       limit,
       pageNumber: page,
@@ -355,13 +355,16 @@ export class ChatApi {
 }
 
 @httpApi('/admin/chat')
-@httpBeforeAll(ensureLoggedIn, convertChatServiceErrors)
+@httpBeforeAll(
+  ensureLoggedIn,
+  checkAnyPermission('editPermissions', 'moderateChatChannels'),
+  convertChatServiceErrors,
+)
 export class AdminChatApi {
   constructor(private chatService: ChatService) {}
 
   @httpGet('/')
-  @httpBefore(checkAnyPermission('editPermissions', 'moderateChatChannels'))
-  async listChannels(ctx: RouterContext): Promise<ChannelInfo[]> {
+  async searchChannels(ctx: RouterContext): Promise<ChannelInfo[]> {
     const {
       query: { q: searchQuery, limit, page },
     } = validateRequest(ctx, {
@@ -372,10 +375,41 @@ export class AdminChatApi {
       }),
     })
 
-    return await listAllChannels({
+    return await searchChannelsAsAdmin({
       limit,
       pageNumber: page,
       searchStr: searchQuery,
     })
+  }
+
+  @httpGet('/:channelId/messages')
+  async getChannelHistory(ctx: RouterContext): Promise<GetChannelHistoryServerResponse> {
+    const channelId = getValidatedChannelId(ctx)
+    const {
+      query: { limit, beforeTime },
+    } = validateRequest(ctx, {
+      query: Joi.object<{ limit: number; beforeTime: number }>({
+        limit: Joi.number().min(1).max(100),
+        beforeTime: Joi.number().min(-1),
+      }),
+    })
+
+    return await this.chatService.getChannelHistory(
+      channelId,
+      ctx.session!.userId,
+      limit,
+      beforeTime,
+      true /* isAdmin */,
+    )
+  }
+
+  @httpGet('/:channelId/users')
+  async getChannelUsers(ctx: RouterContext): Promise<SbUser[]> {
+    const channelId = getValidatedChannelId(ctx)
+    return await this.chatService.getChannelUsers(
+      channelId,
+      ctx.session!.userId,
+      true /* isAdmin */,
+    )
   }
 }

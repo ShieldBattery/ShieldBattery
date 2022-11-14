@@ -4,13 +4,13 @@ import { PermissionsRecord } from '../auth/auth-records'
 import { ConditionalRoute } from '../navigation/custom-routes'
 import { useAppSelector } from '../redux-hooks'
 import {
-  CanManageChatChannels,
   CanManageMapPoolsFilter,
   CanManageMatchmakingSeasonsFilter,
   CanManageMatchmakingTimesFilter,
   CanManageRallyPointFilter,
+  CanViewChatChannels,
 } from './admin-route-filters'
-import { AdminChatChannels } from './chat-channels'
+import { AdminChannelView } from './channel-view'
 import AdminMapPools from './map-pools'
 import { AdminMatchmakingSeasons } from './matchmaking-seasons'
 import AdminMatchmakingTimes from './matchmaking-times'
@@ -25,10 +25,10 @@ interface AdminDashboardProps {
 function AdminDashboard(props: AdminDashboardProps) {
   const perms = props.permissions
 
-  const chatChannelsLink = perms.moderateChatChannels ? (
+  const channelViewLink = perms.moderateChatChannels ? (
     <>
       <li>
-        <Link href='/admin/chat-channels'>Chat channels</Link>
+        <Link href='/admin/channel-view'>Channel view</Link>
       </li>
     </>
   ) : null
@@ -61,7 +61,7 @@ function AdminDashboard(props: AdminDashboardProps) {
 
   return (
     <ul>
-      {chatChannelsLink}
+      {channelViewLink}
       {mapsLink}
       {mapPoolsLink}
       {matchmakingSeasonsLink}
@@ -77,9 +77,9 @@ export default function AdminPanel() {
   return (
     <Switch>
       <ConditionalRoute
-        path='/admin/chat-channels'
-        filters={[CanManageChatChannels]}
-        component={AdminChatChannels}
+        path='/admin/channel-view'
+        filters={[CanViewChatChannels]}
+        component={AdminChannelView}
       />
       {AdminMapManager ? <Route path='/admin/map-manager' component={AdminMapManager} /> : <></>}
       <ConditionalRoute

@@ -82,11 +82,11 @@ export default class Carousel extends React.Component {
     this._calcCarouselWidth()
   }
 
-  componentDidUpdate(prevProps) {
+  componentDidUpdate(prevProps, prevState) {
     const prevCount = React.Children.count(prevProps.children)
     const currCount = React.Children.count(this.props.children)
 
-    if (prevCount !== currCount) {
+    if (prevCount !== currCount || prevState.translateWidth !== this.state.translateWidth) {
       this._calcCarouselWidth()
     }
   }
@@ -160,8 +160,6 @@ export default class Carousel extends React.Component {
     const translateWidth = currentWidth + delta
 
     this.setState({ translateWidth })
-    // Width can change due to prev/next button showing/hiding so we need to recalculate it
-    this._calcCarouselWidth()
   }
 
   onPrev = () => {

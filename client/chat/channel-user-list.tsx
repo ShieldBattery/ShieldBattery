@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo } from 'react'
 import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
-import { SbChannelId } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { useVirtuosoScrollFix } from '../dom/virtuoso-scroll-fix'
@@ -253,23 +252,21 @@ const UserList = React.memo((props: UserListProps) => {
   )
 })
 
-export function ChannelUserList({ channelId }: { channelId: SbChannelId }) {
-  const channelUsers = useAppSelector(s => s.chat.idToUsers.get(channelId))
-  const activeUserIds = channelUsers?.active
-  const idleUserIds = channelUsers?.idle
-  const offlineUserIds = channelUsers?.offline
+export function ChannelUserList({
+  active,
+  idle,
+  offline,
+}: {
+  active?: ReadonlySet<SbUserId>
+  idle?: ReadonlySet<SbUserId>
+  offline?: ReadonlySet<SbUserId>
+}) {
   // We map the user IDs to their usernames so we can sort them by their name without pulling all of
   // the users from the store and depending on any of their changes.
 
-  const activeUserEntries = useAppSelector(
-    useUserEntriesSelector(activeUserIds),
-    areUserEntriesEqual,
-  )
-  const idleUserEntries = useAppSelector(useUserEntriesSelector(idleUserIds), areUserEntriesEqual)
-  const offlineUserEntries = useAppSelector(
-    useUserEntriesSelector(offlineUserIds),
-    areUserEntriesEqual,
-  )
+  const activeUserEntries = useAppSelector(useUserEntriesSelector(active), areUserEntriesEqual)
+  const idleUserEntries = useAppSelector(useUserEntriesSelector(idle), areUserEntriesEqual)
+  const offlineUserEntries = useAppSelector(useUserEntriesSelector(offline), areUserEntriesEqual)
 
   const sortedActiveUsers = useMemo(() => sortUserEntries(activeUserEntries), [activeUserEntries])
   const sortedIdleUsers = useMemo(() => sortUserEntries(idleUserEntries), [idleUserEntries])
