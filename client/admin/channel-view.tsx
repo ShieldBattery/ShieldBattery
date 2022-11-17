@@ -29,7 +29,23 @@ import { Body1, headline5, headline6, Headline6, singleLine, subtitle1 } from '.
 const SEARCH_CHANNELS_LIMIT = 10
 const CHANNEL_MESSAGES_LIMIT = 50
 
-export function getChannelMessages(
+function searchChannels(
+  searchQuery: string,
+  limit: number,
+  page: number,
+  spec: RequestHandlingSpec<ChannelInfo[]>,
+): ThunkAction {
+  return abortableThunk(spec, () => {
+    return fetchJson<ChannelInfo[]>(
+      apiUrl`admin/chat/?q=${searchQuery}&limit=${limit}&page=${page}`,
+      {
+        signal: spec.signal,
+      },
+    )
+  })
+}
+
+function getChannelMessages(
   channelId: SbChannelId,
   channelMessages: ChatMessage[],
   limit: number,
@@ -38,45 +54,34 @@ export function getChannelMessages(
   return abortableThunk(spec, async dispatch => {
     const earliestMessageTime = channelMessages[0]?.time ?? -1
 
-    try {
-      const result = await fetchJson<GetChannelHistoryServerResponse>(
-        apiUrl`admin/chat/${channelId}/messages?limit=${limit}&beforeTime=${earliestMessageTime}`,
-        {
-          signal: spec.signal,
-        },
-      )
+    const result = await fetchJson<GetChannelHistoryServerResponse>(
+      apiUrl`admin/chat/${channelId}/messages?limit=${limit}&beforeTime=${earliestMessageTime}`,
+      {
+        signal: spec.signal,
+      },
+    )
 
-      dispatch({
-        type: '@users/loadUsers',
-        payload: result.mentions.concat(result.users),
-      })
+    dispatch({
+      type: '@users/loadUsers',
+      payload: result.mentions.concat(result.users),
+    })
 
-      return result
-    } catch (err) {
-      throw err
-    }
+    return result
   })
 }
 
-export function getChannelUsers(
-  channelId: SbChannelId,
-  spec: RequestHandlingSpec<SbUser[]>,
-): ThunkAction {
+function getChannelUsers(channelId: SbChannelId, spec: RequestHandlingSpec<SbUser[]>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    try {
-      const result = await fetchJson<SbUser[]>(apiUrl`admin/chat/${channelId}/users`, {
-        signal: spec.signal,
-      })
+    const result = await fetchJson<SbUser[]>(apiUrl`admin/chat/${channelId}/users`, {
+      signal: spec.signal,
+    })
 
-      dispatch({
-        type: '@users/loadUsers',
-        payload: result,
-      })
+    dispatch({
+      type: '@users/loadUsers',
+      payload: result,
+    })
 
-      return result
-    } catch (err) {
-      throw err
-    }
+    return result
   })
 }
 
@@ -171,9 +176,8 @@ const StyledMessageList = styled(MessageList)`
   min-width: 320px;
 `
 
-let prevSearchChannelsAbortController: AbortController | undefined
-
 export function ChannelSelector({ onSelect }: { onSelect: (channelI: ChannelInfo) => void }) {
+  const dispatch = useAppDispatch()
   const [channels, setChannels] = useState<ChannelInfo[]>()
   const [currentPage, setCurrentPage] = useState(-1)
   const [hasMoreChannels, setHasMoreChannels] = useState(true)
@@ -210,26 +214,21 @@ export function ChannelSelector({ onSelect }: { onSelect: (channelI: ChannelInfo
 
     abortControllerRef.current?.abort()
     abortControllerRef.current = new AbortController()
-    // We save a reference to the abort controller we call the fetch with, since it could be aborted
-    // after the fetch promise resolves, but before the callback is called.
-    prevSearchChannelsAbortController = abortControllerRef.current
 
-    fetchJson<ChannelInfo[]>(
-      apiUrl`admin/chat/?q=${searchQuery}&limit=${SEARCH_CHANNELS_LIMIT}&page=${currentPage + 1}`,
-      { signal: abortControllerRef.current.signal },
+    dispatch(
+      searchChannels(searchQuery, SEARCH_CHANNELS_LIMIT, currentPage + 1, {
+        signal: abortControllerRef.current.signal,
+        onSuccess: data => {
+          setIsLoadingMoreChannels(false)
+          setChannels((channels ?? []).concat(data))
+          setHasMoreChannels(data.length >= SEARCH_CHANNELS_LIMIT)
+        },
+        onError: err => {
+          setIsLoadingMoreChannels(false)
+          setSearchError(err)
+        },
+      }),
     )
-      .then(data => {
-        if (prevSearchChannelsAbortController?.signal.aborted) {
-          return
-        }
-        setIsLoadingMoreChannels(false)
-        setChannels((channels ?? []).concat(data))
-        setHasMoreChannels(data.length >= SEARCH_CHANNELS_LIMIT)
-      })
-      .catch(err => {
-        setIsLoadingMoreChannels(false)
-        setSearchError(err)
-      })
   })
 
   useEffect(() => {
@@ -274,9 +273,6 @@ export function ChannelSelector({ onSelect }: { onSelect: (channelI: ChannelInfo
   )
 }
 
-let prevGetChannelMessagesAbortController: AbortController | undefined
-let prevGetChannelUsersAbortController: AbortController | undefined
-
 export function AdminChannelView() {
   const dispatch = useAppDispatch()
   const [selectedChannel, setSelectedChannel] = useState<ChannelInfo>()
@@ -299,17 +295,11 @@ export function AdminChannelView() {
 
     getChannelMessagesAbortControllerRef.current?.abort()
     getChannelMessagesAbortControllerRef.current = new AbortController()
-    // We save a reference to the abort controller we call the fetch with, since it could be aborted
-    // after the fetch promise resolves, but before the callback is called.
-    prevGetChannelMessagesAbortController = getChannelMessagesAbortControllerRef.current
 
     dispatch(
       getChannelMessages(selectedChannel.id, channelMessages, CHANNEL_MESSAGES_LIMIT, {
         signal: getChannelMessagesAbortControllerRef.current.signal,
         onSuccess: result => {
-          if (prevGetChannelMessagesAbortController?.signal.aborted) {
-            return
-          }
           setIsLoadingMoreChannelMessages(false)
           setHasMoreChannelMessages(result.messages.length >= CHANNEL_MESSAGES_LIMIT)
 
@@ -335,17 +325,11 @@ export function AdminChannelView() {
 
     getChannelUsersAbortControllerRef.current?.abort()
     getChannelUsersAbortControllerRef.current = new AbortController()
-    // We save a reference to the abort controller we call the fetch with, since it could be aborted
-    // after the fetch promise resolves, but before the callback is called.
-    prevGetChannelUsersAbortController = getChannelUsersAbortControllerRef.current
 
     dispatch(
       getChannelUsers(newChannel.id, {
         signal: getChannelUsersAbortControllerRef.current.signal,
         onSuccess: result => {
-          if (prevGetChannelUsersAbortController?.signal.aborted) {
-            return
-          }
           setChannelUsers(result)
         },
         onError: () => {},

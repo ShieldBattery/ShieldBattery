@@ -582,81 +582,6 @@ export async function findChannelByName(
 }
 
 /**
- * Returns a list of non-private chat channels, optionally filtered by a `searchStr`. The list
- * doesn't include the user's joined channel by default, but can be configured to include them as
- * well (including the joined private channels).
- */
-export async function searchChannelsAsUser(
-  {
-    userId,
-    limit,
-    pageNumber,
-    searchStr,
-    joined,
-  }: {
-    /** User requesting the list of channels. */
-    userId: SbUserId
-    /** Amount of channels to return. */
-    limit: number
-    /** Offset from which to start listing the channels. */
-    pageNumber: number
-    /** String to filter the channels by. */
-    searchStr?: string
-    /** Flag which includes the user's joined channels if true. */
-    joined?: boolean
-  },
-  withClient?: DbClient,
-): Promise<ChannelInfo[]> {
-  const { client, done } = await db(withClient)
-  try {
-    const query = joined
-      ? sql`
-        WITH joined_channels AS (
-          SELECT DISTINCT(channel_id)
-          FROM channel_users
-          WHERE channel_id IN (SELECT channel_id FROM channel_users WHERE user_id = ${userId})
-        )
-        SELECT c.*
-        FROM channels c
-        INNER JOIN joined_channels ON c.id = joined_channels.channel_id
-
-        UNION
-
-        SELECT *
-        FROM channels
-      `
-      : sql`
-        WITH unjoined_channels AS (
-          SELECT DISTINCT(channel_id)
-          FROM channel_users
-          WHERE channel_id NOT IN (SELECT channel_id FROM channel_users WHERE user_id = ${userId})
-        )
-        SELECT c.*
-        FROM channels c
-        INNER JOIN unjoined_channels ON c.id = unjoined_channels.channel_id
-      `
-
-    query.append(sql`WHERE private = false`)
-    if (searchStr) {
-      const escapedStr = `%${escapeSearchString(searchStr)}%`
-      query.append(sql` AND name ILIKE ${escapedStr}`)
-    }
-
-    query.append(sql`
-      ORDER BY user_count DESC, name
-      LIMIT ${limit}
-      OFFSET ${pageNumber * limit}
-    `)
-
-    const result = await client.query<DbChannel>(query)
-
-    return result.rows.map(row => convertChannelFromDb(row))
-  } finally {
-    done()
-  }
-}
-
-/**
  * Returns a full list of chat channels, optionally filtered by a `searchStr`. Only admins should be
  * able to call this function.
  */
@@ -680,8 +605,7 @@ export async function searchChannelsAsAdmin(
     `
 
     if (searchStr) {
-      const escapedStr = `%${escapeSearchString(searchStr)}%`
-      query.append(sql`WHERE name ILIKE ${escapedStr}`)
+      query.append(sql`WHERE name ILIKE ${`%${escapeSearchString(searchStr)}%`}`)
     }
 
     query.append(sql`

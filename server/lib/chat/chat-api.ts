@@ -21,12 +21,12 @@ import { asHttpError } from '../errors/error-with-payload'
 import { featureEnabled } from '../flags/feature-enabled'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
-import { checkAnyPermission } from '../permissions/check-permissions'
+import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
-import { searchChannelsAsAdmin, searchChannelsAsUser } from './chat-models'
+import { searchChannelsAsAdmin } from './chat-models'
 import ChatService, { ChatServiceError } from './chat-service'
 
 const joinThrottle = createThrottle('chatjoin', {
@@ -204,12 +204,12 @@ export class ChatApi {
       }),
     })
 
-    return await this.chatService.getChannelHistory(
+    return await this.chatService.getChannelHistory({
       channelId,
-      ctx.session!.userId,
+      userId: ctx.session!.userId,
       limit,
       beforeTime,
-    )
+    })
   }
 
   /**
@@ -225,7 +225,7 @@ export class ChatApi {
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
   async getChannelUsers(ctx: RouterContext): Promise<SbUser[]> {
     const channelId = getValidatedChannelId(ctx)
-    return await this.chatService.getChannelUsers(channelId, ctx.session!.userId)
+    return await this.chatService.getChannelUsers({ channelId, userId: ctx.session!.userId })
   }
 
   @httpGet('/:channelId/users/:targetId')
@@ -326,52 +326,23 @@ export class ChatApi {
 
     ctx.status = 204
   }
-
-  @httpGet('/')
-  @httpBefore(
-    featureEnabled(MULTI_CHANNEL),
-    throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)),
-  )
-  async searchChannels(ctx: RouterContext): Promise<ChannelInfo[]> {
-    const {
-      query: { q: searchQuery, limit, page, joined },
-    } = validateRequest(ctx, {
-      query: Joi.object<{ q?: string; page: number; limit: number; joined?: boolean }>({
-        q: Joi.string().allow(''),
-        limit: Joi.number(),
-        page: Joi.number(),
-        joined: Joi.boolean().default(false),
-      }),
-    })
-
-    return await searchChannelsAsUser({
-      userId: ctx.session!.userId,
-      limit,
-      pageNumber: page,
-      searchStr: searchQuery,
-      joined,
-    })
-  }
 }
 
 @httpApi('/admin/chat')
-@httpBeforeAll(
-  ensureLoggedIn,
-  checkAnyPermission('editPermissions', 'moderateChatChannels'),
-  convertChatServiceErrors,
-)
+@httpBeforeAll(ensureLoggedIn, convertChatServiceErrors)
 export class AdminChatApi {
   constructor(private chatService: ChatService) {}
 
   @httpGet('/')
+  @httpBefore(checkAllPermissions('moderateChatChannels'))
   async searchChannels(ctx: RouterContext): Promise<ChannelInfo[]> {
     const {
       query: { q: searchQuery, limit, page },
     } = validateRequest(ctx, {
       query: Joi.object<{ q?: string; page: number; limit: number }>({
         q: Joi.string().allow(''),
-        limit: Joi.number(),
-        page: Joi.number(),
+        limit: Joi.number().min(1),
+        page: Joi.number().min(0),
       }),
     })
 
@@ -383,6 +354,7 @@ export class AdminChatApi {
   }
 
   @httpGet('/:channelId/messages')
+  @httpBefore(checkAllPermissions('moderateChatChannels'))
   async getChannelHistory(ctx: RouterContext): Promise<GetChannelHistoryServerResponse> {
     const channelId = getValidatedChannelId(ctx)
     const {
@@ -394,22 +366,23 @@ export class AdminChatApi {
       }),
     })
 
-    return await this.chatService.getChannelHistory(
+    return await this.chatService.getChannelHistory({
       channelId,
-      ctx.session!.userId,
+      userId: ctx.session!.userId,
       limit,
       beforeTime,
-      true /* isAdmin */,
-    )
+      isAdmin: true,
+    })
   }
 
   @httpGet('/:channelId/users')
+  @httpBefore(checkAllPermissions('moderateChatChannels'))
   async getChannelUsers(ctx: RouterContext): Promise<SbUser[]> {
     const channelId = getValidatedChannelId(ctx)
-    return await this.chatService.getChannelUsers(
+    return await this.chatService.getChannelUsers({
       channelId,
-      ctx.session!.userId,
-      true /* isAdmin */,
-    )
+      userId: ctx.session!.userId,
+      isAdmin: true,
+    })
   }
 }
