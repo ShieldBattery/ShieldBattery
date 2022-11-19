@@ -9,12 +9,14 @@ import {
   AdminGetUserIpsResponse,
   GetBatchUserInfoResponse,
   GetUserProfileResponse,
+  SbUser,
   SbUserId,
 } from '../../common/users/sb-user'
 
 export type UserActions =
   | GetUserProfile
   | GetBatchUserInfo
+  | LoadUsers
   | AdminGetUserBanHistory
   | AdminBanUser
   | AdminGetUserIps
@@ -45,6 +47,11 @@ export type GetBatchUserInfo =
         userIds: ReadonlyArray<SbUserId>
       }
     }
+
+export interface LoadUsers {
+  type: '@users/loadUsers'
+  payload: SbUser[]
+}
 
 export interface AdminGetUserBanHistory {
   type: '@users/adminGetUserBanHistory'

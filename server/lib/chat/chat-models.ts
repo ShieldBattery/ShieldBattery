@@ -9,6 +9,7 @@ import {
 } from '../../../common/chat'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import db, { DbClient } from '../db'
+import { escapeSearchString } from '../db/escape-search-string'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 
@@ -101,6 +102,7 @@ function convertChannelFromDb(props: DbChannel): ChannelInfo {
     name: props.name,
     private: props.private,
     official: props.official,
+    userCount: props.user_count,
     joinedChannelData: {
       ownerId: props.owner_id,
       topic: props.topic,
@@ -574,6 +576,47 @@ export async function findChannelByName(
     `)
 
     return result.rows.length > 0 ? convertChannelFromDb(result.rows[0]) : undefined
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns a full list of chat channels, optionally filtered by a `searchStr`. Only admins should be
+ * able to call this function.
+ */
+export async function searchChannelsAsAdmin(
+  {
+    limit,
+    pageNumber,
+    searchStr,
+  }: {
+    limit: number
+    pageNumber: number
+    searchStr?: string
+  },
+  withClient?: DbClient,
+): Promise<ChannelInfo[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const query = sql`
+      SELECT *
+      FROM channels
+    `
+
+    if (searchStr) {
+      query.append(sql`WHERE name ILIKE ${`%${escapeSearchString(searchStr)}%`}`)
+    }
+
+    query.append(sql`
+      ORDER BY user_count DESC, name
+      LIMIT ${limit}
+      OFFSET ${pageNumber * limit}
+    `)
+
+    const result = await client.query<DbChannel>(query)
+
+    return result.rows.map(row => convertChannelFromDb(row))
   } finally {
     done()
   }

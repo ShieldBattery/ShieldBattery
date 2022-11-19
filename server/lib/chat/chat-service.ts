@@ -472,16 +472,23 @@ export default class ChatService {
     }
   }
 
-  async getChannelHistory(
-    channelId: SbChannelId,
-    userId: SbUserId,
-    limit?: number,
-    beforeTime?: number,
-  ): Promise<GetChannelHistoryServerResponse> {
-    const userSockets = this.getUserSockets(userId)
+  async getChannelHistory({
+    channelId,
+    userId,
+    limit,
+    beforeTime,
+    isAdmin,
+  }: {
+    channelId: SbChannelId
+    userId: SbUserId
+    limit?: number
+    beforeTime?: number
+    isAdmin?: boolean
+  }): Promise<GetChannelHistoryServerResponse> {
     if (
-      !this.state.users.has(userSockets.userId) ||
-      !this.state.users.get(userSockets.userId)!.has(channelId)
+      !isAdmin &&
+      // TODO(2Pac): Check this in the DB instead.
+      (!this.state.users.has(userId) || !this.state.users.get(userId)!.has(channelId))
     ) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
@@ -541,11 +548,19 @@ export default class ChatService {
     }
   }
 
-  async getChannelUsers(channelId: SbChannelId, userId: SbUserId): Promise<SbUser[]> {
-    const userSockets = this.getUserSockets(userId)
+  async getChannelUsers({
+    channelId,
+    userId,
+    isAdmin,
+  }: {
+    channelId: SbChannelId
+    userId: SbUserId
+    isAdmin?: boolean
+  }): Promise<SbUser[]> {
     if (
-      !this.state.users.has(userSockets.userId) ||
-      !this.state.users.get(userSockets.userId)!.has(channelId)
+      !isAdmin &&
+      // TODO(2Pac): Check this in the DB instead.
+      (!this.state.users.has(userId) || !this.state.users.get(userId)!.has(channelId))
     ) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
