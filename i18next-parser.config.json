@@ -1,0 +1,9 @@
+{
+  "createOldCatalogs": false,
+  "defaultNamespace": "translation",
+  "keepRemoved": false,
+  "lineEnding": "lf",
+  "locales": ["en"],
+  "output": "server/public/locales/$LOCALE/$NAMESPACE.json",
+  "input": ["client/**/*.{js,jsx,ts,tsx}"]
+}

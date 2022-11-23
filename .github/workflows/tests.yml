@@ -60,6 +60,9 @@ jobs:
       - name: Run unit tests
         run: yarn test
 
+      - name: Check translation files
+        run: yarn gen-translations --fail-on-update
+
   integration-tests:
     runs-on: ubuntu-latest
     steps:
