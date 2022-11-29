@@ -6,28 +6,40 @@ import { Next } from 'koa'
 import {
   ALL_TRANSLATION_LANGUAGES,
   ALL_TRANSLATION_NAMESPACES,
-  TranslationLanguages,
-  TranslationNamespaces,
+  TranslationLanguage,
+  TranslationNamespace,
 } from '../../../common/i18n'
 import { validateRequest } from '../validation/joi-validator'
 
+function orderedStringify(obj: Record<string, string>) {
+  const allKeys = new Set<string>()
+  JSON.stringify(obj, (key, value) => {
+    allKeys.add(key)
+    return value
+  })
+  return JSON.stringify(obj, Array.from(allKeys).sort(), 2)
+}
+
 i18next.use(FsBackend).init({
+  // TODO(2Pac): Remove the `any` cast once i18next-fs-backend fixes its types. See this issue for
+  // more info: https://github.com/i18next/i18next-http-backend/issues/103
   backend: {
     loadPath: './server/public/locales/{{lng}}/{{ns}}.json',
     addPath: './server/public/locales/{{lng}}/{{ns}}.json',
-  },
+    stringify: orderedStringify,
+  } as any,
 
   // NOTE(2Pac): We're only using i18next on backend to save the missing keys, so technically we're
   // not even using these options, but we still have to define them for the library to work properly
-  lng: TranslationLanguages.English,
-  ns: TranslationNamespaces.Translation,
+  lng: TranslationLanguage.English,
+  ns: TranslationNamespace.Global,
 })
 
 export function handleMissingTranslationKeys(ctx: RouterContext, next: Next) {
   const {
     params: { lng, ns },
   } = validateRequest(ctx, {
-    params: Joi.object<{ lng: TranslationLanguages; ns: TranslationNamespaces }>({
+    params: Joi.object<{ lng: TranslationLanguage; ns: TranslationNamespace }>({
       lng: Joi.valid(...ALL_TRANSLATION_LANGUAGES).required(),
       ns: Joi.valid(...ALL_TRANSLATION_NAMESPACES).required(),
     }),

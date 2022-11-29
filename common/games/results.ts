@@ -1,4 +1,6 @@
+import { TFunction } from 'i18next'
 import { Merge } from 'type-fest'
+import { assertUnreachable } from '../assert-unreachable'
 import { AssignedRaceChar } from '../races'
 import { SbUserId } from '../users/sb-user'
 
@@ -33,6 +35,20 @@ export interface GameClientPlayerResult {
  * The final, reconciled results of a game, after all players' results have been combined.
  */
 export type ReconciledResult = 'win' | 'loss' | 'draw' | 'unknown'
+
+export function getResultLabel(result: ReconciledResult, t: TFunction): string {
+  if (result === 'win') {
+    return t('games.common.resultWin', 'Win')
+  } else if (result === 'loss') {
+    return t('games.common.resultLoss', 'Loss')
+  } else if (result === 'draw') {
+    return t('games.common.resultDraw', 'Draw')
+  } else if (result === 'unknown') {
+    return t('games.common.resultUnknown', 'Unknown')
+  }
+
+  return assertUnreachable(result)
+}
 
 export interface ReconciledPlayerResult {
   result: ReconciledResult

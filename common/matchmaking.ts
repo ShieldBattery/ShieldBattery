@@ -1,3 +1,4 @@
+import { TFunction } from 'i18next'
 import { Opaque, SetRequired } from 'type-fest'
 import { assertUnreachable } from './assert-unreachable'
 import { binarySearch } from './data-structures/arrays'
@@ -19,12 +20,12 @@ export enum MatchmakingType {
 
 export const ALL_MATCHMAKING_TYPES: ReadonlyArray<MatchmakingType> = Object.values(MatchmakingType)
 
-export function matchmakingTypeToLabel(type: MatchmakingType): string {
+export function matchmakingTypeToLabel(type: MatchmakingType, t?: TFunction): string {
   switch (type) {
     case MatchmakingType.Match1v1:
-      return '1v1'
+      return t ? t('matchmaking.common.matchmakingType1v1', '1v1') : '1v1'
     case MatchmakingType.Match2v2:
-      return '2v2'
+      return t ? t('matchmaking.common.matchmakingType2v2', '2v2') : '2v2'
     default:
       return assertUnreachable(type)
   }

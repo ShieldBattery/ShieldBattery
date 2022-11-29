@@ -10,11 +10,12 @@ import { bootstrapSession, getCurrentSession } from './auth/action-creators'
 import { initBrowserprint } from './auth/browserprint'
 import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
-import './i18n/i18next'
+import { i18nextPromise } from './i18n/i18next'
 import log from './logging/logger'
 import RedirectProvider from './navigation/redirect-provider'
 import { fetchJson } from './network/fetch'
 import registerSocketHandlers from './network/socket-handlers'
+import LoadingIndicator from './progress/dots'
 import { RootErrorBoundary } from './root-error-boundary'
 import { serverConfig } from './server-config-storage'
 import './window-focus'
@@ -89,7 +90,7 @@ if (!IS_ELECTRON) {
   initBrowserprint()
 }
 
-Promise.all([rootElemPromise])
+Promise.all([rootElemPromise, i18nextPromise])
   .then(async ([elem]) => {
     const store = createStore(ReduxDevTools)
     registerDispatch(store.dispatch)
@@ -141,17 +142,19 @@ Promise.all([rootElemPromise])
   .then(({ elem, store }) => {
     const root = createRoot(elem)
     root.render(
-      <RootErrorBoundary>
-        <ReduxProvider store={store}>
-          <Router>
-            <RedirectProvider>
-              <>
-                <App />
-                {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
-              </>
-            </RedirectProvider>
-          </Router>
-        </ReduxProvider>
-      </RootErrorBoundary>,
+      <React.Suspense fallback={<LoadingIndicator />}>
+        <RootErrorBoundary>
+          <ReduxProvider store={store}>
+            <Router>
+              <RedirectProvider>
+                <>
+                  <App />
+                  {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
+                </>
+              </RedirectProvider>
+            </Router>
+          </ReduxProvider>
+        </RootErrorBoundary>
+      </React.Suspense>,
     )
   })

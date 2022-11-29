@@ -1,0 +1,61 @@
+{
+  "games": {
+    "common": {
+      "gameTypeCustom": "Custom game",
+      "gameTypeRanked": "Ranked {{matchmakingType}}",
+      "playerComputer": "Computer",
+      "playerUnknown": "Unknown player",
+      "resultDraw": "Draw",
+      "resultLoss": "Loss",
+      "resultUnknown": "Unknown",
+      "resultWin": "Win",
+      "teamNameBottom": "Bottom",
+      "teamNameNumber": "Team {{teamNumber}}",
+      "teamNameTop": "Top"
+    },
+    "miniMatchHistory": {
+      "buttonDetails": "View details",
+      "mapNameUnknown": "Unknown map",
+      "noGameSelectedText": "No game selected",
+      "noGamesMessage": "Nothing to see here"
+    },
+    "results": {
+      "buttonRefresh": "Refresh",
+      "buttonSearchAgain": "Search again",
+      "errorLoading": "There was a problem loading this game.",
+      "headlineDefault": "Results",
+      "headlineDefeat": "Defeat!",
+      "headlineDraw": "Draw!",
+      "headlineInProgress": "In progress…",
+      "headlineVictory": "Victory!",
+      "infoDate": "Date",
+      "infoDuration": "Duration",
+      "infoGameType": "Type",
+      "pointsBase": "Base",
+      "pointsBonus": "Bonus",
+      "statusFinal": "Final",
+      "statusLive": "Live",
+      "tabBuildOrders": "Build orders",
+      "tabStats": "Stats",
+      "tabSummary": "Summary"
+    }
+  },
+  "matchmaking": {
+    "common": {
+      "matchmakingType1v1": "1v1",
+      "matchmakingType2v2": "2v2"
+    }
+  },
+  "time": {
+    "timeAgo": {
+      "days": "{{days}}d ago",
+      "hours": "{{hours}}h ago",
+      "minutes": "{{minutes}}m ago",
+      "months": "{{months}}mo ago",
+      "now": "just now",
+      "seconds": "{{seconds}}s ago",
+      "weeks": "{{weeks}}w ago",
+      "years": "{{years}}y ago"
+    }
+  }
+}

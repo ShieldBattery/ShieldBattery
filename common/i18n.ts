@@ -2,20 +2,20 @@
  * A string representation of each of the languages that we support and expect to have a translation
  * file for.
  */
-export enum TranslationLanguages {
+export enum TranslationLanguage {
   English = 'en',
 }
 
-export const ALL_TRANSLATION_LANGUAGES: ReadonlyArray<TranslationLanguages> =
-  Object.values(TranslationLanguages)
+export const ALL_TRANSLATION_LANGUAGES: ReadonlyArray<TranslationLanguage> =
+  Object.values(TranslationLanguage)
 
 /**
  * A string representation of all the namespaces we're using for our translation files. Currently
- * we're not using different namespaces and we're just defining the default one.
+ * we're not using different namespaces so we just define a default one.
  */
-export enum TranslationNamespaces {
-  Translation = 'translation',
+export enum TranslationNamespace {
+  Global = 'global',
 }
 
-export const ALL_TRANSLATION_NAMESPACES: ReadonlyArray<TranslationNamespaces> =
-  Object.values(TranslationNamespaces)
+export const ALL_TRANSLATION_NAMESPACES: ReadonlyArray<TranslationNamespace> =
+  Object.values(TranslationNamespace)

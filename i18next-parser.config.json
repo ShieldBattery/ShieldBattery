@@ -1,9 +1,10 @@
 {
   "createOldCatalogs": false,
-  "defaultNamespace": "translation",
+  "defaultNamespace": "global",
   "keepRemoved": false,
   "lineEnding": "lf",
   "locales": ["en"],
   "output": "server/public/locales/$LOCALE/$NAMESPACE.json",
-  "input": ["client/**/*.{js,jsx,ts,tsx}"]
+  "input": ["client/**/*.{js,jsx,ts,tsx}", "common/**/*.{js,jsx,ts,tsx}"],
+  "sort": true
 }

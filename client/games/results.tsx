@@ -1,10 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameConfigPlayer, GameSource, isTeamType } from '../../common/games/configuration'
 import { GameRecordJson, getGameDurationString, getGameTypeLabel } from '../../common/games/games'
-import { ReconciledPlayerResult, ReconciledResult } from '../../common/games/results'
+import {
+  getResultLabel,
+  ReconciledPlayerResult,
+  ReconciledResult,
+} from '../../common/games/results'
 import { getTeamNames } from '../../common/maps'
 import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/sb-user'
@@ -158,6 +163,8 @@ export function ConnectedGameResultsPage({
   subPage = ResultsSubPage.Summary,
 }: ConnectedGameResultsPageProps) {
   const dispatch = useAppDispatch()
+  const { t } = useTranslation()
+
   const isPostGame = location.search === '?post-game'
   const onTabChange = useCallback(
     (tab: ResultsSubPage) => {
@@ -239,7 +246,7 @@ export function ConnectedGameResultsPage({
 
   const headline = useMemo<string>(() => {
     if (game && !game.results) {
-      return 'In progress…'
+      return t('games.results.headlineInProgress', 'In progress…')
     } else if (
       game &&
       game.config.teams.some(t => t.some(p => !p.isComputer && p.id === selfUser.id))
@@ -248,12 +255,12 @@ export function ConnectedGameResultsPage({
         if (id === selfUser.id) {
           switch (result.result) {
             case 'win':
-              return 'Victory!'
+              return t('games.results.headlineVictory', 'Victory!')
             case 'loss':
-              return 'Defeat!'
+              return t('games.results.headlineDefeat', 'Defeat!')
             case 'draw':
             case 'unknown':
-              return 'Draw!'
+              return t('games.results.headlineDraw', 'Draw!')
             default:
               return assertUnreachable(result.result)
           }
@@ -261,8 +268,8 @@ export function ConnectedGameResultsPage({
       }
     }
 
-    return 'Results'
-  }, [selfUser, game])
+    return t('games.results.headlineDefault', 'Results')
+  }, [game, t, selfUser.id])
 
   const config = game?.config
   const onSearchAgain = useCallback(() => {
@@ -307,17 +314,17 @@ export function ConnectedGameResultsPage({
           {game ? (
             <>
               <HeaderInfoItem>
-                <HeaderInfoLabel>Type</HeaderInfoLabel>
-                <HeaderInfoValue>{getGameTypeLabel(game)}</HeaderInfoValue>
+                <HeaderInfoLabel>{t('games.results.infoGameType', 'Type')}</HeaderInfoLabel>
+                <HeaderInfoValue>{getGameTypeLabel(game, t)}</HeaderInfoValue>
               </HeaderInfoItem>
               <HeaderInfoItem>
-                <HeaderInfoLabel>Date</HeaderInfoLabel>
+                <HeaderInfoLabel>{t('games.results.infoDate', 'Date')}</HeaderInfoLabel>
                 <HeaderInfoValue title={longTimestamp.format(game.startTime)}>
                   {gameDateFormat.format(game.startTime)}
                 </HeaderInfoValue>
               </HeaderInfoItem>
               <HeaderInfoItem>
-                <HeaderInfoLabel>Duration</HeaderInfoLabel>
+                <HeaderInfoLabel>{t('games.results.infoDuration', 'Duration')}</HeaderInfoLabel>
                 <HeaderInfoValue>
                   {game.gameLength ? getGameDurationString(game.gameLength) : '—'}
                 </HeaderInfoValue>
@@ -325,12 +332,14 @@ export function ConnectedGameResultsPage({
             </>
           ) : null}
         </HeaderInfo>
-        <LiveFinalIndicator $isLive={isLive}>{isLive ? 'Live' : 'Final'}</LiveFinalIndicator>
+        <LiveFinalIndicator $isLive={isLive}>
+          {isLive ? t('games.results.statusLive', 'Live') : t('games.results.statusFinal', 'Final')}
+        </LiveFinalIndicator>
       </HeaderArea>
       <ButtonBar>
         {showSearchAgain ? (
           <RaisedButton
-            label='Search again'
+            label={t('games.results.buttonSearchAgain', 'Search again')}
             iconStart={<StyledFindMatchIcon />}
             disabled={disableSearchAgain}
             onClick={onSearchAgain}
@@ -338,13 +347,20 @@ export function ConnectedGameResultsPage({
         ) : null}
         {/* TODO(tec27): Search again, watch replay, etc. */}
         <ButtonSpacer />
-        <RaisedButton label='Refresh' iconStart={<RefreshIcon />} onClick={triggerRefresh} />
+        <RaisedButton
+          label={t('games.results.buttonRefresh', 'Refresh')}
+          iconStart={<RefreshIcon />}
+          onClick={triggerRefresh}
+        />
       </ButtonBar>
       <TabArea>
         <Tabs activeTab={subPage} onChange={onTabChange}>
-          <TabItem value={ResultsSubPage.Summary} text='Summary' />
-          <TabItem value={ResultsSubPage.Stats} text='Stats' />
-          <TabItem value={ResultsSubPage.BuildOrders} text='Build orders' />
+          <TabItem value={ResultsSubPage.Summary} text={t('games.results.tabSummary', 'Summary')} />
+          <TabItem value={ResultsSubPage.Stats} text={t('games.results.tabStats', 'Stats')} />
+          <TabItem
+            value={ResultsSubPage.BuildOrders}
+            text={t('games.results.tabBuildOrders', 'Build orders')}
+          />
         </Tabs>
       </TabArea>
       {content}
@@ -441,6 +457,7 @@ function SummaryPage({
   isLoading: boolean
 }) {
   const dispatch = useAppDispatch()
+  const { t } = useTranslation()
 
   const mapId = game?.mapId
   const map = useAppSelector(s => (mapId ? s.maps2.byId.get(mapId) : undefined))
@@ -458,7 +475,14 @@ function SummaryPage({
 
     const teamLabels =
       isTeamType(game.config.gameType) && map
-        ? getTeamNames(game.config.gameType, game.config.gameSubType, map.mapData.umsForces)
+        ? getTeamNames(
+            {
+              gameType: game.config.gameType,
+              gameSubType: game.config.gameSubType,
+              umsForces: map.mapData.umsForces,
+            },
+            t,
+          )
         : []
 
     for (let i = 0; i < game.config.teams.length; i++) {
@@ -478,7 +502,7 @@ function SummaryPage({
     }
 
     return [result, teamLabels]
-  }, [game, map])
+  }, [game, map, t])
 
   useEffect(() => {
     if (mapId) {
@@ -488,7 +512,11 @@ function SummaryPage({
 
   if (loadingError) {
     // TODO(tec27): Handle specific errors, e.g. not found vs server error
-    return <LoadingError>There was a problem loading this game.</LoadingError>
+    return (
+      <LoadingError>
+        {t('games.results.errorLoading', 'There was a problem loading this game.')}
+      </LoadingError>
+    )
   }
   if (!game) {
     return <LoadingDotsArea />
@@ -512,7 +540,12 @@ function SummaryPage({
     if (showTeams) {
       elems.unshift(
         <TeamLabel key={`team-${i}`}>
-          {teamLabels.length > i ? teamLabels[i] : 'Team ' + (i + 1)}
+          {teamLabels.length > i
+            ? teamLabels[i]
+            : t('games.common.teamNameNumber', {
+                defaultValue: 'Team {{teamNumber}}',
+                teamNumber: i + 1,
+              })}
         </TeamLabel>,
       )
     }
@@ -630,6 +663,7 @@ export interface PlayerResultProps {
 }
 
 export function PlayerResult({ className, config, result, mmrChange }: PlayerResultProps) {
+  const { t } = useTranslation()
   const user = useAppSelector(s => (config.isComputer ? undefined : s.users.byId.get(config.id)))
   const [buttonProps, rippleRef] = useButtonState({
     onClick: () => user && navigateToUserProfile(user.id, user.name),
@@ -642,7 +676,9 @@ export function PlayerResult({ className, config, result, mmrChange }: PlayerRes
         {result?.race && config.race === 'r' ? <SelectedRandomIcon race='r' /> : null}
       </RaceRoot>
       {config.isComputer ? <StyledComputerAvatar /> : <PlayerAvatar user={user?.name ?? ''} />}
-      <PlayerName>{config.isComputer ? 'Computer' : user?.name ?? ''}</PlayerName>
+      <PlayerName>
+        {config.isComputer ? t('games.common.playerComputer', 'Computer') : user?.name ?? ''}
+      </PlayerName>
       {mmrChange ? (
         <MmrChangeColumn>
           <StyledPointsChangeText change={mmrChange} />
@@ -670,13 +706,16 @@ const NegativeText = styled.span`
 `
 
 export function GameResultText({ className, result }: GameResultTextProps) {
+  const { t } = useTranslation()
+
+  const resultLabel = getResultLabel(result, t)
   switch (result) {
     case 'win':
-      return <PositiveText className={className}>Win</PositiveText>
+      return <PositiveText className={className}>{resultLabel}</PositiveText>
     case 'loss':
-      return <NegativeText className={className}>Loss</NegativeText>
+      return <NegativeText className={className}>{resultLabel}</NegativeText>
     case 'draw':
-      return <span className={className}>Draw</span>
+      return <span className={className}>{resultLabel}</span>
     case 'unknown':
       return <span className={className}>—</span>
     default:
@@ -691,6 +730,8 @@ function MmrChangeText({
   className?: string
   change: PublicMatchmakingRatingChangeJson
 }) {
+  const { t } = useTranslation()
+
   const roundPoints = Math.round(change.points)
   const roundChange = Math.round(change.pointsChange)
   const changeWithoutBonus = Math.round(change.pointsChange - change.bonusUsedChange)
@@ -701,15 +742,15 @@ function MmrChangeText({
       <TooltipContent $position={props.$position}>
         <div>
           <div>
-            Base: <NumberDelta delta={changeWithoutBonus} />
+            {t('games.results.pointsBase', 'Base')}: <NumberDelta delta={changeWithoutBonus} />
           </div>
           <div>
-            Bonus: <NumberDelta delta={bonusChange} />
+            {t('games.results.pointsBonus', 'Bonus')}: <NumberDelta delta={bonusChange} />
           </div>
         </div>
       </TooltipContent>
     ),
-    [changeWithoutBonus, bonusChange],
+    [t, changeWithoutBonus, bonusChange],
   )
 
   const roundRating = Math.round(change.rating)

@@ -182,7 +182,7 @@ function createInitialTeams(
     )
   }
 
-  const teamNames = getTeamNames(gameType, gameSubType, map.mapData.umsForces)
+  const teamNames = getTeamNames({ gameType, gameSubType, umsForces: map.mapData.umsForces })
   let slotIndex = 0
   return Range(0, numTeams(gameType, gameSubType, map.mapData.umsForces))
     .map(teamIndex => {
