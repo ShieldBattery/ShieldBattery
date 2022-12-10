@@ -61,10 +61,13 @@ jobs:
         run: yarn test
 
       - name: Check translation files
+        run: yarn gen-translations --fail-on-update
+
+      - name: Display translation error
+        if: ${{ failure() }}
         run: >
-          yarn gen-translations --fail-on-update ||
-          echo "The translation files seem incomplete. Please run \"yarn gen-translations\" in the directory root and commit the updated translation files." &&
-          exit 1
+          echo "The translation files seem incomplete. Please run \"yarn gen-translations\" in the
+          directory root and commit the updated translation files." && exit 1
 
   integration-tests:
     runs-on: ubuntu-latest
