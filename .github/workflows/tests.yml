@@ -63,7 +63,8 @@ jobs:
       - name: Check translation files
         run: >
           yarn gen-translations --fail-on-update ||
-          echo "The translation files seem incomplete. Please run `yarn gen-translations` in the directory root and commit the updated translation files."
+          echo "The translation files seem incomplete. Please run \"yarn gen-translations\" in the directory root and commit the updated translation files." &&
+          exit 1
 
   integration-tests:
     runs-on: ubuntu-latest
