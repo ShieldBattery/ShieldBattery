@@ -1,3 +1,5 @@
+import { TFunction } from 'i18next'
+
 const SECONDS = 1000
 const MINUTES = 60 * SECONDS
 const HOURS = 60 * MINUTES
@@ -17,22 +19,57 @@ const YEARS = Math.round(365.25 * DAYS)
  * const twoDaysAgo = NOW - 2 * 24 * 60 * 60 * 1000
  * console.log(timeAgo(NOW - twoDaysAgo)) // -> '2d ago'
  */
-export function timeAgo(diffMs: number): string {
+export function timeAgo(diffMs: number, t?: TFunction): string {
   if (diffMs < 5 * SECONDS) {
-    return `just now`
+    return t ? t('time.timeAgo.now', 'just now') : 'just now'
   } else if (diffMs < MINUTES) {
-    return `${Math.floor(diffMs / SECONDS)}s ago`
+    return t
+      ? t('time.timeAgo.seconds', {
+          defaultValue: '{{seconds}}s ago',
+          seconds: Math.floor(diffMs / SECONDS),
+        })
+      : `${Math.floor(diffMs / SECONDS)}s ago`
   } else if (diffMs < HOURS) {
-    return `${Math.floor(diffMs / MINUTES)}m ago`
+    return t
+      ? t('time.timeAgo.minutes', {
+          defaultValue: '{{minutes}}m ago',
+          minutes: Math.floor(diffMs / MINUTES),
+        })
+      : `${Math.floor(diffMs / MINUTES)}m ago`
   } else if (diffMs < DAYS) {
-    return `${Math.floor(diffMs / HOURS)}h ago`
+    return t
+      ? t('time.timeAgo.hours', {
+          defaultValue: '{{hours}}h ago',
+          hours: Math.floor(diffMs / HOURS),
+        })
+      : `${Math.floor(diffMs / HOURS)}h ago`
   } else if (diffMs < WEEKS) {
-    return `${Math.floor(diffMs / DAYS)}d ago`
+    return t
+      ? t('time.timeAgo.days', {
+          defaultValue: '{{days}}d ago',
+          days: Math.floor(diffMs / DAYS),
+        })
+      : `${Math.floor(diffMs / DAYS)}d ago`
   } else if (diffMs < MONTHS) {
-    return `${Math.floor(diffMs / WEEKS)}w ago`
+    return t
+      ? t('time.timeAgo.weeks', {
+          defaultValue: '{{weeks}}w ago',
+          weeks: Math.floor(diffMs / WEEKS),
+        })
+      : `${Math.floor(diffMs / WEEKS)}w ago`
   } else if (diffMs < YEARS) {
-    return `${Math.floor(diffMs / MONTHS)}mo ago`
+    return t
+      ? t('time.timeAgo.months', {
+          defaultValue: '{{months}}mo ago',
+          months: Math.floor(diffMs / MONTHS),
+        })
+      : `${Math.floor(diffMs / MONTHS)}mo ago`
   } else {
-    return `${Math.floor(diffMs / YEARS)}y ago`
+    return t
+      ? t('time.timeAgo.years', {
+          defaultValue: '{{years}}y ago',
+          years: Math.floor(diffMs / YEARS),
+        })
+      : `${Math.floor(diffMs / YEARS)}y ago`
   }
 }

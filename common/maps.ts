@@ -1,3 +1,4 @@
+import { TFunction } from 'i18next'
 import { Immutable } from 'immer'
 import { assertUnreachable } from './assert-unreachable'
 import { GameType } from './games/configuration'
@@ -171,9 +172,16 @@ export function numTeams(
  * aren't any teams.
  */
 export function getTeamNames(
-  gameType: GameType,
-  gameSubType: number,
-  umsForces: Immutable<MapForce[]>,
+  {
+    gameType,
+    gameSubType,
+    umsForces,
+  }: {
+    gameType: GameType
+    gameSubType: number
+    umsForces: Immutable<MapForce[]>
+  },
+  t?: TFunction,
 ): string[] {
   switch (gameType) {
     case GameType.Melee:
@@ -181,13 +189,23 @@ export function getTeamNames(
     case GameType.OneVsOne:
       return []
     case GameType.TopVsBottom:
-      return ['Top', 'Bottom']
+      return [
+        t ? t('common.teamNameTop', 'Top') : 'Top',
+        t ? t('common.teamNameBottom', 'Bottom') : 'Bottom',
+      ]
     case GameType.TeamMelee:
     case GameType.TeamFreeForAll:
       const teamNames = []
       const amount = numTeams(gameType, gameSubType, umsForces)
       for (let i = 1; i <= amount; i++) {
-        teamNames.push('Team ' + i)
+        teamNames.push(
+          t
+            ? t('common.teamNameNumber', {
+                defaultValue: 'Team {{teamNumber}}',
+                teamNumber: i,
+              })
+            : `Team ${i}`,
+        )
       }
       return teamNames
     case GameType.UseMapSettings:

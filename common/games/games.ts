@@ -1,3 +1,4 @@
+import { TFunction } from 'i18next'
 import { Immutable } from 'immer'
 import { assertUnreachable } from '../assert-unreachable'
 import { Jsonify } from '../json'
@@ -44,12 +45,15 @@ export function toGameRecordJson(game: GameRecord): GameRecordJson {
   }
 }
 
-export function getGameTypeLabel(game: Immutable<GameRecordJson>): string {
+export function getGameTypeLabel(game: Immutable<GameRecordJson>, t: TFunction): string {
   // TODO(tec27): show mode (UMS, Top v Bottom, etc.?)
   if (game.config.gameSource === GameSource.Lobby) {
-    return 'Custom game'
+    return t('common.gameTypeCustom', 'Custom game')
   } else if (game.config.gameSource === GameSource.Matchmaking) {
-    return `Ranked ${matchmakingTypeToLabel(game.config.gameSourceExtra.type)}`
+    return t('common.gameTypeRanked', {
+      defaultValue: `Ranked {{matchmakingType}}`,
+      matchmakingType: matchmakingTypeToLabel(game.config.gameSourceExtra.type, t),
+    })
   }
 
   return assertUnreachable(game.config)

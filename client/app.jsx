@@ -93,26 +93,28 @@ export default function App() {
         <LoadableSystemBar />
         <KeyListenerBoundary>
           <RootErrorBoundary>
-            <Switch>
-              <Route path='/splash' component={Splash} />
-              <Route path='/faq' component={Faq} />
-              <Route path='/download' component={DownloadPage} />
-              <Route path='/acceptable-use' component={AcceptableUsePage} />
-              <Route path='/privacy' component={PrivacyPolicyPage} />
-              <Route path='/terms-of-service' component={TermsOfServicePage} />
-              <LoginRoute path='/forgot-password' component={ForgotPassword} />
-              <LoginRoute path='/forgot-user' component={ForgotUser} />
-              <LoginRoute path='/login' component={Login} />
-              <LoginRoute path='/reset-password' component={ResetPassword} />
-              <LoginRoute path='/signup' component={Signup} />
-              <LoginRoute path='/verify-email' component={EmailVerificationUi} />
-              {!IS_PRODUCTION ? <Route path='/dev/:rest*' component={LoadableDev} /> : <></>}
-              <Route>
-                <MainContent />
-              </Route>
-            </Switch>
-            <ConnectedSnackbar />
-            <ConnectedDialogOverlay />
+            <React.Suspense fallback={<LoadingIndicator />}>
+              <Switch>
+                <Route path='/splash' component={Splash} />
+                <Route path='/faq' component={Faq} />
+                <Route path='/download' component={DownloadPage} />
+                <Route path='/acceptable-use' component={AcceptableUsePage} />
+                <Route path='/privacy' component={PrivacyPolicyPage} />
+                <Route path='/terms-of-service' component={TermsOfServicePage} />
+                <LoginRoute path='/forgot-password' component={ForgotPassword} />
+                <LoginRoute path='/forgot-user' component={ForgotUser} />
+                <LoginRoute path='/login' component={Login} />
+                <LoginRoute path='/reset-password' component={ResetPassword} />
+                <LoginRoute path='/signup' component={Signup} />
+                <LoginRoute path='/verify-email' component={EmailVerificationUi} />
+                {!IS_PRODUCTION ? <Route path='/dev/:rest*' component={LoadableDev} /> : <></>}
+                <Route>
+                  <MainContent />
+                </Route>
+              </Switch>
+              <ConnectedSnackbar />
+              <ConnectedDialogOverlay />
+            </React.Suspense>
           </RootErrorBoundary>
           <UpdateOverlay />
         </KeyListenerBoundary>

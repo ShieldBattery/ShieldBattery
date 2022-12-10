@@ -9,6 +9,7 @@ import path from 'path'
 import { ServerConfig } from '../common/server-config'
 import { ClientSessionInfo } from '../common/users/session'
 import './http-apis'
+import isDev from './lib/env/is-dev'
 import { getUrl, readFile } from './lib/file-upload'
 import { applyApiRoutes, resolveAllHttpApis } from './lib/http/http-api'
 import logger from './lib/logging/logger'
@@ -110,6 +111,11 @@ export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) 
     ctx.set('Location', cachedInstallerUrl)
     ctx.status = 301
   })
+
+  if (isDev) {
+    const { handleMissingTranslationKeys } = require('./lib/i18n/i18next')
+    router.post('/locales/add/:lng/:ns', handleMissingTranslationKeys)
+  }
 
   // catch-all for the remainder, first tries static files, then if not found, renders the index and
   // expects the client to handle routing
