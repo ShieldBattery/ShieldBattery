@@ -1,6 +1,6 @@
 import { RouterContext } from '@koa/router'
 import i18next from 'i18next'
-import FsBackend from 'i18next-fs-backend'
+import FsBackend, { FsBackendOptions } from 'i18next-fs-backend'
 import Joi from 'joi'
 import { Next } from 'koa'
 import {
@@ -20,14 +20,12 @@ function orderedStringify(obj: Record<string, string>) {
   return JSON.stringify(obj, Array.from(allKeys).sort(), 2)
 }
 
-i18next.use(FsBackend).init({
-  // TODO(2Pac): Remove the `any` cast once i18next-fs-backend fixes its types. See this issue for
-  // more info: https://github.com/i18next/i18next-http-backend/issues/103
+i18next.use(FsBackend).init<FsBackendOptions>({
   backend: {
     loadPath: './server/public/locales/{{lng}}/{{ns}}.json',
     addPath: './server/public/locales/{{lng}}/{{ns}}.json',
     stringify: orderedStringify,
-  } as any,
+  },
 
   // NOTE(2Pac): We're only using i18next on backend to save the missing keys, so technically we're
   // not even using these options, but we still have to define them for the library to work properly

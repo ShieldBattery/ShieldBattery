@@ -1,5 +1,5 @@
 import i18n from 'i18next'
-import HttpBackend from 'i18next-http-backend'
+import HttpBackend, { HttpBackendOptions } from 'i18next-http-backend'
 import { initReactI18next } from 'react-i18next'
 import {
   ALL_TRANSLATION_LANGUAGES,
@@ -13,7 +13,7 @@ const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 export const i18nextPromise = i18n
   .use(HttpBackend)
   .use(initReactI18next)
-  .init({
+  .init<HttpBackendOptions>({
     backend: {
       loadPath: makeServerUrl('/locales/{{lng}}/{{ns}}.json'),
       addPath: makeServerUrl('/locales/add/{{lng}}/{{ns}}'),
