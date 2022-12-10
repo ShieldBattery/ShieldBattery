@@ -20,12 +20,14 @@ export enum MatchmakingType {
 
 export const ALL_MATCHMAKING_TYPES: ReadonlyArray<MatchmakingType> = Object.values(MatchmakingType)
 
+// TODO(2Pac): Remove the optionality of the translation function here once all the places this is
+// used is updated: https://github.com/ShieldBattery/ShieldBattery/issues/886
 export function matchmakingTypeToLabel(type: MatchmakingType, t?: TFunction): string {
   switch (type) {
     case MatchmakingType.Match1v1:
-      return t ? t('matchmaking.common.matchmakingType1v1', '1v1') : '1v1'
+      return t ? t('common.matchmakingType1v1', '1v1') : '1v1'
     case MatchmakingType.Match2v2:
-      return t ? t('matchmaking.common.matchmakingType2v2', '2v2') : '2v2'
+      return t ? t('common.matchmakingType2v2', '2v2') : '2v2'
     default:
       return assertUnreachable(type)
   }

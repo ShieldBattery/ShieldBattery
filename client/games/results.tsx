@@ -542,7 +542,7 @@ function SummaryPage({
         <TeamLabel key={`team-${i}`}>
           {teamLabels.length > i
             ? teamLabels[i]
-            : t('games.common.teamNameNumber', {
+            : t('common.teamNameNumber', {
                 defaultValue: 'Team {{teamNumber}}',
                 teamNumber: i + 1,
               })}
@@ -677,7 +677,7 @@ export function PlayerResult({ className, config, result, mmrChange }: PlayerRes
       </RaceRoot>
       {config.isComputer ? <StyledComputerAvatar /> : <PlayerAvatar user={user?.name ?? ''} />}
       <PlayerName>
-        {config.isComputer ? t('games.common.playerComputer', 'Computer') : user?.name ?? ''}
+        {config.isComputer ? t('common.playerNameComputer', 'Computer') : user?.name ?? ''}
       </PlayerName>
       {mmrChange ? (
         <MmrChangeColumn>

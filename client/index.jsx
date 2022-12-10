@@ -15,7 +15,6 @@ import log from './logging/logger'
 import RedirectProvider from './navigation/redirect-provider'
 import { fetchJson } from './network/fetch'
 import registerSocketHandlers from './network/socket-handlers'
-import LoadingIndicator from './progress/dots'
 import { RootErrorBoundary } from './root-error-boundary'
 import { serverConfig } from './server-config-storage'
 import './window-focus'
@@ -142,19 +141,17 @@ Promise.all([rootElemPromise, i18nextPromise])
   .then(({ elem, store }) => {
     const root = createRoot(elem)
     root.render(
-      <React.Suspense fallback={<LoadingIndicator />}>
-        <RootErrorBoundary>
-          <ReduxProvider store={store}>
-            <Router>
-              <RedirectProvider>
-                <>
-                  <App />
-                  {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
-                </>
-              </RedirectProvider>
-            </Router>
-          </ReduxProvider>
-        </RootErrorBoundary>
-      </React.Suspense>,
+      <RootErrorBoundary>
+        <ReduxProvider store={store}>
+          <Router>
+            <RedirectProvider>
+              <>
+                <App />
+                {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
+              </>
+            </RedirectProvider>
+          </Router>
+        </ReduxProvider>
+      </RootErrorBoundary>,
     )
   })
