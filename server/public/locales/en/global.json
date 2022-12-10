@@ -1,5 +1,6 @@
 {
   "common": {
+    "emptyListMessage": "Nothing to see here",
     "gameResultDraw": "Draw",
     "gameResultLoss": "Loss",
     "gameResultUnknown": "Unknown",
