@@ -1,7 +1,7 @@
 {
     "common": {
         "emptyListMessage": "Nada que ver aqui",
-        "gameResultDraw": "Dibujar",
+        "gameResultDraw": "Empate",
         "gameResultLoss": "Pérdida",
         "gameResultUnknown": "Desconocido",
         "gameResultWin": "Victoria",
