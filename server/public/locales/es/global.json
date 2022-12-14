@@ -1,1 +1,57 @@
-{}
+{
+    "common": {
+        "emptyListMessage": "Nada que ver aqui",
+        "gameResultDraw": "Dibujar",
+        "gameResultLoss": "Pérdida",
+        "gameResultUnknown": "Desconocido",
+        "gameResultWin": "Victoria",
+        "gameTypeCustom": "Juego personalizado",
+        "gameTypeRanked": "Clasificado {{matchmakingType}}",
+        "mapNameUnknown": "mapa desconocido",
+        "matchmakingType1v1": "1v1",
+        "matchmakingType2v2": "2v2",
+        "playerNameComputer": "Computadora",
+        "playerNameUnknown": "jugador desconocido",
+        "teamNameBottom": "Abajo",
+        "teamNameNumber": "Equipo {{teamNumber}}",
+        "teamNameTop": "Parte superior"
+    },
+    "games": {
+        "miniMatchHistory": {
+            "buttonDetails": "Ver detalles",
+            "noGameSelectedText": "Ningún juego seleccionado"
+        },
+        "results": {
+            "buttonRefresh": "Actualizar",
+            "buttonSearchAgain": "Busca de nuevo",
+            "headlineInProgress": "En progreso…",
+            "errorLoading": "Hubo un problema al cargar este juego.",
+            "headlineDefault": "Resultados",
+            "headlineDefeat": "¡Vencer!",
+            "headlineDraw": "¡Dibujar!",
+            "headlineVictory": "¡Victoria!",
+            "infoDate": "Fecha",
+            "infoDuration": "Duración",
+            "infoGameType": "Escribe",
+            "pointsBase": "Base",
+            "pointsBonus": "Prima",
+            "statusFinal": "Final",
+            "statusLive": "Vivir",
+            "tabBuildOrders": "Órdenes de construcción",
+            "tabStats": "Estadísticas",
+            "tabSummary": "Resumen"
+        }
+    },
+    "time": {
+        "timeAgo": {
+            "days": "{{days}} hace d",
+            "hours": "{{hours}}hace h",
+            "minutes": "hace {{minutes}}m",
+            "months": "Hace {{months}} meses",
+            "now": "En este momento",
+            "seconds": "{{seconds}} hace s",
+            "weeks": "{{weeks}} hace s",
+            "years": "{{years}}hace años"
+        }
+    }
+}
