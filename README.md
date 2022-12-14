@@ -15,6 +15,13 @@ questions, comments, or just to hang out!
 
 https://discord.gg/S8dfMx94a4
 
+## Localization/Translation
+
+If you'd like to assist with translating our application into other languages, please reach out to us
+in our Discord! We use an external application for managing this process which can be found
+[here](https://translation.shieldbattery.net). Registering to contribute translations requires
+approval.
+
 ## Developer setup
 
 See our [getting started](./docs/GETTING_STARTED.md) guide for information on initial developer setup.
