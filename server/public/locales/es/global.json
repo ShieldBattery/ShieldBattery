@@ -1,7 +1,7 @@
 {
     "common": {
         "emptyListMessage": "Nada que ver aqui",
-        "gameResultDraw": "Empate",
+        "gameResultDraw": "Dibujar",
         "gameResultLoss": "Pérdida",
         "gameResultUnknown": "Desconocido",
         "gameResultWin": "Victoria",
@@ -11,7 +11,7 @@
         "matchmakingType1v1": "1v1",
         "matchmakingType2v2": "2v2",
         "playerNameComputer": "Computadora",
-        "playerNameUnknown": "Jugador desconocido",
+        "playerNameUnknown": "jugador desconocido",
         "teamNameBottom": "Abajo",
         "teamNameNumber": "Equipo {{teamNumber}}",
         "teamNameTop": "Arriba"
