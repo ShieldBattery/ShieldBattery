@@ -79,7 +79,7 @@ ORDER BY s.name, g.config->'gameSourceExtra'->>'type';
 ## Count the number of matchmaking games played for each player in a given time period
 
 You can adjust the query to count the games for a different matchmaking type and/or a different time
-period.
+period. Keep in mind that the database is using the UTC time zone.
 
 ```sql
 SELECT u.name AS user_name, COUNT(gu.game_id) AS games_played
