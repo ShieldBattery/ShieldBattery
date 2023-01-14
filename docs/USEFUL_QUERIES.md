@@ -76,6 +76,25 @@ GROUP BY s.name, g.config->'gameSourceExtra'->>'type'
 ORDER BY s.name, g.config->'gameSourceExtra'->>'type';
 ```
 
+## Count the number of matchmaking games played for each player in a given time period
+
+You can adjust the query to count the games for a different matchmaking type and/or a different time
+period. Keep in mind that the database is using the UTC time zone.
+
+```sql
+SELECT u.name AS user_name, COUNT(gu.game_id) AS games_played
+FROM games_users gu
+INNER JOIN users u ON gu.user_id = u.id
+INNER JOIN games g ON gu.game_id = g.id
+WHERE
+  gu.start_time >= '2022-11-30 23:00:00' AND
+  gu.start_time < '2023-01-01 01:00:00' AND
+  g.config->>'gameSource' = 'MATCHMAKING' AND
+  g.config->'gameSourceExtra'->>'type' = '2v2'
+GROUP BY user_name
+ORDER BY games_played DESC;
+```
+
 # Creating a readonly role and user logins
 
 These must be executed as the superuser.
