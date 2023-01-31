@@ -4,7 +4,7 @@
         "gameResultDraw": "Dibujar",
         "gameResultLoss": "Pérdida",
         "gameResultUnknown": "Desconocido",
-        "gameResultWin": "Victoria",
+        "gameResultWin": "Ganar",
         "gameTypeCustom": "Juego personalizado",
         "gameTypeRanked": "Clasificado {{matchmakingType}}",
         "mapNameUnknown": "mapa desconocido",
@@ -48,7 +48,7 @@
             "hours": "{{hours}}hace h",
             "minutes": "hace {{minutes}}m",
             "months": "Hace {{months}} meses",
-            "now": "En este momento",
+            "now": "justo ahora",
             "seconds": "{{seconds}} hace s",
             "weeks": "{{weeks}} hace s",
             "years": "{{years}}hace años"
