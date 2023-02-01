@@ -12,7 +12,9 @@
         "playerNameComputer": "ИИ",
         "gameResultDraw": "Ничья",
         "gameResultUnknown": "Результат неизвестен",
-        "teamNameNumber": "Команда {{teamNumber}}"
+        "teamNameNumber": "Команда {{teamNumber}}",
+        "teamNameBottom": "Низ",
+        "teamNameTop": "Верхняя"
     },
     "games": {
         "results": {
@@ -31,7 +33,9 @@
             "headlineDraw": "Ничья!",
             "errorLoading": "Не удалось загрузить эту игру.",
             "headlineInProgress": "В процессе…",
-            "headlineDefeat": "Поражение!"
+            "headlineDefeat": "Поражение!",
+            "statusFinal": "Финал",
+            "statusLive": "Прямой эфир"
         },
         "miniMatchHistory": {
             "buttonDetails": "Посмотреть детали",
@@ -46,7 +50,8 @@
             "months": "{{months}}мес. назад",
             "seconds": "{{seconds}}сек. назад",
             "weeks": "{{weeks}}нед. назад",
-            "days": "{{days}}д. назад"
+            "days": "{{days}}д. назад",
+            "years": "{{years}}год назад"
         }
     }
 }
