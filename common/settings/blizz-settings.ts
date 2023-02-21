@@ -1,4 +1,4 @@
-import { assertUnreachable } from './assert-unreachable'
+import { assertUnreachable } from '../assert-unreachable'
 
 /**
  * Purchaseable/unlockable custom console skins (e.g. ingame UI). The values of these match the ones

@@ -25,7 +25,7 @@ import { RallyPointManager } from './rally-point/rally-point-manager'
 import { parseShieldbatteryReplayData } from './replays/parse-shieldbattery-replay'
 import './security/client'
 import { collect } from './security/client'
-import { LocalSettings, ScrSettings } from './settings'
+import { LocalSettingsManager, ScrSettingsManager } from './settings'
 import SystemTray from './system-tray'
 import { getUserDataPath } from './user-data-path'
 
@@ -132,7 +132,7 @@ async function cacheIdsIfNeeded(newPath?: string, force?: boolean) {
 async function createLocalSettings() {
   const sbSessionName = process.env.SB_SESSION
   const fileName = sbSessionName ? `settings-${sbSessionName}.json` : 'settings.json'
-  const settings = new LocalSettings(path.join(getUserDataPath(), fileName))
+  const settings = new LocalSettingsManager(path.join(getUserDataPath(), fileName))
   await settings.untilInitialized()
   await cacheIdsIfNeeded((await settings.get()).starcraftPath, true /* force */)
   return settings
@@ -141,7 +141,7 @@ async function createLocalSettings() {
 async function createScrSettings() {
   const sbSessionName = process.env.SB_SESSION
   const fileName = sbSessionName ? `scr-settings-${sbSessionName}.json` : 'scr-settings.json'
-  const settings = new ScrSettings(
+  const settings = new ScrSettingsManager(
     path.join(getUserDataPath(), fileName),
     path.join(app.getPath('documents'), 'StarCraft', 'CSettings.json'),
     path.join(
@@ -153,7 +153,7 @@ async function createScrSettings() {
   return settings
 }
 
-function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
+function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsManager) {
   ipcMain.handle('logMessage', (event, level, message) => {
     logger.log(level, message)
   })
@@ -162,39 +162,54 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
     await scrSettings.writeGameSettingsFile()
   })
 
-  ipcMain
-    .on('settingsLocalGet', event => {
-      localSettings.get().then(
-        settings => TypedIpcSender.from(event.sender).send('settingsLocalChanged', settings),
-        err => {
-          logger.error('Error getting local settings: ' + err)
-          TypedIpcSender.from(event.sender).send('settingsLocalGetError', err)
-        },
-      )
+  ipcMain.handle('settingsLocalGet', () => {
+    return localSettings.get().catch(err => {
+      logger.error('Error getting local settings: ' + err)
+      throw err
     })
-    .on('settingsScrGet', event => {
-      scrSettings.get().then(
-        settings => TypedIpcSender.from(event.sender).send('settingsScrChanged', settings),
-        err => {
-          logger.error('Error getting SC:R settings: ' + err)
-          TypedIpcSender.from(event.sender).send('settingsScrGetError', err)
-        },
-      )
+  })
+  ipcMain.handle('settingsScrGet', () => {
+    return scrSettings.get().catch(err => {
+      logger.error('Error getting SC:R settings: ' + err)
+      throw err
     })
-    .on('settingsLocalMerge', (event, settings) => {
-      // This will trigger a change if things changed, which will then emit a LOCAL_SETTINGS_CHANGED
-      localSettings.merge(settings).catch(err => {
-        logger.error('Error merging local settings: ' + err)
-        TypedIpcSender.from(event.sender).send('settingsLocalMergeError', err)
+  })
+  ipcMain.handle('settingsLocalMerge', (event, settings) => {
+    // This will trigger a change if things changed, which will then emit a `settingsLocalChanged`
+    localSettings.merge(settings).catch(err => {
+      logger.error('Error merging local settings: ' + err)
+      throw err
+    })
+  })
+  ipcMain.handle('settingsScrMerge', (event, settings) => {
+    // This will trigger a change if things changed, which will then emit a `settingsScrChanged`
+    scrSettings.merge(settings).catch(err => {
+      logger.error('Error merging SC:R settings: ' + err)
+      throw err
+    })
+  })
+
+  let lastRunAppAtSystemStart: boolean | undefined
+  let lastRunAppAtSystemStartMinimized: boolean | undefined
+
+  localSettings.on('change', settings => {
+    if (
+      lastRunAppAtSystemStart !== settings.runAppAtSystemStart ||
+      lastRunAppAtSystemStartMinimized !== settings.runAppAtSystemStartMinimized
+    ) {
+      app.setLoginItemSettings({
+        openAtLogin: settings.runAppAtSystemStart,
+        args: [settings.runAppAtSystemStartMinimized ? '--hidden' : ''],
       })
-    })
-    .on('settingsScrMerge', (event, settings) => {
-      // This will trigger a change if things changed, which will then emit a SCR_SETTINGS_CHANGED
-      scrSettings.merge(settings).catch(err => {
-        logger.error('Error merging SC:R settings: ' + err)
-        TypedIpcSender.from(event.sender).send('settingsScrMergeError', err)
-      })
-    })
+      lastRunAppAtSystemStart = settings.runAppAtSystemStart
+      lastRunAppAtSystemStartMinimized = settings.runAppAtSystemStartMinimized
+    }
+
+    TypedIpcSender.from(mainWindow?.webContents).send('settingsLocalChanged', settings)
+  })
+  scrSettings.on('change', settings => {
+    TypedIpcSender.from(mainWindow?.webContents).send('settingsScrChanged', settings)
+  })
 
   ipcMain
     .on('windowClose', (_, shouldDisplayCloseHint) => {
@@ -224,28 +239,6 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
       }
       mainWindow.minimize()
     })
-
-  let lastRunAppAtSystemStart: boolean | undefined
-  let lastRunAppAtSystemStartMinimized: boolean | undefined
-
-  localSettings.on('change', settings => {
-    if (
-      lastRunAppAtSystemStart !== settings.runAppAtSystemStart ||
-      lastRunAppAtSystemStartMinimized !== settings.runAppAtSystemStartMinimized
-    ) {
-      app.setLoginItemSettings({
-        openAtLogin: settings.runAppAtSystemStart,
-        args: [settings.runAppAtSystemStartMinimized ? '--hidden' : ''],
-      })
-      lastRunAppAtSystemStart = settings.runAppAtSystemStart
-      lastRunAppAtSystemStartMinimized = settings.runAppAtSystemStartMinimized
-    }
-
-    TypedIpcSender.from(mainWindow?.webContents).send('settingsLocalChanged', settings)
-  })
-  scrSettings.on('change', settings => {
-    TypedIpcSender.from(mainWindow?.webContents).send('settingsScrChanged', settings)
-  })
 
   let updateState:
     | 'updaterUpToDate'
@@ -599,7 +592,7 @@ function registerHotkeys() {
 }
 
 async function createWindow() {
-  const localSettings = container.resolve(LocalSettings)
+  const localSettings = container.resolve(LocalSettingsManager)
   const curSession = currentSession()
 
   // TODO(tec27): verify that window positioning is still valid on current monitor setup
@@ -746,8 +739,8 @@ app.on('ready', async () => {
       scrSettingsPromise,
     ])
 
-    container.register(LocalSettings, { useValue: localSettings })
-    container.register(ScrSettings, { useValue: scrSettings })
+    container.register(LocalSettingsManager, { useValue: localSettings })
+    container.register(ScrSettingsManager, { useValue: scrSettings })
 
     const mapDirPath = path.join(app.getPath('userData'), 'maps')
     const mapStore = new MapStore(mapDirPath)

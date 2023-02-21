@@ -2,7 +2,7 @@ import deepEqual from 'deep-equal'
 import fs, { promises as fsPromises } from 'fs'
 import { Map } from 'immutable'
 import { ConditionalKeys } from 'type-fest'
-import { LocalSettingsData, ScrSettingsData } from '../common/local-settings'
+import { LocalSettings, ScrSettings } from '../common/settings/local-settings'
 import { EventMap, TypedEventEmitter } from '../common/typed-emitter'
 import { findInstallPath } from './find-install-path'
 import log from './logger'
@@ -32,7 +32,7 @@ interface SettingsEvents<T> extends EventMap {
 
 // A general class that the local settings and SC:R settings can both use to handle their respective
 // logic.
-abstract class Settings<T> extends TypedEventEmitter<SettingsEvents<T>> {
+abstract class SettingsManager<T> extends TypedEventEmitter<SettingsEvents<T>> {
   protected abstract settings: Partial<T>
   protected initialized: Promise<void>
 
@@ -117,11 +117,11 @@ function migrateV1MouseSensitivity(oldSens: number | undefined) {
   }
 }
 
-export class LocalSettings extends Settings<LocalSettingsData> {
-  protected settings!: Partial<LocalSettingsData>
+export class LocalSettingsManager extends SettingsManager<LocalSettings> {
+  protected settings!: Partial<LocalSettings>
 
   constructor(filepath: string) {
-    const initializeFunc = async function (this: LocalSettings) {
+    const initializeFunc = async function (this: LocalSettingsManager) {
       try {
         this.settings = JSON.parse(await fsPromises.readFile(this.filepath, { encoding: 'utf8' }))
       } catch (err) {
@@ -147,7 +147,7 @@ export class LocalSettings extends Settings<LocalSettingsData> {
     super('local', filepath, initializeFunc)
   }
 
-  private async createDefaults(): Promise<LocalSettingsData> {
+  private async createDefaults(): Promise<LocalSettings> {
     return {
       version: VERSION,
       runAppAtSystemStart: false,
@@ -168,7 +168,7 @@ export class LocalSettings extends Settings<LocalSettingsData> {
   }
 
   // TODO(tec27): Type the old settings files
-  private async migrateOldSettings(settings: Partial<LocalSettingsData>) {
+  private async migrateOldSettings(settings: Partial<LocalSettings>) {
     const newSettings = { ...settings }
     if (!settings.starcraftPath) {
       log.verbose('Migrating old local settings, finding starcraft path')
@@ -238,7 +238,7 @@ export class LocalSettings extends Settings<LocalSettingsData> {
  * NOTE(tec27): The typing here does very little in current versions of TS, since it allows either
  * side of the tuple to match to 'string' :/
  */
-export const sbToScrMapping = Map<Omit<keyof ScrSettingsData, 'version'>, string>([
+export const sbToScrMapping = Map<Omit<keyof ScrSettings, 'version'>, string>([
   ['keyboardScrollSpeed', 'm_kscroll'],
   ['mouseScrollSpeed', 'm_mscroll'],
   ['mouseSensitivityOn', 'MouseUseSensitivity'],
@@ -287,7 +287,7 @@ export const sbToScrMapping = Map<Omit<keyof ScrSettingsData, 'version'>, string
 
 export const scrToSbMapping = sbToScrMapping.mapEntries(([key, value]) => [value, key])
 
-export function fromBlizzardToSb(blizzardSettings: Record<string, any>): Partial<ScrSettingsData> {
+export function fromBlizzardToSb(blizzardSettings: Record<string, any>): Partial<ScrSettings> {
   return Object.entries(blizzardSettings).reduce((acc, [name, value]) => {
     const sbKeyName = scrToSbMapping.get(name)
 
@@ -296,10 +296,10 @@ export function fromBlizzardToSb(blizzardSettings: Record<string, any>): Partial
     }
 
     return acc
-  }, {} as Partial<ScrSettingsData>)
+  }, {} as Partial<ScrSettings>)
 }
 
-export function fromSbToBlizzard(sbSettings: Partial<ScrSettingsData>): Record<string, any> {
+export function fromSbToBlizzard(sbSettings: Partial<ScrSettings>): Record<string, any> {
   return Object.entries(sbSettings).reduce((acc, [name, value]) => {
     const scrKeyName = sbToScrMapping.get(name)
 
@@ -311,8 +311,8 @@ export function fromSbToBlizzard(sbSettings: Partial<ScrSettingsData>): Record<s
   }, {} as Record<string, any>)
 }
 
-export class ScrSettings extends Settings<ScrSettingsData> {
-  protected settings!: Partial<ScrSettingsData>
+export class ScrSettingsManager extends SettingsManager<ScrSettings> {
+  protected settings!: Partial<ScrSettings>
   private blizzardFilepath: string
   private blizzardSettings!: Record<string, any>
 
@@ -326,7 +326,7 @@ export class ScrSettings extends Settings<ScrSettingsData> {
    *   settings file, which we write out during game launches.
    */
   constructor(filepath: string, blizzardFilepath: string, readonly gameFilepath: string) {
-    const initializeFunc = async function (this: ScrSettings) {
+    const initializeFunc = async function (this: ScrSettingsManager) {
       try {
         this.settings = JSON.parse(await fsPromises.readFile(this.filepath, { encoding: 'utf8' }))
       } catch (err) {
@@ -378,11 +378,11 @@ export class ScrSettings extends Settings<ScrSettingsData> {
     }
   }
 
-  private migrateOldSettings(settings: Partial<ScrSettingsData>) {
+  private migrateOldSettings(settings: Partial<ScrSettings>) {
     const newSettings = { ...settings }
     if (!newSettings.version || newSettings.version < 2) {
       // Fix integer settings to not be negative
-      const intSettings: Array<ConditionalKeys<ScrSettingsData, number>> = [
+      const intSettings: Array<ConditionalKeys<ScrSettings, number>> = [
         'keyboardScrollSpeed',
         'mouseScrollSpeed',
         'mouseSensitivity',

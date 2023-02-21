@@ -1,53 +1,35 @@
-import { TypedIpcRenderer } from '../../common/ipc'
-import { LocalSettingsData, ScrSettingsData } from '../../common/local-settings'
-import { LOCAL_SETTINGS_SET_BEGIN, SCR_SETTINGS_SET_BEGIN } from '../actions'
 import { audioManager } from '../audio/audio-manager'
-import { openDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
-import { isStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
+import { JsonLocalStorageValue } from '../local-storage'
+import { ChangeSettingsSubPage, CloseSettings, OpenSettings } from './actions'
+import { SettingsSubPage, UserSettingsSubPage } from './settings-sub-page'
 
-const ipcRenderer = new TypedIpcRenderer()
+// TODO(2Pac): Clear or migrate the previously saved tab in local storage to this?
+const savedSettingsSubPage = new JsonLocalStorageValue<SettingsSubPage>('settingsSubPage')
 
-export function openSettingsDialog(): ThunkAction {
-  return (dispatch, getState) => {
-    const { starcraft } = getState()
+export function openSettings(subPage?: SettingsSubPage): OpenSettings {
+  const savedSubPage = savedSettingsSubPage.getValue() ?? UserSettingsSubPage.Account
 
-    if (!isStarcraftHealthy({ starcraft })) {
-      dispatch(
-        openDialog({
-          type: DialogType.StarcraftPath,
-        }),
-      )
-    } else {
-      dispatch(
-        openDialog({
-          type: DialogType.Settings,
-        }),
-      )
-    }
+  return {
+    type: '@settings/openSettings',
+    payload: {
+      subPage: subPage ?? savedSubPage,
+    },
   }
 }
 
-export function mergeLocalSettings(settings: Partial<LocalSettingsData>): ThunkAction {
-  return dispatch => {
-    dispatch({
-      type: LOCAL_SETTINGS_SET_BEGIN,
-    } as any)
+export function changeSettingsSubPage(subPage: SettingsSubPage): ChangeSettingsSubPage {
+  savedSettingsSubPage.setValue(subPage)
 
-    // the ipc-handler will dispatch the right UPDATE event (or SET, if there was an error)
-    ipcRenderer.send('settingsLocalMerge', settings)
+  return {
+    type: '@settings/changeSettingsSubPage',
+    payload: { subPage },
   }
 }
 
-export function mergeScrSettings(settings: Partial<ScrSettingsData>): ThunkAction {
-  return dispatch => {
-    dispatch({
-      type: SCR_SETTINGS_SET_BEGIN,
-    } as any)
-
-    // the ipc-handler will dispatch the right UPDATE event (or SET, if there was an error)
-    ipcRenderer.send('settingsScrMerge', settings)
+export function closeSettings(): CloseSettings {
+  return {
+    type: '@settings/closeSettings',
   }
 }
 

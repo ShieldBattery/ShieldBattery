@@ -4,7 +4,7 @@ import { Announcer, ConsoleSkin, DisplayMode, IngameSkin } from './blizz-setting
  * Settings related to the ShieldBattery Electron app (that will not be exposed to users in the
  * settings dialog).
  */
-export interface ShieldBatteryAppSettingsData {
+export interface ShieldBatteryAppSettings {
   version: number
   winX: number
   winY: number
@@ -15,7 +15,7 @@ export interface ShieldBatteryAppSettingsData {
   winMaximized: boolean
 }
 
-export interface LocalSettingsData extends ShieldBatteryAppSettingsData {
+export interface LocalSettings extends ShieldBatteryAppSettings {
   runAppAtSystemStart: boolean
   runAppAtSystemStartMinimized: boolean
   starcraftPath: string
@@ -25,7 +25,7 @@ export interface LocalSettingsData extends ShieldBatteryAppSettingsData {
   visualizeNetworkStalls?: boolean
 }
 
-export interface ScrSettingsData {
+export interface ScrSettings {
   version: number
   keyboardScrollSpeed: number
   mouseScrollSpeed: number

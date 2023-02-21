@@ -1,5 +1,6 @@
 import React, { useImperativeHandle, useMemo } from 'react'
 import styled from 'styled-components'
+import { DEV_INDICATOR } from '../../common/flags'
 import {
   ALL_CONSOLE_SKINS,
   ALL_INGAME_SKINS,
@@ -7,8 +8,7 @@ import {
   getConsoleSkinName,
   getIngameSkinName,
   IngameSkin,
-} from '../../common/blizz-settings'
-import { DEV_INDICATOR } from '../../common/flags'
+} from '../../common/settings/blizz-settings'
 import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import CheckBox from '../material/check-box'

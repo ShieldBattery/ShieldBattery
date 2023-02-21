@@ -11,6 +11,7 @@ import { MapsActions } from './maps/actions'
 import { MatchmakingActions } from './matchmaking/actions'
 import { NotificationActions } from './notifications/actions'
 import { PartyActions } from './parties/actions'
+import { SettingsActions } from './settings/actions'
 import { UserActions } from './users/actions'
 import { WhisperActions } from './whispers/actions'
 
@@ -28,6 +29,7 @@ type AllActions =
   | MatchmakingActions
   | NotificationActions
   | PartyActions
+  | SettingsActions
   | UserActions
   | WhisperActions
 

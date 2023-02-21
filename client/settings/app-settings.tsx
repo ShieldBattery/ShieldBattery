@@ -7,6 +7,7 @@ import React, {
   useState,
 } from 'react'
 import styled from 'styled-components'
+import { LocalSettings } from '../../common/settings/local-settings'
 import audioManager, { AvailableSound } from '../audio/audio-manager'
 import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
@@ -18,7 +19,6 @@ import { useAppDispatch } from '../redux-hooks'
 import { resetMasterVolume } from './action-creators'
 import { FormContainer } from './settings-content'
 import { SettingsFormHandle } from './settings-form-ref'
-import { LocalSettings } from './settings-records'
 
 const VolumeSettings = styled.div`
   display: flex;

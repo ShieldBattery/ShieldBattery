@@ -1,6 +1,6 @@
 import React, { useImperativeHandle, useMemo } from 'react'
 import styled from 'styled-components'
-import { ALL_ANNOUNCERS, Announcer, getAnnouncerName } from '../../common/blizz-settings'
+import { ALL_ANNOUNCERS, Announcer, getAnnouncerName } from '../../common/settings/blizz-settings'
 import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import CheckBox from '../material/check-box'

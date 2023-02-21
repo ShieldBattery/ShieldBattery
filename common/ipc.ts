@@ -10,10 +10,10 @@ import { Promisable } from 'type-fest'
 import { GameLaunchConfig, GameRoute } from './game-launch-config'
 import { ReportedGameStatus } from './game-status'
 import { GameClientPlayerResult, SubmitGameResultsRequest } from './games/results'
-import { LocalSettingsData, ScrSettingsData } from './local-settings'
 import { MapExtension } from './maps'
 import { ResolvedRallyPointServer } from './rally-point'
 import { ReplayShieldBatteryData } from './replays'
+import { LocalSettings, ScrSettings } from './settings/local-settings'
 import { ShieldBatteryFileResult } from './shieldbattery-file'
 
 const IS_RENDERER = typeof process === 'undefined' || !process || process.type === 'renderer'
@@ -78,6 +78,11 @@ interface IpcInvokeables {
 
   securityGetClientIds: () => Promise<[number, string][]>
 
+  settingsLocalGet: () => Promise<Partial<LocalSettings>>
+  settingsScrGet: () => Promise<Partial<ScrSettings>>
+  settingsLocalMerge: (settings: Readonly<Partial<LocalSettings>>) => void
+  settingsScrMerge: (settings: Readonly<Partial<ScrSettings>>) => void
+
   settingsCheckStarcraftPath: (path: string) => Promise<{ path: boolean; version: boolean }>
   settingsBrowseForStarcraft: (
     defaultPath: string,
@@ -98,13 +103,6 @@ interface IpcRendererSendables {
   rallyPointUpsertServer: (server: ResolvedRallyPointServer) => void
   rallyPointDeleteServer: (id: number) => void
   rallyPointRefreshPings: () => void
-
-  settingsLocalGet: () => void
-  // TODO(tec27): Convert to invoke (and remove settingsLocalMergeError)
-  settingsLocalMerge: (settings: Readonly<Partial<LocalSettingsData>>) => void
-  settingsScrGet: () => void
-  // TODO(tec27): Convert to invoke (and remove settingsScrMergeError)
-  settingsScrMerge: (settings: Readonly<Partial<ScrSettingsData>>) => void
 
   updaterGetState: () => void
   updaterQuitAndInstall: () => void
@@ -134,12 +132,8 @@ interface IpcMainSendables {
 
   rallyPointPingResult: (server: ResolvedRallyPointServer, ping: number) => void
 
-  settingsLocalChanged: (settings: Readonly<Partial<LocalSettingsData>>) => void
-  settingsLocalGetError: (err: Error) => void
-  settingsLocalMergeError: (err: Error) => void
-  settingsScrChanged: (settings: Readonly<Partial<ScrSettingsData>>) => void
-  settingsScrGetError: (err: Error) => void
-  settingsScrMergeError: (err: Error) => void
+  settingsLocalChanged: (settings: Readonly<Partial<LocalSettings>>) => void
+  settingsScrChanged: (settings: Readonly<Partial<ScrSettings>>) => void
 
   updaterDownloadError: () => void
   updaterDownloadProgress: (progressInfo: {
