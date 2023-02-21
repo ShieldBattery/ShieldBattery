@@ -11,7 +11,6 @@ import { Dialog } from '../material/dialog'
 import { TextField } from '../material/text-field'
 import { background500, colorError } from '../styles/colors'
 import { body1, body2, Subtitle1 } from '../styles/typography'
-import { mergeLocalSettings } from './action-creators'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -168,7 +167,8 @@ export default class StarcraftPath extends React.Component {
     const newSettings = {
       starcraftPath: values.path,
     }
-    this.props.dispatch(mergeLocalSettings(newSettings))
+    // FIXME(2pac): Save these settings
+    // this.props.dispatch(mergeLocalSettings(newSettings))
 
     if (!this.props.settings.lastError) {
       this.props.dispatch(closeDialog(DialogType.StarcraftPath))

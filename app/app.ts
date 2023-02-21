@@ -162,17 +162,21 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     await scrSettings.writeGameSettingsFile()
   })
 
-  ipcMain.handle('settingsLocalGet', () => {
-    return localSettings.get().catch(err => {
+  ipcMain.handle('settingsLocalGet', async () => {
+    try {
+      return await localSettings.get()
+    } catch (err: unknown) {
       logger.error('Error getting local settings: ' + err)
       throw err
-    })
+    }
   })
-  ipcMain.handle('settingsScrGet', () => {
-    return scrSettings.get().catch(err => {
+  ipcMain.handle('settingsScrGet', async () => {
+    try {
+      return await scrSettings.get()
+    } catch (err: unknown) {
       logger.error('Error getting SC:R settings: ' + err)
       throw err
-    })
+    }
   })
   ipcMain.handle('settingsLocalMerge', (event, settings) => {
     // This will trigger a change if things changed, which will then emit a `settingsLocalChanged`

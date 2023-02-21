@@ -1,8 +1,13 @@
 import React, { useCallback, useEffect } from 'react'
+import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { TypedIpcRenderer } from '../../common/ipc'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { changeSettingsSubPage, closeSettings } from './action-creators'
+import {
+  changeSettingsSubPage,
+  closeSettings,
+  getLocalSettings,
+  getScrSettings,
+} from './action-creators'
 import AppSettings from './app-settings'
 import GameplaySettings from './gameplay-settings'
 import InputSettings from './input-settings'
@@ -15,7 +20,12 @@ import {
 import SoundSettings from './sound-settings'
 import VideoSettings from './video-settings'
 
-const ipcRenderer = new TypedIpcRenderer()
+const Container = styled.div``
+const NavContainer = styled.div``
+const NavSectionTitle = styled.div``
+const NavSectionSeparator = styled.div``
+const NavLink = styled.div``
+const ContentContainer = styled.div``
 
 export function Settings() {
   const dispatch = useAppDispatch()
@@ -24,9 +34,23 @@ export function Settings() {
 
   useEffect(() => {
     // FIXME(2Pac): Handle errors
-    ipcRenderer.invoke('settingsLocalGet')
-    ipcRenderer.invoke('settingsScrGet')
-  }, [])
+    dispatch(
+      getLocalSettings({
+        onSuccess() {},
+        onError(err) {
+          console.error(err)
+        },
+      }),
+    )
+    dispatch(
+      getScrSettings({
+        onSuccess() {},
+        onError(err) {
+          console.error(err)
+        },
+      }),
+    )
+  }, [dispatch])
 
   const onSubPageChange = useCallback(
     (value: SettingsSubPage) => {
@@ -37,6 +61,10 @@ export function Settings() {
   const onCloseSettings = useCallback(() => {
     dispatch(closeSettings())
   }, [dispatch])
+
+  if (!isOpen) {
+    return undefined
+  }
 
   let contents: React.ReactNode
   switch (subPage) {

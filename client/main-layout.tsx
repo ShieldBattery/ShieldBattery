@@ -403,7 +403,7 @@ export function MainLayout() {
               key='settings'
               ref={settingsButtonRef}
               icon={<MaterialIcon icon='settings' />}
-              onClick={() => openSettings()}
+              onClick={() => dispatch(openSettings())}
             />
           </Tooltip>
           <FriendsListActivityButton />

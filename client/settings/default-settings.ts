@@ -9,10 +9,12 @@ import {
 export const DEFAULT_LOCAL_SETTINGS: Immutable<
   Omit<LocalSettings, keyof ShieldBatteryAppSettings>
 > = {
-  runAppAtSystemStart: true,
+  runAppAtSystemStart: false,
   runAppAtSystemStartMinimized: false,
   starcraftPath: '',
-  masterVolume: 0,
+  masterVolume: 50,
+  gameWinX: -1,
+  gameWinY: -1,
   gameWinWidth: -1,
   gameWinHeight: -1,
   visualizeNetworkStalls: false,

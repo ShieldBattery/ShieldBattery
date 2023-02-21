@@ -16,7 +16,7 @@ import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indic
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { openSettingsDialog } from '../settings/action-creators'
+import { openSettings } from '../settings/action-creators'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { useForceUpdate, useStableCallback } from '../state-hooks'
 import { alphaDisabled, colorDividers, colorTextFaint, colorTextSecondary } from '../styles/colors'
@@ -173,9 +173,9 @@ export function FriendsPopover({ onDismiss }: { onDismiss: () => void }) {
   const activeTab = savedFriendsListTab.getValue() ?? FriendsListTab.List
   const onTabChange = useStableCallback((tab: FriendsListTab) => {
     if (tab === FriendsListTab.Settings) {
-      // TODO(tec27): Open to the correct part of settings once it's there
       onDismiss()
-      dispatch(openSettingsDialog())
+      // TODO(tec27): Open to the correct part of settings once it's there
+      dispatch(openSettings())
       return
     }
 

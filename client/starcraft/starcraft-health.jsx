@@ -5,7 +5,8 @@ import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import { closeDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { Dialog } from '../material/dialog'
-import { openSettingsDialog } from '../settings/action-creators'
+import { openSettings } from '../settings/action-creators'
+import { GameSettingsSubPage } from '../settings/settings-sub-page'
 import { openSnackbar } from '../snackbars/action-creators'
 import { SubheadingOld } from '../styles/typography'
 import {
@@ -93,6 +94,6 @@ export default class StarcraftHealthCheckupDialog extends React.Component {
 
   onSettingsClicked(e) {
     e.preventDefault()
-    this.props.dispatch(openSettingsDialog())
+    this.props.dispatch(openSettings(GameSettingsSubPage.StarCraftPath))
   }
 }

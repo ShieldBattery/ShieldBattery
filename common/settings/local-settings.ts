@@ -8,8 +8,6 @@ export interface ShieldBatteryAppSettings {
   version: number
   winX: number
   winY: number
-  gameWinX: number
-  gameWinY: number
   winWidth: number
   winHeight: number
   winMaximized: boolean
@@ -20,6 +18,8 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   runAppAtSystemStartMinimized: boolean
   starcraftPath: string
   masterVolume: number
+  gameWinX: number
+  gameWinY: number
   gameWinWidth: number
   gameWinHeight: number
   visualizeNetworkStalls?: boolean

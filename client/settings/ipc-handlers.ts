@@ -10,6 +10,7 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
   let lastPathWasValid = false
   ipcRenderer
     .on('settingsLocalChanged', (event, settings) => {
+      console.log('hello!')
       dispatch({
         type: '@settings/updateLocalSettings',
         payload: settings,
@@ -32,6 +33,7 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
       })
     })
     .on('settingsScrChanged', (event, settings) => {
+      console.log('hello!')
       dispatch({
         type: '@settings/updateScrSettings',
         payload: settings,

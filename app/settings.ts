@@ -2,6 +2,7 @@ import deepEqual from 'deep-equal'
 import fs, { promises as fsPromises } from 'fs'
 import { Map } from 'immutable'
 import { ConditionalKeys } from 'type-fest'
+import { DEFAULT_LOCAL_SETTINGS } from '../client/settings/default-settings'
 import { LocalSettings, ScrSettings } from '../common/settings/local-settings'
 import { EventMap, TypedEventEmitter } from '../common/typed-emitter'
 import { findInstallPath } from './find-install-path'
@@ -149,21 +150,14 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
 
   private async createDefaults(): Promise<LocalSettings> {
     return {
+      ...DEFAULT_LOCAL_SETTINGS,
       version: VERSION,
-      runAppAtSystemStart: false,
-      runAppAtSystemStartMinimized: false,
       starcraftPath: await findStarcraftPath(),
       winX: -1,
       winY: -1,
       winWidth: -1,
       winHeight: -1,
       winMaximized: false,
-      masterVolume: 50,
-      // Game window pos/size settings are not used yet (but are saved), will use it soon
-      gameWinX: -1,
-      gameWinY: -1,
-      gameWinWidth: -1,
-      gameWinHeight: -1,
     }
   }
 
