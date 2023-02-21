@@ -150,7 +150,7 @@ export class LocalSettings extends Settings<LocalSettingsData> {
   private async createDefaults(): Promise<LocalSettingsData> {
     return {
       version: VERSION,
-      runAppAtSystemStart: true,
+      runAppAtSystemStart: false,
       runAppAtSystemStartMinimized: false,
       starcraftPath: await findStarcraftPath(),
       winX: -1,
