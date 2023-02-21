@@ -48,6 +48,9 @@ export function Settings() {
       contents = <AppSettings />
       break
     case GameSettingsSubPage.StarCraftPath:
+      // FIXME(2pac): Implement
+      contents = <div />
+      break
     case GameSettingsSubPage.Input:
       contents = <InputSettings />
       break
