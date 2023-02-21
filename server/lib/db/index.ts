@@ -18,7 +18,8 @@ pg.types.setTypeParser(
 
 // Similar to above, we must also parse input dates as UTC so the servers running on different time
 // zones work correctly
-pg.defaults.parseInputDatesAsUTC = true
+// NOTE(tec27): Typings are now missing this option for some reason?
+;(pg.defaults as any).parseInputDatesAsUTC = true
 
 let pool: pg.Pool | undefined
 // TODO(tec27): Inject this instead so that tests can initialize it if they need to

@@ -6,14 +6,11 @@ import koaStatic from 'koa-static'
 import path from 'path'
 import rimraf from 'rimraf'
 import { Readable } from 'stream'
-import util from 'util'
 import { FileStore } from './store'
 
 // How long browsers can cache resources for (in milliseconds). These resources should all be pretty
 // static, so this can be a long time
 export const FILE_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000
-
-const rimrafAsync = util.promisify(rimraf)
 
 export default class LocalFsStore implements FileStore {
   readonly path: string
@@ -54,7 +51,7 @@ export default class LocalFsStore implements FileStore {
 
   async deleteFiles(prefix: string) {
     const full = this.getFullPath(prefix)
-    await rimrafAsync(full)
+    await rimraf(full)
   }
 
   async url(filename: string, signUrl: boolean) {

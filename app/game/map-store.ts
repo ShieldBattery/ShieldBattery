@@ -12,7 +12,7 @@ import log from '../logger'
 const pipelinePromise = promisify(pipeline)
 
 export class MapStore {
-  private dirCreated: Promise<string | undefined>
+  private dirCreated: Promise<string | void | undefined>
   private activeDownloads = Map<string, Promise<boolean>>()
 
   constructor(readonly basePath: string) {

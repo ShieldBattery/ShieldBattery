@@ -100,9 +100,9 @@ export default function SettingsDialog({ dialogRef, onCancel }: CommonDialogProp
     // in this dialog anyway, and depending on how IPC events interleave, the SC Path dialog may
     // not have merged a new path by the time this dialog is first rendered. We don't want to merge
     // an old path back into the settings, so we just remove it instead.
-    const localSettingsToMerge = tempLocalSettings.toJS()
+    const localSettingsToMerge = tempLocalSettings.toJS() as Partial<LocalSettingsData>
     delete localSettingsToMerge.starcraftPath
-    dispatch(mergeLocalSettings(localSettingsToMerge as Partial<LocalSettingsData>))
+    dispatch(mergeLocalSettings(localSettingsToMerge))
     dispatch(mergeScrSettings(tempScrSettings.toJS() as Partial<ScrSettingsData>))
 
     // TODO(tec27): This doesn't seem like it would actually catch errors from saving here? Since
