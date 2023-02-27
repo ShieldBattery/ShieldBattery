@@ -11,6 +11,7 @@ import {
 } from '../../common/games/configuration'
 import { MapInfoJson } from '../../common/maps'
 import { closeOverlay, openOverlay } from '../activities/action-creators'
+import { ActivityOverlayType } from '../activities/activity-overlay-type'
 import { DisabledCard, DisabledOverlay, DisabledText } from '../activities/disabled-content'
 import { useForm } from '../forms/form-hook'
 import { SubmitOnEnter } from '../forms/submit-on-enter'
@@ -276,7 +277,7 @@ export function CreateLobby(props: CreateLobbyProps) {
   }, [])
   const onMapSelect = useCallback(
     (map: Immutable<MapInfoJson>) => {
-      dispatch(openOverlay('createLobby', { map }) as any)
+      dispatch(openOverlay({ type: ActivityOverlayType.CreateLobby, initData: { map } }) as any)
     },
     [dispatch],
   )
@@ -285,12 +286,16 @@ export function CreateLobby(props: CreateLobbyProps) {
       return
     }
 
-    const serverMapsProps = {
-      title: 'Select map',
-      onMapSelect,
-      onMapUpload: onMapSelect,
-    }
-    dispatch(openOverlay('browseServerMaps', serverMapsProps) as any)
+    dispatch(
+      openOverlay({
+        type: ActivityOverlayType.BrowseServerMaps,
+        initData: {
+          title: 'Select map',
+          onMapSelect,
+          onMapUpload: onMapSelect,
+        },
+      }),
+    )
   }, [isInParty, onMapSelect, dispatch])
   const onSubmit = useCallback(
     (model: CreateLobbyModel) => {

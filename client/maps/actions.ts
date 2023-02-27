@@ -1,3 +1,4 @@
+import { Immutable } from 'immer'
 import {
   GetBatchMapInfoResponse,
   GetMapDetailsResponse,
@@ -181,7 +182,7 @@ export interface ToggleFavoriteMapFailure extends BaseFetchFailure<'@maps/toggle
 export interface RemoveMapBegin {
   type: '@maps/removeMapBegin'
   payload: {
-    map: MapInfoJson
+    map: Immutable<MapInfoJson>
   }
 }
 
@@ -193,7 +194,7 @@ export interface RemoveMapSuccess {
   payload: void
   error?: false
   meta: {
-    map: MapInfoJson
+    map: Immutable<MapInfoJson>
   }
 }
 
@@ -202,7 +203,7 @@ export interface RemoveMapSuccess {
  */
 export interface RemoveMapFailure extends BaseFetchFailure<'@maps/removeMap'> {
   meta: {
-    map: MapInfoJson
+    map: Immutable<MapInfoJson>
   }
 }
 
@@ -212,7 +213,7 @@ export interface RemoveMapFailure extends BaseFetchFailure<'@maps/removeMap'> {
 export interface RegenMapImageBegin {
   type: '@maps/regenMapImageBegin'
   payload: {
-    map: MapInfoJson
+    map: Immutable<MapInfoJson>
   }
 }
 
@@ -224,7 +225,7 @@ export interface RegenMapImageSuccess {
   payload: void
   error?: false
   meta: {
-    map: MapInfoJson
+    map: Immutable<MapInfoJson>
   }
 }
 
@@ -233,7 +234,7 @@ export interface RegenMapImageSuccess {
  */
 export interface RegenMapImageFailure extends BaseFetchFailure<'@maps/regenMapImage'> {
   meta: {
-    map: MapInfoJson
+    map: Immutable<MapInfoJson>
   }
 }
 

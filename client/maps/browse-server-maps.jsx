@@ -7,6 +7,7 @@ import styled from 'styled-components'
 import { ALL_TILESETS, MapSortType, MapVisibility } from '../../common/maps'
 import { openOverlay } from '../activities/action-creators'
 import { ActivityBackButton } from '../activities/activity-back-button'
+import { ActivityOverlayType } from '../activities/activity-overlay-type'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import ImageList from '../material/image-list'
 import { TabItem, Tabs } from '../material/tabs'
@@ -473,7 +474,9 @@ export default class Maps extends React.Component {
     const localMapsProps = {
       onMapSelect: this.props.onMapUpload,
     }
-    this.props.dispatch(openOverlay('browseLocalMaps', localMapsProps))
+    this.props.dispatch(
+      openOverlay({ type: ActivityOverlayType.BrowseLocalMaps, initData: localMapsProps }),
+    )
   }
 
   onThumbnailSizeChange = size => {

@@ -1,3 +1,4 @@
+import { Immutable } from 'immer'
 import keycode from 'keycode'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
@@ -8,7 +9,8 @@ import { ReduxAction } from './action-types'
 import { openOverlay } from './activities/action-creators'
 import ActivityBar from './activities/activity-bar'
 import { ActivityButton } from './activities/activity-button'
-import ActivityOverlay from './activities/activity-overlay'
+import { ActivityOverlay } from './activities/activity-overlay'
+import { ActivityOverlayType } from './activities/activity-overlay-type'
 import ActivitySpacer from './activities/spacer'
 import { IsAdminFilter } from './admin/admin-route-filters'
 import { openChangelogIfNecessary } from './changelog/action-creators'
@@ -197,54 +199,53 @@ export function MainLayout() {
   }, [isEmailVerified, dispatch])
 
   const onFindMatchClick = useHealthyStarcraftCallback(dispatch, starcraft, () => {
-    // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
-    dispatch(openOverlay('findMatch') as any)
+    dispatch(openOverlay({ type: ActivityOverlayType.FindMatch }))
   })
 
   const onCreateLobbyClick = useHealthyStarcraftCallback(dispatch, starcraft, () => {
-    // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
-    dispatch(openOverlay('createLobby') as any)
+    dispatch(openOverlay({ type: ActivityOverlayType.CreateLobby }))
   })
 
   const onJoinLobbyClick = useHealthyStarcraftCallback(dispatch, starcraft, () => {
-    // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
-    dispatch(openOverlay('joinLobby') as any)
+    dispatch(openOverlay({ type: ActivityOverlayType.JoinLobby }))
   })
 
   const onMapDetails = useCallback(
-    (map: MapInfoJson) => {
+    (map: Immutable<MapInfoJson>) => {
       dispatch(openDialog({ type: DialogType.MapDetails, initData: { mapId: map.id } }))
     },
     [dispatch],
   )
 
   const onRemoveMap = useCallback(
-    (map: MapInfoJson) => {
+    (map: Immutable<MapInfoJson>) => {
       dispatch(removeMap(map))
     },
     [dispatch],
   )
 
   const onRegenMapImage = useCallback(
-    (map: MapInfoJson) => {
+    (map: Immutable<MapInfoJson>) => {
       dispatch(regenMapImage(map))
     },
     [dispatch],
   )
 
   const onMapUpload = useCallback(
-    (map: MapInfoJson) => {
-      // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
+    (map: Immutable<MapInfoJson>) => {
       dispatch(
-        openOverlay('browseServerMaps', {
-          uploadedMap: map,
-          title: 'Maps',
-          onMapUpload,
-          onMapSelect: onMapDetails,
-          onMapDetails,
-          onRemoveMap,
-          onRegenMapImage,
-        }) as any,
+        openOverlay({
+          type: ActivityOverlayType.BrowseLocalMaps,
+          initData: {
+            uploadedMap: map,
+            title: 'Maps',
+            onMapUpload,
+            onMapSelect: onMapDetails,
+            onMapDetails,
+            onRemoveMap,
+            onRegenMapImage,
+          },
+        }),
       )
     },
     [dispatch, onMapDetails, onRegenMapImage, onRemoveMap],
@@ -256,16 +257,18 @@ export function MainLayout() {
     dispatch,
     starcraft,
     () => {
-      // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
       dispatch(
-        openOverlay('browseServerMaps', {
-          title: 'Maps',
-          onMapUpload,
-          onMapSelect: onMapDetails,
-          onMapDetails,
-          onRemoveMap,
-          onRegenMapImage,
-        }) as any,
+        openOverlay({
+          type: ActivityOverlayType.BrowseServerMaps,
+          initData: {
+            title: 'Maps',
+            onMapUpload,
+            onMapSelect: onMapDetails,
+            onMapDetails,
+            onRemoveMap,
+            onRegenMapImage,
+          },
+        }),
       )
     },
     [onMapDetails, onMapUpload, onRegenMapImage, onRemoveMap],
@@ -277,8 +280,7 @@ export function MainLayout() {
     } else if (!isStarcraftHealthy({ starcraft })) {
       dispatch(openDialog({ type: DialogType.StarcraftHealth }))
     } else {
-      // TODO(2Pac): Remove `any` once the `openOverlay` is TS-ified
-      dispatch(openOverlay('browseLocalReplays') as any)
+      dispatch(openOverlay({ type: ActivityOverlayType.BrowseLocalReplays }))
     }
   }, [dispatch, starcraft])
 

@@ -145,10 +145,10 @@ function DialogOverlayContent({
   dialogHistory: Immutable<DialogState[]>
   onCancel: (dialogType: DialogType | 'all', event?: React.MouseEvent) => void
 }) {
-  const dialogTransition = useTransition<DialogState, UseTransitionProps<DialogState>>(
+  const dialogTransition = useTransition<Immutable<DialogState>, UseTransitionProps<DialogState>>(
     dialogHistory,
     {
-      keys: useCallback((dialog: DialogState) => dialog.id, []),
+      keys: useCallback((dialog: Immutable<DialogState>) => dialog.id, []),
       from: { opacity: 0, transform: 'translate3d(0, -100%, 0) scale(0.6, 0.2)' },
       enter: { opacity: 1, transform: 'translate3d(0, 0%, 0) scale(1, 1)' },
       leave: { opacity: -0.5, transform: 'translate3d(0, -120%, 0) scale(0.4, 0.15)' },
@@ -174,7 +174,7 @@ function DialogDisplay({
   onCancel: propsOnCancel,
 }: {
   dialogStyles: React.CSSProperties
-  dialogState: DialogState
+  dialogState: Immutable<DialogState>
   isTopDialog: boolean
   onCancel: (dialogType: DialogType | 'all', event?: React.MouseEvent) => void
 }) {

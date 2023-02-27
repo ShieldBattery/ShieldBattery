@@ -1,3 +1,4 @@
+import { Immutable } from 'immer'
 import {
   GetBatchMapInfoResponse,
   GetMapDetailsResponse,
@@ -135,7 +136,7 @@ export function toggleFavoriteMap(
   }
 }
 
-export function removeMap(map: MapInfoJson): ThunkAction {
+export function removeMap(map: Immutable<MapInfoJson>): ThunkAction {
   return dispatch => {
     dispatch({
       type: '@maps/removeMapBegin',
@@ -150,7 +151,7 @@ export function removeMap(map: MapInfoJson): ThunkAction {
   }
 }
 
-export function regenMapImage(map: MapInfoJson): ThunkAction {
+export function regenMapImage(map: Immutable<MapInfoJson>): ThunkAction {
   return dispatch => {
     dispatch({
       type: '@maps/regenMapImageBegin',

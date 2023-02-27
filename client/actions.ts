@@ -1,9 +1,5 @@
 // Every possible dispatched action in the app should be included here, sorted semi-alphabetically
 
-export const ACTIVITY_OVERLAY_OPEN = 'ACTIVITY_OVERLAY_OPEN'
-export const ACTIVITY_OVERLAY_CLOSE = 'ACTIVITY_OVERLAY_CLOSE'
-export const ACTIVITY_OVERLAY_GO_BACK = 'ACTIVITY_OVERLAY_GO_BACK'
-
 export const ADMIN_MAP_POOL_CLEAR_SEARCH = 'ADMIN_MAP_POOL_CLEAR_SEARCH'
 export const ADMIN_MAP_POOL_CREATE_BEGIN = 'ADMIN_MAP_POOL_CREATE_BEGIN'
 export const ADMIN_MAP_POOL_CREATE = 'ADMIN_MAP_POOL_CREATE'

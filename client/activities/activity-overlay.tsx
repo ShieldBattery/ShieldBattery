@@ -1,17 +1,20 @@
 import keycode from 'keycode'
-import React from 'react'
-import { connect } from 'react-redux'
+import React, { useCallback, useRef } from 'react'
 import { CSSTransition, TransitionGroup } from 'react-transition-group'
 import styled from 'styled-components'
+import { assertUnreachable } from '../../common/assert-unreachable'
 import { FocusTrap } from '../dom/focus-trap'
-import KeyListener, { KeyListenerBoundary } from '../keyboard/key-listener'
+import { KeyListenerBoundary, useKeyListener } from '../keyboard/key-listener'
 import JoinLobby from '../lobbies/join-lobby'
 import { fastOutLinearIn, linearOutSlowIn } from '../material/curve-constants'
 import { isHandledDismissalEvent } from '../material/dismissal-events'
 import { shadow8dp } from '../material/shadows'
 import { zIndexBackdrop, zIndexSideNav } from '../material/zindex'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { background700, dialogScrim } from '../styles/colors'
 import { closeOverlay } from './action-creators'
+import { ActivityOverlayState } from './activity-overlay-reducer'
+import { ActivityOverlayType } from './activity-overlay-type'
 
 const { FindMatch, CreateLobby, BrowseLocalMaps, BrowseServerMaps, BrowseLocalReplays } =
   IS_ELECTRON
@@ -22,7 +25,13 @@ const { FindMatch, CreateLobby, BrowseLocalMaps, BrowseServerMaps, BrowseLocalRe
         BrowseServerMaps: require('../maps/browse-server-maps').default,
         BrowseLocalReplays: require('../replays/browse-local-replays').BrowseLocalReplays,
       }
-    : {}
+    : {
+        FindMatch: () => undefined,
+        CreateLobby: () => undefined,
+        BrowseLocalMaps: () => undefined,
+        BrowseServerMaps: () => undefined,
+        BrowseLocalReplays: () => undefined,
+      }
 
 const ESCAPE = keycode('escape')
 
@@ -107,71 +116,74 @@ const Container = styled.div`
   }
 `
 
-@connect(state => ({ activityOverlay: state.activityOverlay }))
-export default class ActivityOverlay extends React.Component {
-  _focusable = React.createRef()
-
-  getOverlayComponent() {
-    const { activityOverlay } = this.props
-
-    switch (activityOverlay.current.overlayType) {
-      case 'findMatch':
-        return FindMatch
-      case 'createLobby':
-        return CreateLobby
-      case 'joinLobby':
-        return JoinLobby
-      case 'browseLocalMaps':
-        return BrowseLocalMaps
-      case 'browseServerMaps':
-        return BrowseServerMaps
-      case 'browseLocalReplays':
-        return BrowseLocalReplays
-      default:
-        throw new Error('Unknown overlay type: ' + activityOverlay.current.overlayType)
-    }
+function getOverlayComponent(state: ActivityOverlayState) {
+  switch (state.type) {
+    case ActivityOverlayType.FindMatch:
+      return FindMatch
+    case ActivityOverlayType.CreateLobby:
+      return CreateLobby
+    case ActivityOverlayType.JoinLobby:
+      return JoinLobby
+    case ActivityOverlayType.BrowseLocalMaps:
+      return BrowseLocalMaps
+    case ActivityOverlayType.BrowseServerMaps:
+      return BrowseServerMaps
+    case ActivityOverlayType.BrowseLocalReplays:
+      return BrowseLocalReplays
+    default:
+      return assertUnreachable(state.type)
   }
+}
 
-  renderOverlay() {
-    const { activityOverlay } = this.props
-    if (!activityOverlay.isOverlayOpened) {
-      return null
-    }
+function ActivityOverlayContent({ state }: { state: ActivityOverlayState }) {
+  const dispatch = useAppDispatch()
+  const onScrimClick = useCallback(
+    (event: React.MouseEvent) => {
+      if (!isHandledDismissalEvent(event.nativeEvent)) {
+        dispatch(closeOverlay())
+      }
+    },
+    [dispatch],
+  )
+  useKeyListener({
+    onKeyDown(event) {
+      if (event.keyCode === ESCAPE) {
+        dispatch(closeOverlay())
+        return true
+      }
 
-    const OverlayComponent = this.getOverlayComponent()
-    const overlayComponent = <OverlayComponent {...activityOverlay.current.initData.toObject()} />
-    return (
-      <CSSTransition classNames={transitionNames} timeout={{ enter: 350, exit: 250 }}>
-        <Container key={'overlay'}>
+      return false
+    },
+  })
+
+  const focusableRef = useRef<HTMLSpanElement>(null)
+
+  const OverlayComponent = getOverlayComponent(state)
+  return (
+    <Container key={'overlay'}>
+      <FocusTrap focusableRef={focusableRef}>
+        <Scrim onClick={onScrimClick} />
+        <Overlay>
+          <span ref={focusableRef} tabIndex={-1} />
+          <OverlayComponent {...state.initData} />
+        </Overlay>
+      </FocusTrap>
+    </Container>
+  )
+}
+
+export function ActivityOverlay() {
+  const state = useAppSelector(state => state.activityOverlay.history.at(-1))
+
+  return (
+    <TransitionGroup>
+      {state ? (
+        <CSSTransition classNames={transitionNames} timeout={{ enter: 350, exit: 250 }}>
           <KeyListenerBoundary>
-            <FocusTrap focusableRef={this._focusable}>
-              <span ref={this._focusable} tabIndex={-1} />
-              <KeyListener onKeyDown={this.onKeyDown} />
-              <Scrim onClick={this.onScrimClick} />
-              <Overlay>{overlayComponent}</Overlay>
-            </FocusTrap>
+            <ActivityOverlayContent key='overlay' state={state} />
           </KeyListenerBoundary>
-        </Container>
-      </CSSTransition>
-    )
-  }
-
-  render() {
-    return <TransitionGroup>{this.renderOverlay()}</TransitionGroup>
-  }
-
-  onScrimClick = event => {
-    if (!isHandledDismissalEvent(event.nativeEvent)) {
-      this.props.dispatch(closeOverlay())
-    }
-  }
-
-  onKeyDown = event => {
-    if (event.keyCode === ESCAPE) {
-      this.props.dispatch(closeOverlay())
-      return true
-    }
-
-    return false
-  }
+        </CSSTransition>
+      ) : null}
+    </TransitionGroup>
+  )
 }

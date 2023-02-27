@@ -1,4 +1,5 @@
 import { ActiveGameActions } from './active-game/actions'
+import { ActivityOverlayActions } from './activities/actions'
 import { AuthActions } from './auth/actions'
 import { ChatActions } from './chat/actions'
 import { DialogActions } from './dialogs/actions'
@@ -13,6 +14,7 @@ import { WhisperActions } from './whispers/actions'
 
 type AllActions =
   | ActiveGameActions
+  | ActivityOverlayActions
   | AuthActions
   | ChatActions
   | DialogActions

@@ -2,16 +2,16 @@ import { Immutable } from 'immer'
 import { findLastIndex } from '../../common/data-structures/arrays'
 import { NETWORK_SITE_DISCONNECTED } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
-import { DialogType } from './dialog-type'
+import { DialogPayload, DialogType } from './dialog-type'
 
-export interface DialogState {
-  type: DialogType
+export interface DialogState<T extends DialogType = DialogType> {
+  type: T
   id: string
-  initData?: Record<string, unknown>
+  initData?: (DialogPayload & { type: T })['initData']
 }
 
 export interface DialogHistoryState {
-  history: DialogState[]
+  history: Array<DialogState>
 }
 
 const DEFAULT_DIALOG_HISTORY_STATE: Immutable<DialogHistoryState> = {
