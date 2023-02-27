@@ -22,6 +22,7 @@ import { DbClient } from '../db'
 import { FOREIGN_KEY_VIOLATION, UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { CodedError } from '../errors/coded-error'
+import logger from '../logging/logger'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
 import { getPermissions } from '../models/permissions'
@@ -85,7 +86,11 @@ export default class ChatService {
     private userSocketsManager: UserSocketsManager,
   ) {
     userSocketsManager
-      .on('newUser', userSockets => this.handleNewUser(userSockets))
+      .on('newUser', userSockets =>
+        this.handleNewUser(userSockets).catch(err =>
+          logger.error({ err }, 'Error handling new user in chat service'),
+        ),
+      )
       .on('userQuit', userId => this.handleUserQuit(userId))
   }
 
