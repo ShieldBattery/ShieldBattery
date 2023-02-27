@@ -5,7 +5,10 @@ import styled from 'styled-components'
 import { gameTypeToLabel } from '../../common/games/configuration'
 import { closeOverlay } from '../activities/action-creators'
 import { DisabledCard, DisabledOverlay, DisabledText } from '../activities/disabled-content'
+import Spacer from '../activities/spacer'
+import AddIcon from '../icons/material/add-24px.svg'
 import { MapThumbnail } from '../maps/map-thumbnail'
+import { RaisedButton } from '../material/button'
 import siteSocket from '../network/site-socket'
 import { colorDividers } from '../styles/colors'
 import { Body1, Headline5, Headline6, Subtitle1, Subtitle2 } from '../styles/typography'
@@ -149,6 +152,12 @@ export default class JoinLobby extends React.Component {
       <Container>
         <TitleBar>
           <Headline5>Join Lobby</Headline5>
+          <Spacer />
+          <RaisedButton
+            label='Create lobby'
+            iconStart={<AddIcon />}
+            onClick={this.props.onNavigateToCreate}
+          />
         </TitleBar>
         <Contents>
           <ContentsBody>{this.renderList()}</ContentsBody>

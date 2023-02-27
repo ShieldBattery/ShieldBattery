@@ -8,6 +8,9 @@ export type ActivityOverlayActions =
 export interface OpenActivityOverlay {
   type: '@activities/open'
   payload: ActivityOverlayPayload
+  meta: {
+    id: string
+  }
 }
 
 export interface CloseActivityOverlay {

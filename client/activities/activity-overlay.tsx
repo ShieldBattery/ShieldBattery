@@ -5,7 +5,6 @@ import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { FocusTrap } from '../dom/focus-trap'
 import { KeyListenerBoundary, useKeyListener } from '../keyboard/key-listener'
-import JoinLobby from '../lobbies/join-lobby'
 import { fastOutLinearIn, linearOutSlowIn } from '../material/curve-constants'
 import { isHandledDismissalEvent } from '../material/dismissal-events'
 import { shadow8dp } from '../material/shadows'
@@ -16,22 +15,21 @@ import { closeOverlay } from './action-creators'
 import { ActivityOverlayState } from './activity-overlay-reducer'
 import { ActivityOverlayType } from './activity-overlay-type'
 
-const { FindMatch, CreateLobby, BrowseLocalMaps, BrowseServerMaps, BrowseLocalReplays } =
-  IS_ELECTRON
-    ? {
-        FindMatch: require('../matchmaking/find-match').FindMatch,
-        CreateLobby: require('../lobbies/create-lobby').CreateLobby,
-        BrowseLocalMaps: require('../maps/browse-local-maps').BrowseLocalMaps,
-        BrowseServerMaps: require('../maps/browse-server-maps').default,
-        BrowseLocalReplays: require('../replays/browse-local-replays').BrowseLocalReplays,
-      }
-    : {
-        FindMatch: () => undefined,
-        CreateLobby: () => undefined,
-        BrowseLocalMaps: () => undefined,
-        BrowseServerMaps: () => undefined,
-        BrowseLocalReplays: () => undefined,
-      }
+const { FindMatch, Lobby, BrowseLocalMaps, BrowseServerMaps, BrowseLocalReplays } = IS_ELECTRON
+  ? {
+      FindMatch: require('../matchmaking/find-match').FindMatch,
+      Lobby: require('../lobbies/lobby-activity-overlay').LobbyActivityOverlay,
+      BrowseLocalMaps: require('../maps/browse-local-maps').BrowseLocalMaps,
+      BrowseServerMaps: require('../maps/browse-server-maps').default,
+      BrowseLocalReplays: require('../replays/browse-local-replays').BrowseLocalReplays,
+    }
+  : {
+      FindMatch: () => undefined,
+      Lobby: () => undefined,
+      BrowseLocalMaps: () => undefined,
+      BrowseServerMaps: () => undefined,
+      BrowseLocalReplays: () => undefined,
+    }
 
 const ESCAPE = keycode('escape')
 
@@ -120,10 +118,8 @@ function getOverlayComponent(state: ActivityOverlayState) {
   switch (state.type) {
     case ActivityOverlayType.FindMatch:
       return FindMatch
-    case ActivityOverlayType.CreateLobby:
-      return CreateLobby
-    case ActivityOverlayType.JoinLobby:
-      return JoinLobby
+    case ActivityOverlayType.Lobby:
+      return Lobby
     case ActivityOverlayType.BrowseLocalMaps:
       return BrowseLocalMaps
     case ActivityOverlayType.BrowseServerMaps:
@@ -165,7 +161,7 @@ function ActivityOverlayContent({ state }: { state: ActivityOverlayState }) {
         <Scrim onClick={onScrimClick} />
         <Overlay>
           <span ref={focusableRef} tabIndex={-1} />
-          <OverlayComponent {...state.initData} />
+          <OverlayComponent key={state.id} {...state.initData} />
         </Overlay>
       </FocusTrap>
     </Container>

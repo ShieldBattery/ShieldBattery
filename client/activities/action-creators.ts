@@ -1,3 +1,4 @@
+import cuid from 'cuid'
 import { CloseActivityOverlay, OpenActivityOverlay, PreviousActivityOverlay } from './actions'
 import { ActivityOverlayPayload } from './activity-overlay-type'
 
@@ -5,6 +6,9 @@ export function openOverlay(payload: ActivityOverlayPayload): OpenActivityOverla
   return {
     type: '@activities/open',
     payload,
+    meta: {
+      id: cuid(),
+    },
   }
 }
 

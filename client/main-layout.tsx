@@ -19,14 +19,14 @@ import { openDialog } from './dialogs/action-creators'
 import { DialogType } from './dialogs/dialog-type'
 import { DispatchFunction } from './dispatch-registry'
 import { GamesRouteComponent } from './games/route'
-import JoinGameIcon from './icons/material/call_merge-36px.svg'
 import LadderIcon from './icons/material/emoji_events-36px.svg'
-import CreateGameIcon from './icons/material/gavel-36px.svg'
 import DownloadIcon from './icons/material/get_app-36px.svg'
+import LobbiesIcon from './icons/material/holiday_village-36px.svg'
 import ReplaysIcon from './icons/material/movie-36px.svg'
 import SettingsIcon from './icons/material/settings-24px.svg'
 import MapsIcon from './icons/material/terrain-36px.svg'
 import FindMatchIcon from './icons/shieldbattery/ic_satellite_dish_black_36px.svg'
+import { useKeyListener } from './keyboard/key-listener'
 import { navigateToLadder } from './ladder/action-creators'
 import { LadderRouteComponent } from './ladder/ladder'
 import LobbyView from './lobbies/view'
@@ -62,6 +62,7 @@ import { WhisperRouteComponent } from './whispers/route'
 
 const curVersion = __WEBPACK_ENV.VERSION
 
+const ALT_B = { keyCode: keycode('b'), altKey: true }
 const ALT_C = { keyCode: keycode('c'), altKey: true }
 const ALT_D = { keyCode: keycode('d'), altKey: true }
 const ALT_F = { keyCode: keycode('f'), altKey: true }
@@ -202,12 +203,26 @@ export function MainLayout() {
     dispatch(openOverlay({ type: ActivityOverlayType.FindMatch }))
   })
 
-  const onCreateLobbyClick = useHealthyStarcraftCallback(dispatch, starcraft, () => {
-    dispatch(openOverlay({ type: ActivityOverlayType.CreateLobby }))
+  const onLobbiesClick = useHealthyStarcraftCallback(dispatch, starcraft, () => {
+    dispatch(openOverlay({ type: ActivityOverlayType.Lobby }))
   })
+  // This reproduces the hotkeys we had for creating/joining a lobby before we combined the buttons
+  useKeyListener({
+    onKeyDown: (event: KeyboardEvent) => {
+      if (!IS_ELECTRON) {
+        return false
+      }
 
-  const onJoinLobbyClick = useHealthyStarcraftCallback(dispatch, starcraft, () => {
-    dispatch(openOverlay({ type: ActivityOverlayType.JoinLobby }))
+      if (event.keyCode === ALT_C.keyCode && event.altKey) {
+        dispatch(openOverlay({ type: ActivityOverlayType.Lobby, initData: { creating: true } }))
+        return true
+      } else if (event.keyCode === ALT_J.keyCode && event.altKey) {
+        dispatch(openOverlay({ type: ActivityOverlayType.Lobby }))
+        return true
+      }
+
+      return false
+    },
   })
 
   const onMapDetails = useCallback(
@@ -308,19 +323,11 @@ export function MainLayout() {
     ? [
         findMatchButton,
         <ActivityButton
-          key='create-game'
-          icon={<CreateGameIcon />}
-          label='Create'
-          onClick={onCreateLobbyClick}
-          disabled={inGameplayActivity}
-          hotkey={ALT_C}
-        />,
-        <ActivityButton
-          key='join-game'
-          icon={<JoinGameIcon />}
-          label='Join'
-          onClick={onJoinLobbyClick}
-          hotkey={ALT_J}
+          key='lobbies'
+          icon={<LobbiesIcon />}
+          label='Lobbies'
+          onClick={onLobbiesClick}
+          hotkey={ALT_B}
           count={lobbyCount > 0 ? lobbyCount : undefined}
         />,
         <ActivityButton

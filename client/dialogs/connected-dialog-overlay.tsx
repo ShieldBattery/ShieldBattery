@@ -218,6 +218,7 @@ function DialogDisplay({
               }}>
               <DialogComponent
                 dialogRef={dialogRef}
+                key={dialogState.id}
                 onCancel={onCancel}
                 {...dialogState.initData}
               />

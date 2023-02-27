@@ -6,6 +6,7 @@ import { ActivityOverlayPayload, ActivityOverlayType } from './activity-overlay-
 export interface ActivityOverlayState<T extends ActivityOverlayType = ActivityOverlayType> {
   type: T
   initData?: (ActivityOverlayPayload & { type: T })['initData']
+  id: string
 }
 
 export interface ActivityOverlayHistory {
@@ -19,7 +20,7 @@ const DEFAULT_ACTIVITY_OVERLAY_STATE: Immutable<ActivityOverlayHistory> = {
 export default immerKeyedReducer(DEFAULT_ACTIVITY_OVERLAY_STATE, {
   ['@activities/open'](state, action) {
     const { type, initData } = action.payload
-    state.history.push({ type, initData: initData as any })
+    state.history.push({ type, initData: initData as any, id: action.meta.id })
   },
 
   ['@activities/close'](state) {

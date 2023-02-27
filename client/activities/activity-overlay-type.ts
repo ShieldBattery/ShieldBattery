@@ -1,11 +1,11 @@
 import { Immutable } from 'immer'
 import { MapInfoJson } from '../../common/maps'
+import { LobbyActivityOverlayProps } from '../lobbies/lobby-activity-overlay'
 
 export enum ActivityOverlayType {
   FindMatch = 'findMatch',
   // TODO(tec27): Combine Create/Join into one thing?
-  CreateLobby = 'createLobby',
-  JoinLobby = 'joinLobby',
+  Lobby = 'lobby',
   // TODO(tec27): Combine all these map overlays into one thing?
   BrowseLocalMaps = 'browseLocalMaps',
   BrowseServerMaps = 'browseServerMaps',
@@ -18,16 +18,12 @@ type BaseActivityOverlayPayload<T, DataType = undefined> = DataType extends unde
   : { type: T; initData: DataType }
 
 type FindMatchPayload = BaseActivityOverlayPayload<typeof ActivityOverlayType.FindMatch>
+type LobbyPayload = BaseActivityOverlayPayload<
+  typeof ActivityOverlayType.Lobby,
+  LobbyActivityOverlayProps | undefined
+>
 // TODO(tec27): Adjust these to match their actual types, unsure what they are right now but they
 // are basically all not TS-ified anyway so it will still build
-type CreateLobbyPayload = BaseActivityOverlayPayload<
-  typeof ActivityOverlayType.CreateLobby,
-  | {
-      map?: Immutable<MapInfoJson>
-    }
-  | undefined
->
-type JoinLobbyPayload = BaseActivityOverlayPayload<typeof ActivityOverlayType.JoinLobby>
 type BrowseLocalMapsPayload = BaseActivityOverlayPayload<
   typeof ActivityOverlayType.BrowseLocalMaps,
   {
@@ -63,8 +59,7 @@ type BrowseLocalReplaysPayload = BaseActivityOverlayPayload<
 
 export type ActivityOverlayPayload =
   | FindMatchPayload
-  | CreateLobbyPayload
-  | JoinLobbyPayload
+  | LobbyPayload
   | BrowseLocalMapsPayload
   | BrowseServerMapsPayload
   | BrowseLocalReplaysPayload
