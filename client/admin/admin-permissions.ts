@@ -1,20 +1,28 @@
 import { useMemo } from 'react'
+import { SbPermissions } from '../../common/users/permissions'
+import { AuthState, PermissionsRecord } from '../auth/auth-records'
 import { useAppSelector } from '../redux-hooks'
 
-export function isAdmin(authState) {
+export function isAdmin(authState: AuthState) {
   return isAdminFromPermissions(authState.permissions)
 }
 
-function isAdminFromPermissions(permissions) {
+function isAdminFromPermissions(permissions: PermissionsRecord) {
   return permissions.toSeq().some(perm => perm)
 }
 
-export function hasAllPermissions(authState, ...permissionsToCheck) {
+export function hasAllPermissions(
+  authState: AuthState,
+  ...permissionsToCheck: Array<keyof SbPermissions>
+) {
   const perms = authState.permissions
   return permissionsToCheck.every(p => perms[p])
 }
 
-export function hasAnyPermission(authState, ...permissionsToCheck) {
+export function hasAnyPermission(
+  authState: AuthState,
+  ...permissionsToCheck: Array<keyof SbPermissions>
+) {
   const perms = authState.permissions
   return permissionsToCheck.some(p => perms[p])
 }

@@ -8,7 +8,8 @@ export interface FileStore {
   read(filename: string, options: any): Promise<Buffer>
   delete(filename: string, options: any): Promise<any>
   deleteFiles(prefix: string, options: any): Promise<any>
-  url(filename: string, signUrl?: boolean, options?: any): Promise<string | undefined>
+  url(filename: string, options?: any): string
+  signedUrl(filename: string, options?: any): Promise<string>
 
   addMiddleware(app: Koa): void
 }

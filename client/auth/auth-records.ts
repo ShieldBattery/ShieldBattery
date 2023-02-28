@@ -17,6 +17,7 @@ export class PermissionsRecord
     editPermissions: false,
     debug: false,
     banUsers: false,
+    manageLeagues: false,
     manageMaps: false,
     manageMapPools: false,
     manageMatchmakingSeasons: false,

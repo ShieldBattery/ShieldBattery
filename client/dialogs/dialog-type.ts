@@ -12,6 +12,7 @@ export enum DialogType {
   ChannelBanUser = 'channelBanUser',
   Download = 'download',
   ExternalLink = 'externalLink',
+  LeagueExplainer = 'leagueExplainer',
   MapDetails = 'mapDetails',
   MapPreview = 'mapPreview',
   PartyQueueAccept = 'partyQueueAccept',
@@ -51,6 +52,7 @@ type ExternalLinkDialogPayload = BaseDialogPayload<
     domain: string
   }
 >
+type LeagueExplainerDialogPayload = BaseDialogPayload<typeof DialogType.LeagueExplainer>
 type MapDetailsDialogPayload = BaseDialogPayload<
   typeof DialogType.MapDetails,
   {
@@ -98,6 +100,7 @@ export type DialogPayload =
   | ChannelBanUserDialogPayload
   | DownloadDialogPayload
   | ExternalLinkDialogPayload
+  | LeagueExplainerDialogPayload
   | MapDetailsDialogPayload
   | MapPreviewDialogPayload
   | PartyQueueAcceptDialogPayload

@@ -24,11 +24,14 @@ import DownloadIcon from './icons/material/get_app-36px.svg'
 import LobbiesIcon from './icons/material/holiday_village-36px.svg'
 import ReplaysIcon from './icons/material/movie-36px.svg'
 import SettingsIcon from './icons/material/settings-24px.svg'
+import LeaguesIcon from './icons/material/social_leaderboard-36px.svg'
 import MapsIcon from './icons/material/terrain-36px.svg'
 import FindMatchIcon from './icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { useKeyListener } from './keyboard/key-listener'
 import { navigateToLadder } from './ladder/action-creators'
 import { LadderRouteComponent } from './ladder/ladder'
+import { navigateToLeaguesList } from './leagues/action-creators'
+import { LeagueRoot } from './leagues/league-list'
 import LobbyView from './lobbies/view'
 import { regenMapImage, removeMap } from './maps/action-creators'
 import { cancelFindMatch } from './matchmaking/action-creators'
@@ -66,6 +69,7 @@ const ALT_B = { keyCode: keycode('b'), altKey: true }
 const ALT_C = { keyCode: keycode('c'), altKey: true }
 const ALT_D = { keyCode: keycode('d'), altKey: true }
 const ALT_F = { keyCode: keycode('f'), altKey: true }
+const ALT_G = { keyCode: keycode('g'), altKey: true }
 const ALT_J = { keyCode: keycode('j'), altKey: true }
 const ALT_M = { keyCode: keycode('m'), altKey: true }
 const ALT_O = { keyCode: keycode('o'), altKey: true }
@@ -354,6 +358,13 @@ export function MainLayout() {
           onClick={() => navigateToLadder()}
           hotkey={ALT_D}
         />,
+        <ActivityButton
+          key='leagues'
+          icon={<LeaguesIcon />}
+          label='Leagues'
+          onClick={() => navigateToLeaguesList()}
+          hotkey={ALT_G}
+        />,
         <ActivitySpacer key='spacer' />,
       ]
     : [
@@ -370,6 +381,13 @@ export function MainLayout() {
           label='Ladder'
           onClick={() => navigateToLadder()}
           hotkey={ALT_D}
+        />,
+        <ActivityButton
+          key='leagues'
+          icon={<LeaguesIcon />}
+          label='Leagues'
+          onClick={() => navigateToLeaguesList()}
+          hotkey={ALT_G}
         />,
         <ActivitySpacer key='spacer' />,
       ]
@@ -403,8 +421,9 @@ export function MainLayout() {
             component={LoadableAdminPanel}
           />
           <Route path='/chat/:rest*' component={ChannelRouteComponent} />
-          <Route path='/ladder/:rest*' component={LadderRouteComponent} />
           <Route path='/games/:rest*' component={GamesRouteComponent} />
+          <Route path='/ladder/:rest*' component={LadderRouteComponent} />
+          <Route path='/leagues/:rest*' component={LeagueRoot} />
           {lobbyRoute}
           {matchmakingRoute}
           {partyRoute}

@@ -5,9 +5,9 @@ import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { DialogType } from '../dialogs/dialog-type'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
+import { addTrustedDomain } from '../messaging/action-creators'
 import { useAppDispatch } from '../redux-hooks'
 import { singleLine, Subtitle1, subtitle2 } from '../styles/typography'
-import { addTrustedDomain } from './action-creators'
 
 const StyledDialog = styled(Dialog)`
   max-width: 640px;

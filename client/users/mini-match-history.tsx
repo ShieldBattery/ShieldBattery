@@ -8,7 +8,7 @@ import { getResultLabel, ReconciledResult } from '../../common/games/results'
 import { RaceChar } from '../../common/races'
 import { SbUser, SbUserId } from '../../common/users/sb-user'
 import { navigateToGameResults } from '../games/action-creators'
-import { longTimestamp } from '../i18n/date-formats'
+import { longTimestamp, narrowDuration } from '../i18n/date-formats'
 import { RaceIcon } from '../lobbies/race-icon'
 import { batchGetMapInfo, openMapPreviewDialog } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
@@ -26,7 +26,6 @@ import {
   colorTextSecondary,
 } from '../styles/colors'
 import { Body1, body2, overline, singleLine, subtitle1 } from '../styles/typography'
-import { timeAgo } from '../time/time-ago'
 
 const MatchHistoryRoot = styled.div`
   min-height: 304px;
@@ -186,7 +185,7 @@ export function ConnectedGameListEntry({
       <GameListEntryTextRow $color='secondary'>
         <Body1>{matchType}</Body1>
         <Tooltip text={longTimestamp.format(startTime)} position='left'>
-          <Body1>{timeAgo(Date.now() - startTime, t)}</Body1>
+          <Body1>{narrowDuration.format(startTime)}</Body1>
         </Tooltip>
       </GameListEntryTextRow>
 

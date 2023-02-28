@@ -8,7 +8,13 @@ import {
   wasPlayerInactive,
 } from '../../../common/matchmaking'
 import { SbUserId } from '../../../common/users/sb-user'
+import { LeagueUser, LeagueUserChange } from '../leagues/league-models'
 import { MatchmakingRating, MatchmakingRatingChange } from './models'
+
+export interface RatingChanges {
+  matchmaking: MatchmakingRatingChange
+  leagues: LeagueUserChange[]
+}
 
 /**
  * Calculates a `MatchmakingRatingChange` for each user in a game. This function expects that every
@@ -21,6 +27,7 @@ export function calculateChangedRatings({
   results,
   mmrs: unadjustedMmrs,
   teams,
+  activeLeagues,
 }: {
   /** The matchmaking season the game was played in. */
   season: MatchmakingSeason
@@ -32,14 +39,16 @@ export function calculateChangedRatings({
    * The reconciled results of the game, with everyone having a win or a loss (e.g. not disputed
    * results).
    */
-  results: Map<SbUserId, ReconciledPlayerResult>
+  results: ReadonlyMap<SbUserId, ReconciledPlayerResult>
   /** The current matchmaking rating info for the users, prior to playing the game. */
   mmrs: ReadonlyArray<Readonly<MatchmakingRating>>
   /** The player's user IDs split into their respective teams. */
   teams: [teamA: SbUserId[], teamB: SbUserId[]]
+  /** Any running leagues a player is participating in, grouped by user ID. */
+  activeLeagues: ReadonlyMap<SbUserId, LeagueUser[]>
   // TODO(tec27): Pass in party information as well
-}): Map<SbUserId, MatchmakingRatingChange> {
-  const result = new Map<SbUserId, MatchmakingRatingChange>()
+}): Map<SbUserId, RatingChanges> {
+  const result = new Map<SbUserId, RatingChanges>()
 
   const mmrs = unadjustedMmrs.map(m => adjustMatchmakingRatingForInactivity(m, gameDate))
 
@@ -47,7 +56,7 @@ export function calculateChangedRatings({
     // 1v1
     result.set(
       mmrs[0].userId,
-      makeRatingChange({
+      makeRatingChanges({
         season,
         gameId,
         gameDate,
@@ -55,11 +64,12 @@ export function calculateChangedRatings({
         opponentRating: mmrs[1].rating,
         opponentUncertainty: mmrs[1].uncertainty,
         result: results.get(mmrs[0].userId)!.result,
+        activeLeagues: activeLeagues.get(mmrs[0].userId) ?? [],
       }),
     )
     result.set(
       mmrs[1].userId,
-      makeRatingChange({
+      makeRatingChanges({
         season,
         gameId,
         gameDate,
@@ -67,6 +77,7 @@ export function calculateChangedRatings({
         opponentRating: mmrs[0].rating,
         opponentUncertainty: mmrs[0].uncertainty,
         result: results.get(mmrs[1].userId)!.result,
+        activeLeagues: activeLeagues.get(mmrs[1].userId) ?? [],
       }),
     )
   } else {
@@ -87,7 +98,7 @@ export function calculateChangedRatings({
     for (const player of teamARatings) {
       result.set(
         player.userId,
-        makeRatingChange({
+        makeRatingChanges({
           season,
           gameId,
           gameDate,
@@ -95,6 +106,7 @@ export function calculateChangedRatings({
           opponentRating: teamBEffective,
           opponentUncertainty: teamBUncertainty,
           result: results.get(player.userId)!.result,
+          activeLeagues: activeLeagues.get(player.userId) ?? [],
         }),
       )
     }
@@ -103,7 +115,7 @@ export function calculateChangedRatings({
     for (const player of teamBRatings) {
       result.set(
         player.userId,
-        makeRatingChange({
+        makeRatingChanges({
           season,
           gameId,
           gameDate,
@@ -111,6 +123,7 @@ export function calculateChangedRatings({
           opponentRating: teamAEffective,
           opponentUncertainty: teamAUncertainty,
           result: results.get(player.userId)!.result,
+          activeLeagues: activeLeagues.get(player.userId) ?? [],
         }),
       )
     }
@@ -170,7 +183,7 @@ const VOLATILITY_CHANGE = 0.5
 const POINTS_ELO_K_FACTOR = 24
 const MIN_UNCERTAINTY = 30
 
-function makeRatingChange({
+function makeRatingChanges({
   season,
   gameId,
   gameDate,
@@ -178,6 +191,7 @@ function makeRatingChange({
   opponentRating: opponentRatingGlicko,
   opponentUncertainty: opponentUncertaintyGlicko,
   result,
+  activeLeagues,
 }: {
   season: MatchmakingSeason
   gameId: string
@@ -186,7 +200,8 @@ function makeRatingChange({
   opponentRating: number
   opponentUncertainty: number
   result: ReconciledResult
-}): MatchmakingRatingChange {
+  activeLeagues: ReadonlyArray<LeagueUser>
+}): RatingChanges {
   // Calculations are described here:
   // https://docs.google.com/document/d/1gHY9t3fe2qK2dwFjpVz6U2gaET-nc1iXhgMdOhcyDaE/view
 
@@ -261,40 +276,23 @@ function makeRatingChange({
   newUncertainty = Math.min(Math.max(173.7178 * newUncertainty, MIN_UNCERTAINTY), 350)
 
   // Calculate change in points
-  const pointsWithoutBonus = Math.max(player.points - player.bonusUsed, 0)
-  const winProbability =
-    1 / (1 + Math.pow(10, (4 * opponentRatingGlicko - pointsWithoutBonus) / 1600))
-  let pointsChange = 4 * POINTS_ELO_K_FACTOR * (outcome - winProbability)
-  if (result === 'win' && pointsChange < 1) {
-    pointsChange = 1
-  }
-
-  // Apply bonus pool
   const timeSinceSeasonStart = Number(gameDate) - Number(season.startDate)
-  const bonusAvailable = Math.max(
-    Math.floor(timeSinceSeasonStart * MATCHMAKING_BONUS_EARNED_PER_MS - player.bonusUsed),
-    0,
-  )
-  // For wins, bonus pool can up to double the point improvement. For losses, bonus pool can offset
-  // up to the entire amount of the point loss.
-  const bonusApplied = Math.min(bonusAvailable, Math.abs(pointsChange))
-  pointsChange = pointsChange + bonusApplied
+  const [pointsChange, bonusApplied, pointsConverged] = calcPointsChange({
+    rating: player.rating,
+    points: player.points,
+    pointsConverged: player.pointsConverged,
+    bonusInfo: {
+      bonusUsed: player.bonusUsed,
+      bonusAvailable: Math.max(
+        Math.floor(timeSinceSeasonStart * MATCHMAKING_BONUS_EARNED_PER_MS - player.bonusUsed),
+        0,
+      ),
+    },
+    opponentRatingGlicko,
+    result,
+  })
 
-  let pointsConverged = player.pointsConverged
-  if (result === 'win' && !pointsConverged) {
-    pointsChange += getConvergencePoints(player.rating)
-  }
-
-  // Ensure that a player's points cannot go below 0
-  pointsChange = Math.max(pointsChange, -player.points)
-  pointsConverged =
-    pointsConverged ||
-    arePointsConverged(
-      player.rating,
-      player.points + pointsChange - (player.bonusUsed + bonusApplied),
-    )
-
-  return {
+  const matchmakingChange: MatchmakingRatingChange = {
     userId: player.userId,
     matchmakingType: player.matchmakingType,
     gameId,
@@ -314,4 +312,83 @@ function makeRatingChange({
     probability: expectedProbability,
     lifetimeGames: player.lifetimeGames + 1,
   }
+
+  // Calculate changes for leagues
+  const leagueChanges: LeagueUserChange[] = activeLeagues.map(league => {
+    const [pointsChange, _, pointsConverged] = calcPointsChange({
+      rating: player.rating,
+      points: league.points,
+      pointsConverged: league.pointsConverged,
+      opponentRatingGlicko,
+      result,
+    })
+
+    return {
+      userId: player.userId,
+      leagueId: league.leagueId,
+      gameId,
+      changeDate: gameDate,
+      outcome: result === 'win' ? 'win' : 'loss',
+      points: league.points + pointsChange,
+      pointsChange,
+      pointsConverged,
+    }
+  })
+
+  return {
+    matchmaking: matchmakingChange,
+    leagues: leagueChanges,
+  }
+}
+
+interface BonusInfo {
+  bonusUsed: number
+  bonusAvailable: number
+}
+
+function calcPointsChange({
+  rating,
+  points,
+  pointsConverged,
+  bonusInfo,
+  opponentRatingGlicko,
+  result,
+}: {
+  rating: number
+  points: number
+  pointsConverged: boolean
+  bonusInfo?: BonusInfo
+  opponentRatingGlicko: number
+  result: ReconciledResult
+}): [pointsChange: number, bonusApplied: number, pointsConverged: boolean] {
+  const outcome = result === 'win' ? 1 : 0
+
+  const pointsWithoutBonus = bonusInfo ? Math.max(points - bonusInfo.bonusUsed, 0) : points
+  const winProbability =
+    1 / (1 + Math.pow(10, (4 * opponentRatingGlicko - pointsWithoutBonus) / 1600))
+  let pointsChange = 4 * POINTS_ELO_K_FACTOR * (outcome - winProbability)
+  if (result === 'win' && pointsChange < 1) {
+    pointsChange = 1
+  }
+
+  let bonusApplied = 0
+  if (bonusInfo) {
+    // For wins, bonus pool can up to double the point improvement. For losses, bonus pool can
+    // offset up to the entire amount of the point loss.
+    bonusApplied = Math.min(bonusInfo.bonusAvailable, Math.abs(pointsChange))
+    pointsChange = pointsChange + bonusApplied
+  }
+
+  let newPointsConverged = pointsConverged
+  if (result === 'win' && !newPointsConverged) {
+    pointsChange += getConvergencePoints(rating)
+  }
+
+  // Ensure that a player's points cannot go below 0
+  pointsChange = Math.max(pointsChange, -points)
+  newPointsConverged =
+    newPointsConverged ||
+    arePointsConverged(rating, points + pointsChange - ((bonusInfo?.bonusUsed ?? 0) + bonusApplied))
+
+  return [pointsChange, bonusApplied, newPointsConverged]
 }

@@ -21,6 +21,13 @@ import { CodedError } from '../errors/coded-error'
 import { findUnreconciledGames, setReconciledResult } from '../games/game-models'
 import { hasCompletedResults, reconcileResults } from '../games/results'
 import { JobScheduler } from '../jobs/job-scheduler'
+import { updateLeaderboards } from '../leagues/leaderboard'
+import {
+  getActiveLeaguesForUsers,
+  insertLeagueUserChange,
+  LeagueUser,
+  updateLeagueUser,
+} from '../leagues/league-models'
 import logger from '../logging/logger'
 import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
 import {
@@ -38,6 +45,7 @@ import {
   setReportedResults,
   setUserReconciledResult,
 } from '../models/games-users'
+import { Redis } from '../redis'
 import { Clock } from '../time/clock'
 import { incrementUserStatsCount, makeCountKeys } from '../users/user-stats-model'
 import { ClientSocketsManager } from '../websockets/socket-groups'
@@ -65,6 +73,7 @@ export default class GameResultService {
     private jobScheduler: JobScheduler,
     private matchmakingSeasonsService: MatchmakingSeasonsService,
     private clock: Clock,
+    private redis: Redis,
   ) {
     const jobStartTime = new Date(this.clock.now())
     jobStartTime.setMinutes(jobStartTime.getMinutes() + RECONCILE_INCOMPLETE_RESULTS_MINUTES)
@@ -289,6 +298,7 @@ export default class GameResultService {
       const curSeason = await this.matchmakingSeasonsService.getCurrentSeason()
 
       const matchmakingDbPromises: Array<Promise<unknown>> = []
+      const leagueLeaderboardChanges: LeagueUser[] = []
       if (
         gameRecord.config.gameSource === GameSource.Matchmaking &&
         !reconciled.disputed &&
@@ -305,12 +315,20 @@ export default class GameResultService {
         // deadlocks
         const userIds = Array.from(reconciled.results.keys()).sort()
 
-        const mmrs = await getMatchmakingRatingsWithLock(
-          client,
-          userIds,
-          gameRecord.config.gameSourceExtra.type,
-          season.id,
-        )
+        const [mmrs, activeLeagues] = await Promise.all([
+          getMatchmakingRatingsWithLock(
+            client,
+            userIds,
+            gameRecord.config.gameSourceExtra.type,
+            season.id,
+          ),
+          getActiveLeaguesForUsers(
+            userIds,
+            gameRecord.config.gameSourceExtra.type,
+            gameRecord.startTime,
+            client,
+          ),
+        ])
         if (mmrs.length !== userIds.length) {
           throw new Error('missing MMR for some users')
         }
@@ -339,51 +357,111 @@ export default class GameResultService {
           results: reconciled.results,
           mmrs,
           teams,
+          activeLeagues,
         })
 
         for (const mmr of mmrs) {
-          const change = ratingChanges.get(mmr.userId)!
-          matchmakingDbPromises.push(insertMatchmakingRatingChange(client, change))
+          const { matchmaking: matchmakingChange, leagues: leagueChanges } = ratingChanges.get(
+            mmr.userId,
+          )!
+          matchmakingDbPromises.push(insertMatchmakingRatingChange(client, matchmakingChange))
 
           const selectedRace = idToSelectedRace.get(mmr.userId)!
           const assignedRace = reconciled.results.get(mmr.userId)!.race
-          const winCount = change.outcome === 'win' ? 1 : 0
-          const lossCount = change.outcome === 'win' ? 0 : 1
 
-          const updatedMmr: MatchmakingRating = {
-            userId: mmr.userId,
-            matchmakingType: mmr.matchmakingType,
-            seasonId: mmr.seasonId,
-            rating: change.rating,
-            uncertainty: change.uncertainty,
-            volatility: change.volatility,
-            points: change.points,
-            pointsConverged: change.pointsConverged,
-            bonusUsed: change.bonusUsed,
-            numGamesPlayed: mmr.numGamesPlayed + 1,
-            lifetimeGames: change.lifetimeGames,
-            lastPlayedDate: reconcileDate,
-            wins: mmr.wins + winCount,
-            losses: mmr.losses + lossCount,
+          {
+            const winCount = matchmakingChange.outcome === 'win' ? 1 : 0
+            const lossCount = matchmakingChange.outcome === 'win' ? 0 : 1
 
-            pWins: mmr.pWins + (selectedRace === 'p' ? winCount : 0),
-            pLosses: mmr.pLosses + (selectedRace === 'p' ? lossCount : 0),
-            tWins: mmr.tWins + (selectedRace === 't' ? winCount : 0),
-            tLosses: mmr.tLosses + (selectedRace === 't' ? lossCount : 0),
-            zWins: mmr.zWins + (selectedRace === 'z' ? winCount : 0),
-            zLosses: mmr.zLosses + (selectedRace === 'z' ? lossCount : 0),
-            rWins: mmr.rWins + (selectedRace === 'r' ? winCount : 0),
-            rLosses: mmr.rLosses + (selectedRace === 'r' ? lossCount : 0),
+            const updatedMmr: MatchmakingRating = {
+              userId: mmr.userId,
+              matchmakingType: mmr.matchmakingType,
+              seasonId: mmr.seasonId,
+              rating: matchmakingChange.rating,
+              uncertainty: matchmakingChange.uncertainty,
+              volatility: matchmakingChange.volatility,
+              points: matchmakingChange.points,
+              pointsConverged: matchmakingChange.pointsConverged,
+              bonusUsed: matchmakingChange.bonusUsed,
+              numGamesPlayed: mmr.numGamesPlayed + 1,
+              lifetimeGames: matchmakingChange.lifetimeGames,
+              lastPlayedDate: reconcileDate,
+              wins: mmr.wins + winCount,
+              losses: mmr.losses + lossCount,
 
-            rPWins: mmr.rPWins + (selectedRace === 'r' && assignedRace === 'p' ? winCount : 0),
-            rPLosses: mmr.rPLosses + (selectedRace === 'r' && assignedRace === 'p' ? lossCount : 0),
-            rTWins: mmr.rTWins + (selectedRace === 'r' && assignedRace === 't' ? winCount : 0),
-            rTLosses: mmr.rTLosses + (selectedRace === 'r' && assignedRace === 't' ? lossCount : 0),
-            rZWins: mmr.rZWins + (selectedRace === 'r' && assignedRace === 'z' ? winCount : 0),
-            rZLosses: mmr.rZLosses + (selectedRace === 'r' && assignedRace === 'z' ? lossCount : 0),
+              pWins: mmr.pWins + (selectedRace === 'p' ? winCount : 0),
+              pLosses: mmr.pLosses + (selectedRace === 'p' ? lossCount : 0),
+              tWins: mmr.tWins + (selectedRace === 't' ? winCount : 0),
+              tLosses: mmr.tLosses + (selectedRace === 't' ? lossCount : 0),
+              zWins: mmr.zWins + (selectedRace === 'z' ? winCount : 0),
+              zLosses: mmr.zLosses + (selectedRace === 'z' ? lossCount : 0),
+              rWins: mmr.rWins + (selectedRace === 'r' ? winCount : 0),
+              rLosses: mmr.rLosses + (selectedRace === 'r' ? lossCount : 0),
+
+              rPWins: mmr.rPWins + (selectedRace === 'r' && assignedRace === 'p' ? winCount : 0),
+              rPLosses:
+                mmr.rPLosses + (selectedRace === 'r' && assignedRace === 'p' ? lossCount : 0),
+              rTWins: mmr.rTWins + (selectedRace === 'r' && assignedRace === 't' ? winCount : 0),
+              rTLosses:
+                mmr.rTLosses + (selectedRace === 'r' && assignedRace === 't' ? lossCount : 0),
+              rZWins: mmr.rZWins + (selectedRace === 'r' && assignedRace === 'z' ? winCount : 0),
+              rZLosses:
+                mmr.rZLosses + (selectedRace === 'r' && assignedRace === 'z' ? lossCount : 0),
+            }
+
+            matchmakingDbPromises.push(updateMatchmakingRating(client, updatedMmr))
           }
 
-          matchmakingDbPromises.push(updateMatchmakingRating(client, updatedMmr))
+          for (const leagueChange of leagueChanges) {
+            matchmakingDbPromises.push(insertLeagueUserChange(leagueChange, client))
+
+            const winCount = leagueChange.outcome === 'win' ? 1 : 0
+            const lossCount = leagueChange.outcome === 'win' ? 0 : 1
+            const oldLeagueUser = activeLeagues
+              .get(leagueChange.userId)!
+              .find(l => l.leagueId === leagueChange.leagueId)!
+
+            const updatedLeagueUser: LeagueUser = {
+              leagueId: oldLeagueUser.leagueId,
+              userId: oldLeagueUser.userId,
+              lastPlayedDate: reconcileDate,
+              points: leagueChange.points,
+              pointsConverged: leagueChange.pointsConverged,
+              wins: oldLeagueUser.wins + winCount,
+              losses: oldLeagueUser.losses + lossCount,
+
+              pWins: oldLeagueUser.pWins + (selectedRace === 'p' ? winCount : 0),
+              pLosses: oldLeagueUser.pLosses + (selectedRace === 'p' ? lossCount : 0),
+              tWins: oldLeagueUser.tWins + (selectedRace === 't' ? winCount : 0),
+              tLosses: oldLeagueUser.tLosses + (selectedRace === 't' ? lossCount : 0),
+              zWins: oldLeagueUser.zWins + (selectedRace === 'z' ? winCount : 0),
+              zLosses: oldLeagueUser.zLosses + (selectedRace === 'z' ? lossCount : 0),
+              rWins: oldLeagueUser.rWins + (selectedRace === 'r' ? winCount : 0),
+              rLosses: oldLeagueUser.rLosses + (selectedRace === 'r' ? lossCount : 0),
+
+              rPWins:
+                oldLeagueUser.rPWins +
+                (selectedRace === 'r' && assignedRace === 'p' ? winCount : 0),
+              rPLosses:
+                oldLeagueUser.rPLosses +
+                (selectedRace === 'r' && assignedRace === 'p' ? lossCount : 0),
+              rTWins:
+                oldLeagueUser.rTWins +
+                (selectedRace === 'r' && assignedRace === 't' ? winCount : 0),
+              rTLosses:
+                oldLeagueUser.rTLosses +
+                (selectedRace === 'r' && assignedRace === 't' ? lossCount : 0),
+              rZWins:
+                oldLeagueUser.rZWins +
+                (selectedRace === 'r' && assignedRace === 'z' ? winCount : 0),
+              rZLosses:
+                oldLeagueUser.rZLosses +
+                (selectedRace === 'r' && assignedRace === 'z' ? lossCount : 0),
+            }
+
+            matchmakingDbPromises.push(updateLeagueUser(updatedLeagueUser, client))
+            leagueLeaderboardChanges.push(updatedLeagueUser)
+          }
         }
       }
       const userPromises = resultEntries.map(([userId, result]) =>
@@ -416,6 +494,18 @@ export default class GameResultService {
         ...statsUpdatePromises,
         setReconciledResult(client, gameId, reconciled),
       ])
+
+      if (leagueLeaderboardChanges.length) {
+        // NOTE(tec27): This is a best-effort thing, as these leaderboards are basically just a
+        // cache and can be regenerated from the data at any time. We don't want to update them
+        // unless the DB queries succeed, but the DB queries succeeding and this failing is "okay"
+        // as far as accepting the game results
+        updateLeaderboards(this.redis, leagueLeaderboardChanges).catch(err => {
+          logger.error({ err }, 'Error updating league leaderboards')
+          // TODO(tec27): If this fails, the leaderboards should be queued for regeneration at some
+          // point in the (near) future
+        })
+      }
     })
   }
 

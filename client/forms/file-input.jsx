@@ -32,7 +32,7 @@ export default class FileInput extends React.Component {
       onChange: this.onInputChange,
     }
 
-    const hasFiles = this.props.value && this.props.value.length
+    const hasFiles = this.props.value && (!this.multiple || this.props.value.length)
     return (
       <Container>
         <input ref={this._setInput} {...internalInputProps} />
@@ -45,7 +45,7 @@ export default class FileInput extends React.Component {
 
   onInputChange = e => {
     if (this.props.onChange) {
-      this.props.onChange(e.target.files)
+      this.props.onChange(this.props.multiple ? e.target.files : e.target.files[0])
     }
   }
 

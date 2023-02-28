@@ -10,6 +10,7 @@ export { default as gameplayActivity } from './gameplay-activity/gameplay-activi
 export { default as games } from './games/game-reducer'
 export { default as lastGame } from './games/last-game-reducer'
 export { default as ladder } from './ladder/ladder-reducer'
+export { default as leagues } from './leagues/league-reducer'
 export { default as loading } from './loading/loading-reducer'
 export { default as lobbyList } from './lobbies/lobby-list-reducer'
 export { default as lobbyPreferences } from './lobbies/lobby-preferences-reducer'

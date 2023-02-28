@@ -103,8 +103,7 @@ export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) 
       }
 
       cachedInstallerUrl =
-        (await getUrl(`app/${parsed.path}`, false /* signUrl */)) +
-        `?${encodeURIComponent(parsed.releaseDate)}`
+        getUrl(`app/${parsed.path}`) + `?${encodeURIComponent(parsed.releaseDate)}`
       installerUrlTime = curTime
     }
 

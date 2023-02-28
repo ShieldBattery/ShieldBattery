@@ -116,6 +116,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, action.payload.users)
   },
 
+  ['@leagues/getLeaderboard'](state, { payload: { users } }) {
+    updateUsers(state, users)
+  },
+
   ['@users/adminBanUser'](state, action) {
     updateUsers(state, action.payload.users)
   },

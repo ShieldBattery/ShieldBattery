@@ -3,7 +3,7 @@ import { ConditionalKeys } from 'type-fest'
 import createDeferred, { Deferred } from '../../common/async/deferred'
 import shallowEquals from '../../common/shallow-equals'
 
-interface FormHook<ModelType> {
+export interface FormHook<ModelType> {
   /**
    * Event handler that should be attached to the `form` element's onSubmit prop. This can also be
    * called directly if you want to start a form submission because of some other event.

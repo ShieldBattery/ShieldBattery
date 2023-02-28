@@ -17,8 +17,7 @@ import {
 import { RaceChar, raceCharToLabel } from '../../common/races'
 import { SbUser, SbUserId } from '../../common/users/sb-user'
 import { Avatar } from '../avatars/avatar'
-import { useVirtuosoScrollFix } from '../dom/virtuoso-scroll-fix'
-import { longTimestamp, shortTimestamp } from '../i18n/date-formats'
+import { longTimestamp, narrowDuration, shortTimestamp } from '../i18n/date-formats'
 import { JsonLocalStorageValue } from '../local-storage'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
 import { useButtonState } from '../material/button'
@@ -31,7 +30,7 @@ import { shadow4dp } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
-import { push, replace } from '../navigation/routing'
+import { push } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { SearchInput, SearchInputHandle } from '../search/search-input'
@@ -53,7 +52,6 @@ import {
   subtitle1,
   subtitle2,
 } from '../styles/typography'
-import { timeAgo } from '../time/time-ago'
 import { navigateToUserProfile } from '../users/action-creators'
 import { getRankings, navigateToLadder, searchRankings } from './action-creators'
 
@@ -111,9 +109,6 @@ export function LadderRouteComponent(props: { params: any }) {
   const [matches, params] = useRoute('/ladder/:matchmakingType?')
 
   if (!matches) {
-    queueMicrotask(() => {
-      replace('/')
-    })
     return null
   }
 
@@ -485,21 +480,18 @@ export interface LadderTableProps {
 }
 
 export function LadderTable(props: LadderTableProps) {
-  const [setScrollerRef] = useVirtuosoScrollFix()
-
   const containerRef = useRef<HTMLDivElement | null>(null)
   const forceUpdate = useForceUpdate()
   const setContainerRef = useCallback(
     (ref: HTMLDivElement | null) => {
       if (containerRef.current !== ref) {
-        setScrollerRef(ref)
         containerRef.current = ref
         if (ref !== null) {
           forceUpdate()
         }
       }
     },
-    [forceUpdate, setScrollerRef],
+    [forceUpdate],
   )
 
   const {
@@ -759,7 +751,7 @@ const Row = React.memo(({ isEven, player, username, curTime, onSelected }: RowPr
       <WinLossCell>
         {player.wins} &ndash; {player.losses}
       </WinLossCell>
-      <LastPlayedCell>{timeAgo(curTime - player.lastPlayedDate)}</LastPlayedCell>
+      <LastPlayedCell>{narrowDuration.format(player.lastPlayedDate, curTime)}</LastPlayedCell>
       <Ripple ref={rippleRef} />
     </RowContainer>
   )

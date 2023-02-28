@@ -7,10 +7,10 @@ import { makeSbUserId, SbUserId } from '../../common/users/sb-user'
 import { useContextMenu } from '../dom/use-context-menu'
 import { MenuList } from '../material/menu/menu'
 import { Popover } from '../material/popover'
+import { ExternalLink } from '../navigation/external-link'
 import { amberA100, blue100, colorDividers, colorTextFaint } from '../styles/colors'
 import { body2 } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
-import { ExternalLink } from './external-link'
 import {
   useChatMessageMenuItems,
   useChatUserMenuItems,

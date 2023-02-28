@@ -12,7 +12,7 @@ import { SbUserId } from '../../../common/users/sb-user'
 import db from '../db'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
-import { getUrl } from '../file-upload'
+import { getSignedUrl, getUrl } from '../file-upload'
 import { MapParseData } from './parse-data'
 import { imagePath, mapPath } from './store'
 
@@ -96,7 +96,7 @@ async function createMapInfo(info: DbMapInfo): Promise<MapInfo> {
   const hashString = info.map_hash.toString('hex')
 
   const [mapUrl, image256Url, image512Url, image1024Url, image2048Url] = await Promise.all([
-    getUrl(mapPath(hashString, info.extension), true),
+    getSignedUrl(mapPath(hashString, info.extension), true),
     getUrl(imagePath(hashString, 256)),
     getUrl(imagePath(hashString, 512)),
     getUrl(imagePath(hashString, 1024)),

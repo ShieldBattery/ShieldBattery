@@ -1,5 +1,5 @@
 import { createWriteStream } from 'fs'
-import { access, mkdir, readFile, unlink } from 'fs/promises'
+import { mkdir, readFile, unlink } from 'fs/promises'
 import Koa from 'koa'
 import koaMount from 'koa-mount'
 import koaStatic from 'koa-static'
@@ -54,17 +54,15 @@ export default class LocalFsStore implements FileStore {
     await rimraf(full)
   }
 
-  async url(filename: string, signUrl: boolean) {
-    const full = this.getFullPath(filename)
+  url(filename: string) {
+    return `${process.env.SB_CANONICAL_HOST}/files/${path.posix.normalize(filename)}`
+  }
+
+  async signedUrl(filename: string) {
     // NOTE(tec27): This just simulates the cache-busting properties of having a signed URL in
     // a dev environment, it provides no actual signature protection :)
-    const signature = signUrl ? `?${Date.now()}` : ''
-    try {
-      await access(full)
-      return `${process.env.SB_CANONICAL_HOST}/files/${path.posix.normalize(filename)}${signature}`
-    } catch (_) {
-      return undefined
-    }
+    const signature = `?${Date.now()}`
+    return `${process.env.SB_CANONICAL_HOST}/files/${path.posix.normalize(filename)}${signature}`
   }
 
   addMiddleware(app: Koa) {

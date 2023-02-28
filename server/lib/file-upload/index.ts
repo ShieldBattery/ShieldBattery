@@ -33,8 +33,12 @@ export async function deleteFiles(prefix: string, options?: any) {
   return store!.deleteFiles(prefix, options)
 }
 
-export async function getUrl(filename: string, signUrl?: boolean, options?: any) {
-  return store!.url(filename, signUrl, options)
+export function getUrl(filename: string, options?: any) {
+  return store!.url(filename, options)
+}
+
+export async function getSignedUrl(filename: string, options?: any) {
+  return store!.signedUrl(filename, options)
 }
 
 export function addMiddleware(app: Koa) {

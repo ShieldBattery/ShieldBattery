@@ -3,7 +3,15 @@ import { TypedIpcRenderer } from '../../common/ipc'
 const ipcRenderer = new TypedIpcRenderer()
 
 function log(level: string, msg: string) {
-  ipcRenderer.invoke('logMessage', level, msg)
+  ipcRenderer.invoke('logMessage', level, msg)?.catch(err => {
+    console.error(`Error logging message: ${err?.stack ?? err}`)
+  })
+
+  if (level === 'error') {
+    console.error(`[ERROR]: ${msg}`)
+  } else {
+    console.log(`[${level.toUpperCase()}]: ${msg}`)
+  }
 }
 
 export const logger = {

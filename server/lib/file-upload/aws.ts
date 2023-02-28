@@ -126,16 +126,25 @@ export default class Aws implements FileStore {
     return this.client.deleteObjects(params).promise()
   }
 
+  url(filename: string, options: any = {}): string {
+    const url = `https://${this.bucket}.${this.endpoint}/${filename}`
+    if (this.cdnHost) {
+      const cdnUrl = new URL(url)
+      cdnUrl.host = this.cdnHost
+      return cdnUrl.toString()
+    } else {
+      return url
+    }
+  }
+
   // Options object can contain any of the valid keys specified in the AWS SDK for the
   // `getSignedUrlPromise` function. Besides those, we allow sending some of the more frequently
   // used options in a more friendlier format, e.g. `expires` can be sent instead of `Expires`
   // which defines how long the fetched URL will be accessible for (default is 15mins).
-  async url(filename: string, signUrl = false, options: any = {}): Promise<string> {
+  async signedUrl(filename: string, options: any = {}): Promise<string> {
     const normalized = this.getNormalizedPath(filename)
     const params = { Key: normalized, Bucket: this.bucket, ...formatOptions(options) }
-    const url = signUrl
-      ? await this.client.getSignedUrlPromise('getObject', params)
-      : `https://${this.bucket}.${this.endpoint}/${filename}`
+    const url = await this.client.getSignedUrlPromise('getObject', params)
     if (this.cdnHost) {
       const cdnUrl = new URL(url)
       cdnUrl.host = this.cdnHost

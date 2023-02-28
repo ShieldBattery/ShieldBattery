@@ -9,7 +9,9 @@
  * ```
  */
 export function apiUrl(strings: TemplateStringsArray, ...values: unknown[]) {
-  return '/api/1/' + urlPath(strings, ...values)
+  return strings.length && strings[0].startsWith('/')
+    ? '/api/1' + urlPath(strings, ...values)
+    : '/api/1/' + urlPath(strings, ...values)
 }
 
 /**

@@ -1,6 +1,6 @@
 import React from 'react'
+import { maybeOpenExternalLinkDialog } from '../messaging/action-creators'
 import { useAppDispatch } from '../redux-hooks'
-import { maybeOpenExternalLinkDialog } from './action-creators'
 
 export interface ExternalLinkProps {
   href: string

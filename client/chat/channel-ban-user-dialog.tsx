@@ -41,11 +41,7 @@ function showBanUserError(user: string, error: FetchError) {
       return <ErrorText>You don't have enough permissions to ban this user</ErrorText>
 
     default:
-      return (
-        <ErrorText>
-          An error occurred: {error.status} {error.statusText}
-        </ErrorText>
-      )
+      return <ErrorText>An error occurred: {error.statusText}</ErrorText>
   }
 }
 
@@ -67,7 +63,7 @@ interface BanUserModel {
   banReason: string
 }
 
-interface ChannelBanUserDialogProps extends CommonDialogProps {
+export interface ChannelBanUserDialogProps extends CommonDialogProps {
   channelId: SbChannelId
   userId: SbUserId
 }
