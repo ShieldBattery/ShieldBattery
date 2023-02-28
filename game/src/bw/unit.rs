@@ -19,6 +19,7 @@ use crate::bw;
 /// one for active units (Anything selectable or something that is drawn),
 /// one for hidden units (Inside building, transport, or similarly not interacting with map),
 /// one for revealers (Scanner sweeps, map revealers)
+#[derive(Copy, Clone)]
 pub struct UnitIterator(Option<Unit>);
 
 impl UnitIterator {

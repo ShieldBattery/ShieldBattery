@@ -39,6 +39,7 @@ mod netcode;
 mod network_manager;
 mod proto;
 mod rally_point;
+mod recurse_checked_mutex;
 mod replay;
 mod snp;
 mod udp;

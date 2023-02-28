@@ -485,6 +485,10 @@ impl<'e> Analysis<'e> {
         self.0.map_width_pixels()
     }
 
+    pub fn map_height_pixels(&mut self) -> Option<Operand<'e>> {
+        self.0.map_height_pixels()
+    }
+
     pub fn screen_x(&mut self) -> Option<Operand<'e>> {
         self.0.screen_x()
     }
@@ -495,5 +499,77 @@ impl<'e> Analysis<'e> {
 
     pub fn game_screen_width_bwpx(&mut self) -> Option<Operand<'e>> {
         self.0.game_screen_width_bwpx()
+    }
+
+    pub fn game_screen_height_bwpx(&mut self) -> Option<Operand<'e>> {
+        self.0.game_screen_height_bwpx()
+    }
+
+    pub fn renderer(&mut self) -> Option<Operand<'e>> {
+        self.0.renderer()
+    }
+
+    pub fn draw_commands(&mut self) -> Option<Operand<'e>> {
+        self.0.draw_commands()
+    }
+
+    pub fn vertex_buffer(&mut self) -> Option<Operand<'e>> {
+        self.0.vertex_buffer()
+    }
+
+    pub fn get_render_target(&mut self) -> Option<VirtualAddress> {
+        self.0.get_render_target()
+    }
+
+    pub fn init_obs_ui(&mut self) -> Option<VirtualAddress> {
+        self.0.init_obs_ui()
+    }
+
+    pub fn is_replay(&mut self) -> Option<Operand<'e>> {
+        self.0.is_replay()
+    }
+
+    pub fn get_ui_consoles(&mut self) -> Option<VirtualAddress> {
+        self.0.get_ui_consoles()
+    }
+
+    pub fn load_consoles(&mut self) -> Option<VirtualAddress> {
+        self.0.load_consoles()
+    }
+
+    pub fn init_consoles(&mut self) -> Option<VirtualAddress> {
+        self.0.init_consoles()
+    }
+
+    pub fn draw_graphic_layers(&mut self) -> Option<VirtualAddress> {
+        self.0.draw_graphic_layers()
+    }
+
+    pub fn main_palette(&mut self) -> Option<Operand<'e>> {
+        self.0.main_palette()
+    }
+
+    pub fn statres_icons(&mut self) -> Option<Operand<'e>> {
+        self.0.statres_icons_ddsgrp()
+    }
+
+    pub fn cmdicons(&mut self) -> Option<Operand<'e>> {
+        self.0.cmdicons_ddsgrp()
+    }
+
+    pub fn use_rgb_colors(&mut self) -> Option<Operand<'e>> {
+        self.0.use_rgb_colors()
+    }
+
+    pub fn rgb_colors(&mut self) -> Option<Operand<'e>> {
+        self.0.rgb_colors()
+    }
+
+    pub fn decide_cursor_type(&mut self) -> Option<VirtualAddress> {
+        self.0.decide_cursor_type()
+    }
+
+    pub fn select_units(&mut self) -> Option<VirtualAddress> {
+        self.0.select_units()
     }
 }

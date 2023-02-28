@@ -338,6 +338,10 @@ pub fn map_name_for_filename() -> String {
 /// isn't too useful to us unless we end up having a need to change game rules.
 pub unsafe fn after_step_game() {
     let bw = get_bw();
+    add_fow_sprites_for_replay_vision_change(bw);
+}
+
+pub unsafe fn add_fow_sprites_for_replay_vision_change(bw: &dyn Bw) {
     if is_replay() && !is_ums() {
         // One thing BW's step_game does is that it removes any fog sprites that were
         // no longer in fog. Unfortunately now that we show fog sprites for unexplored

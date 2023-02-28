@@ -7,7 +7,9 @@ use byteorder::{ByteOrder, LittleEndian};
 pub mod id {
     pub const NOP: u8 = 0x5;
     pub const SYNC: u8 = 0x37;
+    pub const SET_LATENCY: u8 = 0x55;
     pub const REPLAY_SPEED: u8 = 0x56;
+    pub const CHAT: u8 = 0x5c;
     pub const REPLAY_SEEK: u8 = 0x5d;
     pub const SET_TURN_RATE: u8 = 0x5f;
     pub const SET_NETWORK_SPEED: u8 = 0x66;

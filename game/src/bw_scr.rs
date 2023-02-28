@@ -11,6 +11,7 @@ use byteorder::{ByteOrder, LittleEndian};
 use libc::c_void;
 use parking_lot::{Mutex, RwLock};
 use smallvec::SmallVec;
+use winapi::shared::windef::{HWND};
 use winapi::um::errhandlingapi::SetLastError;
 use winapi::um::libloaderapi::GetModuleHandleW;
 
@@ -23,13 +24,18 @@ use crate::app_messages::{MapInfo, Settings};
 use crate::bw::unit::{Unit, UnitIterator};
 use crate::bw::{self, Bw, FowSpriteIterator, SnpFunctions, StormPlayerId};
 use crate::bw::{commands, UserLatency};
+use crate::bw::apm_stats::ApmStats;
 use crate::game_thread::send_game_msg_to_async;
+use crate::recurse_checked_mutex::{Mutex as RecurseCheckedMutex};
 use crate::snp;
 use crate::windows;
 use crate::{game_thread, GameThreadMessage};
 
 mod bw_hash_table;
+mod bw_vector;
 mod dialog_hook;
+mod draw_inject;
+mod draw_overlay;
 mod file_hook;
 mod game;
 mod pe_image;
@@ -52,6 +58,7 @@ pub struct BwScr {
     is_multiplayer: Value<u8>,
     game_state: Value<u8>,
     sprites_inited: Value<u8>,
+    is_replay: Value<u32>,
     local_player_id: Value<u32>,
     local_unique_player_id: Value<u32>,
     local_storm_id: Value<u32>,
@@ -82,13 +89,24 @@ pub struct BwScr {
     allocated_order_count: Value<u32>,
     order_limit: Value<u32>,
     map_width_pixels: Value<u32>,
+    map_height_pixels: Value<u32>,
     /// Coordinates of screen topleft corner (in map pixels)
     screen_x: Value<u32>,
     screen_y: Value<u32>,
     /// How many map pixels are shown on screen, that is, 640 on 4:3 and default zoom.
     /// Value is larger on 16:9, as well as when zooming out.
     game_screen_width_bwpx: Value<u32>,
+    game_screen_height_bwpx: Value<u32>,
     units: Value<*mut scr::BwVector>,
+    vertex_buffer: Value<*mut scr::VertexBuffer>,
+    renderer: Value<*mut scr::Renderer>,
+    draw_commands: Value<*mut scr::DrawCommands>,
+    /// [[u8; 4]; 256], mostly unused in SC:R, but still gets used for player colors at least.
+    main_palette: Value<*mut u8>,
+    rgb_colors: Value<*mut [[f32; 0x4]; 0x8]>,
+    use_rgb_colors: Value<u8>,
+    statres_icons: Value<*mut scr::DdsGrpSet>,
+    cmdicons: Value<*mut scr::DdsGrpSet>,
     replay_bfix: Option<Value<*mut scr::ReplayBfix>>,
     replay_gcfg: Option<Value<*mut scr::ReplayGcfg>>,
     anti_troll: Option<Value<*mut scr::AntiTroll>>,
@@ -135,6 +153,12 @@ pub struct BwScr {
     snet_send_packets: unsafe extern "C" fn(),
     process_game_commands: unsafe extern "C" fn(*const u8, usize, u32),
     move_screen: unsafe extern "C" fn(u32, u32),
+    get_render_target: unsafe extern "C" fn(u32) -> *mut scr::RenderTarget,
+    load_consoles: Thiscall<unsafe extern "C" fn(*mut scr::BwHashTable)>,
+    init_consoles: Thiscall<unsafe extern "C" fn(*mut scr::BwHashTable, u32)>,
+    get_ui_consoles: unsafe extern "C" fn() -> *mut scr::BwHashTable,
+    // select_units(amount, pointers, bool, bool)
+    select_units: unsafe extern "C" fn(usize, *const *mut bw::Unit, u32, u32),
     mainmenu_entry_hook: VirtualAddress,
     load_snp_list: VirtualAddress,
     start_udp_server: VirtualAddress,
@@ -157,6 +181,9 @@ pub struct BwScr {
     step_game_logic: VirtualAddress,
     net_format_turn_rate: VirtualAddress,
     update_game_screen_size: VirtualAddress,
+    init_obs_ui: VirtualAddress,
+    draw_graphic_layers: VirtualAddress,
+    decide_cursor_type: VirtualAddress,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
 
@@ -185,6 +212,14 @@ pub struct BwScr {
     // Path that reads/writes of CSettings.json will be redirected to
     settings_file_path: RwLock<String>,
     detection_status_copy: Mutex<Vec<u32>>,
+    render_state: RecurseCheckedMutex<RenderState>,
+    apm_state: RecurseCheckedMutex<ApmStats>,
+}
+
+/// State mutated during renderer draw call
+struct RenderState {
+    overlay: draw_overlay::OverlayState,
+    render: draw_inject::RenderState,
 }
 
 struct SendPtr<T>(T);
@@ -193,8 +228,6 @@ unsafe impl<T> Sync for SendPtr<T> {}
 
 /// Keeps track of pointers to renderer structures as they are collected
 struct RendererState {
-    #[allow(dead_code)] // Plan is to use this ~soon~
-    renderer: Option<*mut c_void>,
     shader_inputs: Vec<ShaderState>,
 }
 
@@ -206,10 +239,6 @@ struct ShaderState {
 }
 
 impl RendererState {
-    unsafe fn set_renderer(&mut self, renderer: *mut c_void) {
-        self.renderer = Some(renderer);
-    }
-
     unsafe fn set_shader_inputs(
         &mut self,
         shader: *mut scr::Shader,
@@ -245,6 +274,8 @@ pub mod scr {
     use crate::bw_scr::{bw_free, bw_malloc};
 
     use super::thiscall::Thiscall;
+
+    pub use bw_dat::structs::scr::{DrawCommand, DrawCommands, DrawSubCommand, DrawSubCommands};
 
     #[repr(C)]
     pub struct SnpLoadFuncs {
@@ -605,19 +636,6 @@ pub mod scr {
     }
 
     #[repr(C)]
-    pub struct DrawCommands {
-        pub commands: [DrawCommand; 0x2000],
-    }
-
-    #[repr(C)]
-    pub struct DrawCommand {
-        pub data: [u8; 0x28],
-        pub shader_id: u32,
-        pub more_data: [u8; 0x24],
-        pub shader_constants: [f32; 0x14],
-    }
-
-    #[repr(C)]
     pub struct Shader {
         pub id: u32,
         pub rest: [u8; 0x74],
@@ -684,6 +702,149 @@ pub mod scr {
         pub text: BwString,
     }
 
+    #[repr(C)]
+    pub struct Renderer {
+        pub vtable: *const V_Renderer
+    }
+
+    #[repr(C)]
+    pub struct V_Renderer {
+        pub clone: usize,
+        pub init_sub: usize,
+        pub init: usize,
+        pub unk3: usize,
+        pub unk4: usize,
+        pub swap_buffers: usize,
+        pub unk6: usize,
+        pub draw: Thiscall<
+            unsafe extern "C" fn(
+                *mut Renderer,
+                *mut DrawCommands,
+                u32,
+                u32,
+            ) -> u32,
+        >,
+        pub clear_color: usize,
+        pub unk9: usize,
+        pub upload_vertices: usize,
+        pub unkb: usize,
+        /// format, data, data_len, width, height, filtering, wrap_mode
+        pub create_texture: Thiscall<
+            unsafe extern "C" fn(
+                *mut Renderer,
+                u32,
+                *const u8,
+                usize,
+                u32,
+                u32,
+                u32,
+                u32,
+            ) -> *mut RendererTexture,
+        >,
+        pub unkd: usize,
+        /// texture, x, y, width, height, data, row_length (pixels), format, filtering, wrap_mode
+        pub update_texture: Thiscall<
+            unsafe extern "C" fn(
+                *mut Renderer,
+                *mut RendererTexture,
+                u32,
+                u32,
+                u32,
+                u32,
+                *const u8,
+                u32,
+                u32,
+                u32,
+                u32,
+            )
+        >,
+        pub delete_texture: Thiscall<unsafe extern "C" fn(*mut Renderer, *mut RendererTexture)>,
+        pub create_shader: Thiscall<
+            unsafe extern "C" fn(
+                *mut Renderer,
+                *mut Shader,
+                *const u8,
+                *const u8,
+                *const u8,
+                *mut c_void,
+            ) -> usize,
+        >,
+    }
+
+    /// Opaque struct
+    #[repr(C)]
+    pub struct RendererTexture {
+    }
+
+    // Checked to have correct layout on both 32/64 bit
+    #[repr(C)]
+    pub struct VertexBuffer {
+        pub buffer_size_u32s: usize,
+        pub allocated_size_bytes: usize,
+        pub buffer: BwVector,
+        pub subbuffers: BwVector,
+        pub heap_allocated: u8,
+        pub unk_size: usize,
+        pub subbuffer_sizes: usize,
+        pub unk2c: usize,
+        pub index_buf_size_u16s: usize,
+        pub index_buffer_allocated_bytes: usize,
+        pub index_buffer: BwVector,
+        pub index_buf_heap_allocated: u8,
+        pub unk_vertex_buffer_data: *mut c_void,
+    }
+
+    #[repr(C)]
+    pub struct RenderTarget {
+        pub x: i32,
+        pub y: i32,
+        pub width: u32,
+        pub height: u32,
+        pub attachments: u32,
+        pub unk14: [u32; 2],
+        pub backend_target: *mut c_void,
+    }
+
+    /// Used to sort DrawCommands to be drawn in correct order when rendering.
+    /// One DrawSort must exist for each DrawCommand used.
+    #[repr(C)]
+    pub struct DrawSort {
+        pub layer: u16,
+        // Self index when pushed to vector
+        // Probably used to break ties when layer is same
+        pub index: u16,
+        pub command: *mut DrawCommand,
+    }
+
+    #[repr(C)]
+    pub struct Texture {
+        pub unk: u32,
+        pub width: u16,
+        pub height: u16,
+        pub renderer_texture: *mut RendererTexture,
+        pub scale: u16,
+    }
+
+    #[repr(C)]
+    pub struct DdsGrp {
+        pub frame_count: u16,
+        pub textures: *mut Texture,
+    }
+
+    #[repr(C)]
+    pub struct DdsGrpSet {
+        // Legacy palette renderer GRP (Same struct as pre-SC:R)
+        pub grp: *mut c_void,
+        // SD, HD, Carbot (Carbot is not required to be loaded)
+        pub dds_grps: [DdsGrp; 0x3],
+        pub ui_asset_id: u32,
+        pub unk_20: u8,
+        pub unk_21: u8,
+        pub unk_22: u8,
+        pub unk_23: u8,
+        pub unk_24: u8,
+    }
+
     unsafe impl Sync for PrismShader {}
     unsafe impl Send for PrismShader {}
 
@@ -712,6 +873,15 @@ pub mod scr {
         // Not correct on 64bit but don't think we rely on the size at all.
         assert_eq!(size_of::<Shader>(), 0x78);
         assert_eq!(size_of::<Sprite>(), size(0x28, 0x48));
+        assert_eq!(size_of::<V_Renderer>(), 0x44 / 4 * size_of::<usize>());
+        assert_eq!(size_of::<VertexBuffer>(), size(0x4c, 0x98));
+        assert_eq!(size_of::<RenderTarget>(), size(0x20, 0x28));
+        assert_eq!(size_of::<DrawSort>(), size(0x8, 0x10));
+        assert_eq!(size_of::<Texture>(), size(0x10, 0x18));
+        assert_eq!(size_of::<DdsGrp>(), size(0x8, 0x10));
+        assert_eq!(size_of::<DdsGrpSet>(), size(0x28, 0x48));
+        assert_eq!(size_of::<Font>(), size(0x18, 0x28));
+        assert_eq!(size_of::<TtfFont>(), size(0xa0, 0xc8));
     }
 }
 
@@ -1048,6 +1218,7 @@ impl BwScr {
             .process_lobby_commands()
             .ok_or("Process lobby commands")?;
         let send_command = analysis.send_command().ok_or("send_command")?;
+        let is_replay = analysis.is_replay().ok_or("is_replay")?;
         let local_player_id = analysis.local_player_id().ok_or("Local player id")?;
         let local_storm_id = analysis.local_storm_player_id().ok_or("Local storm id")?;
         let local_unique_player_id = analysis
@@ -1178,16 +1349,36 @@ impl BwScr {
         let step_game_logic = analysis.step_game_logic().ok_or("step_game_logic")?;
         let anti_troll = analysis.anti_troll();
         let units = analysis.units().ok_or("units")?;
+        let vertex_buffer = analysis.vertex_buffer().ok_or("vertex_buffer")?;
+        let renderer = analysis.renderer().ok_or("renderer")?;
+        let draw_commands = analysis.draw_commands().ok_or("draw_commands")?;
         let map_width_pixels = analysis.map_width_pixels().ok_or("map_width_pixels")?;
+        let map_height_pixels = analysis.map_height_pixels().ok_or("map_height_pixels")?;
+        let main_palette = analysis.main_palette().ok_or("main_palette")?;
+        let rgb_colors = analysis.rgb_colors().ok_or("rgb_colors")?;
+        let use_rgb_colors = analysis.use_rgb_colors().ok_or("use_rgb_colors")?;
+        let statres_icons = analysis.statres_icons().ok_or("statres_icons")?;
+        let cmdicons = analysis.cmdicons().ok_or("cmdicons")?;
         let screen_x = analysis.screen_x().ok_or("screen_x")?;
         let screen_y = analysis.screen_y().ok_or("screen_y")?;
         let game_screen_width_bwpx = analysis
             .game_screen_width_bwpx()
             .ok_or("game_screen_width_bwpx")?;
+        let game_screen_height_bwpx = analysis
+            .game_screen_height_bwpx()
+            .ok_or("game_screen_height_bwpx")?;
         let move_screen = analysis.move_screen().ok_or("move_screen")?;
         let update_game_screen_size = analysis
             .update_game_screen_size()
             .ok_or("update_game_screen_size")?;
+        let get_render_target = analysis.get_render_target().ok_or("get_render_target")?;
+        let load_consoles = analysis.load_consoles().ok_or("load_consoles")?;
+        let init_consoles = analysis.init_consoles().ok_or("init_consoles")?;
+        let get_ui_consoles = analysis.get_ui_consoles().ok_or("get_ui_consoles")?;
+        let init_obs_ui = analysis.init_obs_ui().ok_or("init_obs_ui")?;
+        let draw_graphic_layers = analysis.draw_graphic_layers().ok_or("draw_graphic_layers")?;
+        let decide_cursor_type = analysis.decide_cursor_type().ok_or("decide_cursor_type")?;
+        let select_units = analysis.select_units().ok_or("select_units")?;
 
         let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
             Some(0) => false,
@@ -1237,6 +1428,7 @@ impl BwScr {
             is_multiplayer: Value::new(ctx, is_multiplayer),
             game_state: Value::new(ctx, game_state),
             sprites_inited: Value::new(ctx, sprites_inited),
+            is_replay: Value::new(ctx, is_replay),
             local_player_id: Value::new(ctx, local_player_id),
             local_unique_player_id: Value::new(ctx, local_unique_player_id),
             local_storm_id: Value::new(ctx, local_storm_id),
@@ -1264,10 +1456,20 @@ impl BwScr {
             allocated_order_count: Value::new(ctx, allocated_order_count),
             order_limit: Value::new(ctx, order_limit),
             units: Value::new(ctx, units),
+            vertex_buffer: Value::new(ctx, vertex_buffer),
+            renderer: Value::new(ctx, renderer),
+            draw_commands: Value::new(ctx, draw_commands),
             map_width_pixels: Value::new(ctx, map_width_pixels),
+            map_height_pixels: Value::new(ctx, map_height_pixels),
+            main_palette: Value::new(ctx, main_palette),
+            rgb_colors: Value::new(ctx, rgb_colors),
+            use_rgb_colors: Value::new(ctx, use_rgb_colors),
+            statres_icons: Value::new(ctx, statres_icons),
+            cmdicons: Value::new(ctx, cmdicons),
             screen_x: Value::new(ctx, screen_x),
             screen_y: Value::new(ctx, screen_y),
             game_screen_width_bwpx: Value::new(ctx, game_screen_width_bwpx),
+            game_screen_height_bwpx: Value::new(ctx, game_screen_height_bwpx),
             replay_bfix: replay_bfix.map(move |x| Value::new(ctx, x)),
             replay_gcfg: replay_gcfg.map(move |x| Value::new(ctx, x)),
             anti_troll: anti_troll.map(move |x| Value::new(ctx, x)),
@@ -1281,6 +1483,9 @@ impl BwScr {
             original_status_screen_update,
             net_format_turn_rate,
             update_game_screen_size,
+            init_obs_ui,
+            draw_graphic_layers,
+            decide_cursor_type,
             init_network_player_info: unsafe { mem::transmute(init_network_player_info.0) },
             step_network: unsafe { mem::transmute(step_network.0) },
             step_network_addr: step_network,
@@ -1302,6 +1507,11 @@ impl BwScr {
             ttf_malloc: unsafe { mem::transmute(ttf_malloc.0) },
             process_game_commands: unsafe { mem::transmute(process_game_commands.0) },
             move_screen: unsafe { mem::transmute(move_screen.0) },
+            get_render_target: unsafe { mem::transmute(get_render_target.0) },
+            load_consoles: Thiscall::foreign(load_consoles.0 as usize),
+            init_consoles: Thiscall::foreign(init_consoles.0 as usize),
+            get_ui_consoles: unsafe { mem::transmute(get_ui_consoles.0) },
+            select_units: unsafe { mem::transmute(select_units.0) },
             load_snp_list,
             start_udp_server,
             mainmenu_entry_hook,
@@ -1330,7 +1540,6 @@ impl BwScr {
             disable_hd,
             shader_replaces: ShaderReplaces::new(),
             renderer_state: Mutex::new(RendererState {
-                renderer: None,
                 shader_inputs: Vec::with_capacity(0x30),
             }),
             open_replay_file_count: AtomicUsize::new(0),
@@ -1344,6 +1553,11 @@ impl BwScr {
             dropped_players: AtomicU32::new(0),
             settings_file_path: RwLock::new(String::new()),
             detection_status_copy: Mutex::new(Vec::new()),
+            render_state: RecurseCheckedMutex::new(RenderState {
+                render: draw_inject::RenderState::new(),
+                overlay: draw_overlay::OverlayState::new(),
+            }),
+            apm_state: RecurseCheckedMutex::new(ApmStats::new()),
         })
     }
 
@@ -1375,6 +1589,8 @@ impl BwScr {
             ProcessGameCommands,
             move |data, len, are_recorded_replay_commands, orig| {
                 let command_user = self.command_user.resolve();
+                let unique_command_user = self.unique_command_user.resolve();
+                let is_replay = game_thread::is_replay();
                 let is_observer = command_user >= 128;
                 let slice = std::slice::from_raw_parts(data, len);
                 let slice = commands::filter_invalid_commands(
@@ -1384,25 +1600,36 @@ impl BwScr {
                     &self.game_command_lengths,
                 );
                 let mut sync_seen = false;
-                if are_recorded_replay_commands == 0 {
+                // New scope for mutex locks (Not necessarily needed but avoiding calling back to
+                // BW with mutexes locked is generally a good pattern to follow IMO)
+                {
+                    let mut apm_state = self.apm_state.lock();
                     for command in commands::iter_commands(&slice, &self.game_command_lengths) {
+                        if let Some(ref mut apm) = apm_state {
+                            if !is_replay || are_recorded_replay_commands != 0 {
+                                apm.action(unique_command_user as u8, command);
+                            }
+                        }
                         match command {
                             [commands::id::REPLAY_SEEK, rest @ ..] if rest.len() == 4 => {
-                                let frame = LittleEndian::read_u32(rest);
-                                let game = self.game();
-                                if (*game).frame_count > frame {
-                                    self.is_replay_seeking.store(true, Ordering::Relaxed);
+                                if are_recorded_replay_commands == 0 {
+                                    let frame = LittleEndian::read_u32(rest);
+                                    let game = self.game();
+                                    if (*game).frame_count > frame {
+                                        self.is_replay_seeking.store(true, Ordering::Relaxed);
+                                    }
                                 }
                             }
                             [commands::id::SYNC, ..] | [commands::id::NOP, ..] => {
-                                sync_seen = true;
+                                if are_recorded_replay_commands == 0 {
+                                    sync_seen = true;
+                                }
                             }
                             _ => (),
                         }
                     }
                 }
 
-                let is_replay = game_thread::is_replay();
                 if !is_replay {
                     if let Some(players) = self.check_player_drops() {
                         let frame = (*self.game()).frame_count;
@@ -1505,6 +1732,9 @@ impl BwScr {
         exe.hook_closure_address(
             StepGame,
             move |orig| {
+                if let Some(mut apm) = self.apm_state.lock() {
+                    apm.new_frame();
+                }
                 orig();
                 game_thread::after_step_game();
             },
@@ -1618,6 +1848,37 @@ impl BwScr {
                 }
                 game_thread::after_init_game_data();
                 1
+            },
+            address,
+        );
+        let address = self.init_obs_ui.0 as usize - base;
+        exe.hook_closure_address(
+            InitObsUi,
+            move |orig| {
+                // Make bw think that it doesn't need to create obs ui,
+                // and load default ingame consoles instead
+                // ('is_dummy_ui' function in obs ui vtable would have to be patched
+                // if consoles aren't loaded)
+                let is_replay = self.is_replay.resolve();
+                let local_id = self.local_unique_player_id.resolve();
+                if is_replay != 0 || local_id >= 0x80 {
+                    self.is_replay.write(0);
+                    self.local_unique_player_id.write(0);
+                    let ui_consoles = (self.get_ui_consoles)();
+                    let game = self.game();
+                    let race_char = match (*game).player_race {
+                        0 => b'z',
+                        1 => b't',
+                        2 | _ => b'p',
+                    };
+                    self.load_consoles.call1(ui_consoles);
+                    self.init_consoles.call2(ui_consoles, race_char as u32);
+                    orig();
+                    self.is_replay.write(is_replay);
+                    self.local_unique_player_id.write(local_id);
+                } else {
+                    orig();
+                }
             },
             address,
         );
@@ -1740,6 +2001,20 @@ impl BwScr {
             address,
         );
 
+        let address = self.decide_cursor_type.0 as usize - base;
+        exe.hook_closure_address(
+            DecideCursorType,
+            move |orig| {
+                if let Some(render_state) = self.render_state.lock() {
+                    if let Some(val) = render_state.overlay.decide_cursor_type() {
+                        return val;
+                    }
+                }
+                orig()
+            },
+            address,
+        );
+
         if let Some(funcs) = self.status_screen_funcs {
             let funcs = std::slice::from_raw_parts_mut(funcs.0 as *mut bw::UnitStatusFunc, 228);
             for func in funcs {
@@ -1753,7 +2028,15 @@ impl BwScr {
                         Some(s) => s,
                         None => return,
                     };
+                    let local_id = bw.local_player_id.resolve();
+                    if local_id >= 0x80 {
+                        // Show full unit info for observers
+                        bw.local_player_id.write(selected.player() as u32);
+                    }
                     bw.call_original_status_screen_fn(selected.id(), status_screen);
+                    if local_id >= 0x80 {
+                        bw.local_player_id.write(local_id);
+                    }
                     let status_screen = bw_dat::dialog::Dialog::new(status_screen);
                     game_thread::after_status_screen_update(bw, status_screen, selected);
                 }
@@ -1765,7 +2048,7 @@ impl BwScr {
             }
         }
 
-        self.patch_shaders(&mut exe, base);
+        self.rendering_patches(&mut exe, base);
 
         sdf_cache::apply_sdf_cache_hooks(self, &mut exe, base);
 
@@ -1827,13 +2110,107 @@ impl BwScr {
         });
     }
 
-    unsafe fn patch_shaders(&'static self, exe: &mut whack::ModulePatcher<'_>, base: usize) {
+    unsafe fn rendering_patches(&'static self, exe: &mut whack::ModulePatcher<'_>, base: usize) {
         use self::hooks::*;
-        let renderer_vtable = self.prism_renderer_vtable.0 as usize as *mut usize;
+        let renderer_vtable = self.prism_renderer_vtable.0 as *const scr::V_Renderer;
 
-        let create_shader = *renderer_vtable.add(0x10);
+        let draw = (*renderer_vtable).draw;
+        let create_shader = (*renderer_vtable).create_shader;
+
+        let address = self.draw_graphic_layers.0 as usize - base;
+        // draw_graphic_layers is the main BW draw command queuing function.
+        // Usually called once per render to queue DrawCommands for all sprites of the game
+        // as well as UI, but when the user is in middle of switching between
+        // SD and HD, it will be called a second time with `second_draw == 1`
+        // so that the game will be able to fade between the two graphic modes.
+        exe.hook_closure_address(
+            DrawGraphicLayers,
+            move |a, b, second_draw, orig| {
+                orig(a, b, second_draw);
+                let renderer = self.renderer.resolve();
+                let commands = self.draw_commands.resolve();
+                let vertex_buffer = self.vertex_buffer.resolve();
+                let players = self.players();
+                let game = self.game();
+                if game.is_null() {
+                    // Early screen draw
+                    return;
+                }
+                let game = bw_dat::Game::from_ptr(game);
+                let is_replay_or_obs = self.is_replay.resolve() != 0 ||
+                    self.local_unique_player_id.resolve() >= 0x80;
+                let main_palette = self.main_palette.resolve();
+                let rgb_colors = self.rgb_colors.resolve();
+                let use_rgb_colors = self.use_rgb_colors.resolve();
+                let statres_icons = self.statres_icons.resolve();
+                let cmdicons = self.cmdicons.resolve();
+                let replay_visions = self.replay_visions.resolve();
+                let active_units = self.active_units();
+                // Assuming that the last added draw command (Added during orig() call)
+                // will have the is_hd value that is currently being used.
+                // Could also probably examine the render target from get_render_target,
+                // as that changes depending on if BW is currently rendering HD or not.
+                let is_hd = (*commands).draw_command_count
+                    .checked_sub(1)
+                    .and_then(|idx| (*commands).commands.get(idx as usize))
+                    .map(|x| x.is_hd != 0)
+                    .unwrap_or(false);
+                let is_carbot = self.is_carbot.load(Ordering::Relaxed);
+                // Render target 1 is for UI layers (0xb to 0x1d inclusive)
+                let render_target = draw_inject::RenderTarget::new(
+                    (self.get_render_target)(1),
+                    1,
+                );
+                if let Some(mut render_state) = self.render_state.lock() {
+                    let apm_guard = self.apm_state.lock();
+                    let apm = apm_guard.as_deref();
+                    let size = ((*render_target.bw).width, (*render_target.bw).height);
+                    let overlay_out = render_state.overlay.step(
+                        &mut draw_overlay::BwVars {
+                            is_replay_or_obs,
+                            game,
+                            players,
+                            main_palette,
+                            rgb_colors,
+                            use_rgb_colors,
+                            replay_visions,
+                            active_units,
+                        },
+                        apm,
+                        size,
+                    );
+                    if replay_visions != overlay_out.replay_visions {
+                        self.replay_visions.write(overlay_out.replay_visions);
+                        // Has to be called here or otherwise there's minimap flicker
+                        // with the resources disappearing until the game logic moves
+                        // forward a step.
+                        game_thread::add_fow_sprites_for_replay_vision_change(self);
+                    }
+                    if let Some(unit) = overlay_out.select_unit {
+                        let units = [*unit];
+                        (self.select_units)(units.len(), units.as_ptr(), 1, 1);
+                        self.center_screen(&unit.position());
+                    }
+                    draw_inject::add_overlays(
+                        &mut render_state.render,
+                        &draw_inject::BwVars {
+                            renderer,
+                            commands,
+                            vertex_buf: vertex_buffer,
+                            is_hd,
+                            is_carbot,
+                            statres_icons,
+                            cmdicons,
+                        },
+                        overlay_out,
+                        &render_target,
+                    );
+                }
+            },
+            address,
+        );
         // Render hook
-        let relative = *renderer_vtable.add(0x7) - base;
+        let relative = draw.cast_usize() - base;
         exe.hook_closure_address(
             Renderer_Render,
             move |renderer, commands, width, height, orig| {
@@ -1843,16 +2220,6 @@ impl BwScr {
                     // memory is not currently possible.
                     // Will have to write over the previously allocated scr::PrismShader slice
                     // instead.
-                    let create_shader: Thiscall<
-                        unsafe extern "C" fn(
-                            *mut c_void,
-                            *mut scr::Shader,
-                            *const u8,
-                            *const u8,
-                            *const u8,
-                            *mut c_void,
-                        ) -> usize,
-                    > = Thiscall::wrap_thiscall(create_shader);
                     for (id, new_set) in self.shader_replaces.iter_shaders() {
                         if let Some(shader_set) = self.prism_pixel_shaders.get(id as usize) {
                             let shader_set = shader_set.0 as usize as *mut scr::PrismShaderSet;
@@ -1908,13 +2275,12 @@ impl BwScr {
         );
 
         // CreateShader hook
-        let relative = create_shader as usize - base;
+        let relative = create_shader.cast_usize() - base;
         exe.hook_closure_address(
             Renderer_CreateShader,
             move |renderer, shader, text, vertex, pixel, arg5, orig| {
                 {
                     let mut renderer_state = self.renderer_state.lock();
-                    renderer_state.set_renderer(renderer);
                     renderer_state.set_shader_inputs(shader, vertex, pixel);
                 }
                 orig(renderer, shader, text, vertex, pixel, arg5)
@@ -1932,6 +2298,22 @@ impl BwScr {
                 exe.replace_val(relative, patch);
             }
         }
+    }
+
+    unsafe fn center_screen(&self, pos: &bw::Point) {
+        let width = self.game_screen_width_bwpx.resolve();
+        let height = self.game_screen_height_bwpx.resolve();
+        let max_width = match self.map_width_pixels.resolve().checked_sub(width) {
+            Some(s) => s,
+            None => return,
+        };
+        let max_height = match self.map_height_pixels.resolve().checked_sub(height) {
+            Some(s) => s,
+            None => return,
+        };
+        let x = (pos.x as u32).saturating_sub(width / 2).clamp(0, max_width);
+        let y = (pos.y as u32).saturating_sub(height / 2).clamp(0, max_height);
+        (self.move_screen)(x, y);
     }
 
     unsafe fn update_nation_and_human_ids(&self) {
@@ -2251,6 +2633,9 @@ impl BwScr {
     /// we don't need to and shouldn't reset any network state.
     fn reset_state_for_game_init(&self) {
         self.detection_status_copy.lock().clear();
+        if let Some(mut apm) = self.apm_state.lock() {
+            *apm = ApmStats::new();
+        }
     }
 }
 
@@ -2734,6 +3119,23 @@ impl bw::Bw for BwScr {
             UserLatency::ExtraHigh => 2,
         });
     }
+
+    unsafe fn window_proc_hook(
+        &self,
+        window: HWND,
+        msg: u32,
+        wparam: usize,
+        lparam: isize,
+    ) -> Option<isize> {
+        let mut render_state = match self.render_state.lock() {
+            Some(s) => s,
+            None => {
+                warn!("Recursive window proc call?, not passing message {msg:x} to overlay state");
+                return None;
+            }
+        };
+        render_state.overlay.window_proc(window, msg, wparam, lparam)
+    }
 }
 
 fn init_bw_dat(analysis: &mut scr_analysis::Analysis<'_>) -> Result<(), &'static str> {
@@ -3166,6 +3568,7 @@ mod hooks {
         !0 => ProcessLobbyCommands(*const u8, usize, u32);
         !0 => SendCommand(*const u8, usize);
         !0 => InitGameData() -> u32;
+        !0 => InitObsUi();
         !0 => InitUnitData();
         !0 => StepGame();
         !0 => StepReplayCommands();
@@ -3182,6 +3585,8 @@ mod hooks {
         !0 => NetFormatTurnRate(*mut scr::NetFormatTurnRateResult, bool) ->
             *mut scr::NetFormatTurnRateResult;
         !0 => UpdateGameScreenSize(f32);
+        !0 => DrawGraphicLayers(*mut c_void, *mut c_void, u32);
+        !0 => DecideCursorType() -> u32;
     );
 
     system_hooks!(
@@ -3206,9 +3611,9 @@ mod hooks {
         !0 => FontCacheRenderAscii(*mut c_void);
         !0 => StartUdpServer(*mut c_void) -> u32;
         !0 => StepIo(*mut c_void);
-        !0 => Renderer_Render(*mut c_void, *mut scr::DrawCommands, u32, u32) -> u32;
+        !0 => Renderer_Render(*mut scr::Renderer, *mut scr::DrawCommands, u32, u32) -> u32;
         !0 => Renderer_CreateShader(
-            *mut c_void,
+            *mut scr::Renderer,
             *mut scr::Shader,
             *const u8,
             *const u8,
