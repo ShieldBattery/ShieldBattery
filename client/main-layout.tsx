@@ -248,9 +248,12 @@ export function MainLayout() {
 
   const onMapUpload = useCallback(
     (map: Immutable<MapInfoJson>) => {
+      // TODO(tec27): This leads to a weird activity stack (typically, [Server, Local, Server]),
+      // would probably be better to just pop the activity stack up to the first Server activity? Or
+      // just restructure this to not have separate activities for these things
       dispatch(
         openOverlay({
-          type: ActivityOverlayType.BrowseLocalMaps,
+          type: ActivityOverlayType.BrowseServerMaps,
           initData: {
             uploadedMap: map,
             title: 'Maps',
