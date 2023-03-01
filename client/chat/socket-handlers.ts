@@ -137,6 +137,14 @@ const eventToChatAction: EventToChatActionMap = {
     }
   },
 
+  messageDeleted(channelId, event) {
+    return {
+      type: '@chat/updateMessageDeleted',
+      payload: event,
+      meta: { channelId },
+    }
+  },
+
   userActive2(channelId, event) {
     return {
       type: '@chat/updateUserActive',

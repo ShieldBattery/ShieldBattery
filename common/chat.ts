@@ -223,6 +223,12 @@ export interface ChatMessageEvent {
   mentions: SbUser[]
 }
 
+export interface ChatMessageDeletedEvent {
+  action: 'messageDeleted'
+  /** The ID of a message that was deleted in a chat channel. */
+  messageId: string
+}
+
 export interface ChatUserActiveEvent {
   action: 'userActive2'
   /** The ID of a user that has become active in a chat channel. */
@@ -252,6 +258,7 @@ export type ChatEvent =
   | ChatKickEvent
   | ChatBanEvent
   | ChatMessageEvent
+  | ChatMessageDeletedEvent
   | ChatUserActiveEvent
   | ChatUserIdleEvent
   | ChatUserOfflineEvent

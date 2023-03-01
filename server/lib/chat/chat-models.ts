@@ -265,6 +265,21 @@ export async function getMessagesForChannel(
   }
 }
 
+export async function deleteChannelMessage(
+  messageId: string,
+  withClient?: DbClient,
+): Promise<void> {
+  const { client, done } = await db(withClient)
+  try {
+    await client.query(sql`
+      DELETE FROM channel_messages
+      WHERE id = ${messageId};
+    `)
+  } finally {
+    done()
+  }
+}
+
 export interface LeaveChannelResult {
   /**
    * The ID of a user that was selected as a new owner of the channel, or `undefined` if the channel

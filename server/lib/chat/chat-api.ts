@@ -5,6 +5,7 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   ChannelInfo,
   ChannelPermissions,
+  ChatEvent,
   ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
   GetChannelUserPermissionsResponse,
@@ -26,8 +27,9 @@ import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
-import { searchChannelsAsAdmin } from './chat-models'
-import ChatService, { ChatServiceError } from './chat-service'
+import { TypedPublisher } from '../websockets/typed-publisher'
+import { deleteChannelMessage, searchChannelsAsAdmin } from './chat-models'
+import ChatService, { ChatServiceError, getChannelPath } from './chat-service'
 
 const joinThrottle = createThrottle('chatjoin', {
   rate: 3,
@@ -331,7 +333,7 @@ export class ChatApi {
 @httpApi('/admin/chat')
 @httpBeforeAll(ensureLoggedIn, convertChatServiceErrors)
 export class AdminChatApi {
-  constructor(private chatService: ChatService) {}
+  constructor(private publisher: TypedPublisher<ChatEvent>, private chatService: ChatService) {}
 
   @httpGet('/')
   @httpBefore(checkAllPermissions('moderateChatChannels'))
@@ -384,5 +386,27 @@ export class AdminChatApi {
       userId: ctx.session!.userId,
       isAdmin: true,
     })
+  }
+
+  @httpDelete('/:channelId/messages/:messageId')
+  @httpBefore(checkAllPermissions('moderateChatChannels'))
+  async deleteMessage(ctx: RouterContext): Promise<void> {
+    const {
+      params: { channelId, messageId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ channelId: SbChannelId; messageId: string }>({
+        channelId: serialIdSchema().required(),
+        messageId: Joi.string().required(),
+      }),
+    })
+
+    await deleteChannelMessage(messageId)
+
+    this.publisher.publish(getChannelPath(channelId), {
+      action: 'messageDeleted',
+      messageId,
+    })
+
+    ctx.status = 204
   }
 }

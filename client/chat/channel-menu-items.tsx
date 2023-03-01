@@ -4,6 +4,7 @@ import { ChannelModerationAction, SbChannelId } from '../../common/chat'
 import { appendToMultimap } from '../../common/data-structures/maps'
 import { CAN_LEAVE_SHIELDBATTERY_CHANNEL, MULTI_CHANNEL } from '../../common/flags'
 import { SbUserId } from '../../common/users/sb-user'
+import { useSelfPermissions } from '../auth/state-hooks'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { MenuItem } from '../material/menu/item'
@@ -12,7 +13,7 @@ import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { colorError } from '../styles/colors'
 import { MenuItemCategory } from '../users/user-context-menu'
-import { getChatUserProfile, moderateUser } from './action-creators'
+import { deleteMessageAsAdmin, getChatUserProfile, moderateUser } from './action-creators'
 
 const DestructiveMenuItem = styled(MenuItem)`
   color: ${colorError};
@@ -27,7 +28,7 @@ const DestructiveMenuItem = styled(MenuItem)`
  * A function which adds user context menu items specific to chat channels (e.g. kick/ban user from
  * a chat channel).
  */
-export const addChannelMenuItems = (
+export const addChannelUserMenuItems = (
   userId: SbUserId,
   items: Map<MenuItemCategory, React.ReactNode[]>,
   onMenuClose: (event?: MouseEvent) => void,
@@ -135,6 +136,49 @@ export const addChannelMenuItems = (
         )
       }
     }
+  }
+
+  return items
+}
+
+// NOTE(2Pac): Even though this function is technically not a React component, nor a custom hook, we
+// still treat it as one since it suits our needs quite nicely (by allowing us to run hooks in it
+// only when the message context menu is open).
+/**
+ * A function which adds message context menu items specific to chat channels (e.g. delete message
+ * from a chat channel).
+ */
+export const addChannelMessageMenuItems = (
+  messageId: string,
+  items: React.ReactNode[],
+  onMenuClose: (event?: MouseEvent) => void,
+  channelId: SbChannelId,
+) => {
+  /* eslint-disable react-hooks/rules-of-hooks */
+  const dispatch = useAppDispatch()
+  const selfPermissions = useSelfPermissions()
+  /* eslint-enable react-hooks/rules-of-hooks */
+
+  if (selfPermissions.moderateChatChannels) {
+    items.push(
+      <DestructiveMenuItem
+        key='delete-message'
+        text='Delete message'
+        onClick={() => {
+          dispatch(
+            deleteMessageAsAdmin(channelId, messageId, {
+              onSuccess: () => {
+                dispatch(openSnackbar({ message: 'Message deleted' }))
+              },
+              onError: () => {
+                dispatch(openSnackbar({ message: 'Error deleting message' }))
+              },
+            }),
+          )
+          onMenuClose()
+        }}
+      />,
+    )
   }
 
   return items

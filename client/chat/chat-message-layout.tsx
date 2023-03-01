@@ -1,7 +1,7 @@
 import React from 'react'
 import { SbChannelId } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user'
-import { useChatMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
+import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
 import {
   InfoImportant,
   SeparatedInfoMessage,
@@ -14,7 +14,7 @@ import { ConnectedChannelName } from './connected-channel-name'
 export const JoinChannelMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatMenuItems()
+  const addChatMenuItems = useChatUserMenuItems()
   return (
     <SystemMessage time={time}>
       <span>
@@ -34,7 +34,7 @@ export const JoinChannelMessage = React.memo<{ time: number; userId: SbUserId }>
 export const LeaveChannelMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatMenuItems()
+  const addChatMenuItems = useChatUserMenuItems()
   return (
     <SystemMessage time={time}>
       <span>
@@ -82,7 +82,7 @@ export const BanUserMessage = React.memo<{ time: number; userId: SbUserId }>(pro
 export const NewChannelOwnerMessage = React.memo<{ time: number; newOwnerId: SbUserId }>(props => {
   const { time, newOwnerId } = props
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatMenuItems()
+  const addChatMenuItems = useChatUserMenuItems()
   return (
     <SystemMessage time={time}>
       <span>

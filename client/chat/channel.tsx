@@ -18,7 +18,7 @@ import {
   sendMessage,
 } from './action-creators'
 import { ConnectedChannelInfoCard } from './channel-info-card'
-import { addChannelMenuItems } from './channel-menu-items'
+import { addChannelMessageMenuItems, addChannelUserMenuItems } from './channel-menu-items'
 import { ChannelUserList } from './channel-user-list'
 import {
   BanUserMessage,
@@ -125,12 +125,18 @@ export function ConnectedChatChannel({
     dispatch(sendMessage(channelId, msg)),
   )
 
-  const modifyMenuItems = useCallback(
+  const modifyUserMenuItems = useCallback(
     (
       userId: SbUserId,
       items: Map<MenuItemCategory, React.ReactNode[]>,
       onMenuClose: (event?: MouseEvent) => void,
-    ) => addChannelMenuItems(userId, items, onMenuClose, channelId),
+    ) => addChannelUserMenuItems(userId, items, onMenuClose, channelId),
+    [channelId],
+  )
+
+  const modifyMessageMenuItems = useCallback(
+    (messageId: string, items: React.ReactNode[], onMenuClose: (event?: MouseEvent) => void) =>
+      addChannelMessageMenuItems(messageId, items, onMenuClose, channelId),
     [channelId],
   )
 
@@ -157,7 +163,8 @@ export function ConnectedChatChannel({
               offline={channelUsers?.offline}
             />
           }
-          modifyMenuItems={modifyMenuItems}
+          modifyUserMenuItems={modifyUserMenuItems}
+          modifyMessageMenuItems={modifyMessageMenuItems}
         />
       ) : (
         <ChannelInfoContainer>

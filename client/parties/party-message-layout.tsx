@@ -3,14 +3,14 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmaking'
 import { PartyQueueCancelReason } from '../../common/parties'
 import { SbUserId } from '../../common/users/sb-user'
-import { useChatMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
+import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
 import { SystemImportant, SystemMessage } from '../messaging/message-layout'
 import { ConnectedUsername } from '../users/connected-username'
 
 export const SelfJoinPartyMessage = React.memo<{ time: number; leaderId: SbUserId }>(props => {
   const { time, leaderId } = props
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatMenuItems()
+  const addChatMenuItems = useChatUserMenuItems()
   return (
     <SystemMessage time={time}>
       <span>
@@ -31,7 +31,7 @@ export const SelfJoinPartyMessage = React.memo<{ time: number; leaderId: SbUserI
 export const InviteToPartyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatMenuItems()
+  const addChatMenuItems = useChatUserMenuItems()
   return (
     <SystemMessage time={time}>
       <span>
@@ -52,7 +52,7 @@ export const InviteToPartyMessage = React.memo<{ time: number; userId: SbUserId 
 export const JoinPartyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatMenuItems()
+  const addChatMenuItems = useChatUserMenuItems()
   return (
     <SystemMessage time={time}>
       <span>
@@ -73,7 +73,7 @@ export const JoinPartyMessage = React.memo<{ time: number; userId: SbUserId }>(p
 export const LeavePartyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatMenuItems()
+  const addChatMenuItems = useChatUserMenuItems()
   return (
     <SystemMessage time={time}>
       <span>
@@ -94,7 +94,7 @@ export const LeavePartyMessage = React.memo<{ time: number; userId: SbUserId }>(
 export const PartyLeaderChangeMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatMenuItems()
+  const addChatMenuItems = useChatUserMenuItems()
   return (
     <SystemMessage time={time}>
       <span>
@@ -114,7 +114,7 @@ export const PartyLeaderChangeMessage = React.memo<{ time: number; userId: SbUse
 export const KickFromPartyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatMenuItems()
+  const addChatMenuItems = useChatUserMenuItems()
   return (
     <SystemMessage time={time}>
       <span>
@@ -139,7 +139,7 @@ export const PartyQueueStartMessage = React.memo<{
 }>(props => {
   const { time, leaderId, matchmakingType } = props
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatMenuItems()
+  const addChatMenuItems = useChatUserMenuItems()
   return (
     <SystemMessage time={time}>
       <span>
@@ -161,7 +161,7 @@ export const PartyQueueCancelMessage = React.memo<{ time: number; reason: PartyQ
   props => {
     const { time, reason } = props
     const filterClick = useMentionFilterClick()
-    const addChatMenuItems = useChatMenuItems()
+    const addChatMenuItems = useChatUserMenuItems()
 
     let messageContent: React.ReactNode
     switch (reason.type) {
