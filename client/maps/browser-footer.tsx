@@ -17,7 +17,7 @@ import { FloatingActionButton } from '../material/floating-action-button'
 import { LegacyPopover } from '../material/legacy-popover'
 import { MenuList } from '../material/menu/menu'
 import { SelectableMenuItem } from '../material/menu/selectable-item'
-import { Popover, useAnchorPosition } from '../material/popover'
+import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { SearchInput } from '../search/search-input'
 import { usePrevious, useValueAsRef } from '../state-hooks'
 import { colorTextSecondary } from '../styles/colors'
@@ -225,12 +225,13 @@ export interface BrowserFooterProps {
   onSearchChange: (value: string) => void
 }
 
-type FooterView = 'filterOverlay' | 'sizeMenu' | 'sortMenu'
 const SIZE_MENU_OPTIONS = ['Small', 'Medium', 'Large']
 const SORT_MENU_OPTIONS = ['Name', 'Number of players', 'Date uploaded']
 
 export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
-  const [open, setOpen] = useState<FooterView>()
+  const [filterOverlayOpen, openFilterOverlay, closeFilterOverlay] = usePopoverController()
+  const [sizeMenuOpen, openSizeMenu, closeSizeMenu] = usePopoverController()
+  const [sortMenuOpen, openSortMenu, closeSortMenu] = usePopoverController()
   const [tempNumPlayersFilter, setTempNumPlayersFilter] = useState(props.numPlayersFilter)
   const [tempTilesetFilter, setTempTilesetFilter] = useState(props.tilesetFilter)
 
@@ -242,36 +243,23 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
 
   const numPlayersFilterRef = useValueAsRef(props.numPlayersFilter)
   const tilesetFilterRef = useValueAsRef(props.tilesetFilter)
-  const lastOpen = usePrevious(open)
-
-  const onDismiss = useCallback(() => {
-    setOpen(undefined)
-  }, [])
-  const onSizeMenuOpen = useCallback(() => {
-    setOpen('sizeMenu')
-  }, [])
-  const onFilterOverlayOpen = useCallback(() => {
-    setOpen('filterOverlay')
-  }, [])
-  const onSortMenuOpen = useCallback(() => {
-    setOpen('sortMenu')
-  }, [])
+  const prevFilterOverlayOpen = usePrevious(filterOverlayOpen)
 
   const { searchQuery, onSearchChange, onSizeChange, onSortChange, onFilterApply } = props
 
   const onSizeSelected = useCallback(
     (index: number) => {
       onSizeChange(index)
-      onDismiss()
+      closeSizeMenu()
     },
-    [onDismiss, onSizeChange],
+    [closeSizeMenu, onSizeChange],
   )
   const onSortSelected = useCallback(
     (index: number) => {
       onSortChange(index)
-      onDismiss()
+      closeSortMenu()
     },
-    [onDismiss, onSortChange],
+    [closeSortMenu, onSortChange],
   )
   const onNumPlayersFilterChange = useCallback((numPlayers: number) => {
     setTempNumPlayersFilter(value =>
@@ -288,12 +276,12 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
     // temporary filter state to its initial value manually.
     setTempNumPlayersFilter(numPlayersFilterRef.current)
     setTempTilesetFilter(tilesetFilterRef.current)
-    onDismiss()
-  }, [onDismiss, numPlayersFilterRef, tilesetFilterRef])
+    closeFilterOverlay()
+  }, [numPlayersFilterRef, tilesetFilterRef, closeFilterOverlay])
   const forwardOnFilterApply = useCallback(() => {
     onFilterApply(tempNumPlayersFilter, tempTilesetFilter)
-    onDismiss()
-  }, [tempNumPlayersFilter, tempTilesetFilter, onFilterApply, onDismiss])
+    closeFilterOverlay()
+  }, [onFilterApply, tempNumPlayersFilter, tempTilesetFilter, closeFilterOverlay])
 
   const numPlayersItems = useMemo(() => {
     const values: Array<[n: number, label: string]> = [
@@ -327,10 +315,10 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
   }, [tempTilesetFilter, onTilesetFilterChange])
 
   useEffect(() => {
-    if (!lastOpen && open === 'filterOverlay') {
+    if (!prevFilterOverlayOpen && filterOverlayOpen) {
       Promise.resolve().then(() => filterApplyButtonRef.current?.focus())
     }
-  }, [lastOpen, open])
+  }, [filterOverlayOpen, prevFilterOverlayOpen])
 
   return (
     <Container>
@@ -344,27 +332,27 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
           ref={sizeRef}
           icon={<SizeIcon />}
           title='Thumbnail size'
-          onClick={onSizeMenuOpen}
+          onClick={openSizeMenu}
         />
         <ActionButton
           ref={filterButtonRef}
           icon={<FilterIcon />}
           title='Filter options'
-          onClick={onFilterOverlayOpen}
+          onClick={openFilterOverlay}
         />
         <ActionButton
           ref={sortMenuRef}
           icon={<SortIcon />}
           title='Sort maps'
-          onClick={onSortMenuOpen}
+          onClick={openSortMenu}
         />
       </LeftActions>
 
       <StyledSearchInput searchQuery={searchQuery} onSearchChange={onSearchChange} />
 
       <Popover
-        open={open === 'sizeMenu'}
-        onDismiss={onDismiss}
+        open={sizeMenuOpen}
+        onDismiss={closeSizeMenu}
         anchorX={sizeAnchorX ?? 0}
         anchorY={sizeAnchorY ?? 0}
         originX='right'
@@ -382,8 +370,8 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
       </Popover>
 
       <FilterOverlay
-        open={open === 'filterOverlay'}
-        onDismiss={onDismiss}
+        open={filterOverlayOpen}
+        onDismiss={closeFilterOverlay}
         onApply={forwardOnFilterApply}
         anchor={filterButtonRef.current}>
         <SectionOverline>Number of players</SectionOverline>
@@ -402,8 +390,8 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
       </FilterOverlay>
 
       <Popover
-        open={open === 'sortMenu'}
-        onDismiss={onDismiss}
+        open={sortMenuOpen}
+        onDismiss={closeSortMenu}
         anchorX={sortAnchorX ?? 0}
         anchorY={sortAnchorY ?? 0}
         originX='right'

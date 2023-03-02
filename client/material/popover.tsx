@@ -1,8 +1,9 @@
 import { useTransition } from '@react-spring/core'
 import { animated } from '@react-spring/web'
-import React, { useCallback, useRef } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
+import { Opaque } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useElementRect, useObservedDimensions } from '../dom/dimension-hooks'
 import { FocusTrap } from '../dom/focus-trap'
@@ -16,6 +17,40 @@ import { defaultSpring } from './springs'
 import { zIndexMenu } from './zindex'
 
 const ESCAPE = 'Escape'
+
+export type PopoverOpenState = Opaque<boolean, 'PopoverOpenState'>
+
+const OPENING_EVENTS = new WeakSet()
+
+/**
+ * A hook that keeps track of Popover's open state and makes sure that only one Popover is open for
+ * the same target.
+ *
+ * You *should* use this hook if you want to use Popovers.
+ */
+export function usePopoverController(
+  initialIsOpen = false,
+): [
+  open: PopoverOpenState,
+  openPopover: (triggerringEvent: Event | React.SyntheticEvent) => boolean,
+  closePopover: () => void,
+] {
+  const [open, setOpen] = useState(initialIsOpen)
+  return [
+    open as PopoverOpenState,
+    (triggeringEvent: Event | React.SyntheticEvent) => {
+      if (!OPENING_EVENTS.has(triggeringEvent)) {
+        OPENING_EVENTS.add(triggeringEvent)
+        setOpen(true)
+        return true
+      }
+      return false
+    },
+    () => {
+      setOpen(false)
+    },
+  ]
+}
 
 const PositioningArea = styled.div`
   // TODO(tec27): Allow safe zone to be customized
@@ -70,7 +105,7 @@ export type OriginY = 'top' | 'center' | 'bottom'
 export interface PopoverProps {
   children: React.ReactNode
   /** Whether the popover is currently open. */
-  open: boolean
+  open: PopoverOpenState
   /** Callback called when the popover is dismissed. */
   onDismiss: (event?: MouseEvent) => void
   /**

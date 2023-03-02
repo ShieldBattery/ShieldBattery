@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import styled from 'styled-components'
 import { colorTextSecondary } from '../../styles/colors'
 import { subtitle1 } from '../../styles/typography'
@@ -8,7 +8,7 @@ import { Divider } from '../menu/divider'
 import { MenuItem } from '../menu/item'
 import { MenuList } from '../menu/menu'
 import { SelectableMenuItem } from '../menu/selectable-item'
-import { OriginX, OriginY, Popover, useAnchorPosition } from '../popover'
+import { Popover, useAnchorPosition, usePopoverController } from '../popover'
 
 const Container = styled.div`
   display: flex;
@@ -39,108 +39,136 @@ const Overline = styled.div`
 const makeArrayRange = (size: number) => Array.from(Array(size).keys())
 
 export function MenuTest() {
-  const [activeMenu, setActiveMenu] = useState<string>()
-  const [anchorElem, setAnchorElem] = useState<HTMLElement>()
-  const [selectedIndex, setSelectedIndex] = useState(2)
-  const [, anchorX, anchorY] = useAnchorPosition('center', 'top', anchorElem ?? null)
+  const [normalMenuOpen, openNormalMenu, closeNormalMenu] = usePopoverController()
+  const [scrollableMenuOpen, openScrollableMenu, closeScrollableMenu] = usePopoverController()
+  const [denseMenuOpen, openDenseMenu, closeDenseMenu] = usePopoverController()
+  const [scrollableDenseMenuOpen, openScrollableDenseMenu, closeScrollableDenseMenu] =
+    usePopoverController()
+  const [selectionMenuOpen, openSelectionMenu, closeSelectionMenu] = usePopoverController()
+  const [mixedMenuOpen, openMixedMenu, closeMixedMenu] = usePopoverController()
 
-  const onButtonClick = useCallback((event: React.MouseEvent) => {
-    setAnchorElem(event.currentTarget as any)
-  }, [])
-  const onDismiss = useCallback(() => {
-    setAnchorElem(undefined)
-    setActiveMenu(undefined)
-  }, [])
+  const [normalAnchor, normalAnchorX, normalAnchorY] = useAnchorPosition('center', 'top')
+  const [scrollableAnchor, scrollableAnchorX, scrollableAnchorY] = useAnchorPosition(
+    'center',
+    'top',
+  )
+  const [denseAnchor, denseAnchorX, denseAnchorY] = useAnchorPosition('center', 'top')
+  const [scrollableDenseAnchor, scrollableDenseAnchorX, scrollableDenseAnchorY] = useAnchorPosition(
+    'center',
+    'top',
+  )
+  const [selectionAnchor, selectionAnchorX, selectionAnchorY] = useAnchorPosition('center', 'top')
+  const [mixedAnchor, mixedAnchorX, mixedAnchorY] = useAnchorPosition('center', 'top')
+
+  const [selectedIndex, setSelectedIndex] = useState(2)
+
   const onSelected = useCallback(
     (index: number) => {
       setSelectedIndex(index)
-      onDismiss()
+      closeSelectionMenu()
+      closeMixedMenu()
     },
-    [onDismiss],
-  )
-
-  const makeClickHandler = (name: string) => {
-    return (event: React.MouseEvent) => {
-      onButtonClick(event)
-      setActiveMenu(name)
-    }
-  }
-
-  const popoverProps = useMemo(
-    () => ({
-      onDismiss,
-      originX: 'center' as OriginX,
-      originY: 'top' as OriginY,
-      anchorX: anchorX ?? 0,
-      anchorY: (anchorY ?? 0) + 36,
-    }),
-    [anchorX, anchorY, onDismiss],
+    [closeMixedMenu, closeSelectionMenu],
   )
 
   return (
     <Container>
       <StyledCard>
-        <RaisedButton label='Open menu' onClick={makeClickHandler('normal')} />
-        <RaisedButton label='Scrollable' onClick={makeClickHandler('scrollable')} />
-        <RaisedButton label='Dense' onClick={makeClickHandler('dense')} />
-        <RaisedButton label='Scrollable dense' onClick={makeClickHandler('scrollable-dense')} />
-        <RaisedButton label='Selection menu' onClick={makeClickHandler('selection-menu')} />
-        <RaisedButton label='Mixed' onClick={makeClickHandler('mixed')} />
+        <RaisedButton ref={normalAnchor} label='Open menu' onClick={openNormalMenu} />
+        <RaisedButton ref={scrollableAnchor} label='Scrollable' onClick={openScrollableMenu} />
+        <RaisedButton ref={denseAnchor} label='Dense' onClick={openDenseMenu} />
+        <RaisedButton
+          ref={scrollableDenseAnchor}
+          label='Scrollable dense'
+          onClick={openScrollableDenseMenu}
+        />
+        <RaisedButton ref={selectionAnchor} label='Selection menu' onClick={openSelectionMenu} />
+        <RaisedButton ref={mixedAnchor} label='Mixed' onClick={openMixedMenu} />
 
-        <Popover open={activeMenu === 'normal'} {...popoverProps}>
+        <Popover
+          open={normalMenuOpen}
+          onDismiss={closeNormalMenu}
+          originX='center'
+          originY='top'
+          anchorX={normalAnchorX ?? 0}
+          anchorY={(normalAnchorY ?? 0) + 36}>
           <MenuList>
-            <MenuItem text='Menu item 1' onClick={onDismiss} />
-            <MenuItem text='Menu item 2' onClick={onDismiss} />
-            <MenuItem text='Menu item 3' onClick={onDismiss} />
+            <MenuItem text='Menu item 1' onClick={closeNormalMenu} />
+            <MenuItem text='Menu item 2' onClick={closeNormalMenu} />
+            <MenuItem text='Menu item 3' onClick={closeNormalMenu} />
           </MenuList>
         </Popover>
 
-        <Popover open={activeMenu === 'scrollable'} {...popoverProps}>
+        <Popover
+          open={scrollableMenuOpen}
+          onDismiss={closeScrollableMenu}
+          originX='center'
+          originY='top'
+          anchorX={scrollableAnchorX ?? 0}
+          anchorY={(scrollableAnchorY ?? 0) + 36}>
           <StyledMenuList>
-            <MenuItem text='Menu item 1' onClick={onDismiss} />
-            <MenuItem text='Menu item 2' onClick={onDismiss} />
-            <MenuItem text='Menu item 3' onClick={onDismiss} />
-            <MenuItem text='Menu item 4' onClick={onDismiss} />
-            <MenuItem text='Menu item 5' onClick={onDismiss} />
-            <MenuItem text='Menu item 6' onClick={onDismiss} />
-            <MenuItem text='Menu item 7' onClick={onDismiss} />
-            <MenuItem text='Menu item 8' onClick={onDismiss} />
-            <MenuItem text='Menu item 9' onClick={onDismiss} />
-            <MenuItem text='Menu item 10' onClick={onDismiss} />
+            <MenuItem text='Menu item 1' onClick={closeScrollableMenu} />
+            <MenuItem text='Menu item 2' onClick={closeScrollableMenu} />
+            <MenuItem text='Menu item 3' onClick={closeScrollableMenu} />
+            <MenuItem text='Menu item 4' onClick={closeScrollableMenu} />
+            <MenuItem text='Menu item 5' onClick={closeScrollableMenu} />
+            <MenuItem text='Menu item 6' onClick={closeScrollableMenu} />
+            <MenuItem text='Menu item 7' onClick={closeScrollableMenu} />
+            <MenuItem text='Menu item 8' onClick={closeScrollableMenu} />
+            <MenuItem text='Menu item 9' onClick={closeScrollableMenu} />
+            <MenuItem text='Menu item 10' onClick={closeScrollableMenu} />
           </StyledMenuList>
         </Popover>
 
-        <Popover open={activeMenu === 'dense'} {...popoverProps}>
+        <Popover
+          open={denseMenuOpen}
+          onDismiss={closeDenseMenu}
+          originX='center'
+          originY='top'
+          anchorX={denseAnchorX ?? 0}
+          anchorY={(denseAnchorY ?? 0) + 36}>
           <MenuList dense={true}>
-            <MenuItem text='Menu item 1' onClick={onDismiss} />
-            <MenuItem text='Menu item 2' onClick={onDismiss} />
-            <MenuItem text='Menu item 3' onClick={onDismiss} />
-            <MenuItem text='Menu item 4' onClick={onDismiss} />
-            <MenuItem text='Menu item 5' onClick={onDismiss} />
+            <MenuItem text='Menu item 1' onClick={closeDenseMenu} />
+            <MenuItem text='Menu item 2' onClick={closeDenseMenu} />
+            <MenuItem text='Menu item 3' onClick={closeDenseMenu} />
+            <MenuItem text='Menu item 4' onClick={closeDenseMenu} />
+            <MenuItem text='Menu item 5' onClick={closeDenseMenu} />
           </MenuList>
         </Popover>
 
-        <Popover open={activeMenu === 'scrollable-dense'} {...popoverProps}>
+        <Popover
+          open={scrollableDenseMenuOpen}
+          onDismiss={closeScrollableDenseMenu}
+          originX='center'
+          originY='top'
+          anchorX={scrollableDenseAnchorX ?? 0}
+          anchorY={(scrollableDenseAnchorY ?? 0) + 36}>
           <StyledMenuList dense={true}>
-            <MenuItem text='Menu item 1' onClick={onDismiss} />
-            <MenuItem text='Menu item 2' onClick={onDismiss} />
-            <MenuItem text='Menu item 3' onClick={onDismiss} />
-            <MenuItem text='Menu item 4' onClick={onDismiss} />
-            <MenuItem text='Menu item 5' onClick={onDismiss} />
-            <MenuItem text='Menu item 6' onClick={onDismiss} />
-            <MenuItem text='Menu item 7' onClick={onDismiss} />
-            <MenuItem text='Menu item 8' onClick={onDismiss} />
-            <MenuItem text='Menu item 9' onClick={onDismiss} />
-            <MenuItem text='Menu item 10' onClick={onDismiss} />
-            <MenuItem text='Menu item 11' onClick={onDismiss} />
-            <MenuItem text='Menu item 12' onClick={onDismiss} />
-            <MenuItem text='Menu item 13' onClick={onDismiss} />
-            <MenuItem text='Menu item 14' onClick={onDismiss} />
-            <MenuItem text='Menu item 15' onClick={onDismiss} />
+            <MenuItem text='Menu item 1' onClick={closeScrollableDenseMenu} />
+            <MenuItem text='Menu item 2' onClick={closeScrollableDenseMenu} />
+            <MenuItem text='Menu item 3' onClick={closeScrollableDenseMenu} />
+            <MenuItem text='Menu item 4' onClick={closeScrollableDenseMenu} />
+            <MenuItem text='Menu item 5' onClick={closeScrollableDenseMenu} />
+            <MenuItem text='Menu item 6' onClick={closeScrollableDenseMenu} />
+            <MenuItem text='Menu item 7' onClick={closeScrollableDenseMenu} />
+            <MenuItem text='Menu item 8' onClick={closeScrollableDenseMenu} />
+            <MenuItem text='Menu item 9' onClick={closeScrollableDenseMenu} />
+            <MenuItem text='Menu item 10' onClick={closeScrollableDenseMenu} />
+            <MenuItem text='Menu item 11' onClick={closeScrollableDenseMenu} />
+            <MenuItem text='Menu item 12' onClick={closeScrollableDenseMenu} />
+            <MenuItem text='Menu item 13' onClick={closeScrollableDenseMenu} />
+            <MenuItem text='Menu item 14' onClick={closeScrollableDenseMenu} />
+            <MenuItem text='Menu item 15' onClick={closeScrollableDenseMenu} />
           </StyledMenuList>
         </Popover>
 
-        <Popover open={activeMenu === 'selection-menu'} {...popoverProps}>
+        <Popover
+          open={selectionMenuOpen}
+          onDismiss={closeSelectionMenu}
+          originX='center'
+          originY='top'
+          anchorX={selectionAnchorX ?? 0}
+          anchorY={(selectionAnchorY ?? 0) + 36}>
           <MenuList dense={true}>
             {makeArrayRange(5).map(i => (
               <SelectableMenuItem
@@ -153,7 +181,13 @@ export function MenuTest() {
           </MenuList>
         </Popover>
 
-        <Popover open={activeMenu === 'mixed'} {...popoverProps}>
+        <Popover
+          open={mixedMenuOpen}
+          onDismiss={closeMixedMenu}
+          originX='center'
+          originY='top'
+          anchorX={mixedAnchorX ?? 0}
+          anchorY={(mixedAnchorY ?? 0) + 36}>
           <StyledMenuList dense={true}>
             <Overline>Subheading</Overline>
             {makeArrayRange(3).map(i => (
@@ -165,8 +199,8 @@ export function MenuTest() {
               />
             ))}
             <Divider />
-            <MenuItem text='Menu item 4' onClick={onDismiss} />
-            <MenuItem text='Menu item 5' onClick={onDismiss} />
+            <MenuItem text='Menu item 4' onClick={closeMixedMenu} />
+            <MenuItem text='Menu item 5' onClick={closeMixedMenu} />
           </StyledMenuList>
         </Popover>
       </StyledCard>

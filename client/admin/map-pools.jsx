@@ -1,6 +1,6 @@
 import { List, OrderedMap } from 'immutable'
 import PropTypes from 'prop-types'
-import React, { useCallback, useState } from 'react'
+import React, { useCallback } from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { MapVisibility } from '../../common/maps'
@@ -17,7 +17,7 @@ import { MapThumbnail } from '../maps/map-thumbnail'
 import { IconButton, RaisedButton, TextButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
-import { Popover, useAnchorPosition } from '../material/popover'
+import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { TabItem, Tabs } from '../material/tabs'
 import { TextField } from '../material/text-field'
 import LoadingIndicator from '../progress/dots'
@@ -354,21 +354,15 @@ export class MapPoolEditor extends React.Component {
 }
 
 const MapPoolHistoryRow = React.memo(props => {
-  const [actionsOverlayOpen, setActionsOverlayOpen] = useState(false)
+  const [actionsOverlayOpen, openActionsOverlay, closeActionsOverlay] = usePopoverController()
   const [anchorRef, anchorX, anchorY] = useAnchorPosition('left', 'top')
-  const onActionsOverlayOpen = useCallback(() => {
-    setActionsOverlayOpen(true)
-  }, [])
-  const onActionsOverlayClose = useCallback(() => {
-    setActionsOverlayOpen(false)
-  }, [])
 
   const onMapActionClick = useCallback(
     handler => {
       handler()
-      onActionsOverlayClose()
+      closeActionsOverlay()
     },
-    [onActionsOverlayClose],
+    [closeActionsOverlay],
   )
 
   const { id, startDate, maps } = props.mapPool
@@ -398,11 +392,11 @@ const MapPoolHistoryRow = React.memo(props => {
           icon={<MapPoolActionsIcon />}
           title='Map pool actions'
           ref={anchorRef}
-          onClick={onActionsOverlayOpen}
+          onClick={openActionsOverlay}
         />
         <Popover
           open={actionsOverlayOpen}
-          onDismiss={onActionsOverlayClose}
+          onDismiss={closeActionsOverlay}
           anchorX={anchorX ?? 0}
           anchorY={anchorY ?? 0}
           originX='left'

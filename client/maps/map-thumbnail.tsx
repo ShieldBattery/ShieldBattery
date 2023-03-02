@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
 import { rgba } from 'polished'
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import styled from 'styled-components'
 import { MapInfoJson } from '../../common/maps'
 import ImageIcon from '../icons/material/image-24px.svg'
@@ -11,7 +11,7 @@ import ZoomInIcon from '../icons/material/zoom_in-24px.svg'
 import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
-import { Popover, useAnchorPosition } from '../material/popover'
+import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { amberA100, background700, background900, colorTextPrimary } from '../styles/colors'
 import { singleLine, subtitle2 } from '../styles/typography'
 import MapImage from './map-image'
@@ -196,21 +196,15 @@ export function MapThumbnail({
   onRemove,
   onRegenMapImage,
 }: MapThumbnailProps) {
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuOpen, openMenu, closeMenu] = usePopoverController()
   const [anchorRef, anchorX, anchorY] = useAnchorPosition('right', 'top')
 
-  const onOpenMenu = useCallback(() => {
-    setMenuOpen(true)
-  }, [])
-  const onCloseMenu = useCallback(() => {
-    setMenuOpen(false)
-  }, [])
   const onActionClick = useCallback(
     (handler: () => void) => {
       handler()
-      onCloseMenu()
+      closeMenu()
     },
-    [onCloseMenu],
+    [closeMenu],
   )
 
   const actions = useMemo(() => {
@@ -267,11 +261,11 @@ export function MapThumbnail({
                 ref={anchorRef}
                 icon={<MapActionsIcon />}
                 title='Map actions'
-                onClick={onOpenMenu}
+                onClick={openMenu}
               />
               <Popover
                 open={menuOpen}
-                onDismiss={onCloseMenu}
+                onDismiss={closeMenu}
                 anchorX={anchorX ?? 0}
                 anchorY={anchorY ?? 0}
                 originX='right'

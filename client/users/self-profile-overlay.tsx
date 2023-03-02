@@ -2,7 +2,7 @@ import React from 'react'
 import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
 import { Avatar } from '../avatars/avatar'
-import { Popover, useAnchorPosition } from '../material/popover'
+import { Popover, PopoverOpenState, useAnchorPosition } from '../material/popover'
 import { defaultSpring } from '../material/springs'
 import { body1, headline6, singleLine } from '../styles/typography'
 
@@ -38,7 +38,7 @@ const Actions = styled.div`
 `
 
 interface SelfProfileOverlayProps {
-  open: boolean
+  open: PopoverOpenState
   username: string
   anchor: HTMLElement | null
   children: React.ReactNode

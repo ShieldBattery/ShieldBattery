@@ -1,7 +1,13 @@
-import React, { useCallback, useState } from 'react'
+import React, { useState } from 'react'
 import styled from 'styled-components'
 import VertMenuIcon from '../../icons/material/more_vert-24px.svg'
-import { OriginX, OriginY, Popover, useAnchorPosition } from '../../material/popover'
+import {
+  OriginX,
+  OriginY,
+  Popover,
+  useAnchorPosition,
+  usePopoverController,
+} from '../../material/popover'
 import { Headline4, Headline5, Subtitle1 } from '../../styles/typography'
 import { IconButton } from '../button'
 import { SelectOption } from '../select/option'
@@ -68,22 +74,97 @@ export default function PopoverTest() {
   const [popoverOriginX, setPopoverOriginX] = useState<OriginX>('left')
   const [popoverOriginY, setPopoverOriginY] = useState<OriginY>('top')
 
-  const [anchorElem, setAnchorElem] = useState<HTMLElement>()
-  const onButtonClick = useCallback((event: React.MouseEvent) => {
-    setAnchorElem(event.currentTarget as HTMLElement)
-  }, [])
-  const onDismiss = useCallback(() => {
-    setAnchorElem(undefined)
-  }, [])
-  const [, anchorX, anchorY] = useAnchorPosition(anchorOriginX, anchorOriginY, anchorElem ?? null)
+  const [topLeftOpen, openTopLeft, closeTopLeft] = usePopoverController()
+  const [topRightOpen, openTopRight, closeTopRight] = usePopoverController()
+  const [bottomLeftOpen, openBottomLeft, closeBottomLeft] = usePopoverController()
+  const [bottomRightOpen, openBottomRight, closeBottomRight] = usePopoverController()
+
+  const [topLeftAnchor, topLeftAnchorX, topLeftAnchorY] = useAnchorPosition(
+    anchorOriginX,
+    anchorOriginY,
+  )
+  const [topRightAnchor, topRightAnchorX, topRightAnchorY] = useAnchorPosition(
+    anchorOriginX,
+    anchorOriginY,
+  )
+  const [bottomLeftAnchor, bottomLeftAnchorX, bottomLeftAnchorY] = useAnchorPosition(
+    anchorOriginX,
+    anchorOriginY,
+  )
+  const [bottomRightAnchor, bottomRightAnchorX, bottomRightAnchorY] = useAnchorPosition(
+    anchorOriginX,
+    anchorOriginY,
+  )
+
+  const popoverContents = (
+    <PopoverScrollable>
+      <PopoverContents>
+        <Headline4>Hello</Headline4>
+        <Headline5>World</Headline5>
+        <Subtitle1>How are you?</Subtitle1>
+
+        <Headline4>Hello</Headline4>
+        <Headline5>World</Headline5>
+        <Subtitle1>How are you?</Subtitle1>
+
+        <Headline4>Hello</Headline4>
+        <Headline5>World</Headline5>
+        <Subtitle1>How are you?</Subtitle1>
+
+        <Headline4>Hello</Headline4>
+        <Headline5>World</Headline5>
+        <Subtitle1>How are you?</Subtitle1>
+
+        <Headline4>Hello</Headline4>
+        <Headline5>World</Headline5>
+        <Subtitle1>How are you?</Subtitle1>
+
+        <Headline4>Hello</Headline4>
+        <Headline5>World</Headline5>
+        <Subtitle1>How are you?</Subtitle1>
+
+        <Headline4>Hello</Headline4>
+        <Headline5>World</Headline5>
+        <Subtitle1>How are you?</Subtitle1>
+
+        <Headline4>Hello</Headline4>
+        <Headline5>World</Headline5>
+        <Subtitle1>How are you?</Subtitle1>
+
+        <Headline4>Hello</Headline4>
+        <Headline5>World</Headline5>
+        <Subtitle1>How are you?</Subtitle1>
+
+        <Headline4>Hello</Headline4>
+        <Headline5>World</Headline5>
+        <Subtitle1>How are you?</Subtitle1>
+
+        <Headline4>Hello</Headline4>
+        <Headline5>World</Headline5>
+        <Subtitle1>How are you?</Subtitle1>
+
+        <Headline4>Hello</Headline4>
+        <Headline5>World</Headline5>
+        <Subtitle1>How are you?</Subtitle1>
+
+        <Headline4>Hello</Headline4>
+        <Headline5>World</Headline5>
+        <Subtitle1>How are you?</Subtitle1>
+      </PopoverContents>
+    </PopoverScrollable>
+  )
 
   return (
     <Container>
       <Content>
-        <TopLeftButton icon={<VertMenuIcon />} onClick={onButtonClick} />
-        <TopRightButton icon={<VertMenuIcon />} onClick={onButtonClick} />
-        <BottomLeftButton icon={<VertMenuIcon />} onClick={onButtonClick} />
-        <BottomRightButton icon={<VertMenuIcon />} onClick={onButtonClick} />
+        <TopLeftButton ref={topLeftAnchor} icon={<VertMenuIcon />} onClick={openTopLeft} />
+        <TopRightButton ref={topRightAnchor} icon={<VertMenuIcon />} onClick={openTopRight} />
+        <BottomLeftButton ref={bottomLeftAnchor} icon={<VertMenuIcon />} onClick={openBottomLeft} />
+        <BottomRightButton
+          ref={bottomRightAnchor}
+          icon={<VertMenuIcon />}
+          onClick={openBottomRight}
+        />
 
         <OptionsContainer>
           <Select value={anchorOriginX} label='Anchor origin X' onChange={setAnchorOriginX}>
@@ -109,67 +190,43 @@ export default function PopoverTest() {
         </OptionsContainer>
 
         <Popover
-          open={!!anchorElem}
-          onDismiss={onDismiss}
+          open={topLeftOpen}
+          onDismiss={closeTopLeft}
           originX={popoverOriginX}
           originY={popoverOriginY}
-          anchorX={anchorX ?? 0}
-          anchorY={anchorY ?? 0}>
-          <PopoverScrollable>
-            <PopoverContents>
-              <Headline4>Hello</Headline4>
-              <Headline5>World</Headline5>
-              <Subtitle1>How are you?</Subtitle1>
+          anchorX={topLeftAnchorX ?? 0}
+          anchorY={topLeftAnchorY ?? 0}>
+          {popoverContents}
+        </Popover>
 
-              <Headline4>Hello</Headline4>
-              <Headline5>World</Headline5>
-              <Subtitle1>How are you?</Subtitle1>
+        <Popover
+          open={topRightOpen}
+          onDismiss={closeTopRight}
+          originX={popoverOriginX}
+          originY={popoverOriginY}
+          anchorX={topRightAnchorX ?? 0}
+          anchorY={topRightAnchorY ?? 0}>
+          {popoverContents}
+        </Popover>
 
-              <Headline4>Hello</Headline4>
-              <Headline5>World</Headline5>
-              <Subtitle1>How are you?</Subtitle1>
+        <Popover
+          open={bottomLeftOpen}
+          onDismiss={closeBottomLeft}
+          originX={popoverOriginX}
+          originY={popoverOriginY}
+          anchorX={bottomLeftAnchorX ?? 0}
+          anchorY={bottomLeftAnchorY ?? 0}>
+          {popoverContents}
+        </Popover>
 
-              <Headline4>Hello</Headline4>
-              <Headline5>World</Headline5>
-              <Subtitle1>How are you?</Subtitle1>
-
-              <Headline4>Hello</Headline4>
-              <Headline5>World</Headline5>
-              <Subtitle1>How are you?</Subtitle1>
-
-              <Headline4>Hello</Headline4>
-              <Headline5>World</Headline5>
-              <Subtitle1>How are you?</Subtitle1>
-
-              <Headline4>Hello</Headline4>
-              <Headline5>World</Headline5>
-              <Subtitle1>How are you?</Subtitle1>
-
-              <Headline4>Hello</Headline4>
-              <Headline5>World</Headline5>
-              <Subtitle1>How are you?</Subtitle1>
-
-              <Headline4>Hello</Headline4>
-              <Headline5>World</Headline5>
-              <Subtitle1>How are you?</Subtitle1>
-
-              <Headline4>Hello</Headline4>
-              <Headline5>World</Headline5>
-              <Subtitle1>How are you?</Subtitle1>
-
-              <Headline4>Hello</Headline4>
-              <Headline5>World</Headline5>
-              <Subtitle1>How are you?</Subtitle1>
-
-              <Headline4>Hello</Headline4>
-              <Headline5>World</Headline5>
-              <Subtitle1>How are you?</Subtitle1>
-
-              <Headline4>Hello</Headline4>
-              <Headline5>World</Headline5>
-              <Subtitle1>How are you?</Subtitle1>
-            </PopoverContents>
-          </PopoverScrollable>
+        <Popover
+          open={bottomRightOpen}
+          onDismiss={closeBottomRight}
+          originX={popoverOriginX}
+          originY={popoverOriginY}
+          anchorX={bottomRightAnchorX ?? 0}
+          anchorY={bottomRightAnchorY ?? 0}>
+          {popoverContents}
         </Popover>
       </Content>
     </Container>
