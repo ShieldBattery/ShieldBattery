@@ -53,7 +53,7 @@ interface ChatProps {
 }
 
 export interface ChatContextValue {
-  mentionUser: (userId: SbUserId) => void
+  mentionUser?: (userId: SbUserId) => void
   modifyUserMenuItems?: (
     userId: SbUserId,
     items: Map<MenuItemCategory, React.ReactNode[]>,

@@ -9,6 +9,7 @@ import {
 } from '../../common/chat'
 import { apiUrl } from '../../common/urls'
 import { SbUser } from '../../common/users/sb-user'
+import { deleteMessageAsAdmin } from '../chat/action-creators'
 import { renderChannelMessage } from '../chat/channel'
 import { ChannelUserList } from '../chat/channel-user-list'
 import { ThunkAction } from '../dispatch-registry'
@@ -16,12 +17,15 @@ import ChannelIcon from '../icons/material/image-24px.svg'
 import Carousel from '../lists/carousel'
 import { RaisedButton } from '../material/button'
 import Card from '../material/card'
+import { DestructiveMenuItem } from '../material/menu/item'
+import { ChatContext, ChatContextValue } from '../messaging/chat'
 import MessageList from '../messaging/message-list'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { fetchJson } from '../network/fetch'
 import { useAppDispatch } from '../redux-hooks'
 import { SearchInput } from '../search/search-input'
+import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { colorError, colorTextFaint } from '../styles/colors'
 import { Body1, headline5, headline6, Headline6, singleLine, subtitle1 } from '../styles/typography'
@@ -347,6 +351,41 @@ export function AdminChannelView() {
   // We assume everyone is active in admin view, since tracking user activity is a hassle.
   const activeUsers = useMemo(() => new Set(channelUsers.map(u => u.id)), [channelUsers])
 
+  const chatContextValue = useMemo<ChatContextValue>(
+    () => ({
+      modifyMessageMenuItems: (
+        messageId: string,
+        items: React.ReactNode[],
+        onMenuClose: (event?: MouseEvent) => void,
+      ) => {
+        if (selectedChannel) {
+          items.push(
+            <DestructiveMenuItem
+              key='delete-message'
+              text='Delete message'
+              onClick={() => {
+                dispatch(
+                  deleteMessageAsAdmin(selectedChannel.id, messageId, {
+                    onSuccess: () => {
+                      setChannelMessages(prev => prev.filter(m => m.id !== messageId))
+                      dispatch(openSnackbar({ message: 'Message deleted' }))
+                    },
+                    onError: () => {
+                      dispatch(openSnackbar({ message: 'Error deleting message' }))
+                    },
+                  }),
+                )
+                onMenuClose()
+              }}
+            />,
+          )
+        }
+        return items
+      },
+    }),
+    [dispatch, selectedChannel],
+  )
+
   return (
     <Container>
       <PageHeadline>Channel view</PageHeadline>
@@ -354,17 +393,19 @@ export function AdminChannelView() {
       {selectedChannel ? (
         <>
           <ChannelHeadline>{selectedChannel.name}</ChannelHeadline>
-          <ChannelContainer>
-            <StyledMessageList
-              messages={channelMessages}
-              onLoadMoreMessages={onLoadMoreMessages}
-              loading={isLoadingMoreChannelMessages}
-              hasMoreHistory={hasMoreChannelMessages}
-              refreshToken={selectedChannel.id}
-              renderMessage={renderChannelMessage}
-            />
-            <ChannelUserList active={activeUsers} />
-          </ChannelContainer>
+          <ChatContext.Provider value={chatContextValue}>
+            <ChannelContainer>
+              <StyledMessageList
+                messages={channelMessages}
+                onLoadMoreMessages={onLoadMoreMessages}
+                loading={isLoadingMoreChannelMessages}
+                hasMoreHistory={hasMoreChannelMessages}
+                refreshToken={selectedChannel.id}
+                renderMessage={renderChannelMessage}
+              />
+              <ChannelUserList active={activeUsers} />
+            </ChannelContainer>
+          </ChatContext.Provider>
         </>
       ) : (
         <NoResults>Select a channel to view.</NoResults>

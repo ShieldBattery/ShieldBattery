@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react'
-import styled from 'styled-components'
 import { ChannelModerationAction, SbChannelId } from '../../common/chat'
 import { appendToMultimap } from '../../common/data-structures/maps'
 import { CAN_LEAVE_SHIELDBATTERY_CHANNEL, MULTI_CHANNEL } from '../../common/flags'
@@ -7,19 +6,12 @@ import { SbUserId } from '../../common/users/sb-user'
 import { useSelfPermissions } from '../auth/state-hooks'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import { MenuItem } from '../material/menu/item'
+import { DestructiveMenuItem } from '../material/menu/item'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
-import { colorError } from '../styles/colors'
 import { MenuItemCategory } from '../users/user-context-menu'
 import { deleteMessageAsAdmin, getChatUserProfile, moderateUser } from './action-creators'
-
-const DestructiveMenuItem = styled(MenuItem)`
-  color: ${colorError};
-
-  --sb-ripple-color: ${colorError};
-`
 
 // NOTE(2Pac): Even though this function is technically not a React component, nor a custom hook, we
 // still treat it as one since it suits our needs quite nicely (by allowing us to run hooks in it
