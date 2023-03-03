@@ -40,7 +40,7 @@ const Actions = styled.div`
 interface SelfProfileOverlayProps {
   username: string
   anchor: HTMLElement | null
-  popoverProps: Pick<PopoverProps, 'open' | 'onDismiss'>
+  popoverProps: Omit<PopoverProps, 'children' | 'anchorX' | 'anchorY' | 'originX' | 'originY'>
   children: React.ReactNode
 }
 
