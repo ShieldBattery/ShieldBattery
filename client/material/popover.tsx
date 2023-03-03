@@ -18,9 +18,9 @@ import { zIndexMenu } from './zindex'
 
 const ESCAPE = 'Escape'
 
-export type PopoverOpenState = Opaque<boolean, 'PopoverOpenState'>
+type PopoverOpenState = Opaque<boolean, 'PopoverOpenState'>
 
-const OPENING_EVENTS = new WeakSet()
+const OPENING_EVENTS = new WeakSet<Event>()
 
 /**
  * A hook that keeps track of Popover's open state and makes sure that only one Popover is open for
@@ -36,20 +36,21 @@ export function usePopoverController(
   closePopover: () => void,
 ] {
   const [open, setOpen] = useState(initialIsOpen)
-  return [
-    open as PopoverOpenState,
-    (triggeringEvent: Event | React.SyntheticEvent) => {
-      if (!OPENING_EVENTS.has(triggeringEvent)) {
-        OPENING_EVENTS.add(triggeringEvent)
-        setOpen(true)
-        return true
-      }
-      return false
-    },
-    () => {
-      setOpen(false)
-    },
-  ]
+
+  const openPopover = useCallback((triggeringEvent: Event | React.SyntheticEvent) => {
+    const event = (triggeringEvent as React.SyntheticEvent).nativeEvent ?? triggeringEvent
+    if (!OPENING_EVENTS.has(event)) {
+      OPENING_EVENTS.add(event)
+      setOpen(true)
+      return true
+    }
+    return false
+  }, [])
+  const closePopover = useCallback(() => {
+    setOpen(false)
+  }, [])
+
+  return [open as PopoverOpenState, openPopover, closePopover]
 }
 
 const PositioningArea = styled.div`

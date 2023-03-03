@@ -495,8 +495,10 @@ export function ConnectedLeftNav() {
       </Section>
 
       <SelfProfileOverlay
-        open={profileOverlayOpen}
-        onDismiss={closeProfileOverlay}
+        popoverProps={{
+          open: profileOverlayOpen,
+          onDismiss: closeProfileOverlay,
+        }}
         anchor={profileEntryRef.current}
         username={selfUser.name}>
         <MenuItem icon={<PortraitIcon />} text='View profile' onClick={onViewProfileClick} />
