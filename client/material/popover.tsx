@@ -23,16 +23,21 @@ type PopoverOpenState = Opaque<boolean, 'PopoverOpenState'>
 const OPENING_EVENTS = new WeakSet<Event>()
 
 /**
- * A hook that keeps track of Popover's open state and makes sure that only one Popover is open for
- * the same target.
+ * A hook that returns controller methods for opening and closing a popover, as well as its current
+ * state.
  *
- * You *should* use this hook if you want to use Popovers.
+ * This hook ensures that only one popover will be triggered to open for any individual input event.
  */
-export function usePopoverController(
-  initialIsOpen = false,
-): [
+export function usePopoverController(initialIsOpen = false): [
+  /** A value indicating whether the popover is open or not. */
   open: PopoverOpenState,
-  openPopover: (triggerringEvent: Event | React.SyntheticEvent) => boolean,
+  /**
+   * A method to use to open a popover. Requires the triggering event to be sent as a parameter
+   * which will be used to check whether to open the popover or not. Returns `true` if the popover
+   * was opened now, or `false` if the popover was already opened for this event.
+   */
+  openPopover: (triggeringEvent: Event | React.SyntheticEvent) => boolean,
+  /** A method to use to close a popover. */
   closePopover: () => void,
 ] {
   const [open, setOpen] = useState(initialIsOpen)
