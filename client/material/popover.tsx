@@ -1,8 +1,9 @@
 import { useTransition } from '@react-spring/core'
 import { animated } from '@react-spring/web'
-import React, { useCallback, useRef } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
+import { Opaque } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useElementRect, useObservedDimensions } from '../dom/dimension-hooks'
 import { FocusTrap } from '../dom/focus-trap'
@@ -16,6 +17,46 @@ import { defaultSpring } from './springs'
 import { zIndexMenu } from './zindex'
 
 const ESCAPE = 'Escape'
+
+type PopoverOpenState = Opaque<boolean, 'PopoverOpenState'>
+
+const OPENING_EVENTS = new WeakSet<Event>()
+
+/**
+ * A hook that returns controller methods for opening and closing a popover, as well as its current
+ * state.
+ *
+ * This hook ensures that only one popover will be triggered to open for any individual input event.
+ */
+export function usePopoverController(initialIsOpen = false): [
+  /** A value indicating whether the popover is open or not. */
+  open: PopoverOpenState,
+  /**
+   * A method to use to open a popover. Requires the triggering event to be sent as a parameter
+   * which will be used to check whether to open the popover or not. Returns `true` if the popover
+   * was opened now, or `false` if the popover was already opened for this event.
+   */
+  openPopover: (triggeringEvent: Event | React.SyntheticEvent) => boolean,
+  /** A method to use to close a popover. */
+  closePopover: () => void,
+] {
+  const [open, setOpen] = useState(initialIsOpen)
+
+  const openPopover = useCallback((triggeringEvent: Event | React.SyntheticEvent) => {
+    const event = (triggeringEvent as React.SyntheticEvent).nativeEvent ?? triggeringEvent
+    if (!OPENING_EVENTS.has(event)) {
+      OPENING_EVENTS.add(event)
+      setOpen(true)
+      return true
+    }
+    return false
+  }, [])
+  const closePopover = useCallback(() => {
+    setOpen(false)
+  }, [])
+
+  return [open as PopoverOpenState, openPopover, closePopover]
+}
 
 const PositioningArea = styled.div`
   // TODO(tec27): Allow safe zone to be customized
@@ -70,7 +111,7 @@ export type OriginY = 'top' | 'center' | 'bottom'
 export interface PopoverProps {
   children: React.ReactNode
   /** Whether the popover is currently open. */
-  open: boolean
+  open: PopoverOpenState
   /** Callback called when the popover is dismissed. */
   onDismiss: (event?: MouseEvent) => void
   /**

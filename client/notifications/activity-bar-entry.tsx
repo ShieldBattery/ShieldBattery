@@ -1,9 +1,9 @@
 import keycode from 'keycode'
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useMemo, useRef } from 'react'
 import styled from 'styled-components'
 import NotificationsIcon from '../icons/material/notifications-24px.svg'
 import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button'
-import { Popover, useAnchorPosition } from '../material/popover'
+import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { amberA200 } from '../styles/colors'
@@ -66,23 +66,21 @@ export function NotificationsButton() {
 
   const hasUnread = localUnreadNotifications.length + serverUnreadNotifications.length > 0
 
-  const [anchor, setAnchor] = useState<HTMLElement>()
-  const onClick = useCallback((event: React.MouseEvent) => {
-    setAnchor(event.currentTarget as HTMLElement)
-  }, [])
+  const [activityBarOpen, openActivityBar, closeActivityBar] = usePopoverController()
   const onDismiss = useCallback(() => {
-    setAnchor(undefined)
+    closeActivityBar()
     if (localUnreadNotifications.length) {
       dispatch(markLocalNotificationsRead(localUnreadNotifications))
     }
     if (serverUnreadNotifications.length) {
       dispatch(markNotificationsRead(serverUnreadNotifications))
     }
-  }, [localUnreadNotifications, serverUnreadNotifications, dispatch])
-  const [, anchorX, anchorY] = useAnchorPosition('right', 'bottom', anchor ?? null)
+  }, [closeActivityBar, localUnreadNotifications, serverUnreadNotifications, dispatch])
 
   const buttonRef = useRef<HTMLButtonElement>(null)
   useButtonHotkey({ ref: buttonRef, hotkey: ALT_N })
+
+  const [, anchorX, anchorY] = useAnchorPosition('right', 'bottom', buttonRef.current)
 
   return (
     <>
@@ -93,14 +91,14 @@ export function NotificationsButton() {
           <IconButton
             ref={buttonRef}
             icon={<NotificationsIcon />}
-            onClick={onClick}
+            onClick={openActivityBar}
             testName='notifications-button'
           />
         </Tooltip>
         {hasUnread ? <UnreadIndicator /> : null}
       </ButtonContainer>
       <Popover
-        open={!!anchor}
+        open={activityBarOpen}
         onDismiss={onDismiss}
         anchorX={(anchorX ?? 0) - 8}
         anchorY={(anchorY ?? 0) - 8}

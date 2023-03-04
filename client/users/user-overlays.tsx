@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react'
 import { SbUserId } from '../../common/users/sb-user'
-import { OriginX, OriginY, useAnchorPosition } from '../material/popover'
+import { OriginX, OriginY, useAnchorPosition, usePopoverController } from '../material/popover'
 import { ConnectedUserContextMenuProps, MenuItemCategory } from './user-context-menu'
 import { ConnectedUserProfileOverlayProps } from './user-profile-overlay'
 
@@ -36,7 +36,7 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
   clickableElemRef: React.RefObject<E>
   profileOverlayProps: ConnectedUserProfileOverlayProps
   contextMenuProps: ConnectedUserContextMenuProps
-  onClick: (event?: React.MouseEvent) => void
+  onClick: (event: React.MouseEvent) => void
   onContextMenu: (event: React.MouseEvent) => void
   isOverlayOpen: boolean
 } {
@@ -46,34 +46,35 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
     profileAnchorY,
     clickableElemRef.current ?? null,
   )
-  const [profileOverlayOpen, setProfileOverlayOpen] = useState(false)
+  const [profileOverlayOpen, openProfileOverlay, closeProfileOverlay] = usePopoverController()
+  const [contextMenuOpen, openContextMenu, closeContextMenu] = usePopoverController()
   const [contextMenuEl, setContextMenuEl] = useState<Element | null>(null)
   const [contextMenuAnchorX, setContextMenuAnchorX] = useState(0)
   const [contextMenuAnchorY, setContextMenuAnchorY] = useState(0)
-  const contextMenuOpen = Boolean(contextMenuEl)
 
-  const onOpenProfileOverlay = useCallback(() => {
-    setProfileOverlayOpen(true)
-  }, [])
-  const onCloseProfileOverlay = useCallback(() => {
-    setProfileOverlayOpen(false)
-  }, [])
   const onClick = useCallback(
-    (e?: React.MouseEvent) => {
-      if (!e || !filterClick || !filterClick(userId, e)) {
-        onOpenProfileOverlay()
+    (e: React.MouseEvent) => {
+      if (!filterClick || !filterClick(userId, e)) {
+        openProfileOverlay(e)
       }
     },
-    [userId, onOpenProfileOverlay, filterClick],
+    [filterClick, userId, openProfileOverlay],
   )
+  const onCloseProfileOverlay = useCallback(() => {
+    closeProfileOverlay()
+  }, [closeProfileOverlay])
 
-  const onOpenContextMenu = useCallback((event: React.MouseEvent) => {
-    event.preventDefault()
+  const onOpenContextMenu = useCallback(
+    (event: React.MouseEvent) => {
+      event.preventDefault()
 
-    setContextMenuAnchorX(event.pageX)
-    setContextMenuAnchorY(event.pageY)
-    setContextMenuEl(event.currentTarget)
-  }, [])
+      setContextMenuAnchorX(event.pageX)
+      setContextMenuAnchorY(event.pageY)
+      setContextMenuEl(event.currentTarget)
+      openContextMenu(event)
+    },
+    [openContextMenu],
+  )
   const onCloseContextMenu = useCallback(
     (event?: MouseEvent) => {
       if (
@@ -83,9 +84,10 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
         !contextMenuEl.contains(event.target as Node)
       ) {
         setContextMenuEl(null)
+        closeContextMenu()
       }
     },
-    [contextMenuEl],
+    [closeContextMenu, contextMenuEl],
   )
 
   return {

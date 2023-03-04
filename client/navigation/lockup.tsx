@@ -46,15 +46,19 @@ export interface LockupProps {
   menuOpened?: boolean
 }
 
-export default function Lockup({ onClick, menuOpened }: LockupProps) {
-  const [buttonProps, rippleRef] = useButtonState({ onClick })
+export const Lockup = React.forwardRef(
+  ({ onClick, menuOpened }: LockupProps, ref: React.ForwardedRef<HTMLButtonElement>) => {
+    const [buttonProps, rippleRef] = useButtonState({ onClick })
 
-  return (
-    <Container aria-label='ShieldBattery' {...buttonProps}>
-      <SizedLogo />
-      <SizedLogoText />
-      <AnimatedExpandIcon $pointUp={!!menuOpened} />
-      <Ripple ref={rippleRef} />
-    </Container>
-  )
-}
+    return (
+      <Container ref={ref} aria-label='ShieldBattery' {...buttonProps}>
+        <SizedLogo />
+        <SizedLogoText />
+        <AnimatedExpandIcon $pointUp={!!menuOpened} />
+        <Ripple ref={rippleRef} />
+      </Container>
+    )
+  },
+)
+
+export default Lockup

@@ -60,7 +60,7 @@ const User = styled.div`
 
 export interface ProfileNavEntryProps {
   user: string
-  onProfileEntryClick: () => void
+  onProfileEntryClick: (event: React.MouseEvent) => void
   profileMenuOpen: boolean
 }
 

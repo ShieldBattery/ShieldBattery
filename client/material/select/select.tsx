@@ -13,7 +13,7 @@ import { FloatingLabel } from '../input-floating-label'
 import { InputUnderline } from '../input-underline'
 import { MenuList } from '../menu/menu'
 import { isSelectableMenuItem } from '../menu/menu-item-symbol'
-import { Popover, useAnchorPosition } from '../popover'
+import { Popover, useAnchorPosition, usePopoverController } from '../popover'
 import { defaultSpring } from '../springs'
 
 const SPACE = 'Space'
@@ -186,8 +186,9 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
     const hookId = useId()
     const id = propsId ?? hookId
     const [focused, setFocused] = useState(false)
-    const [opened, setOpened] = useState(false)
     const inputRef = useRef<HTMLButtonElement>()
+
+    const [opened, openSelect, closeSelect] = usePopoverController()
     const [anchorRef, anchorX, anchorY] = useAnchorPosition('center', 'bottom')
 
     useImperativeHandle(forwardedRef, () => ({
@@ -203,15 +204,18 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
     const focusedRef = useValueAsRef(focused)
     const openedRef = useValueAsRef(opened)
 
-    const onOpen = useCallback(() => {
-      if (!disabled) {
-        setOpened(true)
-      }
-    }, [disabled])
+    const onOpen = useCallback(
+      (event: React.MouseEvent) => {
+        if (!disabled) {
+          openSelect(event)
+        }
+      },
+      [disabled, openSelect],
+    )
     const onClose = useCallback(() => {
-      setOpened(false)
+      closeSelect()
       inputRef.current?.focus()
-    }, [])
+    }, [closeSelect])
     const onFocus = useCallback(() => {
       if (!disabled) {
         setFocused(true)
@@ -239,7 +243,7 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
 
         if (!openedRef.current) {
           if (event.code === SPACE || event.code === ENTER || event.code === ENTER_NUMPAD) {
-            onOpen()
+            openSelect(event)
             return true
           }
         }

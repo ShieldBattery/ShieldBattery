@@ -1,5 +1,5 @@
 import keycode from 'keycode'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef } from 'react'
 import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
 import { appendToMultimap } from '../../common/data-structures/maps'
@@ -15,7 +15,7 @@ import FriendAddIcon from '../icons/material/group_add-24px.svg'
 import FriendSettingsIcon from '../icons/material/manage_accounts-24px.svg'
 import { JsonLocalStorageValue } from '../local-storage'
 import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button'
-import { Popover, useAnchorPosition } from '../material/popover'
+import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
@@ -101,17 +101,12 @@ function useRelationshipsLoader() {
 
 export function FriendsListActivityButton() {
   useRelationshipsLoader()
-  const [anchor, setAnchor] = useState<HTMLElement>()
-  const onClick = useStableCallback((event: React.MouseEvent) => {
-    setAnchor(event.currentTarget as HTMLElement)
-  })
-  const onDismiss = useStableCallback(() => {
-    setAnchor(undefined)
-  })
-  const [, anchorX, anchorY] = useAnchorPosition('right', 'bottom', anchor ?? null)
+  const [friendsListOpen, openFriendsList, closeFriendsList] = usePopoverController()
 
   const buttonRef = useRef<HTMLButtonElement>(null)
   useButtonHotkey({ ref: buttonRef, hotkey: ALT_E })
+
+  const [, anchorX, anchorY] = useAnchorPosition('right', 'bottom', buttonRef.current)
 
   const friendActivityStatus = useAppSelector(s => s.relationships.friendActivityStatus)
   const friendCount = useMemo(() => {
@@ -126,19 +121,19 @@ export function FriendsListActivityButton() {
         <IconButton
           ref={buttonRef}
           icon={<NumberedFriendsIcon count={friendCount} />}
-          onClick={onClick}
+          onClick={openFriendsList}
           testName={'friends-list-button'}
         />
       </Tooltip>
       <Popover
-        open={!!anchor}
-        onDismiss={onDismiss}
+        open={friendsListOpen}
+        onDismiss={closeFriendsList}
         anchorX={(anchorX ?? 0) - 8}
         anchorY={(anchorY ?? 0) - 8}
         originX='right'
         originY='bottom'>
         <PopoverContents>
-          <FriendsPopover onDismiss={onDismiss} />
+          <FriendsPopover onDismiss={closeFriendsList} />
         </PopoverContents>
       </Popover>
     </>

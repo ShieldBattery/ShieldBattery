@@ -1,30 +1,24 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useMemo } from 'react'
 import SlotActionsIcon from '../icons/material/more_vert-24px.svg'
 import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
-import { Popover, useAnchorPosition } from '../material/popover'
+import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 
 interface SlotActionsProps {
   slotActions: Array<[text: string, handler: () => void]>
 }
 
 export function SlotActions({ slotActions }: SlotActionsProps) {
-  const [overlayOpen, setOverlayOpen] = useState(false)
+  const [overlayOpen, openOverlay, closeOverlay] = usePopoverController()
   const [anchorRef, anchorX, anchorY] = useAnchorPosition('right', 'top')
 
-  const onOpenOverlay = useCallback(() => {
-    setOverlayOpen(true)
-  }, [])
-  const onCloseOverlay = useCallback(() => {
-    setOverlayOpen(false)
-  }, [])
   const onActionClick = useCallback(
     (handler: () => void) => {
       handler()
-      onCloseOverlay()
+      closeOverlay()
     },
-    [onCloseOverlay],
+    [closeOverlay],
   )
 
   const actions = useMemo(
@@ -41,11 +35,11 @@ export function SlotActions({ slotActions }: SlotActionsProps) {
         icon={<SlotActionsIcon />}
         title='Slot actions'
         ref={anchorRef}
-        onClick={onOpenOverlay}
+        onClick={openOverlay}
       />
       <Popover
         open={overlayOpen}
-        onDismiss={onCloseOverlay}
+        onDismiss={closeOverlay}
         anchorX={anchorX ?? 0}
         anchorY={anchorY ?? 0}
         originX='right'

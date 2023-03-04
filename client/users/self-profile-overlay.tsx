@@ -2,7 +2,7 @@ import React from 'react'
 import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
 import { Avatar } from '../avatars/avatar'
-import { Popover, useAnchorPosition } from '../material/popover'
+import { Popover, PopoverProps, useAnchorPosition } from '../material/popover'
 import { defaultSpring } from '../material/springs'
 import { body1, headline6, singleLine } from '../styles/typography'
 
@@ -38,11 +38,10 @@ const Actions = styled.div`
 `
 
 interface SelfProfileOverlayProps {
-  open: boolean
   username: string
   anchor: HTMLElement | null
+  popoverProps: Omit<PopoverProps, 'children' | 'anchorX' | 'anchorY' | 'originX' | 'originY'>
   children: React.ReactNode
-  onDismiss: () => void
 }
 
 const VERTICAL_TRANSITION: UseTransitionProps<boolean> = {
@@ -54,13 +53,12 @@ const VERTICAL_TRANSITION: UseTransitionProps<boolean> = {
 }
 
 export function SelfProfileOverlay(props: SelfProfileOverlayProps) {
-  const { username, children, open, onDismiss, anchor } = props
+  const { username, anchor, popoverProps, children } = props
   const [, anchorX, anchorY] = useAnchorPosition('center', 'top', anchor ?? null)
 
   return (
     <Popover
-      open={open}
-      onDismiss={onDismiss}
+      {...popoverProps}
       anchorX={anchorX ?? 0}
       anchorY={(anchorY ?? 0) - 8}
       originX='center'

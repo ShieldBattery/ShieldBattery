@@ -1,5 +1,5 @@
 import keycode from 'keycode'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef } from 'react'
 import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
 import { useLocation } from 'wouter'
@@ -39,14 +39,13 @@ import { SubheaderButton } from '../material/left-nav/subheader-button'
 import { Divider as MenuDivider } from '../material/menu/divider'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
-import { Popover, useAnchorPosition } from '../material/popover'
+import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { defaultSpring } from '../material/springs'
 import { Tooltip } from '../material/tooltip'
 import { leaveParty } from '../parties/action-creators'
 import { PartyNavEntry } from '../parties/party-nav-entry'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
-import { useValueAsRef } from '../state-hooks'
 import { colorTextSecondary } from '../styles/colors'
 import { overline, singleLine } from '../styles/typography'
 import { getBatchUserInfo, navigateToUserProfile } from '../users/action-creators'
@@ -109,20 +108,9 @@ const MENU_TRANSITION: UseTransitionProps<boolean> = {
 }
 
 function LockupAndMenu() {
-  const [appMenuAnchor, setAppMenuAnchor] = useState<HTMLElement>()
-  const appMenuAnchorRef = useValueAsRef(appMenuAnchor)
-  const [, anchorX, anchorY] = useAnchorPosition('center', 'bottom', appMenuAnchor ?? null)
-  const onLockupClick = useCallback(
-    (event: React.MouseEvent) => {
-      if (!appMenuAnchorRef.current) {
-        setAppMenuAnchor(event.currentTarget as HTMLElement)
-      }
-    },
-    [appMenuAnchorRef],
-  )
-  const onAppMenuDismiss = useCallback(() => {
-    setAppMenuAnchor(undefined)
-  }, [])
+  const [appMenuOpen, openAppMenu, closeAppMenu] = usePopoverController()
+  const [appMenuAnchor, anchorX, anchorY] = useAnchorPosition('center', 'bottom')
+
   const appMenuItems = useMemo(
     () =>
       APP_MENU_LINKS.map(([text, icon, url], i) => {
@@ -134,7 +122,7 @@ function LockupAndMenu() {
               icon={icon}
               onClick={() => {
                 window.open(url as string, '_blank')
-                setAppMenuAnchor(undefined)
+                closeAppMenu()
               }}
             />
           )
@@ -144,15 +132,15 @@ function LockupAndMenu() {
           return <MenuDivider key={i} />
         }
       }),
-    [],
+    [closeAppMenu],
   )
 
   return (
     <LockupContainer>
-      <Lockup onClick={onLockupClick} menuOpened={!!appMenuAnchor} />
+      <Lockup ref={appMenuAnchor} onClick={openAppMenu} menuOpened={appMenuOpen} />
       <Popover
-        open={!!appMenuAnchor}
-        onDismiss={onAppMenuDismiss}
+        open={appMenuOpen}
+        onDismiss={closeAppMenu}
         anchorX={(anchorX ?? 0) - 8}
         anchorY={(anchorY ?? 0) + 8}
         originX='center'
@@ -406,7 +394,7 @@ export function ConnectedLeftNav() {
   const chatChannels = useAppSelector(s => s.chat.joinedChannels)
   const whisperSessions = useAppSelector(s => s.whispers.sessions)
 
-  const [profileOverlayOpen, setProfileOverlayOpen] = useState(false)
+  const [profileOverlayOpen, openProfileOverlay, closeProfileOverlay] = usePopoverController()
   const profileEntryRef = useRef<HTMLButtonElement>(null)
   const joinChannelButtonRef = useRef<HTMLButtonElement>(null)
   const startWhisperButtonRef = useRef<HTMLButtonElement>(null)
@@ -414,28 +402,22 @@ export function ConnectedLeftNav() {
   useButtonHotkey({ ref: joinChannelButtonRef, hotkey: ALT_H })
   useButtonHotkey({ ref: startWhisperButtonRef, hotkey: ALT_W })
 
-  const onProfileEntryClick = useCallback(() => {
-    setProfileOverlayOpen(true)
-  }, [])
-  const onProfileOverlayClose = useCallback(() => {
-    setProfileOverlayOpen(false)
-  }, [])
   const onLogOutClick = useCallback(() => {
-    onProfileOverlayClose()
+    closeProfileOverlay()
     dispatch(logOut().action)
-  }, [dispatch, onProfileOverlayClose])
+  }, [closeProfileOverlay, dispatch])
   const onChangelogClick = useCallback(() => {
-    onProfileOverlayClose()
+    closeProfileOverlay()
     dispatch(openChangelog())
-  }, [dispatch, onProfileOverlayClose])
+  }, [closeProfileOverlay, dispatch])
   const onEditAccountClick = useCallback(() => {
-    onProfileOverlayClose()
+    closeProfileOverlay()
     dispatch(openDialog({ type: DialogType.Account }))
-  }, [dispatch, onProfileOverlayClose])
+  }, [closeProfileOverlay, dispatch])
   const onViewProfileClick = useCallback(() => {
-    onProfileOverlayClose()
+    closeProfileOverlay()
     navigateToUserProfile(selfUser.id, selfUser.name)
-  }, [onProfileOverlayClose, selfUser.id, selfUser.name])
+  }, [closeProfileOverlay, selfUser.id, selfUser.name])
 
   const footer = (
     <>
@@ -443,7 +425,7 @@ export function ConnectedLeftNav() {
         key='profileEntry'
         ref={profileEntryRef}
         user={selfUser.name}
-        onProfileEntryClick={onProfileEntryClick}
+        onProfileEntryClick={openProfileOverlay}
         profileMenuOpen={profileOverlayOpen}
       />
     </>
@@ -513,8 +495,10 @@ export function ConnectedLeftNav() {
       </Section>
 
       <SelfProfileOverlay
-        open={profileOverlayOpen}
-        onDismiss={onProfileOverlayClose}
+        popoverProps={{
+          open: profileOverlayOpen,
+          onDismiss: closeProfileOverlay,
+        }}
         anchor={profileEntryRef.current}
         username={selfUser.name}>
         <MenuItem icon={<PortraitIcon />} text='View profile' onClick={onViewProfileClick} />
