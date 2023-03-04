@@ -12,7 +12,7 @@ export function useMentionFilterClick(): (userId: SbUserId, e: React.MouseEvent)
   const chatContext = useContext(ChatContext)
   return useCallback(
     (userId, e) => {
-      if (e.shiftKey) {
+      if (e.shiftKey && chatContext.mentionUser) {
         chatContext.mentionUser(userId)
         e.preventDefault()
         return true
