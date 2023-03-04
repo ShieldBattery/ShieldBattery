@@ -20,12 +20,12 @@ import { deleteMessageAsAdmin, getChatUserProfile, moderateUser } from './action
  * A function which adds user context menu items specific to chat channels (e.g. kick/ban user from
  * a chat channel).
  */
-export const addChannelUserMenuItems = (
+export function addChannelUserMenuItems(
   userId: SbUserId,
   items: Map<MenuItemCategory, React.ReactNode[]>,
   onMenuClose: (event?: MouseEvent) => void,
   channelId: SbChannelId,
-) => {
+) {
   /* eslint-disable react-hooks/rules-of-hooks */
   const dispatch = useAppDispatch()
   const selfPermissions = useAppSelector(s => s.auth.permissions)
@@ -140,12 +140,12 @@ export const addChannelUserMenuItems = (
  * A function which adds message context menu items specific to chat channels (e.g. delete message
  * from a chat channel).
  */
-export const addChannelMessageMenuItems = (
+export function addChannelMessageMenuItems(
   messageId: string,
   items: React.ReactNode[],
   onMenuClose: (event?: MouseEvent) => void,
   channelId: SbChannelId,
-) => {
+) {
   /* eslint-disable react-hooks/rules-of-hooks */
   const dispatch = useAppDispatch()
   const selfPermissions = useSelfPermissions()

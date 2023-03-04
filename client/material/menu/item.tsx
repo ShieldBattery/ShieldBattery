@@ -72,6 +72,4 @@ MenuItem[MenuItemSymbol] = MenuItemType.Default
 
 export const DestructiveMenuItem = styled(MenuItem)`
   color: ${colorError};
-
-  --sb-ripple-color: ${colorError};
 `

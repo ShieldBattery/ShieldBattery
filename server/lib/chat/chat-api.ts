@@ -5,7 +5,6 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   ChannelInfo,
   ChannelPermissions,
-  ChatEvent,
   ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
   GetChannelUserPermissionsResponse,
@@ -27,9 +26,8 @@ import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
-import { TypedPublisher } from '../websockets/typed-publisher'
-import { deleteChannelMessage, searchChannelsAsAdmin } from './chat-models'
-import ChatService, { ChatServiceError, getChannelPath } from './chat-service'
+import { searchChannelsAsAdmin } from './chat-models'
+import ChatService, { ChatServiceError } from './chat-service'
 
 const joinThrottle = createThrottle('chatjoin', {
   rate: 3,
@@ -333,7 +331,7 @@ export class ChatApi {
 @httpApi('/admin/chat')
 @httpBeforeAll(ensureLoggedIn, convertChatServiceErrors)
 export class AdminChatApi {
-  constructor(private publisher: TypedPublisher<ChatEvent>, private chatService: ChatService) {}
+  constructor(private chatService: ChatService) {}
 
   @httpGet('/')
   @httpBefore(checkAllPermissions('moderateChatChannels'))
@@ -400,11 +398,11 @@ export class AdminChatApi {
       }),
     })
 
-    await deleteChannelMessage(messageId)
-
-    this.publisher.publish(getChannelPath(channelId), {
-      action: 'messageDeleted',
+    await this.chatService.deleteMessage({
+      channelId,
       messageId,
+      userId: ctx.session!.userId,
+      isAdmin: true,
     })
 
     ctx.status = 204

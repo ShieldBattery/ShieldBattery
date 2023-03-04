@@ -267,13 +267,14 @@ export async function getMessagesForChannel(
 
 export async function deleteChannelMessage(
   messageId: string,
+  channelId: SbChannelId,
   withClient?: DbClient,
 ): Promise<void> {
   const { client, done } = await db(withClient)
   try {
     await client.query(sql`
       DELETE FROM channel_messages
-      WHERE id = ${messageId};
+      WHERE id = ${messageId} AND channel_id = ${channelId};
     `)
   } finally {
     done()
