@@ -5,6 +5,7 @@ import {
   ChatJoinEvent,
   ChatKickEvent,
   ChatLeaveEvent,
+  ChatMessageDeletedEvent,
   ChatMessageEvent,
   ChatPermissionsChangedEvent,
   ChatUserActiveEvent,
@@ -46,6 +47,7 @@ export type ChatActions =
   | UpdateBan
   | UpdateBanSelf
   | UpdateMessage
+  | UpdateMessageDeleted
   | UpdateUserActive
   | UpdateUserIdle
   | UpdateUserOffline
@@ -300,6 +302,15 @@ export interface UpdateBanSelf {
 export interface UpdateMessage {
   type: '@chat/updateMessage'
   payload: ChatMessageEvent
+  meta: { channelId: SbChannelId }
+}
+
+/**
+ * A message was deleted in a channel we're in.
+ */
+export interface UpdateMessageDeleted {
+  type: '@chat/updateMessageDeleted'
+  payload: ChatMessageDeletedEvent
   meta: { channelId: SbChannelId }
 }
 

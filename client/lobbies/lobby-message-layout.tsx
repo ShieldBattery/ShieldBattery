@@ -1,13 +1,13 @@
 import React from 'react'
 import { SbUserId } from '../../common/users/sb-user'
-import { useChatMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
+import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
 import { SystemImportant, SystemMessage } from '../messaging/message-layout'
 import { ConnectedUsername } from '../users/connected-username'
 
 export const JoinLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatMenuItems()
+  const addChatMenuItems = useChatUserMenuItems()
   return (
     <SystemMessage time={time}>
       <span>
@@ -28,7 +28,7 @@ export const JoinLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(p
 export const LeaveLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatMenuItems()
+  const addChatMenuItems = useChatUserMenuItems()
   return (
     <SystemMessage time={time}>
       <span>
@@ -49,7 +49,7 @@ export const LeaveLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(
 export const KickLobbyPlayerMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatMenuItems()
+  const addChatMenuItems = useChatUserMenuItems()
   return (
     <SystemMessage time={time}>
       <span>
@@ -70,7 +70,7 @@ export const KickLobbyPlayerMessage = React.memo<{ time: number; userId: SbUserI
 export const BanLobbyPlayerMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatMenuItems()
+  const addChatMenuItems = useChatUserMenuItems()
   return (
     <SystemMessage time={time}>
       <span>
@@ -92,7 +92,7 @@ export const SelfJoinLobbyMessage = React.memo<{ time: number; lobby: string; ho
   props => {
     const { time, lobby, hostId } = props
     const filterClick = useMentionFilterClick()
-    const addChatMenuItems = useChatMenuItems()
+    const addChatMenuItems = useChatUserMenuItems()
     return (
       <SystemMessage time={time}>
         <span>
@@ -114,7 +114,7 @@ export const SelfJoinLobbyMessage = React.memo<{ time: number; lobby: string; ho
 export const LobbyHostChangeMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatMenuItems()
+  const addChatMenuItems = useChatUserMenuItems()
   return (
     <SystemMessage time={time}>
       <span>

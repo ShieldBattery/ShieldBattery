@@ -67,7 +67,7 @@ const messageContainerBase = css`
   line-height: 20px;
 `
 
-const MessageContainer = styled.div<{ $highlighted?: boolean }>`
+const MessageContainer = styled.div<{ $active?: boolean; $highlighted?: boolean }>`
   ${messageContainerBase};
   ${body1};
 
@@ -95,18 +95,46 @@ const MessageContainer = styled.div<{ $highlighted?: boolean }>`
       }
     `
   }}
+
+  ${props => {
+    let backgroundColor: string
+    if (props.$highlighted) {
+      backgroundColor = 'rgba(255, 255, 255, 0.20)'
+    } else {
+      backgroundColor = 'rgba(255, 255, 255, 0.08)'
+    }
+
+    if (props.$active) {
+      return `
+        background-color: ${backgroundColor};
+      `
+    }
+
+    return `
+      &:hover {
+        background-color: ${backgroundColor};
+      }
+    `
+  }}
 `
 
 interface TimestampMessageLayoutProps {
   time: number
+  active?: boolean
   highlighted?: boolean
   className?: string
   children: React.ReactNode
+  onContextMenu?: (event: React.MouseEvent) => void
 }
 
 export const TimestampMessageLayout = (props: TimestampMessageLayoutProps) => {
   return (
-    <MessageContainer $highlighted={props.highlighted} className={props.className} role='document'>
+    <MessageContainer
+      $active={props.active}
+      $highlighted={props.highlighted}
+      className={props.className}
+      role='document'
+      onContextMenu={props.onContextMenu}>
       <MessageTimestamp time={props.time} />
       {props.children}
     </MessageContainer>

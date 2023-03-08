@@ -39,6 +39,7 @@ import {
   ChatMessage,
   countBannedIdentifiersForChannel,
   createChannel,
+  deleteChannelMessage,
   findChannelByName,
   getChannelInfo,
   getChannelsForUser,
@@ -452,6 +453,35 @@ export default class ChatService {
         name: result.userName,
       },
       mentions,
+    })
+  }
+
+  async deleteMessage({
+    channelId,
+    messageId,
+    userId,
+    isAdmin,
+  }: {
+    channelId: SbChannelId
+    messageId: string
+    userId: SbUserId
+    isAdmin: boolean
+  }): Promise<void> {
+    // TODO(2Pac): Update this method to allow channel moderators to delete messages from the
+    // channels they moderate, and for users to delete their own message.
+
+    if (!isAdmin) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.NotEnoughPermissions,
+        'Not enough permissions to delete a message',
+      )
+    }
+
+    await deleteChannelMessage(messageId, channelId)
+
+    this.publisher.publish(getChannelPath(channelId), {
+      action: 'messageDeleted',
+      messageId,
     })
   }
 

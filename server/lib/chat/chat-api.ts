@@ -385,4 +385,26 @@ export class AdminChatApi {
       isAdmin: true,
     })
   }
+
+  @httpDelete('/:channelId/messages/:messageId')
+  @httpBefore(checkAllPermissions('moderateChatChannels'))
+  async deleteMessage(ctx: RouterContext): Promise<void> {
+    const {
+      params: { channelId, messageId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ channelId: SbChannelId; messageId: string }>({
+        channelId: serialIdSchema().required(),
+        messageId: Joi.string().required(),
+      }),
+    })
+
+    await this.chatService.deleteMessage({
+      channelId,
+      messageId,
+      userId: ctx.session!.userId,
+      isAdmin: true,
+    })
+
+    ctx.status = 204
+  }
 }

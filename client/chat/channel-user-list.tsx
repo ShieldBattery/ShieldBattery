@@ -4,7 +4,7 @@ import styled, { css } from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { useVirtuosoScrollFix } from '../dom/virtuoso-scroll-fix'
-import { useChatMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
+import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
 import { useAppSelector } from '../redux-hooks'
 import {
   alphaDisabled,
@@ -128,7 +128,7 @@ interface UserListEntryProps {
 const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
   const user = useAppSelector(s => s.users.byId.get(props.userId))
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatMenuItems()
+  const addChatMenuItems = useChatUserMenuItems()
 
   const {
     clickableElemRef,

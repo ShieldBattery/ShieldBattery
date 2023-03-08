@@ -4,11 +4,18 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { matchLinks } from '../../common/text/links'
 import { matchMentionsMarkup } from '../../common/text/mentions'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user'
+import { useContextMenu } from '../dom/use-context-menu'
+import { MenuList } from '../material/menu/menu'
+import { Popover } from '../material/popover'
 import { amberA100, blue100, colorDividers, colorTextFaint } from '../styles/colors'
 import { body2 } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { ExternalLink } from './external-link'
-import { useChatMenuItems, useMentionFilterClick } from './mention-hooks'
+import {
+  useChatMessageMenuItems,
+  useChatUserMenuItems,
+  useMentionFilterClick,
+} from './mention-hooks'
 import {
   InfoImportant,
   SeparatedInfoMessage,
@@ -48,14 +55,19 @@ function* getAllMatches(text: string) {
 }
 
 export const TextMessage = React.memo<{
+  msgId: string
   userId: SbUserId
   selfUserId: SbUserId
   time: number
   text: string
 }>(props => {
-  const { userId, selfUserId, time, text } = props
+  const { msgId, userId, selfUserId, time, text } = props
   const filterClick = useMentionFilterClick()
-  const addChatMenuItems = useChatMenuItems()
+  const addUserMenuItems = useChatUserMenuItems()
+  const addMessageMenuItems = useChatMessageMenuItems()
+
+  const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
+
   const [parsedText, isHighlighted] = useMemo(() => {
     const matches = getAllMatches(text)
     const sortedMatches = Array.from(matches).sort((a, b) => a.index - b.index)
@@ -89,7 +101,7 @@ export const TextMessage = React.memo<{
             userId={userId}
             prefix={'@'}
             filterClick={filterClick}
-            modifyMenuItems={addChatMenuItems}
+            modifyMenuItems={addUserMenuItems}
           />,
         )
       } else if (match.type === 'link') {
@@ -113,20 +125,40 @@ export const TextMessage = React.memo<{
     }
 
     return [elements, isHighlighted]
-  }, [text, selfUserId, filterClick, addChatMenuItems])
+  }, [text, selfUserId, filterClick, addUserMenuItems])
 
+  // TODO(2Pac): We're currently sending an empty array as default items that will be present in
+  // context menu of all text messages here. However, I'm fairly sure that we'll never have common
+  // items that are service-independent. Even stuff like adding emoji reactions depends on whether
+  // they're being used in a lobby, versus a chat channel (the former is client-only, and the latter
+  // probably needs to be saved on the server somewhere).
+  // So this API could probably be simplified a bit if it assumes that, instead of making it as
+  // customizable as the one we have for the user context menu.
+  const messageContextMenuItems = addMessageMenuItems(msgId, [], contextMenuPopoverProps.onDismiss)
   return (
-    <TimestampMessageLayout time={time} highlighted={isHighlighted}>
-      <Username>
-        <ConnectedUsername
-          userId={userId}
-          filterClick={filterClick}
-          modifyMenuItems={addChatMenuItems}
-        />
-      </Username>
-      <Separator>{': '}</Separator>
-      <Text>{parsedText}</Text>
-    </TimestampMessageLayout>
+    <>
+      <TimestampMessageLayout
+        time={time}
+        active={contextMenuPopoverProps.open}
+        highlighted={isHighlighted}
+        onContextMenu={onContextMenu}>
+        <Username>
+          <ConnectedUsername
+            userId={userId}
+            filterClick={filterClick}
+            modifyMenuItems={addUserMenuItems}
+          />
+        </Username>
+        <Separator>{': '}</Separator>
+        <Text>{parsedText}</Text>
+      </TimestampMessageLayout>
+
+      {messageContextMenuItems.length > 0 ? (
+        <Popover {...contextMenuPopoverProps}>
+          <MenuList dense={true}>{messageContextMenuItems}</MenuList>
+        </Popover>
+      ) : null}
+    </>
   )
 })
 
@@ -159,6 +191,7 @@ const VisibleBlockedMessage = styled.div`
 `
 
 export const BlockedMessage = React.memo<{
+  msgId: string
   userId: SbUserId
   selfUserId: SbUserId
   time: number
@@ -176,6 +209,7 @@ export const BlockedMessage = React.memo<{
       {show ? (
         <VisibleBlockedMessage>
           <TextMessage
+            msgId={props.msgId}
             userId={props.userId}
             selfUserId={props.selfUserId}
             time={props.time}

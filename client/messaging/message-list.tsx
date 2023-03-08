@@ -53,6 +53,7 @@ function renderCommonMessage(
       return blockedUsers.has(msg.from) ? (
         <BlockedMessage
           key={msg.id}
+          msgId={msg.id}
           userId={msg.from}
           selfUserId={selfUserId}
           time={msg.time}
@@ -61,6 +62,7 @@ function renderCommonMessage(
       ) : (
         <TextMessage
           key={msg.id}
+          msgId={msg.id}
           userId={msg.from}
           selfUserId={selfUserId}
           time={msg.time}

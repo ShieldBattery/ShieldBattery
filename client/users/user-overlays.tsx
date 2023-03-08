@@ -1,5 +1,6 @@
-import React, { useCallback, useRef, useState } from 'react'
+import React, { useCallback, useRef } from 'react'
 import { SbUserId } from '../../common/users/sb-user'
+import { useContextMenu } from '../dom/use-context-menu'
 import { OriginX, OriginY, useAnchorPosition, usePopoverController } from '../material/popover'
 import { ConnectedUserContextMenuProps, MenuItemCategory } from './user-context-menu'
 import { ConnectedUserProfileOverlayProps } from './user-profile-overlay'
@@ -47,10 +48,7 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
     clickableElemRef.current ?? null,
   )
   const [profileOverlayOpen, openProfileOverlay, closeProfileOverlay] = usePopoverController()
-  const [contextMenuOpen, openContextMenu, closeContextMenu] = usePopoverController()
-  const [contextMenuEl, setContextMenuEl] = useState<Element | null>(null)
-  const [contextMenuAnchorX, setContextMenuAnchorX] = useState(0)
-  const [contextMenuAnchorY, setContextMenuAnchorY] = useState(0)
+  const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
 
   const onClick = useCallback(
     (e: React.MouseEvent) => {
@@ -64,37 +62,11 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
     closeProfileOverlay()
   }, [closeProfileOverlay])
 
-  const onOpenContextMenu = useCallback(
-    (event: React.MouseEvent) => {
-      event.preventDefault()
-
-      setContextMenuAnchorX(event.pageX)
-      setContextMenuAnchorY(event.pageY)
-      setContextMenuEl(event.currentTarget)
-      openContextMenu(event)
-    },
-    [openContextMenu],
-  )
-  const onCloseContextMenu = useCallback(
-    (event?: MouseEvent) => {
-      if (
-        !contextMenuEl ||
-        event?.button !== 2 ||
-        !event?.target ||
-        !contextMenuEl.contains(event.target as Node)
-      ) {
-        setContextMenuEl(null)
-        closeContextMenu()
-      }
-    },
-    [closeContextMenu, contextMenuEl],
-  )
-
   return {
     clickableElemRef,
     onClick,
-    onContextMenu: onOpenContextMenu,
-    isOverlayOpen: profileOverlayOpen || contextMenuOpen,
+    onContextMenu,
+    isOverlayOpen: profileOverlayOpen || contextMenuPopoverProps.open,
     profileOverlayProps: {
       userId,
       popoverProps: {
@@ -109,14 +81,7 @@ export function useUserOverlays<E extends HTMLElement = HTMLElement>({
     contextMenuProps: {
       userId,
       modifyMenuItems,
-      popoverProps: {
-        open: contextMenuOpen,
-        onDismiss: onCloseContextMenu,
-        anchorX: contextMenuAnchorX,
-        anchorY: contextMenuAnchorY,
-        originX: 'left',
-        originY: 'top',
-      },
+      popoverProps: contextMenuPopoverProps,
     },
   }
 }

@@ -31,24 +31,39 @@ interface ChatProps {
    */
   extraContent?: React.ReactNode
   /**
-   * An optional function that will be called when rendering menu items. If provided, the value
-   * returned from this function will be used as the `children` of the menu. Mutating the input
-   * value and returning it is okay.
+   * An optional function that will be called when rendering user menu items. If provided, the value
+   * returned from this function will be used as the `children` of the user context menu. Mutating
+   * the input value and returning it is okay.
    */
-  modifyMenuItems?: (
+  modifyUserMenuItems?: (
     userId: SbUserId,
     items: Map<MenuItemCategory, React.ReactNode[]>,
     onMenuClose: (event?: MouseEvent) => void,
   ) => Map<MenuItemCategory, React.ReactNode[]>
+  /**
+   * An optional function that will be called when rendering message menu items. If provided, the
+   * value returned from this function will be used as the `children` of the message context menu.
+   * Mutating the input value and returning it is okay.
+   */
+  modifyMessageMenuItems?: (
+    messageId: string,
+    items: React.ReactNode[],
+    onMenuClose: (event?: MouseEvent) => void,
+  ) => React.ReactNode[]
 }
 
 export interface ChatContextValue {
-  mentionUser: (userId: SbUserId) => void
-  modifyMenuItems?: (
+  mentionUser?: (userId: SbUserId) => void
+  modifyUserMenuItems?: (
     userId: SbUserId,
     items: Map<MenuItemCategory, React.ReactNode[]>,
     onMenuClose: (event?: MouseEvent) => void,
   ) => Map<MenuItemCategory, React.ReactNode[]>
+  modifyMessageMenuItems?: (
+    messageId: string,
+    items: React.ReactNode[],
+    onMenuClose: (event?: MouseEvent) => void,
+  ) => React.ReactNode[]
 }
 export const ChatContext = React.createContext<ChatContextValue>({
   mentionUser: () => {},
@@ -65,7 +80,8 @@ export function Chat({
   listProps,
   inputProps,
   extraContent,
-  modifyMenuItems,
+  modifyUserMenuItems,
+  modifyMessageMenuItems,
 }: ChatProps) {
   const dispatch = useAppDispatch()
   const [isScrolledUp, setIsScrolledUp] = useState<boolean>(false)
@@ -99,7 +115,7 @@ export function Chat({
   const chatContextValue = useMemo<ChatContextValue>(
     () => ({
       mentionUser,
-      modifyMenuItems: (
+      modifyUserMenuItems: (
         userId: SbUserId,
         items: Map<MenuItemCategory, React.ReactNode[]>,
         onMenuClose: (event?: MouseEvent) => void,
@@ -114,10 +130,17 @@ export function Chat({
           />,
         )
 
-        return modifyMenuItems?.(userId, items, onMenuClose) ?? items
+        return modifyUserMenuItems?.(userId, items, onMenuClose) ?? items
+      },
+      modifyMessageMenuItems: (
+        messageId: string,
+        items: React.ReactNode[],
+        onMenuClose: (event?: MouseEvent) => void,
+      ) => {
+        return modifyMessageMenuItems?.(messageId, items, onMenuClose) ?? items
       },
     }),
-    [mentionUser, modifyMenuItems, onMentionMenuItemClick],
+    [mentionUser, modifyMessageMenuItems, modifyUserMenuItems, onMentionMenuItemClick],
   )
 
   return (

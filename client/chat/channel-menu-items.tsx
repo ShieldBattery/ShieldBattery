@@ -1,24 +1,17 @@
 import React, { useEffect } from 'react'
-import styled from 'styled-components'
 import { ChannelModerationAction, SbChannelId } from '../../common/chat'
 import { appendToMultimap } from '../../common/data-structures/maps'
 import { CAN_LEAVE_SHIELDBATTERY_CHANNEL, MULTI_CHANNEL } from '../../common/flags'
 import { SbUserId } from '../../common/users/sb-user'
+import { useSelfPermissions } from '../auth/state-hooks'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import { MenuItem } from '../material/menu/item'
+import { DestructiveMenuItem } from '../material/menu/item'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
-import { colorError } from '../styles/colors'
 import { MenuItemCategory } from '../users/user-context-menu'
-import { getChatUserProfile, moderateUser } from './action-creators'
-
-const DestructiveMenuItem = styled(MenuItem)`
-  color: ${colorError};
-
-  --sb-ripple-color: ${colorError};
-`
+import { deleteMessageAsAdmin, getChatUserProfile, moderateUser } from './action-creators'
 
 // NOTE(2Pac): Even though this function is technically not a React component, nor a custom hook, we
 // still treat it as one since it suits our needs quite nicely (by allowing us to run hooks in it
@@ -27,12 +20,12 @@ const DestructiveMenuItem = styled(MenuItem)`
  * A function which adds user context menu items specific to chat channels (e.g. kick/ban user from
  * a chat channel).
  */
-export const addChannelMenuItems = (
+export function addChannelUserMenuItems(
   userId: SbUserId,
   items: Map<MenuItemCategory, React.ReactNode[]>,
   onMenuClose: (event?: MouseEvent) => void,
   channelId: SbChannelId,
-) => {
+) {
   /* eslint-disable react-hooks/rules-of-hooks */
   const dispatch = useAppDispatch()
   const selfPermissions = useAppSelector(s => s.auth.permissions)
@@ -135,6 +128,49 @@ export const addChannelMenuItems = (
         )
       }
     }
+  }
+
+  return items
+}
+
+// NOTE(2Pac): Even though this function is technically not a React component, nor a custom hook, we
+// still treat it as one since it suits our needs quite nicely (by allowing us to run hooks in it
+// only when the message context menu is open).
+/**
+ * A function which adds message context menu items specific to chat channels (e.g. delete message
+ * from a chat channel).
+ */
+export function addChannelMessageMenuItems(
+  messageId: string,
+  items: React.ReactNode[],
+  onMenuClose: (event?: MouseEvent) => void,
+  channelId: SbChannelId,
+) {
+  /* eslint-disable react-hooks/rules-of-hooks */
+  const dispatch = useAppDispatch()
+  const selfPermissions = useSelfPermissions()
+  /* eslint-enable react-hooks/rules-of-hooks */
+
+  if (selfPermissions.moderateChatChannels) {
+    items.push(
+      <DestructiveMenuItem
+        key='delete-message'
+        text='Delete message'
+        onClick={() => {
+          dispatch(
+            deleteMessageAsAdmin(channelId, messageId, {
+              onSuccess: () => {
+                dispatch(openSnackbar({ message: 'Message deleted' }))
+              },
+              onError: () => {
+                dispatch(openSnackbar({ message: 'Error deleting message' }))
+              },
+            }),
+          )
+          onMenuClose()
+        }}
+      />,
+    )
   }
 
   return items
