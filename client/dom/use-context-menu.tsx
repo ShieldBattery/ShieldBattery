@@ -37,6 +37,10 @@ export function useContextMenu(props?: UseContextMenuProps): {
     (event: React.MouseEvent) => {
       event.preventDefault()
 
+      // NOTE(2Pac): This callback will be called each time user right-clicks inside an anchor, even
+      // if the menu was already open. This makes it possible for us to save the new x/y position of
+      // where the user clicked and move the menu to the new position, instead of just leaving it
+      // open where it was.
       setAnchorX(event.pageX)
       setAnchorY(event.pageY)
       setAnchor(event.currentTarget)
