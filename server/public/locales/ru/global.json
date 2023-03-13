@@ -44,9 +44,7 @@
     },
     "time": {
         "timeAgo": {
-            "hours": "{{hours}}ч. назад",
             "months": "{{months}}мес. назад",
-            "weeks": "{{weeks}}нед. назад",
             "years": "{{years}}год назад"
         }
     }

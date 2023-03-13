@@ -44,9 +44,7 @@
     },
     "time": {
         "timeAgo": {
-            "hours": "{{hours}}hace h",
             "months": "Hace {{months}} meses",
-            "seconds": "{{seconds}} hace s",
             "years": "{{years}}hace años"
         }
     }
