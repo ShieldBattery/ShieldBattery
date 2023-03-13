@@ -346,6 +346,12 @@ export default class ChatService {
         "Can't moderate yourself",
       )
     }
+    if (channelId === 1 && !CAN_LEAVE_SHIELDBATTERY_CHANNEL) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.CannotModerateShieldBattery,
+        "Can't moderate users in the ShieldBattery channel",
+      )
+    }
 
     const isUserServerModerator =
       userPermissions?.editPermissions || userPermissions?.moderateChatChannels
@@ -360,8 +366,6 @@ export default class ChatService {
       targetChannelEntry.channelPermissions.editPermissions ||
       targetChannelEntry.channelPermissions.ban ||
       targetChannelEntry.channelPermissions.kick
-
-    // TODO(2Pac): Really need tests for these.
 
     if (isTargetChannelOwner && !isUserServerModerator) {
       throw new ChatServiceError(
@@ -379,13 +383,6 @@ export default class ChatService {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotEnoughPermissions,
         'Not enough permissions to moderate the user',
-      )
-    }
-
-    if (channelId === 1 && !CAN_LEAVE_SHIELDBATTERY_CHANNEL) {
-      throw new ChatServiceError(
-        ChatServiceErrorCode.CannotModerateShieldBattery,
-        "Can't moderate users in the ShieldBattery channel",
       )
     }
 
@@ -538,6 +535,7 @@ export default class ChatService {
     )
 
     const messages: ServerChatMessage[] = []
+    // TODO(2Pac): Move this to a Set to eliminate duplicates
     const users: SbUser[] = []
     const mentionIds = new global.Set<SbUserId>()
 
@@ -746,6 +744,7 @@ export default class ChatService {
 
   unsubscribeUserFromChannel(user: UserSocketsGroup, channelId: SbChannelId) {
     user.unsubscribe(getChannelPath(channelId))
+    user.unsubscribe(getChannelUserPath(channelId, user.userId))
   }
 
   private async removeUserFromChannel(
