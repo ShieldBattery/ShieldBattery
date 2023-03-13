@@ -44,13 +44,9 @@
     },
     "time": {
         "timeAgo": {
-            "days": "${{days}}d ago!",
             "hours": "${{hours}}h ago!",
-            "minutes": "${{minutes}}m ago!",
             "months": "${{months}}mo ago!",
-            "now": "$just now!",
             "seconds": "${{seconds}}s ago!",
-            "weeks": "${{weeks}}w ago!",
             "years": "${{years}}y ago!"
         }
     }

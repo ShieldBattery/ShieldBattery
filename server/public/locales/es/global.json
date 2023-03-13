@@ -44,13 +44,9 @@
     },
     "time": {
         "timeAgo": {
-            "days": "{{days}} hace d",
             "hours": "{{hours}}hace h",
-            "minutes": "hace {{minutes}}m",
             "months": "Hace {{months}} meses",
-            "now": "justo ahora",
             "seconds": "{{seconds}} hace s",
-            "weeks": "{{weeks}} hace s",
             "years": "{{years}}hace años"
         }
     }
