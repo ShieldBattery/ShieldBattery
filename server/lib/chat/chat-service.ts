@@ -315,7 +315,7 @@ export default class ChatService {
 
   async moderateUser(
     channelId: SbChannelId,
-    userId: number,
+    userId: SbUserId,
     targetId: SbUserId,
     moderationAction: ChannelModerationAction,
     moderationReason?: string,
