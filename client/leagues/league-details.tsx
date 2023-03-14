@@ -24,6 +24,7 @@ import { useScrollIndicatorState } from '../material/scroll-indicator'
 import { shadow4dp } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
+import { CopyLinkButton } from '../navigation/copy-link-button'
 import { ExternalLink } from '../navigation/external-link'
 import { replace } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
@@ -39,6 +40,7 @@ import {
   colorTextSecondary,
   getRaceColor,
 } from '../styles/colors'
+import { FlexSpacer } from '../styles/flex-spacer'
 import {
   caption,
   headline3,
@@ -126,6 +128,12 @@ const DetailsRoot = styled.div`
   gap: 16px;
 `
 
+const TitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
 const Title = styled.div`
   ${headline3};
 `
@@ -150,7 +158,6 @@ const LeagueLink = styled(ExternalLink)`
   ${subtitle1};
   ${singleLine};
   min-width: 80px;
-  flex-grow: 1;
   text-align: right;
 `
 
@@ -345,7 +352,10 @@ export function LeagueDetailsHeader({ league }: LeagueDetailsHeaderProps) {
 
   return (
     <div>
-      <Title>{league.name}</Title>
+      <TitleRow>
+        <Title>{league.name}</Title>
+        <CopyLinkButton tooltipPosition='right' startingText='Copy link to league' />
+      </TitleRow>
       <SummaryRow>
         <FormatAndDate>
           {matchmakingTypeToLabel(league.matchmakingType)} ·{' '}
@@ -353,6 +363,7 @@ export function LeagueDetailsHeader({ league }: LeagueDetailsHeaderProps) {
             {dateText}
           </DateTooltip>
         </FormatAndDate>
+        <FlexSpacer />
         {league.link ? <LeagueLink href={league.link}>{league.link}</LeagueLink> : undefined}
       </SummaryRow>
     </div>
