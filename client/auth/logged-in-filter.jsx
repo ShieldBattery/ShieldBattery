@@ -1,5 +1,5 @@
 import createConditionalRedirect from '../navigation/conditional-redirect'
-import { push } from '../navigation/routing'
+import { replace } from '../navigation/routing'
 import { createNextPath, isLoggedIn } from './auth-utils'
 
 const LoggedInFilter = createConditionalRedirect(
@@ -7,7 +7,7 @@ const LoggedInFilter = createConditionalRedirect(
   state => !isLoggedIn(state.auth),
   () => {
     const search = createNextPath(location)
-    push({ pathname: '/login', search })
+    replace({ pathname: '/login', search })
   },
 )
 

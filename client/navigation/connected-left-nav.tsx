@@ -10,6 +10,7 @@ import { urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user'
 import GameActivityNavEntry from '../active-game/game-activity-nav-entry'
 import { logOut } from '../auth/action-creators'
+import { redirectToLogin } from '../auth/auth-utils'
 import { useSelfUser } from '../auth/state-hooks'
 import { openChangelog } from '../changelog/action-creators'
 import { leaveChannel } from '../chat/action-creators'
@@ -31,7 +32,7 @@ import LobbyNavEntry from '../lobbies/nav-entry'
 import { cancelFindMatch } from '../matchmaking/action-creators'
 import { isMatchmakingLoading } from '../matchmaking/matchmaking-reducer'
 import { SearchingMatchNavEntry } from '../matchmaking/searching-match-nav-entry'
-import { useButtonHotkey } from '../material/button'
+import { RaisedButton, useButtonHotkey } from '../material/button'
 import LeftNav from '../material/left-nav/left-nav'
 import Section from '../material/left-nav/section'
 import Subheader from '../material/left-nav/subheader'
@@ -54,6 +55,7 @@ import { SelfProfileOverlay } from '../users/self-profile-overlay'
 import { closeWhisperSession } from '../whispers/action-creators'
 import { WhisperNavEntry } from '../whispers/nav-entry'
 import Lockup from './lockup'
+import { push } from './routing'
 
 const ALT_H = { keyCode: keycode('h'), altKey: true }
 const ALT_W = { keyCode: keycode('w'), altKey: true }
@@ -509,4 +511,22 @@ export function ConnectedLeftNav() {
       </SelfProfileOverlay>
     </LeftNav>
   )
+}
+
+const LoggedOutFooter = styled.div`
+  padding: 16px;
+
+  display: flex;
+  flex-direction: column;
+`
+
+export function LoggedOutLeftNav() {
+  const footer = (
+    <LoggedOutFooter>
+      <RaisedButton label='Log in' onClick={() => redirectToLogin(push)} />
+    </LoggedOutFooter>
+  )
+
+  // TODO(tec27): Add some encouragement to log in
+  return <LeftNav header={<LockupAndMenu />} footer={footer} />
 }

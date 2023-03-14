@@ -15,6 +15,7 @@ import {
 } from '../../common/leagues'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { RaceChar, raceCharToLabel } from '../../common/races'
+import { redirectToLogin } from '../auth/auth-utils'
 import { useSelfUser } from '../auth/state-hooks'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { longTimestamp, monthDay, narrowDuration } from '../i18n/date-formats'
@@ -215,6 +216,11 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
 
   const [isJoining, setIsJoining] = useState(false)
   const onJoinClick = useStableCallback(() => {
+    if (!isLoggedIn) {
+      redirectToLogin()
+      return
+    }
+
     setIsJoining(true)
 
     dispatch(
@@ -298,7 +304,7 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
   }
 
   const curTime = Date.now()
-  const isJoinable = isLoggedIn && !selfLeagueUser && league.endAt > curTime
+  const isJoinable = !selfLeagueUser && league.endAt > curTime
   const isRunningOrEnded = league.startAt <= curTime
 
   const activeTab = subPage ?? DetailsSubPage.Info

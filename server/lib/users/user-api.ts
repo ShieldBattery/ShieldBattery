@@ -276,10 +276,7 @@ export class UserApi {
   }
 
   @httpGet('/:id/profile')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session!.userId)),
-  )
+  @httpBefore(throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session!.userId)))
   async getUserProfile(ctx: RouterContext): Promise<GetUserProfileResponse> {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({

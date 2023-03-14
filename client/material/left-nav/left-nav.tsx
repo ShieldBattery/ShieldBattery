@@ -23,7 +23,7 @@ const Sections = styled.div`
 `
 
 export interface LeftNavProps {
-  children: React.ReactNode
+  children?: React.ReactNode
   header?: React.ReactNode
   footer?: React.ReactNode
 }

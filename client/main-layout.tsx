@@ -11,7 +11,7 @@ import ActivityBar from './activities/activity-bar'
 import { ActivityButton } from './activities/activity-button'
 import { ActivityOverlay } from './activities/activity-overlay'
 import { ActivityOverlayType } from './activities/activity-overlay-type'
-import ActivitySpacer from './activities/spacer'
+import { VersionText } from './activities/version-text'
 import { IsAdminFilter } from './admin/admin-route-filters'
 import { openChangelogIfNecessary } from './changelog/action-creators'
 import { ChannelRouteComponent } from './chat/route'
@@ -58,12 +58,10 @@ import { openSettingsDialog } from './settings/action-creators'
 import { isShieldBatteryHealthy, isStarcraftHealthy } from './starcraft/is-starcraft-healthy'
 import { StarcraftStatus } from './starcraft/starcraft-reducer'
 import { colorTextSecondary } from './styles/colors'
-import { caption } from './styles/typography'
+import { FlexSpacer } from './styles/flex-spacer'
 import { FriendsListActivityButton } from './users/friends-list'
 import { ProfileRouteComponent } from './users/route'
 import { WhisperRouteComponent } from './whispers/route'
-
-const curVersion = __WEBPACK_ENV.VERSION
 
 const ALT_B = { keyCode: keycode('b'), altKey: true }
 const ALT_C = { keyCode: keycode('c'), altKey: true }
@@ -90,13 +88,6 @@ const Content = styled.div`
 const StyledMapsIcon = styled(MapsIcon)`
   width: 36px;
   height: 36px;
-`
-
-const VersionText = styled.div`
-  ${caption};
-  margin: 8px 0px 0px 0px;
-  color: ${colorTextSecondary};
-  letter-spacing: 1.25px;
 `
 
 let lobbyRoute = <></>
@@ -365,7 +356,7 @@ export function MainLayout() {
           onClick={() => navigateToLeaguesList()}
           hotkey={ALT_G}
         />,
-        <ActivitySpacer key='spacer' />,
+        <FlexSpacer key='spacer' />,
       ]
     : [
         <ActivityButton
@@ -389,26 +380,8 @@ export function MainLayout() {
           onClick={() => navigateToLeaguesList()}
           hotkey={ALT_G}
         />,
-        <ActivitySpacer key='spacer' />,
+        <FlexSpacer key='spacer' />,
       ]
-
-  const renderSearchingMatchOverlay = () => {
-    if (!IS_ELECTRON && !isMatchmakingSearching) {
-      return null
-    }
-
-    return (
-      <MatchmakingSearchingOverlay
-        open={searchingMatchOverlayOpen}
-        anchor={searchingMatchButtonRef.current ?? undefined}
-        onCancelSearch={() => {
-          dispatch(cancelFindMatch())
-          setSearchingMatchOverlayOpen(false)
-        }}
-        onDismiss={() => setSearchingMatchOverlayOpen(false)}
-      />
-    )
-  }
 
   return (
     <Container>
@@ -452,9 +425,19 @@ export function MainLayout() {
           <FriendsListActivityButton />
         </MiniActivityButtonsContainer>
 
-        <VersionText key='version'>v{curVersion}</VersionText>
+        <VersionText key='version' />
       </ActivityBar>
-      {renderSearchingMatchOverlay()}
+      {IS_ELECTRON && isMatchmakingSearching ? (
+        <MatchmakingSearchingOverlay
+          open={searchingMatchOverlayOpen}
+          anchor={searchingMatchButtonRef.current ?? undefined}
+          onCancelSearch={() => {
+            dispatch(cancelFindMatch())
+            setSearchingMatchOverlayOpen(false)
+          }}
+          onDismiss={() => setSearchingMatchOverlayOpen(false)}
+        />
+      ) : null}
       <ActivityOverlay />
       <NotificationPopups />
     </Container>

@@ -15,6 +15,7 @@ import { KeyListenerBoundary } from './keyboard/key-listener'
 import Faq from './landing/faq'
 import Splash from './landing/splash'
 import LoadingFilter from './loading/loading-filter'
+import { LoggedOutContent } from './logged-out-content'
 import { MainLayout } from './main-layout'
 import { LoginRoute } from './navigation/custom-routes'
 import { SiteConnectedFilter } from './network/site-connected-filter'
@@ -55,16 +56,17 @@ const LoadableSystemBar = IS_ELECTRON
 function MainContent() {
   const [matchesRoot] = useRoute('/')
   const user = useAppSelector(s => s.auth.user)
+  const loggedIn = isLoggedIn({ user })
 
   if (matchesRoot) {
     // TODO(tec27): Make a function that lets us pass just the one value (or put this computed value
     // on the state?)
-    if (!IS_ELECTRON && !isLoggedIn({ user })) {
+    if (!IS_ELECTRON && !loggedIn) {
       return <Splash />
     }
   }
 
-  return (
+  const loggedInContent = (
     <LoggedInFilter>
       <SiteConnectedFilter>
         <LoadingFilter>
@@ -73,6 +75,8 @@ function MainContent() {
       </SiteConnectedFilter>
     </LoggedInFilter>
   )
+
+  return loggedIn ? loggedInContent : <LoggedOutContent loggedInContent={loggedInContent} />
 }
 
 export default function App() {
