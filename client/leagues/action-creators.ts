@@ -152,7 +152,7 @@ export function adminUpdateLeague(
     const formData = new FormData()
     for (const [key, value] of Object.entries(leagueChanges)) {
       if (value !== undefined) {
-        formData.append(key, String(value))
+        formData.append(key, String(value === '' ? null : value))
       }
     }
 

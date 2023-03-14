@@ -337,6 +337,13 @@ export class LeagueAdminApi {
 
     const now = new Date()
 
+    // Sure would be nice if Joi handled this well =/
+    if (body.rulesAndInfo === 'null') {
+      body.rulesAndInfo = null
+    } else if (body.link === 'null') {
+      body.link = null
+    }
+
     if (body.signupsAfter && originalLeague.signupsAfter <= now) {
       throw new httpErrors.BadRequest('cannot change signupsAfter once signups have started')
     } else if (body.signupsAfter && body.signupsAfter <= now) {
