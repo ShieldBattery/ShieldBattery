@@ -41,10 +41,5 @@
             "tabStats": "Estadísticas",
             "tabSummary": "Resumen"
         }
-    },
-    "time": {
-        "timeAgo": {
-            "years": "{{years}}hace años"
-        }
     }
 }

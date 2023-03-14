@@ -41,10 +41,5 @@
             "buttonDetails": "Посмотреть детали",
             "noGameSelectedText": "Игра не выбрана"
         }
-    },
-    "time": {
-        "timeAgo": {
-            "years": "{{years}}год назад"
-        }
     }
 }
