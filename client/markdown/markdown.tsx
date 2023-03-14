@@ -3,6 +3,7 @@ import type { Components } from 'react-markdown'
 import styled from 'styled-components'
 import { ExternalLink } from '../navigation/external-link'
 import { LoadingDotsArea } from '../progress/dots'
+import { colorDividers } from '../styles/colors'
 import { headline5, headline6, subtitle1, subtitle2 } from '../styles/typography'
 
 const LoadableMarkdown = React.lazy(() => import('react-markdown'))
@@ -59,6 +60,15 @@ const StyledMarkdown = styled(LoadableMarkdown)`
   ol {
     padding-left: 28px;
   }
+
+  blockquote {
+    margin-left: 0;
+    margin-right: 16px;
+    padding: 4px 4px 4px 16px;
+
+    background-color: rgba(255, 255, 255, 0.08);
+    border-left: 8px solid ${colorDividers};
+  }
 `
 
 export interface MarkdownProps {
@@ -68,6 +78,7 @@ export interface MarkdownProps {
 
 const COMPONENTS: Components = {
   a: ({ href, children }) => <ExternalLink href={href!}>{children}</ExternalLink>,
+  img: ({ alt, src }) => <ExternalLink href={src!}>{alt}</ExternalLink>,
 }
 
 export function Markdown({ source, className }: MarkdownProps) {

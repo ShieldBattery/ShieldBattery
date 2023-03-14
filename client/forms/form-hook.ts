@@ -3,7 +3,7 @@ import { ConditionalKeys } from 'type-fest'
 import createDeferred, { Deferred } from '../../common/async/deferred'
 import shallowEquals from '../../common/shallow-equals'
 
-export interface FormHook<ModelType> {
+interface FormHook<ModelType> {
   /**
    * Event handler that should be attached to the `form` element's onSubmit prop. This can also be
    * called directly if you want to start a form submission because of some other event.
@@ -117,14 +117,25 @@ export type ValidatorMap<ModelType> = Partial<{
  *   render (similar semantics to `useState`).
  * @param validations A mapping of name -> a function to validate a value for that form input. Any
  *   missing names will be assumed to be valid at all times.
- * @param onSubmit A callback for when the form has been submitted and is free of validation errors
+ * @param callbacks A set of callbacks which will be called during various phases of the form.
  */
 export function useForm<ModelType>(
   model: Readonly<ModelType>,
   validations: Readonly<ValidatorMap<ModelType>>,
   callbacks: {
+    /** Called when the form has been submitted and the model is free of validation errors. */
     onSubmit?: (model: Readonly<ModelType>) => void
+    /** Called when the form's model has changed (may not be valid). */
     onChange?: (model: Readonly<ModelType>) => void
+    /**
+     * Called when the form's model has changed and the data *that has been modified* is valid.
+     * Inputs that have not been modified will not be validated, so if e.g. your form has a required
+     * field, it may not be present in the model passed to this callback.
+     *
+     * NOTE: This can be somewhat spammy, if you're using it to save things, it should probably be
+     * debounced.
+     */
+    onValidatedChange?: (model: Readonly<ModelType>) => void
   } = {},
 ): FormHook<ModelType> {
   const [modelValue, setModelValue] = useState(model)
@@ -139,7 +150,7 @@ export function useForm<ModelType>(
   const validationErrorsRef = useRef(validationErrors)
 
   const dirtyFieldsRef = useRef(new Map<keyof ModelType, boolean>())
-  const validationPromisesRef = useRef(new Map<keyof ModelType, Promise<string | undefined>>())
+  const validationPromisesRef = useRef(new Map<keyof ModelType, Promise<void>>())
   const notifyValidationRef = useRef<Array<Deferred<void>>>([])
 
   const validate = useCallback(
@@ -154,10 +165,7 @@ export function useForm<ModelType>(
           stateModelRef.current,
           dirtyFieldsRef.current,
         ),
-      )
-      validationPromisesRef.current.set(name, resultPromise)
-
-      resultPromise.then(errorMsg => {
+      ).then(errorMsg => {
         if (validationPromisesRef.current.get(name) !== resultPromise) {
           // A newer validation is running on this input, ignore this result
           return
@@ -169,6 +177,8 @@ export function useForm<ModelType>(
           [name]: errorMsg,
         }))
       })
+
+      validationPromisesRef.current.set(name, resultPromise)
 
       // Wake up all the things waiting for validations to complete to tell them there is a new
       // validation promise
@@ -240,6 +250,36 @@ export function useForm<ModelType>(
 
       if (callbacksRef.current.onChange) {
         callbacksRef.current.onChange(modelValue)
+      }
+
+      if (callbacksRef.current.onValidatedChange) {
+        const checkValidations = () => {
+          if (!callbacksRef.current.onValidatedChange) {
+            // Callback was removed while we were waiting
+            return
+          }
+
+          const validationsOutstanding = validationPromisesRef.current.size > 0
+          if (!validationsOutstanding) {
+            if (Object.values(validationErrorsRef.current).some(v => !!v)) {
+              // Form isn't valid, no need to call onValidatedChange
+              return
+            } else {
+              // Form is valid and we're not waiting on any validations, can notify!
+              callbacksRef.current.onValidatedChange(stateModelRef.current)
+            }
+          } else {
+            // Wait for any validations to finish, or for a new validation request to occur. When
+            // either of those things happen, we re-check the validations
+            const interrupt = createDeferred<void>()
+            notifyValidationRef.current.push(interrupt)
+            Promise.race(
+              Array.from<Promise<any>>(validationPromisesRef.current.values()).concat(interrupt),
+            ).finally(checkValidations)
+          }
+        }
+
+        checkValidations()
       }
     }
   }, [lastModelValue, modelValue, validate])

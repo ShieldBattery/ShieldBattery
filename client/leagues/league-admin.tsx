@@ -1,7 +1,12 @@
-import React, { useCallback, useEffect, useId, useState } from 'react'
+import React, { useEffect, useId, useState } from 'react'
 import styled from 'styled-components'
 import { Route, Switch } from 'wouter'
-import { LeagueJson, LEAGUE_IMAGE_HEIGHT, LEAGUE_IMAGE_WIDTH } from '../../common/leagues'
+import {
+  LeagueJson,
+  LEAGUE_IMAGE_HEIGHT,
+  LEAGUE_IMAGE_WIDTH,
+  makeClientLeagueId,
+} from '../../common/leagues'
 import {
   ALL_MATCHMAKING_TYPES,
   MatchmakingType,
@@ -18,12 +23,15 @@ import { Select } from '../material/select/select'
 import { TextField } from '../material/text-field'
 import { push } from '../navigation/routing'
 import { useAppDispatch } from '../redux-hooks'
+import { useStableCallback } from '../state-hooks'
 import { colorDividers, colorError, colorTextSecondary } from '../styles/colors'
 import { body1, headline4, subtitle1 } from '../styles/typography'
 import { adminAddLeague, adminGetLeagues } from './action-creators'
+import { LeagueDetailsHeader, LeagueDetailsInfo } from './league-details'
+import { LeagueCard, LeagueSectionType } from './league-list'
 
 const Root = styled.div`
-  padding: 8px;
+  padding: 12px 24px;
 `
 
 const Title = styled.div`
@@ -35,7 +43,17 @@ const ErrorText = styled.div`
   color: ${colorError};
 `
 
-const ListRoot = styled.div``
+const ListRoot = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+`
+
+const CardList = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+`
 
 export function LeagueAdmin() {
   const dispatch = useAppDispatch()
@@ -62,6 +80,8 @@ export function LeagueAdmin() {
     return () => controller.abort()
   }, [dispatch])
 
+  const curDate = Date.now()
+
   return (
     <Root>
       <Switch>
@@ -70,15 +90,27 @@ export function LeagueAdmin() {
         <Route>
           <ListRoot>
             <Title>Manage leagues</Title>
-            <RaisedButton
-              label='Add league'
-              iconStart={<AddIcon />}
-              onClick={() => push('/leagues/admin/new')}
-            />
+            <div>
+              <RaisedButton
+                label='Add league'
+                iconStart={<AddIcon />}
+                onClick={() => push('/leagues/admin/new')}
+              />
+            </div>
             {error ? <ErrorText>{error.message}</ErrorText> : null}
-            {leagues.map(l => (
-              <div key={l.id}>{JSON.stringify(l)}</div>
-            ))}
+            <CardList>
+              {leagues.map(l => (
+                <LeagueCard
+                  key={l.id}
+                  league={l}
+                  type={LeagueSectionType.Current}
+                  joined={false}
+                  curDate={curDate}
+                  onClick={league => push(`/leagues/admin/${league.id}`)}
+                  actionText={'Edit'}
+                />
+              ))}
+            </CardList>
           </ListRoot>
         </Route>
       </Switch>
@@ -119,6 +151,10 @@ const CreateLeaguePreview = styled.div`
   flex-grow: 1;
   max-width: 720px;
   padding: 8px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 
   border: 1px solid ${colorDividers};
   border-radius: 2px;
@@ -171,36 +207,49 @@ function CreateLeague() {
 
   const dispatch = useAppDispatch()
   const [error, setError] = useState<Error>()
-  const onFormSubmit = useCallback(
-    (model: CreateLeagueModel) => {
-      dispatch(
-        adminAddLeague(
-          {
-            name: model.name,
-            matchmakingType: model.matchmakingType,
-            description: model.description,
-            signupsAfter: Date.parse(model.signupsAfter),
-            startAt: Date.parse(model.startAt),
-            endAt: Date.parse(model.endAt),
-            rulesAndInfo: model.rulesAndInfo,
-            link: model.link,
-            image: model.image,
+  const onFormSubmit = useStableCallback((model: CreateLeagueModel) => {
+    dispatch(
+      adminAddLeague(
+        {
+          name: model.name,
+          matchmakingType: model.matchmakingType,
+          description: model.description,
+          signupsAfter: Date.parse(model.signupsAfter),
+          startAt: Date.parse(model.startAt),
+          endAt: Date.parse(model.endAt),
+          rulesAndInfo: model.rulesAndInfo,
+          link: model.link,
+          image: model.image,
+        },
+        {
+          onSuccess: () => {
+            setError(undefined)
+            // TODO(tec27): Cause refresh of list of leagues
+            history.back()
           },
-          {
-            onSuccess: () => {
-              setError(undefined)
-              // TODO(tec27): Cause refresh of list of leagues
-              history.back()
-            },
-            onError: err => {
-              setError(err)
-            },
+          onError: err => {
+            setError(err)
           },
-        ),
-      )
-    },
-    [dispatch],
-  )
+        },
+      ),
+    )
+  })
+
+  const [previewLeague, setPreviewLeague] = useState<LeagueJson>()
+  const onValidatedChange = useStableCallback((model: Readonly<CreateLeagueModel>) => {
+    setPreviewLeague({
+      id: makeClientLeagueId('preview-league'),
+      name: model.name,
+      matchmakingType: model.matchmakingType,
+      description: model.description,
+      signupsAfter: Number(Date.parse(model.signupsAfter || new Date().toISOString())),
+      startAt: Number(Date.parse(model.startAt || new Date().toISOString())),
+      endAt: Number(Date.parse(model.endAt || new Date().toISOString())),
+      rulesAndInfo: model.rulesAndInfo,
+      link: model.link,
+      imagePath: undefined, // TODO(tec27): We could make a blob URL for this
+    })
+  })
 
   const { onSubmit, bindInput, bindCustom } = useForm<CreateLeagueModel>(
     {
@@ -237,7 +286,7 @@ function CreateLeague() {
         }
       },
     },
-    { onSubmit: onFormSubmit },
+    { onSubmit: onFormSubmit, onValidatedChange },
   )
 
   return (
@@ -317,7 +366,14 @@ function CreateLeague() {
 
           <RaisedButton label='Create league' color='primary' onClick={onSubmit} />
         </CreateLeagueForm>
-        <CreateLeaguePreview>TODO!</CreateLeaguePreview>
+        <CreateLeaguePreview>
+          {previewLeague ? (
+            <>
+              <LeagueDetailsHeader league={previewLeague} />
+              <LeagueDetailsInfo league={previewLeague} />
+            </>
+          ) : undefined}
+        </CreateLeaguePreview>
       </CreateLeagueFormAndPreview>
     </CreateLeagueRoot>
   )

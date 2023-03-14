@@ -17,6 +17,7 @@ import { Ripple } from '../material/ripple'
 import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useStableCallback } from '../state-hooks'
 import { colorError, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { body1, caption, headline4, headline6, subtitle1 } from '../styles/typography'
@@ -66,7 +67,7 @@ const ErrorText = styled.div`
   color: ${colorError};
 `
 
-enum LeagueSectionType {
+export enum LeagueSectionType {
   Past,
   Current,
   Future,
@@ -203,6 +204,8 @@ function LeagueSection({
 }) {
   const curDate = Date.now()
 
+  const onViewInfo = useStableCallback((league: LeagueJson) => navigateToLeague(league.id, league))
+
   return (
     <SectionRoot>
       <SectionLabel>{label}</SectionLabel>
@@ -215,6 +218,8 @@ function LeagueSection({
               type={type}
               curDate={curDate}
               joined={joinedLeagues.has(l.id)}
+              actionText={'View info'}
+              onClick={onViewInfo}
             />
           ))
         ) : (
@@ -282,19 +287,22 @@ const JoinedIndicator = styled.div`
   color: ${colorTextFaint};
 `
 
-function LeagueCard({
+export function LeagueCard({
   league,
   type,
   curDate,
   joined,
+  actionText,
+  onClick,
 }: {
   league: ReadonlyDeep<LeagueJson>
   type: LeagueSectionType
   curDate: number
   joined: boolean
+  actionText: string
+  onClick: (league: ReadonlyDeep<LeagueJson>) => void
 }) {
-  const onViewInfo = () => navigateToLeague(league.id, league)
-  const [buttonProps, rippleRef] = useButtonState({ onClick: onViewInfo })
+  const [buttonProps, rippleRef] = useButtonState({ onClick: () => onClick(league) })
 
   let dateText: string
   let dateTooltip: string
@@ -342,7 +350,7 @@ function LeagueCard({
           NOTE(tec27): This intentionally doesn't have an onClick handler as it is handled by the
           card and having both would cause 2 navigations to occur.
         */}
-        <TextButton label='View info' color='accent' />
+        <TextButton label={actionText} color='accent' />
       </LeagueActions>
       <Ripple ref={rippleRef} />
     </LeagueCardRoot>
