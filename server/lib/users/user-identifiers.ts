@@ -222,7 +222,9 @@ export async function banAllIdentifiers(
 
   try {
     const query = sql`
-      INSERT INTO user_identifier_bans AS uib
+      INSERT INTO user_identifier_bans AS uib (
+        identifier_type, identifier_hash, time_banned, banned_until, first_user_id
+      )
       SELECT
         identifier_type,
         identifier_hash,
