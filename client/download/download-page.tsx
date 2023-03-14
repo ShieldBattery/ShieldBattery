@@ -26,20 +26,18 @@ const LogoTextContainer = styled.div`
   text-align: center;
 `
 
-export default class DownloadPage extends React.Component {
-  override render() {
-    return (
-      <div>
-        <Wrapper>
-          <Logo src={makePublicAssetUrl('/images/logo.svg')} />
-          <LogoTextContainer>
-            <LogoText />
-          </LogoTextContainer>
-          <div>
-            <Download />
-          </div>
-        </Wrapper>
-      </div>
-    )
-  }
+export function DownloadPage() {
+  return (
+    <div>
+      <Wrapper>
+        <Logo src={makePublicAssetUrl('/images/logo.svg')} />
+        <LogoTextContainer>
+          <LogoText />
+        </LogoTextContainer>
+        <div>
+          <Download />
+        </div>
+      </Wrapper>
+    </div>
+  )
 }

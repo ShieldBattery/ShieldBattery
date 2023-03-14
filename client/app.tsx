@@ -9,7 +9,7 @@ import Login from './auth/login'
 import Signup from './auth/signup'
 import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay'
 import { usePixelShover } from './dom/pixel-shover'
-import DownloadPage from './download/download-page'
+import { DownloadPage } from './download/download-page'
 import { UpdateOverlay } from './download/update-overlay'
 import { KeyListenerBoundary } from './keyboard/key-listener'
 import Faq from './landing/faq'
@@ -17,13 +17,13 @@ import Splash from './landing/splash'
 import LoadingFilter from './loading/loading-filter'
 import { MainLayout } from './main-layout'
 import { LoginRoute } from './navigation/custom-routes'
-import SiteConnectedFilter from './network/site-connected-filter'
+import { SiteConnectedFilter } from './network/site-connected-filter'
 import {
   AcceptableUsePage,
   PrivacyPolicyPage,
   TermsOfServicePage,
 } from './policies/policy-displays'
-import LoadingIndicator from './progress/dots'
+import { LoadingDotsArea } from './progress/dots'
 import { useAppSelector } from './redux-hooks'
 import { RootErrorBoundary } from './root-error-boundary'
 import ConnectedSnackbar from './snackbars/connected-snackbar'
@@ -32,13 +32,11 @@ import ResetStyle from './styles/reset'
 
 const IS_PRODUCTION = __WEBPACK_ENV.NODE_ENV === 'production'
 
-const DevComponent = IS_PRODUCTION ? () => undefined : React.lazy(() => import('./dev'))
+const DevComponent = IS_PRODUCTION ? () => null : React.lazy(() => import('./dev'))
 
 function LoadableDev() {
-  // TODO(tec27): do we need to position this indicator differently? (or pull that into a common
-  // place?)
   return (
-    <React.Suspense fallback={<LoadingIndicator />}>
+    <React.Suspense fallback={<LoadingDotsArea />}>
       <DevComponent />
     </React.Suspense>
   )
@@ -48,7 +46,7 @@ const LoadableWindowControls = IS_ELECTRON
   ? React.lazy(async () => ({
       default: (await import('./system-bar/window-controls')).WindowControls,
     }))
-  : () => undefined
+  : () => null
 
 const LoadableSystemBar = IS_ELECTRON
   ? React.lazy(async () => ({ default: (await import('./system-bar/system-bar')).SystemBar }))
@@ -93,7 +91,7 @@ export default function App() {
         <LoadableSystemBar />
         <KeyListenerBoundary>
           <RootErrorBoundary>
-            <React.Suspense fallback={<LoadingIndicator />}>
+            <React.Suspense fallback={<LoadingDotsArea />}>
               <Switch>
                 <Route path='/splash' component={Splash} />
                 <Route path='/faq' component={Faq} />
