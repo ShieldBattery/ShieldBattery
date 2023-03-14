@@ -1,4 +1,5 @@
 import { NydusServer } from 'nydus'
+import createDeferred from '../../../common/async/deferred'
 import {
   ChannelInfo,
   ChannelModerationAction,
@@ -9,7 +10,7 @@ import {
 } from '../../../common/chat'
 import * as flags from '../../../common/flags'
 import { asMockedFunction } from '../../../common/testing/mocks'
-import { SbPermissions } from '../../../common/users/permissions'
+import { userPermissions } from '../../../common/users/permissions'
 import { makeSbUserId, SbUser } from '../../../common/users/sb-user'
 import { DbClient } from '../db'
 import { getPermissions } from '../models/permissions'
@@ -39,6 +40,7 @@ import {
   getUserChannelEntryForUser,
   getUsersForChannel,
   isUserBannedFromChannel,
+  JoinChannelData,
   removeUserFromChannel,
   TextMessageData,
   updateUserPermissions,
@@ -87,6 +89,37 @@ jest.mock('./chat-models', () => ({
   searchChannelsAsAdmin: jest.fn().mockResolvedValue([]),
 }))
 
+// TODO(2Pac): Move these elsewhere?
+
+type DbJoinChannelMessage = ChatMessage & { data: JoinChannelData }
+type DbTextChannelMessage = ChatMessage & { data: TextMessageData }
+
+/**
+ * A helper method that returns a JSON version of the "JoinChannel" database message.
+ */
+function toJoinChannelMessageJson(dbMessage: DbJoinChannelMessage) {
+  return {
+    id: dbMessage.msgId,
+    type: dbMessage.data.type,
+    channelId: dbMessage.channelId,
+    userId: dbMessage.userId,
+    time: Number(dbMessage.sent),
+  }
+}
+/**
+ * A helper method that returns a JSON version of the "Text" database message.
+ */
+function toTextMessageJson(dbMessage: DbTextChannelMessage) {
+  return {
+    id: dbMessage.msgId,
+    type: dbMessage.data.type,
+    channelId: dbMessage.channelId,
+    from: dbMessage.userId,
+    time: Number(dbMessage.sent),
+    text: dbMessage.data.text,
+  }
+}
+
 describe('chat/chat-service', () => {
   let nydus: NydusServer
   let chatService: ChatService
@@ -108,19 +141,6 @@ describe('chat/chat-service', () => {
   const user1: SbUser = { id: makeSbUserId(1), name: 'USER_NAME_1' }
   const user2: SbUser = { id: makeSbUserId(2), name: 'USER_NAME_2' }
 
-  const userPermissions: SbPermissions = {
-    editPermissions: false,
-    debug: false,
-    banUsers: false,
-    manageLeagues: false,
-    manageMaps: false,
-    manageMapPools: false,
-    manageMatchmakingSeasons: false,
-    manageMatchmakingTimes: false,
-    manageRallyPointServers: false,
-    massDeleteMaps: false,
-    moderateChatChannels: false,
-  }
   const channelPermissions: ChannelPermissions = {
     kick: false,
     ban: false,
@@ -153,7 +173,7 @@ describe('chat/chat-service', () => {
     channelPermissions,
   }
 
-  const joinUser1ShieldBatteryChannelMessage: ChatMessage = {
+  const joinUser1ShieldBatteryChannelMessage: DbJoinChannelMessage = {
     msgId: 'MESSAGE_ID',
     userId: user1.id,
     userName: user1.name,
@@ -163,7 +183,7 @@ describe('chat/chat-service', () => {
       type: ServerChatMessageType.JoinChannel,
     },
   }
-  const joinUser1TestChannelMessage: ChatMessage = {
+  const joinUser1TestChannelMessage: DbJoinChannelMessage = {
     msgId: 'MESSAGE_ID',
     userId: user1.id,
     userName: user1.name,
@@ -173,7 +193,7 @@ describe('chat/chat-service', () => {
       type: ServerChatMessageType.JoinChannel,
     },
   }
-  const joinUser2ShieldBatteryChannelMessage: ChatMessage = {
+  const joinUser2ShieldBatteryChannelMessage: DbJoinChannelMessage = {
     msgId: 'MESSAGE_ID',
     userId: user2.id,
     userName: user2.name,
@@ -183,7 +203,7 @@ describe('chat/chat-service', () => {
       type: ServerChatMessageType.JoinChannel,
     },
   }
-  const joinUser2TestChannelMessage: ChatMessage = {
+  const joinUser2TestChannelMessage: DbJoinChannelMessage = {
     msgId: 'MESSAGE_ID',
     userId: user2.id,
     userName: user2.name,
@@ -194,13 +214,15 @@ describe('chat/chat-service', () => {
     },
   }
 
-  // A helper method that mocks everything correctly to "join" a user to a channel.
-  const joinUserToChannel = async (
+  /**
+   * A helper method that mocks everything correctly to "join" a user to a channel.
+   */
+  async function joinUserToChannel(
     user: SbUser,
     channel: ChannelInfo,
     userChannelEntry: UserChannelEntry,
     channelMessage: ChatMessage,
-  ) => {
+  ) {
     asMockedFunction(findUserById).mockResolvedValue(user)
     asMockedFunction(findChannelByName).mockResolvedValue(undefined)
     asMockedFunction(createChannel).mockResolvedValue(channel)
@@ -261,7 +283,9 @@ describe('chat/chat-service', () => {
     })
 
     test('works when user exists', async () => {
-      await chatService.joinInitialChannel(user1.id, dbClient, Promise.resolve())
+      const transactionPromise = createDeferred<void>()
+
+      await chatService.joinInitialChannel(user1.id, dbClient, transactionPromise)
 
       expect(addUserToChannelMock).toHaveBeenCalledWith(user1.id, shieldBatteryChannel.id, dbClient)
       expect(addMessageToChannelMock).toHaveBeenCalledWith(
@@ -270,27 +294,20 @@ describe('chat/chat-service', () => {
         { type: ServerChatMessageType.JoinChannel },
         dbClient,
       )
+
+      await transactionPromise.resolve()
+
       expect(client2.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
         action: 'join2',
         user: user1,
-        message: {
-          id: joinUser1ShieldBatteryChannelMessage.msgId,
-          type: joinUser1ShieldBatteryChannelMessage.data.type,
-          channelId: joinUser1ShieldBatteryChannelMessage.channelId,
-          userId: joinUser1ShieldBatteryChannelMessage.userId,
-          time: Number(joinUser1ShieldBatteryChannelMessage.sent),
-        },
+        message: toJoinChannelMessageJson(joinUser1ShieldBatteryChannelMessage),
       })
-      expect(nydus.subscribeClient).toHaveBeenCalledWith(
-        client1,
-        getChannelPath(shieldBatteryChannel.id),
-        {
-          action: 'init3',
-          channelInfo: shieldBatteryChannel,
-          activeUserIds: [user2.id, user1.id],
-          selfPermissions: channelPermissions,
-        },
-      )
+      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
+        action: 'init3',
+        channelInfo: shieldBatteryChannel,
+        activeUserIds: [user2.id, user1.id],
+        selfPermissions: channelPermissions,
+      })
       expect(nydus.subscribeClient).toHaveBeenCalledWith(
         client1,
         getChannelUserPath(shieldBatteryChannel.id, user1.id),
@@ -363,24 +380,14 @@ describe('chat/chat-service', () => {
       expect(client2.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
         action: 'join2',
         user: user1,
-        message: {
-          id: joinUser1ShieldBatteryChannelMessage.msgId,
-          type: joinUser1ShieldBatteryChannelMessage.data.type,
-          channelId: joinUser1ShieldBatteryChannelMessage.channelId,
-          userId: joinUser1ShieldBatteryChannelMessage.userId,
-          time: Number(joinUser1ShieldBatteryChannelMessage.sent),
-        },
+        message: toJoinChannelMessageJson(joinUser1ShieldBatteryChannelMessage),
       })
-      expect(nydus.subscribeClient).toHaveBeenCalledWith(
-        client1,
-        getChannelPath(shieldBatteryChannel.id),
-        {
-          action: 'init3',
-          channelInfo: shieldBatteryChannel,
-          activeUserIds: [user2.id, user1.id],
-          selfPermissions: channelPermissions,
-        },
-      )
+      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
+        action: 'init3',
+        channelInfo: shieldBatteryChannel,
+        activeUserIds: [user2.id, user1.id],
+        selfPermissions: channelPermissions,
+      })
       expect(nydus.subscribeClient).toHaveBeenCalledWith(
         client1,
         getChannelUserPath(shieldBatteryChannel.id, user1.id),
@@ -388,7 +395,7 @@ describe('chat/chat-service', () => {
       )
     })
 
-    test("works when channel doesn't exist", async () => {
+    test("creates a new channel when it doesn't exist", async () => {
       asMockedFunction(findChannelByName).mockResolvedValue(undefined)
       addUserToChannelMock.mockResolvedValue(user1TestChannelEntry)
       addMessageToChannelMock.mockResolvedValue(joinUser1TestChannelMessage)
@@ -396,6 +403,7 @@ describe('chat/chat-service', () => {
 
       await chatService.joinChannel(testChannel.name, user1.id)
 
+      expect(createChannelMock).toHaveBeenCalledWith(user1.id, testChannel.name, dbClient)
       expect(addUserToChannelMock).toHaveBeenCalledWith(user1.id, testChannel.id, dbClient)
       expect(addMessageToChannelMock).toHaveBeenCalledWith(
         user1.id,
@@ -407,7 +415,7 @@ describe('chat/chat-service', () => {
       // NOTE(2Pac): Since there are no users in this channel, we don't bother checking to see if
       // the publish message was sent/received.
 
-      expect(nydus.subscribeClient).toHaveBeenCalledWith(client1, getChannelPath(testChannel.id), {
+      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
         action: 'init3',
         channelInfo: testChannel,
         activeUserIds: [user1.id],
@@ -469,12 +477,8 @@ describe('chat/chat-service', () => {
           userId: user1.id,
           newOwnerId: undefined,
         })
-        expect(nydus.unsubscribeClient).toHaveBeenCalledWith(
-          client1,
-          getChannelPath(shieldBatteryChannel.id),
-        )
-        expect(nydus.unsubscribeClient).toHaveBeenCalledWith(
-          client1,
+        expect(client1.unsubscribe).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id))
+        expect(client1.unsubscribe).toHaveBeenCalledWith(
           getChannelUserPath(shieldBatteryChannel.id, user1.id),
         )
       })
@@ -502,11 +506,8 @@ describe('chat/chat-service', () => {
         userId: user1.id,
         newOwnerId: undefined,
       })
-      expect(nydus.unsubscribeClient).toHaveBeenCalledWith(client1, getChannelPath(testChannel.id))
-      expect(nydus.unsubscribeClient).toHaveBeenCalledWith(
-        client1,
-        getChannelUserPath(testChannel.id, user1.id),
-      )
+      expect(client1.unsubscribe).toHaveBeenCalledWith(getChannelPath(testChannel.id))
+      expect(client1.unsubscribe).toHaveBeenCalledWith(getChannelUserPath(testChannel.id, user1.id))
     })
   })
 
@@ -597,12 +598,8 @@ describe('chat/chat-service', () => {
           targetId: user2.id,
           newOwnerId: undefined,
         })
-        expect(nydus.unsubscribeClient).toHaveBeenCalledWith(
-          client2,
-          getChannelPath(shieldBatteryChannel.id),
-        )
-        expect(nydus.unsubscribeClient).toHaveBeenCalledWith(
-          client2,
+        expect(client2.unsubscribe).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id))
+        expect(client2.unsubscribe).toHaveBeenCalledWith(
           getChannelUserPath(shieldBatteryChannel.id, user2.id),
         )
       })
@@ -616,12 +613,8 @@ describe('chat/chat-service', () => {
           targetId: user2.id,
           newOwnerId: undefined,
         })
-        expect(nydus.unsubscribeClient).toHaveBeenCalledWith(
-          client2,
-          getChannelPath(testChannel.id),
-        )
-        expect(nydus.unsubscribeClient).toHaveBeenCalledWith(
-          client2,
+        expect(client2.unsubscribe).toHaveBeenCalledWith(getChannelPath(testChannel.id))
+        expect(client2.unsubscribe).toHaveBeenCalledWith(
           getChannelUserPath(testChannel.id, user2.id),
         )
       }
@@ -892,7 +885,7 @@ describe('chat/chat-service', () => {
     describe('when in channel', () => {
       const addMessageToChannelMock = asMockedFunction(addMessageToChannel)
 
-      let textMessage: ChatMessage
+      let textMessage: DbTextChannelMessage
       const mockTextMessage = (processedMessageString: string, mentions: SbUser[]) => {
         textMessage = {
           msgId: 'MESSAGE_ID',
@@ -921,14 +914,7 @@ describe('chat/chat-service', () => {
         })
         expect(client2.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
           action: 'message2',
-          message: {
-            id: textMessage.msgId,
-            type: textMessage.data.type,
-            channelId: textMessage.channelId,
-            from: textMessage.userId,
-            time: Number(textMessage.sent),
-            text: processedMessageString,
-          },
+          message: toTextMessageJson(textMessage),
           user: {
             id: user1.id,
             name: user1.name,
@@ -1075,7 +1061,7 @@ describe('chat/chat-service', () => {
   })
 
   describe('getChannelHistory', () => {
-    const textMessage1: ChatMessage & { data: TextMessageData } = {
+    const textMessage1: DbTextChannelMessage = {
       msgId: 'MESSAGE_1_ID',
       userId: user1.id,
       userName: user1.name,
@@ -1086,7 +1072,7 @@ describe('chat/chat-service', () => {
         text: 'Hello World!',
       },
     }
-    const textMessage2: ChatMessage & { data: TextMessageData } = {
+    const textMessage2: DbTextChannelMessage = {
       msgId: 'MESSAGE_2_ID',
       userId: user1.id,
       userName: user1.name,
@@ -1110,29 +1096,9 @@ describe('chat/chat-service', () => {
     const expectItWorks = (result: GetChannelHistoryServerResponse) => {
       expect(result).toEqual({
         messages: [
-          {
-            id: joinUser1TestChannelMessage.msgId,
-            type: joinUser1TestChannelMessage.data.type,
-            channelId: joinUser1TestChannelMessage.channelId,
-            userId: joinUser1TestChannelMessage.userId,
-            time: Number(joinUser1TestChannelMessage.sent),
-          },
-          {
-            id: textMessage1.msgId,
-            type: textMessage1.data.type,
-            channelId: textMessage1.channelId,
-            from: textMessage1.userId,
-            time: Number(textMessage1.sent),
-            text: textMessage1.data.text,
-          },
-          {
-            id: textMessage2.msgId,
-            type: textMessage2.data.type,
-            channelId: textMessage2.channelId,
-            from: textMessage2.userId,
-            time: Number(textMessage2.sent),
-            text: textMessage2.data.text,
-          },
+          toJoinChannelMessageJson(joinUser1TestChannelMessage),
+          toTextMessageJson(textMessage1),
+          toTextMessageJson(textMessage2),
         ],
         users: [user1, user1, user1],
         mentions: [user1, user2],
