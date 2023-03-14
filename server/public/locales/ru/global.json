@@ -44,7 +44,6 @@
     },
     "time": {
         "timeAgo": {
-            "months": "{{months}}мес. назад",
             "years": "{{years}}год назад"
         }
     }

@@ -44,7 +44,6 @@
     },
     "time": {
         "timeAgo": {
-            "months": "${{months}}mo ago!",
             "years": "${{years}}y ago!"
         }
     }
