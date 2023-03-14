@@ -112,6 +112,10 @@ export interface AdminGetLeaguesResponse {
   leagues: LeagueJson[]
 }
 
+export interface AdminGetLeagueResponse {
+  league: LeagueJson
+}
+
 export interface ServerAdminAddLeagueRequest {
   name: string
   matchmakingType: MatchmakingType
@@ -126,6 +130,24 @@ export interface ServerAdminAddLeagueRequest {
 export type AdminAddLeagueRequest = Jsonify<ServerAdminAddLeagueRequest>
 
 export interface AdminAddLeagueResponse {
+  league: LeagueJson
+}
+
+export interface ServerAdminEditLeagueRequest {
+  name?: string
+  matchmakingType?: MatchmakingType
+  description?: string
+  signupsAfter?: Date
+  startAt?: Date
+  endAt?: Date
+  rulesAndInfo?: string | null
+  link?: string | null
+  deleteImage?: boolean
+}
+
+export type AdminEditLeagueRequest = Jsonify<ServerAdminEditLeagueRequest>
+
+export interface AdminEditLeagueResponse {
   league: LeagueJson
 }
 

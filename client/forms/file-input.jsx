@@ -54,5 +54,8 @@ export default class FileInput extends React.Component {
     if (this.props.onFilesCleared) {
       this.props.onFilesCleared()
     }
+    if (this.props.onChange) {
+      this.props.onChange(this.props.multiple ? [] : undefined)
+    }
   }
 }

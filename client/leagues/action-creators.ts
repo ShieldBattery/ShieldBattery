@@ -3,6 +3,9 @@ import { ReadonlyDeep } from 'type-fest'
 import {
   AdminAddLeagueRequest,
   AdminAddLeagueResponse,
+  AdminEditLeagueRequest,
+  AdminEditLeagueResponse,
+  AdminGetLeagueResponse,
   AdminGetLeaguesResponse,
   ClientLeagueId,
   GetLeagueByIdResponse,
@@ -107,6 +110,15 @@ export function adminGetLeagues(spec: RequestHandlingSpec<AdminGetLeaguesRespons
   })
 }
 
+export function adminGetLeague(
+  id: ClientLeagueId,
+  spec: RequestHandlingSpec<AdminGetLeagueResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    return await fetchJson(apiUrl`admin/leagues/${id}/`, { signal: spec.signal })
+  })
+}
+
 export function adminAddLeague(
   league: AdminAddLeagueRequest & { image?: Blob },
   spec: RequestHandlingSpec<AdminAddLeagueResponse>,
@@ -125,6 +137,31 @@ export function adminAddLeague(
 
     return await fetchJson(apiUrl`admin/leagues/`, {
       method: 'POST',
+      signal: spec.signal,
+      body: formData,
+    })
+  })
+}
+
+export function adminUpdateLeague(
+  id: ClientLeagueId,
+  leagueChanges: AdminEditLeagueRequest & { image?: Blob },
+  spec: RequestHandlingSpec<AdminEditLeagueResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    const formData = new FormData()
+    for (const [key, value] of Object.entries(leagueChanges)) {
+      if (value !== undefined) {
+        formData.append(key, String(value))
+      }
+    }
+
+    if (leagueChanges.image) {
+      formData.append('image', leagueChanges.image)
+    }
+
+    return await fetchJson(apiUrl`admin/leagues/${id}/`, {
+      method: 'PATCH',
       signal: spec.signal,
       body: formData,
     })

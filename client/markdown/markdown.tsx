@@ -69,6 +69,15 @@ const StyledMarkdown = styled(LoadableMarkdown)`
     background-color: rgba(255, 255, 255, 0.08);
     border-left: 8px solid ${colorDividers};
   }
+
+  hr {
+    border: none;
+    box-sizing: border-box;
+    height: 1px;
+    margin: 7px 0 8px 0;
+
+    background-color: ${colorDividers};
+  }
 `
 
 export interface MarkdownProps {

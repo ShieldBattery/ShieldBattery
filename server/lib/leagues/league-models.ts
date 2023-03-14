@@ -1,4 +1,5 @@
 import sql from 'sql-template-strings'
+import { Merge, OptionalKeysOf, RequiredKeysOf } from 'type-fest'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { appendToMultimap } from '../../../common/data-structures/maps'
 import { League, LeagueId } from '../../../common/leagues'
@@ -57,9 +58,15 @@ export async function createLeague(
   }
 }
 
+// TODO(tec27): Move this somewhere common
+export type Patch<T extends object> = Merge<
+  { [K in RequiredKeysOf<T>]?: T[K] },
+  { [K in OptionalKeysOf<T>]?: T[K] | null }
+>
+
 export async function updateLeague(
   id: LeagueId,
-  updates: Partial<Omit<League, 'id'>>,
+  updates: Patch<Omit<League, 'id'>>,
   withClient?: DbClient,
 ): Promise<League> {
   const { client, done } = await db(withClient)
@@ -71,6 +78,10 @@ export async function updateLeague(
 
     let first = true
     for (const [_key, value] of Object.entries(updates)) {
+      if (value === undefined) {
+        continue
+      }
+
       const key = _key as keyof typeof updates
       if (!first) {
         query.append(sql`, `)
@@ -217,7 +228,7 @@ export async function getFutureLeagues(date: Date, withClient?: DbClient): Promi
   }
 }
 
-export async function getAllLeagues(withClient?: DbClient): Promise<League[]> {
+export async function adminGetAllLeagues(withClient?: DbClient): Promise<League[]> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbLeague>(sql`
@@ -226,6 +237,24 @@ export async function getAllLeagues(withClient?: DbClient): Promise<League[]> {
       ORDER BY start_at DESC
     `)
     return result.rows.map(convertLeagueFromDb)
+  } finally {
+    done()
+  }
+}
+
+export async function adminGetLeague(
+  id: LeagueId,
+  withClient?: DbClient,
+): Promise<League | undefined> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbLeague>(sql`
+      SELECT *
+      FROM leagues
+      WHERE id = ${id}
+    `)
+
+    return result.rows.length ? convertLeagueFromDb(result.rows[0]) : undefined
   } finally {
     done()
   }

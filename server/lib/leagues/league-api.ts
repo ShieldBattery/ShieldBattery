@@ -1,11 +1,14 @@
 import { RouterContext } from '@koa/router'
 import cuid from 'cuid'
+import formidable from 'formidable'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import sharp from 'sharp'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   AdminAddLeagueResponse,
+  AdminEditLeagueResponse,
+  AdminGetLeagueResponse,
   AdminGetLeaguesResponse,
   ClientLeagueId,
   fromClientLeagueId,
@@ -13,11 +16,13 @@ import {
   GetLeagueLeaderboardResponse,
   GetLeaguesListResponse,
   JoinLeagueResponse,
+  League,
   LeagueErrorCode,
   LeagueId,
   LEAGUE_IMAGE_HEIGHT,
   LEAGUE_IMAGE_WIDTH,
   ServerAdminAddLeagueRequest,
+  ServerAdminEditLeagueRequest,
   toClientLeagueId,
   toClientLeagueUserJson,
   toLeagueJson,
@@ -30,7 +35,7 @@ import { asHttpError } from '../errors/error-with-payload'
 import { writeFile } from '../file-upload'
 import { handleMultipartFiles } from '../file-upload/handle-multipart-files'
 import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpBefore, httpGet, httpPost } from '../http/route-decorators'
+import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { Redis } from '../redis'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -39,8 +44,9 @@ import { joiPrettyId } from '../validation/joi-pretty-id'
 import { validateRequest } from '../validation/joi-validator'
 import { getLeaderboard } from './leaderboard'
 import {
+  adminGetAllLeagues,
+  adminGetLeague,
   createLeague,
-  getAllLeagues,
   getAllLeaguesForUser,
   getCurrentLeagues,
   getFutureLeagues,
@@ -50,6 +56,8 @@ import {
   getPastLeagues,
   joinLeagueForUser,
   LeagueUser,
+  Patch,
+  updateLeague,
 } from './league-models'
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
@@ -71,6 +79,20 @@ const convertLeagueApiErrors = makeErrorConverterMiddleware(err => {
       assertUnreachable(err.code)
   }
 })
+
+function leagueIdFromUrl(ctx: RouterContext): LeagueId {
+  const { params } = validateRequest(ctx, {
+    params: Joi.object<{ clientLeagueId: ClientLeagueId }>({
+      clientLeagueId: joiPrettyId().required(),
+    }),
+  })
+
+  try {
+    return fromClientLeagueId(params.clientLeagueId)
+  } catch (err) {
+    throw new httpErrors.BadRequest('invalid league id')
+  }
+}
 
 @httpApi('/leagues/')
 @httpBeforeAll(convertLeagueApiErrors)
@@ -97,23 +119,9 @@ export class LeagueApi {
     }
   }
 
-  private leagueIdFromUrl(ctx: RouterContext): LeagueId {
-    const { params } = validateRequest(ctx, {
-      params: Joi.object<{ clientLeagueId: ClientLeagueId }>({
-        clientLeagueId: joiPrettyId().required(),
-      }),
-    })
-
-    try {
-      return fromClientLeagueId(params.clientLeagueId)
-    } catch (err) {
-      throw new httpErrors.BadRequest('invalid league id')
-    }
-  }
-
   @httpGet('/:clientLeagueId')
   async getLeagueById(ctx: RouterContext): Promise<GetLeagueByIdResponse> {
-    const leagueId = this.leagueIdFromUrl(ctx)
+    const leagueId = leagueIdFromUrl(ctx)
     const now = new Date()
     const league = await getLeague(leagueId, now)
 
@@ -138,7 +146,7 @@ export class LeagueApi {
 
   @httpGet('/:clientLeagueId/leaderboard')
   async getLeaderboard(ctx: RouterContext): Promise<GetLeagueLeaderboardResponse> {
-    const leagueId = this.leagueIdFromUrl(ctx)
+    const leagueId = leagueIdFromUrl(ctx)
     const now = new Date()
     const [league, leaderboard] = await Promise.all([
       getLeague(leagueId, now),
@@ -169,7 +177,7 @@ export class LeagueApi {
   @httpPost('/:clientLeagueId/join')
   @httpBefore(ensureLoggedIn)
   async joinLeague(ctx: RouterContext): Promise<JoinLeagueResponse> {
-    const leagueId = this.leagueIdFromUrl(ctx)
+    const leagueId = leagueIdFromUrl(ctx)
     const now = new Date()
     const league = await getLeague(leagueId, now)
 
@@ -206,8 +214,42 @@ export class LeagueApi {
 export class LeagueAdminApi {
   @httpGet('/')
   async getLeagues(ctx: RouterContext): Promise<AdminGetLeaguesResponse> {
-    const leagues = await getAllLeagues()
+    const leagues = await adminGetAllLeagues()
     return { leagues: leagues.map(l => toLeagueJson(l)) }
+  }
+
+  @httpGet('/:clientLeagueId')
+  async getLeague(ctx: RouterContext): Promise<AdminGetLeagueResponse> {
+    const leagueId = leagueIdFromUrl(ctx)
+    const league = await adminGetLeague(leagueId)
+
+    if (!league) {
+      throw new LeagueApiError(LeagueErrorCode.NotFound, 'league not found')
+    }
+
+    return { league: toLeagueJson(league) }
+  }
+
+  private async handleImage(
+    file: formidable.File,
+  ): Promise<[image: sharp.Sharp, imageExtension: string]> {
+    const image = sharp(file.filepath)
+    const metadata = await image.metadata()
+
+    let imageExtension: string
+    if (metadata.format !== 'jpg' && metadata.format !== 'jpeg' && metadata.format !== 'png') {
+      image.toFormat('png')
+      imageExtension = 'png'
+    } else {
+      imageExtension = metadata.format
+    }
+
+    image.resize(LEAGUE_IMAGE_WIDTH, LEAGUE_IMAGE_HEIGHT, {
+      fit: sharp.fit.cover,
+      withoutEnlargement: true,
+    })
+
+    return [image, imageExtension]
   }
 
   @httpPost('/')
@@ -234,26 +276,10 @@ export class LeagueAdminApi {
     }
 
     const file = ctx.request.files?.image
-    let image: sharp.Sharp | undefined
-    let imageExtension: string | undefined
     if (file && Array.isArray(file)) {
       throw new httpErrors.BadRequest('only one image file can be uploaded')
-    } else if (file) {
-      image = sharp(file.filepath)
-      const metadata = await image.metadata()
-
-      if (metadata.format !== 'jpg' && metadata.format !== 'jpeg' && metadata.format !== 'png') {
-        image.toFormat('png')
-        imageExtension = 'png'
-      } else {
-        imageExtension = metadata.format
-      }
-
-      image.resize(LEAGUE_IMAGE_WIDTH, LEAGUE_IMAGE_HEIGHT, {
-        fit: sharp.fit.cover,
-        withoutEnlargement: true,
-      })
     }
+    const [image, imageExtension] = file ? await this.handleImage(file) : [undefined, undefined]
 
     return await transact(async client => {
       let imagePath: string | undefined
@@ -272,6 +298,94 @@ export class LeagueAdminApi {
         },
         client,
       )
+
+      if (image && imagePath) {
+        const buffer = await image.toBuffer()
+        writeFile(imagePath, buffer)
+      }
+
+      return {
+        league: toLeagueJson(league),
+      }
+    })
+  }
+
+  @httpPatch('/:clientLeagueId')
+  @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE))
+  async editLeague(ctx: RouterContext): Promise<AdminEditLeagueResponse> {
+    const leagueId = leagueIdFromUrl(ctx)
+    const originalLeague = await adminGetLeague(leagueId)
+
+    if (!originalLeague) {
+      throw new LeagueApiError(LeagueErrorCode.NotFound, 'league not found')
+    }
+
+    const { body } = validateRequest(ctx, {
+      body: Joi.object<ServerAdminEditLeagueRequest & { image: any }>({
+        name: Joi.string(),
+        matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES),
+        description: Joi.string(),
+        signupsAfter: Joi.date().timestamp(),
+        startAt: Joi.date().timestamp(),
+        endAt: Joi.date().timestamp(),
+        rulesAndInfo: Joi.string().allow(null),
+        link: Joi.string().allow(null),
+        image: Joi.any(),
+        deleteImage: Joi.boolean(),
+      }),
+    })
+
+    const now = new Date()
+
+    if (body.signupsAfter && originalLeague.signupsAfter <= now) {
+      throw new httpErrors.BadRequest('cannot change signupsAfter once signups have started')
+    } else if (body.signupsAfter && body.signupsAfter <= now) {
+      throw new httpErrors.BadRequest('cannot change signupsAfter to a time in the past')
+    }
+
+    if (body.startAt && originalLeague.startAt <= now) {
+      throw new httpErrors.BadRequest('cannot change startAt once the league has started')
+    } else if (body.startAt && body.startAt <= now) {
+      throw new httpErrors.BadRequest('cannot change startAt to a time in the past')
+    }
+
+    if (body.endAt && originalLeague.endAt <= now) {
+      throw new httpErrors.BadRequest('cannot change endAt once the league has ended')
+    } else if (body.endAt && body.endAt <= now) {
+      throw new httpErrors.BadRequest('cannot change endAt to a time in the past')
+    }
+
+    const file = ctx.request.files?.image
+    if (file && Array.isArray(file)) {
+      throw new httpErrors.BadRequest('only one image file can be uploaded')
+    }
+    const [image, imageExtension] =
+      !body.deleteImage && file ? await this.handleImage(file) : [undefined, undefined]
+
+    return await transact(async client => {
+      let imagePath: string | undefined
+      if (image) {
+        // TODO(tec27): We should probably delete the old image as well
+        const imageId = cuid()
+        // Note that cuid ID's are less random at the start so we use the end instead
+        const firstChars = imageId.slice(-4, -2)
+        const secondChars = imageId.slice(-2)
+        imagePath = `league-images/${firstChars}/${secondChars}/${imageId}.${imageExtension}`
+      }
+
+      const updatedLeague: Patch<Omit<League, 'id'>> = {
+        ...body,
+      }
+      delete (updatedLeague as any).image
+      delete (updatedLeague as any).deleteImage
+
+      if (body.deleteImage) {
+        updatedLeague.imagePath = null
+      } else if (imagePath) {
+        updatedLeague.imagePath = imagePath
+      }
+
+      const league = await updateLeague(leagueId, updatedLeague, client)
 
       if (image && imagePath) {
         const buffer = await image.toBuffer()
