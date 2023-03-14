@@ -1,7 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
 import { Link } from 'wouter'
-import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import GithubLogo from '../icons/brands/github.svg'
 import TwitterLogo from '../icons/brands/twitter.svg'
 import { amberA400 } from '../styles/colors'
@@ -32,12 +31,10 @@ const TopLinksList = styled.ul`
     @media screen and (max-width: 720px) {
       margin-left: 16px;
     }
-  }
-`
 
-const BroodWarLink = styled.li`
-  @media screen and (max-width: 720px) {
-    display: none;
+    @media screen and (max-width: 500px) {
+      margin-left: 8px;
+    }
   }
 `
 
@@ -68,6 +65,17 @@ const Spacer = styled.div`
     width: 16px;
     flex: 0 0;
   }
+
+  @media screen and (max-width: 500px) {
+    width: 8px;
+    flex: 0 0;
+  }
+`
+
+const HideWhenSmall = styled.span`
+  @media screen and (max-width: 720px) {
+    display: none;
+  }
 `
 
 const TopLinks = () => {
@@ -76,35 +84,38 @@ const TopLinks = () => {
       <li>
         <Link href='/splash'>Home</Link>
       </li>
-      <BroodWarLink>
-        <a href={STARCRAFT_DOWNLOAD_URL} target='_blank' rel='nofollow noreferrer noopener'>
-          Download StarCraft
-        </a>
-      </BroodWarLink>
       <li>
         <Link href='/faq'>FAQ</Link>
+      </li>
+      <li>
+        <Link href='/ladder'>Ladder</Link>
+      </li>
+      <li>
+        <Link href='/leagues'>Leagues</Link>
       </li>
       <Spacer />
       <li>
         <IconLink href='https://twitter.com/shieldbatterybw' target='_blank' rel='noopener'>
           <StyledTwitterLogo />
-          Twitter
+          <HideWhenSmall>Twitter</HideWhenSmall>
         </IconLink>
       </li>
       <li>
         <IconLink href='https://github.com/ShieldBattery' target='_blank' rel='noopener'>
           <StyledGithubLogo />
-          GitHub
+          <HideWhenSmall>GitHub</HideWhenSmall>
         </IconLink>
       </li>
       <li>
-        <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
-          Patreon
-        </a>
+        <HideWhenSmall>
+          <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
+            Patreon
+          </a>
+        </HideWhenSmall>
       </li>
       <Spacer />
       <li>
-        <Link href='/login'>Log in</Link>
+        <Link href='/login'>Log&nbsp;in</Link>
       </li>
     </TopLinksList>
   )
