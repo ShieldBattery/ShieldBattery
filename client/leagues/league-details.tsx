@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Helmet } from 'react-helmet'
 import { TableVirtuoso } from 'react-virtuoso'
 import slug from 'slug'
 import styled from 'styled-components'
@@ -316,6 +317,15 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
 
   return (
     <DetailsRoot>
+      <Helmet>
+        <meta property='og:title' content={`ShieldBattery League - ${league.name}`} />
+        <meta property='og:description' content={league.description} />
+        {league.imagePath ? <meta property='og:image' content={league.imagePath} /> : undefined}
+
+        <meta name='twitter:title' content={`ShieldBattery League - ${league.name}`} />
+        <meta name='twitter:description' content={league.description} />
+        {league.imagePath ? <meta name='twitter:image' content={league.imagePath} /> : undefined}
+      </Helmet>
       <LeagueDetailsHeader league={league} />
       <TabsAndJoin>
         <Tabs activeTab={activeTab} onChange={onTabChange}>
