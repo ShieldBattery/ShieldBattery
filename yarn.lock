@@ -9047,7 +9047,7 @@ mz@^2.4.0:
     object-assign "^4.0.1"
     thenify-all "^1.0.0"
 
-nan@^2.14.1, nan@^2.15.0:
+nan@^2.14.0, nan@^2.14.1, nan@^2.15.0:
   version "2.17.0"
   resolved "https://registry.yarnpkg.com/nan/-/nan-2.17.0.tgz#c0150a2368a182f033e9aa5195ec76ea41a199cb"
   integrity sha512-2ZTgtl0nJsO0KQCjEpxcIr5D+Yv90plTitZt9JBfQvVJDS5seMl3FOvsh3+9CoYWXf/1l5OaZzzF6nDm4cagaQ==
@@ -9139,6 +9139,13 @@ node-interval-tree@^2.0.1:
   integrity sha512-bJ9zMDuNGzVQg1xv0bCPzyEDxHgbrx7/xGj6CDokvizZZmastPsOh0JJLuY8wA5q2SfX1TLNMk7XNV8WxbGxzA==
   dependencies:
     shallowequal "^1.1.0"
+
+node-pty@^0.10.1:
+  version "0.10.1"
+  resolved "https://registry.yarnpkg.com/node-pty/-/node-pty-0.10.1.tgz#cd05d03a2710315ec40221232ec04186f6ac2c6d"
+  integrity sha512-JTdtUS0Im/yRsWJSx7yiW9rtpfmxqxolrtnyKwPLI+6XqTAPW/O2MjS8FYL4I5TsMbH2lVgDb2VMjp+9LoQGNg==
+  dependencies:
+    nan "^2.14.0"
 
 node-releases@^2.0.8:
   version "2.0.10"
@@ -10840,6 +10847,14 @@ run-parallel@^1.1.9:
   dependencies:
     queue-microtask "^1.2.2"
 
+run-pty@^4.0.3:
+  version "4.0.3"
+  resolved "https://registry.yarnpkg.com/run-pty/-/run-pty-4.0.3.tgz#807b86604aede928f664464d44c75938d3a70c35"
+  integrity sha512-O8IWhjhChwLq7psyZZDY+Pv/CSEM7DLBXqUqEVWKMXGR18s2o2ma4IEanKWSSLBULNCpHn3n9RYvybc+7IaBig==
+  dependencies:
+    node-pty "^0.10.1"
+    tiny-decoders "^7.0.1"
+
 ruta3@^2.0.0:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/ruta3/-/ruta3-2.0.1.tgz#b40efa789e6cfce0abf3a5a38bf64cb45abdc18e"
@@ -11679,6 +11694,11 @@ ticky@1.0.1:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/ticky/-/ticky-1.0.1.tgz#b7cfa71e768f1c9000c497b9151b30947c50e46d"
   integrity sha512-RX35iq/D+lrsqhcPWIazM9ELkjOe30MSeoBHQHSsRwd1YuhJO5ui1K1/R0r7N3mFvbLBs33idw+eR6j+w6i/DA==
+
+tiny-decoders@^7.0.1:
+  version "7.0.1"
+  resolved "https://registry.yarnpkg.com/tiny-decoders/-/tiny-decoders-7.0.1.tgz#ce80d377a214a5c46ffdd37b3b14f64e91215210"
+  integrity sha512-P1LaHTLASl/lCrdtwgAAVwxt4bEAPmxpf9HMQrlCkAseaT8oH8oxm8ndy4nx5rLTcL5U/Qxp1a+FDoQfS/ZgQQ==
 
 tiny-warning@^1.0.2:
   version "1.0.3"
