@@ -493,7 +493,9 @@ export async function banAllIdentifiersFromChannel(
 
   try {
     const query = sql`
-      INSERT INTO channel_identifier_bans
+      INSERT INTO channel_identifier_bans (
+        channel_id, identifier_type, identifier_hash, time_banned, first_user_id
+      )
       SELECT
         ${channelId} AS "channel_id",
         identifier_type,
