@@ -84,7 +84,7 @@
     "diststaging": "yarn run clean && cross-env SB_SERVER=https://staging.shieldbattery.net yarn run build-app-client && yarn run build-game && electron-builder build --win --x64 -p always -c staging.yml",
     "gen-translations": "i18next",
     "lint": "eslint --ext .js,.jsx,.ts,.tsx ./",
-    "local-dev": "run-pty % yarn run dev % yarn run start-server",
+    "local-dev": "run-pty % yarn run dev % yarn run start-server % yarn app",
     "migrate-create": "db-migrate -m ./server/migrations create",
     "migrate-down": "db-migrate -m ./server/migrations down",
     "migrate-up": "db-migrate -m ./server/migrations up",
