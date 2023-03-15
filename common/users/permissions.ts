@@ -27,5 +27,3 @@ export const DEFAULT_PERMISSIONS: Readonly<SbPermissions> = {
   massDeleteMaps: false,
   moderateChatChannels: false,
 }
-
-export const userPermissions = { ...DEFAULT_PERMISSIONS }

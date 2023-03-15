@@ -10,7 +10,7 @@ import {
 } from '../../../common/chat'
 import * as flags from '../../../common/flags'
 import { asMockedFunction } from '../../../common/testing/mocks'
-import { userPermissions } from '../../../common/users/permissions'
+import { DEFAULT_PERMISSIONS } from '../../../common/users/permissions'
 import { makeSbUserId, SbUser } from '../../../common/users/sb-user'
 import { DbClient } from '../db'
 import { getPermissions } from '../models/permissions'
@@ -89,15 +89,13 @@ jest.mock('./chat-models', () => ({
   searchChannelsAsAdmin: jest.fn().mockResolvedValue([]),
 }))
 
-// TODO(2Pac): Move these elsewhere?
-
-type DbJoinChannelMessage = ChatMessage & { data: JoinChannelData }
-type DbTextChannelMessage = ChatMessage & { data: TextMessageData }
+type FakeDbJoinChannelMessage = ChatMessage & { data: JoinChannelData }
+type FakeDbTextChannelMessage = ChatMessage & { data: TextMessageData }
 
 /**
  * A helper method that returns a JSON version of the "JoinChannel" database message.
  */
-function toJoinChannelMessageJson(dbMessage: DbJoinChannelMessage) {
+function toJoinChannelMessageJson(dbMessage: FakeDbJoinChannelMessage) {
   return {
     id: dbMessage.msgId,
     type: dbMessage.data.type,
@@ -109,7 +107,7 @@ function toJoinChannelMessageJson(dbMessage: DbJoinChannelMessage) {
 /**
  * A helper method that returns a JSON version of the "Text" database message.
  */
-function toTextMessageJson(dbMessage: DbTextChannelMessage) {
+function toTextMessageJson(dbMessage: FakeDbTextChannelMessage) {
   return {
     id: dbMessage.msgId,
     type: dbMessage.data.type,
@@ -141,6 +139,7 @@ describe('chat/chat-service', () => {
   const user1: SbUser = { id: makeSbUserId(1), name: 'USER_NAME_1' }
   const user2: SbUser = { id: makeSbUserId(2), name: 'USER_NAME_2' }
 
+  const userPermissions = { ...DEFAULT_PERMISSIONS }
   const channelPermissions: ChannelPermissions = {
     kick: false,
     ban: false,
@@ -173,7 +172,7 @@ describe('chat/chat-service', () => {
     channelPermissions,
   }
 
-  const joinUser1ShieldBatteryChannelMessage: DbJoinChannelMessage = {
+  const joinUser1ShieldBatteryChannelMessage: FakeDbJoinChannelMessage = {
     msgId: 'MESSAGE_ID',
     userId: user1.id,
     userName: user1.name,
@@ -183,7 +182,7 @@ describe('chat/chat-service', () => {
       type: ServerChatMessageType.JoinChannel,
     },
   }
-  const joinUser1TestChannelMessage: DbJoinChannelMessage = {
+  const joinUser1TestChannelMessage: FakeDbJoinChannelMessage = {
     msgId: 'MESSAGE_ID',
     userId: user1.id,
     userName: user1.name,
@@ -193,7 +192,7 @@ describe('chat/chat-service', () => {
       type: ServerChatMessageType.JoinChannel,
     },
   }
-  const joinUser2ShieldBatteryChannelMessage: DbJoinChannelMessage = {
+  const joinUser2ShieldBatteryChannelMessage: FakeDbJoinChannelMessage = {
     msgId: 'MESSAGE_ID',
     userId: user2.id,
     userName: user2.name,
@@ -203,7 +202,7 @@ describe('chat/chat-service', () => {
       type: ServerChatMessageType.JoinChannel,
     },
   }
-  const joinUser2TestChannelMessage: DbJoinChannelMessage = {
+  const joinUser2TestChannelMessage: FakeDbJoinChannelMessage = {
     msgId: 'MESSAGE_ID',
     userId: user2.id,
     userName: user2.name,
@@ -230,6 +229,62 @@ describe('chat/chat-service', () => {
     asMockedFunction(addMessageToChannel).mockResolvedValue(channelMessage)
 
     await chatService.joinChannel(testChannel.name, user1.id)
+  }
+
+  let textMessage: FakeDbTextChannelMessage
+  const addMessageToChannelMock = asMockedFunction(addMessageToChannel)
+
+  /**
+   * A helper method that mocks everything needed to send a message to a channel.
+   */
+  function mockTextMessage(
+    user: SbUser,
+    channel: ChannelInfo,
+    processedMessageString: string,
+    mentions: SbUser[],
+  ) {
+    textMessage = {
+      msgId: 'MESSAGE_ID',
+      userId: user.id,
+      userName: user.name,
+      channelId: channel.id,
+      sent: new Date('2023-03-11T00:00:00.000Z'),
+      data: {
+        type: ServerChatMessageType.TextMessage,
+        text: processedMessageString,
+        mentions: mentions.map(m => m.id),
+      },
+    }
+    // NOTE(2Pac): The `joinUserToChannel` calls already mock the return value of this function,
+    // so we use the `mockResolvedValueOnce` method to bump the return value to the top of the
+    // call stack.
+    addMessageToChannelMock.mockResolvedValueOnce(textMessage)
+    asMockedFunction(findUsersByName).mockResolvedValue(new Map(mentions.map(m => [m.name, m])))
+  }
+
+  /**
+   * A helper method which sends a chat message from a `user` to a `channel`, and expects the
+   * `client` has not received it. This is used as a test to make sure the users not in a channel
+   * don't receive messages for that channel.
+   */
+  async function expectMessageWasNotReceived(
+    user: SbUser,
+    channel: ChannelInfo,
+    client: InspectableNydusClient,
+  ) {
+    mockTextMessage(user, channel, 'Hello World!', [])
+
+    await chatService.sendChatMessage(channel.id, user.id, textMessage.data.text)
+
+    expect(client.publish).not.toHaveBeenCalledWith(getChannelPath(channel.id), {
+      action: 'message2',
+      message: toTextMessageJson(textMessage),
+      user: {
+        id: user.id,
+        name: user.name,
+      },
+      mentions: [],
+    })
   }
 
   const USER1_CLIENT_ID = 'USER1_CLIENT_ID'
@@ -295,7 +350,10 @@ describe('chat/chat-service', () => {
         dbClient,
       )
 
-      await transactionPromise.resolve()
+      jest.clearAllMocks()
+
+      transactionPromise.resolve()
+      await Promise.resolve()
 
       expect(client2.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
         action: 'join2',
@@ -477,7 +535,8 @@ describe('chat/chat-service', () => {
           userId: user1.id,
           newOwnerId: undefined,
         })
-        expect(client1.unsubscribe).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id))
+
+        expectMessageWasNotReceived(user2, shieldBatteryChannel, client1)
         expect(client1.unsubscribe).toHaveBeenCalledWith(
           getChannelUserPath(shieldBatteryChannel.id, user1.id),
         )
@@ -506,7 +565,8 @@ describe('chat/chat-service', () => {
         userId: user1.id,
         newOwnerId: undefined,
       })
-      expect(client1.unsubscribe).toHaveBeenCalledWith(getChannelPath(testChannel.id))
+
+      expectMessageWasNotReceived(user2, testChannel, client1)
       expect(client1.unsubscribe).toHaveBeenCalledWith(getChannelUserPath(testChannel.id, user1.id))
     })
   })
@@ -598,7 +658,8 @@ describe('chat/chat-service', () => {
           targetId: user2.id,
           newOwnerId: undefined,
         })
-        expect(client2.unsubscribe).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id))
+
+        expectMessageWasNotReceived(user1, shieldBatteryChannel, client2)
         expect(client2.unsubscribe).toHaveBeenCalledWith(
           getChannelUserPath(shieldBatteryChannel.id, user2.id),
         )
@@ -613,7 +674,8 @@ describe('chat/chat-service', () => {
           targetId: user2.id,
           newOwnerId: undefined,
         })
-        expect(client2.unsubscribe).toHaveBeenCalledWith(getChannelPath(testChannel.id))
+
+        expectMessageWasNotReceived(user1, testChannel, client2)
         expect(client2.unsubscribe).toHaveBeenCalledWith(
           getChannelUserPath(testChannel.id, user2.id),
         )
@@ -883,29 +945,6 @@ describe('chat/chat-service', () => {
     })
 
     describe('when in channel', () => {
-      const addMessageToChannelMock = asMockedFunction(addMessageToChannel)
-
-      let textMessage: DbTextChannelMessage
-      const mockTextMessage = (processedMessageString: string, mentions: SbUser[]) => {
-        textMessage = {
-          msgId: 'MESSAGE_ID',
-          userId: user1.id,
-          userName: user1.name,
-          channelId: testChannel.id,
-          sent: new Date('2023-03-11T00:00:00.000Z'),
-          data: {
-            type: ServerChatMessageType.TextMessage,
-            text: processedMessageString,
-            mentions: mentions.map(m => m.id),
-          },
-        }
-        // NOTE(2Pac): The `joinUserToChannel` calls already mock the return value of this function,
-        // so we use the `mockResolvedValueOnce` method to bump the return value to the top of the
-        // call stack.
-        addMessageToChannelMock.mockResolvedValueOnce(textMessage)
-        asMockedFunction(findUsersByName).mockResolvedValue(new Map(mentions.map(m => [m.name, m])))
-      }
-
       const expectItWorks = (processedMessageString: string, mentions: SbUser[]) => {
         expect(addMessageToChannelMock).toHaveBeenCalledWith(user1.id, testChannel.id, {
           type: textMessage.data.type,
@@ -915,10 +954,7 @@ describe('chat/chat-service', () => {
         expect(client2.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
           action: 'message2',
           message: toTextMessageJson(textMessage),
-          user: {
-            id: user1.id,
-            name: user1.name,
-          },
+          user: user1,
           mentions,
         })
       }
@@ -940,7 +976,7 @@ describe('chat/chat-service', () => {
 
       test('works for regular text messages', async () => {
         const messageString = 'Hello World!'
-        mockTextMessage(messageString, [])
+        mockTextMessage(user1, testChannel, messageString, [])
 
         await chatService.sendChatMessage(testChannel.id, user1.id, messageString)
 
@@ -951,7 +987,7 @@ describe('chat/chat-service', () => {
         const messageString = `Hello @${user1.name}, @${user2.name}, and @unknown.`
         const processedText = `Hello <@${user1.id}>, <@${user2.id}>, and @unknown.`
         const mentions = [user1, user2]
-        mockTextMessage(processedText, mentions)
+        mockTextMessage(user1, testChannel, processedText, mentions)
 
         await chatService.sendChatMessage(testChannel.id, user1.id, messageString)
 
@@ -1061,7 +1097,7 @@ describe('chat/chat-service', () => {
   })
 
   describe('getChannelHistory', () => {
-    const textMessage1: DbTextChannelMessage = {
+    const textMessage1: FakeDbTextChannelMessage = {
       msgId: 'MESSAGE_1_ID',
       userId: user1.id,
       userName: user1.name,
@@ -1072,7 +1108,7 @@ describe('chat/chat-service', () => {
         text: 'Hello World!',
       },
     }
-    const textMessage2: DbTextChannelMessage = {
+    const textMessage2: FakeDbTextChannelMessage = {
       msgId: 'MESSAGE_2_ID',
       userId: user1.id,
       userName: user1.name,
