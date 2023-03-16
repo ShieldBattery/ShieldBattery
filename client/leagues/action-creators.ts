@@ -120,7 +120,7 @@ export function adminGetLeague(
 }
 
 export function adminAddLeague(
-  league: AdminAddLeagueRequest & { image?: Blob },
+  league: AdminAddLeagueRequest & { image?: Blob; badge?: Blob },
   spec: RequestHandlingSpec<AdminAddLeagueResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async () => {
@@ -134,6 +134,9 @@ export function adminAddLeague(
     if (league.image) {
       formData.append('image', league.image)
     }
+    if (league.badge) {
+      formData.append('badge', league.badge)
+    }
 
     return await fetchJson(apiUrl`admin/leagues/`, {
       method: 'POST',
@@ -145,7 +148,7 @@ export function adminAddLeague(
 
 export function adminUpdateLeague(
   id: ClientLeagueId,
-  leagueChanges: AdminEditLeagueRequest & { image?: Blob },
+  leagueChanges: AdminEditLeagueRequest & { image?: Blob; badge?: Blob },
   spec: RequestHandlingSpec<AdminEditLeagueResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async () => {
@@ -158,6 +161,9 @@ export function adminUpdateLeague(
 
     if (leagueChanges.image) {
       formData.append('image', leagueChanges.image)
+    }
+    if (leagueChanges.badge) {
+      formData.append('badge', leagueChanges.badge)
     }
 
     return await fetchJson(apiUrl`admin/leagues/${id}/`, {

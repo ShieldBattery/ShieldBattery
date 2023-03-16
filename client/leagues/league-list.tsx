@@ -14,6 +14,7 @@ import logger from '../logging/logger'
 import { TextButton, useButtonState } from '../material/button'
 import Card from '../material/card'
 import { Ripple } from '../material/ripple'
+import { shadow2dp } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -22,6 +23,7 @@ import { colorError, colorTextFaint, colorTextSecondary } from '../styles/colors
 import { FlexSpacer } from '../styles/flex-spacer'
 import { body1, caption, headline4, headline6, subtitle1 } from '../styles/typography'
 import { getLeaguesList, navigateToLeague } from './action-creators'
+import { LeagueBadge } from './league-badge'
 import { LeagueDetailsPage } from './league-details'
 import { LeagueImage, LeaguePlaceholderImage } from './league-image'
 
@@ -242,9 +244,28 @@ const LeagueCardRoot = styled(Card)`
   cursor: pointer;
 `
 
+const LeagueImageAndBadge = styled.div`
+  box-sizing: content-box;
+  position: relative;
+  padding-bottom: 20px;
+`
+
+const LeagueCardBadge = styled.div`
+  ${shadow2dp};
+  position: absolute;
+  left: 12px;
+  bottom: 0;
+  width: 52px;
+  height: 52px;
+  padding: 6px;
+
+  background: var(--sb-bg-color);
+  border-radius: 9999px;
+`
+
 const LeagueName = styled.div`
   ${headline6};
-  margin-top: 16px;
+  margin-top: 4px;
   padding: 0 16px;
 `
 
@@ -327,7 +348,12 @@ export function LeagueCard({
 
   return (
     <LeagueCardRoot {...buttonProps} tabIndex={0}>
-      {league.imagePath ? <LeagueImage src={league.imagePath} /> : <LeaguePlaceholderImage />}
+      <LeagueImageAndBadge>
+        {league.imagePath ? <LeagueImage src={league.imagePath} /> : <LeaguePlaceholderImage />}
+        <LeagueCardBadge>
+          <LeagueBadge league={league} />
+        </LeagueCardBadge>
+      </LeagueImageAndBadge>
       <LeagueName>{league.name}</LeagueName>
       <LeagueFormatAndDate>
         {matchmakingTypeToLabel(league.matchmakingType)} ·{' '}

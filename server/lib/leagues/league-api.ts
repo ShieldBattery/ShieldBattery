@@ -19,6 +19,8 @@ import {
   League,
   LeagueErrorCode,
   LeagueId,
+  LEAGUE_BADGE_HEIGHT,
+  LEAGUE_BADGE_WIDTH,
   LEAGUE_IMAGE_HEIGHT,
   LEAGUE_IMAGE_WIDTH,
   ServerAdminAddLeagueRequest,
@@ -232,6 +234,8 @@ export class LeagueAdminApi {
 
   private async handleImage(
     file: formidable.File,
+    width: number,
+    height: number,
   ): Promise<[image: sharp.Sharp, imageExtension: string]> {
     const image = sharp(file.filepath)
     const metadata = await image.metadata()
@@ -244,7 +248,7 @@ export class LeagueAdminApi {
       imageExtension = metadata.format
     }
 
-    image.resize(LEAGUE_IMAGE_WIDTH, LEAGUE_IMAGE_HEIGHT, {
+    image.resize(width, height, {
       fit: sharp.fit.cover,
       withoutEnlargement: true,
     })
@@ -256,7 +260,7 @@ export class LeagueAdminApi {
   @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE))
   async addLeague(ctx: RouterContext): Promise<AdminAddLeagueResponse> {
     const { body } = validateRequest(ctx, {
-      body: Joi.object<ServerAdminAddLeagueRequest & { image: any }>({
+      body: Joi.object<ServerAdminAddLeagueRequest & { image: any; badge: any }>({
         name: Joi.string().required(),
         matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES).required(),
         description: Joi.string().required(),
@@ -266,6 +270,7 @@ export class LeagueAdminApi {
         rulesAndInfo: Joi.string(),
         link: Joi.string().uri({ scheme: ['http', 'https'] }),
         image: Joi.any(),
+        badge: Joi.any(),
       }),
     })
 
@@ -275,11 +280,17 @@ export class LeagueAdminApi {
       throw new httpErrors.BadRequest('startAt must be before endAt')
     }
 
-    const file = ctx.request.files?.image
-    if (file && Array.isArray(file)) {
-      throw new httpErrors.BadRequest('only one image file can be uploaded')
+    const imageFile = ctx.request.files?.image
+    const badgeFile = ctx.request.files?.badge
+    if ((imageFile && Array.isArray(imageFile)) || (badgeFile && Array.isArray(badgeFile))) {
+      throw new httpErrors.BadRequest('only one image/badge file can be uploaded')
     }
-    const [image, imageExtension] = file ? await this.handleImage(file) : [undefined, undefined]
+    const [image, imageExtension] = imageFile
+      ? await this.handleImage(imageFile, LEAGUE_IMAGE_WIDTH, LEAGUE_IMAGE_HEIGHT)
+      : [undefined, undefined]
+    const [badge, badgeExtension] = badgeFile
+      ? await this.handleImage(badgeFile, LEAGUE_BADGE_WIDTH, LEAGUE_BADGE_HEIGHT)
+      : [undefined, undefined]
 
     return await transact(async client => {
       let imagePath: string | undefined
@@ -290,11 +301,20 @@ export class LeagueAdminApi {
         const secondChars = imageId.slice(-2)
         imagePath = `league-images/${firstChars}/${secondChars}/${imageId}.${imageExtension}`
       }
+      let badgePath: string | undefined
+      if (badge) {
+        const imageId = cuid()
+        // Note that cuid ID's are less random at the start so we use the end instead
+        const firstChars = imageId.slice(-4, -2)
+        const secondChars = imageId.slice(-2)
+        badgePath = `league-images/${firstChars}/${secondChars}/${imageId}.${badgeExtension}`
+      }
 
       const league = await createLeague(
         {
           ...body,
           imagePath,
+          badgePath,
         },
         client,
       )
@@ -302,6 +322,10 @@ export class LeagueAdminApi {
       if (image && imagePath) {
         const buffer = await image.toBuffer()
         writeFile(imagePath, buffer)
+      }
+      if (badge && badgePath) {
+        const buffer = await badge.toBuffer()
+        writeFile(badgePath, buffer)
       }
 
       return {
@@ -321,7 +345,7 @@ export class LeagueAdminApi {
     }
 
     const { body } = validateRequest(ctx, {
-      body: Joi.object<ServerAdminEditLeagueRequest & { image: any }>({
+      body: Joi.object<ServerAdminEditLeagueRequest & { image: any; badge: any }>({
         name: Joi.string(),
         matchmakingType: Joi.valid(...ALL_MATCHMAKING_TYPES),
         description: Joi.string(),
@@ -332,6 +356,8 @@ export class LeagueAdminApi {
         link: Joi.string().allow(null),
         image: Joi.any(),
         deleteImage: Joi.boolean(),
+        badge: Joi.any(),
+        deleteBadge: Joi.boolean(),
       }),
     })
 
@@ -362,22 +388,34 @@ export class LeagueAdminApi {
       throw new httpErrors.BadRequest('cannot change endAt to a time in the past')
     }
 
-    const file = ctx.request.files?.image
-    if (file && Array.isArray(file)) {
-      throw new httpErrors.BadRequest('only one image file can be uploaded')
+    const imageFile = ctx.request.files?.image
+    const badgeFile = ctx.request.files?.badge
+    if ((imageFile && Array.isArray(imageFile)) || (badgeFile && Array.isArray(badgeFile))) {
+      throw new httpErrors.BadRequest('only one image/badge file can be uploaded')
     }
-    const [image, imageExtension] =
-      !body.deleteImage && file ? await this.handleImage(file) : [undefined, undefined]
+    const [image, imageExtension] = imageFile
+      ? await this.handleImage(imageFile, LEAGUE_IMAGE_WIDTH, LEAGUE_IMAGE_HEIGHT)
+      : [undefined, undefined]
+    const [badge, badgeExtension] = badgeFile
+      ? await this.handleImage(badgeFile, LEAGUE_BADGE_WIDTH, LEAGUE_BADGE_HEIGHT)
+      : [undefined, undefined]
 
     return await transact(async client => {
       let imagePath: string | undefined
       if (image) {
-        // TODO(tec27): We should probably delete the old image as well
         const imageId = cuid()
         // Note that cuid ID's are less random at the start so we use the end instead
         const firstChars = imageId.slice(-4, -2)
         const secondChars = imageId.slice(-2)
         imagePath = `league-images/${firstChars}/${secondChars}/${imageId}.${imageExtension}`
+      }
+      let badgePath: string | undefined
+      if (badge) {
+        const imageId = cuid()
+        // Note that cuid ID's are less random at the start so we use the end instead
+        const firstChars = imageId.slice(-4, -2)
+        const secondChars = imageId.slice(-2)
+        badgePath = `league-images/${firstChars}/${secondChars}/${imageId}.${badgeExtension}`
       }
 
       const updatedLeague: Patch<Omit<League, 'id'>> = {
@@ -385,11 +423,18 @@ export class LeagueAdminApi {
       }
       delete (updatedLeague as any).image
       delete (updatedLeague as any).deleteImage
+      delete (updatedLeague as any).badge
+      delete (updatedLeague as any).deleteBadge
 
       if (body.deleteImage) {
         updatedLeague.imagePath = null
       } else if (imagePath) {
         updatedLeague.imagePath = imagePath
+      }
+      if (body.deleteBadge) {
+        updatedLeague.badgePath = null
+      } else if (badgePath) {
+        updatedLeague.badgePath = badgePath
       }
 
       const league = await updateLeague(leagueId, updatedLeague, client)
@@ -397,6 +442,10 @@ export class LeagueAdminApi {
       if (image && imagePath) {
         const buffer = await image.toBuffer()
         writeFile(imagePath, buffer)
+      }
+      if (badge && badgePath) {
+        const buffer = await badge.toBuffer()
+        writeFile(badgePath, buffer)
       }
 
       return {

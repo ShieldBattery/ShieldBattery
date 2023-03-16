@@ -115,6 +115,7 @@ export async function updateLeague(
           break
         case 'badgePath':
           query.append(sql`badge_path = ${value}`)
+          break
         case 'rulesAndInfo':
           query.append(sql`rules_and_info = ${value}`)
           break

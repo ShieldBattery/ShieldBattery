@@ -61,6 +61,7 @@ import {
   navigateToLeague,
 } from './action-creators'
 import { ALL_DETAILS_SUB_PAGES, DetailsSubPage } from './details-sub-page'
+import { LeagueBadge } from './league-badge'
 import { LeagueImage, LeaguePlaceholderImage } from './league-image'
 
 const PageRoot = styled.div`
@@ -128,6 +129,23 @@ const DetailsRoot = styled.div`
   display: flex;
   flex-direction: column;
   gap: 16px;
+`
+
+const InfoRoot = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+`
+
+const InfoBadge = styled(LeagueBadge)`
+  width: 80px;
+  height: 80px;
+  flex-grow: 0;
+  flex-shrink: 0;
+`
+
+const TitleAndSummary = styled.div`
+  flex-grow: 1;
 `
 
 const TitleRow = styled.div`
@@ -367,22 +385,25 @@ export function LeagueDetailsHeader({ league }: LeagueDetailsHeaderProps) {
   )}`
 
   return (
-    <div>
-      <TitleRow>
-        <Title>{league.name}</Title>
-        <CopyLinkButton tooltipPosition='right' startingText='Copy link to league' />
-      </TitleRow>
-      <SummaryRow>
-        <FormatAndDate>
-          {matchmakingTypeToLabel(league.matchmakingType)} ·{' '}
-          <DateTooltip text={dateTooltip} position={'right'}>
-            {dateText}
-          </DateTooltip>
-        </FormatAndDate>
-        <FlexSpacer />
-        {league.link ? <LeagueLink href={league.link}>{league.link}</LeagueLink> : undefined}
-      </SummaryRow>
-    </div>
+    <InfoRoot>
+      <InfoBadge league={league} />
+      <TitleAndSummary>
+        <TitleRow>
+          <Title>{league.name}</Title>
+          <CopyLinkButton tooltipPosition='right' startingText='Copy link to league' />
+        </TitleRow>
+        <SummaryRow>
+          <FormatAndDate>
+            {matchmakingTypeToLabel(league.matchmakingType)} ·{' '}
+            <DateTooltip text={dateTooltip} position={'right'}>
+              {dateText}
+            </DateTooltip>
+          </FormatAndDate>
+          <FlexSpacer />
+          {league.link ? <LeagueLink href={league.link}>{league.link}</LeagueLink> : undefined}
+        </SummaryRow>
+      </TitleAndSummary>
+    </InfoRoot>
   )
 }
 

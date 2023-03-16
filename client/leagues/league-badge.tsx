@@ -59,7 +59,7 @@ export function LeagueBadge({ league, className }: LeagueBadgeProps) {
   }
 
   const badgeColor = randomColorForString(league.name)
-  const textColor = meetsContrastGuidelines(badgeColor, colorTextPrimary)
+  const textColor = meetsContrastGuidelines(badgeColor, colorTextPrimary).AA
     ? colorTextPrimary
     : colorTextInvert
 

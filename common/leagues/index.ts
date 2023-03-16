@@ -5,8 +5,10 @@ import { decodePrettyId, encodePrettyId } from '../pretty-id'
 import { RaceStats } from '../races'
 import { SbUser, SbUserId } from '../users/sb-user'
 
-export const LEAGUE_IMAGE_WIDTH = 704
-export const LEAGUE_IMAGE_HEIGHT = 288
+export const LEAGUE_IMAGE_WIDTH = 704 * 2
+export const LEAGUE_IMAGE_HEIGHT = 288 * 2
+export const LEAGUE_BADGE_WIDTH = 80 * 4
+export const LEAGUE_BADGE_HEIGHT = 80 * 4
 
 /** The ID of a league as stored in the database. */
 export type LeagueId = Opaque<string, 'LeagueId'>
@@ -172,6 +174,7 @@ export interface ServerAdminEditLeagueRequest {
   rulesAndInfo?: string | null
   link?: string | null
   deleteImage?: boolean
+  deleteBadge?: boolean
 }
 
 export type AdminEditLeagueRequest = Jsonify<ServerAdminEditLeagueRequest>

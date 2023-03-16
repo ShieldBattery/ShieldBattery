@@ -4,6 +4,8 @@ import { Route, RouteComponentProps, Switch } from 'wouter'
 import {
   AdminEditLeagueRequest,
   LeagueJson,
+  LEAGUE_BADGE_HEIGHT,
+  LEAGUE_BADGE_WIDTH,
   LEAGUE_IMAGE_HEIGHT,
   LEAGUE_IMAGE_WIDTH,
   makeClientLeagueId,
@@ -224,6 +226,7 @@ interface LeagueModel {
   rulesAndInfo?: string
   link?: string
   image?: File
+  badge?: File
 }
 
 function CreateLeague() {
@@ -245,6 +248,7 @@ function CreateLeague() {
           rulesAndInfo: model.rulesAndInfo,
           link: model.link,
           image: model.image,
+          badge: model.badge,
         },
         {
           onSuccess: () => {
@@ -273,6 +277,7 @@ function CreateLeague() {
       rulesAndInfo: model.rulesAndInfo,
       link: model.link,
       imagePath: undefined, // TODO(tec27): We could make a blob URL for this
+      badgePath: undefined, // TODO(tec27): We could make a blob URL for this
     })
   })
 
@@ -329,6 +334,17 @@ function CreateLeague() {
             <FileInput
               {...bindCustom('image')}
               id={`${baseId}-image`}
+              accept='image/*'
+              multiple={false}
+            />
+          </div>
+          <div>
+            <FieldLabel htmlFor={`${baseId}-badge`}>
+              Badge ({LEAGUE_BADGE_WIDTH}x{LEAGUE_BADGE_HEIGHT}px recommended)
+            </FieldLabel>
+            <FileInput
+              {...bindCustom('badge')}
+              id={`${baseId}-badge`}
               accept='image/*'
               multiple={false}
             />
@@ -439,7 +455,7 @@ function EditLeague({ params: { id } }: RouteComponentProps<{ id: string }>) {
     const originalStartAt = originalLeague ? asDatetimeLocalValue(originalLeague.startAt) : ''
     const originalEndAt = originalLeague ? asDatetimeLocalValue(originalLeague.endAt) : ''
 
-    const patch: AdminEditLeagueRequest & { image?: Blob } = {
+    const patch: AdminEditLeagueRequest & { image?: Blob; badge?: Blob } = {
       name: model.name !== originalLeague?.name ? model.name : undefined,
       matchmakingType:
         model.matchmakingType !== originalLeague?.matchmakingType
@@ -456,6 +472,8 @@ function EditLeague({ params: { id } }: RouteComponentProps<{ id: string }>) {
       link: model.link !== originalLeague?.link ? model.link : undefined,
       image: model.deleteImage ? undefined : model.image,
       deleteImage: model.deleteImage ? true : undefined,
+      badge: model.deleteBadge ? undefined : model.badge,
+      deleteBadge: model.deleteBadge ? true : undefined,
     }
 
     dispatch(
@@ -485,6 +503,8 @@ function EditLeague({ params: { id } }: RouteComponentProps<{ id: string }>) {
       link: model.link,
       // TODO(tec27): We could make a blob URL for this
       imagePath: model.image || model.deleteImage ? undefined : originalLeague?.imagePath,
+      // TODO(tec27): We could make a blob URL for this
+      badgePath: model.badge || model.deleteBadge ? undefined : originalLeague?.badgePath,
     })
   })
 
@@ -521,6 +541,7 @@ function asDatetimeLocalValue(unixTime: number): string {
 
 interface EditLeagueModel extends LeagueModel {
   deleteImage: boolean
+  deleteBadge: boolean
 }
 
 function EditLeagueForm({
@@ -545,6 +566,7 @@ function EditLeagueForm({
       rulesAndInfo: originalLeague?.rulesAndInfo ?? '',
       link: originalLeague?.link ?? '',
       deleteImage: false,
+      deleteBadge: false,
     },
     {
       name: required('Name is required'),
@@ -596,6 +618,17 @@ function EditLeagueForm({
         <FileInput
           {...bindCustom('image')}
           id={`${baseId}-image`}
+          accept='image/*'
+          multiple={false}
+        />
+      </div>
+      <div>
+        <FieldLabel htmlFor={`${baseId}-badge`}>
+          Badge ({LEAGUE_BADGE_WIDTH}x{LEAGUE_BADGE_HEIGHT}px recommended)
+        </FieldLabel>
+        <FileInput
+          {...bindCustom('badge')}
+          id={`${baseId}-badge`}
           accept='image/*'
           multiple={false}
         />
