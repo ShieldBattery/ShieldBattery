@@ -1,8 +1,9 @@
-import { Immutable } from 'immer'
 import { darken, lighten, saturate } from 'polished'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { animated, useChain, useSpring, useSpringRef, useTransition } from 'react-spring'
 import styled from 'styled-components'
+import { ReadonlyDeep } from 'type-fest'
+import { LeagueJson } from '../../common/leagues'
 import {
   getDivisionColor,
   getDivisionsForRatingChange,
@@ -19,36 +20,104 @@ import { PostMatchDialogPayload } from '../dialogs/dialog-type'
 import { searchAgainFromGame } from '../games/action-creators'
 import WatchReplayIcon from '../icons/material/videocam-24px.svg'
 import SearchAgainIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg'
+import { LeagueBadge } from '../leagues/league-badge'
 import { RaisedButton } from '../material/button'
 import { Body, Dialog } from '../material/dialog'
+import { GradientScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { defaultSpring } from '../material/springs'
+import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { startReplayFromPath } from '../replays/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { colorDividers, colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { caption, headline4, headline5, headline6, singleLine } from '../styles/typography'
+import {
+  caption,
+  headline4,
+  headline5,
+  headline6,
+  overline,
+  singleLine,
+} from '../styles/typography'
 import { DivisionIcon } from './rank-icon'
 
-const StyledDialog = styled(Dialog)`
-  max-width: 480px;
+const StyledDialog = styled(Dialog)<{ $hasLeagues?: boolean }>`
+  max-width: ${props => (props.$hasLeagues ? '632px' : '432px')};
+  --sb-post-match-delta-gap: ${props => (props.$hasLeagues ? '8px' : '16px')};
+  --sb-post-match-rating-bar-width: ${props => (props.$hasLeagues ? '368px' : '100%')};
 
   & ${Body} {
     overflow-x: hidden;
   }
 `
 
-const IconAndDeltas = styled.div`
+const Content = styled.div`
   display: flex;
-  gap: 40px;
-  align-items: flex-start;
-  padding-top: 16px;
 `
 
-const Deltas = styled.div<{ $pointsOnly?: boolean }>`
-  padding-top: ${props => (props.$pointsOnly ? '68px' : '44px')};
+const SideOverline = styled.div`
+  ${overline};
+  ${singleLine};
+  text-align: center;
+  overflow-x: hidden;
+`
+const MatchmakingSide = styled.div`
+  width: 384px;
+
+  & ${SideOverline} {
+    width: 176px;
+  }
+`
+
+const LeagueSide = styled.div`
+  width: 200px;
+`
+
+const IconAndDeltas = styled.div`
+  display: flex;
+  gap: var(--sb-post-match-delta-gap);
+  align-items: center;
+  padding-top: 8px;
+`
+
+const Deltas = styled.div`
+  max-width: 208px;
+  padding-bottom: 36px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+`
+
+const Leagues = styled.div`
+  position: relative;
+  height: 204px;
+  margin-top: 8px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  /* left divider */
+  &::after {
+    position: absolute;
+    width: 1px;
+    height: 192px;
+    left: 0;
+    top: 4px;
+    content: '';
+    background-color: ${colorDividers};
+    z-index: 20;
+  }
+`
+
+const LeaguesScrollable = styled.div<{ $needsScroll: boolean }>`
+  position: relative;
+  padding: 4px 8px 32px 35px;
+  overflow-y: ${props => (props.$needsScroll ? 'auto' : 'hidden')};
+`
+
+const LeagueTooltip = styled(Tooltip)`
+  & + & {
+    margin-top: 16px;
+  }
 `
 
 const ButtonBar = styled.div`
@@ -66,14 +135,17 @@ const SizedSearchAgainIcon = styled(SearchAgainIcon)`
 `
 
 const AnimatedDeltaItem = animated(DeltaItem)
+const AnimatedLeagueDelta = animated(LeagueDelta)
 
-type PostMatchDialogProps = CommonDialogProps & Immutable<PostMatchDialogPayload['initData']>
+type PostMatchDialogProps = CommonDialogProps & ReadonlyDeep<PostMatchDialogPayload['initData']>
 
 export function PostMatchDialog({
   dialogRef,
   onCancel,
   game,
   mmrChange,
+  leagueChanges,
+  leagues,
   replayPath,
 }: PostMatchDialogProps) {
   const dispatch = useAppDispatch()
@@ -92,16 +164,37 @@ export function PostMatchDialog({
     return !isSearching && (!currentParty || currentParty.leader === s.auth.user.id)
   })
 
+  const leagueValues = useMemo(() => {
+    const leagueById = new Map(leagues.map(l => [l.id, l]))
+    const result = []
+    for (const change of leagueChanges) {
+      const league = leagueById.get(change.leagueId)
+      if (!league) {
+        continue
+      }
+
+      result.push({
+        league,
+        value: change.pointsChange,
+      })
+    }
+
+    result.sort((a, b) => a.league.startAt - b.league.startAt)
+
+    return result
+  }, [leagueChanges, leagues])
+
   return (
     <StyledDialog
       dialogRef={dialogRef}
       showCloseButton={true}
       title='Match results'
-      onCancel={onCancel}>
+      onCancel={onCancel}
+      $hasLeagues={leagueValues.length > 0}>
       {mmrChange.lifetimeGames >= NUM_PLACEMENT_MATCHES ? (
-        <RatedUserContent mmrChange={mmrChange} />
+        <RatedUserContent mmrChange={mmrChange} leagueValues={leagueValues} />
       ) : (
-        <UnratedUserContent mmrChange={mmrChange} />
+        <UnratedUserContent mmrChange={mmrChange} leagueValues={leagueValues} />
       )}
       <ButtonBar>
         <RaisedButton
@@ -123,8 +216,10 @@ export function PostMatchDialog({
 
 function RatedUserContent({
   mmrChange,
+  leagueValues,
 }: {
-  mmrChange: Immutable<PublicMatchmakingRatingChangeJson>
+  mmrChange: ReadonlyDeep<PublicMatchmakingRatingChangeJson>
+  leagueValues: ReadonlyArray<{ league: ReadonlyDeep<LeagueJson>; value: number }>
 }) {
   const divisionTransitions = useMemo(() => {
     const placementPromotion = mmrChange.lifetimeGames === NUM_PLACEMENT_MATCHES
@@ -243,11 +338,22 @@ function RatedUserContent({
 
   const deltaValues = useMemo(
     () => [
-      { label: 'RP', value: mmrChange.pointsChange },
-      { label: 'MMR', value: mmrChange.ratingChange },
+      { label: 'Points', value: mmrChange.pointsChange },
+      { label: 'Rating', value: mmrChange.ratingChange },
     ],
     [mmrChange],
   )
+
+  const lastPointRevealSoundRef = useRef(0)
+  const playPointRevealSound = useCallback((...args: any[]) => {
+    // Debounce playing this sound so things like Leagues that start a bunch of animations at once
+    // don't play a super loud version of this sound :)
+    const now = window.performance.now()
+    if (now - lastPointRevealSoundRef.current > 50) {
+      audioManager.playSound(AvailableSound.PointReveal)
+      lastPointRevealSoundRef.current = now
+    }
+  }, [])
 
   const deltaSpringRef = useSpringRef()
   const deltaTransition = useTransition(deltaValues, {
@@ -264,35 +370,92 @@ function RatedUserContent({
       opacity: 1,
       translateY: 0,
     },
-    onStart: useCallback((...args: any[]) => {
-      audioManager.playSound(AvailableSound.PointReveal)
-    }, []),
+    onStart: playPointRevealSound,
   })
 
-  useChain([deltaSpringRef, divisionSpringRef])
+  const leagueSpringRef = useSpringRef()
+  const leagueTransition = useTransition(leagueValues, {
+    ref: leagueSpringRef,
+    keys: leagueValues.map(l => l.league.id),
+    config: defaultSpring,
+    delay: 500,
+    from: {
+      opacity: 0,
+      translateY: 32,
+    },
+    enter: {
+      opacity: 1,
+      translateY: 0,
+    },
+    onStart: playPointRevealSound,
+  })
+
+  useChain(
+    leagueValues.length > 0
+      ? [deltaSpringRef, leagueSpringRef, divisionSpringRef]
+      : [deltaSpringRef, divisionSpringRef],
+  )
+
+  const [isAtTop, isAtBottom, topElem, bottomElem] = useScrollIndicatorState()
 
   return (
-    <>
-      <IconAndDeltas>
-        <IconWithLabel division={curDivisionWithBounds[0]} isWin={mmrChange.outcome === 'win'} />
-        <Deltas $pointsOnly={mmrChange.lifetimeGames === NUM_PLACEMENT_MATCHES}>
-          {deltaTransition((style, item) => (
-            <AnimatedDeltaItem style={style} {...item} />
-          ))}
-        </Deltas>
-      </IconAndDeltas>
-      <RatingBarView rating={rating} divisionWithBounds={curDivisionWithBounds} />
-    </>
+    <Content>
+      <MatchmakingSide>
+        <SideOverline>Matchmaking</SideOverline>
+        <IconAndDeltas>
+          <IconWithLabel division={curDivisionWithBounds[0]} isWin={mmrChange.outcome === 'win'} />
+          <Deltas>
+            {deltaTransition((style, item) => (
+              <AnimatedDeltaItem style={style} {...item} />
+            ))}
+          </Deltas>
+        </IconAndDeltas>
+        <RatingBarView rating={rating} divisionWithBounds={curDivisionWithBounds} />
+      </MatchmakingSide>
+      {leagueValues.length > 0 ? (
+        <LeagueSide>
+          <SideOverline>Leagues</SideOverline>
+          <Leagues>
+            <GradientScrollDivider $showAt='top' $heightPx={32} $show={!isAtTop} />
+            <LeaguesScrollable $needsScroll={!isAtTop || !isAtBottom}>
+              {topElem}
+              {leagueTransition((style, item) => (
+                <LeagueTooltip text={item.league.name} position={'left'}>
+                  <AnimatedLeagueDelta style={style} {...item} />
+                </LeagueTooltip>
+              ))}
+              {bottomElem}
+            </LeaguesScrollable>
+            <GradientScrollDivider $showAt='bottom' $heightPx={32} $show={!isAtBottom} />
+          </Leagues>
+        </LeagueSide>
+      ) : undefined}
+    </Content>
   )
 }
 
 function UnratedUserContent({
   mmrChange,
+  leagueValues,
 }: {
-  mmrChange: Immutable<PublicMatchmakingRatingChangeJson>
+  mmrChange: ReadonlyDeep<PublicMatchmakingRatingChangeJson>
+  leagueValues: ReadonlyArray<{ league: ReadonlyDeep<LeagueJson>; value: number }>
 }) {
-  const deltaValues = useMemo(() => [{ label: 'RP', value: mmrChange.pointsChange }], [mmrChange])
+  const deltaValues = useMemo(
+    () => [{ label: 'Points', value: mmrChange.pointsChange }],
+    [mmrChange],
+  )
 
+  const lastPointRevealSoundRef = useRef(0)
+  const playPointRevealSound = useCallback((...args: any[]) => {
+    // Debounce playing this sound so things like Leagues that start a bunch of animations at once
+    // don't play a super loud version of this sound :)
+    const now = window.performance.now()
+    if (now - lastPointRevealSoundRef.current > 50) {
+      audioManager.playSound(AvailableSound.PointReveal)
+      lastPointRevealSoundRef.current = now
+    }
+  }, [])
   const deltaSpringRef = useSpringRef()
   const deltaTransition = useTransition(deltaValues, {
     ref: deltaSpringRef,
@@ -308,32 +471,78 @@ function UnratedUserContent({
       opacity: 1,
       translateY: 0,
     },
-    onStart: useCallback((...args: any[]) => {
-      audioManager.playSound(AvailableSound.PointReveal)
-    }, []),
+    onStart: playPointRevealSound,
   })
 
-  useChain([deltaSpringRef])
+  const leagueSpringRef = useSpringRef()
+  const leagueTransition = useTransition(leagueValues, {
+    ref: leagueSpringRef,
+    keys: leagueValues.map(l => l.league.id),
+    config: defaultSpring,
+    delay: 500,
+    from: {
+      opacity: 0,
+      translateY: 32,
+    },
+    enter: {
+      opacity: 1,
+      translateY: 0,
+    },
+    onStart: playPointRevealSound,
+  })
+
+  useChain(leagueValues.length > 0 ? [deltaSpringRef, leagueSpringRef] : [deltaSpringRef])
+
+  const [isAtTop, isAtBottom, topElem, bottomElem] = useScrollIndicatorState()
 
   return (
-    <>
-      <IconAndDeltas>
-        <IconWithLabel division={MatchmakingDivision.Unrated} isWin={mmrChange.outcome === 'win'} />
-        <Deltas $pointsOnly={true}>
-          {deltaTransition((style, item) => (
-            <AnimatedDeltaItem style={style} {...item} />
-          ))}
-        </Deltas>
-      </IconAndDeltas>
-      <PlacementCount lifetimeGames={mmrChange.lifetimeGames} />
-    </>
+    <Content>
+      <MatchmakingSide>
+        <SideOverline>Matchmaking</SideOverline>
+        <IconAndDeltas>
+          <IconWithLabel
+            division={MatchmakingDivision.Unrated}
+            isWin={mmrChange.outcome === 'win'}
+          />
+          <Deltas>
+            {deltaTransition((style, item) => (
+              <AnimatedDeltaItem style={style} {...item} />
+            ))}
+          </Deltas>
+        </IconAndDeltas>
+        <PlacementCount lifetimeGames={mmrChange.lifetimeGames} />
+      </MatchmakingSide>
+      {leagueValues.length > 0 ? (
+        <LeagueSide>
+          <SideOverline>Leagues</SideOverline>
+          <Leagues>
+            <GradientScrollDivider $showAt='top' $heightPx={32} $show={!isAtTop} />
+            <LeaguesScrollable $needsScroll={!isAtTop || !isAtBottom}>
+              {topElem}
+              {leagueTransition((style, item) => (
+                <LeagueTooltip text={item.league.name} position={'left'}>
+                  <AnimatedLeagueDelta style={style} {...item} />
+                </LeagueTooltip>
+              ))}
+              {bottomElem}
+            </LeaguesScrollable>
+            <GradientScrollDivider $showAt='bottom' $heightPx={32} $show={!isAtBottom} />
+          </Leagues>
+        </LeagueSide>
+      ) : undefined}
+    </Content>
   )
 }
 
 const DeltaItemRoot = styled.div`
   ${headline4};
   display: flex;
-  gap: 12px;
+  align-items: baseline;
+  gap: 8px;
+
+  & + & {
+    margin-top: 16px;
+  }
 `
 
 const DeltaValue = styled.div`
@@ -344,6 +553,7 @@ const DeltaValue = styled.div`
 `
 
 const DeltaLabel = styled.div`
+  ${headline6};
   color: ${colorTextSecondary};
 `
 
@@ -366,6 +576,33 @@ function DeltaItem({
       </DeltaValue>
       <DeltaLabel>{label}</DeltaLabel>
     </DeltaItemRoot>
+  )
+}
+
+const LeagueDeltaRoot = styled.div`
+  ${headline5};
+  display: flex;
+  align-items: center;
+  gap: 16px;
+`
+
+function LeagueDelta({
+  league,
+  value,
+  style,
+}: {
+  league: ReadonlyDeep<LeagueJson>
+  value: number
+  style?: React.CSSProperties
+}) {
+  const roundedValue = Math.round(value)
+
+  return (
+    <LeagueDeltaRoot style={style}>
+      <LeagueBadge league={league} />
+      {roundedValue < 0 ? '' : '+'}
+      {roundedValue}
+    </LeagueDeltaRoot>
   )
 }
 
@@ -439,7 +676,7 @@ function IconWithLabel({ division, isWin }: { division: MatchmakingDivision; isW
 
 const RatingBarRoot = styled.div`
   position: relative;
-  width: 100%;
+  width: var(--sb-post-match-rating-bar-width);
   height: 72px;
   padding: 32px 0 24px;
   overflow-x: visible;
@@ -535,6 +772,7 @@ const RatingBarView = animated(
 
 const PlacementCountRoot = styled.div`
   ${headline5};
+  width: var(--sb-post-match-rating-bar-width);
   padding: 24px 0 8px;
 
   color: ${colorTextSecondary};

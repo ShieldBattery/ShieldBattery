@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { colorDividers } from '../styles/colors'
+import { background800, colorDividers } from '../styles/colors'
 
 const ScrollObserved = styled.div`
   width: 0px;
@@ -21,6 +21,33 @@ export const ScrollDivider = styled.div<{ $show: boolean; $showAt: 'top' | 'bott
 
   background-color: ${props => (props.$show ? colorDividers : 'transparent')};
   transition: background-color 150ms linear;
+`
+
+/**
+ * A scroll divider that will fade the content into the background color if shown. Must be placed
+ * inside a `position: relative` ancestor and have the `--sb-bg-color` custom CSS property set to
+ * the container's background color.
+ */
+export const GradientScrollDivider = styled.div<{
+  $show: boolean
+  $showAt: 'top' | 'bottom'
+  $heightPx: number
+}>`
+  position: absolute;
+  height: ${props => props.$heightPx}px;
+  left: 0;
+  right: 0;
+  ${props => (props.$showAt === 'top' ? 'top: 0;' : 'bottom: 0;')};
+
+  background: linear-gradient(
+    ${props => (props.$showAt === 'top' ? '180deg' : '0deg')},
+    var(--sb-bg-color, ${background800}) 0%,
+    transparent 100%
+  );
+  opacity: ${props => (props.$show ? 1 : 0)};
+  pointer-events: none;
+  transition: opacity 75ms linear;
+  z-index: 10;
 `
 
 interface ScrollIndicatorStateProps {

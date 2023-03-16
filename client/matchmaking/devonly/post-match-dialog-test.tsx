@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { GameSource, GameType } from '../../../common/games/configuration'
 import { GameRecordJson } from '../../../common/games/games'
+import { ClientLeagueUserChangeJson, LeagueJson, makeClientLeagueId } from '../../../common/leagues'
 import {
   MatchmakingResult,
   MatchmakingType,
@@ -51,6 +52,45 @@ const GAME: GameRecordJson = {
   ],
 }
 
+const LEAGUES: LeagueJson[] = [
+  {
+    id: makeClientLeagueId('arto'),
+    name: 'Arto League',
+    description: 'The Arto League',
+    matchmakingType: MatchmakingType.Match1v1,
+    signupsAfter: Date.now(),
+    startAt: Date.now(),
+    endAt: Date.now(),
+  },
+  {
+    id: makeClientLeagueId('long'),
+    name: 'Very Super Long League Name For Ultimate Testing Thank You',
+    description: "Yep, it's long",
+    matchmakingType: MatchmakingType.Match1v1,
+    signupsAfter: Date.now(),
+    startAt: Date.now(),
+    endAt: Date.now(),
+  },
+  {
+    id: makeClientLeagueId('early'),
+    name: 'Early League',
+    description: 'First in!',
+    matchmakingType: MatchmakingType.Match1v1,
+    signupsAfter: Date.now() - 1000 * 60 * 60,
+    startAt: Date.now() - 1000 * 60 * 60,
+    endAt: Date.now() - 1000 * 60 * 60,
+  },
+  {
+    id: makeClientLeagueId('another'),
+    name: 'Yet Another League',
+    description: 'Another one',
+    matchmakingType: MatchmakingType.Match1v1,
+    signupsAfter: Date.now(),
+    startAt: Date.now(),
+    endAt: Date.now(),
+  },
+]
+
 const ControlsCard = styled(Card)`
   max-width: 480px;
   margin: 16px;
@@ -65,6 +105,10 @@ export function PostMatchDialogTest() {
   const [startingPoints, setStartingPoints] = useState(200)
   const [pointsChange, setPointsChange] = useState(96)
   const [lifetimeGames, setLifetimeGames] = useState(10)
+  const [artoLeague, setArtoLeague] = useState(false)
+  const [longLeague, setLongLeague] = useState(false)
+  const [earlyLeague, setEarlyLeague] = useState(false)
+  const [anotherLeague, setAnotherLeague] = useState(false)
 
   const mmrChange = useMemo<PublicMatchmakingRatingChangeJson>(() => {
     const signedRatingChange = outcome === 'win' ? ratingChange : -ratingChange
@@ -90,12 +134,61 @@ export function PostMatchDialogTest() {
   }, [outcome, ratingChange, startingRating, pointsChange, startingPoints, lifetimeGames])
 
   const onClick = useStableCallback(() => {
+    const leagueChanges: ClientLeagueUserChangeJson[] = []
+
+    if (artoLeague) {
+      leagueChanges.push({
+        userId: PLAYER_ID,
+        leagueId: makeClientLeagueId('arto'),
+        gameId: GAME_ID,
+        changeDate: GAME.startTime + GAME.gameLength!,
+        outcome,
+        points: startingPoints * 0.85 + mmrChange.pointsChange * 0.85,
+        pointsChange: mmrChange.pointsChange * 0.85,
+      })
+    }
+    if (longLeague) {
+      leagueChanges.push({
+        userId: PLAYER_ID,
+        leagueId: makeClientLeagueId('long'),
+        gameId: GAME_ID,
+        changeDate: GAME.startTime + GAME.gameLength!,
+        outcome,
+        points: startingPoints * 0.55 + mmrChange.pointsChange * 0.55,
+        pointsChange: mmrChange.pointsChange * 0.55,
+      })
+    }
+    if (earlyLeague) {
+      leagueChanges.push({
+        userId: PLAYER_ID,
+        leagueId: makeClientLeagueId('early'),
+        gameId: GAME_ID,
+        changeDate: GAME.startTime + GAME.gameLength!,
+        outcome,
+        points: startingPoints * 0.15 + mmrChange.pointsChange * 0.15,
+        pointsChange: mmrChange.pointsChange * 0.15,
+      })
+    }
+    if (anotherLeague) {
+      leagueChanges.push({
+        userId: PLAYER_ID,
+        leagueId: makeClientLeagueId('another'),
+        gameId: GAME_ID,
+        changeDate: GAME.startTime + GAME.gameLength!,
+        outcome,
+        points: startingPoints * 1.15 + mmrChange.pointsChange * 1.15,
+        pointsChange: mmrChange.pointsChange * 1.15,
+      })
+    }
+
     dispatch(
       openDialog({
         type: DialogType.PostMatch,
         initData: {
           game: GAME,
           mmrChange,
+          leagueChanges,
+          leagues: LEAGUES,
           replayPath: undefined,
         },
       }),
@@ -115,6 +208,38 @@ export function PostMatchDialogTest() {
           checked={outcome === 'win'}
           onChange={(event: React.ChangeEvent) =>
             setOutcome((event.currentTarget as HTMLInputElement).checked ? 'win' : 'loss')
+          }
+        />
+        <CheckBox
+          name='artoleague'
+          label='Include Arto League?'
+          checked={artoLeague}
+          onChange={(event: React.ChangeEvent) =>
+            setArtoLeague((event.currentTarget as HTMLInputElement).checked)
+          }
+        />
+        <CheckBox
+          name='longleague'
+          label='Include Long League?'
+          checked={longLeague}
+          onChange={(event: React.ChangeEvent) =>
+            setLongLeague((event.currentTarget as HTMLInputElement).checked)
+          }
+        />
+        <CheckBox
+          name='earlyleague'
+          label='Include Early League?'
+          checked={earlyLeague}
+          onChange={(event: React.ChangeEvent) =>
+            setEarlyLeague((event.currentTarget as HTMLInputElement).checked)
+          }
+        />
+        <CheckBox
+          name='anotherleague'
+          label='Include Another League?'
+          checked={anotherLeague}
+          onChange={(event: React.ChangeEvent) =>
+            setAnotherLeague((event.currentTarget as HTMLInputElement).checked)
           }
         />
         <NumberTextField

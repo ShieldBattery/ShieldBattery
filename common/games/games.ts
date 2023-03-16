@@ -2,6 +2,7 @@ import { TFunction } from 'i18next'
 import { Immutable } from 'immer'
 import { assertUnreachable } from '../assert-unreachable'
 import { Jsonify } from '../json'
+import { ClientLeagueUserChangeJson, LeagueJson } from '../leagues'
 import { MapInfoJson } from '../maps'
 import { matchmakingTypeToLabel, PublicMatchmakingRatingChangeJson } from '../matchmaking'
 import { SbUser, SbUserId } from '../users/sb-user'
@@ -80,6 +81,8 @@ export interface MatchmakingResultsEvent {
   userId: SbUserId
   game: GameRecordJson
   mmrChange: PublicMatchmakingRatingChangeJson
+  leagueChanges: ClientLeagueUserChangeJson[]
+  leagues: LeagueJson[]
 }
 
 export function getGameDurationString(durationMs: number): string {

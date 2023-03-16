@@ -1,5 +1,6 @@
 import { SbChannelId } from '../../common/chat'
 import { GameRecordJson } from '../../common/games/games'
+import { ClientLeagueUserChangeJson, LeagueJson } from '../../common/leagues'
 import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/sb-user'
 
@@ -72,6 +73,8 @@ export type PostMatchDialogPayload = BaseDialogPayload<
   {
     game: GameRecordJson
     mmrChange: PublicMatchmakingRatingChangeJson
+    leagueChanges: ClientLeagueUserChangeJson[]
+    leagues: LeagueJson[]
     replayPath?: string
   }
 >

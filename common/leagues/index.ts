@@ -1,6 +1,6 @@
 import { Merge, Opaque } from 'type-fest'
 import { Jsonify } from '../json'
-import { MatchmakingType } from '../matchmaking'
+import { MatchmakingResult, MatchmakingType } from '../matchmaking'
 import { decodePrettyId, encodePrettyId } from '../pretty-id'
 import { RaceStats } from '../races'
 import { SbUser, SbUserId } from '../users/sb-user'
@@ -50,6 +50,7 @@ export interface League {
   signupsAfter: Date
   startAt: Date
   endAt: Date
+  badgePath?: string
   imagePath?: string
   rulesAndInfo?: string
   link?: string
@@ -66,6 +67,7 @@ export function toLeagueJson(league: League): LeagueJson {
     signupsAfter: Number(league.signupsAfter),
     startAt: Number(league.startAt),
     endAt: Number(league.endAt),
+    badgePath: league.badgePath,
     imagePath: league.imagePath,
     rulesAndInfo: league.rulesAndInfo,
     link: league.link,
@@ -105,6 +107,33 @@ export function toClientLeagueUserJson(user: ClientLeagueUser): ClientLeagueUser
     rTLosses: user.rTLosses,
     rZWins: user.rZWins,
     rZLosses: user.rZLosses,
+  }
+}
+
+export interface ClientLeagueUserChange {
+  userId: SbUserId
+  leagueId: ClientLeagueId
+  gameId: string
+  changeDate: Date
+
+  outcome: MatchmakingResult
+  points: number
+  pointsChange: number
+}
+
+export type ClientLeagueUserChangeJson = Jsonify<ClientLeagueUserChange>
+
+export function toClientLeagueUserChangeJson(
+  change: ClientLeagueUserChange,
+): ClientLeagueUserChangeJson {
+  return {
+    userId: change.userId,
+    leagueId: change.leagueId,
+    gameId: change.gameId,
+    changeDate: Number(change.changeDate),
+    outcome: change.outcome,
+    points: change.points,
+    pointsChange: change.pointsChange,
   }
 }
 

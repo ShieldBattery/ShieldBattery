@@ -10,6 +10,12 @@ import {
   toGameRecordJson,
 } from '../../../common/games/games'
 import { GameClientPlayerResult, GameResultErrorCode } from '../../../common/games/results'
+import {
+  League,
+  toClientLeagueId,
+  toClientLeagueUserChangeJson,
+  toLeagueJson,
+} from '../../../common/leagues'
 import { MatchmakingType, toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
 import { urlPath } from '../../../common/urls'
@@ -24,8 +30,11 @@ import { JobScheduler } from '../jobs/job-scheduler'
 import { updateLeaderboards } from '../leagues/leaderboard'
 import {
   getActiveLeaguesForUsers,
+  getLeaguesById,
+  getLeagueUserChangesForGame,
   insertLeagueUserChange,
   LeagueUser,
+  LeagueUserChange,
   updateLeagueUser,
 } from '../leagues/league-models'
 import logger from '../logging/logger'
@@ -132,6 +141,14 @@ export default class GameResultService {
     return await getMatchmakingRatingChangesForGame(gameRecord.id)
   }
 
+  async retrieveLeagueUserChanges(gameRecord: Readonly<GameRecord>): Promise<LeagueUserChange[]> {
+    if (gameRecord.config.gameSource !== GameSource.Matchmaking || !gameRecord.results) {
+      return []
+    }
+
+    return await getLeagueUserChangesForGame(gameRecord.id)
+  }
+
   async subscribeToGame(userId: SbUserId, clientId: string, gameId: string): Promise<void> {
     const clientSockets = this.clientSocketsManager.getById(userId, clientId)
     if (!clientSockets) {
@@ -236,7 +253,16 @@ export default class GameResultService {
       .then(() => this.maybeReconcileResults(gameRecord))
       .then(async () => {
         const game = await this.retrieveGame(gameId)
-        const mmrChanges = await this.retrieveMatchmakingRatingChanges(game)
+        const [mmrChanges, leagueUserChanges] = await Promise.all([
+          this.retrieveMatchmakingRatingChanges(game),
+          this.retrieveLeagueUserChanges(game),
+        ])
+
+        let leagues: League[] = []
+        if (leagueUserChanges.length > 0) {
+          const uniqueLeagues = Array.from(new Set(leagueUserChanges.map(lu => lu.leagueId)))
+          leagues = await getLeaguesById(uniqueLeagues)
+        }
 
         const gameJson = toGameRecordJson(game)
         this.typedPublisher.publish(GameResultService.getGameSubPath(gameId), {
@@ -247,12 +273,28 @@ export default class GameResultService {
 
         if (mmrChanges.length) {
           for (const change of mmrChanges) {
+            const leagueChanges = leagueUserChanges.filter(lu => lu.userId === change.userId)
+            const leagueIds = leagueChanges.map(lu => lu.leagueId)
+            const applicableLeagues = leagues.filter(l => leagueIds.includes(l.id))
+
             this.matchmakingPublisher.publish(
               GameResultService.getMatchmakingResultsPath(change.userId),
               {
                 userId: change.userId,
                 game: gameJson,
                 mmrChange: toPublicMatchmakingRatingChangeJson(change),
+                leagues: applicableLeagues.map(l => toLeagueJson(l)),
+                leagueChanges: leagueChanges.map(lu =>
+                  toClientLeagueUserChangeJson({
+                    userId: lu.userId,
+                    leagueId: toClientLeagueId(lu.leagueId),
+                    gameId: lu.gameId,
+                    changeDate: lu.changeDate,
+                    outcome: lu.outcome,
+                    points: lu.points,
+                    pointsChange: lu.pointsChange,
+                  }),
+                ),
               },
             )
           }

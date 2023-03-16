@@ -22,6 +22,7 @@ function convertLeagueFromDb(props: DbLeague): League {
     startAt: props.start_at,
     endAt: props.end_at,
     imagePath: props.image_path ? getUrl(props.image_path) : undefined,
+    badgePath: props.badge_path ? getUrl(props.badge_path) : undefined,
     rulesAndInfo: props.rules_and_info,
     link: props.link,
   }
@@ -36,6 +37,7 @@ export async function createLeague(
     startAt,
     endAt,
     imagePath,
+    badgePath,
     rulesAndInfo,
     link,
   }: Omit<League, 'id'>,
@@ -46,10 +48,10 @@ export async function createLeague(
     const result = await client.query<DbLeague>(sql`
       INSERT INTO leagues (
         name, matchmaking_type, description, signups_after, start_at, end_at,
-        image_path, rules_and_info, link
+        image_path, badge_path, rules_and_info, link
       ) VALUES (
         ${name}, ${matchmakingType}, ${description}, ${signupsAfter}, ${startAt}, ${endAt},
-        ${imagePath}, ${rulesAndInfo}, ${link}
+        ${imagePath}, ${badgePath}, ${rulesAndInfo}, ${link}
       ) RETURNING *
     `)
     return convertLeagueFromDb(result.rows[0])
@@ -111,6 +113,8 @@ export async function updateLeague(
         case 'imagePath':
           query.append(sql`image_path = ${value}`)
           break
+        case 'badgePath':
+          query.append(sql`badge_path = ${value}`)
         case 'rulesAndInfo':
           query.append(sql`rules_and_info = ${value}`)
           break
@@ -166,6 +170,23 @@ export async function getLeague(
     `)
 
     return result.rows.length ? convertLeagueFromDb(result.rows[0]) : undefined
+  } finally {
+    done()
+  }
+}
+
+export async function getLeaguesById(
+  ids: ReadonlyArray<LeagueId>,
+  withClient?: DbClient,
+): Promise<League[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbLeague>(sql`
+      SELECT * FROM leagues
+      WHERE id = ANY(${ids})
+    `)
+
+    return result.rows.map(convertLeagueFromDb)
   } finally {
     done()
   }
@@ -445,8 +466,6 @@ export interface LeagueUserChange {
 
 type DbLeagueUserChange = Dbify<LeagueUserChange>
 
-// TODO(tec27): Remove this lint disable when we inevitably need this function
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function convertLeagueUserChangeFromDb(dbChange: DbLeagueUserChange): LeagueUserChange {
   return {
     userId: dbChange.user_id,
@@ -471,4 +490,21 @@ export async function insertLeagueUserChange(
       (${change.userId}, ${change.leagueId}, ${change.gameId}, ${change.changeDate},
        ${change.outcome}, ${change.points}, ${change.pointsChange}, ${change.pointsConverged})
   `)
+}
+
+export async function getLeagueUserChangesForGame(
+  gameId: string,
+  withClient?: DbClient,
+): Promise<LeagueUserChange[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbLeagueUserChange>(sql`
+      SELECT * FROM league_user_changes
+      WHERE game_id = ${gameId}
+    `)
+
+    return result.rows.map(convertLeagueUserChangeFromDb)
+  } finally {
+    done()
+  }
 }

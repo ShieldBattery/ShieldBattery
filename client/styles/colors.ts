@@ -91,4 +91,5 @@ export const dialogScrim = background900
 
 export const CardLayer = styled.div`
   background-color: ${background400};
+  --sb-bg-color: ${background400};
 `
