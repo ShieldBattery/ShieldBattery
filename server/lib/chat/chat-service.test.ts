@@ -279,10 +279,7 @@ describe('chat/chat-service', () => {
     expect(client.publish).not.toHaveBeenCalledWith(getChannelPath(channel.id), {
       action: 'message2',
       message: toTextMessageJson(textMessage),
-      user: {
-        id: user.id,
-        name: user.name,
-      },
+      user,
       mentions: [],
     })
   }
