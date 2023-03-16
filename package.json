@@ -155,7 +155,7 @@
     "pino": "^8.0.0",
     "pino-datadog-transport": "^1.2.2",
     "pino-http": "^8.0.1",
-    "pino-pretty": "^9.0.0",
+    "pino-pretty": "^10.0.0",
     "pino-tee": "^0.3.0",
     "prom-client": "^14.0.1",
     "rally-point-creator": "^2.0.0",
