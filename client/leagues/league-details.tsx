@@ -113,6 +113,7 @@ export function LeagueDetailsPage() {
 
 const DetailsRoot = styled.div`
   max-width: 704px;
+  min-height: min-content;
   height: 100%;
   padding-top: 12px;
 
@@ -188,6 +189,10 @@ const InfoSection = styled.div`
 
 const InfoSectionHeader = styled.div`
   ${headline5};
+`
+
+const LeagueImageContainer = styled.div`
+  flex-shrink: 0;
 `
 
 const StyledMarkdown = styled(Markdown)`
@@ -404,7 +409,9 @@ export interface LeagueDetailsInfoProps {
 export function LeagueDetailsInfo({ league }: LeagueDetailsInfoProps) {
   return (
     <>
-      {league.imagePath ? <LeagueImage src={league.imagePath} /> : <LeaguePlaceholderImage />}
+      <LeagueImageContainer>
+        {league.imagePath ? <LeagueImage src={league.imagePath} /> : <LeaguePlaceholderImage />}
+      </LeagueImageContainer>
       <InfoSection>
         <InfoSectionHeader>About</InfoSectionHeader>
         <div>{league.description}</div>
