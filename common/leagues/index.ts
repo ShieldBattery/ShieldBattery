@@ -1,7 +1,6 @@
-import { Merge, Opaque } from 'type-fest'
+import { Opaque } from 'type-fest'
 import { Jsonify } from '../json'
 import { MatchmakingResult, MatchmakingType } from '../matchmaking'
-import { decodePrettyId, encodePrettyId } from '../pretty-id'
 import { RaceStats } from '../races'
 import { SbUser, SbUserId } from '../users/sb-user'
 
@@ -12,11 +11,6 @@ export const LEAGUE_BADGE_HEIGHT = 80 * 4
 
 /** The ID of a league as stored in the database. */
 export type LeagueId = Opaque<string, 'LeagueId'>
-/**
- * The ID of a league as given to clients (equivalent to the DB one, just encoded in a way that
- * looks more friendly in URLs.
- */
-export type ClientLeagueId = Opaque<string, 'ClientLeagueId'>
 
 /**
  * Converts a league ID string to a properly typed version. Prefer better ways of getting a typed
@@ -25,23 +19,6 @@ export type ClientLeagueId = Opaque<string, 'ClientLeagueId'>
  */
 export function makeLeagueId(id: string): LeagueId {
   return id as LeagueId
-}
-
-export function toClientLeagueId(id: LeagueId): ClientLeagueId {
-  return encodePrettyId(id) as ClientLeagueId
-}
-
-export function fromClientLeagueId(id: ClientLeagueId): LeagueId {
-  return decodePrettyId(id) as LeagueId
-}
-
-/**
- * Converts a client league ID string to a properly typed version. Prefer better ways of getting a
- * typed version, such as retrieving the value from the database or using a Joi validator. This
- * method should mainly be considered for testing and internal behavior.
- */
-export function makeClientLeagueId(id: string): ClientLeagueId {
-  return id as ClientLeagueId
 }
 
 export interface League {
@@ -58,11 +35,11 @@ export interface League {
   link?: string
 }
 
-export type LeagueJson = Merge<Jsonify<League>, { id: ClientLeagueId }>
+export type LeagueJson = Jsonify<League>
 
 export function toLeagueJson(league: League): LeagueJson {
   return {
-    id: toClientLeagueId(league.id),
+    id: league.id,
     name: league.name,
     matchmakingType: league.matchmakingType,
     description: league.description,
@@ -77,7 +54,7 @@ export function toLeagueJson(league: League): LeagueJson {
 }
 
 export interface ClientLeagueUser extends RaceStats {
-  leagueId: ClientLeagueId
+  leagueId: LeagueId
   userId: SbUserId
   points: number
   wins: number
@@ -114,7 +91,7 @@ export function toClientLeagueUserJson(user: ClientLeagueUser): ClientLeagueUser
 
 export interface ClientLeagueUserChange {
   userId: SbUserId
-  leagueId: ClientLeagueId
+  leagueId: LeagueId
   gameId: string
   changeDate: Date
 

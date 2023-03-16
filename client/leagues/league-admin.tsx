@@ -8,7 +8,7 @@ import {
   LEAGUE_BADGE_WIDTH,
   LEAGUE_IMAGE_HEIGHT,
   LEAGUE_IMAGE_WIDTH,
-  makeClientLeagueId,
+  makeLeagueId,
 } from '../../common/leagues'
 import {
   ALL_MATCHMAKING_TYPES,
@@ -40,6 +40,7 @@ import {
 } from './action-creators'
 import { LeagueDetailsHeader, LeagueDetailsInfo } from './league-details'
 import { LeagueCard, LeagueSectionType } from './league-list'
+import { fromRouteLeagueId, makeRouteLeagueId } from './route-league-id'
 
 const Root = styled.div`
   padding: 12px 24px;
@@ -267,7 +268,7 @@ function CreateLeague() {
   const [previewLeague, setPreviewLeague] = useState<LeagueJson>()
   const onValidatedChange = useStableCallback((model: Readonly<LeagueModel>) => {
     setPreviewLeague({
-      id: makeClientLeagueId('preview-league'),
+      id: makeLeagueId('preview-league'),
       name: model.name,
       matchmakingType: model.matchmakingType,
       description: model.description,
@@ -420,7 +421,9 @@ function CreateLeague() {
   )
 }
 
-function EditLeague({ params: { id } }: RouteComponentProps<{ id: string }>) {
+function EditLeague({ params: { id: routeId } }: RouteComponentProps<{ id: string }>) {
+  const id = fromRouteLeagueId(makeRouteLeagueId(routeId))
+
   const dispatch = useAppDispatch()
   const [originalLeague, setOriginalLeague] = useState<LeagueJson>()
   const [previewLeague, setPreviewLeague] = useState<LeagueJson>()
@@ -432,7 +435,7 @@ function EditLeague({ params: { id } }: RouteComponentProps<{ id: string }>) {
     const signal = controller.signal
 
     dispatch(
-      adminGetLeague(makeClientLeagueId(id), {
+      adminGetLeague(makeLeagueId(id), {
         signal,
         onSuccess: res => {
           setOriginalLeague(res.league)
@@ -477,7 +480,7 @@ function EditLeague({ params: { id } }: RouteComponentProps<{ id: string }>) {
     }
 
     dispatch(
-      adminUpdateLeague(makeClientLeagueId(id), patch, {
+      adminUpdateLeague(id, patch, {
         onSuccess: () => {
           setError(undefined)
           adminContext.triggerRefresh()
@@ -492,7 +495,7 @@ function EditLeague({ params: { id } }: RouteComponentProps<{ id: string }>) {
 
   const onValidatedChange = useStableCallback((model: Readonly<EditLeagueModel>) => {
     setPreviewLeague({
-      id: makeClientLeagueId('preview-league'),
+      id: makeLeagueId('preview-league'),
       name: model.name,
       matchmakingType: model.matchmakingType,
       description: model.description,

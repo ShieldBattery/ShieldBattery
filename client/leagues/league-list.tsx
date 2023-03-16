@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { Link, Route, Switch } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { ClientLeagueId, ClientLeagueUserJson, LeagueJson } from '../../common/leagues'
+import { ClientLeagueUserJson, LeagueId, LeagueJson } from '../../common/leagues'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { hasAnyPermission } from '../admin/admin-permissions'
 import { openDialog } from '../dialogs/action-creators'
@@ -201,7 +201,7 @@ function LeagueSection({
 }: {
   label: string
   leagues: Array<ReadonlyDeep<LeagueJson>>
-  joinedLeagues: ReadonlyDeep<Map<ClientLeagueId, ClientLeagueUserJson>>
+  joinedLeagues: ReadonlyDeep<Map<LeagueId, ClientLeagueUserJson>>
   type: LeagueSectionType
 }) {
   const curDate = Date.now()

@@ -6,13 +6,7 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { Link, useRoute } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import {
-  ClientLeagueId,
-  ClientLeagueUserJson,
-  LeagueErrorCode,
-  LeagueJson,
-  makeClientLeagueId,
-} from '../../common/leagues'
+import { ClientLeagueUserJson, LeagueErrorCode, LeagueId, LeagueJson } from '../../common/leagues'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { RaceChar, raceCharToLabel } from '../../common/races'
 import { redirectToLogin } from '../auth/auth-utils'
@@ -63,6 +57,7 @@ import {
 import { ALL_DETAILS_SUB_PAGES, DetailsSubPage } from './details-sub-page'
 import { LeagueBadge } from './league-badge'
 import { LeagueImage, LeaguePlaceholderImage } from './league-image'
+import { fromRouteLeagueId, makeRouteLeagueId } from './route-league-id'
 
 const PageRoot = styled.div`
   position: relative;
@@ -89,11 +84,10 @@ export function LeagueDetailsPage() {
     [forceUpdate],
   )
 
-  const [match, params] = useRoute('/leagues/:id/:slugStr?/:subPage?')
-  const { id, slugStr } = params ?? {}
-  const leagueName = useAppSelector(s =>
-    id ? s.leagues.byId.get(makeClientLeagueId(id))?.name : undefined,
-  )
+  const [match, params] = useRoute('/leagues/:routeId/:slugStr?/:subPage?')
+  const { routeId, slugStr } = params ?? {}
+  const id = routeId ? fromRouteLeagueId(makeRouteLeagueId(routeId)) : undefined
+  const leagueName = useAppSelector(s => (id ? s.leagues.byId.get(id)?.name : undefined))
 
   const subPage =
     params?.subPage && ALL_DETAILS_SUB_PAGES.includes(params.subPage as DetailsSubPage)
@@ -102,7 +96,7 @@ export function LeagueDetailsPage() {
 
   useEffect(() => {
     if (match && leagueName && slug(leagueName) !== slugStr) {
-      correctSlugForLeague(makeClientLeagueId(id!), leagueName, subPage)
+      correctSlugForLeague(id!, leagueName, subPage)
     }
   }, [match, id, slugStr, leagueName, subPage])
 
@@ -112,11 +106,7 @@ export function LeagueDetailsPage() {
 
   return (
     <PageRoot ref={setContainerRef}>
-      <LeagueDetails
-        id={makeClientLeagueId(params.id)}
-        subPage={subPage}
-        container={containerRef.current}
-      />
+      <LeagueDetails id={id!} subPage={subPage} container={containerRef.current} />
     </PageRoot>
   )
 }
@@ -218,7 +208,7 @@ const ErrorText = styled.div`
 `
 
 export interface LeagueDetailsProps {
-  id: ClientLeagueId
+  id: LeagueId
   subPage?: DetailsSubPage
   container: HTMLElement | null
 }

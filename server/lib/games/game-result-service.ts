@@ -10,12 +10,7 @@ import {
   toGameRecordJson,
 } from '../../../common/games/games'
 import { GameClientPlayerResult, GameResultErrorCode } from '../../../common/games/results'
-import {
-  League,
-  toClientLeagueId,
-  toClientLeagueUserChangeJson,
-  toLeagueJson,
-} from '../../../common/leagues'
+import { League, toClientLeagueUserChangeJson, toLeagueJson } from '../../../common/leagues'
 import { MatchmakingType, toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
 import { RaceChar } from '../../../common/races'
 import { urlPath } from '../../../common/urls'
@@ -284,17 +279,7 @@ export default class GameResultService {
                 game: gameJson,
                 mmrChange: toPublicMatchmakingRatingChangeJson(change),
                 leagues: applicableLeagues.map(l => toLeagueJson(l)),
-                leagueChanges: leagueChanges.map(lu =>
-                  toClientLeagueUserChangeJson({
-                    userId: lu.userId,
-                    leagueId: toClientLeagueId(lu.leagueId),
-                    gameId: lu.gameId,
-                    changeDate: lu.changeDate,
-                    outcome: lu.outcome,
-                    points: lu.points,
-                    pointsChange: lu.pointsChange,
-                  }),
-                ),
+                leagueChanges: leagueChanges.map(lu => toClientLeagueUserChangeJson(lu)),
               },
             )
           }

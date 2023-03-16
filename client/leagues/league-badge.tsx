@@ -2,7 +2,7 @@ import { meetsContrastGuidelines } from 'polished'
 import React from 'react'
 import styled, { css } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { ClientLeagueId, LeagueJson } from '../../common/leagues'
+import { LeagueId, LeagueJson } from '../../common/leagues'
 import { randomColorForString } from '../avatars/colors'
 import { useAppSelector } from '../redux-hooks'
 import { blue400, colorTextInvert, colorTextPrimary } from '../styles/colors'
@@ -89,7 +89,7 @@ export function ConnectedLeagueBadge({
   leagueId,
   className,
 }: {
-  leagueId: ClientLeagueId
+  leagueId: LeagueId
   className?: string
 }) {
   const league = useAppSelector(s => s.leagues.byId.get(leagueId))

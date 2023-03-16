@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { GameSource, GameType } from '../../../common/games/configuration'
 import { GameRecordJson } from '../../../common/games/games'
-import { ClientLeagueUserChangeJson, LeagueJson, makeClientLeagueId } from '../../../common/leagues'
+import { ClientLeagueUserChangeJson, LeagueJson, makeLeagueId } from '../../../common/leagues'
 import {
   MatchmakingResult,
   MatchmakingType,
@@ -54,7 +54,7 @@ const GAME: GameRecordJson = {
 
 const LEAGUES: LeagueJson[] = [
   {
-    id: makeClientLeagueId('arto'),
+    id: makeLeagueId('arto'),
     name: 'Arto League',
     description: 'The Arto League',
     matchmakingType: MatchmakingType.Match1v1,
@@ -63,7 +63,7 @@ const LEAGUES: LeagueJson[] = [
     endAt: Date.now(),
   },
   {
-    id: makeClientLeagueId('long'),
+    id: makeLeagueId('long'),
     name: 'Very Super Long League Name For Ultimate Testing Thank You',
     description: "Yep, it's long",
     matchmakingType: MatchmakingType.Match1v1,
@@ -72,7 +72,7 @@ const LEAGUES: LeagueJson[] = [
     endAt: Date.now(),
   },
   {
-    id: makeClientLeagueId('early'),
+    id: makeLeagueId('early'),
     name: 'Early League',
     description: 'First in!',
     matchmakingType: MatchmakingType.Match1v1,
@@ -81,7 +81,7 @@ const LEAGUES: LeagueJson[] = [
     endAt: Date.now() - 1000 * 60 * 60,
   },
   {
-    id: makeClientLeagueId('another'),
+    id: makeLeagueId('another'),
     name: 'Yet Another League',
     description: 'Another one',
     matchmakingType: MatchmakingType.Match1v1,
@@ -139,7 +139,7 @@ export function PostMatchDialogTest() {
     if (artoLeague) {
       leagueChanges.push({
         userId: PLAYER_ID,
-        leagueId: makeClientLeagueId('arto'),
+        leagueId: makeLeagueId('arto'),
         gameId: GAME_ID,
         changeDate: GAME.startTime + GAME.gameLength!,
         outcome,
@@ -150,7 +150,7 @@ export function PostMatchDialogTest() {
     if (longLeague) {
       leagueChanges.push({
         userId: PLAYER_ID,
-        leagueId: makeClientLeagueId('long'),
+        leagueId: makeLeagueId('long'),
         gameId: GAME_ID,
         changeDate: GAME.startTime + GAME.gameLength!,
         outcome,
@@ -161,7 +161,7 @@ export function PostMatchDialogTest() {
     if (earlyLeague) {
       leagueChanges.push({
         userId: PLAYER_ID,
-        leagueId: makeClientLeagueId('early'),
+        leagueId: makeLeagueId('early'),
         gameId: GAME_ID,
         changeDate: GAME.startTime + GAME.gameLength!,
         outcome,
@@ -172,7 +172,7 @@ export function PostMatchDialogTest() {
     if (anotherLeague) {
       leagueChanges.push({
         userId: PLAYER_ID,
-        leagueId: makeClientLeagueId('another'),
+        leagueId: makeLeagueId('another'),
         gameId: GAME_ID,
         changeDate: GAME.startTime + GAME.gameLength!,
         outcome,

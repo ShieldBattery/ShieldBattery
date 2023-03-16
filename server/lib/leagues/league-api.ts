@@ -10,8 +10,6 @@ import {
   AdminEditLeagueResponse,
   AdminGetLeagueResponse,
   AdminGetLeaguesResponse,
-  ClientLeagueId,
-  fromClientLeagueId,
   GetLeagueByIdResponse,
   GetLeagueLeaderboardResponse,
   GetLeaguesListResponse,
@@ -25,7 +23,6 @@ import {
   LEAGUE_IMAGE_WIDTH,
   ServerAdminAddLeagueRequest,
   ServerAdminEditLeagueRequest,
-  toClientLeagueId,
   toClientLeagueUserJson,
   toLeagueJson,
 } from '../../../common/leagues'
@@ -42,7 +39,6 @@ import { checkAllPermissions } from '../permissions/check-permissions'
 import { Redis } from '../redis'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { findUsersById } from '../users/user-model'
-import { joiPrettyId } from '../validation/joi-pretty-id'
 import { validateRequest } from '../validation/joi-validator'
 import { getLeaderboard } from './leaderboard'
 import {
@@ -84,13 +80,13 @@ const convertLeagueApiErrors = makeErrorConverterMiddleware(err => {
 
 function leagueIdFromUrl(ctx: RouterContext): LeagueId {
   const { params } = validateRequest(ctx, {
-    params: Joi.object<{ clientLeagueId: ClientLeagueId }>({
-      clientLeagueId: joiPrettyId().required(),
+    params: Joi.object<{ leagueId: LeagueId }>({
+      leagueId: Joi.string().uuid().required(),
     }),
   })
 
   try {
-    return fromClientLeagueId(params.clientLeagueId)
+    return params.leagueId
   } catch (err) {
     throw new httpErrors.BadRequest('invalid league id')
   }
@@ -115,13 +111,11 @@ export class LeagueApi {
       past: past.map(l => toLeagueJson(l)),
       current: current.map(l => toLeagueJson(l)),
       future: future.map(l => toLeagueJson(l)),
-      selfLeagues: selfLeagues.map(lu =>
-        toClientLeagueUserJson({ ...lu, leagueId: toClientLeagueId(lu.leagueId) }),
-      ),
+      selfLeagues: selfLeagues.map(lu => toClientLeagueUserJson(lu)),
     }
   }
 
-  @httpGet('/:clientLeagueId')
+  @httpGet('/:leagueId')
   async getLeagueById(ctx: RouterContext): Promise<GetLeagueByIdResponse> {
     const leagueId = leagueIdFromUrl(ctx)
     const now = new Date()
@@ -136,17 +130,13 @@ export class LeagueApi {
       selfLeagueUser = await getLeagueUser(leagueId, ctx.session.userId)
     }
 
-    const leagueJson = toLeagueJson(league)
-
     return {
-      league: leagueJson,
-      selfLeagueUser: selfLeagueUser
-        ? toClientLeagueUserJson({ ...selfLeagueUser, leagueId: leagueJson.id })
-        : undefined,
+      league: toLeagueJson(league),
+      selfLeagueUser: selfLeagueUser ? toClientLeagueUserJson(selfLeagueUser) : undefined,
     }
   }
 
-  @httpGet('/:clientLeagueId/leaderboard')
+  @httpGet('/:leagueId/leaderboard')
   async getLeaderboard(ctx: RouterContext): Promise<GetLeagueLeaderboardResponse> {
     const leagueId = leagueIdFromUrl(ctx)
     const now = new Date()
@@ -159,24 +149,20 @@ export class LeagueApi {
       throw new LeagueApiError(LeagueErrorCode.NotFound, 'league not found')
     }
 
-    const leagueJson = toLeagueJson(league)
-
     const [users, leagueUsers] = await Promise.all([
       leaderboard.length > 0 ? findUsersById(leaderboard) : [],
       leaderboard.length > 0 ? getManyLeagueUsers(leagueId, leaderboard) : [],
     ])
 
     return {
-      league: leagueJson,
+      league: toLeagueJson(league),
       leaderboard,
-      leagueUsers: leagueUsers.map(lu =>
-        toClientLeagueUserJson({ ...lu, leagueId: leagueJson.id }),
-      ),
+      leagueUsers: leagueUsers.map(lu => toClientLeagueUserJson(lu)),
       users,
     }
   }
 
-  @httpPost('/:clientLeagueId/join')
+  @httpPost('/:leagueId/join')
   @httpBefore(ensureLoggedIn)
   async joinLeague(ctx: RouterContext): Promise<JoinLeagueResponse> {
     const leagueId = leagueIdFromUrl(ctx)
@@ -203,10 +189,9 @@ export class LeagueApi {
       throw new Error('League was joined but no LeagueUser was returned')
     }
 
-    const leagueJson = toLeagueJson(league)
     return {
-      league: leagueJson,
-      selfLeagueUser: toClientLeagueUserJson({ ...selfLeagueUser, leagueId: leagueJson.id }),
+      league: toLeagueJson(league),
+      selfLeagueUser: toClientLeagueUserJson(selfLeagueUser),
     }
   }
 }
@@ -220,7 +205,7 @@ export class LeagueAdminApi {
     return { leagues: leagues.map(l => toLeagueJson(l)) }
   }
 
-  @httpGet('/:clientLeagueId')
+  @httpGet('/:leagueId')
   async getLeague(ctx: RouterContext): Promise<AdminGetLeagueResponse> {
     const leagueId = leagueIdFromUrl(ctx)
     const league = await adminGetLeague(leagueId)

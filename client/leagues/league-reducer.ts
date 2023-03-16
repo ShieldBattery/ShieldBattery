@@ -1,21 +1,21 @@
 import { ReadonlyDeep } from 'type-fest'
-import { ClientLeagueId, ClientLeagueUserJson, LeagueJson } from '../../common/leagues'
+import { ClientLeagueUserJson, LeagueId, LeagueJson } from '../../common/leagues'
 import { SbUserId } from '../../common/users/sb-user'
 import { NETWORK_SITE_DISCONNECTED } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface LeagueState {
-  byId: Map<ClientLeagueId, LeagueJson>
-  past: ClientLeagueId[]
-  current: ClientLeagueId[]
-  future: ClientLeagueId[]
+  byId: Map<LeagueId, LeagueJson>
+  past: LeagueId[]
+  current: LeagueId[]
+  future: LeagueId[]
 
-  selfLeagues: Map<ClientLeagueId, ClientLeagueUserJson>
+  selfLeagues: Map<LeagueId, ClientLeagueUserJson>
 
   // TODO(tec27): We need to evict old entries from these at some point, or navigating through a ton
   // of leaderboards could leak memory
-  leaderboard: Map<ClientLeagueId, SbUserId[]>
-  leaderboardUsers: Map<ClientLeagueId, Map<SbUserId, ClientLeagueUserJson>>
+  leaderboard: Map<LeagueId, SbUserId[]>
+  leaderboardUsers: Map<LeagueId, Map<SbUserId, ClientLeagueUserJson>>
 }
 
 const DEFAULT_STATE: ReadonlyDeep<LeagueState> = {
