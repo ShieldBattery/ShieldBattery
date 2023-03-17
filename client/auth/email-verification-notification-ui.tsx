@@ -28,8 +28,8 @@ export const EmailVerificationNotificationUi = React.forwardRef<
   EmailVerificationNotificationUiProps
 >((props, ref) => {
   const dispatch = useAppDispatch()
-  const selfUser = useSelfUser()
-  const selfUserId = selfUser?.id
+  const selfUser = useSelfUser()!
+  const selfUserId = selfUser.id
   const onClick = useCallback(
     (event: React.MouseEvent) => {
       event.preventDefault()
