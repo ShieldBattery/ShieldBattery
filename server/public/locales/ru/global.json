@@ -18,7 +18,6 @@
     },
     "games": {
         "results": {
-            "buttonRefresh": "Обновить",
             "buttonSearchAgain": "Искать снова",
             "headlineDefault": "Результаты",
             "headlineVictory": "Победа!",

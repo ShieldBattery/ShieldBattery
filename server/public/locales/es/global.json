@@ -22,7 +22,6 @@
             "noGameSelectedText": "Ningún juego seleccionado"
         },
         "results": {
-            "buttonRefresh": "Actualizar",
             "buttonSearchAgain": "Busca de nuevo",
             "headlineInProgress": "En progreso…",
             "errorLoading": "Hubo un problema al cargar este juego.",

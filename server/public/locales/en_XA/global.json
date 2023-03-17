@@ -22,7 +22,6 @@
             "noGameSelectedText": "$No game selected!"
         },
         "results": {
-            "buttonRefresh": "$Refresh!",
             "buttonSearchAgain": "$Search again!",
             "errorLoading": "$There was a problem loading this game.!",
             "headlineDefault": "$Results!",
