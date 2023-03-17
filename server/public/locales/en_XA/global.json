@@ -38,7 +38,8 @@
             "statusLive": "$Live!",
             "tabBuildOrders": "$Build orders!",
             "tabStats": "$Stats!",
-            "tabSummary": "$Summary!"
+            "tabSummary": "$Summary!",
+            "buttonCopyLink": "$Copy link to game!"
         }
     }
 }
