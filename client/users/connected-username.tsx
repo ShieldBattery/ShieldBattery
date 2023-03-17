@@ -1,8 +1,9 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user'
-import { useAppSelector } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorDividers } from '../styles/colors'
+import { getBatchUserInfo } from './action-creators'
 import { ConnectedUserContextMenu, MenuItemCategory } from './user-context-menu'
 import { useUserOverlays } from './user-overlays'
 import { ConnectedUserProfileOverlay } from './user-profile-overlay'
@@ -55,6 +56,13 @@ export function ConnectedUsername({
   filterClick,
   modifyMenuItems,
 }: ConnectedUsernameProps) {
+  const dispatch = useAppDispatch()
+  const user = useAppSelector(s => s.users.byId.get(userId))
+
+  useEffect(() => {
+    dispatch(getBatchUserInfo(userId))
+  }, [dispatch, userId])
+
   const { clickableElemRef, profileOverlayProps, contextMenuProps, onClick, onContextMenu } =
     useUserOverlays<HTMLSpanElement>({
       userId,
@@ -67,7 +75,6 @@ export function ConnectedUsername({
       modifyMenuItems,
     })
 
-  const user = useAppSelector(s => s.users.byId.get(userId))
   const username = user?.name ?? (
     <LoadingName aria-label={'Username loading…'}>
       &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;

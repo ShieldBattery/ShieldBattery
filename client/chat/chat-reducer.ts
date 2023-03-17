@@ -394,6 +394,16 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     state.idToInfo.set(action.payload.id, action.payload)
   },
 
+  ['@chat/getBatchChannelInfo'](state, action) {
+    if (action.error) {
+      return
+    }
+
+    for (const channel of action.payload) {
+      state.idToInfo.set(channel.id, channel)
+    }
+  },
+
   ['@chat/activateChannel'](state, action) {
     const { channelId } = action.payload
 

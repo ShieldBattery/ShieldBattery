@@ -26,7 +26,7 @@ import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
-import { searchChannelsAsAdmin } from './chat-models'
+import { getChannelInfo, searchChannelsAsAdmin } from './chat-models'
 import ChatService, { ChatServiceError } from './chat-service'
 
 const joinThrottle = createThrottle('chatjoin', {
@@ -126,14 +126,6 @@ function getValidatedChannelId(ctx: RouterContext) {
 @httpBeforeAll(ensureLoggedIn, convertChatServiceErrors)
 export class ChatApi {
   constructor(private chatService: ChatService) {}
-
-  @httpGet('/:channelId/info')
-  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
-  async getChannelInfo(ctx: RouterContext): Promise<ChannelInfo> {
-    const channelId = getValidatedChannelId(ctx)
-
-    return await this.chatService.getChannelInfo(channelId, ctx.session!.userId)
-  }
 
   @httpPost('/join/:channelName')
   @httpBefore(
@@ -325,6 +317,28 @@ export class ChatApi {
     )
 
     ctx.status = 204
+  }
+
+  @httpGet('/:channelId/info')
+  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
+  async getChannelInfo(ctx: RouterContext): Promise<ChannelInfo> {
+    const channelId = getValidatedChannelId(ctx)
+
+    return await this.chatService.getChannelInfo(channelId, ctx.session!.userId)
+  }
+
+  @httpGet('/batch-info')
+  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
+  async batchGetInfo(ctx: RouterContext): Promise<ChannelInfo[]> {
+    const {
+      query: { c: channelIds },
+    } = validateRequest(ctx, {
+      query: Joi.object<{ c: SbChannelId[] }>({
+        c: Joi.array().items(serialIdSchema()).single().min(1).max(40),
+      }),
+    })
+
+    return await getChannelInfo(channelIds)
   }
 }
 
