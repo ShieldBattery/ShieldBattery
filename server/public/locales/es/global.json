@@ -22,7 +22,7 @@
             "noGameSelectedText": "Ninguna partida seleccionada"
         },
         "results": {
-            "buttonSearchAgain": "Busca de nuevo",
+            "buttonSearchAgain": "Buscar de nuevo",
             "headlineInProgress": "En progreso…",
             "errorLoading": "Hubo un problema al cargar este juego.",
             "headlineDefault": "Resultados",
