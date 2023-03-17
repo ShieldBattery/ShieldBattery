@@ -40,7 +40,7 @@ import {
 } from './action-creators'
 import { LeagueDetailsHeader, LeagueDetailsInfo } from './league-details'
 import { LeagueCard, LeagueSectionType } from './league-list'
-import { fromRouteLeagueId, makeRouteLeagueId } from './route-league-id'
+import { fromRouteLeagueId, makeRouteLeagueId, toRouteLeagueId } from './route-league-id'
 
 const Root = styled.div`
   padding: 12px 24px;
@@ -128,7 +128,7 @@ export function LeagueAdmin() {
                     type={LeagueSectionType.Current}
                     joined={false}
                     curDate={curDate}
-                    onClick={league => push(`/leagues/admin/${league.id}`)}
+                    onClick={league => push(`/leagues/admin/${toRouteLeagueId(league.id)}`)}
                     actionText={'Edit'}
                   />
                 ))}
