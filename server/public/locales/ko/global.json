@@ -1,20 +1,20 @@
 {
     "common": {
         "emptyListMessage": "여기는 볼게 없다",
-        "gameResultDraw": "그리다",
-        "gameResultLoss": "손실",
+        "gameResultDraw": "무승부",
+        "gameResultLoss": "패배",
         "gameResultUnknown": "알려지지 않은",
-        "gameResultWin": "이기다",
+        "gameResultWin": "승리",
         "gameTypeCustom": "커스텀 게임",
         "gameTypeRanked": "순위 {{matchmakingType}}",
         "mapNameUnknown": "알 수 없는 지도",
-        "matchmakingType1v1": "1v1",
-        "matchmakingType2v2": "2v2",
+        "matchmakingType1v1": "1:1",
+        "matchmakingType2v2": "2:2",
         "playerNameComputer": "컴퓨터",
         "playerNameUnknown": "알 수 없는 플레이어",
-        "teamNameBottom": "맨 아래",
+        "teamNameBottom": "바닥",
         "teamNameNumber": "팀 {{teamNumber}}",
-        "teamNameTop": "맨 위"
+        "teamNameTop": "상단"
     },
     "games": {
         "results": {
@@ -24,8 +24,8 @@
             "buttonSearchAgain": "다시 검색",
             "errorLoading": "이 게임을 로드하는 중에 문제가 발생했습니다.",
             "headlineDefault": "결과",
-            "headlineDefeat": "패배시키다!",
-            "headlineDraw": "그리다!",
+            "headlineDefeat": "패배!",
+            "headlineDraw": "무승부!",
             "headlineInProgress": "진행 중…",
             "headlineVictory": "승리!",
             "infoDate": "날짜",
