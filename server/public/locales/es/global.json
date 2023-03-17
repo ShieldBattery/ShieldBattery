@@ -38,7 +38,8 @@
             "statusLive": "Vivir",
             "tabBuildOrders": "Órdenes de construcción",
             "tabStats": "Estadísticas",
-            "tabSummary": "Resumen"
+            "tabSummary": "Resumen",
+            "buttonCopyLink": "Copiar enlace al juego"
         }
     }
 }
