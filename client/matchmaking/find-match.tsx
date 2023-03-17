@@ -42,7 +42,7 @@ import {
   singleLine,
   subtitle1,
 } from '../styles/typography'
-import { findMatch, updateLastQueuedMatchmakingType } from './action-creators'
+import { findMatch, getCurrentMapPool, updateLastQueuedMatchmakingType } from './action-creators'
 import { Contents1v1 } from './find-1v1'
 import { Contents2v2 } from './find-2v2'
 import { FindMatchFormRef } from './find-match-forms'
@@ -193,6 +193,12 @@ export function FindMatch() {
       return false
     },
   })
+
+  useEffect(() => {
+    if (activeTab !== '3v3') {
+      dispatch(getCurrentMapPool(activeTab))
+    }
+  }, [activeTab, dispatch])
 
   let contents: React.ReactNode | undefined
   switch (activeTab) {
