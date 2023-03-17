@@ -34,7 +34,8 @@
             "headlineInProgress": "В процессе…",
             "headlineDefeat": "Поражение!",
             "statusFinal": "Финал",
-            "statusLive": "Прямой эфир"
+            "statusLive": "Прямой эфир",
+            "buttonCopyLink": "Скопировать ссылку на игру"
         },
         "miniMatchHistory": {
             "buttonDetails": "Посмотреть детали",
