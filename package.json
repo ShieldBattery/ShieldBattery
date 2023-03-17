@@ -229,7 +229,6 @@
     "concat-stream": "^2.0.0",
     "d3-time-format": "^4.1.0",
     "deep-equal": "^2.0.1",
-    "duration-relativetimeformat": "^2.0.4",
     "electron": "^23.1.0",
     "electron-builder": "^23.0.3",
     "electron-is-dev": "^2.0.0",

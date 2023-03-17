@@ -5266,11 +5266,6 @@ duplexify@^4.1.2:
     readable-stream "^3.1.1"
     stream-shift "^1.0.0"
 
-duration-relativetimeformat@^2.0.4:
-  version "2.0.4"
-  resolved "https://registry.yarnpkg.com/duration-relativetimeformat/-/duration-relativetimeformat-2.0.4.tgz#c50fb1052d89eb0e8a16f64c9341f937608b9f04"
-  integrity sha512-EW2eKxRm0IhOmJiBDx50PV5MKVhHGGLqQ4fLbinItdYmoZcVDFRqomCbYfZFEbBXiQdvaRUU+/E2CMlvz5/u5A==
-
 editorconfig@^0.15.3:
   version "0.15.3"
   resolved "https://registry.yarnpkg.com/editorconfig/-/editorconfig-0.15.3.tgz#bef84c4e75fb8dcb0ce5cee8efd51c15999befc5"
