@@ -34,7 +34,7 @@ const StyledRaceSelect = styled(RaceSelect)`
 
 export function PartyQueueAcceptDialog({ dialogRef }: CommonDialogProps) {
   const dispatch = useAppDispatch()
-  const selfUser = useSelfUser()
+  const selfUser = useSelfUser()!
   const selfId = selfUser.id
   const partyId = useAppSelector(s => s.party.current?.id)
   const queueState = useAppSelector(s => s.party.current?.queueState)

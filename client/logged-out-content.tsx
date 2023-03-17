@@ -7,6 +7,7 @@ import { ActivityButton } from './activities/activity-button'
 import { VersionText } from './activities/version-text'
 import { openDialog } from './dialogs/action-creators'
 import { DialogType } from './dialogs/dialog-type'
+import { GamesRouteComponent } from './games/route'
 import LadderIcon from './icons/material/emoji_events-36px.svg'
 import DownloadIcon from './icons/material/get_app-36px.svg'
 import LeaguesIcon from './icons/material/social_leaderboard-36px.svg'
@@ -55,6 +56,7 @@ export function LoggedOutContent({ loggedInContent }: LoggedOutContentProps) {
       <LoggedOutLeftNav />
       <Content>
         <Switch>
+          <Route path='/games/:rest*' component={GamesRouteComponent} />
           <Route path='/ladder/:rest*' component={LadderRouteComponent} />
           <Route path='/leagues/:rest*' component={LeagueRoot} />
           <Route path='/users/:rest*' component={ProfileRouteComponent} />

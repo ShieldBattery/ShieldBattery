@@ -134,7 +134,7 @@ export function FindMatch() {
   const isMatchmakingStatusDisabled = !useAppSelector(
     s => s.matchmakingStatus.byType.get(activeTab as MatchmakingType)?.enabled ?? false,
   )
-  const selfUser = useSelfUser()
+  const selfUser = useSelfUser()!
   const partyId = useAppSelector(s => s.party.current?.id)
   const isInParty = !!partyId
   const partySize = useAppSelector(s => s.party.current?.members.length ?? 0)
@@ -381,8 +381,8 @@ const BONUS_PER_WEEK = Math.floor(MATCHMAKING_BONUS_EARNED_PER_MS * 1000 * 60 * 
 
 function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
   const dispatch = useAppDispatch()
-  const selfUser = useSelfUser()
-  const selfUserId = selfUser?.id
+  const selfUser = useSelfUser()!
+  const selfUserId = selfUser.id
   const [loadingError, setLoadingError] = useState<Error>()
 
   const season = useAppSelector(s => s.selfRank.currentSeason)

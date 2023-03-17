@@ -22,7 +22,7 @@
       "noGameSelectedText": "No game selected"
     },
     "results": {
-      "buttonRefresh": "Refresh",
+      "buttonCopyLink": "Copy link to game",
       "buttonSearchAgain": "Search again",
       "errorLoading": "There was a problem loading this game.",
       "headlineDefault": "Results",

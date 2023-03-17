@@ -58,7 +58,7 @@ const LoadingError = styled.div`
 `
 
 export function AdminUserPage({ user }: { user: SbUser }) {
-  const selfUser = useSelfUser()
+  const selfUser = useSelfUser()!
   const selfPermissions = useSelfPermissions()
   return (
     <AdminUserPageRoot>

@@ -306,7 +306,7 @@ function LobbySection() {
 
 function PartySection() {
   const dispatch = useAppDispatch()
-  const selfUser = useSelfUser()
+  const selfUser = useSelfUser()!
   const currentParty = useAppSelector(s => s.party.current)
 
   const onInviteClick = useCallback(() => {
@@ -392,7 +392,7 @@ function ConnectedWhisperNavEntry({
 
 export function ConnectedLeftNav() {
   const dispatch = useAppDispatch()
-  const selfUser = useSelfUser()
+  const selfUser = useSelfUser()!
   const chatChannels = useAppSelector(s => s.chat.joinedChannels)
   const whisperSessions = useAppSelector(s => s.whispers.sessions)
 

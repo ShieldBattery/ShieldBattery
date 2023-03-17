@@ -39,7 +39,7 @@ export interface ConnectedWhisperProps {
 
 export function ConnectedWhisper({ userId, username: usernameFromRoute }: ConnectedWhisperProps) {
   const dispatch = useAppDispatch()
-  const selfUser = useSelfUser()
+  const selfUser = useSelfUser()!
   const targetUser = useAppSelector(s => s.users.byId.get(userId))
   const isSessionOpen = useAppSelector(s => s.whispers.sessions.has(userId))
   const whisperSession = useAppSelector(s => s.whispers.byId.get(userId))

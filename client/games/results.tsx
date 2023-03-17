@@ -18,7 +18,6 @@ import { Avatar } from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import { longTimestamp } from '../i18n/date-formats'
-import RefreshIcon from '../icons/material/refresh-24px.svg'
 import FindMatchIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { RaceIcon } from '../lobbies/race-icon'
 import { batchGetMapInfo } from '../maps/action-creators'
@@ -30,8 +29,8 @@ import { Ripple } from '../material/ripple'
 import { shadow2dp } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip, TooltipContent, TooltipPosition } from '../material/tooltip'
+import { CopyLinkButton } from '../navigation/copy-link-button'
 import { replace } from '../navigation/routing'
-import { useRefreshToken } from '../network/refresh-token'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import {
@@ -178,7 +177,6 @@ export function ConnectedGameResultsPage({
   const [loadingError, setLoadingError] = useState<Error>()
   const [isLoading, setIsLoading] = useState(!game)
   const cancelLoadRef = useRef(new AbortController())
-  const [refreshToken, triggerRefresh] = useRefreshToken()
   const canSearchMatchmaking = useAppSelector(s => {
     const currentParty = s.party.current
     const isSearching = !!s.matchmaking.searchInfo
@@ -212,13 +210,13 @@ export function ConnectedGameResultsPage({
       abortController.abort()
       setIsLoading(false)
     }
-  }, [gameId, refreshToken, dispatch])
+  }, [gameId, dispatch])
 
   useEffect(() => {
     // At the moment the only time a game will really change is when it doesn't have results yet, so
     // we only subscribe in that case. If we start updating game records more often, we may want to
     // subscribe all the time
-    if (!isLoading && !results) {
+    if (selfUser && !isLoading && !results) {
       dispatch(subscribeToGame(gameId))
       return () => {
         // TODO(tec27): We may want to be more picky about when we do this, so we limit the number
@@ -228,14 +226,14 @@ export function ConnectedGameResultsPage({
     }
 
     return () => {}
-  }, [gameId, isLoading, results, dispatch])
+  }, [gameId, isLoading, results, dispatch, selfUser])
 
   useEffect(() => {
     if (
       isPostGame &&
-      selfUser &&
       game &&
-      !game.config.teams.some(t => t.some(p => !p.isComputer && p.id === selfUser?.id))
+      (!selfUser ||
+        !game.config.teams.some(t => t.some(p => !p.isComputer && p.id === selfUser.id)))
     ) {
       // If the user isn't in this game, they shouldn't be looking at the post-game screen. Mostly
       // just handles someone getting linked here somehow (or trying to be tricky :) ). Stops
@@ -248,6 +246,7 @@ export function ConnectedGameResultsPage({
     if (game && !game.results) {
       return t('games.results.headlineInProgress', 'In progress…')
     } else if (
+      selfUser &&
       game &&
       game.config.teams.some(t => t.some(p => !p.isComputer && p.id === selfUser.id))
     ) {
@@ -269,7 +268,7 @@ export function ConnectedGameResultsPage({
     }
 
     return t('games.results.headlineDefault', 'Results')
-  }, [game, t, selfUser.id])
+  }, [game, t, selfUser])
 
   const config = game?.config
   const onSearchAgain = useCallback(() => {
@@ -347,10 +346,9 @@ export function ConnectedGameResultsPage({
         ) : null}
         {/* TODO(tec27): Search again, watch replay, etc. */}
         <ButtonSpacer />
-        <RaisedButton
-          label={t('games.results.buttonRefresh', 'Refresh')}
-          iconStart={<RefreshIcon />}
-          onClick={triggerRefresh}
+        <CopyLinkButton
+          startingText={t('games.results.buttonCopyLink', 'Copy link to game')}
+          tooltipPosition='left'
         />
       </ButtonBar>
       <TabArea>

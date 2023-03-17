@@ -144,7 +144,7 @@ export interface ConnectedPartyDisabledCardProps {
 }
 
 export function ConnectedPartyDisabledCard({ className, type }: ConnectedPartyDisabledCardProps) {
-  const selfUser = useSelfUser()
+  const selfUser = useSelfUser()!
   const isPartyLeader = useAppSelector(s => s.party.current?.leader === selfUser.id)
   const partySize = useAppSelector(s => s.party.current?.members.length ?? 0)
 

@@ -223,7 +223,7 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
   const [isFetching, setIsFetching] = useState(false)
   const [error, setError] = useState<Error>()
 
-  const isLoggedIn = useSelfUser().id !== -1
+  const isLoggedIn = !!useSelfUser()
   const league = useAppSelector(s => s.leagues.byId.get(id))
   const selfLeagueUser = useAppSelector(s => s.leagues.selfLeagues.get(id))
 

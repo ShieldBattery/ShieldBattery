@@ -88,7 +88,7 @@ function model2v2ToPrefs(model: Model2v2, userId: SbUserId, mapPoolId: number) {
 
 export function Contents2v2({ formRef, onSubmit, disabled }: FindMatchContentsProps) {
   const dispatch = useAppDispatch()
-  const selfUser = useSelfUser()
+  const selfUser = useSelfUser()!
   const prefs: Immutable<MatchmakingPreferences2v2> | Record<string, never> = useAppSelector(
     s =>
       (s.matchmakingPreferences.byType.get(MatchmakingType.Match2v2)?.preferences as
@@ -105,7 +105,7 @@ export function Contents2v2({ formRef, onSubmit, disabled }: FindMatchContentsPr
     [prefs.mapSelections, mapPool],
   )
 
-  const selfId = selfUser.id!
+  const selfId = selfUser.id
   const mapPoolId = mapPool?.id ?? 0
   const onPrefsChanged = useCallback(
     (model: Model2v2) => {

@@ -370,7 +370,7 @@ type FriendRequestsRowData = FriendRequestsHeaderData | FriendRequestsUserData
 
 function FriendRequestsList({ height }: { height: number }) {
   const dispatch = useAppDispatch()
-  const selfUser = useSelfUser()
+  const selfUser = useSelfUser()!
   const incomingRequests = useAppSelector(s => s.relationships.incomingRequests)
   const outgoingRequests = useAppSelector(s => s.relationships.outgoingRequests)
   const incomingUserEntries = useAppSelector(
