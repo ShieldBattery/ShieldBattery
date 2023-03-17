@@ -325,7 +325,7 @@ export class LeagueAdminApi {
     })
   }
 
-  @httpPatch('/:clientLeagueId')
+  @httpPatch('/:leagueId')
   @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE))
   async editLeague(ctx: RouterContext): Promise<AdminEditLeagueResponse> {
     const leagueId = leagueIdFromUrl(ctx)
