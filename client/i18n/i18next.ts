@@ -40,7 +40,4 @@ export const i18nextPromise = i18n
     returnNull: false,
   })
 
-// NOTE(2Pac): We re-export the `i18n` import so we can use the `t` function outside React
-// components. How exactly that works, I'm not sure, but the code above probably sets something
-// globally so using this instance will use the configuration we've defined.
 export default i18n

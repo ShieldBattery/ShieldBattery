@@ -1,3 +1,21 @@
+#### 8.8.0 (March 17, 2023)
+
+- **Unified lobbies**. The Create and Join Lobby actions in the sidebar have been combined into a
+  single view. Click the shiny new Lobbies button to find the lobby list and access lobby creation,
+  or continue to use the old hotkeys (Alt+C and Alt+J) for quicker access.
+- **Leagues.** We've been hard at work building a brand new way to compete, which we're calling
+  Leagues. Leagues are limited-time events that require players to sign up to participate. Once
+  signed up, any ladder games you play in the league's matchmaking type will also count towards
+  the league's standings. Leagues are a great option for events that want to run ladder-based
+  qualifiers. Stay tuned for some more announcements here! And if you're interested in running
+  your own league, please reach out to us on our Discord.
+- **Public profiles and more.** We've made a number of pages that previously required login open to
+  the public: user profiles, ladder standings, game results, and leagues.
+- **Copy link buttons.** As part of making some of these pages public, we've also made it easier to
+  get links to them from within the app. Look for the link button near the top of the league or
+  game results pages, and click it! These links work outside of the app, and are also convenient for
+  sending to chat or whispers in the app.
+
 #### 8.7.0 (October 27, 2022)
 
 - **Support for WINE.** Although not officially supported, the app is now able to run under WINE on
@@ -219,158 +237,6 @@
   limited to: a fix for game crashes caused by checking or unchecking the Vsync setting checkbox,
   corrections to game result calculation in games with alliances, improved latency when performing a ton of actions in the standalone client (sending chat messages, for instance), and added sounds
   for performing certain actions (like entering the matchmaking queue).
-
-##### Known Issues
-
-- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
-  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
-  very least add a warning for this case in the future (or better yet, automate re-authing), but
-  for now, try to launch the game from the Blizzard launcher at least once a month.
-- **Off-center screen starting position.** For some users, generally in positions on the right side
-  of the screen, the starting screen position may be slightly off-center from where it usually is
-- **Observer chat is broken.** Observers are unable to send messages ingame currently. This will be
-  fixed in a future update.
-
-#### 7.1.5 (November 15, 2021)
-
-- **EUD maps fixed.** We've fixed the last of the non-working EUD maps (and found and fixed a bug
-  that was breaking some other Use Map Settings bugs as well).
-
-##### Known Issues
-
-- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
-  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
-  very least add a warning for this case in the future (or better yet, automate re-authing), but
-  for now, try to launch the game from the Blizzard launcher at least once a month.
-- **Off-center screen starting position.** For some users, generally in positions on the right side
-  of the screen, the starting screen position may be slightly off-center from where it usually is
-- **Observer chat is broken.** Observers are unable to send messages ingame currently. This will be
-  fixed in a future update.
-
-#### 7.1.4 (November 14, 2021)
-
-- **Game results.** We've added the first version of a game results page, viewable after you
-  complete a game and from a user's profile page. We plan to add a lot more features to these, but
-  for now you can at least check out who won and lost.
-- **Improved chat.** There's a number of new features in our messaging system (affecting chat,
-  whispers, and lobbies). You can now mention users by throwing an _@_ in front of their username
-  (autocompletion for this coming soon!). Any messages which mention you will be highlighted for
-  optimal noticeability. In addition, links to external sites will now show a warning, and channel
-  join messages will be persisted to the permanent history so you can always tell when someone
-  joined.
-- **Fixes for EUD maps.** A number of EUD maps should load properly now, instead of crashing
-  immediately. There's still a few that cause issues, but we're working on it and will release an
-  update once they are fixed as well!
-- **New system tray icons.** We've recolored and reworked our system tray icons for better
-  visibility. We also added a snazzy new icon specific for "urgent" messages, so you can know when
-  someone has mentioned you in a channel or lobby.
-- **Codified policies.** We've documented our privacy policy, terms of service, and acceptable use
-  policy, and linked these on the site. These don't represent a real change to the things we were
-  doing, but should give you a more concrete idea of how you can expect your data to be collected
-  and treated.
-
-##### Known Issues
-
-- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
-  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
-  very least add a warning for this case in the future (or better yet, automate re-authing), but
-  for now, try to launch the game from the Blizzard launcher at least once a month.
-- **Off-center screen starting position.** For some users, generally in positions on the right side
-  of the screen, the starting screen position may be slightly off-center from where it usually is
-- **Observer chat is broken.** Observers are unable to send messages ingame currently. This will be
-  fixed in a future update.
-- **Some EUD maps behave incorrectly.** EUD maps load into the game properly, but then do not follow
-  their "normal" behavior. This will be fixed in a future update.
-
-#### 7.1.3 (September 30, 2021)
-
-- **Map downloads fixed.** We've fixed an issue with downloading maps from our CDN that was
-  preventing games from loading.
-- **Improved map preview.** The map preview dialog now shows the map image without borders and
-  does a better job sizing itself for optimal strategic planning.
-
-##### Known Issues
-
-- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
-  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
-  very least add a warning for this case in the future (or better yet, automate re-authing), but
-  for now, try to launch the game from the Blizzard launcher at least once a month.
-- **Off-center screen starting position.** For some users, generally in positions on the right side
-  of the screen, the starting screen position may be slightly off-center from where it usually is
-- **Observer chat is broken.** Observers are unable to send messages ingame currently. This will be
-  fixed in a future update.
-
-#### 7.1.2 (September 2, 2021)
-
-- **Matchmaking fixes.** Fixed a bug that allowed clients to potentially accept matches multiple
-  times, leading to a crash.
-- **New error screen.** Added a new screen for local errors and crashes to make them easier to
-  report.
-
-##### Known Issues
-
-- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
-  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
-  very least add a warning for this case in the future (or better yet, automate re-authing), but
-  for now, try to launch the game from the Blizzard launcher at least once a month.
-- **Off-center screen starting position.** For some users, generally in positions on the right side
-  of the screen, the starting screen position may be slightly off-center from where it usually is
-- **Observer chat is broken.** Observers are unable to send messages ingame currently. This will be
-  fixed in a future update.
-
-#### 7.1.0 (August 30, 2021)
-
-- **Map haters welcome.** We've rolled out a new map selection system to completely replace our
-  existing one. The last one was based on selecting maps you preferred to see, and increasing the
-  chance that you would see them (but all maps were still in play). This turned out to be a pretty
-  convoluted thing to explain and understand, leading people to often think it was bugged, or just
-  be unhappy with the results. We've moved to a more standard 3 veto system. So long as the entire
-  pool hasn't been vetoed by the players in the game, you'll be guaranteed to not see any of the
-  maps you've vetoed. As part of this change, your existing map selections have been wiped clean,
-  and you'll find a new UI for performing selections in the matchmaking overlay.
-- **Faster matchmaking.** We've increased the rate at which matchmaking ranges expand, and added
-  basic population estimation into the algorithm to let you always find a match in a reasonable
-  time. The previous versions of matchmaking greatly prioritized accurate matches, and didn't make
-  many concessions during low population times. This often resulted in cases where two players were
-  queued and had ratings that weren't extremely far off, but were still outside each other's max
-  ranges. In the interest of delivering games more often, the system will relax these range
-  restrictions if the population around your rating is unlikely to produce a match in a short time.
-- **No more unintentional GGs.** Very few people probably realize this, but SC:R added a system that
-  watches for various behavior it considers problematic (dragging the window for more than 10
-  seconds straight being the prime example), and forces anyone found doing it to send a 'GG'
-  message and quit the game. Presumably this caused problems with lag at the time this code was
-  written, but it doesn't any more, and so in the interest of not having people quit the game
-  accidentally, we've turned that "feature" off on ShieldBattery.
-- **Fog of War, now with less blue.** We've made some visual tweaks to the unexplored Fog of War.
-  The previous version had a slight amount of blue added to it, to try and increase contrast with
-  the explored fog. This had the side effect of making some colors in the game appear warmer than
-  intended (and was especially prominent on some displays), so we've removed that extra color.
-  Unexplored fog will now be a flat gray color (just a darker version of the explored fog).
-
-##### Known Issues
-
-- **HD graphics fail to work even when purchased/turned on.** Blizzard requires the game to be
-  launched from their launcher once every 30 days to keep premium features enabled. We'll at the
-  very least add a warning for this case in the future (or better yet, automate re-authing), but
-  for now, try to launch the game from the Blizzard launcher at least once a month.
-- **Off-center screen starting position.** For some users, generally in positions on the right side
-  of the screen, the starting screen position may be slightly off-center from where it usually is
-- **Observer chat is broken.** Observers are unable to send messages ingame currently. This will be
-  fixed in a future update.
-
-#### 7.0.20 (August 13, 2021)
-
-- **Observer mode has returned.** We now support in-game observers using SC:R's built-in feature
-  and UI. There is still a limit of 8 total players per game, so on larger maps you may have to
-  convert some of the player slots into observer slots if you need more (check the menu next to
-  the slot!). This feature is also available only on Melee mode for the time being, although this
-  restriction will likely be lifted in the future.
-- **Clickable links.** Links in chat (in the app, not ingame) are now clickable and will open a
-  new window. Support for embedding links to other ShieldBattery pages (like profiles and lobbies)
-  is coming soon.
-- **Bug fixes.** We've fixed an issue with some UMS maps (namely ones for observer mode) generating
-  replays that were unplayable. We've also fixed some issues with email verification, and made
-  the web version of the app load slightly faster.
 
 ##### Known Issues
 

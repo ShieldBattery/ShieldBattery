@@ -306,11 +306,17 @@ export class LeagueAdminApi {
 
       if (image && imagePath) {
         const buffer = await image.toBuffer()
-        writeFile(imagePath, buffer)
+        writeFile(imagePath, buffer, {
+          acl: 'public-read',
+          type: imageExtension === 'png' ? 'image/png' : 'image/jpeg',
+        })
       }
       if (badge && badgePath) {
         const buffer = await badge.toBuffer()
-        writeFile(badgePath, buffer)
+        writeFile(badgePath, buffer, {
+          acl: 'public-read',
+          type: badgeExtension === 'png' ? 'image/png' : 'image/jpeg',
+        })
       }
 
       return {
@@ -426,11 +432,17 @@ export class LeagueAdminApi {
 
       if (image && imagePath) {
         const buffer = await image.toBuffer()
-        writeFile(imagePath, buffer)
+        writeFile(imagePath, buffer, {
+          acl: 'public-read',
+          type: imageExtension === 'png' ? 'image/png' : 'image/jpeg',
+        })
       }
       if (badge && badgePath) {
         const buffer = await badge.toBuffer()
-        writeFile(badgePath, buffer)
+        writeFile(badgePath, buffer, {
+          acl: 'public-read',
+          type: badgeExtension === 'png' ? 'image/png' : 'image/jpeg',
+        })
       }
 
       return {
