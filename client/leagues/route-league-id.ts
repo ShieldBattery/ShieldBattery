@@ -6,7 +6,7 @@ import { decodePrettyId, encodePrettyId } from '../../common/pretty-id'
  * The ID of a league as used in routes (equivalent to the DB one, just encoded in a way that
  * looks more friendly in URLs).
  */
-export type RouteLeagueId = Opaque<string, 'ClientLeagueId'>
+export type RouteLeagueId = Opaque<string, 'RouteLeagueId'>
 
 export function toRouteLeagueId(id: LeagueId): RouteLeagueId {
   return encodePrettyId(id) as RouteLeagueId

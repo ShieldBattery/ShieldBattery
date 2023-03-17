@@ -12,6 +12,7 @@ import { fetchJson } from '../network/fetch'
 import { findMatchAsParty } from '../parties/action-creators'
 import { openSnackbar } from '../snackbars/action-creators'
 import { ResultsSubPage } from './results-sub-page'
+import { toRouteGameId } from './route-game-id'
 
 /**
  * Navigates to a game's result page (and optionally, a specific tab within that).
@@ -28,7 +29,8 @@ export function navigateToGameResults(
   tab?: ResultsSubPage,
   transitionFn = push,
 ) {
-  transitionFn(urlPath`/games/${gameId}/${tab ?? ''}` + (asPostGame ? '?post-game' : ''))
+  const routeId = toRouteGameId(gameId)
+  transitionFn(urlPath`/games/${routeId}/${tab ?? ''}` + (asPostGame ? '?post-game' : ''))
 }
 
 const gameLoadsInProgress = new Set<string>()
