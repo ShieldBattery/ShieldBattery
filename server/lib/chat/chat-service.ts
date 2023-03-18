@@ -42,6 +42,8 @@ import {
   deleteChannelMessage,
   findChannelByName,
   getChannelInfo,
+  getChannelInfos,
+  getChannelInfosInOrder,
   getChannelsForUser,
   getMessagesForChannel,
   getUserChannelEntryForUser,
@@ -152,8 +154,12 @@ export default class ChatService {
     }
 
     const channelId = makeSbChannelId(1)
+    const channelInfo = await getChannelInfo(channelId, client)
+    if (!channelInfo) {
+      throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+    }
+
     const userChannelEntry = await addUserToChannel(userId, channelId, client)
-    const channelInfo = (await getChannelInfo([channelId], client))[0]
     const message = await addMessageToChannel(
       userId,
       channelId,
@@ -320,14 +326,16 @@ export default class ChatService {
     moderationAction: ChannelModerationAction,
     moderationReason?: string,
   ): Promise<void> {
-    const [[channelInfo], userPermissions, userChannelEntry, targetChannelEntry] =
-      await Promise.all([
-        getChannelInfo([channelId]),
-        getPermissions(userId),
-        getUserChannelEntryForUser(userId, channelId),
-        getUserChannelEntryForUser(targetId, channelId),
-      ])
+    const [channelInfo, userPermissions, userChannelEntry, targetChannelEntry] = await Promise.all([
+      getChannelInfo(channelId),
+      getPermissions(userId),
+      getUserChannelEntryForUser(userId, channelId),
+      getUserChannelEntryForUser(targetId, channelId),
+    ])
 
+    if (!channelInfo) {
+      throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+    }
     if (!userChannelEntry) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
@@ -483,7 +491,7 @@ export default class ChatService {
   }
 
   async getChannelInfo(channelId: SbChannelId, userId: SbUserId): Promise<ChannelInfo> {
-    const channelInfo: ChannelInfo | undefined = (await getChannelInfo([channelId]))[0]
+    const channelInfo = await getChannelInfo(channelId)
 
     if (!channelInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
@@ -491,8 +499,7 @@ export default class ChatService {
 
     let userCount
     if (!channelInfo.private || this.state.users.get(userId)?.has(channelId)) {
-      const channelUsers = await getUsersForChannel(channelId)
-      userCount = channelUsers.length
+      userCount = channelInfo.userCount
     }
 
     return {
@@ -502,6 +509,24 @@ export default class ChatService {
       official: channelInfo.official,
       userCount,
     }
+  }
+
+  async getChannelInfos(channelIds: SbChannelId[], userId: SbUserId): Promise<ChannelInfo[]> {
+    const channelInfos = await getChannelInfos(channelIds)
+
+    return channelInfos.map(channel => {
+      let userCount
+      if (!channel.private || this.state.users.get(userId)?.has(channel.id)) {
+        userCount = channel.userCount
+      }
+      return {
+        id: channel.id,
+        name: channel.name,
+        private: channel.private,
+        official: channel.official,
+        userCount,
+      }
+    })
   }
 
   async getChannelHistory({
@@ -628,7 +653,13 @@ export default class ChatService {
       }
     }
 
-    const channelInfo = (await getChannelInfo([chatUser.channelId]))[0]
+    const channelInfo = await getChannelInfo(chatUser.channelId)
+    // NOTE(2Pac): This would be a very odd error indeed. It would mean we still have an entry for
+    // this user being in this channel, but channel itself does not exist anymore.
+    if (!channelInfo) {
+      throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+    }
+
     const isOwner = channelInfo.joinedChannelData?.ownerId === userId
 
     const { channelPermissions: perms } = chatUser
@@ -645,12 +676,15 @@ export default class ChatService {
   }
 
   async getUserPermissions(channelId: SbChannelId, userId: SbUserId, targetId: SbUserId) {
-    const [[channelInfo], userChannelEntry, targetChannelEntry] = await Promise.all([
-      getChannelInfo([channelId]),
+    const [channelInfo, userChannelEntry, targetChannelEntry] = await Promise.all([
+      getChannelInfo(channelId),
       getUserChannelEntryForUser(userId, channelId),
       getUserChannelEntryForUser(targetId, channelId),
     ])
 
+    if (!channelInfo) {
+      throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+    }
     if (!userChannelEntry) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
@@ -685,12 +719,15 @@ export default class ChatService {
     targetId: SbUserId,
     permissions: ChannelPermissions,
   ) {
-    const [[channelInfo], userChannelEntry, targetChannelEntry] = await Promise.all([
-      getChannelInfo([channelId]),
+    const [channelInfo, userChannelEntry, targetChannelEntry] = await Promise.all([
+      getChannelInfo(channelId),
       getUserChannelEntryForUser(userId, channelId),
       getUserChannelEntryForUser(targetId, channelId),
     ])
 
+    if (!channelInfo) {
+      throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+    }
     if (!userChannelEntry) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
@@ -768,7 +805,7 @@ export default class ChatService {
 
   private async handleNewUser(userSockets: UserSocketsGroup) {
     const userChannels = await getChannelsForUser(userSockets.userId)
-    const channelInfos = await getChannelInfo(userChannels.map(uc => uc.channelId))
+    const channelInfos = await getChannelInfosInOrder(userChannels.map(uc => uc.channelId))
     const channelIdToInfo = Map<SbChannelId, ChannelInfo>(channelInfos.map(c => [c.id, c]))
     if (!userSockets.sockets.size) {
       // The user disconnected while we were waiting for their channel list

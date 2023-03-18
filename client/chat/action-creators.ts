@@ -184,7 +184,7 @@ export function getChannelInfo(
   return abortableThunk(spec, async dispatch => {
     dispatch({
       type: '@chat/getChannelInfo',
-      payload: await fetchJson<ChannelInfo>(apiUrl`chat/${channelId}/info`, {
+      payload: await fetchJson<ChannelInfo>(apiUrl`chat/${channelId}`, {
         method: 'GET',
         signal: spec.signal,
       }),
