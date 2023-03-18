@@ -30,11 +30,12 @@ import {
   addUserToChannel,
   banAllIdentifiersFromChannel,
   banUserFromChannel,
-  ChatMessage,
   countBannedIdentifiersForChannel,
   createChannel,
+  DbChatMessage,
   deleteChannelMessage,
   findChannelByName,
+  findChannelsByName,
   getChannelInfo,
   getChannelInfos,
   getMessagesForChannel,
@@ -89,11 +90,12 @@ jest.mock('./chat-models', () => ({
   getChannelInfos: jest.fn().mockResolvedValue([]),
   getChannelInfosInOrder: jest.fn().mockResolvedValue([]),
   findChannelByName: jest.fn(),
+  findChannelsByName: jest.fn().mockResolvedValue([]),
   searchChannelsAsAdmin: jest.fn().mockResolvedValue([]),
 }))
 
-type FakeDbJoinChannelMessage = ChatMessage & { data: JoinChannelData }
-type FakeDbTextChannelMessage = ChatMessage & { data: TextMessageData }
+type FakeDbJoinChannelMessage = DbChatMessage & { data: JoinChannelData }
+type FakeDbTextChannelMessage = DbChatMessage & { data: TextMessageData }
 
 /**
  * A helper method that returns a JSON version of the "JoinChannel" database message.
@@ -225,7 +227,7 @@ describe('chat/chat-service', () => {
     user: SbUser,
     channel: ChannelInfo,
     userChannelEntry: UserChannelEntry,
-    channelMessage: ChatMessage,
+    channelMessage: DbChatMessage,
   ) {
     asMockedFunction(findUserById).mockResolvedValue(user)
     asMockedFunction(findChannelByName).mockResolvedValue(undefined)
@@ -246,7 +248,8 @@ describe('chat/chat-service', () => {
     user: SbUser,
     channel: ChannelInfo,
     processedMessageString: string,
-    mentions: SbUser[],
+    userMentions: SbUser[],
+    channelMentions: ChannelInfo[],
   ) {
     textMessage = {
       msgId: 'MESSAGE_ID',
@@ -257,14 +260,16 @@ describe('chat/chat-service', () => {
       data: {
         type: ServerChatMessageType.TextMessage,
         text: processedMessageString,
-        mentions: mentions.map(m => m.id),
+        mentions: userMentions.length > 0 ? userMentions.map(m => m.id) : undefined,
+        channelMentions: channelMentions.length > 0 ? channelMentions.map(c => c.id) : undefined,
       },
     }
     // NOTE(2Pac): The `joinUserToChannel` calls already mock the return value of this function,
     // so we use the `mockResolvedValueOnce` method to bump the return value to the top of the
     // call stack.
     addMessageToChannelMock.mockResolvedValueOnce(textMessage)
-    asMockedFunction(findUsersByName).mockResolvedValue(new Map(mentions.map(m => [m.name, m])))
+    asMockedFunction(findUsersByName).mockResolvedValue(userMentions)
+    asMockedFunction(findChannelsByName).mockResolvedValue(channelMentions)
   }
 
   /**
@@ -277,7 +282,7 @@ describe('chat/chat-service', () => {
     channel: ChannelInfo,
     client: InspectableNydusClient,
   ) {
-    mockTextMessage(user, channel, 'Hello World!', [])
+    mockTextMessage(user, channel, 'Hello World!', [], [])
 
     await chatService.sendChatMessage(channel.id, user.id, textMessage.data.text)
 
@@ -956,17 +961,23 @@ describe('chat/chat-service', () => {
     })
 
     describe('when in channel', () => {
-      const expectItWorks = (processedMessageString: string, mentions: SbUser[]) => {
+      const expectItWorks = (
+        processedMessageString: string,
+        userMentions: SbUser[],
+        channelMentions: ChannelInfo[],
+      ) => {
         expect(addMessageToChannelMock).toHaveBeenCalledWith(user1.id, testChannel.id, {
           type: textMessage.data.type,
           text: processedMessageString,
-          mentions: mentions.map(m => m.id),
+          mentions: userMentions.length > 0 ? userMentions.map(m => m.id) : undefined,
+          channelMentions: channelMentions.length > 0 ? channelMentions.map(c => c.id) : undefined,
         })
         expect(client2.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
           action: 'message2',
           message: toTextMessageJson(textMessage),
           user: user1,
-          mentions,
+          userMentions,
+          channelMentions,
         })
       }
 
@@ -987,22 +998,45 @@ describe('chat/chat-service', () => {
 
       test('works for regular text messages', async () => {
         const messageString = 'Hello World!'
-        mockTextMessage(user1, testChannel, messageString, [])
+        mockTextMessage(user1, testChannel, messageString, [], [])
 
         await chatService.sendChatMessage(testChannel.id, user1.id, messageString)
 
-        expectItWorks(messageString, [])
+        expectItWorks(messageString, [], [])
       })
 
-      test('works when there are user mentions in message', async () => {
+      test('works when there are user mentions in a message', async () => {
         const messageString = `Hello @${user1.name}, @${user2.name}, and @unknown.`
         const processedText = `Hello <@${user1.id}>, <@${user2.id}>, and @unknown.`
-        const mentions = [user1, user2]
-        mockTextMessage(user1, testChannel, processedText, mentions)
+        const userMentions = [user1, user2]
+        mockTextMessage(user1, testChannel, processedText, userMentions, [])
 
         await chatService.sendChatMessage(testChannel.id, user1.id, messageString)
 
-        expectItWorks(processedText, mentions)
+        expectItWorks(processedText, userMentions, [])
+      })
+
+      test('works when there are channel mentions in a message', async () => {
+        const messageString = `#${shieldBatteryChannel.name} #${testChannel.name} and #unknown.`
+        const processedText = `<#${shieldBatteryChannel.id}> <#${testChannel.id}> and #unknown.`
+        const channelMentions = [shieldBatteryChannel, testChannel]
+        mockTextMessage(user1, testChannel, processedText, [], channelMentions)
+
+        await chatService.sendChatMessage(testChannel.id, user1.id, messageString)
+
+        expectItWorks(processedText, [], channelMentions)
+      })
+
+      test('works when there are both user and channel mentions in a message', async () => {
+        const messageString = `Hello @${user1.name}, join #${testChannel.name} please.`
+        const processedText = `Hello <@${user1.id}>, join <#${testChannel.id}> please.`
+        const userMentions = [user1]
+        const channelMentions = [testChannel]
+        mockTextMessage(user1, testChannel, processedText, userMentions, channelMentions)
+
+        await chatService.sendChatMessage(testChannel.id, user1.id, messageString)
+
+        expectItWorks(processedText, userMentions, channelMentions)
       })
     })
   })
@@ -1228,14 +1262,42 @@ describe('chat/chat-service', () => {
         mentions: [user1.id, user2.id],
       },
     }
+    const textMessage3: FakeDbTextChannelMessage = {
+      msgId: 'MESSAGE_3_ID',
+      userId: user1.id,
+      userName: user1.name,
+      channelId: testChannel.id,
+      sent: new Date('2023-03-11T00:00:00.000Z'),
+      data: {
+        type: ServerChatMessageType.TextMessage,
+        text: `Join <#${shieldBatteryChannel.id}> <#${testChannel.id}> and #unknown.`,
+        channelMentions: [shieldBatteryChannel.id, testChannel.id],
+      },
+    }
+    const textMessage4: FakeDbTextChannelMessage = {
+      msgId: 'MESSAGE_4_ID',
+      userId: user1.id,
+      userName: user1.name,
+      channelId: testChannel.id,
+      sent: new Date('2023-03-11T00:00:00.000Z'),
+      data: {
+        type: ServerChatMessageType.TextMessage,
+        text: `Hello <@${user1.id}>, join <#${testChannel.id}> please.`,
+        mentions: [user1.id],
+        channelMentions: [testChannel.id],
+      },
+    }
 
     const mockTextMessages = () => {
       asMockedFunction(getMessagesForChannel).mockResolvedValue([
         joinUser1TestChannelMessage,
         textMessage1,
         textMessage2,
+        textMessage3,
+        textMessage4,
       ])
       asMockedFunction(findUsersById).mockResolvedValue([user1, user2])
+      asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel, testChannel])
     }
     const expectItWorks = (result: GetChannelHistoryServerResponse) => {
       expect(result).toEqual({
@@ -1243,9 +1305,12 @@ describe('chat/chat-service', () => {
           toJoinChannelMessageJson(joinUser1TestChannelMessage),
           toTextMessageJson(textMessage1),
           toTextMessageJson(textMessage2),
+          toTextMessageJson(textMessage3),
+          toTextMessageJson(textMessage4),
         ],
-        users: [user1, user1, user1],
-        mentions: [user1, user2],
+        users: [user1],
+        userMentions: [user1, user2],
+        channelMentions: [shieldBatteryChannel, testChannel],
       })
     }
 

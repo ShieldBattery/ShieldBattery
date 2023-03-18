@@ -1,4 +1,5 @@
 import { NydusClient, RouteHandler } from 'nydus-client'
+import { ChannelInfo } from '../../common/chat'
 import { GameLaunchConfig, GameRoute, PlayerInfo } from '../../common/game-launch-config'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
@@ -220,7 +221,8 @@ interface LobbyChatMessage {
 interface LobbyChatEvent {
   type: 'chat'
   message: LobbyChatMessage
-  mentions: SbUser[]
+  userMentions: SbUser[]
+  channelMentions: ChannelInfo[]
 }
 
 interface LobbyStatusEvent {
@@ -504,7 +506,7 @@ const eventToAction: EventToActionMap = {
       if (!isBlocked) {
         // Notify the main process of the new message, so it can display an appropriate notification
         ipcRenderer.send('chatNewMessage', {
-          urgent: event.mentions.some(m => m.id === auth.user.id),
+          urgent: event.userMentions.some(m => m.id === auth.user.id),
         })
       }
 

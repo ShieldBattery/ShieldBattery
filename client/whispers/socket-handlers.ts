@@ -47,17 +47,8 @@ const eventToAction: EventToActionMap = {
 
       dispatch({
         type: '@whispers/updateMessage',
-        payload: {
-          message: {
-            id: event.message.id,
-            time: event.message.sent,
-            from: event.message.from,
-            to: event.message.to,
-            text: event.message.data.text,
-          },
-          users: event.users,
-          mentions: event.mentions,
-        },
+        payload: event,
+        meta: { fromId: event.message.from.id },
       })
 
       const { from, to } = event.message

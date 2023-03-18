@@ -72,12 +72,12 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
 
     updateUsers(state, action.payload.users)
-    updateUsers(state, action.payload.mentions)
+    updateUsers(state, action.payload.userMentions)
   },
 
   ['@chat/updateMessage'](state, action) {
     updateUsers(state, [action.payload.user])
-    updateUsers(state, action.payload.mentions)
+    updateUsers(state, action.payload.userMentions)
   },
 
   ['@chat/retrieveUserList'](state, action) {
@@ -157,12 +157,12 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
   ['@whispers/loadMessageHistory'](state, action) {
     updateUsers(state, action.payload.users)
-    updateUsers(state, action.payload.mentions)
+    updateUsers(state, action.payload.userMentions)
   },
 
   ['@whispers/updateMessage'](state, action) {
     updateUsers(state, action.payload.users)
-    updateUsers(state, action.payload.mentions)
+    updateUsers(state, action.payload.userMentions)
   },
 
   ['@parties/init'](state, action) {
@@ -179,7 +179,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
   ['@parties/updateChatMessage'](state, action) {
     updateUsers(state, [action.payload.message.user])
-    updateUsers(state, action.payload.mentions)
+    updateUsers(state, action.payload.userMentions)
   },
 
   [LOBBY_INIT_DATA as any](state: any, action: any) {
@@ -193,6 +193,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   [LOBBY_UPDATE_CHAT_MESSAGE as any](state: any, action: any) {
-    updateUsers(state, action.payload.mentions)
+    updateUsers(state, action.payload.userMentions)
   },
 })

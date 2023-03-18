@@ -341,20 +341,27 @@ export async function findUserByName(name: string): Promise<SbUser | undefined> 
 }
 
 /**
- * Returns a `Map` of name -> `User` for a given list of names. Any names that can't be found won't
- * be present in the resulting `Map`.
+ * Returns the data for all users with the specified names. If a user cannot be found it will not
+ * be included in the result. The order of the result is not guaranteed.
  */
-export async function findUsersByName(names: string[]): Promise<Map<string, SbUser>> {
-  // TODO(tec27): Should this just return an array and let callers make the Map if they want?
+export async function findUsersByName(names: string[]): Promise<SbUser[]> {
   const { client, done } = await db()
   try {
     const result = await client.query<DbUser>(sql`SELECT * FROM users WHERE name = ANY (${names})`)
-    return new Map<string, SbUser>(
-      result.rows.map(row => [row.name, convertToExternal(convertUserFromDb(row))]),
-    )
+    return result.rows.map(r => convertToExternal(convertUserFromDb(r)))
   } finally {
     done()
   }
+}
+
+/**
+ * Returns a `Map` of name -> `SbUser` for a given list of names. Any names that can't be found
+ * won't be present in the resulting `Map`. If you don't need a `Map`, see `findUsersByName`
+ * instead.
+ */
+export async function findUsersByNameAsMap(names: string[]): Promise<Map<string, SbUser>> {
+  const result = await findUsersByName(names)
+  return new Map<string, SbUser>(result.map(u => [u.name, u]))
 }
 
 /**

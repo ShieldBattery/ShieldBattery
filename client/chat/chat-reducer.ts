@@ -10,7 +10,7 @@ import {
   SbChannelId,
 } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user'
-import { NETWORK_SITE_CONNECTED } from '../actions'
+import { LOBBY_UPDATE_CHAT_MESSAGE, NETWORK_SITE_CONNECTED } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 // How many messages should be kept for inactive channels
@@ -164,6 +164,15 @@ function updateMessages(
   channelMessages.hasHistory = channelMessages.hasHistory || sliced
 }
 
+function updateChannels(state: ChatState, channels: ChannelInfo[]) {
+  for (const channel of channels) {
+    const channelInfo = state.idToInfo.get(channel.id)
+    if (!channelInfo) {
+      state.idToInfo.set(channel.id, channel)
+    }
+  }
+}
+
 export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   ['@chat/initChannel'](state, action) {
     const { channelInfo, activeUserIds, selfPermissions } = action.payload
@@ -252,10 +261,11 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/updateMessage'](state, action) {
-    const { message: newMessage } = action.payload
+    const { message: newMessage, channelMentions } = action.payload
     const { channelId } = action.meta
 
     updateMessages(state, channelId, true, m => m.concat(newMessage))
+    updateChannels(state, channelMentions)
   },
 
   ['@chat/updateUserActive'](state, action) {
@@ -334,6 +344,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     }
 
     updateMessages(state, channelId, false, messages => newMessages.concat(messages))
+    updateChannels(state, action.payload.channelMentions)
   },
 
   ['@chat/updateMessageDeleted'](state, action) {
@@ -430,6 +441,22 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     const { channelId } = action.meta
 
     state.idToSelfPermissions.set(channelId, action.payload.selfPermissions)
+  },
+
+  ['@whispers/updateMessage'](state, action) {
+    updateChannels(state, action.payload.channelMentions)
+  },
+
+  ['@whispers/loadMessageHistory'](state, action) {
+    updateChannels(state, action.payload.channelMentions)
+  },
+
+  ['@parties/updateChatMessage'](state, action) {
+    updateChannels(state, action.payload.channelMentions)
+  },
+
+  [LOBBY_UPDATE_CHAT_MESSAGE as any](state: any, action: any) {
+    updateChannels(state, action.payload.channelMentions)
   },
 
   [NETWORK_SITE_CONNECTED as any]() {

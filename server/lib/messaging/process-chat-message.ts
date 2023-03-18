@@ -1,6 +1,15 @@
-import { matchUserMentions, MENTION_REGEX } from '../../../common/text/mentions'
+import { assertUnreachable } from '../../../common/assert-unreachable'
+import { ChannelInfo } from '../../../common/chat'
+import { CHANNEL_MENTION_REGEX, matchChannelMentions } from '../../../common/text/channel-mentions'
+import { matchUserMentions, USER_MENTION_REGEX } from '../../../common/text/user-mentions'
 import { SbUser } from '../../../common/users/sb-user'
+import { findChannelsByName } from '../chat/chat-models'
 import { findUsersByName } from '../users/user-model'
+
+function* getAllMatches(text: string) {
+  yield* matchUserMentions(text)
+  yield* matchChannelMentions(text)
+}
 
 /**
  * Processes the chat message by extracting the user mentions in it and replacing them with a markup
@@ -14,13 +23,29 @@ import { findUsersByName } from '../users/user-model'
  */
 export async function processMessageContents(
   text: string,
-): Promise<[processedText: string, mentions: Map<string, SbUser>]> {
-  const mentionedUsernames = Array.from(matchUserMentions(text), match => match.groups.username)
-  const mentionedUsers = await findUsersByName(mentionedUsernames)
-  const usernamesLowercase = new Map(
-    Array.from(mentionedUsers.entries(), ([k, v]) => [k.toLowerCase(), v]),
-  )
-  const processedText = text.replaceAll(MENTION_REGEX, (_, prefix, username) => {
+): Promise<[processedText: string, userMentions: SbUser[], channelMentions: ChannelInfo[]]> {
+  const matches = getAllMatches(text)
+  const sortedMatches = Array.from(matches).sort((a, b) => a.index - b.index)
+  const mentionedUsernames: string[] = []
+  const mentionedChannelNames: string[] = []
+
+  for (const match of sortedMatches) {
+    if (match.type === 'userMention') {
+      mentionedUsernames.push(match.groups.username)
+    } else if (match.type === 'channelMention') {
+      mentionedChannelNames.push(match.groups.channelName)
+    } else {
+      assertUnreachable(match)
+    }
+  }
+
+  const [userMentions, channelMentions] = await Promise.all([
+    findUsersByName(mentionedUsernames),
+    findChannelsByName(mentionedChannelNames),
+  ])
+
+  const usernamesLowercase = new Map(userMentions.map(u => [u.name.toLowerCase(), u]))
+  let processedText = text.replaceAll(USER_MENTION_REGEX, (_, prefix, username) => {
     const lowerCaseUser = username.toLowerCase()
 
     return usernamesLowercase.has(lowerCaseUser)
@@ -28,5 +53,16 @@ export async function processMessageContents(
       : `${prefix}@${username}`
   })
 
-  return [processedText, mentionedUsers]
+  // TODO(2Pac): Is there a way to do this without running the `replaceAll` twice?
+
+  const channelNamesLowercase = new Map(channelMentions.map(c => [c.name.toLowerCase(), c]))
+  processedText = processedText.replaceAll(CHANNEL_MENTION_REGEX, (_, prefix, channelName) => {
+    const lowerCaseChannel = channelName.toLowerCase()
+
+    return channelNamesLowercase.has(lowerCaseChannel)
+      ? `${prefix}<#${channelNamesLowercase.get(lowerCaseChannel)!.id}>`
+      : `${prefix}#${channelName}`
+  })
+
+  return [processedText, userMentions, channelMentions]
 }

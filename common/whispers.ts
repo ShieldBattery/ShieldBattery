@@ -1,32 +1,26 @@
 import { assertUnreachable } from './assert-unreachable'
+import { ChannelInfo } from './chat'
 import { SbUser, SbUserId } from './users/sb-user'
 
 export enum WhisperMessageType {
   TextMessage = 'message',
 }
 
-export interface BaseWhisperMessageData {
-  readonly type: WhisperMessageType
-}
-
-export interface WhisperTextMessageData extends BaseWhisperMessageData {
-  type: typeof WhisperMessageType.TextMessage
-  text: string
-  // TODO(tec27): This should probably only be optional at the DB level, clients should see this
-  // as always present (since we deal with old messages at the API layer). Need to keep separate
-  // model types vs API types like in chat, though.
-  mentions?: SbUserId[]
-}
-
-export type WhisperMessageData = WhisperTextMessageData
-
-export interface WhisperMessage {
+export interface BaseWhisperMessage {
   id: string
+  type: WhisperMessageType
   from: SbUser
   to: SbUser
-  sent: number
-  data: WhisperMessageData
+  time: number
 }
+
+/** A common text message that was sent from one user to another. */
+export interface WhisperTextMessage extends BaseWhisperMessage {
+  type: typeof WhisperMessageType.TextMessage
+  text: string
+}
+
+export type WhisperMessage = WhisperTextMessage
 
 export interface WhisperSessionInitEvent {
   action: 'initSession2'
@@ -38,20 +32,19 @@ export interface WhisperSessionCloseEvent {
   target: SbUserId
 }
 
-export interface WhisperMessageUpdateEvent {
+export interface WhisperMessageEvent {
   action: 'message'
   /** A whisper message that was received. */
-  message: WhisperMessage
+  message: WhisperTextMessage
   /** A list of user infos participating in the received message. */
   users: SbUser[]
   /** User infos for all whisper users that were mentioned in the message, if any. */
-  mentions: SbUser[]
+  userMentions: SbUser[]
+  /** Channel infos for all channels that were mentioned in the message, if any. */
+  channelMentions: ChannelInfo[]
 }
 
-export type WhisperEvent =
-  | WhisperSessionInitEvent
-  | WhisperSessionCloseEvent
-  | WhisperMessageUpdateEvent
+export type WhisperEvent = WhisperSessionInitEvent | WhisperSessionCloseEvent | WhisperMessageEvent
 
 export interface SendWhisperMessageRequest {
   message: string
@@ -69,7 +62,9 @@ export interface GetSessionHistoryResponse {
   /** A list of user infos participating in this whisper session. */
   users: SbUser[]
   /** A list of user infos for all whisper users that were mentioned in the messages, if any. */
-  mentions: SbUser[]
+  userMentions: SbUser[]
+  /** A list of channel infos for all channels that were mentioned in the messages, if any. */
+  channelMentions: ChannelInfo[]
 }
 
 export enum WhisperServiceErrorCode {

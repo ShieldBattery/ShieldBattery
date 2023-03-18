@@ -122,6 +122,11 @@ export interface ConnectedChannelInfoCardProps {
   channelName: string
 }
 
+/**
+ * A component which finds a channel for a given channel ID and displays its info. Allows users to
+ * join the channel if they're not already in it, and handles errors in case the channel is not
+ * found etc.
+ */
 export function ConnectedChannelInfoCard({
   channelId,
   channelName,

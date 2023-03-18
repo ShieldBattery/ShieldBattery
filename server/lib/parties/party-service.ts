@@ -355,7 +355,7 @@ export default class PartyService implements InPartyChecker {
     }
 
     const text = filterChatMessage(message)
-    const [processedText, mentionedUsers] = await processMessageContents(text)
+    const [processedText, userMentions, channelMentions] = await processMessageContents(text)
 
     this.publisher.publish(getPartyPath(partyId), {
       type: 'chatMessage',
@@ -365,7 +365,8 @@ export default class PartyService implements InPartyChecker {
         time: this.clock.now(),
         text: processedText,
       },
-      mentions: Array.from(mentionedUsers.values()),
+      userMentions,
+      channelMentions,
     })
   }
 

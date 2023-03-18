@@ -59,7 +59,7 @@ export interface BaseChatMessage {
 }
 
 /** A common text message that the user types in a channel. */
-export interface TextMessage extends BaseChatMessage {
+export interface ChannelTextMessage extends BaseChatMessage {
   type: typeof ServerChatMessageType.TextMessage
   from: SbUserId
   text: string
@@ -106,7 +106,7 @@ export interface SelfJoinChannelMessage extends BaseChatMessage {
   type: typeof ClientChatMessageType.SelfJoinChannel
 }
 
-export type ServerChatMessage = TextMessage | JoinChannelMessage
+export type ServerChatMessage = ChannelTextMessage | JoinChannelMessage
 
 export type ClientChatMessage =
   | BanUserMessage
@@ -227,11 +227,13 @@ export interface ChatBanEvent {
 export interface ChatMessageEvent {
   action: 'message2'
   /** A text message that was sent in a chat channel. */
-  message: TextMessage
+  message: ChannelTextMessage
   /** User info for the channel user that sent the message. */
   user: SbUser
   /** User infos for all channel users that were mentioned in the message, if any. */
-  mentions: SbUser[]
+  userMentions: SbUser[]
+  /** Channel infos for all channels that were mentioned in the message, if any. */
+  channelMentions: ChannelInfo[]
 }
 
 export interface ChatMessageDeletedEvent {
@@ -300,7 +302,9 @@ export interface GetChannelHistoryServerResponse {
    */
   users: SbUser[]
   /** A list of user infos for all channel users that were mentioned in the messages, if any. */
-  mentions: SbUser[]
+  userMentions: SbUser[]
+  /** A list of channel infos for all channels that were mentioned in the messages, if any. */
+  channelMentions: ChannelInfo[]
 }
 
 /**

@@ -75,6 +75,8 @@ export function ConnectedUsername({
       modifyMenuItems,
     })
 
+  // TODO(2Pac): This doesn't take into account deleted users. Which is fine for now, since we don't
+  // have user deletion yet, but something to think about in the future.
   const username = user?.name ?? (
     <LoadingName aria-label={'Username loading…'}>
       &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;

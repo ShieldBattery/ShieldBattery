@@ -1,6 +1,7 @@
 import sql from 'sql-template-strings'
+import { SbChannelId } from '../../../common/chat'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
-import { WhisperMessageData } from '../../../common/whispers'
+import { WhisperMessageType } from '../../../common/whispers'
 import db from '../db'
 import { Dbify } from '../db/types'
 
@@ -55,7 +56,34 @@ export async function closeWhisperSession(userId: SbUserId, targetId: SbUserId):
   }
 }
 
-export interface WhisperMessage {
+interface BaseWhisperMessageData {
+  readonly type: WhisperMessageType
+}
+
+interface WhisperTextMessageData extends BaseWhisperMessageData {
+  type: typeof WhisperMessageType.TextMessage
+  /**
+   * A processed contents of the text message, where all user and channel mentions are replaced
+   * with a custom piece of markup.
+   */
+  text: string
+  /**
+   * An array of user IDs that were mentioned in the text message. Will be `undefined` if there were
+   * no users mentioned in this message.
+   *
+   * For legacy reasons the name of the field is just "mentions".
+   */
+  mentions?: SbUserId[]
+  /**
+   * An array of channel IDs that were mentioned in the text message. Will be `undefined` if there
+   * were no channels mentioned in this message.
+   */
+  channelMentions?: SbChannelId[]
+}
+
+type WhisperMessageData = WhisperTextMessageData
+
+export interface DbWhisperMessage {
   id: string
   from: SbUser
   to: SbUser
@@ -73,9 +101,9 @@ interface ToUser {
   toName: string
 }
 
-type DbWhisperMessage = Dbify<WhisperMessage & FromUser & ToUser>
+type DbifiedWhisperMessage = Dbify<DbWhisperMessage & FromUser & ToUser>
 
-function convertMessageFromDb(dbMessage: DbWhisperMessage): WhisperMessage {
+function convertMessageFromDb(dbMessage: DbifiedWhisperMessage): DbWhisperMessage {
   return {
     id: dbMessage.id,
     from: {
@@ -95,10 +123,10 @@ export async function addMessageToWhisper(
   fromId: SbUserId,
   toId: SbUserId,
   messageData: WhisperMessageData,
-): Promise<WhisperMessage> {
+): Promise<DbWhisperMessage> {
   const { client, done } = await db()
   try {
-    const result = await client.query<DbWhisperMessage>(sql`
+    const result = await client.query<DbifiedWhisperMessage>(sql`
       WITH ins AS (
         INSERT INTO whisper_messages (id, from_id, to_id, sent, data)
         VALUES (uuid_generate_v4(), ${fromId}, ${toId},
@@ -125,7 +153,7 @@ export async function getMessagesForWhisperSession(
   userId2: SbUserId,
   limit = 50,
   beforeDate?: Date,
-): Promise<WhisperMessage[]> {
+): Promise<DbWhisperMessage[]> {
   const { client, done } = await db()
 
   const query = sql`
@@ -154,7 +182,7 @@ export async function getMessagesForWhisperSession(
   `)
 
   try {
-    const result = await client.query<DbWhisperMessage>(query)
+    const result = await client.query<DbifiedWhisperMessage>(query)
 
     return result.rows.map(row => convertMessageFromDb(row))
   } finally {

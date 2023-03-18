@@ -285,7 +285,7 @@ export class LobbyApi {
     let { text } = data.get('body')
 
     text = filterChatMessage(text)
-    const [processedText, mentionedUsers] = await processMessageContents(text)
+    const [processedText, userMentions, channelMentions] = await processMessageContents(text)
     this._publishTo(lobby, {
       type: 'chat',
       message: {
@@ -294,7 +294,8 @@ export class LobbyApi {
         from: client.userId,
         text: processedText,
       },
-      mentions: Array.from(mentionedUsers.values()),
+      userMentions,
+      channelMentions,
     })
   }
 

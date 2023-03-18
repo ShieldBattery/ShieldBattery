@@ -36,9 +36,9 @@ import {
   addUserToChannel,
   banAllIdentifiersFromChannel,
   banUserFromChannel,
-  ChatMessage,
   countBannedIdentifiersForChannel,
   createChannel,
+  DbChatMessage,
   deleteChannelMessage,
   findChannelByName,
   getChannelInfo,
@@ -101,7 +101,7 @@ export default class ChatService {
     userInfo: SbUser,
     channelInfo: ChannelInfo,
     userChannelEntry: UserChannelEntry,
-    message: ChatMessage,
+    message: DbChatMessage,
   ) {
     this.state = this.state
       // TODO(tec27): Remove `any` cast once Immutable properly types this call again
@@ -214,7 +214,7 @@ export default class ChatService {
     let attempts = 0
     let channel: ChannelInfo | undefined
     let userChannelEntry: UserChannelEntry | undefined
-    let message: ChatMessage
+    let message: DbChatMessage
     do {
       attempts += 1
       try {
@@ -435,12 +435,14 @@ export default class ChatService {
     }
 
     const text = filterChatMessage(message)
-    const [processedText, mentionedUsers] = await processMessageContents(text)
-    const mentions = Array.from(mentionedUsers.values())
+    const [processedText, userMentions, channelMentions] = await processMessageContents(text)
+    const mentionedUserIds = userMentions.map(u => u.id)
+    const mentionedChannelIds = channelMentions.map(c => c.id)
     const result = await addMessageToChannel(userSockets.userId, channelId, {
       type: ServerChatMessageType.TextMessage,
       text: processedText,
-      mentions: mentions.map(m => m.id),
+      mentions: mentionedUserIds.length > 0 ? mentionedUserIds : undefined,
+      channelMentions: mentionedChannelIds.length > 0 ? mentionedChannelIds : undefined,
     })
 
     this.publisher.publish(getChannelPath(channelId), {
@@ -457,7 +459,8 @@ export default class ChatService {
         id: result.userId,
         name: result.userName,
       },
-      mentions,
+      userMentions,
+      channelMentions,
     })
   }
 
@@ -560,9 +563,9 @@ export default class ChatService {
     )
 
     const messages: ServerChatMessage[] = []
-    // TODO(2Pac): Move this to a Set to eliminate duplicates
-    const users: SbUser[] = []
-    const mentionIds = new global.Set<SbUserId>()
+    const users = new global.Map<SbUserId, SbUser>()
+    const userMentionIds = new global.Set<SbUserId>()
+    const channelMentionIds = new global.Set<SbChannelId>()
 
     for (const msg of dbMessages) {
       switch (msg.data.type) {
@@ -575,9 +578,12 @@ export default class ChatService {
             time: Number(msg.sent),
             text: msg.data.text,
           })
-          users.push({ id: msg.userId, name: msg.userName })
-          for (const mention of msg.data.mentions ?? []) {
-            mentionIds.add(mention)
+          users.set(msg.userId, { id: msg.userId, name: msg.userName })
+          for (const mentionId of msg.data.mentions ?? []) {
+            userMentionIds.add(mentionId)
+          }
+          for (const mentionId of msg.data.channelMentions ?? []) {
+            channelMentionIds.add(mentionId)
           }
           break
 
@@ -589,7 +595,7 @@ export default class ChatService {
             userId: msg.userId,
             time: Number(msg.sent),
           })
-          users.push({ id: msg.userId, name: msg.userName })
+          users.set(msg.userId, { id: msg.userId, name: msg.userName })
           break
 
         default:
@@ -597,12 +603,16 @@ export default class ChatService {
       }
     }
 
-    const mentions = await findUsersById(Array.from(mentionIds))
+    const [userMentions, channelMentions] = await Promise.all([
+      findUsersById(Array.from(userMentionIds)),
+      this.getChannelInfos(Array.from(channelMentionIds), userId),
+    ])
 
     return {
       messages,
-      users,
-      mentions,
+      users: Array.from(users.values()),
+      userMentions,
+      channelMentions,
     }
   }
 

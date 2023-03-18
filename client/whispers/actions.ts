@@ -1,5 +1,5 @@
 import { SbUser, SbUserId } from '../../common/users/sb-user'
-import { GetSessionHistoryResponse } from '../../common/whispers'
+import { GetSessionHistoryResponse, WhisperMessageEvent } from '../../common/whispers'
 
 export type WhisperActions =
   | LoadMessageHistory
@@ -70,15 +70,6 @@ export interface WhisperSessionClose {
  */
 export interface WhisperMessageUpdate {
   type: '@whispers/updateMessage'
-  payload: {
-    message: {
-      id: string
-      time: number
-      from: SbUser
-      to: SbUser
-      text: string
-    }
-    users: SbUser[]
-    mentions: SbUser[]
-  }
+  payload: WhisperMessageEvent
+  meta: { fromId: SbUserId }
 }
