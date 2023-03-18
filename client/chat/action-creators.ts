@@ -242,7 +242,7 @@ export function deactivateChannel(channelId: SbChannelId): DeactivateChannel {
 }
 
 export function navigateToChannel(channelId: SbChannelId, channelName: string) {
-  push(urlPath`/chat/${channelId}/$(channelName}`)
+  push(urlPath`/chat/${channelId}/${channelName}`)
 }
 
 /**
