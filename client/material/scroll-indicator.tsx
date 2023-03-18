@@ -25,8 +25,8 @@ export const ScrollDivider = styled.div<{ $show: boolean; $showAt: 'top' | 'bott
 
 /**
  * A scroll divider that will fade the content into the background color if shown. Must be placed
- * inside a `position: relative` ancestor and have the `--sb-bg-color` custom CSS property set to
- * the container's background color.
+ * inside a `position: relative` ancestor and have the `--sb-color-background` custom CSS property
+ * set to the container's background color.
  */
 export const GradientScrollDivider = styled.div<{
   $show: boolean
@@ -41,7 +41,7 @@ export const GradientScrollDivider = styled.div<{
 
   background: linear-gradient(
     ${props => (props.$showAt === 'top' ? '180deg' : '0deg')},
-    var(--sb-bg-color, ${background800}) 0%,
+    var(--sb-color-background, ${background800}) 0%,
     transparent 100%
   );
   opacity: ${props => (props.$show ? 1 : 0)};

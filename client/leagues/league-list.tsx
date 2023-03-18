@@ -259,7 +259,7 @@ const LeagueCardBadge = styled.div`
   height: 52px;
   padding: 6px;
 
-  background: var(--sb-bg-color);
+  background: var(--sb-color-background);
   border-radius: 9999px;
 `
 

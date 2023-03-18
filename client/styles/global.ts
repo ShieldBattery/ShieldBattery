@@ -30,7 +30,7 @@ const GlobalStyle = createGlobalStyle`
     font-size: 14px;
     line-height: 1.42857;
     background-color: ${colorBackground};
-    --sb-bg-color: ${colorBackground};
+    --sb-color-background: ${colorBackground};
 
     /** This will be overridden on the body styles in Electron */
     --sb-system-bar-height: 0px;
