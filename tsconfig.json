@@ -16,5 +16,13 @@
     "skipLibCheck": true
   },
 
-  "exclude": ["dist", "node_modules", "server/public", "app/dist", "app/node_modules", "game"]
+  "exclude": [
+    "dist",
+    "node_modules",
+    "server/public",
+    "app/dist",
+    "app/node_modules",
+    "game",
+    "download-fonts.ts"
+  ]
 }
