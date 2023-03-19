@@ -319,14 +319,6 @@ export class ChatApi {
     ctx.status = 204
   }
 
-  @httpGet('/:channelId')
-  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
-  async getChannelInfo(ctx: RouterContext): Promise<ChannelInfo> {
-    const channelId = getValidatedChannelId(ctx)
-
-    return await this.chatService.getChannelInfo(channelId, ctx.session!.userId)
-  }
-
   @httpGet('/batch-info')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
   async batchGetInfo(ctx: RouterContext): Promise<ChannelInfo[]> {
@@ -339,6 +331,14 @@ export class ChatApi {
     })
 
     return await this.chatService.getChannelInfos(channelIds, ctx.session!.userId)
+  }
+
+  @httpGet('/:channelId(\\d+)')
+  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
+  async getChannelInfo(ctx: RouterContext): Promise<ChannelInfo> {
+    const channelId = getValidatedChannelId(ctx)
+
+    return await this.chatService.getChannelInfo(channelId, ctx.session!.userId)
   }
 }
 
