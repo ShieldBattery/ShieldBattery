@@ -58,9 +58,11 @@ export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) 
   router.get('/robots.txt', send404).get('/favicon.ico', send404)
 
   let publicAssetsUrl: string
+  let cdnHost: string | undefined
   const fileStoreSettings = JSON.parse(process.env.SB_FILE_STORE!)
   if (fileStoreSettings.doSpaces) {
     const settings = fileStoreSettings.doSpaces
+    cdnHost = settings.cdnHost
     publicAssetsUrl = settings.cdnHost
       ? `https://${settings.cdnHost}/public/`
       : `https://${settings.bucket}.${settings.endpoint}/public/`
@@ -144,6 +146,8 @@ export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) 
         initData,
         cspNonce: getCspNonce(ctx),
         analyticsId: process.env.SB_ANALYTICS_ID,
+        cdnHost,
+        fontsUrl: `${publicAssetsUrl}fonts/fonts.css`,
       })
     },
   )

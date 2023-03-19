@@ -4,13 +4,13 @@ html(lang='en')
     meta(charset='utf-8')
     meta(name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0')
     title ShieldBattery
-    link(rel='preconnect', href='https://fonts.gstatic.com', crossorigin)
+    if cdnHost
+      link(rel='preconnect', href='cdnHost', crossorigin)
     script(type='text/javascript', nonce=cspNonce).
       window.SB_CSP_NONCE=!{JSON.stringify(cspNonce)}
     block headScripts
     script(type='text/javascript', src='/scripts/client.js', defer, async, nonce=cspNonce)
-    link(href='https://fonts.googleapis.com/css2?family=Cabin:wdth,wght@75,400;75,500&family=Inter:wght@300;400;500&display=swap'
-        rel='stylesheet', type='text/css', nonce=cspNonce)
+    link(href=fontsUrl, rel='stylesheet', type='text/css', nonce=cspNonce)
     link(rel='icon', type='image/x-icon', href='/images/favicon.ico')
     block metaTags
 
