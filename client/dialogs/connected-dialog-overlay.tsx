@@ -18,6 +18,7 @@ import MapDetailsDialog from '../maps/map-details'
 import { MapPreviewDialog } from '../maps/map-preview'
 import AcceptMatch from '../matchmaking/accept-match'
 import { PostMatchDialog } from '../matchmaking/post-match-dialog'
+import { DialogContext } from '../material/dialog'
 import { isHandledDismissalEvent } from '../material/dismissal-events'
 import { defaultSpring } from '../material/springs'
 import { zIndexDialogScrim } from '../material/zindex'
@@ -57,15 +58,6 @@ const INVISIBLE_SCRIM_COLOR = rgba(dialogScrim, 0)
 const VISIBLE_SCRIM_COLOR = rgba(dialogScrim, 0.42)
 
 const noop = () => {}
-
-export interface DialogContextValue {
-  styles: React.CSSProperties
-  isTopDialog: boolean
-}
-export const DialogContext = React.createContext<DialogContextValue>({
-  styles: {},
-  isTopDialog: true,
-})
 
 function getDialog(dialogType: DialogType): {
   component: React.ComponentType<any>

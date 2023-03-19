@@ -3,7 +3,6 @@ import { rgba } from 'polished'
 import React, { useCallback, useContext } from 'react'
 import { animated } from 'react-spring'
 import styled, { css } from 'styled-components'
-import { DialogContext } from '../dialogs/connected-dialog-overlay'
 import CloseDialogIcon from '../icons/material/close-24px.svg'
 import { useKeyListener } from '../keyboard/key-listener'
 import { background900, CardLayer, colorDividers } from '../styles/colors'
@@ -14,6 +13,15 @@ import { shadowDef8dp } from './shadow-constants'
 import { zIndexDialog } from './zindex'
 
 const ESCAPE = keycode('esc')
+
+export interface DialogContextValue {
+  styles: React.CSSProperties
+  isTopDialog: boolean
+}
+export const DialogContext = React.createContext<DialogContextValue>({
+  styles: {},
+  isTopDialog: true,
+})
 
 const Container = styled.div`
   position: absolute;
