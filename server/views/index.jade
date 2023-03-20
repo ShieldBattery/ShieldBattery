@@ -9,17 +9,17 @@ block headScripts
       src='https://obs.shieldbattery.net/script.js', data-site=analyticsId, data-spa='auto')
 
 block metaTags
-  meta(property='og:url', content='https://www.shieldbattery.net')
-  meta(property='og:type', content='website')
-  meta(property='og:title', content='ShieldBattery')
-  meta(property='og:description', content='Play StarCraft 1 on the premier community-run platform.')
-  meta(property='og:image', content='/images/logo-and-text-1200x630.png')
+  meta(property='og:url', content='https://www.shieldbattery.net', data-react-helmet='true')
+  meta(property='og:type', content='website', data-react-helmet='true')
+  meta(property='og:title', content='ShieldBattery', data-react-helmet='true')
+  meta(property='og:description', content='Play StarCraft 1 on the premier community-run platform.', data-react-helmet='true')
+  meta(property='og:image', content='/images/logo-and-text-1200x630.png', data-react-helmet='true')
 
-  meta(name='twitter:card', content='summary_large_image')
-  meta(name='twitter:title', content='ShieldBattery')
-  meta(name='twitter:site', content='@ShieldBatteryBW')
-  meta(name='twitter:description', content='Play StarCraft 1 on the premier community-run platform.')
-  meta(name='twitter:image', content='https://shieldbattery.net/images/logo-and-text-1200x630.png')
+  meta(name='twitter:card', content='summary_large_image', data-react-helmet='true')
+  meta(name='twitter:title', content='ShieldBattery', data-react-helmet='true')
+  meta(name='twitter:site', content='@ShieldBatteryBW', data-react-helmet='true')
+  meta(name='twitter:description', content='Play StarCraft 1 on the premier community-run platform.', data-react-helmet='true')
+  meta(name='twitter:image', content='https://shieldbattery.net/images/logo-and-text-1200x630.png', data-react-helmet='true')
 
 block content
   div#app
