@@ -4,8 +4,8 @@ html(lang='en')
     meta(charset='utf-8')
     meta(name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0')
     title ShieldBattery
-    if cdnHost
-      link(rel='preconnect', href='cdnHost', crossorigin)
+    if assetsOrigin
+      link(rel='preconnect', href=assetsOrigin, crossorigin)
     script(type='text/javascript', nonce=cspNonce).
       window.SB_CSP_NONCE=!{JSON.stringify(cspNonce)}
     block headScripts

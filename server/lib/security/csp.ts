@@ -1,6 +1,8 @@
 import crypto from 'crypto'
 import Koa from 'koa'
+import { container } from 'tsyringe'
 import isDev from '../env/is-dev'
+import { FileStoreType, PublicAssetsConfig } from '../file-upload/public-assets-config'
 
 const CSP_NONCE_VALUE = Symbol('cspNonceValue')
 
@@ -11,14 +13,17 @@ export function getCspNonce(ctx: Koa.Context): string {
     return (ctx as any)[CSP_NONCE_VALUE]
   }
 
+  const publicAssetsConfig = container.resolve(PublicAssetsConfig)
+  const isFileSystem = publicAssetsConfig.type === FileStoreType.FileSystem
+
   const nonce = crypto.randomBytes(16).toString('base64')
   // If hot-reloading is on, we have to allow eval so it can work
   const scriptEvalPolicy = isDev ? "'unsafe-eval'" : ''
 
   const policy =
     `script-src 'self' 'nonce-${nonce}' ${scriptEvalPolicy};` +
-    `style-src 'self' 'nonce-${nonce}' https://fonts.googleapis.com;` +
-    "font-src 'self' https://fonts.gstatic.com;" +
+    `style-src 'self' 'nonce-${nonce}' ${!isFileSystem ? publicAssetsConfig.origin : ''};` +
+    `font-src 'self' ${!isFileSystem ? publicAssetsConfig.origin : ''};` +
     "object-src 'none';" +
     "form-action 'none';"
 

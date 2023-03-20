@@ -6,11 +6,13 @@ import Koa from 'koa'
 import koaConvert from 'koa-convert'
 import koaStatic from 'koa-static'
 import path from 'path'
+import { container } from 'tsyringe'
 import { ServerConfig } from '../common/server-config'
 import { ClientSessionInfo } from '../common/users/session'
 import './http-apis'
 import isDev from './lib/env/is-dev'
 import { getUrl, readFile } from './lib/file-upload'
+import { FileStoreType, PublicAssetsConfig } from './lib/file-upload/public-assets-config'
 import { applyApiRoutes, resolveAllHttpApis } from './lib/http/http-api'
 import logger from './lib/logging/logger'
 import { getCspNonce } from './lib/security/csp'
@@ -57,22 +59,9 @@ export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) 
   // TODO(tec27): we should probably do something based on expected content type as well
   router.get('/robots.txt', send404).get('/favicon.ico', send404)
 
-  let publicAssetsUrl: string
-  let cdnHost: string | undefined
-  const fileStoreSettings = JSON.parse(process.env.SB_FILE_STORE!)
-  if (fileStoreSettings.doSpaces) {
-    const settings = fileStoreSettings.doSpaces
-    cdnHost = settings.cdnHost
-    publicAssetsUrl = settings.cdnHost
-      ? `https://${settings.cdnHost}/public/`
-      : `https://${settings.bucket}.${settings.endpoint}/public/`
-  } else {
-    const canonicalHost = process.env.SB_CANONICAL_HOST!
-    publicAssetsUrl = canonicalHost.endsWith('/') ? canonicalHost : canonicalHost + '/'
-  }
-
+  const publicAssetsConfig = container.resolve(PublicAssetsConfig)
   const serverConfig: ServerConfig = {
-    publicAssetsUrl,
+    publicAssetsUrl: publicAssetsConfig.publicAssetsUrl,
   }
 
   router.get('/config', async ctx => {
@@ -146,8 +135,11 @@ export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) 
         initData,
         cspNonce: getCspNonce(ctx),
         analyticsId: process.env.SB_ANALYTICS_ID,
-        cdnHost,
-        fontsUrl: `${publicAssetsUrl}fonts/fonts.css`,
+        assetsOrigin:
+          publicAssetsConfig.type !== FileStoreType.FileSystem
+            ? publicAssetsConfig.origin
+            : undefined,
+        fontsUrl: `${publicAssetsConfig.publicAssetsUrl}fonts/fonts.css`,
       })
     },
   )
