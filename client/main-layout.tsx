@@ -19,9 +19,9 @@ import { openDialog } from './dialogs/action-creators'
 import { DialogType } from './dialogs/dialog-type'
 import { DispatchFunction } from './dispatch-registry'
 import { GamesRouteComponent } from './games/route'
-import LadderIcon from './icons/material/emoji_events-36px.svg'
 import DownloadIcon from './icons/material/get_app-36px.svg'
 import LobbiesIcon from './icons/material/holiday_village-36px.svg'
+import { MaterialIcon } from './icons/material/material-icon'
 import ReplaysIcon from './icons/material/movie-36px.svg'
 import SettingsIcon from './icons/material/settings-24px.svg'
 import LeaguesIcon from './icons/material/social_leaderboard-36px.svg'
@@ -344,7 +344,7 @@ export function MainLayout() {
         />,
         <ActivityButton
           key='ladder'
-          icon={<LadderIcon />}
+          icon={<MaterialIcon icon='military_tech' size={36} />}
           label='Ladder'
           onClick={() => navigateToLadder()}
           hotkey={ALT_D}
@@ -368,7 +368,7 @@ export function MainLayout() {
         />,
         <ActivityButton
           key='ladder'
-          icon={<LadderIcon />}
+          icon={<MaterialIcon icon='military_tech' size={36} />}
           label='Ladder'
           onClick={() => navigateToLadder()}
           hotkey={ALT_D}

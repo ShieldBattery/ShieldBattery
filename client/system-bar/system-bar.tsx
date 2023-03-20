@@ -2,7 +2,7 @@ import React, { useCallback, useLayoutEffect } from 'react'
 import styled from 'styled-components'
 import { DEV_INDICATOR } from '../../common/flags'
 import { useIsAdmin } from '../admin/admin-permissions'
-import AdminIcon from '../icons/material/admin_panel_settings-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { shadow4dp } from '../material/shadows'
 import { zIndexAppBar } from '../material/zindex'
@@ -88,7 +88,11 @@ export function SystemBar() {
           </DevIndicator>
         ) : null}
         {isAdmin ? (
-          <StyledIconButton title='Admin' icon={<AdminIcon />} onClick={onAdminClick} />
+          <StyledIconButton
+            title='Admin'
+            icon={<MaterialIcon icon='admin_panel_settings' size={20} filled={false} />}
+            onClick={onAdminClick}
+          />
         ) : null}
       </LeftSide>
     </Container>
