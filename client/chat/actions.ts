@@ -36,6 +36,8 @@ export type ChatActions =
   | RetrieveUserListFailure
   | GetChatUserProfile
   | GetChannelInfo
+  | GetBatchChannelInfoSuccess
+  | GetBatchChannelInfoFailure
   | ActivateChannel
   | DeactivateChannel
   | InitChannel
@@ -204,6 +206,17 @@ export interface GetChannelInfo {
   type: '@chat/getChannelInfo'
   payload: ChannelInfo
 }
+
+/**
+ * The server returned a response to our request for channel info about one or more channels.
+ */
+export interface GetBatchChannelInfoSuccess {
+  type: '@chat/getBatchChannelInfo'
+  payload: ChannelInfo[]
+  error?: false
+}
+
+export type GetBatchChannelInfoFailure = BaseFetchFailure<'@chat/getBatchChannelInfo'>
 
 /**
  * Activate a particular chat channel. This is a purely client-side action which marks the channel

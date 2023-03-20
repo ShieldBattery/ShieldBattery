@@ -10,8 +10,10 @@ import {
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbUser, SbUserId } from '../../common/users/sb-user'
 import { ThunkAction } from '../dispatch-registry'
+import logger from '../logging/logger'
 import { push, replace } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
+import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { ActivateChannel, DeactivateChannel } from './actions'
 
@@ -182,12 +184,47 @@ export function getChannelInfo(
   return abortableThunk(spec, async dispatch => {
     dispatch({
       type: '@chat/getChannelInfo',
-      payload: await fetchJson<ChannelInfo>(apiUrl`chat/${channelId}/info`, {
+      payload: await fetchJson<ChannelInfo>(apiUrl`chat/${channelId}`, {
         method: 'GET',
         signal: spec.signal,
       }),
     })
   })
+}
+
+const MAX_BATCH_CHANNEL_REQUESTS = 40
+
+const channelsBatchRequester = new MicrotaskBatchRequester<SbChannelId>(
+  MAX_BATCH_CHANNEL_REQUESTS,
+  (dispatch, items) => {
+    const params = items.map(c => urlPath`c=${c}`).join('&')
+    const promise = fetchJson<ChannelInfo[]>(apiUrl`chat/batch-info` + '?' + params)
+    dispatch({
+      type: '@chat/getBatchChannelInfo',
+      payload: promise,
+    })
+
+    return promise
+  },
+  err => {
+    logger.error('error while batch requesting channels: ' + (err as Error)?.stack ?? err)
+  },
+)
+
+/**
+ * Queues a request to the server for channel information, if necessary. This will batch multiple
+ * requests that happen close together into one request to the server.
+ */
+export function getBatchChannelInfo(channelId: SbChannelId): ThunkAction {
+  return (dispatch, getState) => {
+    const {
+      chat: { idToInfo },
+    } = getState()
+
+    if (!idToInfo.has(channelId)) {
+      channelsBatchRequester.request(dispatch, channelId)
+    }
+  }
 }
 
 export function activateChannel(channelId: SbChannelId): ActivateChannel {

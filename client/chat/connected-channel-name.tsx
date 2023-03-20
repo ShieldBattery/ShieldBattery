@@ -1,8 +1,9 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import styled from 'styled-components'
 import { SbChannelId } from '../../common/chat'
-import { useAppSelector } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorDividers } from '../styles/colors'
+import { getBatchChannelInfo } from './action-creators'
 
 const LoadingName = styled.span`
   margin-right: 0.25em;
@@ -21,7 +22,13 @@ export interface ConnectedChannelNameProps {
  * but will be extended with further functionality soon.
  */
 export function ConnectedChannelName({ className, channelId }: ConnectedChannelNameProps) {
+  const dispatch = useAppDispatch()
   const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
+
+  useEffect(() => {
+    dispatch(getBatchChannelInfo(channelId))
+  }, [dispatch, channelId])
+
   const channelName = channelInfo?.name ?? (
     <LoadingName aria-label={'Channel loading…'}>
       &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
