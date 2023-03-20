@@ -542,7 +542,7 @@ function setupCspProtocol(curSession: Session) {
             'content-security-policy':
               `script-src 'self' 'nonce-${nonce}' ${reactDevPolicy} ${chunkPolicy} ` +
               `${scriptEvalPolicy};` +
-              `style-src 'self' 'nonce-${nonce}'` +
+              `style-src 'self' 'nonce-${nonce}';` +
               "font-src 'self';" +
               "object-src 'none';" +
               "form-action 'none';",
