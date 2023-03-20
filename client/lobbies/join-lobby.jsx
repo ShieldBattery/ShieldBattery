@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import { gameTypeToLabel } from '../../common/games/configuration'
 import { closeOverlay } from '../activities/action-creators'
 import { DisabledCard, DisabledOverlay, DisabledText } from '../activities/disabled-content'
-import AddIcon from '../icons/material/add-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { RaisedButton } from '../material/button'
 import siteSocket from '../network/site-socket'
@@ -155,7 +155,7 @@ export default class JoinLobby extends React.Component {
           <FlexSpacer />
           <RaisedButton
             label='Create lobby'
-            iconStart={<AddIcon />}
+            iconStart={<MaterialIcon icon='add' />}
             onClick={this.props.onNavigateToCreate}
           />
         </TitleBar>

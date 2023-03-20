@@ -19,7 +19,7 @@ import FileInput from '../forms/file-input'
 import { FormHook, useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { required } from '../forms/validators'
-import AddIcon from '../icons/material/add-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { RaisedButton } from '../material/button'
 import CheckBox from '../material/check-box'
 import { SelectOption } from '../material/select/option'
@@ -115,7 +115,7 @@ export function LeagueAdmin() {
               <div>
                 <RaisedButton
                   label='Add league'
-                  iconStart={<AddIcon />}
+                  iconStart={<MaterialIcon icon='add' />}
                   onClick={() => push('/leagues/admin/new')}
                 />
               </div>

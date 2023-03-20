@@ -22,8 +22,8 @@ import GitHubIcon from '../icons/brands/github.svg'
 import KofiColorIcon from '../icons/brands/kofi-color.svg'
 import PatreonIcon from '../icons/brands/patreon.svg'
 import TwitterIcon from '../icons/brands/twitter.svg'
-import AddIcon from '../icons/material/add-24px.svg'
 import EditIcon from '../icons/material/edit-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import ChangelogIcon from '../icons/material/new_releases-24px.svg'
 import PortraitIcon from '../icons/material/portrait-24px.svg'
 import LogoutIcon from '../icons/material/power_settings-24px.svg'
@@ -466,12 +466,20 @@ export function ConnectedLeftNav() {
 
   const joinChannelButton = (
     <Tooltip text='Join a channel (Alt + H)' position='right'>
-      <SubheaderButton ref={joinChannelButtonRef} icon={<AddIcon />} onClick={onJoinChannelClick} />
+      <SubheaderButton
+        ref={joinChannelButtonRef}
+        icon={<MaterialIcon icon='add' />}
+        onClick={onJoinChannelClick}
+      />
     </Tooltip>
   )
   const addWhisperButton = (
     <Tooltip text='Start a whisper (Alt + W)' position='right'>
-      <SubheaderButton ref={startWhisperButtonRef} icon={<AddIcon />} onClick={onAddWhisperClick} />
+      <SubheaderButton
+        ref={startWhisperButtonRef}
+        icon={<MaterialIcon icon='add' />}
+        onClick={onAddWhisperClick}
+      />
     </Tooltip>
   )
 

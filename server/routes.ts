@@ -140,6 +140,7 @@ export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) 
             ? publicAssetsConfig.origin
             : undefined,
         fontsUrl: `${publicAssetsConfig.publicAssetsUrl}fonts/fonts.css`,
+        iconsUrl: `${publicAssetsConfig.publicAssetsUrl}fonts/icons.css`,
       })
     },
   )
