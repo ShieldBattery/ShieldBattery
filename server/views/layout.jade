@@ -5,6 +5,7 @@ html(lang='en')
     meta(name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0')
     title ShieldBattery
     if assetsOrigin
+      link(rel='preconnect', href=assetsOrigin)
       link(rel='preconnect', href=assetsOrigin, crossorigin)
     script(type='text/javascript', nonce=cspNonce).
       window.SB_CSP_NONCE=!{JSON.stringify(cspNonce)}
