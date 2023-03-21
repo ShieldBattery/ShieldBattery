@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from 'react'
 import styled, { css } from 'styled-components'
-import ShowPasswordIcon from '../icons/material/visibility-24px.svg'
-import HidePasswordIcon from '../icons/material/visibility_off-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from './button'
 import { TextField, TextFieldProps } from './text-field'
 
@@ -27,7 +26,7 @@ export function PasswordTextField(props: TextFieldProps) {
 
   const visibilityButton = (
     <VisibilityButton
-      icon={visible ? <ShowPasswordIcon /> : <HidePasswordIcon />}
+      icon={visible ? <MaterialIcon icon='visibility' /> : <MaterialIcon icon='visibility_off' />}
       title={visible ? 'Hide password' : 'Show password'}
       $dense={props.dense}
       onClick={onToggleVisibility}

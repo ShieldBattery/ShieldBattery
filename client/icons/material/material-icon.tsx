@@ -39,6 +39,7 @@ export interface MaterialIconProps {
   filled?: boolean
   /** Whether the colors are inverted (dark icon on light background). Defaults to `false`. */
   invertColor?: boolean
+  className?: string
 }
 
 export function MaterialIcon({
@@ -46,9 +47,15 @@ export function MaterialIcon({
   size = 24,
   filled = true,
   invertColor = false,
+  className,
 }: MaterialIconProps) {
   return (
-    <IconRoot aria-hidden={true} $size={size} $filled={filled} $invertColor={invertColor}>
+    <IconRoot
+      className={className}
+      aria-hidden={true}
+      $size={size}
+      $filled={filled}
+      $invertColor={invertColor}>
       {icon}
     </IconRoot>
   )

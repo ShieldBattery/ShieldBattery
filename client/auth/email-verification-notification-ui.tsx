@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react'
 import styled from 'styled-components'
-import WarningIcon from '../icons/material/warning-36px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { ActionlessNotification } from '../notifications/notifications'
 import { useAppDispatch } from '../redux-hooks'
@@ -9,11 +9,8 @@ import { amberA400 } from '../styles/colors'
 import { sendVerificationEmail } from './action-creators'
 import { useSelfUser } from './state-hooks'
 
-const ColoredWarningIcon = styled(WarningIcon)`
-  width: 36px;
-  height: 36px;
+const ColoredWarningIcon = styled(MaterialIcon).attrs({ icon: 'warning', size: 36 })`
   flex-shrink: 0;
-
   color: ${amberA400};
 `
 

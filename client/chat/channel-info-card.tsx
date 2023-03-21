@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { ChatServiceErrorCode, SbChannelId } from '../../common/chat'
 import ChannelIcon from '../icons/material/image-24px.svg'
-import WarningIcon from '../icons/material/warning-36px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { RaisedButton } from '../material/button'
 import Card from '../material/card'
 import { isFetchError } from '../network/fetch-errors'
@@ -34,7 +34,8 @@ const StyledChannelIcon = styled.svg`
   flex-shrink: 0;
 `
 
-const ErrorChannelIcon = styled(StyledChannelIcon)`
+const ErrorChannelIcon = styled(MaterialIcon)`
+  flex-shrink: 0;
   color: ${colorError};
 `
 
@@ -109,7 +110,7 @@ export function ConnectedChannelInfoCard({
     channelInfo && (!channelInfo.private || isUserInChannel) ? (
       <StyledChannelIcon as={ChannelIcon} />
     ) : (
-      <ErrorChannelIcon as={WarningIcon} />
+      <ErrorChannelIcon icon='warning' size={56} />
     )
 
   let subtitle
