@@ -10,7 +10,7 @@ import {
   FileBrowserRootFolderId,
   FileBrowserType,
 } from '../file-browser/file-browser-types'
-import MapIcon from '../icons/material/terrain-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
@@ -58,7 +58,7 @@ export function BrowseLocalMaps(props: { onMapSelect: (map: MapInfoJson) => void
 
   const fileEntryConfig: FileBrowserFileEntryConfig = useMemo(
     () => ({
-      icon: <MapIcon />,
+      icon: <MaterialIcon icon='map' />,
       allowedExtensions: ['scm', 'scx'],
       onSelect: onMapSelect,
     }),

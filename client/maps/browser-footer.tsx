@@ -7,8 +7,8 @@ import { ALL_TILESETS, tilesetToName } from '../../common/maps'
 import { FocusTrap } from '../dom/focus-trap'
 import FilterIcon from '../icons/material/filter_list-24px.svg'
 import FolderIcon from '../icons/material/folder_open-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import SortIcon from '../icons/material/sort_by_alpha-24px.svg'
-import SizeIcon from '../icons/material/view_list-24px.svg'
 import KeyListener from '../keyboard/key-listener'
 import { IconButton, TextButton } from '../material/button'
 import CheckBox from '../material/check-box'
@@ -330,7 +330,7 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
       <LeftActions>
         <ActionButton
           ref={sizeRef}
-          icon={<SizeIcon />}
+          icon={<MaterialIcon icon='view_list' />}
           title='Thumbnail size'
           onClick={openSizeMenu}
         />

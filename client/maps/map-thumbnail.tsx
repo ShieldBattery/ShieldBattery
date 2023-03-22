@@ -43,6 +43,21 @@ const NoImageContainer = styled.div`
 
 const TEXT_PROTECTION_HEIGHT_PX = 48
 
+const SelectedIcon = styled.span<{ $isSelected?: boolean; $textProtection?: boolean }>`
+  width: var(--sb-map-thumbnail-selected-icon-size, 64px);
+  height: var(--sb-map-thumbnail-selected-icon-size, 64px);
+  margin-bottom: ${props =>
+    props.$textProtection ? Math.floor(TEXT_PROTECTION_HEIGHT_PX / 2) : 0}px;
+  opacity: ${props => (props.$isSelected ? 0.5 : 0)};
+
+  transition: opacity 100ms linear;
+
+  & > svg {
+    width: 100%;
+    height: 100%;
+  }
+`
+
 const Overlay = styled.div<{
   $isSelected?: boolean
   $isFocused?: boolean
@@ -57,20 +72,10 @@ const Overlay = styled.div<{
   justify-content: center;
   align-items: center;
 
-  & > svg {
-    width: var(--sb-map-thumbnail-selected-icon-size, 64px);
-    height: var(--sb-map-thumbnail-selected-icon-size, 64px);
-    margin-bottom: ${props =>
-      props.$textProtection ? Math.floor(TEXT_PROTECTION_HEIGHT_PX / 2) : 0}px;
-    opacity: ${props => (props.$isSelected ? 0.5 : 0)};
-
-    transition: opacity 100ms linear;
-  }
-
   &:hover {
     cursor: pointer;
 
-    & > svg {
+    & > ${SelectedIcon} {
       opacity: 0.25;
     }
   }
@@ -238,7 +243,9 @@ export function MapThumbnail({
           $isFocused={isFocused}
           $textProtection={showMapName}
           onClick={onClick}>
-          {selectedIcon}
+          <SelectedIcon $isSelected={isSelected} $textProtection={showMapName}>
+            {selectedIcon}
+          </SelectedIcon>
         </Overlay>
       ) : null}
       {onPreview ? (

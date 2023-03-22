@@ -3,7 +3,7 @@ import React, { useCallback, useEffect } from 'react'
 import styled from 'styled-components'
 import { MapInfoJson } from '../../common/maps'
 import { MatchmakingMapPool, MatchmakingPreferences } from '../../common/matchmaking'
-import ThumbDownIcon from '../icons/material/thumb_down-48px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { batchGetMapInfo } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { shadow4dp } from '../material/shadows'
@@ -153,7 +153,7 @@ function ConnectedSelectableMap({
           size={MAP_THUMB_SIZE_PX}
           isSelected={isVetoed}
           onClick={handleClick}
-          selectedIcon={<ThumbDownIcon />}
+          selectedIcon={<MaterialIcon icon='thumb_down' size={48} />}
         />
       ) : null}
     </SelectableMap>

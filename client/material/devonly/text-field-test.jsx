@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import TrailingIcon from '../../icons/material/check_circle-24px.svg'
-import LeadingIcon from '../../icons/material/view_list-24px.svg'
+import { MaterialIcon } from '../../icons/material/material-icon'
 import { IconButton } from '../button'
 import Card from '../card'
 import CheckBox from '../check-box'
@@ -125,7 +125,7 @@ export default class TextFieldTest extends React.Component {
             floatingLabel={true}
             dense={this.state.dense}
             label='With leading icon'
-            leadingIcons={[<LeadingIcon />]}
+            leadingIcons={[<MaterialIcon icon='view_list' />]}
             onChange={this.onChange}
           />
           <TextField
@@ -138,24 +138,24 @@ export default class TextFieldTest extends React.Component {
               this.state.dense
                 ? [
                     <DenseIconButton
-                      icon={<LeadingIcon />}
+                      icon={<MaterialIcon icon='view_list' />}
                       title='Leading action 1'
                       onClick={this.onActionClick}
                     />,
                     <DenseIconButton
-                      icon={<LeadingIcon />}
+                      icon={<MaterialIcon icon='view_list' />}
                       title='Leading action 2'
                       onClick={this.onActionClick}
                     />,
                   ]
                 : [
                     <IconButton
-                      icon={<LeadingIcon />}
+                      icon={<MaterialIcon icon='view_list' />}
                       title='Leading action 1'
                       onClick={this.onActionClick}
                     />,
                     <IconButton
-                      icon={<LeadingIcon />}
+                      icon={<MaterialIcon icon='view_list' />}
                       title='Leading action 2'
                       onClick={this.onActionClick}
                     />,

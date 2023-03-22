@@ -25,7 +25,6 @@ import { MaterialIcon } from './icons/material/material-icon'
 import ReplaysIcon from './icons/material/movie-36px.svg'
 import SettingsIcon from './icons/material/settings-24px.svg'
 import LeaguesIcon from './icons/material/social_leaderboard-36px.svg'
-import MapsIcon from './icons/material/terrain-36px.svg'
 import FindMatchIcon from './icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { useKeyListener } from './keyboard/key-listener'
 import { navigateToLadder } from './ladder/action-creators'
@@ -83,11 +82,6 @@ const Content = styled.div`
   flex-grow: 1;
   flex-shrink: 1;
   overflow-x: hidden;
-`
-
-const StyledMapsIcon = styled(MapsIcon)`
-  width: 36px;
-  height: 36px;
 `
 
 let lobbyRoute = <></>
@@ -330,7 +324,7 @@ export function MainLayout() {
         />,
         <ActivityButton
           key='maps'
-          icon={<StyledMapsIcon />}
+          icon={<MaterialIcon icon='map' size={36} />}
           label='Maps'
           onClick={onMapsClick}
           hotkey={ALT_M}

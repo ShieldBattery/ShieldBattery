@@ -3,11 +3,11 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
 import SelectedIcon from '../icons/material/check_circle-24px.svg'
-import MapIcon from '../icons/material/terrain-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import KeyListener from '../keyboard/key-listener'
 import ImageList from '../material/image-list'
 import { shadow2dp, shadow8dp } from '../material/shadows'
-import { background400, colorError, colorTextSecondary } from '../styles/colors'
+import { background400, colorError, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { subtitle1 } from '../styles/typography'
 import { MapThumbnail } from './map-thumbnail'
 
@@ -67,10 +67,8 @@ export const BrowseButton = styled.div`
   }
 `
 
-const BrowseIcon = styled(MapIcon)`
-  width: 96px;
-  height: 96px;
-  opacity: 0.5;
+const BrowseIcon = styled(MaterialIcon).attrs({ icon: 'map', size: 96 })`
+  color: ${colorTextFaint};
 `
 
 const BrowseText = styled.div`

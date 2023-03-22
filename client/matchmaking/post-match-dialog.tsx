@@ -18,7 +18,7 @@ import audioManager, { AvailableSound } from '../audio/audio-manager'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { PostMatchDialogPayload } from '../dialogs/dialog-type'
 import { searchAgainFromGame } from '../games/action-creators'
-import WatchReplayIcon from '../icons/material/videocam-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import SearchAgainIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { LeagueBadge } from '../leagues/league-badge'
 import { RaisedButton } from '../material/button'
@@ -205,7 +205,7 @@ export function PostMatchDialog({
         />
         <RaisedButton
           label='Watch replay'
-          iconStart={<WatchReplayIcon />}
+          iconStart={<MaterialIcon icon='videocam' />}
           onClick={onWatchReplay}
           disabled={!replayPath}
         />
