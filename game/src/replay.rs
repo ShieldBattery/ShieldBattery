@@ -12,11 +12,11 @@ use crate::game_thread;
 use crate::windows;
 
 static REPLAY_MAGIC: &[u8] = &[
-    0xc2, 0x19, 0xc2, 0x93, 0x01, 0x00, 0x00, 0x00,
-    0x04, 0x00, 0x00, 0x00, 0x73, 0x65, 0x52, 0x53,
+    0xc2, 0x19, 0xc2, 0x93, 0x01, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x73, 0x65, 0x52, 0x53,
 ];
 
 pub const SECTION_ID: u32 = 0x74616253; // Sbat
+
 // Change added by each version
 // 1: Replay uses order queue limit fixes
 // 2: Replay has UMS user selectable slots saved correctly
@@ -43,7 +43,7 @@ pub unsafe fn has_replay_magic_bytes(file: *mut c_void) -> bool {
 }
 
 unsafe fn has_replay_magic_bytes_res(file: *mut c_void) -> Result<bool, io::Error> {
-    windows::file_seek(file, std::io::SeekFrom::Start(0))?;
+    windows::file_seek(file, io::SeekFrom::Start(0))?;
     let mut buffer = [0u8; 0x10];
     windows::file_read(file, &mut buffer[..])?;
     Ok(buffer == REPLAY_MAGIC)
@@ -58,26 +58,8 @@ pub unsafe fn add_shieldbattery_data(
     setup_info: &GameSetupInfo,
     player_id_mapping: &[game_thread::PlayerIdMapping],
 ) -> Result<(), io::Error> {
-    windows::file_seek(file, std::io::SeekFrom::End(0))?;
-    // Current format: (The first two u32s are required by SC:R, after that we can have anything)
-    // u32 section_id
-    // u32 data_length (Not counting these first 8 bytes)
-    // 0x0      u16 format_version (1)
-    // 0x2      u32 starcraft_exe_build
-    //      This is somewhat redundant as GCFG section that SC:R writes by default has it too,
-    //      but may as well have a copy we control.
-    // 0x6      u8 shieldbattery_version_string[0x10]
-    // 0x16     u8 team_game_main_players[4]
-    //      Think that relying on it being [0, 0, 0, 0] for non-team games is ok?
-    //      BW shouldn't care at least.
-    // 0x1a     u8 starting_races[0xc]
-    //      This is also needed for team game replays.
-    // 0x26     u128 game_id_uuid
-    // 0x36     u32 user_ids[0x8]
-    //      Shieldbattery ids; Same order as ingame players (Which are saved in BW's replay
-    //      header, though there are 12 of them)
-    // --- Format version 1 ---
-    // 0x56     u16 game_logic_version (2)
+    windows::file_seek(file, io::SeekFrom::End(0))?;
+    // Format is described in `docs/REPLAYS.md`
     let game = bw.game();
     let mut buffer = Vec::with_capacity(128);
     buffer.write_u32::<LE>(SECTION_ID)?;
@@ -137,7 +119,8 @@ fn write_uuid<W: io::Write>(mut out: W, id: &str) -> Result<(), io::Error> {
             in_pos += 1;
         }
         for byte in (&id[in_pos..]).chunks_exact(2).take(bytes) {
-            buffer[out_pos] = match std::str::from_utf8(byte).ok()
+            buffer[out_pos] = match std::str::from_utf8(byte)
+                .ok()
                 .and_then(|x| u8::from_str_radix(x, 16).ok())
             {
                 Some(s) => s,
@@ -154,9 +137,12 @@ fn write_uuid<W: io::Write>(mut out: W, id: &str) -> Result<(), io::Error> {
 fn test_write_uuid() {
     let mut buf = vec![];
     write_uuid(&mut buf, "12345678-9abc-def0-1234-56789abcdef0").unwrap();
-    assert_eq!(&buf,
-        &[0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0,
-          0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0],
+    assert_eq!(
+        &buf,
+        &[
+            0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc,
+            0xde, 0xf0
+        ],
     );
 }
 
