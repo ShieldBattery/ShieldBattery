@@ -46,7 +46,7 @@ const ChannelCardBadge = styled.div`
   height: 52px;
   padding: 6px;
 
-  background: var(--sb-bg-color);
+  background: var(--sb-color-background);
   border-radius: 9999px;
 `
 
@@ -72,6 +72,10 @@ const ChannelDescription = styled.div`
   -webkit-line-clamp: 3;
   overflow: hidden;
   text-overflow: ellipsis;
+`
+
+const PrivateChannelIcon = styled(MaterialIcon).attrs({ icon: 'lock' })`
+  vertical-align: bottom;
 `
 
 const NoChannelDescriptionText = styled.span`
@@ -148,7 +152,7 @@ export function ConnectedChannelInfoCard({
     setIsJoinInProgress(true)
     dispatch(
       joinChannel(channelName, {
-        onSuccess: channel => navigateToChannel(channel.id, channel.name),
+        onSuccess: () => {},
         onError: err => {
           setJoinChannelError(err)
           setIsJoinInProgress(false)
@@ -171,13 +175,16 @@ export function ConnectedChannelInfoCard({
       </ErrorText>
     )
   } else if (channelInfo?.private && !isUserInChannel) {
-    descriptionText = <ErrorText>This channel is private and requires an invite to join.</ErrorText>
-  } else if (isUserBanned) {
-    descriptionText = <ErrorText>You are banned from this channel.</ErrorText>
+    descriptionText = (
+      <NoChannelDescriptionText>
+        <PrivateChannelIcon />
+        This channel is private and requires an invite to join.
+      </NoChannelDescriptionText>
+    )
   } else if (channelInfo?.description) {
     descriptionText = channelInfo.description
   } else {
-    descriptionText = <NoChannelDescriptionText>No channel description</NoChannelDescriptionText>
+    descriptionText = <NoChannelDescriptionText>No channel description.</NoChannelDescriptionText>
   }
 
   let action
@@ -203,7 +210,7 @@ export function ConnectedChannelInfoCard({
           </ChannelCardBadge>
         ) : null}
       </ChannelBannerAndBadge>
-      <ChannelName>{channelInfo?.name && channelName}</ChannelName>
+      <ChannelName>{channelInfo?.name ?? channelName}</ChannelName>
       {channelInfo?.userCount ? (
         <ChannelUserCount>
           {`${channelInfo.userCount} member${channelInfo.userCount > 1 ? 's' : ''}`}

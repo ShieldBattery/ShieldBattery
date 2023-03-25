@@ -1,7 +1,8 @@
 import React from 'react'
 import styled, { css } from 'styled-components'
 import { CHANNEL_BANNER_HEIGHT, CHANNEL_BANNER_WIDTH } from '../../common/chat'
-import ChatIcon from '../icons/material/chat-40px.svg'
+import { useObservedDimensions } from '../dom/dimension-hooks'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { background600, colorTextFaint } from '../styles/colors'
 
 const channelBannerCommon = css`
@@ -32,18 +33,30 @@ export function ChannelBanner({ src }: { src: string }) {
   )
 }
 
-export const ChannelBannerPlaceholderIcon = styled(ChatIcon)`
+export const ChannelBannerPlaceholderIcon = styled(MaterialIcon).attrs({ icon: 'chat' })`
   width: 22.727272%;
   height: auto;
+  font-size: 100%;
 `
 
-export const ChannelBannerPlaceholderImage = styled.div.attrs(() => ({
-  children: <ChannelBannerPlaceholderIcon />,
-}))`
+const ChannelBannerPlaceholderContainer = styled.div<{
+  $iconWidth?: number
+}>`
   ${channelBannerCommon};
   color: ${colorTextFaint};
+  font-size: ${props => (props.$iconWidth ? props.$iconWidth + 'px' : 'medium')};
 
   display: flex;
   align-items: center;
   justify-content: center;
 `
+
+export function ChannelBannerPlaceholderImage() {
+  const [iconRef, iconRect] = useObservedDimensions()
+
+  return (
+    <ChannelBannerPlaceholderContainer $iconWidth={iconRect?.width}>
+      <ChannelBannerPlaceholderIcon ref={iconRef} />
+    </ChannelBannerPlaceholderContainer>
+  )
+}

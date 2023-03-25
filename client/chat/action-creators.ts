@@ -1,6 +1,7 @@
 import {
   ChannelInfo,
   ChannelModerationAction,
+  ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
   GetChatUserProfileResponse,
   ModerateChannelUserServerRequest,
@@ -15,17 +16,27 @@ import { push, replace } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
+import { isFetchError } from '../network/fetch-errors'
+import { openSnackbar } from '../snackbars/action-creators'
 import { ActivateChannel, DeactivateChannel } from './actions'
 
-export function joinChannel(
-  channelName: string,
-  spec: RequestHandlingSpec<ChannelInfo>,
-): ThunkAction {
-  return abortableThunk(spec, async () => {
+export function joinChannel(channelName: string, spec: RequestHandlingSpec<void>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
     return fetchJson<ChannelInfo>(apiUrl`chat/join/${channelName}`, {
       method: 'POST',
       signal: spec.signal,
     })
+      .then(channel => navigateToChannel(channel.id, channel.name))
+      .catch(err => {
+        let errMessage = 'An error occurred while joining the channel'
+        if (isFetchError(err) && err.code === ChatServiceErrorCode.UserBanned) {
+          errMessage = 'You are banned from this channel'
+        }
+
+        dispatch(openSnackbar({ message: errMessage }))
+
+        throw err
+      })
   })
 }
 
