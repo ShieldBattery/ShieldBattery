@@ -166,8 +166,6 @@ export interface TextMessageData extends BaseMessageData {
   /**
    * An array of user IDs that were mentioned in the text message. Will be `undefined` if there were
    * no users mentioned in this message.
-   *
-   * For legacy reasons the name of the field is just "mentions".
    */
   mentions?: SbUserId[]
   /**
@@ -183,7 +181,7 @@ export interface JoinChannelData extends BaseMessageData {
 
 export type ChatMessageData = TextMessageData | JoinChannelData
 
-export interface DbChatMessage {
+export interface ChatMessage {
   msgId: string
   userId: SbUserId
   userName: string
@@ -192,16 +190,16 @@ export interface DbChatMessage {
   data: ChatMessageData
 }
 
-type DbifiedChatMessage = Dbify<DbChatMessage>
+type DbChatMessage = Dbify<ChatMessage>
 
 export async function addMessageToChannel<T extends ChatMessageData>(
   userId: SbUserId,
   channelId: SbChannelId,
   messageData: T,
   client?: DbClient,
-): Promise<DbChatMessage & { data: T }> {
+): Promise<ChatMessage & { data: T }> {
   const doIt = async (client: DbClient) => {
-    const result = await client.query<DbifiedChatMessage>(sql`
+    const result = await client.query<DbChatMessage>(sql`
       WITH ins AS (
         INSERT INTO channel_messages (id, user_id, channel_id, sent, data)
         SELECT uuid_generate_v4(), ${userId}, ${channelId},
@@ -246,7 +244,7 @@ export async function getMessagesForChannel(
   channelId: SbChannelId,
   limit = 50,
   beforeDate?: Date,
-): Promise<DbChatMessage[]> {
+): Promise<ChatMessage[]> {
   const { client, done } = await db()
 
   const query = sql`
@@ -265,7 +263,7 @@ export async function getMessagesForChannel(
       ) SELECT * FROM messages ORDER BY sent ASC`)
 
   try {
-    const result = await client.query<DbifiedChatMessage>(query)
+    const result = await client.query<DbChatMessage>(query)
 
     return result.rows.map(row => ({
       msgId: row.msg_id,

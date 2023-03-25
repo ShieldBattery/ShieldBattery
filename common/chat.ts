@@ -231,7 +231,7 @@ export interface ChatMessageEvent {
   /** User info for the channel user that sent the message. */
   user: SbUser
   /** User infos for all channel users that were mentioned in the message, if any. */
-  userMentions: SbUser[]
+  mentions: SbUser[]
   /** Channel infos for all channels that were mentioned in the message, if any. */
   channelMentions: ChannelInfo[]
 }
@@ -302,7 +302,7 @@ export interface GetChannelHistoryServerResponse {
    */
   users: SbUser[]
   /** A list of user infos for all channel users that were mentioned in the messages, if any. */
-  userMentions: SbUser[]
+  mentions: SbUser[]
   /** A list of channel infos for all channels that were mentioned in the messages, if any. */
   channelMentions: ChannelInfo[]
 }

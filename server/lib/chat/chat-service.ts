@@ -36,9 +36,9 @@ import {
   addUserToChannel,
   banAllIdentifiersFromChannel,
   banUserFromChannel,
+  ChatMessage,
   countBannedIdentifiersForChannel,
   createChannel,
-  DbChatMessage,
   deleteChannelMessage,
   findChannelByName,
   getChannelInfo,
@@ -101,7 +101,7 @@ export default class ChatService {
     userInfo: SbUser,
     channelInfo: ChannelInfo,
     userChannelEntry: UserChannelEntry,
-    message: DbChatMessage,
+    message: ChatMessage,
   ) {
     this.state = this.state
       // TODO(tec27): Remove `any` cast once Immutable properly types this call again
@@ -214,7 +214,7 @@ export default class ChatService {
     let attempts = 0
     let channel: ChannelInfo | undefined
     let userChannelEntry: UserChannelEntry | undefined
-    let message: DbChatMessage
+    let message: ChatMessage
     do {
       attempts += 1
       try {
@@ -459,7 +459,7 @@ export default class ChatService {
         id: result.userId,
         name: result.userName,
       },
-      userMentions,
+      mentions: userMentions,
       channelMentions,
     })
   }
@@ -563,7 +563,7 @@ export default class ChatService {
     )
 
     const messages: ServerChatMessage[] = []
-    const users = new global.Map<SbUserId, SbUser>()
+    const userIds = new global.Set<SbUserId>()
     const userMentionIds = new global.Set<SbUserId>()
     const channelMentionIds = new global.Set<SbChannelId>()
 
@@ -578,7 +578,7 @@ export default class ChatService {
             time: Number(msg.sent),
             text: msg.data.text,
           })
-          users.set(msg.userId, { id: msg.userId, name: msg.userName })
+          userIds.add(msg.userId)
           for (const mentionId of msg.data.mentions ?? []) {
             userMentionIds.add(mentionId)
           }
@@ -595,7 +595,7 @@ export default class ChatService {
             userId: msg.userId,
             time: Number(msg.sent),
           })
-          users.set(msg.userId, { id: msg.userId, name: msg.userName })
+          userIds.add(msg.userId)
           break
 
         default:
@@ -603,15 +603,16 @@ export default class ChatService {
       }
     }
 
-    const [userMentions, channelMentions] = await Promise.all([
+    const [users, userMentions, channelMentions] = await Promise.all([
+      findUsersById(Array.from(userIds)),
       findUsersById(Array.from(userMentionIds)),
       this.getChannelInfos(Array.from(channelMentionIds), userId),
     ])
 
     return {
       messages,
-      users: Array.from(users.values()),
-      userMentions,
+      users,
+      mentions: userMentions,
       channelMentions,
     }
   }

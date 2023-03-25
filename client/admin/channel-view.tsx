@@ -67,7 +67,7 @@ function getChannelMessages(
 
     dispatch({
       type: '@users/loadUsers',
-      payload: result.userMentions.concat(result.users),
+      payload: result.mentions.concat(result.users),
     })
     dispatch({
       type: '@chat/getBatchChannelInfo',

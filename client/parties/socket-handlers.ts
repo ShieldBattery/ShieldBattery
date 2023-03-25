@@ -125,7 +125,7 @@ const eventToAction: EventToActionMap = {
       if (!isBlocked) {
         // Notify the main process of the new message, so it can display an appropriate notification
         ipcRenderer.send('chatNewMessage', {
-          urgent: event.userMentions.some(m => m.id === auth.user.id),
+          urgent: event.mentions.some(m => m.id === auth.user.id),
         })
       }
 

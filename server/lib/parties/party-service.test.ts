@@ -660,7 +660,7 @@ describe('parties/party-service', () => {
           time: clock.now(),
           text: 'Hello World!',
         },
-        userMentions: [],
+        mentions: [],
         channelMentions: [],
       })
     })
@@ -679,7 +679,7 @@ describe('parties/party-service', () => {
           time: clock.now(),
           text: `Hello <@${user1.id}> and @non-existing`,
         },
-        userMentions: [user1],
+        mentions: [user1],
         channelMentions: [],
       })
     })
@@ -704,7 +704,7 @@ describe('parties/party-service', () => {
           time: clock.now(),
           text: `Join <#${channel.id}> and #non-existing`,
         },
-        userMentions: [],
+        mentions: [],
         channelMentions: [channel],
       })
     })

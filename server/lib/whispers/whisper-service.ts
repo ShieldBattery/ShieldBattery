@@ -143,7 +143,7 @@ export default class WhisperService {
         text: result.data.text,
       },
       users: [user, target],
-      userMentions,
+      mentions: userMentions,
       channelMentions,
     })
   }
@@ -209,7 +209,7 @@ export default class WhisperService {
     return {
       messages,
       users: [user, target],
-      userMentions,
+      mentions: userMentions,
       channelMentions,
     }
   }

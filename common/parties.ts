@@ -82,7 +82,7 @@ export interface PartyLeaderChangeEvent {
 export interface PartyChatMessageEvent {
   type: 'chatMessage'
   message: PartyChatMessage
-  userMentions: SbUser[]
+  mentions: SbUser[]
   channelMentions: ChannelInfo[]
 }
 

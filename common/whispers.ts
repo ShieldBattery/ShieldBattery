@@ -39,7 +39,7 @@ export interface WhisperMessageEvent {
   /** A list of user infos participating in the received message. */
   users: SbUser[]
   /** User infos for all whisper users that were mentioned in the message, if any. */
-  userMentions: SbUser[]
+  mentions: SbUser[]
   /** Channel infos for all channels that were mentioned in the message, if any. */
   channelMentions: ChannelInfo[]
 }
@@ -62,7 +62,7 @@ export interface GetSessionHistoryResponse {
   /** A list of user infos participating in this whisper session. */
   users: SbUser[]
   /** A list of user infos for all whisper users that were mentioned in the messages, if any. */
-  userMentions: SbUser[]
+  mentions: SbUser[]
   /** A list of channel infos for all channels that were mentioned in the messages, if any. */
   channelMentions: ChannelInfo[]
 }

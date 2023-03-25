@@ -116,7 +116,7 @@ const eventToChatAction: EventToChatActionMap = {
       } = getState()
 
       const isBlocked = blocks.has(event.message.from)
-      const isUrgent = !isBlocked && event.userMentions.some(m => m.id === auth.user.id)
+      const isUrgent = !isBlocked && event.mentions.some(m => m.id === auth.user.id)
       if (!isBlocked) {
         // Notify the main process of the new message, so it can display an appropriate notification
         ipcRenderer.send('chatNewMessage', {

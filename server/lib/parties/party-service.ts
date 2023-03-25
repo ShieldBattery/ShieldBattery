@@ -365,7 +365,7 @@ export default class PartyService implements InPartyChecker {
         time: this.clock.now(),
         text: processedText,
       },
-      userMentions,
+      mentions: userMentions,
       channelMentions,
     })
   }

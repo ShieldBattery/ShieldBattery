@@ -294,7 +294,7 @@ export class LobbyApi {
         from: client.userId,
         text: processedText,
       },
-      userMentions,
+      mentions: userMentions,
       channelMentions,
     })
   }

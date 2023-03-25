@@ -149,7 +149,7 @@ export class WhisperApi {
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
   getSessionHistoryOld(
     ctx: RouterContext,
-  ): Omit<GetSessionHistoryResponse, 'userMentions' | 'channelMentions'> {
+  ): Omit<GetSessionHistoryResponse, 'mentions' | 'channelMentions'> {
     return {
       messages: [],
       users: [],

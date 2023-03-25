@@ -30,9 +30,9 @@ import {
   addUserToChannel,
   banAllIdentifiersFromChannel,
   banUserFromChannel,
+  ChatMessage,
   countBannedIdentifiersForChannel,
   createChannel,
-  DbChatMessage,
   deleteChannelMessage,
   findChannelByName,
   findChannelsByName,
@@ -94,8 +94,8 @@ jest.mock('./chat-models', () => ({
   searchChannelsAsAdmin: jest.fn().mockResolvedValue([]),
 }))
 
-type FakeDbJoinChannelMessage = DbChatMessage & { data: JoinChannelData }
-type FakeDbTextChannelMessage = DbChatMessage & { data: TextMessageData }
+type FakeDbJoinChannelMessage = ChatMessage & { data: JoinChannelData }
+type FakeDbTextChannelMessage = ChatMessage & { data: TextMessageData }
 
 /**
  * A helper method that returns a JSON version of the "JoinChannel" database message.
@@ -227,7 +227,7 @@ describe('chat/chat-service', () => {
     user: SbUser,
     channel: ChannelInfo,
     userChannelEntry: UserChannelEntry,
-    channelMessage: DbChatMessage,
+    channelMessage: ChatMessage,
   ) {
     asMockedFunction(findUserById).mockResolvedValue(user)
     asMockedFunction(findChannelByName).mockResolvedValue(undefined)
@@ -976,7 +976,7 @@ describe('chat/chat-service', () => {
           action: 'message2',
           message: toTextMessageJson(textMessage),
           user: user1,
-          userMentions,
+          mentions: userMentions,
           channelMentions,
         })
       }
@@ -1309,7 +1309,7 @@ describe('chat/chat-service', () => {
           toTextMessageJson(textMessage4),
         ],
         users: [user1],
-        userMentions: [user1, user2],
+        mentions: [user1, user2],
         channelMentions: [shieldBatteryChannel, testChannel],
       })
     }

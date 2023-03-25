@@ -83,7 +83,7 @@ interface WhisperTextMessageData extends BaseWhisperMessageData {
 
 type WhisperMessageData = WhisperTextMessageData
 
-export interface DbWhisperMessage {
+export interface WhisperMessage {
   id: string
   from: SbUser
   to: SbUser
@@ -101,9 +101,9 @@ interface ToUser {
   toName: string
 }
 
-type DbifiedWhisperMessage = Dbify<DbWhisperMessage & FromUser & ToUser>
+type DbWhisperMessage = Dbify<WhisperMessage & FromUser & ToUser>
 
-function convertMessageFromDb(dbMessage: DbifiedWhisperMessage): DbWhisperMessage {
+function convertMessageFromDb(dbMessage: DbWhisperMessage): WhisperMessage {
   return {
     id: dbMessage.id,
     from: {
@@ -123,10 +123,10 @@ export async function addMessageToWhisper(
   fromId: SbUserId,
   toId: SbUserId,
   messageData: WhisperMessageData,
-): Promise<DbWhisperMessage> {
+): Promise<WhisperMessage> {
   const { client, done } = await db()
   try {
-    const result = await client.query<DbifiedWhisperMessage>(sql`
+    const result = await client.query<DbWhisperMessage>(sql`
       WITH ins AS (
         INSERT INTO whisper_messages (id, from_id, to_id, sent, data)
         VALUES (uuid_generate_v4(), ${fromId}, ${toId},
@@ -153,7 +153,7 @@ export async function getMessagesForWhisperSession(
   userId2: SbUserId,
   limit = 50,
   beforeDate?: Date,
-): Promise<DbWhisperMessage[]> {
+): Promise<WhisperMessage[]> {
   const { client, done } = await db()
 
   const query = sql`
@@ -182,7 +182,7 @@ export async function getMessagesForWhisperSession(
   `)
 
   try {
-    const result = await client.query<DbifiedWhisperMessage>(query)
+    const result = await client.query<DbWhisperMessage>(query)
 
     return result.rows.map(row => convertMessageFromDb(row))
   } finally {

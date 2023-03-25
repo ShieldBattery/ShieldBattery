@@ -12,14 +12,15 @@ function* getAllMatches(text: string) {
 }
 
 /**
- * Processes the chat message by extracting the user mentions in it and replacing them with a markup
- * that includes the user ID for each mention. The markup is in the format of `<@USER_ID>`, which
+ * Processes the chat message by extracting the user mentions and channel mentions in it and
+ * replacing them with a markup that includes the user ID and channel ID for each mention,
+ * respectively. The markup is in the format of `<@USER_ID>` or `<#CHANNEL_ID>`, which
  * can then easily be used on the client to replace the markup with the appropriate UI.
  *
- * Any mention that doesn't map to a valid user in our system is left unreplaced.
+ * Any mention that doesn't map to a valid user or channel in our system is left unreplaced.
  *
  * @returns A tuple of the processed chat message, along with a map of userId -> user of each
- *   mentioned user.
+ *   mentioned user, and a map of channelId -> channel of each mentioned channel.
  */
 export async function processMessageContents(
   text: string,
@@ -52,8 +53,6 @@ export async function processMessageContents(
       ? `${prefix}<@${usernamesLowercase.get(lowerCaseUser)!.id}>`
       : `${prefix}@${username}`
   })
-
-  // TODO(2Pac): Is there a way to do this without running the `replaceAll` twice?
 
   const channelNamesLowercase = new Map(channelMentions.map(c => [c.name.toLowerCase(), c]))
   processedText = processedText.replaceAll(CHANNEL_MENTION_REGEX, (_, prefix, channelName) => {
