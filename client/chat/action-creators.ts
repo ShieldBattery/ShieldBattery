@@ -28,12 +28,19 @@ export function joinChannel(channelName: string, spec: RequestHandlingSpec<void>
     })
       .then(channel => navigateToChannel(channel.id, channel.name))
       .catch(err => {
-        let errMessage = 'An error occurred while joining the channel'
-        if (isFetchError(err) && err.code === ChatServiceErrorCode.UserBanned) {
-          errMessage = 'You are banned from this channel'
+        let message = `An error occurred while joining ${channelName}`
+
+        if (isFetchError(err) && err.code) {
+          if (err.code === ChatServiceErrorCode.UserBanned) {
+            message = `You are banned from ${channelName}`
+          } else {
+            logger.error(`Unhandled code when joining ${channelName}: ${err.code}`)
+          }
+        } else {
+          logger.error(`Error when joining ${channelName}: ${err.stack ?? err}`)
         }
 
-        dispatch(openSnackbar({ message: errMessage }))
+        dispatch(openSnackbar({ message }))
 
         throw err
       })
