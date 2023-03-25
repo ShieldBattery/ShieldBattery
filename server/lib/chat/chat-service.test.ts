@@ -1296,7 +1296,9 @@ describe('chat/chat-service', () => {
         textMessage3,
         textMessage4,
       ])
-      asMockedFunction(findUsersById).mockResolvedValue([user1, user2])
+      asMockedFunction(findUsersById)
+        .mockResolvedValueOnce([user1])
+        .mockResolvedValueOnce([user1, user2])
       asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel, testChannel])
     }
     const expectItWorks = (result: GetChannelHistoryServerResponse) => {
