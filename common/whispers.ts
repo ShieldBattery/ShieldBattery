@@ -1,5 +1,5 @@
 import { assertUnreachable } from './assert-unreachable'
-import { ChannelInfo } from './chat'
+import { ChannelInfo, SbChannelId } from './chat'
 import { SbUser, SbUserId } from './users/sb-user'
 
 export enum WhisperMessageType {
@@ -65,6 +65,8 @@ export interface GetSessionHistoryResponse {
   mentions: SbUser[]
   /** A list of channel infos for all channels that were mentioned in the messages, if any. */
   channelMentions: ChannelInfo[]
+  /** A list of channel IDs saved in various whisper messages that no longer exist. */
+  deletedChannels: SbChannelId[]
 }
 
 export enum WhisperServiceErrorCode {

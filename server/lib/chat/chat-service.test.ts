@@ -1313,6 +1313,7 @@ describe('chat/chat-service', () => {
         users: [user1],
         mentions: [user1, user2],
         channelMentions: [shieldBatteryChannel, testChannel],
+        deletedChannels: [],
       })
     }
 
@@ -1379,6 +1380,47 @@ describe('chat/chat-service', () => {
         })
 
         expectItWorks(result)
+      })
+    })
+
+    test('should include deleted channels if there are any in chat message', async () => {
+      await joinUserToChannel(
+        user1,
+        testChannel,
+        user1TestChannelEntry,
+        joinUser1TestChannelMessage,
+      )
+
+      const DELETED_ID = makeSbChannelId(999)
+      const message: FakeDbTextChannelMessage = {
+        msgId: 'MESSAGE_5_ID',
+        userId: user1.id,
+        userName: user1.name,
+        channelId: testChannel.id,
+        sent: new Date('2023-03-11T00:00:00.000Z'),
+        data: {
+          type: ServerChatMessageType.TextMessage,
+          text: `Join <#${shieldBatteryChannel.id}> <#${testChannel.id}> and <#${DELETED_ID}>.`,
+          channelMentions: [shieldBatteryChannel.id, testChannel.id, DELETED_ID],
+        },
+      }
+
+      asMockedFunction(getMessagesForChannel).mockResolvedValueOnce([message])
+      asMockedFunction(findUsersById).mockResolvedValueOnce([user1]).mockResolvedValueOnce([])
+      asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel, testChannel])
+
+      const result = await chatService.getChannelHistory({
+        channelId: testChannel.id,
+        userId: user1.id,
+        isAdmin: false,
+      })
+
+      expect(result).toEqual({
+        messages: [toTextMessageJson(message)],
+        users: [user1],
+        mentions: [],
+        channelMentions: [shieldBatteryChannel, testChannel],
+        deletedChannels: [DELETED_ID],
       })
     })
   })

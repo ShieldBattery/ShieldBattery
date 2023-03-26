@@ -2,6 +2,7 @@ import { Map as IMap, OrderedSet, Set as ISet } from 'immutable'
 import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { SbChannelId } from '../../../common/chat'
+import { subtract } from '../../../common/data-structures/sets'
 import { urlPath } from '../../../common/urls'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import {
@@ -206,11 +207,17 @@ export default class WhisperService {
       this.chatService.getChannelInfos(Array.from(channelMentionIds), userId),
     ])
 
+    const deletedChannels = subtract(
+      channelMentionIds,
+      channelMentions.map(c => c.id),
+    )
+
     return {
       messages,
       users: [user, target],
       mentions: userMentions,
       channelMentions,
+      deletedChannels: Array.from(deletedChannels),
     }
   }
 

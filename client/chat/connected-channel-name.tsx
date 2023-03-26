@@ -27,10 +27,13 @@ export interface ConnectedChannelNameProps {
 export function ConnectedChannelName({ className, channelId }: ConnectedChannelNameProps) {
   const dispatch = useAppDispatch()
   const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
+  const isChannelDeleted = useAppSelector(s => s.chat.deletedChannels.has(channelId))
 
   useEffect(() => {
-    dispatch(getBatchChannelInfo(channelId))
-  }, [dispatch, channelId])
+    if (!isChannelDeleted) {
+      dispatch(getBatchChannelInfo(channelId))
+    }
+  }, [dispatch, channelId, isChannelDeleted])
 
   const [channelInfoCardOpen, openChannelInfoCard, closeChannelInfoCard] = usePopoverController()
   const [anchor, anchorX, anchorY] = useAnchorPosition('right', 'top')
@@ -41,6 +44,10 @@ export function ConnectedChannelName({ className, channelId }: ConnectedChannelN
   const onCloseChannelInfoCard = useStableCallback(() => {
     closeChannelInfoCard()
   })
+
+  if (isChannelDeleted) {
+    return <span>#deleted-channel</span>
+  }
 
   return (
     <>
@@ -61,8 +68,8 @@ export function ConnectedChannelName({ className, channelId }: ConnectedChannelN
           #{channelInfo.name}
         </ChannelName>
       ) : (
-        // NOTE(2Pac): This mostly means the channel was deleted (or the channel info was loading),
-        // so not sure what's the expected thing to show here.
+        // NOTE(2Pac): This means the channel info was loading; not sure what's the expected thing
+        // to show here.
         <span>{`<#${channelId}>`}</span>
       )}
     </>

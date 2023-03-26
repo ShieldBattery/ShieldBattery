@@ -305,6 +305,8 @@ export interface GetChannelHistoryServerResponse {
   mentions: SbUser[]
   /** A list of channel infos for all channels that were mentioned in the messages, if any. */
   channelMentions: ChannelInfo[]
+  /** A list of channel IDs saved in various channel messages that no longer exist. */
+  deletedChannels: SbChannelId[]
 }
 
 /**

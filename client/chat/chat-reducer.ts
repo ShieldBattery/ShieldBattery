@@ -33,22 +33,24 @@ export interface MessagesState {
 }
 
 export interface ChatState {
-  /* A set of joined chat channels */
+  /** A set of joined chat channels */
   joinedChannels: Set<SbChannelId>
-  /* A map of channel ID -> channel info (includes both joined and unjoined chat channels) */
+  /** A map of channel ID -> channel info (includes both joined and unjoined chat channels) */
   idToInfo: Map<SbChannelId, ChannelInfo>
-  /* A map of channel ID -> channel users */
+  /** A map of channel ID -> channel users */
   idToUsers: Map<SbChannelId, UsersState>
-  /* A map of channel ID -> channel messages */
+  /** A map of channel ID -> channel messages */
   idToMessages: Map<SbChannelId, MessagesState>
-  /* A nested map of channel ID -> a map of user ID -> chat channel user profile */
+  /** A nested map of channel ID -> a map of user ID -> chat channel user profile */
   idToUserProfiles: Map<SbChannelId, Map<SbUserId, ChatUserProfileJson>>
-  /* A map of channel ID -> your own permissions for this chat channel */
+  /** A map of channel ID -> your own permissions for this chat channel */
   idToSelfPermissions: Map<SbChannelId, ChannelPermissions>
-  /* A set of joined chat channels that are activated */
+  /** A set of joined chat channels that are activated */
   activatedChannels: Set<SbChannelId>
-  /* A set of joined chat channels that are unread */
+  /** A set of joined chat channels that are unread */
   unreadChannels: Set<SbChannelId>
+  /** A set of channel IDs saved in various chat messages that no longer exist. */
+  deletedChannels: Set<SbChannelId>
 }
 
 const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
@@ -60,6 +62,7 @@ const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
   idToSelfPermissions: new Map(),
   activatedChannels: new Set(),
   unreadChannels: new Set(),
+  deletedChannels: new Set(),
 }
 
 function removeUserFromChannel(
@@ -166,9 +169,16 @@ function updateMessages(
 
 function updateChannels(state: ChatState, channels: ChannelInfo[]) {
   for (const channel of channels) {
-    const channelInfo = state.idToInfo.get(channel.id)
-    if (!channelInfo) {
+    if (!state.idToInfo.has(channel.id)) {
       state.idToInfo.set(channel.id, channel)
+    }
+  }
+}
+
+function updateDeletedChannels(state: ChatState, deletedChannels: SbChannelId[]) {
+  for (const channelId of deletedChannels) {
+    if (!state.deletedChannels.has(channelId)) {
+      state.deletedChannels.add(channelId)
     }
   }
 }
@@ -345,6 +355,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
     updateMessages(state, channelId, false, messages => newMessages.concat(messages))
     updateChannels(state, action.payload.channelMentions)
+    updateDeletedChannels(state, action.payload.deletedChannels)
   },
 
   ['@chat/updateMessageDeleted'](state, action) {
@@ -449,6 +460,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
   ['@whispers/loadMessageHistory'](state, action) {
     updateChannels(state, action.payload.channelMentions)
+    updateDeletedChannels(state, action.payload.deletedChannels)
   },
 
   ['@parties/updateChatMessage'](state, action) {

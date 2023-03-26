@@ -16,6 +16,7 @@ import {
   ServerChatMessageType,
   toChatUserProfileJson,
 } from '../../../common/chat'
+import { subtract } from '../../../common/data-structures/sets'
 import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../../common/flags'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
 import { DbClient } from '../db'
@@ -609,11 +610,17 @@ export default class ChatService {
       this.getChannelInfos(Array.from(channelMentionIds), userId),
     ])
 
+    const deletedChannels = subtract(
+      channelMentionIds,
+      channelMentions.map(c => c.id),
+    )
+
     return {
       messages,
       users,
       mentions: userMentions,
       channelMentions,
+      deletedChannels: Array.from(deletedChannels),
     }
   }
 
