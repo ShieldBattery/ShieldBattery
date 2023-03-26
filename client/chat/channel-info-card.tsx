@@ -9,10 +9,10 @@ import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
-import { colorError, colorTextFaint } from '../styles/colors'
+import { colorTextFaint } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { body1, caption, headline6 } from '../styles/typography'
-import { getChannelInfo, joinChannel, navigateToChannel } from './action-creators'
+import { getBatchChannelInfo, joinChannel, navigateToChannel } from './action-creators'
 import { ChannelBadge } from './channel-badge'
 import { ChannelBanner, ChannelBannerPlaceholderImage } from './channel-banner'
 
@@ -82,10 +82,6 @@ const NoChannelDescriptionText = styled.span`
   color: ${colorTextFaint};
 `
 
-const ErrorText = styled.div`
-  color: ${colorError};
-`
-
 const ChannelActions = styled.div`
   padding: 16px 16px 10px 16px;
 
@@ -124,25 +120,12 @@ export function ConnectedChannelInfoCard({
   const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
   const isUserInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
 
-  const [findChannelError, setFindChannelError] = useState<Error>()
   const [joinChannelError, setJoinChannelError] = useState<Error>()
   const [isJoinInProgress, setIsJoinInProgress] = useState(false)
 
   useEffect(() => {
-    const abortController = new AbortController()
-
-    dispatch(
-      getChannelInfo(channelId, {
-        signal: abortController.signal,
-        onSuccess: () => setFindChannelError(undefined),
-        onError: err => setFindChannelError(err),
-      }),
-    )
-
-    return () => {
-      abortController.abort()
-    }
-  }, [channelId, dispatch])
+    dispatch(getBatchChannelInfo(channelId))
+  }, [dispatch, channelId])
 
   const onViewClick = useStableCallback(() => {
     navigateToChannel(channelId, channelName)
@@ -161,20 +144,11 @@ export function ConnectedChannelInfoCard({
     )
   })
 
-  const isChannelNotFound =
-    isFetchError(findChannelError) && findChannelError.code === ChatServiceErrorCode.ChannelNotFound
   const isUserBanned =
     isFetchError(joinChannelError) && joinChannelError.code === ChatServiceErrorCode.UserBanned
 
   let descriptionText
-  if (isChannelNotFound) {
-    descriptionText = (
-      <ErrorText>
-        This channel could not be found. It might not exist, or it may have been re-created by
-        someone else.
-      </ErrorText>
-    )
-  } else if (channelInfo?.private && !isUserInChannel) {
+  if (channelInfo?.private && !isUserInChannel) {
     descriptionText = (
       <NoChannelDescriptionText>
         <PrivateChannelIcon />
@@ -216,7 +190,7 @@ export function ConnectedChannelInfoCard({
           {`${channelInfo.userCount} member${channelInfo.userCount > 1 ? 's' : ''}`}
         </ChannelUserCount>
       ) : null}
-      {channelInfo || findChannelError ? (
+      {channelInfo ? (
         <ChannelDescription>{descriptionText}</ChannelDescription>
       ) : (
         <StyledLoadingDotsArea />
