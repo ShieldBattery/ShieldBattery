@@ -57,12 +57,12 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
     const race = getInputValue('race')
     const useAlternateRace = race !== 'r' ? getInputValue('useAlternateRace') : false
     const hiddenAlternateRaces = race !== 'r' ? [race] : []
-    const { t } = useTranslation() 
+    const { t } = useTranslation()
 
     return (
       <form noValidate={true} onSubmit={handleSubmit}>
         <SectionTitle>
-         {t('common.race', 'Race')}
+        {t('common.race', 'Race')}
         </SectionTitle>
         <StyledRaceSelect
           {...bindCustom('race')}
@@ -79,10 +79,10 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
         {useAlternateRace ? (
           <>
             <SectionTitle>
-             {t('common.alternateRace', 'Alternate Race')}
+            {t('common.alternateRace', 'Alternate Race')}
             </SectionTitle>
             <DescriptionText>
-              {t('common.alternateRaceDescription', 'Select a race to be used whenever your opponent has selected the same primary race.')}
+            {t('common.alternateRaceDescription', 'Select a race to be used whenever your opponent has selected the same primary race.')}
             </DescriptionText>
             <StyledRaceSelect
               {...bindCustom('alternateRace')}
@@ -95,12 +95,12 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
         ) : null}
         <MapSelectionsHeader>
           <SectionTitle>
-           {t('common.mapPool', 'Map Pool')}
+          {t('common.mapPool', 'Map Pool')}
           </SectionTitle>
           {mapPoolOutdated ? <OutdatedIndicator>Updated</OutdatedIndicator> : null}
         </MapSelectionsHeader>
         <DescriptionText>
-         {t('common.mapVetoDescription', 'Veto up to 3 maps. Vetoed maps will never be selected for play.')}
+        {t('common.mapVetoDescription', 'Veto up to 3 maps. Vetoed maps will never be selected for play.')}
         </DescriptionText>
         <MapVetoesControl
           {...bindCustom('mapSelections')}
