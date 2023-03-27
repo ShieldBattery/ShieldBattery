@@ -62,7 +62,7 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
     return (
       <form noValidate={true} onSubmit={handleSubmit}>
         <SectionTitle>
-          {t('common.race', 'Race')}
+          {t('common.raceLabel', 'Race')}
         </SectionTitle>
         <StyledRaceSelect
           {...bindCustom('race')}
@@ -72,7 +72,7 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
         {race !== 'r' ? (
           <CheckBox
             {...bindCheckable('useAlternateRace')}
-            label={t('findMatch.alternateRaceLabel', 'Use alternate race to avoid mirror matchups')}
+            label={t('matchmaking.findMatch.alternateRaceLabel', 'Use alternate race to avoid mirror matchups')}
             disabled={disabled}
           />
         ) : null}
@@ -82,7 +82,7 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
               {t('findMatch.alternateRace', 'Alternate race')}
             </SectionTitle>
             <DescriptionText>
-              {t('findMatch.alternateRaceDescription', 'Select a race to be used whenever your opponent has selected the same primary race.')}
+              {t('matchmaking.findMatch.alternateRaceDescription', 'Select a race to be used whenever your opponent has selected the same primary race.')}
             </DescriptionText>
             <StyledRaceSelect
               {...bindCustom('alternateRace')}
@@ -95,14 +95,14 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
         ) : null}
         <MapSelectionsHeader>
           <SectionTitle>
-            {t('findMatch.mapPool', 'Map Pool')}
+            {t('matchmaking.findMatch.mapPool', 'Map Pool')}
           </SectionTitle>
           {mapPoolOutdated ? <OutdatedIndicator>
             {t('common.updated', 'Updated')}
             </OutdatedIndicator> : null}
         </MapSelectionsHeader>
         <DescriptionText>
-          {t('findMatch.vetoDescription', 'Veto up to 3 maps. Vetoed maps will never be selected for play.')}
+          {t('matchmaking.findMatch.vetoDescription', 'Veto up to 3 maps. Vetoed maps will never be selected for play.')}
         </DescriptionText>
         <MapVetoesControl
           {...bindCustom('mapSelections')}
