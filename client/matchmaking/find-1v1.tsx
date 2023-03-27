@@ -1,5 +1,6 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useImperativeHandle, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   MatchmakingMapPool,
   MatchmakingPreferences1v1,
@@ -56,10 +57,13 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
     const race = getInputValue('race')
     const useAlternateRace = race !== 'r' ? getInputValue('useAlternateRace') : false
     const hiddenAlternateRaces = race !== 'r' ? [race] : []
+    const { t } = useTranslation() 
 
     return (
       <form noValidate={true} onSubmit={handleSubmit}>
-        <SectionTitle>Race</SectionTitle>
+        <SectionTitle>
+          {t('common.race', 'Race')}
+        </SectionTitle>
         <StyledRaceSelect
           {...bindCustom('race')}
           size={RacePickerSize.Large}
@@ -74,9 +78,11 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
         ) : null}
         {useAlternateRace ? (
           <>
-            <SectionTitle>Alternate race</SectionTitle>
+            <SectionTitle>
+              {t('common.alternateRace', 'Alternate Race')}
+            </SectionTitle>
             <DescriptionText>
-              Select a race to be used whenever your opponent has selected the same primary race.
+              {t('common.alternateRaceDescription', 'Select a race to be used whenever your opponent has selected the same primary race.')}
             </DescriptionText>
             <StyledRaceSelect
               {...bindCustom('alternateRace')}
@@ -88,11 +94,13 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
           </>
         ) : null}
         <MapSelectionsHeader>
-          <SectionTitle>Map pool</SectionTitle>
+          <SectionTitle>
+           {t('common.mapPool', 'Map Pool')}
+          </SectionTitle>
           {mapPoolOutdated ? <OutdatedIndicator>Updated</OutdatedIndicator> : null}
         </MapSelectionsHeader>
         <DescriptionText>
-          Veto up to 3 maps. Vetoed maps will never be selected for play.
+          {t('common.mapVetoDescription', 'Veto up to 3 maps. Vetoed maps will never be selected for play.')}
         </DescriptionText>
         <MapVetoesControl
           {...bindCustom('mapSelections')}
