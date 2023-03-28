@@ -27,10 +27,6 @@ const ChannelCardRoot = styled(Card)`
   contain: content;
 `
 
-const StyledLoadingDotsArea = styled(LoadingDotsArea)`
-  width: 100%;
-`
-
 const ChannelBannerAndBadge = styled.div`
   box-sizing: content-box;
   position: relative;
@@ -156,9 +152,11 @@ export function ConnectedChannelInfoCard({
       </NoChannelDescriptionText>
     )
   } else if (channelInfo?.description) {
-    descriptionText = channelInfo.description
+    descriptionText = <span>{channelInfo.description}</span>
   } else {
-    descriptionText = <NoChannelDescriptionText>No channel description.</NoChannelDescriptionText>
+    descriptionText = (
+      <NoChannelDescriptionText>This channel has no description.</NoChannelDescriptionText>
+    )
   }
 
   let action
@@ -193,7 +191,7 @@ export function ConnectedChannelInfoCard({
       {channelInfo ? (
         <ChannelDescription>{descriptionText}</ChannelDescription>
       ) : (
-        <StyledLoadingDotsArea />
+        <LoadingDotsArea />
       )}
       <FlexSpacer />
       <ChannelActions>

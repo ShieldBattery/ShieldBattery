@@ -33,18 +33,9 @@ export function ChannelBanner({ src }: { src: string }) {
   )
 }
 
-export const ChannelBannerPlaceholderIcon = styled(MaterialIcon).attrs({ icon: 'chat' })`
-  width: 22.727272%;
-  height: auto;
-  font-size: 100%;
-`
-
-const ChannelBannerPlaceholderContainer = styled.div<{
-  $iconWidth?: number
-}>`
+const ChannelBannerPlaceholderContainer = styled.div`
   ${channelBannerCommon};
   color: ${colorTextFaint};
-  font-size: ${props => (props.$iconWidth ? props.$iconWidth + 'px' : 'medium')};
 
   display: flex;
   align-items: center;
@@ -52,11 +43,11 @@ const ChannelBannerPlaceholderContainer = styled.div<{
 `
 
 export function ChannelBannerPlaceholderImage() {
-  const [iconRef, iconRect] = useObservedDimensions()
+  const [bannerRef, bannerRect] = useObservedDimensions()
 
   return (
-    <ChannelBannerPlaceholderContainer $iconWidth={iconRect?.width}>
-      <ChannelBannerPlaceholderIcon ref={iconRef} />
+    <ChannelBannerPlaceholderContainer ref={bannerRef}>
+      <MaterialIcon icon='chat' size={Math.round((bannerRect?.width ?? 0) * 0.22727272)} />
     </ChannelBannerPlaceholderContainer>
   )
 }
