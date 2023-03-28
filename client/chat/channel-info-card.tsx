@@ -123,8 +123,8 @@ export function ConnectedChannelInfoCard({
   const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
   const isUserInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
 
-  const [joinChannelError, setJoinChannelError] = useState<Error>()
   const [isJoinInProgress, setIsJoinInProgress] = useState(false)
+  const [isUserBanned, setIsUserBanned] = useState(false)
 
   useEffect(() => {
     dispatch(getBatchChannelInfo(channelId))
@@ -140,15 +140,17 @@ export function ConnectedChannelInfoCard({
       joinChannel(channelName, {
         onSuccess: () => {},
         onError: err => {
-          setJoinChannelError(err)
           setIsJoinInProgress(false)
+
+          // NOTE(2Pac): We assume the rest of the errors are handled elsewhere since we only care
+          // about this particular error here.
+          if (isFetchError(err) && err.code === ChatServiceErrorCode.UserBanned) {
+            setIsUserBanned(true)
+          }
         },
       }),
     )
   })
-
-  const isUserBanned =
-    isFetchError(joinChannelError) && joinChannelError.code === ChatServiceErrorCode.UserBanned
 
   let descriptionText
   if (channelInfo?.private && !isUserInChannel) {
