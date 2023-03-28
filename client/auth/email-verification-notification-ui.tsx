@@ -8,6 +8,7 @@ import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { amberA400 } from '../styles/colors'
 import { sendVerificationEmail } from './action-creators'
 import { useSelfUser } from './state-hooks'
+import { useTranslation } from 'react-i18next'
 
 const ColoredWarningIcon = styled(MaterialIcon).attrs({ icon: 'warning', size: 36 })`
   flex-shrink: 0;
@@ -27,6 +28,7 @@ export const EmailVerificationNotificationUi = React.forwardRef<
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()!
   const selfUserId = selfUser.id
+  const { t } = useTranslation()
   const onClick = useCallback(
     (event: React.MouseEvent) => {
       event.preventDefault()
@@ -35,7 +37,7 @@ export const EmailVerificationNotificationUi = React.forwardRef<
           onSuccess: () => {
             dispatch(
               openSnackbar({
-                message: 'Verification email has been sent successfully.',
+                message: {t('account.verificationEmailSentSuccess', 'Verification email has been sent successfully.')},
                 time: TIMING_LONG,
               }),
             )
@@ -45,8 +47,8 @@ export const EmailVerificationNotificationUi = React.forwardRef<
             dispatch(
               openSnackbar({
                 message:
-                  'Something went wrong while sending a verification email, ' +
-                  'please try again later.',
+                {t('account.verificationEmailSentFailure', 'Something went wrong while sending a verification email, ')} +
+                {t('common.tryAgainLater', 'please try again later.')},
                 time: TIMING_LONG,
               }),
             )

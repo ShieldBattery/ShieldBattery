@@ -17,6 +17,7 @@ import {
   SuccessContainer,
 } from './auth-content'
 import { createNextPath, isLoggedIn } from './auth-utils'
+import { useTranslation } from 'react-i18next'
 
 export function EmailVerificationUi() {
   const dispatch = useAppDispatch()
@@ -94,36 +95,35 @@ export function EmailVerificationUi() {
   }, [emailVerified, token, forUserId, loggedIn, curUserId, dispatch])
 
   const { authChangeInProgress, lastFailure } = auth
+  const { t } = useTranslation()
 
   let contents: React.ReactNode | undefined
   let bottomActionButton: React.ReactNode | undefined
   if (!isLoggedIn(auth)) {
     contents = (
       <ErrorsContainer data-test='not-logged-in-error'>
-        Error: You need to be logged in to verify your email. Please log in by clicking the button
-        below and try again.
+        {t('account.errorEmailVerificationLoggedOut', 'Error: You need to be logged in to verify your email. Please log in by clicking the button below and try again.')}
       </ErrorsContainer>
     )
     bottomActionButton = (
-      <BottomActionButton label='Log in' onClick={onLogInClick} testName='log-in-button' />
+      <BottomActionButton label={t('common.login', 'Log in')} onClick={onLogInClick} testName='log-in-button' />
     )
   } else if (resendError) {
     contents = (
       <ErrorsContainer>
-        <>Error resending email: {resendError}</>
+        <>{t('account.errorResendingEmail', 'Error resending email:')} {resendError}</>
       </ErrorsContainer>
     )
   } else if (emailResent) {
     contents = (
       <SuccessContainer data-test='email-resent-success'>
-        A new verification code has been sent to your account's email address.
+        {t('account.newVerificationCodeSent', 'A new verification code has been sent to your email address.')}
       </SuccessContainer>
     )
   } else if (forUserId !== undefined && forUserId !== curUserId) {
     contents = (
       <ErrorsContainer data-test='wrong-user-error'>
-        Error: You need must be logged into the account whose email you want to verify. Please
-        switch users by clicking the button below and try again.
+        {t('account.errorEmailVerificationSwitchUsers', 'Error: You need must be logged into the account whose email you want to verify. Please switch users by clicking the button below and try again.')}
       </ErrorsContainer>
     )
     bottomActionButton = (
@@ -137,34 +137,32 @@ export function EmailVerificationUi() {
     if (lastFailure.code === UserErrorCode.InvalidCode) {
       contents = (
         <ErrorsContainer data-test='invalid-code-error'>
-          Error: The provided email or verification code is not valid. If the verification code
-          matches the one you were emailed, it may have expired. Please request a new verification
-          email and try again.
+          {t('account.invalidVerificationCodeError', 'Error: The provided email or verification code is not valid. If the verification code matches the one you were emailed, it may have expired. Please request a new verification email and try again.')}
         </ErrorsContainer>
       )
       bottomActionButton = (
         <BottomActionButton
-          label='Resend verification email'
+          label={t('account.resendVerificationEmail', 'Resend verification email')}
           onClick={onResendClick}
           testName='resend-email-button'
         />
       )
     } else {
-      contents = <ErrorsContainer>Error: {lastFailure.err}</ErrorsContainer>
+      contents = <ErrorsContainer>{t('common.error', 'Error')}: {lastFailure.err}</ErrorsContainer>
     }
   } else if (emailVerified) {
-    contents = <SuccessContainer>Your email has been successfully verified.</SuccessContainer>
+    contents = <SuccessContainer>{t('account.emailVerifySuccess', 'Your email has been successfully verified.')}</SuccessContainer>
     bottomActionButton = (
-      <BottomActionButton label='Continue' onClick={onContinueClick} testName='continue-button' />
+      <BottomActionButton label={t('common.continue', 'Continue')} onClick={onContinueClick} testName='continue-button' />
     )
   } else if (!authChangeInProgress) {
-    contents = <ErrorsContainer>Something went terribly wrong. Please try again.</ErrorsContainer>
+    contents = <ErrorsContainer>{t('common.genericError', 'Something went terribly wrong. Please try again.')}</ErrorsContainer>
   }
 
   return (
     <AuthContent>
       <AuthContentContainer isLoading={authChangeInProgress || resending}>
-        <AuthTitle as='h3'>Verify email</AuthTitle>
+        <AuthTitle as='h3'>{t('account.verifyEmail', 'Verify email')}</AuthTitle>
         <AuthBody>{contents}</AuthBody>
         {bottomActionButton ? <AuthBottomAction>{bottomActionButton}</AuthBottomAction> : null}
       </AuthContentContainer>

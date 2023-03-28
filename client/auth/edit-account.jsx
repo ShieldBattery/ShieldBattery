@@ -29,27 +29,29 @@ import LoadingIndicator from '../progress/dots'
 import { colorError } from '../styles/colors'
 import { subtitle1 } from '../styles/typography'
 import { updateAccount } from './action-creators'
+import { useTranslation } from 'react-i18next'
 
 function passwordRequired() {
+  const { t } = useTranslation()
   return (val, model, dirty) =>
-    (dirty.email || dirty.newPassword) && !val ? 'Enter your current password' : null
+    (dirty.email || dirty.newPassword) && !val ? {t('auth.enterCurrentPassword', 'Enter your current password')} : null
 }
 
 const emailValidator = composeValidators(
-  required('Enter an email address'),
-  minLength(EMAIL_MINLENGTH, `Use at least ${EMAIL_MINLENGTH} characters`),
-  maxLength(EMAIL_MAXLENGTH, `Use at most ${EMAIL_MAXLENGTH} characters`),
-  regex(EMAIL_PATTERN, 'Enter a valid email address'),
+  required({t('account.enterEmail', 'Enter an email address')}),
+  minLength(EMAIL_MINLENGTH, {t('account.errorMinCharlen', `Use at least ${EMAIL_MINLENGTH} characters`)}),
+  maxLength(EMAIL_MAXLENGTH, {t('account.errorMaxCharlen', `Use at most ${EMAIL_MAXLENGTH} characters`)}),
+  regex(EMAIL_PATTERN, {t('account.errorInvalidEmail', 'Enter a valid email address')}),
 )
 const passwordValidator = composeValidators(
   passwordRequired(),
-  minLength(PASSWORD_MINLENGTH, `Enter at least ${PASSWORD_MINLENGTH} characters`),
+  minLength(PASSWORD_MINLENGTH, {t('account.errorMinCharlen', `Use at least ${PASSWORD_MINLENGTH} characters`)}),
 )
 const newPasswordValidator = composeValidators(
-  minLength(PASSWORD_MINLENGTH, `Enter at least ${PASSWORD_MINLENGTH} characters`),
+  minLength(PASSWORD_MINLENGTH, {t('account.errorMaxCharlen', `Use at least ${PASSWORD_MINLENGTH} characters`)}),
 )
 const confirmNewPasswordValidator = composeValidators(
-  matchesOther('newPassword', 'Enter a matching password'),
+  matchesOther('newPassword', {t('account.errorNoMatchingPassword', 'Enter a matching password')}),
 )
 
 @form({
@@ -76,6 +78,7 @@ class AccountForm extends React.Component {
   render() {
     const { bindInput, onSubmit } = this.props
     const { changePassword } = this.state
+    const { t } = useTranslation()
     const textInputProps = {
       autoCapitalize: 'off',
       autoCorrect: 'off',
@@ -89,28 +92,28 @@ class AccountForm extends React.Component {
         <TextField
           {...bindInput('email')}
           inputProps={textInputProps}
-          label='Email'
+          label={t('common.email', 'Email')}
           floatingLabel={true}
         />
         <PasswordTextField
           {...bindInput('currentPassword')}
-          label='Current password'
+          label={t('account.currentPassword', 'Current password')}
           floatingLabel={true}
           inputProps={textInputProps}
         />
         {!changePassword ? (
-          <TextButton label='Change password?' onClick={this.onPasswordChangeClick} tabIndex={0} />
+          <TextButton label={t('account.changePassword', 'Change password?')} onClick={this.onPasswordChangeClick} tabIndex={0} />
         ) : (
           <>
             <PasswordTextField
               {...bindInput('newPassword')}
-              label='New password'
+              label={t('account.newPassword', 'New password')}
               floatingLabel={true}
               inputProps={textInputProps}
             />
             <PasswordTextField
               {...bindInput('confirmNewPassword')}
-              label='Confirm new password'
+              label={t('account.confirmNewPassword', 'Confirm new password')}
               floatingLabel={true}
               inputProps={textInputProps}
             />
@@ -200,6 +203,7 @@ export default class EditAccount extends React.Component {
   render() {
     const { auth, onCancel, dialogRef } = this.props
     const { reqId } = this.state
+    const { t } = useTranslation()
     let loadingElem
     let errorElem
     let passwordError
@@ -215,19 +219,20 @@ export default class EditAccount extends React.Component {
     if (reqId && auth.lastFailure && auth.lastFailure.reqId === reqId) {
       // TODO(2Pac): Use the actual error code once the error system is implemented.
       if (auth.lastFailure.err === 'Incorrect password') {
-        passwordError = 'Incorrect current password.'
+        passwordError = {t('account.incorrectCurrentPassword', 'Incorrect current password.')}
       } else {
         errorElem = (
-          <ErrorText>There was an issue updating your account. Please try again later.</ErrorText>
+          <ErrorText>
+            {t('account.errorUpdatingAccount', 'There was an issue updating your account. Please try again later.')}</ErrorText>
         )
       }
     }
 
     const buttons = [
-      <TextButton label='Cancel' key='cancel' color='accent' onClick={onCancel} />,
+      <TextButton label={t('common.cancel', 'Cancel')} key='cancel' color='accent' onClick={onCancel} />,
       <TextButton
         ref={this._saveButton}
-        label='Save'
+        label={t('common.save', 'Save')}
         key='save'
         color='accent'
         onClick={this.onAccountSave}
@@ -236,7 +241,7 @@ export default class EditAccount extends React.Component {
 
     return (
       <Dialog
-        title={'Edit account'}
+        title={{t('account.editAccountHeader', 'Edit account')}}
         buttons={buttons}
         showCloseButton={true}
         onCancel={onCancel}

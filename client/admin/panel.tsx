@@ -15,6 +15,7 @@ import AdminMapPools from './map-pools'
 import { AdminMatchmakingSeasons } from './matchmaking-seasons'
 import AdminMatchmakingTimes from './matchmaking-times'
 import { AdminRallyPoint } from './rally-point'
+import { useTranslation } from 'react-i18next'
 
 const AdminMapManager = IS_ELECTRON ? require('./map-manager').default : null
 
@@ -24,38 +25,39 @@ interface AdminDashboardProps {
 
 function AdminDashboard(props: AdminDashboardProps) {
   const perms = props.permissions
+  const { t } = useTranslation()
 
   const channelViewLink = perms.moderateChatChannels ? (
     <>
       <li>
-        <Link href='/admin/channel-view'>Channel view</Link>
+        <Link href='/admin/channel-view'>{t('admin.panel.channelView', 'Channel view')}</Link>
       </li>
     </>
   ) : null
   const mapsLink =
     (perms.manageMaps || perms.massDeleteMaps) && IS_ELECTRON ? (
       <li>
-        <Link href='/admin/map-manager'>Manage maps</Link>
+        <Link href='/admin/map-manager'>{t('admin.panel.manageMaps', 'Manage maps')}</Link>
       </li>
     ) : null
   const mapPoolsLink = perms.manageMapPools ? (
     <li>
-      <Link href='/admin/map-pools'>Manage matchmaking map pools</Link>
+      <Link href='/admin/map-pools'>{t('admin.panel.manageMatchmakingPools', 'Manage matchmaking map pools')}</Link>
     </li>
   ) : null
   const matchmakingSeasonsLink = perms.manageMatchmakingSeasons ? (
     <li>
-      <Link href='/admin/matchmaking-seasons'>Manage matchmaking seasons</Link>
+      <Link href='/admin/matchmaking-seasons'>{t('admin.panel.manageSeasons', 'Manage matchmaking seasons')}</Link>
     </li>
   ) : null
   const matchmakingTimesLink = perms.manageMatchmakingTimes ? (
     <li>
-      <Link href='/admin/matchmaking-times'>Manage matchmaking times</Link>
+      <Link href='/admin/matchmaking-times'>{t('admin.panel.manageMatchmakingTimes', 'Manage matchmaking times')}</Link>
     </li>
   ) : null
   const rallyPointLink = perms.manageRallyPointServers ? (
     <li>
-      <Link href='/admin/rally-point'>Manage rally-point servers</Link>
+      <Link href='/admin/rally-point'>{t('admin.panel.manageRallyPointServers', 'Manage rally-point servers')}</Link>
     </li>
   ) : null
 

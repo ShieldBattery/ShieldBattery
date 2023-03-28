@@ -17,6 +17,7 @@ import {
   getMatchmakingTimesHistory,
   getMatchmakingTimesPast,
 } from './action-creators'
+import { useTranslation } from 'react-i18next'
 
 const MATCHMAKING_TIMES_LIMIT = 10
 
@@ -65,7 +66,7 @@ const HistoryContainer = styled.table`
     padding-left: 16px;
   }
 `
-
+const { t } = useTranslation()
 const EnabledText = styled.span`
   color: ${colorSuccess};
 `
@@ -110,8 +111,7 @@ class MatchmakingTimesHistory extends React.PureComponent {
       return (
         <>
           <p>
-            Something went wrong while trying to retrieve the matchmaking times history. The error
-            message was:
+          {t('admin.matchmakingTimes.errorRetrieving', 'Something went wrong while trying to retrieve the matchmaking times history. The error message was:')}
           </p>
           <ErrorText as='p'>{history.lastError.message}</ErrorText>
         </>
@@ -123,7 +123,7 @@ class MatchmakingTimesHistory extends React.PureComponent {
       .concat(history.pastTimes)
 
     if (sortedList.isEmpty()) {
-      return <p>This matchmaking type doesn't have matchmaking times history.</p>
+      return <p>{t('admin.matchmakingTimes.noHistoryForType', 'This matchmaking type does not have matchmaking times history.')}</p>
     }
 
     // NOTE(2Pac): Technically, this can be wrong depending on how much time has passed since it was
@@ -134,9 +134,9 @@ class MatchmakingTimesHistory extends React.PureComponent {
       <HistoryContainer>
         <thead>
           <tr>
-            <th>Start date</th>
-            <th>Status</th>
-            <th>Action</th>
+            <th>{t('common.startDate', 'Start date')}</th>
+            <th>{t('common.status', 'Status')}</th>
+            <th>{t('common.action', 'Action')}</th>
           </tr>
         </thead>
         <tbody>
@@ -146,7 +146,7 @@ class MatchmakingTimesHistory extends React.PureComponent {
                 <LoadingIndicator />
               ) : (
                 <TextButton
-                  label='Load more future times'
+                  label={t('admin.matchmakingTimes.loadMoreFutureTimes', 'Load more future times')}
                   color='accent'
                   disabled={futureTimesPage * MATCHMAKING_TIMES_LIMIT >= history.totalFutureTimes}
                   onClick={onLoadMoreFuture}
@@ -171,14 +171,14 @@ class MatchmakingTimesHistory extends React.PureComponent {
                 </td>
                 <td>
                   {time.enabled ? (
-                    <EnabledText>Enabled</EnabledText>
+                    <EnabledText>{t('common.enabled', 'Enabled')}</EnabledText>
                   ) : (
-                    <DisabledText>Disabled</DisabledText>
+                    <DisabledText>{t('common.disabled', 'Disabled')}</DisabledText>
                   )}
                 </td>
                 <td>
                   {isFuture ? (
-                    <TextButton label='Delete' color='accent' onClick={() => onDelete(time.id)} />
+                    <TextButton label={t('common.delete', 'Delete')} color='accent' onClick={() => onDelete(time.id)} />
                   ) : null}
                 </td>
               </tr>
@@ -190,7 +190,7 @@ class MatchmakingTimesHistory extends React.PureComponent {
                 <LoadingIndicator />
               ) : (
                 <TextButton
-                  label='Load more past times'
+                  label={t('admin.matchmakingTimes.loadMorePastTimes', 'Load more past times')}
                   color='accent'
                   disabled={pastTimesPage * MATCHMAKING_TIMES_LIMIT >= history.totalPastTimes}
                   onClick={onLoadMorePast}
@@ -266,7 +266,9 @@ export default class MatchmakingTimes extends React.Component {
     let dateValidationContents
     if (invalidDate) {
       dateValidationContents = (
-        <InvalidDateInput>Start date must be set into the future</InvalidDateInput>
+        <InvalidDateInput>
+          {t('admin.matchmakingTimes', 'Start date must be set into the future')}
+        </InvalidDateInput>
       )
     } else if (startDate && !invalidDate) {
       dateValidationContents = <ValidDateIcon />
@@ -275,11 +277,11 @@ export default class MatchmakingTimes extends React.Component {
     return (
       <Container>
         <Tabs activeTab={activeTab} onChange={this.onTabChange}>
-          <TabItem text='1v1' value={MatchmakingType.Match1v1} />
-          <TabItem text='2v2' value={MatchmakingType.Match2v2} />
+          <TabItem text={t('common.matchmakingType1v1', '1v1')} value={MatchmakingType.Match1v1} />
+          <TabItem text={t('common.matchmakingType2v2', '2v2')} value={MatchmakingType.Match2v2} />
         </Tabs>
-        <h3>Add a new matchmaking time</h3>
-        <p>Choose a date and time (in your local timezone) when the matchmaking will start</p>
+        <h3>{t('admin.matchmakingTimes.addNewMatchmakingTime', 'Add a new matchmaking time')}</h3>
+        <p>{t('admin.matchmakingTimes.chooseTimeToStart', 'Choose a date and time (in your local timezone) when the matchmaking will start')}</p>
         <DateInputContainer>
           <DateInput
             type='datetime-local'
@@ -288,13 +290,13 @@ export default class MatchmakingTimes extends React.Component {
           />
           {dateValidationContents}
         </DateInputContainer>
-        <CheckBox label='Enabled' checked={enabled} onChange={this.onEnabledChange} />
+        <CheckBox label={t('common.enabled', 'Enabled')} checked={enabled} onChange={this.onEnabledChange} />
         <AddNewButton
-          label='Add'
+          label={t('common.add', 'Add')}
           disabled={startDate === '' || invalidDate}
           onClick={this.onAddNew}
         />
-        <h3>Matchmaking times history</h3>
+        <h3>{t('admin.matchmakingTimes.matchmakingTimesHistory', 'Matchmaking times history')}</h3>
         <MatchmakingTimesHistory
           history={matchmakingTimesHistory}
           futureTimesPage={futureTimesPage}
