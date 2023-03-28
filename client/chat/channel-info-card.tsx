@@ -70,8 +70,15 @@ const ChannelDescription = styled.div`
   text-overflow: ellipsis;
 `
 
+const PrivateChannelDescriptionContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`
+
 const PrivateChannelIcon = styled(MaterialIcon).attrs({ icon: 'lock' })`
-  vertical-align: bottom;
+  margin-bottom: 8px;
+  color: ${colorTextFaint};
 `
 
 const NoChannelDescriptionText = styled.span`
@@ -146,10 +153,12 @@ export function ConnectedChannelInfoCard({
   let descriptionText
   if (channelInfo?.private && !isUserInChannel) {
     descriptionText = (
-      <NoChannelDescriptionText>
-        <PrivateChannelIcon />
-        This channel is private and requires an invite to join.
-      </NoChannelDescriptionText>
+      <PrivateChannelDescriptionContainer>
+        <PrivateChannelIcon size={40} />
+        <NoChannelDescriptionText>
+          This channel is private and requires an invite to join.
+        </NoChannelDescriptionText>
+      </PrivateChannelDescriptionContainer>
     )
   } else if (channelInfo?.description) {
     descriptionText = <span>{channelInfo.description}</span>
