@@ -6,6 +6,7 @@ import { MapThumbnail } from '../maps/map-thumbnail'
 import { shadowDef2dp } from '../material/shadow-constants'
 import { colorTextSecondary } from '../styles/colors'
 import { Headline1, Headline3, Headline4, headline5 } from '../styles/typography'
+import { useTranslation } from 'react-i18next'
 
 const Container = styled.div`
   display: flex;
@@ -89,15 +90,22 @@ export default class MatchmakingMatch extends React.Component {
 
   renderStatus() {
     const { isCountingDown, countdownTimer, isLaunching, isStarting } = this.props
+    const { t } = useTranslation()
 
     if (isLaunching) {
-      return <StatusText>Game launching...</StatusText>
+      return <StatusText>
+        {t('matchmaking.findMatch.gameStatusLaunching', 'Game launching...')}
+          </StatusText>
     } else if (isCountingDown) {
       return <Headline1>{countdownTimer}</Headline1>
     } else if (isStarting) {
-      return <StatusText>Game starting...</StatusText>
+      return <StatusText>
+        {t('matchmaking.findMatch.gameStatusStarting', 'Game starting...')}
+          </StatusText>
     } else {
-      return <StatusText>Game in progress...</StatusText>
+      return <StatusText>
+        {t('matchmaking.findMatch.gameStatusInProgress', 'Game in progress...')}
+          </StatusText>
     }
   }
 
