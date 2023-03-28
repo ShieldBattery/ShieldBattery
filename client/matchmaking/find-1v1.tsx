@@ -102,7 +102,7 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
             </OutdatedIndicator> : null}
         </MapSelectionsHeader>
         <DescriptionText>
-          {t('matchmaking.findMatch.vetoDescription', 'Veto up to 3 maps. Vetoed maps will never be selected for play.')}
+          {t('matchmaking.findMatch.veto1v1Description', 'Veto up to 3 maps. Vetoed maps will never be selected for play.')}
         </DescriptionText>
         <MapVetoesControl
           {...bindCustom('mapSelections')}
