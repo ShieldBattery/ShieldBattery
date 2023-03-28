@@ -19,6 +19,7 @@ import {
 } from '../styles/colors'
 import { body1, body2, subtitle1 } from '../styles/typography'
 import { RaceSelect } from './race-select'
+import { useTranslation } from 'react-i18next'
 
 export interface FindMatchFormRef {
   submit: () => void
@@ -198,7 +199,7 @@ export function MapVetoesControl({
     },
     [maxVetoes, onChangeRef, valueRef],
   )
-
+  const { t } = useTranslation()
   const vetoesLeft = maxVetoes - (value?.length ?? 0)
   return (
     <div className={className}>
@@ -214,7 +215,8 @@ export function MapVetoesControl({
         ))}
       </MapSelections>
       <VetoStatus>
-        <VetoStatusLabel>Vetoes left: </VetoStatusLabel>
+        <VetoStatusLabel>
+          {t('matchmaking.findMatch.vetoesLeft', 'Vetoes Left:')} </VetoStatusLabel>
         <VetoStatusValue $exhausted={vetoesLeft <= 0}>{vetoesLeft}</VetoStatusValue>
       </VetoStatus>
     </div>
