@@ -10,6 +10,7 @@ import { LegacyPopover } from '../material/legacy-popover'
 import { useAppSelector } from '../redux-hooks'
 import { headline3, Headline6 } from '../styles/typography'
 import { ElapsedTime } from './elapsed-time'
+import { useTranslation } from 'react-i18next'
 
 // TODO(2Pac): Move this to a common folder if we decide to use this text elsewhere
 function matchmakingTypeToText(type: MatchmakingType) {
@@ -109,6 +110,7 @@ export function MatchmakingSearchingOverlay({
 }: MatchmakingSearchingOverlayProps) {
   const searchInfo = useAppSelector(s => s.matchmaking.searchInfo)
   const isMatched = useAppSelector(s => Boolean(s.matchmaking.match))
+  const { t } = useTranslation()
 
   if (!searchInfo) {
     return null
@@ -159,7 +161,7 @@ export function MatchmakingSearchingOverlay({
                   <StyledElapsedTime startTimeMs={searchInfo.startTime} />
                 </InfoItem>
               </InfoContainer>
-              <RaisedButton label='Cancel search' onClick={onCancelSearch} disabled={isMatched} />
+              <RaisedButton label={t('matchmaking.findMatch.cancelSearch', 'Cancel search')} onClick={onCancelSearch} disabled={isMatched} />
             </Contents>
           </CSSTransition>
         )
