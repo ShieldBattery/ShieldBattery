@@ -30,6 +30,7 @@ import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { colorError, colorTextFaint } from '../styles/colors'
 import { headline5, headline6, Headline6, singleLine, subtitle1 } from '../styles/typography'
+import { useTranslation } from 'react-i18next'
 
 const SEARCH_CHANNELS_LIMIT = 10
 const CHANNEL_MESSAGES_LIMIT = 50
@@ -191,6 +192,7 @@ export function ChannelSelector({ onSelect }: { onSelect: (channel: BasicChannel
   const [searchError, setSearchError] = useState<Error>()
   const [searchQuery, setSearchQuery] = useLocationSearchParam('q')
   const abortControllerRef = useRef<AbortController>()
+  const { t } = useTranslation()
 
   const carouselRef = useRef(null)
   const debouncedSearchRef = useRef(
@@ -242,9 +244,13 @@ export function ChannelSelector({ onSelect }: { onSelect: (channel: BasicChannel
 
   let searchContent
   if (searchError) {
-    searchContent = <ErrorText>There was an error retrieving the chat channels.</ErrorText>
+    searchContent = <ErrorText>
+        {t('chat.channelView.errorRetrievingChannels', 'There was an error retrieving the chat channels.')}
+      </ErrorText>
   } else if (channels?.length === 0) {
-    searchContent = <NoResults>No matching chat channel.</NoResults>
+    searchContent = <NoResults>
+        {t('chat.channelView.errorNoMatchingChannel', 'No matching chat channel.')}
+      </NoResults>
   } else {
     const channelItems = (channels ?? []).map(channel => (
       <ChannelThumbnail key={channel.id}>
@@ -252,7 +258,7 @@ export function ChannelSelector({ onSelect }: { onSelect: (channel: BasicChannel
         <ChannelInfoContainer>
           <ChannelInfoName>{channel.name}</ChannelInfoName>
         </ChannelInfoContainer>
-        <RaisedButton label='View' onClick={() => onSelect(channel)} />
+        <RaisedButton label={t('common.view', 'View')} onClick={() => onSelect(channel)} />
       </ChannelThumbnail>
     ))
 
@@ -360,16 +366,16 @@ export function AdminChannelView() {
           items.push(
             <DestructiveMenuItem
               key='delete-message'
-              text='Delete message'
+              text={t('chat.channelView.deleteMessage', 'Delete message')}
               onClick={() => {
                 dispatch(
                   deleteMessageAsAdmin(selectedChannel.id, messageId, {
                     onSuccess: () => {
                       setChannelMessages(prev => prev.filter(m => m.id !== messageId))
-                      dispatch(openSnackbar({ message: 'Message deleted' }))
+                      dispatch(openSnackbar({ message: {t('chat.channelView.messageDeleted', 'Message deleted')} }))
                     },
                     onError: () => {
-                      dispatch(openSnackbar({ message: 'Error deleting message' }))
+                      dispatch(openSnackbar({ message: {t('chat.channelView.errorDeletingMessage', 'Error deleting message')} }))
                     },
                   }),
                 )
@@ -406,7 +412,7 @@ export function AdminChannelView() {
           </ChatContext.Provider>
         </>
       ) : (
-        <NoResults>Select a channel to view.</NoResults>
+        <NoResults>{t('chat.channelView.selectChannel', 'Select a channel to view.')}</NoResults>
       )}
     </Container>
   )
