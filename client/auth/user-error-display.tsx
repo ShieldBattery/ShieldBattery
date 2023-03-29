@@ -5,6 +5,7 @@ import { longTimestamp } from '../i18n/date-formats'
 import { FetchError, isFetchError } from '../network/fetch-errors'
 import { Subtitle2 } from '../styles/typography'
 import { ErrorsContainer } from './auth-content'
+import { useTranslation } from 'react-i18next'
 
 const BanReason = styled.div`
   margin-top: 8px;
@@ -17,15 +18,16 @@ export interface UserErrorDisplayProps {
 }
 
 function showUserError(error: FetchError) {
+  const { t } = useTranslation()
   switch (error.code) {
     case UserErrorCode.InvalidCredentials:
-      return <span>Incorrect username or password</span>
+      return <span>{t('account.invalidCredentials', 'Incorrect username or password')}</span>
     case UserErrorCode.AccountBanned:
       return (
         <div>
-          This account has been banned.
+          {t('account.accountBanned', 'This account has been banned.')}
           <BanReason>
-            <Subtitle2>Reason:</Subtitle2>
+            <Subtitle2>{t('common.reason', 'Reason')}:</Subtitle2>
             <span>{(error.body as any).reason}</span>
           </BanReason>
           <span>
@@ -34,19 +36,18 @@ function showUserError(error: FetchError) {
         </div>
       )
     case UserErrorCode.SessionExpired:
-      return <span>Session expired</span>
+      return <span>{t('account.sessionExpired', 'Session expired')}</span>
     case UserErrorCode.SuspiciousActivity:
       return (
         <span>
-          Due to suspicious activity detected on this network, creating accounts on the web is
-          currently disabled. Please download the standalone client to create a new account.
+          {t('account.suspiciousActivityDetected', 'Due to suspicious activity detected on this network, creating accounts on the web is currently disabled. Please download the standalone client to create a new account.')}
         </span>
       )
     case UserErrorCode.MachineBanned:
       // TODO(tec27): Show expiration date?
-      return <span>This machine is banned from creating new accounts.</span>
+      return <span>{t('account.machineBanned', 'This machine is banned from creating new accounts.')}</span>
     case UserErrorCode.UsernameTaken:
-      return <span>A user with that name already exists</span>
+      return <span>{t('account.usernameTaken', 'A user with that name already exists')}</span>
 
     default:
       return (

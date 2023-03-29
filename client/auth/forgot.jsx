@@ -39,6 +39,7 @@ import {
   LoadingArea,
   SuccessContainer,
 } from './auth-content'
+import { useTranslation } from 'react-i18next'
 
 const emailValidator = composeValidators(
   required('Enter an email address'),
@@ -83,6 +84,7 @@ class ForgotFormHolder extends React.Component {
   }
 
   render() {
+    const { t } = useTranslation()
     const {
       auth: { authChangeInProgress, lastFailure },
       form: FormComponent,
@@ -101,7 +103,7 @@ class ForgotFormHolder extends React.Component {
     let errContents
     const reqId = this.state.reqId
     if (reqId && lastFailure && lastFailure.reqId === reqId) {
-      errContents = <ErrorsContainer>Error: {lastFailure.err}</ErrorsContainer>
+      errContents = <ErrorsContainer>{t('common.errorLabel', 'Error')}: {lastFailure.err}</ErrorsContainer>
     }
     const successContents =
       this.state.success && successMessage ? (
@@ -120,7 +122,7 @@ class ForgotFormHolder extends React.Component {
         </AuthContentContainer>
         {loadingContents}
         <AuthBottomAction>
-          <BottomActionButton label='Back to login' onClick={this.onBackClick} tabIndex={1} />
+          <BottomActionButton label={t('account.backToLogin', 'Back to login.')} onClick={this.onBackClick} tabIndex={1} />
         </AuthBottomAction>
       </AuthContent>
     )
@@ -147,14 +149,17 @@ class ForgotFormHolder extends React.Component {
 class ForgotUserForm extends React.Component {
   render() {
     const { onSubmit, bindInput } = this.props
+    const { t } = useTranslation()
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
-        <p>Please enter the email address you signed up with.</p>
+        <p>
+          {t('account.recovery.enterEmail', 'Please enter the email address you signed up with.')}
+        </p>
         <FieldRow>
           <AuthTextField
             {...bindInput('email')}
-            label='Email address'
+            label={t('common.emailAddressLabel', 'Email address')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -165,13 +170,14 @@ class ForgotUserForm extends React.Component {
           />
         </FieldRow>
         <FieldRow>
-          <RaisedButton label='Recover username' onClick={onSubmit} tabIndex={1} />
+          <RaisedButton label={t('account.recovery.recoverUsernameLabel', 'Recover username')} onClick={onSubmit} tabIndex={1} />
         </FieldRow>
       </form>
     )
   }
 }
 
+const { t } = useTranslation()
 const FORGOT_USER_SUCCESS =
   'If there are any users registered to that email address, you should ' +
   'receive an email in the next few minutes with the relevant usernames.'
@@ -192,13 +198,14 @@ export const ForgotUser = () => (
 class ForgotPasswordForm extends React.Component {
   render() {
     const { onSubmit, bindInput } = this.props
+    const { t } = useTranslation()
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
         <FieldRow>
           <AuthTextField
             {...bindInput('email')}
-            label='Email address'
+            label={t('common.emailAddressLabel', 'Email address')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -211,7 +218,7 @@ class ForgotPasswordForm extends React.Component {
         <FieldRow>
           <AuthTextField
             {...bindInput('username')}
-            label='Username'
+            label={t('common.usernameLabel', 'Username')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -222,7 +229,7 @@ class ForgotPasswordForm extends React.Component {
           />
         </FieldRow>
         <FieldRow>
-          <RaisedButton label='Send reset email' onClick={onSubmit} tabIndex={1} />
+          <RaisedButton label={t('account.recovery.sendResetEmail', 'Send reset email')} onClick={onSubmit} tabIndex={1} />
         </FieldRow>
       </form>
     )
@@ -262,6 +269,7 @@ const confirmPasswordValidator = composeValidators(
 class ResetPasswordForm extends React.Component {
   render() {
     const { onSubmit, bindInput } = this.props
+    const { t } = useTranslation()
     const textInputProps = {
       autoCapitalize: 'off',
       autoCorrect: 'off',
@@ -275,7 +283,7 @@ class ResetPasswordForm extends React.Component {
           <AuthTextField
             {...bindInput('username')}
             inputProps={textInputProps}
-            label='Username'
+            label={t('common.usernameLabel', 'Username')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -283,7 +291,7 @@ class ResetPasswordForm extends React.Component {
           <AuthTextField
             {...bindInput('token')}
             inputProps={textInputProps}
-            label='Password reset code'
+            label={t('account.recovery.passwordResetCode', 'Password reset code')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -291,7 +299,7 @@ class ResetPasswordForm extends React.Component {
           <AuthPasswordTextField
             {...bindInput('password')}
             inputProps={textInputProps}
-            label='New password'
+            label={t('account.recovery.newPassword', 'New password')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -299,12 +307,12 @@ class ResetPasswordForm extends React.Component {
           <AuthPasswordTextField
             {...bindInput('confirmPassword')}
             inputProps={textInputProps}
-            label='Confirm new password'
+            label={t('account.recovery.confirmNewPassword', 'Confirm new password')}
             floatingLabel={true}
           />
         </FieldRow>
         <FieldRow>
-          <RaisedButton label='Set new password' onClick={onSubmit} tabIndex={1} />
+          <RaisedButton label={t('account.recovery.setNewPassword', 'Set new password')} onClick={onSubmit} tabIndex={1} />
         </FieldRow>
       </form>
     )
@@ -314,6 +322,7 @@ class ResetPasswordForm extends React.Component {
 const RESET_PASSWORD_SUCCESS = 'Your password has been reset.'
 const doPasswordReset = values => resetPassword(values.username, values.token, values.password)
 export const ResetPassword = () => {
+  const { t } = useTranslation()
   const model = queryString.parse(location.search)
   return (
     <ForgotFormHolder

@@ -46,6 +46,7 @@ import {
 } from './auth-content'
 import { redirectIfLoggedIn } from './auth-utils'
 import { UserErrorDisplay } from './user-error-display'
+import { useTranslation } from 'react-i18next'
 
 const SignupBottomAction = styled(AuthBottomAction)`
   flex-direction: row;
@@ -150,6 +151,7 @@ function CheckBoxRowWithError({ errorText, ...checkboxProps }) {
 class SignupForm extends React.Component {
   render() {
     const { onSubmit, bindCheckable, bindInput } = this.props
+    const { t } = useTranslation()
     const textInputProps = {
       autoCapitalize: 'off',
       autoCorrect: 'off',
@@ -164,7 +166,7 @@ class SignupForm extends React.Component {
           <AuthTextField
             {...bindInput('username')}
             inputProps={textInputProps}
-            label='Username'
+            label={t('common.usernameLabel', 'Username')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -173,7 +175,7 @@ class SignupForm extends React.Component {
           <AuthTextField
             {...bindInput('email')}
             inputProps={textInputProps}
-            label='Email address'
+            label={t('common.emailAddressLabel', 'Email address')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -182,7 +184,7 @@ class SignupForm extends React.Component {
           <AuthPasswordTextField
             {...bindInput('password')}
             inputProps={textInputProps}
-            label='Password'
+            label={t('common.passwordLabel', 'Password')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -191,14 +193,14 @@ class SignupForm extends React.Component {
           <AuthPasswordTextField
             {...bindInput('confirmPassword')}
             inputProps={textInputProps}
-            label='Confirm password'
+            label={t('account.recover.confirmPassword', 'Confirm password')}
             floatingLabel={true}
           />
         </FieldRow>
 
         <CheckBoxRowWithError
           {...bindCheckable('ageConfirmation')}
-          label='I certify that I am 13 years of age or older'
+          label={t('account.ageConfirmation', 'I certify that I am 13 years of age or older')}
           inputProps={{ tabIndex: 1 }}
         />
 
@@ -217,7 +219,7 @@ class SignupForm extends React.Component {
 
         <FieldRow>
           <RaisedButton
-            label='Create account'
+            label={t('account.createAccountLabel', 'Create account')}
             onClick={onSubmit}
             tabIndex={1}
             testName='submit-button'
@@ -253,6 +255,7 @@ export default class Signup extends React.Component {
       auth: { authChangeInProgress },
     } = this.props
     const { isLoading, lastError } = this.state
+    const { t } = useTranslation()
 
     let loadingContents
     if (authChangeInProgress || isLoading) {
@@ -267,7 +270,7 @@ export default class Signup extends React.Component {
     return (
       <AuthContent>
         <AuthContentContainer isLoading={isLoading || authChangeInProgress}>
-          <AuthTitle>Create account</AuthTitle>
+          <AuthTitle>{t('account.createAccountLabel', 'Create account')}</AuthTitle>
           <AuthBody>
             {lastError ? <UserErrorDisplay error={lastError} /> : null}
             <SignupForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
@@ -275,8 +278,8 @@ export default class Signup extends React.Component {
         </AuthContentContainer>
         {loadingContents}
         <SignupBottomAction>
-          <p>Already have an account?</p>
-          <BottomActionButton label='Log in' onClick={this.onLogInClick} tabIndex={1} />
+          <p>{t('account.accountAlreadyExists', 'Already have an account?')}</p>
+          <BottomActionButton label={t('common.logInLabel', 'Log in')} onClick={this.onLogInClick} tabIndex={1} />
         </SignupBottomAction>
       </AuthContent>
     )

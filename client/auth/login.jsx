@@ -32,6 +32,7 @@ import {
 } from './auth-content'
 import { redirectIfLoggedIn } from './auth-utils'
 import { UserErrorDisplay } from './user-error-display'
+import { useTranslation } from 'react-i18next'
 
 const usernameValidator = composeValidators(
   required('Enter a username'),
@@ -50,6 +51,7 @@ const passwordValidator = composeValidators(
 })
 class LoginForm extends React.Component {
   render() {
+    const { t } = useTranslation()
     const { onSubmit, bindInput, bindCheckable, onForgotUsernameClick, onForgotPasswordClick } =
       this.props
     return (
@@ -59,7 +61,7 @@ class LoginForm extends React.Component {
           <RowEdge />
           <AuthTextField
             {...bindInput('username')}
-            label='Username'
+            label={t('common.usernameLabel', 'Username')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -69,7 +71,7 @@ class LoginForm extends React.Component {
             }}
           />
           <RowEdge>
-            <ForgotActionButton label='Forgot username?' onClick={onForgotUsernameClick} />
+            <ForgotActionButton label={t('account.recover.forgotUsername', 'Forgot username?')} onClick={onForgotUsernameClick} />
           </RowEdge>
         </FieldRow>
 
@@ -77,7 +79,7 @@ class LoginForm extends React.Component {
           <RowEdge />
           <AuthPasswordTextField
             {...bindInput('password')}
-            label='Password'
+            label={t('common.passwordLabel', 'Password')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -87,7 +89,7 @@ class LoginForm extends React.Component {
             }}
           />
           <RowEdge>
-            <ForgotActionButton label='Forgot password?' onClick={onForgotPasswordClick} />
+            <ForgotActionButton label={t('account.recover.forgotPasswordLabel', 'Forgot password?')} onClick={onForgotPasswordClick} />
           </RowEdge>
         </FieldRow>
 
@@ -95,11 +97,11 @@ class LoginForm extends React.Component {
           <RowEdge />
           <AuthCheckBox
             {...bindCheckable('remember')}
-            label='Remember me'
+            label={t('account.recover.rememberMe', 'Remember me')}
             inputProps={{ tabIndex: 1 }}
           />
           <Spacer />
-          <RaisedButton label='Log in' onClick={onSubmit} tabIndex={1} testName='submit-button' />
+          <RaisedButton label={t('common.logInLabel', 'Log in')} onClick={onSubmit} tabIndex={1} testName='submit-button' />
           <RowEdge />
         </FieldRow>
       </form>
@@ -132,6 +134,7 @@ export default class Login extends React.Component {
       auth: { authChangeInProgress },
     } = this.props
     const { isLoading, lastError } = this.state
+    const { t } = useTranslation()
 
     let loadingContents
     if (authChangeInProgress || isLoading) {
@@ -158,12 +161,12 @@ export default class Login extends React.Component {
         {loadingContents}
         <AuthBottomAction>
           <BottomActionButton
-            label='Sign up for an account'
+            label={t('account.recover.signUpLabel', 'Sign up for an account')}
             onClick={this.onCreateAccountClick}
             tabIndex={1}
           />
           <BottomActionButton
-            label='What is ShieldBattery?'
+            label={t('common.whatIsShieldBattery', 'What is ShieldBattery?')}
             onClick={this.onSplashClick}
             tabIndex={1}
           />
