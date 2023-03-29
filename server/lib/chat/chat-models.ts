@@ -94,19 +94,18 @@ export async function getUserChannelEntryForUser(
   }
 }
 
-type DbChannel = Dbify<ChannelInfo & JoinedChannelData>
+export type FullChannelInfo = ChannelInfo & JoinedChannelData
+type DbChannel = Dbify<FullChannelInfo>
 
-function convertChannelFromDb(props: DbChannel): ChannelInfo {
+function convertChannelFromDb(props: DbChannel): FullChannelInfo {
   return {
     id: props.id,
     name: props.name,
     private: props.private,
     official: props.official,
     userCount: props.user_count,
-    joinedChannelData: {
-      ownerId: props.owner_id,
-      topic: props.topic,
-    },
+    ownerId: props.owner_id,
+    topic: props.topic,
   }
 }
 
@@ -114,7 +113,7 @@ export async function createChannel(
   userId: SbUserId,
   channelName: string,
   withClient?: DbClient,
-): Promise<ChannelInfo> {
+): Promise<FullChannelInfo> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbChannel>(sql`
@@ -557,7 +556,7 @@ export async function isUserBannedFromChannel(
 export async function getChannelInfo(
   channelId: SbChannelId,
   withClient?: DbClient,
-): Promise<ChannelInfo | undefined> {
+): Promise<FullChannelInfo | undefined> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbChannel>(sql`
@@ -579,7 +578,7 @@ export async function getChannelInfo(
 export async function getChannelInfos(
   channelIds: SbChannelId[],
   withClient?: DbClient,
-): Promise<ChannelInfo[]> {
+): Promise<FullChannelInfo[]> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbChannel>(sql`
@@ -602,7 +601,7 @@ export async function getChannelInfos(
 export async function getChannelInfosInOrder(
   channelIds: SbChannelId[],
   withClient?: DbClient,
-): Promise<ChannelInfo[]> {
+): Promise<FullChannelInfo[]> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbChannel>(sql`
@@ -616,7 +615,7 @@ export async function getChannelInfosInOrder(
     }
 
     const channelInfos = await Promise.all(result.rows.map(c => convertChannelFromDb(c)))
-    const idToChannelInfo = new Map<SbChannelId, ChannelInfo>()
+    const idToChannelInfo = new Map<SbChannelId, FullChannelInfo>()
     for (const channelInfo of channelInfos) {
       idToChannelInfo.set(channelInfo.id, channelInfo)
     }
@@ -639,7 +638,7 @@ export async function getChannelInfosInOrder(
 export async function findChannelByName(
   channelName: string,
   withClient?: DbClient,
-): Promise<ChannelInfo | undefined> {
+): Promise<FullChannelInfo | undefined> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbChannel>(sql`
@@ -661,7 +660,7 @@ export async function findChannelByName(
 export async function findChannelsByName(
   names: string[],
   withClient?: DbClient,
-): Promise<ChannelInfo[]> {
+): Promise<FullChannelInfo[]> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbChannel>(sql`
@@ -691,7 +690,7 @@ export async function searchChannelsAsAdmin(
     searchStr?: string
   },
   withClient?: DbClient,
-): Promise<ChannelInfo[]> {
+): Promise<FullChannelInfo[]> {
   const { client, done } = await db(withClient)
   try {
     const query = sql`

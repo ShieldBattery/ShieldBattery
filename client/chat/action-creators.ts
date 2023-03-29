@@ -3,6 +3,7 @@ import {
   ChannelModerationAction,
   ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
+  GetChannelInfoResponse,
   GetChatUserProfileResponse,
   ModerateChannelUserServerRequest,
   SbChannelId,
@@ -202,10 +203,11 @@ export function getChannelInfo(
   return abortableThunk(spec, async dispatch => {
     dispatch({
       type: '@chat/getChannelInfo',
-      payload: await fetchJson<ChannelInfo>(apiUrl`chat/${channelId}`, {
+      payload: await fetchJson<GetChannelInfoResponse>(apiUrl`chat/${channelId}`, {
         method: 'GET',
         signal: spec.signal,
       }),
+      meta: { channelId },
     })
   })
 }

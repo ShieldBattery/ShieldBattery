@@ -4,6 +4,7 @@ import { SbChannelId } from '../../common/chat'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
+import { colorDividers } from '../styles/colors'
 import { getBatchChannelInfo } from './action-creators'
 import { ConnectedChannelInfoCard } from './channel-info-card'
 
@@ -12,6 +13,11 @@ const ChannelName = styled.span`
     cursor: pointer;
     text-decoration: underline;
   }
+`
+
+const LoadingChannelName = styled.span`
+  background-color: ${colorDividers};
+  border-radius: 2px;
 `
 
 export interface ConnectedChannelNameProps {
@@ -68,9 +74,9 @@ export function ConnectedChannelName({ className, channelId }: ConnectedChannelN
           #{channelInfo.name}
         </ChannelName>
       ) : (
-        // NOTE(2Pac): This means the channel info was loading; not sure what's the expected thing
-        // to show here.
-        <span>{`<#${channelId}>`}</span>
+        <LoadingChannelName aria-label={'Channel name loading…'}>
+          &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
+        </LoadingChannelName>
       )}
     </>
   )

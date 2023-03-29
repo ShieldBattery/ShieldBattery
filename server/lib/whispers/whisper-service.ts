@@ -207,17 +207,22 @@ export default class WhisperService {
       this.chatService.getChannelInfos(Array.from(channelMentionIds), userId),
     ])
 
-    const deletedChannels = subtract(
-      channelMentionIds,
-      channelMentions.map(c => c.id),
-    )
+    const deletedChannels =
+      channelMentionIds.size === channelMentions.length
+        ? []
+        : Array.from(
+            subtract(
+              channelMentionIds,
+              channelMentions.map(c => c.id),
+            ),
+          )
 
     return {
       messages,
       users: [user, target],
       mentions: userMentions,
       channelMentions,
-      deletedChannels: Array.from(deletedChannels),
+      deletedChannels,
     }
   }
 

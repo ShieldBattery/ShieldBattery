@@ -7,6 +7,7 @@ import {
   ChannelPermissions,
   ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
+  GetChannelInfoResponse,
   GetChannelUserPermissionsResponse,
   GetChatUserProfileResponse,
   ModerateChannelUserServerRequest,
@@ -335,7 +336,7 @@ export class ChatApi {
 
   @httpGet('/:channelId(\\d+)')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
-  async getChannelInfo(ctx: RouterContext): Promise<ChannelInfo> {
+  async getChannelInfo(ctx: RouterContext): Promise<GetChannelInfoResponse> {
     const channelId = getValidatedChannelId(ctx)
 
     return await this.chatService.getChannelInfo(channelId, ctx.session!.userId)

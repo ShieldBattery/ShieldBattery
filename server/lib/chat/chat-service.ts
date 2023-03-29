@@ -10,6 +10,8 @@ import {
   ChatServiceErrorCode,
   ChatUserEvent,
   GetChannelHistoryServerResponse,
+  GetChannelInfoResponse,
+  JoinedChannelData,
   makeSbChannelId,
   SbChannelId,
   ServerChatMessage,
@@ -42,6 +44,7 @@ import {
   createChannel,
   deleteChannelMessage,
   findChannelByName,
+  FullChannelInfo,
   getChannelInfo,
   getChannelInfos,
   getChannelInfosInOrder,
@@ -100,7 +103,7 @@ export default class ChatService {
 
   private updateUserAfterJoining(
     userInfo: SbUser,
-    channelInfo: ChannelInfo,
+    channelInfo: FullChannelInfo,
     userChannelEntry: UserChannelEntry,
     message: ChatMessage,
   ) {
@@ -213,7 +216,7 @@ export default class ChatService {
     let isUserInChannel = false
     let isUserBanned = false
     let attempts = 0
-    let channel: ChannelInfo | undefined
+    let channel: FullChannelInfo | undefined
     let userChannelEntry: UserChannelEntry | undefined
     let message: ChatMessage
     do {
@@ -365,8 +368,8 @@ export default class ChatService {
     const isUserServerModerator =
       userPermissions?.editPermissions || userPermissions?.moderateChatChannels
 
-    const isUserChannelOwner = channelInfo.joinedChannelData?.ownerId === userId
-    const isTargetChannelOwner = channelInfo.joinedChannelData?.ownerId === targetId
+    const isUserChannelOwner = channelInfo.ownerId === userId
+    const isTargetChannelOwner = channelInfo.ownerId === targetId
 
     const isUserChannelModerator =
       userChannelEntry.channelPermissions.editPermissions ||
@@ -494,24 +497,36 @@ export default class ChatService {
     })
   }
 
-  async getChannelInfo(channelId: SbChannelId, userId: SbUserId): Promise<ChannelInfo> {
+  async getChannelInfo(channelId: SbChannelId, userId: SbUserId): Promise<GetChannelInfoResponse> {
     const channelInfo = await getChannelInfo(channelId)
+    // TODO(2Pac): Get this from DB instead.
+    const isUserInChannel = this.state.users.get(userId)?.has(channelId)
 
     if (!channelInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
 
     let userCount
-    if (!channelInfo.private || this.state.users.get(userId)?.has(channelId)) {
+    if (!channelInfo.private || isUserInChannel) {
       userCount = channelInfo.userCount
+    }
+    let joinedChannelData: JoinedChannelData | undefined
+    if (isUserInChannel) {
+      joinedChannelData = {
+        ownerId: channelInfo.ownerId,
+        topic: channelInfo.topic,
+      }
     }
 
     return {
-      id: channelInfo.id,
-      name: channelInfo.name,
-      private: channelInfo.private,
-      official: channelInfo.official,
-      userCount,
+      channelInfo: {
+        id: channelInfo.id,
+        name: channelInfo.name,
+        private: channelInfo.private,
+        official: channelInfo.official,
+        userCount,
+      },
+      joinedChannelData,
     }
   }
 
@@ -519,8 +534,11 @@ export default class ChatService {
     const channelInfos = await getChannelInfos(channelIds)
 
     return channelInfos.map(channel => {
+      // TODO(2Pac): Get this from DB instead (make sure it's not called inside this loop tho :d)
+      const isUserInChannel = this.state.users.get(userId)?.has(channel.id)
+
       let userCount
-      if (!channel.private || this.state.users.get(userId)?.has(channel.id)) {
+      if (!channel.private || isUserInChannel) {
         userCount = channel.userCount
       }
       return {
@@ -610,17 +628,22 @@ export default class ChatService {
       this.getChannelInfos(Array.from(channelMentionIds), userId),
     ])
 
-    const deletedChannels = subtract(
-      channelMentionIds,
-      channelMentions.map(c => c.id),
-    )
+    const deletedChannels =
+      channelMentionIds.size === channelMentions.length
+        ? []
+        : Array.from(
+            subtract(
+              channelMentionIds,
+              channelMentions.map(c => c.id),
+            ),
+          )
 
     return {
       messages,
       users,
       mentions: userMentions,
       channelMentions,
-      deletedChannels: Array.from(deletedChannels),
+      deletedChannels,
     }
   }
 
@@ -678,7 +701,7 @@ export default class ChatService {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
 
-    const isOwner = channelInfo.joinedChannelData?.ownerId === userId
+    const isOwner = channelInfo.ownerId === userId
 
     const { channelPermissions: perms } = chatUser
     return {
@@ -716,7 +739,7 @@ export default class ChatService {
       )
     }
 
-    const isUserChannelOwner = channelInfo.joinedChannelData?.ownerId === userId
+    const isUserChannelOwner = channelInfo.ownerId === userId
     if (!isUserChannelOwner && !userChannelEntry.channelPermissions.editPermissions) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotEnoughPermissions,
@@ -759,7 +782,7 @@ export default class ChatService {
       )
     }
 
-    const isUserChannelOwner = channelInfo.joinedChannelData?.ownerId === userId
+    const isUserChannelOwner = channelInfo.ownerId === userId
     if (!isUserChannelOwner && !userChannelEntry.channelPermissions.editPermissions) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotEnoughPermissions,
@@ -785,12 +808,22 @@ export default class ChatService {
 
   private subscribeUserToChannel(
     userSockets: UserSocketsGroup,
-    channelInfo: ChannelInfo,
+    channelInfo: FullChannelInfo,
     channelPermissions: ChannelPermissions,
   ) {
     userSockets.subscribe<ChatInitEvent>(getChannelPath(channelInfo.id), () => ({
       action: 'init3',
-      channelInfo,
+      channelInfo: {
+        id: channelInfo.id,
+        name: channelInfo.name,
+        private: channelInfo.private,
+        official: channelInfo.official,
+        userCount: channelInfo.userCount,
+      },
+      joinedChannelData: {
+        ownerId: channelInfo.ownerId,
+        topic: channelInfo.topic,
+      },
       activeUserIds: this.state.channels.get(channelInfo.id)!.toArray(),
       selfPermissions: channelPermissions,
     }))
@@ -824,7 +857,7 @@ export default class ChatService {
   private async handleNewUser(userSockets: UserSocketsGroup) {
     const userChannels = await getChannelsForUser(userSockets.userId)
     const channelInfos = await getChannelInfosInOrder(userChannels.map(uc => uc.channelId))
-    const channelIdToInfo = Map<SbChannelId, ChannelInfo>(channelInfos.map(c => [c.id, c]))
+    const channelIdToInfo = Map<SbChannelId, FullChannelInfo>(channelInfos.map(c => [c.id, c]))
     if (!userSockets.sockets.size) {
       // The user disconnected while we were waiting for their channel list
       return

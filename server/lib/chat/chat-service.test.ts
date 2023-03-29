@@ -5,6 +5,7 @@ import {
   ChannelModerationAction,
   ChannelPermissions,
   GetChannelHistoryServerResponse,
+  JoinedChannelData,
   makeSbChannelId,
   ServerChatMessageType,
 } from '../../../common/chat'
@@ -36,6 +37,7 @@ import {
   deleteChannelMessage,
   findChannelByName,
   findChannelsByName,
+  FullChannelInfo,
   getChannelInfo,
   getChannelInfos,
   getMessagesForChannel,
@@ -128,23 +130,39 @@ describe('chat/chat-service', () => {
   let chatService: ChatService
   let connector: NydusConnector
 
-  const shieldBatteryChannel: ChannelInfo = {
+  const user1: SbUser = { id: makeSbUserId(1), name: 'USER_NAME_1' }
+  const user2: SbUser = { id: makeSbUserId(2), name: 'USER_NAME_2' }
+
+  const shieldBatteryJoinedData: JoinedChannelData = {
+    ownerId: undefined,
+    topic: 'SHIELDBATTERY_TOPIC',
+  }
+  const shieldBatteryChannelInfo: ChannelInfo = {
     id: makeSbChannelId(1),
     name: 'ShieldBattery',
     private: false,
     official: true,
     userCount: 5,
   }
-  const testChannel: ChannelInfo = {
+  const shieldBatteryChannel: FullChannelInfo = {
+    ...shieldBatteryChannelInfo,
+    ...shieldBatteryJoinedData,
+  }
+  const testJoinedData: JoinedChannelData = {
+    ownerId: undefined,
+    topic: 'SHIELDBATTERY_TOPIC',
+  }
+  const testChannelInfo: ChannelInfo = {
     id: makeSbChannelId(2),
     name: 'test',
     private: false,
     official: false,
     userCount: 2,
   }
-
-  const user1: SbUser = { id: makeSbUserId(1), name: 'USER_NAME_1' }
-  const user2: SbUser = { id: makeSbUserId(2), name: 'USER_NAME_2' }
+  const testChannel: FullChannelInfo = {
+    ...testChannelInfo,
+    ...testJoinedData,
+  }
 
   const userPermissions = { ...DEFAULT_PERMISSIONS }
   const channelPermissions: ChannelPermissions = {
@@ -377,7 +395,8 @@ describe('chat/chat-service', () => {
       })
       expect(client1.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
         action: 'init3',
-        channelInfo: shieldBatteryChannel,
+        channelInfo: shieldBatteryChannelInfo,
+        joinedChannelData: shieldBatteryJoinedData,
         activeUserIds: [user2.id, user1.id],
         selfPermissions: channelPermissions,
       })
@@ -457,7 +476,8 @@ describe('chat/chat-service', () => {
       })
       expect(client1.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
         action: 'init3',
-        channelInfo: shieldBatteryChannel,
+        channelInfo: shieldBatteryChannelInfo,
+        joinedChannelData: shieldBatteryJoinedData,
         activeUserIds: [user2.id, user1.id],
         selfPermissions: channelPermissions,
       })
@@ -490,7 +510,8 @@ describe('chat/chat-service', () => {
 
       expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
         action: 'init3',
-        channelInfo: testChannel,
+        channelInfo: testChannelInfo,
+        joinedChannelData: testJoinedData,
         activeUserIds: [user1.id],
         selfPermissions: channelPermissions,
       })
@@ -724,10 +745,8 @@ describe('chat/chat-service', () => {
       test('should throw if not enough permissions to moderate channel owners', async () => {
         asMockedFunction(getChannelInfo).mockResolvedValue({
           ...testChannel,
-          joinedChannelData: {
-            topic: 'CHANNEL_TOPIC',
-            ownerId: user2.id,
-          },
+          topic: 'CHANNEL_TOPIC',
+          ownerId: user2.id,
         })
         asMockedFunction(getUserChannelEntryForUser)
           .mockResolvedValueOnce(user1TestChannelEntry)
@@ -793,10 +812,8 @@ describe('chat/chat-service', () => {
         test('works when target is channel owner', async () => {
           asMockedFunction(getChannelInfo).mockResolvedValue({
             ...testChannel,
-            joinedChannelData: {
-              topic: 'CHANNEL_TOPIC',
-              ownerId: user2.id,
-            },
+            topic: 'CHANNEL_TOPIC',
+            ownerId: user2.id,
           })
           asMockedFunction(getUserChannelEntryForUser)
             .mockResolvedValueOnce(user1TestChannelEntry)
@@ -850,10 +867,8 @@ describe('chat/chat-service', () => {
         beforeEach(() => {
           asMockedFunction(getChannelInfo).mockResolvedValue({
             ...testChannel,
-            joinedChannelData: {
-              topic: 'CHANNEL_TOPIC',
-              ownerId: user1.id,
-            },
+            topic: 'CHANNEL_TOPIC',
+            ownerId: user1.id,
           })
         })
 
@@ -1019,7 +1034,7 @@ describe('chat/chat-service', () => {
       test('works when there are channel mentions in a message', async () => {
         const messageString = `#${shieldBatteryChannel.name} #${testChannel.name} and #unknown.`
         const processedText = `<#${shieldBatteryChannel.id}> <#${testChannel.id}> and #unknown.`
-        const channelMentions = [shieldBatteryChannel, testChannel]
+        const channelMentions = [shieldBatteryChannelInfo, testChannelInfo]
         mockTextMessage(user1, testChannel, processedText, [], channelMentions)
 
         await chatService.sendChatMessage(testChannel.id, user1.id, messageString)
@@ -1031,7 +1046,7 @@ describe('chat/chat-service', () => {
         const messageString = `Hello @${user1.name}, join #${testChannel.name} please.`
         const processedText = `Hello <@${user1.id}>, join <#${testChannel.id}> please.`
         const userMentions = [user1]
-        const channelMentions = [testChannel]
+        const channelMentions = [testChannelInfo]
         mockTextMessage(user1, testChannel, processedText, userMentions, channelMentions)
 
         await chatService.sendChatMessage(testChannel.id, user1.id, messageString)
@@ -1094,11 +1109,25 @@ describe('chat/chat-service', () => {
       const result = await chatService.getChannelInfo(testChannel.id, user1.id)
 
       expect(result).toEqual({
-        id: testChannel.id,
-        name: testChannel.name,
-        private: testChannel.private,
-        official: testChannel.official,
-        userCount: testChannel.userCount,
+        channelInfo: testChannelInfo,
+      })
+    })
+
+    test('returns joined channel data when user is in channel', async () => {
+      await joinUserToChannel(
+        user1,
+        testChannel,
+        user1TestChannelEntry,
+        joinUser1TestChannelMessage,
+      )
+
+      asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
+
+      const result = await chatService.getChannelInfo(testChannel.id, user1.id)
+
+      expect(result).toEqual({
+        channelInfo: testChannelInfo,
+        joinedChannelData: testJoinedData,
       })
     })
 
@@ -1111,10 +1140,11 @@ describe('chat/chat-service', () => {
         const result = await chatService.getChannelInfo(testChannel.id, user1.id)
 
         expect(result).toEqual({
-          id: testChannel.id,
-          name: testChannel.name,
-          private: true,
-          official: testChannel.official,
+          channelInfo: {
+            ...testChannelInfo,
+            private: true,
+            userCount: undefined,
+          },
         })
       })
 
@@ -1129,11 +1159,12 @@ describe('chat/chat-service', () => {
         const result = await chatService.getChannelInfo(testChannel.id, user1.id)
 
         expect(result).toEqual({
-          id: testChannel.id,
-          name: testChannel.name,
-          private: true,
-          official: testChannel.official,
-          userCount: testChannel.userCount,
+          channelInfo: {
+            ...testChannelInfo,
+            private: true,
+            userCount: testChannel.userCount,
+          },
+          joinedChannelData: testJoinedData,
         })
       })
     })
@@ -1156,22 +1187,7 @@ describe('chat/chat-service', () => {
         user1.id,
       )
 
-      expect(result).toEqual([
-        {
-          id: shieldBatteryChannel.id,
-          name: shieldBatteryChannel.name,
-          private: shieldBatteryChannel.private,
-          official: shieldBatteryChannel.official,
-          userCount: shieldBatteryChannel.userCount,
-        },
-        {
-          id: testChannel.id,
-          name: testChannel.name,
-          private: testChannel.private,
-          official: testChannel.official,
-          userCount: testChannel.userCount,
-        },
-      ])
+      expect(result).toEqual([shieldBatteryChannelInfo, testChannelInfo])
     })
 
     describe('when any of the channels is private', () => {
@@ -1189,18 +1205,11 @@ describe('chat/chat-service', () => {
         )
 
         expect(result).toEqual([
+          shieldBatteryChannelInfo,
           {
-            id: shieldBatteryChannel.id,
-            name: shieldBatteryChannel.name,
-            private: shieldBatteryChannel.private,
-            official: shieldBatteryChannel.official,
-            userCount: shieldBatteryChannel.userCount,
-          },
-          {
-            id: testChannel.id,
-            name: testChannel.name,
+            ...testChannelInfo,
             private: true,
-            official: testChannel.official,
+            userCount: undefined,
           },
         ])
       })
@@ -1219,18 +1228,10 @@ describe('chat/chat-service', () => {
         )
 
         expect(result).toEqual([
+          shieldBatteryChannelInfo,
           {
-            id: shieldBatteryChannel.id,
-            name: shieldBatteryChannel.name,
-            private: shieldBatteryChannel.private,
-            official: shieldBatteryChannel.official,
-            userCount: shieldBatteryChannel.userCount,
-          },
-          {
-            id: testChannel.id,
-            name: testChannel.name,
+            ...testChannelInfo,
             private: true,
-            official: testChannel.official,
             userCount: testChannel.userCount,
           },
         ])
@@ -1312,7 +1313,7 @@ describe('chat/chat-service', () => {
         ],
         users: [user1],
         mentions: [user1, user2],
-        channelMentions: [shieldBatteryChannel, testChannel],
+        channelMentions: [shieldBatteryChannelInfo, testChannelInfo],
         deletedChannels: [],
       })
     }
@@ -1405,7 +1406,7 @@ describe('chat/chat-service', () => {
         },
       }
 
-      asMockedFunction(getMessagesForChannel).mockResolvedValueOnce([message])
+      asMockedFunction(getMessagesForChannel).mockResolvedValue([message])
       asMockedFunction(findUsersById).mockResolvedValueOnce([user1]).mockResolvedValueOnce([])
       asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel, testChannel])
 
@@ -1419,7 +1420,7 @@ describe('chat/chat-service', () => {
         messages: [toTextMessageJson(message)],
         users: [user1],
         mentions: [],
-        channelMentions: [shieldBatteryChannel, testChannel],
+        channelMentions: [shieldBatteryChannelInfo, testChannelInfo],
         deletedChannels: [DELETED_ID],
       })
     })
@@ -1609,7 +1610,8 @@ describe('chat/chat-service', () => {
     test('works when channel owner', async () => {
       asMockedFunction(getChannelInfo).mockResolvedValue({
         ...testChannel,
-        joinedChannelData: { topic: 'CHANNEL_TOPIC', ownerId: user1.id },
+        topic: 'CHANNEL_TOPIC',
+        ownerId: user1.id,
       })
       asMockedFunction(getUserChannelEntryForUser)
         .mockResolvedValueOnce(user1TestChannelEntry)
@@ -1702,7 +1704,8 @@ describe('chat/chat-service', () => {
 
       asMockedFunction(getChannelInfo).mockResolvedValue({
         ...testChannel,
-        joinedChannelData: { topic: 'CHANNEL_TOPIC', ownerId: user1.id },
+        topic: 'CHANNEL_TOPIC',
+        ownerId: user1.id,
       })
       asMockedFunction(getUserChannelEntryForUser)
         .mockResolvedValueOnce(user1TestChannelEntry)

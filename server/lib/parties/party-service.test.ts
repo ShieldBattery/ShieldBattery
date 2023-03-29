@@ -141,7 +141,9 @@ describe('parties/party-service', () => {
     webClient = connector.connectClient(webUser, WEB_USER_CLIENT_ID, 'web')
 
     clearTestLogs(nydus)
-    jest.clearAllMocks()
+    findChannelsByNameMock.mockClear()
+    findUsersByNameMock.mockClear()
+    findUsersByIdAsMapMock.mockClear()
     findUsersByIdAsMapMock.mockResolvedValue(new Map())
   })
 

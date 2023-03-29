@@ -117,16 +117,10 @@ export type ClientChatMessage =
 
 export type ChatMessage = ServerChatMessage | ClientChatMessage
 
-export interface JoinedChannelData {
-  /**
-   * The ID of the user that is considered a channel owner. Usually the person who joined the chat
-   * channel the earliest.
-   */
-  ownerId: SbUserId
-  /** A short message used to display the channel's current topic. */
-  topic: string
-}
-
+/**
+ * General information about a channel that is available outside the joined channel page (e.g. in
+ * search results, and channel mentions).
+ */
 export interface ChannelInfo {
   /** The channel ID. */
   id: SbChannelId
@@ -157,10 +151,19 @@ export interface ChannelInfo {
    * users which can be count.
    */
   userCount?: number
+}
+
+/**
+ * Data that is only available for users inside their joined channels.
+ */
+export interface JoinedChannelData {
   /**
-   * Extra properties that are only available when the user has actually joined the channel.
+   * The ID of the user that is considered a channel owner. Usually the person who joined the chat
+   * channel the earliest. Is `undefined` for official channels.
    */
-  joinedChannelData?: JoinedChannelData
+  ownerId?: SbUserId
+  /** A short message used to display the channel's current topic, if there's any. */
+  topic?: string
 }
 
 export interface ChannelPermissions {
@@ -186,6 +189,8 @@ export interface ChatInitEvent {
   action: 'init3'
   /** The information about the channel that the current user is initializing. */
   channelInfo: ChannelInfo
+  /** The information about the channel that is only available to joined users. */
+  joinedChannelData: JoinedChannelData
   /** A list of IDs of active users that are in the chat channel. */
   activeUserIds: SbUserId[]
   /** The channel permissions for the current user that is initializing the channel. */
@@ -330,6 +335,16 @@ export interface ModerateChannelUserServerRequest {
    * e.g. banning.
    */
   moderationReason?: string
+}
+
+/**
+ * The response returned when requesting the information about a specific chat channel.
+ */
+export interface GetChannelInfoResponse {
+  /** The information about the channel that is being requested. */
+  channelInfo: ChannelInfo
+  /** The information about the channel that is only available to joined users. */
+  joinedChannelData?: JoinedChannelData
 }
 
 /**

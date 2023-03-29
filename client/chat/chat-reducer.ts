@@ -7,6 +7,7 @@ import {
   ChatMessage,
   ChatUserProfileJson,
   ClientChatMessageType,
+  JoinedChannelData,
   SbChannelId,
 } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user'
@@ -37,6 +38,8 @@ export interface ChatState {
   joinedChannels: Set<SbChannelId>
   /** A map of channel ID -> channel info (includes both joined and unjoined chat channels) */
   idToInfo: Map<SbChannelId, ChannelInfo>
+  /** A map of channel ID -> joined channel data (only has data for user's joined channels) */
+  idToJoinedData: Map<SbChannelId, JoinedChannelData>
   /** A map of channel ID -> channel users */
   idToUsers: Map<SbChannelId, UsersState>
   /** A map of channel ID -> channel messages */
@@ -56,6 +59,7 @@ export interface ChatState {
 const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
   joinedChannels: new Set(),
   idToInfo: new Map(),
+  idToJoinedData: new Map(),
   idToUsers: new Map(),
   idToMessages: new Map(),
   idToUserProfiles: new Map(),
@@ -73,9 +77,10 @@ function removeUserFromChannel(
   reason?: ChannelModerationAction,
 ) {
   const channelInfo = state.idToInfo.get(channelId)
+  const joinedChannelData = state.idToJoinedData.get(channelId)
   const channelUsers = state.idToUsers.get(channelId)
   const channelUserProfiles = state.idToUserProfiles.get(channelId)
-  if (!channelInfo || !channelInfo.joinedChannelData || !channelUsers || !channelUserProfiles) {
+  if (!channelInfo || !joinedChannelData || !channelUsers || !channelUserProfiles) {
     return
   }
 
@@ -105,7 +110,7 @@ function removeUserFromChannel(
   )
 
   if (newOwnerId) {
-    channelInfo.joinedChannelData.ownerId = newOwnerId
+    joinedChannelData.ownerId = newOwnerId
 
     updateMessages(state, channelId, true, m =>
       m.concat({
@@ -169,8 +174,9 @@ function updateMessages(
 
 function updateChannels(state: ChatState, channels: ChannelInfo[]) {
   for (const channel of channels) {
-    if (!state.idToInfo.has(channel.id)) {
-      state.idToInfo.set(channel.id, channel)
+    state.idToInfo.set(channel.id, channel)
+    if (state.deletedChannels.has(channel.id)) {
+      state.deletedChannels.delete(channel.id)
     }
   }
 }
@@ -185,7 +191,7 @@ function updateDeletedChannels(state: ChatState, deletedChannels: SbChannelId[])
 
 export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   ['@chat/initChannel'](state, action) {
-    const { channelInfo, activeUserIds, selfPermissions } = action.payload
+    const { channelInfo, joinedChannelData, activeUserIds, selfPermissions } = action.payload
     const { channelId } = action.meta
 
     const channelUsers: UsersState = {
@@ -202,6 +208,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     }
     state.joinedChannels.add(channelId)
     state.idToInfo.set(channelId, channelInfo)
+    state.idToJoinedData.set(channelId, joinedChannelData)
     state.idToUsers.set(channelId, channelUsers)
     state.idToMessages.set(channelId, messagesState)
     state.idToUserProfiles.set(channelId, new Map())
@@ -413,7 +420,13 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/getChannelInfo'](state, action) {
-    state.idToInfo.set(action.payload.id, action.payload)
+    const { channelId } = action.meta
+    const { channelInfo, joinedChannelData } = action.payload
+
+    state.idToInfo.set(channelId, channelInfo)
+    if (joinedChannelData) {
+      state.idToJoinedData.set(channelId, joinedChannelData)
+    }
   },
 
   ['@chat/getBatchChannelInfo'](state, action) {
