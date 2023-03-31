@@ -11,6 +11,7 @@ import { TextField } from '../material/text-field'
 import { useAppDispatch } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import { joinChannel } from './action-creators'
+import { useTranslation } from 'react-i18next'
 
 const channelValidator = composeValidators(
   required('Enter a channel name'),
@@ -48,10 +49,10 @@ export function JoinChannelDialog({
     { channel: value => channelValidator(value) },
     { onSubmit: onFormSubmit },
   )
-
+  const { t } = useTranslation()
   const buttons = [
-    <TextButton label='Cancel' key='cancel' color='accent' onClick={onCancel} />,
-    <TextButton label='Join' key='join' color='accent' onClick={handleSubmit} />,
+    <TextButton label={t('common.cancelLabel', 'Cancel')} key='cancel' color='accent' onClick={onCancel} />,
+    <TextButton label={t('common.joinLabel', 'Join')} key='join' color='accent' onClick={handleSubmit} />,
   ]
 
   return (
@@ -59,7 +60,7 @@ export function JoinChannelDialog({
       <form noValidate={true} onSubmit={handleSubmit}>
         <TextField
           {...bindInput('channel')}
-          label='Channel name'
+          label={t('chat.channelNameLabel', 'Channel name')}
           floatingLabel={true}
           ref={autoFocusRef}
           inputProps={{

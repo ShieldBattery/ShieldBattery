@@ -20,6 +20,7 @@ import {
   UpdateProgress,
   UpdateStateChangeHandler,
 } from './updater-state'
+import { useTranslation } from 'react-i18next'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -128,28 +129,27 @@ export function UpdateDialog({
   progress,
 }: UpdateDialogProps) {
   const title = !hasDownloadError ? 'Update available' : 'Error downloading update'
-
+  const { t } = useTranslation()
   let content = <span />
   if (hasDownloadError) {
     content = (
       <Subtitle1>
-        There was an error downloading the update. Please restart and try again, or visit{' '}
+        {t('download.errorDownloadingUpdate', 'There was an error downloading the update. Please restart and try again, or visit')}{' '}
         <a href={makeServerUrl('/')} target='_blank' rel='noopener noreferrer'>
-          our website
+        {t('common.websiteLabel', 'our website')}
         </a>{' '}
-        to download the latest version.
+        {t('download.downloadLatest', 'to download the latest version.')}
       </Subtitle1>
     )
   } else if (readyToInstall) {
     content = (
       <Content>
         <Subtitle1>
-          A new update has been downloaded and is ready to install. Please restart the application
-          to continue.
+        {t('download.newUpdateReady', 'A new update has been downloaded and is ready to install. Please restart the application to continue.')}
         </Subtitle1>
         <RaisedButton
           onClick={() => ipcRenderer.send('updaterQuitAndInstall')}
-          label='Restart now'
+          label={t('common.restartNow', 'Restart now')}
         />
       </Content>
     )
@@ -157,8 +157,7 @@ export function UpdateDialog({
     content = (
       <Content>
         <Subtitle1>
-          A new update is being downloaded. Please wait for the download to complete in order to
-          continue.
+        {t('download.newUpdateDownloading', 'A new update is being downloaded. Please wait for the download to complete in order to continue.')}
         </Subtitle1>
         {progress ? <UpdateProgressUi progress={progress} /> : <LoadingDotsArea />}
       </Content>

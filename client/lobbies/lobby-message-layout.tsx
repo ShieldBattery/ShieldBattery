@@ -3,9 +3,11 @@ import { SbUserId } from '../../common/users/sb-user'
 import { useChatUserMenuItems, useMentionFilterClick } from '../messaging/mention-hooks'
 import { SystemImportant, SystemMessage } from '../messaging/message-layout'
 import { ConnectedUsername } from '../users/connected-username'
+import { Trans, useTranslation } from 'react-i18next'
 
 export const JoinLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
+  const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
   const addChatMenuItems = useChatUserMenuItems()
   return (
@@ -19,7 +21,7 @@ export const JoinLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(p
             modifyMenuItems={addChatMenuItems}
           />
         </SystemImportant>{' '}
-        has joined the lobby
+        {t('lobby.playerJoined', 'has joined the lobby')}
       </span>
     </SystemMessage>
   )
@@ -29,6 +31,7 @@ export const LeaveLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(
   const { time, userId } = props
   const filterClick = useMentionFilterClick()
   const addChatMenuItems = useChatUserMenuItems()
+  const { t } = useTranslation()
   return (
     <SystemMessage time={time}>
       <span>
@@ -40,7 +43,7 @@ export const LeaveLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(
             modifyMenuItems={addChatMenuItems}
           />
         </SystemImportant>{' '}
-        has left the lobby
+        {t('lobby.playerLeft', 'has left the lobby')}
       </span>
     </SystemMessage>
   )
@@ -50,6 +53,7 @@ export const KickLobbyPlayerMessage = React.memo<{ time: number; userId: SbUserI
   const { time, userId } = props
   const filterClick = useMentionFilterClick()
   const addChatMenuItems = useChatUserMenuItems()
+  const { t } = useTranslation()
   return (
     <SystemMessage time={time}>
       <span>
@@ -61,7 +65,7 @@ export const KickLobbyPlayerMessage = React.memo<{ time: number; userId: SbUserI
             modifyMenuItems={addChatMenuItems}
           />
         </SystemImportant>{' '}
-        has been kicked from the lobby
+        {t('lobby.playerKicked', 'has been kicked from the lobby')}
       </span>
     </SystemMessage>
   )
@@ -71,6 +75,7 @@ export const BanLobbyPlayerMessage = React.memo<{ time: number; userId: SbUserId
   const { time, userId } = props
   const filterClick = useMentionFilterClick()
   const addChatMenuItems = useChatUserMenuItems()
+  const { t } = useTranslation()
   return (
     <SystemMessage time={time}>
       <span>
@@ -82,7 +87,7 @@ export const BanLobbyPlayerMessage = React.memo<{ time: number; userId: SbUserId
             modifyMenuItems={addChatMenuItems}
           />
         </SystemImportant>{' '}
-        has been banned from the lobby
+        {t('lobby.playerBanned', 'has been banned from the lobby')}
       </span>
     </SystemMessage>
   )
@@ -95,6 +100,7 @@ export const SelfJoinLobbyMessage = React.memo<{ time: number; lobby: string; ho
     const addChatMenuItems = useChatUserMenuItems()
     return (
       <SystemMessage time={time}>
+        <Trans i18nKey="lobby.lobbyJoined">
         <span>
           You have joined <SystemImportant>{lobby}</SystemImportant>. The host is{' '}
           <SystemImportant>
@@ -106,6 +112,7 @@ export const SelfJoinLobbyMessage = React.memo<{ time: number; lobby: string; ho
           </SystemImportant>
           .
         </span>
+        </Trans>
       </SystemMessage>
     )
   },
@@ -117,7 +124,8 @@ export const LobbyHostChangeMessage = React.memo<{ time: number; userId: SbUserI
   const addChatMenuItems = useChatUserMenuItems()
   return (
     <SystemMessage time={time}>
-      <span>
+      <Trans i18nKey="lobby.hostChange">
+        <span>
         <SystemImportant>
           <ConnectedUsername
             userId={userId}
@@ -127,15 +135,17 @@ export const LobbyHostChangeMessage = React.memo<{ time: number; userId: SbUserI
         </SystemImportant>{' '}
         is now the host
       </span>
+      </Trans>
     </SystemMessage>
   )
 })
 
 export const LobbyCountdownStartedMessage = React.memo<{ time: number }>(props => {
   const { time } = props
+  const { t } = useTranslation()
   return (
     <SystemMessage time={time}>
-      <span>The game countdown has begun</span>
+      <span>{t('lobby.gameCountdownStarted', 'The game countdown has begun')}</span>
     </SystemMessage>
   )
 })
@@ -151,9 +161,10 @@ export const LobbyCountdownTickMessage = React.memo<{ time: number; timeLeft: nu
 
 export const LobbyCountdownCanceledMessage = React.memo<{ time: number }>(props => {
   const { time } = props
+  const { t } = useTranslation()
   return (
     <SystemMessage time={time}>
-      <span>The game countdown has been canceled</span>
+      <span>{t('lobby.gameCountdownCanceled', 'The game countdown has been canceled')}</span>
     </SystemMessage>
   )
 })
@@ -161,9 +172,10 @@ export const LobbyCountdownCanceledMessage = React.memo<{ time: number }>(props 
 export const LobbyLoadingCanceledMessage = React.memo<{ time: number }>(props => {
   // TODO(tec27): We really need to pass a reason back here
   const { time } = props
+  const { t } = useTranslation()
   return (
     <SystemMessage time={time}>
-      <span>Game initialization has been canceled</span>
+      <span>{t('lobby.gameInitializationCanceled', 'Game initialization has been canceled')}</span>
     </SystemMessage>
   )
 })

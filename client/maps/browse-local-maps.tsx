@@ -15,6 +15,7 @@ import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { uploadLocalMap } from './action-creators'
+import { useTranslation } from 'react-i18next'
 
 const LoadingArea = styled.div`
   display: flex;
@@ -91,11 +92,11 @@ export function BrowseLocalMaps(props: { onMapSelect: (map: MapInfoJson) => void
       </LoadingArea>
     )
   }
-
+  const { t } = useTranslation()
   return (
     <FileBrowser
       browserType={FileBrowserType.Maps}
-      title='Local Maps'
+      title={t('maps.localMapsLabel', 'Local Maps')}
       titleButton={<ActivityBackButton />}
       rootFolders={rootFolders}
       fileEntryConfig={fileEntryConfig}

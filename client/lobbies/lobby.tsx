@@ -42,6 +42,7 @@ import { LobbyInfo } from './lobby-reducer'
 import OpenSlot from './open-slot'
 import PlayerSlot from './player-slot'
 import { ObserverSlots, RegularSlots, TeamName } from './slot'
+import { useTranslation } from 'react-i18next'
 
 const StyledChat = styled(Chat)`
   flex-grow: 1;
@@ -345,6 +346,7 @@ export default class Lobby extends React.Component<LobbyProps> {
 
     const listProps = { messages: this.props.chat, renderMessage: renderChatMessage }
     const inputProps = { onSendChatMessage }
+    const { t } = useTranslation()
 
     return (
       <ContentArea>
@@ -356,7 +358,7 @@ export default class Lobby extends React.Component<LobbyProps> {
           <StyledChat listProps={listProps} inputProps={inputProps} />
         </Left>
         <Info>
-          <RaisedButton label='Leave lobby' onClick={onLeaveLobbyClick} />
+          <RaisedButton label={t('lobby.leaveLobbyButtonText', 'Leave lobby')} onClick={onLeaveLobbyClick} />
           <MapName>{(lobby.map as unknown as Immutable<MapInfoJson>).name}</MapName>
           <StyledMapThumbnail
             map={lobby.map as unknown as Immutable<MapInfoJson>}
@@ -365,7 +367,7 @@ export default class Lobby extends React.Component<LobbyProps> {
             isFavoriting={isFavoritingMap}
           />
           <InfoItem>
-            <InfoLabel as='span'>Game type</InfoLabel>
+            <InfoLabel as='span'>{t('common.gameTypeLabel', 'Game type')}</InfoLabel>
             <InfoValue as='span'>{gameTypeToLabel(lobby.gameType)}</InfoValue>
           </InfoItem>
           {this.renderCountdown()}
@@ -392,7 +394,7 @@ export default class Lobby extends React.Component<LobbyProps> {
 
     const isDisabled = lobby.isCountingDown || !hasOpposingSides(lobby as any)
     return (
-      <StartButton color='primary' label='Start game' disabled={isDisabled} onClick={onStartGame} />
+      <StartButton color='primary' label={t('lobby.startGameText', 'Start game')} disabled={isDisabled} onClick={onStartGame} />
     )
   }
 }

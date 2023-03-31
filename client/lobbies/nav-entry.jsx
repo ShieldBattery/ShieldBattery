@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import CloseLobbyIcon from '../icons/material/close-24px.svg'
 import { IconButton } from '../material/button'
 import Entry from '../material/left-nav/entry'
+import { useTranslation } from 'react-i18next'
 
 const LeaveButton = styled(IconButton)`
   width: 36px;
@@ -12,10 +13,10 @@ const LeaveButton = styled(IconButton)`
   padding: 6px 4px;
   margin-right: 4px;
 `
-
+const { t } = useTranslation()
 const LobbyNavEntry = ({ lobby, currentPath, hasUnread, onLeaveClick }) => {
   const button = (
-    <LeaveButton icon={<CloseLobbyIcon />} title='Leave lobby' onClick={onLeaveClick} />
+    <LeaveButton icon={<CloseLobbyIcon />} title={t('lobby.leaveLobbyLabel', 'Leave lobby')} onClick={onLeaveClick} />
   )
   return (
     <Entry

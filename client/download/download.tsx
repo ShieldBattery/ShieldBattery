@@ -7,6 +7,7 @@ import GetApp from '../icons/material/get_app-36px.svg'
 import { RaisedButton } from '../material/button'
 import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { headline5, subtitle1 } from '../styles/typography'
+import { useTranslation } from 'react-i18next'
 
 const Blurb = styled.div`
   ${headline5};
@@ -90,14 +91,15 @@ const InstallerButtonLabel = styled.span`
 
 export default class Download extends React.Component {
   override render() {
+    const { t } = useTranslation()
     return (
       <React.Fragment>
-        <Blurb>Download the ShieldBattery client to:</Blurb>
+        <Blurb>{t('common.downloadShieldBatteryClient', 'Download the ShieldBattery client to')}:</Blurb>
         <BlurbList>
-          <li>Play games</li>
-          <li>Watch replays</li>
-          <li>Explore maps</li>
-          <li>And more!</li>
+          <li>{t('common.playGames', 'Play games')}</li>
+          <li>{t('common.watchReplays', 'Watch replays')}</li>
+          <li>{t('common.exploreMaps', 'Explore maps')}</li>
+          <li>{t('common.andMore', 'And more!')}</li>
         </BlurbList>
         <InstallerLinks>
           <RaisedButton
@@ -105,12 +107,12 @@ export default class Download extends React.Component {
             label={
               <InstallerButtonLabel>
                 <InstallerButtonIcon />
-                <span>Download client</span>
+                <span>{t('common.downloadClientButtonText', 'Download client')}</span>
               </InstallerButtonLabel>
             }
           />
         </InstallerLinks>
-        <SupportText>Want to support the project?</SupportText>
+        <SupportText>{t('common.supportProjectText', 'Want to support the project?')}</SupportText>
         <SupportLinks>
           <a
             href='https://github.com/sponsors/ShieldBattery'

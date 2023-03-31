@@ -26,6 +26,7 @@ import { getLeaguesList, navigateToLeague } from './action-creators'
 import { LeagueBadge } from './league-badge'
 import { LeagueDetailsPage } from './league-details'
 import { LeagueImage, LeaguePlaceholderImage } from './league-image'
+import { useTranslation } from 'react-i18next'
 
 const LoadableLeagueAdmin = React.lazy(async () => ({
   default: (await import('./league-admin')).LeagueAdmin,
@@ -81,6 +82,7 @@ function LeagueList() {
   const { past, current, future, byId, selfLeagues } = useAppSelector(s => s.leagues)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error>()
+  const { t } = useTranslation()
 
   const { pastLeagues, currentLeagues, futureLeagues } = useMemo(() => {
     const pastLeagues = past.map(id => byId.get(id)!)
@@ -129,19 +131,19 @@ function LeagueList() {
   return (
     <ListRoot>
       <TitleRow>
-        <Title>Leagues</Title>
-        {isAdmin ? <Link href='/leagues/admin'>Manage leagues</Link> : null}
+        <Title>{t('common.leagueLabel', 'Leagues')}</Title>
+        {isAdmin ? <Link href='/leagues/admin'>{t('leagues.admin.manageLeaguesLabel', 'Manage leagues')}</Link> : null}
         <FlexSpacer />
         <Link href='#' onClick={onHowItWorksClick}>
-          How do leagues work?
+        {t('leagues.howDoLeaguesWork', 'How do leagues work?')}
         </Link>
       </TitleRow>
 
-      {!isLoading && error ? <ErrorText>Error loading leagues</ErrorText> : null}
+      {!isLoading && error ? <ErrorText>{t('leagues.errorLoadingLeagues', 'Error loading leagues')}</ErrorText> : null}
 
       {!isLoading || currentLeagues.length ? (
         <LeagueSection
-          label='Currently running'
+          label={t('leagues.currentlyRunning', 'Currently running')}
           leagues={currentLeagues}
           joinedLeagues={selfLeagues}
           type={LeagueSectionType.Current}
@@ -149,7 +151,7 @@ function LeagueList() {
       ) : undefined}
       {futureLeagues.length ? (
         <LeagueSection
-          label='Accepting signups'
+          label={t('leagues.acceptingSignups', 'Accepting signups')}
           leagues={futureLeagues}
           joinedLeagues={selfLeagues}
           type={LeagueSectionType.Future}
@@ -157,7 +159,7 @@ function LeagueList() {
       ) : null}
       {pastLeagues.length ? (
         <LeagueSection
-          label='Finished'
+          label={t('common.finishedLabel', 'Finished')}
           leagues={pastLeagues}
           joinedLeagues={selfLeagues}
           type={LeagueSectionType.Past}
@@ -205,7 +207,7 @@ function LeagueSection({
   type: LeagueSectionType
 }) {
   const curDate = Date.now()
-
+  const { t } = useTranslation()
   const onViewInfo = useStableCallback((league: LeagueJson) => navigateToLeague(league.id, league))
 
   return (
@@ -225,7 +227,7 @@ function LeagueSection({
             />
           ))
         ) : (
-          <EmptyText>No matching leagues</EmptyText>
+          <EmptyText>{t('leagues.noMatchingLeagues', 'No matching leagues')}</EmptyText>
         )}
       </SectionCards>
     </SectionRoot>
@@ -324,7 +326,7 @@ export function LeagueCard({
   onClick: (league: ReadonlyDeep<LeagueJson>) => void
 }) {
   const [buttonProps, rippleRef] = useButtonState({ onClick: () => onClick(league) })
-
+  const { t } = useTranslation()
   let dateText: string
   let dateTooltip: string
   switch (type) {
@@ -367,7 +369,7 @@ export function LeagueCard({
         {joined ? (
           <JoinedIndicator>
             <CheckIcon />
-            <span>Joined</span>
+            <span>{t('common.joinedText', 'Joined')}</span>
           </JoinedIndicator>
         ) : (
           <div />

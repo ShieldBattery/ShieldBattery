@@ -8,6 +8,7 @@ import { shadow1dp } from '../material/shadows'
 import { colorTextSecondary } from '../styles/colors'
 import { Display1Old, TitleOld } from '../styles/typography'
 import PlayerCard from './player-card'
+import { useTranslation } from 'react-i18next'
 
 const LOADING_MESSAGES = [
   'Refining dragoon pathing',
@@ -291,12 +292,12 @@ export default class LoadingScreen extends React.Component {
         isReady={isReady(p)}
       />
     ))
-
+    const { t } = useTranslation()
     return (
       <Content>
         <div>
           <Display1Old as='span'>{gameTypeToLabel(lobby.gameType)}</Display1Old>
-          <GameTypeMapBridge as='span'> on </GameTypeMapBridge>
+          <GameTypeMapBridge as='span'> {t('common.onText', 'on')} </GameTypeMapBridge>
           <Display1Old as='span'>{lobby.map.name}</Display1Old>
         </div>
         <MapImageContainer>

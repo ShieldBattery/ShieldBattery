@@ -4,6 +4,7 @@ import { RacePicker } from './race-picker'
 import SelectedRace from './selected-race'
 import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotLeft, SlotProfile, SlotRight } from './slot'
 import { SlotActions } from './slot-actions'
+import { useTranslation } from 'react-i18next'
 
 export default class ClosedSlot extends React.Component {
   static propTypes = {
@@ -49,6 +50,7 @@ export default class ClosedSlot extends React.Component {
       onRemoveObserver,
     } = this.props
     const slotActions = []
+    const { t } = useTranslation()
     if (isHost) {
       slotActions.push(['Open slot', onOpenSlot])
       if (!controlledClosed && !isObserver && onAddComputer) {
@@ -67,7 +69,7 @@ export default class ClosedSlot extends React.Component {
         <SlotLeft>
           <SlotProfile>
             <SlotEmptyAvatar />
-            <SlotEmptyName as='span'>Closed</SlotEmptyName>
+            <SlotEmptyName as='span'>{t('common.closedLabel', 'Closed')}</SlotEmptyName>
           </SlotProfile>
           {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
         </SlotLeft>

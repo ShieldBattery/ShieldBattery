@@ -5,6 +5,7 @@ import { RacePicker } from './race-picker'
 import SelectedRace from './selected-race'
 import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotLeft, SlotProfileOpen, SlotRight } from './slot'
 import { SlotActions } from './slot-actions'
+import { useTranslation } from 'react-i18next'
 
 export default class OpenSlot extends React.Component {
   static propTypes = {
@@ -66,7 +67,7 @@ export default class OpenSlot extends React.Component {
         slotActions.push(['Make player', onRemoveObserver])
       }
     }
-
+    const { t } = useTranslation()
     return (
       <Slot>
         <SlotLeft>
@@ -75,7 +76,7 @@ export default class OpenSlot extends React.Component {
             onMouseLeave={this.onLeftMouseLeave}
             onClick={onSwitchClick}>
             <SlotEmptyAvatar>{this.state.isHovered ? <SwapSlotsIcon /> : null}</SlotEmptyAvatar>
-            <SlotEmptyName as='span'>Open</SlotEmptyName>
+            <SlotEmptyName as='span'>{t('common.openText', 'Open')}</SlotEmptyName>
           </SlotProfileOpen>
           {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
         </SlotLeft>

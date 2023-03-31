@@ -10,9 +10,11 @@ import {
 } from '../messaging/message-layout'
 import { ConnectedUsername } from '../users/connected-username'
 import { ConnectedChannelName } from './connected-channel-name'
+import { useTranslation } from 'react-i18next'
 
 export const JoinChannelMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
+  const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
   const addChatMenuItems = useChatUserMenuItems()
   return (
@@ -25,7 +27,7 @@ export const JoinChannelMessage = React.memo<{ time: number; userId: SbUserId }>
             modifyMenuItems={addChatMenuItems}
           />
         </SystemImportant>{' '}
-        has joined the channel
+        {t('chat.userHasJoinedChannel', 'has joined the channel')}
       </span>
     </SystemMessage>
   )
@@ -35,6 +37,7 @@ export const LeaveChannelMessage = React.memo<{ time: number; userId: SbUserId }
   const { time, userId } = props
   const filterClick = useMentionFilterClick()
   const addChatMenuItems = useChatUserMenuItems()
+  const { t } = useTranslation()
   return (
     <SystemMessage time={time}>
       <span>
@@ -45,7 +48,7 @@ export const LeaveChannelMessage = React.memo<{ time: number; userId: SbUserId }
             modifyMenuItems={addChatMenuItems}
           />
         </SystemImportant>{' '}
-        has left the channel
+        {t('chat.userHasLeftChannel', 'has left the channel')}
       </span>
     </SystemMessage>
   )
@@ -53,13 +56,14 @@ export const LeaveChannelMessage = React.memo<{ time: number; userId: SbUserId }
 
 export const KickUserMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
+  const { t } = useTranslation()
   return (
     <SystemMessage time={time}>
       <span>
         <SystemImportant>
           <ConnectedUsername userId={userId} />
         </SystemImportant>{' '}
-        has been kicked from the channel
+        {t('chat.userKickedFromChannel', 'has been kicked from the channel')}
       </span>
     </SystemMessage>
   )
@@ -67,13 +71,14 @@ export const KickUserMessage = React.memo<{ time: number; userId: SbUserId }>(pr
 
 export const BanUserMessage = React.memo<{ time: number; userId: SbUserId }>(props => {
   const { time, userId } = props
+  const { t } = useTranslation()
   return (
     <SystemMessage time={time}>
       <span>
         <SystemImportant>
           <ConnectedUsername userId={userId} />
         </SystemImportant>{' '}
-        has been banned from the channel
+        {t('chat.userBannedFromChannel', 'has been banned from the channel')}
       </span>
     </SystemMessage>
   )
@@ -81,6 +86,7 @@ export const BanUserMessage = React.memo<{ time: number; userId: SbUserId }>(pro
 
 export const NewChannelOwnerMessage = React.memo<{ time: number; newOwnerId: SbUserId }>(props => {
   const { time, newOwnerId } = props
+  const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
   const addChatMenuItems = useChatUserMenuItems()
   return (
@@ -93,7 +99,7 @@ export const NewChannelOwnerMessage = React.memo<{ time: number; newOwnerId: SbU
             modifyMenuItems={addChatMenuItems}
           />
         </SystemImportant>{' '}
-        is the new owner of the channel
+        {t('chat.newChannelOwner', 'is the new owner of the channel')}
       </span>
     </SystemMessage>
   )
@@ -101,10 +107,11 @@ export const NewChannelOwnerMessage = React.memo<{ time: number; newOwnerId: SbU
 
 export const SelfJoinChannelMessage = React.memo<{ channelId: SbChannelId }>(props => {
   const { channelId } = props
+  const { t } = useTranslation()
   return (
     <SeparatedInfoMessage>
       <span>
-        You joined{' '}
+      {t('chat.youJoined', 'You joined')}{' '}
         <InfoImportant>
           <ConnectedChannelName channelId={channelId} />
         </InfoImportant>

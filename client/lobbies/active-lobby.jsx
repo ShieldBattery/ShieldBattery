@@ -6,6 +6,7 @@ import { shadowDef2dp } from '../material/shadow-constants'
 import { colorTextSecondary } from '../styles/colors'
 import { Headline3, Headline4, headline5 } from '../styles/typography'
 import PlayerCard from './player-card'
+import { useTranslation } from 'react-i18next'
 
 const Container = styled.div`
   display: flex;
@@ -110,6 +111,7 @@ export default class ActiveLobby extends React.Component {
     // other game types. I doubt there's a generic way to support all game types at once, so we'll
     // probably have to figure out a special way to display other game types too (e.g. FFA, UMS).
     const isTvB = lobby.gameType === 'topVBottom'
+    const { t } = useTranslation()
     const teams = lobby.teams
       .filter(team => !team.isObserver)
       .map(team =>
@@ -125,7 +127,7 @@ export default class ActiveLobby extends React.Component {
           <Spacer />
           <StyledMapThumbnail map={lobby.map} size={320} />
           <StatusContainer>
-            <StatusText>Game in progress...</StatusText>
+            <StatusText>{t('common.gameInProgress', 'Game in progress\u2026')}</StatusText>
           </StatusContainer>
         </TopHalfContainer>
         {isTvB ? (

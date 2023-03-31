@@ -4,6 +4,7 @@ import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { Dialog } from '../material/dialog'
 import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { subtitle1, Subtitle1 } from '../styles/typography'
+import { useTranslation } from 'react-i18next'
 
 const StyledDialog = styled(Dialog)`
   max-width: 480px;
@@ -31,38 +32,34 @@ const Emphasized = styled.b`
 `
 
 export function LeagueExplainerDialog({ dialogRef, onCancel }: CommonDialogProps) {
+  const { t } = useTranslation()
   return (
     <StyledDialog
-      title='How leagues work'
+      title={t('leagues.explainer.howLeaguesWorkHeader', 'How leagues work')}
       onCancel={onCancel}
       showCloseButton={true}
       dialogRef={dialogRef}>
       <Subtitle1>
-        Leagues are a new way to compete for prizes, qualify for tournament entries, and more!
+      {t('leagues.explainer.howLeaguesWorkText', 'Leagues are a new way to compete for prizes, qualify for tournament entries, and more!')}
       </Subtitle1>
 
       <List>
         <ListEntry>
-          <Emphasized>Join.</Emphasized>
+          <Emphasized>{t('common.joinLabel', 'Join')}.</Emphasized>
           <div>
-            Find a league that is currently running or accepting signups in the format you'd like to
-            play. Some leagues may have different requirements, rules, or qualifications, so make
-            sure to read the information before joining!
+          {t('leagues.explainer.joinLeagueText', 'Find a league that is currently running or accepting signups in the format you\'d like to play. Some leagues may have different requirements, rules, or qualifications, so make sure to read the information before joining!')}
           </div>
         </ListEntry>
         <ListEntry>
-          <Emphasized>Play.</Emphasized>
+          <Emphasized>{t('common.playLabel', 'Play')}.</Emphasized>
           <div>
-            Once a league has started, all ladder games you play will reward points towards the
-            league standings alongside your normal ladder standings. Check the leaderboard on the
-            league page to see how you're doing!
+          {t('leagues.explainer.playLeagueText', 'Once a league has started, all ladder games you play will reward points towards the league standings alongside your normal ladder standings. Check the leaderboard on the league page to see how you\'re doing!')}
           </div>
         </ListEntry>
         <ListEntry>
-          <Emphasized>Win!</Emphasized>
+          <Emphasized>{t('common.winLabel', 'Win')}!</Emphasized>
           <div>
-            After a league finishes, the leaderboard will be available for organizers to distribute
-            prizes and rewards. Check out the league information page for more details.
+          {t('leagues.explainer.winLeagueText', 'After a league finishes, the leaderboard will be available for organizers to distribute prizes and rewards. Check out the league information page for more details.')}
           </div>
         </ListEntry>
       </List>

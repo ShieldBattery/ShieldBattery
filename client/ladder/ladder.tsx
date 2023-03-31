@@ -54,6 +54,7 @@ import {
 } from '../styles/typography'
 import { navigateToUserProfile } from '../users/action-creators'
 import { getRankings, navigateToLadder, searchRankings } from './action-creators'
+import { useTranslation } from 'react-i18next'
 
 const LadderPage = styled.div`
   width: 100%;
@@ -128,7 +129,7 @@ export interface LadderProps {
  */
 export function Ladder({ matchmakingType: routeType }: LadderProps) {
   const matchmakingType = routeType ?? savedLadderTab.getValue() ?? MatchmakingType.Match1v1
-
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const rankings = useAppSelector(s => s.ladder.typeToRankings.get(matchmakingType))
   const searchResults = useAppSelector(s => s.ladder.typeToSearchResults.get(matchmakingType))
@@ -239,7 +240,7 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
   return (
     <LadderPage>
       <PageHeader>
-        <Headline6>Ladder</Headline6>
+        <Headline6>{t('common.ladderLabel', 'Ladder')}</Headline6>
         <TabsContainer>
           <Tabs activeTab={matchmakingType} onChange={onTabChange}>
             <TabItem
@@ -254,7 +255,7 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
         </TabsContainer>
         {rankingsData ? (
           <LastUpdatedText title={longTimestamp.format(rankingsData.lastUpdated)}>
-            Updated: {shortTimestamp.format(rankingsData.lastUpdated)}
+            {t('common.updatedText', 'Updated')}: {shortTimestamp.format(rankingsData.lastUpdated)}
           </LastUpdatedText>
         ) : null}
         <ScrollDivider $show={!isAtTop} $showAt='bottom' />
@@ -531,9 +532,9 @@ export function LadderTable(props: LadderTableProps) {
   })
 
   const emptyContent = lastError ? (
-    <ErrorText>There was an error retrieving the current rankings.</ErrorText>
+    <ErrorText>{t('ladder.errorRetrievingRankings', 'There was an error retrieving the current rankings.')}</ErrorText>
   ) : (
-    <EmptyText>No matching players.</EmptyText>
+    <EmptyText>{t('ladder.noMatchingPlayers', 'No matching players.')}</EmptyText>
   )
 
   const data = useMemo(() => {
@@ -666,13 +667,13 @@ const Header = () => (
   <>
     <RankCell>
       <span></span>
-      <span>Rank</span>
+      <span>{t('common.rankLabel', 'Rank')}</span>
     </RankCell>
-    <PlayerCell>Player</PlayerCell>
-    <PointsCell>Points</PointsCell>
-    <RatingCell>MMR</RatingCell>
-    <WinLossCell>Win/loss</WinLossCell>
-    <LastPlayedCell>Last played</LastPlayedCell>
+    <PlayerCell>{t('common.playerLabel', 'Player')}</PlayerCell>
+    <PointsCell>{t('common.pointsLabel', 'Points')}</PointsCell>
+    <RatingCell>{t('common.mmrLabel', 'MMR')}</RatingCell>
+    <WinLossCell>{t('common.winLossLabel', 'Win/loss')}</WinLossCell>
+    <LastPlayedCell>{t('common.lastPlayedLabel', 'Last played')}</LastPlayedCell>
   </>
 )
 

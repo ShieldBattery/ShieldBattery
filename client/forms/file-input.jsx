@@ -2,6 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import ClearIcon from '../icons/material/clear-24px.svg'
 import { IconButton } from '../material/button'
+import { useTranslation } from 'react-i18next'
 
 // TODO(tec27): Make a Material file upload component and move this into the material/ folder
 
@@ -33,11 +34,12 @@ export default class FileInput extends React.Component {
     }
 
     const hasFiles = this.props.value && (!this.multiple || this.props.value.length)
+    const { t } = useTranslation()
     return (
       <Container>
         <input ref={this._setInput} {...internalInputProps} />
         {hasFiles ? (
-          <ClearButton icon={<ClearIcon />} title='Clear files' onClick={this.onClearClick} />
+          <ClearButton icon={<ClearIcon />} title={t('common.clearFiles', 'Clear files')} onClick={this.onClearClick} />
         ) : null}
       </Container>
     )

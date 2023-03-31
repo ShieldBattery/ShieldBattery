@@ -15,6 +15,7 @@ import { body1, caption, headline6 } from '../styles/typography'
 import { getBatchChannelInfo, joinChannel, navigateToChannel } from './action-creators'
 import { ChannelBadge } from './channel-badge'
 import { ChannelBanner, ChannelBannerPlaceholderImage } from './channel-banner'
+import { useTranslation } from 'react-i18next'
 
 const ChannelCardRoot = styled(Card)`
   position: relative;
@@ -164,6 +165,7 @@ export function ConnectedChannelInfoCard({
       }),
     )
   })
+  const { t } = useTranslation()
 
   let channelDescription
   if (!basicChannelInfo) {
@@ -188,16 +190,17 @@ export function ConnectedChannelInfoCard({
       <ChannelDescriptionContainer>
         <NoChannelDescriptionText>This channel has no description.</NoChannelDescriptionText>
       </ChannelDescriptionContainer>
+
     )
   }
 
   let action
   if (isUserInChannel) {
-    action = <RaisedButton label='View' onClick={onViewClick} />
+    action = <RaisedButton label={t('common.viewLabel', 'View')} onClick={onViewClick} />
   } else if (basicChannelInfo?.private || isUserBanned) {
-    action = <RaisedButton label='Join' disabled={true} />
+    action = <RaisedButton label={t('common.joinLabel', 'Join')} disabled={true} />
   } else if (basicChannelInfo) {
-    action = <RaisedButton label='Join' disabled={isJoinInProgress} onClick={onJoinClick} />
+    action = <RaisedButton label={t('common.joinLabel', 'Join')} disabled={isJoinInProgress} onClick={onJoinClick} />
   }
 
   return (

@@ -30,6 +30,7 @@ import { BottomLinks } from './bottom-links'
 import ChatImage from './chat.svg'
 import TacticallyFaithfulImage from './tactically-faithful.svg'
 import TopLinks from './top-links'
+import { useTranslation } from 'react-i18next'
 
 const SplashContainer = styled.div`
   position: relative;
@@ -273,16 +274,13 @@ const ComingSoonText = styled.span`
   ${headline4};
   color: ${colorTextSecondary};
 `
-
+const { t } = useTranslation()
 const BENEFITS: Readonly<Array<Omit<BenefitSectionProps, 'imageAtStart'>>> = [
   {
     title: 'Community first',
     body: [
       <p key='p1'>
-        ShieldBattery is a vibrant hub for everyone who plays or watches StarCraft. Chat is front
-        and center, getting into games is seamless and easy, and your experience is our top concern.
-        Whether you've been playing since 1998 or just picked up the game this week, you'll find a
-        home here.
+        {t('faq.splash.communityFirstText', 'ShieldBattery is a vibrant hub for everyone who plays or watches StarCraft. Chat is front and center, getting into games is seamless and easy, and your experience is our top concern. Whether you\'ve been playing since 1998 or just picked up the game this week, you\'ll find a home here.')}
       </p>,
     ],
     image: <StyledChatImage aria-label='' />,
@@ -291,9 +289,7 @@ const BENEFITS: Readonly<Array<Omit<BenefitSectionProps, 'imageAtStart'>>> = [
     title: 'Tactically faithful',
     body: [
       <p key='p1'>
-        Built by community members with collective decades of StarCraft experience, we know what
-        makes the game tick. We're keeping the important things the same, but building out brand new
-        features and improvements to make your StarCraft experience better than ever.
+        {t('faq.splash.tacticallyFaithfulText', 'Built by community members with collective decades of StarCraft experience, we know what makes the game tick. We\'re keeping the important things the same, but building out brand new features and improvements to make your StarCraft experience better than ever.')}
       </p>,
     ],
     image: <StyledTacticallyFaithfulImage aria-label='' />,
@@ -302,10 +298,7 @@ const BENEFITS: Readonly<Array<Omit<BenefitSectionProps, 'imageAtStart'>>> = [
     title: 'Full potential unlocked',
     body: [
       <p key='p1'>
-        StarCraft has an amazing competitive history, and ShieldBattery is a foundation for
-        delivering the top-notch playing and watching experience it deserves. Open-source,
-        community-driven, and set to deliver features and experiences that even modern games wish
-        they could have: ShieldBattery is a revolutionary step forward for the StarCraft community.
+        {t('faq.splash.fullPotentialText', 'StarCraft has an amazing competitive history, and ShieldBattery is a foundation for delivering the top-notch playing and watching experience it deserves. Open-source, community-driven, and set to deliver features and experiences that even modern games wish they could have: ShieldBattery is a revolutionary step forward for the StarCraft community.')}
       </p>,
     ],
     image: <StyledLockOpenIcon aria-label='' />,
@@ -451,7 +444,7 @@ const StyledGameCount = styled(GameCount)`
 
 export default function Splash() {
   const dispatch = useAppDispatch()
-
+  const { t } = useTranslation()
   const onSignUpClick = () => push({ pathname: '/signup' })
 
   return (
@@ -465,30 +458,28 @@ export default function Splash() {
         <Logo src={makePublicAssetUrl('/images/logo.svg')} />
         <StyledLogoText />
       </LogoLockup>
-      <TagLine>Play StarCraft 1 on the premier community-run platform</TagLine>
+      <TagLine>{t('faq.splash.tagline', 'Play StarCraft 1 on the premier community-run platform')}</TagLine>
       <Blurb>
-        ShieldBattery is the first community-run server that supports StarCraft:{'\u00A0'}
-        Remastered. Our custom launcher enhances the real game client to work with our advanced
-        platform, improving on the StarCraft 1 experience while maintaining faithful, authentic
-        gameplay. Download our launcher and start playing in just a few clicks!
+      {t('faq.splash.taglineBlurbA', 'ShieldBattery is the first community-run server that supports StarCraft')}:{'\u00A0'}
+      {t('faq.splash.taglineBlurbB', 'Remastered. Our custom launcher enhances the real game client to work with our advanced platform, improving on the StarCraft 1 experience while maintaining faithful, authentic gameplay. Download our launcher and start playing in just a few clicks!')}
       </Blurb>
       {!IS_ELECTRON ? (
         <ButtonsContainer>
           <SplashButton
-            label='Sign Up'
+            label={t('common.signUpLabel', 'Sign Up')}
             color='primary'
             onClick={onSignUpClick}
             testName='sign-up-button'
           />
           <SplashButton
-            label='Download'
+            label={t('common.downloadLabel', 'Download')}
             color='primary'
             onClick={() => dispatch(openDialog({ type: DialogType.Download }))}
           />
         </ButtonsContainer>
       ) : (
         <SplashButton
-          label='Sign Up'
+          label={t('common.signUpLabel', 'Sign Up')}
           color='primary'
           onClick={onSignUpClick}
           testName='sign-up-button'
@@ -567,7 +558,7 @@ export default function Splash() {
         </FeatureSection>
         <FeatureSection>
           <FeatureSectionTitle>
-            In the pipe <ComingSoonText>(coming soon)</ComingSoonText>
+          {t('faq.comingSoonA', 'In the pipe')} <ComingSoonText>{t('faq.comingSoonB', '(coming soon)')}</ComingSoonText>
           </FeatureSectionTitle>
           <FeatureSectionList>
             <FeatureEntry
@@ -654,7 +645,7 @@ export default function Splash() {
         </FeatureSection>
       </FeatureContainer>
       <LinksSection>
-        <LinksHeader>Links</LinksHeader>
+        <LinksHeader>{t('common.linksLabel', 'Links')}</LinksHeader>
         <LinkEntries>
           <a
             href='https://twitter.com/ShieldBatteryBW'
@@ -680,9 +671,7 @@ export default function Splash() {
       </LinksSection>
       <DisclaimerSection>
         <DisclaimerText>
-          StarCraft is a registered trademark of Blizzard Entertainment, Inc. ShieldBattery is
-          developed solely by members of the community, unaffiliated with Blizzard, and is not
-          officially endorsed or supported by Blizzard.
+        {t('faq.disclaimerText', 'StarCraft is a registered trademark of Blizzard Entertainment, Inc. ShieldBattery is developed solely by members of the community, unaffiliated with Blizzard, and is not officially endorsed or supported by Blizzard.')}
         </DisclaimerText>
       </DisclaimerSection>
       <BottomLinks />

@@ -15,6 +15,7 @@ import { openSnackbar } from '../snackbars/action-creators'
 import { colorError } from '../styles/colors'
 import { subtitle1 } from '../styles/typography'
 import { moderateUser } from './action-creators'
+import { useTranslation } from 'react-i18next'
 
 const ErrorsContainer = styled.div`
   margin-bottom: 16px;
@@ -30,18 +31,19 @@ const ErrorText = styled.span`
 // errors are possible in case we/target get kicked out of the channel or have our/theirs
 // permissions changed while having this dialog open.
 function showBanUserError(user: string, error: FetchError) {
+  const { t } = useTranslation()
   switch (error.code) {
     case ChatServiceErrorCode.TargetNotInChannel:
-      return <ErrorText>The user you're trying to ban is not in channel</ErrorText>
+      return <ErrorText>{t('chat.moderation.errorBanTargetNotInChannel', 'The user you are trying to ban is not in channel')}</ErrorText>
     case ChatServiceErrorCode.CannotModerateChannelOwner:
-      return <ErrorText>You cannot ban channel owner</ErrorText>
+      return <ErrorText>{t('chat.moderation.errorBanChannelOwner', 'You cannot ban channel owner')}</ErrorText>
     case ChatServiceErrorCode.CannotModerateChannelModerator:
-      return <ErrorText>You cannot ban another moderator</ErrorText>
+      return <ErrorText>{t('chat.moderation.errorBanOtherModerator', 'You cannot ban another moderator')}</ErrorText>
     case ChatServiceErrorCode.NotEnoughPermissions:
-      return <ErrorText>You don't have enough permissions to ban this user</ErrorText>
+      return <ErrorText>{t('chat.moderation.errorBanNotEnoughPermissions', 'You do not have enough permissions to ban this user')}</ErrorText>
 
     default:
-      return <ErrorText>An error occurred: {error.statusText}</ErrorText>
+      return <ErrorText>{t('common.errorOccurred', 'An error occurred')}: {error.statusText}</ErrorText>
   }
 }
 
@@ -52,7 +54,7 @@ function BanUserErrorDisplay({ user, error }: { user: string; error: Error }) {
         showBanUserError(user, error)
       ) : (
         <ErrorText>
-          Error banning {user}: {error.message}
+          {t('chat.moderation.errorBanningUser', 'Error banning')} {user}: {error.message}
         </ErrorText>
       )}
     </ErrorsContainer>
@@ -108,7 +110,7 @@ export function ChannelBanUserDialog({
   const onBanClick = useCallback(() => handleSubmit(), [handleSubmit])
 
   const buttons = [
-    <TextButton label='Cancel' key='cancel' color='accent' onClick={onCancel} />,
+    <TextButton label={t('common.cancel', 'Cancel')} key='cancel' color='accent' onClick={onCancel} />,
     <TextButton label={`Ban ${user.name}`} key='send' color='accent' onClick={onBanClick} />,
   ]
 

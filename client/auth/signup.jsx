@@ -208,7 +208,7 @@ class SignupForm extends React.Component {
           {...bindCheckable('policyAgreement')}
           label={
             <span>
-              I have read and agree to the{' '}
+              {t('account.readAndAgree', 'I have read and agree to the')}{' '}
               <DialogLink dialogType={DialogType.TermsOfService} text='Terms of Service' />,{' '}
               <DialogLink dialogType={DialogType.AcceptableUse} text='Acceptable Use' />, and{' '}
               <DialogLink dialogType={DialogType.PrivacyPolicy} text='Privacy' /> policies

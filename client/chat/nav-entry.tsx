@@ -7,6 +7,7 @@ import CloseIcon from '../icons/material/close-24px.svg'
 import { IconButton } from '../material/button'
 import Entry from '../material/left-nav/entry'
 import { useStableCallback } from '../state-hooks'
+import { useTranslation } from 'react-i18next'
 
 const LeaveButton = styled(IconButton)`
   width: 36px;
@@ -34,8 +35,8 @@ export function ChatNavEntry({
   const onLeaveClick = useStableCallback(() => {
     onLeave(channelId)
   })
-
-  const button = <LeaveButton icon={<CloseIcon />} title='Leave channel' onClick={onLeaveClick} />
+  const { t } = useTranslation()
+  const button = <LeaveButton icon={<CloseIcon />} title={t('chat.leaveChannelHeader', 'Leave channel')} onClick={onLeaveClick} />
 
   return (
     <Entry

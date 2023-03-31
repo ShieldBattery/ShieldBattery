@@ -5,6 +5,7 @@ import KofiIcon from '../icons/brands/kofi-lockup.svg'
 import PatreonIcon from '../icons/brands/patreon-lockup.svg'
 import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { Headline5, Subtitle1 } from '../styles/typography'
+import { useTranslation } from 'react-i18next'
 
 const FundingSection = styled.div`
   margin-top: 48px;
@@ -48,12 +49,13 @@ const StyledPatreonIcon = styled(PatreonIcon)`
 `
 
 export function ComingSoon() {
+  const { t } = useTranslation()
   return (
     <>
-      <Headline5>This feature is coming soon!</Headline5>
+      <Headline5>{t('common.featureComingSoon', 'This feature is coming soon!')}</Headline5>
 
       <FundingSection>
-        <Subtitle1>Help fund ShieldBattery's development:</Subtitle1>
+        <Subtitle1>{t('common.fundShieldBattery', 'Help fund ShieldBattery\'s development')}:</Subtitle1>
         <SupportLinks>
           <a
             href='https://github.com/sponsors/ShieldBattery'

@@ -58,6 +58,7 @@ import { ALL_DETAILS_SUB_PAGES, DetailsSubPage } from './details-sub-page'
 import { LeagueBadge } from './league-badge'
 import { LeagueImage, LeaguePlaceholderImage } from './league-image'
 import { fromRouteLeagueId, makeRouteLeagueId } from './route-league-id'
+import { useTranslation } from 'react-i18next'
 
 const PageRoot = styled.div`
   position: relative;
@@ -222,6 +223,7 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
   const dispatch = useAppDispatch()
   const [isFetching, setIsFetching] = useState(false)
   const [error, setError] = useState<Error>()
+  const { t } = useTranslation()
 
   const isLoggedIn = !!useSelfUser()
   const league = useAppSelector(s => s.leagues.byId.get(id))
@@ -296,19 +298,19 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
     if (isFetchError(error) && error.code === LeagueErrorCode.NotFound) {
       return (
         <ErrorLayout>
-          <ErrorText>League not found</ErrorText>
-          <Link href='/leagues'>Go back to list</Link>
+          <ErrorText>{t('leagues.leagueNotFound', 'League not found')}</ErrorText>
+          <Link href='/leagues'>{t('common.returnToList', 'Go back to list')}</Link>
         </ErrorLayout>
       )
     } else {
       return (
         <ErrorLayout>
           <ErrorText>
-            There was an error retrieving this league:{' '}
+          {t('leagues.errorRetrievingLeague', 'There was an error retrieving this league:')}{' '}
             {(error as any).statusText ?? error.toString()}
           </ErrorText>
 
-          <Link href='/leagues'>Go back to list</Link>
+          <Link href='/leagues'>{t('common.returnToList', 'Go back to list')}</Link>
         </ErrorLayout>
       )
     }
@@ -385,7 +387,7 @@ export function LeagueDetailsHeader({ league }: LeagueDetailsHeaderProps) {
       <TitleAndSummary>
         <TitleRow>
           <Title>{league.name}</Title>
-          <CopyLinkButton tooltipPosition='right' startingText='Copy link to league' />
+          <CopyLinkButton tooltipPosition='right' startingText={t('leagues.copyLinkToLeague', 'Copy link to league')} />
         </TitleRow>
         <SummaryRow>
           <FormatAndDate>
@@ -418,7 +420,7 @@ export function LeagueDetailsInfo({ league }: LeagueDetailsInfoProps) {
       </InfoSection>
       {league.rulesAndInfo ? (
         <InfoSection>
-          <InfoSectionHeader>Rules and info</InfoSectionHeader>
+          <InfoSectionHeader>{t('leagues.rulesAndInfo', 'Rules and info')}</InfoSectionHeader>
           <div>
             <StyledMarkdown source={league.rulesAndInfo} />
           </div>
@@ -561,13 +563,14 @@ function LeaderboardAndMargin({ children }: { children?: React.ReactNode }) {
 }
 
 function LeaderboardHeader() {
+  const { t } = useTranslation()
   return (
     <>
-      <RankCell>Rank</RankCell>
-      <PlayerCell>Player</PlayerCell>
-      <PointsCell>Points</PointsCell>
-      <WinLossCell>Win/loss</WinLossCell>
-      <LastPlayedCell>Last played</LastPlayedCell>
+      <RankCell>{t('common.rankLabel', 'Rank')}</RankCell>
+      <PlayerCell>{t('common.playerLabel', 'Player')}</PlayerCell>
+      <PointsCell>{t('common.pointsLabel', 'Points')}</PointsCell>
+      <WinLossCell>{t('common.winLossLabel', 'Win/loss')}</WinLossCell>
+      <LastPlayedCell>{t('common.lastPlayedLabel', 'Last played')}</LastPlayedCell>
     </>
   )
 }
@@ -643,7 +646,7 @@ function Leaderboard({
     <>
       {error ? (
         <LeaderboardError>
-          There was a problem retrieving the leaderboard:{' '}
+          {t('leagues.errorRetrievingLeaderboard', 'There was a problem retrieving the leaderboard:')}{' '}
           {isFetchError(error) ? error.statusText : error.message}
         </LeaderboardError>
       ) : undefined}
@@ -669,7 +672,7 @@ function Leaderboard({
               itemContent={renderRow}
             />
           ) : (
-            <EmptyText>No matching players.</EmptyText>
+            <EmptyText>{t('leagues.noMatchingPlayers', 'No matching players.')}</EmptyText>
           )}
         </>
       ) : (
