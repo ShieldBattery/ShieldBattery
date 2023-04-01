@@ -18,6 +18,7 @@ import { colorError, colorTextSecondary } from '../styles/colors'
 import { Body1Old, Display1Old, singleLine, SubheadingOld } from '../styles/typography'
 import { getMapDetails, updateMap } from './action-creators'
 import { MapThumbnail } from './map-thumbnail'
+import { useTranslation } from 'react-i18next'
 
 const ESCAPE = 'Escape'
 
@@ -100,9 +101,10 @@ const StyledMapThumbnail = styled(MapThumbnail)`
 class NameForm extends React.Component {
   render() {
     const { onSubmit, bindInput, inputRef, onCancel } = this.props
+    const { t } = useTranslation()
     const trailingIcons = [
-      <IconButton icon={<SaveIcon />} title='Save' onClick={onSubmit} />,
-      <IconButton icon={<CancelIcon />} title='Cancel' onClick={onCancel} />,
+      <IconButton icon={<SaveIcon />} title={t('common.saveLabel', 'Save')} onClick={onSubmit} />,
+      <IconButton icon={<CancelIcon />} title={t('common.cancelLabel', 'Cancel')} onClick={onCancel} />,
     ]
 
     return (
@@ -112,7 +114,7 @@ class NameForm extends React.Component {
         <TextField
           {...bindInput('name')}
           ref={inputRef}
-          label='Map name'
+          label={t('maps.mapNameLabel', 'Map name')}
           trailingIcons={trailingIcons}
         />
       </form>
@@ -134,8 +136,8 @@ class DescriptionForm extends React.Component {
   render() {
     const { onSubmit, bindInput, inputRef, onCancel } = this.props
     const trailingIcons = [
-      <IconButton icon={<SaveIcon />} title='Save' onClick={onSubmit} />,
-      <IconButton icon={<CancelIcon />} title='Cancel' onClick={onCancel} />,
+      <IconButton icon={<SaveIcon />} title={t('common.saveLabel', 'Save')} onClick={onSubmit} />,
+      <IconButton icon={<CancelIcon />} title={t('common.cancelLabel', 'Cancel')} onClick={onCancel} />,
     ]
 
     return (
@@ -144,7 +146,7 @@ class DescriptionForm extends React.Component {
         <TextField
           {...bindInput('description')}
           ref={inputRef}
-          label='Map description'
+          label={t('maps.mapDescriptionLabel', 'Map description')}
           multiline={true}
           rows={5}
           maxRows={5}
@@ -219,8 +221,7 @@ export default class MapDetails extends React.Component {
       return (
         <>
           <p>
-            Something went wrong while trying to retrieve the details of this map. The error message
-            was:
+          {t('maps.errorRetrievingMapDetails', 'Something went wrong while trying to retrieve the details of this map. The error message was:')}
           </p>
           <ErrorText as='p'>{mapDetails.lastError.message}</ErrorText>
         </>

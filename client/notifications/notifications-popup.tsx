@@ -22,6 +22,7 @@ import { usePrevious } from '../state-hooks'
 import { background300, background400 } from '../styles/colors'
 import { markLocalNotificationsRead, markNotificationsRead } from './action-creators'
 import { notificationToUi } from './notification-to-ui'
+import { useTranslation } from 'react-i18next'
 
 const POPOVER_DURATION = 10000
 
@@ -150,7 +151,7 @@ export default function NotificationPopups() {
     },
     [dispatch],
   )
-
+  const { t } = useTranslation()
   return ReactDOM.createPortal(
     <PopupsContainer>
       {popupTransition((styles, item) => (
@@ -169,7 +170,7 @@ export default function NotificationPopups() {
           )}
           <MarkAsReadButton
             icon={<CheckIcon />}
-            title='Mark as read'
+            title={t('common.markAsReadLabel', 'Mark as read')}
             onClick={() => onMarkAsRead(item)}
           />
         </Popup>

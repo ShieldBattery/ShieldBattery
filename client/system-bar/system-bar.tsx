@@ -10,6 +10,7 @@ import { push } from '../navigation/routing'
 import { blue800, colorError } from '../styles/colors'
 import { caption } from '../styles/typography'
 import { SizeLeft, SizeRight, SizeTop } from './window-controls'
+import { useTranslation } from 'react-i18next'
 
 const Container = styled.header`
   ${shadow4dp};
@@ -71,6 +72,7 @@ export function SystemBar() {
     }
   }, [])
   const isAdmin = useIsAdmin()
+  const { t } = useTranslation()
   const onAdminClick = useCallback(() => {
     push('/admin')
   }, [])
@@ -83,13 +85,13 @@ export function SystemBar() {
       <LeftSide>
         {DEV_INDICATOR ? (
           // TODO(tec27): Find a place for this + admin that will show up on the web version too
-          <DevIndicator title='Go to dev pages' onClick={() => push('/dev')}>
+          <DevIndicator title={t('systembar.devindicator.goToDevPagesButtonText', 'Go to dev pages')} onClick={() => push('/dev')}>
             Dev
           </DevIndicator>
         ) : null}
         {isAdmin ? (
           <StyledIconButton
-            title='Admin'
+            title={t('systembar.admin.adminLabel', 'Admin')}
             icon={<MaterialIcon icon='admin_panel_settings' size={20} filled={false} />}
             onClick={onAdminClick}
           />

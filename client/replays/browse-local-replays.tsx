@@ -32,6 +32,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { background400, colorError, colorTextSecondary } from '../styles/colors'
 import { headline6, overline, singleLine, subtitle1 } from '../styles/typography'
 import { startReplay } from './action-creators'
+import { useTranslation } from 'react-i18next'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -174,7 +175,7 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
 
   const [mapNameRef, isMapNameOverflowing] = useOverflowingElement()
   const [gameTypeRef, isGameTypeOverflowing] = useOverflowingElement()
-
+  const { t } = useTranslation()
   const [parseError, setParseError] = useState(null)
 
   useEffect(() => {
@@ -251,7 +252,7 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
 
   let content
   if (parseError) {
-    content = <ErrorText>There was an error parsing the replay</ErrorText>
+    content = <ErrorText>{t('replays.errorParsingReplayText', 'There was an error parsing the replay')}</ErrorText>
   } else if (!replayMetadata) {
     content = <LoadingDotsArea />
   } else if (replayMetadata) {
@@ -271,9 +272,9 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
           </Tooltip>
           <TextInfoContainer>
             <Tooltip text={gameTypeLabel} position='bottom' disabled={!isGameTypeOverflowing}>
-              <ReplayInfoText ref={gameTypeRef}>Game type: {gameTypeLabel}</ReplayInfoText>
+              <ReplayInfoText ref={gameTypeRef}>{t('common.gameTypeLabel', 'Game type')}: {gameTypeLabel}</ReplayInfoText>
             </Tooltip>
-            <ReplayInfoText>Duration: {durationStr}</ReplayInfoText>
+            <ReplayInfoText>{t('common.durationLabel', 'Duration')}: {durationStr}</ReplayInfoText>
           </TextInfoContainer>
         </ReplayInfoContainer>
       </InfoContainer>
@@ -286,6 +287,7 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
 export function BrowseLocalReplays() {
   const dispatch = useAppDispatch()
   const [replayFolderPath, setReplayFolderPath] = useState<string>('')
+  const { t } = useTranslation()
 
   useEffect(() => {
     getReplayFolderPath().then(path => setReplayFolderPath(path))
@@ -327,7 +329,7 @@ export function BrowseLocalReplays() {
   return (
     <FileBrowser
       browserType={FileBrowserType.Replays}
-      title='Local Replays'
+      title={t('replays.browser.localReplaysLabel', 'Local Replays')}
       rootFolders={rootFolders}
       fileEntryConfig={fileEntryConfig}
     />

@@ -19,6 +19,7 @@ import { LoggedOutLeftNav } from './navigation/connected-left-nav'
 import { useAppDispatch } from './redux-hooks'
 import { FlexSpacer } from './styles/flex-spacer'
 import { ProfileRouteComponent } from './users/route'
+import { useTranslation } from 'react-i18next'
 
 const ALT_D = { keyCode: keycode('d'), altKey: true }
 const ALT_G = { keyCode: keycode('g'), altKey: true }
@@ -49,7 +50,7 @@ export interface LoggedOutContentProps {
  */
 export function LoggedOutContent({ loggedInContent }: LoggedOutContentProps) {
   const dispatch = useAppDispatch()
-
+  const { t } = useTranslation()
   // TODO(tec27): Share more of the ActivityBar logic/styling with MainLayout
   return (
     <Container>
@@ -67,21 +68,21 @@ export function LoggedOutContent({ loggedInContent }: LoggedOutContentProps) {
         <ActivityButton
           key='download'
           icon={<DownloadIcon />}
-          label='Download'
+          label={t('main.loggedOutContent.downloadLabel', 'Download')}
           onClick={() => dispatch(openDialog({ type: DialogType.Download }))}
           hotkey={ALT_O}
         />
         <ActivityButton
           key='ladder'
           icon={<MaterialIcon icon='military_tech' size={36} />}
-          label='Ladder'
+          label={t('main.loggedOutContent.ladderLabel', 'Ladder')}
           onClick={() => navigateToLadder()}
           hotkey={ALT_D}
         />
         <ActivityButton
           key='leagues'
           icon={<LeaguesIcon />}
-          label='Leagues'
+          label={t('main.loggedOutContent.leaguesLabel', 'Leagues')}
           onClick={() => navigateToLeaguesList()}
           hotkey={ALT_G}
         />

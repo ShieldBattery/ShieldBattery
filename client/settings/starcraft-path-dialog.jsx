@@ -12,6 +12,7 @@ import { TextField } from '../material/text-field'
 import { background500, colorError } from '../styles/colors'
 import { body1, body2, Subtitle1 } from '../styles/typography'
 import { mergeLocalSettings } from './action-creators'
+import { Trans, useTranslation } from 'react-i18next'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -69,16 +70,16 @@ class StarcraftPathForm extends React.Component {
 
   render() {
     const { bindInput, onSubmit } = this.props
-
+    const { t } = useTranslation()
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
         <SelectFolderContainer>
           <PathContainer onClick={this.onBrowseClick}>
-            <StyledTextField {...bindInput('path')} label='StarCraft folder path' disabled={true} />
+            <StyledTextField {...bindInput('path')} label={t('settings.main.starcraftFolderPathHeader', 'StarCraft folder path')} disabled={true} />
           </PathContainer>
           <BrowseButtonContainer>
-            <RaisedButton ref={this._browseButtonRef} label='Browse' onClick={this.onBrowseClick} />
+            <RaisedButton ref={this._browseButtonRef} label={t('settings.main.browseButtonText', 'Browse')} onClick={this.onBrowseClick} />
           </BrowseButtonContainer>
         </SelectFolderContainer>
       </form>
@@ -121,16 +122,16 @@ export default class StarcraftPath extends React.Component {
 
   render() {
     const { settings, onCancel, dialogRef } = this.props
-
+    const { t } = useTranslation()
     const formModel = {
       path: settings.local.starcraftPath,
     }
 
     const buttons = [
-      <TextButton label='Cancel' key='cancel' color='accent' onClick={this.onSettingsCancel} />,
+      <TextButton label={t('common.cancelLabel', 'Cancel')} key='cancel' color='accent' onClick={this.onSettingsCancel} />,
       <TextButton
         ref={this._saveButton}
-        label='Save'
+        label={t('common.saveLabel', 'Save')}
         key='save'
         color='accent'
         onClick={this.onSettingsSave}
@@ -140,16 +141,20 @@ export default class StarcraftPath extends React.Component {
     return (
       <Dialog title={'StarCraft Path'} buttons={buttons} onCancel={onCancel} dialogRef={dialogRef}>
         <Instructions>
+        <Trans i18nKey="settings.main.selectStarcraftFolderDescription">
           Please select the directory where you have installed StarCraft: Remastered.
+        </Trans>
         </Instructions>
         <Instructions>
+        <Trans i18nKey="settings.main.exampleStarcraftFolderDescription">
           This is usually <ExampleText>C:\Program Files (x86)\StarCraft</ExampleText> but may be
           elsewhere if you have customized it in the Battle.net launcher.
+        </Trans>
         </Instructions>
 
         <StarcraftPathForm ref={this._form} model={formModel} onSubmit={this.onSubmit} />
         {settings.lastError ? (
-          <ErrorText>There was an issue saving the StarCraft path. Please try again.</ErrorText>
+          <ErrorText>{t('settings.main.errorSavingStarcraftPath', 'There was an issue saving the StarCraft path. Please try again.')}</ErrorText>
         ) : null}
       </Dialog>
     )

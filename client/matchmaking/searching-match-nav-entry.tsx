@@ -7,6 +7,7 @@ import { useStableCallback } from '../state-hooks'
 import { colorTextSecondary } from '../styles/colors'
 import { body2, cabin, TitleOld } from '../styles/typography'
 import { ElapsedTime } from './elapsed-time'
+import { useTranslation } from 'react-i18next'
 
 const SearchingContainer = styled.div`
   display: flex;
@@ -43,7 +44,7 @@ export interface SearchingMatchNavEntryProps {
 
 export function SearchingMatchNavEntry(props: SearchingMatchNavEntryProps) {
   const onCancelClick = useStableCallback(props.onCancelSearch)
-
+  const { t } = useTranslation()
   return (
     <>
       <SearchingContainer>
@@ -55,7 +56,7 @@ export function SearchingMatchNavEntry(props: SearchingMatchNavEntryProps) {
         {!props.isMatched ? (
           <SubheaderButton
             icon={<CancelSearchIcon />}
-            title='Cancel search'
+            title={t('matchmaking.cancelSearchText', 'Cancel search')}
             onClick={onCancelClick}
           />
         ) : null}

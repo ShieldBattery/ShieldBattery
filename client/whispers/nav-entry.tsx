@@ -5,6 +5,7 @@ import { SbUserId } from '../../common/users/sb-user'
 import CloseWhisperIcon from '../icons/material/close-24px.svg'
 import { IconButton } from '../material/button'
 import Entry from '../material/left-nav/entry'
+import { useTranslation } from 'react-i18next'
 
 const LeaveButton = styled(IconButton)`
   width: 36px;
@@ -29,10 +30,11 @@ export function WhisperNavEntry({
   onClose,
   hasUnread = false,
 }: WhisperNavEntryProps) {
+  const { t } = useTranslation()
   const button = (
     <LeaveButton
       icon={<CloseWhisperIcon />}
-      title='Close whisper'
+      title={t('whispers.navEntry.closeWhisperTitle', 'Close whisper')}
       onClick={() => onClose(userId)}
     />
   )

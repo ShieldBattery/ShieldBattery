@@ -11,6 +11,7 @@ import { IconButton } from './button'
 import { useScrollIndicatorState } from './scroll-indicator'
 import { shadowDef8dp } from './shadow-constants'
 import { zIndexDialog } from './zindex'
+import { useTranslation } from 'react-i18next'
 
 const ESCAPE = keycode('esc')
 
@@ -206,9 +207,9 @@ export function Dialog({
     ),
   })
   const [isAtTop, isAtBottom, topNode, bottomNode] = useScrollIndicatorState()
-
+  const { t } = useTranslation()
   const closeButton = showCloseButton ? (
-    <CloseButton icon={<CloseDialogIcon />} title='Close dialog' onClick={onCancel} />
+    <CloseButton icon={<CloseDialogIcon />} title={t('common.closeDialogLabel', 'Close dialog')} onClick={onCancel} />
   ) : null
 
   return (

@@ -43,6 +43,7 @@ import {
 } from './party-message-layout'
 import { PartyMessageType } from './party-message-records'
 import { CurrentPartyState } from './party-reducer'
+import { useTranslation } from 'react-i18next'
 
 const UserListContainer = styled.div`
   width: 100%;
@@ -65,11 +66,12 @@ const StyledAvatar = styled(Avatar)`
 `
 
 export function OpenSlot() {
+  const { t } = useTranslation()
   return (
     <Slot>
       <SlotProfile>
         <SlotEmptyAvatar />
-        <SlotEmptyName as='span'>Empty</SlotEmptyName>
+        <SlotEmptyName as='span'>{t('common.emptyLabel', 'Empty')}</SlotEmptyName>
       </SlotProfile>
     </Slot>
   )
@@ -237,6 +239,7 @@ export function PartyView(props: PartyViewProps) {
   const partyId = party?.id
   const routePartyId = decodeURIComponent(props.params.partyId)
   const queueId = useAppSelector(s => s.party.current?.queueState?.id)
+  const { t } = useTranslation()
 
   const onSendChatMessage = useCallback(
     (msg: string) => dispatch(sendChatMessage(partyId!, msg)),
@@ -317,18 +320,18 @@ export function PartyView(props: PartyViewProps) {
         {queueId ? (
           <CancelQueueButton
             iconStart={<SearchOffIcon />}
-            label='Cancel search'
+            label={t('common.cancelSearchLabel', 'Cancel search')}
             onClick={onCancelQueueClick}
           />
         ) : null}
         {selfUser.id === party.leader ? (
           <TextButton
             iconStart={<StyledInviteIcon />}
-            label='Invite players'
+            label={t('common.invitePlayersLabel', 'Invite players')}
             onClick={onInviteClick}
           />
         ) : null}
-        <TextButton iconStart={<CloseIcon />} label='Leave party' onClick={onLeaveClick} />
+        <TextButton iconStart={<CloseIcon />} label={t('common.leavePartyLabel', 'Leave party')} onClick={onLeaveClick} />
       </RightSide>
     </Container>
   )

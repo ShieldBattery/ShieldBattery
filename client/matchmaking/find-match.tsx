@@ -51,6 +51,7 @@ import {
   ConnectedPartyDisabledCard,
 } from './matchmaking-disabled-card'
 import { LadderPlayerIcon } from './rank-icon'
+import { useTranslation } from 'react-i18next'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -219,11 +220,11 @@ export function FindMatch() {
     default:
       contents = assertUnreachable(activeTab)
   }
-
+  const { t } = useTranslation()
   return (
     <Container>
       <TitleBar>
-        <Headline5>Find match</Headline5>
+        <Headline5>{t('matchmaking.findMatchLabel', 'Find match')}</Headline5>
         <TabArea>
           <Tabs activeTab={activeTab} onChange={onTabChange}>
             <TabItem
@@ -258,7 +259,7 @@ export function FindMatch() {
           <Actions>
             <ScrollDivider $show={!isAtBottom} $showAt='top' />
             <RaisedButton
-              label='Find match'
+              label={t('matchmaking.findMatchLabel', 'Find match')}
               disabled={isMatchmakingDisabled}
               onClick={onFindClick}
             />
@@ -454,7 +455,7 @@ function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
   if (loadingError) {
     return (
       <RankInfoContainer>
-        <RankLoadingError>There was a problem loading your current rank.</RankLoadingError>
+        <RankLoadingError>{t('matchmaking.errorLoadingRank', 'There was a problem loading your current rank.')}</RankLoadingError>
       </RankInfoContainer>
     )
   }
@@ -485,24 +486,24 @@ function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
               <Tooltip text={`${bonusAvailable} points`} position='top'>
                 <BonusBarEntry>
                   <BonusBar style={{ '--sb-bonus-bar-scale': bonusScale } as any} />
-                  <RankDisplayInfoLabel>Bonus pool</RankDisplayInfoLabel>
+                  <RankDisplayInfoLabel>{t('common.bonusPoolLabel', 'Bonus pool')}</RankDisplayInfoLabel>
                 </BonusBarEntry>
               </Tooltip>
             </RankDisplayInfoRow>
             <RankDisplayInfoRow>
               <RankDisplayInfoEntry>
                 <RankDisplayInfoValue>{Math.round(ladderPlayer.points)}</RankDisplayInfoValue>
-                <RankDisplayInfoLabel>Points</RankDisplayInfoLabel>
+                <RankDisplayInfoLabel>{t('common.pointsLabel', 'Points')}</RankDisplayInfoLabel>
               </RankDisplayInfoEntry>
               <RankDisplayInfoEntry>
                 <RankDisplayInfoValue>{Math.round(ladderPlayer.rating)}</RankDisplayInfoValue>
-                <RankDisplayInfoLabel>Rating</RankDisplayInfoLabel>
+                <RankDisplayInfoLabel>{t('common.ratingLabel', 'Rating')}</RankDisplayInfoLabel>
               </RankDisplayInfoEntry>
             </RankDisplayInfoRow>
           </>
         ) : (
           <UnratedText>
-            {ladderPlayer.lifetimeGames} / {NUM_PLACEMENT_MATCHES} placements
+            {ladderPlayer.lifetimeGames} / {NUM_PLACEMENT_MATCHES} {t('common.placementsLabel', 'placements')}
           </UnratedText>
         )}
       </RankDisplayInfo>

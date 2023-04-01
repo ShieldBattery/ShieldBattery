@@ -37,6 +37,7 @@ import {
   subtitle1,
 } from '../styles/typography'
 import { navigateToUserProfile, viewUserProfile } from './action-creators'
+import { useTranslation } from 'react-i18next'
 
 const joinDateFormat = new Intl.DateTimeFormat(navigator.language, {
   month: 'long',
@@ -214,43 +215,43 @@ function OverlayContents({ userId, onDismiss }: { userId: SbUserId; onDismiss: (
 
   const hasAnyRanks = !!Object.keys(profile?.ladder ?? {}).length
   const longFormattedDate = longTimestamp.format(profile?.created)
-
+  const { t } = useTranslation()
   return (
     <PopoverContents>
-      {loadingError ? <LoadingError>There was a problem loading this user.</LoadingError> : null}
+      {loadingError ? <LoadingError>{t('users.userProfileOverlay.errorLoadingUserProfileMessage', 'There was a problem loading this user.')}</LoadingError> : null}
       <IdentityArea onClick={onIdentityClick}>
         <AvatarContainer>
           <AvatarCircle>
             <StyledAvatar userId={userId} />
           </AvatarCircle>
-          <ViewProfileHover>View profile</ViewProfileHover>
+          <ViewProfileHover>{t('users.userProfileOverlay.viewProfileHoverLabel', 'View profile')}</ViewProfileHover>
         </AvatarContainer>
         <UsernameAndTitle>
           {user ? (
             <Username>{user.name}</Username>
           ) : (
-            <LoadingUsername aria-label='Username loading…' />
+            <LoadingUsername aria-label={t('users.userProfileOverlay.usernameLoadingMessage', 'Username loading\u2026')} />
           )}
-          <Title>Novice</Title>
+          <Title>{t('users.userProfileOverlay.titleNoviceText', 'Novice')}</Title>
         </UsernameAndTitle>
       </IdentityArea>
       {profile ? (
         <>
           <div>
-            <SectionHeader>Info</SectionHeader>
+            <SectionHeader>{t('users.userProfileOverlay.infoHeader', 'Info')}</SectionHeader>
             <Tooltip text={longFormattedDate}>
-              <Body1>Joined {joinDateFormat.format(profile.created)}</Body1>
+              <Body1>{t('users.userProfileOverlay.datePlayerJoinedLabel', 'Joined')} {joinDateFormat.format(profile.created)}</Body1>
             </Tooltip>
           </div>
 
           <div>
-            <SectionHeader>Total games</SectionHeader>
+            <SectionHeader>{t('users.userProfileOverlay.totalGamesHeader', 'Total games')}</SectionHeader>
             <TotalGameStats userStats={profile.userStats} />
           </div>
 
           {hasAnyRanks ? (
             <div>
-              <SectionHeader>Ranked</SectionHeader>
+              <SectionHeader>{t('users.userProfileOverlay.rankedHeader', 'Ranked')}</SectionHeader>
               <RankDisplaySection>
                 {ALL_MATCHMAKING_TYPES.map(matchmakingType =>
                   profile.ladder[matchmakingType] ? (
@@ -269,7 +270,7 @@ function OverlayContents({ userId, onDismiss }: { userId: SbUserId; onDismiss: (
         <LoadingDotsArea />
       )}
 
-      <HintText>Right-click user for more actions</HintText>
+      <HintText>{t('users.userProfileOverlay.moreActionsHintText', 'Right-click user for more actions')}</HintText>
     </PopoverContents>
   )
 }

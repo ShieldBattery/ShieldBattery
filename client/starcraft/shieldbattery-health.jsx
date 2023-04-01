@@ -9,6 +9,7 @@ import { openSnackbar } from '../snackbars/action-creators'
 import { body1, subtitle1 } from '../styles/typography'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files-ipc'
 import { isShieldBatteryHealthy } from './is-starcraft-healthy'
+import { useTranslation } from 'react-i18next'
 
 const Text = styled.div`
   ${subtitle1};
@@ -43,7 +44,7 @@ export class ShieldBatteryHealthDialog extends React.Component {
   render() {
     const initDescription = this.props.files.init ? null : <li>sb_init.dll</li>
     const mainDescription = this.props.files.main ? null : <li>shieldbattery.dll</li>
-
+    const { t } = useTranslation()
     return (
       <Dialog
         title={'Installation problems detected'}
@@ -51,7 +52,7 @@ export class ShieldBatteryHealthDialog extends React.Component {
         showCloseButton={true}
         dialogRef={this.props.dialogRef}>
         <Text>
-          We've detected that the following ShieldBattery files are missing or have been modified:
+        {t('shieldbatteryhealth.integrity.missingFilesDescription', 'We\'ve detected that the following ShieldBattery files are missing or have been modified:')}
         </Text>
         <FileList>
           {initDescription}
@@ -59,17 +60,14 @@ export class ShieldBatteryHealthDialog extends React.Component {
         </FileList>
 
         <Text>
-          This is often the result of installed anti-virus software taking action on false
-          positives. You may need to add exceptions for these files, or tell the software to remove
-          them from quarantine. You can also try re-installing ShieldBattery.
+        {t('shieldbatteryhealth.integrity.antiVirusExceptionsDescription', 'This is often the result of installed anti-virus software taking action on false positives. You may need to add exceptions for these files, or tell the software to remove them from quarantine. You can also try re-installing ShieldBattery.')}
         </Text>
 
         <Text>
-          If you are able to, reporting these as false positives to your anti-virus vendor will help
-          this stop happening for other users as well!
+        {t('shieldbatteryhealth.integrity.antiVirusReportFalsePositivesDescription', 'If you are able to, reporting these as false positives to your anti-virus vendor will help this stop happening for other users as well!')}
         </Text>
 
-        <RescanButton label='Rescan files' onClick={this.onRescanClick} />
+        <RescanButton label={t('shieldbatteryhealth.integrity.rescanFilesButtonText', 'Rescan files')} onClick={this.onRescanClick} />
       </Dialog>
     )
   }

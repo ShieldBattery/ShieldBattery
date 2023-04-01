@@ -8,6 +8,7 @@ import PolicyIcon from '../icons/material/policy-36px.svg'
 import { ActionlessNotification } from '../notifications/notifications'
 import { useAppDispatch } from '../redux-hooks'
 import { amberA400 } from '../styles/colors'
+import { Trans } from 'react-i18next'
 
 const ColoredPolicyIcon = styled(PolicyIcon)`
   width: 36px;
@@ -39,6 +40,7 @@ export const PolicyUpdateNotificationUi = React.forwardRef<
       icon={<ColoredPolicyIcon />}
       text={
         <span>
+          <Trans i18nKey="common.policyUpdateText">
           ShieldBattery's{' '}
           <a
             href='#'
@@ -49,6 +51,7 @@ export const PolicyUpdateNotificationUi = React.forwardRef<
             {label}
           </a>{' '}
           has been updated.
+          </Trans>
         </span>
       }
     />

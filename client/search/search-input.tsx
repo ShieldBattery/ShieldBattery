@@ -3,6 +3,7 @@ import SearchIcon from '../icons/material/search-24px.svg'
 import { useKeyListener } from '../keyboard/key-listener'
 import { TextField } from '../material/text-field'
 import { usePrevious, useStableCallback } from '../state-hooks'
+import { useTranslation } from 'react-i18next'
 
 const ESCAPE = 'Escape'
 const F = 'KeyF'
@@ -22,7 +23,7 @@ export const SearchInput = React.forwardRef<SearchInputHandle, SearchInputProps>
     const [inputValue, setInputValue] = useState(searchQuery)
     const [searchFocused, setInputFocused] = useState(false)
     const inputRef = useRef<HTMLInputElement>(null)
-
+    const { t } = useTranslation()
     const prevSearchQuery = usePrevious(searchQuery)
     useEffect(() => {
       // If we were rendered before and the props have changed, update the input value to match
@@ -70,7 +71,7 @@ export const SearchInput = React.forwardRef<SearchInputHandle, SearchInputProps>
         className={className}
         ref={inputRef}
         value={inputValue}
-        label='Search'
+        label={t('common.searchLabel', 'Search')}
         dense={true}
         allowErrors={false}
         onChange={onInputChange}

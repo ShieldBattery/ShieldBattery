@@ -22,6 +22,7 @@ import { SearchInput } from '../search/search-input'
 import { usePrevious, useValueAsRef } from '../state-hooks'
 import { colorTextSecondary } from '../styles/colors'
 import { overline } from '../styles/typography'
+import { useTranslation } from 'react-i18next'
 
 const transitionNames = {
   appear: 'enter',
@@ -319,11 +320,11 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
       Promise.resolve().then(() => filterApplyButtonRef.current?.focus())
     }
   }, [filterOverlayOpen, prevFilterOverlayOpen])
-
+  const { t } = useTranslation()
   return (
     <Container>
       <PositionedFloatingActionButton
-        title='Browse local maps'
+        title={t('maps.browseLocalMaps', 'Browse local maps')}
         icon={<FolderIcon />}
         onClick={props.onBrowseLocalMaps}
       />
@@ -331,19 +332,19 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
         <ActionButton
           ref={sizeRef}
           icon={<MaterialIcon icon='view_list' />}
-          title='Thumbnail size'
+          title={t('maps.thumbnailSize', 'Thumbnail size')}
           onClick={openSizeMenu}
         />
         <ActionButton
           ref={filterButtonRef}
           icon={<FilterIcon />}
-          title='Filter options'
+          title={t('maps.filterOptions', 'Filter options')}
           onClick={openFilterOverlay}
         />
         <ActionButton
           ref={sortMenuRef}
           icon={<SortIcon />}
-          title='Sort maps'
+          title={t('maps.sortMaps', 'Sort maps')}
           onClick={openSortMenu}
         />
       </LeftActions>
@@ -374,15 +375,15 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
         onDismiss={closeFilterOverlay}
         onApply={forwardOnFilterApply}
         anchor={filterButtonRef.current}>
-        <SectionOverline>Number of players</SectionOverline>
+        <SectionOverline>{t('maps.numberOfPlayers', 'Number of players')}</SectionOverline>
         <ColumnGroup>{numPlayersItems}</ColumnGroup>
-        <SectionOverline>Tileset</SectionOverline>
+        <SectionOverline>{t('maps.tilesetLabel', 'Tileset')}</SectionOverline>
         <ColumnGroup>{tilesetItems}</ColumnGroup>
         <FilterActions>
-          <TextButton label='Cancel' color='accent' onClick={onFilterCancel} />
+          <TextButton label={t('common.cancelLabel', 'Cancel')} color='accent' onClick={onFilterCancel} />
           <TextButton
             ref={filterApplyButtonRef}
-            label='Apply'
+            label={t('common.applyLabel', 'Apply')}
             color='accent'
             onClick={forwardOnFilterApply}
           />

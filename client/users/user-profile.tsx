@@ -51,6 +51,7 @@ import {
 } from './action-creators'
 import { MiniMatchHistory } from './mini-match-history'
 import { UserProfileSubPage } from './user-profile-sub-page'
+import { useTranslation } from 'react-i18next'
 
 const LoadableAdminUserPage = React.lazy(async () => ({
   default: (await import('./user-profile-admin')).AdminUserPage,
@@ -90,6 +91,7 @@ export function ConnectedUserProfilePage({
   const profile = useAppSelector(s => s.users.idToProfile.get(userId))
   const matchHistory = useAppSelector(s => s.users.idToMatchHistory.get(userId)) ?? []
   const isAdmin = useAppSelector(s => hasAnyPermission(s.auth, 'editPermissions', 'banUsers'))
+  const { t } = useTranslation()
 
   const onTabChange = useCallback(
     (tab: UserProfileSubPage) => {
@@ -133,7 +135,7 @@ export function ConnectedUserProfilePage({
 
   if (loadingError) {
     // TODO(tec27): Handle specific errors, e.g. not found vs server error
-    return <LoadingError>There was a problem loading this user.</LoadingError>
+    return <LoadingError>{t('users.userProfile.errorLoadingUserMessage', 'There was a problem loading this user.')}</LoadingError>
   }
   if (!user || !profile) {
     return <LoadingDotsArea />
@@ -243,7 +245,7 @@ export function UserProfilePage({
     default:
       content = assertUnreachable(subPage)
   }
-
+  const { t } = useTranslation()
   return (
     <Container>
       <TopSection>
@@ -258,11 +260,11 @@ export function UserProfilePage({
 
       <TabArea>
         <Tabs activeTab={subPage} onChange={onTabChange}>
-          <TabItem value={UserProfileSubPage.Summary} text='Summary' />
-          <TabItem value={UserProfileSubPage.Stats} text='Stats' />
-          <TabItem value={UserProfileSubPage.MatchHistory} text='Match history' />
-          <TabItem value={UserProfileSubPage.Seasons} text='Seasons' />
-          {isAdmin ? <TabItem value={UserProfileSubPage.Admin} text='Admin' /> : null}
+          <TabItem value={UserProfileSubPage.Summary} text={t('users.userProfile.summaryLabel', 'Summary')} />
+          <TabItem value={UserProfileSubPage.Stats} text={t('users.userProfile.statsLabel', 'Stats')} />
+          <TabItem value={UserProfileSubPage.MatchHistory} text={t('users.userProfile.matchHistoryLabel', 'Match history')} />
+          <TabItem value={UserProfileSubPage.Seasons} text={t('users.userProfile.seasonsLabel', 'Seasons')} />
+          {isAdmin ? <TabItem value={UserProfileSubPage.Admin} text={t('users.userProfile.adminLabel', 'Admin')} /> : null}
         </Tabs>
       </TabArea>
 
@@ -349,7 +351,7 @@ function SummaryPage({
   )
 
   const hasAnyRanks = !!Object.keys(profile.ladder).length
-
+  const { t } = useTranslation()
   return (
     <>
       {hasAnyRanks && (
@@ -368,7 +370,7 @@ function SummaryPage({
         </>
       )}
 
-      <SectionOverline>Total games</SectionOverline>
+      <SectionOverline>{t('users.userProfile.totalGamesLabel', 'Total games')}</SectionOverline>
       <TotalGamesSection>
         {sortedStats.map((s, i) => (
           <React.Fragment key={s.race}>
@@ -378,11 +380,11 @@ function SummaryPage({
         ))}
       </TotalGamesSection>
 
-      <SectionOverline>Latest games</SectionOverline>
+      <SectionOverline>{t('users.userProfile.latestGamesLabel', 'Latest games')}</SectionOverline>
       <MiniMatchHistory forUserId={user.id} games={matchHistory} />
 
-      <SectionOverline>Achievements</SectionOverline>
-      <EmptyListText>Nothing to see here</EmptyListText>
+      <SectionOverline>{t('users.userProfile.achievementsLabel', 'Achievements')}</SectionOverline>
+      <EmptyListText>{t('common.emptyListMessage', 'Nothing to see here')}</EmptyListText>
     </>
   )
 }
@@ -503,11 +505,11 @@ function RankDisplay({
               <RankDisplayPrefix>#</RankDisplayPrefix>
               {ladderPlayer.rank}
             </RankDisplayInfoValue>
-            <RankDisplayInfoLabel>Rank</RankDisplayInfoLabel>
+            <RankDisplayInfoLabel>{t('users.userProfile.rankLabel', 'Rank')}</RankDisplayInfoLabel>
           </RankDisplayInfoEntry>
           <RankDisplayInfoEntry>
             <RankDisplayInfoValue>{Math.round(ladderPlayer.points)}</RankDisplayInfoValue>
-            <RankDisplayInfoLabel>Points</RankDisplayInfoLabel>
+            <RankDisplayInfoLabel>{t('users.userProfile.pointsLabel', 'Points')}</RankDisplayInfoLabel>
           </RankDisplayInfoEntry>
         </RankDisplayInfoRow>
         <RankDisplayInfoRow>
@@ -515,11 +517,11 @@ function RankDisplay({
             <RankDisplayInfoValue>
               {ladderPlayer.wins} &ndash; {ladderPlayer.losses}
             </RankDisplayInfoValue>
-            <RankDisplayInfoLabel>Record</RankDisplayInfoLabel>
+            <RankDisplayInfoLabel>{t('users.userProfile.recordLabel', 'Record')}</RankDisplayInfoLabel>
           </RankDisplayInfoEntry>
           <RankDisplayInfoEntry>
             <RankDisplayInfoValue>{Math.round(ladderPlayer.rating)}</RankDisplayInfoValue>
-            <RankDisplayInfoLabel>Rating</RankDisplayInfoLabel>
+            <RankDisplayInfoLabel>{t('users.userProfile.ratingLabel', 'Rating')}</RankDisplayInfoLabel>
           </RankDisplayInfoEntry>
         </RankDisplayInfoRow>
       </RankDisplayInfo>

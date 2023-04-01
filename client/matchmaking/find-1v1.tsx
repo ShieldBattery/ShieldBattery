@@ -23,6 +23,7 @@ import {
   SectionTitle,
   StyledRaceSelect,
 } from './find-match-forms'
+import { useTranslation } from 'react-i18next'
 
 interface Model1v1 {
   race: RaceChar
@@ -56,10 +57,10 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
     const race = getInputValue('race')
     const useAlternateRace = race !== 'r' ? getInputValue('useAlternateRace') : false
     const hiddenAlternateRaces = race !== 'r' ? [race] : []
-
+    const { t } = useTranslation()
     return (
       <form noValidate={true} onSubmit={handleSubmit}>
-        <SectionTitle>Race</SectionTitle>
+        <SectionTitle>{t('common.raceLabel', 'Race')}</SectionTitle>
         <StyledRaceSelect
           {...bindCustom('race')}
           size={RacePickerSize.Large}
@@ -68,15 +69,15 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
         {race !== 'r' ? (
           <CheckBox
             {...bindCheckable('useAlternateRace')}
-            label='Use alternate race to avoid mirror matchups'
+            label={t('matchmaking.useAlternateRaceLabel', 'Use alternate race to avoid mirror matchups')}
             disabled={disabled}
           />
         ) : null}
         {useAlternateRace ? (
           <>
-            <SectionTitle>Alternate race</SectionTitle>
+            <SectionTitle>{t('matchmaking.alternateRaceLabel', 'Alternate race')}</SectionTitle>
             <DescriptionText>
-              Select a race to be used whenever your opponent has selected the same primary race.
+            {t('matchmaking.alternateRaceText', 'Select a race to be used whenever your opponent has selected the same primary race.')}
             </DescriptionText>
             <StyledRaceSelect
               {...bindCustom('alternateRace')}
@@ -88,11 +89,11 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
           </>
         ) : null}
         <MapSelectionsHeader>
-          <SectionTitle>Map pool</SectionTitle>
-          {mapPoolOutdated ? <OutdatedIndicator>Updated</OutdatedIndicator> : null}
+          <SectionTitle>{t('common.mapPoolLabel', 'Map pool')}</SectionTitle>
+          {mapPoolOutdated ? <OutdatedIndicator>{t('common.updatedText', 'Updated')}</OutdatedIndicator> : null}
         </MapSelectionsHeader>
         <DescriptionText>
-          Veto up to 3 maps. Vetoed maps will never be selected for play.
+        {t('matchmaking.vetoMapText', 'Veto up to 3 maps. Vetoed maps will never be selected for play.')}
         </DescriptionText>
         <MapVetoesControl
           {...bindCustom('mapSelections')}

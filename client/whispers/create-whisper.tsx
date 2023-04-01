@@ -18,6 +18,7 @@ import { useStableCallback } from '../state-hooks'
 import { colorError } from '../styles/colors'
 import { subtitle1 } from '../styles/typography'
 import { navigateToWhisper, startWhisperSessionByName } from './action-creators'
+import { useTranslation } from 'react-i18next'
 
 const ErrorText = styled.div`
   ${subtitle1};
@@ -64,15 +65,15 @@ export function CreateWhisper(props: CommonDialogProps) {
     },
     { onSubmit: onFormSubmit },
   )
-
+  const { t } = useTranslation()
   const buttons = [
-    <TextButton label='Cancel' key='cancel' color='accent' onClick={props.onCancel} />,
-    <TextButton label='Start' key='send' color='accent' onClick={onSubmit} />,
+    <TextButton label={t('whispers.createWhisper.cancelButtonText', 'Cancel')} key='cancel' color='accent' onClick={props.onCancel} />,
+    <TextButton label={t('whispers.createWhisper.startButtonText', 'Start')} key='send' color='accent' onClick={onSubmit} />,
   ]
 
   return (
     <Dialog
-      title='Send a message'
+      title={t('whispers.createWhisper.sendMessageTitle', 'Send a message')}
       buttons={buttons}
       onCancel={props.onCancel}
       dialogRef={props.dialogRef}>
@@ -91,7 +92,7 @@ export function CreateWhisper(props: CommonDialogProps) {
           <form noValidate={true} onSubmit={onSubmit}>
             <TextField
               {...bindInput('target')}
-              label='Username'
+              label={t('whispers.createWhisper.usernameLabel', 'Username')}
               floatingLabel={true}
               ref={inputRef}
               inputProps={{

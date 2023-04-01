@@ -25,6 +25,7 @@ import {
   Separator,
   TimestampMessageLayout,
 } from './message-layout'
+import { useTranslation } from 'react-i18next'
 
 const newDayFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -213,11 +214,11 @@ export const BlockedMessage = React.memo<{
   text: string
 }>(props => {
   const [show, setShow] = useState(false)
-
+  const { t } = useTranslation()
   return (
     <>
       <TimestampMessageLayout time={props.time} highlighted={false}>
-        <BlockedText>Blocked message</BlockedText>
+        <BlockedText>{t('common.blockedMessageLabel', 'Blocked message')}</BlockedText>
         <BlockedDivider>&mdash;</BlockedDivider>
         <ShowHideLink onClick={() => setShow(!show)}>{show ? 'Hide' : 'Show'}</ShowHideLink>
       </TimestampMessageLayout>
@@ -238,10 +239,11 @@ export const BlockedMessage = React.memo<{
 
 export const NewDayMessage = React.memo<{ time: number }>(props => {
   const { time } = props
+  const { t } = useTranslation()
   return (
     <SeparatedInfoMessage>
       <span>
-        Day changed to <InfoImportant>{newDayFormat.format(time)}</InfoImportant>
+      {t('common.dayChanged', 'Day changed to')} <InfoImportant>{newDayFormat.format(time)}</InfoImportant>
       </span>
     </SeparatedInfoMessage>
   )

@@ -8,6 +8,7 @@ import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
 import { Headline5, subtitle1 } from './styles/typography'
 import { WindowControls, WindowControlsStyle } from './system-bar/window-controls'
+import { Trans, useTranslation } from 'react-i18next'
 
 export interface RootErrorBoundaryProps {
   /** A class name that will be applied to the root container that displays errors. */
@@ -74,7 +75,7 @@ export class RootErrorBoundary extends React.Component<
   override render() {
     if (this.state.error) {
       const { error } = this.state
-
+      const { t } = useTranslation()
       return (
         <>
           <ResetStyle />
@@ -82,16 +83,18 @@ export class RootErrorBoundary extends React.Component<
           <WindowControlsStyle />
           <WindowControls />
           <Container>
-            <Headline5>Something went wrong :(</Headline5>
+            <Headline5>{t('main.rootErrorBoundary.errorHeader', 'Something went wrong :(')}</Headline5>
             <ErrorInfo>{String(error.stack ?? error)}</ErrorInfo>
             <Instructions>
+            <Trans i18nKey="main.rootErrorBoundary.reportErrorDescription">
               Please report this issue to us in our{' '}
               <a href={DISCORD_URL} title='Discord' target='_blank' rel='noopener'>
                 Discord
               </a>
               .
+            </Trans>
             </Instructions>
-            <RaisedButton label='Reload app' color='primary' onClick={this.reloadApp} />
+            <RaisedButton label={t('main.rootErrorBoundary.reloadAppButtonText', 'Reload app')} color='primary' onClick={this.reloadApp} />
           </Container>
         </>
       )

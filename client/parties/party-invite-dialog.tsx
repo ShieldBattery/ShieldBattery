@@ -9,6 +9,7 @@ import { Dialog } from '../material/dialog'
 import { TextField } from '../material/text-field'
 import { useAppDispatch } from '../redux-hooks'
 import { inviteToParty } from './action-creators'
+import { useTranslation } from 'react-i18next'
 
 const userValidator = composeValidators(
   required('Enter a username'),
@@ -30,7 +31,7 @@ export function PartyInviteDialog({
 }) {
   const dispatch = useAppDispatch()
   const inputRef = useRef<HTMLInputElement>(null)
-
+  const { t } = useTranslation()
   useEffect(() => {
     const autoFocusTimer = setTimeout(() => inputRef.current?.focus(), 450)
     return () => clearTimeout(autoFocusTimer)
@@ -53,13 +54,13 @@ export function PartyInviteDialog({
   const onSendClick = useCallback(() => handleSubmit(), [handleSubmit])
 
   const buttons = [
-    <TextButton label='Cancel' key='cancel' color='accent' onClick={onCancel} />,
-    <TextButton label='Send invites' key='send' color='accent' onClick={onSendClick} />,
+    <TextButton label={t('common.cancelLabel', 'Cancel')} key='cancel' color='accent' onClick={onCancel} />,
+    <TextButton label={t('common.sendInvitesLabel', 'Send invites')} key='send' color='accent' onClick={onSendClick} />,
   ]
 
   return (
     <Dialog
-      title='Invite players to the party'
+      title={t('common.invitePlayersLabel', 'Invite players to the party')}
       buttons={buttons}
       onCancel={onCancel}
       dialogRef={dialogRef}>

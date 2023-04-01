@@ -6,6 +6,7 @@ import { useSelfUser } from '../auth/state-hooks'
 import { useAppSelector } from '../redux-hooks'
 import { colorTextSecondary } from '../styles/colors'
 import { Headline3, Headline5, Headline6, headline6, overline } from '../styles/typography'
+import { useTranslation } from 'react-i18next'
 
 const dateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -59,7 +60,7 @@ export function ConnectedMatchmakingDisabledCard({
   const [hours, setHours] = useState('00')
   const [minutes, setMinutes] = useState('00')
   const [seconds, setSeconds] = useState('00')
-
+  const { t } = useTranslation()
   const nextStartDate = status?.nextStartDate
   const nextEndDate = status?.nextEndDate
   useEffect(() => {
@@ -98,41 +99,40 @@ export function ConnectedMatchmakingDisabledCard({
 
   return (
     <DisabledCard className={className}>
-      <Headline5>Matchmaking disabled</Headline5>
+      <Headline5>{t('matchmaking.matchmakingDisabledLabel', 'Matchmaking disabled')}</Headline5>
       <DisabledText>
-        Matchmaking is sometimes shut down for maintenance and development, and is currently
-        disabled. The next matchmaking period is:
+      {t('matchmaking.matchmakingDisabledText', 'Matchmaking is sometimes shut down for maintenance and development, and is currently disabled. The next matchmaking period is:')}
       </DisabledText>
       {nextStartDate && Number(nextStartDate) > Date.now() ? (
         <>
           <Headline6>{dateFormat.format(nextStartDate)}</Headline6>
           {nextEndDate && nextEndDate > nextStartDate ? (
             <>
-              <ToText>to</ToText>
+              <ToText>{t('common.toLabel', 'to')}</ToText>
               <Headline6>{dateFormat.format(nextEndDate)}</Headline6>
             </>
           ) : null}
           <CountdownContainer>
             <CountdownItemContainer>
-              <CountdownItemText>Days</CountdownItemText>
+              <CountdownItemText>{t('common.daysLabel', 'Days')}</CountdownItemText>
               <Headline3>{days}</Headline3>
             </CountdownItemContainer>
             <CountdownItemContainer>
-              <CountdownItemText>Hours</CountdownItemText>
+              <CountdownItemText>{t('common.hoursLabel', 'Hours')}</CountdownItemText>
               <Headline3>{hours}</Headline3>
             </CountdownItemContainer>
             <CountdownItemContainer>
-              <CountdownItemText>Minutes</CountdownItemText>
+              <CountdownItemText>{t('common.minutesLabel', 'Minutes')}</CountdownItemText>
               <Headline3>{minutes}</Headline3>
             </CountdownItemContainer>
             <CountdownItemContainer>
-              <CountdownItemText>Seconds</CountdownItemText>
+              <CountdownItemText>{t('common.secondsLabel', 'Seconds')}</CountdownItemText>
               <Headline3>{seconds}</Headline3>
             </CountdownItemContainer>
           </CountdownContainer>
         </>
       ) : (
-        <Headline6>Soon™</Headline6>
+        <Headline6>{t('common.indeterminateLabel', 'Soon™')}</Headline6>
       )}
     </DisabledCard>
   )

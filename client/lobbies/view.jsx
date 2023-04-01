@@ -62,6 +62,7 @@ const PreLobbyArea = styled.div`
   flex-direction: column;
   padding: 0 16px;
 `
+const { t } = useTranslation()
 
 @connect(mapStateToProps)
 export default class LobbyView extends React.Component {
@@ -176,7 +177,6 @@ export default class LobbyView extends React.Component {
   }
 
   // TODO(tec27): refactor out into its own component
-  const { t } = useTranslation()
   renderLobbyStateContent(state) {
     switch (state) {
       case 'nonexistent':

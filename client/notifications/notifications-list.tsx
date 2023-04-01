@@ -8,6 +8,7 @@ import { colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { headline6, subtitle1 } from '../styles/typography'
 import { clearNotifications } from './action-creators'
 import { notificationToUi } from './notification-to-ui'
+import { useTranslation } from 'react-i18next'
 
 const ListContainer = styled.div`
   width: 100%;
@@ -54,12 +55,13 @@ export interface NotificationsListProps {
 }
 
 export function NotificationsList(props: NotificationsListProps) {
+  const { t } = useTranslation()
   return (
     <ListContainer>
       <TitleArea>
-        <TitleText>Notifications</TitleText>
+        <TitleText>{t('common.notificationsLabel', 'Notifications')}</TitleText>
         <ClearButton
-          label='Clear'
+          label={t('common.clearLabel', 'Clear')}
           color='accent'
           onClick={props.onClear}
           testName='notifications-clear-button'
@@ -71,7 +73,7 @@ export function NotificationsList(props: NotificationsListProps) {
             notificationToUi(n, `notif-${i}`, i < props.notifications.length - 1),
           )
         ) : (
-          <EmptyList>Nothing to see here</EmptyList>
+          <EmptyList>{t('common.emptyListMessage', 'Nothing to see here')}</EmptyList>
         )}
       </ListArea>
     </ListContainer>

@@ -7,6 +7,7 @@ import TopLinks from '../landing/top-links'
 import { Dialog } from '../material/dialog'
 import { LoadingDotsArea } from '../progress/dots'
 import { body1, body2, headline3, headline5, subtitle1 } from '../styles/typography'
+import { useTranslation } from 'react-i18next'
 
 const PolicyRoot = styled.div`
   ${body1};
@@ -70,9 +71,10 @@ const AcceptableUseContent = React.lazy(async () => {
 })
 
 export function AcceptableUseDialog(props: CommonDialogProps) {
+  const { t } = useTranslation()
   return (
     <Dialog
-      title='Acceptable use'
+      title={t('common.acceptableUseLabel', 'Acceptable use')}
       onCancel={props.onCancel}
       showCloseButton={true}
       dialogRef={props.dialogRef}>
@@ -95,9 +97,10 @@ const PrivacyPolicyContent = React.lazy(async () => {
 })
 
 export function PrivacyPolicyDialog(props: CommonDialogProps) {
+  const { t } = useTranslation()
   return (
     <Dialog
-      title='Privacy policy'
+      title={t('common.privacyPolicyLabel', 'Privacy policy')}
       onCancel={props.onCancel}
       showCloseButton={true}
       dialogRef={props.dialogRef}>
@@ -120,9 +123,10 @@ const TermsOfServiceContent = React.lazy(async () => {
 })
 
 export function TermsOfServiceDialog(props: CommonDialogProps) {
+  const { t } = useTranslation()
   return (
     <Dialog
-      title='Terms of service'
+      title={t('common.termsOfServiceLabel', 'Terms of service')}
       onCancel={props.onCancel}
       showCloseButton={true}
       dialogRef={props.dialogRef}>

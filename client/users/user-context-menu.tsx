@@ -24,6 +24,7 @@ import {
   unblockUser,
 } from './action-creators'
 import { userRelationshipErrorToString } from './relationship-errors'
+import { useTranslation } from 'react-i18next'
 
 const LoadingItem = styled(MenuItem)`
   color: ${colorTextFaint};
@@ -135,20 +136,20 @@ function ConnectedUserContextMenuContents({
     dispatch(kickPlayer(partyId!, userId))
     onDismiss()
   })
-
+  const { t } = useTranslation()
   let items: Map<MenuItemCategory, React.ReactNode[]> = new Map()
   if (!user) {
     // TODO(tec27): Ideally this wouldn't have hover/focus state
     appendToMultimap(
       items,
       MenuItemCategory.General,
-      <LoadingItem key='loading' text='Loading user…' />,
+      <LoadingItem key='loading' text={t('users.userContextMenu.loadingUserText', 'Loading user\u2026')} />,
     )
   } else {
     appendToMultimap(
       items,
       MenuItemCategory.General,
-      <MenuItem key='profile' text='View profile' onClick={onViewProfileClick} />,
+      <MenuItem key='profile' text={t('users.userContextMenu.viewProfileButtonText', 'View profile')} onClick={onViewProfileClick} />,
     )
 
     if (user.id !== selfUser.id) {
@@ -156,7 +157,7 @@ function ConnectedUserContextMenuContents({
         appendToMultimap(
           items,
           MenuItemCategory.General,
-          <MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />,
+          <MenuItem key='whisper' text={t('users.userContextMenu.whisperButtonText', 'Whisper')} onClick={onWhisperClick} />,
         )
       }
 
@@ -167,7 +168,7 @@ function ConnectedUserContextMenuContents({
             MenuItemCategory.General,
             <MenuItem
               key='remove-friend'
-              text='Remove friend'
+              text={t('users.userContextMenu.removeFriendButtonText', 'Remove friend')}
               onClick={() => {
                 dispatch(
                   removeFriend(userId, {
@@ -195,7 +196,7 @@ function ConnectedUserContextMenuContents({
               MenuItemCategory.General,
               <MenuItem
                 key='remove-friend-request'
-                text='Remove friend request'
+                text={t('users.userContextMenu.removeFriendRequestButtonText', 'Remove friend request')}
                 onClick={() => {
                   dispatch(
                     removeFriendRequest(userId, {
@@ -224,7 +225,7 @@ function ConnectedUserContextMenuContents({
               MenuItemCategory.General,
               <MenuItem
                 key='accept-friend-request'
-                text='Add friend'
+                text={t('users.userContextMenu.addFriendButtonText', 'Add friend')}
                 onClick={() => {
                   dispatch(
                     acceptFriendRequest(userId, {
@@ -255,7 +256,7 @@ function ConnectedUserContextMenuContents({
             MenuItemCategory.General,
             <MenuItem
               key='unblock'
-              text='Unblock'
+              text={t('users.userContextMenu.unblockButtonText', 'Unblock')}
               onClick={() => {
                 dispatch(
                   unblockUser(userId, {
@@ -282,7 +283,7 @@ function ConnectedUserContextMenuContents({
             MenuItemCategory.General,
             <MenuItem
               key='add-friend'
-              text='Add friend'
+              text={t('users.userContextMenu.addFriendButtonText', 'Add friend')}
               onClick={() => {
                 dispatch(
                   sendFriendRequest(userId, {
@@ -316,7 +317,7 @@ function ConnectedUserContextMenuContents({
           MenuItemCategory.General,
           <MenuItem
             key='block'
-            text='Block'
+            text={t('users.userContextMenu.blockButtonText', 'Block')}
             onClick={() => {
               dispatch(
                 blockUser(userId, {
@@ -343,7 +344,7 @@ function ConnectedUserContextMenuContents({
           appendToMultimap(
             items,
             MenuItemCategory.Party,
-            <MenuItem key='invite' text='Invite to party' onClick={onInviteToPartyClick} />,
+            <MenuItem key='invite' text={t('users.userContextMenu.inviteToPartyButtonText', 'Invite to party')} onClick={onInviteToPartyClick} />,
           )
         } else if (partyLeader === selfUser.id) {
           const isAlreadyInParty = !!partyMembers?.includes(user.id)
@@ -354,19 +355,19 @@ function ConnectedUserContextMenuContents({
             appendToMultimap(
               items,
               MenuItemCategory.Party,
-              <MenuItem key='kick-party' text='Kick from party' onClick={onKickPlayerClick} />,
+              <MenuItem key='kick-party' text={t('users.userContextMenu.kickFromPartyButtonText', 'Kick from party')} onClick={onKickPlayerClick} />,
             )
           } else if (hasInvite) {
             appendToMultimap(
               items,
               MenuItemCategory.Party,
-              <MenuItem key='invite' text='Uninvite from party' onClick={onRemovePartyInvite} />,
+              <MenuItem key='invite' text={t('users.userContextMenu.uninviteFromPartyButtonText', 'Uninvite from party')} onClick={onRemovePartyInvite} />,
             )
           } else if (relationshipKind !== UserRelationshipKind.Block) {
             appendToMultimap(
               items,
               MenuItemCategory.Party,
-              <MenuItem key='invite' text='Invite to party' onClick={onInviteToPartyClick} />,
+              <MenuItem key='invite' text={t('users.userContextMenu.inviteToPartyButtonText', 'Invite to party')} onClick={onInviteToPartyClick} />,
             )
           }
         }

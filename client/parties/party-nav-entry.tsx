@@ -11,6 +11,7 @@ import AttentionIndicator from '../material/left-nav/attention-indicator'
 import { amberA200, colorTextFaint } from '../styles/colors'
 import { singleLine, subtitle2 } from '../styles/typography'
 import { CurrentPartyState } from './party-reducer'
+import { useTranslation } from 'react-i18next'
 
 const Container = styled.li<{ isActive: boolean }>`
   position: relative;
@@ -112,17 +113,17 @@ export function PartyNavEntry({
     },
     [partyId, onLeavePartyClick],
   )
-
+  const { t } = useTranslation()
   return (
     <Container isActive={isActive}>
       {needsAttention ? <AttentionIndicator /> : null}
       <StyledLink to={link}>
         <StyledPartyIcon />
-        <Title isActive={isActive}>Party</Title>
+        <Title isActive={isActive}>{t('common.partyLabel', 'Party')}</Title>
         {canInvite ? (
-          <EntryButton icon={<InviteIcon />} title='Invite players' onClick={onInviteClick} />
+          <EntryButton icon={<InviteIcon />} title={t('common.invitePlayersLabel', 'Invite players')} onClick={onInviteClick} />
         ) : null}
-        <EntryButton icon={<CloseIcon />} title='Leave party' onClick={onLeaveClick} />
+        <EntryButton icon={<CloseIcon />} title={t('common.leavePartyLabel', 'Leave party')} onClick={onLeaveClick} />
       </StyledLink>
     </Container>
   )

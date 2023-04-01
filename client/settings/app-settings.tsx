@@ -20,6 +20,7 @@ import { resetMasterVolume } from './action-creators'
 import { FormContainer } from './settings-content'
 import { SettingsFormHandle } from './settings-form-ref'
 import { LocalSettings } from './settings-records'
+import { useTranslation } from 'react-i18next'
 
 const VolumeSettings = styled.div`
   display: flex;
@@ -72,7 +73,7 @@ const AppSettingsForm = React.forwardRef<
   useImperativeHandle(ref, () => ({
     submit: onSubmit,
   }))
-
+  const { t } = useTranslation()
   const { onChange: formOnMasterVolumeChange } = bindCustom('masterVolume')
   const propsOnMasterVolumeChange = props.onMasterVolumeChange
   const onMasterVolumeChange = useCallback(
@@ -86,12 +87,12 @@ const AppSettingsForm = React.forwardRef<
   const testSoundLabel = props.isPlayingTestSound ? (
     <>
       <StopIcon />
-      <span>Stop</span>
+      <span>{t('settings.sound.stopPlayingTestSoundLabel', 'Stop')}</span>
     </>
   ) : (
     <>
       <PlayIcon />
-      <span>Test</span>
+      <span>{t('settings.sound.playTestSoundLabel', 'Test')}</span>
     </>
   )
 
@@ -103,7 +104,7 @@ const AppSettingsForm = React.forwardRef<
           <VolumeSettings>
             <StyledSlider
               {...bindCustom('masterVolume')}
-              label='Master volume'
+              label={t('settings.sound.masterVolumeLabel', 'Master volume')}
               tabIndex={0}
               min={0}
               max={100}
@@ -117,12 +118,12 @@ const AppSettingsForm = React.forwardRef<
         <div>
           <CheckBox
             {...bindCheckable('runAppAtSystemStart')}
-            label='Run ShieldBattery on system startup'
+            label={t('settings.checkbox.runAppAtSystemStart', 'Run ShieldBattery on system startup')}
             inputProps={{ tabIndex: 0 }}
           />
           <IndentedCheckbox
             {...bindCheckable('runAppAtSystemStartMinimized')}
-            label='Start minimized'
+            label={t('settings.checkbox.runAppAtSystemStartMinimized', 'Start minimized')}
             inputProps={{ tabIndex: 0 }}
             disabled={!getInputValue('runAppAtSystemStart')}
           />

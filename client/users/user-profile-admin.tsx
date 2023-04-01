@@ -27,6 +27,7 @@ import {
   adminUpdateUserPermissions,
 } from './action-creators'
 import { ConnectedUsername } from './connected-username'
+import { useTranslation } from 'react-i18next'
 
 const AdminUserPageRoot = styled.div`
   width: 100%;
@@ -81,7 +82,7 @@ function PermissionsEditor({ user, selfUser }: { user: SbUser; selfUser: SelfUse
 
   const userId = user.id
   const isSelf = userId === selfUser.id
-
+  const { t } = useTranslation()
   const onFormSubmit = useCallback(
     (model: SbPermissions) => {
       dispatch(
@@ -125,7 +126,7 @@ function PermissionsEditor({ user, selfUser }: { user: SbUser; selfUser: SelfUse
 
   return (
     <AdminSection $gridColumn='span 3'>
-      <Headline5>Permissions</Headline5>
+      <Headline5>{t('users.userProfileAdmin.permissionsLabel', 'Permissions')}</Headline5>
       {requestError ? <LoadingError>{requestError.message}</LoadingError> : null}
       {model ? (
         <PermissionsEditorForm
@@ -166,50 +167,50 @@ function PermissionsEditorForm({
     <form noValidate={true} onSubmit={onSubmit}>
       <CheckBox
         {...bindCheckable('editPermissions')}
-        label='Edit permissions'
+        label={t('users.userProfileAdmin.editPermissionsButtonText', 'Edit permissions')}
         inputProps={inputProps}
         disabled={isSelf}
       />
-      <CheckBox {...bindCheckable('debug')} label='Debug' inputProps={inputProps} />
-      <CheckBox {...bindCheckable('banUsers')} label='Ban users' inputProps={inputProps} />
+      <CheckBox {...bindCheckable('debug')} label={t('users.userProfileAdmin.debugButtonText', 'Debug')} inputProps={inputProps} />
+      <CheckBox {...bindCheckable('banUsers')} label={t('users.userProfileAdmin.banUsersButtonText', 'Ban users')} inputProps={inputProps} />
       <CheckBox
         {...bindCheckable('manageLeagues')}
-        label='Manage leagues'
+        label={t('users.userProfileAdmin.manageLeaguesButtonText', 'Manage leagues')}
         inputProps={inputProps}
       />
-      <CheckBox {...bindCheckable('manageMaps')} label='Manage maps' inputProps={inputProps} />
+      <CheckBox {...bindCheckable('manageMaps')} label={t('users.userProfileAdmin.manageMapsButtonText', 'Manage maps')} inputProps={inputProps} />
       <CheckBox
         {...bindCheckable('manageMapPools')}
-        label='Manage matchmaking map pools'
+        label={t('users.userProfileAdmin.manageMatchmakingMapPoolsButtonText', 'Manage matchmaking map pools')}
         inputProps={inputProps}
       />
       <CheckBox
         {...bindCheckable('manageMatchmakingTimes')}
-        label='Manage matchmaking times'
+        label={t('users.userProfileAdmin.manageMatchmakingTimesButtonText', 'Manage matchmaking times')}
         inputProps={inputProps}
       />
       <CheckBox
         {...bindCheckable('manageMatchmakingSeasons')}
-        label='Manage matchmaking seasons'
+        label={t('users.userProfileAdmin.manageMatchmakingSeasonsButtonText', 'Manage matchmaking seasons')}
         inputProps={inputProps}
       />
       <CheckBox
         {...bindCheckable('manageRallyPointServers')}
-        label='Manage rally-point servers'
+        label={t('users.userProfileAdmin.manageRallyPointServersButtonText', 'Manage rally-point servers')}
         inputProps={inputProps}
       />
       <CheckBox
         {...bindCheckable('massDeleteMaps')}
-        label='Mass delete maps'
+        label={t('users.userProfileAdmin.massDeleteMapsButtonText', 'Mass delete maps')}
         inputProps={inputProps}
       />
       <CheckBox
         {...bindCheckable('moderateChatChannels')}
-        label='Moderate chat channels'
+        label={t('users.userProfileAdmin.moderateChatChannelsButtonText', 'Moderate chat channels')}
         inputProps={inputProps}
       />
 
-      <TextButton label='Save' color='accent' tabIndex={0} onClick={onSubmit} />
+      <TextButton label={t('users.userProfileAdmin.saveButtonText', 'Save')} color='accent' tabIndex={0} onClick={onSubmit} />
     </form>
   )
 }
@@ -331,14 +332,15 @@ const banDateFormat = new Intl.DateTimeFormat(navigator.language, {
 })
 
 function BanHistoryList({ banHistory }: { banHistory: ReadonlyDeep<BanHistoryEntryJson[]> }) {
+  const { t } = useTranslation()
   return (
     <BanTable>
       <thead>
         <tr>
-          <th>Start time</th>
-          <th>End time</th>
-          <th>Banned by</th>
-          <th>Reason</th>
+          <th>{t('users.userProfileAdmin.banStartTimeLabel', 'Start time')}</th>
+          <th>{t('users.userProfileAdmin.banEndTimeLabel', 'End time')}</th>
+          <th>{t('users.userProfileAdmin.banEnactedByLabel', 'Banned by')}</th>
+          <th>{t('users.userProfileAdmin.banReasonLabel', 'Reason')}</th>
         </tr>
       </thead>
       <tbody>
@@ -359,7 +361,7 @@ function BanHistoryList({ banHistory }: { banHistory: ReadonlyDeep<BanHistoryEnt
           ))
         ) : (
           <BanRow>
-            <EmptyState colSpan={4}>No bans found</EmptyState>
+            <EmptyState colSpan={4}>{t('users.userProfileAdmin.noBanHistoryText', 'No bans found')}</EmptyState>
           </BanRow>
         )}
       </tbody>
@@ -386,21 +388,21 @@ function BanUserForm({
       onSubmit: onFormSubmit,
     },
   )
-
+  const { t } = useTranslation()
   return (
     <form noValidate={true} onSubmit={onSubmit}>
-      <Headline5>Ban user</Headline5>
-      <Select {...bindCustom('banLengthHours')} label='Ban length' tabIndex={0}>
-        <SelectOption value={3} text='3 Hours' />
-        <SelectOption value={24} text='1 Day' />
-        <SelectOption value={24 * 7} text='1 Week' />
-        <SelectOption value={24 * 7 * 4} text='1 Month' />
-        <SelectOption value={24 * 365 * 999} text='Permanent!' />
+      <Headline5>{t('users.userProfileAdmin.banUserHeader', 'Ban user')}</Headline5>
+      <Select {...bindCustom('banLengthHours')} label={t('users.userProfileAdmin.banLengthLabel', 'Ban length')} tabIndex={0}>
+        <SelectOption value={3} text={t('users.userProfileAdmin.banLength3HoursText', '3 Hours')} />
+        <SelectOption value={24} text={t('users.userProfileAdmin.banLength1DayText', '1 Day')} />
+        <SelectOption value={24 * 7} text={t('users.userProfileAdmin.banLength1WeekText', '1 Week')} />
+        <SelectOption value={24 * 7 * 4} text={t('users.userProfileAdmin.banLength1MonthText', '1 Month')} />
+        <SelectOption value={24 * 365 * 999} text={t('users.userProfileAdmin.banLengthPermanentText', 'Permanent!')} />
       </Select>
-      <Body1>This reason will be visible to the user!</Body1>
+      <Body1>{t('users.userProfileAdmin.banReasonNotice', 'This reason will be visible to the user!')}</Body1>
       <TextField
         {...bindInput('reason')}
-        label='Ban reason'
+        label={t('users.userProfileAdmin.banReasonLabel', 'Ban reason')}
         floatingLabel={true}
         inputProps={{
           tabIndex: 0,
@@ -410,7 +412,7 @@ function BanUserForm({
           spellCheck: false,
         }}
       />
-      <RaisedButton label='Ban' color='primary' tabIndex={0} onClick={onSubmit} />
+      <RaisedButton label={t('users.userProfileAdmin.banLabel', 'Ban')} color='primary' tabIndex={0} onClick={onSubmit} />
     </form>
   )
 }
@@ -419,7 +421,7 @@ function UserIpHistory({ user }: { user: SbUser }) {
   const dispatch = useAppDispatch()
   const [ips, setIps] = useState<ReadonlyDeep<UserIpInfoJson[]>>()
   const [relatedUsers, setRelatedUsers] = useState<ReadonlyDeep<Map<string, UserIpInfoJson[]>>>()
-
+  const { t } = useTranslation()
   const [requestError, setRequestError] = useState<Error>()
   const cancelLoadRef = useRef(new AbortController())
 
@@ -450,7 +452,7 @@ function UserIpHistory({ user }: { user: SbUser }) {
 
   return (
     <AdminSection $gridColumn='span 5'>
-      <Headline5>IP addresses</Headline5>
+      <Headline5>{t('users.userProfileAdmin.ipAddressHeader', 'IP addresses')}</Headline5>
       {requestError ? <LoadingError>{requestError.message}</LoadingError> : null}
       {ips === undefined ? <LoadingDotsArea /> : <IpList ips={ips} relatedUsers={relatedUsers!} />}
     </AdminSection>

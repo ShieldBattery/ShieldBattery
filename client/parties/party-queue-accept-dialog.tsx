@@ -13,6 +13,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorError } from '../styles/colors'
 import { subtitle1, Subtitle1 } from '../styles/typography'
 import { acceptFindMatchAsParty, cancelFindMatchAsParty } from './action-creators'
+import { Trans, useTranslation } from 'react-i18next'
 
 const StyledDialog = styled(Dialog)`
   max-width: 416px;
@@ -49,6 +50,7 @@ export function PartyQueueAcceptDialog({ dialogRef }: CommonDialogProps) {
   const searchButtonRef = useRef<HTMLButtonElement>(null)
   const [changeInProgress, setChangeInProgress] = useState(false)
   const [error, setError] = useState<string>()
+  const { t } = useTranslation()
 
   const onCancel = useCallback(() => {
     if (partyId && queueId) {
@@ -103,7 +105,7 @@ export function PartyQueueAcceptDialog({ dialogRef }: CommonDialogProps) {
 
   const buttons = [
     <TextButton
-      label='Cancel'
+      label={t('common.cancelLabel', 'Cancel')}
       key='cancel'
       color='accent'
       onClick={onCancel}
@@ -111,7 +113,7 @@ export function PartyQueueAcceptDialog({ dialogRef }: CommonDialogProps) {
     />,
     <TextButton
       ref={searchButtonRef}
-      label='Search'
+      label={t('common.searchLabel', 'Search')}
       key='search'
       color='accent'
       onClick={onSearch}
@@ -123,15 +125,17 @@ export function PartyQueueAcceptDialog({ dialogRef }: CommonDialogProps) {
     <StyledDialog
       dialogRef={dialogRef}
       showCloseButton={false}
-      title='Choose your race'
+      title={t('common.chooseRaceLabel', 'Choose your race')}
       buttons={buttons}>
-      {error ? <ErrorText>Error: {error}</ErrorText> : null}
+      {error ? <ErrorText>{t('common.errorLabel', 'Error')}: {error}</ErrorText> : null}
       <Subtitle1>
+      <Trans i18nKey="common.partySearchingText">
         Your party is searching for a{' '}
         <MatchmakingTypeText>
           {matchmakingTypeToLabel(queueState.matchmakingType)}
         </MatchmakingTypeText>{' '}
         match.
+      </Trans>
       </Subtitle1>
       <StyledRaceSelect
         value={race}

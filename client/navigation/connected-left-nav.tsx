@@ -56,6 +56,7 @@ import { closeWhisperSession } from '../whispers/action-creators'
 import { WhisperNavEntry } from '../whispers/nav-entry'
 import Lockup from './lockup'
 import { push } from './routing'
+import { useTranslation } from 'react-i18next'
 
 const ALT_H = { keyCode: keycode('h'), altKey: true }
 const ALT_W = { keyCode: keycode('w'), altKey: true }
@@ -194,6 +195,7 @@ function LoadingGameSection() {
   const matchmakingCountingDown = useAppSelector(s => s.matchmaking.isCountingDown)
   const matchmakingStarting = useAppSelector(s => s.matchmaking.isStarting)
   const [currentPath] = useLocation()
+  const { t } = useTranslation()
 
   if (!isLobbyLoading && !isMatchLoading) return null
 
@@ -227,7 +229,7 @@ function LoadingGameSection() {
           link={link}
           currentPath={currentPath}
           title={title}
-          subtitle='Loading…'
+          subtitle={t('common.loadingLabel', 'Loading\u2026')}
         />
       </Section>
       <SectionSpacer key='loading-game-divider' />
@@ -239,6 +241,7 @@ function ActiveGameSection() {
   const isActive = useAppSelector(s => s.activeGame.isActive)
   const gameInfo = useAppSelector(s => s.activeGame.info)
   const [currentPath] = useLocation()
+  const { t } = useTranslation()
 
   if (!isActive || !gameInfo) {
     return null
@@ -264,7 +267,7 @@ function ActiveGameSection() {
           link={link}
           currentPath={currentPath}
           title={title}
-          subtitle='Game in progress…'
+          subtitle={t('common.gameInProgressLabel', 'Game in progress\u2026')}
         />
       </Section>
       <SectionSpacer key='active-game-divider' />
@@ -395,6 +398,7 @@ export function ConnectedLeftNav() {
   const selfUser = useSelfUser()!
   const chatChannels = useAppSelector(s => s.chat.joinedChannels)
   const whisperSessions = useAppSelector(s => s.whispers.sessions)
+  const { t } = useTranslation()
 
   const [profileOverlayOpen, openProfileOverlay, closeProfileOverlay] = usePopoverController()
   const profileEntryRef = useRef<HTMLButtonElement>(null)
@@ -465,7 +469,7 @@ export function ConnectedLeftNav() {
   )
 
   const joinChannelButton = (
-    <Tooltip text='Join a channel (Alt + H)' position='right'>
+    <Tooltip text={t('nav.joinChannelText', 'Join a channel (Alt + H)')} position='right'>
       <SubheaderButton
         ref={joinChannelButtonRef}
         icon={<MaterialIcon icon='add' />}
@@ -474,7 +478,7 @@ export function ConnectedLeftNav() {
     </Tooltip>
   )
   const addWhisperButton = (
-    <Tooltip text='Start a whisper (Alt + W)' position='right'>
+    <Tooltip text={t('nav.startWhisperText', 'Start a whisper (Alt + W)')} position='right'>
       <SubheaderButton
         ref={startWhisperButtonRef}
         icon={<MaterialIcon icon='add' />}
@@ -490,7 +494,7 @@ export function ConnectedLeftNav() {
       {IS_ELECTRON ? <ActiveGameSection /> : null}
       {IS_ELECTRON ? <LobbySection /> : null}
       {IS_ELECTRON ? <PartySection /> : null}
-      <Subheader button={MULTI_CHANNEL ? joinChannelButton : null}>Chat channels</Subheader>
+      <Subheader button={MULTI_CHANNEL ? joinChannelButton : null}>{t('common.chatChannelsLabel', 'Chat channels')}</Subheader>
       <Section>
         {Array.from(chatChannels.values(), c => (
           <ConnectedChatNavEntry key={c} channelId={c} onLeave={onChannelLeave} />
@@ -511,11 +515,11 @@ export function ConnectedLeftNav() {
         }}
         anchor={profileEntryRef.current}
         username={selfUser.name}>
-        <MenuItem icon={<PortraitIcon />} text='View profile' onClick={onViewProfileClick} />
-        <MenuItem icon={<ChangelogIcon />} text='View changelog' onClick={onChangelogClick} />
-        <MenuItem icon={<EditIcon />} text='Edit account' onClick={onEditAccountClick} />
+        <MenuItem icon={<PortraitIcon />} text={t('nav.viewProfileLabel', 'View profile')} onClick={onViewProfileClick} />
+        <MenuItem icon={<ChangelogIcon />} text={t('nav.viewChangelogLabel', 'View changelog')} onClick={onChangelogClick} />
+        <MenuItem icon={<EditIcon />} text={t('nav.editAccountLabel', 'Edit account')} onClick={onEditAccountClick} />
         <MenuDivider />
-        <MenuItem icon={<LogoutIcon />} text='Log out' onClick={onLogOutClick} />
+        <MenuItem icon={<LogoutIcon />} text={t('common.logOutLabel', 'Log out')} onClick={onLogOutClick} />
       </SelfProfileOverlay>
     </LeftNav>
   )
@@ -529,9 +533,10 @@ const LoggedOutFooter = styled.div`
 `
 
 export function LoggedOutLeftNav() {
+  const { t } = useTranslation()
   const footer = (
     <LoggedOutFooter>
-      <RaisedButton label='Log in' onClick={() => redirectToLogin(push)} />
+      <RaisedButton label={t('common.logInLabel', 'Log in')} onClick={() => redirectToLogin(push)} />
     </LoggedOutFooter>
   )
 

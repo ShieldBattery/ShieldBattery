@@ -21,6 +21,7 @@ import { SettingsFormHandle } from './settings-form-ref'
 import { LocalSettings, ScrSettings } from './settings-records'
 import SoundSettings from './sound-settings'
 import VideoSettings from './video-settings'
+import { useTranslation } from 'react-i18next'
 
 const TitleActionContainer = styled.div`
   display: flex;
@@ -69,6 +70,7 @@ export default function SettingsDialog({ dialogRef, onCancel }: CommonDialogProp
   const localSettings = useAppSelector(s => s.settings.local)
   const scrSettings = useAppSelector(s => s.settings.scr)
   const lastError = useAppSelector(s => s.settings.lastError)
+  const { t } = useTranslation()
 
   const [activeTab, setActiveTab] = useState(savedSettingsTab.getValue() ?? SettingsTab.App)
   const [tempLocalSettings, setTempLocalSettings] = useState<LocalSettings>(localSettings)
@@ -116,14 +118,14 @@ export default function SettingsDialog({ dialogRef, onCancel }: CommonDialogProp
   useEffect(() => {
     saveButtonRef.current?.focus()
   }, [])
-
+  const { t } = useTranslation()
   const starcraftVersionText = 'StarCraft: Remastered'
   const titleAction = (
     <TitleActionContainer>
       <TitleActionText onClick={onSetPathClick}>{starcraftVersionText}</TitleActionText>
       <TitleActionButton
         icon={<SetPathIcon />}
-        title='Change StarCraft path'
+        title={t('settings.changeStarCraftPath', 'Change StarCraft path')}
         onClick={onSetPathClick}
       />
     </TitleActionContainer>
@@ -131,19 +133,19 @@ export default function SettingsDialog({ dialogRef, onCancel }: CommonDialogProp
 
   const tabs = (
     <Tabs activeTab={activeTab} onChange={onTabChange}>
-      <TabItem key='app' text='App' value={SettingsTab.App} />
-      <TabItem key='input' text='Input' value={SettingsTab.Input} />
-      <TabItem key='sound' text='Sound' value={SettingsTab.Sound} />
-      <TabItem key='video' text='Video' value={SettingsTab.Video} />
-      <TabItem key='gameplay' text='Gameplay' value={SettingsTab.Gameplay} />
+      <TabItem key='app' text={t('settings.tabHeader.appLabel', 'App')} value={SettingsTab.App} />
+      <TabItem key='input' text={t('settings.tabHeader.inputLabel', 'Input')} value={SettingsTab.Input} />
+      <TabItem key='sound' text={t('settings.tabHeader.soundLabel', 'Sound')} value={SettingsTab.Sound} />
+      <TabItem key='video' text={t('settings.tabHeader.videoLabel', 'Video')} value={SettingsTab.Video} />
+      <TabItem key='gameplay' text={t('settings.tabHeader.gameplayLabel', 'Gameplay')} value={SettingsTab.Gameplay} />
     </Tabs>
   )
 
   const buttons = [
-    <TextButton label='Cancel' key='cancel' color='accent' onClick={onSettingsCancel} />,
+    <TextButton label={t('common.cancelButtonText', 'Cancel')} key='cancel' color='accent' onClick={onSettingsCancel} />,
     <TextButton
       ref={saveButtonRef}
-      label='Save'
+      label={t('common.saveButtonText', 'Save')}
       key='save'
       color='accent'
       onClick={onSettingsSave}
@@ -210,7 +212,7 @@ export default function SettingsDialog({ dialogRef, onCancel }: CommonDialogProp
   return (
     <Dialog
       dialogRef={dialogRef}
-      title='Settings'
+      title={t('settings.main.titleHeader', 'Settings')}
       titleAction={titleAction}
       tabs={tabs}
       alwaysHasTopDivider={true}
@@ -218,7 +220,7 @@ export default function SettingsDialog({ dialogRef, onCancel }: CommonDialogProp
       onCancel={onCancel}>
       <ContentsBody>
         {lastError ? (
-          <ErrorText>There was an issue saving the settings. Please try again.</ErrorText>
+          <ErrorText>{t('settings.errorSavingSettings', 'There was an issue saving the settings. Please try again.')}</ErrorText>
         ) : null}
 
         {contents}

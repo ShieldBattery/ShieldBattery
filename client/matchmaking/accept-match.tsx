@@ -14,6 +14,7 @@ import { useStableCallback } from '../state-hooks'
 import { amberA400 } from '../styles/colors'
 import { Body1 } from '../styles/typography'
 import { acceptMatch } from './action-creators'
+import { useTranslation } from 'react-i18next'
 
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
@@ -62,7 +63,7 @@ const FilledTimerBar = styled.div`
 
 export default function AcceptMatch({ dialogRef }: CommonDialogProps) {
   const dispatch = useAppDispatch()
-
+  const { t } = useTranslation()
   const searchInfo = useAppSelector(s => s.matchmaking.searchInfo)
   const failedToAccept = useAppSelector(s => s.matchmaking.failedToAccept)
   const match = useAppSelector(s => s.matchmaking.match)
@@ -77,8 +78,7 @@ export default function AcceptMatch({ dialogRef }: CommonDialogProps) {
   if (searchInfo && !match) {
     contents = (
       <p>
-        Some players didn't ready up in time or failed to load. Returning to the matchmaking
-        queue&hellip;
+        {t('matchmaking.failedToAcceptText', 'Some players didn\'t ready up in time or failed to load. Returning to the matchmaking queue\u2026')}
       </p>
     )
   } else if (failedToAccept) {
@@ -104,7 +104,7 @@ function AcceptingStateView() {
   const hasAccepted = useAppSelector(s => s.matchmaking.hasAccepted)
   const match = useAppSelector(s => s.matchmaking.match)
   const acceptTime = useAppSelector(s => s.matchmaking.acceptTime ?? 0)
-
+  const { t } = useTranslation()
   const onAcceptClick = useStableCallback(() => {
     dispatch(acceptMatch())
   })
@@ -132,12 +132,12 @@ function AcceptingStateView() {
 
   return (
     <div>
-      <Body1>All players must ready up for the match to start.</Body1>
+      <Body1>{t('matchmaking.waitingToAccept', 'All players must ready up for the match to start.')}</Body1>
       <CenteredContainer>
         {hasAccepted ? (
           [...acceptedAvatars, ...unacceptedAvatars]
         ) : (
-          <AcceptMatchButton label='Ready up' onClick={onAcceptClick} disabled={isAccepting} />
+          <AcceptMatchButton label={t('common.readyUpLabel', 'Ready up')} onClick={onAcceptClick} disabled={isAccepting} />
         )}
       </CenteredContainer>
       <TimerBarContainer>
@@ -155,6 +155,7 @@ function AcceptingStateView() {
 
 function FailedStateView() {
   const dispatch = useAppDispatch()
+  const { t } = useTranslation()
   const onFailedClick = useStableCallback(() => {
     dispatch(closeDialog(DialogType.AcceptMatch))
   })
@@ -171,7 +172,7 @@ function FailedStateView() {
 
   return (
     <div>
-      <p>You didn't ready up in time and have been removed from the queue.</p>
+      <p>{t('matchmaking.failedToAcceptText', 'You didn\'t ready up in time and have been removed from the queue.')}</p>
       <RaisedButton label='Ok' onClick={onFailedClick} />
     </div>
   )

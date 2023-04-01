@@ -61,6 +61,7 @@ import { FlexSpacer } from './styles/flex-spacer'
 import { FriendsListActivityButton } from './users/friends-list'
 import { ProfileRouteComponent } from './users/route'
 import { WhisperRouteComponent } from './whispers/route'
+import { useTranslation } from 'react-i18next'
 
 const ALT_B = { keyCode: keycode('b'), altKey: true }
 const ALT_C = { keyCode: keycode('c'), altKey: true }
@@ -290,12 +291,12 @@ export function MainLayout() {
       dispatch(openOverlay({ type: ActivityOverlayType.BrowseLocalReplays }))
     }
   }, [dispatch, starcraft])
-
+  const { t } = useTranslation()
   const findMatchButton = !isMatchmakingSearching ? (
     <ActivityButton
       key='find-match'
       icon={<FindMatchIcon />}
-      label='Find match'
+      label={t('main.mainLayout.findMatchLabel', 'Find match')}
       onClick={onFindMatchClick}
       disabled={inGameplayActivity}
       hotkey={ALT_F}
@@ -306,7 +307,7 @@ export function MainLayout() {
       ref={searchingMatchButtonRef}
       icon={<FindMatchIcon />}
       glowing={true}
-      label='Finding…'
+      label={t('main.mainLayout.findingMatchLabel', 'Finding\u2026')}
       onClick={() => setSearchingMatchOverlayOpen(true)}
       hotkey={ALT_F}
     />
@@ -317,7 +318,7 @@ export function MainLayout() {
         <ActivityButton
           key='lobbies'
           icon={<LobbiesIcon />}
-          label='Lobbies'
+          label={t('main.mainLayout.lobbiesLabel', 'Lobbies')}
           onClick={onLobbiesClick}
           hotkey={ALT_B}
           count={lobbyCount > 0 ? lobbyCount : undefined}
@@ -325,28 +326,28 @@ export function MainLayout() {
         <ActivityButton
           key='maps'
           icon={<MaterialIcon icon='map' size={36} />}
-          label='Maps'
+          label={t('main.mainLayout.mapsLabel', 'Maps')}
           onClick={onMapsClick}
           hotkey={ALT_M}
         />,
         <ActivityButton
           key='replays'
           icon={<ReplaysIcon />}
-          label='Replays'
+          label={t('main.mainLayout.replaysLabel', 'Replays')}
           onClick={onReplaysClick}
           hotkey={ALT_R}
         />,
         <ActivityButton
           key='ladder'
           icon={<MaterialIcon icon='military_tech' size={36} />}
-          label='Ladder'
+          label={t('main.mainLayout.ladderLabel', 'Ladder')}
           onClick={() => navigateToLadder()}
           hotkey={ALT_D}
         />,
         <ActivityButton
           key='leagues'
           icon={<LeaguesIcon />}
-          label='Leagues'
+          label={t('main.mainLayout.leaguesLabel', 'Leagues')}
           onClick={() => navigateToLeaguesList()}
           hotkey={ALT_G}
         />,
@@ -356,21 +357,21 @@ export function MainLayout() {
         <ActivityButton
           key='download'
           icon={<DownloadIcon />}
-          label='Download'
+          label={t('main.mainLayout.downloadLabel', 'Download')}
           onClick={() => dispatch(openDialog({ type: DialogType.Download }))}
           hotkey={ALT_O}
         />,
         <ActivityButton
           key='ladder'
           icon={<MaterialIcon icon='military_tech' size={36} />}
-          label='Ladder'
+          label={t('main.mainLayout.ladderLabel', 'Ladder')}
           onClick={() => navigateToLadder()}
           hotkey={ALT_D}
         />,
         <ActivityButton
           key='leagues'
           icon={<LeaguesIcon />}
-          label='Leagues'
+          label={t('main.mainLayout.leaguesLabel', 'Leagues')}
           onClick={() => navigateToLeaguesList()}
           hotkey={ALT_G}
         />,
@@ -408,7 +409,7 @@ export function MainLayout() {
 
         <MiniActivityButtonsContainer key='mini-buttons'>
           <NotificationsButton />
-          <Tooltip text='Settings (Alt + S)' position='left'>
+          <Tooltip text={t('main.mainLayout.settingsText', 'Settings (Alt + S)')} position='left'>
             <IconButton
               key='settings'
               ref={settingsButtonRef}

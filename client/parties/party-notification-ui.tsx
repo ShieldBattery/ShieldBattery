@@ -10,6 +10,7 @@ import { blue300 } from '../styles/colors'
 import { body2 } from '../styles/typography'
 import { getBatchUserInfo } from '../users/action-creators'
 import { acceptPartyInvite, declinePartyInvite } from './action-creators'
+import { useTranslation } from 'react-i18next'
 
 const ColoredPartyIcon = styled(SupervisedUser)`
   width: 36px;
@@ -45,6 +46,7 @@ export const PartyInviteNotificationUi = React.memo(
     }, [notificationId, partyId, dispatch])
     const from = props.from
     const username = useAppSelector(s => s.users.byId.get(from)?.name)
+    const { t } = useTranslation()
 
     useEffect(() => {
       dispatch(getBatchUserInfo(from))
@@ -58,12 +60,12 @@ export const PartyInviteNotificationUi = React.memo(
         icon={<ColoredPartyIcon />}
         text={
           <span>
-            <Username>{username ?? ''}</Username> sent you a party invitation.
+            <Username>{username ?? ''}</Username> {t('common.receivedPartyInvite', 'sent you a party invitation.')}
           </span>
         }
         actions={[
-          <TextButton key='decline' color='accent' label='Decline' onClick={onDecline} />,
-          <TextButton key='accept' color='accent' label='Accept' onClick={onAccept} />,
+          <TextButton key='decline' color='accent' label={t('common.declineLabel', 'Decline')} onClick={onDecline} />,
+          <TextButton key='accept' color='accent' label={t('common.acceptLabel', 'Accept')} onClick={onAccept} />,
         ]}
       />
     )

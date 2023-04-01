@@ -36,6 +36,7 @@ import { areUserEntriesEqual, sortUserEntries, useUserEntriesSelector } from './
 import { ConnectedUserContextMenu } from './user-context-menu'
 import { useUserOverlays } from './user-overlays'
 import { ConnectedUserProfileOverlay } from './user-profile-overlay'
+import { useTranslation } from 'react-i18next'
 
 const ALT_E: HotkeyProp = { keyCode: keycode('e'), altKey: true }
 
@@ -107,7 +108,7 @@ export function FriendsListActivityButton() {
   useButtonHotkey({ ref: buttonRef, hotkey: ALT_E })
 
   const [, anchorX, anchorY] = useAnchorPosition('right', 'bottom', buttonRef.current)
-
+  const { t } = useTranslation()
   const friendActivityStatus = useAppSelector(s => s.relationships.friendActivityStatus)
   const friendCount = useMemo(() => {
     return Array.from(friendActivityStatus.values()).filter(
@@ -117,7 +118,7 @@ export function FriendsListActivityButton() {
 
   return (
     <>
-      <Tooltip text='Friends (Alt + E)' position='left'>
+      <Tooltip text={t('users.friendsList.friendsListButtonText', 'Friends (Alt + E)')} position='left'>
         <IconButton
           ref={buttonRef}
           icon={<NumberedFriendsIcon count={friendCount} />}
@@ -297,6 +298,7 @@ function FriendsList({ height }: { height: number }) {
     }
     return result
   }, [friendUserEntries, friendActivityStatus])
+  const { t } = useTranslation()
 
   const rowData = useMemo((): ReadonlyArray<FriendsListRowData> => {
     const onlineFriends = friendsByStatus.get(FriendActivityStatus.Online) ?? []
@@ -338,7 +340,7 @@ function FriendsList({ height }: { height: number }) {
   }, [])
 
   return friends.size === 0 ? (
-    <EmptyList>Nothing to see here</EmptyList>
+    <EmptyList>{t('common.emptyListMessage', 'Nothing to see here')}</EmptyList>
   ) : (
     <Virtuoso
       components={{ Footer: VertPadding }}
@@ -383,7 +385,7 @@ function FriendRequestsList({ height }: { height: number }) {
   )
   const sortedIncoming = useMemo(() => sortUserEntries(incomingUserEntries), [incomingUserEntries])
   const sortedOutgoing = useMemo(() => sortUserEntries(outgoingUserEntries), [outgoingUserEntries])
-
+  const { t } = useTranslation()
   const rowData = useMemo((): ReadonlyArray<FriendRequestsRowData> => {
     let result: FriendRequestsRowData[] = []
     if (sortedIncoming.length > 0) {
@@ -435,7 +437,7 @@ function FriendRequestsList({ height }: { height: number }) {
             <>
               <IconButton
                 icon={<CloseIcon />}
-                title='Remove'
+                title={t('users.friendsList.removeButtonText', 'Remove')}
                 onClick={() => {
                   dispatch(
                     removeFriendRequest(row.userId, {
@@ -460,7 +462,7 @@ function FriendRequestsList({ height }: { height: number }) {
             <>
               <IconButton
                 icon={<CloseIcon />}
-                title='Decline'
+                title={t('users.friendsList.declineButtonText', 'Decline')}
                 onClick={() => {
                   dispatch(
                     declineFriendRequest(row.userId, {
@@ -482,7 +484,7 @@ function FriendRequestsList({ height }: { height: number }) {
               />
               <IconButton
                 icon={<CheckIcon />}
-                title='Accept'
+                title={t('users.friendsList.acceptButtonText', 'Accept')}
                 onClick={() => {
                   dispatch(
                     acceptFriendRequest(row.userId, {
@@ -609,7 +611,7 @@ function FriendEntry({
   actions?: React.ReactNode
 }) {
   const user = useAppSelector(s => s.users.byId.get(userId))
-
+  const { t } = useTranslation()
   const {
     clickableElemRef,
     profileOverlayProps,
@@ -642,7 +644,7 @@ function FriendEntry({
         {user ? (
           <FriendEntryName>{user.name}</FriendEntryName>
         ) : (
-          <LoadingName aria-label='Username loading…' />
+          <LoadingName aria-label={t('users.friendsList.usernameLoadingLabel', 'Username loading\u2026')} />
         )}
         {actions ? <FriendEntryActions>{actions}</FriendEntryActions> : null}
       </FriendEntryRoot>

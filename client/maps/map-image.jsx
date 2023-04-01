@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import ImageIcon from '../icons/material/image-24px.svg'
 import { background700 } from '../styles/colors'
 import { Subtitle1 } from '../styles/typography'
+import { useTranslation } from 'react-i18next'
 
 const ImgContainer = styled.div`
   position: relative;
@@ -35,11 +36,11 @@ const NoImageContainer = styled.div`
     opacity: 0.5;
   }
 `
-
+const { t } = useTranslation()
 export const MapNoImage = () => (
   <NoImageContainer>
     <ImageIcon />
-    <Subtitle1>Map preview not available</Subtitle1>
+    <Subtitle1>{t('maps.previewNotAvailable', 'Map preview not available')}</Subtitle1>
   </NoImageContainer>
 )
 

@@ -7,6 +7,7 @@ import Slider from '../material/slider'
 import { FormContainer } from './settings-content'
 import { SettingsFormHandle } from './settings-form-ref'
 import { ScrSettings } from './settings-records'
+import { useTranslation } from 'react-i18next'
 
 const MouseSensitivitySlider = styled(Slider)`
   margin-bottom: 40px;
@@ -39,7 +40,7 @@ const InputSettingsForm = React.forwardRef<
   useImperativeHandle(ref, () => ({
     submit: onSubmit,
   }))
-
+  const { t } = useTranslation()
   return (
     <form noValidate={true} onSubmit={onSubmit}>
       <SubmitOnEnter />
@@ -47,7 +48,7 @@ const InputSettingsForm = React.forwardRef<
         <div>
           <Slider
             {...bindCustom('keyboardScrollSpeed')}
-            label='Keyboard scroll speed'
+            label={t('settings.input.keyboardScrollSpeedLabel', 'Keyboard scroll speed')}
             tabIndex={0}
             min={0}
             max={6}
@@ -55,7 +56,7 @@ const InputSettingsForm = React.forwardRef<
           />
           <Slider
             {...bindCustom('mouseScrollSpeed')}
-            label='Mouse scroll speed'
+            label={t('settings.input.mouseScrollSpeedLabel', 'Mouse scroll speed')}
             tabIndex={0}
             min={0}
             max={6}
@@ -65,12 +66,12 @@ const InputSettingsForm = React.forwardRef<
         <div>
           <CheckBox
             {...bindCheckable('mouseSensitivityOn')}
-            label='Custom mouse sensitivity'
+            label={t('settings.input.customMouseSensitivityLabel', 'Custom mouse sensitivity')}
             inputProps={{ tabIndex: 0 }}
           />
           <MouseSensitivitySlider
             {...bindCustom('mouseSensitivity')}
-            label='Mouse sensitivity'
+            label={t('settings.input.mouseSensitivityLabel', 'Mouse sensitivity')}
             tabIndex={0}
             min={0}
             max={100}
@@ -80,17 +81,17 @@ const InputSettingsForm = React.forwardRef<
           />
           <CheckBox
             {...bindCheckable('mouseScalingOn')}
-            label='Use mouse scaling'
+            label={t('settings.input.useMouseScalingLabel', 'Use mouse scaling')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('hardwareCursorOn')}
-            label='Hardware cursor'
+            label={t('settings.input.useHardwareCursorLabel', 'Hardware cursor')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('mouseConfineOn')}
-            label='Lock cursor to window'
+            label={t('settings.input.lockCursorToWindowLabel', 'Lock cursor to window')}
             inputProps={{ tabIndex: 0 }}
           />
         </div>

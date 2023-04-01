@@ -11,6 +11,7 @@ import { openSnackbar } from '../snackbars/action-creators'
 import { blue300 } from '../styles/colors'
 import { body2 } from '../styles/typography'
 import { acceptFriendRequest, declineFriendRequest, getBatchUserInfo } from './action-creators'
+import { useTranslation } from 'react-i18next'
 
 const ColoredAddIcon = styled(FriendAddIcon)`
   width: 36px;
@@ -36,6 +37,7 @@ export const FriendRequestNotificationUi = React.memo(
     const { notificationId, from } = props
     const dispatch = useAppDispatch()
     const username = useAppSelector(s => s.users.byId.get(from)?.name)
+    const { t } = useTranslation()
 
     useEffect(() => {
       dispatch(getBatchUserInfo(from))
@@ -49,14 +51,16 @@ export const FriendRequestNotificationUi = React.memo(
         icon={<ColoredAddIcon />}
         text={
           <span>
+            <Trans i18nKey="users.relationshipNotifications.sentYouFriendRequest">
             <Username>{username ?? ''}</Username> sent you a friend request.
+            </Trans>
           </span>
         }
         actions={[
           <TextButton
             key='decline'
             color='accent'
-            label='Decline'
+            label={t('users.relationshipNotifications.declineButtonText', 'Decline')}
             onClick={() => {
               dispatch(
                 declineFriendRequest(from, {
@@ -72,7 +76,7 @@ export const FriendRequestNotificationUi = React.memo(
           <TextButton
             key='accept'
             color='accent'
-            label='Accept'
+            label={t('users.relationshipNotifications.acceptButtonText', 'Accept')}
             onClick={() => {
               dispatch(
                 acceptFriendRequest(from, {
@@ -123,7 +127,9 @@ export const FriendStartNotificationUi = React.memo(
         icon={<ColoredFriendStartIcon />}
         text={
           <span>
+            <Trans i18nKey="users.relationshipNotifications.newFriendEstablished">
             You are now friends with <Username>{username ?? ''}</Username>.
+            </Trans>
           </span>
         }
       />

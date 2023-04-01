@@ -20,6 +20,7 @@ import { overline } from '../styles/typography'
 import { FormContainer } from './settings-content'
 import { SettingsFormHandle } from './settings-form-ref'
 import { LocalSettings, ScrSettings } from './settings-records'
+import { useTranslation } from 'react-i18next'
 
 const ApmAlertCheckbox = styled(CheckBox)`
   margin-top: 32px;
@@ -76,37 +77,37 @@ const GameplayRemasteredForm = React.forwardRef<
   useImperativeHandle(ref, () => ({
     submit: onSubmit,
   }))
-
+  const { t } = useTranslation()
   return (
     <form noValidate={true} onSubmit={onSubmit}>
       <SubmitOnEnter />
       <FormContainer>
         <div>
-          <Select {...bindCustom('unitPortraits')} label='Portraits' tabIndex={0}>
-            <SelectOption value={2} text='Animated' />
-            <SelectOption value={1} text='Still' />
-            <SelectOption value={0} text='Disabled' />
+          <Select {...bindCustom('unitPortraits')} label={t('settings.gameplay.unitPortraitsLabel', 'Portraits')} tabIndex={0}>
+            <SelectOption value={2} text={t('settings.gameplay.unitPortraitsAnimatedLabel', 'Animated')} />
+            <SelectOption value={1} text={t('settings.gameplay.unitPortraitsStillLabel', 'Still')} />
+            <SelectOption value={0} text={t('settings.gameplay.unitPortraitsDisabledLabel', 'Disabled')} />
           </Select>
-          <Select {...bindCustom('minimapPosition')} label='Minimap position' tabIndex={0}>
-            <SelectOption value={true} text='Bottom-left corner' />
-            <SelectOption value={false} text='Standard' />
+          <Select {...bindCustom('minimapPosition')} label={t('settings.gameplay.minimapPositionLabel', 'Minimap position')} tabIndex={0}>
+            <SelectOption value={true} text={t('settings.gameplay.minimapPositionBottomLeftLabel', 'Bottom-left corner')} />
+            <SelectOption value={false} text={t('settings.gameplay.minimapPositionStandardLabel', 'Standard')} />
           </Select>
-          <SectionOverline>Skins (must be purchased from Blizzard)</SectionOverline>
+          <SectionOverline>{t('settings.skins.skinsLabel', 'Skins (must be purchased from Blizzard)')}</SectionOverline>
           <BonusSkinsCheckBox
             {...bindCheckable('showBonusSkins')}
-            label='Show bonus skins'
+            label={t('settings.skins.showBonusSkinsLabel', 'Show bonus skins')}
             inputProps={{ tabIndex: 0 }}
           />
           <Select
             {...bindCustom('selectedSkin')}
-            label='Ingame skin'
+            label={t('settings.skins.selectedSkinLabel', 'Ingame skin')}
             tabIndex={0}
             disabled={!getInputValue('showBonusSkins')}>
             {ALL_INGAME_SKINS.map(skin => (
               <SelectOption key={skin || 'default'} value={skin} text={getIngameSkinName(skin)} />
             ))}
           </Select>
-          <Select {...bindCustom('consoleSkin')} label='Console skin' tabIndex={0}>
+          <Select {...bindCustom('consoleSkin')} label={t('settings.skins.consoleSkinLabel', 'Console skin')} tabIndex={0}>
             {ALL_CONSOLE_SKINS.map(skin => (
               <SelectOption key={skin} value={skin} text={getConsoleSkinName(skin)} />
             ))}
@@ -115,56 +116,56 @@ const GameplayRemasteredForm = React.forwardRef<
         <div>
           <CheckBox
             {...bindCheckable('gameTimerOn')}
-            label='Game timer'
+            label={t('settings.gameplay.gameTimerLabel', 'Game timer')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('colorCyclingOn')}
-            label='Enable color cycling'
+            label={t('settings.gameplay.enableColorCyclingLabel', 'Enable color cycling')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('showTurnRate')}
-            label='Show latency'
+            label={t('settings.gameplay.showLatencyLabel', 'Show latency')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('apmDisplayOn')}
-            label='APM display'
+            label={t('settings.gameplay.apmDisplayLabel', 'APM display')}
             inputProps={{ tabIndex: 0 }}
           />
           <ApmAlertCheckbox
             {...bindCheckable('apmAlertOn')}
-            label='Alert when APM falls below'
+            label={t('settings.gameplay.apmAlertDescriptionLabel', 'Alert when APM falls below')}
             inputProps={{ tabIndex: 0 }}
           />
           <NumberTextField
             {...bindCustom('apmAlertValue')}
             floatingLabel={false}
             dense={true}
-            label='APM value'
+            label={t('settings.gameplay.apmAlertValueLabel', 'APM value')}
             inputProps={{ min: 0, max: 999 }}
             disabled={!getInputValue('apmAlertOn')}
           />
           <CheckBox
             {...bindCheckable('apmAlertColorOn')}
-            label='Color text'
+            label={t('settings.gameplay.apmAlertColorLabel', 'Color text')}
             inputProps={{ tabIndex: 0 }}
             disabled={!getInputValue('apmAlertOn')}
           />
           <CheckBox
             {...bindCheckable('apmAlertSoundOn')}
-            label='Play sound'
+            label={t('settings.gameplay.apmAlertSoundLabel', 'Play sound')}
             inputProps={{ tabIndex: 0 }}
             disabled={!getInputValue('apmAlertOn')}
           />
         </div>
         {DEV_INDICATOR ? (
           <div>
-            <SectionOverline>Dev-only settings</SectionOverline>
+            <SectionOverline>{t('settings.admin.devOnlySettingsLabel', 'Dev-only settings')}</SectionOverline>
             <CheckBox
               {...bindCheckable('visualizeNetworkStalls')}
-              label='Visualize network stalls'
+              label={t('settings.admin.visualizeNetworkStallsDescription', 'Visualize network stalls')}
               inputProps={{ tabIndex: 0 }}
             />
           </div>

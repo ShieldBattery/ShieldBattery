@@ -6,6 +6,7 @@ import { useAppSelector } from '../redux-hooks'
 import { colorTextSecondary } from '../styles/colors'
 import { headline5 } from '../styles/typography'
 import siteSocket from './site-socket'
+import { useTranslation } from 'react-i18next'
 
 const LoadingArea = styled.div`
   display: flex;
@@ -29,6 +30,7 @@ interface SiteConnectedFilterProps {
 
 export function SiteConnectedFilter(props: SiteConnectedFilterProps) {
   const { siteNetwork } = useAppSelector(state => ({ siteNetwork: state.network.site }))
+  const { t } = useTranslation()
 
   useEffect(() => {
     siteSocket.connect()
@@ -46,7 +48,7 @@ export function SiteConnectedFilter(props: SiteConnectedFilterProps) {
     return (
       <LoadingArea>
         <LoadingIndicator showImmediately={true} />
-        <ConnectingText>Connecting…</ConnectingText>
+        <ConnectingText>{t('common.connectingLabel', 'Connecting\u2026')}</ConnectingText>
       </LoadingArea>
     )
   }

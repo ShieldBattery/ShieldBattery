@@ -22,6 +22,7 @@ import {
   SectionTitle,
   StyledRaceSelect,
 } from './find-match-forms'
+import { useTranslation } from 'react-i18next'
 
 interface Model2v2 {
   race: RaceChar
@@ -48,21 +49,21 @@ const Form2v2 = React.forwardRef<FindMatchFormRef, Form2v2Props>(
     useImperativeHandle(ref, () => ({
       submit: handleSubmit,
     }))
-
+    const { t } = useTranslation()
     return (
       <form noValidate={true} onSubmit={handleSubmit}>
-        <SectionTitle>Race</SectionTitle>
+        <SectionTitle>{t('common.raceLabel', 'Race')}</SectionTitle>
         <StyledRaceSelect
           {...bindCustom('race')}
           size={RacePickerSize.Large}
           allowInteraction={!disabled}
         />
         <MapSelectionsHeader>
-          <SectionTitle>Map pool</SectionTitle>
-          {mapPoolOutdated ? <OutdatedIndicator>Updated</OutdatedIndicator> : null}
+          <SectionTitle>{t('common.mapPoolLabel', 'Map pool')}</SectionTitle>
+          {mapPoolOutdated ? <OutdatedIndicator>{t('common.updatedText', 'Updated')}</OutdatedIndicator> : null}
         </MapSelectionsHeader>
         <DescriptionText>
-          Veto up to 3 maps. Vetoed maps will be chosen significantly less often than other maps.
+        {t('matchmaking.vetoMapText', 'Veto up to 3 maps. Vetoed maps will be chosen significantly less often than other maps.')}
         </DescriptionText>
         <MapVetoesControl
           {...bindCustom('mapSelections')}

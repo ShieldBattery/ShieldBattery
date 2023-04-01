@@ -4,6 +4,7 @@ import { useKeyListener } from '../keyboard/key-listener'
 import { TextField } from '../material/text-field'
 import { useStableCallback } from '../state-hooks'
 import { colorDividers } from '../styles/colors'
+import { useTranslation } from 'react-i18next'
 
 const StyledTextField = styled(TextField)<{ showDivider?: boolean }>`
   flex-shrink: 0;
@@ -138,12 +139,12 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
         return false
       }),
     })
-
+    const { t } = useTranslation()
     return (
       <StyledTextField
         ref={inputRef}
         className={props.className}
-        label='Send a message'
+        label={t('common.sendMessageText', 'Send a message')}
         value={message}
         floatingLabel={false}
         allowErrors={false}

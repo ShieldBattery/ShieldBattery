@@ -8,6 +8,7 @@ import { Dialog } from '../material/dialog'
 import { addTrustedDomain } from '../messaging/action-creators'
 import { useAppDispatch } from '../redux-hooks'
 import { singleLine, Subtitle1, subtitle2 } from '../styles/typography'
+import { useTranslation } from 'react-i18next'
 
 const StyledDialog = styled(Dialog)`
   max-width: 640px;
@@ -48,7 +49,7 @@ interface ExternalLinkDialogProps extends CommonDialogProps {
 
 export function ExternalLinkDialog({ href, domain, onCancel, dialogRef }: ExternalLinkDialogProps) {
   const dispatch = useAppDispatch()
-
+  const { t } = useTranslation()
   const onOpenLinkClick = useCallback(() => {
     dispatch(closeDialog(DialogType.ExternalLink))
     window.open(href, '_blank', 'noopener,noreferrer')
@@ -65,23 +66,23 @@ export function ExternalLinkDialog({ href, domain, onCancel, dialogRef }: Extern
 
   const buttons = [
     <TrustDomainLink key='trust-domain' href='#' onClick={onTrustDomainClick}>
-      Always trust this domain
+      {t('nav.alwaysTrustDomainLabel', 'Always trust this domain')}
     </TrustDomainLink>,
-    <TextButton label='Cancel' key='cancel' color='accent' onClick={onCancel} />,
-    <TextButton label='Open Link' key='open-link' color='accent' onClick={onOpenLinkClick} />,
+    <TextButton label={t('common.cancelLabel', 'Cancel')} key='cancel' color='accent' onClick={onCancel} />,
+    <TextButton label={t('common.openLinkLabel', 'Open Link')} key='open-link' color='accent' onClick={onOpenLinkClick} />,
   ]
 
   return (
     <StyledDialog
-      title='External link'
+      title={t('nav.externalLinkLabel', 'External link')}
       showCloseButton={true}
       onCancel={onCancel}
       buttons={buttons}
       dialogRef={dialogRef}>
       <SelectionBoundary>
-        <Subtitle1>This link will take you to a site outside ShieldBattery:</Subtitle1>
+        <Subtitle1>{t('nav.externalLinkTextA', 'This link will take you to a site outside ShieldBattery:')}</Subtitle1>
         <LinkAsText title={href}>{href}</LinkAsText>
-        <Subtitle1>Are you sure you want to go there?</Subtitle1>
+        <Subtitle1>{t('nav.externalLinkTextB', 'Are you sure you want to go there?')}</Subtitle1>
       </SelectionBoundary>
     </StyledDialog>
   )

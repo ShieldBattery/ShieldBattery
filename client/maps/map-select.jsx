@@ -10,6 +10,7 @@ import { shadow2dp, shadow8dp } from '../material/shadows'
 import { background400, colorError, colorTextFaint, colorTextSecondary } from '../styles/colors'
 import { subtitle1 } from '../styles/typography'
 import { MapThumbnail } from './map-thumbnail'
+import { useTranslation } from 'react-i18next'
 
 const SPACE = 'Space'
 const TAB = 'Tab'
@@ -141,7 +142,7 @@ export default class MapSelect extends React.Component {
       onToggleFavoriteMap,
     } = this.props
     const { isFocused, focusedIndex } = this.state
-
+    const { t } = useTranslation()
     const isSelected = m =>
       !!value && (typeof value === 'string' ? value === m.id : value.includes(m.id))
     const mapElements = list.map((id, i) => {
@@ -182,7 +183,7 @@ export default class MapSelect extends React.Component {
               onClick={this.onMapBrowse}
               isFocused={isFocused && focusedIndex === list.size}>
               <BrowseIcon />
-              <BrowseText>Browse maps</BrowseText>
+              <BrowseText>{t('maps.browseLabel', 'Browse maps')}</BrowseText>
             </BrowseButton>
           ) : null}
         </ImageList>
