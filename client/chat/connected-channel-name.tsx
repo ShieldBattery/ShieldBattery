@@ -7,6 +7,7 @@ import { useStableCallback } from '../state-hooks'
 import { colorDividers } from '../styles/colors'
 import { getBatchChannelInfo } from './action-creators'
 import { ConnectedChannelInfoCard } from './channel-info-card'
+import { useChannelInfoSelector } from './channel-info-selector'
 
 const ChannelName = styled.span`
   &:hover {
@@ -32,7 +33,7 @@ export interface ConnectedChannelNameProps {
  */
 export function ConnectedChannelName({ className, channelId }: ConnectedChannelNameProps) {
   const dispatch = useAppDispatch()
-  const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
+  const channelInfo = useAppSelector(useChannelInfoSelector(channelId))
   const isChannelDeleted = useAppSelector(s => s.chat.deletedChannels.has(channelId))
 
   useEffect(() => {

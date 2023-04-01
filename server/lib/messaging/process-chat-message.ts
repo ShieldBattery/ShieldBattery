@@ -1,9 +1,8 @@
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { ChannelInfo } from '../../../common/chat'
 import { CHANNEL_MENTION_REGEX, matchChannelMentions } from '../../../common/text/channel-mentions'
 import { matchUserMentions, USER_MENTION_REGEX } from '../../../common/text/user-mentions'
 import { SbUser } from '../../../common/users/sb-user'
-import { findChannelsByName } from '../chat/chat-models'
+import { findChannelsByName, FullChannelInfo } from '../chat/chat-models'
 import { findUsersByName } from '../users/user-model'
 
 function* getAllMatches(text: string) {
@@ -24,7 +23,7 @@ function* getAllMatches(text: string) {
  */
 export async function processMessageContents(
   text: string,
-): Promise<[processedText: string, userMentions: SbUser[], channelMentions: ChannelInfo[]]> {
+): Promise<[processedText: string, userMentions: SbUser[], channelMentions: FullChannelInfo[]]> {
   const matches = getAllMatches(text)
   const sortedMatches = Array.from(matches).sort((a, b) => a.index - b.index)
   const mentionedUsernames: string[] = []

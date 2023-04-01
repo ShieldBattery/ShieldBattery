@@ -3,15 +3,17 @@ import Joi from 'joi'
 import Koa from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
-  ChannelInfo,
   ChannelPermissions,
   ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
   GetChannelInfoResponse,
+  GetChannelInfosResponse,
   GetChannelUserPermissionsResponse,
   GetChatUserProfileResponse,
+  JoinChannelResponse,
   ModerateChannelUserServerRequest,
   SbChannelId,
+  SearchChannelsResponse,
   SendChatMessageServerRequest,
   UpdateChannelUserPermissionsRequest,
 } from '../../../common/chat'
@@ -133,7 +135,7 @@ export class ChatApi {
     featureEnabled(MULTI_CHANNEL),
     throttleMiddleware(joinThrottle, ctx => String(ctx.session!.userId)),
   )
-  async joinChannel(ctx: RouterContext): Promise<ChannelInfo> {
+  async joinChannel(ctx: RouterContext): Promise<JoinChannelResponse> {
     const {
       params: { channelName },
     } = validateRequest(ctx, {
@@ -322,7 +324,7 @@ export class ChatApi {
 
   @httpGet('/batch-info')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
-  async batchGetInfo(ctx: RouterContext): Promise<ChannelInfo[]> {
+  async getBatchedChannelInfos(ctx: RouterContext): Promise<GetChannelInfosResponse> {
     const {
       query: { c: channelIds },
     } = validateRequest(ctx, {
@@ -350,7 +352,7 @@ export class AdminChatApi {
 
   @httpGet('/')
   @httpBefore(checkAllPermissions('moderateChatChannels'))
-  async searchChannels(ctx: RouterContext): Promise<ChannelInfo[]> {
+  async searchChannels(ctx: RouterContext): Promise<SearchChannelsResponse> {
     const {
       query: { q: searchQuery, limit, page },
     } = validateRequest(ctx, {
@@ -362,11 +364,16 @@ export class AdminChatApi {
     })
 
     // TODO(2Pac): Move this to the chat-service
-    return await searchChannelsAsAdmin({
+    const channels = await searchChannelsAsAdmin({
       limit,
       pageNumber: page,
       searchStr: searchQuery,
     })
+
+    return await this.chatService.getChannelInfos(
+      channels.map(c => c.id),
+      ctx.session!.userId,
+    )
   }
 
   @httpGet('/:channelId/messages')

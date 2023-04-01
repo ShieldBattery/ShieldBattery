@@ -347,7 +347,7 @@ function ConnectedChatNavEntry({
   channelId: SbChannelId
   onLeave: (channelId: SbChannelId) => void
 }) {
-  const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
+  const channelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const hasUnread = useAppSelector(s => s.chat.unreadChannels.has(channelId))
   const [pathname] = useLocation()
 

@@ -13,6 +13,7 @@ import {
   WhisperServiceErrorCode,
   WhisperSessionInitEvent,
 } from '../../../common/whispers'
+import { getChannelInfos } from '../chat/chat-models'
 import ChatService from '../chat/chat-service'
 import logger from '../logging/logger'
 import filterChatMessage from '../messaging/filter-chat-message'
@@ -145,7 +146,10 @@ export default class WhisperService {
       },
       users: [user, target],
       mentions: userMentions,
-      channelMentions,
+      channelMentions: channelMentions.map(c => ({
+        id: c.id,
+        name: c.name,
+      })),
     })
   }
 
@@ -204,7 +208,7 @@ export default class WhisperService {
 
     const [userMentions, channelMentions] = await Promise.all([
       findUsersById(Array.from(userMentionIds)),
-      this.chatService.getChannelInfos(Array.from(channelMentionIds), userId),
+      getChannelInfos(Array.from(channelMentionIds)),
     ])
 
     const deletedChannels =
@@ -221,7 +225,10 @@ export default class WhisperService {
       messages,
       users: [user, target],
       mentions: userMentions,
-      channelMentions,
+      channelMentions: channelMentions.map(c => ({
+        id: c.id,
+        name: c.name,
+      })),
       deletedChannels,
     }
   }

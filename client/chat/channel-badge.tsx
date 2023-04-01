@@ -2,10 +2,10 @@ import { meetsContrastGuidelines } from 'polished'
 import React from 'react'
 import styled, { css } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { ChannelInfo } from '../../common/chat'
 import { randomColorForString } from '../avatars/colors'
 import { blue400, colorTextInvert, colorTextPrimary } from '../styles/colors'
 import { headline3 } from '../styles/typography'
+import { ClientChannelInfo } from './channel-info-selector'
 
 const badgeCommon = css`
   width: 40px;
@@ -41,7 +41,7 @@ const ChannelBadgeImage = styled.img`
 `
 
 export interface ChannelBadgeProps {
-  channelInfo: ReadonlyDeep<ChannelInfo>
+  channelInfo: ReadonlyDeep<ClientChannelInfo>
   className?: string
 }
 

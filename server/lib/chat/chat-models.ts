@@ -1,9 +1,10 @@
 import sql from 'sql-template-strings'
 import { MergeExclusive } from 'type-fest'
 import {
-  ChannelInfo,
+  BasicChannelInfo,
   ChannelPermissions,
-  JoinedChannelData,
+  DetailedChannelInfo,
+  JoinedChannelInfo,
   SbChannelId,
   ServerChatMessageType,
 } from '../../../common/chat'
@@ -94,7 +95,7 @@ export async function getUserChannelEntryForUser(
   }
 }
 
-export type FullChannelInfo = ChannelInfo & JoinedChannelData
+export type FullChannelInfo = BasicChannelInfo & DetailedChannelInfo & JoinedChannelInfo
 type DbChannel = Dbify<FullChannelInfo>
 
 function convertChannelFromDb(props: DbChannel): FullChannelInfo {
@@ -588,47 +589,6 @@ export async function getChannelInfos(
     `)
 
     return result.rows.map(row => convertChannelFromDb(row))
-  } finally {
-    done()
-  }
-}
-
-/**
- * Returns the data for all channels with the specified IDs. The channels are returned in the same
- * order they were passed in. If one of the channels could not be found, it will not be included in
- * the result.
- */
-export async function getChannelInfosInOrder(
-  channelIds: SbChannelId[],
-  withClient?: DbClient,
-): Promise<FullChannelInfo[]> {
-  const { client, done } = await db(withClient)
-  try {
-    const result = await client.query<DbChannel>(sql`
-      SELECT *
-      FROM channels
-      WHERE id = ANY(${channelIds});
-    `)
-
-    if (result.rows.length < 1) {
-      return []
-    }
-
-    const channelInfos = await Promise.all(result.rows.map(c => convertChannelFromDb(c)))
-    const idToChannelInfo = new Map<SbChannelId, FullChannelInfo>()
-    for (const channelInfo of channelInfos) {
-      idToChannelInfo.set(channelInfo.id, channelInfo)
-    }
-
-    const orderedChannelInfos = []
-    for (const id of channelIds) {
-      const info = idToChannelInfo.get(id)
-      if (info) {
-        orderedChannelInfos.push(info)
-      }
-    }
-
-    return orderedChannelInfos
   } finally {
     done()
   }

@@ -118,20 +118,22 @@ export type ClientChatMessage =
 export type ChatMessage = ServerChatMessage | ClientChatMessage
 
 /**
- * General information about a channel that is available outside the joined channel page (e.g. in
- * search results, and channel mentions).
+ * Channel info that is always present and available (e.g. used in channel mentions)
  */
-export interface ChannelInfo {
+export interface BasicChannelInfo {
   /** The channel ID. */
   id: SbChannelId
   /** The name of the chat channel. */
   name: string
-  /** The description of the chat channel. */
-  description?: string
-  /** The path to the banner image of the chat channel. */
-  bannerPath?: string
-  /** The path to the badge image of the chat channel. */
-  badgePath?: string
+}
+
+/**
+ * Channel info that is available only for public channels and for user's joined channels. Even
+ * though it seems like there's some overlap with `JoinedChannelInfo`, the difference comes in where
+ * the info is meant to be used. `DetailedChannelInfo` is used for deeper display of channels (e.g.
+ * in channel info card), while `JoinedChannelInfo` is used inside the Channel UI itself.
+ */
+export interface DetailedChannelInfo {
   /**
    * A flag indicating whether the chat channel is private or not. Private chat channels can only be
    * joined through an invite.
@@ -143,20 +145,23 @@ export interface ChannelInfo {
    * get deleted if everyone leaves, etc.) that distinguish them from regular channels.
    */
   official: boolean
+  /** The description of the chat channel, if set. */
+  description?: string
+  /** The path to the banner image of the chat channel, if set. */
+  bannerPath?: string
+  /** The path to the badge image of the chat channel, if set. */
+  badgePath?: string
   /**
    * Number of users in the channel. Only available for non-private channels, and for private
    * channels that the user has joined.
-   *
-   * NOTE: This is only used for unjoined channels. Joined channels will have access to the list of
-   * users which can be count.
    */
   userCount?: number
 }
 
 /**
- * Data that is only available for users inside their joined channels.
+ * Channel info that is only available for users inside their joined channels.
  */
-export interface JoinedChannelData {
+export interface JoinedChannelInfo {
   /**
    * The ID of the user that is considered a channel owner. Usually the person who joined the chat
    * channel the earliest. Is `undefined` for official channels.
@@ -187,10 +192,12 @@ export interface ChannelPermissions {
 
 export interface ChatInitEvent {
   action: 'init3'
-  /** The information about the channel that the current user is initializing. */
-  channelInfo: ChannelInfo
-  /** The information about the channel that is only available to joined users. */
-  joinedChannelData: JoinedChannelData
+  /** The basic information about the channel that the current user is initializing. */
+  basicChannelInfo: BasicChannelInfo
+  /** The detailed information about the channel that the current user is initializing. */
+  detailedChannelInfo: DetailedChannelInfo
+  /** The channel information specific to user's joined channels. */
+  joinedChannelInfo: JoinedChannelInfo
   /** A list of IDs of active users that are in the chat channel. */
   activeUserIds: SbUserId[]
   /** The channel permissions for the current user that is initializing the channel. */
@@ -237,8 +244,8 @@ export interface ChatMessageEvent {
   user: SbUser
   /** User infos for all channel users that were mentioned in the message, if any. */
   mentions: SbUser[]
-  /** Channel infos for all channels that were mentioned in the message, if any. */
-  channelMentions: ChannelInfo[]
+  /** Basic channel info for all channels that were mentioned in the message, if any. */
+  channelMentions: BasicChannelInfo[]
 }
 
 export interface ChatMessageDeletedEvent {
@@ -287,6 +294,18 @@ export interface ChatPermissionsChangedEvent {
   selfPermissions: ChannelPermissions
 }
 
+/**
+ * The response returned when joining a specific chat channel.
+ */
+export interface JoinChannelResponse {
+  /** The basic information about the joined channel. */
+  basicChannelInfo: BasicChannelInfo
+  /** The detailed information about the joined channel. */
+  detailedChannelInfo: DetailedChannelInfo
+  /** The channel information specific to user's joined channel. */
+  joinedChannelInfo: JoinedChannelInfo
+}
+
 /** Events that are sent to a particular user in a particular chat channel. */
 export type ChatUserEvent = ChatPermissionsChangedEvent
 
@@ -308,8 +327,8 @@ export interface GetChannelHistoryServerResponse {
   users: SbUser[]
   /** A list of user infos for all channel users that were mentioned in the messages, if any. */
   mentions: SbUser[]
-  /** A list of channel infos for all channels that were mentioned in the messages, if any. */
-  channelMentions: ChannelInfo[]
+  /** A list of basic channel info for all channels that were mentioned in the messages, if any. */
+  channelMentions: BasicChannelInfo[]
   /** A list of channel IDs saved in various channel messages that no longer exist. */
   deletedChannels: SbChannelId[]
 }
@@ -335,16 +354,6 @@ export interface ModerateChannelUserServerRequest {
    * e.g. banning.
    */
   moderationReason?: string
-}
-
-/**
- * The response returned when requesting the information about a specific chat channel.
- */
-export interface GetChannelInfoResponse {
-  /** The information about the channel that is being requested. */
-  channelInfo: ChannelInfo
-  /** The information about the channel that is only available to joined users. */
-  joinedChannelData?: JoinedChannelData
 }
 
 /**
@@ -411,3 +420,28 @@ export interface UpdateChannelUserPermissionsRequest {
   /** The new permissions to update the user to. */
   permissions: ChannelPermissions
 }
+
+/**
+ * An object including the basic channel info and detailed channel info.
+ */
+interface ChannelDetails {
+  /** The basic information about the channel. */
+  basicChannelInfo: BasicChannelInfo
+  /** The detailed information about the channel. */
+  detailedChannelInfo: DetailedChannelInfo
+}
+
+/**
+ * The response returned when fetching the batched channel info.
+ */
+export type GetChannelInfosResponse = ChannelDetails[]
+
+/**
+ * The response returned when fetching the channel info.
+ */
+export type GetChannelInfoResponse = ChannelDetails
+
+/**
+ * The response returned when searching the channels..
+ */
+export type SearchChannelsResponse = ChannelDetails[]

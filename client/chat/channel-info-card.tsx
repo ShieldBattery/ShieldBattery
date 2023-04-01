@@ -15,6 +15,7 @@ import { body1, caption, headline6 } from '../styles/typography'
 import { getBatchChannelInfo, joinChannel, navigateToChannel } from './action-creators'
 import { ChannelBadge } from './channel-badge'
 import { ChannelBanner, ChannelBannerPlaceholderImage } from './channel-banner'
+import { useChannelInfoSelector } from './channel-info-selector'
 
 const ChannelCardRoot = styled(Card)`
   position: relative;
@@ -132,7 +133,7 @@ export function ConnectedChannelInfoCard({
   channelName,
 }: ConnectedChannelInfoCardProps) {
   const dispatch = useAppDispatch()
-  const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
+  const channelInfo = useAppSelector(useChannelInfoSelector(channelId))
   const isUserInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
 
   const [isJoinInProgress, setIsJoinInProgress] = useState(false)

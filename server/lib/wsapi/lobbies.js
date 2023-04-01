@@ -295,7 +295,10 @@ export class LobbyApi {
         text: processedText,
       },
       mentions: userMentions,
-      channelMentions,
+      channelMentions: channelMentions.map(c => ({
+        id: c.id,
+        name: c.name,
+      })),
     })
   }
 

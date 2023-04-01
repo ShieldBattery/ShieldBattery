@@ -1,5 +1,5 @@
 import { NydusServer } from 'nydus'
-import { ChannelInfo, makeSbChannelId } from '../../../common/chat'
+import { makeSbChannelId } from '../../../common/chat'
 import {
   MatchmakingPreferences,
   MatchmakingServiceErrorCode,
@@ -8,7 +8,7 @@ import {
 import { NotificationType } from '../../../common/notifications'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId, SbUser } from '../../../common/users/sb-user'
-import { findChannelsByName } from '../chat/chat-models'
+import { findChannelsByName, FullChannelInfo } from '../chat/chat-models'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import { MatchmakingServiceError } from '../matchmaking/matchmaking-service-error'
 import NotificationService from '../notifications/notification-service'
@@ -687,7 +687,7 @@ describe('parties/party-service', () => {
     })
 
     test('should process the channel mentions in chat message', async () => {
-      const channel: ChannelInfo = {
+      const channel: FullChannelInfo = {
         id: makeSbChannelId(1),
         name: 'test',
         private: false,
@@ -707,7 +707,7 @@ describe('parties/party-service', () => {
           text: `Join <#${channel.id}> and #non-existing`,
         },
         mentions: [],
-        channelMentions: [channel],
+        channelMentions: [{ id: channel.id, name: channel.name }],
       })
     })
   })

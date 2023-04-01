@@ -27,6 +27,7 @@ import {
   sendMessage,
 } from './action-creators'
 import { ConnectedChannelInfoCard } from './channel-info-card'
+import { useChannelInfoSelector } from './channel-info-selector'
 import { addChannelMessageMenuItems, addChannelUserMenuItems } from './channel-menu-items'
 import { ChannelUserList } from './channel-user-list'
 import {
@@ -84,7 +85,7 @@ export function ConnectedChatChannel({
   channelName: channelNameFromRoute,
 }: ChatChannelProps) {
   const dispatch = useAppDispatch()
-  const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
+  const channelInfo = useAppSelector(useChannelInfoSelector(channelId))
   const channelUsers = useAppSelector(s => s.chat.idToUsers.get(channelId))
   const channelMessages = useAppSelector(s => s.chat.idToMessages.get(channelId))
   const isInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
@@ -208,7 +209,7 @@ function ChannelInfoPage({
   channelName: string
 }) {
   const dispatch = useAppDispatch()
-  const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
+  const channelInfo = useAppSelector(useChannelInfoSelector(channelId))
 
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error>()

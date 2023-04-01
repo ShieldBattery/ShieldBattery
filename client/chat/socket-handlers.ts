@@ -51,7 +51,7 @@ const eventToChatAction: EventToChatActionMap = {
 
   kick: (channelId, event) => (dispatch, getState) => {
     const { auth, chat } = getState()
-    const channelInfo = chat.idToInfo.get(channelId)
+    const channelInfo = chat.idToBasicInfo.get(channelId)
     if (!channelInfo) {
       return
     }
@@ -79,7 +79,7 @@ const eventToChatAction: EventToChatActionMap = {
 
   ban: (channelId, event) => (dispatch, getState) => {
     const { auth, chat } = getState()
-    const channelInfo = chat.idToInfo.get(channelId)
+    const channelInfo = chat.idToBasicInfo.get(channelId)
     if (!channelInfo) {
       return
     }

@@ -2,15 +2,16 @@ import { debounce } from 'lodash-es'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import {
-  ChannelInfo,
   ChatMessage,
   GetChannelHistoryServerResponse,
   SbChannelId,
+  SearchChannelsResponse,
 } from '../../common/chat'
 import { apiUrl } from '../../common/urls'
 import { SbUser } from '../../common/users/sb-user'
 import { deleteMessageAsAdmin } from '../chat/action-creators'
 import { renderChannelMessage } from '../chat/channel'
+import { ClientChannelInfo } from '../chat/channel-info-selector'
 import { ChannelUserList } from '../chat/channel-user-list'
 import { ThunkAction } from '../dispatch-registry'
 import ChannelIcon from '../icons/material/image-24px.svg'
@@ -37,10 +38,10 @@ function searchChannels(
   searchQuery: string,
   limit: number,
   page: number,
-  spec: RequestHandlingSpec<ChannelInfo[]>,
+  spec: RequestHandlingSpec<SearchChannelsResponse>,
 ): ThunkAction {
   return abortableThunk(spec, () => {
-    return fetchJson<ChannelInfo[]>(
+    return fetchJson<SearchChannelsResponse>(
       apiUrl`admin/chat/?q=${searchQuery}&limit=${limit}&page=${page}`,
       {
         signal: spec.signal,
@@ -70,8 +71,13 @@ function getChannelMessages(
       payload: result.mentions.concat(result.users),
     })
     dispatch({
-      type: '@chat/getBatchChannelInfo',
-      payload: result.channelMentions,
+      type: '@chat/loadMessageHistory',
+      payload: result,
+      meta: {
+        channelId,
+        limit,
+        beforeTime: earliestMessageTime,
+      },
     })
 
     return result
@@ -184,9 +190,9 @@ const StyledMessageList = styled(MessageList)`
   min-width: 320px;
 `
 
-export function ChannelSelector({ onSelect }: { onSelect: (channelI: ChannelInfo) => void }) {
+export function ChannelSelector({ onSelect }: { onSelect: (channel: ClientChannelInfo) => void }) {
   const dispatch = useAppDispatch()
-  const [channels, setChannels] = useState<ChannelInfo[]>()
+  const [channels, setChannels] = useState<ClientChannelInfo[]>()
   const [currentPage, setCurrentPage] = useState(-1)
   const [hasMoreChannels, setHasMoreChannels] = useState(true)
 
@@ -228,7 +234,11 @@ export function ChannelSelector({ onSelect }: { onSelect: (channelI: ChannelInfo
         signal: abortControllerRef.current.signal,
         onSuccess: data => {
           setIsLoadingMoreChannels(false)
-          setChannels((channels ?? []).concat(data))
+          setChannels(
+            (channels ?? []).concat(
+              data.map(c => ({ ...c.basicChannelInfo, ...c.detailedChannelInfo })),
+            ),
+          )
           setHasMoreChannels(data.length >= SEARCH_CHANNELS_LIMIT)
         },
         onError: err => {
@@ -283,7 +293,7 @@ export function ChannelSelector({ onSelect }: { onSelect: (channelI: ChannelInfo
 
 export function AdminChannelView() {
   const dispatch = useAppDispatch()
-  const [selectedChannel, setSelectedChannel] = useState<ChannelInfo>()
+  const [selectedChannel, setSelectedChannel] = useState<ClientChannelInfo>()
 
   const [channelMessages, setChannelMessages] = useState<ChatMessage[]>([])
   const [hasMoreChannelMessages, setHasMoreChannelMessages] = useState(true)
@@ -321,7 +331,7 @@ export function AdminChannelView() {
     )
   })
 
-  const onChannelSelect = useStableCallback((newChannel: ChannelInfo) => {
+  const onChannelSelect = useStableCallback((newChannel: ClientChannelInfo) => {
     if (selectedChannel?.id === newChannel.id) {
       return
     }
