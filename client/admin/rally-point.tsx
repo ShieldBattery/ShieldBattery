@@ -189,7 +189,7 @@ export function ServerRow({
   const onClick = useCallback(() => {
     onEdit(server)
   }, [onEdit, server])
-
+  const { t } = useTranslation()
   return (
     <Row>
       <EnabledContent>{server.enabled ? <CheckIcon /> : <CloseIcon />}</EnabledContent>

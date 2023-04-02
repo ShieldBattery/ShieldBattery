@@ -249,7 +249,6 @@ export class MapPoolEditor extends React.Component {
     } else if (startDate && !invalidDate) {
       dateValidationContents = <ValidDateIcon />
     }
-    const { t } = useTranslation()
     return (
       <EditorContainer>
         <KeyListener onKeyDown={this.onKeyDown} />
