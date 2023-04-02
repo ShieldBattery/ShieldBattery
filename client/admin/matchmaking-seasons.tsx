@@ -20,6 +20,7 @@ import { useRefreshToken } from '../network/refresh-token'
 import { useStableCallback } from '../state-hooks'
 import { amberA400, colorError, colorTextSecondary } from '../styles/colors'
 import { headline5, headline6, subtitle1, Subtitle2 } from '../styles/typography'
+import { useTranslation } from 'react-i18next'
 
 const Container = styled.div`
   height: 100%;
@@ -140,22 +141,23 @@ function AddSeasonForm(props: { onSubmit: (model: AddSeasonModel) => void }) {
   )
 
   // TODO(tec27): Display validation errors on date input (or create a Material-ish date input)
+  const { t } = useTranslation()
   return (
     <FormContainer>
-      <FormTitle>Add new season</FormTitle>
+      <FormTitle>{t('admin.matchmakingSeasons.addNewSeasonTitle', 'Add new season')}</FormTitle>
 
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
         <TextField
           {...bindInput('name')}
-          label='Season name'
+          label={t('admin.matchmakingSeasons.seasonNameLabel', 'Season name')}
           floatingLabel={true}
           inputProps={{ tabIndex: 0 }}
         />
         <DateInput {...bindInput('startDate')} type='datetime-local' tabIndex={0} />
-        <CheckBox {...bindCheckable('resetMmr')} label='Reset MMR' inputProps={{ tabIndex: 0 }} />
+        <CheckBox {...bindCheckable('resetMmr')} label={t('admin.matchmakingSeasons.resetMmrLabel', 'Reset MMR')} inputProps={{ tabIndex: 0 }} />
 
-        <RaisedButton label='Submit' color='primary' onClick={onSubmit} />
+        <RaisedButton label={t('admin.matchmakingSeasons.submitButtonText', 'Submit')} color='primary' onClick={onSubmit} />
       </form>
     </FormContainer>
   )
@@ -213,12 +215,12 @@ export function AdminMatchmakingSeasons() {
   useEffect(() => {
     loadSeasons()
   }, [loadSeasons, refreshToken])
-
+  const { t } = useTranslation()
   return (
     <Container>
       <HeadlineAndButton>
         <PageHeadline>Matchmaking seasons</PageHeadline>
-        <RaisedButton color='primary' label='Refresh' onClick={triggerRefresh} />
+        <RaisedButton color='primary' label={t('admin.matchmakingSeasons.refreshButtonText', 'Refresh')} onClick={triggerRefresh} />
       </HeadlineAndButton>
       {requestError ? <ErrorText>{String(requestError)}</ErrorText> : undefined}
       {seasons.map(s =>
@@ -232,14 +234,14 @@ export function AdminMatchmakingSeasons() {
         ) : (
           <Row>
             <div>
-              Really delete <Subtitle2 as='span'>{s.name}</Subtitle2>?
+            {t('admin.matchmakingSeasons.deleteConfirmation', 'Really delete')} <Subtitle2 as='span'>{s.name}</Subtitle2>?
             </div>
             <TextButton
               color='accent'
-              label='Cancel'
+              label={t('admin.matchmakingSeasons.cancelButtonText', 'Cancel')}
               onClick={() => setConfirmingDeleteId(undefined)}
             />
-            <TextButton color='accent' label='Delete it' onClick={() => confirmDelete(s.id)} />
+            <TextButton color='accent' label={t('admin.matchmakingSeasons.deleteItButtonText', 'Delete it')} onClick={() => confirmDelete(s.id)} />
           </Row>
         ),
       )}

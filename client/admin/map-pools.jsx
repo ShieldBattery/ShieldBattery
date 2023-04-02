@@ -30,6 +30,7 @@ import {
   getMapPoolHistory,
   searchMaps,
 } from './action-creators'
+import { useTranslation } from 'react-i18next'
 
 const MAP_POOLS_LIMIT = 10
 const SEARCH_MAPS_LIMIT = 30
@@ -189,18 +190,19 @@ export class MapPoolEditor extends React.Component {
       searchResult: { list, byId, total, isRequesting, lastError },
     } = this.props
     const { maps } = this.state
+    const { t } = useTranslation()
 
     if (lastError) {
       return (
         <>
-          <p>Something went wrong while trying to search maps. The error message was:</p>
+          <p>{t('admin.mapPools.errorSearchingMaps', 'Something went wrong while trying to search maps. The error message was:')}</p>
           <ErrorText as='p'>{lastError.message}</ErrorText>
         </>
       )
     }
 
     if (total === 0) {
-      return <p>No results</p>
+      return <p>{t('admin.mapPools.noResultsText', 'No results')}</p>
     }
 
     const mapItems = list.map(id => {
@@ -232,6 +234,7 @@ export class MapPoolEditor extends React.Component {
 
   render() {
     const { searchQuery, maps, startDate, invalidDate } = this.state
+    const { t } = useTranslation()
     const selectedMaps = maps.valueSeq().map(m => (
       <MapContainer key={m.id}>
         <MapThumbnail map={m} showMapName={true} />
@@ -246,13 +249,13 @@ export class MapPoolEditor extends React.Component {
     } else if (startDate && !invalidDate) {
       dateValidationContents = <ValidDateIcon />
     }
-
+    const { t } = useTranslation()
     return (
       <EditorContainer>
         <KeyListener onKeyDown={this.onKeyDown} />
         <SearchContainer>
           <SearchInput
-            label='Find a map'
+            label={t('admin.mapPools.findMapLabel', 'Find a map')}
             value={searchQuery}
             allowErrors={false}
             leadingIcons={[<SearchIcon />]}
@@ -260,18 +263,18 @@ export class MapPoolEditor extends React.Component {
             onFocus={this.onSearchFocus}
             onBlur={this.onSearchBlur}
           />
-          <SearchMapsButton label='Find' color='accent' onClick={this.onSearchClick} />
+          <SearchMapsButton label={t('admin.mapPools.findLabel', 'Find')} color='accent' onClick={this.onSearchClick} />
         </SearchContainer>
-        <SectionTitle>Search results</SectionTitle>
+        <SectionTitle>{t('admin.mapPools.searchResultsTitle', 'Search results')}</SectionTitle>
         {this.renderSearchMapsResult()}
-        <SectionTitle>Selected maps</SectionTitle>
+        <SectionTitle>{t('admin.mapPools.selectedMapsTitle', 'Selected maps')}</SectionTitle>
         {selectedMaps.size > 0 ? (
           <Carousel>{selectedMaps}</Carousel>
         ) : (
-          <p>Use the search above to find maps and select them to be used in the map pool</p>
+          <p>{t('admin.mapPools.selectedMapsDescription', 'Use the search above to find maps and select them to be used in the map pool')}</p>
         )}
-        <SectionTitle>Start date</SectionTitle>
-        <p>Choose a date and time (in your local timezone) when the map pool will start</p>
+        <SectionTitle>{t('admin.mapPools.startDateTitle', 'Start date')}</SectionTitle>
+        <p>{t('admin.mapPools.startDateDescription', 'Choose a date and time (in your local timezone) when the map pool will start')}</p>
         <DateInputContainer>
           <DateInput
             type='datetime-local'
@@ -281,7 +284,7 @@ export class MapPoolEditor extends React.Component {
           {dateValidationContents}
         </DateInputContainer>
         <CreatePoolButton
-          label='Create'
+          label={t('admin.mapPools.createMapPoolLabel', 'Create')}
           disabled={maps.size < 1 || startDate === '' || invalidDate}
           onClick={this.onCreate}
         />
@@ -385,12 +388,12 @@ const MapPoolHistoryRow = React.memo(props => {
     const actions = mapPoolActions.map(([text, handler], i) => (
       <MenuItem key={i} text={text} onClick={() => onMapActionClick(handler)} />
     ))
-
+    const { t } = useTranslation()
     actionsMenu = (
       <>
         <MapPoolActionButton
           icon={<MapPoolActionsIcon />}
-          title='Map pool actions'
+          title={t('admin.mapPools.mapPoolActionsTitle', 'Map pool actions')}
           ref={anchorRef}
           onClick={openActionsOverlay}
         />
@@ -435,6 +438,7 @@ class MapPoolHistory extends React.PureComponent {
 
   render() {
     const { history } = this.props
+    const { t } = useTranslation()
 
     if (!history) return null
 
@@ -450,8 +454,7 @@ class MapPoolHistory extends React.PureComponent {
       return (
         <>
           <p>
-            Something went wrong while trying to retrieve the map pool history. The error message
-            was:
+          {t('admin.mapPools.errorRetrievingMapPoolHistory', 'Something went wrong while trying to retrieve the map pool history. The error message was:')}
           </p>
           <ErrorText as='p'>{history.lastError.message}</ErrorText>
         </>
@@ -459,15 +462,15 @@ class MapPoolHistory extends React.PureComponent {
     }
 
     if (history.mapPools.isEmpty()) {
-      return <p>This matchmaking type doesn't have map pool history.</p>
+      return <p>{t('admin.mapPools.errorMatchmakingTypeNoMapHistory', 'This matchmaking type doesn\'t have map pool history.')}</p>
     }
 
     return (
       <HistoryContainer>
         <thead>
           <tr>
-            <th>Info</th>
-            <th>Maps</th>
+            <th>{t('admin.mapPools.infoLabel', 'Info')}</th>
+            <th>{t('admin.mapPools.mapsLabel', 'Maps')}</th>
           </tr>
         </thead>
         <tbody>
@@ -509,14 +512,15 @@ export default class MapPools extends React.Component {
     const { mapPools } = this.props
     const { activeTab, initialMaps } = this.state
     const mapPoolHistory = mapPools.types.get(activeTab)
+    const { t } = useTranslation()
 
     return (
       <Container>
         <StyledTabs activeTab={activeTab} onChange={this.onTabChange}>
-          <TabItem text='1v1' value={MatchmakingType.Match1v1} />
-          <TabItem text='2v2' value={MatchmakingType.Match2v2} />
+          <TabItem text={t('admin.mapPools.1v1Text', '1v1')} value={MatchmakingType.Match1v1} />
+          <TabItem text={t('admin.mapPools.2v2Text', '2v2')} value={MatchmakingType.Match2v2} />
         </StyledTabs>
-        <h3>Create a new map pool</h3>
+        <h3>{t('admin.mapPools.createNewMapPoolText', 'Create a new map pool')}</h3>
         <MapPoolEditor
           initialMaps={initialMaps}
           searchResult={mapPools.searchResult}
@@ -524,7 +528,7 @@ export default class MapPools extends React.Component {
           onLoadMoreMaps={this.onLoadMoreMaps}
           onCreate={this.onCreateNewMapPool}
         />
-        <h3>Map pool history</h3>
+        <h3>{t('admin.mapPools.mapPoolHistoryText', 'Map pool history')}</h3>
         <MapPoolHistory
           history={mapPoolHistory}
           onUseAsTemplate={this.onUseAsTemplate}

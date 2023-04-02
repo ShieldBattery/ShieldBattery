@@ -18,6 +18,7 @@ import {
   colorTextSecondary,
 } from '../styles/colors'
 import { singleLine, SubheadingOld, subtitle1 } from '../styles/typography'
+import { useTranslation } from 'react-i18next'
 
 const Container = styled.div`
   max-width: 600px;
@@ -167,7 +168,7 @@ export default class MapManager extends React.Component {
     const model = {
       files: '',
     }
-
+    const { t } = useTranslation()
     const disableUploadButton = results.some(r => r !== UPLOAD_STATUS_PENDING)
     return (
       <>
@@ -182,7 +183,7 @@ export default class MapManager extends React.Component {
         {this.renderSelectedFiles()}
         {selectedFiles.size ? (
           <RaisedButton
-            label='Upload'
+            label={t('admin.mapManager.uploadButtonText', 'Upload')}
             disabled={disableUploadButton}
             onClick={this.onUploadClick}
           />
@@ -197,29 +198,28 @@ export default class MapManager extends React.Component {
     } = this.props
 
     if (!perms.massDeleteMaps) return null
-
+    const { t } = useTranslation()
     const { areYouSure, isDeleting, deleteError } = this.state
     return (
       <>
         <Underline>Delete all maps</Underline>
         <RaisedButton
-          label='Delete all maps'
+          label={t('admin.mapManager.deleteAllMapsButtonText', 'Delete all maps')}
           disabled={isDeleting}
           onClick={() => this.setState({ areYouSure: true })}
         />
         {areYouSure ? (
           <div>
             <WarningText>
-              WARNING! This action will delete all maps in the database and their respective files.
-              This cannot be reversed.
+            {t('admin.mapManager.deleteAllMapsDescription', 'WARNING! This action will delete all maps in the database and their respective files. This cannot be reversed.')}
             </WarningText>
-            <p>Are you sure?</p>
+            <p>{t('admin.mapManager.deleteAllMapsConfirmation', 'Are you sure?')}</p>
             <TextButton
-              label='No'
+              label={t('admin.mapManager.noButtonText', 'No')}
               color='accent'
               onClick={() => this.setState({ areYouSure: false })}
             />
-            <TextButton label='Yes' color='accent' onClick={this.onDeleteMapsClick} />
+            <TextButton label={t('admin.mapManager.yesButtonText', 'Yes')} color='accent' onClick={this.onDeleteMapsClick} />
           </div>
         ) : null}
         {isDeleting ? <LoadingIndicator /> : null}

@@ -24,6 +24,7 @@ import { useAppDispatch } from '../redux-hooks'
 import { openSnackbar } from '../snackbars/action-creators'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { headline5, subtitle1 } from '../styles/typography'
+import { useTranslation } from 'react-i18next'
 
 const Content = styled.div`
   max-width: 960px;
@@ -114,7 +115,7 @@ export function AddServerRow(props: {
     },
     { onSubmit: props.onSubmit },
   )
-
+  const { t } = useTranslation()
   return (
     <form noValidate={true} onSubmit={onSubmit}>
       <SubmitOnEnter />
@@ -123,7 +124,7 @@ export function AddServerRow(props: {
         <DescriptionContent>
           <TextField
             {...bindInput('description')}
-            label='Description'
+            label={t('admin.rallyPoint.descriptionLabel', 'Description')}
             floatingLabel={true}
             dense={true}
             inputProps={{
@@ -134,7 +135,7 @@ export function AddServerRow(props: {
         <HostnameContent>
           <TextField
             {...bindInput('hostname')}
-            label='Hostname'
+            label={t('admin.rallyPoint.hostnameLabel', 'Hostname')}
             floatingLabel={true}
             dense={true}
             inputProps={{
@@ -147,7 +148,7 @@ export function AddServerRow(props: {
             {...bindCustom('port')}
             floatingLabel={false}
             dense={true}
-            label='Port'
+            label={t('admin.rallyPoint.portLabel', 'Port')}
             inputProps={{ min: 1, max: 65536 }}
           />
         </PortContent>
@@ -157,7 +158,7 @@ export function AddServerRow(props: {
             label={
               <>
                 <CloseIcon />
-                <span>Cancel</span>
+                <span>{t('admin.rallyPoint.cancelLabel', 'Cancel')}</span>
               </>
             }
             onClick={props.onCancel}
@@ -167,7 +168,7 @@ export function AddServerRow(props: {
             label={
               <>
                 <CheckIcon />
-                <span>Save</span>
+                <span>{t('admin.rallyPoint.saveLabel', 'Save')}</span>
               </>
             }
             onClick={onSubmit}
@@ -195,7 +196,7 @@ export function ServerRow({
       <DescriptionContent>{server.description}</DescriptionContent>
       <HostnameContent>{server.hostname}</HostnameContent>
       <PortContent>{server.port}</PortContent>
-      <IconButton icon={<EditIcon />} title='Edit' onClick={onClick} />
+      <IconButton icon={<EditIcon />} title={t('admin.rallyPoint.editTitle', 'Edit')} onClick={onClick} />
     </Row>
   )
 }
@@ -247,7 +248,7 @@ export function EditServerRow({
     },
     { onSubmit: onSubmitCallback },
   )
-
+  const { t } = useTranslation()
   return (
     <form noValidate={true} onSubmit={onSubmit}>
       <SubmitOnEnter />
@@ -258,7 +259,7 @@ export function EditServerRow({
         <DescriptionContent>
           <TextField
             {...bindInput('description')}
-            label='Description'
+            label={t('admin.rallyPoint.descriptionLabel', 'Description')}
             floatingLabel={true}
             dense={true}
             inputProps={{
@@ -269,7 +270,7 @@ export function EditServerRow({
         <HostnameContent>
           <TextField
             {...bindInput('hostname')}
-            label='Hostname'
+            label={t('admin.rallyPoint.hostnameLabel', 'Hostname')}
             floatingLabel={true}
             dense={true}
             inputProps={{
@@ -282,7 +283,7 @@ export function EditServerRow({
             {...bindCustom('port')}
             floatingLabel={true}
             dense={true}
-            label='Port'
+            label={t('admin.rallyPoint.portLabel', 'Port')}
             inputProps={{ min: 1, max: 65536 }}
           />
         </PortContent>
@@ -292,7 +293,7 @@ export function EditServerRow({
             label={
               <>
                 <CloseIcon />
-                <span>Cancel</span>
+                <span>{t('admin.rallyPoint.cancelLabel', 'Cancel')}</span>
               </>
             }
             onClick={onCancel}
@@ -302,7 +303,7 @@ export function EditServerRow({
             label={
               <>
                 <CheckIcon />
-                <span>Save</span>
+                <span>{t('admin.rallyPoint.saveLabel', 'Save')}</span>
               </>
             }
             onClick={onSubmit}

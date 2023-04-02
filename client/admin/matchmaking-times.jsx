@@ -66,7 +66,7 @@ const HistoryContainer = styled.table`
     padding-left: 16px;
   }
 `
-const { t } = useTranslation()
+
 const EnabledText = styled.span`
   color: ${colorSuccess};
 `
@@ -94,6 +94,7 @@ class MatchmakingTimesHistory extends React.PureComponent {
   }
 
   render() {
+    const { t } = useTranslation()
     const { history, futureTimesPage, pastTimesPage, onLoadMoreFuture, onLoadMorePast, onDelete } =
       this.props
 
@@ -111,7 +112,7 @@ class MatchmakingTimesHistory extends React.PureComponent {
       return (
         <>
           <p>
-          {t('admin.matchmakingTimes.errorRetrieving', 'Something went wrong while trying to retrieve the matchmaking times history. The error message was:')}
+          {t('admin.matchmakingTimes.errorRetrievingHistory', 'Something went wrong while trying to retrieve the matchmaking times history. The error message was:')}
           </p>
           <ErrorText as='p'>{history.lastError.message}</ErrorText>
         </>
@@ -134,9 +135,9 @@ class MatchmakingTimesHistory extends React.PureComponent {
       <HistoryContainer>
         <thead>
           <tr>
-            <th>{t('common.startDate', 'Start date')}</th>
-            <th>{t('common.status', 'Status')}</th>
-            <th>{t('common.action', 'Action')}</th>
+            <th>{t('admin.matchmakingTimes.startDate', 'Start date')}</th>
+            <th>{t('admin.matchmakingTimes.status', 'Status')}</th>
+            <th>{t('admin.matchmakingTimes.action', 'Action')}</th>
           </tr>
         </thead>
         <tbody>
@@ -171,14 +172,14 @@ class MatchmakingTimesHistory extends React.PureComponent {
                 </td>
                 <td>
                   {time.enabled ? (
-                    <EnabledText>{t('common.enabled', 'Enabled')}</EnabledText>
+                    <EnabledText>{t('admin.matchmakingTimes.enabled', 'Enabled')}</EnabledText>
                   ) : (
-                    <DisabledText>{t('common.disabled', 'Disabled')}</DisabledText>
+                    <DisabledText>{t('admin.matchmakingTimes.disabled', 'Disabled')}</DisabledText>
                   )}
                 </td>
                 <td>
                   {isFuture ? (
-                    <TextButton label={t('common.delete', 'Delete')} color='accent' onClick={() => onDelete(time.id)} />
+                    <TextButton label={t('admin.matchmakingTimes.delete', 'Delete')} color='accent' onClick={() => onDelete(time.id)} />
                   ) : null}
                 </td>
               </tr>
@@ -262,6 +263,7 @@ export default class MatchmakingTimes extends React.Component {
     const { activeTab, startDate, invalidDate, enabled, futureTimesPage, pastTimesPage } =
       this.state
     const matchmakingTimesHistory = matchmakingTimes.types.get(activeTab)
+    const { t } = useTranslation()
 
     let dateValidationContents
     if (invalidDate) {
@@ -277,8 +279,8 @@ export default class MatchmakingTimes extends React.Component {
     return (
       <Container>
         <Tabs activeTab={activeTab} onChange={this.onTabChange}>
-          <TabItem text={t('common.matchmakingType1v1', '1v1')} value={MatchmakingType.Match1v1} />
-          <TabItem text={t('common.matchmakingType2v2', '2v2')} value={MatchmakingType.Match2v2} />
+          <TabItem text={t('admin.matchmakingTimes.matchmakingType1v1', '1v1')} value={MatchmakingType.Match1v1} />
+          <TabItem text={t('admin.matchmakingTimes.matchmakingType2v2', '2v2')} value={MatchmakingType.Match2v2} />
         </Tabs>
         <h3>{t('admin.matchmakingTimes.addNewMatchmakingTime', 'Add a new matchmaking time')}</h3>
         <p>{t('admin.matchmakingTimes.chooseTimeToStart', 'Choose a date and time (in your local timezone) when the matchmaking will start')}</p>
@@ -290,9 +292,9 @@ export default class MatchmakingTimes extends React.Component {
           />
           {dateValidationContents}
         </DateInputContainer>
-        <CheckBox label={t('common.enabled', 'Enabled')} checked={enabled} onChange={this.onEnabledChange} />
+        <CheckBox label={t('admin.matchmakingTimes.enabled', 'Enabled')} checked={enabled} onChange={this.onEnabledChange} />
         <AddNewButton
-          label={t('common.add', 'Add')}
+          label={t('admin.matchmakingTimes.add', 'Add')}
           disabled={startDate === '' || invalidDate}
           onClick={this.onAddNew}
         />
