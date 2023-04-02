@@ -119,11 +119,11 @@ export function PartyNavEntry({
       {needsAttention ? <AttentionIndicator /> : null}
       <StyledLink to={link}>
         <StyledPartyIcon />
-        <Title isActive={isActive}>{t('common.partyLabel', 'Party')}</Title>
+        <Title isActive={isActive}>{t('parties.partyNavEntry.partyLabel', 'Party')}</Title>
         {canInvite ? (
-          <EntryButton icon={<InviteIcon />} title={t('common.invitePlayersLabel', 'Invite players')} onClick={onInviteClick} />
+          <EntryButton icon={<InviteIcon />} title={t('parties.partyNavEntry.invitePlayersLabel', 'Invite players')} onClick={onInviteClick} />
         ) : null}
-        <EntryButton icon={<CloseIcon />} title={t('common.leavePartyLabel', 'Leave party')} onClick={onLeaveClick} />
+        <EntryButton icon={<CloseIcon />} title={t('parties.partyNavEntry.leavePartyLabel', 'Leave party')} onClick={onLeaveClick} />
       </StyledLink>
     </Container>
   )

@@ -190,17 +190,16 @@ export function ConnectedChannelInfoCard({
       <ChannelDescriptionContainer>
         <NoChannelDescriptionText>This channel has no description.</NoChannelDescriptionText>
       </ChannelDescriptionContainer>
-
     )
   }
 
   let action
   if (isUserInChannel) {
-    action = <RaisedButton label={t('common.viewLabel', 'View')} onClick={onViewClick} />
+    action = <RaisedButton label={t('chat.channelInfoCard.viewLabel', 'View')} onClick={onViewClick} />
   } else if (basicChannelInfo?.private || isUserBanned) {
-    action = <RaisedButton label={t('common.joinLabel', 'Join')} disabled={true} />
+    action = <RaisedButton label={t('chat.channelInfoCard.joinLabel', 'Join')} disabled={true} />
   } else if (basicChannelInfo) {
-    action = <RaisedButton label={t('common.joinLabel', 'Join')} disabled={isJoinInProgress} onClick={onJoinClick} />
+    action = <RaisedButton label={t('chat.channelInfoCard.joinLabel', 'Join')} disabled={isJoinInProgress} onClick={onJoinClick} />
   }
 
   return (

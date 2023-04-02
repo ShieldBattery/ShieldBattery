@@ -103,7 +103,7 @@ class ForgotFormHolder extends React.Component {
     let errContents
     const reqId = this.state.reqId
     if (reqId && lastFailure && lastFailure.reqId === reqId) {
-      errContents = <ErrorsContainer>{t('common.errorLabel', 'Error')}: {lastFailure.err}</ErrorsContainer>
+      errContents = <ErrorsContainer>{t('auth.forgot.errorText', 'Error')}: {lastFailure.err}</ErrorsContainer>
     }
     const successContents =
       this.state.success && successMessage ? (
@@ -122,7 +122,7 @@ class ForgotFormHolder extends React.Component {
         </AuthContentContainer>
         {loadingContents}
         <AuthBottomAction>
-          <BottomActionButton label={t('account.backToLogin', 'Back to login.')} onClick={this.onBackClick} tabIndex={1} />
+          <BottomActionButton label={t('auth.forgot.backToLoginLabel', 'Back to login.')} onClick={this.onBackClick} tabIndex={1} />
         </AuthBottomAction>
       </AuthContent>
     )
@@ -154,12 +154,12 @@ class ForgotUserForm extends React.Component {
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
         <p>
-          {t('account.recovery.enterEmail', 'Please enter the email address you signed up with.')}
+          {t('auth.forgot.enterEmail', 'Please enter the email address you signed up with.')}
         </p>
         <FieldRow>
           <AuthTextField
             {...bindInput('email')}
-            label={t('common.emailAddressLabel', 'Email address')}
+            label={t('auth.forgot.emailAddressLabel', 'Email address')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -170,7 +170,7 @@ class ForgotUserForm extends React.Component {
           />
         </FieldRow>
         <FieldRow>
-          <RaisedButton label={t('account.recovery.recoverUsernameLabel', 'Recover username')} onClick={onSubmit} tabIndex={1} />
+          <RaisedButton label={t('auth.forgot.recoverUsernameLabel', 'Recover username')} onClick={onSubmit} tabIndex={1} />
         </FieldRow>
       </form>
     )
@@ -205,7 +205,7 @@ class ForgotPasswordForm extends React.Component {
         <FieldRow>
           <AuthTextField
             {...bindInput('email')}
-            label={t('common.emailAddressLabel', 'Email address')}
+            label={t('auth.forgot.emailAddressLabel', 'Email address')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -218,7 +218,7 @@ class ForgotPasswordForm extends React.Component {
         <FieldRow>
           <AuthTextField
             {...bindInput('username')}
-            label={t('common.usernameLabel', 'Username')}
+            label={t('auth.forgot.usernameLabel', 'Username')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -229,7 +229,7 @@ class ForgotPasswordForm extends React.Component {
           />
         </FieldRow>
         <FieldRow>
-          <RaisedButton label={t('account.recovery.sendResetEmail', 'Send reset email')} onClick={onSubmit} tabIndex={1} />
+          <RaisedButton label={t('auth.forgot.sendResetEmailLabel', 'Send reset email')} onClick={onSubmit} tabIndex={1} />
         </FieldRow>
       </form>
     )
@@ -283,7 +283,7 @@ class ResetPasswordForm extends React.Component {
           <AuthTextField
             {...bindInput('username')}
             inputProps={textInputProps}
-            label={t('common.usernameLabel', 'Username')}
+            label={t('auth.forgot.usernameLabel', 'Username')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -291,7 +291,7 @@ class ResetPasswordForm extends React.Component {
           <AuthTextField
             {...bindInput('token')}
             inputProps={textInputProps}
-            label={t('account.recovery.passwordResetCode', 'Password reset code')}
+            label={t('auth.forgot.passwordResetCodeLabel', 'Password reset code')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -299,7 +299,7 @@ class ResetPasswordForm extends React.Component {
           <AuthPasswordTextField
             {...bindInput('password')}
             inputProps={textInputProps}
-            label={t('account.recovery.newPassword', 'New password')}
+            label={t('auth.forgot.newPasswordLabel', 'New password')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -307,12 +307,12 @@ class ResetPasswordForm extends React.Component {
           <AuthPasswordTextField
             {...bindInput('confirmPassword')}
             inputProps={textInputProps}
-            label={t('account.recovery.confirmNewPassword', 'Confirm new password')}
+            label={t('auth.forgot.confirmNewPasswordLabel', 'Confirm new password')}
             floatingLabel={true}
           />
         </FieldRow>
         <FieldRow>
-          <RaisedButton label={t('account.recovery.setNewPassword', 'Set new password')} onClick={onSubmit} tabIndex={1} />
+          <RaisedButton label={t('auth.forgot.setNewPasswordLabel', 'Set new password')} onClick={onSubmit} tabIndex={1} />
         </FieldRow>
       </form>
     )

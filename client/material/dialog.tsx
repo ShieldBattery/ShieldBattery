@@ -209,7 +209,7 @@ export function Dialog({
   const [isAtTop, isAtBottom, topNode, bottomNode] = useScrollIndicatorState()
   const { t } = useTranslation()
   const closeButton = showCloseButton ? (
-    <CloseButton icon={<CloseDialogIcon />} title={t('common.closeDialogLabel', 'Close dialog')} onClick={onCancel} />
+    <CloseButton icon={<CloseDialogIcon />} title={t('material.dialog.closeDialogLabel', 'Close dialog')} onClick={onCancel} />
   ) : null
 
   return (

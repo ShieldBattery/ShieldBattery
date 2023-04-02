@@ -96,7 +96,7 @@ export function BrowseLocalMaps(props: { onMapSelect: (map: MapInfoJson) => void
   return (
     <FileBrowser
       browserType={FileBrowserType.Maps}
-      title={t('maps.localMapsLabel', 'Local Maps')}
+      title={t('maps.browseLocalMaps.localMapsLabel', 'Local Maps')}
       titleButton={<ActivityBackButton />}
       rootFolders={rootFolders}
       fileEntryConfig={fileEntryConfig}

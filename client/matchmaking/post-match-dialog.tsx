@@ -189,7 +189,7 @@ export function PostMatchDialog({
     <StyledDialog
       dialogRef={dialogRef}
       showCloseButton={true}
-      title={t('matchmaking.matchResultsLabel', 'Match results')}
+      title={t('matchmaking.postMatchDialog.matchResultsHeader', 'Match results')}
       onCancel={onCancel}
       $hasLeagues={leagueValues.length > 0}>
       {mmrChange.lifetimeGames >= NUM_PLACEMENT_MATCHES ? (
@@ -199,13 +199,13 @@ export function PostMatchDialog({
       )}
       <ButtonBar>
         <RaisedButton
-          label={t('matchmaking.searchAgainLabel', 'Search again')}
+          label={t('matchmaking.postMatchDialog.searchAgainLabel', 'Search again')}
           iconStart={<SizedSearchAgainIcon />}
           onClick={onSearchAgain}
           disabled={!canSearchMatchmaking}
         />
         <RaisedButton
-          label={t('matchmaking.watchReplayLabel', 'Watch replay')}
+          label={t('matchmaking.postMatchDialog.watchReplayLabel', 'Watch replay')}
           iconStart={<MaterialIcon icon='videocam' />}
           onClick={onWatchReplay}
           disabled={!replayPath}
@@ -402,7 +402,7 @@ function RatedUserContent({
   return (
     <Content>
       <MatchmakingSide>
-        <SideOverline>{t('common.matchmakingLabel', 'Matchmaking')}</SideOverline>
+        <SideOverline>{t('matchmaking.postMatchDialog.matchmakingLabel', 'Matchmaking')}</SideOverline>
         <IconAndDeltas>
           <IconWithLabel division={curDivisionWithBounds[0]} isWin={mmrChange.outcome === 'win'} />
           <Deltas>
@@ -415,7 +415,7 @@ function RatedUserContent({
       </MatchmakingSide>
       {leagueValues.length > 0 ? (
         <LeagueSide>
-          <SideOverline>{t('common.leaguesLabel', 'Leagues')}</SideOverline>
+          <SideOverline>{t('matchmaking.postMatchDialog.leaguesLabel', 'Leagues')}</SideOverline>
           <Leagues>
             <GradientScrollDivider $showAt='top' $heightPx={32} $show={!isAtTop} />
             <LeaguesScrollable $needsScroll={!isAtTop || !isAtBottom}>
@@ -500,7 +500,7 @@ function UnratedUserContent({
   return (
     <Content>
       <MatchmakingSide>
-        <SideOverline>{t('common.matchmakingLabel', 'Matchmaking')}</SideOverline>
+        <SideOverline>{t('matchmaking.postMatchDialog.matchmakingLabel', 'Matchmaking')}</SideOverline>
         <IconAndDeltas>
           <IconWithLabel
             division={MatchmakingDivision.Unrated}
@@ -516,7 +516,7 @@ function UnratedUserContent({
       </MatchmakingSide>
       {leagueValues.length > 0 ? (
         <LeagueSide>
-          <SideOverline>{t('common.leaguesLabel', 'Leagues')}</SideOverline>
+          <SideOverline>{t('matchmaking.postMatchDialog.leaguesLabel', 'Leagues')}</SideOverline>
           <Leagues>
             <GradientScrollDivider $showAt='top' $heightPx={32} $show={!isAtTop} />
             <LeaguesScrollable $needsScroll={!isAtTop || !isAtBottom}>
@@ -785,7 +785,7 @@ function PlacementCount({ lifetimeGames }: { lifetimeGames: number }) {
   const { t } = useTranslation()
   return (
     <PlacementCountRoot>
-      {lifetimeGames} / {NUM_PLACEMENT_MATCHES} {t('common.placementsLabel', 'placements')}
+      {lifetimeGames} / {NUM_PLACEMENT_MATCHES} {t('matchmaking.postMatchDialog.placementsLabel', 'placements')}
     </PlacementCountRoot>
   )
 }

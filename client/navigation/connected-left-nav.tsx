@@ -229,7 +229,7 @@ function LoadingGameSection() {
           link={link}
           currentPath={currentPath}
           title={title}
-          subtitle={t('common.loadingLabel', 'Loading\u2026')}
+          subtitle={t('navigation.connectedLeftNav.loadingLabel', 'Loading\u2026')}
         />
       </Section>
       <SectionSpacer key='loading-game-divider' />
@@ -267,7 +267,7 @@ function ActiveGameSection() {
           link={link}
           currentPath={currentPath}
           title={title}
-          subtitle={t('common.gameInProgressLabel', 'Game in progress\u2026')}
+          subtitle={t('navigation.connectedLeftNav.gameInProgressLabel', 'Game in progress\u2026')}
         />
       </Section>
       <SectionSpacer key='active-game-divider' />
@@ -469,7 +469,7 @@ export function ConnectedLeftNav() {
   )
 
   const joinChannelButton = (
-    <Tooltip text={t('nav.joinChannelText', 'Join a channel (Alt + H)')} position='right'>
+    <Tooltip text={t('navigation.connectedLeftNav.joinChannelText', 'Join a channel (Alt + H)')} position='right'>
       <SubheaderButton
         ref={joinChannelButtonRef}
         icon={<MaterialIcon icon='add' />}
@@ -478,7 +478,7 @@ export function ConnectedLeftNav() {
     </Tooltip>
   )
   const addWhisperButton = (
-    <Tooltip text={t('nav.startWhisperText', 'Start a whisper (Alt + W)')} position='right'>
+    <Tooltip text={t('navigation.connectedLeftNav.startWhisperText', 'Start a whisper (Alt + W)')} position='right'>
       <SubheaderButton
         ref={startWhisperButtonRef}
         icon={<MaterialIcon icon='add' />}
@@ -494,7 +494,7 @@ export function ConnectedLeftNav() {
       {IS_ELECTRON ? <ActiveGameSection /> : null}
       {IS_ELECTRON ? <LobbySection /> : null}
       {IS_ELECTRON ? <PartySection /> : null}
-      <Subheader button={MULTI_CHANNEL ? joinChannelButton : null}>{t('common.chatChannelsLabel', 'Chat channels')}</Subheader>
+      <Subheader button={MULTI_CHANNEL ? joinChannelButton : null}>{t('navigation.connectedLeftNav.chatChannelsLabel', 'Chat channels')}</Subheader>
       <Section>
         {Array.from(chatChannels.values(), c => (
           <ConnectedChatNavEntry key={c} channelId={c} onLeave={onChannelLeave} />
@@ -515,11 +515,11 @@ export function ConnectedLeftNav() {
         }}
         anchor={profileEntryRef.current}
         username={selfUser.name}>
-        <MenuItem icon={<PortraitIcon />} text={t('nav.viewProfileLabel', 'View profile')} onClick={onViewProfileClick} />
-        <MenuItem icon={<ChangelogIcon />} text={t('nav.viewChangelogLabel', 'View changelog')} onClick={onChangelogClick} />
-        <MenuItem icon={<EditIcon />} text={t('nav.editAccountLabel', 'Edit account')} onClick={onEditAccountClick} />
+        <MenuItem icon={<PortraitIcon />} text={t('navigation.connectedLeftNav.viewProfileLabel', 'View profile')} onClick={onViewProfileClick} />
+        <MenuItem icon={<ChangelogIcon />} text={t('navigation.connectedLeftNav.viewChangelogLabel', 'View changelog')} onClick={onChangelogClick} />
+        <MenuItem icon={<EditIcon />} text={t('navigation.connectedLeftNav.editAccountLabel', 'Edit account')} onClick={onEditAccountClick} />
         <MenuDivider />
-        <MenuItem icon={<LogoutIcon />} text={t('common.logOutLabel', 'Log out')} onClick={onLogOutClick} />
+        <MenuItem icon={<LogoutIcon />} text={t('navigation.connectedLeftNav.logOutLabel', 'Log out')} onClick={onLogOutClick} />
       </SelfProfileOverlay>
     </LeftNav>
   )
@@ -536,7 +536,7 @@ export function LoggedOutLeftNav() {
   const { t } = useTranslation()
   const footer = (
     <LoggedOutFooter>
-      <RaisedButton label={t('common.logInLabel', 'Log in')} onClick={() => redirectToLogin(push)} />
+      <RaisedButton label={t('navigation.connectedLeftNav.logInLabel', 'Log in')} onClick={() => redirectToLogin(push)} />
     </LoggedOutFooter>
   )
 

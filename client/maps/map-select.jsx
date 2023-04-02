@@ -183,7 +183,7 @@ export default class MapSelect extends React.Component {
               onClick={this.onMapBrowse}
               isFocused={isFocused && focusedIndex === list.size}>
               <BrowseIcon />
-              <BrowseText>{t('maps.browseLabel', 'Browse maps')}</BrowseText>
+              <BrowseText>{t('maps.mapSelect.browseLabel', 'Browse maps')}</BrowseText>
             </BrowseButton>
           ) : null}
         </ImageList>

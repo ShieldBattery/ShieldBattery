@@ -134,22 +134,22 @@ export function UpdateDialog({
   if (hasDownloadError) {
     content = (
       <Subtitle1>
-        {t('download.errorDownloadingUpdate', 'There was an error downloading the update. Please restart and try again, or visit')}{' '}
+        {t('download.updateOverlay.errorDownloadingUpdate', 'There was an error downloading the update. Please restart and try again, or visit')}{' '}
         <a href={makeServerUrl('/')} target='_blank' rel='noopener noreferrer'>
-        {t('common.websiteLabel', 'our website')}
+        {t('download.updateOverlay.websiteLabel', 'our website')}
         </a>{' '}
-        {t('download.downloadLatest', 'to download the latest version.')}
+        {t('download.updateOverlay.downloadLatest', 'to download the latest version.')}
       </Subtitle1>
     )
   } else if (readyToInstall) {
     content = (
       <Content>
         <Subtitle1>
-        {t('download.newUpdateReady', 'A new update has been downloaded and is ready to install. Please restart the application to continue.')}
+        {t('download.updateOverlay.newUpdateReady', 'A new update has been downloaded and is ready to install. Please restart the application to continue.')}
         </Subtitle1>
         <RaisedButton
           onClick={() => ipcRenderer.send('updaterQuitAndInstall')}
-          label={t('common.restartNow', 'Restart now')}
+          label={t('download.updateOverlay.restartNowLabel', 'Restart now')}
         />
       </Content>
     )
@@ -157,7 +157,7 @@ export function UpdateDialog({
     content = (
       <Content>
         <Subtitle1>
-        {t('download.newUpdateDownloading', 'A new update is being downloaded. Please wait for the download to complete in order to continue.')}
+        {t('download.updateOverlay.newUpdateDownloading', 'A new update is being downloaded. Please wait for the download to complete in order to continue.')}
         </Subtitle1>
         {progress ? <UpdateProgressUi progress={progress} /> : <LoadingDotsArea />}
       </Content>

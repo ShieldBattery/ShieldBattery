@@ -39,7 +39,7 @@ export default class StarcraftHealthCheckupDialog extends React.Component {
 
     return (
       <p>
-        <Trans i18nKey="starcrafthealth.integrity.installationInvalid">
+        <Trans i18nKey="starcraft.starcraftHealth.installationInvalid">
         Your StarCraft path setting does not point to a valid installation. Please correct the value
         in{' '}
         <a href='#' onClick={e => this.onSettingsClicked(e)}>
@@ -64,7 +64,7 @@ export default class StarcraftHealthCheckupDialog extends React.Component {
 
     return (
       <div>
-        <Trans i18nKey="starcrafthealth.integrity.installationOutOfDate">
+        <Trans i18nKey="starcraft.starcraftHealth.installationOutOfDate">
         <p>
           Your StarCraft installation is out of date. ShieldBattery supports installations of
           the latest Remastered version. Please install the{' '}
@@ -88,7 +88,7 @@ export default class StarcraftHealthCheckupDialog extends React.Component {
         showCloseButton={true}
         dialogRef={this.props.dialogRef}>
         <HeaderText as='p'>
-        {t('starcrafthealth.integrity.installationProblemsDescription', 'The following problems need to be corrected before you can play games on ShieldBattery:')}
+        {t('starcraft.starcraftHealth.installationProblemsDescription', 'The following problems need to be corrected before you can play games on ShieldBattery:')}
         </HeaderText>
         {this.renderInstallPathInfo()}
         {this.renderStarcraftVersionInfo()}

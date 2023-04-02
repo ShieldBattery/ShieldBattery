@@ -144,7 +144,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       <StyledTextField
         ref={inputRef}
         className={props.className}
-        label={t('common.sendMessageText', 'Send a message')}
+        label={t('messaging.messageInput.sendMessageLabel', 'Send a message')}
         value={message}
         floatingLabel={false}
         allowErrors={false}

@@ -40,7 +40,7 @@ const { t } = useTranslation()
 export const MapNoImage = () => (
   <NoImageContainer>
     <ImageIcon />
-    <Subtitle1>{t('maps.previewNotAvailable', 'Map preview not available')}</Subtitle1>
+    <Subtitle1>{t('maps.mapImage.previewNotAvailable', 'Map preview not available')}</Subtitle1>
   </NoImageContainer>
 )
 

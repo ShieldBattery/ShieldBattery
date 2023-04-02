@@ -16,7 +16,7 @@ const LeaveButton = styled(IconButton)`
 const { t } = useTranslation()
 const LobbyNavEntry = ({ lobby, currentPath, hasUnread, onLeaveClick }) => {
   const button = (
-    <LeaveButton icon={<CloseLobbyIcon />} title={t('lobby.leaveLobbyLabel', 'Leave lobby')} onClick={onLeaveClick} />
+    <LeaveButton icon={<CloseLobbyIcon />} title={t('lobbies.navEntry.leaveLobbyLabel', 'Leave lobby')} onClick={onLeaveClick} />
   )
   return (
     <Entry

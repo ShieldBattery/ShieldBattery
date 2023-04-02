@@ -127,7 +127,7 @@ export default class ActiveLobby extends React.Component {
           <Spacer />
           <StyledMapThumbnail map={lobby.map} size={320} />
           <StatusContainer>
-            <StatusText>{t('common.gameInProgress', 'Game in progress\u2026')}</StatusText>
+            <StatusText>{t('lobbies.activeLobby.gameInProgressStatusText', 'Game in progress\u2026')}</StatusText>
           </StatusContainer>
         </TopHalfContainer>
         {isTvB ? (

@@ -76,7 +76,7 @@ export default class OpenSlot extends React.Component {
             onMouseLeave={this.onLeftMouseLeave}
             onClick={onSwitchClick}>
             <SlotEmptyAvatar>{this.state.isHovered ? <SwapSlotsIcon /> : null}</SlotEmptyAvatar>
-            <SlotEmptyName as='span'>{t('common.openText', 'Open')}</SlotEmptyName>
+            <SlotEmptyName as='span'>{t('lobbies.openSlot.openText', 'Open')}</SlotEmptyName>
           </SlotProfileOpen>
           {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
         </SlotLeft>

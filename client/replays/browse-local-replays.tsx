@@ -252,7 +252,7 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
 
   let content
   if (parseError) {
-    content = <ErrorText>{t('replays.errorParsingReplayText', 'There was an error parsing the replay')}</ErrorText>
+    content = <ErrorText>{t('replays.browseLocalReplays.errorParsingReplayText', 'There was an error parsing the replay')}</ErrorText>
   } else if (!replayMetadata) {
     content = <LoadingDotsArea />
   } else if (replayMetadata) {
@@ -272,9 +272,9 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
           </Tooltip>
           <TextInfoContainer>
             <Tooltip text={gameTypeLabel} position='bottom' disabled={!isGameTypeOverflowing}>
-              <ReplayInfoText ref={gameTypeRef}>{t('common.gameTypeLabel', 'Game type')}: {gameTypeLabel}</ReplayInfoText>
+              <ReplayInfoText ref={gameTypeRef}>{t('replays.browseLocalReplays.gameTypeLabel', 'Game type')}: {gameTypeLabel}</ReplayInfoText>
             </Tooltip>
-            <ReplayInfoText>{t('common.durationLabel', 'Duration')}: {durationStr}</ReplayInfoText>
+            <ReplayInfoText>{t('replays.browseLocalReplays.durationLabel', 'Duration')}: {durationStr}</ReplayInfoText>
           </TextInfoContainer>
         </ReplayInfoContainer>
       </InfoContainer>
@@ -329,7 +329,7 @@ export function BrowseLocalReplays() {
   return (
     <FileBrowser
       browserType={FileBrowserType.Replays}
-      title={t('replays.browser.localReplaysLabel', 'Local Replays')}
+      title={t('replays.browseLocalReplays.localReplaysLabel', 'Local Replays')}
       rootFolders={rootFolders}
       fileEntryConfig={fileEntryConfig}
     />

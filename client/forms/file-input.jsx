@@ -39,7 +39,7 @@ export default class FileInput extends React.Component {
       <Container>
         <input ref={this._setInput} {...internalInputProps} />
         {hasFiles ? (
-          <ClearButton icon={<ClearIcon />} title={t('common.clearFiles', 'Clear files')} onClick={this.onClearClick} />
+          <ClearButton icon={<ClearIcon />} title={t('forms.fileInput.clearFilesHeader', 'Clear files')} onClick={this.onClearClick} />
         ) : null}
       </Container>
     )

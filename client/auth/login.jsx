@@ -61,7 +61,7 @@ class LoginForm extends React.Component {
           <RowEdge />
           <AuthTextField
             {...bindInput('username')}
-            label={t('common.usernameLabel', 'Username')}
+            label={t('auth.login.usernameLabel', 'Username')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -71,7 +71,7 @@ class LoginForm extends React.Component {
             }}
           />
           <RowEdge>
-            <ForgotActionButton label={t('account.recover.forgotUsername', 'Forgot username?')} onClick={onForgotUsernameClick} />
+            <ForgotActionButton label={t('auth.login.forgotUsernameLabel', 'Forgot username?')} onClick={onForgotUsernameClick} />
           </RowEdge>
         </FieldRow>
 
@@ -79,7 +79,7 @@ class LoginForm extends React.Component {
           <RowEdge />
           <AuthPasswordTextField
             {...bindInput('password')}
-            label={t('common.passwordLabel', 'Password')}
+            label={t('auth.login.passwordLabel', 'Password')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -89,7 +89,7 @@ class LoginForm extends React.Component {
             }}
           />
           <RowEdge>
-            <ForgotActionButton label={t('account.recover.forgotPasswordLabel', 'Forgot password?')} onClick={onForgotPasswordClick} />
+            <ForgotActionButton label={t('auth.login.forgotPasswordLabel', 'Forgot password?')} onClick={onForgotPasswordClick} />
           </RowEdge>
         </FieldRow>
 
@@ -101,7 +101,7 @@ class LoginForm extends React.Component {
             inputProps={{ tabIndex: 1 }}
           />
           <Spacer />
-          <RaisedButton label={t('common.logInLabel', 'Log in')} onClick={onSubmit} tabIndex={1} testName='submit-button' />
+          <RaisedButton label={t('auth.login.logInLabel', 'Log in')} onClick={onSubmit} tabIndex={1} testName='submit-button' />
           <RowEdge />
         </FieldRow>
       </form>
@@ -161,12 +161,12 @@ export default class Login extends React.Component {
         {loadingContents}
         <AuthBottomAction>
           <BottomActionButton
-            label={t('account.recover.signUpLabel', 'Sign up for an account')}
+            label={t('auth.login.signUpLabel', 'Sign up for an account')}
             onClick={this.onCreateAccountClick}
             tabIndex={1}
           />
           <BottomActionButton
-            label={t('common.whatIsShieldBattery', 'What is ShieldBattery?')}
+            label={t('auth.login.whatIsShieldBatteryLabel', 'What is ShieldBattery?')}
             onClick={this.onSplashClick}
             tabIndex={1}
           />

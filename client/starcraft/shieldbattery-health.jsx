@@ -52,7 +52,7 @@ export class ShieldBatteryHealthDialog extends React.Component {
         showCloseButton={true}
         dialogRef={this.props.dialogRef}>
         <Text>
-        {t('shieldbatteryhealth.integrity.missingFilesDescription', 'We\'ve detected that the following ShieldBattery files are missing or have been modified:')}
+        {t('starcraft.shieldbatteryHealth.missingFilesDescription', 'We\'ve detected that the following ShieldBattery files are missing or have been modified:')}
         </Text>
         <FileList>
           {initDescription}
@@ -60,14 +60,14 @@ export class ShieldBatteryHealthDialog extends React.Component {
         </FileList>
 
         <Text>
-        {t('shieldbatteryhealth.integrity.antiVirusExceptionsDescription', 'This is often the result of installed anti-virus software taking action on false positives. You may need to add exceptions for these files, or tell the software to remove them from quarantine. You can also try re-installing ShieldBattery.')}
+        {t('starcraft.shieldbatteryHealth.antiVirusExceptionsDescription', 'This is often the result of installed anti-virus software taking action on false positives. You may need to add exceptions for these files, or tell the software to remove them from quarantine. You can also try re-installing ShieldBattery.')}
         </Text>
 
         <Text>
-        {t('shieldbatteryhealth.integrity.antiVirusReportFalsePositivesDescription', 'If you are able to, reporting these as false positives to your anti-virus vendor will help this stop happening for other users as well!')}
+        {t('starcraft.shieldbatteryHealth.antiVirusReportFalsePositivesDescription', 'If you are able to, reporting these as false positives to your anti-virus vendor will help this stop happening for other users as well!')}
         </Text>
 
-        <RescanButton label={t('shieldbatteryhealth.integrity.rescanFilesButtonText', 'Rescan files')} onClick={this.onRescanClick} />
+        <RescanButton label={t('starcraft.shieldbatteryHealth.rescanFilesButtonText', 'Rescan files')} onClick={this.onRescanClick} />
       </Dialog>
     )
   }

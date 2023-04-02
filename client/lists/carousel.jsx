@@ -8,6 +8,7 @@ import { IconButton, Label } from '../material/button'
 import { fastOutSlowIn } from '../material/curve-constants'
 import { colorTextSecondary } from '../styles/colors'
 import InfiniteScrollList from './infinite-scroll-list'
+import { useTranslation } from 'react-i18next'
 
 const BUTTON_WIDTH = 64
 const LOADER_WIDTH = 98
@@ -126,7 +127,7 @@ export default class Carousel extends React.Component {
   render() {
     const { isLoading, hasMoreItems, onLoadMoreData } = this.props
     const { translateWidth, hasPrevItems, hasNextItems } = this.state
-
+    const { t } = useTranslation()
     const contentStyle = { transform: `translateX(${translateWidth}px)` }
     const showPrevButton = hasPrevItems
     const showNextButton = hasNextItems && !isLoading
@@ -135,7 +136,7 @@ export default class Carousel extends React.Component {
       <CarouselContainer ref={this._carouselRef} className={this.props.className}>
         <WindowListener event='resize' listener={this._calcCarouselWidth} />
         {showPrevButton ? (
-          <CarouselButton icon={<CarouselPrev />} title='Previous' onClick={this.onPrev} />
+          <CarouselButton icon={<CarouselPrev />} title={t('lists.carousel.previousTitle', 'Previous')} onClick={this.onPrev} />
         ) : null}
         <CarouselContentMask showLeft={showPrevButton} showRight={showNextButton}>
           <CarouselContent ref={this._contentRef} style={contentStyle}>
@@ -150,7 +151,7 @@ export default class Carousel extends React.Component {
           </CarouselContent>
         </CarouselContentMask>
         {showNextButton ? (
-          <CarouselButton icon={<CarouselNext />} title='Next' onClick={this.onNext} />
+          <CarouselButton icon={<CarouselNext />} title={t('lists.carousel.nextTitle', 'Next')} onClick={this.onNext} />
         ) : null}
       </CarouselContainer>
     )

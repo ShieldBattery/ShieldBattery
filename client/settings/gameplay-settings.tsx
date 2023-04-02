@@ -83,31 +83,31 @@ const GameplayRemasteredForm = React.forwardRef<
       <SubmitOnEnter />
       <FormContainer>
         <div>
-          <Select {...bindCustom('unitPortraits')} label={t('settings.gameplay.unitPortraitsLabel', 'Portraits')} tabIndex={0}>
-            <SelectOption value={2} text={t('settings.gameplay.unitPortraitsAnimatedLabel', 'Animated')} />
-            <SelectOption value={1} text={t('settings.gameplay.unitPortraitsStillLabel', 'Still')} />
-            <SelectOption value={0} text={t('settings.gameplay.unitPortraitsDisabledLabel', 'Disabled')} />
+          <Select {...bindCustom('unitPortraits')} label={t('settings.gameplaySettings.unitPortraitsLabel', 'Portraits')} tabIndex={0}>
+            <SelectOption value={2} text={t('settings.gameplaySettings.unitPortraitsAnimatedLabel', 'Animated')} />
+            <SelectOption value={1} text={t('settings.gameplaySettings.unitPortraitsStillLabel', 'Still')} />
+            <SelectOption value={0} text={t('settings.gameplaySettings.unitPortraitsDisabledLabel', 'Disabled')} />
           </Select>
-          <Select {...bindCustom('minimapPosition')} label={t('settings.gameplay.minimapPositionLabel', 'Minimap position')} tabIndex={0}>
-            <SelectOption value={true} text={t('settings.gameplay.minimapPositionBottomLeftLabel', 'Bottom-left corner')} />
-            <SelectOption value={false} text={t('settings.gameplay.minimapPositionStandardLabel', 'Standard')} />
+          <Select {...bindCustom('minimapPosition')} label={t('settings.gameplaySettings.minimapPositionLabel', 'Minimap position')} tabIndex={0}>
+            <SelectOption value={true} text={t('settings.gameplaySettings.minimapPositionBottomLeftLabel', 'Bottom-left corner')} />
+            <SelectOption value={false} text={t('settings.gameplaySettings.minimapPositionStandardLabel', 'Standard')} />
           </Select>
-          <SectionOverline>{t('settings.skins.skinsLabel', 'Skins (must be purchased from Blizzard)')}</SectionOverline>
+          <SectionOverline>{t('settings.gameplaySettings.skinsLabel', 'Skins (must be purchased from Blizzard)')}</SectionOverline>
           <BonusSkinsCheckBox
             {...bindCheckable('showBonusSkins')}
-            label={t('settings.skins.showBonusSkinsLabel', 'Show bonus skins')}
+            label={t('settings.gameplaySettings.showBonusSkinsLabel', 'Show bonus skins')}
             inputProps={{ tabIndex: 0 }}
           />
           <Select
             {...bindCustom('selectedSkin')}
-            label={t('settings.skins.selectedSkinLabel', 'Ingame skin')}
+            label={t('settings.gameplaySettings.selectedSkinLabel', 'Ingame skin')}
             tabIndex={0}
             disabled={!getInputValue('showBonusSkins')}>
             {ALL_INGAME_SKINS.map(skin => (
               <SelectOption key={skin || 'default'} value={skin} text={getIngameSkinName(skin)} />
             ))}
           </Select>
-          <Select {...bindCustom('consoleSkin')} label={t('settings.skins.consoleSkinLabel', 'Console skin')} tabIndex={0}>
+          <Select {...bindCustom('consoleSkin')} label={t('settings.gameplaySettings.consoleSkinLabel', 'Console skin')} tabIndex={0}>
             {ALL_CONSOLE_SKINS.map(skin => (
               <SelectOption key={skin} value={skin} text={getConsoleSkinName(skin)} />
             ))}
@@ -116,56 +116,56 @@ const GameplayRemasteredForm = React.forwardRef<
         <div>
           <CheckBox
             {...bindCheckable('gameTimerOn')}
-            label={t('settings.gameplay.gameTimerLabel', 'Game timer')}
+            label={t('settings.gameplaySettings.gameTimerLabel', 'Game timer')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('colorCyclingOn')}
-            label={t('settings.gameplay.enableColorCyclingLabel', 'Enable color cycling')}
+            label={t('settings.gameplaySettings.enableColorCyclingLabel', 'Enable color cycling')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('showTurnRate')}
-            label={t('settings.gameplay.showLatencyLabel', 'Show latency')}
+            label={t('settings.gameplaySettings.showLatencyLabel', 'Show latency')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('apmDisplayOn')}
-            label={t('settings.gameplay.apmDisplayLabel', 'APM display')}
+            label={t('settings.gameplaySettings.apmDisplayLabel', 'APM display')}
             inputProps={{ tabIndex: 0 }}
           />
           <ApmAlertCheckbox
             {...bindCheckable('apmAlertOn')}
-            label={t('settings.gameplay.apmAlertDescriptionLabel', 'Alert when APM falls below')}
+            label={t('settings.gameplaySettings.apmAlertDescriptionLabel', 'Alert when APM falls below')}
             inputProps={{ tabIndex: 0 }}
           />
           <NumberTextField
             {...bindCustom('apmAlertValue')}
             floatingLabel={false}
             dense={true}
-            label={t('settings.gameplay.apmAlertValueLabel', 'APM value')}
+            label={t('settings.gameplaySettings.apmAlertValueLabel', 'APM value')}
             inputProps={{ min: 0, max: 999 }}
             disabled={!getInputValue('apmAlertOn')}
           />
           <CheckBox
             {...bindCheckable('apmAlertColorOn')}
-            label={t('settings.gameplay.apmAlertColorLabel', 'Color text')}
+            label={t('settings.gameplaySettings.apmAlertColorLabel', 'Color text')}
             inputProps={{ tabIndex: 0 }}
             disabled={!getInputValue('apmAlertOn')}
           />
           <CheckBox
             {...bindCheckable('apmAlertSoundOn')}
-            label={t('settings.gameplay.apmAlertSoundLabel', 'Play sound')}
+            label={t('settings.gameplaySettings.apmAlertSoundLabel', 'Play sound')}
             inputProps={{ tabIndex: 0 }}
             disabled={!getInputValue('apmAlertOn')}
           />
         </div>
         {DEV_INDICATOR ? (
           <div>
-            <SectionOverline>{t('settings.admin.devOnlySettingsLabel', 'Dev-only settings')}</SectionOverline>
+            <SectionOverline>{t('settings.gameplaySettings.devOnlySettingsLabel', 'Dev-only settings')}</SectionOverline>
             <CheckBox
               {...bindCheckable('visualizeNetworkStalls')}
-              label={t('settings.admin.visualizeNetworkStallsDescription', 'Visualize network stalls')}
+              label={t('settings.gameplaySettings.visualizeNetworkStallsDescription', 'Visualize network stalls')}
               inputProps={{ tabIndex: 0 }}
             />
           </div>

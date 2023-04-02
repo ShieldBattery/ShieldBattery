@@ -94,12 +94,12 @@ export default class Download extends React.Component {
     const { t } = useTranslation()
     return (
       <React.Fragment>
-        <Blurb>{t('common.downloadShieldBatteryClient', 'Download the ShieldBattery client to')}:</Blurb>
+        <Blurb>{t('download.downloadShieldBatteryClient', 'Download the ShieldBattery client to')}:</Blurb>
         <BlurbList>
-          <li>{t('common.playGames', 'Play games')}</li>
-          <li>{t('common.watchReplays', 'Watch replays')}</li>
-          <li>{t('common.exploreMaps', 'Explore maps')}</li>
-          <li>{t('common.andMore', 'And more!')}</li>
+          <li>{t('download.playGames', 'Play games')}</li>
+          <li>{t('download.watchReplays', 'Watch replays')}</li>
+          <li>{t('download.exploreMaps', 'Explore maps')}</li>
+          <li>{t('download.andMore', 'And more!')}</li>
         </BlurbList>
         <InstallerLinks>
           <RaisedButton
@@ -107,24 +107,24 @@ export default class Download extends React.Component {
             label={
               <InstallerButtonLabel>
                 <InstallerButtonIcon />
-                <span>{t('common.downloadClientButtonText', 'Download client')}</span>
+                <span>{t('download.downloadClientButtonText', 'Download client')}</span>
               </InstallerButtonLabel>
             }
           />
         </InstallerLinks>
-        <SupportText>{t('common.supportProjectText', 'Want to support the project?')}</SupportText>
+        <SupportText>{t('download.supportProjectText', 'Want to support the project?')}</SupportText>
         <SupportLinks>
           <a
             href='https://github.com/sponsors/ShieldBattery'
             target='_blank'
             rel='noopener'
-            title='GitHub Sponsors'>
+            title={t('download.githubSponsors', 'GitHub Sponsors')}>
             <StyledGithubIcon />
           </a>
-          <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener' title='Ko-fi'>
+          <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener' title={t('download.kofi', 'Ko-fi')}>
             <StyledKofiIcon />
           </a>
-          <a href='https://patreon.com/tec27' target='_blank' rel='noopener' title='Patreon'>
+          <a href='https://patreon.com/tec27' target='_blank' rel='noopener' title={t('download.patreon', 'Patreon')}>
             <StyledPatreonIcon />
           </a>
         </SupportLinks>

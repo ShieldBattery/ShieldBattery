@@ -60,12 +60,12 @@ export const PartyInviteNotificationUi = React.memo(
         icon={<ColoredPartyIcon />}
         text={
           <span>
-            <Username>{username ?? ''}</Username> {t('common.receivedPartyInvite', 'sent you a party invitation.')}
+            <Username>{username ?? ''}</Username> {t('parties.partyNotificationUI.receivedPartyInvite', 'sent you a party invitation.')}
           </span>
         }
         actions={[
-          <TextButton key='decline' color='accent' label={t('common.declineLabel', 'Decline')} onClick={onDecline} />,
-          <TextButton key='accept' color='accent' label={t('common.acceptLabel', 'Accept')} onClick={onAccept} />,
+          <TextButton key='decline' color='accent' label={t('parties.partyNotificationUI.declineLabel', 'Decline')} onClick={onDecline} />,
+          <TextButton key='accept' color='accent' label={t('parties.partyNotificationUI.acceptLabel', 'Accept')} onClick={onAccept} />,
         ]}
       />
     )

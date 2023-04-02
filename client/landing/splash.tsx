@@ -280,7 +280,7 @@ const BENEFITS: Readonly<Array<Omit<BenefitSectionProps, 'imageAtStart'>>> = [
     title: 'Community first',
     body: [
       <p key='p1'>
-        {t('faq.splash.communityFirstText', 'ShieldBattery is a vibrant hub for everyone who plays or watches StarCraft. Chat is front and center, getting into games is seamless and easy, and your experience is our top concern. Whether you\'ve been playing since 1998 or just picked up the game this week, you\'ll find a home here.')}
+        {t('landing.splash.communityFirstText', 'ShieldBattery is a vibrant hub for everyone who plays or watches StarCraft. Chat is front and center, getting into games is seamless and easy, and your experience is our top concern. Whether you\'ve been playing since 1998 or just picked up the game this week, you\'ll find a home here.')}
       </p>,
     ],
     image: <StyledChatImage aria-label='' />,
@@ -289,7 +289,7 @@ const BENEFITS: Readonly<Array<Omit<BenefitSectionProps, 'imageAtStart'>>> = [
     title: 'Tactically faithful',
     body: [
       <p key='p1'>
-        {t('faq.splash.tacticallyFaithfulText', 'Built by community members with collective decades of StarCraft experience, we know what makes the game tick. We\'re keeping the important things the same, but building out brand new features and improvements to make your StarCraft experience better than ever.')}
+        {t('landing.splash.tacticallyFaithfulText', 'Built by community members with collective decades of StarCraft experience, we know what makes the game tick. We\'re keeping the important things the same, but building out brand new features and improvements to make your StarCraft experience better than ever.')}
       </p>,
     ],
     image: <StyledTacticallyFaithfulImage aria-label='' />,
@@ -298,7 +298,7 @@ const BENEFITS: Readonly<Array<Omit<BenefitSectionProps, 'imageAtStart'>>> = [
     title: 'Full potential unlocked',
     body: [
       <p key='p1'>
-        {t('faq.splash.fullPotentialText', 'StarCraft has an amazing competitive history, and ShieldBattery is a foundation for delivering the top-notch playing and watching experience it deserves. Open-source, community-driven, and set to deliver features and experiences that even modern games wish they could have: ShieldBattery is a revolutionary step forward for the StarCraft community.')}
+        {t('landing.splash.fullPotentialText', 'StarCraft has an amazing competitive history, and ShieldBattery is a foundation for delivering the top-notch playing and watching experience it deserves. Open-source, community-driven, and set to deliver features and experiences that even modern games wish they could have: ShieldBattery is a revolutionary step forward for the StarCraft community.')}
       </p>,
     ],
     image: <StyledLockOpenIcon aria-label='' />,
@@ -458,28 +458,28 @@ export default function Splash() {
         <Logo src={makePublicAssetUrl('/images/logo.svg')} />
         <StyledLogoText />
       </LogoLockup>
-      <TagLine>{t('faq.splash.tagline', 'Play StarCraft 1 on the premier community-run platform')}</TagLine>
+      <TagLine>{t('landing.splash.tagline', 'Play StarCraft 1 on the premier community-run platform')}</TagLine>
       <Blurb>
-      {t('faq.splash.taglineBlurbA', 'ShieldBattery is the first community-run server that supports StarCraft')}:{'\u00A0'}
-      {t('faq.splash.taglineBlurbB', 'Remastered. Our custom launcher enhances the real game client to work with our advanced platform, improving on the StarCraft 1 experience while maintaining faithful, authentic gameplay. Download our launcher and start playing in just a few clicks!')}
+      {t('landing.splash.taglineBlurbA', 'ShieldBattery is the first community-run server that supports StarCraft')}:{'\u00A0'}
+      {t('landing.splash.taglineBlurbB', 'Remastered. Our custom launcher enhances the real game client to work with our advanced platform, improving on the StarCraft 1 experience while maintaining faithful, authentic gameplay. Download our launcher and start playing in just a few clicks!')}
       </Blurb>
       {!IS_ELECTRON ? (
         <ButtonsContainer>
           <SplashButton
-            label={t('common.signUpLabel', 'Sign Up')}
+            label={t('landing.splash.signUpLabel', 'Sign Up')}
             color='primary'
             onClick={onSignUpClick}
             testName='sign-up-button'
           />
           <SplashButton
-            label={t('common.downloadLabel', 'Download')}
+            label={t('landing.splash.downloadLabel', 'Download')}
             color='primary'
             onClick={() => dispatch(openDialog({ type: DialogType.Download }))}
           />
         </ButtonsContainer>
       ) : (
         <SplashButton
-          label={t('common.signUpLabel', 'Sign Up')}
+          label={t('landing.splash.signUpLabel', 'Sign Up')}
           color='primary'
           onClick={onSignUpClick}
           testName='sign-up-button'
@@ -502,24 +502,31 @@ export default function Splash() {
           <FeatureSectionTitle>Features</FeatureSectionTitle>
           <FeatureSectionList>
             <FeatureEntry
-              title='1v1 and 2v2 Matchmaking'
+              title={t('landing.splash.matchmakingTitle', '1v1 and 2v2 Matchmaking')}
               description={'Find matches quickly and easily, by yourself or with an arranged team.'}
             />
             <FeatureEntry
-              title='Ranked ladder'
+              title={t('landing.splash.rankedLadderTitle', 'Ranked ladder')}
               description={
-                'Hone your skills in our Elo-based ranking system for all matchmaking modes.'
+                'Hone your skills in our Glicko-based ranking system for all matchmaking modes.'
               }
             />
             <FeatureEntry
-              title='StarCraft: Remastered support'
+              title={t('landing.splash.leaguesTitle', 'Open Leagues')}
+              description={
+                'Participate in exciting limited-time leagues organized by the community ' +
+                'and facilitated by automated matchmaking.'
+              }
+            />
+            <FeatureEntry
+              title={t('landing.splash.remasteredSupportTitle', 'StarCraft: Remastered support')}
               description={
                 'Support for all the new Remastered features, including HD graphics (if ' +
                 'purchased from Blizzard) and custom hotkeys.'
               }
             />
             <FeatureEntry
-              title='Fixes for bugs and exploits'
+              title={t('landing.splash.fixesBugsExploitsTitle', 'Fixes for bugs and exploits')}
               description={
                 'Avoid the hacks and exploits that plague the official servers. ' +
                 'Things like worker duplication, mineral hacks, and permanently floating ' +
@@ -527,29 +534,36 @@ export default function Splash() {
               }
             />
             <FeatureEntry
-              title='Improved netcode'
+              title={t('landing.splash.friendsListTitle', 'Friends list')}
+              description={
+                'Track when your friends are online, easily send them messages and invite ' +
+                'them to games.'
+              }
+            />
+            <FeatureEntry
+              title={t('landing.splash.improvedNetcodeTitle', 'Improved netcode')}
               description='Less lag, drops, and packet loss!'
             />
             <FeatureEntry
-              title='Working Team Melee replays'
+              title={t('landing.splash.teamMeleeReplaysTitle', 'Working Team Melee replays')}
               description={'Play back any games played in Team Melee mode on ShieldBattery!'}
             />
             <FeatureEntry
-              title='Parties'
+              title={t('landing.splash.partiesTitle', 'Parties')}
               description={
                 'Party up with your friends to easily host private matches, watch replays ' +
                 'together, or join matchmaking.'
               }
             />
             <FeatureEntry
-              title='Cloud-based map distribution and hosting'
+              title={t('landing.splash.cloudHostingTitle', 'Cloud-based map distribution and hosting')}
               description={
                 'Play on any of the maps in our official library, or upload your own. Upload ' +
                 'all your favorite maps, share them with your friends, host them from anywhere.'
               }
             />
             <FeatureEntry
-              title='Web-based chat client'
+              title={t('landing.splash.webClientTitle', 'Web-based chat client')}
               description={
                 'Keep up with your friends (and enemies) without needing to install anything.'
               }
@@ -558,84 +572,77 @@ export default function Splash() {
         </FeatureSection>
         <FeatureSection>
           <FeatureSectionTitle>
-          {t('faq.comingSoonA', 'In the pipe')} <ComingSoonText>{t('faq.comingSoonB', '(coming soon)')}</ComingSoonText>
+          {t('landing.splash.comingSoonA', 'In the pipe')} <ComingSoonText>{t('landing.splash.comingSoonB', '(coming soon)')}</ComingSoonText>
           </FeatureSectionTitle>
           <FeatureSectionList>
             <FeatureEntry
-              title='3v3 matchmaking'
+              title={t('landing.splash.3v3Title', '3v3 matchmaking')}
               description='Easily find games for 3v3, with arranged or random teams.'
             />
             <FeatureEntry
-              title='Cloud-synced replays'
+              title={t('landing.splash.cloudReplaysTitle', 'Cloud-synced replays')}
               description={
                 'Automatic uploading for replays. Share them with others, watch them from ' +
                 'anywhere!'
               }
             />
             <FeatureEntry
-              title='Configurable pixel scaling'
+              title={t('landing.splash.pixelScalingTitle', 'Configurable pixel scaling')}
               description={
                 'Improve the look of SD graphics on modern screens with custom scaling ' +
                 'algorithms.'
               }
             />
             <FeatureEntry
-              title='Live match streaming'
+              title={t('landing.splash.liveStreamingTitle', 'Live match streaming')}
               description={
                 'Jump into in-progress matches and watch them live, with all the ' +
                 'benefits of ingame observing.'
               }
             />
             <FeatureEntry
-              title='Player profiles and statistics'
+              title={t('landing.splash.playerProfilesTitle', 'Player profiles and statistics')}
               description={
                 'Check out your skills across different matchups and maps, find ways to ' +
                 'improve, and see how you stack up against the competition.'
               }
             />
             <FeatureEntry
-              title='Replay analysis'
+              title={t('landing.splash.replayAnalysisTitle', 'Replay analysis')}
               description={
                 'Built-in support for BWChart-like replay analysis, as well as more advanced ' +
                 'statistics and charting.'
               }
             />
             <FeatureEntry
-              title='First person replays'
+              title={t('landing.splash.fpReplaysTitle', 'First person replays')}
               description={'Record mouse and screen movements and play them back for all players.'}
             />
             <FeatureEntry
-              title='Training/sandbox mode'
+              title={t('landing.splash.sandboxModeTitle', 'Training/sandbox mode')}
               description={'Test out new builds, practice your worker split, improve your micro.'}
             />
             <FeatureEntry
-              title='Friends list'
-              description={
-                'Track when your friends are online, easily send them messages and invite ' +
-                'them to games.'
-              }
-            />
-            <FeatureEntry
-              title='New built-in mapmaking features'
+              title={t('landing.splash.builtInMapmakingTitle', 'New built-in mapmaking features')}
               description={
                 'Destructible rocks, ideal worker starting positions, advanced creep ' +
                 ' placement, and more!'
               }
             />
             <FeatureEntry
-              title='Automated tournaments and leagues'
+              title={t('landing.splash.automatedTournamentsTitle', 'Automated tournaments and leagues')}
               description={
                 'Find tournaments and leagues that match your skill level, run automatically.'
               }
             />
             <FeatureEntry
-              title='Expanded chat features'
+              title={t('landing.splash.expandedChatTitle', 'Expanded chat features')}
               description={
                 'Express yourself using emotes, embed maps, matches, and replays, and more!'
               }
             />
             <FeatureEntry
-              title='Use Map Settings portal'
+              title={t('landing.splash.umsPortalTitle', 'Use Map Settings portal')}
               description={
                 'Find and explore UMS maps with ease, then quickly gather players and get ' +
                 'the game started.'
@@ -645,33 +652,33 @@ export default function Splash() {
         </FeatureSection>
       </FeatureContainer>
       <LinksSection>
-        <LinksHeader>{t('common.linksLabel', 'Links')}</LinksHeader>
+        <LinksHeader>{t('landing.splash.linksHeader', 'Links')}</LinksHeader>
         <LinkEntries>
           <a
             href='https://twitter.com/ShieldBatteryBW'
-            title='Twitter'
+            title={t('landing.splash.twitterTitle', 'Twitter')}
             target='_blank'
             rel='noopener'>
             <StyledTwitterIcon />
           </a>
           <a
             href='https://github.com/ShieldBattery/ShieldBattery'
-            title='GitHub'
+            title={t('landing.splash.githubTitle', 'GitHub')}
             target='_blank'
             rel='noopener'>
             <StyledGithubIcon />
           </a>
-          <a href={DISCORD_URL} title='Discord' target='_blank' rel='noopener'>
+          <a href={DISCORD_URL} title={t('landing.splash.discordTitle', 'Discord')} target='_blank' rel='noopener'>
             <StyledDiscordIcon />
           </a>
-          <a href='https://patreon.com/tec27' title='Patreon' target='_blank' rel='noopener'>
+          <a href='https://patreon.com/tec27' title={t('landing.splash.patreonTitle', 'Patreon')} target='_blank' rel='noopener'>
             <StyledPatreonIcon />
           </a>
         </LinkEntries>
       </LinksSection>
       <DisclaimerSection>
         <DisclaimerText>
-        {t('faq.disclaimerText', 'StarCraft is a registered trademark of Blizzard Entertainment, Inc. ShieldBattery is developed solely by members of the community, unaffiliated with Blizzard, and is not officially endorsed or supported by Blizzard.')}
+        {t('landing.splash.disclaimerText', 'StarCraft is a registered trademark of Blizzard Entertainment, Inc. ShieldBattery is developed solely by members of the community, unaffiliated with Blizzard, and is not officially endorsed or supported by Blizzard.')}
         </DisclaimerText>
       </DisclaimerSection>
       <BottomLinks />

@@ -240,7 +240,7 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
   return (
     <LadderPage>
       <PageHeader>
-        <Headline6>{t('common.ladderLabel', 'Ladder')}</Headline6>
+        <Headline6>{t('ladder.ladderHeader', 'Ladder')}</Headline6>
         <TabsContainer>
           <Tabs activeTab={matchmakingType} onChange={onTabChange}>
             <TabItem
@@ -255,7 +255,7 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
         </TabsContainer>
         {rankingsData ? (
           <LastUpdatedText title={longTimestamp.format(rankingsData.lastUpdated)}>
-            {t('common.updatedText', 'Updated')}: {shortTimestamp.format(rankingsData.lastUpdated)}
+            {t('ladder.updatedText', 'Updated')}: {shortTimestamp.format(rankingsData.lastUpdated)}
           </LastUpdatedText>
         ) : null}
         <ScrollDivider $show={!isAtTop} $showAt='bottom' />
@@ -530,11 +530,11 @@ export function LadderTable(props: LadderTableProps) {
       />
     )
   })
-
+  const { t } = useTranslation()
   const emptyContent = lastError ? (
     <ErrorText>{t('ladder.errorRetrievingRankings', 'There was an error retrieving the current rankings.')}</ErrorText>
   ) : (
-    <EmptyText>{t('ladder.noMatchingPlayers', 'No matching players.')}</EmptyText>
+    <EmptyText>{t('ladder.errorNoMatchingPlayers', 'No matching players.')}</EmptyText>
   )
 
   const data = useMemo(() => {
@@ -662,18 +662,18 @@ export function LadderTable(props: LadderTableProps) {
     </TableContainer>
   )
 }
-
+const { t } = useTranslation()
 const Header = () => (
   <>
     <RankCell>
       <span></span>
-      <span>{t('common.rankLabel', 'Rank')}</span>
+      <span>{t('ladder.rankHeader', 'Rank')}</span>
     </RankCell>
-    <PlayerCell>{t('common.playerLabel', 'Player')}</PlayerCell>
-    <PointsCell>{t('common.pointsLabel', 'Points')}</PointsCell>
-    <RatingCell>{t('common.mmrLabel', 'MMR')}</RatingCell>
-    <WinLossCell>{t('common.winLossLabel', 'Win/loss')}</WinLossCell>
-    <LastPlayedCell>{t('common.lastPlayedLabel', 'Last played')}</LastPlayedCell>
+    <PlayerCell>{t('ladder.playerHeader', 'Player')}</PlayerCell>
+    <PointsCell>{t('ladder.pointsHeader', 'Points')}</PointsCell>
+    <RatingCell>{t('ladder.mmrHeader', 'MMR')}</RatingCell>
+    <WinLossCell>{t('ladder.winLossHeader', 'Win/loss')}</WinLossCell>
+    <LastPlayedCell>{t('ladder.lastPlayedHeader', 'Last played')}</LastPlayedCell>
   </>
 )
 

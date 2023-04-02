@@ -24,7 +24,7 @@ const questions = [
   {
     question: 'What version of StarCraft does ShieldBattery support?',
     answer: [
-      <Trans i18nKey="faq.supportedBWVersion">
+      <Trans i18nKey="landing.faq.supportedBWVersion">
       <p key='p1'>
         ShieldBattery supports the latest version of StarCraft: Remastered. You can download the free version of StarCraft: Remastered from the official{' '}
         <a href={STARCRAFT_DOWNLOAD_URL} target='_blank' rel='nofollow noreferrer noopener'>
@@ -39,31 +39,31 @@ const questions = [
     question: 'Is ShieldBattery developed with the support of Blizzard?',
     answer: [
       <p key='p1'>
-        {t('faq.officialSupport', 'No, ShieldBattery is a project developed by passionate community members, and has no official support or acknowledgement from Blizzard.')}
+        {t('landing.faq.officialSupport', 'No, ShieldBattery is a project developed by passionate community members, and has no official support or acknowledgement from Blizzard.')}
       </p>,
     ],
   },
   {
     question: 'Does ShieldBattery cost anything? How can I support the project?',
     answer: [
-      <p key='p1'>{t('faq.isShieldBatteryFree', 'ShieldBattery is totally free to use!')}</p>,
+      <p key='p1'>{t('landing.faq.isShieldBatteryFree', 'ShieldBattery is totally free to use!')}</p>,
       <p key='p2'>
-        {t('faq.howToContribute', 'It does, however, cost us time and money to host and develop ShieldBattery. If you would like to help us cover those costs, we\'d greatly appreciate it. We have set up a number of ways to contribute:')}
+        {t('landing.faq.howToContribute', 'It does, however, cost us time and money to host and develop ShieldBattery. If you would like to help us cover those costs, we\'d greatly appreciate it. We have set up a number of ways to contribute:')}
       </p>,
       <ul key='u1'>
         <li>
           <a href='https://github.com/sponsors/ShieldBattery' target='_blank' rel='noopener'>
-            Github Sponsors
+          {t('landing.faq.githubSponsors', 'Github Sponsors')}
           </a>
         </li>
         <li>
           <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener'>
-            Ko-fi
+          {t('landing.faq.kofi', 'Ko-fi')}
           </a>
         </li>
         <li>
           <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
-            Patreon
+          {t('landing.faq.patreon', 'Patreon')}
           </a>
         </li>
       </ul>,
@@ -72,7 +72,7 @@ const questions = [
   {
     question: 'How can I report bugs or issues?',
     answer: [
-      <Trans i18nKey="faq.reportIssues">
+      <Trans i18nKey="landing.faq.reportIssues">
       <p key='p1'>
         The easiest way to report bugs or issues is through our{' '}
         <a href={DISCORD_URL} target='_blank' rel='noopener'>
@@ -93,7 +93,7 @@ const questions = [
   {
     question: 'Is the project open source?',
     answer: [
-      <Trans i18nKey="faq.openSource">
+      <Trans i18nKey="landing.faq.openSource">
       <p key='p1'>
         Yes. You can access our main repository as well as the various additional projects we\'ve written and separated into their own repositories at our{' '}
         <a href='https://github.com/ShieldBattery' target='_blank' rel='noopener'>
@@ -110,7 +110,7 @@ const questions = [
   {
     question: 'What are the system requirements to play on ShieldBattery?',
     answer: [
-      <Trans i18nKey="faq.systemRequirements">
+      <Trans i18nKey="landing.faq.systemRequirements">
       <p key='p1'>
         Our system requirements are mainly driven by those of{' '}
         <a
@@ -134,7 +134,7 @@ const questions = [
     question: 'Is hotkey customization allowed or provided?',
     answer: (
       <span>
-        {t('faq.hotkeyCustomization', 'Yes, we support customized hotkeys, but we do not currently have a hotkey editor. If you want to use customized hotkeys, launch StarCraft: Remastered through the Blizzard launcher and customize them there first. After doing so, future launches through ShieldBattery will use those hotkeys.')}
+        {t('landing.faq.hotkeyCustomization', 'Yes, we support customized hotkeys, but we do not currently have a hotkey editor. If you want to use customized hotkeys, launch StarCraft: Remastered through the Blizzard launcher and customize them there first. After doing so, future launches through ShieldBattery will use those hotkeys.')}
       </span>
     ),
   },
@@ -142,7 +142,7 @@ const questions = [
     question: 'Does ShieldBattery work on Linux or OS X?',
     answer: (
       <span>
-        {t('faq.linuxSupport', 'This is not currently something we\'re focusing on, but we do have plans to ensure that ShieldBattery is usable via Wine. For now, however, it is Windows-only.')}
+        {t('landing.faq.linuxSupport', 'This is not currently something we\'re focusing on, but we do have plans to ensure that ShieldBattery is usable via Wine. For now, however, it is Windows-only.')}
       </span>
     ),
   },
@@ -392,6 +392,7 @@ export default class Faq extends React.Component {
   }
 
   render() {
+    const { t } = useTranslation()
     return (
       <Splash>
         <TopLinks />
@@ -401,11 +402,11 @@ export default class Faq extends React.Component {
         </LogoContainer>
         <Intro>
           <FaqHeaderContainer>
-            <FaqHeader>{t('common.faqLabel', 'FAQ')}</FaqHeader>
+            <FaqHeader>{t('landing.faq.faqLabel', 'FAQ')}</FaqHeader>
           </FaqHeaderContainer>
         </Intro>
         <FaqToc id={'faqToc'}>
-          <FaqTitle>{t('faq.faqLabel', 'Frequently Asked Questions')}</FaqTitle>
+          <FaqTitle>{t('landing.faq.faqLabel', 'Frequently Asked Questions')}</FaqTitle>
           <ul>
             {questions.map((q, i) => (
               <li key={`link-${i}`}>

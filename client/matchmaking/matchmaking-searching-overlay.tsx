@@ -160,7 +160,7 @@ export function MatchmakingSearchingOverlay({
                   <StyledElapsedTime startTimeMs={searchInfo.startTime} />
                 </InfoItem>
               </InfoContainer>
-              <RaisedButton label={t('matchmaking.cancelSearchText', 'Cancel search')} onClick={onCancelSearch} disabled={isMatched} />
+              <RaisedButton label={t('matchmaking.matchmakingSearchingOverlay.cancelSearchLabel', 'Cancel search')} onClick={onCancelSearch} disabled={isMatched} />
             </Contents>
           </CSSTransition>
         )

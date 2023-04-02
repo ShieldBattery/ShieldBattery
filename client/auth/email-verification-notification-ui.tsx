@@ -8,7 +8,7 @@ import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { amberA400 } from '../styles/colors'
 import { sendVerificationEmail } from './action-creators'
 import { useSelfUser } from './state-hooks'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 
 const ColoredWarningIcon = styled(MaterialIcon).attrs({ icon: 'warning', size: 36 })`
   flex-shrink: 0;
@@ -37,7 +37,7 @@ export const EmailVerificationNotificationUi = React.forwardRef<
           onSuccess: () => {
             dispatch(
               openSnackbar({
-                message: {t('account.verificationEmailSentSuccess', 'Verification email has been sent successfully.')},
+                message: 'Verification email has been sent successfully.',
                 time: TIMING_LONG,
               }),
             )
@@ -47,8 +47,8 @@ export const EmailVerificationNotificationUi = React.forwardRef<
             dispatch(
               openSnackbar({
                 message:
-                {t('account.verificationEmailSentFailure', 'Something went wrong while sending a verification email, ')} +
-                {t('common.tryAgainLater', 'please try again later.')},
+                'Something went wrong while sending a verification email,' +
+                'please try again later.',
                 time: TIMING_LONG,
               }),
             )
@@ -67,12 +67,14 @@ export const EmailVerificationNotificationUi = React.forwardRef<
       icon={<ColoredWarningIcon />}
       text={
         <span data-test='email-verification-notification'>
+          <Trans i18nKey="auth.emailVerificationNotificationUI.emailUnverifiedMessage">
           Your email is unverified! Check for an email from ShieldBattery. If you don't see one, we
           can{' '}
           <a href='#' onClick={onClick}>
             send another
           </a>
           .
+          </Trans>
         </span>
       }
     />

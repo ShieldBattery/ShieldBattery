@@ -245,11 +245,11 @@ export function ChannelSelector({ onSelect }: { onSelect: (channel: BasicChannel
   let searchContent
   if (searchError) {
     searchContent = <ErrorText>
-        {t('chat.channelView.errorRetrievingChannels', 'There was an error retrieving the chat channels.')}
+        {t('admin.channelView.errorRetrievingChannels', 'There was an error retrieving the chat channels.')}
       </ErrorText>
   } else if (channels?.length === 0) {
     searchContent = <NoResults>
-        {t('chat.channelView.errorNoMatchingChannel', 'No matching chat channel.')}
+        {t('admin.channelView.errorNoMatchingChannel', 'No matching chat channel.')}
       </NoResults>
   } else {
     const channelItems = (channels ?? []).map(channel => (
@@ -258,7 +258,7 @@ export function ChannelSelector({ onSelect }: { onSelect: (channel: BasicChannel
         <ChannelInfoContainer>
           <ChannelInfoName>{channel.name}</ChannelInfoName>
         </ChannelInfoContainer>
-        <RaisedButton label={t('common.view', 'View')} onClick={() => onSelect(channel)} />
+        <RaisedButton label={t('admin.channelView.viewButtonText', 'View')} onClick={() => onSelect(channel)} />
       </ChannelThumbnail>
     ))
 
@@ -285,6 +285,7 @@ export function AdminChannelView() {
   const dispatch = useAppDispatch()
   const [selectedChannel, setSelectedChannel] = useState<BasicChannelInfo>()
 
+  const { t } = useTranslation()
   const [channelMessages, setChannelMessages] = useState<ChatMessage[]>([])
   const [hasMoreChannelMessages, setHasMoreChannelMessages] = useState(true)
   const [isLoadingMoreChannelMessages, setIsLoadingMoreChannelMessages] = useState(false)
@@ -366,16 +367,16 @@ export function AdminChannelView() {
           items.push(
             <DestructiveMenuItem
               key='delete-message'
-              text={t('chat.channelView.deleteMessage', 'Delete message')}
+              text={t('admin.channelView.deleteMessageText', 'Delete message')}
               onClick={() => {
                 dispatch(
                   deleteMessageAsAdmin(selectedChannel.id, messageId, {
                     onSuccess: () => {
                       setChannelMessages(prev => prev.filter(m => m.id !== messageId))
-                      dispatch(openSnackbar({ message: {t('chat.channelView.messageDeleted', 'Message deleted')} }))
+                      dispatch(openSnackbar({ message: 'Message deleted' }))
                     },
                     onError: () => {
-                      dispatch(openSnackbar({ message: {t('chat.channelView.errorDeletingMessage', 'Error deleting message')} }))
+                      dispatch(openSnackbar({ message: 'Error deleting message' }))
                     },
                   }),
                 )
@@ -412,7 +413,7 @@ export function AdminChannelView() {
           </ChatContext.Provider>
         </>
       ) : (
-        <NoResults>{t('chat.channelView.selectChannel', 'Select a channel to view.')}</NoResults>
+        <NoResults>{t('admin.channelView.selectChannel', 'Select a channel to view.')}</NoResults>
       )}
     </Container>
   )

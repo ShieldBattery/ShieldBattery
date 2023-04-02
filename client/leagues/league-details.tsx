@@ -298,19 +298,19 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
     if (isFetchError(error) && error.code === LeagueErrorCode.NotFound) {
       return (
         <ErrorLayout>
-          <ErrorText>{t('leagues.leagueNotFound', 'League not found')}</ErrorText>
-          <Link href='/leagues'>{t('common.returnToList', 'Go back to list')}</Link>
+          <ErrorText>{t('leagues.details.errorLeagueNotFound', 'League not found')}</ErrorText>
+          <Link href='/leagues'>{t('leagues.details.returnToList', 'Go back to list')}</Link>
         </ErrorLayout>
       )
     } else {
       return (
         <ErrorLayout>
           <ErrorText>
-          {t('leagues.errorRetrievingLeague', 'There was an error retrieving this league:')}{' '}
+          {t('leagues.details.errorRetrievingLeague', 'There was an error retrieving this league:')}{' '}
             {(error as any).statusText ?? error.toString()}
           </ErrorText>
 
-          <Link href='/leagues'>{t('common.returnToList', 'Go back to list')}</Link>
+          <Link href='/leagues'>{t('leagues.details.returnToList', 'Go back to list')}</Link>
         </ErrorLayout>
       )
     }
@@ -321,7 +321,7 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
   const curTime = Date.now()
   const isJoinable = !selfLeagueUser && league.endAt > curTime
   const isRunningOrEnded = league.startAt <= curTime
-
+  const { t } = useTranslation()
   const activeTab = subPage ?? DetailsSubPage.Info
 
   let content: React.ReactNode
@@ -350,9 +350,9 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
       <LeagueDetailsHeader league={league} />
       <TabsAndJoin>
         <Tabs activeTab={activeTab} onChange={onTabChange}>
-          <TabItem value={DetailsSubPage.Info} text='Info' />
+          <TabItem value={DetailsSubPage.Info} text={t('leagues.details.infoText', 'Info')} />
           {isRunningOrEnded ? (
-            <TabItem value={DetailsSubPage.Leaderboard} text='Leaderboard' />
+            <TabItem value={DetailsSubPage.Leaderboard} text={t('leagues.details.leaderboardText', 'Leaderboard')} />
           ) : (
             <></>
           )}
@@ -380,14 +380,14 @@ export function LeagueDetailsHeader({ league }: LeagueDetailsHeaderProps) {
   const dateTooltip = `${longTimestamp.format(league.startAt)} to ${longTimestamp.format(
     league.endAt,
   )}`
-
+  const { t } = useTranslation()
   return (
     <InfoRoot>
       <InfoBadge league={league} />
       <TitleAndSummary>
         <TitleRow>
           <Title>{league.name}</Title>
-          <CopyLinkButton tooltipPosition='right' startingText={t('leagues.copyLinkToLeague', 'Copy link to league')} />
+          <CopyLinkButton tooltipPosition='right' startingText={t('leagues.details.copyLinkToLeagueButtonText', 'Copy link to league')} />
         </TitleRow>
         <SummaryRow>
           <FormatAndDate>
@@ -415,12 +415,12 @@ export function LeagueDetailsInfo({ league }: LeagueDetailsInfoProps) {
         {league.imagePath ? <LeagueImage src={league.imagePath} /> : <LeaguePlaceholderImage />}
       </LeagueImageContainer>
       <InfoSection>
-        <InfoSectionHeader>About</InfoSectionHeader>
+        <InfoSectionHeader>{t('leagues.details.aboutHeader', 'About')}</InfoSectionHeader>
         <div>{league.description}</div>
       </InfoSection>
       {league.rulesAndInfo ? (
         <InfoSection>
-          <InfoSectionHeader>{t('leagues.rulesAndInfo', 'Rules and info')}</InfoSectionHeader>
+          <InfoSectionHeader>{t('leagues.details.rulesAndInfo', 'Rules and info')}</InfoSectionHeader>
           <div>
             <StyledMarkdown source={league.rulesAndInfo} />
           </div>
@@ -566,11 +566,11 @@ function LeaderboardHeader() {
   const { t } = useTranslation()
   return (
     <>
-      <RankCell>{t('common.rankLabel', 'Rank')}</RankCell>
-      <PlayerCell>{t('common.playerLabel', 'Player')}</PlayerCell>
-      <PointsCell>{t('common.pointsLabel', 'Points')}</PointsCell>
-      <WinLossCell>{t('common.winLossLabel', 'Win/loss')}</WinLossCell>
-      <LastPlayedCell>{t('common.lastPlayedLabel', 'Last played')}</LastPlayedCell>
+      <RankCell>{t('leagues.details.rankLabel', 'Rank')}</RankCell>
+      <PlayerCell>{t('leagues.details.playerLabel', 'Player')}</PlayerCell>
+      <PointsCell>{t('leagues.details.pointsLabel', 'Points')}</PointsCell>
+      <WinLossCell>{t('leagues.details.winLossLabel', 'Win/loss')}</WinLossCell>
+      <LastPlayedCell>{t('leagues.details.lastPlayedLabel', 'Last played')}</LastPlayedCell>
     </>
   )
 }
@@ -646,7 +646,7 @@ function Leaderboard({
     <>
       {error ? (
         <LeaderboardError>
-          {t('leagues.errorRetrievingLeaderboard', 'There was a problem retrieving the leaderboard:')}{' '}
+          {t('leagues.details.errorRetrievingLeaderboard', 'There was a problem retrieving the leaderboard:')}{' '}
           {isFetchError(error) ? error.statusText : error.message}
         </LeaderboardError>
       ) : undefined}
@@ -672,7 +672,7 @@ function Leaderboard({
               itemContent={renderRow}
             />
           ) : (
-            <EmptyText>{t('leagues.noMatchingPlayers', 'No matching players.')}</EmptyText>
+            <EmptyText>{t('leagues.details.errorNoMatchingPlayers', 'No matching players.')}</EmptyText>
           )}
         </>
       ) : (

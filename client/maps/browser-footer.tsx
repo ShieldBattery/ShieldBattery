@@ -324,7 +324,7 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
   return (
     <Container>
       <PositionedFloatingActionButton
-        title={t('maps.browseLocalMaps', 'Browse local maps')}
+        title={t('maps.browserFooter.browseLocalMapsTitle', 'Browse local maps')}
         icon={<FolderIcon />}
         onClick={props.onBrowseLocalMaps}
       />
@@ -332,19 +332,19 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
         <ActionButton
           ref={sizeRef}
           icon={<MaterialIcon icon='view_list' />}
-          title={t('maps.thumbnailSize', 'Thumbnail size')}
+          title={t('maps.browserFooter.thumbnailSizeTitle', 'Thumbnail size')}
           onClick={openSizeMenu}
         />
         <ActionButton
           ref={filterButtonRef}
           icon={<FilterIcon />}
-          title={t('maps.filterOptions', 'Filter options')}
+          title={t('maps.browserFooter.filterOptionsTitle', 'Filter options')}
           onClick={openFilterOverlay}
         />
         <ActionButton
           ref={sortMenuRef}
           icon={<SortIcon />}
-          title={t('maps.sortMaps', 'Sort maps')}
+          title={t('maps.browserFooter.sortMapsTitle', 'Sort maps')}
           onClick={openSortMenu}
         />
       </LeftActions>
@@ -375,15 +375,15 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
         onDismiss={closeFilterOverlay}
         onApply={forwardOnFilterApply}
         anchor={filterButtonRef.current}>
-        <SectionOverline>{t('maps.numberOfPlayers', 'Number of players')}</SectionOverline>
+        <SectionOverline>{t('maps.browserFooter.numberOfPlayersHeader', 'Number of players')}</SectionOverline>
         <ColumnGroup>{numPlayersItems}</ColumnGroup>
-        <SectionOverline>{t('maps.tilesetLabel', 'Tileset')}</SectionOverline>
+        <SectionOverline>{t('maps.browserFooter.tilesetHeader', 'Tileset')}</SectionOverline>
         <ColumnGroup>{tilesetItems}</ColumnGroup>
         <FilterActions>
-          <TextButton label={t('common.cancelLabel', 'Cancel')} color='accent' onClick={onFilterCancel} />
+          <TextButton label={t('maps.browserFooter.cancelLabel', 'Cancel')} color='accent' onClick={onFilterCancel} />
           <TextButton
             ref={filterApplyButtonRef}
-            label={t('common.applyLabel', 'Apply')}
+            label={t('maps.browserFooter.applyLabel', 'Apply')}
             color='accent'
             onClick={forwardOnFilterApply}
           />

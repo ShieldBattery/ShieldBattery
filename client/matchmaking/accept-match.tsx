@@ -78,7 +78,7 @@ export default function AcceptMatch({ dialogRef }: CommonDialogProps) {
   if (searchInfo && !match) {
     contents = (
       <p>
-        {t('matchmaking.failedToAcceptText', 'Some players didn\'t ready up in time or failed to load. Returning to the matchmaking queue\u2026')}
+        {t('matchmaking.acceptMatch.failedToAcceptText', 'Some players didn\'t ready up in time or failed to load. Returning to the matchmaking queue\u2026')}
       </p>
     )
   } else if (failedToAccept) {
@@ -132,12 +132,12 @@ function AcceptingStateView() {
 
   return (
     <div>
-      <Body1>{t('matchmaking.waitingToAccept', 'All players must ready up for the match to start.')}</Body1>
+      <Body1>{t('matchmaking.acceptMatch.waitingToAccept', 'All players must ready up for the match to start.')}</Body1>
       <CenteredContainer>
         {hasAccepted ? (
           [...acceptedAvatars, ...unacceptedAvatars]
         ) : (
-          <AcceptMatchButton label={t('common.readyUpLabel', 'Ready up')} onClick={onAcceptClick} disabled={isAccepting} />
+          <AcceptMatchButton label={t('matchmaking.acceptMatch.readyUpLabel', 'Ready up')} onClick={onAcceptClick} disabled={isAccepting} />
         )}
       </CenteredContainer>
       <TimerBarContainer>
@@ -172,8 +172,8 @@ function FailedStateView() {
 
   return (
     <div>
-      <p>{t('matchmaking.failedToAcceptText', 'You didn\'t ready up in time and have been removed from the queue.')}</p>
-      <RaisedButton label='Ok' onClick={onFailedClick} />
+      <p>{t('matchmaking.acceptMatch.failedToAcceptText', 'You didn\'t ready up in time and have been removed from the queue.')}</p>
+      <RaisedButton label={t('matchmaking.acceptMatch.okButtonText', 'Ok')} onClick={onFailedClick} />
     </div>
   )
 }

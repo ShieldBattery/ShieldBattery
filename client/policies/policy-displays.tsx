@@ -74,7 +74,7 @@ export function AcceptableUseDialog(props: CommonDialogProps) {
   const { t } = useTranslation()
   return (
     <Dialog
-      title={t('common.acceptableUseLabel', 'Acceptable use')}
+      title={t('policies.policyDisplays.acceptableUseTitle', 'Acceptable use')}
       onCancel={props.onCancel}
       showCloseButton={true}
       dialogRef={props.dialogRef}>
@@ -100,7 +100,7 @@ export function PrivacyPolicyDialog(props: CommonDialogProps) {
   const { t } = useTranslation()
   return (
     <Dialog
-      title={t('common.privacyPolicyLabel', 'Privacy policy')}
+      title={t('policies.policyDisplays.privacyPolicyTitle', 'Privacy policy')}
       onCancel={props.onCancel}
       showCloseButton={true}
       dialogRef={props.dialogRef}>
@@ -126,7 +126,7 @@ export function TermsOfServiceDialog(props: CommonDialogProps) {
   const { t } = useTranslation()
   return (
     <Dialog
-      title={t('common.termsOfServiceLabel', 'Terms of service')}
+      title={t('policies.policyDisplays.termsOfServiceTitle', 'Terms of service')}
       onCancel={props.onCancel}
       showCloseButton={true}
       dialogRef={props.dialogRef}>

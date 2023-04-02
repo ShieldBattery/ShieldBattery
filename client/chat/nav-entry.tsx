@@ -36,7 +36,7 @@ export function ChatNavEntry({
     onLeave(channelId)
   })
   const { t } = useTranslation()
-  const button = <LeaveButton icon={<CloseIcon />} title={t('chat.leaveChannelHeader', 'Leave channel')} onClick={onLeaveClick} />
+  const button = <LeaveButton icon={<CloseIcon />} title={t('chat.navEntry.leaveChannelHeader', 'Leave channel')} onClick={onLeaveClick} />
 
   return (
     <Entry

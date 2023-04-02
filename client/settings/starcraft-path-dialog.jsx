@@ -76,10 +76,10 @@ class StarcraftPathForm extends React.Component {
         <SubmitOnEnter />
         <SelectFolderContainer>
           <PathContainer onClick={this.onBrowseClick}>
-            <StyledTextField {...bindInput('path')} label={t('settings.main.starcraftFolderPathHeader', 'StarCraft folder path')} disabled={true} />
+            <StyledTextField {...bindInput('path')} label={t('settings.starcraftPathDialog.starcraftFolderPathHeader', 'StarCraft folder path')} disabled={true} />
           </PathContainer>
           <BrowseButtonContainer>
-            <RaisedButton ref={this._browseButtonRef} label={t('settings.main.browseButtonText', 'Browse')} onClick={this.onBrowseClick} />
+            <RaisedButton ref={this._browseButtonRef} label={t('settings.starcraftPathDialog.browseButtonLabel', 'Browse')} onClick={this.onBrowseClick} />
           </BrowseButtonContainer>
         </SelectFolderContainer>
       </form>
@@ -128,10 +128,10 @@ export default class StarcraftPath extends React.Component {
     }
 
     const buttons = [
-      <TextButton label={t('common.cancelLabel', 'Cancel')} key='cancel' color='accent' onClick={this.onSettingsCancel} />,
+      <TextButton label={t('settings.starcraftPathDialog.cancelLabel', 'Cancel')} key='cancel' color='accent' onClick={this.onSettingsCancel} />,
       <TextButton
         ref={this._saveButton}
-        label={t('common.saveLabel', 'Save')}
+        label={t('settings.starcraftPathDialog.saveLabel', 'Save')}
         key='save'
         color='accent'
         onClick={this.onSettingsSave}
@@ -141,12 +141,12 @@ export default class StarcraftPath extends React.Component {
     return (
       <Dialog title={'StarCraft Path'} buttons={buttons} onCancel={onCancel} dialogRef={dialogRef}>
         <Instructions>
-        <Trans i18nKey="settings.main.selectStarcraftFolderDescription">
+        <Trans i18nKey="settings.starcraftPathDialog.selectStarcraftFolderDescription">
           Please select the directory where you have installed StarCraft: Remastered.
         </Trans>
         </Instructions>
         <Instructions>
-        <Trans i18nKey="settings.main.exampleStarcraftFolderDescription">
+        <Trans i18nKey="settings.starcraftPathDialog.exampleStarcraftFolderDescription">
           This is usually <ExampleText>C:\Program Files (x86)\StarCraft</ExampleText> but may be
           elsewhere if you have customized it in the Battle.net launcher.
         </Trans>
@@ -154,7 +154,7 @@ export default class StarcraftPath extends React.Component {
 
         <StarcraftPathForm ref={this._form} model={formModel} onSubmit={this.onSubmit} />
         {settings.lastError ? (
-          <ErrorText>{t('settings.main.errorSavingStarcraftPath', 'There was an issue saving the StarCraft path. Please try again.')}</ErrorText>
+          <ErrorText>{t('settings.starcraftPathDialog.errorSavingStarcraftPath', 'There was an issue saving the StarCraft path. Please try again.')}</ErrorText>
         ) : null}
       </Dialog>
     )

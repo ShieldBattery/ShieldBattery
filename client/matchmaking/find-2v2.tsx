@@ -52,18 +52,18 @@ const Form2v2 = React.forwardRef<FindMatchFormRef, Form2v2Props>(
     const { t } = useTranslation()
     return (
       <form noValidate={true} onSubmit={handleSubmit}>
-        <SectionTitle>{t('common.raceLabel', 'Race')}</SectionTitle>
+        <SectionTitle>{t('matchmaking.find2v2.raceHeader', 'Race')}</SectionTitle>
         <StyledRaceSelect
           {...bindCustom('race')}
           size={RacePickerSize.Large}
           allowInteraction={!disabled}
         />
         <MapSelectionsHeader>
-          <SectionTitle>{t('common.mapPoolLabel', 'Map pool')}</SectionTitle>
-          {mapPoolOutdated ? <OutdatedIndicator>{t('common.updatedText', 'Updated')}</OutdatedIndicator> : null}
+          <SectionTitle>{t('matchmaking.find2v2.mapPoolHeader', 'Map pool')}</SectionTitle>
+          {mapPoolOutdated ? <OutdatedIndicator>{t('matchmaking.find2v2.updatedText', 'Updated')}</OutdatedIndicator> : null}
         </MapSelectionsHeader>
         <DescriptionText>
-        {t('matchmaking.vetoMapText', 'Veto up to 3 maps. Vetoed maps will be chosen significantly less often than other maps.')}
+        {t('matchmaking.find2v2.vetoMapText', 'Veto up to 3 maps. Vetoed maps will be chosen significantly less often than other maps.')}
         </DescriptionText>
         <MapVetoesControl
           {...bindCustom('mapSelections')}

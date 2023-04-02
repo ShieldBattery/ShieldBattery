@@ -54,20 +54,20 @@ export function PartyInviteDialog({
   const onSendClick = useCallback(() => handleSubmit(), [handleSubmit])
 
   const buttons = [
-    <TextButton label={t('common.cancelLabel', 'Cancel')} key='cancel' color='accent' onClick={onCancel} />,
-    <TextButton label={t('common.sendInvitesLabel', 'Send invites')} key='send' color='accent' onClick={onSendClick} />,
+    <TextButton label={t('parties.partyInviteDialog.cancelLabel', 'Cancel')} key='cancel' color='accent' onClick={onCancel} />,
+    <TextButton label={t('parties.partyInviteDialog.sendInvitesLabel', 'Send invites')} key='send' color='accent' onClick={onSendClick} />,
   ]
 
   return (
     <Dialog
-      title={t('common.invitePlayersLabel', 'Invite players to the party')}
+      title={t('parties.partyInviteDialog.invitePlayersLabel', 'Invite players to the party')}
       buttons={buttons}
       onCancel={onCancel}
       dialogRef={dialogRef}>
       <form noValidate={true} onSubmit={handleSubmit}>
         <TextField
           {...bindInput('user')}
-          label='Find players'
+          label={t('parties.partyInviteDialog.findPlayersLabel', 'Find players')}
           floatingLabel={true}
           ref={inputRef}
           inputProps={{

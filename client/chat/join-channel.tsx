@@ -51,16 +51,16 @@ export function JoinChannelDialog({
   )
   const { t } = useTranslation()
   const buttons = [
-    <TextButton label={t('common.cancelLabel', 'Cancel')} key='cancel' color='accent' onClick={onCancel} />,
-    <TextButton label={t('common.joinLabel', 'Join')} key='join' color='accent' onClick={handleSubmit} />,
+    <TextButton label={t('chat.joinChannel.cancelLabel', 'Cancel')} key='cancel' color='accent' onClick={onCancel} />,
+    <TextButton label={t('chat.joinChannel.joinLabel', 'Join')} key='join' color='accent' onClick={handleSubmit} />,
   ]
 
   return (
-    <Dialog title='Join channel' buttons={buttons} onCancel={onCancel} dialogRef={dialogRef}>
+    <Dialog title={t('chat.joinChannel.joinChannelTitle', 'Join channel')} buttons={buttons} onCancel={onCancel} dialogRef={dialogRef}>
       <form noValidate={true} onSubmit={handleSubmit}>
         <TextField
           {...bindInput('channel')}
-          label={t('chat.channelNameLabel', 'Channel name')}
+          label={t('chat.joinChannel.channelNameLabel', 'Channel name')}
           floatingLabel={true}
           ref={autoFocusRef}
           inputProps={{

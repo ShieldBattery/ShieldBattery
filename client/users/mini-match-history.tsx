@@ -173,7 +173,7 @@ export function ConnectedGameListEntry({
   }, [results, forUserId])
 
   const matchType = getGameTypeLabel(game, t)
-  const mapName = map?.name ?? t('common.mapNameUnknown', 'Unknown map')
+  const mapName = map?.name ?? t('users.miniMatchHistory.mapNameUnknown', 'Unknown map')
 
   return (
     <GameListEntryRoot {...buttonProps} $active={active}>
@@ -347,7 +347,7 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
       <GamePreviewRoot>
         <GamePreviewDetails>
           <NoGameText>
-            {t('games.gamePreview.noGameSelectedText', 'No game selected')}
+            {t('users.miniMatchHistory.noGameSelectedText', 'No game selected')}
           </NoGameText>
         </GamePreviewDetails>
       </GamePreviewRoot>
@@ -358,7 +358,7 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
   if (game.config.gameType === 'topVBottom') {
     playerElems.push(
       <GamePreviewTeamOverline key={'team-top'}>
-        {t('users.gamePreview.teamTopLabel', 'Top')}
+        {t('users.miniMatchHistory.teamTopLabel', 'Top')}
       </GamePreviewTeamOverline>,
     )
     playerElems.push(
@@ -369,8 +369,8 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
             <GamePreviewPlayerRace race={result?.race ?? p.race} isRandom={p.race === 'r'} />
             <span>
               {p.isComputer
-                ? t('users.gamePreview.playerNameComputerLabel', 'Computer')
-                : playersMapping.get(p.id)?.name ?? t('users.gamePreview.playerNameUnknownLabel', 'Unknown player')}
+                ? t('users.miniMatchHistory.playerNameComputerLabel', 'Computer')
+                : playersMapping.get(p.id)?.name ?? t('users.miniMatchHistory.playerNameUnknownLabel', 'Unknown player')}
             </span>
           </GamePreviewPlayer>
         )
@@ -379,7 +379,7 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
 
     playerElems.push(
       <GamePreviewTeamOverline key={'team-bottom'}>
-        {t('users.gamePreview.teamBottomLabel', 'Bottom')}
+        {t('users.miniMatchHistory.teamBottomLabel', 'Bottom')}
       </GamePreviewTeamOverline>,
     )
     playerElems.push(
@@ -390,8 +390,8 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
             <GamePreviewPlayerRace race={result?.race ?? p.race} isRandom={p.race === 'r'} />
             <span>
               {p.isComputer
-                ? t('users.gamePreview.playerNameComputerLabel', 'Computer')
-                : playersMapping.get(p.id)?.name ?? t('users.gamePreview.playerNameUnknownLabel', 'Unknown player')}
+                ? t('users.miniMatchHistory.playerNameComputerLabel', 'Computer')
+                : playersMapping.get(p.id)?.name ?? t('users.miniMatchHistory.playerNameUnknownLabel', 'Unknown player')}
             </span>
           </GamePreviewPlayer>
         )
@@ -408,9 +408,9 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
               <GamePreviewPlayerRace race={result?.race ?? p.race} isRandom={p.race === 'r'} />
               <span>
                 {p.isComputer
-                  ? t('users.gamePreview.playerNameComputerLabel', 'Computer')
+                  ? t('users.miniMatchHistory.playerNameComputerLabel', 'Computer')
                   : playersMapping.get(p.id)?.name ??
-                    t('users.gamePreview.playerNameUnknownLabel', 'Unknown player')}
+                    t('users.miniMatchHistory.playerNameUnknownLabel', 'Unknown player')}
               </span>
             </GamePreviewPlayer>
           )
@@ -433,7 +433,7 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
         <GamePreviewPlayers>{playerElems}</GamePreviewPlayers>
       </GamePreviewDetails>
       <TextButton
-        label={t('users.gamePreview.viewDetailsButtonText', 'View details')}
+        label={t('users.miniMatchHistory.viewDetailsButtonText', 'View details')}
         onClick={onViewDetails}
       />
     </GamePreviewRoot>

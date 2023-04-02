@@ -21,7 +21,7 @@ export const JoinLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(p
             modifyMenuItems={addChatMenuItems}
           />
         </SystemImportant>{' '}
-        {t('lobby.playerJoined', 'has joined the lobby')}
+        {t('lobbies.lobbyMessageLayout.playerJoinedLobby', 'has joined the lobby')}
       </span>
     </SystemMessage>
   )
@@ -43,7 +43,7 @@ export const LeaveLobbyMessage = React.memo<{ time: number; userId: SbUserId }>(
             modifyMenuItems={addChatMenuItems}
           />
         </SystemImportant>{' '}
-        {t('lobby.playerLeft', 'has left the lobby')}
+        {t('lobbies.lobbyMessageLayout.playerLeftLobby', 'has left the lobby')}
       </span>
     </SystemMessage>
   )
@@ -65,7 +65,7 @@ export const KickLobbyPlayerMessage = React.memo<{ time: number; userId: SbUserI
             modifyMenuItems={addChatMenuItems}
           />
         </SystemImportant>{' '}
-        {t('lobby.playerKicked', 'has been kicked from the lobby')}
+        {t('lobbies.lobbyMessageLayout.playerKicked', 'has been kicked from the lobby')}
       </span>
     </SystemMessage>
   )
@@ -87,7 +87,7 @@ export const BanLobbyPlayerMessage = React.memo<{ time: number; userId: SbUserId
             modifyMenuItems={addChatMenuItems}
           />
         </SystemImportant>{' '}
-        {t('lobby.playerBanned', 'has been banned from the lobby')}
+        {t('lobbies.lobbyMessageLayout.playerBanned', 'has been banned from the lobby')}
       </span>
     </SystemMessage>
   )
@@ -100,7 +100,7 @@ export const SelfJoinLobbyMessage = React.memo<{ time: number; lobby: string; ho
     const addChatMenuItems = useChatUserMenuItems()
     return (
       <SystemMessage time={time}>
-        <Trans i18nKey="lobby.lobbyJoined">
+        <Trans i18nKey="lobbies.lobbyMessageLayout.lobbyJoined">
         <span>
           You have joined <SystemImportant>{lobby}</SystemImportant>. The host is{' '}
           <SystemImportant>
@@ -124,7 +124,7 @@ export const LobbyHostChangeMessage = React.memo<{ time: number; userId: SbUserI
   const addChatMenuItems = useChatUserMenuItems()
   return (
     <SystemMessage time={time}>
-      <Trans i18nKey="lobby.hostChange">
+      <Trans i18nKey="lobbies.lobbyMessageLayout.hostChange">
         <span>
         <SystemImportant>
           <ConnectedUsername
@@ -145,7 +145,7 @@ export const LobbyCountdownStartedMessage = React.memo<{ time: number }>(props =
   const { t } = useTranslation()
   return (
     <SystemMessage time={time}>
-      <span>{t('lobby.gameCountdownStarted', 'The game countdown has begun')}</span>
+      <span>{t('lobbies.lobbyMessageLayout.gameCountdownStarted', 'The game countdown has begun')}</span>
     </SystemMessage>
   )
 })
@@ -164,7 +164,7 @@ export const LobbyCountdownCanceledMessage = React.memo<{ time: number }>(props 
   const { t } = useTranslation()
   return (
     <SystemMessage time={time}>
-      <span>{t('lobby.gameCountdownCanceled', 'The game countdown has been canceled')}</span>
+      <span>{t('lobbies.lobbyMessageLayout.gameCountdownCanceled', 'The game countdown has been canceled')}</span>
     </SystemMessage>
   )
 })
@@ -175,7 +175,7 @@ export const LobbyLoadingCanceledMessage = React.memo<{ time: number }>(props =>
   const { t } = useTranslation()
   return (
     <SystemMessage time={time}>
-      <span>{t('lobby.gameInitializationCanceled', 'Game initialization has been canceled')}</span>
+      <span>{t('lobbies.lobbyMessageLayout.gameInitializationCanceled', 'Game initialization has been canceled')}</span>
     </SystemMessage>
   )
 })

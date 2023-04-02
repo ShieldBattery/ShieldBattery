@@ -66,23 +66,23 @@ export function ExternalLinkDialog({ href, domain, onCancel, dialogRef }: Extern
 
   const buttons = [
     <TrustDomainLink key='trust-domain' href='#' onClick={onTrustDomainClick}>
-      {t('nav.alwaysTrustDomainLabel', 'Always trust this domain')}
+      {t('navigation.externalLinkDialog.alwaysTrustDomainLabel', 'Always trust this domain')}
     </TrustDomainLink>,
-    <TextButton label={t('common.cancelLabel', 'Cancel')} key='cancel' color='accent' onClick={onCancel} />,
-    <TextButton label={t('common.openLinkLabel', 'Open Link')} key='open-link' color='accent' onClick={onOpenLinkClick} />,
+    <TextButton label={t('navigation.externalLinkDialog.cancelLabel', 'Cancel')} key='cancel' color='accent' onClick={onCancel} />,
+    <TextButton label={t('navigation.externalLinkDialog.openLinkLabel', 'Open Link')} key='open-link' color='accent' onClick={onOpenLinkClick} />,
   ]
 
   return (
     <StyledDialog
-      title={t('nav.externalLinkLabel', 'External link')}
+      title={t('navigation.externalLinkDialog.externalLinkLabel', 'External link')}
       showCloseButton={true}
       onCancel={onCancel}
       buttons={buttons}
       dialogRef={dialogRef}>
       <SelectionBoundary>
-        <Subtitle1>{t('nav.externalLinkTextA', 'This link will take you to a site outside ShieldBattery:')}</Subtitle1>
+        <Subtitle1>{t('navigation.externalLinkDialog.externalLinkTextA', 'This link will take you to a site outside ShieldBattery:')}</Subtitle1>
         <LinkAsText title={href}>{href}</LinkAsText>
-        <Subtitle1>{t('nav.externalLinkTextB', 'Are you sure you want to go there?')}</Subtitle1>
+        <Subtitle1>{t('navigation.externalLinkDialog.externalLinkTextB', 'Are you sure you want to go there?')}</Subtitle1>
       </SelectionBoundary>
     </StyledDialog>
   )

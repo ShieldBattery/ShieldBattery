@@ -87,12 +87,12 @@ const AppSettingsForm = React.forwardRef<
   const testSoundLabel = props.isPlayingTestSound ? (
     <>
       <StopIcon />
-      <span>{t('settings.sound.stopPlayingTestSoundLabel', 'Stop')}</span>
+      <span>{t('settings.appSettings.stopPlayingTestSoundLabel', 'Stop')}</span>
     </>
   ) : (
     <>
       <PlayIcon />
-      <span>{t('settings.sound.playTestSoundLabel', 'Test')}</span>
+      <span>{t('settings.appSettings.playTestSoundLabel', 'Test')}</span>
     </>
   )
 
@@ -104,7 +104,7 @@ const AppSettingsForm = React.forwardRef<
           <VolumeSettings>
             <StyledSlider
               {...bindCustom('masterVolume')}
-              label={t('settings.sound.masterVolumeLabel', 'Master volume')}
+              label={t('settings.appSettings.masterVolumeLabel', 'Master volume')}
               tabIndex={0}
               min={0}
               max={100}
@@ -118,12 +118,12 @@ const AppSettingsForm = React.forwardRef<
         <div>
           <CheckBox
             {...bindCheckable('runAppAtSystemStart')}
-            label={t('settings.checkbox.runAppAtSystemStart', 'Run ShieldBattery on system startup')}
+            label={t('settings.appSettings.runAppAtSystemStart', 'Run ShieldBattery on system startup')}
             inputProps={{ tabIndex: 0 }}
           />
           <IndentedCheckbox
             {...bindCheckable('runAppAtSystemStartMinimized')}
-            label={t('settings.checkbox.runAppAtSystemStartMinimized', 'Start minimized')}
+            label={t('settings.appSettings.runAppAtSystemStartMinimized', 'Start minimized')}
             inputProps={{ tabIndex: 0 }}
             disabled={!getInputValue('runAppAtSystemStart')}
           />

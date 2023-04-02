@@ -103,8 +103,8 @@ class NameForm extends React.Component {
     const { onSubmit, bindInput, inputRef, onCancel } = this.props
     const { t } = useTranslation()
     const trailingIcons = [
-      <IconButton icon={<SaveIcon />} title={t('common.saveLabel', 'Save')} onClick={onSubmit} />,
-      <IconButton icon={<CancelIcon />} title={t('common.cancelLabel', 'Cancel')} onClick={onCancel} />,
+      <IconButton icon={<SaveIcon />} title={t('maps.mapDetails.saveLabel', 'Save')} onClick={onSubmit} />,
+      <IconButton icon={<CancelIcon />} title={t('maps.mapDetails.cancelLabel', 'Cancel')} onClick={onCancel} />,
     ]
 
     return (
@@ -114,7 +114,7 @@ class NameForm extends React.Component {
         <TextField
           {...bindInput('name')}
           ref={inputRef}
-          label={t('maps.mapNameLabel', 'Map name')}
+          label={t('maps.mapDetails.mapNameLabel', 'Map name')}
           trailingIcons={trailingIcons}
         />
       </form>
@@ -134,10 +134,11 @@ class NameForm extends React.Component {
 @form({ description: required('Enter a map description') })
 class DescriptionForm extends React.Component {
   render() {
+    const { t } = useTranslation()
     const { onSubmit, bindInput, inputRef, onCancel } = this.props
     const trailingIcons = [
-      <IconButton icon={<SaveIcon />} title={t('common.saveLabel', 'Save')} onClick={onSubmit} />,
-      <IconButton icon={<CancelIcon />} title={t('common.cancelLabel', 'Cancel')} onClick={onCancel} />,
+      <IconButton icon={<SaveIcon />} title={t('maps.mapDetails.saveLabel', 'Save')} onClick={onSubmit} />,
+      <IconButton icon={<CancelIcon />} title={t('maps.mapDetails.cancelLabel', 'Cancel')} onClick={onCancel} />,
     ]
 
     return (
@@ -146,7 +147,7 @@ class DescriptionForm extends React.Component {
         <TextField
           {...bindInput('description')}
           ref={inputRef}
-          label={t('maps.mapDescriptionLabel', 'Map description')}
+          label={t('maps.mapDetails.mapDescriptionLabel', 'Map description')}
           multiline={true}
           rows={5}
           maxRows={5}
@@ -209,7 +210,7 @@ export default class MapDetails extends React.Component {
     const { auth, mapDetails } = this.props
     const { isEditingName, isEditingDescription } = this.state
     const { map } = mapDetails
-
+    const { t } = useTranslation()
     if (mapDetails.isRequesting) {
       return (
         <LoadingArea>
@@ -221,7 +222,7 @@ export default class MapDetails extends React.Component {
       return (
         <>
           <p>
-          {t('maps.errorRetrievingMapDetails', 'Something went wrong while trying to retrieve the details of this map. The error message was:')}
+          {t('maps.mapDetails.errorRetrievingMapDetails', 'Something went wrong while trying to retrieve the details of this map. The error message was:')}
           </p>
           <ErrorText as='p'>{mapDetails.lastError.message}</ErrorText>
         </>

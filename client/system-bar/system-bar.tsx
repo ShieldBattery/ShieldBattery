@@ -85,13 +85,13 @@ export function SystemBar() {
       <LeftSide>
         {DEV_INDICATOR ? (
           // TODO(tec27): Find a place for this + admin that will show up on the web version too
-          <DevIndicator title={t('systembar.devindicator.goToDevPagesButtonText', 'Go to dev pages')} onClick={() => push('/dev')}>
+          <DevIndicator title={t('systembar.goToDevPagesButtonText', 'Go to dev pages')} onClick={() => push('/dev')}>
             Dev
           </DevIndicator>
         ) : null}
         {isAdmin ? (
           <StyledIconButton
-            title={t('systembar.admin.adminLabel', 'Admin')}
+            title={t('systembar.adminLabel', 'Admin')}
             icon={<MaterialIcon icon='admin_panel_settings' size={20} filled={false} />}
             onClick={onAdminClick}
           />

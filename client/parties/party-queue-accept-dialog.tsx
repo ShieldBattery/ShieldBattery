@@ -105,7 +105,7 @@ export function PartyQueueAcceptDialog({ dialogRef }: CommonDialogProps) {
 
   const buttons = [
     <TextButton
-      label={t('common.cancelLabel', 'Cancel')}
+      label={t('parties.partyQueueAcceptDialog.cancelLabel', 'Cancel')}
       key='cancel'
       color='accent'
       onClick={onCancel}
@@ -113,7 +113,7 @@ export function PartyQueueAcceptDialog({ dialogRef }: CommonDialogProps) {
     />,
     <TextButton
       ref={searchButtonRef}
-      label={t('common.searchLabel', 'Search')}
+      label={t('parties.partyQueueAcceptDialog.searchLabel', 'Search')}
       key='search'
       color='accent'
       onClick={onSearch}
@@ -125,11 +125,11 @@ export function PartyQueueAcceptDialog({ dialogRef }: CommonDialogProps) {
     <StyledDialog
       dialogRef={dialogRef}
       showCloseButton={false}
-      title={t('common.chooseRaceLabel', 'Choose your race')}
+      title={t('parties.partyQueueAcceptDialog.chooseRaceHeader', 'Choose your race')}
       buttons={buttons}>
-      {error ? <ErrorText>{t('common.errorLabel', 'Error')}: {error}</ErrorText> : null}
+      {error ? <ErrorText>{t('parties.partyQueueAcceptDialog.errorLabel', 'Error')}: {error}</ErrorText> : null}
       <Subtitle1>
-      <Trans i18nKey="common.partySearchingText">
+      <Trans i18nKey="parties.partyQueueAcceptDialog.partySearchingText">
         Your party is searching for a{' '}
         <MatchmakingTypeText>
           {matchmakingTypeToLabel(queueState.matchmakingType)}

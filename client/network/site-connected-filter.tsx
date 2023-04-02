@@ -48,7 +48,7 @@ export function SiteConnectedFilter(props: SiteConnectedFilterProps) {
     return (
       <LoadingArea>
         <LoadingIndicator showImmediately={true} />
-        <ConnectingText>{t('common.connectingLabel', 'Connecting\u2026')}</ConnectingText>
+        <ConnectingText>{t('network.siteConnectedFilter.connectingLabel', 'Connecting\u2026')}</ConnectingText>
       </LoadingArea>
     )
   }

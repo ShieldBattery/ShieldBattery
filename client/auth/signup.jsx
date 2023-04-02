@@ -166,7 +166,7 @@ class SignupForm extends React.Component {
           <AuthTextField
             {...bindInput('username')}
             inputProps={textInputProps}
-            label={t('common.usernameLabel', 'Username')}
+            label={t('auth.signup.usernameLabel', 'Username')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -175,7 +175,7 @@ class SignupForm extends React.Component {
           <AuthTextField
             {...bindInput('email')}
             inputProps={textInputProps}
-            label={t('common.emailAddressLabel', 'Email address')}
+            label={t('auth.signup.emailAddressLabel', 'Email address')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -184,7 +184,7 @@ class SignupForm extends React.Component {
           <AuthPasswordTextField
             {...bindInput('password')}
             inputProps={textInputProps}
-            label={t('common.passwordLabel', 'Password')}
+            label={t('auth.signup.passwordLabel', 'Password')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -193,14 +193,14 @@ class SignupForm extends React.Component {
           <AuthPasswordTextField
             {...bindInput('confirmPassword')}
             inputProps={textInputProps}
-            label={t('account.recover.confirmPassword', 'Confirm password')}
+            label={t('auth.signup.confirmPasswordLabel', 'Confirm password')}
             floatingLabel={true}
           />
         </FieldRow>
 
         <CheckBoxRowWithError
           {...bindCheckable('ageConfirmation')}
-          label={t('account.ageConfirmation', 'I certify that I am 13 years of age or older')}
+          label={t('auth.signup.ageConfirmationLabel', 'I certify that I am 13 years of age or older')}
           inputProps={{ tabIndex: 1 }}
         />
 
@@ -208,10 +208,10 @@ class SignupForm extends React.Component {
           {...bindCheckable('policyAgreement')}
           label={
             <span>
-              {t('account.readAndAgree', 'I have read and agree to the')}{' '}
-              <DialogLink dialogType={DialogType.TermsOfService} text='Terms of Service' />,{' '}
-              <DialogLink dialogType={DialogType.AcceptableUse} text='Acceptable Use' />, and{' '}
-              <DialogLink dialogType={DialogType.PrivacyPolicy} text='Privacy' /> policies
+              {t('auth.signup.readAndAgreeText', 'I have read and agree to the')}{' '}
+              <DialogLink dialogType={DialogType.TermsOfService} text={t('auth.signup.termsOfServiceText', 'Terms of Service')} />,{' '}
+              <DialogLink dialogType={DialogType.AcceptableUse} text={t('auth.signup.acceptableUseText', 'Acceptable Use')} />, and{' '}
+              <DialogLink dialogType={DialogType.PrivacyPolicy} text={t('auth.signup.privacyText', 'Privacy')} /> policies
             </span>
           }
           inputProps={{ tabIndex: 1 }}
@@ -219,7 +219,7 @@ class SignupForm extends React.Component {
 
         <FieldRow>
           <RaisedButton
-            label={t('account.createAccountLabel', 'Create account')}
+            label={t('auth.signup.createAccountLabel', 'Create account')}
             onClick={onSubmit}
             tabIndex={1}
             testName='submit-button'
@@ -278,8 +278,8 @@ export default class Signup extends React.Component {
         </AuthContentContainer>
         {loadingContents}
         <SignupBottomAction>
-          <p>{t('account.accountAlreadyExists', 'Already have an account?')}</p>
-          <BottomActionButton label={t('common.logInLabel', 'Log in')} onClick={this.onLogInClick} tabIndex={1} />
+          <p>{t('auth.signup.accountAlreadyExistsText', 'Already have an account?')}</p>
+          <BottomActionButton label={t('auth.signup.logInLabel', 'Log in')} onClick={this.onLogInClick} tabIndex={1} />
         </SignupBottomAction>
       </AuthContent>
     )

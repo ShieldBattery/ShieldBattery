@@ -17,7 +17,7 @@ export function AlreadySearchingErrorContent({ users }: { users: SbUserId[] }) {
   const { t } = useTranslation()
   return (
     <Subtitle1>
-      {t('matchmaking.errorPartyAlreadySearching', 'Some party members are already playing a game, searching for a match, or in a custom lobby:')}
+      {t('parties.findMatchErrorContent.errorPartyAlreadySearching', 'Some party members are already playing a game, searching for a match, or in a custom lobby:')}
       <UserList>
         {users.map(u => (
           <UserListItem key={String(u)}>

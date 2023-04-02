@@ -60,7 +60,7 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
     const { t } = useTranslation()
     return (
       <form noValidate={true} onSubmit={handleSubmit}>
-        <SectionTitle>{t('common.raceLabel', 'Race')}</SectionTitle>
+        <SectionTitle>{t('matchmaking.find1v1.raceHeader', 'Race')}</SectionTitle>
         <StyledRaceSelect
           {...bindCustom('race')}
           size={RacePickerSize.Large}
@@ -69,15 +69,15 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
         {race !== 'r' ? (
           <CheckBox
             {...bindCheckable('useAlternateRace')}
-            label={t('matchmaking.useAlternateRaceLabel', 'Use alternate race to avoid mirror matchups')}
+            label={t('matchmaking.find1v1.useAlternateRaceLabel', 'Use alternate race to avoid mirror matchups')}
             disabled={disabled}
           />
         ) : null}
         {useAlternateRace ? (
           <>
-            <SectionTitle>{t('matchmaking.alternateRaceLabel', 'Alternate race')}</SectionTitle>
+            <SectionTitle>{t('matchmaking.find1v1.alternateRaceHeader', 'Alternate race')}</SectionTitle>
             <DescriptionText>
-            {t('matchmaking.alternateRaceText', 'Select a race to be used whenever your opponent has selected the same primary race.')}
+            {t('matchmaking.find1v1.alternateRaceText', 'Select a race to be used whenever your opponent has selected the same primary race.')}
             </DescriptionText>
             <StyledRaceSelect
               {...bindCustom('alternateRace')}
@@ -89,11 +89,11 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
           </>
         ) : null}
         <MapSelectionsHeader>
-          <SectionTitle>{t('common.mapPoolLabel', 'Map pool')}</SectionTitle>
-          {mapPoolOutdated ? <OutdatedIndicator>{t('common.updatedText', 'Updated')}</OutdatedIndicator> : null}
+          <SectionTitle>{t('matchmaking.find1v1.mapPoolHeader', 'Map pool')}</SectionTitle>
+          {mapPoolOutdated ? <OutdatedIndicator>{t('matchmaking.find1v1.updatedText', 'Updated')}</OutdatedIndicator> : null}
         </MapSelectionsHeader>
         <DescriptionText>
-        {t('matchmaking.vetoMapText', 'Veto up to 3 maps. Vetoed maps will never be selected for play.')}
+        {t('matchmaking.find1v1.vetoMapText', 'Veto up to 3 maps. Vetoed maps will never be selected for play.')}
         </DescriptionText>
         <MapVetoesControl
           {...bindCustom('mapSelections')}

@@ -80,14 +80,14 @@ const VideoSettingsForm = React.forwardRef<
       <SubmitOnEnter />
       <FormContainer>
         <div>
-          <Select {...bindCustom('displayMode')} label={t('settings.video.displayModeLabel', 'Display mode')} tabIndex={0}>
+          <Select {...bindCustom('displayMode')} label={t('settings.videoSettings.displayModeLabel', 'Display mode')} tabIndex={0}>
             {ALL_DISPLAY_MODES.map((dm, i) => (
               <SelectOption key={i} value={dm} text={getDisplayModeName(dm)} />
             ))}
           </Select>
           <Slider
             {...bindCustom('sdGraphicsFilter')}
-            label={t('settings.video.sdGraphicsFilterLabel', 'SD graphics filter')}
+            label={t('settings.videoSettings.sdGraphicsFilterLabel', 'SD graphics filter')}
             tabIndex={0}
             min={0}
             max={3}
@@ -96,12 +96,12 @@ const VideoSettingsForm = React.forwardRef<
           <Spacer />
           <CheckBox
             {...bindCheckable('fpsLimitOn')}
-            label={t('settings.video.enableFpsLimitLabel', 'Enable FPS limit')}
+            label={t('settings.videoSettings.enableFpsLimitLabel', 'Enable FPS limit')}
             inputProps={{ tabIndex: 0 }}
           />
           <Slider
             {...bindCustom('fpsLimit')}
-            label={t('settings.video.fpsLimitLabel', 'FPS limit')}
+            label={t('settings.videoSettings.fpsLimitLabel', 'FPS limit')}
             tabIndex={0}
             min={100}
             max={300}
@@ -113,40 +113,40 @@ const VideoSettingsForm = React.forwardRef<
         <div>
           <VsyncCheckBox
             {...bindCustom('vsyncOn')}
-            label={t('settings.video.enableVerticalSyncLabel', 'Enable vertical sync')}
+            label={t('settings.videoSettings.enableVerticalSyncLabel', 'Enable vertical sync')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('hdGraphicsOn')}
-            label={t('settings.video.hdGraphicsLabel', 'HD graphics')}
+            label={t('settings.videoSettings.hdGraphicsLabel', 'HD graphics')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('environmentEffectsOn')}
-            label={t('settings.video.environmentEffectsLabel', 'Environment effects')}
+            label={t('settings.videoSettings.environmentEffectsLabel', 'Environment effects')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('realTimeLightingOn')}
-            label={t('settings.video.realTimeLightingLabel', 'Real-time lighting')}
+            label={t('settings.videoSettings.realTimeLightingLabel', 'Real-time lighting')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('smoothUnitTurningOn')}
-            label={t('settings.video.smoothUnitTurningLabel', 'Smooth unit turning')}
+            label={t('settings.videoSettings.smoothUnitTurningLabel', 'Smooth unit turning')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('shadowStackingOn')}
-            label={t('settings.video.shadowStackingLabel', 'Shadow stacking')}
+            label={t('settings.videoSettings.shadowStackingLabel', 'Shadow stacking')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('pillarboxOn')}
-            label={t('settings.video.pillarboxModeLabel', 'Pillarbox (4:3 aspect ratio)')}
+            label={t('settings.videoSettings.pillarboxModeLabel', 'Pillarbox (4:3 aspect ratio)')}
             inputProps={{ tabIndex: 0 }}
           />
-          <CheckBox {...bindCheckable('showFps')} label={t('settings.video.showFpsLabel', 'Show FPS')} inputProps={{ tabIndex: 0 }} />
+          <CheckBox {...bindCheckable('showFps')} label={t('settings.videoSettings.showFpsLabel', 'Show FPS')} inputProps={{ tabIndex: 0 }} />
         </div>
       </FormContainer>
     </form>

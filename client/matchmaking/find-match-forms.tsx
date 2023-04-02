@@ -215,7 +215,7 @@ export function MapVetoesControl({
         ))}
       </MapSelections>
       <VetoStatus>
-        <VetoStatusLabel>{t('matchmaking.vetoesLeftLabel', 'Vetoes left:')} </VetoStatusLabel>
+        <VetoStatusLabel>{t('matchmaking.findMatchForms.vetoesLeftLabel', 'Vetoes left:')} </VetoStatusLabel>
         <VetoStatusValue $exhausted={vetoesLeft <= 0}>{vetoesLeft}</VetoStatusValue>
       </VetoStatus>
     </div>

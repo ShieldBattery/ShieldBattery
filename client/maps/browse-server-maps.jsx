@@ -24,6 +24,7 @@ import {
 } from './action-creators'
 import { BrowserFooter as Footer } from './browser-footer'
 import { MapThumbnail } from './map-thumbnail'
+import { useTranslation } from 'react-i18next'
 
 const MAPS_LIMIT = 30
 
@@ -337,7 +338,7 @@ export default class Maps extends React.Component {
   renderAllMaps() {
     const { maps } = this.props
     const { activeTab, searchQuery } = this.state
-
+    const { t } = useTranslation()
     if (maps.total === -1) return null
     if (maps.total === 0) {
       let text
@@ -354,7 +355,7 @@ export default class Maps extends React.Component {
       }
       return (
         <>
-          <SectionHeader>All maps</SectionHeader>
+          <SectionHeader>{t('maps.browseServerMaps.allMapsHeader', 'All maps')}</SectionHeader>
           <Subtitle1>{text}</Subtitle1>
         </>
       )
@@ -387,7 +388,7 @@ export default class Maps extends React.Component {
     // preferences, because some its state is initialized with the fetched one. Hopefully this won't
     // be necessary anymore once Suspense finally comes?
     if (!hasInitializedState) return null
-
+    const { t } = useTranslation()
     const hasMoreMaps = maps.total === -1 || maps.total > maps.byId.size
     return (
       <Container>
@@ -397,16 +398,16 @@ export default class Maps extends React.Component {
         </TitleBar>
         <TabArea>
           <Tabs activeTab={activeTab} onChange={this.onTabChange}>
-            <TabItem text='Official' value={TAB_OFFICIAL_MAPS} />
-            <TabItem text='My maps' value={TAB_MY_MAPS} />
-            <TabItem text='Community' value={TAB_COMMUNITY_MAPS} />
+            <TabItem text={t('maps.browseServerMaps.officialLabel', 'Official')} value={TAB_OFFICIAL_MAPS} />
+            <TabItem text={t('maps.browseServerMaps.myMapsLabel', 'My maps')} value={TAB_MY_MAPS} />
+            <TabItem text={t('maps.browseServerMaps.communityLabel', 'Community')} value={TAB_COMMUNITY_MAPS} />
           </Tabs>
         </TabArea>
         <ScrollDivider position='top' />
         <Contents>
           <ContentsBody>
             {maps.lastError ? (
-              <ErrorText>Something went wrong: {maps.lastError.message}</ErrorText>
+              <ErrorText>{t('maps.browseServerMaps.errorDescription', 'Something went wrong')}: {maps.lastError.message}</ErrorText>
             ) : (
               <>
                 {this.renderUploadedMap()}

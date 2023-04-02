@@ -45,19 +45,19 @@ export function LeagueExplainerDialog({ dialogRef, onCancel }: CommonDialogProps
 
       <List>
         <ListEntry>
-          <Emphasized>{t('common.joinLabel', 'Join')}.</Emphasized>
+          <Emphasized>{t('leagues.explainer.joinLabel', 'Join')}.</Emphasized>
           <div>
           {t('leagues.explainer.joinLeagueText', 'Find a league that is currently running or accepting signups in the format you\'d like to play. Some leagues may have different requirements, rules, or qualifications, so make sure to read the information before joining!')}
           </div>
         </ListEntry>
         <ListEntry>
-          <Emphasized>{t('common.playLabel', 'Play')}.</Emphasized>
+          <Emphasized>{t('leagues.explainer.playLabel', 'Play')}.</Emphasized>
           <div>
           {t('leagues.explainer.playLeagueText', 'Once a league has started, all ladder games you play will reward points towards the league standings alongside your normal ladder standings. Check the leaderboard on the league page to see how you\'re doing!')}
           </div>
         </ListEntry>
         <ListEntry>
-          <Emphasized>{t('common.winLabel', 'Win')}!</Emphasized>
+          <Emphasized>{t('leagues.explainer.winLabel', 'Win')}!</Emphasized>
           <div>
           {t('leagues.explainer.winLeagueText', 'After a league finishes, the leaderboard will be available for organizers to distribute prizes and rewards. Check out the league information page for more details.')}
           </div>

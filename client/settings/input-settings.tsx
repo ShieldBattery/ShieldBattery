@@ -48,7 +48,7 @@ const InputSettingsForm = React.forwardRef<
         <div>
           <Slider
             {...bindCustom('keyboardScrollSpeed')}
-            label={t('settings.input.keyboardScrollSpeedLabel', 'Keyboard scroll speed')}
+            label={t('settings.inputSettings.keyboardScrollSpeedLabel', 'Keyboard scroll speed')}
             tabIndex={0}
             min={0}
             max={6}
@@ -56,7 +56,7 @@ const InputSettingsForm = React.forwardRef<
           />
           <Slider
             {...bindCustom('mouseScrollSpeed')}
-            label={t('settings.input.mouseScrollSpeedLabel', 'Mouse scroll speed')}
+            label={t('settings.inputSettings.mouseScrollSpeedLabel', 'Mouse scroll speed')}
             tabIndex={0}
             min={0}
             max={6}
@@ -66,12 +66,12 @@ const InputSettingsForm = React.forwardRef<
         <div>
           <CheckBox
             {...bindCheckable('mouseSensitivityOn')}
-            label={t('settings.input.customMouseSensitivityLabel', 'Custom mouse sensitivity')}
+            label={t('settings.inputSettings.customMouseSensitivityLabel', 'Custom mouse sensitivity')}
             inputProps={{ tabIndex: 0 }}
           />
           <MouseSensitivitySlider
             {...bindCustom('mouseSensitivity')}
-            label={t('settings.input.mouseSensitivityLabel', 'Mouse sensitivity')}
+            label={t('settings.inputSettings.mouseSensitivityLabel', 'Mouse sensitivity')}
             tabIndex={0}
             min={0}
             max={100}
@@ -81,17 +81,17 @@ const InputSettingsForm = React.forwardRef<
           />
           <CheckBox
             {...bindCheckable('mouseScalingOn')}
-            label={t('settings.input.useMouseScalingLabel', 'Use mouse scaling')}
+            label={t('settings.inputSettings.useMouseScalingLabel', 'Use mouse scaling')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('hardwareCursorOn')}
-            label={t('settings.input.useHardwareCursorLabel', 'Hardware cursor')}
+            label={t('settings.inputSettings.useHardwareCursorLabel', 'Hardware cursor')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('mouseConfineOn')}
-            label={t('settings.input.lockCursorToWindowLabel', 'Lock cursor to window')}
+            label={t('settings.inputSettings.lockCursorToWindowLabel', 'Lock cursor to window')}
             inputProps={{ tabIndex: 0 }}
           />
         </div>

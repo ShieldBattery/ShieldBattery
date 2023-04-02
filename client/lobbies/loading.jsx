@@ -297,7 +297,7 @@ export default class LoadingScreen extends React.Component {
       <Content>
         <div>
           <Display1Old as='span'>{gameTypeToLabel(lobby.gameType)}</Display1Old>
-          <GameTypeMapBridge as='span'> {t('common.onText', 'on')} </GameTypeMapBridge>
+          <GameTypeMapBridge as='span'> {t('lobbies.loading.onText', 'on')} </GameTypeMapBridge>
           <Display1Old as='span'>{lobby.map.name}</Display1Old>
         </div>
         <MapImageContainer>

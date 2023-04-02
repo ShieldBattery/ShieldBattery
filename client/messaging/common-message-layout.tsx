@@ -218,7 +218,7 @@ export const BlockedMessage = React.memo<{
   return (
     <>
       <TimestampMessageLayout time={props.time} highlighted={false}>
-        <BlockedText>{t('common.blockedMessageLabel', 'Blocked message')}</BlockedText>
+        <BlockedText>{t('messaging.commonMessageLayout.blockedMessageLabel', 'Blocked message')}</BlockedText>
         <BlockedDivider>&mdash;</BlockedDivider>
         <ShowHideLink onClick={() => setShow(!show)}>{show ? 'Hide' : 'Show'}</ShowHideLink>
       </TimestampMessageLayout>
@@ -243,7 +243,7 @@ export const NewDayMessage = React.memo<{ time: number }>(props => {
   return (
     <SeparatedInfoMessage>
       <span>
-      {t('common.dayChanged', 'Day changed to')} <InfoImportant>{newDayFormat.format(time)}</InfoImportant>
+      {t('messaging.commonMessageLayout.dayChanged', 'Day changed to')} <InfoImportant>{newDayFormat.format(time)}</InfoImportant>
       </span>
     </SeparatedInfoMessage>
   )

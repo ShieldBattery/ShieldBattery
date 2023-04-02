@@ -66,7 +66,7 @@ const SoundSettingsForm = React.forwardRef<
           <CheckBox {...bindCheckable('musicOn')} label='Music' inputProps={{ tabIndex: 0 }} />
           <MusicVolumeSlider
             {...bindCustom('musicVolume')}
-            label={t('settings.sound.musicVolumeLabel', 'Music volume')}
+            label={t('settings.soundSettings.musicVolumeLabel', 'Music volume')}
             tabIndex={0}
             min={0}
             max={100}
@@ -76,12 +76,12 @@ const SoundSettingsForm = React.forwardRef<
           />
           <CheckBox
             {...bindCheckable('soundOn')}
-            label={t('settings.sound.gameSoundLabel', 'Game sounds')}
+            label={t('settings.soundSettings.gameSoundLabel', 'Game sounds')}
             inputProps={{ tabIndex: 0 }}
           />
           <Slider
             {...bindCustom('soundVolume')}
-            label={t('settings.sound.soundVolumeLabel', 'Sound volume')}
+            label={t('settings.soundSettings.soundVolumeLabel', 'Sound volume')}
             tabIndex={0}
             min={0}
             max={100}
@@ -90,8 +90,8 @@ const SoundSettingsForm = React.forwardRef<
             showTicks={false}
           />
 
-          <AnnouncerOverline>{t('settings.announcer.announcerPackHeaderText', 'Packs (must be purchased from Blizzard)')}</AnnouncerOverline>
-          <Select {...bindCustom('selectedAnnouncer')} label={t('settings.announcer.announcerLabel', 'Announcer')} tabIndex={0}>
+          <AnnouncerOverline>{t('settings.soundSettings.announcerPackHeaderText', 'Packs (must be purchased from Blizzard)')}</AnnouncerOverline>
+          <Select {...bindCustom('selectedAnnouncer')} label={t('settings.soundSettings.announcerLabel', 'Announcer')} tabIndex={0}>
             {ALL_ANNOUNCERS.map(announcer => (
               <SelectOption key={announcer} value={announcer} text={getAnnouncerName(announcer)} />
             ))}
@@ -100,37 +100,37 @@ const SoundSettingsForm = React.forwardRef<
         <div>
           <CheckBox
             {...bindCheckable('unitSpeechOn')}
-            label={t('settings.sound.unitSpeechLabel', 'Unit speech')}
+            label={t('settings.soundSettings.unitSpeechLabel', 'Unit speech')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('unitAcknowledgementsOn')}
-            label={t('settings.sound.unitAcknowledgmentsLabel', 'Unit acknowledgments')}
+            label={t('settings.soundSettings.unitAcknowledgmentsLabel', 'Unit acknowledgments')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('backgroundSoundsOn')}
-            label={t('settings.sound.backgroundSoundsLabel', 'Sound plays while in background')}
+            label={t('settings.soundSettings.backgroundSoundsLabel', 'Sound plays while in background')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('buildingSoundsOn')}
-            label={t('settings.sound.buildingSoundsLabel', 'Building sounds')}
+            label={t('settings.soundSettings.buildingSoundsLabel', 'Building sounds')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('gameSubtitlesOn')}
-            label={t('settings.sound.gameSubtitlesLabel', 'Game subtitles')}
+            label={t('settings.soundSettings.gameSubtitlesLabel', 'Game subtitles')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('cinematicSubtitlesOn')}
-            label={t('settings.sound.cinematicSubtitlesLabel', 'Cinematic subtitles')}
+            label={t('settings.soundSettings.cinematicSubtitlesLabel', 'Cinematic subtitles')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('originalVoiceOversOn')}
-            label={t('settings.sound.originalUnitVoiceOversLabel', 'Original unit voice overs')}
+            label={t('settings.soundSettings.originalUnitVoiceOversLabel', 'Original unit voice overs')}
             inputProps={{ tabIndex: 0 }}
           />
         </div>

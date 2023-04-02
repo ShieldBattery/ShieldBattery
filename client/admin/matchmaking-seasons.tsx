@@ -95,7 +95,7 @@ function SeasonRow({
         {season.resetMmr ? <ModifierText> (MMR reset)</ModifierText> : undefined}
       </SeasonName>
       {season.startDate > Date.now() ? (
-        <IconButton icon={<CloseIcon />} title='Delete' onClick={() => onDeleteClick(season.id)} />
+        <IconButton icon={<CloseIcon />} title={t('admin.matchmakingSeasons.deleteButtonText', 'Delete')} onClick={() => onDeleteClick(season.id)} />
       ) : (
         <div></div>
       )}

@@ -358,7 +358,7 @@ export default class Lobby extends React.Component<LobbyProps> {
           <StyledChat listProps={listProps} inputProps={inputProps} />
         </Left>
         <Info>
-          <RaisedButton label={t('lobby.leaveLobbyButtonText', 'Leave lobby')} onClick={onLeaveLobbyClick} />
+          <RaisedButton label={t('lobbies.leaveLobbyButtonText', 'Leave lobby')} onClick={onLeaveLobbyClick} />
           <MapName>{(lobby.map as unknown as Immutable<MapInfoJson>).name}</MapName>
           <StyledMapThumbnail
             map={lobby.map as unknown as Immutable<MapInfoJson>}
@@ -367,7 +367,7 @@ export default class Lobby extends React.Component<LobbyProps> {
             isFavoriting={isFavoritingMap}
           />
           <InfoItem>
-            <InfoLabel as='span'>{t('common.gameTypeLabel', 'Game type')}</InfoLabel>
+            <InfoLabel as='span'>{t('lobbies.gameTypeLabel', 'Game type')}</InfoLabel>
             <InfoValue as='span'>{gameTypeToLabel(lobby.gameType)}</InfoValue>
           </InfoItem>
           {this.renderCountdown()}
@@ -391,10 +391,10 @@ export default class Lobby extends React.Component<LobbyProps> {
     if (!user || lobby.host.name !== user.name) {
       return null
     }
-
+    const { t } = useTranslation()
     const isDisabled = lobby.isCountingDown || !hasOpposingSides(lobby as any)
     return (
-      <StartButton color='primary' label={t('lobby.startGameText', 'Start game')} disabled={isDisabled} onClick={onStartGame} />
+      <StartButton color='primary' label={t('lobbies.startGameButtonText', 'Start game')} disabled={isDisabled} onClick={onStartGame} />
     )
   }
 }

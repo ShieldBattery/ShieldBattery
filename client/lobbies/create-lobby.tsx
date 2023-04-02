@@ -171,7 +171,7 @@ const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormP
         } = selectedMap
         if (gameType === GameType.TopVsBottom) {
           gameSubTypeSelection = (
-            <Select {...bindCustom('gameSubType')} label={t('common.teamsLabel', 'Teams')} disabled={disabled} tabIndex={0}>
+            <Select {...bindCustom('gameSubType')} label={t('lobbies.createLobby.teamsLabel', 'Teams')} disabled={disabled} tabIndex={0}>
               {Range(slots - 1, 0).map(top => (
                 <SelectOption key={top} value={top} text={`${top} vs ${slots - top}`} />
               ))}
@@ -179,7 +179,7 @@ const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormP
           )
         } else {
           gameSubTypeSelection = (
-            <Select {...bindCustom('gameSubType')} label={t('common.teamsLabel', 'Teams')} disabled={disabled} tabIndex={0}>
+            <Select {...bindCustom('gameSubType')} label={t('lobbies.createLobby.teamsLabel', 'Teams')} disabled={disabled} tabIndex={0}>
               {Range(2, Math.min(slots, 4) + 1).map(numTeams => (
                 <SelectOption key={numTeams} value={numTeams} text={`${numTeams} teams`} />
               ))}
@@ -195,7 +195,7 @@ const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormP
         <TextField
           {...bindInput('name')}
           ref={inputRef}
-          label={t('lobby.lobbyNameLabel', 'Lobby name')}
+          label={t('lobbies.createLobby.lobbyNameLabel', 'Lobby name')}
           disabled={disabled}
           floatingLabel={true}
           inputProps={{
@@ -207,14 +207,14 @@ const CreateLobbyForm = React.forwardRef<CreateLobbyFormHandle, CreateLobbyFormP
           }}
         />
         <GameTypeAndSubType>
-          <Select {...bindCustom('gameType')} label={t('common.gameTypeLabel', 'Game type')} disabled={disabled} tabIndex={0}>
+          <Select {...bindCustom('gameType')} label={t('lobbies.createLobby.gameTypeLabel', 'Game type')} disabled={disabled} tabIndex={0}>
             {ALL_GAME_TYPES.map(type => (
               <SelectOption key={type} value={type} text={gameTypeToLabel(type)} />
             ))}
           </Select>
           {gameSubTypeSelection}
         </GameTypeAndSubType>
-        <SectionHeader>{t('lobby.selectMapLabel', 'Select map')}</SectionHeader>
+        <SectionHeader>{t('lobbies.createLobby.selectMapLabel', 'Select map')}</SectionHeader>
         <MapSelect
           {...bindCustom('selectedMap')}
           list={recentMaps.list}
@@ -357,13 +357,13 @@ export function CreateLobby(props: CreateLobbyProps) {
   }, [dispatch, recentMapsRef])
 
   const isDisabled = isInParty || isRequesting
-
+  const { t } = useTranslation()
   return (
     <Container>
       <TitleBar>
         <TextButton
           color='normal'
-          label={t('lobby.backToListLabel', 'Back to list')}
+          label={t('lobbies.createLobby.backToListLabel', 'Back to list')}
           iconStart={<ArrowBack />}
           onClick={props.onNavigateToList}
         />
@@ -392,9 +392,9 @@ export function CreateLobby(props: CreateLobbyProps) {
         {isInParty ? (
           <DisabledOverlay>
             <DisabledCard>
-              <Headline5>{t('lobby.partyDisabledHeader', 'Disabled while in party')}</Headline5>
+              <Headline5>{t('lobbies.createLobby.partyDisabledHeader', 'Disabled while in party')}</Headline5>
               <DisabledText>
-              {t('lobby.partyDisabledText', 'Creating a lobby as a party is currently under development. Leave your party to continue.')}
+              {t('lobbies.createLobby.partyDisabledText', 'Creating a lobby as a party is currently under development. Leave your party to continue.')}
               </DisabledText>
             </DisabledCard>
           </DisabledOverlay>
@@ -402,7 +402,7 @@ export function CreateLobby(props: CreateLobbyProps) {
       </Contents>
       <Actions>
         <ScrollDivider $show={!isAtBottom} $showAt='top' />
-        <RaisedButton label={t('lobby.buttonCreate', 'Create lobby')} disabled={isDisabled} onClick={onCreateClick} />
+        <RaisedButton label={t('lobbies.createLobby.createButtonText', 'Create lobby')} disabled={isDisabled} onClick={onCreateClick} />
       </Actions>
     </Container>
   )

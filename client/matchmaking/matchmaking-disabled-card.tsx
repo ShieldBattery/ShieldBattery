@@ -99,40 +99,40 @@ export function ConnectedMatchmakingDisabledCard({
 
   return (
     <DisabledCard className={className}>
-      <Headline5>{t('matchmaking.matchmakingDisabledLabel', 'Matchmaking disabled')}</Headline5>
+      <Headline5>{t('matchmaking.matchmakingDisabledCard.matchmakingDisabledLabel', 'Matchmaking disabled')}</Headline5>
       <DisabledText>
-      {t('matchmaking.matchmakingDisabledText', 'Matchmaking is sometimes shut down for maintenance and development, and is currently disabled. The next matchmaking period is:')}
+      {t('matchmaking.matchmakingDisabledCard.matchmakingDisabledText', 'Matchmaking is sometimes shut down for maintenance and development, and is currently disabled. The next matchmaking period is:')}
       </DisabledText>
       {nextStartDate && Number(nextStartDate) > Date.now() ? (
         <>
           <Headline6>{dateFormat.format(nextStartDate)}</Headline6>
           {nextEndDate && nextEndDate > nextStartDate ? (
             <>
-              <ToText>{t('common.toLabel', 'to')}</ToText>
+              <ToText>{t('matchmaking.matchmakingDisabledCard.toLabel', 'to')}</ToText>
               <Headline6>{dateFormat.format(nextEndDate)}</Headline6>
             </>
           ) : null}
           <CountdownContainer>
             <CountdownItemContainer>
-              <CountdownItemText>{t('common.daysLabel', 'Days')}</CountdownItemText>
+              <CountdownItemText>{t('matchmaking.matchmakingDisabledCard.daysText', 'Days')}</CountdownItemText>
               <Headline3>{days}</Headline3>
             </CountdownItemContainer>
             <CountdownItemContainer>
-              <CountdownItemText>{t('common.hoursLabel', 'Hours')}</CountdownItemText>
+              <CountdownItemText>{t('matchmaking.matchmakingDisabledCard.hoursText', 'Hours')}</CountdownItemText>
               <Headline3>{hours}</Headline3>
             </CountdownItemContainer>
             <CountdownItemContainer>
-              <CountdownItemText>{t('common.minutesLabel', 'Minutes')}</CountdownItemText>
+              <CountdownItemText>{t('matchmaking.matchmakingDisabledCard.minutesText', 'Minutes')}</CountdownItemText>
               <Headline3>{minutes}</Headline3>
             </CountdownItemContainer>
             <CountdownItemContainer>
-              <CountdownItemText>{t('common.secondsLabel', 'Seconds')}</CountdownItemText>
+              <CountdownItemText>{t('matchmaking.matchmakingDisabledCard.secondsText', 'Seconds')}</CountdownItemText>
               <Headline3>{seconds}</Headline3>
             </CountdownItemContainer>
           </CountdownContainer>
         </>
       ) : (
-        <Headline6>{t('common.indeterminateLabel', 'Soon™')}</Headline6>
+        <Headline6>{t('matchmaking.matchmakingDisabledCard.indeterminateHeader', 'Soon™')}</Headline6>
       )}
     </DisabledCard>
   )

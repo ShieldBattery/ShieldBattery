@@ -113,10 +113,10 @@ export function LeagueAdmin() {
           <Route path='/leagues/admin/:id' component={EditLeague} />
           <Route>
             <ListRoot>
-              <Title>{t('leagues.admin.manageLeaguesLabel', 'Manage leagues')}</Title>
+              <Title>{t('leagues.admin.manageLeaguesTitle', 'Manage leagues')}</Title>
               <div>
                 <RaisedButton
-                  label='Add league'
+                  label={t('leagues.admin.addLeagueLabel', 'Add league')}
                   iconStart={<MaterialIcon icon='add' />}
                   onClick={() => push('/leagues/admin/new')}
                 />
@@ -324,7 +324,7 @@ function CreateLeague() {
 
   return (
     <CreateLeagueRoot>
-      <Title>{t('leagues.admin.createLeagueLabel', 'Create league')}</Title>
+      <Title>{t('leagues.admin.createLeagueTitle', 'Create league')}</Title>
       {error ? <ErrorText>{error.message}</ErrorText> : null}
       <LeagueFormAndPreview>
         <LeagueForm noValidate={true} onSubmit={onSubmit}>
@@ -332,7 +332,7 @@ function CreateLeague() {
 
           <div>
             <FieldLabel htmlFor={`${baseId}-image`}>
-            {t('common.imageLabel', 'Image')} ({LEAGUE_IMAGE_WIDTH}x{LEAGUE_IMAGE_HEIGHT}{t('leagues.admin.pixelsRecommended', 'px recommended')})
+            {t('leagues.admin.imageLabel', 'Image')} ({LEAGUE_IMAGE_WIDTH}x{LEAGUE_IMAGE_HEIGHT}{t('leagues.admin.pixelsRecommended', 'px recommended')})
             </FieldLabel>
             <FileInput
               {...bindCustom('image')}
@@ -343,7 +343,7 @@ function CreateLeague() {
           </div>
           <div>
             <FieldLabel htmlFor={`${baseId}-badge`}>
-            {t('common.badgeLabel', 'Badge')} ({LEAGUE_BADGE_WIDTH}x{LEAGUE_BADGE_HEIGHT}{t('leagues.admin.pixelsRecommended', 'px recommended')})
+            {t('leagues.admin.badgeLabel', 'Badge')} ({LEAGUE_BADGE_WIDTH}x{LEAGUE_BADGE_HEIGHT}{t('leagues.admin.pixelsRecommended', 'px recommended')})
             </FieldLabel>
             <FileInput
               {...bindCustom('badge')}
@@ -355,7 +355,7 @@ function CreateLeague() {
 
           <TextField
             {...bindInput('name')}
-            label={t('common.nameLabel', 'Name')}
+            label={t('leagues.admin.nameLabel', 'Name')}
             floatingLabel={true}
             dense={true}
             inputProps={{ tabIndex: 0 }}
@@ -363,7 +363,7 @@ function CreateLeague() {
 
           <Select
             {...bindCustom('matchmakingType')}
-            label={t('common.matchmakingTypeLabel', 'Matchmaking type')}
+            label={t('leagues.admin.matchmakingTypeLabel', 'Matchmaking type')}
             tabIndex={0}
             dense={true}>
             {ALL_MATCHMAKING_TYPES.map(m => (
@@ -402,7 +402,7 @@ function CreateLeague() {
           />
           <TextField
             {...bindInput('link')}
-            label={t('common.linkLabel', 'Link')}
+            label={t('leagues.admin.linkLabel', 'Link')}
             floatingLabel={true}
             dense={true}
             inputProps={{ tabIndex: 0 }}
@@ -611,14 +611,14 @@ function EditLeagueForm({
     },
     { onSubmit: onFormSubmit, onValidatedChange },
   )
-
+  const { t } = useTranslation()
   return (
     <LeagueForm noValidate={true} onSubmit={onSubmit}>
       <SubmitOnEnter />
 
       <div>
         <FieldLabel htmlFor={`${baseId}-image`}>
-        {t('common.imageLabel', 'Image')} ({LEAGUE_IMAGE_WIDTH}x{LEAGUE_IMAGE_HEIGHT}{t('leagues.admin.pixelsRecommended', 'px recommended')})
+        {t('leagues.admin.imageLabel', 'Image')} ({LEAGUE_IMAGE_WIDTH}x{LEAGUE_IMAGE_HEIGHT}{t('leagues.admin.pixelsRecommended', 'px recommended')})
         </FieldLabel>
         <FileInput
           {...bindCustom('image')}
@@ -629,7 +629,7 @@ function EditLeagueForm({
       </div>
       <div>
         <FieldLabel htmlFor={`${baseId}-badge`}>
-        {t('common.badgeLabel', 'Badge')} ({LEAGUE_BADGE_WIDTH}x{LEAGUE_BADGE_HEIGHT}{t('leagues.admin.pixelsRecommended', 'px recommended')})
+        {t('leagues.admin.badgeLabel', 'Badge')} ({LEAGUE_BADGE_WIDTH}x{LEAGUE_BADGE_HEIGHT}{t('leagues.admin.pixelsRecommended', 'px recommended')})
         </FieldLabel>
         <FileInput
           {...bindCustom('badge')}
@@ -639,17 +639,17 @@ function EditLeagueForm({
         />
       </div>
 
-      <CheckBox {...bindCheckable('deleteImage')} label={t('leagues.admin.deleteImage', 'Delete current image')} tabIndex={0} />
+      <CheckBox {...bindCheckable('deleteImage')} label={t('leagues.admin.deleteImageLabel', 'Delete current image')} tabIndex={0} />
 
       <TextField
         {...bindInput('name')}
-        label={t('common.nameLabel', 'Name')}
+        label={t('leagues.admin.nameLabel', 'Name')}
         floatingLabel={true}
         dense={true}
         inputProps={{ tabIndex: 0 }}
       />
 
-      <Select {...bindCustom('matchmakingType')} label={t('common.matchmakingTypeLabel', 'Matchmaking type')} tabIndex={0} dense={true}>
+      <Select {...bindCustom('matchmakingType')} label={t('leagues.admin.matchmakingTypeLabel', 'Matchmaking type')} tabIndex={0} dense={true}>
         {ALL_MATCHMAKING_TYPES.map(m => (
           <SelectOption key={m} text={matchmakingTypeToLabel(m)} value={m} />
         ))}
@@ -657,7 +657,7 @@ function EditLeagueForm({
 
       <TextField
         {...bindInput('description')}
-        label={t('leagues.admin.newLeagueDescriptionText', 'Description (max ~20 words)')}
+        label={t('leagues.admin.newLeagueDescriptionLabel', 'Description (max ~20 words)')}
         floatingLabel={true}
         dense={true}
         inputProps={{ tabIndex: 0 }}
@@ -668,7 +668,7 @@ function EditLeagueForm({
         <BadValidatedDateInput
           binds={bindInput('signupsAfter')}
           id={`${baseId}-signupsAfter`}
-          label='Signups after'
+          label={t('leagues.admin.signupsAfterLabel', 'Signups after')}
         />
       ) : undefined}
       {originalLeague.startAt > Date.now() ? (
@@ -684,7 +684,7 @@ function EditLeagueForm({
 
       <TextField
         {...bindInput('rulesAndInfo')}
-        label={t('leagues.admin.rulesText', 'Rules and info (markdown)')}
+        label={t('leagues.admin.rulesLabel', 'Rules and info (markdown)')}
         floatingLabel={true}
         multiline={true}
         rows={6}
@@ -693,13 +693,13 @@ function EditLeagueForm({
       />
       <TextField
         {...bindInput('link')}
-        label={t('common.linkLabel', 'Link')}
+        label={t('leagues.admin.linkLabel', 'Link')}
         floatingLabel={true}
         dense={true}
         inputProps={{ tabIndex: 0 }}
       />
 
-      <RaisedButton label={t('leagues.admin.saveLeague', 'Save league')} color='primary' onClick={onSubmit} />
+      <RaisedButton label={t('leagues.admin.saveLeagueLabel', 'Save league')} color='primary' onClick={onSubmit} />
     </LeagueForm>
   )
 }

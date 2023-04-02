@@ -118,14 +118,13 @@ export default function SettingsDialog({ dialogRef, onCancel }: CommonDialogProp
   useEffect(() => {
     saveButtonRef.current?.focus()
   }, [])
-  const { t } = useTranslation()
   const starcraftVersionText = 'StarCraft: Remastered'
   const titleAction = (
     <TitleActionContainer>
       <TitleActionText onClick={onSetPathClick}>{starcraftVersionText}</TitleActionText>
       <TitleActionButton
         icon={<SetPathIcon />}
-        title={t('settings.changeStarCraftPath', 'Change StarCraft path')}
+        title={t('settings.changeStarCraftPathTitle', 'Change StarCraft path')}
         onClick={onSetPathClick}
       />
     </TitleActionContainer>
@@ -142,10 +141,10 @@ export default function SettingsDialog({ dialogRef, onCancel }: CommonDialogProp
   )
 
   const buttons = [
-    <TextButton label={t('common.cancelButtonText', 'Cancel')} key='cancel' color='accent' onClick={onSettingsCancel} />,
+    <TextButton label={t('settings.cancelButtonText', 'Cancel')} key='cancel' color='accent' onClick={onSettingsCancel} />,
     <TextButton
       ref={saveButtonRef}
-      label={t('common.saveButtonText', 'Save')}
+      label={t('settings.saveButtonText', 'Save')}
       key='save'
       color='accent'
       onClick={onSettingsSave}
@@ -212,7 +211,7 @@ export default function SettingsDialog({ dialogRef, onCancel }: CommonDialogProp
   return (
     <Dialog
       dialogRef={dialogRef}
-      title={t('settings.main.titleHeader', 'Settings')}
+      title={t('settings.titleHeader', 'Settings')}
       titleAction={titleAction}
       tabs={tabs}
       alwaysHasTopDivider={true}

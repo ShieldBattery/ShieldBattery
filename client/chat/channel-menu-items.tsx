@@ -12,6 +12,7 @@ import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { MenuItemCategory } from '../users/user-context-menu'
 import { deleteMessageAsAdmin, getChatUserProfile, moderateUser } from './action-creators'
+import { useTranslation } from 'react-i18next'
 
 // NOTE(2Pac): Even though this function is technically not a React component, nor a custom hook, we
 // still treat it as one since it suits our needs quite nicely (by allowing us to run hooks in it
@@ -144,12 +145,12 @@ export function addChannelMessageMenuItems(
   const dispatch = useAppDispatch()
   const selfPermissions = useSelfPermissions()
   /* eslint-enable react-hooks/rules-of-hooks */
-
+  const { t } = useTranslation()
   if (selfPermissions.moderateChatChannels) {
     items.push(
       <DestructiveMenuItem
         key='delete-message'
-        text='Delete message'
+        text={t('chat.channelMenuItems.deleteMessageText', 'Delete message')}
         onClick={() => {
           dispatch(
             deleteMessageAsAdmin(channelId, messageId, {

@@ -4,6 +4,7 @@ import BackIcon from '../icons/material/arrow_back-24px.svg'
 import { IconButton } from '../material/button'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { goBack } from './action-creators'
+import { useTranslation } from 'react-i18next'
 
 const BackButton = styled(IconButton)`
   margin-right: 16px;
@@ -17,9 +18,10 @@ export function ActivityBackButton() {
   // changing, which seems to be an accurate assumption. By doing it this way, we prevent the
   // back button from disappearing during transitions (e.g. if you click off the overlay)
   const [shouldShow] = useState(historySize >= 2)
+  const { t } = useTranslation()
   const onBackClick = useCallback(() => {
     dispatch(goBack())
   }, [dispatch])
 
-  return shouldShow ? <BackButton icon={<BackIcon />} title='Back' onClick={onBackClick} /> : null
+  return shouldShow ? <BackButton icon={<BackIcon />} title={t('activities.activityBackButton.backButtonTitle', 'Back')} onClick={onBackClick} /> : null
 }

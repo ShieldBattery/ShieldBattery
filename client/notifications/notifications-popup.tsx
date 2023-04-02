@@ -170,7 +170,7 @@ export default function NotificationPopups() {
           )}
           <MarkAsReadButton
             icon={<CheckIcon />}
-            title={t('common.markAsReadLabel', 'Mark as read')}
+            title={t('notifications.notificationsList.markAsReadLabel', 'Mark as read')}
             onClick={() => onMarkAsRead(item)}
           />
         </Popup>

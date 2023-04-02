@@ -40,7 +40,7 @@ export const PolicyUpdateNotificationUi = React.forwardRef<
       icon={<ColoredPolicyIcon />}
       text={
         <span>
-          <Trans i18nKey="common.policyUpdateText">
+          <Trans i18nKey="policies.policyUpdateNotification.policyUpdateText">
           ShieldBattery's{' '}
           <a
             href='#'

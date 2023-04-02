@@ -34,27 +34,28 @@ function showBanUserError(user: string, error: FetchError) {
   const { t } = useTranslation()
   switch (error.code) {
     case ChatServiceErrorCode.TargetNotInChannel:
-      return <ErrorText>{t('chat.moderation.errorBanTargetNotInChannel', 'The user you are trying to ban is not in channel')}</ErrorText>
+      return <ErrorText>{t('chat.channelBanUserDialog.errorBanTargetNotInChannel', 'The user you are trying to ban is not in channel')}</ErrorText>
     case ChatServiceErrorCode.CannotModerateChannelOwner:
-      return <ErrorText>{t('chat.moderation.errorBanChannelOwner', 'You cannot ban channel owner')}</ErrorText>
+      return <ErrorText>{t('chat.channelBanUserDialog.errorBanChannelOwner', 'You cannot ban channel owner')}</ErrorText>
     case ChatServiceErrorCode.CannotModerateChannelModerator:
-      return <ErrorText>{t('chat.moderation.errorBanOtherModerator', 'You cannot ban another moderator')}</ErrorText>
+      return <ErrorText>{t('chat.channelBanUserDialog.errorBanOtherModerator', 'You cannot ban another moderator')}</ErrorText>
     case ChatServiceErrorCode.NotEnoughPermissions:
-      return <ErrorText>{t('chat.moderation.errorBanNotEnoughPermissions', 'You do not have enough permissions to ban this user')}</ErrorText>
+      return <ErrorText>{t('chat.channelBanUserDialog.errorBanNotEnoughPermissions', 'You do not have enough permissions to ban this user')}</ErrorText>
 
     default:
-      return <ErrorText>{t('common.errorOccurred', 'An error occurred')}: {error.statusText}</ErrorText>
+      return <ErrorText>{t('chat.channelBanUserDialog.errorOccurred', 'An error occurred')}: {error.statusText}</ErrorText>
   }
 }
 
 function BanUserErrorDisplay({ user, error }: { user: string; error: Error }) {
+  const { t } = useTranslation()
   return (
     <ErrorsContainer>
       {isFetchError(error) ? (
         showBanUserError(user, error)
       ) : (
         <ErrorText>
-          {t('chat.moderation.errorBanningUser', 'Error banning')} {user}: {error.message}
+          {t('chat.channelBanUserDialog.errorBanningUser', 'Error banning')} {user}: {error.message}
         </ErrorText>
       )}
     </ErrorsContainer>
@@ -79,7 +80,7 @@ export function ChannelBanUserDialog({
   const dispatch = useAppDispatch()
   const user = useAppSelector(s => s.users.byId.get(userId))!
   const [banUserError, setBanUserError] = useState<Error>()
-
+  const { t } = useTranslation()
   const onFormSubmit = useCallback(
     (model: BanUserModel) => {
       dispatch(
@@ -110,7 +111,7 @@ export function ChannelBanUserDialog({
   const onBanClick = useCallback(() => handleSubmit(), [handleSubmit])
 
   const buttons = [
-    <TextButton label={t('common.cancel', 'Cancel')} key='cancel' color='accent' onClick={onCancel} />,
+    <TextButton label={t('chat.channelBanUserDialog.cancelLabel', 'Cancel')} key='cancel' color='accent' onClick={onCancel} />,
     <TextButton label={`Ban ${user.name}`} key='send' color='accent' onClick={onBanClick} />,
   ]
 
@@ -120,7 +121,7 @@ export function ChannelBanUserDialog({
         {banUserError ? <BanUserErrorDisplay user={user.name} error={banUserError} /> : null}
         <TextField
           {...bindInput('banReason')}
-          label='Ban reason (optional)'
+          label={t('chat.channelBanUserDialog.banReasonLabel', 'Ban reason (optional)')}
           floatingLabel={true}
           inputProps={{
             autoCapitalize: 'off',

@@ -56,7 +56,7 @@ export function SearchingMatchNavEntry(props: SearchingMatchNavEntryProps) {
         {!props.isMatched ? (
           <SubheaderButton
             icon={<CancelSearchIcon />}
-            title={t('matchmaking.cancelSearchText', 'Cancel search')}
+            title={t('matchmaking.searchingMatchNavEntry.cancelSearchText', 'Cancel search')}
             onClick={onCancelClick}
           />
         ) : null}

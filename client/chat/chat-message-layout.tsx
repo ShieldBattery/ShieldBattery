@@ -27,7 +27,7 @@ export const JoinChannelMessage = React.memo<{ time: number; userId: SbUserId }>
             modifyMenuItems={addChatMenuItems}
           />
         </SystemImportant>{' '}
-        {t('chat.userHasJoinedChannel', 'has joined the channel')}
+        {t('chat.chatMessageLayout.userHasJoinedChannel', 'has joined the channel')}
       </span>
     </SystemMessage>
   )
@@ -48,7 +48,7 @@ export const LeaveChannelMessage = React.memo<{ time: number; userId: SbUserId }
             modifyMenuItems={addChatMenuItems}
           />
         </SystemImportant>{' '}
-        {t('chat.userHasLeftChannel', 'has left the channel')}
+        {t('chat.chatMessageLayout.userHasLeftChannel', 'has left the channel')}
       </span>
     </SystemMessage>
   )
@@ -63,7 +63,7 @@ export const KickUserMessage = React.memo<{ time: number; userId: SbUserId }>(pr
         <SystemImportant>
           <ConnectedUsername userId={userId} />
         </SystemImportant>{' '}
-        {t('chat.userKickedFromChannel', 'has been kicked from the channel')}
+        {t('chat.chatMessageLayout.userKickedFromChannel', 'has been kicked from the channel')}
       </span>
     </SystemMessage>
   )
@@ -78,7 +78,7 @@ export const BanUserMessage = React.memo<{ time: number; userId: SbUserId }>(pro
         <SystemImportant>
           <ConnectedUsername userId={userId} />
         </SystemImportant>{' '}
-        {t('chat.userBannedFromChannel', 'has been banned from the channel')}
+        {t('chat.chatMessageLayout.userBannedFromChannel', 'has been banned from the channel')}
       </span>
     </SystemMessage>
   )
@@ -99,7 +99,7 @@ export const NewChannelOwnerMessage = React.memo<{ time: number; newOwnerId: SbU
             modifyMenuItems={addChatMenuItems}
           />
         </SystemImportant>{' '}
-        {t('chat.newChannelOwner', 'is the new owner of the channel')}
+        {t('chat.chatMessageLayout.newChannelOwner', 'is the new owner of the channel')}
       </span>
     </SystemMessage>
   )
@@ -111,7 +111,7 @@ export const SelfJoinChannelMessage = React.memo<{ channelId: SbChannelId }>(pro
   return (
     <SeparatedInfoMessage>
       <span>
-      {t('chat.youJoined', 'You joined')}{' '}
+      {t('chat.chatMessageLayout.youJoinedChannel', 'You joined')}{' '}
         <InfoImportant>
           <ConnectedChannelName channelId={channelId} />
         </InfoImportant>

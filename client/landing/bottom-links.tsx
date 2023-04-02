@@ -38,13 +38,13 @@ export function BottomLinks() {
   return (
     <BottomLinksList>
       <li>
-        <Link href='/privacy'>{t('common.privacyPolicy', 'Privacy Policy')}</Link>
+        <Link href='/privacy'>{t('landing.bottomLinks.privacyPolicy', 'Privacy Policy')}</Link>
       </li>
       <li>
-        <Link href='/terms-of-service'>{t('common.termsOfService', 'Terms of Service')}</Link>
+        <Link href='/terms-of-service'>{t('landing.bottomLinks.termsOfService', 'Terms of Service')}</Link>
       </li>
       <li>
-        <Link href='/acceptable-use'>{t('common.acceptableUsePolicy', 'Acceptable Use Policy')}</Link>
+        <Link href='/acceptable-use'>{t('landing.bottomLinks.acceptableUsePolicy', 'Acceptable Use Policy')}</Link>
       </li>
     </BottomLinksList>
   )

@@ -71,7 +71,7 @@ export function OpenSlot() {
     <Slot>
       <SlotProfile>
         <SlotEmptyAvatar />
-        <SlotEmptyName as='span'>{t('common.emptyLabel', 'Empty')}</SlotEmptyName>
+        <SlotEmptyName as='span'>{t('parties.partyView.emptyLabel', 'Empty')}</SlotEmptyName>
       </SlotProfile>
     </Slot>
   )
@@ -320,18 +320,18 @@ export function PartyView(props: PartyViewProps) {
         {queueId ? (
           <CancelQueueButton
             iconStart={<SearchOffIcon />}
-            label={t('common.cancelSearchLabel', 'Cancel search')}
+            label={t('parties.partyView.cancelSearchLabel', 'Cancel search')}
             onClick={onCancelQueueClick}
           />
         ) : null}
         {selfUser.id === party.leader ? (
           <TextButton
             iconStart={<StyledInviteIcon />}
-            label={t('common.invitePlayersLabel', 'Invite players')}
+            label={t('parties.partyView.invitePlayersLabel', 'Invite players')}
             onClick={onInviteClick}
           />
         ) : null}
-        <TextButton iconStart={<CloseIcon />} label={t('common.leavePartyLabel', 'Leave party')} onClick={onLeaveClick} />
+        <TextButton iconStart={<CloseIcon />} label={t('parties.partyView.leavePartyLabel', 'Leave party')} onClick={onLeaveClick} />
       </RightSide>
     </Container>
   )

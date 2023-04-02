@@ -131,19 +131,19 @@ function LeagueList() {
   return (
     <ListRoot>
       <TitleRow>
-        <Title>{t('common.leagueLabel', 'Leagues')}</Title>
-        {isAdmin ? <Link href='/leagues/admin'>{t('leagues.admin.manageLeaguesLabel', 'Manage leagues')}</Link> : null}
+        <Title>{t('leagues.list.leaguesTitle', 'Leagues')}</Title>
+        {isAdmin ? <Link href='/leagues/admin'>{t('leagues.list.manageLeaguesLabel', 'Manage leagues')}</Link> : null}
         <FlexSpacer />
         <Link href='#' onClick={onHowItWorksClick}>
-        {t('leagues.howDoLeaguesWork', 'How do leagues work?')}
+        {t('leagues.list.howDoLeaguesWork', 'How do leagues work?')}
         </Link>
       </TitleRow>
 
-      {!isLoading && error ? <ErrorText>{t('leagues.errorLoadingLeagues', 'Error loading leagues')}</ErrorText> : null}
+      {!isLoading && error ? <ErrorText>{t('leagues.list.errorLoadingLeagues', 'Error loading leagues')}</ErrorText> : null}
 
       {!isLoading || currentLeagues.length ? (
         <LeagueSection
-          label={t('leagues.currentlyRunning', 'Currently running')}
+          label={t('leagues.list.currentlyRunningLabel', 'Currently running')}
           leagues={currentLeagues}
           joinedLeagues={selfLeagues}
           type={LeagueSectionType.Current}
@@ -151,7 +151,7 @@ function LeagueList() {
       ) : undefined}
       {futureLeagues.length ? (
         <LeagueSection
-          label={t('leagues.acceptingSignups', 'Accepting signups')}
+          label={t('leagues.list.acceptingSignupsLabel', 'Accepting signups')}
           leagues={futureLeagues}
           joinedLeagues={selfLeagues}
           type={LeagueSectionType.Future}
@@ -159,7 +159,7 @@ function LeagueList() {
       ) : null}
       {pastLeagues.length ? (
         <LeagueSection
-          label={t('common.finishedLabel', 'Finished')}
+          label={t('leagues.list.finishedLabel', 'Finished')}
           leagues={pastLeagues}
           joinedLeagues={selfLeagues}
           type={LeagueSectionType.Past}
@@ -227,7 +227,7 @@ function LeagueSection({
             />
           ))
         ) : (
-          <EmptyText>{t('leagues.noMatchingLeagues', 'No matching leagues')}</EmptyText>
+          <EmptyText>{t('leagues.list.errorNoMatchingLeagues', 'No matching leagues')}</EmptyText>
         )}
       </SectionCards>
     </SectionRoot>
@@ -369,7 +369,7 @@ export function LeagueCard({
         {joined ? (
           <JoinedIndicator>
             <CheckIcon />
-            <span>{t('common.joinedText', 'Joined')}</span>
+            <span>{t('leagues.list.joinedText', 'Joined')}</span>
           </JoinedIndicator>
         ) : (
           <div />

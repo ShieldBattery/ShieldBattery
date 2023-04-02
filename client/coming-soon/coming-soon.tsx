@@ -52,22 +52,22 @@ export function ComingSoon() {
   const { t } = useTranslation()
   return (
     <>
-      <Headline5>{t('common.featureComingSoon', 'This feature is coming soon!')}</Headline5>
+      <Headline5>{t('comingSoon.featureComingSoonHeader', 'This feature is coming soon!')}</Headline5>
 
       <FundingSection>
-        <Subtitle1>{t('common.fundShieldBattery', 'Help fund ShieldBattery\'s development')}:</Subtitle1>
+        <Subtitle1>{t('comingSoon.fundShieldBatteryHeader', 'Help fund ShieldBattery\'s development')}:</Subtitle1>
         <SupportLinks>
           <a
             href='https://github.com/sponsors/ShieldBattery'
             target='_blank'
             rel='noopener'
-            title='GitHub Sponsors'>
+            title={t('comingSoon.githubSponsors', 'GitHub Sponsors')}>
             <StyledGithubIcon />
           </a>
-          <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener' title='Ko-fi'>
+          <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener' title={t('comingSoon.kofi', 'Ko-fi')}>
             <StyledKofiIcon />
           </a>
-          <a href='https://patreon.com/tec27' target='_blank' rel='noopener' title='Patreon'>
+          <a href='https://patreon.com/tec27' target='_blank' rel='noopener' title={t('comingSoon.patreon', 'Patreon')}>
             <StyledPatreonIcon />
           </a>
         </SupportLinks>

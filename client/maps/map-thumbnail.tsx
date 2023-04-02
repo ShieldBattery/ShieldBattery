@@ -15,6 +15,7 @@ import { Popover, useAnchorPosition, usePopoverController } from '../material/po
 import { amberA100, background700, background900, colorTextPrimary } from '../styles/colors'
 import { singleLine, subtitle2 } from '../styles/typography'
 import MapImage from './map-image'
+import { useTranslation } from 'react-i18next'
 
 const Container = styled.div`
   position: relative;
@@ -228,7 +229,7 @@ export function MapThumbnail({
       <MenuItem key={i} text={text} onClick={() => onActionClick(handler)} />
     ))
   }, [onMapDetails, onRegenMapImage, onRemove, onActionClick])
-
+  const { t } = useTranslation()
   return (
     <Container className={className} style={style}>
       <MapImage
@@ -271,7 +272,7 @@ export function MapThumbnail({
               <MapActionButton
                 ref={anchorRef}
                 icon={<MapActionsIcon />}
-                title='Map actions'
+                title={t('maps.mapThumbnail.mapActionsTitle', 'Map actions')}
                 onClick={openMenu}
               />
               <Popover

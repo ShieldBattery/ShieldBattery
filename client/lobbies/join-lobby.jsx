@@ -108,7 +108,6 @@ const Contents = styled.div`
 const ContentsBody = styled.div`
   padding: 12px 24px;
 `
-const { t } = useTranslation()
 
 @connect(state => ({ lobbyList: state.lobbyList, party: state.party }))
 export default class JoinLobby extends React.Component {
@@ -126,11 +125,12 @@ export default class JoinLobby extends React.Component {
   }
 
   renderList() {
+    const { t } = useTranslation()
     const { byName, list } = this.props.lobbyList
     if (!list.size) {
       return (
         <div>
-          <Subtitle1>{t('lobby.noneActive', 'There are no active lobbies')}</Subtitle1>
+          <Subtitle1>{t('lobbies.joinLobby.noLobbiesActive', 'There are no active lobbies')}</Subtitle1>
         </div>
       )
     }
@@ -143,20 +143,21 @@ export default class JoinLobby extends React.Component {
             <ListEntry key={name} lobby={byName.get(name)} onClick={this._handleLobbyClick} />
           ))
         ) : (
-          <Subtitle1>{t('lobby.noneOpen', 'There are no open lobbies')}</Subtitle1>
+          <Subtitle1>{t('lobbies.joinLobby.noLobbiesOpen', 'There are no open lobbies')}</Subtitle1>
         )}
       </div>
     )
   }
 
   render() {
+    const { t } = useTranslation()
     return (
       <Container>
         <TitleBar>
-          <Headline5>{t('lobby.joinLobbyText', 'Join Lobby')}</Headline5>
+          <Headline5>{t('lobbies.joinLobby.joinLobbyHeader', 'Join Lobby')}</Headline5>
           <FlexSpacer />
           <RaisedButton
-            label={t('lobby.buttonCreate', 'Create lobby')}
+            label={t('lobbies.joinLobby.buttonCreateLabel', 'Create lobby')}
             iconStart={<MaterialIcon icon='add' />}
             onClick={this.props.onNavigateToCreate}
           />
@@ -166,9 +167,9 @@ export default class JoinLobby extends React.Component {
           {this.props.party.current ? (
             <DisabledOverlay>
               <DisabledCard>
-                <Headline5>{t('lobby.partyDisabledHeader', 'Disabled while in party')}</Headline5>
+                <Headline5>{t('lobbies.joinLobby.partyDisabledHeader', 'Disabled while in party')}</Headline5>
                 <DisabledText>
-                {t('lobby.partyDisabledText', 'Joining a lobby as a party is currently under development. Leave your party to continue.')}
+                {t('lobbies.joinLobby.partyDisabledText', 'Joining a lobby as a party is currently under development. Leave your party to continue.')}
                 </DisabledText>
               </DisabledCard>
             </DisabledOverlay>

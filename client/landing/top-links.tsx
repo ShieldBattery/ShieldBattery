@@ -5,6 +5,7 @@ import GithubLogo from '../icons/brands/github.svg'
 import TwitterLogo from '../icons/brands/twitter.svg'
 import { amberA400 } from '../styles/colors'
 import { body2 } from '../styles/typography'
+import { useTranslation } from 'react-i18next'
 
 const TopLinksList = styled.ul`
   ${body2};
@@ -77,7 +78,7 @@ const HideWhenSmall = styled.span`
     display: none;
   }
 `
-
+const { t } = useTranslation()
 const TopLinks = () => {
   return (
     <TopLinksList>
@@ -97,25 +98,25 @@ const TopLinks = () => {
       <li>
         <IconLink href='https://twitter.com/shieldbatterybw' target='_blank' rel='noopener'>
           <StyledTwitterLogo />
-          <HideWhenSmall>Twitter</HideWhenSmall>
+          <HideWhenSmall>{t('landing.topLinks.twitterText', 'Twitter')}</HideWhenSmall>
         </IconLink>
       </li>
       <li>
         <IconLink href='https://github.com/ShieldBattery' target='_blank' rel='noopener'>
           <StyledGithubLogo />
-          <HideWhenSmall>GitHub</HideWhenSmall>
+          <HideWhenSmall>{t('landing.topLinks.githubText', 'GitHub')}</HideWhenSmall>
         </IconLink>
       </li>
       <li>
         <HideWhenSmall>
           <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
-            Patreon
+          {t('landing.topLinks.patreonText', 'Patreon')}
           </a>
         </HideWhenSmall>
       </li>
       <Spacer />
       <li>
-        <Link href='/login'>Log&nbsp;in</Link>
+        <Link href='/login'>{t('landing.topLinks.logInText', 'Log in')}</Link>
       </li>
     </TopLinksList>
   )

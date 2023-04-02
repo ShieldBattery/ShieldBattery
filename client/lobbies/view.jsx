@@ -180,12 +180,12 @@ export default class LobbyView extends React.Component {
   renderLobbyStateContent(state) {
     switch (state) {
       case 'nonexistent':
-        return <p key='stateContent'>{t('lobby.lobbyDoesNotExistCreate', 'Lobby doesn\'t exist. Create it?')}</p>
+        return <p key='stateContent'>{t('lobbies.view.lobbyDoesNotExistCreate', 'Lobby doesn\'t exist. Create it?')}</p>
       case 'exists':
-        return <p key='stateContent'>{t('lobby.lobbyAlreadyExistsJoin', 'Lobby already exists. Join it?')}</p>
+        return <p key='stateContent'>{t('lobbies.view.lobbyAlreadyExistsJoin', 'Lobby already exists. Join it?')}</p>
       case 'countingDown':
       case 'hasStarted':
-        return <p key='stateContent'>{t('lobby.lobbyAlreadyStarted', 'Lobby already started.')}</p>
+        return <p key='stateContent'>{t('lobbies.view.lobbyAlreadyStarted', 'Lobby already started.')}</p>
       default:
         throw new Error('Unknown lobby state: ' + state)
     }
@@ -207,7 +207,7 @@ export default class LobbyView extends React.Component {
           </LoadingArea>
         )
       } else {
-        preLobbyAreaContents = <span>{t('lobby.errorLoadingLobby', 'There was a problem loading this lobby')}</span>
+        preLobbyAreaContents = <span>{t('lobbies.view.errorLoadingLobby', 'There was a problem loading this lobby')}</span>
       }
     } else if (lobby.state) {
       preLobbyAreaContents = [
@@ -225,7 +225,7 @@ export default class LobbyView extends React.Component {
             <LoadingIndicator />
           </LoadingArea>
         ) : null,
-        <p>{t('lobby.errorLoadingLobby', 'There was a problem loading this lobby')}</p>,
+        <p>{t('lobbies.view.errorLoadingLobby', 'There was a problem loading this lobby')}</p>,
       ]
     }
 
@@ -233,7 +233,7 @@ export default class LobbyView extends React.Component {
   }
 
   renderLeaveAndJoin() {
-    return <PreLobbyArea as='p'>{t('lobby.playerDifferentLobby', 'You\'re already in another lobby.')}</PreLobbyArea>
+    return <PreLobbyArea as='p'>{t('lobbies.view.playerDifferentLobby', 'You\'re already in another lobby.')}</PreLobbyArea>
   }
 
   onLeaveLobbyClick = () => {

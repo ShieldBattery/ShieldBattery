@@ -59,9 +59,9 @@ export function NotificationsList(props: NotificationsListProps) {
   return (
     <ListContainer>
       <TitleArea>
-        <TitleText>{t('common.notificationsLabel', 'Notifications')}</TitleText>
+        <TitleText>{t('notifications.notificationsList.notificationsLabel', 'Notifications')}</TitleText>
         <ClearButton
-          label={t('common.clearLabel', 'Clear')}
+          label={t('notifications.notificationsList.clearLabel', 'Clear')}
           color='accent'
           onClick={props.onClear}
           testName='notifications-clear-button'

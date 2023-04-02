@@ -224,7 +224,7 @@ export function FindMatch() {
   return (
     <Container>
       <TitleBar>
-        <Headline5>{t('matchmaking.findMatchLabel', 'Find match')}</Headline5>
+        <Headline5>{t('matchmaking.findMatch.findMatchHeader', 'Find match')}</Headline5>
         <TabArea>
           <Tabs activeTab={activeTab} onChange={onTabChange}>
             <TabItem
@@ -259,7 +259,7 @@ export function FindMatch() {
           <Actions>
             <ScrollDivider $show={!isAtBottom} $showAt='top' />
             <RaisedButton
-              label={t('matchmaking.findMatchLabel', 'Find match')}
+              label={t('matchmaking.findMatch.findMatchLabel', 'Find match')}
               disabled={isMatchmakingDisabled}
               onClick={onFindClick}
             />
@@ -391,7 +391,7 @@ function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
   const selfUser = useSelfUser()!
   const selfUserId = selfUser.id
   const [loadingError, setLoadingError] = useState<Error>()
-
+  const { t } = useTranslation()
   const season = useAppSelector(s => s.selfRank.currentSeason)
   const ladderPlayer = useAppSelector<Readonly<LadderPlayer>>(
     s =>
@@ -455,7 +455,7 @@ function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
   if (loadingError) {
     return (
       <RankInfoContainer>
-        <RankLoadingError>{t('matchmaking.errorLoadingRank', 'There was a problem loading your current rank.')}</RankLoadingError>
+        <RankLoadingError>{t('matchmaking.findMatch.errorLoadingRank', 'There was a problem loading your current rank.')}</RankLoadingError>
       </RankInfoContainer>
     )
   }
@@ -486,24 +486,24 @@ function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
               <Tooltip text={`${bonusAvailable} points`} position='top'>
                 <BonusBarEntry>
                   <BonusBar style={{ '--sb-bonus-bar-scale': bonusScale } as any} />
-                  <RankDisplayInfoLabel>{t('common.bonusPoolLabel', 'Bonus pool')}</RankDisplayInfoLabel>
+                  <RankDisplayInfoLabel>{t('matchmaking.findMatch.bonusPoolLabel', 'Bonus pool')}</RankDisplayInfoLabel>
                 </BonusBarEntry>
               </Tooltip>
             </RankDisplayInfoRow>
             <RankDisplayInfoRow>
               <RankDisplayInfoEntry>
                 <RankDisplayInfoValue>{Math.round(ladderPlayer.points)}</RankDisplayInfoValue>
-                <RankDisplayInfoLabel>{t('common.pointsLabel', 'Points')}</RankDisplayInfoLabel>
+                <RankDisplayInfoLabel>{t('matchmaking.findMatch.pointsLabel', 'Points')}</RankDisplayInfoLabel>
               </RankDisplayInfoEntry>
               <RankDisplayInfoEntry>
                 <RankDisplayInfoValue>{Math.round(ladderPlayer.rating)}</RankDisplayInfoValue>
-                <RankDisplayInfoLabel>{t('common.ratingLabel', 'Rating')}</RankDisplayInfoLabel>
+                <RankDisplayInfoLabel>{t('matchmaking.findMatch.ratingLabel', 'Rating')}</RankDisplayInfoLabel>
               </RankDisplayInfoEntry>
             </RankDisplayInfoRow>
           </>
         ) : (
           <UnratedText>
-            {ladderPlayer.lifetimeGames} / {NUM_PLACEMENT_MATCHES} {t('common.placementsLabel', 'placements')}
+            {ladderPlayer.lifetimeGames} / {NUM_PLACEMENT_MATCHES} {t('matchmaking.findMatch.placementsLabel', 'placements')}
           </UnratedText>
         )}
       </RankDisplayInfo>

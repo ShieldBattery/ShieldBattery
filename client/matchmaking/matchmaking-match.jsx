@@ -92,13 +92,13 @@ export default class MatchmakingMatch extends React.Component {
     const { isCountingDown, countdownTimer, isLaunching, isStarting } = this.props
     const { t } = useTranslation()
     if (isLaunching) {
-      return <StatusText>{t('matchmaking.gameLaunchingLabel', 'Game launching\u2026')}</StatusText>
+      return <StatusText>{t('matchmaking.matchmakingMatch.gameLaunchingLabel', 'Game launching\u2026')}</StatusText>
     } else if (isCountingDown) {
       return <Headline1>{countdownTimer}</Headline1>
     } else if (isStarting) {
-      return <StatusText>{t('matchmaking.gameStartingLabel', 'Game starting\u2026')}</StatusText>
+      return <StatusText>{t('matchmaking.matchmakingMatch.gameStartingLabel', 'Game starting\u2026')}</StatusText>
     } else {
-      return <StatusText>{t('matchmaking.gameInProgressLabel', 'Game in progress\u2026')}</StatusText>
+      return <StatusText>{t('matchmaking.matchmakingMatch.gameInProgressLabel', 'Game in progress\u2026')}</StatusText>
     }
   }
 
@@ -111,7 +111,7 @@ export default class MatchmakingMatch extends React.Component {
     const team2 = players
       .slice(players.length / 2)
       .map(p => <StyledPlayerCard key={p.id} player={p} />)
-
+      const { t } = useTranslation()
     return (
       <Container>
         <Headline3>{map?.name ?? ''}</Headline3>
@@ -123,7 +123,7 @@ export default class MatchmakingMatch extends React.Component {
         <PlayersContainer>
           <TeamContainer>{team1}</TeamContainer>
           <VsContainer>
-            <Headline4>vs</Headline4>
+            <Headline4>{t('matchmaking.matchmakingMatch.vsHeader', 'vs')}</Headline4>
           </VsContainer>
           <TeamContainer>{team2}</TeamContainer>
         </PlayersContainer>

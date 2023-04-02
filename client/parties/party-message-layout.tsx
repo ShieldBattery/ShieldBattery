@@ -16,7 +16,7 @@ export const SelfJoinPartyMessage = React.memo<{ time: number; leaderId: SbUserI
   return (
     <SystemMessage time={time}>
       <span>
-      {t('common.partyJoinMessage', 'You have joined the party. The leader is')}{' '}
+      {t('parties.partyMessageLayout.partyJoinMessage', 'You have joined the party. The leader is')}{' '}
         <SystemImportant>
           <ConnectedUsername
             userId={leaderId}
@@ -46,7 +46,7 @@ export const InviteToPartyMessage = React.memo<{ time: number; userId: SbUserId 
             modifyMenuItems={addChatMenuItems}
           />
         </SystemImportant>{' '}
-        {t('common.playerInvitedToParty', 'has been invited to the party')}
+        {t('parties.partyMessageLayout.playerInvitedToParty', 'has been invited to the party')}
       </span>
     </SystemMessage>
   )
@@ -68,7 +68,7 @@ export const JoinPartyMessage = React.memo<{ time: number; userId: SbUserId }>(p
             modifyMenuItems={addChatMenuItems}
           />
         </SystemImportant>{' '}
-        {t('common.playerJoinedPartyMessage', 'has joined the party')}
+        {t('parties.partyMessageLayout.playerJoinedPartyMessage', 'has joined the party')}
       </span>
     </SystemMessage>
   )
@@ -90,7 +90,7 @@ export const LeavePartyMessage = React.memo<{ time: number; userId: SbUserId }>(
             modifyMenuItems={addChatMenuItems}
           />
         </SystemImportant>{' '}
-        {t('common.playerLeftPartyMessage', 'has left the party')}
+        {t('parties.partyMessageLayout.playerLeftPartyMessage', 'has left the party')}
       </span>
     </SystemMessage>
   )
@@ -111,7 +111,7 @@ export const PartyLeaderChangeMessage = React.memo<{ time: number; userId: SbUse
             modifyMenuItems={addChatMenuItems}
           />
         </SystemImportant>{' '}
-        {t('common.partyNewLeader', 'is now the leader')}
+        {t('parties.partyMessageLayout.partyNewLeader', 'is now the leader')}
       </span>
     </SystemMessage>
   )
@@ -133,7 +133,7 @@ export const KickFromPartyMessage = React.memo<{ time: number; userId: SbUserId 
             modifyMenuItems={addChatMenuItems}
           />
         </SystemImportant>{' '}
-        {t('common.playerKickedFromParty', 'has been kicked from the party')}
+        {t('parties.partyMessageLayout.playerKickedFromParty', 'has been kicked from the party')}
       </span>
     </SystemMessage>
   )
@@ -149,7 +149,7 @@ export const PartyQueueStartMessage = React.memo<{
   const addChatMenuItems = useChatUserMenuItems()
   return (
     <SystemMessage time={time}>
-      <Trans i18nKey="common.partyStartingSearch">
+      <Trans i18nKey="parties.partyMessageLayout.partyStartingSearch">
       <span>
         <SystemImportant>
           <ConnectedUsername
@@ -176,7 +176,7 @@ export const PartyQueueCancelMessage = React.memo<{ time: number; reason: PartyQ
     let messageContent: React.ReactNode
     switch (reason.type) {
       case 'error':
-        messageContent = <span>{t('matchmaking.errorCanceledLabel', 'Matchmaking has been canceled due to an error')}</span>
+        messageContent = <span>{t('parties.partyMessageLayout.errorCanceledLabel', 'Matchmaking has been canceled due to an error')}</span>
         break
       case 'rejected':
         messageContent = (
@@ -188,13 +188,13 @@ export const PartyQueueCancelMessage = React.memo<{ time: number; reason: PartyQ
                 modifyMenuItems={addChatMenuItems}
               />
             </SystemImportant>{' '}
-            {t('matchmaking.errorCanceledText', 'canceled matchmaking')}
+            {t('parties.partyMessageLayout.errorCanceledText', 'canceled matchmaking')}
           </span>
         )
         break
       case 'userLeft':
         messageContent = (
-          <Trans i18nKey="matchmaking.partySearchCanceledPlayerLeft">
+          <Trans i18nKey="parties.partyMessageLayout.partySearchCanceledPlayerLeft">
           <span>
             Matchmaking was canceled because{' '}
             <SystemImportant>
@@ -210,7 +210,7 @@ export const PartyQueueCancelMessage = React.memo<{ time: number; reason: PartyQ
         )
         break
       case 'matchmakingDisabled':
-        messageContent = <span>{t('matchmaking.errorMatchmakingDisabled', 'Matchmaking was canceled because it is currently disabled')}</span>
+        messageContent = <span>{t('parties.partyMessageLayout.errorMatchmakingDisabled', 'Matchmaking was canceled because it is currently disabled')}</span>
         break
       default:
         assertUnreachable(reason)
@@ -227,7 +227,7 @@ export const PartyQueueReadyMessage = React.memo<{
   const { t } = useTranslation()
   return (
     <SystemMessage time={time}>
-      <span>{t('matchmaking.partySearchingLabel', 'The party is now searching for a match')}</span>
+      <span>{t('parties.partyMessageLayout.partySearchingLabel', 'The party is now searching for a match')}</span>
     </SystemMessage>
   )
 })

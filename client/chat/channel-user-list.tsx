@@ -22,6 +22,7 @@ import {
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
 import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
+import { useTranslation } from 'react-i18next'
 
 const UserListContainer = styled.div`
   width: 256px;
@@ -147,7 +148,7 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
     filterClick,
     modifyMenuItems: addChatMenuItems,
   })
-
+  const { t } = useTranslation()
   return (
     <div style={props.style}>
       <ConnectedUserProfileOverlay {...profileOverlayProps} />
@@ -164,7 +165,7 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
         {user ? (
           <UserListName>{user.name}</UserListName>
         ) : (
-          <LoadingName aria-label='Username loading…' />
+          <LoadingName aria-label={t('chat.channelUserList.usernameLoadingText', 'Username loading\u2026')} />
         )}
       </UserListEntryItem>
     </div>
