@@ -1,18 +1,27 @@
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import styled from 'styled-components'
-import { ClientChatMessageType, SbChannelId, ServerChatMessageType } from '../../common/chat'
+import {
+  ChatServiceErrorCode,
+  ClientChatMessageType,
+  SbChannelId,
+  ServerChatMessageType,
+} from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user'
 import { Chat } from '../messaging/chat'
 import { SbMessage } from '../messaging/message-records'
 import { push } from '../navigation/routing'
+import { isFetchError } from '../network/fetch-errors'
+import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { usePrevious, useStableCallback } from '../state-hooks'
-import { background700, background800 } from '../styles/colors'
+import { background700, background800, colorError } from '../styles/colors'
+import { headline5, subtitle1 } from '../styles/typography'
 import { MenuItemCategory } from '../users/user-context-menu'
 import {
   activateChannel,
   correctChannelNameForChat,
   deactivateChannel,
+  getChannelInfo,
   getMessageHistory,
   retrieveUserList,
   sendMessage,
@@ -44,15 +53,6 @@ const StyledChat = styled(Chat)`
   max-width: 960px;
   flex-grow: 1;
   background-color: ${background800};
-`
-
-const ChannelInfoContainer = styled.div`
-  width: 100%;
-  max-width: 960px;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
 `
 
 export function renderChannelMessage(msg: SbMessage) {
@@ -167,10 +167,107 @@ export function ConnectedChatChannel({
           modifyMessageMenuItems={modifyMessageMenuItems}
         />
       ) : (
-        <ChannelInfoContainer>
-          <ConnectedChannelInfoCard channelId={channelId} channelName={channelNameFromRoute} />
-        </ChannelInfoContainer>
+        <ChannelInfoPage channelId={channelId} channelName={channelNameFromRoute} />
       )}
     </Container>
   )
+}
+
+const ChannelInfoContainer = styled.div`
+  width: 100%;
+  max-width: 960px;
+  height: 100%;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+`
+
+const ErrorContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  max-width: 480px;
+  margin: 0 32px;
+`
+
+const ChannelName = styled.div`
+  ${headline5};
+  margin-bottom: 8px;
+`
+
+const ErrorText = styled.div`
+  ${subtitle1};
+  color: ${colorError};
+`
+
+function ChannelInfoPage({
+  channelId,
+  channelName,
+}: {
+  channelId: SbChannelId
+  channelName: string
+}) {
+  const dispatch = useAppDispatch()
+  const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
+
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<Error>()
+
+  useEffect(() => {
+    const abortController = new AbortController()
+
+    setIsLoading(true)
+    dispatch(
+      getChannelInfo(channelId, {
+        signal: abortController.signal,
+        onSuccess: () => {
+          setIsLoading(false)
+          setError(undefined)
+        },
+        onError: err => {
+          setIsLoading(false)
+          setError(err)
+        },
+      }),
+    )
+
+    return () => {
+      abortController.abort()
+    }
+  }, [channelId, dispatch])
+
+  let contents
+  if (isLoading) {
+    contents = <LoadingDotsArea />
+  } else if (error) {
+    let errorText
+    if (isFetchError(error)) {
+      if (error.code === ChatServiceErrorCode.ChannelNotFound) {
+        errorText = (
+          <ErrorText>
+            This channel could not be found. It might not exist, or it may have been re-created by
+            someone else.
+          </ErrorText>
+        )
+      } else {
+        errorText = <ErrorText>An error occurred: {error.statusText}</ErrorText>
+      }
+    } else {
+      errorText = (
+        <ErrorText>
+          Error getting channel info {channelName}: {error.message}
+        </ErrorText>
+      )
+    }
+    contents = (
+      <ErrorContainer>
+        <ChannelName>{channelName}</ChannelName>
+        {errorText}
+      </ErrorContainer>
+    )
+  } else if (channelInfo) {
+    contents = <ConnectedChannelInfoCard channelId={channelId} channelName={channelName} />
+  }
+
+  return <ChannelInfoContainer>{contents}</ChannelInfoContainer>
 }

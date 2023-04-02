@@ -42,21 +42,21 @@ export interface MaterialIconProps {
   className?: string
 }
 
-export function MaterialIcon({
-  icon,
-  size = 24,
-  filled = true,
-  invertColor = false,
-  className,
-}: MaterialIconProps) {
-  return (
-    <IconRoot
-      className={className}
-      aria-hidden={true}
-      $size={size}
-      $filled={filled}
-      $invertColor={invertColor}>
-      {icon}
-    </IconRoot>
-  )
-}
+export const MaterialIcon = React.forwardRef(
+  (
+    { icon, size = 24, filled = true, invertColor = false, className }: MaterialIconProps,
+    ref: React.ForwardedRef<HTMLSpanElement>,
+  ) => {
+    return (
+      <IconRoot
+        ref={ref}
+        className={className}
+        aria-hidden={true}
+        $size={size}
+        $filled={filled}
+        $invertColor={invertColor}>
+        {icon}
+      </IconRoot>
+    )
+  },
+)

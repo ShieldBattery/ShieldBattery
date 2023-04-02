@@ -1,6 +1,7 @@
 import {
   ChannelInfo,
   ChannelModerationAction,
+  ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
   GetChatUserProfileResponse,
   ModerateChannelUserServerRequest,
@@ -15,17 +16,34 @@ import { push, replace } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
+import { isFetchError } from '../network/fetch-errors'
+import { openSnackbar } from '../snackbars/action-creators'
 import { ActivateChannel, DeactivateChannel } from './actions'
 
-export function joinChannel(
-  channelName: string,
-  spec: RequestHandlingSpec<ChannelInfo>,
-): ThunkAction {
-  return abortableThunk(spec, async () => {
+export function joinChannel(channelName: string, spec: RequestHandlingSpec<void>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
     return fetchJson<ChannelInfo>(apiUrl`chat/join/${channelName}`, {
       method: 'POST',
       signal: spec.signal,
     })
+      .then(channel => navigateToChannel(channel.id, channel.name))
+      .catch(err => {
+        let message = `An error occurred while joining ${channelName}`
+
+        if (isFetchError(err) && err.code) {
+          if (err.code === ChatServiceErrorCode.UserBanned) {
+            message = `You are banned from ${channelName}`
+          } else {
+            logger.error(`Unhandled code when joining ${channelName}: ${err.code}`)
+          }
+        } else {
+          logger.error(`Error when joining ${channelName}: ${err.stack ?? err}`)
+        }
+
+        dispatch(openSnackbar({ message }))
+
+        throw err
+      })
   })
 }
 
@@ -242,7 +260,7 @@ export function deactivateChannel(channelId: SbChannelId): DeactivateChannel {
 }
 
 export function navigateToChannel(channelId: SbChannelId, channelName: string) {
-  push(urlPath`/chat/${channelId}/$(channelName}`)
+  push(urlPath`/chat/${channelId}/${channelName}`)
 }
 
 /**

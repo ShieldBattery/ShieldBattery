@@ -1,19 +1,16 @@
-import React, { useState } from 'react'
-import { ChatServiceErrorCode } from '../../common/chat'
+import React from 'react'
 import { CHANNEL_MAXLENGTH, CHANNEL_PATTERN } from '../../common/constants'
 import { closeDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { useForm } from '../forms/form-hook'
 import { composeValidators, maxLength, regex, required } from '../forms/validators'
-import { logger } from '../logging/logger'
 import { useAutoFocusRef } from '../material/auto-focus'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { TextField } from '../material/text-field'
-import { isFetchError } from '../network/fetch-errors'
 import { useAppDispatch } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
-import { joinChannel, navigateToChannel } from './action-creators'
+import { joinChannel } from './action-creators'
 
 const channelValidator = composeValidators(
   required('Enter a channel name'),
@@ -34,32 +31,14 @@ export function JoinChannelDialog({
 }) {
   const dispatch = useAppDispatch()
   const autoFocusRef = useAutoFocusRef<HTMLInputElement>()
-  const [joinChannelErrorMessage, setJoinChannelErrorMessage] = useState<string>()
 
   const onFormSubmit = useStableCallback((model: JoinChannelModel) => {
     const channelName = model.channel
 
     dispatch(
       joinChannel(channelName, {
-        onSuccess: channel => {
-          dispatch(closeDialog(DialogType.ChannelJoin))
-          navigateToChannel(channel.id, channel.name)
-        },
-        onError: err => {
-          let message = `An error occurred while joining ${channelName}`
-
-          if (isFetchError(err) && err.code) {
-            if (err.code === ChatServiceErrorCode.UserBanned) {
-              message = `You are banned from ${channelName}`
-            } else {
-              logger.error(`Unhandled code when joining ${channelName}: ${err.code}`)
-            }
-          } else {
-            logger.error(`Error when joining ${channelName}: ${err.stack ?? err}`)
-          }
-
-          setJoinChannelErrorMessage(message)
-        },
+        onSuccess: () => dispatch(closeDialog(DialogType.ChannelJoin)),
+        onError: () => dispatch(closeDialog(DialogType.ChannelJoin)),
       }),
     )
   })
@@ -83,7 +62,6 @@ export function JoinChannelDialog({
           label='Channel name'
           floatingLabel={true}
           ref={autoFocusRef}
-          errorText={joinChannelErrorMessage}
           inputProps={{
             autoCapitalize: 'off',
             autoCorrect: 'off',
