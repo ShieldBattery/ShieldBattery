@@ -176,10 +176,21 @@ function updateMessages(
   channelMessages.hasHistory = channelMessages.hasHistory || sliced
 }
 
-function updateBasicChannelData(state: ChatState, channels: BasicChannelInfo[]) {
-  for (const channel of channels) {
+function updateChannelInfos(
+  state: ChatState,
+  basicChannelInfos: BasicChannelInfo[],
+  detailedChannelInfos: DetailedChannelInfo[] = [],
+  joinedChannelInfos: JoinedChannelInfo[] = [],
+) {
+  for (const channel of basicChannelInfos) {
     state.idToBasicInfo.set(channel.id, channel)
     state.deletedChannels.delete(channel.id)
+  }
+  for (const channel of detailedChannelInfos) {
+    state.idToDetailedInfo.set(channel.id, channel)
+  }
+  for (const channel of joinedChannelInfos) {
+    state.idToJoinedInfo.set(channel.id, channel)
   }
 }
 
@@ -284,7 +295,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     const { channelId } = action.meta
 
     updateMessages(state, channelId, true, m => m.concat(newMessage))
-    updateBasicChannelData(state, channelMentions)
+    updateChannelInfos(state, channelMentions)
   },
 
   ['@chat/updateUserActive'](state, action) {
@@ -363,7 +374,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     }
 
     updateMessages(state, channelId, false, messages => newMessages.concat(messages))
-    updateBasicChannelData(state, action.payload.channelMentions)
+    updateChannelInfos(state, action.payload.channelMentions)
     updateDeletedChannels(state, action.payload.deletedChannels)
   },
 
@@ -422,16 +433,14 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/getChannelInfo'](state, action) {
-    const { channelId } = action.meta
     const { channelInfo, detailedChannelInfo, joinedChannelInfo } = action.payload
 
-    state.idToBasicInfo.set(channelId, channelInfo)
-    if (detailedChannelInfo) {
-      state.idToDetailedInfo.set(channelId, detailedChannelInfo)
-    }
-    if (joinedChannelInfo) {
-      state.idToJoinedInfo.set(channelId, joinedChannelInfo)
-    }
+    updateChannelInfos(
+      state,
+      [channelInfo],
+      detailedChannelInfo ? [detailedChannelInfo] : undefined,
+      joinedChannelInfo ? [joinedChannelInfo] : undefined,
+    )
   },
 
   ['@chat/getBatchChannelInfo'](state, action) {
@@ -439,15 +448,15 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       return
     }
 
-    for (const channelInfo of action.payload.channelInfos) {
-      state.idToBasicInfo.set(channelInfo.id, channelInfo)
-    }
-    for (const detailedChannelInfo of action.payload.detailedChannelInfos) {
-      state.idToDetailedInfo.set(detailedChannelInfo.id, detailedChannelInfo)
-    }
-    for (const joinedChannelInfo of action.payload.joinedChannelInfos) {
-      state.idToJoinedInfo.set(joinedChannelInfo.id, joinedChannelInfo)
-    }
+    const { channelInfos, detailedChannelInfos, joinedChannelInfos } = action.payload
+
+    updateChannelInfos(state, channelInfos, detailedChannelInfos, joinedChannelInfos)
+  },
+
+  ['@chat/searchChannels'](state, action) {
+    const { channelInfos, detailedChannelInfos, joinedChannelInfos } = action.payload
+
+    updateChannelInfos(state, channelInfos, detailedChannelInfos, joinedChannelInfos)
   },
 
   ['@chat/activateChannel'](state, action) {
@@ -479,20 +488,20 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@whispers/updateMessage'](state, action) {
-    updateBasicChannelData(state, action.payload.channelMentions)
+    updateChannelInfos(state, action.payload.channelMentions)
   },
 
   ['@whispers/loadMessageHistory'](state, action) {
-    updateBasicChannelData(state, action.payload.channelMentions)
+    updateChannelInfos(state, action.payload.channelMentions)
     updateDeletedChannels(state, action.payload.deletedChannels)
   },
 
   ['@parties/updateChatMessage'](state, action) {
-    updateBasicChannelData(state, action.payload.channelMentions)
+    updateChannelInfos(state, action.payload.channelMentions)
   },
 
   [LOBBY_UPDATE_CHAT_MESSAGE as any](state: any, action: any) {
-    updateBasicChannelData(state, action.payload.channelMentions)
+    updateChannelInfos(state, action.payload.channelMentions)
   },
 
   [NETWORK_SITE_CONNECTED as any]() {

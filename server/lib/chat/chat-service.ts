@@ -16,6 +16,7 @@ import {
   JoinedChannelInfo,
   makeSbChannelId,
   SbChannelId,
+  SearchChannelsResponse,
   ServerChatMessage,
   ServerChatMessageType,
   toChatUserProfileJson,
@@ -56,6 +57,7 @@ import {
   getUsersForChannel,
   isUserBannedFromChannel,
   removeUserFromChannel,
+  searchChannels,
   toBasicChannelInfo,
   toDetailedChannelInfo,
   toJoinedChannelInfo,
@@ -560,6 +562,52 @@ export default class ChatService {
 
     return {
       channelInfos: channelInfos.map(channel => toBasicChannelInfo(channel)),
+      detailedChannelInfos,
+      joinedChannelInfos,
+    }
+  }
+
+  async searchChannels({
+    userId,
+    limit,
+    pageNumber,
+    searchStr,
+  }: {
+    userId: SbUserId
+    limit: number
+    pageNumber: number
+    searchStr?: string
+  }): Promise<SearchChannelsResponse> {
+    const channels = await searchChannels({
+      limit,
+      pageNumber,
+      searchStr,
+    })
+    const userChannelEntries = await getUserChannelEntriesForUser(
+      userId,
+      channels.map(c => c.id),
+    )
+
+    const userJoinedChannelsSet = new global.Set(userChannelEntries.map(e => e.channelId))
+
+    const [detailedChannelInfos, joinedChannelInfos] = channels.reduce<
+      [DetailedChannelInfo[], JoinedChannelInfo[]]
+    >(
+      (acc, channel) => {
+        if (channel.private && !userJoinedChannelsSet.has(channel.id)) {
+          return acc
+        }
+
+        acc[0].push(toDetailedChannelInfo(channel))
+        acc[1].push(toJoinedChannelInfo(channel))
+
+        return acc
+      },
+      [[], []],
+    )
+
+    return {
+      channelInfos: channels.map(channel => toBasicChannelInfo(channel)),
       detailedChannelInfos,
       joinedChannelInfos,
     }

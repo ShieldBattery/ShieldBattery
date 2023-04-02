@@ -8,6 +8,7 @@ import {
   JoinChannelResponse,
   ModerateChannelUserServerRequest,
   SbChannelId,
+  SearchChannelsResponse,
   SendChatMessageServerRequest,
 } from '../../common/chat'
 import { apiUrl, urlPath } from '../../common/urls'
@@ -248,6 +249,29 @@ export function getBatchChannelInfo(channelId: SbChannelId): ThunkAction {
       channelsBatchRequester.request(dispatch, channelId)
     }
   }
+}
+
+export function searchChannels(
+  searchQuery: string,
+  limit: number,
+  page: number,
+  spec: RequestHandlingSpec<SearchChannelsResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await fetchJson<SearchChannelsResponse>(
+      apiUrl`chat/?q=${searchQuery}&limit=${limit}&page=${page}`,
+      {
+        signal: spec.signal,
+      },
+    )
+
+    dispatch({
+      type: '@chat/searchChannels',
+      payload: result,
+    })
+
+    return result
+  })
 }
 
 export function activateChannel(channelId: SbChannelId): ActivateChannel {

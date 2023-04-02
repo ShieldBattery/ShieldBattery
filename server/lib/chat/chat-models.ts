@@ -692,10 +692,9 @@ export async function findChannelsByName(
 }
 
 /**
- * Returns a full list of chat channels, optionally filtered by a `searchStr`. Only admins should be
- * able to call this function.
+ * Returns a list of chat channels, optionally filtered by a `searchStr`.
  */
-export async function searchChannelsAsAdmin(
+export async function searchChannels(
   {
     limit,
     pageNumber,

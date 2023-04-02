@@ -255,7 +255,7 @@ function ChannelInfoPage({
     } else {
       errorText = (
         <ErrorText>
-          Error getting channel info {channelName}: {error.message}
+          Error getting channel info for {channelName}: {error.message}
         </ErrorText>
       )
     }
