@@ -57,7 +57,25 @@ const ChannelUserCount = styled.div`
   padding: 0 16px;
 `
 
-const ChannelDescription = styled.div`
+const PrivateChannelDescriptionContainer = styled.div`
+  ${body1};
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 16px;
+`
+
+const PrivateChannelIcon = styled(MaterialIcon).attrs({ icon: 'lock' })`
+  margin-bottom: 8px;
+  color: ${colorTextFaint};
+`
+
+const PrivateChannelDescriptionText = styled.span`
+  color: ${colorTextFaint};
+  text-align: center;
+`
+
+const ChannelDescriptionContainer = styled.div`
   ${body1};
   margin-top: 16px;
   padding: 0 16px;
@@ -68,17 +86,6 @@ const ChannelDescription = styled.div`
   -webkit-line-clamp: 3;
   overflow: hidden;
   text-overflow: ellipsis;
-`
-
-const PrivateChannelDescriptionContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-`
-
-const PrivateChannelIcon = styled(MaterialIcon).attrs({ icon: 'lock' })`
-  margin-bottom: 8px;
-  color: ${colorTextFaint};
 `
 
 const NoChannelDescriptionText = styled.span`
@@ -142,8 +149,8 @@ export function ConnectedChannelInfoCard({
         onError: err => {
           setIsJoinInProgress(false)
 
-          // NOTE(2Pac): We assume the rest of the errors are handled elsewhere since we only care
-          // about this particular error here.
+          // NOTE(2Pac): We assume the error has been handled in the action creator, we just need to
+          // deal with the ban case in this UI.
           if (isFetchError(err) && err.code === ChatServiceErrorCode.UserBanned) {
             setIsUserBanned(true)
           }
@@ -152,21 +159,29 @@ export function ConnectedChannelInfoCard({
     )
   })
 
-  let descriptionText
-  if (channelInfo?.private && !isUserInChannel) {
-    descriptionText = (
+  let channelDescription
+  if (!channelInfo) {
+    channelDescription = <LoadingDotsArea />
+  } else if (channelInfo.private && !isUserInChannel) {
+    channelDescription = (
       <PrivateChannelDescriptionContainer>
         <PrivateChannelIcon size={40} />
-        <NoChannelDescriptionText>
+        <PrivateChannelDescriptionText>
           This channel is private and requires an invite to join.
-        </NoChannelDescriptionText>
+        </PrivateChannelDescriptionText>
       </PrivateChannelDescriptionContainer>
     )
-  } else if (channelInfo?.description) {
-    descriptionText = <span>{channelInfo.description}</span>
+  } else if (channelInfo.description) {
+    channelDescription = (
+      <ChannelDescriptionContainer>
+        <span>{channelInfo.description}</span>
+      </ChannelDescriptionContainer>
+    )
   } else {
-    descriptionText = (
-      <NoChannelDescriptionText>This channel has no description.</NoChannelDescriptionText>
+    channelDescription = (
+      <ChannelDescriptionContainer>
+        <NoChannelDescriptionText>This channel has no description.</NoChannelDescriptionText>
+      </ChannelDescriptionContainer>
     )
   }
 
@@ -199,11 +214,7 @@ export function ConnectedChannelInfoCard({
           {`${channelInfo.userCount} member${channelInfo.userCount > 1 ? 's' : ''}`}
         </ChannelUserCount>
       ) : null}
-      {channelInfo ? (
-        <ChannelDescription>{descriptionText}</ChannelDescription>
-      ) : (
-        <LoadingDotsArea />
-      )}
+      {channelDescription}
       <FlexSpacer />
       <ChannelActions>
         {isUserInChannel ? (
