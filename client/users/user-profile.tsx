@@ -490,7 +490,7 @@ function RankDisplay({
   }
 
   const divisionLabel = matchmakingDivisionToLabel(division)
-
+  const { t } = useTranslation()
   return (
     <RankDisplayRoot>
       <DivisionInfo>

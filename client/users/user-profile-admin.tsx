@@ -162,7 +162,7 @@ function PermissionsEditorForm({
   const inputProps = {
     tabIndex: 0,
   }
-
+  const { t } = useTranslation()
   return (
     <form noValidate={true} onSubmit={onSubmit}>
       <CheckBox

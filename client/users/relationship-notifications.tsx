@@ -11,7 +11,7 @@ import { openSnackbar } from '../snackbars/action-creators'
 import { blue300 } from '../styles/colors'
 import { body2 } from '../styles/typography'
 import { acceptFriendRequest, declineFriendRequest, getBatchUserInfo } from './action-creators'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 
 const ColoredAddIcon = styled(FriendAddIcon)`
   width: 36px;
@@ -114,7 +114,7 @@ export const FriendStartNotificationUi = React.memo(
     const { otherUser } = props
     const dispatch = useAppDispatch()
     const username = useAppSelector(s => s.users.byId.get(otherUser)?.name)
-
+    const { t } = useTranslation()
     useEffect(() => {
       dispatch(getBatchUserInfo(otherUser))
     }, [otherUser, dispatch])

@@ -235,7 +235,7 @@ interface LeagueModel {
 function CreateLeague() {
   const baseId = useId()
   const adminContext = useContext(LeagueAdminContext)
-
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const [error, setError] = useState<Error>()
   const onFormSubmit = useStableCallback((model: LeagueModel) => {

@@ -321,7 +321,6 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
   const curTime = Date.now()
   const isJoinable = !selfLeagueUser && league.endAt > curTime
   const isRunningOrEnded = league.startAt <= curTime
-  const { t } = useTranslation()
   const activeTab = subPage ?? DetailsSubPage.Info
 
   let content: React.ReactNode
@@ -409,6 +408,7 @@ export interface LeagueDetailsInfoProps {
 }
 
 export function LeagueDetailsInfo({ league }: LeagueDetailsInfoProps) {
+  const { t } = useTranslation()
   return (
     <>
       <LeagueImageContainer>
@@ -590,7 +590,7 @@ function Leaderboard({
   const dispatch = useAppDispatch()
   const leaderboard = useAppSelector(s => s.leagues.leaderboard.get(league.id))
   const leaderboardUsers = useAppSelector(s => s.leagues.leaderboardUsers.get(league.id))
-
+  const { t } = useTranslation()
   const [error, setError] = useState<Error | undefined>(undefined)
 
   const id = league.id

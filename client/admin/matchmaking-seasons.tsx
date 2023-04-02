@@ -87,6 +87,7 @@ function SeasonRow({
   isCurrent: boolean
   onDeleteClick: (id: SeasonId) => void
 }) {
+  const { t } = useTranslation()
   return (
     <Row $current={isCurrent}>
       <StartDate>{longTimestamp.format(season.startDate)}</StartDate>
