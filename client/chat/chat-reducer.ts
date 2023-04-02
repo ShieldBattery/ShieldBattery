@@ -191,13 +191,8 @@ function updateDeletedChannels(state: ChatState, deletedChannels: SbChannelId[])
 
 export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   ['@chat/initChannel'](state, action) {
-    const {
-      basicChannelInfo,
-      detailedChannelInfo,
-      joinedChannelInfo,
-      activeUserIds,
-      selfPermissions,
-    } = action.payload
+    const { channelInfo, detailedChannelInfo, joinedChannelInfo, activeUserIds, selfPermissions } =
+      action.payload
     const { channelId } = action.meta
 
     const channelUsers: UsersState = {
@@ -213,7 +208,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       hasHistory: true,
     }
     state.joinedChannels.add(channelId)
-    state.idToBasicInfo.set(channelId, basicChannelInfo)
+    state.idToBasicInfo.set(channelId, channelInfo)
     state.idToDetailedInfo.set(channelId, detailedChannelInfo)
     state.idToJoinedInfo.set(channelId, joinedChannelInfo)
     state.idToUsers.set(channelId, channelUsers)
@@ -428,10 +423,12 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
   ['@chat/getChannelInfo'](state, action) {
     const { channelId } = action.meta
-    const { basicChannelInfo, detailedChannelInfo } = action.payload
+    const { channelInfo, detailedChannelInfo } = action.payload
 
-    state.idToBasicInfo.set(channelId, basicChannelInfo)
-    state.idToDetailedInfo.set(channelId, detailedChannelInfo)
+    state.idToBasicInfo.set(channelId, channelInfo)
+    if (detailedChannelInfo) {
+      state.idToDetailedInfo.set(channelId, detailedChannelInfo)
+    }
   },
 
   ['@chat/getBatchChannelInfo'](state, action) {
@@ -439,9 +436,11 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       return
     }
 
-    for (const { basicChannelInfo, detailedChannelInfo } of action.payload) {
-      state.idToBasicInfo.set(basicChannelInfo.id, basicChannelInfo)
-      state.idToDetailedInfo.set(basicChannelInfo.id, detailedChannelInfo)
+    for (const channelInfo of action.payload.channelInfos) {
+      state.idToBasicInfo.set(channelInfo.id, channelInfo)
+    }
+    for (const detailedChannelInfo of action.payload.detailedChannelInfos) {
+      state.idToDetailedInfo.set(detailedChannelInfo.id, detailedChannelInfo)
     }
   },
 

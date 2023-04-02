@@ -42,6 +42,7 @@ import {
   getChannelInfo,
   getChannelInfos,
   getMessagesForChannel,
+  getUserChannelEntriesForUser,
   getUserChannelEntryForUser,
   getUsersForChannel,
   isUserBannedFromChannel,
@@ -51,7 +52,7 @@ import {
   updateUserPermissions,
   UserChannelEntry,
 } from './chat-models'
-import ChatService, { getChannelPath, getChannelUserPath } from './chat-service'
+import ChatService, { getChannelPath, getChannelUserPath, toChannelSummary } from './chat-service'
 
 const flagsMock = flags as { CAN_LEAVE_SHIELDBATTERY_CHANNEL: boolean }
 
@@ -98,6 +99,7 @@ jest.mock('./chat-models', () => ({
   getChannelsForUser: jest.fn().mockResolvedValue([]),
   getUsersForChannel: jest.fn().mockResolvedValue([]),
   getUserChannelEntryForUser: jest.fn(),
+  getUserChannelEntriesForUser: jest.fn().mockResolvedValue([]),
   createChannel: jest.fn(),
   addUserToChannel: jest.fn(),
   addMessageToChannel: jest.fn(),
@@ -153,13 +155,15 @@ describe('chat/chat-service', () => {
   const shieldBatteryBasicInfo: BasicChannelInfo = {
     id: makeSbChannelId(1),
     name: 'ShieldBattery',
-  }
-  const shieldBatteryDetailedInfo: DetailedChannelInfo = {
     private: false,
     official: true,
+  }
+  const shieldBatteryDetailedInfo: DetailedChannelInfo = {
+    id: makeSbChannelId(1),
     userCount: 5,
   }
   const shieldBatteryJoinedInfo: JoinedChannelInfo = {
+    id: makeSbChannelId(1),
     ownerId: undefined,
     topic: 'SHIELDBATTERY_TOPIC',
   }
@@ -171,13 +175,15 @@ describe('chat/chat-service', () => {
   const testBasicInfo: BasicChannelInfo = {
     id: makeSbChannelId(2),
     name: 'test',
-  }
-  const testDetailedInfo: DetailedChannelInfo = {
     private: false,
     official: false,
+  }
+  const testDetailedInfo: DetailedChannelInfo = {
+    id: makeSbChannelId(2),
     userCount: 2,
   }
   const testJoinedInfo: JoinedChannelInfo = {
+    id: makeSbChannelId(2),
     ownerId: undefined,
     topic: 'TEST_TOPIC',
   }
@@ -284,6 +290,14 @@ describe('chat/chat-service', () => {
         return userChannelEntry
       },
     )
+    asMockedFunction(getUserChannelEntriesForUser).mockImplementation(
+      async (userId: SbUserId, channelIds: SbChannelId[]) => {
+        if (!isUserInChannel) {
+          return []
+        }
+        return [userChannelEntry]
+      },
+    )
 
     asMockedFunction(addUserToChannel).mockImplementation(
       async (userId: SbUserId, channelId: SbChannelId) => {
@@ -379,7 +393,11 @@ describe('chat/chat-service', () => {
 
     test("should throw if user doesn't exist", async () => {
       await expect(
-        chatService.joinInitialChannel(makeSbUserId(-1), dbClient, Promise.resolve()),
+        chatService.joinInitialChannel(
+          makeSbUserId(Number.MAX_SAFE_INTEGER),
+          dbClient,
+          Promise.resolve(),
+        ),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"User doesn't exist"`)
     })
 
@@ -433,7 +451,7 @@ describe('chat/chat-service', () => {
       await new Promise(resolve => setTimeout(resolve, 20))
       expect(client1.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
         action: 'init3',
-        basicChannelInfo: shieldBatteryBasicInfo,
+        channelInfo: shieldBatteryBasicInfo,
         detailedChannelInfo: shieldBatteryDetailedInfo,
         joinedChannelInfo: shieldBatteryJoinedInfo,
         activeUserIds: [user2.id, user1.id],
@@ -461,7 +479,7 @@ describe('chat/chat-service', () => {
 
     test("should throw if user doesn't exist", async () => {
       await expect(
-        chatService.joinChannel(shieldBatteryChannel.name, makeSbUserId(-1)),
+        chatService.joinChannel(shieldBatteryChannel.name, makeSbUserId(Number.MAX_SAFE_INTEGER)),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"User doesn't exist"`)
     })
 
@@ -529,7 +547,7 @@ describe('chat/chat-service', () => {
       await new Promise(resolve => setTimeout(resolve, 20))
       expect(client1.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
         action: 'init3',
-        basicChannelInfo: shieldBatteryBasicInfo,
+        channelInfo: shieldBatteryBasicInfo,
         detailedChannelInfo: shieldBatteryDetailedInfo,
         joinedChannelInfo: shieldBatteryJoinedInfo,
         activeUserIds: [user2.id, user1.id],
@@ -569,7 +587,7 @@ describe('chat/chat-service', () => {
       await new Promise(resolve => setTimeout(resolve, 20))
       expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
         action: 'init3',
-        basicChannelInfo: testBasicInfo,
+        channelInfo: testBasicInfo,
         detailedChannelInfo: testDetailedInfo,
         joinedChannelInfo: testJoinedInfo,
         activeUserIds: [user1.id],
@@ -1136,10 +1154,7 @@ describe('chat/chat-service', () => {
           message: toTextMessageJson(textMessage),
           user: user1,
           mentions: userMentions,
-          channelMentions: channelMentions.map(c => ({
-            id: c.id,
-            name: c.name,
-          })),
+          channelMentions: channelMentions.map(c => toChannelSummary(c).channelInfo),
         })
       }
 
@@ -1242,6 +1257,10 @@ describe('chat/chat-service', () => {
   })
 
   describe('getChannelInfo', () => {
+    beforeEach(() => {
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
+    })
+
     test('should throw if channel not found', async () => {
       asMockedFunction(getChannelInfo).mockResolvedValue(undefined)
 
@@ -1256,28 +1275,27 @@ describe('chat/chat-service', () => {
       const result = await chatService.getChannelInfo(testChannel.id, user1.id)
 
       expect(result).toEqual({
-        basicChannelInfo: testBasicInfo,
+        channelInfo: testBasicInfo,
         detailedChannelInfo: testDetailedInfo,
       })
     })
 
     describe('when channel is private', () => {
-      test("doesn't return user count", async () => {
+      test("doesn't return detailed channel info", async () => {
         asMockedFunction(getChannelInfo).mockResolvedValue({ ...testChannel, private: true })
 
         const result = await chatService.getChannelInfo(testChannel.id, user1.id)
 
         expect(result).toEqual({
-          basicChannelInfo: testBasicInfo,
-          detailedChannelInfo: {
-            ...testDetailedInfo,
+          channelInfo: {
+            ...testBasicInfo,
             private: true,
-            userCount: undefined,
           },
+          detailedChannelInfo: undefined,
         })
       })
 
-      test('returns user count if user is in channel', async () => {
+      test('returns detailed channel info if user is in channel', async () => {
         await joinUserToChannel(
           user1,
           testChannel,
@@ -1290,24 +1308,30 @@ describe('chat/chat-service', () => {
         const result = await chatService.getChannelInfo(testChannel.id, user1.id)
 
         expect(result).toEqual({
-          basicChannelInfo: testBasicInfo,
-          detailedChannelInfo: {
-            ...testDetailedInfo,
+          channelInfo: {
+            ...testBasicInfo,
             private: true,
-            userCount: testChannel.userCount,
           },
+          detailedChannelInfo: testDetailedInfo,
         })
       })
     })
   })
 
   describe('getChannelInfos', () => {
-    test('returns an empty array when no channels are found', async () => {
+    beforeEach(() => {
+      asMockedFunction(getUserChannelEntriesForUser).mockResolvedValue([])
+    })
+
+    test('returns no channel infos when no channels are found', async () => {
       asMockedFunction(getChannelInfos).mockResolvedValue([])
 
       const result = await chatService.getChannelInfos([], user1.id)
 
-      expect(result).toEqual([])
+      expect(result).toEqual({
+        channelInfos: [],
+        detailedChannelInfos: [],
+      })
     })
 
     test('returns channel infos when found', async () => {
@@ -1318,16 +1342,10 @@ describe('chat/chat-service', () => {
         user1.id,
       )
 
-      expect(result).toEqual([
-        {
-          basicChannelInfo: shieldBatteryBasicInfo,
-          detailedChannelInfo: shieldBatteryDetailedInfo,
-        },
-        {
-          basicChannelInfo: testBasicInfo,
-          detailedChannelInfo: testDetailedInfo,
-        },
-      ])
+      expect(result).toEqual({
+        channelInfos: [shieldBatteryBasicInfo, testBasicInfo],
+        detailedChannelInfos: [shieldBatteryDetailedInfo, testDetailedInfo],
+      })
     })
 
     describe('when any of the channels is private', () => {
@@ -1338,29 +1356,19 @@ describe('chat/chat-service', () => {
         ])
       })
 
-      test("doesn't return user count for private channels", async () => {
+      test("doesn't return detailed channel infos for private channels", async () => {
         const result = await chatService.getChannelInfos(
           [shieldBatteryChannel.id, testChannel.id],
           user1.id,
         )
 
-        expect(result).toEqual([
-          {
-            basicChannelInfo: shieldBatteryBasicInfo,
-            detailedChannelInfo: shieldBatteryDetailedInfo,
-          },
-          {
-            basicChannelInfo: testBasicInfo,
-            detailedChannelInfo: {
-              ...testDetailedInfo,
-              private: true,
-              userCount: undefined,
-            },
-          },
-        ])
+        expect(result).toEqual({
+          channelInfos: [shieldBatteryBasicInfo, { ...testBasicInfo, private: true }],
+          detailedChannelInfos: [shieldBatteryDetailedInfo],
+        })
       })
 
-      test('returns user count if user is in a private channel', async () => {
+      test('returns detailed channel info if user is in a private channel', async () => {
         await joinUserToChannel(
           user1,
           testChannel,
@@ -1373,20 +1381,13 @@ describe('chat/chat-service', () => {
           user1.id,
         )
 
-        expect(result).toEqual([
-          {
-            basicChannelInfo: shieldBatteryBasicInfo,
-            detailedChannelInfo: shieldBatteryDetailedInfo,
-          },
-          {
-            basicChannelInfo: testBasicInfo,
-            detailedChannelInfo: {
-              ...testDetailedInfo,
-              private: true,
-              userCount: testChannel.userCount,
-            },
-          },
-        ])
+        expect(result).toEqual({
+          channelInfos: [shieldBatteryBasicInfo, { ...testBasicInfo, private: true }],
+          detailedChannelInfos: [
+            shieldBatteryDetailedInfo,
+            { ...testDetailedInfo, userCount: testChannel.userCount },
+          ],
+        })
       })
     })
   })
@@ -1442,6 +1443,7 @@ describe('chat/chat-service', () => {
     }
 
     const mockTextMessages = () => {
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
       asMockedFunction(getMessagesForChannel).mockResolvedValue([
         joinUser1TestChannelMessage,
         textMessage1,
@@ -1463,8 +1465,8 @@ describe('chat/chat-service', () => {
         users: [user1],
         mentions: [user1, user2],
         channelMentions: [
-          { id: shieldBatteryChannel.id, name: shieldBatteryChannel.name },
-          { id: testChannel.id, name: testChannel.name },
+          toChannelSummary(shieldBatteryChannel).channelInfo,
+          toChannelSummary(testChannel).channelInfo,
         ],
         deletedChannels: [],
       })
@@ -1472,6 +1474,8 @@ describe('chat/chat-service', () => {
 
     describe('when an admin', () => {
       test('works when not in channel', async () => {
+        asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
+
         mockTextMessages()
 
         const result = await chatService.getChannelHistory({
@@ -1505,6 +1509,8 @@ describe('chat/chat-service', () => {
 
     describe('when not an admin', () => {
       test('should throw when not in channel', async () => {
+        asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
+
         await expect(
           chatService.getChannelHistory({
             channelId: testChannel.id,
@@ -1572,8 +1578,8 @@ describe('chat/chat-service', () => {
         users: [user1],
         mentions: [],
         channelMentions: [
-          { id: shieldBatteryChannel.id, name: shieldBatteryChannel.name },
-          { id: testChannel.id, name: testChannel.name },
+          toChannelSummary(shieldBatteryChannel).channelInfo,
+          toChannelSummary(testChannel).channelInfo,
         ],
         deletedChannels: [DELETED_ID],
       })
@@ -1582,11 +1588,14 @@ describe('chat/chat-service', () => {
 
   describe('getChannelUsers', () => {
     beforeEach(() => {
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
       asMockedFunction(getUsersForChannel).mockResolvedValue([user1, user2])
     })
 
     describe('when an admin', () => {
       test('works when not in channel', async () => {
+        asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
+
         const result = await chatService.getChannelUsers({
           channelId: testChannel.id,
           userId: user1.id,
@@ -1616,6 +1625,8 @@ describe('chat/chat-service', () => {
 
     describe('when not an admin', () => {
       test('should throw when not in channel', async () => {
+        asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
+
         await expect(
           chatService.getChannelUsers({
             channelId: testChannel.id,

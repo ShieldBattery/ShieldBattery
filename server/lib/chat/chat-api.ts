@@ -5,9 +5,9 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   ChannelPermissions,
   ChatServiceErrorCode,
+  GetBatchedChannelInfosResponse,
   GetChannelHistoryServerResponse,
   GetChannelInfoResponse,
-  GetChannelInfosResponse,
   GetChannelUserPermissionsResponse,
   GetChatUserProfileResponse,
   JoinChannelResponse,
@@ -324,7 +324,7 @@ export class ChatApi {
 
   @httpGet('/batch-info')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
-  async getBatchedChannelInfos(ctx: RouterContext): Promise<GetChannelInfosResponse> {
+  async getBatchedChannelInfos(ctx: RouterContext): Promise<GetBatchedChannelInfosResponse> {
     const {
       query: { c: channelIds },
     } = validateRequest(ctx, {

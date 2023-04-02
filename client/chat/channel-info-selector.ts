@@ -8,7 +8,7 @@ import {
 import { RootState } from '../root-reducer'
 
 /**
- * Combined (and flattened) channel data that simplifies the usage in React components.
+ * Combined (and flattened) channel info that simplifies the usage in React components.
  */
 export type ClientChannelInfo = BasicChannelInfo &
   Partial<DetailedChannelInfo> &

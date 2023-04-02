@@ -21,6 +21,7 @@ import {
 } from '../../../common/parties'
 import { RaceChar } from '../../../common/races'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
+import { toChannelSummary } from '../chat/chat-service'
 import { CodedError } from '../errors/coded-error'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
@@ -366,10 +367,7 @@ export default class PartyService implements InPartyChecker {
         text: processedText,
       },
       mentions: userMentions,
-      channelMentions: channelMentions.map(c => ({
-        id: c.id,
-        name: c.name,
-      })),
+      channelMentions: channelMentions.map(c => toChannelSummary(c).channelInfo),
     })
   }
 

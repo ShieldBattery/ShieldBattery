@@ -21,6 +21,7 @@ import {
   isUms,
 } from '../../../common/lobbies'
 import * as Slots from '../../../common/lobbies/slot'
+import { toChannelSummary } from '../chat/chat-service'
 import { GameLoader } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
@@ -295,10 +296,7 @@ export class LobbyApi {
         text: processedText,
       },
       mentions: userMentions,
-      channelMentions: channelMentions.map(c => ({
-        id: c.id,
-        name: c.name,
-      })),
+      channelMentions: channelMentions.map(c => toChannelSummary(c).channelInfo),
     })
   }
 

@@ -234,12 +234,8 @@ export function ChannelSelector({ onSelect }: { onSelect: (channel: ClientChanne
         signal: abortControllerRef.current.signal,
         onSuccess: data => {
           setIsLoadingMoreChannels(false)
-          setChannels(
-            (channels ?? []).concat(
-              data.map(c => ({ ...c.basicChannelInfo, ...c.detailedChannelInfo })),
-            ),
-          )
-          setHasMoreChannels(data.length >= SEARCH_CHANNELS_LIMIT)
+          setChannels((channels ?? []).concat(data.channelInfos))
+          setHasMoreChannels(data.channelInfos.length >= SEARCH_CHANNELS_LIMIT)
         },
         onError: err => {
           setIsLoadingMoreChannels(false)

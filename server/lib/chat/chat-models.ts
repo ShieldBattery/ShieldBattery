@@ -95,6 +95,27 @@ export async function getUserChannelEntryForUser(
   }
 }
 
+/**
+ * Gets user channel entries for a particular user in all of the channels they're in.
+ */
+export async function getUserChannelEntriesForUser(
+  userId: SbUserId,
+  channelIds: SbChannelId[],
+  withClient?: DbClient,
+): Promise<UserChannelEntry[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbUserChannelEntry>(sql`
+      SELECT *
+      FROM channel_users
+      WHERE user_id = ${userId} AND channel_id = ANY(${channelIds});
+    `)
+    return result.rows.map(row => convertUserChannelEntryFromDb(row))
+  } finally {
+    done()
+  }
+}
+
 export type FullChannelInfo = BasicChannelInfo & DetailedChannelInfo & JoinedChannelInfo
 type DbChannel = Dbify<FullChannelInfo>
 

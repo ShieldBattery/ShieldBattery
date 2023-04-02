@@ -1,9 +1,9 @@
 import {
   ChannelModerationAction,
   ChatServiceErrorCode,
+  GetBatchedChannelInfosResponse,
   GetChannelHistoryServerResponse,
   GetChannelInfoResponse,
-  GetChannelInfosResponse,
   GetChatUserProfileResponse,
   JoinChannelResponse,
   ModerateChannelUserServerRequest,
@@ -28,9 +28,7 @@ export function joinChannel(channelName: string, spec: RequestHandlingSpec<void>
       method: 'POST',
       signal: spec.signal,
     })
-      .then(channel =>
-        navigateToChannel(channel.basicChannelInfo.id, channel.basicChannelInfo.name),
-      )
+      .then(channel => navigateToChannel(channel.channelInfo.id, channel.channelInfo.name))
       .catch(err => {
         let message = `An error occurred while joining ${channelName}`
 
@@ -221,7 +219,9 @@ const channelsBatchRequester = new MicrotaskBatchRequester<SbChannelId>(
   MAX_BATCH_CHANNEL_REQUESTS,
   (dispatch, items) => {
     const params = items.map(c => urlPath`c=${c}`).join('&')
-    const promise = fetchJson<GetChannelInfosResponse>(apiUrl`chat/batch-info` + '?' + params)
+    const promise = fetchJson<GetBatchedChannelInfosResponse>(
+      apiUrl`chat/batch-info` + '?' + params,
+    )
     dispatch({
       type: '@chat/getBatchChannelInfo',
       payload: promise,

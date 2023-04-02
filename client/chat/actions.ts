@@ -10,9 +10,9 @@ import {
   ChatUserActiveEvent,
   ChatUserIdleEvent,
   ChatUserOfflineEvent,
+  GetBatchedChannelInfosResponse,
   GetChannelHistoryServerResponse,
   GetChannelInfoResponse,
-  GetChannelInfosResponse,
   GetChatUserProfileResponse,
   SbChannelId,
 } from '../../common/chat'
@@ -214,7 +214,7 @@ export interface GetChannelInfo {
  */
 export interface GetBatchChannelInfoSuccess {
   type: '@chat/getBatchChannelInfo'
-  payload: GetChannelInfosResponse
+  payload: GetBatchedChannelInfosResponse
   error?: false
 }
 

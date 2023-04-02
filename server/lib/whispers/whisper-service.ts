@@ -14,7 +14,7 @@ import {
   WhisperSessionInitEvent,
 } from '../../../common/whispers'
 import { getChannelInfos } from '../chat/chat-models'
-import ChatService from '../chat/chat-service'
+import ChatService, { toChannelSummary } from '../chat/chat-service'
 import logger from '../logging/logger'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
@@ -146,10 +146,7 @@ export default class WhisperService {
       },
       users: [user, target],
       mentions: userMentions,
-      channelMentions: channelMentions.map(c => ({
-        id: c.id,
-        name: c.name,
-      })),
+      channelMentions: channelMentions.map(c => toChannelSummary(c).channelInfo),
     })
   }
 
@@ -225,10 +222,7 @@ export default class WhisperService {
       messages,
       users: [user, target],
       mentions: userMentions,
-      channelMentions: channelMentions.map(c => ({
-        id: c.id,
-        name: c.name,
-      })),
+      channelMentions: channelMentions.map(c => toChannelSummary(c).channelInfo),
       deletedChannels,
     }
   }

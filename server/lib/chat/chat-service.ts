@@ -2,16 +2,19 @@ import { Map, Record as ImmutableRecord, Set } from 'immutable'
 import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
+  BasicChannelInfo,
   ChannelModerationAction,
   ChannelPermissions,
   ChatEvent,
   ChatInitEvent,
   ChatServiceErrorCode,
   ChatUserEvent,
+  DetailedChannelInfo,
+  GetBatchedChannelInfosResponse,
   GetChannelHistoryServerResponse,
   GetChannelInfoResponse,
-  GetChannelInfosResponse,
   JoinChannelResponse,
+  JoinedChannelInfo,
   makeSbChannelId,
   SbChannelId,
   ServerChatMessage,
@@ -49,6 +52,7 @@ import {
   getChannelInfos,
   getChannelsForUser,
   getMessagesForChannel,
+  getUserChannelEntriesForUser,
   getUserChannelEntryForUser,
   getUsersForChannel,
   isUserBannedFromChannel,
@@ -74,6 +78,35 @@ export function getChannelPath(channelId: SbChannelId): string {
 
 export function getChannelUserPath(channelId: SbChannelId, userId: SbUserId): string {
   return `${getChannelPath(channelId)}/users/${userId}`
+}
+
+/**
+ * Takes the full channel info (used in model methods), and returns the structured summary of all
+ * the channel information that we use in network responses.
+ */
+export function toChannelSummary(channel: FullChannelInfo): {
+  channelInfo: BasicChannelInfo
+  detailedChannelInfo: DetailedChannelInfo
+  joinedChannelInfo: JoinedChannelInfo
+} {
+  return {
+    channelInfo: {
+      id: channel.id,
+      name: channel.name,
+      private: channel.private,
+      official: channel.official,
+    },
+    // TODO(2Pac): Add the missing fields here after #909 is done.
+    detailedChannelInfo: {
+      id: channel.id,
+      userCount: channel.userCount,
+    },
+    joinedChannelInfo: {
+      id: channel.id,
+      ownerId: channel.ownerId,
+      topic: channel.topic,
+    },
+  }
 }
 
 /**
@@ -283,35 +316,19 @@ export default class ChatService {
       }
     } while (!succeeded && !isUserBanned && attempts < MAX_JOIN_ATTEMPTS)
 
+    if (isUserBanned) {
+      throw new ChatServiceError(ChatServiceErrorCode.UserBanned, 'User is banned')
+    }
+
     // NOTE(2Pac): This is just to silence the TS compiler since it can't figure out on its own that
     // `channel` will be defined here.
     channel = channel!
 
-    const joinChannelResponse: JoinChannelResponse = {
-      basicChannelInfo: {
-        id: channel.id,
-        name: channel.name,
-      },
-      detailedChannelInfo: {
-        private: channel.private,
-        official: channel.official,
-        userCount: channel.userCount,
-      },
-      joinedChannelInfo: {
-        ownerId: channel.ownerId,
-        topic: channel.topic,
-      },
+    if (!isUserInChannel) {
+      this.updateUserAfterJoining(userInfo, channel.id, userChannelEntry!, message!)
     }
 
-    if (isUserInChannel) {
-      return joinChannelResponse
-    } else if (isUserBanned) {
-      throw new ChatServiceError(ChatServiceErrorCode.UserBanned, 'User is banned')
-    }
-
-    this.updateUserAfterJoining(userInfo, channel.id, userChannelEntry!, message!)
-
-    return joinChannelResponse
+    return toChannelSummary(channel)
   }
 
   async leaveChannel(channelId: SbChannelId, userId: SbUserId): Promise<void> {
@@ -483,10 +500,7 @@ export default class ChatService {
         name: result.userName,
       },
       mentions: userMentions,
-      channelMentions: channelMentions.map(c => ({
-        id: c.id,
-        name: c.name,
-      })),
+      channelMentions: channelMentions.map(c => toChannelSummary(c).channelInfo),
     })
   }
 
@@ -520,49 +534,43 @@ export default class ChatService {
   }
 
   async getChannelInfo(channelId: SbChannelId, userId: SbUserId): Promise<GetChannelInfoResponse> {
-    const channelInfo = await getChannelInfo(channelId)
-    // TODO(2Pac): Get this from DB instead.
-    const isUserInChannel = this.state.users.get(userId)?.has(channelId)
+    const [channelInfo, userChannelEntry] = await Promise.all([
+      getChannelInfo(channelId),
+      getUserChannelEntryForUser(userId, channelId),
+    ])
+    const isUserInChannel = Boolean(userChannelEntry)
 
     if (!channelInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
 
+    const channelSummary = toChannelSummary(channelInfo)
     return {
-      basicChannelInfo: {
-        id: channelInfo.id,
-        name: channelInfo.name,
-      },
-      detailedChannelInfo: {
-        private: channelInfo.private,
-        official: channelInfo.official,
-        userCount: !channelInfo.private || isUserInChannel ? channelInfo.userCount : undefined,
-      },
+      channelInfo: channelSummary.channelInfo,
+      detailedChannelInfo:
+        !channelInfo.private || isUserInChannel ? channelSummary.detailedChannelInfo : undefined,
     }
   }
 
   async getChannelInfos(
     channelIds: SbChannelId[],
     userId: SbUserId,
-  ): Promise<GetChannelInfosResponse> {
-    const channelInfos = await getChannelInfos(channelIds)
+  ): Promise<GetBatchedChannelInfosResponse> {
+    const [channelInfos, userChannelEntries] = await Promise.all([
+      getChannelInfos(channelIds),
+      getUserChannelEntriesForUser(userId, channelIds),
+    ])
 
-    return channelInfos.map(channel => {
-      // TODO(2Pac): Get this from DB instead (make sure it's not called inside this loop tho :d)
-      const isUserInChannel = this.state.users.get(userId)?.has(channel.id)
+    const userJoinedChannelsSet = new global.Set(userChannelEntries.map(e => e.channelId))
 
-      return {
-        basicChannelInfo: {
-          id: channel.id,
-          name: channel.name,
-        },
-        detailedChannelInfo: {
-          private: channel.private,
-          official: channel.official,
-          userCount: !channel.private || isUserInChannel ? channel.userCount : undefined,
-        },
-      }
-    })
+    return {
+      channelInfos: channelInfos.map(channel => toChannelSummary(channel).channelInfo),
+      detailedChannelInfos: channelInfos
+        .filter(channel => {
+          return !channel.private || userJoinedChannelsSet.has(channel.id)
+        })
+        .map(channel => toChannelSummary(channel).detailedChannelInfo),
+    }
   }
 
   async getChannelHistory({
@@ -578,11 +586,8 @@ export default class ChatService {
     beforeTime?: number
     isAdmin?: boolean
   }): Promise<GetChannelHistoryServerResponse> {
-    if (
-      !isAdmin &&
-      // TODO(2Pac): Check this in the DB instead.
-      (!this.state.users.has(userId) || !this.state.users.get(userId)!.has(channelId))
-    ) {
+    const isUserInChannel = Boolean(await getUserChannelEntryForUser(userId, channelId))
+    if (!isAdmin && !isUserInChannel) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
         'Must be in a channel to retrieve message history',
@@ -656,10 +661,7 @@ export default class ChatService {
       messages,
       users,
       mentions: userMentions,
-      channelMentions: channelMentions.map(c => ({
-        id: c.id,
-        name: c.name,
-      })),
+      channelMentions: channelMentions.map(c => toChannelSummary(c).channelInfo),
       deletedChannels,
     }
   }
@@ -673,11 +675,8 @@ export default class ChatService {
     userId: SbUserId
     isAdmin?: boolean
   }): Promise<SbUser[]> {
-    if (
-      !isAdmin &&
-      // TODO(2Pac): Check this in the DB instead.
-      (!this.state.users.has(userId) || !this.state.users.get(userId)!.has(channelId))
-    ) {
+    const isUserInChannel = Boolean(await getUserChannelEntryForUser(userId, channelId))
+    if (!isAdmin && !isUserInChannel) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
         'Must be in a channel to retrieve user list',
@@ -841,19 +840,7 @@ export default class ChatService {
 
       return {
         action: 'init3',
-        basicChannelInfo: {
-          id: channelInfo.id,
-          name: channelInfo.name,
-        },
-        detailedChannelInfo: {
-          private: channelInfo.private,
-          official: channelInfo.official,
-          userCount: channelInfo.userCount,
-        },
-        joinedChannelInfo: {
-          ownerId: channelInfo.ownerId,
-          topic: channelInfo.topic,
-        },
+        ...toChannelSummary(channelInfo),
         activeUserIds: this.state.channels.get(channelInfo.id)!.toArray(),
         selfPermissions: userChannelEntry.channelPermissions,
       }
