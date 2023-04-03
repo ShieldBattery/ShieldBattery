@@ -23,6 +23,22 @@ import { isFetchError } from '../network/fetch-errors'
 import { openSnackbar } from '../snackbars/action-creators'
 import { ActivateChannel, DeactivateChannel } from './actions'
 
+/**
+ * Makes a request to join a user to the channel. It uses the same API as the `joinChannel` action
+ * creator, but expects the caller to handle the errors.
+ */
+export function createChannel(
+  channelName: string,
+  spec: RequestHandlingSpec<JoinChannelResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    return await fetchJson(apiUrl`chat/join/${channelName}`, {
+      method: 'POST',
+      signal: spec.signal,
+    })
+  })
+}
+
 export function joinChannel(channelName: string, spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     return fetchJson<JoinChannelResponse>(apiUrl`chat/join/${channelName}`, {

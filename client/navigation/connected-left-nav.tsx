@@ -33,6 +33,7 @@ import { cancelFindMatch } from '../matchmaking/action-creators'
 import { isMatchmakingLoading } from '../matchmaking/matchmaking-reducer'
 import { SearchingMatchNavEntry } from '../matchmaking/searching-match-nav-entry'
 import { RaisedButton, useButtonHotkey } from '../material/button'
+import { ClickableSubheader } from '../material/left-nav/clickable-subheader'
 import LeftNav from '../material/left-nav/left-nav'
 import Section from '../material/left-nav/section'
 import Subheader from '../material/left-nav/subheader'
@@ -434,8 +435,9 @@ export function ConnectedLeftNav() {
   )
 
   const onJoinChannelClick = useCallback(() => {
-    dispatch(openDialog({ type: DialogType.ChannelJoin }))
-  }, [dispatch])
+    push(urlPath`/chat/list`)
+    joinChannelButtonRef.current?.blur()
+  }, [])
   const onChannelLeave = useCallback(
     (channelId: SbChannelId) => {
       dispatch(leaveChannel(channelId))
@@ -464,15 +466,6 @@ export function ConnectedLeftNav() {
     [dispatch],
   )
 
-  const joinChannelButton = (
-    <Tooltip text='Join a channel (Alt + H)' position='right'>
-      <SubheaderButton
-        ref={joinChannelButtonRef}
-        icon={<MaterialIcon icon='add' />}
-        onClick={onJoinChannelClick}
-      />
-    </Tooltip>
-  )
   const addWhisperButton = (
     <Tooltip text='Start a whisper (Alt + W)' position='right'>
       <SubheaderButton
@@ -490,7 +483,18 @@ export function ConnectedLeftNav() {
       {IS_ELECTRON ? <ActiveGameSection /> : null}
       {IS_ELECTRON ? <LobbySection /> : null}
       {IS_ELECTRON ? <PartySection /> : null}
-      <Subheader button={MULTI_CHANNEL ? joinChannelButton : null}>Chat channels</Subheader>
+      {MULTI_CHANNEL ? (
+        <Tooltip text='Join a channel (Alt + H)' position='right'>
+          <ClickableSubheader
+            ref={joinChannelButtonRef}
+            icon={<MaterialIcon icon='add' />}
+            onClick={onJoinChannelClick}>
+            Chat channels
+          </ClickableSubheader>
+        </Tooltip>
+      ) : (
+        <Subheader>Chat channels</Subheader>
+      )}
       <Section>
         {Array.from(chatChannels.values(), c => (
           <ConnectedChatNavEntry key={c} channelId={c} onLeave={onChannelLeave} />

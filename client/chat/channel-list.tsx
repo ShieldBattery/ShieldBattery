@@ -2,30 +2,40 @@ import { debounce } from 'lodash-es'
 import React, { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { BasicChannelInfo } from '../../common/chat'
+import { urlPath } from '../../common/urls'
 import { ConnectedChannelInfoCard } from '../chat/channel-info-card'
+import { MaterialIcon } from '../icons/material/material-icon'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
+import { RaisedButton } from '../material/button'
 import { useLocationSearchParam } from '../navigation/router-hooks'
+import { push } from '../navigation/routing'
 import { useRefreshToken } from '../network/refresh-token'
 import { useAppDispatch } from '../redux-hooks'
 import { SearchInput } from '../search/search-input'
 import { useStableCallback } from '../state-hooks'
 import { colorError, colorTextFaint } from '../styles/colors'
-import { headline5, subtitle1 } from '../styles/typography'
+import { headline4, subtitle1 } from '../styles/typography'
 import { searchChannels } from './action-creators'
 
-const SEARCH_CHANNELS_LIMIT = 10
+const SEARCH_CHANNELS_LIMIT = 40
 
 const Container = styled.div`
-  padding: 12px 24px;
+  padding: 16px 24px;
 
   display: flex;
   flex-direction: column;
 `
 
+const TitleBar = styled.div`
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+`
+
 const PageHeadline = styled.div`
-  ${headline5};
-  margin-top: 16px;
-  margin-bottom: 8px;
+  ${headline4};
 `
 
 const StyledSearchInput = styled(SearchInput)`
@@ -37,7 +47,6 @@ const SearchResults = styled.div`
   flex-wrap: wrap;
   gap: 8px;
   margin: 16px 0;
-  overflow-y: auto;
 `
 
 const NoResults = styled.div`
@@ -109,6 +118,10 @@ export function ChannelList() {
     return () => abortControllerRef.current?.abort()
   }, [])
 
+  const onCreateChannelClick = useStableCallback(() => {
+    push(urlPath`/chat/new`)
+  })
+
   let searchContent
   if (searchError) {
     searchContent = <ErrorText>There was an error retrieving the chat channels.</ErrorText>
@@ -130,16 +143,23 @@ export function ChannelList() {
         hasNextData={hasMoreChannels}
         refreshToken={refreshToken}
         onLoadNextData={onLoadMoreChannels}>
-        {channelItems}
+        <SearchResults>{channelItems}</SearchResults>
       </InfiniteScrollList>
     )
   }
 
   return (
     <Container>
-      <PageHeadline>Channel list</PageHeadline>
+      <TitleBar>
+        <PageHeadline>Chat channels</PageHeadline>
+        <RaisedButton
+          label='Create channel'
+          iconStart={<MaterialIcon icon='add' />}
+          onClick={onCreateChannelClick}
+        />
+      </TitleBar>
       <StyledSearchInput searchQuery={searchQuery} onSearchChange={onSearchChange} />
-      <SearchResults>{searchContent}</SearchResults>
+      {searchContent}
     </Container>
   )
 }

@@ -8,7 +8,6 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import EditAccount from '../auth/edit-account'
 import ChangelogDialog from '../changelog/changelog-dialog'
 import { ChannelBanUserDialog } from '../chat/channel-ban-user-dialog'
-import { JoinChannelDialog } from '../chat/join-channel'
 import { FocusTrap } from '../dom/focus-trap'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
 import DownloadDialog from '../download/download-dialog'
@@ -72,8 +71,6 @@ function getDialog(dialogType: DialogType): {
       return { component: EditAccount, modal: false }
     case DialogType.Changelog:
       return { component: ChangelogDialog, modal: false }
-    case DialogType.ChannelJoin:
-      return { component: JoinChannelDialog, modal: false }
     case DialogType.ChannelBanUser:
       return { component: ChannelBanUserDialog, modal: false }
     case DialogType.Download:

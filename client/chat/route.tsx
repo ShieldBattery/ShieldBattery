@@ -7,6 +7,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppSelector } from '../redux-hooks'
 import { ConnectedChatChannel } from './channel'
 import { ChannelList } from './channel-list'
+import { CreateChannel } from './create-channel'
 
 const LoadableChatAdmin = React.lazy(async () => ({
   default: (await import('./admin')).ChatAdmin,
@@ -45,6 +46,8 @@ export function ChannelRouteComponent(props: { params: any }) {
     <Suspense fallback={<LoadingDotsArea />}>
       <Switch>
         {isAdmin ? <Route path='/chat/admin/:rest*' component={LoadableChatAdmin} /> : <></>}
+        <Route path='/chat/new' component={CreateChannel} />
+        <Route path='/chat/list' component={ChannelList} />
         <ChannelRoute path='/chat/:channelId/:channelName' component={ConnectedChatChannel} />
         <Route component={ChannelList} />
       </Switch>
