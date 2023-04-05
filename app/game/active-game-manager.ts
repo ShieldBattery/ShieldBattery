@@ -383,6 +383,8 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
 
 const injectPath = path.resolve(app.getAppPath(), '../game/dist/shieldbattery.dll')
 
+const initialCompatLayer = process.env.__COMPAT_LAYER
+
 async function doLaunch(
   gameId: string,
   serverPort: number,
@@ -420,6 +422,11 @@ async function doLaunch(
   // NOTE(tec27): We dynamically import this so that it doesn't crash the process on startup if
   // an antivirus decides to delete the native module
   const { launchProcess } = await import('./native/process/index')
+  // People sometimes turn on compatibility settings for the game process for misguided reasons,
+  // which then cause issues that they blame on us. So, we turn off what we can (which seems to be
+  // just the Run As Admin setting) to avoid those problems
+  log.debug('Setting __COMPAT_LAYER to remove Run As Admin setting')
+  process.env.__COMPAT_LAYER = 'RunAsInvoker'
   const proc = await launchProcess({
     appPath,
     args: args as any,
@@ -428,6 +435,7 @@ async function doLaunch(
     dllFunc: 'OnInject',
     logCallback: ((msg: string) => log.verbose(`[Inject] ${msg}`)) as any,
   })
+  process.env.__COMPAT_LAYER = initialCompatLayer
   log.verbose('Process launched')
   return proc
 }
