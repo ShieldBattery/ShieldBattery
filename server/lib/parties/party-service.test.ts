@@ -9,7 +9,7 @@ import { NotificationType } from '../../../common/notifications'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId, SbUser } from '../../../common/users/sb-user'
 import { findChannelsByName, FullChannelInfo } from '../chat/chat-models'
-import { toChannelSummary } from '../chat/chat-service'
+import { toBasicChannelInfo } from '../chat/chat-service'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import { MatchmakingServiceError } from '../matchmaking/matchmaking-service-error'
 import NotificationService from '../notifications/notification-service'
@@ -709,7 +709,7 @@ describe('parties/party-service', () => {
           text: `Join <#${channel.id}> and #non-existing`,
         },
         mentions: [],
-        channelMentions: [toChannelSummary(channel).channelInfo],
+        channelMentions: [toBasicChannelInfo(channel)],
       })
     })
   })

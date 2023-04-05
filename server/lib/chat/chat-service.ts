@@ -80,32 +80,31 @@ export function getChannelUserPath(channelId: SbChannelId, userId: SbUserId): st
   return `${getChannelPath(channelId)}/users/${userId}`
 }
 
-/**
- * Takes the full channel info (used in model methods), and returns the structured summary of all
- * the channel information that we use in network responses.
- */
-export function toChannelSummary(channel: FullChannelInfo): {
-  channelInfo: BasicChannelInfo
-  detailedChannelInfo: DetailedChannelInfo
-  joinedChannelInfo: JoinedChannelInfo
-} {
+/** Takes the full channel info (used in model methods), and returns only the basic fields. */
+export function toBasicChannelInfo(channel: FullChannelInfo): BasicChannelInfo {
   return {
-    channelInfo: {
-      id: channel.id,
-      name: channel.name,
-      private: channel.private,
-      official: channel.official,
-    },
-    // TODO(2Pac): Add the missing fields here after #909 is done.
-    detailedChannelInfo: {
-      id: channel.id,
-      userCount: channel.userCount,
-    },
-    joinedChannelInfo: {
-      id: channel.id,
-      ownerId: channel.ownerId,
-      topic: channel.topic,
-    },
+    id: channel.id,
+    name: channel.name,
+    private: channel.private,
+    official: channel.official,
+  }
+}
+
+// TODO(2Pac): Add the missing fields here after #909 is done.
+/** Takes the full channel info (used in model methods), and returns only the detailed fields. */
+export function toDetailedChannelInfo(channel: FullChannelInfo): DetailedChannelInfo {
+  return {
+    id: channel.id,
+    userCount: channel.userCount,
+  }
+}
+
+/** Takes the full channel info (used in model methods), and returns only the joined fields. */
+export function toJoinedChannelInfo(channel: FullChannelInfo): JoinedChannelInfo {
+  return {
+    id: channel.id,
+    ownerId: channel.ownerId,
+    topic: channel.topic,
   }
 }
 
@@ -328,7 +327,11 @@ export default class ChatService {
       this.updateUserAfterJoining(userInfo, channel.id, userChannelEntry!, message!)
     }
 
-    return toChannelSummary(channel)
+    return {
+      channelInfo: toBasicChannelInfo(channel),
+      detailedChannelInfo: toDetailedChannelInfo(channel),
+      joinedChannelInfo: toJoinedChannelInfo(channel),
+    }
   }
 
   async leaveChannel(channelId: SbChannelId, userId: SbUserId): Promise<void> {
@@ -500,7 +503,7 @@ export default class ChatService {
         name: result.userName,
       },
       mentions: userMentions,
-      channelMentions: channelMentions.map(c => toChannelSummary(c).channelInfo),
+      channelMentions: channelMentions.map(c => toBasicChannelInfo(c)),
     })
   }
 
@@ -544,11 +547,10 @@ export default class ChatService {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
 
-    const channelSummary = toChannelSummary(channelInfo)
     return {
-      channelInfo: channelSummary.channelInfo,
+      channelInfo: toBasicChannelInfo(channelInfo),
       detailedChannelInfo:
-        !channelInfo.private || isUserInChannel ? channelSummary.detailedChannelInfo : undefined,
+        !channelInfo.private || isUserInChannel ? toDetailedChannelInfo(channelInfo) : undefined,
     }
   }
 
@@ -564,12 +566,12 @@ export default class ChatService {
     const userJoinedChannelsSet = new global.Set(userChannelEntries.map(e => e.channelId))
 
     return {
-      channelInfos: channelInfos.map(channel => toChannelSummary(channel).channelInfo),
+      channelInfos: channelInfos.map(channel => toBasicChannelInfo(channel)),
       detailedChannelInfos: channelInfos
         .filter(channel => {
           return !channel.private || userJoinedChannelsSet.has(channel.id)
         })
-        .map(channel => toChannelSummary(channel).detailedChannelInfo),
+        .map(channel => toDetailedChannelInfo(channel)),
     }
   }
 
@@ -661,7 +663,7 @@ export default class ChatService {
       messages,
       users,
       mentions: userMentions,
-      channelMentions: channelMentions.map(c => toChannelSummary(c).channelInfo),
+      channelMentions: channelMentions.map(c => toBasicChannelInfo(c)),
       deletedChannels,
     }
   }
@@ -824,25 +826,32 @@ export default class ChatService {
 
   private subscribeUserToChannel(userSockets: UserSocketsGroup, channelId: SbChannelId) {
     userSockets.subscribe<ChatInitEvent>(getChannelPath(channelId), async () => {
-      const [channelInfo, userChannelEntry] = await Promise.all([
-        getChannelInfo(channelId),
-        getUserChannelEntryForUser(userSockets.userId, channelId),
-      ])
-      if (!channelInfo) {
-        throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
-      }
-      if (!userChannelEntry) {
-        throw new ChatServiceError(
-          ChatServiceErrorCode.NotInChannel,
-          'Must be in channel to subscribe to it',
-        )
-      }
+      try {
+        const [channelInfo, userChannelEntry] = await Promise.all([
+          getChannelInfo(channelId),
+          getUserChannelEntryForUser(userSockets.userId, channelId),
+        ])
+        if (!channelInfo) {
+          throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+        }
+        if (!userChannelEntry) {
+          throw new ChatServiceError(
+            ChatServiceErrorCode.NotInChannel,
+            'Must be in channel to subscribe to it',
+          )
+        }
 
-      return {
-        action: 'init3',
-        ...toChannelSummary(channelInfo),
-        activeUserIds: this.state.channels.get(channelInfo.id)!.toArray(),
-        selfPermissions: userChannelEntry.channelPermissions,
+        return {
+          action: 'init3',
+          channelInfo: toBasicChannelInfo(channelInfo),
+          detailedChannelInfo: toDetailedChannelInfo(channelInfo),
+          joinedChannelInfo: toJoinedChannelInfo(channelInfo),
+          activeUserIds: this.state.channels.get(channelInfo.id)!.toArray(),
+          selfPermissions: userChannelEntry.channelPermissions,
+        }
+      } catch (err) {
+        logger.error({ err }, 'Error retrieving the initial channel data for the user')
+        return undefined
       }
     })
     userSockets.subscribe(getChannelUserPath(channelId, userSockets.userId))

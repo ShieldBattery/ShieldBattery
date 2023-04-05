@@ -27,7 +27,6 @@ import {
   sendMessage,
 } from './action-creators'
 import { ConnectedChannelInfoCard } from './channel-info-card'
-import { useChannelInfoSelector } from './channel-info-selector'
 import { addChannelMessageMenuItems, addChannelUserMenuItems } from './channel-menu-items'
 import { ChannelUserList } from './channel-user-list'
 import {
@@ -85,7 +84,7 @@ export function ConnectedChatChannel({
   channelName: channelNameFromRoute,
 }: ChatChannelProps) {
   const dispatch = useAppDispatch()
-  const channelInfo = useAppSelector(useChannelInfoSelector(channelId))
+  const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const channelUsers = useAppSelector(s => s.chat.idToUsers.get(channelId))
   const channelMessages = useAppSelector(s => s.chat.idToMessages.get(channelId))
   const isInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
@@ -113,10 +112,10 @@ export function ConnectedChatChannel({
   }, [isInChannel, channelId, dispatch])
 
   useEffect(() => {
-    if (channelInfo && channelNameFromRoute !== channelInfo.name) {
-      correctChannelNameForChat(channelInfo.id, channelInfo.name)
+    if (basicChannelInfo && channelNameFromRoute !== basicChannelInfo.name) {
+      correctChannelNameForChat(basicChannelInfo.id, basicChannelInfo.name)
     }
-  }, [channelInfo, channelNameFromRoute])
+  }, [basicChannelInfo, channelNameFromRoute])
 
   const onLoadMoreMessages = useStableCallback(() =>
     dispatch(getMessageHistory(channelId, MESSAGES_LIMIT)),
@@ -209,7 +208,7 @@ function ChannelInfoPage({
   channelName: string
 }) {
   const dispatch = useAppDispatch()
-  const channelInfo = useAppSelector(useChannelInfoSelector(channelId))
+  const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
 
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error>()
@@ -266,8 +265,13 @@ function ChannelInfoPage({
         {errorText}
       </ErrorContainer>
     )
-  } else if (channelInfo) {
-    contents = <ConnectedChannelInfoCard channelId={channelId} channelName={channelName} />
+  } else if (basicChannelInfo) {
+    contents = (
+      <ConnectedChannelInfoCard
+        channelId={basicChannelInfo.id}
+        channelName={basicChannelInfo.name}
+      />
+    )
   }
 
   return <ChannelInfoContainer>{contents}</ChannelInfoContainer>

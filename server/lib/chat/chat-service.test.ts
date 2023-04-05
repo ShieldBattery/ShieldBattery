@@ -52,7 +52,7 @@ import {
   updateUserPermissions,
   UserChannelEntry,
 } from './chat-models'
-import ChatService, { getChannelPath, getChannelUserPath, toChannelSummary } from './chat-service'
+import ChatService, { getChannelPath, getChannelUserPath, toBasicChannelInfo } from './chat-service'
 
 const flagsMock = flags as { CAN_LEAVE_SHIELDBATTERY_CHANNEL: boolean }
 
@@ -1154,7 +1154,7 @@ describe('chat/chat-service', () => {
           message: toTextMessageJson(textMessage),
           user: user1,
           mentions: userMentions,
-          channelMentions: channelMentions.map(c => toChannelSummary(c).channelInfo),
+          channelMentions: channelMentions.map(c => toBasicChannelInfo(c)),
         })
       }
 
@@ -1465,8 +1465,8 @@ describe('chat/chat-service', () => {
         users: [user1],
         mentions: [user1, user2],
         channelMentions: [
-          toChannelSummary(shieldBatteryChannel).channelInfo,
-          toChannelSummary(testChannel).channelInfo,
+          toBasicChannelInfo(shieldBatteryChannel),
+          toBasicChannelInfo(testChannel),
         ],
         deletedChannels: [],
       })
@@ -1578,8 +1578,8 @@ describe('chat/chat-service', () => {
         users: [user1],
         mentions: [],
         channelMentions: [
-          toChannelSummary(shieldBatteryChannel).channelInfo,
-          toChannelSummary(testChannel).channelInfo,
+          toBasicChannelInfo(shieldBatteryChannel),
+          toBasicChannelInfo(testChannel),
         ],
         deletedChannels: [DELETED_ID],
       })

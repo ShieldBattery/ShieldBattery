@@ -151,10 +151,7 @@ export interface DetailedChannelInfo {
   bannerPath?: string
   /** The path to the badge image of the chat channel, if set. */
   badgePath?: string
-  /**
-   * Number of users in the channel. Only available for non-private channels, and for private
-   * channels that the user has joined.
-   */
+  /** The Number of users in the channel. */
   userCount: number
 }
 
@@ -170,7 +167,7 @@ export interface JoinedChannelInfo {
    * channel the earliest. Is `undefined` for official channels.
    */
   ownerId?: SbUserId
-  /** A short message used to display the channel's current topic, if there's any. */
+  /** An optional short message to describe the current topic of the channel. */
   topic?: string
 }
 

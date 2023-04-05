@@ -15,7 +15,6 @@ import { body1, caption, headline6 } from '../styles/typography'
 import { getBatchChannelInfo, joinChannel, navigateToChannel } from './action-creators'
 import { ChannelBadge } from './channel-badge'
 import { ChannelBanner, ChannelBannerPlaceholderImage } from './channel-banner'
-import { useChannelInfoSelector } from './channel-info-selector'
 
 const ChannelCardRoot = styled(Card)`
   position: relative;
@@ -133,7 +132,8 @@ export function ConnectedChannelInfoCard({
   channelName,
 }: ConnectedChannelInfoCardProps) {
   const dispatch = useAppDispatch()
-  const channelInfo = useAppSelector(useChannelInfoSelector(channelId))
+  const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
+  const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId))
   const isUserInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
 
   const [isJoinInProgress, setIsJoinInProgress] = useState(false)
@@ -166,9 +166,9 @@ export function ConnectedChannelInfoCard({
   })
 
   let channelDescription
-  if (!channelInfo) {
+  if (!basicChannelInfo) {
     channelDescription = <LoadingDotsArea />
-  } else if (channelInfo.private && !isUserInChannel) {
+  } else if (basicChannelInfo.private && !isUserInChannel) {
     channelDescription = (
       <PrivateChannelDescriptionContainer>
         <PrivateChannelIcon size={40} />
@@ -177,10 +177,10 @@ export function ConnectedChannelInfoCard({
         </PrivateChannelDescriptionText>
       </PrivateChannelDescriptionContainer>
     )
-  } else if (channelInfo.description) {
+  } else if (detailedChannelInfo?.description) {
     channelDescription = (
       <ChannelDescriptionContainer>
-        <span>{channelInfo.description}</span>
+        <span>{detailedChannelInfo.description}</span>
       </ChannelDescriptionContainer>
     )
   } else {
@@ -194,30 +194,33 @@ export function ConnectedChannelInfoCard({
   let action
   if (isUserInChannel) {
     action = <RaisedButton label='View' onClick={onViewClick} />
-  } else if (channelInfo?.private || isUserBanned) {
+  } else if (basicChannelInfo?.private || isUserBanned) {
     action = <RaisedButton label='Join' disabled={true} />
-  } else if (channelInfo) {
+  } else if (basicChannelInfo) {
     action = <RaisedButton label='Join' disabled={isJoinInProgress} onClick={onJoinClick} />
   }
 
   return (
     <ChannelCardRoot>
       <ChannelBannerAndBadge>
-        {channelInfo?.bannerPath ? (
-          <ChannelBanner src={channelInfo.bannerPath} />
+        {detailedChannelInfo?.bannerPath ? (
+          <ChannelBanner src={detailedChannelInfo.bannerPath} />
         ) : (
           <ChannelBannerPlaceholderImage />
         )}
-        {channelInfo ? (
+        {basicChannelInfo ? (
           <ChannelCardBadge>
-            <ChannelBadge channelInfo={channelInfo} />
+            <ChannelBadge
+              basicChannelInfo={basicChannelInfo}
+              detailedChannelInfo={detailedChannelInfo}
+            />
           </ChannelCardBadge>
         ) : null}
       </ChannelBannerAndBadge>
-      <ChannelName>{channelInfo?.name ?? channelName}</ChannelName>
-      {channelInfo?.userCount ? (
+      <ChannelName>{basicChannelInfo?.name ?? channelName}</ChannelName>
+      {detailedChannelInfo?.userCount ? (
         <ChannelUserCount>
-          {`${channelInfo.userCount} member${channelInfo.userCount > 1 ? 's' : ''}`}
+          {`${detailedChannelInfo.userCount} member${detailedChannelInfo.userCount > 1 ? 's' : ''}`}
         </ChannelUserCount>
       ) : null}
       {channelDescription}

@@ -12,7 +12,6 @@ import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { MenuItemCategory } from '../users/user-context-menu'
 import { deleteMessageAsAdmin, getChatUserProfile, moderateUser } from './action-creators'
-import { useChannelInfoSelector } from './channel-info-selector'
 
 // NOTE(2Pac): Even though this function is technically not a React component, nor a custom hook, we
 // still treat it as one since it suits our needs quite nicely (by allowing us to run hooks in it
@@ -32,7 +31,7 @@ export function addChannelUserMenuItems(
   const selfPermissions = useAppSelector(s => s.auth.permissions)
   const selfUserId = useAppSelector(s => s.auth.user.id)
   const user = useAppSelector(s => s.users.byId.get(userId))
-  const channelInfo = useAppSelector(useChannelInfoSelector(channelId))
+  const joinedChannelInfo = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId))
   const channelUserProfiles = useAppSelector(s => s.chat.idToUserProfiles.get(channelId))
   const channelSelfPermissions = useAppSelector(s => s.chat.idToSelfPermissions.get(channelId))
 
@@ -81,7 +80,7 @@ export function addChannelUserMenuItems(
   })
   /* eslint-enable react-hooks/rules-of-hooks */
 
-  if (!user || !channelInfo || !channelUserProfiles || !channelSelfPermissions) {
+  if (!user || !joinedChannelInfo || !channelUserProfiles || !channelSelfPermissions) {
     return items
   }
 
@@ -95,7 +94,7 @@ export function addChannelUserMenuItems(
     if (
       selfPermissions.editPermissions ||
       selfPermissions.moderateChatChannels ||
-      channelInfo.ownerId === selfUserId
+      joinedChannelInfo.ownerId === selfUserId
     ) {
       appendToMultimap(
         items,

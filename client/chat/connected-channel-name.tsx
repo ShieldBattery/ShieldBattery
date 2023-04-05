@@ -7,7 +7,6 @@ import { useStableCallback } from '../state-hooks'
 import { colorDividers } from '../styles/colors'
 import { getBatchChannelInfo } from './action-creators'
 import { ConnectedChannelInfoCard } from './channel-info-card'
-import { useChannelInfoSelector } from './channel-info-selector'
 
 const ChannelName = styled.span`
   &:hover {
@@ -33,7 +32,7 @@ export interface ConnectedChannelNameProps {
  */
 export function ConnectedChannelName({ className, channelId }: ConnectedChannelNameProps) {
   const dispatch = useAppDispatch()
-  const channelInfo = useAppSelector(useChannelInfoSelector(channelId))
+  const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const isChannelDeleted = useAppSelector(s => s.chat.deletedChannels.has(channelId))
 
   useEffect(() => {
@@ -65,14 +64,14 @@ export function ConnectedChannelName({ className, channelId }: ConnectedChannelN
         anchorY={(anchorY ?? 0) + 4}
         originX={'left'}
         originY={'top'}>
-        {channelInfo ? (
-          <ConnectedChannelInfoCard channelId={channelId} channelName={channelInfo.name} />
+        {basicChannelInfo ? (
+          <ConnectedChannelInfoCard channelId={channelId} channelName={basicChannelInfo.name} />
         ) : null}
       </Popover>
 
-      {channelInfo ? (
+      {basicChannelInfo ? (
         <ChannelName className={className} ref={anchor} onClick={onClick}>
-          #{channelInfo.name}
+          #{basicChannelInfo.name}
         </ChannelName>
       ) : (
         <LoadingChannelName aria-label={'Channel name loading…'}>
