@@ -454,6 +454,7 @@ export default class ChatService {
     this.publisher.publish(getChannelPath(channelId), {
       action: moderationAction,
       targetId,
+      channelName: channelInfo.name,
       newOwnerId,
     })
 
@@ -551,6 +552,8 @@ export default class ChatService {
       channelInfo: toBasicChannelInfo(channelInfo),
       detailedChannelInfo:
         !channelInfo.private || isUserInChannel ? toDetailedChannelInfo(channelInfo) : undefined,
+      joinedChannelInfo:
+        !channelInfo.private || isUserInChannel ? toJoinedChannelInfo(channelInfo) : undefined,
     }
   }
 
@@ -565,13 +568,26 @@ export default class ChatService {
 
     const userJoinedChannelsSet = new global.Set(userChannelEntries.map(e => e.channelId))
 
+    const [detailedChannelInfos, joinedChannelInfos] = channelInfos.reduce<
+      [DetailedChannelInfo[], JoinedChannelInfo[]]
+    >(
+      (acc, channel) => {
+        if (channel.private && !userJoinedChannelsSet.has(channel.id)) {
+          return acc
+        }
+
+        acc[0].push(toDetailedChannelInfo(channel))
+        acc[1].push(toJoinedChannelInfo(channel))
+
+        return acc
+      },
+      [[], []],
+    )
+
     return {
       channelInfos: channelInfos.map(channel => toBasicChannelInfo(channel)),
-      detailedChannelInfos: channelInfos
-        .filter(channel => {
-          return !channel.private || userJoinedChannelsSet.has(channel.id)
-        })
-        .map(channel => toDetailedChannelInfo(channel)),
+      detailedChannelInfos,
+      joinedChannelInfos,
     }
   }
 

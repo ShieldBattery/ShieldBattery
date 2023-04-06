@@ -50,17 +50,13 @@ const eventToChatAction: EventToChatActionMap = {
   },
 
   kick: (channelId, event) => (dispatch, getState) => {
-    const { auth, chat } = getState()
-    const channelInfo = chat.idToBasicInfo.get(channelId)
-    if (!channelInfo) {
-      return
-    }
+    const { auth } = getState()
 
     if (auth.user.id === event.targetId) {
       // It was us who has been kicked from the channel
       dispatch(
         openSnackbar({
-          message: `You have been kicked from ${channelInfo.name}.`,
+          message: `You have been kicked from ${event.channelName}.`,
           time: TIMING_LONG,
         }),
       )
@@ -78,11 +74,7 @@ const eventToChatAction: EventToChatActionMap = {
   },
 
   ban: (channelId, event) => (dispatch, getState) => {
-    const { auth, chat } = getState()
-    const channelInfo = chat.idToBasicInfo.get(channelId)
-    if (!channelInfo) {
-      return
-    }
+    const { auth } = getState()
 
     if (auth.user.id === event.targetId) {
       // It was us who has been banned from the channel
@@ -90,7 +82,7 @@ const eventToChatAction: EventToChatActionMap = {
       // just showing a snackbar which is easily missed if the user is not looking.
       dispatch(
         openSnackbar({
-          message: `You have been banned from ${channelInfo.name}.`,
+          message: `You have been banned from ${event.channelName}.`,
           time: TIMING_LONG,
         }),
       )

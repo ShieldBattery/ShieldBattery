@@ -794,6 +794,7 @@ describe('chat/chat-service', () => {
         expect(client1.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
           action: ChannelModerationAction.Kick,
           targetId: user2.id,
+          channelName: shieldBatteryChannel.name,
           newOwnerId: undefined,
         })
 
@@ -810,6 +811,7 @@ describe('chat/chat-service', () => {
         expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
           action: ChannelModerationAction.Kick,
           targetId: user2.id,
+          channelName: testChannel.name,
           newOwnerId: undefined,
         })
 
@@ -1277,6 +1279,7 @@ describe('chat/chat-service', () => {
       expect(result).toEqual({
         channelInfo: testBasicInfo,
         detailedChannelInfo: testDetailedInfo,
+        joinedChannelInfo: testJoinedInfo,
       })
     })
 
@@ -1292,6 +1295,7 @@ describe('chat/chat-service', () => {
             private: true,
           },
           detailedChannelInfo: undefined,
+          joinedChannelInfo: undefined,
         })
       })
 
@@ -1313,6 +1317,7 @@ describe('chat/chat-service', () => {
             private: true,
           },
           detailedChannelInfo: testDetailedInfo,
+          joinedChannelInfo: testJoinedInfo,
         })
       })
     })
@@ -1331,6 +1336,7 @@ describe('chat/chat-service', () => {
       expect(result).toEqual({
         channelInfos: [],
         detailedChannelInfos: [],
+        joinedChannelInfos: [],
       })
     })
 
@@ -1345,6 +1351,7 @@ describe('chat/chat-service', () => {
       expect(result).toEqual({
         channelInfos: [shieldBatteryBasicInfo, testBasicInfo],
         detailedChannelInfos: [shieldBatteryDetailedInfo, testDetailedInfo],
+        joinedChannelInfos: [shieldBatteryJoinedInfo, testJoinedInfo],
       })
     })
 
@@ -1356,7 +1363,7 @@ describe('chat/chat-service', () => {
         ])
       })
 
-      test("doesn't return detailed channel infos for private channels", async () => {
+      test("doesn't return detailed and joined channel infos for private channels", async () => {
         const result = await chatService.getChannelInfos(
           [shieldBatteryChannel.id, testChannel.id],
           user1.id,
@@ -1365,10 +1372,11 @@ describe('chat/chat-service', () => {
         expect(result).toEqual({
           channelInfos: [shieldBatteryBasicInfo, { ...testBasicInfo, private: true }],
           detailedChannelInfos: [shieldBatteryDetailedInfo],
+          joinedChannelInfos: [shieldBatteryJoinedInfo],
         })
       })
 
-      test('returns detailed channel info if user is in a private channel', async () => {
+      test('returns detailed and joined channel info if user is in a private channel', async () => {
         await joinUserToChannel(
           user1,
           testChannel,
@@ -1387,6 +1395,7 @@ describe('chat/chat-service', () => {
             shieldBatteryDetailedInfo,
             { ...testDetailedInfo, userCount: testChannel.userCount },
           ],
+          joinedChannelInfos: [shieldBatteryJoinedInfo, testJoinedInfo],
         })
       })
     })

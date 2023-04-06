@@ -423,11 +423,14 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
   ['@chat/getChannelInfo'](state, action) {
     const { channelId } = action.meta
-    const { channelInfo, detailedChannelInfo } = action.payload
+    const { channelInfo, detailedChannelInfo, joinedChannelInfo } = action.payload
 
     state.idToBasicInfo.set(channelId, channelInfo)
     if (detailedChannelInfo) {
       state.idToDetailedInfo.set(channelId, detailedChannelInfo)
+    }
+    if (joinedChannelInfo) {
+      state.idToJoinedInfo.set(channelId, joinedChannelInfo)
     }
   },
 
@@ -441,6 +444,9 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     }
     for (const detailedChannelInfo of action.payload.detailedChannelInfos) {
       state.idToDetailedInfo.set(detailedChannelInfo.id, detailedChannelInfo)
+    }
+    for (const joinedChannelInfo of action.payload.joinedChannelInfos) {
+      state.idToJoinedInfo.set(joinedChannelInfo.id, joinedChannelInfo)
     }
   },
 

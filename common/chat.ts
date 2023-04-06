@@ -224,6 +224,8 @@ export interface ChatKickEvent {
   action: 'kick'
   /** The ID of a user that was kicked from the chat channel. */
   targetId: SbUserId
+  /** The name of the chat channel user was kicked from. */
+  channelName: string
   /** The ID of a user that was selected as a new owner of the channel, if any. */
   newOwnerId?: SbUserId
 }
@@ -232,6 +234,8 @@ export interface ChatBanEvent {
   action: 'ban'
   /** The ID of a user that was banned from the chat channel. */
   targetId: SbUserId
+  /** The name of the chat channel user was banned from. */
+  channelName: string
   /** The ID of a user that was selected as a new owner of the channel, if any. */
   newOwnerId?: SbUserId
 }
@@ -427,6 +431,7 @@ export interface UpdateChannelUserPermissionsRequest {
 export interface GetBatchedChannelInfosResponse {
   channelInfos: BasicChannelInfo[]
   detailedChannelInfos: DetailedChannelInfo[]
+  joinedChannelInfos: JoinedChannelInfo[]
 }
 
 /**
@@ -435,6 +440,7 @@ export interface GetBatchedChannelInfosResponse {
 export interface GetChannelInfoResponse {
   channelInfo: BasicChannelInfo
   detailedChannelInfo?: DetailedChannelInfo
+  joinedChannelInfo?: JoinedChannelInfo
 }
 
 /**
@@ -443,4 +449,5 @@ export interface GetChannelInfoResponse {
 export interface SearchChannelsResponse {
   channelInfos: BasicChannelInfo[]
   detailedChannelInfos: DetailedChannelInfo[]
+  joinedChannelInfos: JoinedChannelInfo[]
 }
