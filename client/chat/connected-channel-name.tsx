@@ -1,12 +1,20 @@
 import React, { useEffect } from 'react'
 import styled from 'styled-components'
 import { SbChannelId } from '../../common/chat'
+import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorDividers } from '../styles/colors'
 import { getBatchChannelInfo } from './action-creators'
+import { ConnectedChannelInfoCard } from './channel-info-card'
 
-const LoadingName = styled.span`
-  margin-right: 0.25em;
+const ChannelName = styled.span`
+  &:hover {
+    cursor: pointer;
+    text-decoration: underline;
+  }
+`
+
+const LoadingChannelName = styled.span`
   background-color: ${colorDividers};
   border-radius: 2px;
 `
@@ -18,22 +26,50 @@ export interface ConnectedChannelNameProps {
 }
 
 /**
- * A component which, given a channel ID, displays a channel name. Pretty barebones at the moment,
- * but will be extended with further functionality soon.
+ * A component which, given a channel ID, displays a clickable channel name, which displays channel
+ * info when clicked.
  */
 export function ConnectedChannelName({ className, channelId }: ConnectedChannelNameProps) {
   const dispatch = useAppDispatch()
-  const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
+  const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
+  const isChannelDeleted = useAppSelector(s => s.chat.deletedChannels.has(channelId))
 
   useEffect(() => {
-    dispatch(getBatchChannelInfo(channelId))
-  }, [dispatch, channelId])
+    if (!isChannelDeleted) {
+      dispatch(getBatchChannelInfo(channelId))
+    }
+  }, [dispatch, channelId, isChannelDeleted])
 
-  const channelName = channelInfo?.name ?? (
-    <LoadingName aria-label={'Channel loading…'}>
-      &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
-    </LoadingName>
+  const [channelInfoCardOpen, openChannelInfoCard, closeChannelInfoCard] = usePopoverController()
+  const [anchor, anchorX, anchorY] = useAnchorPosition('right', 'top')
+
+  if (isChannelDeleted) {
+    return <span>#deleted-channel</span>
+  }
+
+  return (
+    <>
+      <Popover
+        open={channelInfoCardOpen}
+        onDismiss={closeChannelInfoCard}
+        anchorX={(anchorX ?? 0) + 4}
+        anchorY={(anchorY ?? 0) + 4}
+        originX={'left'}
+        originY={'top'}>
+        {basicChannelInfo ? (
+          <ConnectedChannelInfoCard channelId={channelId} channelName={basicChannelInfo.name} />
+        ) : null}
+      </Popover>
+
+      {basicChannelInfo ? (
+        <ChannelName className={className} ref={anchor} onClick={openChannelInfoCard}>
+          #{basicChannelInfo.name}
+        </ChannelName>
+      ) : (
+        <LoadingChannelName aria-label={'Channel name loading…'}>
+          &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
+        </LoadingChannelName>
+      )}
+    </>
   )
-
-  return <span className={className}>#{channelName}</span>
 }

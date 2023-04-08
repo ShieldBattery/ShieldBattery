@@ -21,6 +21,7 @@ import {
   isUms,
 } from '../../../common/lobbies'
 import * as Slots from '../../../common/lobbies/slot'
+import { toBasicChannelInfo } from '../chat/chat-models'
 import { GameLoader } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
@@ -285,7 +286,7 @@ export class LobbyApi {
     let { text } = data.get('body')
 
     text = filterChatMessage(text)
-    const [processedText, mentionedUsers] = await processMessageContents(text)
+    const [processedText, userMentions, channelMentions] = await processMessageContents(text)
     this._publishTo(lobby, {
       type: 'chat',
       message: {
@@ -294,7 +295,8 @@ export class LobbyApi {
         from: client.userId,
         text: processedText,
       },
-      mentions: Array.from(mentionedUsers.values()),
+      mentions: userMentions,
+      channelMentions: channelMentions.map(c => toBasicChannelInfo(c)),
     })
   }
 

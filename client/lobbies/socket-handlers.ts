@@ -1,4 +1,5 @@
 import { NydusClient, RouteHandler } from 'nydus-client'
+import { BasicChannelInfo } from '../../common/chat'
 import { GameLaunchConfig, GameRoute, PlayerInfo } from '../../common/game-launch-config'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { getIngameLobbySlotsWithIndexes } from '../../common/lobbies'
@@ -221,6 +222,7 @@ interface LobbyChatEvent {
   type: 'chat'
   message: LobbyChatMessage
   mentions: SbUser[]
+  channelMentions: BasicChannelInfo[]
 }
 
 interface LobbyStatusEvent {

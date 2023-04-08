@@ -111,9 +111,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       msg =>
         new TextMessageRecord({
           id: msg.id,
-          time: msg.sent,
+          time: msg.time,
           from: msg.from.id,
-          text: msg.data.text,
+          text: msg.text,
         }),
     )
 

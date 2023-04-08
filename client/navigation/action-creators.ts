@@ -8,7 +8,7 @@ export function goToIndex(transitionFn = push): ThunkAction {
   return (_, getState) => {
     const {
       lobby,
-      chat: { idToInfo, joinedChannels },
+      chat: { idToBasicInfo, joinedChannels },
       users: { byId },
       whispers: { sessions },
     } = getState()
@@ -16,10 +16,10 @@ export function goToIndex(transitionFn = push): ThunkAction {
       transitionFn(urlPath`/lobbies/${lobby.info.name}`)
     } else if (joinedChannels.size) {
       const [first] = joinedChannels.values()
-      transitionFn(urlPath`/chat/${first}/${idToInfo.get(first)?.name ?? ''}`)
+      transitionFn(urlPath`/chat/${first}/${idToBasicInfo.get(first)?.name ?? '_'}`)
     } else if (sessions.size) {
       const [first] = sessions
-      transitionFn(urlPath`/whispers/${first}/${byId.get(first)?.name ?? ''}`)
+      transitionFn(urlPath`/whispers/${first}/${byId.get(first)?.name ?? '_'}`)
     } else {
       transitionFn('/chat')
     }

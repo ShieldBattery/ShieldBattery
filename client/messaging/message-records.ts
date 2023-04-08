@@ -4,6 +4,9 @@ import { SbUserId } from '../../common/users/sb-user'
 import { LobbyMessage } from '../lobbies/lobby-message-records'
 import { PartyMessage } from '../parties/party-message-records'
 
+// TODO(2Pac): Move all the messaging-related services to immer like the chat service already is,
+// and remove this file.
+
 /**
  * A common message type that's used in all messaging-related services (e.g. chat, whispers,
  * lobbies, parties, etc.). All other message types that are specific to a particular service are

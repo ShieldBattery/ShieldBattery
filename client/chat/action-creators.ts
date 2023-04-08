@@ -1,9 +1,11 @@
 import {
-  ChannelInfo,
   ChannelModerationAction,
   ChatServiceErrorCode,
+  GetBatchedChannelInfosResponse,
   GetChannelHistoryServerResponse,
+  GetChannelInfoResponse,
   GetChatUserProfileResponse,
+  JoinChannelResponse,
   ModerateChannelUserServerRequest,
   SbChannelId,
   SendChatMessageServerRequest,
@@ -22,11 +24,11 @@ import { ActivateChannel, DeactivateChannel } from './actions'
 
 export function joinChannel(channelName: string, spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    return fetchJson<ChannelInfo>(apiUrl`chat/join/${channelName}`, {
+    return fetchJson<JoinChannelResponse>(apiUrl`chat/join/${channelName}`, {
       method: 'POST',
       signal: spec.signal,
     })
-      .then(channel => navigateToChannel(channel.id, channel.name))
+      .then(channel => navigateToChannel(channel.channelInfo.id, channel.channelInfo.name))
       .catch(err => {
         let message = `An error occurred while joining ${channelName}`
 
@@ -202,10 +204,11 @@ export function getChannelInfo(
   return abortableThunk(spec, async dispatch => {
     dispatch({
       type: '@chat/getChannelInfo',
-      payload: await fetchJson<ChannelInfo>(apiUrl`chat/${channelId}`, {
+      payload: await fetchJson<GetChannelInfoResponse>(apiUrl`chat/${channelId}`, {
         method: 'GET',
         signal: spec.signal,
       }),
+      meta: { channelId },
     })
   })
 }
@@ -216,7 +219,9 @@ const channelsBatchRequester = new MicrotaskBatchRequester<SbChannelId>(
   MAX_BATCH_CHANNEL_REQUESTS,
   (dispatch, items) => {
     const params = items.map(c => urlPath`c=${c}`).join('&')
-    const promise = fetchJson<ChannelInfo[]>(apiUrl`chat/batch-info` + '?' + params)
+    const promise = fetchJson<GetBatchedChannelInfosResponse>(
+      apiUrl`chat/batch-info` + '?' + params,
+    )
     dispatch({
       type: '@chat/getBatchChannelInfo',
       payload: promise,
@@ -236,10 +241,10 @@ const channelsBatchRequester = new MicrotaskBatchRequester<SbChannelId>(
 export function getBatchChannelInfo(channelId: SbChannelId): ThunkAction {
   return (dispatch, getState) => {
     const {
-      chat: { idToInfo },
+      chat: { idToBasicInfo, idToDetailedInfo },
     } = getState()
 
-    if (!idToInfo.has(channelId)) {
+    if (!idToBasicInfo.has(channelId) || !idToDetailedInfo.has(channelId)) {
       channelsBatchRequester.request(dispatch, channelId)
     }
   }

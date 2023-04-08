@@ -1,4 +1,4 @@
-import { matchMentionsMarkup, matchUserMentions } from './mentions'
+import { matchUserMentions, matchUserMentionsMarkup } from './user-mentions'
 
 describe('common/text/mentions/matchUserMentions', () => {
   const doMatch = (text: string): string[] => {
@@ -112,7 +112,7 @@ describe('common/text/mentions/matchUserMentions', () => {
     `)
   })
 
-  test('user with question mark in name', () => {
+  test('user with exclamation mark in name', () => {
     expect(doMatch('Hi @test!')).toMatchInlineSnapshot(`
       [
         "test!",
@@ -161,9 +161,9 @@ describe('common/text/mentions/matchUserMentions', () => {
   })
 })
 
-describe('common/text/mentions/matchMentionsMarkup', () => {
+describe('common/text/mentions/matchUserMentionsMarkup', () => {
   const doMatch = (text: string): string[] => {
-    return Array.from(matchMentionsMarkup(text), match => match.groups.userId)
+    return Array.from(matchUserMentionsMarkup(text), match => match.groups.userId)
   }
 
   test('mention markup as entire text', () => {

@@ -132,6 +132,7 @@ const eventToAction: EventToActionMap = {
       dispatch({
         type: '@parties/updateChatMessage',
         payload: event,
+        meta: { partyId },
       })
 
       if (!isBlocked && (!current?.activated || !windowFocus.isFocused())) {

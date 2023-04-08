@@ -21,6 +21,7 @@ import {
 } from '../../../common/parties'
 import { RaceChar } from '../../../common/races'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
+import { toBasicChannelInfo } from '../chat/chat-models'
 import { CodedError } from '../errors/coded-error'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
@@ -355,7 +356,7 @@ export default class PartyService implements InPartyChecker {
     }
 
     const text = filterChatMessage(message)
-    const [processedText, mentionedUsers] = await processMessageContents(text)
+    const [processedText, userMentions, channelMentions] = await processMessageContents(text)
 
     this.publisher.publish(getPartyPath(partyId), {
       type: 'chatMessage',
@@ -365,7 +366,8 @@ export default class PartyService implements InPartyChecker {
         time: this.clock.now(),
         text: processedText,
       },
-      mentions: Array.from(mentionedUsers.values()),
+      mentions: userMentions,
+      channelMentions: channelMentions.map(c => toBasicChannelInfo(c)),
     })
   }
 

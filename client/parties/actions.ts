@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
 import { MatchmakingPreferences, MatchmakingType } from '../../common/matchmaking'
-import { PartyChatMessage, PartyJson, PartyQueueCancelReason } from '../../common/parties'
+import { PartyChatMessageEvent, PartyJson, PartyQueueCancelReason } from '../../common/parties'
 import { RaceChar } from '../../common/races'
 import { SbUser, SbUserId } from '../../common/users/sb-user'
 import { BaseFetchFailure } from '../network/fetch-errors'
@@ -289,10 +289,8 @@ export interface UpdateLeaderChange {
 
 export interface UpdateChatMessage {
   type: '@parties/updateChatMessage'
-  payload: {
-    message: PartyChatMessage
-    mentions: SbUser[]
-  }
+  payload: PartyChatMessageEvent
+  meta: { partyId: string }
 }
 
 export interface UpdateKick {

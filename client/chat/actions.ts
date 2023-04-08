@@ -1,5 +1,4 @@
 import {
-  ChannelInfo,
   ChatBanEvent,
   ChatInitEvent,
   ChatJoinEvent,
@@ -11,7 +10,9 @@ import {
   ChatUserActiveEvent,
   ChatUserIdleEvent,
   ChatUserOfflineEvent,
+  GetBatchedChannelInfosResponse,
   GetChannelHistoryServerResponse,
+  GetChannelInfoResponse,
   GetChatUserProfileResponse,
   SbChannelId,
 } from '../../common/chat'
@@ -200,11 +201,12 @@ export interface GetChatUserProfile {
 }
 
 /**
- * Get the publicly available info for a specific channel.
+ * Get the information for a specific channel. Includes joined data if the user is in the channel.
  */
 export interface GetChannelInfo {
   type: '@chat/getChannelInfo'
-  payload: ChannelInfo
+  payload: GetChannelInfoResponse
+  meta: { channelId: SbChannelId }
 }
 
 /**
@@ -212,7 +214,7 @@ export interface GetChannelInfo {
  */
 export interface GetBatchChannelInfoSuccess {
   type: '@chat/getBatchChannelInfo'
-  payload: ChannelInfo[]
+  payload: GetBatchedChannelInfosResponse
   error?: false
 }
 

@@ -122,12 +122,18 @@ export interface ConnectedChannelInfoCardProps {
   channelName: string
 }
 
+/**
+ * A component which finds a channel for a given channel ID and displays its info. Allows users to
+ * join the channel if they're not already in it, and handles errors in case the channel is not
+ * found etc.
+ */
 export function ConnectedChannelInfoCard({
   channelId,
   channelName,
 }: ConnectedChannelInfoCardProps) {
   const dispatch = useAppDispatch()
-  const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
+  const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
+  const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId))
   const isUserInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
 
   const [isJoinInProgress, setIsJoinInProgress] = useState(false)
@@ -160,9 +166,9 @@ export function ConnectedChannelInfoCard({
   })
 
   let channelDescription
-  if (!channelInfo) {
+  if (!basicChannelInfo) {
     channelDescription = <LoadingDotsArea />
-  } else if (channelInfo.private && !isUserInChannel) {
+  } else if (basicChannelInfo.private && !isUserInChannel) {
     channelDescription = (
       <PrivateChannelDescriptionContainer>
         <PrivateChannelIcon size={40} />
@@ -171,10 +177,10 @@ export function ConnectedChannelInfoCard({
         </PrivateChannelDescriptionText>
       </PrivateChannelDescriptionContainer>
     )
-  } else if (channelInfo.description) {
+  } else if (detailedChannelInfo?.description) {
     channelDescription = (
       <ChannelDescriptionContainer>
-        <span>{channelInfo.description}</span>
+        <span>{detailedChannelInfo.description}</span>
       </ChannelDescriptionContainer>
     )
   } else {
@@ -188,30 +194,33 @@ export function ConnectedChannelInfoCard({
   let action
   if (isUserInChannel) {
     action = <RaisedButton label='View' onClick={onViewClick} />
-  } else if (channelInfo?.private || isUserBanned) {
+  } else if (basicChannelInfo?.private || isUserBanned) {
     action = <RaisedButton label='Join' disabled={true} />
-  } else if (channelInfo) {
+  } else if (basicChannelInfo) {
     action = <RaisedButton label='Join' disabled={isJoinInProgress} onClick={onJoinClick} />
   }
 
   return (
     <ChannelCardRoot>
       <ChannelBannerAndBadge>
-        {channelInfo?.bannerPath ? (
-          <ChannelBanner src={channelInfo.bannerPath} />
+        {detailedChannelInfo?.bannerPath ? (
+          <ChannelBanner src={detailedChannelInfo.bannerPath} />
         ) : (
           <ChannelBannerPlaceholderImage />
         )}
-        {channelInfo ? (
+        {basicChannelInfo ? (
           <ChannelCardBadge>
-            <ChannelBadge channelInfo={channelInfo} />
+            <ChannelBadge
+              basicChannelInfo={basicChannelInfo}
+              detailedChannelInfo={detailedChannelInfo}
+            />
           </ChannelCardBadge>
         ) : null}
       </ChannelBannerAndBadge>
-      <ChannelName>{channelInfo?.name ?? channelName}</ChannelName>
-      {channelInfo?.userCount ? (
+      <ChannelName>{basicChannelInfo?.name ?? channelName}</ChannelName>
+      {detailedChannelInfo?.userCount ? (
         <ChannelUserCount>
-          {`${channelInfo.userCount} member${channelInfo.userCount > 1 ? 's' : ''}`}
+          {`${detailedChannelInfo.userCount} member${detailedChannelInfo.userCount > 1 ? 's' : ''}`}
         </ChannelUserCount>
       ) : null}
       {channelDescription}

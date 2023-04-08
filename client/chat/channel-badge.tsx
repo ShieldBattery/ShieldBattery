@@ -2,7 +2,7 @@ import { meetsContrastGuidelines } from 'polished'
 import React from 'react'
 import styled, { css } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { ChannelInfo } from '../../common/chat'
+import { BasicChannelInfo, DetailedChannelInfo } from '../../common/chat'
 import { randomColorForString } from '../avatars/colors'
 import { blue400, colorTextInvert, colorTextPrimary } from '../styles/colors'
 import { headline3 } from '../styles/typography'
@@ -41,23 +41,28 @@ const ChannelBadgeImage = styled.img`
 `
 
 export interface ChannelBadgeProps {
-  channelInfo: ReadonlyDeep<ChannelInfo>
+  basicChannelInfo: ReadonlyDeep<BasicChannelInfo>
+  detailedChannelInfo?: ReadonlyDeep<DetailedChannelInfo>
   className?: string
 }
 
-export function ChannelBadge({ channelInfo, className }: ChannelBadgeProps) {
-  if (channelInfo.badgePath) {
+export function ChannelBadge({
+  basicChannelInfo,
+  detailedChannelInfo,
+  className,
+}: ChannelBadgeProps) {
+  if (detailedChannelInfo?.badgePath) {
     return (
       <ChannelBadgeImage
-        src={channelInfo.badgePath}
+        src={detailedChannelInfo.badgePath}
         className={className}
-        alt={`${channelInfo.name} badge`}
+        alt={`${basicChannelInfo.name} badge`}
         draggable={false}
       />
     )
   }
 
-  const badgeColor = randomColorForString(channelInfo.name)
+  const badgeColor = randomColorForString(basicChannelInfo.name)
   const textColor = meetsContrastGuidelines(badgeColor, colorTextPrimary).AA
     ? colorTextPrimary
     : colorTextInvert
@@ -77,7 +82,7 @@ export function ChannelBadge({ channelInfo, className }: ChannelBadgeProps) {
       }>
       <foreignObject width='100%' height='100%'>
         <PlaceholderTextContainer>
-          <PlaceholderText>{(channelInfo.name[0] ?? '-').toUpperCase()}</PlaceholderText>
+          <PlaceholderText>{(basicChannelInfo.name[0] ?? '-').toUpperCase()}</PlaceholderText>
         </PlaceholderTextContainer>
       </foreignObject>
     </ChannelBadgePlaceholder>

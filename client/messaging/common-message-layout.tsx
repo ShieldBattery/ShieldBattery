@@ -1,9 +1,12 @@
 import React, { useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
+import { makeSbChannelId } from '../../common/chat'
+import { matchChannelMentionsMarkup } from '../../common/text/channel-mentions'
 import { matchLinks } from '../../common/text/links'
-import { matchMentionsMarkup } from '../../common/text/mentions'
+import { matchUserMentionsMarkup } from '../../common/text/user-mentions'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user'
+import { ConnectedChannelName } from '../chat/connected-channel-name'
 import { useContextMenu } from '../dom/use-context-menu'
 import { MenuList } from '../material/menu/menu'
 import { Popover } from '../material/popover'
@@ -49,8 +52,13 @@ const MentionedUsername = styled(ConnectedUsername)`
   color: ${blue100};
 `
 
+const MentionedChannelName = styled(ConnectedChannelName)`
+  color: ${blue100};
+`
+
 function* getAllMatches(text: string) {
-  yield* matchMentionsMarkup(text)
+  yield* matchUserMentionsMarkup(text)
+  yield* matchChannelMentionsMarkup(text)
   yield* matchLinks(text)
 }
 
@@ -88,7 +96,7 @@ export const TextMessage = React.memo<{
         elements.push(text.substring(lastIndex, match.index))
       }
 
-      if (match.type === 'mentionMarkup') {
+      if (match.type === 'userMentionMarkup') {
         const userId = makeSbUserId(Number(match.groups.userId))
         if (userId === selfUserId) {
           isHighlighted = true
@@ -103,6 +111,13 @@ export const TextMessage = React.memo<{
             filterClick={filterClick}
             modifyMenuItems={addUserMenuItems}
           />,
+        )
+      } else if (match.type === 'channelMentionMarkup') {
+        const channelId = makeSbChannelId(Number(match.groups.channelId))
+
+        elements.push(
+          match.groups.prefix,
+          <MentionedChannelName key={match.index} channelId={channelId} />,
         )
       } else if (match.type === 'link') {
         // TODO(tec27): Handle links to our own host specially, redirecting to the correct route

@@ -2,10 +2,11 @@ import { debounce } from 'lodash-es'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import {
-  ChannelInfo,
+  BasicChannelInfo,
   ChatMessage,
   GetChannelHistoryServerResponse,
   SbChannelId,
+  SearchChannelsResponse,
 } from '../../common/chat'
 import { apiUrl } from '../../common/urls'
 import { SbUser } from '../../common/users/sb-user'
@@ -28,7 +29,7 @@ import { SearchInput } from '../search/search-input'
 import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { colorError, colorTextFaint } from '../styles/colors'
-import { Body1, headline5, headline6, Headline6, singleLine, subtitle1 } from '../styles/typography'
+import { headline5, headline6, Headline6, singleLine, subtitle1 } from '../styles/typography'
 
 const SEARCH_CHANNELS_LIMIT = 10
 const CHANNEL_MESSAGES_LIMIT = 50
@@ -37,10 +38,10 @@ function searchChannels(
   searchQuery: string,
   limit: number,
   page: number,
-  spec: RequestHandlingSpec<ChannelInfo[]>,
+  spec: RequestHandlingSpec<SearchChannelsResponse>,
 ): ThunkAction {
   return abortableThunk(spec, () => {
-    return fetchJson<ChannelInfo[]>(
+    return fetchJson<SearchChannelsResponse>(
       apiUrl`admin/chat/?q=${searchQuery}&limit=${limit}&page=${page}`,
       {
         signal: spec.signal,
@@ -180,9 +181,9 @@ const StyledMessageList = styled(MessageList)`
   min-width: 320px;
 `
 
-export function ChannelSelector({ onSelect }: { onSelect: (channelI: ChannelInfo) => void }) {
+export function ChannelSelector({ onSelect }: { onSelect: (channel: BasicChannelInfo) => void }) {
   const dispatch = useAppDispatch()
-  const [channels, setChannels] = useState<ChannelInfo[]>()
+  const [channels, setChannels] = useState<BasicChannelInfo[]>()
   const [currentPage, setCurrentPage] = useState(-1)
   const [hasMoreChannels, setHasMoreChannels] = useState(true)
 
@@ -224,8 +225,8 @@ export function ChannelSelector({ onSelect }: { onSelect: (channelI: ChannelInfo
         signal: abortControllerRef.current.signal,
         onSuccess: data => {
           setIsLoadingMoreChannels(false)
-          setChannels((channels ?? []).concat(data))
-          setHasMoreChannels(data.length >= SEARCH_CHANNELS_LIMIT)
+          setChannels((channels ?? []).concat(data.channelInfos))
+          setHasMoreChannels(data.channelInfos.length >= SEARCH_CHANNELS_LIMIT)
         },
         onError: err => {
           setIsLoadingMoreChannels(false)
@@ -250,9 +251,6 @@ export function ChannelSelector({ onSelect }: { onSelect: (channelI: ChannelInfo
         <StyledChannelIcon />
         <ChannelInfoContainer>
           <ChannelInfoName>{channel.name}</ChannelInfoName>
-          {channel.userCount ? (
-            <Body1>{`${channel.userCount} member${channel.userCount > 1 ? 's' : ''}`}</Body1>
-          ) : null}
         </ChannelInfoContainer>
         <RaisedButton label='View' onClick={() => onSelect(channel)} />
       </ChannelThumbnail>
@@ -279,7 +277,7 @@ export function ChannelSelector({ onSelect }: { onSelect: (channelI: ChannelInfo
 
 export function AdminChannelView() {
   const dispatch = useAppDispatch()
-  const [selectedChannel, setSelectedChannel] = useState<ChannelInfo>()
+  const [selectedChannel, setSelectedChannel] = useState<BasicChannelInfo>()
 
   const [channelMessages, setChannelMessages] = useState<ChatMessage[]>([])
   const [hasMoreChannelMessages, setHasMoreChannelMessages] = useState(true)
@@ -317,7 +315,7 @@ export function AdminChannelView() {
     )
   })
 
-  const onChannelSelect = useStableCallback((newChannel: ChannelInfo) => {
+  const onChannelSelect = useStableCallback((newChannel: BasicChannelInfo) => {
     if (selectedChannel?.id === newChannel.id) {
       return
     }

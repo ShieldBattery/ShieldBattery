@@ -1,4 +1,5 @@
 import { Immutable } from 'immer'
+import { BasicChannelInfo } from './chat'
 import { MatchmakingPreferences, MatchmakingType } from './matchmaking'
 import { RaceChar } from './races'
 import { SbUser, SbUserId } from './users/sb-user'
@@ -82,6 +83,7 @@ export interface PartyChatMessageEvent {
   type: 'chatMessage'
   message: PartyChatMessage
   mentions: SbUser[]
+  channelMentions: BasicChannelInfo[]
 }
 
 export interface PartyKickEvent {

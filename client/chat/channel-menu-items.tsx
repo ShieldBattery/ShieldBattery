@@ -31,7 +31,7 @@ export function addChannelUserMenuItems(
   const selfPermissions = useAppSelector(s => s.auth.permissions)
   const selfUserId = useAppSelector(s => s.auth.user.id)
   const user = useAppSelector(s => s.users.byId.get(userId))
-  const channelInfo = useAppSelector(s => s.chat.idToInfo.get(channelId))
+  const joinedChannelInfo = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId))
   const channelUserProfiles = useAppSelector(s => s.chat.idToUserProfiles.get(channelId))
   const channelSelfPermissions = useAppSelector(s => s.chat.idToSelfPermissions.get(channelId))
 
@@ -80,13 +80,7 @@ export function addChannelUserMenuItems(
   })
   /* eslint-enable react-hooks/rules-of-hooks */
 
-  if (
-    !user ||
-    !channelInfo ||
-    !channelInfo.joinedChannelData ||
-    !channelUserProfiles ||
-    !channelSelfPermissions
-  ) {
+  if (!user || !joinedChannelInfo || !channelUserProfiles || !channelSelfPermissions) {
     return items
   }
 
@@ -100,7 +94,7 @@ export function addChannelUserMenuItems(
     if (
       selfPermissions.editPermissions ||
       selfPermissions.moderateChatChannels ||
-      channelInfo.joinedChannelData.ownerId === selfUserId
+      joinedChannelInfo.ownerId === selfUserId
     ) {
       appendToMultimap(
         items,

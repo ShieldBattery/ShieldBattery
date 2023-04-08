@@ -147,7 +147,9 @@ export class WhisperApi {
   // Last used: 8.0.2 (November 2021)
   @httpGet('/:targetName/messages')
   @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.userId)))
-  getSessionHistoryOld(ctx: RouterContext): Omit<GetSessionHistoryResponse, 'mentions'> {
+  getSessionHistoryOld(
+    ctx: RouterContext,
+  ): Omit<GetSessionHistoryResponse, 'mentions' | 'channelMentions' | 'deletedChannels'> {
     return {
       messages: [],
       users: [],

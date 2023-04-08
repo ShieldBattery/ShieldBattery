@@ -1,9 +1,10 @@
 import sql from 'sql-template-strings'
 import { MergeExclusive } from 'type-fest'
 import {
-  ChannelInfo,
+  BasicChannelInfo,
   ChannelPermissions,
-  JoinedChannelData,
+  DetailedChannelInfo,
+  JoinedChannelInfo,
   SbChannelId,
   ServerChatMessageType,
 } from '../../../common/chat'
@@ -94,19 +95,74 @@ export async function getUserChannelEntryForUser(
   }
 }
 
-type DbChannel = Dbify<ChannelInfo & JoinedChannelData>
+/**
+ * Gets user channel entries for a particular user in all of the channels they're in.
+ */
+export async function getUserChannelEntriesForUser(
+  userId: SbUserId,
+  channelIds: SbChannelId[],
+  withClient?: DbClient,
+): Promise<UserChannelEntry[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbUserChannelEntry>(sql`
+      SELECT *
+      FROM channel_users
+      WHERE user_id = ${userId} AND channel_id = ANY(${channelIds});
+    `)
+    return result.rows.map(row => convertUserChannelEntryFromDb(row))
+  } finally {
+    done()
+  }
+}
 
-function convertChannelFromDb(props: DbChannel): ChannelInfo {
+/**
+ * A type that contains a full and flattened list of channel fields.
+ *
+ * This is only meant to be used internally on the server side; if you need to send any channel
+ * information to the client use the helper methods below.
+ */
+export type FullChannelInfo = BasicChannelInfo & DetailedChannelInfo & JoinedChannelInfo
+
+/** Takes the full channel info and returns only the basic fields. */
+export function toBasicChannelInfo(channel: FullChannelInfo): BasicChannelInfo {
+  return {
+    id: channel.id,
+    name: channel.name,
+    private: channel.private,
+    official: channel.official,
+  }
+}
+
+// TODO(2Pac): Add the missing fields here after #909 is done.
+/** Takes the full channel info and returns only the detailed fields. */
+export function toDetailedChannelInfo(channel: FullChannelInfo): DetailedChannelInfo {
+  return {
+    id: channel.id,
+    userCount: channel.userCount,
+  }
+}
+
+/** Takes the full channel info and returns only the joined fields. */
+export function toJoinedChannelInfo(channel: FullChannelInfo): JoinedChannelInfo {
+  return {
+    id: channel.id,
+    ownerId: channel.ownerId,
+    topic: channel.topic,
+  }
+}
+
+type DbChannel = Dbify<FullChannelInfo>
+
+function convertChannelFromDb(props: DbChannel): FullChannelInfo {
   return {
     id: props.id,
     name: props.name,
     private: props.private,
     official: props.official,
     userCount: props.user_count,
-    joinedChannelData: {
-      ownerId: props.owner_id,
-      topic: props.topic,
-    },
+    ownerId: props.owner_id,
+    topic: props.topic,
   }
 }
 
@@ -114,7 +170,7 @@ export async function createChannel(
   userId: SbUserId,
   channelName: string,
   withClient?: DbClient,
-): Promise<ChannelInfo> {
+): Promise<FullChannelInfo> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbChannel>(sql`
@@ -158,8 +214,21 @@ export interface BaseMessageData {
 
 export interface TextMessageData extends BaseMessageData {
   type: typeof ServerChatMessageType.TextMessage
+  /**
+   * A processed contents of the text message, where all user and channel mentions are replaced
+   * with a custom piece of markup.
+   */
   text: string
+  /**
+   * An array of user IDs that were mentioned in the text message. Will be `undefined` if there were
+   * no users mentioned in this message.
+   */
   mentions?: SbUserId[]
+  /**
+   * An array of channel IDs that were mentioned in the text message. Will be `undefined` if there
+   * were no channels mentioned in this message.
+   */
+  channelMentions?: SbChannelId[]
 }
 
 export interface JoinChannelData extends BaseMessageData {
@@ -544,7 +613,7 @@ export async function isUserBannedFromChannel(
 export async function getChannelInfo(
   channelId: SbChannelId,
   withClient?: DbClient,
-): Promise<ChannelInfo | undefined> {
+): Promise<FullChannelInfo | undefined> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbChannel>(sql`
@@ -566,7 +635,7 @@ export async function getChannelInfo(
 export async function getChannelInfos(
   channelIds: SbChannelId[],
   withClient?: DbClient,
-): Promise<ChannelInfo[]> {
+): Promise<FullChannelInfo[]> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbChannel>(sql`
@@ -581,51 +650,11 @@ export async function getChannelInfos(
   }
 }
 
-/**
- * Returns the data for all channels with the specified IDs. The channels are returned in the same
- * order they were passed in. If one of the channels could not be found, it will not be included in
- * the result.
- */
-export async function getChannelInfosInOrder(
-  channelIds: SbChannelId[],
-  withClient?: DbClient,
-): Promise<ChannelInfo[]> {
-  const { client, done } = await db(withClient)
-  try {
-    const result = await client.query<DbChannel>(sql`
-      SELECT *
-      FROM channels
-      WHERE id = ANY(${channelIds});
-    `)
-
-    if (result.rows.length < 1) {
-      return []
-    }
-
-    const channelInfos = await Promise.all(result.rows.map(c => convertChannelFromDb(c)))
-    const idToChannelInfo = new Map<SbChannelId, ChannelInfo>()
-    for (const channelInfo of channelInfos) {
-      idToChannelInfo.set(channelInfo.id, channelInfo)
-    }
-
-    const orderedChannelInfos = []
-    for (const id of channelIds) {
-      const info = idToChannelInfo.get(id)
-      if (info) {
-        orderedChannelInfos.push(info)
-      }
-    }
-
-    return orderedChannelInfos
-  } finally {
-    done()
-  }
-}
-
+/** Returns a chat channel with the matching name if it exists. */
 export async function findChannelByName(
   channelName: string,
   withClient?: DbClient,
-): Promise<ChannelInfo | undefined> {
+): Promise<FullChannelInfo | undefined> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbChannel>(sql`
@@ -635,6 +664,28 @@ export async function findChannelByName(
     `)
 
     return result.rows.length > 0 ? convertChannelFromDb(result.rows[0]) : undefined
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns the data for all channels with the specified names. If a channel cannot be found it will
+ * not be included in the result. The order of the result is not guaranteed.
+ */
+export async function findChannelsByName(
+  names: string[],
+  withClient?: DbClient,
+): Promise<FullChannelInfo[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbChannel>(sql`
+      SELECT *
+      FROM channels
+      WHERE name = ANY (${names});
+    `)
+
+    return result.rows.map(row => convertChannelFromDb(row))
   } finally {
     done()
   }
@@ -655,7 +706,7 @@ export async function searchChannelsAsAdmin(
     searchStr?: string
   },
   withClient?: DbClient,
-): Promise<ChannelInfo[]> {
+): Promise<FullChannelInfo[]> {
   const { client, done } = await db(withClient)
   try {
     const query = sql`
