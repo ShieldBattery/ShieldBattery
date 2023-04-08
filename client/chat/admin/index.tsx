@@ -6,10 +6,7 @@ import { AdminChannelView } from './channel-view'
 export function ChatAdmin() {
   return (
     <Switch>
-      <ChannelRoute
-        path='/chat/admin/channel-view/:channelId/:channelName'
-        component={AdminChannelView}
-      />
+      <ChannelRoute path='/chat/admin/:channelId/:channelName/view' component={AdminChannelView} />
     </Switch>
   )
 }

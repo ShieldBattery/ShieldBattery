@@ -45,7 +45,7 @@ interface JoinChannelModel {
 
 export function CreateChannel() {
   const dispatch = useAppDispatch()
-  const [errorMessage, setErrorMessage] = useState<string>()
+  const [error, setError] = useState<Error>()
   const autoFocusRef = useAutoFocusRef<HTMLInputElement>()
 
   const onFormSubmit = useStableCallback((model: JoinChannelModel) => {
@@ -54,20 +54,7 @@ export function CreateChannel() {
     dispatch(
       createChannel(channelName, {
         onSuccess: channel => navigateToChannel(channel.channelInfo.id, channel.channelInfo.name),
-        onError: err => {
-          let message = `An error occurred while joining ${channelName}`
-
-          if (isFetchError(err) && err.code) {
-            if (err.code === ChatServiceErrorCode.UserBanned) {
-              message = `You are banned from ${channelName}`
-            } else {
-              logger.error(`Unhandled code when joining ${channelName}: ${err.code}`)
-            }
-          } else {
-            logger.error(`Error when joining ${channelName}: ${err.stack ?? err}`)
-          }
-          setErrorMessage(message)
-        },
+        onError: err => setError(err),
       }),
     )
   })
@@ -77,6 +64,21 @@ export function CreateChannel() {
     { channel: value => channelValidator(value) },
     { onSubmit: onFormSubmit },
   )
+
+  let errorMessage
+  if (error) {
+    errorMessage = 'An error occurred while creating the channel.'
+
+    if (isFetchError(error) && error.code) {
+      if (error.code === ChatServiceErrorCode.UserBanned) {
+        errorMessage = 'You are banned from this channel.'
+      } else {
+        logger.error(`Unhandled code when creating the channel: ${error.code}`)
+      }
+    } else {
+      logger.error(`Error when creating the channel: ${error.stack ?? error}`)
+    }
+  }
 
   return (
     <CreateChannelRoot>

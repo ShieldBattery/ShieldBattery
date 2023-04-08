@@ -692,25 +692,37 @@ export async function findChannelsByName(
 }
 
 /**
- * Returns a list of chat channels, optionally filtered by a `searchStr`.
+ * Searches for all of the channels in the database, optionally filtered by a `searchStr`.
+ *
+ * Returns the full list of found channels and a list of joined channel IDs.
  */
-export async function searchChannels(
+export async function searchChannelsAsUser(
   {
+    userId,
     limit,
-    pageNumber,
+    offset,
     searchStr,
   }: {
+    userId: SbUserId
     limit: number
-    pageNumber: number
+    offset: number
     searchStr?: string
   },
   withClient?: DbClient,
-): Promise<FullChannelInfo[]> {
+): Promise<{
+  channels: FullChannelInfo[]
+  joinedChannels: SbChannelId[]
+}> {
   const { client, done } = await db(withClient)
   try {
     const query = sql`
-      SELECT *
-      FROM channels
+      WITH joined_channels AS (
+        SELECT channel_id
+        FROM channel_users
+        WHERE user_id = ${userId}
+      )
+      SELECT *, EXISTS (SELECT 1 FROM joined_channels jc WHERE jc.channel_id = c.id) AS joined
+      FROM channels c
     `
 
     if (searchStr) {
@@ -720,12 +732,15 @@ export async function searchChannels(
     query.append(sql`
       ORDER BY user_count DESC, name
       LIMIT ${limit}
-      OFFSET ${pageNumber * limit}
+      OFFSET ${offset}
     `)
 
-    const result = await client.query<DbChannel>(query)
+    const result = await client.query<DbChannel & { joined: boolean }>(query)
 
-    return result.rows.map(row => convertChannelFromDb(row))
+    return {
+      channels: result.rows.map(row => convertChannelFromDb(row)),
+      joinedChannels: result.rows.filter(row => row.joined).map(row => row.id),
+    }
   } finally {
     done()
   }

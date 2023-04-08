@@ -57,6 +57,7 @@ import { closeWhisperSession } from '../whispers/action-creators'
 import { WhisperNavEntry } from '../whispers/nav-entry'
 import Lockup from './lockup'
 import { push } from './routing'
+import { useUrlHotkey } from './url-hotkey'
 
 const ALT_H = { keyCode: keycode('h'), altKey: true }
 const ALT_W = { keyCode: keycode('w'), altKey: true }
@@ -399,10 +400,9 @@ export function ConnectedLeftNav() {
 
   const [profileOverlayOpen, openProfileOverlay, closeProfileOverlay] = usePopoverController()
   const profileEntryRef = useRef<HTMLButtonElement>(null)
-  const joinChannelButtonRef = useRef<HTMLButtonElement>(null)
   const startWhisperButtonRef = useRef<HTMLButtonElement>(null)
 
-  useButtonHotkey({ ref: joinChannelButtonRef, hotkey: ALT_H })
+  useUrlHotkey({ url: '/chat/list', hotkey: ALT_H, disabled: !MULTI_CHANNEL })
   useButtonHotkey({ ref: startWhisperButtonRef, hotkey: ALT_W })
 
   const onLogOutClick = useCallback(() => {
@@ -434,10 +434,6 @@ export function ConnectedLeftNav() {
     </>
   )
 
-  const onJoinChannelClick = useCallback(() => {
-    push(urlPath`/chat/list`)
-    joinChannelButtonRef.current?.blur()
-  }, [])
   const onChannelLeave = useCallback(
     (channelId: SbChannelId) => {
       dispatch(leaveChannel(channelId))
@@ -485,12 +481,7 @@ export function ConnectedLeftNav() {
       {IS_ELECTRON ? <PartySection /> : null}
       {MULTI_CHANNEL ? (
         <Tooltip text='Join a channel (Alt + H)' position='right'>
-          <ClickableSubheader
-            ref={joinChannelButtonRef}
-            icon={<MaterialIcon icon='add' />}
-            onClick={onJoinChannelClick}>
-            Chat channels
-          </ClickableSubheader>
+          <ClickableSubheader icon={<MaterialIcon icon='add' />}>Chat channels</ClickableSubheader>
         </Tooltip>
       ) : (
         <Subheader>Chat channels</Subheader>

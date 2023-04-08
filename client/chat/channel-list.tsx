@@ -6,12 +6,13 @@ import { urlPath } from '../../common/urls'
 import { ConnectedChannelInfoCard } from '../chat/channel-info-card'
 import { MaterialIcon } from '../icons/material/material-icon'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
+import { useAutoFocusRef } from '../material/auto-focus'
 import { RaisedButton } from '../material/button'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { push } from '../navigation/routing'
 import { useRefreshToken } from '../network/refresh-token'
 import { useAppDispatch } from '../redux-hooks'
-import { SearchInput } from '../search/search-input'
+import { SearchInput, SearchInputHandle } from '../search/search-input'
 import { useStableCallback } from '../state-hooks'
 import { colorError, colorTextFaint } from '../styles/colors'
 import { headline4, subtitle1 } from '../styles/typography'
@@ -63,9 +64,9 @@ const ErrorText = styled.div`
 
 export function ChannelList() {
   const dispatch = useAppDispatch()
+  const autoFocusRef = useAutoFocusRef<SearchInputHandle>()
 
   const [channels, setChannels] = useState<BasicChannelInfo[]>()
-  const [currentPage, setCurrentPage] = useState(-1)
   const [hasMoreChannels, setHasMoreChannels] = useState(true)
 
   const [isLoadingMoreChannels, setIsLoadingMoreChannels] = useState(false)
@@ -81,7 +82,6 @@ export function ChannelList() {
       setSearchQuery(searchQuery)
       setSearchError(undefined)
       setChannels(undefined)
-      setCurrentPage(-1)
       setHasMoreChannels(true)
       triggerRefresh()
     }, 100),
@@ -93,13 +93,12 @@ export function ChannelList() {
 
   const onLoadMoreChannels = useStableCallback(() => {
     setIsLoadingMoreChannels(true)
-    setCurrentPage(currentPage + 1)
 
     abortControllerRef.current?.abort()
     abortControllerRef.current = new AbortController()
 
     dispatch(
-      searchChannels(searchQuery, SEARCH_CHANNELS_LIMIT, currentPage + 1, {
+      searchChannels(searchQuery, SEARCH_CHANNELS_LIMIT, channels?.length ?? 0, {
         signal: abortControllerRef.current.signal,
         onSuccess: data => {
           setIsLoadingMoreChannels(false)
@@ -158,7 +157,11 @@ export function ChannelList() {
           onClick={onCreateChannelClick}
         />
       </TitleBar>
-      <StyledSearchInput searchQuery={searchQuery} onSearchChange={onSearchChange} />
+      <StyledSearchInput
+        ref={autoFocusRef}
+        searchQuery={searchQuery}
+        onSearchChange={onSearchChange}
+      />
       {searchContent}
     </Container>
   )

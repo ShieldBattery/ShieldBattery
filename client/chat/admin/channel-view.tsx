@@ -142,7 +142,7 @@ export function AdminChannelView({
 
   useEffect(() => {
     if (channelInfo && channelNameFromRoute !== channelInfo.name) {
-      replace(urlPath`/chat/admin/channel-view/${channelInfo.id}/${channelInfo.name}`)
+      replace(urlPath`/chat/admin/${channelInfo.id}/${channelInfo.name}/view`)
     }
   }, [channelInfo, channelNameFromRoute])
 

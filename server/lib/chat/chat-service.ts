@@ -57,7 +57,7 @@ import {
   getUsersForChannel,
   isUserBannedFromChannel,
   removeUserFromChannel,
-  searchChannels,
+  searchChannelsAsUser,
   toBasicChannelInfo,
   toDetailedChannelInfo,
   toJoinedChannelInfo,
@@ -570,25 +570,22 @@ export default class ChatService {
   async searchChannels({
     userId,
     limit,
-    pageNumber,
+    offset,
     searchStr,
   }: {
     userId: SbUserId
     limit: number
-    pageNumber: number
+    offset: number
     searchStr?: string
   }): Promise<SearchChannelsResponse> {
-    const channels = await searchChannels({
+    const { channels, joinedChannels } = await searchChannelsAsUser({
+      userId,
       limit,
-      pageNumber,
+      offset,
       searchStr,
     })
-    const userChannelEntries = await getUserChannelEntriesForUser(
-      userId,
-      channels.map(c => c.id),
-    )
 
-    const userJoinedChannelsSet = new global.Set(userChannelEntries.map(e => e.channelId))
+    const userJoinedChannelsSet = new global.Set(joinedChannels)
 
     const [detailedChannelInfos, joinedChannelInfos] = channels.reduce<
       [DetailedChannelInfo[], JoinedChannelInfo[]]

@@ -356,31 +356,34 @@ export class ChatApi {
   )
   async searchChannels(ctx: RouterContext): Promise<SearchChannelsResponse> {
     const {
-      query: { q: searchQuery, limit, page },
+      query: { q: searchQuery, limit, offset },
     } = validateRequest(ctx, {
-      query: Joi.object<{ q?: string; page: number; limit: number }>({
+      query: Joi.object<{ q?: string; offset: number; limit: number }>({
         q: Joi.string().allow(''),
-        limit: Joi.number().min(1),
-        page: Joi.number().min(0),
+        limit: Joi.number().min(1).max(50),
+        offset: Joi.number().min(0),
       }),
     })
 
     return await this.chatService.searchChannels({
       userId: ctx.session!.userId,
       limit,
-      pageNumber: page,
+      offset,
       searchStr: searchQuery,
     })
   }
 }
 
 @httpApi('/admin/chat')
-@httpBeforeAll(ensureLoggedIn, convertChatServiceErrors)
+@httpBeforeAll(
+  ensureLoggedIn,
+  checkAllPermissions('moderateChatChannels'),
+  convertChatServiceErrors,
+)
 export class AdminChatApi {
   constructor(private chatService: ChatService) {}
 
   @httpGet('/:channelId/messages')
-  @httpBefore(checkAllPermissions('moderateChatChannels'))
   async getChannelHistory(ctx: RouterContext): Promise<GetChannelHistoryServerResponse> {
     const channelId = getValidatedChannelId(ctx)
     const {

@@ -194,7 +194,7 @@ export function ConnectedChannelInfoCard({
   })
 
   const onAdminViewClick = useStableCallback(() => {
-    push(urlPath`/chat/admin/channel-view/${channelId}/${channelName}`)
+    push(urlPath`/chat/admin/${channelId}/${channelName}/view`)
   })
 
   let channelDescription

@@ -9,9 +9,13 @@ import { ConnectedChatChannel } from './channel'
 import { ChannelList } from './channel-list'
 import { CreateChannel } from './create-channel'
 
-const LoadableChatAdmin = React.lazy(async () => ({
-  default: (await import('./admin')).ChatAdmin,
-}))
+const getLoadableChatAdminComponent = (isAdmin: boolean) =>
+  isAdmin
+    ? React.lazy(async () => ({
+        default: (await import('./admin')).ChatAdmin,
+      }))
+    : // TODO(2Pac): Create a better-designed, general component for this
+      () => <span>Not enough permissions to access this page</span>
 
 export function ChannelRoute({
   component: Component,
@@ -39,13 +43,12 @@ export function ChannelRoute({
 }
 
 export function ChannelRouteComponent(props: { params: any }) {
-  // TODO(2Pac): Add a separate permission for managing chat channels
   const isAdmin = useAppSelector(s => hasAnyPermission(s.auth, 'moderateChatChannels'))
 
   return (
     <Suspense fallback={<LoadingDotsArea />}>
       <Switch>
-        {isAdmin ? <Route path='/chat/admin/:rest*' component={LoadableChatAdmin} /> : <></>}
+        <Route path='/chat/admin/:rest*' component={getLoadableChatAdminComponent(isAdmin)} />
         <Route path='/chat/new' component={CreateChannel} />
         <Route path='/chat/list' component={ChannelList} />
         <ChannelRoute path='/chat/:channelId/:channelName' component={ConnectedChatChannel} />

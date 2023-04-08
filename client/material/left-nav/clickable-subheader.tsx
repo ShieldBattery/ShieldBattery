@@ -1,28 +1,37 @@
 import React from 'react'
 import styled from 'styled-components'
+import { Link, useRoute } from 'wouter'
 import { colorTextPrimary, colorTextSecondary } from '../../styles/colors'
 import { overline, singleLine } from '../../styles/typography'
-import { useButtonState } from '../button'
-import { buttonReset } from '../button-reset'
-import { Ripple } from '../ripple'
 
-const Container = styled.button`
-  ${buttonReset};
+const Container = styled.div<{ $isActive: boolean }>`
   width: 100%;
-  padding: 0;
+  height: 36px;
+  background-color: ${props => (props.$isActive ? 'rgba(255, 255, 255, 0.08)' : 'transparent')};
+  color: ${props => (props.$isActive ? colorTextPrimary : colorTextSecondary)};
+  cursor: pointer;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: ${colorTextPrimary};
+  }
+`
+
+const StyledLink = styled(Link)`
+  width: 100%;
+  height: 100%;
+  padding: 0 4px 0 16px;
 
   display: flex;
   justify-content: space-between;
   align-items: center;
 
-  color: ${colorTextSecondary};
-  cursor: pointer;
-
-  --sb-ripple-color: ${colorTextPrimary};
-
+  &:link,
+  &:visited,
   &:hover,
   &:active {
-    color: ${colorTextPrimary};
+    color: currentColor;
+    text-decoration: none;
   }
 `
 
@@ -30,15 +39,13 @@ const Title = styled.div`
   ${overline};
   ${singleLine};
 
-  height: 36px;
-  margin: 0 16px;
+  height: 100%;
   line-height: 36px;
 `
 
 const IconContainer = styled.div`
   width: 36px;
   height: 100%;
-  margin-right: 4px;
 
   display: flex;
   justify-content: center;
@@ -49,22 +56,18 @@ interface SubheaderProps {
   icon?: React.ReactNode
   children: React.ReactNode
   className?: string
-  onClick?: (event: React.MouseEvent) => void
 }
 
 export const ClickableSubheader = React.forwardRef(
-  (
-    { icon, children, className, onClick }: SubheaderProps,
-    ref: React.ForwardedRef<HTMLButtonElement>,
-  ) => {
-    const [buttonProps, rippleRef] = useButtonState({ onClick })
+  ({ icon, children, className }: SubheaderProps, ref: React.ForwardedRef<HTMLDivElement>) => {
+    const [isActive] = useRoute('/chat/list')
 
     return (
-      <Container ref={ref} className={className} {...buttonProps}>
-        <Title>{children}</Title>
-        <IconContainer>{icon}</IconContainer>
-
-        <Ripple ref={rippleRef} />
+      <Container ref={ref} $isActive={isActive}>
+        <StyledLink to='/chat/list' className={className}>
+          <Title>{children}</Title>
+          <IconContainer>{icon}</IconContainer>
+        </StyledLink>
       </Container>
     )
   },
