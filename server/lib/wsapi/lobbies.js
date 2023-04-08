@@ -21,7 +21,7 @@ import {
   isUms,
 } from '../../../common/lobbies'
 import * as Slots from '../../../common/lobbies/slot'
-import { toBasicChannelInfo } from '../chat/chat-service'
+import { toBasicChannelInfo } from '../chat/chat-models'
 import { GameLoader } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'

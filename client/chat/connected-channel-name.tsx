@@ -3,7 +3,6 @@ import styled from 'styled-components'
 import { SbChannelId } from '../../common/chat'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { useStableCallback } from '../state-hooks'
 import { colorDividers } from '../styles/colors'
 import { getBatchChannelInfo } from './action-creators'
 import { ConnectedChannelInfoCard } from './channel-info-card'
@@ -44,13 +43,6 @@ export function ConnectedChannelName({ className, channelId }: ConnectedChannelN
   const [channelInfoCardOpen, openChannelInfoCard, closeChannelInfoCard] = usePopoverController()
   const [anchor, anchorX, anchorY] = useAnchorPosition('right', 'top')
 
-  const onClick = useStableCallback((e: React.MouseEvent) => {
-    openChannelInfoCard(e)
-  })
-  const onCloseChannelInfoCard = useStableCallback(() => {
-    closeChannelInfoCard()
-  })
-
   if (isChannelDeleted) {
     return <span>#deleted-channel</span>
   }
@@ -59,7 +51,7 @@ export function ConnectedChannelName({ className, channelId }: ConnectedChannelN
     <>
       <Popover
         open={channelInfoCardOpen}
-        onDismiss={onCloseChannelInfoCard}
+        onDismiss={closeChannelInfoCard}
         anchorX={(anchorX ?? 0) + 4}
         anchorY={(anchorY ?? 0) + 4}
         originX={'left'}
@@ -70,7 +62,7 @@ export function ConnectedChannelName({ className, channelId }: ConnectedChannelN
       </Popover>
 
       {basicChannelInfo ? (
-        <ChannelName className={className} ref={anchor} onClick={onClick}>
+        <ChannelName className={className} ref={anchor} onClick={openChannelInfoCard}>
           #{basicChannelInfo.name}
         </ChannelName>
       ) : (

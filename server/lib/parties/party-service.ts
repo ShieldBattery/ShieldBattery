@@ -21,7 +21,7 @@ import {
 } from '../../../common/parties'
 import { RaceChar } from '../../../common/races'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
-import { toBasicChannelInfo } from '../chat/chat-service'
+import { toBasicChannelInfo } from '../chat/chat-models'
 import { CodedError } from '../errors/coded-error'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'

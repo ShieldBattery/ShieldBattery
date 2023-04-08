@@ -49,10 +49,11 @@ import {
   JoinChannelData,
   removeUserFromChannel,
   TextMessageData,
+  toBasicChannelInfo,
   updateUserPermissions,
   UserChannelEntry,
 } from './chat-models'
-import ChatService, { getChannelPath, getChannelUserPath, toBasicChannelInfo } from './chat-service'
+import ChatService, { getChannelPath, getChannelUserPath } from './chat-service'
 
 const flagsMock = flags as { CAN_LEAVE_SHIELDBATTERY_CHANNEL: boolean }
 
@@ -95,28 +96,34 @@ jest.mock('../users/user-model', () => {
   }
 })
 
-jest.mock('./chat-models', () => ({
-  getChannelsForUser: jest.fn().mockResolvedValue([]),
-  getUsersForChannel: jest.fn().mockResolvedValue([]),
-  getUserChannelEntryForUser: jest.fn(),
-  getUserChannelEntriesForUser: jest.fn().mockResolvedValue([]),
-  createChannel: jest.fn(),
-  addUserToChannel: jest.fn(),
-  addMessageToChannel: jest.fn(),
-  getMessagesForChannel: jest.fn().mockResolvedValue([]),
-  deleteChannelMessage: jest.fn(),
-  removeUserFromChannel: jest.fn(),
-  updateUserPermissions: jest.fn(),
-  countBannedIdentifiersForChannel: jest.fn(),
-  banUserFromChannel: jest.fn(),
-  banAllIdentifiersFromChannel: jest.fn(),
-  isUserBannedFromChannel: jest.fn(),
-  getChannelInfo: jest.fn(),
-  getChannelInfos: jest.fn().mockResolvedValue([]),
-  findChannelByName: jest.fn(),
-  findChannelsByName: jest.fn().mockResolvedValue([]),
-  searchChannelsAsAdmin: jest.fn().mockResolvedValue([]),
-}))
+jest.mock('./chat-models', () => {
+  const originalModule = jest.requireActual('./chat-models')
+  return {
+    getChannelsForUser: jest.fn().mockResolvedValue([]),
+    getUsersForChannel: jest.fn().mockResolvedValue([]),
+    getUserChannelEntryForUser: jest.fn(),
+    getUserChannelEntriesForUser: jest.fn().mockResolvedValue([]),
+    createChannel: jest.fn(),
+    addUserToChannel: jest.fn(),
+    addMessageToChannel: jest.fn(),
+    getMessagesForChannel: jest.fn().mockResolvedValue([]),
+    deleteChannelMessage: jest.fn(),
+    removeUserFromChannel: jest.fn(),
+    updateUserPermissions: jest.fn(),
+    countBannedIdentifiersForChannel: jest.fn(),
+    banUserFromChannel: jest.fn(),
+    banAllIdentifiersFromChannel: jest.fn(),
+    isUserBannedFromChannel: jest.fn(),
+    getChannelInfo: jest.fn(),
+    getChannelInfos: jest.fn().mockResolvedValue([]),
+    findChannelByName: jest.fn(),
+    findChannelsByName: jest.fn().mockResolvedValue([]),
+    searchChannelsAsAdmin: jest.fn().mockResolvedValue([]),
+    toBasicChannelInfo: originalModule.toBasicChannelInfo,
+    toDetailedChannelInfo: originalModule.toDetailedChannelInfo,
+    toJoinedChannelInfo: originalModule.toJoinedChannelInfo,
+  }
+})
 
 type FakeDbJoinChannelMessage = ChatMessage & { data: JoinChannelData }
 type FakeDbTextChannelMessage = ChatMessage & { data: TextMessageData }

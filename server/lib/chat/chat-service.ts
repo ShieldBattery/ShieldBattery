@@ -2,7 +2,6 @@ import { Map, Record as ImmutableRecord, Set } from 'immutable'
 import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
-  BasicChannelInfo,
   ChannelModerationAction,
   ChannelPermissions,
   ChatEvent,
@@ -57,6 +56,9 @@ import {
   getUsersForChannel,
   isUserBannedFromChannel,
   removeUserFromChannel,
+  toBasicChannelInfo,
+  toDetailedChannelInfo,
+  toJoinedChannelInfo,
   updateUserPermissions,
   UserChannelEntry,
 } from './chat-models'
@@ -78,34 +80,6 @@ export function getChannelPath(channelId: SbChannelId): string {
 
 export function getChannelUserPath(channelId: SbChannelId, userId: SbUserId): string {
   return `${getChannelPath(channelId)}/users/${userId}`
-}
-
-/** Takes the full channel info (used in model methods), and returns only the basic fields. */
-export function toBasicChannelInfo(channel: FullChannelInfo): BasicChannelInfo {
-  return {
-    id: channel.id,
-    name: channel.name,
-    private: channel.private,
-    official: channel.official,
-  }
-}
-
-// TODO(2Pac): Add the missing fields here after #909 is done.
-/** Takes the full channel info (used in model methods), and returns only the detailed fields. */
-export function toDetailedChannelInfo(channel: FullChannelInfo): DetailedChannelInfo {
-  return {
-    id: channel.id,
-    userCount: channel.userCount,
-  }
-}
-
-/** Takes the full channel info (used in model methods), and returns only the joined fields. */
-export function toJoinedChannelInfo(channel: FullChannelInfo): JoinedChannelInfo {
-  return {
-    id: channel.id,
-    ownerId: channel.ownerId,
-    topic: channel.topic,
-  }
 }
 
 /**
@@ -848,13 +822,10 @@ export default class ChatService {
           getUserChannelEntryForUser(userSockets.userId, channelId),
         ])
         if (!channelInfo) {
-          throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+          return undefined
         }
         if (!userChannelEntry) {
-          throw new ChatServiceError(
-            ChatServiceErrorCode.NotInChannel,
-            'Must be in channel to subscribe to it',
-          )
+          return undefined
         }
 
         return {

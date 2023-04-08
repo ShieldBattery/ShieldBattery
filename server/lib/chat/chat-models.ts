@@ -116,7 +116,42 @@ export async function getUserChannelEntriesForUser(
   }
 }
 
+/**
+ * A type that contains a full and flattened list of channel fields.
+ *
+ * This is only meant to be used internally on the server side; if you need to send any channel
+ * information to the client use the helper methods below.
+ */
 export type FullChannelInfo = BasicChannelInfo & DetailedChannelInfo & JoinedChannelInfo
+
+/** Takes the full channel info and returns only the basic fields. */
+export function toBasicChannelInfo(channel: FullChannelInfo): BasicChannelInfo {
+  return {
+    id: channel.id,
+    name: channel.name,
+    private: channel.private,
+    official: channel.official,
+  }
+}
+
+// TODO(2Pac): Add the missing fields here after #909 is done.
+/** Takes the full channel info and returns only the detailed fields. */
+export function toDetailedChannelInfo(channel: FullChannelInfo): DetailedChannelInfo {
+  return {
+    id: channel.id,
+    userCount: channel.userCount,
+  }
+}
+
+/** Takes the full channel info and returns only the joined fields. */
+export function toJoinedChannelInfo(channel: FullChannelInfo): JoinedChannelInfo {
+  return {
+    id: channel.id,
+    ownerId: channel.ownerId,
+    topic: channel.topic,
+  }
+}
+
 type DbChannel = Dbify<FullChannelInfo>
 
 function convertChannelFromDb(props: DbChannel): FullChannelInfo {

@@ -13,8 +13,7 @@ import {
   WhisperServiceErrorCode,
   WhisperSessionInitEvent,
 } from '../../../common/whispers'
-import { getChannelInfos } from '../chat/chat-models'
-import ChatService, { toBasicChannelInfo } from '../chat/chat-service'
+import { getChannelInfos, toBasicChannelInfo } from '../chat/chat-models'
 import logger from '../logging/logger'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
@@ -48,7 +47,6 @@ export default class WhisperService {
   private sessionUsers = IMap<SbUserId, ISet<SbUserId>>()
 
   constructor(
-    private chatService: ChatService,
     private publisher: TypedPublisher<WhisperEvent>,
     private userSocketsManager: UserSocketsManager,
   ) {
