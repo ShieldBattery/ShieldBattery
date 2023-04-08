@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import {
+  BasicChannelInfo,
   ChatMessage,
   ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
@@ -26,7 +27,6 @@ import { colorError } from '../../styles/colors'
 import { headline5, headline6, subtitle1 } from '../../styles/typography'
 import { deleteMessageAsAdmin } from '../action-creators'
 import { renderChannelMessage } from '../channel'
-import { ClientChannelInfo } from '../channel-info-selector'
 import { ChannelUserList } from '../channel-user-list'
 
 const CHANNEL_MESSAGES_LIMIT = 50
@@ -59,15 +59,6 @@ function getChannelMessages(
     dispatch({
       type: '@users/loadUsers',
       payload: result.mentions.concat(result.users),
-    })
-    dispatch({
-      type: '@chat/loadMessageHistory',
-      payload: result,
-      meta: {
-        channelId,
-        limit,
-        beforeTime: earliestMessageTime,
-      },
     })
 
     return result
@@ -137,7 +128,8 @@ export function AdminChannelView({
   channelName: string
 }) {
   const dispatch = useAppDispatch()
-  const [channelInfo, setChannelInfo] = useState<ClientChannelInfo>()
+  // TODO(2Pac): Do we need `detailedChannelInfo` and `joinedChannelInfo` here?
+  const [channelInfo, setChannelInfo] = useState<BasicChannelInfo>()
   const [error, setError] = useState<Error>()
 
   const [channelMessages, setChannelMessages] = useState<ChatMessage[]>([])
@@ -161,8 +153,7 @@ export function AdminChannelView({
       getChannelInfo(makeSbChannelId(channelId), {
         signal: abortController.signal,
         onSuccess: result => {
-          // TODO(2Pac): Do we need `joinedChannelInfo` here?
-          setChannelInfo({ ...result.channelInfo, ...result.detailedChannelInfo })
+          setChannelInfo(result.channelInfo)
           setError(undefined)
         },
         onError: err => {
