@@ -356,18 +356,16 @@ export class ChatApi {
   )
   async searchChannels(ctx: RouterContext): Promise<SearchChannelsResponse> {
     const {
-      query: { q: searchQuery, limit, offset },
+      query: { q: searchQuery, offset },
     } = validateRequest(ctx, {
-      query: Joi.object<{ q?: string; offset: number; limit: number }>({
+      query: Joi.object<{ q?: string; offset: number }>({
         q: Joi.string().allow(''),
-        limit: Joi.number().min(1).max(50),
         offset: Joi.number().min(0),
       }),
     })
 
     return await this.chatService.searchChannels({
       userId: ctx.session!.userId,
-      limit,
       offset,
       searchStr: searchQuery,
     })

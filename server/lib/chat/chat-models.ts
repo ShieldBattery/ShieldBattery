@@ -6,6 +6,7 @@ import {
   DetailedChannelInfo,
   JoinedChannelInfo,
   SbChannelId,
+  SEARCH_CHANNELS_LIMIT,
   ServerChatMessageType,
 } from '../../../common/chat'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
@@ -692,37 +693,23 @@ export async function findChannelsByName(
 }
 
 /**
- * Searches for all of the channels in the database, optionally filtered by a `searchStr`.
- *
- * Returns the full list of found channels and a list of joined channel IDs.
+ * Returns a list of chat channels, optionally filtered by a `searchStr`.
  */
-export async function searchChannelsAsUser(
+export async function searchChannels(
   {
-    userId,
-    limit,
     offset,
     searchStr,
   }: {
-    userId: SbUserId
-    limit: number
     offset: number
     searchStr?: string
   },
   withClient?: DbClient,
-): Promise<{
-  channels: FullChannelInfo[]
-  joinedChannels: SbChannelId[]
-}> {
+): Promise<FullChannelInfo[]> {
   const { client, done } = await db(withClient)
   try {
     const query = sql`
-      WITH joined_channels AS (
-        SELECT channel_id
-        FROM channel_users
-        WHERE user_id = ${userId}
-      )
-      SELECT *, EXISTS (SELECT 1 FROM joined_channels jc WHERE jc.channel_id = c.id) AS joined
-      FROM channels c
+      SELECT *
+      FROM channels
     `
 
     if (searchStr) {
@@ -731,16 +718,13 @@ export async function searchChannelsAsUser(
 
     query.append(sql`
       ORDER BY user_count DESC, name
-      LIMIT ${limit}
+      LIMIT ${SEARCH_CHANNELS_LIMIT}
       OFFSET ${offset}
     `)
 
     const result = await client.query<DbChannel & { joined: boolean }>(query)
 
-    return {
-      channels: result.rows.map(row => convertChannelFromDb(row)),
-      joinedChannels: result.rows.filter(row => row.joined).map(row => row.id),
-    }
+    return result.rows.map(row => convertChannelFromDb(row))
   } finally {
     done()
   }

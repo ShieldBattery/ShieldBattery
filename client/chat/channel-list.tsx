@@ -18,8 +18,6 @@ import { colorError, colorTextFaint } from '../styles/colors'
 import { headline4, subtitle1 } from '../styles/typography'
 import { searchChannels } from './action-creators'
 
-const SEARCH_CHANNELS_LIMIT = 40
-
 const Container = styled.div`
   padding: 16px 24px;
 
@@ -77,8 +75,8 @@ export function ChannelList() {
   const [refreshToken, triggerRefresh] = useRefreshToken()
   const debouncedSearchRef = useRef(
     debounce((searchQuery: string) => {
-      // Just need to clear the search results here and let the carousel initiate the network
-      // request.
+      // Just need to clear the search results here and let the infinite scroll list initiate the
+      // network request.
       setSearchQuery(searchQuery)
       setSearchError(undefined)
       setChannels(undefined)
@@ -98,12 +96,12 @@ export function ChannelList() {
     abortControllerRef.current = new AbortController()
 
     dispatch(
-      searchChannels(searchQuery, SEARCH_CHANNELS_LIMIT, channels?.length ?? 0, {
+      searchChannels(searchQuery, channels?.length ?? 0, {
         signal: abortControllerRef.current.signal,
         onSuccess: data => {
           setIsLoadingMoreChannels(false)
           setChannels((channels ?? []).concat(data.channelInfos))
-          setHasMoreChannels(data.channelInfos.length >= SEARCH_CHANNELS_LIMIT)
+          setHasMoreChannels(data.hasMoreChannels)
         },
         onError: err => {
           setIsLoadingMoreChannels(false)

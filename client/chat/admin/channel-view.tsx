@@ -128,7 +128,6 @@ export function AdminChannelView({
   channelName: string
 }) {
   const dispatch = useAppDispatch()
-  // TODO(2Pac): Do we need `detailedChannelInfo` and `joinedChannelInfo` here?
   const [channelInfo, setChannelInfo] = useState<BasicChannelInfo>()
   const [error, setError] = useState<Error>()
 
@@ -270,7 +269,7 @@ export function AdminChannelView({
     } else {
       errorText = (
         <ErrorText>
-          Error getting channel info for {channelNameFromRoute}: {error.message}
+          Error getting channel info for #{channelNameFromRoute}: {error.message}
         </ErrorText>
       )
     }

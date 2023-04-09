@@ -3,7 +3,6 @@ import styled from 'styled-components'
 import { ChatServiceErrorCode, SbChannelId } from '../../common/chat'
 import { urlPath } from '../../common/urls'
 import { hasAnyPermission } from '../admin/admin-permissions'
-import { useOverflowingElement } from '../dom/overflowing-element'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton, RaisedButton } from '../material/button'
 import Card from '../material/card'
@@ -11,7 +10,6 @@ import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { shadow2dp } from '../material/shadows'
-import { Tooltip } from '../material/tooltip'
 import { push } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
@@ -19,7 +17,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import { colorTextFaint } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
-import { body1, caption, headline6, singleLine } from '../styles/typography'
+import { body1, caption, headline6 } from '../styles/typography'
 import { getBatchChannelInfo, joinChannel, navigateToChannel } from './action-creators'
 import { ChannelBadge } from './channel-badge'
 import { ChannelBanner, ChannelBannerPlaceholderImage } from './channel-banner'
@@ -33,6 +31,12 @@ const ChannelCardRoot = styled(Card)`
   flex-direction: column;
 
   contain: content;
+`
+
+const OverflowMenuButton = styled(IconButton)`
+  position: absolute;
+  top: 4px;
+  right: 4px;
 `
 
 const ChannelBannerAndBadge = styled.div`
@@ -54,24 +58,10 @@ const ChannelCardBadge = styled.div`
   border-radius: 9999px;
 `
 
-const ChannelNameContainer = styled.div`
-  position: relative;
-`
-
-const ChannelName = styled.div<{ $hasOverflowMenu: boolean }>`
+const ChannelName = styled.div`
   ${headline6};
-  ${singleLine};
   margin-top: 4px;
-  margin-right: ${props => (props.$hasOverflowMenu ? '48px' : '0px')};
   padding: 0 16px;
-`
-
-const OverflowMenuButton = styled(IconButton)`
-  // NOTE(2Pac): We use absolute positioning here instead of flex layout because this icon is too
-  // big and it pushes everything down (and making it smaller looks even worse).
-  position: absolute;
-  top: -4px;
-  right: 0;
 `
 
 const ChannelUserCount = styled.div`
@@ -157,10 +147,8 @@ export function ConnectedChannelInfoCard({
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId))
   const isUserInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
-  // TODO(2Pac): Add a separate permission for managing chat channels
   const isAdmin = useAppSelector(s => hasAnyPermission(s.auth, 'moderateChatChannels'))
 
-  const [channelNameRef, isChannelNameOverflowing] = useOverflowingElement()
   const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController()
   const [anchor, anchorX, anchorY] = useAnchorPosition('left', 'top')
 
@@ -233,7 +221,7 @@ export function ConnectedChannelInfoCard({
   }
 
   return (
-    <>
+    <ChannelCardRoot>
       {isAdmin ? (
         <Popover
           open={overflowMenuOpen}
@@ -248,61 +236,50 @@ export function ConnectedChannelInfoCard({
         </Popover>
       ) : null}
 
-      <ChannelCardRoot>
-        <ChannelBannerAndBadge>
-          {detailedChannelInfo?.bannerPath ? (
-            <ChannelBanner src={detailedChannelInfo.bannerPath} />
-          ) : (
-            <ChannelBannerPlaceholderImage />
-          )}
-          {basicChannelInfo ? (
-            <ChannelCardBadge>
-              <ChannelBadge
-                basicChannelInfo={basicChannelInfo}
-                detailedChannelInfo={detailedChannelInfo}
-              />
-            </ChannelCardBadge>
-          ) : null}
-        </ChannelBannerAndBadge>
-        <ChannelNameContainer>
-          <Tooltip
-            text={basicChannelInfo?.name ?? channelName}
-            position='bottom'
-            disabled={!isChannelNameOverflowing}>
-            <ChannelName ref={channelNameRef} $hasOverflowMenu={isAdmin}>
-              {basicChannelInfo?.name ?? channelName}
-            </ChannelName>
-          </Tooltip>
-          {isAdmin ? (
-            <OverflowMenuButton
-              ref={anchor}
-              icon={<MaterialIcon icon='more_vert' />}
-              title='More actions'
-              onClick={openOverflowMenu}
+      <ChannelBannerAndBadge>
+        {detailedChannelInfo?.bannerPath ? (
+          <ChannelBanner src={detailedChannelInfo.bannerPath} />
+        ) : (
+          <ChannelBannerPlaceholderImage />
+        )}
+        {basicChannelInfo ? (
+          <ChannelCardBadge>
+            <ChannelBadge
+              basicChannelInfo={basicChannelInfo}
+              detailedChannelInfo={detailedChannelInfo}
             />
-          ) : null}
-        </ChannelNameContainer>
-        {detailedChannelInfo?.userCount ? (
-          <ChannelUserCount>
-            {`${detailedChannelInfo.userCount} member${
-              detailedChannelInfo.userCount > 1 ? 's' : ''
-            }`}
-          </ChannelUserCount>
+          </ChannelCardBadge>
         ) : null}
-        {channelDescription}
-        <FlexSpacer />
-        <ChannelActions>
-          {isUserInChannel ? (
-            <JoinedIndicator>
-              <MaterialIcon icon='check' />
-              <span>Joined</span>
-            </JoinedIndicator>
-          ) : (
-            <div />
-          )}
-          {action}
-        </ChannelActions>
-      </ChannelCardRoot>
-    </>
+      </ChannelBannerAndBadge>
+      <ChannelName>{basicChannelInfo?.name ?? channelName}</ChannelName>
+
+      {detailedChannelInfo?.userCount ? (
+        <ChannelUserCount>
+          {`${detailedChannelInfo.userCount} member${detailedChannelInfo.userCount > 1 ? 's' : ''}`}
+        </ChannelUserCount>
+      ) : null}
+      {channelDescription}
+      <FlexSpacer />
+      <ChannelActions>
+        {isUserInChannel ? (
+          <JoinedIndicator>
+            <MaterialIcon icon='check' />
+            <span>Joined</span>
+          </JoinedIndicator>
+        ) : (
+          <div />
+        )}
+        {action}
+      </ChannelActions>
+
+      {isAdmin ? (
+        <OverflowMenuButton
+          ref={anchor}
+          icon={<MaterialIcon icon='more_vert' />}
+          title='More actions'
+          onClick={openOverflowMenu}
+        />
+      ) : null}
+    </ChannelCardRoot>
   )
 }

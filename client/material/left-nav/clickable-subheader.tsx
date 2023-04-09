@@ -1,18 +1,23 @@
 import React from 'react'
 import styled from 'styled-components'
-import { Link, useRoute } from 'wouter'
+import { Link } from 'wouter'
+import { push } from '../../navigation/routing'
+import { useStableCallback } from '../../state-hooks'
 import { colorTextPrimary, colorTextSecondary } from '../../styles/colors'
 import { overline, singleLine } from '../../styles/typography'
+import { useButtonState } from '../button'
+import { Ripple } from '../ripple'
+import SubheaderButton from './subheader-button'
 
-const Container = styled.div<{ $isActive: boolean }>`
+const Container = styled.div`
+  position: relative;
   width: 100%;
   height: 36px;
-  background-color: ${props => (props.$isActive ? 'rgba(255, 255, 255, 0.08)' : 'transparent')};
-  color: ${props => (props.$isActive ? colorTextPrimary : colorTextSecondary)};
+
+  color: ${colorTextSecondary};
   cursor: pointer;
 
   &:hover {
-    background-color: rgba(255, 255, 255, 0.08);
     color: ${colorTextPrimary};
   }
 `
@@ -43,31 +48,31 @@ const Title = styled.div`
   line-height: 36px;
 `
 
-const IconContainer = styled.div`
-  width: 36px;
-  height: 100%;
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-`
-
 interface SubheaderProps {
+  to: string
   icon?: React.ReactNode
   children: React.ReactNode
   className?: string
 }
 
 export const ClickableSubheader = React.forwardRef(
-  ({ icon, children, className }: SubheaderProps, ref: React.ForwardedRef<HTMLDivElement>) => {
-    const [isActive] = useRoute('/chat/list')
+  (
+    { to, icon, children, className }: SubheaderProps,
+    ref: React.ForwardedRef<HTMLButtonElement>,
+  ) => {
+    const onClick = useStableCallback(() => {
+      push(to)
+    })
+    const [buttonProps, rippleRef] = useButtonState({ onClick })
 
     return (
-      <Container ref={ref} $isActive={isActive}>
-        <StyledLink to='/chat/list' className={className}>
+      <Container className={className} {...buttonProps}>
+        <StyledLink to={to}>
           <Title>{children}</Title>
-          <IconContainer>{icon}</IconContainer>
+          {icon ? <SubheaderButton ref={ref} icon={icon} /> : null}
         </StyledLink>
+
+        <Ripple ref={rippleRef} />
       </Container>
     )
   },

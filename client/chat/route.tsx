@@ -2,6 +2,7 @@ import React, { Suspense } from 'react'
 import { Route, RouteProps, Switch } from 'wouter'
 import { makeSbChannelId, SbChannelId } from '../../common/chat'
 import { hasAnyPermission } from '../admin/admin-permissions'
+import { NoPermissionsDisplay } from '../auth/no-permissions-display'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppSelector } from '../redux-hooks'
@@ -9,13 +10,9 @@ import { ConnectedChatChannel } from './channel'
 import { ChannelList } from './channel-list'
 import { CreateChannel } from './create-channel'
 
-const getLoadableChatAdminComponent = (isAdmin: boolean) =>
-  isAdmin
-    ? React.lazy(async () => ({
-        default: (await import('./admin')).ChatAdmin,
-      }))
-    : // TODO(2Pac): Create a better-designed, general component for this
-      () => <span>Not enough permissions to access this page</span>
+const LoadableChatAdminComponent = React.lazy(async () => ({
+  default: (await import('./admin')).ChatAdmin,
+}))
 
 export function ChannelRoute({
   component: Component,
@@ -48,7 +45,9 @@ export function ChannelRouteComponent(props: { params: any }) {
   return (
     <Suspense fallback={<LoadingDotsArea />}>
       <Switch>
-        <Route path='/chat/admin/:rest*' component={getLoadableChatAdminComponent(isAdmin)} />
+        <Route path='/chat/admin/:rest*'>
+          {isAdmin ? <LoadableChatAdminComponent /> : <NoPermissionsDisplay />}
+        </Route>
         <Route path='/chat/new' component={CreateChannel} />
         <Route path='/chat/list' component={ChannelList} />
         <ChannelRoute path='/chat/:channelId/:channelName' component={ConnectedChatChannel} />

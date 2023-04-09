@@ -269,13 +269,12 @@ export function getBatchChannelInfo(channelId: SbChannelId): ThunkAction {
 
 export function searchChannels(
   searchQuery: string,
-  limit: number,
   offset: number,
   spec: RequestHandlingSpec<SearchChannelsResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const result = await fetchJson<SearchChannelsResponse>(
-      apiUrl`chat/?q=${searchQuery}&limit=${limit}&offset=${offset}`,
+      apiUrl`chat/?q=${searchQuery}&offset=${offset}`,
       {
         signal: spec.signal,
       },

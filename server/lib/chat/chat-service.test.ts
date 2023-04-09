@@ -41,6 +41,7 @@ import {
   FullChannelInfo,
   getChannelInfo,
   getChannelInfos,
+  getChannelsForUser,
   getMessagesForChannel,
   getUserChannelEntriesForUser,
   getUserChannelEntryForUser,
@@ -48,7 +49,7 @@ import {
   isUserBannedFromChannel,
   JoinChannelData,
   removeUserFromChannel,
-  searchChannelsAsUser,
+  searchChannels,
   TextMessageData,
   toBasicChannelInfo,
   updateUserPermissions,
@@ -119,7 +120,7 @@ jest.mock('./chat-models', () => {
     getChannelInfos: jest.fn().mockResolvedValue([]),
     findChannelByName: jest.fn(),
     findChannelsByName: jest.fn().mockResolvedValue([]),
-    searchChannelsAsUser: jest.fn(),
+    searchChannels: jest.fn().mockResolvedValue([]),
     toBasicChannelInfo: originalModule.toBasicChannelInfo,
     toDetailedChannelInfo: originalModule.toDetailedChannelInfo,
     toJoinedChannelInfo: originalModule.toJoinedChannelInfo,
@@ -1411,58 +1412,64 @@ describe('chat/chat-service', () => {
 
   describe('searchChannels', () => {
     test('returns no channel infos when no channels are found', async () => {
-      asMockedFunction(searchChannelsAsUser).mockResolvedValue({
-        channels: [],
-        joinedChannels: [],
-      })
+      asMockedFunction(searchChannels).mockResolvedValue([])
+      asMockedFunction(getChannelsForUser).mockResolvedValue([])
 
-      const result = await chatService.searchChannels({ userId: user1.id, limit: 50, offset: 0 })
+      const result = await chatService.searchChannels({ userId: user1.id, offset: 0 })
 
       expect(result).toEqual({
         channelInfos: [],
         detailedChannelInfos: [],
         joinedChannelInfos: [],
+        hasMoreChannels: false,
       })
     })
 
     test('returns channel infos when found', async () => {
-      asMockedFunction(searchChannelsAsUser).mockResolvedValue({
-        channels: [shieldBatteryChannel, testChannel],
-        joinedChannels: [],
-      })
+      asMockedFunction(searchChannels).mockResolvedValue([shieldBatteryChannel, testChannel])
+      asMockedFunction(getChannelsForUser).mockResolvedValue([])
 
-      const result = await chatService.searchChannels({ userId: user1.id, limit: 50, offset: 0 })
+      const result = await chatService.searchChannels({ userId: user1.id, offset: 0 })
 
       expect(result).toEqual({
         channelInfos: [shieldBatteryBasicInfo, testBasicInfo],
         detailedChannelInfos: [shieldBatteryDetailedInfo, testDetailedInfo],
         joinedChannelInfos: [shieldBatteryJoinedInfo, testJoinedInfo],
+        hasMoreChannels: false,
       })
     })
 
     describe('when any of the channels is private', () => {
       test("doesn't return detailed and joined channel infos for private channels", async () => {
-        asMockedFunction(searchChannelsAsUser).mockResolvedValue({
-          channels: [shieldBatteryChannel, { ...testChannel, private: true }],
-          joinedChannels: [],
-        })
+        asMockedFunction(searchChannels).mockResolvedValue([
+          shieldBatteryChannel,
+          { ...testChannel, private: true },
+        ])
+        asMockedFunction(getChannelsForUser).mockResolvedValue([])
 
-        const result = await chatService.searchChannels({ userId: user1.id, limit: 50, offset: 0 })
+        const result = await chatService.searchChannels({ userId: user1.id, offset: 0 })
 
         expect(result).toEqual({
           channelInfos: [shieldBatteryBasicInfo, { ...testBasicInfo, private: true }],
           detailedChannelInfos: [shieldBatteryDetailedInfo],
           joinedChannelInfos: [shieldBatteryJoinedInfo],
+          hasMoreChannels: false,
         })
       })
 
       test('returns detailed and joined channel info if user is in a private channel', async () => {
-        asMockedFunction(searchChannelsAsUser).mockResolvedValue({
-          channels: [shieldBatteryChannel, { ...testChannel, private: true }],
-          joinedChannels: [testChannel.id],
-        })
+        asMockedFunction(searchChannels).mockResolvedValue([
+          shieldBatteryChannel,
+          { ...testChannel, private: true },
+        ])
+        asMockedFunction(getChannelsForUser).mockResolvedValue([user1TestChannelEntry])
 
-        const result = await chatService.searchChannels({ userId: user1.id, limit: 50, offset: 0 })
+        const result = await chatService.searchChannels({ userId: user1.id, offset: 0 })
+
+        // NOTE(2Pac): This method is used every time a user connects (so basically before each
+        // test), so we restore the mocked return value to what it is by default, so it doesn't
+        // impact the tests that run after this one.
+        asMockedFunction(getChannelsForUser).mockResolvedValue([])
 
         expect(result).toEqual({
           channelInfos: [shieldBatteryBasicInfo, { ...testBasicInfo, private: true }],
@@ -1471,6 +1478,7 @@ describe('chat/chat-service', () => {
             { ...testDetailedInfo, userCount: testChannel.userCount },
           ],
           joinedChannelInfos: [shieldBatteryJoinedInfo, testJoinedInfo],
+          hasMoreChannels: false,
         })
       })
     })

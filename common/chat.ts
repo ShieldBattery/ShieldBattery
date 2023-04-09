@@ -7,6 +7,8 @@ export const CHANNEL_BANNER_HEIGHT = 288 * 2
 export const CHANNEL_BADGE_WIDTH = 80 * 4
 export const CHANNEL_BADGE_HEIGHT = 80 * 4
 
+export const SEARCH_CHANNELS_LIMIT = 40
+
 export type SbChannelId = Opaque<number, 'SbChannelId'>
 
 /**
@@ -450,4 +452,5 @@ export interface SearchChannelsResponse {
   channelInfos: BasicChannelInfo[]
   detailedChannelInfos: DetailedChannelInfo[]
   joinedChannelInfos: JoinedChannelInfo[]
+  hasMoreChannels: boolean
 }

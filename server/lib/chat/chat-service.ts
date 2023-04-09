@@ -17,6 +17,7 @@ import {
   makeSbChannelId,
   SbChannelId,
   SearchChannelsResponse,
+  SEARCH_CHANNELS_LIMIT,
   ServerChatMessage,
   ServerChatMessageType,
   toChatUserProfileJson,
@@ -57,7 +58,7 @@ import {
   getUsersForChannel,
   isUserBannedFromChannel,
   removeUserFromChannel,
-  searchChannelsAsUser,
+  searchChannels,
   toBasicChannelInfo,
   toDetailedChannelInfo,
   toJoinedChannelInfo,
@@ -543,22 +544,17 @@ export default class ChatService {
     ])
 
     const userJoinedChannelsSet = new global.Set(userChannelEntries.map(e => e.channelId))
+    const detailedChannelInfos: DetailedChannelInfo[] = []
+    const joinedChannelInfos: JoinedChannelInfo[] = []
 
-    const [detailedChannelInfos, joinedChannelInfos] = channelInfos.reduce<
-      [DetailedChannelInfo[], JoinedChannelInfo[]]
-    >(
-      (acc, channel) => {
-        if (channel.private && !userJoinedChannelsSet.has(channel.id)) {
-          return acc
-        }
+    for (const channel of channelInfos) {
+      if (channel.private && !userJoinedChannelsSet.has(channel.id)) {
+        continue
+      }
 
-        acc[0].push(toDetailedChannelInfo(channel))
-        acc[1].push(toJoinedChannelInfo(channel))
-
-        return acc
-      },
-      [[], []],
-    )
+      detailedChannelInfos.push(toDetailedChannelInfo(channel))
+      joinedChannelInfos.push(toJoinedChannelInfo(channel))
+    }
 
     return {
       channelInfos: channelInfos.map(channel => toBasicChannelInfo(channel)),
@@ -569,44 +565,36 @@ export default class ChatService {
 
   async searchChannels({
     userId,
-    limit,
     offset,
     searchStr,
   }: {
     userId: SbUserId
-    limit: number
     offset: number
     searchStr?: string
   }): Promise<SearchChannelsResponse> {
-    const { channels, joinedChannels } = await searchChannelsAsUser({
-      userId,
-      limit,
-      offset,
-      searchStr,
-    })
+    const [channels, joinedChannels] = await Promise.all([
+      searchChannels({ offset, searchStr }),
+      getChannelsForUser(userId),
+    ])
 
-    const userJoinedChannelsSet = new global.Set(joinedChannels)
+    const userJoinedChannelsSet = new global.Set(joinedChannels.map(c => c.channelId))
+    const detailedChannelInfos: DetailedChannelInfo[] = []
+    const joinedChannelInfos: JoinedChannelInfo[] = []
 
-    const [detailedChannelInfos, joinedChannelInfos] = channels.reduce<
-      [DetailedChannelInfo[], JoinedChannelInfo[]]
-    >(
-      (acc, channel) => {
-        if (channel.private && !userJoinedChannelsSet.has(channel.id)) {
-          return acc
-        }
+    for (const channel of channels) {
+      if (channel.private && !userJoinedChannelsSet.has(channel.id)) {
+        continue
+      }
 
-        acc[0].push(toDetailedChannelInfo(channel))
-        acc[1].push(toJoinedChannelInfo(channel))
-
-        return acc
-      },
-      [[], []],
-    )
+      detailedChannelInfos.push(toDetailedChannelInfo(channel))
+      joinedChannelInfos.push(toJoinedChannelInfo(channel))
+    }
 
     return {
       channelInfos: channels.map(channel => toBasicChannelInfo(channel)),
       detailedChannelInfos,
       joinedChannelInfos,
+      hasMoreChannels: channels.length >= SEARCH_CHANNELS_LIMIT,
     }
   }
 
