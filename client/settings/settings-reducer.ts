@@ -6,7 +6,7 @@ import {
 } from '../../common/settings/local-settings'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 import { DEFAULT_LOCAL_SETTINGS, DEFAULT_SCR_SETTINGS } from './default-settings'
-import { SettingsSubPage, UserSettingsSubPage } from './settings-sub-page'
+import { AppSettingsSubPage, SettingsSubPage } from './settings-sub-page'
 
 export interface SettingsState {
   open: boolean
@@ -18,7 +18,7 @@ export interface SettingsState {
 
 const DEFAULT_SETTINGS_STATE: Immutable<SettingsState> = {
   open: false,
-  subPage: UserSettingsSubPage.Account,
+  subPage: AppSettingsSubPage.Sound,
 
   local: DEFAULT_LOCAL_SETTINGS,
   scr: DEFAULT_SCR_SETTINGS,

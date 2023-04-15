@@ -27,7 +27,7 @@ import {
 import { LoadingDotsArea } from './progress/dots'
 import { useAppSelector } from './redux-hooks'
 import { RootErrorBoundary } from './root-error-boundary'
-import { Settings } from './settings/settings'
+import { ConnectedSettings } from './settings/settings'
 import ConnectedSnackbar from './snackbars/connected-snackbar'
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
@@ -115,7 +115,7 @@ export default function App() {
                   <MainContent />
                 </Route>
               </Switch>
-              <Settings />
+              <ConnectedSettings />
               <ConnectedSnackbar />
               <ConnectedDialogOverlay />
             </React.Suspense>

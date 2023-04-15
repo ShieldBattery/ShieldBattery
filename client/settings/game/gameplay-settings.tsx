@@ -1,6 +1,6 @@
-import React, { useImperativeHandle, useMemo } from 'react'
+import React from 'react'
 import styled from 'styled-components'
-import { DEV_INDICATOR } from '../../common/flags'
+import { DEV_INDICATOR } from '../../../common/flags'
 import {
   ALL_CONSOLE_SKINS,
   ALL_INGAME_SKINS,
@@ -8,18 +8,23 @@ import {
   getConsoleSkinName,
   getIngameSkinName,
   IngameSkin,
-} from '../../common/settings/blizz-settings'
-import { useForm } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
-import CheckBox from '../material/check-box'
-import { NumberTextField } from '../material/number-text-field'
-import { SelectOption } from '../material/select/option'
-import { Select } from '../material/select/select'
-import { colorTextSecondary } from '../styles/colors'
-import { overline } from '../styles/typography'
-import { FormContainer } from './settings-content'
-import { SettingsFormHandle } from './settings-form-ref'
-import { LocalSettings, ScrSettings } from './settings-records'
+} from '../../../common/settings/blizz-settings'
+import {
+  LocalSettings,
+  ScrSettings,
+  ShieldBatteryAppSettings,
+} from '../../../common/settings/local-settings'
+import { useForm } from '../../forms/form-hook'
+import SubmitOnEnter from '../../forms/submit-on-enter'
+import CheckBox from '../../material/check-box'
+import { NumberTextField } from '../../material/number-text-field'
+import { SelectOption } from '../../material/select/option'
+import { Select } from '../../material/select/select'
+import { useAppSelector } from '../../redux-hooks'
+import { useStableCallback } from '../../state-hooks'
+import { colorTextSecondary } from '../../styles/colors'
+import { overline } from '../../styles/typography'
+import { FormContainer } from '../settings-content'
 
 const ApmAlertCheckbox = styled(CheckBox)`
   margin-top: 32px;
@@ -60,22 +65,20 @@ function validateApmValue(val: number, model: GameplaySettingsModel) {
   return val <= 0 || val > 999 ? 'Enter a value between 1 and 999' : undefined
 }
 
-const GameplayRemasteredForm = React.forwardRef<
-  SettingsFormHandle,
-  {
-    model: GameplaySettingsModel
-    onChange: (model: GameplaySettingsModel) => void
-    onSubmit: (model: GameplaySettingsModel) => void
-  }
->((props, ref) => {
+function GameplaySettingsForm({
+  localSettings,
+  scrSettings,
+  onValidatedChange,
+}: {
+  localSettings: Omit<LocalSettings, keyof ShieldBatteryAppSettings>
+  scrSettings: Omit<ScrSettings, 'version'>
+  onValidatedChange: (model: Readonly<GameplaySettingsModel>) => void
+}) {
   const { bindCheckable, bindCustom, onSubmit, getInputValue } = useForm(
-    props.model,
+    { ...scrSettings, visualizeNetworkStalls: localSettings.visualizeNetworkStalls },
     { apmAlertValue: validateApmValue },
-    { onChange: props.onChange, onSubmit: props.onSubmit },
+    { onValidatedChange },
   )
-  useImperativeHandle(ref, () => ({
-    submit: onSubmit,
-  }))
 
   return (
     <form noValidate={true} onSubmit={onSubmit}>
@@ -172,39 +175,22 @@ const GameplayRemasteredForm = React.forwardRef<
       </FormContainer>
     </form>
   )
-})
-
-export interface GameplaySettingsProps {
-  localSettings: LocalSettings
-  scrSettings: ScrSettings
-  formRef: React.Ref<SettingsFormHandle>
-  onChange: (values: GameplaySettingsModel) => void
-  onSubmit: (values: GameplaySettingsModel) => void
 }
 
-export default function GameplaySettings({
-  localSettings,
-  scrSettings,
-  formRef,
-  onChange,
-  onSubmit,
-}: GameplaySettingsProps) {
-  const formModel = useMemo(
-    // TODO(tec27): remove cast once Immutable infers types properly
-    () =>
-      ({
-        ...scrSettings.toJS(),
-        visualizeNetworkStalls: localSettings.visualizeNetworkStalls,
-      } as GameplaySettingsModel),
-    [scrSettings, localSettings],
-  )
+export function GameplaySettings() {
+  const localSettings = useAppSelector(s => s.settings.local)
+  const scrSettings = useAppSelector(s => s.settings.scr)
+
+  const onValidatedChange = useStableCallback((model: Readonly<GameplaySettingsModel>) => {
+    console.log(model)
+    // FIXME(2Pac): Save the settings (debounced?)
+  })
 
   return (
-    <GameplayRemasteredForm
-      ref={formRef}
-      model={formModel}
-      onChange={onChange}
-      onSubmit={onSubmit}
+    <GameplaySettingsForm
+      localSettings={localSettings}
+      scrSettings={scrSettings}
+      onValidatedChange={onValidatedChange}
     />
   )
 }

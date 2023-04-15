@@ -1,18 +1,19 @@
-import React, { useImperativeHandle, useMemo } from 'react'
+import React from 'react'
 import styled from 'styled-components'
-import { useForm } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
-import CheckBox from '../material/check-box'
-import Slider from '../material/slider'
-import { FormContainer } from './settings-content'
-import { SettingsFormHandle } from './settings-form-ref'
-import { ScrSettings } from './settings-records'
+import { ScrSettings } from '../../../common/settings/local-settings'
+import { useForm } from '../../forms/form-hook'
+import SubmitOnEnter from '../../forms/submit-on-enter'
+import CheckBox from '../../material/check-box'
+import Slider from '../../material/slider'
+import { useAppSelector } from '../../redux-hooks'
+import { useStableCallback } from '../../state-hooks'
+import { FormContainer } from '../settings-content'
 
 const MouseSensitivitySlider = styled(Slider)`
   margin-bottom: 40px;
 `
 
-interface InputSettingsModel {
+interface GameInputSettingsModel {
   keyboardScrollSpeed: number
   mouseScrollSpeed: number
   mouseSensitivityOn: boolean
@@ -22,23 +23,18 @@ interface InputSettingsModel {
   mouseConfineOn: boolean
 }
 
-const InputSettingsForm = React.forwardRef<
-  SettingsFormHandle,
-  {
-    model: InputSettingsModel
-    onChange: (model: InputSettingsModel) => void
-    onSubmit: (model: InputSettingsModel) => void
-  }
->((props, ref) => {
+function GameInputSettingsForm({
+  scrSettings,
+  onValidatedChange,
+}: {
+  scrSettings: Omit<ScrSettings, 'version'>
+  onValidatedChange: (model: Readonly<GameInputSettingsModel>) => void
+}) {
   const { bindCheckable, bindCustom, getInputValue, onSubmit } = useForm(
-    props.model,
+    { ...scrSettings },
     {},
-    { onChange: props.onChange, onSubmit: props.onSubmit },
+    { onValidatedChange },
   )
-
-  useImperativeHandle(ref, () => ({
-    submit: onSubmit,
-  }))
 
   return (
     <form noValidate={true} onSubmit={onSubmit}>
@@ -97,24 +93,15 @@ const InputSettingsForm = React.forwardRef<
       </FormContainer>
     </form>
   )
-})
-
-export interface InputSettingsProps {
-  scrSettings: ScrSettings
-  formRef: React.Ref<SettingsFormHandle>
-  onChange: (values: InputSettingsModel) => void
-  onSubmit: (values: InputSettingsModel) => void
 }
 
-export default function InputSettings({
-  scrSettings,
-  formRef,
-  onChange,
-  onSubmit,
-}: InputSettingsProps) {
-  const formModel = useMemo(() => ({ ...scrSettings.toJS() } as InputSettingsModel), [scrSettings])
+export function GameInputSettings() {
+  const scrSettings = useAppSelector(s => s.settings.scr)
 
-  return (
-    <InputSettingsForm ref={formRef} model={formModel} onChange={onChange} onSubmit={onSubmit} />
-  )
+  const onValidatedChange = useStableCallback((model: Readonly<GameInputSettingsModel>) => {
+    console.log(model)
+    // FIXME(2Pac): Save the settings (debounced?)
+  })
+
+  return <GameInputSettingsForm scrSettings={scrSettings} onValidatedChange={onValidatedChange} />
 }

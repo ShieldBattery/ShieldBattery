@@ -1,17 +1,22 @@
-import React, { useImperativeHandle, useMemo } from 'react'
+import React from 'react'
 import styled from 'styled-components'
-import { ALL_ANNOUNCERS, Announcer, getAnnouncerName } from '../../common/settings/blizz-settings'
-import { useForm } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
-import CheckBox from '../material/check-box'
-import { SelectOption } from '../material/select/option'
-import { Select } from '../material/select/select'
-import Slider from '../material/slider'
-import { colorTextSecondary } from '../styles/colors'
-import { overline } from '../styles/typography'
-import { FormContainer } from './settings-content'
-import { SettingsFormHandle } from './settings-form-ref'
-import { ScrSettings } from './settings-records'
+import {
+  ALL_ANNOUNCERS,
+  Announcer,
+  getAnnouncerName,
+} from '../../../common/settings/blizz-settings'
+import { ScrSettings } from '../../../common/settings/local-settings'
+import { useForm } from '../../forms/form-hook'
+import SubmitOnEnter from '../../forms/submit-on-enter'
+import CheckBox from '../../material/check-box'
+import { SelectOption } from '../../material/select/option'
+import { Select } from '../../material/select/select'
+import Slider from '../../material/slider'
+import { useAppSelector } from '../../redux-hooks'
+import { useStableCallback } from '../../state-hooks'
+import { colorTextSecondary } from '../../styles/colors'
+import { overline } from '../../styles/typography'
+import { FormContainer } from '../settings-content'
 
 const MusicVolumeSlider = styled(Slider)`
   margin-bottom: 40px;
@@ -24,7 +29,7 @@ const AnnouncerOverline = styled.div`
   margin-bottom: 8px;
 `
 
-interface SoundSettingsModel {
+interface GameSoundSettingsModel {
   musicOn: boolean
   musicVolume: number
   soundOn: boolean
@@ -39,23 +44,18 @@ interface SoundSettingsModel {
   originalVoiceOversOn: boolean
 }
 
-const SoundSettingsForm = React.forwardRef<
-  SettingsFormHandle,
-  {
-    model: SoundSettingsModel
-    onChange: (model: SoundSettingsModel) => void
-    onSubmit: (model: SoundSettingsModel) => void
-  }
->((props, ref) => {
+function GameSoundSettingsForm({
+  scrSettings,
+  onValidatedChange,
+}: {
+  scrSettings: Omit<ScrSettings, 'version'>
+  onValidatedChange: (model: Readonly<GameSoundSettingsModel>) => void
+}) {
   const { bindCheckable, bindCustom, getInputValue, onSubmit } = useForm(
-    props.model,
+    { ...scrSettings },
     {},
-    { onChange: props.onChange, onSubmit: props.onSubmit },
+    { onValidatedChange },
   )
-
-  useImperativeHandle(ref, () => ({
-    submit: onSubmit,
-  }))
 
   return (
     <form noValidate={true} onSubmit={onSubmit}>
@@ -136,24 +136,16 @@ const SoundSettingsForm = React.forwardRef<
       </FormContainer>
     </form>
   )
-})
-
-export interface SoundSettingsProps {
-  scrSettings: ScrSettings
-  formRef: React.Ref<SettingsFormHandle>
-  onChange: (model: SoundSettingsModel) => void
-  onSubmit: (model: SoundSettingsModel) => void
 }
 
-export default function SoundSettings({
-  scrSettings,
-  formRef,
-  onChange,
-  onSubmit,
-}: SoundSettingsProps) {
-  const formModel = useMemo(() => ({ ...scrSettings.toJS() } as SoundSettingsModel), [scrSettings])
+export function GameSoundSettings() {
+  const scrSettings = useAppSelector(s => s.settings.scr)
 
-  return (
-    <SoundSettingsForm ref={formRef} model={formModel} onChange={onChange} onSubmit={onSubmit} />
-  )
+  const onValidatedChange = useStableCallback((model: Readonly<GameSoundSettingsModel>) => {
+    console.log(model)
+    // FIXME(2Pac): Save the settings (debounced?)
+    // audioManager.setMasterVolume(volume)
+  })
+
+  return <GameSoundSettingsForm scrSettings={scrSettings} onValidatedChange={onValidatedChange} />
 }

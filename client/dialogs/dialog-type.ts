@@ -22,7 +22,6 @@ export enum DialogType {
   Simple = 'simple',
   ShieldBatteryHealth = 'shieldBatteryHealth',
   StarcraftHealth = 'starcraftHealth',
-  StarcraftPath = 'starcraftPath',
   TermsOfService = 'termsOfService',
   Whispers = 'whispers',
 }
@@ -86,7 +85,6 @@ type SimpleDialogPayload = BaseDialogPayload<
 >
 type ShieldBatteryHealthDialogPayload = BaseDialogPayload<typeof DialogType.ShieldBatteryHealth>
 type StarcraftHealthDialogPayload = BaseDialogPayload<typeof DialogType.StarcraftHealth>
-type StarcraftPathDialogPayload = BaseDialogPayload<typeof DialogType.StarcraftPath>
 type TermsOfServiceDialogPayload = BaseDialogPayload<typeof DialogType.TermsOfService>
 type WhispersDialogPayload = BaseDialogPayload<typeof DialogType.Whispers>
 
@@ -108,6 +106,5 @@ export type DialogPayload =
   | SimpleDialogPayload
   | ShieldBatteryHealthDialogPayload
   | StarcraftHealthDialogPayload
-  | StarcraftPathDialogPayload
   | TermsOfServiceDialogPayload
   | WhispersDialogPayload

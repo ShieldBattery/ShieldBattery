@@ -1,24 +1,19 @@
-export enum UserSettingsSubPage {
-  Account = 'UserSettingsAccount',
-}
-
 export enum AppSettingsSubPage {
   Sound = 'AppSettingsSound',
   System = 'AppSettingsSystem',
 }
 
 export enum GameSettingsSubPage {
-  StarCraftPath = 'GameSettingsStarCraftPath',
+  StarCraft = 'GameSettingsStarCraft',
   Input = 'GameSettingsInput',
   Sound = 'GameSettingsSound',
   Video = 'GameSettingsVideo',
   Gameplay = 'GameSettingsGameplay',
 }
 
-export type SettingsSubPage = UserSettingsSubPage | AppSettingsSubPage | GameSettingsSubPage
+export type SettingsSubPage = AppSettingsSubPage | GameSettingsSubPage
 
 export const ALL_SETTINGS_SUB_PAGES: ReadonlyArray<SettingsSubPage> = [
-  ...Object.values(UserSettingsSubPage),
   ...Object.values(AppSettingsSubPage),
   ...Object.values(GameSettingsSubPage),
 ]

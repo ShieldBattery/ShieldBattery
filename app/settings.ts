@@ -44,7 +44,7 @@ abstract class SettingsManager<T> extends TypedEventEmitter<SettingsEvents<T>> {
   ) {
     super()
 
-    this.initialized = initializeFunc.apply(this)
+    this.initialized = initializeFunc.apply(this).catch(() => {})
     this.initialized.then(() => {
       this.emitChange()
     })
