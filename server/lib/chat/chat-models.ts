@@ -6,7 +6,6 @@ import {
   DetailedChannelInfo,
   JoinedChannelInfo,
   SbChannelId,
-  SEARCH_CHANNELS_LIMIT,
   ServerChatMessageType,
 } from '../../../common/chat'
 import { SbUser, SbUserId } from '../../../common/users/sb-user'
@@ -697,9 +696,11 @@ export async function findChannelsByName(
  */
 export async function searchChannels(
   {
+    limit,
     offset,
     searchStr,
   }: {
+    limit: number
     offset: number
     searchStr?: string
   },
@@ -718,7 +719,7 @@ export async function searchChannels(
 
     query.append(sql`
       ORDER BY user_count DESC, name
-      LIMIT ${SEARCH_CHANNELS_LIMIT}
+      LIMIT ${limit}
       OFFSET ${offset}
     `)
 

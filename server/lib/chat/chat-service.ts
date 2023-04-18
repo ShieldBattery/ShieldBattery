@@ -17,7 +17,6 @@ import {
   makeSbChannelId,
   SbChannelId,
   SearchChannelsResponse,
-  SEARCH_CHANNELS_LIMIT,
   ServerChatMessage,
   ServerChatMessageType,
   toChatUserProfileJson,
@@ -565,15 +564,17 @@ export default class ChatService {
 
   async searchChannels({
     userId,
+    limit,
     offset,
     searchStr,
   }: {
     userId: SbUserId
+    limit: number
     offset: number
     searchStr?: string
   }): Promise<SearchChannelsResponse> {
     const [channels, joinedChannels] = await Promise.all([
-      searchChannels({ offset, searchStr }),
+      searchChannels({ limit, offset, searchStr }),
       getChannelsForUser(userId),
     ])
 
@@ -594,7 +595,7 @@ export default class ChatService {
       channelInfos: channels.map(channel => toBasicChannelInfo(channel)),
       detailedChannelInfos,
       joinedChannelInfos,
-      hasMoreChannels: channels.length >= SEARCH_CHANNELS_LIMIT,
+      hasMoreChannels: channels.length >= limit,
     }
   }
 

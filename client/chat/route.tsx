@@ -2,7 +2,7 @@ import React, { Suspense } from 'react'
 import { Route, RouteProps, Switch } from 'wouter'
 import { makeSbChannelId, SbChannelId } from '../../common/chat'
 import { hasAnyPermission } from '../admin/admin-permissions'
-import { NoPermissionsDisplay } from '../auth/no-permissions-display'
+import { NoPermissionsPage } from '../auth/no-permissions-page'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppSelector } from '../redux-hooks'
@@ -46,7 +46,7 @@ export function ChannelRouteComponent(props: { params: any }) {
     <Suspense fallback={<LoadingDotsArea />}>
       <Switch>
         <Route path='/chat/admin/:rest*'>
-          {isAdmin ? <LoadableChatAdminComponent /> : <NoPermissionsDisplay />}
+          {isAdmin ? <LoadableChatAdminComponent /> : <NoPermissionsPage />}
         </Route>
         <Route path='/chat/new' component={CreateChannel} />
         <Route path='/chat/list' component={ChannelList} />

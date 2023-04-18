@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { colorTextFaint } from '../styles/colors'
+import { colorError, colorTextFaint } from '../styles/colors'
 import { subtitle1 } from '../styles/typography'
 
 const Container = styled.div`
@@ -15,9 +15,9 @@ const Container = styled.div`
   align-items: center;
 `
 
-const WarningIcon = styled(MaterialIcon).attrs({ icon: 'warning' })`
+const ErrorIcon = styled(MaterialIcon).attrs({ icon: 'error' })`
   margin-bottom: 8px;
-  color: ${colorTextFaint};
+  color: ${colorError};
 `
 
 const Text = styled.span`
@@ -25,11 +25,11 @@ const Text = styled.span`
   color: ${colorTextFaint};
 `
 
-export function NoPermissionsDisplay() {
+export function NoPermissionsPage() {
   return (
     <Container>
-      <WarningIcon size={64} />
-      <Text>Not enough permissions to access this page</Text>
+      <ErrorIcon size={64} />
+      <Text>You don't have enough permissions to access this page.</Text>
     </Container>
   )
 }

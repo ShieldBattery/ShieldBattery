@@ -14,7 +14,7 @@ import { useAppDispatch } from '../redux-hooks'
 import { useStableCallback } from '../state-hooks'
 import { colorError } from '../styles/colors'
 import { headline4, subtitle1 } from '../styles/typography'
-import { createChannel, navigateToChannel } from './action-creators'
+import { joinChannel, navigateToChannel } from './action-creators'
 
 const CreateChannelRoot = styled.div`
   display: flex;
@@ -52,7 +52,7 @@ export function CreateChannel() {
     const channelName = model.channel
 
     dispatch(
-      createChannel(channelName, {
+      joinChannel(channelName, {
         onSuccess: channel => navigateToChannel(channel.channelInfo.id, channel.channelInfo.name),
         onError: err => setError(err),
       }),

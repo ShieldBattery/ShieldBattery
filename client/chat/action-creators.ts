@@ -24,10 +24,9 @@ import { openSnackbar } from '../snackbars/action-creators'
 import { ActivateChannel, DeactivateChannel } from './actions'
 
 /**
- * Makes a request to join a user to the channel. It uses the same API as the `joinChannel` action
- * creator, but expects the caller to handle the errors.
+ * Makes a request to join a user to the channel. The caller is expected to handle errors.
  */
-export function createChannel(
+export function joinChannel(
   channelName: string,
   spec: RequestHandlingSpec<JoinChannelResponse>,
 ): ThunkAction {
@@ -39,7 +38,13 @@ export function createChannel(
   })
 }
 
-export function joinChannel(channelName: string, spec: RequestHandlingSpec<void>): ThunkAction {
+/**
+ * Makes a request to join a user to the channel. This function has built-in error handling.
+ */
+export function joinChannelWithErrorHandling(
+  channelName: string,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     return fetchJson<JoinChannelResponse>(apiUrl`chat/join/${channelName}`, {
       method: 'POST',

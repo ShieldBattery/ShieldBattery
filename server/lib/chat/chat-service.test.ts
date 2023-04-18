@@ -1415,7 +1415,7 @@ describe('chat/chat-service', () => {
       asMockedFunction(searchChannels).mockResolvedValue([])
       asMockedFunction(getChannelsForUser).mockResolvedValue([])
 
-      const result = await chatService.searchChannels({ userId: user1.id, offset: 0 })
+      const result = await chatService.searchChannels({ userId: user1.id, limit: 40, offset: 0 })
 
       expect(result).toEqual({
         channelInfos: [],
@@ -1429,7 +1429,7 @@ describe('chat/chat-service', () => {
       asMockedFunction(searchChannels).mockResolvedValue([shieldBatteryChannel, testChannel])
       asMockedFunction(getChannelsForUser).mockResolvedValue([])
 
-      const result = await chatService.searchChannels({ userId: user1.id, offset: 0 })
+      const result = await chatService.searchChannels({ userId: user1.id, limit: 40, offset: 0 })
 
       expect(result).toEqual({
         channelInfos: [shieldBatteryBasicInfo, testBasicInfo],
@@ -1447,7 +1447,7 @@ describe('chat/chat-service', () => {
         ])
         asMockedFunction(getChannelsForUser).mockResolvedValue([])
 
-        const result = await chatService.searchChannels({ userId: user1.id, offset: 0 })
+        const result = await chatService.searchChannels({ userId: user1.id, limit: 40, offset: 0 })
 
         expect(result).toEqual({
           channelInfos: [shieldBatteryBasicInfo, { ...testBasicInfo, private: true }],
@@ -1464,7 +1464,7 @@ describe('chat/chat-service', () => {
         ])
         asMockedFunction(getChannelsForUser).mockResolvedValue([user1TestChannelEntry])
 
-        const result = await chatService.searchChannels({ userId: user1.id, offset: 0 })
+        const result = await chatService.searchChannels({ userId: user1.id, limit: 40, offset: 0 })
 
         // NOTE(2Pac): This method is used every time a user connects (so basically before each
         // test), so we restore the mocked return value to what it is by default, so it doesn't

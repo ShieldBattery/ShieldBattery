@@ -14,6 +14,7 @@ import {
   ModerateChannelUserServerRequest,
   SbChannelId,
   SearchChannelsResponse,
+  SEARCH_CHANNELS_LIMIT,
   SendChatMessageServerRequest,
   UpdateChannelUserPermissionsRequest,
 } from '../../../common/chat'
@@ -366,6 +367,7 @@ export class ChatApi {
 
     return await this.chatService.searchChannels({
       userId: ctx.session!.userId,
+      limit: SEARCH_CHANNELS_LIMIT,
       offset,
       searchStr: searchQuery,
     })

@@ -18,7 +18,11 @@ import { useStableCallback } from '../state-hooks'
 import { colorTextFaint } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { body1, caption, headline6 } from '../styles/typography'
-import { getBatchChannelInfo, joinChannel, navigateToChannel } from './action-creators'
+import {
+  getBatchChannelInfo,
+  joinChannelWithErrorHandling,
+  navigateToChannel,
+} from './action-creators'
 import { ChannelBadge } from './channel-badge'
 import { ChannelBanner, ChannelBannerPlaceholderImage } from './channel-banner'
 
@@ -166,7 +170,7 @@ export function ConnectedChannelInfoCard({
   const onJoinClick = useStableCallback(() => {
     setIsJoinInProgress(true)
     dispatch(
-      joinChannel(channelName, {
+      joinChannelWithErrorHandling(channelName, {
         onSuccess: () => {},
         onError: err => {
           setIsJoinInProgress(false)
