@@ -767,6 +767,15 @@ app.on('ready', async () => {
         mainWindow?.isFocused() ?? false,
       )
     })
+
+    app.on('will-quit', () => {
+      if (localSettings.savingSettingsToDisk) {
+        localSettings.saveSettingsToDiskSync()
+      }
+      if (scrSettings.savingSettingsToDisk) {
+        scrSettings.saveSettingsToDiskSync()
+      }
+    })
   } catch (err: any) {
     logger.error('Error initializing: ' + err)
     console.error(err)

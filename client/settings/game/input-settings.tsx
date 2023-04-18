@@ -5,8 +5,9 @@ import { useForm } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import CheckBox from '../../material/check-box'
 import Slider from '../../material/slider'
-import { useAppSelector } from '../../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
+import { mergeScrSettings } from '../action-creators'
 import { FormContainer } from '../settings-content'
 
 const MouseSensitivitySlider = styled(Slider)`
@@ -96,11 +97,16 @@ function GameInputSettingsForm({
 }
 
 export function GameInputSettings() {
+  const dispatch = useAppDispatch()
   const scrSettings = useAppSelector(s => s.settings.scr)
 
   const onValidatedChange = useStableCallback((model: Readonly<GameInputSettingsModel>) => {
-    console.log(model)
-    // FIXME(2Pac): Save the settings (debounced?)
+    dispatch(
+      mergeScrSettings(model, {
+        onSuccess: () => {},
+        onError: () => {},
+      }),
+    )
   })
 
   return <GameInputSettingsForm scrSettings={scrSettings} onValidatedChange={onValidatedChange} />

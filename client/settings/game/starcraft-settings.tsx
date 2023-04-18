@@ -6,10 +6,11 @@ import { useForm } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import { RaisedButton } from '../../material/button'
 import { TextField } from '../../material/text-field'
-import { useAppSelector } from '../../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
 import { background500 } from '../../styles/colors'
 import { body1, body2 } from '../../styles/typography'
+import { mergeLocalSettings } from '../action-creators'
 import { FormContainer } from '../settings-content'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -53,7 +54,7 @@ const BrowseButtonContainer = styled.div`
 `
 
 interface StarcraftSettingsModel {
-  path: string
+  starcraftPath: string
 }
 
 function StarcraftSettingsForm({
@@ -67,27 +68,14 @@ function StarcraftSettingsForm({
 
   const { bindInput, getInputValue, setInputValue, onSubmit } = useForm(
     {
-      path: localSettings.starcraftPath,
+      starcraftPath: localSettings.starcraftPath,
     },
-    {
-      path: async (starcraftPath: string) => {
-        const checkResult = await ipcRenderer.invoke('settingsCheckStarcraftPath', starcraftPath)!
-
-        if (!checkResult.path) {
-          return 'Select a valid StarCraft path'
-        }
-        if (!checkResult.version) {
-          return 'Select a valid StarCraft version'
-        }
-
-        return undefined
-      },
-    },
+    {},
     { onValidatedChange },
   )
 
   const onBrowseClick = useStableCallback(async () => {
-    const currentPath = getInputValue('path') || ''
+    const currentPath = getInputValue('starcraftPath') || ''
 
     const selection = await ipcRenderer.invoke('settingsBrowseForStarcraft', currentPath)!
     const selectedPath = selection.filePaths[0]
@@ -95,7 +83,7 @@ function StarcraftSettingsForm({
 
     if (selection.canceled || currentPath.toLowerCase() === selectedPath.toLowerCase()) return
 
-    setInputValue('path', normalizePath(selectedPath))
+    setInputValue('starcraftPath', normalizePath(selectedPath))
   })
 
   return (
@@ -114,7 +102,7 @@ function StarcraftSettingsForm({
           <SelectFolderContainer>
             <PathContainer onClick={onBrowseClick}>
               <StyledTextField
-                {...bindInput('path')}
+                {...bindInput('starcraftPath')}
                 label='StarCraft folder path'
                 disabled={true}
               />
@@ -130,11 +118,16 @@ function StarcraftSettingsForm({
 }
 
 export function StarcraftSettings() {
+  const dispatch = useAppDispatch()
   const localSettings = useAppSelector(s => s.settings.local)
 
   const onValidatedChange = useStableCallback((model: Readonly<StarcraftSettingsModel>) => {
-    console.log(model)
-    // FIXME(2Pac): Save the settings (debounced?)
+    dispatch(
+      mergeLocalSettings(model, {
+        onSuccess: () => {},
+        onError: () => {},
+      }),
+    )
   })
 
   return (

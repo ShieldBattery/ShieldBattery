@@ -20,10 +20,11 @@ import CheckBox from '../../material/check-box'
 import { NumberTextField } from '../../material/number-text-field'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
-import { useAppSelector } from '../../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
 import { colorTextSecondary } from '../../styles/colors'
 import { overline } from '../../styles/typography'
+import { mergeLocalSettings, mergeScrSettings } from '../action-creators'
 import { FormContainer } from '../settings-content'
 
 const ApmAlertCheckbox = styled(CheckBox)`
@@ -178,12 +179,26 @@ function GameplaySettingsForm({
 }
 
 export function GameplaySettings() {
+  const dispatch = useAppDispatch()
   const localSettings = useAppSelector(s => s.settings.local)
   const scrSettings = useAppSelector(s => s.settings.scr)
 
   const onValidatedChange = useStableCallback((model: Readonly<GameplaySettingsModel>) => {
-    console.log(model)
-    // FIXME(2Pac): Save the settings (debounced?)
+    dispatch(
+      mergeScrSettings(model, {
+        onSuccess: () => {},
+        onError: () => {},
+      }),
+    )
+
+    if (model.visualizeNetworkStalls !== localSettings.visualizeNetworkStalls) {
+      dispatch(
+        mergeLocalSettings(model, {
+          onSuccess: () => {},
+          onError: () => {},
+        }),
+      )
+    }
   })
 
   return (

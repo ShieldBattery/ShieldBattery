@@ -4,8 +4,9 @@ import { LocalSettings, ShieldBatteryAppSettings } from '../../../common/setting
 import { useForm } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import CheckBox from '../../material/check-box'
-import { useAppSelector } from '../../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
+import { mergeLocalSettings } from '../action-creators'
 import { FormContainer } from '../settings-content'
 
 const IndentedCheckbox = styled(CheckBox)`
@@ -56,11 +57,16 @@ function AppSystemSettingsForm({
 }
 
 export default function AppSystemSettings() {
+  const dispatch = useAppDispatch()
   const localSettings = useAppSelector(s => s.settings.local)
 
   const onValidatedChange = useStableCallback((model: Readonly<AppSystemSettingsModel>) => {
-    console.log(model)
-    // audioManager.setMasterVolume(volume)
+    dispatch(
+      mergeLocalSettings(model, {
+        onSuccess: () => {},
+        onError: () => {},
+      }),
+    )
   })
 
   return (

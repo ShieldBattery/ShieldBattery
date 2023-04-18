@@ -1,6 +1,7 @@
 import deepEqual from 'deep-equal'
 import fs, { promises as fsPromises } from 'fs'
 import { Map } from 'immutable'
+import { debounce } from 'lodash-es'
 import { ConditionalKeys } from 'type-fest'
 import { DEFAULT_LOCAL_SETTINGS } from '../client/settings/default-settings'
 import { LocalSettings, ScrSettings } from '../common/settings/local-settings'
@@ -59,13 +60,27 @@ abstract class SettingsManager<T> extends TypedEventEmitter<SettingsEvents<T>> {
     return this.settings
   }
 
+  savingSettingsToDisk = false
+  debouncedFileWrite = debounce(() => {
+    fsPromises.writeFile(this.filepath, jsonify(this.settings), { encoding: 'utf8' }).catch(err => {
+      log.error(`Error saving the ${this.settingsName} settings file: ${err.stack ?? err}`)
+    })
+    this.savingSettingsToDisk = false
+  }, 400)
+
+  saveSettingsToDiskSync() {
+    fs.writeFileSync(this.filepath, jsonify(this.settings), { encoding: 'utf8' })
+  }
+
   async merge(settings: Readonly<Partial<T>>): Promise<void> {
     await this.initialized
     const merged = { ...this.settings, ...settings }
     if (!deepEqual(merged, this.settings)) {
       this.settings = merged
-      await fsPromises.writeFile(this.filepath, jsonify(this.settings), { encoding: 'utf8' })
       this.emitChange()
+
+      this.savingSettingsToDisk = true
+      this.debouncedFileWrite()
     }
   }
 

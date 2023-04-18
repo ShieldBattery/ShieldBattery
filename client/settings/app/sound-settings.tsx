@@ -7,8 +7,9 @@ import SubmitOnEnter from '../../forms/submit-on-enter'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { TextButton } from '../../material/button'
 import Slider from '../../material/slider'
-import { useAppSelector } from '../../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
+import { mergeLocalSettings } from '../action-creators'
 import { FormContainer } from '../settings-content'
 
 const VolumeSettings = styled.div`
@@ -85,6 +86,7 @@ function AppSoundSettingsForm({
 }
 
 export function AppSoundSettings() {
+  const dispatch = useAppDispatch()
   const localSettings = useAppSelector(s => s.settings.local)
   const [isPlayingTestSound, setIsPlayingTestSound] = useState(false)
   const playingSoundRef = useRef<AudioBufferSourceNode>()
@@ -112,8 +114,14 @@ export function AppSoundSettings() {
   })
 
   const onValidatedChange = useStableCallback((model: Readonly<AppSoundSettingsModel>) => {
-    console.log(model)
-    // audioManager.setMasterVolume(volume)
+    dispatch(
+      mergeLocalSettings(model, {
+        onSuccess: () => {
+          audioManager.setMasterVolume(model.masterVolume)
+        },
+        onError: () => {},
+      }),
+    )
   })
 
   useEffect(() => cleanupSound(), [cleanupSound])

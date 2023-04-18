@@ -12,10 +12,11 @@ import CheckBox from '../../material/check-box'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import Slider from '../../material/slider'
-import { useAppSelector } from '../../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
 import { colorTextSecondary } from '../../styles/colors'
 import { overline } from '../../styles/typography'
+import { mergeScrSettings } from '../action-creators'
 import { FormContainer } from '../settings-content'
 
 const MusicVolumeSlider = styled(Slider)`
@@ -139,12 +140,16 @@ function GameSoundSettingsForm({
 }
 
 export function GameSoundSettings() {
+  const dispatch = useAppDispatch()
   const scrSettings = useAppSelector(s => s.settings.scr)
 
   const onValidatedChange = useStableCallback((model: Readonly<GameSoundSettingsModel>) => {
-    console.log(model)
-    // FIXME(2Pac): Save the settings (debounced?)
-    // audioManager.setMasterVolume(volume)
+    dispatch(
+      mergeScrSettings(model, {
+        onSuccess: () => {},
+        onError: () => {},
+      }),
+    )
   })
 
   return <GameSoundSettingsForm scrSettings={scrSettings} onValidatedChange={onValidatedChange} />

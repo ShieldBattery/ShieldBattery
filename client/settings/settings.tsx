@@ -180,36 +180,40 @@ function SettingsContent({
     },
   })
 
+  // TODO(2Pac): Currently we don't have any non-Electron settings so this might look a bit weird.
+  // Soon enough we should probably have some user settings (e.g. editing user account, and changing
+  // a language).
+
   let contents: React.ReactNode | undefined
   let title: string | undefined
   switch (subPage) {
     case AppSettingsSubPage.Sound:
-      contents = <AppSoundSettings />
-      title = 'Sound settings'
+      contents = IS_ELECTRON ? <AppSoundSettings /> : <div></div>
+      title = IS_ELECTRON ? 'Sound settings' : ''
       break
     case AppSettingsSubPage.System:
-      contents = <AppSystemSettings />
-      title = 'System settings'
+      contents = IS_ELECTRON ? <AppSystemSettings /> : <div></div>
+      title = IS_ELECTRON ? 'System settings' : ''
       break
     case GameSettingsSubPage.StarCraft:
-      contents = <StarcraftSettings />
-      title = 'StarCraft'
+      contents = IS_ELECTRON ? <StarcraftSettings /> : <div></div>
+      title = IS_ELECTRON ? 'StarCraft' : ''
       break
     case GameSettingsSubPage.Input:
-      contents = <GameInputSettings />
-      title = 'Input settings'
+      contents = IS_ELECTRON ? <GameInputSettings /> : <div></div>
+      title = IS_ELECTRON ? 'Input settings' : ''
       break
     case GameSettingsSubPage.Sound:
-      contents = <GameSoundSettings />
-      title = 'Sound settings'
+      contents = IS_ELECTRON ? <GameSoundSettings /> : <div></div>
+      title = IS_ELECTRON ? 'Sound settings' : ''
       break
     case GameSettingsSubPage.Video:
-      contents = <GameVideoSettings />
-      title = 'Video settings'
+      contents = IS_ELECTRON ? <GameVideoSettings /> : <div></div>
+      title = IS_ELECTRON ? 'Video settings' : ''
       break
     case GameSettingsSubPage.Gameplay:
-      contents = <GameplaySettings />
-      title = 'Gameplay settings'
+      contents = IS_ELECTRON ? <GameplaySettings /> : <div></div>
+      title = IS_ELECTRON ? 'Gameplay settings' : ''
       break
     default:
       contents = assertUnreachable(subPage)
@@ -218,22 +222,22 @@ function SettingsContent({
   return (
     <Container style={style}>
       <NavContainer>
-        <NavSectionTitle>App settings</NavSectionTitle>
-        <NavEntry
-          subPage={AppSettingsSubPage.Sound}
-          isActive={AppSettingsSubPage.Sound === subPage}
-          onChangeSubPage={onChangeSubPage}>
-          Sound
-        </NavEntry>
-        <NavEntry
-          subPage={AppSettingsSubPage.System}
-          isActive={AppSettingsSubPage.System === subPage}
-          onChangeSubPage={onChangeSubPage}>
-          System
-        </NavEntry>
-
         {IS_ELECTRON ? (
           <>
+            <NavSectionTitle>App settings</NavSectionTitle>
+            <NavEntry
+              subPage={AppSettingsSubPage.Sound}
+              isActive={AppSettingsSubPage.Sound === subPage}
+              onChangeSubPage={onChangeSubPage}>
+              Sound
+            </NavEntry>
+            <NavEntry
+              subPage={AppSettingsSubPage.System}
+              isActive={AppSettingsSubPage.System === subPage}
+              onChangeSubPage={onChangeSubPage}>
+              System
+            </NavEntry>
+
             <NavSectionSeparator />
 
             <NavSectionTitle>Game settings</NavSectionTitle>

@@ -12,8 +12,9 @@ import CheckBox from '../../material/check-box'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import Slider from '../../material/slider'
-import { useAppSelector } from '../../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
+import { mergeScrSettings } from '../action-creators'
 import { FormContainer } from '../settings-content'
 
 const Spacer = styled.div`
@@ -153,11 +154,16 @@ function GameVideoSettingsForm({
 }
 
 export function GameVideoSettings() {
+  const dispatch = useAppDispatch()
   const scrSettings = useAppSelector(s => s.settings.scr)
 
   const onValidatedChange = useStableCallback((model: Readonly<GameVideoSettingsModel>) => {
-    console.log(model)
-    // FIXME(2Pac): Save the settings (debounced?)
+    dispatch(
+      mergeScrSettings(model, {
+        onSuccess: () => {},
+        onError: () => {},
+      }),
+    )
   })
 
   return <GameVideoSettingsForm scrSettings={scrSettings} onValidatedChange={onValidatedChange} />
