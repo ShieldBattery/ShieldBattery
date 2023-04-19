@@ -102,10 +102,21 @@ export function GameInputSettings() {
 
   const onValidatedChange = useStableCallback((model: Readonly<GameInputSettingsModel>) => {
     dispatch(
-      mergeScrSettings(model, {
-        onSuccess: () => {},
-        onError: () => {},
-      }),
+      mergeScrSettings(
+        {
+          keyboardScrollSpeed: model.keyboardScrollSpeed,
+          mouseScrollSpeed: model.mouseScrollSpeed,
+          mouseSensitivityOn: model.mouseSensitivityOn,
+          mouseSensitivity: model.mouseSensitivity,
+          mouseScalingOn: model.mouseScalingOn,
+          hardwareCursorOn: model.hardwareCursorOn,
+          mouseConfineOn: model.mouseConfineOn,
+        },
+        {
+          onSuccess: () => {},
+          onError: () => {},
+        },
+      ),
     )
   })
 

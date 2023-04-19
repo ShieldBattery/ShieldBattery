@@ -159,10 +159,26 @@ export function GameVideoSettings() {
 
   const onValidatedChange = useStableCallback((model: Readonly<GameVideoSettingsModel>) => {
     dispatch(
-      mergeScrSettings(model, {
-        onSuccess: () => {},
-        onError: () => {},
-      }),
+      mergeScrSettings(
+        {
+          displayMode: model.displayMode,
+          sdGraphicsFilter: model.sdGraphicsFilter,
+          fpsLimitOn: model.fpsLimitOn,
+          fpsLimit: model.fpsLimit,
+          vsyncOn: model.vsyncOn,
+          hdGraphicsOn: model.hdGraphicsOn,
+          environmentEffectsOn: model.environmentEffectsOn,
+          realTimeLightingOn: model.realTimeLightingOn,
+          smoothUnitTurningOn: model.smoothUnitTurningOn,
+          shadowStackingOn: model.shadowStackingOn,
+          pillarboxOn: model.pillarboxOn,
+          showFps: model.showFps,
+        },
+        {
+          onSuccess: () => {},
+          onError: () => {},
+        },
+      ),
     )
   })
 

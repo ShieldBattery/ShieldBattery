@@ -1,7 +1,7 @@
 import deepEqual from 'deep-equal'
 import fs, { promises as fsPromises } from 'fs'
 import { Map } from 'immutable'
-import { debounce } from 'lodash-es'
+import debounce from 'lodash/debounce'
 import { ConditionalKeys } from 'type-fest'
 import { DEFAULT_LOCAL_SETTINGS } from '../client/settings/default-settings'
 import { LocalSettings, ScrSettings } from '../common/settings/local-settings'

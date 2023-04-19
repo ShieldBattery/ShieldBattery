@@ -115,12 +115,15 @@ export function AppSoundSettings() {
 
   const onValidatedChange = useStableCallback((model: Readonly<AppSoundSettingsModel>) => {
     dispatch(
-      mergeLocalSettings(model, {
-        onSuccess: () => {
-          audioManager.setMasterVolume(model.masterVolume)
+      mergeLocalSettings(
+        { masterVolume: model.masterVolume },
+        {
+          onSuccess: () => {
+            audioManager.setMasterVolume(model.masterVolume)
+          },
+          onError: () => {},
         },
-        onError: () => {},
-      }),
+      ),
     )
   })
 

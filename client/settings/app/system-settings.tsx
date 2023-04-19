@@ -62,10 +62,16 @@ export default function AppSystemSettings() {
 
   const onValidatedChange = useStableCallback((model: Readonly<AppSystemSettingsModel>) => {
     dispatch(
-      mergeLocalSettings(model, {
-        onSuccess: () => {},
-        onError: () => {},
-      }),
+      mergeLocalSettings(
+        {
+          runAppAtSystemStart: model.runAppAtSystemStart,
+          runAppAtSystemStartMinimized: model.runAppAtSystemStartMinimized,
+        },
+        {
+          onSuccess: () => {},
+          onError: () => {},
+        },
+      ),
     )
   })
 

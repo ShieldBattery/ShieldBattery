@@ -145,10 +145,26 @@ export function GameSoundSettings() {
 
   const onValidatedChange = useStableCallback((model: Readonly<GameSoundSettingsModel>) => {
     dispatch(
-      mergeScrSettings(model, {
-        onSuccess: () => {},
-        onError: () => {},
-      }),
+      mergeScrSettings(
+        {
+          musicOn: model.musicOn,
+          musicVolume: model.musicVolume,
+          soundOn: model.soundOn,
+          soundVolume: model.soundVolume,
+          selectedAnnouncer: model.selectedAnnouncer,
+          unitSpeechOn: model.unitSpeechOn,
+          unitAcknowledgementsOn: model.unitAcknowledgementsOn,
+          backgroundSoundsOn: model.backgroundSoundsOn,
+          buildingSoundsOn: model.buildingSoundsOn,
+          gameSubtitlesOn: model.gameSubtitlesOn,
+          cinematicSubtitlesOn: model.cinematicSubtitlesOn,
+          originalVoiceOversOn: model.originalVoiceOversOn,
+        },
+        {
+          onSuccess: () => {},
+          onError: () => {},
+        },
+      ),
     )
   })
 

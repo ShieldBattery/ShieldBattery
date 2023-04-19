@@ -123,10 +123,13 @@ export function StarcraftSettings() {
 
   const onValidatedChange = useStableCallback((model: Readonly<StarcraftSettingsModel>) => {
     dispatch(
-      mergeLocalSettings(model, {
-        onSuccess: () => {},
-        onError: () => {},
-      }),
+      mergeLocalSettings(
+        { starcraftPath: model.starcraftPath },
+        {
+          onSuccess: () => {},
+          onError: () => {},
+        },
+      ),
     )
   })
 

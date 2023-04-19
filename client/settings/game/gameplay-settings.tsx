@@ -185,18 +185,40 @@ export function GameplaySettings() {
 
   const onValidatedChange = useStableCallback((model: Readonly<GameplaySettingsModel>) => {
     dispatch(
-      mergeScrSettings(model, {
-        onSuccess: () => {},
-        onError: () => {},
-      }),
+      mergeScrSettings(
+        {
+          apmAlertOn: model.apmAlertOn,
+          apmAlertColorOn: model.apmAlertColorOn,
+          apmAlertSoundOn: model.apmAlertSoundOn,
+          apmAlertValue: model.apmAlertValue,
+          apmDisplayOn: model.apmDisplayOn,
+          colorCyclingOn: model.colorCyclingOn,
+          consoleSkin: model.consoleSkin,
+          gameTimerOn: model.gameTimerOn,
+          minimapPosition: model.minimapPosition,
+          showBonusSkins: model.showBonusSkins,
+          selectedSkin: model.selectedSkin,
+          unitPortraits: model.unitPortraits,
+          showTurnRate: model.showTurnRate,
+        },
+        {
+          onSuccess: () => {},
+          onError: () => {},
+        },
+      ),
     )
 
     if (model.visualizeNetworkStalls !== localSettings.visualizeNetworkStalls) {
       dispatch(
-        mergeLocalSettings(model, {
-          onSuccess: () => {},
-          onError: () => {},
-        }),
+        mergeLocalSettings(
+          {
+            visualizeNetworkStalls: model.visualizeNetworkStalls,
+          },
+          {
+            onSuccess: () => {},
+            onError: () => {},
+          },
+        ),
       )
     }
   })
