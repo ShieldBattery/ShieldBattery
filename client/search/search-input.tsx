@@ -9,6 +9,7 @@ const F = 'KeyF'
 
 export interface SearchInputHandle {
   clear: () => void
+  focus: () => void
 }
 
 interface SearchInputProps {
@@ -36,6 +37,9 @@ export const SearchInput = React.forwardRef<SearchInputHandle, SearchInputProps>
         if (inputValue) {
           setInputValue('')
         }
+      },
+      focus: () => {
+        inputRef?.current?.focus()
       },
     }))
 

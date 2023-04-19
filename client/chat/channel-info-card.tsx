@@ -1,10 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { ChatServiceErrorCode, SbChannelId } from '../../common/chat'
+import { urlPath } from '../../common/urls'
+import { hasAnyPermission } from '../admin/admin-permissions'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { RaisedButton } from '../material/button'
+import { IconButton, RaisedButton } from '../material/button'
 import Card from '../material/card'
+import { MenuItem } from '../material/menu/item'
+import { MenuList } from '../material/menu/menu'
+import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { shadow2dp } from '../material/shadows'
+import { push } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -12,7 +18,11 @@ import { useStableCallback } from '../state-hooks'
 import { colorTextFaint } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { body1, caption, headline6 } from '../styles/typography'
-import { getBatchChannelInfo, joinChannel, navigateToChannel } from './action-creators'
+import {
+  getBatchChannelInfo,
+  joinChannelWithErrorHandling,
+  navigateToChannel,
+} from './action-creators'
 import { ChannelBadge } from './channel-badge'
 import { ChannelBanner, ChannelBannerPlaceholderImage } from './channel-banner'
 
@@ -25,6 +35,12 @@ const ChannelCardRoot = styled(Card)`
   flex-direction: column;
 
   contain: content;
+`
+
+const OverflowMenuButton = styled(IconButton)`
+  position: absolute;
+  top: 4px;
+  right: 4px;
 `
 
 const ChannelBannerAndBadge = styled.div`
@@ -135,6 +151,10 @@ export function ConnectedChannelInfoCard({
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId))
   const isUserInChannel = useAppSelector(s => s.chat.joinedChannels.has(channelId))
+  const isAdmin = useAppSelector(s => hasAnyPermission(s.auth, 'moderateChatChannels'))
+
+  const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController()
+  const [anchor, anchorX, anchorY] = useAnchorPosition('left', 'top')
 
   const [isJoinInProgress, setIsJoinInProgress] = useState(false)
   const [isUserBanned, setIsUserBanned] = useState(false)
@@ -150,7 +170,7 @@ export function ConnectedChannelInfoCard({
   const onJoinClick = useStableCallback(() => {
     setIsJoinInProgress(true)
     dispatch(
-      joinChannel(channelName, {
+      joinChannelWithErrorHandling(channelName, {
         onSuccess: () => {},
         onError: err => {
           setIsJoinInProgress(false)
@@ -163,6 +183,10 @@ export function ConnectedChannelInfoCard({
         },
       }),
     )
+  })
+
+  const onAdminViewClick = useStableCallback(() => {
+    push(urlPath`/chat/admin/${channelId}/${channelName}/view`)
   })
 
   let channelDescription
@@ -202,6 +226,20 @@ export function ConnectedChannelInfoCard({
 
   return (
     <ChannelCardRoot>
+      {isAdmin ? (
+        <Popover
+          open={overflowMenuOpen}
+          onDismiss={closeOverflowMenu}
+          anchorX={anchorX ?? 0}
+          anchorY={anchorY ?? 0}
+          originX={'left'}
+          originY={'top'}>
+          <MenuList>
+            <MenuItem text='Admin view' onClick={onAdminViewClick} />
+          </MenuList>
+        </Popover>
+      ) : null}
+
       <ChannelBannerAndBadge>
         {detailedChannelInfo?.bannerPath ? (
           <ChannelBanner src={detailedChannelInfo.bannerPath} />
@@ -218,6 +256,7 @@ export function ConnectedChannelInfoCard({
         ) : null}
       </ChannelBannerAndBadge>
       <ChannelName>{basicChannelInfo?.name ?? channelName}</ChannelName>
+
       {detailedChannelInfo?.userCount ? (
         <ChannelUserCount>
           {`${detailedChannelInfo.userCount} member${detailedChannelInfo.userCount > 1 ? 's' : ''}`}
@@ -236,6 +275,15 @@ export function ConnectedChannelInfoCard({
         )}
         {action}
       </ChannelActions>
+
+      {isAdmin ? (
+        <OverflowMenuButton
+          ref={anchor}
+          icon={<MaterialIcon icon='more_vert' />}
+          title='More actions'
+          onClick={openOverflowMenu}
+        />
+      ) : null}
     </ChannelCardRoot>
   )
 }

@@ -8,6 +8,7 @@ import {
   JoinChannelResponse,
   ModerateChannelUserServerRequest,
   SbChannelId,
+  SearchChannelsResponse,
   SendChatMessageServerRequest,
 } from '../../common/chat'
 import { apiUrl, urlPath } from '../../common/urls'
@@ -22,7 +23,28 @@ import { isFetchError } from '../network/fetch-errors'
 import { openSnackbar } from '../snackbars/action-creators'
 import { ActivateChannel, DeactivateChannel } from './actions'
 
-export function joinChannel(channelName: string, spec: RequestHandlingSpec<void>): ThunkAction {
+/**
+ * Makes a request to join a user to the channel. The caller is expected to handle errors.
+ */
+export function joinChannel(
+  channelName: string,
+  spec: RequestHandlingSpec<JoinChannelResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    return await fetchJson(apiUrl`chat/join/${channelName}`, {
+      method: 'POST',
+      signal: spec.signal,
+    })
+  })
+}
+
+/**
+ * Makes a request to join a user to the channel. This function has built-in error handling.
+ */
+export function joinChannelWithErrorHandling(
+  channelName: string,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     return fetchJson<JoinChannelResponse>(apiUrl`chat/join/${channelName}`, {
       method: 'POST',
@@ -248,6 +270,28 @@ export function getBatchChannelInfo(channelId: SbChannelId): ThunkAction {
       channelsBatchRequester.request(dispatch, channelId)
     }
   }
+}
+
+export function searchChannels(
+  searchQuery: string,
+  offset: number,
+  spec: RequestHandlingSpec<SearchChannelsResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await fetchJson<SearchChannelsResponse>(
+      apiUrl`chat/?q=${searchQuery}&offset=${offset}`,
+      {
+        signal: spec.signal,
+      },
+    )
+
+    dispatch({
+      type: '@chat/searchChannels',
+      payload: result,
+    })
+
+    return result
+  })
 }
 
 export function activateChannel(channelId: SbChannelId): ActivateChannel {

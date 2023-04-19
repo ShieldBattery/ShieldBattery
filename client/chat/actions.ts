@@ -15,6 +15,7 @@ import {
   GetChannelInfoResponse,
   GetChatUserProfileResponse,
   SbChannelId,
+  SearchChannelsResponse,
 } from '../../common/chat'
 import { SbUser } from '../../common/users/sb-user'
 import { BaseFetchFailure } from '../network/fetch-errors'
@@ -39,6 +40,7 @@ export type ChatActions =
   | GetChannelInfo
   | GetBatchChannelInfoSuccess
   | GetBatchChannelInfoFailure
+  | SearchChannels
   | ActivateChannel
   | DeactivateChannel
   | InitChannel
@@ -219,6 +221,14 @@ export interface GetBatchChannelInfoSuccess {
 }
 
 export type GetBatchChannelInfoFailure = BaseFetchFailure<'@chat/getBatchChannelInfo'>
+
+/**
+ * The server returned a response to our request for channel search.
+ */
+export interface SearchChannels {
+  type: '@chat/searchChannels'
+  payload: SearchChannelsResponse
+}
 
 /**
  * Activate a particular chat channel. This is a purely client-side action which marks the channel

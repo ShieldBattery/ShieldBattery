@@ -8,9 +8,7 @@ import {
   CanManageMatchmakingSeasonsFilter,
   CanManageMatchmakingTimesFilter,
   CanManageRallyPointFilter,
-  CanViewChatChannels,
 } from './admin-route-filters'
-import { AdminChannelView } from './channel-view'
 import AdminMapPools from './map-pools'
 import { AdminMatchmakingSeasons } from './matchmaking-seasons'
 import AdminMatchmakingTimes from './matchmaking-times'
@@ -25,13 +23,6 @@ interface AdminDashboardProps {
 function AdminDashboard(props: AdminDashboardProps) {
   const perms = props.permissions
 
-  const channelViewLink = perms.moderateChatChannels ? (
-    <>
-      <li>
-        <Link href='/admin/channel-view'>Channel view</Link>
-      </li>
-    </>
-  ) : null
   const mapsLink =
     (perms.manageMaps || perms.massDeleteMaps) && IS_ELECTRON ? (
       <li>
@@ -61,7 +52,6 @@ function AdminDashboard(props: AdminDashboardProps) {
 
   return (
     <ul>
-      {channelViewLink}
       {mapsLink}
       {mapPoolsLink}
       {matchmakingSeasonsLink}
@@ -76,11 +66,6 @@ export default function AdminPanel() {
 
   return (
     <Switch>
-      <ConditionalRoute
-        path='/admin/channel-view'
-        filters={[CanViewChatChannels]}
-        component={AdminChannelView}
-      />
       {AdminMapManager ? <Route path='/admin/map-manager' component={AdminMapManager} /> : <></>}
       <ConditionalRoute
         path='/admin/map-pools'

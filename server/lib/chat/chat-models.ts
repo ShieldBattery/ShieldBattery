@@ -692,17 +692,16 @@ export async function findChannelsByName(
 }
 
 /**
- * Returns a full list of chat channels, optionally filtered by a `searchStr`. Only admins should be
- * able to call this function.
+ * Returns a list of chat channels, optionally filtered by a `searchStr`.
  */
-export async function searchChannelsAsAdmin(
+export async function searchChannels(
   {
     limit,
-    pageNumber,
+    offset,
     searchStr,
   }: {
     limit: number
-    pageNumber: number
+    offset: number
     searchStr?: string
   },
   withClient?: DbClient,
@@ -721,10 +720,10 @@ export async function searchChannelsAsAdmin(
     query.append(sql`
       ORDER BY user_count DESC, name
       LIMIT ${limit}
-      OFFSET ${pageNumber * limit}
+      OFFSET ${offset}
     `)
 
-    const result = await client.query<DbChannel>(query)
+    const result = await client.query<DbChannel & { joined: boolean }>(query)
 
     return result.rows.map(row => convertChannelFromDb(row))
   } finally {
