@@ -81,7 +81,7 @@ function getChannelUsers(channelId: SbChannelId, spec: RequestHandlingSpec<SbUse
 }
 
 const Container = styled.div`
-  max-width: 960px;
+  width: 100%;
   height: 100%;
   padding: 0 16px;
 
