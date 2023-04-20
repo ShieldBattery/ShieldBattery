@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect } from 'react'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user'
-import SupervisedUser from '../icons/material/supervised_user_circle-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { markNotificationsRead } from '../notifications/action-creators'
 import { ActionableNotification } from '../notifications/notifications'
@@ -11,12 +11,9 @@ import { body2 } from '../styles/typography'
 import { getBatchUserInfo } from '../users/action-creators'
 import { acceptPartyInvite, declinePartyInvite } from './action-creators'
 
-const ColoredPartyIcon = styled(SupervisedUser)`
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-
+const ColoredPartyIcon = styled(MaterialIcon).attrs({ icon: 'supervised_user_circle', size: 36 })`
   color: ${blue300};
+  flex-shrink: 0;
 `
 
 const Username = styled.span`

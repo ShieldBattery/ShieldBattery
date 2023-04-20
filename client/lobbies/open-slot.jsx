@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types'
 import React from 'react'
-import SwapSlotsIcon from '../icons/material/swap_vert-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { RacePicker } from './race-picker'
 import SelectedRace from './selected-race'
 import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotLeft, SlotProfileOpen, SlotRight } from './slot'
@@ -74,7 +74,9 @@ export default class OpenSlot extends React.Component {
             onMouseEnter={this.onLeftMouseEnter}
             onMouseLeave={this.onLeftMouseLeave}
             onClick={onSwitchClick}>
-            <SlotEmptyAvatar>{this.state.isHovered ? <SwapSlotsIcon /> : null}</SlotEmptyAvatar>
+            <SlotEmptyAvatar>
+              {this.state.isHovered ? <MaterialIcon icon='swap_vert' /> : null}
+            </SlotEmptyAvatar>
             <SlotEmptyName as='span'>Open</SlotEmptyName>
           </SlotProfileOpen>
           {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}

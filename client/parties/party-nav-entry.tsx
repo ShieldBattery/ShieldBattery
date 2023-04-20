@@ -5,7 +5,7 @@ import { Link, useRoute } from 'wouter'
 import { urlPath } from '../../common/urls'
 import CloseIcon from '../icons/material/close-24px.svg'
 import InviteIcon from '../icons/material/group_add-24px.svg'
-import PartyIcon from '../icons/material/supervised_user_circle-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import AttentionIndicator from '../material/left-nav/attention-indicator'
 import { amberA200, colorTextFaint } from '../styles/colors'
@@ -41,9 +41,7 @@ const StyledLink = styled(Link)`
   }
 `
 
-const StyledPartyIcon = styled(PartyIcon)`
-  width: 36px;
-  height: 36px;
+const StyledPartyIcon = styled(MaterialIcon).attrs({ icon: 'supervised_user_circle', size: 36 })`
   flex-shrink: 0;
   margin-right: 8px;
 
