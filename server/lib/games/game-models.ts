@@ -35,9 +35,9 @@ export async function createGameRecord(
   // done in a transaction
   const result = await client.query<{ id: string }>(sql`
     INSERT INTO games (
-      id, start_time, map_id, config, disputable, dispute_requested, dispute_reviewed, game_length
+      start_time, map_id, config, disputable, dispute_requested, dispute_reviewed, game_length
     ) VALUES (
-      uuid_generate_v4(), ${startTime}, ${mapId}, ${config}, FALSE, FALSE, FALSE, NULL
+      ${startTime}, ${mapId}, ${config}, FALSE, FALSE, FALSE, NULL
     ) RETURNING id
   `)
 

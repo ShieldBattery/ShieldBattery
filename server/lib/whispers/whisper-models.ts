@@ -128,8 +128,8 @@ export async function addMessageToWhisper(
   try {
     const result = await client.query<DbWhisperMessage>(sql`
       WITH ins AS (
-        INSERT INTO whisper_messages (id, from_id, to_id, sent, data)
-        VALUES (uuid_generate_v4(), ${fromId}, ${toId},
+        INSERT INTO whisper_messages (from_id, to_id, sent, data)
+        VALUES (${fromId}, ${toId},
           CURRENT_TIMESTAMP AT TIME ZONE 'UTC', ${messageData})
         RETURNING id, from_id, to_id, sent, data
       )

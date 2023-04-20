@@ -257,8 +257,8 @@ export async function addMessageToChannel<T extends ChatMessageData>(
   const doIt = async (client: DbClient) => {
     const result = await client.query<DbChatMessage>(sql`
       WITH ins AS (
-        INSERT INTO channel_messages (id, user_id, channel_id, sent, data)
-        SELECT uuid_generate_v4(), ${userId}, ${channelId},
+        INSERT INTO channel_messages (user_id, channel_id, sent, data)
+        SELECT ${userId}, ${channelId},
           CURRENT_TIMESTAMP AT TIME ZONE 'UTC', ${messageData}
         WHERE EXISTS (
           SELECT 1 FROM channel_users WHERE user_id = ${userId} AND channel_id = ${channelId}

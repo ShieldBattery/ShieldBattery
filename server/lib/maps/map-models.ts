@@ -170,7 +170,7 @@ export async function addMap(
         INSERT INTO uploaded_maps AS um
           (id, map_hash, uploaded_by,
             upload_date, visibility, name, description)
-        VALUES (uuid_generate_v4(), ${hashBuffer}, ${uploadedBy},
+        VALUES (sb_uuid(), ${hashBuffer}, ${uploadedBy},
           CURRENT_TIMESTAMP AT TIME ZONE 'UTC', ${visibility}, ${title}, ${description})
         ON CONFLICT (map_hash, uploaded_by, visibility)
         DO UPDATE
