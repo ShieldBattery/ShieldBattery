@@ -2,7 +2,7 @@ import React from 'react'
 import styled, { css } from 'styled-components'
 import { longTimestamp } from '../i18n/date-formats'
 import Folder from '../icons/material/folder-24px.svg'
-import UpDirectory from '../icons/material/subdirectory_arrow_left-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { useStableCallback } from '../state-hooks'
 import { amberA400, blue700, colorTextPrimary, colorTextSecondary } from '../styles/colors'
@@ -65,7 +65,7 @@ export function UpOneDir({
   return (
     <EntryContainer $focused={isFocused} onClick={() => onClick(upOneDir)}>
       <EntryIcon>
-        <UpDirectory />
+        <MaterialIcon icon='subdirectory_arrow_left' />
       </EntryIcon>
       <Subtitle1>{upOneDir.name}</Subtitle1>
     </EntryContainer>

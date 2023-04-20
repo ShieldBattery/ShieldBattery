@@ -6,8 +6,6 @@ import { MapInfoJson } from '../../common/maps'
 import ImageIcon from '../icons/material/image-24px.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import MapActionsIcon from '../icons/material/more_vert-24px.svg'
-import FavoritedIcon from '../icons/material/star-24px.svg'
-import UnfavoritedIcon from '../icons/material/star_border-24px.svg'
 import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
@@ -258,7 +256,7 @@ export function MapThumbnail({
       {onToggleFavorite ? (
         <FavoriteActionIcon
           disabled={isFavoriting}
-          icon={map.isFavorited ? <FavoritedIcon /> : <UnfavoritedIcon />}
+          icon={<MaterialIcon icon='star' filled={map.isFavorited} />}
           title={map.isFavorited ? 'Remove from favorites' : 'Add to favorites'}
           onClick={onToggleFavorite}
         />

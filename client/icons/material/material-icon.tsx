@@ -1,5 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
+import { fastOutSlowIn } from '../../material/curve-constants'
 
 const IconRoot = styled.span<{ $size: number; $filled: boolean; $invertColor: boolean }>`
   font-family: 'Material Symbols Outlined';
@@ -22,6 +23,8 @@ const IconRoot = styled.span<{ $size: number; $filled: boolean; $invertColor: bo
   font-variation-settings: 'FILL' ${props => (props.$filled ? 1 : 0)},
     'opsz' ${props => Math.min(48, Math.max(20, props.$size))},
     'GRAD' ${props => (props.$invertColor ? 0 : -25)};
+
+  transition: font-variation-settings 125ms ${fastOutSlowIn};
 `
 
 export interface MaterialIconProps {

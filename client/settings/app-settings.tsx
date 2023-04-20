@@ -10,8 +10,7 @@ import styled from 'styled-components'
 import audioManager, { AvailableSound } from '../audio/audio-manager'
 import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
-import PlayIcon from '../icons/material/play_arrow-24px.svg'
-import StopIcon from '../icons/material/stop-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import CheckBox from '../material/check-box'
 import Slider from '../material/slider'
@@ -33,13 +32,9 @@ const StyledSlider = styled(Slider)`
 `
 
 const TestSoundButton = styled(TextButton)`
-  min-width: 104px;
+  min-width: 108px;
   margin-left: 16px;
   padding-left: 12px;
-
-  svg {
-    margin-right: 8px;
-  }
 `
 
 const IndentedCheckbox = styled(CheckBox)`
@@ -83,18 +78,6 @@ const AppSettingsForm = React.forwardRef<
     [formOnMasterVolumeChange, propsOnMasterVolumeChange],
   )
 
-  const testSoundLabel = props.isPlayingTestSound ? (
-    <>
-      <StopIcon />
-      <span>Stop</span>
-    </>
-  ) : (
-    <>
-      <PlayIcon />
-      <span>Test</span>
-    </>
-  )
-
   return (
     <form noValidate={true} onSubmit={onSubmit}>
       <SubmitOnEnter />
@@ -111,7 +94,17 @@ const AppSettingsForm = React.forwardRef<
               showTicks={false}
               onChange={onMasterVolumeChange}
             />
-            <TestSoundButton label={testSoundLabel} onClick={props.onTestSoundClick} />
+            <TestSoundButton
+              label={props.isPlayingTestSound ? 'Stop' : 'Test'}
+              iconStart={
+                props.isPlayingTestSound ? (
+                  <MaterialIcon icon='stop' />
+                ) : (
+                  <MaterialIcon icon='play_arrow' />
+                )
+              }
+              onClick={props.onTestSoundClick}
+            />
           </VolumeSettings>
         </div>
         <div>
