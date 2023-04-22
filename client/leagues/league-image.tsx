@@ -1,7 +1,8 @@
 import React from 'react'
 import styled, { css } from 'styled-components'
 import { LEAGUE_IMAGE_HEIGHT, LEAGUE_IMAGE_WIDTH } from '../../common/leagues'
-import LeaguesIcon from '../icons/material/social_leaderboard-36px.svg'
+import { useObservedDimensions } from '../dom/dimension-hooks'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { background600, colorTextFaint } from '../styles/colors'
 
 const leagueImageCommon = css`
@@ -32,14 +33,7 @@ export function LeagueImage({ src }: { src: string }) {
   )
 }
 
-export const LeaguePlaceholderIcon = styled(LeaguesIcon)`
-  width: 22.727272%;
-  height: auto;
-`
-
-export const LeaguePlaceholderImage = styled.div.attrs(() => ({
-  children: <LeaguePlaceholderIcon />,
-}))`
+const PlaceholderContainer = styled.div`
   ${leagueImageCommon};
   color: ${colorTextFaint};
 
@@ -47,3 +41,15 @@ export const LeaguePlaceholderImage = styled.div.attrs(() => ({
   align-items: center;
   justify-content: center;
 `
+
+export function LeaguePlaceholderImage() {
+  const [ref, rect] = useObservedDimensions()
+
+  return (
+    <PlaceholderContainer ref={ref}>
+      {rect ? (
+        <MaterialIcon icon='social_leaderboard' size={Math.round(rect.width * 0.22727272)} />
+      ) : undefined}
+    </PlaceholderContainer>
+  )
+}

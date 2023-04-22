@@ -24,7 +24,6 @@ import LobbiesIcon from './icons/material/holiday_village-36px.svg'
 import { MaterialIcon } from './icons/material/material-icon'
 import ReplaysIcon from './icons/material/movie-36px.svg'
 import SettingsIcon from './icons/material/settings-24px.svg'
-import LeaguesIcon from './icons/material/social_leaderboard-36px.svg'
 import FindMatchIcon from './icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { useKeyListener } from './keyboard/key-listener'
 import { navigateToLadder } from './ladder/action-creators'
@@ -345,7 +344,7 @@ export function MainLayout() {
         />,
         <ActivityButton
           key='leagues'
-          icon={<LeaguesIcon />}
+          icon={<MaterialIcon icon='social_leaderboard' size={36} />}
           label='Leagues'
           onClick={() => navigateToLeaguesList()}
           hotkey={ALT_G}
@@ -369,7 +368,7 @@ export function MainLayout() {
         />,
         <ActivityButton
           key='leagues'
-          icon={<LeaguesIcon />}
+          icon={<MaterialIcon icon='social_leaderboard' size={36} />}
           label='Leagues'
           onClick={() => navigateToLeaguesList()}
           hotkey={ALT_G}

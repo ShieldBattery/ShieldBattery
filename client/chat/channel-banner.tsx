@@ -47,7 +47,9 @@ export function ChannelBannerPlaceholderImage() {
 
   return (
     <ChannelBannerPlaceholderContainer ref={bannerRef}>
-      <MaterialIcon icon='chat' size={Math.round((bannerRect?.width ?? 0) * 0.22727272)} />
+      {bannerRect ? (
+        <MaterialIcon icon='chat' size={Math.round(bannerRect.width * 0.22727272)} />
+      ) : undefined}
     </ChannelBannerPlaceholderContainer>
   )
 }
