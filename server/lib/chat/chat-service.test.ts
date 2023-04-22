@@ -219,7 +219,7 @@ describe('chat/chat-service', () => {
   const user1TestChannelEntry: UserChannelEntry = {
     userId: user1.id,
     channelId: testChannel.id,
-    joinDate: new Date('2023-03-11T00:00:00.000Z'),
+    joinDate: new Date('2023-03-12T00:00:00.000Z'),
     channelPermissions,
   }
   const user2ShieldBatteryChannelEntry: UserChannelEntry = {
@@ -231,7 +231,7 @@ describe('chat/chat-service', () => {
   const user2TestChannelEntry: UserChannelEntry = {
     userId: user2.id,
     channelId: testChannel.id,
-    joinDate: new Date('2023-03-11T00:00:00.000Z'),
+    joinDate: new Date('2023-03-12T00:00:00.000Z'),
     channelPermissions,
   }
 
@@ -427,14 +427,14 @@ describe('chat/chat-service', () => {
 
       const client3 = connector.connectClient(user3, 'USER3_CLIENT_ID')
 
+      // TODO(2Pac): Add something to FakeNydusServer to resolve when all current subscription
+      // promises are complete?
+      await new Promise(resolve => setTimeout(resolve, 20))
+
       // NOTE(2Pac): This method is used every time a user connects (so basically before each
       // test), so we restore the mocked return value to what it is by default, so it doesn't
       // impact the tests that run after this one.
       asMockedFunction(getChannelsForUser).mockResolvedValue([])
-
-      // TODO(2Pac): Add something to FakeNydusServer to resolve when all current subscription
-      // promises are complete?
-      await new Promise(resolve => setTimeout(resolve, 20))
 
       expect(client3.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
         action: 'init3',

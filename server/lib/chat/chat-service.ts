@@ -924,10 +924,20 @@ export default class ChatService {
       })
       this.subscribeUserToChannel(userSockets, userChannel.channelId)
     }
-    userSockets.subscribe<ChatReadyEvent>(`${userSockets.getPath()}/chat`, () => ({
-      type: 'chatReady',
-      channelIds: channelIdsSet.toArray(),
-    }))
+    userSockets.subscribe<ChatReadyEvent>(`${userSockets.getPath()}/chat`, async () => {
+      try {
+        // TODO(2Pac): Can read this from state once that's moved to non-immutable.js `Set` (since
+        // the current one is unordered).
+        const joinedChannels = await getChannelsForUser(userSockets.userId)
+        return {
+          type: 'chatReady',
+          channelIds: joinedChannels.map(c => c.channelId),
+        }
+      } catch (err) {
+        logger.error({ err }, 'Error retrieving the list of ordered joined channels for the user')
+        return undefined
+      }
+    })
   }
 
   private handleUserQuit(userId: SbUserId) {

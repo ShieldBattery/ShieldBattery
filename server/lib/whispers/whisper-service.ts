@@ -291,7 +291,7 @@ export default class WhisperService {
 
     userSockets.subscribe<WhispersReadyEvent>(`${userSockets.getPath()}/whispers`, () => ({
       type: 'whispersReady',
-      targetIds: targetIdsSet.toArray(),
+      targetIds: this.userSessions.get(userSockets.userId)?.toArray() ?? [],
     }))
   }
 

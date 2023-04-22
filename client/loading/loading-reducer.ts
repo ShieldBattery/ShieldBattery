@@ -19,7 +19,7 @@ const DEFAULT_LOADING_STATE: ReadonlyDeep<LoadingState> = {
 }
 
 export default immerKeyedReducer(DEFAULT_LOADING_STATE, {
-  [AUDIO_MANAGER_INITIALIZED as any](state: any) {
+  [AUDIO_MANAGER_INITIALIZED as any](state: LoadingState) {
     state.audio = false
   },
 
@@ -39,7 +39,7 @@ export default immerKeyedReducer(DEFAULT_LOADING_STATE, {
     state.whispers = false
   },
 
-  [NETWORK_SITE_DISCONNECTED as any](state: any) {
+  [NETWORK_SITE_DISCONNECTED as any](state: LoadingState) {
     // Reset the loading state of the stuff that gets initialized through sockets
     state.chat = true
     state.clientSubscriptions = true

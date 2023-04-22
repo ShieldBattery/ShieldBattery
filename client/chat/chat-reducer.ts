@@ -222,6 +222,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
       loadingHistory: false,
       hasHistory: true,
     }
+    state.joinedChannels.add(channelId)
     state.idToBasicInfo.set(channelId, channelInfo)
     state.idToDetailedInfo.set(channelId, detailedChannelInfo)
     state.idToJoinedInfo.set(channelId, joinedChannelInfo)
