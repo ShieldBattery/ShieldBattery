@@ -121,9 +121,17 @@ export function ChannelList() {
 
   let searchContent
   if (searchError) {
-    searchContent = <ErrorText>There was an error retrieving the chat channels.</ErrorText>
+    searchContent = (
+      <SearchResults>
+        <ErrorText>There was an error retrieving the chat channels.</ErrorText>
+      </SearchResults>
+    )
   } else if (channels?.length === 0) {
-    searchContent = <NoResults>No matching chat channels.</NoResults>
+    searchContent = (
+      <SearchResults>
+        <NoResults>No matching chat channels.</NoResults>
+      </SearchResults>
+    )
   } else {
     const channelItems = (channels ?? []).map(channel => (
       <ConnectedChannelInfoCard
