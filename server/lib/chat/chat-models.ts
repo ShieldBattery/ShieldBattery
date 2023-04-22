@@ -81,8 +81,9 @@ export async function getUsersForChannel(channelId: SbChannelId): Promise<SbUser
 export async function getUserChannelEntryForUser(
   userId: SbUserId,
   channelId: SbChannelId,
+  withClient?: DbClient,
 ): Promise<UserChannelEntry | null> {
-  const { client, done } = await db()
+  const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbUserChannelEntry>(sql`
       SELECT *
@@ -96,7 +97,7 @@ export async function getUserChannelEntryForUser(
 }
 
 /**
- * Gets user channel entries for a particular user in all of the channels they're in.
+ * Gets user channel entries for a particular user in all of the provided channels.
  */
 export async function getUserChannelEntriesForUser(
   userId: SbUserId,
@@ -111,6 +112,41 @@ export async function getUserChannelEntriesForUser(
       WHERE user_id = ${userId} AND channel_id = ANY(${channelIds});
     `)
     return result.rows.map(row => convertUserChannelEntryFromDb(row))
+  } finally {
+    done()
+  }
+}
+
+export async function countUserJoinedChannels(
+  userId: SbUserId,
+  withClient?: DbClient,
+): Promise<number> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbUserChannelEntry>(sql`
+      SELECT *
+      FROM channel_users
+      WHERE user_id = ${userId};
+    `)
+    return result.rowCount
+  } finally {
+    done()
+  }
+}
+
+export async function countUserOwnedChannels(
+  userId: SbUserId,
+  withClient?: DbClient,
+): Promise<number> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbUserChannelEntry>(sql`
+      SELECT *
+      FROM channel_users cu
+      INNER JOIN channels c ON cu.channel_id = c.id
+      WHERE cu.user_id = ${userId} AND c.owner_id = ${userId};
+    `)
+    return result.rowCount
   } finally {
     done()
   }

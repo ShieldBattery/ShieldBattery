@@ -55,7 +55,9 @@ export function joinChannelWithErrorHandling(
         let message = `An error occurred while joining ${channelName}`
 
         if (isFetchError(err) && err.code) {
-          if (err.code === ChatServiceErrorCode.UserBanned) {
+          if (err.code === ChatServiceErrorCode.MaximumJoinedChannels) {
+            message = "You can't join anymore channels."
+          } else if (err.code === ChatServiceErrorCode.UserBanned) {
             message = `You are banned from ${channelName}`
           } else {
             logger.error(`Unhandled code when joining ${channelName}: ${err.code}`)

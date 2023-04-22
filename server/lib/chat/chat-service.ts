@@ -15,6 +15,8 @@ import {
   JoinChannelResponse,
   JoinedChannelInfo,
   makeSbChannelId,
+  MAXIMUM_JOINED_CHANNELS,
+  MAXIMUM_OWNED_CHANNELS,
   SbChannelId,
   SearchChannelsResponse,
   ServerChatMessage,
@@ -44,6 +46,8 @@ import {
   banUserFromChannel,
   ChatMessage,
   countBannedIdentifiersForChannel,
+  countUserJoinedChannels,
+  countUserOwnedChannels,
   createChannel,
   deleteChannelMessage,
   findChannelByName,
@@ -222,6 +226,8 @@ export default class ChatService {
     let succeeded = false
     let isUserInChannel = false
     let isUserBanned = false
+    let maximumJoinedChannels = false
+    let maximumOwnedChannels = false
     let attempts = 0
     let channel: FullChannelInfo | undefined
     let userChannelEntry: UserChannelEntry | undefined
@@ -232,9 +238,14 @@ export default class ChatService {
         await transact(async client => {
           channel = await findChannelByName(channelName, client)
           if (channel) {
-            isUserInChannel = Boolean(await getUserChannelEntryForUser(userId, channel.id))
+            isUserInChannel = Boolean(await getUserChannelEntryForUser(userId, channel.id, client))
             if (isUserInChannel) {
               succeeded = true
+              return
+            }
+
+            if ((await countUserJoinedChannels(userId, client)) >= MAXIMUM_JOINED_CHANNELS) {
+              maximumJoinedChannels = true
               return
             }
 
@@ -264,6 +275,11 @@ export default class ChatService {
             }
           } else {
             try {
+              if ((await countUserOwnedChannels(userId, client)) >= MAXIMUM_OWNED_CHANNELS) {
+                maximumOwnedChannels = true
+                return
+              }
+
               channel = await createChannel(userId, channelName, client)
               userChannelEntry = await addUserToChannel(userId, channel.id, client)
               message = await addMessageToChannel(
@@ -291,6 +307,18 @@ export default class ChatService {
       }
     } while (!succeeded && !isUserBanned && attempts < MAX_JOIN_ATTEMPTS)
 
+    if (maximumJoinedChannels) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.MaximumJoinedChannels,
+        'Maximum joined channels reached',
+      )
+    }
+    if (maximumOwnedChannels) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.MaximumOwnedChannels,
+        'Maximum owned channels reached',
+      )
+    }
     if (isUserBanned) {
       throw new ChatServiceError(ChatServiceErrorCode.UserBanned, 'User is banned')
     }

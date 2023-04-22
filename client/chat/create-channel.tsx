@@ -70,7 +70,9 @@ export function CreateChannel() {
     errorMessage = 'An error occurred while creating the channel.'
 
     if (isFetchError(error) && error.code) {
-      if (error.code === ChatServiceErrorCode.UserBanned) {
+      if (error.code === ChatServiceErrorCode.MaximumOwnedChannels) {
+        errorMessage = "You've reached the limit to how many channels you can create."
+      } else if (error.code === ChatServiceErrorCode.UserBanned) {
         errorMessage = 'You are banned from this channel.'
       } else {
         logger.error(`Unhandled code when creating the channel: ${error.code}`)
