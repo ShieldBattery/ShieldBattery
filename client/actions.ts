@@ -23,9 +23,6 @@ export const ADMIN_MATCHMAKING_TIMES_GET_PAST = 'ADMIN_MATCHMAKING_TIMES_GET_PAS
 // The AudioManager has finished initializing and is ready to play sounds
 export const AUDIO_MANAGER_INITIALIZED = 'AUDIO_MANAGER_INITIALIZED'
 
-// The server has finished giving us our initial chat data (e.g what channels we are in) on connect
-export const CHAT_LOADING_COMPLETE = 'CHAT_LOADING_COMPLETE'
-
 // The server has sent us an updated count on the number of active lobbies
 export const LOBBIES_COUNT_UPDATE = 'LOBBIES_COUNT_UPDATE'
 
@@ -183,13 +180,3 @@ export const STARCRAFT_PATH_VALIDITY = 'STARCRAFT_PATH_VALIDITY'
 // An updated StarCraft version validity status, stating whether or not the StarCraft exe at the
 // current path is a version we are compatible with
 export const STARCRAFT_VERSION_VALIDITY = 'STARCRAFT_VERSION_VALIDITY'
-
-// The server has finished subscribing this particular client to the things it needs to be in (e.g.
-// lobbies) and giving it initial data
-export const SUBSCRIPTIONS_CLIENT_LOADING_COMPLETE = 'SUBSCRIPTIONS_CLIENT_LOADING_COMPLETE'
-// The server has finished subscribing this user (across clients) to the things it needs
-export const SUBSCRIPTIONS_USER_LOADING_COMPLETE = 'SUBSCRIPTIONS_USER_LOADING_COMPLETE'
-
-// The server has finished giving us our initial whispers data (eg. the list of users we had the
-// whisper window opened with when we last used the site) upon connecting
-export const WHISPERS_LOADING_COMPLETE = 'WHISPERS_LOADING_COMPLETE'

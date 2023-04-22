@@ -6,6 +6,7 @@ import {
   ChannelPermissions,
   ChatEvent,
   ChatInitEvent,
+  ChatReadyEvent,
   ChatServiceErrorCode,
   ChatUserEvent,
   DetailedChannelInfo,
@@ -909,13 +910,13 @@ export default class ChatService {
       return
     }
 
-    const channelSet = Set(userChannels.map(c => c.channelId))
-    const userSet = Set<SbUserId>(userChannels.map(u => u.userId))
-    const inChannels = Map(userChannels.map(c => [c.channelId, userSet]))
+    const channelIdsSet = Set(userChannels.map(c => c.channelId))
+    const userIdsSet = Set(userChannels.map(u => u.userId))
+    const inChannels = Map(userChannels.map(c => [c.channelId, userIdsSet]))
 
     this.state = this.state
       .mergeDeepIn(['channels'], inChannels)
-      .setIn(['users', userSockets.userId], channelSet)
+      .setIn(['users', userSockets.userId], channelIdsSet)
     for (const userChannel of userChannels) {
       this.publisher.publish(getChannelPath(userChannel.channelId), {
         action: 'userActive2',
@@ -923,7 +924,10 @@ export default class ChatService {
       })
       this.subscribeUserToChannel(userSockets, userChannel.channelId)
     }
-    userSockets.subscribe(`${userSockets.getPath()}/chat`, () => ({ type: 'chatReady' }))
+    userSockets.subscribe<ChatReadyEvent>(`${userSockets.getPath()}/chat`, () => ({
+      type: 'chatReady',
+      channelIds: channelIdsSet.toArray(),
+    }))
   }
 
   private handleUserQuit(userId: SbUserId) {

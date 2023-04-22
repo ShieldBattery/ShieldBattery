@@ -3,6 +3,7 @@ import { NydusClient, NydusServer } from 'nydus'
 import { container, inject, singleton } from 'tsyringe'
 import { EventMap, TypedEventEmitter } from '../../../common/typed-emitter'
 import { SbUserId } from '../../../common/users/sb-user'
+import { SubscribedClientEvent, SubscribedUserEvent } from '../../../common/websockets'
 import log from '../logging/logger'
 import { UpsertUserIp } from '../network/user-ips-type'
 import getAddress from './get-address'
@@ -10,6 +11,8 @@ import { RequestSessionLookup, SessionInfo } from './session-lookup'
 
 export type DataGetter<T, D> = (socketGroup: T, socket: NydusClient) => D | Promise<D | undefined>
 export type CleanupFunc<T> = (socketGroup: T) => void
+
+type SocketGroupType = 'subscribedClient' | 'subscribedUser'
 
 interface SubscriptionInfo<T> {
   getter: DataGetter<T, any>
@@ -44,7 +47,7 @@ abstract class SocketGroup<T> extends TypedEventEmitter<SocketGroupEvents<T>> {
    * Returns a string representing the type of this group. This will be used in the notification to
    * the socket when it first connects so that it knows it's part of a particular type of group.
    */
-  abstract getType(): string
+  abstract getType(): SocketGroupType
 
   add(socket: NydusClient) {
     const newSockets = this.sockets.add(socket)
@@ -106,7 +109,11 @@ abstract class SocketGroup<T> extends TypedEventEmitter<SocketGroupEvents<T>> {
     }
 
     // Give the client a message so they know we're done subscribing them to things
-    this.nydus.subscribeClient(socket, this.getPath(), { type: this.getType() })
+    this.nydus.subscribeClient<SubscribedClientEvent | SubscribedUserEvent>(
+      socket,
+      this.getPath(),
+      { type: this.getType() },
+    )
 
     // Subscribe the client to the their profile path, so they can receive an update in case their
     // profile changes
@@ -143,7 +150,7 @@ export class UserSocketsGroup extends SocketGroup<UserSocketsGroup> {
     return `/users/${this.userId}`
   }
 
-  getType() {
+  getType(): SocketGroupType {
     return 'subscribedUser'
   }
 }
@@ -162,7 +169,7 @@ export class ClientSocketsGroup extends SocketGroup<ClientSocketsGroup> {
     return `/clients/${this.userId}/${this.clientId}`
   }
 
-  getType() {
+  getType(): SocketGroupType {
     return 'subscribedClient'
   }
 }

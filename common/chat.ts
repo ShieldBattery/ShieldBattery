@@ -192,6 +192,12 @@ export interface ChannelPermissions {
   editPermissions: boolean
 }
 
+export interface ChatReadyEvent {
+  type: 'chatReady'
+  /** Ordered list of channel IDs that the user is joined in. */
+  channelIds: SbChannelId[]
+}
+
 export interface ChatInitEvent {
   action: 'init3'
   /** The basic information about the channel that the current user is initializing. */
@@ -300,6 +306,9 @@ export interface ChatPermissionsChangedEvent {
   selfPermissions: ChannelPermissions
 }
 
+/** Events that are sent to a particular user in a particular chat channel. */
+export type ChatUserEvent = ChatPermissionsChangedEvent
+
 /**
  * The response returned when joining a specific chat channel.
  */
@@ -311,9 +320,6 @@ export interface JoinChannelResponse {
   /** The channel information specific to user's joined channel. */
   joinedChannelInfo: JoinedChannelInfo
 }
-
-/** Events that are sent to a particular user in a particular chat channel. */
-export type ChatUserEvent = ChatPermissionsChangedEvent
 
 export interface SendChatMessageServerRequest {
   message: string

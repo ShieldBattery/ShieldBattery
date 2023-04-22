@@ -12,6 +12,7 @@ import {
   WhisperMessageType,
   WhisperServiceErrorCode,
   WhisperSessionInitEvent,
+  WhispersReadyEvent,
 } from '../../../common/whispers'
 import { getChannelInfos, toBasicChannelInfo } from '../chat/chat-models'
 import logger from '../logging/logger'
@@ -275,10 +276,8 @@ export default class WhisperService {
       return
     }
 
-    this.userSessions = this.userSessions.set(
-      userSockets.userId,
-      OrderedSet(whisperSessions.map(s => s.targetId)),
-    )
+    const targetIdsSet = OrderedSet(whisperSessions.map(s => s.targetId))
+    this.userSessions = this.userSessions.set(userSockets.userId, targetIdsSet)
     for (const session of whisperSessions) {
       // Add the new user to all of the sessions they have opened
       this.sessionUsers = this.sessionUsers.update(session.targetId, ISet(), s =>
@@ -290,7 +289,10 @@ export default class WhisperService {
       })
     }
 
-    userSockets.subscribe(`${userSockets.getPath()}/whispers`, () => ({ type: 'whispersReady' }))
+    userSockets.subscribe<WhispersReadyEvent>(`${userSockets.getPath()}/whispers`, () => ({
+      type: 'whispersReady',
+      targetIds: targetIdsSet.toArray(),
+    }))
   }
 
   private async handleUserQuit(userId: SbUserId) {
