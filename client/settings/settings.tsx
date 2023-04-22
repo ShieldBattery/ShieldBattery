@@ -5,7 +5,7 @@ import { LocalSettingsData, ScrSettingsData } from '../../common/local-settings'
 import { closeDialog, openDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { DialogType } from '../dialogs/dialog-type'
-import SetPathIcon from '../icons/material/settings-36px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { JsonLocalStorageValue } from '../local-storage'
 import { IconButton, TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
@@ -122,7 +122,7 @@ export default function SettingsDialog({ dialogRef, onCancel }: CommonDialogProp
     <TitleActionContainer>
       <TitleActionText onClick={onSetPathClick}>{starcraftVersionText}</TitleActionText>
       <TitleActionButton
-        icon={<SetPathIcon />}
+        icon={<MaterialIcon icon='settings' />}
         title='Change StarCraft path'
         onClick={onSetPathClick}
       />

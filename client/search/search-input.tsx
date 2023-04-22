@@ -1,5 +1,5 @@
 import React, { useEffect, useImperativeHandle, useRef, useState } from 'react'
-import SearchIcon from '../icons/material/search-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { TextField } from '../material/text-field'
 import { usePrevious, useStableCallback } from '../state-hooks'
@@ -80,7 +80,7 @@ export const SearchInput = React.forwardRef<SearchInputHandle, SearchInputProps>
         onChange={onInputChange}
         onFocus={onInputFocus}
         onBlur={onInputBlur}
-        leadingIcons={[<SearchIcon />]}
+        leadingIcons={[<MaterialIcon icon='search' />]}
         hasClearButton={true}
       />
     )

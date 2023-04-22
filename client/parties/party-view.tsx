@@ -11,7 +11,7 @@ import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import CloseIcon from '../icons/material/close-24px.svg'
 import InviteIcon from '../icons/material/group_add-24px.svg'
-import SearchOffIcon from '../icons/material/search_off-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotName, SlotProfile } from '../lobbies/slot'
 import { SlotActions } from '../lobbies/slot-actions'
 import { TextButton } from '../material/button'
@@ -316,7 +316,7 @@ export function PartyView(props: PartyViewProps) {
         />
         {queueId ? (
           <CancelQueueButton
-            iconStart={<SearchOffIcon />}
+            iconStart={<MaterialIcon icon='cancel' />}
             label='Cancel search'
             onClick={onCancelQueueClick}
           />

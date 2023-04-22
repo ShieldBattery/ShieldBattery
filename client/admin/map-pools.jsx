@@ -9,8 +9,8 @@ import {
   default as CheckIcon,
   default as SelectedIcon,
 } from '../icons/material/check_circle-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import MapPoolActionsIcon from '../icons/material/more_vert-24px.svg'
-import SearchIcon from '../icons/material/search-24px.svg'
 import KeyListener from '../keyboard/key-listener'
 import Carousel from '../lists/carousel'
 import { MapThumbnail } from '../maps/map-thumbnail'
@@ -255,7 +255,7 @@ export class MapPoolEditor extends React.Component {
             label='Find a map'
             value={searchQuery}
             allowErrors={false}
-            leadingIcons={[<SearchIcon />]}
+            leadingIcons={[<MaterialIcon icon='search' />]}
             onChange={this.onSearchChange}
             onFocus={this.onSearchFocus}
             onBlur={this.onSearchBlur}

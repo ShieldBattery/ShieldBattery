@@ -23,7 +23,6 @@ import DownloadIcon from './icons/material/get_app-36px.svg'
 import LobbiesIcon from './icons/material/holiday_village-36px.svg'
 import { MaterialIcon } from './icons/material/material-icon'
 import ReplaysIcon from './icons/material/movie-36px.svg'
-import SettingsIcon from './icons/material/settings-24px.svg'
 import FindMatchIcon from './icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { useKeyListener } from './keyboard/key-listener'
 import { navigateToLadder } from './ladder/action-creators'
@@ -55,7 +54,6 @@ import { useAppDispatch, useAppSelector } from './redux-hooks'
 import { openSettingsDialog } from './settings/action-creators'
 import { isShieldBatteryHealthy, isStarcraftHealthy } from './starcraft/is-starcraft-healthy'
 import { StarcraftStatus } from './starcraft/starcraft-reducer'
-import { colorTextSecondary } from './styles/colors'
 import { FlexSpacer } from './styles/flex-spacer'
 import { FriendsListActivityButton } from './users/friends-list'
 import { ProfileRouteComponent } from './users/route'
@@ -111,10 +109,6 @@ const MiniActivityButtonsContainer = styled.div`
 
   flex-wrap: wrap-reverse;
   justify-content: center;
-`
-
-const FadedSettingsIcon = styled(SettingsIcon)`
-  color: ${colorTextSecondary};
 `
 
 /**
@@ -411,7 +405,7 @@ export function MainLayout() {
             <IconButton
               key='settings'
               ref={settingsButtonRef}
-              icon={<FadedSettingsIcon />}
+              icon={<MaterialIcon icon='settings' />}
               onClick={() => dispatch(openSettingsDialog())}
             />
           </Tooltip>
