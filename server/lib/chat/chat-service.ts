@@ -935,7 +935,10 @@ export default class ChatService {
         }
       } catch (err) {
         logger.error({ err }, 'Error retrieving the list of ordered joined channels for the user')
-        return undefined
+        return {
+          type: 'chatReady',
+          channelIds: [],
+        }
       }
     })
   }
