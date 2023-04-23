@@ -219,7 +219,7 @@ describe('chat/chat-service', () => {
   const user1TestChannelEntry: UserChannelEntry = {
     userId: user1.id,
     channelId: testChannel.id,
-    joinDate: new Date('2023-03-11T00:00:00.000Z'),
+    joinDate: new Date('2023-03-12T00:00:00.000Z'),
     channelPermissions,
   }
   const user2ShieldBatteryChannelEntry: UserChannelEntry = {
@@ -231,7 +231,7 @@ describe('chat/chat-service', () => {
   const user2TestChannelEntry: UserChannelEntry = {
     userId: user2.id,
     channelId: testChannel.id,
-    joinDate: new Date('2023-03-11T00:00:00.000Z'),
+    joinDate: new Date('2023-03-12T00:00:00.000Z'),
     channelPermissions,
   }
 
@@ -394,6 +394,79 @@ describe('chat/chat-service', () => {
 
     jest.clearAllMocks()
     clearTestLogs(nydus)
+  })
+
+  describe('handleNewUser', () => {
+    test('subscribes user to their joined channels', async () => {
+      const user3: SbUser = { id: 3 as SbUserId, name: 'USER_NAME_3' }
+      const user3ShieldBatteryChannelEntry = { ...user1ShieldBatteryChannelEntry, userId: user3.id }
+      const user3TestChannelEntry = { ...user1TestChannelEntry, userId: user3.id }
+
+      asMockedFunction(getChannelsForUser).mockResolvedValue([
+        user3ShieldBatteryChannelEntry,
+        user3TestChannelEntry,
+      ])
+      asMockedFunction(getChannelInfo).mockImplementation(async (channelId: SbChannelId) => {
+        if (channelId === shieldBatteryChannel.id) {
+          return shieldBatteryChannel
+        } else if (channelId === testChannel.id) {
+          return testChannel
+        }
+        return undefined
+      })
+      asMockedFunction(getUserChannelEntryForUser).mockImplementation(
+        async (userId: SbUserId, channelId: SbChannelId) => {
+          if (userId === user3.id && channelId === shieldBatteryChannel.id) {
+            return user3ShieldBatteryChannelEntry
+          } else if (userId === user3.id && channelId === testChannel.id) {
+            return user3TestChannelEntry
+          }
+          return null
+        },
+      )
+
+      const client3 = connector.connectClient(user3, 'USER3_CLIENT_ID')
+
+      // TODO(2Pac): Add something to FakeNydusServer to resolve when all current subscription
+      // promises are complete?
+      await new Promise(resolve => setTimeout(resolve, 20))
+
+      // NOTE(2Pac): This method is used every time a user connects (so basically before each
+      // test), so we restore the mocked return value to what it is by default, so it doesn't
+      // impact the tests that run after this one.
+      asMockedFunction(getChannelsForUser).mockResolvedValue([])
+
+      expect(client3.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
+        action: 'init3',
+        channelInfo: shieldBatteryBasicInfo,
+        detailedChannelInfo: shieldBatteryDetailedInfo,
+        joinedChannelInfo: shieldBatteryJoinedInfo,
+        activeUserIds: [user3.id],
+        selfPermissions: channelPermissions,
+      })
+      expect(client3.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
+        action: 'init3',
+        channelInfo: testBasicInfo,
+        detailedChannelInfo: testDetailedInfo,
+        joinedChannelInfo: testJoinedInfo,
+        activeUserIds: [user3.id],
+        selfPermissions: channelPermissions,
+      })
+      expect(nydus.subscribeClient).toHaveBeenCalledWith(
+        client3,
+        getChannelUserPath(shieldBatteryChannel.id, user3.id),
+        undefined,
+      )
+      expect(nydus.subscribeClient).toHaveBeenCalledWith(
+        client3,
+        getChannelUserPath(testChannel.id, user3.id),
+        undefined,
+      )
+      expect(client3.publish).toHaveBeenCalledWith(`/users/${user3.id}/chat`, {
+        type: 'chatReady',
+        channelIds: [shieldBatteryChannel.id, testChannel.id],
+      })
+    })
   })
 
   describe('joinInitialChannel', () => {

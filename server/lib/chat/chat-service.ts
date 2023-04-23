@@ -6,6 +6,7 @@ import {
   ChannelPermissions,
   ChatEvent,
   ChatInitEvent,
+  ChatReadyEvent,
   ChatServiceErrorCode,
   ChatUserEvent,
   DetailedChannelInfo,
@@ -909,13 +910,13 @@ export default class ChatService {
       return
     }
 
-    const channelSet = Set(userChannels.map(c => c.channelId))
-    const userSet = Set<SbUserId>(userChannels.map(u => u.userId))
-    const inChannels = Map(userChannels.map(c => [c.channelId, userSet]))
+    const channelIdsSet = Set(userChannels.map(c => c.channelId))
+    const userIdsSet = Set(userChannels.map(u => u.userId))
+    const inChannels = Map(userChannels.map(c => [c.channelId, userIdsSet]))
 
     this.state = this.state
       .mergeDeepIn(['channels'], inChannels)
-      .setIn(['users', userSockets.userId], channelSet)
+      .setIn(['users', userSockets.userId], channelIdsSet)
     for (const userChannel of userChannels) {
       this.publisher.publish(getChannelPath(userChannel.channelId), {
         action: 'userActive2',
@@ -923,7 +924,23 @@ export default class ChatService {
       })
       this.subscribeUserToChannel(userSockets, userChannel.channelId)
     }
-    userSockets.subscribe(`${userSockets.getPath()}/chat`, () => ({ type: 'chatReady' }))
+    userSockets.subscribe<ChatReadyEvent>(`${userSockets.getPath()}/chat`, async () => {
+      try {
+        // TODO(2Pac): Can read this from state once that's moved to non-immutable.js `Set` (since
+        // the current one is unordered).
+        const joinedChannels = await getChannelsForUser(userSockets.userId)
+        return {
+          type: 'chatReady',
+          channelIds: joinedChannels.map(c => c.channelId),
+        }
+      } catch (err) {
+        logger.error({ err }, 'Error retrieving the list of ordered joined channels for the user')
+        return {
+          type: 'chatReady',
+          channelIds: [],
+        }
+      }
+    })
   }
 
   private handleUserQuit(userId: SbUserId) {

@@ -201,6 +201,10 @@ function updateDeletedChannels(state: ChatState, deletedChannels: SbChannelId[])
 }
 
 export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
+  ['@loading/chatReady'](state, action) {
+    state.joinedChannels = new Set(action.payload.channelIds)
+  },
+
   ['@chat/initChannel'](state, action) {
     const { channelInfo, detailedChannelInfo, joinedChannelInfo, activeUserIds, selfPermissions } =
       action.payload
