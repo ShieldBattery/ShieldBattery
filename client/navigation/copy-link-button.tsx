@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import LinkIcon from '../icons/material/link-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { Tooltip, TooltipPosition } from '../material/tooltip'
 import { makeServerUrl } from '../network/server-url'
@@ -67,7 +67,11 @@ export function CopyLinkButton({
 
   return (
     <Tooltip text={text} position={tooltipPosition}>
-      <StyledIconButton className={className} icon={<LinkIcon />} onClick={onClick} />
+      <StyledIconButton
+        className={className}
+        icon={<MaterialIcon icon='link' />}
+        onClick={onClick}
+      />
     </Tooltip>
   )
 }

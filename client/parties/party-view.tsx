@@ -10,7 +10,6 @@ import { Avatar } from '../avatars/avatar'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import CloseIcon from '../icons/material/close-24px.svg'
-import InviteIcon from '../icons/material/group_add-24px.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotName, SlotProfile } from '../lobbies/slot'
 import { SlotActions } from '../lobbies/slot-actions'
@@ -186,7 +185,7 @@ const RightSide = styled.div`
   align-items: center;
 `
 
-const StyledInviteIcon = styled(InviteIcon)`
+const StyledInviteIcon = styled(MaterialIcon).attrs({ icon: 'group_add' })`
   margin-right: 4px /* account for lack of internal padding, so it lines up with others */;
 `
 

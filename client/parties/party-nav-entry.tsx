@@ -4,7 +4,6 @@ import styled from 'styled-components'
 import { Link, useRoute } from 'wouter'
 import { urlPath } from '../../common/urls'
 import CloseIcon from '../icons/material/close-24px.svg'
-import InviteIcon from '../icons/material/group_add-24px.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import AttentionIndicator from '../material/left-nav/attention-indicator'
@@ -118,7 +117,11 @@ export function PartyNavEntry({
         <StyledPartyIcon />
         <Title isActive={isActive}>Party</Title>
         {canInvite ? (
-          <EntryButton icon={<InviteIcon />} title='Invite players' onClick={onInviteClick} />
+          <EntryButton
+            icon={<MaterialIcon icon='group_add' />}
+            title='Invite players'
+            onClick={onInviteClick}
+          />
         ) : null}
         <EntryButton icon={<CloseIcon />} title='Leave party' onClick={onLeaveClick} />
       </StyledLink>

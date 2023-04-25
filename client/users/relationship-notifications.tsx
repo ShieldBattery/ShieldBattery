@@ -1,8 +1,7 @@
 import React, { useEffect } from 'react'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user'
-import FriendsIcon from '../icons/material/group-24px.svg'
-import FriendAddIcon from '../icons/material/group_add-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { markNotificationsRead } from '../notifications/action-creators'
 import { ActionableNotification, ActionlessNotification } from '../notifications/notifications'
@@ -12,11 +11,8 @@ import { blue300 } from '../styles/colors'
 import { body2 } from '../styles/typography'
 import { acceptFriendRequest, declineFriendRequest, getBatchUserInfo } from './action-creators'
 
-const ColoredAddIcon = styled(FriendAddIcon)`
-  width: 36px;
-  height: 36px;
+const ColoredAddIcon = styled(MaterialIcon).attrs({ icon: 'group_add', size: 36 })`
   flex-shrink: 0;
-
   color: ${blue300};
 `
 
@@ -91,11 +87,8 @@ export const FriendRequestNotificationUi = React.memo(
   }),
 )
 
-const ColoredFriendStartIcon = styled(FriendsIcon)`
-  width: 36px;
-  height: 36px;
+const ColoredFriendStartIcon = styled(MaterialIcon).attrs({ icon: 'group', size: 36 })`
   flex-shrink: 0;
-
   color: ${blue300};
 `
 

@@ -3,7 +3,7 @@ import { connect } from 'react-redux'
 import styled, { css } from 'styled-components'
 import { STARCRAFT_DOWNLOAD_URL } from '../../common/constants'
 import { DISCORD_URL } from '../../common/url-constants'
-import QuestionIcon from '../icons/material/help-48px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import LogoText from '../logos/logotext-640x100.svg'
 import { shadowDef4dp } from '../material/shadow-constants'
 import { makePublicAssetUrl } from '../network/server-url'
@@ -172,7 +172,7 @@ const QuestionContainer = styled.div`
   flex-direction: row;
 `
 
-const StyledQuestionIcon = styled(QuestionIcon)`
+const StyledQuestionIcon = styled(MaterialIcon).attrs({ icon: 'help', size: 48, filled: false })`
   flex-shrink: 0;
   margin-left: 16px;
   margin-right: 16px;

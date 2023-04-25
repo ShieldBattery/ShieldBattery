@@ -10,8 +10,6 @@ import { ConnectedAvatar } from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import CheckIcon from '../icons/material/check-24px.svg'
 import CloseIcon from '../icons/material/close-24px.svg'
-import FriendsIcon from '../icons/material/group-24px.svg'
-import FriendAddIcon from '../icons/material/group_add-24px.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { JsonLocalStorageValue } from '../local-storage'
 import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button'
@@ -39,11 +37,11 @@ import { ConnectedUserProfileOverlay } from './user-profile-overlay'
 
 const ALT_E: HotkeyProp = { keyCode: keycode('e'), altKey: true }
 
-const FadedFriendsIcon = styled(FriendsIcon)`
+const FadedFriendsIcon = styled(MaterialIcon).attrs({ icon: 'group' })`
   color: ${colorTextSecondary};
 `
 
-const FadedFriendAddIcon = styled(FriendAddIcon)`
+const FadedFriendAddIcon = styled(MaterialIcon).attrs({ icon: 'group_add' })`
   color: ${colorTextSecondary};
 `
 
