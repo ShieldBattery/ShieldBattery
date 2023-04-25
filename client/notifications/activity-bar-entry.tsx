@@ -1,7 +1,7 @@
 import keycode from 'keycode'
 import React, { useCallback, useMemo, useRef } from 'react'
 import styled from 'styled-components'
-import NotificationsIcon from '../icons/material/notifications-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
@@ -90,7 +90,7 @@ export function NotificationsButton() {
           position='left'>
           <IconButton
             ref={buttonRef}
-            icon={<NotificationsIcon />}
+            icon={<MaterialIcon icon='notifications' />}
             onClick={openActivityBar}
             testName='notifications-button'
           />

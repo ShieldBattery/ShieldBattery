@@ -4,16 +4,13 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { policyTypeToLabel, SbPolicyType } from '../../common/policies/policy-type'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import PolicyIcon from '../icons/material/policy-36px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { ActionlessNotification } from '../notifications/notifications'
 import { useAppDispatch } from '../redux-hooks'
 import { amberA400 } from '../styles/colors'
 
-const ColoredPolicyIcon = styled(PolicyIcon)`
-  width: 36px;
-  height: 36px;
+const ColoredPolicyIcon = styled(MaterialIcon).attrs({ icon: 'policy', size: 36 })`
   flex-shrink: 0;
-
   color: ${amberA400};
 `
 

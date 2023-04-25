@@ -22,7 +22,6 @@ import { GamesRouteComponent } from './games/route'
 import DownloadIcon from './icons/material/get_app-36px.svg'
 import LobbiesIcon from './icons/material/holiday_village-36px.svg'
 import { MaterialIcon } from './icons/material/material-icon'
-import ReplaysIcon from './icons/material/movie-36px.svg'
 import FindMatchIcon from './icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { useKeyListener } from './keyboard/key-listener'
 import { navigateToLadder } from './ladder/action-creators'
@@ -324,7 +323,7 @@ export function MainLayout() {
         />,
         <ActivityButton
           key='replays'
-          icon={<ReplaysIcon />}
+          icon={<MaterialIcon icon='movie' size={36} />}
           label='Replays'
           onClick={onReplaysClick}
           hotkey={ALT_R}

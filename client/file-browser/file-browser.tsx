@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { useVirtuosoScrollFix } from '../dom/virtuoso-scroll-fix'
-import Refresh from '../icons/material/refresh-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { JsonLocalStorageValue } from '../local-storage'
 import { IconButton } from '../material/button'
@@ -495,7 +495,7 @@ export function FileBrowser({
         ) : null}
         <BreadcrumbsAndActions>
           <StyledPathBreadcrumbs path={displayedPath} onNavigate={onBreadcrumbNavigate} />
-          <IconButton icon={<Refresh />} onClick={getFiles} title={'Refresh'} />
+          <IconButton icon={<MaterialIcon icon='refresh' />} onClick={getFiles} title={'Refresh'} />
         </BreadcrumbsAndActions>
       </TopBar>
       <FilesContent ref={dimensionsRef}>

@@ -1,6 +1,9 @@
 import React from 'react'
-import ComputerIcon from '../icons/material/memory-24px.svg'
+import styled from 'styled-components'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { IconAvatar, IconContainer } from './avatar'
+
+const ComputerIcon = styled(MaterialIcon).attrs({ icon: 'memory' })``
 
 export default (props: { className?: string }) => (
   <IconContainer {...props}>

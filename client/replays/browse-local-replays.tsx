@@ -21,7 +21,7 @@ import {
   FileBrowserType,
 } from '../file-browser/file-browser-types'
 import { viewGame } from '../games/action-creators'
-import Replay from '../icons/material/movie-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { RaceIcon } from '../lobbies/race-icon'
 import { MapNoImage } from '../maps/map-image'
 import { MapThumbnail } from '../maps/map-thumbnail'
@@ -301,7 +301,7 @@ export function BrowseLocalReplays() {
 
   const fileEntryConfig: FileBrowserFileEntryConfig = useMemo(
     () => ({
-      icon: <Replay />,
+      icon: <MaterialIcon icon='movie' />,
       allowedExtensions: ['rep'],
       ExpansionPanelComponent: ReplayExpansionPanel,
       onSelect: onStartReplay,

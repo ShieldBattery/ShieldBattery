@@ -24,9 +24,6 @@ import PatreonIcon from '../icons/brands/patreon.svg'
 import TwitterIcon from '../icons/brands/twitter.svg'
 import EditIcon from '../icons/material/edit-24px.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
-import ChangelogIcon from '../icons/material/new_releases-24px.svg'
-import PortraitIcon from '../icons/material/portrait-24px.svg'
-import LogoutIcon from '../icons/material/power_settings-24px.svg'
 import { leaveLobby } from '../lobbies/action-creators'
 import LobbyNavEntry from '../lobbies/nav-entry'
 import { cancelFindMatch } from '../matchmaking/action-creators'
@@ -511,11 +508,19 @@ export function ConnectedLeftNav() {
         }}
         anchor={profileEntryRef.current}
         username={selfUser.name}>
-        <MenuItem icon={<PortraitIcon />} text='View profile' onClick={onViewProfileClick} />
-        <MenuItem icon={<ChangelogIcon />} text='View changelog' onClick={onChangelogClick} />
+        <MenuItem
+          icon={<MaterialIcon icon='account_box' />}
+          text='View profile'
+          onClick={onViewProfileClick}
+        />
+        <MenuItem
+          icon={<MaterialIcon icon='new_releases' />}
+          text='View changelog'
+          onClick={onChangelogClick}
+        />
         <MenuItem icon={<EditIcon />} text='Edit account' onClick={onEditAccountClick} />
         <MenuDivider />
-        <MenuItem icon={<LogoutIcon />} text='Log out' onClick={onLogOutClick} />
+        <MenuItem icon={<MaterialIcon icon='logout' />} text='Log out' onClick={onLogOutClick} />
       </SelfProfileOverlay>
     </LeftNav>
   )

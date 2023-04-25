@@ -12,7 +12,7 @@ import CheckIcon from '../icons/material/check-24px.svg'
 import CloseIcon from '../icons/material/close-24px.svg'
 import FriendsIcon from '../icons/material/group-24px.svg'
 import FriendAddIcon from '../icons/material/group_add-24px.svg'
-import FriendSettingsIcon from '../icons/material/manage_accounts-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { JsonLocalStorageValue } from '../local-storage'
 import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
@@ -47,7 +47,7 @@ const FadedFriendAddIcon = styled(FriendAddIcon)`
   color: ${colorTextSecondary};
 `
 
-const FadedFriendSettingsIcon = styled(FriendSettingsIcon)`
+const FadedFriendSettingsIcon = styled(MaterialIcon).attrs({ icon: 'manage_accounts' })`
   color: ${colorTextSecondary};
 `
 
