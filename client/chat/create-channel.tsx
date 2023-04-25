@@ -71,7 +71,9 @@ export function CreateChannel() {
 
     if (isFetchError(error) && error.code) {
       if (error.code === ChatServiceErrorCode.MaximumOwnedChannels) {
-        errorMessage = "You've reached the limit to how many channels you can create."
+        errorMessage =
+          'You have reached the limit of created channels. ' +
+          'You must leave one channel you created before you can create another.'
       } else if (error.code === ChatServiceErrorCode.UserBanned) {
         errorMessage = 'You are banned from this channel.'
       } else {

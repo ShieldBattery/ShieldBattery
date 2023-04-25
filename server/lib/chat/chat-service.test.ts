@@ -34,8 +34,6 @@ import {
   banUserFromChannel,
   ChatMessage,
   countBannedIdentifiersForChannel,
-  countUserJoinedChannels,
-  countUserOwnedChannels,
   createChannel,
   deleteChannelMessage,
   findChannelByName,
@@ -107,8 +105,6 @@ jest.mock('./chat-models', () => {
     getUsersForChannel: jest.fn().mockResolvedValue([]),
     getUserChannelEntryForUser: jest.fn(),
     getUserChannelEntriesForUser: jest.fn().mockResolvedValue([]),
-    countUserJoinedChannels: jest.fn().mockResolvedValue(0),
-    countUserOwnedChannels: jest.fn().mockResolvedValue(0),
     createChannel: jest.fn(),
     addUserToChannel: jest.fn(),
     addMessageToChannel: jest.fn(),
@@ -497,24 +493,20 @@ describe('chat/chat-service', () => {
     })
 
     test("should throw if can't join anymore channels", async () => {
-      asMockedFunction(countUserJoinedChannels).mockResolvedValue(40)
+      addUserToChannelMock.mockResolvedValue(undefined)
 
       await expect(
         chatService.joinChannel(shieldBatteryChannel.name, user1.id),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"Maximum joined channels reached"`)
-
-      asMockedFunction(countUserJoinedChannels).mockResolvedValue(0)
     })
 
     test("should throw if can't own anymore channels", async () => {
       asMockedFunction(findChannelByName).mockResolvedValue(undefined)
-      asMockedFunction(countUserOwnedChannels).mockResolvedValue(20)
+      createChannelMock.mockResolvedValue(undefined)
 
       await expect(
         chatService.joinChannel(shieldBatteryChannel.name, user1.id),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"Maximum owned channels reached"`)
-
-      asMockedFunction(countUserOwnedChannels).mockResolvedValue(0)
     })
 
     test('should throw if user is banned', async () => {

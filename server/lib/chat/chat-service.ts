@@ -15,8 +15,6 @@ import {
   JoinChannelResponse,
   JoinedChannelInfo,
   makeSbChannelId,
-  MAXIMUM_JOINED_CHANNELS,
-  MAXIMUM_OWNED_CHANNELS,
   SbChannelId,
   SearchChannelsResponse,
   ServerChatMessage,
@@ -46,8 +44,6 @@ import {
   banUserFromChannel,
   ChatMessage,
   countBannedIdentifiersForChannel,
-  countUserJoinedChannels,
-  countUserOwnedChannels,
   createChannel,
   deleteChannelMessage,
   findChannelByName,
@@ -174,6 +170,9 @@ export default class ChatService {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
 
+    // NOTE(2Pac): This method can technically return an `undefined`, but that would mean we're
+    // trying to add user to a bunch of non-official channels when they create an account which,
+    // you know... we probably shouldn't do.
     const userChannelEntry = await addUserToChannel(userId, channelId, client)
     const message = await addMessageToChannel(
       userId,
@@ -188,7 +187,7 @@ export default class ChatService {
     // (this function's Promise is await'd for the transaction, and transactionCompleted is awaited
     // by this function)
     transactionCompleted.then(() =>
-      this.updateUserAfterJoining(userInfo, channelInfo.id, userChannelEntry, message),
+      this.updateUserAfterJoining(userInfo, channelInfo.id, userChannelEntry!, message),
     )
   }
 
@@ -244,11 +243,6 @@ export default class ChatService {
               return
             }
 
-            if ((await countUserJoinedChannels(userId, client)) >= MAXIMUM_JOINED_CHANNELS) {
-              maximumJoinedChannels = true
-              return
-            }
-
             const isBanned = await isUserBannedFromChannel(channel.id, userId, client)
             if (isBanned || (await this.banUserFromChannelIfNeeded(channel.id, userId, client))) {
               isUserBanned = true
@@ -257,6 +251,11 @@ export default class ChatService {
 
             try {
               userChannelEntry = await addUserToChannel(userId, channel.id, client)
+              if (!userChannelEntry) {
+                maximumJoinedChannels = true
+                return
+              }
+
               message = await addMessageToChannel(
                 userId,
                 channel.id,
@@ -275,13 +274,18 @@ export default class ChatService {
             }
           } else {
             try {
-              if ((await countUserOwnedChannels(userId, client)) >= MAXIMUM_OWNED_CHANNELS) {
+              channel = await createChannel(userId, channelName, client)
+              if (!channel) {
                 maximumOwnedChannels = true
                 return
               }
 
-              channel = await createChannel(userId, channelName, client)
               userChannelEntry = await addUserToChannel(userId, channel.id, client)
+              if (!userChannelEntry) {
+                maximumJoinedChannels = true
+                return
+              }
+
               message = await addMessageToChannel(
                 userId,
                 channel.id,

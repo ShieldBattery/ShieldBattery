@@ -20,7 +20,7 @@ import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
-import { openSnackbar } from '../snackbars/action-creators'
+import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import { ActivateChannel, DeactivateChannel } from './actions'
 
 /**
@@ -56,7 +56,9 @@ export function joinChannelWithErrorHandling(
 
         if (isFetchError(err) && err.code) {
           if (err.code === ChatServiceErrorCode.MaximumJoinedChannels) {
-            message = "You can't join anymore channels."
+            message =
+              'You have reached the limit of joined channels. ' +
+              'You must leave one before you can join another.'
           } else if (err.code === ChatServiceErrorCode.UserBanned) {
             message = `You are banned from ${channelName}`
           } else {
@@ -66,7 +68,7 @@ export function joinChannelWithErrorHandling(
           logger.error(`Error when joining ${channelName}: ${err.stack ?? err}`)
         }
 
-        dispatch(openSnackbar({ message }))
+        dispatch(openSnackbar({ message, time: TIMING_LONG }))
 
         throw err
       })

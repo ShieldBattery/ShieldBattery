@@ -5,6 +5,8 @@ import {
   ChannelPermissions,
   DetailedChannelInfo,
   JoinedChannelInfo,
+  MAXIMUM_JOINED_CHANNELS,
+  MAXIMUM_OWNED_CHANNELS,
   SbChannelId,
   ServerChatMessageType,
 } from '../../../common/chat'
@@ -117,41 +119,6 @@ export async function getUserChannelEntriesForUser(
   }
 }
 
-export async function countUserJoinedChannels(
-  userId: SbUserId,
-  withClient?: DbClient,
-): Promise<number> {
-  const { client, done } = await db(withClient)
-  try {
-    const result = await client.query<DbUserChannelEntry>(sql`
-      SELECT *
-      FROM channel_users
-      WHERE user_id = ${userId};
-    `)
-    return result.rowCount
-  } finally {
-    done()
-  }
-}
-
-export async function countUserOwnedChannels(
-  userId: SbUserId,
-  withClient?: DbClient,
-): Promise<number> {
-  const { client, done } = await db(withClient)
-  try {
-    const result = await client.query<DbUserChannelEntry>(sql`
-      SELECT *
-      FROM channel_users cu
-      INNER JOIN channels c ON cu.channel_id = c.id
-      WHERE cu.user_id = ${userId} AND c.owner_id = ${userId};
-    `)
-    return result.rowCount
-  } finally {
-    done()
-  }
-}
-
 /**
  * A type that contains a full and flattened list of channel fields.
  *
@@ -206,16 +173,21 @@ export async function createChannel(
   userId: SbUserId,
   channelName: string,
   withClient?: DbClient,
-): Promise<FullChannelInfo> {
+): Promise<FullChannelInfo | undefined> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbChannel>(sql`
       INSERT INTO channels (name, owner_id)
-      VALUES (${channelName}, ${userId})
+      SELECT ${channelName}, ${userId}
+      WHERE (
+        SELECT COUNT(*)
+        FROM channels
+        WHERE owner_id = ${userId}
+      ) < ${MAXIMUM_OWNED_CHANNELS}
       RETURNING *;
     `)
 
-    return convertChannelFromDb(result.rows[0])
+    return result.rows.length > 0 ? convertChannelFromDb(result.rows[0]) : undefined
   } finally {
     done()
   }
@@ -225,20 +197,22 @@ export async function addUserToChannel(
   userId: SbUserId,
   channelId: SbChannelId,
   withClient?: DbClient,
-): Promise<UserChannelEntry> {
+): Promise<UserChannelEntry | undefined> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbUserChannelEntry>(sql`
       INSERT INTO channel_users (user_id, channel_id, join_date)
-      VALUES (${userId}, ${channelId}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+      SELECT ${userId}, ${channelId}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
+      WHERE (
+        SELECT COUNT(*)
+        FROM channel_users cu
+        INNER JOIN channels c ON cu.channel_id = c.id
+        WHERE cu.user_id = ${userId} AND c.official = false
+      ) < ${MAXIMUM_JOINED_CHANNELS}
       RETURNING *;
     `)
 
-    if (result.rows.length < 1) {
-      throw new Error('No rows returned')
-    }
-
-    return convertUserChannelEntryFromDb(result.rows[0])
+    return result.rows.length > 0 ? convertUserChannelEntryFromDb(result.rows[0]) : undefined
   } finally {
     done()
   }
