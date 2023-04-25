@@ -2,8 +2,7 @@ import { Set } from 'immutable'
 import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
-import EditIcon from '../icons/material/edit-24px.svg'
-import ErrorIcon from '../icons/material/error-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import {
   amberA400,
   colorDividers,
@@ -130,6 +129,9 @@ const StepContainer = styled.li`
     return ''
   }}
 `
+
+const EditIcon = styled(MaterialIcon).attrs({ icon: 'edit' })``
+const ErrorIcon = styled(MaterialIcon).attrs({ icon: 'error', invertColor: true })``
 
 export class Step extends React.Component {
   static propTypes = {

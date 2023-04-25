@@ -22,7 +22,6 @@ import GitHubIcon from '../icons/brands/github.svg'
 import KofiColorIcon from '../icons/brands/kofi-color.svg'
 import PatreonIcon from '../icons/brands/patreon.svg'
 import TwitterIcon from '../icons/brands/twitter.svg'
-import EditIcon from '../icons/material/edit-24px.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { leaveLobby } from '../lobbies/action-creators'
 import LobbyNavEntry from '../lobbies/nav-entry'
@@ -518,7 +517,11 @@ export function ConnectedLeftNav() {
           text='View changelog'
           onClick={onChangelogClick}
         />
-        <MenuItem icon={<EditIcon />} text='Edit account' onClick={onEditAccountClick} />
+        <MenuItem
+          icon={<MaterialIcon icon='edit' />}
+          text='Edit account'
+          onClick={onEditAccountClick}
+        />
         <MenuDivider />
         <MenuItem icon={<MaterialIcon icon='logout' />} text='Log out' onClick={onLogOutClick} />
       </SelfProfileOverlay>

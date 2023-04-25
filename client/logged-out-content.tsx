@@ -8,7 +8,6 @@ import { VersionText } from './activities/version-text'
 import { openDialog } from './dialogs/action-creators'
 import { DialogType } from './dialogs/dialog-type'
 import { GamesRouteComponent } from './games/route'
-import DownloadIcon from './icons/material/get_app-36px.svg'
 import { MaterialIcon } from './icons/material/material-icon'
 import { navigateToLadder } from './ladder/action-creators'
 import { LadderRouteComponent } from './ladder/ladder'
@@ -65,7 +64,7 @@ export function LoggedOutContent({ loggedInContent }: LoggedOutContentProps) {
       <ActivityBar>
         <ActivityButton
           key='download'
-          icon={<DownloadIcon />}
+          icon={<MaterialIcon icon='download' size={36} />}
           label='Download'
           onClick={() => dispatch(openDialog({ type: DialogType.Download }))}
           hotkey={ALT_O}

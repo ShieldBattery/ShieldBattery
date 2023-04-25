@@ -1,6 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import ChevronRight from '../icons/material/chevron_right-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { colorTextFaint, colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { headline6 } from '../styles/typography'
 
@@ -15,7 +15,7 @@ const BreadcrumbPiece = styled.span<{ $active: boolean }>`
   cursor: ${props => (props.$active ? 'auto' : 'pointer')};
 `
 
-const BreadcrumbSeparator = styled(ChevronRight)`
+const BreadcrumbSeparator = styled(MaterialIcon).attrs({ icon: 'chevron_right' })`
   display: inline-block;
   flex-grow: 0;
   flex-shrink: 0;

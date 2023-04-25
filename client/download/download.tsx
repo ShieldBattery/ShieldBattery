@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import GithubIcon from '../icons/brands/github.svg'
 import KofiIcon from '../icons/brands/kofi-lockup.svg'
 import PatreonIcon from '../icons/brands/patreon-lockup.svg'
-import GetApp from '../icons/material/get_app-36px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { RaisedButton } from '../material/button'
 import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { headline5, subtitle1 } from '../styles/typography'
@@ -74,13 +74,6 @@ const InstallerLinks = styled.div`
   text-align: center;
 `
 
-const InstallerButtonIcon = styled(GetApp)`
-  width: 24px;
-  height: 24px;
-  margin-right: 8px;
-  color: ${colorTextPrimary};
-`
-
 const InstallerButtonLabel = styled.span`
   ${subtitle1};
   height: 48px;
@@ -102,12 +95,8 @@ export default class Download extends React.Component {
         <InstallerLinks>
           <RaisedButton
             onClick={this.onDownloadClick}
-            label={
-              <InstallerButtonLabel>
-                <InstallerButtonIcon />
-                <span>Download client</span>
-              </InstallerButtonLabel>
-            }
+            iconStart={<MaterialIcon icon='download' />}
+            label={<InstallerButtonLabel>Download client</InstallerButtonLabel>}
           />
         </InstallerLinks>
         <SupportText>Want to support the project?</SupportText>

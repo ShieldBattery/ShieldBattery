@@ -1,7 +1,7 @@
 import React, { useCallback, useId, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
-import ArrowDropDownIcon from '../../icons/material/arrow_drop_down-24px.svg'
+import { MaterialIcon } from '../../icons/material/material-icon'
 import { useKeyListener } from '../../keyboard/key-listener'
 import { useValueAsRef } from '../../state-hooks'
 import { amberA400, background300, colorTextFaint, colorTextPrimary } from '../../styles/colors'
@@ -312,7 +312,7 @@ export const Select = React.forwardRef<SelectRef, SelectProps>(
             {displayValue}
           </DisplayValue>
           <Icon $opened={opened} $focused={focused} $disabled={disabled} $dense={dense}>
-            <ArrowDropDownIcon />
+            <MaterialIcon icon='arrow_drop_down' />
           </Icon>
           <InputUnderline focused={focused} error={!!errorText} disabled={disabled} />
         </SelectContainer>

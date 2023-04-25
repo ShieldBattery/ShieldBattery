@@ -7,8 +7,7 @@ import form from '../forms/form'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { required } from '../forms/validators'
 import SaveIcon from '../icons/material/check-24px.svg'
-import CancelIcon from '../icons/material/clear-24px.svg'
-import EditIcon from '../icons/material/edit-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import KeyListener from '../keyboard/key-listener'
 import { IconButton } from '../material/button'
 import { Dialog } from '../material/dialog'
@@ -102,7 +101,7 @@ class NameForm extends React.Component {
     const { onSubmit, bindInput, inputRef, onCancel } = this.props
     const trailingIcons = [
       <IconButton icon={<SaveIcon />} title='Save' onClick={onSubmit} />,
-      <IconButton icon={<CancelIcon />} title='Cancel' onClick={onCancel} />,
+      <IconButton icon={<MaterialIcon icon='close' />} title='Cancel' onClick={onCancel} />,
     ]
 
     return (
@@ -135,7 +134,7 @@ class DescriptionForm extends React.Component {
     const { onSubmit, bindInput, inputRef, onCancel } = this.props
     const trailingIcons = [
       <IconButton icon={<SaveIcon />} title='Save' onClick={onSubmit} />,
-      <IconButton icon={<CancelIcon />} title='Cancel' onClick={onCancel} />,
+      <IconButton icon={<MaterialIcon icon='close' />} title='Cancel' onClick={onCancel} />,
     ]
 
     return (
@@ -196,7 +195,7 @@ export default class MapDetails extends React.Component {
     return (
       <EditButton
         name={field}
-        icon={<EditIcon />}
+        icon={<MaterialIcon icon='edit' />}
         title={`Edit ${field}`}
         onClick={this.onEditClick}
       />

@@ -13,7 +13,7 @@ import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import CheckIcon from '../icons/material/check-24px.svg'
 import CloseIcon from '../icons/material/close-24px.svg'
-import EditIcon from '../icons/material/edit-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton, RaisedButton, TextButton } from '../material/button'
 import CheckBox from '../material/check-box'
 import { NumberTextField } from '../material/number-text-field'
@@ -195,7 +195,7 @@ export function ServerRow({
       <DescriptionContent>{server.description}</DescriptionContent>
       <HostnameContent>{server.hostname}</HostnameContent>
       <PortContent>{server.port}</PortContent>
-      <IconButton icon={<EditIcon />} title='Edit' onClick={onClick} />
+      <IconButton icon={<MaterialIcon icon='edit' />} title='Edit' onClick={onClick} />
     </Row>
   )
 }

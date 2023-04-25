@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import FileInput from '../forms/file-input'
 import form from '../forms/form'
 import SuccessIcon from '../icons/material/check_circle-24px.svg'
-import ErrorIcon from '../icons/material/error-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { upload as uploadMap } from '../maps/upload'
 import { RaisedButton, TextButton } from '../material/button'
 import { fetchJson } from '../network/fetch'
@@ -56,7 +56,7 @@ const StyledSuccessIcon = styled(SuccessIcon)`
   color: ${colorSuccess};
 `
 
-const StyledErrorIcon = styled(ErrorIcon)`
+const StyledErrorIcon = styled(MaterialIcon).attrs({ icon: 'error', invertColor: true })`
   color: ${colorError};
 `
 

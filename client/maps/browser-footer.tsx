@@ -5,8 +5,6 @@ import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
 import { ALL_TILESETS, tilesetToName } from '../../common/maps'
 import { FocusTrap } from '../dom/focus-trap'
-import FilterIcon from '../icons/material/filter_list-24px.svg'
-import FolderIcon from '../icons/material/folder_open-24px.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import KeyListener from '../keyboard/key-listener'
 import { IconButton, TextButton } from '../material/button'
@@ -323,7 +321,7 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
     <Container>
       <PositionedFloatingActionButton
         title='Browse local maps'
-        icon={<FolderIcon />}
+        icon={<MaterialIcon icon='folder' invertColor={true} filled={false} />}
         onClick={props.onBrowseLocalMaps}
       />
       <LeftActions>
@@ -335,7 +333,7 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
         />
         <ActionButton
           ref={filterButtonRef}
-          icon={<FilterIcon />}
+          icon={<MaterialIcon icon='filter_list' />}
           title='Filter options'
           onClick={openFilterOverlay}
         />

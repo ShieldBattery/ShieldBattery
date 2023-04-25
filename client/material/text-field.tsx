@@ -1,6 +1,6 @@
 import React, { useCallback, useId, useState } from 'react'
 import styled, { css } from 'styled-components'
-import ClearIcon from '../icons/material/clear-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { useMultiRef, useStableCallback } from '../state-hooks'
 import { colorTextSecondary } from '../styles/colors'
 import { IconButton } from './button'
@@ -305,7 +305,7 @@ export const TextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
           $dense={dense}
           $multiline={multiline}>
           <ClearTooltip text='Clear'>
-            <ClearButton icon={<ClearIcon />} onClick={clearAndFocusInput} />
+            <ClearButton icon={<MaterialIcon icon='close' />} onClick={clearAndFocusInput} />
           </ClearTooltip>
         </TrailingIcon>,
       )

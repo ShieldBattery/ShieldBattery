@@ -19,7 +19,6 @@ import { openDialog } from './dialogs/action-creators'
 import { DialogType } from './dialogs/dialog-type'
 import { DispatchFunction } from './dispatch-registry'
 import { GamesRouteComponent } from './games/route'
-import DownloadIcon from './icons/material/get_app-36px.svg'
 import { MaterialIcon } from './icons/material/material-icon'
 import FindMatchIcon from './icons/shieldbattery/ic_satellite_dish_black_36px.svg'
 import { useKeyListener } from './keyboard/key-listener'
@@ -346,7 +345,7 @@ export function MainLayout() {
     : [
         <ActivityButton
           key='download'
-          icon={<DownloadIcon />}
+          icon={<MaterialIcon icon='download' size={36} />}
           label='Download'
           onClick={() => dispatch(openDialog({ type: DialogType.Download }))}
           hotkey={ALT_O}

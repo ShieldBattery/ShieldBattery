@@ -1,7 +1,6 @@
 import React from 'react'
 import styled, { css } from 'styled-components'
 import { longTimestamp } from '../i18n/date-formats'
-import Folder from '../icons/material/folder-24px.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { useStableCallback } from '../state-hooks'
@@ -89,7 +88,7 @@ export function FolderEntry({
   return (
     <FolderEntryContainer $focused={isFocused} onClick={() => onClick(folder)}>
       <EntryIcon>
-        <Folder />
+        <MaterialIcon icon='folder' invertColor={true} />
       </EntryIcon>
       <InfoContainer>
         <Subtitle1>{folder.name}</Subtitle1>

@@ -1,6 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import ClearIcon from '../icons/material/clear-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 
 // TODO(tec27): Make a Material file upload component and move this into the material/ folder
@@ -37,7 +37,11 @@ export default class FileInput extends React.Component {
       <Container>
         <input ref={this._setInput} {...internalInputProps} />
         {hasFiles ? (
-          <ClearButton icon={<ClearIcon />} title='Clear files' onClick={this.onClearClick} />
+          <ClearButton
+            icon={<MaterialIcon icon='close' />}
+            title='Clear files'
+            onClick={this.onClearClick}
+          />
         ) : null}
       </Container>
     )
