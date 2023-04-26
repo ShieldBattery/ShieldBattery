@@ -72,7 +72,7 @@ interface InfiniteListProps {
  *      same row for example), it won't be possible to load more items from that point on.
  */
 export default function InfiniteList(props: InfiniteListProps) {
-  const { root, rootMargin, threshold, refreshToken } = props
+  const { root, rootMargin, threshold, refreshToken, hasPrevData, hasNextData } = props
   const prevLoadingEnabledRef = useValueAsRef(props.prevLoadingEnabled)
   const nextLoadingEnabledRef = useValueAsRef(props.nextLoadingEnabled)
   const isLoadingPrevRef = useValueAsRef(props.isLoadingPrev)
@@ -147,10 +147,15 @@ export default function InfiniteList(props: InfiniteListProps) {
     }
   }, [root, rootMargin, threshold, onIntersection, startObserving])
 
+  // NOTE(2Pac): We restart the observer in a couple of cases:
+  //   - `hasPrevData`/`hasNextData` has changed; this allows InfiniteScrollList to be rendered
+  //     without more data being available initially, and then it starts observing if that changes.
+  //   - `refreshToken` has changed; this means the user of this component forcefully wants to
+  //     restart observing for whatever reason.
   useEffect(() => {
     observer.current?.disconnect()
     startObserving()
-  }, [refreshToken, startObserving])
+  }, [hasPrevData, hasNextData, refreshToken, startObserving])
 
   return (
     <>
