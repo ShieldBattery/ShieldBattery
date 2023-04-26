@@ -1,5 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
+import { useObservedDimensions } from '../../dom/dimension-hooks'
 import { fastOutSlowIn } from '../../material/curve-constants'
 
 export const IconRoot = styled.span<{ $size: number; $filled: boolean; $invertColor: boolean }>`
@@ -60,6 +61,32 @@ export const MaterialIcon = React.forwardRef(
         $invertColor={invertColor}>
         {icon}
       </IconRoot>
+    )
+  },
+)
+
+const AutoSizeContainer = styled.div`
+  width: 100%;
+  height: auto;
+`
+
+/**
+ * A `MaterialIcon` that will size itself to fit its container (by width).
+ *
+ * **Note:** `className` will be applied to the container, not the icon itself.
+ */
+export const AutoSizeMaterialIcon = React.forwardRef(
+  (
+    { className, ...iconProps }: Omit<MaterialIconProps, 'size'>,
+    ref: React.ForwardedRef<HTMLSpanElement>,
+  ) => {
+    const [containerRef, size] = useObservedDimensions()
+    return (
+      <AutoSizeContainer ref={containerRef} className={className}>
+        {size ? (
+          <MaterialIcon {...iconProps} size={Math.floor(size?.width)} ref={ref} />
+        ) : undefined}
+      </AutoSizeContainer>
     )
   },
 )

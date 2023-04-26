@@ -165,7 +165,7 @@ export const RacePicker = React.forwardRef(
               $active={r === race}
               $allowInteraction={allowInteraction}
               {...buttonProps[i]}>
-              <StyledRaceIcon race={r} $size={size} />
+              <StyledRaceIcon race={r} applyRaceColor={false} $size={size} />
               <Ripple ref={rippleRefs[i]} disabled={!allowInteraction} />
             </RaceButton>
           ),

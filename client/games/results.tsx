@@ -596,12 +596,14 @@ const SelectedRandomIcon = styled(RaceIcon)`
   position: absolute;
   bottom: 0;
   right: 0;
-  width: auto;
-  height: 20px;
 
-  & path:not([fill='none']) {
-    stroke: rgba(0, 0, 0, 0.36);
-    stroke-width: 2px;
+  && {
+    width: 20px;
+    height: 20px;
+  }
+
+  & > * {
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.7);
   }
 `
 

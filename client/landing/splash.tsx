@@ -9,7 +9,7 @@ import DiscordIcon from '../icons/brands/discord-lockup.svg'
 import GithubIcon from '../icons/brands/github.svg'
 import PatreonIcon from '../icons/brands/patreon-lockup.svg'
 import TwitterIcon from '../icons/brands/twitter.svg'
-import LockOpenIcon from '../icons/material/lock_open-48px.svg'
+import { AutoSizeMaterialIcon } from '../icons/material/material-icon'
 import LogoText from '../logos/logotext-640x100.svg'
 import { Label, RaisedButton } from '../material/button'
 import Card from '../material/card'
@@ -172,7 +172,7 @@ const StyledChatImage = styled(ChatImage)`
   ${benefitIconCss};
 `
 
-const StyledLockOpenIcon = styled(LockOpenIcon)`
+const StyledLockOpenIcon = styled(AutoSizeMaterialIcon).attrs({ icon: 'lock_open' })`
   ${benefitIconCss};
   width: 80%; /* give this even visual weight with the other icons */
   color: ${amberA400};

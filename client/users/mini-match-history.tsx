@@ -269,14 +269,20 @@ const GamePreviewPlayerAssignedRace = styled(RaceIcon)`
 
 const GamePreviewPlayerRandomIcon = styled(RaceIcon)`
   position: absolute;
-  bottom: 0;
+  /*
+    NOTE(tec27): For reasons I don't fully understand, 0 positions this at a place where it is
+    clipped by the parent element.
+  */
+  bottom: 2px;
   right: 0;
-  width: auto;
-  height: 12px;
 
-  & path:not([fill='none']) {
-    stroke: rgba(0, 0, 0, 0.36);
-    stroke-width: 2px;
+  && {
+    width: 12px;
+    height: 12px;
+  }
+
+  & > * {
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.7);
   }
 `
 
