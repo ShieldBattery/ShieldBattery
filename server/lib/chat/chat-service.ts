@@ -72,6 +72,12 @@ class ChatState extends ImmutableRecord({
   users: Map<SbUserId, Set<SbChannelId>>(),
 }) {}
 
+enum JoinChannelExitCode {
+  MaximumJoinedChannels = 'MaximumJoinedChannels',
+  MaximumOwnedChannels = 'MaximumOwnedChannels',
+  UserBanned = 'UserBanned',
+}
+
 export class ChatServiceError extends CodedError<ChatServiceErrorCode> {}
 
 class RetryableError extends Error {}
@@ -170,10 +176,10 @@ export default class ChatService {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
 
-    // NOTE(2Pac): This method can technically return an `undefined`, but that would mean we're
+    // NOTE(2Pac): This method can technically return `undefined`, but that would mean we're
     // trying to add user to a bunch of non-official channels when they create an account which,
     // you know... we probably shouldn't do.
-    const userChannelEntry = await addUserToChannel(userId, channelId, client)
+    const userChannelEntry = (await addUserToChannel(userId, channelId, client))!
     const message = await addMessageToChannel(
       userId,
       channelId,
@@ -187,7 +193,7 @@ export default class ChatService {
     // (this function's Promise is await'd for the transaction, and transactionCompleted is awaited
     // by this function)
     transactionCompleted.then(() =>
-      this.updateUserAfterJoining(userInfo, channelInfo.id, userChannelEntry!, message),
+      this.updateUserAfterJoining(userInfo, channelInfo.id, userChannelEntry, message),
     )
   }
 
@@ -224,9 +230,7 @@ export default class ChatService {
 
     let succeeded = false
     let isUserInChannel = false
-    let isUserBanned = false
-    let maximumJoinedChannels = false
-    let maximumOwnedChannels = false
+    let exitCode: JoinChannelExitCode | undefined
     let attempts = 0
     let channel: FullChannelInfo | undefined
     let userChannelEntry: UserChannelEntry | undefined
@@ -245,14 +249,14 @@ export default class ChatService {
 
             const isBanned = await isUserBannedFromChannel(channel.id, userId, client)
             if (isBanned || (await this.banUserFromChannelIfNeeded(channel.id, userId, client))) {
-              isUserBanned = true
+              exitCode = JoinChannelExitCode.UserBanned
               return
             }
 
             try {
               userChannelEntry = await addUserToChannel(userId, channel.id, client)
               if (!userChannelEntry) {
-                maximumJoinedChannels = true
+                exitCode = JoinChannelExitCode.MaximumJoinedChannels
                 return
               }
 
@@ -276,13 +280,13 @@ export default class ChatService {
             try {
               channel = await createChannel(userId, channelName, client)
               if (!channel) {
-                maximumOwnedChannels = true
+                exitCode = JoinChannelExitCode.MaximumOwnedChannels
                 return
               }
 
               userChannelEntry = await addUserToChannel(userId, channel.id, client)
               if (!userChannelEntry) {
-                maximumJoinedChannels = true
+                exitCode = JoinChannelExitCode.MaximumJoinedChannels
                 return
               }
 
@@ -309,21 +313,21 @@ export default class ChatService {
           throw err
         }
       }
-    } while (!succeeded && !isUserBanned && attempts < MAX_JOIN_ATTEMPTS)
+    } while (!succeeded && !exitCode && attempts < MAX_JOIN_ATTEMPTS)
 
-    if (maximumJoinedChannels) {
+    if (exitCode === JoinChannelExitCode.MaximumJoinedChannels) {
       throw new ChatServiceError(
         ChatServiceErrorCode.MaximumJoinedChannels,
         'Maximum joined channels reached',
       )
     }
-    if (maximumOwnedChannels) {
+    if (exitCode === JoinChannelExitCode.MaximumOwnedChannels) {
       throw new ChatServiceError(
         ChatServiceErrorCode.MaximumOwnedChannels,
         'Maximum owned channels reached',
       )
     }
-    if (isUserBanned) {
+    if (exitCode === JoinChannelExitCode.UserBanned) {
       throw new ChatServiceError(ChatServiceErrorCode.UserBanned, 'User is banned')
     }
 

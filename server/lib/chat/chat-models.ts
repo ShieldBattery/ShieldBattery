@@ -169,6 +169,12 @@ function convertChannelFromDb(props: DbChannel): FullChannelInfo {
   }
 }
 
+/**
+ * Attempts to create a new channel. Returns the channel info if it was successfully created, or
+ * `undefined` if the user reached the limit of created channels.
+ *
+ * NOTE: This method doesn't add user to the new channel. Use `addUserToChannel` for that.
+ */
 export async function createChannel(
   userId: SbUserId,
   channelName: string,
@@ -193,6 +199,10 @@ export async function createChannel(
   }
 }
 
+/**
+ * Attempts to add a user to a channel. Returns user channel entry if it was successfully added, or
+ * `undefined` if the user reached the limit of joined channels.
+ */
 export async function addUserToChannel(
   userId: SbUserId,
   channelId: SbChannelId,
