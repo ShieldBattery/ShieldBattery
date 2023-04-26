@@ -5,12 +5,7 @@ import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { MapVisibility } from '../../common/maps'
 import { MatchmakingType } from '../../common/matchmaking'
-import {
-  default as CheckIcon,
-  default as SelectedIcon,
-} from '../icons/material/check_circle-24px.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
-import MapPoolActionsIcon from '../icons/material/more_vert-24px.svg'
 import KeyListener from '../keyboard/key-listener'
 import Carousel from '../lists/carousel'
 import { MapThumbnail } from '../maps/map-thumbnail'
@@ -82,10 +77,8 @@ const MapContainer = styled.div`
   }
 `
 
-const StyledSelectedIcon = styled(SelectedIcon)`
-  path:last-child {
-    stroke: #000;
-  }
+const StyledSelectedIcon = styled(MaterialIcon).attrs({ icon: 'check_circle', size: 64 })`
+  text-shadow: 0 0 8px #000;
 `
 
 const SectionTitle = styled.div`
@@ -108,7 +101,7 @@ const InvalidDateInput = styled.div`
   color: ${colorError};
 `
 
-const ValidDateIcon = styled(CheckIcon)`
+const ValidDateIcon = styled(MaterialIcon).attrs({ icon: 'check_circle' })`
   color: ${colorSuccess};
   margin-left: 8px;
 `
@@ -389,7 +382,7 @@ const MapPoolHistoryRow = React.memo(props => {
     actionsMenu = (
       <>
         <MapPoolActionButton
-          icon={<MapPoolActionsIcon />}
+          icon={<MaterialIcon icon='more_vert' />}
           title='Map pool actions'
           ref={anchorRef}
           onClick={openActionsOverlay}

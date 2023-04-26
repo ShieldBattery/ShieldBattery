@@ -3,7 +3,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { MatchmakingType } from '../../common/matchmaking'
-import CheckIcon from '../icons/material/check_circle-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { RaisedButton, TextButton } from '../material/button'
 import CheckBox from '../material/check-box'
 import { TabItem, Tabs } from '../material/tabs'
@@ -224,7 +224,7 @@ const InvalidDateInput = styled(Body1Old)`
   color: ${colorError};
 `
 
-const ValidDateIcon = styled(CheckIcon)`
+const ValidDateIcon = styled(MaterialIcon).attrs({ icon: 'check_circle' })`
   color: ${colorSuccess};
   margin-left: 8px;
 `

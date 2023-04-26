@@ -2,7 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import { fastOutSlowIn } from '../../material/curve-constants'
 
-const IconRoot = styled.span<{ $size: number; $filled: boolean; $invertColor: boolean }>`
+export const IconRoot = styled.span<{ $size: number; $filled: boolean; $invertColor: boolean }>`
   font-family: 'Material Symbols Outlined';
   font-weight: normal;
   font-style: normal;

@@ -8,8 +8,6 @@ import { SbUserId } from '../../common/users/sb-user'
 import { useSelfUser } from '../auth/state-hooks'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { useObservedDimensions } from '../dom/dimension-hooks'
-import CheckIcon from '../icons/material/check-24px.svg'
-import CloseIcon from '../icons/material/close-24px.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { JsonLocalStorageValue } from '../local-storage'
 import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button'
@@ -432,7 +430,7 @@ function FriendRequestsList({ height }: { height: number }) {
           row.relationship.fromId === selfUser.id ? (
             <>
               <IconButton
-                icon={<CloseIcon />}
+                icon={<MaterialIcon icon='close' />}
                 title='Remove'
                 onClick={() => {
                   dispatch(
@@ -457,7 +455,7 @@ function FriendRequestsList({ height }: { height: number }) {
           ) : (
             <>
               <IconButton
-                icon={<CloseIcon />}
+                icon={<MaterialIcon icon='close' />}
                 title='Decline'
                 onClick={() => {
                   dispatch(
@@ -479,7 +477,7 @@ function FriendRequestsList({ height }: { height: number }) {
                 }}
               />
               <IconButton
-                icon={<CheckIcon />}
+                icon={<MaterialIcon icon='check' />}
                 title='Accept'
                 onClick={() => {
                   dispatch(

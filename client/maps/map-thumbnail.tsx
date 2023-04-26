@@ -3,40 +3,27 @@ import { rgba } from 'polished'
 import React, { useCallback, useMemo } from 'react'
 import styled from 'styled-components'
 import { MapInfoJson } from '../../common/maps'
-import ImageIcon from '../icons/material/image-24px.svg'
-import { MaterialIcon } from '../icons/material/material-icon'
-import MapActionsIcon from '../icons/material/more_vert-24px.svg'
+import { IconRoot, MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
-import { amberA100, background700, background900, colorTextPrimary } from '../styles/colors'
+import {
+  amberA100,
+  background700,
+  background900,
+  colorTextFaint,
+  colorTextPrimary,
+} from '../styles/colors'
 import { singleLine, subtitle2 } from '../styles/typography'
 import MapImage from './map-image'
 
 const Container = styled.div`
   position: relative;
   width: 100%;
-  height: auto;
+  height: 100%;
   border-radius: 2px;
   contain: content;
-`
-
-const NoImageContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  background-color: ${background700};
-
-  & > svg {
-    width: 96px;
-    height: 96px;
-    opacity: 0.5;
-    margin-bottom: 24px;
-  }
 `
 
 const TEXT_PROTECTION_HEIGHT_PX = 48
@@ -53,6 +40,12 @@ const SelectedIcon = styled.span<{ $isSelected?: boolean; $textProtection?: bool
   & > svg {
     width: 100%;
     height: 100%;
+  }
+
+  & > ${IconRoot} {
+    width: 100%;
+    height: 100%;
+    font-size: var(--sb-map-thumbnail-selected-icon-size, 64px);
   }
 `
 
@@ -156,9 +149,26 @@ const MapActionButton = styled(IconButton)`
   margin-left: 4px;
 `
 
+const NoImageContainer = styled.div`
+  width: 100%;
+  height: 100%;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  background-color: ${background700};
+  color: ${colorTextFaint};
+`
+
+const NoImageIcon = styled(MaterialIcon).attrs({ icon: 'image', size: 96 })`
+  margin-bottom: 24px;
+`
+
 const NoImage = () => (
   <NoImageContainer>
-    <ImageIcon />
+    <NoImageIcon />
   </NoImageContainer>
 )
 
@@ -268,7 +278,7 @@ export function MapThumbnail({
             <>
               <MapActionButton
                 ref={anchorRef}
-                icon={<MapActionsIcon />}
+                icon={<MaterialIcon icon='more_vert' />}
                 title='Map actions'
                 onClick={openMenu}
               />

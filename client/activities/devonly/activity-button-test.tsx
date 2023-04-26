@@ -1,7 +1,7 @@
 import keycode from 'keycode'
 import React from 'react'
 import styled from 'styled-components'
-import Icon from '../../icons/material/check_circle-24px.svg'
+import { MaterialIcon } from '../../icons/material/material-icon'
 import Card from '../../material/card'
 import { background700 } from '../../styles/colors'
 import ActivityBar from '../activity-bar'
@@ -37,12 +37,31 @@ export default class ActivityButtonsTest extends React.Component {
         <StyledCard>
           <h3>Press some buttons</h3>
           <ActivityBar>
-            <ActivityButton icon={<Icon />} label='Default' hotkey={ALT_1} />
-            <ActivityButton icon={<Icon />} label='Disabled' disabled={true} hotkey={ALT_2} />
-            <ActivityButton icon={<Icon />} label='Glowing' glowing={true} hotkey={ALT_3} />
-            <ActivityButton icon={<Icon />} label='Count' count={27} hotkey={ALT_4} />
             <ActivityButton
-              icon={<Icon />}
+              icon={<MaterialIcon icon='taunt' size={36} />}
+              label='Default'
+              hotkey={ALT_1}
+            />
+            <ActivityButton
+              icon={<MaterialIcon icon='taunt' size={36} />}
+              label='Disabled'
+              disabled={true}
+              hotkey={ALT_2}
+            />
+            <ActivityButton
+              icon={<MaterialIcon icon='taunt' size={36} />}
+              label='Glowing'
+              glowing={true}
+              hotkey={ALT_3}
+            />
+            <ActivityButton
+              icon={<MaterialIcon icon='taunt' size={36} />}
+              label='Count'
+              count={27}
+              hotkey={ALT_4}
+            />
+            <ActivityButton
+              icon={<MaterialIcon icon='taunt' size={36} />}
               label='CountGlow'
               glowing={true}
               count={666}

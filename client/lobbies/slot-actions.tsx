@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react'
-import SlotActionsIcon from '../icons/material/more_vert-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
@@ -32,7 +32,7 @@ export function SlotActions({ slotActions }: SlotActionsProps) {
   return (
     <div>
       <IconButton
-        icon={<SlotActionsIcon />}
+        icon={<MaterialIcon icon='more_vert' />}
         title='Slot actions'
         ref={anchorRef}
         onClick={openOverlay}

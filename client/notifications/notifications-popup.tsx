@@ -12,7 +12,7 @@ import styled from 'styled-components'
 import { subtract, union } from '../../common/data-structures/sets'
 import { SbNotification } from '../../common/notifications'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
-import CheckIcon from '../icons/material/check-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { shadow6dp } from '../material/shadows'
 import { defaultSpring } from '../material/springs'
@@ -168,7 +168,7 @@ export default function NotificationPopups() {
             },
           )}
           <MarkAsReadButton
-            icon={<CheckIcon />}
+            icon={<MaterialIcon icon='check' />}
             title='Mark as read'
             onClick={() => onMarkAsRead(item)}
           />

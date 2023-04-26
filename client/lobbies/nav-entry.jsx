@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
-import CloseLobbyIcon from '../icons/material/close-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import Entry from '../material/left-nav/entry'
 
@@ -15,7 +15,7 @@ const LeaveButton = styled(IconButton)`
 
 const LobbyNavEntry = ({ lobby, currentPath, hasUnread, onLeaveClick }) => {
   const button = (
-    <LeaveButton icon={<CloseLobbyIcon />} title='Leave lobby' onClick={onLeaveClick} />
+    <LeaveButton icon={<MaterialIcon icon='close' />} title='Leave lobby' onClick={onLeaveClick} />
   )
   return (
     <Entry

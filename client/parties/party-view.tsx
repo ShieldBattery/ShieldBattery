@@ -9,7 +9,6 @@ import { SelfUserRecord } from '../auth/auth-records'
 import { Avatar } from '../avatars/avatar'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import CloseIcon from '../icons/material/close-24px.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotName, SlotProfile } from '../lobbies/slot'
 import { SlotActions } from '../lobbies/slot-actions'
@@ -327,7 +326,11 @@ export function PartyView(props: PartyViewProps) {
             onClick={onInviteClick}
           />
         ) : null}
-        <TextButton iconStart={<CloseIcon />} label='Leave party' onClick={onLeaveClick} />
+        <TextButton
+          iconStart={<MaterialIcon icon='close' />}
+          label='Leave party'
+          onClick={onLeaveClick}
+        />
       </RightSide>
     </Container>
   )

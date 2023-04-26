@@ -1,6 +1,5 @@
 import React from 'react'
 import styled from 'styled-components'
-import TrailingIcon from '../../icons/material/check_circle-24px.svg'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { IconButton } from '../button'
 import Card from '../card'
@@ -169,7 +168,7 @@ export default class TextFieldTest extends React.Component {
             floatingLabel={true}
             dense={this.state.dense}
             label='With trailing icon'
-            trailingIcons={[<TrailingIcon />]}
+            trailingIcons={[<MaterialIcon icon='local_pizza' />]}
             onChange={this.onChange}
           />
           <TextField
@@ -182,24 +181,24 @@ export default class TextFieldTest extends React.Component {
               this.state.dense
                 ? [
                     <DenseIconButton
-                      icon={<TrailingIcon />}
+                      icon={<MaterialIcon icon='local_pizza' />}
                       title='Trailing action 1'
                       onClick={this.onActionClick}
                     />,
                     <DenseIconButton
-                      icon={<TrailingIcon />}
+                      icon={<MaterialIcon icon='magic_button' />}
                       title='Trailing action 2'
                       onClick={this.onActionClick}
                     />,
                   ]
                 : [
                     <IconButton
-                      icon={<TrailingIcon />}
+                      icon={<MaterialIcon icon='local_pizza' />}
                       title='Trailing action 1'
                       onClick={this.onActionClick}
                     />,
                     <IconButton
-                      icon={<TrailingIcon />}
+                      icon={<MaterialIcon icon='magic_button' />}
                       title='Trailing action 2'
                       onClick={this.onActionClick}
                     />,

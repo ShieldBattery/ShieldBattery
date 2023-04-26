@@ -2,7 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import { urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user'
-import CloseWhisperIcon from '../icons/material/close-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import Entry from '../material/left-nav/entry'
 
@@ -31,7 +31,7 @@ export function WhisperNavEntry({
 }: WhisperNavEntryProps) {
   const button = (
     <LeaveButton
-      icon={<CloseWhisperIcon />}
+      icon={<MaterialIcon icon='close' />}
       title='Close whisper'
       onClick={() => onClose(userId)}
     />

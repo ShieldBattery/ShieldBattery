@@ -6,7 +6,6 @@ import { MapVisibility, tilesetToName } from '../../common/maps'
 import form from '../forms/form'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { required } from '../forms/validators'
-import SaveIcon from '../icons/material/check-24px.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import KeyListener from '../keyboard/key-listener'
 import { IconButton } from '../material/button'
@@ -100,7 +99,7 @@ class NameForm extends React.Component {
   render() {
     const { onSubmit, bindInput, inputRef, onCancel } = this.props
     const trailingIcons = [
-      <IconButton icon={<SaveIcon />} title='Save' onClick={onSubmit} />,
+      <IconButton icon={<MaterialIcon icon='check' />} title='Save' onClick={onSubmit} />,
       <IconButton icon={<MaterialIcon icon='close' />} title='Cancel' onClick={onCancel} />,
     ]
 
@@ -133,7 +132,7 @@ class DescriptionForm extends React.Component {
   render() {
     const { onSubmit, bindInput, inputRef, onCancel } = this.props
     const trailingIcons = [
-      <IconButton icon={<SaveIcon />} title='Save' onClick={onSubmit} />,
+      <IconButton icon={<MaterialIcon icon='check' />} title='Save' onClick={onSubmit} />,
       <IconButton icon={<MaterialIcon icon='close' />} title='Cancel' onClick={onCancel} />,
     ]
 

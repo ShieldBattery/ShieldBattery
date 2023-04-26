@@ -48,7 +48,7 @@ const IconContainer = styled.div<{ glowing?: boolean }>`
   width: 36px;
   height: 42px;
 
-  svg {
+  & > * {
     position: absolute;
     top: 0;
     left: 0;
@@ -59,7 +59,7 @@ const IconContainer = styled.div<{ glowing?: boolean }>`
   ${props => {
     if (props.glowing) {
       return css`
-        svg:first-child {
+        & > *:first-child {
           fill: ${blue50};
           filter: blur(4px);
           will-change: transform;

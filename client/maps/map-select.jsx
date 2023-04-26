@@ -2,7 +2,6 @@ import { List, Map } from 'immutable'
 import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
-import SelectedIcon from '../icons/material/check_circle-24px.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import KeyListener from '../keyboard/key-listener'
 import ImageList from '../material/image-list'
@@ -25,10 +24,8 @@ const ErrorText = styled.div`
   color: ${colorError};
 `
 
-const StyledSelectedIcon = styled(SelectedIcon)`
-  path:last-child {
-    stroke: #000;
-  }
+const StyledSelectedIcon = styled(MaterialIcon).attrs({ icon: 'check_circle', size: 64 })`
+  text-shadow: 0 0 8px #000;
 `
 
 export const BrowseButton = styled.div`

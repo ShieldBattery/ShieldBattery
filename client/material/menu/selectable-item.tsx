@@ -1,6 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import SelectedIcon from '../../icons/material/check-24px.svg'
+import { MaterialIcon } from '../../icons/material/material-icon'
 import { MenuItem, MenuItemProps } from './item'
 import { MenuItemSymbol, MenuItemType } from './menu-item-symbol'
 
@@ -14,7 +14,7 @@ export interface SelectableMenuItemProps extends Omit<MenuItemProps, 'icon'> {
 }
 
 export function SelectableMenuItem({ selected, ...otherProps }: SelectableMenuItemProps) {
-  const icon = selected ? <SelectedIcon /> : undefined
+  const icon = selected ? <MaterialIcon icon='check' /> : undefined
 
   return <StyledMenuItem {...otherProps} $selected={selected} icon={icon} />
 }

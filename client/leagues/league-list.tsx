@@ -9,7 +9,7 @@ import { hasAnyPermission } from '../admin/admin-permissions'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { longTimestamp, monthDay, narrowDuration } from '../i18n/date-formats'
-import CheckIcon from '../icons/material/check-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { TextButton, useButtonState } from '../material/button'
 import Card from '../material/card'
@@ -366,7 +366,7 @@ export function LeagueCard({
       <LeagueActions>
         {joined ? (
           <JoinedIndicator>
-            <CheckIcon />
+            <MaterialIcon icon='check' />
             <span>Joined</span>
           </JoinedIndicator>
         ) : (

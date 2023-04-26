@@ -1,6 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import Icon from '../../icons/material/check_circle-24px.svg'
+import { MaterialIcon } from '../../icons/material/material-icon'
 import { IconButton, RaisedButton, TextButton } from '../button'
 import Card from '../card'
 import { FloatingActionButton } from '../floating-action-button'
@@ -41,10 +41,21 @@ export default class ButtonsTest extends React.Component {
           <TextButton label='Flat primary disabled' color='primary' disabled={true} />
           <TextButton label='Flat accent' color='accent' />
           <TextButton label='Flat accent disabled' color='accent' disabled={true} />
-          <IconButton icon={<Icon />} title='Icon button' />
-          <IconButton icon={<Icon />} title='Icon button disabled' disabled={true} />
-          <FloatingActionButton icon={<Icon />} title='FAB' />
-          <FloatingActionButton icon={<Icon />} title='Disabled FAB' disabled={true} />
+          <IconButton icon={<MaterialIcon icon='magic_button' />} title='Icon button' />
+          <IconButton
+            icon={<MaterialIcon icon='local_pizza' />}
+            title='Icon button disabled'
+            disabled={true}
+          />
+          <FloatingActionButton
+            icon={<MaterialIcon icon='elderly' invertColor={true} />}
+            title='FAB'
+          />
+          <FloatingActionButton
+            icon={<MaterialIcon icon='skull' invertColor={true} />}
+            title='Disabled FAB'
+            disabled={true}
+          />
         </StyledCard>
       </Container>
     )

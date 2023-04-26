@@ -3,7 +3,6 @@ import React, { useCallback } from 'react'
 import styled from 'styled-components'
 import { Link, useRoute } from 'wouter'
 import { urlPath } from '../../common/urls'
-import CloseIcon from '../icons/material/close-24px.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import AttentionIndicator from '../material/left-nav/attention-indicator'
@@ -123,7 +122,11 @@ export function PartyNavEntry({
             onClick={onInviteClick}
           />
         ) : null}
-        <EntryButton icon={<CloseIcon />} title='Leave party' onClick={onLeaveClick} />
+        <EntryButton
+          icon={<MaterialIcon icon='close' />}
+          title='Leave party'
+          onClick={onLeaveClick}
+        />
       </StyledLink>
     </Container>
   )

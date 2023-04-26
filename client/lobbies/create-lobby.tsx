@@ -16,7 +16,7 @@ import { DisabledCard, DisabledOverlay, DisabledText } from '../activities/disab
 import { useForm } from '../forms/form-hook'
 import { SubmitOnEnter } from '../forms/submit-on-enter'
 import { composeValidators, maxLength, required } from '../forms/validators'
-import ArrowBack from '../icons/material/arrow_back-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import MapSelect from '../maps/map-select'
 import { useAutoFocusRef } from '../material/auto-focus'
 import { RaisedButton, TextButton } from '../material/button'
@@ -363,7 +363,7 @@ export function CreateLobby(props: CreateLobbyProps) {
         <TextButton
           color='normal'
           label='Back to list'
-          iconStart={<ArrowBack />}
+          iconStart={<MaterialIcon icon='arrow_back' />}
           onClick={props.onNavigateToList}
         />
         <Title>Create lobby</Title>

@@ -1,8 +1,8 @@
 import PropTypes from 'prop-types'
 import React from 'react'
 import styled from 'styled-components'
-import ImageIcon from '../icons/material/image-24px.svg'
-import { background700 } from '../styles/colors'
+import { MaterialIcon } from '../icons/material/material-icon'
+import { background700, colorTextFaint } from '../styles/colors'
 import { Subtitle1 } from '../styles/typography'
 
 const ImgContainer = styled.div`
@@ -28,17 +28,16 @@ const NoImageContainer = styled.div`
   height: 100%;
   min-height: 220px;
   background-color: ${background700};
+  color: ${colorTextFaint};
+`
 
-  & > svg {
-    width: 90px;
-    height: 90px;
-    opacity: 0.5;
-  }
+const NoImageIcon = styled(MaterialIcon).attrs({ icon: 'image', size: 90 })`
+  opacity: 0.5;
 `
 
 export const MapNoImage = () => (
   <NoImageContainer>
-    <ImageIcon />
+    <NoImageIcon />
     <Subtitle1>Map preview not available</Subtitle1>
   </NoImageContainer>
 )

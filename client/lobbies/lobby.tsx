@@ -95,6 +95,7 @@ const MapName = styled.div`
 const StyledMapThumbnail = styled(MapThumbnail)`
   ${shadow2dp};
   width: 256px;
+  height: auto;
   margin-top: 8px;
 `
 

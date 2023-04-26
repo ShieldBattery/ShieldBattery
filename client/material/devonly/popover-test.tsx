@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import styled from 'styled-components'
-import VertMenuIcon from '../../icons/material/more_vert-24px.svg'
+import { MaterialIcon } from '../../icons/material/material-icon'
 import {
   OriginX,
   OriginY,
@@ -157,12 +157,24 @@ export default function PopoverTest() {
   return (
     <Container>
       <Content>
-        <TopLeftButton ref={topLeftAnchor} icon={<VertMenuIcon />} onClick={openTopLeft} />
-        <TopRightButton ref={topRightAnchor} icon={<VertMenuIcon />} onClick={openTopRight} />
-        <BottomLeftButton ref={bottomLeftAnchor} icon={<VertMenuIcon />} onClick={openBottomLeft} />
+        <TopLeftButton
+          ref={topLeftAnchor}
+          icon={<MaterialIcon icon='more_vert' />}
+          onClick={openTopLeft}
+        />
+        <TopRightButton
+          ref={topRightAnchor}
+          icon={<MaterialIcon icon='more_vert' />}
+          onClick={openTopRight}
+        />
+        <BottomLeftButton
+          ref={bottomLeftAnchor}
+          icon={<MaterialIcon icon='more_vert' />}
+          onClick={openBottomLeft}
+        />
         <BottomRightButton
           ref={bottomRightAnchor}
-          icon={<VertMenuIcon />}
+          icon={<MaterialIcon icon='more_vert' />}
           onClick={openBottomRight}
         />
 

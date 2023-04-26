@@ -3,7 +3,7 @@ import { rgba } from 'polished'
 import React, { useCallback, useContext } from 'react'
 import { animated } from 'react-spring'
 import styled, { css } from 'styled-components'
-import CloseDialogIcon from '../icons/material/close-24px.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { background900, CardLayer, colorDividers } from '../styles/colors'
 import { headline5 } from '../styles/typography'
@@ -208,7 +208,7 @@ export function Dialog({
   const [isAtTop, isAtBottom, topNode, bottomNode] = useScrollIndicatorState()
 
   const closeButton = showCloseButton ? (
-    <CloseButton icon={<CloseDialogIcon />} title='Close dialog' onClick={onCancel} />
+    <CloseButton icon={<MaterialIcon icon='close' />} title='Close dialog' onClick={onCancel} />
   ) : null
 
   return (
