@@ -102,6 +102,8 @@ function convertChatServiceError(err: unknown) {
     case ChatServiceErrorCode.CannotChangeChannelOwner:
     case ChatServiceErrorCode.CannotModerateChannelOwner:
     case ChatServiceErrorCode.CannotModerateChannelModerator:
+    case ChatServiceErrorCode.MaximumJoinedChannels:
+    case ChatServiceErrorCode.MaximumOwnedChannels:
     case ChatServiceErrorCode.NotEnoughPermissions:
       throw asHttpError(403, err)
     case ChatServiceErrorCode.UserBanned:

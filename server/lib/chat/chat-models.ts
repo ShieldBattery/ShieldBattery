@@ -5,6 +5,8 @@ import {
   ChannelPermissions,
   DetailedChannelInfo,
   JoinedChannelInfo,
+  MAXIMUM_JOINED_CHANNELS,
+  MAXIMUM_OWNED_CHANNELS,
   SbChannelId,
   ServerChatMessageType,
 } from '../../../common/chat'
@@ -81,8 +83,9 @@ export async function getUsersForChannel(channelId: SbChannelId): Promise<SbUser
 export async function getUserChannelEntryForUser(
   userId: SbUserId,
   channelId: SbChannelId,
+  withClient?: DbClient,
 ): Promise<UserChannelEntry | null> {
-  const { client, done } = await db()
+  const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbUserChannelEntry>(sql`
       SELECT *
@@ -96,7 +99,7 @@ export async function getUserChannelEntryForUser(
 }
 
 /**
- * Gets user channel entries for a particular user in all of the channels they're in.
+ * Gets user channel entries for a particular user in all of the provided channels.
  */
 export async function getUserChannelEntriesForUser(
   userId: SbUserId,
@@ -166,43 +169,60 @@ function convertChannelFromDb(props: DbChannel): FullChannelInfo {
   }
 }
 
+/**
+ * Attempts to create a new channel. Returns the channel info if it was successfully created, or
+ * `undefined` if the user reached the limit of created channels.
+ *
+ * NOTE: This method doesn't add user to the new channel. Use `addUserToChannel` for that.
+ */
 export async function createChannel(
   userId: SbUserId,
   channelName: string,
   withClient?: DbClient,
-): Promise<FullChannelInfo> {
+): Promise<FullChannelInfo | undefined> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbChannel>(sql`
       INSERT INTO channels (name, owner_id)
-      VALUES (${channelName}, ${userId})
+      SELECT ${channelName}, ${userId}
+      WHERE (
+        SELECT COUNT(*)
+        FROM channels
+        WHERE owner_id = ${userId}
+      ) < ${MAXIMUM_OWNED_CHANNELS}
       RETURNING *;
     `)
 
-    return convertChannelFromDb(result.rows[0])
+    return result.rows.length > 0 ? convertChannelFromDb(result.rows[0]) : undefined
   } finally {
     done()
   }
 }
 
+/**
+ * Attempts to add a user to a channel. Returns user channel entry if it was successfully added, or
+ * `undefined` if the user reached the limit of joined channels.
+ */
 export async function addUserToChannel(
   userId: SbUserId,
   channelId: SbChannelId,
   withClient?: DbClient,
-): Promise<UserChannelEntry> {
+): Promise<UserChannelEntry | undefined> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbUserChannelEntry>(sql`
       INSERT INTO channel_users (user_id, channel_id, join_date)
-      VALUES (${userId}, ${channelId}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+      SELECT ${userId}, ${channelId}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
+      WHERE (
+        SELECT COUNT(*)
+        FROM channel_users cu
+        INNER JOIN channels c ON cu.channel_id = c.id
+        WHERE cu.user_id = ${userId} AND c.official = false
+      ) < ${MAXIMUM_JOINED_CHANNELS}
       RETURNING *;
     `)
 
-    if (result.rows.length < 1) {
-      throw new Error('No rows returned')
-    }
-
-    return convertUserChannelEntryFromDb(result.rows[0])
+    return result.rows.length > 0 ? convertUserChannelEntryFromDb(result.rows[0]) : undefined
   } finally {
     done()
   }

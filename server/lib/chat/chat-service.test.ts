@@ -565,6 +565,23 @@ describe('chat/chat-service', () => {
       ).rejects.toThrowErrorMatchingInlineSnapshot(`"User doesn't exist"`)
     })
 
+    test("should throw if can't join anymore channels", async () => {
+      addUserToChannelMock.mockResolvedValue(undefined)
+
+      await expect(
+        chatService.joinChannel(shieldBatteryChannel.name, user1.id),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Maximum joined channels reached"`)
+    })
+
+    test("should throw if can't own anymore channels", async () => {
+      asMockedFunction(findChannelByName).mockResolvedValue(undefined)
+      createChannelMock.mockResolvedValue(undefined)
+
+      await expect(
+        chatService.joinChannel(shieldBatteryChannel.name, user1.id),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`"Maximum owned channels reached"`)
+    })
+
     test('should throw if user is banned', async () => {
       asMockedFunction(isUserBannedFromChannel).mockResolvedValue(true)
 

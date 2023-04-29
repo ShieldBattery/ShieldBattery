@@ -7,6 +7,9 @@ export const CHANNEL_BANNER_HEIGHT = 288 * 2
 export const CHANNEL_BADGE_WIDTH = 80 * 4
 export const CHANNEL_BADGE_HEIGHT = 80 * 4
 
+export const MAXIMUM_JOINED_CHANNELS = 40
+export const MAXIMUM_OWNED_CHANNELS = 20
+
 export const SEARCH_CHANNELS_LIMIT = 40
 
 export type SbChannelId = Opaque<number, 'SbChannelId'>
@@ -28,6 +31,8 @@ export enum ChatServiceErrorCode {
   CannotModerateShieldBattery = 'CannotModerateShieldBattery',
   CannotModerateYourself = 'CannotModerateYourself',
   ChannelNotFound = 'ChannelNotFound',
+  MaximumJoinedChannels = 'MaximumJoinedChannels',
+  MaximumOwnedChannels = 'MaximumOwnedChannels',
   NotEnoughPermissions = 'NotEnoughPermissions',
   NotInChannel = 'NotInChannel',
   TargetNotInChannel = 'TargetNotInChannel',

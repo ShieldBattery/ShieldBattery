@@ -73,6 +73,12 @@ class ChatState extends ImmutableRecord({
   users: Map<SbUserId, Set<SbChannelId>>(),
 }) {}
 
+enum JoinChannelExitCode {
+  MaximumJoinedChannels = 'MaximumJoinedChannels',
+  MaximumOwnedChannels = 'MaximumOwnedChannels',
+  UserBanned = 'UserBanned',
+}
+
 export class ChatServiceError extends CodedError<ChatServiceErrorCode> {}
 
 class RetryableError extends Error {}
@@ -171,7 +177,10 @@ export default class ChatService {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
 
-    const userChannelEntry = await addUserToChannel(userId, channelId, client)
+    // NOTE(2Pac): This method can technically return `undefined`, but that would mean we're
+    // trying to add user to a bunch of non-official channels when they create an account which,
+    // you know... we probably shouldn't do.
+    const userChannelEntry = (await addUserToChannel(userId, channelId, client))!
     const message = await addMessageToChannel(
       userId,
       channelId,
@@ -222,7 +231,7 @@ export default class ChatService {
 
     let succeeded = false
     let isUserInChannel = false
-    let isUserBanned = false
+    let exitCode: JoinChannelExitCode | undefined
     let attempts = 0
     let channel: FullChannelInfo | undefined
     let userChannelEntry: UserChannelEntry | undefined
@@ -233,7 +242,7 @@ export default class ChatService {
         await transact(async client => {
           channel = await findChannelByName(channelName, client)
           if (channel) {
-            isUserInChannel = Boolean(await getUserChannelEntryForUser(userId, channel.id))
+            isUserInChannel = Boolean(await getUserChannelEntryForUser(userId, channel.id, client))
             if (isUserInChannel) {
               succeeded = true
               return
@@ -241,12 +250,17 @@ export default class ChatService {
 
             const isBanned = await isUserBannedFromChannel(channel.id, userId, client)
             if (isBanned || (await this.banUserFromChannelIfNeeded(channel.id, userId, client))) {
-              isUserBanned = true
+              exitCode = JoinChannelExitCode.UserBanned
               return
             }
 
             try {
               userChannelEntry = await addUserToChannel(userId, channel.id, client)
+              if (!userChannelEntry) {
+                exitCode = JoinChannelExitCode.MaximumJoinedChannels
+                return
+              }
+
               message = await addMessageToChannel(
                 userId,
                 channel.id,
@@ -266,7 +280,17 @@ export default class ChatService {
           } else {
             try {
               channel = await createChannel(userId, channelName, client)
+              if (!channel) {
+                exitCode = JoinChannelExitCode.MaximumOwnedChannels
+                return
+              }
+
               userChannelEntry = await addUserToChannel(userId, channel.id, client)
+              if (!userChannelEntry) {
+                exitCode = JoinChannelExitCode.MaximumJoinedChannels
+                return
+              }
+
               message = await addMessageToChannel(
                 userId,
                 channel.id,
@@ -290,10 +314,25 @@ export default class ChatService {
           throw err
         }
       }
-    } while (!succeeded && !isUserBanned && attempts < MAX_JOIN_ATTEMPTS)
+    } while (!succeeded && !exitCode && attempts < MAX_JOIN_ATTEMPTS)
 
-    if (isUserBanned) {
+    if (exitCode === JoinChannelExitCode.MaximumJoinedChannels) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.MaximumJoinedChannels,
+        'Maximum joined channels reached',
+      )
+    }
+    if (exitCode === JoinChannelExitCode.MaximumOwnedChannels) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.MaximumOwnedChannels,
+        'Maximum owned channels reached',
+      )
+    }
+    if (exitCode === JoinChannelExitCode.UserBanned) {
       throw new ChatServiceError(ChatServiceErrorCode.UserBanned, 'User is banned')
+    }
+    if (exitCode !== undefined) {
+      assertUnreachable(exitCode)
     }
 
     // NOTE(2Pac): This is just to silence the TS compiler since it can't figure out on its own that
