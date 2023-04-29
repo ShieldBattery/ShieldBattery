@@ -197,14 +197,7 @@ export interface ChannelPermissions {
   editPermissions: boolean
 }
 
-export interface ChatReadyEvent {
-  type: 'chatReady'
-  /** Ordered list of channel IDs that the user is joined in. */
-  channelIds: SbChannelId[]
-}
-
-export interface ChatInitEvent {
-  action: 'init3'
+export interface InitialChannelData {
   /** The basic information about the channel that the current user is initializing. */
   channelInfo: BasicChannelInfo
   /** The detailed information about the channel that the current user is initializing. */
@@ -215,6 +208,16 @@ export interface ChatInitEvent {
   activeUserIds: SbUserId[]
   /** The channel permissions for the current user that is initializing the channel. */
   selfPermissions: ChannelPermissions
+}
+
+export interface ChatReadyEvent {
+  type: 'chatReady'
+  /** Ordered list of channels (and their initial data) that the user is joined in. */
+  channels: InitialChannelData[]
+}
+
+export interface ChatInitEvent extends InitialChannelData {
+  action: 'init3'
 }
 
 export interface ChatJoinEvent {

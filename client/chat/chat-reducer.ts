@@ -8,6 +8,7 @@ import {
   ChatUserProfileJson,
   ClientChatMessageType,
   DetailedChannelInfo,
+  InitialChannelData,
   JoinedChannelInfo,
   SbChannelId,
 } from '../../common/chat'
@@ -200,45 +201,50 @@ function updateDeletedChannels(state: ChatState, deletedChannels: SbChannelId[])
   }
 }
 
+function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChannelData) {
+  const { channelInfo, detailedChannelInfo, joinedChannelInfo, activeUserIds, selfPermissions } =
+    data
+
+  const channelUsers: UsersState = {
+    active: new Set(activeUserIds),
+    idle: new Set(),
+    offline: new Set(),
+    hasLoadedUserList: false,
+    loadingUserList: false,
+  }
+  const messagesState: MessagesState = {
+    messages: [],
+    loadingHistory: false,
+    hasHistory: true,
+  }
+  state.joinedChannels.add(channelId)
+  state.idToBasicInfo.set(channelId, channelInfo)
+  state.idToDetailedInfo.set(channelId, detailedChannelInfo)
+  state.idToJoinedInfo.set(channelId, joinedChannelInfo)
+  state.idToUsers.set(channelId, channelUsers)
+  state.idToMessages.set(channelId, messagesState)
+  state.idToUserProfiles.set(channelId, new Map())
+  state.idToSelfPermissions.set(channelId, selfPermissions)
+
+  updateMessages(state, channelId, false, m =>
+    m.concat({
+      id: cuid(),
+      type: ClientChatMessageType.SelfJoinChannel,
+      channelId,
+      time: Date.now(),
+    }),
+  )
+}
+
 export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   ['@loading/chatReady'](state, action) {
-    state.joinedChannels = new Set(action.payload.channelIds)
+    for (const channel of action.payload.channels) {
+      initChannel(state, channel.channelInfo.id, channel)
+    }
   },
 
   ['@chat/initChannel'](state, action) {
-    const { channelInfo, detailedChannelInfo, joinedChannelInfo, activeUserIds, selfPermissions } =
-      action.payload
-    const { channelId } = action.meta
-
-    const channelUsers: UsersState = {
-      active: new Set(activeUserIds),
-      idle: new Set(),
-      offline: new Set(),
-      hasLoadedUserList: false,
-      loadingUserList: false,
-    }
-    const messagesState: MessagesState = {
-      messages: [],
-      loadingHistory: false,
-      hasHistory: true,
-    }
-    state.joinedChannels.add(channelId)
-    state.idToBasicInfo.set(channelId, channelInfo)
-    state.idToDetailedInfo.set(channelId, detailedChannelInfo)
-    state.idToJoinedInfo.set(channelId, joinedChannelInfo)
-    state.idToUsers.set(channelId, channelUsers)
-    state.idToMessages.set(channelId, messagesState)
-    state.idToUserProfiles.set(channelId, new Map())
-    state.idToSelfPermissions.set(channelId, selfPermissions)
-
-    updateMessages(state, channelId, false, m =>
-      m.concat({
-        id: cuid(),
-        type: ClientChatMessageType.SelfJoinChannel,
-        channelId,
-        time: Date.now(),
-      }),
-    )
+    initChannel(state, action.meta.channelId, action.payload)
   },
 
   ['@chat/updateJoin'](state, action) {
