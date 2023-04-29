@@ -330,6 +330,9 @@ export default class ChatService {
     if (exitCode === JoinChannelExitCode.UserBanned) {
       throw new ChatServiceError(ChatServiceErrorCode.UserBanned, 'User is banned')
     }
+    if (exitCode !== undefined) {
+      assertUnreachable(exitCode)
+    }
 
     // NOTE(2Pac): This is just to silence the TS compiler since it can't figure out on its own that
     // `channel` will be defined here.
