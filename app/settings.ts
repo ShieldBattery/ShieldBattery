@@ -37,6 +37,7 @@ interface SettingsEvents<T> extends EventMap {
 abstract class SettingsManager<T> extends TypedEventEmitter<SettingsEvents<T>> {
   protected abstract settings: Partial<T>
   protected initialized: Promise<void>
+  protected settingsDirty = false
 
   constructor(
     private settingsName: string,
@@ -45,7 +46,9 @@ abstract class SettingsManager<T> extends TypedEventEmitter<SettingsEvents<T>> {
   ) {
     super()
 
-    this.initialized = initializeFunc.apply(this).catch(() => {})
+    this.initialized = initializeFunc.apply(this).catch(err => {
+      log.error(`Error initializing the ${this.settingsName} settings file: ${err.stack ?? err}`)
+    })
     this.initialized.then(() => {
       this.emitChange()
     })
@@ -60,16 +63,22 @@ abstract class SettingsManager<T> extends TypedEventEmitter<SettingsEvents<T>> {
     return this.settings
   }
 
-  savingSettingsToDisk = false
   debouncedFileWrite = debounce(() => {
-    fsPromises.writeFile(this.filepath, jsonify(this.settings), { encoding: 'utf8' }).catch(err => {
-      log.error(`Error saving the ${this.settingsName} settings file: ${err.stack ?? err}`)
-    })
-    this.savingSettingsToDisk = false
+    if (this.settingsDirty) {
+      fsPromises
+        .writeFile(this.filepath, jsonify(this.settings), { encoding: 'utf8' })
+        .catch(err => {
+          log.error(`Error saving the ${this.settingsName} settings file: ${err.stack ?? err}`)
+        })
+      this.settingsDirty = false
+    }
   }, 400)
 
   saveSettingsToDiskSync() {
-    fs.writeFileSync(this.filepath, jsonify(this.settings), { encoding: 'utf8' })
+    if (this.settingsDirty) {
+      fs.writeFileSync(this.filepath, jsonify(this.settings), { encoding: 'utf8' })
+      this.settingsDirty = false
+    }
   }
 
   async merge(settings: Readonly<Partial<T>>): Promise<void> {
@@ -79,7 +88,7 @@ abstract class SettingsManager<T> extends TypedEventEmitter<SettingsEvents<T>> {
       this.settings = merged
       this.emitChange()
 
-      this.savingSettingsToDisk = true
+      this.settingsDirty = true
       this.debouncedFileWrite()
     }
   }

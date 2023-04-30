@@ -182,14 +182,12 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     // This will trigger a change if things changed, which will then emit a `settingsLocalChanged`
     localSettings.merge(settings).catch(err => {
       logger.error('Error merging local settings: ' + err)
-      throw err
     })
   })
   ipcMain.handle('settingsScrMerge', (event, settings) => {
     // This will trigger a change if things changed, which will then emit a `settingsScrChanged`
     scrSettings.merge(settings).catch(err => {
       logger.error('Error merging SC:R settings: ' + err)
-      throw err
     })
   })
 
@@ -769,12 +767,8 @@ app.on('ready', async () => {
     })
 
     app.on('will-quit', () => {
-      if (localSettings.savingSettingsToDisk) {
-        localSettings.saveSettingsToDiskSync()
-      }
-      if (scrSettings.savingSettingsToDisk) {
-        scrSettings.saveSettingsToDiskSync()
-      }
+      localSettings.saveSettingsToDiskSync()
+      scrSettings.saveSettingsToDiskSync()
     })
   } catch (err: any) {
     logger.error('Error initializing: ' + err)

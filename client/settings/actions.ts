@@ -14,7 +14,7 @@ export type SettingsActions =
 export interface OpenSettings {
   type: '@settings/openSettings'
   payload: {
-    subPage: SettingsSubPage
+    subPage?: SettingsSubPage
   }
 }
 

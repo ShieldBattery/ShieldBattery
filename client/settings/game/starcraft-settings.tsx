@@ -1,7 +1,6 @@
 import React, { useRef } from 'react'
 import styled from 'styled-components'
 import { TypedIpcRenderer } from '../../../common/ipc'
-import { LocalSettings, ShieldBatteryAppSettings } from '../../../common/settings/local-settings'
 import { useForm } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import { RaisedButton } from '../../material/button'
@@ -57,14 +56,22 @@ interface StarcraftSettingsModel {
   starcraftPath: string
 }
 
-function StarcraftSettingsForm({
-  localSettings,
-  onValidatedChange,
-}: {
-  localSettings: Omit<LocalSettings, keyof ShieldBatteryAppSettings>
-  onValidatedChange: (model: Readonly<StarcraftSettingsModel>) => void
-}) {
+export function StarcraftSettings() {
+  const dispatch = useAppDispatch()
+  const localSettings = useAppSelector(s => s.settings.local)
   const browseButtonRef = useRef<HTMLButtonElement>(null)
+
+  const onValidatedChange = useStableCallback((model: Readonly<StarcraftSettingsModel>) => {
+    dispatch(
+      mergeLocalSettings(
+        { starcraftPath: model.starcraftPath },
+        {
+          onSuccess: () => {},
+          onError: () => {},
+        },
+      ),
+    )
+  })
 
   const { bindInput, getInputValue, setInputValue, onSubmit } = useForm(
     {
@@ -114,26 +121,5 @@ function StarcraftSettingsForm({
         </div>
       </FormContainer>
     </form>
-  )
-}
-
-export function StarcraftSettings() {
-  const dispatch = useAppDispatch()
-  const localSettings = useAppSelector(s => s.settings.local)
-
-  const onValidatedChange = useStableCallback((model: Readonly<StarcraftSettingsModel>) => {
-    dispatch(
-      mergeLocalSettings(
-        { starcraftPath: model.starcraftPath },
-        {
-          onSuccess: () => {},
-          onError: () => {},
-        },
-      ),
-    )
-  })
-
-  return (
-    <StarcraftSettingsForm localSettings={localSettings} onValidatedChange={onValidatedChange} />
   )
 }

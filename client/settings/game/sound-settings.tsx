@@ -5,7 +5,6 @@ import {
   Announcer,
   getAnnouncerName,
 } from '../../../common/settings/blizz-settings'
-import { ScrSettings } from '../../../common/settings/local-settings'
 import { useForm } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import CheckBox from '../../material/check-box'
@@ -45,13 +44,35 @@ interface GameSoundSettingsModel {
   originalVoiceOversOn: boolean
 }
 
-function GameSoundSettingsForm({
-  scrSettings,
-  onValidatedChange,
-}: {
-  scrSettings: Omit<ScrSettings, 'version'>
-  onValidatedChange: (model: Readonly<GameSoundSettingsModel>) => void
-}) {
+export function GameSoundSettings() {
+  const dispatch = useAppDispatch()
+  const scrSettings = useAppSelector(s => s.settings.scr)
+
+  const onValidatedChange = useStableCallback((model: Readonly<GameSoundSettingsModel>) => {
+    dispatch(
+      mergeScrSettings(
+        {
+          musicOn: model.musicOn,
+          musicVolume: model.musicVolume,
+          soundOn: model.soundOn,
+          soundVolume: model.soundVolume,
+          selectedAnnouncer: model.selectedAnnouncer,
+          unitSpeechOn: model.unitSpeechOn,
+          unitAcknowledgementsOn: model.unitAcknowledgementsOn,
+          backgroundSoundsOn: model.backgroundSoundsOn,
+          buildingSoundsOn: model.buildingSoundsOn,
+          gameSubtitlesOn: model.gameSubtitlesOn,
+          cinematicSubtitlesOn: model.cinematicSubtitlesOn,
+          originalVoiceOversOn: model.originalVoiceOversOn,
+        },
+        {
+          onSuccess: () => {},
+          onError: () => {},
+        },
+      ),
+    )
+  })
+
   const { bindCheckable, bindCustom, getInputValue, onSubmit } = useForm(
     { ...scrSettings },
     {},
@@ -137,36 +158,4 @@ function GameSoundSettingsForm({
       </FormContainer>
     </form>
   )
-}
-
-export function GameSoundSettings() {
-  const dispatch = useAppDispatch()
-  const scrSettings = useAppSelector(s => s.settings.scr)
-
-  const onValidatedChange = useStableCallback((model: Readonly<GameSoundSettingsModel>) => {
-    dispatch(
-      mergeScrSettings(
-        {
-          musicOn: model.musicOn,
-          musicVolume: model.musicVolume,
-          soundOn: model.soundOn,
-          soundVolume: model.soundVolume,
-          selectedAnnouncer: model.selectedAnnouncer,
-          unitSpeechOn: model.unitSpeechOn,
-          unitAcknowledgementsOn: model.unitAcknowledgementsOn,
-          backgroundSoundsOn: model.backgroundSoundsOn,
-          buildingSoundsOn: model.buildingSoundsOn,
-          gameSubtitlesOn: model.gameSubtitlesOn,
-          cinematicSubtitlesOn: model.cinematicSubtitlesOn,
-          originalVoiceOversOn: model.originalVoiceOversOn,
-        },
-        {
-          onSuccess: () => {},
-          onError: () => {},
-        },
-      ),
-    )
-  })
-
-  return <GameSoundSettingsForm scrSettings={scrSettings} onValidatedChange={onValidatedChange} />
 }

@@ -1,6 +1,5 @@
 import React from 'react'
 import styled from 'styled-components'
-import { ScrSettings } from '../../../common/settings/local-settings'
 import { useForm } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import CheckBox from '../../material/check-box'
@@ -24,13 +23,30 @@ interface GameInputSettingsModel {
   mouseConfineOn: boolean
 }
 
-function GameInputSettingsForm({
-  scrSettings,
-  onValidatedChange,
-}: {
-  scrSettings: Omit<ScrSettings, 'version'>
-  onValidatedChange: (model: Readonly<GameInputSettingsModel>) => void
-}) {
+export function GameInputSettings() {
+  const dispatch = useAppDispatch()
+  const scrSettings = useAppSelector(s => s.settings.scr)
+
+  const onValidatedChange = useStableCallback((model: Readonly<GameInputSettingsModel>) => {
+    dispatch(
+      mergeScrSettings(
+        {
+          keyboardScrollSpeed: model.keyboardScrollSpeed,
+          mouseScrollSpeed: model.mouseScrollSpeed,
+          mouseSensitivityOn: model.mouseSensitivityOn,
+          mouseSensitivity: model.mouseSensitivity,
+          mouseScalingOn: model.mouseScalingOn,
+          hardwareCursorOn: model.hardwareCursorOn,
+          mouseConfineOn: model.mouseConfineOn,
+        },
+        {
+          onSuccess: () => {},
+          onError: () => {},
+        },
+      ),
+    )
+  })
+
   const { bindCheckable, bindCustom, getInputValue, onSubmit } = useForm(
     { ...scrSettings },
     {},
@@ -94,31 +110,4 @@ function GameInputSettingsForm({
       </FormContainer>
     </form>
   )
-}
-
-export function GameInputSettings() {
-  const dispatch = useAppDispatch()
-  const scrSettings = useAppSelector(s => s.settings.scr)
-
-  const onValidatedChange = useStableCallback((model: Readonly<GameInputSettingsModel>) => {
-    dispatch(
-      mergeScrSettings(
-        {
-          keyboardScrollSpeed: model.keyboardScrollSpeed,
-          mouseScrollSpeed: model.mouseScrollSpeed,
-          mouseSensitivityOn: model.mouseSensitivityOn,
-          mouseSensitivity: model.mouseSensitivity,
-          mouseScalingOn: model.mouseScalingOn,
-          hardwareCursorOn: model.hardwareCursorOn,
-          mouseConfineOn: model.mouseConfineOn,
-        },
-        {
-          onSuccess: () => {},
-          onError: () => {},
-        },
-      ),
-    )
-  })
-
-  return <GameInputSettingsForm scrSettings={scrSettings} onValidatedChange={onValidatedChange} />
 }

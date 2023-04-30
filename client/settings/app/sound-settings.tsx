@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { LocalSettings, ShieldBatteryAppSettings } from '../../../common/settings/local-settings'
 import audioManager, { AvailableSound } from '../../audio/audio-manager'
 import { useForm } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
@@ -33,17 +32,26 @@ interface AppSoundSettingsModel {
   masterVolume: number
 }
 
-function AppSoundSettingsForm({
-  localSettings,
-  isPlayingTestSound,
-  onTestSoundClick,
-  onValidatedChange,
-}: {
-  localSettings: Omit<LocalSettings, keyof ShieldBatteryAppSettings>
-  isPlayingTestSound: boolean
-  onTestSoundClick: () => void
-  onValidatedChange: (model: Readonly<AppSoundSettingsModel>) => void
-}) {
+export function AppSoundSettings() {
+  const dispatch = useAppDispatch()
+  const localSettings = useAppSelector(s => s.settings.local)
+  const [isPlayingTestSound, setIsPlayingTestSound] = useState(false)
+  const playingSoundRef = useRef<AudioBufferSourceNode>()
+
+  const onValidatedChange = useStableCallback((model: Readonly<AppSoundSettingsModel>) => {
+    dispatch(
+      mergeLocalSettings(
+        { masterVolume: model.masterVolume },
+        {
+          onSuccess: () => {
+            audioManager.setMasterVolume(model.masterVolume)
+          },
+          onError: () => {},
+        },
+      ),
+    )
+  })
+
   const { bindCustom, onSubmit } = useForm(
     {
       masterVolume: localSettings.masterVolume,
@@ -51,6 +59,34 @@ function AppSoundSettingsForm({
     {},
     { onValidatedChange },
   )
+
+  const cleanupSound = useStableCallback(() => {
+    if (playingSoundRef.current) {
+      setIsPlayingTestSound(false)
+      playingSoundRef.current.stop()
+      playingSoundRef.current = undefined
+    }
+  })
+
+  const onTestSoundClick = useStableCallback(() => {
+    cleanupSound()
+    const sound = audioManager.playSound(AvailableSound.MatchFound)
+    playingSoundRef.current = sound
+
+    const endedListener = () => {
+      sound?.removeEventListener('ended', endedListener)
+      cleanupSound()
+    }
+    sound?.addEventListener('ended', endedListener)
+
+    setIsPlayingTestSound(true)
+  })
+
+  useEffect(() => {
+    return () => {
+      cleanupSound()
+    }
+  }, [cleanupSound])
 
   return (
     <form noValidate={true} onSubmit={onSubmit}>
@@ -82,59 +118,5 @@ function AppSoundSettingsForm({
         </div>
       </FormContainer>
     </form>
-  )
-}
-
-export function AppSoundSettings() {
-  const dispatch = useAppDispatch()
-  const localSettings = useAppSelector(s => s.settings.local)
-  const [isPlayingTestSound, setIsPlayingTestSound] = useState(false)
-  const playingSoundRef = useRef<AudioBufferSourceNode>()
-
-  const cleanupSound = useStableCallback(() => {
-    if (playingSoundRef.current) {
-      setIsPlayingTestSound(false)
-      playingSoundRef.current.stop()
-      playingSoundRef.current = undefined
-    }
-  })
-
-  const onTestSoundClick = useStableCallback(() => {
-    cleanupSound()
-    const sound = audioManager.playSound(AvailableSound.MatchFound)
-    playingSoundRef.current = sound
-
-    const endedListener = () => {
-      sound?.removeEventListener('ended', endedListener)
-      cleanupSound()
-    }
-    sound?.addEventListener('ended', endedListener)
-
-    setIsPlayingTestSound(true)
-  })
-
-  const onValidatedChange = useStableCallback((model: Readonly<AppSoundSettingsModel>) => {
-    dispatch(
-      mergeLocalSettings(
-        { masterVolume: model.masterVolume },
-        {
-          onSuccess: () => {
-            audioManager.setMasterVolume(model.masterVolume)
-          },
-          onError: () => {},
-        },
-      ),
-    )
-  })
-
-  useEffect(() => cleanupSound(), [cleanupSound])
-
-  return (
-    <AppSoundSettingsForm
-      localSettings={localSettings}
-      isPlayingTestSound={isPlayingTestSound}
-      onTestSoundClick={onTestSoundClick}
-      onValidatedChange={onValidatedChange}
-    />
   )
 }

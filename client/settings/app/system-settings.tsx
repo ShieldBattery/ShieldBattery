@@ -1,6 +1,5 @@
 import React from 'react'
 import styled from 'styled-components'
-import { LocalSettings, ShieldBatteryAppSettings } from '../../../common/settings/local-settings'
 import { useForm } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import CheckBox from '../../material/check-box'
@@ -18,13 +17,25 @@ interface AppSystemSettingsModel {
   runAppAtSystemStartMinimized: boolean
 }
 
-function AppSystemSettingsForm({
-  localSettings,
-  onValidatedChange,
-}: {
-  localSettings: Omit<LocalSettings, keyof ShieldBatteryAppSettings>
-  onValidatedChange: (model: Readonly<AppSystemSettingsModel>) => void
-}) {
+export function AppSystemSettings() {
+  const dispatch = useAppDispatch()
+  const localSettings = useAppSelector(s => s.settings.local)
+
+  const onValidatedChange = useStableCallback((model: Readonly<AppSystemSettingsModel>) => {
+    dispatch(
+      mergeLocalSettings(
+        {
+          runAppAtSystemStart: model.runAppAtSystemStart,
+          runAppAtSystemStartMinimized: model.runAppAtSystemStartMinimized,
+        },
+        {
+          onSuccess: () => {},
+          onError: () => {},
+        },
+      ),
+    )
+  })
+
   const { bindCheckable, onSubmit, getInputValue } = useForm(
     {
       runAppAtSystemStart: localSettings.runAppAtSystemStart,
@@ -53,29 +64,5 @@ function AppSystemSettingsForm({
         </div>
       </FormContainer>
     </form>
-  )
-}
-
-export default function AppSystemSettings() {
-  const dispatch = useAppDispatch()
-  const localSettings = useAppSelector(s => s.settings.local)
-
-  const onValidatedChange = useStableCallback((model: Readonly<AppSystemSettingsModel>) => {
-    dispatch(
-      mergeLocalSettings(
-        {
-          runAppAtSystemStart: model.runAppAtSystemStart,
-          runAppAtSystemStartMinimized: model.runAppAtSystemStartMinimized,
-        },
-        {
-          onSuccess: () => {},
-          onError: () => {},
-        },
-      ),
-    )
-  })
-
-  return (
-    <AppSystemSettingsForm localSettings={localSettings} onValidatedChange={onValidatedChange} />
   )
 }

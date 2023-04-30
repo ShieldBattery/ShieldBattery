@@ -9,11 +9,6 @@ import {
   getIngameSkinName,
   IngameSkin,
 } from '../../../common/settings/blizz-settings'
-import {
-  LocalSettings,
-  ScrSettings,
-  ShieldBatteryAppSettings,
-} from '../../../common/settings/local-settings'
 import { useForm } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import CheckBox from '../../material/check-box'
@@ -66,15 +61,51 @@ function validateApmValue(val: number, model: GameplaySettingsModel) {
   return val <= 0 || val > 999 ? 'Enter a value between 1 and 999' : undefined
 }
 
-function GameplaySettingsForm({
-  localSettings,
-  scrSettings,
-  onValidatedChange,
-}: {
-  localSettings: Omit<LocalSettings, keyof ShieldBatteryAppSettings>
-  scrSettings: Omit<ScrSettings, 'version'>
-  onValidatedChange: (model: Readonly<GameplaySettingsModel>) => void
-}) {
+export function GameplaySettings() {
+  const dispatch = useAppDispatch()
+  const localSettings = useAppSelector(s => s.settings.local)
+  const scrSettings = useAppSelector(s => s.settings.scr)
+
+  const onValidatedChange = useStableCallback((model: Readonly<GameplaySettingsModel>) => {
+    dispatch(
+      mergeScrSettings(
+        {
+          apmAlertOn: model.apmAlertOn,
+          apmAlertColorOn: model.apmAlertColorOn,
+          apmAlertSoundOn: model.apmAlertSoundOn,
+          apmAlertValue: model.apmAlertValue,
+          apmDisplayOn: model.apmDisplayOn,
+          colorCyclingOn: model.colorCyclingOn,
+          consoleSkin: model.consoleSkin,
+          gameTimerOn: model.gameTimerOn,
+          minimapPosition: model.minimapPosition,
+          showBonusSkins: model.showBonusSkins,
+          selectedSkin: model.selectedSkin,
+          unitPortraits: model.unitPortraits,
+          showTurnRate: model.showTurnRate,
+        },
+        {
+          onSuccess: () => {},
+          onError: () => {},
+        },
+      ),
+    )
+
+    if (DEV_INDICATOR) {
+      dispatch(
+        mergeLocalSettings(
+          {
+            visualizeNetworkStalls: model.visualizeNetworkStalls,
+          },
+          {
+            onSuccess: () => {},
+            onError: () => {},
+          },
+        ),
+      )
+    }
+  })
+
   const { bindCheckable, bindCustom, onSubmit, getInputValue } = useForm(
     { ...scrSettings, visualizeNetworkStalls: localSettings.visualizeNetworkStalls },
     { apmAlertValue: validateApmValue },
@@ -175,59 +206,5 @@ function GameplaySettingsForm({
         ) : null}
       </FormContainer>
     </form>
-  )
-}
-
-export function GameplaySettings() {
-  const dispatch = useAppDispatch()
-  const localSettings = useAppSelector(s => s.settings.local)
-  const scrSettings = useAppSelector(s => s.settings.scr)
-
-  const onValidatedChange = useStableCallback((model: Readonly<GameplaySettingsModel>) => {
-    dispatch(
-      mergeScrSettings(
-        {
-          apmAlertOn: model.apmAlertOn,
-          apmAlertColorOn: model.apmAlertColorOn,
-          apmAlertSoundOn: model.apmAlertSoundOn,
-          apmAlertValue: model.apmAlertValue,
-          apmDisplayOn: model.apmDisplayOn,
-          colorCyclingOn: model.colorCyclingOn,
-          consoleSkin: model.consoleSkin,
-          gameTimerOn: model.gameTimerOn,
-          minimapPosition: model.minimapPosition,
-          showBonusSkins: model.showBonusSkins,
-          selectedSkin: model.selectedSkin,
-          unitPortraits: model.unitPortraits,
-          showTurnRate: model.showTurnRate,
-        },
-        {
-          onSuccess: () => {},
-          onError: () => {},
-        },
-      ),
-    )
-
-    if (model.visualizeNetworkStalls !== localSettings.visualizeNetworkStalls) {
-      dispatch(
-        mergeLocalSettings(
-          {
-            visualizeNetworkStalls: model.visualizeNetworkStalls,
-          },
-          {
-            onSuccess: () => {},
-            onError: () => {},
-          },
-        ),
-      )
-    }
-  })
-
-  return (
-    <GameplaySettingsForm
-      localSettings={localSettings}
-      scrSettings={scrSettings}
-      onValidatedChange={onValidatedChange}
-    />
   )
 }

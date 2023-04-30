@@ -5,7 +5,6 @@ import {
   DisplayMode,
   getDisplayModeName,
 } from '../../../common/settings/blizz-settings'
-import { ScrSettings } from '../../../common/settings/local-settings'
 import { useForm } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import CheckBox from '../../material/check-box'
@@ -62,13 +61,35 @@ interface GameVideoSettingsModel {
   showFps: boolean
 }
 
-function GameVideoSettingsForm({
-  scrSettings,
-  onValidatedChange,
-}: {
-  scrSettings: Omit<ScrSettings, 'version'>
-  onValidatedChange: (model: Readonly<GameVideoSettingsModel>) => void
-}) {
+export function GameVideoSettings() {
+  const dispatch = useAppDispatch()
+  const scrSettings = useAppSelector(s => s.settings.scr)
+
+  const onValidatedChange = useStableCallback((model: Readonly<GameVideoSettingsModel>) => {
+    dispatch(
+      mergeScrSettings(
+        {
+          displayMode: model.displayMode,
+          sdGraphicsFilter: model.sdGraphicsFilter,
+          fpsLimitOn: model.fpsLimitOn,
+          fpsLimit: model.fpsLimit,
+          vsyncOn: model.vsyncOn,
+          hdGraphicsOn: model.hdGraphicsOn,
+          environmentEffectsOn: model.environmentEffectsOn,
+          realTimeLightingOn: model.realTimeLightingOn,
+          smoothUnitTurningOn: model.smoothUnitTurningOn,
+          shadowStackingOn: model.shadowStackingOn,
+          pillarboxOn: model.pillarboxOn,
+          showFps: model.showFps,
+        },
+        {
+          onSuccess: () => {},
+          onError: () => {},
+        },
+      ),
+    )
+  })
+
   const { bindCheckable, bindCustom, getInputValue, onSubmit } = useForm(
     { ...scrSettings },
     {},
@@ -151,36 +172,4 @@ function GameVideoSettingsForm({
       </FormContainer>
     </form>
   )
-}
-
-export function GameVideoSettings() {
-  const dispatch = useAppDispatch()
-  const scrSettings = useAppSelector(s => s.settings.scr)
-
-  const onValidatedChange = useStableCallback((model: Readonly<GameVideoSettingsModel>) => {
-    dispatch(
-      mergeScrSettings(
-        {
-          displayMode: model.displayMode,
-          sdGraphicsFilter: model.sdGraphicsFilter,
-          fpsLimitOn: model.fpsLimitOn,
-          fpsLimit: model.fpsLimit,
-          vsyncOn: model.vsyncOn,
-          hdGraphicsOn: model.hdGraphicsOn,
-          environmentEffectsOn: model.environmentEffectsOn,
-          realTimeLightingOn: model.realTimeLightingOn,
-          smoothUnitTurningOn: model.smoothUnitTurningOn,
-          shadowStackingOn: model.shadowStackingOn,
-          pillarboxOn: model.pillarboxOn,
-          showFps: model.showFps,
-        },
-        {
-          onSuccess: () => {},
-          onError: () => {},
-        },
-      ),
-    )
-  })
-
-  return <GameVideoSettingsForm scrSettings={scrSettings} onValidatedChange={onValidatedChange} />
 }

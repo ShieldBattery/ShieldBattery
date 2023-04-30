@@ -41,5 +41,32 @@
       "tabStats": "Stats",
       "tabSummary": "Summary"
     }
+  },
+  "settings": {
+    "app": {
+      "sound": {
+        "label": "Sound"
+      },
+      "system": {
+        "label": "System"
+      }
+    },
+    "game": {
+      "gameplay": {
+        "label": "Gameplay"
+      },
+      "input": {
+        "label": "Input"
+      },
+      "sound": {
+        "label": "Sound"
+      },
+      "starcraft": {
+        "label": "StarCraft"
+      },
+      "video": {
+        "label": "Video"
+      }
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { Immutable } from 'immer'
+import { ReadonlyDeep } from 'type-fest'
 import { Announcer, ConsoleSkin, IngameSkin } from '../../common/settings/blizz-settings'
 import {
   LocalSettings,
@@ -6,7 +6,7 @@ import {
   ShieldBatteryAppSettings,
 } from '../../common/settings/local-settings'
 
-export const DEFAULT_LOCAL_SETTINGS: Immutable<
+export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   Omit<LocalSettings, keyof ShieldBatteryAppSettings>
 > = {
   runAppAtSystemStart: false,
@@ -20,7 +20,7 @@ export const DEFAULT_LOCAL_SETTINGS: Immutable<
   visualizeNetworkStalls: false,
 }
 
-export const DEFAULT_SCR_SETTINGS: Immutable<Omit<ScrSettings, 'version'>> = {
+export const DEFAULT_SCR_SETTINGS: ReadonlyDeep<Omit<ScrSettings, 'version'>> = {
   // Input settings
   keyboardScrollSpeed: 0,
   mouseScrollSpeed: 0,
