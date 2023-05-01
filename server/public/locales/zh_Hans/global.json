@@ -22,7 +22,7 @@
             "noGameSelectedText": "没有选择游戏"
         },
         "results": {
-            "buttonCopyLink": "复制游戏链接",
+            "buttonCopyLink": "复制链接到游戏",
             "buttonSearchAgain": "再次搜索",
             "errorLoading": "加载此游戏时出现问题。",
             "headlineDefault": "结果",
