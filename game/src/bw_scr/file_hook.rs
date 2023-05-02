@@ -1,4 +1,5 @@
 use std::ffi::CStr;
+use std::mem;
 use std::ptr::null_mut;
 use std::sync::atomic::Ordering;
 
@@ -297,9 +298,9 @@ unsafe extern "C" fn file_handle_destroy_nop(_file: *mut scr::FileHandle, _dyn_f
 
 unsafe extern "C" fn function_nop_destory(_file: *mut scr::Function, _unk: u32) {}
 
-unsafe extern "C" fn function_object_size(_file: *mut scr::Function, size: *mut u32) {
-    *size = 0xc;
-    *size.add(1) = 0x4;
+unsafe extern "C" fn function_object_size(_file: *mut scr::Function, size: *mut usize) {
+    *size = 3 * mem::size_of::<usize>();
+    *size.add(1) = mem::size_of::<usize>();
     *(size.add(2) as *mut u8) = 0x1;
 }
 
@@ -332,7 +333,7 @@ unsafe extern "C" fn skip(file: *mut scr::FileRead, size: u32) {
 }
 
 unsafe extern "C" fn peek_wrap(file: *mut c_void, out: *mut u8, size: u32) -> u32 {
-    let file = (file as usize - 4) as *mut scr::FileHandle;
+    let file = (file as *mut usize).sub(1) as *mut scr::FileHandle;
     let peek = (*file).peek;
     let vtable = (*peek).vtable;
     (*vtable).peek.call3(peek, out, size)
@@ -348,21 +349,21 @@ unsafe extern "C" fn peek(file: *mut scr::FilePeek, out: *mut u8, size: u32) -> 
 }
 
 unsafe extern "C" fn tell_wrap(file: *mut c_void) -> u32 {
-    let file = (file as usize - 8) as *mut scr::FileHandle;
+    let file = (file as *mut usize).sub(2) as *mut scr::FileHandle;
     let metadata = (*file).metadata;
     let vtable = (*metadata).vtable;
     (*vtable).tell.call1(metadata)
 }
 
 unsafe extern "C" fn seek_wrap(file: *mut c_void, pos: u32) {
-    let file = (file as usize - 8) as *mut scr::FileHandle;
+    let file = (file as *mut usize).sub(2) as *mut scr::FileHandle;
     let metadata = (*file).metadata;
     let vtable = (*metadata).vtable;
     (*vtable).seek.call2(metadata, pos)
 }
 
 unsafe extern "C" fn file_size_wrap(file: *mut c_void) -> u32 {
-    let file = (file as usize - 8) as *mut scr::FileHandle;
+    let file = (file as *mut usize).sub(2) as *mut scr::FileHandle;
     let metadata = (*file).metadata;
     let vtable = (*metadata).vtable;
     (*vtable).file_size.call1(metadata)

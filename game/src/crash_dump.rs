@@ -149,7 +149,7 @@ unsafe fn write_minidump(path: &Path, exception: *mut EXCEPTION_POINTERS) -> Res
     }
 }
 
-#[repr(C)]
+#[repr(C, packed(4))]
 struct MinidumpExceptionInfo {
     thread_id: u32,
     exception: *mut EXCEPTION_POINTERS,

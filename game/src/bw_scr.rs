@@ -463,7 +463,7 @@ pub mod scr {
     pub struct V_Function {
         pub destroy_inner: Thiscall<unsafe extern "C" fn(*mut Function, u32)>,
         pub invoke: Thiscall<unsafe extern "C" fn(*mut Function)>,
-        pub get_sizes: Thiscall<unsafe extern "C" fn(*mut Function, *mut u32)>,
+        pub get_sizes: Thiscall<unsafe extern "C" fn(*mut Function, *mut usize)>,
         pub copy: Thiscall<unsafe extern "C" fn(*mut Function, *mut Function)>,
         pub copy2: Thiscall<unsafe extern "C" fn(*mut Function, *mut Function)>,
         pub safety_padding: [usize; 0x20],
@@ -471,7 +471,11 @@ pub mod scr {
 
     #[repr(C)]
     pub struct Font {
-        pub unk0: [u8; 0x14],
+        pub unk0: *mut c_void,
+        pub unk4: usize,
+        pub unk8: *mut c_void,
+        pub unkc: u32,
+        pub unk10: u32,
         pub ttf: *mut TtfSet,
     }
 
@@ -482,11 +486,18 @@ pub mod scr {
 
     #[repr(C)]
     pub struct TtfFont {
-        pub unk0: [u8; 0x4],
+        pub unk0: usize,
         pub raw_ttf: *mut u8,
-        pub unk8: [u8; 0x78],
-        pub scale: f32,
-        pub unk94: [u8; 0x1c],
+        #[cfg(target_arch = "x86")]
+        pub unk8: [u8; 0x70],
+        #[cfg(target_arch = "x86_64")]
+        pub unk8: [u8; 0x88],
+        pub raw_ttf2: *mut u8, // 78 // 98
+        pub unk7c: u32,
+        pub scale: f32, // 80 // a4
+        pub unk_floats: [f32; 3],
+        pub unk90: [u32; 3],
+        pub unk90_ptr_sized: [usize; 1],
     }
 
     #[repr(C)]
