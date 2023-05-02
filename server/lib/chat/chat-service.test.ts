@@ -406,24 +406,11 @@ describe('chat/chat-service', () => {
         user3ShieldBatteryChannelEntry,
         user3TestChannelEntry,
       ])
-      asMockedFunction(getChannelInfo).mockImplementation(async (channelId: SbChannelId) => {
-        if (channelId === shieldBatteryChannel.id) {
-          return shieldBatteryChannel
-        } else if (channelId === testChannel.id) {
-          return testChannel
-        }
-        return undefined
-      })
-      asMockedFunction(getUserChannelEntryForUser).mockImplementation(
-        async (userId: SbUserId, channelId: SbChannelId) => {
-          if (userId === user3.id && channelId === shieldBatteryChannel.id) {
-            return user3ShieldBatteryChannelEntry
-          } else if (userId === user3.id && channelId === testChannel.id) {
-            return user3TestChannelEntry
-          }
-          return null
-        },
-      )
+      asMockedFunction(getChannelInfos).mockResolvedValue([shieldBatteryChannel, testChannel])
+      asMockedFunction(getUserChannelEntriesForUser).mockResolvedValue([
+        user3ShieldBatteryChannelEntry,
+        user3TestChannelEntry,
+      ])
 
       const client3 = connector.connectClient(user3, 'USER3_CLIENT_ID')
 
@@ -435,23 +422,19 @@ describe('chat/chat-service', () => {
       // test), so we restore the mocked return value to what it is by default, so it doesn't
       // impact the tests that run after this one.
       asMockedFunction(getChannelsForUser).mockResolvedValue([])
+      asMockedFunction(getChannelInfos).mockResolvedValue([])
+      asMockedFunction(getUserChannelEntriesForUser).mockResolvedValue([])
 
-      expect(client3.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
-        action: 'init3',
-        channelInfo: shieldBatteryBasicInfo,
-        detailedChannelInfo: shieldBatteryDetailedInfo,
-        joinedChannelInfo: shieldBatteryJoinedInfo,
-        activeUserIds: [user3.id],
-        selfPermissions: channelPermissions,
-      })
-      expect(client3.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
-        action: 'init3',
-        channelInfo: testBasicInfo,
-        detailedChannelInfo: testDetailedInfo,
-        joinedChannelInfo: testJoinedInfo,
-        activeUserIds: [user3.id],
-        selfPermissions: channelPermissions,
-      })
+      expect(nydus.subscribeClient).toHaveBeenCalledWith(
+        client3,
+        getChannelPath(shieldBatteryChannel.id),
+        undefined,
+      )
+      expect(nydus.subscribeClient).toHaveBeenCalledWith(
+        client3,
+        getChannelPath(testChannel.id),
+        undefined,
+      )
       expect(nydus.subscribeClient).toHaveBeenCalledWith(
         client3,
         getChannelUserPath(shieldBatteryChannel.id, user3.id),
@@ -464,7 +447,22 @@ describe('chat/chat-service', () => {
       )
       expect(client3.publish).toHaveBeenCalledWith(`/users/${user3.id}/chat`, {
         type: 'chatReady',
-        channelIds: [shieldBatteryChannel.id, testChannel.id],
+        channels: [
+          {
+            channelInfo: shieldBatteryBasicInfo,
+            detailedChannelInfo: shieldBatteryDetailedInfo,
+            joinedChannelInfo: shieldBatteryJoinedInfo,
+            activeUserIds: [user3.id],
+            selfPermissions: channelPermissions,
+          },
+          {
+            channelInfo: testBasicInfo,
+            detailedChannelInfo: testDetailedInfo,
+            joinedChannelInfo: testJoinedInfo,
+            activeUserIds: [user3.id],
+            selfPermissions: channelPermissions,
+          },
+        ],
       })
     })
   })
