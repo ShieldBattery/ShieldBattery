@@ -1,4 +1,4 @@
-import React, { useRef } from 'react'
+import React, { useCallback, useRef } from 'react'
 import ReactDOM from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { animated, useTransition, UseTransitionProps } from 'react-spring'
@@ -156,46 +156,43 @@ function Settings({
     },
   })
 
+  const getNavEntriesMapper = useCallback(
+    ({ disabled, hasError }: { disabled?: boolean; hasError?: boolean } = {}) => {
+      return (s: SettingsSubPage) => (
+        <NavEntry
+          key={s}
+          subPage={s}
+          isActive={subPage === s}
+          disabled={disabled}
+          hasError={hasError}
+          onChangeSubPage={onChangeSubPage}
+        />
+      )
+    },
+    [onChangeSubPage, subPage],
+  )
+
   return (
     <Container style={style}>
       <NavContainer>
         {IS_ELECTRON ? (
           <>
             <NavSectionTitle>App settings</NavSectionTitle>
-            {[AppSettingsSubPage.Sound, AppSettingsSubPage.System].map(s => (
-              <NavEntry
-                key={s}
-                subPage={s}
-                isActive={subPage === s}
-                onChangeSubPage={onChangeSubPage}
-              />
-            ))}
+            {[AppSettingsSubPage.Sound, AppSettingsSubPage.System].map(getNavEntriesMapper())}
 
             <NavSectionSeparator />
 
             <NavSectionTitle>Game settings</NavSectionTitle>
-            <NavEntry
-              subPage={GameSettingsSubPage.StarCraft}
-              isActive={GameSettingsSubPage.StarCraft === subPage}
-              hasError={!isStarcraftHealthy}
-              onChangeSubPage={onChangeSubPage}
-            />
+            {[GameSettingsSubPage.StarCraft].map(
+              getNavEntriesMapper({ hasError: !isStarcraftHealthy }),
+            )}
 
-            {isStarcraftHealthy
-              ? [
-                  GameSettingsSubPage.Input,
-                  GameSettingsSubPage.Sound,
-                  GameSettingsSubPage.Video,
-                  GameSettingsSubPage.Gameplay,
-                ].map(s => (
-                  <NavEntry
-                    key={s}
-                    subPage={s}
-                    isActive={subPage === s}
-                    onChangeSubPage={onChangeSubPage}
-                  />
-                ))
-              : null}
+            {[
+              GameSettingsSubPage.Input,
+              GameSettingsSubPage.Sound,
+              GameSettingsSubPage.Video,
+              GameSettingsSubPage.Gameplay,
+            ].map(getNavEntriesMapper({ disabled: !isStarcraftHealthy }))}
           </>
         ) : null}
       </NavContainer>
@@ -219,6 +216,10 @@ const NavEntryRoot = styled.div<{ $isActive: boolean }>`
 
   --sb-ripple-color: ${colorTextPrimary};
   background-color: ${props => (props.$isActive ? 'rgba(255, 255, 255, 0.12)' : 'transparent')};
+
+  &[disabled] {
+    cursor: auto;
+  }
 
   :focus-visible {
     outline: none;
@@ -248,20 +249,23 @@ const ErrorText = styled(NavEntryText)`
 function NavEntry({
   subPage,
   isActive,
+  disabled,
   hasError,
   onChangeSubPage,
 }: {
   subPage: SettingsSubPage
   isActive: boolean
+  disabled?: boolean
   hasError?: boolean
   onChangeSubPage: (subPage: SettingsSubPage) => void
 }) {
+  const { t } = useTranslation()
+  const label = settingsSubPageToLabel(subPage, t)
+
   const onClick = useStableCallback(() => {
     onChangeSubPage(subPage)
   })
-  const { t } = useTranslation()
-  const label = settingsSubPageToLabel(subPage, t)
-  const [buttonProps, rippleRef] = useButtonState({ onClick })
+  const [buttonProps, rippleRef] = useButtonState({ disabled, onClick })
 
   return (
     <NavEntryRoot $isActive={isActive} {...buttonProps} tabIndex={0}>
@@ -274,7 +278,7 @@ function NavEntry({
         <NavEntryText>{label}</NavEntryText>
       )}
 
-      <Ripple ref={rippleRef} />
+      <Ripple ref={rippleRef} disabled={disabled} />
     </NavEntryRoot>
   )
 }
@@ -305,29 +309,6 @@ const CloseIcon = styled(MaterialIcon).attrs({ icon: 'close' })`
   flex-shrink: 0;
 `
 
-function ContentWrapper({
-  title,
-  children,
-  onCloseSettings,
-}: {
-  title: string
-  children: React.ReactNode
-  onCloseSettings: () => void
-}) {
-  return (
-    <ContentContainer>
-      <TitleBar>
-        <Title>{title}</Title>
-        <Tooltip text='Close settings (ESC)' position='bottom' tabIndex={-1}>
-          <IconButton icon={<CloseIcon />} onClick={onCloseSettings} />
-        </Tooltip>
-      </TitleBar>
-
-      {children}
-    </ContentContainer>
-  )
-}
-
 function SettingsContent({
   subPage,
   onCloseSettings,
@@ -338,54 +319,51 @@ function SettingsContent({
   const { t } = useTranslation()
   const label = settingsSubPageToLabel(subPage, t)
 
+  return (
+    <ContentContainer>
+      <TitleBar>
+        <Title>{label}</Title>
+        <Tooltip text='Close settings (ESC)' position='bottom' tabIndex={-1}>
+          <IconButton icon={<CloseIcon />} onClick={onCloseSettings} />
+        </Tooltip>
+      </TitleBar>
+
+      <SettingsSubPageDisplay subPage={subPage} onCloseSettings={onCloseSettings} />
+    </ContentContainer>
+  )
+}
+
+function SettingsSubPageDisplay({
+  subPage,
+  onCloseSettings,
+}: {
+  subPage: SettingsSubPage
+  onCloseSettings: () => void
+}) {
   // TODO(2Pac): Currently we don't have any non-Electron settings so this might look a bit weird.
-  // Soon enough we should probably have some user settings (e.g. editing user account, and changing
-  // a language).
+  // Once we add some global settings (e.g. editing user account, and changing a language), write a
+  // second switch statemt above `IS_ELECTRON` check which handles those pages.
+
+  if (!IS_ELECTRON) {
+    throw new Error(`Unknown settings page: ${subPage}`)
+  }
 
   switch (subPage) {
     case AppSettingsSubPage.Sound:
-      return IS_ELECTRON ? (
-        <ContentWrapper title={label} onCloseSettings={onCloseSettings}>
-          <AppSoundSettings />
-        </ContentWrapper>
-      ) : null
+      return <AppSoundSettings />
     case AppSettingsSubPage.System:
-      return IS_ELECTRON ? (
-        <ContentWrapper title={label} onCloseSettings={onCloseSettings}>
-          <AppSystemSettings />
-        </ContentWrapper>
-      ) : null
+      return <AppSystemSettings />
     case GameSettingsSubPage.StarCraft:
-      return IS_ELECTRON ? (
-        <ContentWrapper title={label} onCloseSettings={onCloseSettings}>
-          <StarcraftSettings />
-        </ContentWrapper>
-      ) : null
+      return <StarcraftSettings />
     case GameSettingsSubPage.Input:
-      return IS_ELECTRON ? (
-        <ContentWrapper title={label} onCloseSettings={onCloseSettings}>
-          <GameInputSettings />
-        </ContentWrapper>
-      ) : null
+      return <GameInputSettings />
     case GameSettingsSubPage.Sound:
-      return IS_ELECTRON ? (
-        <ContentWrapper title={label} onCloseSettings={onCloseSettings}>
-          <GameSoundSettings />
-        </ContentWrapper>
-      ) : null
+      return <GameSoundSettings />
     case GameSettingsSubPage.Video:
-      return IS_ELECTRON ? (
-        <ContentWrapper title={label} onCloseSettings={onCloseSettings}>
-          <GameVideoSettings />
-        </ContentWrapper>
-      ) : null
+      return <GameVideoSettings />
     case GameSettingsSubPage.Gameplay:
-      return IS_ELECTRON ? (
-        <ContentWrapper title={label} onCloseSettings={onCloseSettings}>
-          <GameplaySettings />
-        </ContentWrapper>
-      ) : null
-    default:
-      return assertUnreachable(subPage)
+      return <GameplaySettings />
   }
+
+  return assertUnreachable(subPage)
 }

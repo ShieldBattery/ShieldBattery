@@ -65,19 +65,25 @@ abstract class SettingsManager<T> extends TypedEventEmitter<SettingsEvents<T>> {
 
   debouncedFileWrite = debounce(() => {
     if (this.settingsDirty) {
+      this.settingsDirty = false
       fsPromises
         .writeFile(this.filepath, jsonify(this.settings), { encoding: 'utf8' })
         .catch(err => {
+          this.settingsDirty = true
           log.error(`Error saving the ${this.settingsName} settings file: ${err.stack ?? err}`)
         })
-      this.settingsDirty = false
     }
   }, 400)
 
   saveSettingsToDiskSync() {
     if (this.settingsDirty) {
-      fs.writeFileSync(this.filepath, jsonify(this.settings), { encoding: 'utf8' })
       this.settingsDirty = false
+      try {
+        fs.writeFileSync(this.filepath, jsonify(this.settings), { encoding: 'utf8' })
+      } catch (err: any) {
+        this.settingsDirty = false
+        log.error(`Error saving the ${this.settingsName} settings file: ${err.stack ?? err}`)
+      }
     }
   }
 
