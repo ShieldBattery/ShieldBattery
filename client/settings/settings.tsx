@@ -33,12 +33,7 @@ import { GameInputSettings } from './game/input-settings'
 import { GameSoundSettings } from './game/sound-settings'
 import { StarcraftSettings } from './game/starcraft-settings'
 import { GameVideoSettings } from './game/video-settings'
-import {
-  AppSettingsSubPage,
-  GameSettingsSubPage,
-  SettingsSubPage,
-  settingsSubPageToLabel,
-} from './settings-sub-page'
+import { AppSettingsSubPage, GameSettingsSubPage, SettingsSubPage } from './settings-sub-page'
 
 const ESCAPE = 'Escape'
 
@@ -226,7 +221,7 @@ const NavEntryRoot = styled.div<{ $isActive: boolean }>`
   }
 `
 
-const NavEntryText = styled.span`
+const NavEntryText = styled(SettingsSubPageTitle)`
   ${body2};
   ${singleLine};
 
@@ -259,9 +254,6 @@ function NavEntry({
   hasError?: boolean
   onChangeSubPage: (subPage: SettingsSubPage) => void
 }) {
-  const { t } = useTranslation()
-  const label = settingsSubPageToLabel(subPage, t)
-
   const onClick = useStableCallback(() => {
     onChangeSubPage(subPage)
   })
@@ -272,10 +264,10 @@ function NavEntry({
       {hasError ? (
         <>
           <ErrorIcon />
-          <ErrorText>{label}</ErrorText>
+          <ErrorText subPage={subPage} />
         </>
       ) : (
-        <NavEntryText>{label}</NavEntryText>
+        <NavEntryText subPage={subPage} />
       )}
 
       <Ripple ref={rippleRef} disabled={disabled} />
@@ -301,7 +293,7 @@ const TitleBar = styled.div`
   gap: 16px;
 `
 
-const Title = styled.span`
+const Title = styled(SettingsSubPageTitle)`
   ${headline4};
 `
 
@@ -316,13 +308,10 @@ function SettingsContent({
   subPage: SettingsSubPage
   onCloseSettings: () => void
 }) {
-  const { t } = useTranslation()
-  const label = settingsSubPageToLabel(subPage, t)
-
   return (
     <ContentContainer>
       <TitleBar>
-        <Title>{label}</Title>
+        <Title subPage={subPage} />
         <Tooltip text='Close settings (ESC)' position='bottom' tabIndex={-1}>
           <IconButton icon={<CloseIcon />} onClick={onCloseSettings} />
         </Tooltip>
@@ -366,4 +355,43 @@ function SettingsSubPageDisplay({
   }
 
   return assertUnreachable(subPage)
+}
+
+function SettingsSubPageTitle({
+  subPage,
+  className,
+}: {
+  subPage: SettingsSubPage
+  className?: string
+}) {
+  const { t } = useTranslation()
+
+  let title
+  switch (subPage) {
+    case AppSettingsSubPage.Sound:
+      title = t('settings.app.sound.label', 'Sound')
+      break
+    case AppSettingsSubPage.System:
+      title = t('settings.app.system.label', 'System')
+      break
+    case GameSettingsSubPage.StarCraft:
+      title = t('settings.game.starcraft.label', 'StarCraft')
+      break
+    case GameSettingsSubPage.Input:
+      title = t('settings.game.input.label', 'Input')
+      break
+    case GameSettingsSubPage.Sound:
+      title = t('settings.game.sound.label', 'Sound')
+      break
+    case GameSettingsSubPage.Video:
+      title = t('settings.game.video.label', 'Video')
+      break
+    case GameSettingsSubPage.Gameplay:
+      title = t('settings.game.gameplay.label', 'Gameplay')
+      break
+    default:
+      assertUnreachable(subPage)
+  }
+
+  return <span className={className}>{title}</span>
 }
