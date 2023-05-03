@@ -33,15 +33,43 @@ import {
 import { redirectIfLoggedIn } from './auth-utils'
 import { UserErrorDisplay } from './user-error-display'
 
+// TODO(2Pac): Use the `useTranslation` hook once this is moved over to a functional component. Note
+// that I'm using the global version of the `t` function here. react-i18next also exposes a HOC that
+// can be used with class components to make the `t` function reactive, but making that work with
+// form validators here would be quite cumbersome, so this seemed easier until it gets replaced with
+// hooks.
+import { t } from '../i18n/i18next'
+
 const usernameValidator = composeValidators(
-  required('Enter a username'),
-  minLength(USERNAME_MINLENGTH, `Enter at least ${USERNAME_MINLENGTH} characters`),
-  maxLength(USERNAME_MAXLENGTH, `Enter at most ${USERNAME_MAXLENGTH} characters`),
-  regex(USERNAME_PATTERN, 'Username contains invalid characters'),
+  required(t('auth.usernameValidator.required', 'Enter a username')),
+  minLength(
+    USERNAME_MINLENGTH,
+    t('auth.usernameValidator.minLength', {
+      defaultValue: `Enter at least {{minLength}} characters`,
+      minLength: USERNAME_MINLENGTH,
+    }),
+  ),
+  maxLength(
+    USERNAME_MAXLENGTH,
+    t('auth.usernameValidator.maxLength', {
+      defaultValue: `Enter at most {{maxLength}} characters`,
+      maxLength: USERNAME_MAXLENGTH,
+    }),
+  ),
+  regex(
+    USERNAME_PATTERN,
+    t('auth.usernameValidator.pattern', 'Username contains invalid characters'),
+  ),
 )
 const passwordValidator = composeValidators(
-  required('Enter a password'),
-  minLength(PASSWORD_MINLENGTH, `Enter at least ${PASSWORD_MINLENGTH} characters`),
+  required(t('auth.passwordValidator.required', 'Enter a password')),
+  minLength(
+    PASSWORD_MINLENGTH,
+    t('auth.passwordValidator.minLength2', {
+      defaultValue: `Enter at least {{minLength}} characters`,
+      minLength: PASSWORD_MINLENGTH,
+    }),
+  ),
 )
 
 @form({
@@ -59,7 +87,7 @@ class LoginForm extends React.Component {
           <RowEdge />
           <AuthTextField
             {...bindInput('username')}
-            label='Username'
+            label={t('common.literals.username', 'Username')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -69,7 +97,10 @@ class LoginForm extends React.Component {
             }}
           />
           <RowEdge>
-            <ForgotActionButton label='Forgot username?' onClick={onForgotUsernameClick} />
+            <ForgotActionButton
+              label={t('auth.login.forgotUsername', 'Forgot username?')}
+              onClick={onForgotUsernameClick}
+            />
           </RowEdge>
         </FieldRow>
 
@@ -77,7 +108,7 @@ class LoginForm extends React.Component {
           <RowEdge />
           <AuthPasswordTextField
             {...bindInput('password')}
-            label='Password'
+            label={t('common.literals.password', 'Password')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -87,7 +118,10 @@ class LoginForm extends React.Component {
             }}
           />
           <RowEdge>
-            <ForgotActionButton label='Forgot password?' onClick={onForgotPasswordClick} />
+            <ForgotActionButton
+              label={t('auth.login.forgotPassword', 'Forgot password?')}
+              onClick={onForgotPasswordClick}
+            />
           </RowEdge>
         </FieldRow>
 
@@ -95,11 +129,16 @@ class LoginForm extends React.Component {
           <RowEdge />
           <AuthCheckBox
             {...bindCheckable('remember')}
-            label='Remember me'
+            label={t('account.login.rememberMe', 'Remember me')}
             inputProps={{ tabIndex: 1 }}
           />
           <Spacer />
-          <RaisedButton label='Log in' onClick={onSubmit} tabIndex={1} testName='submit-button' />
+          <RaisedButton
+            label={t('common.literals.login', 'Log in')}
+            onClick={onSubmit}
+            tabIndex={1}
+            testName='submit-button'
+          />
           <RowEdge />
         </FieldRow>
       </form>
@@ -145,7 +184,7 @@ export default class Login extends React.Component {
     return (
       <AuthContent>
         <AuthContentContainer isLoading={isLoading || authChangeInProgress}>
-          <AuthTitle>Log in</AuthTitle>
+          <AuthTitle>{t('auth.login.title', 'Log in')}</AuthTitle>
           <AuthBody>{lastError ? <UserErrorDisplay error={lastError} /> : null}</AuthBody>
           <LoginForm
             ref={this._setForm}
@@ -158,12 +197,12 @@ export default class Login extends React.Component {
         {loadingContents}
         <AuthBottomAction>
           <BottomActionButton
-            label='Sign up for an account'
+            label={t('auth.login.signUp', 'Sign up for an account')}
             onClick={this.onCreateAccountClick}
             tabIndex={1}
           />
           <BottomActionButton
-            label='What is ShieldBattery?'
+            label={t('auth.login.whatIsShieldBattery', 'What is ShieldBattery?')}
             onClick={this.onSplashClick}
             tabIndex={1}
           />

@@ -47,6 +47,14 @@ import {
 import { redirectIfLoggedIn } from './auth-utils'
 import { UserErrorDisplay } from './user-error-display'
 
+// TODO(2Pac): Use the `useTranslation` hook once this is moved over to a functional component. Note
+// that I'm using the global version of the `t` function here. react-i18next also exposes a HOC that
+// can be used with class components to make the `t` function reactive, but making that work with
+// form validators here would be quite cumbersome, so this seemed easier until it gets replaced with
+// hooks.
+import { Trans } from 'react-i18next'
+import { t } from '../i18n/i18next'
+
 const SignupBottomAction = styled(AuthBottomAction)`
   flex-direction: row;
   justify-content: center;
@@ -66,29 +74,62 @@ async function usernameAvailable(val) {
     // TODO(tec27): handle non-404 errors differently
   }
 
-  return 'Username is already taken'
+  return t('auth.usernameValidator.taken', 'Username is already taken')
 }
 
 const usernameValidator = composeValidators(
-  required('Enter a username'),
-  minLength(USERNAME_MINLENGTH, `Use at least ${USERNAME_MINLENGTH} characters`),
-  maxLength(USERNAME_MAXLENGTH, `Use at most ${USERNAME_MAXLENGTH} characters`),
-  regex(USERNAME_PATTERN, 'Username contains invalid characters'),
+  required(t('auth.usernameValidator.required', 'Enter a username')),
+  minLength(
+    USERNAME_MINLENGTH,
+    t('auth.usernameValidator.minLength2', {
+      defaultValue: `Use at least {{minLength}} characters`,
+      minLength: USERNAME_MINLENGTH,
+    }),
+  ),
+  maxLength(
+    USERNAME_MAXLENGTH,
+    t('auth.usernameValidator.maxLength2', {
+      defaultValue: `Use at most {{maxLength}} characters`,
+      maxLength: USERNAME_MAXLENGTH,
+    }),
+  ),
+  regex(
+    USERNAME_PATTERN,
+    t('auth.usernameValidator.pattern', 'Username contains invalid characters'),
+  ),
   debounce(usernameAvailable, 250),
 )
 const emailValidator = composeValidators(
-  required('Enter an email address'),
-  minLength(EMAIL_MINLENGTH, `Use at least ${EMAIL_MINLENGTH} characters`),
-  maxLength(EMAIL_MAXLENGTH, `Use at most ${EMAIL_MAXLENGTH} characters`),
-  regex(EMAIL_PATTERN, 'Enter a valid email address'),
+  required(t('auth.emailValidator.required', 'Enter an email address')),
+  minLength(
+    EMAIL_MINLENGTH,
+    t('auth.emailValidator.minLength', {
+      defaultValue: `Use at least {{minLength}} characters`,
+      minLength: EMAIL_MINLENGTH,
+    }),
+  ),
+  maxLength(
+    EMAIL_MAXLENGTH,
+    t('auth.emailValidator.maxLength', {
+      defaultValue: `Use at most {{maxLength}} characters`,
+      maxLength: EMAIL_MAXLENGTH,
+    }),
+  ),
+  regex(EMAIL_PATTERN, t('auth.emailValidator.pattern', 'Enter a valid email address')),
 )
 const passwordValidator = composeValidators(
-  required('Enter a password'),
-  minLength(PASSWORD_MINLENGTH, `Use at least ${PASSWORD_MINLENGTH} characters`),
+  required(t('auth.passwordValidator.required', 'Enter a password')),
+  minLength(
+    PASSWORD_MINLENGTH,
+    t('auth.passwordValidator.minLength', {
+      defaultValue: `Use at least {{minLength}} characters`,
+      minLength: PASSWORD_MINLENGTH,
+    }),
+  ),
 )
 const confirmPasswordValidator = composeValidators(
-  required('Confirm your password'),
-  matchesOther('password', 'Enter a matching password'),
+  required(t('auth.passwordValidator.confirm', 'Confirm your password')),
+  matchesOther('password', t('auth.passwordValidator.matching', 'Enter a matching password')),
 )
 
 const checked = msg => val => val === true ? null : msg
@@ -164,7 +205,7 @@ class SignupForm extends React.Component {
           <AuthTextField
             {...bindInput('username')}
             inputProps={textInputProps}
-            label='Username'
+            label={t('common.literals.username', 'Username')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -173,7 +214,7 @@ class SignupForm extends React.Component {
           <AuthTextField
             {...bindInput('email')}
             inputProps={textInputProps}
-            label='Email address'
+            label={t('common.literals.emailAddress', 'Email address')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -182,7 +223,7 @@ class SignupForm extends React.Component {
           <AuthPasswordTextField
             {...bindInput('password')}
             inputProps={textInputProps}
-            label='Password'
+            label={t('common.literals.password', 'Password')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -191,14 +232,14 @@ class SignupForm extends React.Component {
           <AuthPasswordTextField
             {...bindInput('confirmPassword')}
             inputProps={textInputProps}
-            label='Confirm password'
+            label={t('auth.signup.confirmPassword', 'Confirm password')}
             floatingLabel={true}
           />
         </FieldRow>
 
         <CheckBoxRowWithError
           {...bindCheckable('ageConfirmation')}
-          label='I certify that I am 13 years of age or older'
+          label={t('auth.signup.ageConfirmation', 'I certify that I am 13 years of age or older')}
           inputProps={{ tabIndex: 1 }}
         />
 
@@ -206,10 +247,22 @@ class SignupForm extends React.Component {
           {...bindCheckable('policyAgreement')}
           label={
             <span>
-              I have read and agree to the{' '}
-              <DialogLink dialogType={DialogType.TermsOfService} text='Terms of Service' />,{' '}
-              <DialogLink dialogType={DialogType.AcceptableUse} text='Acceptable Use' />, and{' '}
-              <DialogLink dialogType={DialogType.PrivacyPolicy} text='Privacy' /> policies
+              {t('auth.signup.readAndAgree', 'I have read and agree to the')}{' '}
+              <DialogLink
+                dialogType={DialogType.TermsOfService}
+                text={t('auth.signup.termsOfServiceLink', 'Terms of Service')}
+              />
+              ,{' '}
+              <DialogLink
+                dialogType={DialogType.AcceptableUse}
+                text={t('auth.signup.acceptableUseLink', 'Acceptable Use')}
+              />
+              , and{' '}
+              <DialogLink
+                dialogType={DialogType.PrivacyPolicy}
+                text={t('auth.signup.privacyLink', 'Privacy')}
+              />{' '}
+              policies
             </span>
           }
           inputProps={{ tabIndex: 1 }}
@@ -217,7 +270,7 @@ class SignupForm extends React.Component {
 
         <FieldRow>
           <RaisedButton
-            label='Create account'
+            label={t('auth.signup.createAccount', 'Create account')}
             onClick={onSubmit}
             tabIndex={1}
             testName='submit-button'
@@ -267,7 +320,7 @@ export default class Signup extends React.Component {
     return (
       <AuthContent>
         <AuthContentContainer isLoading={isLoading || authChangeInProgress}>
-          <AuthTitle>Create account</AuthTitle>
+          <AuthTitle>{t('auth.signup.title', 'Create account')}</AuthTitle>
           <AuthBody>
             {lastError ? <UserErrorDisplay error={lastError} /> : null}
             <SignupForm ref={this._setForm} model={model} onSubmit={this.onSubmit} />
@@ -275,8 +328,16 @@ export default class Signup extends React.Component {
         </AuthContentContainer>
         {loadingContents}
         <SignupBottomAction>
-          <p>Already have an account?</p>
-          <BottomActionButton label='Log in' onClick={this.onLogInClick} tabIndex={1} />
+          <p>
+            <Trans t={t} i18nKey='auth.signup.alreadyHaveAccount'>
+              Already have an account?
+            </Trans>
+          </p>
+          <BottomActionButton
+            label={t('common.literals.login', 'Log in')}
+            onClick={this.onLogInClick}
+            tabIndex={1}
+          />
         </SignupBottomAction>
       </AuthContent>
     )

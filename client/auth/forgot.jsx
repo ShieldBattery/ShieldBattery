@@ -40,17 +40,52 @@ import {
   SuccessContainer,
 } from './auth-content'
 
+// TODO(2Pac): Use the `useTranslation` hook once this is moved over to a functional component. Note
+// that I'm using the global version of the `t` function here. react-i18next also exposes a HOC that
+// can be used with class components to make the `t` function reactive, but making that work with
+// form validators here would be quite cumbersome, so this seemed easier until it gets replaced with
+// hooks.
+import { Trans } from 'react-i18next'
+import { t } from '../i18n/i18next'
+
 const emailValidator = composeValidators(
-  required('Enter an email address'),
-  minLength(EMAIL_MINLENGTH, `Use at least ${EMAIL_MINLENGTH} characters`),
-  maxLength(EMAIL_MAXLENGTH, `Use at most ${EMAIL_MAXLENGTH} characters`),
-  regex(EMAIL_PATTERN, 'Enter a valid email address'),
+  required(t('auth.emailValidator.required', 'Enter an email address')),
+  minLength(
+    EMAIL_MINLENGTH,
+    t('auth.emailValidator.minLength', {
+      defaultValue: `Use at least {{minLength}} characters`,
+      minLength: EMAIL_MINLENGTH,
+    }),
+  ),
+  maxLength(
+    EMAIL_MAXLENGTH,
+    t('auth.emailValidator.maxLength', {
+      defaultValue: `Use at most {{maxLength}} characters`,
+      maxLength: EMAIL_MAXLENGTH,
+    }),
+  ),
+  regex(EMAIL_PATTERN, t('auth.emailValidator.pattern', 'Enter a valid email address')),
 )
 const usernameValidator = composeValidators(
-  required('Enter a username'),
-  minLength(USERNAME_MINLENGTH, `Enter at least ${USERNAME_MINLENGTH} characters`),
-  maxLength(USERNAME_MAXLENGTH, `Enter at most ${USERNAME_MAXLENGTH} characters`),
-  regex(USERNAME_PATTERN, 'Username contains invalid characters'),
+  required(t('auth.usernameValidator.required', 'Enter a username')),
+  minLength(
+    USERNAME_MINLENGTH,
+    t('auth.usernameValidator.minLength', {
+      defaultValue: `Enter at least {{minLength}} characters`,
+      minLength: USERNAME_MINLENGTH,
+    }),
+  ),
+  maxLength(
+    USERNAME_MAXLENGTH,
+    t('auth.usernameValidator.maxLength', {
+      defaultValue: `Enter at most {{maxLength}} characters`,
+      maxLength: USERNAME_MAXLENGTH,
+    }),
+  ),
+  regex(
+    USERNAME_PATTERN,
+    t('auth.usernameValidator.pattern', 'Username contains invalid characters'),
+  ),
 )
 
 @connect(state => ({ auth: state.auth }))
@@ -101,7 +136,13 @@ class ForgotFormHolder extends React.Component {
     let errContents
     const reqId = this.state.reqId
     if (reqId && lastFailure && lastFailure.reqId === reqId) {
-      errContents = <ErrorsContainer>Error: {lastFailure.err}</ErrorsContainer>
+      errContents = (
+        <ErrorsContainer>
+          <Trans t={t} i18nKey='auth.forgot.generalError'>
+            Error: {lastFailure.err}
+          </Trans>
+        </ErrorsContainer>
+      )
     }
     const successContents =
       this.state.success && successMessage ? (
@@ -120,7 +161,11 @@ class ForgotFormHolder extends React.Component {
         </AuthContentContainer>
         {loadingContents}
         <AuthBottomAction>
-          <BottomActionButton label='Back to login' onClick={this.onBackClick} tabIndex={1} />
+          <BottomActionButton
+            label={t('auth.forgot.backToLogin', 'Back to login.')}
+            onClick={this.onBackClick}
+            tabIndex={1}
+          />
         </AuthBottomAction>
       </AuthContent>
     )
@@ -150,11 +195,15 @@ class ForgotUserForm extends React.Component {
     return (
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
-        <p>Please enter the email address you signed up with.</p>
+        <p>
+          <Trans t={t} i18nKey='auth.forgot.user.enterEmail'>
+            Please enter the email address you signed up with.
+          </Trans>
+        </p>
         <FieldRow>
           <AuthTextField
             {...bindInput('email')}
-            label='Email address'
+            label={t('common.literals.emailAddress', 'Email address')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -165,21 +214,27 @@ class ForgotUserForm extends React.Component {
           />
         </FieldRow>
         <FieldRow>
-          <RaisedButton label='Recover username' onClick={onSubmit} tabIndex={1} />
+          <RaisedButton
+            label={t('auth.forgot.user.recoverUsername', 'Recover username')}
+            onClick={onSubmit}
+            tabIndex={1}
+          />
         </FieldRow>
       </form>
     )
   }
 }
 
-const FORGOT_USER_SUCCESS =
+const FORGOT_USER_SUCCESS = t(
+  'auth.forgot.user.successMessage',
   'If there are any users registered to that email address, you should ' +
-  'receive an email in the next few minutes with the relevant usernames.'
+    'receive an email in the next few minutes with the relevant usernames.',
+)
 const doForgotUserSubmit = values => recoverUsername(values.email)
 export const ForgotUser = () => (
   <ForgotFormHolder
     form={ForgotUserForm}
-    title={'Recover your username'}
+    title={t('auth.forgot.user.title', 'Recover your username')}
     doSubmit={doForgotUserSubmit}
     successMessage={FORGOT_USER_SUCCESS}
   />
@@ -198,7 +253,7 @@ class ForgotPasswordForm extends React.Component {
         <FieldRow>
           <AuthTextField
             {...bindInput('email')}
-            label='Email address'
+            label={t('common.literals.emailAddress', 'Email address')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -211,7 +266,7 @@ class ForgotPasswordForm extends React.Component {
         <FieldRow>
           <AuthTextField
             {...bindInput('username')}
-            label='Username'
+            label={t('common.literals.username', 'Username')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -222,35 +277,49 @@ class ForgotPasswordForm extends React.Component {
           />
         </FieldRow>
         <FieldRow>
-          <RaisedButton label='Send reset email' onClick={onSubmit} tabIndex={1} />
+          <RaisedButton
+            label={t('auth.forgot.password.sendResetEmail', 'Send reset email')}
+            onClick={onSubmit}
+            tabIndex={1}
+          />
         </FieldRow>
       </form>
     )
   }
 }
 
-const FORGOT_PASSWORD_SUCCESS =
+const FORGOT_PASSWORD_SUCCESS = t(
+  'auth.forgot.password.successMessage',
   'If that email address and username match a registered account, ' +
-  'you should receive an email in the next few minutes with instructions on how to reset ' +
-  'your password.'
+    'you should receive an email in the next few minutes with instructions on how to reset ' +
+    'your password.',
+)
 const doPasswordResetStart = values => startPasswordReset(values.username, values.email)
 export const ForgotPassword = () => (
   <ForgotFormHolder
     form={ForgotPasswordForm}
-    title={'Reset password'}
+    title={t('auth.forgot.password.title', 'Reset password')}
     doSubmit={doPasswordResetStart}
     successMessage={FORGOT_PASSWORD_SUCCESS}
   />
 )
 
-const tokenValidator = required('Enter your password reset code')
+const tokenValidator = required(
+  t('auth.passwordValidator.resetCode', 'Enter your password reset code'),
+)
 const passwordValidator = composeValidators(
-  required('Enter a password'),
-  minLength(PASSWORD_MINLENGTH, `Use at least ${PASSWORD_MINLENGTH} characters`),
+  required(t('auth.passwordValidator.required', 'Enter a password')),
+  minLength(
+    PASSWORD_MINLENGTH,
+    t('auth.passwordValidator.minLength', {
+      defaultValue: `Use at least {{minLength}} characters`,
+      minLength: PASSWORD_MINLENGTH,
+    }),
+  ),
 )
 const confirmPasswordValidator = composeValidators(
-  required('Confirm your password'),
-  matchesOther('password', 'Enter a matching password'),
+  required(t('auth.passwordValidator.confirm', 'Confirm your password')),
+  matchesOther('password', t('auth.passwordValidator.matching', 'Enter a matching password')),
 )
 
 @form({
@@ -275,7 +344,7 @@ class ResetPasswordForm extends React.Component {
           <AuthTextField
             {...bindInput('username')}
             inputProps={textInputProps}
-            label='Username'
+            label={t('common.literals.username', 'Username')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -283,7 +352,7 @@ class ResetPasswordForm extends React.Component {
           <AuthTextField
             {...bindInput('token')}
             inputProps={textInputProps}
-            label='Password reset code'
+            label={t('auth.forgot.reset.passwordCode', 'Password reset code')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -291,7 +360,7 @@ class ResetPasswordForm extends React.Component {
           <AuthPasswordTextField
             {...bindInput('password')}
             inputProps={textInputProps}
-            label='New password'
+            label={t('auth.forgot.reset.newPassword', 'New password')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -299,19 +368,26 @@ class ResetPasswordForm extends React.Component {
           <AuthPasswordTextField
             {...bindInput('confirmPassword')}
             inputProps={textInputProps}
-            label='Confirm new password'
+            label={t('auth.forgot.reset.confirmPassword', 'Confirm new password')}
             floatingLabel={true}
           />
         </FieldRow>
         <FieldRow>
-          <RaisedButton label='Set new password' onClick={onSubmit} tabIndex={1} />
+          <RaisedButton
+            label={t('auth.forgot.reset.newPassword', 'Set new password')}
+            onClick={onSubmit}
+            tabIndex={1}
+          />
         </FieldRow>
       </form>
     )
   }
 }
 
-const RESET_PASSWORD_SUCCESS = 'Your password has been reset.'
+const RESET_PASSWORD_SUCCESS = t(
+  'auth.forgot.reset.successMessage',
+  'Your password has been reset.',
+)
 const doPasswordReset = values => resetPassword(values.username, values.token, values.password)
 export const ResetPassword = () => {
   const model = queryString.parse(location.search)
@@ -319,7 +395,7 @@ export const ResetPassword = () => {
     <ForgotFormHolder
       form={ResetPasswordForm}
       model={model}
-      title={'Reset password'}
+      title={t('auth.forgot.reset.title', 'Reset password')}
       doSubmit={doPasswordReset}
       successMessage={RESET_PASSWORD_SUCCESS}
     />

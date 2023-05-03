@@ -1,4 +1,5 @@
 import React from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { UserErrorCode } from '../../common/users/sb-user'
 import { longTimestamp } from '../i18n/date-formats'
@@ -16,60 +17,96 @@ export interface UserErrorDisplayProps {
   error: Error
 }
 
-function showUserError(error: FetchError) {
+function UserError({ error }: { error: FetchError }) {
+  const { t } = useTranslation()
+
   switch (error.code) {
     case UserErrorCode.InvalidCredentials:
-      return <span>Incorrect username or password</span>
+      return (
+        <span>
+          <Trans t={t} i18nKey='auth.userErrorDisplay.invalidCredentials'>
+            Incorrect username or password
+          </Trans>
+        </span>
+      )
     case UserErrorCode.AccountBanned:
       return (
         <div>
-          This account has been banned.
-          <BanReason>
-            <Subtitle2>Reason:</Subtitle2>
-            <span>{(error.body as any).reason}</span>
-          </BanReason>
-          <span>
-            The ban will expire at {longTimestamp.format((error.body as any).expiration)}.
-          </span>
+          <Trans t={t} i18nKey='auth.userErrorDisplay.accountBanned'>
+            This account has been banned.
+            <BanReason>
+              <Subtitle2>Reason':</Subtitle2>
+              <span>{(error.body as any).reason}</span>
+            </BanReason>
+            <span>
+              The ban will expire at {longTimestamp.format((error.body as any).expiration)}.
+            </span>
+          </Trans>
         </div>
       )
     case UserErrorCode.SessionExpired:
-      return <span>Session expired</span>
+      return (
+        <span>
+          <Trans t={t} i18nKey='auth.userErrorDisplay.sessionExpired'>
+            Session expired
+          </Trans>
+        </span>
+      )
     case UserErrorCode.SuspiciousActivity:
       return (
         <span>
-          Due to suspicious activity detected on this network, creating accounts on the web is
-          currently disabled. Please download the standalone client to create a new account.
+          <Trans t={t} i18nKey='auth.userErrorDisplay.suspiciousActivity'>
+            Due to suspicious activity detected on this network, creating accounts on the web is
+            currently disabled. Please download the standalone client to create a new account.
+          </Trans>
         </span>
       )
     case UserErrorCode.MachineBanned:
       // TODO(tec27): Show expiration date?
-      return <span>This machine is banned from creating new accounts.</span>
+      return (
+        <span>
+          <Trans t={t} i18nKey='auth.userErrorDisplay.machineBanned'>
+            This machine is banned from creating new accounts.
+          </Trans>
+        </span>
+      )
     case UserErrorCode.UsernameTaken:
-      return <span>A user with that name already exists</span>
+      return (
+        <span>
+          <Trans t={t} i18nKey='auth.userErrorDisplay.usernameTaken'>
+            A user with that name already exists
+          </Trans>
+        </span>
+      )
 
     default:
       return (
         <span>
-          An error occurred: {error.status} {error.statusText}
+          <Trans t={t} i18nKey='auth.userErrorDisplay.defaultError'>
+            An error occurred: {error.status} {error.statusText}
+          </Trans>
         </span>
       )
   }
 }
 
 export function UserErrorDisplay({ className, error }: UserErrorDisplayProps) {
+  const { t } = useTranslation()
+
   return (
     <ErrorsContainer className={className} data-test='errors-container'>
       {isFetchError(error) ? (
-        showUserError(error)
+        <UserError error={error} />
       ) : (
-        <span>
-          An error occurred:{' '}
-          {error.message === 'Failed to fetch'
-            ? 'Failed to connect to the server. ' +
-              'Please check your internet connection and try again.'
-            : error.message}
-        </span>
+        <Trans t={t} i18nKey='auth.userErrorDisplay.genericError'>
+          <span>
+            An error occurred:{' '}
+            {error.message === 'Failed to fetch'
+              ? 'Failed to connect to the server. ' +
+                'Please check your internet connection and try again.'
+              : error.message}
+          </span>
+        </Trans>
       )}
     </ErrorsContainer>
   )
