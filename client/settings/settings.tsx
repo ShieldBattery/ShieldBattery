@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react'
+import React, { useRef } from 'react'
 import ReactDOM from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { UseTransitionProps, animated, useTransition } from 'react-spring'
@@ -13,6 +13,7 @@ import { Ripple } from '../material/ripple'
 import { defaultSpring } from '../material/springs'
 import { Tooltip } from '../material/tooltip'
 import { zIndexSettings } from '../material/zindex'
+import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { isStarcraftHealthy as checkIsStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
 import { useStableCallback } from '../state-hooks'
@@ -40,6 +41,7 @@ import {
   SettingsSubPage,
   UserSettingsSubPage,
 } from './settings-sub-page'
+import { AccountSettings } from './user/account-settings'
 import { UserLanguageSettings } from './user/language-settings'
 
 const ESCAPE = 'Escape'
@@ -160,27 +162,27 @@ function Settings({
     },
   })
 
-  const getNavEntriesMapper = useCallback(
-    ({ disabled, hasError }: { disabled?: boolean; hasError?: boolean } = {}) => {
-      return (s: SettingsSubPage) => (
-        <NavEntry
-          key={s}
-          subPage={s}
-          isActive={subPage === s}
-          disabled={disabled}
-          hasError={hasError}
-          onChangeSubPage={onChangeSubPage}
-        />
-      )
-    },
-    [onChangeSubPage, subPage],
-  )
+  const getNavEntriesMapper = ({
+    disabled,
+    hasError,
+  }: { disabled?: boolean; hasError?: boolean } = {}) => {
+    return (s: SettingsSubPage) => (
+      <NavEntry
+        key={s}
+        subPage={s}
+        isActive={subPage === s}
+        disabled={disabled}
+        hasError={hasError}
+        onChangeSubPage={onChangeSubPage}
+      />
+    )
+  }
 
   return (
     <Container style={style}>
       <NavContainer>
         <NavSectionTitle>{t('settings.user.title', 'User')}</NavSectionTitle>
-        {[UserSettingsSubPage.Language].map(getNavEntriesMapper())}
+        {[UserSettingsSubPage.Account, UserSettingsSubPage.Language].map(getNavEntriesMapper())}
 
         {IS_ELECTRON ? (
           <>
@@ -358,7 +360,9 @@ function SettingsContent({
           <Title subPage={subPage} />
         </TitleBar>
 
-        <SettingsSubPageDisplay subPage={subPage} onCloseSettings={onCloseSettings} />
+        <React.Suspense fallback={<LoadingDotsArea />}>
+          <SettingsSubPageDisplay subPage={subPage} />
+        </React.Suspense>
       </Content>
 
       <LabeledCloseButton>
@@ -375,14 +379,10 @@ function SettingsContent({
   )
 }
 
-function SettingsSubPageDisplay({
-  subPage,
-  onCloseSettings,
-}: {
-  subPage: SettingsSubPage
-  onCloseSettings: () => void
-}) {
+function SettingsSubPageDisplay({ subPage }: { subPage: SettingsSubPage }) {
   switch (subPage) {
+    case UserSettingsSubPage.Account:
+      return <AccountSettings />
     case UserSettingsSubPage.Language:
       return <UserLanguageSettings />
   }
@@ -422,6 +422,9 @@ function SettingsSubPageTitle({
 
   let title
   switch (subPage) {
+    case UserSettingsSubPage.Account:
+      title = t('settings.user.account.label', 'Account')
+      break
     case UserSettingsSubPage.Language:
       title = t('settings.user.language.title', 'Language')
       break

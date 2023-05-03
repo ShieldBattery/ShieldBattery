@@ -5,4 +5,6 @@
 export interface ServerConfig {
   /** URL to the server's public directory containing static content. */
   publicAssetsUrl: string
+  /** Network origin for any GraphQL requests. */
+  graphqlOrigin: string
 }

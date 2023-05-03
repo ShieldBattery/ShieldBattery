@@ -31,6 +31,9 @@ import userSessionsMiddleware from './lib/session/user-sessions-middleware'
 import createRoutes from './routes'
 import { WebsocketServer } from './websockets'
 
+if (!process.env.SB_GQL_ORIGIN) {
+  throw new Error('SB_GQL_ORIGIN must be specified')
+}
 if (!process.env.SB_CANONICAL_HOST) {
   throw new Error('SB_CANONICAL_HOST must be specified')
 }
@@ -228,7 +231,7 @@ const rallyPointInitPromise = rallyPointService.initialize(
 
   fileStoreMiddleware(app)
 
-  createRoutes(app, websocketServer)
+  createRoutes(app, websocketServer, process.env.SB_GQL_ORIGIN!)
 
   const needToBuild = !(isDev || process.env.SB_PREBUILT_ASSETS)
   const compilePromise = needToBuild

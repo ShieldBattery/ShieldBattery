@@ -1,5 +1,6 @@
-import React, { useLayoutEffect } from 'react'
+import React, { useEffect, useLayoutEffect, useState } from 'react'
 import { StyleSheetManager } from 'styled-components'
+import { Provider as UrqlProvider } from 'urql'
 import { Route, Switch, useRoute } from 'wouter'
 import { useIsLoggedIn } from './auth/auth-utils'
 import { EmailVerificationUi } from './auth/email-verification'
@@ -19,6 +20,7 @@ import { LoadingFilter } from './loading/loading-filter'
 import { LoggedOutContent } from './logged-out-content'
 import { MainLayout } from './main-layout'
 import { LoginRoute } from './navigation/custom-routes'
+import { createGraphqlClient } from './network/graphql-client'
 import { SiteConnectedFilter } from './network/site-connected-filter'
 import {
   AcceptableUsePage,
@@ -26,7 +28,9 @@ import {
   TermsOfServicePage,
 } from './policies/policy-displays'
 import { LoadingDotsArea } from './progress/dots'
+import { useAppSelector } from './redux-hooks'
 import { RootErrorBoundary } from './root-error-boundary'
+import { getServerConfig } from './server-config-storage'
 import { ConnectedSettings } from './settings/settings'
 import ConnectedSnackbar from './snackbars/connected-snackbar'
 import GlobalStyle from './styles/global'
@@ -77,12 +81,30 @@ function MainContent() {
   return loggedIn ? loggedInContent : <LoggedOutContent loggedInContent={loggedInContent} />
 }
 
+/**
+ * Returns the current GraphQL client, recreating it if the current user changes. This ensures that
+ * any user-specific data in the caches is cleared out.
+ */
+function useUserSpecificGraphqlClient() {
+  const currentUserId = useAppSelector(s => s.auth.self?.user.id)
+  const [urqlClient, setUrqlClient] = useState<ReturnType<typeof createGraphqlClient>>(() =>
+    createGraphqlClient(getServerConfig()),
+  )
+
+  useEffect(() => {
+    setUrqlClient(createGraphqlClient(getServerConfig()))
+  }, [currentUserId])
+
+  return urqlClient
+}
+
 export default function App() {
   const [shoveX, shoveY] = usePixelShover()
   useLayoutEffect(() => {
     document.body.style.setProperty('--pixel-shove-x', `${shoveX}px`)
     document.body.style.setProperty('--pixel-shove-y', `${shoveY}px`)
   }, [shoveX, shoveY])
+  const graphqlClient = useUserSpecificGraphqlClient()
 
   return (
     <StyleSheetManager disableVendorPrefixes={IS_ELECTRON}>
@@ -93,31 +115,33 @@ export default function App() {
         <LoadableSystemBar />
         <KeyListenerBoundary>
           <RootErrorBoundary>
-            <FileDropZoneProvider>
-              <React.Suspense fallback={<LoadingDotsArea />}>
-                <Switch>
-                  <Route path='/splash' component={Splash} />
-                  <Route path='/faq' component={Faq} />
-                  <Route path='/download' component={DownloadPage} />
-                  <Route path='/acceptable-use' component={AcceptableUsePage} />
-                  <Route path='/privacy' component={PrivacyPolicyPage} />
-                  <Route path='/terms-of-service' component={TermsOfServicePage} />
-                  <LoginRoute path='/forgot-password' component={ForgotPassword} />
-                  <LoginRoute path='/forgot-user' component={ForgotUser} />
-                  <LoginRoute path='/login' component={Login} />
-                  <LoginRoute path='/reset-password' component={ResetPassword} />
-                  <LoginRoute path='/signup' component={Signup} />
-                  <LoginRoute path='/verify-email' component={EmailVerificationUi} />
-                  {!IS_PRODUCTION ? <Route path='/dev/:rest*' component={LoadableDev} /> : <></>}
-                  <Route>
-                    <MainContent />
-                  </Route>
-                </Switch>
-                <ConnectedSettings />
-                <ConnectedSnackbar />
-                <ConnectedDialogOverlay />
-              </React.Suspense>
-            </FileDropZoneProvider>
+            <UrqlProvider value={graphqlClient}>
+              <FileDropZoneProvider>
+                <React.Suspense fallback={<LoadingDotsArea />}>
+                  <Switch>
+                    <Route path='/splash' component={Splash} />
+                    <Route path='/faq' component={Faq} />
+                    <Route path='/download' component={DownloadPage} />
+                    <Route path='/acceptable-use' component={AcceptableUsePage} />
+                    <Route path='/privacy' component={PrivacyPolicyPage} />
+                    <Route path='/terms-of-service' component={TermsOfServicePage} />
+                    <LoginRoute path='/forgot-password' component={ForgotPassword} />
+                    <LoginRoute path='/forgot-user' component={ForgotUser} />
+                    <LoginRoute path='/login' component={Login} />
+                    <LoginRoute path='/reset-password' component={ResetPassword} />
+                    <LoginRoute path='/signup' component={Signup} />
+                    <LoginRoute path='/verify-email' component={EmailVerificationUi} />
+                    {!IS_PRODUCTION ? <Route path='/dev/:rest*' component={LoadableDev} /> : <></>}
+                    <Route>
+                      <MainContent />
+                    </Route>
+                  </Switch>
+                  <ConnectedSettings />
+                  <ConnectedSnackbar />
+                  <ConnectedDialogOverlay />
+                </React.Suspense>
+              </FileDropZoneProvider>
+            </UrqlProvider>
           </RootErrorBoundary>
           <UpdateOverlay />
         </KeyListenerBoundary>

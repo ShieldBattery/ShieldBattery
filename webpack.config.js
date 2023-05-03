@@ -45,6 +45,10 @@ const webBabelOpts = {
     ['@babel/preset-typescript', { allExtensions: true, isTSX: true }],
   ],
   plugins: [
+    [
+      require('@graphql-codegen/client-preset').babelOptimizerPlugin,
+      { artifactDirectory: './client/gql/', gqlTagName: 'graphql' },
+    ],
     ['babel-plugin-styled-components'],
     ['@babel/plugin-proposal-decorators', { legacy: true }],
     ['babel-plugin-const-enum'],

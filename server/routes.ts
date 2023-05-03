@@ -30,7 +30,11 @@ interface LatestYaml {
   releaseDate: string
 }
 
-export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) {
+export default function applyRoutes(
+  app: Koa,
+  websocketServer: WebsocketServer,
+  graphqlOrigin: string,
+) {
   const router = new KoaRouter()
   app.use(router.routes()).use(router.allowedMethods())
 
@@ -62,6 +66,7 @@ export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) 
   const publicAssetsConfig = container.resolve(PublicAssetsConfig)
   const serverConfig: ServerConfig = {
     publicAssetsUrl: publicAssetsConfig.publicAssetsUrl,
+    graphqlOrigin,
   }
 
   router.get('/config', async ctx => {

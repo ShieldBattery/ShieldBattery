@@ -35,6 +35,7 @@ services:
       - SB_MAILGUN_DOMAIN=mg.example.org
       - 'SB_MAILGUN_FROM=ShieldBattery <shieldbattery@example.org>'
       - 'SB_MAILGUN_URL=http://mailgun:5528'
+      - SB_GQL_ORIGIN=http://graphql:5529
     depends_on:
       - _app-server-build
       - db

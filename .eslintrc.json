@@ -96,7 +96,7 @@
 
   "rules": {
     "accessor-pairs": "error",
-    "camelcase": ["error", { "properties": "always" }],
+    "camelcase": ["error", { "allow": [".+_.+Fragment$"] }],
     "consistent-return": "error",
     "constructor-super": "error",
     "curly": ["error", "multi-line"],

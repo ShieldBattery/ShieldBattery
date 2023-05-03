@@ -18,28 +18,35 @@ const VisibilityButton = styled(IconButton)<{ $dense?: boolean }>`
   }}
 `
 
-export function PasswordTextField(props: TextFieldProps) {
-  const { t } = useTranslation()
-  const [visible, setVisible] = useState(false)
+export const PasswordTextField = React.forwardRef<HTMLInputElement, TextFieldProps>(
+  (props, ref) => {
+    const { t } = useTranslation()
+    const [visible, setVisible] = useState(false)
 
-  const onToggleVisibility = useCallback(() => {
-    setVisible(!visible)
-  }, [visible])
+    const onToggleVisibility = useCallback(() => {
+      setVisible(!visible)
+    }, [visible])
 
-  const visibilityButton = (
-    <VisibilityButton
-      icon={visible ? <MaterialIcon icon='visibility' /> : <MaterialIcon icon='visibility_off' />}
-      title={
-        visible
-          ? t('material.passwordField.hide', 'Hide password')
-          : t('material.passwordField.show', 'Show password')
-      }
-      $dense={props.dense}
-      onClick={onToggleVisibility}
-    />
-  )
+    const visibilityButton = (
+      <VisibilityButton
+        icon={visible ? <MaterialIcon icon='visibility' /> : <MaterialIcon icon='visibility_off' />}
+        title={
+          visible
+            ? t('material.passwordField.hide', 'Hide password')
+            : t('material.passwordField.show', 'Show password')
+        }
+        $dense={props.dense}
+        onClick={onToggleVisibility}
+      />
+    )
 
-  return (
-    <TextField {...props} type={visible ? 'text' : 'password'} trailingIcons={[visibilityButton]} />
-  )
-}
+    return (
+      <TextField
+        {...props}
+        ref={ref}
+        type={visible ? 'text' : 'password'}
+        trailingIcons={[visibilityButton]}
+      />
+    )
+  },
+)

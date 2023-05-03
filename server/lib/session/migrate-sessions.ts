@@ -10,23 +10,23 @@ import { findSelfById } from '../users/user-model'
  */
 export function migrateSessions() {
   return async (ctx: RouterContext, next: Next) => {
-    if (ctx.session) {
+    if (ctx.session && ctx.session.userId) {
       let retrievedUser: SelfUser | undefined
 
-      if (ctx.session.userId && !ctx.session.email) {
+      if (!ctx.session.email) {
         retrievedUser = retrievedUser ?? (await findSelfById(ctx.session.userId))
         ctx.session.email = retrievedUser!.email
       }
       if (!ctx.session.lastQueuedMatchmakingType) {
         ctx.session.lastQueuedMatchmakingType = MatchmakingType.Match1v1
       }
-      if (ctx.session.userId && !ctx.session.acceptedPrivacyVersion) {
+      if (!ctx.session.acceptedPrivacyVersion) {
         retrievedUser = retrievedUser ?? (await findSelfById(ctx.session.userId))
         ctx.session.acceptedPrivacyVersion = retrievedUser!.acceptedPrivacyVersion
         ctx.session.acceptedTermsVersion = retrievedUser!.acceptedTermsVersion
         ctx.session.acceptedUsePolicyVersion = retrievedUser!.acceptedUsePolicyVersion
       }
-      if (ctx.session.userId && !ctx.session.locale) {
+      if (!ctx.session.locale) {
         retrievedUser = retrievedUser ?? (await findSelfById(ctx.session.userId))
         ctx.session.locale = retrievedUser!.locale
       }

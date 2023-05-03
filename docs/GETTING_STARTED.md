@@ -46,6 +46,15 @@ them to be. The build defaults to the quicker debug build, to build the optimize
 If the required minimum Rust version is changed (1.63 as of this writing), you can update the Rust
 toolchain by running `rustup update`.
 
+### Recommended VSCode Plugins
+
+If you're using VSCode, the following plugins will likely be useful for development:
+
+- [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
+- [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
+- [GraphQL Language Support](https://marketplace.visualstudio.com/items?itemName=GraphQL.vscode-graphql)
+- [Styled Components](https://marketplace.visualstudio.com/items?itemName=styled-components.vscode-styled-components)
+
 ## Server software
 
 Along with nodejs, the server requires [PostgreSQL v9.5+](http://postgresql.org), and
@@ -189,6 +198,14 @@ also use:
 
 ```
 node ./server/index.js
+```
+
+Since there are many dev tools that need to be run, we have a convenience command that will
+run all the servers together and also launch a single Electron app. This is the recommended
+command to use during development:
+
+```
+yarn run local-dev
 ```
 
 ### Overriding the server URL (optional)

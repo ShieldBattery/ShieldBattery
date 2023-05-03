@@ -18,7 +18,7 @@ export interface SettingsState {
 
 const DEFAULT_SETTINGS_STATE: ReadonlyDeep<SettingsState> = {
   open: false,
-  subPage: UserSettingsSubPage.Language,
+  subPage: UserSettingsSubPage.Account,
 
   local: DEFAULT_LOCAL_SETTINGS,
   scr: DEFAULT_SCR_SETTINGS,

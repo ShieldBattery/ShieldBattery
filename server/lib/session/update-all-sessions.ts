@@ -40,6 +40,8 @@ export async function updateAllSessions(
       const session = await sessionStore.get(sessionId)
       if (session) {
         await sessionStore.set(sessionId, { ...session, ...updatedValues })
+      } else {
+        await redis.srem(userSessionsKey, sessionId)
       }
     }),
   )

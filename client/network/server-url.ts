@@ -1,4 +1,4 @@
-import { serverConfig } from '../server-config-storage'
+import { getServerConfig } from '../server-config-storage'
 import { baseUrl } from './server-base-url'
 
 /**
@@ -32,7 +32,7 @@ export function getServerOrigin() {
  */
 export function makePublicAssetUrl(path: string) {
   const slashlessPath = path.startsWith('/') ? path.substring(1) : '' + path
-  const publicAssetsUrl = serverConfig.getValue()?.publicAssetsUrl
+  const publicAssetsUrl = getServerConfig().publicAssetsUrl
   if (publicAssetsUrl) {
     return publicAssetsUrl + slashlessPath
   } else {

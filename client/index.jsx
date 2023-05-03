@@ -15,7 +15,7 @@ import log from './logging/logger'
 import { fetchJson } from './network/fetch'
 import registerSocketHandlers from './network/socket-handlers'
 import { RootErrorBoundary } from './root-error-boundary'
-import { serverConfig } from './server-config-storage'
+import { setServerConfig } from './server-config-storage'
 import './window-focus'
 
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
@@ -126,7 +126,7 @@ rootElemPromise
 
     try {
       const config = await configPromise
-      serverConfig.setValue(config)
+      setServerConfig(config)
     } catch (err) {
       // Ignoring the error here shouldn't be that big of a deal since the config is usually cached
       // in the client's local storage anyway. But also, most config properties should have some
@@ -164,6 +164,7 @@ rootElemPromise
   })
   .then(({ elem, store }) => {
     const root = createRoot(elem)
+
     root.render(
       <RootErrorBoundary>
         <ReduxProvider store={store}>

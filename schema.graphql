@@ -1,0 +1,54 @@
+
+type CurrentUser {
+	id: Int!
+	name: String!
+	email: String!
+	emailVerified: Boolean!
+	acceptedPrivacyVersion: Int!
+	acceptedTermsVersion: Int!
+	acceptedUsePolicyVersion: Int!
+	permissions: SbPermissions!
+}
+
+
+
+
+type Mutation {
+	updateCurrentUser(currentPassword: String!, changes: UpdateCurrentUserChanges!): CurrentUser!
+}
+
+type Query {
+	user(id: Int!): User
+	userByDisplayName(name: String!): User
+	currentUser: CurrentUser
+}
+
+type SbPermissions {
+	editPermissions: Boolean!
+	debug: Boolean!
+	banUsers: Boolean!
+	manageLeagues: Boolean!
+	manageMaps: Boolean!
+	manageMapPools: Boolean!
+	manageMatchmakingSeasons: Boolean!
+	manageMatchmakingTimes: Boolean!
+	manageRallyPointServers: Boolean!
+	massDeleteMaps: Boolean!
+	moderateChatChannels: Boolean!
+}
+
+
+input UpdateCurrentUserChanges {
+	email: String
+	newPassword: String
+}
+
+type User {
+	id: Int!
+	name: String!
+}
+
+schema {
+	query: Query
+	mutation: Mutation
+}

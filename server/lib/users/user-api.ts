@@ -146,7 +146,7 @@ const relationshipsThrottle = createThrottle('accountrelationships', {
 })
 
 function hashPass(password: string): Promise<string> {
-  return bcrypt.hash(password, 10 /* saltRounds */)
+  return bcrypt.hash(password, 11 /* saltRounds */)
 }
 
 function sendVerificationEmail({

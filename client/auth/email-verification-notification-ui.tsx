@@ -25,6 +25,18 @@ export const EmailVerificationNotificationUi = React.forwardRef<
   HTMLDivElement,
   EmailVerificationNotificationUiProps
 >((props, ref) => {
+  return (
+    <ActionlessNotification
+      ref={ref}
+      showDivider={props.showDivider}
+      read={props.read}
+      icon={<ColoredWarningIcon />}
+      text={<EmailVerificationWarningContent />}
+    />
+  )
+})
+
+export function EmailVerificationWarningContent() {
   const { t } = useTranslation()
 
   const dispatch = useAppDispatch()
@@ -67,23 +79,15 @@ export const EmailVerificationNotificationUi = React.forwardRef<
   )
 
   return (
-    <ActionlessNotification
-      ref={ref}
-      showDivider={props.showDivider}
-      read={props.read}
-      icon={<ColoredWarningIcon />}
-      text={
-        <span data-test='email-verification-notification'>
-          <Trans t={t} i18nKey='auth.emailVerification.emailUnverifiedMessage'>
-            Your email is unverified! Check for an email from ShieldBattery. If you don't see one,
-            we can{' '}
-            <a href='#' onClick={onClick}>
-              send another
-            </a>
-            .
-          </Trans>
-        </span>
-      }
-    />
+    <span data-test='email-verification-notification'>
+      <Trans t={t} i18nKey='auth.emailVerification.emailUnverifiedMessage'>
+        Your email is unverified! Check for an email from ShieldBattery. If you don't see one, we
+        can{' '}
+        <a href='#' onClick={onClick}>
+          send another
+        </a>
+        .
+      </Trans>
+    </span>
   )
-})
+}

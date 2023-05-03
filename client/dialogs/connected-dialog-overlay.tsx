@@ -32,6 +32,7 @@ import {
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { ReplayInfoDialog } from '../replays/replay-info-display'
 import { ReplayLoadDialog } from '../replays/replay-load-dialog'
+import { ChangeEmailDialog, ChangePasswordDialog } from '../settings/user/account-settings'
 import { ShieldBatteryHealthDialog } from '../starcraft/shieldbattery-health'
 import StarcraftHealthCheckupDialog from '../starcraft/starcraft-health'
 import { dialogScrim } from '../styles/colors'
@@ -60,51 +61,55 @@ const noop = () => {}
 
 function getDialog(dialogType: DialogType): {
   component: React.ComponentType<any>
-  modal: boolean
+  modal?: boolean
 } {
   switch (dialogType) {
     case DialogType.AcceptMatch:
       return { component: AcceptMatch, modal: true }
     case DialogType.AcceptableUse:
-      return { component: AcceptableUseDialog, modal: false }
+      return { component: AcceptableUseDialog }
     case DialogType.Account:
-      return { component: EditAccount, modal: false }
+      return { component: EditAccount }
     case DialogType.Changelog:
-      return { component: ChangelogDialog, modal: false }
+      return { component: ChangelogDialog }
+    case DialogType.ChangeEmail:
+      return { component: ChangeEmailDialog }
+    case DialogType.ChangePassword:
+      return { component: ChangePasswordDialog }
     case DialogType.ChannelBanUser:
-      return { component: ChannelBanUserDialog, modal: false }
+      return { component: ChannelBanUserDialog }
     case DialogType.Download:
-      return { component: DownloadDialog, modal: false }
+      return { component: DownloadDialog }
     case DialogType.ExternalLink:
-      return { component: ExternalLinkDialog, modal: false }
+      return { component: ExternalLinkDialog }
     case DialogType.LeagueExplainer:
-      return { component: LeagueExplainerDialog, modal: false }
+      return { component: LeagueExplainerDialog }
     case DialogType.MapDetails:
-      return { component: MapDetailsDialog, modal: false }
+      return { component: MapDetailsDialog }
     case DialogType.MapPreview:
-      return { component: MapPreviewDialog, modal: false }
+      return { component: MapPreviewDialog }
     case DialogType.PartyInvite:
-      return { component: PartyInviteDialog, modal: false }
+      return { component: PartyInviteDialog }
     case DialogType.PartyQueueAccept:
       return { component: PartyQueueAcceptDialog, modal: true }
     case DialogType.PostMatch:
-      return { component: PostMatchDialog, modal: false }
+      return { component: PostMatchDialog }
     case DialogType.PrivacyPolicy:
-      return { component: PrivacyPolicyDialog, modal: false }
+      return { component: PrivacyPolicyDialog }
     case DialogType.ReplayInfo:
-      return { component: ReplayInfoDialog, modal: false }
+      return { component: ReplayInfoDialog }
     case DialogType.ReplayLoad:
       return { component: ReplayLoadDialog, modal: true }
     case DialogType.Simple:
-      return { component: SimpleDialog, modal: false }
+      return { component: SimpleDialog }
     case DialogType.ShieldBatteryHealth:
-      return { component: ShieldBatteryHealthDialog, modal: false }
+      return { component: ShieldBatteryHealthDialog }
     case DialogType.StarcraftHealth:
-      return { component: StarcraftHealthCheckupDialog, modal: false }
+      return { component: StarcraftHealthCheckupDialog }
     case DialogType.TermsOfService:
-      return { component: TermsOfServiceDialog, modal: false }
+      return { component: TermsOfServiceDialog }
     case DialogType.Whispers:
-      return { component: CreateWhisperSessionDialog, modal: false }
+      return { component: CreateWhisperSessionDialog }
     default:
       return assertUnreachable(dialogType)
   }

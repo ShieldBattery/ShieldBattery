@@ -140,7 +140,7 @@
       "noDescription": "This channel has no description.",
       "private": "This channel is private and requires an invite to join.",
       "userCount_one": "{{count}} member",
-      "userCount_other": "{{count}} members"
+      "userCount_other": "{{count}} member"
     },
     "channelList": {
       "createChannel": "Create channel",
@@ -236,6 +236,7 @@
       "continue": "Continue",
       "decline": "Decline",
       "download": "Download",
+      "edit": "Edit",
       "hide": "Hide",
       "join": "Join",
       "next": "Next",
@@ -243,6 +244,7 @@
       "previous": "Previous",
       "refresh": "Refresh",
       "remove": "Remove",
+      "reveal": "Reveal",
       "save": "Save",
       "search": "Search",
       "show": "Show",
@@ -554,7 +556,7 @@
       "disabledInPartyTitle": "Disabled while in party",
       "noActiveLobbies": "There are no active lobbies",
       "noOpenLobbies": "There are no open lobbies",
-      "openSlotCount_one": "{{count}} slot open",
+      "openSlotCount_one": "{{count}} slots open",
       "openSlotCount_other": "{{count}} slots open",
       "title": "Join Lobby"
     },
@@ -1100,6 +1102,35 @@
       }
     },
     "user": {
+      "account": {
+        "authenticationHeader": "Authentication",
+        "changeEmail": {
+          "dialogTitle": "Change email",
+          "patternError": "Enter a valid email address",
+          "requiredError": "Enter an email address",
+          "success": "Email changed successfully."
+        },
+        "changePassword": {
+          "dialogTitle": "Change password",
+          "success": "Password changed successfully."
+        },
+        "changePasswordButton": "Change password",
+        "confirmNewPassword": "Confirm new password",
+        "currentPassword": "Current password",
+        "displayName": "Display name",
+        "email": "Email",
+        "error": "There was a problem retrieving your user information.",
+        "invalidCurrentPassword": "Current password is incorrect",
+        "label": "Account",
+        "loginName": "Login name",
+        "networkError": "Network error: {{errorMessage}}",
+        "newPassword": "New password",
+        "passwordValidator": {
+          "confirm": "Enter a matching password",
+          "current": "Enter your current password",
+          "new": "Enter a new password"
+        }
+      },
       "language": {
         "selectLanguage": "Select a language",
         "title": "Language"

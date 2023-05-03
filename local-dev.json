@@ -1,0 +1,23 @@
+[
+  {
+    "command": ["yarn", "run", "start-server"],
+    "title": "Node Web Server"
+  },
+  {
+    "command": ["run-dev-server.bat"],
+    "cwd": "./server-rs",
+    "title": "Rust Web Server"
+  },
+  {
+    "command": ["yarn", "run", "dev"],
+    "title": "Dev Webpack Server"
+  },
+  {
+    "command": ["yarn", "run", "gen-graphql", "--watch"],
+    "title": "GraphQL Codegen"
+  },
+  {
+    "command": ["yarn", "run", "app"],
+    "title": "Electron App"
+  }
+]

@@ -1,4 +1,5 @@
 export enum UserSettingsSubPage {
+  Account = 'UserAccount',
   Language = 'UserLanguage',
 }
 
@@ -8,11 +9,11 @@ export enum AppSettingsSubPage {
 }
 
 export enum GameSettingsSubPage {
-  StarCraft = 'StarCraft',
+  StarCraft = 'GameStarCraft',
   Input = 'GameInput',
   Sound = 'GameSound',
   Video = 'GameVideo',
-  Gameplay = 'Gameplay',
+  Gameplay = 'GameGameplay',
 }
 
 export type SettingsSubPage = UserSettingsSubPage | AppSettingsSubPage | GameSettingsSubPage
