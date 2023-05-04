@@ -3,6 +3,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { UserErrorCode } from '../../common/users/sb-user'
 import { longTimestamp } from '../i18n/date-formats'
+import { TI } from '../i18n/i18next'
 import { FetchError, isFetchError } from '../network/fetch-errors'
 import { Subtitle2 } from '../styles/typography'
 import { ErrorsContainer } from './auth-content'
@@ -35,11 +36,12 @@ function UserError({ error }: { error: FetchError }) {
           <Trans t={t} i18nKey='auth.userErrorDisplay.accountBanned'>
             This account has been banned.
             <BanReason>
-              <Subtitle2>Reason':</Subtitle2>
-              <span>{(error.body as any).reason}</span>
+              <Subtitle2>Reason:</Subtitle2>
+              <span>{{ error: (error.body as any).reason } as TI}</span>
             </BanReason>
             <span>
-              The ban will expire at {longTimestamp.format((error.body as any).expiration)}.
+              The ban will expire at{' '}
+              {{ expireTime: longTimestamp.format((error.body as any).expiration) } as TI}.
             </span>
           </Trans>
         </div>
@@ -83,7 +85,7 @@ function UserError({ error }: { error: FetchError }) {
       return (
         <span>
           <Trans t={t} i18nKey='auth.userErrorDisplay.defaultError'>
-            An error occurred: {error.status} {error.statusText}
+            An error occurred: {{ status: error.status }} {{ statusText: error.statusText }}
           </Trans>
         </span>
       )
@@ -93,20 +95,24 @@ function UserError({ error }: { error: FetchError }) {
 export function UserErrorDisplay({ className, error }: UserErrorDisplayProps) {
   const { t } = useTranslation()
 
+  const errorMessage =
+    error.message === 'Failed to fetch'
+      ? t(
+          'auth.userErrorDisplay.noConnectionErrorMessage',
+          'Failed to connect to the server. Please check your internet connection and try again.',
+        )
+      : error.message
+
   return (
     <ErrorsContainer className={className} data-test='errors-container'>
       {isFetchError(error) ? (
         <UserError error={error} />
       ) : (
-        <Trans t={t} i18nKey='auth.userErrorDisplay.genericError'>
-          <span>
-            An error occurred:{' '}
-            {error.message === 'Failed to fetch'
-              ? 'Failed to connect to the server. ' +
-                'Please check your internet connection and try again.'
-              : error.message}
-          </span>
-        </Trans>
+        <span>
+          <Trans t={t} i18nKey='auth.userErrorDisplay.genericError'>
+            An error occurred: {{ errorMessage }}
+          </Trans>
+        </span>
       )}
     </ErrorsContainer>
   )

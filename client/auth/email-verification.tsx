@@ -120,7 +120,7 @@ export function EmailVerificationUi() {
     contents = (
       <ErrorsContainer>
         <Trans t={t} i18nKey='auth.emailVerification.resendError'>
-          <>Error resending email: {resendError}</>
+          Error resending email: {{ error: resendError }}
         </Trans>
       </ErrorsContainer>
     )
@@ -170,7 +170,7 @@ export function EmailVerificationUi() {
       contents = (
         <ErrorsContainer>
           <Trans t={t} i18nKey='auth.emailVerification.generalError'>
-            Error: {lastFailure.err}
+            Error: {{ error: lastFailure.err }}
           </Trans>
         </ErrorsContainer>
       )

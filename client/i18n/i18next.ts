@@ -10,6 +10,15 @@ import { makeServerUrl } from '../network/server-url'
 
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 
+/**
+ * Type to use for interpolations in `Trans` components since React doesn't allow objects as
+ * children.
+ *
+ * Taken as a best solution from this comment:
+ * https://github.com/i18next/react-i18next/issues/1483#issuecomment-1268455602
+ */
+export type TI = any
+
 export const i18nextPromise = i18n
   .use(HttpBackend)
   .use(initReactI18next)

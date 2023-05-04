@@ -139,7 +139,7 @@ class ForgotFormHolder extends React.Component {
       errContents = (
         <ErrorsContainer>
           <Trans t={t} i18nKey='auth.forgot.generalError'>
-            Error: {lastFailure.err}
+            Error: {{ error: lastFailure.err }}
           </Trans>
         </ErrorsContainer>
       )
@@ -162,7 +162,7 @@ class ForgotFormHolder extends React.Component {
         {loadingContents}
         <AuthBottomAction>
           <BottomActionButton
-            label={t('auth.forgot.backToLogin', 'Back to login.')}
+            label={t('auth.forgot.backToLogin', 'Back to login')}
             onClick={this.onBackClick}
             tabIndex={1}
           />

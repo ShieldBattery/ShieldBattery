@@ -1,4 +1,114 @@
 {
+  "account": {
+    "login": {
+      "rememberMe": "Remember me"
+    }
+  },
+  "auth": {
+    "editAccount": {
+      "changePassword": "Change password?",
+      "confirmNewPassword": "Confirm new password",
+      "currentPassword": "Current password",
+      "dialogTitle": "Edit account",
+      "errorUpdatingAccount": "There was an issue updating your account. Please try again later.",
+      "incorrectPassword": "Incorrect current password.",
+      "newPassword": "New password"
+    },
+    "emailValidator": {
+      "maxLength": "Use at most {{maxLength}} characters",
+      "minLength": "Use at least {{minLength}} characters",
+      "pattern": "Enter a valid email address",
+      "required": "Enter an email address"
+    },
+    "emailVerification": {
+      "defaultError": "Something went terribly wrong. Please try again.",
+      "emailSent": "Verification email has been sent successfully.",
+      "emailUnverifiedMessage": "Your email is unverified! Check for an email from ShieldBattery. If you don't see one, we can <2>send another</2>.",
+      "generalError": "Error: {{error}}",
+      "invalidCodeError": "Error: The provided email or verification code is not valid. If the verification code matches the one you were emailed, it may have expired. Please request a new verification email and try again.",
+      "loggedOutError": "Error: You need to be logged in to verify your email. Please log in by clicking the button below and try again.",
+      "resendError": "Error resending email: {{error}}",
+      "resendSuccess": "A new verification code has been sent to your account's email address.",
+      "resendVerificationEmail": "Resend verification email",
+      "sendError": "",
+      "switchUser": "Switch user",
+      "title": "Verify email",
+      "verifySuccess": "Your email has been successfully verified.",
+      "wrongUserError": "Error: You must be logged into the account whose email you want to verify. Please switch users by clicking the button below and try again."
+    },
+    "forgot": {
+      "backToLogin": "Back to login.",
+      "generalError": "Error: {{error}}",
+      "password": {
+        "sendResetEmail": "Send reset email",
+        "successMessage": "",
+        "title": "Reset password"
+      },
+      "reset": {
+        "confirmPassword": "Confirm new password",
+        "newPassword": "Set new password",
+        "passwordCode": "Password reset code",
+        "successMessage": "Your password has been reset.",
+        "title": "Reset password"
+      },
+      "user": {
+        "enterEmail": "Please enter the email address you signed up with.",
+        "recoverUsername": "Recover username",
+        "successMessage": "",
+        "title": "Recover your username"
+      }
+    },
+    "login": {
+      "forgotPassword": "Forgot password?",
+      "forgotUsername": "Forgot username?",
+      "signUp": "Sign up for an account",
+      "title": "Log in",
+      "whatIsShieldBattery": "What is ShieldBattery?"
+    },
+    "noPermissionsPage": {
+      "body": "You don't have enough permissions to access this page."
+    },
+    "passwordValidator": {
+      "confirm": "Confirm your password",
+      "current": "Enter your current password",
+      "matching": "Enter a matching password",
+      "minLength": "Use at least {{minLength}} characters",
+      "minLength2": "Enter at least {{minLength}} characters",
+      "required": "Enter a password",
+      "resetCode": "Enter your password reset code"
+    },
+    "signup": {
+      "acceptableUseLink": "Acceptable Use",
+      "ageConfirmation": "I certify that I am 13 years of age or older",
+      "alreadyHaveAccount": "Already have an account?",
+      "confirmPassword": "Confirm password",
+      "createAccount": "Create account",
+      "privacyLink": "Privacy",
+      "readAndAgree": "I have read and agree to the",
+      "termsOfServiceLink": "Terms of Service",
+      "title": "Create account"
+    },
+    "userErrorDisplay": {
+      "accountBanned": "This account has been banned.<1><0>Reason:</0><1>{{error}}</1></1><2>The ban will expire at {{expireTime}}.</2>",
+      "defaultError": "An error occurred: {{status}} {{statusText}}",
+      "genericError": "An error occurred: {{errorMessage}}",
+      "invalidCredentials": "Incorrect username or password",
+      "machineBanned": "This machine is banned from creating new accounts.",
+      "noConnectionErrorMessage": "Failed to connect to the server. Please check your internet connection and try again.",
+      "sessionExpired": "Session expired",
+      "suspiciousActivity": "Due to suspicious activity detected on this network, creating accounts on the web is currently disabled. Please download the standalone client to create a new account.",
+      "usernameTaken": "A user with that name already exists"
+    },
+    "usernameValidator": {
+      "maxLength": "Enter at most {{maxLength}} characters",
+      "maxLength2": "Use at most {{maxLength}} characters",
+      "minLength": "Enter at least {{minLength}} characters",
+      "minLength2": "Use at least {{minLength}} characters",
+      "pattern": "Username contains invalid characters",
+      "required": "Enter a username",
+      "taken": "Username is already taken"
+    }
+  },
   "common": {
     "emptyListMessage": "Nothing to see here",
     "gameResultDraw": "Draw",
@@ -7,6 +117,16 @@
     "gameResultWin": "Win",
     "gameTypeCustom": "Custom game",
     "gameTypeRanked": "Ranked {{matchmakingType}}",
+    "literals": {
+      "cancel": "Cancel",
+      "continue": "Continue",
+      "email": "Email",
+      "emailAddress": "Email address",
+      "login": "Log in",
+      "password": "Password",
+      "save": "Save",
+      "username": "Username"
+    },
     "mapNameUnknown": "Unknown map",
     "matchmakingType1v1": "1v1",
     "matchmakingType2v2": "2v2",
