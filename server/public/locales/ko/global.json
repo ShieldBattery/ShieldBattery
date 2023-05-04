@@ -41,5 +41,32 @@
             "buttonDetails": "세부 정보보기",
             "noGameSelectedText": "선택한 게임 없음"
         }
+    },
+    "settings": {
+        "app": {
+            "sound": {
+                "label": "소리"
+            },
+            "system": {
+                "label": "체계"
+            }
+        },
+        "game": {
+            "gameplay": {
+                "label": "게임 플레이"
+            },
+            "input": {
+                "label": "입력"
+            },
+            "sound": {
+                "label": "소리"
+            },
+            "starcraft": {
+                "label": "스타 크래프트"
+            },
+            "video": {
+                "label": "동영상"
+            }
+        }
     }
 }
