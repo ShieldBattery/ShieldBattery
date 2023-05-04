@@ -41,5 +41,32 @@
             "buttonDetails": "Посмотреть детали",
             "noGameSelectedText": "Игра не выбрана"
         }
+    },
+    "settings": {
+        "app": {
+            "sound": {
+                "label": "Звук"
+            },
+            "system": {
+                "label": "Система"
+            }
+        },
+        "game": {
+            "gameplay": {
+                "label": "Геймплей"
+            },
+            "input": {
+                "label": "Вход"
+            },
+            "sound": {
+                "label": "Звук"
+            },
+            "starcraft": {
+                "label": "Стар Крафт"
+            },
+            "video": {
+                "label": "видео"
+            }
+        }
     }
 }
