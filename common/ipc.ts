@@ -53,6 +53,30 @@ export interface FsStats {
   birthtime: Date
 }
 
+export enum FsErrorCode {
+  FileOrFolderMissing,
+}
+
+export interface FsError {
+  error: true
+  code: FsErrorCode
+}
+
+export interface FsReadDirResult {
+  entries: FsDirent[]
+  error?: false
+}
+
+export interface FsReadFileResult {
+  file: ArrayBuffer
+  error?: false
+}
+
+export interface FsStatResult {
+  stats: FsStats
+  error?: false
+}
+
 /** RPCs that can be invoked by the renderer process to run code in the main process. */
 interface IpcInvokeables {
   activeGameStartWhenReady: (gameId: string) => void
@@ -61,10 +85,13 @@ interface IpcInvokeables {
 
   // TODO(tec27): Support the non-filetypes version if we need it, overloads don't seem to work
   // well with the current approach for typing these invokes =/
-  fsReadDir: (dirPath: string, options: { withFileTypes: true }) => Promise<FsDirent[]>
+  fsReadDir: (
+    dirPath: string,
+    options: { withFileTypes: true },
+  ) => Promise<FsReadDirResult | FsError>
   // TODO(tec27): Add types for options + returning a string if encoding is specified?
-  fsReadFile: (filePath: string) => Promise<ArrayBuffer>
-  fsStat: (filePath: string) => Promise<FsStats>
+  fsReadFile: (filePath: string) => Promise<FsReadFileResult | FsError>
+  fsStat: (filePath: string) => Promise<FsStatResult | FsError>
 
   logMessage: (level: string, message: string) => void
 

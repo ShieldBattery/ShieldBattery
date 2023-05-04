@@ -12,7 +12,16 @@ import { pipeline } from 'stream/promises'
 import { container } from 'tsyringe'
 import { URL } from 'url'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
-import { FsDirent, TypedIpcMain, TypedIpcSender } from '../common/ipc'
+import {
+  FsDirent,
+  FsError,
+  FsErrorCode,
+  FsReadDirResult,
+  FsReadFileResult,
+  FsStatResult,
+  TypedIpcMain,
+  TypedIpcSender,
+} from '../common/ipc'
 import { ReplayShieldBatteryData } from '../common/replays'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import currentSession from './current-session'
@@ -396,32 +405,76 @@ function setupIpc(localSettings: LocalSettings, scrSettings: ScrSettings) {
   )
 
   ipcMain.handle('fsReadFile', async (_, filePath) => {
-    return fsPromises.readFile(filePath)
+    try {
+      const arrayBuffer = await fsPromises.readFile(filePath)
+      const result: FsReadFileResult = {
+        file: arrayBuffer,
+      }
+      return result
+    } catch (e) {
+      if ((e as any).code === 'ENOENT') {
+        const error: FsError = {
+          error: true,
+          code: FsErrorCode.FileOrFolderMissing,
+        }
+        return error
+      }
+      throw e
+    }
   })
   ipcMain.handle('fsReadDir', async (_, dirPath, options) => {
-    const result = await fsPromises.readdir(dirPath, options)
-    return result.map<FsDirent>(d => ({
-      isFile: d.isFile(),
-      isDirectory: d.isDirectory(),
-      name: d.name,
-    }))
+    try {
+      const result = await fsPromises.readdir(dirPath, options)
+      const files = result.map<FsDirent>(d => ({
+        isFile: d.isFile(),
+        isDirectory: d.isDirectory(),
+        name: d.name,
+      }))
+      const dirents: FsReadDirResult = {
+        entries: files,
+      }
+      return dirents
+    } catch (e) {
+      if ((e as any).code === 'ENOENT') {
+        const error: FsError = {
+          code: FsErrorCode.FileOrFolderMissing,
+          error: true,
+        }
+        return error
+      }
+      throw e
+    }
   })
   ipcMain.handle('fsStat', async (_, filePath) => {
-    const result = await fsPromises.stat(filePath)
-    return {
-      isFile: result.isFile(),
-      isDirectory: result.isDirectory(),
-      size: result.size,
-      blksize: result.blksize,
-      blocks: result.blocks,
-      atimeMs: result.atimeMs,
-      mtimeMs: result.mtimeMs,
-      ctimeMs: result.ctimeMs,
-      birthtimeMs: result.birthtimeMs,
-      atime: result.atime,
-      mtime: result.mtime,
-      ctime: result.ctime,
-      birthtime: result.birthtime,
+    try {
+      const result = await fsPromises.stat(filePath)
+      const stat: FsStatResult = {
+        stats: {
+          isFile: result.isFile(),
+          isDirectory: result.isDirectory(),
+          size: result.size,
+          blksize: result.blksize,
+          blocks: result.blocks,
+          atimeMs: result.atimeMs,
+          mtimeMs: result.mtimeMs,
+          ctimeMs: result.ctimeMs,
+          birthtimeMs: result.birthtimeMs,
+          atime: result.atime,
+          mtime: result.mtime,
+          ctime: result.ctime,
+          birthtime: result.birthtime,
+        },
+      }
+      return stat
+    } catch (e) {
+      if ((e as any).code === 'ENOENT') {
+        const error: FsError = {
+          error: true,
+          code: FsErrorCode.FileOrFolderMissing,
+        }
+        return error
+      }
+      throw e
     }
   })
 
