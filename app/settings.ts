@@ -81,7 +81,7 @@ abstract class SettingsManager<T> extends TypedEventEmitter<SettingsEvents<T>> {
       try {
         fs.writeFileSync(this.filepath, jsonify(this.settings), { encoding: 'utf8' })
       } catch (err: any) {
-        this.settingsDirty = false
+        this.settingsDirty = true
         log.error(`Error saving the ${this.settingsName} settings file: ${err.stack ?? err}`)
       }
     }
