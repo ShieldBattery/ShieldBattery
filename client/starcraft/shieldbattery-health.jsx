@@ -1,6 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
+import { DEV_ERROR } from '../../common/flags'
 import { closeDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { RaisedButton } from '../material/button'
@@ -50,24 +51,33 @@ export class ShieldBatteryHealthDialog extends React.Component {
         onCancel={this.props.onCancel}
         showCloseButton={true}
         dialogRef={this.props.dialogRef}>
-        <Text>
-          We've detected that the following ShieldBattery files are missing or have been modified:
-        </Text>
-        <FileList>
-          {initDescription}
-          {mainDescription}
-        </FileList>
+        {DEV_ERROR ? (
+          <Text>
+            Couldn't find necessary ShieldBattery files, you probably need to run game/build.bat
+          </Text>
+        ) : (
+          <div>
+            <Text>
+              We've detected that the following ShieldBattery files are missing or have been
+              modified:
+            </Text>
+            <FileList>
+              {initDescription}
+              {mainDescription}
+            </FileList>
 
-        <Text>
-          This is often the result of installed anti-virus software taking action on false
-          positives. You may need to add exceptions for these files, or tell the software to remove
-          them from quarantine. You can also try re-installing ShieldBattery.
-        </Text>
+            <Text>
+              This is often the result of installed anti-virus software taking action on false
+              positives. You may need to add exceptions for these files, or tell the software to
+              remove them from quarantine. You can also try re-installing ShieldBattery.
+            </Text>
 
-        <Text>
-          If you are able to, reporting these as false positives to your anti-virus vendor will help
-          this stop happening for other users as well!
-        </Text>
+            <Text>
+              If you are able to, reporting these as false positives to your anti-virus vendor will
+              help this stop happening for other users as well!
+            </Text>
+          </div>
+        )}
 
         <RescanButton label='Rescan files' onClick={this.onRescanClick} />
       </Dialog>
