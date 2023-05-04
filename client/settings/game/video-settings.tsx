@@ -1,15 +1,20 @@
-import React, { useImperativeHandle, useMemo } from 'react'
+import React from 'react'
 import styled from 'styled-components'
-import { ALL_DISPLAY_MODES, DisplayMode, getDisplayModeName } from '../../common/blizz-settings'
-import { useForm } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
-import CheckBox from '../material/check-box'
-import { SelectOption } from '../material/select/option'
-import { Select } from '../material/select/select'
-import Slider from '../material/slider'
-import { FormContainer } from './settings-content'
-import { SettingsFormHandle } from './settings-form-ref'
-import { ScrSettings } from './settings-records'
+import {
+  ALL_DISPLAY_MODES,
+  DisplayMode,
+  getDisplayModeName,
+} from '../../../common/settings/blizz-settings'
+import { useForm } from '../../forms/form-hook'
+import SubmitOnEnter from '../../forms/submit-on-enter'
+import CheckBox from '../../material/check-box'
+import { SelectOption } from '../../material/select/option'
+import { Select } from '../../material/select/select'
+import Slider from '../../material/slider'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
+import { useStableCallback } from '../../state-hooks'
+import { mergeScrSettings } from '../action-creators'
+import { FormContainer } from '../settings-content'
 
 const Spacer = styled.div`
   width: 100%;
@@ -41,7 +46,7 @@ function VsyncCheckBox(props: {
   )
 }
 
-interface VideoSettingsModel {
+interface GameVideoSettingsModel {
   displayMode: DisplayMode
   sdGraphicsFilter: number
   fpsLimitOn: boolean
@@ -56,23 +61,40 @@ interface VideoSettingsModel {
   showFps: boolean
 }
 
-const VideoSettingsForm = React.forwardRef<
-  SettingsFormHandle,
-  {
-    model: VideoSettingsModel
-    onChange: (model: VideoSettingsModel) => void
-    onSubmit: (model: VideoSettingsModel) => void
-  }
->((props, ref) => {
-  const { bindCheckable, bindCustom, getInputValue, onSubmit } = useForm(
-    props.model,
-    {},
-    { onChange: props.onChange, onSubmit: props.onSubmit },
-  )
+export function GameVideoSettings() {
+  const dispatch = useAppDispatch()
+  const scrSettings = useAppSelector(s => s.settings.scr)
 
-  useImperativeHandle(ref, () => ({
-    submit: onSubmit,
-  }))
+  const onValidatedChange = useStableCallback((model: Readonly<GameVideoSettingsModel>) => {
+    dispatch(
+      mergeScrSettings(
+        {
+          displayMode: model.displayMode,
+          sdGraphicsFilter: model.sdGraphicsFilter,
+          fpsLimitOn: model.fpsLimitOn,
+          fpsLimit: model.fpsLimit,
+          vsyncOn: model.vsyncOn,
+          hdGraphicsOn: model.hdGraphicsOn,
+          environmentEffectsOn: model.environmentEffectsOn,
+          realTimeLightingOn: model.realTimeLightingOn,
+          smoothUnitTurningOn: model.smoothUnitTurningOn,
+          shadowStackingOn: model.shadowStackingOn,
+          pillarboxOn: model.pillarboxOn,
+          showFps: model.showFps,
+        },
+        {
+          onSuccess: () => {},
+          onError: () => {},
+        },
+      ),
+    )
+  })
+
+  const { bindCheckable, bindCustom, getInputValue, onSubmit } = useForm(
+    { ...scrSettings },
+    {},
+    { onValidatedChange },
+  )
 
   return (
     <form noValidate={true} onSubmit={onSubmit}>
@@ -149,25 +171,5 @@ const VideoSettingsForm = React.forwardRef<
         </div>
       </FormContainer>
     </form>
-  )
-})
-
-export interface VideoSettingsProps {
-  scrSettings: ScrSettings
-  formRef: React.Ref<SettingsFormHandle>
-  onChange: (values: VideoSettingsModel) => void
-  onSubmit: (values: VideoSettingsModel) => void
-}
-
-export default function VideoSettings({
-  scrSettings,
-  formRef,
-  onChange,
-  onSubmit,
-}: VideoSettingsProps) {
-  const formModel = useMemo(() => ({ ...scrSettings.toJS() } as VideoSettingsModel), [scrSettings])
-
-  return (
-    <VideoSettingsForm ref={formRef} model={formModel} onChange={onChange} onSubmit={onSubmit} />
   )
 }

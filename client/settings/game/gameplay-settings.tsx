@@ -1,5 +1,6 @@
-import React, { useImperativeHandle, useMemo } from 'react'
+import React from 'react'
 import styled from 'styled-components'
+import { DEV_INDICATOR } from '../../../common/flags'
 import {
   ALL_CONSOLE_SKINS,
   ALL_INGAME_SKINS,
@@ -7,19 +8,19 @@ import {
   getConsoleSkinName,
   getIngameSkinName,
   IngameSkin,
-} from '../../common/blizz-settings'
-import { DEV_INDICATOR } from '../../common/flags'
-import { useForm } from '../forms/form-hook'
-import SubmitOnEnter from '../forms/submit-on-enter'
-import CheckBox from '../material/check-box'
-import { NumberTextField } from '../material/number-text-field'
-import { SelectOption } from '../material/select/option'
-import { Select } from '../material/select/select'
-import { colorTextSecondary } from '../styles/colors'
-import { overline } from '../styles/typography'
-import { FormContainer } from './settings-content'
-import { SettingsFormHandle } from './settings-form-ref'
-import { LocalSettings, ScrSettings } from './settings-records'
+} from '../../../common/settings/blizz-settings'
+import { useForm } from '../../forms/form-hook'
+import SubmitOnEnter from '../../forms/submit-on-enter'
+import CheckBox from '../../material/check-box'
+import { NumberTextField } from '../../material/number-text-field'
+import { SelectOption } from '../../material/select/option'
+import { Select } from '../../material/select/select'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
+import { useStableCallback } from '../../state-hooks'
+import { colorTextSecondary } from '../../styles/colors'
+import { overline } from '../../styles/typography'
+import { mergeLocalSettings, mergeScrSettings } from '../action-creators'
+import { FormContainer } from '../settings-content'
 
 const ApmAlertCheckbox = styled(CheckBox)`
   margin-top: 32px;
@@ -60,22 +61,56 @@ function validateApmValue(val: number, model: GameplaySettingsModel) {
   return val <= 0 || val > 999 ? 'Enter a value between 1 and 999' : undefined
 }
 
-const GameplayRemasteredForm = React.forwardRef<
-  SettingsFormHandle,
-  {
-    model: GameplaySettingsModel
-    onChange: (model: GameplaySettingsModel) => void
-    onSubmit: (model: GameplaySettingsModel) => void
-  }
->((props, ref) => {
+export function GameplaySettings() {
+  const dispatch = useAppDispatch()
+  const localSettings = useAppSelector(s => s.settings.local)
+  const scrSettings = useAppSelector(s => s.settings.scr)
+
+  const onValidatedChange = useStableCallback((model: Readonly<GameplaySettingsModel>) => {
+    dispatch(
+      mergeScrSettings(
+        {
+          apmAlertOn: model.apmAlertOn,
+          apmAlertColorOn: model.apmAlertColorOn,
+          apmAlertSoundOn: model.apmAlertSoundOn,
+          apmAlertValue: model.apmAlertValue,
+          apmDisplayOn: model.apmDisplayOn,
+          colorCyclingOn: model.colorCyclingOn,
+          consoleSkin: model.consoleSkin,
+          gameTimerOn: model.gameTimerOn,
+          minimapPosition: model.minimapPosition,
+          showBonusSkins: model.showBonusSkins,
+          selectedSkin: model.selectedSkin,
+          unitPortraits: model.unitPortraits,
+          showTurnRate: model.showTurnRate,
+        },
+        {
+          onSuccess: () => {},
+          onError: () => {},
+        },
+      ),
+    )
+
+    if (DEV_INDICATOR) {
+      dispatch(
+        mergeLocalSettings(
+          {
+            visualizeNetworkStalls: model.visualizeNetworkStalls,
+          },
+          {
+            onSuccess: () => {},
+            onError: () => {},
+          },
+        ),
+      )
+    }
+  })
+
   const { bindCheckable, bindCustom, onSubmit, getInputValue } = useForm(
-    props.model,
+    { ...scrSettings, visualizeNetworkStalls: localSettings.visualizeNetworkStalls },
     { apmAlertValue: validateApmValue },
-    { onChange: props.onChange, onSubmit: props.onSubmit },
+    { onValidatedChange },
   )
-  useImperativeHandle(ref, () => ({
-    submit: onSubmit,
-  }))
 
   return (
     <form noValidate={true} onSubmit={onSubmit}>
@@ -171,40 +206,5 @@ const GameplayRemasteredForm = React.forwardRef<
         ) : null}
       </FormContainer>
     </form>
-  )
-})
-
-export interface GameplaySettingsProps {
-  localSettings: LocalSettings
-  scrSettings: ScrSettings
-  formRef: React.Ref<SettingsFormHandle>
-  onChange: (values: GameplaySettingsModel) => void
-  onSubmit: (values: GameplaySettingsModel) => void
-}
-
-export default function GameplaySettings({
-  localSettings,
-  scrSettings,
-  formRef,
-  onChange,
-  onSubmit,
-}: GameplaySettingsProps) {
-  const formModel = useMemo(
-    // TODO(tec27): remove cast once Immutable infers types properly
-    () =>
-      ({
-        ...scrSettings.toJS(),
-        visualizeNetworkStalls: localSettings.visualizeNetworkStalls,
-      } as GameplaySettingsModel),
-    [scrSettings, localSettings],
-  )
-
-  return (
-    <GameplayRemasteredForm
-      ref={formRef}
-      model={formModel}
-      onChange={onChange}
-      onSubmit={onSubmit}
-    />
   )
 }

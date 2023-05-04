@@ -1,54 +1,60 @@
 import { TypedIpcRenderer } from '../../common/ipc'
-import { LocalSettingsData, ScrSettingsData } from '../../common/local-settings'
-import { LOCAL_SETTINGS_SET_BEGIN, SCR_SETTINGS_SET_BEGIN } from '../actions'
+import { LocalSettings, ScrSettings } from '../../common/settings/local-settings'
 import { audioManager } from '../audio/audio-manager'
-import { openDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
-import { isStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
+import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
+import { openSnackbar } from '../snackbars/action-creators'
+import { ChangeSettingsSubPage, CloseSettings, OpenSettings } from './actions'
+import { SettingsSubPage } from './settings-sub-page'
 
 const ipcRenderer = new TypedIpcRenderer()
 
-export function openSettingsDialog(): ThunkAction {
-  return (dispatch, getState) => {
-    const { starcraft } = getState()
+export function openSettings(subPage?: SettingsSubPage): OpenSettings {
+  return {
+    type: '@settings/openSettings',
+    payload: {
+      subPage,
+    },
+  }
+}
 
-    if (!isStarcraftHealthy({ starcraft })) {
-      dispatch(
-        openDialog({
-          type: DialogType.StarcraftPath,
-        }),
-      )
-    } else {
-      dispatch(
-        openDialog({
-          type: DialogType.Settings,
-        }),
-      )
+export function changeSettingsSubPage(subPage: SettingsSubPage): ChangeSettingsSubPage {
+  return {
+    type: '@settings/changeSettingsSubPage',
+    payload: { subPage },
+  }
+}
+
+export function closeSettings(): CloseSettings {
+  return {
+    type: '@settings/closeSettings',
+  }
+}
+
+export function mergeLocalSettings(
+  settings: Partial<LocalSettings>,
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    try {
+      await ipcRenderer.invoke('settingsLocalMerge', settings)
+    } catch (err) {
+      dispatch(openSnackbar({ message: 'There was an issue saving the settings.' }))
     }
-  }
+  })
 }
 
-export function mergeLocalSettings(settings: Partial<LocalSettingsData>): ThunkAction {
-  return dispatch => {
-    dispatch({
-      type: LOCAL_SETTINGS_SET_BEGIN,
-    } as any)
-
-    // the ipc-handler will dispatch the right UPDATE event (or SET, if there was an error)
-    ipcRenderer.send('settingsLocalMerge', settings)
-  }
-}
-
-export function mergeScrSettings(settings: Partial<ScrSettingsData>): ThunkAction {
-  return dispatch => {
-    dispatch({
-      type: SCR_SETTINGS_SET_BEGIN,
-    } as any)
-
-    // the ipc-handler will dispatch the right UPDATE event (or SET, if there was an error)
-    ipcRenderer.send('settingsScrMerge', settings)
-  }
+export function mergeScrSettings(
+  settings: Partial<ScrSettings>,
+  spec: RequestHandlingSpec,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    try {
+      await ipcRenderer.invoke('settingsScrMerge', settings)
+    } catch (err) {
+      dispatch(openSnackbar({ message: 'There was an issue saving the settings.' }))
+    }
+  })
 }
 
 /** Resets the master `audioManager` volume to the current value in the settings. */

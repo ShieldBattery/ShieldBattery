@@ -1,11 +1,6 @@
 import { TypedIpcRenderer } from '../../common/ipc'
-import {
-  LOCAL_SETTINGS_SET,
-  LOCAL_SETTINGS_UPDATE,
-  SCR_SETTINGS_SET,
-  SCR_SETTINGS_UPDATE,
-  SHIELDBATTERY_FILES_VALIDITY,
-} from '../actions'
+import { LocalSettings } from '../../common/settings/local-settings'
+import { SHIELDBATTERY_FILES_VALIDITY } from '../actions'
 import audioManager from '../audio/audio-manager'
 import { dispatch } from '../dispatch-registry'
 import { handleCheckStarcraftPathResult } from '../starcraft/action-creators'
@@ -14,67 +9,55 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
   let lastMasterVolume: number | undefined
   let lastPath = ''
   let lastPathWasValid = false
+  const afterLocalSettingsChange = (settings: Partial<LocalSettings>) => {
+    if (settings.masterVolume !== lastMasterVolume) {
+      audioManager.setMasterVolume(settings.masterVolume!)
+    }
+    lastMasterVolume = settings.masterVolume
+
+    if (settings.starcraftPath === lastPath && lastPathWasValid) {
+      return
+    }
+
+    lastPath = settings.starcraftPath ?? ''
+    lastPathWasValid = false
+    ipcRenderer.invoke('settingsCheckStarcraftPath', lastPath)?.then(result => {
+      lastPathWasValid = result.path && result.version
+      dispatch(handleCheckStarcraftPathResult(result))
+    })
+  }
+
   ipcRenderer
     .on('settingsLocalChanged', (event, settings) => {
       dispatch({
-        type: LOCAL_SETTINGS_UPDATE,
+        type: '@settings/updateLocalSettings',
         payload: settings,
-      } as any)
-
-      if (settings.masterVolume !== lastMasterVolume) {
-        audioManager.setMasterVolume(settings.masterVolume!)
-      }
-      lastMasterVolume = settings.masterVolume
-
-      if (settings.starcraftPath === lastPath && lastPathWasValid) {
-        return
-      }
-
-      lastPath = settings.starcraftPath ?? ''
-      lastPathWasValid = false
-      ipcRenderer.invoke('settingsCheckStarcraftPath', lastPath)?.then(result => {
-        lastPathWasValid = result.path && result.version
-        dispatch(handleCheckStarcraftPathResult(result))
       })
-    })
-    .on('settingsLocalGetError', (event, err) => {
-      dispatch({
-        type: LOCAL_SETTINGS_UPDATE,
-        payload: err,
-        error: true,
-      } as any)
-    })
-    .on('settingsLocalMergeError', (event, err) => {
-      dispatch({
-        type: LOCAL_SETTINGS_SET,
-        payload: err,
-        error: true,
-      } as any)
+
+      afterLocalSettingsChange(settings)
     })
     .on('settingsScrChanged', (event, settings) => {
       dispatch({
-        type: SCR_SETTINGS_UPDATE,
+        type: '@settings/updateScrSettings',
         payload: settings,
-      } as any)
-    })
-    .on('settingsScrGetError', (event, err) => {
-      dispatch({
-        type: SCR_SETTINGS_UPDATE,
-        payload: err,
-        error: true,
-      } as any)
-    })
-    .on('settingsScrMergeError', (event, err) => {
-      dispatch({
-        type: SCR_SETTINGS_SET,
-        payload: err,
-        error: true,
-      } as any)
+      })
     })
 
   // Trigger an initial update for the settings
-  ipcRenderer.send('settingsLocalGet')
-  ipcRenderer.send('settingsScrGet')
+  ipcRenderer.invoke('settingsLocalGet')?.then(settings => {
+    dispatch({
+      type: '@settings/updateLocalSettings',
+      payload: settings,
+    })
+
+    afterLocalSettingsChange(settings)
+  })
+  ipcRenderer.invoke('settingsScrGet')?.then(settings => {
+    dispatch({
+      type: '@settings/updateScrSettings',
+      payload: settings,
+    })
+  })
 
   ipcRenderer.invoke('shieldbatteryCheckFiles')?.then(fileResults => {
     dispatch({

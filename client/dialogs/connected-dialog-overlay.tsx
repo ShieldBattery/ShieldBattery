@@ -30,8 +30,6 @@ import {
   TermsOfServiceDialog,
 } from '../policies/policy-displays'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import Settings from '../settings/settings'
-import StarcraftPathDialog from '../settings/starcraft-path-dialog'
 import { ShieldBatteryHealthDialog } from '../starcraft/shieldbattery-health'
 import StarcraftHealthCheckupDialog from '../starcraft/starcraft-health'
 import { dialogScrim } from '../styles/colors'
@@ -91,16 +89,12 @@ function getDialog(dialogType: DialogType): {
       return { component: PostMatchDialog, modal: false }
     case DialogType.PrivacyPolicy:
       return { component: PrivacyPolicyDialog, modal: false }
-    case DialogType.Settings:
-      return { component: Settings, modal: false }
     case DialogType.Simple:
       return { component: SimpleDialog, modal: false }
     case DialogType.ShieldBatteryHealth:
       return { component: ShieldBatteryHealthDialog, modal: false }
     case DialogType.StarcraftHealth:
       return { component: StarcraftHealthCheckupDialog, modal: false }
-    case DialogType.StarcraftPath:
-      return { component: StarcraftPathDialog, modal: false }
     case DialogType.TermsOfService:
       return { component: TermsOfServiceDialog, modal: false }
     case DialogType.Whispers:

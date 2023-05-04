@@ -3,9 +3,9 @@ import { Map } from 'immutable'
 import { AddressInfo } from 'net'
 import { container } from 'tsyringe'
 import { WebSocket, WebSocketServer } from 'ws'
-import { LocalSettingsData } from '../../common/local-settings'
+import { LocalSettings } from '../../common/settings/local-settings'
 import log from '../logger'
-import { LocalSettings } from '../settings'
+import { LocalSettingsManager } from '../settings'
 import { ActiveGameManager } from './active-game-manager'
 
 interface AuthorizeInfo {
@@ -34,7 +34,7 @@ export class GameServer {
   private idToSocket = Map<string, WebSocket>()
   private activeGameManager = container.resolve(ActiveGameManager)
 
-  constructor(private server: WebSocketServer, private localSettings: LocalSettings) {
+  constructor(private server: WebSocketServer, private localSettings: LocalSettingsManager) {
     this.activeGameManager.on('gameCommand', (id, command, payload) => {
       log.verbose(`Sending game command to ${id}: ${command}`)
       const socket = this.idToSocket.get(id)
@@ -108,7 +108,7 @@ export class GameServer {
       case '/game/windowMove':
         const { x, y, w, h } = payload
 
-        const toMerge: Partial<LocalSettingsData> = { gameWinX: x, gameWinY: y }
+        const toMerge: Partial<LocalSettings> = { gameWinX: x, gameWinY: y }
         if (w !== -1) {
           toMerge.gameWinWidth = w
         }
@@ -124,7 +124,7 @@ export class GameServer {
   }
 }
 
-export default function createGameServer(localSettings: LocalSettings) {
+export default function createGameServer(localSettings: LocalSettingsManager) {
   const httpServer = http
     .createServer((req, res) => {
       res.writeHead(418)

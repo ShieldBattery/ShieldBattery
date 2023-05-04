@@ -1,228 +1,397 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useRef } from 'react'
+import ReactDOM from 'react-dom'
+import { useTranslation } from 'react-i18next'
+import { animated, useTransition, UseTransitionProps } from 'react-spring'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { LocalSettingsData, ScrSettingsData } from '../../common/local-settings'
-import { closeDialog, openDialog } from '../dialogs/action-creators'
-import { CommonDialogProps } from '../dialogs/common-dialog-props'
-import { DialogType } from '../dialogs/dialog-type'
+import { FocusTrap } from '../dom/focus-trap'
+import { useExternalElementRef } from '../dom/use-external-element-ref'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { JsonLocalStorageValue } from '../local-storage'
-import { IconButton, TextButton } from '../material/button'
-import { Dialog } from '../material/dialog'
-import { TabItem, Tabs } from '../material/tabs'
+import { KeyListenerBoundary, useKeyListener } from '../keyboard/key-listener'
+import { IconButton, useButtonState } from '../material/button'
+import { Ripple } from '../material/ripple'
+import { defaultSpring } from '../material/springs'
+import { Tooltip } from '../material/tooltip'
+import { zIndexSettings } from '../material/zindex'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { colorError, colorTextSecondary } from '../styles/colors'
-import { body1, subtitle1 } from '../styles/typography'
-import { mergeLocalSettings, mergeScrSettings } from './action-creators'
-import AppSettings from './app-settings'
-import GameplaySettings from './gameplay-settings'
-import InputSettings from './input-settings'
-import { SettingsFormHandle } from './settings-form-ref'
-import { LocalSettings, ScrSettings } from './settings-records'
-import SoundSettings from './sound-settings'
-import VideoSettings from './video-settings'
+import { isStarcraftHealthy as checkIsStarcraftHealthy } from '../starcraft/is-starcraft-healthy'
+import { useStableCallback } from '../state-hooks'
+import {
+  background700,
+  background800,
+  colorDividers,
+  colorError,
+  colorTextPrimary,
+  colorTextSecondary,
+} from '../styles/colors'
+import { body2, headline4, overline, singleLine } from '../styles/typography'
+import { changeSettingsSubPage, closeSettings } from './action-creators'
+import { AppSoundSettings } from './app/sound-settings'
+import { AppSystemSettings } from './app/system-settings'
+import { GameplaySettings } from './game/gameplay-settings'
+import { GameInputSettings } from './game/input-settings'
+import { GameSoundSettings } from './game/sound-settings'
+import { StarcraftSettings } from './game/starcraft-settings'
+import { GameVideoSettings } from './game/video-settings'
+import { AppSettingsSubPage, GameSettingsSubPage, SettingsSubPage } from './settings-sub-page'
 
-const TitleActionContainer = styled.div`
+const ESCAPE = 'Escape'
+
+export function ConnectedSettings() {
+  const dispatch = useAppDispatch()
+  const isOpen = useAppSelector(s => s.settings.open)
+  const subPage = useAppSelector(s => s.settings.subPage)
+  const starcraft = useAppSelector(s => s.starcraft)
+
+  const focusableRef = useRef<HTMLSpanElement>(null)
+  const portalRef = useExternalElementRef()
+
+  const onChangeSubPage = useStableCallback((value: SettingsSubPage) => {
+    dispatch(changeSettingsSubPage(value))
+  })
+  const onCloseSettings = useStableCallback(() => {
+    dispatch(closeSettings())
+  })
+
+  const settingsTransition = useTransition<boolean, UseTransitionProps<boolean>>(isOpen, {
+    from: { opacity: 0 },
+    enter: { opacity: 1 },
+    leave: { opacity: 0 },
+    config: {
+      ...defaultSpring,
+      clamp: true,
+    },
+  })
+
+  return ReactDOM.createPortal(
+    settingsTransition((style, isOpen) =>
+      isOpen ? (
+        <KeyListenerBoundary>
+          <FocusTrap focusableRef={focusableRef}>
+            <span ref={focusableRef} tabIndex={-1}>
+              <Settings
+                style={style}
+                subPage={subPage}
+                isStarcraftHealthy={checkIsStarcraftHealthy({ starcraft })}
+                onChangeSubPage={onChangeSubPage}
+                onCloseSettings={onCloseSettings}
+              />
+            </span>
+          </FocusTrap>
+        </KeyListenerBoundary>
+      ) : undefined,
+    ),
+    portalRef.current,
+  )
+}
+
+const Container = styled(animated.div)`
+  position: absolute;
+  top: var(--sb-system-bar-height, 0);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: calc(100% - var(--sb-system-bar-height, 0));
+
   display: flex;
-  align-items: center;
-  margin-right: 24px;
+  flex-direction: row;
+
+  background-color: ${background800};
+  z-index: ${zIndexSettings};
 `
 
-const TitleActionText = styled.div`
-  ${body1};
-  color: ${colorTextSecondary};
-  margin-right: 4px;
+const NavContainer = styled.div`
+  width: 272px;
+  padding: 16px 0;
+  background-color: ${background700};
 
-  &:hover {
-    cursor: pointer;
+  flex-shrink: 0;
+`
+
+const NavSectionTitle = styled.div`
+  ${overline};
+  ${singleLine};
+
+  height: 36px;
+  line-height: 36px;
+  padding: 0 16px;
+
+  color: ${colorTextSecondary};
+`
+
+const NavSectionSeparator = styled.div`
+  height: 1px;
+  margin: 7px 16px 8px;
+
+  background-color: ${colorDividers};
+`
+
+function Settings({
+  style,
+  subPage,
+  isStarcraftHealthy,
+  onChangeSubPage,
+  onCloseSettings,
+}: {
+  style: React.CSSProperties
+  subPage: SettingsSubPage
+  isStarcraftHealthy: boolean
+  onChangeSubPage: (subPage: SettingsSubPage) => void
+  onCloseSettings: () => void
+}) {
+  useKeyListener({
+    onKeyDown(event) {
+      if (event.code === ESCAPE) {
+        onCloseSettings()
+        return true
+      }
+
+      return false
+    },
+  })
+
+  const getNavEntriesMapper = useCallback(
+    ({ disabled, hasError }: { disabled?: boolean; hasError?: boolean } = {}) => {
+      return (s: SettingsSubPage) => (
+        <NavEntry
+          key={s}
+          subPage={s}
+          isActive={subPage === s}
+          disabled={disabled}
+          hasError={hasError}
+          onChangeSubPage={onChangeSubPage}
+        />
+      )
+    },
+    [onChangeSubPage, subPage],
+  )
+
+  return (
+    <Container style={style}>
+      <NavContainer>
+        {IS_ELECTRON ? (
+          <>
+            <NavSectionTitle>App settings</NavSectionTitle>
+            {[AppSettingsSubPage.Sound, AppSettingsSubPage.System].map(getNavEntriesMapper())}
+
+            <NavSectionSeparator />
+
+            <NavSectionTitle>Game settings</NavSectionTitle>
+            {[GameSettingsSubPage.StarCraft].map(
+              getNavEntriesMapper({ hasError: !isStarcraftHealthy }),
+            )}
+
+            {[
+              GameSettingsSubPage.Input,
+              GameSettingsSubPage.Sound,
+              GameSettingsSubPage.Video,
+              GameSettingsSubPage.Gameplay,
+            ].map(getNavEntriesMapper({ disabled: !isStarcraftHealthy }))}
+          </>
+        ) : null}
+      </NavContainer>
+
+      <SettingsContent subPage={subPage} onCloseSettings={onCloseSettings} />
+    </Container>
+  )
+}
+
+const NavEntryRoot = styled.div<{ $isActive: boolean }>`
+  position: relative;
+  width: 100%;
+  height: 36px;
+  padding: 0 16px;
+
+  display: flex;
+  align-items: center;
+
+  border-radius: 4px;
+  cursor: pointer;
+
+  --sb-ripple-color: ${colorTextPrimary};
+  background-color: ${props => (props.$isActive ? 'rgba(255, 255, 255, 0.12)' : 'transparent')};
+
+  &[disabled] {
+    cursor: auto;
+  }
+
+  :focus-visible {
+    outline: none;
   }
 `
 
-const TitleActionButton = styled(IconButton)`
-  flex-shrink: 0;
-  min-height: 40px;
-  width: 40px;
-  line-height: 40px;
+const NavEntryText = styled(SettingsSubPageTitle)`
+  ${body2};
+  ${singleLine};
+
+  height: 100%;
+  line-height: 36px;
 `
 
-const ContentsBody = styled.div`
-  margin-top: 24px;
+const NavEntryIcon = styled(MaterialIcon).attrs({ size: 16 })`
+  margin-right: 4px;
 `
 
-const ErrorText = styled.div`
-  ${subtitle1};
+const ErrorIcon = styled(NavEntryIcon).attrs({ icon: 'error', filled: false })`
   color: ${colorError};
 `
 
-enum SettingsTab {
-  App = 'app',
-  Input = 'input',
-  Video = 'video',
-  Sound = 'sound',
-  Gameplay = 'gameplay',
-}
+const ErrorText = styled(NavEntryText)`
+  color: ${colorError};
+`
 
-const savedSettingsTab = new JsonLocalStorageValue<SettingsTab>('settingsTab')
-
-export default function SettingsDialog({ dialogRef, onCancel }: CommonDialogProps) {
-  const dispatch = useAppDispatch()
-  const localSettings = useAppSelector(s => s.settings.local)
-  const scrSettings = useAppSelector(s => s.settings.scr)
-  const lastError = useAppSelector(s => s.settings.lastError)
-
-  const [activeTab, setActiveTab] = useState(savedSettingsTab.getValue() ?? SettingsTab.App)
-  const [tempLocalSettings, setTempLocalSettings] = useState<LocalSettings>(localSettings)
-  const [tempScrSettings, setTempScrSettings] = useState<ScrSettings>(scrSettings)
-
-  const formRef = useRef<SettingsFormHandle>(null)
-  const saveButtonRef = useRef<HTMLButtonElement>(null)
-
-  const onTabChange = useCallback((value: SettingsTab) => {
-    setActiveTab(value)
-    savedSettingsTab.setValue(value)
-  }, [])
-  const onSetPathClick = useCallback(() => {
-    dispatch(openDialog({ type: DialogType.StarcraftPath }))
-  }, [dispatch])
-  const onSettingsSave = useCallback(() => {
-    formRef.current?.submit()
-  }, [])
-  const onSettingsCancel = useCallback(() => {
-    dispatch(closeDialog(DialogType.Settings))
-  }, [dispatch])
-  const onSettingsChange = useCallback((settings: Partial<LocalSettings & ScrSettings>) => {
-    setTempLocalSettings(prev => prev.merge(settings))
-    setTempScrSettings(prev => prev.merge(settings))
-  }, [])
-
-  const onSettingsSubmit = useCallback(() => {
-    // NOTE(tec27): We remove the StarCraft path here because we don't provide a way to change it
-    // in this dialog anyway, and depending on how IPC events interleave, the SC Path dialog may
-    // not have merged a new path by the time this dialog is first rendered. We don't want to merge
-    // an old path back into the settings, so we just remove it instead.
-    const localSettingsToMerge = tempLocalSettings.toJS() as Partial<LocalSettingsData>
-    delete localSettingsToMerge.starcraftPath
-    dispatch(mergeLocalSettings(localSettingsToMerge))
-    dispatch(mergeScrSettings(tempScrSettings.toJS() as Partial<ScrSettingsData>))
-
-    // TODO(tec27): This doesn't seem like it would actually catch errors from saving here? Since
-    // those would happen async-ly. Should probably have a form of this that doesn't bother with
-    // dispatching and just returns a promise we can await
-    if (!lastError) {
-      dispatch(closeDialog(DialogType.Settings))
-    }
-  }, [dispatch, tempLocalSettings, tempScrSettings, lastError])
-
-  useEffect(() => {
-    saveButtonRef.current?.focus()
-  }, [])
-
-  const starcraftVersionText = 'StarCraft: Remastered'
-  const titleAction = (
-    <TitleActionContainer>
-      <TitleActionText onClick={onSetPathClick}>{starcraftVersionText}</TitleActionText>
-      <TitleActionButton
-        icon={<MaterialIcon icon='settings' />}
-        title='Change StarCraft path'
-        onClick={onSetPathClick}
-      />
-    </TitleActionContainer>
-  )
-
-  const tabs = (
-    <Tabs activeTab={activeTab} onChange={onTabChange}>
-      <TabItem key='app' text='App' value={SettingsTab.App} />
-      <TabItem key='input' text='Input' value={SettingsTab.Input} />
-      <TabItem key='sound' text='Sound' value={SettingsTab.Sound} />
-      <TabItem key='video' text='Video' value={SettingsTab.Video} />
-      <TabItem key='gameplay' text='Gameplay' value={SettingsTab.Gameplay} />
-    </Tabs>
-  )
-
-  const buttons = [
-    <TextButton label='Cancel' key='cancel' color='accent' onClick={onSettingsCancel} />,
-    <TextButton
-      ref={saveButtonRef}
-      label='Save'
-      key='save'
-      color='accent'
-      onClick={onSettingsSave}
-    />,
-  ]
-
-  let contents: React.ReactNode
-  switch (activeTab) {
-    case SettingsTab.App:
-      contents = (
-        <AppSettings
-          localSettings={tempLocalSettings}
-          formRef={formRef}
-          onChange={onSettingsChange}
-          onSubmit={onSettingsSubmit}
-        />
-      )
-      break
-    case SettingsTab.Input:
-      contents = (
-        <InputSettings
-          scrSettings={tempScrSettings}
-          formRef={formRef}
-          onChange={onSettingsChange}
-          onSubmit={onSettingsSubmit}
-        />
-      )
-      break
-    case SettingsTab.Sound:
-      contents = (
-        <SoundSettings
-          scrSettings={tempScrSettings}
-          formRef={formRef}
-          onChange={onSettingsChange}
-          onSubmit={onSettingsSubmit}
-        />
-      )
-      break
-    case SettingsTab.Video:
-      contents = (
-        <VideoSettings
-          scrSettings={tempScrSettings}
-          formRef={formRef}
-          onChange={onSettingsChange}
-          onSubmit={onSettingsSubmit}
-        />
-      )
-      break
-    case SettingsTab.Gameplay:
-      contents = (
-        <GameplaySettings
-          localSettings={tempLocalSettings}
-          scrSettings={tempScrSettings}
-          formRef={formRef}
-          onChange={onSettingsChange}
-          onSubmit={onSettingsSubmit}
-        />
-      )
-      break
-    default:
-      contents = assertUnreachable(activeTab)
-  }
+function NavEntry({
+  subPage,
+  isActive,
+  disabled,
+  hasError,
+  onChangeSubPage,
+}: {
+  subPage: SettingsSubPage
+  isActive: boolean
+  disabled?: boolean
+  hasError?: boolean
+  onChangeSubPage: (subPage: SettingsSubPage) => void
+}) {
+  const onClick = useStableCallback(() => {
+    onChangeSubPage(subPage)
+  })
+  const [buttonProps, rippleRef] = useButtonState({ disabled, onClick })
 
   return (
-    <Dialog
-      dialogRef={dialogRef}
-      title='Settings'
-      titleAction={titleAction}
-      tabs={tabs}
-      alwaysHasTopDivider={true}
-      buttons={buttons}
-      onCancel={onCancel}>
-      <ContentsBody>
-        {lastError ? (
-          <ErrorText>There was an issue saving the settings. Please try again.</ErrorText>
-        ) : null}
+    <NavEntryRoot $isActive={isActive} {...buttonProps} tabIndex={0}>
+      {hasError ? (
+        <>
+          <ErrorIcon />
+          <ErrorText subPage={subPage} />
+        </>
+      ) : (
+        <NavEntryText subPage={subPage} />
+      )}
 
-        {contents}
-      </ContentsBody>
-    </Dialog>
+      <Ripple ref={rippleRef} disabled={disabled} />
+    </NavEntryRoot>
   )
+}
+
+const ContentContainer = styled.div`
+  width: 100%;
+  max-width: 960px;
+  padding: 16px;
+  overflow-y: auto;
+`
+
+const TitleBar = styled.div`
+  position: relative;
+  margin-bottom: 8px;
+
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+`
+
+const Title = styled(SettingsSubPageTitle)`
+  ${headline4};
+`
+
+const CloseIcon = styled(MaterialIcon).attrs({ icon: 'close' })`
+  flex-shrink: 0;
+`
+
+function SettingsContent({
+  subPage,
+  onCloseSettings,
+}: {
+  subPage: SettingsSubPage
+  onCloseSettings: () => void
+}) {
+  return (
+    <ContentContainer>
+      <TitleBar>
+        <Title subPage={subPage} />
+        <Tooltip text='Close settings (ESC)' position='bottom' tabIndex={-1}>
+          <IconButton icon={<CloseIcon />} onClick={onCloseSettings} />
+        </Tooltip>
+      </TitleBar>
+
+      <SettingsSubPageDisplay subPage={subPage} onCloseSettings={onCloseSettings} />
+    </ContentContainer>
+  )
+}
+
+function SettingsSubPageDisplay({
+  subPage,
+  onCloseSettings,
+}: {
+  subPage: SettingsSubPage
+  onCloseSettings: () => void
+}) {
+  // TODO(2Pac): Currently we don't have any non-Electron settings so this might look a bit weird.
+  // Once we add some global settings (e.g. editing user account, and changing a language), write a
+  // second switch statemt above `IS_ELECTRON` check which handles those pages.
+
+  if (!IS_ELECTRON) {
+    throw new Error(`Unknown settings page: ${subPage}`)
+  }
+
+  switch (subPage) {
+    case AppSettingsSubPage.Sound:
+      return <AppSoundSettings />
+    case AppSettingsSubPage.System:
+      return <AppSystemSettings />
+    case GameSettingsSubPage.StarCraft:
+      return <StarcraftSettings />
+    case GameSettingsSubPage.Input:
+      return <GameInputSettings />
+    case GameSettingsSubPage.Sound:
+      return <GameSoundSettings />
+    case GameSettingsSubPage.Video:
+      return <GameVideoSettings />
+    case GameSettingsSubPage.Gameplay:
+      return <GameplaySettings />
+  }
+
+  return assertUnreachable(subPage)
+}
+
+function SettingsSubPageTitle({
+  subPage,
+  className,
+}: {
+  subPage: SettingsSubPage
+  className?: string
+}) {
+  const { t } = useTranslation()
+
+  let title
+  switch (subPage) {
+    case AppSettingsSubPage.Sound:
+      title = t('settings.app.sound.label', 'Sound')
+      break
+    case AppSettingsSubPage.System:
+      title = t('settings.app.system.label', 'System')
+      break
+    case GameSettingsSubPage.StarCraft:
+      title = t('settings.game.starcraft.label', 'StarCraft')
+      break
+    case GameSettingsSubPage.Input:
+      title = t('settings.game.input.label', 'Input')
+      break
+    case GameSettingsSubPage.Sound:
+      title = t('settings.game.sound.label', 'Sound')
+      break
+    case GameSettingsSubPage.Video:
+      title = t('settings.game.video.label', 'Video')
+      break
+    case GameSettingsSubPage.Gameplay:
+      title = t('settings.game.gameplay.label', 'Gameplay')
+      break
+    default:
+      assertUnreachable(subPage)
+  }
+
+  return <span className={className}>{title}</span>
 }

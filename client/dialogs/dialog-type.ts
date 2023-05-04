@@ -19,11 +19,9 @@ export enum DialogType {
   PartyInvite = 'partyInvite',
   PostMatch = 'postMatch',
   PrivacyPolicy = 'privacyPolicy',
-  Settings = 'settings',
   Simple = 'simple',
   ShieldBatteryHealth = 'shieldBatteryHealth',
   StarcraftHealth = 'starcraftHealth',
-  StarcraftPath = 'starcraftPath',
   TermsOfService = 'termsOfService',
   Whispers = 'whispers',
 }
@@ -77,7 +75,6 @@ export type PostMatchDialogPayload = BaseDialogPayload<
   }
 >
 type PrivacyPolicyDialogPayload = BaseDialogPayload<typeof DialogType.PrivacyPolicy>
-type SettingsDialogPayload = BaseDialogPayload<typeof DialogType.Settings>
 type SimpleDialogPayload = BaseDialogPayload<
   typeof DialogType.Simple,
   {
@@ -88,7 +85,6 @@ type SimpleDialogPayload = BaseDialogPayload<
 >
 type ShieldBatteryHealthDialogPayload = BaseDialogPayload<typeof DialogType.ShieldBatteryHealth>
 type StarcraftHealthDialogPayload = BaseDialogPayload<typeof DialogType.StarcraftHealth>
-type StarcraftPathDialogPayload = BaseDialogPayload<typeof DialogType.StarcraftPath>
 type TermsOfServiceDialogPayload = BaseDialogPayload<typeof DialogType.TermsOfService>
 type WhispersDialogPayload = BaseDialogPayload<typeof DialogType.Whispers>
 
@@ -107,10 +103,8 @@ export type DialogPayload =
   | PartyInviteDialogPayload
   | PostMatchDialogPayload
   | PrivacyPolicyDialogPayload
-  | SettingsDialogPayload
   | SimpleDialogPayload
   | ShieldBatteryHealthDialogPayload
   | StarcraftHealthDialogPayload
-  | StarcraftPathDialogPayload
   | TermsOfServiceDialogPayload
   | WhispersDialogPayload

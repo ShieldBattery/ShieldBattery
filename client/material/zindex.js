@@ -14,3 +14,4 @@ export const zIndexSideNav = 70
 export const zIndexBackdrop = 60
 export const zIndexFab = 40
 export const zIndexAppBar = 30
+export const zIndexSettings = 25

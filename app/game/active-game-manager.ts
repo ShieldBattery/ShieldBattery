@@ -14,7 +14,7 @@ import { GameClientPlayerResult, SubmitGameResultsRequest } from '../../common/g
 import { EventMap, TypedEventEmitter } from '../../common/typed-emitter'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user'
 import log from '../logger'
-import { LocalSettings, ScrSettings } from '../settings'
+import { LocalSettingsManager, ScrSettingsManager } from '../settings'
 import { checkStarcraftPath } from './check-starcraft-path'
 import { MapStore } from './map-store'
 
@@ -79,8 +79,8 @@ export class ActiveGameManager extends TypedEventEmitter<ActiveGameManagerEvents
 
   constructor(
     private mapStore: MapStore,
-    private localSettings: LocalSettings,
-    private scrSettings: ScrSettings,
+    private localSettings: LocalSettingsManager,
+    private scrSettings: ScrSettingsManager,
   ) {
     super()
   }
@@ -388,8 +388,8 @@ const initialCompatLayer = process.env.__COMPAT_LAYER
 async function doLaunch(
   gameId: string,
   serverPort: number,
-  localSettings: LocalSettings,
-  scrSettings: ScrSettings,
+  localSettings: LocalSettingsManager,
+  scrSettings: ScrSettingsManager,
 ) {
   try {
     await fsPromises.access(injectPath)
