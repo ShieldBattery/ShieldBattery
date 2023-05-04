@@ -41,5 +41,32 @@
             "tabSummary": "Resumen",
             "buttonCopyLink": "Copiar enlace al juego"
         }
+    },
+    "settings": {
+        "app": {
+            "sound": {
+                "label": "Sonido"
+            },
+            "system": {
+                "label": "Sistema"
+            }
+        },
+        "game": {
+            "gameplay": {
+                "label": "Como se Juega"
+            },
+            "input": {
+                "label": "Aporte"
+            },
+            "sound": {
+                "label": "Sonido"
+            },
+            "starcraft": {
+                "label": "Barco de estrellas"
+            },
+            "video": {
+                "label": "Video"
+            }
+        }
     }
 }
