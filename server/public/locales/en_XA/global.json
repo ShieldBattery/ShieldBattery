@@ -41,5 +41,32 @@
             "tabSummary": "$Summary!",
             "buttonCopyLink": "$Copy link to game!"
         }
+    },
+    "settings": {
+        "app": {
+            "system": {
+                "label": "$System!"
+            },
+            "sound": {
+                "label": "$Sound!"
+            }
+        },
+        "game": {
+            "gameplay": {
+                "label": "$Gameplay!"
+            },
+            "sound": {
+                "label": "$Sound!"
+            },
+            "starcraft": {
+                "label": "$StarCraft!"
+            },
+            "video": {
+                "label": "$Video!"
+            },
+            "input": {
+                "label": "$Input!"
+            }
+        }
     }
 }
