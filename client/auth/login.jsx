@@ -130,7 +130,7 @@ class LoginForm extends React.Component {
           <RowEdge />
           <AuthCheckBox
             {...bindCheckable('remember')}
-            label={t('account.login.rememberMe', 'Remember me')}
+            label={t('auth.login.rememberMe', 'Remember me')}
             inputProps={{ tabIndex: 1 }}
           />
           <Spacer />

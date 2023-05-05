@@ -1,9 +1,4 @@
 {
-  "account": {
-    "login": {
-      "rememberMe": "Remember me"
-    }
-  },
   "auth": {
     "editAccount": {
       "changePassword": "Change password?",
@@ -61,6 +56,7 @@
     "login": {
       "forgotPassword": "Forgot password?",
       "forgotUsername": "Forgot username?",
+      "rememberMe": "Remember me",
       "signUp": "Sign up for an account",
       "title": "Log in",
       "whatIsShieldBattery": "What is ShieldBattery?"
