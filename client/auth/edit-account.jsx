@@ -36,7 +36,8 @@ import { updateAccount } from './action-creators'
 // form validators here would be quite cumbersome, so this seemed easier until it gets replaced with
 // hooks.
 import { Trans } from 'react-i18next'
-import { t } from '../i18n/i18next'
+import i18n from '../i18n/i18next'
+const t = i18n.t
 
 function passwordRequired() {
   return (val, model, dirty) =>

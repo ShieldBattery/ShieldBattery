@@ -38,7 +38,8 @@ import { UserErrorDisplay } from './user-error-display'
 // can be used with class components to make the `t` function reactive, but making that work with
 // form validators here would be quite cumbersome, so this seemed easier until it gets replaced with
 // hooks.
-import { t } from '../i18n/i18next'
+import i18n from '../i18n/i18next'
+const t = i18n.t
 
 const usernameValidator = composeValidators(
   required(t('auth.usernameValidator.required', 'Enter a username')),
