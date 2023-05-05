@@ -32,7 +32,7 @@
       "wrongUserError": "Error: You must be logged into the account whose email you want to verify. Please switch users by clicking the button below and try again."
     },
     "forgot": {
-      "backToLogin": "Back to login.",
+      "backToLogin": "Back to login",
       "generalError": "Error: {{error}}",
       "password": {
         "sendResetEmail": "Send reset email",
