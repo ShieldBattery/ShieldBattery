@@ -41,8 +41,9 @@
       },
       "reset": {
         "confirmPassword": "Confirm new password",
-        "newPassword": "Set new password",
+        "newPassword": "New password",
         "passwordCode": "Password reset code",
+        "setNewPassword": "Set new password",
         "successMessage": "Your password has been reset.",
         "title": "Reset password"
       },

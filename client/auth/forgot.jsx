@@ -375,7 +375,7 @@ class ResetPasswordForm extends React.Component {
         </FieldRow>
         <FieldRow>
           <RaisedButton
-            label={t('auth.forgot.reset.newPassword', 'Set new password')}
+            label={t('auth.forgot.reset.setNewPassword', 'Set new password')}
             onClick={onSubmit}
             tabIndex={1}
           />
