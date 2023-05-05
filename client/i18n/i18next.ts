@@ -17,7 +17,7 @@ const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
  * Taken as a best solution from this comment:
  * https://github.com/i18next/react-i18next/issues/1483#issuecomment-1268455602
  */
-export type TI = any
+export type TransInterpolation = any
 
 export const i18nextPromise = i18n
   .use(HttpBackend)

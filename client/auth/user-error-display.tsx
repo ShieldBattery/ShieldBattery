@@ -3,7 +3,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { UserErrorCode } from '../../common/users/sb-user'
 import { longTimestamp } from '../i18n/date-formats'
-import { TI } from '../i18n/i18next'
+import { TransInterpolation } from '../i18n/i18next'
 import { FetchError, isFetchError } from '../network/fetch-errors'
 import { Subtitle2 } from '../styles/typography'
 import { ErrorsContainer } from './auth-content'
@@ -37,11 +37,16 @@ function UserError({ error }: { error: FetchError }) {
             This account has been banned.
             <BanReason>
               <Subtitle2>Reason:</Subtitle2>
-              <span>{{ error: (error.body as any).reason } as TI}</span>
+              <span>{{ error: (error.body as any).reason } as TransInterpolation}</span>
             </BanReason>
             <span>
               The ban will expire at{' '}
-              {{ expireTime: longTimestamp.format((error.body as any).expiration) } as TI}.
+              {
+                {
+                  expireTime: longTimestamp.format((error.body as any).expiration),
+                } as TransInterpolation
+              }
+              .
             </span>
           </Trans>
         </div>
