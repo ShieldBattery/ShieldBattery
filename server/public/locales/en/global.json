@@ -25,7 +25,7 @@
       "resendError": "Error resending email: {{error}}",
       "resendSuccess": "A new verification code has been sent to your account's email address.",
       "resendVerificationEmail": "Resend verification email",
-      "sendError": "",
+      "sendError": "Something went wrong while sending a verification email, please try again later.",
       "switchUser": "Switch user",
       "title": "Verify email",
       "verifySuccess": "Your email has been successfully verified.",
@@ -36,7 +36,7 @@
       "generalError": "Error: {{error}}",
       "password": {
         "sendResetEmail": "Send reset email",
-        "successMessage": "",
+        "successMessage": "If that email address and username match a registered account, you should receive an email in the next few minutes with instructions on how to reset your password.",
         "title": "Reset password"
       },
       "reset": {
@@ -50,7 +50,7 @@
       "user": {
         "enterEmail": "Please enter the email address you signed up with.",
         "recoverUsername": "Recover username",
-        "successMessage": "",
+        "successMessage": "If there are any users registered to that email address, you should receive an email in the next few minutes with the relevant usernames.",
         "title": "Recover your username"
       }
     },
