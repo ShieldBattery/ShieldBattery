@@ -86,7 +86,8 @@
       "title": "Create account"
     },
     "userErrorDisplay": {
-      "accountBanned": "This account has been banned.<1><0>Reason:</0><1>{{error}}</1></1><2>The ban will expire at {{expireTime}}.</2>",
+      "accountBanned": "This account has been banned.<1><0>Reason:</0><1>{{banReason}}</1></1><2>The ban will expire at {{expireTime}}.</2>",
+      "banWithoutReason": "No reason specified",
       "defaultError": "An error occurred: {{status}} {{statusText}}",
       "genericError": "An error occurred: {{errorMessage}}",
       "invalidCredentials": "Incorrect username or password",

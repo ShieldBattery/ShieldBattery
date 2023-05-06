@@ -31,13 +31,16 @@ function UserError({ error }: { error: FetchError }) {
         </span>
       )
     case UserErrorCode.AccountBanned:
+      const banReason = error.body
+        ? { error: (error.body as any).reason }
+        : t('auth.userErrorDisplay.banWithoutReason', 'No reason specified')
       return (
         <div>
           <Trans t={t} i18nKey='auth.userErrorDisplay.accountBanned'>
             This account has been banned.
             <BanReason>
               <Subtitle2>Reason:</Subtitle2>
-              <span>{{ error: (error.body as any).reason } as TransInterpolation}</span>
+              <span>{{ banReason } as TransInterpolation}</span>
             </BanReason>
             <span>
               The ban will expire at{' '}
