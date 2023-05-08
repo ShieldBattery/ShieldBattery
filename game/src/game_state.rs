@@ -33,7 +33,6 @@ use crate::network_manager::{
 use crate::proto::messages::game_message_payload::Payload;
 use crate::proto::messages::{ClientAckResponseMessage, ClientReadyMessage};
 use crate::replay;
-use crate::snp;
 
 pub struct GameState {
     init_state: InitState,
@@ -1425,7 +1424,6 @@ async unsafe fn try_join_lobby_once(
     let map_path = map_path.clone();
     std::thread::spawn(move || {
         let address = Ipv4Addr::new(10, 27, 27, 0);
-        snp::spoof_game("shieldbattery", address);
         let bw = get_bw();
         let result = bw.join_lobby(&mut game_info, is_eud, turn_rate, &map_path, address);
         let _ = send.send(result);

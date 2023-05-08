@@ -202,8 +202,6 @@ impl LobbyCreateError {
     }
 }
 
-pub const GAME_STATE_ACTIVE: u32 = 0x04;
-
 pub const PLAYER_TYPE_NONE: u8 = 0x0;
 pub const PLAYER_TYPE_HUMAN: u8 = 0x2;
 pub const PLAYER_TYPE_LOBBY_COMPUTER: u8 = 0x5;
@@ -250,25 +248,6 @@ pub struct LobbyGameInitData {
 }
 
 #[repr(C)]
-#[derive(Clone)]
-pub struct SnpGameInfo {
-    pub index: u32,
-    pub game_state: u32,
-    pub unk1: u32,
-    pub host_addr: sockaddr,
-    pub unk2: u32,
-    pub update_time: u32,
-    pub unk3: u32,
-    pub game_name: [u8; 128],
-    pub game_stats: [u8; 128],
-    pub next: *mut SnpGameInfo,
-    pub extra: *mut c_void,
-    pub extra_size: u32,
-    pub product_code: u32,
-    pub version_code: u32,
-}
-
-#[repr(C)]
 pub struct SnpFunctions {
     pub unk0: usize,
     pub free_packet: unsafe extern "stdcall" fn(*mut sockaddr, *const u8, u32) -> i32,
@@ -303,18 +282,6 @@ pub struct SnpFunctions {
     pub unk34: usize,
     pub start_listening_for_games: Option<unsafe extern "stdcall" fn() -> i32>,
     pub future_padding: [usize; 0x10],
-}
-
-#[repr(C)]
-pub struct SnpListEntry {
-    pub prev: *mut SnpListEntry,
-    pub next: *mut SnpListEntry,
-    pub file_path: [u8; 260],
-    pub index: u32,
-    pub identifier: u32,
-    pub name: [u8; 128],
-    pub description: [u8; 128],
-    pub capabilities: SnpCapabilities,
 }
 
 #[repr(C)]
@@ -431,17 +398,12 @@ pub struct UnitStatusFunc {
 
 unsafe impl Send for SnpFunctions {}
 unsafe impl Sync for SnpFunctions {}
-unsafe impl Send for SnpListEntry {}
-unsafe impl Sync for SnpListEntry {}
-unsafe impl Send for SnpGameInfo {}
-unsafe impl Sync for SnpGameInfo {}
 unsafe impl Send for ClientInfo {}
 unsafe impl Sync for ClientInfo {}
 
 #[test]
 fn struct_sizes() {
     use std::mem::size_of;
-    assert_eq!(size_of::<SnpGameInfo>(), 0x13c);
     assert_eq!(size_of::<StormPlayer>(), 0x22);
     assert_eq!(size_of::<BwGameData>(), 0x8d);
     assert_eq!(size_of::<GameTemplate>(), 0x20);

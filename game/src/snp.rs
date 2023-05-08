@@ -9,7 +9,6 @@ use libc::{c_void, sockaddr};
 use winapi::shared::ntdef::HANDLE;
 use winapi::shared::ws2def::{AF_INET, SOCKADDR_IN};
 use winapi::um::synchapi::SetEvent;
-use winapi::um::sysinfoapi::GetTickCount;
 
 use crate::bw;
 use crate::game_thread::{send_game_msg_to_async, GameThreadMessage};
@@ -52,16 +51,12 @@ pub static CAPABILITIES: bw::SnpCapabilities = bw::SnpCapabilities {
 };
 
 struct State {
-    spoofed_game: Option<bw::SnpGameInfo>,
-    spoofed_game_dirty: bool,
     current_client_info: Option<bw::ClientInfo>,
     messages: Vec<ReceivedMessage>,
 }
 
 lazy_static! {
     static ref STATE: Mutex<State> = Mutex::new(State {
-        spoofed_game: None,
-        spoofed_game_dirty: false,
         current_client_info: None,
         messages: Vec::with_capacity(32),
     });
@@ -94,35 +89,6 @@ fn sockaddr_to_std_ip(address: sockaddr) -> Ipv4Addr {
         let octets = addr.sin_addr.S_un.S_un_b();
         Ipv4Addr::new(octets.s_b1, octets.s_b2, octets.s_b3, octets.s_b4)
     }
-}
-
-pub fn spoof_game(name: &str, address: Ipv4Addr) {
-    with_state(|state| unsafe {
-        let current_client_info = match state.current_client_info {
-            Some(ref s) => s,
-            None => {
-                error!("spoof_game: current client info not set");
-                return;
-            }
-        };
-        let mut info = bw::SnpGameInfo {
-            index: 1,
-            game_state: bw::GAME_STATE_ACTIVE,
-            host_addr: std_ip_to_sockaddr(address),
-            update_time: GetTickCount(),
-            product_code: current_client_info.product_code,
-            version_code: current_client_info.version_code,
-            unk2: 0x50,
-            unk3: 0xa7,
-            ..mem::zeroed()
-        };
-        for (out, val) in info.game_name.iter_mut().zip(name.as_bytes().iter()) {
-            *out = *val;
-        }
-        debug!("Spoofing game for address {:?}", address);
-        state.spoofed_game_dirty = true;
-        state.spoofed_game = Some(info);
-    });
 }
 
 /// Messages sent to the async SNP task from BW's side.
@@ -178,8 +144,6 @@ pub unsafe extern "stdcall" fn free_packet(
 pub unsafe fn initialize(client_info: &bw::ClientInfo, receive_event: Option<HANDLE>) {
     debug!("SNP initialize");
     with_state(|state| {
-        state.spoofed_game = None;
-        state.spoofed_game_dirty = false;
         state.current_client_info = Some(*client_info);
         // I don't know what's the intended usage pattern with this handle,
         // but duplicating it should make it safe to send to a thread that may use it
