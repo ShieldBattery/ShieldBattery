@@ -34,7 +34,7 @@ pub unsafe fn init_crash_handler() {
     );
 }
 
-whack_hooks!(stdcall, 0,
+system_hooks!(
     !0 => SetUnhandledExceptionFilterDecl(*mut c_void) -> *mut c_void;
 );
 
@@ -60,7 +60,10 @@ struct CppExceptionVtable {
 unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
     assert!(!exception.is_null());
     // TODO
+    #[cfg(target_arch = "x86")]
     let place = (*(*exception).ContextRecord).Eip;
+    #[cfg(target_arch = "x86_64")]
+    let place = (*(*exception).ContextRecord).Rip;
     let exception_record = (*exception).ExceptionRecord;
     let exception_code = (*exception_record).ExceptionCode;
     let mut message = format!("Crash @ {:08x}\nException {:08x}", place, exception_code);

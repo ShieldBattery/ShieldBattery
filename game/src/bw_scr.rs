@@ -14,7 +14,7 @@ use smallvec::SmallVec;
 use winapi::um::errhandlingapi::SetLastError;
 use winapi::um::libloaderapi::GetModuleHandleW;
 
-use scr_analysis::{scarf, DatType};
+use scr_analysis::{scarf, DatType, VirtualAddress};
 use sdf_cache::{InitSdfCache, SdfCache};
 use shader_replaces::ShaderReplaces;
 pub use thiscall::Thiscall;
@@ -103,7 +103,7 @@ pub struct BwScr {
     // Array of bw::UnitStatusFunc for each unit id,
     // called to update what controls on status screen are shown if the unit
     // is single selected.
-    status_screen_funcs: Option<scarf::VirtualAddress>,
+    status_screen_funcs: Option<VirtualAddress>,
     original_status_screen_update: Vec<unsafe extern "C" fn(*mut bw::Dialog)>,
 
     init_network_player_info: unsafe extern "C" fn(u32, u32, u32, u32),
@@ -135,28 +135,28 @@ pub struct BwScr {
     snet_send_packets: unsafe extern "C" fn(),
     process_game_commands: unsafe extern "C" fn(*const u8, usize, u32),
     move_screen: unsafe extern "C" fn(u32, u32),
-    mainmenu_entry_hook: scarf::VirtualAddress,
-    load_snp_list: scarf::VirtualAddress,
-    start_udp_server: scarf::VirtualAddress,
-    font_cache_render_ascii: scarf::VirtualAddress,
-    ttf_render_sdf: scarf::VirtualAddress,
-    step_io: scarf::VirtualAddress,
-    init_game_data: scarf::VirtualAddress,
-    init_unit_data: scarf::VirtualAddress,
-    step_game: scarf::VirtualAddress,
-    step_network_addr: scarf::VirtualAddress,
-    step_replay_commands: scarf::VirtualAddress,
+    mainmenu_entry_hook: VirtualAddress,
+    load_snp_list: VirtualAddress,
+    start_udp_server: VirtualAddress,
+    font_cache_render_ascii: VirtualAddress,
+    ttf_render_sdf: VirtualAddress,
+    step_io: VirtualAddress,
+    init_game_data: VirtualAddress,
+    init_unit_data: VirtualAddress,
+    step_game: VirtualAddress,
+    step_network_addr: VirtualAddress,
+    step_replay_commands: VirtualAddress,
     game_command_lengths: Vec<u32>,
-    prism_pixel_shaders: Vec<scarf::VirtualAddress>,
-    prism_renderer_vtable: scarf::VirtualAddress,
+    prism_pixel_shaders: Vec<VirtualAddress>,
+    prism_renderer_vtable: VirtualAddress,
     replay_minimap_patch: Option<scr_analysis::Patch>,
-    open_file: scarf::VirtualAddress,
-    prepare_issue_order: scarf::VirtualAddress,
-    create_game_multiplayer: scarf::VirtualAddress,
-    spawn_dialog: scarf::VirtualAddress,
-    step_game_logic: scarf::VirtualAddress,
-    net_format_turn_rate: scarf::VirtualAddress,
-    update_game_screen_size: scarf::VirtualAddress,
+    open_file: VirtualAddress,
+    prepare_issue_order: VirtualAddress,
+    create_game_multiplayer: VirtualAddress,
+    spawn_dialog: VirtualAddress,
+    step_game_logic: VirtualAddress,
+    net_format_turn_rate: VirtualAddress,
+    update_game_screen_size: VirtualAddress,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
 
@@ -248,14 +248,14 @@ pub mod scr {
 
     #[repr(C)]
     pub struct SnpLoadFuncs {
-        pub identify: unsafe extern "stdcall" fn(
+        pub identify: unsafe extern "system" fn(
             u32,            // snp index
             *mut u32,       // id
             *mut *const u8, // name
             *mut *const u8, // description
             *mut *const crate::bw::SnpCapabilities,
         ) -> u32,
-        pub bind: unsafe extern "stdcall" fn(u32, *mut *const SnpFunctions) -> u32,
+        pub bind: unsafe extern "system" fn(u32, *mut *const SnpFunctions) -> u32,
     }
 
     #[repr(C)]
@@ -505,7 +505,10 @@ pub mod scr {
         // String -> GameInfoValue
         // Key offset in BwHashTableEntry is 0x8, Value offset 0x28
         pub params: BwHashTable,
+        #[cfg(target_arch = "x86")]
         pub unk10: [u8; 0x24],
+        #[cfg(target_arch = "x86_64")]
+        pub unk10: [u8; 0x40],
         pub game_name: BwString,
         pub sockaddr_family: u16,
         // Network endian
@@ -552,9 +555,9 @@ pub mod scr {
 
     #[repr(C)]
     pub struct BwHashTable {
-        pub bucket_count: u32,
+        pub bucket_count: usize,
         pub buckets: *mut *mut BwHashTableEntry,
-        pub size: u32,
+        pub size: usize,
         pub resize_factor: f32,
     }
 
@@ -690,22 +693,32 @@ pub mod scr {
 
     #[test]
     fn struct_sizes() {
+        #[cfg(target_arch = "x86")]
+        fn size(value: usize, _: usize) -> usize {
+            value
+        }
+        #[cfg(target_arch = "x86_64")]
+        fn size(_: usize, value: usize) -> usize {
+            value
+        }
+
         use std::mem::size_of;
-        assert_eq!(size_of::<JoinableGameInfo>(), 0x84 + 0x24);
+        assert_eq!(size_of::<JoinableGameInfo>(), size(0x84 + 0x24, 0xbc + 0x24));
         assert_eq!(size_of::<StormPlayer>(), 0x68);
-        assert_eq!(size_of::<SnpFunctions>(), 0x3c + 0x10 * size_of::<usize>());
-        assert_eq!(size_of::<PrismShaderSet>(), 0x8);
-        assert_eq!(size_of::<PrismShader>(), 0x10);
-        assert_eq!(size_of::<DrawCommand>(), 0xa0);
+        assert_eq!(size_of::<SnpFunctions>(), (0x3c / 4 + 0x10) * size_of::<usize>());
+        assert_eq!(size_of::<PrismShaderSet>(), size(0x8, 0x10));
+        assert_eq!(size_of::<PrismShader>(), size(0x10, 0x18));
+        assert_eq!(size_of::<DrawCommand>(), size(0xa0, 0xd8));
+        // Not correct on 64bit but don't think we rely on the size at all.
         assert_eq!(size_of::<Shader>(), 0x78);
-        assert_eq!(size_of::<Sprite>(), 0x28);
+        assert_eq!(size_of::<Sprite>(), size(0x28, 0x48));
     }
 }
 
 // Actually thiscall, but that isn't available in stable Rust (._.)
 // Luckily we don't care about ecx
 // Argument is a pointer to some BnetCreatePopup class
-unsafe extern "stdcall" fn lobby_create_callback(_popup: *mut c_void) -> u32 {
+unsafe extern "system" fn lobby_create_callback(_popup: *mut c_void) -> u32 {
     // Return 1001 = Error, 1003 = Ok but needs proxy, 1004 = Other error
     0
 }
@@ -830,9 +843,9 @@ impl<T: BwValue> Value<T> {
                 let addr = resolve_operand(base, &[]).wrapping_add(offset as usize);
                 match mem.size {
                     MemAccessSize::Mem8 => *(addr as *mut u8) = value as u8,
-                    MemAccessSize::Mem16 => *(addr as *mut u16) = value as u16,
-                    MemAccessSize::Mem32 => *(addr as *mut u32) = value as u32,
-                    MemAccessSize::Mem64 => *(addr as *mut u64) = value as u64,
+                    MemAccessSize::Mem16 => (addr as *mut u16).write_unaligned(value as u16),
+                    MemAccessSize::Mem32 => (addr as *mut u32).write_unaligned(value as u32),
+                    MemAccessSize::Mem64 => (addr as *mut u64).write_unaligned(value as u64),
                 };
             }
             _ => panic!("Cannot write to {}", self.op),
@@ -851,7 +864,7 @@ unsafe fn resolve_operand(op: scarf::Operand<'_>, custom: &[usize]) -> usize {
             let (base, offset) = mem.address();
             let addr = resolve_operand(base, custom).wrapping_add(offset as usize);
             if addr < 0x80 {
-                let val = read_fs(addr as usize);
+                let val = read_fs_gs(addr as usize);
                 match mem.size {
                     MemAccessSize::Mem8 => val & 0xff,
                     MemAccessSize::Mem16 => val & 0xffff,
@@ -983,11 +996,15 @@ impl BwScr {
             let data = pe_image::get_section(base, b".data\0\0\0").unwrap();
             let reloc = pe_image::get_section(base, b".reloc\0\0").unwrap();
             let sections = vec![pe_image::get_pe_header(base), text, rdata, data, reloc];
-            let base = scarf::VirtualAddress(base as u32);
+            let base = VirtualAddress(base as _);
+            #[allow(unused_mut)] // As mutation is needed only on the cfg(x86) part
             let mut binary = scarf::raw_bin(base, sections);
-            let relocs =
-                scarf::analysis::find_relocs::<scarf::ExecutionStateX86<'_>>(&binary).unwrap();
-            binary.set_relocs(relocs);
+            #[cfg(target_arch = "x86")]
+            {
+                let relocs =
+                    scarf::analysis::find_relocs::<scarf::ExecutionStateX86<'_>>(&binary).unwrap();
+                binary.set_relocs(relocs);
+            }
             binary
         };
         let exe_build = get_exe_build();
@@ -1931,11 +1948,11 @@ impl BwScr {
 
     unsafe fn storm_last_error_ptr(&self) -> *mut u32 {
         // This just is starcraft.exe errno
-        // dword [[fs:[2c] + tls_index * 4] + 8]
+        // dword [[fs:[2c] + tls_index * 4] + 4]
         let tls_index = *self.starcraft_tls_index.0;
-        let table = read_fs(0x2c) as *mut *mut u32;
+        let table = read_fs_gs(0xb * mem::size_of::<usize>()) as *mut *mut u32;
         let tls_data = *table.add(tls_index as usize);
-        tls_data.add(2)
+        tls_data.add(1)
     }
 
     unsafe fn storm_last_error(&self) -> u32 {
@@ -2705,10 +2722,11 @@ fn init_bw_dat(analysis: &mut scr_analysis::Analysis<'_>) -> Result<(), &'static
         // 1.16.1 compatible format.
         let mut value = resolve_operand(table.address, &[]) as *const u8;
         for _ in 0..entries {
+            let bw_table = value as *mut bw::DatTable;
             out.push(bw::DatTable {
-                data: *(value as *const _),
-                entry_size: *(value.add(4) as *const u32),
-                entries: *(value.add(8) as *const u32),
+                data: (*bw_table).data,
+                entry_size: (*bw_table).entry_size,
+                entries: (*bw_table).entries,
             });
             value = value.add(table.entry_size as usize);
         }
@@ -3045,7 +3063,7 @@ static SNP_FUNCTIONS: SnpFunctions = SnpFunctions {
     future_padding: [0; 0x10],
 };
 
-unsafe extern "stdcall" fn snp_load_identify(
+unsafe extern "system" fn snp_load_identify(
     snp_index: u32,
     id: *mut u32,
     name: *mut *const u8,
@@ -3063,7 +3081,7 @@ unsafe extern "stdcall" fn snp_load_identify(
     1
 }
 
-unsafe extern "stdcall" fn snp_initialize(
+unsafe extern "system" fn snp_initialize(
     client_info: *const bw::ClientInfo,
     user_data: *mut c_void,
     battle_info: *mut c_void,
@@ -3073,7 +3091,7 @@ unsafe extern "stdcall" fn snp_initialize(
     // We'll also have to call the SCR's normal LAN SNP init function, which initializes
     // a global that SCR will try to access on game joining. Luckily it won't initialize
     // anything else we don't want.
-    let scr_init: unsafe extern "stdcall" fn(
+    let scr_init: unsafe extern "system" fn(
         *const bw::ClientInfo,
         *mut c_void,
         *mut c_void,
@@ -3087,7 +3105,7 @@ unsafe extern "stdcall" fn snp_initialize(
 static SCR_SNP_INITIALIZE: AtomicUsize = AtomicUsize::new(0);
 static SNP_INITIALIZED: AtomicBool = AtomicBool::new(false);
 
-unsafe extern "stdcall" fn snp_load_bind(snp_index: u32, funcs: *mut *const SnpFunctions) -> u32 {
+unsafe extern "system" fn snp_load_bind(snp_index: u32, funcs: *mut *const SnpFunctions) -> u32 {
     if snp_index > 0 {
         return 0;
     }
@@ -3108,7 +3126,6 @@ mod hooks {
         !0 => EntryPoint();
         !0 => OpenFile(*mut scr::FileHandle, *const u8, *const scr::OpenParams) ->
             *mut scr::FileHandle;
-        !0 => FontCacheRenderAscii(@ecx *mut c_void);
         !0 => Ttf_RenderSdf(
             *mut scr::TtfFont,
             f32,
@@ -3128,7 +3145,6 @@ mod hooks {
         !0 => InitUnitData();
         !0 => StepGame();
         !0 => StepReplayCommands();
-        !0 => StartUdpServer(@ecx *mut c_void) -> u32;
         !0 => CreateGameMultiplayer(
             *mut bw::BwGameData, // Note: 1.16.1 struct, not scr::JoinableGameInfo
             *const u8, // Game name
@@ -3144,7 +3160,7 @@ mod hooks {
         !0 => UpdateGameScreenSize(f32);
     );
 
-    whack_hooks!(stdcall, 0,
+    system_hooks!(
         !0 => LoadSnpList(*mut scr::SnpLoadFuncs, u32) -> u32;
         !0 => CreateEventW(*mut c_void, u32, u32, *const u16) -> *mut c_void;
         !0 => CloseHandle(*mut c_void) -> u32;
@@ -3159,28 +3175,39 @@ mod hooks {
             *mut c_void,
         ) -> *mut c_void;
         !0 => CopyFileW(*const u16, *const u16, u32) -> u32;
-        !0 => StepIo(@ecx *mut c_void);
-        !0 => Renderer_Render(@ecx *mut c_void, *mut scr::DrawCommands, u32, u32) -> u32;
+        !0 => XInputGetState(u32, *mut c_void) -> u32;
+    );
+
+    thiscall_hooks!(
+        !0 => FontCacheRenderAscii(*mut c_void);
+        !0 => StartUdpServer(*mut c_void) -> u32;
+        !0 => StepIo(*mut c_void);
+        !0 => Renderer_Render(*mut c_void, *mut scr::DrawCommands, u32, u32) -> u32;
         !0 => Renderer_CreateShader(
-            @ecx *mut c_void,
+            *mut c_void,
             *mut scr::Shader,
             *const u8,
             *const u8,
             *const u8,
             *mut c_void,
         ) -> usize;
-        !0 => XInputGetState(u32, *mut c_void) -> u32;
-        !0 => PrepareIssueOrder(@ecx *mut bw::Unit, u32, u32, *mut bw::Unit, u32, u32);
+        !0 => PrepareIssueOrder(*mut bw::Unit, u32, u32, *mut bw::Unit, u32, u32);
     );
 }
 
-// Inline asm is only on nightly rust, so..
+// Inline asm was only on nightly rust when this was written..
 // mov eax, [esp + 4]; mov eax, fs:[eax]; ret
+#[cfg(target_arch = "x86")]
 #[link_section = ".text"]
-static READ_FS: [u8; 8] = [0x8b, 0x44, 0xe4, 0x04, 0x64, 0x8b, 0x00, 0xc3];
+static READ_FS_GS: [u8; 8] = [0x8b, 0x44, 0xe4, 0x04, 0x64, 0x8b, 0x00, 0xc3];
 
-unsafe fn read_fs(offset: usize) -> usize {
-    let func: extern "C" fn(usize) -> usize = mem::transmute(READ_FS.as_ptr());
+// mov rax, gs:[rcx]; ret
+#[cfg(target_arch = "x86_64")]
+#[link_section = ".text"]
+static READ_FS_GS: [u8; 5] = [0x65, 0x48, 0x8b, 0x00, 0xc3];
+
+unsafe fn read_fs_gs(offset: usize) -> usize {
+    let func: extern "C" fn(usize) -> usize = mem::transmute(READ_FS_GS.as_ptr());
     func(offset)
 }
 

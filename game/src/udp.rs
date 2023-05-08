@@ -85,7 +85,7 @@ fn bind_udp_ipv6_ipv4_socket(local_addr: &SocketAddrV6) -> Result<UdpSocket, io:
         if err != 0 {
             return Err(io::Error::from_raw_os_error(WSAGetLastError()));
         }
-        Ok(UdpSocket::from_raw_socket(socket as u32))
+        Ok(UdpSocket::from_raw_socket(socket as _))
     }
 }
 

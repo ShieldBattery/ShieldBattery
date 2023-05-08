@@ -7,6 +7,44 @@ use libc::c_void;
 
 use crate::windows;
 
+#[cfg(target_arch = "x86")]
+macro_rules! system_hooks {
+    ($(!0 => $name:ident($($args:tt)*) $(-> $ret:ty)?;)*) => {
+        whack_hooks!(stdcall, 0,
+            $(!0 => $name($($args)*) $(-> $ret)?;)*
+        );
+    };
+}
+
+#[cfg(target_arch = "x86_64")]
+macro_rules! system_hooks {
+    ($(!0 => $name:ident($($args:tt)*) $(-> $ret:ty)?;)*) => {
+        whack_hooks!(0,
+            $(!0 => $name($($args)*) $(-> $ret)?;)*
+        );
+    };
+}
+
+// stdcall, with first argument in ecx.
+#[cfg(target_arch = "x86")]
+macro_rules! thiscall_hooks {
+    ($(!0 => $name:ident($($args:tt)*) $(-> $ret:ty)?;)*) => {
+        whack_hooks!(stdcall, 0,
+            $(!0 => $name(@ecx $($args)*) $(-> $ret)?;)*
+        );
+    };
+}
+
+// Just standard win64 calling convention.
+#[cfg(target_arch = "x86_64")]
+macro_rules! thiscall_hooks {
+    ($(!0 => $name:ident($($args:tt)*) $(-> $ret:ty)?;)*) => {
+        whack_hooks!(0,
+            $(!0 => $name($($args)*) $(-> $ret)?;)*
+        );
+    };
+}
+
 // It would be preferrable to refactor this macro away to some sort of an api like
 // ```
 //    let mut hook = WinapiDllHook::new(&mut patcher, "user32");

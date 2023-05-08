@@ -250,8 +250,8 @@ pub struct LobbyGameInitData {
 #[repr(C)]
 pub struct SnpFunctions {
     pub unk0: usize,
-    pub free_packet: unsafe extern "stdcall" fn(*mut sockaddr, *const u8, u32) -> i32,
-    pub initialize: unsafe extern "stdcall" fn(
+    pub free_packet: unsafe extern "system" fn(*mut sockaddr, *const u8, u32) -> i32,
+    pub initialize: unsafe extern "system" fn(
         *const crate::bw::ClientInfo,
         *mut c_void,
         *mut c_void,
@@ -259,10 +259,10 @@ pub struct SnpFunctions {
     ) -> i32,
     pub unk0c: usize,
     pub receive_packet:
-        unsafe extern "stdcall" fn(*mut *mut sockaddr, *mut *const u8, *mut u32) -> i32,
-    pub send_packet: unsafe extern "stdcall" fn(*const sockaddr, *const u8, u32) -> i32,
+        unsafe extern "system" fn(*mut *mut sockaddr, *mut *const u8, *mut u32) -> i32,
+    pub send_packet: unsafe extern "system" fn(*const sockaddr, *const u8, u32) -> i32,
     pub unk18: usize,
-    pub broadcast_game: unsafe extern "stdcall" fn(
+    pub broadcast_game: unsafe extern "system" fn(
         *const u8,
         *const u8,
         *const u8,
@@ -274,13 +274,13 @@ pub struct SnpFunctions {
         *mut c_void,
         u32,
     ) -> i32,
-    pub stop_broadcasting_game: unsafe extern "stdcall" fn() -> i32,
+    pub stop_broadcasting_game: unsafe extern "system" fn() -> i32,
     pub unk24: usize,
     pub unk28: usize,
-    pub joined_game: Option<unsafe extern "stdcall" fn(*const u8, usize) -> i32>,
+    pub joined_game: Option<unsafe extern "system" fn(*const u8, usize) -> i32>,
     pub unk30: usize,
     pub unk34: usize,
-    pub start_listening_for_games: Option<unsafe extern "stdcall" fn() -> i32>,
+    pub start_listening_for_games: Option<unsafe extern "system" fn() -> i32>,
     pub future_padding: [usize; 0x10],
 }
 
@@ -404,13 +404,22 @@ unsafe impl Sync for ClientInfo {}
 #[test]
 fn struct_sizes() {
     use std::mem::size_of;
+    #[cfg(target_arch = "x86")]
+    fn size(value: usize, _: usize) -> usize {
+        value
+    }
+    #[cfg(target_arch = "x86_64")]
+    fn size(_: usize, value: usize) -> usize {
+        value
+    }
+
     assert_eq!(size_of::<StormPlayer>(), 0x22);
     assert_eq!(size_of::<BwGameData>(), 0x8d);
     assert_eq!(size_of::<GameTemplate>(), 0x20);
-    assert_eq!(size_of::<FowSprite>(), 0x10);
-    assert_eq!(size_of::<ReplayData>(), 0x20);
+    assert_eq!(size_of::<FowSprite>(), size(0x10, 0x20));
+    assert_eq!(size_of::<ReplayData>(), size(0x20, 0x30));
     assert_eq!(size_of::<ReplayHeader>(), 0x279);
-    assert_eq!(size_of::<UnitStatusFunc>(), 0xc);
+    assert_eq!(size_of::<UnitStatusFunc>(), size(0xc, 0x18));
 }
 
 pub struct FowSpriteIterator(*mut FowSprite);

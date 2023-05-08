@@ -16,7 +16,7 @@ use crate::game_thread::{send_game_msg_to_async, GameThreadMessage};
 mod scr_hooks {
     use super::{c_void, ATOM, DEVMODEW, HINSTANCE, HMENU, HWND, WNDCLASSEXW};
 
-    whack_hooks!(stdcall, 0,
+    system_hooks!(
         !0 => CreateWindowExW(
             u32, *const u16, *const u16, u32, i32, i32, i32, i32, HWND, HMENU, HINSTANCE, *mut c_void,
         ) -> HWND;

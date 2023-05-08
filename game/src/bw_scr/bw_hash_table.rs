@@ -114,7 +114,7 @@ impl<Key: BwHash + BwMove, Value: BwMove> HashTable<Key, Value> {
         // is both capacity and length, which is assumed when dropping this table.
         buckets.shrink_to_fit();
         let bw_table = scr::BwHashTable {
-            bucket_count: bucket_count as u32,
+            bucket_count,
             buckets: buckets.as_mut_ptr(),
             size: 0,
             resize_factor: 1.0,

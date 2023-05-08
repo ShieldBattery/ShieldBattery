@@ -1,6 +1,7 @@
 //! Helpers for creating scarf::BinaryFile from a image loaded in memory
 
-use scr_analysis::scarf::{VirtualAddress, BinarySection};
+use scr_analysis::scarf::{BinarySection};
+use scr_analysis::VirtualAddress;
 
 pub unsafe fn get_pe_header(base: *const u8) -> BinarySection<VirtualAddress> {
     let header_block_size = 0x400;
@@ -13,7 +14,7 @@ pub unsafe fn get_pe_header(base: *const u8) -> BinarySection<VirtualAddress> {
             }
             name
         },
-        virtual_address: VirtualAddress(base as u32),
+        virtual_address: VirtualAddress(base as _),
         virtual_size: header_block_size,
         data: header.into(),
     }
@@ -34,17 +35,19 @@ pub unsafe fn get_section(base: *const u8, name: &[u8; 8]) -> Option<BinarySecti
         let section = sections.add(0x28 * i);
         let section_name = std::slice::from_raw_parts(section, 8);
         if section_name == name {
-            let address = base as u32 + read_u32(section, 0xc);
+            let base = VirtualAddress(base as _);
+            let address = base + read_u32(section, 0xc);
             let size = read_u32(section, 0x8);
             let physical_size = read_u32(section, 0x10);
             // samase_scarf doesn't require the zero-initialized data, and one
             // function there in fact doesn't even work with it (We don't use it right
             // now though). However, virtual_size has still to be set to the section's
             // virtual size even if the readable bytes won't include all of it.
-            let section = std::slice::from_raw_parts(address as *const u8, physical_size as usize);
+            let section =
+                std::slice::from_raw_parts(address.0 as *const u8, physical_size as usize);
             Some(BinarySection {
                 name: *name,
-                virtual_address: VirtualAddress(address),
+                virtual_address: address,
                 virtual_size: size as u32,
                 data: section.into(),
             })

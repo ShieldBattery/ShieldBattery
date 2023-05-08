@@ -11,13 +11,26 @@
 pub use samase_scarf::scarf;
 pub use samase_scarf::{DatTablePtr, DatType};
 
-use scarf::exec_state::VirtualAddress as VirtualAddressTrait;
-use scarf::{BinaryFile, ExecutionStateX86, MemAccessSize, Operand, OperandCtx, VirtualAddress};
+use scarf::exec_state::ExecutionState as _;
+use scarf::exec_state::VirtualAddress as _;
+use scarf::{BinaryFile, MemAccessSize, Operand, OperandCtx};
+
+#[cfg(target_arch = "x86")]
+use scarf::ExecutionStateX86 as ExecutionState;
+
+#[cfg(target_arch = "x86_64")]
+use scarf::ExecutionStateX86_64 as ExecutionState;
+
+#[cfg(target_arch = "x86")]
+pub use scarf::VirtualAddress;
+
+#[cfg(target_arch = "x86_64")]
+pub use scarf::VirtualAddress64 as VirtualAddress;
 
 pub type Patch = samase_scarf::Patch<VirtualAddress>;
 
 pub struct Analysis<'e>(
-    samase_scarf::Analysis<'e, ExecutionStateX86<'e>>,
+    samase_scarf::Analysis<'e, ExecutionState<'e>>,
     &'e BinaryFile<VirtualAddress>,
     OperandCtx<'e>,
 );
@@ -36,9 +49,8 @@ impl<'e> Analysis<'e> {
         Some(euds.euds.get(index)?.operand)
     }
 
-    #[cfg(target_arch = "x86")]
     fn mem_word(&self, op: Operand<'e>) -> Operand<'e> {
-        self.2.mem32(op, 0)
+        self.2.mem_any(ExecutionState::WORD_SIZE, op, 0)
     }
 
     pub fn game(&mut self) -> Option<Operand<'e>> {
@@ -225,14 +237,18 @@ impl<'e> Analysis<'e> {
 
     pub fn get_tls_index(&self) -> Option<*mut u32> {
         let binary = self.1;
-        let base = binary.base;
+        let base = binary.base();
         let pe_start = binary.read_u32(base + 0x3c).ok()?;
+        let tls_offset_in_header = match VirtualAddress::SIZE == 4 {
+            true => 0xc0,
+            false => 0xd0,
+        };
         let tls_offset = binary
-            .read_u32(base + pe_start + 0xc0)
+            .read_u32(base + pe_start + tls_offset_in_header)
             .ok()
             .filter(|&offset| offset != 0)?;
         let tls_address = base + tls_offset;
-        let tls_ptr = binary.read_u32(tls_address + 0x8).ok()?;
+        let tls_ptr = binary.read_u32(tls_address + 2 * VirtualAddress::SIZE).ok()?;
         Some(tls_ptr as *mut u32)
     }
 

@@ -132,7 +132,7 @@ fn send_snp_message(message: SnpMessage) {
     send_game_msg_to_async(GameThreadMessage::Snp(message));
 }
 
-pub unsafe extern "stdcall" fn free_packet(
+pub unsafe extern "system" fn free_packet(
     from: *mut sockaddr,
     _data: *const u8,
     _data_len: u32,
@@ -163,7 +163,7 @@ pub unsafe fn initialize(client_info: &bw::ClientInfo, receive_event: Option<HAN
     });
 }
 
-pub unsafe extern "stdcall" fn receive_packet(
+pub unsafe extern "system" fn receive_packet(
     addr: *mut *mut sockaddr,
     data: *mut *const u8,
     length: *mut u32,
@@ -197,7 +197,7 @@ pub unsafe extern "stdcall" fn receive_packet(
     }
 }
 
-pub unsafe extern "stdcall" fn send_packet(
+pub unsafe extern "system" fn send_packet(
     target: *const sockaddr,
     data: *const u8,
     data_len: u32,
@@ -208,7 +208,7 @@ pub unsafe extern "stdcall" fn send_packet(
     1
 }
 
-pub unsafe extern "stdcall" fn broadcast_game(
+pub unsafe extern "system" fn broadcast_game(
     _name: *const u8,
     _password: *const u8,
     _game_data: *const u8,
@@ -223,6 +223,6 @@ pub unsafe extern "stdcall" fn broadcast_game(
     1
 }
 
-pub unsafe extern "stdcall" fn stop_broadcasting_game() -> i32 {
+pub unsafe extern "system" fn stop_broadcasting_game() -> i32 {
     1
 }
