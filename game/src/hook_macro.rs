@@ -83,6 +83,7 @@ macro_rules! hook_winapi_exports {
             }
             #[allow(unused_assignments)] { i += 1; }
         )*
+        drop(default_patcher);
         i = 0;
         $(
             if unusual_hooks[i] != 0 {

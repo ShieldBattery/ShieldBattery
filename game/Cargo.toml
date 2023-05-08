@@ -42,7 +42,7 @@ serde_json = "1.0.39"
 smallvec = "1.4"
 tokio = { version = "1.2", features = ["fs", "net", "rt-multi-thread", "macros", "sync", "time"] }
 tokio-stream = "0.1"
-tokio-tungstenite = "0.17"
+tokio-tungstenite = "0.18"
 
 [dependencies.winapi]
 version = "0.3.9"
@@ -56,12 +56,12 @@ features = [
 # Function hooking
 [dependencies.whack]
 git = "https://github.com/neivv/whack.git"
-rev = "ccd95f5cfa37622bc3ec3d4b0974ab9b631b59b2"
+rev = "d0425dcdf8de1dbffb23038c7615905ac4be4bf2"
 
 # Struct declarations & convenience functions for ingame BW data
 [dependencies.bw_dat]
 git = "https://github.com/neivv/aise.git"
-rev = "afa10eed358ab1e4322ed54e3da809e5494c2a33"
+rev = "351e43a6a131741f56f7f233971186efc863776a"
 
 [build-dependencies]
 anyhow = "1.0.33"

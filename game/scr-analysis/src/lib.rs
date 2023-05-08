@@ -70,7 +70,7 @@ impl<'e> Analysis<'e> {
     }
 
     pub fn storm_players(&mut self) -> Option<Operand<'e>> {
-        self.0.net_players().map(|x| x.0)
+        self.0.net_players()
     }
 
     pub fn init_net_player(&mut self) -> Option<VirtualAddress> {

@@ -1766,6 +1766,7 @@ impl BwScr {
             // things like keypresses take multiple presses to achieve one action.
             (init_time.elapsed().as_millis() as u32).wrapping_add(init_tick_count)
         };
+        drop(exe);
         hook_winapi_exports!(&mut active_patcher, "kernel32",
             "CreateEventW", CreateEventW, create_event_hook;
             "CreateFileW", CreateFileW, create_file_hook_closure;
