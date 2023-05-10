@@ -21,7 +21,7 @@ use crate::app_messages::{
     GAME_STATUS_ERROR,
 };
 use crate::app_socket;
-use crate::bw::{self, get_bw, GameType, StormPlayerId, UserLatency};
+use crate::bw::{self, Bw, get_bw, GameType, StormPlayerId, UserLatency};
 use crate::cancel_token::{CancelToken, Canceler, SharedCanceler};
 use crate::forge;
 use crate::game_thread::{

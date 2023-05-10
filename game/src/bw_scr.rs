@@ -1651,23 +1651,46 @@ impl BwScr {
             address,
         );
 
+        #[cfg(target_arch = "x86")]
+        let prepare_issue_order_hook =
+            move |unit, order, xy, target, fow, clear_queue, _orig|
+        {
+            let unit = match Unit::from_ptr(unit) {
+                Some(s) => s,
+                None => return,
+            };
+            let order = bw_dat::OrderId(order as u8);
+            let x = xy as i16;
+            let y = (xy >> 16) as i16;
+            let target = Unit::from_ptr(target);
+            let fow = fow as u16;
+            let clear_queue = clear_queue != 0;
+
+            game::prepare_issue_order(self, unit, order, x, y, target, fow, clear_queue);
+        };
+
+        #[cfg(target_arch = "x86_64")]
+        let prepare_issue_order_hook =
+            move |unit, order, target: *mut bw::PointAndUnit, fow, clear_queue, _orig|
+        {
+            let unit = match Unit::from_ptr(unit) {
+                Some(s) => s,
+                None => return,
+            };
+            let order = bw_dat::OrderId(order as u8);
+            let x = (*target).pos.x;
+            let y = (*target).pos.y;
+            let target = Unit::from_ptr((*target).unit);
+            let fow = fow as u16;
+            let clear_queue = clear_queue != 0;
+
+            game::prepare_issue_order(self, unit, order, x, y, target, fow, clear_queue);
+        };
+
         let address = self.prepare_issue_order.0 as usize - base;
         exe.hook_closure_address(
             PrepareIssueOrder,
-            move |unit, order, xy, target, fow, clear_queue, _orig| {
-                let unit = match Unit::from_ptr(unit) {
-                    Some(s) => s,
-                    None => return,
-                };
-                let order = bw_dat::OrderId(order as u8);
-                let x = xy as i16;
-                let y = (xy >> 16) as i16;
-                let target = Unit::from_ptr(target);
-                let fow = fow as u16;
-                let clear_queue = clear_queue != 0;
-
-                game::prepare_issue_order(self, unit, order, x, y, target, fow, clear_queue);
-            },
+            prepare_issue_order_hook,
             address,
         );
 
@@ -3192,7 +3215,16 @@ mod hooks {
             *const u8,
             *mut c_void,
         ) -> usize;
+    );
+
+    #[cfg(target_arch = "x86")]
+    thiscall_hooks!(
         !0 => PrepareIssueOrder(*mut bw::Unit, u32, u32, *mut bw::Unit, u32, u32);
+    );
+
+    #[cfg(target_arch = "x86_64")]
+    thiscall_hooks!(
+        !0 => PrepareIssueOrder(*mut bw::Unit, u32, *mut bw::PointAndUnit, u32, u32);
     );
 }
 

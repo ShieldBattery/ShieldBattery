@@ -59,9 +59,13 @@ pub unsafe fn prepare_issue_order(
         let new_order = alloc.value();
         (*new_order).order_id = order.0;
         (*new_order).unit_id = fow_unit_id;
-        (*new_order).position.x = x;
-        (*new_order).position.y = y;
-        (*new_order).target = target.map(|x| *x).unwrap_or(null_mut());
+        (*new_order).target = bw::PointAndUnit {
+            pos: bw::Point {
+                x,
+                y,
+            },
+            unit: target.map(|x| *x).unwrap_or(null_mut()),
+        };
         alloc.append_to(&queue);
         if order.icon() != 0xffff {
             (**unit).highlight_order_count = (**unit).highlight_order_count.wrapping_add(1);

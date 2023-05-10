@@ -10,7 +10,7 @@ use winapi::shared::ntdef::HANDLE;
 use winapi::shared::ws2def::{AF_INET, SOCKADDR_IN};
 use winapi::um::synchapi::SetEvent;
 
-use crate::bw;
+use crate::bw::{self, Bw};
 use crate::game_thread::{send_game_msg_to_async, GameThreadMessage};
 use crate::windows::OwnedHandle;
 

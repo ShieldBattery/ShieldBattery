@@ -9,6 +9,7 @@ use once_cell::sync::OnceCell;
 use quick_error::quick_error;
 
 use crate::app_messages::{MapInfo, Settings};
+use crate::bw_scr::BwScr;
 
 pub mod commands;
 pub mod list;
@@ -17,14 +18,14 @@ pub mod unit;
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct StormPlayerId(pub u8);
 
-static BW_IMPL: OnceCell<&'static dyn Bw> = OnceCell::new();
+static BW_IMPL: OnceCell<&'static BwScr> = OnceCell::new();
 
 /// Gets access to the object that is used for actually manipulating Broodwar state.
-pub fn get_bw() -> &'static dyn Bw {
+pub fn get_bw() -> &'static BwScr {
     *BW_IMPL.get().unwrap()
 }
 
-pub fn set_bw_impl(bw: &'static dyn Bw) {
+pub fn set_bw_impl(bw: &'static BwScr) {
     let _ = BW_IMPL.set(bw);
 }
 

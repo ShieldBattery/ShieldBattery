@@ -1,6 +1,6 @@
 use bw_dat::dialog::{Dialog, EventHandler};
 
-use crate::bw::{self, get_bw};
+use crate::bw::{self, Bw, get_bw};
 
 static CHAT_BOX_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MSG_FILTER_EVENT_HANDLER: EventHandler = EventHandler::new();
