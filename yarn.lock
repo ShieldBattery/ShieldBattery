@@ -2340,9 +2340,9 @@
   integrity sha512-iiUgKzV9AuaEkZqkOLDIvlQiL6ltuZd9tGcW3gwpnX8JbuiuhFlEGmmFXEXkN50Cvq7Os88IY2v0dkDqXYWVgA==
 
 "@types/node@*", "@types/node@>=10.0.0":
-  version "18.15.5"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-18.15.5.tgz#3af577099a99c61479149b716183e70b5239324a"
-  integrity sha512-Ark2WDjjZO7GmvsyFFf81MXuGTA/d6oP38anyxWOL6EREyBKAxKoFHwBhaZxCfLRLpO8JgVXwqOwSwa7jRcjew==
+  version "20.1.1"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-20.1.1.tgz#afc492e8dbe7f672dd3a13674823522b467a45ad"
+  integrity sha512-uKBEevTNb+l6/aCQaKVnUModfEMjAl98lw2Si9P5y4hLu9tm6AlX2ZIoXZX6Wh9lJueYPrGPKk5WMCNHg/u6/A==
 
 "@types/node@^16.11.26":
   version "16.18.18"
@@ -5399,9 +5399,9 @@ engine.io-parser@~5.0.3:
   integrity sha512-tjuoZDMAdEhVnSFleYPCtdL2GXwVTGtNjoeJd9IhIG3C1xs9uwxqRNEu5WpnDZCaozwVlK/nuQhpodhXSIMaxw==
 
 engine.io@^6.2.0:
-  version "6.4.1"
-  resolved "https://registry.yarnpkg.com/engine.io/-/engine.io-6.4.1.tgz#8056b4526a88e779f9c280d820422d4e3eeaaae5"
-  integrity sha512-JFYQurD/nbsA5BSPmbaOSLa3tSVj8L6o4srSwXXY3NqE+gGUNmmPTbhn8tjzcCtSqhFgIeqef81ngny8JM25hw==
+  version "6.4.2"
+  resolved "https://registry.yarnpkg.com/engine.io/-/engine.io-6.4.2.tgz#ffeaf68f69b1364b0286badddf15ff633476473f"
+  integrity sha512-FKn/3oMiJjrOEOeUub2WCox6JhxBXq/Zn3fZOMCBxKnNYtsdKjxhl7yR3fZhM9PV+rdE75SU5SYMc+2PGzo+Tg==
   dependencies:
     "@types/cookie" "^0.4.1"
     "@types/cors" "^2.8.12"
@@ -9269,9 +9269,9 @@ nwsapi@^2.2.2:
   integrity sha512-90yv+6538zuvUMnN+zCr8LuV6bPFdq50304114vJYJ8RDyK8D5O9Phpbd6SZWgI7PwzmmfN1upeOJlvybDSgCw==
 
 nydus-client@^4.0.0:
-  version "4.0.0"
-  resolved "https://registry.yarnpkg.com/nydus-client/-/nydus-client-4.0.0.tgz#284979dc6c017ef4abf1cb3cf93484901d8466ce"
-  integrity sha512-9YBzYN+IsrUXSoo2u1/fvyXv+MFMHF3XlGVg5JrcxDbrpvX7iJljN7MtFm/4ZEBCvfZzurJOBYkgTtcm4p+r4Q==
+  version "4.0.2"
+  resolved "https://registry.yarnpkg.com/nydus-client/-/nydus-client-4.0.2.tgz#1d9c28389756a2a7664d88859cd9ef6851c7005a"
+  integrity sha512-js9Wb/0rnV9Dv/FC2zC1tLjDD43Y26KroCZaI+daRTCJ3LmxGXAXc5mJdye6YjBi52v8SBNuMdNZjhviVmE35g==
   dependencies:
     backo2 "^1.0.2"
     cuid "^2.1.6"
@@ -9288,9 +9288,9 @@ nydus-protocol@^2.0.0:
     debug "^4.3.1"
 
 nydus@^4.0.1:
-  version "4.0.1"
-  resolved "https://registry.yarnpkg.com/nydus/-/nydus-4.0.1.tgz#0ab2e4b237ab1d8b9a8b79f4980547f9b6317527"
-  integrity sha512-hdyqELQAHOOgeBtoJDLSjzakWOxyTcO/kCVR4ZX/X9IJXL8mM45MmAIQZfPk8IC/Balwgg9Z7Y7DDeb9+Lc2LA==
+  version "4.0.2"
+  resolved "https://registry.yarnpkg.com/nydus/-/nydus-4.0.2.tgz#7a7aed44fd800135998f347c7733b4e392b2307a"
+  integrity sha512-hHip9NJXBUBLk3RrqtwXDjjPISXIrNZAUrVTJqaZGPo+UdSKDW1HGsWjs2C/8aFxBWc9H0wcLtjCgdFUlzfuWQ==
   dependencies:
     backo2 "^1.0.2"
     cuid "^2.1.6"
