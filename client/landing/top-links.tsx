@@ -1,8 +1,22 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
+import { assertUnreachable } from '../../common/assert-unreachable'
+import { LANGUAGE_SUPPORT } from '../../common/flags'
+import { ALL_TRANSLATION_LANGUAGES, TranslationLanguage } from '../../common/i18n'
 import GithubLogo from '../icons/brands/github.svg'
 import TwitterLogo from '../icons/brands/twitter.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
+import logger from '../logging/logger'
+import { IconButton } from '../material/button'
+import { MenuItem } from '../material/menu/item'
+import { MenuList } from '../material/menu/menu'
+import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
+import { Tooltip } from '../material/tooltip'
+import { useAppDispatch } from '../redux-hooks'
+import { openSnackbar } from '../snackbars/action-creators'
+import { useStableCallback } from '../state-hooks'
 import { amberA400 } from '../styles/colors'
 import { body2 } from '../styles/typography'
 
@@ -58,6 +72,11 @@ const StyledTwitterLogo = styled(TwitterLogo)`
   margin-right: 8px;
 `
 
+const LanguageIcon = styled(MaterialIcon).attrs({ icon: 'language', size: 18 })`
+  vertical-align: middle;
+  color: ${amberA400};
+`
+
 const Spacer = styled.div`
   flex: 1 1 auto;
 
@@ -78,42 +97,111 @@ const HideWhenSmall = styled.span`
   }
 `
 
-const TopLinks = () => {
+const HideWhenElectron = styled.li`
+  visibility: ${IS_ELECTRON ? 'hidden' : 'visible'};
+`
+
+export function TopLinks({ className }: { className?: string }) {
+  const { i18n } = useTranslation()
+  const dispatch = useAppDispatch()
+  const [languageMenuOpen, openLanguageMenu, closeLanguageMenu] = usePopoverController()
+  const [anchor, anchorX, anchorY] = useAnchorPosition('left', 'bottom')
+
+  const onChangeLanguage = useStableCallback(async (language: TranslationLanguage) => {
+    try {
+      await i18n.changeLanguage(language)
+    } catch (error) {
+      dispatch(openSnackbar({ message: 'Something went wrong changing the language' }))
+      logger.error(`There was an error changing the language: ${error}`)
+    }
+    closeLanguageMenu()
+  })
+
   return (
-    <TopLinksList>
-      <li>
+    <TopLinksList className={className}>
+      {LANGUAGE_SUPPORT ? (
+        <Popover
+          open={languageMenuOpen}
+          onDismiss={closeLanguageMenu}
+          anchorX={anchorX ?? 0}
+          anchorY={anchorY ?? 0}
+          originX={'left'}
+          originY={'top'}>
+          <MenuList dense={true}>
+            {ALL_TRANSLATION_LANGUAGES.map(language => {
+              let languageLabel: string
+              switch (language) {
+                case TranslationLanguage.ChineseSimplified:
+                  languageLabel = '简体中文'
+                  break
+                case TranslationLanguage.English:
+                  languageLabel = 'English'
+                  break
+                case TranslationLanguage.Korean:
+                  languageLabel = '한국어'
+                  break
+                case TranslationLanguage.Russian:
+                  languageLabel = 'Русский'
+                  break
+                case TranslationLanguage.Spanish:
+                  languageLabel = 'Español'
+                  break
+                default:
+                  return assertUnreachable(language)
+              }
+
+              return (
+                <MenuItem
+                  key={language}
+                  text={languageLabel}
+                  onClick={() => onChangeLanguage(language)}
+                />
+              )
+            })}
+          </MenuList>
+        </Popover>
+      ) : null}
+
+      <HideWhenElectron>
         <Link href='/splash'>Home</Link>
-      </li>
-      <li>
+      </HideWhenElectron>
+      <HideWhenElectron>
         <Link href='/faq'>FAQ</Link>
-      </li>
-      <li>
+      </HideWhenElectron>
+      <HideWhenElectron>
         <Link href='/ladder'>Ladder</Link>
-      </li>
-      <li>
+      </HideWhenElectron>
+      <HideWhenElectron>
         <Link href='/leagues'>Leagues</Link>
-      </li>
+      </HideWhenElectron>
       <Spacer />
-      <li>
+      <HideWhenElectron>
         <IconLink href='https://twitter.com/shieldbatterybw' target='_blank' rel='noopener'>
           <StyledTwitterLogo />
           <HideWhenSmall>Twitter</HideWhenSmall>
         </IconLink>
-      </li>
-      <li>
+      </HideWhenElectron>
+      <HideWhenElectron>
         <IconLink href='https://github.com/ShieldBattery' target='_blank' rel='noopener'>
           <StyledGithubLogo />
           <HideWhenSmall>GitHub</HideWhenSmall>
         </IconLink>
-      </li>
-      <li>
+      </HideWhenElectron>
+      <HideWhenElectron>
         <HideWhenSmall>
           <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
             Patreon
           </a>
         </HideWhenSmall>
-      </li>
+      </HideWhenElectron>
       <Spacer />
+      {LANGUAGE_SUPPORT ? (
+        <li>
+          <Tooltip text='Change language'>
+            <IconButton ref={anchor} icon={<LanguageIcon />} onClick={openLanguageMenu} />
+          </Tooltip>
+        </li>
+      ) : null}
       <li>
         <Link href='/login'>Log&nbsp;in</Link>
       </li>

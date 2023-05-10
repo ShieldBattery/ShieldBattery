@@ -3,7 +3,11 @@
  * file for.
  */
 export enum TranslationLanguage {
+  ChineseSimplified = 'zh_Hans',
   English = 'en',
+  Korean = 'kr',
+  Russian = 'ru',
+  Spanish = 'es',
 }
 
 export const ALL_TRANSLATION_LANGUAGES: ReadonlyArray<TranslationLanguage> =
