@@ -172,9 +172,9 @@ export function TopLinks({ className }: { className?: string }) {
               </a>
             </HideWhenSmall>
           </li>
-          <Spacer />
         </>
       ) : null}
+      <Spacer />
       {LANGUAGE_SUPPORT ? (
         <li>
           <Tooltip text='Change language'>
