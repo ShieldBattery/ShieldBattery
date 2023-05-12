@@ -2,9 +2,12 @@ import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
-import { assertUnreachable } from '../../common/assert-unreachable'
 import { LANGUAGE_SUPPORT } from '../../common/flags'
-import { ALL_TRANSLATION_LANGUAGES, TranslationLanguage } from '../../common/i18n'
+import {
+  ALL_TRANSLATION_LANGUAGES,
+  TranslationLanguage,
+  translationLanguageToLabel,
+} from '../../common/i18n'
 import GithubLogo from '../icons/brands/github.svg'
 import TwitterLogo from '../icons/brands/twitter.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -97,10 +100,6 @@ const HideWhenSmall = styled.span`
   }
 `
 
-const HideWhenElectron = styled.li`
-  visibility: ${IS_ELECTRON ? 'hidden' : 'visible'};
-`
-
 export function TopLinks({ className }: { className?: string }) {
   const { i18n } = useTranslation()
   const dispatch = useAppDispatch()
@@ -128,73 +127,54 @@ export function TopLinks({ className }: { className?: string }) {
           originX={'left'}
           originY={'top'}>
           <MenuList dense={true}>
-            {ALL_TRANSLATION_LANGUAGES.map(language => {
-              let languageLabel: string
-              switch (language) {
-                case TranslationLanguage.ChineseSimplified:
-                  languageLabel = '简体中文'
-                  break
-                case TranslationLanguage.English:
-                  languageLabel = 'English'
-                  break
-                case TranslationLanguage.Korean:
-                  languageLabel = '한국어'
-                  break
-                case TranslationLanguage.Russian:
-                  languageLabel = 'Русский'
-                  break
-                case TranslationLanguage.Spanish:
-                  languageLabel = 'Español'
-                  break
-                default:
-                  return assertUnreachable(language)
-              }
-
-              return (
-                <MenuItem
-                  key={language}
-                  text={languageLabel}
-                  onClick={() => onChangeLanguage(language)}
-                />
-              )
-            })}
+            {ALL_TRANSLATION_LANGUAGES.map(language => (
+              <MenuItem
+                key={language}
+                text={translationLanguageToLabel(language)}
+                onClick={() => onChangeLanguage(language)}
+              />
+            ))}
           </MenuList>
         </Popover>
       ) : null}
 
-      <HideWhenElectron>
-        <Link href='/splash'>Home</Link>
-      </HideWhenElectron>
-      <HideWhenElectron>
-        <Link href='/faq'>FAQ</Link>
-      </HideWhenElectron>
-      <HideWhenElectron>
-        <Link href='/ladder'>Ladder</Link>
-      </HideWhenElectron>
-      <HideWhenElectron>
-        <Link href='/leagues'>Leagues</Link>
-      </HideWhenElectron>
-      <Spacer />
-      <HideWhenElectron>
-        <IconLink href='https://twitter.com/shieldbatterybw' target='_blank' rel='noopener'>
-          <StyledTwitterLogo />
-          <HideWhenSmall>Twitter</HideWhenSmall>
-        </IconLink>
-      </HideWhenElectron>
-      <HideWhenElectron>
-        <IconLink href='https://github.com/ShieldBattery' target='_blank' rel='noopener'>
-          <StyledGithubLogo />
-          <HideWhenSmall>GitHub</HideWhenSmall>
-        </IconLink>
-      </HideWhenElectron>
-      <HideWhenElectron>
-        <HideWhenSmall>
-          <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
-            Patreon
-          </a>
-        </HideWhenSmall>
-      </HideWhenElectron>
-      <Spacer />
+      {!IS_ELECTRON ? (
+        <>
+          <li>
+            <Link href='/splash'>Home</Link>
+          </li>
+          <li>
+            <Link href='/faq'>FAQ</Link>
+          </li>
+          <li>
+            <Link href='/ladder'>Ladder</Link>
+          </li>
+          <li>
+            <Link href='/leagues'>Leagues</Link>
+          </li>
+          <Spacer />
+          <li>
+            <IconLink href='https://twitter.com/shieldbatterybw' target='_blank' rel='noopener'>
+              <StyledTwitterLogo />
+              <HideWhenSmall>Twitter</HideWhenSmall>
+            </IconLink>
+          </li>
+          <li>
+            <IconLink href='https://github.com/ShieldBattery' target='_blank' rel='noopener'>
+              <StyledGithubLogo />
+              <HideWhenSmall>GitHub</HideWhenSmall>
+            </IconLink>
+          </li>
+          <li>
+            <HideWhenSmall>
+              <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
+                Patreon
+              </a>
+            </HideWhenSmall>
+          </li>
+          <Spacer />
+        </>
+      ) : null}
       {LANGUAGE_SUPPORT ? (
         <li>
           <Tooltip text='Change language'>
