@@ -1,4 +1,4 @@
-import produce, { Draft, Immutable } from 'immer'
+import { Draft, Immutable, produce } from 'immer'
 
 // NOTE(tec27): We avoid using normal Redux stuff for this because we want it to be detached from
 // the main store, and to have the UI render outside of the normal path of components. By doing so,

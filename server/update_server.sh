@@ -14,7 +14,7 @@ echo ""
 echo "Running redis migrations"
 for f in server/redis-migrations/*.js; do
   echo "> $f"
-  node -r "./babel-register" -r "core-js/proposals/reflect-metadata" -r "dotenv/config" "$f" || exit 1
+  node -r "./babel-register" -r "core-js/proposals/reflect-metadata" -r "dotenv-expand/config" "$f" || exit 1
 done
 echo "Redis migrations complete"
 echo ""

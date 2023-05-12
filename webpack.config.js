@@ -71,7 +71,7 @@ const SB_SERVER = (() => {
     return 'https://shieldbattery.net'
   }
   try {
-    require('dotenv').config({ path: './server/.env' })
+    require('dotenv-expand')(require('dotenv').config({ path: './.env' }))
     if (process.env.SB_CANONICAL_HOST) {
       return process.env.SB_CANONICAL_HOST
     }
