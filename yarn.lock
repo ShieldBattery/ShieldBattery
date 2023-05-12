@@ -3662,14 +3662,6 @@ bintrees@1.0.2:
   resolved "https://registry.yarnpkg.com/bintrees/-/bintrees-1.0.2.tgz#49f896d6e858a4a499df85c38fb399b9aff840f8"
   integrity sha512-VOMgTMwjAaUG580SXn3LacVgjurrbMme7ZZNYGSSV7mmtY6QQRh0Eg3pwIcntQ77DErK1L0NxkbetjcoXzVwKw==
 
-bl@^1.0.1:
-  version "1.2.3"
-  resolved "https://registry.yarnpkg.com/bl/-/bl-1.2.3.tgz#1e8dd80142eac80d7158c9dccc047fb620e035e7"
-  integrity sha512-pvcNpa0UU69UT341rO6AYy4FVAIkUHuZXRIWbq+zHnsVcRzDDjIAhGuuYoi0d//cwIwtt4pkpKycWEfjdV+vww==
-  dependencies:
-    readable-stream "^2.3.5"
-    safe-buffer "^5.1.1"
-
 bl@^4.0.3:
   version "4.1.0"
   resolved "https://registry.yarnpkg.com/bl/-/bl-4.1.0.tgz#451535264182bec2fbbc83a62ab98cf11d9f7b3a"
@@ -3679,7 +3671,7 @@ bl@^4.0.3:
     inherits "^2.0.4"
     readable-stream "^3.4.0"
 
-bl@^6.0.0:
+bl@^6.0.0, bl@^6.0.1:
   version "6.0.1"
   resolved "https://registry.yarnpkg.com/bl/-/bl-6.0.1.tgz#f35547d073b5f920512943a3fe0ec9ad5854fcb7"
   integrity sha512-zk1P1eAEBHhhB+4NfGxqmuV6NgwECnIoRgsOq2ObdEsmoFVIYzJ/Jjcgaj7JOY/8ekH27bIHSV4Si2T+evqu+Q==
@@ -10948,7 +10940,7 @@ sade@^1.7.3:
   dependencies:
     mri "^1.1.0"
 
-safe-buffer@5.2.1, safe-buffer@^5.0.1, safe-buffer@^5.1.0, safe-buffer@^5.1.1, safe-buffer@~5.2.0:
+safe-buffer@5.2.1, safe-buffer@^5.0.1, safe-buffer@^5.1.0, safe-buffer@~5.2.0:
   version "5.2.1"
   resolved "https://registry.yarnpkg.com/safe-buffer/-/safe-buffer-5.2.1.tgz#1eaf9fa9bdb1fdd4ec75f58f9cdb4e6b7827eec6"
   integrity sha512-rp3So07KcdmmKbGvgaNxQSJr7bGVSVk5S9Eq1F+ppbRo70+YeaDxkw5Dd8NPN+GD6bjnYm2VuPuCXmpuYvmCXQ==
@@ -11027,12 +11019,12 @@ schema-utils@^4.0.0:
     ajv-formats "^2.1.1"
     ajv-keywords "^5.0.0"
 
-scm-extractor@^1.0.6:
-  version "1.0.6"
-  resolved "https://registry.yarnpkg.com/scm-extractor/-/scm-extractor-1.0.6.tgz#cb521d23454d820a6ad8a91e60d240be7259bead"
-  integrity sha512-h2YjKzpuyiS3Yx00boVC7iBSTzga8qMnep5MfWZLOd/yv0do7FWQ6DeEYnwzMQ+pEi7j93uoslUhC9rjfdySrw==
+scm-extractor@^1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/scm-extractor/-/scm-extractor-1.1.0.tgz#4ff7bded3b59d8b406c5657be2dcf162b78d4c26"
+  integrity sha512-9snoK9ygG580jMb9ORawfpbcNgmFR17O8RDVgl2rJlAJllPdVm4A+zvfJj2+z9AMoSUyrzbmB6FMgtDL676q8Q==
   dependencies:
-    bl "^1.0.1"
+    bl "^6.0.1"
     cuint "^0.2.0"
     implode-decoder "^1.0.0"
     stream-splicer "^2.0.0"
