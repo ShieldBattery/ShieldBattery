@@ -26,6 +26,7 @@ export const i18nextPromise = i18n.use(HttpBackend).use(initReactI18next)
 if (LANGUAGE_SUPPORT) {
   const languageDetector = new LanguageDetector(null, {
     order: ['navigator'],
+    caches: [],
   })
 
   i18n.use(languageDetector)
