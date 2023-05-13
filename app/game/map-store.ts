@@ -1,7 +1,7 @@
 import fs, { promises as fsPromises } from 'fs'
 import got from 'got'
 import { Map } from 'immutable'
-import mkdirp from 'mkdirp'
+import { mkdirp } from 'mkdirp'
 import path from 'path'
 import { pipeline } from 'stream'
 import { promisify } from 'util'

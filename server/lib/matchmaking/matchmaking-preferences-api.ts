@@ -53,7 +53,7 @@ export class MatchmakingPreferencesApi {
 
     const preferences = await this.matchmakingPreferencesService.upsertPreferences({
       userId: ctx.session!.userId,
-      matchmakingType: body.matchmakingType,
+      matchmakingType: body.matchmakingType as any,
       race: body.race,
       mapPoolId: currentMapPool.id,
       mapSelections: body.mapSelections,

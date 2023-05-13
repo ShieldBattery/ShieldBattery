@@ -4,7 +4,7 @@ import Koa from 'koa'
 import koaMount from 'koa-mount'
 import koaStatic from 'koa-static'
 import path from 'path'
-import rimraf from 'rimraf'
+import { rimraf } from 'rimraf'
 import { Readable } from 'stream'
 import { FileStore } from './store'
 
