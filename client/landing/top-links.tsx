@@ -177,7 +177,7 @@ export function TopLinks({ className }: { className?: string }) {
       <Spacer />
       {LANGUAGE_SUPPORT ? (
         <li>
-          <Tooltip text='Change language'>
+          <Tooltip text='Change language' disabled={languageMenuOpen}>
             <IconButton ref={anchor} icon={<LanguageIcon />} onClick={openLanguageMenu} />
           </Tooltip>
         </li>
