@@ -66,3 +66,7 @@ export function numberRange(min, max, msg) {
     return parsed >= min && parsed <= max ? null : msg
   }
 }
+
+export function checked(msg) {
+  return val => (val === true ? null : msg)
+}

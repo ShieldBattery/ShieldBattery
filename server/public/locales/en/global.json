@@ -122,6 +122,7 @@
       "emailAddress": "Email address",
       "login": "Log in",
       "password": "Password",
+      "required": "Required",
       "save": "Save",
       "username": "Username"
     },
