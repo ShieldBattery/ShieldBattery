@@ -193,13 +193,11 @@ export function Signup() {
     )
   })
 
-  const queryModel: { username?: string; email?: string } = queryString.parse(
-    window.location.search,
-  )
+  const queryModel: { username?: string } = queryString.parse(window.location.search)
   const { onSubmit, bindInput, bindCheckable } = useForm<SignupModel>(
     {
       username: queryModel.username ?? '',
-      email: queryModel.email ?? '',
+      email: '',
       password: '',
       confirmPassword: '',
       ageConfirmation: false,
