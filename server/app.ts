@@ -83,7 +83,6 @@ function getWebpackCompiler() {
   return webpackCompiler
 }
 
-app.keys = [process.env.SB_SESSION_SECRET!]
 app.proxy = process.env.SB_HTTPS_REVERSE_PROXY === 'true'
 
 interface PossibleHttpError extends Error {

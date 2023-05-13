@@ -28,7 +28,6 @@ services:
       - SB_FILE_STORE={"filesystem":{"path":"server/uploaded_files"}}
       - SB_MAP_PARSER_MAX_CONCURRENT=1
       - 'SB_CANONICAL_HOST=http://localhost:5527'
-      - 'SB_SESSION_SECRET=1234SuPeR5ecReT'
       - SB_SESSION_TTL=2592000
       - SB_RALLY_POINT_SECRET=rp_secret
       - SB_DISABLE_THROTTLING=true
@@ -66,7 +65,6 @@ services:
     image: app_server
     init: true
     environment:
-      - 'SB_SESSION_SECRET=1234SuPeR5ecReT'
       - SB_SESSION_TTL=2592000
       - SB_REDIS_HOST=redis
       - SB_REDIS_PORT=6379

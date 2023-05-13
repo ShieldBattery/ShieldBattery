@@ -43,7 +43,6 @@ services:
       - SB_MAP_PARSER_MAX_CONCURRENT=${SB_MAP_PARSER_MAX_CONCURRENT:-1}
       - SB_SPRITE_DATA=server/bw_sprite_data
       - SB_CANONICAL_HOST=${SB_CANONICAL_HOST}
-      - SB_SESSION_SECRET=${SB_SESSION_SECRET}
       - SB_SESSION_TTL=${SB_SESSION_TTL}
       - SB_RALLY_POINT_SECRET=${SB_RALLY_POINT_SECRET}
       - SB_MAILGUN_KEY=${SB_MAILGUN_KEY}
@@ -170,7 +169,6 @@ services:
     image: shieldbattery/shieldbattery:${SB_VERSION:-latest}
     init: true
     environment:
-      - SB_SESSION_SECRET=${SB_SESSION_SECRET}
       - SB_SESSION_TTL=${SB_SESSION_TTL}
       - SB_REDIS_HOST=redis
       - SB_REDIS_PORT=6379
