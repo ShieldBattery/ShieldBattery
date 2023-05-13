@@ -1,4 +1,3 @@
-import cuid from 'cuid'
 import { Context } from 'koa'
 import session, { SessionOptions } from 'koa-generic-session'
 import { isElectronClient } from '../network/only-web-clients'
@@ -19,7 +18,6 @@ export default session({
   store,
   cookie: cookieOptions,
   rolling: true,
-  genSid: () => cuid(),
   beforeSave: (ctx, session) => {
     if (isElectronClient(ctx)) {
       // Can't set SameSite: lax cookies on cross-origin requests, which is all requests for the
