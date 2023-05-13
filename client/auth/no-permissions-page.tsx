@@ -1,4 +1,5 @@
 import React from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { colorError, colorTextFaint } from '../styles/colors'
@@ -26,10 +27,16 @@ const Text = styled.span`
 `
 
 export function NoPermissionsPage() {
+  const { t } = useTranslation()
+
   return (
     <Container>
       <ErrorIcon size={64} />
-      <Text>You don't have enough permissions to access this page.</Text>
+      <Text>
+        <Trans t={t} i18nKey='auth.noPermissionsPage.body'>
+          You don't have enough permissions to access this page.
+        </Trans>
+      </Text>
     </Container>
   )
 }

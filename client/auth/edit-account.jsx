@@ -30,26 +30,61 @@ import { colorError } from '../styles/colors'
 import { subtitle1 } from '../styles/typography'
 import { updateAccount } from './action-creators'
 
+// TODO(2Pac): Use the `useTranslation` hook once this is moved over to a functional component. Note
+// that I'm using the global version of the `t` function here. react-i18next also exposes a HOC that
+// can be used with class components to make the `t` function reactive, but making that work with
+// form validators here would be quite cumbersome, so this seemed easier until it gets replaced with
+// hooks.
+import { Trans } from 'react-i18next'
+import i18n from '../i18n/i18next'
+const t = i18n.t
+
 function passwordRequired() {
   return (val, model, dirty) =>
-    (dirty.email || dirty.newPassword) && !val ? 'Enter your current password' : null
+    (dirty.email || dirty.newPassword) && !val
+      ? t('auth.passwordValidator.current', 'Enter your current password')
+      : null
 }
 
 const emailValidator = composeValidators(
-  required('Enter an email address'),
-  minLength(EMAIL_MINLENGTH, `Use at least ${EMAIL_MINLENGTH} characters`),
-  maxLength(EMAIL_MAXLENGTH, `Use at most ${EMAIL_MAXLENGTH} characters`),
-  regex(EMAIL_PATTERN, 'Enter a valid email address'),
+  required(t('auth.emailValidator.required', 'Enter an email address')),
+  minLength(
+    EMAIL_MINLENGTH,
+    t('auth.emailValidator.minLength', {
+      defaultValue: `Use at least {{minLength}} characters`,
+      minLength: EMAIL_MINLENGTH,
+    }),
+  ),
+  maxLength(
+    EMAIL_MAXLENGTH,
+    t('auth.emailValidator.maxLength', {
+      defaultValue: `Use at most {{maxLength}} characters`,
+      maxLength: EMAIL_MAXLENGTH,
+    }),
+  ),
+  regex(EMAIL_PATTERN, t('auth.emailValidator.pattern', 'Enter a valid email address')),
 )
 const passwordValidator = composeValidators(
   passwordRequired(),
-  minLength(PASSWORD_MINLENGTH, `Enter at least ${PASSWORD_MINLENGTH} characters`),
+  minLength(
+    PASSWORD_MINLENGTH,
+    t('auth.passwordValidator.minLength', {
+      defaultValue: `Use at least {{minLength}} characters`,
+      minLength: PASSWORD_MINLENGTH,
+    }),
+  ),
 )
 const newPasswordValidator = composeValidators(
-  minLength(PASSWORD_MINLENGTH, `Enter at least ${PASSWORD_MINLENGTH} characters`),
+  minLength(
+    PASSWORD_MINLENGTH,
+    t('auth.passwordValidator.minLength', {
+      defaultValue: `Use at least {{minLength}} characters`,
+      minLength: PASSWORD_MINLENGTH,
+    }),
+  ),
 )
 const confirmNewPasswordValidator = composeValidators(
-  matchesOther('newPassword', 'Enter a matching password'),
+  matchesOther('newPassword', t('auth.passwordValidator.matching', 'Enter a matching password')),
 )
 
 @form({
@@ -89,28 +124,32 @@ class AccountForm extends React.Component {
         <TextField
           {...bindInput('email')}
           inputProps={textInputProps}
-          label='Email'
+          label={t('common.literals.email', 'Email')}
           floatingLabel={true}
         />
         <PasswordTextField
           {...bindInput('currentPassword')}
-          label='Current password'
+          label={t('auth.editAccount.currentPassword', 'Current password')}
           floatingLabel={true}
           inputProps={textInputProps}
         />
         {!changePassword ? (
-          <TextButton label='Change password?' onClick={this.onPasswordChangeClick} tabIndex={0} />
+          <TextButton
+            label={t('auth.editAccount.changePassword', 'Change password?')}
+            onClick={this.onPasswordChangeClick}
+            tabIndex={0}
+          />
         ) : (
           <>
             <PasswordTextField
               {...bindInput('newPassword')}
-              label='New password'
+              label={t('auth.editAccount.newPassword', 'New password')}
               floatingLabel={true}
               inputProps={textInputProps}
             />
             <PasswordTextField
               {...bindInput('confirmNewPassword')}
-              label='Confirm new password'
+              label={t('auth.editAccount.confirmNewPassword', 'Confirm new password')}
               floatingLabel={true}
               inputProps={textInputProps}
             />
@@ -215,19 +254,28 @@ export default class EditAccount extends React.Component {
     if (reqId && auth.lastFailure && auth.lastFailure.reqId === reqId) {
       // TODO(2Pac): Use the actual error code once the error system is implemented.
       if (auth.lastFailure.err === 'Incorrect password') {
-        passwordError = 'Incorrect current password.'
+        passwordError = t('auth.editAccount.incorrectPassword', 'Incorrect current password.')
       } else {
         errorElem = (
-          <ErrorText>There was an issue updating your account. Please try again later.</ErrorText>
+          <ErrorText>
+            <Trans t={t} i18nKey='auth.editAccount.errorUpdatingAccount'>
+              There was an issue updating your account. Please try again later.
+            </Trans>
+          </ErrorText>
         )
       }
     }
 
     const buttons = [
-      <TextButton label='Cancel' key='cancel' color='accent' onClick={onCancel} />,
+      <TextButton
+        label={t('common.literals.cancel', 'Cancel')}
+        key='cancel'
+        color='accent'
+        onClick={onCancel}
+      />,
       <TextButton
         ref={this._saveButton}
-        label='Save'
+        label={t('common.literals.save', 'Save')}
         key='save'
         color='accent'
         onClick={this.onAccountSave}
@@ -236,7 +284,7 @@ export default class EditAccount extends React.Component {
 
     return (
       <Dialog
-        title={'Edit account'}
+        title={t('auth.editAccount.dialogTitle', 'Edit account')}
         buttons={buttons}
         showCloseButton={true}
         onCancel={onCancel}
