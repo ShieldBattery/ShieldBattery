@@ -106,13 +106,13 @@ export function TopLinks({ className }: { className?: string }) {
   const [anchor, anchorX, anchorY] = useAnchorPosition('left', 'bottom')
 
   const onChangeLanguage = useStableCallback(async (language: TranslationLanguage) => {
+    closeLanguageMenu()
     try {
       await i18n.changeLanguage(language)
     } catch (error) {
       dispatch(openSnackbar({ message: 'Something went wrong changing the language' }))
       logger.error(`There was an error changing the language: ${error}`)
     }
-    closeLanguageMenu()
   })
 
   return (
