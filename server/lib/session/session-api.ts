@@ -6,6 +6,7 @@ import {
   USERNAME_MINLENGTH,
   USERNAME_PATTERN,
 } from '../../../common/constants'
+import { ALL_TRANSLATION_LANGUAGES, TranslationLanguage } from '../../../common/i18n'
 import { MatchmakingType } from '../../../common/matchmaking'
 import { SelfUser, UserErrorCode } from '../../../common/users/sb-user'
 import { ClientSessionInfo } from '../../../common/users/session'
@@ -19,7 +20,7 @@ import { isUserBanned, retrieveBanHistory } from '../users/ban-models'
 import { joiClientIdentifiers } from '../users/client-ids'
 import { convertUserApiErrors, UserApiError } from '../users/user-api-errors'
 import { UserIdentifierManager } from '../users/user-identifier-manager'
-import { attemptLogin, findSelfById, maybeMigrateSignupIp } from '../users/user-model'
+import { attemptLogin, findSelfById, maybeMigrateSignupIp, updateUser } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
 import ensureLoggedIn from './ensure-logged-in'
 import initSession from './init'
@@ -37,6 +38,7 @@ interface LogInRequestBody {
   password: string
   remember?: boolean
   clientIds?: ReadonlyArray<[type: number, hashStr: string]>
+  language?: TranslationLanguage
 }
 
 @httpApi('/sessions')
@@ -93,10 +95,11 @@ export class SessionApi {
         // TODO(tec27): Make this required in future versions (cur v8.0.2). This is just to allow
         // old clients to log in so it triggers auto-update
         clientIds: joiClientIdentifiers(),
+        language: Joi.valid(...ALL_TRANSLATION_LANGUAGES),
       }),
     })
 
-    const { username, password, remember, clientIds } = body
+    const { username, password, remember, clientIds, language } = body
     let user: SelfUser | undefined
 
     if (ctx.session?.userId) {
@@ -144,6 +147,15 @@ export class SessionApi {
     await ctx.regenerateSession()
     const perms = (await getPermissions(user.id))!
     await maybeMigrateSignupIp(user.id, ctx.ip)
+
+    if (language && language !== user.language) {
+      user = await updateUser(user.id, { language })
+    }
+
+    // This would be a very weird occurrence, so we just throw a 500 here.
+    if (!user) {
+      throw new Error("couldn't find current user")
+    }
 
     const sessionInfo: ClientSessionInfo = {
       sessionId: ctx.sessionId!,

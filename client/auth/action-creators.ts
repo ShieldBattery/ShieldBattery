@@ -1,4 +1,5 @@
 import cuid from 'cuid'
+import { TranslationLanguage } from '../../common/i18n'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
 import { SbUserId, SelfUser } from '../../common/users/sb-user'
@@ -70,7 +71,12 @@ async function getExtraSessionData() {
 }
 
 export function logIn(
-  { username, password, remember }: { username: string; password: string; remember: boolean },
+  {
+    username,
+    password,
+    remember,
+    language,
+  }: { username: string; password: string; remember: boolean; language: TranslationLanguage },
   spec: RequestHandlingSpec,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
@@ -81,6 +87,7 @@ export function logIn(
         username,
         password,
         remember: !!remember,
+        language,
       }),
     })
     sessionStorage.clear()
@@ -103,13 +110,24 @@ export function logOut() {
 }
 
 export function signUp(
-  { username, email, password }: { username: string; email: string; password: string },
+  {
+    username,
+    email,
+    password,
+    language,
+  }: { username: string; email: string; password: string; language: TranslationLanguage },
   spec: RequestHandlingSpec,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const result = await fetchJson<ClientSessionInfo>(apiUrl`users`, {
       method: 'post',
-      body: JSON.stringify({ ...(await getExtraSessionData()), username, email, password }),
+      body: JSON.stringify({
+        ...(await getExtraSessionData()),
+        username,
+        email,
+        password,
+        language,
+      }),
     })
     window.fathom?.trackGoal('YTZ0JAUE', 0)
     sessionStorage.clear()

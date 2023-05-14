@@ -1,5 +1,6 @@
 import { Opaque } from 'type-fest'
 import { GameRecordJson } from '../games/games'
+import { TranslationLanguage } from '../i18n'
 import { Jsonify } from '../json'
 import { LadderPlayer } from '../ladder'
 import { MapInfoJson } from '../maps'
@@ -38,6 +39,8 @@ export interface SelfUser extends SbUser {
   acceptedTermsVersion: number
   /** The last version of the acceptable use policy this user has seen/accepted. */
   acceptedUsePolicyVersion: number
+  /** The language that this user has chosen to use. */
+  language: TranslationLanguage
 }
 
 /**

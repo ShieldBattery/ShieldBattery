@@ -11,6 +11,7 @@ import {
   USERNAME_MINLENGTH,
   USERNAME_PATTERN,
 } from '../../common/constants'
+import { TranslationLanguage } from '../../common/i18n'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { useForm } from '../forms/form-hook'
@@ -135,7 +136,7 @@ interface SignupModel {
 }
 
 export function Signup() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const dispatch = useAppDispatch()
   const auth = useAppSelector(s => s.auth)
 
@@ -180,6 +181,7 @@ export function Signup() {
           username: model.username,
           email: model.email,
           password: model.password,
+          language: i18n.language as TranslationLanguage,
         },
         {
           onSuccess: () => {},

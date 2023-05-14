@@ -17,6 +17,7 @@ import {
   USERNAME_PATTERN,
 } from '../../../common/constants'
 import { toGameRecordJson } from '../../../common/games/games'
+import { ALL_TRANSLATION_LANGUAGES, TranslationLanguage } from '../../../common/i18n'
 import { LadderPlayer } from '../../../common/ladder'
 import { toMapInfoJson } from '../../../common/maps'
 import {
@@ -166,6 +167,7 @@ interface SignupRequestBody {
   password: string
   email: string
   clientIds: [type: number, hash: string][]
+  language?: TranslationLanguage
 }
 
 @httpApi('/users')
@@ -196,10 +198,11 @@ export class UserApi {
           .trim()
           .required(),
         clientIds: joiClientIdentifiers().required(),
+        language: Joi.valid(...ALL_TRANSLATION_LANGUAGES),
       }),
     })
 
-    const { username, password, email, clientIds } = body
+    const { username, password, email, clientIds, language } = body
 
     if (!isElectronClient(ctx)) {
       const [suspicious, signupAllowed] = await Promise.all([
@@ -233,6 +236,7 @@ export class UserApi {
         hashedPassword,
         ipAddress: ctx.ip,
         clientIds,
+        language,
       })
     } catch (err: any) {
       if (err.code && err.code === UNIQUE_VIOLATION) {
