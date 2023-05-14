@@ -20,8 +20,3 @@ export const USE_STATIC_TURNRATE = ON()
 // TODO(2Pac): Flip this flag to ON once we have a news/home page
 /** Allows users to leave the ShieldBattery chat channel. */
 export const CAN_LEAVE_SHIELDBATTERY_CHANNEL = OFF()
-/**
- * Allows users to change their language. Shouldn't be turned on until we have some actual
- * translations of languages other than English.
- */
-export const LANGUAGE_SUPPORT = DEV()

@@ -2,7 +2,6 @@ import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
-import { LANGUAGE_SUPPORT } from '../../common/flags'
 import {
   ALL_TRANSLATION_LANGUAGES,
   TranslationLanguage,
@@ -118,25 +117,23 @@ export function TopLinks({ className }: { className?: string }) {
 
   return (
     <TopLinksList className={className}>
-      {LANGUAGE_SUPPORT ? (
-        <Popover
-          open={languageMenuOpen}
-          onDismiss={closeLanguageMenu}
-          anchorX={anchorX ?? 0}
-          anchorY={anchorY ?? 0}
-          originX={'left'}
-          originY={'top'}>
-          <MenuList dense={true}>
-            {ALL_TRANSLATION_LANGUAGES.map(language => (
-              <MenuItem
-                key={language}
-                text={translationLanguageToLabel(language)}
-                onClick={() => onChangeLanguage(language)}
-              />
-            ))}
-          </MenuList>
-        </Popover>
-      ) : null}
+      <Popover
+        open={languageMenuOpen}
+        onDismiss={closeLanguageMenu}
+        anchorX={anchorX ?? 0}
+        anchorY={anchorY ?? 0}
+        originX={'left'}
+        originY={'top'}>
+        <MenuList dense={true}>
+          {ALL_TRANSLATION_LANGUAGES.map(language => (
+            <MenuItem
+              key={language}
+              text={translationLanguageToLabel(language)}
+              onClick={() => onChangeLanguage(language)}
+            />
+          ))}
+        </MenuList>
+      </Popover>
 
       {!IS_ELECTRON ? (
         <>
@@ -175,13 +172,11 @@ export function TopLinks({ className }: { className?: string }) {
         </>
       ) : null}
       <Spacer />
-      {LANGUAGE_SUPPORT ? (
-        <li>
-          <Tooltip text='Change language' disabled={languageMenuOpen}>
-            <IconButton ref={anchor} icon={<LanguageIcon />} onClick={openLanguageMenu} />
-          </Tooltip>
-        </li>
-      ) : null}
+      <li>
+        <Tooltip text='Change language' disabled={languageMenuOpen}>
+          <IconButton ref={anchor} icon={<LanguageIcon />} onClick={openLanguageMenu} />
+        </Tooltip>
+      </li>
       <li>
         <Link href='/login'>Log&nbsp;in</Link>
       </li>
