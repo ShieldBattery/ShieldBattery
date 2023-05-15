@@ -14,7 +14,17 @@
         "playerNameUnknown": "알 수 없는 플레이어",
         "teamNameBottom": "바닥",
         "teamNameNumber": "팀 {{teamNumber}}",
-        "teamNameTop": "상단"
+        "teamNameTop": "상단",
+        "literals": {
+            "password": "비밀번호",
+            "save": "구하다",
+            "cancel": "취소",
+            "continue": "계속하다",
+            "email": "이메일",
+            "emailAddress": "이메일 주소",
+            "login": "로그인",
+            "username": "사용자 이름"
+        }
     },
     "games": {
         "results": {
@@ -67,6 +77,125 @@
             "video": {
                 "label": "동영상"
             }
+        }
+    },
+    "auth": {
+        "forgot": {
+            "user": {
+                "title": "사용자 이름 복구",
+                "enterEmail": "가입하신 이메일 주소를 입력해주세요.",
+                "recoverUsername": "사용자 이름 복구",
+                "successMessage": "해당 이메일 주소에 등록된 사용자가 있는 경우 몇 분 안에 관련 사용자 이름이 포함된 이메일을 받게 됩니다."
+            },
+            "backToLogin": "로그인으로 돌아가기",
+            "generalError": "오류: {{error}}",
+            "password": {
+                "sendResetEmail": "재설정 이메일 보내기",
+                "successMessage": "해당 이메일 주소와 사용자 이름이 등록된 계정과 일치하면 몇 분 안에 비밀번호 재설정 방법에 대한 지침이 포함된 이메일을 받게 됩니다.",
+                "title": "암호를 재설정"
+            },
+            "reset": {
+                "confirmPassword": "새 암호를 확인합니다",
+                "newPassword": "새 비밀번호",
+                "passwordCode": "비밀번호 재설정 코드",
+                "setNewPassword": "새 비밀번호 설정",
+                "successMessage": "당신의 비밀번호가 초기화되었습니다.",
+                "title": "암호를 재설정"
+            }
+        },
+        "login": {
+            "forgotPassword": "비밀번호를 잊으 셨나요?",
+            "forgotUsername": "사용자 이름을 잊으셨나요?",
+            "rememberMe": "날 기억해",
+            "signUp": "계정에 가입",
+            "title": "로그인",
+            "whatIsShieldBattery": "실드배터리란?"
+        },
+        "noPermissionsPage": {
+            "body": "이 페이지에 액세스할 수 있는 권한이 없습니다."
+        },
+        "passwordValidator": {
+            "confirm": "암호를 확인",
+            "current": "현재 비밀번호를 입력하세요",
+            "matching": "일치하는 비밀번호를 입력하세요",
+            "minLength": "{{minLength}}자 이상 사용",
+            "minLength2": "{{minLength}}자 이상 입력하세요.",
+            "required": "비밀번호를 입력하세요",
+            "resetCode": "비밀번호 재설정 코드를 입력하세요"
+        },
+        "emailVerification": {
+            "sendError": "확인 이메일을 보내는 중에 문제가 발생했습니다. 나중에 다시 시도해 주세요.",
+            "switchUser": "사용자 전환",
+            "title": "이메일 확인",
+            "verifySuccess": "귀하의 이메일이 성공적으로 확인되었습니다.",
+            "wrongUserError": "오류: 이메일을 확인하려는 계정에 로그인해야 합니다. 아래 버튼을 클릭하여 사용자를 전환하고 다시 시도하십시오.",
+            "defaultError": "뭔가 크게 잘못되었습니다. 다시 시도해 주세요.",
+            "emailSent": "확인 이메일이 성공적으로 전송되었습니다.",
+            "emailUnverifiedMessage": "이메일이 확인되지 않았습니다! ShieldBattery에서 보낸 이메일을 확인하십시오. 하나가 보이지 않으면 <2>다른 하나를 보낼 수 있습니다</2>.",
+            "generalError": "오류: {{error}}",
+            "invalidCodeError": "오류: 제공된 이메일 또는 확인 코드가 유효하지 않습니다. 확인 코드가 이메일로 받은 것과 일치하면 만료되었을 수 있습니다. 새 확인 이메일을 요청하고 다시 시도하십시오.",
+            "loggedOutError": "오류: 이메일을 확인하려면 로그인해야 합니다. 아래 버튼을 클릭하여 로그인 후 다시 시도해 주세요.",
+            "resendError": "이메일 재전송 오류: {{error}}",
+            "resendSuccess": "새 확인 코드가 계정의 이메일 주소로 전송되었습니다.",
+            "resendVerificationEmail": "확인 이메일을 다시 보내"
+        },
+        "editAccount": {
+            "changePassword": "비밀번호를 변경하시겠습니까?",
+            "confirmNewPassword": "새 암호를 확인합니다",
+            "currentPassword": "현재 비밀번호",
+            "dialogTitle": "계정 수정",
+            "errorUpdatingAccount": "계정을 업데이트하는 중에 문제가 발생했습니다. 나중에 다시 시도 해주십시오.",
+            "incorrectPassword": "현재 암호가 잘못되었습니다.",
+            "newPassword": "새 비밀번호"
+        },
+        "emailValidator": {
+            "maxLength": "최대 {{maxLength}} 문자 사용",
+            "minLength": "{{minLength}}자 이상 사용",
+            "pattern": "유효한 이메일 주소를 입력하세요.",
+            "required": "이메일 주소를 입력하세요"
+        },
+        "signup": {
+            "acceptableUseLink": "허용되는 사용",
+            "ageConfirmation": "본인은 13세 이상임을 확인합니다.",
+            "alreadyHaveAccount": "이미 계정이 있습니까?",
+            "confirmPassword": "비밀번호 확인",
+            "createAccount": "계정 만들기",
+            "privacyLink": "은둔",
+            "readAndAgree": "나는 읽고 동의합니다",
+            "termsOfServiceLink": "서비스 약관",
+            "title": "계정 만들기"
+        },
+        "userErrorDisplay": {
+            "accountBanned": "이 계정은 차단되었습니다.<1><0>이유:</0><1>{{banReason}}</1></1><2>차단은 {{expireTime}}에 만료됩니다.</2>",
+            "banWithoutReason": "지정된 이유 없음",
+            "defaultError": "오류 발생: {{status}} {{statusText}}",
+            "genericError": "오류 발생: {{errorMessage}}",
+            "invalidCredentials": "잘못된 사용자 이름 또는 비밀번호",
+            "machineBanned": "이 컴퓨터는 새 계정을 만들 수 없습니다.",
+            "noConnectionErrorMessage": "서버에 연결하지 못했습니다. 인터넷 연결을 확인하고 다시 시도하십시오.",
+            "sessionExpired": "세션이 만료됨",
+            "suspiciousActivity": "이 네트워크에서 의심스러운 활동이 감지되어 현재 웹에서 계정을 생성할 수 없습니다. 새 계정을 만들려면 독립 실행형 클라이언트를 다운로드하십시오.",
+            "usernameTaken": "해당 이름을 가진 사용자가 이미 존재합니다."
+        },
+        "usernameValidator": {
+            "maxLength": "최대 {{maxLength}}자까지 입력하세요.",
+            "maxLength2": "최대 {{maxLength}} 문자 사용",
+            "minLength": "{{minLength}}자 이상 입력하세요.",
+            "minLength2": "{{minLength}}자 이상 사용",
+            "pattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다.",
+            "required": "사용자 이름을 입력하세요",
+            "taken": "이미 사용중인 이름입니다"
+        }
+    },
+    "landing": {
+        "topLinks": {
+            "leagues": "<0>리그</0>",
+            "changeLanguage": "언어 변경",
+            "changeLanguageError": "언어를 변경할 때 문제가 발생했습니다.",
+            "faq": "<0>자주 묻는 질문</0>",
+            "home": "<0>홈</0>",
+            "ladder": "<0>사다리</0>",
+            "login": "로그인"
         }
     }
 }
