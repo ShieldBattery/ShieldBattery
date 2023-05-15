@@ -12,7 +12,12 @@
             "okay": "Bueno",
             "save": "Ahorrar",
             "join": "Unirse",
-            "view": "Vista"
+            "view": "Vista",
+            "download": "",
+            "hide": "",
+            "refresh": "",
+            "search": "",
+            "show": ""
         }
     },
     "settings": {
@@ -146,7 +151,8 @@
             "current": "introduce tu contraseña actual",
             "matching": "Introduce una contraseña que coincida",
             "required": "Ingrese una contraseña",
-            "resetCode": "Ingrese su código de restablecimiento de contraseña"
+            "resetCode": "Ingrese su código de restablecimiento de contraseña",
+            "matchingPassword": ""
         },
         "signup": {
             "acceptableUseLink": "Uso aceptable",
@@ -176,6 +182,99 @@
             "ladder": "Escalera",
             "leagues": "ligas",
             "login": "Acceso"
+        },
+        "bottomLinks": {
+            "privacyPolicy": "",
+            "termsOfService": "",
+            "acceptableUsePolicy": ""
+        },
+        "faq": {
+            "header": "",
+            "hotkeyCustomizationAnswer": "",
+            "hotkeyCustomizationQuestion": "",
+            "isShieldBatteryFreeAnswer": "",
+            "isShieldBatteryFreeQuestion": "",
+            "linuxSupportAnswer": "",
+            "linuxSupportQuestion": "",
+            "officialSupportAnswer": "",
+            "officialSupportQuestion": "",
+            "openSourceAnswer": "",
+            "openSourceQuestion": "",
+            "reportIssuesAnswer": "",
+            "reportIssuesQuestion": "",
+            "supportedStarcraftVersionAnswer": "",
+            "supportedStarcraftVersionQuestion": "",
+            "systemRequirementsAnswer": "",
+            "systemRequirementsQuestion": "",
+            "title": ""
+        },
+        "splash": {
+            "benefits": {
+                "communityFirstText": "",
+                "communityFirstTitle": "",
+                "fullPotentialText": "",
+                "fullPotentialTitle": "",
+                "tacticallyFaithfulText": "",
+                "tacticallyFaithfulTitle": ""
+            },
+            "blurb": "",
+            "comingSoon": {
+                "3v3Description": "",
+                "3v3Title": "",
+                "automatedTournamentsDescription": "",
+                "automatedTournamentsTitle": "",
+                "builtInMapmakingDescription": "",
+                "builtInMapmakingTitle": "",
+                "cloudReplaysDescription": "",
+                "cloudReplaysTitle": "",
+                "expandedChatDescription": "",
+                "expandedChatTitle": "",
+                "fpReplaysDescription": "",
+                "fpReplaysTitle": "",
+                "liveStreamingDescription": "",
+                "liveStreamingTitle": "",
+                "pixelScalingDescription": "",
+                "pixelScalingTitle": "",
+                "playerProfilesDescription": "",
+                "playerProfilesTitle": "",
+                "replayAnalysisDescription": "",
+                "replayAnalysisTitle": "",
+                "sandboxModeDescription": "",
+                "sandboxModeTitle": "",
+                "umsPortalDescription": "",
+                "umsPortalTitle": ""
+            },
+            "comingSoonTitle": "",
+            "disclaimerText": "",
+            "features": {
+                "cloudHostingDescription": "",
+                "cloudHostingTitle": "",
+                "fixesBugsExploitsDescription": "",
+                "fixesBugsExploitsTitle": "",
+                "friendsListDescription": "",
+                "friendsListTitle": "",
+                "improvedNetcodeDescription": "",
+                "improvedNetcodeTitle": "",
+                "leaguesDescription": "",
+                "leaguesTitle": "",
+                "matchmakingDescription": "",
+                "matchmakingTitle": "",
+                "partiesDescription": "",
+                "partiesTitle": "",
+                "rankedladderDescription": "",
+                "rankedLadderTitle": "",
+                "remasteredSupportDescription": "",
+                "remasteredSupportTitle": "",
+                "teamMeleeReplaysDescription": "",
+                "teamMeleeReplaysTitle": "",
+                "webClientDescription": "",
+                "webClientTitle": ""
+            },
+            "gameCount": "",
+            "linksHeader": "",
+            "signUp": "",
+            "tagline": "",
+            "featuresTitle": ""
         }
     },
     "ladder": {
@@ -228,6 +327,10 @@
             "platinum": "Platino {{level}}",
             "silver": "Plata {{level}}",
             "unrated": "Sin clasificar"
+        },
+        "type": {
+            "1v1": "",
+            "2v2": ""
         }
     },
     "clientUpdate": {
@@ -325,5 +428,166 @@
             "idle": "Inactivo",
             "offline": "Desconectado"
         }
+    },
+    "fileBrowser": {
+        "noFiles": "",
+        "rootFolder": "",
+        "upOneDirectory": ""
+    },
+    "game": {
+        "gameSource": {
+            "custom": "",
+            "ranked": ""
+        },
+        "gameType": {
+            "captureTheFlag": "",
+            "freeForAll": "",
+            "greed": "",
+            "melee": "",
+            "oneOnOne": "",
+            "slaughter": "",
+            "suddenDeath": "",
+            "teamCaptureTheFlag": "",
+            "teamMelee": "",
+            "topVsBottom": "",
+            "unknown": "",
+            "useMapSettings": "",
+            "teamFreeForAll": ""
+        },
+        "mapName": {
+            "unknown": ""
+        },
+        "playerName": {
+            "computer": "",
+            "unknown": ""
+        },
+        "race": {
+            "protoss": "",
+            "random": "",
+            "terran": "",
+            "zerg": ""
+        },
+        "results": {
+            "draw": "",
+            "loss": "",
+            "unknown": "",
+            "win": ""
+        },
+        "teamName": {
+            "bottom": "",
+            "number": "",
+            "top": ""
+        }
+    },
+    "gameDetails": {
+        "buttonCopyLink": "",
+        "buttonSearchAgain": "",
+        "errorLoading": "",
+        "headlineDefault": "",
+        "headlineDefeat": "",
+        "headlineDraw": "",
+        "headlineInProgress": "",
+        "headlineVictory": "",
+        "infoDate": "",
+        "infoDuration": "",
+        "infoGameType": "",
+        "summary": {
+            "pointsBonus": "",
+            "rp": "",
+            "pointsBase": "",
+            "mmr": ""
+        },
+        "tabBuildOrders": "",
+        "tabStats": "",
+        "tabSummary": "",
+        "statusFinal": "",
+        "statusLive": ""
+    },
+    "league": {
+        "explainer": {
+            "winTitle": "",
+            "description": "",
+            "howLeaguesWork": "",
+            "joinDescription": "",
+            "joinTitle": "",
+            "playDescription": "",
+            "playTitle": "",
+            "winDescription": ""
+        },
+        "details": {
+            "about": "",
+            "copyLink": "",
+            "dateText": "",
+            "goBack": "",
+            "info": "",
+            "joined": "",
+            "joinError": "",
+            "leaderboard": "",
+            "leaderboardError": "",
+            "leaderBoardHeader": {
+                "lastPlayed": "",
+                "player": "",
+                "points": "",
+                "rank": "",
+                "winLoss": ""
+            },
+            "leagueEndedError": "",
+            "leagueJoined": "",
+            "noPlayers": "",
+            "notFound": "",
+            "retrieveError": "",
+            "rulesAndInfo": ""
+        },
+        "list": {
+            "acceptingSignups": "",
+            "currentlyRunning": "",
+            "ends": "",
+            "finished": "",
+            "howDoLeaguesWork": "",
+            "joined": "",
+            "loadingError": "",
+            "manageLeagues": "",
+            "noLeagues": "",
+            "pageHeadline": "",
+            "starts": "",
+            "viewInfo": ""
+        }
+    },
+    "messaging": {
+        "blockedMessage": "",
+        "mention": "",
+        "newDayMessage": "",
+        "sendMessage": ""
+    },
+    "network": {
+        "connecting": ""
+    },
+    "policy": {
+        "acceptableUse": "",
+        "policyUpdateNotification": "",
+        "privacyPolicy": "",
+        "termsOfService": ""
+    },
+    "replays": {
+        "local": {
+            "duration": "",
+            "gameType": "",
+            "loadingError": "",
+            "rootFolderName": "",
+            "title": "",
+            "watchReplay": ""
+        }
+    },
+    "user": {
+        "miniMatchHistory": {
+            "noGames": "",
+            "noGameSelected": "",
+            "viewDetails": ""
+        }
+    },
+    "windowControls": {
+        "close": "",
+        "maximizeRestore": "",
+        "minimize": ""
     }
 }
