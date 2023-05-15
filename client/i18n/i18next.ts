@@ -1,4 +1,5 @@
 import i18n from 'i18next'
+import LanguageDetector from 'i18next-browser-languagedetector'
 import HttpBackend, { HttpBackendOptions } from 'i18next-http-backend'
 import { initReactI18next } from 'react-i18next'
 import {
@@ -21,6 +22,7 @@ export type TransInterpolation = any
 
 export const i18nextPromise = i18n
   .use(HttpBackend)
+  .use(LanguageDetector)
   .use(initReactI18next)
   .init<HttpBackendOptions>({
     backend: {
@@ -33,6 +35,11 @@ export const i18nextPromise = i18n
 
     supportedLngs: ALL_TRANSLATION_LANGUAGES,
     fallbackLng: TranslationLanguage.English,
+
+    detection: {
+      order: ['navigator'],
+      caches: [],
+    },
 
     // These are basically the defaults, but just defining them explicitly if we ever decide to use
     // namespaces.

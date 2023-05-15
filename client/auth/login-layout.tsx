@@ -1,5 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
+import { TopLinks } from '../landing/top-links'
 import LogoText from '../logos/logotext-640x100.svg'
 import { makePublicAssetUrl } from '../network/server-url'
 
@@ -7,6 +8,10 @@ const Wrapper = styled.div`
   width: 100%;
   padding-left: var(--pixel-shove-x, 0);
   overflow: auto;
+`
+
+const StyledTopLinks = styled(TopLinks)`
+  margin: 8px auto;
 `
 
 const Contents = styled.div`
@@ -34,6 +39,7 @@ export interface LoginLayoutProps {
 export default function LoginLayout({ children }: LoginLayoutProps) {
   return (
     <Wrapper>
+      <StyledTopLinks />
       <Contents>
         <Logo src={makePublicAssetUrl('/images/logo.svg')} />
         <StyledLogoText>

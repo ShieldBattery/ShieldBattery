@@ -244,6 +244,7 @@
     "google-fonts-helper": "^3.3.0",
     "html-loader": "^4.2.0",
     "i18next": "^22.2.0",
+    "i18next-browser-languagedetector": "^7.0.1",
     "i18next-fs-backend": "^2.1.0",
     "i18next-http-backend": "^2.1.0",
     "i18next-parser": "^8.0.0",
