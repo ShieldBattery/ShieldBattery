@@ -99,6 +99,10 @@ const HideWhenSmall = styled.span`
   }
 `
 
+const NoBreakLink = styled(Link)`
+  white-space: nowrap;
+`
+
 export function TopLinks({ className }: { className?: string }) {
   const { t, i18n } = useTranslation()
   const dispatch = useAppDispatch()
@@ -195,9 +199,7 @@ export function TopLinks({ className }: { className?: string }) {
         </Tooltip>
       </li>
       <li>
-        <Trans t={t} i18nKey='landing.topLinks.login'>
-          <Link href='/login'>Log&nbsp;in</Link>
-        </Trans>
+        <NoBreakLink href='/login'>{t('landing.topLinks.login', 'Log in')}</NoBreakLink>
       </li>
     </TopLinksList>
   )

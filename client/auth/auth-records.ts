@@ -33,4 +33,5 @@ export class AuthState extends Record({
   lastFailure: null as { reqId: string; err: string; code?: string } | null,
   user: new SelfUserRecord(),
   permissions: new PermissionsRecord(),
+  sessionId: '',
 }) {}

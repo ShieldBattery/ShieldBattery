@@ -19,10 +19,11 @@ function begin(state: State, action: AuthChangeBegin) {
 }
 
 function logInSuccess(state: State, action: { payload: ClientSessionInfo }) {
-  const { user, permissions } = action.payload
+  const { user, permissions, sessionId } = action.payload
   return new AuthState({
     user: new SelfUserRecord(user),
     permissions: new PermissionsRecord(permissions),
+    sessionId,
   })
 }
 

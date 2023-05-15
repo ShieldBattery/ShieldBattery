@@ -252,6 +252,7 @@ export class UserApi {
     }
 
     const sessionInfo: ClientSessionInfo = {
+      sessionId: '',
       user: createdUser.user,
       permissions: createdUser.permissions,
       lastQueuedMatchmakingType: MatchmakingType.Match1v1,
@@ -261,6 +262,7 @@ export class UserApi {
     // share a session ID
     await ctx.regenerateSession()
     initSession(ctx, sessionInfo)
+    sessionInfo.sessionId = ctx.sessionId!
 
     const code = cuid()
     await addEmailVerificationCode({ userId: createdUser.user.id, email, code, ip: ctx.ip })

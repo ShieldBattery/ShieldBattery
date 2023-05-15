@@ -65,6 +65,7 @@ export class SessionApi {
     }
 
     const sessionInfo: ClientSessionInfo = {
+      sessionId: ctx.sessionId!,
       user,
       permissions: ctx.session.permissions,
       lastQueuedMatchmakingType: ctx.session.lastQueuedMatchmakingType,
@@ -74,11 +75,7 @@ export class SessionApi {
     // due to a botched migration or something)
     initSession(ctx, sessionInfo)
 
-    return {
-      user,
-      permissions: ctx.session.permissions,
-      lastQueuedMatchmakingType: ctx.session.lastQueuedMatchmakingType,
-    }
+    return sessionInfo
   }
 
   @httpPost('/')
@@ -149,6 +146,7 @@ export class SessionApi {
     await maybeMigrateSignupIp(user.id, ctx.ip)
 
     const sessionInfo: ClientSessionInfo = {
+      sessionId: ctx.sessionId!,
       user,
       permissions: perms,
       lastQueuedMatchmakingType: MatchmakingType.Match1v1,
