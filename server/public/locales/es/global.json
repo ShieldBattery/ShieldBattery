@@ -14,7 +14,17 @@
         "playerNameUnknown": "jugador desconocido",
         "teamNameBottom": "Abajo",
         "teamNameNumber": "Equipo {{teamNumber}}",
-        "teamNameTop": "Arriba"
+        "teamNameTop": "Arriba",
+        "literals": {
+            "cancel": "Cancelar",
+            "login": "Acceso",
+            "password": "Contraseña",
+            "save": "Ahorrar",
+            "username": "Nombre de usuario",
+            "continue": "Continuar",
+            "email": "Correo electrónico",
+            "emailAddress": "Dirección de correo electrónico"
+        }
     },
     "games": {
         "miniMatchHistory": {
@@ -67,6 +77,125 @@
             "video": {
                 "label": "Video"
             }
+        }
+    },
+    "auth": {
+        "userErrorDisplay": {
+            "defaultError": "Ocurrió un error: {{status}} {{statusText}}",
+            "genericError": "Ocurrió un error: {{errorMessage}}",
+            "invalidCredentials": "Nombre de usuario o contraseña incorrecta",
+            "machineBanned": "Esta máquina tiene prohibido crear nuevas cuentas.",
+            "noConnectionErrorMessage": "Error al conectar con el servidor. Comprueba tu conexión a Internet e inténtalo de nuevo.",
+            "sessionExpired": "Sesión expirada",
+            "suspiciousActivity": "Debido a actividad sospechosa detectada en esta red, la creación de cuentas en la web está deshabilitada actualmente. Descargue el cliente independiente para crear una nueva cuenta.",
+            "usernameTaken": "Ya existe un usuario con ese nombre",
+            "accountBanned": "Esta cuenta ha sido prohibida.<1><0>Motivo:</0><1>{{banReason}}</1></1><2>La prohibición expirará en {{expireTime}}.</2>",
+            "banWithoutReason": "Sin motivo especificado"
+        },
+        "usernameValidator": {
+            "maxLength": "Ingrese como máximo {{maxLength}} caracteres",
+            "maxLength2": "Utilice como máximo {{maxLength}} caracteres",
+            "minLength": "Ingrese al menos {{minLength}} caracteres",
+            "minLength2": "Utilice al menos {{minLength}} caracteres",
+            "pattern": "Nombre de usuario contiene caracteres inválidos",
+            "required": "Introduzca un nombre de usuario",
+            "taken": "Este nombre de usuario ya está tomado"
+        },
+        "editAccount": {
+            "dialogTitle": "Editar cuenta",
+            "errorUpdatingAccount": "Hubo un problema al actualizar su cuenta. Por favor, inténtelo de nuevo más tarde.",
+            "incorrectPassword": "Contraseña actual incorrecta.",
+            "newPassword": "Nueva contraseña",
+            "changePassword": "¿Cambiar la contraseña?",
+            "confirmNewPassword": "Confirmar nueva contraseña",
+            "currentPassword": "Contraseña actual"
+        },
+        "emailValidator": {
+            "maxLength": "Utilice como máximo {{maxLength}} caracteres",
+            "minLength": "Utilice al menos {{minLength}} caracteres",
+            "pattern": "Introduzca una dirección de correo electrónico válida",
+            "required": "Introduzca una dirección de correo electrónico"
+        },
+        "emailVerification": {
+            "defaultError": "Algo salió terriblemente mal. Inténtalo de nuevo.",
+            "emailSent": "El correo electrónico de verificación se ha enviado con éxito.",
+            "emailUnverifiedMessage": "¡Tu correo electrónico no está verificado! Busque un correo electrónico de ShieldBattery. Si no ve uno, podemos <2>enviar otro</2>.",
+            "generalError": "Error: {{error}}",
+            "invalidCodeError": "Error: el correo electrónico proporcionado o el código de verificación no es válido. Si el código de verificación coincide con el que le enviaron por correo electrónico, es posible que haya caducado. Solicite un nuevo correo electrónico de verificación y vuelva a intentarlo.",
+            "loggedOutError": "Error: Debe iniciar sesión para verificar su correo electrónico. Inicie sesión haciendo clic en el botón de abajo y vuelva a intentarlo.",
+            "resendError": "Error al reenviar el correo electrónico: {{error}}",
+            "resendSuccess": "Se ha enviado un nuevo código de verificación a la dirección de correo electrónico de su cuenta.",
+            "resendVerificationEmail": "Reenviar correo electrónico de verificación",
+            "sendError": "Algo salió mal al enviar un correo electrónico de verificación, inténtalo de nuevo más tarde.",
+            "switchUser": "Cambiar de usuario",
+            "title": "Verificar correo electrónico",
+            "verifySuccess": "Su correo electrónico ha sido verificado con éxito.",
+            "wrongUserError": "Error: Debe iniciar sesión en la cuenta cuyo correo electrónico desea verificar. Cambie de usuario haciendo clic en el botón de abajo y vuelva a intentarlo."
+        },
+        "forgot": {
+            "backToLogin": "Atrás para iniciar sesión",
+            "generalError": "Error: {{error}}",
+            "password": {
+                "sendResetEmail": "Enviar correo electrónico de restablecimiento",
+                "successMessage": "Si esa dirección de correo electrónico y nombre de usuario coinciden con una cuenta registrada, debería recibir un correo electrónico en los próximos minutos con instrucciones sobre cómo restablecer su contraseña.",
+                "title": "Restablecer la contraseña"
+            },
+            "reset": {
+                "confirmPassword": "Confirmar nueva contraseña",
+                "newPassword": "Nueva contraseña",
+                "passwordCode": "Código de restablecimiento de contraseña",
+                "setNewPassword": "Establecer nueva contraseña",
+                "successMessage": "Tu contraseña ha sido restablecida.",
+                "title": "Restablecer la contraseña"
+            },
+            "user": {
+                "enterEmail": "Por favor, introduzca la dirección de correo electrónico con la que se registró.",
+                "recoverUsername": "recuperar nombre de usuario",
+                "successMessage": "Si hay usuarios registrados en esa dirección de correo electrónico, debería recibir un correo electrónico en los próximos minutos con los nombres de usuario correspondientes.",
+                "title": "Recupera tu nombre de usuario"
+            }
+        },
+        "login": {
+            "forgotPassword": "¿Has olvidado tu contraseña?",
+            "forgotUsername": "¿Olvidó su nombre de usuario?",
+            "rememberMe": "Acuérdate de mí",
+            "signUp": "Regístrese para obtener una cuenta",
+            "title": "Acceso",
+            "whatIsShieldBattery": "¿Qué es ShieldBattery?"
+        },
+        "noPermissionsPage": {
+            "body": "No tienes suficientes permisos para acceder a esta página."
+        },
+        "passwordValidator": {
+            "confirm": "Confirmar la contraseña",
+            "current": "introduce tu contraseña actual",
+            "matching": "Introduce una contraseña que coincida",
+            "minLength": "Utilice al menos {{minLength}} caracteres",
+            "minLength2": "Ingrese al menos {{minLength}} caracteres",
+            "required": "Ingrese una contraseña",
+            "resetCode": "Ingrese su código de restablecimiento de contraseña"
+        },
+        "signup": {
+            "acceptableUseLink": "Uso aceptable",
+            "ageConfirmation": "Certifico que tengo 13 años de edad o más",
+            "alreadyHaveAccount": "¿Ya tienes una cuenta?",
+            "confirmPassword": "Confirmar Contraseña",
+            "createAccount": "Crear una cuenta",
+            "privacyLink": "Privacidad",
+            "readAndAgree": "he leído y estoy de acuerdo con",
+            "termsOfServiceLink": "Términos de servicio",
+            "title": "Crear una cuenta"
+        }
+    },
+    "landing": {
+        "topLinks": {
+            "changeLanguage": "Cambiar idioma",
+            "changeLanguageError": "Algo salió mal al cambiar el idioma",
+            "faq": "<0>Preguntas frecuentes</0>",
+            "home": "<0>Inicio</0>",
+            "ladder": "<0>Escalera</0>",
+            "leagues": "<0>Ligas</0>",
+            "login": "<0>Iniciar sesión</0>"
         }
     }
 }
