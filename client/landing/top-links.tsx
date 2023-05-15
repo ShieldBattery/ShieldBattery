@@ -1,5 +1,5 @@
 import React from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
 import {
@@ -100,7 +100,7 @@ const HideWhenSmall = styled.span`
 `
 
 export function TopLinks({ className }: { className?: string }) {
-  const { i18n } = useTranslation()
+  const { t, i18n } = useTranslation()
   const dispatch = useAppDispatch()
   const [languageMenuOpen, openLanguageMenu, closeLanguageMenu] = usePopoverController()
   const [anchor, anchorX, anchorY] = useAnchorPosition('left', 'bottom')
@@ -110,7 +110,14 @@ export function TopLinks({ className }: { className?: string }) {
     try {
       await i18n.changeLanguage(language)
     } catch (error) {
-      dispatch(openSnackbar({ message: 'Something went wrong changing the language' }))
+      dispatch(
+        openSnackbar({
+          message: t(
+            'landing.topLinks.changeLanguageError',
+            'Something went wrong when changing the language',
+          ),
+        }),
+      )
       logger.error(`There was an error changing the language: ${error}`)
     }
   })
@@ -138,16 +145,24 @@ export function TopLinks({ className }: { className?: string }) {
       {!IS_ELECTRON ? (
         <>
           <li>
-            <Link href='/splash'>Home</Link>
+            <Trans t={t} i18nKey='landing.topLinks.home'>
+              <Link href='/splash'>Home</Link>
+            </Trans>
           </li>
           <li>
-            <Link href='/faq'>FAQ</Link>
+            <Trans t={t} i18nKey='landing.topLinks.faq'>
+              <Link href='/faq'>FAQ</Link>
+            </Trans>
           </li>
           <li>
-            <Link href='/ladder'>Ladder</Link>
+            <Trans t={t} i18nKey='landing.topLinks.ladder'>
+              <Link href='/ladder'>Ladder</Link>
+            </Trans>
           </li>
           <li>
-            <Link href='/leagues'>Leagues</Link>
+            <Trans t={t} i18nKey='landing.topLinks.leagues'>
+              <Link href='/leagues'>Leagues</Link>
+            </Trans>
           </li>
           <Spacer />
           <li>
@@ -173,12 +188,16 @@ export function TopLinks({ className }: { className?: string }) {
       ) : null}
       <Spacer />
       <li>
-        <Tooltip text='Change language' disabled={languageMenuOpen}>
+        <Tooltip
+          text={t('landing.topLinks.changeLanguage', 'Change language')}
+          disabled={languageMenuOpen}>
           <IconButton ref={anchor} icon={<LanguageIcon />} onClick={openLanguageMenu} />
         </Tooltip>
       </li>
       <li>
-        <Link href='/login'>Log&nbsp;in</Link>
+        <Trans t={t} i18nKey='landing.topLinks.login'>
+          <Link href='/login'>Log&nbsp;in</Link>
+        </Trans>
       </li>
     </TopLinksList>
   )
