@@ -164,7 +164,6 @@
   "landing": {
     "topLinks": {
       "changeLanguage": "Change language",
-      "changeLanguageError": "Something went wrong when changing the language",
       "faq": "<0>FAQ</0>",
       "home": "<0>Home</0>",
       "ladder": "<0>Ladder</0>",
@@ -197,6 +196,9 @@
       "video": {
         "label": "Video"
       }
+    },
+    "language": {
+      "changeLanguageError": "Something went wrong when changing the language"
     }
   }
 }
