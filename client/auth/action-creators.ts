@@ -1,17 +1,35 @@
 import cuid from 'cuid'
-import { TranslationLanguage } from '../../common/i18n'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
 import { SbUserId, SelfUser } from '../../common/users/sb-user'
 import { ClientSessionInfo } from '../../common/users/session'
 import type { PromisifiedAction, ReduxAction } from '../action-types'
-import type { ThunkAction } from '../dispatch-registry'
+import type { DispatchFunction, ThunkAction } from '../dispatch-registry'
+import i18n from '../i18n/i18next'
+import logger from '../logging/logger'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
+import { openSnackbar } from '../snackbars/action-creators'
 import { AccountUpdateSuccess, AuthChangeBegin } from './actions'
 import { getBrowserprint } from './browserprint'
 
 const typedIpc = new TypedIpcRenderer()
+
+async function changeLanguage(locale: string, dispatch: DispatchFunction<ReduxAction>) {
+  try {
+    await i18n.changeLanguage(locale)
+  } catch (error) {
+    dispatch(
+      openSnackbar({
+        message: i18n.t(
+          'settings.language.changeLanguageError',
+          'Something went wrong when changing the language',
+        ),
+      }),
+    )
+    logger.error(`There was an error changing the language: ${error}`)
+  }
+}
 
 type IdRequestable = Extract<
   Exclude<ReduxAction, { error: true }>,
@@ -75,8 +93,8 @@ export function logIn(
     username,
     password,
     remember,
-    language,
-  }: { username: string; password: string; remember: boolean; language: TranslationLanguage },
+    locale,
+  }: { username: string; password: string; remember: boolean; locale?: string },
   spec: RequestHandlingSpec,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
@@ -87,7 +105,7 @@ export function logIn(
         username,
         password,
         remember: !!remember,
-        language,
+        locale,
       }),
     })
     sessionStorage.clear()
@@ -96,6 +114,10 @@ export function logIn(
       type: '@auth/loadCurrentSession',
       payload: result,
     })
+
+    if (result.user.locale && result.user.locale !== locale) {
+      changeLanguage(result.user.locale, dispatch)
+    }
   })
 }
 
@@ -114,8 +136,8 @@ export function signUp(
     username,
     email,
     password,
-    language,
-  }: { username: string; email: string; password: string; language: TranslationLanguage },
+    locale,
+  }: { username: string; email: string; password: string; locale?: string },
   spec: RequestHandlingSpec,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
@@ -126,7 +148,7 @@ export function signUp(
         username,
         email,
         password,
-        language,
+        locale,
       }),
     })
     window.fathom?.trackGoal('YTZ0JAUE', 0)
@@ -136,19 +158,33 @@ export function signUp(
       type: '@auth/loadCurrentSession',
       payload: result,
     })
+
+    if (result.user.locale && result.user.locale !== locale) {
+      changeLanguage(result.user.locale, dispatch)
+    }
   })
 }
 
-export function getCurrentSession(spec: RequestHandlingSpec): ThunkAction {
+export function getCurrentSession(
+  { locale }: { locale?: string },
+  spec: RequestHandlingSpec,
+): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const result = await fetchJson<ClientSessionInfo>(apiUrl`sessions?date=${Date.now()}`, {
-      method: 'get',
-    })
+    const result = await fetchJson<ClientSessionInfo>(
+      apiUrl`sessions?date=${Date.now()}&locale=${locale}`,
+      {
+        method: 'get',
+      },
+    )
 
     dispatch({
       type: '@auth/loadCurrentSession',
       payload: result,
     })
+
+    if (result.user.locale && result.user.locale !== locale) {
+      changeLanguage(result.user.locale, dispatch)
+    }
   })
 }
 

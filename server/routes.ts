@@ -127,7 +127,7 @@ export default function applyRoutes(app: Koa, websocketServer: WebsocketServer) 
             acceptedPrivacyVersion: ctx.session.acceptedPrivacyVersion,
             acceptedTermsVersion: ctx.session.acceptedTermsVersion,
             acceptedUsePolicyVersion: ctx.session.acceptedUsePolicyVersion,
-            language: ctx.session.language,
+            locale: ctx.session.locale,
           },
           permissions: ctx.session.permissions,
           lastQueuedMatchmakingType: ctx.session.lastQueuedMatchmakingType,

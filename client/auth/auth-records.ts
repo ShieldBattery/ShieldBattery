@@ -1,5 +1,4 @@
 import { Record } from 'immutable'
-import { TranslationLanguage } from '../../common/i18n'
 import { SbPermissions } from '../../common/users/permissions'
 import { SbUserId } from '../../common/users/sb-user'
 
@@ -11,7 +10,7 @@ export class SelfUserRecord extends Record({
   acceptedPrivacyVersion: 0,
   acceptedTermsVersion: 0,
   acceptedUsePolicyVersion: 0,
-  language: TranslationLanguage.English,
+  locale: undefined,
 }) {}
 
 export class PermissionsRecord

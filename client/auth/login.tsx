@@ -7,7 +7,6 @@ import {
   USERNAME_MINLENGTH,
   USERNAME_PATTERN,
 } from '../../common/constants'
-import { TranslationLanguage } from '../../common/i18n'
 import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { composeValidators, maxLength, minLength, regex, required } from '../forms/validators'
@@ -69,7 +68,7 @@ export function Login() {
           username: model.username,
           password: model.password,
           remember: model.rememberMe,
-          language: i18n.language as TranslationLanguage,
+          locale: i18n.language,
         },
         {
           onSuccess: () => {},

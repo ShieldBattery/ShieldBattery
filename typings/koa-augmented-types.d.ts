@@ -1,6 +1,5 @@
 import { Logger } from 'pino'
 import promClient from 'prom-client'
-import { TranslationLanguage } from '../common/i18n'
 import { MatchmakingType } from '../common/matchmaking'
 import { SbPermissions } from '../common/users/permissions'
 import { SbUserId } from '../common/users/sb-user'
@@ -16,7 +15,7 @@ declare module 'koa' {
     acceptedPrivacyVersion: number
     acceptedTermsVersion: number
     acceptedUsePolicyVersion: number
-    language: TranslationLanguage
+    locale?: string
 
     permissions: SbPermissions
     lastQueuedMatchmakingType: MatchmakingType

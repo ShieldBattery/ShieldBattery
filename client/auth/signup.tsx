@@ -11,7 +11,6 @@ import {
   USERNAME_MINLENGTH,
   USERNAME_PATTERN,
 } from '../../common/constants'
-import { TranslationLanguage } from '../../common/i18n'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { useForm } from '../forms/form-hook'
@@ -181,7 +180,7 @@ export function Signup() {
           username: model.username,
           email: model.email,
           password: model.password,
-          language: i18n.language as TranslationLanguage,
+          locale: i18n.language,
         },
         {
           onSuccess: () => {},
