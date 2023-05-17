@@ -117,7 +117,7 @@ export function TopLinks({ className }: { className?: string }) {
       dispatch(
         openSnackbar({
           message: t(
-            'settings.language.changeLanguageError',
+            'auth.language.changeErrorMessage',
             'Something went wrong when changing the language',
           ),
         }),

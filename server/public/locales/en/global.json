@@ -54,6 +54,10 @@
         "title": "Recover your username"
       }
     },
+    "language": {
+      "changeErrorHeader": "Error changing the language",
+      "changeErrorMessage": "Something went wrong when changing the language"
+    },
     "login": {
       "forgotPassword": "Forgot password?",
       "forgotUsername": "Forgot username?",
@@ -196,9 +200,6 @@
       "video": {
         "label": "Video"
       }
-    },
-    "language": {
-      "changeLanguageError": "Something went wrong when changing the language"
     }
   }
 }

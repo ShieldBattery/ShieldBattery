@@ -4,12 +4,12 @@ import { apiUrl } from '../../common/urls'
 import { SbUserId, SelfUser } from '../../common/users/sb-user'
 import { ClientSessionInfo } from '../../common/users/session'
 import type { PromisifiedAction, ReduxAction } from '../action-types'
+import { openSimpleDialog } from '../dialogs/action-creators'
 import type { DispatchFunction, ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
-import { openSnackbar } from '../snackbars/action-creators'
 import { AccountUpdateSuccess, AuthChangeBegin } from './actions'
 import { getBrowserprint } from './browserprint'
 
@@ -20,12 +20,14 @@ async function changeLanguage(locale: string, dispatch: DispatchFunction<ReduxAc
     await i18n.changeLanguage(locale)
   } catch (error) {
     dispatch(
-      openSnackbar({
-        message: i18n.t(
-          'settings.language.changeLanguageError',
+      openSimpleDialog(
+        i18n.t('auth.language.changeErrorHeader', 'Error changing the language'),
+        i18n.t(
+          'auth.language.changeErrorMessage',
           'Something went wrong when changing the language',
         ),
-      }),
+        true,
+      ),
     )
     logger.error(`There was an error changing the language: ${error}`)
   }
