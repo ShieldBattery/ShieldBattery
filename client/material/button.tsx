@@ -117,8 +117,6 @@ export function useButtonState({
 
   const handleClick = useCallback(
     (event: React.MouseEvent) => {
-      event.preventDefault()
-
       if (!event.detail) {
         // This was a programmatic click (detail = number of clicks)
         rippleRef.current?.onActivate()

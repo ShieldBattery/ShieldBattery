@@ -10,7 +10,8 @@ import { bootstrapSession, getCurrentSession } from './auth/action-creators'
 import { initBrowserprint } from './auth/browserprint'
 import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
-import i18n, { i18nextPromise } from './i18n/i18next'
+import { i18nextPromise } from './i18n/i18next'
+import { detectedLocale } from './landing/top-links'
 import log from './logging/logger'
 import { fetchJson } from './network/fetch'
 import registerSocketHandlers from './network/socket-handlers'
@@ -109,7 +110,7 @@ Promise.all([rootElemPromise, i18nextPromise])
       configPromise = fetchJson('/config', { method: 'get' })
       sessionPromise = new Promise((resolve, reject) => {
         action = getCurrentSession(
-          { locale: i18n.language },
+          { locale: detectedLocale.getValue() },
           {
             onSuccess: () => resolve(),
             onError: err => reject(err),

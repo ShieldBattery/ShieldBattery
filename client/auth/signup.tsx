@@ -1,6 +1,6 @@
 import queryString from 'query-string'
 import React, { useEffect, useRef, useState } from 'react'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import {
   EMAIL_MAXLENGTH,
@@ -16,15 +16,16 @@ import { DialogType } from '../dialogs/dialog-type'
 import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import {
-  checked,
   composeValidators,
   debounce,
   matchesOther,
   maxLength,
   minLength,
   regex,
+  requireChecked,
   required,
 } from '../forms/validators'
+import { detectedLocale } from '../landing/top-links'
 import { RaisedButton } from '../material/button'
 import CheckBox from '../material/check-box'
 import { InputError } from '../material/input-error'
@@ -135,7 +136,7 @@ interface SignupModel {
 }
 
 export function Signup() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const auth = useAppSelector(s => s.auth)
 
@@ -180,7 +181,7 @@ export function Signup() {
           username: model.username,
           email: model.email,
           password: model.password,
-          locale: i18n.language,
+          locale: detectedLocale.getValue(),
         },
         {
           onSuccess: () => {},
@@ -209,14 +210,14 @@ export function Signup() {
         required(t('auth.usernameValidator.required', 'Enter a username')),
         minLength(
           USERNAME_MINLENGTH,
-          t('auth.usernameValidator.minLength2', {
+          t('common.validators.minLength', {
             defaultValue: `Use at least {{minLength}} characters`,
             minLength: USERNAME_MINLENGTH,
           }),
         ),
         maxLength(
           USERNAME_MAXLENGTH,
-          t('auth.usernameValidator.maxLength2', {
+          t('common.validators.maxLength', {
             defaultValue: `Use at most {{maxLength}} characters`,
             maxLength: USERNAME_MAXLENGTH,
           }),
@@ -231,14 +232,14 @@ export function Signup() {
         required(t('auth.emailValidator.required', 'Enter an email address')),
         minLength(
           EMAIL_MINLENGTH,
-          t('auth.emailValidator.minLength', {
+          t('common.validators.minLength', {
             defaultValue: `Use at least {{minLength}} characters`,
             minLength: EMAIL_MINLENGTH,
           }),
         ),
         maxLength(
           EMAIL_MAXLENGTH,
-          t('auth.emailValidator.maxLength', {
+          t('common.validators.maxLength', {
             defaultValue: `Use at most {{maxLength}} characters`,
             maxLength: EMAIL_MAXLENGTH,
           }),
@@ -249,7 +250,7 @@ export function Signup() {
         required(t('auth.passwordValidator.required', 'Enter a password')),
         minLength(
           PASSWORD_MINLENGTH,
-          t('auth.passwordValidator.minLength', {
+          t('common.validators.minLength', {
             defaultValue: `Use at least {{minLength}} characters`,
             minLength: PASSWORD_MINLENGTH,
           }),
@@ -259,8 +260,8 @@ export function Signup() {
         required(t('auth.passwordValidator.confirm', 'Confirm your password')),
         matchesOther('password', t('auth.passwordValidator.matching', 'Enter a matching password')),
       ),
-      ageConfirmation: checked(t('common.literals.required', 'Required')),
-      policyAgreement: checked(t('common.literals.required', 'Required')),
+      ageConfirmation: requireChecked(t('common.literals.required', 'Required')),
+      policyAgreement: requireChecked(t('common.literals.required', 'Required')),
     },
     { onSubmit: onFormSubmit },
   )
@@ -379,11 +380,7 @@ export function Signup() {
       {loadingContents}
 
       <SignupBottomAction>
-        <p>
-          <Trans t={t} i18nKey='auth.signup.alreadyHaveAccount'>
-            Already have an account?
-          </Trans>
-        </p>
+        <p>{t('auth.signup.alreadyHaveAccount', 'Already have an account?')}</p>
         <BottomActionButton
           label={t('common.literals.login', 'Log in')}
           onClick={onLogInClick}

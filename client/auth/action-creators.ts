@@ -29,7 +29,7 @@ async function changeLanguage(locale: string, dispatch: DispatchFunction<ReduxAc
         true,
       ),
     )
-    logger.error(`There was an error changing the language: ${error}`)
+    logger.error(`There was an error changing the language: ${(error as any)?.stack ?? error}`)
   }
 }
 

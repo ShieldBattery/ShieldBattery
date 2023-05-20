@@ -1,5 +1,5 @@
-import React from 'react'
-import { Trans, useTranslation } from 'react-i18next'
+import React, { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
 import {
@@ -7,6 +7,7 @@ import {
   TranslationLanguage,
   translationLanguageToLabel,
 } from '../../common/i18n'
+import { languageDetector } from '../i18n/i18next'
 import GithubLogo from '../icons/brands/github.svg'
 import TwitterLogo from '../icons/brands/twitter.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -17,6 +18,7 @@ import { MenuList } from '../material/menu/menu'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
 import { useAppDispatch } from '../redux-hooks'
+import { JsonSessionStorageValue } from '../session-storage'
 import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { amberA400 } from '../styles/colors'
@@ -103,14 +105,29 @@ const NoBreakLink = styled(Link)`
   white-space: nowrap;
 `
 
+/**
+ * The locale that was reported to us by the user's browser. This locale can be overwritten by
+ * user's explicit choice in the dropdown. We send this locale to the server during
+ * login/signup/getCurrentSession actions.
+ */
+export const detectedLocale = new JsonSessionStorageValue<string | undefined>('detectedLocale')
+
 export function TopLinks({ className }: { className?: string }) {
   const { t, i18n } = useTranslation()
   const dispatch = useAppDispatch()
+
   const [languageMenuOpen, openLanguageMenu, closeLanguageMenu] = usePopoverController()
   const [anchor, anchorX, anchorY] = useAnchorPosition('left', 'bottom')
 
+  useEffect(() => {
+    const detected = languageDetector.detect()
+    detectedLocale.setValue(Array.isArray(detected) ? detected[0] : detected)
+  }, [])
+
   const onChangeLanguage = useStableCallback(async (language: TranslationLanguage) => {
     closeLanguageMenu()
+    detectedLocale.setValue(language)
+
     try {
       await i18n.changeLanguage(language)
     } catch (error) {
@@ -122,7 +139,7 @@ export function TopLinks({ className }: { className?: string }) {
           ),
         }),
       )
-      logger.error(`There was an error changing the language: ${error}`)
+      logger.error(`There was an error changing the language: ${(error as any)?.stack ?? error}`)
     }
   })
 
@@ -149,24 +166,16 @@ export function TopLinks({ className }: { className?: string }) {
       {!IS_ELECTRON ? (
         <>
           <li>
-            <Trans t={t} i18nKey='landing.topLinks.home'>
-              <Link href='/splash'>Home</Link>
-            </Trans>
+            <Link href='/splash'>{t('landing.topLinks.home', 'Home')}</Link>
           </li>
           <li>
-            <Trans t={t} i18nKey='landing.topLinks.faq'>
-              <Link href='/faq'>FAQ</Link>
-            </Trans>
+            <Link href='/faq'>{t('landing.topLinks.faq', 'FAQ')}</Link>
           </li>
           <li>
-            <Trans t={t} i18nKey='landing.topLinks.ladder'>
-              <Link href='/ladder'>Ladder</Link>
-            </Trans>
+            <Link href='/ladder'>{t('landing.topLinks.ladder', 'Ladder')}</Link>
           </li>
           <li>
-            <Trans t={t} i18nKey='landing.topLinks.leagues'>
-              <Link href='/leagues'>Leagues</Link>
-            </Trans>
+            <Link href='/leagues'>{t('landing.topLinks.leagues', 'Leagues')}</Link>
           </li>
           <Spacer />
           <li>

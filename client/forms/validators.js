@@ -67,6 +67,6 @@ export function numberRange(min, max, msg) {
   }
 }
 
-export function checked(msg) {
+export function requireChecked(msg) {
   return val => (val === true ? null : msg)
 }

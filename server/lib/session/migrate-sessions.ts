@@ -25,6 +25,9 @@ export function migrateSessions() {
         ctx.session.acceptedPrivacyVersion = retrievedUser!.acceptedPrivacyVersion
         ctx.session.acceptedTermsVersion = retrievedUser!.acceptedTermsVersion
         ctx.session.acceptedUsePolicyVersion = retrievedUser!.acceptedUsePolicyVersion
+      }
+      if (ctx.session.userId && !ctx.session.locale) {
+        const retrievedUser = user ?? (await findSelfById(ctx.session.userId))
         ctx.session.locale = retrievedUser!.locale
       }
     }

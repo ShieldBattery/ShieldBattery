@@ -10,8 +10,6 @@
       "newPassword": "New password"
     },
     "emailValidator": {
-      "maxLength": "Use at most {{maxLength}} characters",
-      "minLength": "Use at least {{minLength}} characters",
       "pattern": "Enter a valid email address",
       "required": "Enter an email address"
     },
@@ -73,8 +71,6 @@
       "confirm": "Confirm your password",
       "current": "Enter your current password",
       "matching": "Enter a matching password",
-      "minLength": "Use at least {{minLength}} characters",
-      "minLength2": "Enter at least {{minLength}} characters",
       "required": "Enter a password",
       "resetCode": "Enter your password reset code"
     },
@@ -102,10 +98,6 @@
       "usernameTaken": "A user with that name already exists"
     },
     "usernameValidator": {
-      "maxLength": "Enter at most {{maxLength}} characters",
-      "maxLength2": "Use at most {{maxLength}} characters",
-      "minLength": "Enter at least {{minLength}} characters",
-      "minLength2": "Use at least {{minLength}} characters",
       "pattern": "Username contains invalid characters",
       "required": "Enter a username",
       "taken": "Username is already taken"
@@ -137,7 +129,13 @@
     "playerNameUnknown": "Unknown player",
     "teamNameBottom": "Bottom",
     "teamNameNumber": "Team {{teamNumber}}",
-    "teamNameTop": "Top"
+    "teamNameTop": "Top",
+    "validators": {
+      "maxLength": "Use at most {{maxLength}} characters",
+      "maxLength2": "Enter at most {{maxLength}} characters",
+      "minLength": "Use at least {{minLength}} characters",
+      "minLength2": "Enter at least {{minLength}} characters"
+    }
   },
   "games": {
     "miniMatchHistory": {
@@ -168,10 +166,10 @@
   "landing": {
     "topLinks": {
       "changeLanguage": "Change language",
-      "faq": "<0>FAQ</0>",
-      "home": "<0>Home</0>",
-      "ladder": "<0>Ladder</0>",
-      "leagues": "<0>Leagues</0>",
+      "faq": "FAQ",
+      "home": "Home",
+      "ladder": "Ladder",
+      "leagues": "Leagues",
       "login": "Log in"
     }
   },

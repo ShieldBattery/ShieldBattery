@@ -20,9 +20,14 @@ const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
  */
 export type TransInterpolation = any
 
+export const languageDetector = new LanguageDetector(null, {
+  order: ['navigator'],
+  caches: [],
+})
+
 export const i18nextPromise = i18n
   .use(HttpBackend)
-  .use(LanguageDetector)
+  .use(languageDetector)
   .use(initReactI18next)
   .init<HttpBackendOptions>({
     backend: {
@@ -35,11 +40,6 @@ export const i18nextPromise = i18n
 
     supportedLngs: ALL_TRANSLATION_LANGUAGES,
     fallbackLng: TranslationLanguage.English,
-
-    detection: {
-      order: ['navigator'],
-      caches: [],
-    },
 
     // These are basically the defaults, but just defining them explicitly if we ever decide to use
     // namespaces.

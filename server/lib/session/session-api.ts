@@ -11,6 +11,7 @@ import { SelfUser, UserErrorCode } from '../../../common/users/sb-user'
 import { ClientSessionInfo } from '../../../common/users/session'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
+import { joiLocale } from '../i18n/locale-validator'
 import { getPermissions } from '../models/permissions'
 import { Redis } from '../redis'
 import createThrottle from '../throttle/create-throttle'
@@ -52,7 +53,7 @@ export class SessionApi {
     } = validateRequest(ctx, {
       query: Joi.object<{ date: number; locale?: string }>({
         date: Joi.number().required(),
-        locale: Joi.string(),
+        locale: joiLocale(),
       }),
     })
 
@@ -112,7 +113,7 @@ export class SessionApi {
         // TODO(tec27): Make this required in future versions (cur v8.0.2). This is just to allow
         // old clients to log in so it triggers auto-update
         clientIds: joiClientIdentifiers(),
-        locale: Joi.string(),
+        locale: joiLocale(),
       }),
     })
 

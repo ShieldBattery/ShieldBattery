@@ -57,6 +57,7 @@ import transact from '../db/transaction'
 import { getRecentGamesForUser } from '../games/game-models'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
+import { joiLocale } from '../i18n/locale-validator'
 import sendMail from '../mail/mailer'
 import { getMapInfo } from '../maps/map-models'
 import { getRankForUser } from '../matchmaking/models'
@@ -197,7 +198,7 @@ export class UserApi {
           .trim()
           .required(),
         clientIds: joiClientIdentifiers().required(),
-        locale: Joi.string(),
+        locale: joiLocale(),
       }),
     })
 

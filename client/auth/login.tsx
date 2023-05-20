@@ -1,6 +1,7 @@
 import queryString from 'query-string'
 import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'wouter'
 import {
   PASSWORD_MINLENGTH,
   USERNAME_MAXLENGTH,
@@ -10,6 +11,7 @@ import {
 import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { composeValidators, maxLength, minLength, regex, required } from '../forms/validators'
+import { detectedLocale } from '../landing/top-links'
 import { RaisedButton } from '../material/button'
 import { push } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
@@ -42,7 +44,7 @@ interface LoginModel {
 }
 
 export function Login() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const auth = useAppSelector(s => s.auth)
 
@@ -68,7 +70,7 @@ export function Login() {
           username: model.username,
           password: model.password,
           remember: model.rememberMe,
-          locale: i18n.language,
+          locale: detectedLocale.getValue(),
         },
         {
           onSuccess: () => {},
@@ -94,14 +96,14 @@ export function Login() {
         required(t('auth.usernameValidator.required', 'Enter a username')),
         minLength(
           USERNAME_MINLENGTH,
-          t('auth.usernameValidator.minLength', {
+          t('common.validators.minLength2', {
             defaultValue: `Enter at least {{minLength}} characters`,
             minLength: USERNAME_MINLENGTH,
           }),
         ),
         maxLength(
           USERNAME_MAXLENGTH,
-          t('auth.usernameValidator.maxLength', {
+          t('common.validators.maxLength2', {
             defaultValue: `Enter at most {{maxLength}} characters`,
             maxLength: USERNAME_MAXLENGTH,
           }),
@@ -115,7 +117,7 @@ export function Login() {
         required(t('auth.passwordValidator.required', 'Enter a password')),
         minLength(
           PASSWORD_MINLENGTH,
-          t('auth.passwordValidator.minLength2', {
+          t('common.validators.minLength2', {
             defaultValue: `Enter at least {{minLength}} characters`,
             minLength: PASSWORD_MINLENGTH,
           }),
@@ -125,24 +127,12 @@ export function Login() {
     { onSubmit: onFormSubmit },
   )
 
-  const onSplashClick = useStableCallback(() => {
-    push({ pathname: '/splash' })
-  })
-
   const onCreateAccountClick = useStableCallback(() => {
     const search = queryString.stringify({
       ...queryString.parse(location.search),
       username: getInputValue('username'),
     })
     push({ pathname: '/signup', search })
-  })
-
-  const onForgotUsernameClick = useStableCallback(() => {
-    push({ pathname: '/forgot-user' })
-  })
-
-  const onForgotPasswordClick = useStableCallback(() => {
-    push({ pathname: '/forgot-password' })
   })
 
   let loadingContents
@@ -175,10 +165,9 @@ export function Login() {
               }}
             />
             <RowEdge>
-              <ForgotActionButton
-                label={t('auth.login.forgotUsername', 'Forgot username?')}
-                onClick={onForgotUsernameClick}
-              />
+              <Link href='/forgot-user'>
+                <ForgotActionButton label={t('auth.login.forgotUsername', 'Forgot username?')} />
+              </Link>
             </RowEdge>
           </FieldRow>
 
@@ -196,10 +185,9 @@ export function Login() {
               }}
             />
             <RowEdge>
-              <ForgotActionButton
-                label={t('auth.login.forgotPassword', 'Forgot password?')}
-                onClick={onForgotPasswordClick}
-              />
+              <Link href='/forgot-password'>
+                <ForgotActionButton label={t('auth.login.forgotPassword', 'Forgot password?')} />
+              </Link>
             </RowEdge>
           </FieldRow>
 
@@ -230,11 +218,12 @@ export function Login() {
           onClick={onCreateAccountClick}
           tabIndex={1}
         />
-        <BottomActionButton
-          label={t('auth.login.whatIsShieldBattery', 'What is ShieldBattery?')}
-          onClick={onSplashClick}
-          tabIndex={1}
-        />
+        <Link href='/splash'>
+          <BottomActionButton
+            label={t('auth.login.whatIsShieldBattery', 'What is ShieldBattery?')}
+            tabIndex={1}
+          />
+        </Link>
       </AuthBottomAction>
     </AuthContent>
   )
