@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
@@ -7,7 +7,7 @@ import {
   TranslationLanguage,
   translationLanguageToLabel,
 } from '../../common/i18n'
-import { languageDetector } from '../i18n/i18next'
+import { detectedLocale } from '../i18n/i18next'
 import GithubLogo from '../icons/brands/github.svg'
 import TwitterLogo from '../icons/brands/twitter.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -18,7 +18,6 @@ import { MenuList } from '../material/menu/menu'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
 import { useAppDispatch } from '../redux-hooks'
-import { JsonSessionStorageValue } from '../session-storage'
 import { openSnackbar } from '../snackbars/action-creators'
 import { useStableCallback } from '../state-hooks'
 import { amberA400 } from '../styles/colors'
@@ -105,24 +104,12 @@ const NoBreakLink = styled(Link)`
   white-space: nowrap;
 `
 
-/**
- * The locale that was reported to us by the user's browser. This locale can be overwritten by
- * user's explicit choice in the dropdown. We send this locale to the server during
- * login/signup/getCurrentSession actions.
- */
-export const detectedLocale = new JsonSessionStorageValue<string | undefined>('detectedLocale')
-
 export function TopLinks({ className }: { className?: string }) {
   const { t, i18n } = useTranslation()
   const dispatch = useAppDispatch()
 
   const [languageMenuOpen, openLanguageMenu, closeLanguageMenu] = usePopoverController()
   const [anchor, anchorX, anchorY] = useAnchorPosition('left', 'bottom')
-
-  useEffect(() => {
-    const detected = languageDetector.detect()
-    detectedLocale.setValue(Array.isArray(detected) ? detected[0] : detected)
-  }, [])
 
   const onChangeLanguage = useStableCallback(async (language: TranslationLanguage) => {
     closeLanguageMenu()

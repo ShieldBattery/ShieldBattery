@@ -11,7 +11,7 @@ import {
 import { useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import { composeValidators, maxLength, minLength, regex, required } from '../forms/validators'
-import { detectedLocale } from '../landing/top-links'
+import { detectedLocale } from '../i18n/i18next'
 import { RaisedButton } from '../material/button'
 import { push } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'

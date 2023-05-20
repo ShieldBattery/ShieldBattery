@@ -25,7 +25,7 @@ import {
   requireChecked,
   required,
 } from '../forms/validators'
-import { detectedLocale } from '../landing/top-links'
+import { detectedLocale } from '../i18n/i18next'
 import { RaisedButton } from '../material/button'
 import CheckBox from '../material/check-box'
 import { InputError } from '../material/input-error'
