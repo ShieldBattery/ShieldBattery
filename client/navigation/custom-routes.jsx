@@ -12,14 +12,3 @@ export const LoginRoute = ({ component: Component, ...rest }) => (
     )}
   </Route>
 )
-
-// A route that conditionally renders a component based on the list of filters it receives
-// Note: Filters are resolved in the order they are placed in the array
-export const ConditionalRoute = ({ path, filters, ...rest }) =>
-  filters
-    .slice() // Don't mutate the original array
-    .reverse()
-    .reduce(
-      (children, Filter) => <Filter path={path}>{children}</Filter>,
-      <Route path={path} {...rest} />,
-    )

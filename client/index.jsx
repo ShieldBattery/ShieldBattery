@@ -12,7 +12,6 @@ import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
 import { i18nextPromise } from './i18n/i18next'
 import log from './logging/logger'
-import RedirectProvider from './navigation/redirect-provider'
 import { fetchJson } from './network/fetch'
 import registerSocketHandlers from './network/socket-handlers'
 import { RootErrorBoundary } from './root-error-boundary'
@@ -144,12 +143,10 @@ Promise.all([rootElemPromise, i18nextPromise])
       <RootErrorBoundary>
         <ReduxProvider store={store}>
           <Router>
-            <RedirectProvider>
-              <>
-                <App />
-                {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
-              </>
-            </RedirectProvider>
+            <>
+              <App />
+              {ReduxDevToolsContainer ? <ReduxDevToolsContainer /> : null}
+            </>
           </Router>
         </ReduxProvider>
       </RootErrorBoundary>,

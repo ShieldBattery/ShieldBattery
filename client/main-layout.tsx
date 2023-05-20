@@ -2,7 +2,7 @@ import { Immutable } from 'immer'
 import keycode from 'keycode'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { Route, Switch } from 'wouter'
+import { Redirect, Route, Switch } from 'wouter'
 import { MapInfoJson } from '../common/maps'
 import { EMAIL_VERIFICATION_ID, NotificationType } from '../common/notifications'
 import { ReduxAction } from './action-types'
@@ -12,7 +12,7 @@ import { ActivityButton } from './activities/activity-button'
 import { ActivityOverlay } from './activities/activity-overlay'
 import { ActivityOverlayType } from './activities/activity-overlay-type'
 import { VersionText } from './activities/version-text'
-import { IsAdminFilter } from './admin/admin-route-filters'
+import { useIsAdmin } from './admin/admin-permissions'
 import { openChangelogIfNecessary } from './changelog/action-creators'
 import { ChannelRouteComponent } from './chat/route'
 import { openDialog } from './dialogs/action-creators'
@@ -34,7 +34,6 @@ import MatchmakingView from './matchmaking/view'
 import { IconButton, useButtonHotkey } from './material/button'
 import { Tooltip } from './material/tooltip'
 import { ConnectedLeftNav } from './navigation/connected-left-nav'
-import { ConditionalRoute } from './navigation/custom-routes'
 import Index from './navigation/index'
 import { replace } from './navigation/routing'
 import { addLocalNotification } from './notifications/action-creators'
@@ -142,6 +141,7 @@ function useHealthyStarcraftCallback<T extends (...args: any[]) => any>(
 
 export function MainLayout() {
   const dispatch = useAppDispatch()
+  const isAdmin = useIsAdmin()
   const inGameplayActivity = useAppSelector(s => s.gameplayActivity.inGameplayActivity)
   const isEmailVerified = useAppSelector(s => s.auth.user.emailVerified)
   const isMatchmakingSearching = useAppSelector(s => !!s.matchmaking.searchInfo)
@@ -372,11 +372,9 @@ export function MainLayout() {
       <ConnectedLeftNav />
       <Content>
         <Switch>
-          <ConditionalRoute
-            path='/admin/:rest*'
-            filters={[IsAdminFilter]}
-            component={LoadableAdminPanel}
-          />
+          <Route path='/admin/:rest*'>
+            {isAdmin ? <LoadableAdminPanel /> : <Redirect to='/' />}
+          </Route>
           <Route path='/chat/:rest*' component={ChannelRouteComponent} />
           <Route path='/games/:rest*' component={GamesRouteComponent} />
           <Route path='/ladder/:rest*' component={LadderRouteComponent} />

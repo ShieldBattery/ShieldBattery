@@ -1,5 +1,6 @@
 import queryString from 'query-string'
 import { makePathString, replace } from '../navigation/routing'
+import { useAppSelector } from '../redux-hooks'
 
 export function isLoggedIn(authState: { user?: { name?: string } }) {
   return authState.user && authState.user.name
@@ -34,4 +35,12 @@ export function createNextPath(location: Location) {
 export function redirectToLogin(navigateFn = replace) {
   const nextPath = createNextPath(location)
   navigateFn(`/login?${nextPath}`)
+}
+
+/**
+ * A React hook that returns whether or not the current user is logged in.
+ */
+export function useIsLoggedIn() {
+  const user = useAppSelector(s => s.auth.user)
+  return Boolean(user && user.name)
 }
