@@ -110,7 +110,6 @@ export function logIn(
         locale,
       }),
     })
-    sessionStorage.clear()
 
     dispatch({
       type: '@auth/loadCurrentSession',
@@ -128,7 +127,7 @@ export function logOut() {
     const result = await fetchJson<void>(apiUrl`sessions`, {
       method: 'delete',
     })
-    sessionStorage.clear()
+
     return result
   })
 }
@@ -154,7 +153,6 @@ export function signUp(
       }),
     })
     window.fathom?.trackGoal('YTZ0JAUE', 0)
-    sessionStorage.clear()
 
     dispatch({
       type: '@auth/loadCurrentSession',
