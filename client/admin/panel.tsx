@@ -1,20 +1,17 @@
 import React from 'react'
-import { Link, Route, Switch } from 'wouter'
+import { Link, Redirect, Route, Switch } from 'wouter'
 import { PermissionsRecord } from '../auth/auth-records'
-import { ConditionalRoute } from '../navigation/custom-routes'
 import { useAppSelector } from '../redux-hooks'
-import {
-  CanManageMapPoolsFilter,
-  CanManageMatchmakingSeasonsFilter,
-  CanManageMatchmakingTimesFilter,
-  CanManageRallyPointFilter,
-} from './admin-route-filters'
-import AdminMapPools from './map-pools'
-import { AdminMatchmakingSeasons } from './matchmaking-seasons'
-import AdminMatchmakingTimes from './matchmaking-times'
-import { AdminRallyPoint } from './rally-point'
 
-const AdminMapManager = IS_ELECTRON ? require('./map-manager').default : null
+const LoadableMapManager = IS_ELECTRON ? React.lazy(() => import('./map-manager')) : () => null
+const LoadableMapPools = React.lazy(() => import('./map-pools'))
+const LoadableMatchmakingSeasons = React.lazy(async () => ({
+  default: (await import('./matchmaking-seasons')).AdminMatchmakingSeasons,
+}))
+const LoadableMatchmakingTimes = React.lazy(() => import('./matchmaking-times'))
+const LoadableRallyPoint = React.lazy(async () => ({
+  default: (await import('./rally-point')).AdminRallyPoint,
+}))
 
 interface AdminDashboardProps {
   permissions: PermissionsRecord
@@ -66,28 +63,27 @@ export default function AdminPanel() {
 
   return (
     <Switch>
-      {AdminMapManager ? <Route path='/admin/map-manager' component={AdminMapManager} /> : <></>}
-      <ConditionalRoute
-        path='/admin/map-pools'
-        filters={[CanManageMapPoolsFilter]}
-        component={AdminMapPools}
-      />
-      <ConditionalRoute
-        path='/admin/matchmaking-seasons'
-        filters={[CanManageMatchmakingSeasonsFilter]}
-        component={AdminMatchmakingSeasons}
-      />
-      <ConditionalRoute
-        path='/admin/matchmaking-times'
-        filters={[CanManageMatchmakingTimesFilter]}
-        component={AdminMatchmakingTimes}
-      />
-      <ConditionalRoute
-        path='/admin/rally-point/:rest*'
-        filters={[CanManageRallyPointFilter]}
-        component={AdminRallyPoint}
-      />
-      <Route path='/admin'>
+      <Route path='/admin/map-manager/:rest*'>
+        {(perms.manageMaps || perms.massDeleteMaps) && IS_ELECTRON ? (
+          <LoadableMapManager />
+        ) : (
+          <Redirect to='/' />
+        )}
+      </Route>
+      <Route path='/admin/map-pools/:rest*'>
+        {perms.manageMapPools ? <LoadableMapPools /> : <Redirect to='/' />}
+      </Route>
+      <Route path='/admin/matchmaking-seasons/:rest*'>
+        {perms.manageMatchmakingSeasons ? <LoadableMatchmakingSeasons /> : <Redirect to='/' />}
+      </Route>
+      <Route path='/admin/matchmaking-times/:rest*'>
+        {perms.manageMatchmakingTimes ? <LoadableMatchmakingTimes /> : <Redirect to='/' />}
+      </Route>
+      <Route path='/admin/rally-point/:rest*'>
+        {perms.manageRallyPointServers ? <LoadableRallyPoint /> : <Redirect to='/' />}
+      </Route>
+
+      <Route path='/admin/:rest*'>
         <AdminDashboard permissions={perms} />
       </Route>
     </Switch>

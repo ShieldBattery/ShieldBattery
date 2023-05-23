@@ -12,8 +12,8 @@ function ensurePrefixed(str: string, prefix: string) {
  * Converts a given object of the parts of a URL path into string form.
  */
 export function makePathString(obj: PathObject) {
-  const searchPart = obj.search !== undefined ? ensurePrefixed(obj.search, '?') : ''
-  const hashPart = obj.hash !== undefined ? ensurePrefixed(obj.hash, '#') : ''
+  const searchPart = obj.search ? ensurePrefixed(obj.search, '?') : ''
+  const hashPart = obj.hash ? ensurePrefixed(obj.hash, '#') : ''
   return obj.pathname + searchPart + hashPart
 }
 
