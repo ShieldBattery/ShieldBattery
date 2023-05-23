@@ -2,7 +2,7 @@ import { Immutable } from 'immer'
 import keycode from 'keycode'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { Redirect, Route, Switch } from 'wouter'
+import { Route, Switch } from 'wouter'
 import { MapInfoJson } from '../common/maps'
 import { EMAIL_VERIFICATION_ID, NotificationType } from '../common/notifications'
 import { ReduxAction } from './action-types'
@@ -372,9 +372,7 @@ export function MainLayout() {
       <ConnectedLeftNav />
       <Content>
         <Switch>
-          <Route path='/admin/:rest*'>
-            {isAdmin ? <LoadableAdminPanel /> : <Redirect to='/' />}
-          </Route>
+          {isAdmin ? <Route path='/admin/:rest*' component={LoadableAdminPanel} /> : null}
           <Route path='/chat/:rest*' component={ChannelRouteComponent} />
           <Route path='/games/:rest*' component={GamesRouteComponent} />
           <Route path='/ladder/:rest*' component={LadderRouteComponent} />
