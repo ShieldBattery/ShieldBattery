@@ -131,10 +131,8 @@
     "teamNameNumber": "Team {{teamNumber}}",
     "teamNameTop": "Top",
     "validators": {
-      "maxLength": "Use at most {{maxLength}} characters",
-      "maxLength2": "Enter at most {{maxLength}} characters",
-      "minLength": "Use at least {{minLength}} characters",
-      "minLength2": "Enter at least {{minLength}} characters"
+      "maxLength": "Enter at most {{maxLength}} characters",
+      "minLength": "Enter at least {{minLength}} characters"
     }
   },
   "games": {

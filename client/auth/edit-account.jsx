@@ -50,14 +50,14 @@ const emailValidator = composeValidators(
   minLength(
     EMAIL_MINLENGTH,
     t('common.validators.minLength', {
-      defaultValue: `Use at least {{minLength}} characters`,
+      defaultValue: `Enter at least {{minLength}} characters`,
       minLength: EMAIL_MINLENGTH,
     }),
   ),
   maxLength(
     EMAIL_MAXLENGTH,
     t('common.validators.maxLength', {
-      defaultValue: `Use at most {{maxLength}} characters`,
+      defaultValue: `Enter at most {{maxLength}} characters`,
       maxLength: EMAIL_MAXLENGTH,
     }),
   ),
@@ -68,7 +68,7 @@ const passwordValidator = composeValidators(
   minLength(
     PASSWORD_MINLENGTH,
     t('common.validators.minLength', {
-      defaultValue: `Use at least {{minLength}} characters`,
+      defaultValue: `Enter at least {{minLength}} characters`,
       minLength: PASSWORD_MINLENGTH,
     }),
   ),
@@ -77,7 +77,7 @@ const newPasswordValidator = composeValidators(
   minLength(
     PASSWORD_MINLENGTH,
     t('common.validators.minLength', {
-      defaultValue: `Use at least {{minLength}} characters`,
+      defaultValue: `Enter at least {{minLength}} characters`,
       minLength: PASSWORD_MINLENGTH,
     }),
   ),

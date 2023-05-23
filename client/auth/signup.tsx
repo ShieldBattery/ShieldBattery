@@ -211,14 +211,14 @@ export function Signup() {
         minLength(
           USERNAME_MINLENGTH,
           t('common.validators.minLength', {
-            defaultValue: `Use at least {{minLength}} characters`,
+            defaultValue: `Enter at least {{minLength}} characters`,
             minLength: USERNAME_MINLENGTH,
           }),
         ),
         maxLength(
           USERNAME_MAXLENGTH,
           t('common.validators.maxLength', {
-            defaultValue: `Use at most {{maxLength}} characters`,
+            defaultValue: `Enter at most {{maxLength}} characters`,
             maxLength: USERNAME_MAXLENGTH,
           }),
         ),
@@ -233,14 +233,14 @@ export function Signup() {
         minLength(
           EMAIL_MINLENGTH,
           t('common.validators.minLength', {
-            defaultValue: `Use at least {{minLength}} characters`,
+            defaultValue: `Enter at least {{minLength}} characters`,
             minLength: EMAIL_MINLENGTH,
           }),
         ),
         maxLength(
           EMAIL_MAXLENGTH,
           t('common.validators.maxLength', {
-            defaultValue: `Use at most {{maxLength}} characters`,
+            defaultValue: `Enter at most {{maxLength}} characters`,
             maxLength: EMAIL_MAXLENGTH,
           }),
         ),
@@ -251,7 +251,7 @@ export function Signup() {
         minLength(
           PASSWORD_MINLENGTH,
           t('common.validators.minLength', {
-            defaultValue: `Use at least {{minLength}} characters`,
+            defaultValue: `Enter at least {{minLength}} characters`,
             minLength: PASSWORD_MINLENGTH,
           }),
         ),
