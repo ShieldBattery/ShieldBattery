@@ -1,5 +1,4 @@
 import React from 'react'
-import styled from 'styled-components'
 import { useForm } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import CheckBox from '../../material/check-box'
@@ -7,11 +6,7 @@ import Slider from '../../material/slider'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
 import { mergeScrSettings } from '../action-creators'
-import { FormContainer } from '../settings-content'
-
-const MouseSensitivitySlider = styled(Slider)`
-  margin-bottom: 40px;
-`
+import { FormContainer, Spacer } from '../settings-content'
 
 interface GameInputSettingsModel {
   keyboardScrollSpeed: number
@@ -66,6 +61,7 @@ export function GameInputSettings() {
             max={6}
             step={1}
           />
+          <Spacer />
           <Slider
             {...bindCustom('mouseScrollSpeed')}
             label='Mouse scroll speed'
@@ -74,6 +70,7 @@ export function GameInputSettings() {
             max={6}
             step={1}
           />
+          <Spacer />
         </div>
         <div>
           <CheckBox
@@ -81,7 +78,7 @@ export function GameInputSettings() {
             label='Custom mouse sensitivity'
             inputProps={{ tabIndex: 0 }}
           />
-          <MouseSensitivitySlider
+          <Slider
             {...bindCustom('mouseSensitivity')}
             label='Mouse sensitivity'
             tabIndex={0}
@@ -91,6 +88,7 @@ export function GameInputSettings() {
             disabled={!getInputValue('mouseSensitivityOn')}
             showTicks={false}
           />
+          <Spacer />
           <CheckBox
             {...bindCheckable('mouseScalingOn')}
             label='Use mouse scaling'

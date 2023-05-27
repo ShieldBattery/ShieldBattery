@@ -20,11 +20,7 @@ import { useStableCallback } from '../../state-hooks'
 import { colorTextSecondary } from '../../styles/colors'
 import { overline } from '../../styles/typography'
 import { mergeLocalSettings, mergeScrSettings } from '../action-creators'
-import { FormContainer } from '../settings-content'
-
-const ApmAlertCheckbox = styled(CheckBox)`
-  margin-top: 32px;
-`
+import { FormContainer, Spacer } from '../settings-content'
 
 const SectionOverline = styled.div`
   ${overline};
@@ -146,6 +142,7 @@ export function GameplaySettings() {
               <SelectOption key={skin} value={skin} text={getConsoleSkinName(skin)} />
             ))}
           </Select>
+          <Spacer />
         </div>
         <div>
           <CheckBox
@@ -168,7 +165,8 @@ export function GameplaySettings() {
             label='APM display'
             inputProps={{ tabIndex: 0 }}
           />
-          <ApmAlertCheckbox
+          <Spacer />
+          <CheckBox
             {...bindCheckable('apmAlertOn')}
             label='Alert when APM falls below'
             inputProps={{ tabIndex: 0 }}
@@ -196,6 +194,7 @@ export function GameplaySettings() {
         </div>
         {DEV_INDICATOR ? (
           <div>
+            <Spacer />
             <SectionOverline>Dev-only settings</SectionOverline>
             <CheckBox
               {...bindCheckable('visualizeNetworkStalls')}

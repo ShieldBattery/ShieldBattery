@@ -1,5 +1,4 @@
 import React from 'react'
-import styled from 'styled-components'
 import {
   ALL_DISPLAY_MODES,
   DisplayMode,
@@ -14,12 +13,7 @@ import Slider from '../../material/slider'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
 import { mergeScrSettings } from '../action-creators'
-import { FormContainer } from '../settings-content'
-
-const Spacer = styled.div`
-  width: 100%;
-  height: 32px;
-`
+import { FormContainer, Spacer } from '../settings-content'
 
 // NOTE(tec27): Vsync is weird and is a number in the settings, but actually a boolean value. This
 // component just acts as a custom one and does the conversion
@@ -130,6 +124,7 @@ export function GameVideoSettings() {
             disabled={!getInputValue('fpsLimitOn')}
             showTicks={false}
           />
+          <Spacer />
         </div>
         <div>
           <VsyncCheckBox
