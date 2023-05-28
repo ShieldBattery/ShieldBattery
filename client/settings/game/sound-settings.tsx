@@ -16,16 +16,11 @@ import { useStableCallback } from '../../state-hooks'
 import { colorTextSecondary } from '../../styles/colors'
 import { overline } from '../../styles/typography'
 import { mergeScrSettings } from '../action-creators'
-import { FormContainer } from '../settings-content'
-
-const MusicVolumeSlider = styled(Slider)`
-  margin-bottom: 40px;
-`
+import { FormContainer, Spacer } from '../settings-content'
 
 const AnnouncerOverline = styled.div`
   ${overline};
   color: ${colorTextSecondary};
-  margin-top: 40px;
   margin-bottom: 8px;
 `
 
@@ -85,7 +80,7 @@ export function GameSoundSettings() {
       <FormContainer>
         <div>
           <CheckBox {...bindCheckable('musicOn')} label='Music' inputProps={{ tabIndex: 0 }} />
-          <MusicVolumeSlider
+          <Slider
             {...bindCustom('musicVolume')}
             label='Music volume'
             tabIndex={0}
@@ -95,6 +90,7 @@ export function GameSoundSettings() {
             disabled={!getInputValue('musicOn')}
             showTicks={false}
           />
+          <Spacer />
           <CheckBox
             {...bindCheckable('soundOn')}
             label='Game sounds'
@@ -110,6 +106,7 @@ export function GameSoundSettings() {
             disabled={!getInputValue('soundOn')}
             showTicks={false}
           />
+          <Spacer />
 
           <AnnouncerOverline>Packs (must be purchased from Blizzard)</AnnouncerOverline>
           <Select {...bindCustom('selectedAnnouncer')} label='Announcer' tabIndex={0}>

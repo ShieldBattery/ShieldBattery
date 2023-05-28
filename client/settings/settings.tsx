@@ -277,9 +277,18 @@ function NavEntry({
 
 const ContentContainer = styled.div`
   width: 100%;
-  max-width: 960px;
+  max-width: 840px;
   padding: 16px;
   overflow-y: auto;
+
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 16px;
+`
+
+const Content = styled.div`
+  flex-grow: 1;
 `
 
 const TitleBar = styled.div`
@@ -297,7 +306,7 @@ const Title = styled(SettingsSubPageTitle)`
   ${headline4};
 `
 
-const CloseIcon = styled(MaterialIcon).attrs({ icon: 'close' })`
+const CloseIcon = styled(MaterialIcon).attrs({ icon: 'close', size: 36 })`
   flex-shrink: 0;
 `
 
@@ -310,14 +319,17 @@ function SettingsContent({
 }) {
   return (
     <ContentContainer>
-      <TitleBar>
-        <Title subPage={subPage} />
-        <Tooltip text='Close settings (ESC)' position='bottom' tabIndex={-1}>
-          <IconButton icon={<CloseIcon />} onClick={onCloseSettings} />
-        </Tooltip>
-      </TitleBar>
+      <Content>
+        <TitleBar>
+          <Title subPage={subPage} />
+        </TitleBar>
 
-      <SettingsSubPageDisplay subPage={subPage} onCloseSettings={onCloseSettings} />
+        <SettingsSubPageDisplay subPage={subPage} onCloseSettings={onCloseSettings} />
+      </Content>
+
+      <Tooltip text='Close settings (ESC)' position='bottom' tabIndex={-1}>
+        <IconButton icon={<CloseIcon />} onClick={onCloseSettings} />
+      </Tooltip>
     </ContentContainer>
   )
 }
