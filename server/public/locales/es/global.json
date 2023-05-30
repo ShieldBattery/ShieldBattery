@@ -77,7 +77,8 @@
             "video": {
                 "label": "Video"
             }
-        }
+        },
+        "close": "Cerrar configuración"
     },
     "auth": {
         "userErrorDisplay": {
