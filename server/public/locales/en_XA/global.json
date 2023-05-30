@@ -77,7 +77,8 @@
             "input": {
                 "label": "$Input!"
             }
-        }
+        },
+        "close": "$Close settings!"
     },
     "auth": {
         "editAccount": {
