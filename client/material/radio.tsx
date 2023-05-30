@@ -1,0 +1,191 @@
+import React, { InputHTMLAttributes, useId, useMemo } from 'react'
+import styled from 'styled-components'
+import { useStableCallback } from '../state-hooks'
+import { amberA400, colorTextFaint, colorTextPrimary, colorTextSecondary } from '../styles/colors'
+import { body1 } from '../styles/typography'
+import { useButtonState } from './button'
+import { fastOutSlowIn } from './curve-constants'
+import { Ripple } from './ripple'
+
+const RadioContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+`
+
+export interface RadioProps<T> {
+  children: Array<ReturnType<typeof RadioButton> | null>
+  value: T
+  onChange?: (value: T) => void
+  className?: string
+}
+
+export function Radio<T>({ children, value, onChange, className }: RadioProps<T>) {
+  const radioButtons = useMemo(() => {
+    const buttons = React.Children.map(children, (child, i) => {
+      if (!child) {
+        return child
+      }
+
+      const isSelected = value === (child.props as RadioButtonProps<T>).value
+      return React.cloneElement(child, {
+        key: `button-${i}`,
+        selected: isSelected,
+        onChange,
+      })
+    })
+
+    return buttons
+  }, [value, children, onChange])
+
+  return <RadioContainer className={className}>{radioButtons}</RadioContainer>
+}
+
+interface RadioButtonProps<T> {
+  label: string
+  value: T
+  disabled?: boolean
+  inputProps?: InputHTMLAttributes<HTMLInputElement>
+  className?: string
+  /**
+   * Whether or not the radio button is the selected one. This will be set by the containing Radio
+   * component and should not be passed directly.
+   */
+  selected?: boolean
+  /**
+   * Called whenever this radio button is selected. This will be set by the containing Radio
+   * component and should not be passed directly.
+   */
+  onChange?: (value: T) => void
+}
+
+const RadioButtonContainer = styled.div`
+  position: relative;
+  height: 48px;
+
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+
+  input {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+
+    padding: 0;
+    margin: 0;
+    outline: 0;
+    opacity: 0;
+
+    cursor: pointer;
+  }
+`
+
+const IconTargetArea = styled.div`
+  flex-shrink: 0;
+  padding: 4px;
+`
+
+const IconContainer = styled.div<{ $disabled?: boolean; $selected?: boolean }>`
+  position: relative;
+  padding: 10px;
+
+  color: ${props => {
+    if (props.$disabled) return colorTextFaint
+    else if (props.$selected) return amberA400
+    else return colorTextSecondary
+  }};
+`
+
+const RadioIcon = styled.div<{ $selected?: boolean }>`
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+
+  // outer circle
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 20px;
+    height: 20px;
+
+    border: 2px solid;
+    border-radius: 50%;
+    border-color: currentColor;
+  }
+
+  // inner circle
+  &::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    width: 10px;
+    height: 10px;
+
+    border-radius: 50%;
+    background-color: currentColor;
+
+    transform: ${props => (props.$selected ? 'scale(1)' : 'scale(0)')};
+    transition: transform 150ms ${fastOutSlowIn};
+  }
+`
+
+const StyledRipple = styled(Ripple)`
+  border-radius: 50%;
+`
+
+const Label = styled.label<{ $disabled?: boolean }>`
+  ${body1};
+  color: ${props => (props.$disabled ? colorTextFaint : colorTextPrimary)};
+`
+
+export const RadioButton = React.memo(
+  <T extends NonNullable<InputHTMLAttributes<HTMLInputElement>['value']>>({
+    label,
+    value,
+    disabled,
+    inputProps,
+    selected,
+    onChange,
+  }: RadioButtonProps<T>) => {
+    const id = useId()
+
+    const [buttonProps, rippleRef] = useButtonState({ disabled })
+
+    const handleChange = useStableCallback(() => {
+      if (!disabled && onChange) {
+        onChange(value)
+      }
+    })
+
+    const internalInputProps = {
+      type: 'radio',
+      id,
+      value,
+      checked: selected,
+      disabled,
+      onChange: handleChange,
+    }
+
+    return (
+      <RadioButtonContainer {...buttonProps}>
+        <IconTargetArea>
+          <IconContainer $disabled={disabled} $selected={selected}>
+            <RadioIcon $selected={selected} />
+            <StyledRipple ref={rippleRef} />
+          </IconContainer>
+        </IconTargetArea>
+        <Label htmlFor={id} $disabled={disabled}>
+          {label}
+        </Label>
+        <input {...inputProps} {...internalInputProps} />
+      </RadioButtonContainer>
+    )
+  },
+)

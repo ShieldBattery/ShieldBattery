@@ -3,6 +3,7 @@ import { Link, Route, Switch } from 'wouter'
 import DevButtons from './buttons-test'
 import { MenuTest as DevMenu } from './menu-test'
 import DevPopover from './popover-test'
+import { RadioTest } from './radio-test'
 import DevSelects from './selects-test'
 import DevSliders from './slider-test'
 import DevSteppers from './stepper-test'
@@ -23,6 +24,9 @@ function DevMaterialDashboard() {
       </li>
       <li>
         <Link href={`${BASE_URL}/popover`}>Popover component</Link>
+      </li>
+      <li>
+        <Link href={`${BASE_URL}/radio`}>Radio component</Link>
       </li>
       <li>
         <Link href={`${BASE_URL}/select`}>Select component</Link>
@@ -52,6 +56,7 @@ export default function DevMaterialRoutes() {
       <Route path={`${BASE_URL}/button`} component={DevButtons as any} />
       <Route path={`${BASE_URL}/menu`} component={DevMenu as any} />
       <Route path={`${BASE_URL}/popover`} component={DevPopover} />
+      <Route path={`${BASE_URL}/radio`} component={RadioTest} />
       <Route path={`${BASE_URL}/select`} component={DevSelects as any} />
       <Route path={`${BASE_URL}/slider`} component={DevSliders as any} />
       <Route path={`${BASE_URL}/stepper`} component={DevSteppers as any} />
