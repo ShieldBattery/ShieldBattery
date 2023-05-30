@@ -600,6 +600,7 @@ export interface IconButtonProps {
   type?: 'button' | 'reset' | 'submit'
   name?: string
   testName?: string
+  ariaLabel?: string
 }
 
 /** A button that displays just an icon (with no text, and no background or elevation). */
@@ -619,6 +620,7 @@ export const IconButton = React.forwardRef(
       type,
       name,
       testName,
+      ariaLabel,
     }: IconButtonProps,
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
@@ -640,6 +642,7 @@ export const IconButton = React.forwardRef(
         type={type ?? 'button'}
         name={name}
         data-test={testName}
+        aria-label={ariaLabel}
         {...buttonProps}>
         {icon}
         <Ripple ref={rippleRef} disabled={disabled} />

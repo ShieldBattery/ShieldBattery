@@ -61,7 +61,6 @@ export function GameInputSettings() {
             max={6}
             step={1}
           />
-          <Spacer />
           <Slider
             {...bindCustom('mouseScrollSpeed')}
             label='Mouse scroll speed'

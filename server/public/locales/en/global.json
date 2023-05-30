@@ -180,6 +180,7 @@
         "label": "System"
       }
     },
+    "close": "Close settings",
     "game": {
       "gameplay": {
         "label": "Gameplay"

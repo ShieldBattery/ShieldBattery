@@ -21,10 +21,11 @@ import {
   background800,
   colorDividers,
   colorError,
+  colorTextFaint,
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors'
-import { body2, headline4, overline, singleLine } from '../styles/typography'
+import { body2, caption, headline4, overline, singleLine } from '../styles/typography'
 import { changeSettingsSubPage, closeSettings } from './action-creators'
 import { AppSoundSettings } from './app/sound-settings'
 import { AppSystemSettings } from './app/system-settings'
@@ -277,18 +278,18 @@ function NavEntry({
 
 const ContentContainer = styled.div`
   width: 100%;
-  max-width: 840px;
   padding: 16px;
   overflow-y: auto;
 
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  gap: 16px;
+  gap: 40px;
 `
 
 const Content = styled.div`
   flex-grow: 1;
+  max-width: 704px;
 `
 
 const TitleBar = styled.div`
@@ -306,8 +307,25 @@ const Title = styled(SettingsSubPageTitle)`
   ${headline4};
 `
 
-const CloseIcon = styled(MaterialIcon).attrs({ icon: 'close', size: 36 })`
-  flex-shrink: 0;
+const CloseButton = styled(IconButton)`
+  &::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border: 2px solid ${colorDividers};
+    border-radius: inherit;
+  }
+`
+
+const LabeledCloseButton = styled.div`
+  ${caption};
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  color: ${colorTextFaint};
+  text-align: center;
 `
 
 function SettingsContent({
@@ -317,6 +335,9 @@ function SettingsContent({
   subPage: SettingsSubPage
   onCloseSettings: () => void
 }) {
+  const { t } = useTranslation()
+  const closeLabel = t('settings.close', 'Close settings')
+
   return (
     <ContentContainer>
       <Content>
@@ -327,9 +348,16 @@ function SettingsContent({
         <SettingsSubPageDisplay subPage={subPage} onCloseSettings={onCloseSettings} />
       </Content>
 
-      <Tooltip text='Close settings (ESC)' position='bottom' tabIndex={-1}>
-        <IconButton icon={<CloseIcon />} onClick={onCloseSettings} />
-      </Tooltip>
+      <LabeledCloseButton>
+        <Tooltip text={closeLabel} position='left' tabIndex={-1}>
+          <CloseButton
+            ariaLabel={closeLabel}
+            icon={<MaterialIcon icon='close' />}
+            onClick={onCloseSettings}
+          />
+        </Tooltip>
+        <span>ESC</span>
+      </LabeledCloseButton>
     </ContentContainer>
   )
 }
