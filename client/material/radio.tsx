@@ -67,11 +67,11 @@ const RadioButtonContainer = styled.div`
     top: 0;
     width: 100%;
     height: 100%;
-
     padding: 0;
     margin: 0;
-    outline: 0;
-    opacity: 0;
+
+    appearance: none;
+    outline: none;
 
     cursor: pointer;
   }
