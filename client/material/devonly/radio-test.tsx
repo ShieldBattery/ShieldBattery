@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
 import styled from 'styled-components'
-import { colorTextSecondary } from '../../styles/colors'
+import { range } from '../../../common/range'
+import { colorTextFaint, colorTextSecondary } from '../../styles/colors'
 import { overline } from '../../styles/typography'
-import { Radio, RadioButton } from '../radio'
+import { RadioButton, RadioGroup } from '../radio'
 
 const Container = styled.div`
   width: 100%;
@@ -27,6 +28,14 @@ const RadioOverline = styled.div`
   padding: 8px 14px;
 `
 
+const CustomLargeLabel = styled.div`
+  width: 100%;
+  max-width: 600px;
+  height: 140px;
+  background-color: ${colorTextFaint};
+  border-radius: 2px;
+`
+
 export function RadioTest() {
   const [selectedButton, setSelectedButton] = useState(0)
 
@@ -34,14 +43,16 @@ export function RadioTest() {
     <Container>
       <Content>
         <RadioOverline>Select a language</RadioOverline>
-        <Radio value={selectedButton} onChange={setSelectedButton}>
+        <RadioGroup value={selectedButton} onChange={setSelectedButton}>
           <RadioButton label='English' value={0} />
           <RadioButton label='Spanish' value={1} />
           <RadioButton label='Korean' value={2} />
           <RadioButton label='Chinese' value={3} disabled={true} />
           <RadioButton label='German' value={4} />
           <RadioButton label='Russian' value={5} />
-        </Radio>
+          <RadioButton label={Array.from(range(0, 100), () => 'Repeated').join(' ')} value={6} />
+          <RadioButton label={<CustomLargeLabel />} value={7} />
+        </RadioGroup>
       </Content>
     </Container>
   )

@@ -1,4 +1,4 @@
-import React, { InputHTMLAttributes, useId, useMemo } from 'react'
+import React, { InputHTMLAttributes, useId } from 'react'
 import styled from 'styled-components'
 import { useStableCallback } from '../state-hooks'
 import { amberA400, colorTextFaint, colorTextPrimary, colorTextSecondary } from '../styles/colors'
@@ -12,36 +12,32 @@ const RadioContainer = styled.div`
   flex-direction: column;
 `
 
-export interface RadioProps<T> {
-  children: Array<ReturnType<typeof RadioButton> | null>
+export interface RadioGroupProps<T> {
+  children: Array<ReturnType<typeof RadioButton> | null | undefined>
   value: T
   onChange?: (value: T) => void
   className?: string
 }
 
-export function Radio<T>({ children, value, onChange, className }: RadioProps<T>) {
-  const radioButtons = useMemo(() => {
-    const buttons = React.Children.map(children, (child, i) => {
-      if (!child) {
-        return child
-      }
+export function RadioGroup<T>({ children, value, onChange, className }: RadioGroupProps<T>) {
+  const radioButtons = React.Children.map(children, (child, i) => {
+    if (!child) {
+      return child
+    }
 
-      const isSelected = value === (child.props as RadioButtonProps<T>).value
-      return React.cloneElement(child, {
-        key: `button-${i}`,
-        selected: isSelected,
-        onChange,
-      })
+    const isSelected = value === (child.props as RadioButtonProps<T>).value
+    return React.cloneElement(child, {
+      key: `button-${i}`,
+      selected: isSelected,
+      onChange,
     })
-
-    return buttons
-  }, [value, children, onChange])
+  })
 
   return <RadioContainer className={className}>{radioButtons}</RadioContainer>
 }
 
 interface RadioButtonProps<T> {
-  label: string
+  label: React.ReactNode
   value: T
   disabled?: boolean
   inputProps?: InputHTMLAttributes<HTMLInputElement>
@@ -60,10 +56,8 @@ interface RadioButtonProps<T> {
 
 const RadioButtonContainer = styled.div`
   position: relative;
-  height: 48px;
 
-  display: flex;
-  flex-direction: row;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
 
@@ -83,14 +77,11 @@ const RadioButtonContainer = styled.div`
   }
 `
 
-const IconTargetArea = styled.div`
-  flex-shrink: 0;
-  padding: 4px;
-`
-
 const IconContainer = styled.div<{ $disabled?: boolean; $selected?: boolean }>`
+  flex-shrink: 0;
   position: relative;
-  padding: 10px;
+  width: 48px;
+  height: 48px;
 
   color: ${props => {
     if (props.$disabled) return colorTextFaint
@@ -101,8 +92,11 @@ const IconContainer = styled.div<{ $disabled?: boolean; $selected?: boolean }>`
 
 const RadioIcon = styled.div<{ $selected?: boolean }>`
   position: relative;
+  top: 14px;
   width: 20px;
   height: 20px;
+  margin: auto;
+
   border-radius: 50%;
 
   // outer circle
@@ -137,11 +131,16 @@ const RadioIcon = styled.div<{ $selected?: boolean }>`
 `
 
 const StyledRipple = styled(Ripple)`
+  margin: 4px;
   border-radius: 50%;
 `
 
 const Label = styled.label<{ $disabled?: boolean }>`
   ${body1};
+
+  flex-grow: 1;
+  padding: 4px 0;
+
   color: ${props => (props.$disabled ? colorTextFaint : colorTextPrimary)};
 `
 
@@ -175,12 +174,10 @@ export const RadioButton = React.memo(
 
     return (
       <RadioButtonContainer {...buttonProps}>
-        <IconTargetArea>
-          <IconContainer $disabled={disabled} $selected={selected}>
-            <RadioIcon $selected={selected} />
-            <StyledRipple ref={rippleRef} />
-          </IconContainer>
-        </IconTargetArea>
+        <IconContainer $disabled={disabled} $selected={selected}>
+          <RadioIcon $selected={selected} />
+          <StyledRipple ref={rippleRef} disabled={disabled} />
+        </IconContainer>
         <Label htmlFor={id} $disabled={disabled}>
           {label}
         </Label>
