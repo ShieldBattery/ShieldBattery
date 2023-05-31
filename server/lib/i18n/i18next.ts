@@ -17,7 +17,7 @@ function orderedStringify(obj: Record<string, string>) {
     allKeys.add(key)
     return value
   })
-  return JSON.stringify(obj, Array.from(allKeys).sort(), 2)
+  return JSON.stringify(obj, Array.from(allKeys).sort(), 2) + '\n'
 }
 
 i18next.use(FsBackend).init<FsBackendOptions>({
