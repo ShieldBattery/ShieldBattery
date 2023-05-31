@@ -1,5 +1,6 @@
 import React, { SetStateAction, useCallback, useImperativeHandle, useRef, useState } from 'react'
 import styled from 'styled-components'
+import { useSelfUser } from '../auth/state-hooks'
 import { useKeyListener } from '../keyboard/key-listener'
 import { TextField } from '../material/text-field'
 import { useStableCallback } from '../state-hooks'
@@ -63,7 +64,8 @@ export interface MessageInputProps {
   /**
    * A key to store the current message input contents under (in a global Map). If provided, the
    * previous message input contents will be restored when the component is mounted (so the key
-   * should uniquely identify the type + instance of the chat container).
+   * should uniquely identify the type + instance of the chat container). The key is prefixed with
+   * the user's ID to handle user changing their account.
    */
   storageKey?: string
 }
@@ -75,7 +77,9 @@ export interface MessageInputHandle {
 
 export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputProps>(
   (props, ref) => {
-    const [message, setMessage] = useStorageSyncedState('', props.storageKey)
+    const user = useSelfUser()
+    const storageKey = user && props.storageKey ? `${user.id}-${props.storageKey}` : undefined
+    const [message, setMessage] = useStorageSyncedState('', storageKey)
     const inputRef = useRef<HTMLInputElement>(null)
 
     useImperativeHandle(ref, () => ({
