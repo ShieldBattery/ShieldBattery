@@ -14,7 +14,22 @@
         "mapNameUnknown": "未知地图",
         "matchmakingType1v1": "1v1",
         "matchmakingType2v2": "2v2",
-        "playerNameComputer": "电脑"
+        "playerNameComputer": "电脑",
+        "literals": {
+            "cancel": "取消",
+            "continue": "继续",
+            "email": "电子邮件",
+            "emailAddress": "电子邮件地址",
+            "login": "登录",
+            "password": "密码",
+            "required": "必需的",
+            "save": "节省",
+            "username": "用户名"
+        },
+        "validators": {
+            "maxLength": "最多输入 {{maxLength}} 个字符",
+            "minLength": "至少输入 {{minLength}} 个字符"
+        }
     },
     "games": {
         "miniMatchHistory": {
@@ -22,7 +37,7 @@
             "noGameSelectedText": "没有选择游戏"
         },
         "results": {
-            "buttonCopyLink": "复制链接到游戏",
+            "buttonCopyLink": "复制游戏链接",
             "buttonSearchAgain": "再次搜索",
             "errorLoading": "加载此游戏时出现问题。",
             "headlineDefault": "结果",
@@ -67,6 +82,121 @@
             "video": {
                 "label": "视频"
             }
+        },
+        "close": "关闭设置"
+    },
+    "landing": {
+        "topLinks": {
+            "home": "家",
+            "ladder": "梯子",
+            "leagues": "联赛",
+            "changeLanguage": "改变语言",
+            "login": "登录",
+            "faq": "常问问题"
+        }
+    },
+    "auth": {
+        "editAccount": {
+            "changePassword": "更改密码？",
+            "confirmNewPassword": "确认新密码",
+            "currentPassword": "当前密码",
+            "dialogTitle": "编辑帐户",
+            "errorUpdatingAccount": "更新您的帐户时出现问题。请稍后再试。",
+            "incorrectPassword": "当前密码不正确。",
+            "newPassword": "新密码"
+        },
+        "emailValidator": {
+            "pattern": "输入一个有效的电子邮件地址",
+            "required": "输入电子邮件地址"
+        },
+        "emailVerification": {
+            "defaultError": "出了大问题。请再试一次。",
+            "emailSent": "验证邮件已成功发送。",
+            "invalidCodeError": "错误：提供的电子邮件或验证码无效。如果验证码与您通过电子邮件收到的验证码相符，则它可能已过期。请申请新的验证电子邮件，然后重试。",
+            "resendVerificationEmail": "重新发送验证邮件",
+            "emailUnverifiedMessage": "您的邮箱未验证！查看来自 ShieldBattery 的电子邮件。如果您没有看到，我们可以<2>发送另一个</2>。",
+            "generalError": "错误：{{error}}",
+            "loggedOutError": "错误：您需要登录才能验证您的电子邮件。请点击下方按钮登录并重试。",
+            "resendError": "重新发送电子邮件时出错：{{error}}",
+            "resendSuccess": "新的验证码已发送到您帐户的电子邮件地址。",
+            "sendError": "发送验证邮件时出错，请稍后重试。",
+            "switchUser": "切换用户",
+            "title": "验证邮件",
+            "verifySuccess": "您的电子邮件已成功验证。",
+            "wrongUserError": "错误：您必须登录到要验证其电子邮件的帐户。请单击下面的按钮切换用户，然后重试。"
+        },
+        "login": {
+            "forgotPassword": "忘记密码？",
+            "forgotUsername": "忘了用户名了吗？",
+            "rememberMe": "记住账号",
+            "signUp": "注册新账号",
+            "title": "登录",
+            "whatIsShieldBattery": "什么是ShieldBattery？"
+        },
+        "noPermissionsPage": {
+            "body": "您没有足够的权限访问此页面。"
+        },
+        "passwordValidator": {
+            "confirm": "确认你的密码",
+            "current": "输入当前密码",
+            "matching": "输入匹配的密码",
+            "required": "输入密码",
+            "resetCode": "输入您的密码重置代码"
+        },
+        "signup": {
+            "readAndAgree": "我已经阅读并且同意",
+            "termsOfServiceLink": "服务条款",
+            "title": "创建账户",
+            "privacyLink": "隐私",
+            "acceptableUseLink": "可接受的使用",
+            "ageConfirmation": "我证明我已年满 13 岁",
+            "alreadyHaveAccount": "已有帐户？",
+            "confirmPassword": "确认密码",
+            "createAccount": "创建账户"
+        },
+        "userErrorDisplay": {
+            "accountBanned": "此帐户已被封禁。<1><0>原因：</0><1>{{banReason}}</1></1><2>封禁将于 {{expireTime}} 到期。</2>",
+            "banWithoutReason": "未指定原因",
+            "defaultError": "发生错误：{{status}} {{statusText}}",
+            "genericError": "发生错误：{{errorMessage}}",
+            "invalidCredentials": "用户名或密码错误",
+            "machineBanned": "这台机器被禁止创建新帐户。",
+            "noConnectionErrorMessage": "无法连接到服务器。请检查您的互联网连接并重试。",
+            "sessionExpired": "会话过期",
+            "suspiciousActivity": "由于在此网络上检测到可疑活动，目前已禁用在网络上创建帐户。请下载独立客户端以创建新帐户。",
+            "usernameTaken": "已存在具有该名称的用户"
+        },
+        "forgot": {
+            "backToLogin": "回到登入",
+            "generalError": "错误：{{error}}",
+            "password": {
+                "sendResetEmail": "发送重置邮件",
+                "successMessage": "如果该电子邮件地址和用户名与注册帐户相匹配，您应该会在接下来的几分钟内收到一封电子邮件，其中包含有关如何重置密码的说明。",
+                "title": "重设密码"
+            },
+            "reset": {
+                "confirmPassword": "确认新密码",
+                "newPassword": "新密码",
+                "passwordCode": "密码重置代码",
+                "setNewPassword": "设置新密码",
+                "successMessage": "您的密码已重置。",
+                "title": "重设密码"
+            },
+            "user": {
+                "enterEmail": "请输入您注册时使用的电子邮件地址。",
+                "recoverUsername": "恢复用户名",
+                "successMessage": "如果有任何用户注册到该电子邮件地址，您应该会在接下来的几分钟内收到一封包含相关用户名的电子邮件。",
+                "title": "恢复您的用户名"
+            }
+        },
+        "language": {
+            "changeErrorHeader": "更改语言时出错",
+            "changeErrorMessage": "更改语言时出了点问题"
+        },
+        "usernameValidator": {
+            "pattern": "用户名包含无效字符",
+            "required": "输入用户名",
+            "taken": "用户名已被占用"
         }
     }
 }
