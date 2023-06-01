@@ -94,9 +94,7 @@
             "banWithoutReason": "Sin motivo especificado"
         },
         "usernameValidator": {
-            "maxLength": "Ingrese como máximo {{maxLength}} caracteres",
             "maxLength2": "Utilice como máximo {{maxLength}} caracteres",
-            "minLength": "Ingrese al menos {{minLength}} caracteres",
             "minLength2": "Utilice al menos {{minLength}} caracteres",
             "pattern": "Nombre de usuario contiene caracteres inválidos",
             "required": "Introduzca un nombre de usuario",
@@ -112,7 +110,6 @@
             "currentPassword": "Contraseña actual"
         },
         "emailValidator": {
-            "maxLength": "Utilice como máximo {{maxLength}} caracteres",
             "minLength": "Utilice al menos {{minLength}} caracteres",
             "pattern": "Introduzca una dirección de correo electrónico válida",
             "required": "Introduzca una dirección de correo electrónico"
@@ -171,7 +168,6 @@
             "confirm": "Confirmar la contraseña",
             "current": "introduce tu contraseña actual",
             "matching": "Introduce una contraseña que coincida",
-            "minLength": "Utilice al menos {{minLength}} caracteres",
             "minLength2": "Ingrese al menos {{minLength}} caracteres",
             "required": "Ingrese una contraseña",
             "resetCode": "Ingrese su código de restablecimiento de contraseña"
@@ -191,7 +187,6 @@
     "landing": {
         "topLinks": {
             "changeLanguage": "Cambiar idioma",
-            "changeLanguageError": "Algo salió mal al cambiar el idioma",
             "faq": "<0>Preguntas frecuentes</0>",
             "home": "<0>Inicio</0>",
             "ladder": "<0>Escalera</0>",
