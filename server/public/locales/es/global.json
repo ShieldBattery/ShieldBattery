@@ -23,7 +23,12 @@
             "username": "Nombre de usuario",
             "continue": "Continuar",
             "email": "Correo electrónico",
-            "emailAddress": "Dirección de correo electrónico"
+            "emailAddress": "Dirección de correo electrónico",
+            "required": "Requerido"
+        },
+        "validators": {
+            "maxLength": "Ingrese como máximo {{maxLength}} caracteres",
+            "minLength": "Ingrese al menos {{minLength}} caracteres"
         }
     },
     "games": {
@@ -94,7 +99,6 @@
             "banWithoutReason": "Sin motivo especificado"
         },
         "usernameValidator": {
-            "maxLength2": "Utilice como máximo {{maxLength}} caracteres",
             "minLength2": "Utilice al menos {{minLength}} caracteres",
             "pattern": "Nombre de usuario contiene caracteres inválidos",
             "required": "Introduzca un nombre de usuario",
@@ -110,7 +114,6 @@
             "currentPassword": "Contraseña actual"
         },
         "emailValidator": {
-            "minLength": "Utilice al menos {{minLength}} caracteres",
             "pattern": "Introduzca una dirección de correo electrónico válida",
             "required": "Introduzca una dirección de correo electrónico"
         },
@@ -168,7 +171,6 @@
             "confirm": "Confirmar la contraseña",
             "current": "introduce tu contraseña actual",
             "matching": "Introduce una contraseña que coincida",
-            "minLength2": "Ingrese al menos {{minLength}} caracteres",
             "required": "Ingrese una contraseña",
             "resetCode": "Ingrese su código de restablecimiento de contraseña"
         },
@@ -182,15 +184,19 @@
             "readAndAgree": "he leído y estoy de acuerdo con",
             "termsOfServiceLink": "Términos de servicio",
             "title": "Crear una cuenta"
+        },
+        "language": {
+            "changeErrorHeader": "Error al cambiar el idioma",
+            "changeErrorMessage": "Algo salió mal al cambiar el idioma"
         }
     },
     "landing": {
         "topLinks": {
             "changeLanguage": "Cambiar idioma",
-            "faq": "<0>Preguntas frecuentes</0>",
-            "home": "<0>Inicio</0>",
-            "ladder": "<0>Escalera</0>",
-            "leagues": "<0>Ligas</0>",
+            "faq": "Preguntas más frecuentes",
+            "home": "Hogar",
+            "ladder": "Escalera",
+            "leagues": "ligas",
             "login": "Acceso"
         }
     }
