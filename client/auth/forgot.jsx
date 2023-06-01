@@ -53,15 +53,15 @@ const emailValidator = composeValidators(
   required(t('auth.emailValidator.required', 'Enter an email address')),
   minLength(
     EMAIL_MINLENGTH,
-    t('auth.emailValidator.minLength', {
-      defaultValue: `Use at least {{minLength}} characters`,
+    t('common.validators.minLength', {
+      defaultValue: `Enter at least {{minLength}} characters`,
       minLength: EMAIL_MINLENGTH,
     }),
   ),
   maxLength(
     EMAIL_MAXLENGTH,
-    t('auth.emailValidator.maxLength', {
-      defaultValue: `Use at most {{maxLength}} characters`,
+    t('common.validators.maxLength', {
+      defaultValue: `Enter at most {{maxLength}} characters`,
       maxLength: EMAIL_MAXLENGTH,
     }),
   ),
@@ -71,14 +71,14 @@ const usernameValidator = composeValidators(
   required(t('auth.usernameValidator.required', 'Enter a username')),
   minLength(
     USERNAME_MINLENGTH,
-    t('auth.usernameValidator.minLength', {
+    t('common.validators.minLength', {
       defaultValue: `Enter at least {{minLength}} characters`,
       minLength: USERNAME_MINLENGTH,
     }),
   ),
   maxLength(
     USERNAME_MAXLENGTH,
-    t('auth.usernameValidator.maxLength', {
+    t('common.validators.maxLength', {
       defaultValue: `Enter at most {{maxLength}} characters`,
       maxLength: USERNAME_MAXLENGTH,
     }),
@@ -197,9 +197,7 @@ class ForgotUserForm extends React.Component {
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
         <p>
-          <Trans t={t} i18nKey='auth.forgot.user.enterEmail'>
-            Please enter the email address you signed up with.
-          </Trans>
+          {t('auth.forgot.user.enterEmail', 'Please enter the email address you signed up with.')}
         </p>
         <FieldRow>
           <AuthTextField
@@ -312,8 +310,8 @@ const passwordValidator = composeValidators(
   required(t('auth.passwordValidator.required', 'Enter a password')),
   minLength(
     PASSWORD_MINLENGTH,
-    t('auth.passwordValidator.minLength', {
-      defaultValue: `Use at least {{minLength}} characters`,
+    t('common.validators.minLength', {
+      defaultValue: `Enter at least {{minLength}} characters`,
       minLength: PASSWORD_MINLENGTH,
     }),
   ),

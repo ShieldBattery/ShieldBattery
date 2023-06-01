@@ -1,5 +1,6 @@
 import React, { SetStateAction, useCallback, useImperativeHandle, useRef, useState } from 'react'
 import styled from 'styled-components'
+import { useSelfUser } from '../auth/state-hooks'
 import { useKeyListener } from '../keyboard/key-listener'
 import { TextField } from '../material/text-field'
 import { useStableCallback } from '../state-hooks'
@@ -24,25 +25,28 @@ const StyledTextField = styled(TextField)<{ showDivider?: boolean }>`
   }
 `
 
+/** A Map to store the message input contents for each chat instance. */
+const messageInputMap = new Map<string, string>()
+
 function useStorageSyncedState(
   defaultInitialValue: string,
   key?: string,
 ): [value: string, setValue: (value: SetStateAction<string>) => void] {
   const [value, setValue] = useState<string>(() =>
-    key ? sessionStorage.getItem(key) ?? defaultInitialValue : defaultInitialValue,
+    key ? messageInputMap.get(key) ?? defaultInitialValue : defaultInitialValue,
   )
   const syncedSetValue = useCallback(
     (value: SetStateAction<string>) => {
       if (typeof value === 'string') {
         setValue(value)
         if (key) {
-          sessionStorage.setItem(key, value)
+          messageInputMap.set(key, value)
         }
       } else {
         setValue(prev => {
           const newValue = value(prev)
           if (key) {
-            sessionStorage.setItem(key, newValue)
+            messageInputMap.set(key, newValue)
           }
           return newValue
         })
@@ -58,9 +62,10 @@ export interface MessageInputProps {
   showDivider?: boolean
   onSendChatMessage: (msg: string) => void
   /**
-   * A key to store the current message input contents under (in sessionStorage). If provided, the
+   * A key to store the current message input contents under (in a global Map). If provided, the
    * previous message input contents will be restored when the component is mounted (so the key
-   * should uniquely identify the type + instance of the chat container).
+   * should uniquely identify the type + instance of the chat container). The key is prefixed with
+   * the user's ID to handle user changing their account.
    */
   storageKey?: string
 }
@@ -72,7 +77,9 @@ export interface MessageInputHandle {
 
 export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputProps>(
   (props, ref) => {
-    const [message, setMessage] = useStorageSyncedState('', props.storageKey)
+    const user = useSelfUser()
+    const storageKey = user && props.storageKey ? `${user.id}-${props.storageKey}` : undefined
+    const [message, setMessage] = useStorageSyncedState('', storageKey)
     const inputRef = useRef<HTMLInputElement>(null)
 
     useImperativeHandle(ref, () => ({

@@ -17,7 +17,7 @@ export class LoginPage {
 
     this.inputUsername = page.locator('input[name="username"]')
     this.inputPassword = page.locator('input[name="password"]')
-    this.inputRememberMe = page.locator('input[name="remember"]')
+    this.inputRememberMe = page.locator('input[name="rememberMe"]')
 
     this.buttonLogIn = page.locator('button[data-test="submit-button"]')
 

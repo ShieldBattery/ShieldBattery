@@ -18,6 +18,7 @@ export default function initSession(ctx: Context, data: ClientSessionInfo) {
   ctx.session.acceptedPrivacyVersion = user.acceptedPrivacyVersion
   ctx.session.acceptedTermsVersion = user.acceptedTermsVersion
   ctx.session.acceptedUsePolicyVersion = user.acceptedUsePolicyVersion
+  ctx.session.locale = user.locale
 
   ctx.session.permissions = permissions
   ctx.session.lastQueuedMatchmakingType = lastQueuedMatchmakingType

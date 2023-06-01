@@ -15,6 +15,7 @@ declare module 'koa' {
     acceptedPrivacyVersion: number
     acceptedTermsVersion: number
     acceptedUsePolicyVersion: number
+    locale?: string
 
     permissions: SbPermissions
     lastQueuedMatchmakingType: MatchmakingType

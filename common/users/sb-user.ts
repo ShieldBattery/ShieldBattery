@@ -38,6 +38,15 @@ export interface SelfUser extends SbUser {
   acceptedTermsVersion: number
   /** The last version of the acceptable use policy this user has seen/accepted. */
   acceptedUsePolicyVersion: number
+  /**
+   * The locale that this user has set, either as an explicit choice or as reported by their
+   * browser. This string is a BCP 47 code that will be used locally to select from the available
+   * languages for app content, falling back to English if no better alternative can be found.
+   *
+   * This field was added after many accounts were created, and only accounts that have logged in
+   * since then will have a locale present.
+   */
+  locale?: string
 }
 
 /**

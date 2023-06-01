@@ -1,5 +1,5 @@
 import React from 'react'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
 import {
@@ -7,6 +7,7 @@ import {
   TranslationLanguage,
   translationLanguageToLabel,
 } from '../../common/i18n'
+import { detectedLocale } from '../i18n/i18next'
 import GithubLogo from '../icons/brands/github.svg'
 import TwitterLogo from '../icons/brands/twitter.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -106,23 +107,26 @@ const NoBreakLink = styled(Link)`
 export function TopLinks({ className }: { className?: string }) {
   const { t, i18n } = useTranslation()
   const dispatch = useAppDispatch()
+
   const [languageMenuOpen, openLanguageMenu, closeLanguageMenu] = usePopoverController()
   const [anchor, anchorX, anchorY] = useAnchorPosition('left', 'bottom')
 
   const onChangeLanguage = useStableCallback(async (language: TranslationLanguage) => {
     closeLanguageMenu()
+    detectedLocale.setValue(language)
+
     try {
       await i18n.changeLanguage(language)
     } catch (error) {
       dispatch(
         openSnackbar({
           message: t(
-            'landing.topLinks.changeLanguageError',
+            'auth.language.changeErrorMessage',
             'Something went wrong when changing the language',
           ),
         }),
       )
-      logger.error(`There was an error changing the language: ${error}`)
+      logger.error(`There was an error changing the language: ${(error as any)?.stack ?? error}`)
     }
   })
 
@@ -149,24 +153,16 @@ export function TopLinks({ className }: { className?: string }) {
       {!IS_ELECTRON ? (
         <>
           <li>
-            <Trans t={t} i18nKey='landing.topLinks.home'>
-              <Link href='/splash'>Home</Link>
-            </Trans>
+            <Link href='/splash'>{t('landing.topLinks.home', 'Home')}</Link>
           </li>
           <li>
-            <Trans t={t} i18nKey='landing.topLinks.faq'>
-              <Link href='/faq'>FAQ</Link>
-            </Trans>
+            <Link href='/faq'>{t('landing.topLinks.faq', 'FAQ')}</Link>
           </li>
           <li>
-            <Trans t={t} i18nKey='landing.topLinks.ladder'>
-              <Link href='/ladder'>Ladder</Link>
-            </Trans>
+            <Link href='/ladder'>{t('landing.topLinks.ladder', 'Ladder')}</Link>
           </li>
           <li>
-            <Trans t={t} i18nKey='landing.topLinks.leagues'>
-              <Link href='/leagues'>Leagues</Link>
-            </Trans>
+            <Link href='/leagues'>{t('landing.topLinks.leagues', 'Leagues')}</Link>
           </li>
           <Spacer />
           <li>

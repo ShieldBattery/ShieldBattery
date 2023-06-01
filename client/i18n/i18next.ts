@@ -8,6 +8,7 @@ import {
   TranslationNamespace,
 } from '../../common/i18n'
 import { makeServerUrl } from '../network/server-url'
+import { JsonSessionStorageValue } from '../session-storage'
 
 const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
 
@@ -20,9 +21,21 @@ const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
  */
 export type TransInterpolation = any
 
+/**
+ * The locale that was reported to us by the user's browser. This locale can be overwritten by
+ * user's explicit choice in the top-links dropdown. We send this locale to the server during
+ * login/signup/getCurrentSession actions.
+ */
+export const detectedLocale = new JsonSessionStorageValue<string | undefined>('detectedLocale')
+
+export const languageDetector = new LanguageDetector(null, {
+  order: ['navigator'],
+  caches: [],
+})
+
 export const i18nextPromise = i18n
   .use(HttpBackend)
-  .use(LanguageDetector)
+  .use(languageDetector)
   .use(initReactI18next)
   .init<HttpBackendOptions>({
     backend: {
@@ -35,11 +48,6 @@ export const i18nextPromise = i18n
 
     supportedLngs: ALL_TRANSLATION_LANGUAGES,
     fallbackLng: TranslationLanguage.English,
-
-    detection: {
-      order: ['navigator'],
-      caches: [],
-    },
 
     // These are basically the defaults, but just defining them explicitly if we ever decide to use
     // namespaces.

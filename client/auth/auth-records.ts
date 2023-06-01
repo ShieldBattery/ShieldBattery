@@ -10,6 +10,7 @@ export class SelfUserRecord extends Record({
   acceptedPrivacyVersion: 0,
   acceptedTermsVersion: 0,
   acceptedUsePolicyVersion: 0,
+  locale: '',
 }) {}
 
 export class PermissionsRecord

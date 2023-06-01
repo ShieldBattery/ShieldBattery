@@ -34,6 +34,7 @@ interface UserInternal {
   acceptedUsePolicyVersion: number
   acceptedTermsVersion: number
   acceptedPrivacyVersion: number
+  locale: string
 }
 
 type DbUser = Dbify<UserInternal>
@@ -60,6 +61,7 @@ function convertUserFromDb(dbUser: DbUser): UserInternal {
     acceptedPrivacyVersion: dbUser.accepted_privacy_version,
     acceptedTermsVersion: dbUser.accepted_terms_version,
     acceptedUsePolicyVersion: dbUser.accepted_use_policy_version,
+    locale: dbUser.locale,
   }
 }
 
@@ -83,6 +85,7 @@ function convertToExternalSelf(userInternal: UserInternal): SelfUser {
     acceptedPrivacyVersion: userInternal.acceptedPrivacyVersion,
     acceptedTermsVersion: userInternal.acceptedTermsVersion,
     acceptedUsePolicyVersion: userInternal.acceptedUsePolicyVersion,
+    locale: userInternal.locale,
   }
 }
 
@@ -105,6 +108,7 @@ export async function createUser({
   ipAddress,
   createdDate = new Date(),
   clientIds,
+  locale,
 }: {
   name: string
   email: string
@@ -112,6 +116,7 @@ export async function createUser({
   ipAddress: string
   createdDate?: Date
   clientIds: ReadonlyArray<[type: number, hashStr: string]>
+  locale?: string
 }): Promise<{ user: SelfUser; permissions: SbPermissions }> {
   const transactionCompleted = createDeferred<void>()
   transactionCompleted.catch(swallowNonBuiltins)
@@ -119,9 +124,9 @@ export async function createUser({
   try {
     const transactionResult = await transact(async client => {
       const result = await client.query<DbUser>(sql`
-      INSERT INTO users (name, email, created, signup_ip_address, email_verified,
+      INSERT INTO users (name, email, created, signup_ip_address, email_verified, locale,
         accepted_privacy_version, accepted_terms_version, accepted_use_policy_version)
-      VALUES (${name}, ${email}, ${createdDate}, ${ipAddress}, false,
+      VALUES (${name}, ${email}, ${createdDate}, ${ipAddress}, false, ${locale},
         ${PRIVACY_POLICY_VERSION}, ${TERMS_OF_SERVICE_VERSION}, ${ACCEPTABLE_USE_VERSION})
       RETURNING *
     `)
@@ -169,7 +174,7 @@ export type UserUpdatables = Omit<
  * This should only be called for the currently active user.
  */
 export async function updateUser(
-  id: number,
+  id: SbUserId,
   updates: Partial<UserUpdatables>,
 ): Promise<SelfUser | undefined> {
   let updatedPassword: string | undefined
@@ -215,6 +220,11 @@ export async function updateUser(
       case 'acceptedUsePolicyVersion':
         query.append(sql`
           accepted_use_policy_version = ${value}
+        `)
+        break
+      case 'locale':
+        query.append(sql`
+          locale = ${value}
         `)
         break
       default:

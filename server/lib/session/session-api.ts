@@ -11,6 +11,7 @@ import { SelfUser, UserErrorCode } from '../../../common/users/sb-user'
 import { ClientSessionInfo } from '../../../common/users/session'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
+import { joiLocale } from '../i18n/locale-validator'
 import { getPermissions } from '../models/permissions'
 import { Redis } from '../redis'
 import createThrottle from '../throttle/create-throttle'
@@ -19,7 +20,7 @@ import { isUserBanned, retrieveBanHistory } from '../users/ban-models'
 import { joiClientIdentifiers } from '../users/client-ids'
 import { convertUserApiErrors, UserApiError } from '../users/user-api-errors'
 import { UserIdentifierManager } from '../users/user-identifier-manager'
-import { attemptLogin, findSelfById, maybeMigrateSignupIp } from '../users/user-model'
+import { attemptLogin, findSelfById, maybeMigrateSignupIp, updateUser } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
 import ensureLoggedIn from './ensure-logged-in'
 import initSession from './init'
@@ -37,6 +38,7 @@ interface LogInRequestBody {
   password: string
   remember?: boolean
   clientIds?: ReadonlyArray<[type: number, hashStr: string]>
+  locale?: string
 }
 
 @httpApi('/sessions')
@@ -46,6 +48,15 @@ export class SessionApi {
 
   @httpGet('/')
   async getCurrentSession(ctx: RouterContext): Promise<ClientSessionInfo> {
+    const {
+      query: { locale },
+    } = validateRequest(ctx, {
+      query: Joi.object<{ date: number; locale?: string }>({
+        date: Joi.number().required(),
+        locale: joiLocale(),
+      }),
+    })
+
     if (!ctx.session?.userId) {
       throw new UserApiError(UserErrorCode.SessionExpired, 'Session expired')
     }
@@ -62,6 +73,15 @@ export class SessionApi {
     if (!user) {
       await ctx.regenerateSession()
       throw new UserApiError(UserErrorCode.SessionExpired, 'Session expired')
+    }
+
+    if (locale && !user.locale) {
+      user = await updateUser(user.id, { locale })
+    }
+
+    // This would be a very weird occurrence, so we just throw a 500 here.
+    if (!user) {
+      throw new Error("couldn't find current user")
     }
 
     const sessionInfo: ClientSessionInfo = {
@@ -93,10 +113,11 @@ export class SessionApi {
         // TODO(tec27): Make this required in future versions (cur v8.0.2). This is just to allow
         // old clients to log in so it triggers auto-update
         clientIds: joiClientIdentifiers(),
+        locale: joiLocale(),
       }),
     })
 
-    const { username, password, remember, clientIds } = body
+    const { username, password, remember, clientIds, locale } = body
     let user: SelfUser | undefined
 
     if (ctx.session?.userId) {
@@ -144,6 +165,15 @@ export class SessionApi {
     await ctx.regenerateSession()
     const perms = (await getPermissions(user.id))!
     await maybeMigrateSignupIp(user.id, ctx.ip)
+
+    if (locale && !user.locale) {
+      user = await updateUser(user.id, { locale })
+    }
+
+    // This would be a very weird occurrence, so we just throw a 500 here.
+    if (!user) {
+      throw new Error("couldn't find current user")
+    }
 
     const sessionInfo: ClientSessionInfo = {
       sessionId: ctx.sessionId!,

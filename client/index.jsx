@@ -10,7 +10,7 @@ import { bootstrapSession, getCurrentSession } from './auth/action-creators'
 import { initBrowserprint } from './auth/browserprint'
 import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
-import { i18nextPromise } from './i18n/i18next'
+import { detectedLocale, i18nextPromise, languageDetector } from './i18n/i18next'
 import log from './logging/logger'
 import { fetchJson } from './network/fetch'
 import registerSocketHandlers from './network/socket-handlers'
@@ -105,13 +105,19 @@ Promise.all([rootElemPromise, i18nextPromise])
     let configPromise
     let sessionPromise
 
+    const detected = languageDetector.detect()
+    detectedLocale.setValue(Array.isArray(detected) ? detected[0] : detected)
+
     if (IS_ELECTRON || !window._sbInitData) {
       configPromise = fetchJson('/config', { method: 'get' })
       sessionPromise = new Promise((resolve, reject) => {
-        action = getCurrentSession({
-          onSuccess: () => resolve(),
-          onError: err => reject(err),
-        })
+        action = getCurrentSession(
+          { locale: detectedLocale.getValue() },
+          {
+            onSuccess: () => resolve(),
+            onError: err => reject(err),
+          },
+        )
       })
     } else {
       action = bootstrapSession(window._sbInitData.session)

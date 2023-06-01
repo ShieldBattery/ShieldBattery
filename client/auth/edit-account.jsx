@@ -35,7 +35,6 @@ import { updateAccount } from './action-creators'
 // can be used with class components to make the `t` function reactive, but making that work with
 // form validators here would be quite cumbersome, so this seemed easier until it gets replaced with
 // hooks.
-import { Trans } from 'react-i18next'
 import i18n from '../i18n/i18next'
 const t = i18n.t
 
@@ -50,15 +49,15 @@ const emailValidator = composeValidators(
   required(t('auth.emailValidator.required', 'Enter an email address')),
   minLength(
     EMAIL_MINLENGTH,
-    t('auth.emailValidator.minLength', {
-      defaultValue: `Use at least {{minLength}} characters`,
+    t('common.validators.minLength', {
+      defaultValue: `Enter at least {{minLength}} characters`,
       minLength: EMAIL_MINLENGTH,
     }),
   ),
   maxLength(
     EMAIL_MAXLENGTH,
-    t('auth.emailValidator.maxLength', {
-      defaultValue: `Use at most {{maxLength}} characters`,
+    t('common.validators.maxLength', {
+      defaultValue: `Enter at most {{maxLength}} characters`,
       maxLength: EMAIL_MAXLENGTH,
     }),
   ),
@@ -68,8 +67,8 @@ const passwordValidator = composeValidators(
   passwordRequired(),
   minLength(
     PASSWORD_MINLENGTH,
-    t('auth.passwordValidator.minLength', {
-      defaultValue: `Use at least {{minLength}} characters`,
+    t('common.validators.minLength', {
+      defaultValue: `Enter at least {{minLength}} characters`,
       minLength: PASSWORD_MINLENGTH,
     }),
   ),
@@ -77,8 +76,8 @@ const passwordValidator = composeValidators(
 const newPasswordValidator = composeValidators(
   minLength(
     PASSWORD_MINLENGTH,
-    t('auth.passwordValidator.minLength', {
-      defaultValue: `Use at least {{minLength}} characters`,
+    t('common.validators.minLength', {
+      defaultValue: `Enter at least {{minLength}} characters`,
       minLength: PASSWORD_MINLENGTH,
     }),
   ),
@@ -258,9 +257,10 @@ export default class EditAccount extends React.Component {
       } else {
         errorElem = (
           <ErrorText>
-            <Trans t={t} i18nKey='auth.editAccount.errorUpdatingAccount'>
-              There was an issue updating your account. Please try again later.
-            </Trans>
+            {t(
+              'auth.editAccount.errorUpdatingAccount',
+              'There was an issue updating your account. Please try again later.',
+            )}
           </ErrorText>
         )
       }
