@@ -23,7 +23,12 @@
             "login": "$Log in!",
             "password": "$Password!",
             "save": "$Save!",
-            "username": "$Username!"
+            "username": "$Username!",
+            "required": "$Required!"
+        },
+        "validators": {
+            "maxLength": "$Enter at most {{maxLength}} characters!",
+            "minLength": "$Enter at least {{minLength}} characters!"
         }
     },
     "games": {
@@ -91,7 +96,6 @@
             "newPassword": "$New password!"
         },
         "emailValidator": {
-            "minLength": "$Use at least {{minLength}} characters!",
             "pattern": "$Enter a valid email address!",
             "required": "$Enter an email address!"
         },
@@ -148,7 +152,6 @@
         "passwordValidator": {
             "confirm": "$Confirm your password!",
             "matching": "$Enter a matching password!",
-            "minLength2": "$Enter at least {{minLength}} characters!",
             "resetCode": "$Enter your password reset code!",
             "current": "$Enter your current password!",
             "required": "$Enter a password!"
@@ -177,20 +180,23 @@
             "suspiciousActivity": "$Due to suspicious activity detected on this network, creating accounts on the web is currently disabled. Please download the standalone client to create a new account.!"
         },
         "usernameValidator": {
-            "maxLength2": "$Use at most {{maxLength}} characters!",
             "minLength2": "$Use at least {{minLength}} characters!",
             "pattern": "$Username contains invalid characters!",
             "required": "$Enter a username!",
             "taken": "$Username is already taken!"
+        },
+        "language": {
+            "changeErrorHeader": "$Error changing the language!",
+            "changeErrorMessage": "$Something went wrong when changing the language!"
         }
     },
     "landing": {
         "topLinks": {
             "changeLanguage": "$Change language!",
-            "faq": "$<0>FAQ</0>!",
-            "home": "$<0>Home</0>!",
-            "ladder": "$<0>Ladder</0>!",
-            "leagues": "$<0>Leagues</0>!",
+            "faq": "$FAQ!",
+            "home": "$Home!",
+            "ladder": "$Ladder!",
+            "leagues": "$Leagues!",
             "login": "$Log in!"
         }
     }
