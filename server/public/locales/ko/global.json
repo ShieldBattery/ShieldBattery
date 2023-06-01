@@ -23,7 +23,12 @@
             "email": "이메일",
             "emailAddress": "이메일 주소",
             "login": "로그인",
-            "username": "사용자 이름"
+            "username": "사용자 이름",
+            "required": "필수의"
+        },
+        "validators": {
+            "maxLength": "최대 {{maxLength}}자까지 입력하세요.",
+            "minLength": "{{minLength}}자 이상 입력하세요."
         }
     },
     "games": {
@@ -119,7 +124,6 @@
             "confirm": "암호를 확인",
             "current": "현재 비밀번호를 입력하세요",
             "matching": "일치하는 비밀번호를 입력하세요",
-            "minLength2": "{{minLength}}자 이상 입력하세요.",
             "required": "비밀번호를 입력하세요",
             "resetCode": "비밀번호 재설정 코드를 입력하세요"
         },
@@ -149,7 +153,6 @@
             "newPassword": "새 비밀번호"
         },
         "emailValidator": {
-            "minLength": "{{minLength}}자 이상 사용",
             "pattern": "유효한 이메일 주소를 입력하세요.",
             "required": "이메일 주소를 입력하세요"
         },
@@ -177,20 +180,23 @@
             "usernameTaken": "해당 이름을 가진 사용자가 이미 존재합니다."
         },
         "usernameValidator": {
-            "maxLength2": "최대 {{maxLength}} 문자 사용",
             "minLength2": "{{minLength}}자 이상 사용",
             "pattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다.",
             "required": "사용자 이름을 입력하세요",
             "taken": "이미 사용중인 이름입니다"
+        },
+        "language": {
+            "changeErrorHeader": "언어 변경 오류",
+            "changeErrorMessage": "언어를 변경할 때 문제가 발생했습니다."
         }
     },
     "landing": {
         "topLinks": {
-            "leagues": "<0>리그</0>",
+            "leagues": "리그",
             "changeLanguage": "언어 변경",
-            "faq": "<0>자주 묻는 질문</0>",
-            "home": "<0>홈</0>",
-            "ladder": "<0>사다리</0>",
+            "faq": "자주하는 질문",
+            "home": "집",
+            "ladder": "사다리",
             "login": "로그인"
         }
     }
