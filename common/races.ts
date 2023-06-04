@@ -32,16 +32,18 @@ export interface RaceStats {
   rZLosses: number
 }
 
-export function raceCharToLabel(raceChar: RaceChar, t: TFunction): string {
+// TODO(2Pac): Remove the optionality of the translation function here once all the places this is
+// used is updated: https://github.com/ShieldBattery/ShieldBattery/issues/886
+export function raceCharToLabel(raceChar: RaceChar, t?: TFunction): string {
   switch (raceChar) {
     case 'p':
-      return t('common.race.protoss', 'Protoss')
+      return t ? t('common.race.protoss', 'Protoss') : 'Protoss'
     case 'r':
-      return t('common.race.random', 'Random')
+      return t ? t('common.race.random', 'Random') : 'Random'
     case 't':
-      return t('common.race.terran', 'Terran')
+      return t ? t('common.race.terran', 'Terran') : 'Terran'
     case 'z':
-      return t('common.race.zerg', 'Zerg')
+      return t ? t('common.race.zerg', 'Zerg') : 'Zerg'
     default:
       return assertUnreachable(raceChar)
   }
