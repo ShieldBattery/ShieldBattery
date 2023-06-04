@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
@@ -10,6 +11,7 @@ const BackButton = styled(IconButton)`
 `
 
 export function ActivityBackButton() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const historySize = useAppSelector(s => s.activityOverlay.history.length)
   // We only check to see if the back button should display on the first render, and keep it from
@@ -22,6 +24,10 @@ export function ActivityBackButton() {
   }, [dispatch])
 
   return shouldShow ? (
-    <BackButton icon={<MaterialIcon icon='arrow_back' />} title='Back' onClick={onBackClick} />
+    <BackButton
+      icon={<MaterialIcon icon='arrow_back' />}
+      title={t('common.literals.back', 'Back')}
+      onClick={onBackClick}
+    />
   ) : null
 }

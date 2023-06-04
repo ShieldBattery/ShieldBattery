@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import GithubIcon from '../icons/brands/github.svg'
 import KofiIcon from '../icons/brands/kofi-lockup.svg'
@@ -48,12 +49,13 @@ const StyledPatreonIcon = styled(PatreonIcon)`
 `
 
 export function ComingSoon() {
+  const { t } = useTranslation()
   return (
     <>
-      <Headline5>This feature is coming soon!</Headline5>
+      <Headline5>{t('comingSoon.headline', 'This feature is coming soon!')}</Headline5>
 
       <FundingSection>
-        <Subtitle1>Help fund ShieldBattery's development:</Subtitle1>
+        <Subtitle1>{t('comingSoon.subtitle', "Help fund ShieldBattery's development")}:</Subtitle1>
         <SupportLinks>
           <a
             href='https://github.com/sponsors/ShieldBattery'

@@ -1,6 +1,7 @@
 import { Immutable } from 'immer'
 import { debounce } from 'lodash-es'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { TableVirtuoso } from 'react-virtuoso'
 import styled from 'styled-components'
 import { useRoute } from 'wouter'
@@ -128,7 +129,7 @@ export interface LadderProps {
  */
 export function Ladder({ matchmakingType: routeType }: LadderProps) {
   const matchmakingType = routeType ?? savedLadderTab.getValue() ?? MatchmakingType.Match1v1
-
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const rankings = useAppSelector(s => s.ladder.typeToRankings.get(matchmakingType))
   const searchResults = useAppSelector(s => s.ladder.typeToSearchResults.get(matchmakingType))
@@ -239,22 +240,24 @@ export function Ladder({ matchmakingType: routeType }: LadderProps) {
   return (
     <LadderPage>
       <PageHeader>
-        <Headline6>Ladder</Headline6>
+        <Headline6>{t('ladder.pageHeadline', 'Ladder')}</Headline6>
         <TabsContainer>
           <Tabs activeTab={matchmakingType} onChange={onTabChange}>
             <TabItem
-              text={matchmakingTypeToLabel(MatchmakingType.Match1v1)}
+              text={matchmakingTypeToLabel(MatchmakingType.Match1v1, t)}
               value={MatchmakingType.Match1v1}
             />
             <TabItem
-              text={matchmakingTypeToLabel(MatchmakingType.Match2v2)}
+              text={matchmakingTypeToLabel(MatchmakingType.Match2v2, t)}
               value={MatchmakingType.Match2v2}
             />
           </Tabs>
         </TabsContainer>
         {rankingsData ? (
           <LastUpdatedText title={longTimestamp.format(rankingsData.lastUpdated)}>
-            Updated: {shortTimestamp.format(rankingsData.lastUpdated)}
+            <Trans t={t} i18nKey='ladder.updatedText'>
+              Updated: {{ timestamp: shortTimestamp.format(rankingsData.lastUpdated) }}
+            </Trans>
           </LastUpdatedText>
         ) : null}
         <ScrollDivider $show={!isAtTop} $showAt='bottom' />
@@ -529,11 +532,13 @@ export function LadderTable(props: LadderTableProps) {
       />
     )
   })
-
+  const { t } = useTranslation()
   const emptyContent = lastError ? (
-    <ErrorText>There was an error retrieving the current rankings.</ErrorText>
+    <ErrorText>
+      {t('ladder.errorRetrievingRankings', 'There was an error retrieving the current rankings.')}
+    </ErrorText>
   ) : (
-    <EmptyText>No matching players.</EmptyText>
+    <EmptyText>{t('ladder.noMatchingPlayers', 'No matching players.')}</EmptyText>
   )
 
   const data = useMemo(() => {
@@ -620,18 +625,39 @@ export function LadderTable(props: LadderTableProps) {
         />
         <DivisionSelect
           dense={true}
-          label={'Division'}
+          label={t('ladder.divisionLabel', 'Division')}
           value={filteredDivision}
           onChange={onFilteredDivisionChange}
           allowErrors={false}>
-          <SelectOption value={DivisionFilter.All} text={'All'} />
-          <SelectOption value={DivisionFilter.Champion} text={'Champion'} />
-          <SelectOption value={DivisionFilter.Diamond} text={'Diamond'} />
-          <SelectOption value={DivisionFilter.Platinum} text={'Platinum'} />
-          <SelectOption value={DivisionFilter.Gold} text={'Gold'} />
-          <SelectOption value={DivisionFilter.Silver} text={'Silver'} />
-          <SelectOption value={DivisionFilter.Bronze} text={'Bronze'} />
-          <SelectOption value={DivisionFilter.Unrated} text={'Unrated'} />
+          <SelectOption value={DivisionFilter.All} text={t('ladder.divisionOption.all', 'All')} />
+          <SelectOption
+            value={DivisionFilter.Champion}
+            text={t('ladder.divisionOption.champion', 'Champion')}
+          />
+          <SelectOption
+            value={DivisionFilter.Diamond}
+            text={t('ladder.divisionOption.diamond', 'Diamond')}
+          />
+          <SelectOption
+            value={DivisionFilter.Platinum}
+            text={t('ladder.divisionOption.platinum', 'Platinum')}
+          />
+          <SelectOption
+            value={DivisionFilter.Gold}
+            text={t('ladder.divisionOption.gold', 'Gold')}
+          />
+          <SelectOption
+            value={DivisionFilter.Silver}
+            text={t('ladder.divisionOption.silver', 'Silver')}
+          />
+          <SelectOption
+            value={DivisionFilter.Bronze}
+            text={t('ladder.divisionOption.bronze', 'Bronze')}
+          />
+          <SelectOption
+            value={DivisionFilter.Unrated}
+            text={t('ladder.divisionOption.unrated', 'Unrated')}
+          />
         </DivisionSelect>
       </FiltersContainer>
       {topHeaderNode}
@@ -662,19 +688,22 @@ export function LadderTable(props: LadderTableProps) {
   )
 }
 
-const Header = () => (
-  <>
-    <RankCell>
-      <span></span>
-      <span>Rank</span>
-    </RankCell>
-    <PlayerCell>Player</PlayerCell>
-    <PointsCell>Points</PointsCell>
-    <RatingCell>MMR</RatingCell>
-    <WinLossCell>Win/loss</WinLossCell>
-    <LastPlayedCell>Last played</LastPlayedCell>
-  </>
-)
+const Header = () => {
+  const { t } = useTranslation()
+  return (
+    <>
+      <RankCell>
+        <span></span>
+        <span>{t('ladder.rankHeader', 'Rank')}</span>
+      </RankCell>
+      <PlayerCell>{t('ladder.playerHeader', 'Player')}</PlayerCell>
+      <PointsCell>{t('ladder.pointsHeader', 'Points')}</PointsCell>
+      <RatingCell>{t('ladder.mmrHeader', 'MMR')}</RatingCell>
+      <WinLossCell>{t('ladder.winLossHeader', 'Win/loss')}</WinLossCell>
+      <LastPlayedCell>{t('ladder.lastPlayedHeader', 'Last played')}</LastPlayedCell>
+    </>
+  )
+}
 
 // TODO(2Pac): react-virtuoso types expect the `ref` here to point to a `tbody` element. I opened an
 // issue on their github page: https://github.com/petyosi/react-virtuoso/issues/644
@@ -706,6 +735,7 @@ interface RowProps {
 }
 
 const Row = React.memo(({ isEven, player, username, curTime, onSelected }: RowProps) => {
+  const { t } = useTranslation()
   const onClick = useCallback(() => {
     if (onSelected) {
       onSelected(player.userId, username)
@@ -723,7 +753,7 @@ const Row = React.memo(({ isEven, player, username, curTime, onSelected }: RowPr
   const mostPlayedRace = raceStats[0][1]
 
   const division = ladderPlayerToMatchmakingDivision(player)
-  const divisionLabel = matchmakingDivisionToLabel(division)
+  const divisionLabel = matchmakingDivisionToLabel(division, t)
 
   return (
     <RowContainer $isEven={isEven} {...buttonProps}>
@@ -737,7 +767,7 @@ const Row = React.memo(({ isEven, player, username, curTime, onSelected }: RowPr
         <StyledAvatar user={username} />
         <PlayerNameAndRace>
           <PlayerName>{username}</PlayerName>
-          <PlayerRace $race={mostPlayedRace}>{raceCharToLabel(mostPlayedRace)}</PlayerRace>
+          <PlayerRace $race={mostPlayedRace}>{raceCharToLabel(mostPlayedRace, t)}</PlayerRace>
         </PlayerNameAndRace>
       </PlayerCell>
       <PointsCell>{Math.round(player.points)}</PointsCell>

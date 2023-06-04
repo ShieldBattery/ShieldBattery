@@ -103,6 +103,29 @@
       "taken": "Username is already taken"
     }
   },
+  "clientDownload": {
+    "andMore": "And more!",
+    "blurb": "Download the ShieldBattery client to:",
+    "buttonLabel": "Download client",
+    "exploreMaps": "Explore maps",
+    "playGames": "Play games",
+    "supportProjectText": "Want to support the project?",
+    "watchReplays": "Watch replays"
+  },
+  "clientUpdate": {
+    "overlay": {
+      "errorBody": "There was an error downloading the update. Please restart and try again, or visit <2>our website</2> to download the latest version.",
+      "errorTitle": "Error downloading update",
+      "newUpdateDownloading": "A new update is being downloaded. Please wait for the download to complete in order to continue.",
+      "newUpdateReady": "A new update has been downloaded and is ready to install. Please restart the application to continue.",
+      "noErrorTitle": "Update available",
+      "restartNowLabel": "Restart now"
+    }
+  },
+  "comingSoon": {
+    "headline": "This feature is coming soon!",
+    "subtitle": "Help fund ShieldBattery's development"
+  },
   "common": {
     "emptyListMessage": "Nothing to see here",
     "gameResultDraw": "Draw",
@@ -112,11 +135,13 @@
     "gameTypeCustom": "Custom game",
     "gameTypeRanked": "Ranked {{matchmakingType}}",
     "literals": {
+      "back": "Back",
       "cancel": "Cancel",
       "continue": "Continue",
       "email": "Email",
       "emailAddress": "Email address",
       "login": "Log in",
+      "okay": "Okay",
       "password": "Password",
       "required": "Required",
       "save": "Save",
@@ -127,12 +152,23 @@
     "matchmakingType2v2": "2v2",
     "playerNameComputer": "Computer",
     "playerNameUnknown": "Unknown player",
+    "race": {
+      "protoss": "Protoss",
+      "random": "Random",
+      "terran": "Terran",
+      "zerg": "Zerg"
+    },
     "teamNameBottom": "Bottom",
     "teamNameNumber": "Team {{teamNumber}}",
     "teamNameTop": "Top",
     "validators": {
       "maxLength": "Enter at most {{maxLength}} characters",
       "minLength": "Enter at least {{minLength}} characters"
+    }
+  },
+  "forms": {
+    "fileInput": {
+      "clearFilesLabel": "Clear files"
     }
   },
   "games": {
@@ -161,6 +197,29 @@
       "tabSummary": "Summary"
     }
   },
+  "ladder": {
+    "divisionLabel": "Division",
+    "divisionOption": {
+      "all": "All",
+      "bronze": "Bronze",
+      "champion": "Champion",
+      "diamond": "Diamond",
+      "gold": "Gold",
+      "platinum": "Platinum",
+      "silver": "Silver",
+      "unrated": "Unrated"
+    },
+    "errorRetrievingRankings": "There was an error retrieving the current rankings.",
+    "lastPlayedHeader": "Last played",
+    "mmrHeader": "MMR",
+    "noMatchingPlayers": "No matching players.",
+    "pageHeadline": "Ladder",
+    "playerHeader": "Player",
+    "pointsHeader": "Points",
+    "rankHeader": "Rank",
+    "updatedText": "Updated: {{timestamp}}",
+    "winLossHeader": "Win/loss"
+  },
   "landing": {
     "topLinks": {
       "changeLanguage": "Change language",
@@ -169,6 +228,17 @@
       "ladder": "Ladder",
       "leagues": "Leagues",
       "login": "Log in"
+    }
+  },
+  "matchmaking": {
+    "divisionLabel": {
+      "bronze": "Bronze {{level}}",
+      "champion": "Champion",
+      "diamond": "Diamond {{level}}",
+      "gold": "Gold {{level}}",
+      "platinum": "Platinum {{level}}",
+      "silver": "Silver {{level}}",
+      "unrated": "Unrated"
     }
   },
   "settings": {

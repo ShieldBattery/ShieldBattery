@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
@@ -17,8 +18,16 @@ export interface SimpleDialogProps extends CommonDialogProps {
 
 export function SimpleDialog(props: SimpleDialogProps) {
   const { simpleTitle, simpleContent, onCancel, hasButton, dialogRef } = props
+  const { t } = useTranslation()
   const buttons = hasButton
-    ? [<TextButton label={'Okay'} key={'okay'} color={'accent'} onClick={onCancel} />]
+    ? [
+        <TextButton
+          label={t('common.literals.okay', 'Okay')}
+          key={'okay'}
+          color={'accent'}
+          onClick={onCancel}
+        />,
+      ]
     : []
   const content =
     typeof simpleContent === 'string' ? <Subtitle1>{simpleContent}</Subtitle1> : simpleContent

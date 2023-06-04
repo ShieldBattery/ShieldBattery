@@ -1,10 +1,12 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import GithubIcon from '../icons/brands/github.svg'
 import KofiIcon from '../icons/brands/kofi-lockup.svg'
 import PatreonIcon from '../icons/brands/patreon-lockup.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RaisedButton } from '../material/button'
+import { useStableCallback } from '../state-hooks'
 import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { headline5, subtitle1 } from '../styles/typography'
 
@@ -81,46 +83,54 @@ const InstallerButtonLabel = styled.span`
   align-items: center;
 `
 
-export default class Download extends React.Component {
-  override render() {
-    return (
-      <React.Fragment>
-        <Blurb>Download the ShieldBattery client to:</Blurb>
-        <BlurbList>
-          <li>Play games</li>
-          <li>Watch replays</li>
-          <li>Explore maps</li>
-          <li>And more!</li>
-        </BlurbList>
-        <InstallerLinks>
-          <RaisedButton
-            onClick={this.onDownloadClick}
-            iconStart={<MaterialIcon icon='download' />}
-            label={<InstallerButtonLabel>Download client</InstallerButtonLabel>}
-          />
-        </InstallerLinks>
-        <SupportText>Want to support the project?</SupportText>
-        <SupportLinks>
-          <a
-            href='https://github.com/sponsors/ShieldBattery'
-            target='_blank'
-            rel='noopener'
-            title='GitHub Sponsors'>
-            <StyledGithubIcon />
-          </a>
-          <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener' title='Ko-fi'>
-            <StyledKofiIcon />
-          </a>
-          <a href='https://patreon.com/tec27' target='_blank' rel='noopener' title='Patreon'>
-            <StyledPatreonIcon />
-          </a>
-        </SupportLinks>
-      </React.Fragment>
-    )
-  }
+export function Download() {
+  const { t } = useTranslation()
 
-  onDownloadClick = () => {
+  const onDownloadClick = useStableCallback(() => {
     window.fathom?.trackGoal('BCSXAXFR', 0)
     window.location.assign(`/published_artifacts/win/ShieldBattery.latest.exe?t${Date.now()}`)
-  }
+  })
+
+  return (
+    <>
+      <Blurb>{t('clientDownload.blurb', 'Download the ShieldBattery client to:')}</Blurb>
+      <BlurbList>
+        <li>{t('clientDownload.playGames', 'Play games')}</li>
+        <li>{t('clientDownload.watchReplays', 'Watch replays')}</li>
+        <li>{t('clientDownload.exploreMaps', 'Explore maps')}</li>
+        <li>{t('clientDownload.andMore', 'And more!')}</li>
+      </BlurbList>
+      <InstallerLinks>
+        <RaisedButton
+          onClick={onDownloadClick}
+          iconStart={<MaterialIcon icon='download' />}
+          label={
+            <InstallerButtonLabel>
+              {t('clientDownload.buttonLabel', 'Download client')}
+            </InstallerButtonLabel>
+          }
+        />
+      </InstallerLinks>
+      <SupportText>
+        {t('clientDownload.supportProjectText', 'Want to support the project?')}
+      </SupportText>
+      <SupportLinks>
+        <a
+          href='https://github.com/sponsors/ShieldBattery'
+          target='_blank'
+          rel='noopener'
+          title='GitHub Sponsors'>
+          <StyledGithubIcon />
+        </a>
+        <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener' title='Ko-fi'>
+          <StyledKofiIcon />
+        </a>
+        <a href='https://patreon.com/tec27' target='_blank' rel='noopener' title='Patreon'>
+          <StyledPatreonIcon />
+        </a>
+      </SupportLinks>
+    </>
+  )
 }
+
+export default Download
