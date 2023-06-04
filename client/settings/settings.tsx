@@ -34,7 +34,13 @@ import { GameInputSettings } from './game/input-settings'
 import { GameSoundSettings } from './game/sound-settings'
 import { StarcraftSettings } from './game/starcraft-settings'
 import { GameVideoSettings } from './game/video-settings'
-import { AppSettingsSubPage, GameSettingsSubPage, SettingsSubPage } from './settings-sub-page'
+import {
+  AppSettingsSubPage,
+  GameSettingsSubPage,
+  SettingsSubPage,
+  UserSettingsSubPage,
+} from './settings-sub-page'
+import { UserLanguageSettings } from './user/language-settings'
 
 const ESCAPE = 'Escape'
 
@@ -141,6 +147,8 @@ function Settings({
   onChangeSubPage: (subPage: SettingsSubPage) => void
   onCloseSettings: () => void
 }) {
+  const { t } = useTranslation()
+
   useKeyListener({
     onKeyDown(event) {
       if (event.code === ESCAPE) {
@@ -173,12 +181,17 @@ function Settings({
       <NavContainer>
         {IS_ELECTRON ? (
           <>
-            <NavSectionTitle>App settings</NavSectionTitle>
+            <NavSectionTitle>{t('settings.user.label', 'User')}</NavSectionTitle>
+            {[UserSettingsSubPage.Language].map(getNavEntriesMapper())}
+
+            <NavSectionSeparator />
+
+            <NavSectionTitle>{t('settings.app.label', 'App')}</NavSectionTitle>
             {[AppSettingsSubPage.Sound, AppSettingsSubPage.System].map(getNavEntriesMapper())}
 
             <NavSectionSeparator />
 
-            <NavSectionTitle>Game settings</NavSectionTitle>
+            <NavSectionTitle>{t('settings.game.label', 'Game')}</NavSectionTitle>
             {[GameSettingsSubPage.StarCraft].map(
               getNavEntriesMapper({ hasError: !isStarcraftHealthy }),
             )}
@@ -378,6 +391,8 @@ function SettingsSubPageDisplay({
   }
 
   switch (subPage) {
+    case UserSettingsSubPage.Language:
+      return <UserLanguageSettings />
     case AppSettingsSubPage.Sound:
       return <AppSoundSettings />
     case AppSettingsSubPage.System:
@@ -408,6 +423,9 @@ function SettingsSubPageTitle({
 
   let title
   switch (subPage) {
+    case UserSettingsSubPage.Language:
+      title = t('settings.user.language.label', 'Language')
+      break
     case AppSettingsSubPage.Sound:
       title = t('settings.app.sound.label', 'Sound')
       break

@@ -1,5 +1,6 @@
 import { Opaque } from 'type-fest'
 import { GameRecordJson } from '../games/games'
+import { TranslationLanguage } from '../i18n'
 import { Jsonify } from '../json'
 import { LadderPlayer } from '../ladder'
 import { MapInfoJson } from '../maps'
@@ -103,6 +104,14 @@ export interface AcceptPoliciesRequest {
 }
 
 export interface AcceptPoliciesResponse {
+  user: SelfUser
+}
+
+export interface ChangeLanguageRequest {
+  language: TranslationLanguage
+}
+
+export interface ChangeLanguagesResponse {
   user: SelfUser
 }
 

@@ -4,34 +4,14 @@ import { apiUrl } from '../../common/urls'
 import { SbUserId, SelfUser } from '../../common/users/sb-user'
 import { ClientSessionInfo } from '../../common/users/session'
 import type { PromisifiedAction, ReduxAction } from '../action-types'
-import { openSimpleDialog } from '../dialogs/action-creators'
-import type { DispatchFunction, ThunkAction } from '../dispatch-registry'
-import i18n from '../i18n/i18next'
-import logger from '../logging/logger'
+import type { ThunkAction } from '../dispatch-registry'
+import { changeLanguageLocally } from '../i18n/action-creators'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { AccountUpdateSuccess, AuthChangeBegin } from './actions'
 import { getBrowserprint } from './browserprint'
 
 const typedIpc = new TypedIpcRenderer()
-
-async function changeLanguage(locale: string, dispatch: DispatchFunction<ReduxAction>) {
-  try {
-    await i18n.changeLanguage(locale)
-  } catch (error) {
-    dispatch(
-      openSimpleDialog(
-        i18n.t('auth.language.changeErrorHeader', 'Error changing the language'),
-        i18n.t(
-          'auth.language.changeErrorMessage',
-          'Something went wrong when changing the language',
-        ),
-        true,
-      ),
-    )
-    logger.error(`There was an error changing the language: ${(error as any)?.stack ?? error}`)
-  }
-}
 
 type IdRequestable = Extract<
   Exclude<ReduxAction, { error: true }>,
@@ -117,7 +97,7 @@ export function logIn(
     })
 
     if (result.user.locale && result.user.locale !== locale) {
-      changeLanguage(result.user.locale, dispatch)
+      dispatch(changeLanguageLocally(result.user.locale))
     }
   })
 }
@@ -160,7 +140,7 @@ export function signUp(
     })
 
     if (result.user.locale && result.user.locale !== locale) {
-      changeLanguage(result.user.locale, dispatch)
+      dispatch(changeLanguageLocally(result.user.locale))
     }
   })
 }
@@ -183,7 +163,7 @@ export function getCurrentSession(
     })
 
     if (result.user.locale && result.user.locale !== locale) {
-      changeLanguage(result.user.locale, dispatch)
+      dispatch(changeLanguageLocally(result.user.locale))
     }
   })
 }

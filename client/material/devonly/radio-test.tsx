@@ -25,7 +25,7 @@ const RadioOverline = styled.div`
   ${overline};
   color: ${colorTextSecondary};
 
-  padding: 8px 14px;
+  padding: 8px 0;
 `
 
 const CustomLargeLabel = styled.div`
@@ -43,7 +43,9 @@ export function RadioTest() {
     <Container>
       <Content>
         <RadioOverline>Select a language</RadioOverline>
-        <RadioGroup value={selectedButton} onChange={setSelectedButton}>
+        <RadioGroup
+          value={selectedButton}
+          onChange={event => setSelectedButton(Number(event.target.value))}>
           <RadioButton label='English' value={0} />
           <RadioButton label='Spanish' value={1} />
           <RadioButton label='Korean' value={2} />

@@ -7,19 +7,23 @@ import { useButtonState } from './button'
 import { fastOutSlowIn } from './curve-constants'
 import { Ripple } from './ripple'
 
-const RadioContainer = styled.div`
+const RadioGroupContainer = styled.div`
   display: flex;
   flex-direction: column;
+
+  // Align the left side of the radio group with the outer circle of the radio icon.
+  margin-left: -14px;
 `
 
 export interface RadioGroupProps<T> {
   children: Array<ReturnType<typeof RadioButton> | null | undefined>
   value: T
-  onChange?: (value: T) => void
+  name?: string
+  onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void
   className?: string
 }
 
-export function RadioGroup<T>({ children, value, onChange, className }: RadioGroupProps<T>) {
+export function RadioGroup<T>({ children, value, name, onChange, className }: RadioGroupProps<T>) {
   const radioButtons = React.Children.map(children, (child, i) => {
     if (!child) {
       return child
@@ -28,12 +32,13 @@ export function RadioGroup<T>({ children, value, onChange, className }: RadioGro
     const isSelected = value === (child.props as RadioButtonProps<T>).value
     return React.cloneElement(child, {
       key: `button-${i}`,
+      name,
       selected: isSelected,
       onChange,
     })
   })
 
-  return <RadioContainer className={className}>{radioButtons}</RadioContainer>
+  return <RadioGroupContainer className={className}>{radioButtons}</RadioGroupContainer>
 }
 
 interface RadioButtonProps<T> {
@@ -43,6 +48,11 @@ interface RadioButtonProps<T> {
   inputProps?: InputHTMLAttributes<HTMLInputElement>
   className?: string
   /**
+   * The name of the radio button, used mostly in forms. This will be set by the containing Radio
+   * component and should not be passed directly.
+   */
+  name?: string
+  /**
    * Whether or not the radio button is the selected one. This will be set by the containing Radio
    * component and should not be passed directly.
    */
@@ -51,7 +61,7 @@ interface RadioButtonProps<T> {
    * Called whenever this radio button is selected. This will be set by the containing Radio
    * component and should not be passed directly.
    */
-  onChange?: (value: T) => void
+  onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void
 }
 
 const RadioButtonContainer = styled.div`
@@ -150,6 +160,7 @@ export const RadioButton = React.memo(
     value,
     disabled,
     inputProps,
+    name,
     selected,
     onChange,
   }: RadioButtonProps<T>) => {
@@ -157,9 +168,9 @@ export const RadioButton = React.memo(
 
     const [buttonProps, rippleRef] = useButtonState({ disabled })
 
-    const handleChange = useStableCallback(() => {
+    const handleChange = useStableCallback((event: React.ChangeEvent<HTMLInputElement>) => {
       if (!disabled && onChange) {
-        onChange(value)
+        onChange(event)
       }
     })
 
@@ -167,6 +178,7 @@ export const RadioButton = React.memo(
       type: 'radio',
       id,
       value,
+      name,
       checked: selected,
       disabled,
       onChange: handleChange,
