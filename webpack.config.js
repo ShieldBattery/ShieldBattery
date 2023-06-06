@@ -36,7 +36,7 @@ const webBabelOpts = {
     [
       '@babel/preset-env',
       {
-        targets: { electron: '21.1' },
+        targets: { electron: '25.0' },
         modules: false,
         useBuiltIns: 'usage',
         corejs: 3,
@@ -47,11 +47,6 @@ const webBabelOpts = {
   plugins: [
     ['babel-plugin-styled-components'],
     ['@babel/plugin-proposal-decorators', { legacy: true }],
-    ['@babel/plugin-proposal-class-properties', { loose: true }],
-    ['@babel/plugin-proposal-private-methods', { loose: true }],
-    ['@babel/plugin-proposal-private-property-in-object', { loose: true }],
-    ['@babel/plugin-proposal-nullish-coalescing-operator'],
-    ['@babel/plugin-proposal-optional-chaining'],
     ['babel-plugin-const-enum'],
   ].concat(process.env.NODE_ENV !== 'production' ? [['react-refresh/babel']] : []),
 }
@@ -145,7 +140,7 @@ const mainBabelOpts = {
     [
       '@babel/preset-env',
       {
-        targets: { electron: '21.1' },
+        targets: { electron: '25.0' },
         modules: false,
         useBuiltIns: 'usage',
         corejs: 3,
@@ -156,9 +151,6 @@ const mainBabelOpts = {
   plugins: [
     'babel-plugin-transform-typescript-metadata',
     ['@babel/plugin-proposal-decorators', { legacy: true }],
-    ['@babel/plugin-proposal-class-properties', { loose: true }],
-    ['@babel/plugin-proposal-private-methods', { loose: true }],
-    ['@babel/plugin-proposal-private-property-in-object', { loose: true }],
     ['babel-plugin-const-enum'],
   ],
 }
