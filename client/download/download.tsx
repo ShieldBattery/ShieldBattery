@@ -6,7 +6,6 @@ import KofiIcon from '../icons/brands/kofi-lockup.svg'
 import PatreonIcon from '../icons/brands/patreon-lockup.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RaisedButton } from '../material/button'
-import { useStableCallback } from '../state-hooks'
 import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
 import { headline5, subtitle1 } from '../styles/typography'
 
@@ -86,10 +85,10 @@ const InstallerButtonLabel = styled.span`
 export function Download() {
   const { t } = useTranslation()
 
-  const onDownloadClick = useStableCallback(() => {
+  const onDownloadClick = () => {
     window.fathom?.trackGoal('BCSXAXFR', 0)
     window.location.assign(`/published_artifacts/win/ShieldBattery.latest.exe?t${Date.now()}`)
-  })
+  }
 
   return (
     <>
@@ -106,7 +105,7 @@ export function Download() {
           iconStart={<MaterialIcon icon='download' />}
           label={
             <InstallerButtonLabel>
-              {t('clientDownload.buttonLabel', 'Download client')}
+              {t('clientDownload.downloadClient', 'Download client')}
             </InstallerButtonLabel>
           }
         />

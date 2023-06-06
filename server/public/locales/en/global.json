@@ -106,7 +106,7 @@
   "clientDownload": {
     "andMore": "And more!",
     "blurb": "Download the ShieldBattery client to:",
-    "buttonLabel": "Download client",
+    "downloadClient": "Download client",
     "exploreMaps": "Explore maps",
     "playGames": "Play games",
     "supportProjectText": "Want to support the project?",
@@ -119,7 +119,7 @@
       "newUpdateDownloading": "A new update is being downloaded. Please wait for the download to complete in order to continue.",
       "newUpdateReady": "A new update has been downloaded and is ready to install. Please restart the application to continue.",
       "noErrorTitle": "Update available",
-      "restartNowLabel": "Restart now"
+      "restartNow": "Restart now"
     }
   },
   "comingSoon": {
@@ -168,7 +168,7 @@
   },
   "forms": {
     "fileInput": {
-      "clearFilesLabel": "Clear files"
+      "clearFiles": "Clear files"
     }
   },
   "games": {
@@ -198,8 +198,7 @@
     }
   },
   "ladder": {
-    "divisionLabel": "Division",
-    "divisionOption": {
+    "division": {
       "all": "All",
       "bronze": "Bronze",
       "champion": "Champion",
@@ -209,6 +208,7 @@
       "silver": "Silver",
       "unrated": "Unrated"
     },
+    "divisionLabel": "Division",
     "errorRetrievingRankings": "There was an error retrieving the current rankings.",
     "lastPlayedHeader": "Last played",
     "mmrHeader": "MMR",

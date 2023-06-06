@@ -629,34 +629,31 @@ export function LadderTable(props: LadderTableProps) {
           value={filteredDivision}
           onChange={onFilteredDivisionChange}
           allowErrors={false}>
-          <SelectOption value={DivisionFilter.All} text={t('ladder.divisionOption.all', 'All')} />
+          <SelectOption value={DivisionFilter.All} text={t('ladder.division.all', 'All')} />
           <SelectOption
             value={DivisionFilter.Champion}
-            text={t('ladder.divisionOption.champion', 'Champion')}
+            text={t('ladder.division.champion', 'Champion')}
           />
           <SelectOption
             value={DivisionFilter.Diamond}
-            text={t('ladder.divisionOption.diamond', 'Diamond')}
+            text={t('ladder.division.diamond', 'Diamond')}
           />
           <SelectOption
             value={DivisionFilter.Platinum}
-            text={t('ladder.divisionOption.platinum', 'Platinum')}
+            text={t('ladder.division.platinum', 'Platinum')}
           />
-          <SelectOption
-            value={DivisionFilter.Gold}
-            text={t('ladder.divisionOption.gold', 'Gold')}
-          />
+          <SelectOption value={DivisionFilter.Gold} text={t('ladder.division.gold', 'Gold')} />
           <SelectOption
             value={DivisionFilter.Silver}
-            text={t('ladder.divisionOption.silver', 'Silver')}
+            text={t('ladder.division.silver', 'Silver')}
           />
           <SelectOption
             value={DivisionFilter.Bronze}
-            text={t('ladder.divisionOption.bronze', 'Bronze')}
+            text={t('ladder.division.bronze', 'Bronze')}
           />
           <SelectOption
             value={DivisionFilter.Unrated}
-            text={t('ladder.divisionOption.unrated', 'Unrated')}
+            text={t('ladder.division.unrated', 'Unrated')}
           />
         </DivisionSelect>
       </FiltersContainer>

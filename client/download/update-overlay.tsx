@@ -157,7 +157,7 @@ export function UpdateDialog({
         </Subtitle1>
         <RaisedButton
           onClick={() => ipcRenderer.send('updaterQuitAndInstall')}
-          label={t('clientUpdate.overlay.restartNowLabel', 'Restart now')}
+          label={t('clientUpdate.overlay.restartNow', 'Restart now')}
         />
       </Content>
     )

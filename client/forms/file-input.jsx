@@ -41,7 +41,7 @@ class FileInput extends React.Component {
         {hasFiles ? (
           <ClearButton
             icon={<MaterialIcon icon='close' />}
-            title={t('forms.fileInput.clearFilesLabel', 'Clear files')}
+            title={t('forms.fileInput.clearFiles', 'Clear files')}
             onClick={this.onClearClick}
           />
         ) : null}
