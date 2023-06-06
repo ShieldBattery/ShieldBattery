@@ -1,5 +1,4 @@
-import { Page } from '@playwright/test'
-import { Locator } from 'playwright'
+import { Locator, Page } from '@playwright/test'
 
 export class LoginPage {
   private readonly page: Page

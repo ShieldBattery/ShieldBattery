@@ -10011,13 +10011,6 @@ playwright-core@1.34.3:
   resolved "https://registry.yarnpkg.com/playwright-core/-/playwright-core-1.34.3.tgz#bc906ea1b26bb66116ce329436ee59ba2e78fe9f"
   integrity sha512-2pWd6G7OHKemc5x1r1rp8aQcpvDh7goMBZlJv6Co5vCNLVcQJdhxRL09SGaY6HcyHH9aT4tiynZabMofVasBYw==
 
-playwright@^1.21.1:
-  version "1.34.3"
-  resolved "https://registry.yarnpkg.com/playwright/-/playwright-1.34.3.tgz#6dca584e52e3ebc3392435c8dadf4953c792f016"
-  integrity sha512-UOOVE4ZbGfGkP1KVqWTdXOmm8Pw2pBhfbmlqKMkpiRCQjL5W+J+xRQXpgutFr0iM4pWl8g0GyyASMsqjQfFohw==
-  dependencies:
-    playwright-core "1.34.3"
-
 plist@^3.0.1, plist@^3.0.4:
   version "3.0.6"
   resolved "https://registry.yarnpkg.com/plist/-/plist-3.0.6.tgz#7cfb68a856a7834bca6dbfe3218eb9c7740145d3"
@@ -12873,7 +12866,6 @@ wouter@tec27/wouter#6c0159e3bf820b34b778c3f018f5b9e18f8e94c5:
   resolved "https://codeload.github.com/tec27/wouter/tar.gz/6c0159e3bf820b34b778c3f018f5b9e18f8e94c5"
 
 "wrap-ansi-cjs@npm:wrap-ansi@^7.0.0", wrap-ansi@^7.0.0:
-  name wrap-ansi-cjs
   version "7.0.0"
   resolved "https://registry.yarnpkg.com/wrap-ansi/-/wrap-ansi-7.0.0.tgz#67e145cff510a6a6984bdf1152911d69d2eb9e43"
   integrity sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==
