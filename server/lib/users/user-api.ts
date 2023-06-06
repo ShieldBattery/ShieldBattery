@@ -142,12 +142,6 @@ const relationshipsThrottle = createThrottle('accountrelationships', {
   window: 60000,
 })
 
-const changeLanguageThrottle = createThrottle('changelanguage', {
-  rate: 30,
-  burst: 60,
-  window: 60000,
-})
-
 function hashPass(password: string): Promise<string> {
   return bcrypt.hash(password, 10 /* saltRounds */)
 }
@@ -558,10 +552,7 @@ export class UserApi {
   }
 
   @httpPost('/:id/language')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(changeLanguageThrottle, ctx => String(ctx.session!.userId)),
-  )
+  @httpBefore(ensureLoggedIn)
   async changeLanguage(ctx: RouterContext): Promise<ChangeLanguagesResponse> {
     const { params, body } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({

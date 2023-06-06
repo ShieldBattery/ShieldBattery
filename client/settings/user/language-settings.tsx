@@ -1,7 +1,6 @@
 import { debounce } from 'lodash-es'
 import React, { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
 import {
   ALL_TRANSLATION_LANGUAGES,
   TranslationLanguage,
@@ -13,16 +12,7 @@ import { changeUserLanguage } from '../../i18n/action-creators'
 import { RadioButton, RadioGroup } from '../../material/radio'
 import { useAppDispatch } from '../../redux-hooks'
 import { useStableCallback } from '../../state-hooks'
-import { colorTextSecondary } from '../../styles/colors'
-import { overline } from '../../styles/typography'
 import { FormContainer } from '../settings-content'
-
-const RadioOverline = styled.div`
-  ${overline};
-  color: ${colorTextSecondary};
-
-  padding: 8px 0;
-`
 
 interface UserLanguageSettingsModel {
   language: TranslationLanguage
@@ -59,8 +49,7 @@ export function UserLanguageSettings() {
     <form noValidate={true} onSubmit={onSubmit}>
       <SubmitOnEnter />
       <FormContainer>
-        <RadioOverline>Select a language</RadioOverline>
-        <RadioGroup {...bindInput('language')}>
+        <RadioGroup overline='Select a language' {...bindInput('language')}>
           {ALL_TRANSLATION_LANGUAGES.map(language => (
             <RadioButton
               key={language}

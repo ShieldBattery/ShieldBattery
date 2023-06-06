@@ -5,7 +5,7 @@ import { SbUserId, SelfUser } from '../../common/users/sb-user'
 import { ClientSessionInfo } from '../../common/users/session'
 import type { PromisifiedAction, ReduxAction } from '../action-types'
 import type { ThunkAction } from '../dispatch-registry'
-import { changeLanguageLocally } from '../i18n/action-creators'
+import { maybeChangeLanguageLocally } from '../i18n/action-creators'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { AccountUpdateSuccess, AuthChangeBegin } from './actions'
@@ -96,9 +96,7 @@ export function logIn(
       payload: result,
     })
 
-    if (result.user.locale && result.user.locale !== locale) {
-      dispatch(changeLanguageLocally(result.user.locale))
-    }
+    dispatch(maybeChangeLanguageLocally(result.user.locale))
   })
 }
 
@@ -139,9 +137,7 @@ export function signUp(
       payload: result,
     })
 
-    if (result.user.locale && result.user.locale !== locale) {
-      dispatch(changeLanguageLocally(result.user.locale))
-    }
+    dispatch(maybeChangeLanguageLocally(result.user.locale))
   })
 }
 
@@ -162,9 +158,7 @@ export function getCurrentSession(
       payload: result,
     })
 
-    if (result.user.locale && result.user.locale !== locale) {
-      dispatch(changeLanguageLocally(result.user.locale))
-    }
+    dispatch(maybeChangeLanguageLocally(result.user.locale))
   })
 }
 

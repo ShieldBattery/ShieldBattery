@@ -179,11 +179,11 @@ function Settings({
   return (
     <Container style={style}>
       <NavContainer>
+        <NavSectionTitle>{t('settings.user.label', 'User')}</NavSectionTitle>
+        {[UserSettingsSubPage.Language].map(getNavEntriesMapper())}
+
         {IS_ELECTRON ? (
           <>
-            <NavSectionTitle>{t('settings.user.label', 'User')}</NavSectionTitle>
-            {[UserSettingsSubPage.Language].map(getNavEntriesMapper())}
-
             <NavSectionSeparator />
 
             <NavSectionTitle>{t('settings.app.label', 'App')}</NavSectionTitle>
@@ -382,34 +382,33 @@ function SettingsSubPageDisplay({
   subPage: SettingsSubPage
   onCloseSettings: () => void
 }) {
-  // TODO(2Pac): Currently we don't have any non-Electron settings so this might look a bit weird.
-  // Once we add some global settings (e.g. editing user account, and changing a language), write a
-  // second switch statemt above `IS_ELECTRON` check which handles those pages.
-
-  if (!IS_ELECTRON) {
-    throw new Error(`Unknown settings page: ${subPage}`)
-  }
-
   switch (subPage) {
     case UserSettingsSubPage.Language:
       return <UserLanguageSettings />
-    case AppSettingsSubPage.Sound:
-      return <AppSoundSettings />
-    case AppSettingsSubPage.System:
-      return <AppSystemSettings />
-    case GameSettingsSubPage.StarCraft:
-      return <StarcraftSettings />
-    case GameSettingsSubPage.Input:
-      return <GameInputSettings />
-    case GameSettingsSubPage.Sound:
-      return <GameSoundSettings />
-    case GameSettingsSubPage.Video:
-      return <GameVideoSettings />
-    case GameSettingsSubPage.Gameplay:
-      return <GameplaySettings />
   }
 
-  return assertUnreachable(subPage)
+  if (IS_ELECTRON) {
+    switch (subPage) {
+      case AppSettingsSubPage.Sound:
+        return <AppSoundSettings />
+      case AppSettingsSubPage.System:
+        return <AppSystemSettings />
+      case GameSettingsSubPage.StarCraft:
+        return <StarcraftSettings />
+      case GameSettingsSubPage.Input:
+        return <GameInputSettings />
+      case GameSettingsSubPage.Sound:
+        return <GameSoundSettings />
+      case GameSettingsSubPage.Video:
+        return <GameVideoSettings />
+      case GameSettingsSubPage.Gameplay:
+        return <GameplaySettings />
+      default:
+        return assertUnreachable(subPage)
+    }
+  }
+
+  throw new Error('Should have been unreachable for: ' + subPage)
 }
 
 function SettingsSubPageTitle({

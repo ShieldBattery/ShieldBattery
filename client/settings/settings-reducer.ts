@@ -6,7 +6,7 @@ import {
 } from '../../common/settings/local-settings'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 import { DEFAULT_LOCAL_SETTINGS, DEFAULT_SCR_SETTINGS } from './default-settings'
-import { AppSettingsSubPage, SettingsSubPage } from './settings-sub-page'
+import { SettingsSubPage, UserSettingsSubPage } from './settings-sub-page'
 
 export interface SettingsState {
   open: boolean
@@ -18,9 +18,7 @@ export interface SettingsState {
 
 const DEFAULT_SETTINGS_STATE: ReadonlyDeep<SettingsState> = {
   open: false,
-  // TODO(2Pac): Change this default value to user account settings page once we move that to the
-  // new settings.
-  subPage: AppSettingsSubPage.Sound,
+  subPage: UserSettingsSubPage.Language,
 
   local: DEFAULT_LOCAL_SETTINGS,
   scr: DEFAULT_SCR_SETTINGS,

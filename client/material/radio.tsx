@@ -1,8 +1,7 @@
 import React, { InputHTMLAttributes, useId } from 'react'
 import styled from 'styled-components'
-import { useStableCallback } from '../state-hooks'
 import { amberA400, colorTextFaint, colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { body1 } from '../styles/typography'
+import { body1, overline } from '../styles/typography'
 import { useButtonState } from './button'
 import { fastOutSlowIn } from './curve-constants'
 import { Ripple } from './ripple'
@@ -15,15 +14,30 @@ const RadioGroupContainer = styled.div`
   margin-left: -14px;
 `
 
+const RadioOverline = styled.div`
+  ${overline};
+  color: ${colorTextSecondary};
+
+  padding: 8px 0;
+`
+
 export interface RadioGroupProps<T> {
   children: Array<ReturnType<typeof RadioButton> | null | undefined>
   value: T
   name?: string
+  overline?: React.ReactNode
   onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void
   className?: string
 }
 
-export function RadioGroup<T>({ children, value, name, onChange, className }: RadioGroupProps<T>) {
+export function RadioGroup<T>({
+  children,
+  value,
+  name,
+  overline,
+  onChange,
+  className,
+}: RadioGroupProps<T>) {
   const radioButtons = React.Children.map(children, (child, i) => {
     if (!child) {
       return child
@@ -38,7 +52,12 @@ export function RadioGroup<T>({ children, value, name, onChange, className }: Ra
     })
   })
 
-  return <RadioGroupContainer className={className}>{radioButtons}</RadioGroupContainer>
+  return (
+    <>
+      {overline ? <RadioOverline>{overline}</RadioOverline> : null}
+      <RadioGroupContainer className={className}>{radioButtons}</RadioGroupContainer>
+    </>
+  )
 }
 
 interface RadioButtonProps<T> {
@@ -168,12 +187,6 @@ export const RadioButton = React.memo(
 
     const [buttonProps, rippleRef] = useButtonState({ disabled })
 
-    const handleChange = useStableCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-      if (!disabled && onChange) {
-        onChange(event)
-      }
-    })
-
     const internalInputProps = {
       type: 'radio',
       id,
@@ -181,7 +194,7 @@ export const RadioButton = React.memo(
       name,
       checked: selected,
       disabled,
-      onChange: handleChange,
+      onChange,
     }
 
     return (
