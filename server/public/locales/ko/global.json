@@ -180,7 +180,6 @@
             "usernameTaken": "해당 이름을 가진 사용자가 이미 존재합니다."
         },
         "usernameValidator": {
-            "minLength2": "{{minLength}}자 이상 사용",
             "pattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다.",
             "required": "사용자 이름을 입력하세요",
             "taken": "이미 사용중인 이름입니다"

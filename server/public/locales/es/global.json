@@ -99,7 +99,6 @@
             "banWithoutReason": "Sin motivo especificado"
         },
         "usernameValidator": {
-            "minLength2": "Utilice al menos {{minLength}} caracteres",
             "pattern": "Nombre de usuario contiene caracteres inválidos",
             "required": "Introduzca un nombre de usuario",
             "taken": "Este nombre de usuario ya está tomado"

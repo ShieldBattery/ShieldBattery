@@ -180,7 +180,6 @@
             "suspiciousActivity": "$Due to suspicious activity detected on this network, creating accounts on the web is currently disabled. Please download the standalone client to create a new account.!"
         },
         "usernameValidator": {
-            "minLength2": "$Use at least {{minLength}} characters!",
             "pattern": "$Username contains invalid characters!",
             "required": "$Enter a username!",
             "taken": "$Username is already taken!"
