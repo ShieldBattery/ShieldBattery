@@ -155,7 +155,7 @@ export function Login() {
             <RowEdge />
             <AuthTextField
               {...bindInput('username')}
-              label={t('common.literals.username', 'Username')}
+              label={t('auth.login.username', 'Username')}
               floatingLabel={true}
               inputProps={{
                 tabIndex: 1,
@@ -175,7 +175,7 @@ export function Login() {
             <RowEdge />
             <AuthPasswordTextField
               {...bindInput('password')}
-              label={t('common.literals.password', 'Password')}
+              label={t('auth.login.password', 'Password')}
               floatingLabel={true}
               inputProps={{
                 tabIndex: 1,
@@ -200,7 +200,7 @@ export function Login() {
             />
             <Spacer />
             <RaisedButton
-              label={t('common.literals.login', 'Log in')}
+              label={t('auth.login.logIn', 'Log in')}
               onClick={onSubmit}
               tabIndex={1}
               testName='submit-button'

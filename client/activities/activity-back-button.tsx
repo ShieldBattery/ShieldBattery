@@ -26,7 +26,7 @@ export function ActivityBackButton() {
   return shouldShow ? (
     <BackButton
       icon={<MaterialIcon icon='arrow_back' />}
-      title={t('common.literals.back', 'Back')}
+      title={t('common.actions.back', 'Back')}
       onClick={onBackClick}
     />
   ) : null

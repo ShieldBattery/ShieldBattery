@@ -22,7 +22,7 @@ export function SimpleDialog(props: SimpleDialogProps) {
   const buttons = hasButton
     ? [
         <TextButton
-          label={t('common.literals.okay', 'Okay')}
+          label={t('common.actions.okay', 'Okay')}
           key={'okay'}
           color={'accent'}
           onClick={onCancel}
