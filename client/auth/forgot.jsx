@@ -202,7 +202,7 @@ class ForgotUserForm extends React.Component {
         <FieldRow>
           <AuthTextField
             {...bindInput('email')}
-            label={t('common.literals.emailAddress', 'Email address')}
+            label={t('auth.forgot.user.emailAddress', 'Email address')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -252,7 +252,7 @@ class ForgotPasswordForm extends React.Component {
         <FieldRow>
           <AuthTextField
             {...bindInput('email')}
-            label={t('common.literals.emailAddress', 'Email address')}
+            label={t('auth.forgot.password.emailAddress', 'Email address')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -265,7 +265,7 @@ class ForgotPasswordForm extends React.Component {
         <FieldRow>
           <AuthTextField
             {...bindInput('username')}
-            label={t('common.literals.username', 'Username')}
+            label={t('auth.forgot.password.username', 'Username')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -343,7 +343,7 @@ class ResetPasswordForm extends React.Component {
           <AuthTextField
             {...bindInput('username')}
             inputProps={textInputProps}
-            label={t('common.literals.username', 'Username')}
+            label={t('auth.forgot.reset.username', 'Username')}
             floatingLabel={true}
           />
         </FieldRow>

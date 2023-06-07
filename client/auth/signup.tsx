@@ -260,8 +260,8 @@ export function Signup() {
         required(t('auth.passwordValidator.confirm', 'Confirm your password')),
         matchesOther('password', t('auth.passwordValidator.matching', 'Enter a matching password')),
       ),
-      ageConfirmation: requireChecked(t('common.literals.required', 'Required')),
-      policyAgreement: requireChecked(t('common.literals.required', 'Required')),
+      ageConfirmation: requireChecked(t('common.validators.required', 'Required')),
+      policyAgreement: requireChecked(t('common.validators.required', 'Required')),
     },
     { onSubmit: onFormSubmit },
   )
@@ -299,7 +299,7 @@ export function Signup() {
               <AuthTextField
                 {...bindInput('username')}
                 inputProps={textInputProps}
-                label={t('common.literals.username', 'Username')}
+                label={t('auth.signup.username', 'Username')}
                 floatingLabel={true}
               />
             </FieldRow>
@@ -308,7 +308,7 @@ export function Signup() {
               <AuthTextField
                 {...bindInput('email')}
                 inputProps={textInputProps}
-                label={t('common.literals.emailAddress', 'Email address')}
+                label={t('auth.signup.emailAddress', 'Email address')}
                 floatingLabel={true}
               />
             </FieldRow>
@@ -317,7 +317,7 @@ export function Signup() {
               <AuthPasswordTextField
                 {...bindInput('password')}
                 inputProps={textInputProps}
-                label={t('common.literals.password', 'Password')}
+                label={t('auth.signup.password', 'Password')}
                 floatingLabel={true}
               />
             </FieldRow>
@@ -382,7 +382,7 @@ export function Signup() {
       <SignupBottomAction>
         <p>{t('auth.signup.alreadyHaveAccount', 'Already have an account?')}</p>
         <BottomActionButton
-          label={t('common.literals.login', 'Log in')}
+          label={t('auth.signup.logIn', 'Log in')}
           onClick={onLogInClick}
           tabIndex={1}
         />

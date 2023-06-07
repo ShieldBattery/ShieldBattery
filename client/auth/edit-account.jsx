@@ -123,7 +123,7 @@ class AccountForm extends React.Component {
         <TextField
           {...bindInput('email')}
           inputProps={textInputProps}
-          label={t('common.literals.email', 'Email')}
+          label={t('auth.editAccount.email', 'Email')}
           floatingLabel={true}
         />
         <PasswordTextField
@@ -268,14 +268,14 @@ export default class EditAccount extends React.Component {
 
     const buttons = [
       <TextButton
-        label={t('common.literals.cancel', 'Cancel')}
+        label={t('common.actions.cancel', 'Cancel')}
         key='cancel'
         color='accent'
         onClick={onCancel}
       />,
       <TextButton
         ref={this._saveButton}
-        label={t('common.literals.save', 'Save')}
+        label={t('common.actions.save', 'Save')}
         key='save'
         color='accent'
         onClick={this.onAccountSave}

@@ -1,3 +1,4 @@
+import { TFunction } from 'i18next'
 import { assertUnreachable } from './assert-unreachable'
 
 /** A single-character representation of a chosen StarCraft race. */
@@ -31,16 +32,18 @@ export interface RaceStats {
   rZLosses: number
 }
 
-export function raceCharToLabel(raceChar: RaceChar): string {
+// TODO(2Pac): Remove the optionality of the translation function here once all the places this is
+// used is updated: https://github.com/ShieldBattery/ShieldBattery/issues/886
+export function raceCharToLabel(raceChar: RaceChar, t?: TFunction): string {
   switch (raceChar) {
     case 'p':
-      return 'Protoss'
+      return t ? t('common.race.protoss', 'Protoss') : 'Protoss'
     case 'r':
-      return 'Random'
+      return t ? t('common.race.random', 'Random') : 'Random'
     case 't':
-      return 'Terran'
+      return t ? t('common.race.terran', 'Terran') : 'Terran'
     case 'z':
-      return 'Zerg'
+      return t ? t('common.race.zerg', 'Zerg') : 'Zerg'
     default:
       return assertUnreachable(raceChar)
   }

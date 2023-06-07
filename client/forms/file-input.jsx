@@ -1,4 +1,5 @@
 import React from 'react'
+import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
@@ -18,13 +19,14 @@ const ClearButton = styled(IconButton)`
 `
 
 // Quick and ugly wrap for <input type='file'> that works with rest of the form stuff
-export default class FileInput extends React.Component {
+class FileInput extends React.Component {
   _input = null
   _setInput = elem => {
     this._input = elem
   }
 
   render() {
+    const { t } = this.props
     const internalInputProps = {
       type: 'file',
       accept: this.props.accept,
@@ -39,7 +41,7 @@ export default class FileInput extends React.Component {
         {hasFiles ? (
           <ClearButton
             icon={<MaterialIcon icon='close' />}
-            title='Clear files'
+            title={t('forms.fileInput.clearFiles', 'Clear files')}
             onClick={this.onClearClick}
           />
         ) : null}
@@ -63,3 +65,5 @@ export default class FileInput extends React.Component {
     }
   }
 }
+
+export default withTranslation()(FileInput)

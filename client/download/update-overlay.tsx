@@ -1,6 +1,7 @@
 import { rgba } from 'polished'
 import prettyBytes from 'pretty-bytes'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { animated, useTransition } from 'react-spring'
 import styled from 'styled-components'
 import { TypedIpcRenderer } from '../../common/ipc'
@@ -127,29 +128,36 @@ export function UpdateDialog({
   readyToInstall,
   progress,
 }: UpdateDialogProps) {
-  const title = !hasDownloadError ? 'Update available' : 'Error downloading update'
-
+  const { t } = useTranslation()
+  const title = !hasDownloadError
+    ? t('clientUpdate.overlay.noErrorTitle', 'Update available')
+    : t('clientUpdate.overlay.errorTitle', 'Error downloading update')
   let content = <span />
   if (hasDownloadError) {
     content = (
       <Subtitle1>
-        There was an error downloading the update. Please restart and try again, or visit{' '}
-        <a href={makeServerUrl('/')} target='_blank' rel='noopener noreferrer'>
-          our website
-        </a>{' '}
-        to download the latest version.
+        <Trans t={t} i18nKey='clientUpdate.overlay.errorBody'>
+          There was an error downloading the update. Please restart and try again, or visit{' '}
+          <a href={makeServerUrl('/')} target='_blank' rel='noopener noreferrer'>
+            our website
+          </a>{' '}
+          to download the latest version.
+        </Trans>
       </Subtitle1>
     )
   } else if (readyToInstall) {
     content = (
       <Content>
         <Subtitle1>
-          A new update has been downloaded and is ready to install. Please restart the application
-          to continue.
+          {t(
+            'clientUpdate.overlay.newUpdateReady',
+            'A new update has been downloaded and is ready to install. ' +
+              'Please restart the application to continue.',
+          )}
         </Subtitle1>
         <RaisedButton
           onClick={() => ipcRenderer.send('updaterQuitAndInstall')}
-          label='Restart now'
+          label={t('clientUpdate.overlay.restartNow', 'Restart now')}
         />
       </Content>
     )
@@ -157,8 +165,11 @@ export function UpdateDialog({
     content = (
       <Content>
         <Subtitle1>
-          A new update is being downloaded. Please wait for the download to complete in order to
-          continue.
+          {t(
+            'clientUpdate.overlay.newUpdateDownloading',
+            'A new update is being downloaded. ' +
+              'Please wait for the download to complete in order to continue.',
+          )}
         </Subtitle1>
         {progress ? <UpdateProgressUi progress={progress} /> : <LoadingDotsArea />}
       </Content>

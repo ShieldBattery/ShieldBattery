@@ -111,7 +111,7 @@ export function EmailVerificationUi() {
     )
     bottomActionButton = (
       <BottomActionButton
-        label={t('common.literals.login', 'Log in')}
+        label={t('auth.emailVerification.logIn', 'Log in')}
         onClick={onLogInClick}
         testName='log-in-button'
       />
@@ -185,7 +185,7 @@ export function EmailVerificationUi() {
     )
     bottomActionButton = (
       <BottomActionButton
-        label={t('common.literals.continue', 'Continue')}
+        label={t('common.actions.continue', 'Continue')}
         onClick={onContinueClick}
         testName='continue-button'
       />
