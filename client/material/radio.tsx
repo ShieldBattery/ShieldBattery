@@ -6,6 +6,8 @@ import { useButtonState } from './button'
 import { fastOutSlowIn } from './curve-constants'
 import { Ripple } from './ripple'
 
+const noop = () => {}
+
 const RadioGroupContainer = styled.div`
   display: flex;
   flex-direction: column;
@@ -48,14 +50,15 @@ export function RadioGroup<T>({
       key: `button-${i}`,
       name,
       selected: isSelected,
-      onChange,
     })
   })
 
   return (
     <>
       {overline ? <RadioOverline>{overline}</RadioOverline> : null}
-      <RadioGroupContainer className={className}>{radioButtons}</RadioGroupContainer>
+      <RadioGroupContainer className={className} onChange={onChange}>
+        {radioButtons}
+      </RadioGroupContainer>
     </>
   )
 }
@@ -76,11 +79,6 @@ interface RadioButtonProps<T> {
    * component and should not be passed directly.
    */
   selected?: boolean
-  /**
-   * Called whenever this radio button is selected. This will be set by the containing Radio
-   * component and should not be passed directly.
-   */
-  onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void
 }
 
 const RadioButtonContainer = styled.div`
@@ -181,7 +179,6 @@ export const RadioButton = React.memo(
     inputProps,
     name,
     selected,
-    onChange,
   }: RadioButtonProps<T>) => {
     const id = useId()
 
@@ -194,7 +191,8 @@ export const RadioButton = React.memo(
       name,
       checked: selected,
       disabled,
-      onChange,
+      // `onChange` is handled in the RadioGroup so we just noop it here to get rid of the warning.
+      onChange: noop,
     }
 
     return (
