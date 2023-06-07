@@ -16,15 +16,10 @@
         "teamNameNumber": "Equipo {{teamNumber}}",
         "teamNameTop": "Arriba",
         "literals": {
-            "cancel": "Cancelar",
             "login": "Acceso",
-            "password": "Contraseña",
             "save": "Ahorrar",
-            "username": "Nombre de usuario",
             "continue": "Continuar",
-            "email": "Correo electrónico",
-            "emailAddress": "Dirección de correo electrónico",
-            "required": "Requerido"
+            "emailAddress": "Dirección de correo electrónico"
         },
         "validators": {
             "maxLength": "Ingrese como máximo {{maxLength}} caracteres",

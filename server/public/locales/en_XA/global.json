@@ -16,15 +16,10 @@
         "teamNameNumber": "$Team {{teamNumber}}!",
         "teamNameTop": "$Top!",
         "literals": {
-            "cancel": "$Cancel!",
             "continue": "$Continue!",
-            "email": "$Email!",
             "emailAddress": "$Email address!",
-            "login": "$Log in!",
             "password": "$Password!",
-            "save": "$Save!",
-            "username": "$Username!",
-            "required": "$Required!"
+            "username": "$Username!"
         },
         "validators": {
             "maxLength": "$Enter at most {{maxLength}} characters!",

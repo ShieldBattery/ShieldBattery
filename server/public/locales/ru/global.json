@@ -16,15 +16,10 @@
         "teamNameBottom": "Низ",
         "teamNameTop": "Верх",
         "literals": {
-            "cancel": "Отмена",
             "continue": "Продолжать",
-            "email": "Электронная почта",
             "emailAddress": "Адрес электронной почты",
-            "login": "Авторизоваться",
             "password": "Пароль",
-            "save": "Сохранять",
-            "username": "Имя пользователя",
-            "required": "Необходимый"
+            "username": "Имя пользователя"
         },
         "validators": {
             "maxLength": "Введите не более {{maxLength}} символов",

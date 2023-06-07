@@ -16,15 +16,10 @@
         "teamNameNumber": "팀 {{teamNumber}}",
         "teamNameTop": "상단",
         "literals": {
-            "password": "비밀번호",
             "save": "구하다",
-            "cancel": "취소",
             "continue": "계속하다",
-            "email": "이메일",
             "emailAddress": "이메일 주소",
-            "login": "로그인",
-            "username": "사용자 이름",
-            "required": "필수의"
+            "username": "사용자 이름"
         },
         "validators": {
             "maxLength": "최대 {{maxLength}}자까지 입력하세요.",

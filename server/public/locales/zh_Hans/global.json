@@ -16,15 +16,10 @@
         "matchmakingType2v2": "2v2",
         "playerNameComputer": "电脑",
         "literals": {
-            "cancel": "取消",
             "continue": "继续",
-            "email": "电子邮件",
             "emailAddress": "电子邮件地址",
-            "login": "登录",
             "password": "密码",
-            "required": "必需的",
-            "save": "节省",
-            "username": "用户名"
+            "save": "节省"
         },
         "validators": {
             "maxLength": "最多输入 {{maxLength}} 个字符",
