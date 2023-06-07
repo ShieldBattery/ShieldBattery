@@ -625,35 +625,35 @@ export function LadderTable(props: LadderTableProps) {
         />
         <DivisionSelect
           dense={true}
-          label={t('ladder.divisionLabel', 'Division')}
+          label={t('ladder.division', 'Division')}
           value={filteredDivision}
           onChange={onFilteredDivisionChange}
           allowErrors={false}>
-          <SelectOption value={DivisionFilter.All} text={t('ladder.division.all', 'All')} />
+          <SelectOption value={DivisionFilter.All} text={t('ladder.divisionGroup.all', 'All')} />
           <SelectOption
             value={DivisionFilter.Champion}
-            text={t('ladder.division.champion', 'Champion')}
+            text={t('ladder.divisionGroup.champion', 'Champion')}
           />
           <SelectOption
             value={DivisionFilter.Diamond}
-            text={t('ladder.division.diamond', 'Diamond')}
+            text={t('ladder.divisionGroup.diamond', 'Diamond')}
           />
           <SelectOption
             value={DivisionFilter.Platinum}
-            text={t('ladder.division.platinum', 'Platinum')}
+            text={t('ladder.divisionGroup.platinum', 'Platinum')}
           />
-          <SelectOption value={DivisionFilter.Gold} text={t('ladder.division.gold', 'Gold')} />
+          <SelectOption value={DivisionFilter.Gold} text={t('ladder.divisionGroup.gold', 'Gold')} />
           <SelectOption
             value={DivisionFilter.Silver}
-            text={t('ladder.division.silver', 'Silver')}
+            text={t('ladder.divisionGroup.silver', 'Silver')}
           />
           <SelectOption
             value={DivisionFilter.Bronze}
-            text={t('ladder.division.bronze', 'Bronze')}
+            text={t('ladder.divisionGroup.bronze', 'Bronze')}
           />
           <SelectOption
             value={DivisionFilter.Unrated}
-            text={t('ladder.division.unrated', 'Unrated')}
+            text={t('ladder.divisionGroup.unrated', 'Unrated')}
           />
         </DivisionSelect>
       </FiltersContainer>

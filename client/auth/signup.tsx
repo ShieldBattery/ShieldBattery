@@ -260,8 +260,8 @@ export function Signup() {
         required(t('auth.passwordValidator.confirm', 'Confirm your password')),
         matchesOther('password', t('auth.passwordValidator.matching', 'Enter a matching password')),
       ),
-      ageConfirmation: requireChecked(t('auth.ageConfirmation.required', 'Required')),
-      policyAgreement: requireChecked(t('auth.policyAgreement.required', 'Required')),
+      ageConfirmation: requireChecked(t('common.validators.required', 'Required')),
+      policyAgreement: requireChecked(t('common.validators.required', 'Required')),
     },
     { onSubmit: onFormSubmit },
   )

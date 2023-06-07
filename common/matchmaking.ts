@@ -91,114 +91,114 @@ const DIVISIONS_TO_RATING: ReadonlyArray<MatchmakingDivisionWithBounds> = [
 export function matchmakingDivisionToLabel(rank: MatchmakingDivision, t?: TFunction): string {
   switch (rank) {
     case MatchmakingDivision.Unrated:
-      return t ? t('matchmaking.divisionLabel.unrated', 'Unrated') : 'Unrated'
+      return t ? t('matchmaking.division.unrated', 'Unrated') : 'Unrated'
     case MatchmakingDivision.Bronze1:
       return t
-        ? t('matchmaking.divisionLabel.bronze', {
+        ? t('matchmaking.division.bronze', {
             defaultValue: 'Bronze {{level}}',
             level: 1,
           })
         : 'Bronze 1'
     case MatchmakingDivision.Bronze2:
       return t
-        ? t('matchmaking.divisionLabel.bronze', {
+        ? t('matchmaking.division.bronze', {
             defaultValue: 'Bronze {{level}}',
             level: 2,
           })
         : 'Bronze 2'
     case MatchmakingDivision.Bronze3:
       return t
-        ? t('matchmaking.divisionLabel.bronze', {
+        ? t('matchmaking.division.bronze', {
             defaultValue: 'Bronze {{level}}',
             level: 3,
           })
         : 'Bronze 3'
     case MatchmakingDivision.Silver1:
       return t
-        ? t('matchmaking.divisionLabel.silver', {
+        ? t('matchmaking.division.silver', {
             defaultValue: 'Silver {{level}}',
             level: 1,
           })
         : 'Silver 1'
     case MatchmakingDivision.Silver2:
       return t
-        ? t('matchmaking.divisionLabel.silver', {
+        ? t('matchmaking.division.silver', {
             defaultValue: 'Silver {{level}}',
             level: 2,
           })
         : 'Silver 2'
     case MatchmakingDivision.Silver3:
       return t
-        ? t('matchmaking.divisionLabel.silver', {
+        ? t('matchmaking.division.silver', {
             defaultValue: 'Silver {{level}}',
             level: 3,
           })
         : 'Silver 3'
     case MatchmakingDivision.Gold1:
       return t
-        ? t('matchmaking.divisionLabel.gold', {
+        ? t('matchmaking.division.gold', {
             defaultValue: 'Gold {{level}}',
             level: 1,
           })
         : 'Gold 1'
     case MatchmakingDivision.Gold2:
       return t
-        ? t('matchmaking.divisionLabel.gold', {
+        ? t('matchmaking.division.gold', {
             defaultValue: 'Gold {{level}}',
             level: 2,
           })
         : 'Gold 2'
     case MatchmakingDivision.Gold3:
       return t
-        ? t('matchmaking.divisionLabel.gold', {
+        ? t('matchmaking.division.gold', {
             defaultValue: 'Gold {{level}}',
             level: 3,
           })
         : 'Gold 3'
     case MatchmakingDivision.Platinum1:
       return t
-        ? t('matchmaking.divisionLabel.platinum', {
+        ? t('matchmaking.division.platinum', {
             defaultValue: 'Platinum {{level}}',
             level: 1,
           })
         : 'Platinum 1'
     case MatchmakingDivision.Platinum2:
       return t
-        ? t('matchmaking.divisionLabel.platinum', {
+        ? t('matchmaking.division.platinum', {
             defaultValue: 'Platinum {{level}}',
             level: 2,
           })
         : 'Platinum 2'
     case MatchmakingDivision.Platinum3:
       return t
-        ? t('matchmaking.divisionLabel.platinum', {
+        ? t('matchmaking.division.platinum', {
             defaultValue: 'Platinum {{level}}',
             level: 3,
           })
         : 'Platinum 3'
     case MatchmakingDivision.Diamond1:
       return t
-        ? t('matchmaking.divisionLabel.diamond', {
+        ? t('matchmaking.division.diamond', {
             defaultValue: 'Diamond {{level}}',
             level: 1,
           })
         : 'Diamond 1'
     case MatchmakingDivision.Diamond2:
       return t
-        ? t('matchmaking.divisionLabel.diamond', {
+        ? t('matchmaking.division.diamond', {
             defaultValue: 'Diamond {{level}}',
             level: 2,
           })
         : 'Diamond 2'
     case MatchmakingDivision.Diamond3:
       return t
-        ? t('matchmaking.divisionLabel.diamond', {
+        ? t('matchmaking.division.diamond', {
             defaultValue: 'Diamond {{level}}',
             level: 3,
           })
         : 'Diamond 3'
     case MatchmakingDivision.Champion:
-      return t ? t('matchmaking.divisionLabel.champion', 'Champion') : 'Champion'
+      return t ? t('matchmaking.division.champion', 'Champion') : 'Champion'
     default:
       return assertUnreachable(rank)
   }

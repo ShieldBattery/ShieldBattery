@@ -1,8 +1,5 @@
 {
   "auth": {
-    "ageConfirmation": {
-      "required": "Required"
-    },
     "editAccount": {
       "changePassword": "Change password?",
       "confirmNewPassword": "Confirm new password",
@@ -85,9 +82,6 @@
       "matching": "Enter a matching password",
       "required": "Enter a password",
       "resetCode": "Enter your password reset code"
-    },
-    "policyAgreement": {
-      "required": "Required"
     },
     "signup": {
       "acceptableUseLink": "Acceptable Use",
@@ -176,7 +170,8 @@
     "teamNameTop": "Top",
     "validators": {
       "maxLength": "Enter at most {{maxLength}} characters",
-      "minLength": "Enter at least {{minLength}} characters"
+      "minLength": "Enter at least {{minLength}} characters",
+      "required": "Required"
     }
   },
   "forms": {
@@ -211,7 +206,8 @@
     }
   },
   "ladder": {
-    "division": {
+    "division": "Division",
+    "divisionGroup": {
       "all": "All",
       "bronze": "Bronze",
       "champion": "Champion",
@@ -221,7 +217,6 @@
       "silver": "Silver",
       "unrated": "Unrated"
     },
-    "divisionLabel": "Division",
     "errorRetrievingRankings": "There was an error retrieving the current rankings.",
     "lastPlayedHeader": "Last played",
     "mmrHeader": "MMR",
@@ -244,7 +239,7 @@
     }
   },
   "matchmaking": {
-    "divisionLabel": {
+    "division": {
       "bronze": "Bronze {{level}}",
       "champion": "Champion",
       "diamond": "Diamond {{level}}",
