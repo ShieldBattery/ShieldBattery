@@ -23,6 +23,7 @@ macro_rules! warn_once {
 /// State persisted across draws
 pub struct RenderState {
     textures: HashMap<TextureId, OwnedBwTexture>,
+    queued_texture_frees: Vec<OwnedBwTexture>,
     temp_buffer: Vec<u8>,
 }
 
@@ -36,6 +37,7 @@ impl RenderState {
     pub fn new() -> RenderState {
         RenderState {
             textures: HashMap::with_capacity(16),
+            queued_texture_frees: Vec::new(),
             temp_buffer: Vec::new(),
         }
     }
@@ -171,7 +173,7 @@ pub unsafe fn add_overlays(
             }
         }
     }
-    free_textures(state, &overlay_out.textures_delta);
+    queue_free_textures(state, &overlay_out.textures_delta);
 }
 
 trait IndexSize: Copy {
@@ -662,8 +664,19 @@ fn egui_image_data_to_rgba<'a>(image: &'a epaint::ImageData, buffer: &'a mut Vec
     }
 }
 
-fn free_textures(state: &mut RenderState, delta: &TexturesDelta) {
+/// The textures cannot be freed until BW has issued a render call, so move them
+/// to a vec that will be freed afterwards.
+fn queue_free_textures(state: &mut RenderState, delta: &TexturesDelta) {
     for &id in &delta.free {
-        state.textures.remove(&id);
+        if let Some(texture) = state.textures.remove(&id) {
+            state.queued_texture_frees.push(texture);
+        }
     }
+}
+
+pub fn free_textures(state: &mut RenderState) {
+    // OwnedBwTexture destructor deletes the texture.
+    // Since we have to make sure this only happens after a rendering pass is finished,
+    // maybe moving this away from a destructor doing things implicitly would be better..
+    state.queued_texture_frees.clear();
 }
