@@ -16,7 +16,6 @@
         "matchmakingType2v2": "2v2",
         "playerNameComputer": "电脑",
         "literals": {
-            "emailAddress": "电子邮件地址",
             "save": "节省"
         },
         "validators": {

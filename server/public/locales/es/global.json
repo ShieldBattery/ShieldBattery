@@ -15,9 +15,6 @@
         "teamNameBottom": "Abajo",
         "teamNameNumber": "Equipo {{teamNumber}}",
         "teamNameTop": "Arriba",
-        "literals": {
-            "emailAddress": "Dirección de correo electrónico"
-        },
         "validators": {
             "maxLength": "Ingrese como máximo {{maxLength}} caracteres",
             "minLength": "Ingrese al menos {{minLength}} caracteres",

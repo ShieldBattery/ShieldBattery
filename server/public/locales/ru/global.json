@@ -15,9 +15,6 @@
         "teamNameNumber": "Команда {{teamNumber}}",
         "teamNameBottom": "Низ",
         "teamNameTop": "Верх",
-        "literals": {
-            "username": "Имя пользователя"
-        },
         "validators": {
             "maxLength": "Введите не более {{maxLength}} символов",
             "minLength": "Введите не менее {{minLength}} символов",

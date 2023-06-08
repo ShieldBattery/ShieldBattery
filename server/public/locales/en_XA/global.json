@@ -15,9 +15,6 @@
         "teamNameBottom": "$Bottom!",
         "teamNameNumber": "$Team {{teamNumber}}!",
         "teamNameTop": "$Top!",
-        "literals": {
-            "username": "$Username!"
-        },
         "validators": {
             "maxLength": "$Enter at most {{maxLength}} characters!",
             "minLength": "$Enter at least {{minLength}} characters!",

@@ -15,9 +15,6 @@
         "teamNameBottom": "바닥",
         "teamNameNumber": "팀 {{teamNumber}}",
         "teamNameTop": "상단",
-        "literals": {
-            "username": "사용자 이름"
-        },
         "validators": {
             "maxLength": "최대 {{maxLength}}자까지 입력하세요.",
             "minLength": "{{minLength}}자 이상 입력하세요.",
