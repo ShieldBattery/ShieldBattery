@@ -16,12 +16,25 @@
         "teamNameNumber": "Equipo {{teamNumber}}",
         "teamNameTop": "Arriba",
         "literals": {
-            "save": "Ahorrar",
             "emailAddress": "Dirección de correo electrónico"
         },
         "validators": {
             "maxLength": "Ingrese como máximo {{maxLength}} caracteres",
-            "minLength": "Ingrese al menos {{minLength}} caracteres"
+            "minLength": "Ingrese al menos {{minLength}} caracteres",
+            "required": "Requerido"
+        },
+        "actions": {
+            "back": "Atrás",
+            "cancel": "Cancelar",
+            "continue": "Continuar",
+            "okay": "Bueno",
+            "save": "Ahorrar"
+        },
+        "race": {
+            "protoss": "Protoss",
+            "random": "Aleatorio",
+            "terran": "terrano",
+            "zerg": "zerg"
         }
     },
     "games": {
@@ -103,7 +116,8 @@
             "newPassword": "Nueva contraseña",
             "changePassword": "¿Cambiar la contraseña?",
             "confirmNewPassword": "Confirmar nueva contraseña",
-            "currentPassword": "Contraseña actual"
+            "currentPassword": "Contraseña actual",
+            "email": "Correo electrónico"
         },
         "emailValidator": {
             "pattern": "Introduzca una dirección de correo electrónico válida",
@@ -123,7 +137,8 @@
             "switchUser": "Cambiar de usuario",
             "title": "Verificar correo electrónico",
             "verifySuccess": "Su correo electrónico ha sido verificado con éxito.",
-            "wrongUserError": "Error: Debe iniciar sesión en la cuenta cuyo correo electrónico desea verificar. Cambie de usuario haciendo clic en el botón de abajo y vuelva a intentarlo."
+            "wrongUserError": "Error: Debe iniciar sesión en la cuenta cuyo correo electrónico desea verificar. Cambie de usuario haciendo clic en el botón de abajo y vuelva a intentarlo.",
+            "logIn": "Acceso"
         },
         "forgot": {
             "backToLogin": "Atrás para iniciar sesión",
@@ -131,7 +146,9 @@
             "password": {
                 "sendResetEmail": "Enviar correo electrónico de restablecimiento",
                 "successMessage": "Si esa dirección de correo electrónico y nombre de usuario coinciden con una cuenta registrada, debería recibir un correo electrónico en los próximos minutos con instrucciones sobre cómo restablecer su contraseña.",
-                "title": "Restablecer la contraseña"
+                "title": "Restablecer la contraseña",
+                "username": "Nombre de usuario",
+                "emailAddress": "Dirección de correo electrónico"
             },
             "reset": {
                 "confirmPassword": "Confirmar nueva contraseña",
@@ -139,13 +156,15 @@
                 "passwordCode": "Código de restablecimiento de contraseña",
                 "setNewPassword": "Establecer nueva contraseña",
                 "successMessage": "Tu contraseña ha sido restablecida.",
-                "title": "Restablecer la contraseña"
+                "title": "Restablecer la contraseña",
+                "username": "Nombre de usuario"
             },
             "user": {
                 "enterEmail": "Por favor, introduzca la dirección de correo electrónico con la que se registró.",
                 "recoverUsername": "recuperar nombre de usuario",
                 "successMessage": "Si hay usuarios registrados en esa dirección de correo electrónico, debería recibir un correo electrónico en los próximos minutos con los nombres de usuario correspondientes.",
-                "title": "Recupera tu nombre de usuario"
+                "title": "Recupera tu nombre de usuario",
+                "emailAddress": "Dirección de correo electrónico"
             }
         },
         "login": {
@@ -154,7 +173,10 @@
             "rememberMe": "Acuérdate de mí",
             "signUp": "Regístrese para obtener una cuenta",
             "title": "Acceso",
-            "whatIsShieldBattery": "¿Qué es ShieldBattery?"
+            "whatIsShieldBattery": "¿Qué es ShieldBattery?",
+            "logIn": "Acceso",
+            "password": "Contraseña",
+            "username": "Nombre de usuario"
         },
         "noPermissionsPage": {
             "body": "No tienes suficientes permisos para acceder a esta página."
@@ -175,7 +197,11 @@
             "privacyLink": "Privacidad",
             "readAndAgree": "he leído y estoy de acuerdo con",
             "termsOfServiceLink": "Términos de servicio",
-            "title": "Crear una cuenta"
+            "title": "Crear una cuenta",
+            "emailAddress": "Dirección de correo electrónico",
+            "logIn": "Acceso",
+            "password": "Contraseña",
+            "username": "Nombre de usuario"
         },
         "language": {
             "changeErrorHeader": "Error al cambiar el idioma",
@@ -190,6 +216,68 @@
             "ladder": "Escalera",
             "leagues": "ligas",
             "login": "Acceso"
+        }
+    },
+    "ladder": {
+        "pointsHeader": "Puntos",
+        "division": "División",
+        "divisionGroup": {
+            "all": "Todo",
+            "bronze": "Bronce",
+            "champion": "Campeón",
+            "diamond": "Diamante",
+            "gold": "Oro",
+            "platinum": "Platino",
+            "silver": "Plata",
+            "unrated": "Sin clasificar"
+        },
+        "errorRetrievingRankings": "Hubo un error al recuperar las clasificaciones actuales.",
+        "lastPlayedHeader": "Jugado por última vez",
+        "mmrHeader": "MMR",
+        "noMatchingPlayers": "No hay jugadores coincidentes.",
+        "pageHeadline": "Escalera",
+        "playerHeader": "Jugador",
+        "rankHeader": "Rango",
+        "updatedText": "Actualizado: {{timestamp}}",
+        "winLossHeader": "Ganar perder"
+    },
+    "clientDownload": {
+        "andMore": "¡Y más!",
+        "blurb": "Descargue el cliente ShieldBattery para:",
+        "downloadClient": "Descargar cliente",
+        "exploreMaps": "Explorar mapas",
+        "playGames": "Jugar juegos",
+        "supportProjectText": "¿Quieres apoyar el proyecto?",
+        "watchReplays": "Ver repeticiones"
+    },
+    "comingSoon": {
+        "subtitle": "Ayude a financiar el desarrollo de ShieldBattery",
+        "headline": "¡Esta característica estará disponible en breve!"
+    },
+    "forms": {
+        "fileInput": {
+            "clearFiles": "Borrar archivos"
+        }
+    },
+    "matchmaking": {
+        "division": {
+            "bronze": "Bronce {{level}}",
+            "champion": "Campeón",
+            "diamond": "Diamante {{level}}",
+            "gold": "Oro {{level}}",
+            "platinum": "Platino {{level}}",
+            "silver": "Plata {{level}}",
+            "unrated": "Sin clasificar"
+        }
+    },
+    "clientUpdate": {
+        "overlay": {
+            "errorBody": "Hubo un error al descargar la actualización. Reinicie y vuelva a intentarlo o visite <2>nuestro sitio web</2> para descargar la última versión.",
+            "errorTitle": "Error al descargar la actualización",
+            "newUpdateDownloading": "Se está descargando una nueva actualización. Espere a que se complete la descarga para continuar.",
+            "newUpdateReady": "Se ha descargado una nueva actualización y está lista para instalarse. Reinicie la aplicación para continuar.",
+            "noErrorTitle": "Actualización disponible",
+            "restartNow": "Reiniciar ahora"
         }
     }
 }
