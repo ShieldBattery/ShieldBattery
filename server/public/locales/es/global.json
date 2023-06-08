@@ -67,7 +67,8 @@
             },
             "system": {
                 "label": "Sistema"
-            }
+            },
+            "label": "aplicación"
         },
         "game": {
             "gameplay": {
@@ -84,9 +85,16 @@
             },
             "video": {
                 "label": "Video"
-            }
+            },
+            "label": "Juego"
         },
-        "close": "Cerrar configuración"
+        "close": "Cerrar configuración",
+        "user": {
+            "label": "Usuario",
+            "language": {
+                "label": "Idioma"
+            }
+        }
     },
     "auth": {
         "userErrorDisplay": {
