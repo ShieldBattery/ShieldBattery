@@ -16,12 +16,25 @@
         "teamNameNumber": "팀 {{teamNumber}}",
         "teamNameTop": "상단",
         "literals": {
-            "continue": "계속하다",
             "username": "사용자 이름"
         },
         "validators": {
             "maxLength": "최대 {{maxLength}}자까지 입력하세요.",
-            "minLength": "{{minLength}}자 이상 입력하세요."
+            "minLength": "{{minLength}}자 이상 입력하세요.",
+            "required": "필수의"
+        },
+        "actions": {
+            "back": "뒤쪽에",
+            "cancel": "취소",
+            "continue": "계속하다",
+            "okay": "좋아요",
+            "save": "구하다"
+        },
+        "race": {
+            "protoss": "프로토스",
+            "random": "무작위의",
+            "terran": "테란",
+            "zerg": "저그"
         }
     },
     "games": {
@@ -84,14 +97,17 @@
                 "title": "사용자 이름 복구",
                 "enterEmail": "가입하신 이메일 주소를 입력해주세요.",
                 "recoverUsername": "사용자 이름 복구",
-                "successMessage": "해당 이메일 주소에 등록된 사용자가 있는 경우 몇 분 안에 관련 사용자 이름이 포함된 이메일을 받게 됩니다."
+                "successMessage": "해당 이메일 주소에 등록된 사용자가 있는 경우 몇 분 안에 관련 사용자 이름이 포함된 이메일을 받게 됩니다.",
+                "emailAddress": "이메일 주소"
             },
             "backToLogin": "로그인으로 돌아가기",
             "generalError": "오류: {{error}}",
             "password": {
                 "sendResetEmail": "재설정 이메일 보내기",
                 "successMessage": "해당 이메일 주소와 사용자 이름이 등록된 계정과 일치하면 몇 분 안에 비밀번호 재설정 방법에 대한 지침이 포함된 이메일을 받게 됩니다.",
-                "title": "암호를 재설정"
+                "title": "암호를 재설정",
+                "emailAddress": "이메일 주소",
+                "username": "사용자 이름"
             },
             "reset": {
                 "confirmPassword": "새 암호를 확인합니다",
@@ -99,7 +115,8 @@
                 "passwordCode": "비밀번호 재설정 코드",
                 "setNewPassword": "새 비밀번호 설정",
                 "successMessage": "당신의 비밀번호가 초기화되었습니다.",
-                "title": "암호를 재설정"
+                "title": "암호를 재설정",
+                "username": "사용자 이름"
             }
         },
         "login": {
@@ -108,7 +125,10 @@
             "rememberMe": "날 기억해",
             "signUp": "계정에 가입",
             "title": "로그인",
-            "whatIsShieldBattery": "실드배터리란?"
+            "whatIsShieldBattery": "실드배터리란?",
+            "logIn": "로그인",
+            "password": "비밀번호",
+            "username": "사용자 이름"
         },
         "noPermissionsPage": {
             "body": "이 페이지에 액세스할 수 있는 권한이 없습니다."
@@ -134,7 +154,8 @@
             "loggedOutError": "오류: 이메일을 확인하려면 로그인해야 합니다. 아래 버튼을 클릭하여 로그인 후 다시 시도해 주세요.",
             "resendError": "이메일 재전송 오류: {{error}}",
             "resendSuccess": "새 확인 코드가 계정의 이메일 주소로 전송되었습니다.",
-            "resendVerificationEmail": "확인 이메일을 다시 보내"
+            "resendVerificationEmail": "확인 이메일을 다시 보내",
+            "logIn": "로그인"
         },
         "editAccount": {
             "changePassword": "비밀번호를 변경하시겠습니까?",
@@ -143,7 +164,8 @@
             "dialogTitle": "계정 수정",
             "errorUpdatingAccount": "계정을 업데이트하는 중에 문제가 발생했습니다. 나중에 다시 시도 해주십시오.",
             "incorrectPassword": "현재 암호가 잘못되었습니다.",
-            "newPassword": "새 비밀번호"
+            "newPassword": "새 비밀번호",
+            "email": "이메일"
         },
         "emailValidator": {
             "pattern": "유효한 이메일 주소를 입력하세요.",
@@ -158,7 +180,11 @@
             "privacyLink": "은둔",
             "readAndAgree": "나는 읽고 동의합니다",
             "termsOfServiceLink": "서비스 약관",
-            "title": "계정 만들기"
+            "title": "계정 만들기",
+            "emailAddress": "이메일 주소",
+            "logIn": "로그인",
+            "password": "비밀번호",
+            "username": "사용자 이름"
         },
         "userErrorDisplay": {
             "accountBanned": "이 계정은 차단되었습니다.<1><0>이유:</0><1>{{banReason}}</1></1><2>차단은 {{expireTime}}에 만료됩니다.</2>",
@@ -190,6 +216,68 @@
             "home": "집",
             "ladder": "사다리",
             "login": "로그인"
+        }
+    },
+    "clientDownload": {
+        "blurb": "다음 위치에 ShieldBattery 클라이언트를 다운로드합니다.",
+        "downloadClient": "클라이언트 다운로드",
+        "exploreMaps": "지도 탐색",
+        "playGames": "게임을하다",
+        "supportProjectText": "프로젝트를 지원하고 싶습니까?",
+        "watchReplays": "다시 보기 보기",
+        "andMore": "그리고 더!"
+    },
+    "clientUpdate": {
+        "overlay": {
+            "errorBody": "업데이트를 다운로드하는 동안 오류가 발생했습니다. 다시 시작하고 다시 시도하거나 <2>저희 웹사이트</2>를 방문하여 최신 버전을 다운로드하십시오.",
+            "errorTitle": "업데이트 다운로드 오류",
+            "newUpdateDownloading": "새 업데이트를 다운로드 중입니다. 계속하려면 다운로드가 완료될 때까지 기다리십시오.",
+            "newUpdateReady": "새 업데이트가 다운로드되었으며 설치할 준비가 되었습니다. 계속하려면 응용 프로그램을 다시 시작하십시오.",
+            "noErrorTitle": "업데이트 가능",
+            "restartNow": "지금 다시 시작"
+        }
+    },
+    "comingSoon": {
+        "headline": "이 기능은 곧 제공될 예정입니다!",
+        "subtitle": "ShieldBattery의 개발 자금 지원"
+    },
+    "forms": {
+        "fileInput": {
+            "clearFiles": "파일 지우기"
+        }
+    },
+    "ladder": {
+        "division": "분할",
+        "divisionGroup": {
+            "all": "모두",
+            "bronze": "청동",
+            "champion": "챔피언",
+            "diamond": "다이아몬드",
+            "gold": "금",
+            "platinum": "백금",
+            "silver": "은",
+            "unrated": "등급 없음"
+        },
+        "errorRetrievingRankings": "현재 순위를 가져오는 중에 오류가 발생했습니다.",
+        "lastPlayedHeader": "마지막 플레이",
+        "mmrHeader": "MMR",
+        "noMatchingPlayers": "일치하는 플레이어가 없습니다.",
+        "pageHeadline": "사다리",
+        "playerHeader": "플레이어",
+        "pointsHeader": "포인트들",
+        "rankHeader": "계급",
+        "updatedText": "업데이트: {{timestamp}}",
+        "winLossHeader": "승/패"
+    },
+    "matchmaking": {
+        "division": {
+            "silver": "실버 {{level}}",
+            "unrated": "등급 없음",
+            "bronze": "브론즈 {{level}}",
+            "champion": "챔피언",
+            "diamond": "다이아몬드 {{level}}",
+            "gold": "골드 {{level}}",
+            "platinum": "플래티넘 {{level}}"
         }
     }
 }
