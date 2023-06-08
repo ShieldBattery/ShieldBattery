@@ -23,6 +23,7 @@ macro_rules! warn_once {
 /// State persisted across draws
 pub struct RenderState {
     textures: HashMap<TextureId, OwnedBwTexture>,
+    queued_texture_frees: Vec<OwnedBwTexture>,
     temp_buffer: Vec<u8>,
 }
 
@@ -36,6 +37,7 @@ impl RenderState {
     pub fn new() -> RenderState {
         RenderState {
             textures: HashMap::with_capacity(16),
+            queued_texture_frees: Vec::new(),
             temp_buffer: Vec::new(),
         }
     }
@@ -64,17 +66,39 @@ quick_error! {
 pub struct RenderTarget {
     pub bw: *mut scr::RenderTarget,
     pub id: u32,
+    /// 1.0 / scaled_render_target_width
+    /// Where scaled width / height are determined so that if height is above 1080, and
+    /// width is a value matching 1080 height so that the aspect ratio is kept.
+    /// Used for egui <-> bw coordinate translations.
     pub w_recip: f32,
     pub h_recip: f32,
+    /// 1.0 / render_target_width
+    /// Used for BW-visible shader constants
+    /// (may be unused depending on shader, but BW sets it always so we may as well too do that)
+    pub bw_w_recip: f32,
+    pub bw_h_recip: f32,
 }
 
 impl RenderTarget {
     pub unsafe fn new(bw: *mut scr::RenderTarget, id: u32) -> RenderTarget {
+        let width = (*bw).width as f32;
+        let height = (*bw).height as f32;
+        // FIXME: This is more or less duplicating logic in draw_overlay::OverlayState::step,
+        // (And assuming the render target sizes here are same as the values passed to step())
+        // would be more cleaner to have the egui-visible width/height be passed from there.
+        let (scale, h_recip) = if height > 1080.0 {
+            (height / 1080.0, 1.0 / 1080.0)
+        } else {
+            (1.0, 1.0 / height)
+        };
+        let w_recip = 1.0 / (width / scale);
         RenderTarget {
             bw,
             id,
-            w_recip: 1.0 / (*bw).width as f32,
-            h_recip: 1.0 / (*bw).height as f32,
+            w_recip,
+            h_recip,
+            bw_w_recip: 1.0 / width,
+            bw_h_recip: 1.0 / height,
         }
     }
 }
@@ -171,7 +195,7 @@ pub unsafe fn add_overlays(
             }
         }
     }
-    free_textures(state, &overlay_out.textures_delta);
+    queue_free_textures(state, &overlay_out.textures_delta);
 }
 
 trait IndexSize: Copy {
@@ -398,8 +422,8 @@ unsafe fn set_render_target_wh_recip(
     command: *mut scr::DrawCommand,
     render_target: &RenderTarget,
 ) {
-    (*command).shader_constants[0xe] = render_target.w_recip;
-    (*command).shader_constants[0xf] = render_target.h_recip;
+    (*command).shader_constants[0xe] = render_target.bw_w_recip;
+    (*command).shader_constants[0xf] = render_target.bw_h_recip;
 }
 
 unsafe fn new_draw_command(
@@ -581,13 +605,25 @@ impl OwnedBwTexture {
             );
         }
     }
+
+    fn intentional_drop(mut self) {
+        unsafe {
+            (*(*self.renderer).vtable).delete_texture.call2(self.renderer, &mut self.texture);
+        }
+        // Skip destructor which is used for catching unintended drops.
+        let _ = mem::ManuallyDrop::new(self);
+    }
 }
 
 impl Drop for OwnedBwTexture {
     fn drop(&mut self) {
-        unsafe {
-            (*(*self.renderer).vtable).delete_texture.call2(self.renderer, self.texture);
-        }
+        // I think it's better to leak and hope that system resources don't run
+        // out rather than crash due to BW code accessing this texture.
+        // (But of crashing on debug builds)
+        // Use self.intentional_drop() when it is known that this value is safe
+        // to drop.
+        debug_assert!(false, "OwnedBwTexture leak");
+        error!("Leaking an OwnedBwTexture");
     }
 }
 
@@ -638,7 +674,9 @@ unsafe fn update_textures(
             }
         } else {
             if let Some(texture) = OwnedBwTexture::new_rgba(renderer, size, rgba, bilinear) {
-                state.textures.insert(id, texture);
+                if let Some(old) = state.textures.insert(id, texture) {
+                    state.queued_texture_frees.push(old);
+                }
             } else {
                 error!("Could not create texture of size {size:?}");
             }
@@ -662,8 +700,20 @@ fn egui_image_data_to_rgba<'a>(image: &'a epaint::ImageData, buffer: &'a mut Vec
     }
 }
 
-fn free_textures(state: &mut RenderState, delta: &TexturesDelta) {
+/// The textures cannot be freed until BW has issued a render call, so move them
+/// to a vec that will be freed afterwards.
+fn queue_free_textures(state: &mut RenderState, delta: &TexturesDelta) {
     for &id in &delta.free {
-        state.textures.remove(&id);
+        if let Some(texture) = state.textures.remove(&id) {
+            state.queued_texture_frees.push(texture);
+        }
+    }
+}
+
+pub fn free_textures(state: &mut RenderState) {
+    if !state.queued_texture_frees.is_empty() {
+        for texture in state.queued_texture_frees.drain(..) {
+            texture.intentional_drop();
+        }
     }
 }

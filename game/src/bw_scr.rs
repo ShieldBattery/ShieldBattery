@@ -758,7 +758,9 @@ pub mod scr {
                 u32,
             )
         >,
-        pub delete_texture: Thiscall<unsafe extern "C" fn(*mut Renderer, *mut RendererTexture)>,
+        pub delete_texture: Thiscall<
+            unsafe extern "C" fn(*mut Renderer, *mut *mut RendererTexture)
+        >,
         pub create_shader: Thiscall<
             unsafe extern "C" fn(
                 *mut Renderer,
@@ -2269,7 +2271,11 @@ impl BwScr {
                         cmd.shader_constants[1] = show_network_stalled;
                     }
                 }
-                orig(renderer, commands, width, height)
+                let ret = orig(renderer, commands, width, height);
+                if let Some(mut render_state) = self.render_state.lock() {
+                    draw_inject::free_textures(&mut render_state.render);
+                }
+                ret
             },
             relative,
         );
