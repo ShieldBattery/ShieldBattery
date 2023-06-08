@@ -49,7 +49,7 @@ export function UserLanguageSettings() {
     <form noValidate={true} onSubmit={onSubmit}>
       <SubmitOnEnter />
       <FormContainer>
-        <RadioGroup overline='Select a language' {...bindInput('language')}>
+        <RadioGroup label='Select a language' {...bindInput('language')}>
           {ALL_TRANSLATION_LANGUAGES.map(language => (
             <RadioButton
               key={language}

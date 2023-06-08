@@ -35,7 +35,7 @@ export function RadioTest() {
     <Container>
       <Content>
         <RadioGroup
-          overline='Select a language'
+          label='Select a language'
           value={selectedButton}
           onChange={event => setSelectedButton(Number(event.target.value))}>
           <RadioButton label='English' value={0} />

@@ -27,7 +27,7 @@ export interface RadioGroupProps<T> {
   children: Array<ReturnType<typeof RadioButton> | null | undefined>
   value: T
   name?: string
-  overline?: React.ReactNode
+  label?: React.ReactNode
   onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void
   className?: string
 }
@@ -36,7 +36,7 @@ export function RadioGroup<T>({
   children,
   value,
   name,
-  overline,
+  label,
   onChange,
   className,
 }: RadioGroupProps<T>) {
@@ -55,7 +55,7 @@ export function RadioGroup<T>({
 
   return (
     <>
-      {overline ? <RadioOverline>{overline}</RadioOverline> : null}
+      {label ? <RadioOverline>{label}</RadioOverline> : null}
       <RadioGroupContainer className={className} onChange={onChange}>
         {radioButtons}
       </RadioGroupContainer>
