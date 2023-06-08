@@ -67,7 +67,8 @@
             },
             "system": {
                 "label": "체계"
-            }
+            },
+            "label": "앱"
         },
         "game": {
             "gameplay": {
@@ -84,9 +85,16 @@
             },
             "video": {
                 "label": "동영상"
-            }
+            },
+            "label": "게임"
         },
-        "close": "설정 닫기"
+        "close": "설정 닫기",
+        "user": {
+            "label": "사용자",
+            "language": {
+                "label": "언어"
+            }
+        }
     },
     "auth": {
         "forgot": {
