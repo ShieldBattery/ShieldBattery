@@ -16,9 +16,7 @@
         "teamNameNumber": "팀 {{teamNumber}}",
         "teamNameTop": "상단",
         "literals": {
-            "save": "구하다",
             "continue": "계속하다",
-            "emailAddress": "이메일 주소",
             "username": "사용자 이름"
         },
         "validators": {

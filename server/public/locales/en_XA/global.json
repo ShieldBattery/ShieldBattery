@@ -16,9 +16,7 @@
         "teamNameNumber": "$Team {{teamNumber}}!",
         "teamNameTop": "$Top!",
         "literals": {
-            "continue": "$Continue!",
             "emailAddress": "$Email address!",
-            "password": "$Password!",
             "username": "$Username!"
         },
         "validators": {

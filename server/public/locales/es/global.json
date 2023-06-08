@@ -16,9 +16,7 @@
         "teamNameNumber": "Equipo {{teamNumber}}",
         "teamNameTop": "Arriba",
         "literals": {
-            "login": "Acceso",
             "save": "Ahorrar",
-            "continue": "Continuar",
             "emailAddress": "Dirección de correo electrónico"
         },
         "validators": {

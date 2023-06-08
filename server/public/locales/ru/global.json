@@ -16,9 +16,7 @@
         "teamNameBottom": "Низ",
         "teamNameTop": "Верх",
         "literals": {
-            "continue": "Продолжать",
             "emailAddress": "Адрес электронной почты",
-            "password": "Пароль",
             "username": "Имя пользователя"
         },
         "validators": {
