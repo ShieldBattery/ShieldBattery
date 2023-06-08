@@ -758,7 +758,9 @@ pub mod scr {
                 u32,
             )
         >,
-        pub delete_texture: Thiscall<unsafe extern "C" fn(*mut Renderer, *mut RendererTexture)>,
+        pub delete_texture: Thiscall<
+            unsafe extern "C" fn(*mut Renderer, *mut *mut RendererTexture)
+        >,
         pub create_shader: Thiscall<
             unsafe extern "C" fn(
                 *mut Renderer,

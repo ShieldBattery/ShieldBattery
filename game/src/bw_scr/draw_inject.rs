@@ -586,7 +586,7 @@ impl OwnedBwTexture {
 impl Drop for OwnedBwTexture {
     fn drop(&mut self) {
         unsafe {
-            (*(*self.renderer).vtable).delete_texture.call2(self.renderer, self.texture);
+            (*(*self.renderer).vtable).delete_texture.call2(self.renderer, &mut self.texture);
         }
     }
 }
