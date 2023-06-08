@@ -191,13 +191,22 @@ impl OverlayState {
         apm: Option<&ApmStats>,
         screen_size: (u32, u32),
     ) -> StepOutput {
+        // BW shouldn't use sizes smaller than 1080 pixels tall, but
+        // if it does just allow ui to scale up since uncertain how
+        // less than 1.0 pixels_per_point will work.
+        // This'll also prevent division by 0 if screen_size is (0, 0) for some reason.
+        let pixels_per_point = if screen_size.1 > 1080 {
+            screen_size.1 as f32 / 1080.0
+        } else {
+            1.0
+        };
+        let screen_size = ((screen_size.0 as f32 / pixels_per_point).round() as u32, 1080);
         self.screen_size = screen_size;
-        let pixels_per_point = 1.0;
         let screen_rect = Rect {
             min: Pos2 { x: 0.0, y: 0.0 },
             max: Pos2 {
-                x: screen_size.0 as f32 / pixels_per_point,
-                y: screen_size.1 as f32 / pixels_per_point,
+                x: screen_size.0 as f32,
+                y: screen_size.1 as f32,
             },
         };
         let time = self.start_time.elapsed().as_secs_f64();
