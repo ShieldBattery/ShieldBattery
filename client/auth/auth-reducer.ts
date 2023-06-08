@@ -90,6 +90,9 @@ export default keyedReducer(new AuthState(), {
       return state.set('user', new SelfUserRecord(action.payload.user))
     }
   },
+  ['@auth/changeLanguage'](state, action) {
+    return state.set('user', new SelfUserRecord(action.payload.user))
+  },
   ['@auth/permissionsChanged'](state, action) {
     if (action.payload.userId !== state.user.id) {
       return state

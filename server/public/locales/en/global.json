@@ -251,6 +251,7 @@
   },
   "settings": {
     "app": {
+      "label": "App",
       "sound": {
         "label": "Sound"
       },
@@ -266,6 +267,7 @@
       "input": {
         "label": "Input"
       },
+      "label": "Game",
       "sound": {
         "label": "Sound"
       },
@@ -274,6 +276,12 @@
       },
       "video": {
         "label": "Video"
+      }
+    },
+    "user": {
+      "label": "User",
+      "language": {
+        "label": "Language"
       }
     }
   }

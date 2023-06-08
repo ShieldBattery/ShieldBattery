@@ -1,25 +1,45 @@
 import React, { InputHTMLAttributes, useId } from 'react'
 import styled from 'styled-components'
-import { useStableCallback } from '../state-hooks'
 import { amberA400, colorTextFaint, colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { body1 } from '../styles/typography'
+import { body1, overline } from '../styles/typography'
 import { useButtonState } from './button'
 import { fastOutSlowIn } from './curve-constants'
 import { Ripple } from './ripple'
 
-const RadioContainer = styled.div`
+const noop = () => {}
+
+const RadioGroupContainer = styled.div`
   display: flex;
   flex-direction: column;
+
+  // Align the left side of the radio group with the outer circle of the radio icon.
+  margin-left: -14px;
+`
+
+const RadioOverline = styled.div`
+  ${overline};
+  color: ${colorTextSecondary};
+
+  padding: 8px 0;
 `
 
 export interface RadioGroupProps<T> {
   children: Array<ReturnType<typeof RadioButton> | null | undefined>
   value: T
-  onChange?: (value: T) => void
+  name?: string
+  label?: React.ReactNode
+  onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void
   className?: string
 }
 
-export function RadioGroup<T>({ children, value, onChange, className }: RadioGroupProps<T>) {
+export function RadioGroup<T>({
+  children,
+  value,
+  name,
+  label,
+  onChange,
+  className,
+}: RadioGroupProps<T>) {
   const radioButtons = React.Children.map(children, (child, i) => {
     if (!child) {
       return child
@@ -28,12 +48,19 @@ export function RadioGroup<T>({ children, value, onChange, className }: RadioGro
     const isSelected = value === (child.props as RadioButtonProps<T>).value
     return React.cloneElement(child, {
       key: `button-${i}`,
+      name,
       selected: isSelected,
-      onChange,
     })
   })
 
-  return <RadioContainer className={className}>{radioButtons}</RadioContainer>
+  return (
+    <>
+      {label ? <RadioOverline>{label}</RadioOverline> : null}
+      <RadioGroupContainer className={className} onChange={onChange}>
+        {radioButtons}
+      </RadioGroupContainer>
+    </>
+  )
 }
 
 interface RadioButtonProps<T> {
@@ -43,15 +70,15 @@ interface RadioButtonProps<T> {
   inputProps?: InputHTMLAttributes<HTMLInputElement>
   className?: string
   /**
+   * The name of the radio button, used mostly in forms. This will be set by the containing Radio
+   * component and should not be passed directly.
+   */
+  name?: string
+  /**
    * Whether or not the radio button is the selected one. This will be set by the containing Radio
    * component and should not be passed directly.
    */
   selected?: boolean
-  /**
-   * Called whenever this radio button is selected. This will be set by the containing Radio
-   * component and should not be passed directly.
-   */
-  onChange?: (value: T) => void
 }
 
 const RadioButtonContainer = styled.div`
@@ -150,26 +177,22 @@ export const RadioButton = React.memo(
     value,
     disabled,
     inputProps,
+    name,
     selected,
-    onChange,
   }: RadioButtonProps<T>) => {
     const id = useId()
 
     const [buttonProps, rippleRef] = useButtonState({ disabled })
 
-    const handleChange = useStableCallback(() => {
-      if (!disabled && onChange) {
-        onChange(value)
-      }
-    })
-
     const internalInputProps = {
       type: 'radio',
       id,
       value,
+      name,
       checked: selected,
       disabled,
-      onChange: handleChange,
+      // `onChange` is handled in the RadioGroup so we just noop it here to get rid of the warning.
+      onChange: noop,
     }
 
     return (

@@ -17,6 +17,7 @@ import {
   USERNAME_PATTERN,
 } from '../../../common/constants'
 import { toGameRecordJson } from '../../../common/games/games'
+import { ALL_TRANSLATION_LANGUAGES } from '../../../common/i18n'
 import { LadderPlayer } from '../../../common/ladder'
 import { toMapInfoJson } from '../../../common/maps'
 import {
@@ -42,6 +43,8 @@ import {
   AdminGetUserIpsResponse,
   AdminUpdatePermissionsRequest,
   AuthEvent,
+  ChangeLanguageRequest,
+  ChangeLanguagesResponse,
   GetBatchUserInfoResponse,
   GetUserProfileResponse,
   SbUser,
@@ -544,6 +547,32 @@ export class UserApi {
     ctx.session!.acceptedPrivacyVersion = user.acceptedPrivacyVersion
     ctx.session!.acceptedTermsVersion = user.acceptedTermsVersion
     ctx.session!.acceptedUsePolicyVersion = user.acceptedUsePolicyVersion
+
+    return { user }
+  }
+
+  @httpPost('/:id/language')
+  @httpBefore(ensureLoggedIn)
+  async changeLanguage(ctx: RouterContext): Promise<ChangeLanguagesResponse> {
+    const { params, body } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }),
+      body: Joi.object<ChangeLanguageRequest>({
+        language: Joi.valid(...ALL_TRANSLATION_LANGUAGES).required(),
+      }),
+    })
+
+    if (params.id !== ctx.session!.userId) {
+      throw new httpErrors.Unauthorized("Can't change another user's language")
+    }
+
+    const user = await updateUser(params.id, { locale: body.language })
+    if (!user) {
+      throw new Error("Current user couldn't be found for updating")
+    }
+
+    ctx.session!.locale = user.locale
 
     return { user }
   }

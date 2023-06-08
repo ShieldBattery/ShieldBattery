@@ -34,7 +34,13 @@ import { GameInputSettings } from './game/input-settings'
 import { GameSoundSettings } from './game/sound-settings'
 import { StarcraftSettings } from './game/starcraft-settings'
 import { GameVideoSettings } from './game/video-settings'
-import { AppSettingsSubPage, GameSettingsSubPage, SettingsSubPage } from './settings-sub-page'
+import {
+  AppSettingsSubPage,
+  GameSettingsSubPage,
+  SettingsSubPage,
+  UserSettingsSubPage,
+} from './settings-sub-page'
+import { UserLanguageSettings } from './user/language-settings'
 
 const ESCAPE = 'Escape'
 
@@ -141,6 +147,8 @@ function Settings({
   onChangeSubPage: (subPage: SettingsSubPage) => void
   onCloseSettings: () => void
 }) {
+  const { t } = useTranslation()
+
   useKeyListener({
     onKeyDown(event) {
       if (event.code === ESCAPE) {
@@ -171,14 +179,19 @@ function Settings({
   return (
     <Container style={style}>
       <NavContainer>
+        <NavSectionTitle>{t('settings.user.label', 'User')}</NavSectionTitle>
+        {[UserSettingsSubPage.Language].map(getNavEntriesMapper())}
+
         {IS_ELECTRON ? (
           <>
-            <NavSectionTitle>App settings</NavSectionTitle>
+            <NavSectionSeparator />
+
+            <NavSectionTitle>{t('settings.app.label', 'App')}</NavSectionTitle>
             {[AppSettingsSubPage.Sound, AppSettingsSubPage.System].map(getNavEntriesMapper())}
 
             <NavSectionSeparator />
 
-            <NavSectionTitle>Game settings</NavSectionTitle>
+            <NavSectionTitle>{t('settings.game.label', 'Game')}</NavSectionTitle>
             {[GameSettingsSubPage.StarCraft].map(
               getNavEntriesMapper({ hasError: !isStarcraftHealthy }),
             )}
@@ -369,32 +382,33 @@ function SettingsSubPageDisplay({
   subPage: SettingsSubPage
   onCloseSettings: () => void
 }) {
-  // TODO(2Pac): Currently we don't have any non-Electron settings so this might look a bit weird.
-  // Once we add some global settings (e.g. editing user account, and changing a language), write a
-  // second switch statemt above `IS_ELECTRON` check which handles those pages.
-
-  if (!IS_ELECTRON) {
-    throw new Error(`Unknown settings page: ${subPage}`)
-  }
-
   switch (subPage) {
-    case AppSettingsSubPage.Sound:
-      return <AppSoundSettings />
-    case AppSettingsSubPage.System:
-      return <AppSystemSettings />
-    case GameSettingsSubPage.StarCraft:
-      return <StarcraftSettings />
-    case GameSettingsSubPage.Input:
-      return <GameInputSettings />
-    case GameSettingsSubPage.Sound:
-      return <GameSoundSettings />
-    case GameSettingsSubPage.Video:
-      return <GameVideoSettings />
-    case GameSettingsSubPage.Gameplay:
-      return <GameplaySettings />
+    case UserSettingsSubPage.Language:
+      return <UserLanguageSettings />
   }
 
-  return assertUnreachable(subPage)
+  if (IS_ELECTRON) {
+    switch (subPage) {
+      case AppSettingsSubPage.Sound:
+        return <AppSoundSettings />
+      case AppSettingsSubPage.System:
+        return <AppSystemSettings />
+      case GameSettingsSubPage.StarCraft:
+        return <StarcraftSettings />
+      case GameSettingsSubPage.Input:
+        return <GameInputSettings />
+      case GameSettingsSubPage.Sound:
+        return <GameSoundSettings />
+      case GameSettingsSubPage.Video:
+        return <GameVideoSettings />
+      case GameSettingsSubPage.Gameplay:
+        return <GameplaySettings />
+      default:
+        return assertUnreachable(subPage)
+    }
+  }
+
+  throw new Error('Should have been unreachable for: ' + subPage)
 }
 
 function SettingsSubPageTitle({
@@ -408,6 +422,9 @@ function SettingsSubPageTitle({
 
   let title
   switch (subPage) {
+    case UserSettingsSubPage.Language:
+      title = t('settings.user.language.label', 'Language')
+      break
     case AppSettingsSubPage.Sound:
       title = t('settings.app.sound.label', 'Sound')
       break

@@ -1,5 +1,10 @@
 import { SbPermissions } from '../../common/users/permissions'
-import { AcceptPoliciesResponse, SbUserId, SelfUser } from '../../common/users/sb-user'
+import {
+  AcceptPoliciesResponse,
+  ChangeLanguagesResponse,
+  SbUserId,
+  SelfUser,
+} from '../../common/users/sb-user'
 import { ClientSessionInfo } from '../../common/users/session'
 import { BaseFetchFailure } from '../network/fetch-errors'
 
@@ -21,6 +26,7 @@ export type AuthActions =
   | EmailVerified
   | AcceptPoliciesSuccess
   | AcceptPoliciesFailure
+  | ChangeLanguage
   | PermissionsChanged
 
 interface BaseAuthSuccess<T extends string, P = void> {
@@ -114,6 +120,12 @@ export interface AcceptPoliciesSuccess {
 /** Accepting legal policies failed. */
 export interface AcceptPoliciesFailure extends BaseFetchFailure<'@auth/acceptPolicies'> {
   meta: Record<string, never>
+}
+
+/** The language was changed by the current user. */
+export interface ChangeLanguage {
+  type: '@auth/changeLanguage'
+  payload: ChangeLanguagesResponse
 }
 
 export interface PermissionsChanged {
