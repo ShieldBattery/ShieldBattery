@@ -67,7 +67,8 @@
             },
             "sound": {
                 "label": "$Sound!"
-            }
+            },
+            "label": "$App!"
         },
         "game": {
             "gameplay": {
@@ -84,9 +85,16 @@
             },
             "input": {
                 "label": "$Input!"
-            }
+            },
+            "label": "$Game!"
         },
-        "close": "$Close settings!"
+        "close": "$Close settings!",
+        "user": {
+            "label": "$User!",
+            "language": {
+                "label": "$Language!"
+            }
+        }
     },
     "auth": {
         "editAccount": {
