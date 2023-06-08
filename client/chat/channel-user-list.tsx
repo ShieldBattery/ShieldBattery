@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user'
@@ -202,28 +203,41 @@ interface UserListProps {
 }
 
 const UserList = React.memo((props: UserListProps) => {
+  const { t } = useTranslation()
   const [scrollerRef] = useVirtuosoScrollFix()
 
   const { active, idle, offline } = props
 
   const rowData = useMemo((): ReadonlyArray<UserListRowData> => {
     let result: UserListRowData[] = [
-      { type: UserListRowType.Header, label: 'Active', count: active.length },
+      {
+        type: UserListRowType.Header,
+        label: t('chat.userList.active', 'Active'),
+        count: active.length,
+      },
     ]
     result = result.concat(active.map(userId => ({ type: UserListRowType.Active, userId })))
 
     if (idle.length) {
-      result.push({ type: UserListRowType.Header, label: 'Idle', count: idle.length })
+      result.push({
+        type: UserListRowType.Header,
+        label: t('chat.userList.idle', 'Idle'),
+        count: idle.length,
+      })
       result = result.concat(idle.map(userId => ({ type: UserListRowType.Faded, userId })))
     }
 
     if (offline.length) {
-      result.push({ type: UserListRowType.Header, label: 'Offline', count: offline.length })
+      result.push({
+        type: UserListRowType.Header,
+        label: t('chat.userList.offline', 'Offline'),
+        count: offline.length,
+      })
       result = result.concat(offline.map(userId => ({ type: UserListRowType.Faded, userId })))
     }
 
     return result
-  }, [active, idle, offline])
+  }, [active, idle, offline, t])
 
   const renderRow = useCallback((index: number, row: UserListRowData) => {
     if (row.type === UserListRowType.Header) {

@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SbChannelId } from '../../common/chat'
 import { CAN_LEAVE_SHIELDBATTERY_CHANNEL } from '../../common/flags'
@@ -31,6 +32,7 @@ export function ChatNavEntry({
   hasUnread,
   onLeave,
 }: ChatNavEntryProps) {
+  const { t } = useTranslation()
   const onLeaveClick = useStableCallback(() => {
     onLeave(channelId)
   })
@@ -38,7 +40,7 @@ export function ChatNavEntry({
   const button = (
     <LeaveButton
       icon={<MaterialIcon icon='close' />}
-      title='Leave channel'
+      title={t('chat.navEntry.leaveChannel', 'Leave channel')}
       onClick={onLeaveClick}
     />
   )

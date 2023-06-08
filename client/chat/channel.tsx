@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import {
   ChatServiceErrorCode,
@@ -207,6 +208,7 @@ function ChannelInfoPage({
   channelId: SbChannelId
   channelName: string
 }) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
 
@@ -245,17 +247,28 @@ function ChannelInfoPage({
       if (error.code === ChatServiceErrorCode.ChannelNotFound) {
         errorText = (
           <ErrorText>
-            This channel could not be found. It might not exist, or it may have been re-created by
-            someone else.
+            {t(
+              'chat.channelInfo.notFound',
+              'This channel could not be found. It might not exist, or it may have been ' +
+                're-created by someone else.',
+            )}
           </ErrorText>
         )
       } else {
-        errorText = <ErrorText>An error occurred: {error.statusText}</ErrorText>
+        errorText = (
+          <ErrorText>
+            <Trans t={t} i18nKey='chat.channelInfo.defaultError'>
+              An error occurred: {{ statusText: error.statusText }}
+            </Trans>
+          </ErrorText>
+        )
       }
     } else {
       errorText = (
         <ErrorText>
-          Error getting channel info for #{channelName}: {error.message}
+          <Trans t={t} i18nKey='chat.channelInfo.genericError'>
+            Error getting channel info for #{{ channelName }}: {{ errorMessage: error.message }}
+          </Trans>
         </ErrorText>
       )
     }

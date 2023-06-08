@@ -3,6 +3,7 @@ import { ChatEvent, ChatUserEvent, makeSbChannelId, SbChannelId } from '../../co
 import { TypedIpcRenderer } from '../../common/ipc'
 import audioManager, { AvailableSound } from '../audio/audio-manager'
 import { dispatch, Dispatchable } from '../dispatch-registry'
+import i18n from '../i18n/i18next'
 import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
 import windowFocus from '../window-focus'
 
@@ -56,7 +57,10 @@ const eventToChatAction: EventToChatActionMap = {
       // It was us who has been kicked from the channel
       dispatch(
         openSnackbar({
-          message: `You have been kicked from ${event.channelName}.`,
+          message: i18n.t('chat.events.kick', {
+            defaultValue: 'You have been kicked from {{channelName}}.',
+            channelName: event.channelName,
+          }),
           time: TIMING_LONG,
         }),
       )
@@ -82,7 +86,10 @@ const eventToChatAction: EventToChatActionMap = {
       // just showing a snackbar which is easily missed if the user is not looking.
       dispatch(
         openSnackbar({
-          message: `You have been banned from ${event.channelName}.`,
+          message: i18n.t('chat.events.ban', {
+            defaultValue: 'You have been banned from {{channelName}}.',
+            channelName: event.channelName,
+          }),
           time: TIMING_LONG,
         }),
       )
