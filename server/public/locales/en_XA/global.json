@@ -16,12 +16,25 @@
         "teamNameNumber": "$Team {{teamNumber}}!",
         "teamNameTop": "$Top!",
         "literals": {
-            "emailAddress": "$Email address!",
             "username": "$Username!"
         },
         "validators": {
             "maxLength": "$Enter at most {{maxLength}} characters!",
-            "minLength": "$Enter at least {{minLength}} characters!"
+            "minLength": "$Enter at least {{minLength}} characters!",
+            "required": "$Required!"
+        },
+        "actions": {
+            "back": "$Back!",
+            "cancel": "$Cancel!",
+            "continue": "$Continue!",
+            "save": "$Save!",
+            "okay": "$Okay!"
+        },
+        "race": {
+            "protoss": "$Protoss!",
+            "random": "$Random!",
+            "terran": "$Terran!",
+            "zerg": "$Zerg!"
         }
     },
     "games": {
@@ -86,7 +99,8 @@
             "dialogTitle": "$Edit account!",
             "errorUpdatingAccount": "$There was an issue updating your account. Please try again later.!",
             "incorrectPassword": "$Incorrect current password.!",
-            "newPassword": "$New password!"
+            "newPassword": "$New password!",
+            "email": "$Email!"
         },
         "emailValidator": {
             "pattern": "$Enter a valid email address!",
@@ -106,7 +120,8 @@
             "generalError": "$Error: {{error}}!",
             "invalidCodeError": "$Error: The provided email or verification code is not valid. If the verification code matches the one you were emailed, it may have expired. Please request a new verification email and try again.!",
             "verifySuccess": "$Your email has been successfully verified.!",
-            "wrongUserError": "$Error: You must be logged into the account whose email you want to verify. Please switch users by clicking the button below and try again.!"
+            "wrongUserError": "$Error: You must be logged into the account whose email you want to verify. Please switch users by clicking the button below and try again.!",
+            "logIn": "$Log in!"
         },
         "forgot": {
             "backToLogin": "$Back to login!",
@@ -114,7 +129,9 @@
             "password": {
                 "sendResetEmail": "$Send reset email!",
                 "successMessage": "$If that email address and username match a registered account, you should receive an email in the next few minutes with instructions on how to reset your password.!",
-                "title": "$Reset password!"
+                "title": "$Reset password!",
+                "emailAddress": "$Email address!",
+                "username": "$Username!"
             },
             "reset": {
                 "confirmPassword": "$Confirm new password!",
@@ -122,13 +139,15 @@
                 "passwordCode": "$Password reset code!",
                 "setNewPassword": "$Set new password!",
                 "successMessage": "$Your password has been reset.!",
-                "title": "$Reset password!"
+                "title": "$Reset password!",
+                "username": "$Username!"
             },
             "user": {
                 "enterEmail": "$Please enter the email address you signed up with.!",
                 "recoverUsername": "$Recover username!",
                 "title": "$Recover your username!",
-                "successMessage": "$If there are any users registered to that email address, you should receive an email in the next few minutes with the relevant usernames.!"
+                "successMessage": "$If there are any users registered to that email address, you should receive an email in the next few minutes with the relevant usernames.!",
+                "emailAddress": "$Email address!"
             }
         },
         "login": {
@@ -137,7 +156,10 @@
             "rememberMe": "$Remember me!",
             "signUp": "$Sign up for an account!",
             "title": "$Log in!",
-            "whatIsShieldBattery": "$What is ShieldBattery?!"
+            "whatIsShieldBattery": "$What is ShieldBattery?!",
+            "logIn": "$Log in!",
+            "password": "$Password!",
+            "username": "$Username!"
         },
         "noPermissionsPage": {
             "body": "$You don't have enough permissions to access this page.!"
@@ -158,7 +180,11 @@
             "readAndAgree": "$I have read and agree to the!",
             "title": "$Create account!",
             "createAccount": "$Create account!",
-            "termsOfServiceLink": "$Terms of Service!"
+            "termsOfServiceLink": "$Terms of Service!",
+            "username": "$Username!",
+            "logIn": "$Log in!",
+            "emailAddress": "$Email address!",
+            "password": "$Password!"
         },
         "userErrorDisplay": {
             "banWithoutReason": "$No reason specified!",
@@ -190,6 +216,68 @@
             "ladder": "$Ladder!",
             "leagues": "$Leagues!",
             "login": "$Log in!"
+        }
+    },
+    "clientDownload": {
+        "andMore": "$And more!!",
+        "downloadClient": "$Download client!",
+        "supportProjectText": "$Want to support the project?!",
+        "watchReplays": "$Watch replays!",
+        "blurb": "$Download the ShieldBattery client to:!",
+        "playGames": "$Play games!",
+        "exploreMaps": "$Explore maps!"
+    },
+    "clientUpdate": {
+        "overlay": {
+            "errorTitle": "$Error downloading update!",
+            "newUpdateDownloading": "$A new update is being downloaded. Please wait for the download to complete in order to continue.!",
+            "noErrorTitle": "$Update available!",
+            "restartNow": "$Restart now!",
+            "errorBody": "$There was an error downloading the update. Please restart and try again, or visit <2>our website</2> to download the latest version.!",
+            "newUpdateReady": "$A new update has been downloaded and is ready to install. Please restart the application to continue.!"
+        }
+    },
+    "comingSoon": {
+        "headline": "$This feature is coming soon!!",
+        "subtitle": "$Help fund ShieldBattery's development!"
+    },
+    "ladder": {
+        "playerHeader": "$Player!",
+        "pointsHeader": "$Points!",
+        "rankHeader": "$Rank!",
+        "updatedText": "$Updated: {{timestamp}}!",
+        "winLossHeader": "$Win/loss!",
+        "division": "$Division!",
+        "divisionGroup": {
+            "all": "$All!",
+            "bronze": "$Bronze!",
+            "champion": "$Champion!",
+            "diamond": "$Diamond!",
+            "gold": "$Gold!",
+            "platinum": "$Platinum!",
+            "silver": "$Silver!",
+            "unrated": "$Unrated!"
+        },
+        "errorRetrievingRankings": "$There was an error retrieving the current rankings.!",
+        "lastPlayedHeader": "$Last played!",
+        "mmrHeader": "$MMR!",
+        "noMatchingPlayers": "$No matching players.!",
+        "pageHeadline": "$Ladder!"
+    },
+    "matchmaking": {
+        "division": {
+            "silver": "$Silver {{level}}!",
+            "unrated": "$Unrated!",
+            "bronze": "$Bronze {{level}}!",
+            "champion": "$Champion!",
+            "diamond": "$Diamond {{level}}!",
+            "gold": "$Gold {{level}}!",
+            "platinum": "$Platinum {{level}}!"
+        }
+    },
+    "forms": {
+        "fileInput": {
+            "clearFiles": "$Clear files!"
         }
     }
 }
