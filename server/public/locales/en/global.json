@@ -116,6 +116,92 @@
       "taken": "Username is already taken"
     }
   },
+  "chat": {
+    "banUser": {
+      "banAction": "Ban {{user}}",
+      "banReason": "Ban reason (optional)",
+      "dialogTitle": "Ban {{user}}?",
+      "successMessage": "{{user}} was banned"
+    },
+    "banUserErrorDisplay": {
+      "defaultError": "An error occurred: {{statusText}}",
+      "genericError": "Error banning {{user}}: {{errorMessage}}",
+      "moderateChannelModerator": "You cannot ban another moderator",
+      "moderateChannelOwner": "You cannot ban the channel owner",
+      "noPermissions": "You don't have enough permissions to ban this user",
+      "notInChannel": "The user you're trying to ban is not in this channel"
+    },
+    "channelInfo": {
+      "defaultError": "An error occurred: {{statusText}}",
+      "genericError": "Error getting channel info for #{{channelName}}: {{errorMessage}}",
+      "notFound": "This channel could not be found. It might not exist, or it may have been re-created by someone else."
+    },
+    "channelInfoCard": {
+      "adminView": "Admin view",
+      "joined": "Joined",
+      "moreActions": "More actions",
+      "noDescription": "This channel has no description.",
+      "private": "This channel is private and requires an invite to join.",
+      "userCount_one": "{{count}} member",
+      "userCount_other": "{{count}} members"
+    },
+    "channelList": {
+      "createChannel": "Create channel",
+      "noMatchingChannels": "No matching chat channels.",
+      "pageHeadline": "Chat channels",
+      "retrievingError": "There was an error retrieving the chat channels."
+    },
+    "channelMenu": {
+      "banAction": "Ban {{user}}",
+      "kickAction": "Kick {{user}}",
+      "kickingError": "Error kicking {{user.name}}",
+      "userKicked": "{{user}} was kicked"
+    },
+    "channelName": {
+      "deletedChannel": "deleted-channel"
+    },
+    "channelValidator": {
+      "pattern": "Channel name contains invalid characters",
+      "required": "Enter a channel name"
+    },
+    "createChannel": {
+      "bannedError": "You are banned from this channel.",
+      "channelName": "Channel name",
+      "createAction": "Create channel",
+      "defaultError": "An error occurred while creating the channel.",
+      "maximumOwnedError": "You have reached the limit of created channels. You must leave one channel you created before you can create another.",
+      "title": "Create channel"
+    },
+    "events": {
+      "ban": "You have been banned from {{channelName}}.",
+      "kick": "You have been kicked from {{channelName}}."
+    },
+    "joinChannel": {
+      "bannedError": "You are banned from #{{channelName}}",
+      "genericError": "An error occurred while joining #{{channelName}}",
+      "maximumChannelsError": "You have reached the limit of joined channels. You must leave one before you can join another."
+    },
+    "messageLayout": {
+      "banUser": "<0><0></0></0> has been banned from the channel",
+      "joinChannel": "<0><0></0></0> has joined the channel",
+      "kickUser": "<0><0></0></0> has been kicked from the channel",
+      "leaveChannel": "<0><0></0></0> has left the channel",
+      "newChannelOwner": "<0><0></0></0> is the new owner of the channel",
+      "selfJoinChannel": "You joined <2><0></0></2>"
+    },
+    "messageMenu": {
+      "deleteError": "Error deleting message",
+      "messageDeleted": "Message deleted"
+    },
+    "navEntry": {
+      "leaveChannel": "Leave channel"
+    },
+    "userList": {
+      "active": "Active",
+      "idle": "Idle",
+      "offline": "Offline"
+    }
+  },
   "clientDownload": {
     "andMore": "And more!",
     "blurb": "Download the ShieldBattery client to:",
@@ -144,8 +230,10 @@
       "back": "Back",
       "cancel": "Cancel",
       "continue": "Continue",
+      "join": "Join",
       "okay": "Okay",
-      "save": "Save"
+      "save": "Save",
+      "view": "View"
     },
     "emptyListMessage": "Nothing to see here",
     "gameResultDraw": "Draw",

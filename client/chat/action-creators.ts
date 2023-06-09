@@ -14,6 +14,7 @@ import {
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbUser, SbUserId } from '../../common/users/sb-user'
 import { ThunkAction } from '../dispatch-registry'
+import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
 import { push, replace } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
@@ -52,15 +53,23 @@ export function joinChannelWithErrorHandling(
     })
       .then(channel => navigateToChannel(channel.channelInfo.id, channel.channelInfo.name))
       .catch(err => {
-        let message = `An error occurred while joining ${channelName}`
+        let message = i18n.t('chat.joinChannel.genericError', {
+          defaultValue: 'An error occurred while joining #{{channelName}}',
+          channelName,
+        })
 
         if (isFetchError(err) && err.code) {
           if (err.code === ChatServiceErrorCode.MaximumJoinedChannels) {
-            message =
+            message = i18n.t(
+              'chat.joinChannel.maximumChannelsError',
               'You have reached the limit of joined channels. ' +
-              'You must leave one before you can join another.'
+                'You must leave one before you can join another.',
+            )
           } else if (err.code === ChatServiceErrorCode.UserBanned) {
-            message = `You are banned from ${channelName}`
+            message = i18n.t('chat.joinChannel.bannedError', {
+              defaultValue: 'You are banned from #{{channelName}}',
+              channelName,
+            })
           } else {
             logger.error(`Unhandled code when joining ${channelName}: ${err.code}`)
           }

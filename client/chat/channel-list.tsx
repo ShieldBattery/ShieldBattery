@@ -1,5 +1,6 @@
 import { debounce } from 'lodash-es'
 import React, { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { BasicChannelInfo } from '../../common/chat'
 import { urlPath } from '../../common/urls'
@@ -61,6 +62,7 @@ const ErrorText = styled.div`
 `
 
 export function ChannelList() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const autoFocusRef = useAutoFocusRef<SearchInputHandle>()
 
@@ -123,13 +125,20 @@ export function ChannelList() {
   if (searchError) {
     searchContent = (
       <SearchResults>
-        <ErrorText>There was an error retrieving the chat channels.</ErrorText>
+        <ErrorText>
+          {t(
+            'chat.channelList.retrievingError',
+            'There was an error retrieving the chat channels.',
+          )}
+        </ErrorText>
       </SearchResults>
     )
   } else if (channels?.length === 0) {
     searchContent = (
       <SearchResults>
-        <NoResults>No matching chat channels.</NoResults>
+        <NoResults>
+          {t('chat.channelList.noMatchingChannels', 'No matching chat channels.')}
+        </NoResults>
       </SearchResults>
     )
   } else {
@@ -156,9 +165,9 @@ export function ChannelList() {
   return (
     <Container>
       <TitleBar>
-        <PageHeadline>Chat channels</PageHeadline>
+        <PageHeadline>{t('chat.channelList.pageHeadline', 'Chat channels')}</PageHeadline>
         <RaisedButton
-          label='Create channel'
+          label={t('chat.channelList.createChannel', 'Create channel')}
           iconStart={<MaterialIcon icon='add' />}
           onClick={onCreateChannelClick}
         />

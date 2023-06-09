@@ -25,9 +25,7 @@ function UserError({ error }: { error: FetchError }) {
     case UserErrorCode.InvalidCredentials:
       return (
         <span>
-          <Trans t={t} i18nKey='auth.userErrorDisplay.invalidCredentials'>
-            Incorrect username or password
-          </Trans>
+          {t('auth.userErrorDisplay.invalidCredentials', 'Incorrect username or password')}
         </span>
       )
     case UserErrorCode.AccountBanned:
@@ -55,37 +53,32 @@ function UserError({ error }: { error: FetchError }) {
         </div>
       )
     case UserErrorCode.SessionExpired:
-      return (
-        <span>
-          <Trans t={t} i18nKey='auth.userErrorDisplay.sessionExpired'>
-            Session expired
-          </Trans>
-        </span>
-      )
+      return <span>{t('auth.userErrorDisplay.sessionExpired', 'Session expired')}</span>
     case UserErrorCode.SuspiciousActivity:
       return (
         <span>
-          <Trans t={t} i18nKey='auth.userErrorDisplay.suspiciousActivity'>
-            Due to suspicious activity detected on this network, creating accounts on the web is
-            currently disabled. Please download the standalone client to create a new account.
-          </Trans>
+          {t(
+            'auth.userErrorDisplay.suspiciousActivity',
+            'Due to suspicious activity detected on this network, creating accounts on the web ' +
+              'is currently disabled. Please download the standalone client to create a new ' +
+              'account.',
+          )}
         </span>
       )
     case UserErrorCode.MachineBanned:
       // TODO(tec27): Show expiration date?
       return (
         <span>
-          <Trans t={t} i18nKey='auth.userErrorDisplay.machineBanned'>
-            This machine is banned from creating new accounts.
-          </Trans>
+          {t(
+            'auth.userErrorDisplay.machineBanned',
+            'This machine is banned from creating new accounts.',
+          )}
         </span>
       )
     case UserErrorCode.UsernameTaken:
       return (
         <span>
-          <Trans t={t} i18nKey='auth.userErrorDisplay.usernameTaken'>
-            A user with that name already exists
-          </Trans>
+          {t('auth.userErrorDisplay.usernameTaken', 'A user with that name already exists')}
         </span>
       )
 

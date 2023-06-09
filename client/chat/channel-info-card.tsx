@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ChatServiceErrorCode, SbChannelId } from '../../common/chat'
 import { urlPath } from '../../common/urls'
@@ -147,6 +148,7 @@ export function ConnectedChannelInfoCard({
   channelId,
   channelName,
 }: ConnectedChannelInfoCardProps) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId))
@@ -197,7 +199,10 @@ export function ConnectedChannelInfoCard({
       <PrivateChannelDescriptionContainer>
         <PrivateChannelIcon size={40} />
         <PrivateChannelDescriptionText>
-          This channel is private and requires an invite to join.
+          {t(
+            'chat.channelInfoCard.private',
+            'This channel is private and requires an invite to join.',
+          )}
         </PrivateChannelDescriptionText>
       </PrivateChannelDescriptionContainer>
     )
@@ -210,18 +215,26 @@ export function ConnectedChannelInfoCard({
   } else {
     channelDescription = (
       <ChannelDescriptionContainer>
-        <NoChannelDescriptionText>This channel has no description.</NoChannelDescriptionText>
+        <NoChannelDescriptionText>
+          {t('chat.channelInfoCard.noDescription', 'This channel has no description.')}
+        </NoChannelDescriptionText>
       </ChannelDescriptionContainer>
     )
   }
 
   let action
   if (isUserInChannel) {
-    action = <RaisedButton label='View' onClick={onViewClick} />
+    action = <RaisedButton label={t('common.actions.view', 'View')} onClick={onViewClick} />
   } else if (basicChannelInfo?.private || isUserBanned) {
-    action = <RaisedButton label='Join' disabled={true} />
+    action = <RaisedButton label={t('common.actions.join', 'Join')} disabled={true} />
   } else if (basicChannelInfo) {
-    action = <RaisedButton label='Join' disabled={isJoinInProgress} onClick={onJoinClick} />
+    action = (
+      <RaisedButton
+        label={t('common.actions.join', 'Join')}
+        disabled={isJoinInProgress}
+        onClick={onJoinClick}
+      />
+    )
   }
 
   return (
@@ -235,7 +248,10 @@ export function ConnectedChannelInfoCard({
           originX={'left'}
           originY={'top'}>
           <MenuList>
-            <MenuItem text='Admin view' onClick={onAdminViewClick} />
+            <MenuItem
+              text={t('chat.channelInfoCard.adminView', 'Admin view')}
+              onClick={onAdminViewClick}
+            />
           </MenuList>
         </Popover>
       ) : null}
@@ -259,7 +275,12 @@ export function ConnectedChannelInfoCard({
 
       {detailedChannelInfo?.userCount ? (
         <ChannelUserCount>
-          {`${detailedChannelInfo.userCount} member${detailedChannelInfo.userCount > 1 ? 's' : ''}`}
+          <Trans
+            t={t}
+            i18nKey='chat.channelInfoCard.userCount'
+            count={detailedChannelInfo.userCount}>
+            {{ count: detailedChannelInfo.userCount }} member
+          </Trans>
         </ChannelUserCount>
       ) : null}
       {channelDescription}
@@ -268,7 +289,7 @@ export function ConnectedChannelInfoCard({
         {isUserInChannel ? (
           <JoinedIndicator>
             <MaterialIcon icon='check' />
-            <span>Joined</span>
+            <span>{t('chat.channelInfoCard.joined', 'Joined')}</span>
           </JoinedIndicator>
         ) : (
           <div />
@@ -280,7 +301,7 @@ export function ConnectedChannelInfoCard({
         <OverflowMenuButton
           ref={anchor}
           icon={<MaterialIcon icon='more_vert' />}
-          title='More actions'
+          title={t('chat.channelInfoCard.moreActions', 'More actions')}
           onClick={openOverflowMenu}
         />
       ) : null}

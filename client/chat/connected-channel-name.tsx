@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SbChannelId } from '../../common/chat'
 import { Popover, useAnchorPosition, usePopoverController } from '../material/popover'
@@ -30,6 +31,7 @@ export interface ConnectedChannelNameProps {
  * info when clicked.
  */
 export function ConnectedChannelName({ className, channelId }: ConnectedChannelNameProps) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const isChannelDeleted = useAppSelector(s => s.chat.deletedChannels.has(channelId))
@@ -44,7 +46,7 @@ export function ConnectedChannelName({ className, channelId }: ConnectedChannelN
   const [anchor, anchorX, anchorY] = useAnchorPosition('right', 'top')
 
   if (isChannelDeleted) {
-    return <span>#deleted-channel</span>
+    return <span>#{t('chat.channelName.deletedChannel', 'deleted-channel')}</span>
   }
 
   return (
