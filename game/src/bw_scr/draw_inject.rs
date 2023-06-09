@@ -66,17 +66,42 @@ quick_error! {
 pub struct RenderTarget {
     pub bw: *mut scr::RenderTarget,
     pub id: u32,
+    /// 1.0 / scaled_render_target_width
+    /// Where scaled width / height are determined so that height is 1080, and
+    /// width is a value matching 1080 height so that the aspect ratio is kept.
+    /// Used for egui <-> bw coordinate translations.
     pub w_recip: f32,
+    /// So this is always 1.0 / 1080.0
     pub h_recip: f32,
+    /// 1.0 / render_target_width
+    /// Used for BW-visible shader constants
+    /// (may be unused depending on shader, but BW sets it always so we may as well too do that)
+    pub bw_w_recip: f32,
+    pub bw_h_recip: f32,
 }
 
 impl RenderTarget {
     pub unsafe fn new(bw: *mut scr::RenderTarget, id: u32) -> RenderTarget {
+        let width = (*bw).width as f32;
+        let height = (*bw).height as f32;
+        // FIXME: This is more or less duplicating logic in draw_overlay::OverlayState::step,
+        // (And assuming the render target sizes here are same as the values passed to step())
+        // would be more cleaner to have the egui-visible width/height be passed from there.
+        let scale = if height == 0.0 {
+            // ?? Just fallback in case
+            1.0
+        } else {
+            height / 1080.0
+        };
+        let w_recip = 1.0 / (width / scale);
+        let h_recip = 1.0 / 1080.0;
         RenderTarget {
             bw,
             id,
-            w_recip: 1.0 / (*bw).width as f32,
-            h_recip: 1.0 / (*bw).height as f32,
+            w_recip,
+            h_recip,
+            bw_w_recip: 1.0 / (*bw).width as f32,
+            bw_h_recip: 1.0 / (*bw).height as f32,
         }
     }
 }
@@ -400,8 +425,8 @@ unsafe fn set_render_target_wh_recip(
     command: *mut scr::DrawCommand,
     render_target: &RenderTarget,
 ) {
-    (*command).shader_constants[0xe] = render_target.w_recip;
-    (*command).shader_constants[0xf] = render_target.h_recip;
+    (*command).shader_constants[0xe] = render_target.bw_w_recip;
+    (*command).shader_constants[0xf] = render_target.bw_h_recip;
 }
 
 unsafe fn new_draw_command(
