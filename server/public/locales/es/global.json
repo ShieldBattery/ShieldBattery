@@ -25,7 +25,9 @@
             "cancel": "Cancelar",
             "continue": "Continuar",
             "okay": "Bueno",
-            "save": "Ahorrar"
+            "save": "Ahorrar",
+            "join": "Unirse",
+            "view": "Vista"
         },
         "race": {
             "protoss": "Protoss",
@@ -283,6 +285,92 @@
             "newUpdateReady": "Se ha descargado una nueva actualización y está lista para instalarse. Reinicie la aplicación para continuar.",
             "noErrorTitle": "Actualización disponible",
             "restartNow": "Reiniciar ahora"
+        }
+    },
+    "chat": {
+        "channelInfo": {
+            "notFound": "No se pudo encontrar este canal. Es posible que no exista o que otra persona lo haya recreado.",
+            "defaultError": "Ocurrió un error: {{errorMessage}}",
+            "genericError": "Error al obtener la información del canal para #{{channelName}}: {{errorMessage}}"
+        },
+        "channelInfoCard": {
+            "adminView": "Vista de administrador",
+            "joined": "Unido",
+            "moreActions": "Mas acciones",
+            "noDescription": "Este canal no tiene descripción.",
+            "private": "Este canal es privado y requiere una invitación para unirse.",
+            "userCount_one": "{{count}} miembro",
+            "userCount_other": "{{count}} miembros"
+        },
+        "channelList": {
+            "createChannel": "Crear canal",
+            "noMatchingChannels": "No hay canales de chat coincidentes.",
+            "pageHeadline": "Canales de chat",
+            "retrievingError": "Hubo un error al recuperar los canales de chat."
+        },
+        "channelMenu": {
+            "kickingError": "Error al patear {{user.name}}",
+            "userKicked": "{{user}} fue expulsado",
+            "banAction": "Prohibir {{user}}",
+            "kickAction": "Patada {{user}}"
+        },
+        "channelName": {
+            "deletedChannel": "canal eliminado"
+        },
+        "channelValidator": {
+            "pattern": "El nombre del canal contiene caracteres no válidos",
+            "required": "Introduce un nombre de canal"
+        },
+        "createChannel": {
+            "bannedError": "Estás baneado de este canal.",
+            "channelName": "Nombre del Canal",
+            "createAction": "Crear canal",
+            "defaultError": "Ocurrió un error al crear el canal.",
+            "maximumOwnedError": "Ha alcanzado el límite de canales creados. Debe abandonar un canal que creó antes de poder crear otro.",
+            "title": "Crear canal"
+        },
+        "events": {
+            "ban": "Has sido expulsado de {{channelName}}.",
+            "kick": "Te han expulsado de {{channelName}}."
+        },
+        "joinChannel": {
+            "bannedError": "Tienes baneado de #{{channelName}}",
+            "genericError": "Ocurrió un error al unirse a #{{channelName}}",
+            "maximumChannelsError": "Has alcanzado el límite de canales unidos. Debes dejar uno antes de poder unirte a otro."
+        },
+        "messageLayout": {
+            "banUser": "<0><0></0></0> ha sido expulsado del canal",
+            "joinChannel": "<0><0></0></0> se ha unido al canal",
+            "kickUser": "<0><0></0></0> ha sido expulsado del canal",
+            "leaveChannel": "<0><0></0></0> ha abandonado el canal",
+            "newChannelOwner": "<0><0></0></0> es el nuevo propietario del canal",
+            "selfJoinChannel": "Te uniste a <2><0></0></2>"
+        },
+        "banUser": {
+            "banAction": "Prohibir {{user}}",
+            "banReason": "Motivo de la prohibición (opcional)",
+            "dialogTitle": "¿Prohibir {{user}}?",
+            "successMessage": "{{user}} fue prohibido"
+        },
+        "banUserErrorDisplay": {
+            "defaultError": "Ocurrió un error: {{errorMessage}}",
+            "genericError": "Error al prohibir {{user}}: {{errorMessage}}",
+            "moderateChannelModerator": "No puedes banear a otro moderador",
+            "moderateChannelOwner": "No puedes banear al dueño del canal",
+            "noPermissions": "No tienes suficientes permisos para prohibir a este usuario",
+            "notInChannel": "El usuario que intentas prohibir no está en este canal."
+        },
+        "messageMenu": {
+            "deleteError": "Mensaje de error al eliminar",
+            "messageDeleted": "Mensaje borrado"
+        },
+        "navEntry": {
+            "leaveChannel": "Abandonar canal"
+        },
+        "userList": {
+            "active": "Activo",
+            "idle": "Inactivo",
+            "offline": "Desconectado"
         }
     }
 }
