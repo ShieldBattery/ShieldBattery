@@ -127,9 +127,9 @@
       "defaultError": "An error occurred: {{statusText}}",
       "genericError": "Error banning {{user}}: {{errorMessage}}",
       "moderateChannelModerator": "You cannot ban another moderator",
-      "moderateChannelOwner": "You cannot ban channel owner",
+      "moderateChannelOwner": "You cannot ban the channel owner",
       "noPermissions": "You don't have enough permissions to ban this user",
-      "notInChannel": "The user you're trying to ban is not in channel"
+      "notInChannel": "The user you're trying to ban is not in this channel"
     },
     "channelInfo": {
       "defaultError": "An error occurred: {{statusText}}",
@@ -177,8 +177,8 @@
       "kick": "You have been kicked from {{channelName}}."
     },
     "joinChannel": {
-      "bannedError": "You are banned from {{channelName}}",
-      "genericError": "An error occurred while joining {{channelName}}",
+      "bannedError": "You are banned from #{{channelName}}",
+      "genericError": "An error occurred while joining #{{channelName}}",
       "maximumChannelsError": "You have reached the limit of joined channels. You must leave one before you can join another."
     },
     "messageLayout": {

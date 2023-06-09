@@ -39,14 +39,14 @@ function BanUserError({ user, error }: { user: string; error: FetchError }) {
         <ErrorText>
           {t(
             'chat.banUserErrorDisplay.notInChannel',
-            "The user you're trying to ban is not in channel",
+            "The user you're trying to ban is not in this channel",
           )}
         </ErrorText>
       )
     case ChatServiceErrorCode.CannotModerateChannelOwner:
       return (
         <ErrorText>
-          {t('chat.banUserErrorDisplay.moderateChannelOwner', 'You cannot ban channel owner')}
+          {t('chat.banUserErrorDisplay.moderateChannelOwner', 'You cannot ban the channel owner')}
         </ErrorText>
       )
     case ChatServiceErrorCode.CannotModerateChannelModerator:
