@@ -191,16 +191,47 @@ impl OverlayState {
         apm: Option<&ApmStats>,
         screen_size: (u32, u32),
     ) -> StepOutput {
-        // BW shouldn't use sizes smaller than 1080 pixels tall, but
-        // if it does just allow ui to scale up since uncertain how
-        // less than 1.0 pixels_per_point will work.
+        // BW seems to use different render target sizes depending on SD/HD/4k
+        // sprites; with 1280x960 for SD, 1920x1080 for lowres HD, and
+        // 3840x2160 for 4k HD?
+        // Or i'm not actually sure how it decides this; sometimes i'm seeing 1080p
+        // render target and other times 1706x960 on HD with 1080p screen?
+        // And 3412x1920 when forcing 4k assets..
+        //
+        // Going to have egui resolution be at most 1080 points tall with increased
+        // pixel density for consistent look on HD, and have the UI on lower resolutions
+        // just take bit more space so that it gets 1.0 pixels:point ratio too.
+        //
         // This'll also prevent division by 0 if screen_size is (0, 0) for some reason.
         let pixels_per_point = if screen_size.1 > 1080 {
             screen_size.1 as f32 / 1080.0
         } else {
             1.0
         };
-        let screen_size = ((screen_size.0 as f32 / pixels_per_point).round() as u32, 1080);
+
+        // This exists for the weird 3412x1920 render target, since
+        // 3412.0 / (1920.0 / 1080.0) ~= 1919.25
+        // The odd width didn't seem to any issues, but think
+        // that valid resolutions should always have even widths anyway.
+        fn round_to_even(input: f32) -> f32 {
+            let rounded = input.round();
+            // This obviously breaks things on floats that don't fit to u32,
+            // but resolution floats are fine..
+            if (rounded as u32) & 1 == 0 {
+                rounded
+            } else {
+                if input < rounded {
+                    rounded - 1.0
+                } else {
+                    rounded + 1.0
+                }
+            }
+        }
+
+        let screen_size = (
+            round_to_even(screen_size.0 as f32 / pixels_per_point) as u32,
+            (screen_size.1 as f32 / pixels_per_point).round() as u32,
+        );
         self.screen_size = screen_size;
         let screen_rect = Rect {
             min: Pos2 { x: 0.0, y: 0.0 },

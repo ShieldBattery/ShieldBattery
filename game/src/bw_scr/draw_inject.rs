@@ -67,11 +67,10 @@ pub struct RenderTarget {
     pub bw: *mut scr::RenderTarget,
     pub id: u32,
     /// 1.0 / scaled_render_target_width
-    /// Where scaled width / height are determined so that height is 1080, and
+    /// Where scaled width / height are determined so that if height is above 1080, and
     /// width is a value matching 1080 height so that the aspect ratio is kept.
     /// Used for egui <-> bw coordinate translations.
     pub w_recip: f32,
-    /// So this is always 1.0 / 1080.0
     pub h_recip: f32,
     /// 1.0 / render_target_width
     /// Used for BW-visible shader constants
@@ -87,21 +86,19 @@ impl RenderTarget {
         // FIXME: This is more or less duplicating logic in draw_overlay::OverlayState::step,
         // (And assuming the render target sizes here are same as the values passed to step())
         // would be more cleaner to have the egui-visible width/height be passed from there.
-        let scale = if height == 0.0 {
-            // ?? Just fallback in case
-            1.0
+        let (scale, h_recip) = if height > 1080.0 {
+            (height / 1080.0, 1.0 / 1080.0)
         } else {
-            height / 1080.0
+            (1.0, 1.0 / height)
         };
         let w_recip = 1.0 / (width / scale);
-        let h_recip = 1.0 / 1080.0;
         RenderTarget {
             bw,
             id,
             w_recip,
             h_recip,
-            bw_w_recip: 1.0 / (*bw).width as f32,
-            bw_h_recip: 1.0 / (*bw).height as f32,
+            bw_w_recip: 1.0 / width,
+            bw_h_recip: 1.0 / height,
         }
     }
 }
@@ -608,13 +605,25 @@ impl OwnedBwTexture {
             );
         }
     }
+
+    fn intentional_drop(mut self) {
+        unsafe {
+            (*(*self.renderer).vtable).delete_texture.call2(self.renderer, &mut self.texture);
+        }
+        // Skip destructor which is used for catching unintended drops.
+        let _ = mem::ManuallyDrop::new(self);
+    }
 }
 
 impl Drop for OwnedBwTexture {
     fn drop(&mut self) {
-        unsafe {
-            (*(*self.renderer).vtable).delete_texture.call2(self.renderer, &mut self.texture);
-        }
+        // I think it's better to leak and hope that system resources don't run
+        // out rather than crash due to BW code accessing this texture.
+        // (But of crashing on debug builds)
+        // Use self.intentional_drop() when it is known that this value is safe
+        // to drop.
+        debug_assert!(false, "OwnedBwTexture leak");
+        error!("Leaking an OwnedBwTexture");
     }
 }
 
@@ -665,7 +674,9 @@ unsafe fn update_textures(
             }
         } else {
             if let Some(texture) = OwnedBwTexture::new_rgba(renderer, size, rgba, bilinear) {
-                state.textures.insert(id, texture);
+                if let Some(old) = state.textures.insert(id, texture) {
+                    state.queued_texture_frees.push(old);
+                }
             } else {
                 error!("Could not create texture of size {size:?}");
             }
@@ -700,8 +711,9 @@ fn queue_free_textures(state: &mut RenderState, delta: &TexturesDelta) {
 }
 
 pub fn free_textures(state: &mut RenderState) {
-    // OwnedBwTexture destructor deletes the texture.
-    // Since we have to make sure this only happens after a rendering pass is finished,
-    // maybe moving this away from a destructor doing things implicitly would be better..
-    state.queued_texture_frees.clear();
+    if !state.queued_texture_frees.is_empty() {
+        for texture in state.queued_texture_frees.drain(..) {
+            texture.intentional_drop();
+        }
+    }
 }
