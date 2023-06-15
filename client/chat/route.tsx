@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react'
 import { Route, RouteProps, Switch } from 'wouter'
-import { makeSbChannelId, SbChannelId } from '../../common/chat'
+import { SbChannelId, makeSbChannelId } from '../../common/chat'
 import { hasAnyPermission } from '../admin/admin-permissions'
 import { NoPermissionsPage } from '../auth/no-permissions-page'
 import { replace } from '../navigation/routing'

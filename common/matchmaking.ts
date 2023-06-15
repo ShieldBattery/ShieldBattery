@@ -1,5 +1,5 @@
 import { TFunction } from 'i18next'
-import { Opaque, SetRequired } from 'type-fest'
+import { Opaque, SetRequired, Simplify } from 'type-fest'
 import { assertUnreachable } from './assert-unreachable'
 import { binarySearch } from './data-structures/arrays'
 import { GameRoute } from './game-launch-config'
@@ -554,9 +554,11 @@ export type PartialMatchmakingPreferences = SetRequired<
   'matchmakingType' | 'userId'
 >
 
-export type MatchmakingPreferencesOfType<M extends MatchmakingType> = MatchmakingPreferences & {
-  matchmakingType: M
-}
+export type MatchmakingPreferencesOfType<M extends MatchmakingType> = Simplify<
+  MatchmakingPreferences & {
+    matchmakingType: M
+  }
+>
 
 export type PreferenceData = MatchmakingPreferences['data']
 

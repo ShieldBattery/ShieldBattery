@@ -3,9 +3,9 @@ import styled from 'styled-components'
 import {
   AddMatchmakingSeasonRequest,
   GetMatchmakingSeasonsResponse,
-  makeSeasonId,
   MatchmakingSeasonJson,
   SeasonId,
+  makeSeasonId,
 } from '../../common/matchmaking'
 import { apiUrl } from '../../common/urls'
 import { useForm } from '../forms/form-hook'
@@ -19,7 +19,7 @@ import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { useRefreshToken } from '../network/refresh-token'
 import { useStableCallback } from '../state-hooks'
 import { amberA400, colorError, colorTextSecondary } from '../styles/colors'
-import { headline5, headline6, subtitle1, Subtitle2 } from '../styles/typography'
+import { Subtitle2, headline5, headline6, subtitle1 } from '../styles/typography'
 
 const Container = styled.div`
   height: 100%;

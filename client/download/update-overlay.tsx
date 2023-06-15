@@ -16,10 +16,10 @@ import { LoadingDotsArea } from '../progress/dots'
 import { amberA400, dialogScrim } from '../styles/colors'
 import { Body1, Subtitle1 } from '../styles/typography'
 import {
-  addChangeHandler,
-  removeChangeHandler,
   UpdateProgress,
   UpdateStateChangeHandler,
+  addChangeHandler,
+  removeChangeHandler,
 } from './updater-state'
 
 const ipcRenderer = new TypedIpcRenderer()

@@ -28,7 +28,6 @@ type BrowseLocalMapsPayload = BaseActivityOverlayPayload<
   typeof ActivityOverlayType.BrowseLocalMaps,
   {
     title: string
-    uploadedMap?: Immutable<MapInfoJson>
     // TODO(tec27): These shouldn't really be necessary to pass in initData (and these aren't
     // serializable so they really shouldn't be stored in a reducer). Handle this kind of stuff in
     // a better way
@@ -43,6 +42,7 @@ type BrowseServerMapsPayload = BaseActivityOverlayPayload<
   typeof ActivityOverlayType.BrowseServerMaps,
   {
     title: string
+    uploadedMap?: Immutable<MapInfoJson>
     // TODO(tec27): These shouldn't really be necessary to pass in initData (and these aren't
     // serializable so they really shouldn't be stored in a reducer). Handle this kind of stuff in
     // a better way

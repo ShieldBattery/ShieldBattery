@@ -12,7 +12,7 @@ import {
 import { GameStatus, ReportedGameStatus, statusToString } from '../../common/game-status'
 import { GameClientPlayerResult, SubmitGameResultsRequest } from '../../common/games/results'
 import { EventMap, TypedEventEmitter } from '../../common/typed-emitter'
-import { makeSbUserId, SbUserId } from '../../common/users/sb-user'
+import { SbUserId, makeSbUserId } from '../../common/users/sb-user'
 import log from '../logger'
 import { LocalSettingsManager, ScrSettingsManager } from '../settings'
 import { checkStarcraftPath } from './check-starcraft-path'

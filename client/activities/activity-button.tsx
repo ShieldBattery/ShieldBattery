@@ -1,6 +1,6 @@
 import React from 'react'
 import styled, { css, keyframes } from 'styled-components'
-import { HotkeyedText, HotkeyProp, useButtonHotkey, useButtonState } from '../material/button'
+import { HotkeyProp, HotkeyedText, useButtonHotkey, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
 import { useMultiRef } from '../state-hooks'

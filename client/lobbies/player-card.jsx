@@ -7,7 +7,7 @@ import { RaceIcon } from '../lobbies/race-icon'
 import Card from '../material/card'
 import { fastOutSlowInShort } from '../material/curves'
 import { alphaDisabled, colorTextFaint, colorTextPrimary } from '../styles/colors'
-import { cabin, HeadlineOld, singleLine } from '../styles/typography'
+import { HeadlineOld, cabin, singleLine } from '../styles/typography'
 
 const Container = styled(Card)`
   display: flex;

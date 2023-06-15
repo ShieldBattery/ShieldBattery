@@ -15,7 +15,7 @@ import {
 import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
 import { push, replace } from '../navigation/routing'
-import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
+import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { UserProfileSubPage } from './user-profile-sub-page'

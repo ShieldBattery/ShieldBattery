@@ -11,7 +11,7 @@ import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { colorError } from '../styles/colors'
-import { subtitle1, Subtitle1 } from '../styles/typography'
+import { Subtitle1, subtitle1 } from '../styles/typography'
 import { acceptFindMatchAsParty, cancelFindMatchAsParty } from './action-creators'
 
 const StyledDialog = styled(Dialog)`

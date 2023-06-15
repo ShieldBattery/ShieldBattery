@@ -16,7 +16,7 @@ import {
   colorSuccess,
   colorTextSecondary,
 } from '../styles/colors'
-import { singleLine, SubheadingOld, subtitle1 } from '../styles/typography'
+import { SubheadingOld, singleLine, subtitle1 } from '../styles/typography'
 
 const Container = styled.div`
   max-width: 600px;

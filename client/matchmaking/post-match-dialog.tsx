@@ -5,13 +5,13 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { LeagueJson } from '../../common/leagues'
 import {
-  getDivisionColor,
-  getDivisionsForRatingChange,
   MatchmakingDivision,
-  matchmakingDivisionToLabel,
   MatchmakingDivisionWithBounds,
   NUM_PLACEMENT_MATCHES,
   PublicMatchmakingRatingChangeJson,
+  getDivisionColor,
+  getDivisionsForRatingChange,
+  matchmakingDivisionToLabel,
   ratingToMatchmakingDivisionAndBounds,
 } from '../../common/matchmaking'
 import audioManager, { AvailableSound } from '../audio/audio-manager'

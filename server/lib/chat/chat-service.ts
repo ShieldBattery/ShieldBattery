@@ -1,4 +1,4 @@
-import { Map, Record as ImmutableRecord, Set } from 'immutable'
+import { Record as ImmutableRecord, Map, Set } from 'immutable'
 import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
@@ -15,11 +15,11 @@ import {
   GetChannelInfoResponse,
   JoinChannelResponse,
   JoinedChannelInfo,
-  makeSbChannelId,
   SbChannelId,
   SearchChannelsResponse,
   ServerChatMessage,
   ServerChatMessageType,
+  makeSbChannelId,
   toChatUserProfileJson,
 } from '../../../common/chat'
 import { subtract } from '../../../common/data-structures/sets'
@@ -39,16 +39,17 @@ import { findUserById, findUsersById } from '../users/user-model'
 import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
+  ChatMessage,
+  FullChannelInfo,
+  UserChannelEntry,
   addMessageToChannel,
   addUserToChannel,
   banAllIdentifiersFromChannel,
   banUserFromChannel,
-  ChatMessage,
   countBannedIdentifiersForChannel,
   createChannel,
   deleteChannelMessage,
   findChannelByName,
-  FullChannelInfo,
   getChannelInfo,
   getChannelInfos,
   getChannelsForUser,
@@ -63,7 +64,6 @@ import {
   toDetailedChannelInfo,
   toJoinedChannelInfo,
   updateUserPermissions,
-  UserChannelEntry,
 } from './chat-models'
 
 class ChatState extends ImmutableRecord({

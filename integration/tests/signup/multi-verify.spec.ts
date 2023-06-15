@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { suppressChangelog } from '../../changelog-utils'
 import { SentEmailChecker } from '../../sent-email-checker'
 import { generateUsername } from '../../username-generator'
-import { signupWith, VERIFICATION_LINK_REGEX } from './utils'
+import { VERIFICATION_LINK_REGEX, signupWith } from './utils'
 
 const sentEmailChecker = new SentEmailChecker()
 

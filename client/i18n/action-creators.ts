@@ -5,9 +5,9 @@ import { openSimpleDialog } from '../dialogs/action-creators'
 import type { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
-import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
+import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
-import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
+import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
 
 export function maybeChangeLanguageLocally(locale?: string): ThunkAction {
   return async dispatch => {

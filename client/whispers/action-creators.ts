@@ -3,7 +3,7 @@ import { SbUserId } from '../../common/users/sb-user'
 import { GetSessionHistoryResponse, SendWhisperMessageRequest } from '../../common/whispers'
 import { ThunkAction } from '../dispatch-registry'
 import { push, replace } from '../navigation/routing'
-import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
+import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { ActivateWhisperSession, DeactivateWhisperSession } from './actions'
 

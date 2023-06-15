@@ -13,7 +13,7 @@ import {
 import { MaterialIcon } from '../icons/material/material-icon'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
+import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
 import { uploadLocalMap } from './action-creators'
 
 const LoadingArea = styled.div`

@@ -3,10 +3,10 @@ import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { useKeyListener } from '../keyboard/key-listener'
 import {
+  CardLayer,
   amberA400,
   blue400,
   blue500,
-  CardLayer,
   colorTextFaint,
   colorTextPrimary,
   colorTextSecondary,

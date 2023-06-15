@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react'
 import { LadderPlayer } from '../../../common/ladder'
-import { makeSbUserId, SbUser, SbUserId } from '../../../common/users/sb-user'
+import { SbUser, SbUserId, makeSbUserId } from '../../../common/users/sb-user'
 import { DivisionFilter, LadderTable } from '../ladder'
 
 const PLAYERS: LadderPlayer[] = []

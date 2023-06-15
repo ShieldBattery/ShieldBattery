@@ -73,7 +73,7 @@ PerformantInspectorMonitor.update = function (monitorProps: any, state: any, act
   return InspectorMonitor.update(monitorProps, state, action)
 }
 
-export const DevTools = createDevTools(
+export const DevTools: any = createDevTools(
   <DockMonitor toggleVisibilityKey='ctrl-h' changePositionKey='ctrl-q' defaultIsVisible={false}>
     <PerformantInspectorMonitor />
   </DockMonitor>,

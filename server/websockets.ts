@@ -1,6 +1,6 @@
 import cuid from 'cuid'
 import fs from 'fs'
-import { IncomingMessage, Server as HttpServer, ServerResponse } from 'http'
+import { Server as HttpServer, IncomingMessage, ServerResponse } from 'http'
 import Koa from 'koa'
 import { NydusServer, NydusServerOptions } from 'nydus'
 import path from 'path'

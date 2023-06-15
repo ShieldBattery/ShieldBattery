@@ -1,4 +1,4 @@
-import { List, Map as IMap, Record, Set } from 'immutable'
+import { Map as IMap, List, Record, Set } from 'immutable'
 import { Counter, Histogram, linearBuckets } from 'prom-client'
 import { container, singleton } from 'tsyringe'
 import CancelToken, { MultiCancelToken } from '../../../common/async/cancel-token'

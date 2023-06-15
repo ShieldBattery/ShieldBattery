@@ -41,7 +41,7 @@ export function RadioGroup<T>({
   className,
 }: RadioGroupProps<T>) {
   const radioButtons = React.Children.map(children, (child, i) => {
-    if (!child) {
+    if (!child || typeof child !== 'object' || !('props' in child)) {
       return child
     }
 

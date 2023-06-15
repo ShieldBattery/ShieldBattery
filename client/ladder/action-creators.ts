@@ -3,7 +3,7 @@ import { MatchmakingType } from '../../common/matchmaking'
 import { apiUrl, urlPath } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import { push } from '../navigation/routing'
-import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
+import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { fetchJson } from '../network/fetch'
 
 const LADDER_RANKINGS_CACHE_TIME_MS = 60 * 1000

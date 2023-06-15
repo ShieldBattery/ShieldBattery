@@ -7,8 +7,8 @@ import {
 } from '../../../common/matchmaking'
 import { NotificationType } from '../../../common/notifications'
 import { asMockedFunction } from '../../../common/testing/mocks'
-import { makeSbUserId, SbUser } from '../../../common/users/sb-user'
-import { findChannelsByName, FullChannelInfo, toBasicChannelInfo } from '../chat/chat-models'
+import { SbUser, makeSbUserId } from '../../../common/users/sb-user'
+import { FullChannelInfo, findChannelsByName, toBasicChannelInfo } from '../chat/chat-models'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import { MatchmakingServiceError } from '../matchmaking/matchmaking-service-error'
 import NotificationService from '../notifications/notification-service'
@@ -18,13 +18,13 @@ import { findUsersByIdAsMap, findUsersByName } from '../users/user-model'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import {
-  clearTestLogs,
-  createFakeNydusServer,
   InspectableNydusClient,
   NydusConnector,
+  clearTestLogs,
+  createFakeNydusServer,
 } from '../websockets/testing/websockets'
 import { TypedPublisher } from '../websockets/typed-publisher'
-import PartyService, { getPartyPath, PartyRecord, toPartyJson } from './party-service'
+import PartyService, { PartyRecord, getPartyPath, toPartyJson } from './party-service'
 
 jest.mock('../chat/chat-models')
 jest.mock('../users/user-model')

@@ -5,9 +5,9 @@ import { getGameDurationString } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { filterColorCodes } from '../../common/maps'
 import {
+  ReplayShieldBatteryData,
   replayGameTypeToLabel,
   replayRaceToChar,
-  ReplayShieldBatteryData,
 } from '../../common/replays'
 import { SbUserId } from '../../common/users/sb-user'
 import { closeOverlay } from '../activities/action-creators'

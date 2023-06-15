@@ -32,7 +32,7 @@ import {
   LOBBY_UPDATE_STATUS,
 } from '../actions'
 import audioManager, { AudioManager, AvailableSound } from '../audio/audio-manager'
-import { dispatch, Dispatchable } from '../dispatch-registry'
+import { Dispatchable, dispatch } from '../dispatch-registry'
 import { replace } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'
 import { openSnackbar } from '../snackbars/action-creators'

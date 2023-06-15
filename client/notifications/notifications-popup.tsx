@@ -2,11 +2,11 @@ import { Immutable } from 'immer'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
 import {
-  animated,
   AnimationResult,
   Controller,
-  useTransition,
   UseTransitionProps,
+  animated,
+  useTransition,
 } from 'react-spring'
 import styled from 'styled-components'
 import { subtract, union } from '../../common/data-structures/sets'

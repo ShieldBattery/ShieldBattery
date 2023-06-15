@@ -7,8 +7,8 @@ import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/la
 import {
   ALL_MATCHMAKING_TYPES,
   MatchmakingDivision,
-  matchmakingDivisionToLabel,
   MatchmakingType,
+  matchmakingDivisionToLabel,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
@@ -35,6 +35,7 @@ import {
   colorTextSecondary,
 } from '../styles/colors'
 import {
+  Subtitle2,
   caption,
   headline3,
   headline6,
@@ -42,7 +43,6 @@ import {
   singleLine,
   subtitle1,
   subtitle2,
-  Subtitle2,
 } from '../styles/typography'
 import {
   correctUsernameForProfile,

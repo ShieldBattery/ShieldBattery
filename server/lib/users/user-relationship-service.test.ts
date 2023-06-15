@@ -9,23 +9,23 @@ import {
   UserRelationshipKind,
   UserRelationshipSummary,
 } from '../../../common/users/relationships'
-import { makeSbUserId, SbUserId } from '../../../common/users/sb-user'
+import { SbUserId, makeSbUserId } from '../../../common/users/sb-user'
 import NotificationService from '../notifications/notification-service'
 import { createFakeNotificationService } from '../notifications/testing/notification-service'
 import { FakeClock } from '../time/testing/fake-clock'
 import { RequestSessionLookup } from '../websockets/session-lookup'
 import { UserSocketsManager } from '../websockets/socket-groups'
 import {
-  clearTestLogs,
-  createFakeNydusServer,
   InspectableNydusClient,
   NydusConnector,
+  clearTestLogs,
+  createFakeNydusServer,
 } from '../websockets/testing/websockets'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
+  UserRelationshipService,
   getFriendActivityStatusPath,
   getRelationshipsPath,
-  UserRelationshipService,
 } from './user-relationship-service'
 
 function clearFakeDb() {

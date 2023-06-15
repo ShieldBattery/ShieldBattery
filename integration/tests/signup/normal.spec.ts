@@ -3,7 +3,7 @@ import { suppressChangelog } from '../../changelog-utils'
 import { LoginPage } from '../../pages/login-page'
 import { SentEmailChecker } from '../../sent-email-checker'
 import { generateUsername } from '../../username-generator'
-import { signupWith, VERIFICATION_LINK_REGEX } from './utils'
+import { VERIFICATION_LINK_REGEX, signupWith } from './utils'
 
 const sentEmailChecker = new SentEmailChecker()
 

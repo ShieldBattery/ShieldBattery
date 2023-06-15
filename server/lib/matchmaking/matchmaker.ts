@@ -11,13 +11,13 @@ import logger from '../logging/logger'
 import { LazyScheduler } from './lazy-scheduler'
 import { QueuedMatchmakingEntity } from './matchmaker-queue'
 import {
+  MatchmakingEntity,
+  MatchmakingInterval,
   getMatchmakingEntityId,
   getNumPlayersInEntity,
   getPlayersFromEntity,
   isMatchmakingParty,
   isNewPlayer,
-  MatchmakingEntity,
-  MatchmakingInterval,
 } from './matchmaking-entity'
 
 /** How often to run the matchmaker 'find match' process. */

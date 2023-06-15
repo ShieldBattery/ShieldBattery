@@ -27,7 +27,7 @@ import { TextField } from '../material/text-field'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useValueAsRef } from '../state-hooks'
-import { headline5, Headline5, subtitle1 } from '../styles/typography'
+import { Headline5, headline5, subtitle1 } from '../styles/typography'
 import {
   createLobby,
   getLobbyPreferences,

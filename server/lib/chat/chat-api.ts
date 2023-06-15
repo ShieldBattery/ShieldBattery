@@ -12,9 +12,9 @@ import {
   GetChatUserProfileResponse,
   JoinChannelResponse,
   ModerateChannelUserServerRequest,
+  SEARCH_CHANNELS_LIMIT,
   SbChannelId,
   SearchChannelsResponse,
-  SEARCH_CHANNELS_LIMIT,
   SendChatMessageServerRequest,
   UpdateChannelUserPermissionsRequest,
 } from '../../../common/chat'

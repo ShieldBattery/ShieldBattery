@@ -1,7 +1,7 @@
 import React, { useCallback, useRef } from 'react'
 import ReactDOM from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { animated, useTransition, UseTransitionProps } from 'react-spring'
+import { UseTransitionProps, animated, useTransition } from 'react-spring'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { FocusTrap } from '../dom/focus-trap'

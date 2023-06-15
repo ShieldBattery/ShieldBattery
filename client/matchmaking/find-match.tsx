@@ -4,13 +4,13 @@ import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder'
 import {
+  MATCHMAKING_BONUS_EARNED_PER_MS,
   MatchmakingDivision,
-  matchmakingDivisionToLabel,
   MatchmakingPreferences,
   MatchmakingType,
-  matchmakingTypeToLabel,
-  MATCHMAKING_BONUS_EARNED_PER_MS,
   NUM_PLACEMENT_MATCHES,
+  matchmakingDivisionToLabel,
+  matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { closeOverlay } from '../activities/action-creators'
 import { DisabledOverlay } from '../activities/disabled-content'
@@ -34,10 +34,10 @@ import {
   colorTextSecondary,
 } from '../styles/colors'
 import {
+  Headline5,
   body1,
   caption,
   headline5,
-  Headline5,
   headline6,
   singleLine,
   subtitle1,

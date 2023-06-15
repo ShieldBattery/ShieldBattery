@@ -1,4 +1,4 @@
-import { Map as IMap, OrderedSet, Set as ISet } from 'immutable'
+import { Map as IMap, Set as ISet, OrderedSet } from 'immutable'
 import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { SbChannelId } from '../../../common/chat'
@@ -24,9 +24,9 @@ import { TypedPublisher } from '../websockets/typed-publisher'
 import {
   addMessageToWhisper,
   closeWhisperSession as dbCloseWhisperSession,
+  startWhisperSession as dbStartWhisperSession,
   getMessagesForWhisperSession,
   getWhisperSessionsForUser,
-  startWhisperSession as dbStartWhisperSession,
 } from './whisper-models'
 
 export class WhisperServiceError extends Error {

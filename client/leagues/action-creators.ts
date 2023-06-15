@@ -17,7 +17,7 @@ import {
 import { apiUrl, urlPath } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import { push, replace } from '../navigation/routing'
-import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
+import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { fetchJson } from '../network/fetch'
 import { DetailsSubPage } from './details-sub-page'
 import { toRouteLeagueId } from './route-league-id'

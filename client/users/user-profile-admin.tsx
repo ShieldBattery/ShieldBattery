@@ -18,7 +18,7 @@ import {
   colorTextPrimary,
   colorTextSecondary,
 } from '../styles/colors'
-import { body1, Body1, caption, Headline5, subtitle1 } from '../styles/typography'
+import { Body1, Headline5, body1, caption, subtitle1 } from '../styles/typography'
 import {
   adminBanUser,
   adminGetUserBanHistory,

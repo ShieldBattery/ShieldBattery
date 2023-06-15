@@ -3,8 +3,8 @@ import styled from 'styled-components'
 import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder'
 import {
   ALL_MATCHMAKING_TYPES,
-  matchmakingDivisionToLabel,
   MatchmakingType,
+  matchmakingDivisionToLabel,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/sb-user'
@@ -26,8 +26,8 @@ import {
   colorTextSecondary,
 } from '../styles/colors'
 import {
-  body1,
   Body1,
+  body1,
   body2,
   buttonText,
   caption,

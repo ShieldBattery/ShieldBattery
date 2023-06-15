@@ -24,22 +24,22 @@ import { hasCompletedResults, reconcileResults } from '../games/results'
 import { JobScheduler } from '../jobs/job-scheduler'
 import { updateLeaderboards } from '../leagues/leaderboard'
 import {
-  getActiveLeaguesForUsers,
-  getLeaguesById,
-  getLeagueUserChangesForGame,
-  insertLeagueUserChange,
   LeagueUser,
   LeagueUserChange,
+  getActiveLeaguesForUsers,
+  getLeagueUserChangesForGame,
+  getLeaguesById,
+  insertLeagueUserChange,
   updateLeagueUser,
 } from '../leagues/league-models'
 import logger from '../logging/logger'
 import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
 import {
+  MatchmakingRating,
+  MatchmakingRatingChange,
   getMatchmakingRatingChangesForGame,
   getMatchmakingRatingsWithLock,
   insertMatchmakingRatingChange,
-  MatchmakingRating,
-  MatchmakingRatingChange,
   updateMatchmakingRating,
 } from '../matchmaking/models'
 import { calculateChangedRatings } from '../matchmaking/rating'

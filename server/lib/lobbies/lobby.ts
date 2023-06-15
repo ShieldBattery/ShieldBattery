@@ -1,6 +1,9 @@
 import { List, Range } from 'immutable'
 import { GameType, isTeamType } from '../../../common/games/configuration'
 import {
+  Lobby,
+  MAX_OBSERVERS,
+  Team,
   canAddObservers,
   canRemoveObservers,
   getLobbySlots,
@@ -10,15 +13,14 @@ import {
   humanSlotCount,
   isInObserverTeam,
   isUms,
-  Lobby,
-  MAX_OBSERVERS,
   openSlotCount,
   slotCount,
   takenSlotCount,
-  Team,
   teamTakenSlotCount,
 } from '../../../common/lobbies'
 import {
+  Slot,
+  SlotType,
   createClosed,
   createComputer,
   createControlledClosed,
@@ -26,10 +28,8 @@ import {
   createHuman,
   createOpen,
   createUmsComputer,
-  Slot,
-  SlotType,
 } from '../../../common/lobbies/slot'
-import { getTeamNames, MapForce, MapInfo, numTeams } from '../../../common/maps'
+import { MapForce, MapInfo, getTeamNames, numTeams } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user'
 

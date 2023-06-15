@@ -5,15 +5,15 @@ import { MatchmakingResultsEvent } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
   GetPreferencesResponse,
+  MATCHMAKING_ACCEPT_MATCH_TIME_MS,
   MatchmakingEvent,
   MatchmakingStatusJson,
   MatchmakingType,
-  MATCHMAKING_ACCEPT_MATCH_TIME_MS,
 } from '../../common/matchmaking'
 import audioManager, { AudioManager, AvailableSound } from '../audio/audio-manager'
 import { closeDialog, openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import { dispatch, Dispatchable } from '../dispatch-registry'
+import { Dispatchable, dispatch } from '../dispatch-registry'
 import logger from '../logging/logger'
 import { push, replace } from '../navigation/routing'
 import { makeServerUrl } from '../network/server-url'

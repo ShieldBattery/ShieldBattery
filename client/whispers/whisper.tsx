@@ -6,7 +6,7 @@ import { Chat } from '../messaging/chat'
 import { push, replace } from '../navigation/routing'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
+import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
 import { usePrevious, useStableCallback } from '../state-hooks'
 import {
   activateWhisperSession,

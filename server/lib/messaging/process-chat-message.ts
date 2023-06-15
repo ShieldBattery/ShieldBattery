@@ -1,8 +1,8 @@
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { CHANNEL_MENTION_REGEX, matchChannelMentions } from '../../../common/text/channel-mentions'
-import { matchUserMentions, USER_MENTION_REGEX } from '../../../common/text/user-mentions'
+import { USER_MENTION_REGEX, matchUserMentions } from '../../../common/text/user-mentions'
 import { SbUser } from '../../../common/users/sb-user'
-import { findChannelsByName, FullChannelInfo } from '../chat/chat-models'
+import { FullChannelInfo, findChannelsByName } from '../chat/chat-models'
 import { findUsersByName } from '../users/user-model'
 
 function* getAllMatches(text: string) {

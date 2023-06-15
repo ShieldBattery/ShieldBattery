@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useState } from 'react'
-import { useTransition, UseTransitionProps } from 'react-spring'
-import styled, { css, FlattenSimpleInterpolation } from 'styled-components'
+import { UseTransitionProps, useTransition } from 'react-spring'
+import styled, { FlattenSimpleInterpolation, css } from 'styled-components'
 import { KeyListenerBoundary } from '../keyboard/key-listener'
 import { background900 } from '../styles/colors'
 import { caption } from '../styles/typography'

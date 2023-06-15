@@ -10,10 +10,10 @@ import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/la
 import {
   ALL_MATCHMAKING_TYPES,
   MatchmakingDivision,
-  matchmakingDivisionToLabel,
   MatchmakingType,
-  matchmakingTypeToLabel,
   NUM_PLACEMENT_MATCHES,
+  matchmakingDivisionToLabel,
+  matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { RaceChar, raceCharToLabel } from '../../common/races'
 import { SbUser, SbUserId } from '../../common/users/sb-user'
@@ -45,9 +45,9 @@ import {
   getRaceColor,
 } from '../styles/colors'
 import {
+  Headline6,
   body1,
   caption,
-  Headline6,
   overline,
   singleLine,
   subtitle1,

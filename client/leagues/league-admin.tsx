@@ -3,11 +3,11 @@ import styled from 'styled-components'
 import { Route, RouteComponentProps, Switch } from 'wouter'
 import {
   AdminEditLeagueRequest,
-  LeagueJson,
   LEAGUE_BADGE_HEIGHT,
   LEAGUE_BADGE_WIDTH,
   LEAGUE_IMAGE_HEIGHT,
   LEAGUE_IMAGE_WIDTH,
+  LeagueJson,
   makeLeagueId,
 } from '../../common/leagues'
 import {

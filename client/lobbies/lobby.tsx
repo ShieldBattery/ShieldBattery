@@ -5,12 +5,12 @@ import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { gameTypeToLabel, isTeamType } from '../../common/games/configuration'
 import {
+  Team,
   canAddObservers,
   canRemoveObservers,
   findSlotByName,
   hasOpposingSides,
   isUms,
-  Team,
 } from '../../common/lobbies'
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { MapInfoJson } from '../../common/maps'

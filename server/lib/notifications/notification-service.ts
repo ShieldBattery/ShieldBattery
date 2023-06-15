@@ -5,13 +5,13 @@ import logger from '../logging/logger'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
+  NotificationData,
+  SearchNotificationData,
   addNotification,
   clearBefore,
   clearById,
   markRead,
-  NotificationData,
   retrieveNotifications,
-  SearchNotificationData,
 } from './notification-model'
 
 export function getNotificationsPath(userId: SbUserId): string {

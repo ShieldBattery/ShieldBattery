@@ -154,7 +154,7 @@ export interface TabsProps<T> {
 export function Tabs<T>({ children, activeTab, onChange, className }: TabsProps<T>) {
   const tabElems = useMemo(() => {
     const tabs = React.Children.map(children, (child, i) => {
-      if (!child) {
+      if (!child || typeof child !== 'object' || !('props' in child)) {
         // Skip nulls to allow for optional tabs
         return child
       }
@@ -199,7 +199,8 @@ export function Tabs<T>({ children, activeTab, onChange, className }: TabsProps<
         let activeTabIndex = 0
         const enabledChildren: React.ReactElement[] = []
         React.Children.forEach(children, child => {
-          if (!child) {
+          if (!child || typeof child !== 'object' || !('props' in child)) {
+            // Skip nulls to allow for optional tabs
             return
           }
 

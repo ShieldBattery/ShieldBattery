@@ -22,13 +22,13 @@ import { createHuman, Slot } from '../../../common/lobbies/slot'
 import { MapInfo, MapInfoJson, toMapInfoJson } from '../../../common/maps'
 import {
   ALL_MATCHMAKING_TYPES,
+  MATCHMAKING_ACCEPT_MATCH_TIME_MS,
   MatchmakingCompletionType,
   MatchmakingEvent,
   MatchmakingPreferences,
   MatchmakingSeason,
   MatchmakingServiceErrorCode,
   MatchmakingType,
-  MATCHMAKING_ACCEPT_MATCH_TIME_MS,
   PreferenceData,
   TEAM_SIZES,
 } from '../../../common/matchmaking'
@@ -65,7 +65,7 @@ import {
   MatchmakingRating,
 } from '../matchmaking/models'
 import { getCurrentMapPool } from '../models/matchmaking-map-pools'
-import { InPartyChecker, IN_PARTY_CHECKER } from '../parties/in-party-checker'
+import { IN_PARTY_CHECKER, InPartyChecker } from '../parties/in-party-checker'
 import { Clock } from '../time/clock'
 import { ClientIdentifierString } from '../users/client-ids'
 import { UserIdentifierManager } from '../users/user-identifier-manager'

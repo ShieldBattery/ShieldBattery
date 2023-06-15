@@ -14,13 +14,13 @@ import {
   GetLeagueLeaderboardResponse,
   GetLeaguesListResponse,
   JoinLeagueResponse,
-  League,
-  LeagueErrorCode,
-  LeagueId,
   LEAGUE_BADGE_HEIGHT,
   LEAGUE_BADGE_WIDTH,
   LEAGUE_IMAGE_HEIGHT,
   LEAGUE_IMAGE_WIDTH,
+  League,
+  LeagueErrorCode,
+  LeagueId,
   ServerAdminAddLeagueRequest,
   ServerAdminEditLeagueRequest,
   toClientLeagueUserJson,
@@ -42,6 +42,8 @@ import { findUsersById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
 import { getLeaderboard } from './leaderboard'
 import {
+  LeagueUser,
+  Patch,
   adminGetAllLeagues,
   adminGetLeague,
   createLeague,
@@ -53,8 +55,6 @@ import {
   getManyLeagueUsers,
   getPastLeagues,
   joinLeagueForUser,
-  LeagueUser,
-  Patch,
   updateLeague,
 } from './league-models'
 

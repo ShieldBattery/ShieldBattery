@@ -17,11 +17,11 @@ import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
 import { push, replace } from '../navigation/routing'
-import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
+import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
-import { openSnackbar, TIMING_LONG } from '../snackbars/action-creators'
+import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
 import { ActivateChannel, DeactivateChannel } from './actions'
 
 /**

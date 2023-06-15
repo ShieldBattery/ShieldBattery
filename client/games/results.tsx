@@ -6,9 +6,9 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameConfigPlayer, GameSource, isTeamType } from '../../common/games/configuration'
 import { GameRecordJson, getGameDurationString, getGameTypeLabel } from '../../common/games/games'
 import {
-  getResultLabel,
   ReconciledPlayerResult,
   ReconciledResult,
+  getResultLabel,
 } from '../../common/games/results'
 import { getTeamNames } from '../../common/maps'
 import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
@@ -41,9 +41,9 @@ import {
   colorTextSecondary,
 } from '../styles/colors'
 import {
+  Headline3,
   body1,
   body2,
-  Headline3,
   headline6,
   overline,
   singleLine,

@@ -2,7 +2,7 @@ import cuid from 'cuid'
 import { Immutable } from 'immer'
 import { container, delay, inject, instanceCachingFactory, singleton } from 'tsyringe'
 import { isAbortError, raceAbort } from '../../../common/async/abort-signals'
-import { createDeferred, Deferred } from '../../../common/async/deferred'
+import { Deferred, createDeferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import {
   MatchmakingPreferences,
@@ -36,7 +36,7 @@ import { findUsersByIdAsMap } from '../users/user-model'
 import { UserRelationshipService } from '../users/user-relationship-service'
 import { ClientSocketsGroup, ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
-import { InPartyChecker, IN_PARTY_CHECKER } from './in-party-checker'
+import { IN_PARTY_CHECKER, InPartyChecker } from './in-party-checker'
 
 export interface PartyRecord {
   id: string

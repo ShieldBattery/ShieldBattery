@@ -6,8 +6,8 @@ import {
   ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
   GetChannelInfoResponse,
-  makeSbChannelId,
   SbChannelId,
+  makeSbChannelId,
 } from '../../../common/chat'
 import { apiUrl, urlPath } from '../../../common/urls'
 import { SbUser } from '../../../common/users/sb-user'
@@ -16,7 +16,7 @@ import { DestructiveMenuItem } from '../../material/menu/item'
 import { ChatContext, ChatContextValue } from '../../messaging/chat'
 import MessageList from '../../messaging/message-list'
 import { replace } from '../../navigation/routing'
-import { abortableThunk, RequestHandlingSpec } from '../../network/abortable-thunk'
+import { RequestHandlingSpec, abortableThunk } from '../../network/abortable-thunk'
 import { fetchJson } from '../../network/fetch'
 import { isFetchError } from '../../network/fetch-errors'
 import { LoadingDotsArea } from '../../progress/dots'

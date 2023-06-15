@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { Dialog } from '../material/dialog'
 import { colorTextPrimary, colorTextSecondary } from '../styles/colors'
-import { subtitle1, Subtitle1 } from '../styles/typography'
+import { Subtitle1, subtitle1 } from '../styles/typography'
 
 const StyledDialog = styled(Dialog)`
   max-width: 480px;
