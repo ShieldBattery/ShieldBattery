@@ -140,7 +140,7 @@ app
       br: false,
     }),
   )
-  .use(views(path.join(__dirname, 'views'), { extension: 'jade' }))
+  .use(views(path.join(__dirname, 'views'), { extension: 'pug' }))
   .use(redirectToCanonical(process.env.SB_CANONICAL_HOST))
   .use(checkOrigin(process.env.SB_CANONICAL_HOST))
   .use(koaBody())
