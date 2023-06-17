@@ -37,13 +37,13 @@ export interface RaceStats {
 export function raceCharToLabel(raceChar: RaceChar, t?: TFunction): string {
   switch (raceChar) {
     case 'p':
-      return t ? t('common.race.protoss', 'Protoss') : 'Protoss'
+      return t ? t('game.race.protoss', 'Protoss') : 'Protoss'
     case 'r':
-      return t ? t('common.race.random', 'Random') : 'Random'
+      return t ? t('game.race.random', 'Random') : 'Random'
     case 't':
-      return t ? t('common.race.terran', 'Terran') : 'Terran'
+      return t ? t('game.race.terran', 'Terran') : 'Terran'
     case 'z':
-      return t ? t('common.race.zerg', 'Zerg') : 'Zerg'
+      return t ? t('game.race.zerg', 'Zerg') : 'Zerg'
     default:
       return assertUnreachable(raceChar)
   }

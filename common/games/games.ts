@@ -49,9 +49,9 @@ export function toGameRecordJson(game: GameRecord): GameRecordJson {
 export function getGameTypeLabel(game: Immutable<GameRecordJson>, t: TFunction): string {
   // TODO(tec27): show mode (UMS, Top v Bottom, etc.?)
   if (game.config.gameSource === GameSource.Lobby) {
-    return t('common.gameTypeCustom', 'Custom game')
+    return t('game.gameSource.custom', 'Custom game')
   } else if (game.config.gameSource === GameSource.Matchmaking) {
-    return t('common.gameTypeRanked', {
+    return t('game.gameSource.ranked', {
       defaultValue: `Ranked {{matchmakingType}}`,
       matchmakingType: matchmakingTypeToLabel(game.config.gameSourceExtra.type, t),
     })

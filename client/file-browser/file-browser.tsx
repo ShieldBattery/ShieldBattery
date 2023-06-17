@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
@@ -146,6 +147,7 @@ export function FileBrowser({
   fileEntryConfig,
   sortFunc = sortByName,
 }: FileBrowserProps) {
+  const { t } = useTranslation()
   const [scrollerRef] = useVirtuosoScrollFix()
 
   const [fileBrowserPath, setFileBrowserPath] = useState('')
@@ -243,7 +245,7 @@ export function FileBrowser({
       if (!isRootFolder) {
         upOneDir = {
           type: FileBrowserEntryType.Up,
-          name: 'Up one directory',
+          name: t('fileBrowser.upOneDirectory', 'Up one directory'),
           path: `${fileBrowserPath}\\..`,
         }
       }
@@ -471,7 +473,7 @@ export function FileBrowser({
   } else if (loadFilesError) {
     emptyContent = <ErrorText>{loadFilesError.message}</ErrorText>
   } else {
-    emptyContent = <EmptyText>Nothing to see here</EmptyText>
+    emptyContent = <EmptyText>{t('fileBrowser.noFiles', 'Nothing to see here')}</EmptyText>
   }
 
   const displayedPath = fileBrowserPath
@@ -489,13 +491,20 @@ export function FileBrowser({
           <Headline5>{title}</Headline5>
         </TitleContainer>
         {Object.values(rootFolders).length > 1 ? (
-          <RootFolderSelect value={rootFolder.id} label='Root folder' onChange={onRootFolderChange}>
+          <RootFolderSelect
+            value={rootFolder.id}
+            label={t('fileBrowser.rootFolder', 'Root folder')}
+            onChange={onRootFolderChange}>
             {rootFolderOptions}
           </RootFolderSelect>
         ) : null}
         <BreadcrumbsAndActions>
           <StyledPathBreadcrumbs path={displayedPath} onNavigate={onBreadcrumbNavigate} />
-          <IconButton icon={<MaterialIcon icon='refresh' />} onClick={getFiles} title={'Refresh'} />
+          <IconButton
+            icon={<MaterialIcon icon='refresh' />}
+            onClick={getFiles}
+            title={t('common.actions.refresh', 'Refresh')}
+          />
         </BreadcrumbsAndActions>
       </TopBar>
       <FilesContent ref={dimensionsRef}>

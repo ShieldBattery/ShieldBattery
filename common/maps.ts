@@ -190,8 +190,8 @@ export function getTeamNames(
       return []
     case GameType.TopVsBottom:
       return [
-        t ? t('common.teamNameTop', 'Top') : 'Top',
-        t ? t('common.teamNameBottom', 'Bottom') : 'Bottom',
+        t ? t('game.teamName.top', 'Top') : 'Top',
+        t ? t('game.teamName.bottom', 'Bottom') : 'Bottom',
       ]
     case GameType.TeamMelee:
     case GameType.TeamFreeForAll:
@@ -200,7 +200,7 @@ export function getTeamNames(
       for (let i = 1; i <= amount; i++) {
         teamNames.push(
           t
-            ? t('common.teamNameNumber', {
+            ? t('game.teamName.number', {
                 defaultValue: 'Team {{teamNumber}}',
                 teamNumber: i,
               })

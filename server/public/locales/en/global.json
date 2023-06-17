@@ -232,66 +232,95 @@
       "continue": "Continue",
       "join": "Join",
       "okay": "Okay",
+      "refresh": "Refresh",
       "save": "Save",
+      "search": "Search",
       "view": "View"
     },
-    "emptyListMessage": "Nothing to see here",
-    "gameResultDraw": "Draw",
-    "gameResultLoss": "Loss",
-    "gameResultUnknown": "Unknown",
-    "gameResultWin": "Win",
-    "gameTypeCustom": "Custom game",
-    "gameTypeRanked": "Ranked {{matchmakingType}}",
-    "mapNameUnknown": "Unknown map",
-    "matchmakingType1v1": "1v1",
-    "matchmakingType2v2": "2v2",
-    "playerNameComputer": "Computer",
-    "playerNameUnknown": "Unknown player",
-    "race": {
-      "protoss": "Protoss",
-      "random": "Random",
-      "terran": "Terran",
-      "zerg": "Zerg"
-    },
-    "teamNameBottom": "Bottom",
-    "teamNameNumber": "Team {{teamNumber}}",
-    "teamNameTop": "Top",
     "validators": {
       "maxLength": "Enter at most {{maxLength}} characters",
       "minLength": "Enter at least {{minLength}} characters",
       "required": "Required"
     }
   },
+  "fileBrowser": {
+    "noFiles": "Nothing to see here",
+    "rootFolder": "Root folder",
+    "upOneDirectory": "Up one directory"
+  },
   "forms": {
     "fileInput": {
       "clearFiles": "Clear files"
     }
   },
-  "games": {
-    "miniMatchHistory": {
-      "buttonDetails": "View details",
-      "noGameSelectedText": "No game selected"
+  "game": {
+    "gameSource": {
+      "custom": "Custom game",
+      "ranked": "Ranked {{matchmakingType}}"
+    },
+    "gameType": {
+      "captureTheFlag": "Capture the flag",
+      "freeForAll": "Free for all",
+      "greed": "Greed",
+      "melee": "Melee",
+      "oneOnOne": "One on one",
+      "slaughter": "Slaughter",
+      "suddenDeath": "Sudden death",
+      "teamCaptureTheFlag": "Team capture the flag",
+      "teamFreeForAll": "Team free for all",
+      "teamMelee": "Team melee",
+      "topVsBottom": "Top vs bottom",
+      "unknown": "Unknown",
+      "useMapSettings": "Use map settings"
+    },
+    "mapName": {
+      "unknown": "Unknown map"
+    },
+    "playerName": {
+      "computer": "Computer",
+      "unknown": "Unknown player"
+    },
+    "race": {
+      "protoss": "Protoss",
+      "random": "Random",
+      "terran": "Terran",
+      "zerg": "Zerg"
     },
     "results": {
-      "buttonCopyLink": "Copy link to game",
-      "buttonSearchAgain": "Search again",
-      "errorLoading": "There was a problem loading this game.",
-      "headlineDefault": "Results",
-      "headlineDefeat": "Defeat!",
-      "headlineDraw": "Draw!",
-      "headlineInProgress": "In progress…",
-      "headlineVictory": "Victory!",
-      "infoDate": "Date",
-      "infoDuration": "Duration",
-      "infoGameType": "Type",
+      "draw": "Draw",
+      "loss": "Loss",
+      "unknown": "Unknown",
+      "win": "Win"
+    },
+    "teamName": {
+      "bottom": "Bottom",
+      "number": "Team {{teamNumber}}",
+      "top": "Top"
+    }
+  },
+  "gameDetails": {
+    "buttonCopyLink": "Copy link to game",
+    "buttonSearchAgain": "Search again",
+    "errorLoading": "There was a problem loading this game.",
+    "headlineDefault": "Results",
+    "headlineDefeat": "Defeat!",
+    "headlineDraw": "Draw!",
+    "headlineInProgress": "In progress…",
+    "headlineVictory": "Victory!",
+    "infoDate": "Date",
+    "infoDuration": "Duration",
+    "infoGameType": "Type",
+    "statusFinal": "Final",
+    "statusLive": "Live",
+    "summary": {
+      "mmr": "MMR",
       "pointsBase": "Base",
       "pointsBonus": "Bonus",
-      "statusFinal": "Final",
-      "statusLive": "Live",
-      "tabBuildOrders": "Build orders",
-      "tabStats": "Stats",
-      "tabSummary": "Summary"
-    }
+      "rp": "RP"
+    },
+    "tabBuildOrders": "Build orders",
+    "tabStats": "Stats",
+    "tabSummary": "Summary"
   },
   "ladder": {
     "division": "Division",
@@ -335,6 +364,37 @@
       "platinum": "Platinum {{level}}",
       "silver": "Silver {{level}}",
       "unrated": "Unrated"
+    },
+    "type": {
+      "1v1": "1v1",
+      "2v2": "2v2"
+    }
+  },
+  "messaging": {
+    "blockedMessage": "Blocked message",
+    "hideBlockedMessage": "Hide",
+    "mention": "Mention",
+    "newDayMessage": "Day changed to <2>{{day}}</2>",
+    "sendMessage": "Send a message",
+    "showBlockedMessage": "Show"
+  },
+  "network": {
+    "connecting": "Connecting…"
+  },
+  "policy": {
+    "acceptableUse": "Acceptable use",
+    "policyUpdateNotification": "ShieldBattery's <2>{{label}}</2> has been updated.",
+    "privacyPolicy": "Privacy policy",
+    "termsOfService": "Terms of service"
+  },
+  "replays": {
+    "local": {
+      "duration": "Duration: {{durationStr}}",
+      "gameType": "Game type: {{gameTypeLabel}}",
+      "parseError": "There was an error parsing the replay",
+      "rootFolderName": "Replays",
+      "title": "Local Replays",
+      "watchReplay": "Watch replay"
     }
   },
   "settings": {
@@ -372,5 +432,17 @@
         "label": "Language"
       }
     }
+  },
+  "user": {
+    "miniMatchHistory": {
+      "noGames": "Nothing to see here",
+      "noGameSelected": "No game selected",
+      "viewDetails": "View details"
+    }
+  },
+  "windowControls": {
+    "close": "Close",
+    "maximize": "Maximize/Restore",
+    "minimize": "Minimize"
   }
 }

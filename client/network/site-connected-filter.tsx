@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import logger from '../logging/logger'
 import LoadingIndicator from '../progress/dots'
@@ -28,6 +29,7 @@ interface SiteConnectedFilterProps {
 }
 
 export function SiteConnectedFilter(props: SiteConnectedFilterProps) {
+  const { t } = useTranslation()
   const { siteNetwork } = useAppSelector(state => ({ siteNetwork: state.network.site }))
 
   useEffect(() => {
@@ -46,7 +48,7 @@ export function SiteConnectedFilter(props: SiteConnectedFilterProps) {
     return (
       <LoadingArea>
         <LoadingIndicator showImmediately={true} />
-        <ConnectingText>Connecting…</ConnectingText>
+        <ConnectingText>{t('network.connecting', 'Connecting…')}</ConnectingText>
       </LoadingArea>
     )
   }

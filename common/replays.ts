@@ -1,3 +1,4 @@
+import { TFunction } from 'i18next'
 import { ReplayRace } from 'jssuh'
 import { assertUnreachable } from './assert-unreachable'
 import { RaceChar } from './races'
@@ -35,34 +36,34 @@ enum SupportedReplayGameType {
   TopVsBottom = 15,
 }
 
-export function replayGameTypeToLabel(gameType: SupportedReplayGameType): string {
+export function replayGameTypeToLabel(gameType: SupportedReplayGameType, t: TFunction): string {
   switch (gameType) {
     case SupportedReplayGameType.Melee:
-      return 'Melee'
+      return t('game.gameType.melee', 'Melee')
     case SupportedReplayGameType.FreeForAll:
-      return 'Free for all'
+      return t('game.gameType.freeForAll', 'Free for all')
     case SupportedReplayGameType.OneVsOne:
-      return 'One on one'
+      return t('game.gameType.oneOnOne', 'One on one')
     case SupportedReplayGameType.CaptureTheFlag:
-      return 'Capture the flag'
+      return t('game.gameType.captureTheFlag', 'Capture the flag')
     case SupportedReplayGameType.Greed:
-      return 'Greed'
+      return t('game.gameType.greed', 'Greed')
     case SupportedReplayGameType.Slaughter:
-      return 'Slaughter'
+      return t('game.gameType.slaughter', 'Slaughter')
     case SupportedReplayGameType.SuddenDeath:
-      return 'Sudden death'
+      return t('game.gameType.suddenDeath', 'Sudden death')
     case SupportedReplayGameType.UseMapSettings:
-      return 'Use map settings'
+      return t('game.gameType.useMapSettings', 'Use map settings')
     case SupportedReplayGameType.TeamMelee:
-      return 'Team melee'
+      return t('game.gameType.teamMelee', 'Team melee')
     case SupportedReplayGameType.TeamFreeForAll:
-      return 'Team free for all'
+      return t('game.gameType.teamFreeForAll', 'Team free for all')
     case SupportedReplayGameType.TeamCaptureTheFlag:
-      return 'Team capture the flag'
+      return t('game.gameType.teamCaptureTheFlag', 'Team capture the flag')
     case SupportedReplayGameType.TopVsBottom:
-      return 'Top vs bottom'
+      return t('game.gameType.topVsBottom', 'Top vs bottom')
     default:
-      return 'Unknown'
+      return t('game.gameType.unknown', 'Unknown')
   }
 }
 

@@ -1,4 +1,5 @@
 import React, { SetStateAction, useCallback, useImperativeHandle, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useSelfUser } from '../auth/state-hooks'
 import { useKeyListener } from '../keyboard/key-listener'
@@ -77,6 +78,7 @@ export interface MessageInputHandle {
 
 export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputProps>(
   (props, ref) => {
+    const { t } = useTranslation()
     const user = useSelfUser()
     const storageKey = user && props.storageKey ? `${user.id}-${props.storageKey}` : undefined
     const [message, setMessage] = useStorageSyncedState('', storageKey)
@@ -150,7 +152,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       <StyledTextField
         ref={inputRef}
         className={props.className}
-        label='Send a message'
+        label={t('messaging.sendMessage', 'Send a message')}
         value={message}
         floatingLabel={false}
         allowErrors={false}

@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { appendToMultimap } from '../../common/data-structures/maps'
 import { SbUserId } from '../../common/users/sb-user'
@@ -83,6 +84,7 @@ export function Chat({
   modifyUserMenuItems,
   modifyMessageMenuItems,
 }: ChatProps) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const [isScrolledUp, setIsScrolledUp] = useState<boolean>(false)
 
@@ -125,7 +127,7 @@ export function Chat({
           MenuItemCategory.General,
           <MenuItem
             key='mention'
-            text='Mention'
+            text={t('messaging.mention', 'Mention')}
             onClick={() => onMentionMenuItemClick(userId, onMenuClose)}
           />,
         )
@@ -140,7 +142,7 @@ export function Chat({
         return modifyMessageMenuItems?.(messageId, items, onMenuClose) ?? items
       },
     }),
-    [mentionUser, modifyMessageMenuItems, modifyUserMenuItems, onMentionMenuItemClick],
+    [mentionUser, modifyMessageMenuItems, modifyUserMenuItems, onMentionMenuItemClick, t],
   )
 
   return (

@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react'
 import ReactDOM from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import styled, { createGlobalStyle, css } from 'styled-components'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { useExternalElementRef } from '../dom/use-external-element-ref'
@@ -118,6 +119,7 @@ export const SizeRight = styled.div`
 `
 
 export function WindowControls() {
+  const { t } = useTranslation()
   const container = useExternalElementRef(elem => {
     elem.classList.add('sb-window-controls')
   })
@@ -145,14 +147,16 @@ export function WindowControls() {
   return ReactDOM.createPortal(
     <>
       <WindowControlsStyle />
-      <CloseButton title={'Close'} onClick={onCloseClick}>
+      <CloseButton title={t('windowControls.close', 'Close')} onClick={onCloseClick}>
         <CloseIcon />
       </CloseButton>
-      <MaximizeRestoreButton title={'Maximize/Restore'} onClick={onMaximizeClick}>
+      <MaximizeRestoreButton
+        title={t('windowControls.maximize', 'Maximize/Restore')}
+        onClick={onMaximizeClick}>
         <StyledMaximizeIcon />
         <StyledRestoreIcon />
       </MaximizeRestoreButton>
-      <MinimizeButton title={'Minimize'} onClick={onMinimizeClick}>
+      <MinimizeButton title={t('windowControls.minimize', 'Minimize')} onClick={onMinimizeClick}>
         <MinimizeIcon />
       </MinimizeButton>
     </>,

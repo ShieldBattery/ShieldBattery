@@ -25,9 +25,9 @@ export const ALL_MATCHMAKING_TYPES: ReadonlyArray<MatchmakingType> = Object.valu
 export function matchmakingTypeToLabel(type: MatchmakingType, t?: TFunction): string {
   switch (type) {
     case MatchmakingType.Match1v1:
-      return t ? t('common.matchmakingType1v1', '1v1') : '1v1'
+      return t ? t('matchmaking.type.1v1', '1v1') : '1v1'
     case MatchmakingType.Match2v2:
-      return t ? t('common.matchmakingType2v2', '2v2') : '2v2'
+      return t ? t('matchmaking.type.2v2', '2v2') : '2v2'
     default:
       return assertUnreachable(type)
   }
