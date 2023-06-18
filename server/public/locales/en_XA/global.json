@@ -1,6 +1,5 @@
 {
     "common": {
-        "mapNameUnknown": "$Unknown map!",
         "validators": {
             "maxLength": "$Enter at most {{maxLength}} characters!",
             "minLength": "$Enter at least {{minLength}} characters!",
@@ -17,14 +16,13 @@
             "hide": "$Hide!",
             "refresh": "$Refresh!",
             "search": "$Search!",
-            "show": "$Show!"
+            "show": "$Show!",
+            "download": "$Download!"
         }
     },
     "games": {
         "results": {
-            "errorLoading": "$There was a problem loading this game.!",
-            "infoGameType": "$Type!",
-            "buttonCopyLink": "$Copy link to game!"
+            "infoGameType": "$Type!"
         }
     },
     "settings": {
@@ -188,6 +186,99 @@
             "ladder": "$Ladder!",
             "leagues": "$Leagues!",
             "login": "$Log in!"
+        },
+        "splash": {
+            "features": {
+                "teamMeleeReplaysDescription": "$Play back any games played in Team Melee mode on ShieldBattery!!",
+                "rankedladderDescription": "$Hone your skills in our Glicko-based ranking system for all matchmaking modes.!",
+                "rankedLadderTitle": "$Ranked ladder!",
+                "remasteredSupportDescription": "$Support for all the new Remastered features, including HD graphics (if purchased from Blizzard) and custom hotkeys.!",
+                "remasteredSupportTitle": "$StarCraft: Remastered support!",
+                "teamMeleeReplaysTitle": "$Working Team Melee replays!",
+                "webClientDescription": "$Keep up with your friends (and enemies) without needing to install anything.!",
+                "webClientTitle": "$Web-based chat client!",
+                "cloudHostingTitle": "$Cloud-based map distribution and hosting!",
+                "fixesBugsExploitsTitle": "$Fixes for bugs and exploits!",
+                "friendsListDescription": "$Track when your friends are online, easily send them messages and invite them to games.!",
+                "friendsListTitle": "$Friends list!",
+                "improvedNetcodeDescription": "$Less lag, drops, and packet loss!!",
+                "improvedNetcodeTitle": "$Improved netcode!",
+                "leaguesDescription": "$Participate in exciting limited-time leagues organized by the community and facilitated by automated matchmaking.!",
+                "leaguesTitle": "$Open Leagues!",
+                "matchmakingDescription": "$Find matches quickly and easily, by yourself or with an arranged team.!",
+                "matchmakingTitle": "$1v1 and 2v2 Matchmaking!",
+                "partiesTitle": "$Parties!",
+                "cloudHostingDescription": "$Play on any of the maps in our official library, or upload your own. Upload all your favorite maps, share them with your friends, host them from anywhere.!",
+                "fixesBugsExploitsDescription": "$Avoid the hacks and exploits that plague the official servers. Things like worker duplication, mineral hacks, and permanently floating workers are a thing of the past here.!",
+                "partiesDescription": "$Party up with your friends to easily host private matches, watch replays together, or join matchmaking.!"
+            },
+            "featuresTitle": "$Features!",
+            "gameCount": "$<0></0> games played!",
+            "linksHeader": "$Links!",
+            "signUp": "$Sign Up!",
+            "comingSoon": {
+                "3v3Description": "$Easily find games for 3v3, with arranged or random teams.!",
+                "3v3Title": "$3v3 matchmaking!",
+                "automatedTournamentsDescription": "$Find tournaments and leagues that match your skill level, run automatically.!",
+                "automatedTournamentsTitle": "$Automated tournaments and leagues!",
+                "builtInMapmakingDescription": "$Destructible rocks, ideal worker starting positions, advanced creep placement, and more!!",
+                "builtInMapmakingTitle": "$New built-in mapmaking features!",
+                "cloudReplaysDescription": "$Automatic uploading for replays. Share them with others, watch them from anywhere!!",
+                "expandedChatTitle": "$Expanded chat features!",
+                "fpReplaysDescription": "$Record mouse and screen movements and play them back for all players.!",
+                "fpReplaysTitle": "$First person replays!",
+                "liveStreamingDescription": "$Jump into in-progress matches and watch them live, with all the benefits of ingame observing.!",
+                "liveStreamingTitle": "$Live match streaming!",
+                "pixelScalingDescription": "$Improve the look of SD graphics on modern screens with custom scaling algorithms!",
+                "pixelScalingTitle": "$Configurable pixel scaling!",
+                "playerProfilesTitle": "$Player profiles and statistics!",
+                "replayAnalysisTitle": "$Replay analysis!",
+                "sandboxModeDescription": "$Test out new builds, practice your worker split, improve your micro.!",
+                "sandboxModeTitle": "$Training/sandbox mode!",
+                "umsPortalDescription": "$Find and explore UMS maps with ease, then quickly gather players and get the game started.!",
+                "umsPortalTitle": "$Use Map Settings portal!",
+                "cloudReplaysTitle": "$Cloud-synced replays!",
+                "expandedChatDescription": "$Express yourself using emotes, embed maps, matches, and replays, and more!!",
+                "playerProfilesDescription": "$Check out your skills across different matchups and maps, find ways to improve, and see how you stack up against the competition.!",
+                "replayAnalysisDescription": "$Built-in support for BWChart-like replay analysis, as well as more advanced statistics and charting.!"
+            },
+            "comingSoonTitle": "$In the pipe <1>(coming soon)</1>!",
+            "benefits": {
+                "communityFirstText": "$ShieldBattery is a vibrant hub for everyone who plays or watches StarCraft. Chat is front and center, getting into games is seamless and easy, and your experience is our top concern. Whether you've been playing since 1998 or just picked up the game this week, you'll find a home here.!",
+                "communityFirstTitle": "$Community first!",
+                "fullPotentialTitle": "$Full potential unlocked!",
+                "tacticallyFaithfulText": "$Built by community members with collective decades of StarCraft experience, we know what makes the game tick. We're keeping the important things the same, but building out brand new features and improvements to make your StarCraft experience better than ever.!",
+                "tacticallyFaithfulTitle": "$Tactically faithful!",
+                "fullPotentialText": "$StarCraft has an amazing competitive history, and ShieldBattery is a foundation for delivering the top-notch playing and watching experience it deserves. Open-source, community-driven, and set to deliver features and experiences that even modern games wish they could have: ShieldBattery is a revolutionary step forward for the StarCraft community.!"
+            },
+            "tagline": "$Play StarCraft 1 on the premier community-run platform!",
+            "blurb": "$ShieldBattery is the first community-run server that supports <2>StarCraft: Remastered.</2> Our custom launcher enhances the real game client to work with our advanced platform, improving on the StarCraft 1 experience while maintaining faithful, authentic gameplay. Download our launcher and start playing in just a few clicks!!",
+            "disclaimerText": "$StarCraft is a registered trademark of Blizzard Entertainment, Inc. ShieldBattery is developed solely by members of the community, unaffiliated with Blizzard, and is not officially endorsed or supported by Blizzard.!"
+        },
+        "bottomLinks": {
+            "acceptableUsePolicy": "$Acceptable Use Policy!",
+            "privacyPolicy": "$Privacy Policy!",
+            "termsOfService": "$Terms of Service!"
+        },
+        "faq": {
+            "header": "$FAQ!",
+            "hotkeyCustomizationAnswer": "$Yes, we support customized hotkeys, but we do not currently have a hotkey editor. If you want to use customized hotkeys, launch StarCraft: Remastered through the Blizzard launcher and customize them there first. After doing so, future launches through ShieldBattery will use those hotkeys.!",
+            "hotkeyCustomizationQuestion": "$Is hotkey customization allowed or provided?!",
+            "isShieldBatteryFreeAnswer": "$<0>ShieldBattery is totally free to use!</0><1>It does, however, cost us time and money to host and develop ShieldBattery. If you would like to help us cover those costs, we'd greatly appreciate it. We have set up a number of ways to contribute:</1>!",
+            "isShieldBatteryFreeQuestion": "$Does ShieldBattery cost anything? How can I support the project?!",
+            "linuxSupportAnswer": "$<0>This is not currently something that we have official support for.</0><1>However, there's a community-contributed integration of ShieldBattery with Wine. Check out our <2>Discord</2> to learn how to run ShieldBattery on Wine.</1>!",
+            "linuxSupportQuestion": "$Does ShieldBattery work on Linux or OS X?!",
+            "officialSupportAnswer": "$No, ShieldBattery is a project developed by passionate community members, and has no official support or acknowledgement from Blizzard.!",
+            "officialSupportQuestion": "$Is ShieldBattery developed with the support of Blizzard?!",
+            "openSourceAnswer": "$<0>Yes. You can access our main repository as well as the various additional projects we've written and separated into their own repositories at our <2>GitHub page</2>.</0><1>We could always use more contributors, so if you think you can help, check it out!</1>!",
+            "openSourceQuestion": "$Is the project open source?!",
+            "reportIssuesAnswer": "$The easiest way to report bugs or issues is through our <2>Discord</2>. If you are comfortable with doing so, you can also file issues on our <5>GitHub</5>.!",
+            "reportIssuesQuestion": "$How can I report bugs or issues?!",
+            "supportedStarcraftVersionAnswer": "$ShieldBattery supports the latest version of StarCraft: Remastered. You can download the free version of StarCraft: Remastered from the official <2>Blizzard site</2>, or install it through the Blizzard launcher. Any purchased addons (such as HD graphics) will be usable on ShieldBattery.!",
+            "supportedStarcraftVersionQuestion": "$What version of StarCraft does ShieldBattery support?!",
+            "systemRequirementsQuestion": "$What are the system requirements to play on ShieldBattery?!",
+            "title": "$Frequently Asked Questions!",
+            "systemRequirementsAnswer": "$<0>Our system requirements are mainly driven by those of <2>StarCraft: Remastered</2>, but in brief:</0><1><0>A computer running Windows 10 or later</0><1>2GB RAM</1><2>NVIDIA GeForce 6800 (256MB) or ATI Radeon X1600 Pro (256MB) or better</2><3>A StarCraft: Remastered installation, patched to the latest version</3></1>!"
         }
     },
     "clientDownload": {
