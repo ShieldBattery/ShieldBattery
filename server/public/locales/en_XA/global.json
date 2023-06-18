@@ -1,12 +1,8 @@
 {
     "common": {
-        "gameResultDraw": "$Draw!",
         "gameResultUnknown": "$Unknown!",
-        "gameTypeCustom": "$Custom game!",
         "mapNameUnknown": "$Unknown map!",
-        "matchmakingType2v2": "$2v2!",
         "playerNameUnknown": "$Unknown player!",
-        "teamNameNumber": "$Team {{teamNumber}}!",
         "validators": {
             "maxLength": "$Enter at most {{maxLength}} characters!",
             "minLength": "$Enter at least {{minLength}} characters!",
@@ -19,26 +15,22 @@
             "save": "$Save!",
             "okay": "$Okay!",
             "join": "$Join!",
-            "view": "$View!"
+            "view": "$View!",
+            "hide": "$Hide!",
+            "refresh": "$Refresh!",
+            "search": "$Search!",
+            "show": "$Show!"
         },
         "race": {
-            "random": "$Random!",
             "zerg": "$Zerg!"
         }
     },
     "games": {
-        "miniMatchHistory": {
-            "noGameSelectedText": "$No game selected!"
-        },
         "results": {
             "errorLoading": "$There was a problem loading this game.!",
-            "headlineDefeat": "$Defeat!!",
             "headlineInProgress": "$In progress…!",
-            "infoDate": "$Date!",
             "infoGameType": "$Type!",
-            "pointsBonus": "$Bonus!",
             "statusLive": "$Live!",
-            "tabStats": "$Stats!",
             "buttonCopyLink": "$Copy link to game!"
         }
     },
@@ -260,6 +252,10 @@
             "diamond": "$Diamond {{level}}!",
             "gold": "$Gold {{level}}!",
             "platinum": "$Platinum {{level}}!"
+        },
+        "type": {
+            "1v1": "$1v1!",
+            "2v2": "$2v2!"
         }
     },
     "forms": {
@@ -352,5 +348,116 @@
             "idle": "$Idle!",
             "offline": "$Offline!"
         }
+    },
+    "fileBrowser": {
+        "noFiles": "$Nothing to see here!",
+        "rootFolder": "$Root folder!",
+        "upOneDirectory": "$Up one directory!"
+    },
+    "game": {
+        "gameSource": {
+            "custom": "$Custom game!",
+            "ranked": "$Ranked {{matchmakingType}}!"
+        },
+        "gameType": {
+            "captureTheFlag": "$Capture the flag!",
+            "freeForAll": "$Free for all!",
+            "greed": "$Greed!",
+            "melee": "$Melee!",
+            "oneOnOne": "$One on one!",
+            "slaughter": "$Slaughter!",
+            "suddenDeath": "$Sudden death!",
+            "teamCaptureTheFlag": "$Team capture the flag!",
+            "teamFreeForAll": "$Team free for all!",
+            "teamMelee": "$Team melee!",
+            "topVsBottom": "$Top vs bottom!",
+            "unknown": "$Unknown!",
+            "useMapSettings": "$Use map settings!"
+        },
+        "mapName": {
+            "unknown": "$Unknown map!"
+        },
+        "playerName": {
+            "computer": "$Computer!",
+            "unknown": "$Unknown player!"
+        },
+        "race": {
+            "protoss": "$Protoss!",
+            "random": "$Random!",
+            "terran": "$Terran!",
+            "zerg": "$Zerg!"
+        },
+        "results": {
+            "draw": "$Draw!",
+            "loss": "$Loss!",
+            "unknown": "$Unknown!",
+            "win": "$Win!"
+        },
+        "teamName": {
+            "number": "$Team {{teamNumber}}!",
+            "top": "$Top!",
+            "bottom": "$Bottom!"
+        }
+    },
+    "gameDetails": {
+        "buttonCopyLink": "$Copy link to game!",
+        "buttonSearchAgain": "$Search again!",
+        "errorLoading": "$There was a problem loading this game.!",
+        "headlineDefault": "$Results!",
+        "headlineVictory": "$Victory!!",
+        "headlineDefeat": "$Defeat!!",
+        "infoDate": "$Date!",
+        "infoDuration": "$Duration!",
+        "infoGameType": "$Type!",
+        "statusFinal": "$Final!",
+        "headlineDraw": "$Draw!!",
+        "headlineInProgress": "$In progress…!",
+        "statusLive": "$Live!",
+        "summary": {
+            "mmr": "$MMR!",
+            "pointsBase": "$Base!",
+            "pointsBonus": "$Bonus!",
+            "rp": "$RP!"
+        },
+        "tabStats": "$Stats!",
+        "tabSummary": "$Summary!",
+        "tabBuildOrders": "$Build orders!"
+    },
+    "messaging": {
+        "blockedMessage": "$Blocked message!",
+        "mention": "$Mention!",
+        "newDayMessage": "$Day changed to <2>{{day}}</2>!",
+        "sendMessage": "$Send a message!"
+    },
+    "network": {
+        "connecting": "$Connecting…!"
+    },
+    "policy": {
+        "acceptableUse": "$Acceptable use!",
+        "policyUpdateNotification": "$ShieldBattery's <2>{{label}}</2> has been updated.!",
+        "privacyPolicy": "$Privacy policy!",
+        "termsOfService": "$Terms of service!"
+    },
+    "replays": {
+        "local": {
+            "duration": "$Duration: {{durationStr}}!",
+            "gameType": "$Game type: {{gameTypeLabel}}!",
+            "loadingError": "$There was a problem loading the replay!",
+            "rootFolderName": "$Replays!",
+            "title": "$Local Replays!",
+            "watchReplay": "$Watch replay!"
+        }
+    },
+    "user": {
+        "miniMatchHistory": {
+            "noGames": "$Nothing to see here!",
+            "noGameSelected": "$No game selected!",
+            "viewDetails": "$View details!"
+        }
+    },
+    "windowControls": {
+        "close": "$Close!",
+        "maximizeRestore": "$Maximize/Restore!",
+        "minimize": "$Minimize!"
     }
 }
