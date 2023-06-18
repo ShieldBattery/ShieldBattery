@@ -1,12 +1,8 @@
 {
     "common": {
-        "gameResultDraw": "무승부",
         "gameResultUnknown": "알려지지 않은",
-        "gameTypeCustom": "커스텀 게임",
         "mapNameUnknown": "알 수 없는 지도",
-        "matchmakingType2v2": "2:2",
         "playerNameUnknown": "알 수 없는 플레이어",
-        "teamNameNumber": "팀 {{teamNumber}}",
         "validators": {
             "maxLength": "최대 {{maxLength}}자까지 입력하세요.",
             "minLength": "{{minLength}}자 이상 입력하세요.",
@@ -20,21 +16,15 @@
             "save": "구하다"
         },
         "race": {
-            "random": "무작위의",
             "zerg": "저그"
         }
     },
     "games": {
         "results": {
-            "tabStats": "통계",
             "buttonSearchAgain": "다시 검색",
-            "headlineDefault": "결과",
             "headlineDraw": "무승부!",
-            "headlineVictory": "승리!",
             "infoDuration": "지속",
-            "pointsBase": "베이스",
-            "statusFinal": "결정적인",
-            "tabSummary": "요약"
+            "statusFinal": "결정적인"
         },
         "miniMatchHistory": {
             "noGameSelectedText": "선택한 게임 없음"

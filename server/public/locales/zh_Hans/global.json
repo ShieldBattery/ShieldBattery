@@ -1,12 +1,8 @@
 {
     "common": {
-        "gameResultDraw": "画",
         "playerNameUnknown": "未知玩家",
-        "teamNameNumber": "团队 {{teamNumber}}",
         "gameResultUnknown": "未知",
-        "gameTypeCustom": "自定义游戏",
         "mapNameUnknown": "未知地图",
-        "matchmakingType2v2": "2v2",
         "validators": {
             "maxLength": "最多输入 {{maxLength}} 个字符",
             "minLength": "至少输入 {{minLength}} 个字符",
@@ -20,23 +16,15 @@
             "save": "节省"
         },
         "race": {
-            "random": "随机的",
             "zerg": "虫族"
         }
     },
     "games": {
-        "miniMatchHistory": {
-            "noGameSelectedText": "没有选择游戏"
-        },
         "results": {
             "buttonSearchAgain": "再次搜索",
-            "headlineDefault": "结果",
             "headlineDraw": "画！",
-            "headlineVictory": "胜利！",
             "infoDuration": "期间",
-            "pointsBase": "根据",
             "statusFinal": "最终的",
-            "tabBuildOrders": "构建订单",
             "tabSummary": "概括"
         }
     },

@@ -1,8 +1,6 @@
 {
     "common": {
-        "gameResultUnknown": "$Unknown!",
         "mapNameUnknown": "$Unknown map!",
-        "playerNameUnknown": "$Unknown player!",
         "validators": {
             "maxLength": "$Enter at most {{maxLength}} characters!",
             "minLength": "$Enter at least {{minLength}} characters!",
@@ -20,17 +18,12 @@
             "refresh": "$Refresh!",
             "search": "$Search!",
             "show": "$Show!"
-        },
-        "race": {
-            "zerg": "$Zerg!"
         }
     },
     "games": {
         "results": {
             "errorLoading": "$There was a problem loading this game.!",
-            "headlineInProgress": "$In progress…!",
             "infoGameType": "$Type!",
-            "statusLive": "$Live!",
             "buttonCopyLink": "$Copy link to game!"
         }
     },

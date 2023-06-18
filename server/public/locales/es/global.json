@@ -1,12 +1,8 @@
 {
     "common": {
-        "gameResultDraw": "Empate",
         "gameResultUnknown": "Desconocido",
-        "gameTypeCustom": "Juego personalizado",
         "mapNameUnknown": "mapa desconocido",
-        "matchmakingType2v2": "2x2",
         "playerNameUnknown": "jugador desconocido",
-        "teamNameNumber": "Equipo {{teamNumber}}",
         "validators": {
             "maxLength": "Ingrese como máximo {{maxLength}} caracteres",
             "minLength": "Ingrese al menos {{minLength}} caracteres",
@@ -22,23 +18,15 @@
             "view": "Vista"
         },
         "race": {
-            "random": "Aleatorio",
             "zerg": "zerg"
         }
     },
     "games": {
-        "miniMatchHistory": {
-            "noGameSelectedText": "Ninguna partida seleccionada"
-        },
         "results": {
             "headlineInProgress": "En progreso…",
-            "headlineDefault": "Resultados",
             "headlineDraw": "¡Empate!",
-            "infoDate": "Fecha",
             "infoGameType": "Tipo",
-            "pointsBonus": "Prima",
             "statusLive": "En vivo",
-            "tabStats": "Estadísticas",
             "buttonCopyLink": "Copiar enlace al juego"
         }
     },

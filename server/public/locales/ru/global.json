@@ -1,12 +1,8 @@
 {
     "common": {
-        "matchmakingType1v1": "1v1",
         "emptyListMessage": "Здесь ничего нет",
-        "gameTypeCustom": "Своя игра",
         "gameTypeRanked": "Рейтинговый {{matchmakingType}}",
-        "playerNameComputer": "ИИ",
         "gameResultUnknown": "Результат неизвестен",
-        "teamNameBottom": "Низ",
         "validators": {
             "maxLength": "Введите не более {{maxLength}} символов",
             "minLength": "Введите не менее {{minLength}} символов",
@@ -20,21 +16,15 @@
             "back": "Назад"
         },
         "race": {
-            "random": "Случайный",
             "zerg": "зерги"
         }
     },
     "games": {
         "results": {
-            "headlineDefault": "Результаты",
             "infoDate": "Дата",
-            "infoGameType": "Тип",
             "tabStats": "Статистика",
-            "pointsBase": "Основные",
             "headlineDraw": "Ничья!",
-            "headlineInProgress": "В процессе…",
-            "statusFinal": "Финал",
-            "buttonCopyLink": "Скопировать ссылку на игру"
+            "statusFinal": "Финал"
         },
         "miniMatchHistory": {
             "noGameSelectedText": "Игра не выбрана"
