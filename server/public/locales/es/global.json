@@ -1,20 +1,12 @@
 {
     "common": {
-        "emptyListMessage": "No hay nada que ver aquí",
         "gameResultDraw": "Empate",
-        "gameResultLoss": "Pérdida",
         "gameResultUnknown": "Desconocido",
-        "gameResultWin": "Victoria",
         "gameTypeCustom": "Juego personalizado",
-        "gameTypeRanked": "{{matchmakingType}} Competitivo",
         "mapNameUnknown": "mapa desconocido",
-        "matchmakingType1v1": "1x1",
         "matchmakingType2v2": "2x2",
-        "playerNameComputer": "Computadora",
         "playerNameUnknown": "jugador desconocido",
-        "teamNameBottom": "Abajo",
         "teamNameNumber": "Equipo {{teamNumber}}",
-        "teamNameTop": "Arriba",
         "validators": {
             "maxLength": "Ingrese como máximo {{maxLength}} caracteres",
             "minLength": "Ingrese al menos {{minLength}} caracteres",
@@ -30,35 +22,23 @@
             "view": "Vista"
         },
         "race": {
-            "protoss": "Protoss",
             "random": "Aleatorio",
-            "terran": "terrano",
             "zerg": "zerg"
         }
     },
     "games": {
         "miniMatchHistory": {
-            "buttonDetails": "Ver detalles",
             "noGameSelectedText": "Ninguna partida seleccionada"
         },
         "results": {
-            "buttonSearchAgain": "Buscar de nuevo",
             "headlineInProgress": "En progreso…",
-            "errorLoading": "Hubo un problema al cargar este juego.",
             "headlineDefault": "Resultados",
-            "headlineDefeat": "¡Derrota!",
             "headlineDraw": "¡Empate!",
-            "headlineVictory": "¡Victoria!",
             "infoDate": "Fecha",
-            "infoDuration": "Duración",
             "infoGameType": "Tipo",
-            "pointsBase": "Base",
             "pointsBonus": "Prima",
-            "statusFinal": "Final",
             "statusLive": "En vivo",
-            "tabBuildOrders": "Órdenes de construcción",
             "tabStats": "Estadísticas",
-            "tabSummary": "Resumen",
             "buttonCopyLink": "Copiar enlace al juego"
         }
     },

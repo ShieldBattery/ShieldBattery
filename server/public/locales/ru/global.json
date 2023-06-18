@@ -1,20 +1,12 @@
 {
     "common": {
-        "gameResultWin": "Победа",
         "matchmakingType1v1": "1v1",
-        "matchmakingType2v2": "2v2",
         "emptyListMessage": "Здесь ничего нет",
-        "gameResultLoss": "Поражение",
         "gameTypeCustom": "Своя игра",
-        "mapNameUnknown": "Неизвестная карта",
         "gameTypeRanked": "Рейтинговый {{matchmakingType}}",
-        "playerNameUnknown": "Неизвестный игрок",
         "playerNameComputer": "ИИ",
-        "gameResultDraw": "Ничья",
         "gameResultUnknown": "Результат неизвестен",
-        "teamNameNumber": "Команда {{teamNumber}}",
         "teamNameBottom": "Низ",
-        "teamNameTop": "Верх",
         "validators": {
             "maxLength": "Введите не более {{maxLength}} символов",
             "minLength": "Введите не менее {{minLength}} символов",
@@ -28,35 +20,23 @@
             "back": "Назад"
         },
         "race": {
-            "protoss": "Протоссы",
             "random": "Случайный",
-            "terran": "Терран",
             "zerg": "зерги"
         }
     },
     "games": {
         "results": {
-            "buttonSearchAgain": "Искать снова",
             "headlineDefault": "Результаты",
-            "headlineVictory": "Победа!",
             "infoDate": "Дата",
-            "infoDuration": "Продолжительность",
             "infoGameType": "Тип",
-            "tabBuildOrders": "Билды",
             "tabStats": "Статистика",
-            "tabSummary": "Сводка",
             "pointsBase": "Основные",
-            "pointsBonus": "Бонусные",
             "headlineDraw": "Ничья!",
-            "errorLoading": "Не удалось загрузить эту игру.",
             "headlineInProgress": "В процессе…",
-            "headlineDefeat": "Поражение!",
             "statusFinal": "Финал",
-            "statusLive": "Прямой эфир",
             "buttonCopyLink": "Скопировать ссылку на игру"
         },
         "miniMatchHistory": {
-            "buttonDetails": "Посмотреть детали",
             "noGameSelectedText": "Игра не выбрана"
         }
     },

@@ -1,20 +1,12 @@
 {
     "common": {
-        "emptyListMessage": "这没东西看",
         "gameResultDraw": "画",
-        "gameResultLoss": "损失",
         "playerNameUnknown": "未知玩家",
-        "teamNameBottom": "底部",
         "teamNameNumber": "团队 {{teamNumber}}",
-        "teamNameTop": "顶部",
         "gameResultUnknown": "未知",
-        "gameResultWin": "赢",
         "gameTypeCustom": "自定义游戏",
-        "gameTypeRanked": "排名 {{matchmakingType}}",
         "mapNameUnknown": "未知地图",
-        "matchmakingType1v1": "1v1",
         "matchmakingType2v2": "2v2",
-        "playerNameComputer": "电脑",
         "validators": {
             "maxLength": "最多输入 {{maxLength}} 个字符",
             "minLength": "至少输入 {{minLength}} 个字符",
@@ -28,35 +20,23 @@
             "save": "节省"
         },
         "race": {
-            "protoss": "神族",
             "random": "随机的",
-            "terran": "人族",
             "zerg": "虫族"
         }
     },
     "games": {
         "miniMatchHistory": {
-            "buttonDetails": "查看详情",
             "noGameSelectedText": "没有选择游戏"
         },
         "results": {
-            "buttonCopyLink": "复制游戏链接",
             "buttonSearchAgain": "再次搜索",
-            "errorLoading": "加载此游戏时出现问题。",
             "headlineDefault": "结果",
-            "headlineDefeat": "打败！",
             "headlineDraw": "画！",
-            "headlineInProgress": "进行中…",
             "headlineVictory": "胜利！",
-            "infoDate": "日期",
             "infoDuration": "期间",
-            "infoGameType": "类型",
             "pointsBase": "根据",
-            "pointsBonus": "奖金",
             "statusFinal": "最终的",
-            "statusLive": "居住",
             "tabBuildOrders": "构建订单",
-            "tabStats": "统计数据",
             "tabSummary": "概括"
         }
     },
