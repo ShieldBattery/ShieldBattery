@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { policyTypeToLabel, SbPolicyType } from '../../common/policies/policy-type'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
@@ -70,9 +71,10 @@ const AcceptableUseContent = React.lazy(async () => {
 })
 
 export function AcceptableUseDialog(props: CommonDialogProps) {
+  const { t } = useTranslation()
   return (
     <Dialog
-      title='Acceptable use'
+      title={t('policy.acceptableUse', 'Acceptable use')}
       onCancel={props.onCancel}
       showCloseButton={true}
       dialogRef={props.dialogRef}>
@@ -95,9 +97,10 @@ const PrivacyPolicyContent = React.lazy(async () => {
 })
 
 export function PrivacyPolicyDialog(props: CommonDialogProps) {
+  const { t } = useTranslation()
   return (
     <Dialog
-      title='Privacy policy'
+      title={t('policy.privacyPolicy', 'Privacy policy')}
       onCancel={props.onCancel}
       showCloseButton={true}
       dialogRef={props.dialogRef}>
@@ -120,9 +123,10 @@ const TermsOfServiceContent = React.lazy(async () => {
 })
 
 export function TermsOfServiceDialog(props: CommonDialogProps) {
+  const { t } = useTranslation()
   return (
     <Dialog
-      title='Terms of service'
+      title={t('policy.termsOfService', 'Terms of service')}
       onCancel={props.onCancel}
       showCloseButton={true}
       dialogRef={props.dialogRef}>

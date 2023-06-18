@@ -1,5 +1,6 @@
 import { ReplayHeader, ReplayPlayer } from 'jssuh'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getGameDurationString } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
@@ -161,6 +162,7 @@ const TextInfoContainer = styled.div`
 `
 
 export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const [replayMetadata, setReplayMetadata] = useState<{
     headerData?: ReplayHeader
@@ -209,12 +211,17 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
   const [durationStr, gameTypeLabel, mapName, playerListItems] = useMemo(() => {
     const replayHeader = replayMetadata?.headerData
     if (!replayHeader) {
-      return ['00:00', 'Unknown', 'Unknown map', null]
+      return [
+        '00:00',
+        t('game.gameType.unknown', 'Unknown'),
+        t('game.mapName.unknown', 'Unknown map'),
+        null,
+      ]
     }
 
     const timeMs = (replayHeader.durationFrames * 1000) / 24
     const durationStr = getGameDurationString(timeMs)
-    const gameTypeLabel = replayGameTypeToLabel(replayHeader.gameType)
+    const gameTypeLabel = replayGameTypeToLabel(replayHeader.gameType, t)
     const mapName = filterColorCodes(mapInfo?.name ?? replayHeader.mapName)
 
     const teams = replayHeader.players.reduce((acc, p) => {
@@ -235,23 +242,36 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
           <RaceRoot>
             <StyledRaceIcon race={replayRaceToChar(player.race)} />
           </RaceRoot>
-          <PlayerName>{player.isComputer ? 'Computer' : player.name}</PlayerName>
+          <PlayerName>
+            {player.isComputer ? t('game.playerName.computer', 'Computer') : player.name}
+          </PlayerName>
         </PlayerContainer>
       ))
 
       if (teams.size > 1) {
-        elems.unshift(<TeamLabel key={`team-${i}`}>{'Team ' + (i + 1)}</TeamLabel>)
+        elems.unshift(
+          <TeamLabel key={`team-${i}`}>
+            {t('game.teamName.number', {
+              defaultValue: 'Team {{teamNumber}}',
+              teamNumber: i + 1,
+            })}
+          </TeamLabel>,
+        )
       }
 
       return elems
     })
 
     return [durationStr, gameTypeLabel, mapName, playerListItems]
-  }, [mapInfo?.name, replayMetadata, replayUserIds, usersById])
+  }, [mapInfo?.name, replayMetadata?.headerData, replayUserIds, t, usersById])
 
   let content
   if (parseError) {
-    content = <ErrorText>There was an error parsing the replay</ErrorText>
+    content = (
+      <ErrorText>
+        {t('replays.local.loadingError', 'There was a problem loading the replay')}
+      </ErrorText>
+    )
   } else if (!replayMetadata) {
     content = <LoadingDotsArea />
   } else if (replayMetadata) {
@@ -271,9 +291,17 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
           </Tooltip>
           <TextInfoContainer>
             <Tooltip text={gameTypeLabel} position='bottom' disabled={!isGameTypeOverflowing}>
-              <ReplayInfoText ref={gameTypeRef}>Game type: {gameTypeLabel}</ReplayInfoText>
+              <ReplayInfoText ref={gameTypeRef}>
+                <Trans t={t} i18nKey='replays.local.gameType'>
+                  Game type: {{ gameTypeLabel }}
+                </Trans>
+              </ReplayInfoText>
             </Tooltip>
-            <ReplayInfoText>Duration: {durationStr}</ReplayInfoText>
+            <ReplayInfoText>
+              <Trans t={t} i18nKey='replays.local.duration'>
+                Duration: {{ durationStr }}
+              </Trans>
+            </ReplayInfoText>
           </TextInfoContainer>
         </ReplayInfoContainer>
       </InfoContainer>
@@ -284,6 +312,7 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
 }
 
 export function BrowseLocalReplays() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const [replayFolderPath, setReplayFolderPath] = useState<string>('')
 
@@ -305,19 +334,19 @@ export function BrowseLocalReplays() {
       allowedExtensions: ['rep'],
       ExpansionPanelComponent: ReplayExpansionPanel,
       onSelect: onStartReplay,
-      onSelectTitle: 'Watch replay',
+      onSelectTitle: t('replays.local.watchReplay', 'Watch replay'),
     }),
-    [onStartReplay],
+    [onStartReplay, t],
   )
   const rootFolders = useMemo(
     () => ({
       default: {
         id: FileBrowserRootFolderId.Default,
-        name: 'Replays',
+        name: t('replays.local.rootFolderName', 'Replays'),
         path: replayFolderPath,
       },
     }),
-    [replayFolderPath],
+    [replayFolderPath, t],
   )
 
   if (!replayFolderPath) {
@@ -327,7 +356,7 @@ export function BrowseLocalReplays() {
   return (
     <FileBrowser
       browserType={FileBrowserType.Replays}
-      title='Local Replays'
+      title={t('replays.local.title', 'Local Replays')}
       rootFolders={rootFolders}
       fileEntryConfig={fileEntryConfig}
     />

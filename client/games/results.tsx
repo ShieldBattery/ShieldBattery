@@ -244,7 +244,7 @@ export function ConnectedGameResultsPage({
 
   const headline = useMemo<string>(() => {
     if (game && !game.results) {
-      return t('games.results.headlineInProgress', 'In progress…')
+      return t('gameDetails.headlineInProgress', 'In progress…')
     } else if (
       selfUser &&
       game &&
@@ -254,12 +254,12 @@ export function ConnectedGameResultsPage({
         if (id === selfUser.id) {
           switch (result.result) {
             case 'win':
-              return t('games.results.headlineVictory', 'Victory!')
+              return t('gameDetails.headlineVictory', 'Victory!')
             case 'loss':
-              return t('games.results.headlineDefeat', 'Defeat!')
+              return t('gameDetails.headlineDefeat', 'Defeat!')
             case 'draw':
             case 'unknown':
-              return t('games.results.headlineDraw', 'Draw!')
+              return t('gameDetails.headlineDraw', 'Draw!')
             default:
               return assertUnreachable(result.result)
           }
@@ -267,7 +267,7 @@ export function ConnectedGameResultsPage({
       }
     }
 
-    return t('games.results.headlineDefault', 'Results')
+    return t('gameDetails.headlineDefault', 'Results')
   }, [game, t, selfUser])
 
   const config = game?.config
@@ -313,17 +313,17 @@ export function ConnectedGameResultsPage({
           {game ? (
             <>
               <HeaderInfoItem>
-                <HeaderInfoLabel>{t('games.results.infoGameType', 'Type')}</HeaderInfoLabel>
+                <HeaderInfoLabel>{t('gameDetails.infoGameType', 'Type')}</HeaderInfoLabel>
                 <HeaderInfoValue>{getGameTypeLabel(game, t)}</HeaderInfoValue>
               </HeaderInfoItem>
               <HeaderInfoItem>
-                <HeaderInfoLabel>{t('games.results.infoDate', 'Date')}</HeaderInfoLabel>
+                <HeaderInfoLabel>{t('gameDetails.infoDate', 'Date')}</HeaderInfoLabel>
                 <HeaderInfoValue title={longTimestamp.format(game.startTime)}>
                   {gameDateFormat.format(game.startTime)}
                 </HeaderInfoValue>
               </HeaderInfoItem>
               <HeaderInfoItem>
-                <HeaderInfoLabel>{t('games.results.infoDuration', 'Duration')}</HeaderInfoLabel>
+                <HeaderInfoLabel>{t('gameDetails.infoDuration', 'Duration')}</HeaderInfoLabel>
                 <HeaderInfoValue>
                   {game.gameLength ? getGameDurationString(game.gameLength) : '—'}
                 </HeaderInfoValue>
@@ -332,13 +332,13 @@ export function ConnectedGameResultsPage({
           ) : null}
         </HeaderInfo>
         <LiveFinalIndicator $isLive={isLive}>
-          {isLive ? t('games.results.statusLive', 'Live') : t('games.results.statusFinal', 'Final')}
+          {isLive ? t('gameDetails.statusLive', 'Live') : t('gameDetails.statusFinal', 'Final')}
         </LiveFinalIndicator>
       </HeaderArea>
       <ButtonBar>
         {showSearchAgain ? (
           <RaisedButton
-            label={t('games.results.buttonSearchAgain', 'Search again')}
+            label={t('gameDetails.buttonSearchAgain', 'Search again')}
             iconStart={<StyledFindMatchIcon />}
             disabled={disableSearchAgain}
             onClick={onSearchAgain}
@@ -347,17 +347,17 @@ export function ConnectedGameResultsPage({
         {/* TODO(tec27): Search again, watch replay, etc. */}
         <ButtonSpacer />
         <CopyLinkButton
-          startingText={t('games.results.buttonCopyLink', 'Copy link to game')}
+          startingText={t('gameDetails.buttonCopyLink', 'Copy link to game')}
           tooltipPosition='left'
         />
       </ButtonBar>
       <TabArea>
         <Tabs activeTab={subPage} onChange={onTabChange}>
-          <TabItem value={ResultsSubPage.Summary} text={t('games.results.tabSummary', 'Summary')} />
-          <TabItem value={ResultsSubPage.Stats} text={t('games.results.tabStats', 'Stats')} />
+          <TabItem value={ResultsSubPage.Summary} text={t('gameDetails.tabSummary', 'Summary')} />
+          <TabItem value={ResultsSubPage.Stats} text={t('gameDetails.tabStats', 'Stats')} />
           <TabItem
             value={ResultsSubPage.BuildOrders}
-            text={t('games.results.tabBuildOrders', 'Build orders')}
+            text={t('gameDetails.tabBuildOrders', 'Build orders')}
           />
         </Tabs>
       </TabArea>
@@ -512,7 +512,7 @@ function SummaryPage({
     // TODO(tec27): Handle specific errors, e.g. not found vs server error
     return (
       <LoadingError>
-        {t('games.results.errorLoading', 'There was a problem loading this game.')}
+        {t('gameDetails.errorLoading', 'There was a problem loading this game.')}
       </LoadingError>
     )
   }
@@ -540,7 +540,7 @@ function SummaryPage({
         <TeamLabel key={`team-${i}`}>
           {teamLabels.length > i
             ? teamLabels[i]
-            : t('common.teamNameNumber', {
+            : t('game.teamName.number', {
                 defaultValue: 'Team {{teamNumber}}',
                 teamNumber: i + 1,
               })}
@@ -677,7 +677,7 @@ export function PlayerResult({ className, config, result, mmrChange }: PlayerRes
       </RaceRoot>
       {config.isComputer ? <StyledComputerAvatar /> : <PlayerAvatar user={user?.name ?? ''} />}
       <PlayerName>
-        {config.isComputer ? t('common.playerNameComputer', 'Computer') : user?.name ?? ''}
+        {config.isComputer ? t('game.playerName.computer', 'Computer') : user?.name ?? ''}
       </PlayerName>
       {mmrChange ? (
         <MmrChangeColumn>
@@ -742,10 +742,11 @@ function MmrChangeText({
       <TooltipContent $position={props.$position}>
         <div>
           <div>
-            {t('games.results.pointsBase', 'Base')}: <NumberDelta delta={changeWithoutBonus} />
+            {t('gameDetails.summary.pointsBase', 'Base')}:{' '}
+            <NumberDelta delta={changeWithoutBonus} />
           </div>
           <div>
-            {t('games.results.pointsBonus', 'Bonus')}: <NumberDelta delta={bonusChange} />
+            {t('gameDetails.summary.pointsBonus', 'Bonus')}: <NumberDelta delta={bonusChange} />
           </div>
         </div>
       </TooltipContent>
@@ -759,11 +760,11 @@ function MmrChangeText({
   return (
     <>
       <span>
-        {roundRating} MMR (<NumberDelta delta={ratingChange} />)
+        {roundRating} {t('gameDetails.summary.mmr', 'MMR')} (<NumberDelta delta={ratingChange} />)
       </span>
       <Tooltip className={className} text={''} ContentComponent={PointsOverview} position={'right'}>
         <span>
-          {roundPoints} RP (<NumberDelta delta={roundChange} />)
+          {roundPoints} {t('gameDetails.summary.rp', 'RP')} (<NumberDelta delta={roundChange} />)
         </span>
       </Tooltip>
     </>

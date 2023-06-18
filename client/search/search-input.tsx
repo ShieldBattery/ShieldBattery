@@ -1,4 +1,5 @@
 import React, { useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { TextField } from '../material/text-field'
@@ -20,6 +21,7 @@ interface SearchInputProps {
 
 export const SearchInput = React.forwardRef<SearchInputHandle, SearchInputProps>(
   ({ searchQuery, onSearchChange, className }, ref) => {
+    const { t } = useTranslation()
     const [inputValue, setInputValue] = useState(searchQuery)
     const [searchFocused, setInputFocused] = useState(false)
     const inputRef = useRef<HTMLInputElement>(null)
@@ -74,7 +76,7 @@ export const SearchInput = React.forwardRef<SearchInputHandle, SearchInputProps>
         className={className}
         ref={inputRef}
         value={inputValue}
-        label='Search'
+        label={t('common.actions.search', 'Search')}
         dense={true}
         allowErrors={false}
         onChange={onInputChange}

@@ -1,9 +1,11 @@
 import React from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { policyTypeToLabel, SbPolicyType } from '../../common/policies/policy-type'
+import { SbPolicyType, policyTypeToLabel } from '../../common/policies/policy-type'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
+import { TransInterpolation } from '../i18n/i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { ActionlessNotification } from '../notifications/notifications'
 import { useAppDispatch } from '../redux-hooks'
@@ -24,6 +26,7 @@ export const PolicyUpdateNotificationUi = React.forwardRef<
   HTMLDivElement,
   PolicyUpdateNotificationUiProps
 >(({ policyType, showDivider, read }, ref) => {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const label = policyTypeToLabel(policyType)
   const dialogType = policyTypeToDialogType(policyType)
@@ -36,16 +39,18 @@ export const PolicyUpdateNotificationUi = React.forwardRef<
       icon={<ColoredPolicyIcon />}
       text={
         <span>
-          ShieldBattery's{' '}
-          <a
-            href='#'
-            onClick={e => {
-              e.preventDefault()
-              dispatch(openDialog({ type: dialogType }))
-            }}>
-            {label}
-          </a>{' '}
-          has been updated.
+          <Trans t={t} i18nKey='policy.policyUpdateNotification'>
+            ShieldBattery's{' '}
+            <a
+              href='#'
+              onClick={e => {
+                e.preventDefault()
+                dispatch(openDialog({ type: dialogType }))
+              }}>
+              {{ label } as TransInterpolation}
+            </a>{' '}
+            has been updated.
+          </Trans>
         </span>
       }
     />

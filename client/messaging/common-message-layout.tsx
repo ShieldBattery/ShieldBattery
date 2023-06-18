@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { makeSbChannelId } from '../../common/chat'
@@ -8,6 +9,7 @@ import { matchUserMentionsMarkup } from '../../common/text/user-mentions'
 import { SbUserId, makeSbUserId } from '../../common/users/sb-user'
 import { ConnectedChannelName } from '../chat/connected-channel-name'
 import { useContextMenu } from '../dom/use-context-menu'
+import { TransInterpolation } from '../i18n/i18next'
 import { MenuList } from '../material/menu/menu'
 import { Popover } from '../material/popover'
 import { ExternalLink } from '../navigation/external-link'
@@ -212,14 +214,17 @@ export const BlockedMessage = React.memo<{
   time: number
   text: string
 }>(props => {
+  const { t } = useTranslation()
   const [show, setShow] = useState(false)
 
   return (
     <>
       <TimestampMessageLayout time={props.time} highlighted={false}>
-        <BlockedText>Blocked message</BlockedText>
+        <BlockedText>{t('messaging.blockedMessage', 'Blocked message')}</BlockedText>
         <BlockedDivider>&mdash;</BlockedDivider>
-        <ShowHideLink onClick={() => setShow(!show)}>{show ? 'Hide' : 'Show'}</ShowHideLink>
+        <ShowHideLink onClick={() => setShow(!show)}>
+          {show ? t('common.actions.hide', 'Hide') : t('common.actions.show', 'Show')}
+        </ShowHideLink>
       </TimestampMessageLayout>
       {show ? (
         <VisibleBlockedMessage>
@@ -238,10 +243,14 @@ export const BlockedMessage = React.memo<{
 
 export const NewDayMessage = React.memo<{ time: number }>(props => {
   const { time } = props
+  const { t } = useTranslation()
   return (
     <SeparatedInfoMessage>
       <span>
-        Day changed to <InfoImportant>{newDayFormat.format(time)}</InfoImportant>
+        <Trans t={t} i18nKey='messaging.newDayMessage'>
+          Day changed to{' '}
+          <InfoImportant>{{ day: newDayFormat.format(time) } as TransInterpolation}</InfoImportant>
+        </Trans>
       </span>
     </SeparatedInfoMessage>
   )

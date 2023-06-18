@@ -59,7 +59,10 @@ export function changeUserLanguage(
     } catch (err) {
       dispatch(
         openSnackbar({
-          message: 'An error occurred while changing the language',
+          message: i18n.t(
+            'auth.language.changeErrorMessage',
+            'Something went wrong when changing the language',
+          ),
           time: TIMING_LONG,
         }),
       )

@@ -38,13 +38,13 @@ export type ReconciledResult = 'win' | 'loss' | 'draw' | 'unknown'
 
 export function getResultLabel(result: ReconciledResult, t: TFunction): string {
   if (result === 'win') {
-    return t('common.gameResultWin', 'Win')
+    return t('game.results.win', 'Win')
   } else if (result === 'loss') {
-    return t('common.gameResultLoss', 'Loss')
+    return t('game.results.loss', 'Loss')
   } else if (result === 'draw') {
-    return t('common.gameResultDraw', 'Draw')
+    return t('game.results.draw', 'Draw')
   } else if (result === 'unknown') {
-    return t('common.gameResultUnknown', 'Unknown')
+    return t('game.results.unknown', 'Unknown')
   }
 
   return assertUnreachable(result)

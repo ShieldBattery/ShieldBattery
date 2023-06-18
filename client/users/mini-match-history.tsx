@@ -77,7 +77,7 @@ export function MiniMatchHistory({ forUserId, games }: MiniMatchHistoryProps) {
           />
         ))}
         {games.length === 0 ? (
-          <EmptyListText>{t('common.emptyListMessage', 'Nothing to see here')}</EmptyListText>
+          <EmptyListText>{t('user.miniMatchHistory.noGames', 'Nothing to see here')}</EmptyListText>
         ) : null}
       </GameList>
       <ConnectedGamePreview game={activeGame}></ConnectedGamePreview>
@@ -173,7 +173,7 @@ export function ConnectedGameListEntry({
   }, [results, forUserId])
 
   const matchType = getGameTypeLabel(game, t)
-  const mapName = map?.name ?? t('common.mapNameUnknown', 'Unknown map')
+  const mapName = map?.name ?? t('game.mapName.unknown', 'Unknown map')
 
   return (
     <GameListEntryRoot {...buttonProps} $active={active}>
@@ -352,9 +352,7 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
     return (
       <GamePreviewRoot>
         <GamePreviewDetails>
-          <NoGameText>
-            {t('games.miniMatchHistory.noGameSelectedText', 'No game selected')}
-          </NoGameText>
+          <NoGameText>{t('user.miniMatchHistory.noGameSelected', 'No game selected')}</NoGameText>
         </GamePreviewDetails>
       </GamePreviewRoot>
     )
@@ -364,7 +362,7 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
   if (game.config.gameType === 'topVBottom') {
     playerElems.push(
       <GamePreviewTeamOverline key={'team-top'}>
-        {t('common.teamNameTop', 'Top')}
+        {t('game.teamName.top', 'Top')}
       </GamePreviewTeamOverline>,
     )
     playerElems.push(
@@ -375,8 +373,8 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
             <GamePreviewPlayerRace race={result?.race ?? p.race} isRandom={p.race === 'r'} />
             <span>
               {p.isComputer
-                ? t('common.playerNameComputer', 'Computer')
-                : playersMapping.get(p.id)?.name ?? t('common.playerNameUnknown', 'Unknown player')}
+                ? t('game.playerName.computer', 'Computer')
+                : playersMapping.get(p.id)?.name ?? t('game.playerName.unknown', 'Unknown player')}
             </span>
           </GamePreviewPlayer>
         )
@@ -385,7 +383,7 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
 
     playerElems.push(
       <GamePreviewTeamOverline key={'team-bottom'}>
-        {t('common.teamNameBottom', 'Bottom')}
+        {t('game.teamName.bottom', 'Bottom')}
       </GamePreviewTeamOverline>,
     )
     playerElems.push(
@@ -396,8 +394,8 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
             <GamePreviewPlayerRace race={result?.race ?? p.race} isRandom={p.race === 'r'} />
             <span>
               {p.isComputer
-                ? t('common.playerNameComputer', 'Computer')
-                : playersMapping.get(p.id)?.name ?? t('common.playerNameUnknown', 'Unknown player')}
+                ? t('game.playerName.computer', 'Computer')
+                : playersMapping.get(p.id)?.name ?? t('game.playerName.unknown', 'Unknown player')}
             </span>
           </GamePreviewPlayer>
         )
@@ -414,9 +412,9 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
               <GamePreviewPlayerRace race={result?.race ?? p.race} isRandom={p.race === 'r'} />
               <span>
                 {p.isComputer
-                  ? t('common.playerNameComputer', 'Computer')
+                  ? t('game.playerName.computer', 'Computer')
                   : playersMapping.get(p.id)?.name ??
-                    t('common.playerNameUnknown', 'Unknown player')}
+                    t('game.playerName.unknown', 'Unknown player')}
               </span>
             </GamePreviewPlayer>
           )
@@ -439,7 +437,7 @@ export function ConnectedGamePreview({ game }: ConnectedGamePreviewProps) {
         <GamePreviewPlayers>{playerElems}</GamePreviewPlayers>
       </GamePreviewDetails>
       <TextButton
-        label={t('games.miniMatchHistory.buttonDetails', 'View details')}
+        label={t('user.miniMatchHistory.viewDetails', 'View details')}
         onClick={onViewDetails}
       />
     </GamePreviewRoot>
