@@ -368,8 +368,8 @@
       "openSourceQuestion": "Is the project open source?",
       "reportIssuesAnswer": "The easiest way to report bugs or issues is through our <2>Discord</2>. If you are comfortable with doing so, you can also file issues on our <5>GitHub</5>.",
       "reportIssuesQuestion": "How can I report bugs or issues?",
-      "supportedBwVersionAnswer": "ShieldBattery supports the latest version of StarCraft: Remastered. You can download the free version of StarCraft: Remastered from the official <2>Blizzard site</2>, or install it through the Blizzard launcher. Any purchased addons (such as HD graphics) will be usable on ShieldBattery.",
-      "supportedBwVersionQuestion": "What version of StarCraft does ShieldBattery support?",
+      "supportedStarcraftVersionAnswer": "ShieldBattery supports the latest version of StarCraft: Remastered. You can download the free version of StarCraft: Remastered from the official <2>Blizzard site</2>, or install it through the Blizzard launcher. Any purchased addons (such as HD graphics) will be usable on ShieldBattery.",
+      "supportedStarcraftVersionQuestion": "What version of StarCraft does ShieldBattery support?",
       "systemRequirementsAnswer": "<0>Our system requirements are mainly driven by those of <2>StarCraft: Remastered</2>, but in brief:</0><1><0>A computer running Windows 10 or later</0><1>2GB RAM</1><2>NVIDIA GeForce 6800 (256MB) or ATI Radeon X1600 Pro (256MB) or better</2><3>A StarCraft: Remastered installation, patched to the latest version</3></1>",
       "systemRequirementsQuestion": "What are the system requirements to play on ShieldBattery?",
       "title": "Frequently Asked Questions"

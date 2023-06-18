@@ -261,12 +261,12 @@ export function Faq() {
   const questions = [
     {
       question: t(
-        'landing.faq.supportedBwVersionQuestion',
+        'landing.faq.supportedStarcraftVersionQuestion',
         'What version of StarCraft does ShieldBattery support?',
       ),
       answer: (
         <p key='p1'>
-          <Trans t={t} i18nKey='landing.faq.supportedBwVersionAnswer'>
+          <Trans t={t} i18nKey='landing.faq.supportedStarcraftVersionAnswer'>
             ShieldBattery supports the latest version of StarCraft: Remastered. You can download the
             free version of StarCraft: Remastered from the official{' '}
             <a href={STARCRAFT_DOWNLOAD_URL} target='_blank' rel='nofollow noreferrer noopener'>
