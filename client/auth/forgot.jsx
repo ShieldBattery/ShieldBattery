@@ -1,7 +1,5 @@
-import PropTypes from 'prop-types'
 import queryString from 'query-string'
-import React from 'react'
-import { connect } from 'react-redux'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   EMAIL_MAXLENGTH,
   EMAIL_MINLENGTH,
@@ -45,7 +43,9 @@ import {
 // can be used with class components to make the `t` function reactive, but making that work with
 // form validators here would be quite cumbersome, so this seemed easier until it gets replaced with
 // hooks.
-import { Trans } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { usePrevious, useStableCallback } from '../state-hooks'
 
 const emailValidator = composeValidators(
   required(t => t('auth.emailValidator.required', 'Enter an email address')),
@@ -62,102 +62,82 @@ const usernameValidator = composeValidators(
   ),
 )
 
-@connect(state => ({ auth: state.auth }))
-class ForgotFormHolder extends React.Component {
-  static propTypes = {
-    // The Form component class to render
-    form: PropTypes.func.isRequired,
-    title: PropTypes.string.isRequired,
-    model: PropTypes.object,
-    doSubmit: PropTypes.func.isRequired,
-    successMessage: PropTypes.string,
-  }
+function ForgotFormHolder(props) {
+  const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+  const auth = useAppSelector(state => state.auth)
 
-  state = {
-    reqId: null,
-    success: false,
-  }
-  _form = null
-  _setForm = elem => {
-    this._form = elem
-  }
+  const [reqId, setReqId] = useState()
+  const [success, setSuccess] = useState(false)
+  const formRef = useRef(null)
 
-  componentDidUpdate(prevProps) {
-    if (prevProps.auth.authChangeInProgress && !this.props.auth.authChangeInProgress) {
-      if (this.state.reqId && !this.props.auth.lastFailure) {
-        this._form.reset()
-        this.setState({ success: true })
+  const authChangeInProgress = auth.authChangeInProgress
+  const prevAuthChangeInProgress = usePrevious(authChangeInProgress)
+  const lastFailure = auth.lastFailure
+
+  useEffect(() => {
+    if (prevAuthChangeInProgress && !authChangeInProgress) {
+      if (reqId && !lastFailure) {
+        formRef.current.reset()
+        setSuccess(true)
       }
     }
-  }
+  }, [authChangeInProgress, lastFailure, prevAuthChangeInProgress, reqId])
 
-  render() {
-    const {
-      auth: { authChangeInProgress, lastFailure },
-      form: FormComponent,
-      model,
-      title,
-      successMessage,
-    } = this.props
-    let loadingContents
-    if (authChangeInProgress) {
-      loadingContents = (
-        <LoadingArea>
-          <LoadingIndicator />
-        </LoadingArea>
-      )
-    }
-    let errContents
-    const reqId = this.state.reqId
-    if (reqId && lastFailure && lastFailure.reqId === reqId) {
-      errContents = (
-        <ErrorsContainer>
-          <Trans t={t} i18nKey='auth.forgot.generalError'>
-            Error: {{ error: lastFailure.err }}
-          </Trans>
-        </ErrorsContainer>
-      )
-    }
-    const successContents =
-      this.state.success && successMessage ? (
-        <SuccessContainer>{successMessage}</SuccessContainer>
-      ) : null
+  const onBackClick = useStableCallback(() => {
+    push({ pathname: '/login' })
+  })
 
-    return (
-      <AuthContent>
-        <AuthContentContainer isLoading={authChangeInProgress}>
-          <AuthTitle as='h3'>{title}</AuthTitle>
-          <AuthBody>
-            {errContents}
-            {successContents}
-            <FormComponent ref={this._setForm} model={model || {}} onSubmit={this.onSubmit} />
-          </AuthBody>
-        </AuthContentContainer>
-        {loadingContents}
-        <AuthBottomAction>
-          <BottomActionButton
-            label={t('auth.forgot.backToLogin', 'Back to login')}
-            onClick={this.onBackClick}
-            tabIndex={1}
-          />
-        </AuthBottomAction>
-      </AuthContent>
+  const onSubmit = useStableCallback(() => {
+    const values = formRef.current.getModel()
+    const { id, action } = props.doSubmit(values)
+    setReqId(id)
+    setSuccess(false)
+    dispatch(action)
+  })
+
+  const { form: FormComponent, model, title, successMessage } = props
+  let loadingContents
+  if (authChangeInProgress) {
+    loadingContents = (
+      <LoadingArea>
+        <LoadingIndicator />
+      </LoadingArea>
     )
   }
-
-  onBackClick = () => {
-    push({ pathname: '/login' })
+  let errContents
+  if (reqId && lastFailure && lastFailure.reqId === reqId) {
+    errContents = (
+      <ErrorsContainer>
+        <Trans t={t} i18nKey='auth.forgot.generalError'>
+          Error: {{ error: lastFailure.err }}
+        </Trans>
+      </ErrorsContainer>
+    )
   }
+  const successContents =
+    success && successMessage ? <SuccessContainer>{successMessage}</SuccessContainer> : null
 
-  onSubmit = () => {
-    const values = this._form.getModel()
-    const { id, action } = this.props.doSubmit(values)
-    this.setState({
-      reqId: id,
-      success: false,
-    })
-    this.props.dispatch(action)
-  }
+  return (
+    <AuthContent>
+      <AuthContentContainer isLoading={authChangeInProgress}>
+        <AuthTitle as='h3'>{title}</AuthTitle>
+        <AuthBody>
+          {errContents}
+          {successContents}
+          <FormComponent ref={formRef} model={model || {}} onSubmit={onSubmit} t={t} />
+        </AuthBody>
+      </AuthContentContainer>
+      {loadingContents}
+      <AuthBottomAction>
+        <BottomActionButton
+          label={t('auth.forgot.backToLogin', 'Back to login')}
+          onClick={onBackClick}
+          tabIndex={1}
+        />
+      </AuthBottomAction>
+    </AuthContent>
+  )
 }
 
 @form({
@@ -170,12 +150,15 @@ class ForgotUserForm extends React.Component {
       <form noValidate={true} onSubmit={onSubmit}>
         <SubmitOnEnter />
         <p>
-          {t('auth.forgot.user.enterEmail', 'Please enter the email address you signed up with.')}
+          {this.props.t(
+            'auth.forgot.user.enterEmail',
+            'Please enter the email address you signed up with.',
+          )}
         </p>
         <FieldRow>
           <AuthTextField
             {...bindInput('email')}
-            label={t('auth.forgot.user.emailAddress', 'Email address')}
+            label={this.props.t('auth.forgot.user.emailAddress', 'Email address')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -187,7 +170,7 @@ class ForgotUserForm extends React.Component {
         </FieldRow>
         <FieldRow>
           <RaisedButton
-            label={t('auth.forgot.user.recoverUsername', 'Recover username')}
+            label={this.props.t('auth.forgot.user.recoverUsername', 'Recover username')}
             onClick={onSubmit}
             tabIndex={1}
           />
@@ -197,20 +180,23 @@ class ForgotUserForm extends React.Component {
   }
 }
 
-const FORGOT_USER_SUCCESS = t(
-  'auth.forgot.user.successMessage',
-  'If there are any users registered to that email address, you should ' +
-    'receive an email in the next few minutes with the relevant usernames.',
-)
 const doForgotUserSubmit = values => recoverUsername(values.email)
-export const ForgotUser = () => (
-  <ForgotFormHolder
-    form={ForgotUserForm}
-    title={t('auth.forgot.user.title', 'Recover your username')}
-    doSubmit={doForgotUserSubmit}
-    successMessage={FORGOT_USER_SUCCESS}
-  />
-)
+export function ForgotUser() {
+  const { t } = useTranslation()
+
+  return (
+    <ForgotFormHolder
+      form={ForgotUserForm}
+      title={t('auth.forgot.user.title', 'Recover your username')}
+      doSubmit={doForgotUserSubmit}
+      successMessage={t(
+        'auth.forgot.user.successMessage',
+        'If there are any users registered to that email address, you should ' +
+          'receive an email in the next few minutes with the relevant usernames.',
+      )}
+    />
+  )
+}
 
 @form({
   email: emailValidator,
@@ -225,7 +211,7 @@ class ForgotPasswordForm extends React.Component {
         <FieldRow>
           <AuthTextField
             {...bindInput('email')}
-            label={t('auth.forgot.password.emailAddress', 'Email address')}
+            label={this.props.t('auth.forgot.password.emailAddress', 'Email address')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -238,7 +224,7 @@ class ForgotPasswordForm extends React.Component {
         <FieldRow>
           <AuthTextField
             {...bindInput('username')}
-            label={t('auth.forgot.password.username', 'Username')}
+            label={this.props.t('auth.forgot.password.username', 'Username')}
             floatingLabel={true}
             inputProps={{
               tabIndex: 1,
@@ -250,7 +236,7 @@ class ForgotPasswordForm extends React.Component {
         </FieldRow>
         <FieldRow>
           <RaisedButton
-            label={t('auth.forgot.password.sendResetEmail', 'Send reset email')}
+            label={this.props.t('auth.forgot.password.sendResetEmail', 'Send reset email')}
             onClick={onSubmit}
             tabIndex={1}
           />
@@ -260,38 +246,35 @@ class ForgotPasswordForm extends React.Component {
   }
 }
 
-const FORGOT_PASSWORD_SUCCESS = t(
-  'auth.forgot.password.successMessage',
-  'If that email address and username match a registered account, ' +
-    'you should receive an email in the next few minutes with instructions on how to reset ' +
-    'your password.',
-)
 const doPasswordResetStart = values => startPasswordReset(values.username, values.email)
-export const ForgotPassword = () => (
-  <ForgotFormHolder
-    form={ForgotPasswordForm}
-    title={t('auth.forgot.password.title', 'Reset password')}
-    doSubmit={doPasswordResetStart}
-    successMessage={FORGOT_PASSWORD_SUCCESS}
-  />
-)
+export function ForgotPassword() {
+  const { t } = useTranslation()
 
-const tokenValidator = required(
+  return (
+    <ForgotFormHolder
+      form={ForgotPasswordForm}
+      title={t('auth.forgot.password.title', 'Reset password')}
+      doSubmit={doPasswordResetStart}
+      successMessage={t(
+        'auth.forgot.password.successMessage',
+        'If that email address and username match a registered account, ' +
+          'you should receive an email in the next few minutes with instructions on how to reset ' +
+          'your password.',
+      )}
+    />
+  )
+}
+
+const tokenValidator = required(t =>
   t('auth.passwordValidator.resetCode', 'Enter your password reset code'),
 )
 const passwordValidator = composeValidators(
-  required(t('auth.passwordValidator.required', 'Enter a password')),
-  minLength(
-    PASSWORD_MINLENGTH,
-    t('common.validators.minLength', {
-      defaultValue: `Enter at least {{minLength}} characters`,
-      minLength: PASSWORD_MINLENGTH,
-    }),
-  ),
+  required(t => t('auth.passwordValidator.required', 'Enter a password')),
+  minLength(PASSWORD_MINLENGTH),
 )
 const confirmPasswordValidator = composeValidators(
-  required(t('auth.passwordValidator.confirm', 'Confirm your password')),
-  matchesOther('password', t('auth.passwordValidator.matching', 'Enter a matching password')),
+  required(t => t('auth.passwordValidator.confirm', 'Confirm your password')),
+  matchesOther('password', t => t('auth.passwordValidator.matching', 'Enter a matching password')),
 )
 
 @form({
@@ -316,7 +299,7 @@ class ResetPasswordForm extends React.Component {
           <AuthTextField
             {...bindInput('username')}
             inputProps={textInputProps}
-            label={t('auth.forgot.reset.username', 'Username')}
+            label={this.props.t('auth.forgot.reset.username', 'Username')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -324,7 +307,7 @@ class ResetPasswordForm extends React.Component {
           <AuthTextField
             {...bindInput('token')}
             inputProps={textInputProps}
-            label={t('auth.forgot.reset.passwordCode', 'Password reset code')}
+            label={this.props.t('auth.forgot.reset.passwordCode', 'Password reset code')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -332,7 +315,7 @@ class ResetPasswordForm extends React.Component {
           <AuthPasswordTextField
             {...bindInput('password')}
             inputProps={textInputProps}
-            label={t('auth.forgot.reset.newPassword', 'New password')}
+            label={this.props.t('auth.forgot.reset.newPassword', 'New password')}
             floatingLabel={true}
           />
         </FieldRow>
@@ -340,13 +323,13 @@ class ResetPasswordForm extends React.Component {
           <AuthPasswordTextField
             {...bindInput('confirmPassword')}
             inputProps={textInputProps}
-            label={t('auth.forgot.reset.confirmPassword', 'Confirm new password')}
+            label={this.props.t('auth.forgot.reset.confirmPassword', 'Confirm new password')}
             floatingLabel={true}
           />
         </FieldRow>
         <FieldRow>
           <RaisedButton
-            label={t('auth.forgot.reset.setNewPassword', 'Set new password')}
+            label={this.props.t('auth.forgot.reset.setNewPassword', 'Set new password')}
             onClick={onSubmit}
             tabIndex={1}
           />
@@ -356,12 +339,9 @@ class ResetPasswordForm extends React.Component {
   }
 }
 
-const RESET_PASSWORD_SUCCESS = t(
-  'auth.forgot.reset.successMessage',
-  'Your password has been reset.',
-)
 const doPasswordReset = values => resetPassword(values.username, values.token, values.password)
-export const ResetPassword = () => {
+export function ResetPassword() {
+  const { t } = useTranslation()
   const model = queryString.parse(location.search)
   return (
     <ForgotFormHolder
@@ -369,7 +349,7 @@ export const ResetPassword = () => {
       model={model}
       title={t('auth.forgot.reset.title', 'Reset password')}
       doSubmit={doPasswordReset}
-      successMessage={RESET_PASSWORD_SUCCESS}
+      successMessage={t('auth.forgot.reset.successMessage', 'Your password has been reset.')}
     />
   )
 }

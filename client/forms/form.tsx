@@ -422,6 +422,9 @@ export default function formDecorator<ModelType extends Record<string, any>, Wra
       }
     }
 
-    return hoistNonReactStatics(withTranslation()(FormWrapperImpl), Wrapped) as any
+    return hoistNonReactStatics(
+      withTranslation(undefined, { withRef: true })(FormWrapperImpl),
+      Wrapped,
+    ) as any
   }
 }
