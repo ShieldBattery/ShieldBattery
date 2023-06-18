@@ -1,4 +1,6 @@
+import { TFunction } from 'i18next'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ConditionalKeys } from 'type-fest'
 import createDeferred, { Deferred } from '../../common/async/deferred'
 import shallowEquals from '../../common/shallow-equals'
@@ -94,11 +96,13 @@ export type SyncValidator<ValueType, ModelType> = (
   value: Readonly<ValueType>,
   model: Readonly<ModelType>,
   dirty: ReadonlyMap<keyof ModelType, boolean>,
+  t: TFunction,
 ) => string | undefined
 export type AsyncValidator<ValueType, ModelType> = (
   value: Readonly<ValueType>,
   model: Readonly<ModelType>,
   dirty: ReadonlyMap<keyof ModelType, boolean>,
+  t: TFunction,
 ) => Promise<string | undefined>
 
 export type Validator<ValueType, ModelType> =
@@ -138,6 +142,7 @@ export function useForm<ModelType>(
     onValidatedChange?: (model: Readonly<ModelType>) => void
   } = {},
 ): FormHook<ModelType> {
+  const { t } = useTranslation()
   const [modelValue, setModelValue] = useState(model)
   const stateModelRef = useRef(modelValue)
   const callbacksRef = useRef(callbacks)
@@ -164,6 +169,7 @@ export function useForm<ModelType>(
           stateModelRef.current[name],
           stateModelRef.current,
           dirtyFieldsRef.current,
+          t,
         ),
       ).then(errorMsg => {
         if (validationPromisesRef.current.get(name) !== resultPromise) {
@@ -187,7 +193,7 @@ export function useForm<ModelType>(
       }
       notifyValidationRef.current.length = 0
     },
-    [validations],
+    [t, validations],
   )
 
   const handleSubmit = useCallback(

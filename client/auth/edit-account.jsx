@@ -30,60 +30,25 @@ import { colorError } from '../styles/colors'
 import { subtitle1 } from '../styles/typography'
 import { updateAccount } from './action-creators'
 
-// TODO(2Pac): Use the `useTranslation` hook once this is moved over to a functional component. Note
-// that I'm using the global version of the `t` function here. react-i18next also exposes a HOC that
-// can be used with class components to make the `t` function reactive, but making that work with
-// form validators here would be quite cumbersome, so this seemed easier until it gets replaced with
-// hooks.
-import i18n from '../i18n/i18next'
-const t = i18n.t
-
 function passwordRequired() {
-  return (val, model, dirty) =>
+  return (val, model, dirty, t) =>
     (dirty.email || dirty.newPassword) && !val
       ? t('auth.passwordValidator.current', 'Enter your current password')
       : null
 }
 
 const emailValidator = composeValidators(
-  required(t('auth.emailValidator.required', 'Enter an email address')),
-  minLength(
-    EMAIL_MINLENGTH,
-    t('common.validators.minLength', {
-      defaultValue: `Enter at least {{minLength}} characters`,
-      minLength: EMAIL_MINLENGTH,
-    }),
-  ),
-  maxLength(
-    EMAIL_MAXLENGTH,
-    t('common.validators.maxLength', {
-      defaultValue: `Enter at most {{maxLength}} characters`,
-      maxLength: EMAIL_MAXLENGTH,
-    }),
-  ),
-  regex(EMAIL_PATTERN, t('auth.emailValidator.pattern', 'Enter a valid email address')),
+  required(t => t('auth.emailValidator.required', 'Enter an email address')),
+  minLength(EMAIL_MINLENGTH),
+  maxLength(EMAIL_MAXLENGTH),
+  regex(EMAIL_PATTERN, t => t('auth.emailValidator.pattern', 'Enter a valid email address')),
 )
-const passwordValidator = composeValidators(
-  passwordRequired(),
-  minLength(
-    PASSWORD_MINLENGTH,
-    t('common.validators.minLength', {
-      defaultValue: `Enter at least {{minLength}} characters`,
-      minLength: PASSWORD_MINLENGTH,
-    }),
-  ),
-)
-const newPasswordValidator = composeValidators(
-  minLength(
-    PASSWORD_MINLENGTH,
-    t('common.validators.minLength', {
-      defaultValue: `Enter at least {{minLength}} characters`,
-      minLength: PASSWORD_MINLENGTH,
-    }),
-  ),
-)
+const passwordValidator = composeValidators(passwordRequired(), minLength(PASSWORD_MINLENGTH))
+const newPasswordValidator = composeValidators(minLength(PASSWORD_MINLENGTH))
 const confirmNewPasswordValidator = composeValidators(
-  matchesOther('newPassword', t('auth.passwordValidator.matching', 'Enter a matching password')),
+  matchesOther('newPassword', t =>
+    t('auth.passwordValidator.matching', 'Enter a matching password'),
+  ),
 )
 
 @form({
@@ -274,7 +239,6 @@ export default class EditAccount extends React.Component {
         onClick={onCancel}
       />,
       <TextButton
-        ref={this._saveButton}
         label={t('common.actions.save', 'Save')}
         key='save'
         color='accent'

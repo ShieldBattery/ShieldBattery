@@ -86,7 +86,7 @@ const SectionHeader = styled.div`
 
 const lobbyNameValidator = composeValidators(
   required('Enter a lobby name'),
-  maxLength(LOBBY_NAME_MAXLENGTH, `Enter at most ${LOBBY_NAME_MAXLENGTH} characters`),
+  maxLength(LOBBY_NAME_MAXLENGTH),
 )
 const selectedMapValidator = required('Select a map to play')
 

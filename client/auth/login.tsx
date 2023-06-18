@@ -94,20 +94,8 @@ export function Login() {
     {
       username: composeValidators(
         required(t('auth.usernameValidator.required', 'Enter a username')),
-        minLength(
-          USERNAME_MINLENGTH,
-          t('common.validators.minLength', {
-            defaultValue: `Enter at least {{minLength}} characters`,
-            minLength: USERNAME_MINLENGTH,
-          }),
-        ),
-        maxLength(
-          USERNAME_MAXLENGTH,
-          t('common.validators.maxLength', {
-            defaultValue: `Enter at most {{maxLength}} characters`,
-            maxLength: USERNAME_MAXLENGTH,
-          }),
-        ),
+        minLength(USERNAME_MINLENGTH),
+        maxLength(USERNAME_MAXLENGTH),
         regex(
           USERNAME_PATTERN,
           t('auth.usernameValidator.pattern', 'Username contains invalid characters'),
@@ -115,13 +103,7 @@ export function Login() {
       ),
       password: composeValidators(
         required(t('auth.passwordValidator.required', 'Enter a password')),
-        minLength(
-          PASSWORD_MINLENGTH,
-          t('common.validators.minLength', {
-            defaultValue: `Enter at least {{minLength}} characters`,
-            minLength: PASSWORD_MINLENGTH,
-          }),
-        ),
+        minLength(PASSWORD_MINLENGTH),
       ),
     },
     { onSubmit: onFormSubmit },

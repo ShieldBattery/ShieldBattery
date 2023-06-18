@@ -1,5 +1,7 @@
 import hoistNonReactStatics from 'hoist-non-react-statics'
+import { TFunction } from 'i18next'
 import React from 'react'
+import { withTranslation } from 'react-i18next'
 import { ConditionalKeys } from 'type-fest'
 import createDeferred, { Deferred } from '../../common/async/deferred'
 import shallowEquals from '../../common/shallow-equals'
@@ -12,11 +14,13 @@ export type SyncValidator<ValueType, ModelType> = (
   value: ValueType,
   model: ModelType,
   dirty: Partial<Record<keyof ModelType, boolean>>,
+  t: TFunction,
 ) => string | false | null | undefined
 export type AsyncValidator<ValueType, ModelType> = (
   value: ValueType,
   model: ModelType,
   dirty: Partial<Record<keyof ModelType, boolean>>,
+  t: TFunction,
 ) => Promise<string | false | null | undefined>
 
 export type Validator<ValueType, ModelType> =
@@ -150,7 +154,7 @@ export default function formDecorator<ModelType extends Record<string, any>, Wra
   ): React.ComponentClass<WrappedProps & FormWrapperProps<ModelType>> & FormWrapper<ModelType> => {
     class FormWrapperImpl
       extends React.Component<
-        WrappedProps & FormWrapperProps<ModelType>,
+        WrappedProps & FormWrapperProps<ModelType> & { t: TFunction },
         FormWrapperState<ModelType>
       >
       implements FormWrapper<ModelType>
@@ -245,7 +249,12 @@ export default function formDecorator<ModelType extends Record<string, any>, Wra
       validate(name: keyof ModelType) {
         if (validations.hasOwnProperty(name)) {
           const resultPromise = Promise.resolve(
-            validations[name]!(this.state.model[name], this.state.model, this.state.dirty),
+            validations[name]!(
+              this.state.model[name],
+              this.state.model,
+              this.state.dirty,
+              this.props.t,
+            ),
           )
           this.validationPromises[name] = resultPromise
           resultPromise.then(errorMsg => {
@@ -413,6 +422,6 @@ export default function formDecorator<ModelType extends Record<string, any>, Wra
       }
     }
 
-    return hoistNonReactStatics(FormWrapperImpl, Wrapped) as any
+    return hoistNonReactStatics(withTranslation()(FormWrapperImpl), Wrapped) as any
   }
 }

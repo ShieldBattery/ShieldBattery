@@ -60,13 +60,7 @@ export function CreateChannel() {
     {
       channel: composeValidators(
         required(t('chat.channelValidator.required', 'Enter a channel name')),
-        maxLength(
-          CHANNEL_MAXLENGTH,
-          t('common.validators.maxLength', {
-            defaultValue: `Enter at most {{maxLength}} characters`,
-            maxLength: CHANNEL_MAXLENGTH,
-          }),
-        ),
+        maxLength(CHANNEL_MAXLENGTH),
         regex(
           CHANNEL_PATTERN,
           t('chat.channelValidator.pattern', 'Channel name contains invalid characters'),

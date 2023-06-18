@@ -46,45 +46,18 @@ import {
 // form validators here would be quite cumbersome, so this seemed easier until it gets replaced with
 // hooks.
 import { Trans } from 'react-i18next'
-import i18n from '../i18n/i18next'
-const t = i18n.t
 
 const emailValidator = composeValidators(
-  required(t('auth.emailValidator.required', 'Enter an email address')),
-  minLength(
-    EMAIL_MINLENGTH,
-    t('common.validators.minLength', {
-      defaultValue: `Enter at least {{minLength}} characters`,
-      minLength: EMAIL_MINLENGTH,
-    }),
-  ),
-  maxLength(
-    EMAIL_MAXLENGTH,
-    t('common.validators.maxLength', {
-      defaultValue: `Enter at most {{maxLength}} characters`,
-      maxLength: EMAIL_MAXLENGTH,
-    }),
-  ),
-  regex(EMAIL_PATTERN, t('auth.emailValidator.pattern', 'Enter a valid email address')),
+  required(t => t('auth.emailValidator.required', 'Enter an email address')),
+  minLength(EMAIL_MINLENGTH),
+  maxLength(EMAIL_MAXLENGTH),
+  regex(EMAIL_PATTERN, t => t('auth.emailValidator.pattern', 'Enter a valid email address')),
 )
 const usernameValidator = composeValidators(
-  required(t('auth.usernameValidator.required', 'Enter a username')),
-  minLength(
-    USERNAME_MINLENGTH,
-    t('common.validators.minLength', {
-      defaultValue: `Enter at least {{minLength}} characters`,
-      minLength: USERNAME_MINLENGTH,
-    }),
-  ),
-  maxLength(
-    USERNAME_MAXLENGTH,
-    t('common.validators.maxLength', {
-      defaultValue: `Enter at most {{maxLength}} characters`,
-      maxLength: USERNAME_MAXLENGTH,
-    }),
-  ),
-  regex(
-    USERNAME_PATTERN,
+  required(t => t('auth.usernameValidator.required', 'Enter a username')),
+  minLength(USERNAME_MINLENGTH),
+  maxLength(USERNAME_MAXLENGTH),
+  regex(USERNAME_PATTERN, t =>
     t('auth.usernameValidator.pattern', 'Username contains invalid characters'),
   ),
 )

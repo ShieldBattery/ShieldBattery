@@ -10,7 +10,7 @@ import { TextField } from '../material/text-field'
 import { useAppDispatch } from '../redux-hooks'
 import { inviteToParty } from './action-creators'
 
-const userValidator = composeValidators(
+const userValidator = composeValidators<string, InviteUsersModel>(
   required('Enter a username'),
   minLength(USERNAME_MINLENGTH),
   maxLength(USERNAME_MAXLENGTH),
@@ -46,7 +46,7 @@ export function PartyInviteDialog({
 
   const { onSubmit: handleSubmit, bindInput } = useForm<InviteUsersModel>(
     { user: '' },
-    { user: value => userValidator(value) },
+    { user: (...args) => userValidator(...args) },
     { onSubmit: onFormSubmit },
   )
 

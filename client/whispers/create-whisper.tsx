@@ -27,8 +27,8 @@ const ErrorText = styled.div`
 
 const usernameValidator = composeValidators(
   required('Enter a username'),
-  minLength(USERNAME_MINLENGTH, `Enter at least ${USERNAME_MINLENGTH} characters`),
-  maxLength(USERNAME_MAXLENGTH, `Enter at most ${USERNAME_MAXLENGTH} characters`),
+  minLength(USERNAME_MINLENGTH),
+  maxLength(USERNAME_MAXLENGTH),
   regex(USERNAME_PATTERN, 'Username contains invalid characters'),
 )
 

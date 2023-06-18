@@ -13,11 +13,11 @@ import {
 } from '../../common/constants'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import { useForm } from '../forms/form-hook'
+import { Validator, useForm } from '../forms/form-hook'
 import SubmitOnEnter from '../forms/submit-on-enter'
 import {
   composeValidators,
-  debounce,
+  debounceValidator,
   matchesOther,
   maxLength,
   minLength,
@@ -135,6 +135,25 @@ interface SignupModel {
   policyAgreement: boolean
 }
 
+function usernameAvailableValidator(): Validator<string, SignupModel> {
+  return debounceValidator(async (username, _model, _dirty, t) => {
+    try {
+      // TODO(2Pac): Share the response type here with the server API once that's moved to the new
+      // API setup.
+      const result = await fetchJson<{ username: string; available: boolean }>(
+        `/api/1/usernameAvailability/${encodeURIComponent(username)}`,
+      )
+      if (result.available) {
+        return undefined
+      }
+    } catch (ignored) {
+      // TODO(tec27): handle non-404 errors differently
+    }
+
+    return t('auth.usernameValidator.taken', 'Username is already taken')
+  }, 250)
+}
+
 export function Signup() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -147,24 +166,7 @@ export function Signup() {
     redirectIfLoggedIn({ auth })
   }, [auth])
 
-  const usernameAvailable = useRef(
-    debounce(async (username: string) => {
-      try {
-        // TODO(2Pac): Share the response type here with the server API once that's moved to the new
-        // API setup.
-        const result = await fetchJson<{ username: string; available: boolean }>(
-          `/api/1/usernameAvailability/${encodeURIComponent(username)}`,
-        )
-        if (result.available) {
-          return null
-        }
-      } catch (ignored) {
-        // TODO(tec27): handle non-404 errors differently
-      }
-
-      return t('auth.usernameValidator.taken', 'Username is already taken')
-    }, 250),
-  )
+  const [usernameAvailable] = useState(() => usernameAvailableValidator())
 
   const abortControllerRef = useRef<AbortController>()
 
@@ -208,60 +210,30 @@ export function Signup() {
     {
       username: composeValidators(
         required(t('auth.usernameValidator.required', 'Enter a username')),
-        minLength(
-          USERNAME_MINLENGTH,
-          t('common.validators.minLength', {
-            defaultValue: `Enter at least {{minLength}} characters`,
-            minLength: USERNAME_MINLENGTH,
-          }),
-        ),
-        maxLength(
-          USERNAME_MAXLENGTH,
-          t('common.validators.maxLength', {
-            defaultValue: `Enter at most {{maxLength}} characters`,
-            maxLength: USERNAME_MAXLENGTH,
-          }),
-        ),
+        minLength(USERNAME_MINLENGTH),
+        maxLength(USERNAME_MAXLENGTH),
         regex(
           USERNAME_PATTERN,
           t('auth.usernameValidator.pattern', 'Username contains invalid characters'),
         ),
-        usernameAvailable.current,
+        usernameAvailable,
       ),
       email: composeValidators(
         required(t('auth.emailValidator.required', 'Enter an email address')),
-        minLength(
-          EMAIL_MINLENGTH,
-          t('common.validators.minLength', {
-            defaultValue: `Enter at least {{minLength}} characters`,
-            minLength: EMAIL_MINLENGTH,
-          }),
-        ),
-        maxLength(
-          EMAIL_MAXLENGTH,
-          t('common.validators.maxLength', {
-            defaultValue: `Enter at most {{maxLength}} characters`,
-            maxLength: EMAIL_MAXLENGTH,
-          }),
-        ),
+        minLength(EMAIL_MINLENGTH),
+        maxLength(EMAIL_MAXLENGTH),
         regex(EMAIL_PATTERN, t('auth.emailValidator.pattern', 'Enter a valid email address')),
       ),
       password: composeValidators(
         required(t('auth.passwordValidator.required', 'Enter a password')),
-        minLength(
-          PASSWORD_MINLENGTH,
-          t('common.validators.minLength', {
-            defaultValue: `Enter at least {{minLength}} characters`,
-            minLength: PASSWORD_MINLENGTH,
-          }),
-        ),
+        minLength(PASSWORD_MINLENGTH),
       ),
       confirmPassword: composeValidators(
         required(t('auth.passwordValidator.confirm', 'Confirm your password')),
         matchesOther('password', t('auth.passwordValidator.matching', 'Enter a matching password')),
       ),
-      ageConfirmation: requireChecked(t('common.validators.required', 'Required')),
-      policyAgreement: requireChecked(t('common.validators.required', 'Required')),
+      ageConfirmation: requireChecked(),
+      policyAgreement: requireChecked(),
     },
     { onSubmit: onFormSubmit },
   )
