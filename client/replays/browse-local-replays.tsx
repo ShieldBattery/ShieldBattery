@@ -269,7 +269,7 @@ export function ReplayExpansionPanel({ file }: ExpansionPanelProps) {
   if (parseError) {
     content = (
       <ErrorText>
-        {t('replays.local.parseError', 'There was an error parsing the replay')}
+        {t('replays.local.loadingError', 'There was a problem loading the replay')}
       </ErrorText>
     )
   } else if (!replayMetadata) {

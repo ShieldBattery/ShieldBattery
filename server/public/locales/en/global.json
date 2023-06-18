@@ -230,11 +230,13 @@
       "back": "Back",
       "cancel": "Cancel",
       "continue": "Continue",
+      "hide": "Hide",
       "join": "Join",
       "okay": "Okay",
       "refresh": "Refresh",
       "save": "Save",
       "search": "Search",
+      "show": "Show",
       "view": "View"
     },
     "validators": {
@@ -372,11 +374,9 @@
   },
   "messaging": {
     "blockedMessage": "Blocked message",
-    "hideBlockedMessage": "Hide",
     "mention": "Mention",
     "newDayMessage": "Day changed to <2>{{day}}</2>",
-    "sendMessage": "Send a message",
-    "showBlockedMessage": "Show"
+    "sendMessage": "Send a message"
   },
   "network": {
     "connecting": "Connecting…"
@@ -391,7 +391,7 @@
     "local": {
       "duration": "Duration: {{durationStr}}",
       "gameType": "Game type: {{gameTypeLabel}}",
-      "parseError": "There was an error parsing the replay",
+      "loadingError": "There was a problem loading the replay",
       "rootFolderName": "Replays",
       "title": "Local Replays",
       "watchReplay": "Watch replay"
@@ -442,7 +442,7 @@
   },
   "windowControls": {
     "close": "Close",
-    "maximize": "Maximize/Restore",
+    "maximizeRestore": "Maximize/Restore",
     "minimize": "Minimize"
   }
 }

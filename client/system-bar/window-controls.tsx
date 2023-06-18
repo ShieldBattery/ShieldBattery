@@ -151,7 +151,7 @@ export function WindowControls() {
         <CloseIcon />
       </CloseButton>
       <MaximizeRestoreButton
-        title={t('windowControls.maximize', 'Maximize/Restore')}
+        title={t('windowControls.maximizeRestore', 'Maximize/Restore')}
         onClick={onMaximizeClick}>
         <StyledMaximizeIcon />
         <StyledRestoreIcon />

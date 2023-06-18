@@ -223,9 +223,7 @@ export const BlockedMessage = React.memo<{
         <BlockedText>{t('messaging.blockedMessage', 'Blocked message')}</BlockedText>
         <BlockedDivider>&mdash;</BlockedDivider>
         <ShowHideLink onClick={() => setShow(!show)}>
-          {show
-            ? t('messaging.hideBlockedMessage', 'Hide')
-            : t('messaging.showBlockedMessage', 'Show')}
+          {show ? t('common.actions.hide', 'Hide') : t('common.actions.show', 'Show')}
         </ShowHideLink>
       </TimestampMessageLayout>
       {show ? (
