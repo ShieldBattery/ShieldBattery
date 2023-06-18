@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
 import { body2 } from '../styles/typography'
@@ -33,16 +34,21 @@ const BottomLinksList = styled.ul`
 `
 
 export function BottomLinks() {
+  const { t } = useTranslation()
   return (
     <BottomLinksList>
       <li>
-        <Link href='/privacy'>Privacy Policy</Link>
+        <Link href='/privacy'>{t('landing.bottomLinks.privacyPolicy', 'Privacy Policy')}</Link>
       </li>
       <li>
-        <Link href='/terms-of-service'>Terms of Service</Link>
+        <Link href='/terms-of-service'>
+          {t('landing.bottomLinks.termsOfService', 'Terms of Service')}
+        </Link>
       </li>
       <li>
-        <Link href='/acceptable-use'>Acceptable Use Policy</Link>
+        <Link href='/acceptable-use'>
+          {t('landing.bottomLinks.acceptableUsePolicy', 'Acceptable Use Policy')}
+        </Link>
       </li>
     </BottomLinksList>
   )
