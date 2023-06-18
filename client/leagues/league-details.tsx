@@ -446,7 +446,9 @@ export function LeagueDetailsInfo({ league }: LeagueDetailsInfoProps) {
       </InfoSection>
       {league.rulesAndInfo ? (
         <InfoSection>
-          <InfoSectionHeader>{t('', 'Rules and info')}</InfoSectionHeader>
+          <InfoSectionHeader>
+            {t('league.details.rulesAndInfo', 'Rules and info')}
+          </InfoSectionHeader>
           <div>
             <StyledMarkdown source={league.rulesAndInfo} />
           </div>

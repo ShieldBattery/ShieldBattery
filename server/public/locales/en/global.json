@@ -473,7 +473,8 @@
       "leagueJoined": "League joined",
       "noPlayers": "No matching players.",
       "notFound": "League not found",
-      "retrieveError": "There was an error retrieving this league: {{errorMessage}}"
+      "retrieveError": "There was an error retrieving this league: {{errorMessage}}",
+      "rulesAndInfo": "Rules and info"
     },
     "explainer": {
       "description": "Leagues are a new way to compete for prizes, qualify for tournament entries, and more!",
