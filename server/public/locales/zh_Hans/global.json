@@ -1,8 +1,6 @@
 {
     "common": {
-        "playerNameUnknown": "未知玩家",
         "gameResultUnknown": "未知",
-        "mapNameUnknown": "未知地图",
         "validators": {
             "maxLength": "最多输入 {{maxLength}} 个字符",
             "minLength": "至少输入 {{minLength}} 个字符",
@@ -14,17 +12,12 @@
             "continue": "继续",
             "okay": "好的",
             "save": "节省"
-        },
-        "race": {
-            "zerg": "虫族"
         }
     },
     "games": {
         "results": {
             "buttonSearchAgain": "再次搜索",
-            "headlineDraw": "画！",
             "infoDuration": "期间",
-            "statusFinal": "最终的",
             "tabSummary": "概括"
         }
     },

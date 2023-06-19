@@ -1,8 +1,6 @@
 {
     "common": {
-        "gameResultUnknown": "알려지지 않은",
         "mapNameUnknown": "알 수 없는 지도",
-        "playerNameUnknown": "알 수 없는 플레이어",
         "validators": {
             "maxLength": "최대 {{maxLength}}자까지 입력하세요.",
             "minLength": "{{minLength}}자 이상 입력하세요.",
@@ -14,17 +12,12 @@
             "continue": "계속하다",
             "okay": "좋아요",
             "save": "구하다"
-        },
-        "race": {
-            "zerg": "저그"
         }
     },
     "games": {
         "results": {
             "buttonSearchAgain": "다시 검색",
-            "headlineDraw": "무승부!",
-            "infoDuration": "지속",
-            "statusFinal": "결정적인"
+            "infoDuration": "지속"
         },
         "miniMatchHistory": {
             "noGameSelectedText": "선택한 게임 없음"

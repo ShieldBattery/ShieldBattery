@@ -20,11 +20,6 @@
             "download": "$Download!"
         }
     },
-    "games": {
-        "results": {
-            "infoGameType": "$Type!"
-        }
-    },
     "settings": {
         "app": {
             "system": {

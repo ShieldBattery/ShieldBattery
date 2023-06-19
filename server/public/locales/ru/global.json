@@ -1,8 +1,6 @@
 {
     "common": {
-        "emptyListMessage": "Здесь ничего нет",
         "gameTypeRanked": "Рейтинговый {{matchmakingType}}",
-        "gameResultUnknown": "Результат неизвестен",
         "validators": {
             "maxLength": "Введите не более {{maxLength}} символов",
             "minLength": "Введите не менее {{minLength}} символов",
@@ -14,17 +12,12 @@
             "okay": "Хорошо",
             "save": "Сохранять",
             "back": "Назад"
-        },
-        "race": {
-            "zerg": "зерги"
         }
     },
     "games": {
         "results": {
             "infoDate": "Дата",
-            "tabStats": "Статистика",
-            "headlineDraw": "Ничья!",
-            "statusFinal": "Финал"
+            "headlineDraw": "Ничья!"
         },
         "miniMatchHistory": {
             "noGameSelectedText": "Игра не выбрана"

@@ -1,8 +1,6 @@
 {
     "common": {
-        "gameResultUnknown": "Desconocido",
         "mapNameUnknown": "mapa desconocido",
-        "playerNameUnknown": "jugador desconocido",
         "validators": {
             "maxLength": "Ingrese como máximo {{maxLength}} caracteres",
             "minLength": "Ingrese al menos {{minLength}} caracteres",
@@ -16,17 +14,12 @@
             "save": "Ahorrar",
             "join": "Unirse",
             "view": "Vista"
-        },
-        "race": {
-            "zerg": "zerg"
         }
     },
     "games": {
         "results": {
             "headlineInProgress": "En progreso…",
-            "headlineDraw": "¡Empate!",
             "infoGameType": "Tipo",
-            "statusLive": "En vivo",
             "buttonCopyLink": "Copiar enlace al juego"
         }
     },
