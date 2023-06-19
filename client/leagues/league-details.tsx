@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Helmet } from 'react-helmet'
+import { Trans, useTranslation } from 'react-i18next'
 import { TableVirtuoso } from 'react-virtuoso'
 import slug from 'slug'
 import styled from 'styled-components'
@@ -219,6 +220,7 @@ export interface LeagueDetailsProps {
 }
 
 export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const [isFetching, setIsFetching] = useState(false)
   const [error, setError] = useState<Error>()
@@ -240,20 +242,26 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
       joinLeague(id, {
         onSuccess() {
           setIsJoining(false)
-          dispatch(openSnackbar({ message: 'League joined' }))
+          dispatch(openSnackbar({ message: t('league.details.leagueJoined', 'League joined') }))
         },
         onError(err) {
           setIsJoining(false)
           if (isFetchError(err) && err.code === LeagueErrorCode.AlreadyEnded) {
             dispatch(
-              openSnackbar({ message: "Couldn't join because the league has already ended" }),
+              openSnackbar({
+                message: t(
+                  'league.details.leagueEndedError',
+                  "Couldn't join because the league has already ended",
+                ),
+              }),
             )
           } else {
             dispatch(
               openSnackbar({
-                message: `Couldn't join league: ${
-                  isFetchError(err) ? err.statusText : err.message
-                }`,
+                message: t('league.details.joinError', {
+                  defaultValue: "Couldn't join league: {{errorMessage}}",
+                  errorMessage: isFetchError(err) ? err.statusText : err.message,
+                }),
               }),
             )
           }
@@ -296,19 +304,21 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
     if (isFetchError(error) && error.code === LeagueErrorCode.NotFound) {
       return (
         <ErrorLayout>
-          <ErrorText>League not found</ErrorText>
-          <Link href='/leagues'>Go back to list</Link>
+          <ErrorText>{t('league.details.notFound', 'League not found')}</ErrorText>
+          <Link href='/leagues'>{t('league.details.goBack', 'Go back to list')}</Link>
         </ErrorLayout>
       )
     } else {
       return (
         <ErrorLayout>
           <ErrorText>
-            There was an error retrieving this league:{' '}
-            {(error as any).statusText ?? error.toString()}
+            <Trans t={t} i18nKey='league.details.retrieveError'>
+              There was an error retrieving this league:{' '}
+              {{ errorMessage: (error as any).statusText ?? error.toString() }}
+            </Trans>
           </ErrorText>
 
-          <Link href='/leagues'>Go back to list</Link>
+          <Link href='/leagues'>{t('league.details.goBack', 'Go back to list')}</Link>
         </ErrorLayout>
       )
     }
@@ -348,16 +358,23 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
       <LeagueDetailsHeader league={league} />
       <TabsAndJoin>
         <Tabs activeTab={activeTab} onChange={onTabChange}>
-          <TabItem value={DetailsSubPage.Info} text='Info' />
+          <TabItem value={DetailsSubPage.Info} text={t('league.details.info', 'Info')} />
           {isRunningOrEnded ? (
-            <TabItem value={DetailsSubPage.Leaderboard} text='Leaderboard' />
+            <TabItem
+              value={DetailsSubPage.Leaderboard}
+              text={t('league.details.leaderboard', 'Leaderboard')}
+            />
           ) : (
             <></>
           )}
         </Tabs>
         {(isJoinable || selfLeagueUser) && (!isFetching || selfLeagueUser) ? (
           <RaisedButton
-            label={selfLeagueUser ? 'Joined' : 'Join'}
+            label={
+              selfLeagueUser
+                ? t('league.details.joined', 'Joined')
+                : t('common.actions.join', 'Join')
+            }
             disabled={!!selfLeagueUser || isJoining}
             onClick={onJoinClick}
           />
@@ -373,11 +390,18 @@ export interface LeagueDetailsHeaderProps {
 }
 
 export function LeagueDetailsHeader({ league }: LeagueDetailsHeaderProps) {
+  const { t } = useTranslation()
   // TODO(tec27): Handle cases where year differs to smartly show that info
-  const dateText = `${monthDay.format(league.startAt)} to ${monthDay.format(league.endAt)}`
-  const dateTooltip = `${longTimestamp.format(league.startAt)} to ${longTimestamp.format(
-    league.endAt,
-  )}`
+  const dateText = t('league.details.dateText', {
+    defaultValue: `{{startDate}} to {{endDate}}`,
+    startDate: monthDay.format(league.startAt),
+    endDate: monthDay.format(league.endAt),
+  })
+  const dateTooltip = t('league.details.dateText', {
+    defaultValue: `{{startDate}} to {{endDate}}`,
+    startDate: longTimestamp.format(league.startAt),
+    endDate: longTimestamp.format(league.endAt),
+  })
 
   return (
     <InfoRoot>
@@ -385,11 +409,14 @@ export function LeagueDetailsHeader({ league }: LeagueDetailsHeaderProps) {
       <TitleAndSummary>
         <TitleRow>
           <Title>{league.name}</Title>
-          <CopyLinkButton tooltipPosition='right' startingText='Copy link to league' />
+          <CopyLinkButton
+            tooltipPosition='right'
+            startingText={t('league.details.copyLink', 'Copy link to league')}
+          />
         </TitleRow>
         <SummaryRow>
           <FormatAndDate>
-            {matchmakingTypeToLabel(league.matchmakingType)} ·{' '}
+            {matchmakingTypeToLabel(league.matchmakingType, t)} ·{' '}
             <DateTooltip text={dateTooltip} position={'right'}>
               {dateText}
             </DateTooltip>
@@ -407,18 +434,21 @@ export interface LeagueDetailsInfoProps {
 }
 
 export function LeagueDetailsInfo({ league }: LeagueDetailsInfoProps) {
+  const { t } = useTranslation()
   return (
     <>
       <LeagueImageContainer>
         {league.imagePath ? <LeagueImage src={league.imagePath} /> : <LeaguePlaceholderImage />}
       </LeagueImageContainer>
       <InfoSection>
-        <InfoSectionHeader>About</InfoSectionHeader>
+        <InfoSectionHeader>{t('league.details.about', 'About')}</InfoSectionHeader>
         <div>{league.description}</div>
       </InfoSection>
       {league.rulesAndInfo ? (
         <InfoSection>
-          <InfoSectionHeader>Rules and info</InfoSectionHeader>
+          <InfoSectionHeader>
+            {t('league.details.rulesAndInfo', 'Rules and info')}
+          </InfoSectionHeader>
           <div>
             <StyledMarkdown source={league.rulesAndInfo} />
           </div>
@@ -561,13 +591,16 @@ function LeaderboardAndMargin({ children }: { children?: React.ReactNode }) {
 }
 
 function LeaderboardHeader() {
+  const { t } = useTranslation()
   return (
     <>
-      <RankCell>Rank</RankCell>
-      <PlayerCell>Player</PlayerCell>
-      <PointsCell>Points</PointsCell>
-      <WinLossCell>Win/loss</WinLossCell>
-      <LastPlayedCell>Last played</LastPlayedCell>
+      <RankCell>{t('league.details.leaderBoardHeader.rank', 'Rank')}</RankCell>
+      <PlayerCell>{t('league.details.leaderBoardHeader.player', 'Player')}</PlayerCell>
+      <PointsCell>{t('league.details.leaderBoardHeader.points', 'Points')}</PointsCell>
+      <WinLossCell>{t('league.details.leaderBoardHeader.winLoss', 'Win/loss')}</WinLossCell>
+      <LastPlayedCell>
+        {t('league.details.leaderBoardHeader.lastPlayed', 'Last played')}
+      </LastPlayedCell>
     </>
   )
 }
@@ -584,6 +617,7 @@ function Leaderboard({
   league: ReadonlyDeep<LeagueJson>
   container: HTMLElement | null
 }) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const leaderboard = useAppSelector(s => s.leagues.leaderboard.get(league.id))
   const leaderboardUsers = useAppSelector(s => s.leagues.leaderboardUsers.get(league.id))
@@ -643,8 +677,10 @@ function Leaderboard({
     <>
       {error ? (
         <LeaderboardError>
-          There was a problem retrieving the leaderboard:{' '}
-          {isFetchError(error) ? error.statusText : error.message}
+          <Trans t={t} i18nKey='league.details.leaderboardError'>
+            There was a problem retrieving the leaderboard:{' '}
+            {{ errorMessage: isFetchError(error) ? error.statusText : error.message }}
+          </Trans>
         </LeaderboardError>
       ) : undefined}
       {topHeaderNode}
@@ -669,7 +705,7 @@ function Leaderboard({
               itemContent={renderRow}
             />
           ) : (
-            <EmptyText>No matching players.</EmptyText>
+            <EmptyText>{t('league.details.noPlayers', 'No matching players.')}</EmptyText>
           )}
         </>
       ) : (
@@ -707,6 +743,8 @@ const PlayerRace = styled.div<{ $race: RaceChar }>`
 
 const LeaderboardRow = React.memo(
   ({ entry: { rank, leagueUser }, curTime }: { entry: LeaderboardEntry; curTime: number }) => {
+    const { t } = useTranslation()
+
     const raceStats: Array<[number, RaceChar]> = [
       [leagueUser.pWins + leagueUser.pLosses, 'p'],
       [leagueUser.tWins + leagueUser.tLosses, 't'],
@@ -723,7 +761,7 @@ const LeaderboardRow = React.memo(
           <StyledAvatar userId={leagueUser.userId} />
           <PlayerNameAndRace>
             <PlayerName userId={leagueUser.userId} />
-            <PlayerRace $race={mostPlayedRace}>{raceCharToLabel(mostPlayedRace)}</PlayerRace>
+            <PlayerRace $race={mostPlayedRace}>{raceCharToLabel(mostPlayedRace, t)}</PlayerRace>
           </PlayerNameAndRace>
         </PlayerCell>
         <PointsCell>{Math.round(leagueUser.points)}</PointsCell>

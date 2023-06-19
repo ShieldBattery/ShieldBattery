@@ -1,4 +1,5 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { Link, Route, Switch } from 'wouter'
@@ -76,6 +77,7 @@ export enum LeagueSectionType {
 }
 
 function LeagueList() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const isAdmin = useAppSelector(s => hasAnyPermission(s.auth, 'manageLeagues'))
   const { past, current, future, byId, selfLeagues } = useAppSelector(s => s.leagues)
@@ -129,19 +131,23 @@ function LeagueList() {
   return (
     <ListRoot>
       <TitleRow>
-        <Title>Leagues</Title>
-        {isAdmin ? <Link href='/leagues/admin'>Manage leagues</Link> : null}
+        <Title>{t('league.list.pageHeadline', 'Leagues')}</Title>
+        {isAdmin ? (
+          <Link href='/leagues/admin'>{t('league.list.manageLeagues', 'Manage leagues')}</Link>
+        ) : null}
         <FlexSpacer />
         <Link href='#' onClick={onHowItWorksClick}>
-          How do leagues work?
+          {t('league.list.howDoLeaguesWork', 'How do leagues work?')}
         </Link>
       </TitleRow>
 
-      {!isLoading && error ? <ErrorText>Error loading leagues</ErrorText> : null}
+      {!isLoading && error ? (
+        <ErrorText>{t('league.list.loadingError', 'Error loading leagues')}</ErrorText>
+      ) : null}
 
       {!isLoading || currentLeagues.length ? (
         <LeagueSection
-          label='Currently running'
+          label={t('league.list.currentlyRunning', 'Currently running')}
           leagues={currentLeagues}
           joinedLeagues={selfLeagues}
           type={LeagueSectionType.Current}
@@ -149,7 +155,7 @@ function LeagueList() {
       ) : undefined}
       {futureLeagues.length ? (
         <LeagueSection
-          label='Accepting signups'
+          label={t('league.list.acceptingSignups', 'Accepting signups')}
           leagues={futureLeagues}
           joinedLeagues={selfLeagues}
           type={LeagueSectionType.Future}
@@ -157,7 +163,7 @@ function LeagueList() {
       ) : null}
       {pastLeagues.length ? (
         <LeagueSection
-          label='Finished'
+          label={t('league.list.finished', 'Finished')}
           leagues={pastLeagues}
           joinedLeagues={selfLeagues}
           type={LeagueSectionType.Past}
@@ -204,6 +210,7 @@ function LeagueSection({
   joinedLeagues: ReadonlyDeep<Map<LeagueId, ClientLeagueUserJson>>
   type: LeagueSectionType
 }) {
+  const { t } = useTranslation()
   const curDate = Date.now()
 
   const onViewInfo = useStableCallback((league: LeagueJson) => navigateToLeague(league.id, league))
@@ -220,12 +227,12 @@ function LeagueSection({
               type={type}
               curDate={curDate}
               joined={joinedLeagues.has(l.id)}
-              actionText={'View info'}
+              actionText={t('league.list.viewInfo', 'View info')}
               onClick={onViewInfo}
             />
           ))
         ) : (
-          <EmptyText>No matching leagues</EmptyText>
+          <EmptyText>{t('league.list.noLeagues', 'No matching leagues')}</EmptyText>
         )}
       </SectionCards>
     </SectionRoot>
@@ -323,17 +330,24 @@ export function LeagueCard({
   actionText: string
   onClick: (league: ReadonlyDeep<LeagueJson>) => void
 }) {
+  const { t } = useTranslation()
   const [buttonProps, rippleRef] = useButtonState({ onClick: () => onClick(league) })
 
   let dateText: string
   let dateTooltip: string
   switch (type) {
     case LeagueSectionType.Current:
-      dateText = `Ends ${narrowDuration.format(league.endAt, curDate)}`
+      dateText = t('league.list.ends', {
+        defaultValue: 'Ends {{endDate}}',
+        endDate: narrowDuration.format(league.endAt, curDate),
+      })
       dateTooltip = longTimestamp.format(league.endAt)
       break
     case LeagueSectionType.Future:
-      dateText = `Starts ${narrowDuration.format(league.startAt, curDate)}`
+      dateText = t('league.list.starts', {
+        defaultValue: 'Starts {{startDate}}',
+        startDate: narrowDuration.format(league.startAt, curDate),
+      })
       dateTooltip = longTimestamp.format(league.startAt)
       break
     case LeagueSectionType.Past:
@@ -356,7 +370,7 @@ export function LeagueCard({
       </LeagueImageAndBadge>
       <LeagueName>{league.name}</LeagueName>
       <LeagueFormatAndDate>
-        {matchmakingTypeToLabel(league.matchmakingType)} ·{' '}
+        {matchmakingTypeToLabel(league.matchmakingType, t)} ·{' '}
         <DateTooltip text={dateTooltip} position={'right'}>
           {dateText}
         </DateTooltip>
@@ -367,7 +381,7 @@ export function LeagueCard({
         {joined ? (
           <JoinedIndicator>
             <MaterialIcon icon='check' />
-            <span>Joined</span>
+            <span>{t('league.list.joined', 'Joined')}</span>
           </JoinedIndicator>
         ) : (
           <div />
