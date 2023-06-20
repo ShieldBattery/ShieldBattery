@@ -10,8 +10,7 @@
             "continue": "Продолжать",
             "okay": "Хорошо",
             "save": "Сохранять",
-            "back": "Назад",
-            "refresh": ""
+            "back": "Назад"
         }
     },
     "settings": {
@@ -61,32 +60,22 @@
         },
         "splash": {
             "comingSoon": {
-                "automatedTournamentsTitle": "",
                 "builtInMapmakingDescription": "",
-                "expandedChatDescription": "",
                 "liveStreamingDescription": "",
-                "playerProfilesDescription": "",
                 "sandboxModeDescription": ""
             },
             "benefits": {
-                "communityFirstText": "",
                 "tacticallyFaithfulText": ""
             },
-            "disclaimerText": "",
             "features": {
                 "fixesBugsExploitsTitle": "",
-                "improvedNetcodeTitle": "",
                 "matchmakingTitle": "",
-                "rankedLadderTitle": "",
                 "teamMeleeReplaysTitle": ""
-            },
-            "gameCount": ""
+            }
         },
         "faq": {
             "header": "",
-            "isShieldBatteryFreeQuestion": "",
             "officialSupportQuestion": "",
-            "reportIssuesQuestion": "",
             "systemRequirementsQuestion": ""
         }
     },
@@ -270,38 +259,23 @@
         }
     },
     "chat": {
-        "channelInfoCard": {
-            "noDescription": ""
-        },
         "banUserErrorDisplay": {
-            "moderateChannelModerator": "",
-            "defaultError": ""
+            "moderateChannelModerator": ""
         },
         "channelInfo": {
             "notFound": ""
-        },
-        "channelList": {
-            "retrievingError": ""
         },
         "channelMenu": {
             "userKicked": ""
         },
         "createChannel": {
-            "bannedError": "",
             "maximumOwnedError": ""
         },
-        "joinChannel": {
-            "bannedError": ""
-        },
         "messageLayout": {
-            "joinChannel": "",
-            "selfJoinChannel": ""
+            "joinChannel": ""
         },
         "userList": {
             "active": ""
-        },
-        "banUser": {
-            "banReason": ""
         }
     },
     "fileBrowser": {
@@ -309,65 +283,39 @@
     },
     "game": {
         "gameType": {
-            "captureTheFlag": "",
             "oneOnOne": "",
-            "teamFreeForAll": "",
             "useMapSettings": ""
-        },
-        "race": {
-            "protoss": ""
         },
         "results": {
             "draw": ""
-        },
-        "teamName": {
-            "bottom": ""
         }
     },
     "gameDetails": {
         "buttonSearchAgain": "",
-        "headlineDraw": "",
         "infoDuration": "",
-        "summary": {
-            "mmr": ""
-        },
         "tabBuildOrders": ""
     },
     "league": {
         "details": {
-            "copyLink": "",
             "joined": "",
             "leaderBoardHeader": {
-                "lastPlayed": "",
                 "winLoss": ""
-            },
-            "notFound": ""
+            }
         },
         "explainer": {
-            "howLeaguesWork": "",
-            "playTitle": ""
+            "howLeaguesWork": ""
         },
         "list": {
             "currentlyRunning": "",
-            "joined": "",
             "pageHeadline": ""
         }
-    },
-    "messaging": {
-        "mention": ""
     },
     "policy": {
         "acceptableUse": ""
     },
     "replays": {
         "local": {
-            "duration": "",
             "title": ""
-        }
-    },
-    "user": {
-        "miniMatchHistory": {
-            "viewDetails": ""
         }
     }
 }

@@ -12,8 +12,7 @@
             "okay": "Bueno",
             "save": "Ahorrar",
             "join": "Unirse",
-            "view": "Vista",
-            "search": ""
+            "view": "Vista"
         }
     },
     "settings": {
@@ -179,32 +178,22 @@
             "login": "Acceso"
         },
         "faq": {
-            "header": "",
             "isShieldBatteryFreeQuestion": "",
-            "officialSupportQuestion": "",
-            "reportIssuesQuestion": "",
-            "systemRequirementsQuestion": ""
+            "reportIssuesQuestion": ""
         },
         "splash": {
             "benefits": {
                 "fullPotentialText": ""
             },
-            "blurb": "",
             "comingSoon": {
                 "automatedTournamentsTitle": "",
-                "cloudReplaysTitle": "",
                 "fpReplaysTitle": "",
-                "pixelScalingTitle": "",
-                "replayAnalysisTitle": "",
-                "umsPortalTitle": ""
+                "replayAnalysisTitle": ""
             },
             "features": {
                 "cloudHostingTitle": "",
-                "friendsListTitle": "",
                 "leaguesTitle": "",
-                "partiesTitle": "",
-                "remasteredSupportTitle": "",
-                "webClientTitle": ""
+                "remasteredSupportTitle": ""
             },
             "tagline": ""
         }
@@ -358,70 +347,42 @@
         }
     },
     "game": {
-        "gameSource": {
-            "custom": ""
-        },
         "gameType": {
             "greed": "",
-            "suddenDeath": "",
             "unknown": ""
-        },
-        "playerName": {
-            "computer": ""
         },
         "race": {
             "terran": ""
-        },
-        "results": {
-            "unknown": ""
         },
         "teamName": {
             "top": ""
         }
     },
     "gameDetails": {
-        "headlineDefault": "",
         "headlineVictory": "",
-        "summary": {
-            "pointsBonus": ""
-        },
-        "tabBuildOrders": "",
-        "statusLive": ""
+        "tabBuildOrders": ""
     },
     "league": {
         "explainer": {
-            "joinDescription": "",
-            "winDescription": ""
+            "joinDescription": ""
         },
         "details": {
             "goBack": "",
-            "leaderboard": "",
             "leaderBoardHeader": {
                 "points": ""
             },
-            "leagueJoined": "",
             "rulesAndInfo": ""
         },
         "list": {
-            "finished": "",
-            "manageLeagues": "",
-            "viewInfo": ""
+            "manageLeagues": ""
         }
     },
     "messaging": {
         "sendMessage": ""
     },
-    "policy": {
-        "privacyPolicy": ""
-    },
     "replays": {
         "local": {
             "loadingError": ""
-        }
-    },
-    "user": {
-        "miniMatchHistory": {
-            "noGames": ""
         }
     },
     "windowControls": {

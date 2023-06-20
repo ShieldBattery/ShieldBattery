@@ -10,8 +10,7 @@
             "cancel": "취소",
             "continue": "계속하다",
             "okay": "좋아요",
-            "save": "구하다",
-            "search": ""
+            "save": "구하다"
         }
     },
     "settings": {
@@ -177,32 +176,22 @@
             "login": "로그인"
         },
         "faq": {
-            "header": "",
             "isShieldBatteryFreeQuestion": "",
-            "officialSupportQuestion": "",
-            "reportIssuesQuestion": "",
-            "systemRequirementsQuestion": ""
+            "reportIssuesQuestion": ""
         },
         "splash": {
             "benefits": {
                 "fullPotentialText": ""
             },
-            "blurb": "",
             "comingSoon": {
                 "automatedTournamentsTitle": "",
-                "cloudReplaysTitle": "",
                 "fpReplaysTitle": "",
-                "pixelScalingTitle": "",
-                "replayAnalysisTitle": "",
-                "umsPortalTitle": ""
+                "replayAnalysisTitle": ""
             },
             "features": {
                 "cloudHostingTitle": "",
-                "friendsListTitle": "",
                 "leaguesTitle": "",
-                "partiesTitle": "",
-                "remasteredSupportTitle": "",
-                "webClientTitle": ""
+                "remasteredSupportTitle": ""
             },
             "signUp": ""
         }
@@ -271,109 +260,66 @@
     },
     "league": {
         "list": {
-            "acceptingSignups": "",
-            "howDoLeaguesWork": "",
-            "noLeagues": ""
+            "howDoLeaguesWork": ""
         },
         "details": {
             "copyLink": "",
-            "joined": "",
             "leaderBoardHeader": {
-                "lastPlayed": "",
-                "winLoss": ""
+                "lastPlayed": ""
             },
             "notFound": ""
         },
         "explainer": {
-            "howLeaguesWork": "",
             "playTitle": ""
         }
     },
     "chat": {
-        "banUser": {
-            "banReason": ""
-        },
         "banUserErrorDisplay": {
-            "genericError": "",
-            "notInChannel": ""
+            "genericError": ""
         },
         "channelInfoCard": {
-            "adminView": "",
-            "private": ""
+            "adminView": ""
         },
         "channelList": {
             "noMatchingChannels": ""
         },
-        "channelMenu": {
-            "kickingError": ""
-        },
         "channelValidator": {
             "pattern": ""
-        },
-        "createChannel": {
-            "createAction": ""
         },
         "events": {
             "ban": ""
         },
-        "joinChannel": {
-            "maximumChannelsError": ""
-        },
         "messageLayout": {
             "leaveChannel": ""
-        },
-        "messageMenu": {
-            "messageDeleted": ""
         },
         "userList": {
             "offline": ""
         }
     },
     "game": {
-        "gameSource": {
-            "custom": ""
-        },
         "gameType": {
             "greed": "",
-            "suddenDeath": "",
             "topVsBottom": ""
-        },
-        "playerName": {
-            "computer": ""
         },
         "race": {
             "terran": ""
-        },
-        "results": {
-            "unknown": ""
         },
         "teamName": {
             "top": ""
         }
     },
     "gameDetails": {
-        "headlineDefault": "",
         "headlineVictory": "",
-        "statusLive": "",
         "summary": {
             "rp": ""
-        },
-        "infoDate": ""
+        }
     },
     "messaging": {
         "sendMessage": ""
     },
-    "policy": {
-        "privacyPolicy": ""
-    },
     "replays": {
         "local": {
             "loadingError": ""
-        }
-    },
-    "user": {
-        "miniMatchHistory": {
-            "noGames": ""
         }
     },
     "windowControls": {

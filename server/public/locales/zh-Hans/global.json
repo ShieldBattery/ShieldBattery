@@ -10,8 +10,7 @@
             "cancel": "取消",
             "continue": "继续",
             "okay": "好的",
-            "save": "节省",
-            "show": ""
+            "save": "节省"
         }
     },
     "settings": {
@@ -60,34 +59,22 @@
             "faq": "常问问题"
         },
         "faq": {
-            "hotkeyCustomizationQuestion": "",
             "linuxSupportQuestion": "",
-            "reportIssuesAnswer": "",
             "systemRequirementsAnswer": ""
-        },
-        "bottomLinks": {
-            "privacyPolicy": ""
         },
         "splash": {
             "benefits": {
                 "fullPotentialText": ""
             },
-            "blurb": "",
             "comingSoon": {
                 "automatedTournamentsTitle": "",
-                "cloudReplaysTitle": "",
                 "fpReplaysTitle": "",
-                "pixelScalingTitle": "",
-                "replayAnalysisTitle": "",
-                "umsPortalTitle": ""
+                "replayAnalysisTitle": ""
             },
             "features": {
                 "cloudHostingTitle": "",
-                "friendsListTitle": "",
                 "leaguesTitle": "",
-                "webClientDescription": "",
-                "rankedladderDescription": "",
-                "teamMeleeReplaysDescription": ""
+                "rankedladderDescription": ""
             },
             "signUp": ""
         }
@@ -273,57 +260,35 @@
     },
     "league": {
         "explainer": {
-            "joinDescription": "",
             "winTitle": ""
         },
         "details": {
-            "goBack": "",
             "leaderboard": "",
-            "leaderBoardHeader": {
-                "points": ""
-            },
-            "leagueJoined": "",
-            "rulesAndInfo": ""
+            "leagueJoined": ""
         },
         "list": {
             "joined": "",
-            "pageHeadline": "",
             "howDoLeaguesWork": ""
         }
     },
     "chat": {
-        "banUser": {
-            "successMessage": ""
-        },
         "banUserErrorDisplay": {
             "moderateChannelOwner": ""
         },
-        "channelInfo": {
-            "genericError": ""
-        },
         "channelInfoCard": {
-            "moreActions": "",
-            "userCount_other": ""
+            "moreActions": ""
         },
         "channelList": {
             "retrievingError": ""
         },
-        "channelMenu": {
-            "userKicked": ""
-        },
         "createChannel": {
-            "bannedError": "",
-            "maximumOwnedError": ""
+            "bannedError": ""
         },
         "joinChannel": {
             "bannedError": ""
         },
         "messageLayout": {
-            "joinChannel": "",
             "selfJoinChannel": ""
-        },
-        "userList": {
-            "active": ""
         }
     },
     "fileBrowser": {
@@ -331,45 +296,24 @@
     },
     "game": {
         "gameType": {
-            "captureTheFlag": "",
             "oneOnOne": "",
-            "teamFreeForAll": "",
             "useMapSettings": ""
-        },
-        "teamName": {
-            "bottom": ""
         },
         "race": {
             "random": ""
-        },
-        "results": {
-            "loss": ""
         }
     },
     "gameDetails": {
         "buttonSearchAgain": "",
-        "headlineDraw": "",
         "infoDuration": "",
-        "summary": {
-            "mmr": ""
-        },
         "tabBuildOrders": ""
-    },
-    "messaging": {
-        "mention": ""
     },
     "policy": {
         "acceptableUse": ""
     },
     "replays": {
         "local": {
-            "duration": "",
             "title": ""
-        }
-    },
-    "user": {
-        "miniMatchHistory": {
-            "viewDetails": ""
         }
     }
 }
