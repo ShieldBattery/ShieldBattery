@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types'
 import React from 'react'
+import { Trans, withTranslation } from 'react-i18next'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { MapVisibility, tilesetToName } from '../../common/maps'
@@ -94,13 +95,22 @@ const StyledMapThumbnail = styled(MapThumbnail)`
   height: 220px;
 `
 
-@form({ name: required('Enter a map name') })
+@withTranslation(undefined, { withRef: true })
+@form({ name: required(t => t('maps.details.mapNameRequired', 'Enter a map name')) })
 class NameForm extends React.Component {
   render() {
-    const { onSubmit, bindInput, inputRef, onCancel } = this.props
+    const { onSubmit, bindInput, inputRef, onCancel, t } = this.props
     const trailingIcons = [
-      <IconButton icon={<MaterialIcon icon='check' />} title='Save' onClick={onSubmit} />,
-      <IconButton icon={<MaterialIcon icon='close' />} title='Cancel' onClick={onCancel} />,
+      <IconButton
+        icon={<MaterialIcon icon='check' />}
+        title={t('common.actions.save', 'Save')}
+        onClick={onSubmit}
+      />,
+      <IconButton
+        icon={<MaterialIcon icon='close' />}
+        title={t('common.actions.cancel', 'Cancel')}
+        onClick={onCancel}
+      />,
     ]
 
     return (
@@ -110,7 +120,7 @@ class NameForm extends React.Component {
         <TextField
           {...bindInput('name')}
           ref={inputRef}
-          label='Map name'
+          label={t('maps.details.mapName', 'Map name')}
           trailingIcons={trailingIcons}
         />
       </form>
@@ -127,13 +137,24 @@ class NameForm extends React.Component {
   }
 }
 
-@form({ description: required('Enter a map description') })
+@withTranslation(undefined, { withRef: true })
+@form({
+  description: required(t => t('maps.details.mapDescriptionRequired', 'Enter a map description')),
+})
 class DescriptionForm extends React.Component {
   render() {
-    const { onSubmit, bindInput, inputRef, onCancel } = this.props
+    const { onSubmit, bindInput, inputRef, onCancel, t } = this.props
     const trailingIcons = [
-      <IconButton icon={<MaterialIcon icon='check' />} title='Save' onClick={onSubmit} />,
-      <IconButton icon={<MaterialIcon icon='close' />} title='Cancel' onClick={onCancel} />,
+      <IconButton
+        icon={<MaterialIcon icon='check' />}
+        title={t('common.actions.save', 'Save')}
+        onClick={onSubmit}
+      />,
+      <IconButton
+        icon={<MaterialIcon icon='close' />}
+        title={t('common.actions.cancel', 'Cancel')}
+        onClick={onCancel}
+      />,
     ]
 
     return (
@@ -142,7 +163,7 @@ class DescriptionForm extends React.Component {
         <TextField
           {...bindInput('description')}
           ref={inputRef}
-          label='Map description'
+          label={t('maps.details.mapDescription', 'Map description')}
           multiline={true}
           rows={5}
           maxRows={5}
@@ -162,6 +183,7 @@ class DescriptionForm extends React.Component {
   }
 }
 
+@withTranslation(undefined, { withRef: true })
 @connect(state => ({ auth: state.auth, mapDetails: state.mapDetails }))
 export default class MapDetails extends React.Component {
   static propTypes = {
@@ -190,19 +212,8 @@ export default class MapDetails extends React.Component {
     }
   }
 
-  _getEditButton = field => {
-    return (
-      <EditButton
-        name={field}
-        icon={<MaterialIcon icon='edit' />}
-        title={`Edit ${field}`}
-        onClick={this.onEditClick}
-      />
-    )
-  }
-
   renderContents() {
-    const { auth, mapDetails } = this.props
+    const { auth, mapDetails, t } = this.props
     const { isEditingName, isEditingDescription } = this.state
     const { map } = mapDetails
 
@@ -217,8 +228,11 @@ export default class MapDetails extends React.Component {
       return (
         <>
           <p>
-            Something went wrong while trying to retrieve the details of this map. The error message
-            was:
+            {t(
+              'maps.details.retrieveError',
+              'Something went wrong while trying to retrieve the details of this map.' +
+                ' The error message was:',
+            )}
           </p>
           <ErrorText as='p'>{mapDetails.lastError.message}</ErrorText>
         </>
@@ -255,7 +269,14 @@ export default class MapDetails extends React.Component {
                 // contributes to the layout size and isn't just positioned absolutely in padding
                 map.name || ' '
               }
-              {canEdit ? this._getEditButton('name') : null}
+              {canEdit ? (
+                <EditButton
+                  name='name'
+                  icon={<MaterialIcon icon='edit' />}
+                  title={t('maps.details.editName', 'Edit name')}
+                  onClick={this.onEditClick}
+                />
+              ) : null}
             </MapName>
           )}
           {isEditingDescription ? (
@@ -270,16 +291,33 @@ export default class MapDetails extends React.Component {
             <MapDescriptionWrapper>
               <MapDescription canEdit={canEdit}>
                 {map.description}
-                {canEdit ? this._getEditButton('description') : null}
+                {canEdit ? (
+                  <EditButton
+                    name='description'
+                    icon={<MaterialIcon icon='edit' />}
+                    title={t('maps.details.editDescription', 'Edit description')}
+                    onClick={this.onEditClick}
+                  />
+                ) : null}
               </MapDescription>
             </MapDescriptionWrapper>
           )}
           <MapData>
             <MapDataItem>
-              Size: {map.mapData.width}x{map.mapData.height}
+              <Trans t={t} i18nKey='maps.details.size'>
+                Size: {{ width: map.mapData.width }}x{{ height: map.mapData.height }}
+              </Trans>
             </MapDataItem>
-            <MapDataItem>Tileset: {tilesetToName(map.mapData.tileset)}</MapDataItem>
-            <MapDataItem>Players: {map.mapData.slots}</MapDataItem>
+            <MapDataItem>
+              <Trans t={t} i18nKey='maps.details.tileset'>
+                Tileset: {{ tilesetName: tilesetToName(map.mapData.tileset) }}
+              </Trans>
+            </MapDataItem>
+            <MapDataItem>
+              <Trans t={t} i18nKey='maps.details.players'>
+                Players: {{ playerSize: map.mapData.slots }}
+              </Trans>
+            </MapDataItem>
           </MapData>
         </MapInfo>
         <StyledMapThumbnail map={map} />
@@ -290,7 +328,7 @@ export default class MapDetails extends React.Component {
   render() {
     return (
       <Dialog
-        title={'Map details'}
+        title={this.props.t('maps.details.title', 'Map details')}
         showCloseButton={true}
         onCancel={this.props.onCancel}
         dialogRef={this.props.dialogRef}>

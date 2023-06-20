@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { MapInfoJson } from '../../common/maps'
@@ -31,6 +32,7 @@ async function getDocumentsMapsPath() {
 }
 
 export function BrowseLocalMaps(props: { onMapSelect: (map: MapInfoJson) => void }) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const lastUploadError = useAppSelector(s => s.localMaps.lastError)
   const isUploading = useAppSelector(s => s.localMaps.isUploading)
@@ -44,10 +46,13 @@ export function BrowseLocalMaps(props: { onMapSelect: (map: MapInfoJson) => void
   useEffect(() => {
     if (lastUploadError) {
       dispatch(
-        openSnackbar({ message: 'There was a problem uploading the map', time: TIMING_LONG }),
+        openSnackbar({
+          message: t('maps.local.uploadError', 'There was a problem uploading the map'),
+          time: TIMING_LONG,
+        }),
       )
     }
-  }, [dispatch, lastUploadError])
+  }, [dispatch, lastUploadError, t])
 
   const onMapSelect = useCallback(
     (map: FileBrowserFileEntry) => {
@@ -68,16 +73,16 @@ export function BrowseLocalMaps(props: { onMapSelect: (map: MapInfoJson) => void
     () => ({
       default: {
         id: FileBrowserRootFolderId.Default,
-        name: 'Program folder',
+        name: t('maps.local.programFolder', 'Program folder'),
         path: [localStarcraftPath, 'Maps'].join('\\'),
       },
       documents: {
         id: FileBrowserRootFolderId.Documents,
-        name: 'Documents folder',
+        name: t('maps.local.documentsFolder', 'Documents folder'),
         path: documentsPath,
       },
     }),
-    [documentsPath, localStarcraftPath],
+    [documentsPath, localStarcraftPath, t],
   )
 
   if (!localStarcraftPath || !documentsPath) {
@@ -95,7 +100,7 @@ export function BrowseLocalMaps(props: { onMapSelect: (map: MapInfoJson) => void
   return (
     <FileBrowser
       browserType={FileBrowserType.Maps}
-      title='Local Maps'
+      title={t('maps.local.title', 'Local Maps')}
       titleButton={<ActivityBackButton />}
       rootFolders={rootFolders}
       fileEntryConfig={fileEntryConfig}
