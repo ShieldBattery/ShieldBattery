@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types'
 import React from 'react'
+import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import WindowListener from '../dom/window-listener'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -55,6 +56,7 @@ const CarouselButton = styled(IconButton)`
   }
 `
 
+@withTranslation()
 export default class Carousel extends React.Component {
   static propTypes = {
     isLoading: PropTypes.bool,
@@ -123,7 +125,7 @@ export default class Carousel extends React.Component {
   }
 
   render() {
-    const { isLoading, hasMoreItems, onLoadMoreData } = this.props
+    const { isLoading, hasMoreItems, onLoadMoreData, t } = this.props
     const { translateWidth, hasPrevItems, hasNextItems } = this.state
 
     const contentStyle = { transform: `translateX(${translateWidth}px)` }
@@ -136,7 +138,7 @@ export default class Carousel extends React.Component {
         {showPrevButton ? (
           <CarouselButton
             icon={<MaterialIcon icon='chevron_left' />}
-            title='Previous'
+            title={t('common.actions.previous', 'Previous')}
             onClick={this.onPrev}
           />
         ) : null}
@@ -155,7 +157,7 @@ export default class Carousel extends React.Component {
         {showNextButton ? (
           <CarouselButton
             icon={<MaterialIcon icon='chevron_right' />}
-            title='Next'
+            title={t('common.actions.next', 'Next')}
             onClick={this.onNext}
           />
         ) : null}

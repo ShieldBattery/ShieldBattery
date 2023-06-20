@@ -234,7 +234,9 @@
       "download": "Download",
       "hide": "Hide",
       "join": "Join",
+      "next": "Next",
       "okay": "Okay",
+      "previous": "Previous",
       "refresh": "Refresh",
       "save": "Save",
       "search": "Search",
@@ -517,11 +519,50 @@
       "2v2": "2v2"
     }
   },
+  "material": {
+    "dialog": {
+      "closeDialog": "Close dialog"
+    },
+    "passwordField": {
+      "hide": "Hide password",
+      "show": "Show password"
+    }
+  },
   "messaging": {
     "blockedMessage": "Blocked message",
     "mention": "Mention",
     "newDayMessage": "Day changed to <2>{{day}}</2>",
     "sendMessage": "Send a message"
+  },
+  "navigation": {
+    "copyLink": {
+      "copiedText": "Copied!",
+      "defaultText": "Copy link"
+    },
+    "externalLink": {
+      "alwaysTrust": "Always trust this domain",
+      "dialogText": "<0>This link will take you to a site outside ShieldBattery:</0><1>{{link}}</1><2>Are you sure you want to go there?</2>",
+      "openLink": "Open Link",
+      "title": "External link"
+    },
+    "leftNav": {
+      "chatChannels": "Chat channels",
+      "customGame": "Custom game",
+      "editAccount": "Edit account",
+      "gameInProgress": "Game in progress…",
+      "joinChannel": "Join a channel (Alt + H)",
+      "loadingChannel": "Loading...",
+      "loadingGame": "Loading…",
+      "lobby": "Lobby",
+      "logIn": "Log in",
+      "logOut": "Log out",
+      "rankedGame": "Ranked {{matchmakingType}}",
+      "startWhisper": "Start a whisper (Alt + W)",
+      "viewChangelog": "View changelog",
+      "viewProfile": "View profile",
+      "whisperCloseError": "Error closing whisper session: {{errorMessage}}",
+      "whispers": "Whispers"
+    }
   },
   "network": {
     "connecting": "Connecting…"
