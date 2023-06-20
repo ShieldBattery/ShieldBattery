@@ -1,0 +1,12 @@
+{
+  "name": "shieldbattery-email",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@react-email/button": "^0.0.9",
+    "@react-email/html": "^0.0.4",
+    "i18next": "^23.2.0",
+    "i18next-fs-backend": "^2.1.5",
+    "react-email": "^1.9.4"
+  }
+}

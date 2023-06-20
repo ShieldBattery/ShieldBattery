@@ -62,7 +62,7 @@ jobs:
 
       - name: Check translation files
         id: check-translation-files
-        run: yarn gen-translations --fail-on-update
+        run: yarn gen-translations:app --fail-on-update && yarn gen-translations:email --fail-on-update
 
       - name: Display translation error
         if: ${{ failure() && steps.check-translation-files.conclusion == 'failure' }}
