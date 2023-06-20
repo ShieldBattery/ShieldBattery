@@ -59,9 +59,6 @@
             "faq": "常问问题"
         },
         "splash": {
-            "comingSoon": {
-                "expandedChatTitle": ""
-            },
             "features": {
                 "leaguesTitle": ""
             }
@@ -246,25 +243,12 @@
             "clearFiles": "清除文件"
         }
     },
-    "chat": {
-        "channelList": {
-            "retrievingError": ""
-        }
-    },
     "game": {
         "gameSource": {
             "ranked": ""
         }
     },
-    "league": {
-        "list": {
-            "howDoLeaguesWork": ""
-        }
-    },
     "windowControls": {
         "maximizeRestore": ""
-    },
-    "messaging": {
-        "mention": ""
     }
 }

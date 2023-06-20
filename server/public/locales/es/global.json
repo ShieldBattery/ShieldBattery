@@ -177,11 +177,6 @@
             "leagues": "ligas",
             "login": "Acceso"
         },
-        "splash": {
-            "comingSoon": {
-                "playerProfilesDescription": ""
-            }
-        },
         "faq": {
             "header": ""
         }
@@ -334,19 +329,11 @@
             "offline": "Desconectado"
         }
     },
-    "game": {
-        "gameType": {
-            "suddenDeath": ""
-        }
-    },
     "league": {
         "details": {
             "leaderBoardHeader": {
                 "player": ""
             }
         }
-    },
-    "policy": {
-        "policyUpdateNotification": ""
     }
 }

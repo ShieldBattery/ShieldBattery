@@ -176,9 +176,6 @@
             "login": "로그인"
         },
         "splash": {
-            "comingSoon": {
-                "expandedChatDescription": ""
-            },
             "features": {
                 "webClientDescription": ""
             }
@@ -246,18 +243,10 @@
             "platinum": "플래티넘 {{level}}"
         }
     },
-    "chat": {
-        "channelValidator": {
-            "pattern": ""
-        }
-    },
     "game": {
         "gameSource": {
             "ranked": ""
         }
-    },
-    "gameDetails": {
-        "buttonCopyLink": ""
     },
     "league": {
         "details": {
@@ -265,8 +254,5 @@
                 "winLoss": ""
             }
         }
-    },
-    "policy": {
-        "acceptableUse": ""
     }
 }
