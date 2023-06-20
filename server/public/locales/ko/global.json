@@ -237,10 +237,5 @@
             "gold": "골드 {{level}}",
             "platinum": "플래티넘 {{level}}"
         }
-    },
-    "game": {
-        "teamName": {
-            "top": ""
-        }
     }
 }
