@@ -1,6 +1,5 @@
 {
     "common": {
-        "gameTypeRanked": "Рейтинговый {{matchmakingType}}",
         "validators": {
             "maxLength": "Введите не более {{maxLength}} символов",
             "minLength": "Введите не менее {{minLength}} символов",
@@ -16,11 +15,7 @@
     },
     "games": {
         "results": {
-            "infoDate": "Дата",
             "headlineDraw": "Ничья!"
-        },
-        "miniMatchHistory": {
-            "noGameSelectedText": "Игра не выбрана"
         }
     },
     "settings": {

@@ -1,6 +1,5 @@
 {
     "common": {
-        "mapNameUnknown": "mapa desconocido",
         "validators": {
             "maxLength": "Ingrese como máximo {{maxLength}} caracteres",
             "minLength": "Ingrese al menos {{minLength}} caracteres",
@@ -18,9 +17,7 @@
     },
     "games": {
         "results": {
-            "headlineInProgress": "En progreso…",
-            "infoGameType": "Tipo",
-            "buttonCopyLink": "Copiar enlace al juego"
+            "infoGameType": "Tipo"
         }
     },
     "settings": {

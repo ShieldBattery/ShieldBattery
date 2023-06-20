@@ -1,6 +1,5 @@
 {
     "common": {
-        "gameResultUnknown": "未知",
         "validators": {
             "maxLength": "最多输入 {{maxLength}} 个字符",
             "minLength": "至少输入 {{minLength}} 个字符",
@@ -16,9 +15,7 @@
     },
     "games": {
         "results": {
-            "buttonSearchAgain": "再次搜索",
-            "infoDuration": "期间",
-            "tabSummary": "概括"
+            "infoDuration": "期间"
         }
     },
     "settings": {

@@ -1,6 +1,5 @@
 {
     "common": {
-        "mapNameUnknown": "알 수 없는 지도",
         "validators": {
             "maxLength": "최대 {{maxLength}}자까지 입력하세요.",
             "minLength": "{{minLength}}자 이상 입력하세요.",
@@ -16,11 +15,7 @@
     },
     "games": {
         "results": {
-            "buttonSearchAgain": "다시 검색",
             "infoDuration": "지속"
-        },
-        "miniMatchHistory": {
-            "noGameSelectedText": "선택한 게임 없음"
         }
     },
     "settings": {
