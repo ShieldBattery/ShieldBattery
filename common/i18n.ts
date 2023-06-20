@@ -5,7 +5,7 @@ import { assertUnreachable } from './assert-unreachable'
  * file for.
  */
 export enum TranslationLanguage {
-  ChineseSimplified = 'zh_Hans',
+  ChineseSimplified = 'zh-Hans',
   English = 'en',
   Korean = 'kr',
   Russian = 'ru',
