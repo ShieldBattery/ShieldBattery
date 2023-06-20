@@ -12,8 +12,7 @@
             "okay": "Bueno",
             "save": "Ahorrar",
             "join": "Unirse",
-            "view": "Vista",
-            "refresh": ""
+            "view": "Vista"
         }
     },
     "settings": {
@@ -180,32 +179,20 @@
         },
         "splash": {
             "features": {
-                "fixesBugsExploitsTitle": "",
                 "friendsListTitle": "",
-                "leaguesTitle": "",
                 "partiesTitle": "",
-                "remasteredSupportTitle": "",
                 "webClientTitle": ""
             },
             "comingSoon": {
-                "liveStreamingDescription": "",
                 "playerProfilesDescription": "",
-                "sandboxModeDescription": "",
                 "3v3Description": "",
-                "builtInMapmakingDescription": "",
                 "expandedChatDescription": ""
             },
-            "benefits": {
-                "fullPotentialTitle": ""
-            },
-            "featuresTitle": "",
-            "tagline": ""
+            "featuresTitle": ""
         },
         "faq": {
             "header": "",
-            "isShieldBatteryFreeQuestion": "",
             "officialSupportQuestion": "",
-            "reportIssuesQuestion": "",
             "systemRequirementsQuestion": ""
         }
     },
@@ -358,54 +345,36 @@
         }
     },
     "gameDetails": {
-        "summary": {
-            "pointsBase": ""
-        },
         "buttonSearchAgain": "",
-        "headlineDraw": "",
-        "tabBuildOrders": "",
-        "infoGameType": ""
+        "tabBuildOrders": ""
     },
     "game": {
         "gameSource": {
             "custom": ""
         },
         "gameType": {
-            "greed": "",
-            "suddenDeath": "",
-            "topVsBottom": ""
+            "suddenDeath": ""
         },
         "playerName": {
             "computer": ""
-        },
-        "race": {
-            "terran": ""
         },
         "results": {
             "unknown": ""
         }
     },
-    "messaging": {
-        "newDayMessage": ""
-    },
     "league": {
         "details": {
             "dateText": "",
-            "joinError": "",
             "leaderBoardHeader": {
                 "player": ""
             },
-            "leagueEndedError": "",
             "retrieveError": ""
         },
         "explainer": {
-            "joinDescription": "",
             "winDescription": ""
         },
         "list": {
-            "ends": "",
-            "loadingError": "",
-            "starts": ""
+            "loadingError": ""
         }
     },
     "policy": {
@@ -413,12 +382,8 @@
     },
     "replays": {
         "local": {
-            "gameType": "",
             "watchReplay": ""
         }
-    },
-    "windowControls": {
-        "close": ""
     },
     "fileBrowser": {
         "rootFolder": ""

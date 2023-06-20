@@ -10,8 +10,7 @@
             "cancel": "취소",
             "continue": "계속하다",
             "okay": "좋아요",
-            "save": "구하다",
-            "hide": ""
+            "save": "구하다"
         }
     },
     "settings": {
@@ -177,33 +176,21 @@
             "login": "로그인"
         },
         "faq": {
-            "hotkeyCustomizationQuestion": "",
             "linuxSupportQuestion": "",
-            "openSourceQuestion": "",
             "supportedStarcraftVersionQuestion": ""
         },
         "splash": {
             "comingSoon": {
-                "sandboxModeTitle": "",
                 "3v3Description": "",
-                "builtInMapmakingDescription": "",
                 "expandedChatDescription": "",
-                "liveStreamingDescription": "",
                 "playerProfilesDescription": ""
             },
             "features": {
-                "fixesBugsExploitsDescription": "",
                 "friendsListDescription": "",
-                "leaguesDescription": "",
                 "partiesDescription": "",
-                "remasteredSupportDescription": "",
                 "webClientDescription": ""
             },
-            "benefits": {
-                "fullPotentialText": ""
-            },
-            "blurb": "",
-            "linksHeader": ""
+            "blurb": ""
         },
         "bottomLinks": {
             "privacyPolicy": ""
@@ -272,50 +259,26 @@
         }
     },
     "chat": {
-        "banUser": {
-            "banReason": ""
-        },
         "channelInfoCard": {
-            "adminView": "",
-            "userCount_one": ""
+            "adminView": ""
         },
         "banUserErrorDisplay": {
             "moderateChannelModerator": ""
         },
-        "channelInfo": {
-            "defaultError": ""
-        },
         "channelList": {
             "noMatchingChannels": ""
-        },
-        "channelMenu": {
-            "kickAction": ""
         },
         "channelValidator": {
             "pattern": ""
         },
-        "createChannel": {
-            "createAction": ""
-        },
         "events": {
             "ban": ""
-        },
-        "joinChannel": {
-            "maximumChannelsError": ""
         },
         "messageLayout": {
             "leaveChannel": ""
         },
-        "messageMenu": {
-            "messageDeleted": ""
-        },
         "userList": {
             "offline": ""
-        }
-    },
-    "replays": {
-        "local": {
-            "loadingError": ""
         }
     },
     "game": {
@@ -323,62 +286,39 @@
             "ranked": ""
         },
         "gameType": {
-            "melee": "",
-            "teamCaptureTheFlag": "",
-            "unknown": ""
+            "teamCaptureTheFlag": ""
         },
         "playerName": {
             "unknown": ""
-        },
-        "race": {
-            "zerg": ""
         },
         "results": {
             "loss": ""
         }
     },
     "gameDetails": {
-        "summary": {
-            "mmr": ""
-        },
         "buttonCopyLink": "",
-        "headlineDefeat": "",
-        "infoDate": "",
-        "statusLive": ""
+        "infoDate": ""
     },
     "fileBrowser": {
         "noFiles": ""
     },
     "league": {
         "details": {
-            "copyLink": "",
             "joined": "",
             "leaderBoardHeader": {
-                "lastPlayed": "",
                 "winLoss": ""
-            },
-            "notFound": ""
+            }
         },
         "explainer": {
-            "howLeaguesWork": "",
-            "playTitle": ""
+            "howLeaguesWork": ""
         },
         "list": {
             "currentlyRunning": "",
-            "joined": "",
             "pageHeadline": ""
         }
     },
-    "messaging": {
-        "mention": ""
-    },
     "policy": {
         "acceptableUse": ""
-    },
-    "user": {
-        "miniMatchHistory": {
-            "noGames": ""
-        }
     },
     "windowControls": {
         "maximizeRestore": ""
