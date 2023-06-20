@@ -5,7 +5,7 @@
   "keepRemoved": false,
   "lineEnding": "lf",
   "locales": ["en"],
-  "input": ["**/*.{js,jsx,ts,tsx}", "!node_modules/**", "!.react-email/**"],
+  "input": ["**/*.{js,jsx,ts,tsx}"],
   "output": "email/locales/$LOCALE/$NAMESPACE.json",
   "resetDefaultValueLocale": "en",
   "sort": true

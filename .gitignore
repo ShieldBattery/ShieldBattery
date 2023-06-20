@@ -8,6 +8,7 @@ test-state/
 server/.env
 .idea/
 .vscode/
+.react-email/
 .env
 .env-build
 npm-debug.log
