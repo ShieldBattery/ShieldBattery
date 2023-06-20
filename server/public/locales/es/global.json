@@ -178,9 +178,6 @@
             "login": "Acceso"
         },
         "splash": {
-            "comingSoon": {
-                "automatedTournamentsTitle": ""
-            },
             "features": {
                 "leaguesTitle": ""
             }
@@ -334,17 +331,9 @@
             "offline": "Desconectado"
         }
     },
-    "game": {
-        "teamName": {
-            "top": ""
-        }
-    },
     "league": {
         "details": {
             "goBack": ""
         }
-    },
-    "messaging": {
-        "sendMessage": ""
     }
 }

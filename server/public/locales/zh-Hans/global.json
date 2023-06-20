@@ -59,9 +59,6 @@
             "faq": "常问问题"
         },
         "splash": {
-            "comingSoon": {
-                "automatedTournamentsTitle": ""
-            },
             "features": {
                 "leaguesTitle": ""
             }
@@ -246,25 +243,12 @@
             "clearFiles": "清除文件"
         }
     },
-    "league": {
-        "list": {
-            "joined": ""
-        }
-    },
     "chat": {
         "channelList": {
             "retrievingError": ""
         }
     },
-    "fileBrowser": {
-        "rootFolder": ""
-    },
     "gameDetails": {
         "buttonSearchAgain": ""
-    },
-    "replays": {
-        "local": {
-            "title": ""
-        }
     }
 }

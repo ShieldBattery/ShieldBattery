@@ -58,11 +58,6 @@
             "changeLanguage": "Изменить язык",
             "login": "Авторизоваться"
         },
-        "splash": {
-            "benefits": {
-                "tacticallyFaithfulText": ""
-            }
-        },
         "faq": {
             "header": ""
         }
@@ -246,27 +241,14 @@
             "clearFiles": "Очистить файлы"
         }
     },
-    "chat": {
-        "createChannel": {
-            "maximumOwnedError": ""
-        }
-    },
     "game": {
         "gameType": {
             "oneOnOne": ""
         }
     },
-    "gameDetails": {
-        "infoDuration": ""
-    },
     "league": {
         "explainer": {
             "howLeaguesWork": ""
-        }
-    },
-    "replays": {
-        "local": {
-            "title": ""
         }
     }
 }

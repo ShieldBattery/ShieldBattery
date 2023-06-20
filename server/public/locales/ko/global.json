@@ -176,9 +176,6 @@
             "login": "로그인"
         },
         "splash": {
-            "comingSoon": {
-                "automatedTournamentsTitle": ""
-            },
             "features": {
                 "leaguesTitle": ""
             }
@@ -246,27 +243,14 @@
             "platinum": "플래티넘 {{level}}"
         }
     },
-    "league": {
-        "details": {
-            "notFound": ""
-        }
-    },
     "chat": {
         "channelList": {
             "noMatchingChannels": ""
-        },
-        "userList": {
-            "offline": ""
         }
     },
     "game": {
         "teamName": {
             "top": ""
-        }
-    },
-    "replays": {
-        "local": {
-            "loadingError": ""
         }
     }
 }
