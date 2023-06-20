@@ -11,13 +11,9 @@
             "continue": "继续",
             "okay": "好的",
             "save": "节省",
-            "download": "",
             "join": "",
-            "view": "",
             "hide": "",
-            "refresh": "",
-            "search": "",
-            "show": ""
+            "search": ""
         }
     },
     "settings": {
@@ -66,97 +62,56 @@
             "faq": "常问问题"
         },
         "bottomLinks": {
-            "acceptableUsePolicy": "",
-            "privacyPolicy": "",
-            "termsOfService": ""
+            "privacyPolicy": ""
         },
         "faq": {
             "header": "",
-            "hotkeyCustomizationAnswer": "",
             "hotkeyCustomizationQuestion": "",
-            "isShieldBatteryFreeAnswer": "",
             "isShieldBatteryFreeQuestion": "",
-            "linuxSupportAnswer": "",
             "linuxSupportQuestion": "",
-            "officialSupportAnswer": "",
             "officialSupportQuestion": "",
-            "openSourceAnswer": "",
             "openSourceQuestion": "",
-            "reportIssuesAnswer": "",
             "reportIssuesQuestion": "",
-            "supportedStarcraftVersionAnswer": "",
             "supportedStarcraftVersionQuestion": "",
-            "systemRequirementsAnswer": "",
-            "systemRequirementsQuestion": "",
-            "title": ""
+            "systemRequirementsQuestion": ""
         },
         "splash": {
             "comingSoon": {
                 "playerProfilesTitle": "",
-                "3v3Description": "",
                 "3v3Title": "",
-                "automatedTournamentsDescription": "",
                 "automatedTournamentsTitle": "",
-                "builtInMapmakingDescription": "",
                 "builtInMapmakingTitle": "",
-                "cloudReplaysDescription": "",
                 "cloudReplaysTitle": "",
-                "expandedChatDescription": "",
                 "expandedChatTitle": "",
-                "fpReplaysDescription": "",
                 "fpReplaysTitle": "",
-                "liveStreamingDescription": "",
                 "liveStreamingTitle": "",
-                "pixelScalingDescription": "",
                 "pixelScalingTitle": "",
-                "playerProfilesDescription": "",
                 "replayAnalysisDescription": "",
-                "replayAnalysisTitle": "",
                 "sandboxModeDescription": "",
-                "sandboxModeTitle": "",
-                "umsPortalDescription": "",
-                "umsPortalTitle": ""
+                "umsPortalDescription": ""
             },
             "benefits": {
                 "communityFirstText": "",
-                "communityFirstTitle": "",
                 "fullPotentialText": "",
-                "fullPotentialTitle": "",
-                "tacticallyFaithfulText": "",
-                "tacticallyFaithfulTitle": ""
+                "tacticallyFaithfulText": ""
             },
             "blurb": "",
-            "comingSoonTitle": "",
             "disclaimerText": "",
             "features": {
-                "cloudHostingDescription": "",
                 "cloudHostingTitle": "",
-                "fixesBugsExploitsDescription": "",
                 "fixesBugsExploitsTitle": "",
-                "friendsListDescription": "",
                 "friendsListTitle": "",
-                "improvedNetcodeDescription": "",
                 "improvedNetcodeTitle": "",
-                "leaguesDescription": "",
                 "leaguesTitle": "",
-                "matchmakingDescription": "",
                 "matchmakingTitle": "",
-                "partiesDescription": "",
                 "partiesTitle": "",
-                "rankedladderDescription": "",
                 "rankedLadderTitle": "",
-                "remasteredSupportDescription": "",
                 "remasteredSupportTitle": "",
-                "teamMeleeReplaysDescription": "",
                 "teamMeleeReplaysTitle": "",
-                "webClientDescription": "",
                 "webClientTitle": ""
             },
-            "featuresTitle": "",
             "gameCount": "",
-            "linksHeader": "",
-            "signUp": "",
-            "tagline": ""
+            "signUp": ""
         }
     },
     "auth": {
@@ -333,7 +288,6 @@
             "unrated": "未评级"
         },
         "type": {
-            "1v1": "",
             "2v2": ""
         }
     },
@@ -344,249 +298,159 @@
     },
     "chat": {
         "createChannel": {
-            "maximumOwnedError": "",
             "title": "",
-            "bannedError": "",
             "channelName": "",
-            "createAction": "",
             "defaultError": ""
         },
         "events": {
-            "ban": "",
             "kick": ""
         },
         "banUser": {
-            "banAction": "",
             "banReason": "",
-            "dialogTitle": "",
             "successMessage": ""
         },
         "banUserErrorDisplay": {
-            "defaultError": "",
             "genericError": "",
-            "moderateChannelModerator": "",
             "moderateChannelOwner": "",
-            "noPermissions": "",
             "notInChannel": ""
         },
         "channelInfo": {
-            "defaultError": "",
-            "genericError": "",
-            "notFound": ""
+            "genericError": ""
         },
         "channelInfoCard": {
             "adminView": "",
-            "joined": "",
             "moreActions": "",
-            "noDescription": "",
             "private": "",
-            "userCount_one": "",
             "userCount_other": ""
         },
         "channelList": {
-            "createChannel": "",
             "noMatchingChannels": "",
-            "pageHeadline": "",
             "retrievingError": ""
         },
         "channelMenu": {
-            "banAction": "",
             "kickAction": "",
-            "kickingError": "",
             "userKicked": ""
         },
-        "channelName": {
-            "deletedChannel": ""
-        },
         "channelValidator": {
-            "pattern": "",
-            "required": ""
+            "pattern": ""
         },
         "joinChannel": {
             "bannedError": "",
-            "genericError": "",
             "maximumChannelsError": ""
         },
         "messageLayout": {
-            "banUser": "",
             "joinChannel": "",
-            "kickUser": "",
             "leaveChannel": "",
-            "newChannelOwner": "",
             "selfJoinChannel": ""
         },
         "messageMenu": {
-            "deleteError": "",
             "messageDeleted": ""
-        },
-        "navEntry": {
-            "leaveChannel": ""
         },
         "userList": {
             "active": "",
-            "idle": "",
             "offline": ""
         }
     },
     "game": {
         "race": {
-            "protoss": "",
             "random": "",
-            "terran": "",
             "zerg": ""
         },
         "results": {
-            "draw": "",
             "loss": "",
-            "unknown": "",
             "win": ""
         },
         "gameSource": {
-            "custom": "",
             "ranked": ""
         },
         "gameType": {
-            "captureTheFlag": "",
             "freeForAll": "",
-            "greed": "",
             "melee": "",
-            "oneOnOne": "",
             "slaughter": "",
-            "suddenDeath": "",
             "teamCaptureTheFlag": "",
-            "teamFreeForAll": "",
             "teamMelee": "",
-            "topVsBottom": "",
-            "unknown": "",
-            "useMapSettings": ""
+            "unknown": ""
         },
         "mapName": {
             "unknown": ""
         },
         "playerName": {
-            "computer": "",
             "unknown": ""
         },
         "teamName": {
-            "bottom": "",
-            "number": "",
-            "top": ""
+            "number": ""
         }
     },
     "league": {
         "explainer": {
             "joinDescription": "",
-            "joinTitle": "",
             "playDescription": "",
-            "playTitle": "",
             "winDescription": "",
-            "winTitle": "",
-            "description": "",
-            "howLeaguesWork": ""
+            "description": ""
         },
         "list": {
             "acceptingSignups": "",
-            "currentlyRunning": "",
             "ends": "",
-            "finished": "",
             "howDoLeaguesWork": "",
-            "joined": "",
             "loadingError": "",
-            "manageLeagues": "",
             "noLeagues": "",
-            "pageHeadline": "",
-            "starts": "",
-            "viewInfo": ""
+            "starts": ""
         },
         "details": {
             "about": "",
-            "copyLink": "",
             "dateText": "",
-            "goBack": "",
             "info": "",
-            "joined": "",
             "joinError": "",
-            "leaderboard": "",
             "leaderboardError": "",
             "leaderBoardHeader": {
-                "lastPlayed": "",
                 "player": "",
-                "points": "",
-                "rank": "",
-                "winLoss": ""
+                "rank": ""
             },
             "leagueEndedError": "",
-            "leagueJoined": "",
             "noPlayers": "",
-            "notFound": "",
-            "retrieveError": "",
-            "rulesAndInfo": ""
+            "retrieveError": ""
         }
     },
     "user": {
         "miniMatchHistory": {
             "noGames": "",
-            "noGameSelected": "",
             "viewDetails": ""
         }
     },
     "windowControls": {
-        "close": "",
-        "maximizeRestore": "",
-        "minimize": ""
+        "maximizeRestore": ""
     },
     "fileBrowser": {
         "noFiles": "",
-        "rootFolder": "",
         "upOneDirectory": ""
     },
     "replays": {
         "local": {
-            "watchReplay": "",
             "duration": "",
-            "gameType": "",
             "loadingError": "",
-            "rootFolderName": "",
             "title": ""
         }
     },
     "gameDetails": {
-        "buttonCopyLink": "",
         "buttonSearchAgain": "",
-        "errorLoading": "",
         "headlineDefault": "",
-        "headlineDefeat": "",
         "headlineDraw": "",
-        "headlineInProgress": "",
         "headlineVictory": "",
-        "infoDate": "",
         "infoDuration": "",
-        "infoGameType": "",
         "statusFinal": "",
-        "statusLive": "",
         "summary": {
             "mmr": "",
-            "pointsBase": "",
-            "pointsBonus": "",
-            "rp": ""
+            "pointsBonus": ""
         },
         "tabBuildOrders": "",
-        "tabStats": "",
         "tabSummary": ""
     },
     "messaging": {
-        "blockedMessage": "",
         "mention": "",
-        "newDayMessage": "",
         "sendMessage": ""
-    },
-    "network": {
-        "connecting": ""
     },
     "policy": {
         "acceptableUse": "",
-        "policyUpdateNotification": "",
-        "privacyPolicy": "",
-        "termsOfService": ""
+        "privacyPolicy": ""
     }
 }
