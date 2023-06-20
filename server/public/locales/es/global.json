@@ -12,7 +12,12 @@
             "okay": "Bueno",
             "save": "Ahorrar",
             "join": "Unirse",
-            "view": "Vista"
+            "view": "Vista",
+            "download": "Descargar",
+            "hide": "Esconder",
+            "refresh": "Actualizar",
+            "search": "Buscar",
+            "show": "Espectáculo"
         }
     },
     "settings": {
@@ -93,7 +98,7 @@
             "resendError": "Error al reenviar el correo electrónico: {{error}}",
             "resendSuccess": "Se ha enviado un nuevo código de verificación a la dirección de correo electrónico de su cuenta.",
             "resendVerificationEmail": "Reenviar correo electrónico de verificación",
-            "sendError": "Algo salió mal al enviar un correo electrónico de verificación, inténtalo de nuevo más tarde.",
+            "sendError": "Algo salió mal al enviar un correo electrónico de verificación, intente nuevamente más tarde.",
             "switchUser": "Cambiar de usuario",
             "title": "Verificar correo electrónico",
             "verifySuccess": "Su correo electrónico ha sido verificado con éxito.",
@@ -146,7 +151,8 @@
             "current": "introduce tu contraseña actual",
             "matching": "Introduce una contraseña que coincida",
             "required": "Ingrese una contraseña",
-            "resetCode": "Ingrese su código de restablecimiento de contraseña"
+            "resetCode": "Ingrese su código de restablecimiento de contraseña",
+            "matchingPassword": "Introduce una contraseña que coincida"
         },
         "signup": {
             "acceptableUseLink": "Uso aceptable",
@@ -176,6 +182,99 @@
             "ladder": "Escalera",
             "leagues": "ligas",
             "login": "Acceso"
+        },
+        "faq": {
+            "hotkeyCustomizationAnswer": "Sí, admitimos teclas de acceso rápido personalizadas, pero actualmente no tenemos un editor de teclas de acceso rápido. Si desea utilizar teclas de acceso rápido personalizadas, inicie StarCraft: Remastered a través del lanzador de Blizzard y personalícelas allí primero. Después de hacerlo, los lanzamientos futuros a través de ShieldBattery usarán esas teclas de acceso rápido.",
+            "hotkeyCustomizationQuestion": "¿Se permite o se proporciona la personalización de teclas de acceso rápido?",
+            "isShieldBatteryFreeAnswer": "<0>¡ShieldBattery es de uso totalmente gratuito!</0><1>Sin embargo, nos cuesta tiempo y dinero alojar y desarrollar ShieldBattery. Si desea ayudarnos a cubrir esos costos, se lo agradeceríamos mucho. Hemos establecido varias formas de contribuir:</1>",
+            "isShieldBatteryFreeQuestion": "¿ShieldBattery cuesta algo? ¿Cómo puedo apoyar el proyecto?",
+            "linuxSupportAnswer": "<0>Actualmente, esto no es algo para lo que tengamos soporte oficial.</0><1>Sin embargo, hay una integración de ShieldBattery con Wine aportada por la comunidad. Consulta nuestro <2>Discord</2> para aprender a ejecutar ShieldBattery en Wine.</1>",
+            "officialSupportAnswer": "No, ShieldBattery es un proyecto desarrollado por apasionados miembros de la comunidad y no cuenta con el apoyo o reconocimiento oficial de Blizzard.",
+            "officialSupportQuestion": "¿ShieldBattery está desarrollado con el apoyo de Blizzard?",
+            "openSourceAnswer": "<0>Sí. Puede acceder a nuestro repositorio principal, así como a los diversos proyectos adicionales que hemos escrito y separado en sus propios repositorios en nuestra <2>página de GitHub</2>.</0><1>Siempre podríamos usar más colaboradores, así que si crees que puedes ayudar, ¡échale un vistazo!</1>",
+            "openSourceQuestion": "¿El proyecto es de código abierto?",
+            "reportIssuesAnswer": "La forma más fácil de informar errores o problemas es a través de nuestro <2>Discord</2>. Si se siente cómodo haciéndolo, también puede presentar problemas en nuestro <5>GitHub</5>.",
+            "reportIssuesQuestion": "¿Cómo puedo reportar errores o problemas?",
+            "supportedStarcraftVersionAnswer": "ShieldBattery es compatible con la última versión de StarCraft: Remastered. Puedes descargar la versión gratuita de StarCraft: Remastered desde el <2>sitio oficial de Blizzard</2>, o instalarla a través del lanzador de Blizzard. Cualquier complemento comprado (como gráficos HD) se podrá usar en ShieldBattery.",
+            "supportedStarcraftVersionQuestion": "¿Qué versión de StarCraft admite ShieldBattery?",
+            "systemRequirementsAnswer": "<0>Los requisitos de nuestro sistema se basan principalmente en los de <2>StarCraft: Remastered</2>, pero en resumen:</0><1><0>Una computadora con Windows 10 o posterior</0><1 >2 GB de RAM</1><2>NVIDIA GeForce 6800 (256 MB) o ATI Radeon X1600 Pro (256 MB) o superior</2><3>Una instalación de StarCraft: Remastered, parcheada a la última versión</3></ 1>",
+            "systemRequirementsQuestion": "¿Cuáles son los requisitos del sistema para jugar en ShieldBattery?",
+            "title": "Preguntas frecuentes",
+            "header": "Preguntas más frecuentes",
+            "linuxSupportQuestion": "¿ShieldBattery funciona en Linux o OS X?"
+        },
+        "splash": {
+            "benefits": {
+                "fullPotentialText": "StarCraft tiene una increíble historia competitiva, y ShieldBattery es la base para brindar la experiencia de juego y visualización de primer nivel que se merece. De código abierto, impulsado por la comunidad y configurado para ofrecer características y experiencias que incluso los juegos modernos desearían tener: ShieldBattery es un revolucionario paso adelante para la comunidad de StarCraft.",
+                "fullPotentialTitle": "Todo el potencial desbloqueado",
+                "tacticallyFaithfulText": "Creado por miembros de la comunidad con décadas colectivas de experiencia en StarCraft, sabemos lo que hace que el juego funcione. Mantenemos las cosas importantes igual, pero creamos funciones y mejoras completamente nuevas para que tu experiencia con StarCraft sea mejor que nunca.",
+                "tacticallyFaithfulTitle": "Tácticamente fiel",
+                "communityFirstText": "ShieldBattery es un centro vibrante para todos los que juegan o miran StarCraft. El chat está al frente y al centro, ingresar a los juegos es fácil y sin problemas, y su experiencia es nuestra principal preocupación. Ya sea que juegues desde 1998 o simplemente hayas comenzado el juego esta semana, encontrarás un hogar aquí.",
+                "communityFirstTitle": "La comunidad primero"
+            },
+            "blurb": "ShieldBattery es el primer servidor administrado por la comunidad que admite <2>StarCraft: Remastered.</2> Nuestro lanzador personalizado mejora el cliente del juego real para que funcione con nuestra plataforma avanzada, mejorando la experiencia de StarCraft 1 mientras mantiene un juego fiel y auténtico. ¡Descarga nuestro lanzador y comienza a jugar con solo unos pocos clics!",
+            "comingSoon": {
+                "3v3Description": "Encuentra fácilmente juegos para 3v3, con equipos ordenados o aleatorios.",
+                "3v3Title": "emparejamiento 3v3",
+                "automatedTournamentsDescription": "Encuentra torneos y ligas que coincidan con tu nivel de habilidad, se ejecutan automáticamente.",
+                "automatedTournamentsTitle": "Torneos y ligas automatizados",
+                "builtInMapmakingDescription": "¡Rocas destructibles, posiciones iniciales ideales para los trabajadores, colocación avanzada de fluencia y más!",
+                "builtInMapmakingTitle": "Nuevas funciones integradas de creación de mapas",
+                "cloudReplaysDescription": "Carga automática de repeticiones. ¡Compártalos con otros, mírelos desde cualquier lugar!",
+                "cloudReplaysTitle": "Repeticiones sincronizadas en la nube",
+                "expandedChatDescription": "¡Exprésate usando gestos, incrusta mapas, partidos, repeticiones y más!",
+                "expandedChatTitle": "Funciones de chat ampliadas",
+                "fpReplaysDescription": "Graba los movimientos del mouse y de la pantalla y reprodúcelos para todos los jugadores.",
+                "fpReplaysTitle": "Repeticiones en primera persona",
+                "liveStreamingDescription": "Salta a los partidos en curso y míralos en vivo, con todos los beneficios de la observación dentro del juego.",
+                "liveStreamingTitle": "Transmisión de partidos en vivo",
+                "pixelScalingDescription": "Mejore el aspecto de los gráficos SD en pantallas modernas con algoritmos de escala personalizados",
+                "pixelScalingTitle": "Escalado de píxeles configurable",
+                "playerProfilesDescription": "Compruebe sus habilidades en diferentes enfrentamientos y mapas, encuentre formas de mejorar y vea cómo se compara con la competencia.",
+                "playerProfilesTitle": "Perfiles y estadísticas de los jugadores",
+                "replayAnalysisDescription": "Compatibilidad integrada con análisis de repeticiones similares a BWChart, así como estadísticas y gráficos más avanzados.",
+                "replayAnalysisTitle": "Análisis de reproducción",
+                "sandboxModeDescription": "Pruebe nuevas compilaciones, practique su división de trabajadores, mejore su micro.",
+                "sandboxModeTitle": "Modo de entrenamiento/sandbox",
+                "umsPortalDescription": "Encuentre y explore mapas UMS con facilidad, luego reúna rápidamente a los jugadores y comience el juego.",
+                "umsPortalTitle": "Usar el portal de configuración del mapa"
+            },
+            "comingSoonTitle": "En la tubería <1>(próximamente)</1>",
+            "disclaimerText": "StarCraft es una marca comercial registrada de Blizzard Entertainment, Inc. ShieldBattery está desarrollado únicamente por miembros de la comunidad, no afiliados a Blizzard, y Blizzard no respalda ni apoya oficialmente.",
+            "features": {
+                "cloudHostingDescription": "Juega en cualquiera de los mapas de nuestra biblioteca oficial o sube uno propio. Cargue todos sus mapas favoritos, compártalos con sus amigos, alójelos desde cualquier lugar.",
+                "cloudHostingTitle": "Distribución y hospedaje de mapas basados en la nube",
+                "fixesBugsExploitsDescription": "Evita los hacks y exploits que plagan los servidores oficiales. Cosas como la duplicación de trabajadores, la piratería de minerales y los trabajadores flotantes permanentes son cosa del pasado aquí.",
+                "fixesBugsExploitsTitle": "Corrección de errores y exploits",
+                "friendsListDescription": "Realice un seguimiento cuando sus amigos están en línea, envíeles mensajes fácilmente e invítelos a juegos.",
+                "friendsListTitle": "Lista de amigos",
+                "improvedNetcodeDescription": "¡Menos retraso, caídas y pérdida de paquetes!",
+                "matchmakingTitle": "Emparejamiento 1v1 y 2v2",
+                "partiesDescription": "Reúnase con sus amigos para organizar fácilmente partidos privados, ver repeticiones juntos o unirse al emparejamiento.",
+                "partiesTitle": "Fiestas",
+                "rankedladderDescription": "Perfeccione sus habilidades en nuestro sistema de clasificación basado en Glicko para todos los modos de emparejamiento.",
+                "rankedLadderTitle": "escalera clasificada",
+                "remasteredSupportDescription": "Compatibilidad con todas las funciones nuevas de Remastered, incluidos gráficos HD (si se compran en Blizzard) y teclas de acceso rápido personalizadas.",
+                "remasteredSupportTitle": "Soporte de StarCraft: Remasterizado",
+                "teamMeleeReplaysDescription": "¡Reproduce cualquier juego jugado en el modo Team Melee en ShieldBattery!",
+                "teamMeleeReplaysTitle": "Repeticiones cuerpo a cuerpo en equipo de trabajo",
+                "webClientDescription": "Manténgase al día con sus amigos (y enemigos) sin necesidad de instalar nada.",
+                "webClientTitle": "Cliente de chat basado en web",
+                "improvedNetcodeTitle": "código de red mejorado",
+                "leaguesDescription": "Participa en emocionantes ligas de tiempo limitado organizadas por la comunidad y facilitadas por emparejamiento automático.",
+                "leaguesTitle": "ligas abiertas",
+                "matchmakingDescription": "Encuentra partidos de forma rápida y sencilla, solo o con un equipo concertado."
+            },
+            "gameCount": "<0></0> juegos jugados",
+            "linksHeader": "Enlaces",
+            "signUp": "Inscribirse",
+            "tagline": "Juega a StarCraft 1 en la principal plataforma administrada por la comunidad",
+            "featuresTitle": "Características"
+        },
+        "bottomLinks": {
+            "privacyPolicy": "política de privacidad",
+            "termsOfService": "Términos de servicio",
+            "acceptableUsePolicy": "Política de uso aceptable"
         }
     },
     "ladder": {
@@ -228,6 +327,10 @@
             "platinum": "Platino {{level}}",
             "silver": "Plata {{level}}",
             "unrated": "Sin clasificar"
+        },
+        "type": {
+            "1v1": "1v1",
+            "2v2": "2v2"
         }
     },
     "clientUpdate": {
@@ -325,5 +428,166 @@
             "idle": "Inactivo",
             "offline": "Desconectado"
         }
+    },
+    "fileBrowser": {
+        "noFiles": "Nada que ver aqui",
+        "rootFolder": "Carpeta raíz",
+        "upOneDirectory": "Subir un directorio"
+    },
+    "game": {
+        "gameSource": {
+            "custom": "Juego personalizado",
+            "ranked": "Clasificado {{matchmakingType}}"
+        },
+        "gameType": {
+            "captureTheFlag": "Captura la bandera",
+            "freeForAll": "Gratuita para todos",
+            "greed": "Codicia",
+            "melee": "Pelea confusa",
+            "oneOnOne": "Uno a uno",
+            "topVsBottom": "Arriba vs abajo",
+            "unknown": "Desconocido",
+            "useMapSettings": "Usar la configuración del mapa",
+            "slaughter": "Sacrificio",
+            "suddenDeath": "La muerte súbita",
+            "teamCaptureTheFlag": "El equipo captura la bandera",
+            "teamMelee": "Cuerpo a cuerpo en equipo",
+            "teamFreeForAll": "Equipo gratis para todos"
+        },
+        "mapName": {
+            "unknown": "mapa desconocido"
+        },
+        "playerName": {
+            "computer": "Computadora",
+            "unknown": "jugador desconocido"
+        },
+        "race": {
+            "protoss": "Protoss",
+            "random": "Aleatorio",
+            "terran": "terrano",
+            "zerg": "zerg"
+        },
+        "results": {
+            "draw": "Dibujar",
+            "loss": "Pérdida",
+            "unknown": "Desconocido",
+            "win": "Ganar"
+        },
+        "teamName": {
+            "bottom": "Abajo",
+            "number": "Equipo {{teamNumber}}",
+            "top": "Arriba"
+        }
+    },
+    "gameDetails": {
+        "buttonCopyLink": "Copiar enlace al juego",
+        "buttonSearchAgain": "Busca de nuevo",
+        "errorLoading": "Hubo un problema al cargar este juego.",
+        "headlineDefault": "Resultados",
+        "headlineDefeat": "¡Fracaso!",
+        "headlineDraw": "¡Dibujar!",
+        "headlineInProgress": "En curso…",
+        "headlineVictory": "¡Victoria!",
+        "infoDate": "Fecha",
+        "infoDuration": "Duración",
+        "infoGameType": "Tipo",
+        "summary": {
+            "pointsBonus": "Prima",
+            "rp": "PR",
+            "pointsBase": "Base",
+            "mmr": "MMR"
+        },
+        "tabBuildOrders": "Órdenes de construcción",
+        "tabStats": "Estadísticas",
+        "tabSummary": "Resumen",
+        "statusFinal": "Final",
+        "statusLive": "Vivir"
+    },
+    "league": {
+        "details": {
+            "about": "Acerca de",
+            "copyLink": "Copiar enlace a la liga",
+            "dateText": "{{startDate}} a {{endDate}}",
+            "goBack": "volver a la lista",
+            "info": "Información",
+            "joined": "Unido",
+            "joinError": "No pude unirme a la liga: {{errorMessage}}",
+            "leaderboard": "Tabla de clasificación",
+            "leaderboardError": "Hubo un problema al recuperar la tabla de posiciones: {{errorMessage}}",
+            "leaderBoardHeader": {
+                "lastPlayed": "Jugado por última vez",
+                "player": "Jugador",
+                "points": "Puntos",
+                "rank": "Rango",
+                "winLoss": "Ganar perder"
+            },
+            "leagueEndedError": "No pude unirme porque la liga ya terminó",
+            "leagueJoined": "Se unió a la liga",
+            "noPlayers": "No hay jugadores coincidentes.",
+            "notFound": "Liga no encontrada",
+            "retrieveError": "Hubo un error al recuperar esta liga: {{errorMessage}}",
+            "rulesAndInfo": "Reglas e información"
+        },
+        "explainer": {
+            "playDescription": "Una vez que ha comenzado una liga, todos los juegos de escalera que juegues te otorgarán puntos para la clasificación de la liga junto con tu clasificación de escalera normal. ¡Consulta la tabla de clasificación en la página de la liga para ver cómo te va!",
+            "playTitle": "Jugar.",
+            "winDescription": "Después de que termine una liga, la tabla de clasificación estará disponible para que los organizadores distribuyan premios y recompensas. Consulte la página de información de la liga para obtener más detalles.",
+            "joinTitle": "Unirse.",
+            "winTitle": "¡Ganar!",
+            "description": "¡Las ligas son una nueva forma de competir por premios, calificar para participar en torneos y más!",
+            "howLeaguesWork": "Cómo funcionan las ligas",
+            "joinDescription": "Encuentra una liga que se esté ejecutando actualmente o que acepte inscripciones en el formato que te gustaría jugar. Algunas ligas pueden tener diferentes requisitos, reglas o calificaciones, ¡así que asegúrese de leer la información antes de unirse!"
+        },
+        "list": {
+            "acceptingSignups": "Aceptar registros",
+            "currentlyRunning": "Actualmente en ejecución",
+            "howDoLeaguesWork": "¿Cómo funcionan las ligas?",
+            "loadingError": "Error al cargar ligas",
+            "manageLeagues": "Administrar ligas",
+            "noLeagues": "Sin ligas coincidentes",
+            "pageHeadline": "ligas",
+            "starts": "Comienza {{startDate}}",
+            "viewInfo": "ver información",
+            "ends": "Finaliza {{endDate}}",
+            "finished": "Finalizado",
+            "joined": "Unido"
+        }
+    },
+    "messaging": {
+        "blockedMessage": "mensaje bloqueado",
+        "mention": "Mencionar",
+        "newDayMessage": "Día cambiado a <2>{{day}}</2>",
+        "sendMessage": "Enviar un mensaje"
+    },
+    "network": {
+        "connecting": "Conectando…"
+    },
+    "policy": {
+        "acceptableUse": "Uso aceptable",
+        "policyUpdateNotification": "Se ha actualizado <2>{{label}}</2> de ShieldBattery.",
+        "privacyPolicy": "Política de privacidad",
+        "termsOfService": "Términos de servicio"
+    },
+    "replays": {
+        "local": {
+            "duration": "Duración: {{durationStr}}",
+            "gameType": "Tipo de juego: {{gameTypeLabel}}",
+            "loadingError": "Hubo un problema al cargar la repetición.",
+            "rootFolderName": "repeticiones",
+            "title": "Repeticiones locales",
+            "watchReplay": "Ver repetición"
+        }
+    },
+    "user": {
+        "miniMatchHistory": {
+            "noGames": "Nada que ver aqui",
+            "noGameSelected": "Ningún juego seleccionado",
+            "viewDetails": "Ver detalles"
+        }
+    },
+    "windowControls": {
+        "close": "Cerca",
+        "maximizeRestore": "Maximizar/Restaurar",
+        "minimize": "Minimizar"
     }
 }
