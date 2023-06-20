@@ -1,5 +1,6 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MapInfoJson } from '../../common/maps'
 import { MatchmakingMapPool, MatchmakingPreferences } from '../../common/matchmaking'
@@ -177,6 +178,7 @@ export function MapVetoesControl({
   disabled,
   className,
 }: MapVetoesControlProps) {
+  const { t } = useTranslation()
   const onChangeRef = useValueAsRef(onChange)
   const valueRef = useValueAsRef(value)
   const onClick = useCallback(
@@ -214,7 +216,7 @@ export function MapVetoesControl({
         ))}
       </MapSelections>
       <VetoStatus>
-        <VetoStatusLabel>Vetoes left: </VetoStatusLabel>
+        <VetoStatusLabel>{t('matchmaking.findMatch.vetoesLeft', 'Vetoes left:')} </VetoStatusLabel>
         <VetoStatusValue $exhausted={vetoesLeft <= 0}>{vetoesLeft}</VetoStatusValue>
       </VetoStatus>
     </div>

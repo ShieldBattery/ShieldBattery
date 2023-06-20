@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MatchmakingType } from '../../common/matchmaking'
 import { DisabledCard, DisabledText } from '../activities/disabled-content'
@@ -53,6 +54,7 @@ export function ConnectedMatchmakingDisabledCard({
   className,
   type,
 }: ConnectedMatchmakingDisabledCardProps) {
+  const { t } = useTranslation()
   const status = useAppSelector(s => s.matchmakingStatus.byType.get(type))
 
   const [days, setDays] = useState('00')
@@ -98,10 +100,12 @@ export function ConnectedMatchmakingDisabledCard({
 
   return (
     <DisabledCard className={className}>
-      <Headline5>Matchmaking disabled</Headline5>
+      <Headline5>{t('matchmaking.disabledCard.title', 'Matchmaking disabled')}</Headline5>
       <DisabledText>
-        Matchmaking is sometimes shut down for maintenance and development, and is currently
-        disabled. The next matchmaking period is:
+        <Trans t={t} i18nKey='matchmaking.disabledCard.description'>
+          Matchmaking is sometimes shut down for maintenance and development, and is currently
+          disabled. The next matchmaking period is:
+        </Trans>
       </DisabledText>
       {nextStartDate && Number(nextStartDate) > Date.now() ? (
         <>
@@ -114,25 +118,29 @@ export function ConnectedMatchmakingDisabledCard({
           ) : null}
           <CountdownContainer>
             <CountdownItemContainer>
-              <CountdownItemText>Days</CountdownItemText>
+              <CountdownItemText>{t('matchmaking.disabledCard.days', 'Days')}</CountdownItemText>
               <Headline3>{days}</Headline3>
             </CountdownItemContainer>
             <CountdownItemContainer>
-              <CountdownItemText>Hours</CountdownItemText>
+              <CountdownItemText>{t('matchmaking.disabledCard.hours', 'Hours')}</CountdownItemText>
               <Headline3>{hours}</Headline3>
             </CountdownItemContainer>
             <CountdownItemContainer>
-              <CountdownItemText>Minutes</CountdownItemText>
+              <CountdownItemText>
+                {t('matchmaking.disabledCard.minutes', 'Minutes')}
+              </CountdownItemText>
               <Headline3>{minutes}</Headline3>
             </CountdownItemContainer>
             <CountdownItemContainer>
-              <CountdownItemText>Seconds</CountdownItemText>
+              <CountdownItemText>
+                {t('matchmaking.disabledCard.seconds', 'Seconds')}
+              </CountdownItemText>
               <Headline3>{seconds}</Headline3>
             </CountdownItemContainer>
           </CountdownContainer>
         </>
       ) : (
-        <Headline6>Soon™</Headline6>
+        <Headline6>{t('matchmaking.disabledCard.soon', 'Soon™')}</Headline6>
       )}
     </DisabledCard>
   )
@@ -144,20 +152,27 @@ export interface ConnectedPartyDisabledCardProps {
 }
 
 export function ConnectedPartyDisabledCard({ className, type }: ConnectedPartyDisabledCardProps) {
+  const { t } = useTranslation()
   const selfUser = useSelfUser()!
   const isPartyLeader = useAppSelector(s => s.party.current?.leader === selfUser.id)
   const partySize = useAppSelector(s => s.party.current?.members.length ?? 0)
 
-  let disabledTitle = 'Disabled while in party'
+  let disabledTitle = t('matchmaking.disabledCard.inParty', 'Disabled while in party')
   let disabledText: string | undefined
   if (!isPartyLeader) {
-    disabledText = 'Only the party leader can queue for matches.'
+    disabledText = t(
+      'matchmaking.disabledCard.notPartyLeader',
+      'Only the party leader can queue for matches.',
+    )
   } else if (
     (type === MatchmakingType.Match1v1 && partySize > 1) ||
     (type === MatchmakingType.Match2v2 && partySize > 2)
   ) {
-    disabledTitle = 'Party too large'
-    disabledText = 'Your current party is too large to queue for this matchmaking type.'
+    disabledTitle = t('matchmaking.disabledCard.partyTooLargeTitle', 'Party too large')
+    disabledText = t(
+      'matchmaking.disabledCard.partyTooLargeText',
+      'Your current party is too large to queue for this matchmaking type.',
+    )
   }
 
   return (
