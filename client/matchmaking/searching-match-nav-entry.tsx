@@ -52,7 +52,7 @@ export function SearchingMatchNavEntry(props: SearchingMatchNavEntryProps) {
         <SearchTitle>
           {props.isMatched
             ? t('matchmaking.navEntry.matchFound', 'Match found!')
-            : t('', {
+            : t('matchmaking.navEntry.searchingForMatch', {
                 defaultValue: 'Searching for {{matchmakingType}}',
                 matchmakingType: matchmakingTypeToLabel(props.matchmakingType, t),
               })}

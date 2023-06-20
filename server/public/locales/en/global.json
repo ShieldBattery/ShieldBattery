@@ -569,7 +569,8 @@
     "navEntry": {
       "cancelSearch": "Cancel search",
       "elapsedTime": "Time: ",
-      "matchFound": "Match found!"
+      "matchFound": "Match found!",
+      "searchingForMatch": "Searching for {{matchmakingType}}"
     },
     "postMatchDialog": {
       "leagues": "Leagues",
