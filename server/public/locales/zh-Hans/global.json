@@ -58,20 +58,13 @@
             "login": "登录",
             "faq": "常问问题"
         },
-        "faq": {
-            "reportIssuesQuestion": ""
-        },
         "splash": {
             "comingSoon": {
                 "expandedChatTitle": ""
             },
-            "benefits": {
-                "fullPotentialText": ""
-            },
             "features": {
                 "leaguesTitle": ""
-            },
-            "signUp": ""
+            }
         }
     },
     "auth": {
@@ -254,37 +247,22 @@
         }
     },
     "chat": {
-        "banUserErrorDisplay": {
-            "moderateChannelOwner": ""
-        },
         "channelList": {
             "retrievingError": ""
-        },
-        "messageLayout": {
-            "selfJoinChannel": ""
         }
     },
     "game": {
         "gameSource": {
             "ranked": ""
-        },
-        "playerName": {
-            "unknown": ""
         }
     },
     "league": {
         "list": {
             "howDoLeaguesWork": ""
-        },
-        "details": {
-            "leaderboardError": ""
         }
     },
     "windowControls": {
         "maximizeRestore": ""
-    },
-    "gameDetails": {
-        "headlineDraw": ""
     },
     "messaging": {
         "mention": ""

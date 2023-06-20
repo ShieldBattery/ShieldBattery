@@ -58,18 +58,13 @@
             "changeLanguage": "Изменить язык",
             "login": "Авторизоваться"
         },
-        "faq": {
-            "reportIssuesQuestion": ""
-        },
         "splash": {
             "comingSoon": {
-                "automatedTournamentsTitle": "",
-                "replayAnalysisTitle": ""
+                "automatedTournamentsTitle": ""
             },
             "features": {
                 "leaguesTitle": ""
-            },
-            "signUp": ""
+            }
         }
     },
     "auth": {
@@ -252,36 +247,21 @@
         }
     },
     "chat": {
-        "createChannel": {
-            "channelName": ""
-        },
         "channelMenu": {
             "kickAction": ""
-        },
-        "messageLayout": {
-            "selfJoinChannel": ""
         }
     },
     "game": {
         "gameType": {
             "teamFreeForAll": ""
-        },
-        "teamName": {
-            "number": ""
         }
     },
     "gameDetails": {
         "statusLive": ""
     },
     "league": {
-        "details": {
-            "joined": ""
-        },
         "explainer": {
             "howLeaguesWork": ""
-        },
-        "list": {
-            "pageHeadline": ""
         }
     },
     "replays": {

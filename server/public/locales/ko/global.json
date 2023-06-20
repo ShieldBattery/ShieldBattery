@@ -175,20 +175,13 @@
             "ladder": "사다리",
             "login": "로그인"
         },
-        "faq": {
-            "supportedStarcraftVersionQuestion": ""
-        },
         "splash": {
             "comingSoon": {
                 "expandedChatDescription": ""
             },
             "features": {
-                "friendsListDescription": "",
                 "webClientDescription": ""
             }
-        },
-        "bottomLinks": {
-            "privacyPolicy": ""
         }
     },
     "clientDownload": {
@@ -254,38 +247,23 @@
         }
     },
     "chat": {
-        "banUserErrorDisplay": {
-            "moderateChannelModerator": ""
-        },
         "channelValidator": {
             "pattern": ""
-        },
-        "messageLayout": {
-            "leaveChannel": ""
         }
     },
     "game": {
         "gameSource": {
             "ranked": ""
-        },
-        "playerName": {
-            "unknown": ""
         }
     },
     "gameDetails": {
         "buttonCopyLink": ""
-    },
-    "fileBrowser": {
-        "noFiles": ""
     },
     "league": {
         "details": {
             "leaderBoardHeader": {
                 "winLoss": ""
             }
-        },
-        "list": {
-            "currentlyRunning": ""
         }
     },
     "policy": {

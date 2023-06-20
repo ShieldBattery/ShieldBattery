@@ -178,17 +178,12 @@
             "login": "Acceso"
         },
         "splash": {
-            "features": {
-                "partiesTitle": ""
-            },
             "comingSoon": {
-                "playerProfilesDescription": "",
-                "expandedChatDescription": ""
+                "playerProfilesDescription": ""
             }
         },
         "faq": {
-            "header": "",
-            "systemRequirementsQuestion": ""
+            "header": ""
         }
     },
     "ladder": {
@@ -339,15 +334,9 @@
             "offline": "Desconectado"
         }
     },
-    "gameDetails": {
-        "tabBuildOrders": ""
-    },
     "game": {
         "gameType": {
             "suddenDeath": ""
-        },
-        "results": {
-            "unknown": ""
         }
     },
     "league": {
@@ -355,15 +344,9 @@
             "leaderBoardHeader": {
                 "player": ""
             }
-        },
-        "explainer": {
-            "winDescription": ""
         }
     },
     "policy": {
         "policyUpdateNotification": ""
-    },
-    "fileBrowser": {
-        "rootFolder": ""
     }
 }
