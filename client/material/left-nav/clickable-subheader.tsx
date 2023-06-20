@@ -1,8 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
 import { Link } from 'wouter'
-import { push } from '../../navigation/routing'
-import { useStableCallback } from '../../state-hooks'
 import { colorTextPrimary, colorTextSecondary } from '../../styles/colors'
 import { overline, singleLine } from '../../styles/typography'
 import { useButtonState } from '../button'
@@ -60,10 +58,7 @@ export const ClickableSubheader = React.forwardRef(
     { to, icon, children, className }: SubheaderProps,
     ref: React.ForwardedRef<HTMLButtonElement>,
   ) => {
-    const onClick = useStableCallback(() => {
-      push(to)
-    })
-    const [buttonProps, rippleRef] = useButtonState({ onClick })
+    const [buttonProps, rippleRef] = useButtonState({})
 
     return (
       <Container className={className} {...buttonProps}>
