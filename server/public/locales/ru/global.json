@@ -13,11 +13,6 @@
             "back": "Назад"
         }
     },
-    "games": {
-        "results": {
-            "headlineDraw": "Ничья!"
-        }
-    },
     "settings": {
         "app": {
             "sound": {

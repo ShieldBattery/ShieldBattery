@@ -15,11 +15,6 @@
             "view": "Vista"
         }
     },
-    "games": {
-        "results": {
-            "infoGameType": "Tipo"
-        }
-    },
     "settings": {
         "app": {
             "sound": {
