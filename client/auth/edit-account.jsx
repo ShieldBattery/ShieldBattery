@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types'
 import React from 'react'
+import { withTranslation } from 'react-i18next'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import {
@@ -73,7 +74,7 @@ class AccountForm extends React.Component {
   }
 
   render() {
-    const { bindInput, onSubmit } = this.props
+    const { bindInput, onSubmit, t } = this.props
     const { changePassword } = this.state
     const textInputProps = {
       autoCapitalize: 'off',
@@ -161,6 +162,7 @@ const InfoContainer = styled.div`
   flex-direction: column;
 `
 
+@withTranslation()
 @connect(state => ({ auth: state.auth }))
 export default class EditAccount extends React.Component {
   state = {
@@ -201,7 +203,7 @@ export default class EditAccount extends React.Component {
   }
 
   render() {
-    const { auth, onCancel, dialogRef } = this.props
+    const { auth, onCancel, dialogRef, t } = this.props
     const { reqId } = this.state
     let loadingElem
     let errorElem
