@@ -80,6 +80,7 @@
       "confirm": "Confirm your password",
       "current": "Enter your current password",
       "matching": "Enter a matching password",
+      "matchingPassword": "Enter a matching password",
       "required": "Enter a password",
       "resetCode": "Enter your password reset code"
     },

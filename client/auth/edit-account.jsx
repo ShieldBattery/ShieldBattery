@@ -47,7 +47,7 @@ const passwordValidator = composeValidators(passwordRequired(), minLength(PASSWO
 const newPasswordValidator = composeValidators(minLength(PASSWORD_MINLENGTH))
 const confirmNewPasswordValidator = composeValidators(
   matchesOther('newPassword', t =>
-    t('auth.passwordValidator.matching', 'Enter a matching password'),
+    t('auth.passwordValidator.matchingPassword', 'Enter a matching password'),
   ),
 )
 
