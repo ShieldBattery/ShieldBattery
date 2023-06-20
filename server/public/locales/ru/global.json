@@ -59,22 +59,15 @@
             "login": "Авторизоваться"
         },
         "faq": {
-            "isShieldBatteryFreeQuestion": "",
             "reportIssuesQuestion": ""
         },
         "splash": {
-            "benefits": {
-                "fullPotentialText": ""
-            },
             "comingSoon": {
                 "automatedTournamentsTitle": "",
-                "fpReplaysTitle": "",
                 "replayAnalysisTitle": ""
             },
             "features": {
-                "cloudHostingTitle": "",
-                "leaguesTitle": "",
-                "remasteredSupportTitle": ""
+                "leaguesTitle": ""
             },
             "signUp": ""
         }
@@ -259,20 +252,11 @@
         }
     },
     "chat": {
-        "banUserErrorDisplay": {
-            "moderateChannelOwner": ""
-        },
         "createChannel": {
             "channelName": ""
         },
-        "channelInfoCard": {
-            "private": ""
-        },
         "channelMenu": {
             "kickAction": ""
-        },
-        "joinChannel": {
-            "bannedError": ""
         },
         "messageLayout": {
             "selfJoinChannel": ""
@@ -280,40 +264,25 @@
     },
     "game": {
         "gameType": {
-            "captureTheFlag": "",
             "teamFreeForAll": ""
-        },
-        "race": {
-            "random": ""
         },
         "teamName": {
             "number": ""
         }
     },
     "gameDetails": {
-        "headlineDefeat": "",
         "statusLive": ""
-    },
-    "fileBrowser": {
-        "noFiles": ""
     },
     "league": {
         "details": {
-            "joined": "",
-            "leaderBoardHeader": {
-                "winLoss": ""
-            }
+            "joined": ""
         },
         "explainer": {
             "howLeaguesWork": ""
         },
         "list": {
-            "currentlyRunning": "",
             "pageHeadline": ""
         }
-    },
-    "policy": {
-        "acceptableUse": ""
     },
     "replays": {
         "local": {

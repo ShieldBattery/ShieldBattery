@@ -59,22 +59,17 @@
             "faq": "常问问题"
         },
         "faq": {
-            "isShieldBatteryFreeQuestion": "",
             "reportIssuesQuestion": ""
         },
         "splash": {
             "comingSoon": {
-                "3v3Title": "",
-                "expandedChatTitle": "",
-                "replayAnalysisDescription": ""
+                "expandedChatTitle": ""
             },
             "benefits": {
                 "fullPotentialText": ""
             },
             "features": {
-                "cloudHostingTitle": "",
-                "leaguesTitle": "",
-                "remasteredSupportTitle": ""
+                "leaguesTitle": ""
             },
             "signUp": ""
         }
@@ -259,65 +254,37 @@
         }
     },
     "chat": {
-        "events": {
-            "kick": ""
-        },
         "banUserErrorDisplay": {
             "moderateChannelOwner": ""
         },
-        "channelInfoCard": {
-            "moreActions": ""
-        },
         "channelList": {
             "retrievingError": ""
-        },
-        "joinChannel": {
-            "bannedError": ""
         },
         "messageLayout": {
             "selfJoinChannel": ""
         }
     },
     "game": {
-        "race": {
-            "random": ""
-        },
         "gameSource": {
             "ranked": ""
-        },
-        "gameType": {
-            "teamCaptureTheFlag": ""
         },
         "playerName": {
             "unknown": ""
         }
     },
     "league": {
-        "explainer": {
-            "winDescription": ""
-        },
         "list": {
             "howDoLeaguesWork": ""
         },
         "details": {
-            "about": "",
-            "leaderboardError": "",
-            "noPlayers": ""
+            "leaderboardError": ""
         }
     },
     "windowControls": {
         "maximizeRestore": ""
     },
-    "replays": {
-        "local": {
-            "loadingError": ""
-        }
-    },
     "gameDetails": {
-        "headlineDraw": "",
-        "summary": {
-            "mmr": ""
-        }
+        "headlineDraw": ""
     },
     "messaging": {
         "mention": ""

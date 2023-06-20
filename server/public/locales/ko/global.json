@@ -176,21 +176,16 @@
             "login": "로그인"
         },
         "faq": {
-            "linuxSupportQuestion": "",
             "supportedStarcraftVersionQuestion": ""
         },
         "splash": {
             "comingSoon": {
-                "3v3Description": "",
-                "expandedChatDescription": "",
-                "playerProfilesDescription": ""
+                "expandedChatDescription": ""
             },
             "features": {
                 "friendsListDescription": "",
-                "partiesDescription": "",
                 "webClientDescription": ""
-            },
-            "blurb": ""
+            }
         },
         "bottomLinks": {
             "privacyPolicy": ""
@@ -259,68 +254,41 @@
         }
     },
     "chat": {
-        "channelInfoCard": {
-            "adminView": ""
-        },
         "banUserErrorDisplay": {
             "moderateChannelModerator": ""
-        },
-        "channelList": {
-            "noMatchingChannels": ""
         },
         "channelValidator": {
             "pattern": ""
         },
-        "events": {
-            "ban": ""
-        },
         "messageLayout": {
             "leaveChannel": ""
-        },
-        "userList": {
-            "offline": ""
         }
     },
     "game": {
         "gameSource": {
             "ranked": ""
         },
-        "gameType": {
-            "teamCaptureTheFlag": ""
-        },
         "playerName": {
             "unknown": ""
-        },
-        "results": {
-            "loss": ""
         }
     },
     "gameDetails": {
-        "buttonCopyLink": "",
-        "infoDate": ""
+        "buttonCopyLink": ""
     },
     "fileBrowser": {
         "noFiles": ""
     },
     "league": {
         "details": {
-            "joined": "",
             "leaderBoardHeader": {
                 "winLoss": ""
             }
         },
-        "explainer": {
-            "howLeaguesWork": ""
-        },
         "list": {
-            "currentlyRunning": "",
-            "pageHeadline": ""
+            "currentlyRunning": ""
         }
     },
     "policy": {
         "acceptableUse": ""
-    },
-    "windowControls": {
-        "maximizeRestore": ""
     }
 }

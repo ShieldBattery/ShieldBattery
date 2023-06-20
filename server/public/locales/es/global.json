@@ -179,20 +179,15 @@
         },
         "splash": {
             "features": {
-                "friendsListTitle": "",
-                "partiesTitle": "",
-                "webClientTitle": ""
+                "partiesTitle": ""
             },
             "comingSoon": {
                 "playerProfilesDescription": "",
-                "3v3Description": "",
                 "expandedChatDescription": ""
-            },
-            "featuresTitle": ""
+            }
         },
         "faq": {
             "header": "",
-            "officialSupportQuestion": "",
             "systemRequirementsQuestion": ""
         }
     },
@@ -345,18 +340,11 @@
         }
     },
     "gameDetails": {
-        "buttonSearchAgain": "",
         "tabBuildOrders": ""
     },
     "game": {
-        "gameSource": {
-            "custom": ""
-        },
         "gameType": {
             "suddenDeath": ""
-        },
-        "playerName": {
-            "computer": ""
         },
         "results": {
             "unknown": ""
@@ -364,26 +352,16 @@
     },
     "league": {
         "details": {
-            "dateText": "",
             "leaderBoardHeader": {
                 "player": ""
-            },
-            "retrieveError": ""
+            }
         },
         "explainer": {
             "winDescription": ""
-        },
-        "list": {
-            "loadingError": ""
         }
     },
     "policy": {
         "policyUpdateNotification": ""
-    },
-    "replays": {
-        "local": {
-            "watchReplay": ""
-        }
     },
     "fileBrowser": {
         "rootFolder": ""
