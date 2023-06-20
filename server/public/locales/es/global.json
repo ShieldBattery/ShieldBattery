@@ -176,11 +176,6 @@
             "ladder": "Escalera",
             "leagues": "ligas",
             "login": "Acceso"
-        },
-        "splash": {
-            "features": {
-                "leaguesTitle": ""
-            }
         }
     },
     "ladder": {
@@ -329,11 +324,6 @@
             "active": "Activo",
             "idle": "Inactivo",
             "offline": "Desconectado"
-        }
-    },
-    "league": {
-        "details": {
-            "goBack": ""
         }
     }
 }

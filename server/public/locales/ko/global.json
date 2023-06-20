@@ -174,11 +174,6 @@
             "home": "집",
             "ladder": "사다리",
             "login": "로그인"
-        },
-        "splash": {
-            "features": {
-                "leaguesTitle": ""
-            }
         }
     },
     "clientDownload": {
@@ -241,11 +236,6 @@
             "diamond": "다이아몬드 {{level}}",
             "gold": "골드 {{level}}",
             "platinum": "플래티넘 {{level}}"
-        }
-    },
-    "chat": {
-        "channelList": {
-            "noMatchingChannels": ""
         }
     },
     "game": {
