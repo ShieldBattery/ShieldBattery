@@ -176,9 +176,6 @@
             "ladder": "Escalera",
             "leagues": "ligas",
             "login": "Acceso"
-        },
-        "faq": {
-            "header": ""
         }
     },
     "ladder": {
@@ -327,13 +324,6 @@
             "active": "Activo",
             "idle": "Inactivo",
             "offline": "Desconectado"
-        }
-    },
-    "league": {
-        "details": {
-            "leaderBoardHeader": {
-                "player": ""
-            }
         }
     }
 }

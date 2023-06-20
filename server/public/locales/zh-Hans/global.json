@@ -57,11 +57,6 @@
             "changeLanguage": "改变语言",
             "login": "登录",
             "faq": "常问问题"
-        },
-        "splash": {
-            "features": {
-                "leaguesTitle": ""
-            }
         }
     },
     "auth": {
@@ -241,11 +236,6 @@
     "forms": {
         "fileInput": {
             "clearFiles": "清除文件"
-        }
-    },
-    "game": {
-        "gameSource": {
-            "ranked": ""
         }
     },
     "windowControls": {
