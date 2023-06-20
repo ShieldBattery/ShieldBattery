@@ -134,7 +134,8 @@
             "matching": "$Enter a matching password!",
             "resetCode": "$Enter your password reset code!",
             "current": "$Enter your current password!",
-            "required": "$Enter a password!"
+            "required": "$Enter a password!",
+            "matchingPassword": "$Enter a matching password!"
         },
         "signup": {
             "acceptableUseLink": "$Acceptable Use!",
