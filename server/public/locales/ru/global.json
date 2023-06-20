@@ -237,10 +237,5 @@
         "fileInput": {
             "clearFiles": "Очистить файлы"
         }
-    },
-    "league": {
-        "explainer": {
-            "howLeaguesWork": ""
-        }
     }
 }
