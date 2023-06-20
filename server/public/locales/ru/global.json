@@ -59,19 +59,12 @@
             "login": "Авторизоваться"
         },
         "splash": {
-            "comingSoon": {
-                "liveStreamingDescription": ""
-            },
             "benefits": {
                 "tacticallyFaithfulText": ""
-            },
-            "features": {
-                "matchmakingTitle": ""
             }
         },
         "faq": {
-            "header": "",
-            "systemRequirementsQuestion": ""
+            "header": ""
         }
     },
     "auth": {
@@ -254,36 +247,21 @@
         }
     },
     "chat": {
-        "channelInfo": {
-            "notFound": ""
-        },
         "createChannel": {
             "maximumOwnedError": ""
-        },
-        "userList": {
-            "active": ""
         }
     },
     "game": {
         "gameType": {
             "oneOnOne": ""
-        },
-        "results": {
-            "draw": ""
         }
     },
     "gameDetails": {
         "infoDuration": ""
     },
     "league": {
-        "details": {
-            "joined": ""
-        },
         "explainer": {
             "howLeaguesWork": ""
-        },
-        "list": {
-            "pageHeadline": ""
         }
     },
     "replays": {

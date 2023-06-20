@@ -177,18 +177,13 @@
             "leagues": "ligas",
             "login": "Acceso"
         },
-        "faq": {
-            "reportIssuesQuestion": ""
-        },
         "splash": {
             "comingSoon": {
-                "automatedTournamentsTitle": "",
-                "replayAnalysisTitle": ""
+                "automatedTournamentsTitle": ""
             },
             "features": {
                 "leaguesTitle": ""
-            },
-            "tagline": ""
+            }
         }
     },
     "ladder": {
@@ -340,26 +335,16 @@
         }
     },
     "game": {
-        "gameType": {
-            "unknown": ""
-        },
         "teamName": {
             "top": ""
         }
     },
-    "gameDetails": {
-        "tabBuildOrders": ""
-    },
     "league": {
         "details": {
-            "goBack": "",
-            "rulesAndInfo": ""
+            "goBack": ""
         }
     },
     "messaging": {
         "sendMessage": ""
-    },
-    "windowControls": {
-        "maximizeRestore": ""
     }
 }

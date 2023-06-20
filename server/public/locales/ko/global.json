@@ -175,18 +175,13 @@
             "ladder": "사다리",
             "login": "로그인"
         },
-        "faq": {
-            "reportIssuesQuestion": ""
-        },
         "splash": {
             "comingSoon": {
-                "automatedTournamentsTitle": "",
-                "replayAnalysisTitle": ""
+                "automatedTournamentsTitle": ""
             },
             "features": {
                 "leaguesTitle": ""
-            },
-            "signUp": ""
+            }
         }
     },
     "clientDownload": {
@@ -253,35 +248,20 @@
     },
     "league": {
         "details": {
-            "copyLink": "",
             "notFound": ""
         }
     },
     "chat": {
-        "banUserErrorDisplay": {
-            "genericError": ""
-        },
         "channelList": {
             "noMatchingChannels": ""
-        },
-        "events": {
-            "ban": ""
         },
         "userList": {
             "offline": ""
         }
     },
     "game": {
-        "gameType": {
-            "topVsBottom": ""
-        },
         "teamName": {
             "top": ""
-        }
-    },
-    "gameDetails": {
-        "summary": {
-            "rp": ""
         }
     },
     "replays": {

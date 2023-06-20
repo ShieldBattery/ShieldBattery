@@ -58,18 +58,13 @@
             "login": "登录",
             "faq": "常问问题"
         },
-        "faq": {
-            "systemRequirementsAnswer": ""
-        },
         "splash": {
             "comingSoon": {
-                "automatedTournamentsTitle": "",
-                "replayAnalysisTitle": ""
+                "automatedTournamentsTitle": ""
             },
             "features": {
                 "leaguesTitle": ""
-            },
-            "signUp": ""
+            }
         }
     },
     "auth": {
@@ -252,35 +247,20 @@
         }
     },
     "league": {
-        "details": {
-            "leaderboard": ""
-        },
         "list": {
             "joined": ""
         }
     },
     "chat": {
-        "banUserErrorDisplay": {
-            "moderateChannelOwner": ""
-        },
         "channelList": {
             "retrievingError": ""
-        },
-        "joinChannel": {
-            "bannedError": ""
         }
     },
     "fileBrowser": {
         "rootFolder": ""
     },
-    "game": {
-        "gameType": {
-            "useMapSettings": ""
-        }
-    },
     "gameDetails": {
-        "buttonSearchAgain": "",
-        "tabBuildOrders": ""
+        "buttonSearchAgain": ""
     },
     "replays": {
         "local": {
