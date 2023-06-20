@@ -178,22 +178,15 @@
             "login": "Acceso"
         },
         "faq": {
-            "isShieldBatteryFreeQuestion": "",
             "reportIssuesQuestion": ""
         },
         "splash": {
-            "benefits": {
-                "fullPotentialText": ""
-            },
             "comingSoon": {
                 "automatedTournamentsTitle": "",
-                "fpReplaysTitle": "",
                 "replayAnalysisTitle": ""
             },
             "features": {
-                "cloudHostingTitle": "",
-                "leaguesTitle": "",
-                "remasteredSupportTitle": ""
+                "leaguesTitle": ""
             },
             "tagline": ""
         }
@@ -348,42 +341,23 @@
     },
     "game": {
         "gameType": {
-            "greed": "",
             "unknown": ""
-        },
-        "race": {
-            "terran": ""
         },
         "teamName": {
             "top": ""
         }
     },
     "gameDetails": {
-        "headlineVictory": "",
         "tabBuildOrders": ""
     },
     "league": {
-        "explainer": {
-            "joinDescription": ""
-        },
         "details": {
             "goBack": "",
-            "leaderBoardHeader": {
-                "points": ""
-            },
             "rulesAndInfo": ""
-        },
-        "list": {
-            "manageLeagues": ""
         }
     },
     "messaging": {
         "sendMessage": ""
-    },
-    "replays": {
-        "local": {
-            "loadingError": ""
-        }
     },
     "windowControls": {
         "maximizeRestore": ""

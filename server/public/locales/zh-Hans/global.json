@@ -59,22 +59,15 @@
             "faq": "常问问题"
         },
         "faq": {
-            "linuxSupportQuestion": "",
             "systemRequirementsAnswer": ""
         },
         "splash": {
-            "benefits": {
-                "fullPotentialText": ""
-            },
             "comingSoon": {
                 "automatedTournamentsTitle": "",
-                "fpReplaysTitle": "",
                 "replayAnalysisTitle": ""
             },
             "features": {
-                "cloudHostingTitle": "",
-                "leaguesTitle": "",
-                "rankedladderDescription": ""
+                "leaguesTitle": ""
             },
             "signUp": ""
         }
@@ -259,36 +252,22 @@
         }
     },
     "league": {
-        "explainer": {
-            "winTitle": ""
-        },
         "details": {
-            "leaderboard": "",
-            "leagueJoined": ""
+            "leaderboard": ""
         },
         "list": {
-            "joined": "",
-            "howDoLeaguesWork": ""
+            "joined": ""
         }
     },
     "chat": {
         "banUserErrorDisplay": {
             "moderateChannelOwner": ""
         },
-        "channelInfoCard": {
-            "moreActions": ""
-        },
         "channelList": {
             "retrievingError": ""
         },
-        "createChannel": {
-            "bannedError": ""
-        },
         "joinChannel": {
             "bannedError": ""
-        },
-        "messageLayout": {
-            "selfJoinChannel": ""
         }
     },
     "fileBrowser": {
@@ -296,20 +275,12 @@
     },
     "game": {
         "gameType": {
-            "oneOnOne": "",
             "useMapSettings": ""
-        },
-        "race": {
-            "random": ""
         }
     },
     "gameDetails": {
         "buttonSearchAgain": "",
-        "infoDuration": "",
         "tabBuildOrders": ""
-    },
-    "policy": {
-        "acceptableUse": ""
     },
     "replays": {
         "local": {

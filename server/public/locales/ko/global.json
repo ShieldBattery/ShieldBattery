@@ -176,22 +176,15 @@
             "login": "로그인"
         },
         "faq": {
-            "isShieldBatteryFreeQuestion": "",
             "reportIssuesQuestion": ""
         },
         "splash": {
-            "benefits": {
-                "fullPotentialText": ""
-            },
             "comingSoon": {
                 "automatedTournamentsTitle": "",
-                "fpReplaysTitle": "",
                 "replayAnalysisTitle": ""
             },
             "features": {
-                "cloudHostingTitle": "",
-                "leaguesTitle": "",
-                "remasteredSupportTitle": ""
+                "leaguesTitle": ""
             },
             "signUp": ""
         }
@@ -259,38 +252,20 @@
         }
     },
     "league": {
-        "list": {
-            "howDoLeaguesWork": ""
-        },
         "details": {
             "copyLink": "",
-            "leaderBoardHeader": {
-                "lastPlayed": ""
-            },
             "notFound": ""
-        },
-        "explainer": {
-            "playTitle": ""
         }
     },
     "chat": {
         "banUserErrorDisplay": {
             "genericError": ""
         },
-        "channelInfoCard": {
-            "adminView": ""
-        },
         "channelList": {
             "noMatchingChannels": ""
         },
-        "channelValidator": {
-            "pattern": ""
-        },
         "events": {
             "ban": ""
-        },
-        "messageLayout": {
-            "leaveChannel": ""
         },
         "userList": {
             "offline": ""
@@ -298,31 +273,20 @@
     },
     "game": {
         "gameType": {
-            "greed": "",
             "topVsBottom": ""
-        },
-        "race": {
-            "terran": ""
         },
         "teamName": {
             "top": ""
         }
     },
     "gameDetails": {
-        "headlineVictory": "",
         "summary": {
             "rp": ""
         }
-    },
-    "messaging": {
-        "sendMessage": ""
     },
     "replays": {
         "local": {
             "loadingError": ""
         }
-    },
-    "windowControls": {
-        "maximizeRestore": ""
     }
 }

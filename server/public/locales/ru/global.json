@@ -60,22 +60,17 @@
         },
         "splash": {
             "comingSoon": {
-                "builtInMapmakingDescription": "",
-                "liveStreamingDescription": "",
-                "sandboxModeDescription": ""
+                "liveStreamingDescription": ""
             },
             "benefits": {
                 "tacticallyFaithfulText": ""
             },
             "features": {
-                "fixesBugsExploitsTitle": "",
-                "matchmakingTitle": "",
-                "teamMeleeReplaysTitle": ""
+                "matchmakingTitle": ""
             }
         },
         "faq": {
             "header": "",
-            "officialSupportQuestion": "",
             "systemRequirementsQuestion": ""
         }
     },
@@ -259,59 +254,37 @@
         }
     },
     "chat": {
-        "banUserErrorDisplay": {
-            "moderateChannelModerator": ""
-        },
         "channelInfo": {
             "notFound": ""
         },
-        "channelMenu": {
-            "userKicked": ""
-        },
         "createChannel": {
             "maximumOwnedError": ""
-        },
-        "messageLayout": {
-            "joinChannel": ""
         },
         "userList": {
             "active": ""
         }
     },
-    "fileBrowser": {
-        "rootFolder": ""
-    },
     "game": {
         "gameType": {
-            "oneOnOne": "",
-            "useMapSettings": ""
+            "oneOnOne": ""
         },
         "results": {
             "draw": ""
         }
     },
     "gameDetails": {
-        "buttonSearchAgain": "",
-        "infoDuration": "",
-        "tabBuildOrders": ""
+        "infoDuration": ""
     },
     "league": {
         "details": {
-            "joined": "",
-            "leaderBoardHeader": {
-                "winLoss": ""
-            }
+            "joined": ""
         },
         "explainer": {
             "howLeaguesWork": ""
         },
         "list": {
-            "currentlyRunning": "",
             "pageHeadline": ""
         }
-    },
-    "policy": {
-        "acceptableUse": ""
     },
     "replays": {
         "local": {
