@@ -557,13 +557,13 @@
       "useAlternateRace": "Use alternate race to avoid mirror matchups",
       "veto1v1": "Veto up to 3 maps. Vetoed maps will never be selected for play.",
       "veto2v2": "Veto up to 3 maps. Vetoed maps will be chosen significantly less often than other maps.",
-      "vetoesLeft": "Vetoes left:"
+      "vetoesLeft": "<0>Vetoes left: </0><1>{{vetoesLeft}}</1>"
     },
     "match": {
       "gameFailedToLoad": "The game has failed to load.",
-      "gameInProgress": "Game in progress...",
-      "gameLoading": "Game launching...",
-      "gameStarting": "Game starting...",
+      "gameInProgress": "Game in progress…",
+      "gameLoading": "Game launching…",
+      "gameStarting": "Game starting…",
       "playerVsPlayer": "vs"
     },
     "navEntry": {

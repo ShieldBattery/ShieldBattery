@@ -93,13 +93,13 @@ export default class MatchmakingMatch extends React.Component {
     const { isCountingDown, countdownTimer, isLaunching, isStarting, t } = this.props
 
     if (isLaunching) {
-      return <StatusText>{t('matchmaking.match.gameLoading', 'Game launching...')}</StatusText>
+      return <StatusText>{t('matchmaking.match.gameLoading', 'Game launching…')}</StatusText>
     } else if (isCountingDown) {
       return <Headline1>{countdownTimer}</Headline1>
     } else if (isStarting) {
-      return <StatusText>{t('matchmaking.match.gameStarting', 'Game starting...')}</StatusText>
+      return <StatusText>{t('matchmaking.match.gameStarting', 'Game starting…')}</StatusText>
     } else {
-      return <StatusText>{t('matchmaking.match.gameInProgress', 'Game in progress...')}</StatusText>
+      return <StatusText>{t('matchmaking.match.gameInProgress', 'Game in progress…')}</StatusText>
     }
   }
 
