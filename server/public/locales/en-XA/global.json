@@ -19,7 +19,9 @@
             "show": "$🗡Show🗡!",
             "download": "$🗡Download🗡!",
             "apply": "$🗡Apply🗡!",
-            "remove": "$🗡Remove🗡!"
+            "remove": "$🗡Remove🗡!",
+            "next": "$🗡Next🗡!",
+            "previous": "$🗡Previous🗡!"
         }
     },
     "settings": {
@@ -715,6 +717,45 @@
             "removeFromFavorites": "$🗡Remove from favorites🗡!",
             "showMapPreview": "$🗡Show map preview🗡!",
             "viewMapDetails": "$🗡View map details🗡!"
+        }
+    },
+    "material": {
+        "passwordField": {
+            "show": "$🗡Show password🗡!",
+            "hide": "$🗡Hide password🗡!"
+        },
+        "dialog": {
+            "closeDialog": "$🗡Close dialog🗡!"
+        }
+    },
+    "navigation": {
+        "copyLink": {
+            "copiedText": "$🗡Copied!🗡!",
+            "defaultText": "$🗡Copy link🗡!"
+        },
+        "externalLink": {
+            "alwaysTrust": "$🗡Always trust this domain🗡!",
+            "openLink": "$🗡Open Link🗡!",
+            "title": "$🗡External link🗡!",
+            "dialogText": "$🗡<0>This link will take you to a site outside ShieldBattery:</0><1>{{link}}</1><2>Are you sure you want to go there?</2>🗡!"
+        },
+        "leftNav": {
+            "chatChannels": "$🗡Chat channels🗡!",
+            "customGame": "$🗡Custom game🗡!",
+            "gameInProgress": "$🗡Game in progress…🗡!",
+            "joinChannel": "$🗡Join a channel (Alt + H)🗡!",
+            "loadingChannel": "$🗡Loading…🗡!",
+            "lobby": "$🗡Lobby🗡!",
+            "logIn": "$🗡Log in🗡!",
+            "logOut": "$🗡Log out🗡!",
+            "rankedGame": "$🗡Ranked {{matchmakingType}}🗡!",
+            "startWhisper": "$🗡Start a whisper (Alt + W)🗡!",
+            "viewProfile": "$🗡View profile🗡!",
+            "whisperCloseError": "$🗡Error closing whisper session: {{errorMessage}}🗡!",
+            "whispers": "$🗡Whispers🗡!",
+            "editAccount": "$🗡Edit account🗡!",
+            "loadingGame": "$🗡Loading…🗡!",
+            "viewChangelog": "$🗡View changelog🗡!"
         }
     }
 }
