@@ -362,7 +362,7 @@ function ConnectedChatNavEntry({
   return (
     <ChatNavEntry
       channelId={channelId}
-      channelName={channelInfo?.name ?? t('navigation.leftNav.loadingChannel', 'Loading...')}
+      channelName={channelInfo?.name ?? t('navigation.leftNav.loadingChannel', 'Loading…')}
       currentPath={pathname}
       hasUnread={hasUnread}
       onLeave={onLeave}
