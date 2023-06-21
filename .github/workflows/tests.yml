@@ -45,7 +45,7 @@ jobs:
           files: server/email/*.html
 
       - name: Display email template error
-        if: ${{ failure() && steps.check-email-templates.outputs.files_changed == 'true' || steps.gen-email-templates.conclusion == 'failure' }}
+        if: ${{ steps.check-email-templates.outputs.files_changed == 'true' || failure() && steps.gen-email-templates.conclusion == 'failure' }}
         run: >
           echo "The email templates seem outdated. Please run \"yarn gen-emails\" in the
           directory root and commit the updated email templates." && exit 1
