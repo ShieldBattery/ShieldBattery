@@ -1,5 +1,6 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useImperativeHandle, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   MatchmakingMapPool,
   MatchmakingPreferences2v2,
@@ -39,6 +40,7 @@ interface Form2v2Props {
 
 const Form2v2 = React.forwardRef<FindMatchFormRef, Form2v2Props>(
   ({ disabled, model, mapPoolOutdated, mapPool, onChange, onSubmit }, ref) => {
+    const { t } = useTranslation()
     const { onSubmit: handleSubmit, bindCustom } = useForm<Model2v2>(
       model,
       {},
@@ -51,18 +53,24 @@ const Form2v2 = React.forwardRef<FindMatchFormRef, Form2v2Props>(
 
     return (
       <form noValidate={true} onSubmit={handleSubmit}>
-        <SectionTitle>Race</SectionTitle>
+        <SectionTitle>{t('matchmaking.findMatch.race', 'Race')}</SectionTitle>
         <StyledRaceSelect
           {...bindCustom('race')}
           size={RacePickerSize.Large}
           allowInteraction={!disabled}
         />
         <MapSelectionsHeader>
-          <SectionTitle>Map pool</SectionTitle>
-          {mapPoolOutdated ? <OutdatedIndicator>Updated</OutdatedIndicator> : null}
+          <SectionTitle>{t('matchmaking.findMatch.mapPool', 'Map pool')}</SectionTitle>
+          {mapPoolOutdated ? (
+            <OutdatedIndicator>{t('matchmaking.findMatch.updated', 'Updated')}</OutdatedIndicator>
+          ) : null}
         </MapSelectionsHeader>
         <DescriptionText>
-          Veto up to 3 maps. Vetoed maps will be chosen significantly less often than other maps.
+          {t(
+            'matchmaking.findMatch.veto2v2',
+            'Veto up to 3 maps. Vetoed maps will be chosen significantly less often than other ' +
+              'maps.',
+          )}
         </DescriptionText>
         <MapVetoesControl
           {...bindCustom('mapSelections')}

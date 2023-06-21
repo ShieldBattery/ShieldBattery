@@ -1,5 +1,6 @@
 import { darken, lighten, saturate } from 'polished'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { animated, useChain, useSpring, useSpringRef, useTransition } from 'react-spring'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -148,6 +149,7 @@ export function PostMatchDialog({
   leagues,
   replayPath,
 }: PostMatchDialogProps) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const onSearchAgain = useStableCallback(() => {
     dispatch(searchAgainFromGame(game.config))
@@ -188,7 +190,7 @@ export function PostMatchDialog({
     <StyledDialog
       dialogRef={dialogRef}
       showCloseButton={true}
-      title='Match results'
+      title={t('matchmaking.postMatchDialog.title', 'Match results')}
       onCancel={onCancel}
       $hasLeagues={leagueValues.length > 0}>
       {mmrChange.lifetimeGames >= NUM_PLACEMENT_MATCHES ? (
@@ -198,13 +200,13 @@ export function PostMatchDialog({
       )}
       <ButtonBar>
         <RaisedButton
-          label='Search again'
+          label={t('matchmaking.postMatchDialog.searchAgain', 'Search again')}
           iconStart={<SizedSearchAgainIcon />}
           onClick={onSearchAgain}
           disabled={!canSearchMatchmaking}
         />
         <RaisedButton
-          label='Watch replay'
+          label={t('matchmaking.postMatchDialog.watchReplay', 'Watch replay')}
           iconStart={<MaterialIcon icon='videocam' />}
           onClick={onWatchReplay}
           disabled={!replayPath}
@@ -221,6 +223,7 @@ function RatedUserContent({
   mmrChange: ReadonlyDeep<PublicMatchmakingRatingChangeJson>
   leagueValues: ReadonlyArray<{ league: ReadonlyDeep<LeagueJson>; value: number }>
 }) {
+  const { t } = useTranslation()
   const divisionTransitions = useMemo(() => {
     const placementPromotion = mmrChange.lifetimeGames === NUM_PLACEMENT_MATCHES
     let startingRating: number
@@ -338,10 +341,10 @@ function RatedUserContent({
 
   const deltaValues = useMemo(
     () => [
-      { label: 'Points', value: mmrChange.pointsChange },
-      { label: 'Rating', value: mmrChange.ratingChange },
+      { label: t('matchmaking.postMatchDialog.points', 'Points'), value: mmrChange.pointsChange },
+      { label: t('matchmaking.postMatchDialog.rating', 'Rating'), value: mmrChange.ratingChange },
     ],
-    [mmrChange],
+    [mmrChange.pointsChange, mmrChange.ratingChange, t],
   )
 
   const lastPointRevealSoundRef = useRef(0)
@@ -401,7 +404,7 @@ function RatedUserContent({
   return (
     <Content>
       <MatchmakingSide>
-        <SideOverline>Matchmaking</SideOverline>
+        <SideOverline>{t('matchmaking.postMatchDialog.matchmaking', 'Matchmaking')}</SideOverline>
         <IconAndDeltas>
           <IconWithLabel division={curDivisionWithBounds[0]} isWin={mmrChange.outcome === 'win'} />
           <Deltas>
@@ -414,7 +417,7 @@ function RatedUserContent({
       </MatchmakingSide>
       {leagueValues.length > 0 ? (
         <LeagueSide>
-          <SideOverline>Leagues</SideOverline>
+          <SideOverline>{t('matchmaking.postMatchDialog.leagues', 'Leagues')}</SideOverline>
           <Leagues>
             <GradientScrollDivider $showAt='top' $heightPx={32} $show={!isAtTop} />
             <LeaguesScrollable $needsScroll={!isAtTop || !isAtBottom}>
@@ -441,9 +444,12 @@ function UnratedUserContent({
   mmrChange: ReadonlyDeep<PublicMatchmakingRatingChangeJson>
   leagueValues: ReadonlyArray<{ league: ReadonlyDeep<LeagueJson>; value: number }>
 }) {
+  const { t } = useTranslation()
   const deltaValues = useMemo(
-    () => [{ label: 'Points', value: mmrChange.pointsChange }],
-    [mmrChange],
+    () => [
+      { label: t('matchmaking.postMatchDialog.points', 'Points'), value: mmrChange.pointsChange },
+    ],
+    [mmrChange.pointsChange, t],
   )
 
   const lastPointRevealSoundRef = useRef(0)
@@ -498,7 +504,7 @@ function UnratedUserContent({
   return (
     <Content>
       <MatchmakingSide>
-        <SideOverline>Matchmaking</SideOverline>
+        <SideOverline>{t('matchmaking.postMatchDialog.matchmaking', 'Matchmaking')}</SideOverline>
         <IconAndDeltas>
           <IconWithLabel
             division={MatchmakingDivision.Unrated}
@@ -514,7 +520,7 @@ function UnratedUserContent({
       </MatchmakingSide>
       {leagueValues.length > 0 ? (
         <LeagueSide>
-          <SideOverline>Leagues</SideOverline>
+          <SideOverline>{t('matchmaking.postMatchDialog.leagues', 'Leagues')}</SideOverline>
           <Leagues>
             <GradientScrollDivider $showAt='top' $heightPx={32} $show={!isAtTop} />
             <LeaguesScrollable $needsScroll={!isAtTop || !isAtBottom}>
@@ -780,9 +786,12 @@ const PlacementCountRoot = styled.div`
 `
 
 function PlacementCount({ lifetimeGames }: { lifetimeGames: number }) {
+  const { t } = useTranslation()
   return (
     <PlacementCountRoot>
-      {lifetimeGames} / {NUM_PLACEMENT_MATCHES} placements
+      <Trans t={t} i18nKey='matchmaking.findMatch.remainingPlacements'>
+        {{ lifetimeGames }} / {{ numPlacementMatches: NUM_PLACEMENT_MATCHES }} placements
+      </Trans>
     </PlacementCountRoot>
   )
 }

@@ -1,5 +1,6 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useImperativeHandle, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   MatchmakingMapPool,
   MatchmakingPreferences1v1,
@@ -42,6 +43,7 @@ interface Form1v1Props {
 
 const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
   ({ disabled, model, mapPoolOutdated, mapPool, onChange, onSubmit }, ref) => {
+    const { t } = useTranslation()
     const {
       onSubmit: handleSubmit,
       bindCheckable,
@@ -59,7 +61,7 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
 
     return (
       <form noValidate={true} onSubmit={handleSubmit}>
-        <SectionTitle>Race</SectionTitle>
+        <SectionTitle>{t('matchmaking.findMatch.race', 'Race')}</SectionTitle>
         <StyledRaceSelect
           {...bindCustom('race')}
           size={RacePickerSize.Large}
@@ -68,15 +70,24 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
         {race !== 'r' ? (
           <CheckBox
             {...bindCheckable('useAlternateRace')}
-            label='Use alternate race to avoid mirror matchups'
+            label={t(
+              'matchmaking.findMatch.useAlternateRace',
+              'Use alternate race to avoid mirror matchups',
+            )}
             disabled={disabled}
           />
         ) : null}
         {useAlternateRace ? (
           <>
-            <SectionTitle>Alternate race</SectionTitle>
+            <SectionTitle>
+              {t('matchmaking.findMatch.alternateRace', 'Alternate race')}
+            </SectionTitle>
             <DescriptionText>
-              Select a race to be used whenever your opponent has selected the same primary race.
+              {t(
+                'matchmaking.findMatch.description',
+                'Select a race to be used whenever your opponent has selected the same primary ' +
+                  'race.',
+              )}
             </DescriptionText>
             <StyledRaceSelect
               {...bindCustom('alternateRace')}
@@ -88,11 +99,16 @@ const Form1v1 = React.forwardRef<FindMatchFormRef, Form1v1Props>(
           </>
         ) : null}
         <MapSelectionsHeader>
-          <SectionTitle>Map pool</SectionTitle>
-          {mapPoolOutdated ? <OutdatedIndicator>Updated</OutdatedIndicator> : null}
+          <SectionTitle>{t('matchmaking.findMatch.mapPool', 'Map pool')}</SectionTitle>
+          {mapPoolOutdated ? (
+            <OutdatedIndicator>{t('matchmaking.findMatch.updated', 'Updated')}</OutdatedIndicator>
+          ) : null}
         </MapSelectionsHeader>
         <DescriptionText>
-          Veto up to 3 maps. Vetoed maps will never be selected for play.
+          {t(
+            'matchmaking.findMatch.veto1v1',
+            'Veto up to 3 maps. Vetoed maps will never be selected for play.',
+          )}
         </DescriptionText>
         <MapVetoesControl
           {...bindCustom('mapSelections')}

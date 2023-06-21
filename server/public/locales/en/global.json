@@ -557,6 +557,27 @@
     }
   },
   "matchmaking": {
+    "acceptMatch": {
+      "body": "All players must ready up for the match to start.",
+      "failedToAccept": "Failed to accept",
+      "matchFound": "Match found",
+      "readyUp": "Ready up",
+      "removedFromQueue": "You didn't ready up in time and have been removed from the queue.",
+      "returningToQueue": "Some players didn't ready up in time or failed to load. Returning to the matchmaking queue…"
+    },
+    "disabledCard": {
+      "days": "Days",
+      "description": "Matchmaking is sometimes shut down for maintenance and development, and is currently disabled. The next matchmaking period is:",
+      "hours": "Hours",
+      "inParty": "Disabled while in party",
+      "minutes": "Minutes",
+      "notPartyLeader": "Only the party leader can queue for matches.",
+      "partyTooLargeText": "Your current party is too large to queue for this matchmaking type.",
+      "partyTooLargeTitle": "Party too large",
+      "seconds": "Seconds",
+      "soon": "Soon™",
+      "title": "Matchmaking disabled"
+    },
     "division": {
       "bronze": "Bronze {{level}}",
       "champion": "Champion",
@@ -566,9 +587,61 @@
       "silver": "Silver {{level}}",
       "unrated": "Unrated"
     },
+    "findMatch": {
+      "action": "Find match",
+      "alternateRace": "Alternate race",
+      "bonusPoints": "{{bonusAvailable}} points",
+      "bonusPool": "Bonus pool",
+      "description": "Select a race to be used whenever your opponent has selected the same primary race.",
+      "errors": {
+        "alreadyInGame": "You are already in a game, searching for a match, or in a custom lobby",
+        "dialogTitle": "Error searching for a match",
+        "inParty": "You are in a party, cannot queue as a solo player",
+        "loadingRank": "There was a problem loading your current rank.",
+        "matchmakingDisabled": "Matchmaking is currently disabled",
+        "somethingWentWrong": "Something went wrong :("
+      },
+      "mapPool": "Map pool",
+      "points": "Points",
+      "race": "Race",
+      "rating": "Rating",
+      "remainingPlacements": "{{lifetimeGames}} / {{numPlacementMatches}} placements",
+      "title": "Find match",
+      "updated": "Updated",
+      "useAlternateRace": "Use alternate race to avoid mirror matchups",
+      "veto1v1": "Veto up to 3 maps. Vetoed maps will never be selected for play.",
+      "veto2v2": "Veto up to 3 maps. Vetoed maps will be chosen significantly less often than other maps.",
+      "vetoesLeft": "<0>Vetoes left: </0><1>{{vetoesLeft}}</1>"
+    },
+    "match": {
+      "gameFailedToLoad": "The game has failed to load.",
+      "gameInProgress": "Game in progress…",
+      "gameLoading": "Game launching…",
+      "gameStarting": "Game starting…",
+      "playerVsPlayer": "vs"
+    },
+    "navEntry": {
+      "cancelSearch": "Cancel search",
+      "elapsedTime": "Time: ",
+      "matchFound": "Match found!",
+      "searchingForMatch": "Searching for {{matchmakingType}}"
+    },
+    "postMatchDialog": {
+      "leagues": "Leagues",
+      "matchmaking": "Matchmaking",
+      "points": "Points",
+      "rating": "Rating",
+      "searchAgain": "Search again",
+      "title": "Match results",
+      "watchReplay": "Watch replay"
+    },
+    "searchingOverlay": {
+      "cancelSearch": "Cancel search"
+    },
     "type": {
       "1v1": "1v1",
-      "2v2": "2v2"
+      "2v2": "2v2",
+      "3v3": "3v3"
     }
   },
   "messaging": {

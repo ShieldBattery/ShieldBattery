@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types'
 import React from 'react'
+import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import PlayerCard from '../lobbies/player-card'
 import { MapThumbnail } from '../maps/map-thumbnail'
@@ -77,6 +78,7 @@ const VsContainer = styled.div`
   align-items: center;
 `
 
+@withTranslation()
 export default class MatchmakingMatch extends React.Component {
   static propTypes = {
     isLaunching: PropTypes.bool,
@@ -88,21 +90,21 @@ export default class MatchmakingMatch extends React.Component {
   }
 
   renderStatus() {
-    const { isCountingDown, countdownTimer, isLaunching, isStarting } = this.props
+    const { isCountingDown, countdownTimer, isLaunching, isStarting, t } = this.props
 
     if (isLaunching) {
-      return <StatusText>Game launching...</StatusText>
+      return <StatusText>{t('matchmaking.match.gameLoading', 'Game launching…')}</StatusText>
     } else if (isCountingDown) {
       return <Headline1>{countdownTimer}</Headline1>
     } else if (isStarting) {
-      return <StatusText>Game starting...</StatusText>
+      return <StatusText>{t('matchmaking.match.gameStarting', 'Game starting…')}</StatusText>
     } else {
-      return <StatusText>Game in progress...</StatusText>
+      return <StatusText>{t('matchmaking.match.gameInProgress', 'Game in progress…')}</StatusText>
     }
   }
 
   render() {
-    const { map, players } = this.props
+    const { map, players, t } = this.props
     // TODO(2Pac): Split the teams by their parties once we support team matchmaking
     const team1 = players
       .slice(0, players.length / 2)
@@ -122,7 +124,7 @@ export default class MatchmakingMatch extends React.Component {
         <PlayersContainer>
           <TeamContainer>{team1}</TeamContainer>
           <VsContainer>
-            <Headline4>vs</Headline4>
+            <Headline4>{t('matchmaking.match.playerVsPlayer', 'vs')}</Headline4>
           </VsContainer>
           <TeamContainer>{team2}</TeamContainer>
         </PlayersContainer>

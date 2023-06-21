@@ -1,8 +1,10 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useEffect } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MapInfoJson } from '../../common/maps'
 import { MatchmakingMapPool, MatchmakingPreferences } from '../../common/matchmaking'
+import { TransInterpolation } from '../i18n/i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { batchGetMapInfo } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
@@ -177,6 +179,7 @@ export function MapVetoesControl({
   disabled,
   className,
 }: MapVetoesControlProps) {
+  const { t } = useTranslation()
   const onChangeRef = useValueAsRef(onChange)
   const valueRef = useValueAsRef(value)
   const onClick = useCallback(
@@ -214,8 +217,12 @@ export function MapVetoesControl({
         ))}
       </MapSelections>
       <VetoStatus>
-        <VetoStatusLabel>Vetoes left: </VetoStatusLabel>
-        <VetoStatusValue $exhausted={vetoesLeft <= 0}>{vetoesLeft}</VetoStatusValue>
+        <Trans t={t} i18nKey='matchmaking.findMatch.vetoesLeft'>
+          <VetoStatusLabel>Vetoes left: </VetoStatusLabel>
+          <VetoStatusValue $exhausted={vetoesLeft <= 0}>
+            {{ vetoesLeft } as TransInterpolation}
+          </VetoStatusValue>
+        </Trans>
       </VetoStatus>
     </div>
   )

@@ -16,6 +16,7 @@ import {
 import { apiUrl } from '../../common/urls'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { ThunkAction } from '../dispatch-registry'
+import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
@@ -66,18 +67,30 @@ export function findMatch<M extends MatchmakingType>(
     })
 
     findPromise.catch(err => {
-      let message = 'Something went wrong :('
+      let message = i18n.t(
+        'matchmaking.findMatch.errors.somethingWentWrong',
+        'Something went wrong :(',
+      )
 
       if (isFetchError(err) && err.code) {
         switch (err.code) {
           case MatchmakingServiceErrorCode.MatchmakingDisabled:
-            message = 'Matchmaking is currently disabled'
+            message = i18n.t(
+              'matchmaking.findMatch.errors.matchmakingDisabled',
+              'Matchmaking is currently disabled',
+            )
             break
           case MatchmakingServiceErrorCode.InParty:
-            message = 'You are in a party, cannot queue as a solo player'
+            message = i18n.t(
+              'matchmaking.findMatch.errors.inParty',
+              'You are in a party, cannot queue as a solo player',
+            )
             break
           case MatchmakingServiceErrorCode.GameplayConflict:
-            message = 'You are already in a game, searching for a match, or in a custom lobby'
+            message = i18n.t(
+              'matchmaking.findMatch.errors.alreadyInGame',
+              'You are already in a game, searching for a match, or in a custom lobby',
+            )
             break
           default:
             logger.error(
@@ -88,7 +101,13 @@ export function findMatch<M extends MatchmakingType>(
       } else {
         logger.error(`Error while queuing for matchmaking as a solo player: ${err?.stack ?? err}`)
       }
-      dispatch(openSimpleDialog('Error searching for a match', message, true))
+      dispatch(
+        openSimpleDialog(
+          i18n.t('matchmaking.findMatch.errors.dialogTitle', 'Error searching for a match'),
+          message,
+          true,
+        ),
+      )
     })
 
     findPromise

@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
@@ -107,6 +108,7 @@ export function MatchmakingSearchingOverlay({
   onCancelSearch,
   onDismiss,
 }: MatchmakingSearchingOverlayProps) {
+  const { t } = useTranslation()
   const searchInfo = useAppSelector(s => s.matchmaking.searchInfo)
   const isMatched = useAppSelector(s => Boolean(s.matchmaking.match))
 
@@ -159,7 +161,11 @@ export function MatchmakingSearchingOverlay({
                   <StyledElapsedTime startTimeMs={searchInfo.startTime} />
                 </InfoItem>
               </InfoContainer>
-              <RaisedButton label='Cancel search' onClick={onCancelSearch} disabled={isMatched} />
+              <RaisedButton
+                label={t('matchmaking.searchingOverlay.cancelSearch', 'Cancel search')}
+                onClick={onCancelSearch}
+                disabled={isMatched}
+              />
             </Contents>
           </CSSTransition>
         )

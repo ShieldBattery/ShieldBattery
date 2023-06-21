@@ -1,5 +1,6 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder'
@@ -125,6 +126,7 @@ function DisabledContents(props: DisabledContentsProps) {
 type ExpandedMatchmakingType = MatchmakingType | '3v3'
 
 export function FindMatch() {
+  const { t } = useTranslation()
   const lastQueuedMatchmakingType = useAppSelector(
     s => s.matchmakingPreferences.lastQueuedMatchmakingType,
   )
@@ -223,7 +225,7 @@ export function FindMatch() {
   return (
     <Container>
       <TitleBar>
-        <Headline5>Find match</Headline5>
+        <Headline5>{t('matchmaking.findMatch.title', 'Find match')}</Headline5>
         <TabArea>
           <Tabs activeTab={activeTab} onChange={onTabChange}>
             <TabItem
@@ -234,7 +236,7 @@ export function FindMatch() {
               text={matchmakingTypeToLabel(MatchmakingType.Match2v2)}
               value={MatchmakingType.Match2v2}
             />
-            <TabItem text={'3v3'} value={'3v3'} />
+            <TabItem text={'3v3'} value={t('matchmaking.type.3v3', '3v3')} />
           </Tabs>
         </TabArea>
         <ScrollDivider $show={!isAtTop} $showAt='bottom' />
@@ -258,7 +260,7 @@ export function FindMatch() {
           <Actions>
             <ScrollDivider $show={!isAtBottom} $showAt='top' />
             <RaisedButton
-              label='Find match'
+              label={t('matchmaking.findMatch.action', 'Find match')}
               disabled={isMatchmakingDisabled}
               onClick={onFindClick}
             />
@@ -386,6 +388,7 @@ const UnratedText = styled.div`
 const BONUS_PER_WEEK = Math.floor(MATCHMAKING_BONUS_EARNED_PER_MS * 1000 * 60 * 60 * 24 * 7)
 
 function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()!
   const selfUserId = selfUser.id
@@ -454,7 +457,12 @@ function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
   if (loadingError) {
     return (
       <RankInfoContainer>
-        <RankLoadingError>There was a problem loading your current rank.</RankLoadingError>
+        <RankLoadingError>
+          {t(
+            'matchmaking.findMatch.errors.loadingRank',
+            'There was a problem loading your current rank.',
+          )}
+        </RankLoadingError>
       </RankInfoContainer>
     )
   }
@@ -482,27 +490,41 @@ function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
         {division !== MatchmakingDivision.Unrated ? (
           <>
             <RankDisplayInfoRow>
-              <Tooltip text={`${bonusAvailable} points`} position='top'>
+              <Tooltip
+                text={t('matchmaking.findMatch.bonusPoints', {
+                  defaultValue: '{{bonusAvailable}} points',
+                  bonusAvailable,
+                })}
+                position='top'>
                 <BonusBarEntry>
                   <BonusBar style={{ '--sb-bonus-bar-scale': bonusScale } as any} />
-                  <RankDisplayInfoLabel>Bonus pool</RankDisplayInfoLabel>
+                  <RankDisplayInfoLabel>
+                    {t('matchmaking.findMatch.bonusPool', 'Bonus pool')}
+                  </RankDisplayInfoLabel>
                 </BonusBarEntry>
               </Tooltip>
             </RankDisplayInfoRow>
             <RankDisplayInfoRow>
               <RankDisplayInfoEntry>
                 <RankDisplayInfoValue>{Math.round(ladderPlayer.points)}</RankDisplayInfoValue>
-                <RankDisplayInfoLabel>Points</RankDisplayInfoLabel>
+                <RankDisplayInfoLabel>
+                  {t('matchmaking.findMatch.points', 'Points')}
+                </RankDisplayInfoLabel>
               </RankDisplayInfoEntry>
               <RankDisplayInfoEntry>
                 <RankDisplayInfoValue>{Math.round(ladderPlayer.rating)}</RankDisplayInfoValue>
-                <RankDisplayInfoLabel>Rating</RankDisplayInfoLabel>
+                <RankDisplayInfoLabel>
+                  {t('matchmaking.findMatch.rating', 'Rating')}
+                </RankDisplayInfoLabel>
               </RankDisplayInfoEntry>
             </RankDisplayInfoRow>
           </>
         ) : (
           <UnratedText>
-            {ladderPlayer.lifetimeGames} / {NUM_PLACEMENT_MATCHES} placements
+            <Trans t={t} i18nKey='matchmaking.findMatch.remainingPlacements'>
+              {{ lifetimeGames: ladderPlayer.lifetimeGames }} /{' '}
+              {{ numPlacementMatches: NUM_PLACEMENT_MATCHES }} placements
+            </Trans>
           </UnratedText>
         )}
       </RankDisplayInfo>
