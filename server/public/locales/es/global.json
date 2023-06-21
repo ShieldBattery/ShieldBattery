@@ -19,7 +19,9 @@
             "search": "Buscar",
             "show": "Espectáculo",
             "apply": "Aplicar",
-            "remove": "Eliminar"
+            "remove": "Eliminar",
+            "previous": "Anterior",
+            "next": "Próximo"
         }
     },
     "settings": {
@@ -332,7 +334,80 @@
         },
         "type": {
             "1v1": "1v1",
-            "2v2": "2v2"
+            "2v2": "2v2",
+            "3v3": "3v3"
+        },
+        "acceptMatch": {
+            "failedToAccept": "No se pudo aceptar",
+            "matchFound": "Coincidencia encontrada",
+            "readyUp": "Listo",
+            "removedFromQueue": "No te preparaste a tiempo y te quitaron de la cola.",
+            "returningToQueue": "Algunos jugadores no se prepararon a tiempo o no pudieron cargar. Volviendo a la cola de emparejamiento…",
+            "body": "Todos los jugadores deben prepararse para que comience el partido."
+        },
+        "disabledCard": {
+            "days": "Días",
+            "description": "El emparejamiento a veces se cierra por mantenimiento y desarrollo, y actualmente está deshabilitado. El próximo período de emparejamiento es:",
+            "hours": "Horas",
+            "inParty": "Deshabilitado mientras está en la fiesta",
+            "minutes": "Minutos",
+            "notPartyLeader": "Solo el líder del grupo puede hacer cola para los partidos.",
+            "partyTooLargeText": "Tu grupo actual es demasiado grande para hacer cola para este tipo de emparejamiento.",
+            "partyTooLargeTitle": "fiesta demasiado grande",
+            "seconds": "Segundos",
+            "soon": "Pronto™",
+            "title": "Emparejamiento deshabilitado"
+        },
+        "findMatch": {
+            "action": "Encontrar pareja",
+            "alternateRace": "carrera alternativa",
+            "bonusPoints": "{{bonusAvailable}} puntos",
+            "bonusPool": "Fondo de bonificación",
+            "description": "Seleccione una carrera para usarla siempre que su oponente haya seleccionado la misma carrera principal.",
+            "errors": {
+                "alreadyInGame": "Ya estás en un juego, buscando una partida o en un lobby personalizado",
+                "dialogTitle": "Error al buscar una coincidencia",
+                "inParty": "Estás en un grupo, no puedes hacer cola como jugador solitario",
+                "loadingRank": "Hubo un problema al cargar tu rango actual.",
+                "matchmakingDisabled": "El emparejamiento está actualmente deshabilitado",
+                "somethingWentWrong": "Algo salió mal :("
+            },
+            "mapPool": "Grupo de mapas",
+            "points": "Puntos",
+            "rating": "Clasificación",
+            "remainingPlacements": "Colocaciones {{lifetimeGames}} / {{numPlacementMatches}}",
+            "title": "Encontrar pareja",
+            "updated": "Actualizado",
+            "useAlternateRace": "Usa una carrera alternativa para evitar enfrentamientos espejo",
+            "veto1v1": "Veto hasta 3 mapas. Los mapas vetados nunca se seleccionarán para jugar.",
+            "veto2v2": "Veto hasta 3 mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
+            "vetoesLeft": "<0>Vetos restantes: </0><1>{{vetoesLeft}}</1>",
+            "race": "Carrera"
+        },
+        "match": {
+            "gameFailedToLoad": "El juego no se ha podido cargar.",
+            "gameInProgress": "Juego en progreso…",
+            "gameLoading": "Lanzamiento del juego…",
+            "gameStarting": "Juego comenzando…",
+            "playerVsPlayer": "contra"
+        },
+        "navEntry": {
+            "cancelSearch": "Cancelar búsqueda",
+            "elapsedTime": "Tiempo: ",
+            "matchFound": "¡Coincidencia encontrada!",
+            "searchingForMatch": "Buscando {{matchmakingType}}"
+        },
+        "postMatchDialog": {
+            "leagues": "ligas",
+            "matchmaking": "Casamentero",
+            "points": "Puntos",
+            "rating": "Clasificación",
+            "searchAgain": "Busca de nuevo",
+            "title": "resultados del partido",
+            "watchReplay": "Ver repetición"
+        },
+        "searchingOverlay": {
+            "cancelSearch": "Cancelar búsqueda"
         }
     },
     "clientUpdate": {
@@ -642,6 +717,45 @@
             "removeFromFavorites": "Quitar de favoritos",
             "showMapPreview": "Mostrar vista previa del mapa",
             "viewMapDetails": "Ver detalles del mapa"
+        }
+    },
+    "material": {
+        "dialog": {
+            "closeDialog": "Cerrar cuadro de diálogo"
+        },
+        "passwordField": {
+            "hide": "Contraseña oculta",
+            "show": "Mostrar contraseña"
+        }
+    },
+    "navigation": {
+        "copyLink": {
+            "copiedText": "¡Copiado!",
+            "defaultText": "Copiar link"
+        },
+        "externalLink": {
+            "alwaysTrust": "Confía siempre en este dominio",
+            "dialogText": "<0>Este enlace lo llevará a un sitio fuera de ShieldBattery:</0><1>{{link}}</1><2>¿Está seguro de que desea ir allí?</2>",
+            "openLink": "Enlace abierto",
+            "title": "Enlace externo"
+        },
+        "leftNav": {
+            "chatChannels": "Canales de chat",
+            "customGame": "Juego personalizado",
+            "editAccount": "Editar cuenta",
+            "gameInProgress": "Juego en progreso…",
+            "joinChannel": "Unirse a un canal (Alt + H)",
+            "loadingChannel": "Cargando…",
+            "loadingGame": "Cargando…",
+            "lobby": "Vestíbulo",
+            "logIn": "Acceso",
+            "logOut": "Cerrar sesión",
+            "rankedGame": "Clasificado {{matchmakingType}}",
+            "startWhisper": "Iniciar un susurro (Alt + W)",
+            "viewChangelog": "Ver registro de cambios",
+            "viewProfile": "Ver perfil",
+            "whisperCloseError": "Error al cerrar la sesión de susurro: {{errorMessage}}",
+            "whispers": "susurros"
         }
     }
 }
