@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from './button'
@@ -18,6 +19,7 @@ const VisibilityButton = styled(IconButton)<{ $dense?: boolean }>`
 `
 
 export function PasswordTextField(props: TextFieldProps) {
+  const { t } = useTranslation()
   const [visible, setVisible] = useState(false)
 
   const onToggleVisibility = useCallback(() => {
@@ -27,7 +29,11 @@ export function PasswordTextField(props: TextFieldProps) {
   const visibilityButton = (
     <VisibilityButton
       icon={visible ? <MaterialIcon icon='visibility' /> : <MaterialIcon icon='visibility_off' />}
-      title={visible ? 'Hide password' : 'Show password'}
+      title={
+        visible
+          ? t('material.passwordField.hide', 'Hide password')
+          : t('material.passwordField.show', 'Show password')
+      }
       $dense={props.dense}
       onClick={onToggleVisibility}
     />
