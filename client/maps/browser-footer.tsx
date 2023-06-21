@@ -1,6 +1,7 @@
 import { Set } from 'immutable'
 import PropTypes from 'prop-types'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { CSSTransition } from 'react-transition-group'
 import styled from 'styled-components'
 import { ALL_TILESETS, tilesetToName } from '../../common/maps'
@@ -226,6 +227,7 @@ const SIZE_MENU_OPTIONS = ['Small', 'Medium', 'Large']
 const SORT_MENU_OPTIONS = ['Name', 'Number of players', 'Date uploaded']
 
 export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
+  const { t } = useTranslation()
   const [filterOverlayOpen, openFilterOverlay, closeFilterOverlay] = usePopoverController()
   const [sizeMenuOpen, openSizeMenu, closeSizeMenu] = usePopoverController()
   const [sortMenuOpen, openSortMenu, closeSortMenu] = usePopoverController()
@@ -320,7 +322,7 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
   return (
     <Container>
       <PositionedFloatingActionButton
-        title='Browse local maps'
+        title={t('maps.server.browseLocal', 'Browse local maps')}
         icon={<MaterialIcon icon='folder' invertColor={true} filled={false} />}
         onClick={props.onBrowseLocalMaps}
       />
@@ -328,19 +330,19 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
         <ActionButton
           ref={sizeRef}
           icon={<MaterialIcon icon='view_list' />}
-          title='Thumbnail size'
+          title={t('maps.server.thumbnailSize', 'Thumbnail size')}
           onClick={openSizeMenu}
         />
         <ActionButton
           ref={filterButtonRef}
           icon={<MaterialIcon icon='filter_list' />}
-          title='Filter options'
+          title={t('maps.server.filterOptions', 'Filter options')}
           onClick={openFilterOverlay}
         />
         <ActionButton
           ref={sortMenuRef}
           icon={<MaterialIcon icon='sort_by_alpha' />}
-          title='Sort maps'
+          title={t('maps.server.sortMaps', 'Sort maps')}
           onClick={openSortMenu}
         />
       </LeftActions>
@@ -376,10 +378,14 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
         <SectionOverline>Tileset</SectionOverline>
         <ColumnGroup>{tilesetItems}</ColumnGroup>
         <FilterActions>
-          <TextButton label='Cancel' color='accent' onClick={onFilterCancel} />
+          <TextButton
+            label={t('common.actions.cancel', 'Cancel')}
+            color='accent'
+            onClick={onFilterCancel}
+          />
           <TextButton
             ref={filterApplyButtonRef}
-            label='Apply'
+            label={t('common.actions.apply', 'Apply')}
             color='accent'
             onClick={forwardOnFilterApply}
           />

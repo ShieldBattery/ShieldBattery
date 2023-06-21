@@ -2,8 +2,10 @@ import { Set } from 'immutable'
 import { debounce } from 'lodash-es'
 import PropTypes from 'prop-types'
 import React from 'react'
+import { withTranslation } from 'react-i18next'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
+import { TranslationNamespace } from '../../common/i18n'
 import { ALL_TILESETS, MapSortType, MapVisibility } from '../../common/maps'
 import { openOverlay } from '../activities/action-creators'
 import { ActivityBackButton } from '../activities/activity-back-button'
@@ -179,6 +181,7 @@ class MapList extends React.PureComponent {
   }
 }
 
+@withTranslation(TranslationNamespace.Global, { withRef: true })
 @connect(state => ({ auth: state.auth, maps: state.maps, mapPreferences: state.mapPreferences }))
 export default class Maps extends React.Component {
   static propTypes = {
@@ -335,22 +338,27 @@ export default class Maps extends React.Component {
   }
 
   renderAllMaps() {
-    const { maps } = this.props
+    const { maps, t } = this.props
     const { activeTab, searchQuery } = this.state
 
     if (maps.total === -1) return null
     if (maps.total === 0) {
       let text
       if (searchQuery) {
-        text = 'No results.'
+        text = t('maps.server.noResults', 'No results.')
       } else if (activeTab === TAB_OFFICIAL_MAPS) {
-        text = 'No official maps have been uploaded yet.'
+        text = t('maps.server.noOfficialMaps', 'No official maps have been uploaded yet.')
       } else if (activeTab === TAB_MY_MAPS) {
-        text =
-          "You haven't uploaded any maps. You can upload a map by clicking on the browse " +
-          'button below.'
+        text = t(
+          'maps.server.noUploadedMaps',
+          "You haven't uploaded any maps. You can upload a map by clicking on the browse button " +
+            'below.',
+        )
       } else if (activeTab === TAB_COMMUNITY_MAPS) {
-        text = 'No maps by the community have been made public yet.'
+        text = t(
+          'maps.server.noCommunityMaps',
+          'No maps by the community have been made public yet.',
+        )
       }
       return (
         <>
@@ -364,7 +372,7 @@ export default class Maps extends React.Component {
   }
 
   render() {
-    const { title, maps, mapPreferences } = this.props
+    const { title, maps, mapPreferences, t } = this.props
     const {
       activeTab,
       thumbnailSize,
@@ -397,9 +405,12 @@ export default class Maps extends React.Component {
         </TitleBar>
         <TabArea>
           <Tabs activeTab={activeTab} onChange={this.onTabChange}>
-            <TabItem text='Official' value={TAB_OFFICIAL_MAPS} />
-            <TabItem text='My maps' value={TAB_MY_MAPS} />
-            <TabItem text='Community' value={TAB_COMMUNITY_MAPS} />
+            <TabItem text={t('maps.server.tab.official', 'Official')} value={TAB_OFFICIAL_MAPS} />
+            <TabItem text={t('maps.server.tab.myMaps', 'My maps')} value={TAB_MY_MAPS} />
+            <TabItem
+              text={t('maps.server.tab.community', 'Community')}
+              value={TAB_COMMUNITY_MAPS}
+            />
           </Tabs>
         </TabArea>
         <ScrollDivider position='top' />

@@ -16,6 +16,7 @@ import { apiUrl, urlPath } from '../../common/urls'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
+import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { fetchJson } from '../network/fetch'
@@ -42,7 +43,10 @@ export function uploadLocalMap(path: string, onMapSelect: (map: MapInfoJson) => 
       () => {
         dispatch(
           openSnackbar({
-            message: 'An error occurred while uploading the map',
+            message: i18n.t(
+              'maps.local.uploadMapError',
+              'An error occurred while uploading the map',
+            ),
           }),
         )
       },
@@ -112,17 +116,24 @@ export function toggleFavoriteMap(
       () => {
         dispatch(
           openSnackbar({
-            message: map.isFavorited ? 'Removed from favorites' : 'Saved to favorites',
+            message: map.isFavorited
+              ? i18n.t('maps.server.favorites.removed', 'Removed from favorites')
+              : i18n.t('maps.server.favorites.added', 'Added to favorites'),
           }),
         )
       },
       () => {
         dispatch(
           openSnackbar({
-            message:
-              'An error occurred while ' + map.isFavorited
-                ? 'removing from favorites'
-                : 'saving to favorites',
+            message: map.isFavorited
+              ? i18n.t(
+                  'maps.server.favorites.removedError',
+                  'An error occurred while removing from favorites',
+                )
+              : i18n.t(
+                  'maps.server.favorites.addedError',
+                  'An error occurred while adding to favorites',
+                ),
           }),
         )
       },
@@ -171,7 +182,10 @@ export function regenMapImage(map: Immutable<MapInfoJson>): ThunkAction {
       () => {
         dispatch(
           openSnackbar({
-            message: 'An error occurred while regenerating images',
+            message: i18n.t(
+              'maps.server.regenerateError',
+              'An error occurred while regenerating images',
+            ),
           }),
         )
       },

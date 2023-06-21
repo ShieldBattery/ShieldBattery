@@ -1,6 +1,7 @@
 import { Immutable } from 'immer'
 import { rgba } from 'polished'
 import React, { useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MapInfoJson } from '../../common/maps'
 import { IconRoot, MaterialIcon } from '../icons/material/material-icon'
@@ -209,6 +210,7 @@ export function MapThumbnail({
   onRemove,
   onRegenMapImage,
 }: MapThumbnailProps) {
+  const { t } = useTranslation()
   const [menuOpen, openMenu, closeMenu] = usePopoverController()
   const [anchorRef, anchorX, anchorY] = useAnchorPosition('right', 'top')
 
@@ -223,19 +225,19 @@ export function MapThumbnail({
   const actions = useMemo(() => {
     const mapActions: Array<[text: string, handler: () => void]> = []
     if (onMapDetails) {
-      mapActions.push(['View map details', onMapDetails])
+      mapActions.push([t('maps.thumbnail.viewMapDetails', 'View map details'), onMapDetails])
     }
     if (onRegenMapImage) {
-      mapActions.push(['Regenerate image', onRegenMapImage])
+      mapActions.push([t('maps.thumbnail.regenerateImage', 'Regenerate image'), onRegenMapImage])
     }
     if (onRemove) {
-      mapActions.push(['Remove', onRemove])
+      mapActions.push([t('common.actions.remove', 'Remove'), onRemove])
     }
 
     return mapActions.map(([text, handler], i) => (
       <MenuItem key={i} text={text} onClick={() => onActionClick(handler)} />
     ))
-  }, [onMapDetails, onRegenMapImage, onRemove, onActionClick])
+  }, [onMapDetails, onRegenMapImage, onRemove, t, onActionClick])
 
   return (
     <Container className={className} style={style}>
@@ -259,7 +261,7 @@ export function MapThumbnail({
       {onPreview ? (
         <MapPreviewIcon
           icon={<MaterialIcon icon='zoom_in' />}
-          title={'Show map preview'}
+          title={t('maps.thumbnail.showMapPreview', 'Show map preview')}
           onClick={onPreview}
         />
       ) : null}
@@ -267,7 +269,11 @@ export function MapThumbnail({
         <FavoriteActionIcon
           disabled={isFavoriting}
           icon={<MaterialIcon icon='star' filled={map.isFavorited} />}
-          title={map.isFavorited ? 'Remove from favorites' : 'Add to favorites'}
+          title={
+            map.isFavorited
+              ? t('maps.thumbnail.removeFromFavorites', 'Remove from favorites')
+              : t('maps.thumbnail.addToFavorites', 'Add to favorites')
+          }
           onClick={onToggleFavorite}
         />
       ) : null}
@@ -279,7 +285,7 @@ export function MapThumbnail({
               <MapActionButton
                 ref={anchorRef}
                 icon={<MaterialIcon icon='more_vert' />}
-                title='Map actions'
+                title={t('maps.thumbnail.mapActions', 'Map actions')}
                 onClick={openMenu}
               />
               <Popover
