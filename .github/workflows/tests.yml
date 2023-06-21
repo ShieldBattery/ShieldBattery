@@ -70,6 +70,22 @@ jobs:
           echo "The translation files seem incomplete. Please run \"yarn gen-translations\" in the
           directory root and commit the updated translation files." && exit 1
 
+      - name: Generate email templates
+        id: gen-email-templates
+        run: yarn gen-emails
+
+      - name: Check email templates
+        uses: tj-actions/verify-changed-files@v15
+        id: check-email-templates
+        with:
+          files: server/email/*.html
+
+      - name: Display email template error
+        if: ${{ failure() && steps.check-email-templates.outputs.files_changed == 'true' || steps.gen-email-templates.conclusion == 'failure' }}
+        run: >
+          echo "The email templates seem outdated. Please run \"yarn gen-emails\" in the
+          directory root and commit the updated email templates." && exit 1
+
   integration-tests:
     runs-on: ubuntu-latest
     steps:
