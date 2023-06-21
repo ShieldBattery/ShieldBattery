@@ -17,7 +17,6 @@ translation process as necessary:
 yarn gen-translations
 ```
 
-TODO: email generation step
 TODO: CI generation test
 TODO: mailgun API step
 TODO: update weblate config to pull these locale files
