@@ -17,7 +17,9 @@
             "refresh": "$🗡Refresh🗡!",
             "search": "$🗡Search🗡!",
             "show": "$🗡Show🗡!",
-            "download": "$🗡Download🗡!"
+            "download": "$🗡Download🗡!",
+            "apply": "$🗡Apply🗡!",
+            "remove": "$🗡Remove🗡!"
         }
     },
     "settings": {
@@ -588,6 +590,58 @@
             "pageHeadline": "$🗡Leagues🗡!",
             "starts": "$🗡Starts {{startDate}}🗡!",
             "viewInfo": "$🗡View info🗡!"
+        }
+    },
+    "maps": {
+        "details": {
+            "editDescription": "$🗡Edit description🗡!",
+            "editName": "$🗡Edit name🗡!",
+            "mapDescription": "$🗡Map description🗡!",
+            "mapDescriptionRequired": "$🗡Enter a map description🗡!",
+            "mapName": "$🗡Map name🗡!",
+            "mapNameRequired": "$🗡Enter a map name🗡!",
+            "players": "$🗡Players: {{playerSize}}🗡!",
+            "retrieveError": "$🗡Something went wrong while trying to retrieve the details of this map. The error message was:🗡!",
+            "size": "$🗡Size: {{width}}x{{height}}🗡!",
+            "tileset": "$🗡Tileset: {{tilesetName}}🗡!",
+            "title": "$🗡Map details🗡!"
+        },
+        "local": {
+            "documentsFolder": "$🗡Documents folder🗡!",
+            "programFolder": "$🗡Program folder🗡!",
+            "title": "$🗡Local Maps🗡!",
+            "uploadError": "$🗡There was a problem uploading the map🗡!",
+            "uploadMapError": "$🗡An error occurred while uploading the map🗡!"
+        },
+        "server": {
+            "browseLocal": "$🗡Browse local maps🗡!",
+            "favorites": {
+                "added": "$🗡Added to favorites🗡!",
+                "addedError": "$🗡An error occurred while adding to favorites🗡!",
+                "removed": "$🗡Removed from favorites🗡!",
+                "removedError": "$🗡An error occurred while removing from favorites🗡!"
+            },
+            "filterOptions": "$🗡Filter options🗡!",
+            "noCommunityMaps": "$🗡No maps by the community have been made public yet.🗡!",
+            "noOfficialMaps": "$🗡No official maps have been uploaded yet.🗡!",
+            "noResults": "$🗡No results.🗡!",
+            "noUploadedMaps": "$🗡You haven't uploaded any maps. You can upload a map by clicking on the browse button below.🗡!",
+            "regenerateError": "$🗡An error occurred while regenerating images🗡!",
+            "sortMaps": "$🗡Sort maps🗡!",
+            "tab": {
+                "community": "$🗡Community🗡!",
+                "myMaps": "$🗡My maps🗡!",
+                "official": "$🗡Official🗡!"
+            },
+            "thumbnailSize": "$🗡Thumbnail size🗡!"
+        },
+        "thumbnail": {
+            "addToFavorites": "$🗡Add to favorites🗡!",
+            "mapActions": "$🗡Map actions🗡!",
+            "regenerateImage": "$🗡Regenerate image🗡!",
+            "removeFromFavorites": "$🗡Remove from favorites🗡!",
+            "showMapPreview": "$🗡Show map preview🗡!",
+            "viewMapDetails": "$🗡View map details🗡!"
         }
     }
 }
