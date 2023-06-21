@@ -44,7 +44,7 @@ export function uploadLocalMap(path: string, onMapSelect: (map: MapInfoJson) => 
         dispatch(
           openSnackbar({
             message: i18n.t(
-              'maps.local.electronError',
+              'maps.local.uploadMapError',
               'An error occurred while uploading the map',
             ),
           }),
@@ -118,7 +118,7 @@ export function toggleFavoriteMap(
           openSnackbar({
             message: map.isFavorited
               ? i18n.t('maps.server.favorites.removed', 'Removed from favorites')
-              : i18n.t('maps.server.favorites.saved', 'Saved to favorites'),
+              : i18n.t('maps.server.favorites.added', 'Added to favorites'),
           }),
         )
       },
@@ -131,8 +131,8 @@ export function toggleFavoriteMap(
                   'An error occurred while removing from favorites',
                 )
               : i18n.t(
-                  'maps.server.favorites.savedError',
-                  'An error occurred while saving to favorites',
+                  'maps.server.favorites.addedError',
+                  'An error occurred while adding to favorites',
                 ),
           }),
         )

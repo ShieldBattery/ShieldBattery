@@ -4,6 +4,7 @@ import React from 'react'
 import { withTranslation } from 'react-i18next'
 import { ConditionalKeys } from 'type-fest'
 import createDeferred, { Deferred } from '../../common/async/deferred'
+import { TranslationNamespace } from '../../common/i18n'
 import shallowEquals from '../../common/shallow-equals'
 
 function getDisplayName(WrappedComponent: React.ComponentType<any>): string {
@@ -423,7 +424,7 @@ export default function formDecorator<ModelType extends Record<string, any>, Wra
     }
 
     return hoistNonReactStatics(
-      withTranslation(undefined, { withRef: true })(FormWrapperImpl),
+      withTranslation(TranslationNamespace.Global, { withRef: true })(FormWrapperImpl),
       Wrapped,
     ) as any
   }

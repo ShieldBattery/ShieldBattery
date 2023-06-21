@@ -520,18 +520,18 @@
     },
     "local": {
       "documentsFolder": "Documents folder",
-      "electronError": "An error occurred while uploading the map",
       "programFolder": "Program folder",
       "title": "Local Maps",
-      "uploadError": "There was a problem uploading the map"
+      "uploadError": "There was a problem uploading the map",
+      "uploadMapError": "An error occurred while uploading the map"
     },
     "server": {
       "browseLocal": "Browse local maps",
       "favorites": {
+        "added": "Added to favorites",
+        "addedError": "An error occurred while adding to favorites",
         "removed": "Removed from favorites",
-        "removedError": "An error occurred while removing from favorites",
-        "saved": "Saved to favorites",
-        "savedError": "An error occurred while saving to favorites"
+        "removedError": "An error occurred while removing from favorites"
       },
       "filterOptions": "Filter options",
       "noCommunityMaps": "No maps by the community have been made public yet.",

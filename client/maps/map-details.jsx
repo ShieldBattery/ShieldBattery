@@ -3,7 +3,6 @@ import React from 'react'
 import { Trans, withTranslation } from 'react-i18next'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-import { TranslationNamespace } from '../../common/i18n'
 import { MapVisibility, tilesetToName } from '../../common/maps'
 import form from '../forms/form'
 import SubmitOnEnter from '../forms/submit-on-enter'
@@ -96,7 +95,6 @@ const StyledMapThumbnail = styled(MapThumbnail)`
   height: 220px;
 `
 
-@withTranslation(TranslationNamespace.Global, { withRef: true })
 @form({ name: required(t => t('maps.details.mapNameRequired', 'Enter a map name')) })
 class NameForm extends React.Component {
   render() {
@@ -138,7 +136,6 @@ class NameForm extends React.Component {
   }
 }
 
-@withTranslation(TranslationNamespace.Global, { withRef: true })
 @form({
   description: required(t => t('maps.details.mapDescriptionRequired', 'Enter a map description')),
 })
@@ -184,7 +181,7 @@ class DescriptionForm extends React.Component {
   }
 }
 
-@withTranslation(TranslationNamespace.Global, { withRef: true })
+@withTranslation()
 @connect(state => ({ auth: state.auth, mapDetails: state.mapDetails }))
 export default class MapDetails extends React.Component {
   static propTypes = {
