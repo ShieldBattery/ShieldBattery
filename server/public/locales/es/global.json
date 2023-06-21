@@ -17,7 +17,9 @@
             "hide": "Esconder",
             "refresh": "Actualizar",
             "search": "Buscar",
-            "show": "Espectáculo"
+            "show": "Espectáculo",
+            "apply": "Aplicar",
+            "remove": "Eliminar"
         }
     },
     "settings": {
@@ -589,5 +591,57 @@
         "close": "Cerca",
         "maximizeRestore": "Maximizar/Restaurar",
         "minimize": "Minimizar"
+    },
+    "maps": {
+        "details": {
+            "editDescription": "Editar Descripción",
+            "mapDescription": "Descripción del mapa",
+            "mapDescriptionRequired": "Introduzca una descripción del mapa",
+            "mapName": "Nombre del mapa",
+            "mapNameRequired": "Introduce un nombre de mapa",
+            "players": "Jugadores: {{playerSize}}",
+            "retrieveError": "Algo salió mal al intentar recuperar los detalles de este mapa. El mensaje de error fue:",
+            "size": "Tamaño: {{width}}x{{height}}",
+            "tileset": "Conjunto de fichas: {{tilesetName}}",
+            "title": "Detalles del mapa",
+            "editName": "Editar nombre"
+        },
+        "local": {
+            "documentsFolder": "carpeta de documentos",
+            "programFolder": "Carpeta del programa",
+            "title": "Mapas locales",
+            "uploadError": "Hubo un problema al cargar el mapa.",
+            "uploadMapError": "Ocurrió un error al cargar el mapa"
+        },
+        "server": {
+            "browseLocal": "Explorar mapas locales",
+            "favorites": {
+                "added": "Añadido a favoritos",
+                "addedError": "Ocurrió un error al agregar a favoritos",
+                "removed": "Eliminado de favoritos",
+                "removedError": "Ocurrió un error al eliminar de favoritos"
+            },
+            "filterOptions": "Opciones de filtro",
+            "noCommunityMaps": "Aún no se han hecho públicos mapas de la comunidad.",
+            "noOfficialMaps": "Aún no se han subido mapas oficiales.",
+            "noUploadedMaps": "No has subido ningún mapa. Puede cargar un mapa haciendo clic en el botón de exploración a continuación.",
+            "regenerateError": "Ocurrió un error al regenerar imágenes",
+            "sortMaps": "Ordenar mapas",
+            "tab": {
+                "community": "Comunidad",
+                "myMaps": "mis mapas",
+                "official": "Oficial"
+            },
+            "thumbnailSize": "tamaño de la uña del pulgar",
+            "noResults": "No hay resultados."
+        },
+        "thumbnail": {
+            "addToFavorites": "Agregar a los favoritos",
+            "mapActions": "Acciones de mapa",
+            "regenerateImage": "Regenerar imagen",
+            "removeFromFavorites": "Quitar de favoritos",
+            "showMapPreview": "Mostrar vista previa del mapa",
+            "viewMapDetails": "Ver detalles del mapa"
+        }
     }
 }
