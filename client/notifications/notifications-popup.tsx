@@ -1,6 +1,7 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
+import { useTranslation } from 'react-i18next'
 import {
   AnimationResult,
   Controller,
@@ -64,6 +65,7 @@ const MarkAsReadButton = styled(IconButton)`
 `
 
 export default function NotificationPopups() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const idToNotification = useAppSelector(s => s.notifications.byId)
   const notificationIds = useAppSelector(s => s.notifications.orderedIds)
@@ -169,7 +171,7 @@ export default function NotificationPopups() {
           )}
           <MarkAsReadButton
             icon={<MaterialIcon icon='check' />}
-            title='Mark as read'
+            title={t('notifications.popup.markAsRead', 'Mark as read')}
             onClick={() => onMarkAsRead(item)}
           />
         </Popup>

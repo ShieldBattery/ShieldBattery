@@ -7,6 +7,7 @@ import {
 } from '../../common/notifications'
 import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
+import i18n from '../i18n/i18next'
 import { fetchJson } from '../network/fetch'
 import { openSnackbar } from '../snackbars/action-creators'
 import { AddNotification, ClearNotificationById, MarkNotificationsRead } from './actions'
@@ -98,7 +99,10 @@ export function markNotificationsRead(notificationIds: ReadonlyArray<string>): T
       }).catch(err => {
         dispatch(
           openSnackbar({
-            message: 'An error occurred while marking a notification read',
+            message: i18n.t(
+              'notifications.errors.markRead',
+              'An error occurred while marking a notification read',
+            ),
           }),
         )
         throw err

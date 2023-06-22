@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user'
 import { useSelfUser } from '../auth/state-hooks'
@@ -38,6 +39,7 @@ export interface ConnectedWhisperProps {
 }
 
 export function ConnectedWhisper({ userId, username: usernameFromRoute }: ConnectedWhisperProps) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()!
   const targetUser = useAppSelector(s => s.users.byId.get(userId))
@@ -46,14 +48,18 @@ export function ConnectedWhisper({ userId, username: usernameFromRoute }: Connec
 
   useEffect(() => {
     if (selfUser && selfUser.id === userId) {
-      dispatch(openSnackbar({ message: "You can't whisper with yourself." }))
+      dispatch(
+        openSnackbar({
+          message: t('whispers.errors.cantWhisperYourself', "You can't whisper with yourself."),
+        }),
+      )
       replace('/')
     }
 
     if (targetUser && usernameFromRoute !== targetUser.name) {
       correctUsernameForWhisper(targetUser.id, targetUser.name)
     }
-  }, [selfUser, userId, targetUser, usernameFromRoute, dispatch])
+  }, [selfUser, userId, targetUser, usernameFromRoute, dispatch, t])
 
   const prevIsSessionOpen = usePrevious(isSessionOpen)
   const prevUserId = usePrevious(userId)
@@ -74,7 +80,10 @@ export function ConnectedWhisper({ userId, username: usernameFromRoute }: Connec
           onError: err => {
             dispatch(
               openSnackbar({
-                message: `Error opening whisper to user: ${err.message}`,
+                message: t('whispers.errors.openSession', {
+                  defaultValue: 'Error opening whisper to user: {{errorMessage}}',
+                  errorMessage: err.message,
+                }),
                 time: TIMING_LONG,
               }),
             )
@@ -87,7 +96,7 @@ export function ConnectedWhisper({ userId, username: usernameFromRoute }: Connec
     return () => {
       dispatch(deactivateWhisperSession(userId))
     }
-  }, [isSessionOpen, isClosingWhisper, userId, dispatch])
+  }, [isSessionOpen, isClosingWhisper, userId, dispatch, t])
 
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const onLoadMoreMessages = useStableCallback(() => {
@@ -103,7 +112,10 @@ export function ConnectedWhisper({ userId, username: usernameFromRoute }: Connec
           // failed in the message list (and offer a button to retry)
           dispatch(
             openSnackbar({
-              message: `Error loading message history: ${err.message}`,
+              message: t('whispers.errors.loadingHistory', {
+                defaultValue: 'Error loading message history: {{errorMessage}}',
+                errorMessage: err.message,
+              }),
               time: TIMING_LONG,
             }),
           )
@@ -121,7 +133,10 @@ export function ConnectedWhisper({ userId, username: usernameFromRoute }: Connec
           // ala Discord?
           dispatch(
             openSnackbar({
-              message: `Error sending message: ${err.message}`,
+              message: t('whispers.errors.sendingMessage', {
+                defaultValue: 'Error sending message: {{errorMessage}}',
+                errorMessage: err.message,
+              }),
               time: TIMING_LONG,
             }),
           )

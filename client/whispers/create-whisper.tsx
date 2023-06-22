@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { USERNAME_MAXLENGTH, USERNAME_MINLENGTH, USERNAME_PATTERN } from '../../common/constants'
 import { whisperServiceErrorToString } from '../../common/whispers'
@@ -26,10 +27,12 @@ const ErrorText = styled.div`
 `
 
 const usernameValidator = composeValidators(
-  required('Enter a username'),
+  required(t => t('whispers.createWhisper.usernameRequired', 'Enter a username')),
   minLength(USERNAME_MINLENGTH),
   maxLength(USERNAME_MAXLENGTH),
-  regex(USERNAME_PATTERN, 'Username contains invalid characters'),
+  regex(USERNAME_PATTERN, t =>
+    t('whispers.createWhisper.usernamePattern', 'Username contains invalid characters'),
+  ),
 )
 
 interface CreateWhisperFormModel {
@@ -37,6 +40,7 @@ interface CreateWhisperFormModel {
 }
 
 export function CreateWhisper(props: CommonDialogProps) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const inputRef = useAutoFocusRef<HTMLInputElement>()
   const [loading, setLoading] = useState(false)
@@ -66,13 +70,23 @@ export function CreateWhisper(props: CommonDialogProps) {
   )
 
   const buttons = [
-    <TextButton label='Cancel' key='cancel' color='accent' onClick={props.onCancel} />,
-    <TextButton label='Start' key='send' color='accent' onClick={onSubmit} />,
+    <TextButton
+      label={t('common.actions.cancel', 'Cancel')}
+      key='cancel'
+      color='accent'
+      onClick={props.onCancel}
+    />,
+    <TextButton
+      label={t('common.actions.start', 'Start')}
+      key='send'
+      color='accent'
+      onClick={onSubmit}
+    />,
   ]
 
   return (
     <Dialog
-      title='Send a message'
+      title={t('whispers.createWhisper.title', 'Send a message')}
       buttons={buttons}
       onCancel={props.onCancel}
       dialogRef={props.dialogRef}>
@@ -82,16 +96,20 @@ export function CreateWhisper(props: CommonDialogProps) {
         <>
           {lastError ? (
             <ErrorText>
-              Error:{' '}
-              {isFetchError(lastError)
-                ? whisperServiceErrorToString(lastError.code)
-                : lastError.message}
+              <Trans t={t} i18nKey='whispers.createWhisper.error'>
+                Error:{' '}
+                {{
+                  errorMessage: isFetchError(lastError)
+                    ? whisperServiceErrorToString(lastError.code, t)
+                    : lastError.message,
+                }}
+              </Trans>
             </ErrorText>
           ) : undefined}
           <form noValidate={true} onSubmit={onSubmit}>
             <TextField
               {...bindInput('target')}
-              label='Username'
+              label={t('whispers.createWhisper.username', 'Username')}
               floatingLabel={true}
               ref={inputRef}
               inputProps={{

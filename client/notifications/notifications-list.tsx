@@ -1,5 +1,6 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SbNotification } from '../../common/notifications'
 import { TextButton } from '../material/button'
@@ -54,12 +55,13 @@ export interface NotificationsListProps {
 }
 
 export function NotificationsList(props: NotificationsListProps) {
+  const { t } = useTranslation()
   return (
     <ListContainer>
       <TitleArea>
-        <TitleText>Notifications</TitleText>
+        <TitleText>{t('notifications.list.title', 'Notifications')}</TitleText>
         <ClearButton
-          label='Clear'
+          label={t('common.actions.clear', 'Clear')}
           color='accent'
           onClick={props.onClear}
           testName='notifications-clear-button'
@@ -71,7 +73,7 @@ export function NotificationsList(props: NotificationsListProps) {
             notificationToUi(n, `notif-${i}`, i < props.notifications.length - 1),
           )
         ) : (
-          <EmptyList>Nothing to see here</EmptyList>
+          <EmptyList>{t('notifications.list.empty', 'Nothing to see here')}</EmptyList>
         )}
       </ListArea>
     </ListContainer>

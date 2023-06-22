@@ -1,3 +1,4 @@
+import { TFunction } from 'i18next'
 import { assertUnreachable } from './assert-unreachable'
 import { BasicChannelInfo, SbChannelId } from './chat'
 import { SbUser, SbUserId } from './users/sb-user'
@@ -90,19 +91,23 @@ function isWhisperServiceErrorCode(code: string): code is WhisperServiceErrorCod
 
 export function whisperServiceErrorToString(
   code: WhisperServiceErrorCode | string | undefined,
+  t: TFunction,
 ): string {
   if (code !== undefined && isWhisperServiceErrorCode(code)) {
     switch (code) {
       case WhisperServiceErrorCode.UserNotFound:
-        return 'User not found'
+        return t('whispers.errors.userNotFound', 'User not found')
       case WhisperServiceErrorCode.NoSelfMessaging:
-        return 'Cannot send messages to yourself'
+        return t('whispers.errors.noSelfMessaging', 'Cannot send messages to yourself')
       case WhisperServiceErrorCode.InvalidGetSessionHistoryAction:
-        return 'Must have an active whisper session with a user to retrieve message history'
+        return t(
+          'whispers.errors.invalidAction',
+          'Must have an active whisper session with a user to retrieve message history',
+        )
       default:
         return assertUnreachable(code)
     }
   } else {
-    return 'Unknown error'
+    return t('whispers.errors.unknownError', 'Unknown error')
   }
 }

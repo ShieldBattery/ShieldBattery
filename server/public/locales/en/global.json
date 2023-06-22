@@ -231,6 +231,7 @@
       "apply": "Apply",
       "back": "Back",
       "cancel": "Cancel",
+      "clear": "Clear",
       "continue": "Continue",
       "download": "Download",
       "hide": "Hide",
@@ -243,6 +244,7 @@
       "save": "Save",
       "search": "Search",
       "show": "Show",
+      "start": "Start",
       "view": "View"
     },
     "validators": {
@@ -694,6 +696,22 @@
   "network": {
     "connecting": "Connecting…"
   },
+  "notifications": {
+    "activityButton": {
+      "read": "Notifications (Alt + N)",
+      "unread": "Notifications - unread (Alt + N)"
+    },
+    "errors": {
+      "markRead": "An error occurred while marking a notification read"
+    },
+    "list": {
+      "empty": "Nothing to see here",
+      "title": "Notifications"
+    },
+    "popup": {
+      "markAsRead": "Mark as read"
+    }
+  },
   "policy": {
     "acceptableUse": "Acceptable use",
     "policyUpdateNotification": "ShieldBattery's <2>{{label}}</2> has been updated.",
@@ -746,11 +764,48 @@
       }
     }
   },
+  "starcraft": {
+    "shieldbatteryHealth": {
+      "contents": "<0>We've detected that the following ShieldBattery files are missing or have been modified:</0><1>{{initDescription}}{{mainDescription}}</1><2>This is often the result of installed anti-virus software taking action on false positives. You may need to add exceptions for these files, or tell the software to remove them from quarantine. You can also try re-installing ShieldBattery.</2><3>If you are able to, reporting these as false positives to your anti-virus vendor will help this stop happening for other users as well!</3>",
+      "noProblems": "Your local installation is now free of problems.",
+      "rescanFiles": "Rescan files",
+      "title": "Installation problems detected"
+    },
+    "starcraftHealth": {
+      "header": "The following problems need to be corrected before you can play games on ShieldBattery:",
+      "installPathContents": "Your StarCraft path setting does not point to a valid installation. Please correct the value in <2>Settings</2>. If you do not have the game installed, it can be easily downloaded from <5><0>Blizzard's website</0></5>. You may need to restart ShieldBattery after installation.",
+      "noProblems": "Your local installation is now free of problems.",
+      "starcraftVersionContents": "Your StarCraft installation is out of date. ShieldBattery supports installations of version 1.16.1 or the latest Remastered version. Please install the <2><0>latest version</0></2> and restart ShieldBattery.",
+      "title": "Installation problems detected"
+    }
+  },
   "user": {
     "miniMatchHistory": {
       "noGames": "Nothing to see here",
       "noGameSelected": "No game selected",
       "viewDetails": "View details"
+    }
+  },
+  "whispers": {
+    "createWhisper": {
+      "error": "Error: {{errorMessage}}",
+      "title": "Send a message",
+      "username": "Username",
+      "usernamePattern": "Username contains invalid characters",
+      "usernameRequired": "Enter a username"
+    },
+    "errors": {
+      "cantWhisperYourself": "You can't whisper with yourself.",
+      "invalidAction": "Must have an active whisper session with a user to retrieve message history",
+      "loadingHistory": "Error loading message history: {{errorMessage}}",
+      "noSelfMessaging": "Cannot send messages to yourself",
+      "openSession": "Error opening whisper to user: {{errorMessage}}",
+      "sendingMessage": "Error sending message: {{errorMessage}}",
+      "unknownError": "Unknown error",
+      "userNotFound": "User not found"
+    },
+    "navEntry": {
+      "closeWhisper": "Close whisper"
     }
   },
   "windowControls": {
