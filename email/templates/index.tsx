@@ -11,7 +11,7 @@ export default function Email() {
         pY={12}
         href='https://example.com'
         style={{ background: '#000', color: '#fff' }}>
-        {t('test.click', 'Click me (translated)')}
+        {t('test.click', 'Click me (updated)')}
       </Button>
     </Html>
   )

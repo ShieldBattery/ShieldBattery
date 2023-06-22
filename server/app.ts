@@ -16,6 +16,7 @@ import AwsStore from './lib/file-upload/aws'
 import LocalFileStore from './lib/file-upload/local-filesystem'
 import logMiddleware from './lib/logging/log-middleware'
 import log from './lib/logging/logger'
+import { updateEmailTemplates } from './lib/mail/update-templates'
 import { prometheusHttpMetrics, prometheusMiddleware } from './lib/monitoring/prometheus-middleware'
 import { redirectToCanonical } from './lib/network/redirect-to-canonical'
 import userIpsMiddleware from './lib/network/user-ips-middleware'
@@ -201,6 +202,22 @@ const rallyPointInitPromise = rallyPointService.initialize(
   redis.on('error', err => {
     log.error({ err }, 'redis error')
   })
+
+  try {
+    await updateEmailTemplates()
+  } catch (err: any) {
+    log.error(
+      {
+        err,
+        request: err.request
+          ? { url: err.request.options.url, method: err.request.options.method }
+          : undefined,
+        body: err.response?.body,
+      },
+      'Error updating email templates',
+    )
+    process.exit(1)
+  }
 
   fileStoreMiddleware(app)
 
