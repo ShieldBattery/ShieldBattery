@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { USERNAME_MAXLENGTH, USERNAME_MINLENGTH, USERNAME_PATTERN } from '../../common/constants'
 import { closeDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
@@ -28,6 +29,7 @@ export function PartyInviteDialog({
   dialogRef: React.Ref<HTMLDivElement>
   onCancel: () => void
 }) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -53,20 +55,30 @@ export function PartyInviteDialog({
   const onSendClick = useCallback(() => handleSubmit(), [handleSubmit])
 
   const buttons = [
-    <TextButton label='Cancel' key='cancel' color='accent' onClick={onCancel} />,
-    <TextButton label='Send invites' key='send' color='accent' onClick={onSendClick} />,
+    <TextButton
+      label={t('common.actions.cancel', 'Cancel')}
+      key='cancel'
+      color='accent'
+      onClick={onCancel}
+    />,
+    <TextButton
+      label={t('parties.inviteDialog.sendInvites', 'Send invites')}
+      key='send'
+      color='accent'
+      onClick={onSendClick}
+    />,
   ]
 
   return (
     <Dialog
-      title='Invite players to the party'
+      title={t('parties.inviteDialog.title', 'Invite players to the party')}
       buttons={buttons}
       onCancel={onCancel}
       dialogRef={dialogRef}>
       <form noValidate={true} onSubmit={handleSubmit}>
         <TextField
           {...bindInput('user')}
-          label='Find players'
+          label={t('parties.inviteDialog.findPlayers', 'Find players')}
           floatingLabel={true}
           ref={inputRef}
           inputProps={{

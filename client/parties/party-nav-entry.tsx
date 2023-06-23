@@ -1,5 +1,6 @@
 import { Immutable } from 'immer'
 import React, { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link, useRoute } from 'wouter'
 import { urlPath } from '../../common/urls'
@@ -88,6 +89,8 @@ export function PartyNavEntry({
   onInviteUserClick,
   onLeavePartyClick,
 }: PartyNavEntryProps) {
+  const { t } = useTranslation()
+
   const partyId = party.id
   const link = urlPath`/parties/${partyId}`
   const [isActive] = useRoute('/parties/:partyId/:rest*')
@@ -114,17 +117,17 @@ export function PartyNavEntry({
       {needsAttention ? <AttentionIndicator /> : null}
       <StyledLink to={link}>
         <StyledPartyIcon />
-        <Title isActive={isActive}>Party</Title>
+        <Title isActive={isActive}>{t('parties.navEntry.title', 'Party')}</Title>
         {canInvite ? (
           <EntryButton
             icon={<MaterialIcon icon='group_add' />}
-            title='Invite players'
+            title={t('parties.navEntry.invitePlayers', 'Invite players')}
             onClick={onInviteClick}
           />
         ) : null}
         <EntryButton
           icon={<MaterialIcon icon='close' />}
-          title='Leave party'
+          title={t('parties.navEntry.leaveParty', 'Leave party')}
           onClick={onLeaveClick}
         />
       </StyledLink>
