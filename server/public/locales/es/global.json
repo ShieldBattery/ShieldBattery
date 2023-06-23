@@ -21,7 +21,9 @@
             "apply": "Aplicar",
             "remove": "Eliminar",
             "previous": "Anterior",
-            "next": "Próximo"
+            "next": "Próximo",
+            "clear": "Claro",
+            "start": "Comenzar"
         }
     },
     "settings": {
@@ -756,6 +758,61 @@
             "viewProfile": "Ver perfil",
             "whisperCloseError": "Error al cerrar la sesión de susurro: {{errorMessage}}",
             "whispers": "susurros"
+        }
+    },
+    "notifications": {
+        "activityButton": {
+            "read": "Notificaciones (Alt + N)",
+            "unread": "Notificaciones - no leídas (Alt + N)"
+        },
+        "errors": {
+            "markRead": "Ocurrió un error al marcar una notificación como leída"
+        },
+        "list": {
+            "empty": "Nada que ver aqui",
+            "title": "Notificaciones"
+        },
+        "popup": {
+            "markAsRead": "Marcar como leído"
+        }
+    },
+    "starcraft": {
+        "shieldbatteryHealth": {
+            "bottomContents": "Si puede, informar estos como falsos positivos a su proveedor de antivirus ayudará a que esto deje de suceder también para otros usuarios.",
+            "middleContents": "Esto es a menudo el resultado de que el software antivirus instalado toma medidas sobre los falsos positivos. Es posible que deba agregar excepciones para estos archivos o indicarle al software que los elimine de la cuarentena. También puede intentar reinstalar ShieldBattery.",
+            "noProblems": "Su instalación local ahora está libre de problemas.",
+            "rescanFiles": "Volver a escanear archivos",
+            "title": "Problemas de instalación detectados",
+            "topContents": "Hemos detectado que faltan o se han modificado los siguientes archivos de ShieldBattery:"
+        },
+        "starcraftHealth": {
+            "header": "Los siguientes problemas deben corregirse antes de poder jugar juegos en ShieldBattery:",
+            "installPathContents": "Tu configuración de ruta de StarCraft no apunta a una instalación válida. Corrija el valor en <2>Configuración</2>. Si no tienes el juego instalado, puedes descargarlo fácilmente desde el <5><0>sitio web de Blizzard</0></5>. Es posible que deba reiniciar ShieldBattery después de la instalación.",
+            "noProblems": "Su instalación local ahora está libre de problemas.",
+            "starcraftVersionContents": "Tu instalación de StarCraft no está actualizada. ShieldBattery admite instalaciones de la versión 1.16.1 o la última versión remasterizada. Instale la <2><0>última versión</0></2> y reinicie ShieldBattery.",
+            "title": "Problemas de instalación detectados"
+        }
+    },
+    "whispers": {
+        "createWhisper": {
+            "error": "Error: {{error}}",
+            "title": "Enviar un mensaje",
+            "username": "Nombre de usuario",
+            "usernamePattern": "Nombre de usuario contiene caracteres inválidos",
+            "usernameRequired": "Introduzca un nombre de usuario"
+        },
+        "errors": {
+            "cantWhisperYourself": "No puedes susurrar contigo mismo.",
+            "invalidAction": "Debe tener una sesión de susurro activa con un usuario para recuperar el historial de mensajes",
+            "loadingHistory": "Error al cargar el historial de mensajes: {{errorMessage}}",
+            "noSelfMessaging": "No puedes enviarte mensajes a ti mismo",
+            "openSession": "Error al abrir susurro al usuario: {{errorMessage}}",
+            "sendingMessage": "Error al enviar mensaje: {{errorMessage}}",
+            "unknownError": "Error desconocido",
+            "userNotFound": "Usuario no encontrado"
+        },
+        "navEntry": {
+            "closeWhisper": "Cerrar susurro"
         }
     }
 }
