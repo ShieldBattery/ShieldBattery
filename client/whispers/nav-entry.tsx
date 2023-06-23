@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user'
@@ -29,10 +30,11 @@ export function WhisperNavEntry({
   onClose,
   hasUnread = false,
 }: WhisperNavEntryProps) {
+  const { t } = useTranslation()
   const button = (
     <LeaveButton
       icon={<MaterialIcon icon='close' />}
-      title='Close whisper'
+      title={t('whispers.navEntry.closeWhisper', 'Close whisper')}
       onClick={() => onClose(userId)}
     />
   )

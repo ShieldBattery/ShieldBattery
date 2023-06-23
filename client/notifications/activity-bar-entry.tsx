@@ -1,5 +1,6 @@
 import keycode from 'keycode'
 import React, { useCallback, useMemo, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { HotkeyProp, IconButton, useButtonHotkey } from '../material/button'
@@ -42,6 +43,7 @@ const PopoverContents = styled.div`
 `
 
 export function NotificationsButton() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const idToNotification = useAppSelector(s => s.notifications.byId)
   const notificationIds = useAppSelector(s => s.notifications.orderedIds)
@@ -86,7 +88,11 @@ export function NotificationsButton() {
     <>
       <ButtonContainer>
         <Tooltip
-          text={hasUnread ? 'Notifications - unread (Alt + N)' : 'Notifications (Alt + N)'}
+          text={
+            hasUnread
+              ? t('notifications.activityButton.unread', 'Notifications - unread (Alt + N)')
+              : t('notifications.activityButton.read', 'Notifications (Alt + N)')
+          }
           position='left'>
           <IconButton
             ref={buttonRef}
