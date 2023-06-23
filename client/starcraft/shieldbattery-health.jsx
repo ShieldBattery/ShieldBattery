@@ -65,27 +65,31 @@ export class ShieldBatteryHealthDialog extends React.Component {
           </Text>
         ) : (
           <div>
-            <Trans t={this.props.t} i18nKey='starcraft.shieldbatteryHealth.contents'>
-              <Text>
+            <Text>
+              <Trans t={this.props.t} i18nKey='starcraft.shieldbatteryHealth.topContents'>
                 We've detected that the following ShieldBattery files are missing or have been
                 modified:
-              </Text>
-              <FileList>
-                {{ initDescription }}
-                {{ mainDescription }}
-              </FileList>
+              </Trans>
+            </Text>
+            <FileList>
+              {{ initDescription }}
+              {{ mainDescription }}
+            </FileList>
 
-              <Text>
+            <Text>
+              <Trans t={this.props.t} i18nKey='starcraft.shieldbatteryHealth.middleContents'>
                 This is often the result of installed anti-virus software taking action on false
                 positives. You may need to add exceptions for these files, or tell the software to
                 remove them from quarantine. You can also try re-installing ShieldBattery.
-              </Text>
+              </Trans>
+            </Text>
 
-              <Text>
+            <Text>
+              <Trans t={this.props.t} i18nKey='starcraft.shieldbatteryHealth.bottomContents'>
                 If you are able to, reporting these as false positives to your anti-virus vendor
                 will help this stop happening for other users as well!
-              </Text>
-            </Trans>
+              </Trans>
+            </Text>
           </div>
         )}
 
