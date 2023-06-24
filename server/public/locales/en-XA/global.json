@@ -23,7 +23,9 @@
             "next": "$🗡Next🗡!",
             "previous": "$🗡Previous🗡!",
             "clear": "$🗡Clear🗡!",
-            "start": "$🗡Start🗡!"
+            "start": "$🗡Start🗡!",
+            "decline": "$🗡Decline🗡!",
+            "accept": "$🗡Accept🗡!"
         }
     },
     "settings": {
@@ -814,5 +816,90 @@
         "navEntry": {
             "closeWhisper": "$🗡Close whisper🗡!"
         }
+    },
+    "parties": {
+        "errors": {
+            "acceptPartyInvite": {
+                "notFoundOrNotInvited": "$🗡Party doesn't exist anymore🗡!",
+                "partyFull": "$🗡Party is full🗡!",
+                "general": "$🗡An error occurred while accepting an invite🗡!"
+            },
+            "cancelQueue": "$🗡Error canceling matchmaking: {{errorMessage}}🗡!",
+            "changeLeader": {
+                "general": "$🗡An error occurred while changing the leader🗡!"
+            },
+            "declinePartyInvite": {
+                "general": "$🗡An error occurred while declining an invite🗡!"
+            },
+            "findMatchAsParty": {
+                "general": "$🗡Something went wrong :(🗡!",
+                "invalidAction": "$🗡The party is too large for that matchmaking type🗡!",
+                "notFoundOrNotInParty": "$🗡Party not found or you're not in it🗡!",
+                "title": "$🗡Error searching for a match🗡!",
+                "alreadyInGameplayActivity": "$🗡The party is already searching for a different matchmaking type🗡!",
+                "insufficientPermissions": "$🗡Only party leaders can queue for matchmaking🗡!"
+            },
+            "inviteToParty": {
+                "alreadyMember": "$🗡{{user}} is already in your party🗡!",
+                "blocked": "$🗡Failed to send invite, you have been blocked by this user🗡!",
+                "general": "$🗡An error occurred while sending an invite🗡!",
+                "invalidSelfAction": "$🗡Can't invite yourself to the party🗡!",
+                "notificationFailure": "$🗡Failed to send an invite. Please try again🗡!"
+            },
+            "kickPlayer": {
+                "general": "$🗡An error occurred while kicking the player🗡!"
+            },
+            "leaveParty": {
+                "general": "$🗡An error occurred while leaving the party🗡!"
+            },
+            "removePartyInvite": {
+                "general": "$🗡An error occurred while removing an invite🗡!"
+            },
+            "unknownError": "$🗡unknown error occurred🗡!",
+            "alreadySearching": "$🗡Some party members are already playing a game, searching for a match, or in a custom lobby:🗡!"
+        },
+        "events": {
+            "kickFromParty": "$🗡You have been kicked from the party.🗡!"
+        },
+        "inviteDialog": {
+            "findPlayers": "$🗡Find players🗡!",
+            "title": "$🗡Invite players to the party🗡!",
+            "sendInvites": "$🗡Send invites🗡!"
+        },
+        "messageLayout": {
+            "inviteToParty": "$🗡<0><0></0></0> has been invited to the party🗡!",
+            "kickFromParty": "$🗡<0><0></0></0> has been kicked from the party🗡!",
+            "leaderChange": "$🗡<0><0></0></0> is now the leader🗡!",
+            "leaveParty": "$🗡<0><0></0></0> has left the party🗡!",
+            "queueCancel": {
+                "matchmakingDisabled": "$🗡Matchmaking was canceled because it is currently disabled🗡!",
+                "rejected": "$🗡<0><0></0></0> canceled matchmaking🗡!",
+                "userLeft": "$🗡Matchmaking was canceled because <2><0></0></2> left the party🗡!",
+                "error": "$🗡Matchmaking has been canceled due to an error🗡!"
+            },
+            "queueReady": "$🗡The party is now searching for a match🗡!",
+            "selfJoin": "$🗡You have joined the party. The leader is <2><0></0></2>.🗡!",
+            "joinParty": "$🗡<0><0></0></0> has joined the party🗡!",
+            "queueStart": "$🗡<0><0></0></0> is starting a search for a <4>{{matchmakingLabel}}</4> match🗡!"
+        },
+        "navEntry": {
+            "invitePlayers": "$🗡Invite players🗡!",
+            "leaveParty": "$🗡Leave party🗡!",
+            "title": "$🗡Party🗡!"
+        },
+        "queueAcceptDialog": {
+            "contents": "$🗡Your party is searching for a <2>{{matchmakingLabel}}</2> match.🗡!",
+            "error": "$🗡Error: {{error}}🗡!",
+            "title": "$🗡Choose your race🗡!"
+        },
+        "view": {
+            "cancelSearch": "$🗡Cancel search🗡!",
+            "invitePlayers": "$🗡Invite players🗡!",
+            "kickFromParty": "$🗡Kick from party🗡!",
+            "makeLeader": "$🗡Make leader🗡!",
+            "openSlot": "$🗡Empty🗡!",
+            "leaveParty": "$🗡Leave party🗡!"
+        },
+        "notificationUi": "$🗡<0>{{user}}</0> sent you a party invitation.🗡!"
     }
 }
