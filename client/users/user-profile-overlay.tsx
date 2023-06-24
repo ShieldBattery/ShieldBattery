@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder'
 import {
@@ -181,6 +182,7 @@ const RankDisplaySection = styled.div`
 // run when it's visible (otherwise we'd request all the user profiles once they e.g. appeared in
 // the user list)
 function OverlayContents({ userId, onDismiss }: { userId: SbUserId; onDismiss: () => void }) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const cancelLoadRef = useRef(new AbortController())
   const [loadingError, setLoadingError] = useState<Error>()
@@ -217,13 +219,19 @@ function OverlayContents({ userId, onDismiss }: { userId: SbUserId; onDismiss: (
 
   return (
     <PopoverContents>
-      {loadingError ? <LoadingError>There was a problem loading this user.</LoadingError> : null}
+      {loadingError ? (
+        <LoadingError>
+          {t('users.errors.profile.loadUser', 'There was a problem loading this user.')}
+        </LoadingError>
+      ) : null}
       <IdentityArea onClick={onIdentityClick}>
         <AvatarContainer>
           <AvatarCircle>
             <StyledAvatar userId={userId} />
           </AvatarCircle>
-          <ViewProfileHover>View profile</ViewProfileHover>
+          <ViewProfileHover>
+            {t('users.profileOverlay.viewProfile', 'View profile')}
+          </ViewProfileHover>
         </AvatarContainer>
         <UsernameAndTitle>
           {user ? (
@@ -231,26 +239,31 @@ function OverlayContents({ userId, onDismiss }: { userId: SbUserId; onDismiss: (
           ) : (
             <LoadingUsername aria-label='Username loading…' />
           )}
-          <Title>Novice</Title>
+          <Title>{t('users.profile.novice', 'Novice')}</Title>
         </UsernameAndTitle>
       </IdentityArea>
       {profile ? (
         <>
           <div>
-            <SectionHeader>Info</SectionHeader>
+            <SectionHeader>{t('users.profileOverlay.info', 'Info')}</SectionHeader>
             <Tooltip text={longFormattedDate}>
-              <Body1>Joined {joinDateFormat.format(profile.created)}</Body1>
+              <Body1>
+                {t('users.profileOverlay.joined', {
+                  defaultValue: 'Joined {{date}}',
+                  date: joinDateFormat.format(profile.created),
+                })}
+              </Body1>
             </Tooltip>
           </div>
 
           <div>
-            <SectionHeader>Total games</SectionHeader>
+            <SectionHeader>{t('users.profile.totalGames', 'Total games')}</SectionHeader>
             <TotalGameStats userStats={profile.userStats} />
           </div>
 
           {hasAnyRanks ? (
             <div>
-              <SectionHeader>Ranked</SectionHeader>
+              <SectionHeader>{t('users.profileOverlay.ranked', 'Ranked')}</SectionHeader>
               <RankDisplaySection>
                 {ALL_MATCHMAKING_TYPES.map(matchmakingType =>
                   profile.ladder[matchmakingType] ? (
@@ -269,7 +282,9 @@ function OverlayContents({ userId, onDismiss }: { userId: SbUserId; onDismiss: (
         <LoadingDotsArea />
       )}
 
-      <HintText>Right-click user for more actions</HintText>
+      <HintText>
+        {t('users.profileOverlay.rightClick', 'Right-click user for more actions')}
+      </HintText>
     </PopoverContents>
   )
 }

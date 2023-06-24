@@ -1,5 +1,6 @@
 import keycode from 'keycode'
 import React, { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
 import { appendToMultimap } from '../../common/data-structures/maps'
@@ -74,6 +75,7 @@ const PopoverContents = styled.div`
 `
 
 function useRelationshipsLoader() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const userId = useAppSelector(s => s.auth.user.id)
 
@@ -84,7 +86,11 @@ function useRelationshipsLoader() {
         signal: controller.signal,
         onSuccess: () => {},
         onError: () => {
-          dispatch(openSnackbar({ message: 'Failed to load friends list' }))
+          dispatch(
+            openSnackbar({
+              message: t('users.errors.friendsList.load', 'Failed to load friends list'),
+            }),
+          )
         },
       }),
     )
@@ -92,10 +98,12 @@ function useRelationshipsLoader() {
     return () => {
       controller.abort()
     }
-  }, [dispatch, userId])
+  }, [dispatch, t, userId])
 }
 
 export function FriendsListActivityButton() {
+  const { t } = useTranslation()
+
   useRelationshipsLoader()
   const [friendsListOpen, openFriendsList, closeFriendsList] = usePopoverController()
 
@@ -113,7 +121,7 @@ export function FriendsListActivityButton() {
 
   return (
     <>
-      <Tooltip text='Friends (Alt + E)' position='left'>
+      <Tooltip text={t('users.friendsList.tooltip', 'Friends (Alt + E)')} position='left'>
         <IconButton
           ref={buttonRef}
           icon={<NumberedFriendsIcon count={friendCount} />}
@@ -167,6 +175,8 @@ const FriendsListContent = styled.div`
 `
 
 export function FriendsPopover({ onDismiss }: { onDismiss: () => void }) {
+  const { t } = useTranslation()
+
   useRelationshipsLoader()
   const dispatch = useAppDispatch()
   const forceUpdate = useForceUpdate()
@@ -203,22 +213,26 @@ export function FriendsPopover({ onDismiss }: { onDismiss: () => void }) {
           <Tabs activeTab={activeTab} onChange={onTabChange}>
             <TabItem
               text={<FadedFriendsIcon />}
-              title={'Friends list'}
+              title={t('users.friendsList.tabs.friendList', 'Friends list')}
               value={FriendsListTab.List}
             />
             <TabItem
               text={<FadedFriendAddIcon />}
-              title={'Add friends'}
+              title={t('users.friendsList.tabs.addFriends', 'Add friends')}
               value={FriendsListTab.Requests}
             />
             <TabItem
               text={<FadedFriendSettingsIcon />}
-              title={'Social settings'}
+              title={t('users.friendsList.tabs.socialSettings', 'Social settings')}
               value={FriendsListTab.Settings}
             />
           </Tabs>
         </FriendsListTabsContainer>
-        <TitleText>{activeTab === FriendsListTab.Requests ? 'Add friends' : 'Friends'}</TitleText>
+        <TitleText>
+          {activeTab === FriendsListTab.Requests
+            ? t('users.friendsList.title.addFriends', 'Add friends')
+            : t('users.friendsList.title.friends', 'Friends')}
+        </TitleText>
         <ScrollDivider $show={!isAtTop} $showAt='bottom' />
       </FriendsListHeader>
       <FriendsListContent ref={dimensionRef}>
@@ -282,6 +296,7 @@ interface OfflineData {
 type FriendsListRowData = HeaderData | OnlineData | OfflineData
 
 function FriendsList({ height }: { height: number }) {
+  const { t } = useTranslation()
   const friends = useAppSelector(s => s.relationships.friends)
   const friendActivityStatus = useAppSelector(s => s.relationships.friendActivityStatus)
   const friendUserEntries = useAppSelector(useUserEntriesSelector(friends), areUserEntriesEqual)
@@ -297,7 +312,11 @@ function FriendsList({ height }: { height: number }) {
   const rowData = useMemo((): ReadonlyArray<FriendsListRowData> => {
     const onlineFriends = friendsByStatus.get(FriendActivityStatus.Online) ?? []
     let result: FriendsListRowData[] = [
-      { type: FriendsListRowType.Header, label: 'Online', count: onlineFriends.length },
+      {
+        type: FriendsListRowType.Header,
+        label: t('users.friendsList.header.online', 'Online'),
+        count: onlineFriends.length,
+      },
     ]
 
     result = result.concat(
@@ -308,7 +327,7 @@ function FriendsList({ height }: { height: number }) {
     if (offlineFriends.length > 0) {
       result.push({
         type: FriendsListRowType.Header,
-        label: 'Offline',
+        label: t('users.friendsList.header.offline', 'Offline'),
         count: offlineFriends.length,
       })
 
@@ -318,7 +337,7 @@ function FriendsList({ height }: { height: number }) {
     }
 
     return result
-  }, [friendsByStatus])
+  }, [friendsByStatus, t])
 
   const renderRow = useCallback((index: number, row: FriendsListRowData) => {
     if (row.type === FriendsListRowType.Header) {
@@ -334,7 +353,7 @@ function FriendsList({ height }: { height: number }) {
   }, [])
 
   return friends.size === 0 ? (
-    <EmptyList>Nothing to see here</EmptyList>
+    <EmptyList>{t('users.friendsList.noFriends', 'Nothing to see here')}</EmptyList>
   ) : (
     <Virtuoso
       components={{ Footer: VertPadding }}
@@ -365,6 +384,7 @@ interface FriendRequestsUserData {
 type FriendRequestsRowData = FriendRequestsHeaderData | FriendRequestsUserData
 
 function FriendRequestsList({ height }: { height: number }) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()!
   const incomingRequests = useAppSelector(s => s.relationships.incomingRequests)
@@ -385,7 +405,7 @@ function FriendRequestsList({ height }: { height: number }) {
     if (sortedIncoming.length > 0) {
       result.push({
         type: FriendRequestsRowType.Header,
-        label: 'Incoming',
+        label: t('users.friendsList.header.incoming', 'Incoming'),
         count: sortedIncoming.length,
       })
 
@@ -401,7 +421,7 @@ function FriendRequestsList({ height }: { height: number }) {
     if (sortedOutgoing.length > 0) {
       result.push({
         type: FriendRequestsRowType.Header,
-        label: 'Outgoing',
+        label: t('users.friendsList.header.outgoing', 'Outgoing'),
         count: sortedOutgoing.length,
       })
 
@@ -415,7 +435,7 @@ function FriendRequestsList({ height }: { height: number }) {
     }
 
     return result
-  }, [incomingRequests, outgoingRequests, sortedIncoming, sortedOutgoing])
+  }, [incomingRequests, outgoingRequests, sortedIncoming, sortedOutgoing, t])
 
   const renderRow = useCallback(
     (index: number, row: FriendRequestsRowData) => {
@@ -431,7 +451,7 @@ function FriendRequestsList({ height }: { height: number }) {
             <>
               <IconButton
                 icon={<MaterialIcon icon='close' />}
-                title='Remove'
+                title={t('common.actions.remove', 'Remove')}
                 onClick={() => {
                   dispatch(
                     removeFriendRequest(row.userId, {
@@ -441,7 +461,11 @@ function FriendRequestsList({ height }: { height: number }) {
                           openSnackbar({
                             message: userRelationshipErrorToString(
                               err,
-                              'Error removing friend request',
+                              t(
+                                'users.errors.friendsList.errorRemovingFriendRequest',
+                                'Error removing friend request',
+                              ),
+                              t,
                             ),
                             time: TIMING_LONG,
                           }),
@@ -456,7 +480,7 @@ function FriendRequestsList({ height }: { height: number }) {
             <>
               <IconButton
                 icon={<MaterialIcon icon='close' />}
-                title='Decline'
+                title={t('common.actions.decline', 'Decline')}
                 onClick={() => {
                   dispatch(
                     declineFriendRequest(row.userId, {
@@ -466,7 +490,11 @@ function FriendRequestsList({ height }: { height: number }) {
                           openSnackbar({
                             message: userRelationshipErrorToString(
                               err,
-                              'Error declining friend request',
+                              t(
+                                'users.errors.friendsList.errorDecliningFriendRequest',
+                                'Error declining friend request',
+                              ),
+                              t,
                             ),
                             time: TIMING_LONG,
                           }),
@@ -478,7 +506,7 @@ function FriendRequestsList({ height }: { height: number }) {
               />
               <IconButton
                 icon={<MaterialIcon icon='check' />}
-                title='Accept'
+                title={t('common.actions.accept', 'Accept')}
                 onClick={() => {
                   dispatch(
                     acceptFriendRequest(row.userId, {
@@ -488,7 +516,11 @@ function FriendRequestsList({ height }: { height: number }) {
                           openSnackbar({
                             message: userRelationshipErrorToString(
                               err,
-                              'Error accepting friend request',
+                              t(
+                                'users.errors.friendsList.errorAcceptingFriendRequest',
+                                'Error accepting friend request',
+                              ),
+                              t,
                             ),
                             time: TIMING_LONG,
                           }),
@@ -503,11 +535,11 @@ function FriendRequestsList({ height }: { height: number }) {
         return <FriendEntry userId={row.userId} key={row.userId} actions={actions} />
       }
     },
-    [selfUser.id, dispatch],
+    [selfUser.id, t, dispatch],
   )
 
   return rowData.length === 0 ? (
-    <EmptyList>Nothing to see here</EmptyList>
+    <EmptyList>{t('users.friendsList.noFriendRequests', 'Nothing to see here')}</EmptyList>
   ) : (
     <Virtuoso
       components={{ Footer: VertPadding }}

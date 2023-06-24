@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user'
+import { TransInterpolation } from '../i18n/i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { markNotificationsRead } from '../notifications/action-creators'
@@ -29,6 +31,7 @@ export interface FriendRequestNotificationUiProps {
 
 export const FriendRequestNotificationUi = React.memo(
   React.forwardRef<HTMLDivElement, FriendRequestNotificationUiProps>((props, ref) => {
+    const { t } = useTranslation()
     const { notificationId, from } = props
     const dispatch = useAppDispatch()
     const username = useAppSelector(s => s.users.byId.get(from)?.name)
@@ -45,20 +48,30 @@ export const FriendRequestNotificationUi = React.memo(
         icon={<ColoredAddIcon />}
         text={
           <span>
-            <Username>{username ?? ''}</Username> sent you a friend request.
+            <Trans t={t} i18nKey='users.friendsList.receivedFriendRequest'>
+              <Username>{{ user: username ?? '' } as TransInterpolation}</Username> sent you a
+              friend request.
+            </Trans>
           </span>
         }
         actions={[
           <TextButton
             key='decline'
             color='accent'
-            label='Decline'
+            label={t('common.actions.decline', 'Decline')}
             onClick={() => {
               dispatch(
                 declineFriendRequest(from, {
                   onSuccess: () => {},
                   onError: _err => {
-                    dispatch(openSnackbar({ message: 'Error declining friend request' }))
+                    dispatch(
+                      openSnackbar({
+                        message: t(
+                          'users.errors.friendsList.errorDecliningFriendRequest',
+                          'Error declining friend request',
+                        ),
+                      }),
+                    )
                   },
                 }),
               )
@@ -68,13 +81,20 @@ export const FriendRequestNotificationUi = React.memo(
           <TextButton
             key='accept'
             color='accent'
-            label='Accept'
+            label={t('common.actions.accept', 'Accept')}
             onClick={() => {
               dispatch(
                 acceptFriendRequest(from, {
                   onSuccess: () => {},
                   onError: _err => {
-                    dispatch(openSnackbar({ message: 'Error accepting friend request' }))
+                    dispatch(
+                      openSnackbar({
+                        message: t(
+                          'users.errors.friendsList.errorAcceptingFriendRequest',
+                          'Error accepting friend request',
+                        ),
+                      }),
+                    )
                   },
                 }),
               )
@@ -101,6 +121,7 @@ export interface FriendStartNotificationUiProps {
 export const FriendStartNotificationUi = React.memo(
   React.forwardRef<HTMLDivElement, FriendStartNotificationUiProps>((props, ref) => {
     const { otherUser } = props
+    const { t } = useTranslation()
     const dispatch = useAppDispatch()
     const username = useAppSelector(s => s.users.byId.get(otherUser)?.name)
 
@@ -116,7 +137,10 @@ export const FriendStartNotificationUi = React.memo(
         icon={<ColoredFriendStartIcon />}
         text={
           <span>
-            You are now friends with <Username>{username ?? ''}</Username>.
+            <Trans t={t} i18nKey='users.friendsList.friendStart'>
+              You are now friends with{' '}
+              <Username>{{ user: username ?? '' } as TransInterpolation}</Username>.
+            </Trans>
           </span>
         }
       />
