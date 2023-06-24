@@ -764,11 +764,11 @@
       "title": "Invite players to the party"
     },
     "messageLayout": {
-      "inviteToParty": ">> <2><0></0></2> has been invited to the party",
-      "joinParty": ">> <2><0></0></2> has joined the party",
-      "kickFromParty": "<< <2><0></0></2> has been kicked from the party",
+      "inviteToParty": "<0><0></0></0> has been invited to the party",
+      "joinParty": "<0><0></0></0> has joined the party",
+      "kickFromParty": "<0><0></0></0> has been kicked from the party",
       "leaderChange": "<0><0></0></0> is now the leader",
-      "leaveParty": "<< <2><0></0></2> has left the party",
+      "leaveParty": "<0><0></0></0> has left the party",
       "queueCancel": {
         "error": "Matchmaking has been canceled due to an error",
         "matchmakingDisabled": "Matchmaking was canceled because it is currently disabled",

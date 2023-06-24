@@ -41,8 +41,8 @@ export const InviteToPartyMessage = React.memo<{ time: number; userId: SbUserId 
   return (
     <SystemMessage time={time}>
       <span>
-        <Trans t={t} i18nKey='parties.messageLayout.inviteToParty' shouldUnescape={true}>
-          &gt;&gt;{' '}
+        &gt;&gt;{' '}
+        <Trans t={t} i18nKey='parties.messageLayout.inviteToParty'>
           <SystemImportant>
             <ConnectedUsername
               userId={userId}
@@ -65,8 +65,8 @@ export const JoinPartyMessage = React.memo<{ time: number; userId: SbUserId }>(p
   return (
     <SystemMessage time={time}>
       <span>
-        <Trans t={t} i18nKey='parties.messageLayout.joinParty' shouldUnescape={true}>
-          &gt;&gt;{' '}
+        &gt;&gt;{' '}
+        <Trans t={t} i18nKey='parties.messageLayout.joinParty'>
           <SystemImportant>
             <ConnectedUsername
               userId={userId}
@@ -89,8 +89,8 @@ export const LeavePartyMessage = React.memo<{ time: number; userId: SbUserId }>(
   return (
     <SystemMessage time={time}>
       <span>
-        <Trans t={t} i18nKey='parties.messageLayout.leaveParty' shouldUnescape={true}>
-          &lt;&lt;{' '}
+        &lt;&lt;{' '}
+        <Trans t={t} i18nKey='parties.messageLayout.leaveParty'>
           <SystemImportant>
             <ConnectedUsername
               userId={userId}
@@ -136,8 +136,8 @@ export const KickFromPartyMessage = React.memo<{ time: number; userId: SbUserId 
   return (
     <SystemMessage time={time}>
       <span>
-        <Trans t={t} i18nKey='parties.messageLayout.kickFromParty' shouldUnescape={true}>
-          &lt;&lt;{' '}
+        &lt;&lt;{' '}
+        <Trans t={t} i18nKey='parties.messageLayout.kickFromParty'>
           <SystemImportant>
             <ConnectedUsername
               userId={userId}
