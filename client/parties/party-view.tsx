@@ -1,5 +1,6 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MAX_PARTY_SIZE } from '../../common/parties'
 import { range } from '../../common/range'
@@ -63,11 +64,12 @@ const StyledAvatar = styled(Avatar)`
 `
 
 export function OpenSlot() {
+  const { t } = useTranslation()
   return (
     <Slot>
       <SlotProfile>
         <SlotEmptyAvatar />
-        <SlotEmptyName as='span'>Empty</SlotEmptyName>
+        <SlotEmptyName as='span'>{t('parties.view.openSlot', 'Empty')}</SlotEmptyName>
       </SlotProfile>
     </Slot>
   )
@@ -84,10 +86,11 @@ export function PlayerSlot({
   onKickPlayer: () => void
   onChangeLeader: () => void
 }) {
+  const { t } = useTranslation()
   const slotActions: Array<[text: string, handler: () => void]> = []
   if (hasLeaderActions) {
-    slotActions.push(['Make leader', onChangeLeader])
-    slotActions.push(['Kick from party', onKickPlayer])
+    slotActions.push([t('parties.view.makeLeader', 'Make leader'), onChangeLeader])
+    slotActions.push([t('parties.view.kickFromParty', 'Kick from party'), onKickPlayer])
   }
 
   return (
@@ -229,6 +232,7 @@ interface PartyViewProps {
 }
 
 export function PartyView(props: PartyViewProps) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUser = useAppSelector(s => s.auth.user)
   const party = useAppSelector(s => s.party.current)
@@ -248,13 +252,22 @@ export function PartyView(props: PartyViewProps) {
           onSuccess: () => {},
           onError: err => {
             // TODO(tec27): Handle codes
-            const message = (err as any).body?.message ?? 'unknown error occurred'
-            dispatch(openSnackbar({ message: `Error canceling matchmaking: ${message}` }))
+            const message =
+              (err as any).body?.message ??
+              t('parties.errors.unknownError', 'unknown error occurred')
+            dispatch(
+              openSnackbar({
+                message: t('parties.errors.cancelQueue', {
+                  defaultValue: 'Error canceling matchmaking: {{errorMessage}}',
+                  errorMessage: message,
+                }),
+              }),
+            )
           },
         }),
       )
     }
-  }, [partyId, queueId, dispatch])
+  }, [partyId, queueId, dispatch, t])
   const onInviteClick = useCallback(
     () => dispatch(openDialog({ type: DialogType.PartyInvite })),
     [dispatch],
@@ -315,20 +328,20 @@ export function PartyView(props: PartyViewProps) {
         {queueId ? (
           <CancelQueueButton
             iconStart={<MaterialIcon icon='cancel' />}
-            label='Cancel search'
+            label={t('parties.view.cancelSearch', 'Cancel search')}
             onClick={onCancelQueueClick}
           />
         ) : null}
         {selfUser.id === party.leader ? (
           <TextButton
             iconStart={<StyledInviteIcon />}
-            label='Invite players'
+            label={t('parties.view.invitePlayers', 'Invite players')}
             onClick={onInviteClick}
           />
         ) : null}
         <TextButton
           iconStart={<MaterialIcon icon='close' />}
-          label='Leave party'
+          label={t('parties.view.leaveParty', 'Leave party')}
           onClick={onLeaveClick}
         />
       </RightSide>

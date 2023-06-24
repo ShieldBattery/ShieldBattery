@@ -5,6 +5,7 @@ import audioManager, { AvailableSound } from '../audio/audio-manager'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { Dispatchable, dispatch } from '../dispatch-registry'
+import i18n from '../i18n/i18next'
 import { openSnackbar } from '../snackbars/action-creators'
 import windowFocus from '../window-focus'
 import { navigateToParty } from './action-creators'
@@ -146,7 +147,11 @@ const eventToAction: EventToActionMap = {
     const selfUser = getState().auth.user
     if (selfUser.id === target) {
       // It was us who has been kicked from the party
-      dispatch(openSnackbar({ message: 'You have been kicked from the party.' }))
+      dispatch(
+        openSnackbar({
+          message: i18n.t('parties.events.kickFromParty', 'You have been kicked from the party.'),
+        }),
+      )
       dispatch({
         type: '@parties/updateKickSelf',
         payload: {

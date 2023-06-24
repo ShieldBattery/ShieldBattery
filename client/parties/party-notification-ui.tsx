@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user'
+import { TransInterpolation } from '../i18n/i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { markNotificationsRead } from '../notifications/action-creators'
@@ -31,6 +33,7 @@ export interface PartyInviteNotificationUiProps {
 export const PartyInviteNotificationUi = React.memo(
   React.forwardRef<HTMLDivElement, PartyInviteNotificationUiProps>((props, ref) => {
     const { notificationId, partyId } = props
+    const { t } = useTranslation()
     const dispatch = useAppDispatch()
     const onDecline = useCallback(() => {
       dispatch(declinePartyInvite(partyId))
@@ -55,12 +58,25 @@ export const PartyInviteNotificationUi = React.memo(
         icon={<ColoredPartyIcon />}
         text={
           <span>
-            <Username>{username ?? ''}</Username> sent you a party invitation.
+            <Trans t={t} i18nKey='parties.notificationUi'>
+              <Username>{{ user: username ?? '' } as TransInterpolation}</Username> sent you a party
+              invitation.
+            </Trans>
           </span>
         }
         actions={[
-          <TextButton key='decline' color='accent' label='Decline' onClick={onDecline} />,
-          <TextButton key='accept' color='accent' label='Accept' onClick={onAccept} />,
+          <TextButton
+            key='decline'
+            color='accent'
+            label={t('common.actions.decline', 'Decline')}
+            onClick={onDecline}
+          />,
+          <TextButton
+            key='accept'
+            color='accent'
+            label={t('common.actions.accept', 'Accept')}
+            onClick={onAccept}
+          />,
         ]}
       />
     )

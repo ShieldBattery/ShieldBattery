@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmaking'
 import { useSelfUser } from '../auth/state-hooks'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { DialogType } from '../dialogs/dialog-type'
+import { TransInterpolation } from '../i18n/i18next'
 import { RacePickerSize } from '../lobbies/race-picker'
 import { RaceSelect } from '../matchmaking/race-select'
 import { TextButton } from '../material/button'
@@ -33,6 +35,7 @@ const StyledRaceSelect = styled(RaceSelect)`
 `
 
 export function PartyQueueAcceptDialog({ dialogRef }: CommonDialogProps) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()!
   const selfId = selfUser.id
@@ -62,12 +65,15 @@ export function PartyQueueAcceptDialog({ dialogRef }: CommonDialogProps) {
           onError: err => {
             setChangeInProgress(false)
             // TODO(tec27): Handle codes
-            setError((err as any).body?.message ?? 'unknown error occurred')
+            setError(
+              (err as any).body?.message ??
+                t('parties.errors.unknownError', 'unknown error occurred'),
+            )
           },
         }),
       )
     }
-  }, [partyId, queueId, dispatch])
+  }, [partyId, queueId, dispatch, t])
   const onSearch = useCallback(() => {
     if (partyId && queueId && matchmakingType) {
       setChangeInProgress(true)
@@ -80,12 +86,15 @@ export function PartyQueueAcceptDialog({ dialogRef }: CommonDialogProps) {
           onError: err => {
             setChangeInProgress(false)
             // TODO(tec27): Handle codes
-            setError((err as any).body?.message ?? 'unknown error occurred')
+            setError(
+              (err as any).body?.message ??
+                t('parties.errors.unknownError', 'unknown error occurred'),
+            )
           },
         }),
       )
     }
-  }, [race, partyId, queueId, matchmakingType, dispatch])
+  }, [partyId, queueId, matchmakingType, dispatch, race, t])
 
   useEffect(() => {
     if (!queueState || queueState.accepted.has(selfId)) {
@@ -103,7 +112,7 @@ export function PartyQueueAcceptDialog({ dialogRef }: CommonDialogProps) {
 
   const buttons = [
     <TextButton
-      label='Cancel'
+      label={t('common.actions.cancel', 'Cancel')}
       key='cancel'
       color='accent'
       onClick={onCancel}
@@ -111,7 +120,7 @@ export function PartyQueueAcceptDialog({ dialogRef }: CommonDialogProps) {
     />,
     <TextButton
       ref={searchButtonRef}
-      label='Search'
+      label={t('common.actions.search', 'Search')}
       key='search'
       color='accent'
       onClick={onSearch}
@@ -123,15 +132,25 @@ export function PartyQueueAcceptDialog({ dialogRef }: CommonDialogProps) {
     <StyledDialog
       dialogRef={dialogRef}
       showCloseButton={false}
-      title='Choose your race'
+      title={t('parties.queueAcceptDialog.title', 'Choose your race')}
       buttons={buttons}>
-      {error ? <ErrorText>Error: {error}</ErrorText> : null}
+      {error ? (
+        <ErrorText>
+          {t('parties.queueAcceptDialog.error', { defaultValue: 'Error: {{error}}', error })}
+        </ErrorText>
+      ) : null}
       <Subtitle1>
-        Your party is searching for a{' '}
-        <MatchmakingTypeText>
-          {matchmakingTypeToLabel(queueState.matchmakingType)}
-        </MatchmakingTypeText>{' '}
-        match.
+        <Trans t={t} i18nKey='parties.queueAcceptDialog.contents'>
+          Your party is searching for a{' '}
+          <MatchmakingTypeText>
+            {
+              {
+                matchmakingLabel: matchmakingTypeToLabel(queueState.matchmakingType, t),
+              } as TransInterpolation
+            }
+          </MatchmakingTypeText>{' '}
+          match.
+        </Trans>
       </Subtitle1>
       <StyledRaceSelect
         value={race}

@@ -21,6 +21,7 @@ import { apiUrl, urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { ThunkAction } from '../dispatch-registry'
+import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
 import {
   updateLastQueuedMatchmakingType,
@@ -48,18 +49,33 @@ export function inviteToParty(
         clientId,
       }),
     }).catch(err => {
-      let message = 'An error occurred while sending an invite'
+      let message = i18n.t(
+        'parties.errors.inviteToParty.general',
+        'An error occurred while sending an invite',
+      )
 
       if (isFetchError(err) && err.code) {
         if (err.code === PartyServiceErrorCode.NotificationFailure) {
-          message = 'Failed to send an invite. Please try again'
+          message = i18n.t(
+            'parties.errors.inviteToParty.notificationFailure',
+            'Failed to send an invite. Please try again',
+          )
         } else if (err.code === PartyServiceErrorCode.AlreadyMember) {
           const user = (err.body as any)?.user?.name ?? 'The user'
-          message = `${user} is already in your party`
+          message = i18n.t('parties.errors.inviteToParty.alreadyMember', {
+            defaultValue: '{{user}} is already in your party',
+            user,
+          })
         } else if (err.code === PartyServiceErrorCode.InvalidSelfAction) {
-          message = "Can't invite yourself to the party"
+          message = i18n.t(
+            'parties.errors.inviteToParty.invalidSelfAction',
+            "Can't invite yourself to the party",
+          )
         } else if (err.code === PartyServiceErrorCode.Blocked) {
-          message = 'Failed to send invite, you have been blocked by this user'
+          message = i18n.t(
+            'parties.errors.inviteToParty.blocked',
+            'Failed to send invite, you have been blocked by this user',
+          )
         } else {
           logger.error(`Unhandled code when inviting to party: ${err.code}`)
         }
@@ -81,7 +97,10 @@ export function removePartyInvite(partyId: string, targetId: SbUserId): ThunkAct
       // TODO(tec27): Handle codes
       dispatch(
         openSnackbar({
-          message: 'An error occurred while removing an invite',
+          message: i18n.t(
+            'parties.errors.removePartyInvite.general',
+            'An error occurred while removing an invite',
+          ),
         }),
       )
     })
@@ -103,7 +122,10 @@ export function declinePartyInvite(partyId: string): ThunkAction {
       }).catch(err => {
         dispatch(
           openSnackbar({
-            message: 'An error occurred while declining an invite',
+            message: i18n.t(
+              'parties.errors.declinePartyInvite.general',
+              'An error occurred while declining an invite',
+            ),
           }),
         )
         throw err
@@ -127,11 +149,17 @@ export function acceptPartyInvite(partyId: string): ThunkAction {
         method: 'POST',
         body: encodeBodyAsParams<AcceptPartyInviteRequest>({ clientId }),
       }).catch(err => {
-        let message = 'An error occurred while accepting an invite'
+        let message = i18n.t(
+          'parties.errors.acceptPartyInvite.general',
+          'An error occurred while accepting an invite',
+        )
         if (err.body.code === PartyServiceErrorCode.NotFoundOrNotInvited) {
-          message = "Party doesn't exist anymore"
+          message = i18n.t(
+            'parties.errors.acceptPartyInvite.notFoundOrNotInvited',
+            "Party doesn't exist anymore",
+          )
         } else if (err.body.code === PartyServiceErrorCode.PartyFull) {
-          message = 'Party is full'
+          message = i18n.t('parties.errors.acceptPartyInvite.partyFull', 'Party is full')
         }
 
         dispatch(openSnackbar({ message, time: TIMING_LONG }))
@@ -157,7 +185,10 @@ export function leaveParty(partyId: string): ThunkAction {
       }).catch(err => {
         dispatch(
           openSnackbar({
-            message: 'An error occurred while leaving the party',
+            message: i18n.t(
+              'parties.errors.leaveParty.general',
+              'An error occurred while leaving the party',
+            ),
           }),
         )
         throw err
@@ -201,7 +232,10 @@ export function kickPlayer(partyId: string, targetId: SbUserId): ThunkAction {
       }).catch(err => {
         dispatch(
           openSnackbar({
-            message: 'An error occurred while kicking the player',
+            message: i18n.t(
+              'parties.errors.kickPlayer.general',
+              'An error occurred while kicking the player',
+            ),
           }),
         )
         throw err
@@ -227,7 +261,10 @@ export function changeLeader(partyId: string, targetId: SbUserId): ThunkAction {
       }).catch(err => {
         dispatch(
           openSnackbar({
-            message: 'An error occurred while changing the leader',
+            message: i18n.t(
+              'parties.errors.changeLeader.general',
+              'An error occurred while changing the leader',
+            ),
           }),
         )
         throw err
@@ -285,25 +322,40 @@ export function findMatchAsParty(
     })
 
     promise.catch(err => {
-      let dialogMessage: React.ReactNode = 'Something went wrong :('
+      let dialogMessage: React.ReactNode = i18n.t(
+        'parties.errors.findMatchAsParty.general',
+        'Something went wrong :(',
+      )
 
       if (isFetchError(err) && err.code) {
         switch (err.code) {
           case PartyServiceErrorCode.NotFoundOrNotInParty:
-            dialogMessage = "Party not found or you're not in it"
+            dialogMessage = i18n.t(
+              'parties.errors.findMatchAsParty.notFoundOrNotInParty',
+              "Party not found or you're not in it",
+            )
             break
           case PartyServiceErrorCode.InsufficientPermissions:
-            dialogMessage = 'Only party leaders can queue for matchmaking'
+            dialogMessage = i18n.t(
+              'parties.errors.findMatchAsParty.insufficientPermissions',
+              'Only party leaders can queue for matchmaking',
+            )
             break
           case PartyServiceErrorCode.AlreadyInGameplayActivity:
-            dialogMessage = 'The party is already searching for a different matchmaking type'
+            dialogMessage = i18n.t(
+              'parties.errors.findMatchAsParty.alreadyInGameplayActivity',
+              'The party is already searching for a different matchmaking type',
+            )
             const body = err.body as any
             if (body.users && Array.isArray(body.users)) {
               dialogMessage = <AlreadySearchingErrorContent users={body.users as SbUserId[]} />
             }
             break
           case PartyServiceErrorCode.InvalidAction:
-            dialogMessage = 'The party is too large for that matchmaking type'
+            dialogMessage = i18n.t(
+              'parties.errors.findMatchAsParty.invalidAction',
+              'The party is too large for that matchmaking type',
+            )
             break
           default:
             logger.error(
@@ -314,7 +366,13 @@ export function findMatchAsParty(
       } else {
         logger.error(`Error while queuing for matchmaking as a party: ${err?.stack ?? err}`)
       }
-      dispatch(openSimpleDialog('Error searching for a match', dialogMessage, true))
+      dispatch(
+        openSimpleDialog(
+          i18n.t('parties.errors.findMatchAsParty.title', 'Error searching for a match'),
+          dialogMessage,
+          true,
+        ),
+      )
     })
 
     dispatch(updateLastQueuedMatchmakingType(matchmakingType))
