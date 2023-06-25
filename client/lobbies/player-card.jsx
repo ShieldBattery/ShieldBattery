@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types'
 import React from 'react'
+import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Avatar } from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
@@ -47,6 +48,7 @@ const StyledRaceIcon = styled(RaceIcon)`
   ${fastOutSlowInShort};
 `
 
+@withTranslation()
 export default class PlayerCard extends React.Component {
   static propTypes = {
     player: PropTypes.object.isRequired,
@@ -59,14 +61,14 @@ export default class PlayerCard extends React.Component {
   }
 
   render() {
-    const { player, isComputer, isReady } = this.props
+    const { player, isComputer, isReady, t } = this.props
 
     const avatar = isComputer ? (
       <StyledAvatar as={ComputerAvatar} $ready={isReady} />
     ) : (
       <StyledAvatar user={player.name} $ready={isReady} />
     )
-    const displayName = isComputer ? 'Computer' : player.name
+    const displayName = isComputer ? t('game.playerName.computer', 'Computer') : player.name
 
     return (
       <Container className={this.props.className} ready={isReady}>

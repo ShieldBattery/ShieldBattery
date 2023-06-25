@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types'
 import React from 'react'
+import { Trans, withTranslation } from 'react-i18next'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { gameTypeToLabel } from '../../common/games/configuration'
@@ -57,6 +58,7 @@ const MapPreview = styled.div`
   margin-left: 8px;
 `
 
+@withTranslation()
 class ListEntry extends React.Component {
   static propTypes = {
     lobby: PropTypes.object.isRequired,
@@ -68,14 +70,14 @@ class ListEntry extends React.Component {
   }
 
   render() {
-    const { lobby, onClick } = this.props
+    const { lobby, onClick, t } = this.props
 
     return (
       <ListEntryRoot onClick={() => onClick(lobby)}>
         <Info>
           <Headline6>{lobby.name}</Headline6>
           <Subtitle2>{lobby.host.name}</Subtitle2>
-          <Body1>{gameTypeToLabel(lobby.gameType)}</Body1>
+          <Body1>{gameTypeToLabel(lobby.gameType, t)}</Body1>
           <Body1>{lobby.openSlotCount} slots open</Body1>
         </Info>
         <MapPreview>
@@ -108,6 +110,7 @@ const ContentsBody = styled.div`
   padding: 12px 24px;
 `
 
+@withTranslation()
 @connect(state => ({ lobbyList: state.lobbyList, party: state.party }))
 export default class JoinLobby extends React.Component {
   constructor(props) {
@@ -124,11 +127,14 @@ export default class JoinLobby extends React.Component {
   }
 
   renderList() {
+    const { t } = this.props
     const { byName, list } = this.props.lobbyList
     if (!list.size) {
       return (
         <div>
-          <Subtitle1>There are no active lobbies</Subtitle1>
+          <Subtitle1>
+            {t('lobbies.joinLobby.noActiveLobbies', 'There are no active lobbies')}
+          </Subtitle1>
         </div>
       )
     }
@@ -141,20 +147,21 @@ export default class JoinLobby extends React.Component {
             <ListEntry key={name} lobby={byName.get(name)} onClick={this._handleLobbyClick} />
           ))
         ) : (
-          <Subtitle1>There are no open lobbies</Subtitle1>
+          <Subtitle1>{t('lobbies.joinLobby.noOpenLobbies', 'There are no open lobbies')}</Subtitle1>
         )}
       </div>
     )
   }
 
   render() {
+    const { t } = this.props
     return (
       <Container>
         <TitleBar>
-          <Headline5>Join Lobby</Headline5>
+          <Headline5>{t('lobbies.joinLobby.title', 'Join Lobby')}</Headline5>
           <FlexSpacer />
           <RaisedButton
-            label='Create lobby'
+            label={t('lobbies.createLobby.title', 'Create lobby')}
             iconStart={<MaterialIcon icon='add' />}
             onClick={this.props.onNavigateToCreate}
           />
@@ -164,10 +171,14 @@ export default class JoinLobby extends React.Component {
           {this.props.party.current ? (
             <DisabledOverlay>
               <DisabledCard>
-                <Headline5>Disabled while in party</Headline5>
+                <Headline5>
+                  {t('lobbies.joinLobby.disabledInPartyTitle', 'Disabled while in party')}
+                </Headline5>
                 <DisabledText>
-                  Joining a lobby as a party is currently under development. Leave your party to
-                  continue.
+                  <Trans t={t} i18nKey='lobbies.joinLobby.disabledInPartyText'>
+                    Joining a lobby as a party is currently under development. Leave your party to
+                    continue.
+                  </Trans>
                 </DisabledText>
               </DisabledCard>
             </DisabledOverlay>

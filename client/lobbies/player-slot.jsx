@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types'
 import React from 'react'
+import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Avatar } from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
@@ -16,6 +17,7 @@ const StyledAvatar = styled(Avatar)`
   margin-right: 16px;
 `
 
+@withTranslation()
 export default class PlayerSlot extends React.Component {
   static propTypes = {
     name: PropTypes.string.isRequired,
@@ -62,27 +64,28 @@ export default class PlayerSlot extends React.Component {
       onBanPlayer,
       onMakeObserver,
       onRemoveObserver,
+      t,
     } = this.props
     const avatar = isComputer ? <StyledAvatar as={ComputerAvatar} /> : <StyledAvatar user={name} />
-    const displayName = isComputer ? 'Computer' : name
+    const displayName = isComputer ? t('game.playerName.computer', 'Computer') : name
 
     const slotActions = []
     if (isHost) {
       if (!isSelf) {
-        slotActions.push(['Close slot', onCloseSlot])
+        slotActions.push([t('lobbies.slots.closeSlot', 'Close slot'), onCloseSlot])
         if (!isComputer) {
-          slotActions.push(['Kick player', onKickPlayer])
-          slotActions.push(['Ban player', onBanPlayer])
+          slotActions.push([t('lobbies.slots.kickPlayer', 'Kick player'), onKickPlayer])
+          slotActions.push([t('lobbies.slots.banPlayer', 'Ban player'), onBanPlayer])
         } else {
-          slotActions.push(['Remove computer', onKickPlayer])
+          slotActions.push([t('lobbies.slots.removeComputer', 'Remove computer'), onKickPlayer])
         }
       }
 
       if (canMakeObserver) {
-        slotActions.push(['Make observer', onMakeObserver])
+        slotActions.push([t('lobbies.slots.makeObserver', 'Make observer'), onMakeObserver])
       }
       if (canRemoveObserver) {
-        slotActions.push(['Make player', onRemoveObserver])
+        slotActions.push([t('lobbies.slots.makePlayer', 'Make player'), onRemoveObserver])
       }
     }
 

@@ -1,11 +1,13 @@
 import PropTypes from 'prop-types'
 import React from 'react'
+import { withTranslation } from 'react-i18next'
 import { RacePicker } from './race-picker'
 import SelectedRace from './selected-race'
 import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotLeft, SlotProfile, SlotRight } from './slot'
 import { SlotActions } from './slot-actions'
 
-export default class ClosedSlot extends React.Component {
+@withTranslation()
+export default class slots extends React.Component {
   static propTypes = {
     onAddComputer: PropTypes.func,
     onSetRace: PropTypes.func,
@@ -47,18 +49,19 @@ export default class ClosedSlot extends React.Component {
       onOpenSlot,
       onMakeObserver,
       onRemoveObserver,
+      t,
     } = this.props
     const slotActions = []
     if (isHost) {
-      slotActions.push(['Open slot', onOpenSlot])
+      slotActions.push([t('lobbies.slots.openSlot', 'Open slot'), onOpenSlot])
       if (!controlledClosed && !isObserver && onAddComputer) {
-        slotActions.push(['Add computer', onAddComputer])
+        slotActions.push([t('lobbies.slots.addComputer', 'Add computer'), onAddComputer])
       }
       if (canMakeObserver) {
-        slotActions.push(['Make observer', onMakeObserver])
+        slotActions.push([t('lobbies.slots.makeObserver', 'Make observer'), onMakeObserver])
       }
       if (canRemoveObserver) {
-        slotActions.push(['Make player', onRemoveObserver])
+        slotActions.push([t('lobbies.slots.makePlayer', 'Make player'), onRemoveObserver])
       }
     }
 
@@ -67,7 +70,7 @@ export default class ClosedSlot extends React.Component {
         <SlotLeft>
           <SlotProfile>
             <SlotEmptyAvatar />
-            <SlotEmptyName as='span'>Closed</SlotEmptyName>
+            <SlotEmptyName as='span'>{t('lobbies.slots.name', 'Closed')}</SlotEmptyName>
           </SlotProfile>
           {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
         </SlotLeft>

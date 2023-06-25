@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types'
 import React from 'react'
+import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { shadowDef2dp } from '../material/shadow-constants'
@@ -99,13 +100,14 @@ const PlayersContainer = styled.div`
 // TODO(tec27): Merge all of this and the matchmaking ones, they're all basically the same
 // structure and they keep getting out of sync :(
 
+@withTranslation()
 export default class ActiveLobby extends React.Component {
   static propTypes = {
     lobby: PropTypes.object.isRequired,
   }
 
   render() {
-    const { lobby } = this.props
+    const { lobby, t } = this.props
     // TODO(2Pac): For now we're special-casing only TvB lobbies and using default display for all
     // other game types. I doubt there's a generic way to support all game types at once, so we'll
     // probably have to figure out a special way to display other game types too (e.g. FFA, UMS).
@@ -125,14 +127,14 @@ export default class ActiveLobby extends React.Component {
           <Spacer />
           <StyledMapThumbnail map={lobby.map} size={320} />
           <StatusContainer>
-            <StatusText>Game in progress...</StatusText>
+            <StatusText>{t('matchmaking.match.gameInProgress', 'Game in progress…')}</StatusText>
           </StatusContainer>
         </TopHalfContainer>
         {isTvB ? (
           <TeamsContainer>
             <TeamContainer>{teams.get(0)}</TeamContainer>
             <VsContainer>
-              <Headline4>vs</Headline4>
+              <Headline4>{t('matchmaking.match.playerVsPlayer', 'vs')}</Headline4>
             </VsContainer>
             <TeamContainer>{teams.get(1)}</TeamContainer>
           </TeamsContainer>

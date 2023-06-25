@@ -1,6 +1,8 @@
+import { TFunction } from 'i18next'
 import { Immutable } from 'immer'
 import { List } from 'immutable'
 import React from 'react'
+import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { gameTypeToLabel, isTeamType } from '../../common/games/configuration'
@@ -173,9 +175,10 @@ interface LobbyProps {
   onMapPreview: () => void
   onToggleFavoriteMap: () => void
   onStartGame: () => void
+  t: TFunction
 }
 
-export default class Lobby extends React.Component<LobbyProps> {
+class Lobby extends React.Component<LobbyProps> {
   getTeamSlots(team: Team, isObserver: boolean, isLobbyUms: boolean) {
     const {
       lobby,
@@ -322,6 +325,7 @@ export default class Lobby extends React.Component<LobbyProps> {
       onSendChatMessage,
       onMapPreview,
       onToggleFavoriteMap,
+      t,
     } = this.props
 
     const isLobbyUms = isUms(lobby.gameType)
@@ -357,7 +361,10 @@ export default class Lobby extends React.Component<LobbyProps> {
           <StyledChat listProps={listProps} inputProps={inputProps} />
         </Left>
         <Info>
-          <RaisedButton label='Leave lobby' onClick={onLeaveLobbyClick} />
+          <RaisedButton
+            label={t('lobbies.lobby.leaveLobby', 'Leave lobby')}
+            onClick={onLeaveLobbyClick}
+          />
           <MapName>{(lobby.map as unknown as Immutable<MapInfoJson>).name}</MapName>
           <StyledMapThumbnail
             map={lobby.map as unknown as Immutable<MapInfoJson>}
@@ -366,8 +373,8 @@ export default class Lobby extends React.Component<LobbyProps> {
             isFavoriting={isFavoritingMap}
           />
           <InfoItem>
-            <InfoLabel as='span'>Game type</InfoLabel>
-            <InfoValue as='span'>{gameTypeToLabel(lobby.gameType)}</InfoValue>
+            <InfoLabel as='span'>{t('lobbies.lobby.gameType', 'Game type')}</InfoLabel>
+            <InfoValue as='span'>{gameTypeToLabel(lobby.gameType, t)}</InfoValue>
           </InfoItem>
           {this.renderCountdown()}
           {this.renderStartButton()}
@@ -386,14 +393,21 @@ export default class Lobby extends React.Component<LobbyProps> {
   }
 
   renderStartButton() {
-    const { lobby, user, onStartGame } = this.props
+    const { lobby, user, onStartGame, t } = this.props
     if (!user || lobby.host.name !== user.name) {
       return null
     }
 
     const isDisabled = lobby.isCountingDown || !hasOpposingSides(lobby as any)
     return (
-      <StartButton color='primary' label='Start game' disabled={isDisabled} onClick={onStartGame} />
+      <StartButton
+        color='primary'
+        label={t('lobbies.lobby.startGame', 'Start game')}
+        disabled={isDisabled}
+        onClick={onStartGame}
+      />
     )
   }
 }
+
+export default withTranslation()(Lobby)

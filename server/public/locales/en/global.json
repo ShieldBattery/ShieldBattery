@@ -516,6 +516,74 @@
       "viewInfo": "View info"
     }
   },
+  "lobbies": {
+    "createLobby": {
+      "backToList": "Back to list",
+      "disabledInPartyText": "Creating a lobby as a party is currently under development. Leave your party to continue.",
+      "disabledInPartyTitle": "Disabled while in party",
+      "gameSubTypeHeader": "Teams",
+      "gameSubTypeOption": "{{numTeams}} teams",
+      "gameSubTypeOptionTvB": "{{topSlots}} vs {{bottomSlots}}",
+      "gameTypeHeader": "Game type",
+      "lobbyName": "Lobby name",
+      "lobbyNameRequired": "Enter a lobby name",
+      "mapRequired": "Select a map to play",
+      "selectMap": "Select map",
+      "title": "Create lobby"
+    },
+    "errors": {
+      "alreadyInLobby": "You're already in another lobby.",
+      "load": "There was a problem loading this lobby"
+    },
+    "events": {
+      "banned": "You have been banned from the lobby.",
+      "kicked": "You have been kicked from the lobby."
+    },
+    "joinLobby": {
+      "disabledInPartyText": "Joining a lobby as a party is currently under development. Leave your party to continue.",
+      "disabledInPartyTitle": "Disabled while in party",
+      "noActiveLobbies": "There are no active lobbies",
+      "noOpenLobbies": "There are no open lobbies",
+      "title": "Join Lobby"
+    },
+    "loading": {
+      "content": "<0>{{gameType}}</0><1> on </1><2>{{mapName}}</2>"
+    },
+    "lobby": {
+      "gameType": "Game type",
+      "leaveLobby": "Leave lobby",
+      "startGame": "Start game"
+    },
+    "messageLayout": {
+      "banPlayer": "<0><0></0></0> has been banned from the lobby",
+      "countdownCanceled": "The game countdown has been canceled",
+      "countdownStarted": "The game countdown has begun",
+      "gameInitializationCanceled": "Game initialization has been canceled",
+      "hostChange": "<0><0></0></0> is now the host",
+      "joinLobby": "<0><0></0></0> has joined the lobby",
+      "kickPlayer": "<0><0></0></0> has been kicked from the lobby",
+      "leaveLobby": "<0><0></0></0> has left the lobby",
+      "selfJoin": "You have joined <1>{{lobby}}</1>. The host is <4><0></0></4>."
+    },
+    "slots": {
+      "addComputer": "Add computer",
+      "banPlayer": "Ban player",
+      "closeSlot": "Close slot",
+      "kickPlayer": "Kick player",
+      "makeObserver": "Make observer",
+      "makePlayer": "Make player",
+      "name": "Closed",
+      "open": "Open",
+      "openSlot": "Open slot",
+      "removeComputer": "Remove computer",
+      "slotActions": "Slot actions"
+    },
+    "state": {
+      "exists": "Lobby already exists. Join it?",
+      "nonexistent": "Lobby doesn't exist. Create it?",
+      "started": "Lobby already started."
+    }
+  },
   "maps": {
     "details": {
       "editDescription": "Edit description",

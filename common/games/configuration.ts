@@ -1,3 +1,4 @@
+import { TFunction } from 'i18next'
 import { SetOptional } from 'type-fest'
 import { assertUnreachable } from '../assert-unreachable'
 import { MatchmakingType } from '../matchmaking'
@@ -30,22 +31,22 @@ export function isValidGameSubType(type?: number | null): boolean {
   return type === null || type === undefined || (type >= 1 && type <= 7)
 }
 
-export function gameTypeToLabel(gameType: GameType): string {
+export function gameTypeToLabel(gameType: GameType, t: TFunction): string {
   switch (gameType) {
     case GameType.Melee:
-      return 'Melee'
+      return t('game.gameType.melee', 'Melee')
     case GameType.FreeForAll:
-      return 'Free for all'
+      return t('game.gameType.freeForAll', 'Free for all')
     case GameType.TopVsBottom:
-      return 'Top vs bottom'
+      return t('game.gameType.topVsBottom', 'Top vs bottom')
     case GameType.TeamMelee:
-      return 'Team melee'
+      return t('game.gameType.teamMelee', 'Team melee')
     case GameType.TeamFreeForAll:
-      return 'Team free for all'
+      return t('game.gameType.teamFreeForAll', 'Team free for all')
     case GameType.UseMapSettings:
-      return 'Use map settings'
+      return t('game.gameType.useMapSettings', 'Use map settings')
     case GameType.OneVsOne:
-      return 'One on one'
+      return t('game.gameType.oneOnOne', 'One on one')
     default:
       return assertUnreachable(gameType)
   }
