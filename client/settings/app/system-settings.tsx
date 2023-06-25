@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useForm } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
@@ -18,6 +19,7 @@ interface AppSystemSettingsModel {
 }
 
 export function AppSystemSettings() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const localSettings = useAppSelector(s => s.settings.local)
 
@@ -52,12 +54,12 @@ export function AppSystemSettings() {
         <div>
           <CheckBox
             {...bindCheckable('runAppAtSystemStart')}
-            label='Run ShieldBattery on system startup'
+            label={t('settings.app.system.runOnStartup', 'Run ShieldBattery on system startup')}
             inputProps={{ tabIndex: 0 }}
           />
           <IndentedCheckbox
             {...bindCheckable('runAppAtSystemStartMinimized')}
-            label='Start minimized'
+            label={t('settings.app.system.startMinimized', 'Start minimized')}
             inputProps={{ tabIndex: 0 }}
             disabled={!getInputValue('runAppAtSystemStart')}
           />
