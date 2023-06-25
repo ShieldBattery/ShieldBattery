@@ -73,7 +73,7 @@ export function NotificationsList(props: NotificationsListProps) {
             notificationToUi(n, `notif-${i}`, i < props.notifications.length - 1),
           )
         ) : (
-          <EmptyList>{t('notifications.list.empty', 'Nothing to see here')}</EmptyList>
+          <EmptyList>{t('common.lists.empty', 'Nothing to see here')}</EmptyList>
         )}
       </ListArea>
     </ListContainer>

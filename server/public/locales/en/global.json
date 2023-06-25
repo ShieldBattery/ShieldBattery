@@ -231,6 +231,7 @@
       "accept": "Accept",
       "apply": "Apply",
       "back": "Back",
+      "block": "Block",
       "cancel": "Cancel",
       "clear": "Clear",
       "continue": "Continue",
@@ -247,7 +248,11 @@
       "search": "Search",
       "show": "Show",
       "start": "Start",
+      "unblock": "Unblock",
       "view": "View"
+    },
+    "lists": {
+      "empty": "Nothing to see here"
     },
     "validators": {
       "maxLength": "Enter at most {{maxLength}} characters",
@@ -256,7 +261,6 @@
     }
   },
   "fileBrowser": {
-    "noFiles": "Nothing to see here",
     "rootFolder": "Root folder",
     "upOneDirectory": "Up one directory"
   },
@@ -301,8 +305,10 @@
     "results": {
       "draw": "Draw",
       "loss": "Loss",
+      "lossShort": "L",
       "unknown": "Unknown",
-      "win": "Win"
+      "win": "Win",
+      "winShort": "W"
     },
     "teamName": {
       "bottom": "Bottom",
@@ -707,7 +713,6 @@
       "markRead": "An error occurred while marking a notification read"
     },
     "list": {
-      "empty": "Nothing to see here",
       "title": "Notifications"
     },
     "popup": {
@@ -870,9 +875,92 @@
   },
   "user": {
     "miniMatchHistory": {
-      "noGames": "Nothing to see here",
       "noGameSelected": "No game selected",
       "viewDetails": "View details"
+    }
+  },
+  "users": {
+    "contextMenu": {
+      "addFriend": "Add friend",
+      "friendRemoved": "Friend removed",
+      "friendRequestAccepted": "Friend request accepted",
+      "friendRequestRemoved": "Friend request removed",
+      "friendRequestSent": "Friend request sent",
+      "inviteToParty": "Invite to party",
+      "kickFromParty": "Kick from party",
+      "loadingUsers": "Loading user…",
+      "removeFriend": "Remove friend",
+      "removeFriendRequest": "Remove friend request",
+      "uninviteFromParty": "Uninvite from party",
+      "userBlocked": "User blocked",
+      "userUnblocked": "User unblocked",
+      "viewProfile": "View profile",
+      "whisper": "Whisper"
+    },
+    "errors": {
+      "friendsList": {
+        "blockedByUser": "you have been blocked by this user",
+        "errorAcceptingFriendRequest": "Error accepting friend request",
+        "errorBlockingUser": "Error blocking user",
+        "errorDecliningFriendRequest": "Error declining friend request",
+        "errorRemovingFriend": "Error removing friend",
+        "errorRemovingFriendRequest": "Error removing friend request",
+        "errorSendingFriendRequest": "Error sending friend request",
+        "errorUnblockingUser": "Error unblocking user",
+        "invalidSelfAction": "you cannot perform this action on yourself`",
+        "limitReached": "you have reached the maximum amount of friends or blocks, please remove some to add more",
+        "load": "Failed to load friends list",
+        "noMatchingEntry": "no matching entry found"
+      },
+      "profile": {
+        "loadUser": "There was a problem loading this user."
+      }
+    },
+    "friendsList": {
+      "friendStart": "You are now friends with <2>{{user}}</2>.",
+      "header": {
+        "incoming": "Incoming",
+        "offline": "Offline",
+        "online": "Online",
+        "outgoing": "Outgoing"
+      },
+      "receivedFriendRequest": "<0>{{user}}</0> sent you a friend request.",
+      "tabs": {
+        "addFriends": "Add friends",
+        "friendsList": "Friends list",
+        "socialSettings": "Social settings"
+      },
+      "title": {
+        "addFriends": "Add friends",
+        "friends": "Friends"
+      },
+      "tooltip": "Friends (Alt + E)"
+    },
+    "profile": {
+      "achievements": "Achievements",
+      "latestGames": "Latest games",
+      "points": "Points",
+      "rank": "Rank",
+      "rating": "Rating",
+      "record": "Record",
+      "tabs": {
+        "admin": "Admin",
+        "matchHistory": "Match history",
+        "season": "Seasons",
+        "stats": "Stats",
+        "summary": "Summary"
+      },
+      "totalGames": "Total games"
+    },
+    "profileOverlay": {
+      "info": "Info",
+      "joined": "Joined {{date}}",
+      "ranked": "Ranked",
+      "rightClick": "Right-click user for more actions",
+      "viewProfile": "View profile"
+    },
+    "titles": {
+      "novice": "Novice"
     }
   },
   "whispers": {

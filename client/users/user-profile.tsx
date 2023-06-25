@@ -1,5 +1,6 @@
 import { Immutable } from 'immer'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameRecordJson } from '../../common/games/games'
@@ -85,6 +86,7 @@ export function ConnectedUserProfilePage({
     goToIndex(replace)
   }
 
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const user = useAppSelector(s => s.users.byId.get(userId))
   const profile = useAppSelector(s => s.users.idToProfile.get(userId))
@@ -133,7 +135,11 @@ export function ConnectedUserProfilePage({
 
   if (loadingError) {
     // TODO(tec27): Handle specific errors, e.g. not found vs server error
-    return <LoadingError>There was a problem loading this user.</LoadingError>
+    return (
+      <LoadingError>
+        {t('users.errors.profile.loadUser', 'There was a problem loading this user.')}
+      </LoadingError>
+    )
   }
   if (!user || !profile) {
     return <LoadingDotsArea />
@@ -215,8 +221,9 @@ export function UserProfilePage({
   onTabChange,
   isAdmin,
 }: UserProfilePageProps) {
+  const { t } = useTranslation()
   // TODO(tec27): Build the title feature :)
-  const title = 'Novice'
+  const title = t('users.titles.novice', 'Novice')
 
   let content: React.ReactNode
   switch (subPage) {
@@ -258,11 +265,25 @@ export function UserProfilePage({
 
       <TabArea>
         <Tabs activeTab={subPage} onChange={onTabChange}>
-          <TabItem value={UserProfileSubPage.Summary} text='Summary' />
-          <TabItem value={UserProfileSubPage.Stats} text='Stats' />
-          <TabItem value={UserProfileSubPage.MatchHistory} text='Match history' />
-          <TabItem value={UserProfileSubPage.Seasons} text='Seasons' />
-          {isAdmin ? <TabItem value={UserProfileSubPage.Admin} text='Admin' /> : null}
+          <TabItem
+            value={UserProfileSubPage.Summary}
+            text={t('users.profile.tabs.summary', 'Summary')}
+          />
+          <TabItem value={UserProfileSubPage.Stats} text={t('users.profile.tabs.stats', 'Stats')} />
+          <TabItem
+            value={UserProfileSubPage.MatchHistory}
+            text={t('users.profile.tabs.matchHistory', 'Match history')}
+          />
+          <TabItem
+            value={UserProfileSubPage.Seasons}
+            text={t('users.profile.tabs.season', 'Seasons')}
+          />
+          {isAdmin ? (
+            <TabItem
+              value={UserProfileSubPage.Admin}
+              text={t('users.profile.tabs.admin', 'Admin')}
+            />
+          ) : null}
         </Tabs>
       </TabArea>
 
@@ -328,6 +349,8 @@ function SummaryPage({
   profile: UserProfileJson
   matchHistory: Immutable<GameRecordJson[]>
 }) {
+  const { t } = useTranslation()
+
   const stats = profile.userStats
   const pStats: RaceStats = {
     race: 'p',
@@ -368,7 +391,7 @@ function SummaryPage({
         </>
       )}
 
-      <SectionOverline>Total games</SectionOverline>
+      <SectionOverline>{t('users.profile.totalGames', 'Total games')}</SectionOverline>
       <TotalGamesSection>
         {sortedStats.map((s, i) => (
           <React.Fragment key={s.race}>
@@ -378,11 +401,11 @@ function SummaryPage({
         ))}
       </TotalGamesSection>
 
-      <SectionOverline>Latest games</SectionOverline>
+      <SectionOverline>{t('users.profile.latestGames', 'Latest games')}</SectionOverline>
       <MiniMatchHistory forUserId={user.id} games={matchHistory} />
 
-      <SectionOverline>Achievements</SectionOverline>
-      <EmptyListText>Nothing to see here</EmptyListText>
+      <SectionOverline>{t('users.profile.achievements', 'Achievements')}</SectionOverline>
+      <EmptyListText>{t('common.lists.empty', 'Nothing to see here')}</EmptyListText>
     </>
   )
 }
@@ -481,20 +504,21 @@ function RankDisplay({
   matchmakingType: MatchmakingType
   ladderPlayer: LadderPlayer
 }) {
+  const { t } = useTranslation()
   const division = ladderPlayerToMatchmakingDivision(ladderPlayer)
 
   if (division === MatchmakingDivision.Unrated) {
     return null
   }
 
-  const divisionLabel = matchmakingDivisionToLabel(division)
+  const divisionLabel = matchmakingDivisionToLabel(division, t)
 
   return (
     <RankDisplayRoot>
       <DivisionInfo>
         <DivisionIcon player={ladderPlayer} size={88} />
         <RankDisplayDivisionLabel>{divisionLabel}</RankDisplayDivisionLabel>
-        <RankDisplayType>{matchmakingTypeToLabel(matchmakingType)}</RankDisplayType>
+        <RankDisplayType>{matchmakingTypeToLabel(matchmakingType, t)}</RankDisplayType>
       </DivisionInfo>
       <RankDisplayInfo>
         <RankDisplayInfoRow>
@@ -503,11 +527,11 @@ function RankDisplay({
               <RankDisplayPrefix>#</RankDisplayPrefix>
               {ladderPlayer.rank}
             </RankDisplayInfoValue>
-            <RankDisplayInfoLabel>Rank</RankDisplayInfoLabel>
+            <RankDisplayInfoLabel>{t('users.profile.rank', 'Rank')}</RankDisplayInfoLabel>
           </RankDisplayInfoEntry>
           <RankDisplayInfoEntry>
             <RankDisplayInfoValue>{Math.round(ladderPlayer.points)}</RankDisplayInfoValue>
-            <RankDisplayInfoLabel>Points</RankDisplayInfoLabel>
+            <RankDisplayInfoLabel>{t('users.profile.points', 'Points')}</RankDisplayInfoLabel>
           </RankDisplayInfoEntry>
         </RankDisplayInfoRow>
         <RankDisplayInfoRow>
@@ -515,11 +539,11 @@ function RankDisplay({
             <RankDisplayInfoValue>
               {ladderPlayer.wins} &ndash; {ladderPlayer.losses}
             </RankDisplayInfoValue>
-            <RankDisplayInfoLabel>Record</RankDisplayInfoLabel>
+            <RankDisplayInfoLabel>{t('users.profile.record', 'Record')}</RankDisplayInfoLabel>
           </RankDisplayInfoEntry>
           <RankDisplayInfoEntry>
             <RankDisplayInfoValue>{Math.round(ladderPlayer.rating)}</RankDisplayInfoValue>
-            <RankDisplayInfoLabel>Rating</RankDisplayInfoLabel>
+            <RankDisplayInfoLabel>{t('users.profile.rating', 'Rating')}</RankDisplayInfoLabel>
           </RankDisplayInfoEntry>
         </RankDisplayInfoRow>
       </RankDisplayInfo>
@@ -567,22 +591,24 @@ const WinLossText = styled.div`
 `
 
 function TotalGamesEntry({ race, wins, losses }: { race: RaceChar; wins: number; losses: number }) {
+  const { t } = useTranslation()
+
   const total = wins + losses
   const winrate = total > 0 ? Math.round((wins * 100 * 10) / total) / 10 : 0
 
   let raceText: string
   switch (race) {
     case 'p':
-      raceText = 'Protoss'
+      raceText = t('game.race.protoss', 'Protoss')
       break
     case 't':
-      raceText = 'Terran'
+      raceText = t('game.race.terran', 'Terran')
       break
     case 'z':
-      raceText = 'Zerg'
+      raceText = t('game.race.zerg', 'Zerg')
       break
     case 'r':
-      raceText = 'Random'
+      raceText = t('game.race.random', 'Random')
       break
     default:
       raceText = assertUnreachable(race)
@@ -596,7 +622,8 @@ function TotalGamesEntry({ race, wins, losses }: { race: RaceChar; wins: number;
       <div>
         <TotalGamesText>{wins + losses}</TotalGamesText>
         <WinLossText>
-          {wins} W &ndash; {losses} L &ndash; {winrate}%
+          {wins} {t('game.results.winShort', 'W')} &ndash; {losses}{' '}
+          {t('game.results.lossShort', 'L')} &ndash; {winrate}%
         </WinLossText>
       </div>
     </TotalGamesEntryRoot>

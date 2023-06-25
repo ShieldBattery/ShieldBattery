@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { appendToMultimap } from '../../common/data-structures/maps'
@@ -90,6 +91,7 @@ function ConnectedUserContextMenuContents({
 }: Omit<ConnectedUserContextMenuProps, 'popoverProps'> & {
   onDismiss: () => void
 }) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUser = useAppSelector(s => s.auth.user)
   const user = useAppSelector(s => s.users.byId.get(userId))
@@ -142,13 +144,17 @@ function ConnectedUserContextMenuContents({
     appendToMultimap(
       items,
       MenuItemCategory.General,
-      <LoadingItem key='loading' text='Loading user…' />,
+      <LoadingItem key='loading' text={t('users.contextMenu.loadingUsers', 'Loading user…')} />,
     )
   } else {
     appendToMultimap(
       items,
       MenuItemCategory.General,
-      <MenuItem key='profile' text='View profile' onClick={onViewProfileClick} />,
+      <MenuItem
+        key='profile'
+        text={t('users.contextMenu.viewProfile', 'View profile')}
+        onClick={onViewProfileClick}
+      />,
     )
 
     if (user.id !== selfUser.id) {
@@ -156,7 +162,11 @@ function ConnectedUserContextMenuContents({
         appendToMultimap(
           items,
           MenuItemCategory.General,
-          <MenuItem key='whisper' text='Whisper' onClick={onWhisperClick} />,
+          <MenuItem
+            key='whisper'
+            text={t('users.contextMenu.whisper', 'Whisper')}
+            onClick={onWhisperClick}
+          />,
         )
       }
 
@@ -167,17 +177,28 @@ function ConnectedUserContextMenuContents({
             MenuItemCategory.General,
             <MenuItem
               key='remove-friend'
-              text='Remove friend'
+              text={t('users.contextMenu.removeFriend', 'Remove friend')}
               onClick={() => {
                 dispatch(
                   removeFriend(userId, {
                     onSuccess: () => {
-                      dispatch(openSnackbar({ message: 'Friend removed' }))
+                      dispatch(
+                        openSnackbar({
+                          message: t('users.contextMenu.friendRemoved', 'Friend removed'),
+                        }),
+                      )
                     },
                     onError: err => {
                       dispatch(
                         openSnackbar({
-                          message: userRelationshipErrorToString(err, 'Error removing friend'),
+                          message: userRelationshipErrorToString(
+                            err,
+                            t(
+                              'users.errors.friendsList.errorRemovingFriend',
+                              'Error removing friend',
+                            ),
+                            t,
+                          ),
                         }),
                       )
                     },
@@ -195,19 +216,30 @@ function ConnectedUserContextMenuContents({
               MenuItemCategory.General,
               <MenuItem
                 key='remove-friend-request'
-                text='Remove friend request'
+                text={t('users.contextMenu.removeFriendRequest', 'Remove friend request')}
                 onClick={() => {
                   dispatch(
                     removeFriendRequest(userId, {
                       onSuccess: () => {
-                        dispatch(openSnackbar({ message: 'Friend request removed' }))
+                        dispatch(
+                          openSnackbar({
+                            message: t(
+                              'users.contextMenu.friendRequestRemoved',
+                              'Friend request removed',
+                            ),
+                          }),
+                        )
                       },
                       onError: err => {
                         dispatch(
                           openSnackbar({
                             message: userRelationshipErrorToString(
                               err,
-                              'Error removing friend request',
+                              t(
+                                'users.errors.friendsList.errorRemovingFriendRequest',
+                                'Error removing friend request',
+                              ),
+                              t,
                             ),
                           }),
                         )
@@ -224,19 +256,30 @@ function ConnectedUserContextMenuContents({
               MenuItemCategory.General,
               <MenuItem
                 key='accept-friend-request'
-                text='Add friend'
+                text={t('users.contextMenu.addFriend', 'Add friend')}
                 onClick={() => {
                   dispatch(
                     acceptFriendRequest(userId, {
                       onSuccess: () => {
-                        dispatch(openSnackbar({ message: 'Friend request accepted' }))
+                        dispatch(
+                          openSnackbar({
+                            message: t(
+                              'users.contextMenu.friendRequestAccepted',
+                              'Friend request accepted',
+                            ),
+                          }),
+                        )
                       },
                       onError: err => {
                         dispatch(
                           openSnackbar({
                             message: userRelationshipErrorToString(
                               err,
-                              'Error accepting friend request',
+                              t(
+                                'users.errors.friendsList.errorAcceptingFriendRequest',
+                                'Error accepting friend request',
+                              ),
+                              t,
                             ),
                           }),
                         )
@@ -255,17 +298,28 @@ function ConnectedUserContextMenuContents({
             MenuItemCategory.General,
             <MenuItem
               key='unblock'
-              text='Unblock'
+              text={t('common.actions.unblock', 'Unblock')}
               onClick={() => {
                 dispatch(
                   unblockUser(userId, {
                     onSuccess: () => {
-                      dispatch(openSnackbar({ message: 'User unblocked' }))
+                      dispatch(
+                        openSnackbar({
+                          message: t('users.contextMenu.userUnblocked', 'User unblocked'),
+                        }),
+                      )
                     },
                     onError: err => {
                       dispatch(
                         openSnackbar({
-                          message: userRelationshipErrorToString(err, 'Error unblocking user'),
+                          message: userRelationshipErrorToString(
+                            err,
+                            t(
+                              'users.errors.friendsList.errorUnblockingUser',
+                              'Error unblocking user',
+                            ),
+                            t,
+                          ),
                         }),
                       )
                     },
@@ -282,19 +336,27 @@ function ConnectedUserContextMenuContents({
             MenuItemCategory.General,
             <MenuItem
               key='add-friend'
-              text='Add friend'
+              text={t('users.contextMenu.addFriend', 'Add friend')}
               onClick={() => {
                 dispatch(
                   sendFriendRequest(userId, {
                     onSuccess: () => {
-                      dispatch(openSnackbar({ message: 'Friend request sent' }))
+                      dispatch(
+                        openSnackbar({
+                          message: t('users.contextMenu.friendRequestSent', 'Friend request sent'),
+                        }),
+                      )
                     },
                     onError: err => {
                       dispatch(
                         openSnackbar({
                           message: userRelationshipErrorToString(
                             err,
-                            'Error sending friend request',
+                            t(
+                              'users.errors.friendsList.errorSendingFriendRequest',
+                              'Error sending friend request',
+                            ),
+                            t,
                           ),
                         }),
                       )
@@ -316,17 +378,23 @@ function ConnectedUserContextMenuContents({
           MenuItemCategory.General,
           <MenuItem
             key='block'
-            text='Block'
+            text={t('common.actions.block', 'Block')}
             onClick={() => {
               dispatch(
                 blockUser(userId, {
                   onSuccess: () => {
-                    dispatch(openSnackbar({ message: 'User blocked' }))
+                    dispatch(
+                      openSnackbar({ message: t('users.contextMenu.userBlocked', 'User blocked') }),
+                    )
                   },
                   onError: err => {
                     dispatch(
                       openSnackbar({
-                        message: userRelationshipErrorToString(err, 'Error blocking user'),
+                        message: userRelationshipErrorToString(
+                          err,
+                          t('users.errors.friendsList.errorBlockingUser', 'Error blocking user'),
+                          t,
+                        ),
                       }),
                     )
                   },
@@ -343,7 +411,11 @@ function ConnectedUserContextMenuContents({
           appendToMultimap(
             items,
             MenuItemCategory.Party,
-            <MenuItem key='invite' text='Invite to party' onClick={onInviteToPartyClick} />,
+            <MenuItem
+              key='invite'
+              text={t('users.contextMenu.inviteToParty', 'Invite to party')}
+              onClick={onInviteToPartyClick}
+            />,
           )
         } else if (partyLeader === selfUser.id) {
           const isAlreadyInParty = !!partyMembers?.includes(user.id)
@@ -354,19 +426,31 @@ function ConnectedUserContextMenuContents({
             appendToMultimap(
               items,
               MenuItemCategory.Party,
-              <MenuItem key='kick-party' text='Kick from party' onClick={onKickPlayerClick} />,
+              <MenuItem
+                key='kick-party'
+                text={t('users.contextMenu.kickFromParty', 'Kick from party')}
+                onClick={onKickPlayerClick}
+              />,
             )
           } else if (hasInvite) {
             appendToMultimap(
               items,
               MenuItemCategory.Party,
-              <MenuItem key='invite' text='Uninvite from party' onClick={onRemovePartyInvite} />,
+              <MenuItem
+                key='invite'
+                text={t('users.contextMenu.uninviteFromParty', 'Uninvite from party')}
+                onClick={onRemovePartyInvite}
+              />,
             )
           } else if (relationshipKind !== UserRelationshipKind.Block) {
             appendToMultimap(
               items,
               MenuItemCategory.Party,
-              <MenuItem key='invite' text='Invite to party' onClick={onInviteToPartyClick} />,
+              <MenuItem
+                key='invite'
+                text={t('users.contextMenu.inviteToParty', 'Invite to party')}
+                onClick={onInviteToPartyClick}
+              />,
             )
           }
         }

@@ -1,3 +1,4 @@
+import { TFunction } from 'i18next'
 import { UserRelationshipServiceErrorCode } from '../../common/users/relationships'
 import { isFetchError } from '../network/fetch-errors'
 
@@ -6,20 +7,30 @@ import { isFetchError } from '../network/fetch-errors'
  * Messages will be prefixed with `${prefix}: `. This is safe to use with errors that may not
  * actually be `UserRelationshipServiceError`s.
  */
-export function userRelationshipErrorToString(err: Error, prefix: string): string {
+export function userRelationshipErrorToString(err: Error, prefix: string, t: TFunction): string {
   if (isFetchError(err)) {
     switch (err.code) {
       case UserRelationshipServiceErrorCode.BlockedByUser:
-        return `${prefix}: you have been blocked by this user`
+        return `${prefix}: ${t(
+          'users.errors.friendsList.blockedByUser',
+          'you have been blocked by this user',
+        )}`
       case UserRelationshipServiceErrorCode.InvalidSelfAction:
-        return `${prefix}: you cannot perform this action on yourself`
+        return `${prefix}: ${t(
+          'users.errors.friendsList.invalidSelfAction',
+          'you cannot perform this action on yourself`',
+        )}`
       case UserRelationshipServiceErrorCode.LimitReached:
-        return (
-          `${prefix}: you have reached the maximum amount of friends or blocks, please ` +
-          `remove some to add more`
-        )
+        return `${prefix}: ${t(
+          'users.errors.friendsList.limitReached',
+          'you have reached the maximum amount of friends or blocks, please remove some to add ' +
+            'more',
+        )}`
       case UserRelationshipServiceErrorCode.NoMatchingEntry:
-        return `${prefix}: no matching entry found`
+        return `${prefix}: ${t(
+          'users.errors.friendsList.noMatchingEntry',
+          'no matching entry found',
+        )}`
     }
   }
 
