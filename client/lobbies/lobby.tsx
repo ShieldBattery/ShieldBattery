@@ -1,8 +1,7 @@
-import { TFunction } from 'i18next'
 import { Immutable } from 'immer'
 import { List } from 'immutable'
 import React from 'react'
-import { withTranslation } from 'react-i18next'
+import { WithTranslation, withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { gameTypeToLabel, isTeamType } from '../../common/games/configuration'
@@ -156,7 +155,7 @@ function renderChatMessage(msg: SbMessage) {
   }
 }
 
-interface LobbyProps {
+interface LobbyProps extends WithTranslation {
   lobby: LobbyInfo
   chat: List<SbMessage>
   user: SelfUserRecord
@@ -175,7 +174,6 @@ interface LobbyProps {
   onMapPreview: () => void
   onToggleFavoriteMap: () => void
   onStartGame: () => void
-  t: TFunction
 }
 
 class Lobby extends React.Component<LobbyProps> {
