@@ -511,7 +511,6 @@
         }
     },
     "fileBrowser": {
-        "noFiles": "$🗡Nothing to see here🗡!",
         "rootFolder": "$🗡Root folder🗡!",
         "upOneDirectory": "$🗡Up one directory🗡!"
     },
@@ -611,7 +610,6 @@
     },
     "user": {
         "miniMatchHistory": {
-            "noGames": "$🗡Nothing to see here🗡!",
             "noGameSelected": "$🗡No game selected🗡!",
             "viewDetails": "$🗡View details🗡!"
         }
@@ -771,7 +769,6 @@
             "markRead": "$🗡An error occurred while marking a notification read🗡!"
         },
         "list": {
-            "empty": "$🗡Nothing to see here🗡!",
             "title": "$🗡Notifications🗡!"
         },
         "popup": {

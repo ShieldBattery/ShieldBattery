@@ -511,7 +511,6 @@
         }
     },
     "fileBrowser": {
-        "noFiles": "Nada que ver aqui",
         "rootFolder": "Carpeta raíz",
         "upOneDirectory": "Subir un directorio"
     },
@@ -661,7 +660,6 @@
     },
     "user": {
         "miniMatchHistory": {
-            "noGames": "Nada que ver aqui",
             "noGameSelected": "Ningún juego seleccionado",
             "viewDetails": "Ver detalles"
         }
@@ -771,7 +769,6 @@
             "markRead": "Ocurrió un error al marcar una notificación como leída"
         },
         "list": {
-            "empty": "Nada que ver aqui",
             "title": "Notificaciones"
         },
         "popup": {
