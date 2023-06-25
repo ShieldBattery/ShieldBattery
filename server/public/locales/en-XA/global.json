@@ -25,7 +25,12 @@
             "clear": "$🗡Clear🗡!",
             "start": "$🗡Start🗡!",
             "decline": "$🗡Decline🗡!",
-            "accept": "$🗡Accept🗡!"
+            "accept": "$🗡Accept🗡!",
+            "block": "$🗡Block🗡!",
+            "unblock": "$🗡Unblock🗡!"
+        },
+        "lists": {
+            "empty": "$🗡Nothing to see here🗡!"
         }
     },
     "settings": {
@@ -551,7 +556,9 @@
             "draw": "$🗡Draw🗡!",
             "loss": "$🗡Loss🗡!",
             "unknown": "$🗡Unknown🗡!",
-            "win": "$🗡Win🗡!"
+            "win": "$🗡Win🗡!",
+            "lossShort": "$🗡L🗡!",
+            "winShort": "$🗡W🗡!"
         },
         "teamName": {
             "number": "$🗡Team {{teamNumber}}🗡!",
@@ -898,5 +905,89 @@
             "leaveParty": "$🗡Leave party🗡!"
         },
         "notificationUi": "$🗡<0>{{user}}</0> sent you a party invitation.🗡!"
+    },
+    "users": {
+        "contextMenu": {
+            "addFriend": "$🗡Add friend🗡!",
+            "friendRequestAccepted": "$🗡Friend request accepted🗡!",
+            "friendRequestRemoved": "$🗡Friend request removed🗡!",
+            "friendRequestSent": "$🗡Friend request sent🗡!",
+            "inviteToParty": "$🗡Invite to party🗡!",
+            "kickFromParty": "$🗡Kick from party🗡!",
+            "removeFriend": "$🗡Remove friend🗡!",
+            "removeFriendRequest": "$🗡Remove friend request🗡!",
+            "uninviteFromParty": "$🗡Uninvite from party🗡!",
+            "userBlocked": "$🗡User blocked🗡!",
+            "userUnblocked": "$🗡User unblocked🗡!",
+            "whisper": "$🗡Whisper🗡!",
+            "friendRemoved": "$🗡Friend removed🗡!",
+            "loadingUsers": "$🗡Loading user…🗡!",
+            "viewProfile": "$🗡View profile🗡!"
+        },
+        "errors": {
+            "friendsList": {
+                "blockedByUser": "$🗡you have been blocked by this user🗡!",
+                "errorAcceptingFriendRequest": "$🗡Error accepting friend request🗡!",
+                "errorBlockingUser": "$🗡Error blocking user🗡!",
+                "errorRemovingFriend": "$🗡Error removing friend🗡!",
+                "errorRemovingFriendRequest": "$🗡Error removing friend request🗡!",
+                "errorSendingFriendRequest": "$🗡Error sending friend request🗡!",
+                "errorUnblockingUser": "$🗡Error unblocking user🗡!",
+                "limitReached": "$🗡you have reached the maximum amount of friends or blocks, please remove some to add more🗡!",
+                "load": "$🗡Failed to load friends list🗡!",
+                "noMatchingEntry": "$🗡no matching entry found🗡!",
+                "errorDecliningFriendRequest": "$🗡Error declining friend request🗡!",
+                "invalidSelfAction": "$🗡you cannot perform this action on yourself`🗡!"
+            },
+            "profile": {
+                "loadUser": "$🗡There was a problem loading this user.🗡!"
+            }
+        },
+        "friendsList": {
+            "friendStart": "$🗡You are now friends with <2>{{user}}</2>.🗡!",
+            "header": {
+                "incoming": "$🗡Incoming🗡!",
+                "offline": "$🗡Offline🗡!",
+                "online": "$🗡Online🗡!",
+                "outgoing": "$🗡Outgoing🗡!"
+            },
+            "receivedFriendRequest": "$🗡<0>{{user}}</0> sent you a friend request.🗡!",
+            "tabs": {
+                "addFriends": "$🗡Add friends🗡!",
+                "friendsList": "$🗡Friends list🗡!",
+                "socialSettings": "$🗡Social settings🗡!"
+            },
+            "title": {
+                "addFriends": "$🗡Add friends🗡!",
+                "friends": "$🗡Friends🗡!"
+            },
+            "tooltip": "$🗡Friends (Alt + E)🗡!"
+        },
+        "profile": {
+            "achievements": "$🗡Achievements🗡!",
+            "latestGames": "$🗡Latest games🗡!",
+            "points": "$🗡Points🗡!",
+            "rank": "$🗡Rank🗡!",
+            "rating": "$🗡Rating🗡!",
+            "record": "$🗡Record🗡!",
+            "tabs": {
+                "admin": "$🗡Admin🗡!",
+                "matchHistory": "$🗡Match history🗡!",
+                "season": "$🗡Seasons🗡!",
+                "stats": "$🗡Stats🗡!",
+                "summary": "$🗡Summary🗡!"
+            },
+            "totalGames": "$🗡Total games🗡!"
+        },
+        "profileOverlay": {
+            "info": "$🗡Info🗡!",
+            "joined": "$🗡Joined {{date}}🗡!",
+            "ranked": "$🗡Ranked🗡!",
+            "rightClick": "$🗡Right-click user for more actions🗡!",
+            "viewProfile": "$🗡View profile🗡!"
+        },
+        "titles": {
+            "novice": "$🗡Novice🗡!"
+        }
     }
 }
