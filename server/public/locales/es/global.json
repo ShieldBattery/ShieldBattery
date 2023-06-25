@@ -25,7 +25,12 @@
             "clear": "Claro",
             "start": "Comenzar",
             "decline": "Rechazar",
-            "accept": "Aceptar"
+            "accept": "Aceptar",
+            "block": "Bloquear",
+            "unblock": "Desatascar"
+        },
+        "lists": {
+            "empty": "Nada que ver aqui"
         }
     },
     "settings": {
@@ -551,7 +556,9 @@
             "draw": "Dibujar",
             "loss": "Pérdida",
             "unknown": "Desconocido",
-            "win": "Ganar"
+            "win": "Ganar",
+            "lossShort": "L",
+            "winShort": "W"
         },
         "teamName": {
             "bottom": "Abajo",
@@ -897,6 +904,90 @@
             "invitePlayers": "invitar jugadores",
             "leaveParty": "dejar la fiesta",
             "title": "Fiesta"
+        }
+    },
+    "users": {
+        "contextMenu": {
+            "addFriend": "Añadir amigo",
+            "friendRemoved": "Amigo eliminado",
+            "friendRequestAccepted": "Solicitud de amistad aceptada",
+            "friendRequestRemoved": "Solicitud de amistad eliminada",
+            "friendRequestSent": "Solicitud de amistad enviada",
+            "inviteToParty": "Invitar a una fiesta",
+            "kickFromParty": "patada de fiesta",
+            "loadingUsers": "Cargando usuario…",
+            "removeFriend": "Eliminar amigo",
+            "removeFriendRequest": "Eliminar solicitud de amistad",
+            "uninviteFromParty": "Dejar de invitar a la fiesta",
+            "userBlocked": "Usuario bloqueado",
+            "userUnblocked": "Usuario desbloqueado",
+            "viewProfile": "Ver perfil",
+            "whisper": "Susurro"
+        },
+        "errors": {
+            "friendsList": {
+                "blockedByUser": "has sido bloqueado por este usuario",
+                "errorAcceptingFriendRequest": "Error al aceptar la solicitud de amistad",
+                "errorBlockingUser": "Error al bloquear usuario",
+                "errorDecliningFriendRequest": "Error al rechazar la solicitud de amistad",
+                "errorRemovingFriend": "Error al eliminar amigo",
+                "errorRemovingFriendRequest": "Error al eliminar la solicitud de amistad",
+                "errorSendingFriendRequest": "Error al enviar solicitud de amistad",
+                "errorUnblockingUser": "Error al desbloquear usuario",
+                "invalidSelfAction": "no puedes realizar esta acción en ti mismo`",
+                "limitReached": "ha alcanzado la cantidad máxima de amigos o bloques, elimine algunos para agregar más",
+                "load": "Error al cargar la lista de amigos",
+                "noMatchingEntry": "no se encontró ninguna entrada coincidente"
+            },
+            "profile": {
+                "loadUser": "Hubo un problema al cargar este usuario."
+            }
+        },
+        "friendsList": {
+            "friendStart": "Ahora eres amigo de <2>{{user}}</2>.",
+            "header": {
+                "incoming": "Entrante",
+                "offline": "Desconectado",
+                "online": "En línea",
+                "outgoing": "Extrovertido"
+            },
+            "receivedFriendRequest": "<0>{{user}}</0> te envió una solicitud de amistad.",
+            "tabs": {
+                "addFriends": "Añade amigos",
+                "friendsList": "Lista de amigos",
+                "socialSettings": "Ajustes sociales"
+            },
+            "title": {
+                "addFriends": "Añade amigos",
+                "friends": "Amigos"
+            },
+            "tooltip": "Amigos (Alt + E)"
+        },
+        "profile": {
+            "achievements": "logros",
+            "latestGames": "Últimos juegos",
+            "points": "Puntos",
+            "rank": "Rango",
+            "rating": "Clasificación",
+            "record": "Registro",
+            "tabs": {
+                "admin": "Administración",
+                "matchHistory": "Historial de partidos",
+                "season": "Estaciones",
+                "stats": "Estadísticas",
+                "summary": "Resumen"
+            },
+            "totalGames": "Juegos totales"
+        },
+        "profileOverlay": {
+            "info": "Información",
+            "joined": "Se unió a {{date}}",
+            "ranked": "Clasificado",
+            "rightClick": "Haga clic derecho en el usuario para más acciones",
+            "viewProfile": "Ver perfil"
+        },
+        "titles": {
+            "novice": "Principiante"
         }
     }
 }
