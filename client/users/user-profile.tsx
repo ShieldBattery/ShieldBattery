@@ -223,7 +223,7 @@ export function UserProfilePage({
 }: UserProfilePageProps) {
   const { t } = useTranslation()
   // TODO(tec27): Build the title feature :)
-  const title = t('users.profile.novice', 'Novice')
+  const title = t('users.titles.novice', 'Novice')
 
   let content: React.ReactNode
   switch (subPage) {
@@ -405,7 +405,7 @@ function SummaryPage({
       <MiniMatchHistory forUserId={user.id} games={matchHistory} />
 
       <SectionOverline>{t('users.profile.achievements', 'Achievements')}</SectionOverline>
-      <EmptyListText>{t('users.profile.noAchievements', 'Nothing to see here')}</EmptyListText>
+      <EmptyListText>{t('common.lists.empty', 'Nothing to see here')}</EmptyListText>
     </>
   )
 }
@@ -622,8 +622,8 @@ function TotalGamesEntry({ race, wins, losses }: { race: RaceChar; wins: number;
       <div>
         <TotalGamesText>{wins + losses}</TotalGamesText>
         <WinLossText>
-          {wins} {t('game.results.winAcronym', 'W')} &ndash; {losses}{' '}
-          {t('game.results.lossAcronym', 'L')} &ndash; {winrate}%
+          {wins} {t('game.results.winShort', 'W')} &ndash; {losses}{' '}
+          {t('game.results.lossShort', 'L')} &ndash; {winrate}%
         </WinLossText>
       </div>
     </TotalGamesEntryRoot>

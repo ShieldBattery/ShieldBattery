@@ -213,7 +213,7 @@ export function FriendsPopover({ onDismiss }: { onDismiss: () => void }) {
           <Tabs activeTab={activeTab} onChange={onTabChange}>
             <TabItem
               text={<FadedFriendsIcon />}
-              title={t('users.friendsList.tabs.friendList', 'Friends list')}
+              title={t('users.friendsList.tabs.friendsList', 'Friends list')}
               value={FriendsListTab.List}
             />
             <TabItem
@@ -353,7 +353,7 @@ function FriendsList({ height }: { height: number }) {
   }, [])
 
   return friends.size === 0 ? (
-    <EmptyList>{t('users.friendsList.noFriends', 'Nothing to see here')}</EmptyList>
+    <EmptyList>{t('common.lists.empty', 'Nothing to see here')}</EmptyList>
   ) : (
     <Virtuoso
       components={{ Footer: VertPadding }}
@@ -539,7 +539,7 @@ function FriendRequestsList({ height }: { height: number }) {
   )
 
   return rowData.length === 0 ? (
-    <EmptyList>{t('users.friendsList.noFriendRequests', 'Nothing to see here')}</EmptyList>
+    <EmptyList>{t('common.lists.empty', 'Nothing to see here')}</EmptyList>
   ) : (
     <Virtuoso
       components={{ Footer: VertPadding }}

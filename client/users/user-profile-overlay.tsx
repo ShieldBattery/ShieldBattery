@@ -239,7 +239,7 @@ function OverlayContents({ userId, onDismiss }: { userId: SbUserId; onDismiss: (
           ) : (
             <LoadingUsername aria-label='Username loading…' />
           )}
-          <Title>{t('users.profile.novice', 'Novice')}</Title>
+          <Title>{t('users.titles.novice', 'Novice')}</Title>
         </UsernameAndTitle>
       </IdentityArea>
       {profile ? (

@@ -77,7 +77,7 @@ export function MiniMatchHistory({ forUserId, games }: MiniMatchHistoryProps) {
           />
         ))}
         {games.length === 0 ? (
-          <EmptyListText>{t('user.miniMatchHistory.noGames', 'Nothing to see here')}</EmptyListText>
+          <EmptyListText>{t('common.lists.empty', 'Nothing to see here')}</EmptyListText>
         ) : null}
       </GameList>
       <ConnectedGamePreview game={activeGame}></ConnectedGamePreview>

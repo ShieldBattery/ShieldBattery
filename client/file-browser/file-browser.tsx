@@ -473,7 +473,7 @@ export function FileBrowser({
   } else if (loadFilesError) {
     emptyContent = <ErrorText>{loadFilesError.message}</ErrorText>
   } else {
-    emptyContent = <EmptyText>{t('fileBrowser.noFiles', 'Nothing to see here')}</EmptyText>
+    emptyContent = <EmptyText>{t('common.lists.empty', 'Nothing to see here')}</EmptyText>
   }
 
   const displayedPath = fileBrowserPath

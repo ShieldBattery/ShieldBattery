@@ -251,6 +251,9 @@
       "unblock": "Unblock",
       "view": "View"
     },
+    "lists": {
+      "empty": "Nothing to see here"
+    },
     "validators": {
       "maxLength": "Enter at most {{maxLength}} characters",
       "minLength": "Enter at least {{minLength}} characters",
@@ -258,7 +261,6 @@
     }
   },
   "fileBrowser": {
-    "noFiles": "Nothing to see here",
     "rootFolder": "Root folder",
     "upOneDirectory": "Up one directory"
   },
@@ -303,10 +305,10 @@
     "results": {
       "draw": "Draw",
       "loss": "Loss",
-      "lossAcronym": "L",
+      "lossShort": "L",
       "unknown": "Unknown",
       "win": "Win",
-      "winAcronym": "W"
+      "winShort": "W"
     },
     "teamName": {
       "bottom": "Bottom",
@@ -711,7 +713,6 @@
       "markRead": "An error occurred while marking a notification read"
     },
     "list": {
-      "empty": "Nothing to see here",
       "title": "Notifications"
     },
     "popup": {
@@ -874,7 +875,6 @@
   },
   "user": {
     "miniMatchHistory": {
-      "noGames": "Nothing to see here",
       "noGameSelected": "No game selected",
       "viewDetails": "View details"
     }
@@ -924,12 +924,10 @@
         "online": "Online",
         "outgoing": "Outgoing"
       },
-      "noFriendRequests": "Nothing to see here",
-      "noFriends": "Nothing to see here",
       "receivedFriendRequest": "<0>{{user}}</0> sent you a friend request.",
       "tabs": {
         "addFriends": "Add friends",
-        "friendList": "Friends list",
+        "friendsList": "Friends list",
         "socialSettings": "Social settings"
       },
       "title": {
@@ -941,8 +939,6 @@
     "profile": {
       "achievements": "Achievements",
       "latestGames": "Latest games",
-      "noAchievements": "Nothing to see here",
-      "novice": "Novice",
       "points": "Points",
       "rank": "Rank",
       "rating": "Rating",
@@ -962,6 +958,9 @@
       "ranked": "Ranked",
       "rightClick": "Right-click user for more actions",
       "viewProfile": "View profile"
+    },
+    "titles": {
+      "novice": "Novice"
     }
   },
   "whispers": {
