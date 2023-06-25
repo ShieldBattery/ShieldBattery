@@ -131,23 +131,23 @@ function LeagueList() {
   return (
     <ListRoot>
       <TitleRow>
-        <Title>{t('league.list.pageHeadline', 'Leagues')}</Title>
+        <Title>{t('leagues.list.pageHeadline', 'Leagues')}</Title>
         {isAdmin ? (
-          <Link href='/leagues/admin'>{t('league.list.manageLeagues', 'Manage leagues')}</Link>
+          <Link href='/leagues/admin'>{t('leagues.list.manageLeagues', 'Manage leagues')}</Link>
         ) : null}
         <FlexSpacer />
         <Link href='#' onClick={onHowItWorksClick}>
-          {t('league.list.howDoLeaguesWork', 'How do leagues work?')}
+          {t('leagues.list.howDoLeaguesWork', 'How do leagues work?')}
         </Link>
       </TitleRow>
 
       {!isLoading && error ? (
-        <ErrorText>{t('league.list.loadingError', 'Error loading leagues')}</ErrorText>
+        <ErrorText>{t('leagues.list.loadingError', 'Error loading leagues')}</ErrorText>
       ) : null}
 
       {!isLoading || currentLeagues.length ? (
         <LeagueSection
-          label={t('league.list.currentlyRunning', 'Currently running')}
+          label={t('leagues.list.currentlyRunning', 'Currently running')}
           leagues={currentLeagues}
           joinedLeagues={selfLeagues}
           type={LeagueSectionType.Current}
@@ -155,7 +155,7 @@ function LeagueList() {
       ) : undefined}
       {futureLeagues.length ? (
         <LeagueSection
-          label={t('league.list.acceptingSignups', 'Accepting signups')}
+          label={t('leagues.list.acceptingSignups', 'Accepting signups')}
           leagues={futureLeagues}
           joinedLeagues={selfLeagues}
           type={LeagueSectionType.Future}
@@ -163,7 +163,7 @@ function LeagueList() {
       ) : null}
       {pastLeagues.length ? (
         <LeagueSection
-          label={t('league.list.finished', 'Finished')}
+          label={t('leagues.list.finished', 'Finished')}
           leagues={pastLeagues}
           joinedLeagues={selfLeagues}
           type={LeagueSectionType.Past}
@@ -227,12 +227,12 @@ function LeagueSection({
               type={type}
               curDate={curDate}
               joined={joinedLeagues.has(l.id)}
-              actionText={t('league.list.viewInfo', 'View info')}
+              actionText={t('leagues.list.viewInfo', 'View info')}
               onClick={onViewInfo}
             />
           ))
         ) : (
-          <EmptyText>{t('league.list.noLeagues', 'No matching leagues')}</EmptyText>
+          <EmptyText>{t('leagues.list.noLeagues', 'No matching leagues')}</EmptyText>
         )}
       </SectionCards>
     </SectionRoot>
@@ -337,14 +337,14 @@ export function LeagueCard({
   let dateTooltip: string
   switch (type) {
     case LeagueSectionType.Current:
-      dateText = t('league.list.ends', {
+      dateText = t('leagues.list.ends', {
         defaultValue: 'Ends {{endDate}}',
         endDate: narrowDuration.format(league.endAt, curDate),
       })
       dateTooltip = longTimestamp.format(league.endAt)
       break
     case LeagueSectionType.Future:
-      dateText = t('league.list.starts', {
+      dateText = t('leagues.list.starts', {
         defaultValue: 'Starts {{startDate}}',
         startDate: narrowDuration.format(league.startAt, curDate),
       })
@@ -381,7 +381,7 @@ export function LeagueCard({
         {joined ? (
           <JoinedIndicator>
             <MaterialIcon icon='check' />
-            <span>{t('league.list.joined', 'Joined')}</span>
+            <span>{t('leagues.list.joined', 'Joined')}</span>
           </JoinedIndicator>
         ) : (
           <div />

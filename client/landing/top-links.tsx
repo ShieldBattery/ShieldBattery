@@ -159,10 +159,10 @@ export function TopLinks({ className }: { className?: string }) {
             <Link href='/faq'>{t('landing.topLinks.faq', 'FAQ')}</Link>
           </li>
           <li>
-            <Link href='/ladder'>{t('landing.topLinks.ladder', 'Ladder')}</Link>
+            <Link href='/ladder'>{t('ladder.activity.title', 'Ladder')}</Link>
           </li>
           <li>
-            <Link href='/leagues'>{t('landing.topLinks.leagues', 'Leagues')}</Link>
+            <Link href='/leagues'>{t('leagues.activity.title', 'Leagues')}</Link>
           </li>
           <Spacer />
           <li>

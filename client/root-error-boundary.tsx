@@ -1,4 +1,5 @@
 import React from 'react'
+import { Trans, WithTranslation, withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { DISCORD_URL } from '../common/url-constants'
 import logger from './logging/logger'
@@ -9,7 +10,7 @@ import ResetStyle from './styles/reset'
 import { Headline5, subtitle1 } from './styles/typography'
 import { WindowControls, WindowControlsStyle } from './system-bar/window-controls'
 
-export interface RootErrorBoundaryProps {
+export interface RootErrorBoundaryProps extends WithTranslation {
   /** A class name that will be applied to the root container that displays errors. */
   className?: string
   children: React.ReactNode
@@ -54,7 +55,7 @@ const Instructions = styled.div`
  * considered the error boundary of last resort, and ideally errors would be caught deeper in the
  * tree (by adding more error boundaries).
  */
-export class RootErrorBoundary extends React.Component<
+class BaseRootErrorBoundary extends React.Component<
   RootErrorBoundaryProps,
   RootErrorBoundaryState
 > {
@@ -73,6 +74,7 @@ export class RootErrorBoundary extends React.Component<
 
   override render() {
     if (this.state.error) {
+      const { t } = this.props
       const { error } = this.state
 
       return (
@@ -82,14 +84,16 @@ export class RootErrorBoundary extends React.Component<
           <WindowControlsStyle />
           <WindowControls />
           <Container>
-            <Headline5>Something went wrong :(</Headline5>
+            <Headline5>{t('rootErrorBoundary.title', 'Something went wrong :(')}</Headline5>
             <ErrorInfo>{String(error.stack ?? error)}</ErrorInfo>
             <Instructions>
-              Please report this issue to us in our{' '}
-              <a href={DISCORD_URL} title='Discord' target='_blank' rel='noopener'>
-                Discord
-              </a>
-              .
+              <Trans t={t} i18nKey='rootErrorBoundary.contents'>
+                Please report this issue to us in our{' '}
+                <a href={DISCORD_URL} title='Discord' target='_blank' rel='noopener'>
+                  Discord
+                </a>
+                .
+              </Trans>
             </Instructions>
             <RaisedButton label='Reload app' color='primary' onClick={this.reloadApp} />
           </Container>
@@ -109,3 +113,5 @@ export class RootErrorBoundary extends React.Component<
     }
   }
 }
+
+export const RootErrorBoundary = withTranslation()(BaseRootErrorBoundary)

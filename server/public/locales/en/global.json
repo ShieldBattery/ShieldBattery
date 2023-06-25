@@ -341,6 +341,9 @@
     "tabSummary": "Summary"
   },
   "ladder": {
+    "activity": {
+      "title": "Ladder"
+    },
     "division": "Division",
     "divisionGroup": {
       "all": "All",
@@ -461,13 +464,24 @@
       "changeLanguage": "Change language",
       "faq": "FAQ",
       "home": "Home",
-      "ladder": "Ladder",
-      "leagues": "Leagues",
       "login": "Log in"
     }
   },
-  "league": {
-    "details": {
+  "leagues": {
+    "activity": {
+      "title": "Leagues"
+    },
+    "explainer": {
+      "description": "Leagues are a new way to compete for prizes, qualify for tournament entries, and more!",
+      "howLeaguesWork": "How leagues work",
+      "joinDescription": "Find a league that is currently running or accepting signups in the format you'd like to play. Some leagues may have different requirements, rules, or qualifications, so make sure to read the information before joining!",
+      "joinTitle": "Join.",
+      "playDescription": "Once a league has started, all ladder games you play will reward points towards the league standings alongside your normal ladder standings. Check the leaderboard on the league page to see how you're doing!",
+      "playTitle": "Play.",
+      "winDescription": "After a league finishes, the leaderboard will be available for organizers to distribute prizes and rewards. Check out the league information page for more details.",
+      "winTitle": "Win!"
+    },
+    "leagueDetails": {
       "about": "About",
       "copyLink": "Copy link to league",
       "dateText": "{{startDate}} to {{endDate}}",
@@ -491,16 +505,6 @@
       "retrieveError": "There was an error retrieving this league: {{errorMessage}}",
       "rulesAndInfo": "Rules and info"
     },
-    "explainer": {
-      "description": "Leagues are a new way to compete for prizes, qualify for tournament entries, and more!",
-      "howLeaguesWork": "How leagues work",
-      "joinDescription": "Find a league that is currently running or accepting signups in the format you'd like to play. Some leagues may have different requirements, rules, or qualifications, so make sure to read the information before joining!",
-      "joinTitle": "Join.",
-      "playDescription": "Once a league has started, all ladder games you play will reward points towards the league standings alongside your normal ladder standings. Check the leaderboard on the league page to see how you're doing!",
-      "playTitle": "Play.",
-      "winDescription": "After a league finishes, the leaderboard will be available for organizers to distribute prizes and rewards. Check out the league information page for more details.",
-      "winTitle": "Win!"
-    },
     "list": {
       "acceptingSignups": "Accepting signups",
       "currentlyRunning": "Currently running",
@@ -517,6 +521,9 @@
     }
   },
   "lobbies": {
+    "activity": {
+      "title": "Lobbies"
+    },
     "createLobby": {
       "backToList": "Back to list",
       "disabledInPartyText": "Creating a lobby as a party is currently under development. Leave your party to continue.",
@@ -585,6 +592,9 @@
     }
   },
   "maps": {
+    "activity": {
+      "title": "Maps"
+    },
     "details": {
       "editDescription": "Edit description",
       "editName": "Edit name",
@@ -644,6 +654,10 @@
       "readyUp": "Ready up",
       "removedFromQueue": "You didn't ready up in time and have been removed from the queue.",
       "returningToQueue": "Some players didn't ready up in time or failed to load. Returning to the matchmaking queue…"
+    },
+    "activity": {
+      "finding": "Finding…",
+      "findMatch": "Find match"
     },
     "disabledCard": {
       "days": "Days",
@@ -879,6 +893,9 @@
     "termsOfService": "Terms of service"
   },
   "replays": {
+    "activity": {
+      "title": "Replays"
+    },
     "local": {
       "duration": "Duration: {{durationStr}}",
       "gameType": "Game type: {{gameTypeLabel}}",
@@ -888,7 +905,14 @@
       "watchReplay": "Watch replay"
     }
   },
+  "rootErrorBoundary": {
+    "contents": "Please report this issue to us in our <2>Discord</2>.",
+    "title": "Something went wrong :("
+  },
   "settings": {
+    "activity": {
+      "title": "Settings (Alt + S)"
+    },
     "app": {
       "label": "App",
       "sound": {

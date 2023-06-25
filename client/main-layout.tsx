@@ -1,6 +1,7 @@
 import { Immutable } from 'immer'
 import keycode from 'keycode'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Route, Switch } from 'wouter'
 import { MapInfoJson } from '../common/maps'
@@ -140,6 +141,7 @@ function useHealthyStarcraftCallback<T extends (...args: any[]) => any>(
 }
 
 export function MainLayout() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const isAdmin = useIsAdmin()
   const inGameplayActivity = useAppSelector(s => s.gameplayActivity.inGameplayActivity)
@@ -235,7 +237,7 @@ export function MainLayout() {
           type: ActivityOverlayType.BrowseServerMaps,
           initData: {
             uploadedMap: map,
-            title: 'Maps',
+            title: t('maps.activity.title', 'Maps'),
             onMapUpload,
             onMapSelect: onMapDetails,
             onMapDetails,
@@ -245,7 +247,7 @@ export function MainLayout() {
         }),
       )
     },
-    [dispatch, onMapDetails, onRegenMapImage, onRemoveMap],
+    [dispatch, onMapDetails, onRegenMapImage, onRemoveMap, t],
   )
 
   // TODO(tec27): Figure out why the hell this requires a valid starcraft installation and then fix
@@ -258,7 +260,7 @@ export function MainLayout() {
         openOverlay({
           type: ActivityOverlayType.BrowseServerMaps,
           initData: {
-            title: 'Maps',
+            title: t('maps.activity.title', 'Maps'),
             onMapUpload,
             onMapSelect: onMapDetails,
             onMapDetails,
@@ -285,7 +287,7 @@ export function MainLayout() {
     <ActivityButton
       key='find-match'
       icon={<FindMatchIcon />}
-      label='Find match'
+      label={t('matchmaking.activity.findMatch', 'Find match')}
       onClick={onFindMatchClick}
       disabled={inGameplayActivity}
       hotkey={ALT_F}
@@ -296,7 +298,7 @@ export function MainLayout() {
       ref={searchingMatchButtonRef}
       icon={<FindMatchIcon />}
       glowing={true}
-      label='Finding…'
+      label={t('matchmaking.activity.finding', 'Finding…')}
       onClick={() => setSearchingMatchOverlayOpen(true)}
       hotkey={ALT_F}
     />
@@ -307,7 +309,7 @@ export function MainLayout() {
         <ActivityButton
           key='lobbies'
           icon={<MaterialIcon icon='holiday_village' size={36} />}
-          label='Lobbies'
+          label={t('lobbies.activity.title', 'Lobbies')}
           onClick={onLobbiesClick}
           hotkey={ALT_B}
           count={lobbyCount > 0 ? lobbyCount : undefined}
@@ -315,28 +317,28 @@ export function MainLayout() {
         <ActivityButton
           key='maps'
           icon={<MaterialIcon icon='map' size={36} />}
-          label='Maps'
+          label={t('maps.activity.title', 'Maps')}
           onClick={onMapsClick}
           hotkey={ALT_M}
         />,
         <ActivityButton
           key='replays'
           icon={<MaterialIcon icon='movie' size={36} />}
-          label='Replays'
+          label={t('replays.activity.title', 'Replays')}
           onClick={onReplaysClick}
           hotkey={ALT_R}
         />,
         <ActivityButton
           key='ladder'
           icon={<MaterialIcon icon='military_tech' size={36} />}
-          label='Ladder'
+          label={t('ladder.activity.title', 'Ladder')}
           onClick={() => navigateToLadder()}
           hotkey={ALT_D}
         />,
         <ActivityButton
           key='leagues'
           icon={<MaterialIcon icon='social_leaderboard' size={36} />}
-          label='Leagues'
+          label={t('leagues.activity.title', 'Leagues')}
           onClick={() => navigateToLeaguesList()}
           hotkey={ALT_G}
         />,
@@ -346,21 +348,21 @@ export function MainLayout() {
         <ActivityButton
           key='download'
           icon={<MaterialIcon icon='download' size={36} />}
-          label='Download'
+          label={t('common.actions.download', 'Download')}
           onClick={() => dispatch(openDialog({ type: DialogType.Download }))}
           hotkey={ALT_O}
         />,
         <ActivityButton
           key='ladder'
           icon={<MaterialIcon icon='military_tech' size={36} />}
-          label='Ladder'
+          label={t('ladder.activity.title', 'Ladder')}
           onClick={() => navigateToLadder()}
           hotkey={ALT_D}
         />,
         <ActivityButton
           key='leagues'
           icon={<MaterialIcon icon='social_leaderboard' size={36} />}
-          label='Leagues'
+          label={t('leagues.activity.title', 'Leagues')}
           onClick={() => navigateToLeaguesList()}
           hotkey={ALT_G}
         />,
@@ -394,7 +396,7 @@ export function MainLayout() {
 
         <MiniActivityButtonsContainer key='mini-buttons'>
           <NotificationsButton />
-          <Tooltip text='Settings (Alt + S)' position='left'>
+          <Tooltip text={t('settings.activity.title', 'Settings (Alt + S)')} position='left'>
             <IconButton
               key='settings'
               ref={settingsButtonRef}

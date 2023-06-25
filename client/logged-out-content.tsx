@@ -1,5 +1,6 @@
 import keycode from 'keycode'
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Route, Switch } from 'wouter'
 import ActivityBar from './activities/activity-bar'
@@ -46,6 +47,7 @@ export interface LoggedOutContentProps {
  * MainLayout when logged in.
  */
 export function LoggedOutContent({ loggedInContent }: LoggedOutContentProps) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
   // TODO(tec27): Share more of the ActivityBar logic/styling with MainLayout
@@ -65,21 +67,21 @@ export function LoggedOutContent({ loggedInContent }: LoggedOutContentProps) {
         <ActivityButton
           key='download'
           icon={<MaterialIcon icon='download' size={36} />}
-          label='Download'
+          label={t('common.actions.download', 'Download')}
           onClick={() => dispatch(openDialog({ type: DialogType.Download }))}
           hotkey={ALT_O}
         />
         <ActivityButton
           key='ladder'
           icon={<MaterialIcon icon='military_tech' size={36} />}
-          label='Ladder'
+          label={t('ladder.activity.title', 'Ladder')}
           onClick={() => navigateToLadder()}
           hotkey={ALT_D}
         />
         <ActivityButton
           key='leagues'
           icon={<MaterialIcon icon='social_leaderboard' size={36} />}
-          label='Leagues'
+          label={t('leagues.activity.title', 'Leagues')}
           onClick={() => navigateToLeaguesList()}
           hotkey={ALT_G}
         />
