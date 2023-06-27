@@ -1,11 +1,13 @@
 import PropTypes from 'prop-types'
 import React from 'react'
+import { withTranslation } from 'react-i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RacePicker } from './race-picker'
 import SelectedRace from './selected-race'
 import { Slot, SlotEmptyAvatar, SlotEmptyName, SlotLeft, SlotProfileOpen, SlotRight } from './slot'
 import { SlotActions } from './slot-actions'
 
+@withTranslation()
 export default class OpenSlot extends React.Component {
   static propTypes = {
     onAddComputer: PropTypes.func,
@@ -52,18 +54,19 @@ export default class OpenSlot extends React.Component {
       onCloseSlot,
       onMakeObserver,
       onRemoveObserver,
+      t,
     } = this.props
     const slotActions = []
     if (isHost) {
-      slotActions.push(['Close slot', onCloseSlot])
+      slotActions.push([t('lobbies.slots.closeSlot', 'Close slot'), onCloseSlot])
       if (!controlledOpen && !isObserver && onAddComputer) {
-        slotActions.push(['Add computer', onAddComputer])
+        slotActions.push([t('lobbies.slots.addComputer', 'Add computer'), onAddComputer])
       }
       if (canMakeObserver) {
-        slotActions.push(['Make observer', onMakeObserver])
+        slotActions.push([t('lobbies.slots.makeObserver', 'Make observer'), onMakeObserver])
       }
       if (canRemoveObserver) {
-        slotActions.push(['Make player', onRemoveObserver])
+        slotActions.push([t('lobbies.slots.makePlayer', 'Make player'), onRemoveObserver])
       }
     }
 
@@ -77,7 +80,7 @@ export default class OpenSlot extends React.Component {
             <SlotEmptyAvatar>
               {this.state.isHovered ? <MaterialIcon icon='swap_vert' /> : null}
             </SlotEmptyAvatar>
-            <SlotEmptyName as='span'>Open</SlotEmptyName>
+            <SlotEmptyName as='span'>{t('lobbies.slots.open', 'Open')}</SlotEmptyName>
           </SlotProfileOpen>
           {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
         </SlotLeft>

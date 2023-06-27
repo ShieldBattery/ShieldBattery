@@ -1,4 +1,5 @@
 import React from 'react'
+import { withTranslation } from 'react-i18next'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { Route, Switch } from 'wouter'
@@ -62,6 +63,7 @@ const PreLobbyArea = styled.div`
   padding: 0 16px;
 `
 
+@withTranslation()
 @connect(mapStateToProps)
 export default class LobbyView extends React.Component {
   componentDidMount() {
@@ -176,21 +178,28 @@ export default class LobbyView extends React.Component {
 
   // TODO(tec27): refactor out into its own component
   renderLobbyStateContent(state) {
+    const { t } = this.props
     switch (state) {
       case 'nonexistent':
-        return <p key='stateContent'>Lobby doesn't exist. Create it?</p>
+        return (
+          <p key='stateContent'>
+            {t('lobbies.state.nonexistent', "Lobby doesn't exist. Create it?")}
+          </p>
+        )
       case 'exists':
-        return <p key='stateContent'>Lobby already exists. Join it?</p>
+        return (
+          <p key='stateContent'>{t('lobbies.state.exists', 'Lobby already exists. Join it?')}</p>
+        )
       case 'countingDown':
       case 'hasStarted':
-        return <p key='stateContent'>Lobby already started.</p>
+        return <p key='stateContent'>{t('lobbies.state.started', 'Lobby already started.')}</p>
       default:
         throw new Error('Unknown lobby state: ' + state)
     }
   }
 
   renderLobbyState(routeLobby) {
-    const { lobbyState } = this.props
+    const { lobbyState, t } = this.props
     if (!lobbyState.has(routeLobby)) {
       return null
     }
@@ -205,7 +214,9 @@ export default class LobbyView extends React.Component {
           </LoadingArea>
         )
       } else {
-        preLobbyAreaContents = <span>There was a problem loading this lobby</span>
+        preLobbyAreaContents = (
+          <span>{t('lobbies.errors.load', 'There was a problem loading this lobby')}</span>
+        )
       }
     } else if (lobby.state) {
       preLobbyAreaContents = [
@@ -223,7 +234,7 @@ export default class LobbyView extends React.Component {
             <LoadingIndicator />
           </LoadingArea>
         ) : null,
-        <p>There was a problem loading this lobby</p>,
+        <p>{t('lobbies.errors.load', 'There was a problem loading this lobby')}</p>,
       ]
     }
 
@@ -231,7 +242,11 @@ export default class LobbyView extends React.Component {
   }
 
   renderLeaveAndJoin() {
-    return <PreLobbyArea as='p'>You're already in another lobby.</PreLobbyArea>
+    return (
+      <PreLobbyArea as='p'>
+        {t('lobbies.errors.alreadyInLobby', "You're already in another lobby.")}
+      </PreLobbyArea>
+    )
   }
 
   onLeaveLobbyClick = () => {

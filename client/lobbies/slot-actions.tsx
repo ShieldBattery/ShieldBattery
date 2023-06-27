@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
@@ -10,6 +11,7 @@ interface SlotActionsProps {
 }
 
 export function SlotActions({ slotActions }: SlotActionsProps) {
+  const { t } = useTranslation()
   const [overlayOpen, openOverlay, closeOverlay] = usePopoverController()
   const [anchorRef, anchorX, anchorY] = useAnchorPosition('right', 'top')
 
@@ -33,7 +35,7 @@ export function SlotActions({ slotActions }: SlotActionsProps) {
     <div>
       <IconButton
         icon={<MaterialIcon icon='more_vert' />}
-        title='Slot actions'
+        title={t('lobbies.slots.slotActions', 'Slot actions')}
         ref={anchorRef}
         onClick={openOverlay}
       />
