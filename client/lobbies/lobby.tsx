@@ -155,7 +155,7 @@ function renderChatMessage(msg: SbMessage) {
   }
 }
 
-interface LobbyProps extends WithTranslation {
+interface LobbyProps {
   lobby: LobbyInfo
   chat: List<SbMessage>
   user: SelfUserRecord
@@ -176,7 +176,7 @@ interface LobbyProps extends WithTranslation {
   onStartGame: () => void
 }
 
-class Lobby extends React.Component<LobbyProps> {
+class Lobby extends React.Component<LobbyProps & WithTranslation> {
   getTeamSlots(team: Team, isObserver: boolean, isLobbyUms: boolean) {
     const {
       lobby,
