@@ -14,7 +14,7 @@ export const DEV_ERROR = DEV()
 /** Show the "dev mode" indicator on the site (don't move this past dev mode). */
 export const DEV_INDICATOR = DEV()
 /** Allow users to join multiple channels (and leave channels). */
-export const MULTI_CHANNEL = DEV()
+export const MULTI_CHANNEL = ON()
 /** Calculate a static turnrate to use rather than using dynamic. */
 export const USE_STATIC_TURNRATE = ON()
 // TODO(2Pac): Flip this flag to ON once we have a news/home page
