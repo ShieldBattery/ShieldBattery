@@ -989,5 +989,73 @@
         "titles": {
             "novice": "Principiante"
         }
+    },
+    "lobbies": {
+        "createLobby": {
+            "backToList": "volver a la lista",
+            "disabledInPartyText": "Actualmente se está desarrollando la creación de un lobby como partido. Deja tu fiesta para continuar.",
+            "disabledInPartyTitle": "Deshabilitado mientras está en la fiesta",
+            "lobbyNameRequired": "Ingrese un nombre de lobby",
+            "mapRequired": "Selecciona un mapa para jugar",
+            "selectMap": "Seleccionar mapa",
+            "title": "Crear vestíbulo",
+            "gameSubTypeHeader": "equipos",
+            "gameSubTypeOption": "{{numTeams}} equipos",
+            "gameSubTypeOptionTvB": "{{topSlots}} frente a {{bottomSlots}}",
+            "gameTypeHeader": "Tipo de juego",
+            "lobbyName": "Nombre del vestíbulo"
+        },
+        "errors": {
+            "alreadyInLobby": "Ya estás en otro vestíbulo.",
+            "load": "Hubo un problema al cargar este lobby"
+        },
+        "events": {
+            "banned": "Has sido expulsado del lobby.",
+            "kicked": "Te han echado del vestíbulo."
+        },
+        "joinLobby": {
+            "disabledInPartyText": "Unirse a un lobby como partido está actualmente en desarrollo. Deja tu fiesta para continuar.",
+            "disabledInPartyTitle": "Deshabilitado mientras está en la fiesta",
+            "noOpenLobbies": "No hay vestíbulos abiertos.",
+            "title": "Unirse al vestíbulo",
+            "noActiveLobbies": "No hay grupos de presión activos."
+        },
+        "loading": {
+            "content": "<0>{{gameType}}</0><1> en </1><2>{{mapName}}</2>"
+        },
+        "lobby": {
+            "gameType": "Tipo de juego",
+            "leaveLobby": "Salir del vestíbulo",
+            "startGame": "Empezar juego"
+        },
+        "messageLayout": {
+            "banPlayer": "<0><0></0></0> ha sido expulsado del lobby",
+            "countdownCanceled": "La cuenta regresiva del juego ha sido cancelada.",
+            "countdownStarted": "La cuenta regresiva del juego ha comenzado",
+            "gameInitializationCanceled": "La inicialización del juego ha sido cancelada.",
+            "hostChange": "<0><0></0></0> ahora es el anfitrión",
+            "joinLobby": "<0><0></0></0> se ha unido al lobby",
+            "kickPlayer": "<0><0></0></0> ha sido expulsado del lobby",
+            "leaveLobby": "<0><0></0></0> ha salido de la sala de espera",
+            "selfJoin": "Te has unido a <1>{{lobby}}</1>. El anfitrión es <4><0></0></4>."
+        },
+        "slots": {
+            "closeSlot": "Cerrar ranura",
+            "kickPlayer": "patear al jugador",
+            "makeObserver": "Hacer observador",
+            "makePlayer": "hacer jugador",
+            "name": "Cerrado",
+            "open": "Abierto",
+            "openSlot": "ranura abierta",
+            "removeComputer": "Quitar computadora",
+            "slotActions": "Acciones de tragamonedas",
+            "addComputer": "Agregar computadora",
+            "banPlayer": "Prohibir jugador"
+        },
+        "state": {
+            "exists": "El vestíbulo ya existe. ¿Únete?",
+            "nonexistent": "El vestíbulo no existe. crearlo?",
+            "started": "El lobby ya comenzó."
+        }
     }
 }
