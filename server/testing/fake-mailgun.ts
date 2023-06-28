@@ -51,6 +51,12 @@ router
     ctx.status = 200
     ctx.body = {}
   })
+  .put('/v3/:domain/templates/:templateName/versions/:versionCode', async ctx => {
+    // Just act like all the templates exist, we're not trying to catch template issues with these
+    // tests
+    ctx.status = 200
+    ctx.body = {}
+  })
   .get('/sent/:to', async ctx => {
     const { to } = ctx.params
 

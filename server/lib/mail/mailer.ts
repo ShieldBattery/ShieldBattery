@@ -1,3 +1,4 @@
+import { createHash } from 'crypto'
 import formData from 'form-data'
 import { readFile } from 'fs/promises'
 import handlebars, { TemplateDelegate } from 'handlebars'
@@ -8,7 +9,7 @@ import log from '../logging/logger'
 const enabled = !!process.env.SB_MAILGUN_KEY
 
 const FROM = enabled ? process.env.SB_MAILGUN_FROM : ''
-const HOST = process.env.SB_CANONICAL_HOST
+const HOST = process.env.SB_CANONICAL_HOST!
 const DOMAIN = process.env.SB_MAILGUN_DOMAIN
 const mailgunClient = enabled
   ? new Mailgun(formData).client({
@@ -18,6 +19,8 @@ const mailgunClient = enabled
       url: process.env.SB_MAILGUN_URL,
     })
   : undefined
+
+const TEMPLATE_VERSION = createHash('sha256').update(HOST).digest('base64')
 
 interface TemplateCollection {
   html: TemplateDelegate
@@ -102,6 +105,7 @@ export async function sendMailTemplate({
     template: templateName,
     't:text': 'yes',
     't:variables': JSON.stringify({ ...templateData, HOST }),
+    't:version': TEMPLATE_VERSION,
   } satisfies MailgunMessageData
 
   if (!enabled) {
