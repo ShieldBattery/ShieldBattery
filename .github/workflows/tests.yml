@@ -86,6 +86,10 @@ jobs:
         if: ${{ failure() }}
         run: docker logs integration_app-server_1
 
+      - name: View mailgun logs
+        if: ${{ failure() }}
+        run: docker logs integration_mailgun_1
+
       - uses: actions/upload-artifact@v2
         if: ${{ failure() || success() }}
         with:
