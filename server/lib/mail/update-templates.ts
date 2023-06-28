@@ -83,10 +83,15 @@ async function getTemplateVersion(
 ): Promise<Record<string, any> | undefined> {
   try {
     return await got
-      .get(`${MAILGUN_URL}/${DOMAIN}/templates/${templateName}/versions/${versionCode}`, {
-        headers: mailgunHeaders(),
-        timeout: 5000,
-      })
+      .get(
+        `${MAILGUN_URL}/${DOMAIN}/templates/${encodeURIComponent(
+          templateName,
+        )}/versions/${encodeURIComponent(versionCode)}`,
+        {
+          headers: mailgunHeaders(),
+          timeout: 5000,
+        },
+      )
       .json<Record<string, any>>()
   } catch (err: any) {
     if (err.code === 'ERR_NON_2XX_3XX_RESPONSE' && err.response?.statusCode === 404) {
@@ -100,7 +105,7 @@ async function getTemplateVersion(
 async function getTemplate(templateName: string): Promise<Record<string, any> | undefined> {
   try {
     return await got
-      .get(`${MAILGUN_URL}/${DOMAIN}/templates/${templateName}`, {
+      .get(`${MAILGUN_URL}/${DOMAIN}/templates/${encodeURIComponent(templateName)}`, {
         headers: mailgunHeaders(),
         timeout: 5000,
       })
@@ -165,10 +170,15 @@ async function updateTemplateVersion(
   body.append('engine', 'handlebars')
 
   return await got
-    .put(`${MAILGUN_URL}/${DOMAIN}/templates/${templateName}/versions/${versionCode}`, {
-      headers: mailgunHeaders(),
-      body,
-      timeout: 5000,
-    })
+    .put(
+      `${MAILGUN_URL}/${DOMAIN}/templates/${encodeURIComponent(
+        templateName,
+      )}/versions/${encodeURIComponent(versionCode)}`,
+      {
+        headers: mailgunHeaders(),
+        body,
+        timeout: 5000,
+      },
+    )
     .json<Record<string, any>>()
 }
