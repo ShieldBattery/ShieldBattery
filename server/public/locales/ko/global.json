@@ -14,28 +14,15 @@
         }
     },
     "settings": {
-        "app": {
-            "system": {
-                "label": "체계"
-            }
-        },
         "game": {
             "gameplay": {
                 "label": "게임플레이"
-            },
-            "sound": {
-                "label": "소리"
             },
             "video": {
                 "label": "동영상"
             }
         },
-        "close": "설정 닫기",
-        "user": {
-            "language": {
-                "label": "언어"
-            }
-        }
+        "close": "설정 닫기"
     },
     "auth": {
         "forgot": {
@@ -156,11 +143,9 @@
     },
     "landing": {
         "topLinks": {
-            "leagues": "리그",
             "changeLanguage": "언어 변경",
             "faq": "자주하는 질문",
             "home": "집",
-            "ladder": "사다리",
             "login": "로그인"
         }
     },

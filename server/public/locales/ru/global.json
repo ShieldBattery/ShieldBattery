@@ -14,34 +14,20 @@
         }
     },
     "settings": {
-        "app": {
-            "system": {
-                "label": "Система"
-            }
-        },
         "game": {
             "gameplay": {
                 "label": "Геймплей"
-            },
-            "sound": {
-                "label": "Звук"
             },
             "video": {
                 "label": "видео"
             }
         },
-        "close": "Закрыть настройки",
-        "user": {
-            "language": {
-                "label": "Язык"
-            }
-        }
+        "close": "Закрыть настройки"
     },
     "landing": {
         "topLinks": {
             "faq": "Часто задаваемые вопросы",
             "home": "Дом",
-            "ladder": "Лестница",
             "leagues": "Лиги",
             "changeLanguage": "Изменить язык",
             "login": "Авторизоваться"

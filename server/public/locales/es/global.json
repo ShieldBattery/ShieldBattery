@@ -34,28 +34,15 @@
         }
     },
     "settings": {
-        "app": {
-            "system": {
-                "label": "Sistema"
-            }
-        },
         "game": {
             "gameplay": {
                 "label": "Como se Juega"
-            },
-            "sound": {
-                "label": "Sonido"
             },
             "video": {
                 "label": "Video"
             }
         },
-        "close": "Cerrar configuración",
-        "user": {
-            "language": {
-                "label": "Idioma"
-            }
-        }
+        "close": "Cerrar configuración"
     },
     "auth": {
         "userErrorDisplay": {
@@ -180,7 +167,6 @@
             "changeLanguage": "Cambiar idioma",
             "faq": "Preguntas más frecuentes",
             "home": "Hogar",
-            "ladder": "Escalera",
             "leagues": "ligas",
             "login": "Acceso"
         },
@@ -580,51 +566,31 @@
     },
     "league": {
         "details": {
-            "about": "Acerca de",
             "copyLink": "Copiar enlace a la liga",
-            "dateText": "{{startDate}} a {{endDate}}",
             "goBack": "volver a la lista",
-            "info": "Información",
             "joined": "Unido",
-            "joinError": "No pude unirme a la liga: {{errorMessage}}",
             "leaderboard": "Tabla de clasificación",
-            "leaderboardError": "Hubo un problema al recuperar la tabla de posiciones: {{errorMessage}}",
             "leaderBoardHeader": {
                 "lastPlayed": "Jugado por última vez",
-                "player": "Jugador",
                 "points": "Puntos",
-                "rank": "Rango",
                 "winLoss": "Ganar perder"
             },
-            "leagueEndedError": "No pude unirme porque la liga ya terminó",
             "leagueJoined": "Se unió a la liga",
-            "noPlayers": "No hay jugadores coincidentes.",
             "notFound": "Liga no encontrada",
-            "retrieveError": "Hubo un error al recuperar esta liga: {{errorMessage}}",
             "rulesAndInfo": "Reglas e información"
         },
         "explainer": {
-            "playDescription": "Una vez que ha comenzado una liga, todos los juegos de escalera que juegues te otorgarán puntos para la clasificación de la liga junto con tu clasificación de escalera normal. ¡Consulta la tabla de clasificación en la página de la liga para ver cómo te va!",
             "playTitle": "Jugar.",
-            "winDescription": "Después de que termine una liga, la tabla de clasificación estará disponible para que los organizadores distribuyan premios y recompensas. Consulte la página de información de la liga para obtener más detalles.",
             "joinTitle": "Unirse.",
-            "winTitle": "¡Ganar!",
             "description": "¡Las ligas son una nueva forma de competir por premios, calificar para participar en torneos y más!",
-            "howLeaguesWork": "Cómo funcionan las ligas",
             "joinDescription": "Encuentra una liga que se esté ejecutando actualmente o que acepte inscripciones en el formato que te gustaría jugar. Algunas ligas pueden tener diferentes requisitos, reglas o calificaciones, ¡así que asegúrese de leer la información antes de unirse!"
         },
         "list": {
-            "acceptingSignups": "Aceptar registros",
             "currentlyRunning": "Actualmente en ejecución",
-            "howDoLeaguesWork": "¿Cómo funcionan las ligas?",
             "loadingError": "Error al cargar ligas",
-            "manageLeagues": "Administrar ligas",
             "noLeagues": "Sin ligas coincidentes",
-            "pageHeadline": "ligas",
             "starts": "Comienza {{startDate}}",
-            "viewInfo": "ver información",
             "ends": "Finaliza {{endDate}}",
-            "finished": "Finalizado",
             "joined": "Unido"
         }
     },
