@@ -15,35 +15,23 @@
     },
     "settings": {
         "app": {
-            "sound": {
-                "label": "소리"
-            },
             "system": {
                 "label": "체계"
-            },
-            "label": "앱"
+            }
         },
         "game": {
             "gameplay": {
                 "label": "게임플레이"
             },
-            "input": {
-                "label": "입력"
-            },
             "sound": {
                 "label": "소리"
             },
-            "starcraft": {
-                "label": "스타 크래프트"
-            },
             "video": {
                 "label": "동영상"
-            },
-            "label": "게임"
+            }
         },
         "close": "설정 닫기",
         "user": {
-            "label": "사용자",
             "language": {
                 "label": "언어"
             }

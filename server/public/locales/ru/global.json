@@ -15,35 +15,23 @@
     },
     "settings": {
         "app": {
-            "sound": {
-                "label": "Звук"
-            },
             "system": {
                 "label": "Система"
-            },
-            "label": "Приложение"
+            }
         },
         "game": {
             "gameplay": {
                 "label": "Геймплей"
             },
-            "input": {
-                "label": "Вход"
-            },
             "sound": {
                 "label": "Звук"
             },
-            "starcraft": {
-                "label": "Стар Крафт"
-            },
             "video": {
                 "label": "видео"
-            },
-            "label": "Игра"
+            }
         },
         "close": "Закрыть настройки",
         "user": {
-            "label": "Пользователь",
             "language": {
                 "label": "Язык"
             }

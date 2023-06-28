@@ -35,35 +35,23 @@
     },
     "settings": {
         "app": {
-            "sound": {
-                "label": "Sonido"
-            },
             "system": {
                 "label": "Sistema"
-            },
-            "label": "aplicación"
+            }
         },
         "game": {
             "gameplay": {
                 "label": "Como se Juega"
             },
-            "input": {
-                "label": "Aporte"
-            },
             "sound": {
                 "label": "Sonido"
             },
-            "starcraft": {
-                "label": "Barco de estrellas"
-            },
             "video": {
                 "label": "Video"
-            },
-            "label": "Juego"
+            }
         },
         "close": "Cerrar configuración",
         "user": {
-            "label": "Usuario",
             "language": {
                 "label": "Idioma"
             }

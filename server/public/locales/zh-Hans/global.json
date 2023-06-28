@@ -15,35 +15,23 @@
     },
     "settings": {
         "app": {
-            "sound": {
-                "label": "声音"
-            },
             "system": {
                 "label": "系统"
-            },
-            "label": "应用程序"
+            }
         },
         "game": {
             "gameplay": {
                 "label": "玩法"
             },
-            "input": {
-                "label": "输入"
-            },
             "sound": {
                 "label": "声音"
             },
-            "starcraft": {
-                "label": "星际争霸"
-            },
             "video": {
                 "label": "视频"
-            },
-            "label": "游戏"
+            }
         },
         "close": "关闭设置",
         "user": {
-            "label": "用户",
             "language": {
                 "label": "语言"
             }

@@ -35,35 +35,23 @@
     },
     "settings": {
         "app": {
-            "system": {
-                "label": "$🗡System🗡!"
-            },
             "sound": {
                 "label": "$🗡Sound🗡!"
-            },
-            "label": "$🗡App🗡!"
+            }
         },
         "game": {
             "gameplay": {
                 "label": "$🗡Gameplay🗡!"
             },
-            "sound": {
-                "label": "$🗡Sound🗡!"
-            },
             "starcraft": {
                 "label": "$🗡StarCraft🗡!"
             },
-            "video": {
-                "label": "$🗡Video🗡!"
-            },
             "input": {
                 "label": "$🗡Input🗡!"
-            },
-            "label": "$🗡Game🗡!"
+            }
         },
         "close": "$🗡Close settings🗡!",
         "user": {
-            "label": "$🗡User🗡!",
             "language": {
                 "label": "$🗡Language🗡!"
             }
