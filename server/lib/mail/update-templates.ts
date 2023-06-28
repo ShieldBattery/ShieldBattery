@@ -10,7 +10,7 @@ const API_KEY = process.env.SB_MAILGUN_KEY
 const HOST = process.env.SB_CANONICAL_HOST!
 const DOMAIN = process.env.SB_MAILGUN_DOMAIN
 // NOTE(tec27): This is optional and only really meant to be used for testing
-const MAILGUN_URL = process.env.SB_MAILGUN_URL || `https://api.mailgun.net/v3`
+const MAILGUN_URL = (process.env.SB_MAILGUN_URL || `https://api.mailgun.net`) + '/v3'
 
 /**
  * Sends updated email templates to the mailgun API, so they can be used during the email sending
