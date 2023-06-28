@@ -838,7 +838,7 @@
     },
     "close": "Close settings",
     "errors": {
-      "merge": "There was an issue saving the settings."
+      "save": "There was an issue saving the settings."
     },
     "game": {
       "gameplay": {

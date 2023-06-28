@@ -42,7 +42,7 @@ export function mergeLocalSettings(
     } catch (err) {
       dispatch(
         openSnackbar({
-          message: i18n.t('settings.errors.merge', 'There was an issue saving the settings.'),
+          message: i18n.t('settings.errors.save', 'There was an issue saving the settings.'),
         }),
       )
     }
@@ -59,7 +59,7 @@ export function mergeScrSettings(
     } catch (err) {
       dispatch(
         openSnackbar({
-          message: i18n.t('settings.errors.merge', 'There was an issue saving the settings.'),
+          message: i18n.t('settings.errors.save', 'There was an issue saving the settings.'),
         }),
       )
     }
