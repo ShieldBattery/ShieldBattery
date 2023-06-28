@@ -83,9 +83,7 @@ export class RootErrorBoundary extends React.Component<
           <WindowControlsStyle />
           <WindowControls />
           <Container>
-            <ContentsErrorBoundary>
-              <ErrorContents rootError={error} />
-            </ContentsErrorBoundary>
+            <ContentsErrorBoundary rootError={error} />
           </Container>
         </>
       )
@@ -96,7 +94,7 @@ export class RootErrorBoundary extends React.Component<
 }
 
 export interface ContentsErrorBoundaryProps {
-  children: ReturnType<typeof ErrorContents>
+  rootError: Error
 }
 
 interface ContentsErrorBoundaryState {
@@ -116,23 +114,17 @@ class ContentsErrorBoundary extends React.Component<
   }
 
   override render() {
-    const { children } = this.props
+    const { rootError } = this.props
     const { hasTranslationError } = this.state
 
-    return hasTranslationError ? React.cloneElement(children, { hasTranslationError }) : children
+    return hasTranslationError ? (
+      <StaticErrorContents rootError={rootError} onReloadAppClick={this.reloadApp} />
+    ) : (
+      <TranslatedErrorContents rootError={rootError} onReloadAppClick={this.reloadApp} />
+    )
   }
-}
 
-function ErrorContents({
-  rootError,
-  hasTranslationError,
-}: {
-  rootError: Error
-  hasTranslationError?: boolean
-}) {
-  const { t } = useTranslation()
-
-  const reloadApp = () => {
+  reloadApp = () => {
     if (location.pathname === '/') {
       location.reload()
     } else {
@@ -140,21 +132,17 @@ function ErrorContents({
       location.pathname = '/'
     }
   }
+}
 
-  return hasTranslationError ? (
-    <>
-      <Headline5>Something went wrong :(</Headline5>
-      <ErrorInfo>{String(rootError.stack ?? rootError)}</ErrorInfo>
-      <Instructions>
-        Please report this issue to us in our{' '}
-        <a href={DISCORD_URL} title='Discord' target='_blank' rel='noopener'>
-          Discord
-        </a>
-        .
-      </Instructions>
-      <RaisedButton label='Reload app' color='primary' onClick={reloadApp} />
-    </>
-  ) : (
+interface ErrorContentsProps {
+  rootError: Error
+  onReloadAppClick?: () => void
+}
+
+function TranslatedErrorContents({ rootError, onReloadAppClick }: ErrorContentsProps) {
+  const { t } = useTranslation()
+
+  return (
     <>
       <Headline5>{t('rootErrorBoundary.title', 'Something went wrong :(')}</Headline5>
       <ErrorInfo>{String(rootError.stack ?? rootError)}</ErrorInfo>
@@ -170,8 +158,25 @@ function ErrorContents({
       <RaisedButton
         label={t('rootErrorBoundary.reloadApp', 'Reload app')}
         color='primary'
-        onClick={reloadApp}
+        onClick={onReloadAppClick}
       />
+    </>
+  )
+}
+
+function StaticErrorContents({ rootError, onReloadAppClick }: ErrorContentsProps) {
+  return (
+    <>
+      <Headline5>Something went wrong :(</Headline5>
+      <ErrorInfo>{String(rootError.stack ?? rootError)}</ErrorInfo>
+      <Instructions>
+        Please report this issue to us in our{' '}
+        <a href={DISCORD_URL} title='Discord' target='_blank' rel='noopener'>
+          Discord
+        </a>
+        .
+      </Instructions>
+      <RaisedButton label='Reload app' color='primary' onClick={onReloadAppClick} />
     </>
   )
 }
