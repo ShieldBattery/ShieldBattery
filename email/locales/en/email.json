@@ -1,5 +1,17 @@
 {
+  "common": {
+    "footer": "Follow <1>@ShieldBatteryBW</1> on Twitter.",
+    "signatureFrom": "— The ShieldBattery team",
+    "signatureText": "gl hf gogogo"
+  },
   "test": {
     "click": "Click me (updated)"
+  },
+  "usernameRecovery": {
+    "intro": "Someone requested a list of all usernames registered to this email account ({{email}}). If this wasn't you, you can safely ignore this email.",
+    "listText": "The usernames registered to this email are:",
+    "loginText": "You can log in with any of the above usernames by visiting <2>our login page</2>.",
+    "preview": "Someone requested a list of all usernames registered to this email account on ShieldBattery.",
+    "title": "ShieldBattery Username Recovery"
   }
 }

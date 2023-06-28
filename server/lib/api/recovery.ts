@@ -2,7 +2,7 @@ import Router, { RouterContext } from '@koa/router'
 import cuid from 'cuid'
 import httpErrors from 'http-errors'
 import { isValidEmail, isValidUsername } from '../../../common/constants'
-import sendMail from '../mail/mailer'
+import { sendMail, sendMailTemplate } from '../mail/mailer'
 import { addPasswordResetCode } from '../models/password-resets'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
@@ -64,11 +64,12 @@ async function recoverUsername(ctx: RouterContext) {
     return
   }
 
-  await sendMail({
+  await sendMailTemplate({
     to: email,
     subject: 'ShieldBattery Username Recovery',
     templateName: 'username-recovery',
     templateData: {
+      email,
       usernames: users.map(user => ({ username: user.name })),
     },
   })

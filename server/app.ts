@@ -103,7 +103,7 @@ app.on('error', (err: PossibleHttpError & PossibleNodeError, ctx?: RouterContext
     // case they start happening for things we don't expect
     log.warn({ err, req: ctx?.req }, 'server error (non-severe)')
   } else {
-    log.error({ err, req: ctx?.req }, 'server error')
+    log.error({ err, req: ctx?.req, cause: (err as any)?.cause }, 'server error')
   }
 })
 
