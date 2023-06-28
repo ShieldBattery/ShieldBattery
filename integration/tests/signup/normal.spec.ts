@@ -31,7 +31,7 @@ test('sign up and verify email in same browser', async ({ page }) => {
 
   const emails = await sentEmailChecker.retrieveSentEmails(email)
   expect(emails).toHaveLength(1)
-  const link = VERIFICATION_LINK_REGEX.exec(emails[0].text)?.groups?.link
+  const link = VERIFICATION_LINK_REGEX.exec(emails[0].text ?? '')?.groups?.link
   expect(link).toBeDefined()
 
   await page.goto(link!)
@@ -61,7 +61,7 @@ test('sign up and verify email in different browser', async ({ context, page }) 
 
   const emails = await sentEmailChecker.retrieveSentEmails(email)
   expect(emails).toHaveLength(1)
-  const link = VERIFICATION_LINK_REGEX.exec(emails[0].text)?.groups?.link
+  const link = VERIFICATION_LINK_REGEX.exec(emails[0].text ?? '')?.groups?.link
   expect(link).toBeDefined()
 
   await context.clearCookies()

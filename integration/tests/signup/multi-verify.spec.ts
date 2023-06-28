@@ -27,7 +27,7 @@ test('wrong token -> resend -> first token -> second token', async ({ page }) =>
 
   const emails = await sentEmailChecker.retrieveSentEmails(email)
   expect(emails).toHaveLength(1)
-  const link = VERIFICATION_LINK_REGEX.exec(emails[0].text)?.groups?.link
+  const link = VERIFICATION_LINK_REGEX.exec(emails[0].text ?? '')?.groups?.link
   expect(link).toBeDefined()
 
   const linkUrl = new URL(link!)
@@ -46,7 +46,7 @@ test('wrong token -> resend -> first token -> second token', async ({ page }) =>
   // Successfully verified, grab the second token link now and re-verify
   const moreEmails = await sentEmailChecker.retrieveSentEmails(email)
   expect(moreEmails).toHaveLength(2)
-  const secondLink = VERIFICATION_LINK_REGEX.exec(emails[0].text)?.groups?.link
+  const secondLink = VERIFICATION_LINK_REGEX.exec(emails[0].text ?? '')?.groups?.link
   expect(secondLink).toBeDefined()
 
   await page.goto('/')
