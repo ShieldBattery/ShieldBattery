@@ -1,4 +1,5 @@
 import React, { useRef } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { TypedIpcRenderer } from '../../../common/ipc'
 import { useForm } from '../../forms/form-hook'
@@ -57,6 +58,7 @@ interface StarcraftSettingsModel {
 }
 
 export function StarcraftSettings() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const localSettings = useAppSelector(s => s.settings.local)
   const browseButtonRef = useRef<HTMLButtonElement>(null)
@@ -99,23 +101,32 @@ export function StarcraftSettings() {
       <FormContainer>
         <div>
           <Instructions>
-            Please select the directory where you have installed StarCraft: Remastered.
+            {t(
+              'settings.game.starcraft.instructions.topPart',
+              'Please select the directory where you have installed StarCraft: Remastered.',
+            )}
           </Instructions>
           <Instructions>
-            This is usually <ExampleText>C:\Program Files (x86)\StarCraft</ExampleText> but may be
-            elsewhere if you have customized it in the Battle.net launcher.
+            <Trans t={t} i18nKey='settings.game.starcraft.instructions.bottomPart'>
+              This is usually <ExampleText>C:\Program Files (x86)\StarCraft</ExampleText> but may be
+              elsewhere if you have customized it in the Battle.net launcher.
+            </Trans>
           </Instructions>
 
           <SelectFolderContainer>
             <PathContainer onClick={onBrowseClick}>
               <StyledTextField
                 {...bindInput('starcraftPath')}
-                label='StarCraft folder path'
+                label={t('settings.game.starcraft.folderPath', 'StarCraft folder path')}
                 disabled={true}
               />
             </PathContainer>
             <BrowseButtonContainer>
-              <RaisedButton ref={browseButtonRef} label='Browse' onClick={onBrowseClick} />
+              <RaisedButton
+                ref={browseButtonRef}
+                label={t('common.actions.browse', 'Browse')}
+                onClick={onBrowseClick}
+              />
             </BrowseButtonContainer>
           </SelectFolderContainer>
         </div>

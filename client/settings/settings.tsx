@@ -179,19 +179,19 @@ function Settings({
   return (
     <Container style={style}>
       <NavContainer>
-        <NavSectionTitle>{t('settings.user.label', 'User')}</NavSectionTitle>
+        <NavSectionTitle>{t('settings.user.title', 'User')}</NavSectionTitle>
         {[UserSettingsSubPage.Language].map(getNavEntriesMapper())}
 
         {IS_ELECTRON ? (
           <>
             <NavSectionSeparator />
 
-            <NavSectionTitle>{t('settings.app.label', 'App')}</NavSectionTitle>
+            <NavSectionTitle>{t('settings.app.title', 'App')}</NavSectionTitle>
             {[AppSettingsSubPage.Sound, AppSettingsSubPage.System].map(getNavEntriesMapper())}
 
             <NavSectionSeparator />
 
-            <NavSectionTitle>{t('settings.game.label', 'Game')}</NavSectionTitle>
+            <NavSectionTitle>{t('settings.game.title', 'Game')}</NavSectionTitle>
             {[GameSettingsSubPage.StarCraft].map(
               getNavEntriesMapper({ hasError: !isStarcraftHealthy }),
             )}
@@ -423,28 +423,28 @@ function SettingsSubPageTitle({
   let title
   switch (subPage) {
     case UserSettingsSubPage.Language:
-      title = t('settings.user.language.label', 'Language')
+      title = t('settings.user.language.title', 'Language')
       break
     case AppSettingsSubPage.Sound:
-      title = t('settings.app.sound.label', 'Sound')
+      title = t('settings.app.sound.title', 'Sound')
       break
     case AppSettingsSubPage.System:
-      title = t('settings.app.system.label', 'System')
+      title = t('settings.app.system.title', 'System')
       break
     case GameSettingsSubPage.StarCraft:
-      title = t('settings.game.starcraft.label', 'StarCraft')
+      title = t('settings.game.starcraft.title', 'StarCraft')
       break
     case GameSettingsSubPage.Input:
-      title = t('settings.game.input.label', 'Input')
+      title = t('settings.game.input.title', 'Input')
       break
     case GameSettingsSubPage.Sound:
-      title = t('settings.game.sound.label', 'Sound')
+      title = t('settings.game.sound.title', 'Sound')
       break
     case GameSettingsSubPage.Video:
-      title = t('settings.game.video.label', 'Video')
+      title = t('settings.game.video.title', 'Video')
       break
     case GameSettingsSubPage.Gameplay:
-      title = t('settings.game.gameplay.label', 'Gameplay')
+      title = t('settings.game.gameplay.title', 'Gameplay')
       break
     default:
       assertUnreachable(subPage)

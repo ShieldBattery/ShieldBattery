@@ -1,3 +1,4 @@
+import { TFunction } from 'i18next'
 import { assertUnreachable } from '../assert-unreachable'
 
 /**
@@ -19,22 +20,22 @@ export const ALL_CONSOLE_SKINS: Readonly<ConsoleSkin[]> = Object.values(ConsoleS
 /**
  * Returns a displayable name for a `ConsoleSkin`.
  */
-export function getConsoleSkinName(skin: ConsoleSkin): string {
+export function getConsoleSkinName(skin: ConsoleSkin, t: TFunction): string {
   switch (skin) {
     case ConsoleSkin.Default:
-      return 'Default'
+      return t('settings.game.gameplay.consoleSkins.default', 'Default')
     case ConsoleSkin.BlizzCon2017:
-      return 'BlizzCon 2017'
+      return t('settings.game.gameplay.consoleSkins.blizzcon2017', 'BlizzCon 2017')
     case ConsoleSkin.BlizzCon2018:
-      return 'BlizzCon 2018'
+      return t('settings.game.gameplay.consoleSkins.blizzcon2018', 'BlizzCon 2018')
     case ConsoleSkin.SC20thAnniversary:
-      return 'StarCraft 20th Anniversary'
+      return t('settings.game.gameplay.consoleSkins.20thAnniversary', 'StarCraft 20th Anniversary')
     case ConsoleSkin.KrcSilver:
-      return 'KRC Silver'
+      return t('settings.game.gameplay.consoleSkins.krcSilver', 'KRC Silver')
     case ConsoleSkin.KrcGold:
-      return 'KRC Gold'
+      return t('settings.game.gameplay.consoleSkins.krcGold', 'KRC Gold')
     case ConsoleSkin.War3Spoils:
-      return 'WarCraft 3 Spoils'
+      return t('settings.game.gameplay.consoleSkins.warcraft3', 'WarCraft 3 Spoils')
     default:
       return assertUnreachable(skin)
   }
@@ -55,14 +56,14 @@ export const ALL_INGAME_SKINS: Readonly<IngameSkin[]> = Object.values(IngameSkin
 /**
  * Returns a displayable name for an `IngameSkin`.
  */
-export function getIngameSkinName(skin: IngameSkin): string {
+export function getIngameSkinName(skin: IngameSkin, t: TFunction): string {
   switch (skin) {
     case IngameSkin.Default:
-      return 'None'
+      return t('settings.game.gameplay.ingameSkins.none', 'None')
     case IngameSkin.Preorder:
-      return 'Preorder'
+      return t('settings.game.gameplay.ingameSkins.preorder', 'Preorder')
     case IngameSkin.Carbot:
-      return 'Carbot'
+      return t('settings.game.gameplay.ingameSkins.carbot', 'Carbot')
     default:
       return assertUnreachable(skin)
   }
@@ -88,14 +89,14 @@ export const ALL_DISPLAY_MODES: Readonly<DisplayMode[]> = [
 /**
  * Returns a displayable name for a `DisplayMode`.
  */
-export function getDisplayModeName(mode: DisplayMode): string {
+export function getDisplayModeName(mode: DisplayMode, t: TFunction): string {
   switch (mode) {
     case DisplayMode.Windowed:
-      return 'Windowed'
+      return t('settings.game.video.displayMode.windowed', 'Windowed')
     case DisplayMode.WindowedFullscreen:
-      return 'Windowed (Fullscreen)'
+      return t('settings.game.video.displayMode.windowedFullscreen', 'Windowed (Fullscreen)')
     case DisplayMode.Fullscreen:
-      return 'Fullscreen'
+      return t('settings.game.video.displayMode.fullscreen', 'Fullscreen')
     default:
       return assertUnreachable(mode)
   }
@@ -116,20 +117,20 @@ export enum Announcer {
 export const ALL_ANNOUNCERS: Readonly<Announcer[]> = Object.values(Announcer)
 
 /** Returns a displayable name for an `Announcer`. */
-export function getAnnouncerName(announcer: Announcer): string {
+export function getAnnouncerName(announcer: Announcer, t: TFunction): string {
   switch (announcer) {
     case Announcer.Default:
-      return 'Default'
+      return t('settings.game.sound.announcer.default', 'Default')
     case Announcer.Jaekyung:
-      return 'Um Jae Kyung'
+      return t('settings.game.sound.announcer.umJaeKyung', 'Um Jae Kyung')
     case Announcer.Jini:
-      return 'Hey Jini'
+      return t('settings.game.sound.announcer.heyJini', 'Hey Jini')
     case Announcer.Jungmin:
-      return 'Kim Jungmin'
+      return t('settings.game.sound.announcer.kimJungmin', 'Kim Jungmin')
     case Announcer.UmJeonKim:
-      return 'Um, Jeon, Kim Trio'
+      return t('settings.game.sound.announcer.umJeonKim', 'Um, Jeon, Kim Trio')
     case Announcer.Yongjun:
-      return 'Jeon Yong Jun'
+      return t('settings.game.sound.announcer.jeonYongJun', 'Jeon Yong Jun')
     default:
       return assertUnreachable(announcer)
   }

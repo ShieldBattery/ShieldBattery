@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import audioManager, { AvailableSound } from '../../audio/audio-manager'
 import { useForm } from '../../forms/form-hook'
@@ -33,6 +34,7 @@ interface AppSoundSettingsModel {
 }
 
 export function AppSoundSettings() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const localSettings = useAppSelector(s => s.settings.local)
   const [isPlayingTestSound, setIsPlayingTestSound] = useState(false)
@@ -96,7 +98,7 @@ export function AppSoundSettings() {
           <VolumeSettings>
             <StyledSlider
               {...bindCustom('masterVolume')}
-              label='Master volume'
+              label={t('settings.app.sound.masterVolume', 'Master volume')}
               tabIndex={0}
               min={0}
               max={100}
@@ -104,7 +106,11 @@ export function AppSoundSettings() {
               showTicks={false}
             />
             <TestSoundButton
-              label={isPlayingTestSound ? 'Stop' : 'Test'}
+              label={
+                isPlayingTestSound
+                  ? t('common.actions.stop', 'Stop')
+                  : t('common.actions.test', 'Test')
+              }
               iconStart={
                 isPlayingTestSound ? (
                   <MaterialIcon icon='stop' />

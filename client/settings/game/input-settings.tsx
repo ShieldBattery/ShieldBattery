@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import { useForm } from '../../forms/form-hook'
 import SubmitOnEnter from '../../forms/submit-on-enter'
 import CheckBox from '../../material/check-box'
@@ -19,6 +20,7 @@ interface GameInputSettingsModel {
 }
 
 export function GameInputSettings() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const scrSettings = useAppSelector(s => s.settings.scr)
 
@@ -55,7 +57,7 @@ export function GameInputSettings() {
         <div>
           <Slider
             {...bindCustom('keyboardScrollSpeed')}
-            label='Keyboard scroll speed'
+            label={t('settings.game.input.keyboardScrollSpeed', 'Keyboard scroll speed')}
             tabIndex={0}
             min={0}
             max={6}
@@ -63,7 +65,7 @@ export function GameInputSettings() {
           />
           <Slider
             {...bindCustom('mouseScrollSpeed')}
-            label='Mouse scroll speed'
+            label={t('settings.game.input.mouseScrollSpeed', 'Mouse scroll speed')}
             tabIndex={0}
             min={0}
             max={6}
@@ -74,12 +76,12 @@ export function GameInputSettings() {
         <div>
           <CheckBox
             {...bindCheckable('mouseSensitivityOn')}
-            label='Custom mouse sensitivity'
+            label={t('settings.game.input.customMouseSensitivity', 'Custom mouse sensitivity')}
             inputProps={{ tabIndex: 0 }}
           />
           <Slider
             {...bindCustom('mouseSensitivity')}
-            label='Mouse sensitivity'
+            label={t('settings.game.input.mouseSensitivity', 'Mouse sensitivity')}
             tabIndex={0}
             min={0}
             max={100}
@@ -90,17 +92,17 @@ export function GameInputSettings() {
           <Spacer />
           <CheckBox
             {...bindCheckable('mouseScalingOn')}
-            label='Use mouse scaling'
+            label={t('settings.game.input.mouseScaling', 'Use mouse scaling')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('hardwareCursorOn')}
-            label='Hardware cursor'
+            label={t('settings.game.input.hardwareCursor', 'Hardware cursor')}
             inputProps={{ tabIndex: 0 }}
           />
           <CheckBox
             {...bindCheckable('mouseConfineOn')}
-            label='Lock cursor to window'
+            label={t('settings.game.input.lockCursor', 'Lock cursor to window')}
             inputProps={{ tabIndex: 0 }}
           />
         </div>

@@ -232,6 +232,7 @@
       "apply": "Apply",
       "back": "Back",
       "block": "Block",
+      "browse": "Browse",
       "cancel": "Cancel",
       "clear": "Clear",
       "continue": "Continue",
@@ -248,6 +249,8 @@
       "search": "Search",
       "show": "Show",
       "start": "Start",
+      "stop": "Stop",
+      "test": "Test",
       "unblock": "Unblock",
       "view": "View"
     },
@@ -890,38 +893,135 @@
   },
   "settings": {
     "app": {
-      "label": "App",
       "sound": {
-        "label": "Sound"
+        "masterVolume": "Master volume",
+        "title": "Sound"
       },
       "system": {
-        "label": "System"
-      }
+        "runOnStartup": "Run ShieldBattery on system startup",
+        "startMinimized": "Start minimized",
+        "title": "System"
+      },
+      "title": "App"
     },
     "close": "Close settings",
+    "errors": {
+      "save": "There was an issue saving the settings."
+    },
     "game": {
       "gameplay": {
-        "label": "Gameplay"
+        "apmAlert": "Alert when APM falls below",
+        "apmColorText": "Color text",
+        "apmDisplay": "APM display",
+        "apmSound": "Play sound",
+        "apmValue": "APM value",
+        "apmValueValidation": "Enter a value between 1 and 999",
+        "colorCycling": "Enable color cycling",
+        "consoleSkins": {
+          "20thAnniversary": "StarCraft 20th Anniversary",
+          "blizzcon2017": "BlizzCon 2017",
+          "blizzcon2018": "BlizzCon 2018",
+          "default": "Default",
+          "krcGold": "KRC Gold",
+          "krcSilver": "KRC Silver",
+          "title": "Console skin",
+          "warcraft3": "WarCraft 3 Spoils"
+        },
+        "devOnlySettings": "Dev-only settings",
+        "gameTimer": "Game timer",
+        "ingameSkins": {
+          "carbot": "Carbot",
+          "none": "None",
+          "preorder": "Preorder",
+          "title": "Ingame skin"
+        },
+        "latency": "Show latency",
+        "minimapPosition": {
+          "bottomLeft": "Bottom-left corner",
+          "standard": "Standard",
+          "title": "Minimap position"
+        },
+        "showBonusSkins": "Show bonus skins",
+        "skinsInfo": "Skins (must be purchased from Blizzard)",
+        "title": "Gameplay",
+        "unitPortraits": {
+          "animated": "Animated",
+          "disabled": "Disabled",
+          "still": "Still",
+          "title": "Portraits"
+        },
+        "visualizeNetworkStalls": "Visualize network stalls"
       },
       "input": {
-        "label": "Input"
+        "customMouseSensitivity": "Custom mouse sensitivity",
+        "hardwareCursor": "Hardware cursor",
+        "keyboardScrollSpeed": "Keyboard scroll speed",
+        "lockCursor": "Lock cursor to window",
+        "mouseScaling": "Use mouse scaling",
+        "mouseScrollSpeed": "Mouse scroll speed",
+        "mouseSensitivity": "Mouse sensitivity",
+        "title": "Input"
       },
-      "label": "Game",
       "sound": {
-        "label": "Sound"
+        "announcer": {
+          "default": "Default",
+          "heyJini": "Hey Jini",
+          "info": "Packs (must be purchased from Blizzard)",
+          "jeonYongJun": "Jeon Yong Jun",
+          "kimJungmin": "Kim Jungmin",
+          "title": "Announcer",
+          "umJaeKyung": "Um Jae Kyung",
+          "umJeonKim": "Um, Jeon, Kim Trio"
+        },
+        "backgroundSounds": "Sound plays while in background",
+        "buildingSounds": "Building sounds",
+        "cinematicSubtitles": "Cinematic subtitles",
+        "gameSounds": "Game sounds",
+        "gameSubtitles": "Game subtitles",
+        "music": "Music",
+        "musicVolume": "Music volume",
+        "originalVoiceOvers": "Original unit voice overs",
+        "soundVolume": "Sound volume",
+        "title": "Sound",
+        "unitAcknowledgements": "Unit acknowledgements",
+        "unitSpeech": "Unit speech"
       },
       "starcraft": {
-        "label": "StarCraft"
+        "folderPath": "StarCraft folder path",
+        "instructions": {
+          "bottomPart": "This is usually <1>C:\\Program Files (x86)\\StarCraft</1> but may be elsewhere if you have customized it in the Battle.net launcher.",
+          "topPart": "Please select the directory where you have installed StarCraft: Remastered."
+        },
+        "title": "StarCraft"
       },
+      "title": "Game",
       "video": {
-        "label": "Video"
+        "displayMode": {
+          "fullscreen": "Fullscreen",
+          "title": "Display mode",
+          "windowed": "Windowed",
+          "windowedFullscreen": "Windowed (Fullscreen)"
+        },
+        "enableFpsLimit": "Enable FPS limit",
+        "enableVerticalSync": "Enable vertical sync",
+        "environmentEffects": "Environment effects",
+        "fpsLimit": "FPS limit",
+        "hdGraphics": "HD graphics",
+        "pillarbox": "Pillarbox (4:3 aspect ratio)",
+        "realTimeLighting": "Real-time lighting",
+        "sdGraphicsFilter": "SD graphics filter",
+        "shadowStacking": "Shadow stacking",
+        "showFps": "Show FPS",
+        "smoothUnitTurning": "Smooth unit turning",
+        "title": "Video"
       }
     },
     "user": {
-      "label": "User",
       "language": {
-        "label": "Language"
-      }
+        "selectLanguage": "Select a language",
+        "title": "Language"
+      },
+      "title": "User"
     }
   },
   "starcraft": {

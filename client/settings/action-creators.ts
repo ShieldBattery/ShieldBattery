@@ -2,6 +2,7 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import { LocalSettings, ScrSettings } from '../../common/settings/local-settings'
 import { audioManager } from '../audio/audio-manager'
 import { ThunkAction } from '../dispatch-registry'
+import i18n from '../i18n/i18next'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { openSnackbar } from '../snackbars/action-creators'
 import { ChangeSettingsSubPage, CloseSettings, OpenSettings } from './actions'
@@ -39,7 +40,11 @@ export function mergeLocalSettings(
     try {
       await ipcRenderer.invoke('settingsLocalMerge', settings)
     } catch (err) {
-      dispatch(openSnackbar({ message: 'There was an issue saving the settings.' }))
+      dispatch(
+        openSnackbar({
+          message: i18n.t('settings.errors.save', 'There was an issue saving the settings.'),
+        }),
+      )
     }
   })
 }
@@ -52,7 +57,11 @@ export function mergeScrSettings(
     try {
       await ipcRenderer.invoke('settingsScrMerge', settings)
     } catch (err) {
-      dispatch(openSnackbar({ message: 'There was an issue saving the settings.' }))
+      dispatch(
+        openSnackbar({
+          message: i18n.t('settings.errors.save', 'There was an issue saving the settings.'),
+        }),
+      )
     }
   })
 }
