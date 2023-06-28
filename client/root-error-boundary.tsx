@@ -101,6 +101,12 @@ interface ContentsErrorBoundaryState {
   hasTranslationError?: boolean
 }
 
+/**
+ * A React error boundary that is specifically meant to catch the errors in calling
+ * translation-related functions when displaying the error contents. If there are any errors in
+ * displaying the translated version of the error contents, we fallback to displaying the static,
+ * English version of the error contents.
+ */
 class ContentsErrorBoundary extends React.Component<
   ContentsErrorBoundaryProps,
   ContentsErrorBoundaryState
