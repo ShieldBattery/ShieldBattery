@@ -28,7 +28,7 @@ export async function updateEmailTemplates() {
 
   // We base our version code on the canonical URL so different servers on the same mail domain
   // end up with unique versions of the templates
-  const versionCode = createHash('sha256').update(HOST).digest('base64') + 'a'
+  const versionCode = createHash('sha256').update(HOST).digest('base64')
   logger.info('Updating email templates, versionCode = ' + versionCode)
 
   await Promise.all(
