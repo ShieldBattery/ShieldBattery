@@ -36,22 +36,22 @@ export function LeagueExplainerDialog({ dialogRef, onCancel }: CommonDialogProps
 
   return (
     <StyledDialog
-      title={t('league.explainer.howLeaguesWork', 'How leagues work')}
+      title={t('leagues.explainer.howLeaguesWork', 'How leagues work')}
       onCancel={onCancel}
       showCloseButton={true}
       dialogRef={dialogRef}>
       <Subtitle1>
         {t(
-          'league.explainer.description',
+          'leagues.explainer.description',
           'Leagues are a new way to compete for prizes, qualify for tournament entries, and more!',
         )}
       </Subtitle1>
 
       <List>
         <ListEntry>
-          <Emphasized>{t('league.explainer.joinTitle', 'Join.')}</Emphasized>
+          <Emphasized>{t('leagues.explainer.joinTitle', 'Join.')}</Emphasized>
           <div>
-            <Trans t={t} i18nKey='league.explainer.joinDescription'>
+            <Trans t={t} i18nKey='leagues.explainer.joinDescription'>
               Find a league that is currently running or accepting signups in the format you'd like
               to play. Some leagues may have different requirements, rules, or qualifications, so
               make sure to read the information before joining!
@@ -59,9 +59,9 @@ export function LeagueExplainerDialog({ dialogRef, onCancel }: CommonDialogProps
           </div>
         </ListEntry>
         <ListEntry>
-          <Emphasized>{t('league.explainer.playTitle', 'Play.')}</Emphasized>
+          <Emphasized>{t('leagues.explainer.playTitle', 'Play.')}</Emphasized>
           <div>
-            <Trans t={t} i18nKey='league.explainer.playDescription'>
+            <Trans t={t} i18nKey='leagues.explainer.playDescription'>
               Once a league has started, all ladder games you play will reward points towards the
               league standings alongside your normal ladder standings. Check the leaderboard on the
               league page to see how you're doing!
@@ -69,9 +69,9 @@ export function LeagueExplainerDialog({ dialogRef, onCancel }: CommonDialogProps
           </div>
         </ListEntry>
         <ListEntry>
-          <Emphasized>{t('league.explainer.winTitle', 'Win!')}</Emphasized>
+          <Emphasized>{t('leagues.explainer.winTitle', 'Win!')}</Emphasized>
           <div>
-            <Trans t={t} i18nKey='league.explainer.winDescription'>
+            <Trans t={t} i18nKey='leagues.explainer.winDescription'>
               After a league finishes, the leaderboard will be available for organizers to
               distribute prizes and rewards. Check out the league information page for more details.
             </Trans>

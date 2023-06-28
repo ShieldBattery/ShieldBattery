@@ -1,4 +1,5 @@
 import React from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { DISCORD_URL } from '../common/url-constants'
 import logger from './logging/logger'
@@ -82,22 +83,51 @@ export class RootErrorBoundary extends React.Component<
           <WindowControlsStyle />
           <WindowControls />
           <Container>
-            <Headline5>Something went wrong :(</Headline5>
-            <ErrorInfo>{String(error.stack ?? error)}</ErrorInfo>
-            <Instructions>
-              Please report this issue to us in our{' '}
-              <a href={DISCORD_URL} title='Discord' target='_blank' rel='noopener'>
-                Discord
-              </a>
-              .
-            </Instructions>
-            <RaisedButton label='Reload app' color='primary' onClick={this.reloadApp} />
+            <ContentsErrorBoundary rootError={error} />
           </Container>
         </>
       )
     }
 
     return this.props.children
+  }
+}
+
+export interface ContentsErrorBoundaryProps {
+  rootError: Error
+}
+
+interface ContentsErrorBoundaryState {
+  hasTranslationError?: boolean
+}
+
+/**
+ * A React error boundary that is specifically meant to catch the errors in calling
+ * translation-related functions when displaying the error contents. If there are any errors in
+ * displaying the translated version of the error contents, we fallback to displaying the static,
+ * English version of the error contents.
+ */
+class ContentsErrorBoundary extends React.Component<
+  ContentsErrorBoundaryProps,
+  ContentsErrorBoundaryState
+> {
+  override state: ContentsErrorBoundaryState = {}
+
+  static getDerivedStateFromError(error: Error) {
+    return {
+      hasTranslationError: error,
+    }
+  }
+
+  override render() {
+    const { rootError } = this.props
+    const { hasTranslationError } = this.state
+
+    return hasTranslationError ? (
+      <StaticErrorContents rootError={rootError} onReloadAppClick={this.reloadApp} />
+    ) : (
+      <TranslatedErrorContents rootError={rootError} onReloadAppClick={this.reloadApp} />
+    )
   }
 
   reloadApp = () => {
@@ -108,4 +138,51 @@ export class RootErrorBoundary extends React.Component<
       location.pathname = '/'
     }
   }
+}
+
+interface ErrorContentsProps {
+  rootError: Error
+  onReloadAppClick?: () => void
+}
+
+function TranslatedErrorContents({ rootError, onReloadAppClick }: ErrorContentsProps) {
+  const { t } = useTranslation()
+
+  return (
+    <>
+      <Headline5>{t('rootErrorBoundary.title', 'Something went wrong :(')}</Headline5>
+      <ErrorInfo>{String(rootError.stack ?? rootError)}</ErrorInfo>
+      <Instructions>
+        <Trans t={t} i18nKey='rootErrorBoundary.contents'>
+          Please report this issue to us in our{' '}
+          <a href={DISCORD_URL} title='Discord' target='_blank' rel='noopener'>
+            Discord
+          </a>
+          .
+        </Trans>
+      </Instructions>
+      <RaisedButton
+        label={t('rootErrorBoundary.reloadApp', 'Reload app')}
+        color='primary'
+        onClick={onReloadAppClick}
+      />
+    </>
+  )
+}
+
+function StaticErrorContents({ rootError, onReloadAppClick }: ErrorContentsProps) {
+  return (
+    <>
+      <Headline5>Something went wrong :(</Headline5>
+      <ErrorInfo>{String(rootError.stack ?? rootError)}</ErrorInfo>
+      <Instructions>
+        Please report this issue to us in our{' '}
+        <a href={DISCORD_URL} title='Discord' target='_blank' rel='noopener'>
+          Discord
+        </a>
+        .
+      </Instructions>
+      <RaisedButton label='Reload app' color='primary' onClick={onReloadAppClick} />
+    </>
+  )
 }
