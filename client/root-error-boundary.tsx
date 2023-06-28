@@ -1,5 +1,5 @@
 import React from 'react'
-import { Trans, WithTranslation, withTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { DISCORD_URL } from '../common/url-constants'
 import logger from './logging/logger'
@@ -10,7 +10,7 @@ import ResetStyle from './styles/reset'
 import { Headline5, subtitle1 } from './styles/typography'
 import { WindowControls, WindowControlsStyle } from './system-bar/window-controls'
 
-export interface RootErrorBoundaryProps extends WithTranslation {
+export interface RootErrorBoundaryProps {
   /** A class name that will be applied to the root container that displays errors. */
   className?: string
   children: React.ReactNode
@@ -55,7 +55,7 @@ const Instructions = styled.div`
  * considered the error boundary of last resort, and ideally errors would be caught deeper in the
  * tree (by adding more error boundaries).
  */
-class BaseRootErrorBoundary extends React.Component<
+export class RootErrorBoundary extends React.Component<
   RootErrorBoundaryProps,
   RootErrorBoundaryState
 > {
@@ -74,7 +74,6 @@ class BaseRootErrorBoundary extends React.Component<
 
   override render() {
     if (this.state.error) {
-      const { t } = this.props
       const { error } = this.state
 
       return (
@@ -84,18 +83,9 @@ class BaseRootErrorBoundary extends React.Component<
           <WindowControlsStyle />
           <WindowControls />
           <Container>
-            <Headline5>{t('rootErrorBoundary.title', 'Something went wrong :(')}</Headline5>
-            <ErrorInfo>{String(error.stack ?? error)}</ErrorInfo>
-            <Instructions>
-              <Trans t={t} i18nKey='rootErrorBoundary.contents'>
-                Please report this issue to us in our{' '}
-                <a href={DISCORD_URL} title='Discord' target='_blank' rel='noopener'>
-                  Discord
-                </a>
-                .
-              </Trans>
-            </Instructions>
-            <RaisedButton label='Reload app' color='primary' onClick={this.reloadApp} />
+            <ContentsErrorBoundary>
+              <ErrorContents rootError={error} />
+            </ContentsErrorBoundary>
           </Container>
         </>
       )
@@ -103,8 +93,46 @@ class BaseRootErrorBoundary extends React.Component<
 
     return this.props.children
   }
+}
 
-  reloadApp = () => {
+export interface ContentsErrorBoundaryProps {
+  children: ReturnType<typeof ErrorContents>
+}
+
+interface ContentsErrorBoundaryState {
+  hasTranslationError?: boolean
+}
+
+class ContentsErrorBoundary extends React.Component<
+  ContentsErrorBoundaryProps,
+  ContentsErrorBoundaryState
+> {
+  override state: ContentsErrorBoundaryState = {}
+
+  static getDerivedStateFromError(error: Error) {
+    return {
+      hasTranslationError: error,
+    }
+  }
+
+  override render() {
+    const { children } = this.props
+    const { hasTranslationError } = this.state
+
+    return hasTranslationError ? React.cloneElement(children, { hasTranslationError }) : children
+  }
+}
+
+function ErrorContents({
+  rootError,
+  hasTranslationError,
+}: {
+  rootError: Error
+  hasTranslationError?: boolean
+}) {
+  const { t } = useTranslation()
+
+  const reloadApp = () => {
     if (location.pathname === '/') {
       location.reload()
     } else {
@@ -112,6 +140,38 @@ class BaseRootErrorBoundary extends React.Component<
       location.pathname = '/'
     }
   }
-}
 
-export const RootErrorBoundary = withTranslation()(BaseRootErrorBoundary)
+  return hasTranslationError ? (
+    <>
+      <Headline5>Something went wrong :(</Headline5>
+      <ErrorInfo>{String(rootError.stack ?? rootError)}</ErrorInfo>
+      <Instructions>
+        Please report this issue to us in our{' '}
+        <a href={DISCORD_URL} title='Discord' target='_blank' rel='noopener'>
+          Discord
+        </a>
+        .
+      </Instructions>
+      <RaisedButton label='Reload app' color='primary' onClick={reloadApp} />
+    </>
+  ) : (
+    <>
+      <Headline5>{t('rootErrorBoundary.title', 'Something went wrong :(')}</Headline5>
+      <ErrorInfo>{String(rootError.stack ?? rootError)}</ErrorInfo>
+      <Instructions>
+        <Trans t={t} i18nKey='rootErrorBoundary.contents'>
+          Please report this issue to us in our{' '}
+          <a href={DISCORD_URL} title='Discord' target='_blank' rel='noopener'>
+            Discord
+          </a>
+          .
+        </Trans>
+      </Instructions>
+      <RaisedButton
+        label={t('rootErrorBoundary.reloadApp', 'Reload app')}
+        color='primary'
+        onClick={reloadApp}
+      />
+    </>
+  )
+}
