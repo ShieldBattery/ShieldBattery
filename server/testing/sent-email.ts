@@ -2,5 +2,6 @@ export interface SentEmail {
   to: string
   from: string
   subject: string
-  text: string
+  template: string
+  templateVariables: Record<string, any>
 }

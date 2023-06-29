@@ -6,74 +6,56 @@ jobs:
   unit-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Using Node.js 18.x
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
           node-version: '18.x'
+          cache: 'yarn'
 
-      - name: Get yarn cache directory path
-        id: yarn-cache-dir-path
-        run: echo "dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+      - name: Install dependencies
+        run: yarn --frozen-lockfile
 
-      - name: Cache yarn cache
-        uses: actions/cache@v2
-        id: cache-yarn-cache
-        with:
-          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-${{ matrix.node-version }}-yarn-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.node-version }}-yarn-
-
-      - name: Cache node_modules
-        uses: actions/cache@v2
-        id: cache-node-modules
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-${{ matrix.node-version }}-nodemodules-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.node-version }}-nodemodules-
-
-      - name: Cache app node_modules
-        uses: actions/cache@v2
-        id: cache-app-node-modules
-        with:
-          path: app/node_modules
-          key: ${{ runner.os }}-${{ matrix.node-version }}-appnodemodules-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.node-version }}-appnodemodules-
-
-      - name: Maybe install the dependencies
-        run: yarn
-        if: |
-          steps.cache-yarn-cache.outputs.cache-hit != 'true' ||
-          steps.cache-node-modules.outputs.cache-hit != 'true'
-
-      - name: Maybe install the app dependencies
-        run: yarn
+      - name: Install app dependencies
+        run: yarn --frozen-lockfile
         working-directory: ./app
-        if: |
-          steps.cache-yarn-cache.outputs.cache-hit != 'true' ||
-          steps.cache-app-node-modules.outputs.cache-hit != 'true'
 
       - name: Run unit tests
         run: yarn test
 
       - name: Check translation files
         id: check-translation-files
-        run: yarn gen-translations --fail-on-update
+        run: yarn gen-translations:app --fail-on-update && yarn gen-translations:email --fail-on-update
 
       - name: Display translation error
         if: ${{ failure() && steps.check-translation-files.conclusion == 'failure' }}
-        run: >
-          echo "The translation files seem incomplete. Please run \"yarn gen-translations\" in the
-          directory root and commit the updated translation files." && exit 1
+        uses: actions/github-script@v6
+        with:
+          script: |
+            core.setFailed('The translation files are not up to date. Please run "yarn gen-translations" in the directory root and commit the updated translation files.')
+
+      - name: Generate email templates
+        id: gen-email-templates
+        run: yarn gen-emails
+
+      - name: Check email templates
+        uses: tj-actions/verify-changed-files@v15
+        id: check-email-templates
+        with:
+          files: server/email/*.html
+
+      - name: Display email template error
+        if: ${{ steps.check-email-templates.outputs.files_changed == 'true' || failure() && steps.gen-email-templates.conclusion == 'failure' }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            core.setFailed('The email templates seem outdated. Please run "yarn gen-emails" in the directory root and commit the updated email templates.')
 
   integration-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Building Docker containers
         run: cd ./integration && docker-compose build
@@ -82,53 +64,17 @@ jobs:
         run: cd ./integration && docker-compose up -V -d
 
       - name: Using Node.js 18.x
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
           node-version: '18.x'
+          cache: 'yarn'
 
-      - name: Get yarn cache directory path
-        id: yarn-cache-dir-path
-        run: echo "dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+      - name: Install dependencies
+        run: yarn --frozen-lockfile
 
-      - name: Cache yarn cache
-        uses: actions/cache@v2
-        id: cache-yarn-cache
-        with:
-          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-${{ matrix.node-version }}-yarn-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.node-version }}-yarn-
-
-      - name: Cache node_modules
-        uses: actions/cache@v2
-        id: cache-node-modules
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-${{ matrix.node-version }}-nodemodules-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.node-version }}-nodemodules-
-
-      - name: Cache app node_modules
-        uses: actions/cache@v2
-        id: cache-app-node-modules
-        with:
-          path: app/node_modules
-          key: ${{ runner.os }}-${{ matrix.node-version }}-appnodemodules-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.node-version }}-appnodemodules-
-
-      - name: Maybe install the dependencies
-        run: yarn
-        if: |
-          steps.cache-yarn-cache.outputs.cache-hit != 'true' ||
-          steps.cache-node-modules.outputs.cache-hit != 'true'
-
-      - name: Maybe install the app dependencies
-        run: yarn
+      - name: Install app dependencies
+        run: yarn --frozen-lockfile
         working-directory: ./app
-        if: |
-          steps.cache-yarn-cache.outputs.cache-hit != 'true' ||
-          steps.cache-app-node-modules.outputs.cache-hit != 'true'
 
       - name: Install playwright dependencies
         run: npx playwright install-deps && npx playwright install
@@ -139,6 +85,10 @@ jobs:
       - name: View app-server logs
         if: ${{ failure() }}
         run: docker logs integration_app-server_1
+
+      - name: View mailgun logs
+        if: ${{ failure() }}
+        run: docker logs integration_mailgun_1
 
       - uses: actions/upload-artifact@v2
         if: ${{ failure() || success() }}

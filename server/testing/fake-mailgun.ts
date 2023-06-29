@@ -28,18 +28,33 @@ const sentMessages = new Map<string, SentEmail[]>()
 
 router
   .post('/v3/:domain/messages', async ctx => {
-    const { to, from, subject, text } = ctx.request.body
-    if (!to || !from || !subject || !text) {
+    const { to, from, subject, template } = ctx.request.body
+    const templateVariables = ctx.request.body['t:variables']
+      ? JSON.parse(ctx.request.body['t:variables'])
+      : undefined
+    if (!to || !from || !subject || !template || !templateVariables) {
       throw new httpErrors.BadRequest('Missing required fields')
     }
 
     if (!sentMessages.has(to)) {
       sentMessages.set(to, [])
     }
-    sentMessages.get(to)!.unshift({ to, from, subject, text })
+    sentMessages.get(to)!.unshift({ to, from, subject, template, templateVariables })
 
     ctx.status = 200
     ctx.body = { message: 'Queued. Thank you.', id: '<123@example.org>' }
+  })
+  .get('/v3/:domain/templates/:templateName/versions/:versionCode', async ctx => {
+    // Just act like all the templates exist, we're not trying to catch template issues with these
+    // tests
+    ctx.status = 200
+    ctx.body = {}
+  })
+  .put('/v3/:domain/templates/:templateName/versions/:versionCode', async ctx => {
+    // Just act like all the templates exist, we're not trying to catch template issues with these
+    // tests
+    ctx.status = 200
+    ctx.body = {}
   })
   .get('/sent/:to', async ctx => {
     const { to } = ctx.params

@@ -1,0 +1,39 @@
+{
+  "common": {
+    "footer": "Follow <1>@ShieldBatteryBW</1> on Twitter.",
+    "signatureFrom": "— The ShieldBattery team",
+    "signatureText": "gl hf gogogo"
+  },
+  "emailChange": {
+    "intro": "You are receiving this email because the email address for <2>{{username}}</2> on ShieldBattery has been changed. If you did not request this change, please contact the ShieldBattery team.",
+    "preview": "You are receiving this email because the email address for {{username}} on ShieldBattery has been changed.",
+    "title": "ShieldBattery Email Changed"
+  },
+  "emailVerification": {
+    "body": "Please confirm your email address by clicking the link below. We may need to send you critical information about our service and it is important that we have an accurate email address.",
+    "button": "Verify email",
+    "intro": "Thank you for signing up to ShieldBattery!",
+    "preview": "Thank you for signing up to ShieldBattery! Please confirm your email address by clicking the link below.",
+    "title": "ShieldBattery Email Verification"
+  },
+  "passwordChange": {
+    "body": "If you did not request this change, you can reset your password by visiting <2>this link</2>.",
+    "intro": "You are receiving this email because the password for <2>{{username}}</2> on ShieldBattery has been changed.",
+    "preview": "You are receiving this email because the password for {{username}} on ShieldBattery has been changed.",
+    "title": "ShieldBattery Password Changed"
+  },
+  "passwordReset": {
+    "body": "Click the link below to set a new password for your account.",
+    "button": "Reset password",
+    "intro": "You are receiving this email because someone requested a password reset for <2>{{username}}</2> on ShieldBattery. If you didn't make this request, please ignore this email.",
+    "preview": "You are receiving this email because someone requested a password reset for {{username}} on ShieldBattery.",
+    "title": "ShieldBattery Password Reset"
+  },
+  "usernameRecovery": {
+    "intro": "Someone requested a list of all usernames registered to this email account ({{email}}). If this wasn't you, you can safely ignore this email.",
+    "listText": "The usernames registered to this email are:",
+    "loginText": "You can log in with any of the above usernames by visiting <2>our login page</2>.",
+    "preview": "Someone requested a list of all usernames registered to this email account on ShieldBattery.",
+    "title": "ShieldBattery Username Recovery"
+  }
+}

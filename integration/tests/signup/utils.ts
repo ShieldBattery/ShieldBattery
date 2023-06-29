@@ -1,4 +1,5 @@
 import { Page } from '@playwright/test'
+import { urlPath } from '../../../common/urls'
 
 export async function signupWith(
   page: Page,
@@ -15,4 +16,10 @@ export async function signupWith(
   await page.click('[data-test=submit-button]')
 }
 
-export const VERIFICATION_LINK_REGEX = /Verify email \( (?<link>\S+) \)/
+export function getVerificationLink(templateData: Record<string, any>): string {
+  return (
+    templateData.HOST +
+    urlPath`/verify-email?token=${templateData.token}&` +
+    urlPath`userId=${templateData.userId}&username=${templateData.username}`
+  )
+}
