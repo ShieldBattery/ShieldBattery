@@ -87,6 +87,12 @@ export async function sendMail({
   }
 }
 
+/**
+ * Sends an email using the specified template name and associated data to apply for variables.
+ * Every template will also have the following data added:
+ *
+ * - `HOST`: The canonical host of the site (e.g. `https://shieldbattery.net`)
+ */
 export async function sendMailTemplate({
   to,
   subject,
