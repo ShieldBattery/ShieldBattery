@@ -1,6 +1,8 @@
 # Translation Guide
 
-Helping with translation in ShieldBattery is easy! First, go to our Weblate portal at https://translation.shieldbattery.net/projects/shieldbattery/app/
+Helping with translation in ShieldBattery is easy! We recommend joining our [Discord](https://discord.gg/g5mmNVfZzm) so that you can stay up-to-date with translation changes and easily ask questions.
+
+First, go to our Weblate portal at https://translation.shieldbattery.net/projects/shieldbattery/app/
 
 You'll see a list of supported languages, along with their respective translation status. It looks like this:
 
