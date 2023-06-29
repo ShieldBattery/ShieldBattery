@@ -15,9 +15,6 @@
     },
     "settings": {
         "game": {
-            "gameplay": {
-                "label": "게임플레이"
-            },
             "video": {
                 "label": "동영상"
             }

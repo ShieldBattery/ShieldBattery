@@ -15,9 +15,6 @@
     },
     "settings": {
         "game": {
-            "gameplay": {
-                "label": "Геймплей"
-            },
             "video": {
                 "label": "видео"
             }
@@ -28,7 +25,6 @@
         "topLinks": {
             "faq": "Часто задаваемые вопросы",
             "home": "Дом",
-            "leagues": "Лиги",
             "changeLanguage": "Изменить язык",
             "login": "Авторизоваться"
         }

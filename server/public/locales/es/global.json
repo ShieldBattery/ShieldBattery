@@ -35,9 +35,6 @@
     },
     "settings": {
         "game": {
-            "gameplay": {
-                "label": "Como se Juega"
-            },
             "video": {
                 "label": "Video"
             }
@@ -167,7 +164,6 @@
             "changeLanguage": "Cambiar idioma",
             "faq": "Preguntas más frecuentes",
             "home": "Hogar",
-            "leagues": "ligas",
             "login": "Acceso"
         },
         "faq": {
@@ -566,31 +562,21 @@
     },
     "league": {
         "details": {
-            "copyLink": "Copiar enlace a la liga",
             "goBack": "volver a la lista",
-            "joined": "Unido",
             "leaderboard": "Tabla de clasificación",
             "leaderBoardHeader": {
-                "lastPlayed": "Jugado por última vez",
-                "points": "Puntos",
-                "winLoss": "Ganar perder"
+                "points": "Puntos"
             },
             "leagueJoined": "Se unió a la liga",
-            "notFound": "Liga no encontrada",
             "rulesAndInfo": "Reglas e información"
         },
         "explainer": {
-            "playTitle": "Jugar.",
             "joinTitle": "Unirse.",
-            "description": "¡Las ligas son una nueva forma de competir por premios, calificar para participar en torneos y más!",
             "joinDescription": "Encuentra una liga que se esté ejecutando actualmente o que acepte inscripciones en el formato que te gustaría jugar. Algunas ligas pueden tener diferentes requisitos, reglas o calificaciones, ¡así que asegúrese de leer la información antes de unirse!"
         },
         "list": {
-            "currentlyRunning": "Actualmente en ejecución",
             "loadingError": "Error al cargar ligas",
-            "noLeagues": "Sin ligas coincidentes",
             "starts": "Comienza {{startDate}}",
-            "ends": "Finaliza {{endDate}}",
             "joined": "Unido"
         }
     },

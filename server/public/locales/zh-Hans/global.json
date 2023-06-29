@@ -15,9 +15,6 @@
     },
     "settings": {
         "game": {
-            "gameplay": {
-                "label": "玩法"
-            },
             "video": {
                 "label": "视频"
             }
@@ -27,7 +24,6 @@
     "landing": {
         "topLinks": {
             "home": "家",
-            "leagues": "联赛",
             "changeLanguage": "改变语言",
             "login": "登录",
             "faq": "常问问题"
