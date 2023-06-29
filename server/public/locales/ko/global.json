@@ -14,11 +14,6 @@
         }
     },
     "settings": {
-        "game": {
-            "video": {
-                "label": "동영상"
-            }
-        },
         "close": "설정 닫기"
     },
     "auth": {

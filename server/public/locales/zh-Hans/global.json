@@ -14,11 +14,6 @@
         }
     },
     "settings": {
-        "game": {
-            "video": {
-                "label": "视频"
-            }
-        },
         "close": "关闭设置"
     },
     "landing": {

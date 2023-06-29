@@ -726,21 +726,14 @@
     },
     "league": {
         "details": {
-            "leaderBoardHeader": {
-                "points": "$🗡Points🗡!"
-            },
             "joinError": "$🗡Couldn't join league: {{errorMessage}}🗡!",
-            "joined": "$🗡Joined🗡!",
-            "leagueJoined": "$🗡League joined🗡!",
-            "rulesAndInfo": "$🗡Rules and info🗡!"
+            "leagueJoined": "$🗡League joined🗡!"
         },
         "explainer": {
-            "howLeaguesWork": "$🗡How leagues work🗡!",
-            "winTitle": "$🗡Win!🗡!"
+            "howLeaguesWork": "$🗡How leagues work🗡!"
         },
         "list": {
             "currentlyRunning": "$🗡Currently running🗡!",
-            "loadingError": "$🗡Error loading leagues🗡!",
             "viewInfo": "$🗡View info🗡!"
         }
     },

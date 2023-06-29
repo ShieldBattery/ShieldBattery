@@ -34,11 +34,6 @@
         }
     },
     "settings": {
-        "game": {
-            "video": {
-                "label": "Video"
-            }
-        },
         "close": "Cerrar configuración"
     },
     "auth": {
@@ -562,21 +557,14 @@
     },
     "league": {
         "details": {
-            "goBack": "volver a la lista",
             "leaderboard": "Tabla de clasificación",
-            "leaderBoardHeader": {
-                "points": "Puntos"
-            },
-            "leagueJoined": "Se unió a la liga",
-            "rulesAndInfo": "Reglas e información"
+            "leagueJoined": "Se unió a la liga"
         },
         "explainer": {
-            "joinTitle": "Unirse.",
-            "joinDescription": "Encuentra una liga que se esté ejecutando actualmente o que acepte inscripciones en el formato que te gustaría jugar. Algunas ligas pueden tener diferentes requisitos, reglas o calificaciones, ¡así que asegúrese de leer la información antes de unirse!"
+            "joinTitle": "Unirse."
         },
         "list": {
             "loadingError": "Error al cargar ligas",
-            "starts": "Comienza {{startDate}}",
             "joined": "Unido"
         }
     },
