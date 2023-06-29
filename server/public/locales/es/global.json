@@ -27,14 +27,150 @@
             "decline": "Rechazar",
             "accept": "Aceptar",
             "block": "Bloquear",
-            "unblock": "Desatascar"
+            "unblock": "Desatascar",
+            "browse": "Navegar",
+            "stop": "Detener",
+            "test": "Prueba"
         },
         "lists": {
             "empty": "Nada que ver aqui"
         }
     },
     "settings": {
-        "close": "Cerrar configuración"
+        "close": "Cerrar configuración",
+        "game": {
+            "starcraft": {
+                "instructions": {
+                    "bottomPart": "Suele ser <1>C:\\Archivos de programa (x86)\\StarCraft</1>, pero puede estar en otro lugar si lo has personalizado en el menú de Battle.net.",
+                    "topPart": "Selecciona el directorio donde has instalado StarCraft: Remastered."
+                },
+                "title": "Barco de estrellas",
+                "folderPath": "Ruta de la carpeta de StarCraft"
+            },
+            "title": "Juego",
+            "video": {
+                "enableFpsLimit": "Habilitar límite de FPS",
+                "enableVerticalSync": "Habilitar sincronización vertical",
+                "environmentEffects": "Efectos ambientales",
+                "pillarbox": "Pillarbox (relación de aspecto 4:3)",
+                "realTimeLighting": "Iluminación en tiempo real",
+                "sdGraphicsFilter": "Filtro de gráficos SD",
+                "shadowStacking": "Apilamiento de sombras",
+                "showFps": "Mostrar fps",
+                "smoothUnitTurning": "Giro suave de la unidad",
+                "displayMode": {
+                    "fullscreen": "Pantalla completa",
+                    "title": "Modo de visualización",
+                    "windowed": "con ventana",
+                    "windowedFullscreen": "Con ventana (pantalla completa)"
+                },
+                "fpsLimit": "límite de FPS",
+                "hdGraphics": "gráficos de alta definición",
+                "title": "Video"
+            },
+            "gameplay": {
+                "apmAlert": "Alerta cuando APM cae por debajo",
+                "apmColorText": "Texto en color",
+                "apmDisplay": "Pantalla APM",
+                "apmSound": "Reproducir sonido",
+                "apmValue": "valor APM",
+                "apmValueValidation": "Introduzca un valor entre 1 y 999",
+                "colorCycling": "Habilitar ciclo de color",
+                "consoleSkins": {
+                    "20thAnniversary": "20.º aniversario de StarCraft",
+                    "blizzcon2017": "BlizzCon 2017",
+                    "blizzcon2018": "BlizzCon 2018",
+                    "default": "Por defecto",
+                    "krcGold": "KRC oro",
+                    "krcSilver": "KRC plata",
+                    "title": "Piel de consola",
+                    "warcraft3": "Botín de WarCraft 3"
+                },
+                "devOnlySettings": "Configuración solo para desarrolladores",
+                "gameTimer": "temporizador de juego",
+                "ingameSkins": {
+                    "carbot": "Carbot",
+                    "none": "Ninguno",
+                    "preorder": "Hacer un pedido",
+                    "title": "Piel dentro del juego"
+                },
+                "latency": "Mostrar latencia",
+                "minimapPosition": {
+                    "bottomLeft": "Esquina izquierda inferior",
+                    "standard": "Estándar",
+                    "title": "Posición del minimapa"
+                },
+                "showBonusSkins": "Mostrar pieles de bonificación",
+                "skinsInfo": "Máscaras (deben comprarse en Blizzard)",
+                "title": "Como se Juega",
+                "unitPortraits": {
+                    "animated": "Animado",
+                    "disabled": "Desactivado",
+                    "still": "Aún",
+                    "title": "Retratos"
+                },
+                "visualizeNetworkStalls": "Visualice puestos de red"
+            },
+            "input": {
+                "mouseSensitivity": "Sensibilidad del ratón",
+                "title": "Aporte",
+                "hardwareCursor": "Cursores de hardware",
+                "customMouseSensitivity": "Sensibilidad personalizada del mouse",
+                "keyboardScrollSpeed": "Velocidad de desplazamiento del teclado",
+                "lockCursor": "Bloquear el cursor en la ventana",
+                "mouseScaling": "Usar la escala del mouse",
+                "mouseScrollSpeed": "Velocidad de desplazamiento del ratón"
+            },
+            "sound": {
+                "announcer": {
+                    "default": "Por defecto",
+                    "heyJini": "hola jin",
+                    "info": "Paquetes (deben comprarse en Blizzard)",
+                    "kimJungmin": "kim jungmin",
+                    "title": "Locutor",
+                    "umJaeKyung": "Um Jae Kyung",
+                    "jeonYongJun": "Jeon Yongjun",
+                    "umJeonKim": "Um, Jeon, Kim Trio"
+                },
+                "gameSubtitles": "subtítulos del juego",
+                "backgroundSounds": "El sonido se reproduce mientras está en segundo plano.",
+                "cinematicSubtitles": "Subtítulos cinematográficos",
+                "gameSounds": "Sonidos del juego",
+                "music": "Música",
+                "musicVolume": "Volumen de la música",
+                "originalVoiceOvers": "Locuciones originales de la unidad",
+                "soundVolume": "Volumen de sonido",
+                "title": "Sonido",
+                "unitAcknowledgements": "Reconocimientos de la unidad",
+                "unitSpeech": "Discurso de la unidad",
+                "buildingSounds": "Construyendo sonidos"
+            }
+        },
+        "app": {
+            "system": {
+                "title": "Sistema",
+                "runOnStartup": "Ejecute ShieldBattery al iniciar el sistema",
+                "startMinimized": "Iniciar minimizado"
+            },
+            "title": "aplicación",
+            "sound": {
+                "masterVolume": "Volumen principal",
+                "title": "Sonido"
+            }
+        },
+        "errors": {
+            "save": "Hubo un problema al guardar la configuración."
+        },
+        "user": {
+            "language": {
+                "title": "Idioma",
+                "selectLanguage": "Selecciona un idioma"
+            },
+            "title": "Usuario"
+        },
+        "activity": {
+            "title": "Ajustes (Alt + S)"
+        }
     },
     "auth": {
         "userErrorDisplay": {
@@ -275,7 +411,10 @@
         "playerHeader": "Jugador",
         "rankHeader": "Rango",
         "updatedText": "Actualizado: {{timestamp}}",
-        "winLossHeader": "Ganar perder"
+        "winLossHeader": "Ganar perder",
+        "activity": {
+            "title": "Escalera"
+        }
     },
     "clientDownload": {
         "andMore": "¡Y más!",
@@ -381,6 +520,10 @@
         },
         "searchingOverlay": {
             "cancelSearch": "Cancelar búsqueda"
+        },
+        "activity": {
+            "finding": "Hallazgo…",
+            "findMatch": "Encontrar pareja"
         }
     },
     "clientUpdate": {
@@ -577,6 +720,9 @@
             "rootFolderName": "repeticiones",
             "title": "Repeticiones locales",
             "watchReplay": "Ver repetición"
+        },
+        "activity": {
+            "title": "repeticiones"
         }
     },
     "user": {
@@ -640,6 +786,9 @@
             "removeFromFavorites": "Quitar de favoritos",
             "showMapPreview": "Mostrar vista previa del mapa",
             "viewMapDetails": "Ver detalles del mapa"
+        },
+        "activity": {
+            "title": "mapas"
         }
     },
     "material": {
@@ -970,6 +1119,67 @@
             "exists": "El vestíbulo ya existe. ¿Únete?",
             "nonexistent": "El vestíbulo no existe. crearlo?",
             "started": "El lobby ya comenzó."
+        },
+        "activity": {
+            "title": "Vestíbulos"
         }
+    },
+    "leagues": {
+        "explainer": {
+            "description": "¡Las ligas son una nueva forma de competir por premios, calificar para participar en torneos y más!",
+            "howLeaguesWork": "Cómo funcionan las ligas",
+            "joinDescription": "Encuentra una liga que se esté ejecutando actualmente o que acepte inscripciones en el formato que te gustaría jugar. Algunas ligas pueden tener diferentes requisitos, reglas o calificaciones, ¡así que asegúrese de leer la información antes de unirse!",
+            "joinTitle": "Unirse.",
+            "playDescription": "Una vez que ha comenzado una liga, todos los juegos de escalera que juegues te otorgarán puntos para la clasificación de la liga junto con tu clasificación de escalera normal. ¡Consulta la tabla de clasificación en la página de la liga para ver cómo te va!",
+            "winDescription": "Después de que termine una liga, la tabla de clasificación estará disponible para que los organizadores distribuyan premios y recompensas. Consulte la página de información de la liga para obtener más detalles.",
+            "winTitle": "¡Ganar!",
+            "playTitle": "Jugar."
+        },
+        "leagueDetails": {
+            "about": "Acerca de",
+            "copyLink": "Copiar enlace a la liga",
+            "dateText": "{{startDate}} a {{endDate}}",
+            "goBack": "volver a la lista",
+            "info": "Información",
+            "joined": "Unido",
+            "joinError": "No pude unirme a la liga: {{errorMessage}}",
+            "leaderboard": "Tabla de clasificación",
+            "leaderboardError": "Hubo un problema al recuperar la tabla de posiciones: {{errorMessage}}",
+            "leaderBoardHeader": {
+                "lastPlayed": "Jugado por última vez",
+                "player": "Jugador",
+                "points": "Puntos",
+                "rank": "Rango",
+                "winLoss": "Ganar perder"
+            },
+            "leagueEndedError": "No pude unirme porque la liga ya terminó",
+            "leagueJoined": "Se unió a la liga",
+            "noPlayers": "No hay jugadores coincidentes.",
+            "notFound": "Liga no encontrada",
+            "retrieveError": "Hubo un error al recuperar esta liga: {{errorMessage}}",
+            "rulesAndInfo": "Reglas e información"
+        },
+        "list": {
+            "acceptingSignups": "Aceptar registros",
+            "currentlyRunning": "Actualmente en ejecución",
+            "ends": "Finaliza {{endDate}}",
+            "finished": "Finalizado",
+            "howDoLeaguesWork": "¿Cómo funcionan las ligas?",
+            "joined": "Unido",
+            "loadingError": "Error al cargar ligas",
+            "manageLeagues": "Administrar ligas",
+            "noLeagues": "Sin ligas coincidentes",
+            "pageHeadline": "ligas",
+            "starts": "Comienza {{startDate}}",
+            "viewInfo": "ver información"
+        },
+        "activity": {
+            "title": "ligas"
+        }
+    },
+    "rootErrorBoundary": {
+        "reloadApp": "recargar aplicación",
+        "contents": "Infórmanos de este problema en nuestro <2>Discord</2>.",
+        "title": "Algo salió mal :("
     }
 }
