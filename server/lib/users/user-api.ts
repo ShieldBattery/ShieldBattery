@@ -61,7 +61,7 @@ import { getRecentGamesForUser } from '../games/game-models'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import { joiLocale } from '../i18n/locale-validator'
-import { sendMail, sendMailTemplate } from '../mail/mailer'
+import { sendMailTemplate } from '../mail/mailer'
 import { getMapInfo } from '../maps/map-models'
 import { getRankForUser } from '../matchmaking/models'
 import { usePasswordResetCode } from '../models/password-resets'
@@ -460,7 +460,7 @@ export class UserApi {
 
     // No need to await this before sending response to the user
     if (newPassword) {
-      sendMail({
+      sendMailTemplate({
         to: user.email,
         subject: 'ShieldBattery Password Changed',
         templateName: 'password-change',

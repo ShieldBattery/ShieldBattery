@@ -28,19 +28,18 @@ const sentMessages = new Map<string, SentEmail[]>()
 
 router
   .post('/v3/:domain/messages', async ctx => {
-    // TODO(tec27): remove text and only allow templates once all the templates are migrated
-    const { to, from, subject, text, template } = ctx.request.body
+    const { to, from, subject, template } = ctx.request.body
     const templateVariables = ctx.request.body['t:variables']
       ? JSON.parse(ctx.request.body['t:variables'])
       : undefined
-    if (!to || !from || !subject || (!text && !(template && templateVariables))) {
+    if (!to || !from || !subject || !template || !templateVariables) {
       throw new httpErrors.BadRequest('Missing required fields')
     }
 
     if (!sentMessages.has(to)) {
       sentMessages.set(to, [])
     }
-    sentMessages.get(to)!.unshift({ to, from, subject, text, template, templateVariables })
+    sentMessages.get(to)!.unshift({ to, from, subject, template, templateVariables })
 
     ctx.status = 200
     ctx.body = { message: 'Queued. Thank you.', id: '<123@example.org>' }

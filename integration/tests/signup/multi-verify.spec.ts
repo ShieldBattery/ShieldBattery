@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { suppressChangelog } from '../../changelog-utils'
 import { SentEmailChecker } from '../../sent-email-checker'
 import { generateUsername } from '../../username-generator'
-import { VERIFICATION_LINK_REGEX, signupWith } from './utils'
+import { getVerificationLink, signupWith } from './utils'
 
 const sentEmailChecker = new SentEmailChecker()
 
@@ -27,7 +27,7 @@ test('wrong token -> resend -> first token -> second token', async ({ page }) =>
 
   const emails = await sentEmailChecker.retrieveSentEmails(email)
   expect(emails).toHaveLength(1)
-  const link = VERIFICATION_LINK_REGEX.exec(emails[0].text ?? '')?.groups?.link
+  const link = getVerificationLink(emails[0].templateVariables)
   expect(link).toBeDefined()
 
   const linkUrl = new URL(link!)
@@ -46,7 +46,7 @@ test('wrong token -> resend -> first token -> second token', async ({ page }) =>
   // Successfully verified, grab the second token link now and re-verify
   const moreEmails = await sentEmailChecker.retrieveSentEmails(email)
   expect(moreEmails).toHaveLength(2)
-  const secondLink = VERIFICATION_LINK_REGEX.exec(emails[0].text ?? '')?.groups?.link
+  const secondLink = getVerificationLink(emails[0].templateVariables)
   expect(secondLink).toBeDefined()
 
   await page.goto('/')

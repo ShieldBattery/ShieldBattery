@@ -2,7 +2,7 @@ import Router, { RouterContext } from '@koa/router'
 import cuid from 'cuid'
 import httpErrors from 'http-errors'
 import { isValidEmail, isValidUsername } from '../../../common/constants'
-import { sendMail, sendMailTemplate } from '../mail/mailer'
+import { sendMailTemplate } from '../mail/mailer'
 import { addPasswordResetCode } from '../models/password-resets'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
@@ -106,7 +106,7 @@ async function resetPassword(ctx: RouterContext) {
   const code = cuid()
   await addPasswordResetCode(user.id, code, ctx.ip)
 
-  await sendMail({
+  await sendMailTemplate({
     to: selfUser.email,
     subject: 'ShieldBattery Password Reset',
     templateName: 'password-reset',

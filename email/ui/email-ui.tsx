@@ -66,7 +66,6 @@ export function SbEmail(props: SbEmailProps) {
       <Body
         style={{
           padding: '16px',
-          fontFamily: 'Inter, "Helvetica Neue", Helvetica, Arial, sans-serif',
           fontSize: '16px',
           lineHeight: 1.5,
           backgroundColor: '#fafafa',
