@@ -347,15 +347,16 @@ function RankDisplay({
   matchmakingType: MatchmakingType
   ladderPlayer: LadderPlayer
 }) {
+  const { t } = useTranslation()
   const division = ladderPlayerToMatchmakingDivision(ladderPlayer)
-  const divisionLabel = matchmakingDivisionToLabel(division)
+  const divisionLabel = matchmakingDivisionToLabel(division, t)
 
   return (
     <RankDisplayRoot>
       <Tooltip text={divisionLabel} position={'top'}>
         <DivisionIcon player={ladderPlayer} size={88} />
       </Tooltip>
-      <RankDisplayType>{matchmakingTypeToLabel(matchmakingType)}</RankDisplayType>
+      <RankDisplayType>{matchmakingTypeToLabel(matchmakingType, t)}</RankDisplayType>
     </RankDisplayRoot>
   )
 }

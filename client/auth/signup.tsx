@@ -1,6 +1,6 @@
 import queryString from 'query-string'
 import React, { useEffect, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import {
   EMAIL_MAXLENGTH,
@@ -316,22 +316,24 @@ export function Signup() {
               {...bindCheckable('policyAgreement')}
               label={
                 <span>
-                  {t('auth.signup.readAndAgree', 'I have read and agree to the')}{' '}
-                  <DialogLink
-                    dialogType={DialogType.TermsOfService}
-                    text={t('auth.signup.termsOfServiceLink', 'Terms of Service')}
-                  />
-                  ,{' '}
-                  <DialogLink
-                    dialogType={DialogType.AcceptableUse}
-                    text={t('auth.signup.acceptableUseLink', 'Acceptable Use')}
-                  />
-                  , and{' '}
-                  <DialogLink
-                    dialogType={DialogType.PrivacyPolicy}
-                    text={t('auth.signup.privacyLink', 'Privacy')}
-                  />{' '}
-                  policies
+                  <Trans t={t} i18nKey='auth.signup.readAndAgree'>
+                    I have read and agree to the{' '}
+                    <DialogLink
+                      dialogType={DialogType.TermsOfService}
+                      text={t('auth.signup.termsOfServiceLink', 'Terms of Service')}
+                    />
+                    ,{' '}
+                    <DialogLink
+                      dialogType={DialogType.AcceptableUse}
+                      text={t('auth.signup.acceptableUseLink', 'Acceptable Use')}
+                    />
+                    , and{' '}
+                    <DialogLink
+                      dialogType={DialogType.PrivacyPolicy}
+                      text={t('auth.signup.privacyLink', 'Privacy')}
+                    />{' '}
+                    policies
+                  </Trans>
                 </span>
               }
               inputProps={{ tabIndex: 1 }}

@@ -112,7 +112,7 @@ export function ConnectedMatchmakingDisabledCard({
           <Headline6>{dateFormat.format(nextStartDate)}</Headline6>
           {nextEndDate && nextEndDate > nextStartDate ? (
             <>
-              <ToText>to</ToText>
+              <ToText>{t('matchmaking.disabledCard.startToEnd', 'to')}</ToText>
               <Headline6>{dateFormat.format(nextEndDate)}</Headline6>
             </>
           ) : null}

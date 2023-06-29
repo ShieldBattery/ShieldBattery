@@ -84,8 +84,9 @@ export function AcceptableUseDialog(props: CommonDialogProps) {
 }
 
 export function AcceptableUsePage() {
+  const { t } = useTranslation()
   return (
-    <PolicyPage title={policyTypeToLabel(SbPolicyType.AcceptableUse)}>
+    <PolicyPage title={policyTypeToLabel(SbPolicyType.AcceptableUse, t)}>
       <AcceptableUseContent />
     </PolicyPage>
   )
@@ -110,8 +111,9 @@ export function PrivacyPolicyDialog(props: CommonDialogProps) {
 }
 
 export function PrivacyPolicyPage() {
+  const { t } = useTranslation()
   return (
-    <PolicyPage title={policyTypeToLabel(SbPolicyType.Privacy)}>
+    <PolicyPage title={policyTypeToLabel(SbPolicyType.Privacy, t)}>
       <PrivacyPolicyContent />
     </PolicyPage>
   )
@@ -136,8 +138,9 @@ export function TermsOfServiceDialog(props: CommonDialogProps) {
 }
 
 export function TermsOfServicePage() {
+  const { t } = useTranslation()
   return (
-    <PolicyPage title={policyTypeToLabel(SbPolicyType.TermsOfService)}>
+    <PolicyPage title={policyTypeToLabel(SbPolicyType.TermsOfService, t)}>
       <TermsOfServiceContent />
     </PolicyPage>
   )

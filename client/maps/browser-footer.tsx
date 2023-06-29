@@ -223,9 +223,6 @@ export interface BrowserFooterProps {
   onSearchChange: (value: string) => void
 }
 
-const SIZE_MENU_OPTIONS = ['Small', 'Medium', 'Large']
-const SORT_MENU_OPTIONS = ['Name', 'Number of players', 'Date uploaded']
-
 export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
   const { t } = useTranslation()
   const [filterOverlayOpen, openFilterOverlay, closeFilterOverlay] = usePopoverController()
@@ -306,12 +303,12 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
     return ALL_TILESETS.map(tilesetId => (
       <CheckBox
         key={tilesetId}
-        label={tilesetToName(tilesetId)}
+        label={tilesetToName(tilesetId, t)}
         checked={tempTilesetFilter.has(tilesetId)}
         onChange={() => onTilesetFilterChange(tilesetId)}
       />
     ))
-  }, [tempTilesetFilter, onTilesetFilterChange])
+  }, [t, tempTilesetFilter, onTilesetFilterChange])
 
   useEffect(() => {
     if (!prevFilterOverlayOpen && filterOverlayOpen) {
@@ -330,19 +327,19 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
         <ActionButton
           ref={sizeRef}
           icon={<MaterialIcon icon='view_list' />}
-          title={t('maps.server.thumbnailSize', 'Thumbnail size')}
+          title={t('maps.server.thumbnailSize.title', 'Thumbnail size')}
           onClick={openSizeMenu}
         />
         <ActionButton
           ref={filterButtonRef}
           icon={<MaterialIcon icon='filter_list' />}
-          title={t('maps.server.filterOptions', 'Filter options')}
+          title={t('maps.server.filterOptions.title', 'Filter options')}
           onClick={openFilterOverlay}
         />
         <ActionButton
           ref={sortMenuRef}
           icon={<MaterialIcon icon='sort_by_alpha' />}
-          title={t('maps.server.sortMaps', 'Sort maps')}
+          title={t('maps.server.sortMaps.title', 'Sort maps')}
           onClick={openSortMenu}
         />
       </LeftActions>
@@ -357,7 +354,11 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
         originX='right'
         originY='bottom'>
         <MenuList dense={true}>
-          {SIZE_MENU_OPTIONS.map((text, index) => (
+          {[
+            t('maps.server.thumbnailSize.option.small', 'Small'),
+            t('maps.server.thumbnailSize.option.medium', 'Medium'),
+            t('maps.server.thumbnailSize.option.large', 'Large'),
+          ].map((text, index) => (
             <SelectableMenuItem
               key={index}
               text={text}
@@ -373,9 +374,13 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
         onDismiss={closeFilterOverlay}
         onApply={forwardOnFilterApply}
         anchor={filterButtonRef.current}>
-        <SectionOverline>Number of players</SectionOverline>
+        <SectionOverline>
+          {t('maps.server.filterOptions.section.numberOfPlayers', 'Number of players')}
+        </SectionOverline>
         <ColumnGroup>{numPlayersItems}</ColumnGroup>
-        <SectionOverline>Tileset</SectionOverline>
+        <SectionOverline>
+          {t('maps.server.filterOptions.section.tileset', 'Tileset')}
+        </SectionOverline>
         <ColumnGroup>{tilesetItems}</ColumnGroup>
         <FilterActions>
           <TextButton
@@ -400,7 +405,11 @@ export const BrowserFooter = React.memo((props: BrowserFooterProps) => {
         originX='right'
         originY='bottom'>
         <MenuList dense={true}>
-          {SORT_MENU_OPTIONS.map((text, index) => (
+          {[
+            t('maps.server.sortMaps.option.name', 'Name'),
+            t('maps.server.sortMaps.option.numberOfPlayers', 'Number of players'),
+            t('maps.server.sortMaps.option.dateUploaded', 'Date uploaded'),
+          ].map((text, index) => (
             <SelectableMenuItem
               key={index}
               text={text}

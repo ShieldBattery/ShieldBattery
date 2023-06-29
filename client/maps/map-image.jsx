@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types'
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { background700, colorTextFaint } from '../styles/colors'
@@ -35,12 +36,15 @@ const NoImageIcon = styled(MaterialIcon).attrs({ icon: 'image', size: 90 })`
   opacity: 0.5;
 `
 
-export const MapNoImage = () => (
-  <NoImageContainer>
-    <NoImageIcon />
-    <Subtitle1>Map preview not available</Subtitle1>
-  </NoImageContainer>
-)
+export const MapNoImage = () => {
+  const { t } = useTranslation()
+  return (
+    <NoImageContainer>
+      <NoImageIcon />
+      <Subtitle1>{t('maps.thumbnail.noMapPreview', 'Map preview not available')}</Subtitle1>
+    </NoImageContainer>
+  )
+}
 
 export default class MapImage extends React.Component {
   static propTypes = {

@@ -229,11 +229,11 @@ export function FindMatch() {
         <TabArea>
           <Tabs activeTab={activeTab} onChange={onTabChange}>
             <TabItem
-              text={matchmakingTypeToLabel(MatchmakingType.Match1v1)}
+              text={matchmakingTypeToLabel(MatchmakingType.Match1v1, t)}
               value={MatchmakingType.Match1v1}
             />
             <TabItem
-              text={matchmakingTypeToLabel(MatchmakingType.Match2v2)}
+              text={matchmakingTypeToLabel(MatchmakingType.Match2v2, t)}
               value={MatchmakingType.Match2v2}
             />
             <TabItem text={'3v3'} value={t('matchmaking.type.3v3', '3v3')} />
@@ -483,7 +483,9 @@ function RankInfo({ matchmakingType }: { matchmakingType: MatchmakingType }) {
     <RankInfoContainer>
       <DivisionInfo>
         <DivisionIcon player={ladderPlayer} size={88} />
-        <RankDisplayDivisionLabel>{matchmakingDivisionToLabel(division)}</RankDisplayDivisionLabel>
+        <RankDisplayDivisionLabel>
+          {matchmakingDivisionToLabel(division, t)}
+        </RankDisplayDivisionLabel>
       </DivisionInfo>
 
       <RankDisplayInfo>

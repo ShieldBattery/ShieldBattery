@@ -308,7 +308,7 @@ export default class MapDetails extends React.Component {
             </MapDataItem>
             <MapDataItem>
               <Trans t={t} i18nKey='maps.details.tileset'>
-                Tileset: {{ tilesetName: tilesetToName(map.mapData.tileset) }}
+                Tileset: {{ tilesetName: tilesetToName(map.mapData.tileset, t) }}
               </Trans>
             </MapDataItem>
             <MapDataItem>

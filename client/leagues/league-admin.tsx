@@ -1,4 +1,5 @@
 import React, { useContext, useEffect, useId, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Route, RouteComponentProps, Switch } from 'wouter'
 import {
@@ -231,6 +232,10 @@ interface LeagueModel {
 }
 
 function CreateLeague() {
+  // NOTE(2Pac): Only using the translation function here to pass it to a common function (so we can
+  // remove the optionality of the `t` param there). Not adding the translation strings to the rest
+  // of this component for now. Maybe some day?
+  const { t } = useTranslation()
   const baseId = useId()
   const adminContext = useContext(LeagueAdminContext)
 
@@ -365,7 +370,7 @@ function CreateLeague() {
             tabIndex={0}
             dense={true}>
             {ALL_MATCHMAKING_TYPES.map(m => (
-              <SelectOption key={m} text={matchmakingTypeToLabel(m)} value={m} />
+              <SelectOption key={m} text={matchmakingTypeToLabel(m, t)} value={m} />
             ))}
           </Select>
 
@@ -556,6 +561,10 @@ function EditLeagueForm({
   onSubmit?: (model: Readonly<EditLeagueModel>) => void
   onValidatedChange?: (model: Readonly<EditLeagueModel>) => void
 }) {
+  // NOTE(2Pac): Only using the translation function here to pass it to a common function (so we can
+  // remove the optionality of the `t` param there). Not adding the translation strings to the rest
+  // of this component for now. Maybe some day?
+  const { t } = useTranslation()
   const baseId = useId()
 
   const { onSubmit, bindInput, bindCustom, bindCheckable } = useForm<EditLeagueModel>(
@@ -649,7 +658,7 @@ function EditLeagueForm({
 
       <Select {...bindCustom('matchmakingType')} label='Matchmaking type' tabIndex={0} dense={true}>
         {ALL_MATCHMAKING_TYPES.map(m => (
-          <SelectOption key={m} text={matchmakingTypeToLabel(m)} value={m} />
+          <SelectOption key={m} text={matchmakingTypeToLabel(m, t)} value={m} />
         ))}
       </Select>
 
