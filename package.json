@@ -187,6 +187,7 @@
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.5",
     "@react-email/components": "^0.0.7",
     "@react-email/render": "^0.0.7",
+    "@react-spring/rafz": "^9.7.3",
     "@redux-devtools/core": "^3.13.1",
     "@redux-devtools/dock-monitor": "^3.0.1",
     "@redux-devtools/inspector-monitor": "^3.0.1",
