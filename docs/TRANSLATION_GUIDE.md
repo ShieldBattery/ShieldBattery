@@ -35,3 +35,11 @@ Note that this only changes the filtered results at the top (the number on the l
 ![Suggestion Preview](images/weblate-suggestion-preview.png)
 
 Editors can choose to Accept ( ✅), Accept and Edit (📝), or Dismiss (🗑️) suggestions. Although anyone can submit suggestions for translation, only logged-in Weblate accounts flagged as Editors by ShieldBattery administrators can directly update strings.
+
+## Special Characters
+
+Some strings will contain special characters, as seen here:
+
+![Special Characters](https://github.com/ShieldBattery/ShieldBattery/assets/93808824/0979723a-06bc-446a-b3d6-9a1a8f73f964)
+
+Text within `{{braces}}` should `never` be translated, as these contain code references which the app looks for. Text within `numeric tags` such as "<0><1>text</1></0>" `should` be translated, and can even be moved around within the string, but the ordering of the numeric tags must be preserved.
