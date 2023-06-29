@@ -167,6 +167,9 @@
                 "title": "$🗡Language🗡!"
             },
             "title": "$🗡User🗡!"
+        },
+        "activity": {
+            "title": "$🗡Settings (Alt + S)🗡!"
         }
     },
     "auth": {
@@ -432,7 +435,10 @@
         "lastPlayedHeader": "$🗡Last played🗡!",
         "mmrHeader": "$🗡MMR🗡!",
         "noMatchingPlayers": "$🗡No matching players.🗡!",
-        "pageHeadline": "$🗡Ladder🗡!"
+        "pageHeadline": "$🗡Ladder🗡!",
+        "activity": {
+            "title": "$🗡Ladder🗡!"
+        }
     },
     "matchmaking": {
         "division": {
@@ -520,6 +526,10 @@
         },
         "searchingOverlay": {
             "cancelSearch": "$🗡Cancel search🗡!"
+        },
+        "activity": {
+            "finding": "$🗡Finding…🗡!",
+            "findMatch": "$🗡Find match🗡!"
         }
     },
     "forms": {
@@ -711,6 +721,9 @@
             "rootFolderName": "$🗡Replays🗡!",
             "title": "$🗡Local Replays🗡!",
             "watchReplay": "$🗡Watch replay🗡!"
+        },
+        "activity": {
+            "title": "$🗡Replays🗡!"
         }
     },
     "user": {
@@ -723,11 +736,6 @@
         "close": "$🗡Close🗡!",
         "maximizeRestore": "$🗡Maximize/Restore🗡!",
         "minimize": "$🗡Minimize🗡!"
-    },
-    "league": {
-        "list": {
-            "currentlyRunning": "$🗡Currently running🗡!"
-        }
     },
     "maps": {
         "details": {
@@ -779,6 +787,9 @@
             "removeFromFavorites": "$🗡Remove from favorites🗡!",
             "showMapPreview": "$🗡Show map preview🗡!",
             "viewMapDetails": "$🗡View map details🗡!"
+        },
+        "activity": {
+            "title": "$🗡Maps🗡!"
         }
     },
     "material": {
@@ -1109,6 +1120,67 @@
             "exists": "$🗡Lobby already exists. Join it?🗡!",
             "nonexistent": "$🗡Lobby doesn't exist. Create it?🗡!",
             "started": "$🗡Lobby already started.🗡!"
+        },
+        "activity": {
+            "title": "$🗡Lobbies🗡!"
         }
+    },
+    "leagues": {
+        "explainer": {
+            "playTitle": "$🗡Play.🗡!",
+            "winDescription": "$🗡After a league finishes, the leaderboard will be available for organizers to distribute prizes and rewards. Check out the league information page for more details.🗡!",
+            "winTitle": "$🗡Win!🗡!",
+            "description": "$🗡Leagues are a new way to compete for prizes, qualify for tournament entries, and more!🗡!",
+            "howLeaguesWork": "$🗡How leagues work🗡!",
+            "joinDescription": "$🗡Find a league that is currently running or accepting signups in the format you'd like to play. Some leagues may have different requirements, rules, or qualifications, so make sure to read the information before joining!🗡!",
+            "joinTitle": "$🗡Join.🗡!",
+            "playDescription": "$🗡Once a league has started, all ladder games you play will reward points towards the league standings alongside your normal ladder standings. Check the leaderboard on the league page to see how you're doing!🗡!"
+        },
+        "leagueDetails": {
+            "about": "$🗡About🗡!",
+            "notFound": "$🗡League not found🗡!",
+            "copyLink": "$🗡Copy link to league🗡!",
+            "retrieveError": "$🗡There was an error retrieving this league: {{errorMessage}}🗡!",
+            "rulesAndInfo": "$🗡Rules and info🗡!",
+            "dateText": "$🗡{{startDate}} to {{endDate}}🗡!",
+            "goBack": "$🗡Go back to list🗡!",
+            "info": "$🗡Info🗡!",
+            "joined": "$🗡Joined🗡!",
+            "joinError": "$🗡Couldn't join league: {{errorMessage}}🗡!",
+            "leaderboard": "$🗡Leaderboard🗡!",
+            "leaderboardError": "$🗡There was a problem retrieving the leaderboard: {{errorMessage}}🗡!",
+            "leaderBoardHeader": {
+                "lastPlayed": "$🗡Last played🗡!",
+                "player": "$🗡Player🗡!",
+                "points": "$🗡Points🗡!",
+                "rank": "$🗡Rank🗡!",
+                "winLoss": "$🗡Win/loss🗡!"
+            },
+            "noPlayers": "$🗡No matching players.🗡!",
+            "leagueEndedError": "$🗡Couldn't join because the league has already ended🗡!",
+            "leagueJoined": "$🗡League joined🗡!"
+        },
+        "list": {
+            "ends": "$🗡Ends {{endDate}}🗡!",
+            "viewInfo": "$🗡View info🗡!",
+            "finished": "$🗡Finished🗡!",
+            "pageHeadline": "$🗡Leagues🗡!",
+            "starts": "$🗡Starts {{startDate}}🗡!",
+            "joined": "$🗡Joined🗡!",
+            "acceptingSignups": "$🗡Accepting signups🗡!",
+            "currentlyRunning": "$🗡Currently running🗡!",
+            "howDoLeaguesWork": "$🗡How do leagues work?🗡!",
+            "loadingError": "$🗡Error loading leagues🗡!",
+            "noLeagues": "$🗡No matching leagues🗡!",
+            "manageLeagues": "$🗡Manage leagues🗡!"
+        },
+        "activity": {
+            "title": "$🗡Leagues🗡!"
+        }
+    },
+    "rootErrorBoundary": {
+        "reloadApp": "$🗡Reload app🗡!",
+        "title": "$🗡Something went wrong :(🗡!",
+        "contents": "$🗡Please report this issue to us in our <2>Discord</2>.🗡!"
     }
 }
