@@ -10,7 +10,7 @@ import { bootstrapSession, getCurrentSession } from './auth/action-creators'
 import { initBrowserprint } from './auth/browserprint'
 import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
-import { detectedLocale, i18nextPromise, languageDetector } from './i18n/i18next'
+import i18n, { detectedLocale, initI18next, languageDetector } from './i18n/i18next'
 import log from './logging/logger'
 import { fetchJson } from './network/fetch'
 import registerSocketHandlers from './network/socket-handlers'
@@ -88,8 +88,8 @@ if (!IS_ELECTRON) {
   initBrowserprint()
 }
 
-Promise.all([rootElemPromise, i18nextPromise])
-  .then(async ([elem]) => {
+rootElemPromise
+  .then(async elem => {
     const store = createStore(ReduxDevTools)
     registerDispatch(store.dispatch)
     registerSocketHandlers()
@@ -98,18 +98,15 @@ Promise.all([rootElemPromise, i18nextPromise])
       store.dispatch({ type: AUDIO_MANAGER_INITIALIZED })
     })
 
-    return { elem, store }
-  })
-  .then(async ({ elem, store }) => {
+    const detected = languageDetector.detect()
+    detectedLocale.setValue(Array.isArray(detected) ? detected[0] : detected)
+
     let action
     let configPromise
     let sessionPromise
 
-    const detected = languageDetector.detect()
-    detectedLocale.setValue(Array.isArray(detected) ? detected[0] : detected)
-
     if (IS_ELECTRON || !window._sbInitData) {
-      configPromise = fetchJson('/config', { method: 'get' })
+      configPromise = fetchJson('/config')
       sessionPromise = new Promise((resolve, reject) => {
         action = getCurrentSession(
           { locale: detectedLocale.getValue() },
@@ -120,12 +117,13 @@ Promise.all([rootElemPromise, i18nextPromise])
         )
       })
     } else {
-      action = bootstrapSession(window._sbInitData.session)
       configPromise = Promise.resolve(window._sbInitData.serverConfig)
+      action = bootstrapSession(window._sbInitData.session)
       sessionPromise = Promise.resolve()
     }
 
     store.dispatch(action)
+
     try {
       const config = await configPromise
       serverConfig.setValue(config)
@@ -135,13 +133,31 @@ Promise.all([rootElemPromise, i18nextPromise])
       // default values to fall back on to ensure things don't break.
       log.warning(`An error when retrieving the server config: ${err?.stack ?? err}`)
     }
+
     try {
       await sessionPromise
     } catch (err) {
       // Ignored, usually just means we don't have a current session
       // TODO(tec27): Probably we should handle some error codes here specifically
     }
-    return { elem, store, history }
+
+    const i18nextPromise = initI18next()
+
+    try {
+      await i18nextPromise
+      store.dispatch((_, getState) => {
+        const {
+          auth: { user },
+        } = getState()
+        if (user?.locale) {
+          i18n.changeLanguage(user.locale)
+        }
+      })
+    } catch (err) {
+      log.error(`Error initializing i18next: ${err?.stack ?? err}`)
+    }
+
+    return { elem, store }
   })
   .then(({ elem, store }) => {
     const root = createRoot(elem)

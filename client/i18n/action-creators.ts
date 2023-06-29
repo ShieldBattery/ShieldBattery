@@ -11,7 +11,7 @@ import { TIMING_LONG, openSnackbar } from '../snackbars/action-creators'
 
 export function maybeChangeLanguageLocally(locale?: string): ThunkAction {
   return async dispatch => {
-    if (!locale || locale === i18n.language) {
+    if (!locale || locale === i18n.language || !i18n.isInitialized) {
       return
     }
 

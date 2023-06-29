@@ -292,23 +292,22 @@ export const HotkeyedText = React.memo(({ hotkey, text, disabled }: HotkeyedText
   }
 
   const hotkeyString = String.fromCharCode(hotkey.keyCode).toLowerCase()
-  const result = []
-  let hasFoundHotkeyChar = false
-  for (const char of text) {
-    if (!hasFoundHotkeyChar && char.toLowerCase() === hotkeyString) {
-      result.push(<u key={char}>{char}</u>)
-      hasFoundHotkeyChar = true
-    } else {
-      // The underline character eats the spaces around it, so we insert an &nbsp; here.
-      if (char === ' ') {
-        result.push('\u00A0')
-      } else {
-        result.push(char)
-      }
-    }
-  }
+  const hotkeyLocation = text.toLowerCase().indexOf(hotkeyString)
+  if (hotkeyLocation === -1) {
+    return <>{text}</>
+  } else {
+    const prefix = text.slice(0, hotkeyLocation)
+    const hotkeyChar = text.slice(hotkeyLocation, hotkeyLocation + 1)
+    const postfix = text.slice(hotkeyLocation + 1)
 
-  return <>{result}</>
+    return (
+      <>
+        <span>{prefix}</span>
+        <u>{hotkeyChar}</u>
+        <span>{postfix}</span>
+      </>
+    )
+  }
 })
 
 const IconContainer = styled.div`
