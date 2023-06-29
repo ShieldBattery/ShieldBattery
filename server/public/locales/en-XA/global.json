@@ -726,15 +726,10 @@
     },
     "league": {
         "details": {
-            "joinError": "$🗡Couldn't join league: {{errorMessage}}🗡!",
             "leagueJoined": "$🗡League joined🗡!"
         },
-        "explainer": {
-            "howLeaguesWork": "$🗡How leagues work🗡!"
-        },
         "list": {
-            "currentlyRunning": "$🗡Currently running🗡!",
-            "viewInfo": "$🗡View info🗡!"
+            "currentlyRunning": "$🗡Currently running🗡!"
         }
     },
     "maps": {

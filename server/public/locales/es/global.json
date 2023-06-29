@@ -557,15 +557,10 @@
     },
     "league": {
         "details": {
-            "leaderboard": "Tabla de clasificación",
             "leagueJoined": "Se unió a la liga"
         },
-        "explainer": {
-            "joinTitle": "Unirse."
-        },
         "list": {
-            "loadingError": "Error al cargar ligas",
-            "joined": "Unido"
+            "loadingError": "Error al cargar ligas"
         }
     },
     "messaging": {
