@@ -131,8 +131,7 @@
             "current": "introduce tu contraseña actual",
             "matching": "Introduce una contraseña que coincida",
             "required": "Ingrese una contraseña",
-            "resetCode": "Ingrese su código de restablecimiento de contraseña",
-            "matchingPassword": "Introduce una contraseña que coincida"
+            "resetCode": "Ingrese su código de restablecimiento de contraseña"
         },
         "signup": {
             "acceptableUseLink": "Uso aceptable",
@@ -554,11 +553,6 @@
         "tabSummary": "Resumen",
         "statusFinal": "Final",
         "statusLive": "Vivir"
-    },
-    "league": {
-        "list": {
-            "loadingError": "Error al cargar ligas"
-        }
     },
     "messaging": {
         "blockedMessage": "mensaje bloqueado",
