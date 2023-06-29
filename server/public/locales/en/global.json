@@ -84,7 +84,6 @@
       "resetCode": "Enter your password reset code"
     },
     "signup": {
-      "acceptableUseLink": "Acceptable Use",
       "ageConfirmation": "I certify that I am 13 years of age or older",
       "alreadyHaveAccount": "Already have an account?",
       "confirmPassword": "Confirm password",
@@ -92,9 +91,7 @@
       "emailAddress": "Email address",
       "logIn": "Log in",
       "password": "Password",
-      "privacyLink": "Privacy",
-      "readAndAgree": "I have read and agree to the <2></2>, <5></5>, and <8></8> policies",
-      "termsOfServiceLink": "Terms of Service",
+      "readAndAgree": "I have read and agree to the <2>Terms of Service</2>, <4>Acceptable Use</4>, and <6>Privacy</6> policies",
       "title": "Create account",
       "username": "Username"
     },

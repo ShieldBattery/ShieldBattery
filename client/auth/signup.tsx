@@ -75,10 +75,10 @@ const DialogLinkElem = styled.a`
 
 function DialogLink({
   dialogType,
-  text,
+  children,
 }: {
   dialogType: DialogType.TermsOfService | DialogType.AcceptableUse | DialogType.PrivacyPolicy
-  text: string
+  children: string
 }) {
   const dispatch = useAppDispatch()
 
@@ -90,7 +90,7 @@ function DialogLink({
 
   return (
     <DialogLinkElem href='#' onClick={onClick} tabIndex={1}>
-      {text}
+      {children}
     </DialogLinkElem>
   )
 }
@@ -318,20 +318,9 @@ export function Signup() {
                 <span>
                   <Trans t={t} i18nKey='auth.signup.readAndAgree'>
                     I have read and agree to the{' '}
-                    <DialogLink
-                      dialogType={DialogType.TermsOfService}
-                      text={t('auth.signup.termsOfServiceLink', 'Terms of Service')}
-                    />
-                    ,{' '}
-                    <DialogLink
-                      dialogType={DialogType.AcceptableUse}
-                      text={t('auth.signup.acceptableUseLink', 'Acceptable Use')}
-                    />
-                    , and{' '}
-                    <DialogLink
-                      dialogType={DialogType.PrivacyPolicy}
-                      text={t('auth.signup.privacyLink', 'Privacy')}
-                    />{' '}
+                    <DialogLink dialogType={DialogType.TermsOfService}>Terms of Service</DialogLink>
+                    , <DialogLink dialogType={DialogType.AcceptableUse}>Acceptable Use</DialogLink>,
+                    and <DialogLink dialogType={DialogType.PrivacyPolicy}>Privacy</DialogLink>{' '}
                     policies
                   </Trans>
                 </span>
