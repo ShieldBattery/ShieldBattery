@@ -46,7 +46,7 @@ export default function UsernameRecovery(props: EmailProps) {
           </EmailText>
 
           <div style={{ textAlign: 'center' }}>
-            <EmailButton href={'{{{HOST}}}/verify-email?token={{token}}&username={{username}}'}>
+            <EmailButton href={'{{{HOST}}}/reset-password?token={{token}}&username={{username}}'}>
               {t('passwordReset.button', 'Reset password')}
             </EmailButton>
           </div>
