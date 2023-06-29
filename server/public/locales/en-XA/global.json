@@ -725,9 +725,6 @@
         "minimize": "$🗡Minimize🗡!"
     },
     "league": {
-        "details": {
-            "leagueJoined": "$🗡League joined🗡!"
-        },
         "list": {
             "currentlyRunning": "$🗡Currently running🗡!"
         }

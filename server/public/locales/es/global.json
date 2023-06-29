@@ -556,9 +556,6 @@
         "statusLive": "Vivir"
     },
     "league": {
-        "details": {
-            "leagueJoined": "Se unió a la liga"
-        },
         "list": {
             "loadingError": "Error al cargar ligas"
         }
