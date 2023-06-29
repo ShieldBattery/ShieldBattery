@@ -17,7 +17,8 @@ translation process as necessary:
 yarn gen-translations
 ```
 
-- TODO: migrate existing templates
-- TODO: Update sending code to utilize templates
-- TODO: Ensure fake mailgun server works in integration tests
-- TODO: update weblate config to pull these locale files
+To update the compiled template files use by the server, you'll also need to run:
+
+```sh
+yarn gen-emails
+```
