@@ -1,7 +1,6 @@
 {
     "common": {
         "validators": {
-            "minLength": "{{minLength}}자 이상 입력하세요.",
             "required": "필수의"
         },
         "actions": {
@@ -100,7 +99,7 @@
             "alreadyHaveAccount": "이미 계정이 있습니까?",
             "confirmPassword": "비밀번호 확인",
             "createAccount": "계정 만들기",
-            "readAndAgree": "나는 읽고 동의합니다",
+            "readAndAgree": "<2>서비스 약관</2>, <4>사용 제한</4> 및 <6>개인정보</6> 정책을 읽었으며 이에 동의합니다.",
             "title": "계정 만들기",
             "emailAddress": "이메일 주소",
             "logIn": "로그인",
