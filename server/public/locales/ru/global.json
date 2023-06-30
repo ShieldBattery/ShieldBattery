@@ -265,7 +265,7 @@
             "supportedStarcraftVersionQuestion": "Какую версию StarCraft поддерживает ShieldBattery?",
             "header": "Часто задаваемые вопросы",
             "linuxSupportQuestion": "Работает ли ShieldBattery на Linux или OS X?",
-            "systemRequirementsAnswer": "<0>Наши системные требования в основном соответствуют требованиям <2>StarCraft: Remastered</2>, но вкратце:</0><1><0>Компьютер под управлением Windows 10 или более поздней версии</0><1>2 ГБ ОЗУ</1><2>NVIDIA GeForce 6800 (256 МБ) или ATI Radeon X1600 Pro (256 МБ) или лучше</2><3>Обновленная установка StarCraft, исправленная до последней версии</3></1>",
+            "systemRequirementsAnswer": "<0>Наши системные требования в основном соответствуют требованиям <2>StarCraft: Remastered</2>, но вкратце:</0><1><0>Компьютер под управлением Windows 10 или более поздней версии</0><1. >2 ГБ ОЗУ</1><2>NVIDIA GeForce 6800 (256 МБ) или ATI Radeon X1600 Pro (256 МБ) или лучше</2><3>Обновленная установка StarCraft, исправленная до последней версии</3></ 1>",
             "systemRequirementsQuestion": "Какие системные требования для игры на ShieldBattery?",
             "title": "Часто задаваемые вопросы"
         },
@@ -356,7 +356,7 @@
         "userErrorDisplay": {
             "banWithoutReason": "Причина не указана",
             "defaultError": "Произошла ошибка: {{status}} {{statusText}}",
-            "genericError": "Произошла ошибка: {{errorMessage}}",
+            "genericError": "Произошла ошибка: {{statusText}}",
             "invalidCredentials": "Неверное имя пользователя или пароль",
             "machineBanned": "Этой машине запрещено создавать новые учетные записи.",
             "noConnectionErrorMessage": "Не удалось подключиться к серверу. Проверьте подключение к Интернету и повторите попытку.",
@@ -465,7 +465,7 @@
             "description": "Подбор матчей иногда закрывается на техническое обслуживание и разработку, и в настоящее время он отключен. Следующий период сватовства:",
             "inParty": "Отключено в группе",
             "minutes": "Минуты",
-            "nextDateRange": "<0>{dateFormat.format(nextStartDate)}</0><1>в</1><2>{dateFormat.format(nextEndDate)}</2>",
+            "nextDateRange": "<0>{{nextStartDate}}</0><1>в</1><2>{{nextEndDate}}</2>",
             "partyTooLargeText": "Ваша текущая группа слишком велика, чтобы стоять в очереди для этого типа подбора игроков.",
             "partyTooLargeTitle": "Слишком большая вечеринка",
             "seconds": "Секунды",
@@ -542,7 +542,7 @@
             "title": "Отправить сообщение",
             "username": "Имя пользователя",
             "usernamePattern": "Имя пользователя содержит недопустимые символы",
-            "error": "Ошибка: {{errorMessage}}",
+            "error": "Ошибка: {{error}}",
             "usernameRequired": "Введите имя пользователя"
         },
         "errors": {
