@@ -49,16 +49,7 @@ export async function sendMailTemplate({
   if (!enabled) {
     if (process.env.NODE_ENV !== 'production') {
       // In dev, we log out the emails to console to make them easy to test links, etc.
-      log.debug(
-        {},
-        '\n\n==EMAIL==\n\nTo: ' +
-          to +
-          '\nSubject: ' +
-          subject +
-          '\nTemplate data:\n' +
-          mailData['t:variables'] +
-          '\n\n====',
-      )
+      log.info({ mailData, templateVariables: { ...templateData, HOST } }, 'Sent email')
     }
     return undefined
   } else {
