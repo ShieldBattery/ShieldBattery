@@ -1,7 +1,6 @@
 {
     "common": {
         "validators": {
-            "maxLength": "Введите не более {{maxLength}} символов",
             "minLength": "Введите не менее {{minLength}} символов",
             "required": "Необходимый"
         },
@@ -91,14 +90,11 @@
             "resetCode": "Введите код сброса пароля"
         },
         "signup": {
-            "acceptableUseLink": "Допустимое использование",
             "ageConfirmation": "Я подтверждаю, что мне 13 лет или больше",
             "alreadyHaveAccount": "У вас уже есть аккаунт?",
             "confirmPassword": "Подтвердите пароль",
             "createAccount": "Зарегистрироваться",
-            "privacyLink": "Конфиденциальность",
             "readAndAgree": "Я прочитал и согласен с",
-            "termsOfServiceLink": "Условия использования",
             "title": "Зарегистрироваться",
             "emailAddress": "Адрес электронной почты",
             "logIn": "Авторизоваться",

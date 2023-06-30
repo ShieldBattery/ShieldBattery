@@ -1,7 +1,6 @@
 {
     "common": {
         "validators": {
-            "maxLength": "$🗡Enter at most {{maxLength}} characters🗡!",
             "minLength": "$🗡Enter at least {{minLength}} characters🗡!",
             "required": "$🗡Required🗡!"
         },
@@ -253,15 +252,12 @@
             "required": "$🗡Enter a password🗡!"
         },
         "signup": {
-            "acceptableUseLink": "$🗡Acceptable Use🗡!",
             "ageConfirmation": "$🗡I certify that I am 13 years of age or older🗡!",
             "alreadyHaveAccount": "$🗡Already have an account?🗡!",
             "confirmPassword": "$🗡Confirm password🗡!",
-            "privacyLink": "$🗡Privacy🗡!",
             "readAndAgree": "$🗡I have read and agree to the🗡!",
             "title": "$🗡Create account🗡!",
             "createAccount": "$🗡Create account🗡!",
-            "termsOfServiceLink": "$🗡Terms of Service🗡!",
             "username": "$🗡Username🗡!",
             "logIn": "$🗡Log in🗡!",
             "emailAddress": "$🗡Email address🗡!",
@@ -765,19 +761,16 @@
                 "removed": "$🗡Removed from favorites🗡!",
                 "removedError": "$🗡An error occurred while removing from favorites🗡!"
             },
-            "filterOptions": "$🗡Filter options🗡!",
             "noCommunityMaps": "$🗡No maps by the community have been made public yet.🗡!",
             "noOfficialMaps": "$🗡No official maps have been uploaded yet.🗡!",
             "noResults": "$🗡No results.🗡!",
             "noUploadedMaps": "$🗡You haven't uploaded any maps. You can upload a map by clicking on the browse button below.🗡!",
             "regenerateError": "$🗡An error occurred while regenerating images🗡!",
-            "sortMaps": "$🗡Sort maps🗡!",
             "tab": {
                 "community": "$🗡Community🗡!",
                 "myMaps": "$🗡My maps🗡!",
                 "official": "$🗡Official🗡!"
-            },
-            "thumbnailSize": "$🗡Thumbnail size🗡!"
+            }
         },
         "thumbnail": {
             "addToFavorites": "$🗡Add to favorites🗡!",

@@ -1,7 +1,6 @@
 {
     "common": {
         "validators": {
-            "maxLength": "Ingrese como máximo {{maxLength}} caracteres",
             "minLength": "Ingrese al menos {{minLength}} caracteres",
             "required": "Requerido"
         },
@@ -270,14 +269,11 @@
             "resetCode": "Ingrese su código de restablecimiento de contraseña"
         },
         "signup": {
-            "acceptableUseLink": "Uso aceptable",
             "ageConfirmation": "Certifico que tengo 13 años de edad o más",
             "alreadyHaveAccount": "¿Ya tienes una cuenta?",
             "confirmPassword": "Confirmar Contraseña",
             "createAccount": "Crear una cuenta",
-            "privacyLink": "Privacidad",
             "readAndAgree": "he leído y estoy de acuerdo con",
-            "termsOfServiceLink": "Términos de servicio",
             "title": "Crear una cuenta",
             "emailAddress": "Dirección de correo electrónico",
             "logIn": "Acceso",
@@ -765,18 +761,15 @@
                 "removed": "Eliminado de favoritos",
                 "removedError": "Ocurrió un error al eliminar de favoritos"
             },
-            "filterOptions": "Opciones de filtro",
             "noCommunityMaps": "Aún no se han hecho públicos mapas de la comunidad.",
             "noOfficialMaps": "Aún no se han subido mapas oficiales.",
             "noUploadedMaps": "No has subido ningún mapa. Puede cargar un mapa haciendo clic en el botón de exploración a continuación.",
             "regenerateError": "Ocurrió un error al regenerar imágenes",
-            "sortMaps": "Ordenar mapas",
             "tab": {
                 "community": "Comunidad",
                 "myMaps": "mis mapas",
                 "official": "Oficial"
             },
-            "thumbnailSize": "tamaño de la uña del pulgar",
             "noResults": "No hay resultados."
         },
         "thumbnail": {

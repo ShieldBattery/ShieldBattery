@@ -1,7 +1,6 @@
 {
     "common": {
         "validators": {
-            "maxLength": "最多输入 {{maxLength}} 个字符",
             "minLength": "至少输入 {{minLength}} 个字符",
             "required": "必需的"
         },
@@ -79,9 +78,7 @@
         },
         "signup": {
             "readAndAgree": "我已经阅读并且同意",
-            "termsOfServiceLink": "服务条款",
             "title": "创建账户",
-            "privacyLink": "隐私",
             "acceptableUseLink": "可接受的使用",
             "ageConfirmation": "我证明我已年满 13 岁",
             "alreadyHaveAccount": "已有帐户？",
