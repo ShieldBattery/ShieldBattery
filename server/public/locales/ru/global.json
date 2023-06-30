@@ -265,7 +265,7 @@
             "supportedStarcraftVersionQuestion": "Какую версию StarCraft поддерживает ShieldBattery?",
             "header": "Часто задаваемые вопросы",
             "linuxSupportQuestion": "Работает ли ShieldBattery на Linux или OS X?",
-            "systemRequirementsAnswer": "<0>Наши системные требования в основном соответствуют требованиям <2>StarCraft: Remastered</2>, но вкратце:</0><1><0>Компьютер под управлением Windows 10 или более поздней версии</0><1. >2 ГБ ОЗУ</1><2>NVIDIA GeForce 6800 (256 МБ) или ATI Radeon X1600 Pro (256 МБ) или лучше</2><3>Обновленная установка StarCraft, исправленная до последней версии</3></ 1>",
+            "systemRequirementsAnswer": "<0>Наши системные требования в основном соответствуют требованиям <2>StarCraft: Remastered</2>, но вкратце:</0><1><0>Компьютер под управлением Windows 10 или более поздней версии</0><1>2 ГБ ОЗУ</1><2>NVIDIA GeForce 6800 (256 МБ) или ATI Radeon X1600 Pro (256 МБ) или лучше</2><3>Обновленная установка StarCraft, исправленная до последней версии</3></1>",
             "systemRequirementsQuestion": "Какие системные требования для игры на ShieldBattery?",
             "title": "Часто задаваемые вопросы"
         },
