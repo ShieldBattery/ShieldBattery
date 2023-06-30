@@ -3,9 +3,9 @@
         "validators": {
             "required": "필수의",
             "maxLength_one": "최대 {{count}}자까지 입력하십시오.",
-            "maxLength_other": "최대 {{count}}자까지 입력하세요.",
+            "maxLength_other": "최대 {{maxLength}}자까지 입력하세요.",
             "minLength_one": "{{count}}자 이상 입력하세요.",
-            "minLength_other": "{{count}}자 이상 입력하세요."
+            "minLength_other": "{{minLength}}자 이상 입력하세요."
         },
         "actions": {
             "back": "뒤쪽에",
@@ -184,7 +184,7 @@
                 "emailAddress": "이메일 주소"
             },
             "backToLogin": "로그인으로 돌아가기",
-            "generalError": "오류: {{error}}",
+            "generalError": "오류: {{errorMessage}}",
             "password": {
                 "sendResetEmail": "재설정 이메일 보내기",
                 "successMessage": "해당 이메일 주소와 사용자 이름이 등록된 계정과 일치하면 몇 분 안에 비밀번호 재설정 방법에 대한 지침이 포함된 이메일을 받게 됩니다.",
@@ -232,7 +232,7 @@
             "defaultError": "뭔가 크게 잘못되었습니다. 다시 시도해 주세요.",
             "emailSent": "확인 이메일이 성공적으로 전송되었습니다.",
             "emailUnverifiedMessage": "이메일이 확인되지 않았습니다! ShieldBattery에서 보낸 이메일을 확인하십시오. 하나가 보이지 않으면 <2>다른 하나를 보낼 수 있습니다</2>.",
-            "generalError": "오류: {{error}}",
+            "generalError": "오류: {{errorMessage}}",
             "invalidCodeError": "오류: 제공된 이메일 또는 확인 코드가 유효하지 않습니다. 확인 코드가 이메일로 받은 것과 일치하면 만료되었을 수 있습니다. 새 확인 이메일을 요청하고 다시 시도하십시오.",
             "loggedOutError": "오류: 이메일을 확인하려면 로그인해야 합니다. 아래 버튼을 클릭하여 로그인 후 다시 시도해 주세요.",
             "resendError": "이메일 재전송 오류: {{error}}",
@@ -310,7 +310,7 @@
             "reportIssuesQuestion": "버그나 문제를 보고하려면 어떻게 해야 하나요?",
             "supportedStarcraftVersionAnswer": "ShieldBattery는 최신 버전의 StarCraft: Remastered를 지원합니다. 무료 버전의 스타크래프트: 리마스터는 공식 <2>블리자드 사이트</2>에서 다운로드하거나 블리자드 런처를 통해 설치할 수 있습니다. 구매한 모든 애드온(예: HD 그래픽)은 ShieldBattery에서 사용할 수 있습니다.",
             "supportedStarcraftVersionQuestion": "ShieldBattery는 어떤 버전의 StarCraft를 지원하나요?",
-            "systemRequirementsAnswer": "<0>우리의 시스템 요구 사항은 주로 <2>스타크래프트: 리마스터</2>의 요구 사항에 따라 결정되지만 간단히 말해서:</0><1><0>Windows 10 이상을 실행하는 컴퓨터</0><1>2GB RAM</1><2>NVIDIA GeForce 6800(256MB) 또는 ATI Radeon X1600 Pro(256MB) 이상</2><3>A StarCraft: Remastered 설치, 최신 버전으로 패치</3></1>",
+            "systemRequirementsAnswer": "<0>우리의 시스템 요구 사항은 주로 <2>스타크래프트: 리마스터</2>의 요구 사항에 따라 결정되지만 간단히 말해서:</0><1><0>Windows 10 이상을 실행하는 컴퓨터</0><1 >2GB RAM</1><2>NVIDIA GeForce 6800(256MB) 또는 ATI Radeon X1600 Pro(256MB) 이상</2><3>A StarCraft: Remastered 설치, 최신 버전으로 패치</3></ 1>",
             "systemRequirementsQuestion": "ShieldBattery에서 플레이하기 위한 시스템 요구 사항은 무엇입니까?",
             "title": "자주 묻는 질문",
             "header": "자주하는 질문"
@@ -503,7 +503,7 @@
             "notPartyLeader": "파티 리더만 매치 대기열에 들어갈 수 있습니다.",
             "soon": "곧™",
             "description": "매치메이킹은 때때로 유지 관리 및 개발을 위해 종료되며 현재 비활성화되어 있습니다. 다음 매치메이킹 기간은 다음과 같습니다.",
-            "nextDateRange": "<0>{dateFormat.format(nextStartDate)}</0><1>~</1><2>{dateFormat.format(nextEndDate)}</2>",
+            "nextDateRange": "<0>{{nextStartDate}}</0><1>~</1><2>{{nextEndDate}}</2>",
             "partyTooLargeText": "현재 파티가 너무 커서 이 매치메이킹 유형을 대기열에 추가할 수 없습니다.",
             "partyTooLargeTitle": "파티가 너무 큼",
             "seconds": "초",
@@ -665,7 +665,7 @@
             "successMessage": "{{user}} 금지됨"
         },
         "banUserErrorDisplay": {
-            "defaultError": "오류 발생: {{statusText}}",
+            "defaultError": "오류 발생: {{errorMessage}}",
             "genericError": "{{user}} 금지 오류: {{errorMessage}}",
             "moderateChannelModerator": "다른 중재자를 차단할 수 없습니다.",
             "moderateChannelOwner": "채널 소유자를 차단할 수 없습니다.",
@@ -673,7 +673,7 @@
             "notInChannel": "차단하려는 사용자가 이 채널에 없습니다."
         },
         "channelInfo": {
-            "defaultError": "오류 발생: {{statusText}}",
+            "defaultError": "오류 발생: {{errorMessage}}",
             "genericError": "#{{channelName}}에 대한 채널 정보 가져오기 오류: {{errorMessage}}",
             "notFound": "이 채널을 찾을 수 없습니다. 존재하지 않거나 다른 사람이 다시 만들었을 수 있습니다."
         },
@@ -913,7 +913,7 @@
         "notificationUi": "<0>{{user}}</0>님이 파티 초대장을 보냈습니다.",
         "queueAcceptDialog": {
             "contents": "당신의 파티는 <2>{{matchmakingLabel}}</2> 경기를 찾고 있습니다.",
-            "error": "오류: {{error}}",
+            "error": "오류: {{errorMessage}}",
             "title": "인종을 선택하세요"
         },
         "view": {
