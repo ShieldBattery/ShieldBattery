@@ -356,7 +356,7 @@
         "userErrorDisplay": {
             "banWithoutReason": "Причина не указана",
             "defaultError": "Произошла ошибка: {{status}} {{statusText}}",
-            "genericError": "Произошла ошибка: {{statusText}}",
+            "genericError": "Произошла ошибка: {{errorMessage}}",
             "invalidCredentials": "Неверное имя пользователя или пароль",
             "machineBanned": "Этой машине запрещено создавать новые учетные записи.",
             "noConnectionErrorMessage": "Не удалось подключиться к серверу. Проверьте подключение к Интернету и повторите попытку.",
@@ -542,7 +542,7 @@
             "title": "Отправить сообщение",
             "username": "Имя пользователя",
             "usernamePattern": "Имя пользователя содержит недопустимые символы",
-            "error": "Ошибка: {{error}}",
+            "error": "Ошибка: {{errorMessage}}",
             "usernameRequired": "Введите имя пользователя"
         },
         "errors": {
