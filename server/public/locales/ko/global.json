@@ -1,18 +1,178 @@
 {
     "common": {
         "validators": {
-            "required": "필수의"
+            "required": "필수의",
+            "maxLength_one": "최대 {{count}}자까지 입력하십시오.",
+            "maxLength_other": "최대 {{maxLength}}자까지 입력하세요.",
+            "minLength_one": "{{count}}자 이상 입력하세요.",
+            "minLength_other": "{{minLength}}자 이상 입력하세요."
         },
         "actions": {
             "back": "뒤쪽에",
             "cancel": "취소",
             "continue": "계속하다",
             "okay": "좋아요",
-            "save": "구하다"
+            "save": "구하다",
+            "apply": "적용하다",
+            "join": "가입하다",
+            "refresh": "새로 고치다",
+            "remove": "제거하다",
+            "show": "보여주다",
+            "start": "시작",
+            "unblock": "차단 해제",
+            "view": "보다",
+            "block": "차단하다",
+            "clear": "분명한",
+            "search": "찾다",
+            "accept": "수용하다",
+            "decline": "감소",
+            "browse": "검색",
+            "download": "다운로드",
+            "hide": "숨다",
+            "next": "다음",
+            "previous": "이전의",
+            "stop": "멈추다",
+            "test": "시험"
+        },
+        "lists": {
+            "empty": "여기는 볼게 없다"
         }
     },
     "settings": {
-        "close": "설정 닫기"
+        "close": "설정 닫기",
+        "game": {
+            "gameplay": {
+                "consoleSkins": {
+                    "title": "콘솔 스킨",
+                    "warcraft3": "워크래프트 3 전리품",
+                    "20thAnniversary": "스타크래프트 20주년",
+                    "blizzcon2017": "블리즈컨 2017",
+                    "blizzcon2018": "블리즈컨 2018",
+                    "default": "기본",
+                    "krcGold": "민족학교 골드",
+                    "krcSilver": "민족학교 실버"
+                },
+                "devOnlySettings": "개발자 전용 설정",
+                "gameTimer": "게임 타이머",
+                "ingameSkins": {
+                    "carbot": "카봇",
+                    "none": "없음",
+                    "preorder": "선주문",
+                    "title": "인게임 스킨"
+                },
+                "latency": "대기 시간 표시",
+                "minimapPosition": {
+                    "bottomLeft": "왼쪽 하단 모서리",
+                    "standard": "기준",
+                    "title": "미니맵 위치"
+                },
+                "skinsInfo": "스킨(블리자드에서 구매해야 함)",
+                "title": "게임플레이",
+                "unitPortraits": {
+                    "animated": "생기 있는",
+                    "disabled": "장애가 있는",
+                    "still": "아직",
+                    "title": "초상화"
+                },
+                "visualizeNetworkStalls": "네트워크 중단 시각화",
+                "apmAlert": "APM이 아래로 떨어지면 경고",
+                "apmColorText": "컬러 텍스트",
+                "apmDisplay": "APM 표시",
+                "apmSound": "소리 재생",
+                "apmValue": "APM 값",
+                "apmValueValidation": "1에서 999 사이의 값을 입력하세요.",
+                "colorCycling": "색상 순환 활성화",
+                "showBonusSkins": "보너스 스킨 보기"
+            },
+            "input": {
+                "mouseScrollSpeed": "마우스 스크롤 속도",
+                "mouseSensitivity": "마우스 감도",
+                "title": "입력",
+                "hardwareCursor": "하드웨어 커서",
+                "keyboardScrollSpeed": "키보드 스크롤 속도",
+                "lockCursor": "커서를 창에 고정",
+                "mouseScaling": "마우스 배율 사용",
+                "customMouseSensitivity": "사용자 지정 마우스 감도"
+            },
+            "sound": {
+                "announcer": {
+                    "default": "기본",
+                    "heyJini": "헤이지니",
+                    "info": "팩(블리자드에서 구매해야 함)",
+                    "jeonYongJun": "전용준",
+                    "kimJungmin": "김정민",
+                    "title": "아나운서",
+                    "umJaeKyung": "엄재경",
+                    "umJeonKim": "엄전김 트리오"
+                },
+                "unitSpeech": "단위연설",
+                "backgroundSounds": "백그라운드에서 소리 재생",
+                "buildingSounds": "건물 소리",
+                "cinematicSubtitles": "시네마틱 자막",
+                "gameSounds": "게임 사운드",
+                "gameSubtitles": "게임 자막",
+                "music": "음악",
+                "musicVolume": "음악 볼륨",
+                "originalVoiceOvers": "오리지널 유닛 보이스 오버",
+                "soundVolume": "음량",
+                "title": "소리",
+                "unitAcknowledgements": "단위 승인"
+            },
+            "starcraft": {
+                "folderPath": "스타크래프트 폴더 경로",
+                "instructions": {
+                    "bottomPart": "일반적으로 <1>C:\\Program Files (x86)\\StarCraft</1>이지만 Battle.net 런처에서 사용자 정의한 경우 다른 위치에 있을 수도 있습니다.",
+                    "topPart": "스타크래프트: 리마스터를 설치한 디렉토리를 선택하세요."
+                },
+                "title": "스타 크래프트"
+            },
+            "video": {
+                "displayMode": {
+                    "fullscreen": "전체 화면",
+                    "title": "디스플레이 모드",
+                    "windowed": "창",
+                    "windowedFullscreen": "창 모드(전체 화면)"
+                },
+                "smoothUnitTurning": "부드러운 유닛 회전",
+                "title": "동영상",
+                "enableFpsLimit": "FPS 제한 활성화",
+                "enableVerticalSync": "수직 동기화 활성화",
+                "environmentEffects": "환경 영향",
+                "fpsLimit": "FPS 제한",
+                "hdGraphics": "HD 그래픽",
+                "pillarbox": "기둥 상자(4:3 가로세로 비율)",
+                "realTimeLighting": "실시간 조명",
+                "sdGraphicsFilter": "SD 그래픽 필터",
+                "shadowStacking": "그림자 쌓기",
+                "showFps": "FPS 표시"
+            },
+            "title": "게임"
+        },
+        "user": {
+            "language": {
+                "selectLanguage": "언어 선택",
+                "title": "언어"
+            },
+            "title": "사용자"
+        },
+        "activity": {
+            "title": "설정(Alt + S)"
+        },
+        "app": {
+            "sound": {
+                "masterVolume": "마스터 볼륨",
+                "title": "소리"
+            },
+            "system": {
+                "runOnStartup": "시스템 시작 시 ShieldBattery 실행",
+                "startMinimized": "최소화 시작",
+                "title": "체계"
+            },
+            "title": "앱"
+        },
+        "errors": {
+            "save": "설정을 저장하는 중에 문제가 발생했습니다."
+        }
     },
     "auth": {
         "forgot": {
@@ -24,7 +184,7 @@
                 "emailAddress": "이메일 주소"
             },
             "backToLogin": "로그인으로 돌아가기",
-            "generalError": "오류: {{error}}",
+            "generalError": "오류: {{errorMessage}}",
             "password": {
                 "sendResetEmail": "재설정 이메일 보내기",
                 "successMessage": "해당 이메일 주소와 사용자 이름이 등록된 계정과 일치하면 몇 분 안에 비밀번호 재설정 방법에 대한 지침이 포함된 이메일을 받게 됩니다.",
@@ -72,7 +232,7 @@
             "defaultError": "뭔가 크게 잘못되었습니다. 다시 시도해 주세요.",
             "emailSent": "확인 이메일이 성공적으로 전송되었습니다.",
             "emailUnverifiedMessage": "이메일이 확인되지 않았습니다! ShieldBattery에서 보낸 이메일을 확인하십시오. 하나가 보이지 않으면 <2>다른 하나를 보낼 수 있습니다</2>.",
-            "generalError": "오류: {{error}}",
+            "generalError": "오류: {{errorMessage}}",
             "invalidCodeError": "오류: 제공된 이메일 또는 확인 코드가 유효하지 않습니다. 확인 코드가 이메일로 받은 것과 일치하면 만료되었을 수 있습니다. 새 확인 이메일을 요청하고 다시 시도하십시오.",
             "loggedOutError": "오류: 이메일을 확인하려면 로그인해야 합니다. 아래 버튼을 클릭하여 로그인 후 다시 시도해 주세요.",
             "resendError": "이메일 재전송 오류: {{error}}",
@@ -134,6 +294,99 @@
             "faq": "자주하는 질문",
             "home": "집",
             "login": "로그인"
+        },
+        "faq": {
+            "isShieldBatteryFreeQuestion": "ShieldBattery는 비용이 드나요? 프로젝트를 어떻게 지원할 수 있습니까?",
+            "hotkeyCustomizationAnswer": "예, 맞춤형 단축키를 지원하지만 현재 단축키 편집기는 없습니다. 맞춤 단축키를 사용하려면 블리자드 런처를 통해 스타크래프트: 리마스터를 실행하고 먼저 맞춤 설정하세요. 이렇게 하면 ShieldBattery를 통한 향후 출시에서 해당 핫키를 사용합니다.",
+            "hotkeyCustomizationQuestion": "단축키 사용자 정의가 허용되거나 제공됩니까?",
+            "isShieldBatteryFreeAnswer": "<0>ShieldBattery는 완전히 무료로 사용할 수 있습니다!</0><1>하지만 ShieldBattery를 호스팅하고 개발하는 데 시간과 비용이 듭니다. 저희가 그 비용을 부담할 수 있도록 도와주신다면 정말 감사하겠습니다. 다음과 같은 다양한 기여 방법을 마련했습니다.</1>",
+            "linuxSupportAnswer": "<0>현재 공식적으로 지원하는 기능은 아닙니다.</0><1>그러나 ShieldBattery와 Wine의 커뮤니티 기여 통합이 있습니다. Wine에서 ShieldBattery를 실행하는 방법을 알아보려면 <2>Discord</2>를 확인하세요.</1>",
+            "linuxSupportQuestion": "ShieldBattery는 Linux 또는 OS X에서 작동합니까?",
+            "officialSupportAnswer": "아니요, ShieldBattery는 열정적인 커뮤니티 구성원이 개발한 프로젝트이며 Blizzard의 공식적인 지원이나 승인을 받지 않았습니다.",
+            "officialSupportQuestion": "ShieldBattery는 Blizzard의 지원을 받아 개발되었습니까?",
+            "openSourceAnswer": "<0>예. <2>GitHub 페이지</2>에서 우리가 작성하고 자체 저장소로 분리한 다양한 추가 프로젝트뿐만 아니라 기본 저장소에 액세스할 수 있습니다.</0><1>항상 더 많은 기여자를 사용할 수 있으므로 도움이 될 수 있다고 생각하시면 확인해 보세요!</1>",
+            "openSourceQuestion": "프로젝트가 오픈 소스입니까?",
+            "reportIssuesAnswer": "버그나 문제를 보고하는 가장 쉬운 방법은 <2>Discord</2>를 이용하는 것입니다. 그렇게 하는 것이 편하다면 <5>GitHub</5>에 문제를 제기할 수도 있습니다.",
+            "reportIssuesQuestion": "버그나 문제를 보고하려면 어떻게 해야 하나요?",
+            "supportedStarcraftVersionAnswer": "ShieldBattery는 최신 버전의 StarCraft: Remastered를 지원합니다. 무료 버전의 스타크래프트: 리마스터는 공식 <2>블리자드 사이트</2>에서 다운로드하거나 블리자드 런처를 통해 설치할 수 있습니다. 구매한 모든 애드온(예: HD 그래픽)은 ShieldBattery에서 사용할 수 있습니다.",
+            "supportedStarcraftVersionQuestion": "ShieldBattery는 어떤 버전의 StarCraft를 지원하나요?",
+            "systemRequirementsAnswer": "<0>우리의 시스템 요구 사항은 주로 <2>스타크래프트: 리마스터</2>의 요구 사항에 따라 결정되지만 간단히 말해서:</0><1><0>Windows 10 이상을 실행하는 컴퓨터</0><1 >2GB RAM</1><2>NVIDIA GeForce 6800(256MB) 또는 ATI Radeon X1600 Pro(256MB) 이상</2><3>A StarCraft: Remastered 설치, 최신 버전으로 패치</3></ 1>",
+            "systemRequirementsQuestion": "ShieldBattery에서 플레이하기 위한 시스템 요구 사항은 무엇입니까?",
+            "title": "자주 묻는 질문",
+            "header": "자주하는 질문"
+        },
+        "bottomLinks": {
+            "acceptableUsePolicy": "허용되는 사용 정책",
+            "privacyPolicy": "개인 정보 정책",
+            "termsOfService": "서비스 약관"
+        },
+        "splash": {
+            "comingSoon": {
+                "cloudReplaysTitle": "클라우드 동기화된 리플레이",
+                "expandedChatDescription": "감정 표현, 내장 맵, 매치, 리플레이 등을 사용하여 자신을 표현하세요!",
+                "liveStreamingDescription": "진행 중인 경기에 뛰어들어 게임 내 관전의 모든 이점과 함께 경기를 실시간으로 시청하세요.",
+                "liveStreamingTitle": "라이브 매치 스트리밍",
+                "3v3Description": "편성된 팀 또는 무작위 팀이 있는 3v3용 게임을 쉽게 찾을 수 있습니다.",
+                "automatedTournamentsDescription": "기술 수준에 맞는 토너먼트와 리그를 찾고 자동으로 실행됩니다.",
+                "automatedTournamentsTitle": "자동화된 토너먼트 및 리그",
+                "builtInMapmakingDescription": "파괴 가능한 바위, 이상적인 작업자 시작 위치, 고급 크립 배치 등!",
+                "builtInMapmakingTitle": "새로운 내장 지도 제작 기능",
+                "cloudReplaysDescription": "리플레이 자동 업로드. 다른 사람과 공유하고 어디서나 시청하세요!",
+                "expandedChatTitle": "확장된 채팅 기능",
+                "fpReplaysDescription": "마우스 및 화면 움직임을 기록하고 모든 플레이어를 위해 재생합니다.",
+                "fpReplaysTitle": "1인칭 리플레이",
+                "pixelScalingDescription": "사용자 지정 크기 조정 알고리즘을 사용하여 최신 화면에서 SD 그래픽의 모양을 개선합니다.",
+                "pixelScalingTitle": "구성 가능한 픽셀 스케일링",
+                "playerProfilesDescription": "다양한 매치업과 맵에서 실력을 확인하고, 개선할 방법을 찾고, 경쟁에서 어떻게 쌓이는지 확인하세요.",
+                "playerProfilesTitle": "플레이어 프로필 및 통계",
+                "replayAnalysisDescription": "BWChart와 같은 리플레이 분석 및 고급 통계 및 차트 작성을 기본적으로 지원합니다.",
+                "replayAnalysisTitle": "리플레이 분석",
+                "sandboxModeDescription": "새 빌드를 테스트하고 작업자 분할을 연습하고 마이크로를 개선하십시오.",
+                "sandboxModeTitle": "교육/샌드박스 모드",
+                "umsPortalDescription": "쉽게 UMS 맵을 찾고 탐색한 다음 빠르게 플레이어를 모아 게임을 시작하세요.",
+                "umsPortalTitle": "지도 설정 포털 사용",
+                "3v3Title": "3v3 매치메이킹"
+            },
+            "benefits": {
+                "communityFirstText": "ShieldBattery는 StarCraft를 플레이하거나 시청하는 모든 사람을 위한 활기찬 허브입니다. 채팅이 가장 중요하고, 게임에 원활하고 쉽게 참여할 수 있으며, 귀하의 경험이 우리의 최우선 관심사입니다. 1998년부터 플레이했든 이번 주에 게임을 시작했든 관계없이 여기에서 집을 찾을 수 있습니다.",
+                "communityFirstTitle": "커뮤니티 우선",
+                "fullPotentialText": "StarCraft는 놀라운 경쟁 역사를 가지고 있으며 ShieldBattery는 최고 수준의 플레이 및 시청 경험을 제공하기 위한 기반입니다. 오픈 소스, 커뮤니티 중심, 현대 게임에서도 원하는 기능과 경험 제공: ShieldBattery는 StarCraft 커뮤니티를 위한 혁신적인 단계입니다.",
+                "fullPotentialTitle": "전체 잠재력 잠금 해제",
+                "tacticallyFaithfulText": "수십 년간의 StarCraft 경험을 가진 커뮤니티 회원들이 만든 저희는 무엇이 게임을 흥겹게 만드는지 알고 있습니다. 중요한 사항은 동일하게 유지하면서 StarCraft 경험을 그 어느 때보다 향상시키기 위해 완전히 새로운 기능과 개선 사항을 구축하고 있습니다.",
+                "tacticallyFaithfulTitle": "전술적으로 충실하다"
+            },
+            "blurb": "ShieldBattery는 <2>스타크래프트: 리마스터</2>를 지원하는 최초의 커뮤니티 운영 서버입니다. 맞춤형 런처는 고급 플랫폼과 함께 작동하도록 실제 게임 클라이언트를 향상시켜 충실하고 사실적인 게임 플레이를 유지하면서 스타크래프트 1 경험을 개선합니다. 런처를 다운로드하고 몇 번의 클릭만으로 게임을 시작하세요!",
+            "features": {
+                "rankedLadderTitle": "랭크 래더",
+                "cloudHostingDescription": "공식 라이브러리의 지도에서 플레이하거나 직접 업로드하세요. 즐겨찾는 지도를 모두 업로드하고 친구와 공유하고 어디에서나 호스트하세요.",
+                "cloudHostingTitle": "클라우드 기반 지도 배포 및 호스팅",
+                "fixesBugsExploitsDescription": "공식 서버를 괴롭히는 해킹 및 익스플로잇을 피하세요. 작업자 복제, 광물 해킹, 영구적으로 떠다니는 작업자와 같은 것은 이곳에서 과거의 일입니다.",
+                "fixesBugsExploitsTitle": "버그 및 악용에 대한 수정",
+                "friendsListDescription": "친구가 온라인 상태일 때 추적하고 쉽게 메시지를 보내고 게임에 초대하세요.",
+                "friendsListTitle": "친구 목록",
+                "improvedNetcodeDescription": "지연, 드롭 및 패킷 손실 감소!",
+                "improvedNetcodeTitle": "향상된 넷코드",
+                "leaguesDescription": "커뮤니티에서 주최하고 자동화된 매치메이킹을 통해 진행되는 흥미진진한 기간 한정 리그에 참여하십시오.",
+                "leaguesTitle": "오픈 리그",
+                "matchmakingDescription": "혼자서 또는 정해진 팀과 함께 쉽고 빠르게 매치를 찾으세요.",
+                "matchmakingTitle": "1v1 및 2v2 매치메이킹",
+                "partiesDescription": "친구들과 파티를 만들어 쉽게 개인 경기를 주최하거나 함께 리플레이를 시청하거나 매치메이킹에 참여하세요.",
+                "partiesTitle": "파티",
+                "rankedladderDescription": "모든 매치메이킹 모드에 대한 Glicko 기반 순위 시스템에서 기술을 연마하세요.",
+                "remasteredSupportDescription": "HD 그래픽(Blizzard에서 구입한 경우) 및 사용자 지정 단축키를 포함한 모든 새로운 Remastered 기능을 지원합니다.",
+                "remasteredSupportTitle": "스타크래프트: 리마스터 지원",
+                "teamMeleeReplaysDescription": "ShieldBattery에서 Team Melee 모드로 플레이한 모든 게임을 플레이하세요!",
+                "teamMeleeReplaysTitle": "워킹 팀 근접전 리플레이",
+                "webClientDescription": "아무 것도 설치할 필요 없이 친구(및 적)와 함께하세요.",
+                "webClientTitle": "웹 기반 채팅 클라이언트"
+            },
+            "comingSoonTitle": "파이프 <1>(출시 예정)</1>",
+            "disclaimerText": "StarCraft는 Blizzard Entertainment, Inc.의 등록 상표입니다. ShieldBattery는 Blizzard와 무관한 커뮤니티 구성원에 의해서만 개발되며 Blizzard에서 공식적으로 보증하거나 지원하지 않습니다.",
+            "featuresTitle": "특징",
+            "gameCount": "<0></0> 게임 플레이",
+            "linksHeader": "연결",
+            "signUp": "가입하기",
+            "tagline": "최고의 커뮤니티 운영 플랫폼에서 스타크래프트 1을 플레이하세요"
         }
     },
     "clientDownload": {
@@ -152,7 +405,8 @@
             "newUpdateDownloading": "새 업데이트를 다운로드 중입니다. 계속하려면 다운로드가 완료될 때까지 기다리십시오.",
             "newUpdateReady": "새 업데이트가 다운로드되었으며 설치할 준비가 되었습니다. 계속하려면 응용 프로그램을 다시 시작하십시오.",
             "noErrorTitle": "업데이트 가능",
-            "restartNow": "지금 다시 시작"
+            "restartNow": "지금 다시 시작",
+            "progress": "{{perSecond}}/s에서 {{transferred}} / {{total}}"
         }
     },
     "comingSoon": {
@@ -185,7 +439,10 @@
         "pointsHeader": "포인트들",
         "rankHeader": "계급",
         "updatedText": "업데이트: {{timestamp}}",
-        "winLossHeader": "승/패"
+        "winLossHeader": "승/패",
+        "activity": {
+            "title": "사다리"
+        }
     },
     "matchmaking": {
         "division": {
@@ -196,6 +453,775 @@
             "diamond": "다이아몬드 {{level}}",
             "gold": "골드 {{level}}",
             "platinum": "플래티넘 {{level}}"
+        },
+        "acceptMatch": {
+            "body": "모든 플레이어는 경기를 시작할 준비를 해야 합니다.",
+            "failedToAccept": "수락하지 못했습니다.",
+            "returningToQueue": "일부 플레이어는 제 시간에 준비하지 않았거나 로드하지 못했습니다. 매치메이킹 대기열로 돌아가는 중…",
+            "matchFound": "일치 항목을 찾았습니다.",
+            "readyUp": "준비",
+            "removedFromQueue": "제시간에 준비하지 않아 대기열에서 제외되었습니다."
+        },
+        "findMatch": {
+            "bonusPoints": "{{bonusAvailable}} 포인트",
+            "bonusPool": "보너스 풀",
+            "rating": "평가",
+            "title": "일치하는 항목 찾기",
+            "updated": "업데이트됨",
+            "useAlternateRace": "미러 매치업을 피하기 위해 대체 종족 사용",
+            "veto1v1": "최대 3개의 지도를 거부합니다. 거부권을 행사한 지도는 절대 선택되지 않습니다.",
+            "veto2v2": "최대 3개의 지도를 거부합니다. 거부된 지도는 다른 지도보다 훨씬 덜 자주 선택됩니다.",
+            "vetoesLeft": "<0>남은 거부권: </0><1>{{vetoesLeft}}</1>",
+            "action": "일치하는 항목 찾기",
+            "alternateRace": "대체 인종",
+            "description": "상대가 동일한 기본 종족을 선택할 때마다 사용할 종족을 선택합니다.",
+            "errors": {
+                "alreadyInGame": "이미 게임 중이거나 매치를 검색 중이거나 사용자 지정 로비에 있습니다.",
+                "dialogTitle": "일치 검색 오류",
+                "inParty": "당신은 파티에 있습니다. 솔로 플레이어로 대기열에 들어갈 수 없습니다.",
+                "loadingRank": "현재 순위를 로드하는 중에 문제가 발생했습니다.",
+                "matchmakingDisabled": "현재 매치메이킹이 비활성화되어 있습니다.",
+                "somethingWentWrong": "문제가 발생했습니다."
+            },
+            "mapPool": "맵 풀",
+            "points": "포인트들",
+            "race": "경주",
+            "remainingPlacements": "{{lifetimeGames}} / {{numPlacementMatches}} 배치"
+        },
+        "match": {
+            "gameInProgress": "게임 진행 중…",
+            "gameFailedToLoad": "게임을 로드하지 못했습니다.",
+            "gameLoading": "게임 런칭…",
+            "gameStarting": "게임 시작…",
+            "playerVsPlayer": "대"
+        },
+        "disabledCard": {
+            "days": "날",
+            "hours": "시간",
+            "inParty": "파티 중 비활성화",
+            "minutes": "분",
+            "notPartyLeader": "파티 리더만 매치 대기열에 들어갈 수 있습니다.",
+            "soon": "곧™",
+            "description": "매치메이킹은 때때로 유지 관리 및 개발을 위해 종료되며 현재 비활성화되어 있습니다. 다음 매치메이킹 기간은 다음과 같습니다.",
+            "nextDateRange": "<0>{dateFormat.format(nextStartDate)}</0><1>~</1><2>{dateFormat.format(nextEndDate)}</2>",
+            "partyTooLargeText": "현재 파티가 너무 커서 이 매치메이킹 유형을 대기열에 추가할 수 없습니다.",
+            "partyTooLargeTitle": "파티가 너무 큼",
+            "seconds": "초",
+            "title": "매치메이킹 비활성화됨"
+        },
+        "navEntry": {
+            "elapsedTime": "시간: ",
+            "matchFound": "일치하는 항목을 찾았습니다!",
+            "searchingForMatch": "{{matchmakingType}} 검색 중",
+            "cancelSearch": "검색 취소"
+        },
+        "postMatchDialog": {
+            "leagues": "리그",
+            "matchmaking": "결혼 중매",
+            "points": "포인트들",
+            "rating": "평가",
+            "searchAgain": "다시 검색",
+            "title": "경기 결과",
+            "watchReplay": "다시 보기"
+        },
+        "searchingOverlay": {
+            "cancelSearch": "검색 취소"
+        },
+        "type": {
+            "1v1": "1v1",
+            "2v2": "2v2",
+            "3v3": "3v3"
+        },
+        "activity": {
+            "finding": "발견…",
+            "findMatch": "일치하는 항목 찾기"
         }
+    },
+    "game": {
+        "gameType": {
+            "teamMelee": "팀 근접전",
+            "topVsBottom": "상단 대 하단",
+            "unknown": "알려지지 않은",
+            "greed": "탐욕",
+            "melee": "난투",
+            "oneOnOne": "하나에 하나",
+            "slaughter": "학살",
+            "suddenDeath": "급사",
+            "teamCaptureTheFlag": "팀이 깃발을 탈취하다",
+            "teamFreeForAll": "모두를 위한 무료 팀",
+            "captureTheFlag": "깃발 잡기",
+            "freeForAll": "모두를위한 무료",
+            "useMapSettings": "지도 설정 사용"
+        },
+        "results": {
+            "lossShort": "엘",
+            "draw": "그리다",
+            "loss": "손실",
+            "unknown": "알려지지 않은",
+            "win": "이기다",
+            "winShort": "여"
+        },
+        "teamName": {
+            "bottom": "맨 아래",
+            "number": "팀 {{teamNumber}}",
+            "top": "맨 위"
+        },
+        "race": {
+            "terran": "테란",
+            "protoss": "프로토스",
+            "random": "무작위의",
+            "zerg": "저그"
+        },
+        "gameSource": {
+            "custom": "커스텀 게임",
+            "ranked": "순위 {{matchmakingType}}"
+        },
+        "mapName": {
+            "unknown": "알 수 없는 지도"
+        },
+        "playerName": {
+            "computer": "컴퓨터",
+            "unknown": "알 수 없는 플레이어"
+        }
+    },
+    "lobbies": {
+        "createLobby": {
+            "lobbyNameRequired": "로비 이름을 입력하세요",
+            "mapRequired": "플레이할 맵을 선택하세요",
+            "selectMap": "지도 선택",
+            "disabledInPartyText": "파티로 로비를 만드는 작업은 현재 개발 중입니다. 계속하려면 파티에서 나가세요.",
+            "disabledInPartyTitle": "파티 중 비활성화",
+            "gameSubTypeHeader": "팀",
+            "gameSubTypeOption": "{{numTeams}} 팀",
+            "gameSubTypeOptionTvB": "{{topSlots}} 대 {{bottomSlots}}",
+            "gameTypeHeader": "게임 타입",
+            "lobbyName": "로비 이름",
+            "backToList": "다시 목록으로",
+            "title": "로비 만들기"
+        },
+        "messageLayout": {
+            "gameInitializationCanceled": "게임 초기화가 취소되었습니다.",
+            "hostChange": "<0><0></0></0>이(가) 이제 호스트입니다.",
+            "joinLobby": "<0><0></0></0>님이 로비에 참여했습니다.",
+            "banPlayer": "<0><0></0></0>이(가) 로비에서 금지되었습니다.",
+            "countdownCanceled": "게임 카운트다운이 취소되었습니다.",
+            "countdownStarted": "게임 카운트다운이 시작되었습니다",
+            "kickPlayer": "<0><0></0></0>님이 로비에서 추방되었습니다.",
+            "leaveLobby": "<0><0></0></0>님이 로비를 나갔습니다.",
+            "selfJoin": "<1>{{lobby}}</1>에 가입하셨습니다. 호스트는 <4><0></0></4>입니다."
+        },
+        "joinLobby": {
+            "openSlotCount_one": "{{count}} 슬롯 열림",
+            "openSlotCount_other": "{{count}} 슬롯 열림",
+            "title": "로비 참가",
+            "disabledInPartyText": "파티로 로비에 참여하는 기능은 현재 개발 중입니다. 계속하려면 파티에서 나가세요.",
+            "disabledInPartyTitle": "파티 중 비활성화",
+            "noActiveLobbies": "활성 로비가 없습니다.",
+            "noOpenLobbies": "공개된 로비가 없습니다."
+        },
+        "slots": {
+            "closeSlot": "슬롯 닫기",
+            "kickPlayer": "킥 선수",
+            "makeObserver": "관찰자로 만들기",
+            "makePlayer": "플레이어 만들기",
+            "name": "닫은",
+            "open": "열려 있는",
+            "openSlot": "열린 슬롯",
+            "removeComputer": "컴퓨터 제거",
+            "slotActions": "슬롯 작업",
+            "addComputer": "컴퓨터 추가",
+            "banPlayer": "플레이어 금지"
+        },
+        "state": {
+            "exists": "로비가 이미 존재합니다. 그것에 합류 해?",
+            "nonexistent": "로비가 존재하지 않습니다. 그것을 만드시겠습니까?",
+            "started": "로비는 이미 시작되었습니다."
+        },
+        "loading": {
+            "content": "<0>{{gameType}}</0><1> </1><2>{{mapName}}</2>"
+        },
+        "lobby": {
+            "gameType": "게임 타입",
+            "leaveLobby": "로비 나가기",
+            "startGame": "게임을 시작하다"
+        },
+        "events": {
+            "banned": "당신은 로비에서 금지되었습니다.",
+            "kicked": "당신은 로비에서 쫓겨났습니다."
+        },
+        "activity": {
+            "title": "로비"
+        },
+        "errors": {
+            "alreadyInLobby": "이미 다른 로비에 있습니다.",
+            "load": "로비를 로드하는 중에 문제가 발생했습니다."
+        }
+    },
+    "chat": {
+        "banUser": {
+            "banAction": "금지 {{user}}",
+            "banReason": "차단 사유(선택사항)",
+            "dialogTitle": "{{user}}를 금지하시겠습니까?",
+            "successMessage": "{{user}} 금지됨"
+        },
+        "banUserErrorDisplay": {
+            "defaultError": "오류 발생: {{errorMessage}}",
+            "genericError": "{{user}} 금지 오류: {{errorMessage}}",
+            "moderateChannelModerator": "다른 중재자를 차단할 수 없습니다.",
+            "moderateChannelOwner": "채널 소유자를 차단할 수 없습니다.",
+            "noPermissions": "이 사용자를 차단할 권한이 없습니다.",
+            "notInChannel": "차단하려는 사용자가 이 채널에 없습니다."
+        },
+        "channelInfo": {
+            "defaultError": "오류 발생: {{errorMessage}}",
+            "genericError": "#{{channelName}}에 대한 채널 정보 가져오기 오류: {{errorMessage}}",
+            "notFound": "이 채널을 찾을 수 없습니다. 존재하지 않거나 다른 사람이 다시 만들었을 수 있습니다."
+        },
+        "channelInfoCard": {
+            "adminView": "관리자 보기",
+            "joined": "가입",
+            "moreActions": "더 많은 행동",
+            "noDescription": "이 채널은 설명이 없습니다.",
+            "private": "이 채널은 비공개이며 참여하려면 초대가 필요합니다.",
+            "userCount_one": "{{count}} 멤버",
+            "userCount_other": "{{count}} 멤버"
+        },
+        "channelList": {
+            "createChannel": "채널 만들기",
+            "noMatchingChannels": "일치하는 채팅 채널이 없습니다.",
+            "pageHeadline": "채팅 채널",
+            "retrievingError": "채팅 채널을 검색하는 중에 오류가 발생했습니다."
+        },
+        "channelMenu": {
+            "banAction": "금지 {{user}}",
+            "kickingError": "오류 킥 {{user.name}}",
+            "userKicked": "{{user}}가 쫓겨났습니다",
+            "kickAction": "킥 {{user}}"
+        },
+        "channelName": {
+            "deletedChannel": "삭제된 채널"
+        },
+        "channelValidator": {
+            "pattern": "채널 이름에 잘못된 문자가 포함되어 있습니다.",
+            "required": "채널 이름을 입력하세요."
+        },
+        "createChannel": {
+            "bannedError": "이 채널에서 차단되었습니다.",
+            "channelName": "채널 이름",
+            "createAction": "채널 만들기",
+            "defaultError": "채널을 만드는 동안 오류가 발생했습니다.",
+            "maximumOwnedError": "생성된 채널의 한도에 도달했습니다. 다른 채널을 만들려면 먼저 만든 채널을 떠나야 합니다.",
+            "title": "채널 만들기"
+        },
+        "events": {
+            "ban": "귀하는 {{channelName}}에서 금지되었습니다.",
+            "kick": "당신은 {{channelName}}에서 쫓겨났습니다."
+        },
+        "joinChannel": {
+            "bannedError": "#{{channelName}}에서 금지되었습니다.",
+            "genericError": "#{{channelName}}에 가입하는 동안 오류가 발생했습니다.",
+            "maximumChannelsError": "가입한 채널의 한도에 도달했습니다. 다른 계정에 가입하기 전에 먼저 탈퇴해야 합니다."
+        },
+        "messageLayout": {
+            "banUser": "<0><0></0></0> 채널에서 차단되었습니다.",
+            "joinChannel": "<0><0></0></0>님이 채널에 가입했습니다.",
+            "kickUser": "<0><0></0></0>님이 채널에서 추방되었습니다.",
+            "leaveChannel": "<0><0></0></0>님이 채널을 나갔습니다.",
+            "newChannelOwner": "<0><0></0></0>은(는) 채널의 새 소유자입니다.",
+            "selfJoinChannel": "<2><0></0></2>에 가입했습니다."
+        },
+        "messageMenu": {
+            "deleteError": "메시지 삭제 오류",
+            "messageDeleted": "메시지 삭제됨"
+        },
+        "navEntry": {
+            "leaveChannel": "채널 나가기"
+        },
+        "userList": {
+            "idle": "게으른",
+            "offline": "오프라인",
+            "active": "활동적인"
+        }
+    },
+    "starcraft": {
+        "shieldbatteryHealth": {
+            "bottomContents": "가능한 경우 이를 안티바이러스 공급업체에 오탐으로 보고하면 다른 사용자에게도 이런 일이 발생하지 않도록 하는 데 도움이 됩니다!",
+            "middleContents": "이는 설치된 바이러스 백신 소프트웨어가 오탐지에 조치를 취한 결과인 경우가 많습니다. 이러한 파일에 대한 예외를 추가하거나 격리에서 파일을 제거하도록 소프트웨어에 지시해야 할 수 있습니다. ShieldBattery를 다시 설치해 볼 수도 있습니다.",
+            "noProblems": "이제 로컬 설치에 문제가 없습니다.",
+            "rescanFiles": "파일 재검색",
+            "title": "설치 문제 감지됨",
+            "topContents": "다음 ShieldBattery 파일이 없거나 수정되었음을 감지했습니다."
+        },
+        "starcraftHealth": {
+            "installPathContents": "StarCraft 경로 설정이 올바른 설치를 가리키지 않습니다. <2>설정</2>에서 값을 수정하십시오. 게임이 설치되어 있지 않은 경우 <5><0>블리자드 웹사이트</0></5>에서 쉽게 다운로드할 수 있습니다. 설치 후 ShieldBattery를 다시 시작해야 할 수도 있습니다.",
+            "title": "설치 문제 감지됨",
+            "starcraftVersionContents": "StarCraft 설치가 오래되었습니다. ShieldBattery는 버전 1.16.1 또는 최신 Remastered 버전의 설치를 지원합니다. <2><0>최신 버전</0></2>을 설치하고 ShieldBattery를 다시 시작하세요.",
+            "header": "ShieldBattery에서 게임을 플레이하려면 먼저 다음 문제를 수정해야 합니다.",
+            "noProblems": "이제 로컬 설치에 문제가 없습니다."
+        }
+    },
+    "maps": {
+        "activity": {
+            "title": "지도"
+        },
+        "details": {
+            "editDescription": "설명 수정",
+            "editName": "이름 수정",
+            "mapDescription": "지도 설명",
+            "mapDescriptionRequired": "지도 설명을 입력하세요.",
+            "mapName": "지도 이름",
+            "mapNameRequired": "지도 이름을 입력하세요",
+            "players": "플레이어: {{playerSize}}",
+            "retrieveError": "이 지도의 세부정보를 검색하는 중에 문제가 발생했습니다. 오류 메시지는 다음과 같습니다.",
+            "size": "크기: {{width}}x{{height}}",
+            "tileset": "타일셋: {{tilesetName}}",
+            "title": "지도 세부정보"
+        },
+        "local": {
+            "documentsFolder": "문서 폴더",
+            "programFolder": "프로그램 폴더",
+            "title": "지역 지도",
+            "uploadError": "지도를 업로드하는 중에 문제가 발생했습니다.",
+            "uploadMapError": "지도를 업로드하는 중에 오류가 발생했습니다."
+        },
+        "mapSelect": {
+            "browseMaps": "지도 찾아보기"
+        },
+        "server": {
+            "noOfficialMaps": "공식 지도는 아직 업로드되지 않았습니다.",
+            "noUploadedMaps": "지도를 업로드하지 않았습니다. 아래 찾아보기 버튼을 클릭하여 지도를 업로드할 수 있습니다.",
+            "regenerateError": "이미지를 재생성하는 동안 오류가 발생했습니다.",
+            "sortMaps": {
+                "option": {
+                    "dateUploaded": "업로드 날짜",
+                    "name": "이름",
+                    "numberOfPlayers": "플레이어 수"
+                },
+                "title": "지도 정렬"
+            },
+            "tab": {
+                "community": "지역 사회",
+                "myMaps": "내 지도",
+                "official": "공식적인"
+            },
+            "thumbnailSize": {
+                "option": {
+                    "large": "크기가 큰",
+                    "medium": "중간",
+                    "small": "작은"
+                },
+                "title": "썸네일 크기"
+            },
+            "allMaps": "모든 지도",
+            "browseLocal": "지역 지도 찾아보기",
+            "error": "문제 발생: {{errorMessage}}",
+            "favorites": {
+                "added": "즐겨찾기에 추가됨",
+                "addedError": "즐겨찾기에 추가하는 동안 오류가 발생했습니다.",
+                "removed": "즐겨찾기에서 삭제됨",
+                "removedError": "즐겨찾기에서 제거하는 동안 오류가 발생했습니다."
+            },
+            "filterOptions": {
+                "section": {
+                    "numberOfPlayers": "플레이어 수",
+                    "tileset": "타일셋"
+                },
+                "title": "필터 옵션"
+            },
+            "noCommunityMaps": "아직 커뮤니티에서 공개한 지도가 없습니다.",
+            "noResults": "결과가 없습니다."
+        },
+        "thumbnail": {
+            "addToFavorites": "즐겨 찾기에 추가",
+            "mapActions": "지도 작업",
+            "noMapPreview": "지도 미리보기를 사용할 수 없음",
+            "regenerateImage": "이미지 재생성",
+            "removeFromFavorites": "즐겨 찾기에서 삭제하기",
+            "showMapPreview": "지도 미리보기 표시",
+            "viewMapDetails": "지도 세부정보 보기"
+        },
+        "tileset": {
+            "ashworld": "애쉬월드",
+            "badlands": "황무지",
+            "desert": "사막",
+            "ice": "얼음",
+            "installation": "설치",
+            "jungleWorld": "정글월드",
+            "spacePlatform": "우주 플랫폼",
+            "twilight": "어스름"
+        }
+    },
+    "replays": {
+        "local": {
+            "watchReplay": "다시 보기",
+            "duration": "기간: {{durationStr}}",
+            "gameType": "게임 유형: {{gameTypeLabel}}",
+            "loadingError": "리플레이를 로드하는 중에 문제가 발생했습니다.",
+            "rootFolderName": "리플레이",
+            "title": "로컬 리플레이"
+        },
+        "activity": {
+            "title": "리플레이"
+        }
+    },
+    "parties": {
+        "errors": {
+            "inviteToParty": {
+                "alreadyMember": "{{user}}는 이미 파티에 있습니다.",
+                "blocked": "초대를 보내지 못했습니다. 이 사용자가 귀하를 차단했습니다.",
+                "general": "초대장을 보내는 중에 오류가 발생했습니다.",
+                "invalidSelfAction": "파티에 자신을 초대할 수 없습니다.",
+                "notificationFailure": "초대장을 보내지 못했습니다. 다시 시도해 주세요"
+            },
+            "alreadySearching": "일부 파티원은 이미 게임을 하고 있거나 매치를 검색하고 있거나 사용자 지정 로비에 있습니다.",
+            "cancelQueue": "매치메이킹 취소 오류: {{errorMessage}}",
+            "changeLeader": {
+                "general": "리더를 변경하는 동안 오류가 발생했습니다."
+            },
+            "declinePartyInvite": {
+                "general": "초대를 거절하는 중에 오류가 발생했습니다."
+            },
+            "kickPlayer": {
+                "general": "플레이어를 차는 중에 오류가 발생했습니다."
+            },
+            "leaveParty": {
+                "general": "파티에서 나가는 중 오류가 발생했습니다."
+            },
+            "removePartyInvite": {
+                "general": "초대를 삭제하는 중에 오류가 발생했습니다."
+            },
+            "findMatchAsParty": {
+                "invalidAction": "해당 매치메이킹 유형에 비해 파티가 너무 큽니다.",
+                "notFoundOrNotInParty": "파티를 찾을 수 없거나 당신이 파티에 없습니다",
+                "title": "일치 검색 오류",
+                "alreadyInGameplayActivity": "파티가 이미 다른 매치메이킹 유형을 찾고 있습니다.",
+                "general": "문제가 발생했습니다.",
+                "insufficientPermissions": "파티 리더만 매치메이킹을 위해 대기할 수 있습니다."
+            },
+            "unknownError": "알 수 없는 오류가 발생했습니다.",
+            "acceptPartyInvite": {
+                "general": "초대를 수락하는 중에 오류가 발생했습니다.",
+                "notFoundOrNotInvited": "더 이상 존재하지 않는 파티",
+                "partyFull": "파티가 꽉 찼습니다"
+            }
+        },
+        "navEntry": {
+            "invitePlayers": "플레이어 초대",
+            "leaveParty": "파티 탈퇴",
+            "title": "파티"
+        },
+        "notificationUi": "<0>{{user}}</0>님이 파티 초대장을 보냈습니다.",
+        "queueAcceptDialog": {
+            "contents": "당신의 파티는 <2>{{matchmakingLabel}}</2> 경기를 찾고 있습니다.",
+            "error": "오류: {{errorMessage}}",
+            "title": "인종을 선택하세요"
+        },
+        "view": {
+            "cancelSearch": "검색 취소",
+            "invitePlayers": "플레이어 초대",
+            "kickFromParty": "파티에서 차기",
+            "leaveParty": "파티 탈퇴",
+            "makeLeader": "리더 만들기",
+            "openSlot": "비어 있는"
+        },
+        "events": {
+            "kickFromParty": "당신은 파티에서 쫓겨났습니다."
+        },
+        "inviteDialog": {
+            "findPlayers": "플레이어 찾기",
+            "sendInvites": "초대장 보내기",
+            "title": "파티에 플레이어 초대"
+        },
+        "messageLayout": {
+            "inviteToParty": "<0><0></0></0>님이 파티에 초대되었습니다.",
+            "joinParty": "<0><0></0></0>님이 파티에 참여했습니다.",
+            "kickFromParty": "<0><0></0></0>님이 파티에서 추방되었습니다.",
+            "leaderChange": "<0><0></0></0>이(가) 이제 리더입니다.",
+            "leaveParty": "<0><0></0></0>님이 파티를 나갔습니다.",
+            "queueCancel": {
+                "error": "오류로 인해 매치메이킹이 취소되었습니다.",
+                "matchmakingDisabled": "매치메이킹이 현재 비활성화되어 취소되었습니다.",
+                "rejected": "<0><0></0></0> 취소된 매치메이킹",
+                "userLeft": "<2><0></0></2>이(가) 파티에서 나갔기 때문에 매치 메이킹이 취소되었습니다."
+            },
+            "queueReady": "파티는 지금 짝을 찾고 있습니다",
+            "queueStart": "<0><0></0></0>에서 <4>{{matchmakingLabel}}</4> 일치 검색을 시작합니다.",
+            "selfJoin": "당신은 파티에 가입했습니다. 리더는 <2><0></0></2>입니다."
+        }
+    },
+    "material": {
+        "dialog": {
+            "closeDialog": "대화상자 닫기"
+        },
+        "passwordField": {
+            "hide": "비밀번호 숨기기",
+            "show": "비밀번호 표시"
+        }
+    },
+    "messaging": {
+        "blockedMessage": "차단된 메시지",
+        "mention": "언급하다",
+        "newDayMessage": "요일이 <2>{{day}}</2>(으)로 변경됨",
+        "sendMessage": "메세지를 보내다"
+    },
+    "navigation": {
+        "copyLink": {
+            "copiedText": "복사했습니다!",
+            "defaultText": "링크 복사"
+        },
+        "externalLink": {
+            "alwaysTrust": "항상 이 도메인 신뢰",
+            "dialogText": "<0>이 링크는 ShieldBattery 외부 사이트로 이동합니다.</0><1>{{link}}</1><2>여기로 이동하시겠습니까?</2>",
+            "openLink": "링크 열기",
+            "title": "외부 링크"
+        },
+        "leftNav": {
+            "chatChannels": "채팅 채널",
+            "customGame": "커스텀 게임",
+            "editAccount": "계정 수정",
+            "gameInProgress": "게임 진행 중…",
+            "joinChannel": "채널 참여(Alt + H)",
+            "loadingChannel": "로드 중…",
+            "lobby": "로비",
+            "logIn": "로그인",
+            "logOut": "로그 아웃",
+            "rankedGame": "순위 {{matchmakingType}}",
+            "startWhisper": "귓속말 시작(Alt + W)",
+            "viewChangelog": "변경 로그 보기",
+            "viewProfile": "프로필보기",
+            "whisperCloseError": "귓속말 세션 닫기 오류: {{errorMessage}}",
+            "whispers": "속삭임",
+            "loadingGame": "로드 중…"
+        }
+    },
+    "users": {
+        "contextMenu": {
+            "removeFriend": "친구 삭제",
+            "removeFriendRequest": "친구 요청 제거",
+            "uninviteFromParty": "파티에서 초대 취소",
+            "userBlocked": "사용자가 차단됨",
+            "userUnblocked": "사용자가 차단 해제됨",
+            "viewProfile": "프로필보기",
+            "whisper": "속삭임",
+            "addFriend": "친구 추가",
+            "friendRemoved": "친구 삭제됨",
+            "friendRequestAccepted": "친구 요청 수락됨",
+            "friendRequestRemoved": "친구 요청이 삭제됨",
+            "friendRequestSent": "친구 요청이 전송",
+            "inviteToParty": "파티에 초대",
+            "kickFromParty": "파티에서 차기",
+            "loadingUsers": "사용자 로드 중…"
+        },
+        "profileOverlay": {
+            "viewProfile": "프로필보기",
+            "info": "정보",
+            "joined": "{{date}} 가입",
+            "ranked": "랭크",
+            "rightClick": "추가 작업을 위해 사용자를 마우스 오른쪽 버튼으로 클릭"
+        },
+        "titles": {
+            "novice": "초심자"
+        },
+        "errors": {
+            "friendsList": {
+                "blockedByUser": "당신은 이 사용자에 의해 차단되었습니다",
+                "errorAcceptingFriendRequest": "친구 요청 수락 오류",
+                "errorBlockingUser": "사용자 차단 오류",
+                "errorDecliningFriendRequest": "친구 요청을 거부하는 중에 오류가 발생했습니다.",
+                "errorRemovingFriend": "친구를 삭제하는 중에 오류가 발생했습니다.",
+                "errorRemovingFriendRequest": "친구 요청을 제거하는 중에 오류가 발생했습니다.",
+                "errorSendingFriendRequest": "친구 요청을 보내는 중에 오류가 발생했습니다.",
+                "errorUnblockingUser": "사용자 차단을 해제하는 중에 오류가 발생했습니다.",
+                "invalidSelfAction": "자신에게 이 작업을 수행할 수 없습니다.`",
+                "limitReached": "최대 친구 또는 차단 수에 도달했습니다. 더 추가하려면 일부를 제거하세요.",
+                "load": "친구 목록을 로드하지 못했습니다.",
+                "noMatchingEntry": "일치하는 항목이 없습니다."
+            },
+            "profile": {
+                "loadUser": "이 사용자를 로드하는 중에 문제가 발생했습니다."
+            }
+        },
+        "friendsList": {
+            "tabs": {
+                "friendsList": "친구 목록",
+                "socialSettings": "소셜 설정",
+                "addFriends": "친구 추가"
+            },
+            "title": {
+                "addFriends": "친구 추가",
+                "friends": "친구"
+            },
+            "tooltip": "친구 (Alt + E)",
+            "friendStart": "이제 <2>{{user}}</2>와 친구가 되었습니다.",
+            "header": {
+                "incoming": "들어오는",
+                "offline": "오프라인",
+                "online": "온라인",
+                "outgoing": "나가는"
+            },
+            "receivedFriendRequest": "<0>{{user}}</0>님이 친구 요청을 보냈습니다."
+        },
+        "profile": {
+            "achievements": "업적",
+            "latestGames": "최신 게임",
+            "points": "포인트들",
+            "rank": "계급",
+            "rating": "평가",
+            "record": "기록",
+            "tabs": {
+                "admin": "관리자",
+                "matchHistory": "경기 기록",
+                "season": "계절",
+                "stats": "통계",
+                "summary": "요약"
+            },
+            "totalGames": "총 게임"
+        }
+    },
+    "policy": {
+        "acceptableUseAllCaps": "허용되는 사용 정책",
+        "policyUpdateNotification": "ShieldBattery의 <2>{{label}}</2>가 업데이트되었습니다.",
+        "privacyPolicy": "개인 정보 정책",
+        "privacyPolicyAllCaps": "개인 정보 정책",
+        "termsOfService": "서비스 약관",
+        "termsOfServiceAllCaps": "서비스 약관",
+        "acceptableUse": "허용되는 사용"
+    },
+    "rootErrorBoundary": {
+        "contents": "<2>Discord</2>에서 이 문제를 보고해 주십시오.",
+        "reloadApp": "앱 새로고침",
+        "title": "문제가 발생했습니다."
+    },
+    "whispers": {
+        "createWhisper": {
+            "error": "오류: {{errorMessage}}",
+            "username": "사용자 이름",
+            "usernamePattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다.",
+            "usernameRequired": "사용자 이름을 입력하세요",
+            "title": "메세지를 보내다"
+        },
+        "errors": {
+            "cantWhisperYourself": "당신은 자신과 속삭일 수 없습니다.",
+            "invalidAction": "메시지 기록을 검색하려면 사용자와의 활성 귓속말 세션이 있어야 합니다.",
+            "loadingHistory": "메시지 기록 로드 오류: {{errorMessage}}",
+            "noSelfMessaging": "자신에게 메시지를 보낼 수 없습니다",
+            "openSession": "사용자에게 귓속말 열기 오류: {{errorMessage}}",
+            "sendingMessage": "메시지 전송 오류: {{errorMessage}}",
+            "unknownError": "알수없는 오류",
+            "userNotFound": "사용자를 찾을 수 없음"
+        },
+        "navEntry": {
+            "closeWhisper": "가까운 속삭임"
+        }
+    },
+    "user": {
+        "miniMatchHistory": {
+            "viewDetails": "세부 정보보기",
+            "noGameSelected": "선택한 게임 없음"
+        }
+    },
+    "windowControls": {
+        "close": "닫다",
+        "maximizeRestore": "최대화/복원",
+        "minimize": "최소화"
+    },
+    "gameDetails": {
+        "buttonCopyLink": "게임 링크 복사",
+        "buttonSearchAgain": "다시 검색",
+        "errorLoading": "이 게임을 로드하는 중에 문제가 발생했습니다.",
+        "headlineDefault": "결과",
+        "headlineDefeat": "패배시키다!",
+        "headlineDraw": "그리다!",
+        "headlineInProgress": "진행 중…",
+        "headlineVictory": "승리!",
+        "infoDate": "날짜",
+        "infoDuration": "지속",
+        "infoGameType": "유형",
+        "statusFinal": "결정적인",
+        "statusLive": "살다",
+        "summary": {
+            "mmr": "MMR",
+            "pointsBase": "베이스",
+            "pointsBonus": "보너스",
+            "rp": "RP"
+        },
+        "tabBuildOrders": "빌드 오더",
+        "tabStats": "통계",
+        "tabSummary": "요약"
+    },
+    "network": {
+        "connecting": "연결 중…"
+    },
+    "notifications": {
+        "activityButton": {
+            "read": "알림(Alt + N)",
+            "unread": "알림 - 읽지 않음(Alt + N)"
+        },
+        "errors": {
+            "markRead": "알림을 읽은 것으로 표시하는 동안 오류가 발생했습니다."
+        },
+        "list": {
+            "title": "알림"
+        },
+        "popup": {
+            "markAsRead": "읽은 상태로 표시"
+        }
+    },
+    "leagues": {
+        "activity": {
+            "title": "리그"
+        },
+        "explainer": {
+            "description": "리그는 상품을 놓고 경쟁하고 토너먼트 참가 자격을 얻는 등의 새로운 방법입니다!",
+            "howLeaguesWork": "리그 운영 방식",
+            "joinDescription": "현재 진행 중이거나 원하는 형식으로 가입을 수락하는 리그를 찾으십시오. 일부 리그는 요구 사항, 규칙 또는 자격이 다를 수 있으므로 가입하기 전에 정보를 반드시 읽으십시오!",
+            "joinTitle": "가입하다.",
+            "playDescription": "리그가 시작되면 플레이하는 모든 래더 게임은 일반 래더 순위와 함께 리그 순위에 대한 포인트를 보상합니다. 리그 페이지에서 순위표를 확인하여 자신의 성적을 확인하세요!",
+            "playTitle": "놀다.",
+            "winDescription": "리그가 끝나면 리더보드에서 주최자가 상품과 보상을 배포할 수 있습니다. 자세한 내용은 리그 정보 페이지를 확인하세요.",
+            "winTitle": "이기다!"
+        },
+        "leagueDetails": {
+            "about": "에 대한",
+            "copyLink": "리그 링크 복사",
+            "dateText": "{{startDate}} ~ {{endDate}}",
+            "goBack": "목록으로 돌아가기",
+            "info": "정보",
+            "joined": "가입",
+            "joinError": "리그에 참가할 수 없습니다: {{errorMessage}}",
+            "leaderboard": "리더보드",
+            "leaderboardError": "리더보드를 검색하는 중에 문제가 발생했습니다: {{errorMessage}}",
+            "leaderBoardHeader": {
+                "lastPlayed": "마지막 플레이",
+                "player": "플레이어",
+                "points": "포인트들",
+                "rank": "계급",
+                "winLoss": "승/패"
+            },
+            "leagueEndedError": "리그가 이미 종료되어 참가할 수 없습니다.",
+            "leagueJoined": "리그 가입",
+            "noPlayers": "일치하는 플레이어가 없습니다.",
+            "notFound": "리그를 찾을 수 없음",
+            "retrieveError": "이 리그를 검색하는 동안 오류가 발생했습니다: {{errorMessage}}",
+            "rulesAndInfo": "규칙 및 정보"
+        },
+        "list": {
+            "acceptingSignups": "가입 수락",
+            "currentlyRunning": "현재 실행 중",
+            "ends": "{{endDate}} 종료",
+            "finished": "완성된",
+            "howDoLeaguesWork": "리그는 어떻게 운영되나요?",
+            "joined": "가입",
+            "loadingError": "리그 로드 오류",
+            "manageLeagues": "리그 관리",
+            "noLeagues": "일치하는 리그 없음",
+            "pageHeadline": "리그",
+            "starts": "{{startDate}} 시작",
+            "viewInfo": "정보 보기"
+        }
+    },
+    "fileBrowser": {
+        "rootFolder": "루트 폴더",
+        "upOneDirectory": "한 디렉토리 위로"
     }
 }
