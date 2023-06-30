@@ -109,13 +109,15 @@ export function ConnectedMatchmakingDisabledCard({
       </DisabledText>
       {nextStartDate && Number(nextStartDate) > Date.now() ? (
         <>
-          <Headline6>{dateFormat.format(nextStartDate)}</Headline6>
           {nextEndDate && nextEndDate > nextStartDate ? (
-            <>
-              <ToText>{t('matchmaking.disabledCard.startToEnd', 'to')}</ToText>
+            <Trans t={t} i18nKey='matchmaking.disabledCard.nextDateRange'>
+              <Headline6>{dateFormat.format(nextStartDate)}</Headline6>
+              <ToText>to</ToText>
               <Headline6>{dateFormat.format(nextEndDate)}</Headline6>
-            </>
-          ) : null}
+            </Trans>
+          ) : (
+            <Headline6>{dateFormat.format(nextStartDate)}</Headline6>
+          )}
           <CountdownContainer>
             <CountdownItemContainer>
               <CountdownItemText>{t('matchmaking.disabledCard.days', 'Days')}</CountdownItemText>
