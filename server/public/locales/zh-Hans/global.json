@@ -4,8 +4,8 @@
             "required": "必需的",
             "maxLength_one": "最多输入 {{count}} 个字符",
             "minLength_one": "至少输入 {{count}} 个字符",
-            "maxLength_other": "最多输入 {{count}} 个字符",
-            "minLength_other": "至少输入 {{count}} 个字符"
+            "maxLength_other": "最多输入 {{maxLength}} 个字符",
+            "minLength_other": "至少输入 {{minLength}} 个字符"
         },
         "actions": {
             "back": "后退",
@@ -191,7 +191,7 @@
             "reportIssuesQuestion": "我如何报告错误或问题？",
             "supportedStarcraftVersionAnswer": "ShieldBattery 支持最新版本的《星际争霸：重制版》。您可以从<2>暴雪官方网站</2>下载《星际争霸：重制版》的免费版本，或通过暴雪启动器安装。任何购买的插件（例如高清显卡）都可以在 ShieldBattery 上使用。",
             "supportedStarcraftVersionQuestion": "ShieldBattery 支持哪个版本的星际争霸？",
-            "systemRequirementsAnswer": "<0>我们的系统要求主要由<2>星际争霸：重制版</2>驱动，但简而言之：</0><1><0>运行 Windows 10 或更高版本的计算机</0><1>2GB RAM</1><2>NVIDIA GeForce 6800 (256MB) 或 ATI Radeon X1600 Pro (256MB) 或更高</2><3>星际争霸：重制版安装，已修补至最新版本</3></1>",
+            "systemRequirementsAnswer": "<0>我们的系统要求主要由<2>星际争霸：重制版</2>驱动，但简而言之：</0><1><0>运行 Windows 10 或更高版本的计算机</0><1 >2GB RAM</1><2>NVIDIA GeForce 6800 (256MB) 或 ATI Radeon X1600 Pro (256MB) 或更高</2><3>星际争霸：重制版安装，已修补至最新版本</3></ 1>",
             "systemRequirementsQuestion": "在 ShieldBattery 上玩游戏有哪些系统要求？",
             "title": "经常问的问题",
             "hotkeyCustomizationAnswer": "是的，我们支持自定义热键，但我们目前没有热键编辑器。如果您想使用自定义热键，请先通过暴雪启动器启动《星际争霸：重制版》并在那里自定义它们。完成此操作后，将来通过 ShieldBattery 进行的启动将使用这些热键。",
@@ -441,12 +441,12 @@
     },
     "matchmaking": {
         "division": {
-            "bronze": "青铜 {{level}}",
+            "bronze": "青铜【X7X】",
             "champion": "冠军",
-            "diamond": "钻石 {{level}}",
+            "diamond": "钻石【X8X】",
             "gold": "黄金 {{level}}",
-            "platinum": "铂金 {{level}}",
-            "silver": "银色 {{level}}",
+            "platinum": "铂金【X9X】",
+            "silver": "银色【X7X】",
             "unrated": "未评级"
         },
         "acceptMatch": {
@@ -466,7 +466,7 @@
             "hours": "小时",
             "inParty": "聚会时禁用",
             "minutes": "分钟",
-            "nextDateRange": "<0>{dateFormat.format(nextStartDate)}</0><1>至</1><2>{dateFormat.format(nextEndDate)}</2>",
+            "nextDateRange": "<0>{{nextStartDate}}</0><1>至</1><2>{{nextEndDate}}</2>",
             "notPartyLeader": "只有党魁才能排队参加比赛。",
             "partyTooLargeTitle": "聚会规模太大",
             "title": "配对已禁用",
@@ -597,12 +597,12 @@
             "moderateChannelOwner": "您不能禁止频道所有者",
             "noPermissions": "您没有足够的权限来禁止该用户",
             "notInChannel": "您要禁止的用户不在该频道中",
-            "defaultError": "发生错误：{{statusText}}"
+            "defaultError": "发生错误：{{errorMessage}}"
         },
         "channelInfo": {
             "genericError": "获取#{{channelName}} 频道信息时出错：{{errorMessage}}",
             "notFound": "找不到此频道。它可能不存在，也可能是由其他人重新创建的。",
-            "defaultError": "发生错误：{{statusText}}"
+            "defaultError": "发生错误：{{errorMessage}}"
         },
         "channelInfoCard": {
             "adminView": "管理视图",
@@ -1131,7 +1131,7 @@
             "username": "用户名",
             "usernamePattern": "用户名包含无效字符",
             "usernameRequired": "输入用户名",
-            "error": "错误：{{errorMessage}}"
+            "error": "错误：{{error}}"
         },
         "errors": {
             "cantWhisperYourself": "你不能自言自语。",
