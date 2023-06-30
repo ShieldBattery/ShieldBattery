@@ -3,9 +3,9 @@
         "validators": {
             "required": "Requerido",
             "maxLength_one": "Ingrese como máximo el carácter {{count}}",
-            "maxLength_other": "Ingrese como máximo {{maxLength}} caracteres",
+            "maxLength_other": "Ingrese como máximo {{count}} caracteres",
             "minLength_one": "Ingrese al menos el carácter {{count}}",
-            "minLength_other": "Ingrese al menos {{minLength}} caracteres"
+            "minLength_other": "Ingrese al menos {{count}} caracteres"
         },
         "actions": {
             "back": "Atrás",
@@ -540,7 +540,7 @@
     "chat": {
         "channelInfo": {
             "notFound": "No se pudo encontrar este canal. Es posible que no exista o que otra persona lo haya recreado.",
-            "defaultError": "Ocurrió un error: {{errorMessage}}",
+            "defaultError": "Ocurrió un error: {{statusText}}",
             "genericError": "Error al obtener la información del canal para #{{channelName}}: {{errorMessage}}"
         },
         "channelInfoCard": {
@@ -603,7 +603,7 @@
             "successMessage": "{{user}} fue prohibido"
         },
         "banUserErrorDisplay": {
-            "defaultError": "Ocurrió un error: {{errorMessage}}",
+            "defaultError": "Ocurrió un error: {{statusText}}",
             "genericError": "Error al prohibir {{user}}: {{errorMessage}}",
             "moderateChannelModerator": "No puedes banear a otro moderador",
             "moderateChannelOwner": "No puedes banear al dueño del canal",
@@ -904,7 +904,7 @@
     },
     "whispers": {
         "createWhisper": {
-            "error": "Error: {{error}}",
+            "error": "Error: {{errorMessage}}",
             "title": "Enviar un mensaje",
             "username": "Nombre de usuario",
             "usernamePattern": "Nombre de usuario contiene caracteres inválidos",
