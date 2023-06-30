@@ -1,7 +1,6 @@
 {
     "common": {
         "validators": {
-            "minLength": "Введите не менее {{minLength}} символов",
             "required": "Необходимый"
         },
         "actions": {
@@ -94,7 +93,7 @@
             "alreadyHaveAccount": "У вас уже есть аккаунт?",
             "confirmPassword": "Подтвердите пароль",
             "createAccount": "Зарегистрироваться",
-            "readAndAgree": "Я прочитал и согласен с",
+            "readAndAgree": "",
             "title": "Зарегистрироваться",
             "emailAddress": "Адрес электронной почты",
             "logIn": "Авторизоваться",
