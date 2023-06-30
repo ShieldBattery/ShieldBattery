@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import { MatchmakingType } from '../../common/matchmaking'
 import { DisabledCard, DisabledText } from '../activities/disabled-content'
 import { useSelfUser } from '../auth/state-hooks'
+import { TransInterpolation } from '../i18n/i18next'
 import { useAppSelector } from '../redux-hooks'
 import { colorTextSecondary } from '../styles/colors'
 import { Headline3, Headline5, Headline6, headline6, overline } from '../styles/typography'
@@ -111,9 +112,13 @@ export function ConnectedMatchmakingDisabledCard({
         <>
           {nextEndDate && nextEndDate > nextStartDate ? (
             <Trans t={t} i18nKey='matchmaking.disabledCard.nextDateRange'>
-              <Headline6>{dateFormat.format(nextStartDate)}</Headline6>
+              <Headline6>
+                {{ nextStartDate: dateFormat.format(nextStartDate) } as TransInterpolation}
+              </Headline6>
               <ToText>to</ToText>
-              <Headline6>{dateFormat.format(nextEndDate)}</Headline6>
+              <Headline6>
+                {{ nextEndDate: dateFormat.format(nextEndDate) } as TransInterpolation}
+              </Headline6>
             </Trans>
           ) : (
             <Headline6>{dateFormat.format(nextStartDate)}</Headline6>

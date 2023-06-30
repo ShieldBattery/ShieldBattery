@@ -705,7 +705,7 @@
       "hours": "Hours",
       "inParty": "Disabled while in party",
       "minutes": "Minutes",
-      "nextDateRange": "<0>{dateFormat.format(nextStartDate)}</0><1>to</1><2>{dateFormat.format(nextEndDate)}</2>",
+      "nextDateRange": "<0>{{nextStartDate}}</0><1>to</1><2>{{nextEndDate}}</2>",
       "notPartyLeader": "Only the party leader can queue for matches.",
       "partyTooLargeText": "Your current party is too large to queue for this matchmaking type.",
       "partyTooLargeTitle": "Party too large",
