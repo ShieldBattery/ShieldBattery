@@ -1,8 +1,11 @@
 {
     "common": {
         "validators": {
-            "minLength": "Ingrese al menos {{minLength}} caracteres",
-            "required": "Requerido"
+            "required": "Requerido",
+            "maxLength_one": "Ingrese como máximo el carácter {{count}}",
+            "maxLength_other": "Ingrese como máximo {{maxLength}} caracteres",
+            "minLength_one": "Ingrese al menos el carácter {{count}}",
+            "minLength_other": "Ingrese al menos {{minLength}} caracteres"
         },
         "actions": {
             "back": "Atrás",
@@ -273,7 +276,7 @@
             "alreadyHaveAccount": "¿Ya tienes una cuenta?",
             "confirmPassword": "Confirmar Contraseña",
             "createAccount": "Crear una cuenta",
-            "readAndAgree": "he leído y estoy de acuerdo con",
+            "readAndAgree": "He leído y acepto las <2>Condiciones de servicio</2>, <4>Uso aceptable</4> y <6>Políticas de privacidad</6>",
             "title": "Crear una cuenta",
             "emailAddress": "Dirección de correo electrónico",
             "logIn": "Acceso",
@@ -464,7 +467,8 @@
             "partyTooLargeTitle": "fiesta demasiado grande",
             "seconds": "Segundos",
             "soon": "Pronto™",
-            "title": "Emparejamiento deshabilitado"
+            "title": "Emparejamiento deshabilitado",
+            "nextDateRange": "<0>{dateFormat.format(nextStartDate)}</0><1>a</1><2>{dateFormat.format(nextEndDate)}</2>"
         },
         "findMatch": {
             "action": "Encontrar pareja",
@@ -529,7 +533,8 @@
             "newUpdateDownloading": "Se está descargando una nueva actualización. Espere a que se complete la descarga para continuar.",
             "newUpdateReady": "Se ha descargado una nueva actualización y está lista para instalarse. Reinicie la aplicación para continuar.",
             "noErrorTitle": "Actualización disponible",
-            "restartNow": "Reiniciar ahora"
+            "restartNow": "Reiniciar ahora",
+            "progress": "{{transferred}} / {{total}} a {{perSecond}}/s"
         }
     },
     "chat": {
@@ -706,7 +711,10 @@
         "acceptableUse": "Uso aceptable",
         "policyUpdateNotification": "Se ha actualizado <2>{{label}}</2> de ShieldBattery.",
         "privacyPolicy": "Política de privacidad",
-        "termsOfService": "Términos de servicio"
+        "termsOfService": "Términos de servicio",
+        "acceptableUseAllCaps": "Política de uso aceptable",
+        "privacyPolicyAllCaps": "política de privacidad",
+        "termsOfServiceAllCaps": "Términos de servicio"
     },
     "replays": {
         "local": {
@@ -770,7 +778,32 @@
                 "myMaps": "mis mapas",
                 "official": "Oficial"
             },
-            "noResults": "No hay resultados."
+            "noResults": "No hay resultados.",
+            "allMaps": "Todos los mapas",
+            "error": "Algo salió mal: {{errorMessage}}",
+            "sortMaps": {
+                "title": "Ordenar mapas",
+                "option": {
+                    "dateUploaded": "Fecha de carga",
+                    "name": "Nombre",
+                    "numberOfPlayers": "Número de jugadores"
+                }
+            },
+            "thumbnailSize": {
+                "option": {
+                    "large": "Grande",
+                    "medium": "Medio",
+                    "small": "Pequeño"
+                },
+                "title": "tamaño de la uña del pulgar"
+            },
+            "filterOptions": {
+                "section": {
+                    "numberOfPlayers": "Número de jugadores",
+                    "tileset": "Conjunto de fichas"
+                },
+                "title": "Opciones de filtro"
+            }
         },
         "thumbnail": {
             "addToFavorites": "Agregar a los favoritos",
@@ -778,10 +811,24 @@
             "regenerateImage": "Regenerar imagen",
             "removeFromFavorites": "Quitar de favoritos",
             "showMapPreview": "Mostrar vista previa del mapa",
-            "viewMapDetails": "Ver detalles del mapa"
+            "viewMapDetails": "Ver detalles del mapa",
+            "noMapPreview": "Vista previa del mapa no disponible"
         },
         "activity": {
             "title": "mapas"
+        },
+        "mapSelect": {
+            "browseMaps": "Explorar mapas"
+        },
+        "tileset": {
+            "ashworld": "Ashworld",
+            "badlands": "Páramos",
+            "desert": "Desierto",
+            "ice": "Hielo",
+            "installation": "Instalación",
+            "jungleWorld": "mundo de la jungla",
+            "spacePlatform": "plataforma espacial",
+            "twilight": "Crepúsculo"
         }
     },
     "material": {
@@ -1074,7 +1121,9 @@
             "disabledInPartyTitle": "Deshabilitado mientras está en la fiesta",
             "noOpenLobbies": "No hay vestíbulos abiertos.",
             "title": "Unirse al vestíbulo",
-            "noActiveLobbies": "No hay grupos de presión activos."
+            "noActiveLobbies": "No hay grupos de presión activos.",
+            "openSlotCount_one": "{{count}} ranura abierta",
+            "openSlotCount_other": "{{count}} ranuras abiertas"
         },
         "loading": {
             "content": "<0>{{gameType}}</0><1> en </1><2>{{mapName}}</2>"
