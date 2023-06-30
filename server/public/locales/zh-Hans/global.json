@@ -76,7 +76,6 @@
             "resetCode": "输入您的密码重置代码"
         },
         "signup": {
-            "readAndAgree": "",
             "title": "创建账户",
             "ageConfirmation": "我证明我已年满 13 岁",
             "alreadyHaveAccount": "已有帐户？",
