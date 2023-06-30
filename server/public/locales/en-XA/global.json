@@ -1,8 +1,11 @@
 {
     "common": {
         "validators": {
-            "minLength": "$🗡Enter at least {{minLength}} characters🗡!",
-            "required": "$🗡Required🗡!"
+            "required": "$🗡Required🗡!",
+            "maxLength_one": "$🗡Enter at most {{count}} character🗡!",
+            "minLength_one": "$🗡Enter at least {{count}} character🗡!",
+            "minLength_other": "$🗡Enter at least {{count}} characters🗡!",
+            "maxLength_other": "$🗡Enter at most {{count}} characters🗡!"
         },
         "actions": {
             "back": "$🗡Back🗡!",
@@ -255,7 +258,7 @@
             "ageConfirmation": "$🗡I certify that I am 13 years of age or older🗡!",
             "alreadyHaveAccount": "$🗡Already have an account?🗡!",
             "confirmPassword": "$🗡Confirm password🗡!",
-            "readAndAgree": "$🗡I have read and agree to the🗡!",
+            "readAndAgree": "$🗡I have read and agree to the <2>Terms of Service</2>, <4>Acceptable Use</4>, and <6>Privacy</6> policies🗡!",
             "title": "$🗡Create account🗡!",
             "createAccount": "$🗡Create account🗡!",
             "username": "$🗡Username🗡!",
@@ -402,7 +405,8 @@
             "noErrorTitle": "$🗡Update available🗡!",
             "restartNow": "$🗡Restart now🗡!",
             "errorBody": "$🗡There was an error downloading the update. Please restart and try again, or visit <2>our website</2> to download the latest version.🗡!",
-            "newUpdateReady": "$🗡A new update has been downloaded and is ready to install. Please restart the application to continue.🗡!"
+            "newUpdateReady": "$🗡A new update has been downloaded and is ready to install. Please restart the application to continue.🗡!",
+            "progress": "$🗡{{transferred}} / {{total}} at {{perSecond}}/s🗡!"
         }
     },
     "comingSoon": {
@@ -469,7 +473,8 @@
             "seconds": "$🗡Seconds🗡!",
             "soon": "$🗡Soon™🗡!",
             "title": "$🗡Matchmaking disabled🗡!",
-            "description": "$🗡Matchmaking is sometimes shut down for maintenance and development, and is currently disabled. The next matchmaking period is:🗡!"
+            "description": "$🗡Matchmaking is sometimes shut down for maintenance and development, and is currently disabled. The next matchmaking period is:🗡!",
+            "nextDateRange": "$🗡<0>{dateFormat.format(nextStartDate)}</0><1>to</1><2>{dateFormat.format(nextEndDate)}</2>🗡!"
         },
         "findMatch": {
             "action": "$🗡Find match🗡!",
@@ -706,7 +711,10 @@
         "acceptableUse": "$🗡Acceptable use🗡!",
         "policyUpdateNotification": "$🗡ShieldBattery's <2>{{label}}</2> has been updated.🗡!",
         "privacyPolicy": "$🗡Privacy policy🗡!",
-        "termsOfService": "$🗡Terms of service🗡!"
+        "termsOfService": "$🗡Terms of service🗡!",
+        "privacyPolicyAllCaps": "$🗡Privacy Policy🗡!",
+        "termsOfServiceAllCaps": "$🗡Terms of Service🗡!",
+        "acceptableUseAllCaps": "$🗡Acceptable Use Policy🗡!"
     },
     "replays": {
         "local": {
@@ -770,6 +778,31 @@
                 "community": "$🗡Community🗡!",
                 "myMaps": "$🗡My maps🗡!",
                 "official": "$🗡Official🗡!"
+            },
+            "allMaps": "$🗡All maps🗡!",
+            "error": "$🗡Something went wrong: {{errorMessage}}🗡!",
+            "filterOptions": {
+                "section": {
+                    "numberOfPlayers": "$🗡Number of players🗡!",
+                    "tileset": "$🗡Tileset🗡!"
+                },
+                "title": "$🗡Filter options🗡!"
+            },
+            "sortMaps": {
+                "option": {
+                    "dateUploaded": "$🗡Date uploaded🗡!",
+                    "name": "$🗡Name🗡!",
+                    "numberOfPlayers": "$🗡Number of players🗡!"
+                },
+                "title": "$🗡Sort maps🗡!"
+            },
+            "thumbnailSize": {
+                "option": {
+                    "large": "$🗡Large🗡!",
+                    "medium": "$🗡Medium🗡!",
+                    "small": "$🗡Small🗡!"
+                },
+                "title": "$🗡Thumbnail size🗡!"
             }
         },
         "thumbnail": {
@@ -778,10 +811,24 @@
             "regenerateImage": "$🗡Regenerate image🗡!",
             "removeFromFavorites": "$🗡Remove from favorites🗡!",
             "showMapPreview": "$🗡Show map preview🗡!",
-            "viewMapDetails": "$🗡View map details🗡!"
+            "viewMapDetails": "$🗡View map details🗡!",
+            "noMapPreview": "$🗡Map preview not available🗡!"
         },
         "activity": {
             "title": "$🗡Maps🗡!"
+        },
+        "mapSelect": {
+            "browseMaps": "$🗡Browse maps🗡!"
+        },
+        "tileset": {
+            "ashworld": "$🗡Ashworld🗡!",
+            "badlands": "$🗡Badlands🗡!",
+            "desert": "$🗡Desert🗡!",
+            "installation": "$🗡Installation🗡!",
+            "jungleWorld": "$🗡Jungle world🗡!",
+            "spacePlatform": "$🗡Space platform🗡!",
+            "twilight": "$🗡Twilight🗡!",
+            "ice": "$🗡Ice🗡!"
         }
     },
     "material": {
@@ -1074,7 +1121,9 @@
             "disabledInPartyTitle": "$🗡Disabled while in party🗡!",
             "noActiveLobbies": "$🗡There are no active lobbies🗡!",
             "noOpenLobbies": "$🗡There are no open lobbies🗡!",
-            "title": "$🗡Join Lobby🗡!"
+            "title": "$🗡Join Lobby🗡!",
+            "openSlotCount_one": "$🗡{{count}} slot open🗡!",
+            "openSlotCount_other": "$🗡{{count}} slots open🗡!"
         },
         "loading": {
             "content": "$🗡<0>{{gameType}}</0><1> on </1><2>{{mapName}}</2>🗡!"
