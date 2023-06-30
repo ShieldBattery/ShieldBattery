@@ -1,7 +1,6 @@
 {
     "common": {
         "validators": {
-            "minLength": "至少输入 {{minLength}} 个字符",
             "required": "必需的"
         },
         "actions": {
@@ -77,9 +76,8 @@
             "resetCode": "输入您的密码重置代码"
         },
         "signup": {
-            "readAndAgree": "我已经阅读并且同意",
+            "readAndAgree": "",
             "title": "创建账户",
-            "acceptableUseLink": "可接受的使用",
             "ageConfirmation": "我证明我已年满 13 岁",
             "alreadyHaveAccount": "已有帐户？",
             "confirmPassword": "确认密码",
@@ -186,12 +184,12 @@
     },
     "matchmaking": {
         "division": {
-            "bronze": "青铜【X7X】",
+            "bronze": "青铜 {{level}}",
             "champion": "冠军",
-            "diamond": "钻石【X8X】",
+            "diamond": "钻石 {{level}}",
             "gold": "黄金 {{level}}",
-            "platinum": "铂金【X9X】",
-            "silver": "银色【X7X】",
+            "platinum": "铂金 {{level}}",
+            "silver": "银色 {{level}}",
             "unrated": "未评级"
         }
     },
