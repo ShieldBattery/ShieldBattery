@@ -474,7 +474,7 @@
             "soon": "$🗡Soon™🗡!",
             "title": "$🗡Matchmaking disabled🗡!",
             "description": "$🗡Matchmaking is sometimes shut down for maintenance and development, and is currently disabled. The next matchmaking period is:🗡!",
-            "nextDateRange": "$🗡<0>{dateFormat.format(nextStartDate)}</0><1>to</1><2>{dateFormat.format(nextEndDate)}</2>🗡!"
+            "nextDateRange": "$🗡<0>{{nextStartDate}}</0><1>to</1><2>{{nextEndDate}}</2>🗡!"
         },
         "findMatch": {
             "action": "$🗡Find match🗡!",
