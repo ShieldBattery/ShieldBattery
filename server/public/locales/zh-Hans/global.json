@@ -191,7 +191,7 @@
             "reportIssuesQuestion": "我如何报告错误或问题？",
             "supportedStarcraftVersionAnswer": "ShieldBattery 支持最新版本的《星际争霸：重制版》。您可以从<2>暴雪官方网站</2>下载《星际争霸：重制版》的免费版本，或通过暴雪启动器安装。任何购买的插件（例如高清显卡）都可以在 ShieldBattery 上使用。",
             "supportedStarcraftVersionQuestion": "ShieldBattery 支持哪个版本的星际争霸？",
-            "systemRequirementsAnswer": "<0>我们的系统要求主要由<2>星际争霸：重制版</2>驱动，但简而言之：</0><1><0>运行 Windows 10 或更高版本的计算机</0><1 >2GB RAM</1><2>NVIDIA GeForce 6800 (256MB) 或 ATI Radeon X1600 Pro (256MB) 或更高</2><3>星际争霸：重制版安装，已修补至最新版本</3></ 1>",
+            "systemRequirementsAnswer": "<0>我们的系统要求主要由<2>星际争霸：重制版</2>驱动，但简而言之：</0><1><0>运行 Windows 10 或更高版本的计算机</0><1>2GB RAM</1><2>NVIDIA GeForce 6800 (256MB) 或 ATI Radeon X1600 Pro (256MB) 或更高</2><3>星际争霸：重制版安装，已修补至最新版本</3></1>",
             "systemRequirementsQuestion": "在 ShieldBattery 上玩游戏有哪些系统要求？",
             "title": "经常问的问题",
             "hotkeyCustomizationAnswer": "是的，我们支持自定义热键，但我们目前没有热键编辑器。如果您想使用自定义热键，请先通过暴雪启动器启动《星际争霸：重制版》并在那里自定义它们。完成此操作后，将来通过 ShieldBattery 进行的启动将使用这些热键。",
