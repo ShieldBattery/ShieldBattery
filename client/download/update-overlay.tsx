@@ -211,6 +211,7 @@ const ProgressContainer = styled.div`
 `
 
 function UpdateProgressUi({ progress }: { progress: UpdateProgress }) {
+  const { t } = useTranslation()
   const { totalBytes, bytesTransferred, bytesPerSecond } = progress
 
   const prettyTotalBytes = prettyBytes(totalBytes)
@@ -223,7 +224,10 @@ function UpdateProgressUi({ progress }: { progress: UpdateProgress }) {
         <FilledProgressBar $filledScale={bytesTransferred / totalBytes} />
       </ProgressBar>
       <Body1>
-        {prettyBytesTransferred} / {prettyTotalBytes} at {prettyBytesPerSecond}/s
+        <Trans t={t} i18nKey='clientUpdate.overlay.progress'>
+          {{ transferred: prettyBytesTransferred }} / {{ total: prettyTotalBytes }} at{' '}
+          {{ perSecond: prettyBytesPerSecond }}/s
+        </Trans>
       </Body1>
     </ProgressContainer>
   )

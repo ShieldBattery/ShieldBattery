@@ -67,8 +67,8 @@ export function minLength(length: number): Validator<any, any> {
     }
 
     return t('common.validators.minLength', {
-      defaultValue: `Enter at least {{minLength}} characters`,
-      minLength: length,
+      defaultValue: `Enter at least {{count}} characters`,
+      count: length,
     })
   }
 }
@@ -80,8 +80,8 @@ export function maxLength(length: number): Validator<any, any> {
     }
 
     return t('common.validators.maxLength', {
-      defaultValue: `Enter at most {{maxLength}} characters`,
-      maxLength: length,
+      defaultValue: `Enter at most {{count}} characters`,
+      count: length,
     })
   }
 }

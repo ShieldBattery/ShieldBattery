@@ -84,7 +84,6 @@
       "resetCode": "Enter your password reset code"
     },
     "signup": {
-      "acceptableUseLink": "Acceptable Use",
       "ageConfirmation": "I certify that I am 13 years of age or older",
       "alreadyHaveAccount": "Already have an account?",
       "confirmPassword": "Confirm password",
@@ -92,9 +91,7 @@
       "emailAddress": "Email address",
       "logIn": "Log in",
       "password": "Password",
-      "privacyLink": "Privacy",
-      "readAndAgree": "I have read and agree to the",
-      "termsOfServiceLink": "Terms of Service",
+      "readAndAgree": "I have read and agree to the <2>Terms of Service</2>, <4>Acceptable Use</4>, and <6>Privacy</6> policies",
       "title": "Create account",
       "username": "Username"
     },
@@ -218,6 +215,7 @@
       "newUpdateDownloading": "A new update is being downloaded. Please wait for the download to complete in order to continue.",
       "newUpdateReady": "A new update has been downloaded and is ready to install. Please restart the application to continue.",
       "noErrorTitle": "Update available",
+      "progress": "{{transferred}} / {{total}} at {{perSecond}}/s",
       "restartNow": "Restart now"
     }
   },
@@ -257,8 +255,10 @@
       "empty": "Nothing to see here"
     },
     "validators": {
-      "maxLength": "Enter at most {{maxLength}} characters",
-      "minLength": "Enter at least {{minLength}} characters",
+      "maxLength_one": "Enter at most {{count}} character",
+      "maxLength_other": "Enter at most {{count}} characters",
+      "minLength_one": "Enter at least {{count}} character",
+      "minLength_other": "Enter at least {{count}} characters",
       "required": "Required"
     }
   },
@@ -553,6 +553,8 @@
       "disabledInPartyTitle": "Disabled while in party",
       "noActiveLobbies": "There are no active lobbies",
       "noOpenLobbies": "There are no open lobbies",
+      "openSlotCount_one": "{{count}} slot open",
+      "openSlotCount_other": "{{count}} slots open",
       "title": "Join Lobby"
     },
     "loading": {
@@ -617,35 +619,71 @@
       "uploadError": "There was a problem uploading the map",
       "uploadMapError": "An error occurred while uploading the map"
     },
+    "mapSelect": {
+      "browseMaps": "Browse maps"
+    },
     "server": {
+      "allMaps": "All maps",
       "browseLocal": "Browse local maps",
+      "error": "Something went wrong: {{errorMessage}}",
       "favorites": {
         "added": "Added to favorites",
         "addedError": "An error occurred while adding to favorites",
         "removed": "Removed from favorites",
         "removedError": "An error occurred while removing from favorites"
       },
-      "filterOptions": "Filter options",
+      "filterOptions": {
+        "section": {
+          "numberOfPlayers": "Number of players",
+          "tileset": "Tileset"
+        },
+        "title": "Filter options"
+      },
       "noCommunityMaps": "No maps by the community have been made public yet.",
       "noOfficialMaps": "No official maps have been uploaded yet.",
       "noResults": "No results.",
       "noUploadedMaps": "You haven't uploaded any maps. You can upload a map by clicking on the browse button below.",
       "regenerateError": "An error occurred while regenerating images",
-      "sortMaps": "Sort maps",
+      "sortMaps": {
+        "option": {
+          "dateUploaded": "Date uploaded",
+          "name": "Name",
+          "numberOfPlayers": "Number of players"
+        },
+        "title": "Sort maps"
+      },
       "tab": {
         "community": "Community",
         "myMaps": "My maps",
         "official": "Official"
       },
-      "thumbnailSize": "Thumbnail size"
+      "thumbnailSize": {
+        "option": {
+          "large": "Large",
+          "medium": "Medium",
+          "small": "Small"
+        },
+        "title": "Thumbnail size"
+      }
     },
     "thumbnail": {
       "addToFavorites": "Add to favorites",
       "mapActions": "Map actions",
+      "noMapPreview": "Map preview not available",
       "regenerateImage": "Regenerate image",
       "removeFromFavorites": "Remove from favorites",
       "showMapPreview": "Show map preview",
       "viewMapDetails": "View map details"
+    },
+    "tileset": {
+      "ashworld": "Ashworld",
+      "badlands": "Badlands",
+      "desert": "Desert",
+      "ice": "Ice",
+      "installation": "Installation",
+      "jungleWorld": "Jungle world",
+      "spacePlatform": "Space platform",
+      "twilight": "Twilight"
     }
   },
   "matchmaking": {
@@ -667,6 +705,7 @@
       "hours": "Hours",
       "inParty": "Disabled while in party",
       "minutes": "Minutes",
+      "nextDateRange": "<0>{dateFormat.format(nextStartDate)}</0><1>to</1><2>{dateFormat.format(nextEndDate)}</2>",
       "notPartyLeader": "Only the party leader can queue for matches.",
       "partyTooLargeText": "Your current party is too large to queue for this matchmaking type.",
       "partyTooLargeTitle": "Party too large",
@@ -890,9 +929,12 @@
   },
   "policy": {
     "acceptableUse": "Acceptable use",
+    "acceptableUseAllCaps": "Acceptable Use Policy",
     "policyUpdateNotification": "ShieldBattery's <2>{{label}}</2> has been updated.",
     "privacyPolicy": "Privacy policy",
-    "termsOfService": "Terms of service"
+    "privacyPolicyAllCaps": "Privacy Policy",
+    "termsOfService": "Terms of service",
+    "termsOfServiceAllCaps": "Terms of Service"
   },
   "replays": {
     "activity": {

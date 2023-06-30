@@ -1,6 +1,7 @@
 import { List, Map } from 'immutable'
 import PropTypes from 'prop-types'
 import React from 'react'
+import { withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import KeyListener from '../keyboard/key-listener'
@@ -83,6 +84,7 @@ const THUMBNAIL_SIZES = {
 
 // This component should only be used inside forms; If you just need a way to display a list of
 // maps, without selection/form support, use the ImageList component directly.
+@withTranslation()
 export default class MapSelect extends React.Component {
   static propTypes = {
     list: PropTypes.instanceOf(List),
@@ -136,6 +138,7 @@ export default class MapSelect extends React.Component {
       selectedIcon,
       onMapPreview,
       onToggleFavoriteMap,
+      t,
     } = this.props
     const { isFocused, focusedIndex } = this.state
 
@@ -179,7 +182,7 @@ export default class MapSelect extends React.Component {
               onClick={this.onMapBrowse}
               isFocused={isFocused && focusedIndex === list.size}>
               <BrowseIcon />
-              <BrowseText>Browse maps</BrowseText>
+              <BrowseText>{t('maps.mapSelect.browseMaps', 'Browse maps')}</BrowseText>
             </BrowseButton>
           ) : null}
         </ImageList>

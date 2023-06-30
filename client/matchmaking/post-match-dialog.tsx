@@ -637,6 +637,7 @@ const RankLabel = styled.div`
 `
 
 function IconWithLabel({ division, isWin }: { division: MatchmakingDivision; isWin: boolean }) {
+  const { t } = useTranslation()
   const transition = useTransition(division, {
     key: division,
     config: (_item, _index, phase) => key => {
@@ -673,7 +674,7 @@ function IconWithLabel({ division, isWin }: { division: MatchmakingDivision; isW
       {transition((style, division) => (
         <IconWithLabelElement style={style}>
           <StyledDivisionIcon division={division} size={176} />
-          <RankLabel>{matchmakingDivisionToLabel(division)}</RankLabel>
+          <RankLabel>{matchmakingDivisionToLabel(division, t)}</RankLabel>
         </IconWithLabelElement>
       ))}
     </IconWithLabelRoot>

@@ -28,7 +28,7 @@ export const PolicyUpdateNotificationUi = React.forwardRef<
 >(({ policyType, showDivider, read }, ref) => {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const label = policyTypeToLabel(policyType)
+  const label = policyTypeToLabel(policyType, t)
   const dialogType = policyTypeToDialogType(policyType)
 
   return (

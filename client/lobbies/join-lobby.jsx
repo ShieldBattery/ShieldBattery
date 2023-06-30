@@ -78,7 +78,12 @@ class ListEntry extends React.Component {
           <Headline6>{lobby.name}</Headline6>
           <Subtitle2>{lobby.host.name}</Subtitle2>
           <Body1>{gameTypeToLabel(lobby.gameType, t)}</Body1>
-          <Body1>{lobby.openSlotCount} slots open</Body1>
+          <Body1>
+            {t('lobbies.joinLobby.openSlotCount', {
+              defaultValue: '{{count}} slots open',
+              count: lobby.openSlotCount,
+            })}
+          </Body1>
         </Info>
         <MapPreview>
           <MapThumbnail map={lobby.map} showMapName={true} canHover={false} />

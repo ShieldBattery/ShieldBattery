@@ -362,7 +362,7 @@ export default class Maps extends React.Component {
       }
       return (
         <>
-          <SectionHeader>All maps</SectionHeader>
+          <SectionHeader>{t('maps.server.allMaps', 'All maps')}</SectionHeader>
           <Subtitle1>{text}</Subtitle1>
         </>
       )
@@ -417,7 +417,12 @@ export default class Maps extends React.Component {
         <Contents>
           <ContentsBody>
             {maps.lastError ? (
-              <ErrorText>Something went wrong: {maps.lastError.message}</ErrorText>
+              <ErrorText>
+                {t('maps.server.error', {
+                  defaultValue: 'Something went wrong: {{errorMessage}}',
+                  errorMessage: maps.lastError.message,
+                })}
+              </ErrorText>
             ) : (
               <>
                 {this.renderUploadedMap()}

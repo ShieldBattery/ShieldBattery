@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { LadderPlayer } from '../../common/ladder'
 import {
@@ -50,6 +51,7 @@ export interface DivisionIconProps {
 }
 
 export function DivisionIcon({ className, division, size }: DivisionIconProps) {
+  const { t } = useTranslation()
   const encodedDivision = encodeURIComponent(division)
   const svgUrl = makePublicAssetUrl(`images/ranks/${encodedDivision}.svg`)
   const srcSet = `
@@ -58,7 +60,7 @@ export function DivisionIcon({ className, division, size }: DivisionIconProps) {
     ${makePublicAssetUrl(`/images/ranks/${encodedDivision}-88px.png`)} 88w,
     ${svgUrl} 176w
   `
-  const divisionLabel = matchmakingDivisionToLabel(division)
+  const divisionLabel = matchmakingDivisionToLabel(division, t)
 
   return (
     <Container className={className}>
