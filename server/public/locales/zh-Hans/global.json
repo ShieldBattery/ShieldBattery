@@ -4,8 +4,8 @@
             "required": "必需的",
             "maxLength_one": "最多输入 {{count}} 个字符",
             "minLength_one": "至少输入 {{count}} 个字符",
-            "maxLength_other": "最多输入 {{maxLength}} 个字符",
-            "minLength_other": "至少输入 {{minLength}} 个字符"
+            "maxLength_other": "最多输入 {{count}} 个字符",
+            "minLength_other": "至少输入 {{count}} 个字符"
         },
         "actions": {
             "back": "后退",
@@ -441,12 +441,12 @@
     },
     "matchmaking": {
         "division": {
-            "bronze": "青铜【X7X】",
+            "bronze": "青铜 {{level}}",
             "champion": "冠军",
-            "diamond": "钻石【X8X】",
+            "diamond": "钻石 {{level}}",
             "gold": "黄金 {{level}}",
-            "platinum": "铂金【X9X】",
-            "silver": "银色【X7X】",
+            "platinum": "铂金 {{level}}",
+            "silver": "银色 {{level}}",
             "unrated": "未评级"
         },
         "acceptMatch": {
@@ -597,12 +597,12 @@
             "moderateChannelOwner": "您不能禁止频道所有者",
             "noPermissions": "您没有足够的权限来禁止该用户",
             "notInChannel": "您要禁止的用户不在该频道中",
-            "defaultError": "发生错误：{{errorMessage}}"
+            "defaultError": "发生错误：{{statusText}}"
         },
         "channelInfo": {
             "genericError": "获取#{{channelName}} 频道信息时出错：{{errorMessage}}",
             "notFound": "找不到此频道。它可能不存在，也可能是由其他人重新创建的。",
-            "defaultError": "发生错误：{{errorMessage}}"
+            "defaultError": "发生错误：{{statusText}}"
         },
         "channelInfoCard": {
             "adminView": "管理视图",
@@ -1131,7 +1131,7 @@
             "username": "用户名",
             "usernamePattern": "用户名包含无效字符",
             "usernameRequired": "输入用户名",
-            "error": "错误：{{error}}"
+            "error": "错误：{{errorMessage}}"
         },
         "errors": {
             "cantWhisperYourself": "你不能自言自语。",
