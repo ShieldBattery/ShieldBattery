@@ -613,7 +613,7 @@ const PlayerAvatar = styled(Avatar)`
   margin-left: 8px;
 `
 
-const StyledComputerAvatar = styled(ComputerAvatar)`
+const StyledComputerAvatar = styled(ComputerAvatar).attrs({ size: 40 })`
   width: 40px;
   height: 40px;
   margin-left: 8px;

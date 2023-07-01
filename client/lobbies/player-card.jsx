@@ -64,7 +64,7 @@ export default class PlayerCard extends React.Component {
     const { player, isComputer, isReady, t } = this.props
 
     const avatar = isComputer ? (
-      <StyledAvatar as={ComputerAvatar} $ready={isReady} />
+      <StyledAvatar as={ComputerAvatar} $ready={isReady} size={56} />
     ) : (
       <StyledAvatar user={player.name} $ready={isReady} />
     )
