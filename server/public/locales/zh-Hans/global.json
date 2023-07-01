@@ -5,7 +5,7 @@
             "maxLength_one": "最多输入 {{count}} 个字符",
             "minLength_one": "至少输入 {{count}} 个字符",
             "maxLength_other": "最多输入 {{count}} 个字符",
-            "minLength_other": "至少输入 {{count}} 个字符"
+            "minLength_other": "输入至少 {{count}} 个字符"
         },
         "actions": {
             "back": "后退",
@@ -313,7 +313,7 @@
             "rememberMe": "记住账号",
             "signUp": "注册新账号",
             "title": "登录",
-            "whatIsShieldBattery": "什么是ShieldBattery？",
+            "whatIsShieldBattery": "什么是屏蔽电池？",
             "logIn": "登录",
             "password": "密码",
             "username": "用户名"
@@ -331,7 +331,7 @@
         "signup": {
             "title": "创建账户",
             "ageConfirmation": "我证明我已年满 13 岁",
-            "alreadyHaveAccount": "已有帐户？",
+            "alreadyHaveAccount": "已经有帐户？",
             "confirmPassword": "确认密码",
             "createAccount": "创建账户",
             "emailAddress": "电子邮件地址",
@@ -341,23 +341,23 @@
             "readAndAgree": "我已阅读并同意<2>服务条款</2>、<4>可接受的使用</4>和<6>隐私</6>政策"
         },
         "userErrorDisplay": {
-            "accountBanned": "此帐户已被封禁。<1><0>原因：</0><1>{{banReason}}</1></1><2>封禁将于 {{expireTime}} 到期。</2>",
-            "banWithoutReason": "未指定原因",
+            "accountBanned": "该帐户已被禁止。<1><0>原因：</0><1>{{banReason}}</1></1><2>禁令将于{{expireTime}}到期。</2>",
+            "banWithoutReason": "没有说明原因",
             "defaultError": "发生错误：{{status}} {{statusText}}",
-            "genericError": "发生错误：{{errorMessage}}",
+            "genericError": "发生错误：{{statusText}}",
             "invalidCredentials": "用户名或密码错误",
-            "machineBanned": "这台机器被禁止创建新帐户。",
-            "noConnectionErrorMessage": "无法连接到服务器。请检查您的互联网连接并重试。",
-            "sessionExpired": "会话过期",
+            "machineBanned": "该机器被禁止创建新帐户。",
+            "noConnectionErrorMessage": "无法连接到服务器。请检查您的互联网连接，然后重试。",
+            "sessionExpired": "会话已过期",
             "suspiciousActivity": "由于在此网络上检测到可疑活动，目前已禁用在网络上创建帐户。请下载独立客户端以创建新帐户。",
-            "usernameTaken": "已存在具有该名称的用户"
+            "usernameTaken": "具有该名称的用户已存在"
         },
         "forgot": {
             "backToLogin": "回到登入",
             "generalError": "错误：{{error}}",
             "password": {
-                "sendResetEmail": "发送重置邮件",
-                "successMessage": "如果该电子邮件地址和用户名与注册帐户相匹配，您应该会在接下来的几分钟内收到一封电子邮件，其中包含有关如何重置密码的说明。",
+                "sendResetEmail": "发送重置电子邮件",
+                "successMessage": "如果该电子邮件地址和用户名与注册帐户匹配，您应该会在接下来的几分钟内收到一封电子邮件，其中包含有关如何重置密码的说明。",
                 "title": "重设密码",
                 "emailAddress": "电子邮件地址",
                 "username": "用户名"
@@ -441,12 +441,12 @@
     },
     "matchmaking": {
         "division": {
-            "bronze": "青铜 {{level}}",
+            "bronze": "青铜【X7X】",
             "champion": "冠军",
-            "diamond": "钻石 {{level}}",
+            "diamond": "钻石【X8X】",
             "gold": "黄金 {{level}}",
-            "platinum": "铂金 {{level}}",
-            "silver": "银色 {{level}}",
+            "platinum": "铂金【X9X】",
+            "silver": "银色【X7X】",
             "unrated": "未评级"
         },
         "acceptMatch": {
@@ -570,7 +570,7 @@
         },
         "teamName": {
             "bottom": "底部",
-            "number": "团队 {{teamNumber}}",
+            "number": "团队{{teamNumber}}",
             "top": "顶部"
         },
         "race": {
@@ -1021,7 +1021,7 @@
         },
         "buttonSearchAgain": "再次搜索",
         "buttonCopyLink": "复制游戏链接",
-        "errorLoading": "加载此游戏时出现问题。",
+        "errorLoading": "加载该游戏时出现问题。",
         "headlineDefault": "结果",
         "headlineDefeat": "打败！",
         "headlineDraw": "画！",
@@ -1131,7 +1131,7 @@
             "username": "用户名",
             "usernamePattern": "用户名包含无效字符",
             "usernameRequired": "输入用户名",
-            "error": "错误：{{errorMessage}}"
+            "error": "错误：{{error}}"
         },
         "errors": {
             "cantWhisperYourself": "你不能自言自语。",
