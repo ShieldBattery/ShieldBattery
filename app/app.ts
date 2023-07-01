@@ -554,7 +554,7 @@ function setupAnalytics(curSession: Session) {
   // scheme, Chromium acts as if we're insecure and refuses to send the origin). So, we add in the
   // referrer manually on this request.
   const filter = {
-    urls: ['https://obs.shieldbattery.net/*'],
+    urls: ['https://cdn.usefathom.com/*'],
   }
   curSession.webRequest.onBeforeSendHeaders(filter, (details, cb) => {
     details.requestHeaders.referer = 'shieldbattery://app'
