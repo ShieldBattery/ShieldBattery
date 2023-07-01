@@ -99,6 +99,7 @@ export function PartyNavEntry({
   const onInviteClick = useCallback(
     (event: React.MouseEvent) => {
       event.stopPropagation()
+      event.preventDefault()
       onInviteUserClick()
     },
     [onInviteUserClick],
@@ -107,6 +108,7 @@ export function PartyNavEntry({
   const onLeaveClick = useCallback(
     (event: React.MouseEvent) => {
       event.stopPropagation()
+      event.preventDefault()
       onLeavePartyClick(partyId)
     },
     [partyId, onLeavePartyClick],

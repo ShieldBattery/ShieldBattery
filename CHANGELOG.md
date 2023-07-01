@@ -1,3 +1,24 @@
+#### 9.0.0 (June 30, 2023)
+
+- **Multi-language support.** We've added an initial version of supporting multiple languages within
+  the app/website. Currently we have translations for: Chinese, Korean, Russian, and Spanish. Most
+  of these translations are machine-generated and there are likely mistakes and problems! If you'd
+  like to help contribute better translations, we've set up an easy process, just check out the
+  <a href="https://github.com/ShieldBattery/ShieldBattery/blob/master/docs/TRANSLATION_GUIDE.md" target="_blank" rel="nofollow noreferrer noopener">translation guide</a>
+  on our GitHub! Please also let us know if you encounter any issues with non-English languages.
+- **Multiple chat channels.** We've turned on the ability for users to create and join new chat
+  channels. If you wanted a channel for your tournament or clan, you're in luck! Just click the
+  header in the navigation panel to find and create new channels.
+- **New observer/replay UI.** The built-in SC:R observer UI has been replaced with a custom new
+  implementation. The SC:R version had a number of problems when loading through ShieldBattery, most
+  notably just failing to load at all a lot of the time. The new UI should be snappier, always load,
+  and allow us to build more cool features going forward. There are definitely some things missing
+  at the moment, so please let us know if there's anything that's really important to you in this UI
+  so we can focus on what matters.
+- **Revamped settings.** We've rebuilt our settings dialog into a full-screen experience to allow
+  for better organization and give us space to add new settings for upcoming features. Alongside
+  this, applicable settings will also be editable on the web version.
+
 #### 8.8.0 (March 17, 2023)
 
 - **Unified lobbies**. The Create and Join Lobby actions in the sidebar have been combined into a
