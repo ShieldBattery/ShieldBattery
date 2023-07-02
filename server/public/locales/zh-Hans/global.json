@@ -344,7 +344,7 @@
             "accountBanned": "该帐户已被禁止。<1><0>原因：</0><1>{{banReason}}</1></1><2>禁令将于{{expireTime}}到期。</2>",
             "banWithoutReason": "没有说明原因",
             "defaultError": "发生错误：{{status}} {{statusText}}",
-            "genericError": "发生错误：{{statusText}}",
+            "genericError": "发生错误：{{errorMessage}}",
             "invalidCredentials": "用户名或密码错误",
             "machineBanned": "该机器被禁止创建新帐户。",
             "noConnectionErrorMessage": "无法连接到服务器。请检查您的互联网连接，然后重试。",
@@ -441,12 +441,12 @@
     },
     "matchmaking": {
         "division": {
-            "bronze": "青铜【X7X】",
+            "bronze": "青铜 {{level}}",
             "champion": "冠军",
-            "diamond": "钻石【X8X】",
+            "diamond": "钻石 {{level}}",
             "gold": "黄金 {{level}}",
-            "platinum": "铂金【X9X】",
-            "silver": "银色【X7X】",
+            "platinum": "铂金 {{level}}",
+            "silver": "银色 {{level}}",
             "unrated": "未评级"
         },
         "acceptMatch": {
@@ -1131,7 +1131,7 @@
             "username": "用户名",
             "usernamePattern": "用户名包含无效字符",
             "usernameRequired": "输入用户名",
-            "error": "错误：{{error}}"
+            "error": "错误：{{errorMessage}}"
         },
         "errors": {
             "cantWhisperYourself": "你不能自言自语。",
