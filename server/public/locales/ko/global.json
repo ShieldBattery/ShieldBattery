@@ -205,7 +205,7 @@
         "login": {
             "forgotPassword": "비밀번호를 잊으 셨나요?",
             "forgotUsername": "사용자 이름을 잊으셨나요?",
-            "rememberMe": "날 기억해",
+            "rememberMe": "자동 로그인",
             "signUp": "계정에 가입",
             "title": "로그인",
             "whatIsShieldBattery": "실드배터리란?",
@@ -259,7 +259,7 @@
             "alreadyHaveAccount": "이미 계정이 있습니까?",
             "confirmPassword": "비밀번호 확인",
             "createAccount": "계정 만들기",
-            "readAndAgree": "<2>서비스 약관</2>, <4>사용 제한</4> 및 <6>개인정보</6> 정책을 읽었으며 이에 동의합니다.",
+            "readAndAgree": "<2>이용 약관</2>, <4>이용 목적 제한</4> 및 <6>개인정보</6> 정책을 읽었으며 이에 동의합니다.",
             "title": "계정 만들기",
             "emailAddress": "이메일 주소",
             "logIn": "로그인",
