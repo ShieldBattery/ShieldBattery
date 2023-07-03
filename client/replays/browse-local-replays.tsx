@@ -110,6 +110,7 @@ const RaceRoot = styled.div`
 const StyledRaceIcon = styled(RaceIcon)`
   width: auto;
   height: 100%;
+  aspect-ratio: 1;
 `
 
 const PlayerName = styled.div`

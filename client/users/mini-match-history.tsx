@@ -265,6 +265,7 @@ const GamePreviewPlayerRaceRoot = styled.div`
 const GamePreviewPlayerAssignedRace = styled(RaceIcon)`
   width: auto;
   height: 100%;
+  aspect-ratio: 1;
 `
 
 const GamePreviewPlayerRandomIcon = styled(RaceIcon)`
