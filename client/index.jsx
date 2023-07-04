@@ -154,7 +154,7 @@ rootElemPromise
       })
 
       if (locale) {
-        await i18n.changeLanguage(i18n.services.languageUtils.getBestMatchFromCodes([user.locale]))
+        await i18n.changeLanguage(i18n.services.languageUtils.getBestMatchFromCodes([locale]))
       }
     } catch (err) {
       log.error(`Error initializing i18next: ${err?.stack ?? err}`)
