@@ -14,9 +14,13 @@ export function maybeChangeLanguageLocally(locale?: string): ThunkAction {
     if (!locale || locale === i18n.language || !i18n.isInitialized) {
       return
     }
+    const detectedLanguage = i18n.services.languageUtils.getBestMatchFromCodes([locale])
+    if (!detectedLanguage || detectedLanguage === i18n.language) {
+      return
+    }
 
     try {
-      await i18n.changeLanguage(locale)
+      await i18n.changeLanguage(detectedLanguage)
     } catch (error: any) {
       dispatch(
         openSimpleDialog(

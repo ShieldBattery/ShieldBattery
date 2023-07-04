@@ -145,14 +145,17 @@ rootElemPromise
 
     try {
       await i18nextPromise
+      let locale
       store.dispatch((_, getState) => {
         const {
           auth: { user },
         } = getState()
-        if (user?.locale) {
-          i18n.changeLanguage(user.locale)
-        }
+        locale = user?.locale
       })
+
+      if (locale) {
+        await i18n.changeLanguage(i18n.services.languageUtils.getBestMatchFromCodes([locale]))
+      }
     } catch (err) {
       log.error(`Error initializing i18next: ${err?.stack ?? err}`)
     }
