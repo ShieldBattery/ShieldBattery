@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
 import keycode from 'keycode'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Route, Switch } from 'wouter'
@@ -33,6 +33,7 @@ import { cancelFindMatch } from './matchmaking/action-creators'
 import { MatchmakingSearchingOverlay } from './matchmaking/matchmaking-searching-overlay'
 import MatchmakingView from './matchmaking/view'
 import { IconButton, useButtonHotkey } from './material/button'
+import { usePopoverController } from './material/popover'
 import { Tooltip } from './material/tooltip'
 import { ConnectedLeftNav } from './navigation/connected-left-nav'
 import Index from './navigation/index'
@@ -150,9 +151,10 @@ export function MainLayout() {
   const lobbyCount = useAppSelector(s => s.serverStatus.lobbyCount)
   const starcraft = useAppSelector(s => s.starcraft)
 
-  const [searchingMatchOverlayOpen, setSearchingMatchOverlayOpen] = useState(false)
-
+  const [searchingMatchOverlayOpen, openSearchingMatchOverlay, closeSearchingMatchOverlay] =
+    usePopoverController(false)
   const searchingMatchButtonRef = useRef<HTMLButtonElement>(null)
+
   const settingsButtonRef = useRef<HTMLButtonElement>(null)
   useButtonHotkey({ ref: settingsButtonRef, hotkey: ALT_S })
 
@@ -299,7 +301,7 @@ export function MainLayout() {
       icon={<FindMatchIcon />}
       glowing={true}
       label={t('matchmaking.activity.finding', 'Finding…')}
-      onClick={() => setSearchingMatchOverlayOpen(true)}
+      onClick={openSearchingMatchOverlay}
       hotkey={ALT_F}
     />
   )
@@ -415,9 +417,9 @@ export function MainLayout() {
           anchor={searchingMatchButtonRef.current ?? undefined}
           onCancelSearch={() => {
             dispatch(cancelFindMatch())
-            setSearchingMatchOverlayOpen(false)
+            closeSearchingMatchOverlay()
           }}
-          onDismiss={() => setSearchingMatchOverlayOpen(false)}
+          onDismiss={closeSearchingMatchOverlay}
         />
       ) : null}
       <ActivityOverlay />

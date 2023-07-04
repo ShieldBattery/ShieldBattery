@@ -18,7 +18,7 @@ import { zIndexMenu } from './zindex'
 
 const ESCAPE = 'Escape'
 
-type PopoverOpenState = Opaque<boolean, 'PopoverOpenState'>
+export type PopoverOpenState = Opaque<boolean, 'PopoverOpenState'>
 
 const OPENING_EVENTS = new WeakSet<Event>()
 

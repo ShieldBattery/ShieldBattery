@@ -111,7 +111,7 @@ export interface ActivityButtonProps {
   /**
    * An event handler to call when a click occurs.
    */
-  onClick?: (event?: React.MouseEvent) => void
+  onClick?: (event: React.MouseEvent) => void
   /**
    * A hotkey to register for the button. Pressing the specified modifiers and key will result in
    * the button being clicked programmatically.
